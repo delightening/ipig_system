@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
 import { useAuthStore } from '@/stores/auth'
+import { FileUpload, FileInfo } from '@/components/ui/file-upload'
 import {
   ArrowLeft,
   Save,
@@ -33,6 +34,7 @@ import {
   Stethoscope,
   Users,
   Paperclip,
+  Plus,
 } from 'lucide-react'
 
 const formSections = [
@@ -118,23 +120,26 @@ interface FormData {
       }
     }
     items: { // Section 3
-      use_test_item: boolean
+      use_test_item: boolean | null // null means not selected, true/false for yes/no
       test_items: Array<{
         name: string
         lot_no?: string
         expiry_date?: string
         is_sterile: boolean
+        non_sterile_justification?: string
         purpose: string
         storage_conditions: string
         concentration?: string
         form?: string
         hazard_classification?: string
+        photos?: FileInfo[]
       }>
       control_items: Array<{
         name: string
         lot_no?: string
         expiry_date?: string
         is_sterile: boolean
+        non_sterile_justification?: string
         purpose: string
         storage_conditions: string
         concentration?: string
@@ -142,6 +147,7 @@ interface FormData {
         hazard_classification?: string
         is_sham?: boolean
         is_vehicle?: boolean
+        photos?: FileInfo[]
       }>
     }
     design: { // Section 4
@@ -334,7 +340,7 @@ const defaultFormData: FormData = {
       duplicate: { experiment: false, justification: '' }
     },
     items: {
-      use_test_item: false,
+      use_test_item: null,
       test_items: [],
       control_items: []
     },
@@ -423,6 +429,27 @@ export function ProtocolEditPage() {
           }
           if (!mergedWorkingContent.basic.housing_location || !mergedWorkingContent.basic.housing_location.trim()) {
             mergedWorkingContent.basic.housing_location = '苗栗縣後龍鎮外埔里外埔6-15號'
+          }
+        }
+
+        // 確保 use_test_item 如果是 undefined，則設為 null
+        if (mergedWorkingContent.items && mergedWorkingContent.items.use_test_item === undefined) {
+          mergedWorkingContent.items.use_test_item = null
+        }
+
+        // 確保 test_items 和 control_items 中的 photos 字段存在
+        if (mergedWorkingContent.items) {
+          if (mergedWorkingContent.items.test_items) {
+            mergedWorkingContent.items.test_items = mergedWorkingContent.items.test_items.map((item: any) => ({
+              ...item,
+              photos: item.photos || []
+            }))
+          }
+          if (mergedWorkingContent.items.control_items) {
+            mergedWorkingContent.items.control_items = mergedWorkingContent.items.control_items.map((item: any) => ({
+              ...item,
+              photos: item.photos || []
+            }))
           }
         }
 
@@ -614,6 +641,44 @@ export function ProtocolEditPage() {
     // 2.2.3 重複試驗理由（如果選擇"是"）
     if (purpose.duplicate.experiment && (!purpose.duplicate.justification || !purpose.duplicate.justification.trim())) {
       return '請說明重複進行之科學理由'
+    }
+
+    // 2.3 減量原則 - 實驗設計說明
+    if (!purpose.reduction.design || !purpose.reduction.design.trim()) {
+      return '請填寫實驗設計說明（包括動物分組方法、訂定使用動物數量之理由等）'
+    }
+
+    // Section 3 - 試驗物質與對照物質
+    const { items } = formData.working_content
+    if (items.use_test_item === null) {
+      return '請選擇是否投予「試驗物質」於動物'
+    }
+
+    // 如果選擇"是"，驗證試驗物質和對照物質的必填字段
+    if (items.use_test_item === true) {
+      // 驗證試驗物質
+      for (let i = 0; i < items.test_items.length; i++) {
+        const item = items.test_items[i]
+        if (!item.name || !item.name.trim()) {
+          return `請填寫第 ${i + 1} 個試驗物質的名稱`
+        }
+        // 如果選擇"否"（非無菌製備），必須填寫說明
+        if (!item.is_sterile && (!item.non_sterile_justification || !item.non_sterile_justification.trim())) {
+          return `請填寫第 ${i + 1} 個試驗物質的非無菌製備說明`
+        }
+      }
+
+      // 驗證對照物質
+      for (let i = 0; i < items.control_items.length; i++) {
+        const item = items.control_items[i]
+        if (!item.name || !item.name.trim()) {
+          return `請填寫第 ${i + 1} 個對照物質的名稱`
+        }
+        // 如果選擇"否"（非無菌製備），必須填寫說明
+        if (!item.is_sterile && (!item.non_sterile_justification || !item.non_sterile_justification.trim())) {
+          return `請填寫第 ${i + 1} 個對照物質的非無菌製備說明`
+        }
+      }
     }
 
     return null
@@ -1163,16 +1228,16 @@ export function ProtocolEditPage() {
 
                 <div className="h-px bg-border my-4" />
 
-                {/* 3. Reduction */}
+                {/* 2.3 減量原則 */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold">減量 (Reduction)</h3>
+                  <h3 className="font-semibold">2.3 請以實驗動物應用3Rs之減量原則，說明動物試驗設計，包括動物分組方法、訂定使用動物數量之理由等:</h3>
                   <div className="space-y-2">
                     <Label>實驗設計說明 *</Label>
                     <Textarea
                       value={formData.working_content.purpose.reduction.design}
                       onChange={(e) => updateWorkingContent('purpose', 'reduction.design', e.target.value)}
-                      placeholder="說明分組方法、統計假設、納入排除標準及減少變異之方法"
-                      rows={4}
+                      placeholder="請說明動物分組方法、統計假設、納入排除標準、減少變異之方法，以及訂定使用動物數量之理由"
+                      rows={6}
                     />
                   </div>
                 </div>
@@ -1188,156 +1253,302 @@ export function ProtocolEditPage() {
                 <CardDescription>填寫試驗物質與對照物質資訊</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="use_test_item"
-                    checked={formData.working_content.items.use_test_item}
-                    onChange={(e) => updateWorkingContent('items', 'use_test_item', e.target.checked)}
-                  />
-                  <Label htmlFor="use_test_item">本計畫是否投予「試驗物質」於動物</Label>
+                <div className="space-y-2">
+                  <Label>本計畫是否投予「試驗物質」於動物 *</Label>
+                  <Select
+                    value={formData.working_content.items.use_test_item === null ? '' : (formData.working_content.items.use_test_item ? 'yes' : 'no')}
+                    onValueChange={(value) => {
+                      const isYes = value === 'yes'
+                      updateWorkingContent('items', 'use_test_item', isYes)
+                      // 如果選擇"否"，清空物質列表
+                      if (!isYes) {
+                        updateWorkingContent('items', 'test_items', [])
+                        updateWorkingContent('items', 'control_items', [])
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="請選擇" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="no">否</SelectItem>
+                      <SelectItem value="yes">是</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                {formData.working_content.items.use_test_item && (
-                  <div className="space-y-4 border p-4 rounded-md">
-                    <div className="flex justify-between items-center">
-                      <h3 className="font-semibold">試驗物質列表 (Test Items)</h3>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const newItems = [...formData.working_content.items.test_items, {
-                            name: '', is_sterile: false, purpose: '', storage_conditions: ''
-                          }]
-                          updateWorkingContent('items', 'test_items', newItems)
-                        }}
-                      >
-                        新增物質
-                      </Button>
-                    </div>
-                    {formData.working_content.items.test_items.map((item, index) => (
-                      <div key={index} className="grid gap-4 p-4 border rounded relative bg-slate-50">
+                {formData.working_content.items.use_test_item === true && (
+                  <>
+                    {/* 試驗物質列表 */}
+                    <div className="space-y-4 border p-4 rounded-md">
+                      <div className="flex justify-between items-center">
+                        <h3 className="font-semibold">試驗物質</h3>
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="absolute right-2 top-2 h-6 w-6 text-red-500"
+                          variant="outline"
+                          size="sm"
                           onClick={() => {
-                            const newItems = [...formData.working_content.items.test_items]
-                            newItems.splice(index, 1)
+                            const newItems = [...formData.working_content.items.test_items, {
+                              name: '', is_sterile: true, purpose: '', storage_conditions: '', photos: []
+                            }]
                             updateWorkingContent('items', 'test_items', newItems)
                           }}
                         >
-                          X
+                          <Plus className="h-4 w-4 mr-1" />
+                          新增
                         </Button>
-                        <div className="grid grid-cols-2 gap-4">
+                      </div>
+                      {formData.working_content.items.test_items.map((item, index) => (
+                        <div key={index} className="grid gap-4 p-4 border rounded relative bg-slate-50">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-2 top-2 h-6 w-6 text-red-500"
+                            onClick={() => {
+                              const newItems = [...formData.working_content.items.test_items]
+                              newItems.splice(index, 1)
+                              updateWorkingContent('items', 'test_items', newItems)
+                            }}
+                          >
+                            X
+                          </Button>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>物質名稱 *</Label>
+                              <Input
+                                value={item.name}
+                                onChange={(e) => {
+                                  const newItems = [...formData.working_content.items.test_items]
+                                  newItems[index].name = e.target.value
+                                  updateWorkingContent('items', 'test_items', newItems)
+                                }}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>劑型</Label>
+                              <Input
+                                value={item.form || ''}
+                                onChange={(e) => {
+                                  const newItems = [...formData.working_content.items.test_items]
+                                  newItems[index].form = e.target.value
+                                  updateWorkingContent('items', 'test_items', newItems)
+                                }}
+                                placeholder="如：液體、粉末"
+                              />
+                            </div>
+                          </div>
                           <div className="space-y-2">
-                            <Label>物質名稱 *</Label>
+                            <Label>用途</Label>
                             <Input
-                              value={item.name}
+                              value={item.purpose}
                               onChange={(e) => {
                                 const newItems = [...formData.working_content.items.test_items]
-                                newItems[index].name = e.target.value
+                                newItems[index].purpose = e.target.value
                                 updateWorkingContent('items', 'test_items', newItems)
                               }}
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label>劑型</Label>
+                            <Label>保存環境</Label>
                             <Input
-                              value={item.form || ''}
+                              value={item.storage_conditions || ''}
                               onChange={(e) => {
                                 const newItems = [...formData.working_content.items.test_items]
-                                newItems[index].form = e.target.value
+                                newItems[index].storage_conditions = e.target.value
                                 updateWorkingContent('items', 'test_items', newItems)
                               }}
-                              placeholder="如：液體、粉末"
+                              placeholder="請填寫保存環境"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>本物質是否為無菌製備</Label>
+                            <Select
+                              value={item.is_sterile ? 'yes' : 'no'}
+                              onValueChange={(value) => {
+                                const newItems = [...formData.working_content.items.test_items]
+                                const isYes = value === 'yes'
+                                newItems[index].is_sterile = isYes
+                                // 如果選擇"是"，清空說明欄位
+                                if (isYes) {
+                                  newItems[index].non_sterile_justification = ''
+                                }
+                                updateWorkingContent('items', 'test_items', newItems)
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="請選擇" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="no">否</SelectItem>
+                                <SelectItem value="yes">是</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {!item.is_sterile && (
+                              <div className="space-y-2 mt-2">
+                                <Label>請說明 *</Label>
+                                <Textarea
+                                  value={item.non_sterile_justification || ''}
+                                  onChange={(e) => {
+                                    const newItems = [...formData.working_content.items.test_items]
+                                    newItems[index].non_sterile_justification = e.target.value
+                                    updateWorkingContent('items', 'test_items', newItems)
+                                  }}
+                                  placeholder="請說明為何本物質非無菌製備"
+                                  rows={3}
+                                />
+                              </div>
+                            )}
+                          </div>
+                          {/* 照片上傳 */}
+                          <div className="space-y-2">
+                            <Label>照片</Label>
+                            <FileUpload
+                              value={item.photos || []}
+                              onChange={(photos) => {
+                                const newItems = [...formData.working_content.items.test_items]
+                                newItems[index].photos = photos
+                                updateWorkingContent('items', 'test_items', newItems)
+                              }}
+                              accept="image/*"
+                              multiple={true}
+                              maxSize={10}
+                              maxFiles={10}
+                              placeholder="拖曳照片到此處，或點擊選擇照片"
                             />
                           </div>
                         </div>
-                        <div className="space-y-2">
-                          <Label>試驗目的 *</Label>
-                          <Input
-                            value={item.purpose}
-                            onChange={(e) => {
-                              const newItems = [...formData.working_content.items.test_items]
-                              newItems[index].purpose = e.target.value
-                              updateWorkingContent('items', 'test_items', newItems)
-                            }}
-                          />
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            checked={item.is_sterile}
-                            onChange={(e) => {
-                              const newItems = [...formData.working_content.items.test_items]
-                              newItems[index].is_sterile = e.target.checked
-                              updateWorkingContent('items', 'test_items', newItems)
-                            }}
-                          />
-                          <Label>是否為無菌製備</Label>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="space-y-4 border p-4 rounded-md">
-                  <div className="flex justify-between items-center">
-                    <h3 className="font-semibold">對照物質/組別 (Control Items)</h3>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const newControls = [...formData.working_content.items.control_items, {
-                          name: '', is_sterile: false, purpose: '', storage_conditions: ''
-                        }]
-                        updateWorkingContent('items', 'control_items', newControls)
-                      }}
-                    >
-                      新增對照
-                    </Button>
-                  </div>
-                  {formData.working_content.items.control_items.map((item, index) => (
-                    <div key={index} className="grid gap-4 p-4 border rounded relative bg-slate-50">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-2 top-2 h-6 w-6 text-red-500"
-                        onClick={() => {
-                          const newControls = [...formData.working_content.items.control_items]
-                          newControls.splice(index, 1)
-                          updateWorkingContent('items', 'control_items', newControls)
-                        }}
-                      >
-                        X
-                      </Button>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>對照名稱 *</Label>
-                          <Input
-                            value={item.name}
-                            onChange={(e) => {
-                              const newControls = [...formData.working_content.items.control_items]
-                              newControls[index].name = e.target.value
-                              updateWorkingContent('items', 'control_items', newControls)
-                            }}
-                            placeholder="若無對照請填寫 N/A"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>目的 *</Label>
-                          <Input
-                            value={item.purpose}
-                            onChange={(e) => {
-                              const newControls = [...formData.working_content.items.control_items]
-                              newControls[index].purpose = e.target.value
-                              updateWorkingContent('items', 'control_items', newControls)
-                            }}
-                          />
-                        </div>
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+
+                    {/* 對照物質列表 */}
+                    <div className="space-y-4 border p-4 rounded-md">
+                      <div className="flex justify-between items-center">
+                        <h3 className="font-semibold">對照物質</h3>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const newControls = [...formData.working_content.items.control_items, {
+                              name: '', is_sterile: true, purpose: '', storage_conditions: '', photos: []
+                            }]
+                            updateWorkingContent('items', 'control_items', newControls)
+                          }}
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          新增
+                        </Button>
+                      </div>
+                      {formData.working_content.items.control_items.map((item, index) => (
+                        <div key={index} className="grid gap-4 p-4 border rounded relative bg-slate-50">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-2 top-2 h-6 w-6 text-red-500"
+                            onClick={() => {
+                              const newControls = [...formData.working_content.items.control_items]
+                              newControls.splice(index, 1)
+                              updateWorkingContent('items', 'control_items', newControls)
+                            }}
+                          >
+                            X
+                          </Button>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>對照名稱 *</Label>
+                              <Input
+                                value={item.name}
+                                onChange={(e) => {
+                                  const newControls = [...formData.working_content.items.control_items]
+                                  newControls[index].name = e.target.value
+                                  updateWorkingContent('items', 'control_items', newControls)
+                                }}
+                                placeholder="若無對照請填寫 N/A"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>用途</Label>
+                              <Input
+                                value={item.purpose}
+                                onChange={(e) => {
+                                  const newControls = [...formData.working_content.items.control_items]
+                                  newControls[index].purpose = e.target.value
+                                  updateWorkingContent('items', 'control_items', newControls)
+                                }}
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>保存環境</Label>
+                            <Input
+                              value={item.storage_conditions || ''}
+                              onChange={(e) => {
+                                const newControls = [...formData.working_content.items.control_items]
+                                newControls[index].storage_conditions = e.target.value
+                                updateWorkingContent('items', 'control_items', newControls)
+                              }}
+                              placeholder="請填寫保存環境"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>本物質是否為無菌製備</Label>
+                            <Select
+                              value={item.is_sterile ? 'yes' : 'no'}
+                              onValueChange={(value) => {
+                                const newControls = [...formData.working_content.items.control_items]
+                                const isYes = value === 'yes'
+                                newControls[index].is_sterile = isYes
+                                // 如果選擇"是"，清空說明欄位
+                                if (isYes) {
+                                  newControls[index].non_sterile_justification = ''
+                                }
+                                updateWorkingContent('items', 'control_items', newControls)
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="請選擇" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="no">否</SelectItem>
+                                <SelectItem value="yes">是</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {!item.is_sterile && (
+                              <div className="space-y-2 mt-2">
+                                <Label>請說明 *</Label>
+                                <Textarea
+                                  value={item.non_sterile_justification || ''}
+                                  onChange={(e) => {
+                                    const newControls = [...formData.working_content.items.control_items]
+                                    newControls[index].non_sterile_justification = e.target.value
+                                    updateWorkingContent('items', 'control_items', newControls)
+                                  }}
+                                  placeholder="請說明為何本物質非無菌製備"
+                                  rows={3}
+                                />
+                              </div>
+                            )}
+                          </div>
+                          {/* 照片上傳 */}
+                          <div className="space-y-2">
+                            <Label>照片</Label>
+                            <FileUpload
+                              value={item.photos || []}
+                              onChange={(photos) => {
+                                const newControls = [...formData.working_content.items.control_items]
+                                newControls[index].photos = photos
+                                updateWorkingContent('items', 'control_items', newControls)
+                              }}
+                              accept="image/*"
+                              multiple={true}
+                              maxSize={10}
+                              maxFiles={10}
+                              placeholder="拖曳照片到此處，或點擊選擇照片"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           )}
