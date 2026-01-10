@@ -228,6 +228,7 @@ interface FormData {
           type: string // 'biological' | 'radioactive' | 'chemical'
           agent_name: string
           amount: string
+          photos?: FileInfo[]
         }>
         waste_disposal_method: string
         operation_location_method: string
@@ -479,6 +480,14 @@ export function ProtocolEditPage() {
           if (!mergedWorkingContent.design.carcass_disposal.method || !mergedWorkingContent.design.carcass_disposal.method.trim()) {
             mergedWorkingContent.design.carcass_disposal.method = '委由簽約之合格化製廠商進行化製處理\n(名稱：金海龍生物科技股份有限公司，化製廠管編：P6001213)'
           }
+        }
+
+        // 確保 hazards.materials 中的 photos 字段存在
+        if (mergedWorkingContent.design && mergedWorkingContent.design.hazards && mergedWorkingContent.design.hazards.materials) {
+          mergedWorkingContent.design.hazards.materials = mergedWorkingContent.design.hazards.materials.map((item: any) => ({
+            ...item,
+            photos: item.photos || []
+          }))
         }
 
         return {
@@ -2090,7 +2099,8 @@ export function ProtocolEditPage() {
                                     materials.push({ 
                                       type: formData.working_content.design.hazards.selected_type!, 
                                       agent_name: '', 
-                                      amount: '' 
+                                      amount: '',
+                                      photos: []
                                     })
                                     updateWorkingContent('design', 'hazards.materials', materials)
                                   }}
@@ -2104,7 +2114,7 @@ export function ProtocolEditPage() {
                                 .map((material, index) => {
                                   const materialIndex = formData.working_content.design.hazards.materials.findIndex(m => m === material)
                                   return (
-                                    <div key={materialIndex} className="grid grid-cols-2 gap-3 relative p-3 border rounded bg-slate-50">
+                                    <div key={materialIndex} className="space-y-3 relative p-3 border rounded bg-slate-50">
                                       <Button
                                         variant="ghost"
                                         size="icon"
@@ -2117,24 +2127,43 @@ export function ProtocolEditPage() {
                                       >
                                         X
                                       </Button>
-                                      <Input
-                                        placeholder="名稱"
-                                        value={material.agent_name}
-                                        onChange={(e) => {
-                                          const materials = [...formData.working_content.design.hazards.materials]
-                                          materials[materialIndex].agent_name = e.target.value
-                                          updateWorkingContent('design', 'hazards.materials', materials)
-                                        }}
-                                      />
-                                      <Input
-                                        placeholder="所需用量"
-                                        value={material.amount}
-                                        onChange={(e) => {
-                                          const materials = [...formData.working_content.design.hazards.materials]
-                                          materials[materialIndex].amount = e.target.value
-                                          updateWorkingContent('design', 'hazards.materials', materials)
-                                        }}
-                                      />
+                                      <div className="grid grid-cols-2 gap-3">
+                                        <Input
+                                          placeholder="名稱"
+                                          value={material.agent_name}
+                                          onChange={(e) => {
+                                            const materials = [...formData.working_content.design.hazards.materials]
+                                            materials[materialIndex].agent_name = e.target.value
+                                            updateWorkingContent('design', 'hazards.materials', materials)
+                                          }}
+                                        />
+                                        <Input
+                                          placeholder="所需用量"
+                                          value={material.amount}
+                                          onChange={(e) => {
+                                            const materials = [...formData.working_content.design.hazards.materials]
+                                            materials[materialIndex].amount = e.target.value
+                                            updateWorkingContent('design', 'hazards.materials', materials)
+                                          }}
+                                        />
+                                      </div>
+                                      {/* 照片上傳 */}
+                                      <div className="space-y-2">
+                                        <Label className="text-sm">照片</Label>
+                                        <FileUpload
+                                          value={material.photos || []}
+                                          onChange={(photos) => {
+                                            const materials = [...formData.working_content.design.hazards.materials]
+                                            materials[materialIndex].photos = photos
+                                            updateWorkingContent('design', 'hazards.materials', materials)
+                                          }}
+                                          accept="image/*"
+                                          multiple={true}
+                                          maxSize={10}
+                                          maxFiles={10}
+                                          placeholder="拖曳照片到此處，或點擊選擇照片"
+                                        />
+                                      </div>
                                     </div>
                                   )
                                 })}
