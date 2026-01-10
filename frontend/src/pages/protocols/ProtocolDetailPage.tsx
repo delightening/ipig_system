@@ -70,6 +70,7 @@ import {
 } from 'lucide-react'
 import { formatDate, formatDateTime, formatFileSize } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
+import { ProtocolContentView } from '@/components/protocol/ProtocolContentView'
 
 const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'> = {
   DRAFT: 'secondary',
@@ -567,29 +568,20 @@ export function ProtocolDetailPage() {
             <CardDescription>AUP 動物試驗計畫書詳細內容</CardDescription>
           </CardHeader>
           <CardContent>
-            {protocol.working_content ? (
-              <div className="prose max-w-none">
-                <pre className="bg-slate-50 p-4 rounded-lg overflow-auto text-sm">
-                  {JSON.stringify(
-                    (() => {
-                      // 創建一個副本，去除 apply_study_number 字段
-                      const cleanedContent = JSON.parse(JSON.stringify(protocol.working_content))
-                      if (cleanedContent.basic && cleanedContent.basic.apply_study_number !== undefined) {
-                        delete cleanedContent.basic.apply_study_number
-                      }
-                      return cleanedContent
-                    })(),
-                    null,
-                    2
-                  )}
-                </pre>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <FileText className="h-12 w-12 mx-auto mb-2" />
-                <p>尚未填寫計畫內容</p>
-              </div>
-            )}
+            <ProtocolContentView 
+              workingContent={(() => {
+                if (!protocol.working_content) return null
+                // 創建一個副本，去除 apply_study_number 字段
+                const cleanedContent = JSON.parse(JSON.stringify(protocol.working_content))
+                if (cleanedContent.basic && cleanedContent.basic.apply_study_number !== undefined) {
+                  delete cleanedContent.basic.apply_study_number
+                }
+                return cleanedContent
+              })()}
+              protocolTitle={protocol.title}
+              startDate={protocol.start_date}
+              endDate={protocol.end_date}
+            />
           </CardContent>
         </Card>
       )}

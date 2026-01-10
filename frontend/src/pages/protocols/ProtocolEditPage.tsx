@@ -152,7 +152,9 @@ interface FormData {
     }
     design: { // Section 4
       anesthesia: {
-        is_under_anesthesia: boolean
+        is_under_anesthesia: boolean | null // null means not selected
+        anesthesia_type?: string // 'survival_surgery' | 'non_survival_surgery' | 'gas_only' | 'azeperonum_atropine' | 'other'
+        other_description?: string
         plan_type: string
         premed_option: string
         custom_text?: string
@@ -188,7 +190,9 @@ interface FormData {
         no_analgesia_justification?: string
       }
       restrictions: {
-        is_restricted: boolean
+        is_restricted: boolean | null // null means not selected
+        restriction_type?: string // 'fasting_before_anesthesia' | 'other'
+        other_description?: string
         types: string[]
         other_text?: string
       }
@@ -197,12 +201,15 @@ interface FormData {
         humane_endpoint: string
       }
       final_handling: {
-        method: string
+        method: string // 'euthanasia' | 'transfer' | 'other'
+        euthanasia_type?: string // 'kcl' | 'electrocution' | 'other'
+        euthanasia_other_description?: string
         transfer: {
           recipient_name: string
           recipient_org: string
           project_name: string
         }
+        other_description?: string
         other_text?: string
       }
       carcass_disposal: {
@@ -211,13 +218,14 @@ interface FormData {
         vendor_id?: string
       }
       non_pharma_grade: {
-        used: boolean
+        used: boolean | null // null means not selected
         description: string
       }
       hazards: {
-        used: boolean
+        used: boolean | null // null means not selected
+        selected_type?: string // 'biological' | 'radioactive' | 'chemical' - 互斥選擇
         materials: Array<{
-          type: string
+          type: string // 'biological' | 'radioactive' | 'chemical'
           agent_name: string
           amount: string
         }>
@@ -345,20 +353,26 @@ const defaultFormData: FormData = {
       control_items: []
     },
     design: {
-      anesthesia: { is_under_anesthesia: false, plan_type: '', premed_option: '' },
+      anesthesia: { is_under_anesthesia: null, plan_type: '', premed_option: '' },
       procedures: '',
       route_justifications: [],
       blood_withdrawals: [],
       imaging: [],
       restraint: [],
       pain: { category: '' },
-      restrictions: { is_restricted: false, types: [] },
-      endpoints: { experimental_endpoint: '', humane_endpoint: '' },
+      restrictions: { is_restricted: null, types: [] },
+      endpoints: { 
+        experimental_endpoint: '', 
+        humane_endpoint: '實驗過程中如果動物體重下降超過原體重的20%、食慾不振 (無法進食)、身體虛弱、感染，持續治療或傷口清創後無改善，或其他經獸醫師評估不宜持續實驗之情形，則提早結束實驗，以符合動物福祉。'
+      },
       final_handling: { method: '', transfer: { recipient_name: '', recipient_org: '', project_name: '' } },
-      carcass_disposal: { method: '委由合格化製廠商處理' },
-      non_pharma_grade: { used: false, description: '' },
+      carcass_disposal: { 
+        method: '委由簽約之合格化製廠商進行化製處理\n (化製廠商名稱：金海龍生物科技股份有限公司，化製廠管編：P6001213)'
+      },
+      non_pharma_grade: { used: null, description: '' },
       hazards: {
-        used: false,
+        used: null,
+        selected_type: undefined,
         materials: [],
         waste_disposal_method: '',
         operation_location_method: '',
@@ -450,6 +464,20 @@ export function ProtocolEditPage() {
               ...item,
               photos: item.photos || []
             }))
+          }
+        }
+
+        // 確保人道終點有預設內容
+        if (mergedWorkingContent.design && mergedWorkingContent.design.endpoints) {
+          if (!mergedWorkingContent.design.endpoints.humane_endpoint || !mergedWorkingContent.design.endpoints.humane_endpoint.trim()) {
+            mergedWorkingContent.design.endpoints.humane_endpoint = '實驗過程中如果動物體重下降超過原體重的20%、食慾不振 (無法進食)、身體虛弱、感染，持續治療或傷口清創後無改善，或其他經獸醫師評估不宜持續實驗之情形，則提早結束實驗，以符合動物福祉。'
+          }
+        }
+
+        // 確保動物屍體處理方法有預設內容
+        if (mergedWorkingContent.design && mergedWorkingContent.design.carcass_disposal) {
+          if (!mergedWorkingContent.design.carcass_disposal.method || !mergedWorkingContent.design.carcass_disposal.method.trim()) {
+            mergedWorkingContent.design.carcass_disposal.method = '委由簽約之合格化製廠商進行化製處理\n(名稱：金海龍生物科技股份有限公司，化製廠管編：P6001213)'
           }
         }
 
@@ -646,6 +674,69 @@ export function ProtocolEditPage() {
     // 2.3 減量原則 - 實驗設計說明
     if (!purpose.reduction.design || !purpose.reduction.design.trim()) {
       return '請填寫實驗設計說明（包括動物分組方法、訂定使用動物數量之理由等）'
+    }
+
+    // Section 4 - 研究設計與方法
+    const { design } = formData.working_content
+    // 4.1.1 如果選擇"是"（進行麻醉），必須選擇麻醉類型
+    if (design.anesthesia.is_under_anesthesia === true) {
+      if (!design.anesthesia.anesthesia_type || !design.anesthesia.anesthesia_type.trim()) {
+        return '請選擇麻醉類型'
+      }
+      // 如果選擇"其他"，必須填寫說明
+      if (design.anesthesia.anesthesia_type === 'other' && (!design.anesthesia.other_description || !design.anesthesia.other_description.trim())) {
+        return '請填寫其他麻醉方式的說明'
+      }
+    }
+    // 4.1.2 詳細敘述動物試驗內容及流程
+    if (!design.procedures || !design.procedures.trim()) {
+      return '請詳細敘述動物試驗內容及流程'
+    }
+    // 4.1.3 實驗動物等級評估
+    if (!design.pain.category || !design.pain.category.trim()) {
+      return '請選擇實驗動物等級評估'
+    }
+    // 4.1.4 如果選擇"是"（限制飲食或飲水），必須選擇限制類型
+    if (design.restrictions.is_restricted === true) {
+      if (!design.restrictions.restriction_type || !design.restrictions.restriction_type.trim()) {
+        return '請選擇限制類型'
+      }
+      // 如果選擇"其他"，必須填寫說明
+      if (design.restrictions.restriction_type === 'other' && (!design.restrictions.other_description || !design.restrictions.other_description.trim())) {
+        return '請填寫其他限制方式的說明'
+      }
+    }
+    // 4.1.5 實驗預期結束之時機
+    if (!design.endpoints.experimental_endpoint || !design.endpoints.experimental_endpoint.trim()) {
+      return '請填寫實驗終點'
+    }
+    if (!design.endpoints.humane_endpoint || !design.endpoints.humane_endpoint.trim()) {
+      return '請填寫人道終點'
+    }
+    // 4.3 如果選擇"是"（使用非醫藥級化學藥品），必須填寫說明
+    if (design.non_pharma_grade.used === true) {
+      if (!design.non_pharma_grade.description || !design.non_pharma_grade.description.trim()) {
+        return '請說明物質性質、安全性及使用之科學理由'
+      }
+    }
+    // 4.4 如果選擇"是"（使用危害性物質材料），必須選擇類型並填寫材料資訊
+    if (design.hazards.used === true) {
+      if (!design.hazards.selected_type || !design.hazards.selected_type.trim()) {
+        return '請選擇危害性物質類型'
+      }
+      if (design.hazards.materials.length === 0 || design.hazards.materials.every(m => !m.agent_name || !m.agent_name.trim())) {
+        return '請至少填寫一個危害性物質的名稱'
+      }
+      // 驗證每個材料都有名稱和用量
+      for (let i = 0; i < design.hazards.materials.length; i++) {
+        const material = design.hazards.materials[i]
+        if (!material.agent_name || !material.agent_name.trim()) {
+          return `請填寫第 ${i + 1} 個危害性物質的名稱`
+        }
+        if (!material.amount || !material.amount.trim()) {
+          return `請填寫第 ${i + 1} 個危害性物質的所需用量`
+        }
+      }
     }
 
     // Section 3 - 試驗物質與對照物質
@@ -1557,146 +1648,501 @@ export function ProtocolEditPage() {
                 <CardDescription>描述研究設計、實驗流程、麻醉與人道終點</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* 1. Procedures */}
+                {/* 4.1 標題 */}
                 <div className="space-y-2">
-                  <Label>動物試驗流程描述 *</Label>
-                  <Textarea
-                    value={formData.working_content.design.procedures}
-                    onChange={(e) => updateWorkingContent('design', 'procedures', e.target.value)}
-                    placeholder="詳細描述試驗步驟與流程"
-                    rows={6}
-                  />
+                  <h3 className="text-lg font-semibold">4.1 請以實驗動物應用3Rs之精緻化原則，詳細說明實驗中所進行之動物試驗內容。使實驗動物照護及使用委員會委員了解動物試驗所有過程:</h3>
                 </div>
 
-                <div className="h-px bg-border my-4" />
-
-                {/* 2. Anesthesia */}
+                {/* 4.1.1 是否於麻醉下進行試驗 */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold">麻醉 (Anesthesia)</h3>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="is_under_anesthesia"
-                      checked={formData.working_content.design.anesthesia.is_under_anesthesia}
-                      onChange={(e) => updateWorkingContent('design', 'anesthesia.is_under_anesthesia', e.target.checked)}
-                    />
-                    <Label htmlFor="is_under_anesthesia">是否進行麻醉</Label>
+                  <div className="space-y-2">
+                    <Label>4.1.1 是否於麻醉下進行試驗</Label>
+                    <Select
+                      value={formData.working_content.design.anesthesia.is_under_anesthesia === null ? '' : (formData.working_content.design.anesthesia.is_under_anesthesia === true ? 'yes' : 'no')}
+                      onValueChange={(value) => {
+                        const isYes = value === 'yes'
+                        updateWorkingContent('design', 'anesthesia.is_under_anesthesia', isYes as boolean | null)
+                        // 如果選擇"否"，清空相關欄位
+                        if (!isYes) {
+                          updateWorkingContent('design', 'anesthesia.anesthesia_type', undefined)
+                          updateWorkingContent('design', 'anesthesia.other_description', undefined)
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="請選擇" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="no">否</SelectItem>
+                        <SelectItem value="yes">是</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  {formData.working_content.design.anesthesia.is_under_anesthesia && (
-                    <div className="grid gap-4 md:grid-cols-2 pl-6">
+
+                  {formData.working_content.design.anesthesia.is_under_anesthesia === true && (
+                    <div className="space-y-4 pl-6 border-l-2 border-slate-200">
                       <div className="space-y-2">
-                        <Label>麻醉計畫類型</Label>
+                        <Label>請選擇麻醉類型 *</Label>
                         <Select
-                          value={formData.working_content.design.anesthesia.plan_type}
-                          onValueChange={(val) => updateWorkingContent('design', 'anesthesia.plan_type', val)}
+                          value={formData.working_content.design.anesthesia.anesthesia_type || ''}
+                          onValueChange={(value) => {
+                            updateWorkingContent('design', 'anesthesia.anesthesia_type', value)
+                            // 如果選擇的不是"其他"，清空其他說明
+                            if (value !== 'other') {
+                              updateWorkingContent('design', 'anesthesia.other_description', undefined)
+                            }
+                          }}
                         >
-                          <SelectTrigger><SelectValue placeholder="選擇類型" /></SelectTrigger>
+                          <SelectTrigger>
+                            <SelectValue placeholder="請選擇" />
+                          </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="injectable">注射麻醉</SelectItem>
-                            <SelectItem value="inhalant">氣體麻醉</SelectItem>
-                            <SelectItem value="combination">混合麻醉</SelectItem>
+                            <SelectItem value="survival_surgery">1. 存活手術（請填寫6. 手術計劃書）</SelectItem>
+                            <SelectItem value="non_survival_surgery">2. 非存活手術（請填寫6. 手術計劃書）</SelectItem>
+                            <SelectItem value="gas_only">3. 非侵入式試驗，僅使用氣體麻醉(Isoflurane 1-2%)誘導後再進行實驗( Isoflurane inhalation before experiment)</SelectItem>
+                            <SelectItem value="azeperonum_atropine">4. 使用畜舒坦( Azeperonum 40 mg/mL)3-5 mg/kg和0.03-0.05 mg/kg阿托平(Atropine® 1 mg/mL)肌肉注射鎮靜後，氣體麻醉(Isoflurane 1-2%)再進行實驗 (Using Azeperonum and Atropine IM with Isoflurane inhalation before experiment)</SelectItem>
+                            <SelectItem value="other">5. 其他</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="space-y-2">
-                        <Label>麻醉前給藥</Label>
-                        <Input
-                          value={formData.working_content.design.anesthesia.premed_option}
-                          onChange={(e) => updateWorkingContent('design', 'anesthesia.premed_option', e.target.value)}
-                          placeholder="例如：Atropine"
-                        />
-                      </div>
+
+                      {formData.working_content.design.anesthesia.anesthesia_type === 'other' && (
+                        <div className="space-y-2">
+                          <Label>請說明 *</Label>
+                          <Textarea
+                            value={formData.working_content.design.anesthesia.other_description || ''}
+                            onChange={(e) => updateWorkingContent('design', 'anesthesia.other_description', e.target.value)}
+                            placeholder="請說明其他麻醉方式"
+                            rows={3}
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
 
                 <div className="h-px bg-border my-4" />
 
-                {/* 3. Pain Management */}
+                {/* 4.1.2 詳細敘述動物試驗內容及流程 */}
+                <div className="space-y-2">
+                  <Label>4.1.2 請詳細敘述動物試驗內容及流程 (Animal experiment procedures)、試驗投予物質 (experimental injections or inoculations) 、投予途徑及選擇該途徑之理由、採血 (blood withdrawals)、影像觀察 (CT, MRI, X-ray)、保定 (methods of restraint)、頻率 (frequency) *</Label>
+                  <p className="text-sm text-muted-foreground mb-2">手術相關內容請於項次6. 手術計畫書中說明 (surgical procedures fill in surgical plan)</p>
+                  <Textarea
+                    value={formData.working_content.design.procedures}
+                    onChange={(e) => updateWorkingContent('design', 'procedures', e.target.value)}
+                    placeholder="請詳細描述動物試驗內容及流程"
+                    rows={8}
+                  />
+                </div>
+
+                <div className="h-px bg-border my-4" />
+
+                {/* 4.1.3 實驗動物等級評估 */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold">疼痛評估與管理 (Pain Management)</h3>
                   <div className="space-y-2">
-                    <Label>疼痛分級 (Pain Category)</Label>
+                    <Label>4.1.3 實驗動物等級評估 *</Label>
                     <Select
                       value={formData.working_content.design.pain.category}
                       onValueChange={(val) => updateWorkingContent('design', 'pain.category', val)}
                     >
-                      <SelectTrigger><SelectValue placeholder="選擇分級" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="請選擇等級" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="B">B (僅繁殖/觀察)</SelectItem>
-                        <SelectItem value="C">C (輕微短暫痛苦)</SelectItem>
-                        <SelectItem value="D">D (可緩解之痛苦)</SelectItem>
-                        <SelectItem value="E">E (無法緩解之痛苦)</SelectItem>
+                        <SelectItem value="B">Category B 繁殖、觀察</SelectItem>
+                        <SelectItem value="C">Category C 動物進行不會造成痛苦或緊迫的操作。動物進行只造成短暫或輕微痛苦及緊迫的操作。這些操作不需使用到止痛藥。</SelectItem>
+                        <SelectItem value="D">Category D 動物進行可能產生疼痛或緊迫的操作，且會給予適當之止痛、麻醉或鎮定藥。</SelectItem>
+                        <SelectItem value="E">Category E 動物進行可能產生疼痛或緊迫的操作，且不會給予止痛、麻醉或鎮定藥。</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>疼痛管理計畫</Label>
-                    <Textarea
-                      value={formData.working_content.design.pain.management_plan || ''}
-                      onChange={(e) => updateWorkingContent('design', 'pain.management_plan', e.target.value)}
-                      placeholder="說明術後止痛或監控頻率"
-                      rows={3}
-                    />
                   </div>
                 </div>
 
                 <div className="h-px bg-border my-4" />
 
-                {/* 4. Endpoints */}
+                {/* 4.1.4 是否限制實驗動物飲食或飲水 */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold">實驗終點 (Endpoints)</h3>
                   <div className="space-y-2">
-                    <Label>實驗結束點 (Experimental Endpoint)</Label>
+                    <Label>4.1.4 是否限制實驗動物飲食或飲水</Label>
+                    <Select
+                      value={formData.working_content.design.restrictions.is_restricted === null ? '' : (formData.working_content.design.restrictions.is_restricted === true ? 'yes' : 'no')}
+                      onValueChange={(value) => {
+                        const isYes = value === 'yes'
+                        updateWorkingContent('design', 'restrictions.is_restricted', isYes as boolean | null)
+                        // 如果選擇"否"，清空相關欄位
+                        if (!isYes) {
+                          updateWorkingContent('design', 'restrictions.restriction_type', undefined)
+                          updateWorkingContent('design', 'restrictions.other_description', undefined)
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="請選擇" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="no">否</SelectItem>
+                        <SelectItem value="yes">是</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {formData.working_content.design.restrictions.is_restricted === true && (
+                    <div className="space-y-4 pl-6 border-l-2 border-slate-200">
+                      <div className="space-y-2">
+                        <Label>請選擇限制類型 *</Label>
+                        <Select
+                          value={formData.working_content.design.restrictions.restriction_type || ''}
+                          onValueChange={(value) => {
+                            updateWorkingContent('design', 'restrictions.restriction_type', value)
+                            // 如果選擇的不是"其他"，清空其他說明
+                            if (value !== 'other') {
+                              updateWorkingContent('design', 'restrictions.other_description', undefined)
+                            }
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="請選擇" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="fasting_before_anesthesia">麻醉前禁食</SelectItem>
+                            <SelectItem value="other">其他</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {formData.working_content.design.restrictions.restriction_type === 'other' && (
+                        <div className="space-y-2">
+                          <Label>請說明 *</Label>
+                          <Textarea
+                            value={formData.working_content.design.restrictions.other_description || ''}
+                            onChange={(e) => updateWorkingContent('design', 'restrictions.other_description', e.target.value)}
+                            placeholder="請說明其他限制方式"
+                            rows={3}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="h-px bg-border my-4" />
+
+                {/* 4.1.5 實驗預期結束之時機 */}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-base font-semibold">4.1.5 實驗預期結束之時機，以及動物出現何種異常與痛苦症狀時，應提前終止試驗</Label>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>實驗終點：</Label>
                     <Textarea
                       value={formData.working_content.design.endpoints.experimental_endpoint}
                       onChange={(e) => updateWorkingContent('design', 'endpoints.experimental_endpoint', e.target.value)}
-                      placeholder="例如：採血完成後、觀察期滿"
-                      rows={2}
+                      placeholder="請說明實驗預期結束之時機"
+                      rows={3}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>人道終點 (Humane Endpoint)</Label>
+                    <Label>人道終點：</Label>
                     <Textarea
                       value={formData.working_content.design.endpoints.humane_endpoint}
                       onChange={(e) => updateWorkingContent('design', 'endpoints.humane_endpoint', e.target.value)}
-                      placeholder="例如：體重減輕 20%、腫瘤超過 2cm"
-                      rows={2}
+                      placeholder="請說明人道終點"
+                      rows={4}
                     />
                   </div>
                 </div>
 
                 <div className="h-px bg-border my-4" />
 
-                {/* 5. Final Handling */}
+                {/* 4.1.6 動物安樂死或最終處置方式 */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold">實驗結束後之處置 (Final Handling)</h3>
                   <div className="space-y-2">
-                    <Label>處置方式</Label>
+                    <Label className="text-base font-semibold">4.1.6 動物安樂死或最終處置方式</Label>
                     <Select
-                      value={formData.working_content.design.final_handling.method}
-                      onValueChange={(val) => updateWorkingContent('design', 'final_handling.method', val)}
+                      value={formData.working_content.design.final_handling.method || ''}
+                      onValueChange={(value) => {
+                        updateWorkingContent('design', 'final_handling.method', value)
+                        // 清空其他選項的內容
+                        if (value !== 'euthanasia') {
+                          updateWorkingContent('design', 'final_handling.euthanasia_type', undefined)
+                          updateWorkingContent('design', 'final_handling.euthanasia_other_description', undefined)
+                        }
+                        if (value !== 'transfer') {
+                          updateWorkingContent('design', 'final_handling.transfer.recipient_name', '')
+                          updateWorkingContent('design', 'final_handling.transfer.recipient_org', '')
+                          updateWorkingContent('design', 'final_handling.transfer.project_name', '')
+                        }
+                        if (value !== 'other') {
+                          updateWorkingContent('design', 'final_handling.other_description', undefined)
+                        }
+                      }}
                     >
-                      <SelectTrigger><SelectValue placeholder="選擇處置方式" /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue placeholder="請選擇處置方式" />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="euthanasia">安樂死</SelectItem>
-                        <SelectItem value="transfer">轉讓其他計畫</SelectItem>
-                        <SelectItem value="return">歸還 (如野生動物)</SelectItem>
+                        <SelectItem value="transfer">轉讓</SelectItem>
+                        <SelectItem value="other">其他</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* 1. 安樂死 */}
+                  {formData.working_content.design.final_handling.method === 'euthanasia' && (
+                    <div className="space-y-3 border-l-2 border-slate-200 pl-6">
+                      <Label className="text-sm font-medium">安樂死：</Label>
+                      <Select
+                        value={formData.working_content.design.final_handling.euthanasia_type || ''}
+                        onValueChange={(value) => {
+                          updateWorkingContent('design', 'final_handling.euthanasia_type', value)
+                          // 如果選擇的不是"其他"，清空其他說明
+                          if (value !== 'other') {
+                            updateWorkingContent('design', 'final_handling.euthanasia_other_description', undefined)
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="請選擇" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="kcl">麻醉下(Zoletil®-50 4.4 mg/kg)，以KCl 安樂死後放血。依照「AD-04-03-00試驗豬隻安樂死規範標準作業程序書」執行</SelectItem>
+                          <SelectItem value="electrocution">麻醉下(Zoletil®-50 4.4 mg/kg)，以220V電擊後放血。依照「AD-04-03-00試驗豬隻安樂死規範標準作業程序書」執行</SelectItem>
+                          <SelectItem value="other">其他：</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {formData.working_content.design.final_handling.euthanasia_type === 'other' && (
+                        <div className="space-y-2 mt-2">
+                          <Textarea
+                            value={formData.working_content.design.final_handling.euthanasia_other_description || ''}
+                            onChange={(e) => updateWorkingContent('design', 'final_handling.euthanasia_other_description', e.target.value)}
+                            placeholder="請說明其他安樂死方式"
+                            rows={3}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 2. 轉讓 */}
+                  {formData.working_content.design.final_handling.method === 'transfer' && (
+                    <div className="space-y-3 border-l-2 border-slate-200 pl-6">
+                      <Label className="text-sm font-medium">轉讓</Label>
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          <Label className="text-sm">接受者姓名：</Label>
+                          <Input
+                            value={formData.working_content.design.final_handling.transfer.recipient_name}
+                            onChange={(e) => updateWorkingContent('design', 'final_handling.transfer.recipient_name', e.target.value)}
+                            placeholder="請填寫接受者姓名"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-sm">接受者單位：</Label>
+                          <Input
+                            value={formData.working_content.design.final_handling.transfer.recipient_org}
+                            onChange={(e) => updateWorkingContent('design', 'final_handling.transfer.recipient_org', e.target.value)}
+                            placeholder="請填寫接受者單位"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-sm">計畫名稱：</Label>
+                          <Input
+                            value={formData.working_content.design.final_handling.transfer.project_name}
+                            onChange={(e) => updateWorkingContent('design', 'final_handling.transfer.project_name', e.target.value)}
+                            placeholder="請填寫計畫名稱"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 3. 其他 */}
+                  {formData.working_content.design.final_handling.method === 'other' && (
+                    <div className="space-y-3 border-l-2 border-slate-200 pl-6">
+                      <Label className="text-sm font-medium">其他：</Label>
+                      <Textarea
+                        value={formData.working_content.design.final_handling.other_description || ''}
+                        onChange={(e) => updateWorkingContent('design', 'final_handling.other_description', e.target.value)}
+                        placeholder="請說明其他處置方式"
+                        rows={3}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="h-px bg-border my-4" />
 
-                {/* 6. Carcass Disposal */}
+                {/* 4.2 動物屍體處理方法 */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold">屍體處理 (Carcass Disposal)</h3>
                   <div className="space-y-2">
-                    <Label>處理方式</Label>
-                    <Input
+                    <Label className="text-base font-semibold">4.2 動物屍體處理方法</Label>
+                    <Textarea
                       value={formData.working_content.design.carcass_disposal.method}
                       onChange={(e) => updateWorkingContent('design', 'carcass_disposal.method', e.target.value)}
+                      placeholder="請說明動物屍體處理方法"
+                      rows={4}
                     />
+                  </div>
+                </div>
+
+                <div className="h-px bg-border my-4" />
+
+                {/* 4.3 是否使用非醫藥級化學藥品或其他物質 */}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>4.3 是否使用非醫藥級化學藥品或其他物質</Label>
+                    <Select
+                      value={formData.working_content.design.non_pharma_grade.used === null ? '' : (formData.working_content.design.non_pharma_grade.used === true ? 'yes' : 'no')}
+                      onValueChange={(value) => {
+                        const isYes = value === 'yes'
+                        updateWorkingContent('design', 'non_pharma_grade.used', isYes as boolean | null)
+                        // 如果選擇"否"，清空說明欄位
+                        if (!isYes) {
+                          updateWorkingContent('design', 'non_pharma_grade.description', '')
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="請選擇" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="no">否</SelectItem>
+                        <SelectItem value="yes">是</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {formData.working_content.design.non_pharma_grade.used === true && (
+                      <div className="space-y-2 mt-2">
+                        <Label>請說明物質性質、安全性及使用之科學理由 *</Label>
+                        <Textarea
+                          value={formData.working_content.design.non_pharma_grade.description}
+                          onChange={(e) => updateWorkingContent('design', 'non_pharma_grade.description', e.target.value)}
+                          placeholder="請說明物質性質、安全性及使用之科學理由"
+                          rows={4}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="h-px bg-border my-4" />
+
+                {/* 4.4 是否使用危害性物質材料 */}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>4.4 是否使用危害性物質材料</Label>
+                    <Select
+                      value={formData.working_content.design.hazards.used === null ? '' : (formData.working_content.design.hazards.used === true ? 'yes' : 'no')}
+                      onValueChange={(value) => {
+                        const isYes = value === 'yes'
+                        updateWorkingContent('design', 'hazards.used', isYes as boolean | null)
+                        // 如果選擇"否"，清空相關欄位
+                        if (!isYes) {
+                          updateWorkingContent('design', 'hazards.materials', [])
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="請選擇" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="no">否</SelectItem>
+                        <SelectItem value="yes">是</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {formData.working_content.design.hazards.used === true && (
+                      <div className="space-y-4 mt-2 pl-6 border-l-2 border-slate-200">
+                        <div className="space-y-3">
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">請選擇危害性物質類型：</Label>
+                            <Select
+                              value={formData.working_content.design.hazards.selected_type || ''}
+                              onValueChange={(value) => {
+                                updateWorkingContent('design', 'hazards.selected_type', value)
+                                // 清空其他類型的材料，只保留當前類型的材料
+                                const currentMaterials = formData.working_content.design.hazards.materials.filter(m => m.type === value)
+                                updateWorkingContent('design', 'hazards.materials', currentMaterials)
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="請選擇類型" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="biological">1. 生物性材料</SelectItem>
+                                <SelectItem value="radioactive">2. 放射性</SelectItem>
+                                <SelectItem value="chemical">3. 危險性化學藥品</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* 顯示選中類型的材料列表 */}
+                          {formData.working_content.design.hazards.selected_type && (
+                            <div className="space-y-3">
+                              <div className="flex justify-between items-center">
+                                <Label className="text-sm font-medium">
+                                  {formData.working_content.design.hazards.selected_type === 'biological' && '1. 生物性材料'}
+                                  {formData.working_content.design.hazards.selected_type === 'radioactive' && '2. 放射性'}
+                                  {formData.working_content.design.hazards.selected_type === 'chemical' && '3. 危險性化學藥品'}
+                                </Label>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    const materials = [...formData.working_content.design.hazards.materials]
+                                    materials.push({ 
+                                      type: formData.working_content.design.hazards.selected_type!, 
+                                      agent_name: '', 
+                                      amount: '' 
+                                    })
+                                    updateWorkingContent('design', 'hazards.materials', materials)
+                                  }}
+                                >
+                                  <Plus className="h-4 w-4 mr-1" />
+                                  新增
+                                </Button>
+                              </div>
+                              {formData.working_content.design.hazards.materials
+                                .filter(m => m.type === formData.working_content.design.hazards.selected_type)
+                                .map((material, index) => {
+                                  const materialIndex = formData.working_content.design.hazards.materials.findIndex(m => m === material)
+                                  return (
+                                    <div key={materialIndex} className="grid grid-cols-2 gap-3 relative p-3 border rounded bg-slate-50">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="absolute right-2 top-2 h-6 w-6 text-red-500"
+                                        onClick={() => {
+                                          const materials = [...formData.working_content.design.hazards.materials]
+                                          materials.splice(materialIndex, 1)
+                                          updateWorkingContent('design', 'hazards.materials', materials)
+                                        }}
+                                      >
+                                        X
+                                      </Button>
+                                      <Input
+                                        placeholder="名稱"
+                                        value={material.agent_name}
+                                        onChange={(e) => {
+                                          const materials = [...formData.working_content.design.hazards.materials]
+                                          materials[materialIndex].agent_name = e.target.value
+                                          updateWorkingContent('design', 'hazards.materials', materials)
+                                        }}
+                                      />
+                                      <Input
+                                        placeholder="所需用量"
+                                        value={material.amount}
+                                        onChange={(e) => {
+                                          const materials = [...formData.working_content.design.hazards.materials]
+                                          materials[materialIndex].amount = e.target.value
+                                          updateWorkingContent('design', 'hazards.materials', materials)
+                                        }}
+                                      />
+                                    </div>
+                                  )
+                                })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
