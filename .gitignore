@@ -1,0 +1,9 @@
+.env
+.env.*
+**/target
+**/node_modules
+**/.env
+**/.env.*
+**/dist
+**/build
+**/.next

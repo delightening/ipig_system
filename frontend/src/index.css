@@ -1,0 +1,289 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 217.2 91.2% 59.8%;
+    --radius: 0.5rem;
+    
+    /* SKU Segment Colors */
+    --sku-name: 263 70% 50%;    /* 紫色 - 名稱 */
+    --sku-spec: 187 91% 43%;    /* 青色 - 規格 */
+    --sku-unit: 38 92% 50%;     /* 琥珀色 - 單位 */
+    --sku-date: 160 84% 39%;    /* 翠綠色 - 日期 */
+    --sku-seq: 239 84% 67%;     /* 靛藍色 - 序號 */
+    --sku-chk: 330 81% 60%;     /* 粉紅色 - 檢查碼 */
+    
+    /* Success color */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 48%;
+    
+    /* SKU Segment Colors (Dark) */
+    --sku-name: 263 70% 65%;
+    --sku-spec: 187 91% 55%;
+    --sku-unit: 38 92% 60%;
+    --sku-date: 160 84% 50%;
+    --sku-seq: 239 84% 75%;
+    --sku-chk: 330 81% 70%;
+    
+    --success: 142 76% 46%;
+    --success-foreground: 0 0% 100%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-muted;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/30 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/50;
+}
+
+/* Animations */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
+
+/* SKU Segment Animations */
+@keyframes segment-fill {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes segment-highlight {
+  0% {
+    background-color: hsl(var(--primary) / 0.3);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes success-bounce {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+@keyframes draw-check {
+  0% {
+    stroke-dashoffset: 48;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-out-left {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+}
+
+@keyframes blink-caret {
+  0%, 50% {
+    border-right-color: currentColor;
+  }
+  50.1%, 100% {
+    border-right-color: transparent;
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.animate-segment-fill {
+  animation: segment-fill 0.3s ease forwards;
+}
+
+.animate-segment-highlight {
+  animation: segment-highlight 0.5s ease;
+}
+
+.animate-skeleton-pulse {
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.animate-success-bounce {
+  animation: success-bounce 0.5s ease;
+}
+
+.animate-draw-check {
+  stroke-dasharray: 48;
+  stroke-dashoffset: 48;
+  animation: draw-check 0.4s ease 0.2s forwards;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease;
+}
+
+.animate-slide-out-left {
+  animation: slide-out-left 0.3s ease;
+}
+
+.animate-typing {
+  border-right: 2px solid currentColor;
+  animation: blink-caret 1s step-end infinite;
+}
+
+.animate-shake {
+  animation: shake 0.3s ease;
+}
+
+/* SKU Preview Styles */
+.sku-display {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', ui-monospace, monospace;
+  letter-spacing: 0.5px;
+}
+
+.sku-segment {
+  transition: all 0.2s ease;
+}
+
+.sku-segment:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Slider Styles */
+.slider-thumb {
+  cursor: grab;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.1);
+}
+
+/* Quick Select Card */
+.quick-select-card {
+  transition: all 0.2s ease;
+}
+
+.quick-select-card:hover {
+  transform: translateY(-2px);
+}
+
+.quick-select-card:active {
+  transform: scale(0.98);
+}
+
+/* Smart Input Suggestion */
+.suggestion-item {
+  transition: background-color 0.15s ease;
+}
+
+/* Step Indicator */
+.step-circle {
+  transition: all 0.3s ease;
+}
+
+.step-line {
+  transition: background-color 0.3s ease;
+}

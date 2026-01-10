@@ -1,0 +1,698 @@
+import { useState, useEffect, useRef } from 'react'
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useAuthStore } from '@/stores/auth'
+import { cn } from '@/lib/utils'
+import api, { ChangeOwnPasswordRequest, NotificationItem } from '@/lib/api'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { toast } from '@/components/ui/use-toast'
+import {
+  LayoutDashboard,
+  Package,
+  Warehouse,
+  BarChart3,
+  Settings,
+  LogOut,
+  Menu,
+  X,
+  ChevronDown,
+  Truck,
+  ShoppingCart,
+  ClipboardList,
+  Globe,
+  Key,
+  Loader2,
+  FileText,
+  FolderOpen,
+  Users,
+  Stethoscope,
+  Bell,
+  CheckCheck,
+  ExternalLink,
+} from 'lucide-react'
+
+interface NavItem {
+  title: string
+  href?: string
+  icon: React.ReactNode
+  children?: { title: string; href: string }[]
+  permission?: string
+}
+
+const navItems: NavItem[] = [
+  {
+    title: '儀表板',
+    href: '/dashboard',
+    icon: <LayoutDashboard className="h-5 w-5" />,
+  },
+  // AUP 審查系統
+  {
+    title: '我的計劃',
+    href: '/my-projects',
+    icon: <FolderOpen className="h-5 w-5" />,
+  },
+  {
+    title: 'AUP 審查系統',
+    icon: <FileText className="h-5 w-5" />,
+    children: [
+      { title: '計畫書管理', href: '/protocols' },
+      { title: '新增計畫書', href: '/protocols/new' },
+    ],
+  },
+  // 實驗動物管理系統
+  {
+    title: '實驗動物管理',
+    icon: <Stethoscope className="h-5 w-5" />,
+    children: [
+      { title: '豬隻列表', href: '/pigs' },
+      { title: '來源管理', href: '/pig-sources' },
+    ],
+  },
+  // 進銷存管理系統
+  {
+    title: '基礎資料',
+    icon: <Package className="h-5 w-5" />,
+    children: [
+      { title: '產品管理', href: '/products' },
+      { title: '倉庫管理', href: '/warehouses' },
+      { title: '供應商/客戶', href: '/partners' },
+    ],
+  },
+  {
+    title: '採購管理',
+    icon: <Truck className="h-5 w-5" />,
+    children: [
+      { title: '採購單', href: '/documents?type=PO' },
+      { title: '採購入庫', href: '/documents?type=GRN' },
+      { title: '採購退貨', href: '/documents?type=PR' },
+    ],
+  },
+  {
+    title: '銷售管理',
+    icon: <ShoppingCart className="h-5 w-5" />,
+    children: [
+      { title: '銷售單', href: '/documents?type=SO' },
+      { title: '銷售出庫', href: '/documents?type=DO' },
+      { title: '銷售退貨', href: '/documents?type=SR' },
+    ],
+  },
+  {
+    title: '倉儲作業',
+    icon: <Warehouse className="h-5 w-5" />,
+    children: [
+      { title: '庫存查詢', href: '/inventory' },
+      { title: '庫存流水', href: '/inventory/ledger' },
+      { title: '調撥單', href: '/documents?type=TR' },
+      { title: '盤點單', href: '/documents?type=STK' },
+      { title: '調整單', href: '/documents?type=ADJ' },
+    ],
+  },
+  {
+    title: '報表中心',
+    icon: <BarChart3 className="h-5 w-5" />,
+    children: [
+      { title: '庫存現況報表', href: '/reports/stock-on-hand' },
+      { title: '庫存流水報表', href: '/reports/stock-ledger' },
+      { title: '採購明細報表', href: '/reports/purchase-lines' },
+      { title: '銷售明細報表', href: '/reports/sales-lines' },
+      { title: '成本摘要報表', href: '/reports/cost-summary' },
+    ],
+  },
+  {
+    title: '系統管理',
+    icon: <Settings className="h-5 w-5" />,
+    children: [
+      { title: '使用者管理', href: '/admin/users' },
+      { title: '角色權限', href: '/admin/roles' },
+      { title: '系統設定', href: '/admin/settings' },
+      { title: '審計日誌', href: '/admin/audit-logs' },
+    ],
+    permission: 'admin',
+  },
+]
+
+export function MainLayout() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { user, logout, hasRole } = useAuthStore()
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [expandedItems, setExpandedItems] = useState<string[]>(['基礎資料', '倉儲作業'])
+  const [language, setLanguage] = useState<string>('zh-TW')
+
+  // 通知下拉選單
+  const [showNotificationDropdown, setShowNotificationDropdown] = useState(false)
+  const notificationRef = useRef<HTMLDivElement>(null)
+
+  // 修改密碼對話框
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+
+  // 取得未讀通知數量
+  const { data: unreadCount } = useQuery({
+    queryKey: ['notifications-unread-count'],
+    queryFn: async () => {
+      const res = await api.get<{ count: number }>('/notifications/unread-count')
+      return res.data.count
+    },
+    refetchInterval: 60000, // 每分鐘重新取得
+  })
+
+  // 取得最新通知
+  const { data: notificationsData } = useQuery({
+    queryKey: ['notifications-recent'],
+    queryFn: async () => {
+      const res = await api.get<{ data: NotificationItem[] }>('/notifications?per_page=10')
+      return res.data.data
+    },
+    enabled: showNotificationDropdown,
+  })
+
+  // 標記通知為已讀
+  const markReadMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      return api.post('/notifications/mark-read', { notification_ids: ids })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications-recent'] })
+    },
+  })
+
+  // 標記全部已讀
+  const markAllReadMutation = useMutation({
+    mutationFn: async () => {
+      return api.post('/notifications/mark-all-read')
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications-recent'] })
+      toast({ title: '成功', description: '已標記所有通知為已讀' })
+    },
+  })
+
+  // 點擊外部關閉通知下拉選單
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setShowNotificationDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // 處理通知點擊
+  const handleNotificationClick = (notification: NotificationItem) => {
+    if (!notification.is_read) {
+      markReadMutation.mutate([notification.id])
+    }
+    setShowNotificationDropdown(false)
+
+    // 根據通知類型導航
+    if (notification.related_entity_type && notification.related_entity_id) {
+      switch (notification.related_entity_type) {
+        case 'protocol':
+          navigate(`/protocols/${notification.related_entity_id}`)
+          break
+        case 'document':
+          navigate(`/documents/${notification.related_entity_id}`)
+          break
+        case 'pig':
+          navigate(`/pigs/${notification.related_entity_id}`)
+          break
+      }
+    }
+  }
+
+  // 格式化時間
+  const formatNotificationTime = (dateStr: string) => {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diff = now.getTime() - date.getTime()
+    const minutes = Math.floor(diff / 60000)
+    const hours = Math.floor(diff / 3600000)
+    const days = Math.floor(diff / 86400000)
+
+    if (minutes < 1) return '剛剛'
+    if (minutes < 60) return `${minutes} 分鐘前`
+    if (hours < 24) return `${hours} 小時前`
+    if (days < 7) return `${days} 天前`
+    return date.toLocaleDateString('zh-TW')
+  }
+
+  const changePasswordMutation = useMutation({
+    mutationFn: async (data: ChangeOwnPasswordRequest) => {
+      return api.put('/me/password', data)
+    },
+    onSuccess: () => {
+      toast({ title: '成功', description: '密碼已修改，請使用新密碼重新登入' })
+      setShowPasswordDialog(false)
+      resetPasswordForm()
+      // 登出讓用戶重新登入
+      logout()
+    },
+    onError: (error: any) => {
+      toast({
+        title: '錯誤',
+        description: error?.response?.data?.error?.message || '密碼修改失敗',
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const resetPasswordForm = () => {
+    setCurrentPassword('')
+    setNewPassword('')
+    setConfirmPassword('')
+  }
+
+  const handleChangePassword = () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast({ title: '錯誤', description: '請填寫所有欄位', variant: 'destructive' })
+      return
+    }
+    if (newPassword.length < 6) {
+      toast({ title: '錯誤', description: '新密碼至少需要 6 個字元', variant: 'destructive' })
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: '錯誤', description: '新密碼與確認密碼不一致', variant: 'destructive' })
+      return
+    }
+    changePasswordMutation.mutate({
+      current_password: currentPassword,
+      new_password: newPassword,
+    })
+  }
+
+  const toggleExpand = (title: string) => {
+    setExpandedItems((prev) =>
+      prev.includes(title)
+        ? prev.filter((item) => item !== title)
+        : [...prev, title]
+    )
+  }
+
+  const isActive = (href: string) => {
+    if (href.includes('?')) {
+      return location.pathname + location.search === href
+    }
+    return location.pathname === href
+  }
+
+  const filteredNavItems = navItems.filter((item) => {
+    if (item.permission && !hasRole(item.permission)) {
+      return false
+    }
+    return true
+  })
+
+  return (
+    <div className="flex h-screen bg-slate-50">
+      {/* Sidebar */}
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 flex flex-col bg-slate-900 text-white transition-all duration-300 lg:relative overflow-hidden',
+          sidebarOpen ? 'w-64' : 'w-16'
+        )}
+      >
+        {/* Logo */}
+        <div className={cn(
+          "flex h-16 items-center border-b border-slate-700",
+          sidebarOpen ? "justify-between px-4" : "justify-center px-2"
+        )}>
+          {sidebarOpen ? (
+            <Link to="/" className="flex items-center space-x-2">
+              <ClipboardList className="h-8 w-8 text-blue-400" />
+              <span className="text-xl font-bold">ipig system</span>
+            </Link>
+          ) : (
+            <Link to="/">
+              <ClipboardList className="h-6 w-6 text-blue-400" />
+            </Link>
+          )}
+          {sidebarOpen && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="text-slate-400 hover:text-white hover:bg-slate-800"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          )}
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto p-4">
+          <ul className="space-y-1">
+            {filteredNavItems.map((item) => (
+              <li key={item.title}>
+                {item.href ? (
+                  <Link
+                    to={item.href}
+                    className={cn(
+                      'flex items-center space-x-3 rounded-lg px-3 py-2.5 transition-colors',
+                      isActive(item.href)
+                        ? 'bg-blue-600 text-white'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    )}
+                  >
+                    {item.icon}
+                    {sidebarOpen && <span>{item.title}</span>}
+                  </Link>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => toggleExpand(item.title)}
+                      className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+                    >
+                      <div className="flex items-center space-x-3">
+                        {item.icon}
+                        {sidebarOpen && <span>{item.title}</span>}
+                      </div>
+                      {sidebarOpen && (
+                        <ChevronDown
+                          className={cn(
+                            'h-4 w-4 transition-transform',
+                            expandedItems.includes(item.title) && 'rotate-180'
+                          )}
+                        />
+                      )}
+                    </button>
+                    {sidebarOpen && expandedItems.includes(item.title) && item.children && (
+                      <ul className="ml-4 mt-1 space-y-1 border-l border-slate-700 pl-4">
+                        {item.children.map((child) => (
+                          <li key={child.href}>
+                            <Link
+                              to={child.href}
+                              className={cn(
+                                'block rounded-lg px-3 py-2 text-sm transition-colors',
+                                isActive(child.href)
+                                  ? 'bg-blue-600 text-white'
+                                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                              )}
+                            >
+                              {child.title}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        {/* User section & Toggle */}
+        <div className="border-t border-slate-700 p-2">
+          {sidebarOpen ? (
+            <div className="space-y-2 p-2">
+              <div className="flex items-center space-x-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 font-semibold">
+                  {user?.display_name?.[0] || user?.email?.[0] || 'U'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="truncate text-sm font-medium">{user?.display_name || user?.email}</p>
+                  <p className="truncate text-xs text-slate-400">{user?.roles?.join(', ')}</p>
+                </div>
+              </div>
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowPasswordDialog(true)}
+                  className="flex-1 text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
+                >
+                  <Key className="h-4 w-4 mr-1" />
+                  修改密碼
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={logout}
+                  className="flex-1 text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
+                >
+                  <LogOut className="h-4 w-4 mr-1" />
+                  登出
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center space-y-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 font-semibold text-sm">
+                {user?.display_name?.[0] || user?.email?.[0] || 'U'}
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSidebarOpen(true)}
+                className="text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            </div>
+          )}
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <main className={cn(
+        "flex-1 overflow-y-auto transition-all duration-300",
+        sidebarOpen ? 'ml-64' : 'ml-16'
+      )}>
+        {/* Top bar */}
+        <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b bg-white px-6 shadow-sm">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-muted-foreground">
+              {new Date().toLocaleDateString('zh-TW', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </span>
+
+            {/* 通知圖示 */}
+            <div className="relative" ref={notificationRef}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative"
+                onClick={() => setShowNotificationDropdown(!showNotificationDropdown)}
+              >
+                <Bell className="h-5 w-5" />
+                {unreadCount && unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </Button>
+
+              {/* 通知下拉選單 */}
+              {showNotificationDropdown && (
+                <div className="absolute right-0 top-12 w-96 bg-white rounded-lg shadow-xl border z-50 overflow-hidden">
+                  {/* 標頭 */}
+                  <div className="flex items-center justify-between px-4 py-3 border-b bg-slate-50">
+                    <h3 className="font-semibold text-slate-900">通知</h3>
+                    {unreadCount && unreadCount > 0 && (
+                      <button
+                        onClick={() => markAllReadMutation.mutate()}
+                        className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                        disabled={markAllReadMutation.isPending}
+                      >
+                        <CheckCheck className="h-4 w-4" />
+                        全部標為已讀
+                      </button>
+                    )}
+                  </div>
+
+                  {/* 通知列表 */}
+                  <div className="max-h-[400px] overflow-y-auto">
+                    {notificationsData && notificationsData.length > 0 ? (
+                      notificationsData.map((notification) => (
+                        <div
+                          key={notification.id}
+                          onClick={() => handleNotificationClick(notification)}
+                          className={cn(
+                            "px-4 py-3 border-b last:border-b-0 cursor-pointer hover:bg-slate-50 transition-colors",
+                            !notification.is_read && "bg-blue-50"
+                          )}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={cn(
+                              "w-2 h-2 rounded-full mt-2 shrink-0",
+                              !notification.is_read ? "bg-blue-500" : "bg-transparent"
+                            )} />
+                            <div className="flex-1 min-w-0">
+                              <p className={cn(
+                                "text-sm truncate",
+                                !notification.is_read ? "font-semibold text-slate-900" : "text-slate-700"
+                              )}>
+                                {notification.title}
+                              </p>
+                              {notification.content && (
+                                <p className="text-sm text-slate-500 truncate mt-0.5">
+                                  {notification.content}
+                                </p>
+                              )}
+                              <p className="text-xs text-slate-400 mt-1">
+                                {formatNotificationTime(notification.created_at)}
+                              </p>
+                            </div>
+                            {notification.related_entity_type && (
+                              <ExternalLink className="h-4 w-4 text-slate-400 shrink-0 mt-1" />
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-4 py-8 text-center text-slate-500">
+                        <Bell className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+                        <p>沒有通知</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 底部連結 */}
+                  {notificationsData && notificationsData.length > 0 && (
+                    <div className="px-4 py-2 border-t bg-slate-50">
+                      <button
+                        onClick={() => {
+                          setShowNotificationDropdown(false)
+                          navigate('/admin/settings')
+                        }}
+                        className="text-sm text-blue-600 hover:text-blue-800 w-full text-center"
+                      >
+                        查看所有通知
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 語言切換 */}
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger className="w-[120px] h-9">
+                <Globe className="h-4 w-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="zh-TW">繁體中文</SelectItem>
+                <SelectItem value="zh-CN">简体中文</SelectItem>
+                <SelectItem value="en">English</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </header>
+
+        {/* Page content */}
+        <div className="p-6">
+          <Outlet />
+        </div>
+      </main>
+
+      {/* 修改密碼對話框 */}
+      <Dialog open={showPasswordDialog} onOpenChange={(open) => {
+        setShowPasswordDialog(open)
+        if (!open) resetPasswordForm()
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5" />
+              修改密碼
+            </DialogTitle>
+            <DialogDescription>
+              請輸入目前密碼和新密碼。修改後需要重新登入。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="current-password">目前密碼</Label>
+              <Input
+                id="current-password"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="請輸入目前密碼"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-password">新密碼</Label>
+              <Input
+                id="new-password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="至少 6 個字元"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">確認新密碼</Label>
+              <Input
+                id="confirm-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="再次輸入新密碼"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowPasswordDialog(false)
+                resetPasswordForm()
+              }}
+              disabled={changePasswordMutation.isPending}
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleChangePassword}
+              disabled={changePasswordMutation.isPending}
+            >
+              {changePasswordMutation.isPending && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
+              確認修改
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
