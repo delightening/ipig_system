@@ -435,12 +435,11 @@ export function ProtocolDetailPage() {
           </Button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold">{protocol.protocol_no}</h1>
+              <h1 className="text-2xl font-bold">{protocol.title}</h1>
               <Badge variant={statusColors[protocol.status]} className="text-sm">
                 {protocolStatusNames[protocol.status]}
               </Badge>
             </div>
-            <p className="text-muted-foreground mt-1">{protocol.title}</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -571,7 +570,18 @@ export function ProtocolDetailPage() {
             {protocol.working_content ? (
               <div className="prose max-w-none">
                 <pre className="bg-slate-50 p-4 rounded-lg overflow-auto text-sm">
-                  {JSON.stringify(protocol.working_content, null, 2)}
+                  {JSON.stringify(
+                    (() => {
+                      // 創建一個副本，去除 apply_study_number 字段
+                      const cleanedContent = JSON.parse(JSON.stringify(protocol.working_content))
+                      if (cleanedContent.basic && cleanedContent.basic.apply_study_number !== undefined) {
+                        delete cleanedContent.basic.apply_study_number
+                      }
+                      return cleanedContent
+                    })(),
+                    null,
+                    2
+                  )}
                 </pre>
               </div>
             ) : (

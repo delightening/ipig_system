@@ -782,9 +782,6 @@ export function ProtocolEditPage() {
             <h1 className="text-2xl font-bold">
               {isNew ? '新增計畫書' : '編輯計畫書'}
             </h1>
-            {!isNew && protocol && (
-              <p className="text-muted-foreground">{protocol.protocol_no}</p>
-            )}
           </div>
         </div>
         <div className="flex gap-2">
