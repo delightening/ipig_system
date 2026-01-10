@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Slider } from '@/components/ui/slider'
 import { toast } from '@/components/ui/use-toast'
 import { useAuthStore } from '@/stores/auth'
 import { FileUpload, FileInfo } from '@/components/ui/file-upload'
@@ -236,12 +237,13 @@ interface FormData {
         waste_and_carcass_disposal: string
       }
       controlled_substances: {
-        used: boolean
+        used: boolean | null // null means not selected
         items: Array<{
           drug_name: string
           approval_no: string
           amount: string
           authorized_person: string
+          photos?: FileInfo[]
         }>
       }
     }
@@ -270,6 +272,7 @@ interface FormData {
         number: number
         reason: string
       }
+      postop_care_type?: 'orthopedic' | 'non_orthopedic' // 骨科手術或非骨科手術
       postop_care: string
       drugs: Array<{
         drug_name: string
@@ -282,28 +285,33 @@ interface FormData {
     }
     animals: { // Section 7
       animals: Array<{
-        species: string
-        other_species_text?: string
-        sex: string
+        species: 'pig' | 'other' | ''
+        species_other?: string
+        strain?: 'white_pig' | 'mini_pig' | ''
+        strain_other?: string
+        sex: string // 單一性別選擇
         number: number
-        age_range_months: string
-        weight_range_kg: string
-        animal_source: string
-        animal_source_other?: string
+        age_min?: number
+        age_max?: number
+        age_unlimited: boolean
+        weight_min?: number
+        weight_max?: number
+        weight_unlimited: boolean
         housing_location: string
       }>
       total_animals: number
     }
     personnel: Array<{ // Section 8
+      id?: number // 編號
       name: string
       position: string
-      roles: string[]
-      roles_other_text?: string
-      years_experience: number
-      trainings: Array<{
-        code: string
-        certificate_no?: string
-        received_date?: string
+      roles: string[] // 工作內容：a, b, c, d, e, f, g, h, i
+      roles_other_text?: string // 如果選擇 i.其他，需要填寫說明
+      years_experience: number // 參與動物試驗年數
+      trainings: string[] // 訓練/資格：A, B, C, D, E
+      training_certificates: Array<{ // 每個訓練的證書編號列表
+        training_code: string // A, B, C, D, E
+        certificate_no: string // 證書編號
       }>
     }>
     attachments: Array<{ // Section 9
@@ -380,24 +388,128 @@ const defaultFormData: FormData = {
         protection_measures: '',
         waste_and_carcass_disposal: ''
       },
-      controlled_substances: { used: false, items: [] }
+      controlled_substances: { used: null, items: [] }
     },
     guidelines: { content: '', references: [] },
     surgery: {
       surgery_type: '',
-      preop_preparation: '',
+      preop_preparation: '1.實驗動物術前禁食至少12小時，不禁水。\n2.試驗豬隻經清洗擦乾後，以畜舒坦( Azeperonum 40 mg/mL)3-5 mg/kg和0.03-0.05 mg/kg阿托平(Atropine® 1 mg/mL)肌肉注射鎮靜。仔細觀察豬隻呼吸頻率。\n3.經20-30分鐘後，以4.4 mg/kg舒泰-50(Zoletil®-50)肌肉注射誘導麻醉\n4.經5-10分鐘後，將豬隻移至手術檯上，以趴姿進行氣管插管，接上氣體麻醉機，以2-3 L/min流速的氧氣混合0.5-2%氣體麻醉劑Isoflurane維持麻醉，隨時注意觀察豬隻麻醉深度。\n5.術前肌肉注射抗生素Cefazolin 15 mg/kg及止痛劑meloxicam 0.4 mg/kg\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行',
       aseptic_techniques: [],
-      surgery_description: '',
+      surgery_description: '請詳述手術流程，包含手術位置、手術方法、切創大小及縫合處理',
       surgery_steps: [],
-      monitoring: '',
+      monitoring: '手術進行中依試驗豬隻麻醉深度、呼吸頻率及手術需要，調整氧氣、笑氣流速及麻醉氣體濃度，同時注意保溫，接上生理監視器，監控記錄心跳、呼吸及體溫。\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行',
       postop_expected_impact: '',
       multiple_surgeries: { used: false, number: 0, reason: '' },
+      postop_care_type: undefined,
       postop_care: '',
-      drugs: [],
+      drugs: [
+        { drug_name: 'Atropine', dose: '1mg/ml', route: 'IM', frequency: '1次', purpose: '麻醉誘導' },
+        { drug_name: '畜舒坦(Azeperonum)', dose: '0.03-0.5mg/kg', route: 'IM', frequency: '1次', purpose: '麻醉誘導' },
+        { drug_name: '舒泰Zoletil®-50', dose: '3-5 mg/kg', route: 'IM', frequency: '1次', purpose: '麻醉誘導' },
+        { drug_name: 'Cefazolin', dose: '15-30 mg/kg', route: 'IM', frequency: '術前1次/術後SID', purpose: '術前及術後抗生素' },
+        { drug_name: 'meloxicam', dose: '0.1-0.4mg/kg', route: 'IM', frequency: '術前1次/術後SID', purpose: '術前及術後止痛藥' },
+        { drug_name: 'Isoflurane', dose: '0.5-2%', route: '吸入', frequency: '術中', purpose: '麻醉維持' },
+        { drug_name: 'ketoprofen', dose: '1-3mg/kg', route: 'IM', frequency: 'SID', purpose: '術後止痛藥' },
+        { drug_name: 'pencillin', dose: '0.1-1mL/kg', route: 'IM', frequency: 'SID', purpose: '術後抗生素' },
+        { drug_name: 'cephalexin', dose: '30-60mg/kg', route: 'PO', frequency: 'BID', purpose: '術後抗生素' },
+        { drug_name: 'amoxicillin', dose: '20-40mg/kg', route: 'PO', frequency: 'BID', purpose: '術後抗生素' },
+        { drug_name: 'meloxicam', dose: '0.1-0.4mg/kg', route: 'PO', frequency: 'SID', purpose: '術後止痛藥' }
+      ],
       expected_end_point: ''
     },
-    animals: { animals: [], total_animals: 0 },
-    personnel: [],
+    animals: { 
+      animals: [{
+        species: '',
+        species_other: '',
+        strain: undefined,
+        strain_other: '',
+        sex: '',
+        number: 0,
+        age_min: undefined,
+        age_max: undefined,
+        age_unlimited: false,
+        weight_min: undefined,
+        weight_max: undefined,
+        weight_unlimited: false,
+        housing_location: '豬博士畜牧場'
+      }], 
+      total_animals: 0 
+    },
+    personnel: [
+      {
+        id: 1,
+        name: '許芮蓁',
+        position: '',
+        roles: ['b', 'c', 'd', 'f', 'g', 'h'],
+        roles_other_text: '',
+        years_experience: 6,
+        trainings: ['C', 'A'],
+        training_certificates: [
+          { training_code: 'C', certificate_no: '輻安訓字第1080551' },
+          { training_code: 'C', certificate_no: '111輻協訓繼教證字第0983號' },
+          { training_code: 'A', certificate_no: '111農科實動字第0513號' },
+          { training_code: 'C', certificate_no: '112輻協訓繼教證字第3107號' }
+        ]
+      },
+      {
+        id: 2,
+        name: '陳怡均',
+        position: '',
+        roles: ['b', 'c', 'd', 'f', 'g', 'h'],
+        roles_other_text: '',
+        years_experience: 6,
+        trainings: ['C', 'A'],
+        training_certificates: [
+          { training_code: 'C', certificate_no: '輻安訓字第1080552' },
+          { training_code: 'A', certificate_no: '110農科實動字第0461號' },
+          { training_code: 'C', certificate_no: '111輻協訓繼教證字第4159號' },
+          { training_code: 'A', certificate_no: '112農科實動字第0213號' }
+        ]
+      },
+      {
+        id: 3,
+        name: '林莉珊',
+        position: '',
+        roles: ['b', 'c', 'd', 'f', 'g', 'h'],
+        roles_other_text: '',
+        years_experience: 4,
+        trainings: ['C', 'A'],
+        training_certificates: [
+          { training_code: 'C', certificate_no: '輻安訓字第1091274' },
+          { training_code: 'C', certificate_no: '111輻協訓繼教證字第0979號' },
+          { training_code: 'A', certificate_no: '111農科實動字第0512號' },
+          { training_code: 'C', certificate_no: '111輻協訓繼教證字第3105號' }
+        ]
+      },
+      {
+        id: 4,
+        name: '王永發',
+        position: '',
+        roles: ['b', 'c', 'd', 'f', 'g', 'h'],
+        roles_other_text: '',
+        years_experience: 5,
+        trainings: ['C', 'A'],
+        training_certificates: [
+          { training_code: 'C', certificate_no: '輻安訓字第1090109' },
+          { training_code: 'A', certificate_no: '109農科實動字第0093號' },
+          { training_code: 'C', certificate_no: '111輻協訓繼教證字第0982號' },
+          { training_code: 'A', certificate_no: '111農科實動字第0514號' }
+        ]
+      },
+      {
+        id: 5,
+        name: '潘映潔',
+        position: '',
+        roles: ['b', 'c', 'd', 'f', 'g', 'h'],
+        roles_other_text: '',
+        years_experience: 1,
+        trainings: ['C', 'A'],
+        training_certificates: [
+          { training_code: 'C', certificate_no: '輻安訓字第1130188' },
+          { training_code: 'A', certificate_no: '113優農實動字第0006號' }
+        ]
+      }
+    ],
     attachments: [],
   },
 }
@@ -488,6 +600,98 @@ export function ProtocolEditPage() {
             ...item,
             photos: item.photos || []
           }))
+        }
+
+        // 確保 controlled_substances.items 中的 photos 字段存在
+        if (mergedWorkingContent.design && mergedWorkingContent.design.controlled_substances && mergedWorkingContent.design.controlled_substances.items) {
+          mergedWorkingContent.design.controlled_substances.items = mergedWorkingContent.design.controlled_substances.items.map((item: any) => ({
+            ...item,
+            photos: item.photos || []
+          }))
+        }
+
+        // 確保 personnel 中的 training_certificates 字段存在
+        if (mergedWorkingContent.personnel) {
+          mergedWorkingContent.personnel = mergedWorkingContent.personnel.map((person: any) => ({
+            ...person,
+            id: person.id || undefined,
+            roles: person.roles || [],
+            roles_other_text: person.roles_other_text || '',
+            trainings: person.trainings || [],
+            training_certificates: person.training_certificates || []
+          }))
+        }
+
+        // 根據 4.1.1 的選擇自動處理手術計劃書
+        if (mergedWorkingContent.design && mergedWorkingContent.design.anesthesia && mergedWorkingContent.surgery) {
+          const anesthesiaType = mergedWorkingContent.design.anesthesia.anesthesia_type
+          const needsSurgeryPlan = mergedWorkingContent.design.anesthesia.is_under_anesthesia === true &&
+            (anesthesiaType === 'survival_surgery' || anesthesiaType === 'non_survival_surgery')
+          
+          if (needsSurgeryPlan) {
+            // 如果需要填寫手術計劃書，自動設置手術種類
+            if (anesthesiaType === 'survival_surgery') {
+              mergedWorkingContent.surgery.surgery_type = 'survival'
+            } else if (anesthesiaType === 'non_survival_surgery') {
+              mergedWorkingContent.surgery.surgery_type = 'non_survival'
+            }
+            // 如果術前準備為空，設置預設內容
+            if (!mergedWorkingContent.surgery.preop_preparation || mergedWorkingContent.surgery.preop_preparation.trim() === '') {
+              mergedWorkingContent.surgery.preop_preparation = '1.實驗動物術前禁食至少12小時，不禁水。\n2.試驗豬隻經清洗擦乾後，以畜舒坦( Azeperonum 40 mg/mL)3-5 mg/kg和0.03-0.05 mg/kg阿托平(Atropine® 1 mg/mL)肌肉注射鎮靜。仔細觀察豬隻呼吸頻率。\n3.經20-30分鐘後，以4.4 mg/kg舒泰-50(Zoletil®-50)肌肉注射誘導麻醉\n4.經5-10分鐘後，將豬隻移至手術檯上，以趴姿進行氣管插管，接上氣體麻醉機，以2-3 L/min流速的氧氣混合0.5-2%氣體麻醉劑Isoflurane維持麻醉，隨時注意觀察豬隻麻醉深度。\n5.術前肌肉注射抗生素Cefazolin 15 mg/kg及止痛劑meloxicam 0.4 mg/kg\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行'
+            }
+            // 如果手術內容說明為空，設置預設內容
+            if (!mergedWorkingContent.surgery.surgery_description || mergedWorkingContent.surgery.surgery_description.trim() === '') {
+              mergedWorkingContent.surgery.surgery_description = '請詳述手術流程，包含手術位置、手術方法、切創大小及縫合處理'
+            }
+            // 如果術中監控為空，設置預設內容
+            if (!mergedWorkingContent.surgery.monitoring || mergedWorkingContent.surgery.monitoring.trim() === '') {
+              mergedWorkingContent.surgery.monitoring = '手術進行中依試驗豬隻麻醉深度、呼吸頻率及手術需要，調整氧氣、笑氣流速及麻醉氣體濃度，同時注意保溫，接上生理監視器，監控記錄心跳、呼吸及體溫。\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行'
+            }
+            // 如果術後照護類型未選擇，不自動設置（讓用戶選擇）
+          } else {
+            // 如果不需要填寫手術計劃書，自動填寫"略"
+            if (!mergedWorkingContent.surgery.surgery_type || mergedWorkingContent.surgery.surgery_type.trim() === '') {
+              mergedWorkingContent.surgery.surgery_type = '略'
+            }
+            if (!mergedWorkingContent.surgery.preop_preparation || mergedWorkingContent.surgery.preop_preparation.trim() === '') {
+              mergedWorkingContent.surgery.preop_preparation = '略'
+            }
+            if (!mergedWorkingContent.surgery.surgery_description || mergedWorkingContent.surgery.surgery_description.trim() === '') {
+              mergedWorkingContent.surgery.surgery_description = '略'
+            }
+            if (!mergedWorkingContent.surgery.monitoring || mergedWorkingContent.surgery.monitoring.trim() === '') {
+              mergedWorkingContent.surgery.monitoring = '略'
+            }
+            if (!mergedWorkingContent.surgery.postop_expected_impact || mergedWorkingContent.surgery.postop_expected_impact.trim() === '') {
+              mergedWorkingContent.surgery.postop_expected_impact = '略'
+            }
+            if (!mergedWorkingContent.surgery.postop_care || mergedWorkingContent.surgery.postop_care.trim() === '') {
+              mergedWorkingContent.surgery.postop_care = '1.術後每日評估豬隻健康狀態，依術後狀況進行傷口護理。\n2.術後7日內每日進行疼痛評估依豬隻狀況並依照不同手術給予止痛藥及抗生素\n分為兩項：\n2.1\n骨科手術\n止痛藥\nketoprofen 1-3 mg/kg IM SID (3天)\nmeloxicam 0.1-0.4 mg/kg PO SID (4-14天或長期給予)\n抗生素\ncefazolin 15 mg/kg IM BID (1-7天)\ncephalexin 30 mg/kg PO BID (8-14天或長期給予)\n\n2.2\n非骨科手術\n止痛藥\nmeloxicam 0.1-0.4 mg/kg IM SID (3天)\nmeloxicam 0.1-0.4 mg/kg PO SID (4-14天或長期給予)\n抗生素\npencillin 10000 u/kg IM SID (1-7天)\namoxicillin 20 mg/kg PO BID (8-14天或長期給予)\n\n3.若動物發生異常情形，則依獸醫師指示處理。\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行'
+            }
+            if (!mergedWorkingContent.surgery.expected_end_point || mergedWorkingContent.surgery.expected_end_point.trim() === '') {
+              mergedWorkingContent.surgery.expected_end_point = '略'
+            }
+            // 如果不需要填寫手術計劃書，清空用藥資訊
+            if (!mergedWorkingContent.surgery.drugs || mergedWorkingContent.surgery.drugs.length === 0) {
+              mergedWorkingContent.surgery.drugs = []
+            }
+            // 如果手術用藥資訊為空，設置預設內容
+            if (!mergedWorkingContent.surgery.drugs || mergedWorkingContent.surgery.drugs.length === 0) {
+              mergedWorkingContent.surgery.drugs = [
+                { drug_name: 'Atropine', dose: '1mg/ml', route: 'IM', frequency: '1次', purpose: '麻醉誘導' },
+                { drug_name: '畜舒坦(Azeperonum)', dose: '0.03-0.5mg/kg', route: 'IM', frequency: '1次', purpose: '麻醉誘導' },
+                { drug_name: '舒泰Zoletil®-50', dose: '3-5 mg/kg', route: 'IM', frequency: '1次', purpose: '麻醉誘導' },
+                { drug_name: 'Cefazolin', dose: '15-30 mg/kg', route: 'IM', frequency: '術前1次/術後SID', purpose: '術前及術後抗生素' },
+                { drug_name: 'meloxicam', dose: '0.1-0.4mg/kg', route: 'IM', frequency: '術前1次/術後SID', purpose: '術前及術後止痛藥' },
+                { drug_name: 'Isoflurane', dose: '0.5-2%', route: '吸入', frequency: '術中', purpose: '麻醉維持' },
+                { drug_name: 'ketoprofen', dose: '1-3mg/kg', route: 'IM', frequency: 'SID', purpose: '術後止痛藥' },
+                { drug_name: 'pencillin', dose: '0.1-1mL/kg', route: 'IM', frequency: 'SID', purpose: '術後抗生素' },
+                { drug_name: 'cephalexin', dose: '30-60mg/kg', route: 'PO', frequency: 'BID', purpose: '術後抗生素' },
+                { drug_name: 'amoxicillin', dose: '20-40mg/kg', route: 'PO', frequency: 'BID', purpose: '術後抗生素' },
+                { drug_name: 'meloxicam', dose: '0.1-0.4mg/kg', route: 'PO', frequency: 'SID', purpose: '術後止痛藥' }
+              ]
+            }
+          }
         }
 
         return {
@@ -746,6 +950,103 @@ export function ProtocolEditPage() {
           return `請填寫第 ${i + 1} 個危害性物質的所需用量`
         }
       }
+      // 4.5 危害性物質及其廢棄物處理方式（如果 4.4 為"是"）
+      if (!design.hazards.operation_location_method || !design.hazards.operation_location_method.trim()) {
+        return '請填寫施用方法、途徑與使用場所'
+      }
+      if (!design.hazards.protection_measures || !design.hazards.protection_measures.trim()) {
+        return '請填寫保護措施'
+      }
+      if (!design.hazards.waste_and_carcass_disposal || !design.hazards.waste_and_carcass_disposal.trim()) {
+        return '請填寫實驗廢棄物與屍體之處理方式'
+      }
+    }
+    // 4.6 或 4.5（當 4.4 為"否"時）是否使用管制藥品
+    if (design.controlled_substances.used === true) {
+      if (design.controlled_substances.items.length === 0) {
+        return '請至少添加一個管制藥品'
+      }
+      // 驗證每個管制藥品的必填字段
+      for (let i = 0; i < design.controlled_substances.items.length; i++) {
+        const item = design.controlled_substances.items[i]
+        if (!item.drug_name || !item.drug_name.trim()) {
+          return `請填寫第 ${i + 1} 個管制藥品的藥品名稱`
+        }
+        if (!item.approval_no || !item.approval_no.trim()) {
+          return `請填寫第 ${i + 1} 個管制藥品的核准編號`
+        }
+        if (!item.amount || !item.amount.trim()) {
+          return `請填寫第 ${i + 1} 個管制藥品的所需用量`
+        }
+        if (!item.authorized_person || !item.authorized_person.trim()) {
+          return `請填寫第 ${i + 1} 個管制藥品的管制藥品管理人`
+        }
+      }
+    }
+
+    // 6. 手術計劃書 - 根據 4.1.1 的選擇判斷是否需要填寫
+    const needsSurgeryPlan = design.anesthesia.is_under_anesthesia === true &&
+      (design.anesthesia.anesthesia_type === 'survival_surgery' || design.anesthesia.anesthesia_type === 'non_survival_surgery')
+    
+    if (needsSurgeryPlan) {
+      const { surgery } = formData.working_content
+      if (!surgery.surgery_type || !surgery.surgery_type.trim() || surgery.surgery_type === '略') {
+        return '請填寫手術種類'
+      }
+      if (!surgery.preop_preparation || !surgery.preop_preparation.trim() || surgery.preop_preparation === '略') {
+        return '請填寫術前準備'
+      }
+      if (!surgery.surgery_description || !surgery.surgery_description.trim() || surgery.surgery_description === '略') {
+        return '請填寫手術內容說明'
+      }
+      if (!surgery.monitoring || !surgery.monitoring.trim()) {
+        return '請填寫術中監控'
+      }
+      // 6.6 只在存活手術時需要填寫
+      if (surgery.surgery_type === 'survival') {
+        if (!surgery.postop_expected_impact || !surgery.postop_expected_impact.trim() || surgery.postop_expected_impact === '略') {
+          return '請填寫存活手術預期術後可能對實驗動物造成之影響'
+        }
+      }
+      if (surgery.multiple_surgeries.used) {
+        if (!surgery.multiple_surgeries.number || surgery.multiple_surgeries.number <= 0) {
+          return '請填寫多次手術的數量'
+        }
+        if (!surgery.multiple_surgeries.reason || !surgery.multiple_surgeries.reason.trim()) {
+          return '請填寫多次手術的原因'
+        }
+      }
+      if (!surgery.postop_care_type || !surgery.postop_care_type.trim()) {
+        return '請選擇手術類型（骨科手術或非骨科手術）'
+      }
+      if (!surgery.postop_care || !surgery.postop_care.trim()) {
+        return '請填寫動物術後照護及止痛給藥方法'
+      }
+      if (!surgery.expected_end_point || !surgery.expected_end_point.trim()) {
+        return '請填寫實驗預期結束之時機'
+      }
+      // 6.10 手術用藥資訊
+      if (!surgery.drugs || surgery.drugs.length === 0) {
+        return '請至少添加一個手術用藥資訊'
+      }
+      for (let i = 0; i < surgery.drugs.length; i++) {
+        const drug = surgery.drugs[i]
+        if (!drug.drug_name || !drug.drug_name.trim()) {
+          return `請填寫第 ${i + 1} 個用藥的藥品名稱`
+        }
+        if (!drug.dose || !drug.dose.trim()) {
+          return `請填寫第 ${i + 1} 個用藥的劑量`
+        }
+        if (!drug.route || !drug.route.trim()) {
+          return `請填寫第 ${i + 1} 個用藥的投與途徑`
+        }
+        if (!drug.frequency || !drug.frequency.trim()) {
+          return `請填寫第 ${i + 1} 個用藥的頻率`
+        }
+        if (!drug.purpose || !drug.purpose.trim()) {
+          return `請填寫第 ${i + 1} 個用藥的給藥目的`
+        }
+      }
     }
 
     // Section 3 - 試驗物質與對照物質
@@ -777,6 +1078,61 @@ export function ProtocolEditPage() {
         // 如果選擇"否"（非無菌製備），必須填寫說明
         if (!item.is_sterile && (!item.non_sterile_justification || !item.non_sterile_justification.trim())) {
           return `請填寫第 ${i + 1} 個對照物質的非無菌製備說明`
+        }
+      }
+    }
+
+    // Section 7 - 實驗動物資料
+    const { animals } = formData.working_content
+    if (!animals.animals || animals.animals.length === 0) {
+      return '請至少添加一個實驗動物資料'
+    }
+    for (let i = 0; i < animals.animals.length; i++) {
+      const animal = animals.animals[i]
+      // 驗證物種
+      if (!animal.species || !animal.species.trim()) {
+        return `請選擇第 ${i + 1} 個動物的物種`
+      }
+      if (animal.species === 'other' && (!animal.species_other || !animal.species_other.trim())) {
+        return `請填寫第 ${i + 1} 個動物的物種`
+      }
+      // 驗證品系
+      if (animal.species === 'pig' && !animal.strain) {
+        return `請選擇第 ${i + 1} 個動物的品系`
+      }
+      if (animal.species === 'other' && (!animal.strain_other || !animal.strain_other.trim())) {
+        return `請填寫第 ${i + 1} 個動物的品系`
+      }
+      // 驗證性別
+      if (!animal.sex || !animal.sex.trim()) {
+        return `請選擇第 ${i + 1} 個動物的性別`
+      }
+      // 驗證數量
+      if (!animal.number || animal.number <= 0) {
+        return `請填寫第 ${i + 1} 個動物的數量（必須大於0）`
+      }
+      // 驗證年齡（如果不是"不限"）
+      if (!animal.age_unlimited) {
+        if (animal.age_min === undefined || animal.age_min < 3) {
+          return `第 ${i + 1} 個動物的最小月齡必須至少為3個月`
+        }
+        if (animal.age_max === undefined) {
+          return `請填寫第 ${i + 1} 個動物的最大月齡`
+        }
+        if (animal.age_max <= animal.age_min) {
+          return `第 ${i + 1} 個動物的最大月齡必須大於最小月齡`
+        }
+      }
+      // 驗證體重（如果不是"不限"）
+      if (!animal.weight_unlimited) {
+        if (animal.weight_min === undefined || animal.weight_min < 20) {
+          return `第 ${i + 1} 個動物的最小體重必須至少為20公斤`
+        }
+        if (animal.weight_max === undefined) {
+          return `請填寫第 ${i + 1} 個動物的最大體重`
+        }
+        if (animal.weight_max <= animal.weight_min) {
+          return `第 ${i + 1} 個動物的最大體重必須大於最小體重`
         }
       }
     }
@@ -1698,7 +2054,56 @@ export function ProtocolEditPage() {
                             updateWorkingContent('design', 'anesthesia.anesthesia_type', value)
                             // 如果選擇的不是"其他"，清空其他說明
                             if (value !== 'other') {
-                              updateWorkingContent('design', 'anesthesia.other_description', undefined)
+                              updateWorkingContent('design', 'anesthesia.anesthesia_other_description', undefined)
+                            }
+                            // 根據選擇自動處理手術計劃書
+                            if (value === 'survival_surgery') {
+                              // 如果是存活手術，自動設置手術種類為"存活手術"
+                              updateWorkingContent('surgery', 'surgery_type', 'survival')
+                              // 如果術前準備是"略"或為空，設置預設內容
+                              if (formData.working_content.surgery.preop_preparation === '略' || !formData.working_content.surgery.preop_preparation) {
+                                updateWorkingContent('surgery', 'preop_preparation', '1.實驗動物術前禁食至少12小時，不禁水。\n2.試驗豬隻經清洗擦乾後，以畜舒坦( Azeperonum 40 mg/mL)3-5 mg/kg和0.03-0.05 mg/kg阿托平(Atropine® 1 mg/mL)肌肉注射鎮靜。仔細觀察豬隻呼吸頻率。\n3.經20-30分鐘後，以4.4 mg/kg舒泰-50(Zoletil®-50)肌肉注射誘導麻醉\n4.經5-10分鐘後，將豬隻移至手術檯上，以趴姿進行氣管插管，接上氣體麻醉機，以2-3 L/min流速的氧氣混合0.5-2%氣體麻醉劑Isoflurane維持麻醉，隨時注意觀察豬隻麻醉深度。\n5.術前肌肉注射抗生素Cefazolin 15 mg/kg及止痛劑meloxicam 0.4 mg/kg\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行')
+                              }
+                              // 如果手術內容說明是"略"或為空，設置預設內容
+                              if (formData.working_content.surgery.surgery_description === '略' || !formData.working_content.surgery.surgery_description) {
+                                updateWorkingContent('surgery', 'surgery_description', '請詳述手術流程，包含手術位置、手術方法、切創大小及縫合處理')
+                              }
+                              // 如果術中監控為空，設置預設內容
+                              if (!formData.working_content.surgery.monitoring) {
+                                updateWorkingContent('surgery', 'monitoring', '手術進行中依試驗豬隻麻醉深度、呼吸頻率及手術需要，調整氧氣、笑氣流速及麻醉氣體濃度，同時注意保溫，接上生理監視器，監控記錄心跳、呼吸及體溫。\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行')
+                              }
+                              // 術後照護類型由用戶選擇，不自動設置
+                              updateWorkingContent('surgery', 'aseptic_techniques', [])
+                            } else if (value === 'non_survival_surgery') {
+                              // 如果是非存活手術，自動設置手術種類為"非存活手術"
+                              updateWorkingContent('surgery', 'surgery_type', 'non_survival')
+                              // 如果術前準備是"略"或為空，設置預設內容
+                              if (formData.working_content.surgery.preop_preparation === '略' || !formData.working_content.surgery.preop_preparation) {
+                                updateWorkingContent('surgery', 'preop_preparation', '1.實驗動物術前禁食至少12小時，不禁水。\n2.試驗豬隻經清洗擦乾後，以畜舒坦( Azeperonum 40 mg/mL)3-5 mg/kg和0.03-0.05 mg/kg阿托平(Atropine® 1 mg/mL)肌肉注射鎮靜。仔細觀察豬隻呼吸頻率。\n3.經20-30分鐘後，以4.4 mg/kg舒泰-50(Zoletil®-50)肌肉注射誘導麻醉\n4.經5-10分鐘後，將豬隻移至手術檯上，以趴姿進行氣管插管，接上氣體麻醉機，以2-3 L/min流速的氧氣混合0.5-2%氣體麻醉劑Isoflurane維持麻醉，隨時注意觀察豬隻麻醉深度。\n5.術前肌肉注射抗生素Cefazolin 15 mg/kg及止痛劑meloxicam 0.4 mg/kg\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行')
+                              }
+                              // 如果手術內容說明是"略"或為空，設置預設內容
+                              if (formData.working_content.surgery.surgery_description === '略' || !formData.working_content.surgery.surgery_description) {
+                                updateWorkingContent('surgery', 'surgery_description', '請詳述手術流程，包含手術位置、手術方法、切創大小及縫合處理')
+                              }
+                              // 如果術中監控為空，設置預設內容
+                              if (!formData.working_content.surgery.monitoring) {
+                                updateWorkingContent('surgery', 'monitoring', '手術進行中依試驗豬隻麻醉深度、呼吸頻率及手術需要，調整氧氣、笑氣流速及麻醉氣體濃度，同時注意保溫，接上生理監視器，監控記錄心跳、呼吸及體溫。\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行')
+                              }
+                              // 術後照護類型由用戶選擇，不自動設置
+                              updateWorkingContent('surgery', 'aseptic_techniques', [])
+                            } else if (value && value !== '') {
+                              // 如果不是存活手術或非存活手術，自動填寫"略"
+                              updateWorkingContent('surgery', 'surgery_type', '略')
+                              updateWorkingContent('surgery', 'preop_preparation', '略')
+                              updateWorkingContent('surgery', 'surgery_description', '略')
+                              updateWorkingContent('surgery', 'monitoring', '略')
+                              updateWorkingContent('surgery', 'postop_expected_impact', '略')
+                              updateWorkingContent('surgery', 'multiple_surgeries', { used: false, number: 0, reason: '' })
+                              updateWorkingContent('surgery', 'postop_care', '略')
+                              updateWorkingContent('surgery', 'postop_care_type', undefined)
+                              updateWorkingContent('surgery', 'expected_end_point', '略')
+                              updateWorkingContent('surgery', 'drugs', [])
+                              updateWorkingContent('surgery', 'aseptic_techniques', [])
                             }
                           }}
                         >
@@ -2174,6 +2579,331 @@ export function ProtocolEditPage() {
                     )}
                   </div>
                 </div>
+
+                {/* 条件显示：如果 4.4 为"是"，显示 4.5 和 4.6；如果 4.4 为"否"，显示 4.5（管制药品） */}
+                {formData.working_content.design.hazards.used === true && (
+                  <>
+                    <div className="h-px bg-border my-4" />
+
+                    {/* 4.5 危害性物質及其廢棄物處理方式 */}
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-base font-semibold">4.5 危害性物質及其廢棄物處理方式（請附上主觀機關認可之證明文件）</Label>
+                      </div>
+
+                      {/* 4.5.1 施用方法、途徑與使用場所 */}
+                      <div className="space-y-2">
+                        <Label>4.5.1 施用方法、途徑與使用場所</Label>
+                        <Textarea
+                          value={formData.working_content.design.hazards.operation_location_method}
+                          onChange={(e) => updateWorkingContent('design', 'hazards.operation_location_method', e.target.value)}
+                          placeholder="請說明施用方法、途徑與使用場所"
+                          rows={4}
+                        />
+                      </div>
+
+                      {/* 4.5.2 保護措施 */}
+                      <div className="space-y-2">
+                        <Label>4.5.2 保護措施</Label>
+                        <p className="text-sm text-muted-foreground mb-2">針對試驗人員、實驗動物以及飼養環境所採行之保護措施:</p>
+                        <Textarea
+                          value={formData.working_content.design.hazards.protection_measures}
+                          onChange={(e) => updateWorkingContent('design', 'hazards.protection_measures', e.target.value)}
+                          placeholder="請說明保護措施"
+                          rows={4}
+                        />
+                      </div>
+
+                      {/* 4.5.3 實驗廢棄物與屍體之處理方式 */}
+                      <div className="space-y-2">
+                        <Label>4.5.3 實驗廢棄物與屍體之處理方式</Label>
+                        <Textarea
+                          value={formData.working_content.design.hazards.waste_and_carcass_disposal}
+                          onChange={(e) => updateWorkingContent('design', 'hazards.waste_and_carcass_disposal', e.target.value)}
+                          placeholder="請說明實驗廢棄物與屍體之處理方式"
+                          rows={4}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="h-px bg-border my-4" />
+
+                    {/* 4.6 是否使用管制藥品 */}
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>4.6 是否使用管制藥品</Label>
+                        <Select
+                          value={formData.working_content.design.controlled_substances.used === null ? '' : (formData.working_content.design.controlled_substances.used === true ? 'yes' : 'no')}
+                          onValueChange={(value) => {
+                            const isYes = value === 'yes'
+                            updateWorkingContent('design', 'controlled_substances.used', isYes as boolean | null)
+                            // 如果選擇"否"，清空相關欄位
+                            if (!isYes) {
+                              updateWorkingContent('design', 'controlled_substances.items', [])
+                            }
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="請選擇" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="no">否</SelectItem>
+                            <SelectItem value="yes">是</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {formData.working_content.design.controlled_substances.used === true && (
+                        <div className="space-y-4 pl-6 border-l-2 border-slate-200">
+                          <div className="flex justify-between items-center">
+                            <Label className="text-sm font-medium">管制藥品列表</Label>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const items = [...formData.working_content.design.controlled_substances.items, {
+                                  drug_name: '',
+                                  approval_no: '',
+                                  amount: '',
+                                  authorized_person: '',
+                                  photos: []
+                                }]
+                                updateWorkingContent('design', 'controlled_substances.items', items)
+                              }}
+                            >
+                              <Plus className="h-4 w-4 mr-1" />
+                              新增
+                            </Button>
+                          </div>
+                          {formData.working_content.design.controlled_substances.items.map((item, index) => (
+                            <div key={index} className="space-y-3 relative p-3 border rounded bg-slate-50">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="absolute right-2 top-2 h-6 w-6 text-red-500"
+                                onClick={() => {
+                                  const items = [...formData.working_content.design.controlled_substances.items]
+                                  items.splice(index, 1)
+                                  updateWorkingContent('design', 'controlled_substances.items', items)
+                                }}
+                              >
+                                X
+                              </Button>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-2">
+                                  <Label className="text-sm">藥品名稱 *</Label>
+                                  <Input
+                                    value={item.drug_name}
+                                    onChange={(e) => {
+                                      const items = [...formData.working_content.design.controlled_substances.items]
+                                      items[index].drug_name = e.target.value
+                                      updateWorkingContent('design', 'controlled_substances.items', items)
+                                    }}
+                                    placeholder="請填寫藥品名稱"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="text-sm">核准編號 *</Label>
+                                  <Input
+                                    value={item.approval_no}
+                                    onChange={(e) => {
+                                      const items = [...formData.working_content.design.controlled_substances.items]
+                                      items[index].approval_no = e.target.value
+                                      updateWorkingContent('design', 'controlled_substances.items', items)
+                                    }}
+                                    placeholder="請填寫核准編號"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="text-sm">所需用量 *</Label>
+                                  <Input
+                                    value={item.amount}
+                                    onChange={(e) => {
+                                      const items = [...formData.working_content.design.controlled_substances.items]
+                                      items[index].amount = e.target.value
+                                      updateWorkingContent('design', 'controlled_substances.items', items)
+                                    }}
+                                    placeholder="請填寫所需用量"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="text-sm">管制藥品管理人 *</Label>
+                                  <Input
+                                    value={item.authorized_person}
+                                    onChange={(e) => {
+                                      const items = [...formData.working_content.design.controlled_substances.items]
+                                      items[index].authorized_person = e.target.value
+                                      updateWorkingContent('design', 'controlled_substances.items', items)
+                                    }}
+                                    placeholder="請填寫管制藥品管理人"
+                                  />
+                                </div>
+                              </div>
+                              {/* 照片上傳 */}
+                              <div className="space-y-2">
+                                <Label className="text-sm">照片</Label>
+                                <FileUpload
+                                  value={item.photos || []}
+                                  onChange={(photos) => {
+                                    const items = [...formData.working_content.design.controlled_substances.items]
+                                    items[index].photos = photos
+                                    updateWorkingContent('design', 'controlled_substances.items', items)
+                                  }}
+                                  accept="image/*"
+                                  multiple={true}
+                                  maxSize={10}
+                                  maxFiles={10}
+                                  placeholder="拖曳照片到此處，或點擊選擇照片"
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {/* 如果 4.4 为"否"，显示 4.5（管制药品） */}
+                {formData.working_content.design.hazards.used === false && (
+                  <>
+                    <div className="h-px bg-border my-4" />
+
+                    {/* 4.5 是否使用管制藥品 */}
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>4.5 是否使用管制藥品</Label>
+                        <Select
+                          value={formData.working_content.design.controlled_substances.used === null ? '' : (formData.working_content.design.controlled_substances.used === true ? 'yes' : 'no')}
+                          onValueChange={(value) => {
+                            const isYes = value === 'yes'
+                            updateWorkingContent('design', 'controlled_substances.used', isYes as boolean | null)
+                            // 如果選擇"否"，清空相關欄位
+                            if (!isYes) {
+                              updateWorkingContent('design', 'controlled_substances.items', [])
+                            }
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="請選擇" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="no">否</SelectItem>
+                            <SelectItem value="yes">是</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {formData.working_content.design.controlled_substances.used === true && (
+                        <div className="space-y-4 pl-6 border-l-2 border-slate-200">
+                          <div className="flex justify-between items-center">
+                            <Label className="text-sm font-medium">管制藥品列表</Label>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const items = [...formData.working_content.design.controlled_substances.items, {
+                                  drug_name: '',
+                                  approval_no: '',
+                                  amount: '',
+                                  authorized_person: '',
+                                  photos: []
+                                }]
+                                updateWorkingContent('design', 'controlled_substances.items', items)
+                              }}
+                            >
+                              <Plus className="h-4 w-4 mr-1" />
+                              新增
+                            </Button>
+                          </div>
+                          {formData.working_content.design.controlled_substances.items.map((item, index) => (
+                            <div key={index} className="space-y-3 relative p-3 border rounded bg-slate-50">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="absolute right-2 top-2 h-6 w-6 text-red-500"
+                                onClick={() => {
+                                  const items = [...formData.working_content.design.controlled_substances.items]
+                                  items.splice(index, 1)
+                                  updateWorkingContent('design', 'controlled_substances.items', items)
+                                }}
+                              >
+                                X
+                              </Button>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-2">
+                                  <Label className="text-sm">藥品名稱 *</Label>
+                                  <Input
+                                    value={item.drug_name}
+                                    onChange={(e) => {
+                                      const items = [...formData.working_content.design.controlled_substances.items]
+                                      items[index].drug_name = e.target.value
+                                      updateWorkingContent('design', 'controlled_substances.items', items)
+                                    }}
+                                    placeholder="請填寫藥品名稱"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="text-sm">核准編號 *</Label>
+                                  <Input
+                                    value={item.approval_no}
+                                    onChange={(e) => {
+                                      const items = [...formData.working_content.design.controlled_substances.items]
+                                      items[index].approval_no = e.target.value
+                                      updateWorkingContent('design', 'controlled_substances.items', items)
+                                    }}
+                                    placeholder="請填寫核准編號"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="text-sm">所需用量 *</Label>
+                                  <Input
+                                    value={item.amount}
+                                    onChange={(e) => {
+                                      const items = [...formData.working_content.design.controlled_substances.items]
+                                      items[index].amount = e.target.value
+                                      updateWorkingContent('design', 'controlled_substances.items', items)
+                                    }}
+                                    placeholder="請填寫所需用量"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="text-sm">管制藥品管理人 *</Label>
+                                  <Input
+                                    value={item.authorized_person}
+                                    onChange={(e) => {
+                                      const items = [...formData.working_content.design.controlled_substances.items]
+                                      items[index].authorized_person = e.target.value
+                                      updateWorkingContent('design', 'controlled_substances.items', items)
+                                    }}
+                                    placeholder="請填寫管制藥品管理人"
+                                  />
+                                </div>
+                              </div>
+                              {/* 照片上傳 */}
+                              <div className="space-y-2">
+                                <Label className="text-sm">照片</Label>
+                                <FileUpload
+                                  value={item.photos || []}
+                                  onChange={(photos) => {
+                                    const items = [...formData.working_content.design.controlled_substances.items]
+                                    items[index].photos = photos
+                                    updateWorkingContent('design', 'controlled_substances.items', items)
+                                  }}
+                                  accept="image/*"
+                                  multiple={true}
+                                  maxSize={10}
+                                  maxFiles={10}
+                                  placeholder="拖曳照片到此處，或點擊選擇照片"
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           )}
@@ -2190,7 +2920,7 @@ export function ProtocolEditPage() {
                   <Textarea
                     value={formData.working_content.guidelines.content}
                     onChange={(e) => updateWorkingContent('guidelines', 'content', e.target.value)}
-                    placeholder="例如：本計畫遵循動物保護法及實驗動物照護及使用指引..."
+                    placeholder="例如：本計畫遵循動物保護法及實驗動物照護及使用指引"
                     rows={5}
                   />
                 </div>
@@ -2258,59 +2988,361 @@ export function ProtocolEditPage() {
                 <CardDescription>填寫手術種類、術前準備、無菌措施與術後照護</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <Label>手術種類 *</Label>
-                  <Select
-                    value={formData.working_content.surgery.surgery_type}
-                    onValueChange={(val) => updateWorkingContent('surgery', 'surgery_type', val)}
-                  >
-                    <SelectTrigger><SelectValue placeholder="選擇類別" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="survival">存活手術</SelectItem>
-                      <SelectItem value="non_survival">非存活手術</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>術前準備 *</Label>
-                  <Textarea
-                    value={formData.working_content.surgery.preop_preparation}
-                    onChange={(e) => updateWorkingContent('surgery', 'preop_preparation', e.target.value)}
-                    placeholder="說明禁食禁水時間、備皮、消毒等"
-                    rows={3}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>無菌措施 (Aseptic Techniques) *</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {['sterile_instruments', 'mask', 'gloves', 'cap', 'gown', 'drape'].map(item => (
-                      <div key={item} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`aseptic_${item}`}
-                          checked={formData.working_content.surgery.aseptic_techniques.includes(item)}
-                          onChange={(e) => {
-                            const checked = e.target.checked
-                            const current = formData.working_content.surgery.aseptic_techniques
-                            const updated = checked
-                              ? [...current, item]
-                              : current.filter(i => i !== item)
-                            updateWorkingContent('surgery', 'aseptic_techniques', updated)
-                          }}
-                        />
-                        <Label htmlFor={`aseptic_${item}`}>{item}</Label>
+                {(() => {
+                  const needsSurgeryPlan = formData.working_content.design.anesthesia.is_under_anesthesia === true &&
+                    (formData.working_content.design.anesthesia.anesthesia_type === 'survival_surgery' ||
+                     formData.working_content.design.anesthesia.anesthesia_type === 'non_survival_surgery')
+                  
+                  if (!needsSurgeryPlan) {
+                    // 如果不需要填寫手術計劃書，顯示"略"
+                    return (
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>6.1 手術種類</Label>
+                          <Input value="略" disabled />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>6.2 術前準備</Label>
+                          <Textarea value="略" disabled rows={3} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>6.3 無菌措施 (Aseptic Techniques)</Label>
+                          <Input value="略" disabled />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>6.4 手術內容說明</Label>
+                          <Textarea value="略" disabled rows={5} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>6.5 術中監控</Label>
+                          <Textarea value="略" disabled rows={5} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>6.6 存活手術，請說明預期術後可能對實驗動物造成之影響:</Label>
+                          <Textarea value="略" disabled rows={4} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>6.7 動物是否會接受一次以上的手術，若有，則寫出數量及原因:</Label>
+                          <Input value="略" disabled />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>6.8 請說明動物術後照護及止痛給藥方法:</Label>
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label>手術類型</Label>
+                              <Input value="略" disabled />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>詳細內容</Label>
+                              <Textarea value="略" disabled rows={5} />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>6.9 請說明實驗預期結束之時機(Please specify expected experimental end point):</Label>
+                          <Textarea value="略" disabled rows={4} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>6.10 手術用藥資訊，投與麻醉前導、鎮靜、止痛或其他藥物資訊:</Label>
+                          <Input value="略" disabled />
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>手術步驟及時間估算 *</Label>
-                  <Textarea
-                    value={formData.working_content.surgery.surgery_description}
-                    onChange={(e) => updateWorkingContent('surgery', 'surgery_description', e.target.value)}
-                    placeholder="詳細描述手術過程"
-                    rows={5}
-                  />
-                </div>
+                    )
+                  }
+                  
+                  // 如果需要填寫手術計劃書，顯示正常表單
+                  return (
+                    <>
+                      <div className="space-y-2">
+                        <Label>6.1 手術種類 *</Label>
+                        <Input
+                          value={formData.working_content.surgery.surgery_type === 'survival' ? '存活手術' : 
+                                 formData.working_content.surgery.surgery_type === 'non_survival' ? '非存活手術' : 
+                                 formData.working_content.surgery.surgery_type || ''}
+                          disabled
+                          className="bg-slate-50"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>6.2 術前準備 *</Label>
+                        <Textarea
+                          value={formData.working_content.surgery.preop_preparation}
+                          onChange={(e) => updateWorkingContent('surgery', 'preop_preparation', e.target.value)}
+                          placeholder="說明禁食禁水時間、備皮、消毒等"
+                          rows={8}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>6.3 無菌措施 (Aseptic Techniques) *</Label>
+                        <div className="space-y-2">
+                          {[
+                            { value: 'surgical_site_disinfection', label: '動物術部消毒(Surgical site disinfection)' },
+                            { value: 'instrument_disinfection', label: '器械消毒(Instrument disinfection)' },
+                            { value: 'sterilized_gowns_gloves', label: '無菌手術衣及手套(Sterilizd surgical gowns and gloves)' },
+                            { value: 'sterilized_drapes', label: '無菌手術覆布Sterilized surgical drapes' },
+                            { value: 'surgical_hand_disinfection', label: '術者刷手Surgical hand disinfection' }
+                          ].map(item => (
+                            <div key={item.value} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`aseptic_${item.value}`}
+                                checked={formData.working_content.surgery.aseptic_techniques.includes(item.value)}
+                                onChange={(e) => {
+                                  const checked = e.target.checked
+                                  const current = formData.working_content.surgery.aseptic_techniques
+                                  const updated = checked
+                                    ? [...current, item.value]
+                                    : current.filter(i => i !== item.value)
+                                  updateWorkingContent('surgery', 'aseptic_techniques', updated)
+                                }}
+                              />
+                              <Label htmlFor={`aseptic_${item.value}`} className="font-normal cursor-pointer">{item.label}</Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>6.4 手術內容說明 *</Label>
+                        <Textarea
+                          value={formData.working_content.surgery.surgery_description}
+                          onChange={(e) => updateWorkingContent('surgery', 'surgery_description', e.target.value)}
+                          placeholder="請詳述手術流程，包含手術位置、手術方法、切創大小及縫合處理"
+                          rows={5}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>6.5 術中監控 *</Label>
+                        <Textarea
+                          value={formData.working_content.surgery.monitoring}
+                          onChange={(e) => updateWorkingContent('surgery', 'monitoring', e.target.value)}
+                          placeholder="手術進行中依試驗豬隻麻醉深度、呼吸頻率及手術需要，調整氧氣、笑氣流速及麻醉氣體濃度，同時注意保溫，接上生理監視器，監控記錄心跳、呼吸及體溫。依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行"
+                          rows={5}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>6.6 存活手術，請說明預期術後可能對實驗動物造成之影響:</Label>
+                        <Textarea
+                          value={formData.working_content.surgery.postop_expected_impact}
+                          onChange={(e) => updateWorkingContent('surgery', 'postop_expected_impact', e.target.value)}
+                          placeholder="請說明預期術後可能對實驗動物造成之影響"
+                          rows={4}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>6.7 動物是否會接受一次以上的手術，若有，則寫出數量及原因:</Label>
+                        <div className="space-y-4">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="multiple_surgeries"
+                              checked={formData.working_content.surgery.multiple_surgeries.used}
+                              onChange={(e) => {
+                                const checked = e.target.checked
+                                updateWorkingContent('surgery', 'multiple_surgeries.used', checked)
+                                if (!checked) {
+                                  updateWorkingContent('surgery', 'multiple_surgeries.number', 0)
+                                  updateWorkingContent('surgery', 'multiple_surgeries.reason', '')
+                                }
+                              }}
+                            />
+                            <Label htmlFor="multiple_surgeries" className="font-normal cursor-pointer">是</Label>
+                          </div>
+                          {formData.working_content.surgery.multiple_surgeries.used && (
+                            <div className="space-y-4 pl-6 border-l-2 border-slate-200">
+                              <div className="space-y-2">
+                                <Label>數量 *</Label>
+                                <Input
+                                  type="number"
+                                  value={formData.working_content.surgery.multiple_surgeries.number || ''}
+                                  onChange={(e) => updateWorkingContent('surgery', 'multiple_surgeries.number', parseInt(e.target.value) || 0)}
+                                  placeholder="請輸入手術次數"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>原因 *</Label>
+                                <Textarea
+                                  value={formData.working_content.surgery.multiple_surgeries.reason}
+                                  onChange={(e) => updateWorkingContent('surgery', 'multiple_surgeries.reason', e.target.value)}
+                                  placeholder="請說明原因"
+                                  rows={3}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>6.8 請說明動物術後照護及止痛給藥方法: *</Label>
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label>手術類型 *</Label>
+                            <Select
+                              value={formData.working_content.surgery.postop_care_type || ''}
+                              onValueChange={(value) => {
+                                updateWorkingContent('surgery', 'postop_care_type', value as 'orthopedic' | 'non_orthopedic')
+                                // 根據選擇自動設置對應的預設內容
+                                if (value === 'orthopedic') {
+                                  updateWorkingContent('surgery', 'postop_care', '1.術後每日評估豬隻健康狀態，依術後狀況進行傷口護理。\n\n2.術後7日內每日進行疼痛評估依豬隻狀況並依照不同手術給予止痛藥及抗生素\n骨科手術\n止痛藥\nketoprofen 1-3 mg/kg IM SID (3天)\nmeloxicam 0.1-0.4 mg/kg PO SID (4-14天或長期給予)\n抗生素\ncefazolin 15 mg/kg IM BID (1-7天)\ncephalexin 30 mg/kg PO BID (8-14天或長期給予)\n\n3.若動物發生異常情形，則依獸醫師指示處理。\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行')
+                                } else if (value === 'non_orthopedic') {
+                                  updateWorkingContent('surgery', 'postop_care', '1.術後每日評估豬隻健康狀態，依術後狀況進行傷口護理。\n\n2.術後7日內每日進行疼痛評估依豬隻狀況並依照不同手術給予止痛藥及抗生素\n非骨科手術\n止痛藥\nmeloxicam 0.1-0.4 mg/kg IM SID (3天)\nmeloxicam 0.1-0.4 mg/kg PO SID (4-14天或長期給予)\n抗生素\npencillin 10000 u/kg IM SID (1-7天)\namoxicillin 20 mg/kg PO BID (8-14天或長期給予)\n\n3.若動物發生異常情形，則依獸醫師指示處理。\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行')
+                                }
+                              }}
+                            >
+                              <SelectTrigger><SelectValue placeholder="請選擇手術類型" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="orthopedic">骨科手術</SelectItem>
+                                <SelectItem value="non_orthopedic">非骨科手術</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>詳細內容 *</Label>
+                            <Textarea
+                              value={formData.working_content.surgery.postop_care}
+                              onChange={(e) => updateWorkingContent('surgery', 'postop_care', e.target.value)}
+                              placeholder="請說明動物術後照護及止痛給藥方法"
+                              rows={15}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>6.9 請說明實驗預期結束之時機(Please specify expected experimental end point): *</Label>
+                        <Textarea
+                          value={formData.working_content.surgery.expected_end_point}
+                          onChange={(e) => updateWorkingContent('surgery', 'expected_end_point', e.target.value)}
+                          placeholder="請說明實驗預期結束之時機"
+                          rows={4}
+                        />
+                      </div>
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <Label>6.10 手術用藥資訊，投與麻醉前導、鎮靜、止痛或其他藥物資訊 *</Label>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const currentDrugs = formData.working_content.surgery.drugs || []
+                              const newDrugs = [...currentDrugs, {
+                                drug_name: '',
+                                dose: '',
+                                route: '',
+                                frequency: '',
+                                purpose: ''
+                              }]
+                              updateWorkingContent('surgery', 'drugs', newDrugs)
+                            }}
+                          >
+                            + 新增
+                          </Button>
+                        </div>
+                        <div className="border rounded-md overflow-hidden">
+                          <div className="overflow-x-auto">
+                            <table className="w-full border-collapse">
+                              <thead>
+                                <tr className="bg-slate-100">
+                                  <th className="border p-2 text-left text-sm font-semibold">藥品名稱</th>
+                                  <th className="border p-2 text-left text-sm font-semibold">劑量</th>
+                                  <th className="border p-2 text-left text-sm font-semibold">投與途徑</th>
+                                  <th className="border p-2 text-left text-sm font-semibold">頻率</th>
+                                  <th className="border p-2 text-left text-sm font-semibold">給藥目的</th>
+                                  <th className="border p-2 text-center text-sm font-semibold w-16">操作</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {(formData.working_content.surgery.drugs || []).map((drug: any, index: number) => (
+                                  <tr key={index} className="hover:bg-slate-50">
+                                    <td className="border p-2">
+                                      <Input
+                                        value={drug.drug_name || ''}
+                                        onChange={(e) => {
+                                          const newDrugs = [...formData.working_content.surgery.drugs]
+                                          newDrugs[index].drug_name = e.target.value
+                                          updateWorkingContent('surgery', 'drugs', newDrugs)
+                                        }}
+                                        placeholder="藥品名稱"
+                                        className="border-0 focus-visible:ring-0"
+                                      />
+                                    </td>
+                                    <td className="border p-2">
+                                      <Input
+                                        value={drug.dose || ''}
+                                        onChange={(e) => {
+                                          const newDrugs = [...formData.working_content.surgery.drugs]
+                                          newDrugs[index].dose = e.target.value
+                                          updateWorkingContent('surgery', 'drugs', newDrugs)
+                                        }}
+                                        placeholder="劑量"
+                                        className="border-0 focus-visible:ring-0"
+                                      />
+                                    </td>
+                                    <td className="border p-2">
+                                      <Input
+                                        value={drug.route || ''}
+                                        onChange={(e) => {
+                                          const newDrugs = [...formData.working_content.surgery.drugs]
+                                          newDrugs[index].route = e.target.value
+                                          updateWorkingContent('surgery', 'drugs', newDrugs)
+                                        }}
+                                        placeholder="投與途徑"
+                                        className="border-0 focus-visible:ring-0"
+                                      />
+                                    </td>
+                                    <td className="border p-2">
+                                      <Input
+                                        value={drug.frequency || ''}
+                                        onChange={(e) => {
+                                          const newDrugs = [...formData.working_content.surgery.drugs]
+                                          newDrugs[index].frequency = e.target.value
+                                          updateWorkingContent('surgery', 'drugs', newDrugs)
+                                        }}
+                                        placeholder="頻率"
+                                        className="border-0 focus-visible:ring-0"
+                                      />
+                                    </td>
+                                    <td className="border p-2">
+                                      <Input
+                                        value={drug.purpose || ''}
+                                        onChange={(e) => {
+                                          const newDrugs = [...formData.working_content.surgery.drugs]
+                                          newDrugs[index].purpose = e.target.value
+                                          updateWorkingContent('surgery', 'drugs', newDrugs)
+                                        }}
+                                        placeholder="給藥目的"
+                                        className="border-0 focus-visible:ring-0"
+                                      />
+                                    </td>
+                                    <td className="border p-2 text-center">
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-red-500"
+                                        onClick={() => {
+                                          const newDrugs = [...formData.working_content.surgery.drugs]
+                                          newDrugs.splice(index, 1)
+                                          updateWorkingContent('surgery', 'drugs', newDrugs)
+                                        }}
+                                      >
+                                        X
+                                      </Button>
+                                    </td>
+                                  </tr>
+                                ))}
+                                {(!formData.working_content.surgery.drugs || formData.working_content.surgery.drugs.length === 0) && (
+                                  <tr>
+                                    <td colSpan={6} className="border p-4 text-center text-muted-foreground">
+                                      暫無用藥資訊，請點擊「+ 新增」添加
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )
+                })()}
               </CardContent>
             </Card>
           )}
@@ -2324,19 +3356,31 @@ export function ProtocolEditPage() {
               <CardContent className="space-y-6">
                 <div className="space-y-4 border p-4 rounded-md">
                   <div className="flex justify-between items-center">
-                    <h3 className="font-semibold">動物清單</h3>
+                    <h3 className="font-semibold">動物清單（依序添加公母或性別不限）</h3>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => {
                         const currentList = formData.working_content.animals.animals || []
                         const newAnimals = [...currentList, {
-                          species: '', other_species_text: '', sex: '', number: 0, age_range_months: '', weight_range_kg: '', animal_source: '', housing_location: ''
+                          species: '' as '' | 'pig' | 'other',
+                          species_other: '',
+                          strain: undefined,
+                          strain_other: '',
+                          sex: '',
+                          number: 0,
+                          age_min: undefined,
+                          age_max: undefined,
+                          age_unlimited: false,
+                          weight_min: undefined,
+                          weight_max: undefined,
+                          weight_unlimited: false,
+                          housing_location: '豬博士畜牧場'
                         }]
                         updateWorkingContent('animals', 'animals', newAnimals) // Special case for direct array update if passing null key or just replace 'animals'
                       }}
                     >
-                      新增動物
+                      ＋新增動物
                     </Button>
                   </div>
                   {/* Helper to update entire animals array */}
@@ -2357,127 +3401,338 @@ export function ProtocolEditPage() {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>物種 *</Label>
-                          <Input
-                            value={animal.species}
-                            onChange={(e) => {
+                          <Select
+                            value={animal.species || ''}
+                            onValueChange={(value) => {
                               const newAnimals = [...formData.working_content.animals.animals]
-                              newAnimals[index].species = e.target.value
+                              newAnimals[index].species = value as 'pig' | 'other'
+                              if (value !== 'other') {
+                                newAnimals[index].species_other = ''
+                              }
+                              if (value !== 'pig') {
+                                newAnimals[index].strain = undefined
+                                newAnimals[index].strain_other = ''
+                              }
                               updateWorkingContent('animals', 'animals', newAnimals)
                             }}
-                          />
+                          >
+                            <SelectTrigger><SelectValue placeholder="請選擇物種" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pig">豬</SelectItem>
+                              <SelectItem value="other">其他</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {animal.species === 'other' && (
+                            <Input
+                              value={animal.species_other || ''}
+                              onChange={(e) => {
+                                const newAnimals = [...formData.working_content.animals.animals]
+                                newAnimals[index].species_other = e.target.value
+                                updateWorkingContent('animals', 'animals', newAnimals)
+                              }}
+                              placeholder="請填寫物種"
+                            />
+                          )}
                         </div>
                         <div className="space-y-2">
-                          <Label>品系 (Strain)</Label>
-                          <Input
-                            value={animal.other_species_text || ''}
-                            onChange={(e) => {
-                              const newAnimals = [...formData.working_content.animals.animals]
-                              newAnimals[index].other_species_text = e.target.value
-                              updateWorkingContent('animals', 'animals', newAnimals)
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <Label>性別</Label>
-                          <Input
-                            value={animal.sex}
-                            onChange={(e) => {
-                              const newAnimals = [...formData.working_content.animals.animals]
-                              newAnimals[index].sex = e.target.value
-                              updateWorkingContent('animals', 'animals', newAnimals)
-                            }}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>數量</Label>
-                          <Input
-                            type="number"
-                            value={animal.number}
-                            onChange={(e) => {
-                              const newAnimals = [...formData.working_content.animals.animals]
-                              newAnimals[index].number = parseInt(e.target.value) || 0
-                              updateWorkingContent('animals', 'animals', newAnimals)
-                            }}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>年齡</Label>
-                          <Input
-                            value={animal.age_range_months}
-                            onChange={(e) => {
-                              const newAnimals = [...formData.working_content.animals.animals]
-                              newAnimals[index].age_range_months = e.target.value
-                              updateWorkingContent('animals', 'animals', newAnimals)
-                            }}
-                          />
+                          <Label>品系</Label>
+                          {animal.species === 'pig' ? (
+                            <Select
+                              value={animal.strain || ''}
+                              onValueChange={(value) => {
+                                const newAnimals = [...formData.working_content.animals.animals]
+                                newAnimals[index].strain = value as 'white_pig' | 'mini_pig'
+                                updateWorkingContent('animals', 'animals', newAnimals)
+                              }}
+                            >
+                              <SelectTrigger><SelectValue placeholder="請選擇品系" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="white_pig">白豬</SelectItem>
+                                <SelectItem value="mini_pig">迷你豬</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          ) : animal.species === 'other' ? (
+                            <Input
+                              value={animal.strain_other || ''}
+                              onChange={(e) => {
+                                const newAnimals = [...formData.working_content.animals.animals]
+                                newAnimals[index].strain_other = e.target.value
+                                updateWorkingContent('animals', 'animals', newAnimals)
+                              }}
+                              placeholder="請填寫品系"
+                            />
+                          ) : (
+                            <Input disabled placeholder="請先選擇物種" />
+                          )}
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>體重範圍</Label>
-                          <Input
-                            value={animal.weight_range_kg}
-                            onChange={(e) => {
+                          <Label>性別 *</Label>
+                          <Select
+                            value={animal.sex || ''}
+                            onValueChange={(value) => {
                               const newAnimals = [...formData.working_content.animals.animals]
-                              newAnimals[index].weight_range_kg = e.target.value
+                              newAnimals[index].sex = value
                               updateWorkingContent('animals', 'animals', newAnimals)
                             }}
-                          />
+                          >
+                            <SelectTrigger><SelectValue placeholder="請選擇性別" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="male">公</SelectItem>
+                              <SelectItem value="female">母</SelectItem>
+                              <SelectItem value="unlimited">不限</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label>來源</Label>
-                          <div className="space-y-2">
-                            <Select
-                              value={animal.animal_source === '豬博士畜牧場' ? 'pig_doctor' : 'other'}
-                              onValueChange={(val) => {
+                          <Label>數量 *</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={animal.number || ''}
+                            onChange={(e) => {
+                              const newAnimals = [...formData.working_content.animals.animals]
+                              const value = parseInt(e.target.value) || 0
+                              newAnimals[index].number = value >= 0 ? value : 0
+                              updateWorkingContent('animals', 'animals', newAnimals)
+                            }}
+                            placeholder="請輸入數量"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>年齡：</Label>
+                        <div className="flex gap-4 items-start">
+                          <div className="flex-1">
+                            {!animal.age_unlimited && (
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <Label>最小年齡 (月齡)</Label>
+                                  <Input
+                                    type="number"
+                                    min="3"
+                                    step="1"
+                                    value={animal.age_min || ''}
+                                    onChange={(e) => {
+                                      const newAnimals = [...formData.working_content.animals.animals]
+                                      const value = parseInt(e.target.value)
+                                      if (value >= 3) {
+                                        newAnimals[index].age_min = value
+                                        // 如果最大月齡小於等於新的最小月齡，自動調整最大月齡
+                                        if (newAnimals[index].age_max !== undefined && newAnimals[index].age_max <= value) {
+                                          newAnimals[index].age_max = value + 1
+                                        }
+                                      } else if (value < 3 && value > 0) {
+                                        newAnimals[index].age_min = 3
+                                        // 如果最大月齡小於等於3，自動調整最大月齡
+                                        if (newAnimals[index].age_max !== undefined && newAnimals[index].age_max <= 3) {
+                                          newAnimals[index].age_max = 4
+                                        }
+                                      } else {
+                                        newAnimals[index].age_min = undefined
+                                      }
+                                      updateWorkingContent('animals', 'animals', newAnimals)
+                                    }}
+                                    placeholder="最小月齡（至少3）"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>最大年齡 (月齡)</Label>
+                                  <Input
+                                    type="number"
+                                    min={animal.age_min !== undefined ? animal.age_min + 1 : 4}
+                                    step="1"
+                                    value={animal.age_max || ''}
+                                    onChange={(e) => {
+                                      const newAnimals = [...formData.working_content.animals.animals]
+                                      const value = parseInt(e.target.value)
+                                      const minAge = newAnimals[index].age_min || 3
+                                      if (value > minAge) {
+                                        newAnimals[index].age_max = value
+                                      } else if (value <= minAge && value > 0) {
+                                        newAnimals[index].age_max = minAge + 1
+                                      } else {
+                                        newAnimals[index].age_max = undefined
+                                      }
+                                      updateWorkingContent('animals', 'animals', newAnimals)
+                                    }}
+                                    placeholder="最大月齡"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id={`age_unlimited_${index}`}
+                              checked={animal.age_unlimited || false}
+                              onChange={(e) => {
                                 const newAnimals = [...formData.working_content.animals.animals]
-                                if (val === 'pig_doctor') {
-                                  newAnimals[index].animal_source = '豬博士畜牧場'
-                                } else {
-                                  // If switching to 'other' and current value is predefined, clear it
-                                  if (newAnimals[index].animal_source === '豬博士畜牧場') {
-                                    newAnimals[index].animal_source = ''
-                                  }
+                                newAnimals[index].age_unlimited = e.target.checked
+                                if (e.target.checked) {
+                                  newAnimals[index].age_min = undefined
+                                  newAnimals[index].age_max = undefined
                                 }
                                 updateWorkingContent('animals', 'animals', newAnimals)
                               }}
-                            >
-                              <SelectTrigger><SelectValue placeholder="選擇來源" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="pig_doctor">豬博士畜牧場</SelectItem>
-                                <SelectItem value="other">其他</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            {animal.animal_source !== '豬博士畜牧場' && (
-                              <Input
-                                value={animal.animal_source}
-                                onChange={(e) => {
-                                  const newAnimals = [...formData.working_content.animals.animals]
-                                  newAnimals[index].animal_source = e.target.value
-                                  updateWorkingContent('animals', 'animals', newAnimals)
-                                }}
-                                placeholder="請填寫動物來源"
-                              />
-                            )}
+                            />
+                            <Label htmlFor={`age_unlimited_${index}`} className="font-normal cursor-pointer">不限</Label>
                           </div>
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label>飼養與環境</Label>
-                        <Textarea
-                          value={animal.housing_location}
-                          onChange={(e) => {
-                            const newAnimals = [...formData.working_content.animals.animals]
-                            newAnimals[index].housing_location = e.target.value
-                            updateWorkingContent('animals', 'animals', newAnimals)
-                          }}
-                          rows={2}
-                        />
+                        <Label>體重範圍：</Label>
+                        <div className="flex gap-4 items-start">
+                          <div className="flex-1">
+                            {!animal.weight_unlimited && (
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <Label>最小體重 (kg)</Label>
+                                    <Input
+                                      type="number"
+                                      min="20"
+                                      step="5"
+                                      value={animal.weight_min || ''}
+                                      onChange={(e) => {
+                                        const newAnimals = [...formData.working_content.animals.animals]
+                                        const value = parseFloat(e.target.value)
+                                        if (value >= 20) {
+                                          const roundedValue = Math.round(value / 5) * 5
+                                          newAnimals[index].weight_min = roundedValue >= 20 ? roundedValue : 20
+                                          // 如果最大體重小於等於新的最小體重，自動調整最大體重
+                                          if (newAnimals[index].weight_max !== undefined && newAnimals[index].weight_max <= roundedValue) {
+                                            newAnimals[index].weight_max = roundedValue + 5
+                                          }
+                                        } else if (value < 20 && value > 0) {
+                                          newAnimals[index].weight_min = 20
+                                          // 如果最大體重小於等於20，自動調整最大體重
+                                          if (newAnimals[index].weight_max !== undefined && newAnimals[index].weight_max <= 20) {
+                                            newAnimals[index].weight_max = 25
+                                          }
+                                        } else {
+                                          newAnimals[index].weight_min = undefined
+                                        }
+                                        updateWorkingContent('animals', 'animals', newAnimals)
+                                      }}
+                                      placeholder="最小體重（至少20kg）"
+                                    />
+                                    <p className="text-xs text-muted-foreground">每五公斤一個區間</p>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label>最大體重 (kg)</Label>
+                                    <Input
+                                      type="number"
+                                      min={animal.weight_min !== undefined ? animal.weight_min + 5 : 25}
+                                      step="5"
+                                      value={animal.weight_max || ''}
+                                      onChange={(e) => {
+                                        const newAnimals = [...formData.working_content.animals.animals]
+                                        const value = parseFloat(e.target.value)
+                                        const minWeight = newAnimals[index].weight_min || 20
+                                        if (value > minWeight) {
+                                          newAnimals[index].weight_max = Math.round(value / 5) * 5
+                                          // 確保最大體重大於最小體重
+                                          if (newAnimals[index].weight_max <= minWeight) {
+                                            newAnimals[index].weight_max = minWeight + 5
+                                          }
+                                        } else if (value <= minWeight && value > 0) {
+                                          newAnimals[index].weight_max = minWeight + 5
+                                        } else {
+                                          newAnimals[index].weight_max = undefined
+                                        }
+                                        updateWorkingContent('animals', 'animals', newAnimals)
+                                      }}
+                                      placeholder="最大體重（必須大於最小體重）"
+                                    />
+                                  </div>
+                                </div>
+                                {animal.weight_min !== undefined && animal.weight_max !== undefined && (
+                                  <div className="space-y-4">
+                                    <div className="space-y-2">
+                                      <Label>調整區間 - 最小體重</Label>
+                                      <Slider
+                                        min={20}
+                                        max={Math.max(200, (animal.weight_max || 0) + 50)}
+                                        step={5}
+                                        value={animal.weight_min ?? 20}
+                                        onChange={(value: number) => {
+                                          const newAnimals = [...formData.working_content.animals.animals]
+                                          const minValue = Math.max(20, Math.round(value / 5) * 5)
+                                          newAnimals[index].weight_min = minValue
+                                          // 確保最小值不大於最大值，且最大體重必須大於最小體重
+                                          if (minValue >= (animal.weight_max || 0)) {
+                                            newAnimals[index].weight_max = minValue + 5
+                                          }
+                                          updateWorkingContent('animals', 'animals', newAnimals)
+                                        }}
+                                        className="w-full"
+                                      />
+                                      <p className="text-xs text-muted-foreground text-center">{animal.weight_min || 20} kg</p>
+                                    </div>
+                                    <div className="space-y-2">
+                                      <Label>調整區間 - 最大體重</Label>
+                                      <Slider
+                                        min={Math.max(25, (animal.weight_min || 20) + 5)}
+                                        max={200}
+                                        step={5}
+                                        value={animal.weight_max ?? 25}
+                                        onChange={(value: number) => {
+                                          const newAnimals = [...formData.working_content.animals.animals]
+                                          const maxValue = Math.round(value / 5) * 5
+                                          const minWeight = newAnimals[index].weight_min || 20
+                                          // 確保最大值大於最小值
+                                          if (maxValue > minWeight) {
+                                            newAnimals[index].weight_max = maxValue
+                                          } else {
+                                            newAnimals[index].weight_max = minWeight + 5
+                                          }
+                                          updateWorkingContent('animals', 'animals', newAnimals)
+                                        }}
+                                        className="w-full"
+                                      />
+                                      <p className="text-xs text-muted-foreground text-center">{animal.weight_max || 25} kg</p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id={`weight_unlimited_${index}`}
+                              checked={animal.weight_unlimited || false}
+                              onChange={(e) => {
+                                const newAnimals = [...formData.working_content.animals.animals]
+                                newAnimals[index].weight_unlimited = e.target.checked
+                                if (e.target.checked) {
+                                  newAnimals[index].weight_min = undefined
+                                  newAnimals[index].weight_max = undefined
+                                }
+                                updateWorkingContent('animals', 'animals', newAnimals)
+                              }}
+                            />
+                            <Label htmlFor={`weight_unlimited_${index}`} className="font-normal cursor-pointer">不限</Label>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>飼養環境：豬博士畜牧場</Label>
                       </div>
                     </div>
                   ))}
+                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                    <h4 className="font-semibold text-sm mb-2">備註：</h4>
+                    <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+                      <li>※豬/白豬，來源：國內繁殖場(豬博士畜牧場)；豬/迷你豬，來源：國內繁殖場(豬博士畜牧場)</li>
+                      <li>※性別：公、母或不限。</li>
+                      <li>※年齡：大約月齡範圍(以上)或不限。</li>
+                      <li>※體重：大約體重範圍或不限。</li>
+                      <li>※白豬成長快速，7個月齡可達100公斤，觀察期超過3個月建議使用迷你豬進行試驗。</li>
+                    </ul>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -2489,11 +3744,368 @@ export function ProtocolEditPage() {
                 <CardTitle>8. 試驗人員資料<br />(Personnel Working on Animal Study)</CardTitle>
                 <CardDescription>參與本計畫之試驗人員清單與資格</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="h-12 w-12 mx-auto mb-2" />
-                  <p>人員名單管理功能尚未開放</p>
-                  <p className="text-sm">可先在計畫內容中補充說明</p>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-semibold">8.1 負責進行動物試驗之相關人員資料</h3>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const currentPersonnel = formData.working_content.personnel || []
+                        const maxId = currentPersonnel.length > 0 
+                          ? Math.max(...currentPersonnel.map((p: any) => p.id || 0))
+                          : 0
+                        const newPersonnel = [...currentPersonnel, {
+                          id: maxId + 1,
+                          name: '',
+                          position: '',
+                          roles: [],
+                          roles_other_text: '',
+                          years_experience: 0,
+                          trainings: [],
+                          training_certificates: []
+                        }]
+                        setFormData((prev) => ({
+                          ...prev,
+                          working_content: {
+                            ...prev.working_content,
+                            personnel: newPersonnel
+                          }
+                        }))
+                      }}
+                    >
+                      + 新增
+                    </Button>
+                  </div>
+                  <div className="border rounded-md overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="bg-slate-100">
+                            <th className="border p-2 text-left text-sm font-semibold">編號</th>
+                            <th className="border p-2 text-left text-sm font-semibold">姓名</th>
+                            <th className="border p-2 text-left text-sm font-semibold">職稱</th>
+                            <th className="border p-2 text-left text-sm font-semibold">工作內容</th>
+                            <th className="border p-2 text-left text-sm font-semibold">參與動物試驗年數</th>
+                            <th className="border p-2 text-left text-sm font-semibold">訓練/資格/取得時間</th>
+                            <th className="border p-2 text-center text-sm font-semibold w-16">操作</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(formData.working_content.personnel || []).map((person: any, index: number) => (
+                            <tr key={index} className="hover:bg-slate-50">
+                              <td className="border p-2">
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  value={person.id || index + 1}
+                                  onChange={(e) => {
+                                    const newPersonnel = [...formData.working_content.personnel]
+                                    newPersonnel[index].id = parseInt(e.target.value) || index + 1
+                                    setFormData((prev) => ({
+                          ...prev,
+                          working_content: {
+                            ...prev.working_content,
+                            personnel: newPersonnel
+                          }
+                        }))
+                                  }}
+                                  className="border-0 focus-visible:ring-0 w-16"
+                                />
+                              </td>
+                              <td className="border p-2">
+                                <Input
+                                  value={person.name || ''}
+                                  onChange={(e) => {
+                                    const newPersonnel = [...formData.working_content.personnel]
+                                    newPersonnel[index].name = e.target.value
+                                    setFormData((prev) => ({
+                          ...prev,
+                          working_content: {
+                            ...prev.working_content,
+                            personnel: newPersonnel
+                          }
+                        }))
+                                  }}
+                                  placeholder="姓名"
+                                  className="border-0 focus-visible:ring-0"
+                                />
+                              </td>
+                              <td className="border p-2">
+                                <Input
+                                  value={person.position || ''}
+                                  onChange={(e) => {
+                                    const newPersonnel = [...formData.working_content.personnel]
+                                    newPersonnel[index].position = e.target.value
+                                    setFormData((prev) => ({
+                          ...prev,
+                          working_content: {
+                            ...prev.working_content,
+                            personnel: newPersonnel
+                          }
+                        }))
+                                  }}
+                                  placeholder="職稱"
+                                  className="border-0 focus-visible:ring-0"
+                                />
+                              </td>
+                              <td className="border p-2">
+                                <div className="space-y-2 min-w-[300px]">
+                                  <div className="flex flex-wrap gap-2">
+                                    {[
+                                      { value: 'a', label: 'a.計畫督導(Supervision)' },
+                                      { value: 'b', label: 'b.飼養照顧(Animal care)' },
+                                      { value: 'c', label: 'c.保定(Restraint)' },
+                                      { value: 'd', label: 'd.麻醉止痛(Anesthesia and analgesia)' },
+                                      { value: 'e', label: 'e.手術(Surgery)' },
+                                      { value: 'f', label: 'f.手術支援(Surgery assistance)' },
+                                      { value: 'g', label: 'g.觀察監測(Monitoring)' },
+                                      { value: 'h', label: 'h.安樂死(Euthanasia)' },
+                                      { value: 'i', label: 'i.其他(Other)' }
+                                    ].map(role => (
+                                      <div key={role.value} className="flex items-center space-x-1">
+                                        <Checkbox
+                                          id={`role_${index}_${role.value}`}
+                                          checked={(person.roles || []).includes(role.value)}
+                                          onChange={(e) => {
+                                            const newPersonnel = [...formData.working_content.personnel]
+                                            const currentRoles = newPersonnel[index].roles || []
+                                            if (e.target.checked) {
+                                              newPersonnel[index].roles = [...currentRoles, role.value]
+                                            } else {
+                                              newPersonnel[index].roles = currentRoles.filter((r: string) => r !== role.value)
+                                              if (role.value === 'i') {
+                                                newPersonnel[index].roles_other_text = ''
+                                              }
+                                            }
+                                            setFormData((prev) => ({
+                          ...prev,
+                          working_content: {
+                            ...prev.working_content,
+                            personnel: newPersonnel
+                          }
+                        }))
+                                          }}
+                                        />
+                                        <Label htmlFor={`role_${index}_${role.value}`} className="text-xs font-normal cursor-pointer">{role.label}</Label>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {(person.roles || []).includes('i') && (
+                                    <Input
+                                      value={person.roles_other_text || ''}
+                                      onChange={(e) => {
+                                        const newPersonnel = [...formData.working_content.personnel]
+                                        newPersonnel[index].roles_other_text = e.target.value
+                                        setFormData((prev) => ({
+                          ...prev,
+                          working_content: {
+                            ...prev.working_content,
+                            personnel: newPersonnel
+                          }
+                        }))
+                                      }}
+                                      placeholder="請說明其他工作內容 *"
+                                      className="mt-2"
+                                    />
+                                  )}
+                                </div>
+                              </td>
+                              <td className="border p-2">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  value={person.years_experience || ''}
+                                  onChange={(e) => {
+                                    const newPersonnel = [...formData.working_content.personnel]
+                                    newPersonnel[index].years_experience = parseInt(e.target.value) || 0
+                                    setFormData((prev) => ({
+                          ...prev,
+                          working_content: {
+                            ...prev.working_content,
+                            personnel: newPersonnel
+                          }
+                        }))
+                                  }}
+                                  placeholder="年數"
+                                  className="border-0 focus-visible:ring-0 w-20"
+                                />
+                              </td>
+                              <td className="border p-2">
+                                <div className="space-y-2 min-w-[400px]">
+                                  <div className="flex flex-wrap gap-2 mb-2">
+                                    {[
+                                      { value: 'A', label: 'A. 實驗動物照護及使用委員會或小組成員訓練班' },
+                                      { value: 'B', label: 'B. IACUC教育訓練研討會' },
+                                      { value: 'C', label: 'C. 輻射安全訓練班' },
+                                      { value: 'D', label: 'D. 生醫產業用畜禽應用研習會及技術研習會' },
+                                      { value: 'E', label: 'E. 實驗動物法規及照護管理班' }
+                                    ].map(training => (
+                                      <div key={training.value} className="flex items-center space-x-1">
+                                        <Checkbox
+                                          id={`training_${index}_${training.value}`}
+                                          checked={(person.trainings || []).includes(training.value)}
+                                          onChange={(e) => {
+                                            const newPersonnel = [...formData.working_content.personnel]
+                                            const currentTrainings = newPersonnel[index].trainings || []
+                                            if (e.target.checked) {
+                                              newPersonnel[index].trainings = [...currentTrainings, training.value]
+                                            } else {
+                                              newPersonnel[index].trainings = currentTrainings.filter((t: string) => t !== training.value)
+                                              // 移除該訓練的所有證書
+                                              newPersonnel[index].training_certificates = (newPersonnel[index].training_certificates || []).filter(
+                                                (cert: any) => cert.training_code !== training.value
+                                              )
+                                            }
+                                            setFormData((prev) => ({
+                          ...prev,
+                          working_content: {
+                            ...prev.working_content,
+                            personnel: newPersonnel
+                          }
+                        }))
+                                          }}
+                                        />
+                                        <Label htmlFor={`training_${index}_${training.value}`} className="text-xs font-normal cursor-pointer">{training.label}</Label>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {/* 顯示每個已選訓練的證書編號列表 */}
+                                  {(person.trainings || []).map((trainingCode: string) => {
+                                    const certificates = (person.training_certificates || []).filter((cert: any) => cert.training_code === trainingCode)
+                                    return (
+                                      <div key={trainingCode} className="space-y-1 pl-4 border-l-2 border-slate-200">
+                                        <Label className="text-xs font-semibold">{trainingCode}:</Label>
+                                        {certificates.map((cert: any, certIndex: number) => {
+                                          // 找到該證書在完整 training_certificates 數組中的索引
+                                          const allCerts = person.training_certificates || []
+                                          let globalCertIndex = -1
+                                          let count = 0
+                                          for (let i = 0; i < allCerts.length; i++) {
+                                            if (allCerts[i].training_code === trainingCode) {
+                                              if (count === certIndex) {
+                                                globalCertIndex = i
+                                                break
+                                              }
+                                              count++
+                                            }
+                                          }
+                                          
+                                          return (
+                                            <div key={certIndex} className="flex items-center gap-2">
+                                              <Input
+                                                value={cert.certificate_no || ''}
+                                                onChange={(e) => {
+                                                  const newPersonnel = [...formData.working_content.personnel]
+                                                  const certs = [...(newPersonnel[index].training_certificates || [])]
+                                                  if (globalCertIndex >= 0 && globalCertIndex < certs.length) {
+                                                    certs[globalCertIndex].certificate_no = e.target.value
+                                                    newPersonnel[index].training_certificates = certs
+                                                    setFormData((prev) => ({
+                                                      ...prev,
+                                                      working_content: {
+                                                        ...prev.working_content,
+                                                        personnel: newPersonnel
+                                                      }
+                                                    }))
+                                                  }
+                                                }}
+                                                placeholder="證書編號"
+                                                className="text-xs h-7"
+                                              />
+                                              <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 text-red-500"
+                                                onClick={() => {
+                                                  const newPersonnel = [...formData.working_content.personnel]
+                                                  const certs = [...(newPersonnel[index].training_certificates || [])]
+                                                  if (globalCertIndex >= 0 && globalCertIndex < certs.length) {
+                                                    certs.splice(globalCertIndex, 1)
+                                                    newPersonnel[index].training_certificates = certs
+                                                    setFormData((prev) => ({
+                                                      ...prev,
+                                                      working_content: {
+                                                        ...prev.working_content,
+                                                        personnel: newPersonnel
+                                                      }
+                                                    }))
+                                                  }
+                                                }}
+                                              >
+                                                X
+                                              </Button>
+                                            </div>
+                                          )
+                                        })}
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-7 text-xs"
+                                          onClick={() => {
+                                            const newPersonnel = [...formData.working_content.personnel]
+                                            if (!newPersonnel[index].training_certificates) {
+                                              newPersonnel[index].training_certificates = []
+                                            }
+                                            newPersonnel[index].training_certificates.push({
+                                              training_code: trainingCode,
+                                              certificate_no: ''
+                                            })
+                                            setFormData((prev) => ({
+                          ...prev,
+                          working_content: {
+                            ...prev.working_content,
+                            personnel: newPersonnel
+                          }
+                        }))
+                                          }}
+                                        >
+                                          + 新增證書
+                                        </Button>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </td>
+                              <td className="border p-2 text-center">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-red-500"
+                                  onClick={() => {
+                                    const newPersonnel = [...formData.working_content.personnel]
+                                    newPersonnel.splice(index, 1)
+                                    setFormData((prev) => ({
+                          ...prev,
+                          working_content: {
+                            ...prev.working_content,
+                            personnel: newPersonnel
+                          }
+                        }))
+                                  }}
+                                >
+                                  X
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                          {(!formData.working_content.personnel || formData.working_content.personnel.length === 0) && (
+                            <tr>
+                              <td colSpan={7} className="border p-4 text-center text-muted-foreground">
+                                暫無人員資料，請點擊「+ 新增」添加
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
