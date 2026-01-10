@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { ProtocolListItem, ProtocolStatus, protocolStatusNames } from '@/lib/api'
@@ -52,7 +52,8 @@ export function ProtocolsPage() {
       if (statusFilter && statusFilter !== 'all') params += `status=${statusFilter}&`
       if (search) params += `keyword=${encodeURIComponent(search)}&`
       const response = await api.get<ProtocolListItem[]>(`/protocols?${params}`)
-      return response.data
+      // 雙重保險：即使後端返回了 DELETED 狀態，前端也要過濾掉
+      return response.data.filter(p => p.status !== 'DELETED')
     },
   })
 
@@ -138,11 +139,13 @@ export function ProtocolsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">全部狀態</SelectItem>
-              {Object.entries(protocolStatusNames).map(([key, name]) => (
-                <SelectItem key={key} value={key}>
-                  {name}
-                </SelectItem>
-              ))}
+              {Object.entries(protocolStatusNames)
+                .filter(([key]) => key !== 'DELETED')
+                .map(([key, name]) => (
+                  <SelectItem key={key} value={key}>
+                    {name}
+                  </SelectItem>
+                ))}
             </SelectContent>
           </Select>
 

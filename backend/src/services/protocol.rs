@@ -89,10 +89,14 @@ impl ProtocolService {
             "#
         );
 
+        // 始終排除已刪除的計畫書
+        sql.push_str(" AND p.status != 'DELETED'");
+        
         if let Some(status) = query.status {
-            sql.push_str(&format!(" AND p.status = '{}'", status.as_str()));
-        } else {
-            sql.push_str(" AND p.status != 'DELETED'");
+            // 如果指定了狀態過濾，且不是 DELETED，則添加狀態條件
+            if status != ProtocolStatus::Deleted {
+                sql.push_str(&format!(" AND p.status = '{}'", status.as_str()));
+            }
         }
         if query.pi_user_id.is_some() {
             sql.push_str(" AND p.pi_user_id = $2");
@@ -491,7 +495,7 @@ impl ProtocolService {
             FROM protocols p
             LEFT JOIN users u ON p.pi_user_id = u.id
             INNER JOIN user_protocols up ON p.id = up.protocol_id
-            WHERE up.user_id = $1
+            WHERE up.user_id = $1 AND p.status != 'DELETED'
             ORDER BY p.created_at DESC
             "#
         )
