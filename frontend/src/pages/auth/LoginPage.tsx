@@ -58,7 +58,7 @@ export function LoginPage() {
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-600">
           <ClipboardList className="h-8 w-8 text-white" />
         </div>
-        <CardTitle className="text-2xl font-bold">進銷存管理系統</CardTitle>
+        <CardTitle className="text-2xl font-bold">iPig 統一入口門戶</CardTitle>
         <CardDescription>請輸入您的帳號密碼登入系統</CardDescription>
       </CardHeader>
       <CardContent>
@@ -115,16 +115,16 @@ export function LoginPage() {
             )}
           </Button>
         </form>
-        
+
         <div className="mt-4 text-center">
-          <Link 
-            to="/forgot-password" 
+          <Link
+            to="/forgot-password"
             className="text-sm text-blue-600 hover:text-blue-700 hover:underline"
           >
             忘記密碼？
           </Link>
         </div>
-        
+
         <div className="mt-6 text-center text-sm text-muted-foreground">
           <p>預設管理員帳號：admin@erp.local</p>
           <p>預設密碼：admin123</p>

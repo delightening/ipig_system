@@ -54,8 +54,8 @@ async fn main() -> anyhow::Result<()> {
         .connect(&config.database_url)
         .await?;
 
-    // Run migrations (disabled - migrations already run manually)
-    // sqlx::migrate!("./migrations").run(&pool).await?;
+    // Run migrations
+    sqlx::migrate!("./migrations").run(&pool).await?;
 
     tracing::info!("Database connection established");
 

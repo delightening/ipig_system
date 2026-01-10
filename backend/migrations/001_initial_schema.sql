@@ -386,7 +386,7 @@ WHERE r.code = 'approver'
 INSERT INTO users (id, email, password_hash, display_name, is_active, created_at, updated_at)
 VALUES (
     gen_random_uuid(),
-    'admin@erp.local',
+    'admin@ipig.local',
     '$argon2id$v=19$m=19456,t=2,p=1$Z/2b+2ciQvX6LNhEnutXxA$6h0UrmyUFr2YG1KOWuRQo2kaZUqw/ohhP4+bZblmiZM',
     '系統管理員',
     true,
@@ -398,4 +398,4 @@ VALUES (
 INSERT INTO user_roles (user_id, role_id)
 SELECT u.id, r.id 
 FROM users u, roles r 
-WHERE u.email = 'admin@erp.local' AND r.code = 'admin';
+WHERE u.email = 'admin@ipig.local' AND r.code = 'admin';

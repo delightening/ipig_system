@@ -60,21 +60,26 @@
 |---------|---|
 | SMTP Server | smtp.gmail.com |
 | Port | 587 (TLS) 或 465 (SSL) |
-| 帳號 | zoonoticdisease@gmail.com |
-| 密碼 | djiziuzeotcrlefc（App Password） |
+| 帳號 | 從環境變數 `SMTP_USERNAME` 讀取 |
+| 密碼 | 從環境變數 `SMTP_PASSWORD` 讀取（App Password） |
 | 寄件者名稱 | 豬博士動物科技 |
 
 **環境變數設定（.env）：**
 ```env
 # Email SMTP Configuration
+# ⚠️ 重要：所有敏感資訊請透過環境變數設定，不要直接寫在程式碼中
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=zoonoticdisease@gmail.com
-SMTP_PASS=djiziuzeotcrlefc
+SMTP_USERNAME=your-email@gmail.com
+SMTP_PASSWORD=your-app-password-here
 SMTP_FROM_NAME=豬博士動物科技
-SMTP_FROM_EMAIL=zoonoticdisease@gmail.com
+SMTP_FROM_EMAIL=your-email@gmail.com
 ```
+
+**注意事項：**
+- 使用 Gmail 時，需要在 Google 帳號設定中產生「應用程式密碼」（App Password）
+- 所有 SMTP 相關的敏感資訊都應透過 `.env` 檔案設定，不要硬編碼在程式碼中
+- `.env` 檔案必須加入 `.gitignore`，避免提交到版本控制系統
 
 **Rust 範例（使用 lettre）：**
 ```rust
@@ -89,11 +94,24 @@ pub async fn send_registration_email(
     password: &str,
     login_url: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let smtp_user = std::env::var("SMTP_USER")?;
-    let smtp_pass = std::env::var("SMTP_PASS")?;
+    // 從環境變數讀取 SMTP 設定（不要硬編碼）
+    let smtp_user = std::env::var("SMTP_USERNAME")
+        .expect("SMTP_USERNAME must be set in environment");
+    let smtp_pass = std::env::var("SMTP_PASSWORD")
+        .expect("SMTP_PASSWORD must be set in environment");
+    let smtp_host = std::env::var("SMTP_HOST")
+        .unwrap_or_else(|_| "smtp.gmail.com".to_string());
+    let smtp_port: u16 = std::env::var("SMTP_PORT")
+        .unwrap_or_else(|_| "587".to_string())
+        .parse()
+        .unwrap_or(587);
+    let from_email = std::env::var("SMTP_FROM_EMAIL")
+        .expect("SMTP_FROM_EMAIL must be set in environment");
+    let from_name = std::env::var("SMTP_FROM_NAME")
+        .unwrap_or_else(|_| "豬博士動物科技".to_string());
     
     let email = Message::builder()
-        .from("豬博士動物科技 <zoonoticdisease@gmail.com>".parse()?)
+        .from(format!("{} <{}>", from_name, from_email).parse()?)
         .to(format!("{} <{}>", to_name, to_email).parse()?)
         .subject("豬博士 iPig 系統帳號開通通知")
         .body(format!(
@@ -115,7 +133,8 @@ pub async fn send_registration_email(
 
     let creds = Credentials::new(smtp_user, smtp_pass);
     
-    let mailer = AsyncSmtpTransport::<Tokio1Executor>::starttls_relay("smtp.gmail.com")?
+    let mailer = AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&smtp_host)?
+        .port(smtp_port)
         .credentials(creds)
         .build();
 
@@ -128,19 +147,23 @@ pub async fn send_registration_email(
 ```javascript
 const nodemailer = require('nodemailer');
 
+// 從環境變數讀取 SMTP 設定（不要硬編碼）
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false,
+  host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  port: parseInt(process.env.SMTP_PORT || '587'),
+  secure: false, // true for 465, false for other ports
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: process.env.SMTP_USERNAME,
+    pass: process.env.SMTP_PASSWORD,
   },
 });
 
 async function sendRegistrationEmail(toEmail, toName, password, loginUrl) {
+  const fromName = process.env.SMTP_FROM_NAME || '豬博士動物科技';
+  const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USERNAME;
+  
   await transporter.sendMail({
-    from: '"豬博士動物科技" <zoonoticdisease@gmail.com>',
+    from: `"${fromName}" <${fromEmail}>`,
     to: toEmail,
     subject: '豬博士 iPig 系統帳號開通通知',
     text: `您好 ${toName}，
@@ -217,18 +240,39 @@ async function sendRegistrationEmail(toEmail, toName, password, loginUrl) {
 
 **步驟：**
 
-1. 在專案根目錄建立 `.env` 檔案：
-```env
-# .env（此檔案不可提交到 Git）
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=zoonoticdisease@gmail.com
-SMTP_PASS=djiziuzeotcrlefc
-DATABASE_URL=postgresql://user:password@localhost:5432/ipig
-JWT_SECRET=your-super-secret-key-here
+1. 在專案根目錄建立 `.env` 檔案（複製 `backend/env.sample` 作為範本）：
+```bash
+# 複製範例檔案
+cp backend/env.sample .env
+
+# 編輯 .env 檔案，填入實際值
 ```
 
-2. 在 `.gitignore` 中加入：
+2. `.env` 檔案範例（**不要**提交真實密碼到 Git）：
+```env
+# .env（此檔案不可提交到 Git）
+# 資料庫設定
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=CHANGE_THIS_STRONG_PASSWORD
+POSTGRES_DB=ipig_db
+POSTGRES_PORT=5433
+DATABASE_URL=postgresql://postgres:CHANGE_THIS_STRONG_PASSWORD@localhost:5432/ipig_db
+
+# JWT 安全設定
+# 使用 PowerShell 生成安全的 JWT_SECRET：
+# $jwt = [Convert]::ToBase64String((1..64 | ForEach-Object { Get-Random -Minimum 0 -Maximum 256 }))
+JWT_SECRET=CHANGE_THIS_JWT_SECRET_GENERATE_USING_POWERSHELL
+
+# SMTP 郵件設定（可選）
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your-email@gmail.com
+SMTP_PASSWORD=your-app-password-here
+SMTP_FROM_EMAIL=your-email@gmail.com
+SMTP_FROM_NAME=豬博士動物科技
+```
+
+3. 確保 `.gitignore` 中包含：
 ```gitignore
 # 機敏資料
 .env
@@ -236,18 +280,11 @@ JWT_SECRET=your-super-secret-key-here
 .env.production
 *.pem
 *.key
+.env.*
+!.env.example
 ```
 
-3. 建立 `.env.example` 作為範本（不含真實密碼）：
-```env
-# .env.example（可提交到 Git，作為設定範本）
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
-DATABASE_URL=postgresql://user:password@localhost:5432/dbname
-JWT_SECRET=generate-a-random-secret
-```
+4. 使用 `backend/env.sample` 作為範本（不含真實密碼），這個檔案可以提交到 Git。
 
 **Rust 讀取環境變數：**
 ```rust
@@ -309,13 +346,15 @@ secrets:
 
 **secrets/smtp_user.txt：**
 ```
-zoonoticdisease@gmail.com
+your-email@gmail.com
 ```
 
 **secrets/smtp_pass.txt：**
 ```
-djiziuzeotcrlefc
+your-app-password-here
 ```
+
+**⚠️ 注意：上述檔案中的密碼都是範例，實際使用時請替換為真實的 SMTP 帳號和應用程式密碼。**
 
 **程式中讀取 Docker Secrets：**
 ```rust
@@ -414,10 +453,13 @@ async function getSmtpCredentials() {
 ```bash
 # 方法 A：從指令建立
 kubectl create secret generic smtp-credentials \
-  --from-literal=smtp-user=zoonoticdisease@gmail.com \
-  --from-literal=smtp-pass=djiziuzeotcrlefc
+  --from-literal=smtp-user=your-email@gmail.com \
+  --from-literal=smtp-pass=your-app-password-here
 
 # 方法 B：從 YAML 建立（需 base64 編碼）
+# 使用以下命令生成 base64 編碼：
+# echo -n 'your-email@gmail.com' | base64
+# echo -n 'your-app-password-here' | base64
 ```
 
 **smtp-secret.yaml：**
@@ -428,10 +470,11 @@ metadata:
   name: smtp-credentials
 type: Opaque
 data:
-  # echo -n 'zoonoticdisease@gmail.com' | base64
-  smtp-user: em9vbm90aWNkaXNlYXNlQGdtYWlsLmNvbQ==
-  # echo -n 'djiziuzeotcrlefc' | base64
-  smtp-pass: ZGppeml1emVvdGNybGVmYw==
+  # ⚠️ 以下為範例，實際使用時請替換為 base64 編碼後的真實值
+  # echo -n 'your-email@gmail.com' | base64
+  smtp-user: <BASE64_ENCODED_EMAIL>
+  # echo -n 'your-app-password-here' | base64
+  smtp-pass: <BASE64_ENCODED_PASSWORD>
 ```
 
 **在 Deployment 中使用：**
@@ -505,9 +548,14 @@ secrets/
 mkdir -p secrets
 
 # 建立各 secret 檔案
-echo -n "zoonoticdisease@gmail.com" > secrets/smtp_user.txt
-echo -n "djiziuzeotcrlefc" > secrets/smtp_pass.txt
-echo -n "your-database-password" > secrets/db_password.txt
+# ⚠️ 請替換為實際的值
+echo -n "your-email@gmail.com" > secrets/smtp_user.txt
+echo -n "your-app-password-here" > secrets/smtp_pass.txt
+echo -n "your-strong-database-password" > secrets/db_password.txt
+# 生成安全的 JWT Secret（PowerShell）
+# $jwt = [Convert]::ToBase64String((1..64 | ForEach-Object { Get-Random -Minimum 0 -Maximum 256 }))
+# echo -n "generated-jwt-secret" > secrets/jwt_secret.txt
+# 或使用 OpenSSL（Linux/Mac）
 echo -n "$(openssl rand -base64 32)" > secrets/jwt_secret.txt
 
 # 設定檔案權限（僅擁有者可讀）
@@ -750,15 +798,18 @@ DATABASE_HOST=localhost
 DATABASE_PORT=5432
 DATABASE_NAME=ipig
 DATABASE_USER=ipig
-DATABASE_PASSWORD=localdevpassword
+DATABASE_PASSWORD=CHANGE_THIS_PASSWORD
 
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USER=zoonoticdisease@gmail.com
-SMTP_PASS=djiziuzeotcrlefc
+SMTP_USERNAME=your-email@gmail.com
+SMTP_PASSWORD=your-app-password-here
 SMTP_FROM_NAME=豬博士動物科技
+SMTP_FROM_EMAIL=your-email@gmail.com
 
-JWT_SECRET=local-dev-secret-key-change-in-production
+# ⚠️ 使用 PowerShell 生成安全的 JWT_SECRET：
+# $jwt = [Convert]::ToBase64String((1..64 | ForEach-Object { Get-Random -Minimum 0 -Maximum 256 }))
+JWT_SECRET=CHANGE_THIS_JWT_SECRET_GENERATE_USING_POWERSHELL
 ```
 
 程式碼會自動判斷：有 `_FILE` 環境變數就讀檔案，沒有就讀環境變數。

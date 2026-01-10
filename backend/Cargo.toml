@@ -2,7 +2,8 @@
 name = "erp-backend"
 version = "0.1.0"
 edition = "2021"
-description = "進銷存 ERP 系統後端"
+default-run = "erp-backend"
+description = "?脤摮?ERP 蝟餌絞敺垢"
 
 [dependencies]
 # Web Framework
