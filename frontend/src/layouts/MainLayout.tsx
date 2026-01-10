@@ -364,10 +364,14 @@ export function MainLayout() {
               <ClipboardList className="h-8 w-8 text-blue-400" />
               <span className="text-xl font-bold">ipig system</span>
             </Link>
-          ) : ( // 縮合狀態：僅顯示圖示
-            <Link to="/">
+          ) : ( // 縮合狀態：僅顯示圖示，點擊可打開側邊欄
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="flex items-center justify-center hover:bg-slate-800 rounded-lg transition-colors"
+              title="展開側邊欄"
+            >
               <ClipboardList className="h-6 w-6 text-blue-400" />
-            </Link>
+            </button>
           )}
           {sidebarOpen && ( // 展開狀態下顯示關閉按鈕 (適用於行動裝置)
             <Button
@@ -523,16 +527,7 @@ export function MainLayout() {
         sidebarOpen ? 'ml-64 lg:ml-0' : 'ml-16 lg:ml-0' // 桌機版 (lg) 設為 ml-0 避免重複間距
       )}>
         {/* 頂部導覽列 */}
-        <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b bg-white px-4 shadow-sm">
-          {/* 摺疊/展開側邊欄按鈕 */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
+        <header className="sticky top-0 z-40 flex h-16 items-center justify-end border-b bg-white px-4 shadow-sm">
           <div className="flex items-center space-x-4">
             {/* 顯示目前日期 */}
             <span className="text-sm text-muted-foreground">
