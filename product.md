@@ -32,44 +32,60 @@
 | 欄位 | 類型 | 必填 | 說明 |
 |------|------|------|------|
 | id | UUID | ✓ | 主鍵 |
-| sku | VARCHAR(20) | ✓ | 產品識別碼，**系統自動生成，不可修改**，格式：`XXX-XXX-NNN`（11字元） |
+| sku | VARCHAR(50) | ✓ | 產品識別碼，**系統自動生成，不可修改**，格式：`XXX-XXX-NNN`（11字元） |
 | name | VARCHAR(200) | ✓ | 產品名稱 |
-| spec | VARCHAR(500) | ✓ | 規格描述 |
-| category_code | CHAR(3) | ✓ | 類別代碼 FK → sku_categories.code |
-| subcategory_code | CHAR(3) | ✓ | 子類別代碼 FK → sku_subcategories.code |
+| spec | TEXT | ✗ | 規格描述（可選） |
+| category_id | UUID | ✗ | 類別 ID FK → product_categories.id（可選，用於層級分類） |
+| category_code | CHAR(3) | ✗ | 類別代碼 FK → sku_categories.code（用於 SKU 生成，預設 GEN） |
+| subcategory_code | CHAR(3) | ✗ | 子類別代碼 FK → sku_subcategories.code（用於 SKU 生成，預設 OTH） |
 | base_uom | VARCHAR(20) | ✓ | 庫存基本單位 |
-| pack_qty | DECIMAL(18,4) | ✓ | 包裝量 |
+| pack_unit | VARCHAR(20) | ✗ | 包裝單位（如：盒、箱） |
+| pack_qty | INTEGER | ✗ | 包裝量（每包裝含基本單位數，整數） |
 | barcode | VARCHAR(50) | ✗ | 原廠條碼（EAN-13, UPC） |
-| safety_stock | DECIMAL(18,4) | ✗ | 安全庫存量 |
+| safety_stock | NUMERIC(18,4) | ✗ | 安全庫存量 |
 | safety_stock_uom | VARCHAR(20) | ✗ | 安全庫存單位 |
-| reorder_point | DECIMAL(18,4) | ✗ | 補貨點 |
+| reorder_point | NUMERIC(18,4) | ✗ | 補貨點 |
 | reorder_point_uom | VARCHAR(20) | ✗ | 補貨點單位 |
-| track_batch | BOOLEAN | ✓ | 是否追蹤批號 |
-| track_expiry | BOOLEAN | ✓ | 是否追蹤效期 |
+| track_batch | BOOLEAN | ✓ | 是否追蹤批號（預設 false） |
+| track_expiry | BOOLEAN | ✓ | 是否追蹤效期（預設 false） |
 | default_expiry_days | INTEGER | ✗ | 預設有效天數 |
 | storage_condition | VARCHAR(50) | ✗ | 保存條件 |
 | license_no | VARCHAR(100) | ✗ | 許可證號 |
-| status | VARCHAR(20) | ✓ | 狀態：active/inactive/discontinued |
+| status | VARCHAR(20) | ✓ | 狀態：active/inactive/discontinued（預設 active） |
 | tags | TEXT[] | ✗ | 搜尋標籤 |
 | remark | TEXT | ✗ | 備註 |
 | image_url | VARCHAR(500) | ✗ | 產品圖片 URL |
-| is_active | BOOLEAN | ✓ | 是否啟用 |
+| is_active | BOOLEAN | ✓ | 是否啟用（預設 true） |
 | created_at | TIMESTAMPTZ | ✓ | 建立時間 |
 | updated_at | TIMESTAMPTZ | ✓ | 更新時間 |
-| created_by | UUID | ✓ | 建立者 |
+| created_by | UUID | ✗ | 建立者 FK → users.id |
 
-### 2.2 SKU 類別表 (sku_categories)
+### 2.2 產品類別表 (product_categories)
 
-> 詳見 `skuSpec.md` 第 6.1 節
+> 可選的層級分類系統，用於產品管理分類（與 SKU 分類系統獨立）
+
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | UUID | 主鍵 |
+| code | VARCHAR(50) | 類別代碼（唯一） |
+| name | VARCHAR(100) | 類別名稱 |
+| parent_id | UUID | 父類別 ID（層級分類用，可為 NULL） |
+| is_active | BOOLEAN | 是否啟用 |
+| created_at | TIMESTAMPTZ | 建立時間 |
+
+### 2.3 SKU 類別表 (sku_categories)
+
+> 詳見 `skuSpec.md` 第 6.1 節。用於 SKU 自動生成的分類系統。
 
 | 欄位 | 類型 | 說明 |
 |------|------|------|
 | code | CHAR(3) | 主鍵，類別代碼 |
 | name | VARCHAR(50) | 類別名稱 |
-| sort_order | INTEGER | 排序 |
-| is_active | BOOLEAN | 是否啟用 |
+| sort_order | INTEGER | 排序（預設 0） |
+| is_active | BOOLEAN | 是否啟用（預設 true） |
+| created_at | TIMESTAMPTZ | 建立時間 |
 
-### 2.3 SKU 子類別表 (sku_subcategories)
+### 2.4 SKU 子類別表 (sku_subcategories)
 
 > 詳見 `skuSpec.md` 第 6.2 節
 
@@ -79,12 +95,25 @@
 | category_code | CHAR(3) | FK → sku_categories.code |
 | code | CHAR(3) | 子類別代碼 |
 | name | VARCHAR(50) | 子類別名稱 |
-| sort_order | INTEGER | 排序 |
-| is_active | BOOLEAN | 是否啟用 |
+| sort_order | INTEGER | 排序（預設 0） |
+| is_active | BOOLEAN | 是否啟用（預設 true） |
+| created_at | TIMESTAMPTZ | 建立時間 |
 
 > 唯一約束：(category_code, code)
 
-### 2.4 SKU 流水號表 (sku_sequences)
+### 2.5 產品單位換算表 (product_uom_conversions)
+
+> 用於定義產品的多單位換算關係（如：1 箱 = 12 個）。基本單位（base_uom）的換算係數為 1。
+
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | UUID | 主鍵 |
+| product_id | UUID | FK → products.id（ON DELETE CASCADE） |
+| uom | VARCHAR(20) | 單位代碼 |
+| factor_to_base | NUMERIC(18,6) | 換算至基本單位的倍數 |
+| UNIQUE (product_id, uom) | | 每個產品同一單位只能有一個換算率 |
+
+### 2.6 SKU 流水號表 (sku_sequences)
 
 > 詳見 `skuSpec.md` 第 6.3 節
 
@@ -92,11 +121,11 @@
 |------|------|------|
 | category_code | CHAR(3) | 類別代碼 |
 | subcategory_code | CHAR(3) | 子類別代碼 |
-| last_sequence | INTEGER | 最後使用的流水號 |
+| last_sequence | INTEGER | 最後使用的流水號（預設 0） |
 
 > 主鍵：(category_code, subcategory_code)
 
-### 2.5 預設品類與子類
+### 2.7 預設品類與子類
 
 > **SKU 格式**：`[類別代碼]-[子類別代碼]-[流水號]`，總長度 11 字元
 > **範例**：`MED-ANE-001`（藥品-麻醉劑-第001號）
@@ -165,7 +194,7 @@
 | **OTH（其他）** | | | |
 | OTH | GEN | 一般 | 通用項目 |
 
-### 2.6 庫存單位代碼
+### 2.8 庫存單位代碼
 
 | 代碼 | 名稱 | 說明 |
 |------|------|------|
@@ -184,7 +213,7 @@
 | PR | 雙 | 手套等成對物品 |
 | VL | 瓶（小） | 小瓶/安瓿 |
 
-### 2.7 產品狀態
+### 2.9 產品狀態
 
 | 狀態 | 說明 |
 |------|------|
@@ -192,7 +221,7 @@
 | inactive | 暫時停用（可恢復） |
 | discontinued | 已停產（不可恢復，僅供歷史查詢） |
 
-### 2.8 保存條件
+### 2.10 保存條件
 
 | 代碼 | 名稱 | 說明 |
 |------|------|------|
@@ -443,18 +472,22 @@
 | 欄位 | 必填 | 說明 |
 |------|------|------|
 | 名稱 | ✓ | 產品名稱 |
-| 規格 | ✓ | 規格描述 |
-| 類別代碼 | ✓ | MED/MSP/FED/EQP/CON/CHM/OTH |
-| 子類別代碼 | ✓ | 如 ANT, SYR, GLV 等（見 2.5 子類別明細） |
-| 單位代碼 | ✓ | 如 TB, BX, EA |
-| 包裝量 | ✓ | |
-| 安全庫存 | ✗ | |
-| 補貨點 | ✗ | |
-| 追蹤批號 | ✗ | Y/N |
-| 追蹤效期 | ✗ | Y/N |
-| 預設有效天數 | ✗ | |
+| 規格 | ✗ | 規格描述（可選） |
+| 類別代碼 | ✗ | MED/MSP/FED/EQP/CON/CHM/OTH（預設 GEN） |
+| 子類別代碼 | ✗ | 如 ANT, SYR, GLV 等（預設 OTH，見 2.7 子類別明細） |
+| 基本單位代碼 | ✓ | 如 TB, BX, EA |
+| 包裝單位 | ✗ | 包裝單位代碼（如：BX） |
+| 包裝量 | ✗ | 每包裝含基本單位數（整數） |
+| 安全庫存 | ✗ | 數值 |
+| 安全庫存單位 | ✗ | 單位代碼 |
+| 補貨點 | ✗ | 數值 |
+| 補貨點單位 | ✗ | 單位代碼 |
+| 追蹤批號 | ✗ | Y/N（預設 N） |
+| 追蹤效期 | ✗ | Y/N（預設 N） |
+| 預設有效天數 | ✗ | 整數（天數） |
 | 保存條件 | ✗ | RT/RF/FZ/DK/DY |
 | 原廠條碼 | ✗ | |
+| 許可證號 | ✗ | |
 | 標籤 | ✗ | 逗號分隔 |
 | 備註 | ✗ | |
 
@@ -497,14 +530,15 @@
 Query Parameters:
 | 參數 | 類型 | 說明 |
 |------|------|------|
-| keyword | string | 搜尋關鍵字 |
-| category_id | uuid | 品類 ID |
-| subcategory_id | uuid | 子類 ID |
+| keyword | string | 搜尋關鍵字（SKU、名稱） |
+| category_id | uuid | 品類 ID（product_categories.id） |
+| category_code | string | 類別代碼（sku_categories.code，如 MED, MSP） |
+| subcategory_code | string | 子類別代碼（sku_subcategories.code，如 ANT, SYR） |
 | status | string | active/inactive/discontinued |
 | track_batch | boolean | 是否追蹤批號 |
 | track_expiry | boolean | 是否追蹤效期 |
-| page | integer | 頁碼，預設 1 |
-| per_page | integer | 每頁筆數，預設 20 |
+| storage_condition | string | 保存條件（RT/RF/FZ/DK/DY） |
+| is_active | boolean | 是否啟用 |
 | sort_by | string | 排序欄位 |
 | sort_order | string | asc/desc |
 
@@ -522,11 +556,20 @@ Response:
       "subcategory_code": "ANT",
       "subcategory_name": "抗生素",
       "base_uom": "TB",
+      "pack_unit": "BX",
+      "pack_qty": 10,
       "safety_stock": 100,
       "track_batch": false,
       "track_expiry": true,
       "status": "active",
-      "is_active": true
+      "is_active": true,
+      "uom_conversions": [
+        {
+          "id": "uuid",
+          "uom": "BX",
+          "factor_to_base": 10
+        }
+      ]
     }
   ],
   "total": 156,
@@ -542,6 +585,42 @@ Response:
 ### 5.3 新增產品
 `POST /api/products`
 
+Request:
+```json
+{
+  "name": "Amoxicillin",
+  "spec": "500mg Tablet",
+  "category_code": "MED",
+  "subcategory_code": "ANT",
+  "base_uom": "TB",
+  "pack_unit": "BX",
+  "pack_qty": 10,
+  "track_batch": false,
+  "track_expiry": true,
+  "default_expiry_days": 730,
+  "safety_stock": 100,
+  "safety_stock_uom": "TB",
+  "reorder_point": 50,
+  "reorder_point_uom": "TB",
+  "storage_condition": "RT",
+  "barcode": "4710088123456",
+  "license_no": "衛署藥製字第012345號",
+  "tags": ["抗生素", "口服"],
+  "remark": "避光保存",
+  "uom_conversions": [
+    {
+      "uom": "BX",
+      "factor_to_base": 10
+    }
+  ]
+}
+```
+
+**注意：**
+- SKU 由系統自動生成，格式：`{category_code}-{subcategory_code}-{sequence}`
+- 如未提供 `category_code` 或 `subcategory_code`，系統會使用預設值（GEN, OTH）
+- `uom_conversions` 為可選，用於定義多單位換算關係
+
 詳見 @skuSpec.md 第 10.2 節
 
 ### 5.4 更新產品
@@ -555,6 +634,7 @@ Request:
   "category_code": "MED",
   "subcategory_code": "ANT",
   "base_uom": "TB",
+  "pack_unit": "BX",
   "pack_qty": 10,
   "safety_stock": 100,
   "safety_stock_uom": "TB",
@@ -567,11 +647,23 @@ Request:
   "barcode": "4710088123456",
   "license_no": "衛署藥製字第012345號",
   "tags": ["抗生素", "口服"],
-  "remark": "避光保存"
+  "remark": "避光保存",
+  "uom_conversions": [
+    {
+      "uom": "BX",
+      "factor_to_base": 10
+    },
+    {
+      "uom": "CT",
+      "factor_to_base": 120
+    }
+  ]
 }
 ```
 
-**注意：SKU 欄位不可更新（變更類別/子類別不會影響已產生的 SKU）**
+**注意：**
+- SKU 欄位不可更新（變更類別/子類別不會影響已產生的 SKU）
+- `uom_conversions` 為可選欄位，用於定義多重單位換算（例如：1 盒(BX) = 10 錠(TB)、1 箱(CT) = 120 錠(TB)）
 
 ### 5.5 變更產品狀態
 `PATCH /api/products/:id/status`
@@ -725,3 +817,4 @@ Response:
 |------|------|----------|
 | v1.0 | 2026-01-07 | 初始版本 |
 | v1.1 | 2026-01-08 | 依 skuSpec.md 統一 SKU 格式，新增醫材(MSP)、化學品(CHM)類別 |
+| v1.2 | 2026-01-10 | 更新資料模型以符合實際實作：<br>- `spec` 改為可選欄位（TEXT 型別）<br>- `category_code` 和 `subcategory_code` 改為可選（預設值 GEN/OTH）<br>- `pack_qty` 型別改為 INTEGER<br>- `sku` 欄位長度改為 VARCHAR(50)<br>- `safety_stock` 和 `reorder_point` 型別改為 NUMERIC(18,4)<br>- 新增 `category_id` 和 `pack_unit` 欄位說明<br>- 新增 `product_uom_conversions` 表說明<br>- 新增 `product_categories` 表說明（層級分類系統）<br>- 更新 API 規格以包含 `uom_conversions` 和 `pack_unit`<br>- 更新查詢參數以包含 `category_code`、`subcategory_code`、`storage_condition`、`is_active`<br>- 修正匯入範本欄位說明以反映實際必填/可選狀態 |

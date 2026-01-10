@@ -3,6 +3,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use axum::extract::rejection::JsonRejection;
 use serde_json::json;
 
 pub type Result<T> = std::result::Result<T, AppError>;
@@ -37,6 +38,12 @@ pub enum AppError {
     Anyhow(#[from] anyhow::Error),
 }
 
+impl From<rust_xlsxwriter::XlsxError> for AppError {
+    fn from(err: rust_xlsxwriter::XlsxError) -> Self {
+        AppError::Internal(format!("Excel generation error: {}", err))
+    }
+}
+
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let (status, error_message) = match &self {
@@ -68,5 +75,27 @@ impl IntoResponse for AppError {
         }));
 
         (status, body).into_response()
+    }
+}
+
+// 處理 JSON 反序列化錯誤
+impl From<JsonRejection> for AppError {
+    fn from(rejection: JsonRejection) -> Self {
+        let error_message = match rejection {
+            JsonRejection::JsonDataError(err) => {
+                format!("JSON 資料格式錯誤: {}", err)
+            }
+            JsonRejection::JsonSyntaxError(err) => {
+                format!("JSON 語法錯誤: {}", err)
+            }
+            JsonRejection::MissingJsonContentType(_) => {
+                "缺少 Content-Type: application/json 標頭".to_string()
+            }
+            _ => {
+                format!("JSON 解析錯誤: {}", rejection)
+            }
+        };
+        tracing::warn!("JSON rejection: {}", error_message);
+        AppError::Validation(error_message)
     }
 }

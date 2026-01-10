@@ -123,6 +123,9 @@ export function PigDetailPage() {
       const res = await api.get<Pig>(`/pigs/${pigId}`)
       return res.data
     },
+    staleTime: 0, // Always consider data stale for real-time updates
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   })
 
   const { data: observations } = useQuery({
@@ -132,6 +135,9 @@ export function PigDetailPage() {
       return res.data
     },
     enabled: activeTab === 'observations',
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   })
 
   const { data: surgeries } = useQuery({
@@ -141,6 +147,9 @@ export function PigDetailPage() {
       return res.data
     },
     enabled: activeTab === 'surgeries',
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   })
 
   const { data: weights } = useQuery({
@@ -150,6 +159,9 @@ export function PigDetailPage() {
       return res.data
     },
     enabled: activeTab === 'weights',
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   })
 
   const { data: vaccinations } = useQuery({
@@ -159,6 +171,9 @@ export function PigDetailPage() {
       return res.data
     },
     enabled: activeTab === 'vaccinations',
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   })
 
   const { data: sacrifice } = useQuery({

@@ -7,6 +7,7 @@ use validator::Validate;
 /// 豬隻狀態
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[sqlx(type_name = "pig_status", rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum PigStatus {
     Unassigned,
     Assigned,
@@ -26,18 +27,58 @@ impl PigStatus {
 }
 
 /// 豬隻品種
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
-#[sqlx(type_name = "pig_breed", rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum PigBreed {
-    Miniature,
+    #[serde(rename = "minipig")]
+    Minipig,  // 前端使用 'minipig'，資料庫存儲為 'miniature'
     White,
     Other,
+}
+
+// 手動實現 sqlx::Type 以處理資料庫 enum 值 'miniature' 到 Rust enum 'Minipig' 的映射
+impl sqlx::Type<sqlx::Postgres> for PigBreed {
+    fn type_info() -> sqlx::postgres::PgTypeInfo {
+        sqlx::postgres::PgTypeInfo::with_name("pig_breed")
+    }
+}
+
+impl<'r> sqlx::Decode<'r, sqlx::Postgres> for PigBreed {
+    fn decode(value: sqlx::postgres::PgValueRef<'r>) -> Result<Self, sqlx::error::BoxDynError> {
+        let s: &str = sqlx::Decode::<sqlx::Postgres>::decode(value)?;
+        match s {
+            "miniature" => Ok(PigBreed::Minipig),
+            "white" => Ok(PigBreed::White),
+            "other" => Ok(PigBreed::Other),
+            _ => Err(format!("Invalid pig_breed value: {}", s).into()),
+        }
+    }
+}
+
+impl<'q> sqlx::Encode<'q, sqlx::Postgres> for PigBreed {
+    fn encode_by_ref(&self, buf: &mut sqlx::postgres::PgArgumentBuffer) -> sqlx::encode::IsNull {
+        let s = match self {
+            PigBreed::Minipig => "miniature",
+            PigBreed::White => "white",
+            PigBreed::Other => "other",
+        };
+        <&str as sqlx::Encode<sqlx::Postgres>>::encode_by_ref(&s, buf)
+    }
+
+    fn size_hint(&self) -> usize {
+        let s = match self {
+            PigBreed::Minipig => "miniature",
+            PigBreed::White => "white",
+            PigBreed::Other => "other",
+        };
+        <&str as sqlx::Encode<sqlx::Postgres>>::size_hint(&s)
+    }
 }
 
 impl PigBreed {
     pub fn display_name(&self) -> &'static str {
         match self {
-            PigBreed::Miniature => "迷你豬",
+            PigBreed::Minipig => "迷你豬",
             PigBreed::White => "白豬",
             PigBreed::Other => "其他",
         }
@@ -47,6 +88,7 @@ impl PigBreed {
 /// 豬隻性別
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[sqlx(type_name = "pig_gender", rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum PigGender {
     Male,
     Female,
@@ -257,7 +299,7 @@ pub struct CreatePigRequest {
     pub remark: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, Default)]
 pub struct UpdatePigRequest {
     pub ear_tag: Option<String>,
     pub status: Option<PigStatus>,
@@ -404,6 +446,12 @@ pub struct PigListItem {
     pub source_name: Option<String>,
     pub vet_last_viewed_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
+    #[sqlx(default)]
+    pub has_abnormal_record: Option<bool>,
+    #[sqlx(default)]
+    pub is_on_medication: Option<bool>,
+    #[sqlx(default)]
+    pub vet_recommendation_date: Option<DateTime<Utc>>,
 }
 
 /// 依欄位分組的豬隻
@@ -591,24 +639,44 @@ pub struct ExportRequest {
 /// 豬隻匯入行資料
 #[derive(Debug, Deserialize)]
 pub struct PigImportRow {
+    #[serde(alias = "\u{feff}Number", alias = "Number", alias = "耳號*", alias = "耳號")]
     pub ear_tag: String,
+    #[serde(alias = "Species", alias = "品種*", alias = "品種")]
     pub breed: String,
+    #[serde(alias = "Sex", alias = "性別*", alias = "性別")]
     pub gender: String,
+    #[serde(alias = "Source", alias = "來源代碼", default)]
     pub source_code: Option<String>,
+    #[serde(alias = "Birthday", alias = "出生日期", default)]
     pub birth_date: Option<String>,
+    #[serde(alias = "Import Date", alias = "進場日期*", alias = "進場日期")]
     pub entry_date: String,
-    pub entry_weight: Option<f64>,
+    #[serde(alias = "Weight", alias = "Weight ", alias = "進場體重", alias = "進場體重(kg)", default)]
+    pub entry_weight: Option<String>,
+    #[serde(alias = "欄位編號", alias = "欄位", default)]
     pub pen_location: Option<String>,
+    #[serde(alias = "IACUC No. Before Experiment", alias = "實驗前代號", default)]
     pub pre_experiment_code: Option<String>,
+    #[serde(alias = "IACUC No.", alias = "計畫編號", default)]
+    pub iacuc_no: Option<String>,
+    #[serde(default)]
     pub remark: Option<String>,
+    // 額外欄位用於支援 file imput.csv
+    #[serde(alias = "Field Region", alias = "區域", default)]
+    pub field_region: Option<String>,
+    #[serde(alias = "Field Number", alias = "區域編號", default)]
+    pub field_number: Option<String>,
 }
 
 /// 體重匯入行資料
 #[derive(Debug, Deserialize)]
 pub struct WeightImportRow {
+    #[serde(alias = "No.", alias = "耳號*", alias = "耳號")]
     pub ear_tag: String,
+    #[serde(alias = "Measure Date", alias = "測量日期*", alias = "測量日期")]
     pub measure_date: String,
-    pub weight: f64,
+    #[serde(alias = "Weight", alias = "體重(kg)*", alias = "體重(kg)", alias = "體重")]
+    pub weight: String,
 }
 
 /// 觀察紀錄列表項目（含獸醫師建議數量）

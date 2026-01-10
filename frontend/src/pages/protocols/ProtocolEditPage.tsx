@@ -11,6 +11,15 @@ import { Input, Textarea } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -308,16 +317,14 @@ interface FormData {
       roles: string[] // 工作內容：a, b, c, d, e, f, g, h, i
       roles_other_text?: string // 如果選擇 i.其他，需要填寫說明
       years_experience: number // 參與動物試驗年數
-      trainings: string[] // 訓練/資格：A, B, C, D, E
+      trainings: string[] // 訓練/資格：A, B, C, D, E, F
+      trainings_other_text?: string // 如果選擇 F.其他，需要填寫說明
       training_certificates: Array<{ // 每個訓練的證書編號列表
         training_code: string // A, B, C, D, E
         certificate_no: string // 證書編號
       }>
     }>
-    attachments: Array<{ // Section 9
-      name: string
-      type: string
-    }>
+    attachments: FileInfo[] // Section 9 - PDF附件
   }
 }
 
@@ -523,6 +530,17 @@ export function ProtocolEditPage() {
 
   const [activeSection, setActiveSection] = useState('basic')
   const [formData, setFormData] = useState<FormData>(defaultFormData)
+  const [isAddPersonnelDialogOpen, setIsAddPersonnelDialogOpen] = useState(false)
+  const [newPersonnel, setNewPersonnel] = useState({
+    name: '',
+    position: '',
+    roles: [] as string[],
+    roles_other_text: '',
+    years_experience: 0,
+    trainings: [] as string[],
+    trainings_other_text: '', // 如果選擇 F.其他，需要填寫說明
+    training_certificates: [] as Array<{ training_code: string; certificate_no: string }>
+  })
   const [isSaving, setIsSaving] = useState(false)
 
   // 檢查是否為執行秘書角色（IACUC_STAFF）
@@ -620,6 +638,36 @@ export function ProtocolEditPage() {
             trainings: person.trainings || [],
             training_certificates: person.training_certificates || []
           }))
+        }
+
+        // 確保 attachments 格式正確，轉換為 FileInfo 格式
+        if (mergedWorkingContent.attachments) {
+          mergedWorkingContent.attachments = (mergedWorkingContent.attachments as any[]).map((att: any) => {
+            // 如果已經是 FileInfo 格式（有 id, file_name, file_path 等），直接返回
+            if (att.id && att.file_name && att.file_path !== undefined) {
+              return {
+                id: att.id,
+                file_name: att.file_name,
+                file_path: att.file_path,
+                file_size: att.file_size || 0,
+                file_type: att.file_type || att.mime_type || 'application/pdf',
+                created_at: att.created_at
+              } as FileInfo
+            }
+            // 如果是舊格式（name, type），轉換為 FileInfo 格式
+            if (att.name && att.type) {
+              return {
+                id: `legacy-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                file_name: att.name,
+                file_path: '',
+                file_size: 0,
+                file_type: att.type
+              } as FileInfo
+            }
+            return att
+          }).filter(Boolean)
+        } else {
+          mergedWorkingContent.attachments = []
         }
 
         // 根據 4.1.1 的選擇自動處理手術計劃書
@@ -3753,326 +3801,117 @@ export function ProtocolEditPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        const currentPersonnel = formData.working_content.personnel || []
-                        const maxId = currentPersonnel.length > 0 
-                          ? Math.max(...currentPersonnel.map((p: any) => p.id || 0))
-                          : 0
-                        const newPersonnel = [...currentPersonnel, {
-                          id: maxId + 1,
+                        setNewPersonnel({
                           name: '',
                           position: '',
                           roles: [],
                           roles_other_text: '',
                           years_experience: 0,
                           trainings: [],
+                          trainings_other_text: '',
                           training_certificates: []
-                        }]
-                        setFormData((prev) => ({
-                          ...prev,
-                          working_content: {
-                            ...prev.working_content,
-                            personnel: newPersonnel
-                          }
-                        }))
+                        })
+                        setIsAddPersonnelDialogOpen(true)
                       }}
                     >
-                      + 新增
+                      ＋新增人員
                     </Button>
                   </div>
                   <div className="border rounded-md overflow-hidden">
                     <div className="overflow-x-auto">
-                      <table className="w-full border-collapse">
+                      <table className="w-full border-collapse table-fixed">
                         <thead>
                           <tr className="bg-slate-100">
-                            <th className="border p-2 text-left text-sm font-semibold">編號</th>
-                            <th className="border p-2 text-left text-sm font-semibold">姓名</th>
-                            <th className="border p-2 text-left text-sm font-semibold">職稱</th>
-                            <th className="border p-2 text-left text-sm font-semibold">工作內容</th>
-                            <th className="border p-2 text-left text-sm font-semibold">參與動物試驗年數</th>
-                            <th className="border p-2 text-left text-sm font-semibold">訓練/資格/取得時間</th>
+                            <th className="border p-2 text-center text-sm font-semibold w-16">編號</th>
+                            <th className="border p-2 text-center text-sm font-semibold w-24">姓名</th>
+                            <th className="border p-2 text-center text-sm font-semibold w-24">職稱</th>
+                            <th className="border p-2 text-center text-sm font-semibold w-32">工作內容</th>
+                            <th className="border p-2 text-center text-sm font-semibold w-24">參與動物<br/>試驗年數</th>
+                            <th className="border p-2 text-center text-sm font-semibold">訓練/資格/取得時間</th>
                             <th className="border p-2 text-center text-sm font-semibold w-16">操作</th>
                           </tr>
                         </thead>
                         <tbody>
                           {(formData.working_content.personnel || []).map((person: any, index: number) => (
                             <tr key={index} className="hover:bg-slate-50">
-                              <td className="border p-2">
-                                <Input
-                                  type="number"
-                                  min="1"
-                                  value={person.id || index + 1}
-                                  onChange={(e) => {
-                                    const newPersonnel = [...formData.working_content.personnel]
-                                    newPersonnel[index].id = parseInt(e.target.value) || index + 1
-                                    setFormData((prev) => ({
-                          ...prev,
-                          working_content: {
-                            ...prev.working_content,
-                            personnel: newPersonnel
-                          }
-                        }))
-                                  }}
-                                  className="border-0 focus-visible:ring-0 w-16"
-                                />
+                              <td className="border p-2 w-8">
+                                <div className="px-2 py-1 text-center font-medium">
+                                  {index + 1}
+                                </div>
                               </td>
-                              <td className="border p-2">
-                                <Input
-                                  value={person.name || ''}
-                                  onChange={(e) => {
-                                    const newPersonnel = [...formData.working_content.personnel]
-                                    newPersonnel[index].name = e.target.value
-                                    setFormData((prev) => ({
-                          ...prev,
-                          working_content: {
-                            ...prev.working_content,
-                            personnel: newPersonnel
-                          }
-                        }))
-                                  }}
-                                  placeholder="姓名"
-                                  className="border-0 focus-visible:ring-0"
-                                />
+                              <td className="border p-2 w-24">
+                                <div className="px-2 py-1 text-center truncate">
+                                  {person.name || '-'}
+                                </div>
                               </td>
-                              <td className="border p-2">
-                                <Input
-                                  value={person.position || ''}
-                                  onChange={(e) => {
-                                    const newPersonnel = [...formData.working_content.personnel]
-                                    newPersonnel[index].position = e.target.value
-                                    setFormData((prev) => ({
-                          ...prev,
-                          working_content: {
-                            ...prev.working_content,
-                            personnel: newPersonnel
-                          }
-                        }))
-                                  }}
-                                  placeholder="職稱"
-                                  className="border-0 focus-visible:ring-0"
-                                />
+                              <td className="border p-2 w-24">
+                                <div className="px-2 py-1 truncate">
+                                  {person.position || '-'}
+                                </div>
                               </td>
-                              <td className="border p-2">
-                                <div className="space-y-2 min-w-[300px]">
-                                  <div className="flex flex-wrap gap-2">
-                                    {[
-                                      { value: 'a', label: 'a.計畫督導(Supervision)' },
-                                      { value: 'b', label: 'b.飼養照顧(Animal care)' },
-                                      { value: 'c', label: 'c.保定(Restraint)' },
-                                      { value: 'd', label: 'd.麻醉止痛(Anesthesia and analgesia)' },
-                                      { value: 'e', label: 'e.手術(Surgery)' },
-                                      { value: 'f', label: 'f.手術支援(Surgery assistance)' },
-                                      { value: 'g', label: 'g.觀察監測(Monitoring)' },
-                                      { value: 'h', label: 'h.安樂死(Euthanasia)' },
-                                      { value: 'i', label: 'i.其他(Other)' }
-                                    ].map(role => (
-                                      <div key={role.value} className="flex items-center space-x-1">
-                                        <Checkbox
-                                          id={`role_${index}_${role.value}`}
-                                          checked={(person.roles || []).includes(role.value)}
-                                          onChange={(e) => {
-                                            const newPersonnel = [...formData.working_content.personnel]
-                                            const currentRoles = newPersonnel[index].roles || []
-                                            if (e.target.checked) {
-                                              newPersonnel[index].roles = [...currentRoles, role.value]
-                                            } else {
-                                              newPersonnel[index].roles = currentRoles.filter((r: string) => r !== role.value)
-                                              if (role.value === 'i') {
-                                                newPersonnel[index].roles_other_text = ''
-                                              }
-                                            }
-                                            setFormData((prev) => ({
-                          ...prev,
-                          working_content: {
-                            ...prev.working_content,
-                            personnel: newPersonnel
-                          }
-                        }))
-                                          }}
-                                        />
-                                        <Label htmlFor={`role_${index}_${role.value}`} className="text-xs font-normal cursor-pointer">{role.label}</Label>
-                                      </div>
+                              <td className="border p-2 w-32"> {/*工作內容*/}
+                                <div className="space-y-1 overflow-hidden">
+                                  <div className="flex flex-wrap gap-1">
+                                    {(person.roles || []).map((role: string) => (
+                                      <Badge key={role} variant="outline" className="text-xs">
+                                        {role}
+                                      </Badge>
                                     ))}
+                                    {(!person.roles || person.roles.length === 0) && (
+                                      <span className="text-muted-foreground text-sm">-</span>
+                                    )}
                                   </div>
-                                  {(person.roles || []).includes('i') && (
-                                    <Input
-                                      value={person.roles_other_text || ''}
-                                      onChange={(e) => {
-                                        const newPersonnel = [...formData.working_content.personnel]
-                                        newPersonnel[index].roles_other_text = e.target.value
-                                        setFormData((prev) => ({
-                          ...prev,
-                          working_content: {
-                            ...prev.working_content,
-                            personnel: newPersonnel
-                          }
-                        }))
-                                      }}
-                                      placeholder="請說明其他工作內容 *"
-                                      className="mt-2"
-                                    />
+                                  {(person.roles || []).includes('i') && person.roles_other_text && (
+                                    <div className="text-xs text-muted-foreground mt-1 truncate">
+                                      其他：{person.roles_other_text}
+                                    </div>
                                   )}
                                 </div>
                               </td>
-                              <td className="border p-2">
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  step="1"
-                                  value={person.years_experience || ''}
-                                  onChange={(e) => {
-                                    const newPersonnel = [...formData.working_content.personnel]
-                                    newPersonnel[index].years_experience = parseInt(e.target.value) || 0
-                                    setFormData((prev) => ({
-                          ...prev,
-                          working_content: {
-                            ...prev.working_content,
-                            personnel: newPersonnel
-                          }
-                        }))
-                                  }}
-                                  placeholder="年數"
-                                  className="border-0 focus-visible:ring-0 w-20"
-                                />
+                              <td className="border p-2 w-24">
+                                <div className="px-2 py-1 text-center">
+                                  {person.years_experience ? `${person.years_experience}年` : '-'}
+                                </div>
                               </td>
                               <td className="border p-2">
-                                <div className="space-y-2 min-w-[400px]">
-                                  <div className="flex flex-wrap gap-2 mb-2">
-                                    {[
-                                      { value: 'A', label: 'A. 實驗動物照護及使用委員會或小組成員訓練班' },
-                                      { value: 'B', label: 'B. IACUC教育訓練研討會' },
-                                      { value: 'C', label: 'C. 輻射安全訓練班' },
-                                      { value: 'D', label: 'D. 生醫產業用畜禽應用研習會及技術研習會' },
-                                      { value: 'E', label: 'E. 實驗動物法規及照護管理班' }
-                                    ].map(training => (
-                                      <div key={training.value} className="flex items-center space-x-1">
-                                        <Checkbox
-                                          id={`training_${index}_${training.value}`}
-                                          checked={(person.trainings || []).includes(training.value)}
-                                          onChange={(e) => {
-                                            const newPersonnel = [...formData.working_content.personnel]
-                                            const currentTrainings = newPersonnel[index].trainings || []
-                                            if (e.target.checked) {
-                                              newPersonnel[index].trainings = [...currentTrainings, training.value]
-                                            } else {
-                                              newPersonnel[index].trainings = currentTrainings.filter((t: string) => t !== training.value)
-                                              // 移除該訓練的所有證書
-                                              newPersonnel[index].training_certificates = (newPersonnel[index].training_certificates || []).filter(
-                                                (cert: any) => cert.training_code !== training.value
-                                              )
-                                            }
-                                            setFormData((prev) => ({
-                          ...prev,
-                          working_content: {
-                            ...prev.working_content,
-                            personnel: newPersonnel
-                          }
-                        }))
-                                          }}
-                                        />
-                                        <Label htmlFor={`training_${index}_${training.value}`} className="text-xs font-normal cursor-pointer">{training.label}</Label>
-                                      </div>
+                                <div className="space-y-2 overflow-hidden">
+                                  <div className="flex flex-wrap gap-1 mb-2">
+                                    {(person.trainings || []).map((trainingCode: string) => (
+                                      <Badge key={trainingCode} variant="outline" className="text-xs">
+                                        {trainingCode}
+                                      </Badge>
                                     ))}
+                                    {(!person.trainings || person.trainings.length === 0) && (
+                                      <span className="text-muted-foreground text-sm">-</span>
+                                    )}
                                   </div>
+                                  {/* 顯示 F.其他 的說明 */}
+                                  {(person.trainings || []).includes('F') && person.trainings_other_text && (
+                                    <div className="space-y-1 pl-4 border-l-2 border-slate-200">
+                                      <div className="text-xs font-semibold truncate">F:</div>
+                                      <div className="text-xs text-muted-foreground truncate">
+                                        {person.trainings_other_text}
+                                      </div>
+                                    </div>
+                                  )}
                                   {/* 顯示每個已選訓練的證書編號列表 */}
-                                  {(person.trainings || []).map((trainingCode: string) => {
+                                  {(person.trainings || []).filter((t: string) => t !== 'F').map((trainingCode: string) => {
                                     const certificates = (person.training_certificates || []).filter((cert: any) => cert.training_code === trainingCode)
+                                    if (certificates.length === 0) return null
                                     return (
                                       <div key={trainingCode} className="space-y-1 pl-4 border-l-2 border-slate-200">
-                                        <Label className="text-xs font-semibold">{trainingCode}:</Label>
-                                        {certificates.map((cert: any, certIndex: number) => {
-                                          // 找到該證書在完整 training_certificates 數組中的索引
-                                          const allCerts = person.training_certificates || []
-                                          let globalCertIndex = -1
-                                          let count = 0
-                                          for (let i = 0; i < allCerts.length; i++) {
-                                            if (allCerts[i].training_code === trainingCode) {
-                                              if (count === certIndex) {
-                                                globalCertIndex = i
-                                                break
-                                              }
-                                              count++
-                                            }
-                                          }
-                                          
-                                          return (
-                                            <div key={certIndex} className="flex items-center gap-2">
-                                              <Input
-                                                value={cert.certificate_no || ''}
-                                                onChange={(e) => {
-                                                  const newPersonnel = [...formData.working_content.personnel]
-                                                  const certs = [...(newPersonnel[index].training_certificates || [])]
-                                                  if (globalCertIndex >= 0 && globalCertIndex < certs.length) {
-                                                    certs[globalCertIndex].certificate_no = e.target.value
-                                                    newPersonnel[index].training_certificates = certs
-                                                    setFormData((prev) => ({
-                                                      ...prev,
-                                                      working_content: {
-                                                        ...prev.working_content,
-                                                        personnel: newPersonnel
-                                                      }
-                                                    }))
-                                                  }
-                                                }}
-                                                placeholder="證書編號"
-                                                className="text-xs h-7"
-                                              />
-                                              <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-6 w-6 text-red-500"
-                                                onClick={() => {
-                                                  const newPersonnel = [...formData.working_content.personnel]
-                                                  const certs = [...(newPersonnel[index].training_certificates || [])]
-                                                  if (globalCertIndex >= 0 && globalCertIndex < certs.length) {
-                                                    certs.splice(globalCertIndex, 1)
-                                                    newPersonnel[index].training_certificates = certs
-                                                    setFormData((prev) => ({
-                                                      ...prev,
-                                                      working_content: {
-                                                        ...prev.working_content,
-                                                        personnel: newPersonnel
-                                                      }
-                                                    }))
-                                                  }
-                                                }}
-                                              >
-                                                X
-                                              </Button>
-                                            </div>
-                                          )
-                                        })}
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          size="sm"
-                                          className="h-7 text-xs"
-                                          onClick={() => {
-                                            const newPersonnel = [...formData.working_content.personnel]
-                                            if (!newPersonnel[index].training_certificates) {
-                                              newPersonnel[index].training_certificates = []
-                                            }
-                                            newPersonnel[index].training_certificates.push({
-                                              training_code: trainingCode,
-                                              certificate_no: ''
-                                            })
-                                            setFormData((prev) => ({
-                          ...prev,
-                          working_content: {
-                            ...prev.working_content,
-                            personnel: newPersonnel
-                          }
-                        }))
-                                          }}
-                                        >
-                                          + 新增證書
-                                        </Button>
+                                        <div className="text-xs font-semibold whitespace-nowrap truncate">{trainingCode}:</div>
+                                        {certificates.map((cert: any, certIndex: number) => (
+                                          <div key={certIndex} className="text-xs text-muted-foreground whitespace-nowrap truncate">
+                                            {cert.certificate_no || '-'}
+                                          </div>
+                                        ))}
                                       </div>
                                     )
                                   })}
                                 </div>
                               </td>
-                              <td className="border p-2 text-center">
+                              <td className="border p-2 text-center w-16">
                                 <Button
                                   type="button"
                                   variant="ghost"
@@ -4106,6 +3945,12 @@ export function ProtocolEditPage() {
                       </table>
                     </div>
                   </div>
+                  <div className="mt-4 p-4 bg-slate-50 rounded-md">
+                    <p className="text-sm font-semibold mb-2">工作內容說明：</p>
+                    <p className="text-xs text-muted-foreground">
+                      a.計畫督導；b.飼養照顧；c.保定；d.麻醉止痛；e.手術；f.手術支援；g.觀察監測；h.安樂死；i.其他
+                    </p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -4115,16 +3960,314 @@ export function ProtocolEditPage() {
             <Card>
               <CardHeader>
                 <CardTitle>9. 附件<br />(Attachments)</CardTitle>
-                <CardDescription>上傳相關附件與文件</CardDescription>
+                <CardDescription>上傳相關附件與文件（PDF格式）</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <Paperclip className="h-12 w-12 mx-auto mb-2" />
-                  <p>附件上傳功能尚未開放</p>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>附件（PDF）</Label>
+                  <FileUpload
+                    value={formData.working_content.attachments || []}
+                    onChange={(attachments) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        working_content: {
+                          ...prev.working_content,
+                          attachments
+                        }
+                      }))
+                    }}
+                    accept="application/pdf,.pdf"
+                    placeholder="拖曳PDF檔案到此處，或點擊選擇檔案"
+                    maxSize={20}
+                    maxFiles={10}
+                    showPreview={false}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    僅支援 PDF 格式，單個檔案大小上限 20MB，最多可上傳 10 個檔案
+                  </p>
                 </div>
               </CardContent>
             </Card>
           )}
+
+          {/* 新增人員對話框 */}
+          <Dialog open={isAddPersonnelDialogOpen} onOpenChange={setIsAddPersonnelDialogOpen}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>新增人員</DialogTitle>
+                <DialogDescription>請填寫人員基本資料</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>姓名 *</Label>
+                    <Input
+                      value={newPersonnel.name}
+                      onChange={(e) => setNewPersonnel({ ...newPersonnel, name: e.target.value })}
+                      placeholder="請輸入姓名"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>職稱</Label>
+                    <Input
+                      value={newPersonnel.position}
+                      onChange={(e) => setNewPersonnel({ ...newPersonnel, position: e.target.value })}
+                      placeholder="請輸入職稱"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>工作內容 *</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'].map(role => (
+                      <div key={role} className="flex items-center space-x-1">
+                        <Checkbox
+                          id={`new_role_${role}`}
+                          checked={newPersonnel.roles.includes(role)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setNewPersonnel({ ...newPersonnel, roles: [...newPersonnel.roles, role] })
+                            } else {
+                              const newRoles = newPersonnel.roles.filter(r => r !== role)
+                              setNewPersonnel({ 
+                                ...newPersonnel, 
+                                roles: newRoles,
+                                roles_other_text: role === 'i' ? '' : newPersonnel.roles_other_text
+                              })
+                            }
+                          }}
+                        />
+                        <Label htmlFor={`new_role_${role}`} className="text-sm font-normal cursor-pointer">{role}</Label>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 p-3 bg-slate-50 rounded-md">
+                    <p className="text-xs text-muted-foreground">
+                      工作內容說明：<br/>a.計畫督導；b.飼養照顧；c.保定；d.麻醉止痛；e.手術；f.手術支援；g.觀察監測；h.安樂死；i.其他
+                    </p>
+                  </div>
+                  {newPersonnel.roles.includes('i') && (
+                    <Input
+                      value={newPersonnel.roles_other_text}
+                      onChange={(e) => setNewPersonnel({ ...newPersonnel, roles_other_text: e.target.value })}
+                      placeholder="請說明其他工作內容 *"
+                      className="mt-2"
+                    />
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>參與動物試驗年數 *</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={newPersonnel.years_experience || ''}
+                    onChange={(e) => setNewPersonnel({ ...newPersonnel, years_experience: parseInt(e.target.value) || 0 })}
+                    placeholder="請輸入年數"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>訓練/資格 *</Label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {[
+                      { value: 'A', label: 'A. 實驗動物照護及使用委員會或小組成員訓練班' },
+                      { value: 'B', label: 'B. IACUC教育訓練研討會' },
+                      { value: 'C', label: 'C. 輻射安全訓練班' },
+                      { value: 'D', label: 'D. 生醫產業用畜禽應用研習會及技術研習會' },
+                      { value: 'E', label: 'E. 實驗動物法規及照護管理班' },
+                      { value: 'F', label: 'F. 其他' }
+                    ].map(training => (
+                      <div key={training.value} className="flex items-center space-x-1">
+                        <Checkbox
+                          id={`new_training_${training.value}`}
+                          checked={newPersonnel.trainings.includes(training.value)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setNewPersonnel({ ...newPersonnel, trainings: [...newPersonnel.trainings, training.value] })
+                            } else {
+                              const newTrainings = newPersonnel.trainings.filter(t => t !== training.value)
+                              setNewPersonnel({ 
+                                ...newPersonnel, 
+                                trainings: newTrainings,
+                                trainings_other_text: training.value === 'F' ? '' : newPersonnel.trainings_other_text,
+                                training_certificates: newPersonnel.training_certificates.filter(
+                                  cert => cert.training_code !== training.value
+                                )
+                              })
+                            }
+                          }}
+                        />
+                        <Label htmlFor={`new_training_${training.value}`} className="text-xs font-normal cursor-pointer">{training.label}</Label>
+                      </div>
+                    ))}
+                  </div>
+                  {newPersonnel.trainings.includes('F') && (
+                    <Input
+                      value={newPersonnel.trainings_other_text}
+                      onChange={(e) => setNewPersonnel({ ...newPersonnel, trainings_other_text: e.target.value })}
+                      placeholder="請說明其他訓練/資格 *"
+                      className="mt-2"
+                    />
+                  )}
+                  {/* 顯示每個已選訓練的證書編號列表 */}
+                  {newPersonnel.trainings.filter(t => t !== 'F').map((trainingCode: string) => {
+                    const certificates = newPersonnel.training_certificates.filter(cert => cert.training_code === trainingCode)
+                    return (
+                      <div key={trainingCode} className="space-y-1 pl-4 border-l-2 border-slate-200">
+                        <Label className="text-xs font-semibold">{trainingCode}:</Label>
+                        {certificates.map((cert, certIndex) => {
+                          // 找到該證書在完整 training_certificates 數組中的索引
+                          let globalCertIndex = -1
+                          let count = 0
+                          for (let i = 0; i < newPersonnel.training_certificates.length; i++) {
+                            if (newPersonnel.training_certificates[i].training_code === trainingCode) {
+                              if (count === certIndex) {
+                                globalCertIndex = i
+                                break
+                              }
+                              count++
+                            }
+                          }
+                          return (
+                            <div key={certIndex} className="flex items-center gap-2">
+                              <Input
+                                value={cert.certificate_no}
+                                onChange={(e) => {
+                                  const newCerts = [...newPersonnel.training_certificates]
+                                  if (globalCertIndex >= 0 && globalCertIndex < newCerts.length) {
+                                    newCerts[globalCertIndex].certificate_no = e.target.value
+                                    setNewPersonnel({ ...newPersonnel, training_certificates: newCerts })
+                                  }
+                                }}
+                                placeholder="證書編號"
+                                className="text-xs h-7"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-red-500"
+                                onClick={() => {
+                                  const newCerts = [...newPersonnel.training_certificates]
+                                  if (globalCertIndex >= 0 && globalCertIndex < newCerts.length) {
+                                    newCerts.splice(globalCertIndex, 1)
+                                    setNewPersonnel({ ...newPersonnel, training_certificates: newCerts })
+                                  }
+                                }}
+                              >
+                                X
+                              </Button>
+                            </div>
+                          )
+                        })}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => {
+                            setNewPersonnel({
+                              ...newPersonnel,
+                              training_certificates: [
+                                ...newPersonnel.training_certificates,
+                                { training_code: trainingCode, certificate_no: '' }
+                              ]
+                            })
+                          }}
+                        >
+                          + 新增證書
+                        </Button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsAddPersonnelDialogOpen(false)}
+                >
+                  取消
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    // 驗證必填欄位
+                    if (!newPersonnel.name.trim()) {
+                      toast({
+                        title: '錯誤',
+                        description: '請填寫姓名',
+                        variant: 'destructive',
+                      })
+                      return
+                    }
+                    if (newPersonnel.roles.length === 0) {
+                      toast({
+                        title: '錯誤',
+                        description: '請至少選擇一項工作內容',
+                        variant: 'destructive',
+                      })
+                      return
+                    }
+                    if (newPersonnel.roles.includes('i') && !newPersonnel.roles_other_text.trim()) {
+                      toast({
+                        title: '錯誤',
+                        description: '請說明其他工作內容',
+                        variant: 'destructive',
+                      })
+                      return
+                    }
+                    if (newPersonnel.years_experience <= 0) {
+                      toast({
+                        title: '錯誤',
+                        description: '請填寫參與動物試驗年數',
+                        variant: 'destructive',
+                      })
+                      return
+                    }
+                    if (newPersonnel.trainings.length === 0) {
+                      toast({
+                        title: '錯誤',
+                        description: '請至少選擇一項訓練/資格',
+                        variant: 'destructive',
+                      })
+                      return
+                    }
+                    if (newPersonnel.trainings.includes('F') && !newPersonnel.trainings_other_text.trim()) {
+                      toast({
+                        title: '錯誤',
+                        description: '請說明其他訓練/資格',
+                        variant: 'destructive',
+                      })
+                      return
+                    }
+
+                    // 添加人員
+                    const currentPersonnel = formData.working_content.personnel || []
+                    const personnelToAdd = {
+                      id: currentPersonnel.length + 1,
+                      ...newPersonnel
+                    }
+                    setFormData((prev) => ({
+                      ...prev,
+                      working_content: {
+                        ...prev.working_content,
+                        personnel: [...currentPersonnel, personnelToAdd]
+                      }
+                    }))
+                    setIsAddPersonnelDialogOpen(false)
+                    toast({
+                      title: '成功',
+                      description: '人員已新增',
+                    })
+                  }}
+                >
+                  確認新增
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </div>

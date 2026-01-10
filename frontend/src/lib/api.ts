@@ -619,7 +619,7 @@ export interface UserSimple {
 // ============================================
 
 export type PigStatus = 'unassigned' | 'assigned' | 'in_experiment' | 'completed'
-export type PigBreed = 'miniature' | 'white' | 'other'
+export type PigBreed = 'minipig' | 'white' | 'other'
 export type PigGender = 'male' | 'female'
 export type RecordType = 'abnormal' | 'experiment' | 'observation'
 
@@ -631,7 +631,7 @@ export const pigStatusNames: Record<PigStatus, string> = {
 }
 
 export const pigBreedNames: Record<PigBreed, string> = {
-  miniature: '迷你豬',
+  minipig: '迷你豬',
   white: '白豬',
   other: '其他',
 }

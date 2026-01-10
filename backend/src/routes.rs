@@ -121,6 +121,10 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/projects/:iacuc_no/export", post(handlers::export_project_medical_data))
         // Import Batches
         .route("/pigs/import/batches", get(handlers::list_import_batches))
+        .route("/pigs/import/template/basic", get(handlers::download_basic_import_template))
+        .route("/pigs/import/template/weight", get(handlers::download_weight_import_template))
+        .route("/pigs/import/basic", post(handlers::import_basic_data))
+        .route("/pigs/import/weights", post(handlers::import_weight_data))
         // Notifications
         .route("/notifications", get(handlers::list_notifications))
         .route("/notifications/unread-count", get(handlers::get_unread_count))
@@ -151,6 +155,5 @@ pub fn api_routes(state: AppState) -> Router {
         .with_state(state);
 
     Router::new()
-        .nest("/api", public_routes)
-        .nest("/api", protected_routes)
+        .nest("/api", public_routes.merge(protected_routes))
 }

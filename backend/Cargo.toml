@@ -48,6 +48,13 @@ lettre = { version = "0.11", features = ["tokio1-native-tls", "builder", "smtp-t
 regex = "1"
 rand = "0.8"
 
+# Excel generation
+rust_xlsxwriter = "0.92"
+
+# Excel/CSV parsing
+calamine = { version = "0.24", features = ["chrono"] }
+csv = "1.3"
+
 # Scheduler
 tokio-cron-scheduler = "0.11"
 

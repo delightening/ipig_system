@@ -39,6 +39,7 @@ export function PigEditPage() {
 
   const [formData, setFormData] = useState<UpdatePigRequest>({})
   const [hasChanges, setHasChanges] = useState(false)
+  const [entryWeightInput, setEntryWeightInput] = useState<string>('')
 
   // Query pig data
   const { data: pig, isLoading: pigLoading } = useQuery({
@@ -47,6 +48,9 @@ export function PigEditPage() {
       const res = await api.get<Pig>(`/pigs/${pigId}`)
       return res.data
     },
+    staleTime: 0, // Always consider data stale for real-time updates
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   })
 
   // Query sources
@@ -76,6 +80,7 @@ export function PigEditPage() {
         experiment_date: pig.experiment_date || undefined,
         remark: pig.remark || undefined,
       })
+      setEntryWeightInput(pig.entry_weight !== undefined && pig.entry_weight !== null ? String(pig.entry_weight) : '')
     }
   }, [pig])
 
@@ -289,10 +294,44 @@ export function PigEditPage() {
                 <Label htmlFor="entry_weight">進場體重 (kg)</Label>
                 <Input
                   id="entry_weight"
-                  type="number"
-                  step="0.1"
-                  value={formData.entry_weight || ''}
-                  onChange={(e) => handleChange('entry_weight', e.target.value ? parseFloat(e.target.value) : undefined)}
+                  type="text"
+                  inputMode="decimal"
+                  value={entryWeightInput}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    // 只允許數字和一個小數點
+                    const numericValue = value.replace(/[^\d.]/g, '')
+                    // 確保只有一個小數點
+                    const parts = numericValue.split('.')
+                    const filteredValue = parts.length > 2 
+                      ? parts[0] + '.' + parts.slice(1).join('')
+                      : numericValue
+                    // 更新輸入值
+                    setEntryWeightInput(filteredValue)
+                    // 如果為空或只有小數點，設為 undefined，否則轉換為數字
+                    if (filteredValue === '' || filteredValue === '.') {
+                      handleChange('entry_weight', undefined)
+                    } else {
+                      const numValue = parseFloat(filteredValue)
+                      if (!isNaN(numValue)) {
+                        handleChange('entry_weight', numValue)
+                      }
+                    }
+                  }}
+                  onBlur={() => {
+                    // 當失去焦點時，清理尾部的小數點
+                    if (entryWeightInput === '.') {
+                      setEntryWeightInput('')
+                      handleChange('entry_weight', undefined)
+                    } else if (entryWeightInput && entryWeightInput.endsWith('.')) {
+                      const cleaned = entryWeightInput.slice(0, -1)
+                      setEntryWeightInput(cleaned)
+                      const numValue = parseFloat(cleaned)
+                      if (!isNaN(numValue)) {
+                        handleChange('entry_weight', numValue)
+                      }
+                    }
+                  }}
                   placeholder="輸入體重"
                 />
               </div>

@@ -9,8 +9,10 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
-      refetchOnWindowFocus: false,
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchOnWindowFocus: true, // Refetch when window regains focus to get latest data
+      refetchOnMount: true, // Always refetch on mount to ensure fresh data
+      staleTime: 30 * 1000, // 30 seconds - data is considered stale quickly for animal data
+      gcTime: 5 * 60 * 1000, // Keep unused data in cache for 5 minutes
     },
   },
 })

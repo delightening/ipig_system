@@ -1,4 +1,4 @@
-use sqlx::PgPool;
+use sqlx::{PgPool, QueryBuilder};
 use uuid::Uuid;
 
 use crate::{
@@ -12,10 +12,12 @@ use crate::{
         UpdateVaccinationRequest, RecordVersion, VersionDiff, VersionHistoryResponse,
         PigImportBatch, ImportStatus, ImportType, ImportResult, ImportErrorDetail,
         PigExportRecord, ExportType, ExportFormat, CreateVetRecommendationWithAttachmentsRequest,
-        ObservationListItem, SurgeryListItem,
+        ObservationListItem, SurgeryListItem, PigImportRow, WeightImportRow, PigBreed, PigGender,
     },
     AppError, Result,
 };
+use calamine::{Reader, Xlsx, Xls, open_workbook_from_rs, Data};
+use std::io::Cursor;
 
 pub struct PigService;
 
@@ -101,48 +103,77 @@ impl PigService {
 
     /// 取得豬隻列表
     pub async fn list(pool: &PgPool, query: &PigQuery) -> Result<Vec<PigListItem>> {
-        let mut sql = String::from(
+        // Build query with proper parameterized queries
+        let mut query_builder = sqlx::QueryBuilder::new(
             r#"
             SELECT 
                 p.id, p.ear_tag, p.status, p.breed, p.gender, p.pen_location,
                 p.iacuc_no, p.entry_date, s.name as source_name,
-                p.vet_last_viewed_at, p.created_at
+                p.vet_last_viewed_at, p.created_at,
+                -- Computed fields for frontend
+                EXISTS(
+                    SELECT 1 FROM pig_observations po 
+                    WHERE po.pig_id = p.id 
+                    AND po.record_type = 'abnormal'
+                    AND po.deleted_at IS NULL
+                ) as has_abnormal_record,
+                EXISTS(
+                    SELECT 1 FROM pig_observations po 
+                    WHERE po.pig_id = p.id 
+                    AND po.no_medication_needed = false
+                    AND po.event_date >= CURRENT_DATE - INTERVAL '30 days'
+                    AND po.deleted_at IS NULL
+                ) as is_on_medication,
+                (
+                    SELECT MAX(vr.created_at) 
+                    FROM vet_recommendations vr
+                    WHERE (vr.record_type = 'observation' AND vr.record_id IN (
+                        SELECT id FROM pig_observations WHERE pig_id = p.id AND deleted_at IS NULL
+                    ))
+                    OR (vr.record_type = 'surgery' AND vr.record_id IN (
+                        SELECT id FROM pig_surgeries WHERE pig_id = p.id AND deleted_at IS NULL
+                    ))
+                ) as vet_recommendation_date
             FROM pigs p
             LEFT JOIN pig_sources s ON p.source_id = s.id
             WHERE 1=1
             "#
         );
 
-        let mut params: Vec<String> = Vec::new();
-        let mut param_idx = 1;
-
+        // Add filters with proper parameterization
         if let Some(status) = &query.status {
-            sql.push_str(&format!(" AND p.status = ${}", param_idx));
-            params.push(format!("{:?}", status).to_lowercase());
-            param_idx += 1;
+            query_builder.push(" AND p.status = ");
+            query_builder.push_bind(status);
         }
         if let Some(breed) = &query.breed {
-            sql.push_str(&format!(" AND p.breed = ${}", param_idx));
-            params.push(format!("{:?}", breed).to_lowercase());
-            param_idx += 1;
+            // 轉換 breed enum 為資料庫期望的字符串值
+            let breed_str = match breed {
+                crate::models::PigBreed::Minipig => "miniature",
+                crate::models::PigBreed::White => "white",
+                crate::models::PigBreed::Other => "other",
+            };
+            query_builder.push(" AND p.breed = ");
+            query_builder.push_bind(breed_str);
         }
         if let Some(iacuc_no) = &query.iacuc_no {
-            sql.push_str(&format!(" AND p.iacuc_no = ${}", param_idx));
-            params.push(iacuc_no.clone());
-            param_idx += 1;
+            query_builder.push(" AND p.iacuc_no = ");
+            query_builder.push_bind(iacuc_no);
         }
         if let Some(keyword) = &query.keyword {
-            sql.push_str(&format!(" AND (p.ear_tag ILIKE ${0} OR p.pen_location ILIKE ${0})", param_idx));
-            params.push(format!("%{}%", keyword));
+            let keyword_pattern = format!("%{}%", keyword);
+            query_builder.push(" AND (p.ear_tag ILIKE ");
+            query_builder.push_bind(keyword_pattern.clone());
+            query_builder.push(" OR p.pen_location ILIKE ");
+            query_builder.push_bind(keyword_pattern);
+            query_builder.push(")");
         }
 
-        sql.push_str(" ORDER BY p.id DESC");
+        query_builder.push(" ORDER BY p.id DESC");
 
-        // 簡化查詢（由於 SQLx 動態參數限制）
-        let pigs = sqlx::query_as::<_, PigListItem>(&sql)
+        let pigs = query_builder
+            .build_query_as::<PigListItem>()
             .fetch_all(pool)
-            .await
-            .unwrap_or_default();
+            .await?;
 
         Ok(pigs)
     }
@@ -196,6 +227,13 @@ impl PigService {
 
     /// 建立豬隻
     pub async fn create(pool: &PgPool, req: &CreatePigRequest, created_by: Uuid) -> Result<Pig> {
+        // 將 breed enum 轉換為資料庫期望的字符串值
+        let breed_str = match req.breed {
+            crate::models::PigBreed::Minipig => "miniature",
+            crate::models::PigBreed::White => "white",
+            crate::models::PigBreed::Other => "other",
+        };
+        
         let pig = sqlx::query_as::<_, Pig>(
             r#"
             INSERT INTO pigs (
@@ -203,13 +241,13 @@ impl PigService {
                 entry_date, entry_weight, pen_location, pre_experiment_code,
                 remark, created_by, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+            VALUES ($1, $2, $3::pig_breed, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
             RETURNING *
             "#
         )
         .bind(&req.ear_tag)
         .bind(PigStatus::Unassigned)
-        .bind(req.breed)
+        .bind(breed_str)
         .bind(req.source_id)
         .bind(req.gender)
         .bind(req.birth_date)
@@ -227,12 +265,19 @@ impl PigService {
 
     /// 更新豬隻
     pub async fn update(pool: &PgPool, id: i32, req: &UpdatePigRequest) -> Result<Pig> {
+        // 轉換 breed enum 為資料庫期望的字符串值（如果提供）
+        let breed_str = req.breed.map(|b| match b {
+            crate::models::PigBreed::Minipig => "miniature",
+            crate::models::PigBreed::White => "white",
+            crate::models::PigBreed::Other => "other",
+        });
+        
         let pig = sqlx::query_as::<_, Pig>(
             r#"
             UPDATE pigs SET
                 ear_tag = COALESCE($2, ear_tag),
                 status = COALESCE($3, status),
-                breed = COALESCE($4, breed),
+                breed = COALESCE($4::pig_breed, breed),
                 source_id = COALESCE($5, source_id),
                 gender = COALESCE($6, gender),
                 birth_date = COALESCE($7, birth_date),
@@ -250,7 +295,7 @@ impl PigService {
         .bind(id)
         .bind(&req.ear_tag)
         .bind(req.status)
-        .bind(req.breed)
+        .bind(breed_str.as_deref())
         .bind(req.source_id)
         .bind(req.gender)
         .bind(req.birth_date)
@@ -1352,5 +1397,805 @@ impl PigService {
         .await?;
 
         Ok(report)
+    }
+
+    // ============================================
+    // 模板生成功能
+    // ============================================
+
+    /// 生成豬隻基本資料匯入模板
+    pub fn generate_basic_import_template() -> Result<Vec<u8>> {
+        use rust_xlsxwriter::{Format, FormatAlign, Workbook};
+
+        let mut workbook = Workbook::new();
+        
+        // 創建格式
+        let header_format = Format::new()
+            .set_bold()
+            .set_background_color("#4472C4")
+            .set_font_color("#FFFFFF")
+            .set_align(FormatAlign::Center);
+
+        let example_format = Format::new()
+            .set_font_color("#808080")
+            .set_italic();
+
+        // 創建工作表
+        let worksheet = workbook.add_worksheet();
+        
+        // 設置欄位寬度
+        worksheet.set_column_width(0, 15.0)?; // 耳號
+        worksheet.set_column_width(1, 12.0)?; // 品種
+        worksheet.set_column_width(2, 10.0)?; // 性別
+        worksheet.set_column_width(3, 15.0)?; // 出生日期
+        worksheet.set_column_width(4, 15.0)?; // 進場日期
+        worksheet.set_column_width(5, 12.0)?; // 進場體重
+        worksheet.set_column_width(6, 12.0)?; // 欄位編號
+        worksheet.set_column_width(7, 15.0)?; // 實驗前代號
+        worksheet.set_column_width(8, 12.0)?; // 備註
+
+        // 寫入標題行
+        worksheet.write_string_with_format(0, 0, "耳號*", &header_format)?;
+        worksheet.write_string_with_format(0, 1, "品種*", &header_format)?;
+        worksheet.write_string_with_format(0, 2, "性別*", &header_format)?;
+        worksheet.write_string_with_format(0, 3, "出生日期", &header_format)?;
+        worksheet.write_string_with_format(0, 4, "進場日期*", &header_format)?;
+        worksheet.write_string_with_format(0, 5, "進場體重", &header_format)?;
+        worksheet.write_string_with_format(0, 6, "欄位編號", &header_format)?;
+        worksheet.write_string_with_format(0, 7, "實驗前代號", &header_format)?;
+        worksheet.write_string_with_format(0, 8, "備註", &header_format)?;
+
+        // 寫入說明行
+        worksheet.write_string_with_format(1, 0, "001", &example_format)?;
+        worksheet.write_string(1, 1, "miniature")?;
+        worksheet.write_string(1, 2, "male")?;
+        worksheet.write_string_with_format(1, 3, "2024-01-15", &example_format)?;
+        worksheet.write_string_with_format(1, 4, "2024-02-01", &example_format)?;
+        worksheet.write_string(1, 5, "25.5")?;
+        worksheet.write_string(1, 6, "A-01")?;
+        worksheet.write_string(1, 7, "PRE-001")?;
+        worksheet.write_string(1, 8, "")?;
+
+        // 凍結第一行
+        worksheet.set_freeze_panes(1, 0)?;
+
+        // 將工作簿轉換為字節數組
+        let buffer = workbook.save_to_buffer()?;
+
+        Ok(buffer)
+    }
+
+    /// 生成豬隻體重匯入模板
+    pub fn generate_weight_import_template() -> Result<Vec<u8>> {
+        use rust_xlsxwriter::{Format, FormatAlign, Workbook};
+
+        let mut workbook = Workbook::new();
+        
+        // 創建格式
+        let header_format = Format::new()
+            .set_bold()
+            .set_background_color("#4472C4")
+            .set_font_color("#FFFFFF")
+            .set_align(FormatAlign::Center);
+
+        let example_format = Format::new()
+            .set_font_color("#808080")
+            .set_italic();
+
+        // 創建工作表
+        let worksheet = workbook.add_worksheet();
+        
+        // 設置欄位寬度
+        worksheet.set_column_width(0, 15.0)?; // 耳號
+        worksheet.set_column_width(1, 15.0)?; // 測量日期
+        worksheet.set_column_width(2, 12.0)?; // 體重
+
+        // 寫入標題行
+        worksheet.write_string_with_format(0, 0, "耳號*", &header_format)?;
+        worksheet.write_string_with_format(0, 1, "測量日期*", &header_format)?;
+        worksheet.write_string_with_format(0, 2, "體重(kg)*", &header_format)?;
+
+        // 寫入說明行
+        worksheet.write_string_with_format(1, 0, "001", &example_format)?;
+        worksheet.write_string_with_format(1, 1, "2024-02-01", &example_format)?;
+        worksheet.write_string(1, 2, "25.5")?;
+
+        // 凍結第一行
+        worksheet.set_freeze_panes(1, 0)?;
+
+        // 將工作簿轉換為字節數組
+        let buffer = workbook.save_to_buffer()?;
+
+        Ok(buffer)
+    }
+
+    /// 生成豬隻基本資料匯入 CSV 模板
+    pub fn generate_basic_import_template_csv() -> Result<Vec<u8>> {
+        // 優先讀取專案根目錄下的 file imput.csv
+        // 在 Docker 或 生產環境中可能需要調整路徑，此處先嘗試相對路徑
+        let paths = ["file imput.csv", "../file imput.csv", "./backend/file imput.csv"];
+        for path in paths {
+            if let Ok(data) = std::fs::read(path) {
+                return Ok(data);
+            }
+        }
+
+        // 如果找不到檔案，則生成預設模板
+        let mut wtr = csv::Writer::from_writer(vec![]);
+        
+        // 寫入標題行
+        wtr.write_record(&[
+            "耳號*",
+            "品種*",
+            "性別*",
+            "出生日期",
+            "進場日期*",
+            "進場體重",
+            "欄位編號",
+            "實驗前代號",
+            "備註",
+        ]).map_err(|e| AppError::Internal(format!("CSV 寫入失敗: {}", e)))?;
+        
+        // 寫入範例行
+        wtr.write_record(&[
+            "001",
+            "miniature",
+            "male",
+            "2024-01-15",
+            "2024-02-01",
+            "25.5",
+            "A-01",
+            "PRE-001",
+            "",
+        ]).map_err(|e| AppError::Internal(format!("CSV 寫入失敗: {}", e)))?;
+        
+        wtr.flush().map_err(|e| AppError::Internal(format!("CSV flush 失敗: {}", e)))?;
+        wtr.into_inner().map_err(|e| {
+            AppError::Internal(format!("CSV 生成失敗: {}", e))
+        })
+    }
+
+    /// 生成豬隻體重匯入 CSV 模板
+    pub fn generate_weight_import_template_csv() -> Result<Vec<u8>> {
+        let mut wtr = csv::Writer::from_writer(vec![]);
+        
+        // 寫入標題行
+        wtr.write_record(&[
+            "耳號*",
+            "測量日期*",
+            "體重(kg)*",
+        ]).map_err(|e| AppError::Internal(format!("CSV 寫入失敗: {}", e)))?;
+        
+        // 寫入範例行
+        wtr.write_record(&[
+            "001",
+            "2024-02-01",
+            "25.5",
+        ]).map_err(|e| AppError::Internal(format!("CSV 寫入失敗: {}", e)))?;
+        
+        wtr.flush().map_err(|e| AppError::Internal(format!("CSV flush 失敗: {}", e)))?;
+        wtr.into_inner().map_err(|e| {
+            AppError::Internal(format!("CSV 生成失敗: {}", e))
+        })
+    }
+
+    // ============================================
+    // 檔案匯入處理
+    // ============================================
+
+    /// 匯入豬隻基本資料
+    pub async fn import_basic_data(
+        pool: &PgPool,
+        file_data: &[u8],
+        file_name: &str,
+        created_by: Uuid,
+    ) -> Result<ImportResult> {
+        // 根據檔案副檔名判斷格式
+        let is_excel = file_name.ends_with(".xlsx") || file_name.ends_with(".xls");
+        let is_csv = file_name.ends_with(".csv");
+
+        if !is_excel && !is_csv {
+            return Err(AppError::Validation(
+                "不支援的檔案格式，請使用 Excel (.xlsx, .xls) 或 CSV 格式".to_string(),
+            ));
+        }
+
+        // 解析檔案
+        let rows = if is_excel {
+            Self::parse_excel_file(file_data)?
+        } else {
+            Self::parse_csv_file(file_data)?
+        };
+
+        if rows.is_empty() {
+            return Err(AppError::Validation("檔案中沒有資料".to_string()));
+        }
+
+        // 建立匯入批次記錄
+        let batch = Self::create_import_batch(
+            pool,
+            ImportType::PigBasic,
+            file_name,
+            rows.len() as i32,
+            created_by,
+        )
+        .await?;
+
+        // 處理每一行資料
+        let mut success_count = 0;
+        let mut error_count = 0;
+        let mut errors = Vec::new();
+        let mut seen_ear_tags = std::collections::HashSet::new();
+
+        for (index, row) in rows.iter().enumerate() {
+            let row_number = (index + 2) as i32; // +2 因為第一行是標題，索引從 0 開始
+
+            // 驗證必填欄位
+            if row.ear_tag.is_empty() {
+                errors.push(ImportErrorDetail {
+                    row: row_number,
+                    ear_tag: None,
+                    error: "耳號為必填欄位".to_string(),
+                });
+                error_count += 1;
+                continue;
+            }
+
+            // 檢查檔案內重複
+            if !seen_ear_tags.insert(row.ear_tag.clone()) {
+                errors.push(ImportErrorDetail {
+                    row: row_number,
+                    ear_tag: Some(row.ear_tag.clone()),
+                    error: "耳號在檔案中重複".to_string(),
+                });
+                error_count += 1;
+                continue;
+            }
+
+            // 驗證品種
+            let breed = match row.breed.to_lowercase().as_str() {
+                "minipig" | "miniature" | "迷你豬" | "迷你" => PigBreed::Minipig,
+                "white" | "白豬" | "大白豬" => PigBreed::White,
+                _ => PigBreed::Other,
+            };
+
+            // 驗證性別
+            let gender = match row.gender.to_lowercase().as_str() {
+                "male" | "公" | "公豬" => PigGender::Male,
+                "female" | "母" | "母豬" => PigGender::Female,
+                _ => {
+                    errors.push(ImportErrorDetail {
+                        row: row_number,
+                        ear_tag: Some(row.ear_tag.clone()),
+                        error: format!("無效的性別值: {}，必須是 male 或 female (或公/母)", row.gender),
+                    });
+                    error_count += 1;
+                    continue;
+                }
+            };
+
+            // 驗證進場日期
+            let entry_date_str = row.entry_date.replace("/", "-");
+            let entry_date = match chrono::NaiveDate::parse_from_str(&entry_date_str, "%Y-%m-%d") {
+                Ok(date) => date,
+                Err(_) => {
+                    errors.push(ImportErrorDetail {
+                        row: row_number,
+                        ear_tag: Some(row.ear_tag.clone()),
+                        error: format!("無效的進場日期格式: {}，必須是 YYYY-MM-DD 或 YYYY/MM/DD 格式", row.entry_date),
+                    });
+                    error_count += 1;
+                    continue;
+                }
+            };
+
+            // 解析出生日期（選填）
+            let birth_date = if let Some(ref bd) = row.birth_date {
+                if bd.is_empty() {
+                    None
+                } else {
+                    let bd_str = bd.replace("/", "-");
+                    match chrono::NaiveDate::parse_from_str(&bd_str, "%Y-%m-%d") {
+                        Ok(date) => Some(date),
+                        Err(_) => {
+                            errors.push(ImportErrorDetail {
+                                row: row_number,
+                                ear_tag: Some(row.ear_tag.clone()),
+                                error: format!("無效的出生日期格式: {}，必須是 YYYY-MM-DD 或 YYYY/MM/DD 格式", bd),
+                            });
+                            error_count += 1;
+                            continue;
+                        }
+                    }
+                }
+            } else {
+                None
+            };
+
+            // 解析進場體重（選填）
+            let entry_weight = row.entry_weight.as_ref().and_then(|w| {
+                w.replace("kg", "").replace("公斤", "").trim().parse::<f64>().ok()
+            }).map(|w| {
+                rust_decimal::Decimal::from_f64_retain(w).unwrap_or_default()
+            });
+
+            // 查找來源 ID（如果有提供 source_code）
+            let source_id = if let Some(ref code) = row.source_code {
+                if !code.is_empty() {
+                    let source = sqlx::query_as::<_, PigSource>(
+                        "SELECT * FROM pig_sources WHERE code = $1 AND is_active = true"
+                    )
+                    .bind(code)
+                    .fetch_optional(pool)
+                    .await?;
+                    source.map(|s| s.id)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            // 檢查耳號是否已存在
+            let existing = sqlx::query_scalar::<_, i32>(
+                "SELECT id FROM pigs WHERE ear_tag = $1"
+            )
+            .bind(&row.ear_tag)
+            .fetch_optional(pool)
+            .await?;
+
+            if existing.is_some() {
+                errors.push(ImportErrorDetail {
+                    row: row_number,
+                    ear_tag: Some(row.ear_tag.clone()),
+                    error: "耳號已存在於系統中".to_string(),
+                });
+                error_count += 1;
+                continue;
+            }
+
+            // 處理欄位位置
+            let pen_location = row.pen_location.clone().or_else(|| {
+                match (&row.field_region, &row.field_number) {
+                    (Some(r), Some(n)) => Some(format!("{}{}", r, n)),
+                    (Some(r), None) => Some(r.clone()),
+                    (None, Some(n)) => Some(n.clone()),
+                    (None, None) => None,
+                }
+            }).map(|s| s.trim().to_string());
+
+            // 建立豬隻資料
+            let create_req = CreatePigRequest {
+                ear_tag: row.ear_tag.clone(),
+                breed,
+                source_id,
+                gender,
+                birth_date,
+                entry_date,
+                entry_weight,
+                pen_location,
+                pre_experiment_code: row.pre_experiment_code.clone(),
+                remark: row.remark.clone(),
+            };
+
+            match Self::create(pool, &create_req, created_by).await {
+                Ok(pig) => {
+                    // 如果有計畫編號，更新它
+                    if let Some(ref iacuc) = row.iacuc_no {
+                        if !iacuc.is_empty() {
+                            let _ = Self::update(pool, pig.id, &UpdatePigRequest {
+                                iacuc_no: Some(iacuc.clone()),
+                                ..Default::default()
+                            }).await;
+                        }
+                    }
+                    success_count += 1;
+                }
+                Err(e) => {
+                    errors.push(ImportErrorDetail {
+                        row: row_number,
+                        ear_tag: Some(row.ear_tag.clone()),
+                        error: format!("建立失敗: {}", e),
+                    });
+                    error_count += 1;
+                }
+            }
+        }
+
+        // 更新批次結果
+        let error_details = if errors.is_empty() {
+            None
+        } else {
+            Some(serde_json::to_value(&errors).unwrap_or(serde_json::Value::Null))
+        };
+
+        let _batch = Self::update_import_batch_result(
+            pool,
+            batch.id,
+            success_count,
+            error_count,
+            error_details,
+        )
+        .await?;
+
+        Ok(ImportResult {
+            batch_id: batch.id,
+            total_rows: rows.len() as i32,
+            success_count,
+            error_count,
+            errors,
+        })
+    }
+
+    /// 匯入體重資料
+    pub async fn import_weight_data(
+        pool: &PgPool,
+        file_data: &[u8],
+        file_name: &str,
+        created_by: Uuid,
+    ) -> Result<ImportResult> {
+        // 根據檔案副檔名判斷格式
+        let is_excel = file_name.ends_with(".xlsx") || file_name.ends_with(".xls");
+        let is_csv = file_name.ends_with(".csv");
+
+        if !is_excel && !is_csv {
+            return Err(AppError::Validation(
+                "不支援的檔案格式，請使用 Excel (.xlsx, .xls) 或 CSV 格式".to_string(),
+            ));
+        }
+
+        // 解析檔案
+        let rows = if is_excel {
+            Self::parse_weight_excel_file(file_data)?
+        } else {
+            Self::parse_weight_csv_file(file_data)?
+        };
+
+        if rows.is_empty() {
+            return Err(AppError::Validation("檔案中沒有資料".to_string()));
+        }
+
+        // 建立匯入批次記錄
+        let batch = Self::create_import_batch(
+            pool,
+            ImportType::PigWeight,
+            file_name,
+            rows.len() as i32,
+            created_by,
+        )
+        .await?;
+
+        // 處理每一行資料
+        let mut success_count = 0;
+        let mut error_count = 0;
+        let mut errors = Vec::new();
+
+        for (index, row) in rows.iter().enumerate() {
+            let row_number = (index + 2) as i32;
+
+            // 驗證必填欄位
+            if row.ear_tag.is_empty() {
+                errors.push(ImportErrorDetail {
+                    row: row_number,
+                    ear_tag: None,
+                    error: "耳號為必填欄位".to_string(),
+                });
+                error_count += 1;
+                continue;
+            }
+
+            // 驗證測量日期
+            let measure_date_str = row.measure_date.replace("/", "-");
+            let measure_date = match chrono::NaiveDate::parse_from_str(&measure_date_str, "%Y-%m-%d") {
+                Ok(date) => date,
+                Err(_) => {
+                    errors.push(ImportErrorDetail {
+                        row: row_number,
+                        ear_tag: Some(row.ear_tag.clone()),
+                        error: format!("無效的測量日期格式: {}，必須是 YYYY-MM-DD 或 YYYY/MM/DD 格式", row.measure_date),
+                    });
+                    error_count += 1;
+                    continue;
+                }
+            };
+
+            // 驗證體重
+            let weight_val = row.weight.replace("kg", "").replace("公斤", "").trim().parse::<f64>().unwrap_or(0.0);
+            if weight_val <= 0.0 {
+                errors.push(ImportErrorDetail {
+                    row: row_number,
+                    ear_tag: Some(row.ear_tag.clone()),
+                    error: format!("無效的體重值: {}，必須是大於 0 的數字", row.weight),
+                });
+                error_count += 1;
+                continue;
+            }
+
+            // 查找豬隻
+            let pig = sqlx::query_scalar::<_, i32>(
+                "SELECT id FROM pigs WHERE ear_tag = $1"
+            )
+            .bind(&row.ear_tag)
+            .fetch_optional(pool)
+            .await?;
+
+            let pig_id = match pig {
+                Some(id) => id,
+                None => {
+                    errors.push(ImportErrorDetail {
+                        row: row_number,
+                        ear_tag: Some(row.ear_tag.clone()),
+                        error: "找不到對應的豬隻".to_string(),
+                    });
+                    error_count += 1;
+                    continue;
+                }
+            };
+
+            // 建立體重紀錄
+            let weight_decimal = rust_decimal::Decimal::from_f64_retain(weight_val)
+                .unwrap_or_default();
+
+            let create_req = CreateWeightRequest {
+                measure_date,
+                weight: weight_decimal,
+            };
+
+            match Self::create_weight(pool, pig_id, &create_req, created_by).await {
+                Ok(_) => {
+                    success_count += 1;
+                }
+                Err(e) => {
+                    errors.push(ImportErrorDetail {
+                        row: row_number,
+                        ear_tag: Some(row.ear_tag.clone()),
+                        error: format!("建立失敗: {}", e),
+                    });
+                    error_count += 1;
+                }
+            }
+        }
+
+        // 更新批次結果
+        let error_details = if errors.is_empty() {
+            None
+        } else {
+            Some(serde_json::to_value(&errors).unwrap_or(serde_json::Value::Null))
+        };
+
+        let _batch = Self::update_import_batch_result(
+            pool,
+            batch.id,
+            success_count,
+            error_count,
+            error_details,
+        )
+        .await?;
+
+        Ok(ImportResult {
+            batch_id: batch.id,
+            total_rows: rows.len() as i32,
+            success_count,
+            error_count,
+            errors,
+        })
+    }
+
+    /// 解析 Excel 檔案（基本資料）
+    fn parse_excel_file(file_data: &[u8]) -> Result<Vec<PigImportRow>> {
+        let range = {
+            let cursor = Cursor::new(file_data);
+            if let Ok(mut wb) = open_workbook_from_rs::<Xlsx<_>, _>(cursor) {
+                let sheet_name = wb.sheet_names().first().cloned()
+                    .ok_or_else(|| AppError::Validation("Excel 檔案中沒有工作表".to_string()))?;
+                wb.worksheet_range(&sheet_name)
+                    .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
+            } else {
+                let cursor = Cursor::new(file_data);
+                let mut wb = open_workbook_from_rs::<Xls<_>, _>(cursor)
+                    .map_err(|e| AppError::Validation(format!("無法讀取 Excel 檔案，請確認檔案格式為 .xlsx 或 .xls")))?;
+                let sheet_name = wb.sheet_names().first().cloned()
+                    .ok_or_else(|| AppError::Validation("Excel 檔案中沒有工作表".to_string()))?;
+                wb.worksheet_range(&sheet_name)
+                    .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
+            }
+        };
+
+        let mut rows = Vec::new();
+        let mut iter = range.rows();
+
+        // 跳過標題行
+        iter.next();
+
+        for (row_idx, row) in iter.enumerate() {
+            if row.len() < 4 {
+                continue; // 跳過資料不足的行
+            }
+
+            let ear_tag = Self::get_cell_string(row.get(0));
+            let breed = Self::get_cell_string(row.get(1));
+            let gender = Self::get_cell_string(row.get(2));
+            let birth_date = {
+                let s = Self::get_cell_string(row.get(3));
+                if s.is_empty() { None } else { Some(s) }
+            };
+            let entry_date = Self::get_cell_string(row.get(4));
+            let entry_weight = row.get(5)
+                .and_then(|c| match c {
+                    Data::Float(f) => Some(*f),
+                    Data::Int(i) => Some(*i as f64),
+                    _ => None,
+                });
+            let pen_location = {
+                let s = Self::get_cell_string(row.get(6));
+                if s.is_empty() { None } else { Some(s) }
+            };
+            let pre_experiment_code = {
+                let s = Self::get_cell_string(row.get(7));
+                if s.is_empty() { None } else { Some(s) }
+            };
+            let remark = {
+                let s = Self::get_cell_string(row.get(8));
+                if s.is_empty() { None } else { Some(s) }
+            };
+
+            // 如果必填欄位為空，跳過這行
+            if ear_tag.is_empty() || breed.is_empty() || gender.is_empty() || entry_date.is_empty() {
+                continue;
+            }
+
+            rows.push(PigImportRow {
+                ear_tag,
+                breed,
+                gender,
+                source_code: None, // Excel 範本中沒有這個欄位
+                birth_date,
+                entry_date,
+                entry_weight: entry_weight.map(|w| w.to_string()),
+                pen_location,
+                pre_experiment_code,
+                remark,
+                iacuc_no: None,
+                field_region: None,
+                field_number: None,
+            });
+        }
+
+        Ok(rows)
+    }
+
+    /// 解析 CSV 檔案（基本資料）
+    fn parse_csv_file(file_data: &[u8]) -> Result<Vec<PigImportRow>> {
+        let content = String::from_utf8_lossy(file_data);
+        let mut reader = csv::ReaderBuilder::new()
+            .trim(csv::Trim::All)
+            .flexible(true)
+            .from_reader(content.as_bytes());
+        let mut rows = Vec::new();
+
+        let mut row_idx = 1;
+        for result in reader.deserialize::<PigImportRow>() {
+            row_idx += 1;
+            match result {
+                Ok(row) => {
+                    if !row.ear_tag.is_empty() {
+                        rows.push(row);
+                    }
+                }
+                Err(e) => {
+                    return Err(AppError::Validation(format!("基本資料 CSV 第 {} 行解析錯誤: {}", row_idx, e)));
+                }
+            }
+        }
+
+        Ok(rows)
+    }
+
+    /// 解析 Excel 檔案（體重資料）
+    fn parse_weight_excel_file(file_data: &[u8]) -> Result<Vec<WeightImportRow>> {
+        let range = {
+            let cursor = Cursor::new(file_data);
+            if let Ok(mut wb) = open_workbook_from_rs::<Xlsx<_>, _>(cursor) {
+                let sheet_name = wb.sheet_names().first().cloned()
+                    .ok_or_else(|| AppError::Validation("Excel 檔案中沒有工作表".to_string()))?;
+                wb.worksheet_range(&sheet_name)
+                    .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
+            } else {
+                let cursor = Cursor::new(file_data);
+                let mut wb = open_workbook_from_rs::<Xls<_>, _>(cursor)
+                    .map_err(|e| AppError::Validation(format!("無法讀取 Excel 檔案，請確認檔案格式為 .xlsx 或 .xls")))?;
+                let sheet_name = wb.sheet_names().first().cloned()
+                    .ok_or_else(|| AppError::Validation("Excel 檔案中沒有工作表".to_string()))?;
+                wb.worksheet_range(&sheet_name)
+                    .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
+            }
+        };
+
+        let mut rows = Vec::new();
+        let mut iter = range.rows();
+
+        // 跳過標題行
+        iter.next();
+
+        for row in iter {
+            if row.len() < 3 {
+                continue;
+            }
+
+            let ear_tag = Self::get_cell_string(row.get(0)).trim().to_string();
+            let measure_date = Self::get_cell_string(row.get(1)).trim().to_string();
+            let weight = row.get(2)
+                .and_then(|c| match c {
+                    Data::Float(f) => Some(*f),
+                    Data::Int(i) => Some(*i as f64),
+                    _ => None,
+                })
+                .unwrap_or(0.0);
+
+            if ear_tag.is_empty() || measure_date.is_empty() || weight <= 0.0 {
+                continue;
+            }
+
+            rows.push(WeightImportRow {
+                ear_tag,
+                measure_date,
+                weight: weight.to_string(),
+            });
+        }
+
+        Ok(rows)
+    }
+
+    /// 解析 CSV 檔案（體重資料）
+    fn parse_weight_csv_file(file_data: &[u8]) -> Result<Vec<WeightImportRow>> {
+        let content = String::from_utf8_lossy(file_data);
+        let mut reader = csv::ReaderBuilder::new()
+            .trim(csv::Trim::All)
+            .flexible(true)
+            .from_reader(content.as_bytes());
+        let mut rows = Vec::new();
+
+        let mut row_idx = 1;
+        for result in reader.deserialize::<WeightImportRow>() {
+            row_idx += 1;
+            match result {
+                Ok(row) => {
+                    if !row.ear_tag.is_empty() {
+                        rows.push(row);
+                    }
+                }
+                Err(e) => {
+                    return Err(AppError::Validation(format!("體重資料 CSV 第 {} 行解析錯誤: {}", row_idx, e)));
+                }
+            }
+        }
+
+        Ok(rows)
+    }
+
+    /// 從 Excel 儲存格取得字串值
+    fn get_cell_string(cell: Option<&Data>) -> String {
+        if let Some(c) = cell {
+            match c {
+                Data::String(s) => s.trim().to_string(),
+                Data::Int(i) => i.to_string(),
+                Data::Float(f) => f.to_string(),
+                Data::Bool(b) => b.to_string(),
+                Data::DateTime(dt) => {
+                    let f = dt.as_f64();
+                    let days = f as i64;
+                    // Excel 基準日期 1899-12-30
+                    if let Some(base_date) = chrono::NaiveDate::from_ymd_opt(1899, 12, 30) {
+                        if let Some(date) = base_date.checked_add_signed(chrono::Duration::days(days)) {
+                            return date.format("%Y-%m-%d").to_string();
+                        }
+                    }
+                    f.to_string()
+                }
+                _ => String::new(),
+            }
+        } else {
+            String::new()
+        }
     }
 }

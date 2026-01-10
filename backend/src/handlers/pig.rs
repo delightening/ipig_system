@@ -1,5 +1,8 @@
 use axum::{
+    body::Body,
     extract::{Path, Query, State},
+    http::{header, StatusCode},
+    response::Response,
     Extension, Json,
 };
 use uuid::Uuid;
@@ -16,12 +19,13 @@ use crate::{
         VetRecommendation, UpdateObservationRequest, UpdateSurgeryRequest, UpdateWeightRequest,
         UpdateVaccinationRequest, CopyRecordRequest, VersionHistoryResponse,
         CreateVetRecommendationWithAttachmentsRequest, ExportRequest, PigImportBatch,
-        PigExportRecord, ObservationListItem, SurgeryListItem,
+        PigExportRecord, ObservationListItem, SurgeryListItem, ImportResult,
     },
     require_permission,
     services::PigService,
     AppError, AppState, Result,
 };
+use axum::extract::Multipart;
 
 // ============================================
 // 豬隻來源
@@ -85,15 +89,31 @@ pub async fn list_pigs(
     Query(query): Query<PigQuery>,
 ) -> Result<Json<Vec<PigListItem>>> {
     // 檢查權限
-    let has_view_all = current_user.permissions.contains(&"animal.pig.view_all".to_string());
-    let has_view_project = current_user.permissions.contains(&"animal.pig.view_project".to_string());
+    let has_view_all = current_user.has_permission("animal.pig.view_all");
+    let has_view_project = current_user.has_permission("animal.pig.view_project");
     
     if !has_view_all && !has_view_project {
-        return Err(AppError::Forbidden("You don't have permission to view pigs".to_string()));
+        // 如果用戶沒有任何查看權限，返回空列表而不是錯誤
+        // 這樣前端可以正常顯示，只是沒有資料
+        return Ok(Json(vec![]));
     }
     
+    // 如果有 view_project 權限但沒有 view_all，需要過濾只顯示計畫內的豬隻
+    // 目前先返回所有豬隻，後續可以根據 iacuc_no 過濾
     let pigs = PigService::list(&state.db, &query).await?;
-    Ok(Json(pigs))
+    
+    // 如果只有 view_project 權限，過濾只顯示有 iacuc_no 的豬隻
+    // （假設有 iacuc_no 的豬隻屬於某個計畫）
+    let filtered_pigs = if has_view_all {
+        pigs
+    } else {
+        // 只顯示已分配給計畫的豬隻（有 iacuc_no）
+        pigs.into_iter()
+            .filter(|pig| pig.iacuc_no.is_some())
+            .collect()
+    };
+    
+    Ok(Json(filtered_pigs))
 }
 
 /// 依欄位分組取得豬隻
@@ -124,7 +144,35 @@ pub async fn create_pig(
     Json(req): Json<CreatePigRequest>,
 ) -> Result<Json<Pig>> {
     require_permission!(current_user, "animal.pig.create");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    
+    // 記錄接收到的請求（用於調試）
+    tracing::debug!("Create pig request: ear_tag={}, breed={:?}, gender={:?}, entry_date={:?}, birth_date={:?}, entry_weight={:?}", 
+        req.ear_tag, req.breed, req.gender, req.entry_date, req.birth_date, req.entry_weight);
+    
+    // 驗證請求
+    if let Err(validation_errors) = req.validate() {
+        let error_messages: Vec<String> = validation_errors
+            .field_errors()
+            .iter()
+            .flat_map(|(field, errors)| {
+                errors.iter().map(move |e| {
+                    let field_name = match *field {
+                        "ear_tag" => "耳號",
+                        "breed" => "品種",
+                        "gender" => "性別",
+                        "entry_date" => "進場日期",
+                        "birth_date" => "出生日期",
+                        "entry_weight" => "進場體重",
+                        _ => field,
+                    };
+                    format!("{}: {}", field_name, e.message.as_ref().unwrap_or(&e.code))
+                })
+            })
+            .collect();
+        let error_msg = error_messages.join("; ");
+        tracing::warn!("Validation failed: {}", error_msg);
+        return Err(AppError::Validation(error_msg));
+    }
     
     let pig = PigService::create(&state.db, &req, current_user.id).await?;
     Ok(Json(pig))
@@ -695,6 +743,178 @@ pub async fn list_import_batches(
     
     let batches = PigService::list_import_batches(&state.db, 50).await?;
     Ok(Json(batches))
+}
+
+/// 下載豬隻基本資料匯入模板
+pub async fn download_basic_import_template(
+    Extension(current_user): Extension<CurrentUser>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> Result<Response> {
+    require_permission!(current_user, "animal.pig.import");
+    
+    let format = params.get("format").map(|s| s.as_str()).unwrap_or("xlsx");
+    
+    let (data, filename, content_type) = if format == "csv" {
+        let csv_data = PigService::generate_basic_import_template_csv()?;
+        (
+            csv_data,
+            "pig_basic_import_template.csv",
+            "text/csv; charset=utf-8",
+        )
+    } else {
+        let excel_data = PigService::generate_basic_import_template()?;
+        (
+            excel_data,
+            "pig_basic_import_template.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+    };
+    
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, content_type)
+        .header(
+            header::CONTENT_DISPOSITION,
+            format!("attachment; filename=\"{}\"", filename),
+        )
+        .body(Body::from(data))
+        .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))?)
+}
+
+/// 下載豬隻體重匯入模板
+pub async fn download_weight_import_template(
+    Extension(current_user): Extension<CurrentUser>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> Result<Response> {
+    require_permission!(current_user, "animal.pig.import");
+    
+    let format = params.get("format").map(|s| s.as_str()).unwrap_or("xlsx");
+    
+    let (data, filename, content_type) = if format == "csv" {
+        let csv_data = PigService::generate_weight_import_template_csv()?;
+        (
+            csv_data,
+            "pig_weight_import_template.csv",
+            "text/csv; charset=utf-8",
+        )
+    } else {
+        let excel_data = PigService::generate_weight_import_template()?;
+        (
+            excel_data,
+            "pig_weight_import_template.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+    };
+    
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, content_type)
+        .header(
+            header::CONTENT_DISPOSITION,
+            format!("attachment; filename=\"{}\"", filename),
+        )
+        .body(Body::from(data))
+        .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))?)
+}
+
+/// 匯入豬隻基本資料
+pub async fn import_basic_data(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    mut multipart: Multipart,
+) -> Result<Json<ImportResult>> {
+    require_permission!(current_user, "animal.pig.import");
+
+    let mut file_data: Option<Vec<u8>> = None;
+    let mut file_name = String::from("unknown");
+
+    // 解析 multipart 資料
+    while let Some(field) = multipart.next_field().await.map_err(|e| {
+        AppError::Validation(format!("無法讀取上傳檔案: {}", e))
+    })? {
+        if field.name() == Some("file") {
+            file_name = field
+                .file_name()
+                .map(String::from)
+                .unwrap_or_else(|| "unknown".to_string());
+
+            let data = field.bytes().await.map_err(|e| {
+                AppError::Validation(format!("無法讀取檔案資料: {}", e))
+            })?;
+
+            file_data = Some(data.to_vec());
+        }
+    }
+
+    let file_data = file_data.ok_or_else(|| {
+        AppError::Validation("未提供檔案".to_string())
+    })?;
+
+    // 檢查檔案大小（10MB 限制）
+    if file_data.len() > 10 * 1024 * 1024 {
+        return Err(AppError::Validation("檔案大小超過 10MB 限制".to_string()));
+    }
+
+    // 執行匯入
+    let result = PigService::import_basic_data(
+        &state.db,
+        &file_data,
+        &file_name,
+        current_user.id,
+    )
+    .await?;
+
+    Ok(Json(result))
+}
+
+/// 匯入豬隻體重資料
+pub async fn import_weight_data(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    mut multipart: Multipart,
+) -> Result<Json<ImportResult>> {
+    require_permission!(current_user, "animal.pig.import");
+
+    let mut file_data: Option<Vec<u8>> = None;
+    let mut file_name = String::from("unknown");
+
+    // 解析 multipart 資料
+    while let Some(field) = multipart.next_field().await.map_err(|e| {
+        AppError::Validation(format!("無法讀取上傳檔案: {}", e))
+    })? {
+        if field.name() == Some("file") {
+            file_name = field
+                .file_name()
+                .map(String::from)
+                .unwrap_or_else(|| "unknown".to_string());
+
+            let data = field.bytes().await.map_err(|e| {
+                AppError::Validation(format!("無法讀取檔案資料: {}", e))
+            })?;
+
+            file_data = Some(data.to_vec());
+        }
+    }
+
+    let file_data = file_data.ok_or_else(|| {
+        AppError::Validation("未提供檔案".to_string())
+    })?;
+
+    // 檢查檔案大小（10MB 限制）
+    if file_data.len() > 10 * 1024 * 1024 {
+        return Err(AppError::Validation("檔案大小超過 10MB 限制".to_string()));
+    }
+
+    // 執行匯入
+    let result = PigService::import_weight_data(
+        &state.db,
+        &file_data,
+        &file_name,
+        current_user.id,
+    )
+    .await?;
+
+    Ok(Json(result))
 }
 
 // ============================================

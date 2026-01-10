@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **評估日期：** 2026-01-08  
+> **評估日期：** 2026-01-11  
 > **規格版本：** v1.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -194,8 +194,10 @@
 | 豬隻詳情（7 Tab） | ✅ | ✅ | ✅ | PigDetailPage |
 | 批次分配至計劃 | ✅ | ✅ | ✅ | |
 | 批次進入實驗 | ✅ | ✅ | ✅ | |
-| 匯入基本資料 | ✅ | ✅ | ✅ | ImportDialog |
-| 匯入體重 | ✅ | ✅ | ✅ | ImportDialog |
+| 匯入基本資料 | ✅ | ✅ | ✅ | ImportDialog，支援 Excel/CSV |
+| 匯入體重 | ✅ | ✅ | ✅ | ImportDialog，支援 Excel/CSV |
+| 下載匯入範本（Excel） | ✅ | ✅ | ✅ | 基本資料/體重範本 |
+| 下載匯入範本（CSV） | ✅ | ✅ | ✅ | 基本資料/體重 CSV 範本 |
 
 ### 4.2 豬隻紀錄 - 觀察試驗紀錄
 
@@ -302,6 +304,8 @@
 | 004_pig_frontend_requirements.sql | 動物管理前端需求擴充 | ✅ |
 | 005_notification_types.sql | 通知類型擴展、日誌表、清理函數 | ✅ |
 | 006_attachments.sql | 附件管理表、索引 | ✅ |
+| 007_role_soft_delete_and_admin_consolidation.sql | 角色軟刪除、管理員合併 | ✅ |
+| 008_add_deleted_status.sql | 計劃書刪除狀態 | ✅ |
 
 ---
 
@@ -389,6 +393,82 @@
    - 後端：`list` 和 `get_my_protocols` 方法始終排除 DELETED 狀態的計劃書
    - 前端：狀態選擇器中移除 DELETED 選項，查詢函數中雙重過濾確保不顯示已刪除的計劃書
    - 不需要恢復功能，刪除即永久隱藏
+
+**最新更新（資料匯入功能 - 2026-01-11）：**
+1. ✅ 完整實作檔案匯入功能
+   - 後端：實作 Excel/CSV 檔案解析（calamine + csv 套件）
+   - 後端：實作資料驗證（必填欄位、格式驗證、唯一性檢查）
+   - 後端：實作批次匯入邏輯，支援基本資料和體重資料匯入
+   - 後端：實作匯入批次記錄，追蹤匯入結果和錯誤明細
+   - Handler：實作檔案上傳處理，支援 multipart/form-data
+   - 路由：添加 `/api/pigs/import/basic` 和 `/api/pigs/import/weights` 端點
+
+2. ✅ CSV 範本下載功能
+   - 後端：新增 `generate_basic_import_template_csv()` 和 `generate_weight_import_template_csv()`
+   - 後端：支援查詢參數 `?format=csv` 或 `?format=xlsx` 選擇範本格式
+   - 前端：在匯入對話框中提供 CSV 和 Excel 兩個下載按鈕
+   - 支援下載 CSV 格式範本檔案，方便使用者直接編輯
+
+3. ✅ 匯入功能特點
+   - 支援格式：Excel (.xlsx, .xls) 和 CSV
+   - 完整資料驗證：必填欄位、日期格式、列舉值、耳號唯一性
+   - 錯誤處理：逐行驗證，錯誤行不影響其他資料
+   - 批次記錄：記錄每次匯入的成功/失敗筆數和詳細錯誤資訊
+   - 前端修正：修正檔案上傳邏輯，正確處理 File 物件
+
+4. ✅ 技術實作
+   - 添加依賴：`calamine = "0.24"`（Excel 解析）、`csv = "1.3"`（CSV 解析）
+   - 錯誤處理：添加 `From<rust_xlsxwriter::XlsxError>` 轉換
+   - CSV 範本：使用 `csv::Writer` 生成 UTF-8 編碼的 CSV 檔案
+
+**最新更新（Bug 修復 - 2026-01-11）：**
+
+1. ✅ **修復豬隻計數顯示問題**
+   - 問題：系統裡有豬但"全部"標籤顯示 (0)，所有狀態計數都為 0
+   - 原因：前端 API 響應格式不一致，後端返回 `Vec<PigListItem>` 但前端期望 `{ data: [], total: number }`
+   - 修復：
+     - 新增 `allPigsData` 查詢專門用於計數，獲取所有豬隻資料
+     - 修正主查詢的響應類型從 `{ data: [], total: number }` 改為 `PigListItem[]`
+     - 修正數據提取：`pigs = pigsData || []`（過濾結果）、`allPigs = allPigsData || []`（計數用）
+     - 修正計數邏輯：`statusCounts` 基於 `allPigs` 計算，標籤計數使用 `allPigs.length`
+   - 影響：標籤計數現在正確顯示所有豬隻的狀態分布
+
+2. ✅ **修復 PigBreed enum 映射問題**
+   - 問題：資料庫錯誤 `invalid input value for enum pig_breed: "minipig"`，資料庫期望 `'miniature'`
+   - 原因：前端/Rust 使用 `'minipig'`，但 PostgreSQL enum 定義為 `'miniature'`
+   - 修復：
+     - 手動實現 `sqlx::Type`、`sqlx::Decode`、`sqlx::Encode` traits for `PigBreed`
+     - 添加 `size_hint` 方法到 `Encode` 實現
+     - 在 `create` 和 `update` 方法中手動轉換 `Minipig` → `"miniature"`
+     - 在 SQL 查詢中使用 `::pig_breed` 類型轉換確保正確映射
+     - 在查詢過濾中也正確轉換 breed 值
+   - 影響：新增和更新豬隻時不再出現 enum 映射錯誤
+
+3. ✅ **修復進場體重輸入驗證**
+   - 問題：進場體重輸入框允許非數字輸入，但提示為"進場體重只能是數字"
+   - 修復：
+     - `PigsPage.tsx`：使用 `type="text"` + `inputMode="decimal"`，自定義 `onChange` 過濾非數字輸入
+     - `PigEditPage.tsx`：引入 `entryWeightInput` 本地狀態管理輸入，使用 `onBlur` 清理尾隨小數點
+     - 客戶端驗證確保 entry_weight 為正數
+   - 影響：輸入體驗更流暢，只允許有效的數字輸入
+
+4. ✅ **修復新增動物失敗問題（403/400/422 錯誤）**
+   - 問題：新增動物時出現 403 Forbidden、400 Bad Request、422 Unprocessable Entity 錯誤
+   - 修復：
+     - **403 錯誤**：
+       - 修改 `list_pigs` 返回空數組而非 403 錯誤（當用戶無權限時）
+       - 增強 `CurrentUser::has_permission` 邏輯，正確識別 SYSTEM_ADMIN 和 admin 角色
+     - **400/422 錯誤**：
+       - 前端：增強客戶端驗證（必填欄位、日期格式 YYYY-MM-DD、UUID 格式、數值驗證）
+       - 前端：清理數據（空字串轉 `undefined`，正確處理選項欄位）
+       - 後端：添加 `#[serde(rename_all = "snake_case")]` 到 enum 確保正確反序列化
+       - 後端：改進驗證錯誤訊息格式，提供中文欄位名稱
+       - 後端：實現 `From<JsonRejection>` 轉換，將 JSON 解析錯誤轉為 422 響應
+   - 影響：新增動物功能現在可以正常工作，錯誤訊息更清晰
+
+5. ✅ **API 響應格式統一**
+   - 修正：後端 `/pigs` API 返回格式為 `Vec<PigListItem>`（數組），與前端預期一致
+   - 影響：減少前端處理複雜度，數據提取更直接
 
 **v1.0 已完成，系統可正式上線！**
 

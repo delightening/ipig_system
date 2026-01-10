@@ -30,8 +30,15 @@ pub struct CurrentUser {
 
 impl CurrentUser {
     pub fn has_permission(&self, permission: &str) -> bool {
-        self.permissions.contains(&permission.to_string())
-            || self.roles.contains(&"admin".to_string())
+        // 檢查是否有直接權限
+        if self.permissions.contains(&permission.to_string()) {
+            return true;
+        }
+        // 系統管理員擁有所有權限
+        if self.roles.iter().any(|r| r == "SYSTEM_ADMIN" || r == "admin" || r.to_lowercase() == "admin") {
+            return true;
+        }
+        false
     }
 
     pub fn has_role(&self, role: &str) -> bool {

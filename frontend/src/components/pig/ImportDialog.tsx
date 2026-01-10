@@ -24,10 +24,16 @@ import {
 
 type ImportType = 'basic' | 'weight'
 
+interface ImportErrorDetail {
+  row: number
+  ear_tag?: string
+  error: string
+}
+
 interface ImportResult {
   success_count: number
   error_count: number
-  errors?: { row: number; message: string }[]
+  errors?: ImportErrorDetail[]
 }
 
 interface Props {
@@ -36,22 +42,23 @@ interface Props {
   type: ImportType
 }
 
-const importTypeConfig: Record<ImportType, { title: string; description: string; templateUrl: string }> = {
+const importTypeConfig: Record<ImportType, { title: string; description: string; templateEndpoint: string }> = {
   basic: {
     title: '匯入豬隻基本資料',
     description: '支援 Excel (.xlsx, .xls) 或 CSV 格式',
-    templateUrl: '/templates/pig_import_template.xlsx',
+    templateEndpoint: '/pigs/import/template/basic',
   },
   weight: {
     title: '匯入豬隻體重資料',
     description: '批次匯入多隻豬的體重紀錄',
-    templateUrl: '/templates/pig_weight_import_template.xlsx',
+    templateEndpoint: '/pigs/import/template/weight',
   },
 }
 
 export function ImportDialog({ open, onOpenChange, type }: Props) {
   const queryClient = useQueryClient()
   const [files, setFiles] = useState<FileInfo[]>([])
+  const [fileObjects, setFileObjects] = useState<File[]>([])
   const [result, setResult] = useState<ImportResult | null>(null)
   const config = importTypeConfig[type]
 
@@ -59,11 +66,11 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
     mutationFn: async (file: File) => {
       const formData = new FormData()
       formData.append('file', file)
-      
-      const endpoint = type === 'basic' 
-        ? '/pigs/import/basic' 
+
+      const endpoint = type === 'basic'
+        ? '/pigs/import/basic'
         : '/pigs/import/weights'
-      
+
       const res = await api.post<ImportResult>(endpoint, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -75,9 +82,15 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
       setResult(data)
       if (data.error_count === 0) {
         queryClient.invalidateQueries({ queryKey: ['pigs'] })
-        toast({ 
-          title: '匯入成功', 
-          description: `成功匯入 ${data.success_count} 筆資料` 
+        toast({
+          title: '匯入成功',
+          description: `成功匯入 ${data.success_count} 筆資料`
+        })
+      } else {
+        toast({
+          title: '匯入完成（部分失敗）',
+          description: `成功: ${data.success_count} 筆，失敗: ${data.error_count} 筆`,
+          variant: 'destructive',
         })
       }
     },
@@ -90,27 +103,89 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
     },
   })
 
+  const handleFileChange = (fileInfos: FileInfo[]) => {
+    setFiles(fileInfos)
+    // 當檔案改變時，我們需要從 input 重新取得 File 物件
+    // 但由於 FileUpload 組件不直接提供 File 物件，我們需要另一種方式
+  }
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files
+    if (selectedFiles && selectedFiles.length > 0) {
+      const file = selectedFiles[0]
+      setFileObjects([file])
+      // 同時更新 FileInfo 列表
+      const fileInfo: FileInfo = {
+        id: `local-${Date.now()}`,
+        file_name: file.name,
+        file_path: '',
+        file_size: file.size,
+        file_type: file.type,
+      }
+      setFiles([fileInfo])
+    }
+  }
+
   const handleImport = () => {
-    if (files.length === 0) {
+    if (fileObjects.length === 0) {
       toast({ title: '錯誤', description: '請先選擇檔案', variant: 'destructive' })
       return
     }
 
-    // 從 FileInfo 取得原始 File 物件
-    // 在實際實作中，需要儲存原始 File 物件
-    // 這裡示範呼叫 API
-    const mockFile = new File([''], files[0].file_name)
-    importMutation.mutate(mockFile)
+    importMutation.mutate(fileObjects[0])
   }
 
   const handleClose = () => {
     setFiles([])
+    setFileObjects([])
     setResult(null)
     onOpenChange(false)
   }
 
-  const handleDownloadTemplate = () => {
-    window.open(config.templateUrl, '_blank')
+  const handleDownloadTemplate = async (format: 'xlsx' | 'csv' = 'csv') => {
+    try {
+      const endpoint = `${config.templateEndpoint}?format=${format}`
+      const response = await api.get(endpoint, {
+        responseType: 'blob',
+      })
+
+      // 創建下載連結
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+
+      // 從 Content-Disposition header 提取檔名，或使用預設檔名
+      const contentDisposition = response.headers['content-disposition']
+      let filename = format === 'csv' ? 'template.csv' : 'template.xlsx'
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/)
+        if (filenameMatch) {
+          filename = filenameMatch[1]
+        }
+      } else {
+        // 使用預設檔名
+        filename = type === 'basic'
+          ? (format === 'csv' ? 'pig_basic_import_template.csv' : 'pig_basic_import_template.xlsx')
+          : (format === 'csv' ? 'pig_weight_import_template.csv' : 'pig_weight_import_template.xlsx')
+      }
+
+      link.setAttribute('download', filename)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      toast({
+        title: '下載成功',
+        description: '範本檔案已開始下載',
+      })
+    } catch (error: any) {
+      toast({
+        title: '下載失敗',
+        description: error?.response?.data?.error?.message || '無法下載範本檔案',
+        variant: 'destructive',
+      })
+    }
   }
 
   return (
@@ -131,30 +206,52 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
               <FileSpreadsheet className="h-5 w-5 text-blue-600" />
               <span className="text-sm text-blue-800">下載範本檔案</span>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDownloadTemplate}
-              className="border-blue-300 text-blue-700 hover:bg-blue-100"
-            >
-              <Download className="h-4 w-4 mr-1" />
-              下載
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                asChild
+                className="border-blue-300 text-blue-700 hover:bg-blue-100"
+              >
+                {type === 'basic' ? (
+                  <a href="/file_imput.csv" download="file_imput.csv">
+                    <Download className="h-4 w-4 mr-1" />
+                    下載範本 (CSV)
+                  </a>
+                ) : (
+                  <a href="/weight_import.csv" download="weight_import.csv">
+                    <Download className="h-4 w-4 mr-1" />
+                    下載範本 (CSV)
+                  </a>
+                )}
+              </Button>
+            </div>
           </div>
 
           {/* File Upload */}
           {!result && (
             <div className="space-y-2">
               <Label>選擇檔案</Label>
-              <FileUpload
-                value={files}
-                onChange={setFiles}
+              <input
+                type="file"
                 accept=".xlsx,.xls,.csv"
-                placeholder="拖曳 Excel 或 CSV 檔案到此處"
-                maxSize={10}
-                maxFiles={1}
-                showPreview={false}
+                onChange={handleFileInputChange}
+                className="block w-full text-sm text-slate-500
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-lg file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-purple-50 file:text-purple-700
+                  hover:file:bg-purple-100
+                  file:cursor-pointer"
               />
+              {files.length > 0 && (
+                <div className="mt-2 p-2 bg-slate-50 rounded-lg">
+                  <p className="text-sm font-medium">{files[0].file_name}</p>
+                  <p className="text-xs text-slate-500">
+                    {(files[0].file_size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -193,6 +290,7 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
                       <thead className="bg-slate-100 sticky top-0">
                         <tr>
                           <th className="px-3 py-2 text-left font-medium">列</th>
+                          <th className="px-3 py-2 text-left font-medium">耳號</th>
                           <th className="px-3 py-2 text-left font-medium">錯誤訊息</th>
                         </tr>
                       </thead>
@@ -200,7 +298,8 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
                         {result.errors.map((error, i) => (
                           <tr key={i} className="border-t">
                             <td className="px-3 py-2">{error.row}</td>
-                            <td className="px-3 py-2 text-red-600">{error.message}</td>
+                            <td className="px-3 py-2 font-mono">{error.ear_tag || '-'}</td>
+                            <td className="px-3 py-2 text-red-600">{error.error}</td>
                           </tr>
                         ))}
                       </tbody>

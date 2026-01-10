@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import api, {
@@ -95,15 +95,15 @@ const penNumbersByZone: Record<string, string[]> = {
 export function PigsPage() {
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
-  
+
   // View mode state
   const [viewMode, setViewMode] = useState<ViewMode>('list')
-  
+
   // Filter state
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') || 'all')
   const [breedFilter, setBreedFilter] = useState<string>('all')
-  
+
   // Dialog state
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showBatchAssignDialog, setShowBatchAssignDialog] = useState(false)
@@ -112,14 +112,14 @@ export function PigsPage() {
   const [showImportWeightDialog, setShowImportWeightDialog] = useState(false)
   const [selectedPigs, setSelectedPigs] = useState<number[]>([])
   const [assignIacucNo, setAssignIacucNo] = useState('')
-  
+
   // Form state for new pig
   const [penBuilding, setPenBuilding] = useState('')
   const [penZone, setPenZone] = useState('')
   const [penNumber, setPenNumber] = useState('')
   const [newPig, setNewPig] = useState({
     ear_tag: '',
-    breed: 'miniature' as const,
+    breed: 'minipig' as const,
     gender: 'male' as const,
     source_id: '',
     entry_date: new Date().toISOString().split('T')[0],
@@ -127,6 +127,18 @@ export function PigsPage() {
     birth_date: '',
     pre_experiment_code: '',
     remark: '',
+  })
+
+  // Query for all pigs (for counting)
+  const { data: allPigsData } = useQuery({
+    queryKey: ['pigs-count'],
+    queryFn: async () => {
+      const res = await api.get<PigListItem[]>(`/pigs`)
+      return res.data
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   })
 
   // Queries
@@ -137,9 +149,12 @@ export function PigsPage() {
       if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter)
       if (breedFilter && breedFilter !== 'all') params.append('breed', breedFilter)
       if (search) params.append('search', search)
-      const res = await api.get<{ data: PigListItem[]; total: number }>(`/pigs?${params}`)
+      const res = await api.get<PigListItem[]>(`/pigs?${params}`)
       return res.data
     },
+    staleTime: 0, // Always consider data stale for real-time updates
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   })
 
   const { data: sourcesData } = useQuery({
@@ -158,18 +173,78 @@ export function PigsPage() {
       return res.data
     },
     enabled: viewMode === 'grouped',
+    staleTime: 0, // Always consider data stale for real-time updates
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   })
 
   // Mutations
   const createPigMutation = useMutation({
     mutationFn: async (data: typeof newPig) => {
       const penLocation = penZone && penNumber ? `${penZone}${penNumber}` : undefined
-      return api.post('/pigs', {
-        ...data,
-        entry_weight: data.entry_weight ? parseFloat(data.entry_weight) : undefined,
-        pen_location: penLocation,
-        source_id: data.source_id || undefined,
-      })
+      
+      // 驗證必填欄位
+      if (!data.ear_tag?.trim()) {
+        throw new Error('耳號為必填')
+      }
+      if (!data.entry_date) {
+        throw new Error('進場日期為必填')
+      }
+      if (!data.birth_date) {
+        throw new Error('出生日期為必填')
+      }
+      if (!data.pre_experiment_code?.trim()) {
+        throw new Error('實驗前代號為必填')
+      }
+      
+      // 驗證並轉換 entry_weight
+      let entryWeight: number | undefined = undefined
+      if (data.entry_weight && data.entry_weight !== '') {
+        const weightValue = parseFloat(data.entry_weight)
+        if (isNaN(weightValue) || weightValue <= 0) {
+          throw new Error('進場體重必須是大於 0 的數字')
+        }
+        entryWeight = weightValue
+      }
+      
+      // 驗證日期格式（必須是 YYYY-MM-DD）
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+      if (!dateRegex.test(data.entry_date)) {
+        throw new Error('進場日期格式不正確，必須是 YYYY-MM-DD 格式')
+      }
+      if (data.birth_date && data.birth_date.trim() !== '' && !dateRegex.test(data.birth_date)) {
+        throw new Error('出生日期格式不正確，必須是 YYYY-MM-DD 格式')
+      }
+      
+      // 清理資料格式
+      const payload: any = {
+        ear_tag: data.ear_tag.trim(),
+        breed: data.breed, // 'minipig', 'white', 'other'
+        gender: data.gender, // 'male', 'female'
+        entry_date: data.entry_date, // YYYY-MM-DD format
+        birth_date: data.birth_date && data.birth_date.trim() !== '' ? data.birth_date.trim() : undefined,
+        entry_weight: entryWeight, // number or undefined
+        pen_location: penLocation, // string or undefined
+        pre_experiment_code: data.pre_experiment_code && data.pre_experiment_code.trim() !== '' 
+          ? data.pre_experiment_code.trim() 
+          : undefined,
+        remark: data.remark && data.remark.trim() !== '' ? data.remark.trim() : undefined,
+      }
+      // 只有當 source_id 不是空字串且不是 'none' 時才加入（必須是有效的 UUID）
+      if (data.source_id && data.source_id.trim() !== '' && data.source_id.trim() !== 'none') {
+        // 驗證 UUID 格式
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        const trimmedSourceId = data.source_id.trim()
+        if (uuidRegex.test(trimmedSourceId)) {
+          payload.source_id = trimmedSourceId
+        } else {
+          throw new Error(`來源 ID 格式不正確: ${trimmedSourceId}`)
+        }
+      }
+      // 如果 source_id 是空字串或 'none'，不發送該欄位（後端會視為 None）
+      
+      console.log('Sending payload:', payload)
+      return api.post('/pigs', payload)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pigs'] })
@@ -178,9 +253,33 @@ export function PigsPage() {
       resetNewPigForm()
     },
     onError: (error: any) => {
+      console.error('Create pig error:', error)
+      console.error('Error response:', error?.response?.data)
+      console.error('Error status:', error?.response?.status)
+      console.error('Request payload:', error?.config?.data)
+      
+      // 提取錯誤訊息
+      let errorMessage = '新增失敗，請檢查輸入資料'
+      
+      // 422 錯誤通常是資料格式問題
+      if (error?.response?.status === 422) {
+        errorMessage = '資料格式錯誤：請檢查所有欄位的格式是否正確（例如：品種應為 minipig/white/other，性別應為 male/female，日期應為 YYYY-MM-DD 格式）'
+        if (error?.response?.data?.error?.message) {
+          errorMessage = error.response.data.error.message
+        } else if (error?.response?.data?.message) {
+          errorMessage = error.response.data.message
+        }
+      } else if (error?.response?.data?.error?.message) {
+        errorMessage = error.response.data.error.message
+      } else if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message
+      } else if (error?.message) {
+        errorMessage = error.message
+      }
+      
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '新增失敗',
+        description: errorMessage,
         variant: 'destructive',
       })
     },
@@ -200,10 +299,15 @@ export function PigsPage() {
       setSelectedPigs([])
       setAssignIacucNo('')
     },
-        onError: (error: any) => {
+    onError: (error: any) => {
+      console.error('Batch assign error:', error)
+      const errorMessage = error?.response?.data?.error?.message 
+        || error?.response?.data?.message
+        || error?.message
+        || '批次分配失敗'
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '新增失敗',
+        description: errorMessage,
         variant: 'destructive',
       })
     },
@@ -220,10 +324,15 @@ export function PigsPage() {
       toast({ title: '成功', description: '豬隻已新增' })
       setSelectedPigs([])
     },
-        onError: (error: any) => {
+    onError: (error: any) => {
+      console.error('Batch start experiment error:', error)
+      const errorMessage = error?.response?.data?.error?.message 
+        || error?.response?.data?.message
+        || error?.message
+        || '批次啟動實驗失敗'
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '新增失敗',
+        description: errorMessage,
         variant: 'destructive',
       })
     },
@@ -235,7 +344,7 @@ export function PigsPage() {
     setPenNumber('')
     setNewPig({
       ear_tag: '',
-      breed: 'miniature',
+      breed: 'minipig',
       gender: 'male',
       source_id: '',
       entry_date: new Date().toISOString().split('T')[0],
@@ -247,31 +356,34 @@ export function PigsPage() {
   }
 
   const togglePigSelection = (id: number) => {
-    setSelectedPigs(prev => 
+    setSelectedPigs(prev =>
       prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
     )
   }
 
   const toggleAllPigs = () => {
-    if (!pigsData?.data) return
-    if (selectedPigs.length === pigsData.data.length) {
+    const currentPigs = pigsData || []
+    if (currentPigs.length === 0) return
+    if (selectedPigs.length === currentPigs.length) {
       setSelectedPigs([])
     } else {
-      setSelectedPigs(pigsData.data.map(p => p.id))
+      setSelectedPigs(currentPigs.map(p => p.id))
     }
   }
 
-  const pigs = pigsData?.data || []
-  
+  const pigs = pigsData || []
+  const allPigs = allPigsData || []
+
   // 閮??????
-  const statusCounts = pigs.reduce((acc, pig) => {
+  // 計算狀態計數（基於所有豬隻，而非過濾後的結果）
+  const statusCounts = allPigs.reduce((acc, pig) => {
     acc[pig.status] = (acc[pig.status] || 0) + 1
     return acc
   }, {} as Record<string, number>)
 
   return (
     <div className="space-y-6">
-            {/* Header */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">豬隻管理</h1>
@@ -300,7 +412,7 @@ export function PigsPage() {
       {/* Status Tabs */}
       <div className="flex gap-2 border-b">
         {[
-          { value: 'all', label: '全部', count: pigs.length },
+          { value: 'all', label: '全部', count: allPigs.length },
           { value: 'unassigned', label: '未分配', count: statusCounts['unassigned'] || 0 },
           { value: 'assigned', label: '已分配', count: statusCounts['assigned'] || 0 },
           { value: 'in_experiment', label: '實驗中', count: statusCounts['in_experiment'] || 0 },
@@ -312,11 +424,10 @@ export function PigsPage() {
               setStatusFilter(tab.value)
               setSearchParams(tab.value === 'all' ? {} : { status: tab.value })
             }}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              statusFilter === tab.value
-                ? 'border-purple-600 text-purple-600'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${statusFilter === tab.value
+              ? 'border-purple-600 text-purple-600'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
           >
             {tab.label} ({tab.count})
           </button>
@@ -343,32 +454,30 @@ export function PigsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全部品種</SelectItem>
-                  <SelectItem value="miniature">迷你豬</SelectItem>
+                  <SelectItem value="minipig">迷你豬</SelectItem>
                   <SelectItem value="white">白豬</SelectItem>
                   <SelectItem value="other">其他</SelectItem>
                 </SelectContent>
               </Select>
-              
+
               {/* View Mode Toggle */}
               <div className="flex items-center border rounded-lg overflow-hidden">
                 <button
                   onClick={() => setViewMode('list')}
-                  className={`flex items-center gap-1 px-3 py-2 text-sm transition-colors ${
-                    viewMode === 'list'
-                      ? 'bg-purple-100 text-purple-700'
-                      : 'bg-white text-slate-600 hover:bg-slate-50'
-                  }`}
+                  className={`flex items-center gap-1 px-3 py-2 text-sm transition-colors ${viewMode === 'list'
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
                 >
                   <List className="h-4 w-4" />
                   列表
                 </button>
                 <button
                   onClick={() => setViewMode('grouped')}
-                  className={`flex items-center gap-1 px-3 py-2 text-sm border-l transition-colors ${
-                    viewMode === 'grouped'
-                      ? 'bg-purple-100 text-purple-700'
-                      : 'bg-white text-slate-600 hover:bg-slate-50'
-                  }`}
+                  className={`flex items-center gap-1 px-3 py-2 text-sm border-l transition-colors ${viewMode === 'grouped'
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
                 >
                   <LayoutGrid className="h-4 w-4" />
                   欄位分組
@@ -413,118 +522,118 @@ export function PigsPage() {
 
       {/* List View */}
       {viewMode === 'list' && (
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-            </div>
-          ) : pigs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-slate-500">
-              <AlertCircle className="h-12 w-12 mb-4" />
-              <p>沒有符合條件的豬隻</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
-                    <input
-                      type="checkbox"
-                      checked={selectedPigs.length === pigs.length && pigs.length > 0}
-                      onChange={toggleAllPigs}
-                      className="rounded border-slate-300"
-                    />
-                  </TableHead>
-                  <TableHead>系統號</TableHead>
-                  <TableHead>耳號</TableHead>
-                  <TableHead>欄位</TableHead>
-                  <TableHead>IACUC NO.</TableHead>
-                  <TableHead>狀態</TableHead>
-                  <TableHead>品種</TableHead>
-                  <TableHead>性別</TableHead>
-                  <TableHead>用藥中</TableHead>
-                  <TableHead>獸醫建議</TableHead>
-                  <TableHead>進場日期</TableHead>
-                  <TableHead className="text-right">動作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pigs.map((pig) => (
-                  <TableRow 
-                    key={pig.id} 
-                    className={pig.has_abnormal_record ? 'bg-yellow-50' : ''}
-                  >
-                    <TableCell>
+        <Card>
+          <CardContent className="p-0">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+              </div>
+            ) : pigs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+                <AlertCircle className="h-12 w-12 mb-4" />
+                <p>沒有符合條件的豬隻</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">
                       <input
                         type="checkbox"
-                        checked={selectedPigs.includes(pig.id)}
-                        onChange={() => togglePigSelection(pig.id)}
+                        checked={selectedPigs.length === pigs.length && pigs.length > 0}
+                        onChange={toggleAllPigs}
                         className="rounded border-slate-300"
                       />
-                    </TableCell>
-                    <TableCell className="font-medium">{pig.id}</TableCell>
-                    <TableCell>
-                      <Link 
-                        to={`/pigs/${pig.id}`}
-                        className="text-orange-600 hover:text-orange-700 font-medium"
-                      >
-                        {pig.ear_tag}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{pig.pen_location || '-'}</TableCell>
-                    <TableCell>
-                      {pig.iacuc_no || (
-                        <span className="text-slate-400">未分配</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={statusColors[pig.status]}>
-                        {pigStatusNames[pig.status]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{pigBreedNames[pig.breed]}</TableCell>
-                    <TableCell>{pigGenderNames[pig.gender]}</TableCell>
-                    <TableCell>
-                      {pig.is_on_medication ? (
-                        <Badge variant="destructive" className="text-xs">是</Badge>
-                      ) : (
-                        <span className="text-slate-400">否</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {pig.vet_recommendation_date ? (
-                        <span className="text-sm text-slate-600">
-                          {new Date(pig.vet_recommendation_date).toLocaleDateString('zh-TW')}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {new Date(pig.entry_date).toLocaleDateString('zh-TW')}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" asChild>
-                          <Link to={`/pigs/${pig.id}`}>
-                            <Eye className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                        <Button variant="ghost" size="icon" asChild>
-                          <Link to={`/pigs/${pig.id}/edit`}>
-                            <Edit2 className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                      </div>
-                    </TableCell>
+                    </TableHead>
+                    <TableHead>系統號</TableHead>
+                    <TableHead>耳號</TableHead>
+                    <TableHead>欄位</TableHead>
+                    <TableHead>IACUC NO.</TableHead>
+                    <TableHead>狀態</TableHead>
+                    <TableHead>品種</TableHead>
+                    <TableHead>性別</TableHead>
+                    <TableHead>用藥中</TableHead>
+                    <TableHead>獸醫建議</TableHead>
+                    <TableHead>進場日期</TableHead>
+                    <TableHead className="text-right">動作</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {pigs.map((pig) => (
+                    <TableRow
+                      key={pig.id}
+                      className={pig.has_abnormal_record ? 'bg-yellow-50' : ''}
+                    >
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          checked={selectedPigs.includes(pig.id)}
+                          onChange={() => togglePigSelection(pig.id)}
+                          className="rounded border-slate-300"
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium">{pig.id}</TableCell>
+                      <TableCell>
+                        <Link
+                          to={`/pigs/${pig.id}`}
+                          className="text-orange-600 hover:text-orange-700 font-medium"
+                        >
+                          {pig.ear_tag}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{pig.pen_location || '-'}</TableCell>
+                      <TableCell>
+                        {pig.iacuc_no || (
+                          <span className="text-slate-400">未分配</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={statusColors[pig.status]}>
+                          {pigStatusNames[pig.status]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{pigBreedNames[pig.breed]}</TableCell>
+                      <TableCell>{pigGenderNames[pig.gender]}</TableCell>
+                      <TableCell>
+                        {pig.is_on_medication ? (
+                          <Badge variant="destructive" className="text-xs">是</Badge>
+                        ) : (
+                          <span className="text-slate-400">否</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {pig.vet_recommendation_date ? (
+                          <span className="text-sm text-slate-600">
+                            {new Date(pig.vet_recommendation_date).toLocaleDateString('zh-TW')}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {new Date(pig.entry_date).toLocaleDateString('zh-TW')}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="icon" asChild>
+                            <Link to={`/pigs/${pig.id}`}>
+                              <Eye className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                          <Button variant="ghost" size="icon" asChild>
+                            <Link to={`/pigs/${pig.id}/edit`}>
+                              <Edit2 className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Grouped View */}
@@ -675,7 +784,7 @@ export function PigsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="miniature">迷你豬</SelectItem>
+                  <SelectItem value="minipig">迷你豬</SelectItem>
                   <SelectItem value="white">白豬</SelectItem>
                   <SelectItem value="other">其他</SelectItem>
                 </SelectContent>
@@ -699,13 +808,14 @@ export function PigsPage() {
             <div className="space-y-2">
               <Label>來源</Label>
               <Select
-                value={newPig.source_id}
-                onValueChange={(v) => setNewPig({ ...newPig, source_id: v })}
+                value={newPig.source_id || 'none'}
+                onValueChange={(v) => setNewPig({ ...newPig, source_id: v === 'none' ? '' : v })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="選擇來源" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">無</SelectItem>
                   {sourcesData?.map((source) => (
                     <SelectItem key={source.id} value={source.id}>
                       {source.name}
@@ -736,10 +846,20 @@ export function PigsPage() {
               <Label htmlFor="entry_weight">進場體重 (kg) *</Label>
               <Input
                 id="entry_weight"
-                type="number"
-                step="0.1"
+                type="text"
+                inputMode="decimal"
                 value={newPig.entry_weight}
-                onChange={(e) => setNewPig({ ...newPig, entry_weight: e.target.value })}
+                onChange={(e) => {
+                  const value = e.target.value
+                  // 只允許數字和一個小數點
+                  const numericValue = value.replace(/[^\d.]/g, '')
+                  // 確保只有一個小數點
+                  const parts = numericValue.split('.')
+                  const filteredValue = parts.length > 2
+                    ? parts[0] + '.' + parts.slice(1).join('')
+                    : numericValue
+                  setNewPig({ ...newPig, entry_weight: filteredValue })
+                }}
                 placeholder="輸入體重"
               />
             </div>
