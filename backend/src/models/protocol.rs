@@ -235,6 +235,8 @@ pub struct ProtocolListItem {
     pub start_date: Option<NaiveDate>,
     pub end_date: Option<NaiveDate>,
     pub created_at: DateTime<Utc>,
+    #[sqlx(default)]
+    pub apply_study_number: Option<String>,
 }
 
 /// 審查意見回應（含審查者資訊）

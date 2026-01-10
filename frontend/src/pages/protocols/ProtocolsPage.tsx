@@ -162,7 +162,6 @@ export function ProtocolsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>計畫書編號</TableHead>
               <TableHead>IACUC No.</TableHead>
               <TableHead>計畫書標題</TableHead>
               <TableHead>計畫書主持人</TableHead>
@@ -176,16 +175,13 @@ export function ProtocolsPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8">
+                <TableCell colSpan={8} className="text-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : protocols && protocols.length > 0 ? (
               protocols.map((protocol) => (
                 <TableRow key={protocol.id}>
-                  <TableCell className="font-mono font-medium">
-                    {protocol.protocol_no}
-                  </TableCell>
                   <TableCell className="font-mono text-orange-600">
                     {protocol.iacuc_no || '-'}
                   </TableCell>
@@ -231,7 +227,7 @@ export function ProtocolsPage() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8">
+                <TableCell colSpan={8} className="text-center py-8">
                   <FileText className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
                   <p className="text-muted-foreground">尚無計畫書資料</p>
                 </TableCell>

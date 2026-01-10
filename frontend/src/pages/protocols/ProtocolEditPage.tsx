@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
+import { useAuthStore } from '@/stores/auth'
 import {
   ArrowLeft,
   Save,
@@ -317,8 +318,8 @@ const defaultFormData: FormData = {
       pi: { name: '', phone: '', email: '', address: '' },
       sponsor: { name: '', contact_person: '', contact_phone: '', contact_email: '' },
       sd: { name: '', email: '' },
-      facility: { title: '', address: '' },
-      housing_location: ''
+      facility: { title: '豬博士動物科技股份有限公司', address: '' },
+      housing_location: '苗栗縣後龍鎮外埔里外埔6-15號'
     },
     purpose: {
       significance: '',
@@ -384,11 +385,15 @@ export function ProtocolEditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { user } = useAuthStore()
   const isNew = !id
 
   const [activeSection, setActiveSection] = useState('basic')
   const [formData, setFormData] = useState<FormData>(defaultFormData)
   const [isSaving, setIsSaving] = useState(false)
+
+  // 檢查是否為執行秘書角色（IACUC_STAFF）
+  const isIACUCStaff = user?.roles?.some(r => ['IACUC_STAFF', 'SYSTEM_ADMIN'].includes(r))
 
   const { data: protocol, isLoading } = useQuery({
     queryKey: ['protocol', id],
@@ -407,6 +412,19 @@ export function ProtocolEditPage() {
         const mergedWorkingContent = protocol.working_content
           ? deepMerge(defaultFormData.working_content, protocol.working_content)
           : defaultFormData.working_content
+
+        // 如果機構名稱或位置為空，使用預設值
+        if (mergedWorkingContent.basic) {
+          if (!mergedWorkingContent.basic.facility?.title || !mergedWorkingContent.basic.facility.title.trim()) {
+            mergedWorkingContent.basic.facility = {
+              ...mergedWorkingContent.basic.facility,
+              title: '豬博士動物科技股份有限公司'
+            }
+          }
+          if (!mergedWorkingContent.basic.housing_location || !mergedWorkingContent.basic.housing_location.trim()) {
+            mergedWorkingContent.basic.housing_location = '苗栗縣後龍鎮外埔里外埔6-15號'
+          }
+        }
 
         return {
           title: protocol.title,
@@ -506,11 +524,108 @@ export function ProtocolEditPage() {
     },
   })
 
-  const handleSave = async () => {
+  // 驗證必填字段（Section 1 - 研究資料）
+  const validateRequiredFields = (): string | null => {
+    const { basic, purpose } = formData.working_content
+
+    // 1. 研究名稱
     if (!formData.title.trim()) {
+      return '請填寫研究名稱 (Study Title)'
+    }
+
+    // 2. 預計試驗時程
+    if (!formData.start_date || !formData.end_date) {
+      return '請填寫預計試驗時程'
+    }
+
+    // 3. 計畫類型
+    if (!basic.project_type || !basic.project_type.trim()) {
+      return '請選擇計畫類型'
+    }
+
+    // 4. 計畫種類
+    if (!basic.project_category || !basic.project_category.trim()) {
+      return '請選擇計畫種類'
+    }
+    if (basic.project_category === 'other' && (!basic.project_category_other || !basic.project_category_other.trim())) {
+      return '請填寫其他計畫種類說明'
+    }
+
+    // 5. PI 資訊
+    if (!basic.pi.name || !basic.pi.name.trim()) {
+      return '請填寫計畫主持人姓名'
+    }
+    if (!basic.pi.email || !basic.pi.email.trim()) {
+      return '請填寫計畫主持人 Email'
+    }
+    if (!basic.pi.phone || !basic.pi.phone.trim()) {
+      return '請填寫計畫主持人電話'
+    }
+    if (!basic.pi.address || !basic.pi.address.trim()) {
+      return '請填寫計畫主持人地址'
+    }
+
+    // 6. Sponsor 資訊
+    if (!basic.sponsor.name || !basic.sponsor.name.trim()) {
+      return '請填寫委託單位名稱'
+    }
+    if (!basic.sponsor.contact_person || !basic.sponsor.contact_person.trim()) {
+      return '請填寫委託單位聯絡人'
+    }
+    if (!basic.sponsor.contact_phone || !basic.sponsor.contact_phone.trim()) {
+      return '請填寫委託單位聯絡電話'
+    }
+    if (!basic.sponsor.contact_email || !basic.sponsor.contact_email.trim()) {
+      return '請填寫委託單位聯絡 Email'
+    }
+
+    // 7. 機構名稱
+    if (!basic.facility.title || !basic.facility.title.trim()) {
+      return '請填寫機構名稱'
+    }
+
+    // 8. 位置
+    if (!basic.housing_location || !basic.housing_location.trim()) {
+      return '請填寫位置'
+    }
+
+    // Section 2 - 研究目的
+    // 2.1 研究之目的及重要性
+    if (!purpose.significance || !purpose.significance.trim()) {
+      return '請填寫研究之目的及重要性'
+    }
+
+    // 2.2.1 活體動物試驗之必要性
+    if (!purpose.replacement.rationale || !purpose.replacement.rationale.trim()) {
+      return '請說明活體動物試驗之必要性，以及選擇此動物種別的原因'
+    }
+
+    // 2.2.2 非動物替代方案搜尋資料庫
+    if (!purpose.replacement.alt_search.platforms || purpose.replacement.alt_search.platforms.length === 0) {
+      return '請至少選擇一個非動物性替代方案搜尋資料庫'
+    }
+    if (!purpose.replacement.alt_search.keywords || !purpose.replacement.alt_search.keywords.trim()) {
+      return '請填寫搜尋關鍵字'
+    }
+    if (!purpose.replacement.alt_search.conclusion || !purpose.replacement.alt_search.conclusion.trim()) {
+      return '請填寫搜尋結果與結論'
+    }
+
+    // 2.2.3 重複試驗理由（如果選擇"是"）
+    if (purpose.duplicate.experiment && (!purpose.duplicate.justification || !purpose.duplicate.justification.trim())) {
+      return '請說明重複進行之科學理由'
+    }
+
+    return null
+  }
+
+  const handleSave = async () => {
+    // 驗證必填字段
+    const validationError = validateRequiredFields()
+    if (validationError) {
       toast({
         title: '錯誤',
-        description: '請填寫計畫書標題',
+        description: validationError,
         variant: 'destructive',
       })
       return
@@ -518,16 +633,24 @@ export function ProtocolEditPage() {
 
     setIsSaving(true)
     try {
+      // 如果不是執行秘書，確保試驗編號為空
+      const basicContent = {
+        ...formData.working_content.basic,
+        study_title: formData.title,
+        start_date: formData.start_date,
+        end_date: formData.end_date,
+      }
+      
+      // 如果不是 IACUC_STAFF，清空試驗編號
+      if (!isIACUCStaff) {
+        basicContent.apply_study_number = ''
+      }
+
       const data = {
         title: formData.title,
         working_content: {
           ...formData.working_content,
-          basic: {
-            ...formData.working_content.basic,
-            study_title: formData.title,
-            start_date: formData.start_date,
-            end_date: formData.end_date,
-          }
+          basic: basicContent,
         },
         start_date: formData.start_date || undefined,
         end_date: formData.end_date || undefined,
@@ -678,28 +801,34 @@ export function ProtocolEditPage() {
                 </div>
 
                 {/* 2. IDs and Dates */}
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className={`grid gap-4 ${isNew || !isIACUCStaff ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
+                  {/* 試驗編號：新增頁面隱藏，編輯頁面只有執行秘書可編輯 */}
+                  {(!isNew && isIACUCStaff) && (
+                    <div className="space-y-2">
+                      <Label htmlFor="apply_study_number">試驗編號 (Study No.)</Label>
+                      <Input
+                        id="apply_study_number"
+                        value={formData.working_content.basic.apply_study_number || ''}
+                        onChange={(e) => updateWorkingContent('basic', 'apply_study_number', e.target.value)}
+                        placeholder="由執行秘書填寫"
+                      />
+                    </div>
+                  )}
                   <div className="space-y-2">
-                    <Label htmlFor="apply_study_number">試驗編號 (Study No.) *</Label>
-                    <Input
-                      id="apply_study_number"
-                      value={formData.working_content.basic.apply_study_number}
-                      onChange={(e) => updateWorkingContent('basic', 'apply_study_number', e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>試驗期間</Label>
+                    <Label>預計試驗時程 *</Label>
                     <div className="flex gap-2">
                       <Input
                         type="date"
                         value={formData.start_date}
                         onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
+                        required
                       />
                       <span className="self-center">至</span>
                       <Input
                         type="date"
                         value={formData.end_date}
                         onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
+                        required
                       />
                     </div>
                   </div>
@@ -832,14 +961,14 @@ export function ProtocolEditPage() {
                   <h3 className="font-semibold">試驗機構與設施</h3>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label>試驗機構名稱 *</Label>
+                      <Label>機構名稱 *</Label>
                       <Input
                         value={formData.working_content.basic.facility.title}
                         onChange={(e) => updateWorkingContent('basic', 'facility.title', e.target.value)}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>動物房位置 *</Label>
+                      <Label>位置 *</Label>
                       <Input
                         value={formData.working_content.basic.housing_location}
                         onChange={(e) => updateWorkingContent('basic', 'housing_location', e.target.value)}
@@ -858,9 +987,9 @@ export function ProtocolEditPage() {
                 <CardDescription>說明研究目的、重要性與 3Rs 替代、減量原則</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* 1. Significance */}
+                {/* 2.1 研究之目的及重要性 */}
                 <div className="space-y-2">
-                  <Label>研究之目的及重要性 *</Label>
+                  <Label>2.1 研究之目的及重要性 *</Label>
                   <Textarea
                     value={formData.working_content.purpose.significance}
                     onChange={(e) => updateWorkingContent('purpose', 'significance', e.target.value)}
@@ -871,38 +1000,103 @@ export function ProtocolEditPage() {
 
                 <div className="h-px bg-border my-4" />
 
-                {/* 2. Replacement */}
+                {/* 2.2 替代原則 */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold">替代 (Replacement)</h3>
+                  <h3 className="font-semibold">2.2 請以動物試驗應用3Rs之替代原則，說明本動物試驗之合理性:</h3>
+                  
+                  {/* 2.2.1 活體動物試驗之必要性 */}
                   <div className="space-y-2">
-                    <Label>替代原則說明 *</Label>
+                    <Label>2.2.1 請說明活體動物試驗之必要性，以及選擇此動物種別的原因: *</Label>
                     <Textarea
                       value={formData.working_content.purpose.replacement.rationale}
                       onChange={(e) => updateWorkingContent('purpose', 'replacement.rationale', e.target.value)}
-                      placeholder="為何需使用活體動物？為何非動物模型不足？物種選擇理由與最低系統發生學層級考量？"
+                      placeholder="請說明活體動物試驗之必要性，以及選擇此動物種別的原因"
                       rows={4}
                     />
                   </div>
+
+                  {/* 2.2.2 非動物性替代方案搜尋資料庫 */}
                   <div className="space-y-2">
-                    <Label>非動物替代方案搜尋資料庫 *</Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {['altbib', 'db_alm', 're_place', 'other'].map(platform => (
-                        <div key={platform} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`search_${platform}`}
-                            checked={formData.working_content.purpose.replacement.alt_search.platforms.includes(platform)}
-                            onChange={(e) => {
-                              const checked = e.target.checked
-                              const current = formData.working_content.purpose.replacement.alt_search.platforms
-                              const updated = checked
-                                ? [...current, platform]
-                                : current.filter(p => p !== platform)
-                              updateWorkingContent('purpose', 'replacement.alt_search.platforms', updated)
-                            }}
-                          />
-                          <Label htmlFor={`search_${platform}`}>{platform === 'other' ? '其他' : platform}</Label>
-                        </div>
-                      ))}
+                    <Label>2.2.2 請於下列網站搜尋非動物性替代方案 *</Label>
+                    <div className="space-y-4 pl-4">
+                      <div className="flex items-start space-x-3 py-2">
+                        <Checkbox
+                          id="search_altbib"
+                          checked={formData.working_content.purpose.replacement.alt_search.platforms.includes('altbib')}
+                          onChange={(e) => {
+                            const checked = e.target.checked
+                            const current = formData.working_content.purpose.replacement.alt_search.platforms
+                            const updated = checked
+                              ? [...current, 'altbib']
+                              : current.filter(p => p !== 'altbib')
+                            updateWorkingContent('purpose', 'replacement.alt_search.platforms', updated)
+                          }}
+                          className="mt-1"
+                        />
+                        <Label htmlFor="search_altbib" className="font-normal leading-relaxed flex-1">
+                          1. ALTBIB-非動物性替代方法參考文獻搜索工具<br />
+                          <a 
+                            href="https://ntp.niehs.nih.gov/whatwestudy/niceatm/altbib" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline text-sm break-all"
+                          >
+                            https://ntp.niehs.nih.gov/whatwestudy/niceatm/altbib
+                          </a>
+                        </Label>
+                      </div>
+                      <div className="flex items-start space-x-3 py-2">
+                        <Checkbox
+                          id="search_db_alm"
+                          checked={formData.working_content.purpose.replacement.alt_search.platforms.includes('db_alm')}
+                          onChange={(e) => {
+                            const checked = e.target.checked
+                            const current = formData.working_content.purpose.replacement.alt_search.platforms
+                            const updated = checked
+                              ? [...current, 'db_alm']
+                              : current.filter(p => p !== 'db_alm')
+                            updateWorkingContent('purpose', 'replacement.alt_search.platforms', updated)
+                          }}
+                          className="mt-1"
+                        />
+                        <Label htmlFor="search_db_alm" className="font-normal leading-relaxed flex-1">
+                          2. DB-ALM動物試驗替代方法資料庫<br />
+                          <a 
+                            href="https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/EURL-ECVAM/datasets/DBALM/LATEST/online/dbalm.html" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline text-sm break-all"
+                          >
+                            https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/EURL<br />-ECVAM/datasets/DBALM/LATEST/online/dbalm.html
+                          </a>
+                        </Label>
+                      </div>
+                      <div className="flex items-start space-x-3 py-2">
+                        <Checkbox
+                          id="search_re_place"
+                          checked={formData.working_content.purpose.replacement.alt_search.platforms.includes('re_place')}
+                          onChange={(e) => {
+                            const checked = e.target.checked
+                            const current = formData.working_content.purpose.replacement.alt_search.platforms
+                            const updated = checked
+                              ? [...current, 're_place']
+                              : current.filter(p => p !== 're_place')
+                            updateWorkingContent('purpose', 'replacement.alt_search.platforms', updated)
+                          }}
+                          className="mt-1"
+                        />
+                        <Label htmlFor="search_re_place" className="font-normal leading-relaxed flex-1">
+                          3. 歐洲動物替代試驗資源平台<br />
+                          <a 
+                            href="https://www.re-place.be/" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline text-sm break-all"
+                          >
+                            https://www.re-place.be/
+                          </a>
+                        </Label>
+                      </div>
                     </div>
                     {formData.working_content.purpose.replacement.alt_search.platforms.includes('other') && (
                       <Input
@@ -930,6 +1124,41 @@ export function ProtocolEditPage() {
                       rows={3}
                     />
                   </div>
+
+                  {/* 2.2.3 是否為重複他人試驗 */}
+                  <div className="space-y-2">
+                    <Label>2.2.3 是否為重複他人試驗</Label>
+                    <Select
+                      value={formData.working_content.purpose.duplicate.experiment ? 'yes' : 'no'}
+                      onValueChange={(value) => {
+                        const isYes = value === 'yes'
+                        updateWorkingContent('purpose', 'duplicate.experiment', isYes)
+                        // 如果選擇"否"，清空說明欄位
+                        if (!isYes) {
+                          updateWorkingContent('purpose', 'duplicate.justification', '')
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="請選擇" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="no">否</SelectItem>
+                        <SelectItem value="yes">是</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {formData.working_content.purpose.duplicate.experiment && (
+                      <div className="space-y-2 mt-2">
+                        <Label>請說明重複進行之科學理由 *</Label>
+                        <Textarea
+                          value={formData.working_content.purpose.duplicate.justification}
+                          onChange={(e) => updateWorkingContent('purpose', 'duplicate.justification', e.target.value)}
+                          placeholder="請說明重複進行之科學理由"
+                          rows={3}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="h-px bg-border my-4" />
@@ -948,29 +1177,6 @@ export function ProtocolEditPage() {
                   </div>
                 </div>
 
-                <div className="h-px bg-border my-4" />
-
-                {/* 4. Duplication */}
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="duplicate_exp"
-                      checked={formData.working_content.purpose.duplicate.experiment}
-                      onChange={(e) => updateWorkingContent('purpose', 'duplicate.experiment', e.target.checked)}
-                    />
-                    <Label htmlFor="duplicate_exp">是否重複他人試驗</Label>
-                  </div>
-                  {formData.working_content.purpose.duplicate.experiment && (
-                    <div className="space-y-2 pl-6">
-                      <Label>重複試驗理由 *</Label>
-                      <Textarea
-                        value={formData.working_content.purpose.duplicate.justification}
-                        onChange={(e) => updateWorkingContent('purpose', 'duplicate.justification', e.target.value)}
-                        placeholder="請說明重複進行之科學理由"
-                      />
-                    </div>
-                  )}
-                </div>
               </CardContent>
             </Card>
           )}

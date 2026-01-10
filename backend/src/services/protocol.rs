@@ -17,10 +17,40 @@ pub struct ProtocolService;
 
 impl ProtocolService {
     /// 生成計畫編號
-    fn generate_protocol_no() -> String {
+    /// 格式：Pre-{民國年}-{序號:03}
+    /// 例如：Pre-114-001, Pre-114-002
+    async fn generate_protocol_no(pool: &PgPool) -> Result<String> {
         let now = Utc::now();
-        let random: u32 = rand::random::<u32>() % 1000;
-        format!("PROTO-{}-{:03}", now.format("%Y%m"), random)
+        let year = now.year();
+        // 民國年 = 西元年 - 1911
+        let roc_year = year - 1911;
+        
+        // 查詢該民國年的所有計畫編號
+        let prefix = format!("Pre-{}-", roc_year);
+        let protocol_nos: Vec<String> = sqlx::query_scalar(
+            "SELECT protocol_no FROM protocols WHERE protocol_no LIKE $1"
+        )
+        .bind(format!("{}%", prefix))
+        .fetch_all(pool)
+        .await?;
+
+        // 解析序號並找出最大值
+        let max_seq = protocol_nos
+            .iter()
+            .filter_map(|no| {
+                // 格式：Pre-114-001，提取最後的數字部分
+                let parts: Vec<&str> = no.split('-').collect();
+                if parts.len() >= 3 {
+                    parts[2].parse::<i32>().ok()
+                } else {
+                    None
+                }
+            })
+            .max();
+
+        let seq = max_seq.map(|s| s + 1).unwrap_or(1);
+
+        Ok(format!("{}{:03}", prefix, seq))
     }
 
     /// 建立計畫
@@ -29,7 +59,7 @@ impl ProtocolService {
         req: &CreateProtocolRequest,
         created_by: Uuid,
     ) -> Result<Protocol> {
-        let protocol_no = Self::generate_protocol_no();
+        let protocol_no = Self::generate_protocol_no(pool).await?;
         let pi_user_id = req.pi_user_id.unwrap_or(created_by);
 
         let protocol = sqlx::query_as::<_, Protocol>(
@@ -82,7 +112,8 @@ impl ProtocolService {
             SELECT 
                 p.id, p.protocol_no, p.iacuc_no, p.title, p.status,
                 p.pi_user_id, u.display_name as pi_name, u.organization as pi_organization,
-                p.start_date, p.end_date, p.created_at
+                p.start_date, p.end_date, p.created_at,
+                NULLIF(p.working_content->'basic'->>'apply_study_number', '') as apply_study_number
             FROM protocols p
             LEFT JOIN users u ON p.pi_user_id = u.id
             WHERE 1=1
@@ -491,7 +522,8 @@ impl ProtocolService {
             SELECT 
                 p.id, p.protocol_no, p.iacuc_no, p.title, p.status,
                 p.pi_user_id, u.display_name as pi_name, u.organization as pi_organization,
-                p.start_date, p.end_date, p.created_at
+                p.start_date, p.end_date, p.created_at,
+                NULLIF(p.working_content->'basic'->>'apply_study_number', '') as apply_study_number
             FROM protocols p
             LEFT JOIN users u ON p.pi_user_id = u.id
             INNER JOIN user_protocols up ON p.id = up.protocol_id

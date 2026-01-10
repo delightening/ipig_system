@@ -500,6 +500,7 @@ export interface ProtocolListItem {
   start_date?: string
   end_date?: string
   created_at: string
+  apply_study_number?: string
 }
 
 export interface ProtocolResponse extends Protocol {
