@@ -7,3 +7,14 @@
 **/dist
 **/build
 **/.next
+
+# === secrets ===
+.env
+.env.*
+!.env.example
+*_dump.sql
+*.dump.sql
+*.sql
+
+# app secrets files (optional)
+secrets/
