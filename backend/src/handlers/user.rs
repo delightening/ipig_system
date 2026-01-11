@@ -1,4 +1,4 @@
-use axum::{
+﻿use axum::{
     extract::{Path, Query, State},
     Extension, Json,
 };
@@ -18,22 +18,22 @@ pub struct UserQuery {
     pub keyword: Option<String>,
 }
 
-/// 建立用戶
+/// 撱箇??冽
 pub async fn create_user(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<CreateUserRequest>,
 ) -> Result<Json<UserResponse>> {
-    require_permission!(current_user, "user.create");
+    require_permission!(current_user, "dev.user.create");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
-    // 保存原始密碼用於寄送郵件
+    // 靽???撖Ⅳ?冽撖隞?
     let plain_password = req.password.clone();
     
     let user = UserService::create(&state.db, &req).await?;
     let response = UserService::get_by_id(&state.db, user.id).await?;
     
-    // 寄送歡迎信件（異步執行，不阻塞回應）
+    // 撖迭餈縑隞塚??唳郊?瑁?嚗??餃???嚗?
     let config = state.config.clone();
     let email = response.email.clone();
     let display_name = response.display_name.clone();
@@ -46,79 +46,79 @@ pub async fn create_user(
     Ok(Json(response))
 }
 
-/// 取得用戶列表
+/// ???冽?”
 pub async fn list_users(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<UserQuery>,
 ) -> Result<Json<Vec<UserResponse>>> {
-    require_permission!(current_user, "user.read");
+    require_permission!(current_user, "dev.user.view");
     
     let users = UserService::list(&state.db, query.keyword.as_deref()).await?;
     Ok(Json(users))
 }
 
-/// 取得單一用戶
+/// ???桐??冽
 pub async fn get_user(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<UserResponse>> {
-    require_permission!(current_user, "user.read");
+    require_permission!(current_user, "dev.user.view");
     
     let user = UserService::get_by_id(&state.db, id).await?;
     Ok(Json(user))
 }
 
-/// 更新用戶
+/// ?湔?冽
 pub async fn update_user(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateUserRequest>,
 ) -> Result<Json<UserResponse>> {
-    require_permission!(current_user, "user.update");
+    require_permission!(current_user, "dev.user.edit");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let user = UserService::update(&state.db, id, &req).await?;
     Ok(Json(user))
 }
 
-/// 刪除用戶
+/// ?芷?冽
 pub async fn delete_user(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
-    require_permission!(current_user, "user.delete");
+    require_permission!(current_user, "dev.user.delete");
     
     UserService::delete(&state.db, id).await?;
     Ok(Json(serde_json::json!({ "message": "User deleted successfully" })))
 }
 
-/// Admin 重設他人密碼
+/// Admin ?身隞犖撖Ⅳ
 pub async fn reset_user_password(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
     Json(req): Json<ResetPasswordRequest>,
 ) -> Result<Json<serde_json::Value>> {
-    // 檢查權限：必須是 Admin 角色
+    // 瑼Ｘ甈?嚗?? Admin 閫
     if !current_user.roles.contains(&"admin".to_string()) {
         return Err(AppError::BusinessRule("Only admin can reset other user's password".to_string()));
     }
     
-    // 不能重設自己的密碼（應使用 /me/password）
+    // 銝?身?芸楛??蝣潘??蝙??/me/password嚗?
     if id == current_user.id {
         return Err(AppError::Validation("Use /me/password to change your own password".to_string()));
     }
     
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
-    // 重設密碼
+    // ?身撖Ⅳ
     AuthService::reset_user_password(&state.db, id, &req.new_password).await?;
     
-    // 記錄稽核日誌
+    // 閮?蝔賣?亥?
     AuditService::log(
         &state.db,
         current_user.id,
@@ -134,3 +134,4 @@ pub async fn reset_user_password(
     
     Ok(Json(serde_json::json!({ "message": "Password reset successfully" })))
 }
+

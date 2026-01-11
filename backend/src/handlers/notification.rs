@@ -1,4 +1,4 @@
-use axum::{
+﻿use axum::{
     extract::{Path, Query, State, Extension},
     http::StatusCode,
     Json,
@@ -19,7 +19,7 @@ use crate::{
     AppState,
 };
 
-/// 取得使用者通知列表
+/// ??雿輻??”
 pub async fn list_notifications(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -33,7 +33,7 @@ pub async fn list_notifications(
     Ok(Json(result))
 }
 
-/// 取得未讀通知數量
+/// ???芾???賊?
 pub async fn get_unread_count(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -43,7 +43,7 @@ pub async fn get_unread_count(
     Ok(Json(UnreadNotificationCount { count }))
 }
 
-/// 標記通知為已讀
+/// 璅???箏歇霈
 pub async fn mark_as_read(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -56,7 +56,7 @@ pub async fn mark_as_read(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// 標記所有通知為已讀
+/// 璅????箏歇霈
 pub async fn mark_all_as_read(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -66,7 +66,7 @@ pub async fn mark_all_as_read(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// 刪除通知
+/// ?芷?
 pub async fn delete_notification(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -77,7 +77,7 @@ pub async fn delete_notification(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// 取得通知設定
+/// ???閮剖?
 pub async fn get_notification_settings(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -87,7 +87,7 @@ pub async fn get_notification_settings(
     Ok(Json(settings))
 }
 
-/// 更新通知設定
+/// ?湔?閮剖?
 pub async fn update_notification_settings(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -99,10 +99,10 @@ pub async fn update_notification_settings(
 }
 
 // ============================================
-// 預警相關
+// ?郎?賊?
 // ============================================
 
-/// 取得低庫存預警列表
+/// ??雿澈摮?霅血?銵?
 pub async fn list_low_stock_alerts(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -115,7 +115,7 @@ pub async fn list_low_stock_alerts(
     Ok(Json(result))
 }
 
-/// 取得效期預警列表
+/// ?????郎?”
 pub async fn list_expiry_alerts(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -129,10 +129,10 @@ pub async fn list_expiry_alerts(
 }
 
 // ============================================
-// 定期報表相關
+// 摰??梯”?賊?
 // ============================================
 
-/// 取得定期報表列表
+/// ??摰??梯”?”
 pub async fn list_scheduled_reports(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -142,7 +142,7 @@ pub async fn list_scheduled_reports(
     Ok(Json(reports))
 }
 
-/// 取得單一定期報表
+/// ???桐?摰??梯”
 pub async fn get_scheduled_report(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -153,7 +153,7 @@ pub async fn get_scheduled_report(
     Ok(Json(report))
 }
 
-/// 建立定期報表
+/// 撱箇?摰??梯”
 pub async fn create_scheduled_report(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -166,7 +166,7 @@ pub async fn create_scheduled_report(
     Ok((StatusCode::CREATED, Json(report)))
 }
 
-/// 更新定期報表
+/// ?湔摰??梯”
 pub async fn update_scheduled_report(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -178,7 +178,7 @@ pub async fn update_scheduled_report(
     Ok(Json(report))
 }
 
-/// 刪除定期報表
+/// ?芷摰??梯”
 pub async fn delete_scheduled_report(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -189,7 +189,7 @@ pub async fn delete_scheduled_report(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// 取得報表歷史記錄
+/// ???梯”甇瑕閮?
 pub async fn list_report_history(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -202,7 +202,7 @@ pub async fn list_report_history(
     Ok(Json(result))
 }
 
-/// 下載報表檔案
+/// 銝??梯”瑼?
 pub async fn download_report(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -214,10 +214,10 @@ pub async fn download_report(
 }
 
 // ============================================
-// 手動觸發通知檢查
+// ??閫貊?瑼Ｘ
 // ============================================
 
-/// 手動觸發低庫存檢查
+/// ??閫貊雿澈摮炎??
 pub async fn trigger_low_stock_check(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -225,16 +225,16 @@ pub async fn trigger_low_stock_check(
     match crate::services::scheduler::SchedulerService::trigger_low_stock_check(&state.db, &state.config).await {
         Ok(_) => Ok(Json(serde_json::json!({
             "success": true,
-            "message": "低庫存檢查已完成"
+            "message": "雿澈摮炎?亙歇摰?"
         }))),
         Err(e) => Ok(Json(serde_json::json!({
             "success": false,
-            "message": format!("檢查失敗: {}", e)
+            "message": format!("瑼Ｘ憭望?: {}", e)
         }))),
     }
 }
 
-/// 手動觸發效期檢查
+/// ??閫貊??瑼Ｘ
 pub async fn trigger_expiry_check(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -242,16 +242,16 @@ pub async fn trigger_expiry_check(
     match crate::services::scheduler::SchedulerService::trigger_expiry_check(&state.db, &state.config).await {
         Ok(_) => Ok(Json(serde_json::json!({
             "success": true,
-            "message": "效期檢查已完成"
+            "message": "??瑼Ｘ撌脣???
         }))),
         Err(e) => Ok(Json(serde_json::json!({
             "success": false,
-            "message": format!("檢查失敗: {}", e)
+            "message": format!("瑼Ｘ憭望?: {}", e)
         }))),
     }
 }
 
-/// 手動清理過期通知
+/// ??皜????
 pub async fn trigger_notification_cleanup(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -261,11 +261,12 @@ pub async fn trigger_notification_cleanup(
     match service.cleanup_old_notifications().await {
         Ok(deleted) => Ok(Json(serde_json::json!({
             "success": true,
-            "message": format!("已清理 {} 筆過期通知", deleted)
+            "message": format!("撌脫???{} 蝑??", deleted)
         }))),
         Err(e) => Ok(Json(serde_json::json!({
             "success": false,
-            "message": format!("清理失敗: {}", e)
+            "message": format!("皜?憭望?: {}", e)
         }))),
     }
 }
+

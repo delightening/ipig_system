@@ -1,4 +1,4 @@
-use axum::{
+﻿use axum::{
     extract::{Query, State},
     Extension, Json,
 };
@@ -11,37 +11,38 @@ use crate::{
     AppState, Result,
 };
 
-/// 查詢庫存現況
+/// ?亥岷摨怠??暹?
 pub async fn get_inventory_on_hand(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<InventoryQuery>,
 ) -> Result<Json<Vec<InventoryOnHand>>> {
-    require_permission!(current_user, "stock.read");
+    require_permission!(current_user, "erp.stock.view");
     
     let inventory = StockService::get_on_hand(&state.db, &query).await?;
     Ok(Json(inventory))
 }
 
-/// 查詢庫存流水
+/// ?亥岷摨怠?瘚偌
 pub async fn get_stock_ledger(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<StockLedgerQuery>,
 ) -> Result<Json<Vec<StockLedgerDetail>>> {
-    require_permission!(current_user, "stock.read");
+    require_permission!(current_user, "erp.stock.view");
     
     let ledger = StockService::get_ledger(&state.db, &query).await?;
     Ok(Json(ledger))
 }
 
-/// 查詢低庫存警示
+/// ?亥岷雿澈摮郎蝷?
 pub async fn get_low_stock_alerts(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<LowStockAlert>>> {
-    require_permission!(current_user, "stock.read");
+    require_permission!(current_user, "erp.stock.view");
     
     let alerts = StockService::get_low_stock_alerts(&state.db).await?;
     Ok(Json(alerts))
 }
+

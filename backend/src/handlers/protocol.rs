@@ -1,4 +1,4 @@
-use axum::{
+﻿use axum::{
     extract::{Path, Query, State},
     Extension, Json,
 };
@@ -18,7 +18,7 @@ use crate::{
     AppError, AppState, Result,
 };
 
-/// 建立計畫
+/// 撱箇?閮
 pub async fn create_protocol(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -31,14 +31,14 @@ pub async fn create_protocol(
     Ok(Json(protocol))
 }
 
-/// 取得計畫列表
+/// ??閮?”
 pub async fn list_protocols(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<ProtocolQuery>,
 ) -> Result<Json<Vec<ProtocolListItem>>> {
-    // 檢查是否有查看所有計畫的權限
-    // IACUC_STAFF（執行秘書）應該能看到所有計畫（根據 role.md：AUP ✓ 完整存取）
+    // 瑼Ｘ?臬??????怎?甈?
+    // IACUC_STAFF嚗銵??賂??府?賜??唳????恬??寞? role.md嚗UP ??摰摮?嚗?
     let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string())
         || current_user.roles.contains(&"IACUC_STAFF".to_string())
         || current_user.roles.contains(&"SYSTEM_ADMIN".to_string())
@@ -47,14 +47,14 @@ pub async fn list_protocols(
     let protocols = if has_view_all {
         ProtocolService::list(&state.db, &query).await?
     } else {
-        // 只能看自己的計畫
+        // ?芾?撌梁?閮
         ProtocolService::get_my_protocols(&state.db, current_user.id).await?
     };
     
     Ok(Json(protocols))
 }
 
-/// 取得單一計畫
+/// ???桐?閮
 pub async fn get_protocol(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -64,7 +64,7 @@ pub async fn get_protocol(
     
     let protocol = ProtocolService::get_by_id(&state.db, id).await?;
     
-    // 檢查是否有權限查看（自己的計畫或有 view_all 權限）
+    // 瑼Ｘ?臬??????芸楛???急???view_all 甈?嚗?
     let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string());
     if !has_view_all && protocol.protocol.pi_user_id != current_user.id {
         return Err(AppError::Forbidden("You don't have permission to view this protocol".to_string()));
@@ -73,7 +73,7 @@ pub async fn get_protocol(
     Ok(Json(protocol))
 }
 
-/// 更新計畫
+/// ?湔閮
 pub async fn update_protocol(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -87,7 +87,7 @@ pub async fn update_protocol(
     Ok(Json(protocol))
 }
 
-/// 提交計畫
+/// ?漱閮
 pub async fn submit_protocol(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -99,7 +99,7 @@ pub async fn submit_protocol(
     Ok(Json(protocol))
 }
 
-/// 變更計畫狀態
+/// 霈閮???
 pub async fn change_protocol_status(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -112,7 +112,7 @@ pub async fn change_protocol_status(
     Ok(Json(protocol))
 }
 
-/// 取得計畫版本列表
+/// ??閮??”
 pub async fn get_protocol_versions(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -124,7 +124,7 @@ pub async fn get_protocol_versions(
     Ok(Json(versions))
 }
 
-/// 取得計畫狀態歷程
+/// ??閮??風蝔?
 pub async fn get_protocol_status_history(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -136,7 +136,7 @@ pub async fn get_protocol_status_history(
     Ok(Json(history))
 }
 
-/// 指派審查人員
+/// ?晷撖拇鈭箏
 pub async fn assign_reviewer(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -148,7 +148,7 @@ pub async fn assign_reviewer(
     Ok(Json(assignment))
 }
 
-/// 取得審查指派列表
+/// ??撖拇?晷?”
 pub async fn list_review_assignments(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -175,7 +175,7 @@ pub struct ProtocolIdQuery {
     pub protocol_version_id: Option<Uuid>,
 }
 
-/// 新增審查意見
+/// ?啣?撖拇??
 pub async fn create_review_comment(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -188,7 +188,7 @@ pub async fn create_review_comment(
     Ok(Json(comment))
 }
 
-/// 取得審查意見列表
+/// ??撖拇???”
 pub async fn list_review_comments(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -203,18 +203,18 @@ pub async fn list_review_comments(
     Ok(Json(comments))
 }
 
-/// 解決審查意見
+/// 閫?捱撖拇??
 pub async fn resolve_review_comment(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<ReviewComment>> {
-    // PI 可以解決意見
+    // PI ?臭誑閫?捱??
     let comment = ProtocolService::resolve_comment(&state.db, id, current_user.id).await?;
     Ok(Json(comment))
 }
 
-/// 取得我的計畫列表
+/// ????閮?”
 pub async fn get_my_protocols(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -222,3 +222,4 @@ pub async fn get_my_protocols(
     let protocols = ProtocolService::get_my_protocols(&state.db, current_user.id).await?;
     Ok(Json(protocols))
 }
+

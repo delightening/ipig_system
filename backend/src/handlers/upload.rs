@@ -1,4 +1,4 @@
-use axum::{
+﻿use axum::{
     body::Body,
     extract::{Multipart, Path, Query, State},
     http::{header, StatusCode},
@@ -17,7 +17,7 @@ use crate::{
     AppState, Result,
 };
 
-/// 上傳回應
+/// 銝??
 #[derive(Debug, Serialize)]
 pub struct UploadResponse {
     pub id: String,
@@ -39,7 +39,7 @@ impl From<UploadResult> for UploadResponse {
     }
 }
 
-/// 附件資料庫模型
+/// ?辣鞈?摨急芋??
 #[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct Attachment {
     pub id: Uuid,
@@ -53,14 +53,14 @@ pub struct Attachment {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
-/// 上傳查詢參數
+/// 銝?亥岷?
 #[derive(Debug, Deserialize)]
 pub struct UploadQuery {
     pub entity_type: Option<String>,
     pub entity_id: Option<String>,
 }
 
-/// 上傳 AUP 計畫附件
+/// 銝 AUP 閮?辣
 pub async fn upload_protocol_attachment(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -88,7 +88,7 @@ pub async fn upload_protocol_attachment(
             AppError::Validation(format!("Failed to read file data: {}", e))
         })?;
 
-        // 上傳檔案
+        // 銝瑼?
         let upload_result = FileService::upload(
             FileCategory::ProtocolAttachment,
             &file_name,
@@ -97,7 +97,7 @@ pub async fn upload_protocol_attachment(
             Some(&protocol_id.to_string()),
         ).await?;
 
-        // 儲存到資料庫
+        // ?脣??啗??澈
         save_attachment(
             &state.db,
             "protocol",
@@ -116,14 +116,14 @@ pub async fn upload_protocol_attachment(
     Ok(Json(results))
 }
 
-/// 上傳豬隻照片
+/// 銝鞊祇?抒?
 pub async fn upload_pig_photo(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(pig_id): Path<i32>,
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
-    require_permission!(current_user, "pig.update");
+    require_permission!(current_user, "pig.pig.edit");
 
     let mut results = Vec::new();
 
@@ -170,14 +170,14 @@ pub async fn upload_pig_photo(
     Ok(Json(results))
 }
 
-/// 上傳病理報告
+/// 銝???勗?
 pub async fn upload_pathology_report(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(pig_id): Path<i32>,
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
-    require_permission!(current_user, "pig.update");
+    require_permission!(current_user, "pig.pig.edit");
 
     let mut results = Vec::new();
 
@@ -224,14 +224,14 @@ pub async fn upload_pathology_report(
     Ok(Json(results))
 }
 
-/// 上傳獸醫師建議附件
+/// 銝?賊撣怠遣霅圈?隞?
 pub async fn upload_vet_recommendation_attachment(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path((record_type, record_id)): Path<(String, i32)>,
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
-    require_permission!(current_user, "pig.vet_recommendation");
+    require_permission!(current_user, "pig.vet.upload_attachment");
 
     let mut results = Vec::new();
 
@@ -279,7 +279,7 @@ pub async fn upload_vet_recommendation_attachment(
     Ok(Json(results))
 }
 
-/// 取得附件列表
+/// ???辣?”
 pub async fn list_attachments(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -305,13 +305,13 @@ pub async fn list_attachments(
     Ok(Json(attachments))
 }
 
-/// 下載附件
+/// 銝??辣
 pub async fn download_attachment(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Response> {
-    // 從資料庫取得附件資訊
+    // 敺??澈???辣鞈?
     let attachment: Attachment = sqlx::query_as(
         r#"SELECT * FROM attachments WHERE id = $1"#,
     )
@@ -320,10 +320,10 @@ pub async fn download_attachment(
     .await?
     .ok_or_else(|| AppError::NotFound("Attachment not found".to_string()))?;
 
-    // 讀取檔案
+    // 霈??獢?
     let (data, _) = FileService::read(&attachment.file_path).await?;
 
-    // 回傳檔案
+    // ?瑼?
     let response = Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, &attachment.mime_type)
@@ -337,13 +337,13 @@ pub async fn download_attachment(
     Ok(response)
 }
 
-/// 刪除附件
+/// ?芷?辣
 pub async fn delete_attachment(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode> {
-    // 取得附件資訊
+    // ???辣鞈?
     let attachment: Attachment = sqlx::query_as(
         r#"SELECT * FROM attachments WHERE id = $1"#,
     )
@@ -352,16 +352,17 @@ pub async fn delete_attachment(
     .await?
     .ok_or_else(|| AppError::NotFound("Attachment not found".to_string()))?;
 
-    // 檢查權限（只有上傳者或管理員可以刪除）
-    let is_admin = current_user.permissions.contains(&"admin".to_string());
+    // 瑼Ｘ甈?嚗???唾?蝞∠??∪隞亙?歹?
+    let is_admin = current_user.roles.contains(&"SYSTEM_ADMIN".to_string())
+        || current_user.roles.contains(&"admin".to_string());
     if attachment.uploaded_by != current_user.id && !is_admin {
         return Err(AppError::Forbidden("You can only delete your own attachments".to_string()));
     }
 
-    // 刪除檔案
+    // ?芷瑼?
     FileService::delete(&attachment.file_path).await?;
 
-    // 從資料庫刪除記錄
+    // 敺??澈?芷閮?
     sqlx::query(r#"DELETE FROM attachments WHERE id = $1"#)
         .bind(id)
         .execute(&state.db)
@@ -370,7 +371,7 @@ pub async fn delete_attachment(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// 儲存附件記錄到資料庫
+/// ?脣??辣閮??啗??澈
 async fn save_attachment(
     db: &PgPool,
     entity_type: &str,
@@ -397,3 +398,4 @@ async fn save_attachment(
 
     Ok(id.0)
 }
+
