@@ -38,7 +38,11 @@ pub async fn list_protocols(
     Query(query): Query<ProtocolQuery>,
 ) -> Result<Json<Vec<ProtocolListItem>>> {
     // 檢查是否有查看所有計畫的權限
-    let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string());
+    // IACUC_STAFF（執行秘書）應該能看到所有計畫（根據 role.md：AUP ✓ 完整存取）
+    let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string())
+        || current_user.roles.contains(&"IACUC_STAFF".to_string())
+        || current_user.roles.contains(&"SYSTEM_ADMIN".to_string())
+        || current_user.roles.contains(&"CHAIR".to_string());
     
     let protocols = if has_view_all {
         ProtocolService::list(&state.db, &query).await?

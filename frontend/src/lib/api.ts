@@ -242,6 +242,8 @@ export interface Permission {
   id: string
   code: string
   name: string
+  module?: string
+  description?: string
   created_at: string
 }
 

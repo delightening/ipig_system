@@ -215,25 +215,42 @@ impl RoleService {
         Ok(())
     }
 
-    /// 取得所有權限
+    /// 取得所有權限（去重，確保每個 code 只返回一條記錄）
     pub async fn list_permissions(pool: &PgPool, query: Option<&PermissionQuery>) -> Result<Vec<Permission>> {
         let permissions = if let Some(q) = query {
             if let Some(ref module) = q.module {
                 sqlx::query_as::<_, Permission>(
-                    "SELECT * FROM permissions WHERE module = $1 ORDER BY code"
+                    r#"
+                    SELECT DISTINCT ON (code) *
+                    FROM permissions 
+                    WHERE module = $1 
+                    ORDER BY code, created_at DESC
+                    "#
                 )
                 .bind(module)
                 .fetch_all(pool)
                 .await?
             } else {
-                sqlx::query_as::<_, Permission>("SELECT * FROM permissions ORDER BY code")
-                    .fetch_all(pool)
-                    .await?
-            }
-        } else {
-            sqlx::query_as::<_, Permission>("SELECT * FROM permissions ORDER BY code")
+                sqlx::query_as::<_, Permission>(
+                    r#"
+                    SELECT DISTINCT ON (code) *
+                    FROM permissions 
+                    ORDER BY code, created_at DESC
+                    "#
+                )
                 .fetch_all(pool)
                 .await?
+            }
+        } else {
+            sqlx::query_as::<_, Permission>(
+                r#"
+                SELECT DISTINCT ON (code) *
+                FROM permissions 
+                ORDER BY code, created_at DESC
+                "#
+            )
+            .fetch_all(pool)
+            .await?
         };
 
         Ok(permissions)

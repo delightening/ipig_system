@@ -474,7 +474,7 @@ export function UsersPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-[360px] overflow-y-auto">
               {roles?.map((role) => (
                 <div
                   key={role.id}

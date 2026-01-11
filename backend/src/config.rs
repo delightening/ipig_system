@@ -6,6 +6,8 @@ pub struct Config {
     pub port: u16,
     pub database_url: String,
     pub database_max_connections: u32,
+    pub database_retry_attempts: u32,
+    pub database_retry_delay_seconds: u64,
     pub jwt_secret: String,
     pub jwt_expiration_hours: i64,
     pub jwt_refresh_expiration_days: i64,
@@ -33,6 +35,14 @@ impl Config {
                 .unwrap_or_else(|_| "10".to_string())
                 .parse()
                 .context("DATABASE_MAX_CONNECTIONS must be a number")?,
+            database_retry_attempts: std::env::var("DATABASE_RETRY_ATTEMPTS")
+                .unwrap_or_else(|_| "5".to_string())
+                .parse()
+                .context("DATABASE_RETRY_ATTEMPTS must be a number")?,
+            database_retry_delay_seconds: std::env::var("DATABASE_RETRY_DELAY_SECONDS")
+                .unwrap_or_else(|_| "5".to_string())
+                .parse()
+                .context("DATABASE_RETRY_DELAY_SECONDS must be a number")?,
             jwt_secret: std::env::var("JWT_SECRET")
                 .context("JWT_SECRET must be set")?,
             jwt_expiration_hours: std::env::var("JWT_EXPIRATION_HOURS")

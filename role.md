@@ -1085,73 +1085,264 @@ JWT_SECRET=CHANGE_THIS_JWT_SECRET_GENERATE_USING_POWERSHELL
 
 ---
 
-## 6. 預設權限代碼
+## 6. 預設權限代碼（重新組織為四個模組）
 
-### 6.1 AUP 系統權限
+權限系統已重新組織為四個主要模組：
+1. **AUP** - 動物使用計畫系統
+2. **豬隻管理** - 實驗動物管理系統
+3. **ERP管理** - 進銷存管理系統
+4. **程式設計** - 系統管理與開發工具
 
+---
+
+### 6.1 AUP 系統權限（動物使用計畫）
+
+#### 6.1.1 計畫管理
 | 權限代碼 | 說明 |
 |---------|------|
 | `aup.protocol.view_all` | 查看所有計畫 |
 | `aup.protocol.view_own` | 查看自己的計畫 |
 | `aup.protocol.create` | 建立計畫 |
 | `aup.protocol.edit` | 編輯計畫 |
+| `aup.protocol.delete` | 刪除計畫 |
 | `aup.protocol.submit` | 提交計畫 |
-| `aup.protocol.review` | 審查計畫 |
-| `aup.protocol.approve` | 核准/否決 |
 | `aup.protocol.change_status` | 變更狀態 |
+
+#### 6.1.2 審查流程
+| 權限代碼 | 說明 |
+|---------|------|
+| `aup.review.view` | 查看審查意見 |
 | `aup.review.assign` | 指派審查人員 |
 | `aup.review.comment` | 新增審查意見 |
+| `aup.review.edit` | 編輯審查意見 |
+| `aup.review.delete` | 刪除審查意見 |
+| `aup.protocol.review` | 審查計畫 |
+| `aup.protocol.approve` | 核准/否決 |
+
+#### 6.1.3 附件管理
+| 權限代碼 | 說明 |
+|---------|------|
+| `aup.attachment.upload` | 上傳附件 |
+| `aup.attachment.view` | 查看附件 |
+| `aup.attachment.download` | 下載附件 |
+| `aup.attachment.delete` | 刪除附件 |
+
+#### 6.1.4 版本管理
+| 權限代碼 | 說明 |
+|---------|------|
+| `aup.version.view` | 查看版本歷史 |
+| `aup.version.restore` | 還原版本 |
 
 ---
 
-### 6.2 進銷存系統權限
+### 6.2 豬隻管理系統權限
 
+#### 6.2.1 豬隻資料管理
 | 權限代碼 | 說明 |
 |---------|------|
-| `erp.inventory.view` | 查看庫存 |
+| `pig.pig.view_all` | 查看所有豬隻 |
+| `pig.pig.view_project` | 查看計畫內豬隻 |
+| `pig.pig.create` | 新增豬隻 |
+| `pig.pig.edit` | 編輯豬隻資料 |
+| `pig.pig.delete` | 刪除豬隻 |
+| `pig.pig.assign` | 分配豬隻至計畫 |
+| `pig.pig.unassign` | 解除豬隻分配 |
+| `pig.pig.import` | 匯入豬隻資料 |
+| `pig.pig.export` | 匯出豬隻資料 |
+
+**向後兼容：** 舊代碼 `animal.pig.*` 仍然有效，會自動映射到 `pig.pig.*`
+
+#### 6.2.2 紀錄管理
+| 權限代碼 | 說明 |
+|---------|------|
+| `animal.record.view` | 查看紀錄 |
+| `animal.record.create` | 新增紀錄 |
+| `animal.record.edit` | 編輯紀錄 |
+| `animal.record.delete` | 刪除紀錄 |
+| `animal.record.copy` | 複製紀錄 |
+| `animal.record.observation` | 觀察紀錄 |
+| `animal.record.surgery` | 手術紀錄 |
+| `animal.record.weight` | 體重紀錄 |
+| `animal.record.vaccine` | 疫苗紀錄 |
+| `animal.record.sacrifice` | 犧牲紀錄 |
+
+**說明：** 僅保留 `animal.record.*`
+
+#### 6.2.3 獸醫師功能
+| 權限代碼 | 說明 |
+|---------|------|
+| `pig.vet.recommend` | 新增獸醫師建議 |
+| `pig.vet.edit` | 編輯獸醫師建議 |
+| `pig.vet.delete` | 刪除獸醫師建議 |
+| `pig.vet.read` | 標記已讀 |
+| `pig.vet.upload_attachment` | 上傳附件 |
+
+**向後兼容：** 舊代碼 `animal.vet.*` 仍然有效
+
+#### 6.2.4 匯出功能
+| 權限代碼 | 說明 |
+|---------|------|
+| `pig.export.medical` | 匯出病歷 |
+| `pig.export.observation` | 匯出觀察紀錄 |
+| `pig.export.surgery` | 匯出手術紀錄 |
+| `pig.export.experiment` | 匯出試驗紀錄 |
+| `pig.export.all` | 匯出所有資料 |
+
+**向後兼容：** 舊代碼 `animal.export.*` 仍然有效
+
+#### 6.2.5 病理報告
+| 權限代碼 | 說明 |
+|---------|------|
+| `pig.pathology.view` | 查看病理報告 |
+| `pig.pathology.upload` | 上傳病理報告 |
+| `pig.pathology.edit` | 編輯病理報告 |
+| `pig.pathology.delete` | 刪除病理報告 |
+
+**向後兼容：** 舊代碼 `animal.pathology.*` 仍然有效
+
+---
+
+### 6.3 ERP 管理系統權限（進銷存）
+
+#### 6.3.1 基礎資料管理
+| 權限代碼 | 說明 |
+|---------|------|
+| `erp.warehouse.view` | 查看倉庫 |
+| `erp.warehouse.create` | 建立倉庫 |
+| `erp.warehouse.edit` | 編輯倉庫 |
+| `erp.warehouse.delete` | 刪除倉庫 |
+| `erp.product.view` | 查看產品 |
+| `erp.product.create` | 建立產品 |
+| `erp.product.edit` | 編輯產品 |
+| `erp.product.delete` | 刪除產品 |
+| `erp.product.upload_image` | 上傳產品圖片 |
+| `erp.partner.view` | 查看夥伴 |
+| `erp.partner.create` | 建立夥伴 |
+| `erp.partner.edit` | 編輯夥伴 |
+| `erp.partner.delete` | 刪除夥伴 |
+
+**向後兼容：** 舊代碼 `warehouse.*`, `product.*`, `partner.*` 仍然有效
+
+#### 6.3.2 單據管理
+| 權限代碼 | 說明 |
+|---------|------|
+| `erp.document.view` | 查看單據 |
+| `erp.document.create` | 建立單據 |
+| `erp.document.edit` | 編輯單據 |
+| `erp.document.delete` | 刪除單據 |
+| `erp.document.submit` | 送審單據 |
+| `erp.document.approve` | 核准單據 |
+| `erp.document.cancel` | 作廢單據 |
 | `erp.purchase.create` | 建立採購單 |
 | `erp.purchase.approve` | 核准採購單 |
+| `erp.grn.create` | 建立採購入庫 |
+| `erp.pr.create` | 建立採購退貨 |
+| `erp.sales.create` | 建立銷售單 |
+| `erp.sales.approve` | 核准銷售單 |
+| `erp.do.create` | 建立銷售出庫 |
+| `erp.sr.create` | 建立銷售退貨 |
+
+**向後兼容：** 舊代碼 `document.*`, `po.*`, `grn.*`, `pr.*`, `so.*`, `do.*`, `sr.*` 仍然有效
+
+#### 6.3.3 庫存作業
+| 權限代碼 | 說明 |
+|---------|------|
+| `erp.stock.view` | 查看庫存 |
 | `erp.stock.in` | 入庫操作 |
 | `erp.stock.out` | 出庫操作 |
 | `erp.stock.adjust` | 庫存調整 |
 | `erp.stock.transfer` | 調撥 |
 | `erp.stocktake.create` | 盤點 |
+| `erp.stocktake.approve` | 核准盤點 |
+
+**向後兼容：** 舊代碼 `stock.*`, `stk.*`, `tr.*`, `adj.*` 仍然有效
+
+#### 6.3.4 報表管理
+| 權限代碼 | 說明 |
+|---------|------|
 | `erp.report.view` | 查看報表 |
 | `erp.report.export` | 匯出報表 |
+| `erp.report.schedule` | 排程報表 |
+| `erp.report.download` | 下載報表 |
+
+**向後兼容：** 舊代碼 `report.*` 仍然有效
 
 ---
 
-### 6.3 實驗動物管理系統權限
+### 6.4 程式設計系統權限（系統管理與開發工具）
 
+#### 6.4.1 使用者管理
 | 權限代碼 | 說明 |
 |---------|------|
-| `animal.pig.view_all` | 查看所有豬隻 |
-| `animal.pig.view_project` | 查看計畫內豬隻 |
-| `animal.pig.create` | 新增豬隻 |
-| `animal.pig.edit` | 編輯豬隻資料 |
-| `animal.pig.assign` | 分配豬隻至計畫 |
-| `animal.pig.import` | 匯入豬隻資料 |
-| `animal.record.create` | 新增紀錄 |
-| `animal.record.edit` | 編輯紀錄 |
-| `animal.record.delete` | 刪除紀錄 |
-| `animal.vet.recommend` | 新增獸醫師建議 |
-| `animal.vet.read` | 標記獸醫師已讀 |
-| `animal.export.medical` | 匯出病歷 |
+| `dev.user.view` | 查看使用者 |
+| `dev.user.create` | 建立使用者 |
+| `dev.user.edit` | 編輯使用者 |
+| `dev.user.delete` | 停用使用者 |
+| `dev.user.reset_password` | 重設密碼 |
+| `dev.user.assign_role` | 指派角色 |
+
+**向後兼容：** 舊代碼 `admin.user.*`, `user.*` 仍然有效
+
+#### 6.4.2 角色與權限管理
+| 權限代碼 | 說明 |
+|---------|------|
+| `dev.role.view` | 查看角色 |
+| `dev.role.create` | 建立角色 |
+| `dev.role.edit` | 編輯角色 |
+| `dev.role.delete` | 刪除角色 |
+| `dev.role.assign_permission` | 指派權限 |
+| `dev.permission.view` | 查看權限 |
+| `dev.permission.manage` | 管理權限 |
+
+**向後兼容：** 舊代碼 `admin.role.*`, `admin.permission.*`, `role.*` 仍然有效
+
+#### 6.4.3 系統設定
+| 權限代碼 | 說明 |
+|---------|------|
+| `dev.system.view` | 查看系統設定 |
+| `dev.system.edit` | 編輯系統設定 |
+| `dev.system.backup` | 備份系統 |
+| `dev.system.restore` | 還原系統 |
+
+#### 6.4.4 稽核與日誌
+| 權限代碼 | 說明 |
+|---------|------|
+| `dev.audit.view` | 查看稽核紀錄 |
+| `dev.audit.export` | 匯出稽核紀錄 |
+| `dev.log.view` | 查看系統日誌 |
+| `dev.log.download` | 下載系統日誌 |
+
+**向後兼容：** 舊代碼 `admin.audit.*` 仍然有效
+
+#### 6.4.5 通知管理
+| 權限代碼 | 說明 |
+|---------|------|
+| `dev.notification.view` | 查看通知 |
+| `dev.notification.manage` | 管理通知設定 |
+| `dev.notification.send` | 發送通知 |
+
+**向後兼容：** 舊代碼 `notification.*` 仍然有效
+
+#### 6.4.6 資料庫管理（進階）
+| 權限代碼 | 說明 |
+|---------|------|
+| `dev.database.view` | 查看資料庫資訊 |
+| `dev.database.query` | 執行查詢（唯讀） |
+| `dev.database.migrate` | 執行遷移 |
+| `dev.database.seed` | 執行種子資料 |
 
 ---
 
-### 6.4 系統管理權限
+### 6.5 權限模組說明
 
-| 權限代碼 | 說明 |
-|---------|------|
-| `admin.user.view` | 查看使用者 |
-| `admin.user.create` | 建立使用者 |
-| `admin.user.edit` | 編輯使用者 |
-| `admin.user.delete` | 停用使用者 |
-| `admin.user.reset_password` | 重設密碼 |
-| `admin.role.manage` | 管理角色 |
-| `admin.permission.manage` | 管理權限 |
-| `admin.audit.view` | 查看稽核紀錄 |
+| 模組代碼 | 模組名稱 | 說明 |
+|---------|---------|------|
+| `aup` | AUP 系統 | 動物使用計畫提交與審查系統 |
+| `pig` | 豬隻管理 | 實驗動物（豬隻）管理系統 |
+| `erp` | ERP 管理 | 進銷存管理系統 |
+| `dev` | 程式設計 | 系統管理與開發工具 |
+
+**注意：** 為了保持向後兼容性，舊的權限代碼（如 `animal.*`, `admin.*` 等）仍然有效，系統會自動映射到新的模組分類。
 
 ---
 

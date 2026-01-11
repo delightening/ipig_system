@@ -15,7 +15,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { Loader2, Shield, Plus, Pencil, Trash2, Check } from 'lucide-react'
+import { Loader2, Shield, Plus, Pencil, Trash2 } from 'lucide-react'
+import { PermissionTree } from '@/components/admin/PermissionTree'
 
 interface CreateRoleData {
   code: string
@@ -66,7 +67,11 @@ export function RolesPage() {
       toast({ title: '成功', description: '角色已創建' })
     },
     onError: (error: any) => {
-      toast({ title: '錯誤', description: error.response?.data?.error?.message || '創建失敗', variant: 'destructive' })
+      toast({ 
+        title: '錯誤', 
+        description: error.response?.data?.error?.message || '創建失敗', 
+        variant: 'destructive' 
+      })
     },
   })
 
@@ -83,7 +88,11 @@ export function RolesPage() {
       toast({ title: '成功', description: '角色已更新' })
     },
     onError: (error: any) => {
-      toast({ title: '錯誤', description: error.response?.data?.error?.message || '更新失敗', variant: 'destructive' })
+      toast({ 
+        title: '錯誤', 
+        description: error.response?.data?.error?.message || '更新失敗', 
+        variant: 'destructive' 
+      })
     },
   })
 
@@ -100,7 +109,11 @@ export function RolesPage() {
       })
     },
     onError: (error: any) => {
-      toast({ title: '錯誤', description: error.response?.data?.error?.message || '刪除失敗', variant: 'destructive' })
+      toast({ 
+        title: '錯誤', 
+        description: error.response?.data?.error?.message || '刪除失敗', 
+        variant: 'destructive' 
+      })
     },
   })
 
@@ -146,34 +159,6 @@ export function RolesPage() {
     }))
   }
 
-  // 按類別分組權限
-  const groupedPermissions = permissions?.reduce((acc, perm) => {
-    const category = perm.code.split('.')[0]
-    if (!acc[category]) acc[category] = []
-    acc[category].push(perm)
-    return acc
-  }, {} as Record<string, Permission[]>)
-
-  const categoryNames: Record<string, string> = {
-    user: '用戶管理',
-    role: '角色管理',
-    warehouse: '倉庫管理',
-    product: '產品管理',
-    partner: '夥伴管理',
-    document: '單據管理',
-    po: '採購單',
-    grn: '採購入庫',
-    pr: '採購退貨',
-    so: '銷售單',
-    do: '銷售出庫',
-    sr: '銷售退貨',
-    tr: '調撥單',
-    stk: '盤點單',
-    adj: '調整單',
-    stock: '庫存管理',
-    report: '報表',
-  }
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -195,6 +180,7 @@ export function RolesPage() {
         </Button>
       </div>
 
+      {/* 角色列表 */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {roles?.map((role) => (
           <Card key={role.id}>
@@ -254,7 +240,7 @@ export function RolesPage() {
 
       {/* 創建角色對話框 */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>新增角色</DialogTitle>
             <DialogDescription>創建新的系統角色並設定權限</DialogDescription>
@@ -282,27 +268,13 @@ export function RolesPage() {
             </div>
             <div className="space-y-2">
               <Label>權限設定</Label>
-              <div className="border rounded-md p-4 space-y-4 max-h-[400px] overflow-y-auto">
-                {groupedPermissions && Object.entries(groupedPermissions).map(([category, perms]) => (
-                  <div key={category}>
-                    <h4 className="font-medium text-sm mb-2">{categoryNames[category] || category}</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {perms.map((perm) => (
-                        <Badge
-                          key={perm.id}
-                          variant={formData.permission_ids.includes(perm.id) ? 'default' : 'outline'}
-                          className="cursor-pointer"
-                          onClick={() => togglePermission(perm.id)}
-                        >
-                          {formData.permission_ids.includes(perm.id) && (
-                            <Check className="h-3 w-3 mr-1" />
-                          )}
-                          {perm.name}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+              <div className="border rounded-md p-4">
+                <PermissionTree
+                  permissions={permissions}
+                  selectedPermissionIds={formData.permission_ids}
+                  onTogglePermission={togglePermission}
+                  showSearch={true}
+                />
               </div>
             </div>
           </div>
@@ -320,7 +292,7 @@ export function RolesPage() {
 
       {/* 編輯角色對話框 */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>編輯角色</DialogTitle>
             <DialogDescription>修改角色 {selectedRole?.name} 的設定</DialogDescription>
@@ -336,27 +308,13 @@ export function RolesPage() {
             </div>
             <div className="space-y-2">
               <Label>權限設定</Label>
-              <div className="border rounded-md p-4 space-y-4 max-h-[400px] overflow-y-auto">
-                {groupedPermissions && Object.entries(groupedPermissions).map(([category, perms]) => (
-                  <div key={category}>
-                    <h4 className="font-medium text-sm mb-2">{categoryNames[category] || category}</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {perms.map((perm) => (
-                        <Badge
-                          key={perm.id}
-                          variant={formData.permission_ids.includes(perm.id) ? 'default' : 'outline'}
-                          className="cursor-pointer"
-                          onClick={() => togglePermission(perm.id)}
-                        >
-                          {formData.permission_ids.includes(perm.id) && (
-                            <Check className="h-3 w-3 mr-1" />
-                          )}
-                          {perm.name}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+              <div className="border rounded-md p-4">
+                <PermissionTree
+                  permissions={permissions}
+                  selectedPermissionIds={formData.permission_ids}
+                  onTogglePermission={togglePermission}
+                  showSearch={true}
+                />
               </div>
             </div>
           </div>

@@ -69,6 +69,11 @@
 - [x] CSV 範本下載功能
 - [] protocal 提交有錯誤
 
+### 本機開發
+- [x] Rust 端資料庫連線重試機制（啟動時自動重試連線，適用於 Docker Compose 環境）
+- [x] Docker 資料庫 healthcheck 優化
+- [x] API 啟動失敗時明確的資料庫狀態日誌
+
 ---
 
 ## 📋 v2.0 規劃功能

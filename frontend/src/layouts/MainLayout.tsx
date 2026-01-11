@@ -83,7 +83,7 @@ const navItems: NavItem[] = [
     title: '實驗動物管理',
     icon: <Stethoscope className="h-5 w-5" />,
     children: [
-      { title: '豬隻列表', href: '/pigs' },
+      { title: '動物列表', href: '/pigs' },
       { title: '來源管理', href: '/pig-sources' },
     ],
   },
@@ -356,7 +356,7 @@ export function MainLayout() {
       >
         {/* Logo 區域 */}
         <div className={cn(
-          "flex h-16 items-center border-b border-slate-700",
+          "flex h-16 items-center border-b border-slate-700", 
           sidebarOpen ? "justify-between px-4" : "justify-center px-2"
         )}>
           {sidebarOpen ? ( // 展開狀態：顯示完整 Logo 與文字
