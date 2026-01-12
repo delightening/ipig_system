@@ -49,6 +49,63 @@ export function PartnersPage() {
   })
   const [isGeneratingCode, setIsGeneratingCode] = useState(false)
 
+  interface PartnerSubmissionData {
+    partner_type: 'supplier' | 'customer'
+    supplier_category: 'drug' | 'consumable' | 'feed' | 'equipment' | null
+    code: string | null
+    name: string
+    tax_id: string | null
+    phone: string | null
+    email: string | null
+    address: string | null
+  }
+
+  const resetForm = () => {
+    setFormData({
+      partner_type: 'supplier',
+      supplier_category: '',
+      code: '',
+      name: '',
+      tax_id: '',
+      phone: '',
+      email: '',
+      address: '',
+    })
+    setEditingPartner(null)
+  }
+
+  const generateCode = async (type: 'supplier' | 'customer', category?: string) => {
+    if (editingPartner) return
+
+    setIsGeneratingCode(true)
+    try {
+      let url = `/partners/generate-code?partner_type=${type}`
+      if (category) url += `&category=${category}`
+      const response = await api.get<{ code: string }>(url)
+      setFormData(prev => ({ ...prev, code: response.data.code }))
+    } catch (error: any) {
+      toast({
+        title: '生成代碼失敗',
+        description: error?.response?.data?.error?.message || error.message || '請重新整理頁面或聯繫管理員',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsGeneratingCode(false)
+    }
+  }
+
+  const handleSupplierCategoryChange = async (category: 'drug' | 'consumable' | 'feed' | 'equipment') => {
+    setFormData(prev => ({ ...prev, supplier_category: category, code: '' }))
+    generateCode('supplier', category)
+  }
+
+  const handlePartnerTypeChange = (value: 'supplier' | 'customer') => {
+    setFormData(prev => ({ ...prev, partner_type: value, supplier_category: '', code: '' }))
+    if (value === 'customer') {
+      generateCode('customer')
+    }
+  }
+
   const { data: partners, isLoading } = useQuery({
     queryKey: ['partners', search, typeFilter],
     queryFn: async () => {
@@ -61,7 +118,7 @@ export function PartnersPage() {
   })
 
   const createMutation = useMutation({
-    mutationFn: (data: typeof formData) => api.post('/partners', data),
+    mutationFn: (data: PartnerSubmissionData) => api.post('/partners', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['partners'] })
       toast({ title: '成功', description: '夥伴已建立' })
@@ -78,7 +135,7 @@ export function PartnersPage() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: typeof formData }) =>
+    mutationFn: ({ id, data }: { id: string; data: PartnerSubmissionData }) =>
       api.put(`/partners/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['partners'] })
@@ -110,40 +167,7 @@ export function PartnersPage() {
     },
   })
 
-  const resetForm = () => {
-    setFormData({
-      partner_type: 'supplier',
-      supplier_category: '',
-      code: '',
-      name: '',
-      tax_id: '',
-      phone: '',
-      email: '',
-      address: '',
-    })
-    setEditingPartner(null)
-  }
 
-  // 當供應商類別改變時，自動生成代碼
-  const handleSupplierCategoryChange = async (category: 'drug' | 'consumable' | 'feed' | 'equipment') => {
-    setFormData({ ...formData, supplier_category: category, code: '' })
-    
-    if (!editingPartner && category) {
-      setIsGeneratingCode(true)
-      try {
-        const response = await api.get<{ code: string }>(`/partners/generate-code?category=${category}`)
-        setFormData({ ...formData, supplier_category: category, code: response.data.code })
-      } catch (error: any) {
-        toast({
-          title: '錯誤',
-          description: error?.response?.data?.error?.message || '生成代碼失敗',
-          variant: 'destructive',
-        })
-      } finally {
-        setIsGeneratingCode(false)
-      }
-    }
-  }
 
   const handleEdit = (partner: Partner) => {
     setEditingPartner(partner)
@@ -162,8 +186,39 @@ export function PartnersPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+
+    // 驗證統編 (留白或 8 碼數字)
+    if (formData.tax_id.trim() && !/^\d{8}$/.test(formData.tax_id.trim())) {
+      toast({
+        title: '格式錯誤',
+        description: '統編必須為 8 碼數字',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // 驗證電話 (留白或 9-10 碼數字)
+    if (formData.phone.trim() && !/^\d{9,10}$/.test(formData.phone.trim())) {
+      toast({
+        title: '格式錯誤',
+        description: '電話必須為 9 或 10 碼數字',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // 驗證 Email (留白或正確格式)
+    if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      toast({
+        title: '格式錯誤',
+        description: 'Email 格式不正確',
+        variant: 'destructive',
+      })
+      return
+    }
+
     // 將空字串轉換為 null，避免後端驗證錯誤
-    const submitData = {
+    const submitData: PartnerSubmissionData = {
       ...formData,
       code: formData.code.trim() || null,
       supplier_category: formData.supplier_category || null,
@@ -297,9 +352,7 @@ export function PartnersPage() {
                 <Label className="text-right">類型</Label>
                 <Select
                   value={formData.partner_type}
-                  onValueChange={(value: 'supplier' | 'customer') =>
-                    setFormData({ ...formData, partner_type: value, supplier_category: '', code: '' })
-                  }
+                  onValueChange={handlePartnerTypeChange}
                   disabled={!!editingPartner}
                 >
                   <SelectTrigger className="col-span-3">
@@ -340,9 +393,9 @@ export function PartnersPage() {
                     id="code"
                     value={formData.code}
                     onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                    disabled={!!editingPartner || isGeneratingCode}
+                    disabled={true}
                     required
-                    placeholder={isGeneratingCode ? '生成中...' : '將根據提供商類型自動生成'}
+                    placeholder={isGeneratingCode ? '生成中...' : '系統自動編號'}
                   />
                   {isGeneratingCode && (
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground self-center" />
@@ -357,6 +410,7 @@ export function PartnersPage() {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="col-span-3"
                   required
+                  disabled={!!editingPartner}
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
@@ -366,6 +420,8 @@ export function PartnersPage() {
                   value={formData.tax_id}
                   onChange={(e) => setFormData({ ...formData, tax_id: e.target.value })}
                   className="col-span-3"
+                  placeholder="留白或 8 碼數字"
+                  disabled={!!editingPartner}
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
@@ -375,6 +431,7 @@ export function PartnersPage() {
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="col-span-3"
+                  placeholder="留白或 9-10 碼數字"
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
@@ -385,6 +442,7 @@ export function PartnersPage() {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="col-span-3"
+                  placeholder="留白或正確 Email 格式"
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
@@ -394,6 +452,7 @@ export function PartnersPage() {
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   className="col-span-3"
+                  placeholder="留白或地址字串"
                 />
               </div>
             </div>

@@ -63,6 +63,7 @@ const navItems: NavItem[] = [
     title: '儀表板',
     href: '/dashboard',
     icon: <LayoutDashboard className="h-5 w-5" />,
+    permission: 'erp',
   },
   // AUP 審查系統模組
   {
@@ -96,6 +97,7 @@ const navItems: NavItem[] = [
       { title: '倉庫管理', href: '/warehouses' },
       { title: '供應商/客戶', href: '/partners' },
     ],
+    permission: 'erp',
   },
   // iPig ERP：採購管理
   {
@@ -106,6 +108,7 @@ const navItems: NavItem[] = [
       { title: '採購入庫', href: '/documents?type=GRN' },
       { title: '採購退貨', href: '/documents?type=PR' },
     ],
+    permission: 'erp',
   },
   // iPig ERP：銷售管理
   {
@@ -116,6 +119,7 @@ const navItems: NavItem[] = [
       { title: '銷售出庫', href: '/documents?type=DO' },
       { title: '銷售退貨', href: '/documents?type=SR' },
     ],
+    permission: 'erp',
   },
   // iPig ERP：倉儲作業
   {
@@ -128,6 +132,7 @@ const navItems: NavItem[] = [
       { title: '盤點單', href: '/documents?type=STK' },
       { title: '調整單', href: '/documents?type=ADJ' },
     ],
+    permission: 'erp',
   },
   // 報表中心模組
   {
@@ -140,6 +145,7 @@ const navItems: NavItem[] = [
       { title: '銷售明細報表', href: '/reports/sales-lines' },
       { title: '成本摘要報表', href: '/reports/cost-summary' },
     ],
+    permission: 'erp',
   },
   // 系統管理模組（權限限制為 admin）
   {
@@ -159,7 +165,7 @@ export function MainLayout() {
   const location = useLocation() // 取得當前 URL 路徑資訊
   const navigate = useNavigate() // 用於程式化導覽跳轉
   const queryClient = useQueryClient() // TanStack Query 快取管理器
-  const { user, logout, hasRole } = useAuthStore() // 從 Auth Store 取得用戶資訊、登出方法與權限檢查
+  const { user, logout, hasRole, hasPermission } = useAuthStore() // 從 Auth Store 取得用戶資訊、登出方法與權限檢查
   const [sidebarOpen, setSidebarOpen] = useState(true) // 控制側邊欄展開/縮小的狀態
   const [expandedItems, setExpandedItems] = useState<string[]>(['基礎資料', '倉儲作業']) // 控制側邊欄摺疊選單展開項目的清單
   const [language, setLanguage] = useState<string>('zh-TW') // 當前系統語言介面狀態
@@ -339,7 +345,13 @@ export function MainLayout() {
 
   // 根據使用者權限過濾導覽列顯示項目
   const filteredNavItems = navItems.filter((item) => {
-    if (item.permission && !hasRole(item.permission)) {
+    if (item.permission === 'erp') {
+      const hasErpAccess = hasRole('admin') ||
+        user?.roles.some(r => ['warehouse', 'purchasing', 'sales', 'approver'].includes(r)) ||
+        user?.permissions.some(p => p.startsWith('erp.'))
+      return hasErpAccess
+    }
+    if (item.permission && !hasPermission(item.permission) && !hasRole(item.permission)) {
       return false
     }
     return true

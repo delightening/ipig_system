@@ -13,28 +13,49 @@ impl PartnerService {
     /// 根據供應商類別生成代碼
     /// 格式：類型代碼 + {:03} 流水號
     /// 例如：藥001, 藥002, 耗001, 耗002, 飼001, 飼002, 儀001, 儀002
-    pub async fn generate_code(pool: &PgPool, category: SupplierCategory) -> Result<String> {
-        let prefix = match category {
-            SupplierCategory::Drug => "藥",
-            SupplierCategory::Consumable => "耗",
-            SupplierCategory::Feed => "飼",
-            SupplierCategory::Equipment => "儀",
+    pub async fn generate_code(
+        pool: &PgPool,
+        partner_type: crate::models::PartnerType,
+        category: Option<SupplierCategory>
+    ) -> Result<String> {
+        let prefix = match partner_type {
+            crate::models::PartnerType::Supplier => {
+                match category {
+                    Some(SupplierCategory::Drug) => "藥",
+                    Some(SupplierCategory::Consumable) => "耗",
+                    Some(SupplierCategory::Feed) => "飼",
+                    Some(SupplierCategory::Equipment) => "儀",
+                    None => return Err(AppError::Validation("Supplier category is required for generating supplier code".to_string())),
+                }
+            }
+            crate::models::PartnerType::Customer => "客",
         };
 
-        // 查詢該類別的所有代碼
-        let codes: Vec<String> = sqlx::query_scalar(
+        // 查詢該類別或類型的所有代碼
+        let query = if partner_type == crate::models::PartnerType::Supplier {
             "SELECT code FROM partners WHERE supplier_category = $1 AND code LIKE $2 ORDER BY code DESC"
-        )
-        .bind(category)
-        .bind(format!("{}%", prefix))
-        .fetch_all(pool)
-        .await?;
+        } else {
+            "SELECT code FROM partners WHERE partner_type = $1 AND code LIKE $2 ORDER BY code DESC"
+        };
+
+        let codes: Vec<String> = if partner_type == crate::models::PartnerType::Supplier {
+            sqlx::query_scalar(query)
+                .bind(category)
+                .bind(format!("{}%", prefix))
+                .fetch_all(pool)
+                .await?
+        } else {
+            sqlx::query_scalar(query)
+                .bind(partner_type)
+                .bind(format!("{}%", prefix))
+                .fetch_all(pool)
+                .await?
+        };
 
         // 解析序號並找出最大值
         let max_seq = codes
             .iter()
             .filter_map(|code| {
-                // 格式：藥001，提取最後的數字部分
                 if code.starts_with(prefix) && code.len() > prefix.len() {
                     let num_str = &code[prefix.len()..];
                     num_str.parse::<i32>().ok()
@@ -50,13 +71,9 @@ impl PartnerService {
 
     /// 建立夥伴（供應商/客戶）
     pub async fn create(pool: &PgPool, req: &CreatePartnerRequest) -> Result<Partner> {
-        // 如果 code 為空且提供了 supplier_category，則自動生成
+        // 如果 code 為空，則自動根據類型生成
         let code = if req.code.is_none() || req.code.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()).is_none() {
-            if let Some(category) = req.supplier_category {
-                Self::generate_code(pool, category).await?
-            } else {
-                return Err(AppError::Validation("Code is required when supplier_category is not provided".to_string()));
-            }
+            Self::generate_code(pool, req.partner_type, req.supplier_category).await?
         } else {
             req.code.as_ref().unwrap().trim().to_string()
         };

@@ -79,7 +79,8 @@ pub async fn delete_partner(
 
 #[derive(Debug, Deserialize)]
 pub struct GenerateCodeQuery {
-    pub category: String,
+    pub partner_type: Option<String>,
+    pub category: Option<String>,
 }
 
 /// 生成供應商代碼
@@ -90,14 +91,25 @@ pub async fn generate_partner_code(
 ) -> Result<Json<GenerateCodeResponse>> {
     require_permission!(current_user, "erp.partner.create");
     
-    let category = match params.category.as_str() {
-        "drug" => SupplierCategory::Drug,
-        "consumable" => SupplierCategory::Consumable,
-        "feed" => SupplierCategory::Feed,
-        "equipment" => SupplierCategory::Equipment,
-        _ => return Err(AppError::Validation("Invalid category. Must be one of: drug, consumable, feed, equipment".to_string())),
+    let partner_type = match params.partner_type.as_deref() {
+        Some("supplier") => crate::models::PartnerType::Supplier,
+        Some("customer") => crate::models::PartnerType::Customer,
+        None => crate::models::PartnerType::Supplier,
+        _ => return Err(AppError::Validation("Invalid partner_type. Must be supplier or customer".to_string())),
     };
     
-    let code = PartnerService::generate_code(&state.db, category).await?;
+    let category = if partner_type == crate::models::PartnerType::Supplier {
+        match params.category.as_deref() {
+            Some("drug") => Some(SupplierCategory::Drug),
+            Some("consumable") => Some(SupplierCategory::Consumable),
+            Some("feed") => Some(SupplierCategory::Feed),
+            Some("equipment") => Some(SupplierCategory::Equipment),
+            _ => return Err(AppError::Validation("Invalid category for supplier. Must be one of: drug, consumable, feed, equipment".to_string())),
+        }
+    } else {
+        None
+    };
+    
+    let code = PartnerService::generate_code(&state.db, partner_type, category).await?;
     Ok(Json(GenerateCodeResponse { code }))
 }

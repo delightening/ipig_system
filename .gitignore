@@ -15,6 +15,7 @@
 *_dump.sql
 *.dump.sql
 *.sql
+!**/migrations/*.sql
 
 # app secrets files (optional)
 secrets/
