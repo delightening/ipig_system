@@ -2,7 +2,7 @@
 
 本文件定義三大子系統的統一 UI 設計規範：
 1. AUP 提交與審查系統
-2. 進銷存管理系統
+2. iPig ERP (進銷存管理系統)
 3. 實驗動物管理系統
 
 ---
@@ -268,7 +268,7 @@ iPig（Logo + 標題）
 │   ├── 豬隻管理
 │   └── 系統操作說明
 ├── ─────────────
-├── 進銷存管理 ←【僅內部可見】
+├── iPig ERP (進銷存管理) ←【僅內部可見】
 │   ├── 基礎資料
 │   ├── 採購
 │   ├── 倉儲
@@ -301,7 +301,7 @@ iPig（Logo + 標題）
 
 | 項目 | 顯示條件 |
 |-----|---------|
-| 進銷存管理 | `is_internal = true` 且角色含 SYSTEM_ADMIN / WAREHOUSE_MANAGER / PROGRAM_ADMIN / EXPERIMENT_STAFF |
+| iPig ERP (進銷存管理) | `is_internal = true` 且角色含 SYSTEM_ADMIN / WAREHOUSE_MANAGER / PROGRAM_ADMIN / EXPERIMENT_STAFF |
 | 計畫管理 | 角色含 SYSTEM_ADMIN / IACUC_STAFF |
 | 豬隻管理 | 角色含 SYSTEM_ADMIN / IACUC_STAFF / VET / EXPERIMENT_STAFF |
 | 資源管理 | 角色含 SYSTEM_ADMIN / PROGRAM_ADMIN |
@@ -496,7 +496,7 @@ iPig（Logo + 標題）
 
 ---
 
-# Part 3：進銷存管理系統 UI 規格
+# Part 3：iPig ERP (進銷存管理系統) UI 規格
 
 ## 19. 進銷存 Sidebar 結構
 

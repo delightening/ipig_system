@@ -14,13 +14,13 @@ import {
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
 import { Slider } from '@/components/ui/slider'
-import { 
-  Save, 
-  Building, 
-  Mail, 
-  Database, 
-  Shield, 
-  Bell, 
+import {
+  Save,
+  Building,
+  Mail,
+  Database,
+  Shield,
+  Bell,
   Loader2,
   AlertCircle,
   CheckCircle2,
@@ -52,9 +52,9 @@ interface UpdateNotificationSettingsRequest {
 
 export function SettingsPage() {
   const queryClient = useQueryClient()
-  
+
   // 系統設定
-  const [companyName, setCompanyName] = useState('進銷存管理系統')
+  const [companyName, setCompanyName] = useState('iPig System')
   const [defaultWarehouse, setDefaultWarehouse] = useState('')
   const [emailHost, setEmailHost] = useState('')
   const [emailPort, setEmailPort] = useState('587')
@@ -113,7 +113,7 @@ export function SettingsPage() {
 
   const handleSaveNotificationSettings = () => {
     if (!notificationSettings) return
-    
+
     updateSettingsMutation.mutate({
       email_low_stock: notificationSettings.email_low_stock,
       email_expiry_warning: notificationSettings.email_expiry_warning,
@@ -290,7 +290,7 @@ export function SettingsPage() {
       <div className="border-t pt-6">
         <h2 className="text-2xl font-bold tracking-tight mb-4">通知偏好設定</h2>
         <p className="text-muted-foreground mb-6">設定您希望接收的通知類型</p>
-        
+
         {isLoadingSettings ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -317,12 +317,12 @@ export function SettingsPage() {
                 {/* 庫存相關 */}
                 <div className="space-y-4">
                   <h4 className="text-sm font-medium text-muted-foreground">庫存管理</h4>
-                  
+
                   <div className="flex items-start space-x-3">
                     <Checkbox
                       id="email_low_stock"
                       checked={notificationSettings.email_low_stock}
-                      onCheckedChange={(checked) => 
+                      onCheckedChange={(checked) =>
                         updateNotificationSetting('email_low_stock', checked as boolean)
                       }
                     />
@@ -341,7 +341,7 @@ export function SettingsPage() {
                       <Checkbox
                         id="low_stock_notify_immediately"
                         checked={notificationSettings.low_stock_notify_immediately}
-                        onCheckedChange={(checked) => 
+                        onCheckedChange={(checked) =>
                           updateNotificationSetting('low_stock_notify_immediately', checked as boolean)
                         }
                       />
@@ -360,7 +360,7 @@ export function SettingsPage() {
                     <Checkbox
                       id="email_expiry_warning"
                       checked={notificationSettings.email_expiry_warning}
-                      onCheckedChange={(checked) => 
+                      onCheckedChange={(checked) =>
                         updateNotificationSetting('email_expiry_warning', checked as boolean)
                       }
                     />
@@ -378,12 +378,12 @@ export function SettingsPage() {
                 {/* 單據相關 */}
                 <div className="space-y-4">
                   <h4 className="text-sm font-medium text-muted-foreground">單據審核</h4>
-                  
+
                   <div className="flex items-start space-x-3">
                     <Checkbox
                       id="email_document_approval"
                       checked={notificationSettings.email_document_approval}
-                      onCheckedChange={(checked) => 
+                      onCheckedChange={(checked) =>
                         updateNotificationSetting('email_document_approval', checked as boolean)
                       }
                     />
@@ -401,12 +401,12 @@ export function SettingsPage() {
                 {/* AUP 計畫相關 */}
                 <div className="space-y-4">
                   <h4 className="text-sm font-medium text-muted-foreground">AUP 審查系統</h4>
-                  
+
                   <div className="flex items-start space-x-3">
                     <Checkbox
                       id="email_protocol_status"
                       checked={notificationSettings.email_protocol_status}
-                      onCheckedChange={(checked) => 
+                      onCheckedChange={(checked) =>
                         updateNotificationSetting('email_protocol_status', checked as boolean)
                       }
                     />
@@ -424,12 +424,12 @@ export function SettingsPage() {
                 {/* 報表相關 */}
                 <div className="space-y-4">
                   <h4 className="text-sm font-medium text-muted-foreground">報表</h4>
-                  
+
                   <div className="flex items-start space-x-3">
                     <Checkbox
                       id="email_monthly_report"
                       checked={notificationSettings.email_monthly_report}
-                      onCheckedChange={(checked) => 
+                      onCheckedChange={(checked) =>
                         updateNotificationSetting('email_monthly_report', checked as boolean)
                       }
                     />
@@ -461,7 +461,7 @@ export function SettingsPage() {
                   <Slider
                     label="效期預警天數"
                     value={notificationSettings.expiry_warning_days}
-                    onChange={(value) => 
+                    onChange={(value) =>
                       updateNotificationSetting('expiry_warning_days', value)
                     }
                     min={1}
@@ -525,14 +525,14 @@ export function SettingsPage() {
                       </span>
                     )}
                     {!notificationSettings.email_low_stock &&
-                     !notificationSettings.email_expiry_warning &&
-                     !notificationSettings.email_document_approval &&
-                     !notificationSettings.email_protocol_status &&
-                     !notificationSettings.email_monthly_report && (
-                      <span className="text-xs text-muted-foreground">
-                        尚未啟用任何通知
-                      </span>
-                    )}
+                      !notificationSettings.email_expiry_warning &&
+                      !notificationSettings.email_document_approval &&
+                      !notificationSettings.email_protocol_status &&
+                      !notificationSettings.email_monthly_report && (
+                        <span className="text-xs text-muted-foreground">
+                          尚未啟用任何通知
+                        </span>
+                      )}
                   </div>
                 </div>
               </CardContent>
@@ -543,7 +543,7 @@ export function SettingsPage() {
         {/* 儲存通知設定按鈕 */}
         {notificationSettings && (
           <div className="flex justify-end mt-6">
-            <Button 
+            <Button
               onClick={handleSaveNotificationSettings}
               disabled={updateSettingsMutation.isPending}
             >

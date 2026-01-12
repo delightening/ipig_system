@@ -146,7 +146,7 @@ impl PigService {
             query_builder.push_bind(status);
         }
         if let Some(breed) = &query.breed {
-            // 轉換 breed enum 為資料庫期望的字符串值
+            // 轉換 breed enum 為資料庫期望的字串值
             let breed_str = match breed {
                 crate::models::PigBreed::Minipig => "miniature",
                 crate::models::PigBreed::White => "white",
@@ -227,7 +227,7 @@ impl PigService {
 
     /// 建立豬隻
     pub async fn create(pool: &PgPool, req: &CreatePigRequest, created_by: Uuid) -> Result<Pig> {
-        // 將 breed enum 轉換為資料庫期望的字符串值
+        // 將 breed enum 轉換為資料庫期望的字串值
         let breed_str = match req.breed {
             crate::models::PigBreed::Minipig => "miniature",
             crate::models::PigBreed::White => "white",
@@ -265,7 +265,7 @@ impl PigService {
 
     /// 更新豬隻
     pub async fn update(pool: &PgPool, id: i32, req: &UpdatePigRequest) -> Result<Pig> {
-        // 以下字段在创建后不可更改，不会在更新时修改：
+        // 以下欄位於建立後不可更改，不會在更新時修改：
         // - ear_tag (耳號)
         // - breed (品種)
         // - gender (性別)

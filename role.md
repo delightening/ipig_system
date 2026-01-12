@@ -841,14 +841,14 @@ JWT_SECRET=CHANGE_THIS_JWT_SECRET_GENERATE_USING_POWERSHELL
 
 | 角色代碼 | 角色名稱 | 說明 | 可存取系統 |
 |---------|---------|------|-----------|
-| SYSTEM_ADMIN | 系統管理員 | 全系統最高權限、使用者管理 | AUP ✓ / 進銷存 ✓ / 動物管理 ✓ |
-| WAREHOUSE_MANAGER | 倉庫管理員 | 專責 ERP 進銷存 | AUP ✗ / 進銷存 ✓ / 動物管理 ✗ |
-| PROGRAM_ADMIN | 程式管理員 | 系統維運 | AUP ✓ / 進銷存 ✓ / 動物管理 ✓ |
-| VET | 獸醫師 | 動物健康管理 | AUP ○ / 進銷存 ✗ / 動物管理 ✓ |
-| EXPERIMENT_STAFF | 試驗工作人員 | 執行實驗、記錄數據 | AUP ✗ / 進銷存 ○ / 動物管理 ✓ |
-| IACUC_STAFF | 執行秘書 | IACUC 行政、管理所有計劃進度 | AUP ✓ / 進銷存 ✗ / 動物管理 ✓ |
-| CHAIR | IACUC 主席 | 審查決策 | AUP ✓ / 進銷存 ✗ / 動物管理 ○ |
-| REVIEWER | 審查委員 | 計畫審查 | AUP ○ / 進銷存 ✗ / 動物管理 ✗ |
+| SYSTEM_ADMIN | 系統管理員 | 全系統最高權限、使用者管理 | AUP ✓ / iPig ERP ✓ / 動物管理 ✓ |
+| WAREHOUSE_MANAGER | 倉庫管理員 | 專責 iPig ERP | AUP ✗ / iPig ERP ✓ / 動物管理 ✗ |
+| PROGRAM_ADMIN | 程式管理員 | 系統維運 | AUP ✓ / iPig ERP ✓ / 動物管理 ✓ |
+| VET | 獸醫師 | 動物健康管理 | AUP ○ / iPig ERP ✗ / 動物管理 ✓ |
+| EXPERIMENT_STAFF | 試驗工作人員 | 執行實驗、記錄數據 | AUP ✗ / iPig ERP ○ / 動物管理 ✓ |
+| IACUC_STAFF | 執行秘書 | IACUC 行政、管理所有計劃進度 | AUP ✓ / iPig ERP ✗ / 動物管理 ✓ |
+| CHAIR | IACUC 主席 | 審查決策 | AUP ✓ / iPig ERP ✗ / 動物管理 ○ |
+| REVIEWER | 審查委員 | 計畫審查 | AUP ○ / iPig ERP ✗ / 動物管理 ✗ |
 
 > ✓ 完整存取 ｜ ○ 部分存取 ｜ ✗ 無權限
 
@@ -877,7 +877,7 @@ JWT_SECRET=CHANGE_THIS_JWT_SECRET_GENERATE_USING_POWERSHELL
 | ✅ 結案後存取 | 永久有效，帳號存續期間皆可查閱歷史資料 |
 | ✅ 多人帳號 | 同一委託單位可建立多個獨立帳號 |
 | ✗ 新增/編輯紀錄 | 僅可檢視，不可修改任何資料 |
-| ✗ 進銷存系統 | 完全不可見 |
+| ✗ iPig ERP 系統 | 完全不可見 |
 
 ---
 
@@ -893,7 +893,7 @@ JWT_SECRET=CHANGE_THIS_JWT_SECRET_GENERATE_USING_POWERSHELL
 ├── 我的計畫（若有指派）
 ├── 計畫管理（管理員）
 ├── 豬隻管理
-├── 進銷存管理 ←（僅內部可見）
+├── iPig ERP 管理 ←（僅內部可見）
 │   ├── 採購
 │   ├── 庫存
 │   └── 報表
@@ -947,7 +947,7 @@ JWT_SECRET=CHANGE_THIS_JWT_SECRET_GENERATE_USING_POWERSHELL
 
 ---
 
-### 4.2 進銷存管理系統
+### 4.2 iPig ERP (進銷存管理系統)
 
 | 功能 | SYSTEM_ADMIN | WAREHOUSE_MANAGER | PROGRAM_ADMIN | EXPERIMENT_STAFF |
 |-----|:---:|:---:|:---:|:---:|

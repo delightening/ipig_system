@@ -87,7 +87,7 @@ const navItems: NavItem[] = [
       { title: '來源管理', href: '/pig-sources' },
     ],
   },
-  // 進銷存管理系統：基礎資料
+  // iPig ERP：基礎資料
   {
     title: '基礎資料',
     icon: <Package className="h-5 w-5" />,
@@ -97,7 +97,7 @@ const navItems: NavItem[] = [
       { title: '供應商/客戶', href: '/partners' },
     ],
   },
-  // 進銷存管理系統：採購管理
+  // iPig ERP：採購管理
   {
     title: '採購管理',
     icon: <Truck className="h-5 w-5" />,
@@ -107,7 +107,7 @@ const navItems: NavItem[] = [
       { title: '採購退貨', href: '/documents?type=PR' },
     ],
   },
-  // 進銷存管理系統：銷售管理
+  // iPig ERP：銷售管理
   {
     title: '銷售管理',
     icon: <ShoppingCart className="h-5 w-5" />,
@@ -117,7 +117,7 @@ const navItems: NavItem[] = [
       { title: '銷售退貨', href: '/documents?type=SR' },
     ],
   },
-  // 進銷存管理系統：倉儲作業
+  // iPig ERP：倉儲作業
   {
     title: '倉儲作業',
     icon: <Warehouse className="h-5 w-5" />,
@@ -243,7 +243,7 @@ export function MainLayout() {
           navigate(`/protocols/${notification.related_entity_id}`) // 計畫書詳細頁
           break
         case 'document':
-          navigate(`/documents/${notification.related_entity_id}`) // 進銷存單據頁
+          navigate(`/documents/${notification.related_entity_id}`) // iPig ERP 單據頁
           break
         case 'pig':
           navigate(`/pigs/${notification.related_entity_id}`) // 豬隻詳細頁
@@ -356,7 +356,7 @@ export function MainLayout() {
       >
         {/* Logo 區域 */}
         <div className={cn(
-          "flex h-16 items-center border-b border-slate-700", 
+          "flex h-16 items-center border-b border-slate-700",
           sidebarOpen ? "justify-between px-4" : "justify-center px-2"
         )}>
           {sidebarOpen ? ( // 展開狀態：顯示完整 Logo 與文字

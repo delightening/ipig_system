@@ -38,7 +38,7 @@ export function QuickSelectCard({
       disabled={disabled}
       className={cn(
         "quick-select-card relative flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all",
-        "min-w-[80px] h-[72px]",
+        "min-w-[100px] h-[88px] p-4",
         selected
           ? "bg-primary/10 border-primary text-primary"
           : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-primary/50 hover:bg-slate-50 dark:hover:bg-slate-700/50",
@@ -94,7 +94,7 @@ export function QuickSelectGrid({
   className,
 }: QuickSelectGridProps) {
   return (
-    <div className={cn("grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2", className)}>
+    <div className={cn("grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4", className)}>
       {items.map((item) => (
         <QuickSelectCard
           key={item.id}
@@ -111,7 +111,7 @@ export function QuickSelectGrid({
           disabled={disabled}
           className={cn(
             "flex flex-col items-center justify-center p-3 rounded-lg border-2 border-dashed transition-all",
-            "min-w-[80px] h-[72px]",
+            "min-w-[100px] h-[88px] p-4",
             "border-slate-300 dark:border-slate-600 hover:border-primary/50 hover:bg-slate-50 dark:hover:bg-slate-700/50",
             disabled && "opacity-50 cursor-not-allowed"
           )}
@@ -154,8 +154,8 @@ export function SpecSelectionPanel({
       <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">
         選擇規格：{title}
       </h4>
-      
-      <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2">
+
+      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
         {specs.map((spec) => (
           <button
             key={spec.id}

@@ -605,7 +605,7 @@ pub async fn add_observation_vet_recommendation(
     Ok(Json(recommendation))
 }
 
-/// 为手术记录添加兽医建议
+/// 為手術記錄新增獸醫建議
 pub async fn add_surgery_vet_recommendation(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

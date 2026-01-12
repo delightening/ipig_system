@@ -103,7 +103,7 @@ export function DashboardPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">儀表板</h1>
         <p className="text-muted-foreground">
-          歡迎使用進銷存管理系統
+          歡迎使用 iPig ERP (進銷存管理模組)
         </p>
       </div>
 
@@ -149,11 +149,11 @@ export function DashboardPage() {
               {loadingDocuments
                 ? '-'
                 : recentDocuments?.filter(
-                    (d) =>
-                      ['GRN', 'SR'].includes(d.doc_type) &&
-                      d.status === 'approved' &&
-                      new Date(d.approved_at || '').toDateString() === new Date().toDateString()
-                  ).length || 0}
+                  (d) =>
+                    ['GRN', 'SR'].includes(d.doc_type) &&
+                    d.status === 'approved' &&
+                    new Date(d.approved_at || '').toDateString() === new Date().toDateString()
+                ).length || 0}
             </div>
             <p className="text-xs text-muted-foreground">
               入庫單據數量
@@ -170,11 +170,11 @@ export function DashboardPage() {
               {loadingDocuments
                 ? '-'
                 : recentDocuments?.filter(
-                    (d) =>
-                      ['DO', 'PR'].includes(d.doc_type) &&
-                      d.status === 'approved' &&
-                      new Date(d.approved_at || '').toDateString() === new Date().toDateString()
-                  ).length || 0}
+                  (d) =>
+                    ['DO', 'PR'].includes(d.doc_type) &&
+                    d.status === 'approved' &&
+                    new Date(d.approved_at || '').toDateString() === new Date().toDateString()
+                ).length || 0}
             </div>
             <p className="text-xs text-muted-foreground">
               出庫單據數量
@@ -229,8 +229,8 @@ export function DashboardPage() {
                           day.inbound - day.outbound > 0
                             ? 'text-green-600'
                             : day.inbound - day.outbound < 0
-                            ? 'text-red-600'
-                            : 'text-muted-foreground'
+                              ? 'text-red-600'
+                              : 'text-muted-foreground'
                         }
                       >
                         {day.inbound - day.outbound > 0 ? '+' : ''}

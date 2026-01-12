@@ -302,7 +302,7 @@ pub struct CreatePigRequest {
 
 #[derive(Debug, Deserialize, Validate, Default)]
 pub struct UpdatePigRequest {
-    // 以下字段在创建后不可更改，已从更新请求中移除：
+    // 以下欄位於建立後不可更改，已從更新請求中移除：
     // - ear_tag (耳號)
     // - breed (品種)
     // - gender (性別)

@@ -76,23 +76,13 @@ const errorMessages: Record<string, { title: string; icon: React.ReactNode }> = 
 
 // SKU 片段色彩映射
 const segmentColors: Record<string, { bg: string; text: string; border: string }> = {
+  CATEGORY: { bg: 'bg-blue-50 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-200 dark:border-blue-800' },
+  ITEM: { bg: 'bg-indigo-50 dark:bg-indigo-900/30', text: 'text-indigo-700 dark:text-indigo-300', border: 'border-indigo-200 dark:border-indigo-800' },
+  SERIAL: { bg: 'bg-emerald-50 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300', border: 'border-emerald-200 dark:border-emerald-800' },
+  // Legacy or other mappings
   NAME: { bg: 'bg-violet-50 dark:bg-violet-900/30', text: 'text-violet-700 dark:text-violet-300', border: 'border-violet-200 dark:border-violet-800' },
-  NAME_ABBR: { bg: 'bg-violet-50 dark:bg-violet-900/30', text: 'text-violet-700 dark:text-violet-300', border: 'border-violet-200 dark:border-violet-800' },
   SPEC: { bg: 'bg-cyan-50 dark:bg-cyan-900/30', text: 'text-cyan-700 dark:text-cyan-300', border: 'border-cyan-200 dark:border-cyan-800' },
-  SPEC_CODE: { bg: 'bg-cyan-50 dark:bg-cyan-900/30', text: 'text-cyan-700 dark:text-cyan-300', border: 'border-cyan-200 dark:border-cyan-800' },
-  UNIT: { bg: 'bg-amber-50 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300', border: 'border-amber-200 dark:border-amber-800' },
-  DATE: { bg: 'bg-emerald-50 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300', border: 'border-emerald-200 dark:border-emerald-800' },
-  YYMMDD: { bg: 'bg-emerald-50 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300', border: 'border-emerald-200 dark:border-emerald-800' },
-  SEQ: { bg: 'bg-indigo-50 dark:bg-indigo-900/30', text: 'text-indigo-700 dark:text-indigo-300', border: 'border-indigo-200 dark:border-indigo-800' },
-  CHK: { bg: 'bg-pink-50 dark:bg-pink-900/30', text: 'text-pink-700 dark:text-pink-300', border: 'border-pink-200 dark:border-pink-800' },
-  // Legacy mappings
-  ORG: { bg: 'bg-slate-50 dark:bg-slate-800', text: 'text-slate-700 dark:text-slate-300', border: 'border-slate-200 dark:border-slate-700' },
-  CAT: { bg: 'bg-violet-50 dark:bg-violet-900/30', text: 'text-violet-700 dark:text-violet-300', border: 'border-violet-200 dark:border-violet-800' },
-  SUB: { bg: 'bg-violet-50 dark:bg-violet-900/30', text: 'text-violet-700 dark:text-violet-300', border: 'border-violet-200 dark:border-violet-800' },
-  ATTR: { bg: 'bg-cyan-50 dark:bg-cyan-900/30', text: 'text-cyan-700 dark:text-cyan-300', border: 'border-cyan-200 dark:border-cyan-800' },
-  PACK: { bg: 'bg-amber-50 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300', border: 'border-amber-200 dark:border-amber-800' },
-  SRC: { bg: 'bg-teal-50 dark:bg-teal-900/30', text: 'text-teal-700 dark:text-teal-300', border: 'border-teal-200 dark:border-teal-800' },
-  YYWW: { bg: 'bg-emerald-50 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300', border: 'border-emerald-200 dark:border-emerald-800' },
+  SEQ: { bg: 'bg-emerald-50 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300', border: 'border-emerald-200 dark:border-emerald-800' },
 }
 
 const getSegmentColor = (code: string) => segmentColors[code] || segmentColors.ORG
@@ -146,15 +136,12 @@ export function SkuPreviewBlock({
 
   const segments = useMemo(() => {
     if (previewResult?.segments) return previewResult.segments
-    
-    // 新版預設結構（根據 skuSpec.md）
+
+    // 預設結構：種類、品項、流水號
     return [
-      { code: 'NAME_ABBR', label: '名稱', value: '—', source: '產品名稱縮寫' },
-      { code: 'SPEC_CODE', label: '規格', value: '—', source: '規格摘要' },
-      { code: 'UNIT', label: '單位', value: '—', source: '庫存單位' },
-      { code: 'YYMMDD', label: '日期', value: '—', source: '系統日期' },
-      { code: 'SEQ', label: '序號', value: status === 'S6' ? '—' : 'XXX', source: '建立時分配' },
-      { code: 'CHK', label: '檢查碼', value: status === 'S6' ? '—' : 'X', source: '建立時計算' },
+      { code: 'CATEGORY', label: '種類', value: '—', source: '主分類' },
+      { code: 'ITEM', label: '品項', value: '—', source: '子分類' },
+      { code: 'SERIAL', label: '流水號', value: status === 'S6' ? '—' : '001', source: '自動遞增序號' },
     ]
   }, [previewResult, status])
 
@@ -181,7 +168,7 @@ export function SkuPreviewBlock({
             <Info className="h-3.5 w-3.5" />
           </Button>
         </div>
-        <Badge 
+        <Badge
           variant={statusLabels[status].variant}
           className={cn(
             status === 'S6' && "bg-success text-success-foreground"
@@ -209,6 +196,33 @@ export function SkuPreviewBlock({
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
                 <span className="text-slate-500">{status === 'S2' ? '計算中...' : '建立中...'}</span>
               </div>
+            ) : (status === 'S3' || status === 'S6' || status === 'S1') && previewResult?.segments ? (
+              <div className="flex items-center">
+                {previewResult.segments.map((seg, idx) => (
+                  <div key={seg.code} className="flex items-center">
+                    <div
+                      className={cn(
+                        "px-3 py-1.5 rounded-md font-bold tracking-tight transition-all duration-300 cursor-default border-2",
+                        getSegmentColor(seg.code).bg,
+                        getSegmentColor(seg.code).text,
+                        getSegmentColor(seg.code).border,
+                        hoveredSegment === seg.code
+                          ? "scale-110 shadow-lg ring-4 ring-primary/10 -translate-y-0.5"
+                          : "opacity-90 hover:opacity-100"
+                      )}
+                      onMouseEnter={() => setHoveredSegment(seg.code)}
+                      onMouseLeave={() => setHoveredSegment(null)}
+                    >
+                      {seg.value || '—'}
+                    </div>
+                    {idx < previewResult.segments.length - 1 && (
+                      <div className="mx-3 flex flex-col items-center justify-center opacity-30">
+                        <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             ) : status === 'S6' ? (
               <div className="flex items-center gap-2">
                 <Check className="h-5 w-5 text-success animate-success-bounce" />
@@ -218,7 +232,7 @@ export function SkuPreviewBlock({
               displaySku
             )}
           </div>
-          
+
           {/* Copy Button */}
           <Button
             variant="outline"
@@ -233,7 +247,7 @@ export function SkuPreviewBlock({
               <Copy className="h-4 w-4" />
             )}
           </Button>
-          
+
           {/* Refresh Button */}
           {canRefresh && onRefresh && (
             <Button
@@ -268,7 +282,7 @@ export function SkuPreviewBlock({
                 <div className="flex justify-between">
                   <span className="text-slate-500">最後更新時間</span>
                   <span className="text-slate-700 dark:text-slate-300 font-medium">
-                    {previewResult.rule_updated_at 
+                    {previewResult.rule_updated_at
                       ? new Date(previewResult.rule_updated_at).toLocaleDateString('zh-TW')
                       : '—'}
                   </span>
@@ -363,14 +377,14 @@ export function SkuPreviewBlock({
               <ChevronDown className="h-4 w-4" />
             )}
           </button>
-          
+
           {expanded && (
             <div className="px-4 pb-4 animate-fade-in">
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {segments.map((seg, index) => {
                   const colors = getSegmentColor(seg.code)
                   const isPlaceholder = seg.value === '—' || seg.value === 'XXX' || seg.value === 'X'
-                  
+
                   return (
                     <div
                       key={seg.code}
@@ -441,7 +455,7 @@ export function SkuPreviewBlock({
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 進階模式允許調整 SKU 生成策略，但不能直接輸入 SKU 值。所有調整將記錄於稽核日誌。
               </p>
-              
+
               <div className="p-3 rounded-lg bg-slate-100 dark:bg-slate-800">
                 <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
                   名稱縮寫策略
@@ -493,21 +507,21 @@ export function SkuPreviewBlock({
             <div>
               <h4 className="font-medium mb-3">SKU 結構（新版）</h4>
               <div className="p-4 bg-slate-100 dark:bg-slate-800 rounded-lg font-mono text-sm">
-                <div className="flex flex-wrap items-center gap-1">
-                  {['NAME_ABBR', 'SPEC_CODE', 'UNIT', 'YYMMDD', 'SEQ', 'CHK'].map((seg) => {
+                <div className="flex flex-wrap items-center gap-3">
+                  {['CATEGORY', 'ITEM', 'SERIAL'].map((seg) => {
                     const colors = getSegmentColor(seg)
                     return (
                       <span
                         key={seg}
-                        className={cn("px-2 py-1 rounded", colors.bg, colors.text)}
+                        className={cn("px-4 py-2 rounded-lg border font-bold text-base", colors.bg, colors.text, colors.border)}
                       >
-                        {seg}
+                        {seg === 'CATEGORY' ? '種類' : seg === 'ITEM' ? '品項' : '流水號'}
                       </span>
                     )
                   })}
                 </div>
-                <p className="text-slate-500 text-xs mt-3">
-                  名稱-規格-單位-日期-序號-檢查碼
+                <p className="text-slate-500 text-xs mt-4">
+                  種類-品項-流水號
                 </p>
               </div>
             </div>

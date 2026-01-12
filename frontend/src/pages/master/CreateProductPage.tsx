@@ -19,8 +19,8 @@ import { SmartInput, ProductSuggestion } from '@/components/product/SmartInput'
 import { QuickSelectGrid, QuickSelectItem, SpecSelectionPanel, QuickSelectSpec } from '@/components/product/QuickSelectCard'
 import { StepIndicator, Step } from '@/components/product/StepIndicator'
 import { SkuPreviewBlock, SkuStatus, SkuPreviewResult, SkuPreviewError, MissingField } from '@/components/sku/SkuPreviewBlock'
-import { 
-  ArrowLeft, ArrowRight, Loader2, Check, Package, 
+import {
+  ArrowLeft, ArrowRight, Loader2, Check, Package,
   Pill, Syringe, TestTube, FlaskConical, Settings,
   ListPlus, FileText, LayoutGrid, Sparkles
 } from 'lucide-react'
@@ -58,36 +58,46 @@ const GLOVE_SPECS: QuickSelectSpec[] = [
 
 // 分類定義
 const CATEGORIES = [
-  { code: 'DRG', name: '藥品', icon: <Pill className="w-4 h-4" />, subcategories: [
-    { code: 'ABX', name: '抗生素' },
-    { code: 'ANL', name: '止痛藥' },
-    { code: 'VIT', name: '維生素' },
-    { code: 'OTH', name: '其他藥品' },
-  ]},
-  { code: 'MED', name: '醫材', icon: <Syringe className="w-4 h-4" />, subcategories: [
-    { code: 'SYR', name: '注射器材' },
-    { code: 'BND', name: '敷料繃帶' },
-    { code: 'GLV', name: '手套' },
-    { code: 'OTH', name: '其他醫材' },
-  ]},
-  { code: 'LAB', name: '實驗耗材', icon: <TestTube className="w-4 h-4" />, subcategories: [
-    { code: 'TUB', name: '試管' },
-    { code: 'PIP', name: '吸管' },
-    { code: 'PLT', name: '培養皿' },
-    { code: 'OTH', name: '其他耗材' },
-  ]},
-  { code: 'CHM', name: '化學品', icon: <FlaskConical className="w-4 h-4" />, subcategories: [
-    { code: 'RGT', name: '試劑' },
-    { code: 'SOL', name: '溶劑' },
-    { code: 'STD', name: '標準品' },
-    { code: 'OTH', name: '其他化學品' },
-  ]},
-  { code: 'EQP', name: '設備', icon: <Settings className="w-4 h-4" />, subcategories: [
-    { code: 'INS', name: '儀器' },
-    { code: 'TOL', name: '工具' },
-    { code: 'PRT', name: '零件' },
-    { code: 'OTH', name: '其他設備' },
-  ]},
+  {
+    code: 'DRG', name: '藥品', icon: <Pill className="w-4 h-4" />, subcategories: [
+      { code: 'ABX', name: '抗生素' },
+      { code: 'ANL', name: '止痛藥' },
+      { code: 'VIT', name: '維生素' },
+      { code: 'OTH', name: '其他藥品' },
+    ]
+  },
+  {
+    code: 'MED', name: '醫材', icon: <Syringe className="w-4 h-4" />, subcategories: [
+      { code: 'SYR', name: '注射器材' },
+      { code: 'BND', name: '敷料繃帶' },
+      { code: 'GLV', name: '手套' },
+      { code: 'OTH', name: '其他醫材' },
+    ]
+  },
+  {
+    code: 'LAB', name: '實驗耗材', icon: <TestTube className="w-4 h-4" />, subcategories: [
+      { code: 'TUB', name: '試管' },
+      { code: 'PIP', name: '吸管' },
+      { code: 'PLT', name: '培養皿' },
+      { code: 'OTH', name: '其他耗材' },
+    ]
+  },
+  {
+    code: 'CHM', name: '化學品', icon: <FlaskConical className="w-4 h-4" />, subcategories: [
+      { code: 'RGT', name: '試劑' },
+      { code: 'SOL', name: '溶劑' },
+      { code: 'STD', name: '標準品' },
+      { code: 'OTH', name: '其他化學品' },
+    ]
+  },
+  {
+    code: 'EQP', name: '設備', icon: <Settings className="w-4 h-4" />, subcategories: [
+      { code: 'INS', name: '儀器' },
+      { code: 'TOL', name: '工具' },
+      { code: 'PRT', name: '零件' },
+      { code: 'OTH', name: '其他設備' },
+    ]
+  },
 ]
 
 // 單位定義
@@ -242,10 +252,10 @@ export function CreateProductPage() {
     // 簡單解析邏輯：第一個空格前為名稱，之後為規格
     const parts = input.trim().split(/\s+/)
     if (parts.length === 0) return { name: '', spec: '' }
-    
+
     const name = parts[0]
     const spec = parts.slice(1).join(' ')
-    
+
     return { name, spec }
   }, [])
 
@@ -269,53 +279,37 @@ export function CreateProductPage() {
     setPreviewError(null)
 
     try {
-      // 簡化的 SKU 生成邏輯：種類-名稱-序號-檢查碼
-      const parsed = parseInput(formData.rawInput)
-      const name = formData.name || parsed.name
-      
-      // 生成種類代碼（分類+子分類）
-      const categoryCode = `${formData.category}-${formData.subcategory}`
-      
-      // 生成名稱縮寫（取前4個字符或首字母）
-      const nameAbbr = name
-        .split(/\s+/)
-        .map(w => w.charAt(0).toUpperCase())
-        .join('')
-        .slice(0, 4) || 'PRD'
-      
-      // 預覽 SKU（序號和檢查碼在建立時生成）
-      const previewSku = `${categoryCode}-${nameAbbr}-XXX-X`
+      // 預覽 SKU：種類-品項-流水號
+      const category = formData.category || 'CAT'
+      const subcategory = formData.subcategory || 'SUB'
 
-      // 簡化的片段結構：種類、名稱、序號、檢查碼
+      // 預覽 SKU
+      const previewSku = `${category}-${subcategory}-XXX`
+
+      // 簡化的片段結構：種類、品項、流水號
       const result: SkuPreviewResult = {
         preview_sku: previewSku,
-        rule_version: 'v2.0',
+        rule_version: 'v3.0',
         rule_updated_at: new Date().toISOString().split('T')[0],
-        rule_change_summary: '簡化 SKU 結構：種類-名稱-序號-檢查碼',
+        rule_change_summary: '簡化 SKU 結構：種類-品項-流水號',
         segments: [
           {
             code: 'CATEGORY',
             label: '種類',
-            value: categoryCode,
-            source: `${CATEGORIES.find(c => c.code === formData.category)?.name || formData.category}/${CATEGORIES.find(c => c.code === formData.category)?.subcategories.find(s => s.code === formData.subcategory)?.name || formData.subcategory}`,
+            value: category,
+            source: CATEGORIES.find(c => c.code === formData.category)?.name || formData.category,
           },
           {
-            code: 'NAME',
-            label: '名稱',
-            value: nameAbbr,
-            source: name || '產品名稱',
+            code: 'ITEM',
+            label: '品項',
+            value: subcategory,
+            source: CATEGORIES.find(c => c.code === formData.category)?.subcategories.find(s => s.code === formData.subcategory)?.name || formData.subcategory,
           },
           {
-            code: 'SEQ',
-            label: '序號',
+            code: 'SERIAL',
+            label: '流水號',
             value: 'XXX',
-            source: '建立時分配',
-          },
-          {
-            code: 'CHK',
-            label: '檢查碼',
-            value: 'X',
-            source: '建立時計算',
+            source: '自動遞增序號',
           },
         ],
       }
@@ -396,7 +390,7 @@ export function CreateProductPage() {
   const handleSpecSelect = (spec: QuickSelectSpec) => {
     setSelectedSpec(spec)
     if (selectedQuickItem) {
-      const fullSpec = selectedQuickItem.id === 'glove' 
+      const fullSpec = selectedQuickItem.id === 'glove'
         ? `${spec.primary} ${spec.secondary} ${glovesMaterial}`
         : `${spec.primary}${spec.secondary ? ' ' + spec.secondary : ''}`
       setFormData(prev => ({
@@ -411,7 +405,7 @@ export function CreateProductPage() {
   const createMutation = useMutation({
     mutationFn: async () => {
       setSkuStatus('S5')
-      
+
       const response = await api.post('/products', {
         name: formData.name || formData.rawInput.split(' ')[0],
         spec: formData.spec,
@@ -536,9 +530,9 @@ export function CreateProductPage() {
         </div>
 
         {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* Left: Form Steps */}
-          <div className="lg:col-span-3">
+        <div className="flex flex-col gap-8">
+          {/* Form Steps */}
+          <div className="w-full">
             {/* Step 1: Quick Input */}
             {currentStep === 0 && (
               <div className="space-y-6 animate-fade-in">
@@ -571,7 +565,7 @@ export function CreateProductPage() {
                           selectedId={selectedQuickItem?.id}
                           onSelect={handleQuickItemSelect}
                           showMore
-                          onShowMore={() => {}}
+                          onShowMore={() => { }}
                         />
                       </div>
 
@@ -657,8 +651,8 @@ export function CreateProductPage() {
                             <button
                               key={cat.code}
                               type="button"
-                              onClick={() => setFormData(prev => ({ 
-                                ...prev, 
+                              onClick={() => setFormData(prev => ({
+                                ...prev,
                                 category: cat.code,
                                 subcategory: ''
                               }))}
@@ -727,8 +721,8 @@ export function CreateProductPage() {
                               <button
                                 key={unit.code}
                                 type="button"
-                                onClick={() => setFormData(prev => ({ 
-                                  ...prev, 
+                                onClick={() => setFormData(prev => ({
+                                  ...prev,
                                   outerUnit: prev.outerUnit === unit.code ? '' : unit.code
                                 }))}
                                 disabled={isCreated}
@@ -772,8 +766,8 @@ export function CreateProductPage() {
                               <button
                                 key={unit.code}
                                 type="button"
-                                onClick={() => setFormData(prev => ({ 
-                                  ...prev, 
+                                onClick={() => setFormData(prev => ({
+                                  ...prev,
                                   innerUnit: unit.code
                                 }))}
                                 disabled={isCreated}
@@ -818,8 +812,8 @@ export function CreateProductPage() {
                             <button
                               key={unit.code}
                               type="button"
-                              onClick={() => setFormData(prev => ({ 
-                                ...prev, 
+                              onClick={() => setFormData(prev => ({
+                                ...prev,
                                 baseUnit: unit.code,
                                 safetyStockUnit: unit.name
                               }))}
@@ -846,7 +840,7 @@ export function CreateProductPage() {
                             {formData.outerUnit && formData.innerUnit ? (
                               <span>
                                 一{UNITS.outer.find(u => u.code === formData.outerUnit)?.name}
-                                {formData.outerQty > 1 ? formData.outerQty : ''} 
+                                {formData.outerQty > 1 ? formData.outerQty : ''}
                                 幾{UNITS.inner.find(u => u.code === formData.innerUnit)?.name}
                                 {formData.innerQty > 1 ? formData.innerQty : ''}
                               </span>
@@ -981,7 +975,7 @@ export function CreateProductPage() {
                       {formData.name} {formData.spec}
                     </p>
                   </div>
-                  
+
                   <CardContent className="pt-6">
                     <div className="space-y-4">
                       <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
@@ -1009,7 +1003,7 @@ export function CreateProductPage() {
                       <p className="text-sm text-slate-600 dark:text-slate-400">
                         接下來您可以：
                       </p>
-                      
+
                       <div className="grid grid-cols-3 gap-3">
                         <Button
                           variant="outline"
@@ -1043,20 +1037,19 @@ export function CreateProductPage() {
             )}
           </div>
 
-          {/* Right: SKU Preview */}
-          <div className="lg:col-span-2">
-            <div className="sticky top-6">
-              <SkuPreviewBlock
-                status={skuStatus}
-                previewResult={previewResult}
-                error={previewError}
-                missingFields={currentStep === 1 ? missingFields : []}
-                finalSku={finalSku}
-                isLoading={isPreviewLoading}
-                onRefresh={generatePreview}
-                compact={currentStep === 2}
-              />
-            </div>
+
+          {/* Bottom: SKU Preview */}
+          <div className="w-full">
+            <SkuPreviewBlock
+              status={skuStatus}
+              previewResult={previewResult}
+              error={previewError}
+              missingFields={currentStep === 1 ? missingFields : []}
+              finalSku={finalSku}
+              isLoading={isPreviewLoading}
+              onRefresh={generatePreview}
+              compact={currentStep === 2}
+            />
           </div>
         </div>
       </div>

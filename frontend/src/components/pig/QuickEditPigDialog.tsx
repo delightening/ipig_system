@@ -97,7 +97,7 @@ export function QuickEditPigDialog({ open, onOpenChange, pigId }: Props) {
           </div>
         ) : pig ? (
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* 只读信息区域 */}
+            {/* 唯讀資訊區域 */}
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-slate-700 border-b pb-2">基本資訊（不可編輯）</h3>
               <div className="grid grid-cols-2 gap-4">
@@ -215,7 +215,7 @@ export function QuickEditPigDialog({ open, onOpenChange, pigId }: Props) {
               </div>
             </div>
 
-            {/* 信息提示区域（只读） */}
+            {/* 資訊提示區域（唯讀） */}
             <div className="space-y-4 pt-4 border-t">
               <h3 className="text-sm font-semibold text-slate-700 border-b pb-2">狀態資訊（僅供參考）</h3>
               <div className="grid grid-cols-2 gap-4">
