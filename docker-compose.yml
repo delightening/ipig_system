@@ -48,6 +48,8 @@ services:
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@erp.local}
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-ERP System}
       APP_URL: ${APP_URL:-http://localhost}
+    ports:
+      - "${PORT:-3000}:3000"
     depends_on:
       db:
         condition: service_healthy
