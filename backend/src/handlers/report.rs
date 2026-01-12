@@ -1,4 +1,4 @@
-﻿use axum::{
+use axum::{
     extract::{Query, State},
     Extension, Json,
 };
@@ -12,7 +12,7 @@ use crate::{
     AppState, Result,
 };
 
-/// 摨怠??暹??梯”
+/// 取得庫存現況報表
 pub async fn get_stock_on_hand_report(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -22,7 +22,7 @@ pub async fn get_stock_on_hand_report(
     Ok(Json(report))
 }
 
-/// 摨怠?瘚偌?梯”
+/// 取得庫存流水報表
 pub async fn get_stock_ledger_report(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -32,7 +32,7 @@ pub async fn get_stock_ledger_report(
     Ok(Json(report))
 }
 
-/// ?∟頃?敦?梯”
+/// 取得採購明細報表
 pub async fn get_purchase_lines_report(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -42,7 +42,7 @@ pub async fn get_purchase_lines_report(
     Ok(Json(report))
 }
 
-/// ?瑕?敦?梯”
+/// 取得銷售明細報表
 pub async fn get_sales_lines_report(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -52,7 +52,7 @@ pub async fn get_sales_lines_report(
     Ok(Json(report))
 }
 
-/// ????梯”
+/// 取得成本彙總報表
 pub async fn get_cost_summary_report(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -61,4 +61,3 @@ pub async fn get_cost_summary_report(
     let report = ReportService::cost_summary(&state.db, &query).await?;
     Ok(Json(report))
 }
-

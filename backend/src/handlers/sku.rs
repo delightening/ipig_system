@@ -1,4 +1,4 @@
-﻿use axum::{
+use axum::{
     extract::{Path, State},
     Extension, Json,
 };
@@ -15,7 +15,7 @@ use crate::{
     AppState, Result,
 };
 
-/// ?? SKU 憿?”
+/// 列出 SKU 分類清單
 pub async fn get_sku_categories(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -26,7 +26,7 @@ pub async fn get_sku_categories(
     Ok(Json(categories))
 }
 
-/// ?? SKU 摮??亙?銵?
+/// 列出 SKU 子分類清單
 pub async fn get_sku_subcategories(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -38,7 +38,7 @@ pub async fn get_sku_subcategories(
     Ok(Json(subcategories))
 }
 
-/// ?? SKU
+/// 產生 SKU
 pub async fn generate_sku(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -50,7 +50,7 @@ pub async fn generate_sku(
     Ok(Json(result))
 }
 
-/// 撽? SKU
+/// 驗證 SKU
 pub async fn validate_sku(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -62,7 +62,7 @@ pub async fn validate_sku(
     Ok(Json(result))
 }
 
-/// ?汗 SKU
+/// 預覽 SKU
 pub async fn preview_sku(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -74,7 +74,7 @@ pub async fn preview_sku(
     Ok(Json(preview))
 }
 
-/// 撱箇??Ｗ?嚗????SKU嚗?
+/// 建立產品並自動產生 SKU
 pub async fn create_product_with_sku(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -85,4 +85,3 @@ pub async fn create_product_with_sku(
     let product = SkuService::create_product_with_sku(&state.db, &req).await?;
     Ok(Json(product))
 }
-

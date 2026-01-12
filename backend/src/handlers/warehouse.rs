@@ -1,4 +1,4 @@
-﻿use axum::{
+use axum::{
     extract::{Path, Query, State},
     Extension, Json,
 };
@@ -13,7 +13,7 @@ use crate::{
     AppError, AppState, Result,
 };
 
-/// 撱箇??澈
+/// 建立倉庫
 pub async fn create_warehouse(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -26,7 +26,7 @@ pub async fn create_warehouse(
     Ok(Json(warehouse))
 }
 
-/// ???澈?”
+/// 列出所有倉庫
 pub async fn list_warehouses(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -38,7 +38,7 @@ pub async fn list_warehouses(
     Ok(Json(warehouses))
 }
 
-/// ???桐??澈
+/// 取得單個倉庫
 pub async fn get_warehouse(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -50,7 +50,7 @@ pub async fn get_warehouse(
     Ok(Json(warehouse))
 }
 
-/// ?湔?澈
+/// 更新倉庫
 pub async fn update_warehouse(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -64,7 +64,7 @@ pub async fn update_warehouse(
     Ok(Json(warehouse))
 }
 
-/// ?芷?澈
+/// 刪除倉庫
 pub async fn delete_warehouse(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -75,4 +75,3 @@ pub async fn delete_warehouse(
     WarehouseService::delete(&state.db, id).await?;
     Ok(Json(serde_json::json!({ "message": "Warehouse deleted successfully" })))
 }
-

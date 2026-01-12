@@ -1,4 +1,4 @@
-﻿use axum::{
+use axum::{
     extract::{Query, State},
     Extension, Json,
 };
@@ -11,7 +11,7 @@ use crate::{
     AppState, Result,
 };
 
-/// ?亥岷摨怠??暹?
+/// 取得庫存現況
 pub async fn get_inventory_on_hand(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -23,7 +23,7 @@ pub async fn get_inventory_on_hand(
     Ok(Json(inventory))
 }
 
-/// ?亥岷摨怠?瘚偌
+/// 取得庫存流水
 pub async fn get_stock_ledger(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -35,7 +35,7 @@ pub async fn get_stock_ledger(
     Ok(Json(ledger))
 }
 
-/// ?亥岷雿澈摮郎蝷?
+/// 取得低庫存警示清單
 pub async fn get_low_stock_alerts(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -45,4 +45,3 @@ pub async fn get_low_stock_alerts(
     let alerts = StockService::get_low_stock_alerts(&state.db).await?;
     Ok(Json(alerts))
 }
-

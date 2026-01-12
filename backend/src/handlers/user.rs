@@ -1,4 +1,4 @@
-﻿use axum::{
+use axum::{
     extract::{Path, Query, State},
     Extension, Json,
 };
@@ -18,7 +18,7 @@ pub struct UserQuery {
     pub keyword: Option<String>,
 }
 
-/// 建立使用者
+/// 建立使用者
 pub async fn create_user(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -27,13 +27,13 @@ pub async fn create_user(
     require_permission!(current_user, "dev.user.create");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
-    // 靽???撖Ⅳ?冽撖隞?
+    // 保存原始密碼用於發送歡迎郵件
     let plain_password = req.password.clone();
     
     let user = UserService::create(&state.db, &req).await?;
     let response = UserService::get_by_id(&state.db, user.id).await?;
     
-    // 撖迭餈縑隞塚??唳郊?瑁?嚗??餃???嚗?
+    // 非同步發送歡迎郵件，避免阻塞回應
     let config = state.config.clone();
     let email = response.email.clone();
     let display_name = response.display_name.clone();
@@ -46,7 +46,7 @@ pub async fn create_user(
     Ok(Json(response))
 }
 
-/// ???冽?”
+/// 列出所有使用者
 pub async fn list_users(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -58,7 +58,7 @@ pub async fn list_users(
     Ok(Json(users))
 }
 
-/// ???桐??冽
+/// 取得單個使用者
 pub async fn get_user(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -70,7 +70,7 @@ pub async fn get_user(
     Ok(Json(user))
 }
 
-/// ?湔?冽
+/// 更新使用者
 pub async fn update_user(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -84,7 +84,7 @@ pub async fn update_user(
     Ok(Json(user))
 }
 
-/// ?芷?冽
+/// 刪除使用者
 pub async fn delete_user(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -96,29 +96,29 @@ pub async fn delete_user(
     Ok(Json(serde_json::json!({ "message": "User deleted successfully" })))
 }
 
-/// Admin ?身隞犖撖Ⅳ
+/// Admin 重設其他使用者密碼
 pub async fn reset_user_password(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
     Json(req): Json<ResetPasswordRequest>,
 ) -> Result<Json<serde_json::Value>> {
-    // 瑼Ｘ甈?嚗?? Admin 閫
+    // 檢查權限，必須是 Admin 角色
     if !current_user.roles.contains(&"admin".to_string()) {
         return Err(AppError::BusinessRule("Only admin can reset other user's password".to_string()));
     }
     
-    // 銝?身?芸楛??蝣潘??蝙??/me/password嚗?
+    // 不允許重設自己的密碼，應使用 /me/password
     if id == current_user.id {
         return Err(AppError::Validation("Use /me/password to change your own password".to_string()));
     }
     
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
-    // ?身撖Ⅳ
+    // 重設密碼
     AuthService::reset_user_password(&state.db, id, &req.new_password).await?;
     
-    // 閮?蝔賣?亥?
+    // 記錄稽核日誌
     AuditService::log(
         &state.db,
         current_user.id,
@@ -134,4 +134,3 @@ pub async fn reset_user_password(
     
     Ok(Json(serde_json::json!({ "message": "Password reset successfully" })))
 }
-
