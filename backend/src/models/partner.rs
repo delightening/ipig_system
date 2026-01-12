@@ -12,12 +12,23 @@ pub enum PartnerType {
     Customer,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[sqlx(type_name = "supplier_category", rename_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
+pub enum SupplierCategory {
+    Drug,        // 藥物
+    Consumable,  // 耗材
+    Feed,        // 飼料
+    Equipment,   // 儀器
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Partner {
     pub id: Uuid,
     pub partner_type: PartnerType,
     pub code: String,
     pub name: String,
+    pub supplier_category: Option<SupplierCategory>,
     pub tax_id: Option<String>,
     pub phone: Option<String>,
     pub email: Option<String>,
@@ -31,13 +42,12 @@ pub struct Partner {
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreatePartnerRequest {
     pub partner_type: PartnerType,
-    #[validate(length(min = 1, max = 50, message = "Code must be 1-50 characters"))]
-    pub code: String,
+    pub code: Option<String>,  // 改為可選，如果為空則自動生成
+    pub supplier_category: Option<SupplierCategory>,
     #[validate(length(min = 1, max = 200, message = "Name must be 1-200 characters"))]
     pub name: String,
     pub tax_id: Option<String>,
     pub phone: Option<String>,
-    #[validate(email(message = "Invalid email format"))]
     pub email: Option<String>,
     pub address: Option<String>,
     pub payment_terms: Option<String>,
@@ -49,7 +59,6 @@ pub struct UpdatePartnerRequest {
     pub name: Option<String>,
     pub tax_id: Option<String>,
     pub phone: Option<String>,
-    #[validate(email(message = "Invalid email format"))]
     pub email: Option<String>,
     pub address: Option<String>,
     pub payment_terms: Option<String>,
@@ -61,4 +70,9 @@ pub struct PartnerQuery {
     pub partner_type: Option<PartnerType>,
     pub keyword: Option<String>,
     pub is_active: Option<bool>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct GenerateCodeResponse {
+    pub code: String,
 }

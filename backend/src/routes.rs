@@ -45,6 +45,7 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/products/with-sku", post(handlers::create_product_with_sku))
         // Partners
         .route("/partners", get(handlers::list_partners).post(handlers::create_partner))
+        .route("/partners/generate-code", get(handlers::generate_partner_code))
         .route("/partners/:id", get(handlers::get_partner).put(handlers::update_partner).delete(handlers::delete_partner))
         // Documents
         .route("/documents", get(handlers::list_documents).post(handlers::create_document))

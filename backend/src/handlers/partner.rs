@@ -7,7 +7,7 @@ use validator::Validate;
 
 use crate::{
     middleware::CurrentUser,
-    models::{CreatePartnerRequest, Partner, PartnerQuery, UpdatePartnerRequest},
+    models::{CreatePartnerRequest, GenerateCodeResponse, Partner, PartnerQuery, SupplierCategory, UpdatePartnerRequest},
     require_permission,
     services::PartnerService,
     AppError, AppState, Result,
@@ -74,4 +74,29 @@ pub async fn delete_partner(
     
     PartnerService::delete(&state.db, id).await?;
     Ok(Json(serde_json::json!({ "message": "Partner deleted successfully" })))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GenerateCodeQuery {
+    pub category: String,
+}
+
+/// 生成供應商代碼
+pub async fn generate_partner_code(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Query(params): Query<GenerateCodeQuery>,
+) -> Result<Json<GenerateCodeResponse>> {
+    require_permission!(current_user, "erp.partner.create");
+    
+    let category = match params.category.as_str() {
+        "drug" => SupplierCategory::Drug,
+        "consumable" => SupplierCategory::Consumable,
+        "feed" => SupplierCategory::Feed,
+        "equipment" => SupplierCategory::Equipment,
+        _ => return Err(AppError::Validation("Invalid category. Must be one of: drug, consumable, feed, equipment".to_string())),
+    };
+    
+    let code = PartnerService::generate_code(&state.db, category).await?;
+    Ok(Json(GenerateCodeResponse { code }))
 }

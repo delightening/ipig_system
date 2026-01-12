@@ -39,6 +39,7 @@ export function PartnersPage() {
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null)
   const [formData, setFormData] = useState({
     partner_type: 'supplier' as 'supplier' | 'customer',
+    supplier_category: '' as '' | 'drug' | 'consumable' | 'feed' | 'equipment',
     code: '',
     name: '',
     tax_id: '',
@@ -46,6 +47,7 @@ export function PartnersPage() {
     email: '',
     address: '',
   })
+  const [isGeneratingCode, setIsGeneratingCode] = useState(false)
 
   const { data: partners, isLoading } = useQuery({
     queryKey: ['partners', search, typeFilter],
@@ -111,6 +113,7 @@ export function PartnersPage() {
   const resetForm = () => {
     setFormData({
       partner_type: 'supplier',
+      supplier_category: '',
       code: '',
       name: '',
       tax_id: '',
@@ -121,10 +124,32 @@ export function PartnersPage() {
     setEditingPartner(null)
   }
 
+  // 當供應商類別改變時，自動生成代碼
+  const handleSupplierCategoryChange = async (category: 'drug' | 'consumable' | 'feed' | 'equipment') => {
+    setFormData({ ...formData, supplier_category: category, code: '' })
+    
+    if (!editingPartner && category) {
+      setIsGeneratingCode(true)
+      try {
+        const response = await api.get<{ code: string }>(`/partners/generate-code?category=${category}`)
+        setFormData({ ...formData, supplier_category: category, code: response.data.code })
+      } catch (error: any) {
+        toast({
+          title: '錯誤',
+          description: error?.response?.data?.error?.message || '生成代碼失敗',
+          variant: 'destructive',
+        })
+      } finally {
+        setIsGeneratingCode(false)
+      }
+    }
+  }
+
   const handleEdit = (partner: Partner) => {
     setEditingPartner(partner)
     setFormData({
       partner_type: partner.partner_type,
+      supplier_category: (partner as any).supplier_category || '',
       code: partner.code,
       name: partner.name,
       tax_id: partner.tax_id || '',
@@ -137,10 +162,20 @@ export function PartnersPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    // 將空字串轉換為 null，避免後端驗證錯誤
+    const submitData = {
+      ...formData,
+      code: formData.code.trim() || null,
+      supplier_category: formData.supplier_category || null,
+      email: formData.email.trim() || null,
+      phone: formData.phone.trim() || null,
+      tax_id: formData.tax_id.trim() || null,
+      address: formData.address.trim() || null,
+    }
     if (editingPartner) {
-      updateMutation.mutate({ id: editingPartner.id, data: formData })
+      updateMutation.mutate({ id: editingPartner.id, data: submitData })
     } else {
-      createMutation.mutate(formData)
+      createMutation.mutate(submitData)
     }
   }
 
@@ -263,7 +298,7 @@ export function PartnersPage() {
                 <Select
                   value={formData.partner_type}
                   onValueChange={(value: 'supplier' | 'customer') =>
-                    setFormData({ ...formData, partner_type: value })
+                    setFormData({ ...formData, partner_type: value, supplier_category: '', code: '' })
                   }
                   disabled={!!editingPartner}
                 >
@@ -276,16 +311,43 @@ export function PartnersPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {formData.partner_type === 'supplier' && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">提供商類型</Label>
+                  <Select
+                    value={formData.supplier_category}
+                    onValueChange={(value: 'drug' | 'consumable' | 'feed' | 'equipment') =>
+                      handleSupplierCategoryChange(value)
+                    }
+                    disabled={!!editingPartner || isGeneratingCode}
+                  >
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="請選擇提供商類型" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="drug">藥物</SelectItem>
+                      <SelectItem value="consumable">耗材</SelectItem>
+                      <SelectItem value="feed">飼料</SelectItem>
+                      <SelectItem value="equipment">儀器</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="code" className="text-right">代碼</Label>
-                <Input
-                  id="code"
-                  value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                  className="col-span-3"
-                  disabled={!!editingPartner}
-                  required
-                />
+                <div className="col-span-3 flex gap-2">
+                  <Input
+                    id="code"
+                    value={formData.code}
+                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                    disabled={!!editingPartner || isGeneratingCode}
+                    required
+                    placeholder={isGeneratingCode ? '生成中...' : '將根據提供商類型自動生成'}
+                  />
+                  {isGeneratingCode && (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground self-center" />
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="name" className="text-right">名稱</Label>
