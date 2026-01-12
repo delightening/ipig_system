@@ -6,6 +6,7 @@ export interface QuickSelectItem {
   id: string
   icon?: React.ReactNode
   label: string
+  displayLabel?: React.ReactNode
   sublabel?: string
   specs?: QuickSelectSpec[]
 }
@@ -63,7 +64,7 @@ export function QuickSelectCard({
         "text-sm font-medium",
         selected ? "text-primary" : "text-slate-700 dark:text-slate-300"
       )}>
-        {item.label}
+        {item.displayLabel || item.label}
       </span>
       {item.sublabel && (
         <span className="text-xs text-slate-400 mt-0.5">
