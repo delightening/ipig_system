@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::{
-    http::{header, Method},
+    http::{header, HeaderValue, Method},
 };
 use sqlx::postgres::PgPoolOptions;
 use tower_http::{
@@ -273,9 +273,13 @@ async fn main() -> anyhow::Result<()> {
 
     // Build CORS layer
     let cors = CorsLayer::new()
-        .allow_origin(tower_http::cors::Any)
-        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
-        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION]);
+        .allow_origin([
+            HeaderValue::from_static("http://localhost:8080"),
+            HeaderValue::from_static("http://10.0.4.34:8080"),
+        ])
+        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
+        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION])
+        .allow_credentials(true);
 
     // Build trace layer
     let trace_layer = TraceLayer::new_for_http()

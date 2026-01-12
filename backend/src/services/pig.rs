@@ -265,43 +265,32 @@ impl PigService {
 
     /// 更新豬隻
     pub async fn update(pool: &PgPool, id: i32, req: &UpdatePigRequest) -> Result<Pig> {
-        // 轉換 breed enum 為資料庫期望的字符串值（如果提供）
-        let breed_str = req.breed.map(|b| match b {
-            crate::models::PigBreed::Minipig => "miniature",
-            crate::models::PigBreed::White => "white",
-            crate::models::PigBreed::Other => "other",
-        });
+        // 以下字段在创建后不可更改，不会在更新时修改：
+        // - ear_tag (耳號)
+        // - breed (品種)
+        // - gender (性別)
+        // - source_id (來源)
+        // - birth_date (出生日期)
+        // - entry_date (進場日期)
+        // - entry_weight (進場體重)
+        // - pre_experiment_code (實驗前代號)
         
         let pig = sqlx::query_as::<_, Pig>(
             r#"
             UPDATE pigs SET
-                ear_tag = COALESCE($2, ear_tag),
-                status = COALESCE($3, status),
-                breed = COALESCE($4::pig_breed, breed),
-                source_id = COALESCE($5, source_id),
-                gender = COALESCE($6, gender),
-                birth_date = COALESCE($7, birth_date),
-                entry_weight = COALESCE($8, entry_weight),
-                pen_location = COALESCE($9, pen_location),
-                pre_experiment_code = COALESCE($10, pre_experiment_code),
-                iacuc_no = COALESCE($11, iacuc_no),
-                experiment_date = COALESCE($12, experiment_date),
-                remark = COALESCE($13, remark),
+                status = COALESCE($2, status),
+                pen_location = COALESCE($3, pen_location),
+                iacuc_no = COALESCE($4, iacuc_no),
+                experiment_date = COALESCE($5, experiment_date),
+                remark = COALESCE($6, remark),
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
             "#
         )
         .bind(id)
-        .bind(&req.ear_tag)
         .bind(req.status)
-        .bind(breed_str.as_deref())
-        .bind(req.source_id)
-        .bind(req.gender)
-        .bind(req.birth_date)
-        .bind(req.entry_weight)
         .bind(&req.pen_location)
-        .bind(&req.pre_experiment_code)
         .bind(&req.iacuc_no)
         .bind(req.experiment_date)
         .bind(&req.remark)

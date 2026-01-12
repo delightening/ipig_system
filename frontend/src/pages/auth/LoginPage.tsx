@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -22,6 +22,11 @@ export function LoginPage() {
   const navigate = useNavigate()
   const { login, isLoading } = useAuthStore()
   const [showPassword, setShowPassword] = useState(false)
+
+  // Clear redirect flag when login page loads
+  useEffect(() => {
+    sessionStorage.removeItem('auth_redirecting')
+  }, [])
 
   const {
     register,

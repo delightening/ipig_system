@@ -65,17 +65,11 @@ export function PigEditPage() {
   // Initialize form data when pig loads
   useEffect(() => {
     if (pig) {
+      // 以下字段在创建后不可更改，只用于显示，不会提交到后端：
+      // - ear_tag, breed, gender, source_id, birth_date, entry_date, entry_weight, pre_experiment_code
       setFormData({
-        ear_tag: pig.ear_tag,
         status: pig.status,
-        breed: pig.breed,
-        gender: pig.gender,
-        source_id: pig.source_id || undefined,
-        birth_date: pig.birth_date || undefined,
-        entry_date: pig.entry_date,
-        entry_weight: pig.entry_weight || undefined,
         pen_location: pig.pen_location || undefined,
-        pre_experiment_code: pig.pre_experiment_code || undefined,
         iacuc_no: pig.iacuc_no || undefined,
         experiment_date: pig.experiment_date || undefined,
         remark: pig.remark || undefined,
@@ -111,10 +105,7 @@ export function PigEditPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.ear_tag?.trim()) {
-      toast({ title: '錯誤', description: '耳號為必填', variant: 'destructive' })
-      return
-    }
+    // 只提交可编辑的字段（已移除不可更改的字段）
     updateMutation.mutate(formData)
   }
 
@@ -162,15 +153,14 @@ export function PigEditPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-6">
-              {/* 耳號 */}
+              {/* 耳號 - 创建后不可更改 */}
               <div className="space-y-2">
-                <Label htmlFor="ear_tag">耳號 *</Label>
+                <Label htmlFor="ear_tag" className="text-slate-500">耳號 *</Label>
                 <Input
                   id="ear_tag"
-                  value={formData.ear_tag || ''}
-                  onChange={(e) => handleChange('ear_tag', e.target.value)}
-                  placeholder="輸入耳號"
-                  required
+                  value={pig?.ear_tag || ''}
+                  disabled
+                  className="bg-slate-50"
                 />
               </div>
 
@@ -194,65 +184,34 @@ export function PigEditPage() {
                 </Select>
               </div>
 
-              {/* 品種 */}
+              {/* 品種 - 创建后不可更改 */}
               <div className="space-y-2">
-                <Label>品種 *</Label>
-                <Select
-                  value={formData.breed}
-                  onValueChange={(v) => handleChange('breed', v as PigBreed)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(pigBreedNames).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-slate-500">品種 *</Label>
+                <Input
+                  value={pig ? pigBreedNames[pig.breed] : ''}
+                  disabled
+                  className="bg-slate-50"
+                />
               </div>
 
-              {/* 性別 */}
+              {/* 性別 - 创建后不可更改 */}
               <div className="space-y-2">
-                <Label>性別 *</Label>
-                <Select
-                  value={formData.gender}
-                  onValueChange={(v) => handleChange('gender', v as PigGender)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(pigGenderNames).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-slate-500">性別 *</Label>
+                <Input
+                  value={pig ? pigGenderNames[pig.gender] : ''}
+                  disabled
+                  className="bg-slate-50"
+                />
               </div>
 
-              {/* 來源 */}
+              {/* 來源 - 创建后不可更改 */}
               <div className="space-y-2">
-                <Label>來源</Label>
-                <Select
-                  value={formData.source_id || 'none'}
-                  onValueChange={(v) => handleChange('source_id', v === 'none' ? undefined : v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="選擇來源" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">未指定</SelectItem>
-                    {sources?.map((source) => (
-                      <SelectItem key={source.id} value={source.id}>
-                        {source.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-slate-500">來源</Label>
+                <Input
+                  value={pig?.source_id ? sources?.find(s => s.id === pig.source_id)?.name || '' : '未指定'}
+                  disabled
+                  className="bg-slate-50"
+                />
               </div>
 
               {/* 欄位 */}
@@ -266,84 +225,50 @@ export function PigEditPage() {
                 />
               </div>
 
-              {/* 出生日期 */}
+              {/* 出生日期 - 创建后不可更改 */}
               <div className="space-y-2">
-                <Label htmlFor="birth_date">出生日期</Label>
+                <Label htmlFor="birth_date" className="text-slate-500">出生日期</Label>
                 <Input
                   id="birth_date"
                   type="date"
-                  value={formData.birth_date?.split('T')[0] || ''}
-                  onChange={(e) => handleChange('birth_date', e.target.value)}
+                  value={pig?.birth_date ? new Date(pig.birth_date).toISOString().split('T')[0] : ''}
+                  disabled
+                  className="bg-slate-50"
                 />
               </div>
 
-              {/* 進場日期 */}
+              {/* 進場日期 - 创建后不可更改 */}
               <div className="space-y-2">
-                <Label htmlFor="entry_date">進場日期 *</Label>
+                <Label htmlFor="entry_date" className="text-slate-500">進場日期 *</Label>
                 <Input
                   id="entry_date"
                   type="date"
-                  value={formData.entry_date?.split('T')[0] || ''}
-                  onChange={(e) => handleChange('entry_date', e.target.value)}
-                  required
+                  value={pig?.entry_date ? new Date(pig.entry_date).toISOString().split('T')[0] : ''}
+                  disabled
+                  className="bg-slate-50"
                 />
               </div>
 
-              {/* 進場體重 */}
+              {/* 進場體重 - 创建后不可更改 */}
               <div className="space-y-2">
-                <Label htmlFor="entry_weight">進場體重 (kg)</Label>
+                <Label htmlFor="entry_weight" className="text-slate-500">進場體重 (kg)</Label>
                 <Input
                   id="entry_weight"
                   type="text"
-                  inputMode="decimal"
-                  value={entryWeightInput}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    // 只允許數字和一個小數點
-                    const numericValue = value.replace(/[^\d.]/g, '')
-                    // 確保只有一個小數點
-                    const parts = numericValue.split('.')
-                    const filteredValue = parts.length > 2 
-                      ? parts[0] + '.' + parts.slice(1).join('')
-                      : numericValue
-                    // 更新輸入值
-                    setEntryWeightInput(filteredValue)
-                    // 如果為空或只有小數點，設為 undefined，否則轉換為數字
-                    if (filteredValue === '' || filteredValue === '.') {
-                      handleChange('entry_weight', undefined)
-                    } else {
-                      const numValue = parseFloat(filteredValue)
-                      if (!isNaN(numValue)) {
-                        handleChange('entry_weight', numValue)
-                      }
-                    }
-                  }}
-                  onBlur={() => {
-                    // 當失去焦點時，清理尾部的小數點
-                    if (entryWeightInput === '.') {
-                      setEntryWeightInput('')
-                      handleChange('entry_weight', undefined)
-                    } else if (entryWeightInput && entryWeightInput.endsWith('.')) {
-                      const cleaned = entryWeightInput.slice(0, -1)
-                      setEntryWeightInput(cleaned)
-                      const numValue = parseFloat(cleaned)
-                      if (!isNaN(numValue)) {
-                        handleChange('entry_weight', numValue)
-                      }
-                    }
-                  }}
-                  placeholder="輸入體重"
+                  value={pig?.entry_weight !== undefined && pig.entry_weight !== null ? String(pig.entry_weight) : ''}
+                  disabled
+                  className="bg-slate-50"
                 />
               </div>
 
-              {/* 實驗前代號 */}
+              {/* 實驗前代號 - 创建后不可更改 */}
               <div className="space-y-2">
-                <Label htmlFor="pre_experiment_code">實驗前代號</Label>
+                <Label htmlFor="pre_experiment_code" className="text-slate-500">實驗前代號</Label>
                 <Input
                   id="pre_experiment_code"
-                  value={formData.pre_experiment_code || ''}
-                  onChange={(e) => handleChange('pre_experiment_code', e.target.value)}
-                  placeholder="如：PIG-110000"
+                  value={pig?.pre_experiment_code || ''}
+                  disabled
+                  className="bg-slate-50"
                 />
               </div>
 

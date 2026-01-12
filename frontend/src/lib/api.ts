@@ -32,7 +32,7 @@ api.interceptors.response.use(
       const refreshToken = localStorage.getItem('refresh_token')
       if (refreshToken) {
         try {
-          const response = await axios.post('/api/auth/refresh', {
+          const response = await api.post('/auth/refresh', {
             refresh_token: refreshToken,
           })
 
@@ -45,13 +45,24 @@ api.interceptors.response.use(
             return api(originalRequest)
           }
         } catch {
-          // Refresh failed, clear tokens and redirect to login
-          localStorage.removeItem('access_token')
-          localStorage.removeItem('refresh_token')
-          window.location.href = '/login'
+          // Refresh failed, clear tokens and redirect to login (only once)
+          if (!sessionStorage.getItem('auth_redirecting')) {
+            sessionStorage.setItem('auth_redirecting', 'true')
+            localStorage.removeItem('access_token')
+            localStorage.removeItem('refresh_token')
+            // Redirect immediately without clearing flag (cleared on login page)
+            window.location.href = '/login'
+          }
         }
       } else {
-        window.location.href = '/login'
+        // No refresh token, redirect to login (only once)
+        if (!sessionStorage.getItem('auth_redirecting')) {
+          sessionStorage.setItem('auth_redirecting', 'true')
+          localStorage.removeItem('access_token')
+          localStorage.removeItem('refresh_token')
+          // Redirect immediately without clearing flag (cleared on login page)
+          window.location.href = '/login'
+        }
       }
     }
 

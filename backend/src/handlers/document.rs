@@ -1,4 +1,4 @@
-﻿use axum::{
+use axum::{
     extract::{Path, Query, State},
     Extension, Json,
 };
@@ -16,13 +16,13 @@ use crate::{
     AppError, AppState, Result,
 };
 
-/// 撱箇??格?
+/// 建立文件
 pub async fn create_document(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<CreateDocumentRequest>,
 ) -> Result<Json<DocumentWithLines>> {
-    // ?寞??格?憿?瑼Ｘ甈?
+    // 根據文件類型動態設定權限
     let permission = format!("{}.create", req.doc_type.prefix().to_lowercase());
     require_permission!(current_user, &permission);
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
@@ -31,20 +31,19 @@ pub async fn create_document(
     Ok(Json(document))
 }
 
-/// ???格??”
+/// 列出所有文件
 pub async fn list_documents(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<DocumentQuery>,
 ) -> Result<Json<Vec<DocumentListItem>>> {
-    // ?箸霈????
     require_permission!(current_user, "erp.document.view");
     
     let documents = DocumentService::list(&state.db, &query).await?;
     Ok(Json(documents))
 }
 
-/// ???桐??格?
+/// 取得單個文件
 pub async fn get_document(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -56,7 +55,7 @@ pub async fn get_document(
     Ok(Json(document))
 }
 
-/// ?湔?格?
+/// 更新文件
 pub async fn update_document(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -70,7 +69,7 @@ pub async fn update_document(
     Ok(Json(document))
 }
 
-/// ?祟
+/// 提交文件
 pub async fn submit_document(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -82,7 +81,7 @@ pub async fn submit_document(
     Ok(Json(document))
 }
 
-/// ?詨?
+/// 核准文件
 pub async fn approve_document(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -94,7 +93,7 @@ pub async fn approve_document(
     Ok(Json(document))
 }
 
-/// 雿誥
+/// 取消文件
 pub async fn cancel_document(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -105,4 +104,3 @@ pub async fn cancel_document(
     let document = DocumentService::cancel(&state.db, id).await?;
     Ok(Json(document))
 }
-

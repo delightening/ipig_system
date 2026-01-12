@@ -59,6 +59,7 @@ import {
 // Import Export Dialog
 import { ExportDialog } from '@/components/pig/ExportDialog'
 import { ImportDialog } from '@/components/pig/ImportDialog'
+import { QuickEditPigDialog } from '@/components/pig/QuickEditPigDialog'
 
 const statusColors: Record<PigStatus, string> = {
   unassigned: 'bg-gray-100 text-gray-800',
@@ -112,6 +113,9 @@ export function PigsPage() {
   const [showImportWeightDialog, setShowImportWeightDialog] = useState(false)
   const [selectedPigs, setSelectedPigs] = useState<number[]>([])
   const [assignIacucNo, setAssignIacucNo] = useState('')
+  
+  // Quick edit dialog state
+  const [quickEditPigId, setQuickEditPigId] = useState<number | null>(null)
 
   // Form state for new pig
   const [penBuilding, setPenBuilding] = useState('')
@@ -386,8 +390,8 @@ export function PigsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">豬隻管理</h1>
-          <p className="text-slate-500">管理系統中的所有實驗豬隻</p>
+          <h1 className="text-2xl font-bold text-slate-900">動物列表</h1>
+          <p className="text-slate-500">管理系統中的所有實驗動物</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="gap-2" onClick={() => setShowBatchExportDialog(true)}>
@@ -611,7 +615,18 @@ export function PigsPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {new Date(pig.entry_date).toLocaleDateString('zh-TW')}
+                        <div className="flex items-center gap-2">
+                          <span>{new Date(pig.entry_date).toLocaleDateString('zh-TW')}</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => setQuickEditPigId(pig.id)}
+                            title="快速編輯"
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -961,6 +976,17 @@ export function PigsPage() {
         onOpenChange={setShowImportWeightDialog}
         type="weight"
       />
+
+      {/* Quick Edit Dialog */}
+      {quickEditPigId && (
+        <QuickEditPigDialog
+          open={!!quickEditPigId}
+          onOpenChange={(open) => {
+            if (!open) setQuickEditPigId(null)
+          }}
+          pigId={quickEditPigId}
+        />
+      )}
     </div>
   )
 }

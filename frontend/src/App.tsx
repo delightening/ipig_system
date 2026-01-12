@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { useAuthStore } from '@/stores/auth'
@@ -93,6 +94,18 @@ function ForcePasswordRoute({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
+  const { checkAuth, isAuthenticated } = useAuthStore()
+
+  // Validate token on app initialization
+  useEffect(() => {
+    const token = localStorage.getItem('access_token')
+    if (token) {
+      checkAuth().catch(() => {
+        // Token validation failed, will be handled by checkAuth
+      })
+    }
+  }, [checkAuth])
+
   return (
     <>
       <Routes>

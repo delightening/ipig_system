@@ -106,6 +106,7 @@ impl PigGender {
 /// 紀錄類型
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[sqlx(type_name = "record_type", rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum RecordType {
     Abnormal,
     Experiment,
@@ -301,15 +302,18 @@ pub struct CreatePigRequest {
 
 #[derive(Debug, Deserialize, Validate, Default)]
 pub struct UpdatePigRequest {
-    pub ear_tag: Option<String>,
+    // 以下字段在创建后不可更改，已从更新请求中移除：
+    // - ear_tag (耳號)
+    // - breed (品種)
+    // - gender (性別)
+    // - source_id (來源)
+    // - birth_date (出生日期)
+    // - entry_date (進場日期)
+    // - entry_weight (進場體重)
+    // - pre_experiment_code (實驗前代號)
+    
     pub status: Option<PigStatus>,
-    pub breed: Option<PigBreed>,
-    pub source_id: Option<Uuid>,
-    pub gender: Option<PigGender>,
-    pub birth_date: Option<NaiveDate>,
-    pub entry_weight: Option<rust_decimal::Decimal>,
     pub pen_location: Option<String>,
-    pub pre_experiment_code: Option<String>,
     pub iacuc_no: Option<String>,
     pub experiment_date: Option<NaiveDate>,
     pub remark: Option<String>,

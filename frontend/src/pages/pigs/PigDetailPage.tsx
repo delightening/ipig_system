@@ -138,6 +138,17 @@ export function PigDetailPage() {
     staleTime: 0,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
+    onError: (error: any) => {
+      console.error('Failed to load observations:', error)
+      console.error('Error response:', error?.response?.data)
+      console.error('Error status:', error?.response?.status)
+      console.error('Full error:', error)
+      toast({
+        title: '錯誤',
+        description: error?.response?.data?.error?.message || error?.message || '載入觀察紀錄失敗',
+        variant: 'destructive',
+      })
+    },
   })
 
   const { data: surgeries } = useQuery({

@@ -85,6 +85,38 @@ export function ObservationFormDialog({ open, onOpenChange, pigId, earTag, obser
 
   const [formData, setFormData] = useState<ObservationFormData>(defaultFormData)
 
+  // 將 ISO 8601 日期時間轉換為 datetime-local 格式 (YYYY-MM-DDTHH:mm)
+  const isoToDateTimeLocal = (isoString: string | undefined): string => {
+    if (!isoString) return ''
+    try {
+      const date = new Date(isoString)
+      if (isNaN(date.getTime())) return ''
+      // 轉換為本地時間的 YYYY-MM-DDTHH:mm 格式
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const hours = String(date.getHours()).padStart(2, '0')
+      const minutes = String(date.getMinutes()).padStart(2, '0')
+      return `${year}-${month}-${day}T${hours}:${minutes}`
+    } catch {
+      return ''
+    }
+  }
+
+  // 將 datetime-local 格式轉換為 ISO 8601 格式
+  const dateTimeLocalToISO = (datetimeLocal: string | null | undefined): string | null => {
+    if (!datetimeLocal || datetimeLocal.trim() === '') return null
+    try {
+      // datetime-local 格式: YYYY-MM-DDTHH:mm
+      // 轉換為 ISO 8601 格式: YYYY-MM-DDTHH:mm:ssZ (UTC)
+      const date = new Date(datetimeLocal)
+      if (isNaN(date.getTime())) return null
+      return date.toISOString()
+    } catch {
+      return null
+    }
+  }
+
   // 編輯時填入資料
   useEffect(() => {
     if (observation) {
@@ -92,8 +124,8 @@ export function ObservationFormDialog({ open, onOpenChange, pigId, earTag, obser
         event_date: observation.event_date.split('T')[0],
         record_type: observation.record_type,
         equipment_used: observation.equipment_used || [],
-        anesthesia_start: observation.anesthesia_start || '',
-        anesthesia_end: observation.anesthesia_end || '',
+        anesthesia_start: isoToDateTimeLocal(observation.anesthesia_start),
+        anesthesia_end: isoToDateTimeLocal(observation.anesthesia_end),
         content: observation.content,
         no_medication_needed: observation.no_medication_needed,
         treatments: observation.treatments || [],
@@ -126,8 +158,8 @@ export function ObservationFormDialog({ open, onOpenChange, pigId, earTag, obser
         event_date: data.event_date,
         record_type: data.record_type,
         equipment_used: data.equipment_used.length > 0 ? data.equipment_used : null,
-        anesthesia_start: data.anesthesia_start || null,
-        anesthesia_end: data.anesthesia_end || null,
+        anesthesia_start: dateTimeLocalToISO(data.anesthesia_start),
+        anesthesia_end: dateTimeLocalToISO(data.anesthesia_end),
         content: data.content,
         no_medication_needed: data.no_medication_needed,
         treatments: data.treatments.length > 0 ? data.treatments : null,
