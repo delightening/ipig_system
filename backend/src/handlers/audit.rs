@@ -1,4 +1,4 @@
-﻿use axum::{extract::State, Json, extract::Query};
+use axum::{extract::State, Json, extract::Query};
 use serde::Deserialize;
 
 use crate::{
@@ -16,7 +16,7 @@ pub struct AuditLogQueryParams {
     pub end_date: Option<String>,
 }
 
-/// ?脣?撖抵??亥??”
+/// 列出稽核記錄
 pub async fn list_audit_logs(
     State(state): State<AppState>,
     Query(params): Query<AuditLogQueryParams>,
@@ -33,4 +33,3 @@ pub async fn list_audit_logs(
     let logs = AuditService::list(&state.db, &query).await?;
     Ok(Json(logs))
 }
-

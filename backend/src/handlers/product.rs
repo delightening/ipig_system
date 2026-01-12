@@ -1,4 +1,4 @@
-﻿use axum::{
+use axum::{
     extract::{Path, Query, State},
     Extension, Json,
 };
@@ -16,7 +16,7 @@ use crate::{
     AppError, AppState, Result,
 };
 
-/// 撱箇??Ｗ?
+/// 建立產品
 pub async fn create_product(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -29,7 +29,7 @@ pub async fn create_product(
     Ok(Json(product))
 }
 
-/// ???Ｗ??”
+/// 列出所有產品
 pub async fn list_products(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -41,7 +41,7 @@ pub async fn list_products(
     Ok(Json(products))
 }
 
-/// ???桐??Ｗ?
+/// 取得單個產品
 pub async fn get_product(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -53,7 +53,7 @@ pub async fn get_product(
     Ok(Json(product))
 }
 
-/// ?湔?Ｗ?
+/// 更新產品
 pub async fn update_product(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -67,7 +67,7 @@ pub async fn update_product(
     Ok(Json(product))
 }
 
-/// ?芷?Ｗ?
+/// 刪除產品
 pub async fn delete_product(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -79,7 +79,7 @@ pub async fn delete_product(
     Ok(Json(serde_json::json!({ "message": "Product deleted successfully" })))
 }
 
-/// ???Ｗ?憿?”
+/// 列出所有產品分類
 pub async fn list_categories(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -90,7 +90,7 @@ pub async fn list_categories(
     Ok(Json(categories))
 }
 
-/// 撱箇??Ｗ?憿
+/// 建立產品分類
 pub async fn create_category(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -102,4 +102,3 @@ pub async fn create_category(
     let category = ProductService::create_category(&state.db, &req).await?;
     Ok(Json(category))
 }
-

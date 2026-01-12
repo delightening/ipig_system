@@ -1,4 +1,4 @@
-﻿use axum::{
+use axum::{
     body::Body,
     extract::{Path, Query, State},
     http::{header, StatusCode},
@@ -28,10 +28,10 @@ use crate::{
 use axum::extract::Multipart;
 
 // ============================================
-// 鞊祇靘?
+// 豬源管理
 // ============================================
 
-/// ??鞊祇靘??”
+/// 列出所有豬源
 pub async fn list_pig_sources(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -40,19 +40,20 @@ pub async fn list_pig_sources(
     Ok(Json(sources))
 }
 
-/// 撱箇?鞊祇靘?
+/// 建立豬源
 pub async fn create_pig_source(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<CreatePigSourceRequest>,
 ) -> Result<Json<PigSource>> {
-    require_permission!(current_user, "dev.user.create"); // ?芣?蝞∠??∪隞亙遣蝡?    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    require_permission!(current_user, "dev.user.create"); // 需要使用者建立權限
+    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let source = PigService::create_source(&state.db, &req).await?;
     Ok(Json(source))
 }
 
-/// ?湔鞊祇靘?
+/// 更新豬源
 pub async fn update_pig_source(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -65,7 +66,7 @@ pub async fn update_pig_source(
     Ok(Json(source))
 }
 
-/// ?芷鞊祇靘?
+/// 刪除豬源
 pub async fn delete_pig_source(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -78,32 +79,36 @@ pub async fn delete_pig_source(
 }
 
 // ============================================
-// 鞊祇蝞∠?
+// 豬管理
 // ============================================
 
-/// ??鞊祇?”
+/// 列出所有豬
 pub async fn list_pigs(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<PigQuery>,
 ) -> Result<Json<Vec<PigListItem>>> {
-    // 瑼Ｘ甈?
+    // 檢查權限
     let has_view_all = current_user.has_permission("pig.pig.view_all");
     let has_view_project = current_user.has_permission("pig.pig.view_project");
     
     if !has_view_all && !has_view_project {
-        // 憒??冽瘝?隞颱??亦?甈?嚗??征?”???舫隤?        // ?見?垢?臭誑甇?虜憿舐內嚗?舀?????        return Ok(Json(vec![]));
+        // 如果沒有查看權限，返回空列表
+        // 這裡不拋出錯誤，而是返回空列表，避免洩露權限資訊
+        return Ok(Json(vec![]));
     }
     
-    // 憒???view_project 甈?雿???view_all嚗?閬?瞈曉憿舐內閮?抒?鞊祇
-    // ?桀??????惇?鳴?敺??臭誑?寞? iacuc_no ?蕪
+    // 如果只有 view_project 權限而沒有 view_all，則只能查看有 iacuc_no 的豬
+    // 即只能查看屬於專案的豬，不能查看沒有 iacuc_no 的豬
     let pigs = PigService::list(&state.db, &query).await?;
     
-    // 憒??芣? view_project 甈?嚗?瞈曉憿舐內??iacuc_no ?惇??    // 嚗?閮剜? iacuc_no ?惇?餃惇?潭????恬?
+    // 如果只有 view_project 權限，則過濾出有 iacuc_no 的豬
+    // 即只返回屬於專案的豬，過濾掉沒有 iacuc_no 的豬
     let filtered_pigs = if has_view_all {
         pigs
     } else {
-        // ?芷＊蝷箏歇??蝯西??怎?鞊祇嚗? iacuc_no嚗?        pigs.into_iter()
+        // 過濾出有 iacuc_no 的豬，只顯示屬於專案的豬
+        pigs.into_iter()
             .filter(|pig| pig.iacuc_no.is_some())
             .collect()
     };
@@ -111,7 +116,8 @@ pub async fn list_pigs(
     Ok(Json(filtered_pigs))
 }
 
-/// 靘?雿?蝯?敺惇??pub async fn list_pigs_by_pen(
+/// 按欄位列出所有豬
+pub async fn list_pigs_by_pen(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<PigsByPen>>> {
@@ -121,7 +127,7 @@ pub async fn list_pigs(
     Ok(Json(pigs))
 }
 
-/// ???桐?鞊祇
+/// 取得單個豬的詳細資訊
 pub async fn get_pig(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -131,7 +137,7 @@ pub async fn get_pig(
     Ok(Json(pig))
 }
 
-/// 撱箇?鞊祇
+/// 建立新豬
 pub async fn create_pig(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -139,11 +145,11 @@ pub async fn create_pig(
 ) -> Result<Json<Pig>> {
     require_permission!(current_user, "pig.pig.create");
     
-    // 閮??交?啁?隢?嚗?潸矽閰佗?
+    // 記錄建立豬的請求資訊，用於除錯
     tracing::debug!("Create pig request: ear_tag={}, breed={:?}, gender={:?}, entry_date={:?}, birth_date={:?}, entry_weight={:?}", 
         req.ear_tag, req.breed, req.gender, req.entry_date, req.birth_date, req.entry_weight);
     
-    // 撽?隢?
+    // 驗證請求資料
     if let Err(validation_errors) = req.validate() {
         let error_messages: Vec<String> = validation_errors
             .field_errors()
@@ -151,12 +157,12 @@ pub async fn create_pig(
             .flat_map(|(field, errors)| {
                 errors.iter().map(move |e| {
                     let field_name = match *field {
-                        "ear_tag" => "?唾?",
-                        "breed" => "?車",
-                        "gender" => "?批",
-                        "entry_date" => "?脣?交?",
-                        "birth_date" => "?箇??交?",
-                        "entry_weight" => "?脣擃?",
+                        "ear_tag" => "耳標",
+                        "breed" => "品種",
+                        "gender" => "性別",
+                        "entry_date" => "入場日期",
+                        "birth_date" => "出生日期",
+                        "entry_weight" => "入場體重",
                         _ => field,
                     };
                     format!("{}: {}", field_name, e.message.as_ref().unwrap_or(&e.code))
@@ -172,7 +178,7 @@ pub async fn create_pig(
     Ok(Json(pig))
 }
 
-/// ?湔鞊祇
+/// 更新豬資訊
 pub async fn update_pig(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -186,7 +192,7 @@ pub async fn update_pig(
     Ok(Json(pig))
 }
 
-/// ?芷鞊祇
+/// 刪除豬
 pub async fn delete_pig(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -198,7 +204,8 @@ pub async fn delete_pig(
     Ok(Json(serde_json::json!({ "message": "Pig deleted successfully" })))
 }
 
-/// ?寞活??鞊祇?唾???pub async fn batch_assign_pigs(
+/// 批次分配豬的耳標
+pub async fn batch_assign_pigs(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<BatchAssignRequest>,
@@ -209,7 +216,7 @@ pub async fn delete_pig(
     Ok(Json(pigs))
 }
 
-/// ?寞活?脣撖阡?
+/// 批次開始實驗
 pub async fn batch_start_experiment(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -221,7 +228,7 @@ pub async fn batch_start_experiment(
     Ok(Json(pigs))
 }
 
-/// 璅??賊撣怠歇霈
+/// 標記豬為獸醫已讀
 pub async fn mark_pig_vet_read(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -234,9 +241,11 @@ pub async fn mark_pig_vet_read(
 }
 
 // ============================================
-// 閫撖岫撽???// ============================================
+// 觀察記錄管理
+// ============================================
 
-/// ??閫撖岫撽???銵?pub async fn list_pig_observations(
+/// 列出豬的所有觀察記錄
+pub async fn list_pig_observations(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(pig_id): Path<i32>,
@@ -245,7 +254,8 @@ pub async fn mark_pig_vet_read(
     Ok(Json(observations))
 }
 
-/// ??閫撖岫撽???銵剁??怎?怠葦撱箄降?賊?嚗?pub async fn list_pig_observations_with_recommendations(
+/// 列出豬的觀察記錄（包含獸醫建議）
+pub async fn list_pig_observations_with_recommendations(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(pig_id): Path<i32>,
@@ -254,7 +264,8 @@ pub async fn mark_pig_vet_read(
     Ok(Json(observations))
 }
 
-/// ???桐?閫撖???pub async fn get_pig_observation(
+/// 取得單個觀察記錄
+pub async fn get_pig_observation(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(id): Path<i32>,
@@ -263,7 +274,8 @@ pub async fn mark_pig_vet_read(
     Ok(Json(observation))
 }
 
-/// 撱箇?閫撖岫撽???pub async fn create_pig_observation(
+/// 建立觀察記錄
+pub async fn create_pig_observation(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(pig_id): Path<i32>,
@@ -276,7 +288,8 @@ pub async fn mark_pig_vet_read(
     Ok(Json(observation))
 }
 
-/// ?湔閫撖岫撽???pub async fn update_pig_observation(
+/// 更新觀察記錄
+pub async fn update_pig_observation(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<i32>,
@@ -288,7 +301,8 @@ pub async fn mark_pig_vet_read(
     Ok(Json(observation))
 }
 
-/// 頠?方?撖岫撽???pub async fn delete_pig_observation(
+/// 刪除觀察記錄（軟刪除）
+pub async fn delete_pig_observation(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<i32>,
@@ -299,7 +313,8 @@ pub async fn mark_pig_vet_read(
     Ok(Json(serde_json::json!({ "message": "Observation deleted successfully" })))
 }
 
-/// 銴ˊ閫撖岫撽???pub async fn copy_pig_observation(
+/// 複製觀察記錄
+pub async fn copy_pig_observation(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(pig_id): Path<i32>,
@@ -311,7 +326,7 @@ pub async fn mark_pig_vet_read(
     Ok(Json(observation))
 }
 
-/// 璅?閫撖???怠葦撌脰?
+/// 標記觀察記錄為獸醫已讀
 pub async fn mark_observation_vet_read(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -323,7 +338,8 @@ pub async fn mark_observation_vet_read(
     Ok(Json(serde_json::json!({ "message": "Marked as read" })))
 }
 
-/// ??閫撖????祆風??pub async fn get_observation_versions(
+/// 取得觀察記錄的版本歷史
+pub async fn get_observation_versions(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(id): Path<i32>,
@@ -333,9 +349,11 @@ pub async fn mark_observation_vet_read(
 }
 
 // ============================================
-// ??蝝??// ============================================
+// 手術記錄管理
+// ============================================
 
-/// ????蝝??銵?pub async fn list_pig_surgeries(
+/// 列出豬的所有手術記錄
+pub async fn list_pig_surgeries(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(pig_id): Path<i32>,
@@ -344,7 +362,8 @@ pub async fn mark_observation_vet_read(
     Ok(Json(surgeries))
 }
 
-/// ????蝝??銵剁??怎?怠葦撱箄降?賊?嚗?pub async fn list_pig_surgeries_with_recommendations(
+/// 列出豬的手術記錄（包含獸醫建議）
+pub async fn list_pig_surgeries_with_recommendations(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(pig_id): Path<i32>,
@@ -353,7 +372,8 @@ pub async fn mark_observation_vet_read(
     Ok(Json(surgeries))
 }
 
-/// ???桐???蝝??pub async fn get_pig_surgery(
+/// 取得單個手術記錄
+pub async fn get_pig_surgery(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(id): Path<i32>,
@@ -362,7 +382,8 @@ pub async fn mark_observation_vet_read(
     Ok(Json(surgery))
 }
 
-/// 撱箇???蝝??pub async fn create_pig_surgery(
+/// 建立手術記錄
+pub async fn create_pig_surgery(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(pig_id): Path<i32>,
@@ -375,7 +396,8 @@ pub async fn mark_observation_vet_read(
     Ok(Json(surgery))
 }
 
-/// ?湔??蝝??pub async fn update_pig_surgery(
+/// 更新手術記錄
+pub async fn update_pig_surgery(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<i32>,
@@ -387,7 +409,8 @@ pub async fn mark_observation_vet_read(
     Ok(Json(surgery))
 }
 
-/// 頠?斗?銵???pub async fn delete_pig_surgery(
+/// 刪除手術記錄（軟刪除）
+pub async fn delete_pig_surgery(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<i32>,
@@ -398,7 +421,8 @@ pub async fn mark_observation_vet_read(
     Ok(Json(serde_json::json!({ "message": "Surgery deleted successfully" })))
 }
 
-/// 銴ˊ??蝝??pub async fn copy_pig_surgery(
+/// 複製手術記錄
+pub async fn copy_pig_surgery(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(pig_id): Path<i32>,
@@ -410,7 +434,7 @@ pub async fn mark_observation_vet_read(
     Ok(Json(surgery))
 }
 
-/// 璅???蝝??怠葦撌脰?
+/// 標記手術記錄為獸醫已讀
 pub async fn mark_surgery_vet_read(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -422,7 +446,8 @@ pub async fn mark_surgery_vet_read(
     Ok(Json(serde_json::json!({ "message": "Marked as read" })))
 }
 
-/// ????蝝???祆風??pub async fn get_surgery_versions(
+/// 取得手術記錄的版本歷史
+pub async fn get_surgery_versions(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(id): Path<i32>,
@@ -432,9 +457,11 @@ pub async fn mark_surgery_vet_read(
 }
 
 // ============================================
-// 擃?蝝??// ============================================
+// 體重記錄管理
+// ============================================
 
-/// ??擃?蝝??銵?pub async fn list_pig_weights(
+/// 列出豬的所有體重記錄
+pub async fn list_pig_weights(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(pig_id): Path<i32>,
@@ -443,7 +470,8 @@ pub async fn mark_surgery_vet_read(
     Ok(Json(weights))
 }
 
-/// 撱箇?擃?蝝??pub async fn create_pig_weight(
+/// 建立體重記錄
+pub async fn create_pig_weight(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(pig_id): Path<i32>,
@@ -455,7 +483,8 @@ pub async fn mark_surgery_vet_read(
     Ok(Json(weight))
 }
 
-/// ?湔擃?蝝??pub async fn update_pig_weight(
+/// 更新體重記錄
+pub async fn update_pig_weight(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<i32>,
@@ -467,7 +496,8 @@ pub async fn mark_surgery_vet_read(
     Ok(Json(weight))
 }
 
-/// 頠?日?????pub async fn delete_pig_weight(
+/// 刪除體重記錄（軟刪除）
+pub async fn delete_pig_weight(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<i32>,
@@ -479,9 +509,11 @@ pub async fn mark_surgery_vet_read(
 }
 
 // ============================================
-// ?怨?/撽蝝??// ============================================
+// 疫苗接種記錄管理
+// ============================================
 
-/// ???怨?/撽蝝??銵?pub async fn list_pig_vaccinations(
+/// 列出豬的所有疫苗接種記錄
+pub async fn list_pig_vaccinations(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(pig_id): Path<i32>,
@@ -490,7 +522,8 @@ pub async fn mark_surgery_vet_read(
     Ok(Json(vaccinations))
 }
 
-/// 撱箇??怨?/撽蝝??pub async fn create_pig_vaccination(
+/// 建立疫苗接種記錄
+pub async fn create_pig_vaccination(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(pig_id): Path<i32>,
@@ -502,7 +535,8 @@ pub async fn mark_surgery_vet_read(
     Ok(Json(vaccination))
 }
 
-/// ?湔?怨?/撽蝝??pub async fn update_pig_vaccination(
+/// 更新疫苗接種記錄
+pub async fn update_pig_vaccination(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<i32>,
@@ -514,7 +548,8 @@ pub async fn mark_surgery_vet_read(
     Ok(Json(vaccination))
 }
 
-/// 頠?斤??撽蝝??pub async fn delete_pig_vaccination(
+/// 刪除疫苗接種記錄（軟刪除）
+pub async fn delete_pig_vaccination(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<i32>,
@@ -526,9 +561,11 @@ pub async fn mark_surgery_vet_read(
 }
 
 // ============================================
-// ?抒/?⊥見蝝??// ============================================
+// 犧牲/安樂死記錄管理
+// ============================================
 
-/// ???抒/?⊥見蝝??pub async fn get_pig_sacrifice(
+/// 取得豬的犧牲記錄
+pub async fn get_pig_sacrifice(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(pig_id): Path<i32>,
@@ -537,7 +574,8 @@ pub async fn mark_surgery_vet_read(
     Ok(Json(sacrifice))
 }
 
-/// 撱箇?/?湔?抒/?⊥見蝝??pub async fn upsert_pig_sacrifice(
+/// 建立或更新犧牲記錄
+pub async fn upsert_pig_sacrifice(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(pig_id): Path<i32>,
@@ -550,9 +588,11 @@ pub async fn mark_surgery_vet_read(
 }
 
 // ============================================
-// ?賊撣怠遣霅?// ============================================
+// 獸醫建議管理
+// ============================================
 
-/// ?啣?閫撖????賊撣怠遣霅?pub async fn add_observation_vet_recommendation(
+/// 為觀察記錄新增獸醫建議
+pub async fn add_observation_vet_recommendation(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<i32>,
@@ -565,7 +605,8 @@ pub async fn mark_surgery_vet_read(
     Ok(Json(recommendation))
 }
 
-/// ?啣???蝝???賊撣怠遣霅?pub async fn add_surgery_vet_recommendation(
+/// 为手术记录添加兽医建议
+pub async fn add_surgery_vet_recommendation(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<i32>,
@@ -578,7 +619,7 @@ pub async fn mark_surgery_vet_read(
     Ok(Json(recommendation))
 }
 
-/// ?啣?閫撖????賊撣怠遣霅堆??恍?隞塚?
+/// 為觀察記錄新增獸醫建議（帶附件）
 pub async fn add_observation_vet_recommendation_with_attachments(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -593,7 +634,7 @@ pub async fn add_observation_vet_recommendation_with_attachments(
     Ok(Json(recommendation))
 }
 
-/// ?啣???蝝???賊撣怠遣霅堆??恍?隞塚?
+/// 為手術記錄新增獸醫建議（帶附件）
 pub async fn add_surgery_vet_recommendation_with_attachments(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -608,7 +649,8 @@ pub async fn add_surgery_vet_recommendation_with_attachments(
     Ok(Json(recommendation))
 }
 
-/// ??閫撖????賊撣怠遣霅?pub async fn get_observation_vet_recommendations(
+/// 取得觀察記錄的所有獸醫建議
+pub async fn get_observation_vet_recommendations(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(id): Path<i32>,
@@ -617,7 +659,8 @@ pub async fn add_surgery_vet_recommendation_with_attachments(
     Ok(Json(recommendations))
 }
 
-/// ????蝝???賊撣怠遣霅?pub async fn get_surgery_vet_recommendations(
+/// 取得手術記錄的所有獸醫建議
+pub async fn get_surgery_vet_recommendations(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(id): Path<i32>,
@@ -627,10 +670,10 @@ pub async fn add_surgery_vet_recommendation_with_attachments(
 }
 
 // ============================================
-// ?臬?
+// 匯入匯出
 // ============================================
 
-/// ?臬鞊祇?風鞈?
+/// 匯出豬的醫療資料
 pub async fn export_pig_medical_data(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -639,10 +682,10 @@ pub async fn export_pig_medical_data(
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "pig.export.medical");
     
-    // ???風鞈?
+    // 取得醫療資料
     let data = PigService::get_pig_medical_data(&state.db, pig_id).await?;
     
-    // 撱箇??臬閮?
+    // 建立匯出記錄
     let _record = PigService::create_export_record(
         &state.db,
         Some(pig_id),
@@ -653,14 +696,15 @@ pub async fn export_pig_medical_data(
         current_user.id,
     ).await?;
     
-    // 餈?鞈?嚗祕??PDF/Excel ???閬?蝡航???敺垢?血?撖虫?嚗?    Ok(Json(serde_json::json!({
+    // 返回資料，前端負責轉換為 PDF/Excel 格式並下載
+    Ok(Json(serde_json::json!({
         "data": data,
         "format": req.format,
         "export_type": req.export_type,
     })))
 }
 
-/// ?臬閮?風鞈?
+/// 匯出專案的醫療資料
 pub async fn export_project_medical_data(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -669,9 +713,10 @@ pub async fn export_project_medical_data(
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "pig.export.medical");
     
-    // ??閮??惇?餌?甇瑁???    let data = PigService::get_project_medical_data(&state.db, &iacuc_no).await?;
+    // 取得專案下所有豬的醫療資料
+    let data = PigService::get_project_medical_data(&state.db, &iacuc_no).await?;
     
-    // 撱箇??臬閮?
+    // 建立匯出記錄
     let _record = PigService::create_export_record(
         &state.db,
         None,
@@ -689,7 +734,7 @@ pub async fn export_project_medical_data(
     })))
 }
 
-/// ???臬?寞活甇瑕
+/// 列出所有匯入批次
 pub async fn list_import_batches(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -700,7 +745,7 @@ pub async fn list_import_batches(
     Ok(Json(batches))
 }
 
-/// 銝?鞊祇?箸鞈??臬璅⊥
+/// 下載豬基礎資料匯入範本
 pub async fn download_basic_import_template(
     Extension(current_user): Extension<CurrentUser>,
     Query(params): Query<std::collections::HashMap<String, String>>,
@@ -736,7 +781,7 @@ pub async fn download_basic_import_template(
         .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))?)
 }
 
-/// 銝?鞊祇擃??臬璅⊥
+/// 下載豬體重匯入範本
 pub async fn download_weight_import_template(
     Extension(current_user): Extension<CurrentUser>,
     Query(params): Query<std::collections::HashMap<String, String>>,
@@ -772,7 +817,7 @@ pub async fn download_weight_import_template(
         .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))?)
 }
 
-/// ?臬鞊祇?箸鞈?
+/// 匯入豬基礎資料
 pub async fn import_basic_data(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -783,9 +828,9 @@ pub async fn import_basic_data(
     let mut file_data: Option<Vec<u8>> = None;
     let mut file_name = String::from("unknown");
 
-    // 閫?? multipart 鞈?
+    // 解析 multipart 資料
     while let Some(field) = multipart.next_field().await.map_err(|e| {
-        AppError::Validation(format!("?⊥?霈???單?獢? {}", e))
+        AppError::Validation(format!("解析檔案欄位失敗: {}", e))
     })? {
         if field.name() == Some("file") {
             file_name = field
@@ -794,7 +839,7 @@ pub async fn import_basic_data(
                 .unwrap_or_else(|| "unknown".to_string());
 
             let data = field.bytes().await.map_err(|e| {
-                AppError::Validation(format!("?⊥?霈??獢??? {}", e))
+                AppError::Validation(format!("讀取檔案資料失敗: {}", e))
             })?;
 
             file_data = Some(data.to_vec());
@@ -802,14 +847,15 @@ pub async fn import_basic_data(
     }
 
     let file_data = file_data.ok_or_else(|| {
-        AppError::Validation("?芣?靘?獢?.to_string())
+        AppError::Validation("未找到檔案".to_string())
     })?;
 
-    // 瑼Ｘ瑼?憭批?嚗?0MB ?嚗?    if file_data.len() > 10 * 1024 * 1024 {
-        return Err(AppError::Validation("瑼?憭批?頞? 10MB ?".to_string()));
+    // 檢查檔案大小，限制為 10MB 以內
+    if file_data.len() > 10 * 1024 * 1024 {
+        return Err(AppError::Validation("檔案大小不能超過 10MB".to_string()));
     }
 
-    // ?瑁??臬
+    // 執行匯入
     let result = PigService::import_basic_data(
         &state.db,
         &file_data,
@@ -821,7 +867,7 @@ pub async fn import_basic_data(
     Ok(Json(result))
 }
 
-/// ?臬鞊祇擃?鞈?
+/// 匯入豬體重資料
 pub async fn import_weight_data(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -832,9 +878,9 @@ pub async fn import_weight_data(
     let mut file_data: Option<Vec<u8>> = None;
     let mut file_name = String::from("unknown");
 
-    // 閫?? multipart 鞈?
+    // 解析 multipart 資料
     while let Some(field) = multipart.next_field().await.map_err(|e| {
-        AppError::Validation(format!("?⊥?霈???單?獢? {}", e))
+        AppError::Validation(format!("解析檔案欄位失敗: {}", e))
     })? {
         if field.name() == Some("file") {
             file_name = field
@@ -843,7 +889,7 @@ pub async fn import_weight_data(
                 .unwrap_or_else(|| "unknown".to_string());
 
             let data = field.bytes().await.map_err(|e| {
-                AppError::Validation(format!("?⊥?霈??獢??? {}", e))
+                AppError::Validation(format!("讀取檔案資料失敗: {}", e))
             })?;
 
             file_data = Some(data.to_vec());
@@ -851,14 +897,15 @@ pub async fn import_weight_data(
     }
 
     let file_data = file_data.ok_or_else(|| {
-        AppError::Validation("?芣?靘?獢?.to_string())
+        AppError::Validation("未找到檔案".to_string())
     })?;
 
-    // 瑼Ｘ瑼?憭批?嚗?0MB ?嚗?    if file_data.len() > 10 * 1024 * 1024 {
-        return Err(AppError::Validation("瑼?憭批?頞? 10MB ?".to_string()));
+    // 檢查檔案大小，限制為 10MB 以內
+    if file_data.len() > 10 * 1024 * 1024 {
+        return Err(AppError::Validation("檔案大小不能超過 10MB".to_string()));
     }
 
-    // ?瑁??臬
+    // 執行匯入
     let result = PigService::import_weight_data(
         &state.db,
         &file_data,
@@ -871,10 +918,10 @@ pub async fn import_weight_data(
 }
 
 // ============================================
-// ???勗?
+// 病理報告管理
 // ============================================
 
-/// ?????勗?
+/// 取得豬的病理報告
 pub async fn get_pig_pathology_report(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -886,7 +933,7 @@ pub async fn get_pig_pathology_report(
     Ok(Json(report))
 }
 
-/// 撱箇?/?湔???勗?
+/// 建立或更新病理報告
 pub async fn upsert_pig_pathology_report(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -897,5 +944,3 @@ pub async fn upsert_pig_pathology_report(
     let report = PigService::upsert_pathology_report(&state.db, pig_id, current_user.id).await?;
     Ok(Json(report))
 }
-
-

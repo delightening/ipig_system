@@ -13,7 +13,7 @@ use crate::{
     AppError, AppState, Result,
 };
 
-/// 撱箇?閫
+/// 建立角色
 pub async fn create_role(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -27,7 +27,7 @@ pub async fn create_role(
     Ok(Json(response))
 }
 
-/// ??閫?”
+/// 列出所有角色
 pub async fn list_roles(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -38,7 +38,7 @@ pub async fn list_roles(
     Ok(Json(roles))
 }
 
-/// ???桐?閫
+/// 取得單個角色
 pub async fn get_role(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -50,7 +50,7 @@ pub async fn get_role(
     Ok(Json(role))
 }
 
-/// ?湔閫
+/// 更新角色
 pub async fn update_role(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -64,7 +64,7 @@ pub async fn update_role(
     Ok(Json(role))
 }
 
-/// ?芷閫
+/// 刪除角色
 pub async fn delete_role(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -76,7 +76,7 @@ pub async fn delete_role(
     Ok(Json(serde_json::json!({ "message": "Role deleted successfully" })))
 }
 
-/// ???????
+/// 列出所有權限
 pub async fn list_permissions(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -87,4 +87,3 @@ pub async fn list_permissions(
     let permissions = RoleService::list_permissions(&state.db, Some(&query)).await?;
     Ok(Json(permissions))
 }
-

@@ -18,7 +18,7 @@ pub struct UserQuery {
     pub keyword: Option<String>,
 }
 
-/// 撱箇??冽
+/// 建立使用者
 pub async fn create_user(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

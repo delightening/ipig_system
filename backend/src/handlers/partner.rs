@@ -1,4 +1,4 @@
-﻿use axum::{
+use axum::{
     extract::{Path, Query, State},
     Extension, Json,
 };
@@ -13,7 +13,7 @@ use crate::{
     AppError, AppState, Result,
 };
 
-/// 撱箇?憭乩撈
+/// 建立合作夥伴
 pub async fn create_partner(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -26,7 +26,7 @@ pub async fn create_partner(
     Ok(Json(partner))
 }
 
-/// ??憭乩撈?”
+/// 列出所有合作夥伴
 pub async fn list_partners(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -38,7 +38,7 @@ pub async fn list_partners(
     Ok(Json(partners))
 }
 
-/// ???桐?憭乩撈
+/// 取得單個合作夥伴
 pub async fn get_partner(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -50,7 +50,7 @@ pub async fn get_partner(
     Ok(Json(partner))
 }
 
-/// ?湔憭乩撈
+/// 更新合作夥伴
 pub async fn update_partner(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -64,7 +64,7 @@ pub async fn update_partner(
     Ok(Json(partner))
 }
 
-/// ?芷憭乩撈
+/// 刪除合作夥伴
 pub async fn delete_partner(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -75,4 +75,3 @@ pub async fn delete_partner(
     PartnerService::delete(&state.db, id).await?;
     Ok(Json(serde_json::json!({ "message": "Partner deleted successfully" })))
 }
-

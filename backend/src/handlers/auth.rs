@@ -1,4 +1,4 @@
-﻿use axum::{extract::State, Extension, Json};
+use axum::{extract::State, Extension, Json};
 use validator::Validate;
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
     AppError, AppState, Result,
 };
 
-/// ?餃
+/// 登入
 pub async fn login(
     State(state): State<AppState>,
     Json(req): Json<LoginRequest>,
@@ -22,7 +22,7 @@ pub async fn login(
     Ok(Json(response))
 }
 
-/// ?瑟 Token
+/// 重新整理 Token
 pub async fn refresh_token(
     State(state): State<AppState>,
     Json(req): Json<RefreshTokenRequest>,
@@ -31,7 +31,7 @@ pub async fn refresh_token(
     Ok(Json(response))
 }
 
-/// ?餃
+/// 登出
 pub async fn logout(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -40,12 +40,12 @@ pub async fn logout(
     Ok(Json(serde_json::json!({ "message": "Logged out successfully" })))
 }
 
-/// ???嗅??冽鞈?
+/// 取得當前使用者資訊
 pub async fn me(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<UserResponse>> {
-    // ??摰?冽鞈?
+    // 查詢當前使用者資訊
     let user = sqlx::query_as::<_, User>(
         "SELECT * FROM users WHERE id = $1"
     )
@@ -73,7 +73,7 @@ pub async fn me(
     }))
 }
 
-/// 靽格?芸楛??蝣?
+/// 變更自己的密碼
 pub async fn change_own_password(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -91,16 +91,16 @@ pub async fn change_own_password(
     Ok(Json(serde_json::json!({ "message": "Password changed successfully" })))
 }
 
-/// 敹?撖Ⅳ - ?潮?閮凋縑隞?
+/// 忘記密碼 - 發送重設連結
 pub async fn forgot_password(
     State(state): State<AppState>,
     Json(req): Json<ForgotPasswordRequest>,
 ) -> Result<Json<serde_json::Value>> {
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
-    // ?Ｙ??身 token
+    // 產生重設 token
     if let Some((user_id, token)) = AuthService::forgot_password(&state.db, &req.email).await? {
-        // ???冽鞈?
+        // 查詢使用者資訊
         let user = sqlx::query_as::<_, User>(
             "SELECT * FROM users WHERE id = $1"
         )
@@ -108,7 +108,7 @@ pub async fn forgot_password(
         .fetch_one(&state.db)
         .await?;
 
-        // ?唳郊?潮?閮凋縑隞?
+        // 非同步發送重設密碼郵件
         let config = state.config.clone();
         let email = user.email.clone();
         let display_name = user.display_name.clone();
@@ -119,13 +119,13 @@ pub async fn forgot_password(
         });
     }
     
-    // 銝恣?冽?臬摮?賢??單????脫迫撣唾???嚗?
+    // 無論使用者是否存在，都返回相同訊息，避免洩露使用者資訊
     Ok(Json(serde_json::json!({ 
         "message": "If the email exists, a password reset link has been sent" 
     })))
 }
 
-/// ?? token ?身撖Ⅳ
+/// 使用 token 重設密碼
 pub async fn reset_password_with_token(
     State(state): State<AppState>,
     Json(req): Json<ResetPasswordWithTokenRequest>,
@@ -136,4 +136,3 @@ pub async fn reset_password_with_token(
     
     Ok(Json(serde_json::json!({ "message": "Password reset successfully" })))
 }
-
