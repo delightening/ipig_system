@@ -21,6 +21,7 @@ mod services;
 
 use services::scheduler::SchedulerService;
 use std::time::Duration;
+use uuid::Uuid;
 
 pub use error::{AppError, Result};
 
@@ -45,6 +46,65 @@ fn parse_database_url_for_logging(url: &str) -> String {
     } else {
         "***".to_string()
     }
+}
+
+/// 確保預設管理員帳號存在
+async fn ensure_admin_user(pool: &sqlx::PgPool) -> Result<()> {
+    let email = "admin@ipig.local";
+    let display_name = "系統管理員";
+    let password = "admin123";
+    
+    // 使用 AuthService 生成正確的密碼 hash
+    let password_hash = services::AuthService::hash_password(password)
+        .map_err(|e| anyhow::anyhow!("Failed to hash admin password: {}", e))?;
+    
+    // 檢查用戶是否已存在
+    let existing_id: Option<Uuid> = sqlx::query_scalar("SELECT id FROM users WHERE email = $1")
+        .bind(email)
+        .fetch_optional(pool)
+        .await?;
+    
+    let user_id = if let Some(id) = existing_id {
+        // 用戶已存在：更新密碼 hash 和狀態（確保密碼正確）
+        sqlx::query(
+            "UPDATE users SET password_hash = $1, is_active = true, must_change_password = false, updated_at = NOW() WHERE id = $2"
+        )
+        .bind(&password_hash)
+        .bind(id)
+        .execute(pool)
+        .await?;
+        tracing::info!("[Admin] Existing admin user password reset: {}", email);
+        id
+    } else {
+        // 用戶不存在：創建新用戶
+        let id = Uuid::new_v4();
+        sqlx::query(
+            "INSERT INTO users (id, email, password_hash, display_name, is_active, must_change_password, created_at, updated_at) VALUES ($1, $2, $3, $4, true, false, NOW(), NOW())"
+        )
+        .bind(id)
+        .bind(email)
+        .bind(&password_hash)
+        .bind(display_name)
+        .execute(pool)
+        .await?;
+        tracing::info!("[Admin] New admin user created: {} / {}", email, password);
+        id
+    };
+    
+    // 確保用戶有管理員角色
+    let role_id: Option<Uuid> = sqlx::query_scalar("SELECT id FROM roles WHERE code = 'SYSTEM_ADMIN' OR code = 'admin' LIMIT 1")
+        .fetch_optional(pool)
+        .await?;
+    
+    if let Some(role_id) = role_id {
+        sqlx::query("INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING")
+            .bind(user_id)
+            .bind(role_id)
+            .execute(pool)
+            .await?;
+    }
+    
+    Ok(())
 }
 
 /// 診斷資料庫連接錯誤類型
@@ -253,6 +313,11 @@ async fn main() -> anyhow::Result<()> {
     }
 
     tracing::info!("[Database] ✓ Connection established and migrations completed");
+
+    // Ensure default admin user exists
+    if let Err(e) = ensure_admin_user(&pool).await {
+        tracing::warn!("Failed to ensure admin user (non-fatal): {}", e);
+    }
 
     // Start scheduler for background tasks
     let scheduler_result = SchedulerService::start(pool.clone(), config.clone()).await;

@@ -2,6 +2,7 @@ use axum::{
     extract::{Path, Query, State},
     Extension, Json,
 };
+use serde::Deserialize;
 use uuid::Uuid;
 use validator::Validate;
 
