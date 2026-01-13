@@ -48,6 +48,8 @@ services:
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@erp.local}
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-ERP System}
       APP_URL: ${APP_URL:-http://localhost}
+      # Development settings - seed default dev users in Docker environment
+      SEED_DEV_USERS: ${SEED_DEV_USERS:-true}
     ports:
       - "8000:8000"
     depends_on:

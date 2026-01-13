@@ -19,6 +19,8 @@ pub struct Config {
     pub smtp_from_email: String,
     pub smtp_from_name: String,
     pub app_url: String,
+    // Development settings
+    pub seed_dev_users: bool,
 }
 
 impl Config {
@@ -67,6 +69,9 @@ impl Config {
                 .unwrap_or_else(|_| "ERP System".to_string()),
             app_url: std::env::var("APP_URL")
                 .unwrap_or_else(|_| "http://localhost".to_string()),
+            seed_dev_users: std::env::var("SEED_DEV_USERS")
+                .map(|v| v.to_lowercase() == "true" || v == "1")
+                .unwrap_or(false),
         })
     }
 
