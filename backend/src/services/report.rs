@@ -214,7 +214,7 @@ impl ReportService {
     }
 
     /// 庫存流水報表
-    pub async fn stock_ledger(pool: &PgPool, query: &ReportQuery) -> Result<Vec<StockLedgerReport>> {
+    pub async fn stock_ledger(pool: &PgPool, _query: &ReportQuery) -> Result<Vec<StockLedgerReport>> {
         let results = sqlx::query_as::<_, StockLedgerReport>(
             r#"
             SELECT 
@@ -244,7 +244,7 @@ impl ReportService {
     }
 
     /// 採購明細報表
-    pub async fn purchase_lines(pool: &PgPool, query: &ReportQuery) -> Result<Vec<PurchaseLinesReport>> {
+    pub async fn purchase_lines(pool: &PgPool, _query: &ReportQuery) -> Result<Vec<PurchaseLinesReport>> {
         let results = sqlx::query_as::<_, PurchaseLinesReport>(
             r#"
             SELECT 
@@ -281,7 +281,7 @@ impl ReportService {
     }
 
     /// 銷售明細報表
-    pub async fn sales_lines(pool: &PgPool, query: &ReportQuery) -> Result<Vec<SalesLinesReport>> {
+    pub async fn sales_lines(pool: &PgPool, _query: &ReportQuery) -> Result<Vec<SalesLinesReport>> {
         let results = sqlx::query_as::<_, SalesLinesReport>(
             r#"
             SELECT 
@@ -318,7 +318,7 @@ impl ReportService {
     }
 
     /// 成本摘要報表
-    pub async fn cost_summary(pool: &PgPool, query: &ReportQuery) -> Result<Vec<CostSummaryReport>> {
+    pub async fn cost_summary(pool: &PgPool, _query: &ReportQuery) -> Result<Vec<CostSummaryReport>> {
         let results = sqlx::query_as::<_, CostSummaryReport>(
             r#"
             WITH inventory AS (

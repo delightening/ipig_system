@@ -131,7 +131,7 @@ impl ProductService {
     /// 取得產品列表
     pub async fn list(pool: &PgPool, query: &ProductQuery) -> Result<Vec<Product>> {
         let mut sql = String::from("SELECT * FROM products WHERE 1=1");
-        let mut params: Vec<String> = Vec::new();
+        let _params: Vec<String> = Vec::new();
         let mut param_idx = 1;
 
         if query.keyword.is_some() {

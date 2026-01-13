@@ -28,8 +28,6 @@ pub use audit::AuditService;
 pub use sku::SkuService;
 pub use protocol::ProtocolService;
 pub use pig::PigService;
-pub use report::ReportService;
 pub use email::EmailService;
 pub use notification::NotificationService;
-pub use scheduler::SchedulerService;
 pub use file::{FileService, FileCategory, UploadResult};

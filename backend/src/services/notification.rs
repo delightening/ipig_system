@@ -1,14 +1,12 @@
-use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
     error::AppError,
     models::{
-        CreateNotificationRequest, CreateScheduledReportRequest, ExpiryAlert, LowStockAlert,
-        MarkNotificationsReadRequest, Notification, NotificationItem, NotificationQuery,
+        CreateNotificationRequest, CreateScheduledReportRequest, ExpiryAlert, LowStockAlert, Notification, NotificationItem, NotificationQuery,
         NotificationSettings, NotificationType, PaginatedResponse, ReportHistory,
-        ScheduledReport, UnreadNotificationCount, UpdateNotificationSettingsRequest,
+        ScheduledReport, UpdateNotificationSettingsRequest,
         UpdateScheduledReportRequest,
     },
 };
@@ -292,14 +290,14 @@ impl NotificationService {
     /// 通知獸醫師建議
     pub async fn notify_vet_recommendation(
         &self,
-        pig_id: i32,
+        _pig_id: i32,
         ear_tag: &str,
         iacuc_no: Option<&str>,
         record_type: &str,
         recommendation_content: &str,
     ) -> Result<i32, AppError> {
         // 取得該計畫的 EXPERIMENT_STAFF
-        let staff_users: Vec<(Uuid,)> = if let Some(iacuc) = iacuc_no {
+        let staff_users: Vec<(Uuid,)> = if let Some(_iacuc) = iacuc_no {
             sqlx::query_as(
                 r#"
                 SELECT DISTINCT u.id

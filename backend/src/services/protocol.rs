@@ -8,7 +8,7 @@ use crate::{
         AssignReviewerRequest, ChangeStatusRequest, CreateCommentRequest, CreateProtocolRequest,
         Protocol, ProtocolListItem, ProtocolQuery, ProtocolResponse, ProtocolStatus,
         ProtocolStatusHistory, ProtocolVersion, ReviewAssignment, ReviewComment,
-        ReviewCommentResponse, UpdateProtocolRequest, UserProtocol, ProtocolRole,
+        ReviewCommentResponse, UpdateProtocolRequest, ProtocolRole,
     },
     AppError, Result,
 };
@@ -246,7 +246,7 @@ impl ProtocolService {
         }
 
         // 驗證動物總數 (AUP 8.1)
-        if let Some(animals_section) = content.get("animals") {
+        if let Some(_animals_section) = content.get("animals") {
              // 這裡可以做更多檢查
         }
 

@@ -129,7 +129,7 @@ impl RoleService {
     /// 更新角色
     pub async fn update(pool: &PgPool, id: Uuid, req: &UpdateRoleRequest) -> Result<RoleWithPermissions> {
         // 檢查角色是否存在
-        let existing = sqlx::query_as::<_, Role>("SELECT * FROM roles WHERE id = $1 AND is_active = true")
+        let _existing = sqlx::query_as::<_, Role>("SELECT * FROM roles WHERE id = $1 AND is_active = true")
             .bind(id)
             .fetch_optional(pool)
             .await?

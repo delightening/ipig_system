@@ -1,4 +1,4 @@
-use sqlx::{PgPool, QueryBuilder};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
@@ -2044,7 +2044,7 @@ impl PigService {
             } else {
                 let cursor = Cursor::new(file_data);
                 let mut wb = open_workbook_from_rs::<Xls<_>, _>(cursor)
-                    .map_err(|e| AppError::Validation(format!("無法讀取 Excel 檔案，請確認檔案格式為 .xlsx 或 .xls")))?;
+                    .map_err(|_e| AppError::Validation(format!("無法讀取 Excel 檔案，請確認檔案格式為 .xlsx 或 .xls")))?;
                 let sheet_name = wb.sheet_names().first().cloned()
                     .ok_or_else(|| AppError::Validation("Excel 檔案中沒有工作表".to_string()))?;
                 wb.worksheet_range(&sheet_name)
@@ -2058,7 +2058,7 @@ impl PigService {
         // 跳過標題行
         iter.next();
 
-        for (row_idx, row) in iter.enumerate() {
+        for (_row_idx, row) in iter.enumerate() {
             if row.len() < 4 {
                 continue; // 跳過資料不足的行
             }
@@ -2159,7 +2159,7 @@ impl PigService {
             } else {
                 let cursor = Cursor::new(file_data);
                 let mut wb = open_workbook_from_rs::<Xls<_>, _>(cursor)
-                    .map_err(|e| AppError::Validation(format!("無法讀取 Excel 檔案，請確認檔案格式為 .xlsx 或 .xls")))?;
+                    .map_err(|_e| AppError::Validation(format!("無法讀取 Excel 檔案，請確認檔案格式為 .xlsx 或 .xls")))?;
                 let sheet_name = wb.sheet_names().first().cloned()
                     .ok_or_else(|| AppError::Validation("Excel 檔案中沒有工作表".to_string()))?;
                 wb.worksheet_range(&sheet_name)

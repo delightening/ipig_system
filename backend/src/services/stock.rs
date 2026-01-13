@@ -6,7 +6,7 @@ use uuid::Uuid;
 use crate::{
     models::{
         DocType, Document, DocumentLine, InventoryOnHand, InventoryQuery, LowStockAlert,
-        StockDirection, StockLedger, StockLedgerDetail, StockLedgerQuery,
+        StockDirection, StockLedgerDetail, StockLedgerQuery,
     },
     AppError, Result,
 };
@@ -342,7 +342,7 @@ impl StockService {
     }
 
     /// 查詢庫存流水
-    pub async fn get_ledger(pool: &PgPool, query: &StockLedgerQuery) -> Result<Vec<StockLedgerDetail>> {
+    pub async fn get_ledger(pool: &PgPool, _query: &StockLedgerQuery) -> Result<Vec<StockLedgerDetail>> {
         let ledger = sqlx::query_as::<_, StockLedgerDetail>(
             r#"
             SELECT 
