@@ -8,6 +8,7 @@ import api, {
   pigBreedNames,
   pigGenderNames,
   PigSource,
+  PigBreed,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -133,7 +134,7 @@ export function PigsPage() {
   const [penNumber, setPenNumber] = useState('')
   const [newPig, setNewPig] = useState({
     ear_tag: '',
-    breed: 'minipig' as const,
+    breed: 'minipig' as PigBreed,
     gender: 'male' as const,
     source_id: '',
     entry_date: new Date().toISOString().split('T')[0],
@@ -141,6 +142,7 @@ export function PigsPage() {
     birth_date: '',
     pre_experiment_code: '',
     remark: '',
+    breed_other: '',
   })
 
   // Query for all pigs (for counting)
@@ -230,9 +232,15 @@ export function PigsPage() {
         throw new Error('出生日期格式不正確，必須是 YYYY-MM-DD 格式')
       }
 
+      // 格式化耳號：如果是數字則補零至三位數
+      let formattedEarTag = data.ear_tag.trim()
+      if (/^\d+$/.test(formattedEarTag)) {
+        formattedEarTag = formattedEarTag.padStart(3, '0')
+      }
+
       // 清理資料格式
       const payload: any = {
-        ear_tag: data.ear_tag.trim(),
+        ear_tag: formattedEarTag,
         breed: data.breed, // 'minipig', 'white', 'other'
         gender: data.gender, // 'male', 'female'
         entry_date: data.entry_date, // YYYY-MM-DD format
@@ -243,6 +251,7 @@ export function PigsPage() {
           ? data.pre_experiment_code.trim()
           : undefined,
         remark: data.remark && data.remark.trim() !== '' ? data.remark.trim() : undefined,
+        breed_other: data.breed === 'other' ? data.breed_other : undefined,
       }
       // 只有當 source_id 不是空字串且不是 'none' 時才加入（必須是有效的 UUID）
       if (data.source_id && data.source_id.trim() !== '' && data.source_id.trim() !== 'none') {
@@ -262,7 +271,7 @@ export function PigsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pigs'] })
-      toast({ title: '成功', description: '豬隻已新增' })
+      toast({ title: '成功', description: '動物已新增' })
       setShowAddDialog(false)
       resetNewPigForm()
     },
@@ -366,6 +375,7 @@ export function PigsPage() {
       birth_date: '',
       pre_experiment_code: '',
       remark: '',
+      breed_other: '',
     })
   }
 
@@ -422,7 +432,7 @@ export function PigsPage() {
           </Button>
           <Button onClick={() => setShowAddDialog(true)} className="gap-2 bg-purple-600 hover:bg-purple-700">
             <Plus className="h-4 w-4" />
-            新增豬隻
+            新增動物
           </Button>
         </div>
       </div>
@@ -588,7 +598,7 @@ export function PigsPage() {
                           {pigStatusNames[pig.status]}
                         </Badge>
                       </TableCell>
-                      <TableCell>{pigBreedNames[pig.breed]}</TableCell>
+                      <TableCell>{pig.breed === 'other' ? (pig.breed_other || '其他') : pigBreedNames[pig.breed]}</TableCell>
                       <TableCell>{pigGenderNames[pig.gender]}</TableCell>
                       <TableCell>
                         {pig.is_on_medication ? (
@@ -970,8 +980,8 @@ export function PigsPage() {
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>新增豬隻</DialogTitle>
-            <DialogDescription>輸入新豬隻的基本資料</DialogDescription>
+            <DialogTitle>新增動物</DialogTitle>
+            <DialogDescription>輸入新動物的基本資料</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-4">
             <div className="space-y-2">
@@ -982,6 +992,7 @@ export function PigsPage() {
                 onChange={(e) => setNewPig({ ...newPig, ear_tag: e.target.value })}
                 placeholder="輸入耳號"
               />
+              <p className="text-[10px] text-slate-400">若輸入數字會自動轉換為三位數（如 001）</p>
             </div>
             <div className="space-y-2">
               <Label>棟別 *</Label>
@@ -1062,6 +1073,17 @@ export function PigsPage() {
                 </SelectContent>
               </Select>
             </div>
+            {newPig.breed === 'other' && (
+              <div className="space-y-2">
+                <Label htmlFor="breed_other">填寫品種 *</Label>
+                <Input
+                  id="breed_other"
+                  value={newPig.breed_other}
+                  onChange={(e) => setNewPig({ ...newPig, breed_other: e.target.value })}
+                  placeholder="請輸入品種名稱"
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label>性別 *</Label>
               <Select
@@ -1168,7 +1190,8 @@ export function PigsPage() {
                 !newPig.birth_date ||
                 !newPig.entry_weight ||
                 !newPig.pre_experiment_code ||
-                !newPig.entry_date
+                !newPig.entry_date ||
+                (newPig.breed === 'other' && !newPig.breed_other)
               }
               className="bg-purple-600 hover:bg-purple-700"
             >

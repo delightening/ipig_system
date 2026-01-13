@@ -145,6 +145,7 @@ pub struct Pig {
     pub ear_tag: String,
     pub status: PigStatus,
     pub breed: PigBreed,
+    pub breed_other: Option<String>,
     pub source_id: Option<Uuid>,
     pub gender: PigGender,
     pub birth_date: Option<NaiveDate>,
@@ -290,6 +291,7 @@ pub struct CreatePigRequest {
     #[validate(length(min = 1, max = 10, message = "Ear tag must be 1-10 characters"))]
     pub ear_tag: String,
     pub breed: PigBreed,
+    pub breed_other: Option<String>,
     pub source_id: Option<Uuid>,
     pub gender: PigGender,
     pub birth_date: Option<NaiveDate>,
@@ -443,6 +445,7 @@ pub struct PigListItem {
     pub ear_tag: String,
     pub status: PigStatus,
     pub breed: PigBreed,
+    pub breed_other: Option<String>,
     pub gender: PigGender,
     pub pen_location: Option<String>,
     pub iacuc_no: Option<String>,

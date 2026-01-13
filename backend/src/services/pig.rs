@@ -107,7 +107,7 @@ impl PigService {
         let mut query_builder = sqlx::QueryBuilder::new(
             r#"
             SELECT 
-                p.id, p.ear_tag, p.status, p.breed, p.gender, p.pen_location,
+                p.id, p.ear_tag, p.status, p.breed, p.breed_other, p.gender, p.pen_location,
                 p.iacuc_no, p.entry_date, s.name as source_name,
                 p.vet_last_viewed_at, p.created_at,
                 -- Computed fields for frontend
@@ -183,7 +183,7 @@ impl PigService {
         let pigs = sqlx::query_as::<_, PigListItem>(
             r#"
             SELECT 
-                p.id, p.ear_tag, p.status, p.breed, p.gender, p.pen_location,
+                p.id, p.ear_tag, p.status, p.breed, p.breed_other, p.gender, p.pen_location,
                 p.iacuc_no, p.entry_date, s.name as source_name,
                 p.vet_last_viewed_at, p.created_at
             FROM pigs p
@@ -227,6 +227,13 @@ impl PigService {
 
     /// 建立豬隻
     pub async fn create(pool: &PgPool, req: &CreatePigRequest, created_by: Uuid) -> Result<Pig> {
+        // 格式化耳號：如果是數字則補零至三位數
+        let formatted_ear_tag = if let Ok(num) = req.ear_tag.parse::<u32>() {
+            format!("{:03}", num)
+        } else {
+            req.ear_tag.clone()
+        };
+
         // 將 breed enum 轉換為資料庫期望的字串值
         let breed_str = match req.breed {
             crate::models::PigBreed::Minipig => "miniature",
@@ -237,17 +244,18 @@ impl PigService {
         let pig = sqlx::query_as::<_, Pig>(
             r#"
             INSERT INTO pigs (
-                ear_tag, status, breed, source_id, gender, birth_date,
+                ear_tag, status, breed, breed_other, source_id, gender, birth_date,
                 entry_date, entry_weight, pen_location, pre_experiment_code,
                 remark, created_by, created_at, updated_at
             )
-            VALUES ($1, $2, $3::pig_breed, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+            VALUES ($1, $2, $3::pig_breed, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
             RETURNING *
             "#
         )
-        .bind(&req.ear_tag)
+        .bind(&formatted_ear_tag)
         .bind(PigStatus::Unassigned)
         .bind(breed_str)
+        .bind(&req.breed_other)
         .bind(req.source_id)
         .bind(req.gender)
         .bind(req.birth_date)
@@ -1725,18 +1733,25 @@ impl PigService {
                 None
             };
 
+            // 格式化耳號
+            let formatted_ear_tag = if let Ok(num) = row.ear_tag.parse::<u32>() {
+                format!("{:03}", num)
+            } else {
+                row.ear_tag.clone()
+            };
+
             // 檢查耳號是否已存在
             let existing = sqlx::query_scalar::<_, i32>(
                 "SELECT id FROM pigs WHERE ear_tag = $1"
             )
-            .bind(&row.ear_tag)
+            .bind(&formatted_ear_tag)
             .fetch_optional(pool)
             .await?;
 
             if existing.is_some() {
                 errors.push(ImportErrorDetail {
                     row: row_number,
-                    ear_tag: Some(row.ear_tag.clone()),
+                    ear_tag: Some(formatted_ear_tag),
                     error: "耳號已存在於系統中".to_string(),
                 });
                 error_count += 1;
@@ -1755,7 +1770,7 @@ impl PigService {
 
             // 建立豬隻資料
             let create_req = CreatePigRequest {
-                ear_tag: row.ear_tag.clone(),
+                ear_tag: formatted_ear_tag.clone(),
                 breed,
                 source_id,
                 gender,
@@ -1900,11 +1915,18 @@ impl PigService {
                 continue;
             }
 
+            // 格式化耳號
+            let formatted_ear_tag = if let Ok(num) = row.ear_tag.parse::<u32>() {
+                format!("{:03}", num)
+            } else {
+                row.ear_tag.clone()
+            };
+
             // 查找豬隻
             let pig = sqlx::query_scalar::<_, i32>(
                 "SELECT id FROM pigs WHERE ear_tag = $1"
             )
-            .bind(&row.ear_tag)
+            .bind(&formatted_ear_tag)
             .fetch_optional(pool)
             .await?;
 

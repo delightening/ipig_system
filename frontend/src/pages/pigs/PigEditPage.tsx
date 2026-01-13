@@ -135,13 +135,13 @@ export function PigEditPage() {
       <div className="flex items-center justify-between">
         <Link to={`/pigs/${pigId}`} className="inline-flex items-center text-slate-600 hover:text-slate-900">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          回到豬隻詳情
+          回到動物詳情
         </Link>
       </div>
 
       {/* Page Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">編輯豬隻資料</h1>
+        <h1 className="text-2xl font-bold text-slate-900">編輯動物資料</h1>
         <p className="text-slate-500">耳號：{pig.ear_tag}</p>
       </div>
 
@@ -149,7 +149,7 @@ export function PigEditPage() {
         <Card>
           <CardHeader>
             <CardTitle>基本資料</CardTitle>
-            <CardDescription>編輯豬隻的基本資訊</CardDescription>
+            <CardDescription>編輯動物的基本資訊</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-6">
@@ -188,7 +188,7 @@ export function PigEditPage() {
               <div className="space-y-2">
                 <Label className="text-slate-500">品種 *</Label>
                 <Input
-                  value={pig ? pigBreedNames[pig.breed] : ''}
+                  value={pig ? (pig.breed === 'other' ? (pig.breed_other || '其他') : pigBreedNames[pig.breed]) : ''}
                   disabled
                   className="bg-slate-50"
                 />

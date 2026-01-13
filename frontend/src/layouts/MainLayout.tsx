@@ -252,7 +252,7 @@ export function MainLayout() {
           navigate(`/documents/${notification.related_entity_id}`) // iPig ERP 單據頁
           break
         case 'pig':
-          navigate(`/pigs/${notification.related_entity_id}`) // 豬隻詳細頁
+          navigate(`/pigs/${notification.related_entity_id}`) // 動物詳細頁
           break
       }
     }

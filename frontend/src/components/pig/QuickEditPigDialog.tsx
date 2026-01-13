@@ -60,7 +60,7 @@ export function QuickEditPigDialog({ open, onOpenChange, pigId }: Props) {
       queryClient.invalidateQueries({ queryKey: ['pig', pigId] })
       queryClient.invalidateQueries({ queryKey: ['pigs'] })
       queryClient.invalidateQueries({ queryKey: ['pigs-count'] })
-      toast({ title: '成功', description: '豬隻資料已更新' })
+      toast({ title: '成功', description: '動物資料已更新' })
       onOpenChange(false)
     },
     onError: (error: any) => {
@@ -87,8 +87,8 @@ export function QuickEditPigDialog({ open, onOpenChange, pigId }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>快速編輯豬隻資料</DialogTitle>
-          <DialogDescription>編輯豬隻的基本資訊（僅可編輯標示為可編輯的欄位）</DialogDescription>
+          <DialogTitle>快速編輯動物資料</DialogTitle>
+          <DialogDescription>編輯動物的基本資訊（僅可編輯標示為可編輯的欄位）</DialogDescription>
         </DialogHeader>
 
         {pigLoading ? (
@@ -111,7 +111,7 @@ export function QuickEditPigDialog({ open, onOpenChange, pigId }: Props) {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-slate-500">品種</Label>
-                  <Input value={pigBreedNames[pig.breed]} disabled className="bg-slate-50" />
+                  <Input value={pig.breed === 'other' ? (pig.breed_other || '其他') : pigBreedNames[pig.breed]} disabled className="bg-slate-50" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-slate-500">性別</Label>

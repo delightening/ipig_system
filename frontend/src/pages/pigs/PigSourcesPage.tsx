@@ -56,7 +56,7 @@ const defaultFormData: SourceFormData = {
 
 export function PigSourcesPage() {
   const queryClient = useQueryClient()
-  
+
   const [showDialog, setShowDialog] = useState(false)
   const [editingSource, setEditingSource] = useState<PigSource | null>(null)
   const [formData, setFormData] = useState<SourceFormData>(defaultFormData)
@@ -77,7 +77,7 @@ export function PigSourcesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pig-sources'] })
-      toast({ title: '成功', description: '豬隻來源已新增' })
+      toast({ title: '成功', description: '動物來源已新增' })
       handleCloseDialog()
     },
     onError: (error: any) => {
@@ -96,7 +96,7 @@ export function PigSourcesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pig-sources'] })
-      toast({ title: '成功', description: '豬隻來源已更新' })
+      toast({ title: '成功', description: '動物來源已更新' })
       handleCloseDialog()
     },
     onError: (error: any) => {
@@ -115,7 +115,7 @@ export function PigSourcesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pig-sources'] })
-      toast({ title: '成功', description: '豬隻來源已刪除' })
+      toast({ title: '成功', description: '動物來源已刪除' })
     },
     onError: (error: any) => {
       toast({
@@ -176,8 +176,8 @@ export function PigSourcesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">豬隻來源管理</h1>
-          <p className="text-slate-500">管理豬隻的來源/供應商資訊</p>
+          <h1 className="text-2xl font-bold text-slate-900">動物來源管理</h1>
+          <p className="text-slate-500">管理動物的來源/供應商資訊</p>
         </div>
         <Button onClick={() => handleOpenDialog()} className="gap-2 bg-purple-600 hover:bg-purple-700">
           <Plus className="h-4 w-4" />
@@ -291,7 +291,7 @@ export function PigSourcesPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {editingSource ? '編輯豬隻來源' : '新增豬隻來源'}
+              {editingSource ? '編輯動物來源' : '新增動物來源'}
             </DialogTitle>
             <DialogDescription>
               {editingSource ? '修改來源資訊' : '輸入新來源的資訊'}

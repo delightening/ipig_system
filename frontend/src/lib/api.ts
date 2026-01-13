@@ -676,6 +676,7 @@ export interface Pig {
   ear_tag: string
   status: PigStatus
   breed: PigBreed
+  breed_other?: string
   source_id?: string
   source_name?: string
   gender: PigGender
@@ -696,6 +697,7 @@ export interface Pig {
 export interface PigListItem extends Pig {
   latest_weight?: number
   latest_weight_date?: string
+  breed_other?: string
   has_abnormal_record?: boolean
   vet_recommendation_date?: string
   is_on_medication?: boolean

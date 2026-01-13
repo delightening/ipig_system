@@ -84,7 +84,7 @@ export function PigDetailPage() {
   const pigId = parseInt(id!)
 
   const [activeTab, setActiveTab] = useState<TabType>('observations')
-  
+
   // Dialog states
   const [showAddObservationDialog, setShowAddObservationDialog] = useState(false)
   const [showAddSurgeryDialog, setShowAddSurgeryDialog] = useState(false)
@@ -92,21 +92,21 @@ export function PigDetailPage() {
   const [showAddVaccinationDialog, setShowAddVaccinationDialog] = useState(false)
   const [showExportDialog, setShowExportDialog] = useState(false)
   const [showPathologyUploadDialog, setShowPathologyUploadDialog] = useState(false)
-  
+
   // Edit states
   const [editingObservation, setEditingObservation] = useState<PigObservation | null>(null)
   const [editingSurgery, setEditingSurgery] = useState<PigSurgery | null>(null)
-  
+
   // Version history states
   const [versionHistoryType, setVersionHistoryType] = useState<'observation' | 'surgery'>('observation')
   const [versionHistoryRecordId, setVersionHistoryRecordId] = useState<number | null>(null)
   const [showVersionHistoryDialog, setShowVersionHistoryDialog] = useState(false)
-  
+
   // Vet recommendation states
   const [vetRecommendationType, setVetRecommendationType] = useState<'observation' | 'surgery'>('observation')
   const [vetRecommendationRecordId, setVetRecommendationRecordId] = useState<number | null>(null)
   const [showVetRecommendationDialog, setShowVetRecommendationDialog] = useState(false)
-  
+
   // Expanded row states
   const [expandedObservation, setExpandedObservation] = useState<number | null>(null)
   const [expandedSurgery, setExpandedSurgery] = useState<number | null>(null)
@@ -370,7 +370,7 @@ export function PigDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
         <AlertCircle className="h-12 w-12 text-slate-400 mb-4" />
-        <p className="text-slate-500">找不到此豬隻</p>
+        <p className="text-slate-500">找不到此動物</p>
         <Button variant="outline" className="mt-4" onClick={() => navigate('/pigs')}>
           返回列表
         </Button>
@@ -384,7 +384,7 @@ export function PigDetailPage() {
     { id: 'weights' as const, label: '體重紀錄', icon: Scale },
     { id: 'vaccinations' as const, label: '疫苗/驅蟲紀錄', icon: Syringe },
     { id: 'sacrifice' as const, label: '犧牲/採樣紀錄', icon: Heart },
-    { id: 'info' as const, label: '豬隻資料', icon: FileText },
+    { id: 'info' as const, label: '動物資料', icon: FileText },
     { id: 'pathology' as const, label: '病理組織報告', icon: FileText },
   ]
 
@@ -394,7 +394,7 @@ export function PigDetailPage() {
       <div className="flex items-center justify-between">
         <Link to="/pigs" className="inline-flex items-center text-slate-600 hover:text-slate-900">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          回到所有豬隻
+          回到動物列表
         </Link>
         <Button variant="outline" onClick={() => setShowExportDialog(true)}>
           <Download className="h-4 w-4 mr-2" />
@@ -417,7 +417,7 @@ export function PigDetailPage() {
               </div>
               <div>
                 <span className="text-sm text-slate-500">品種</span>
-                <p className="font-medium">{pigBreedNames[pig.breed]}</p>
+                <p className="font-medium">{pig.breed === 'other' ? (pig.breed_other || '其他') : pigBreedNames[pig.breed]}</p>
               </div>
             </div>
             <div className="space-y-3">
@@ -434,9 +434,9 @@ export function PigDetailPage() {
               <div>
                 <span className="text-sm text-slate-500">最近體重</span>
                 <p className="font-medium">
-                  {weights && weights.length > 0 
+                  {weights && weights.length > 0
                     ? `${weights[0].weight} kg`
-                    : pig.entry_weight 
+                    : pig.entry_weight
                       ? `${pig.entry_weight} kg (進場)`
                       : '-'
                   }
@@ -449,7 +449,7 @@ export function PigDetailPage() {
                 <p className="font-medium">{pig.id}</p>
               </div>
               <div>
-                <span className="text-sm text-slate-500">豬隻狀態</span>
+                <span className="text-sm text-slate-500">動物狀態</span>
                 <Badge className={`${statusColors[pig.status]} text-white mt-1`}>
                   {pigStatusNames[pig.status]}
                 </Badge>
@@ -472,11 +472,10 @@ export function PigDetailPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                  activeTab === tab.id
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === tab.id
                     ? 'border-orange-500 text-orange-600'
                     : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-                }`}
+                  }`}
               >
                 <Icon className="h-4 w-4" />
                 {tab.label}
@@ -571,8 +570,8 @@ export function PigDetailPage() {
                               >
                                 <Edit2 className="h-4 w-4" />
                               </Button>
-                              <Button 
-                                variant="ghost" 
+                              <Button
+                                variant="ghost"
                                 size="icon"
                                 onClick={() => {
                                   if (confirm('確定要複製此紀錄？將建立一份新紀錄供編輯。')) {
@@ -584,16 +583,16 @@ export function PigDetailPage() {
                               >
                                 <Copy className="h-4 w-4" />
                               </Button>
-                              <Button 
-                                variant="ghost" 
+                              <Button
+                                variant="ghost"
                                 size="icon"
                                 onClick={() => handleShowVersionHistory('observation', obs.id)}
                                 title="版本歷史"
                               >
                                 <History className="h-4 w-4" />
                               </Button>
-                              <Button 
-                                variant="ghost" 
+                              <Button
+                                variant="ghost"
                                 size="icon"
                                 onClick={() => handleShowVetRecommendation('observation', obs.id)}
                                 title="獸醫師建議"
@@ -750,8 +749,8 @@ export function PigDetailPage() {
                               >
                                 <Edit2 className="h-4 w-4" />
                               </Button>
-                              <Button 
-                                variant="ghost" 
+                              <Button
+                                variant="ghost"
                                 size="icon"
                                 onClick={() => {
                                   if (confirm('確定要複製此紀錄？將建立一份新紀錄供編輯。')) {
@@ -763,16 +762,16 @@ export function PigDetailPage() {
                               >
                                 <Copy className="h-4 w-4" />
                               </Button>
-                              <Button 
-                                variant="ghost" 
+                              <Button
+                                variant="ghost"
                                 size="icon"
                                 onClick={() => handleShowVersionHistory('surgery', surgery.id)}
                                 title="版本歷史"
                               >
                                 <History className="h-4 w-4" />
                               </Button>
-                              <Button 
-                                variant="ghost" 
+                              <Button
+                                variant="ghost"
                                 size="icon"
                                 onClick={() => handleShowVetRecommendation('surgery', surgery.id)}
                                 title="獸醫師建議"
@@ -805,9 +804,9 @@ export function PigDetailPage() {
                                   <p>
                                     {surgery.induction_anesthesia
                                       ? Object.entries(surgery.induction_anesthesia as Record<string, string>)
-                                          .filter(([k]) => k !== 'others')
-                                          .map(([k, v]) => `${k}: ${v}`)
-                                          .join(', ') || '-'
+                                        .filter(([k]) => k !== 'others')
+                                        .map(([k, v]) => `${k}: ${v}`)
+                                        .join(', ') || '-'
                                       : '-'}
                                   </p>
                                 </div>
@@ -816,9 +815,9 @@ export function PigDetailPage() {
                                   <p>
                                     {surgery.anesthesia_maintenance
                                       ? Object.entries(surgery.anesthesia_maintenance as Record<string, string>)
-                                          .filter(([k]) => k !== 'others')
-                                          .map(([k, v]) => `${k}: ${v}`)
-                                          .join(', ') || '-'
+                                        .filter(([k]) => k !== 'others')
+                                        .map(([k, v]) => `${k}: ${v}`)
+                                        .join(', ') || '-'
                                       : '-'}
                                   </p>
                                 </div>
@@ -930,8 +929,8 @@ export function PigDetailPage() {
                             <Button variant="ghost" size="icon">
                               <Edit2 className="h-4 w-4" />
                             </Button>
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="icon"
                               onClick={() => {
                                 if (confirm('確定要刪除此體重紀錄？')) {
@@ -996,8 +995,8 @@ export function PigDetailPage() {
                             <Button variant="ghost" size="icon">
                               <Edit2 className="h-4 w-4" />
                             </Button>
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="icon"
                               onClick={() => {
                                 if (confirm('確定要刪除此紀錄？')) {
@@ -1041,7 +1040,7 @@ export function PigDetailPage() {
                     <div>
                       <Label className="text-slate-500">犧牲日期</Label>
                       <p className="font-medium">
-                        {sacrifice.sacrifice_date 
+                        {sacrifice.sacrifice_date
                           ? new Date(sacrifice.sacrifice_date).toLocaleDateString('zh-TW')
                           : '-'
                         }
