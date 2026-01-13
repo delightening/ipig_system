@@ -59,6 +59,7 @@ import {
 import { ExportDialog } from '@/components/pig/ExportDialog'
 import { ImportDialog } from '@/components/pig/ImportDialog'
 import { QuickEditPigDialog } from '@/components/pig/QuickEditPigDialog'
+import { PigPenReport } from '@/components/pig/PigPenReport'
 
 const statusColors: Record<PigStatus, string> = {
   unassigned: 'bg-gray-100 text-gray-800',
@@ -124,6 +125,7 @@ export function PigsPage() {
 
   // Quick edit dialog state
   const [quickEditPigId, setQuickEditPigId] = useState<number | null>(null)
+  const [showPrintReport, setShowPrintReport] = useState(false)
 
   // Form state for new pig
   const [penBuilding, setPenBuilding] = useState('')
@@ -402,6 +404,10 @@ export function PigsPage() {
           <p className="text-slate-500">管理系統中的所有實驗動物</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" className="gap-2 text-orange-600 border-orange-200 hover:bg-orange-50" onClick={() => setShowPrintReport(true)}>
+            <Download className="h-4 w-4" />
+            產生欄位狀態表
+          </Button>
           <Button variant="outline" className="gap-2" onClick={() => setShowBatchExportDialog(true)}>
             <FileSpreadsheet className="h-4 w-4" />
             批次匯出病歷
@@ -1236,6 +1242,13 @@ export function PigsPage() {
             if (!open) setQuickEditPigId(null)
           }}
           pigId={quickEditPigId}
+        />
+      )}
+
+      {showPrintReport && (
+        <PigPenReport
+          data={groupedData || []}
+          onClose={() => setShowPrintReport(false)}
         />
       )}
     </div>
