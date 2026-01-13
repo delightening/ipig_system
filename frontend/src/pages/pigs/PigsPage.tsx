@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import api, {
+  Pig,
   PigListItem,
   PigStatus,
   pigStatusNames,
@@ -127,6 +128,10 @@ export function PigsPage() {
   // Quick edit dialog state
   const [quickEditPigId, setQuickEditPigId] = useState<number | null>(null)
   const [showPrintReport, setShowPrintReport] = useState(false)
+
+  // Quick move state (空欄位快速移動)
+  const [editingPenLocation, setEditingPenLocation] = useState<string | null>(null)
+  const [editingEarTag, setEditingEarTag] = useState<string>('')
 
   // Form state for new pig
   const [penBuilding, setPenBuilding] = useState('')
@@ -358,6 +363,59 @@ export function PigsPage() {
         description: errorMessage,
         variant: 'destructive',
       })
+    },
+  })
+
+  // Quick move mutation (空欄位快速移動)
+  const quickMoveMutation = useMutation({
+    mutationFn: async ({ earTag, targetPenLocation }: { earTag: string; targetPenLocation: string }) => {
+      // 先根據耳號查詢豬隻
+      const searchRes = await api.get<PigListItem[]>(`/pigs?keyword=${encodeURIComponent(earTag)}`)
+      const matchingPigs = searchRes.data.filter(p => p.ear_tag === earTag)
+      
+      if (matchingPigs.length === 0) {
+        throw new Error(`找不到耳號為 "${earTag}" 的動物`)
+      }
+      
+      if (matchingPigs.length > 1) {
+        throw new Error(`找到多隻耳號為 "${earTag}" 的動物，請使用編輯功能手動移動`)
+      }
+      
+      const pig = matchingPigs[0]
+      
+      // 檢查豬隻是否已經在目標欄位
+      if (pig.pen_location === targetPenLocation) {
+        throw new Error(`動物 ${earTag} 已經在 ${targetPenLocation} 欄位`)
+      }
+      
+      // 更新豬隻的欄位
+      return api.put<Pig>(`/pigs/${pig.id}`, {
+        pen_location: targetPenLocation,
+      })
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['pigs'] })
+      queryClient.invalidateQueries({ queryKey: ['pigs-by-pen'] })
+      queryClient.invalidateQueries({ queryKey: ['pigs-count'] })
+      toast({ 
+        title: '成功', 
+        description: `動物 ${variables.earTag} 已移動到 ${variables.targetPenLocation}` 
+      })
+      setEditingPenLocation(null)
+      setEditingEarTag('')
+    },
+    onError: (error: any) => {
+      console.error('Quick move error:', error)
+      const errorMessage = error?.response?.data?.error?.message
+        || error?.response?.data?.message
+        || error?.message
+        || '移動失敗'
+      toast({
+        title: '錯誤',
+        description: errorMessage,
+        variant: 'destructive',
+      })
+      // 保持編輯狀態，讓用戶可以修正
     },
   })
 
@@ -710,12 +768,67 @@ export function PigsPage() {
 
                 const pigs = pigsByPenLocation.get(penLocation) || []
                 const cellColors = penZoneColors[penLocation.charAt(0)] || colors
+                const isEditing = editingPenLocation === penLocation
 
                 if (pigs.length === 0) {
+                  const handleSubmit = () => {
+                    if (editingEarTag.trim()) {
+                      quickMoveMutation.mutate({
+                        earTag: editingEarTag.trim(),
+                        targetPenLocation: penLocation,
+                      })
+                    } else {
+                      setEditingPenLocation(null)
+                      setEditingEarTag('')
+                    }
+                  }
+
                   return (
-                    <div className="grid grid-cols-5 gap-1 px-3 py-2 items-center text-sm">
+                    <div 
+                      className="grid grid-cols-5 gap-1 px-3 py-2 items-center text-sm group"
+                      onMouseEnter={() => {
+                        if (!isEditing && !quickMoveMutation.isPending) {
+                          setEditingPenLocation(penLocation)
+                          setEditingEarTag('')
+                        }
+                      }}
+                    >
                       <div className={`font-semibold ${cellColors.text}`}>{penLocation}</div>
-                      <div className="text-slate-400 italic">空</div>
+                      {isEditing ? (
+                        <Input
+                          className="h-7 text-sm"
+                          value={editingEarTag}
+                          onChange={(e) => setEditingEarTag(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && editingEarTag.trim()) {
+                              e.preventDefault()
+                              handleSubmit()
+                            } else if (e.key === 'Escape') {
+                              e.preventDefault()
+                              setEditingPenLocation(null)
+                              setEditingEarTag('')
+                            }
+                          }}
+                          onBlur={(e) => {
+                            // 使用 setTimeout 確保 onKeyDown 有機會先執行
+                            setTimeout(() => {
+                              // 檢查是否還在編輯狀態（可能已經被 onKeyDown 處理了）
+                              if (editingPenLocation === penLocation && editingEarTag.trim()) {
+                                handleSubmit()
+                              } else if (editingPenLocation === penLocation && !editingEarTag.trim()) {
+                                // 如果沒有輸入內容，關閉編輯狀態
+                                setEditingPenLocation(null)
+                                setEditingEarTag('')
+                              }
+                            }, 150)
+                          }}
+                          placeholder="輸入耳號"
+                          autoFocus
+                          disabled={quickMoveMutation.isPending}
+                        />
+                      ) : (
+                        <div className="text-slate-400 italic group-hover:text-slate-600 transition-colors cursor-text">空</div>
+                      )}
                       <div className="text-slate-300">-</div>
                       <div className="text-slate-300">-</div>
                       <div></div>

@@ -8,6 +8,13 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { FileUpload, FileInfo } from '@/components/ui/file-upload'
 import { Repeater } from '@/components/ui/repeater'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -459,12 +466,20 @@ export function SurgeryFormDialog({ open, onOpenChange, pigId, earTag, surgery }
           <CollapsibleSection title="固定姿勢" defaultOpen={false}>
             <div className="space-y-2">
               <Label htmlFor="positioning">固定姿勢</Label>
-              <Input
-                id="positioning"
-                value={formData.positioning}
-                onChange={(e) => setFormData({ ...formData, positioning: e.target.value })}
-                placeholder="描述固定姿勢..."
-              />
+              <Select
+                value={formData.positioning || undefined}
+                onValueChange={(value) => setFormData({ ...formData, positioning: value })}
+              >
+                <SelectTrigger id="positioning">
+                  <SelectValue placeholder="請選擇固定姿勢" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="正趴">正趴</SelectItem>
+                  <SelectItem value="左側躺">左側躺</SelectItem>
+                  <SelectItem value="右側躺">右側躺</SelectItem>
+                  <SelectItem value="仰躺">仰躺</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CollapsibleSection>
 

@@ -70,6 +70,19 @@ api.interceptors.response.use(
   }
 )
 
+// Utility function to format ear tag: if it's a number < 100, pad to 3 digits
+export function formatEarTag(earTag: string): string {
+  if (!earTag) return earTag
+  // Check if it's a pure number
+  if (/^\d+$/.test(earTag)) {
+    const num = parseInt(earTag, 10)
+    if (num < 100) {
+      return earTag.padStart(3, '0')
+    }
+  }
+  return earTag
+}
+
 export default api
 
 // API Types

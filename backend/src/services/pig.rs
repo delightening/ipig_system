@@ -22,6 +22,18 @@ use std::io::Cursor;
 pub struct PigService;
 
 impl PigService {
+    /// 格式化耳號：如果是數字且 < 100，則補零至三位數
+    fn format_ear_tag(ear_tag: &str) -> String {
+        if let Ok(num) = ear_tag.parse::<u32>() {
+            if num < 100 {
+                format!("{:03}", num)
+            } else {
+                ear_tag.to_string()
+            }
+        } else {
+            ear_tag.to_string()
+        }
+    }
     // ============================================
     // 豬隻來源管理
     // ============================================
@@ -170,17 +182,22 @@ impl PigService {
 
         query_builder.push(" ORDER BY p.id DESC");
 
-        let pigs = query_builder
+        let mut pigs = query_builder
             .build_query_as::<PigListItem>()
             .fetch_all(pool)
             .await?;
+
+        // 格式化所有耳號
+        for pig in &mut pigs {
+            pig.ear_tag = Self::format_ear_tag(&pig.ear_tag);
+        }
 
         Ok(pigs)
     }
 
     /// 依欄位分組取得豬隻
     pub async fn list_by_pen(pool: &PgPool) -> Result<Vec<PigsByPen>> {
-        let pigs = sqlx::query_as::<_, PigListItem>(
+        let mut pigs = sqlx::query_as::<_, PigListItem>(
             r#"
             SELECT 
                 p.id, p.ear_tag, p.status, p.breed, p.breed_other, p.gender, p.pen_location,
@@ -194,6 +211,11 @@ impl PigService {
         )
         .fetch_all(pool)
         .await?;
+
+        // 格式化所有耳號
+        for pig in &mut pigs {
+            pig.ear_tag = Self::format_ear_tag(&pig.ear_tag);
+        }
 
         // 依欄位分組
         let mut grouped: std::collections::HashMap<String, Vec<PigListItem>> = std::collections::HashMap::new();
@@ -216,11 +238,14 @@ impl PigService {
 
     /// 取得單一豬隻
     pub async fn get_by_id(pool: &PgPool, id: i32) -> Result<Pig> {
-        let pig = sqlx::query_as::<_, Pig>("SELECT * FROM pigs WHERE id = $1")
+        let mut pig = sqlx::query_as::<_, Pig>("SELECT * FROM pigs WHERE id = $1")
             .bind(id)
             .fetch_optional(pool)
             .await?
             .ok_or_else(|| AppError::NotFound("Pig not found".to_string()))?;
+
+        // 格式化耳號
+        pig.ear_tag = Self::format_ear_tag(&pig.ear_tag);
 
         Ok(pig)
     }
