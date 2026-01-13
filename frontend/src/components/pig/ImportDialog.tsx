@@ -318,8 +318,8 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
                 {type === 'basic' ? (
                   <>
                     <li>耳號為必填欄位，不可重複</li>
-                    <li>品種：miniature(迷你豬) / white(白豬) / other(其他)</li>
-                    <li>性別：male(公) / female(母)</li>
+                    <li>品種：miniature/minipig/mini/M (迷你豬)、white/W (白豬)、other (其他)</li>
+                    <li>性別：male/M (公)、female/F (母)</li>
                     <li>日期格式：YYYY-MM-DD</li>
                   </>
                 ) : (

@@ -373,7 +373,7 @@ export function MainLayout() {
         )}>
           {sidebarOpen ? ( // 展開狀態：顯示完整 Logo 與文字
             <Link to="/" className="flex items-center space-x-2">
-              <ClipboardList className="h-8 w-8 text-blue-400" />
+              <img src="/pigmodel-logo.png" alt="Logo" className="h-10 w-auto" />
               <span className="text-xl font-bold">ipig system</span>
             </Link>
           ) : ( // 縮合狀態：僅顯示圖示，點擊可打開側邊欄
@@ -382,7 +382,7 @@ export function MainLayout() {
               className="flex items-center justify-center hover:bg-slate-800 rounded-lg transition-colors"
               title="展開側邊欄"
             >
-              <ClipboardList className="h-6 w-6 text-blue-400" />
+              <img src="/pigmodel-logo.png" alt="Logo" className="h-8 w-auto" />
             </button>
           )}
           {sidebarOpen && ( // 展開狀態下顯示關閉按鈕 (適用於行動裝置)

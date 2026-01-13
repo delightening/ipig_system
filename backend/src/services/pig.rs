@@ -1643,20 +1643,20 @@ impl PigService {
 
             // 驗證品種
             let breed = match row.breed.to_lowercase().as_str() {
-                "minipig" | "miniature" | "迷你豬" | "迷你" => PigBreed::Minipig,
-                "white" | "白豬" | "大白豬" => PigBreed::White,
+                "minipig" | "miniature" | "mini" | "m" | "迷你豬" | "迷你" => PigBreed::Minipig,
+                "white" | "w" | "白豬" | "大白豬" => PigBreed::White,
                 _ => PigBreed::Other,
             };
 
             // 驗證性別
             let gender = match row.gender.to_lowercase().as_str() {
-                "male" | "公" | "公豬" => PigGender::Male,
-                "female" | "母" | "母豬" => PigGender::Female,
+                "male" | "m" | "公" | "公豬" => PigGender::Male,
+                "female" | "f" | "母" | "母豬" => PigGender::Female,
                 _ => {
                     errors.push(ImportErrorDetail {
                         row: row_number,
                         ear_tag: Some(row.ear_tag.clone()),
-                        error: format!("無效的性別值: {}，必須是 male 或 female (或公/母)", row.gender),
+                        error: format!("無效的性別值: {}，必須是 male/female 或 m/f (或公/母)", row.gender),
                     });
                     error_count += 1;
                     continue;

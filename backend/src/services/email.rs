@@ -23,6 +23,7 @@ impl EmailService {
 
         let smtp_host = config.smtp_host.as_ref().unwrap();
         let login_url = format!("{}/login", config.app_url);
+        let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 
         let html_body = format!(
             r#"<!DOCTYPE html>
@@ -58,7 +59,9 @@ impl EmailService {
     <div class="wrapper">
         <div class="container">
             <div class="header">
-                <div class="logo">🐷</div>
+                <div class="logo">
+                    <img src="{logo_url}" alt="iPig System" style="height: 64px; width: auto; margin-bottom: 12px;">
+                </div>
                 <h1>歡迎加入豬博士 iPig 系統</h1>
                 <p class="subtitle">您的帳號已成功開通</p>
             </div>
@@ -95,7 +98,9 @@ impl EmailService {
             display_name = display_name,
             to_email = to_email,
             password = password,
+            password = password,
             login_url = login_url,
+            logo_url = logo_url,
         );
 
         let plain_body = format!(
@@ -144,6 +149,7 @@ impl EmailService {
 
         let smtp_host = config.smtp_host.as_ref().unwrap();
         let reset_url = format!("{}/reset-password?token={}", config.app_url, reset_token);
+        let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 
         let html_body = format!(
             r#"<!DOCTYPE html>
@@ -164,6 +170,9 @@ impl EmailService {
 <body>
     <div class="container">
         <div class="header">
+            <div style="text-align: center; margin-bottom: 15px;">
+                <img src="{logo_url}" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
+            </div>
             <h1>🔑 密碼重設通知</h1>
         </div>
         <div class="content">
@@ -190,6 +199,7 @@ impl EmailService {
 </html>"#,
             display_name = display_name,
             reset_url = reset_url,
+            logo_url = logo_url,
         );
 
         let plain_body = format!(
@@ -232,6 +242,7 @@ impl EmailService {
         }
 
         let smtp_host = config.smtp_host.as_ref().unwrap();
+        let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 
         let html_body = format!(
             r#"<!DOCTYPE html>
@@ -250,6 +261,9 @@ impl EmailService {
 <body>
     <div class="container">
         <div class="header">
+            <div style="text-align: center; margin-bottom: 15px;">
+                <img src="{logo_url}" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
+            </div>
             <h1>✅ 密碼變更成功</h1>
         </div>
         <div class="content">
@@ -268,6 +282,7 @@ impl EmailService {
 </body>
 </html>"#,
             display_name = display_name,
+            logo_url = logo_url,
         );
 
         let plain_body = format!(
@@ -311,6 +326,7 @@ impl EmailService {
 
         let smtp_host = config.smtp_host.as_ref().unwrap();
         let protocol_url = format!("{}/protocols", config.app_url);
+        let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 
         let html_body = format!(
             r#"<!DOCTYPE html>
@@ -330,6 +346,9 @@ impl EmailService {
 <body>
     <div class="container">
         <div class="header">
+            <div style="text-align: center; margin-bottom: 15px;">
+                <img src="{logo_url}" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
+            </div>
             <h1>📋 新計畫提交通知</h1>
         </div>
         <div class="content">
@@ -360,6 +379,7 @@ impl EmailService {
             pi_name = pi_name,
             submitted_at = submitted_at,
             protocol_url = protocol_url,
+            logo_url = logo_url,
         );
 
         let plain_body = format!(
@@ -423,6 +443,7 @@ impl EmailService {
 
         let smtp_host = config.smtp_host.as_ref().unwrap();
         let protocol_url = format!("{}/my-projects", config.app_url);
+        let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 
         let reason_section = reason
             .map(|r| format!("<p><strong>變更原因：</strong> {}</p>", r))
@@ -451,6 +472,9 @@ impl EmailService {
 <body>
     <div class="container">
         <div class="header">
+            <div style="text-align: center; margin-bottom: 15px;">
+                <img src="{logo_url}" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
+            </div>
             <h1>📝 計畫狀態更新通知</h1>
         </div>
         <div class="content">
@@ -483,6 +507,7 @@ impl EmailService {
             changed_at = changed_at,
             reason_section = reason_section,
             protocol_url = protocol_url,
+            logo_url = logo_url,
         );
 
         let plain_body = format!(
@@ -547,6 +572,7 @@ impl EmailService {
 
         let smtp_host = config.smtp_host.as_ref().unwrap();
         let protocol_url = format!("{}/protocols", config.app_url);
+        let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 
         let html_body = format!(
             r#"<!DOCTYPE html>
@@ -567,6 +593,9 @@ impl EmailService {
 <body>
     <div class="container">
         <div class="header">
+            <div style="text-align: center; margin-bottom: 15px;">
+                <img src="{logo_url}" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
+            </div>
             <h1>👁️ 審查指派通知</h1>
         </div>
         <div class="content">
@@ -597,6 +626,7 @@ impl EmailService {
             pi_name = pi_name,
             due_date = due_date.unwrap_or("待定"),
             protocol_url = protocol_url,
+            logo_url = logo_url,
         );
 
         let plain_body = format!(
@@ -659,6 +689,7 @@ impl EmailService {
 
         let smtp_host = config.smtp_host.as_ref().unwrap();
         let pigs_url = format!("{}/pigs", config.app_url);
+        let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 
         let html_body = format!(
             r#"<!DOCTYPE html>
@@ -679,6 +710,9 @@ impl EmailService {
 <body>
     <div class="container">
         <div class="header">
+            <div style="text-align: center; margin-bottom: 15px;">
+                <img src="{logo_url}" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
+            </div>
             <h1>🩺 獸醫師建議通知</h1>
         </div>
         <div class="content">
@@ -713,6 +747,7 @@ impl EmailService {
             record_type = record_type,
             recommendation_content = recommendation_content,
             pigs_url = pigs_url,
+            logo_url = logo_url,
         );
 
         let plain_body = format!(
@@ -773,6 +808,7 @@ IACUC NO.：{iacuc_no}
         let smtp_host = config.smtp_host.as_ref().unwrap();
         let inventory_url = format!("{}/inventory", config.app_url);
         let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+        let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 
         let html_body = format!(
             r#"<!DOCTYPE html>
@@ -794,6 +830,9 @@ IACUC NO.：{iacuc_no}
 <body>
     <div class="container">
         <div class="header">
+            <div style="text-align: center; margin-bottom: 15px;">
+                <img src="{logo_url}" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
+            </div>
             <h1>⚠️ 低庫存提醒</h1>
         </div>
         <div class="content">
@@ -817,6 +856,7 @@ IACUC NO.：{iacuc_no}
             alert_count = alert_count,
             alerts_html = alerts_html,
             inventory_url = inventory_url,
+            logo_url = logo_url,
         );
 
         let plain_body = format!(
@@ -856,6 +896,7 @@ IACUC NO.：{iacuc_no}
         let smtp_host = config.smtp_host.as_ref().unwrap();
         let inventory_url = format!("{}/inventory", config.app_url);
         let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+        let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 
         let is_urgent = expired_count > 0;
         let header_bg = if is_urgent { "#dc2626" } else { "#f59e0b" };
@@ -883,6 +924,9 @@ IACUC NO.：{iacuc_no}
 <body>
     <div class="container">
         <div class="header">
+            <div style="text-align: center; margin-bottom: 15px;">
+                <img src="{logo_url}" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
+            </div>
             <h1>⏰ 效期提醒</h1>
         </div>
         <div class="content">
@@ -912,6 +956,7 @@ IACUC NO.：{iacuc_no}
             expiring_count = expiring_count,
             alerts_html = alerts_html,
             inventory_url = inventory_url,
+            logo_url = logo_url,
         );
 
         let plain_body = format!(

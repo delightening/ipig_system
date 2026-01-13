@@ -60,8 +60,8 @@ export function LoginPage() {
   return (
     <Card className="w-full max-w-md animate-fade-in">
       <CardHeader className="space-y-1 text-center">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-600">
-          <ClipboardList className="h-8 w-8 text-white" />
+        <div className="mx-auto mb-4 flex items-center justify-center">
+          <img src="/pigmodel-logo.png" alt="Logo" className="h-20 w-auto" />
         </div>
         <CardTitle className="text-2xl font-bold">iPig 統一入口門戶</CardTitle>
         <CardDescription>請輸入您的帳號密碼登入系統</CardDescription>

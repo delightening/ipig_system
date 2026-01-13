@@ -52,7 +52,6 @@ import {
   Stethoscope,
   FileSpreadsheet,
   LayoutGrid,
-  List,
   MapPin,
 } from 'lucide-react'
 
@@ -67,8 +66,6 @@ const statusColors: Record<PigStatus, string> = {
   in_experiment: 'bg-orange-100 text-orange-800',
   completed: 'bg-green-100 text-green-800',
 }
-
-type ViewMode = 'list' | 'grouped'
 
 const buildPenNumbers = (count: number) =>
   Array.from({ length: count }, (_, index) => String(index + 1).padStart(2, '0'))
@@ -93,16 +90,27 @@ const penNumbersByZone: Record<string, string[]> = {
   G: buildPenNumbers(6),
 }
 
+// 區域顏色對應（參照 Excel 示意圖）
+const penZoneColors: Record<string, { bg: string; border: string; header: string; text: string }> = {
+  A: { bg: 'bg-blue-50', border: 'border-blue-300', header: 'bg-blue-500', text: 'text-blue-700' },
+  B: { bg: 'bg-orange-50', border: 'border-orange-300', header: 'bg-orange-500', text: 'text-orange-700' },
+  C: { bg: 'bg-yellow-50', border: 'border-yellow-300', header: 'bg-yellow-500', text: 'text-yellow-700' },
+  D: { bg: 'bg-cyan-50', border: 'border-cyan-300', header: 'bg-cyan-500', text: 'text-cyan-700' },
+  E: { bg: 'bg-purple-50', border: 'border-purple-300', header: 'bg-purple-500', text: 'text-purple-700' },
+  F: { bg: 'bg-amber-50', border: 'border-amber-300', header: 'bg-amber-500', text: 'text-amber-700' },
+  G: { bg: 'bg-green-50', border: 'border-green-300', header: 'bg-green-500', text: 'text-green-700' },
+}
+
 export function PigsPage() {
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
 
-  // View mode state
-  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  // Building tab state for grouped view
+  const [groupedBuildingTab, setGroupedBuildingTab] = useState<'A' | 'B'>('A')
 
   // Filter state
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') || 'all')
+  const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') || 'pen')
   const [breedFilter, setBreedFilter] = useState<string>('all')
 
   // Dialog state
@@ -113,7 +121,7 @@ export function PigsPage() {
   const [showImportWeightDialog, setShowImportWeightDialog] = useState(false)
   const [selectedPigs, setSelectedPigs] = useState<number[]>([])
   const [assignIacucNo, setAssignIacucNo] = useState('')
-  
+
   // Quick edit dialog state
   const [quickEditPigId, setQuickEditPigId] = useState<number | null>(null)
 
@@ -176,7 +184,7 @@ export function PigsPage() {
       const res = await api.get<{ pen_location: string; pigs: PigListItem[]; pig_count: number }[]>('/pigs/by-pen')
       return res.data
     },
-    enabled: viewMode === 'grouped',
+    enabled: statusFilter === 'pen',
     staleTime: 0, // Always consider data stale for real-time updates
     refetchOnWindowFocus: true,
     refetchOnMount: true,
@@ -186,7 +194,7 @@ export function PigsPage() {
   const createPigMutation = useMutation({
     mutationFn: async (data: typeof newPig) => {
       const penLocation = penZone && penNumber ? `${penZone}${penNumber}` : undefined
-      
+
       // 驗證必填欄位
       if (!data.ear_tag?.trim()) {
         throw new Error('耳號為必填')
@@ -200,7 +208,7 @@ export function PigsPage() {
       if (!data.pre_experiment_code?.trim()) {
         throw new Error('實驗前代號為必填')
       }
-      
+
       // 驗證並轉換 entry_weight
       let entryWeight: number | undefined = undefined
       if (data.entry_weight && data.entry_weight !== '') {
@@ -210,7 +218,7 @@ export function PigsPage() {
         }
         entryWeight = weightValue
       }
-      
+
       // 驗證日期格式（必須是 YYYY-MM-DD）
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/
       if (!dateRegex.test(data.entry_date)) {
@@ -219,7 +227,7 @@ export function PigsPage() {
       if (data.birth_date && data.birth_date.trim() !== '' && !dateRegex.test(data.birth_date)) {
         throw new Error('出生日期格式不正確，必須是 YYYY-MM-DD 格式')
       }
-      
+
       // 清理資料格式
       const payload: any = {
         ear_tag: data.ear_tag.trim(),
@@ -229,8 +237,8 @@ export function PigsPage() {
         birth_date: data.birth_date && data.birth_date.trim() !== '' ? data.birth_date.trim() : undefined,
         entry_weight: entryWeight, // number or undefined
         pen_location: penLocation, // string or undefined
-        pre_experiment_code: data.pre_experiment_code && data.pre_experiment_code.trim() !== '' 
-          ? data.pre_experiment_code.trim() 
+        pre_experiment_code: data.pre_experiment_code && data.pre_experiment_code.trim() !== ''
+          ? data.pre_experiment_code.trim()
           : undefined,
         remark: data.remark && data.remark.trim() !== '' ? data.remark.trim() : undefined,
       }
@@ -246,7 +254,7 @@ export function PigsPage() {
         }
       }
       // 如果 source_id 是空字串或 'none'，不發送該欄位（後端會視為 None）
-      
+
       console.log('Sending payload:', payload)
       return api.post('/pigs', payload)
     },
@@ -261,10 +269,10 @@ export function PigsPage() {
       console.error('Error response:', error?.response?.data)
       console.error('Error status:', error?.response?.status)
       console.error('Request payload:', error?.config?.data)
-      
+
       // 提取錯誤訊息
       let errorMessage = '新增失敗，請檢查輸入資料'
-      
+
       // 422 錯誤通常是資料格式問題
       if (error?.response?.status === 422) {
         errorMessage = '資料格式錯誤：請檢查所有欄位的格式是否正確（例如：品種應為 minipig/white/other，性別應為 male/female，日期應為 YYYY-MM-DD 格式）'
@@ -280,7 +288,7 @@ export function PigsPage() {
       } else if (error?.message) {
         errorMessage = error.message
       }
-      
+
       toast({
         title: '錯誤',
         description: errorMessage,
@@ -305,7 +313,7 @@ export function PigsPage() {
     },
     onError: (error: any) => {
       console.error('Batch assign error:', error)
-      const errorMessage = error?.response?.data?.error?.message 
+      const errorMessage = error?.response?.data?.error?.message
         || error?.response?.data?.message
         || error?.message
         || '批次分配失敗'
@@ -330,7 +338,7 @@ export function PigsPage() {
     },
     onError: (error: any) => {
       console.error('Batch start experiment error:', error)
-      const errorMessage = error?.response?.data?.error?.message 
+      const errorMessage = error?.response?.data?.error?.message
         || error?.response?.data?.message
         || error?.message
         || '批次啟動實驗失敗'
@@ -416,23 +424,25 @@ export function PigsPage() {
       {/* Status Tabs */}
       <div className="flex gap-2 border-b">
         {[
-          { value: 'all', label: '全部', count: allPigs.length },
+          { value: 'pen', label: '欄位', count: allPigs.length, icon: <LayoutGrid className="h-4 w-4" /> },
           { value: 'unassigned', label: '未分配', count: statusCounts['unassigned'] || 0 },
           { value: 'assigned', label: '已分配', count: statusCounts['assigned'] || 0 },
           { value: 'in_experiment', label: '實驗中', count: statusCounts['in_experiment'] || 0 },
           { value: 'completed', label: '實驗完成', count: statusCounts['completed'] || 0 },
+          { value: 'all', label: '所有', count: allPigs.length },
         ].map(tab => (
           <button
             key={tab.value}
             onClick={() => {
               setStatusFilter(tab.value)
-              setSearchParams(tab.value === 'all' ? {} : { status: tab.value })
+              setSearchParams(tab.value === 'pen' ? {} : { status: tab.value })
             }}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${statusFilter === tab.value
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${statusFilter === tab.value
               ? 'border-purple-600 text-purple-600'
               : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
           >
+            {'icon' in tab && tab.icon}
             {tab.label} ({tab.count})
           </button>
         ))}
@@ -463,30 +473,6 @@ export function PigsPage() {
                   <SelectItem value="other">其他</SelectItem>
                 </SelectContent>
               </Select>
-
-              {/* View Mode Toggle */}
-              <div className="flex items-center border rounded-lg overflow-hidden">
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`flex items-center gap-1 px-3 py-2 text-sm transition-colors ${viewMode === 'list'
-                    ? 'bg-purple-100 text-purple-700'
-                    : 'bg-white text-slate-600 hover:bg-slate-50'
-                    }`}
-                >
-                  <List className="h-4 w-4" />
-                  列表
-                </button>
-                <button
-                  onClick={() => setViewMode('grouped')}
-                  className={`flex items-center gap-1 px-3 py-2 text-sm border-l transition-colors ${viewMode === 'grouped'
-                    ? 'bg-purple-100 text-purple-700'
-                    : 'bg-white text-slate-600 hover:bg-slate-50'
-                    }`}
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                  欄位分組
-                </button>
-              </div>
             </div>
 
             {/* Batch Actions */}
@@ -525,7 +511,7 @@ export function PigsPage() {
       </Card>
 
       {/* List View */}
-      {viewMode === 'list' && (
+      {statusFilter !== 'pen' && (
         <Card>
           <CardContent className="p-0">
             {isLoading ? (
@@ -652,59 +638,324 @@ export function PigsPage() {
       )}
 
       {/* Grouped View */}
-      {viewMode === 'grouped' && (
+      {statusFilter === 'pen' && (
         <div className="space-y-4">
+          {/* Building Tabs */}
+          <div className="flex gap-2 border-b">
+            {penBuildings.map(building => {
+              const zones = penZonesByBuilding[building.value]
+              return (
+                <button
+                  key={building.value}
+                  onClick={() => setGroupedBuildingTab(building.value as 'A' | 'B')}
+                  className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${groupedBuildingTab === building.value
+                    ? 'border-purple-600 text-purple-600 bg-purple-50'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                    }`}
+                >
+                  <MapPin className="h-4 w-4" />
+                  {building.label}
+                  <div className="flex gap-1 ml-2">
+                    {zones.map(zone => (
+                      <span
+                        key={zone}
+                        className={`w-5 h-5 rounded text-xs font-bold flex items-center justify-center text-white ${penZoneColors[zone]?.header || 'bg-gray-500'}`}
+                      >
+                        {zone}
+                      </span>
+                    ))}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+
           {groupedLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
             </div>
-          ) : !groupedData || groupedData.length === 0 ? (
-            <Card>
-              <CardContent className="py-12">
-                <div className="flex flex-col items-center justify-center text-slate-500">
-                  <MapPin className="h-12 w-12 mb-4" />
-                  <p>沒有豬隻資料</p>
-                </div>
-              </CardContent>
-            </Card>
           ) : (
-            groupedData.map((group) => (
-              <Card key={group.pen_location || 'unassigned'}>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <MapPin className="h-5 w-5 text-purple-600" />
-                    {group.pen_location || '未指定欄位'}
-                    <Badge variant="outline" className="ml-2">
-                      {group.pig_count} 隻
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                    {group.pigs.map((pig) => (
-                      <Link
-                        key={pig.id}
-                        to={`/pigs/${pig.id}`}
-                        className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-orange-600 truncate">{pig.ear_tag}</p>
-                          <p className="text-sm text-slate-500 truncate">
-                            {pigBreedNames[pig.breed]} · {pigGenderNames[pig.gender]}
-                          </p>
-                          {pig.iacuc_no && (
-                            <p className="text-xs text-slate-400 truncate">{pig.iacuc_no}</p>
-                          )}
-                        </div>
-                        <Badge className={statusColors[pig.status]}>
-                          {pigStatusNames[pig.status]}
-                        </Badge>
-                      </Link>
-                    ))}
+            // Generate all pen slots for each zone in the selected building
+            (() => {
+              const currentZones = penZonesByBuilding[groupedBuildingTab] || []
+
+              // Create a map of pen_location -> pigs for quick lookup
+              const pigsByPenLocation = new Map<string, PigListItem[]>()
+              groupedData?.forEach(group => {
+                if (group.pen_location) {
+                  pigsByPenLocation.set(group.pen_location, group.pigs)
+                }
+              })
+
+              // Helper function to render a single pen cell
+              const renderPenCell = (penLocation: string | null, colors: { bg: string; border: string; header: string; text: string }, isLeftColumn: boolean = true) => {
+                if (!penLocation) {
+                  return <div className="px-3 py-2 text-slate-300"></div>
+                }
+
+                const pigs = pigsByPenLocation.get(penLocation) || []
+                const cellColors = penZoneColors[penLocation.charAt(0)] || colors
+
+                if (pigs.length === 0) {
+                  return (
+                    <div className="grid grid-cols-5 gap-1 px-3 py-2 items-center text-sm">
+                      <div className={`font-semibold ${cellColors.text}`}>{penLocation}</div>
+                      <div className="text-slate-400 italic">空</div>
+                      <div className="text-slate-300">-</div>
+                      <div className="text-slate-300">-</div>
+                      <div></div>
+                    </div>
+                  )
+                }
+
+                return pigs.map((pig, pigIdx) => (
+                  <div key={pig.id} className={`grid grid-cols-5 gap-1 px-3 py-2 items-center text-sm ${pigIdx > 0 ? 'border-t border-dashed border-slate-200' : ''}`}>
+                    <div className={`font-semibold ${cellColors.text}`}>{pigIdx === 0 ? penLocation : ''}</div>
+                    <div className={`font-medium ${cellColors.text} truncate`} title={pig.ear_tag}>{pig.ear_tag}</div>
+                    <div className="text-xs text-slate-500 truncate" title={pig.vet_last_viewed_at ? new Date(pig.vet_last_viewed_at).toLocaleString('zh-TW') : '-'}>
+                      {pig.vet_last_viewed_at ? new Date(pig.vet_last_viewed_at).toLocaleDateString('zh-TW') : '-'}
+                    </div>
+                    <div className={`text-xs truncate ${pig.has_abnormal_record ? 'text-red-600 font-medium' : 'text-slate-400'}`}>
+                      {pig.has_abnormal_record ? '有異常' : '-'}
+                    </div>
+                    <div className="flex items-center justify-center gap-1">
+                      <Button variant="ghost" size="icon" className="h-6 w-6" asChild title="檢視">
+                        <Link to={`/pigs/${pig.id}`}>
+                          <Eye className="h-3 w-3" />
+                        </Link>
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" asChild title="編輯">
+                        <Link to={`/pigs/${pig.id}/edit`}>
+                          <Edit2 className="h-3 w-3" />
+                        </Link>
+                      </Button>
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))
+                ))
+              }
+
+              // Helper function to render standard zone card (for A, C, D, B zones)
+              const renderStandardZoneCard = (zone: string) => {
+                const colors = penZoneColors[zone] || { bg: 'bg-gray-50', border: 'border-gray-300', header: 'bg-gray-500', text: 'text-gray-700' }
+                const penNumbers = penNumbersByZone[zone] || []
+                const totalPenNumbers = penNumbers.length
+
+                // Split pen numbers into two columns
+                const halfPoint = Math.ceil(totalPenNumbers / 2)
+                const leftColumnPens = penNumbers.slice(0, halfPoint)
+                const rightColumnPens = penNumbers.slice(halfPoint)
+
+                // Count total pigs in this zone
+                let totalPigs = 0
+                penNumbers.forEach(num => {
+                  const penLocation = `${zone}${num}`
+                  const pigs = pigsByPenLocation.get(penLocation) || []
+                  totalPigs += pigs.length
+                })
+
+                return (
+                  <Card key={zone} className={`${colors.bg} ${colors.border} border-2`}>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-3 text-lg">
+                        <span className={`w-8 h-8 rounded-lg ${colors.header} text-white flex items-center justify-center font-bold text-lg shadow-md`}>
+                          {zone}
+                        </span>
+                        <span className={colors.text}>{zone} 區</span>
+                        <Badge variant="outline" className={`ml-2 ${colors.text} ${colors.border}`}>
+                          共 {totalPigs} 隻
+                        </Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                        {/* Table Header */}
+                        <div className="grid grid-cols-2 gap-0 border-b">
+                          <div className={`grid grid-cols-5 gap-1 px-3 py-2 text-xs font-semibold ${colors.header} text-white`}>
+                            <div>欄位</div>
+                            <div>耳號</div>
+                            <div>獸醫檢視</div>
+                            <div>最新異常</div>
+                            <div className="text-center">操作</div>
+                          </div>
+                          <div className={`grid grid-cols-5 gap-1 px-3 py-2 text-xs font-semibold ${colors.header} text-white border-l border-white/30`}>
+                            <div>欄位</div>
+                            <div>耳號</div>
+                            <div>獸醫檢視</div>
+                            <div>最新異常</div>
+                            <div className="text-center">操作</div>
+                          </div>
+                        </div>
+
+                        {/* Table Rows */}
+                        {leftColumnPens.map((leftNum, idx) => {
+                          const rightNum = rightColumnPens[idx]
+                          const leftPenLocation = `${zone}${leftNum}`
+                          const rightPenLocation = rightNum ? `${zone}${rightNum}` : null
+
+                          return (
+                            <div key={leftNum} className={`grid grid-cols-2 gap-0 border-b last:border-b-0 ${idx % 2 === 0 ? 'bg-white' : colors.bg}`}>
+                              {/* Left Column Cell */}
+                              <div className={`border-r ${colors.border}`}>
+                                {renderPenCell(leftPenLocation, colors)}
+                              </div>
+                              {/* Right Column Cell */}
+                              <div>
+                                {renderPenCell(rightPenLocation, colors)}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              }
+
+              // Helper function to render EFG combined zone card (special layout for B building)
+              const renderEFGCombinedCard = () => {
+                const eColors = penZoneColors['E']
+                const fColors = penZoneColors['F']
+                const gColors = penZoneColors['G']
+
+                const ePenNumbers = penNumbersByZone['E'] || []
+                const fPenNumbers = penNumbersByZone['F'] || []
+                const gPenNumbers = penNumbersByZone['G'] || []
+
+                // Build right column: F01-F06 then G01-G06
+                const rightColumnPens = [
+                  ...fPenNumbers.map(num => `F${num}`),
+                  ...gPenNumbers.map(num => `G${num}`),
+                ]
+
+                // Left column: E01-E25
+                const leftColumnPens = ePenNumbers.map(num => `E${num}`)
+
+                // Max rows
+                const maxRows = Math.max(leftColumnPens.length, rightColumnPens.length)
+
+                // Count total pigs
+                let eTotalPigs = 0, fTotalPigs = 0, gTotalPigs = 0
+                ePenNumbers.forEach(num => {
+                  const pigs = pigsByPenLocation.get(`E${num}`) || []
+                  eTotalPigs += pigs.length
+                })
+                fPenNumbers.forEach(num => {
+                  const pigs = pigsByPenLocation.get(`F${num}`) || []
+                  fTotalPigs += pigs.length
+                })
+                gPenNumbers.forEach(num => {
+                  const pigs = pigsByPenLocation.get(`G${num}`) || []
+                  gTotalPigs += pigs.length
+                })
+
+                return (
+                  <Card key="EFG" className="bg-gradient-to-r from-purple-50 via-amber-50 to-green-50 border-2 border-purple-300">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-3 text-lg flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-8 h-8 rounded-lg ${eColors.header} text-white flex items-center justify-center font-bold text-lg shadow-md`}>
+                            E
+                          </span>
+                          <span className={eColors.text}>E 區</span>
+                          <Badge variant="outline" className={`${eColors.text} ${eColors.border}`}>
+                            {eTotalPigs} 隻
+                          </Badge>
+                        </div>
+                        <span className="text-slate-300">|</span>
+                        <div className="flex items-center gap-2">
+                          <span className={`w-8 h-8 rounded-lg ${fColors.header} text-white flex items-center justify-center font-bold text-lg shadow-md`}>
+                            F
+                          </span>
+                          <span className={fColors.text}>F 區</span>
+                          <Badge variant="outline" className={`${fColors.text} ${fColors.border}`}>
+                            {fTotalPigs} 隻
+                          </Badge>
+                        </div>
+                        <span className="text-slate-300">|</span>
+                        <div className="flex items-center gap-2">
+                          <span className={`w-8 h-8 rounded-lg ${gColors.header} text-white flex items-center justify-center font-bold text-lg shadow-md`}>
+                            G
+                          </span>
+                          <span className={gColors.text}>G 區</span>
+                          <Badge variant="outline" className={`${gColors.text} ${gColors.border}`}>
+                            {gTotalPigs} 隻
+                          </Badge>
+                        </div>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                        {/* Table Header */}
+                        <div className="grid grid-cols-2 gap-0 border-b">
+                          <div className={`grid grid-cols-5 gap-1 px-3 py-2 text-xs font-semibold ${eColors.header} text-white`}>
+                            <div>欄位</div>
+                            <div>耳號</div>
+                            <div>獸醫檢視</div>
+                            <div>最新異常</div>
+                            <div className="text-center">操作</div>
+                          </div>
+                          <div className="grid grid-cols-5 gap-1 px-3 py-2 text-xs font-semibold bg-gradient-to-r from-amber-500 to-green-500 text-white border-l border-white/30">
+                            <div>欄位</div>
+                            <div>耳號</div>
+                            <div>獸醫檢視</div>
+                            <div>最新異常</div>
+                            <div className="text-center">操作</div>
+                          </div>
+                        </div>
+
+                        {/* Table Rows */}
+                        {Array.from({ length: maxRows }).map((_, idx) => {
+                          const leftPenLocation = leftColumnPens[idx] || null
+                          const rightPenLocation = rightColumnPens[idx] || null
+
+                          // Determine right column colors based on zone
+                          const rightZone = rightPenLocation?.charAt(0) || ''
+                          const rightColors = penZoneColors[rightZone] || { bg: 'bg-gray-50', border: 'border-gray-300', header: 'bg-gray-500', text: 'text-gray-700' }
+
+                          // Add separator when transitioning from F to G
+                          const isTransition = idx > 0 && rightPenLocation?.startsWith('G') && rightColumnPens[idx - 1]?.startsWith('F')
+
+                          return (
+                            <div
+                              key={idx}
+                              className={`grid grid-cols-2 gap-0 border-b last:border-b-0 ${isTransition ? 'border-t-2 border-t-green-400' : ''
+                                } ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}
+                            >
+                              {/* Left Column Cell (E zone) */}
+                              <div className={`border-r ${eColors.border}`}>
+                                {renderPenCell(leftPenLocation, eColors)}
+                              </div>
+                              {/* Right Column Cell (F or G zone) */}
+                              <div className={rightPenLocation ? rightColors.bg : ''}>
+                                {renderPenCell(rightPenLocation, rightColors)}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              }
+
+              // Render based on building tab
+              if (groupedBuildingTab === 'A') {
+                // A building: A, C, D zones - each rendered independently
+                return (
+                  <div className="space-y-6">
+                    {currentZones.map(zone => renderStandardZoneCard(zone))}
+                  </div>
+                )
+              } else {
+                // B building: B zone independent, then EFG combined
+                return (
+                  <div className="space-y-6">
+                    {renderStandardZoneCard('B')}
+                    {renderEFGCombinedCard()}
+                  </div>
+                )
+              }
+            })()
           )}
         </div>
       )}
