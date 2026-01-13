@@ -650,6 +650,8 @@ pub struct PigImportRow {
     pub ear_tag: String,
     #[serde(alias = "Species", alias = "品種*", alias = "品種")]
     pub breed: String,
+    #[serde(alias = "Breed Other", alias = "品種其他", alias = "其他品種", default)]
+    pub breed_other: Option<String>,
     #[serde(alias = "Sex", alias = "性別*", alias = "性別")]
     pub gender: String,
     #[serde(alias = "Source", alias = "來源代碼", default)]

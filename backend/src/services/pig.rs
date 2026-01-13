@@ -1793,10 +1793,25 @@ impl PigService {
                 }
             }).map(|s| s.trim().to_string());
 
+            // 處理品種其他（當 breed 為 Other 時使用）
+            let breed_other = if matches!(breed, PigBreed::Other) {
+                row.breed_other.clone().and_then(|s| {
+                    let trimmed = s.trim().to_string();
+                    if trimmed.is_empty() {
+                        None
+                    } else {
+                        Some(trimmed)
+                    }
+                })
+            } else {
+                None
+            };
+
             // 建立豬隻資料
             let create_req = CreatePigRequest {
                 ear_tag: formatted_ear_tag.clone(),
                 breed,
+                breed_other,
                 source_id,
                 gender,
                 birth_date,
@@ -2074,6 +2089,10 @@ impl PigService {
                 let s = Self::get_cell_string(row.get(8));
                 if s.is_empty() { None } else { Some(s) }
             };
+            let breed_other = {
+                let s = Self::get_cell_string(row.get(9));
+                if s.is_empty() { None } else { Some(s) }
+            };
 
             // 如果必填欄位為空，跳過這行
             if ear_tag.is_empty() || breed.is_empty() || gender.is_empty() || entry_date.is_empty() {
@@ -2083,6 +2102,7 @@ impl PigService {
             rows.push(PigImportRow {
                 ear_tag,
                 breed,
+                breed_other,
                 gender,
                 source_code: None, // Excel 範本中沒有這個欄位
                 birth_date,

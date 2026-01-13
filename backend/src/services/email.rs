@@ -98,7 +98,6 @@ impl EmailService {
             display_name = display_name,
             to_email = to_email,
             password = password,
-            password = password,
             login_url = login_url,
             logo_url = logo_url,
         );
