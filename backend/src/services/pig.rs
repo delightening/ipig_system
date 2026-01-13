@@ -148,7 +148,7 @@ impl PigService {
                 ) as vet_recommendation_date
             FROM pigs p
             LEFT JOIN pig_sources s ON p.source_id = s.id
-            WHERE 1=1
+            WHERE p.deleted_at IS NULL
             "#
         );
 
@@ -206,6 +206,7 @@ impl PigService {
             FROM pigs p
             LEFT JOIN pig_sources s ON p.source_id = s.id
             WHERE p.pen_location IS NOT NULL
+            AND p.deleted_at IS NULL
             ORDER BY p.pen_location, p.id
             "#
         )
@@ -238,7 +239,7 @@ impl PigService {
 
     /// 取得單一豬隻
     pub async fn get_by_id(pool: &PgPool, id: i32) -> Result<Pig> {
-        let mut pig = sqlx::query_as::<_, Pig>("SELECT * FROM pigs WHERE id = $1")
+        let mut pig = sqlx::query_as::<_, Pig>("SELECT * FROM pigs WHERE id = $1 AND deleted_at IS NULL")
             .bind(id)
             .fetch_optional(pool)
             .await?
@@ -258,6 +259,13 @@ impl PigService {
         } else {
             req.ear_tag.clone()
         };
+
+        // 驗證耳號必須為三位數
+        if !formatted_ear_tag.chars().all(|c| c.is_ascii_digit()) || formatted_ear_tag.len() != 3 {
+            return Err(AppError::Validation(
+                "耳號必須為三位數".to_string()
+            ));
+        }
 
         // 將 breed enum 轉換為資料庫期望的字串值
         let breed_str = match req.breed {
@@ -291,7 +299,33 @@ impl PigService {
         .bind(&req.remark)
         .bind(created_by)
         .fetch_one(pool)
-        .await?;
+        .await
+        .map_err(|e| {
+            // 檢查是否為資料庫約束違規錯誤
+            if let sqlx::Error::Database(db_err) = &e {
+                if let Some(constraint) = db_err.constraint() {
+                    if constraint == "check_ear_tag_three_digits" {
+                        return AppError::Validation("耳號必須為三位數".to_string());
+                    }
+                }
+                // 檢查錯誤訊息是否包含約束相關資訊
+                let msg = db_err.message();
+                if msg.contains("check_ear_tag_three_digits") || msg.contains("three digits") {
+                    return AppError::Validation("耳號必須為三位數".to_string());
+                }
+            }
+            AppError::Database(e)
+        })?;
+
+        // 如果有進場體重，自動建立第一筆體重紀錄
+        if let Some(entry_weight) = req.entry_weight {
+            let weight_req = CreateWeightRequest {
+                measure_date: req.entry_date,
+                weight: entry_weight,
+            };
+            // 忽略錯誤，避免影響豬隻建立
+            let _ = Self::create_weight(pool, pig.id, &weight_req, created_by).await;
+        }
 
         Ok(pig)
     }
@@ -318,6 +352,7 @@ impl PigService {
                 remark = COALESCE($6, remark),
                 updated_at = NOW()
             WHERE id = $1
+            AND deleted_at IS NULL
             RETURNING *
             "#
         )
@@ -333,9 +368,9 @@ impl PigService {
         Ok(pig)
     }
 
-    /// 刪除豬隻
+    /// 軟刪除豬隻
     pub async fn delete(pool: &PgPool, id: i32) -> Result<()> {
-        sqlx::query("DELETE FROM pigs WHERE id = $1")
+        sqlx::query("UPDATE pigs SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL")
             .bind(id)
             .execute(pool)
             .await?;
@@ -1053,14 +1088,10 @@ impl PigService {
         .fetch_one(pool)
         .await?;
 
-        // 如果確定犧牲，更新豬隻狀態
-        if req.confirmed_sacrifice {
-            sqlx::query("UPDATE pigs SET status = $2, updated_at = NOW() WHERE id = $1")
-                .bind(pig_id)
-                .bind(PigStatus::Completed)
-                .execute(pool)
-                .await?;
-        }
+        // Note: The database trigger will automatically handle pen_location removal and status update
+        // 注意：資料庫觸發器會自動處理欄位編號移除和狀態更新
+        // The trigger is set up in migration 023_add_pig_soft_delete_and_sacrifice_pen_removal.sql
+        // 觸發器在遷移 023_add_pig_soft_delete_and_sacrifice_pen_removal.sql 中設置
 
         Ok(sacrifice)
     }
@@ -1365,7 +1396,7 @@ impl PigService {
     /// 取得計劃下所有豬隻病歷資料（用於匯出）
     pub async fn get_project_medical_data(pool: &PgPool, iacuc_no: &str) -> Result<serde_json::Value> {
         let pigs = sqlx::query_as::<_, Pig>(
-            "SELECT * FROM pigs WHERE iacuc_no = $1 ORDER BY id"
+            "SELECT * FROM pigs WHERE iacuc_no = $1 AND deleted_at IS NULL ORDER BY id"
         )
         .bind(iacuc_no)
         .fetch_all(pool)
@@ -1765,9 +1796,9 @@ impl PigService {
                 row.ear_tag.clone()
             };
 
-            // 檢查耳號是否已存在
+            // 檢查耳號是否已存在（僅檢查未刪除的豬隻）
             let existing = sqlx::query_scalar::<_, i32>(
-                "SELECT id FROM pigs WHERE ear_tag = $1"
+                "SELECT id FROM pigs WHERE ear_tag = $1 AND deleted_at IS NULL"
             )
             .bind(&formatted_ear_tag)
             .fetch_optional(pool)
@@ -1962,9 +1993,9 @@ impl PigService {
                 row.ear_tag.clone()
             };
 
-            // 查找豬隻
+            // 查找豬隻（僅查找未刪除的豬隻）
             let pig = sqlx::query_scalar::<_, i32>(
-                "SELECT id FROM pigs WHERE ear_tag = $1"
+                "SELECT id FROM pigs WHERE ear_tag = $1 AND deleted_at IS NULL"
             )
             .bind(&formatted_ear_tag)
             .fetch_optional(pool)

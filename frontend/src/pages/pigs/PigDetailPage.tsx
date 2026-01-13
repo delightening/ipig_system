@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
@@ -13,6 +13,7 @@ import api, {
   pigBreedNames,
   pigGenderNames,
   recordTypeNames,
+  RecordType,
   PigStatus,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -64,6 +65,7 @@ import {
 // Import form dialog components
 import { ObservationFormDialog } from '@/components/pig/ObservationFormDialog'
 import { SurgeryFormDialog } from '@/components/pig/SurgeryFormDialog'
+import { SacrificeFormDialog } from '@/components/pig/SacrificeFormDialog'
 import { ExportDialog } from '@/components/pig/ExportDialog'
 import { VersionHistoryDialog } from '@/components/pig/VersionHistoryDialog'
 import { VetRecommendationDialog } from '@/components/pig/VetRecommendationDialog'
@@ -92,6 +94,7 @@ export function PigDetailPage() {
   const [showAddVaccinationDialog, setShowAddVaccinationDialog] = useState(false)
   const [showExportDialog, setShowExportDialog] = useState(false)
   const [showPathologyUploadDialog, setShowPathologyUploadDialog] = useState(false)
+  const [showSacrificeDialog, setShowSacrificeDialog] = useState(false)
 
   // Edit states
   const [editingObservation, setEditingObservation] = useState<PigObservation | null>(null)
@@ -128,7 +131,7 @@ export function PigDetailPage() {
     refetchOnMount: true,
   })
 
-  const { data: observations } = useQuery({
+  const { data: observations, error: observationsError } = useQuery({
     queryKey: ['pig-observations', pigId],
     queryFn: async () => {
       const res = await api.get<PigObservation[]>(`/pigs/${pigId}/observations`)
@@ -138,18 +141,20 @@ export function PigDetailPage() {
     staleTime: 0,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
-    onError: (error: any) => {
-      console.error('Failed to load observations:', error)
-      console.error('Error response:', error?.response?.data)
-      console.error('Error status:', error?.response?.status)
-      console.error('Full error:', error)
+  })
+
+  // Handle observations error
+  useEffect(() => {
+    if (observationsError) {
+      console.error('Failed to load observations:', observationsError)
+      const error = observationsError as any
       toast({
         title: '錯誤',
         description: error?.response?.data?.error?.message || error?.message || '載入觀察紀錄失敗',
         variant: 'destructive',
       })
-    },
-  })
+    }
+  }, [observationsError])
 
   const { data: surgeries } = useQuery({
     queryKey: ['pig-surgeries', pigId],
@@ -521,7 +526,7 @@ export function PigDetailPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {observations.map((obs) => (
+                    {observations.map((obs: PigObservation) => (
                       <>
                         <TableRow key={obs.id} className="cursor-pointer hover:bg-slate-50">
                           <TableCell>
@@ -536,7 +541,7 @@ export function PigDetailPage() {
                           </TableCell>
                           <TableCell>{new Date(obs.event_date).toLocaleDateString('zh-TW')}</TableCell>
                           <TableCell>
-                            <Badge variant="outline">{recordTypeNames[obs.record_type]}</Badge>
+                            <Badge variant="outline">{recordTypeNames[obs.record_type as RecordType]}</Badge>
                           </TableCell>
                           <TableCell className="max-w-xs truncate">{obs.content}</TableCell>
                           <TableCell>
@@ -640,7 +645,7 @@ export function PigDetailPage() {
                                   <div className="col-span-2">
                                     <Label className="text-slate-500">治療方式</Label>
                                     <div className="space-y-1 mt-1">
-                                      {obs.treatments.map((t, i) => (
+                                      {obs.treatments.map((t: { drug: string; dosage: string; end_date?: string }, i: number) => (
                                         <p key={i}>
                                           {t.drug} - {t.dosage}
                                           {t.end_date && ` (至 ${t.end_date})`}
@@ -1029,7 +1034,10 @@ export function PigDetailPage() {
                 <div className="text-center py-12 text-slate-500">
                   <Heart className="h-12 w-12 mx-auto mb-4 text-slate-300" />
                   <p>尚無犧牲/採樣紀錄</p>
-                  <Button className="mt-4" variant="outline">
+                  <Button
+                    className="mt-4 bg-purple-600 hover:bg-purple-700 text-white"
+                    onClick={() => setShowSacrificeDialog(true)}
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     建立紀錄
                   </Button>
@@ -1080,7 +1088,10 @@ export function PigDetailPage() {
                     </div>
                   </div>
                   <div className="flex justify-end">
-                    <Button variant="outline">
+                    <Button
+                      className="bg-purple-600 hover:bg-purple-700 text-white"
+                      onClick={() => setShowSacrificeDialog(true)}
+                    >
                       <Edit2 className="h-4 w-4 mr-2" />
                       編輯
                     </Button>
@@ -1099,7 +1110,7 @@ export function PigDetailPage() {
                 <CardTitle>豬隻資料</CardTitle>
                 <CardDescription>豬隻基本資料</CardDescription>
               </div>
-              <Button variant="outline" asChild>
+              <Button className="bg-purple-600 hover:bg-purple-700 text-white" asChild>
                 <Link to={`/pigs/${pig.id}/edit`}>
                   <Edit2 className="h-4 w-4 mr-2" />
                   編輯
@@ -1411,6 +1422,15 @@ export function PigDetailPage() {
           pigEarTag={pig.ear_tag}
         />
       )}
+
+      {/* Sacrifice Form Dialog */}
+      <SacrificeFormDialog
+        open={showSacrificeDialog}
+        onOpenChange={setShowSacrificeDialog}
+        pigId={pigId}
+        earTag={pig?.ear_tag || ''}
+        sacrifice={sacrifice || undefined}
+      />
     </div>
   )
 }

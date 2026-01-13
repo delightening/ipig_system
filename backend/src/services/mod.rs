@@ -1,3 +1,5 @@
+﻿#![allow(dead_code)]
+
 mod auth;
 mod user;
 mod role;
@@ -31,3 +33,4 @@ pub use pig::PigService;
 pub use email::EmailService;
 pub use notification::NotificationService;
 pub use file::{FileService, FileCategory, UploadResult};
+

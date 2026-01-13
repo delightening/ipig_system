@@ -279,6 +279,101 @@ pub async fn upload_vet_recommendation_attachment(
     Ok(Json(results))
 }
 
+/// 上傳犧牲記錄照片
+pub async fn upload_sacrifice_photo(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(pig_id): Path<i32>,
+    mut multipart: Multipart,
+) -> Result<Json<Vec<UploadResponse>>> {
+    require_permission!(current_user, "pig.record.create");
+
+    // 檢查犧牲記錄是否存在
+    let sacrifice_exists: Option<i32> = sqlx::query_scalar(
+        "SELECT id FROM pig_sacrifices WHERE pig_id = $1"
+    )
+    .bind(pig_id)
+    .fetch_optional(&state.db)
+    .await?;
+
+    let sacrifice_id = sacrifice_exists.ok_or_else(|| {
+        AppError::Validation("Sacrifice record not found. Please create the sacrifice record first.".to_string())
+    })?;
+
+    let mut results = Vec::new();
+
+    while let Some(field) = multipart.next_field().await.map_err(|e| {
+        AppError::Validation(format!("Failed to read multipart field: {}", e))
+    })? {
+        let file_name = field
+            .file_name()
+            .map(String::from)
+            .unwrap_or_else(|| "unnamed".to_string());
+        
+        let content_type = field
+            .content_type()
+            .map(String::from)
+            .unwrap_or_else(|| "application/octet-stream".to_string());
+
+        let data = field.bytes().await.map_err(|e| {
+            AppError::Validation(format!("Failed to read file data: {}", e))
+        })?;
+
+        let upload_result = FileService::upload(
+            FileCategory::PigPhoto,
+            &file_name,
+            &content_type,
+            &data,
+            Some(&pig_id.to_string()),
+        ).await?;
+
+        // 儲存到 pig_record_attachments 表
+        save_pig_record_attachment(
+            &state.db,
+            "sacrifice",
+            sacrifice_id,
+            "photo",
+            &upload_result,
+        ).await?;
+
+        results.push(UploadResponse::from(upload_result));
+    }
+
+    if results.is_empty() {
+        return Err(AppError::Validation("No files uploaded".to_string()));
+    }
+
+    Ok(Json(results))
+}
+
+/// 儲存豬隻記錄附件到 pig_record_attachments 表
+async fn save_pig_record_attachment(
+    db: &PgPool,
+    record_type: &str,
+    record_id: i32,
+    file_type: &str,
+    upload_result: &UploadResult,
+) -> Result<uuid::Uuid> {
+    let id: (uuid::Uuid,) = sqlx::query_as(
+        r#"
+        INSERT INTO pig_record_attachments (id, record_type, record_id, file_type, file_name, file_path, file_size, mime_type, created_at)
+        VALUES (gen_random_uuid(), $1::pig_record_type, $2, $3::pig_file_type, $4, $5, $6, $7, NOW())
+        RETURNING id
+        "#,
+    )
+    .bind(record_type)
+    .bind(record_id)
+    .bind(file_type)
+    .bind(&upload_result.file_name)
+    .bind(&upload_result.file_path)
+    .bind(upload_result.file_size)
+    .bind(&upload_result.mime_type)
+    .fetch_one(db)
+    .await?;
+
+    Ok(id.0)
+}
+
 /// 列出附件清單
 pub async fn list_attachments(
     State(state): State<AppState>,

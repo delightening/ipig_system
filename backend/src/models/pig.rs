@@ -160,6 +160,7 @@ pub struct Pig {
     pub vet_vaccine_viewed_at: Option<DateTime<Utc>>,
     pub vet_sacrifice_viewed_at: Option<DateTime<Utc>>,
     pub vet_last_viewed_at: Option<DateTime<Utc>>,
+    pub deleted_at: Option<DateTime<Utc>>, // 軟刪除時間
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -286,9 +287,27 @@ pub struct VetRecommendation {
 // Request/Response DTOs
 // ============================================
 
+/// 驗證耳號必須為三位數
+fn validate_ear_tag(ear_tag: &str) -> Result<(), validator::ValidationError> {
+    // 如果是數字，格式化為三位數後檢查
+    let formatted = if let Ok(num) = ear_tag.parse::<u32>() {
+        format!("{:03}", num)
+    } else {
+        ear_tag.to_string()
+    };
+    
+    // 檢查是否為三位數字
+    if formatted.len() == 3 && formatted.chars().all(|c| c.is_ascii_digit()) {
+        Ok(())
+    } else {
+        Err(validator::ValidationError::new("ear_tag_three_digits"))
+    }
+}
+
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreatePigRequest {
     #[validate(length(min = 1, max = 10, message = "Ear tag must be 1-10 characters"))]
+    #[validate(custom(function = "validate_ear_tag", message = "耳號必須為三位數"))]
     pub ear_tag: String,
     pub breed: PigBreed,
     pub breed_other: Option<String>,

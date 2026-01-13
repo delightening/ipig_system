@@ -23,6 +23,7 @@ pub struct Claims {
 #[derive(Debug, Clone)]
 pub struct CurrentUser {
     pub id: Uuid,
+    #[allow(dead_code)]
     pub email: String,
     pub roles: Vec<String>,
     pub permissions: Vec<String>,
@@ -34,13 +35,14 @@ impl CurrentUser {
         if self.permissions.contains(&permission.to_string()) {
             return true;
         }
-        // 系統管理員擁有所有權限
+        // 檢查是否為管理員角色
         if self.roles.iter().any(|r| r == "SYSTEM_ADMIN" || r == "admin" || r.to_lowercase() == "admin") {
             return true;
         }
         false
     }
 
+    #[allow(dead_code)]
     pub fn has_role(&self, role: &str) -> bool {
         self.roles.contains(&role.to_string())
     }
@@ -80,7 +82,7 @@ pub async fn auth_middleware(
     Ok(next.run(request).await)
 }
 
-/// 權限檢查宏
+/// 權限檢查巨集
 #[macro_export]
 macro_rules! require_permission {
     ($user:expr, $permission:expr) => {

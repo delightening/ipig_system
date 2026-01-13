@@ -1,3 +1,5 @@
+﻿#![allow(dead_code)]
+
 mod user;
 mod role;
 mod warehouse;
@@ -60,3 +62,5 @@ impl<T> PaginatedResponse<T> {
         }
     }
 }
+
+

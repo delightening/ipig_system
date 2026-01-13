@@ -149,6 +149,7 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/protocols/:id/attachments", post(handlers::upload_protocol_attachment))
         .route("/pigs/:id/photos", post(handlers::upload_pig_photo))
         .route("/pigs/:id/pathology/attachments", post(handlers::upload_pathology_report))
+        .route("/pigs/:id/sacrifice/photos", post(handlers::upload_sacrifice_photo))
         .route("/vet-recommendations/:record_type/:record_id/attachments", post(handlers::upload_vet_recommendation_attachment))
         .route("/attachments", get(handlers::list_attachments))
         .route("/attachments/:id", get(handlers::download_attachment).delete(handlers::delete_attachment))

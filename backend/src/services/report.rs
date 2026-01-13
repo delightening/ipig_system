@@ -1,4 +1,4 @@
-use chrono::NaiveDate;
+﻿use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
@@ -7,7 +7,7 @@ use crate::Result;
 
 pub struct ReportService;
 
-/// 庫存現況報表項目
+/// 摨怠??暹??梯”?
 #[derive(Debug, FromRow, serde::Serialize)]
 pub struct StockOnHandReport {
     pub warehouse_id: Uuid,
@@ -25,7 +25,7 @@ pub struct StockOnHandReport {
     pub reorder_point: Option<Decimal>,
 }
 
-/// 庫存流水報表項目
+/// 摨怠?瘚偌?梯”?
 #[derive(Debug, FromRow, serde::Serialize)]
 pub struct StockLedgerReport {
     pub trx_date: chrono::DateTime<chrono::Utc>,
@@ -42,7 +42,7 @@ pub struct StockLedgerReport {
     pub expiry_date: Option<NaiveDate>,
 }
 
-/// 採購明細報表項目
+/// ?∟頃?敦?梯”?
 #[derive(Debug, FromRow, serde::Serialize)]
 pub struct PurchaseLinesReport {
     pub doc_date: NaiveDate,
@@ -61,7 +61,7 @@ pub struct PurchaseLinesReport {
     pub approved_by_name: Option<String>,
 }
 
-/// 銷售明細報表項目
+/// ?瑕?敦?梯”?
 #[derive(Debug, FromRow, serde::Serialize)]
 pub struct SalesLinesReport {
     pub doc_date: NaiveDate,
@@ -80,7 +80,7 @@ pub struct SalesLinesReport {
     pub approved_by_name: Option<String>,
 }
 
-/// 成本摘要報表項目
+/// ????梯”?
 #[derive(Debug, FromRow, serde::Serialize)]
 pub struct CostSummaryReport {
     pub warehouse_id: Uuid,
@@ -95,7 +95,7 @@ pub struct CostSummaryReport {
     pub total_value: Option<Decimal>,
 }
 
-/// 報表查詢參數
+/// ?梯”?亥岷?
 #[derive(Debug, serde::Deserialize)]
 pub struct ReportQuery {
     pub warehouse_id: Option<Uuid>,
@@ -107,7 +107,7 @@ pub struct ReportQuery {
 }
 
 impl ReportService {
-    /// 庫存現況報表
+    /// 摨怠??暹??梯”
     pub async fn stock_on_hand(pool: &PgPool, query: &ReportQuery) -> Result<Vec<StockOnHandReport>> {
         let mut sql = String::from(
             r#"
@@ -144,17 +144,21 @@ impl ReportService {
             WHERE w.is_active = true AND p.is_active = true
             "#
         );
-
+        let mut param_idx = 1;
         if query.warehouse_id.is_some() {
-            sql.push_str(" AND w.id = $1");
+            sql.push_str(&format!(" AND w.id = ${}", param_idx));
+            param_idx += 1;
         }
         if query.product_id.is_some() {
-            sql.push_str(" AND p.id = $2");
+            sql.push_str(&format!(" AND p.id = ${}", param_idx));
+            param_idx += 1;
         }
         if query.category_id.is_some() {
-            sql.push_str(" AND p.category_id = $3");
+            sql.push_str(&format!(" AND p.category_id = ${}", param_idx));
+            param_idx += 1;
         }
 
+        sql.push_str(" AND COALESCE(i.qty_on_hand, 0) != 0");
         sql.push_str(" ORDER BY w.code, p.sku");
 
         let mut query_builder = sqlx::query_as::<_, StockOnHandReport>(&sql);
@@ -169,51 +173,13 @@ impl ReportService {
             query_builder = query_builder.bind(cid);
         }
 
-        // 簡化版查詢（不使用動態綁定）
-        let results = sqlx::query_as::<_, StockOnHandReport>(
-            r#"
-            WITH inventory AS (
-                SELECT 
-                    warehouse_id, 
-                    product_id,
-                    SUM(CASE 
-                        WHEN direction IN ('in', 'transfer_in', 'adjust_in') THEN qty_base 
-                        ELSE -qty_base 
-                    END) as qty_on_hand,
-                    AVG(unit_cost) FILTER (WHERE unit_cost IS NOT NULL) as avg_cost
-                FROM stock_ledger
-                GROUP BY warehouse_id, product_id
-            )
-            SELECT 
-                w.id as warehouse_id,
-                w.code as warehouse_code,
-                w.name as warehouse_name,
-                p.id as product_id,
-                p.sku as product_sku,
-                p.name as product_name,
-                pc.name as category_name,
-                p.base_uom,
-                COALESCE(i.qty_on_hand, 0) as qty_on_hand,
-                i.avg_cost,
-                COALESCE(i.qty_on_hand, 0) * COALESCE(i.avg_cost, 0) as total_value,
-                p.safety_stock,
-                p.reorder_point
-            FROM warehouses w
-            CROSS JOIN products p
-            LEFT JOIN inventory i ON w.id = i.warehouse_id AND p.id = i.product_id
-            LEFT JOIN product_categories pc ON p.category_id = pc.id
-            WHERE w.is_active = true AND p.is_active = true
-            AND COALESCE(i.qty_on_hand, 0) != 0
-            ORDER BY w.code, p.sku
-            "#
-        )
-        .fetch_all(pool)
-        .await?;
+        // 蝪∪??閰ｇ?銝蝙?典???摰?
+        let results = query_builder.fetch_all(pool).await?;
 
         Ok(results)
     }
 
-    /// 庫存流水報表
+    /// 摨怠?瘚偌?梯”
     pub async fn stock_ledger(pool: &PgPool, _query: &ReportQuery) -> Result<Vec<StockLedgerReport>> {
         let results = sqlx::query_as::<_, StockLedgerReport>(
             r#"
@@ -243,7 +209,7 @@ impl ReportService {
         Ok(results)
     }
 
-    /// 採購明細報表
+    /// ?∟頃?敦?梯”
     pub async fn purchase_lines(pool: &PgPool, _query: &ReportQuery) -> Result<Vec<PurchaseLinesReport>> {
         let results = sqlx::query_as::<_, PurchaseLinesReport>(
             r#"
@@ -280,7 +246,7 @@ impl ReportService {
         Ok(results)
     }
 
-    /// 銷售明細報表
+    /// ?瑕?敦?梯”
     pub async fn sales_lines(pool: &PgPool, _query: &ReportQuery) -> Result<Vec<SalesLinesReport>> {
         let results = sqlx::query_as::<_, SalesLinesReport>(
             r#"
@@ -317,7 +283,7 @@ impl ReportService {
         Ok(results)
     }
 
-    /// 成本摘要報表
+    /// ????梯”
     pub async fn cost_summary(pool: &PgPool, _query: &ReportQuery) -> Result<Vec<CostSummaryReport>> {
         let results = sqlx::query_as::<_, CostSummaryReport>(
             r#"
@@ -361,3 +327,5 @@ impl ReportService {
         Ok(results)
     }
 }
+
+

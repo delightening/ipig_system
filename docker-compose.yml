@@ -48,10 +48,17 @@ services:
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@erp.local}
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-ERP System}
       APP_URL: ${APP_URL:-http://localhost}
+      # File upload directory (can be mounted from NAS)
+      UPLOAD_DIR: ${UPLOAD_DIR:-/app/uploads}
       # Development settings - seed default dev users in Docker environment
       SEED_DEV_USERS: ${SEED_DEV_USERS:-true}
     ports:
       - "8000:8000"
+    volumes:
+      # Mount upload directory - use local path or NAS mount point
+      # For local development: ./uploads:/app/uploads
+      # For NAS: /mnt/nas/ipig/uploads:/app/uploads
+      - ${UPLOAD_VOLUME:-./uploads}:/app/uploads
     depends_on:
       db:
         condition: service_healthy
