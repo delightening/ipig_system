@@ -36,7 +36,7 @@ export const PigPenReport: React.FC<PigPenReportProps> = ({ data, onClose }) => 
         return (
             <div className="relative w-full h-full">
                 <div className="w-full h-full border border-black bg-[#FFCC00] flex items-center justify-center font-bold text-[8px]">{pigs.map(p => p.ear_tag).join('.')}</div>
-                <div className="absolute left-1/2 -bottom-[6px] -translate-x-1/2 z-10">{getStatusCircle(pigs)}</div>
+                <div className="absolute left-1/2 -bottom-[15px] -translate-x-1/2">{getStatusCircle(pigs)}</div>
             </div>
         )
     }
@@ -101,7 +101,7 @@ export const PigPenReport: React.FC<PigPenReportProps> = ({ data, onClose }) => 
                                 <div key={g.id} style={{ gridColumn: 2, gridRow: `${g.r} / span ${g.s}` }} className="border-l border-black"><PenUnit id={g.id} color="bg-[#34C759]" reverse /></div>
                             ))}
                         </div>
-                        <div className="h-6 flex"><div className="flex-1 flex items-center justify-center font-bold text-lg text-[#C070C0]">E</div><div className="flex-1 flex items-center justify-center font-bold text-lg text-[#34C759]">G</div></div>
+                        <div className="h-6 flex"><div className="flex-1 flex items-center justify-center font-bold text-lg text-[#000000]">E</div><div className="flex-1 flex items-center justify-center font-bold text-lg text-[#000000]">G</div></div>
                         <div className="grid grid-cols-2" style={{ gridTemplateRows: 'repeat(10, 1.5rem)' }}>
                             {[10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map((n, idx) => (
                                 <div key={`e-b-${n}`} style={{ gridRow: idx + 1 }}><PenUnit id={`E${String(n).padStart(2, '0')}`} color="bg-[#C070C0]" /></div>
@@ -112,7 +112,7 @@ export const PigPenReport: React.FC<PigPenReportProps> = ({ data, onClose }) => 
                                 </div>
                             ))}
                         </div>
-                        <div className="h-6 flex"><div className="flex-1" /><div className="flex-1 flex items-center justify-center font-bold text-lg text-[#FFCC00] mt-[-8px]">F</div></div>
+                        <div className="h-6 flex"><div className="flex-1" /><div className="flex-1 flex items-center justify-center font-bold text-lg text-[#000000] mt-[-8px]">F</div></div>
                     </div>
                 </div>
 
