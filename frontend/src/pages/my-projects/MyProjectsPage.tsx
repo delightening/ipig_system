@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { ProtocolListItem, ProtocolStatus, protocolStatusNames } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,7 +13,16 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { Eye, Loader2, FileText, Calendar, Building } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { useToast } from '@/components/ui/use-toast'
+import { Eye, Loader2, FileText, Calendar, Building, X } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
 const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'> = {
@@ -31,6 +41,11 @@ const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' |
 }
 
 export function MyProjectsPage() {
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
+  const [closeDialogOpen, setCloseDialogOpen] = useState(false)
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null)
+
   const { data: projects, isLoading } = useQuery({
     queryKey: ['my-projects'],
     queryFn: async () => {
@@ -39,6 +54,43 @@ export function MyProjectsPage() {
     },
   })
 
+  // 結案 mutation
+  const closeProtocolMutation = useMutation({
+    mutationFn: async (projectId: number) => {
+      return api.post(`/protocols/${projectId}/status`, {
+        to_status: 'CLOSED',
+        remark: '計畫結案',
+      })
+    },
+    onSuccess: () => {
+      toast({
+        title: '成功',
+        description: '計畫已結案',
+      })
+      queryClient.invalidateQueries({ queryKey: ['my-projects'] })
+      setCloseDialogOpen(false)
+      setSelectedProjectId(null)
+    },
+    onError: (error: any) => {
+      toast({
+        title: '錯誤',
+        description: error?.response?.data?.error?.message || '結案失敗',
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const handleCloseClick = (projectId: number) => {
+    setSelectedProjectId(projectId)
+    setCloseDialogOpen(true)
+  }
+
+  const handleConfirmClose = () => {
+    if (selectedProjectId) {
+      closeProtocolMutation.mutate(selectedProjectId)
+    }
+  }
+
   const getStatusBadge = (status: ProtocolStatus) => {
     return (
       <Badge variant={statusColors[status]}>
@@ -46,6 +98,35 @@ export function MyProjectsPage() {
       </Badge>
     )
   }
+
+  // 計算計畫狀態：申請中、進行中、已結案
+  const getProjectStatus = (status: ProtocolStatus): { label: string; color: 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline' } => {
+    if (status === 'CLOSED') {
+      return { label: '已結案', color: 'outline' }
+    } else if (status === 'APPROVED' || status === 'APPROVED_WITH_CONDITIONS') {
+      return { label: '進行中', color: 'success' }
+    } else {
+      return { label: '申請中', color: 'warning' }
+    }
+  }
+
+  // 排序函數：申請中(1) -> 進行中(2) -> 已結案(3)
+  const getStatusSortOrder = (status: ProtocolStatus): number => {
+    if (status === 'CLOSED') {
+      return 3 // 已結案
+    } else if (status === 'APPROVED' || status === 'APPROVED_WITH_CONDITIONS') {
+      return 2 // 進行中
+    } else {
+      return 1 // 申請中
+    }
+  }
+
+  // 對計劃列表進行排序
+  const sortedProjects = projects ? [...projects].sort((a, b) => {
+    const orderA = getStatusSortOrder(a.status)
+    const orderB = getStatusSortOrder(b.status)
+    return orderA - orderB
+  }) : []
 
   // 統計數據
   const stats = {
@@ -111,12 +192,12 @@ export function MyProjectsPage() {
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : projects && projects.length > 0 ? (
+          ) : sortedProjects && sortedProjects.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>申請案號</TableHead>
                   <TableHead>IACUC No.</TableHead>
+                  <TableHead>狀態</TableHead>
                   <TableHead>委託人</TableHead>
                   <TableHead>委託單位</TableHead>
                   <TableHead>審查狀態</TableHead>
@@ -126,13 +207,18 @@ export function MyProjectsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {projects.map((project) => (
+                {sortedProjects.map((project) => {
+                  const projectStatus = getProjectStatus(project.status)
+                  
+                  return (
                   <TableRow key={project.id}>
-                    <TableCell className="font-mono font-medium">
-                      {project.protocol_no}
-                    </TableCell>
                     <TableCell className="font-mono text-orange-600 font-semibold">
                       {project.iacuc_no || '-'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={projectStatus.color}>
+                        {projectStatus.label}
+                      </Badge>
                     </TableCell>
                     <TableCell>{project.pi_name}</TableCell>
                     <TableCell>{project.pi_organization || '-'}</TableCell>
@@ -153,15 +239,29 @@ export function MyProjectsPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="outline" size="sm" asChild>
-                        <Link to={`/my-projects/${project.id}`}>
-                          <Eye className="mr-2 h-4 w-4" />
-                          檢視
-                        </Link>
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button variant="outline" size="sm" asChild>
+                          <Link to={`/my-projects/${project.id}`}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            檢視
+                          </Link>
+                        </Button>
+                        {project.status !== 'CLOSED' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCloseClick(project.id)}
+                            disabled={closeProtocolMutation.isPending}
+                          >
+                            <X className="mr-2 h-4 w-4" />
+                            結案
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  )
+                })}
               </TableBody>
             </Table>
           ) : (
@@ -175,6 +275,41 @@ export function MyProjectsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* 結案確認對話框 */}
+      <Dialog open={closeDialogOpen} onOpenChange={setCloseDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>確認結案</DialogTitle>
+            <DialogDescription>
+              確定要結案此計畫嗎？此操作無法復原。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCloseDialogOpen(false)}
+              disabled={closeProtocolMutation.isPending}
+            >
+              取消
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmClose}
+              disabled={closeProtocolMutation.isPending}
+            >
+              {closeProtocolMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  處理中...
+                </>
+              ) : (
+                '確認結案'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

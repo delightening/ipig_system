@@ -65,10 +65,12 @@ const CATEGORIES = [
     { code: 'GLV', name: '手套' },
     { code: 'OTH', name: '其他醫材' },
   ]},
-  { code: 'LAB', name: '實驗耗材', subcategories: [
-    { code: 'TUB', name: '試管' },
-    { code: 'PIP', name: '吸管' },
-    { code: 'PLT', name: '培養皿' },
+  { code: 'CON', name: '耗材', subcategories: [
+    { code: 'GLV', name: '手套' },
+    { code: 'GAU', name: '紗布敷料' },
+    { code: 'CLN', name: '清潔消毒' },
+    { code: 'TAG', name: '標示耗材' },
+    { code: 'LAB', name: '實驗耗材' },
     { code: 'OTH', name: '其他耗材' },
   ]},
   { code: 'CHM', name: '化學品', subcategories: [

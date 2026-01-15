@@ -5,9 +5,9 @@ use uuid::Uuid;
 
 use crate::{
     models::{
-        CreateDocumentRequest, DocStatus, DocType, Document, DocumentLine, DocumentLineWithProduct,
-        DocumentListItem, DocumentQuery, DocumentWithLines, UpdateDocumentRequest,
-        PoReceiptStatus, PoReceiptItem,
+        CreateDocumentRequest, DocStatus, DocType, Document, DocumentLine, DocumentLineInput,
+        DocumentLineWithProduct, DocumentListItem, DocumentQuery, DocumentWithLines,
+        PoReceiptStatus, PoReceiptItem, StocktakeScope, UpdateDocumentRequest,
     },
     services::StockService,
     AppError, Result,
@@ -27,14 +27,30 @@ impl DocumentService {
         // 產生單據編號
         let doc_no = Self::generate_doc_no(&mut tx, req.doc_type).await?;
 
+        // 如果是盤點單，根據範圍自動生成盤點項目
+        let lines_to_create = if req.doc_type == DocType::STK {
+            // 盤點單可以根據範圍自動生成，也可以手動提供
+            if req.lines.is_empty() {
+                Self::generate_stocktake_lines(&mut tx, req.warehouse_id, &req.stocktake_scope).await?
+            } else {
+                req.lines.clone()
+            }
+        } else {
+            // 其他單據必須提供明細
+            if req.lines.is_empty() {
+                return Err(AppError::Validation("At least one line is required".to_string()));
+            }
+            req.lines.clone()
+        };
+
         // 建立單據頭
         let document = sqlx::query_as::<_, Document>(
             r#"
             INSERT INTO documents (
                 id, doc_type, doc_no, status, warehouse_id, warehouse_from_id, warehouse_to_id,
-                partner_id, doc_date, remark, created_by, created_at, updated_at
+                partner_id, doc_date, remark, stocktake_scope, created_by, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
             RETURNING *
             "#
         )
@@ -48,13 +64,14 @@ impl DocumentService {
         .bind(req.partner_id)
         .bind(req.doc_date)
         .bind(&req.remark)
+        .bind(&req.stocktake_scope.as_ref().map(|s| serde_json::to_value(s).unwrap_or(serde_json::Value::Null)))
         .bind(created_by)
         .fetch_one(&mut *tx)
         .await?;
 
         // 建立單據明細
         let mut lines = Vec::new();
-        for (idx, line) in req.lines.iter().enumerate() {
+        for (idx, line) in lines_to_create.iter().enumerate() {
             let doc_line = sqlx::query_as::<_, DocumentLine>(
                 r#"
                 INSERT INTO document_lines (
@@ -138,7 +155,13 @@ impl DocumentService {
                 .await?;
 
             // 建立新明細
+            let lines: &Vec<DocumentLineInput> = lines;
             for (idx, line) in lines.iter().enumerate() {
+                // 驗證必填欄位
+                if line.uom.is_empty() {
+                    return Err(AppError::Validation(format!("Line {}: UOM is required", idx + 1)));
+                }
+                
                 sqlx::query(
                     r#"
                     INSERT INTO document_lines (
@@ -260,9 +283,12 @@ impl DocumentService {
         po_lines: &[DocumentLine],
         created_by: Uuid,
     ) -> Result<Uuid> {
-        // 產生入庫單編號
-        let today = Utc::now().format("%Y%m%d").to_string();
-        let prefix = format!("GRN-{}", today);
+        // 產生入庫單編號 (GRN-YYMMDD-{03})
+        let today = Utc::now();
+        let year = today.format("%y").to_string(); // 2-digit year
+        let month_day = today.format("%m%d").to_string();
+        let date_str = format!("{}{}", year, month_day);
+        let prefix = format!("GRN-{}", date_str);
         
         let last_no: Option<String> = sqlx::query_scalar(
             "SELECT doc_no FROM documents WHERE doc_no LIKE $1 ORDER BY doc_no DESC LIMIT 1"
@@ -281,7 +307,7 @@ impl DocumentService {
         } else {
             1
         };
-        let doc_no = format!("{}-{:04}", prefix, seq);
+        let doc_no = format!("{}-{:03}", prefix, seq);
 
         // 建立入庫單頭
         let grn_id = Uuid::new_v4();
@@ -399,28 +425,8 @@ impl DocumentService {
 
         let mut tx = pool.begin().await?;
 
-        // 產生入庫單編號
-        let today = Utc::now().format("%Y%m%d").to_string();
-        let prefix = format!("GRN-{}", today);
-        
-        let last_no: Option<String> = sqlx::query_scalar(
-            "SELECT doc_no FROM documents WHERE doc_no LIKE $1 ORDER BY doc_no DESC LIMIT 1"
-        )
-        .bind(format!("{}%", prefix))
-        .fetch_optional(&mut *tx)
-        .await?;
-
-        let seq = if let Some(last) = last_no {
-            let parts: Vec<&str> = last.split('-').collect();
-            if parts.len() >= 3 {
-                parts[2].parse::<i32>().unwrap_or(0) + 1
-            } else {
-                1
-            }
-        } else {
-            1
-        };
-        let doc_no = format!("{}-{:04}", prefix, seq);
+        // 產生入庫單編號 (統一格式：YYMMDD-{02})
+        let doc_no = Self::generate_doc_no(&mut tx, DocType::GRN).await?;
 
         // 建立入庫單
         let grn_id = Uuid::new_v4();
@@ -575,6 +581,40 @@ impl DocumentService {
         Self::get_by_id(pool, id).await
     }
 
+    /// 刪除單據（僅限草稿狀態）
+    pub async fn delete(pool: &PgPool, id: Uuid) -> Result<()> {
+        let document = sqlx::query_as::<_, Document>(
+            "SELECT * FROM documents WHERE id = $1"
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
+
+        // 只允許刪除草稿狀態的單據
+        if document.status != DocStatus::Draft {
+            return Err(AppError::BusinessRule("Only draft documents can be deleted".to_string()));
+        }
+
+        let mut tx = pool.begin().await?;
+
+        // 刪除單據明細
+        sqlx::query("DELETE FROM document_lines WHERE document_id = $1")
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+
+        // 刪除單據
+        sqlx::query("DELETE FROM documents WHERE id = $1")
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+
+        tx.commit().await?;
+
+        Ok(())
+    }
+
     /// 取得單據列表
     pub async fn list(pool: &PgPool, query: &DocumentQuery) -> Result<Vec<DocumentListItem>> {
         let mut sql = String::from(
@@ -705,8 +745,9 @@ impl DocumentService {
 
         let created_by_name: String = sqlx::query_scalar("SELECT display_name FROM users WHERE id = $1")
             .bind(document.created_by)
-            .fetch_one(pool)
-            .await?;
+            .fetch_optional(pool)
+            .await?
+            .unwrap_or_else(|| "Unknown User".to_string());
 
         let approved_by_name: Option<String> = if let Some(uid) = document.approved_by {
             sqlx::query_scalar("SELECT display_name FROM users WHERE id = $1")
@@ -730,11 +771,18 @@ impl DocumentService {
     }
 
     /// 產生單據編號
+    /// 格式：{PREFIX}-YYMMDD-{02} (例如：SO-260115-01)
     async fn generate_doc_no(tx: &mut sqlx::Transaction<'_, sqlx::Postgres>, doc_type: DocType) -> Result<String> {
-        let today = Utc::now().format("%Y%m%d").to_string();
-        let prefix = format!("{}-{}", doc_type.prefix(), today);
+        // 統一使用 YYMMDD 格式
+        let today = Utc::now();
+        let year = today.format("%y").to_string(); // 2-digit year
+        let month_day = today.format("%m%d").to_string();
+        let date_str = format!("{}{}", year, month_day);
 
-        // 取得當天最後一個序號
+        // 建立前綴：{PREFIX}-YYMMDD
+        let prefix = format!("{}-{}", doc_type.prefix(), date_str);
+
+        // 取得當天最後一個序號（查詢格式：{PREFIX}-YYMMDD-XX）
         let last_no: Option<String> = sqlx::query_scalar(
             "SELECT doc_no FROM documents WHERE doc_no LIKE $1 ORDER BY doc_no DESC LIMIT 1"
         )
@@ -743,6 +791,7 @@ impl DocumentService {
         .await?;
 
         let seq = if let Some(last) = last_no {
+            // 解析格式：{PREFIX}-YYMMDD-XX
             let parts: Vec<&str> = last.split('-').collect();
             if parts.len() >= 3 {
                 parts[2].parse::<i32>().unwrap_or(0) + 1
@@ -753,6 +802,102 @@ impl DocumentService {
             1
         };
 
-        Ok(format!("{}-{:04}", prefix, seq))
+        // 統一使用 2 位數序號格式：{PREFIX}-YYMMDD-{02}
+        let doc_no = format!("{}-{:02}", prefix, seq);
+
+        Ok(doc_no)
+    }
+
+    /// 根據盤點範圍生成盤點項目
+    async fn generate_stocktake_lines(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        warehouse_id: Option<Uuid>,
+        scope: &Option<serde_json::Value>,
+    ) -> Result<Vec<DocumentLineInput>> {
+        let warehouse_id = warehouse_id.ok_or_else(|| AppError::BusinessRule("Warehouse is required for stocktake".to_string()))?;
+
+        // 解析範圍設定
+        let scope: Option<StocktakeScope> = if let Some(ref scope_json) = scope {
+            serde_json::from_value(scope_json.clone()).ok()
+        } else {
+            None
+        };
+
+        // 使用 StockService 查詢庫存現況
+        use crate::models::InventoryQuery;
+        let _query = InventoryQuery {
+            warehouse_id: Some(warehouse_id),
+            product_id: None,
+            keyword: None,
+            batch_no: None,
+            low_stock_only: None,
+        };
+        
+        // 由於我們在事務中，需要直接查詢
+        let inventory_items: Vec<(Uuid, String, Decimal)> = sqlx::query_as(
+            r#"
+            SELECT 
+                p.id as product_id,
+                p.base_uom,
+                COALESCE(SUM(
+                    CASE 
+                        WHEN sl.direction IN ('in', 'transfer_in', 'adjust_in') THEN sl.qty_base
+                        WHEN sl.direction IN ('out', 'transfer_out', 'adjust_out') THEN -sl.qty_base
+                        ELSE 0
+                    END
+                ), 0) as qty_on_hand
+            FROM products p
+            LEFT JOIN stock_ledger sl ON p.id = sl.product_id AND sl.warehouse_id = $1
+            WHERE p.is_active = true
+            GROUP BY p.id, p.base_uom
+            HAVING COALESCE(SUM(
+                CASE 
+                    WHEN sl.direction IN ('in', 'transfer_in', 'adjust_in') THEN sl.qty_base
+                    WHEN sl.direction IN ('out', 'transfer_out', 'adjust_out') THEN -sl.qty_base
+                    ELSE 0
+                END
+            ), 0) != 0
+            ORDER BY p.sku
+            "#
+        )
+        .bind(warehouse_id)
+        .fetch_all(&mut **tx)
+        .await?;
+
+        // 根據範圍篩選
+        let filtered_items: Vec<(Uuid, String, Decimal)> = if let Some(ref scope) = scope {
+            inventory_items
+                .into_iter()
+                .filter(|(product_id, _, _)| {
+                    // 如果指定了產品ID列表，只包含這些產品
+                    if let Some(ref product_ids) = scope.product_ids {
+                        if !product_ids.is_empty() && !product_ids.contains(product_id) {
+                            return false;
+                        }
+                    }
+                    // 如果指定了類別，需要查詢產品類別（這裡簡化處理，實際應該查詢）
+                    // TODO: 如果需要按類別篩選，需要額外查詢產品類別
+                    true
+                })
+                .collect()
+        } else {
+            inventory_items
+        };
+
+        // 轉換為 DocumentLineInput
+        let lines: Vec<DocumentLineInput> = filtered_items
+            .into_iter()
+            .map(|(product_id, uom, qty)| DocumentLineInput {
+                product_id,
+                qty, // 系統庫存數量作為初始值
+                uom,
+                unit_price: None,
+                batch_no: None,
+                expiry_date: None,
+                remark: Some("系統庫存".to_string()),
+            })
+            .collect();
+
+        Ok(lines)
     }
 }

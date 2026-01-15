@@ -82,7 +82,7 @@ export function SalesLinesReportPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">銷售明細報表</h1>
-          <p className="text-muted-foreground">銷售單、銷售出庫、銷售退貨明細</p>
+          <p className="text-muted-foreground">銷售單、銷售出庫明細</p>
         </div>
         <Button onClick={exportToCSV} disabled={!report?.length}>
           <Download className="mr-2 h-4 w-4" />

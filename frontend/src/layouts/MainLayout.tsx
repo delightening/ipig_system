@@ -117,7 +117,6 @@ const navItems: NavItem[] = [
     children: [
       { title: '銷售單', href: '/documents?type=SO' },
       { title: '銷售出庫', href: '/documents?type=DO' },
-      { title: '銷售退貨', href: '/documents?type=SR' },
     ],
     permission: 'erp',
   },

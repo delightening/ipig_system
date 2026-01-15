@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api, { LowStockAlert, DocumentListItem } from '@/lib/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -23,6 +24,8 @@ import {
 } from 'lucide-react'
 
 export function DashboardPage() {
+  const navigate = useNavigate()
+
   // 低庫存警示
   const { data: lowStockAlerts, isLoading: loadingAlerts } = useQuery({
     queryKey: ['low-stock-alerts'],
@@ -63,10 +66,10 @@ export function DashboardPage() {
       PR: '採購退貨',
       SO: '銷售單',
       DO: '銷售出庫',
-      SR: '銷售退貨',
       TR: '調撥單',
       STK: '盤點單',
       ADJ: '調整單',
+      RM: '退料單',
     }
     return names[type] || type
   }
@@ -88,7 +91,7 @@ export function DashboardPage() {
         (d) => d.status === 'approved' && d.approved_at?.startsWith(dateStr)
       )
 
-      const inbound = dayDocs.filter((d) => ['GRN', 'SR'].includes(d.doc_type)).length
+      const inbound = dayDocs.filter((d) => ['GRN'].includes(d.doc_type)).length
       const outbound = dayDocs.filter((d) => ['DO', 'PR'].includes(d.doc_type)).length
 
       days.push({ date: dateStr, dateStr: displayDate, inbound, outbound })
@@ -150,7 +153,7 @@ export function DashboardPage() {
                 ? '-'
                 : recentDocuments?.filter(
                   (d) =>
-                    ['GRN', 'SR'].includes(d.doc_type) &&
+                    ['GRN'].includes(d.doc_type) &&
                     d.status === 'approved' &&
                     new Date(d.approved_at || '').toDateString() === new Date().toDateString()
                 ).length || 0}
@@ -352,7 +355,11 @@ export function DashboardPage() {
                 </TableHeader>
                 <TableBody>
                   {recentDocuments.slice(0, 5).map((doc) => (
-                    <TableRow key={doc.id}>
+                    <TableRow 
+                      key={doc.id}
+                      className="cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => navigate(`/documents/${doc.id}`)}
+                    >
                       <TableCell className="font-medium">{doc.doc_no}</TableCell>
                       <TableCell>{getDocTypeName(doc.doc_type)}</TableCell>
                       <TableCell>{getStatusBadge(doc.status)}</TableCell>

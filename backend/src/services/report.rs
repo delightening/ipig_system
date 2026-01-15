@@ -1,4 +1,4 @@
-﻿use chrono::NaiveDate;
+use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
@@ -155,7 +155,6 @@ impl ReportService {
         }
         if query.category_id.is_some() {
             sql.push_str(&format!(" AND p.category_id = ${}", param_idx));
-            param_idx += 1;
         }
 
         sql.push_str(" AND COALESCE(i.qty_on_hand, 0) != 0");
@@ -272,7 +271,7 @@ impl ReportService {
             LEFT JOIN partners pa ON d.partner_id = pa.id
             INNER JOIN users u1 ON d.created_by = u1.id
             LEFT JOIN users u2 ON d.approved_by = u2.id
-            WHERE d.doc_type IN ('SO', 'DO', 'SR')
+            WHERE d.doc_type IN ('SO', 'DO')
             ORDER BY d.doc_date DESC, d.doc_no, dl.line_no
             LIMIT 1000
             "#

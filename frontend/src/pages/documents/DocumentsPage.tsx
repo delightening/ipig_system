@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { DocumentListItem, DocType } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,7 +21,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Search, Eye, Loader2, FileText, Calendar, X, Edit } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { useToast } from '@/components/ui/use-toast'
+import { Plus, Search, Eye, Loader2, FileText, Calendar, X, Edit, Trash2 } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
 
 const docTypeNames: Record<DocType, string> = {
@@ -30,10 +39,10 @@ const docTypeNames: Record<DocType, string> = {
   PR: '採購退貨',
   SO: '銷售單',
   DO: '銷售出庫',
-  SR: '銷售退貨',
   TR: '調撥單',
   STK: '盤點單',
   ADJ: '調整單',
+  RM: '退料單',
 }
 
 const statusNames: Record<string, string> = {
@@ -50,6 +59,10 @@ export function DocumentsPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [documentToDelete, setDocumentToDelete] = useState<DocumentListItem | null>(null)
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
 
   const { data: documents, isLoading } = useQuery({
     queryKey: ['documents', typeFilter, statusFilter, search, dateFrom, dateTo],
@@ -64,6 +77,39 @@ export function DocumentsPage() {
       return response.data
     },
   })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/documents/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
+      toast({
+        title: '成功',
+        description: '單據已刪除',
+      })
+      setDeleteDialogOpen(false)
+      setDocumentToDelete(null)
+    },
+    onError: (error: any) => {
+      toast({
+        title: '錯誤',
+        description: error?.response?.data?.error?.message || '刪除失敗',
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const handleDeleteClick = (doc: DocumentListItem) => {
+    setDocumentToDelete(doc)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleConfirmDelete = () => {
+    if (documentToDelete) {
+      deleteMutation.mutate(documentToDelete.id)
+    }
+  }
 
   const clearFilters = () => {
     setSearch('')
@@ -238,11 +284,22 @@ export function DocumentsPage() {
                         </Link>
                       </Button>
                       {doc.status === 'draft' && (
-                        <Button variant="ghost" size="icon" asChild title="編輯">
-                          <Link to={`/documents/${doc.id}/edit`}>
-                            <Edit className="h-4 w-4" />
-                          </Link>
-                        </Button>
+                        <>
+                          <Button variant="ghost" size="icon" asChild title="編輯">
+                            <Link to={`/documents/${doc.id}/edit`}>
+                              <Edit className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteClick(doc)}
+                            title="刪除"
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
                       )}
                     </div>
                   </TableCell>
@@ -259,6 +316,31 @@ export function DocumentsPage() {
           </TableBody>
         </Table>
       </div>
+
+      {/* 刪除確認對話框 */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>確認刪除</DialogTitle>
+            <DialogDescription>
+              確定要刪除單據「{documentToDelete?.doc_no}」嗎？此操作無法復原。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              取消
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              確認刪除
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

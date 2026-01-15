@@ -1240,9 +1240,8 @@ JWT_SECRET=CHANGE_THIS_JWT_SECRET_GENERATE_USING_POWERSHELL
 | `erp.sales.create` | 建立銷售單 |
 | `erp.sales.approve` | 核准銷售單 |
 | `erp.do.create` | 建立銷售出庫 |
-| `erp.sr.create` | 建立銷售退貨 |
 
-**向後兼容：** 舊代碼 `document.*`, `po.*`, `grn.*`, `pr.*`, `so.*`, `do.*`, `sr.*` 仍然有效
+**向後兼容：** 舊代碼 `document.*`, `po.*`, `grn.*`, `pr.*`, `so.*`, `do.*` 仍然有效
 
 #### 6.3.3 庫存作業
 | 權限代碼 | 說明 |

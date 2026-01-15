@@ -49,7 +49,7 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/partners/:id", get(handlers::get_partner).put(handlers::update_partner).delete(handlers::delete_partner))
         // Documents
         .route("/documents", get(handlers::list_documents).post(handlers::create_document))
-        .route("/documents/:id", get(handlers::get_document).put(handlers::update_document))
+        .route("/documents/:id", get(handlers::get_document).put(handlers::update_document).delete(handlers::delete_document))
         .route("/documents/:id/submit", post(handlers::submit_document))
         .route("/documents/:id/approve", post(handlers::approve_document))
         .route("/documents/:id/cancel", post(handlers::cancel_document))

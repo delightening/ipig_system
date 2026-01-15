@@ -17,11 +17,9 @@ pub struct Warehouse {
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreateWarehouseRequest {
-    #[validate(length(min = 1, max = 50, message = "Code must be 1-50 characters"))]
-    pub code: String,
+    pub code: Option<String>,
     #[validate(length(min = 1, max = 200, message = "Name must be 1-200 characters"))]
     pub name: String,
-    pub address: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Validate)]

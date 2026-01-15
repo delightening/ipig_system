@@ -9,31 +9,68 @@ use crate::{
 pub struct WarehouseService;
 
 impl WarehouseService {
-    /// 建立倉庫
-    pub async fn create(pool: &PgPool, req: &CreateWarehouseRequest) -> Result<Warehouse> {
-        // 檢查 code 是否已存在
-        let exists: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM warehouses WHERE code = $1)"
+    /// 自動生成倉庫代碼（流水號格式：WH001, WH002, ...）
+    async fn generate_code(pool: &PgPool) -> Result<String> {
+        let prefix = "WH";
+        
+        // 取得所有以 WH 開頭的代碼
+        let codes: Vec<String> = sqlx::query_scalar(
+            "SELECT code FROM warehouses WHERE code LIKE $1 ORDER BY code DESC"
         )
-        .bind(&req.code)
-        .fetch_one(pool)
+        .bind(format!("{}%", prefix))
+        .fetch_all(pool)
         .await?;
 
-        if exists {
-            return Err(AppError::Conflict("Warehouse code already exists".to_string()));
-        }
+        // 解析序號並找出最大值
+        let max_seq = codes
+            .iter()
+            .filter_map(|code| {
+                if code.starts_with(prefix) && code.len() > prefix.len() {
+                    let num_str = &code[prefix.len()..];
+                    num_str.parse::<i32>().ok()
+                } else {
+                    None
+                }
+            })
+            .max();
+
+        let seq = max_seq.map(|s| s + 1).unwrap_or(1);
+        Ok(format!("{}{:03}", prefix, seq))
+    }
+
+    /// 建立倉庫
+    pub async fn create(pool: &PgPool, req: &CreateWarehouseRequest) -> Result<Warehouse> {
+        // 如果 code 為空或未提供，則自動生成
+        let code = if req.code.is_none() || req.code.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()).is_none() {
+            Self::generate_code(pool).await?
+        } else {
+            let provided_code = req.code.as_ref().unwrap().trim().to_string();
+            
+            // 檢查 code 是否已存在
+            let exists: bool = sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM warehouses WHERE code = $1)"
+            )
+            .bind(&provided_code)
+            .fetch_one(pool)
+            .await?;
+
+            if exists {
+                return Err(AppError::Conflict("Warehouse code already exists".to_string()));
+            }
+            
+            provided_code
+        };
 
         let warehouse = sqlx::query_as::<_, Warehouse>(
             r#"
             INSERT INTO warehouses (id, code, name, address, is_active, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, true, NOW(), NOW())
+            VALUES ($1, $2, $3, NULL, true, NOW(), NOW())
             RETURNING *
             "#
         )
         .bind(Uuid::new_v4())
-        .bind(&req.code)
+        .bind(&code)
         .bind(&req.name)
-        .bind(&req.address)
         .fetch_one(pool)
         .await?;
 

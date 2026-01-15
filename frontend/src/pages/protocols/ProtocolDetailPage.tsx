@@ -431,7 +431,7 @@ export function ProtocolDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/my-projects')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -484,7 +484,7 @@ export function ProtocolDetailPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <FileText className="h-4 w-4 text-blue-500" />
-              IACUC 編號
+              {protocol.iacuc_no?.startsWith('APIG-') ? 'APIG 編號' : 'IACUC 編號'}
             </CardTitle>
           </CardHeader>
           <CardContent>

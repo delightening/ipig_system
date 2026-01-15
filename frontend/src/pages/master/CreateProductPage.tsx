@@ -14,7 +14,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
-import { Slider } from '@/components/ui/slider'
 import { SmartInput, ProductSuggestion } from '@/components/product/SmartInput'
 import { QuickSelectGrid, QuickSelectItem, SpecSelectionPanel, QuickSelectSpec } from '@/components/product/QuickSelectCard'
 import { StepIndicator, Step } from '@/components/product/StepIndicator'
@@ -67,18 +66,15 @@ const CATEGORIES = [
     ]
   },
   {
-    code: 'MED', name: '醫材', icon: <Syringe className="w-4 h-4" />, subcategories: [
-      { code: 'SYR', name: '注射器材' },
-      { code: 'BND', name: '敷料繃帶' },
-      { code: 'GLV', name: '手套' },
-      { code: 'OTH', name: '其他醫材' },
-    ]
+    code: 'MED', name: '醫材', icon: <Syringe className="w-4 h-4" />, subcategories: []
   },
   {
-    code: 'LAB', name: '實驗耗材', icon: <TestTube className="w-4 h-4" />, subcategories: [
-      { code: 'TUB', name: '試管' },
-      { code: 'PIP', name: '吸管' },
-      { code: 'PLT', name: '培養皿' }, /*mark*/
+    code: 'CON', name: '耗材', icon: <Package className="w-4 h-4" />, subcategories: [
+      { code: 'GLV', name: '手套' },
+      { code: 'GAU', name: '紗布敷料' },
+      { code: 'CLN', name: '清潔消毒' },
+      { code: 'TAG', name: '標示耗材' },
+      { code: 'LAB', name: '實驗耗材' },
       { code: 'OTH', name: '其他耗材' },
     ]
   },
@@ -180,7 +176,9 @@ interface ProductFormData {
   spec: string
   category: string
   subcategory: string
-  // 雙層包裝單位
+  // 包裝層數：2層或3層
+  packagingLayers: 2 | 3
+  // 雙層或三層包裝單位
   outerUnit: string  // 外層單位（箱、盒等）
   outerQty: number   // 外層數量 (通常為1)
   innerUnit: string  // 內層單位（盒、支、個、雙等）
@@ -189,9 +187,12 @@ interface ProductFormData {
   baseQty: number    // 1 內層 = n 基礎
   trackBatch: boolean
   trackExpiry: boolean
+  currentStock: number  // 當前庫存值
+  currentStockUnit: string  // 當前庫存單位
   safetyStock: number
   safetyStockUnit: string
   reorderPoint: number
+  reorderPointUnit: string  // 補貨提醒點單位
 }
 
 const initialFormData: ProductFormData = {
@@ -200,6 +201,7 @@ const initialFormData: ProductFormData = {
   spec: '',
   category: '',
   subcategory: '',
+  packagingLayers: 2,
   outerUnit: '',
   outerQty: 1,
   innerUnit: '',
@@ -208,9 +210,12 @@ const initialFormData: ProductFormData = {
   baseQty: 1,
   trackBatch: true,
   trackExpiry: true,
+  currentStock: 0,
+  currentStockUnit: '',
   safetyStock: 100,
   safetyStockUnit: '',
   reorderPoint: 50,
+  reorderPointUnit: '',
 }
 
 export function CreateProductPage() {
@@ -245,7 +250,12 @@ export function CreateProductPage() {
     const fields: MissingField[] = []
     if (!formData.name && !formData.rawInput) fields.push({ field: 'name', label: '產品名稱' })
     if (!formData.category) fields.push({ field: 'category', label: '分類' })
-    if (!formData.subcategory && formData.category) fields.push({ field: 'subcategory', label: '子分類' })
+    // MED 和 LAB 沒有子分類，不需要驗證
+    const categoryHasSubcategories = formData.category && 
+      (CATEGORIES.find(c => c.code === formData.category)?.subcategories?.length ?? 0) > 0
+    if (!formData.subcategory && formData.category && categoryHasSubcategories) {
+      fields.push({ field: 'subcategory', label: '子分類' })
+    }
     if (!formData.baseUnit) fields.push({ field: 'baseUnit', label: '基礎單位' })
     return fields
   }, [formData])
@@ -278,7 +288,13 @@ export function CreateProductPage() {
     }
 
     // 檢查必要欄位
-    if (!formData.category || !formData.subcategory || !formData.baseUnit || !formData.name) {
+    // MED 和 LAB 沒有子分類，不需要檢查 subcategory
+    const categoryData = CATEGORIES.find(c => c.code === formData.category)
+    const requiresSubcategory = (categoryData?.subcategories?.length ?? 0) > 0
+    if (!formData.category || 
+        (requiresSubcategory && !formData.subcategory) || 
+        !formData.baseUnit || 
+        !formData.name) {
       setSkuStatus('S0')
       setPreviewResult(null)
       return
@@ -291,7 +307,12 @@ export function CreateProductPage() {
     try {
       // 預覽 SKU：種類-品項-流水號
       const category = formData.category || 'CAT'
-      const subcategory = formData.subcategory || 'SUB'
+      // 如果分類沒有子分類（如 MED、LAB），使用分類代碼作為子分類
+      const categoryData = CATEGORIES.find(c => c.code === category)
+      const hasSubcategories = (categoryData?.subcategories?.length ?? 0) > 0
+      const subcategory = hasSubcategories 
+        ? (formData.subcategory || 'SUB')
+        : category  // 沒有子分類時，使用分類代碼
 
       // 預覽 SKU
       const previewSku = `${category}-${subcategory}-XXX`
@@ -313,7 +334,14 @@ export function CreateProductPage() {
             code: 'ITEM',
             label: '品項',
             value: subcategory,
-            source: CATEGORIES.find(c => c.code === formData.category)?.subcategories.find(s => s.code === formData.subcategory)?.name || formData.subcategory,
+            source: (() => {
+              const categoryData = CATEGORIES.find(c => c.code === formData.category)
+              if (!categoryData || (categoryData.subcategories?.length ?? 0) === 0) {
+                // 沒有子分類時，顯示分類名稱
+                return categoryData?.name || formData.category
+              }
+              return categoryData.subcategories.find(s => s.code === formData.subcategory)?.name || formData.subcategory
+            })(),
           },
           {
             code: 'SERIAL',
@@ -337,7 +365,18 @@ export function CreateProductPage() {
     } finally {
       setIsPreviewLoading(false)
     }
-  }, [canPreview, formData.category, formData.subcategory, formData.baseUnit, formData.name, formData.rawInput, parseInput])
+  }, [canPreview, formData.category, formData.subcategory, formData.baseUnit, formData.name, formData.rawInput])
+
+  // 當選擇沒有子分類的類別時，自動清空 subcategory
+  useEffect(() => {
+    if (formData.category) {
+      const categoryData = CATEGORIES.find(c => c.code === formData.category)
+      const hasSubcategories = (categoryData?.subcategories?.length ?? 0) > 0
+      if (!hasSubcategories && formData.subcategory) {
+        setFormData(prev => ({ ...prev, subcategory: '' }))
+      }
+    }
+  }, [formData.category, formData.subcategory])
 
   // 監聽輸入變化，自動預覽
   useEffect(() => {
@@ -386,12 +425,16 @@ export function CreateProductPage() {
   const handleQuickItemSelect = (item: QuickSelectItem) => {
     setSelectedQuickItem(item)
     setSelectedSpec(null)
+    let category = item.id === 'glove' || item.id === 'mask' ? 'MED' : ''
+    if (item.id === 'cotton' || item.id === 'gauze' || item.id === 'syringe' || item.id === 'alcohol' || item.id === 'saline') {
+      category = 'CON'
+    }
     setFormData(prev => ({
       ...prev,
       rawInput: item.label,
       name: item.label,
       spec: '',
-      category: item.id === 'glove' || item.id === 'mask' ? 'MED' : '',
+      category: category,
       subcategory: item.id === 'glove' ? 'GLV' : '',
     }))
   }
@@ -416,18 +459,42 @@ export function CreateProductPage() {
     mutationFn: async () => {
       setSkuStatus('S5')
 
+      // 根據包裝層數確定消耗單位和包裝單位
+      // 兩層：消耗每內層，baseUnit = innerUnit
+      // 三層：消耗每基礎單位，baseUnit 是基礎單位
+      const consumptionUnit = formData.packagingLayers === 2 
+        ? (formData.innerUnit || formData.baseUnit || 'EA')
+        : (formData.baseUnit || 'EA')
+      
+      const packUnit = formData.packagingLayers === 2
+        ? (formData.outerUnit || formData.innerUnit || consumptionUnit)  // 兩層：外層或內層作為包裝單位
+        : (formData.innerUnit || formData.baseUnit || consumptionUnit)  // 三層：內層作為包裝單位
+      
+      const packQty = formData.packagingLayers === 2
+        ? (formData.outerUnit ? formData.innerQty : 1)  // 兩層：1外層 = n內層
+        : (formData.innerQty * formData.baseQty)  // 三層：1內層 = n基礎單位
+
+      // 如果分類沒有子分類，使用分類代碼作為子分類
+      const categoryData = CATEGORIES.find(c => c.code === formData.category)
+      const hasSubcategories = (categoryData?.subcategories?.length ?? 0) > 0
+      const subcategoryCode = hasSubcategories 
+        ? formData.subcategory 
+        : formData.category  // 沒有子分類時，使用分類代碼
+      
       const response = await api.post('/products', {
         name: formData.name || formData.rawInput.split(' ')[0],
         spec: formData.spec,
-        base_uom: formData.baseUnit || 'EA',
+        base_uom: consumptionUnit,  // 消耗單位
         track_batch: formData.trackBatch,
         track_expiry: formData.trackExpiry,
         safety_stock: formData.safetyStock || null,
+        safety_stock_uom: formData.safetyStockUnit || null,
         reorder_point: formData.reorderPoint || null,
+        reorder_point_uom: formData.reorderPointUnit || null,
         category_code: formData.category,
-        subcategory_code: formData.subcategory,
-        pack_unit: formData.innerUnit || formData.baseUnit,
-        pack_qty: (formData.innerQty || 1) * (formData.baseQty || 1),
+        subcategory_code: subcategoryCode,
+        pack_unit: packUnit,
+        pack_qty: packQty,
       })
 
       return response.data
@@ -657,76 +724,143 @@ export function CreateProductPage() {
                       <div className="space-y-2">
                         <Label>分類（系統推薦）</Label>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {CATEGORIES.slice(0, 4).map((cat) => (
-                            <button
-                              key={cat.code}
-                              type="button"
-                              onClick={() => setFormData(prev => ({
-                                ...prev,
-                                category: cat.code,
-                                subcategory: ''
-                              }))}
-                              disabled={isCreated}
-                              className={cn(
-                                "flex items-center gap-3 p-3 rounded-lg border-2 text-left transition-all",
-                                formData.category === cat.code
-                                  ? "border-primary bg-primary/5"
-                                  : "border-slate-200 dark:border-slate-700 hover:border-primary/50"
-                              )}
-                            >
-                              <div className={cn(
-                                "p-2 rounded-md",
-                                formData.category === cat.code ? "bg-primary/10 text-primary" : "bg-slate-100 dark:bg-slate-800"
-                              )}>
-                                {cat.icon}
-                              </div>
-                              <span className="font-medium">{cat.name}</span>
-                              {cat.code === 'DRG' && formData.name?.toLowerCase().match(/cillin|mycin|oxacin/) && (
-                                <span className="ml-auto text-xs bg-success/10 text-success px-2 py-0.5 rounded-full">
-                                  ✨ 推薦
-                                </span>
-                              )}
-                            </button>
-                          ))}
+                          {CATEGORIES.slice(0, 4).map((cat) => {
+                            return (
+                              <button
+                                key={cat.code}
+                                type="button"
+                                onClick={() => {
+                                  const categoryData = CATEGORIES.find(c => c.code === cat.code)
+                                  // 如果類別沒有子分類（如 MED），清空 subcategory
+                                  const defaultSubcategory = (categoryData?.subcategories?.length ?? 0) > 0 ? '' : ''
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    category: cat.code,
+                                    subcategory: defaultSubcategory
+                                  }))
+                                }}
+                                disabled={isCreated}
+                                className={cn(
+                                  "flex items-center gap-3 p-3 rounded-lg border-2 text-left transition-all",
+                                  formData.category === cat.code
+                                    ? "border-primary bg-primary/5"
+                                    : "border-slate-200 dark:border-slate-700 hover:border-primary/50"
+                                )}
+                              >
+                                <div className={cn(
+                                  "p-2 rounded-md",
+                                  formData.category === cat.code
+                                    ? "bg-primary/10 text-primary"
+                                    : "bg-slate-100 dark:bg-slate-800"
+                                )}>
+                                  {cat.icon}
+                                </div>
+                                <span className="font-medium">{cat.name}</span>
+                                {cat.code === 'DRG' && formData.name?.toLowerCase().match(/cillin|mycin|oxacin/) && (
+                                  <span className="ml-auto text-xs bg-success/10 text-success px-2 py-0.5 rounded-full">
+                                    ✨ 推薦
+                                  </span>
+                                )}
+                              </button>
+                            )
+                          })}
                         </div>
                       </div>
 
-                      {/* Subcategory */}
-                      {formData.category && (
-                        <div className="space-y-2">
-                          <Label>子分類</Label>
-                          <Select
-                            value={formData.subcategory}
-                            onValueChange={(v) => setFormData(prev => ({ ...prev, subcategory: v }))}
-                            disabled={isCreated}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="選擇子分類" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {CATEGORIES.find(c => c.code === formData.category)?.subcategories.map((sub) => (
-                                <SelectItem key={sub.code} value={sub.code}>
-                                  {sub.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
+                      {/* Subcategory - 僅在有子分類的類別時顯示 */}
+                      {formData.category && (() => {
+                        // LAB 映射到 CON，所以檢查 CON 是否有子分類
+                        const displayCategory = formData.category === 'CON' ? 'CON' : formData.category
+                        const category = CATEGORIES.find(c => c.code === displayCategory)
+                        const hasSubcategories = (category?.subcategories?.length ?? 0) > 0
+                        
+                        if (!hasSubcategories) {
+                          // 沒有子分類的類別（如 MED、LAB），隱藏選單（subcategory 已由 useEffect 清除）
+                          return null
+                        }
+                        
+                        return (
+                          <div className="space-y-2">
+                            <Label>子分類</Label>
+                            <Select
+                              value={formData.subcategory}
+                              onValueChange={(v) => setFormData(prev => ({ ...prev, subcategory: v }))}
+                              disabled={isCreated}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="選擇子分類" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {category?.subcategories.map((sub) => (
+                                  <SelectItem key={sub.code} value={sub.code}>
+                                    {sub.name}
+                                  </SelectItem>
+                                )) || []}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )
+                      })()}
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* Unit Selection - 雙層包裝單位 */}
+                {/* Unit Selection - 雙層或三層包裝單位 */}
                 <Card>
                   <CardContent className="pt-6">
                     <h3 className="text-lg font-semibold mb-4">包裝單位</h3>
                     <div className="space-y-6">
-                      {/* 外層包裝 */}
+                      {/* 包裝層數選擇 */}
                       <div className="space-y-3">
-                        <Label className="text-sm font-medium">外層包裝（可選）</Label>
-                        <div className="flex items-center gap-3">
-                          <div className="flex flex-wrap gap-2 flex-1">
+                        <Label className="text-sm font-medium">包裝層數</Label>
+                        <div className="flex gap-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              // 切換到兩層時，清除外層單位和基礎單位，內層成為消耗單位
+                              setFormData(prev => ({ 
+                                ...prev, 
+                                packagingLayers: 2, 
+                                outerUnit: '',
+                                baseUnit: prev.innerUnit || prev.baseUnit, // 內層成為基礎單位
+                                baseQty: 1
+                              }))
+                            }}
+                            disabled={isCreated}
+                            className={cn(
+                              "flex-1 p-3 rounded-lg border-2 transition-all",
+                              formData.packagingLayers === 2
+                                ? "border-primary bg-primary/10 text-primary font-medium"
+                                : "border-slate-200 dark:border-slate-700 hover:border-primary/50"
+                            )}
+                          >
+                            兩層包裝
+                            <span className="block text-xs mt-1 text-slate-500">外層 → 內層（消耗每內層）</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, packagingLayers: 3 }))}
+                            disabled={isCreated}
+                            className={cn(
+                              "flex-1 p-3 rounded-lg border-2 transition-all",
+                              formData.packagingLayers === 3
+                                ? "border-primary bg-primary/10 text-primary font-medium"
+                                : "border-slate-200 dark:border-slate-700 hover:border-primary/50"
+                            )}
+                          >
+                            三層包裝
+                            <span className="block text-xs mt-1 text-slate-500">外層 → 內層 → 基礎（消耗每基礎）</span>
+                          </button>
+                        </div>
+                      </div>
+                      {/* 外層包裝和內層包裝（兩層和三層都顯示） */}
+                      {(formData.packagingLayers === 2 || formData.packagingLayers === 3) && (
+                        <div className="space-y-6">
+                          {/* 外層包裝（兩層和三層都顯示） */}
+                          <div className="space-y-3">
+                            <Label className="text-sm font-medium">外層包裝</Label>
+                            <div className="flex items-center gap-3">
+                              <div className="flex flex-wrap gap-2 flex-1">
                             {UNITS.outer.map((unit) => (
                               <button
                                 key={unit.code}
@@ -750,7 +884,6 @@ export function CreateProductPage() {
                                 <span className="text-xs text-slate-500">{unit.name}</span>
                               </button>
                             ))}
-                            {/* 自行填入按鈕 */}
                             <button
                               type="button"
                               onClick={() => {
@@ -806,122 +939,183 @@ export function CreateProductPage() {
                         </div>
                       </div>
 
-                      {/* 內層包裝 */}
-                      <div className="space-y-3">
-                        <Label className="text-sm font-medium">內層包裝</Label>
-                        <div className="flex items-center gap-3">
-                          <div className="flex flex-wrap gap-2 flex-1">
-                            {UNITS.inner.map((unit) => (
-                              <button
-                                key={unit.code}
-                                type="button"
-                                onClick={() => {
-                                  setIsInnerCustom(false);
-                                  setFormData(prev => ({
-                                    ...prev,
-                                    innerUnit: unit.name
-                                  }))
-                                }}
-                                disabled={isCreated}
-                                className={cn(
-                                  "flex flex-col items-center justify-center w-16 h-14 rounded-lg border-2 transition-all",
-                                  formData.innerUnit === unit.name && !isInnerCustom
-                                    ? "border-primary bg-primary/10"
-                                    : "border-slate-200 dark:border-slate-700 hover:border-primary/50"
-                                )}
-                              >
-                                <span className="font-mono font-semibold text-sm">{unit.code}</span>
-                                <span className="text-xs text-slate-500">{unit.name}</span>
-                              </button>
-                            ))}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsInnerCustom(true);
-                                setFormData(prev => ({ ...prev, innerUnit: customInner }));
-                              }}
-                              disabled={isCreated}
-                              className={cn(
-                                "flex flex-col items-center justify-center w-16 h-14 rounded-lg border-2 border-dashed transition-all",
-                                isInnerCustom
-                                  ? "border-primary bg-primary/10"
-                                  : "border-slate-300 dark:border-slate-600 hover:border-primary/50"
-                              )}
-                            >
-                              <Plus className="w-5 h-5 text-slate-400" />
-                              <span className="text-[10px] text-slate-500 mt-1">自填量詞</span>
-                            </button>
-                          </div>
-                          {isInnerCustom && (
-                            <div className="flex items-center gap-2">
-                              <Input
-                                placeholder="輸入量詞"
-                                value={customInner}
-                                onChange={(e) => {
-                                  setCustomInner(e.target.value);
-                                  setFormData(prev => ({ ...prev, innerUnit: e.target.value }));
-                                }}
-                                className="w-24"
-                                disabled={isCreated}
-                              />
-                            </div>
+                          {/* 內層包裝 */}
+                          <div className="space-y-3">
+                        <Label className="text-sm font-medium">
+                          內層包裝
+                          {formData.packagingLayers === 2 && (
+                            <span className="text-xs text-slate-400 ml-2">（消耗單位）</span>
                           )}
-                          {formData.innerUnit && (
-                            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 whitespace-nowrap ml-auto">
-                              <span className="text-sm text-slate-500">
-                                {formData.outerUnit ? `一${formData.outerUnit}` : '一'}
-                              </span>
-                              <Input
-                                type="number"
-                                min={1}
-                                value={formData.innerQty}
-                                onChange={(e) => setFormData(prev => ({ ...prev, innerQty: parseInt(e.target.value) || 1 }))}
-                                className="w-16 h-8 text-center"
-                                disabled={isCreated}
-                              />
-                              <span className="text-sm text-slate-500">
-                                {formData.innerUnit}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* 基礎單位（庫存管理用） */}
-                      <div className="space-y-6">
-                        <div className="space-y-3">
-                          <Label className="text-sm font-medium">基礎單位 <span className="text-xs text-slate-400">(庫存管理)</span></Label>
-                          <div className="flex items-center gap-3">
-                            <div className="flex flex-wrap gap-2 flex-1">
-                              {UNITS.base.map((unit) => (
+                        </Label>
+                            <div className="flex items-center gap-3">
+                              <div className="flex flex-wrap gap-2 flex-1">
+                                {UNITS.inner.map((unit) => (
+                                  <button
+                                    key={unit.code}
+                                    type="button"
+                                    onClick={() => {
+                                      setIsInnerCustom(false);
+                                      const updates: Partial<ProductFormData> = {
+                                        innerUnit: unit.name
+                                      }
+                                      // 兩層時，內層就是基礎單位（消耗單位）
+                                      if (formData.packagingLayers === 2) {
+                                        updates.baseUnit = unit.name
+                                        updates.baseQty = 1
+                                      }
+                                      setFormData(prev => ({ ...prev, ...updates }))
+                                    }}
+                                    disabled={isCreated}
+                                    className={cn(
+                                      "flex flex-col items-center justify-center w-16 h-14 rounded-lg border-2 transition-all",
+                                      formData.innerUnit === unit.name && !isInnerCustom
+                                        ? "border-primary bg-primary/10"
+                                        : "border-slate-200 dark:border-slate-700 hover:border-primary/50"
+                                    )}
+                                  >
+                                    <span className="font-mono font-semibold text-sm">{unit.code}</span>
+                                    <span className="text-xs text-slate-500">{unit.name}</span>
+                                  </button>
+                                ))}
                                 <button
-                                  key={unit.code}
                                   type="button"
                                   onClick={() => {
-                                    setIsBaseCustom(false);
-                                    setFormData(prev => ({
-                                      ...prev,
-                                      baseUnit: unit.name,
-                                      safetyStockUnit: unit.name
-                                    }))
+                                    setIsInnerCustom(true);
+                                    const updates: Partial<ProductFormData> = {
+                                      innerUnit: customInner
+                                    }
+                                    if (formData.packagingLayers === 2) {
+                                      updates.baseUnit = customInner
+                                      updates.baseQty = 1
+                                    }
+                                    setFormData(prev => ({ ...prev, ...updates }));
                                   }}
                                   disabled={isCreated}
                                   className={cn(
-                                    "flex flex-col items-center justify-center w-16 h-14 rounded-lg border-2 transition-all",
-                                    formData.baseUnit === unit.name && !isBaseCustom
+                                    "flex flex-col items-center justify-center w-16 h-14 rounded-lg border-2 border-dashed transition-all",
+                                    isInnerCustom
                                       ? "border-primary bg-primary/10"
-                                      : "border-slate-200 dark:border-slate-700 hover:border-primary/50"
+                                      : "border-slate-300 dark:border-slate-600 hover:border-primary/50"
                                   )}
                                 >
-                                  <span className="font-mono font-semibold text-sm">{unit.code}</span>
-                                  <span className="text-xs text-slate-500">{unit.name}</span>
+                                  <Plus className="w-5 h-5 text-slate-400" />
+                                  <span className="text-[10px] text-slate-500 mt-1">自填量詞</span>
                                 </button>
-                              ))}
+                              </div>
+                              {isInnerCustom && (
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    placeholder="輸入量詞"
+                                    value={customInner}
+                                    onChange={(e) => {
+                                      setCustomInner(e.target.value);
+                                      const updates: Partial<ProductFormData> = {
+                                        innerUnit: e.target.value
+                                      }
+                                      if (formData.packagingLayers === 2) {
+                                        updates.baseUnit = e.target.value
+                                        updates.baseQty = 1
+                                      }
+                                      setFormData(prev => ({ ...prev, ...updates }));
+                                    }}
+                                    className="w-24"
+                                    disabled={isCreated}
+                                  />
+                                </div>
+                              )}
+                              {formData.innerUnit && (
+                                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 whitespace-nowrap ml-auto">
+                                  <span className="text-sm text-slate-500">
+                                    {formData.outerUnit ? `一${formData.outerUnit}` : formData.packagingLayers === 2 ? '一' : '一'}
+                                  </span>
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    value={formData.innerQty}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, innerQty: parseInt(e.target.value) || 1 }))}
+                                    className="w-16 h-8 text-center"
+                                    disabled={isCreated}
+                                  />
+                                  <span className="text-sm text-slate-500">
+                                    {formData.innerUnit}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 基礎單位（僅三層時顯示，為消耗單位） */}
+                      {formData.packagingLayers === 3 && (
+                        <div className="space-y-6">
+                          <div className="space-y-3">
+                            <Label className="text-sm font-medium">
+                              基礎單位（消耗單位）
+                              <span className="text-xs text-slate-400 ml-2">(庫存管理)</span>
+                            </Label>
+                            <div className="flex items-center gap-3">
+                              <div className="flex flex-wrap gap-2 flex-1">
+                              {/* 自動填充：優先顯示已選擇的包裝單位 */}
+                              {(() => {
+                                // 收集已選擇的包裝單位
+                                const selectedUnits = [
+                                  formData.outerUnit,
+                                  formData.innerUnit,
+                                ].filter(Boolean).map(u => {
+                                  const found = [...UNITS.outer, ...UNITS.inner, ...UNITS.base].find(
+                                    unit => unit.name === u || unit.code === u
+                                  )
+                                  return found ? { code: found.code, name: found.name } : null
+                                }).filter(Boolean) as Array<{ code: string; name: string }>
+
+                                // 去重並保持順序
+                                const uniqueSelectedUnits = Array.from(
+                                  new Map(selectedUnits.map(u => [u.code, u])).values()
+                                )
+
+                                // 合併：先顯示已選擇的單位，再顯示其他基礎單位
+                                const otherBaseUnits = UNITS.base.filter(
+                                  u => !uniqueSelectedUnits.some(su => su.code === u.code)
+                                )
+                                const displayUnits = [...uniqueSelectedUnits, ...otherBaseUnits]
+
+                                return displayUnits.map((unit) => (
+                                  <button
+                                    key={unit.code}
+                                    type="button"
+                                    onClick={() => {
+                                      setIsBaseCustom(false);
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        baseUnit: unit.name,
+                                        safetyStockUnit: unit.name,
+                                        currentStockUnit: unit.name,
+                                        reorderPointUnit: unit.name
+                                      }))
+                                    }}
+                                    disabled={isCreated}
+                                    className={cn(
+                                      "relative flex flex-col items-center justify-center w-16 h-14 rounded-lg border-2 transition-all",
+                                      formData.baseUnit === unit.name && !isBaseCustom
+                                        ? "border-primary bg-primary/10"
+                                        : "border-slate-200 dark:border-slate-700 hover:border-primary/50",
+                                      uniqueSelectedUnits.some(su => su.code === unit.code) && "ring-2 ring-blue-300 dark:ring-blue-700"
+                                    )}
+                                  >
+                                    <span className="font-mono font-semibold text-sm">{unit.code}</span>
+                                    <span className="text-xs text-slate-500">{unit.name}</span>
+                                    {uniqueSelectedUnits.some(su => su.code === unit.code) && (
+                                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-white dark:border-slate-800"></span>
+                                    )}
+                                  </button>
+                                ))
+                              })()}
                               <button
                                 type="button"
                                 onClick={() => {
                                   setIsBaseCustom(true);
-                                  setFormData(prev => ({ ...prev, baseUnit: customBase, safetyStockUnit: customBase }));
+                                  setFormData(prev => ({ ...prev, baseUnit: customBase, safetyStockUnit: customBase, currentStockUnit: customBase, reorderPointUnit: customBase }));
                                 }}
                                 disabled={isCreated}
                                 className={cn(
@@ -942,7 +1136,7 @@ export function CreateProductPage() {
                                   value={customBase}
                                   onChange={(e) => {
                                     setCustomBase(e.target.value);
-                                    setFormData(prev => ({ ...prev, baseUnit: e.target.value, safetyStockUnit: e.target.value }));
+                                    setFormData(prev => ({ ...prev, baseUnit: e.target.value, safetyStockUnit: e.target.value, currentStockUnit: e.target.value, reorderPointUnit: e.target.value }));
                                   }}
                                   className="w-24"
                                   disabled={isCreated}
@@ -950,8 +1144,8 @@ export function CreateProductPage() {
                               </div>
                             )}
 
-                            {/* 基礎單位換算 - 移至右側 */}
-                            {formData.innerUnit && formData.baseUnit && (
+                            {/* 基礎單位換算 - 移至右側（僅三層時顯示） */}
+                            {formData.packagingLayers === 3 && formData.innerUnit && formData.baseUnit && (
                               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 whitespace-nowrap ml-auto">
                                 <span className="text-sm text-slate-500">
                                   一{formData.innerUnit}
@@ -969,9 +1163,10 @@ export function CreateProductPage() {
                                 </span>
                               </div>
                             )}
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -1010,38 +1205,241 @@ export function CreateProductPage() {
                         </p>
                       )}
 
-                      {/* Safety Stock Slider */}
-                      <Slider
-                        value={formData.safetyStock}
-                        onChange={(v) => setFormData(prev => ({ ...prev, safetyStock: v }))}
-                        min={0}
-                        max={500}
-                        step={10}
-                        quickValues={[50, 100, 200, 500]}
-                        label="安全庫存"
-                        unitOptions={currentUnits.map(u => ({ value: u.code, label: u.name }))}
-                        selectedUnit={formData.baseUnit || currentUnits[0]?.code}
-                        onUnitChange={(u) => setFormData(prev => ({ ...prev, baseUnit: u }))}
-                        disabled={isCreated}
-                      />
+                      {/* Current Stock */}
+                      <div className="space-y-2">
+                        <Label>當前值（單位）</Label>
+                        <div className="flex items-center gap-3">
+                          <Input
+                            type="number"
+                            min={0}
+                            value={formData.currentStock}
+                            onChange={(e) => setFormData(prev => ({ ...prev, currentStock: parseFloat(e.target.value) || 0 }))}
+                            className="w-32"
+                            disabled={isCreated}
+                            placeholder="0"
+                          />
+                          <Select
+                            value={formData.currentStockUnit}
+                            onValueChange={(v) => setFormData(prev => ({ ...prev, currentStockUnit: v }))}
+                            disabled={isCreated}
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue placeholder="選擇單位" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {/* 根據包裝層數顯示選項：兩層顯示內/外，三層顯示內/外/基礎 */}
+                              {(() => {
+                                const units: Array<{ code: string; name: string; type: 'outer' | 'inner' | 'base' }> = []
+                                
+                                // 外層包裝
+                                if (formData.outerUnit) {
+                                  const found = [...UNITS.outer, ...UNITS.inner, ...UNITS.base].find(
+                                    unit => unit.name === formData.outerUnit || unit.code === formData.outerUnit
+                                  )
+                                  if (found) {
+                                    units.push({ code: found.code, name: found.name, type: 'outer' })
+                                  }
+                                }
+                                
+                                // 內層包裝
+                                if (formData.innerUnit) {
+                                  const found = [...UNITS.outer, ...UNITS.inner, ...UNITS.base].find(
+                                    unit => unit.name === formData.innerUnit || unit.code === formData.innerUnit
+                                  )
+                                  if (found && !units.some(u => u.code === found.code)) {
+                                    units.push({ code: found.code, name: found.name, type: 'inner' })
+                                  }
+                                }
+                                
+                                // 基礎單位（僅三層包裝時顯示）
+                                if (formData.packagingLayers === 3 && formData.baseUnit) {
+                                  const found = [...UNITS.outer, ...UNITS.inner, ...UNITS.base].find(
+                                    unit => unit.name === formData.baseUnit || unit.code === formData.baseUnit
+                                  )
+                                  if (found && !units.some(u => u.code === found.code)) {
+                                    units.push({ code: found.code, name: found.name, type: 'base' })
+                                  }
+                                }
+                                
+                                // 如果沒有選擇任何包裝單位，顯示基礎單位選項
+                                if (units.length === 0) {
+                                  return UNITS.base.map((unit) => (
+                                    <SelectItem key={unit.code} value={unit.name}>
+                                      {unit.name} ({unit.code})
+                                    </SelectItem>
+                                  ))
+                                }
+                                
+                                return units.map((unit) => {
+                                  const typeLabel = unit.type === 'outer' ? '外' : unit.type === 'inner' ? '內' : '基礎'
+                                  return (
+                                    <SelectItem key={unit.code} value={unit.name}>
+                                      {unit.name} ({unit.code}) - {typeLabel}
+                                    </SelectItem>
+                                  )
+                                })
+                              })()}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* Safety Stock */}
+                      <div className="space-y-2">
+                        <Label>安全庫存</Label>
+                        <div className="flex items-center gap-3">
+                          <Input
+                            type="number"
+                            min={0}
+                            value={formData.safetyStock}
+                            onChange={(e) => setFormData(prev => ({ ...prev, safetyStock: parseFloat(e.target.value) || 0 }))}
+                            className="w-32"
+                            disabled={isCreated}
+                            placeholder="0"
+                          />
+                          <Select
+                            value={formData.safetyStockUnit}
+                            onValueChange={(v) => setFormData(prev => ({ ...prev, safetyStockUnit: v }))}
+                            disabled={isCreated}
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue placeholder="選擇單位" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {/* 根據包裝層數顯示選項：兩層顯示內/外，三層顯示內/外/基礎 */}
+                              {(() => {
+                                const units: Array<{ code: string; name: string; type: 'outer' | 'inner' | 'base' }> = []
+                                
+                                // 外層包裝
+                                if (formData.outerUnit) {
+                                  const found = [...UNITS.outer, ...UNITS.inner, ...UNITS.base].find(
+                                    unit => unit.name === formData.outerUnit || unit.code === formData.outerUnit
+                                  )
+                                  if (found) {
+                                    units.push({ code: found.code, name: found.name, type: 'outer' })
+                                  }
+                                }
+                                
+                                // 內層包裝
+                                if (formData.innerUnit) {
+                                  const found = [...UNITS.outer, ...UNITS.inner, ...UNITS.base].find(
+                                    unit => unit.name === formData.innerUnit || unit.code === formData.innerUnit
+                                  )
+                                  if (found && !units.some(u => u.code === found.code)) {
+                                    units.push({ code: found.code, name: found.name, type: 'inner' })
+                                  }
+                                }
+                                
+                                // 基礎單位（僅三層包裝時顯示）
+                                if (formData.packagingLayers === 3 && formData.baseUnit) {
+                                  const found = [...UNITS.outer, ...UNITS.inner, ...UNITS.base].find(
+                                    unit => unit.name === formData.baseUnit || unit.code === formData.baseUnit
+                                  )
+                                  if (found && !units.some(u => u.code === found.code)) {
+                                    units.push({ code: found.code, name: found.name, type: 'base' })
+                                  }
+                                }
+                                
+                                // 如果沒有選擇任何包裝單位，顯示基礎單位選項
+                                if (units.length === 0) {
+                                  return UNITS.base.map((unit) => (
+                                    <SelectItem key={unit.code} value={unit.name}>
+                                      {unit.name} ({unit.code})
+                                    </SelectItem>
+                                  ))
+                                }
+                                
+                                return units.map((unit) => {
+                                  const typeLabel = unit.type === 'outer' ? '外' : unit.type === 'inner' ? '內' : '基礎'
+                                  return (
+                                    <SelectItem key={unit.code} value={unit.name}>
+                                      {unit.name} ({unit.code}) - {typeLabel}
+                                    </SelectItem>
+                                  )
+                                })
+                              })()}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
 
                       {/* Reorder Point */}
                       <div className="space-y-2">
                         <Label>補貨提醒點</Label>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-wrap">
                           <span className="text-sm text-slate-500">當庫存低於</span>
                           <Input
                             type="number"
                             min={0}
                             value={formData.reorderPoint}
-                            onChange={(e) => setFormData(prev => ({ ...prev, reorderPoint: parseInt(e.target.value) || 0 }))}
+                            onChange={(e) => setFormData(prev => ({ ...prev, reorderPoint: parseFloat(e.target.value) || 0 }))}
                             className="w-24"
                             disabled={isCreated}
                           />
-                          <span className="text-sm text-slate-500">
-                            {formData.baseUnit ? currentUnits.find(u => u.code === formData.baseUnit)?.name : '單位'}
-                            時，發送補貨提醒
-                          </span>
+                          <Select
+                            value={formData.reorderPointUnit}
+                            onValueChange={(v) => setFormData(prev => ({ ...prev, reorderPointUnit: v }))}
+                            disabled={isCreated}
+                          >
+                            <SelectTrigger className="w-40">
+                              <SelectValue placeholder="選擇單位" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {/* 顯示：內層包裝或外層包裝或基礎單位 */}
+                              {(() => {
+                                const units: Array<{ code: string; name: string; type: 'outer' | 'inner' | 'base' }> = []
+                                
+                                // 外層包裝
+                                if (formData.outerUnit) {
+                                  const found = [...UNITS.outer, ...UNITS.inner, ...UNITS.base].find(
+                                    unit => unit.name === formData.outerUnit || unit.code === formData.outerUnit
+                                  )
+                                  if (found) {
+                                    units.push({ code: found.code, name: found.name, type: 'outer' })
+                                  }
+                                }
+                                
+                                // 內層包裝
+                                if (formData.innerUnit) {
+                                  const found = [...UNITS.outer, ...UNITS.inner, ...UNITS.base].find(
+                                    unit => unit.name === formData.innerUnit || unit.code === formData.innerUnit
+                                  )
+                                  if (found && !units.some(u => u.code === found.code)) {
+                                    units.push({ code: found.code, name: found.name, type: 'inner' })
+                                  }
+                                }
+                                
+                                // 基礎單位
+                                if (formData.baseUnit) {
+                                  const found = [...UNITS.outer, ...UNITS.inner, ...UNITS.base].find(
+                                    unit => unit.name === formData.baseUnit || unit.code === formData.baseUnit
+                                  )
+                                  if (found && !units.some(u => u.code === found.code)) {
+                                    units.push({ code: found.code, name: found.name, type: 'base' })
+                                  }
+                                }
+                                
+                                // 如果沒有選擇任何包裝單位，顯示基礎單位選項
+                                if (units.length === 0) {
+                                  return UNITS.base.map((unit) => (
+                                    <SelectItem key={unit.code} value={unit.name}>
+                                      {unit.name} ({unit.code})
+                                    </SelectItem>
+                                  ))
+                                }
+                                
+                                return units.map((unit) => {
+                                  const typeLabel = unit.type === 'outer' ? '外層' : unit.type === 'inner' ? '內層' : '基礎'
+                                  return (
+                                    <SelectItem key={unit.code} value={unit.name}>
+                                      {unit.name} ({unit.code}) - {typeLabel}包裝
+                                    </SelectItem>
+                                  )
+                                })
+                              })()}
+                            </SelectContent>
+                          </Select>
+                          <span className="text-sm text-slate-500">時，發送補貨提醒</span>
                         </div>
                       </div>
                     </div>

@@ -104,3 +104,15 @@ pub async fn cancel_document(
     let document = DocumentService::cancel(&state.db, id).await?;
     Ok(Json(document))
 }
+
+/// 刪除文件
+pub async fn delete_document(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<()>> {
+    require_permission!(current_user, "erp.document.delete");
+    
+    DocumentService::delete(&state.db, id).await?;
+    Ok(Json(()))
+}

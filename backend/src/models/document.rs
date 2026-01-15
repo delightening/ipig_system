@@ -20,14 +20,14 @@ pub enum DocType {
     SO,
     /// 銷售出庫 Delivery Order
     DO,
-    /// 銷售退貨 Sales Return
-    SR,
     /// 調撥單 Transfer
     TR,
     /// 盤點單 Stocktake
     STK,
     /// 調整單 Stock Adjustment
     ADJ,
+    /// 退料單 Return Material
+    RM,
 }
 
 impl DocType {
@@ -38,16 +38,16 @@ impl DocType {
             DocType::PR => "PR",
             DocType::SO => "SO",
             DocType::DO => "DO",
-            DocType::SR => "SR",
             DocType::TR => "TR",
             DocType::STK => "STK",
             DocType::ADJ => "ADJ",
+            DocType::RM => "RM",
         }
     }
 
     /// 是否影響庫存
     pub fn affects_stock(&self) -> bool {
-        matches!(self, DocType::GRN | DocType::PR | DocType::DO | DocType::SR | DocType::TR | DocType::ADJ)
+        matches!(self, DocType::GRN | DocType::PR | DocType::DO | DocType::TR | DocType::ADJ)
     }
 }
 
@@ -113,7 +113,10 @@ pub struct CreateDocumentRequest {
     pub partner_id: Option<Uuid>,
     pub doc_date: NaiveDate,
     pub remark: Option<String>,
-    #[validate(length(min = 1, message = "At least one line is required"))]
+    /// 盤點範圍設定（僅盤點單使用）
+    pub stocktake_scope: Option<serde_json::Value>,
+    /// 單據明細（盤點單可選，會根據範圍自動生成）
+    #[serde(default)]
     pub lines: Vec<DocumentLineInput>,
 }
 

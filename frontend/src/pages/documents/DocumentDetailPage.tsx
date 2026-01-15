@@ -22,10 +22,10 @@ const docTypeNames: Record<string, string> = {
   PR: '採購退貨',
   SO: '銷售單',
   DO: '銷售出庫',
-  SR: '銷售退貨',
   TR: '調撥單',
   STK: '盤點單',
   ADJ: '調整單',
+  RM: '退料單',
 }
 
 const statusNames: Record<string, string> = {
@@ -54,6 +54,10 @@ export function DocumentDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['document', id] })
       toast({ title: '成功', description: '單據已送審' })
+      // 自動重新整理頁面以獲得更新後的資訊
+      setTimeout(() => {
+        window.location.reload()
+      }, 500)
     },
     onError: (error: any) => {
       toast({

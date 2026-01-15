@@ -32,7 +32,7 @@ const reportCards = [
   },
   {
     title: '銷售明細報表',
-    description: '查看銷售單、銷售出庫、銷售退貨明細',
+    description: '查看銷售單、銷售出庫明細',
     href: '/reports/sales-lines',
     icon: ShoppingCart,
     color: 'text-purple-500',

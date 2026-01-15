@@ -49,7 +49,6 @@ const CATEGORY_NAMES: Record<string, Record<string, string>> = {
     pr: 'PR',
     sales: 'Sales',
     do: 'DO',
-    sr: 'SR',
     stock: 'Stock',
     stocktake: 'Stocktake',
     report: 'Reports',

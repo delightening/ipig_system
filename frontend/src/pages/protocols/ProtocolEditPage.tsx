@@ -27,7 +27,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Slider } from '@/components/ui/slider'
 import { toast } from '@/components/ui/use-toast'
 import { useAuthStore } from '@/stores/auth'
 import { FileUpload, FileInfo } from '@/components/ui/file-upload'
@@ -57,6 +56,7 @@ const formSections = [
   { key: 'animals', label: <>7. 實驗動物資料<br />（Animal Information）</>, icon: User },
   { key: 'personnel', label: <>8. 試驗人員資料<br />（Personnel Working on Animal Study）</>, icon: Users },
   { key: 'attachments', label: <>9. 附件<br />（Attachments）</>, icon: Paperclip },
+  { key: 'signature', label: <>10. 電子簽名<br />（Electronic Signature）</>, icon: FileText },
 ]
 
 interface FormData {
@@ -325,6 +325,7 @@ interface FormData {
       }>
     }>
     attachments: FileInfo[] // Section 9 - PDF附件
+    signature: FileInfo[] // Section 10 - 電子簽名
   }
 }
 
@@ -518,6 +519,7 @@ const defaultFormData: FormData = {
       }
     ],
     attachments: [],
+    signature: [],
   },
 }
 
@@ -1350,7 +1352,7 @@ export function ProtocolEditPage() {
                       <Checkbox
                         id="is_glp"
                         checked={formData.working_content.basic.is_glp}
-                        onChange={(e) => updateWorkingContent('basic', 'is_glp', e.target.checked)}
+                        onCheckedChange={(checked) => updateWorkingContent('basic', 'is_glp', checked)}
                       />
                       <Label htmlFor="is_glp">符合 GLP 規範</Label>
                     </div>
@@ -1589,8 +1591,7 @@ export function ProtocolEditPage() {
                         <Checkbox
                           id="search_altbib"
                           checked={formData.working_content.purpose.replacement.alt_search.platforms.includes('altbib')}
-                          onChange={(e) => {
-                            const checked = e.target.checked
+                          onCheckedChange={(checked) => {
                             const current = formData.working_content.purpose.replacement.alt_search.platforms
                             const updated = checked
                               ? [...current, 'altbib']
@@ -1615,8 +1616,7 @@ export function ProtocolEditPage() {
                         <Checkbox
                           id="search_db_alm"
                           checked={formData.working_content.purpose.replacement.alt_search.platforms.includes('db_alm')}
-                          onChange={(e) => {
-                            const checked = e.target.checked
+                          onCheckedChange={(checked) => {
                             const current = formData.working_content.purpose.replacement.alt_search.platforms
                             const updated = checked
                               ? [...current, 'db_alm']
@@ -1641,8 +1641,7 @@ export function ProtocolEditPage() {
                         <Checkbox
                           id="search_re_place"
                           checked={formData.working_content.purpose.replacement.alt_search.platforms.includes('re_place')}
-                          onChange={(e) => {
-                            const checked = e.target.checked
+                          onCheckedChange={(checked) => {
                             const current = formData.working_content.purpose.replacement.alt_search.platforms
                             const updated = checked
                               ? [...current, 're_place']
@@ -3134,8 +3133,7 @@ export function ProtocolEditPage() {
                               <Checkbox
                                 id={`aseptic_${item.value}`}
                                 checked={formData.working_content.surgery.aseptic_techniques.includes(item.value)}
-                                onChange={(e) => {
-                                  const checked = e.target.checked
+                                onCheckedChange={(checked) => {
                                   const current = formData.working_content.surgery.aseptic_techniques
                                   const updated = checked
                                     ? [...current, item.value]
@@ -3182,8 +3180,7 @@ export function ProtocolEditPage() {
                             <Checkbox
                               id="multiple_surgeries"
                               checked={formData.working_content.surgery.multiple_surgeries.used}
-                              onChange={(e) => {
-                                const checked = e.target.checked
+                              onCheckedChange={(checked) => {
                                 updateWorkingContent('surgery', 'multiple_surgeries.used', checked)
                                 if (!checked) {
                                   updateWorkingContent('surgery', 'multiple_surgeries.number', 0)
@@ -3616,10 +3613,10 @@ export function ProtocolEditPage() {
                             <Checkbox
                               id={`age_unlimited_${index}`}
                               checked={animal.age_unlimited || false}
-                              onChange={(e) => {
+                              onCheckedChange={(checked) => {
                                 const newAnimals = [...formData.working_content.animals.animals]
-                                newAnimals[index].age_unlimited = e.target.checked
-                                if (e.target.checked) {
+                                newAnimals[index].age_unlimited = checked
+                                if (checked) {
                                   newAnimals[index].age_min = undefined
                                   newAnimals[index].age_max = undefined
                                 }
@@ -3697,54 +3694,6 @@ export function ProtocolEditPage() {
                                     />
                                   </div>
                                 </div>
-                                {animal.weight_min !== undefined && animal.weight_max !== undefined && (
-                                  <div className="space-y-4">
-                                    <div className="space-y-2">
-                                      <Label>調整區間 - 最小體重</Label>
-                                      <Slider
-                                        min={20}
-                                        max={Math.max(200, (animal.weight_max || 0) + 50)}
-                                        step={5}
-                                        value={animal.weight_min ?? 20}
-                                        onChange={(value: number) => {
-                                          const newAnimals = [...formData.working_content.animals.animals]
-                                          const minValue = Math.max(20, Math.round(value / 5) * 5)
-                                          newAnimals[index].weight_min = minValue
-                                          // 確保最小值不大於最大值，且最大體重必須大於最小體重
-                                          if (minValue >= (animal.weight_max || 0)) {
-                                            newAnimals[index].weight_max = minValue + 5
-                                          }
-                                          updateWorkingContent('animals', 'animals', newAnimals)
-                                        }}
-                                        className="w-full"
-                                      />
-                                      <p className="text-xs text-muted-foreground text-center">{animal.weight_min || 20} kg</p>
-                                    </div>
-                                    <div className="space-y-2">
-                                      <Label>調整區間 - 最大體重</Label>
-                                      <Slider
-                                        min={Math.max(25, (animal.weight_min || 20) + 5)}
-                                        max={200}
-                                        step={5}
-                                        value={animal.weight_max ?? 25}
-                                        onChange={(value: number) => {
-                                          const newAnimals = [...formData.working_content.animals.animals]
-                                          const maxValue = Math.round(value / 5) * 5
-                                          const minWeight = newAnimals[index].weight_min || 20
-                                          // 確保最大值大於最小值
-                                          if (maxValue > minWeight) {
-                                            newAnimals[index].weight_max = maxValue
-                                          } else {
-                                            newAnimals[index].weight_max = minWeight + 5
-                                          }
-                                          updateWorkingContent('animals', 'animals', newAnimals)
-                                        }}
-                                        className="w-full"
-                                      />
-                                      <p className="text-xs text-muted-foreground text-center">{animal.weight_max || 25} kg</p>
-                                    </div>
-                                  </div>
-                                )}
                               </div>
                             )}
                           </div>
@@ -3752,10 +3701,10 @@ export function ProtocolEditPage() {
                             <Checkbox
                               id={`weight_unlimited_${index}`}
                               checked={animal.weight_unlimited || false}
-                              onChange={(e) => {
+                              onCheckedChange={(checked) => {
                                 const newAnimals = [...formData.working_content.animals.animals]
-                                newAnimals[index].weight_unlimited = e.target.checked
-                                if (e.target.checked) {
+                                newAnimals[index].weight_unlimited = checked
+                                if (checked) {
                                   newAnimals[index].weight_min = undefined
                                   newAnimals[index].weight_max = undefined
                                 }
@@ -3990,6 +3939,40 @@ export function ProtocolEditPage() {
             </Card>
           )}
 
+          {activeSection === 'signature' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>10. 電子簽名<br />(Electronic Signature)</CardTitle>
+                <CardDescription>上傳簽名檔（支援圖片格式）</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>簽名檔</Label>
+                  <FileUpload
+                    value={formData.working_content.signature || []}
+                    onChange={(signature) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        working_content: {
+                          ...prev.working_content,
+                          signature
+                        }
+                      }))
+                    }}
+                    accept="image/*,.png,.jpg,.jpeg,.gif,.bmp"
+                    placeholder="拖曳簽名檔到此處，或點擊選擇檔案"
+                    maxSize={5}
+                    maxFiles={5}
+                    showPreview={true}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    支援圖片格式（PNG、JPG、JPEG、GIF、BMP），單個檔案大小上限 5MB，最多可上傳 5 個檔案
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* 新增人員對話框 */}
           <Dialog open={isAddPersonnelDialogOpen} onOpenChange={setIsAddPersonnelDialogOpen}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -4024,8 +4007,8 @@ export function ProtocolEditPage() {
                         <Checkbox
                           id={`new_role_${role}`}
                           checked={newPersonnel.roles.includes(role)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
+                          onCheckedChange={(checked) => {
+                            if (checked) {
                               setNewPersonnel({ ...newPersonnel, roles: [...newPersonnel.roles, role] })
                             } else {
                               const newRoles = newPersonnel.roles.filter(r => r !== role)
@@ -4081,8 +4064,8 @@ export function ProtocolEditPage() {
                         <Checkbox
                           id={`new_training_${training.value}`}
                           checked={newPersonnel.trainings.includes(training.value)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
+                          onCheckedChange={(checked) => {
+                            if (checked) {
                               setNewPersonnel({ ...newPersonnel, trainings: [...newPersonnel.trainings, training.value] })
                             } else {
                               const newTrainings = newPersonnel.trainings.filter(t => t !== training.value)

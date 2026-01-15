@@ -30,9 +30,7 @@ export function WarehousesPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null)
   const [formData, setFormData] = useState({
-    code: '',
     name: '',
-    address: '',
   })
 
   const { data: warehouses, isLoading } = useQuery({
@@ -53,9 +51,13 @@ export function WarehousesPage() {
       resetForm()
     },
     onError: (error: any) => {
+      console.error('Create warehouse error:', error)
+      const errorMessage = error?.response?.data?.error?.message || 
+                          error?.message || 
+                          '建立失敗'
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '建立失敗',
+        description: errorMessage,
         variant: 'destructive',
       })
     },
@@ -95,16 +97,14 @@ export function WarehousesPage() {
   })
 
   const resetForm = () => {
-    setFormData({ code: '', name: '', address: '' })
+    setFormData({ name: '' })
     setEditingWarehouse(null)
   }
 
   const handleEdit = (warehouse: Warehouse) => {
     setEditingWarehouse(warehouse)
     setFormData({
-      code: warehouse.code,
       name: warehouse.name,
-      address: warehouse.address || '',
     })
     setDialogOpen(true)
   }
@@ -149,7 +149,6 @@ export function WarehousesPage() {
             <TableRow>
               <TableHead>代碼</TableHead>
               <TableHead>名稱</TableHead>
-              <TableHead>地址</TableHead>
               <TableHead>狀態</TableHead>
               <TableHead className="text-right">操作</TableHead>
             </TableRow>
@@ -157,7 +156,7 @@ export function WarehousesPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
+                <TableCell colSpan={4} className="text-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                 </TableCell>
               </TableRow>
@@ -166,7 +165,6 @@ export function WarehousesPage() {
                 <TableRow key={warehouse.id}>
                   <TableCell className="font-mono">{warehouse.code}</TableCell>
                   <TableCell className="font-medium">{warehouse.name}</TableCell>
-                  <TableCell>{warehouse.address || '-'}</TableCell>
                   <TableCell>
                     {warehouse.is_active ? (
                       <Badge variant="success">啟用</Badge>
@@ -194,7 +192,7 @@ export function WarehousesPage() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
+                <TableCell colSpan={4} className="text-center py-8">
                   <WarehouseIcon className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
                   <p className="text-muted-foreground">尚無倉庫資料</p>
                 </TableCell>
@@ -215,17 +213,6 @@ export function WarehousesPage() {
           <form onSubmit={handleSubmit}>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="code" className="text-right">代碼</Label>
-                <Input
-                  id="code"
-                  value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                  className="col-span-3"
-                  disabled={!!editingWarehouse}
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="name" className="text-right">名稱</Label>
                 <Input
                   id="name"
@@ -233,15 +220,6 @@ export function WarehousesPage() {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="col-span-3"
                   required
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="address" className="text-right">地址</Label>
-                <Input
-                  id="address"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  className="col-span-3"
                 />
               </div>
             </div>

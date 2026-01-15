@@ -50,7 +50,6 @@
 - 採購退貨 PR（Purchase Return）
 - 銷售單 SO（Sales Order）
 - 銷售出庫 DO（Delivery Order）
-- 銷售退貨 SR（Sales Return）
 - 調撥單 TR（Transfer）
 - 盤點單 STK（Stocktake）
 - 調整單 ADJ（Stock Adjustment）
@@ -91,7 +90,6 @@
 - 建立銷售單（草稿）
 - 送審 -> 核准 -> 可產生銷售出庫
 - 銷售出庫（可部分出庫）
-- 銷售退貨（入庫回倉）
 - 報表：銷售明細、客戶排行、未出貨明細
 
 ### 4.4 倉儲作業
@@ -232,7 +230,7 @@
 
 #### documents（通用單據頭，或分表也可）
 - id (uuid, pk)
-- doc_type (enum: PO, GRN, PR, SO, DO, SR, TR, STK, ADJ)
+- doc_type (enum: PO, GRN, PR, SO, DO, TR, STK, ADJ)
 - doc_no (unique, 可含前綴與年月)
 - status (enum: draft, submitted, approved, cancelled)
 - warehouse_id (nullable，視單別)
@@ -359,7 +357,7 @@
   - Dashboard
   - 基礎資料（產品、倉庫、供應商/客戶）
   - 採購（採購單、採購入庫、採購退貨）
-  - 銷售（銷售單、銷售出庫、銷售退貨）
+  - 銷售（銷售單、銷售出庫）
   - 倉儲（庫存查詢、調撥、盤點、調整）
   - 報表（庫存、進貨、出貨、成本）
   - 系統管理（使用者、角色權限、設定）

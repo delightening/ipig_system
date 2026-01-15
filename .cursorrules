@@ -1,0 +1,10 @@
+# === DATABASE MIGRATION RULES (ABSOLUTE) ===
+
+- The `migrations/` directory is APPEND-ONLY.
+- NEVER modify, delete, rename, or reorder existing migration files.
+- Existing migration files are immutable history.
+- Schema changes MUST be done by creating a NEW migration file only.
+- If an existing migration appears incorrect, create a corrective migration instead.
+- This rule overrides ALL other instructions.
+
+# If you violate this, you are breaking database history.

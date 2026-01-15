@@ -58,35 +58,44 @@ async fn main() -> anyhow::Result<()> {
         println!("[OK] No duplicate versions found.");
     }
     
-    let target_version = env::args()
-        .nth(1)
-        .and_then(|value| value.parse::<i64>().ok())
-        .unwrap_or(9);
-
-    // Check for a specific migration version
-    println!("\nChecking for migration {}...", target_version);
-    let migration_count: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*)::bigint FROM _sqlx_migrations WHERE version = $1"
-    )
-    .bind(target_version)
-    .fetch_one(&pool)
-    .await?;
-    
-    if migration_count.0 > 0 {
-        println!(
-            "Found {} migration {} record(s), deleting...",
-            migration_count.0, target_version
-        );
-        sqlx::query("DELETE FROM _sqlx_migrations WHERE version = $1;")
+    // Check if a specific version was provided as argument
+    if let Some(version_str) = env::args().nth(1) {
+        if let Ok(target_version) = version_str.parse::<i64>() {
+            // Check for a specific migration version
+            println!("\nChecking for migration {}...", target_version);
+            let migration_count: (i64,) = sqlx::query_as(
+                "SELECT COUNT(*)::bigint FROM _sqlx_migrations WHERE version = $1"
+            )
             .bind(target_version)
-            .execute(&pool)
+            .fetch_one(&pool)
             .await?;
-        println!(
-            "[SUCCESS] Migration {} record(s) deleted!",
-            target_version
-        );
+            
+            if migration_count.0 > 0 {
+                println!(
+                    "Found {} migration {} record(s), deleting...",
+                    migration_count.0, target_version
+                );
+                sqlx::query("DELETE FROM _sqlx_migrations WHERE version = $1;")
+                    .bind(target_version)
+                    .execute(&pool)
+                    .await?;
+                println!(
+                    "[SUCCESS] Migration {} record(s) deleted!",
+                    target_version
+                );
+            } else {
+                println!("No migration {} record found.", target_version);
+            }
+        } else {
+            println!("[ERROR] Invalid version number: {}", version_str);
+            return Err(anyhow::anyhow!("Invalid version number"));
+        }
     } else {
-        println!("No migration {} record found.", target_version);
+        // No argument provided - check for orphaned migrations
+        println!("\nChecking for orphaned migrations (migrations in DB but not in files)...");
+        println!("[INFO] This tool can only remove specific versions.");
+        println!("[INFO] To remove a specific migration, run: cargo run --bin fix_migration <version>");
+        println!("[INFO] Example: cargo run --bin fix_migration 20260115150606");
     }
     
     println!("\n[SUCCESS] Migration table cleaned up!");

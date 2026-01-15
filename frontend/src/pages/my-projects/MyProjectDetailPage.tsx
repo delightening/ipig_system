@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
   ProtocolResponse,
   ProtocolStatus,
@@ -9,6 +9,15 @@ import api, {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { useToast } from '@/components/ui/use-toast'
 import {
   Table,
   TableBody,
@@ -59,7 +68,10 @@ interface PigRecord {
 export function MyProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<'application' | 'pigs'>('application')
+  const [showCloseDialog, setShowCloseDialog] = useState(false)
 
   // 取得計畫詳情
   const { data: protocol, isLoading } = useQuery({
@@ -69,6 +81,32 @@ export function MyProjectDetailPage() {
       return response.data
     },
     enabled: !!id,
+  })
+
+  // 結案 mutation
+  const closeProtocolMutation = useMutation({
+    mutationFn: async () => {
+      return api.post(`/protocols/${id}/status`, {
+        to_status: 'CLOSED',
+        remark: '計畫結案',
+      })
+    },
+    onSuccess: () => {
+      toast({
+        title: '成功',
+        description: '計畫已結案',
+      })
+      queryClient.invalidateQueries({ queryKey: ['my-project', id] })
+      queryClient.invalidateQueries({ queryKey: ['my-projects'] })
+      setShowCloseDialog(false)
+    },
+    onError: (error: any) => {
+      toast({
+        title: '錯誤',
+        description: error?.response?.data?.error?.message || '結案失敗',
+        variant: 'destructive',
+      })
+    },
   })
 
   // TODO: 取得豬隻紀錄
@@ -101,18 +139,20 @@ export function MyProjectDetailPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold">{protocol.protocol_no}</h1>
+              <h1 className="text-2xl font-bold">{protocol.title}</h1>
               <Badge variant={statusColors[protocol.status]} className="text-sm">
                 {protocolStatusNames[protocol.status]}
               </Badge>
             </div>
-            <p className="text-muted-foreground mt-1">{protocol.title}</p>
+            <p className="text-muted-foreground mt-1">
+              {protocol.iacuc_no ? `IACUC No.: ${protocol.iacuc_no}` : 'IACUC No.: 尚未核發'}
+            </p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -120,6 +160,14 @@ export function MyProjectDetailPage() {
             <Download className="mr-2 h-4 w-4" />
             下載 PDF
           </Button>
+          {(protocol.status === 'APPROVED' || protocol.status === 'APPROVED_WITH_CONDITIONS') && (
+            <Button 
+              variant="outline" 
+              onClick={() => setShowCloseDialog(true)}
+            >
+              結案
+            </Button>
+          )}
         </div>
       </div>
 
@@ -129,7 +177,7 @@ export function MyProjectDetailPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <FileText className="h-4 w-4 text-blue-500" />
-              IACUC 編號
+              {protocol.iacuc_no?.startsWith('APIG-') ? 'APIG 編號' : 'IACUC 編號'}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -431,6 +479,30 @@ export function MyProjectDetailPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* 結案確認對話框 */}
+      <Dialog open={showCloseDialog} onOpenChange={setShowCloseDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>確認結案</DialogTitle>
+            <DialogDescription>
+              確定要將此計畫結案嗎？結案後將無法再進行修改。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCloseDialog(false)}>
+              取消
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => closeProtocolMutation.mutate()}
+              disabled={closeProtocolMutation.isPending}
+            >
+              {closeProtocolMutation.isPending ? '處理中...' : '確認結案'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

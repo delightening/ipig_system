@@ -58,6 +58,9 @@ csv = "1.3"
 # Scheduler
 tokio-cron-scheduler = "0.11"
 
+# Hashing for migration resolution
+sha2 = "0.10"
+
 [dev-dependencies]
 tokio-test = "0.4"
 

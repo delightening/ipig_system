@@ -2,14 +2,16 @@ use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
 use serde_json::Value;
+use validator::Validate;
 
 use crate::{
     models::{
         AssignReviewerRequest, ChangeStatusRequest, CreateCommentRequest, CreateProtocolRequest,
         Protocol, ProtocolListItem, ProtocolQuery, ProtocolResponse, ProtocolStatus,
         ProtocolStatusHistory, ProtocolVersion, ReviewAssignment, ReviewComment,
-        ReviewCommentResponse, UpdateProtocolRequest, ProtocolRole,
+        ReviewCommentResponse, UpdateProtocolRequest, ProtocolRole, CreatePartnerRequest, PartnerType,
     },
+    services::PartnerService,
     AppError, Result,
 };
 
@@ -140,23 +142,75 @@ impl ProtocolService {
         sql.push_str(" ORDER BY p.created_at DESC");
 
         // 由於 SQLx 的限制，這裡使用簡化的查詢
-        let protocols: Vec<ProtocolListItem> = sqlx::query_as(&sql)
+        let mut protocols: Vec<ProtocolListItem> = sqlx::query_as(&sql)
             .fetch_all(pool)
             .await
             .unwrap_or_default();
+
+        // 批量修復缺少 APIG 編號的 Submitted 或 PreReview 狀態計畫書
+        // 根據規則：在計劃被提交審查與核准前，應為 APIG-{ROC}{03}
+        let mut updated_protocols = Vec::new();
+        for protocol in &protocols {
+            if protocol.status == ProtocolStatus::Submitted || protocol.status == ProtocolStatus::PreReview {
+                let needs_apig = protocol.iacuc_no.as_ref()
+                    .map(|no| !no.starts_with("APIG-"))
+                    .unwrap_or(true);
+                
+                if needs_apig {
+                    // 生成並更新 APIG 編號
+                    let apig_no = Self::generate_apig_no(pool).await?;
+                    sqlx::query(
+                        "UPDATE protocols SET iacuc_no = $2, updated_at = NOW() WHERE id = $1"
+                    )
+                    .bind(protocol.id)
+                    .bind(&apig_no)
+                    .execute(pool)
+                    .await?;
+                    
+                    // 更新列表中的編號
+                    updated_protocols.push((protocol.id, apig_no));
+                }
+            }
+        }
+
+        // 更新列表中的編號（避免重新查詢）
+        for (id, apig_no) in updated_protocols {
+            if let Some(protocol) = protocols.iter_mut().find(|p| p.id == id) {
+                protocol.iacuc_no = Some(apig_no);
+            }
+        }
 
         Ok(protocols)
     }
 
     /// 取得單一計畫
     pub async fn get_by_id(pool: &PgPool, id: Uuid) -> Result<ProtocolResponse> {
-        let protocol = sqlx::query_as::<_, Protocol>(
+        let mut protocol = sqlx::query_as::<_, Protocol>(
             "SELECT * FROM protocols WHERE id = $1"
         )
         .bind(id)
         .fetch_optional(pool)
         .await?
         .ok_or_else(|| AppError::NotFound("Protocol not found".to_string()))?;
+
+        // 如果狀態是 Submitted 或 PreReview 但沒有 APIG 編號，自動生成
+        // 根據規則：在計劃被提交審查與核准前，應為 APIG-{ROC}{03}
+        if protocol.status == ProtocolStatus::Submitted || protocol.status == ProtocolStatus::PreReview {
+            let needs_apig = protocol.iacuc_no.as_ref()
+                .map(|no| !no.starts_with("APIG-"))
+                .unwrap_or(true);
+            
+            if needs_apig {
+                let apig_no = Self::generate_apig_no(pool).await?;
+                protocol = sqlx::query_as::<_, Protocol>(
+                    "UPDATE protocols SET iacuc_no = $2, updated_at = NOW() WHERE id = $1 RETURNING *"
+                )
+                .bind(id)
+                .bind(&apig_no)
+                .fetch_one(pool)
+                .await?;
+            }
+        }
 
         // 取得 PI 資訊
         let pi_info: Option<(String, String, Option<String>)> = sqlx::query_as(
@@ -295,12 +349,29 @@ impl ProtocolService {
         .execute(pool)
         .await?;
 
-        // 更新狀態
+        // 如果狀態變為 Submitted，生成 APIG 編號（在計劃被提交審查與核准前）
+        let new_iacuc_no = if new_status == ProtocolStatus::Submitted {
+            // 如果還沒有 APIG 編號，則生成
+            let needs_apig = protocol.iacuc_no.as_ref()
+                .map(|no| !no.starts_with("APIG-"))
+                .unwrap_or(true);
+            
+            if needs_apig {
+                Some(Self::generate_apig_no(pool).await?)
+            } else {
+                protocol.iacuc_no.clone()
+            }
+        } else {
+            protocol.iacuc_no.clone()
+        };
+
+        // 更新狀態和 IACUC 編號
         let updated = sqlx::query_as::<_, Protocol>(
-            "UPDATE protocols SET status = $2, updated_at = NOW() WHERE id = $1 RETURNING *"
+            "UPDATE protocols SET status = $2, iacuc_no = $3, updated_at = NOW() WHERE id = $1 RETURNING *"
         )
         .bind(id)
         .bind(new_status)
+        .bind(&new_iacuc_no)
         .fetch_one(pool)
         .await?;
 
@@ -327,9 +398,34 @@ impl ProtocolService {
 
         // TODO: 驗證狀態轉移是否合法（根據角色和當前狀態）
 
-        // 如果核准，生成 IACUC NO
-        let iacuc_no = if req.to_status == ProtocolStatus::Approved || req.to_status == ProtocolStatus::ApprovedWithConditions {
-            Some(Self::generate_iacuc_no())
+        // IACUC 編號生成規則：
+        // 1. 在計劃被提交審查與核准前（Submitted 狀態），生成 APIG-{ROC}{03}
+        // 2. 在計劃被核准時（Approved 狀態），生成 PIG-{ROC}{03}
+        let new_iacuc_no = if req.to_status == ProtocolStatus::Submitted {
+            // 如果還沒有 APIG 編號，則生成
+            let needs_apig = protocol.iacuc_no.as_ref()
+                .map(|no| !no.starts_with("APIG-"))
+                .unwrap_or(true);
+            
+            if needs_apig {
+                Some(Self::generate_apig_no(pool).await?)
+            } else {
+                protocol.iacuc_no.clone()
+            }
+        } else if req.to_status == ProtocolStatus::PreReview {
+            // 如果狀態變為 PreReview 但還沒有 APIG 編號，則生成（備用邏輯）
+            let needs_apig = protocol.iacuc_no.as_ref()
+                .map(|no| !no.starts_with("APIG-"))
+                .unwrap_or(true);
+            
+            if needs_apig {
+                Some(Self::generate_apig_no(pool).await?)
+            } else {
+                protocol.iacuc_no.clone()
+            }
+        } else if req.to_status == ProtocolStatus::Approved || req.to_status == ProtocolStatus::ApprovedWithConditions {
+            // 核准時生成 IACUC 編號（PIG-{ROC}{03}）
+            Some(Self::generate_iacuc_no(pool).await?)
         } else {
             protocol.iacuc_no.clone()
         };
@@ -338,7 +434,7 @@ impl ProtocolService {
             r#"
             UPDATE protocols SET 
                 status = $2, 
-                iacuc_no = COALESCE($3, iacuc_no),
+                iacuc_no = $3,
                 updated_at = NOW() 
             WHERE id = $1 
             RETURNING *
@@ -346,22 +442,187 @@ impl ProtocolService {
         )
         .bind(id)
         .bind(req.to_status)
-        .bind(iacuc_no)
+        .bind(&new_iacuc_no)
         .fetch_one(pool)
         .await?;
 
         // 記錄狀態變更
         Self::record_status_change(pool, id, Some(protocol.status), req.to_status, changed_by, req.remark.clone()).await?;
 
+        // 當計劃通過時，自動依照 IACUC No. 自動填入客戶
+        if (req.to_status == ProtocolStatus::Approved || req.to_status == ProtocolStatus::ApprovedWithConditions) 
+            && new_iacuc_no.is_some() 
+        {
+            let iacuc_no = new_iacuc_no.as_ref().unwrap();
+            
+            // 檢查是否已存在該客戶（客戶代碼 = IACUC No.）
+            let existing_customer: Option<uuid::Uuid> = sqlx::query_scalar(
+                "SELECT id FROM partners WHERE partner_type = 'customer' AND code = $1"
+            )
+            .bind(iacuc_no)
+            .fetch_optional(pool)
+            .await?;
+
+            // 如果不存在，則創建新客戶
+            if existing_customer.is_none() {
+                let create_req = CreatePartnerRequest {
+                    partner_type: PartnerType::Customer,
+                    code: Some(iacuc_no.clone()),
+                    supplier_category: None,
+                    name: iacuc_no.clone(),
+                    tax_id: None,
+                    phone: None,
+                    email: None,
+                    address: None,
+                    payment_terms: None,
+                };
+                
+                // 驗證請求
+                if let Err(validation_errors) = create_req.validate() {
+                    tracing::warn!("Failed to validate customer creation request for IACUC {}: {:?}", iacuc_no, validation_errors);
+                } else {
+                    // 創建客戶，忽略錯誤（例如代碼衝突），因為可能已經存在
+                    if let Err(e) = PartnerService::create(pool, &create_req).await {
+                        tracing::warn!("Failed to create customer for IACUC {}: {}", iacuc_no, e);
+                    } else {
+                        tracing::info!("Automatically created customer for IACUC: {}", iacuc_no);
+                    }
+                }
+            }
+        }
+
         Ok(updated)
     }
 
-    /// 生成 IACUC 編號
-    fn generate_iacuc_no() -> String {
+    /// 生成 APIG 編號
+    /// 格式：APIG-{ROC}{03}
+    /// {ROC} 為民國年（西元年 - 1911）
+    /// {03} 為流水號（3位數，補零）
+    /// 
+    /// 注意：需要避免重複使用已經轉換為 PIG 的編號
+    /// 例如：如果 APIG-115001 已經變成 PIG-115001，則流水號 001 不應再被使用
+    async fn generate_apig_no(pool: &PgPool) -> Result<String> {
         let now = Utc::now();
-        let year = now.format("%y");
-        let random: u32 = rand::random::<u32>() % 10000;
-        format!("PIG-{}{:04}", year, random)
+        use chrono::Datelike;
+        let year = now.year();
+        // 民國年 = 西元年 - 1911
+        let roc_year = year - 1911;
+        
+        // 查詢該民國年的所有 APIG 編號
+        // 格式：APIG-{ROC年}{3位數流水號}，例如：APIG-114001, APIG-115001
+        let apig_prefix = format!("APIG-{}", roc_year);
+        let apig_nos: Vec<String> = sqlx::query_scalar(
+            "SELECT iacuc_no FROM protocols WHERE iacuc_no LIKE $1 AND iacuc_no IS NOT NULL"
+        )
+        .bind(format!("{}%", apig_prefix))
+        .fetch_all(pool)
+        .await?;
+
+        // 查詢該民國年的所有 PIG 編號（因為 PIG 編號可能曾經是 APIG 編號）
+        // 格式：PIG-{ROC年}{3位數流水號}，例如：PIG-115001
+        // 這些流水號不應再被用於新的 APIG 編號
+        let pig_prefix = format!("PIG-{}", roc_year);
+        let pig_nos: Vec<String> = sqlx::query_scalar(
+            "SELECT iacuc_no FROM protocols WHERE iacuc_no LIKE $1 AND iacuc_no IS NOT NULL"
+        )
+        .bind(format!("{}%", pig_prefix))
+        .fetch_all(pool)
+        .await?;
+
+        // 解析 APIG 編號的流水號
+        let apig_seqs: Vec<i32> = apig_nos
+            .iter()
+            .filter_map(|no| {
+                if no.starts_with(&apig_prefix) {
+                    let seq_str = &no[apig_prefix.len()..];
+                    seq_str.parse::<i32>().ok()
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // 解析 PIG 編號的流水號（這些流水號曾經是 APIG 編號，不應重複使用）
+        let pig_seqs: Vec<i32> = pig_nos
+            .iter()
+            .filter_map(|no| {
+                if no.starts_with(&pig_prefix) {
+                    let seq_str = &no[pig_prefix.len()..];
+                    seq_str.parse::<i32>().ok()
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // 合併所有已使用的流水號（包括當前的 APIG 和曾經是 APIG 的 PIG）
+        let mut all_used_seqs: Vec<i32> = apig_seqs;
+        all_used_seqs.extend(pig_seqs);
+        
+        // 找出最大值
+        let max_seq = all_used_seqs.iter().max().copied();
+
+        // 下一個流水號（從1開始，如果沒有現有編號）
+        let seq = max_seq.map(|s| s + 1).unwrap_or(1);
+        
+        // 確保流水號不超過999
+        if seq > 999 {
+            return Err(AppError::Internal(
+                format!("APIG 編號流水號已達上限（999），無法生成新編號")
+            ));
+        }
+
+        Ok(format!("{}{:03}", apig_prefix, seq))
+    }
+
+    /// 生成 IACUC 編號
+    /// 格式：PIG-{ROC}{03}
+    /// {ROC} 為民國年（西元年 - 1911）
+    /// {03} 為流水號（3位數，補零）
+    async fn generate_iacuc_no(pool: &PgPool) -> Result<String> {
+        let now = Utc::now();
+        use chrono::Datelike;
+        let year = now.year();
+        // 民國年 = 西元年 - 1911
+        let roc_year = year - 1911;
+        
+        // 查詢該民國年的所有 IACUC 編號
+        // 格式：PIG-{ROC年}{3位數流水號}，例如：PIG-114017, PIG-115001
+        let prefix = format!("PIG-{}", roc_year);
+        let iacuc_nos: Vec<String> = sqlx::query_scalar(
+            "SELECT iacuc_no FROM protocols WHERE iacuc_no LIKE $1 AND iacuc_no IS NOT NULL"
+        )
+        .bind(format!("{}%", prefix))
+        .fetch_all(pool)
+        .await?;
+
+        // 解析流水號並找出最大值
+        // IACUC 編號格式：PIG-{ROC年}{3位數流水號}
+        // 例如：PIG-114017 → ROC年=114, 流水號=017
+        let max_seq = iacuc_nos
+            .iter()
+            .filter_map(|no| {
+                // 移除前綴 "PIG-{ROC年}"，取得流水號部分
+                if no.starts_with(&prefix) {
+                    let seq_str = &no[prefix.len()..];
+                    seq_str.parse::<i32>().ok()
+                } else {
+                    None
+                }
+            })
+            .max();
+
+        // 下一個流水號（從1開始，如果沒有現有編號）
+        let seq = max_seq.map(|s| s + 1).unwrap_or(1);
+        
+        // 確保流水號不超過999
+        if seq > 999 {
+            return Err(AppError::Internal(
+                format!("IACUC 編號流水號已達上限（999），無法生成新編號")
+            ));
+        }
+
+        Ok(format!("{}{:03}", prefix, seq))
     }
 
     /// 取得下一個版本號

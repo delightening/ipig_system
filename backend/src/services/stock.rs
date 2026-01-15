@@ -76,22 +76,6 @@ impl StockService {
                         line.unit_price,
                     ).await?;
                 }
-                DocType::SR => {
-                    // 銷售退貨：增加庫存
-                    let warehouse_id = document.warehouse_id
-                        .ok_or_else(|| AppError::BusinessRule("Warehouse is required for SR".to_string()))?;
-                    
-                    Self::create_ledger_entry(
-                        tx,
-                        warehouse_id,
-                        line.product_id,
-                        document,
-                        line,
-                        StockDirection::In,
-                        line.qty,
-                        line.unit_price,
-                    ).await?;
-                }
                 DocType::TR => {
                     // 調撥：從來源倉減少，目標倉增加
                     let from_warehouse = document.warehouse_from_id

@@ -145,7 +145,7 @@ export interface Partner {
   updated_at: string
 }
 
-export type DocType = 'PO' | 'GRN' | 'PR' | 'SO' | 'DO' | 'SR' | 'TR' | 'STK' | 'ADJ'
+export type DocType = 'PO' | 'GRN' | 'PR' | 'SO' | 'DO' | 'TR' | 'STK' | 'ADJ' | 'RM'
 export type DocStatus = 'draft' | 'submitted' | 'approved' | 'cancelled'
 
 export interface DocumentLine {
