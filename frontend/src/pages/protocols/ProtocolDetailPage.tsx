@@ -13,7 +13,10 @@ import api, {
   ChangeStatusRequest,
   CreateCommentRequest,
   AssignReviewerRequest,
+  AssignCoEditorRequest,
+  CoEditorAssignmentResponse,
   UserSimple,
+  User,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -110,7 +113,7 @@ export function ProtocolDetailPage() {
   const { user } = useAuthStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
   
-  const [activeTab, setActiveTab] = useState<'content' | 'versions' | 'history' | 'comments' | 'reviewers' | 'attachments'>('content')
+  const [activeTab, setActiveTab] = useState<'content' | 'versions' | 'history' | 'comments' | 'reviewers' | 'coeditors' | 'attachments'>('content')
   const [showStatusDialog, setShowStatusDialog] = useState(false)
   const [showCommentDialog, setShowCommentDialog] = useState(false)
   const [showAssignDialog, setShowAssignDialog] = useState(false)
@@ -120,6 +123,7 @@ export function ProtocolDetailPage() {
   const [statusRemark, setStatusRemark] = useState('')
   const [commentContent, setCommentContent] = useState('')
   const [selectedReviewerId, setSelectedReviewerId] = useState('')
+  const [selectedCoEditorId, setSelectedCoEditorId] = useState('')
 
   // 取得計畫詳情
   const { data: protocol, isLoading } = useQuery({
@@ -189,16 +193,50 @@ export function ProtocolDetailPage() {
     enabled: !!id && activeTab === 'attachments',
   })
 
+  // 取得 co-editor 列表
+  const { data: coEditors, isLoading: coEditorsLoading } = useQuery({
+    queryKey: ['protocol-co-editors', id],
+    queryFn: async () => {
+      const response = await api.get<CoEditorAssignmentResponse[]>(`/protocols/${id}/co-editors`)
+      return response.data
+    },
+    enabled: !!id && activeTab === 'coeditors',
+  })
+
   // 取得可指派的審查人員
   const { data: availableReviewers } = useQuery({
     queryKey: ['available-reviewers'],
     queryFn: async () => {
-      const response = await api.get<UserSimple[]>('/users', {
-        params: { role: 'REVIEWER,VET' }
-      })
+      // 获取所有用户，然后在前端过滤出 REVIEWER 和 VET 角色
+      const response = await api.get<User[]>('/users')
+      // 过滤出具有 REVIEWER 或 VET 角色的用户
       return response.data
+        .filter(user => user.roles?.some(role => ['REVIEWER', 'VET'].includes(role)))
+        .map(user => ({
+          id: user.id,
+          email: user.email,
+          display_name: user.display_name || user.email,
+        }))
     },
     enabled: showAssignDialog,
+  })
+
+  // 取得可指派的試驗工作人員（co-editor）
+  const { data: availableExperimentStaff } = useQuery({
+    queryKey: ['available-experiment-staff'],
+    queryFn: async () => {
+      // 获取所有用户，然后在前端过滤出 EXPERIMENT_STAFF 角色
+      const response = await api.get<User[]>('/users')
+      // 过滤出具有 EXPERIMENT_STAFF 角色的用户
+      return response.data
+        .filter(user => user.roles?.includes('EXPERIMENT_STAFF'))
+        .map(user => ({
+          id: user.id,
+          email: user.email,
+          display_name: user.display_name || user.email,
+        }))
+    },
+    enabled: showStatusDialog && newStatus === 'PRE_REVIEW',
   })
 
   // 提交計畫
@@ -231,6 +269,7 @@ export function ProtocolDetailPage() {
       setShowStatusDialog(false)
       setNewStatus('')
       setStatusRemark('')
+      setSelectedCoEditorId('')
     },
     onError: (error: any) => {
       toast({
@@ -299,6 +338,43 @@ export function ProtocolDetailPage() {
     },
   })
 
+  // 指派 co-editor
+  const assignCoEditorMutation = useMutation({
+    mutationFn: async (data: AssignCoEditorRequest) => {
+      return api.post(`/protocols/${id}/co-editors`, data)
+    },
+    onSuccess: () => {
+      toast({ title: '成功', description: 'Co-editor 已指派' })
+      queryClient.invalidateQueries({ queryKey: ['protocol', id] })
+      queryClient.invalidateQueries({ queryKey: ['protocol-co-editors', id] })
+    },
+    onError: (error: any) => {
+      toast({
+        title: '錯誤',
+        description: error?.response?.data?.error?.message || '指派 co-editor 失敗',
+        variant: 'destructive',
+      })
+    },
+  })
+
+  // 移除 co-editor
+  const removeCoEditorMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      return api.delete(`/protocols/${id}/co-editors/${userId}`)
+    },
+    onSuccess: () => {
+      toast({ title: '成功', description: 'Co-editor 已移除' })
+      queryClient.invalidateQueries({ queryKey: ['protocol-co-editors', id] })
+    },
+    onError: (error: any) => {
+      toast({
+        title: '錯誤',
+        description: error?.response?.data?.error?.message || '移除 co-editor 失敗',
+        variant: 'destructive',
+      })
+    },
+  })
+
   // 上傳附件
   const uploadAttachmentMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -345,12 +421,35 @@ export function ProtocolDetailPage() {
     }
   }
 
-  const handleChangeStatus = () => {
+  const handleChangeStatus = async () => {
     if (!newStatus) return
-    changeStatusMutation.mutate({
-      to_status: newStatus,
-      remark: statusRemark || undefined,
-    })
+    
+    // 先變更狀態
+    try {
+      await changeStatusMutation.mutateAsync({
+        to_status: newStatus,
+        remark: statusRemark || undefined,
+      })
+      
+      // 如果目標狀態是行政預審且選擇了 co-editor，則指派 co-editor
+      if (newStatus === 'PRE_REVIEW' && selectedCoEditorId && id) {
+        try {
+          await assignCoEditorMutation.mutateAsync({
+            protocol_id: id,
+            user_id: selectedCoEditorId,
+          })
+        } catch (error) {
+          // co-editor 指派失敗不影響狀態變更，只顯示警告
+          toast({
+            title: '警告',
+            description: '狀態已變更，但指派 co-editor 失敗',
+            variant: 'destructive',
+          })
+        }
+      }
+    } catch (error) {
+      // 錯誤已在 mutation 中處理
+    }
   }
 
   const handleAddComment = () => {
@@ -542,6 +641,7 @@ export function ProtocolDetailPage() {
             { key: 'history', label: '狀態歷程', icon: Clock },
             { key: 'comments', label: '審查意見', icon: MessageSquare },
             { key: 'reviewers', label: '審查人員', icon: Users },
+            { key: 'coeditors', label: 'Co-Editor', icon: UserPlus },
             { key: 'attachments', label: '附件', icon: Paperclip },
           ].map((tab) => (
             <button
@@ -829,6 +929,75 @@ export function ProtocolDetailPage() {
         </Card>
       )}
 
+      {activeTab === 'coeditors' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Co-Editor</CardTitle>
+            <CardDescription>指派的試驗工作人員（co-editor）列表</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {coEditorsLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : coEditors && coEditors.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Co-Editor</TableHead>
+                    <TableHead>指派時間</TableHead>
+                    <TableHead>指派者</TableHead>
+                    <TableHead>操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {coEditors.map((coEditor) => (
+                    <TableRow key={coEditor.user_id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{coEditor.user_name}</p>
+                          <p className="text-sm text-muted-foreground">{coEditor.user_email}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>{formatDateTime(coEditor.granted_at)}</TableCell>
+                      <TableCell>{coEditor.granted_by_name || '-'}</TableCell>
+                      <TableCell>
+                        {canAssignReviewer && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (confirm('確定要移除此 co-editor 嗎？')) {
+                                removeCoEditorMutation.mutate(coEditor.user_id)
+                              }
+                            }}
+                            disabled={removeCoEditorMutation.isPending}
+                          >
+                            {removeCoEditorMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <UserPlus className="h-12 w-12 mx-auto mb-2" />
+                <p>尚未指派 co-editor</p>
+                <p className="text-sm mt-2">可在狀態變更為「行政預審」時指派 co-editor</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {activeTab === 'attachments' && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
@@ -958,6 +1127,26 @@ export function ProtocolDetailPage() {
                 </SelectContent>
               </Select>
             </div>
+            {newStatus === 'PRE_REVIEW' && (
+              <div className="space-y-2">
+                <Label>指定 Co-Editor（選填）</Label>
+                <Select value={selectedCoEditorId} onValueChange={setSelectedCoEditorId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="請選擇試驗工作人員作為 co-editor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableExperimentStaff?.map((staff) => (
+                      <SelectItem key={staff.id} value={staff.id}>
+                        {staff.display_name || staff.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  可選擇一位試驗工作人員作為 co-editor，協助編輯此計畫
+                </p>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>備註說明（選填）</Label>
               <Textarea
@@ -974,9 +1163,9 @@ export function ProtocolDetailPage() {
             </Button>
             <Button
               onClick={handleChangeStatus}
-              disabled={!newStatus || changeStatusMutation.isPending}
+              disabled={!newStatus || changeStatusMutation.isPending || assignCoEditorMutation.isPending}
             >
-              {changeStatusMutation.isPending && (
+              {(changeStatusMutation.isPending || assignCoEditorMutation.isPending) && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
               確認變更

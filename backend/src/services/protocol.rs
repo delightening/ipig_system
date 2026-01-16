@@ -10,6 +10,7 @@ use crate::{
         Protocol, ProtocolListItem, ProtocolQuery, ProtocolResponse, ProtocolStatus,
         ProtocolStatusHistory, ProtocolVersion, ReplyCommentRequest, ReviewAssignment, ReviewComment,
         ReviewCommentResponse, UpdateProtocolRequest, ProtocolRole, UserProtocol, CreatePartnerRequest, PartnerType,
+        CoEditorAssignmentResponse,
     },
     services::PartnerService,
     AppError, Result,
@@ -799,6 +800,77 @@ impl ProtocolService {
         .await?;
 
         Ok(assignment)
+    }
+
+    /// 取得 co-editor 列表
+    pub async fn list_co_editors(
+        pool: &PgPool,
+        protocol_id: Uuid,
+    ) -> Result<Vec<CoEditorAssignmentResponse>> {
+        let co_editors = sqlx::query_as::<_, CoEditorAssignmentResponse>(
+            r#"
+            SELECT 
+                up.user_id,
+                up.protocol_id,
+                up.role_in_protocol,
+                up.granted_at,
+                up.granted_by,
+                COALESCE(u.display_name, u.email) as user_name,
+                u.email as user_email,
+                granted_by_user.display_name as granted_by_name
+            FROM user_protocols up
+            INNER JOIN users u ON up.user_id = u.id
+            LEFT JOIN users granted_by_user ON up.granted_by = granted_by_user.id
+            WHERE up.protocol_id = $1 AND up.role_in_protocol = 'CO_EDITOR'
+            ORDER BY up.granted_at DESC
+            "#
+        )
+        .bind(protocol_id)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(co_editors)
+    }
+
+    /// 移除 co-editor
+    pub async fn remove_co_editor(
+        pool: &PgPool,
+        protocol_id: Uuid,
+        user_id: Uuid,
+    ) -> Result<()> {
+        // 驗證該用戶確實是此協議的 co-editor
+        let is_co_editor: (bool,) = sqlx::query_as(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM user_protocols
+                WHERE protocol_id = $1 
+                AND user_id = $2 
+                AND role_in_protocol = 'CO_EDITOR'
+            )
+            "#
+        )
+        .bind(protocol_id)
+        .bind(user_id)
+        .fetch_one(pool)
+        .await?;
+
+        if !is_co_editor.0 {
+            return Err(AppError::NotFound("Co-editor assignment not found".to_string()));
+        }
+
+        // 移除 co-editor
+        sqlx::query(
+            r#"
+            DELETE FROM user_protocols
+            WHERE protocol_id = $1 AND user_id = $2 AND role_in_protocol = 'CO_EDITOR'
+            "#
+        )
+        .bind(protocol_id)
+        .bind(user_id)
+        .execute(pool)
+        .await?;
+
+        Ok(())
     }
 
     /// 新增審查意見

@@ -9,6 +9,7 @@ use crate::{
     middleware::CurrentUser,
     models::{
         AssignReviewerRequest, AssignCoEditorRequest, ChangeStatusRequest, CreateCommentRequest, CreateProtocolRequest,
+        CoEditorAssignmentResponse,
         Protocol, ProtocolListItem, ProtocolQuery, ProtocolResponse, ProtocolStatusHistory,
         ProtocolVersion, ReplyCommentRequest, ReviewAssignment, ReviewComment, ReviewCommentResponse,
         UpdateProtocolRequest, UserProtocol,
@@ -222,6 +223,30 @@ pub async fn assign_co_editor(
     
     let assignment = ProtocolService::assign_co_editor(&state.db, &req, current_user.id).await?;
     Ok(Json(assignment))
+}
+
+/// 列出 co-editor 列表
+pub async fn list_co_editors(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<Vec<CoEditorAssignmentResponse>>> {
+    require_permission!(current_user, "aup.protocol.view_own");
+    
+    let co_editors = ProtocolService::list_co_editors(&state.db, id).await?;
+    Ok(Json(co_editors))
+}
+
+/// 移除 co-editor
+pub async fn remove_co_editor(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path((protocol_id, user_id)): Path<(Uuid, Uuid)>,
+) -> Result<Json<()>> {
+    require_permission!(current_user, "aup.review.assign");
+    
+    ProtocolService::remove_co_editor(&state.db, protocol_id, user_id).await?;
+    Ok(Json(()))
 }
 
 /// 列出審查委員指派清單

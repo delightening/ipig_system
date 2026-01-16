@@ -611,6 +611,22 @@ export interface AssignReviewerRequest {
   reviewer_id: string
 }
 
+export interface AssignCoEditorRequest {
+  protocol_id: string
+  user_id: string
+}
+
+export interface CoEditorAssignmentResponse {
+  user_id: string
+  protocol_id: string
+  role_in_protocol: string
+  granted_at: string
+  granted_by?: string
+  user_name: string
+  user_email: string
+  granted_by_name?: string
+}
+
 export interface ReviewAssignmentResponse extends ReviewAssignment {
   reviewer_name: string
   reviewer_email: string

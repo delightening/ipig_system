@@ -275,3 +275,19 @@ pub struct ReviewCommentResponse {
     pub replied_by_email: Option<String>,
     pub created_at: DateTime<Utc>,
 }
+
+/// Co-Editor 指派回應（含用戶資訊）
+#[derive(Debug, Serialize, FromRow)]
+pub struct CoEditorAssignmentResponse {
+    pub user_id: Uuid,
+    pub protocol_id: Uuid,
+    pub role_in_protocol: ProtocolRole,
+    pub granted_at: DateTime<Utc>,
+    pub granted_by: Option<Uuid>,
+    #[sqlx(default)]
+    pub user_name: String,
+    #[sqlx(default)]
+    pub user_email: String,
+    #[sqlx(default)]
+    pub granted_by_name: Option<String>,
+}
