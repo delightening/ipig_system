@@ -198,7 +198,7 @@ export function MyProjectsPage() {
                 <TableRow>
                   <TableHead>IACUC No.</TableHead>
                   <TableHead>狀態</TableHead>
-                  <TableHead>委託人</TableHead>
+                  <TableHead>委託單位代表人（主管）</TableHead>
                   <TableHead>委託單位</TableHead>
                   <TableHead>審查狀態</TableHead>
                   <TableHead>計畫名稱</TableHead>

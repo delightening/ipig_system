@@ -346,7 +346,7 @@ export function MainLayout() {
   const filteredNavItems = navItems.filter((item) => {
     if (item.permission === 'erp') {
       const hasErpAccess = hasRole('admin') ||
-        user?.roles.some(r => ['warehouse', 'purchasing', 'sales', 'approver'].includes(r)) ||
+        user?.roles.some(r => ['purchasing', 'approver', 'WAREHOUSE_MANAGER'].includes(r)) ||
         user?.permissions.some(p => p.startsWith('erp.'))
       return hasErpAccess
     }

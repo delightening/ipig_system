@@ -123,6 +123,8 @@ pub struct ReviewComment {
     pub is_resolved: bool,
     pub resolved_by: Option<Uuid>,
     pub resolved_at: Option<DateTime<Utc>>,
+    pub parent_comment_id: Option<Uuid>,
+    pub replied_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -147,6 +149,7 @@ pub struct ProtocolAttachment {
 pub enum ProtocolRole {
     Pi,
     Client,
+    CoEditor,
 }
 
 /// 使用者計畫關聯
@@ -194,9 +197,22 @@ pub struct AssignReviewerRequest {
     pub reviewer_id: Uuid,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct AssignCoEditorRequest {
+    pub protocol_id: Uuid,
+    pub user_id: Uuid,
+}
+
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreateCommentRequest {
     pub protocol_version_id: Uuid,
+    #[validate(length(min = 1, message = "Content is required"))]
+    pub content: String,
+}
+
+#[derive(Debug, Deserialize, Validate)]
+pub struct ReplyCommentRequest {
+    pub parent_comment_id: Uuid,
     #[validate(length(min = 1, message = "Content is required"))]
     pub content: String,
 }
@@ -251,5 +267,11 @@ pub struct ReviewCommentResponse {
     pub is_resolved: bool,
     pub resolved_by: Option<Uuid>,
     pub resolved_at: Option<DateTime<Utc>>,
+    pub parent_comment_id: Option<Uuid>,
+    pub replied_by: Option<Uuid>,
+    #[sqlx(default)]
+    pub replied_by_name: Option<String>,
+    #[sqlx(default)]
+    pub replied_by_email: Option<String>,
     pub created_at: DateTime<Utc>,
 }

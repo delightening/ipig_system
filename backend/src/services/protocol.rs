@@ -6,10 +6,10 @@ use validator::Validate;
 
 use crate::{
     models::{
-        AssignReviewerRequest, ChangeStatusRequest, CreateCommentRequest, CreateProtocolRequest,
+        AssignReviewerRequest, AssignCoEditorRequest, ChangeStatusRequest, CreateCommentRequest, CreateProtocolRequest,
         Protocol, ProtocolListItem, ProtocolQuery, ProtocolResponse, ProtocolStatus,
-        ProtocolStatusHistory, ProtocolVersion, ReviewAssignment, ReviewComment,
-        ReviewCommentResponse, UpdateProtocolRequest, ProtocolRole, CreatePartnerRequest, PartnerType,
+        ProtocolStatusHistory, ProtocolVersion, ReplyCommentRequest, ReviewAssignment, ReviewComment,
+        ReviewCommentResponse, UpdateProtocolRequest, ProtocolRole, UserProtocol, CreatePartnerRequest, PartnerType,
     },
     services::PartnerService,
     AppError, Result,
@@ -491,6 +491,37 @@ impl ProtocolService {
             }
         }
 
+        // 當計劃結案時，自動停用對應的客戶
+        if req.to_status == ProtocolStatus::Closed && protocol.iacuc_no.is_some() {
+            let iacuc_no = protocol.iacuc_no.as_ref().unwrap();
+            
+            // 查找對應的客戶（客戶代碼 = IACUC No.）
+            let customer_id: Option<uuid::Uuid> = sqlx::query_scalar(
+                "SELECT id FROM partners WHERE partner_type = 'customer' AND code = $1"
+            )
+            .bind(iacuc_no)
+            .fetch_optional(pool)
+            .await?;
+
+            // 如果找到客戶，則停用該客戶
+            if let Some(customer_id) = customer_id {
+                let result = sqlx::query(
+                    "UPDATE partners SET is_active = false, updated_at = NOW() WHERE id = $1"
+                )
+                .bind(customer_id)
+                .execute(pool)
+                .await?;
+
+                if result.rows_affected() > 0 {
+                    tracing::info!("Automatically deactivated customer for closed IACUC: {}", iacuc_no);
+                } else {
+                    tracing::warn!("Failed to deactivate customer for IACUC {}: customer not found", iacuc_no);
+                }
+            } else {
+                tracing::warn!("No customer found for closed IACUC: {}", iacuc_no);
+            }
+        }
+
         Ok(updated)
     }
 
@@ -712,6 +743,64 @@ impl ProtocolService {
         Ok(assignment)
     }
 
+    /// 指派 co-editor（試驗工作人員）
+    pub async fn assign_co_editor(
+        pool: &PgPool,
+        req: &AssignCoEditorRequest,
+        assigned_by: Uuid,
+    ) -> Result<UserProtocol> {
+        // 驗證協議存在
+        let protocol_exists: (bool,) = sqlx::query_as(
+            "SELECT EXISTS(SELECT 1 FROM protocols WHERE id = $1)"
+        )
+        .bind(req.protocol_id)
+        .fetch_one(pool)
+        .await?;
+
+        if !protocol_exists.0 {
+            return Err(AppError::NotFound("Protocol not found".to_string()));
+        }
+
+        // 驗證用戶存在且是 EXPERIMENT_STAFF 角色
+        let user_has_role: (bool,) = sqlx::query_as(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM user_roles ur
+                INNER JOIN roles r ON ur.role_id = r.id
+                WHERE ur.user_id = $1 AND r.code = 'EXPERIMENT_STAFF'
+            )
+            "#
+        )
+        .bind(req.user_id)
+        .fetch_one(pool)
+        .await?;
+
+        if !user_has_role.0 {
+            return Err(AppError::Validation("User must have EXPERIMENT_STAFF role to be assigned as co-editor".to_string()));
+        }
+
+        // 指派為 co-editor
+        let assignment = sqlx::query_as::<_, UserProtocol>(
+            r#"
+            INSERT INTO user_protocols (user_id, protocol_id, role_in_protocol, granted_at, granted_by)
+            VALUES ($1, $2, 'CO_EDITOR', NOW(), $3)
+            ON CONFLICT (user_id, protocol_id) 
+            DO UPDATE SET 
+                role_in_protocol = 'CO_EDITOR',
+                granted_at = NOW(),
+                granted_by = $3
+            RETURNING *
+            "#
+        )
+        .bind(req.user_id)
+        .bind(req.protocol_id)
+        .bind(assigned_by)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(assignment)
+    }
+
     /// 新增審查意見
     pub async fn add_comment(
         pool: &PgPool,
@@ -735,18 +824,24 @@ impl ProtocolService {
         Ok(comment)
     }
 
-    /// 取得審查意見
+    /// 取得審查意見（含回覆）
     pub async fn get_comments(pool: &PgPool, protocol_version_id: Uuid) -> Result<Vec<ReviewCommentResponse>> {
         let comments = sqlx::query_as::<_, ReviewCommentResponse>(
             r#"
             SELECT 
                 c.id, c.protocol_version_id, c.reviewer_id,
                 u.display_name as reviewer_name, u.email as reviewer_email,
-                c.content, c.is_resolved, c.resolved_by, c.resolved_at, c.created_at
+                c.content, c.is_resolved, c.resolved_by, c.resolved_at, 
+                c.parent_comment_id, c.replied_by,
+                ru.display_name as replied_by_name, ru.email as replied_by_email,
+                c.created_at
             FROM review_comments c
             LEFT JOIN users u ON c.reviewer_id = u.id
+            LEFT JOIN users ru ON c.replied_by = ru.id
             WHERE c.protocol_version_id = $1
-            ORDER BY c.created_at DESC
+            ORDER BY 
+                COALESCE(c.parent_comment_id, c.id) ASC,
+                c.created_at ASC
             "#
         )
         .bind(protocol_version_id)
@@ -754,6 +849,50 @@ impl ProtocolService {
         .await?;
 
         Ok(comments)
+    }
+
+    /// 回覆審查意見
+    pub async fn reply_comment(
+        pool: &PgPool,
+        req: &ReplyCommentRequest,
+        replied_by: Uuid,
+    ) -> Result<ReviewComment> {
+        // 驗證父評論存在並獲取 protocol_version_id
+        let parent_comment: Option<(Uuid,)> = sqlx::query_as(
+            r#"
+            SELECT protocol_version_id 
+            FROM review_comments 
+            WHERE id = $1 AND parent_comment_id IS NULL
+            "#
+        )
+        .bind(req.parent_comment_id)
+        .fetch_optional(pool)
+        .await?;
+
+        let (protocol_version_id,) = parent_comment
+            .ok_or_else(|| AppError::NotFound("Parent comment not found".to_string()))?;
+
+        // 插入回覆
+        let comment = sqlx::query_as::<_, ReviewComment>(
+            r#"
+            INSERT INTO review_comments (
+                id, protocol_version_id, reviewer_id, content, 
+                parent_comment_id, replied_by, created_at, updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+            RETURNING *
+            "#
+        )
+        .bind(Uuid::new_v4())
+        .bind(protocol_version_id)
+        .bind(replied_by) // 回覆者作為 reviewer_id（用於顯示）
+        .bind(&req.content)
+        .bind(req.parent_comment_id)
+        .bind(replied_by) // replied_by 欄位
+        .fetch_one(pool)
+        .await?;
+
+        Ok(comment)
     }
 
     /// 解決審查意見
@@ -778,24 +917,78 @@ impl ProtocolService {
     }
 
     /// 取得我的計畫列表（依使用者）
+    /// 支援委託單位主管：如果用戶是 CLIENT 角色且為主管，可查看同組織下所有用戶的計畫
     pub async fn get_my_protocols(pool: &PgPool, user_id: Uuid) -> Result<Vec<ProtocolListItem>> {
-        let protocols = sqlx::query_as::<_, ProtocolListItem>(
+        // 檢查用戶是否有 CLIENT 角色
+        let user_info: Option<(String, Option<String>)> = sqlx::query_as(
             r#"
             SELECT 
-                p.id, p.protocol_no, p.iacuc_no, p.title, p.status,
-                p.pi_user_id, u.display_name as pi_name, u.organization as pi_organization,
-                p.start_date, p.end_date, p.created_at,
-                NULLIF(p.working_content->'basic'->>'apply_study_number', '') as apply_study_number
-            FROM protocols p
-            LEFT JOIN users u ON p.pi_user_id = u.id
-            INNER JOIN user_protocols up ON p.id = up.protocol_id
-            WHERE up.user_id = $1 AND p.status != 'DELETED'
-            ORDER BY p.created_at DESC
+                string_agg(DISTINCT r.code, ',') as roles,
+                u.organization
+            FROM users u
+            LEFT JOIN user_roles ur ON u.id = ur.user_id
+            LEFT JOIN roles r ON ur.role_id = r.id
+            WHERE u.id = $1
+            GROUP BY u.id, u.organization
             "#
         )
         .bind(user_id)
-        .fetch_all(pool)
+        .fetch_optional(pool)
         .await?;
+
+        let (roles_str, organization) = user_info.ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
+        let roles: Vec<&str> = roles_str.split(',').filter(|s| !s.is_empty()).collect();
+        let has_client_role = roles.contains(&"CLIENT");
+
+        // 如果是 CLIENT 角色且有組織，則查看同組織下所有用戶的計畫（委託單位主管權限）
+        let protocols = if has_client_role && organization.is_some() {
+            sqlx::query_as::<_, ProtocolListItem>(
+                r#"
+                SELECT DISTINCT
+                    p.id, p.protocol_no, p.iacuc_no, p.title, p.status,
+                    p.pi_user_id, u.display_name as pi_name, u.organization as pi_organization,
+                    p.start_date, p.end_date, p.created_at,
+                    NULLIF(p.working_content->'basic'->>'apply_study_number', '') as apply_study_number
+                FROM protocols p
+                LEFT JOIN users u ON p.pi_user_id = u.id
+                WHERE (
+                    -- 用戶直接相關的計畫
+                    EXISTS (
+                        SELECT 1 FROM user_protocols up 
+                        WHERE up.protocol_id = p.id AND up.user_id = $1
+                    )
+                    OR
+                    -- 同組織下所有用戶的計畫（委託單位主管權限）
+                    (u.organization = $2 AND p.status != 'DELETED')
+                )
+                AND p.status != 'DELETED'
+                ORDER BY p.created_at DESC
+                "#
+            )
+            .bind(user_id)
+            .bind(organization.as_deref())
+            .fetch_all(pool)
+            .await?
+        } else {
+            // 一般用戶：只查看自己相關的計畫
+            sqlx::query_as::<_, ProtocolListItem>(
+                r#"
+                SELECT 
+                    p.id, p.protocol_no, p.iacuc_no, p.title, p.status,
+                    p.pi_user_id, u.display_name as pi_name, u.organization as pi_organization,
+                    p.start_date, p.end_date, p.created_at,
+                    NULLIF(p.working_content->'basic'->>'apply_study_number', '') as apply_study_number
+                FROM protocols p
+                LEFT JOIN users u ON p.pi_user_id = u.id
+                INNER JOIN user_protocols up ON p.id = up.protocol_id
+                WHERE up.user_id = $1 AND p.status != 'DELETED'
+                ORDER BY p.created_at DESC
+                "#
+            )
+            .bind(user_id)
+            .fetch_all(pool)
+            .await?
+        };
 
         Ok(protocols)
     }

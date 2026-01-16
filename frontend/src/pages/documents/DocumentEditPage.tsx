@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { Document, Product, Partner, Warehouse, DocType, ProtocolListItem, StockLedgerDetail } from '@/lib/api'
@@ -101,10 +101,18 @@ export function DocumentEditPage() {
 
   const [productSearchOpen, setProductSearchOpen] = useState(false)
   const [productSearch, setProductSearch] = useState('')
-  const [selectedLineIndex, setSelectedLineIndex] = useState<number | null>(null)
+  const [selectedLineId, setSelectedLineId] = useState<string | null>(null)
   const [unsavedChanges, setUnsavedChanges] = useState(false)
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
+  
+  // Draft state for line edits (keyed by line.id)
+  const [draftById, setDraftById] = useState<Record<string, Partial<DocumentLine>>>({})
+  
+  // Generate unique ID for new lines
+  const generateLineId = () => {
+    return `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+  }
 
   // 查詢現有單據（編輯模式）
   const { data: document, isLoading: loadingDocument } = useQuery({
@@ -152,9 +160,14 @@ export function DocumentEditPage() {
       // 查詢所有協議，然後過濾出進行中的
       const response = await api.get<ProtocolListItem[]>('/protocols')
       return response.data.filter(p => {
-        // 基本狀態過濾：必須是已核准且未關閉的協議
+        // 基本狀態過濾：必須是已核准且未結案的協議且有 IACUC No.
+        // 先排除已結案的協議
+        if (p.status === 'CLOSED') {
+          return false
+        }
+        
+        // 檢查是否為已核准狀態且有 IACUC No.
         if (!((p.status === 'APPROVED' || p.status === 'APPROVED_WITH_CONDITIONS') && 
-              p.status !== 'CLOSED' && 
               p.iacuc_no)) {
           return false
         }
@@ -178,7 +191,7 @@ export function DocumentEditPage() {
   })
 
   // 批號選擇組件（內部組件）
-  function BatchNumberSelect({
+  const BatchNumberSelect = React.memo(function BatchNumberSelect({
     lineIndex,
     productId,
     warehouseId,
@@ -193,6 +206,10 @@ export function DocumentEditPage() {
     docType: DocType
     onBatchChange: (batchNo: string, expiryDate?: string) => void
   }) {
+    // 使用 ref 來保持輸入框的焦點
+    const inputRef = React.useRef<HTMLInputElement>(null)
+    const wasFocusedRef = React.useRef(false)
+
     // 判斷是否為採購單據（需要手動輸入）
     const isPurchaseDoc = ['PO', 'GRN', 'PR'].includes(docType)
     // 判斷是否為銷貨單據（使用下拉選單）
@@ -251,17 +268,48 @@ export function DocumentEditPage() {
         .sort((a, b) => a.batch.localeCompare(b.batch))
     }, [stockLedger])
 
-    const handleBatchChange = (value: string) => {
+    const handleBatchChange = useCallback((value: string) => {
       const selected = batchOptions.find((opt) => opt.batch === value)
       onBatchChange(value, selected?.expiry)
-    }
+    }, [batchOptions, onBatchChange])
+
+    // 恢復焦點的 effect
+    React.useEffect(() => {
+      if (wasFocusedRef.current && inputRef.current) {
+        // 使用 setTimeout 確保在 DOM 更新後再恢復焦點
+        setTimeout(() => {
+          if (inputRef.current) {
+            inputRef.current.focus()
+            // 將游標移動到輸入框末尾
+            const length = inputRef.current.value.length
+            inputRef.current.setSelectionRange(length, length)
+          }
+        }, 0)
+      }
+    }, [batchNo])
 
     // 採購單據：始終顯示普通輸入框，允許手動輸入批號
     if (isPurchaseDoc) {
+      const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        onBatchChange(e.target.value)
+      }, [onBatchChange])
+
+      const handleFocus = useCallback(() => {
+        wasFocusedRef.current = true
+      }, [])
+
+      const handleBlur = useCallback(() => {
+        wasFocusedRef.current = false
+      }, [])
+      
       return (
         <Input
+          ref={inputRef}
+          type="text"
           value={batchNo}
-          onChange={(e) => onBatchChange(e.target.value)}
+          onChange={handleInputChange}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           placeholder="輸入批號"
         />
       )
@@ -273,9 +321,11 @@ export function DocumentEditPage() {
       if (!productId || !warehouseId) {
         return (
           <Input
+            type="text"
             value={batchNo}
             onChange={(e) => onBatchChange(e.target.value)}
             placeholder="批號"
+            disabled
           />
         )
       }
@@ -299,25 +349,42 @@ export function DocumentEditPage() {
         )
       }
 
-      // 如果沒有可用批號，顯示普通輸入框
+      // 如果沒有可用批號，顯示禁用輸入框
       return (
         <Input
+          type="text"
           value={batchNo}
-          onChange={(e) => onBatchChange(e.target.value)}
-          placeholder="批號"
+          placeholder="無可用批號"
+          disabled
         />
       )
     }
 
     // 其他單據類型：顯示普通輸入框
+    const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      onBatchChange(e.target.value)
+    }, [onBatchChange])
+
+    const handleFocus = useCallback(() => {
+      wasFocusedRef.current = true
+    }, [])
+
+    const handleBlur = useCallback(() => {
+      wasFocusedRef.current = false
+    }, [])
+    
     return (
       <Input
+        ref={inputRef}
+        type="text"
         value={batchNo}
-        onChange={(e) => onBatchChange(e.target.value)}
+        onChange={handleInputChange}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         placeholder="批號"
       />
     )
-  }
+  })
 
   // 根據IACUC No.創建或查找客戶
   const createOrFindCustomerMutation = useMutation({
@@ -356,6 +423,19 @@ export function DocumentEditPage() {
   // 設定表單資料（編輯模式）
   useEffect(() => {
     if (document && isEdit) {
+      const lines = document.lines.map((line) => ({
+        id: line.id,
+        line_no: line.line_no,
+        product_id: line.product_id,
+        product_name: line.product_name,
+        product_sku: line.product_sku,
+        qty: line.qty,
+        uom: line.uom,
+        unit_price: line.unit_price || '',
+        batch_no: line.batch_no || '',
+        expiry_date: line.expiry_date || '',
+        remark: line.remark || '',
+      }))
       setFormData({
         doc_type: document.doc_type,
         doc_date: document.doc_date,
@@ -364,22 +444,31 @@ export function DocumentEditPage() {
         warehouse_to_id: document.warehouse_to_id || '',
         partner_id: document.partner_id || '',
         remark: document.remark || '',
-        lines: document.lines.map((line) => ({
-          id: line.id,
-          line_no: line.line_no,
-          product_id: line.product_id,
-          product_name: line.product_name,
-          product_sku: line.product_sku,
-          qty: line.qty,
-          uom: line.uom,
-          unit_price: line.unit_price || '',
-          batch_no: line.batch_no || '',
-          expiry_date: line.expiry_date || '',
-          remark: line.remark || '',
-        })),
+        lines,
       })
+      // Initialize draftById from formData lines
+      const initialDrafts: Record<string, Partial<DocumentLine>> = {}
+      lines.forEach((line) => {
+        if (line.id) {
+          initialDrafts[line.id] = {}
+        }
+      })
+      setDraftById(initialDrafts)
     }
   }, [document, isEdit])
+  
+  // Initialize draftById when formData.lines changes (for new documents)
+  useEffect(() => {
+    if (!isEdit) {
+      const initialDrafts: Record<string, Partial<DocumentLine>> = {}
+      formData.lines.forEach((line) => {
+        if (line.id) {
+          initialDrafts[line.id] = {}
+        }
+      })
+      setDraftById(initialDrafts)
+    }
+  }, [formData.lines.length, isEdit]) // Only sync when length changes, not on every edit
 
   // 監聽未儲存變更
   useEffect(() => {
@@ -395,7 +484,16 @@ export function DocumentEditPage() {
 
   // 建立/更新單據
   const saveMutation = useMutation({
-    mutationFn: async (data: FormData) => {
+    mutationFn: async () => {
+      // Merge all drafts into formData before saving
+      const mergedData: FormData = {
+        ...formData,
+        lines: formData.lines.map((line) => {
+          const draft = line.id ? draftById[line.id] : undefined
+          return draft && Object.keys(draft).length > 0 ? { ...line, ...draft } : line
+        }),
+      }
+      const data = mergedData
       // 計算單據類型相關的驗證條件
       const needsPartner = ['PO', 'GRN', 'PR', 'SO', 'DO'].includes(data.doc_type)
       const isTransfer = data.doc_type === 'TR'
@@ -460,6 +558,8 @@ export function DocumentEditPage() {
       }
     },
     onSuccess: () => {
+      // Clear drafts after successful save
+      setDraftById({})
       queryClient.invalidateQueries({ queryKey: ['documents'] })
       setUnsavedChanges(false)
       toast({ title: '成功', description: isEdit ? '單據已更新' : '單據已建立' })
@@ -479,26 +579,35 @@ export function DocumentEditPage() {
   // 送審
   const submitMutation = useMutation({
     mutationFn: async () => {
+      // Merge all drafts into formData before submitting
+      const mergedData: FormData = {
+        ...formData,
+        lines: formData.lines.map((line) => {
+          const draft = line.id ? draftById[line.id] : undefined
+          return draft && Object.keys(draft).length > 0 ? { ...line, ...draft } : line
+        }),
+      }
+      
       // 計算單據類型相關的驗證條件
-      const needsPartner = ['PO', 'GRN', 'PR', 'SO', 'DO'].includes(formData.doc_type)
-      const isTransfer = formData.doc_type === 'TR'
+      const needsPartner = ['PO', 'GRN', 'PR', 'SO', 'DO'].includes(mergedData.doc_type)
+      const isTransfer = mergedData.doc_type === 'TR'
 
       // 驗證必填欄位
-      if (needsPartner && !formData.partner_id?.trim()) {
+      if (needsPartner && !mergedData.partner_id?.trim()) {
         throw new Error('請選擇供應商/客戶')
       }
-      if (!formData.warehouse_id?.trim() && !isTransfer) {
+      if (!mergedData.warehouse_id?.trim() && !isTransfer) {
         throw new Error('請選擇倉庫')
       }
-      if (isTransfer && (!formData.warehouse_from_id?.trim() || !formData.warehouse_to_id?.trim())) {
+      if (isTransfer && (!mergedData.warehouse_from_id?.trim() || !mergedData.warehouse_to_id?.trim())) {
         throw new Error('調撥單需要選擇來源倉庫和目標倉庫')
       }
 
       // 過濾並驗證明細行
-      const validLines = formData.lines.filter((line) => line.product_id && line.product_id.trim() !== '')
+      const validLines = mergedData.lines.filter((line) => line.product_id && line.product_id.trim() !== '')
       
       // 盤點單可以沒有明細（會自動生成），其他單據必須有至少一行
-      if (formData.doc_type !== 'STK' && validLines.length === 0) {
+      if (mergedData.doc_type !== 'STK' && validLines.length === 0) {
         throw new Error('請至少新增一項產品明細')
       }
 
@@ -519,13 +628,13 @@ export function DocumentEditPage() {
       // 先儲存再送審
       // 轉換資料格式以符合後端要求
       const payload: any = {
-        doc_type: formData.doc_type,
-        doc_date: formData.doc_date,
-        warehouse_id: formData.warehouse_id && formData.warehouse_id.trim() !== '' ? formData.warehouse_id : null,
-        warehouse_from_id: formData.warehouse_from_id && formData.warehouse_from_id.trim() !== '' ? formData.warehouse_from_id : null,
-        warehouse_to_id: formData.warehouse_to_id && formData.warehouse_to_id.trim() !== '' ? formData.warehouse_to_id : null,
-        partner_id: formData.partner_id && formData.partner_id.trim() !== '' ? formData.partner_id : null,
-        remark: formData.remark && formData.remark.trim() !== '' ? formData.remark : null,
+        doc_type: mergedData.doc_type,
+        doc_date: mergedData.doc_date,
+        warehouse_id: mergedData.warehouse_id && mergedData.warehouse_id.trim() !== '' ? mergedData.warehouse_id : null,
+        warehouse_from_id: mergedData.warehouse_from_id && mergedData.warehouse_from_id.trim() !== '' ? mergedData.warehouse_from_id : null,
+        warehouse_to_id: mergedData.warehouse_to_id && mergedData.warehouse_to_id.trim() !== '' ? mergedData.warehouse_to_id : null,
+        partner_id: mergedData.partner_id && mergedData.partner_id.trim() !== '' ? mergedData.partner_id : null,
+        remark: mergedData.remark && mergedData.remark.trim() !== '' ? mergedData.remark : null,
         lines: validLines.map((line) => ({
           product_id: line.product_id,
           qty: parseFloat(line.qty) || 0,
@@ -549,6 +658,8 @@ export function DocumentEditPage() {
       }
     },
     onSuccess: async (response: { documentId: string }) => {
+      // Clear drafts after successful submit
+      setDraftById({})
       queryClient.invalidateQueries({ queryKey: ['documents'] })
       setUnsavedChanges(false)
       toast({ title: '成功', description: '單據已送審' })
@@ -577,7 +688,9 @@ export function DocumentEditPage() {
 
   // 新增明細行
   const addLine = () => {
+    const lineId = generateLineId()
     const newLine: DocumentLine = {
+      id: lineId,
       line_no: formData.lines.length + 1,
       product_id: '',
       qty: '1',
@@ -591,34 +704,82 @@ export function DocumentEditPage() {
       ...prev,
       lines: [...prev.lines, newLine],
     }))
+    // Initialize draft for new line
+    setDraftById((prev) => ({
+      ...prev,
+      [lineId]: {},
+    }))
     setUnsavedChanges(true)
   }
 
-  // 更新明細行
-  const updateLine = (index: number, field: keyof DocumentLine, value: string) => {
+  // 更新明細行 draft（不更新 formData，避免重新渲染）
+  const updateLineDraft = (lineId: string, field: keyof DocumentLine, value: string) => {
+    setDraftById((prev) => ({
+      ...prev,
+      [lineId]: {
+        ...prev[lineId],
+        [field]: value,
+      },
+    }))
+  }
+
+  // Commit draft changes to formData (called on blur or save)
+  const commitLine = (lineId: string) => {
+    const draft = draftById[lineId]
+    if (draft && Object.keys(draft).length > 0) {
+      setFormData((prev) => ({
+        ...prev,
+        lines: prev.lines.map((line) =>
+          line.id === lineId ? { ...line, ...draft } : line
+        ),
+      }))
+      // Clear draft after commit
+      setDraftById((prev) => {
+        const next = { ...prev }
+        delete next[lineId]
+        return next
+      })
+      setUnsavedChanges(true)
+    }
+  }
+
+  // Commit all drafts to formData (called on save/submit)
+  const commitAllDrafts = () => {
+    if (Object.keys(draftById).length === 0) return
+    
     setFormData((prev) => ({
       ...prev,
-      lines: prev.lines.map((line, i) => (i === index ? { ...line, [field]: value } : line)),
+      lines: prev.lines.map((line) => {
+        const draft = line.id ? draftById[line.id] : undefined
+        return draft && Object.keys(draft).length > 0 ? { ...line, ...draft } : line
+      }),
     }))
-    setUnsavedChanges(true)
+    setDraftById({})
   }
 
   // 刪除明細行
-  const removeLine = (index: number) => {
+  const removeLine = (lineId: string) => {
     setFormData((prev) => ({
       ...prev,
-      lines: prev.lines.filter((_, i) => i !== index),
+      lines: prev.lines.filter((line) => line.id !== lineId),
     }))
+    // Remove draft for deleted line
+    setDraftById((prev) => {
+      const next = { ...prev }
+      delete next[lineId]
+      return next
+    })
     setUnsavedChanges(true)
   }
 
   // 選擇產品
   const selectProduct = (product: Product) => {
-    if (selectedLineIndex !== null) {
+    if (selectedLineId) {
+      // Update formData directly for product selection (this is a significant change)
       setFormData((prev) => ({
         ...prev,
-        lines: prev.lines.map((line, i) =>
-          i === selectedLineIndex
+        lines: prev.lines.map((line) =>
+          line.id === selectedLineId
             ? {
                 ...line,
                 product_id: product.id,
@@ -629,16 +790,22 @@ export function DocumentEditPage() {
             : line
         ),
       }))
+      // Clear any draft for this line since we're updating formData directly
+      setDraftById((prev) => {
+        const next = { ...prev }
+        delete next[selectedLineId]
+        return next
+      })
       setUnsavedChanges(true)
     }
     setProductSearchOpen(false)
     setProductSearch('')
-    setSelectedLineIndex(null)
+    setSelectedLineId(null)
   }
 
   // 開啟產品搜尋
-  const openProductSearch = (lineIndex: number) => {
-    setSelectedLineIndex(lineIndex)
+  const openProductSearch = (lineId: string) => {
+    setSelectedLineId(lineId)
     setProductSearchOpen(true)
   }
 
@@ -733,7 +900,7 @@ export function DocumentEditPage() {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={() => saveMutation.mutate(formData)}
+            onClick={() => saveMutation.mutate()}
             disabled={saveMutation.isPending || submitMutation.isPending}
           >
             {saveMutation.isPending ? (
@@ -976,8 +1143,8 @@ export function DocumentEditPage() {
                     <TableHead className="w-[120px] text-right">金額</TableHead>
                   </>
                 )}
-                <TableHead className="w-[120px]">批號</TableHead>
                 <TableHead className="w-[140px]">效期</TableHead>
+                <TableHead className="w-[120px]">批號</TableHead>
                 <TableHead className="w-[60px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -992,95 +1159,127 @@ export function DocumentEditPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                formData.lines.map((line, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="text-center">{index + 1}</TableCell>
-                    <TableCell>
-                      {line.product_id ? (
-                        <div>
-                          <div className="font-medium">{line.product_name}</div>
-                          <div className="text-xs text-muted-foreground">{line.product_sku}</div>
-                        </div>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openProductSearch(index)}
-                          className="w-full justify-start"
-                        >
-                          <Search className="mr-2 h-4 w-4" />
-                          選擇品項
-                        </Button>
+                formData.lines.map((line, index) => {
+                  const lineId = line.id || `temp-${index}`
+                  const draft = draftById[lineId] || {}
+                  // Get value from draft first, fallback to line, ensure string type
+                  const getValue = (field: keyof DocumentLine): string => {
+                    const value = draft[field] !== undefined ? draft[field] : line[field]
+                    return value ? String(value) : ''
+                  }
+                  const qty = getValue('qty')
+                  const unitPrice = getValue('unit_price')
+                  const expiryDate = getValue('expiry_date')
+                  const batchNo = getValue('batch_no')
+                  
+                  return (
+                    <TableRow key={lineId}>
+                      <TableCell className="text-center">{index + 1}</TableCell>
+                      <TableCell>
+                        {line.product_id ? (
+                          <div>
+                            <div className="font-medium">{line.product_name}</div>
+                            <div className="text-xs text-muted-foreground">{line.product_sku}</div>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openProductSearch(lineId)}
+                            className="w-full justify-start"
+                          >
+                            <Search className="mr-2 h-4 w-4" />
+                            選擇品項
+                          </Button>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          value={qty}
+                          onChange={(e) => updateLineDraft(lineId, 'qty', e.target.value)}
+                          className="text-right"
+                          min="0"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm">{line.uom || '-'}</span>
+                      </TableCell>
+                      {['PO', 'GRN', 'DO'].includes(formData.doc_type) && (
+                        <>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              value={unitPrice}
+                              onChange={(e) => updateLineDraft(lineId, 'unit_price', e.target.value)}
+                              className="text-right"
+                              min="0"
+                            />
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            $
+                            {formatNumber(
+                              (parseFloat(qty) || 0) * (parseFloat(unitPrice) || 0),
+                              0
+                            )}
+                          </TableCell>
+                        </>
                       )}
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        value={line.qty}
-                        onChange={(e) => updateLine(index, 'qty', e.target.value)}
-                        className="text-right"
-                        min="0"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm">{line.uom || '-'}</span>
-                    </TableCell>
-                    {['PO', 'GRN', 'DO'].includes(formData.doc_type) && (
-                      <>
-                        <TableCell>
+                      <TableCell>
+                        {['SO', 'DO'].includes(formData.doc_type) ? (
+                          // 銷貨單：效期為只讀，由批號選擇自動填充
                           <Input
-                            type="number"
-                            value={line.unit_price}
-                            onChange={(e) => updateLine(index, 'unit_price', e.target.value)}
-                            className="text-right"
-                            min="0"
+                            type="date"
+                            value={expiryDate}
+                            readOnly
+                            disabled
+                            className="bg-muted cursor-not-allowed"
                           />
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          $
-                          {formatNumber(
-                            (parseFloat(line.qty) || 0) * (parseFloat(line.unit_price) || 0),
-                            2
-                          )}
-                        </TableCell>
-                      </>
-                    )}
-                    <TableCell>
-                      <BatchNumberSelect
-                        lineIndex={index}
-                        productId={line.product_id}
-                        warehouseId={formData.warehouse_id}
-                        batchNo={line.batch_no}
-                        docType={formData.doc_type}
-                        onBatchChange={(batchNo, expiryDate) => {
-                          updateLine(index, 'batch_no', batchNo)
-                          // 銷貨單據時，如果選擇了批號，自動更新效期
-                          if (['SO', 'DO'].includes(formData.doc_type) && expiryDate) {
-                            updateLine(index, 'expiry_date', expiryDate)
-                          }
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="date"
-                        value={line.expiry_date}
-                        onChange={(e) => updateLine(index, 'expiry_date', e.target.value)}
-                        placeholder="效期"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeLine(index)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
+                        ) : (
+                          // 採購單：效期可編輯
+                          <Input
+                            type="date"
+                            value={expiryDate}
+                            onChange={(e) => updateLineDraft(lineId, 'expiry_date', e.target.value)}
+                            placeholder="效期"
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <BatchNumberSelect
+                          lineIndex={index}
+                          productId={line.product_id}
+                          warehouseId={formData.warehouse_id}
+                          batchNo={batchNo}
+                          docType={formData.doc_type}
+                          onBatchChange={(batchNo, expiryDate) => {
+                            updateLineDraft(lineId, 'batch_no', batchNo)
+                            // 銷貨單據時，根據批號選擇自動更新效期
+                            if (['SO', 'DO'].includes(formData.doc_type)) {
+                              if (expiryDate) {
+                                updateLineDraft(lineId, 'expiry_date', expiryDate)
+                              } else if (!batchNo) {
+                                // 如果批號被清空，也清空效期
+                                updateLineDraft(lineId, 'expiry_date', '')
+                              }
+                            }
+                            // Don't commit immediately, let save/submit handle it
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeLine(lineId)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
               )}
             </TableBody>
           </Table>

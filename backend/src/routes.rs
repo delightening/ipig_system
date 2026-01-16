@@ -76,6 +76,9 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/reviews/assignments", get(handlers::list_review_assignments).post(handlers::assign_reviewer))
         .route("/reviews/comments", get(handlers::list_review_comments).post(handlers::create_review_comment))
         .route("/reviews/comments/:id/resolve", post(handlers::resolve_review_comment))
+        .route("/reviews/comments/reply", post(handlers::reply_review_comment))
+        // Co-Editor Assignment
+        .route("/protocols/:id/co-editors", post(handlers::assign_co_editor))
         // My Projects
         .route("/my-projects", get(handlers::get_my_protocols))
         // Pig Sources

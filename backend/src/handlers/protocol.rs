@@ -8,10 +8,10 @@ use validator::Validate;
 use crate::{
     middleware::CurrentUser,
     models::{
-        AssignReviewerRequest, ChangeStatusRequest, CreateCommentRequest, CreateProtocolRequest,
+        AssignReviewerRequest, AssignCoEditorRequest, ChangeStatusRequest, CreateCommentRequest, CreateProtocolRequest,
         Protocol, ProtocolListItem, ProtocolQuery, ProtocolResponse, ProtocolStatusHistory,
-        ProtocolVersion, ReviewAssignment, ReviewComment, ReviewCommentResponse,
-        UpdateProtocolRequest,
+        ProtocolVersion, ReplyCommentRequest, ReviewAssignment, ReviewComment, ReviewCommentResponse,
+        UpdateProtocolRequest, UserProtocol,
     },
     require_permission,
     services::ProtocolService,
@@ -64,9 +64,25 @@ pub async fn get_protocol(
     
     let protocol = ProtocolService::get_by_id(&state.db, id).await?;
     
-    // 檢查當前使用者是否有查看此專案的權限，如果沒有 view_all 權限，則只能查看自己的專案
+    // 檢查當前使用者是否有查看此專案的權限
     let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string());
-    if !has_view_all && protocol.protocol.pi_user_id != current_user.id {
+    let is_pi_or_coeditor: (bool,) = sqlx::query_as(
+        r#"
+        SELECT EXISTS(
+            SELECT 1 FROM user_protocols 
+            WHERE protocol_id = $1 
+            AND user_id = $2 
+            AND role_in_protocol IN ('PI', 'CLIENT', 'CO_EDITOR')
+        )
+        "#
+    )
+    .bind(id)
+    .bind(current_user.id)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or((false,));
+    
+    if !has_view_all && protocol.protocol.pi_user_id != current_user.id && !is_pi_or_coeditor.0 {
         return Err(AppError::Forbidden("You don't have permission to view this protocol".to_string()));
     }
     
@@ -74,13 +90,37 @@ pub async fn get_protocol(
 }
 
 /// 更新專案
+/// 允許 PI、CLIENT 或 co-editor 編輯協議
 pub async fn update_protocol(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateProtocolRequest>,
 ) -> Result<Json<Protocol>> {
-    require_permission!(current_user, "aup.protocol.edit");
+    // 檢查是否有編輯權限
+    let has_edit_permission = current_user.permissions.contains(&"aup.protocol.edit".to_string());
+    
+    // 檢查是否為協議的 PI、CLIENT 或 co-editor
+    let is_authorized: (bool,) = sqlx::query_as(
+        r#"
+        SELECT EXISTS(
+            SELECT 1 FROM user_protocols 
+            WHERE protocol_id = $1 
+            AND user_id = $2 
+            AND role_in_protocol IN ('PI', 'CLIENT', 'CO_EDITOR')
+        )
+        "#
+    )
+    .bind(id)
+    .bind(current_user.id)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or((false,));
+    
+    if !has_edit_permission && !is_authorized.0 {
+        return Err(AppError::Forbidden("You don't have permission to edit this protocol".to_string()));
+    }
+    
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let protocol = ProtocolService::update(&state.db, id, &req).await?;
@@ -88,12 +128,35 @@ pub async fn update_protocol(
 }
 
 /// 提交專案
+/// 允許 PI 或 co-editor 提交協議
 pub async fn submit_protocol(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Protocol>> {
-    require_permission!(current_user, "aup.protocol.submit");
+    // 檢查是否有提交權限
+    let has_submit_permission = current_user.permissions.contains(&"aup.protocol.submit".to_string());
+    
+    // 檢查是否為協議的 PI 或 co-editor
+    let is_authorized: (bool,) = sqlx::query_as(
+        r#"
+        SELECT EXISTS(
+            SELECT 1 FROM user_protocols 
+            WHERE protocol_id = $1 
+            AND user_id = $2 
+            AND role_in_protocol IN ('PI', 'CO_EDITOR')
+        )
+        "#,
+    )
+    .bind(id)
+    .bind(current_user.id)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or((false,));
+    
+    if !has_submit_permission && !is_authorized.0 {
+        return Err(AppError::Forbidden("You don't have permission to submit this protocol".to_string()));
+    }
     
     let protocol = ProtocolService::submit(&state.db, id, current_user.id).await?;
     Ok(Json(protocol))
@@ -145,6 +208,19 @@ pub async fn assign_reviewer(
     require_permission!(current_user, "aup.review.assign");
     
     let assignment = ProtocolService::assign_reviewer(&state.db, &req, current_user.id).await?;
+    Ok(Json(assignment))
+}
+
+/// 指派 co-editor（試驗工作人員）
+/// IACUC_STAFF 可以指派 EXPERIMENT_STAFF 為協議的 co-editor
+pub async fn assign_co_editor(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Json(req): Json<AssignCoEditorRequest>,
+) -> Result<Json<UserProtocol>> {
+    require_permission!(current_user, "aup.review.assign");
+    
+    let assignment = ProtocolService::assign_co_editor(&state.db, &req, current_user.id).await?;
     Ok(Json(assignment))
 }
 
@@ -209,8 +285,22 @@ pub async fn resolve_review_comment(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<ReviewComment>> {
-    // PI 可以標記意見為已解決
+    // PI 或 co-editor 可以標記意見為已解決
     let comment = ProtocolService::resolve_comment(&state.db, id, current_user.id).await?;
+    Ok(Json(comment))
+}
+
+/// 回覆審查意見
+/// 允許 PI 或 co-editor 回覆審查委員的意見
+pub async fn reply_review_comment(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Json(req): Json<ReplyCommentRequest>,
+) -> Result<Json<ReviewComment>> {
+    require_permission!(current_user, "aup.review.reply");
+    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    
+    let comment = ProtocolService::reply_comment(&state.db, &req, current_user.id).await?;
     Ok(Json(comment))
 }
 
