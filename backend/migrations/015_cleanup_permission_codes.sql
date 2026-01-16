@@ -1,5 +1,3 @@
-BEGIN;
-
 ALTER TABLE permissions ADD COLUMN IF NOT EXISTS name VARCHAR(200);
 UPDATE permissions SET name = code WHERE name IS NULL;
 
@@ -123,5 +121,3 @@ WHERE permission_id IN (SELECT old_id FROM perm_map);
 
 DELETE FROM permissions
 WHERE code IN (SELECT old_code FROM perm_map);
-
-COMMIT;

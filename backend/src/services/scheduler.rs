@@ -18,7 +18,7 @@ impl SchedulerService {
         // 每日 08:00 執行低庫存檢查
         let db_clone = db.clone();
         let config_clone = config.clone();
-        sched.add(Job::new_async("0 8 * * *", move |_uuid, _l| {
+        sched.add(Job::new_async("0 0 8 * * *", move |_uuid, _l| {
             let db = db_clone.clone();
             let config = config_clone.clone();
             Box::pin(async move {
@@ -32,7 +32,7 @@ impl SchedulerService {
         // 每日 08:00 執行效期檢查
         let db_clone = db.clone();
         let config_clone = config.clone();
-        sched.add(Job::new_async("0 8 * * *", move |_uuid, _l| {
+        sched.add(Job::new_async("0 0 8 * * *", move |_uuid, _l| {
             let db = db_clone.clone();
             let config = config_clone.clone();
             Box::pin(async move {
@@ -45,7 +45,7 @@ impl SchedulerService {
 
         // 每週日 03:00 清理過期通知
         let db_clone = db.clone();
-        sched.add(Job::new_async("0 3 * * 0", move |_uuid, _l| {
+        sched.add(Job::new_async("0 0 3 * * 0", move |_uuid, _l| {
             let db = db_clone.clone();
             Box::pin(async move {
                 info!("Running weekly notification cleanup...");
