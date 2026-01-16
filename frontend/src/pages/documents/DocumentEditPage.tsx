@@ -40,7 +40,7 @@ import {
   Search,
   AlertTriangle,
 } from 'lucide-react'
-import { formatNumber } from '@/lib/utils'
+import { formatNumber, formatQuantity, formatUnitPrice } from '@/lib/utils'
 
 const docTypeNames: Record<DocType, string> = {
   PO: '採購單',
@@ -106,12 +106,55 @@ export function DocumentEditPage() {
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
   
-  // Draft state for line edits (keyed by line.id)
-  const [draftById, setDraftById] = useState<Record<string, Partial<DocumentLine>>>({})
+  // Use refs to store input values without triggering re-renders
+  // Keyed by lineId, then by field name
+  const inputRefs = React.useRef<Record<string, {
+    qty?: HTMLInputElement
+    unit_price?: HTMLInputElement
+    expiry_date?: HTMLInputElement
+    batch_no?: HTMLInputElement
+  }>>({})
   
   // Generate unique ID for new lines
   const generateLineId = () => {
     return `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+  }
+  
+  // Get all input values from refs (called on save/submit)
+  const collectLineValues = (lineId: string): Partial<DocumentLine> => {
+    const refs = inputRefs.current[lineId]
+    if (!refs) return {}
+    
+    const values: Partial<DocumentLine> = {}
+    if (refs.qty) values.qty = refs.qty.value
+    if (refs.unit_price) values.unit_price = refs.unit_price.value
+    if (refs.expiry_date) values.expiry_date = refs.expiry_date.value
+    if (refs.batch_no) values.batch_no = refs.batch_no.value
+    
+    return values
+  }
+  
+  // Collect all line values from refs and update formData
+  const collectAllLineValues = () => {
+    const updates: Record<string, Partial<DocumentLine>> = {}
+    formData.lines.forEach((line) => {
+      const lineId = line.id || `temp-${formData.lines.indexOf(line)}`
+      const values = collectLineValues(lineId)
+      if (Object.keys(values).length > 0) {
+        updates[lineId] = values
+      }
+    })
+    
+    if (Object.keys(updates).length > 0) {
+      setFormData((prev) => ({
+        ...prev,
+        lines: prev.lines.map((line) => {
+          const lineId = line.id || `temp-${prev.lines.indexOf(line)}`
+          const update = updates[lineId]
+          return update ? { ...line, ...update } : line
+        }),
+      }))
+    }
   }
 
   // 查詢現有單據（編輯模式）
@@ -198,6 +241,7 @@ export function DocumentEditPage() {
     batchNo,
     docType,
     onBatchChange,
+    inputRef: externalInputRef,
   }: {
     lineIndex: number
     productId: string
@@ -205,10 +249,14 @@ export function DocumentEditPage() {
     batchNo: string
     docType: DocType
     onBatchChange: (batchNo: string, expiryDate?: string) => void
+    inputRef?: (el: HTMLInputElement | null) => void
   }) {
-    // 使用 ref 來保持輸入框的焦點
-    const inputRef = React.useRef<HTMLInputElement>(null)
-    const wasFocusedRef = React.useRef(false)
+    // Combine internal and external refs
+    const setInputRef = React.useCallback((el: HTMLInputElement | null) => {
+      if (externalInputRef) {
+        externalInputRef(el)
+      }
+    }, [externalInputRef])
 
     // 判斷是否為採購單據（需要手動輸入）
     const isPurchaseDoc = ['PO', 'GRN', 'PR'].includes(docType)
@@ -273,43 +321,13 @@ export function DocumentEditPage() {
       onBatchChange(value, selected?.expiry)
     }, [batchOptions, onBatchChange])
 
-    // 恢復焦點的 effect
-    React.useEffect(() => {
-      if (wasFocusedRef.current && inputRef.current) {
-        // 使用 setTimeout 確保在 DOM 更新後再恢復焦點
-        setTimeout(() => {
-          if (inputRef.current) {
-            inputRef.current.focus()
-            // 將游標移動到輸入框末尾
-            const length = inputRef.current.value.length
-            inputRef.current.setSelectionRange(length, length)
-          }
-        }, 0)
-      }
-    }, [batchNo])
-
-    // 採購單據：始終顯示普通輸入框，允許手動輸入批號
+    // 採購單據：始終顯示普通輸入框，允許手動輸入批號（非受控組件）
     if (isPurchaseDoc) {
-      const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        onBatchChange(e.target.value)
-      }, [onBatchChange])
-
-      const handleFocus = useCallback(() => {
-        wasFocusedRef.current = true
-      }, [])
-
-      const handleBlur = useCallback(() => {
-        wasFocusedRef.current = false
-      }, [])
-      
       return (
         <Input
-          ref={inputRef}
+          ref={setInputRef}
           type="text"
-          value={batchNo}
-          onChange={handleInputChange}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
+          defaultValue={batchNo}
           placeholder="輸入批號"
         />
       )
@@ -322,18 +340,17 @@ export function DocumentEditPage() {
         return (
           <Input
             type="text"
-            value={batchNo}
-            onChange={(e) => onBatchChange(e.target.value)}
+            defaultValue={batchNo}
             placeholder="批號"
             disabled
           />
         )
       }
 
-      // 如果有可用批號，顯示下拉選單
+      // 如果有可用批號，顯示下拉選單（Select 需要受控，但我們在 save 時才讀取值）
       if (batchOptions.length > 0) {
         return (
-          <Select value={batchNo} onValueChange={handleBatchChange}>
+          <Select defaultValue={batchNo} onValueChange={handleBatchChange}>
             <SelectTrigger>
               <SelectValue placeholder="選擇批號" />
             </SelectTrigger>
@@ -353,7 +370,7 @@ export function DocumentEditPage() {
       return (
         <Input
           type="text"
-          value={batchNo}
+          defaultValue={batchNo}
           placeholder="無可用批號"
           disabled
         />
@@ -361,28 +378,24 @@ export function DocumentEditPage() {
     }
 
     // 其他單據類型：顯示普通輸入框
-    const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-      onBatchChange(e.target.value)
-    }, [onBatchChange])
-
-    const handleFocus = useCallback(() => {
-      wasFocusedRef.current = true
-    }, [])
-
-    const handleBlur = useCallback(() => {
-      wasFocusedRef.current = false
-    }, [])
-    
     return (
       <Input
-        ref={inputRef}
+        ref={setInputRef}
         type="text"
-        value={batchNo}
-        onChange={handleInputChange}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
+        defaultValue={batchNo}
         placeholder="批號"
       />
+    )
+  }, (prevProps, nextProps) => {
+    // Custom comparison: only re-render if actual values change, ignore function reference changes
+    return (
+      prevProps.lineIndex === nextProps.lineIndex &&
+      prevProps.productId === nextProps.productId &&
+      prevProps.warehouseId === nextProps.warehouseId &&
+      prevProps.batchNo === nextProps.batchNo &&
+      prevProps.docType === nextProps.docType
+      // Note: onBatchChange is intentionally ignored as it's recreated on each render
+      // but its behavior is stable (it always calls updateLineDraft with the same lineId)
     )
   })
 
@@ -429,9 +442,9 @@ export function DocumentEditPage() {
         product_id: line.product_id,
         product_name: line.product_name,
         product_sku: line.product_sku,
-        qty: line.qty,
+        qty: formatQuantity(line.qty),
         uom: line.uom,
-        unit_price: line.unit_price || '',
+        unit_price: line.unit_price ? formatUnitPrice(line.unit_price) : '',
         batch_no: line.batch_no || '',
         expiry_date: line.expiry_date || '',
         remark: line.remark || '',
@@ -446,27 +459,24 @@ export function DocumentEditPage() {
         remark: document.remark || '',
         lines,
       })
-      // Initialize draftById from formData lines
-      const initialDrafts: Record<string, Partial<DocumentLine>> = {}
+      // Initialize refs for loaded lines
       lines.forEach((line) => {
-        if (line.id) {
-          initialDrafts[line.id] = {}
+        if (line.id && !inputRefs.current[line.id]) {
+          inputRefs.current[line.id] = {}
         }
       })
-      setDraftById(initialDrafts)
     }
   }, [document, isEdit])
   
-  // Initialize draftById when formData.lines changes (for new documents)
+  // Initialize refs when formData.lines changes (for new documents)
   useEffect(() => {
     if (!isEdit) {
-      const initialDrafts: Record<string, Partial<DocumentLine>> = {}
       formData.lines.forEach((line) => {
-        if (line.id) {
-          initialDrafts[line.id] = {}
+        const lineId = line.id || `temp-${formData.lines.indexOf(line)}`
+        if (!inputRefs.current[lineId]) {
+          inputRefs.current[lineId] = {}
         }
       })
-      setDraftById(initialDrafts)
     }
   }, [formData.lines.length, isEdit]) // Only sync when length changes, not on every edit
 
@@ -485,15 +495,21 @@ export function DocumentEditPage() {
   // 建立/更新單據
   const saveMutation = useMutation({
     mutationFn: async () => {
-      // Merge all drafts into formData before saving
-      const mergedData: FormData = {
+      // Collect all input values from refs before saving
+      collectAllLineValues()
+      
+      // Use formData after collecting values (need to wait for state update)
+      // For now, collect directly and use immediately
+      const mergedLines = formData.lines.map((line) => {
+        const lineId = line.id || `temp-${formData.lines.indexOf(line)}`
+        const values = collectLineValues(lineId)
+        return Object.keys(values).length > 0 ? { ...line, ...values } : line
+      })
+      
+      const data: FormData = {
         ...formData,
-        lines: formData.lines.map((line) => {
-          const draft = line.id ? draftById[line.id] : undefined
-          return draft && Object.keys(draft).length > 0 ? { ...line, ...draft } : line
-        }),
+        lines: mergedLines,
       }
-      const data = mergedData
       // 計算單據類型相關的驗證條件
       const needsPartner = ['PO', 'GRN', 'PR', 'SO', 'DO'].includes(data.doc_type)
       const isTransfer = data.doc_type === 'TR'
@@ -558,8 +574,6 @@ export function DocumentEditPage() {
       }
     },
     onSuccess: () => {
-      // Clear drafts after successful save
-      setDraftById({})
       queryClient.invalidateQueries({ queryKey: ['documents'] })
       setUnsavedChanges(false)
       toast({ title: '成功', description: isEdit ? '單據已更新' : '單據已建立' })
@@ -579,13 +593,16 @@ export function DocumentEditPage() {
   // 送審
   const submitMutation = useMutation({
     mutationFn: async () => {
-      // Merge all drafts into formData before submitting
+      // Collect all input values from refs before submitting
+      const mergedLines = formData.lines.map((line) => {
+        const lineId = line.id || `temp-${formData.lines.indexOf(line)}`
+        const values = collectLineValues(lineId)
+        return Object.keys(values).length > 0 ? { ...line, ...values } : line
+      })
+      
       const mergedData: FormData = {
         ...formData,
-        lines: formData.lines.map((line) => {
-          const draft = line.id ? draftById[line.id] : undefined
-          return draft && Object.keys(draft).length > 0 ? { ...line, ...draft } : line
-        }),
+        lines: mergedLines,
       }
       
       // 計算單據類型相關的驗證條件
@@ -658,8 +675,6 @@ export function DocumentEditPage() {
       }
     },
     onSuccess: async (response: { documentId: string }) => {
-      // Clear drafts after successful submit
-      setDraftById({})
       queryClient.invalidateQueries({ queryKey: ['documents'] })
       setUnsavedChanges(false)
       toast({ title: '成功', description: '單據已送審' })
@@ -704,58 +719,27 @@ export function DocumentEditPage() {
       ...prev,
       lines: [...prev.lines, newLine],
     }))
-    // Initialize draft for new line
-    setDraftById((prev) => ({
-      ...prev,
-      [lineId]: {},
-    }))
+    // Initialize refs for new line
+    if (!inputRefs.current[lineId]) {
+      inputRefs.current[lineId] = {}
+    }
     setUnsavedChanges(true)
   }
 
-  // 更新明細行 draft（不更新 formData，避免重新渲染）
-  const updateLineDraft = (lineId: string, field: keyof DocumentLine, value: string) => {
-    setDraftById((prev) => ({
-      ...prev,
-      [lineId]: {
-        ...prev[lineId],
-        [field]: value,
-      },
-    }))
-  }
-
-  // Commit draft changes to formData (called on blur or save)
-  const commitLine = (lineId: string) => {
-    const draft = draftById[lineId]
-    if (draft && Object.keys(draft).length > 0) {
-      setFormData((prev) => ({
-        ...prev,
-        lines: prev.lines.map((line) =>
-          line.id === lineId ? { ...line, ...draft } : line
-        ),
-      }))
-      // Clear draft after commit
-      setDraftById((prev) => {
-        const next = { ...prev }
-        delete next[lineId]
-        return next
-      })
-      setUnsavedChanges(true)
+  // Stable callback for batch change (updates ref directly, no re-render)
+  const handleBatchChange = useCallback((lineId: string, batchNo: string, expiryDate?: string) => {
+    const refs = inputRefs.current[lineId]
+    if (refs?.batch_no) {
+      refs.batch_no.value = batchNo
     }
-  }
+    // 銷貨單據時，根據批號選擇自動更新效期
+    if (['SO', 'DO'].includes(formData.doc_type)) {
+      if (refs?.expiry_date) {
+        refs.expiry_date.value = expiryDate || ''
+      }
+    }
+  }, [formData.doc_type])
 
-  // Commit all drafts to formData (called on save/submit)
-  const commitAllDrafts = () => {
-    if (Object.keys(draftById).length === 0) return
-    
-    setFormData((prev) => ({
-      ...prev,
-      lines: prev.lines.map((line) => {
-        const draft = line.id ? draftById[line.id] : undefined
-        return draft && Object.keys(draft).length > 0 ? { ...line, ...draft } : line
-      }),
-    }))
-    setDraftById({})
-  }
 
   // 刪除明細行
   const removeLine = (lineId: string) => {
@@ -763,12 +747,8 @@ export function DocumentEditPage() {
       ...prev,
       lines: prev.lines.filter((line) => line.id !== lineId),
     }))
-    // Remove draft for deleted line
-    setDraftById((prev) => {
-      const next = { ...prev }
-      delete next[lineId]
-      return next
-    })
+    // Remove refs for deleted line
+    delete inputRefs.current[lineId]
     setUnsavedChanges(true)
   }
 
@@ -790,12 +770,7 @@ export function DocumentEditPage() {
             : line
         ),
       }))
-      // Clear any draft for this line since we're updating formData directly
-      setDraftById((prev) => {
-        const next = { ...prev }
-        delete next[selectedLineId]
-        return next
-      })
+      // Note: refs are not cleared here as they will be re-initialized on next render
       setUnsavedChanges(true)
     }
     setProductSearchOpen(false)
@@ -1161,16 +1136,22 @@ export function DocumentEditPage() {
               ) : (
                 formData.lines.map((line, index) => {
                   const lineId = line.id || `temp-${index}`
-                  const draft = draftById[lineId] || {}
-                  // Get value from draft first, fallback to line, ensure string type
-                  const getValue = (field: keyof DocumentLine): string => {
-                    const value = draft[field] !== undefined ? draft[field] : line[field]
-                    return value ? String(value) : ''
+                  
+                  // Initialize refs for this line if not exists
+                  if (!inputRefs.current[lineId]) {
+                    inputRefs.current[lineId] = {}
                   }
-                  const qty = getValue('qty')
-                  const unitPrice = getValue('unit_price')
-                  const expiryDate = getValue('expiry_date')
-                  const batchNo = getValue('batch_no')
+                  
+                  // Get initial values from line (only used for defaultValue)
+                  const qtyDefault = String(line.qty || '')
+                  const unitPriceDefault = String(line.unit_price || '')
+                  const expiryDateDefault = String(line.expiry_date || '')
+                  const batchNoDefault = String(line.batch_no || '')
+                  
+                  // Create callback for this specific line using closure
+                  const lineBatchChange = (batchNo: string, expiryDate?: string) => {
+                    handleBatchChange(lineId, batchNo, expiryDate)
+                  }
                   
                   return (
                     <TableRow key={lineId}>
@@ -1196,8 +1177,10 @@ export function DocumentEditPage() {
                       <TableCell>
                         <Input
                           type="number"
-                          value={qty}
-                          onChange={(e) => updateLineDraft(lineId, 'qty', e.target.value)}
+                          defaultValue={qtyDefault}
+                          ref={(el) => {
+                            if (el) inputRefs.current[lineId].qty = el
+                          }}
                           className="text-right"
                           min="0"
                         />
@@ -1210,18 +1193,18 @@ export function DocumentEditPage() {
                           <TableCell>
                             <Input
                               type="number"
-                              value={unitPrice}
-                              onChange={(e) => updateLineDraft(lineId, 'unit_price', e.target.value)}
+                              defaultValue={unitPriceDefault}
+                              ref={(el) => {
+                                if (el) inputRefs.current[lineId].unit_price = el
+                              }}
                               className="text-right"
                               min="0"
+                              step="0.01"
                             />
                           </TableCell>
                           <TableCell className="text-right font-medium">
-                            $
-                            {formatNumber(
-                              (parseFloat(qty) || 0) * (parseFloat(unitPrice) || 0),
-                              0
-                            )}
+                            {/* Amount calculation will be done on save, not during input */}
+                            $0
                           </TableCell>
                         </>
                       )}
@@ -1230,7 +1213,7 @@ export function DocumentEditPage() {
                           // 銷貨單：效期為只讀，由批號選擇自動填充
                           <Input
                             type="date"
-                            value={expiryDate}
+                            defaultValue={expiryDateDefault}
                             readOnly
                             disabled
                             className="bg-muted cursor-not-allowed"
@@ -1239,8 +1222,10 @@ export function DocumentEditPage() {
                           // 採購單：效期可編輯
                           <Input
                             type="date"
-                            value={expiryDate}
-                            onChange={(e) => updateLineDraft(lineId, 'expiry_date', e.target.value)}
+                            defaultValue={expiryDateDefault}
+                            ref={(el) => {
+                              if (el) inputRefs.current[lineId].expiry_date = el
+                            }}
                             placeholder="效期"
                           />
                         )}
@@ -1250,20 +1235,11 @@ export function DocumentEditPage() {
                           lineIndex={index}
                           productId={line.product_id}
                           warehouseId={formData.warehouse_id}
-                          batchNo={batchNo}
+                          batchNo={batchNoDefault}
                           docType={formData.doc_type}
-                          onBatchChange={(batchNo, expiryDate) => {
-                            updateLineDraft(lineId, 'batch_no', batchNo)
-                            // 銷貨單據時，根據批號選擇自動更新效期
-                            if (['SO', 'DO'].includes(formData.doc_type)) {
-                              if (expiryDate) {
-                                updateLineDraft(lineId, 'expiry_date', expiryDate)
-                              } else if (!batchNo) {
-                                // 如果批號被清空，也清空效期
-                                updateLineDraft(lineId, 'expiry_date', '')
-                              }
-                            }
-                            // Don't commit immediately, let save/submit handle it
+                          onBatchChange={lineBatchChange}
+                          inputRef={(el) => {
+                            if (el) inputRefs.current[lineId].batch_no = el
                           }}
                         />
                       </TableCell>

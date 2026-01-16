@@ -47,3 +47,27 @@ export function formatFileSize(bytes: number) {
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
+
+/**
+ * Format quantity as integer (whole number)
+ */
+export function formatQuantity(value: string | number): string {
+  const num = typeof value === 'string' ? parseFloat(value) : value
+  if (isNaN(num)) return ''
+  // Return as integer (no decimals)
+  return Math.round(num).toString()
+}
+
+/**
+ * Format unit price as integer if possible, otherwise 2 decimal places
+ */
+export function formatUnitPrice(value: string | number): string {
+  const num = typeof value === 'string' ? parseFloat(value) : value
+  if (isNaN(num)) return ''
+  // Check if it's a whole number
+  if (num % 1 === 0) {
+    return Math.round(num).toString()
+  }
+  // Otherwise format to 2 decimal places
+  return num.toFixed(2)
+}
