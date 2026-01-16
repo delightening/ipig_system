@@ -326,8 +326,8 @@ impl StockService {
     }
 
     /// 查詢庫存流水
-    pub async fn get_ledger(pool: &PgPool, _query: &StockLedgerQuery) -> Result<Vec<StockLedgerDetail>> {
-        let ledger = sqlx::query_as::<_, StockLedgerDetail>(
+    pub async fn get_ledger(pool: &PgPool, query: &StockLedgerQuery) -> Result<Vec<StockLedgerDetail>> {
+        let mut sql = String::from(
             r#"
             SELECT 
                 sl.id,
@@ -349,12 +349,72 @@ impl StockService {
             FROM stock_ledger sl
             INNER JOIN warehouses w ON sl.warehouse_id = w.id
             INNER JOIN products p ON sl.product_id = p.id
-            ORDER BY sl.trx_date DESC, sl.created_at DESC
-            LIMIT 1000
+            WHERE 1=1
             "#
-        )
-        .fetch_all(pool)
-        .await?;
+        );
+
+        let mut param_count = 0;
+
+        if query.warehouse_id.is_some() {
+            param_count += 1;
+            sql.push_str(&format!(" AND sl.warehouse_id = ${}", param_count));
+        }
+
+        if query.product_id.is_some() {
+            param_count += 1;
+            sql.push_str(&format!(" AND sl.product_id = ${}", param_count));
+        }
+
+        if query.batch_no.is_some() {
+            param_count += 1;
+            sql.push_str(&format!(" AND sl.batch_no = ${}", param_count));
+        }
+
+        if query.date_from.is_some() {
+            param_count += 1;
+            sql.push_str(&format!(" AND sl.trx_date >= ${}", param_count));
+        }
+
+        if query.date_to.is_some() {
+            param_count += 1;
+            sql.push_str(&format!(" AND sl.trx_date <= ${}", param_count));
+        }
+
+        if query.doc_type.is_some() {
+            param_count += 1;
+            sql.push_str(&format!(" AND sl.doc_type = ${}", param_count));
+        }
+
+        sql.push_str(" ORDER BY sl.trx_date DESC, sl.created_at DESC LIMIT 1000");
+
+        // Build query with bindings in correct order
+        let mut query_builder = sqlx::query_as::<_, StockLedgerDetail>(&sql);
+
+        if let Some(warehouse_id) = query.warehouse_id {
+            query_builder = query_builder.bind(warehouse_id);
+        }
+
+        if let Some(product_id) = query.product_id {
+            query_builder = query_builder.bind(product_id);
+        }
+
+        if let Some(batch_no) = &query.batch_no {
+            query_builder = query_builder.bind(batch_no);
+        }
+
+        if let Some(date_from) = query.date_from {
+            query_builder = query_builder.bind(date_from);
+        }
+
+        if let Some(date_to) = query.date_to {
+            query_builder = query_builder.bind(date_to);
+        }
+
+        if let Some(doc_type) = query.doc_type {
+            query_builder = query_builder.bind(doc_type);
+        }
+
+        let ledger = query_builder.fetch_all(pool).await?;
 
         Ok(ledger)
     }

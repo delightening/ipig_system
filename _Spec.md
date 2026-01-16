@@ -899,6 +899,21 @@ IACUC 動物試驗計畫書（AUP）提交與審查系統規格書
 
 ---
 
+###### 2.7.1 欄位紀錄（pen_location）業務規則
+
+**重要規則：**
+
+| 規則 | 說明 |
+|-----|------|
+| 分配實驗時保留欄位 | 當豬隻從「未分配」狀態變更為「已分配」或「實驗中」時，**不會移除**欄位紀錄（`pen_location`） |
+| 犧牲時移除欄位 | 當豬隻被犧牲（建立犧牲/採樣紀錄）時，系統會**自動移除**欄位紀錄（`pen_location = NULL`）並將狀態更新為「實驗完畢」 |
+
+**實作方式：**
+- 分配實驗操作（`batch_assign`、`batch_start_experiment`）僅更新狀態與 IACUC 編號，不觸及 `pen_location`
+- 犧牲操作透過資料庫觸發器（migration 023）自動處理欄位移除與狀態更新
+
+---
+
 ###### 2.8 品種與性別枚舉值
 
 **品種（Breed）：**
@@ -1270,7 +1285,7 @@ IACUC 動物試驗計畫書（AUP）提交與審查系統規格書
 | birth_date | DATE | 出生日期 |
 | entry_date | DATE | 進場日期 |
 | entry_weight | DECIMAL(5,1) | 進場體重 |
-| pen_location | VARCHAR(10) | 欄位編號 |
+| pen_location | VARCHAR(10) | 欄位編號（⚠️ 僅在犧牲時自動移除，分配實驗時保留） |
 | pre_experiment_code | VARCHAR(20) | 實驗前代號 |
 | iacuc_no | VARCHAR(20) | 實驗代號（IACUC NO.，FK） |
 | experiment_date | DATE | 實驗開始日期 |
@@ -1282,6 +1297,8 @@ IACUC 動物試驗計畫書（AUP）提交與審查系統規格書
 | created_by | UUID | 記錄者 |
 | created_at | TIMESTAMP | 建立時間 |
 | updated_at | TIMESTAMP | 更新時間 |
+
+> **欄位紀錄規則**：`pen_location` 欄位僅在豬隻犧牲時由系統自動移除（透過資料庫觸發器）。分配至實驗時不會移除欄位紀錄。詳見 2.7.1 節。
 
 ---
 

@@ -105,7 +105,10 @@ export function DocumentEditPage() {
   const [unsavedChanges, setUnsavedChanges] = useState(false)
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
-  
+
+  // Track line amounts for real-time calculation (for purchase orders)
+  const [lineAmounts, setLineAmounts] = useState<Record<string, number>>({})
+
   // Use refs to store input values without triggering re-renders
   // Keyed by lineId, then by field name
   const inputRefs = React.useRef<Record<string, {
@@ -114,47 +117,46 @@ export function DocumentEditPage() {
     expiry_date?: HTMLInputElement
     batch_no?: HTMLInputElement
   }>>({})
-  
+
   // Generate unique ID for new lines
   const generateLineId = () => {
     return `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
   }
-  
+
   // Get all input values from refs (called on save/submit)
   const collectLineValues = (lineId: string): Partial<DocumentLine> => {
     const refs = inputRefs.current[lineId]
     if (!refs) return {}
-    
+
     const values: Partial<DocumentLine> = {}
     if (refs.qty) values.qty = refs.qty.value
     if (refs.unit_price) values.unit_price = refs.unit_price.value
     if (refs.expiry_date) values.expiry_date = refs.expiry_date.value
     if (refs.batch_no) values.batch_no = refs.batch_no.value
-    
+
     return values
   }
-  
-  // Collect all line values from refs and update formData
-  const collectAllLineValues = () => {
-    const updates: Record<string, Partial<DocumentLine>> = {}
-    formData.lines.forEach((line) => {
+
+  // Return all line values from refs merged with current formData
+  const collectCurrentLineValues = () => {
+    return formData.lines.map((line) => {
       const lineId = line.id || `temp-${formData.lines.indexOf(line)}`
       const values = collectLineValues(lineId)
-      if (Object.keys(values).length > 0) {
-        updates[lineId] = values
-      }
+      return Object.keys(values).length > 0 ? { ...line, ...values } : line
     })
-    
-    if (Object.keys(updates).length > 0) {
-      setFormData((prev) => ({
-        ...prev,
-        lines: prev.lines.map((line) => {
-          const lineId = line.id || `temp-${prev.lines.indexOf(line)}`
-          const update = updates[lineId]
-          return update ? { ...line, ...update } : line
-        }),
-      }))
-    }
+  }
+
+  // Collect all line values from refs and update formData (Sync State)
+  const collectAllLineValues = () => {
+    // Use functional update to ensure we have latest state
+    setFormData((prev) => {
+      const updatedLines = prev.lines.map((line) => {
+        const lineId = line.id || `temp-${prev.lines.indexOf(line)}`
+        const values = collectLineValues(lineId)
+        return Object.keys(values).length > 0 ? { ...line, ...values } : line
+      })
+      return { ...prev, lines: updatedLines }
+    })
   }
 
   // 查詢現有單據（編輯模式）
@@ -208,13 +210,13 @@ export function DocumentEditPage() {
         if (p.status === 'CLOSED') {
           return false
         }
-        
+
         // 檢查是否為已核准狀態且有 IACUC No.
-        if (!((p.status === 'APPROVED' || p.status === 'APPROVED_WITH_CONDITIONS') && 
-              p.iacuc_no)) {
+        if (!((p.status === 'APPROVED' || p.status === 'APPROVED_WITH_CONDITIONS') &&
+          p.iacuc_no)) {
           return false
         }
-        
+
         // 檢查對應的客戶是否啟用（客戶代碼 = IACUC No.）
         // 如果partners已載入，則過濾掉停用的客戶
         if (partners && p.iacuc_no) {
@@ -226,12 +228,32 @@ export function DocumentEditPage() {
             return false
           }
         }
-        
+
         return true
       })
     },
     enabled: formData.doc_type === 'SO' || formData.doc_type === 'DO', // 只在銷售單時查詢
   })
+
+  // 計算單行金額的函數
+  const calculateLineAmount = useCallback((lineId: string) => {
+    const refs = inputRefs.current[lineId]
+    if (!refs) return 0
+
+    const qty = refs.qty?.value ? parseFloat(refs.qty.value) : 0
+    const price = refs.unit_price?.value ? parseFloat(refs.unit_price.value) : 0
+    return qty * price
+  }, [])
+
+  // 更新單行金額
+  const updateLineAmount = useCallback((lineId: string) => {
+    const amount = calculateLineAmount(lineId)
+    setLineAmounts((prev) => {
+      // 只有當金額真正改變時才更新狀態，防止無限循環
+      if (prev[lineId] === amount) return prev
+      return { ...prev, [lineId]: amount }
+    })
+  }, [calculateLineAmount])
 
   // 批號選擇組件（內部組件）
   const BatchNumberSelect = React.memo(function BatchNumberSelect({
@@ -241,6 +263,7 @@ export function DocumentEditPage() {
     batchNo,
     docType,
     onBatchChange,
+    onBlur,
     inputRef: externalInputRef,
   }: {
     lineIndex: number
@@ -249,6 +272,7 @@ export function DocumentEditPage() {
     batchNo: string
     docType: DocType
     onBatchChange: (batchNo: string, expiryDate?: string) => void
+    onBlur?: () => void
     inputRef?: (el: HTMLInputElement | null) => void
   }) {
     // Combine internal and external refs
@@ -274,25 +298,27 @@ export function DocumentEditPage() {
         return response.data
       },
       enabled: !!productId && !!warehouseId && isSalesDoc, // 僅銷貨單據時查詢
+      refetchOnMount: 'always', // 確保即時查詢
+      refetchOnWindowFocus: false, // 避免過度查詢
     })
 
     // 從庫存流水中提取唯一的批號和對應的效期
     // 計算每個批號的當前庫存，只顯示庫存大於0的批號
     const batchOptions = React.useMemo(() => {
       if (!stockLedger || stockLedger.length === 0) return []
-      
+
       // 計算每個批號的庫存量和對應的效期
       const batchMap = new Map<string, { qty: number; expiry: string }>()
-      
+
       stockLedger.forEach((entry) => {
         if (entry.batch_no && entry.batch_no.trim() !== '') {
           const batch = entry.batch_no
           const qty = parseFloat(entry.qty_base) || 0
-          
+
           // 判斷是入庫還是出庫
           const isIn = ['in', 'transfer_in', 'adjust_in'].includes(entry.direction)
           const qtyChange = isIn ? qty : -qty
-          
+
           if (batchMap.has(batch)) {
             const existing = batchMap.get(batch)!
             existing.qty += qtyChange
@@ -308,15 +334,19 @@ export function DocumentEditPage() {
           }
         }
       })
-      
+
       // 只返回庫存大於0的批號
       return Array.from(batchMap.entries())
         .filter(([, data]) => data.qty > 0)
         .map(([batch, data]) => ({ batch, expiry: data.expiry }))
-        .sort((a, b) => a.batch.localeCompare(b.batch))
+        .sort((a, b) => {
+          // 如果有效期，按有效期排序，否則按批號
+          if (a.expiry && b.expiry) return a.expiry.localeCompare(b.expiry)
+          return a.batch.localeCompare(b.batch)
+        })
     }, [stockLedger])
 
-    const handleBatchChange = useCallback((value: string) => {
+    const handleBatchChangeInternal = useCallback((value: string) => {
       const selected = batchOptions.find((opt) => opt.batch === value)
       onBatchChange(value, selected?.expiry)
     }, [batchOptions, onBatchChange])
@@ -329,6 +359,7 @@ export function DocumentEditPage() {
           type="text"
           defaultValue={batchNo}
           placeholder="輸入批號"
+          onBlur={onBlur} // 僅在離開欄位時觸發同步 (暫存)
         />
       )
     }
@@ -347,10 +378,10 @@ export function DocumentEditPage() {
         )
       }
 
-      // 如果有可用批號，顯示下拉選單（Select 需要受控，但我們在 save 時才讀取值）
+      // 如果有可用批號，顯示下拉選單（改為受控組件以確保即時更新且不丟失）
       if (batchOptions.length > 0) {
         return (
-          <Select defaultValue={batchNo} onValueChange={handleBatchChange}>
+          <Select value={batchNo} onValueChange={handleBatchChangeInternal}>
             <SelectTrigger>
               <SelectValue placeholder="選擇批號" />
             </SelectTrigger>
@@ -407,21 +438,21 @@ export function DocumentEditPage() {
       const existingCustomer = existingPartnersResponse.data.find(
         p => p.partner_type === 'customer' && p.code === iacucNo
       )
-      
+
       if (existingCustomer) {
         return existingCustomer
       }
-      
+
       // 如果不存在，創建新客戶
       const newCustomerResponse = await api.post<Partner>('/partners', {
         partner_type: 'customer',
         code: iacucNo,  // 客戶代碼 = IACUC No.
         name: iacucNo,  // 客戶名稱 = IACUC No.
       })
-      
+
       // 刷新客戶列表
       queryClient.invalidateQueries({ queryKey: ['partners'] })
-      
+
       return newCustomerResponse.data
     },
     onError: (error: any) => {
@@ -465,9 +496,33 @@ export function DocumentEditPage() {
           inputRefs.current[line.id] = {}
         }
       })
+
+      // Initialize amounts for loaded lines (for purchase orders)
+      if (['PO', 'GRN', 'DO'].includes(document.doc_type)) {
+        const initialAmounts: Record<string, number> = {}
+        lines.forEach((line) => {
+          if (line.id) {
+            const qty = parseFloat(line.qty) || 0
+            const price = parseFloat(line.unit_price) || 0
+            initialAmounts[line.id] = qty * price
+          }
+        })
+        setLineAmounts(initialAmounts)
+      }
     }
   }, [document, isEdit])
-  
+
+  // 初始化所有行的金額（進貨單據）
+  useEffect(() => {
+    if (['PO', 'GRN', 'DO'].includes(formData.doc_type)) {
+      formData.lines.forEach((line) => {
+        const lineId = line.id || `temp-${formData.lines.indexOf(line)}`
+        // 延遲一點執行，確保 refs 已經掛載
+        setTimeout(() => updateLineAmount(lineId), 0)
+      })
+    }
+  }, [formData.doc_type, formData.lines.length]) // 當類型或行數改變時初始化一次
+
   // Initialize refs when formData.lines changes (for new documents)
   useEffect(() => {
     if (!isEdit) {
@@ -497,7 +552,7 @@ export function DocumentEditPage() {
     mutationFn: async () => {
       // Collect all input values from refs before saving
       collectAllLineValues()
-      
+
       // Use formData after collecting values (need to wait for state update)
       // For now, collect directly and use immediately
       const mergedLines = formData.lines.map((line) => {
@@ -505,7 +560,7 @@ export function DocumentEditPage() {
         const values = collectLineValues(lineId)
         return Object.keys(values).length > 0 ? { ...line, ...values } : line
       })
-      
+
       const data: FormData = {
         ...formData,
         lines: mergedLines,
@@ -527,7 +582,7 @@ export function DocumentEditPage() {
 
       // 過濾並驗證明細行
       const validLines = data.lines.filter((line) => line.product_id && line.product_id.trim() !== '')
-      
+
       // 盤點單可以沒有明細（會自動生成），其他單據必須有至少一行
       if (data.doc_type !== 'STK' && validLines.length === 0) {
         throw new Error('請至少新增一項產品明細')
@@ -599,12 +654,12 @@ export function DocumentEditPage() {
         const values = collectLineValues(lineId)
         return Object.keys(values).length > 0 ? { ...line, ...values } : line
       })
-      
+
       const mergedData: FormData = {
         ...formData,
         lines: mergedLines,
       }
-      
+
       // 計算單據類型相關的驗證條件
       const needsPartner = ['PO', 'GRN', 'PR', 'SO', 'DO'].includes(mergedData.doc_type)
       const isTransfer = mergedData.doc_type === 'TR'
@@ -622,7 +677,7 @@ export function DocumentEditPage() {
 
       // 過濾並驗證明細行
       const validLines = mergedData.lines.filter((line) => line.product_id && line.product_id.trim() !== '')
-      
+
       // 盤點單可以沒有明細（會自動生成），其他單據必須有至少一行
       if (mergedData.doc_type !== 'STK' && validLines.length === 0) {
         throw new Error('請至少新增一項產品明細')
@@ -678,7 +733,7 @@ export function DocumentEditPage() {
       queryClient.invalidateQueries({ queryKey: ['documents'] })
       setUnsavedChanges(false)
       toast({ title: '成功', description: '單據已送審' })
-      
+
       // 導航到詳情頁並自動重新整理以獲得更新後的資訊
       navigate(`/documents/${response.documentId}`)
       setTimeout(() => {
@@ -703,10 +758,13 @@ export function DocumentEditPage() {
 
   // 新增明細行
   const addLine = () => {
+    // Sync current values BEFORE adding new line to prevent data loss
+    const currentLines = collectCurrentLineValues()
+
     const lineId = generateLineId()
     const newLine: DocumentLine = {
       id: lineId,
-      line_no: formData.lines.length + 1,
+      line_no: currentLines.length + 1,
       product_id: '',
       qty: '1',
       uom: '',
@@ -715,30 +773,68 @@ export function DocumentEditPage() {
       expiry_date: '',
       remark: '',
     }
+
     setFormData((prev) => ({
       ...prev,
-      lines: [...prev.lines, newLine],
+      lines: [...currentLines, newLine],
     }))
+
     // Initialize refs for new line
     if (!inputRefs.current[lineId]) {
       inputRefs.current[lineId] = {}
     }
+    // Initialize amount for new line (for purchase orders)
+    if (['PO', 'GRN', 'DO'].includes(formData.doc_type)) {
+      setLineAmounts((prev) => ({ ...prev, [lineId]: 0 }))
+    }
     setUnsavedChanges(true)
   }
 
-  // Stable callback for batch change (updates ref directly, no re-render)
+  // Stable callback for batch change
   const handleBatchChange = useCallback((lineId: string, batchNo: string, expiryDate?: string) => {
     const refs = inputRefs.current[lineId]
     if (refs?.batch_no) {
       refs.batch_no.value = batchNo
     }
-    // 銷貨單據時，根據批號選擇自動更新效期
+
+    // 銷貨/出庫單據：選完批號後，直接連動效期並暫存
     if (['SO', 'DO'].includes(formData.doc_type)) {
       if (refs?.expiry_date) {
         refs.expiry_date.value = expiryDate || ''
       }
+
+      // Sync immediately to formData to persist selection
+      setFormData((prev) => {
+        const updatedLines = prev.lines.map((line) => {
+          const currentLineId = line.id || `temp-${prev.lines.indexOf(line)}`
+          if (currentLineId === lineId) {
+            // For this line, we strictly use the new values
+            return {
+              ...line,
+              batch_no: batchNo,
+              expiry_date: expiryDate || '' // Auto-link expiry
+            }
+          }
+          // For other lines, recover values from refs to avoid losing unsaved edits
+          const otherLineValues = collectLineValues(currentLineId)
+          return { ...line, ...otherLineValues }
+        })
+        return { ...prev, lines: updatedLines }
+      })
+      setUnsavedChanges(true)
     }
   }, [formData.doc_type])
+
+  // 一般欄位 Blur 時，同步單行數據到 State (實現 PO 輸入後暫存)
+  const handleLineBlur = (lineId: string) => {
+    // Don't fully refresh all lines to avoid jitter, just this one? 
+    // Actually, updating `lines` array generally requires rewriting it.
+    // We use collectAllLineValues() logic but tailored.
+    // Let's just use the robust collectAllLineValues strategy:
+    // It reads ALL refs, so it's safe.
+    collectAllLineValues()
+    setUnsavedChanges(true)
+  }
 
 
   // 刪除明細行
@@ -749,28 +845,35 @@ export function DocumentEditPage() {
     }))
     // Remove refs for deleted line
     delete inputRefs.current[lineId]
+    // Remove amount for deleted line
+    setLineAmounts((prev) => {
+      const updated = { ...prev }
+      delete updated[lineId]
+      return updated
+    })
     setUnsavedChanges(true)
   }
 
   // 選擇產品
   const selectProduct = (product: Product) => {
     if (selectedLineId) {
-      // Update formData directly for product selection (this is a significant change)
+      // Sync current values before product update to prevent losing edits in other lines
+      const currentLines = collectCurrentLineValues()
+
       setFormData((prev) => ({
         ...prev,
-        lines: prev.lines.map((line) =>
+        lines: currentLines.map((line) =>
           line.id === selectedLineId
             ? {
-                ...line,
-                product_id: product.id,
-                product_name: product.name,
-                product_sku: product.sku,
-                uom: product.base_uom,
-              }
+              ...line,
+              product_id: product.id,
+              product_name: product.name,
+              product_sku: product.sku,
+              uom: product.base_uom,
+            }
             : line
         ),
       }))
-      // Note: refs are not cleared here as they will be re-initialized on next render
       setUnsavedChanges(true)
     }
     setProductSearchOpen(false)
@@ -807,7 +910,7 @@ export function DocumentEditPage() {
   const needsPartner = ['PO', 'GRN', 'PR', 'SO', 'DO'].includes(formData.doc_type)
   const isTransfer = formData.doc_type === 'TR'
   const partnerType = ['PO', 'GRN', 'PR'].includes(formData.doc_type) ? 'supplier' : 'customer'
-  
+
   // 處理IACUC No.選擇（僅銷售單）
   const handleIacucNoSelect = async (iacucNo: string) => {
     try {
@@ -826,24 +929,29 @@ export function DocumentEditPage() {
   const filteredPartners = partners?.filter((p) => {
     if (!needsPartner) return true
     if (p.partner_type !== partnerType) return false
-    
+
     // 如果是客戶，只顯示進行中的（客戶代碼對應的 IACUC No. 在進行中的協議中）
     if (partnerType === 'customer') {
       if (!activeProtocols || activeProtocols.length === 0) return false
       // 檢查客戶代碼是否對應進行中的 IACUC No.
       return activeProtocols.some(protocol => protocol.iacuc_no === p.code)
     }
-    
+
     // 供應商不過濾
     return true
   })
 
-  // 計算總金額
-  const totalAmount = formData.lines.reduce((sum, line) => {
-    const qty = parseFloat(line.qty) || 0
-    const price = parseFloat(line.unit_price) || 0
-    return sum + qty * price
-  }, 0)
+  // 計算總金額 (採用即時 lineAmounts 以實現輸入即計算)
+  const totalAmount = useMemo(() => {
+    return formData.lines.reduce((sum, line) => {
+      const lineId = line.id || `temp-${formData.lines.indexOf(line)}`
+      // 如果 lineAmounts 中有該行的即時金額，優先使用它
+      const amount = lineAmounts[lineId] !== undefined
+        ? lineAmounts[lineId]
+        : (parseFloat(line.qty) || 0) * (parseFloat(line.unit_price) || 0)
+      return sum + amount
+    }, 0)
+  }, [formData.lines, lineAmounts])
 
   if (isEdit && loadingDocument) {
     return (
@@ -1136,23 +1244,23 @@ export function DocumentEditPage() {
               ) : (
                 formData.lines.map((line, index) => {
                   const lineId = line.id || `temp-${index}`
-                  
+
                   // Initialize refs for this line if not exists
                   if (!inputRefs.current[lineId]) {
                     inputRefs.current[lineId] = {}
                   }
-                  
+
                   // Get initial values from line (only used for defaultValue)
                   const qtyDefault = String(line.qty || '')
                   const unitPriceDefault = String(line.unit_price || '')
                   const expiryDateDefault = String(line.expiry_date || '')
                   const batchNoDefault = String(line.batch_no || '')
-                  
+
                   // Create callback for this specific line using closure
                   const lineBatchChange = (batchNo: string, expiryDate?: string) => {
                     handleBatchChange(lineId, batchNo, expiryDate)
                   }
-                  
+
                   return (
                     <TableRow key={lineId}>
                       <TableCell className="text-center">{index + 1}</TableCell>
@@ -1179,10 +1287,20 @@ export function DocumentEditPage() {
                           type="number"
                           defaultValue={qtyDefault}
                           ref={(el) => {
-                            if (el) inputRefs.current[lineId].qty = el
+                            if (el) {
+                              if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}
+                              inputRefs.current[lineId].qty = el
+                            }
                           }}
                           className="text-right"
                           min="0"
+                          onChange={() => {
+                            // Update amount in real-time for purchase orders
+                            if (['PO', 'GRN', 'DO'].includes(formData.doc_type)) {
+                              updateLineAmount(lineId)
+                            }
+                          }}
+                          onBlur={() => handleLineBlur(lineId)} // Auto-save on blur
                         />
                       </TableCell>
                       <TableCell>
@@ -1195,16 +1313,23 @@ export function DocumentEditPage() {
                               type="number"
                               defaultValue={unitPriceDefault}
                               ref={(el) => {
-                                if (el) inputRefs.current[lineId].unit_price = el
+                                if (el) {
+                                  if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}
+                                  inputRefs.current[lineId].unit_price = el
+                                }
                               }}
                               className="text-right"
                               min="0"
                               step="0.01"
+                              onChange={() => {
+                                // Update amount in real-time
+                                updateLineAmount(lineId)
+                              }}
+                              onBlur={() => handleLineBlur(lineId)} // Auto-save on blur
                             />
                           </TableCell>
                           <TableCell className="text-right font-medium">
-                            {/* Amount calculation will be done on save, not during input */}
-                            $0
+                            ${formatNumber(lineAmounts[lineId] || 0, 2)}
                           </TableCell>
                         </>
                       )}
@@ -1214,6 +1339,12 @@ export function DocumentEditPage() {
                           <Input
                             type="date"
                             defaultValue={expiryDateDefault}
+                            ref={(el) => {
+                              if (el) {
+                                if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}
+                                inputRefs.current[lineId].expiry_date = el
+                              }
+                            }}
                             readOnly
                             disabled
                             className="bg-muted cursor-not-allowed"
@@ -1227,6 +1358,7 @@ export function DocumentEditPage() {
                               if (el) inputRefs.current[lineId].expiry_date = el
                             }}
                             placeholder="效期"
+                            onBlur={() => handleLineBlur(lineId)} // 僅在離開欄位時觸發同步 (暫存)
                           />
                         )}
                       </TableCell>
@@ -1238,8 +1370,12 @@ export function DocumentEditPage() {
                           batchNo={batchNoDefault}
                           docType={formData.doc_type}
                           onBatchChange={lineBatchChange}
+                          onBlur={() => handleLineBlur(lineId)} // Auto-save on blur
                           inputRef={(el) => {
-                            if (el) inputRefs.current[lineId].batch_no = el
+                            if (el) {
+                              if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}
+                              inputRefs.current[lineId].batch_no = el
+                            }
                           }}
                         />
                       </TableCell>

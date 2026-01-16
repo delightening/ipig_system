@@ -267,6 +267,13 @@ impl PigService {
             ));
         }
 
+        // 驗證欄位必須填寫
+        if req.pen_location.is_none() || req.pen_location.as_ref().map(|s| s.trim().is_empty()).unwrap_or(true) {
+            return Err(AppError::Validation(
+                "欄位為必填".to_string()
+            ));
+        }
+
         // 將 breed enum 轉換為資料庫期望的字串值
         let breed_str = match req.breed {
             crate::models::PigBreed::Minipig => "miniature",
@@ -379,6 +386,7 @@ impl PigService {
     }
 
     /// 批次分配豬隻至計劃
+    /// 分配後直接進入實驗中狀態（跳過已分配狀態）
     pub async fn batch_assign(pool: &PgPool, req: &BatchAssignRequest) -> Result<Vec<Pig>> {
         let mut updated_pigs = Vec::new();
 
@@ -388,6 +396,7 @@ impl PigService {
                 UPDATE pigs SET
                     iacuc_no = $2,
                     status = $3,
+                    experiment_date = CURRENT_DATE,
                     updated_at = NOW()
                 WHERE id = $1 AND status = $4
                 RETURNING *
@@ -395,7 +404,7 @@ impl PigService {
             )
             .bind(pig_id)
             .bind(&req.iacuc_no)
-            .bind(PigStatus::Assigned)
+            .bind(PigStatus::InExperiment)
             .bind(PigStatus::Unassigned)
             .fetch_optional(pool)
             .await?;

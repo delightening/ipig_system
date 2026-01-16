@@ -77,6 +77,14 @@ const statusColors: Record<PigStatus, string> = {
   completed: 'bg-green-500',
 }
 
+// 輔助函數：判斷欄位顯示文字
+const getPenLocationDisplay = (pig: { status: PigStatus; pen_location?: string | null }) => {
+  if (pig.status === 'completed' && !pig.pen_location) {
+    return '犧牲'
+  }
+  return pig.pen_location || '-'
+}
+
 type TabType = 'observations' | 'surgeries' | 'weights' | 'vaccinations' | 'sacrifice' | 'info' | 'pathology'
 
 export function PigDetailPage() {
@@ -418,7 +426,7 @@ export function PigDetailPage() {
               </div>
               <div>
                 <span className="text-sm text-slate-500">欄號</span>
-                <p className="font-medium">{pig.pen_location || '-'}</p>
+                <p className="font-medium">{getPenLocationDisplay(pig)}</p>
               </div>
               <div>
                 <span className="text-sm text-slate-500">品種</span>
@@ -1169,7 +1177,7 @@ export function PigDetailPage() {
                 </div>
                 <div>
                   <Label className="text-slate-500">欄位</Label>
-                  <p className="font-medium">{pig.pen_location || '-'}</p>
+                  <p className="font-medium">{getPenLocationDisplay(pig)}</p>
                 </div>
                 <div className="col-span-2">
                   <Label className="text-slate-500">備註</Label>

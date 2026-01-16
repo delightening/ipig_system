@@ -52,17 +52,26 @@ const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' |
   REJECTED: 'destructive',
   SUSPENDED: 'destructive',
   CLOSED: 'outline',
+  DELETED: 'destructive',
 }
 
 // 模擬豬隻資料（實際應從 API 取得）
 interface PigRecord {
   id: number
   earTag: string
-  penLocation: string
+  penLocation?: string | null
   status: string
   breed: string
   gender: string
   entryDate: string
+}
+
+// 輔助函數：判斷欄位顯示文字
+const getPenLocationDisplay = (pig: { status: string; penLocation?: string | null }) => {
+  if (pig.status === 'completed' && !pig.penLocation) {
+    return '犧牲'
+  }
+  return pig.penLocation || '-'
 }
 
 export function MyProjectDetailPage() {
@@ -450,7 +459,7 @@ export function MyProjectDetailPage() {
                       <TableRow key={pig.id}>
                         <TableCell>{pig.id}</TableCell>
                         <TableCell className="text-orange-600 font-medium">{pig.earTag}</TableCell>
-                        <TableCell>{pig.penLocation}</TableCell>
+                        <TableCell>{getPenLocationDisplay(pig)}</TableCell>
                         <TableCell>
                           <Badge variant="warning">{pig.status}</Badge>
                         </TableCell>

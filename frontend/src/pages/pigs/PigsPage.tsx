@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
+import { useAuthStore } from '@/stores/auth'
 import api, {
   Pig,
   PigListItem,
@@ -48,7 +49,6 @@ import {
   Loader2,
   Upload,
   Download,
-  Play,
   AlertCircle,
   CheckCircle2,
   Stethoscope,
@@ -68,6 +68,14 @@ const statusColors: Record<PigStatus, string> = {
   assigned: 'bg-blue-100 text-blue-800',
   in_experiment: 'bg-orange-100 text-orange-800',
   completed: 'bg-green-100 text-green-800',
+}
+
+// 輔助函數：判斷欄位顯示文字
+const getPenLocationDisplay = (pig: { status: PigStatus; pen_location?: string | null }) => {
+  if (pig.status === 'completed' && !pig.pen_location) {
+    return '犧牲'
+  }
+  return pig.pen_location || '-'
 }
 
 const buildPenNumbers = (count: number) =>
@@ -107,14 +115,35 @@ const penZoneColors: Record<string, { bg: string; border: string; header: string
 export function PigsPage() {
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
+  const { hasRole } = useAuthStore()
+
+  // Check if user is PI or CLIENT
+  const isPIOrClient = hasRole('PI') || hasRole('CLIENT')
 
   // Building tab state for grouped view
   const [groupedBuildingTab, setGroupedBuildingTab] = useState<'A' | 'B'>('A')
 
   // Filter state
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') || 'pen')
+  // PI/CLIENT can only see: in_experiment, completed
+  // Other users can see: pen, unassigned, in_experiment, completed
+  const allowedStatuses = isPIOrClient 
+    ? ['in_experiment', 'completed']
+    : ['pen', 'unassigned', 'in_experiment', 'completed']
+  const urlStatus = searchParams.get('status')
+  // Default: PI/CLIENT -> 'in_experiment', others -> 'pen'
+  const defaultStatus = isPIOrClient ? 'in_experiment' : 'pen'
+  const initialStatus = urlStatus && allowedStatuses.includes(urlStatus) ? urlStatus : defaultStatus
+  const [statusFilter, setStatusFilter] = useState<string>(initialStatus)
   const [breedFilter, setBreedFilter] = useState<string>('all')
+
+  // Redirect to allowed tab if user tries to access restricted tabs
+  useEffect(() => {
+    if (!allowedStatuses.includes(statusFilter)) {
+      setStatusFilter(defaultStatus)
+      setSearchParams({ status: defaultStatus })
+    }
+  }, [statusFilter, setSearchParams, allowedStatuses, defaultStatus])
 
   // Dialog state
   const [showAddDialog, setShowAddDialog] = useState(false)
@@ -167,7 +196,7 @@ export function PigsPage() {
     queryKey: ['pigs', statusFilter, breedFilter, search],
     queryFn: async () => {
       const params = new URLSearchParams()
-      if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter)
+      if (statusFilter && statusFilter !== 'all' && statusFilter !== 'pen') params.append('status', statusFilter)
       if (breedFilter && breedFilter !== 'all') params.append('breed', breedFilter)
       if (search) params.append('search', search)
       const res = await api.get<PigListItem[]>(`/pigs?${params}`)
@@ -194,7 +223,7 @@ export function PigsPage() {
       return res.data
     },
     enabled: statusFilter === 'pen',
-    staleTime: 0, // Always consider data stale for real-time updates
+    staleTime: 0,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   })
@@ -202,7 +231,11 @@ export function PigsPage() {
   // Mutations
   const createPigMutation = useMutation({
     mutationFn: async (data: typeof newPig) => {
-      const penLocation = penZone && penNumber ? `${penZone}${penNumber}` : undefined
+      // 驗證欄位必填
+      if (!penZone || !penNumber) {
+        throw new Error('欄位為必填，請選擇欄位區和欄位編號')
+      }
+      const penLocation = `${penZone}${penNumber}`
 
       // 驗證必填欄位
       if (!data.ear_tag?.trim()) {
@@ -251,7 +284,7 @@ export function PigsPage() {
         entry_date: data.entry_date, // YYYY-MM-DD format
         birth_date: data.birth_date && data.birth_date.trim() !== '' ? data.birth_date.trim() : undefined,
         entry_weight: entryWeight, // number or undefined
-        pen_location: penLocation, // string or undefined
+        pen_location: penLocation, // string (required)
         pre_experiment_code: data.pre_experiment_code && data.pre_experiment_code.trim() !== ''
           ? data.pre_experiment_code.trim()
           : undefined,
@@ -322,7 +355,7 @@ export function PigsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pigs'] })
-      toast({ title: '成功', description: '豬隻已新增' })
+      toast({ title: '成功', description: '豬隻已分配至計劃並進入實驗中' })
       setShowBatchAssignDialog(false)
       setSelectedPigs([])
       setAssignIacucNo('')
@@ -499,11 +532,17 @@ export function PigsPage() {
         {[
           { value: 'pen', label: '欄位', count: allPigs.length, icon: <LayoutGrid className="h-4 w-4" /> },
           { value: 'unassigned', label: '未分配', count: statusCounts['unassigned'] || 0 },
-          { value: 'assigned', label: '已分配', count: statusCounts['assigned'] || 0 },
           { value: 'in_experiment', label: '實驗中', count: statusCounts['in_experiment'] || 0 },
           { value: 'completed', label: '實驗完成', count: statusCounts['completed'] || 0 },
-          { value: 'all', label: '所有', count: allPigs.length },
-        ].map(tab => (
+        ]
+          .filter(tab => {
+            // PI and CLIENT can only see: 實驗中, 實驗完成
+            if (isPIOrClient) {
+              return ['in_experiment', 'completed'].includes(tab.value)
+            }
+            return true
+          })
+          .map(tab => (
           <button
             key={tab.value}
             onClick={() => {
@@ -563,20 +602,6 @@ export function PigsPage() {
                     分配至計畫
                   </Button>
                 )}
-                {statusFilter === 'assigned' && (
-                  <Button
-                    size="sm"
-                    className="bg-orange-500 hover:bg-orange-600"
-                    onClick={() => batchStartExperimentMutation.mutate()}
-                    disabled={batchStartExperimentMutation.isPending}
-                  >
-                    {batchStartExperimentMutation.isPending && (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    )}
-                    <Play className="h-4 w-4 mr-1" />
-                    進入實驗
-                  </Button>
-                )}
               </div>
             )}
           </div>
@@ -585,7 +610,7 @@ export function PigsPage() {
 
       {/* List View */}
       {statusFilter !== 'pen' && (
-        <Card>
+      <Card>
           <CardContent className="p-0">
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
@@ -644,7 +669,7 @@ export function PigsPage() {
                           {pig.ear_tag}
                         </Link>
                       </TableCell>
-                      <TableCell>{pig.pen_location || '-'}</TableCell>
+                      <TableCell>{getPenLocationDisplay(pig)}</TableCell>
                       <TableCell>
                         {pig.iacuc_no || (
                           <span className="text-slate-400">未分配</span>
@@ -710,7 +735,7 @@ export function PigsPage() {
         </Card>
       )}
 
-      {/* Grouped View */}
+      {/* Grouped View (Pen View) */}
       {statusFilter === 'pen' && (
         <div className="space-y-4">
           {/* Building Tabs */}
@@ -810,13 +835,10 @@ export function PigsPage() {
                             }
                           }}
                           onBlur={(e) => {
-                            // 使用 setTimeout 確保 onKeyDown 有機會先執行
                             setTimeout(() => {
-                              // 檢查是否還在編輯狀態（可能已經被 onKeyDown 處理了）
                               if (editingPenLocation === penLocation && editingEarTag.trim()) {
                                 handleSubmit()
                               } else if (editingPenLocation === penLocation && !editingEarTag.trim()) {
-                                // 如果沒有輸入內容，關閉編輯狀態
                                 setEditingPenLocation(null)
                                 setEditingEarTag('')
                               }

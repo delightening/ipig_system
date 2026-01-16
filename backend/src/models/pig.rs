@@ -304,6 +304,17 @@ fn validate_ear_tag(ear_tag: &str) -> Result<(), validator::ValidationError> {
     }
 }
 
+/// 驗證欄位必須填寫（當值存在時，不能為空字串）
+fn validate_pen_location(pen_location: &String) -> Result<(), validator::ValidationError> {
+    if pen_location.trim().is_empty() {
+        let mut error = validator::ValidationError::new("pen_location_required");
+        error.message = Some(std::borrow::Cow::Borrowed("欄位為必填"));
+        Err(error)
+    } else {
+        Ok(())
+    }
+}
+
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreatePigRequest {
     #[validate(length(min = 1, max = 10, message = "Ear tag must be 1-10 characters"))]
@@ -316,6 +327,8 @@ pub struct CreatePigRequest {
     pub birth_date: Option<NaiveDate>,
     pub entry_date: NaiveDate,
     pub entry_weight: Option<rust_decimal::Decimal>,
+    #[validate(required(message = "欄位為必填"))]
+    #[validate(custom(function = "validate_pen_location", message = "欄位不能為空"))]
     pub pen_location: Option<String>,
     pub pre_experiment_code: Option<String>,
     pub remark: Option<String>,

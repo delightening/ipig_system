@@ -83,7 +83,6 @@ async fn main() -> anyhow::Result<()> {
     
     let mut resolved = 0;
     let mut already_exists = 0;
-    let mut errors = 0;
     
     for (file_name, content, _path) in &migration_files {
         print!("  Processing {}... ", file_name);
@@ -138,7 +137,7 @@ async fn main() -> anyhow::Result<()> {
                 }
                 Err(e) => {
                     println!("ERROR: {}", e);
-                    errors += 1;
+                    // Error logged, continue with other migrations
                 }
             }
         }
