@@ -5,7 +5,7 @@ use tracing::{info, error};
 
 use crate::{
     config::Config,
-    services::{EmailService, NotificationService},
+    services::{EmailService, NotificationService, BalanceExpirationJob, CalendarService},
 };
 
 pub struct SchedulerService;
@@ -51,6 +51,41 @@ impl SchedulerService {
                 info!("Running weekly notification cleanup...");
                 if let Err(e) = Self::cleanup_notifications(&db).await {
                     error!("Notification cleanup failed: {}", e);
+                }
+            })
+        })?).await?;
+
+        // 每日 00:30 執行餘額到期檢查
+        let db_clone = db.clone();
+        sched.add(Job::new_async("0 30 0 * * *", move |_uuid, _l| {
+            let db = db_clone.clone();
+            Box::pin(async move {
+                info!("Running daily balance expiration check...");
+                match BalanceExpirationJob::run(&db).await {
+                    Ok(summary) => {
+                        info!("Balance expiration check completed: {} annual, {} comp_time expired", 
+                              summary.annual_leave_expired, summary.comp_time_expired);
+                    }
+                    Err(e) => {
+                        error!("Balance expiration check failed: {}", e);
+                    }
+                }
+            })
+        })?).await?;
+
+        // 每日 08:00 和 18:00 執行 Google Calendar 同步
+        let db_clone = db.clone();
+        sched.add(Job::new_async("0 0 8,18 * * *", move |_uuid, _l| {
+            let db = db_clone.clone();
+            Box::pin(async move {
+                info!("Running scheduled calendar sync...");
+                match CalendarService::trigger_sync(&db, None).await {
+                    Ok(history) => {
+                        info!("Calendar sync completed: {:?}", history.status);
+                    }
+                    Err(e) => {
+                        error!("Calendar sync failed: {}", e);
+                    }
                 }
             })
         })?).await?;

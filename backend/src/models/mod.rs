@@ -12,6 +12,9 @@ mod sku;
 mod protocol;
 mod pig;
 mod notification;
+mod hr;
+mod facility;
+mod calendar;
 
 pub use user::*;
 pub use role::*;
@@ -25,6 +28,9 @@ pub use sku::*;
 pub use protocol::*;
 pub use pig::*;
 pub use notification::*;
+pub use hr::*;
+pub use facility::*;
+pub use calendar::*;
 
 use serde::{Deserialize, Serialize};
 

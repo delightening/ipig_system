@@ -13,6 +13,9 @@ mod protocol;
 mod pig;
 mod notification;
 mod upload;
+mod hr;
+mod facility;
+mod calendar;
 
 pub use auth::*;
 pub use user::*;
@@ -29,3 +32,7 @@ pub use protocol::*;
 pub use pig::*;
 pub use notification::*;
 pub use upload::*;
+pub use hr::*;
+pub use facility::*;
+pub use calendar::*;
+

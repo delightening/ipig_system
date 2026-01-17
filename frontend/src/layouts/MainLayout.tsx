@@ -155,8 +155,20 @@ const navItems: NavItem[] = [
       { title: '角色權限', href: '/admin/roles' },
       { title: '系統設定', href: '/admin/settings' },
       { title: '審計日誌', href: '/admin/audit-logs' },
+      { title: '安全審計', href: '/admin/audit' },
     ],
     permission: 'admin',
+  },
+  // HR 人員管理模組
+  {
+    title: '人員管理',
+    icon: <Users className="h-5 w-5" />,
+    children: [
+      { title: '出勤打卡', href: '/hr/attendance' },
+      { title: '請假管理', href: '/hr/leaves' },
+      { title: '加班管理', href: '/hr/overtime' },
+      { title: '日曆同步', href: '/hr/calendar' },
+    ],
   },
 ]
 
@@ -490,7 +502,9 @@ export function MainLayout() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="truncate text-sm font-medium">{user?.display_name || user?.email}</p>
-                  <p className="truncate text-xs text-slate-400">{user?.roles?.join(', ')}</p>
+                  {hasRole('admin') && (
+                    <p className="truncate text-xs text-slate-400">{user?.roles?.join(', ')}</p>
+                  )}
                 </div>
               </div>
               <div className="flex gap-1">

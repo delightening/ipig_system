@@ -112,7 +112,7 @@ export function ProtocolDetailPage() {
   const queryClient = useQueryClient()
   const { user } = useAuthStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  
+
   const [activeTab, setActiveTab] = useState<'content' | 'versions' | 'history' | 'comments' | 'reviewers' | 'coeditors' | 'attachments'>('content')
   const [showStatusDialog, setShowStatusDialog] = useState(false)
   const [showCommentDialog, setShowCommentDialog] = useState(false)
@@ -423,14 +423,14 @@ export function ProtocolDetailPage() {
 
   const handleChangeStatus = async () => {
     if (!newStatus) return
-    
+
     // 先變更狀態
     try {
       await changeStatusMutation.mutateAsync({
         to_status: newStatus,
         remark: statusRemark || undefined,
       })
-      
+
       // 如果目標狀態是行政預審且選擇了 co-editor，則指派 co-editor
       if (newStatus === 'PRE_REVIEW' && selectedCoEditorId && id) {
         try {
@@ -647,11 +647,10 @@ export function ProtocolDetailPage() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key as typeof activeTab)}
-              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === tab.key
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors whitespace-nowrap ${activeTab === tab.key
                   ? 'border-blue-600 text-blue-600'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
+                }`}
             >
               <tab.icon className="h-4 w-4" />
               {tab.label}
@@ -668,7 +667,7 @@ export function ProtocolDetailPage() {
             <CardDescription>AUP 動物試驗計畫書詳細內容</CardDescription>
           </CardHeader>
           <CardContent>
-            <ProtocolContentView 
+            <ProtocolContentView
               workingContent={(() => {
                 if (!protocol.working_content) return null
                 // 創建一個副本，去除 apply_study_number 字段

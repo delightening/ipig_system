@@ -157,6 +157,79 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/vet-recommendations/:record_type/:record_id/attachments", post(handlers::upload_vet_recommendation_attachment))
         .route("/attachments", get(handlers::list_attachments))
         .route("/attachments/:id", get(handlers::download_attachment).delete(handlers::delete_attachment))
+        // ============================================
+        // Admin Audit Trail (新增)
+        // ============================================
+        .route("/admin/audit/activities", get(handlers::list_activity_logs))
+        .route("/admin/audit/activities/user/:user_id", get(handlers::get_user_activity_timeline))
+        .route("/admin/audit/activities/entity/:entity_type/:entity_id", get(handlers::get_entity_history))
+        .route("/admin/audit/logins", get(handlers::list_login_events))
+        .route("/admin/audit/sessions", get(handlers::list_sessions))
+        .route("/admin/audit/sessions/:id/logout", post(handlers::force_logout_session))
+        .route("/admin/audit/alerts", get(handlers::list_security_alerts))
+        .route("/admin/audit/alerts/:id/resolve", post(handlers::resolve_security_alert))
+        .route("/admin/audit/dashboard", get(handlers::get_audit_dashboard))
+        // ============================================
+        // HR Attendance (新增)
+        // ============================================
+        .route("/hr/attendance", get(handlers::list_attendance))
+        .route("/hr/attendance/clock-in", post(handlers::clock_in))
+        .route("/hr/attendance/clock-out", post(handlers::clock_out))
+        .route("/hr/attendance/:id", put(handlers::correct_attendance))
+        // ============================================
+        // HR Overtime (新增)
+        // ============================================
+        .route("/hr/overtime", get(handlers::list_overtime).post(handlers::create_overtime))
+        .route("/hr/overtime/:id", get(handlers::get_overtime).put(handlers::update_overtime).delete(handlers::delete_overtime))
+        .route("/hr/overtime/:id/submit", post(handlers::submit_overtime))
+        .route("/hr/overtime/:id/approve", post(handlers::approve_overtime))
+        .route("/hr/overtime/:id/reject", post(handlers::reject_overtime))
+        // ============================================
+        // HR Leave (新增)
+        // ============================================
+        .route("/hr/leaves", get(handlers::list_leaves).post(handlers::create_leave))
+        .route("/hr/leaves/:id", get(handlers::get_leave).put(handlers::update_leave).delete(handlers::delete_leave))
+        .route("/hr/leaves/:id/submit", post(handlers::submit_leave))
+        .route("/hr/leaves/:id/approve", post(handlers::approve_leave))
+        .route("/hr/leaves/:id/reject", post(handlers::reject_leave))
+        .route("/hr/leaves/:id/cancel", post(handlers::cancel_leave))
+        .route("/hr/leaves/attachments", post(handlers::upload_leave_attachment))
+        // ============================================
+        // HR Balances (新增)
+        // ============================================
+        .route("/hr/balances/annual", get(handlers::get_annual_leave_balances))
+        .route("/hr/balances/comp-time", get(handlers::get_comp_time_balances))
+        .route("/hr/balances/summary", get(handlers::get_balance_summary))
+        .route("/hr/balances/annual-entitlements", post(handlers::create_annual_leave_entitlement))
+        .route("/hr/balances/:id/adjust", post(handlers::adjust_balance))
+        // ============================================
+        // Calendar Sync (新增)
+        // ============================================
+        .route("/hr/calendar/status", get(handlers::get_calendar_status))
+        .route("/hr/calendar/config", get(handlers::get_calendar_config).put(handlers::update_calendar_config))
+        .route("/hr/calendar/connect", post(handlers::connect_calendar))
+        .route("/hr/calendar/disconnect", post(handlers::disconnect_calendar))
+        .route("/hr/calendar/sync", post(handlers::trigger_sync))
+        .route("/hr/calendar/history", get(handlers::list_sync_history))
+        .route("/hr/calendar/pending", get(handlers::list_pending_syncs))
+        .route("/hr/calendar/conflicts", get(handlers::list_conflicts))
+        .route("/hr/calendar/conflicts/:id", get(handlers::get_conflict))
+        .route("/hr/calendar/conflicts/:id/resolve", post(handlers::resolve_conflict))
+        // ============================================
+        // Facility Management (新增)
+        // ============================================
+        .route("/facilities/species", get(handlers::list_species).post(handlers::create_species))
+        .route("/facilities/species/:id", get(handlers::get_species).put(handlers::update_species).delete(handlers::delete_species))
+        .route("/facilities", get(handlers::list_facilities).post(handlers::create_facility))
+        .route("/facilities/:id", get(handlers::get_facility).put(handlers::update_facility).delete(handlers::delete_facility))
+        .route("/facilities/buildings", get(handlers::list_buildings).post(handlers::create_building))
+        .route("/facilities/buildings/:id", get(handlers::get_building).put(handlers::update_building).delete(handlers::delete_building))
+        .route("/facilities/zones", get(handlers::list_zones).post(handlers::create_zone))
+        .route("/facilities/zones/:id", get(handlers::get_zone).put(handlers::update_zone).delete(handlers::delete_zone))
+        .route("/facilities/pens", get(handlers::list_pens).post(handlers::create_pen))
+        .route("/facilities/pens/:id", get(handlers::get_pen).put(handlers::update_pen).delete(handlers::delete_pen))
+        .route("/facilities/departments", get(handlers::list_departments).post(handlers::create_department))
+        .route("/facilities/departments/:id", get(handlers::get_department).put(handlers::update_department).delete(handlers::delete_department))
         .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
         .with_state(state);
 

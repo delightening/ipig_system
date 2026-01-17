@@ -14,6 +14,11 @@ mod protocol;
 mod pig;
 mod notification;
 mod file;
+mod hr;
+mod facility;
+mod calendar;
+mod login_tracker;
+mod session_manager;
 pub mod scheduler;
 pub mod report;
 pub mod email;
@@ -33,4 +38,11 @@ pub use pig::PigService;
 pub use email::EmailService;
 pub use notification::NotificationService;
 pub use file::{FileService, FileCategory, UploadResult};
+pub use hr::HrService;
+pub use facility::FacilityService;
+pub use calendar::CalendarService;
+
+mod balance_expiration;
+pub use balance_expiration::BalanceExpirationJob;
+
 

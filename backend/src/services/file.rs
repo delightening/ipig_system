@@ -30,6 +30,8 @@ pub enum FileCategory {
     PathologyReport,
     /// 獸醫師建議附件
     VetRecommendation,
+    /// 請假附件
+    LeaveAttachment,
 }
 
 impl FileCategory {
@@ -40,6 +42,7 @@ impl FileCategory {
             FileCategory::PigPhoto => "pigs",
             FileCategory::PathologyReport => "pathology",
             FileCategory::VetRecommendation => "vet-recommendations",
+            FileCategory::LeaveAttachment => "leave-attachments",
         }
     }
 
@@ -57,7 +60,7 @@ impl FileCategory {
                 "image/gif",
                 "text/plain",
             ],
-            FileCategory::PigPhoto | FileCategory::VetRecommendation => vec![
+            FileCategory::PigPhoto | FileCategory::VetRecommendation | FileCategory::LeaveAttachment => vec![
                 "image/jpeg",
                 "image/png",
                 "image/gif",
@@ -80,6 +83,7 @@ impl FileCategory {
             FileCategory::PigPhoto => 10 * 1024 * 1024,           // 10 MB
             FileCategory::PathologyReport => 30 * 1024 * 1024,    // 30 MB
             FileCategory::VetRecommendation => 10 * 1024 * 1024,  // 10 MB
+            FileCategory::LeaveAttachment => 10 * 1024 * 1024,    // 10 MB
         }
     }
 }

@@ -37,6 +37,13 @@ import { UsersPage } from '@/pages/admin/UsersPage'
 import { RolesPage } from '@/pages/admin/RolesPage'
 import { SettingsPage } from '@/pages/admin/SettingsPage'
 import { AuditLogsPage } from '@/pages/admin/AuditLogsPage'
+import { AdminAuditPage } from '@/pages/admin/AdminAuditPage'
+
+// HR Pages
+import { HrAttendancePage } from '@/pages/hr/HrAttendancePage'
+import { HrLeavePage } from '@/pages/hr/HrLeavePage'
+import { HrOvertimePage } from '@/pages/hr/HrOvertimePage'
+import { CalendarSyncSettingsPage } from '@/pages/hr/CalendarSyncSettingsPage'
 
 // Report Pages
 import { ReportsPage } from '@/pages/reports/ReportsPage'
@@ -198,6 +205,13 @@ function App() {
           <Route path="/admin/roles" element={<RolesPage />} />
           <Route path="/admin/settings" element={<SettingsPage />} />
           <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
+          <Route path="/admin/audit" element={<AdminAuditPage />} />
+
+          {/* HR 人員管理 */}
+          <Route path="/hr/attendance" element={<HrAttendancePage />} />
+          <Route path="/hr/leaves" element={<HrLeavePage />} />
+          <Route path="/hr/overtime" element={<HrOvertimePage />} />
+          <Route path="/hr/calendar" element={<CalendarSyncSettingsPage />} />
 
           {/* AUP 計畫書管理 */}
           <Route path="/protocols" element={<ProtocolsPage />} />
