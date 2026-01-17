@@ -32,22 +32,24 @@ export const widgetCategoryNames: Record<string, string> = {
 
 // 預設的 Widget 配置
 export const DEFAULT_DASHBOARD_WIDGETS: DashboardWidgetConfig[] = [
-    { id: 'leave_balance', visible: true, order: 0 },
-    { id: 'my_projects', visible: true, order: 1 },
-    { id: 'animals_on_medication', visible: true, order: 2 },
-    { id: 'vet_comments', visible: true, order: 3 },
-    { id: 'low_stock_alert', visible: true, order: 4 },
-    { id: 'pending_documents', visible: true, order: 5 },
-    { id: 'today_inbound', visible: true, order: 6 },
-    { id: 'today_outbound', visible: true, order: 7 },
-    { id: 'weekly_trend', visible: true, order: 8 },
-    { id: 'recent_documents', visible: true, order: 9 },
-    { id: 'upcoming_leaves', visible: true, order: 10 },
-    { id: 'staff_attendance', visible: false, order: 11 },
+    { id: 'calendar_widget', visible: true, order: 0 },
+    { id: 'leave_balance', visible: true, order: 1 },
+    { id: 'my_projects', visible: true, order: 2 },
+    { id: 'animals_on_medication', visible: true, order: 3 },
+    { id: 'vet_comments', visible: true, order: 4 },
+    { id: 'low_stock_alert', visible: true, order: 5 },
+    { id: 'pending_documents', visible: true, order: 6 },
+    { id: 'today_inbound', visible: true, order: 7 },
+    { id: 'today_outbound', visible: true, order: 8 },
+    { id: 'weekly_trend', visible: true, order: 9 },
+    { id: 'recent_documents', visible: true, order: 10 },
+    { id: 'upcoming_leaves', visible: true, order: 11 },
+    { id: 'staff_attendance', visible: false, order: 12 },
 ]
 
 // Widget ID 對應中文名稱
 export const widgetNames: Record<string, string> = {
+    calendar_widget: '今日日曆',
     leave_balance: '請假餘額',
     my_projects: '我的計畫',
     animals_on_medication: '正在用藥動物',
@@ -64,6 +66,7 @@ export const widgetNames: Record<string, string> = {
 
 // Widget 描述
 export const widgetDescriptions: Record<string, string> = {
+    calendar_widget: '顯示今日日程和員工請假資訊',
     leave_balance: '顯示您的特休和補休餘額',
     my_projects: '顯示您參與的計畫及動物統計',
     animals_on_medication: '顯示目前正在用藥的動物清單',
@@ -80,6 +83,7 @@ export const widgetDescriptions: Record<string, string> = {
 
 // Widget 權限要求
 export const widgetPermissions: Record<string, string | undefined> = {
+    calendar_widget: undefined,
     leave_balance: undefined,
     my_projects: undefined,
     animals_on_medication: undefined,
@@ -96,6 +100,7 @@ export const widgetPermissions: Record<string, string | undefined> = {
 
 // Widget 類別
 export const widgetCategories: Record<string, string> = {
+    calendar_widget: 'hr',
     leave_balance: 'hr',
     my_projects: 'aup',
     animals_on_medication: 'animal_care',

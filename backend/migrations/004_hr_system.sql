@@ -1,50 +1,53 @@
--- Attendance, Overtime, and Leave Balance Management
--- Version: 1.0
--- Created: 2026-01-17
--- Description: Work attendance tracking, overtime management, leave balances with expiration
+-- ============================================
+-- Migration 004: HR System
+-- 
+-- 包含：
+-- - 請假類型與狀態
+-- - 出勤打卡紀錄
+-- - 加班紀錄
+-- - 年假額度
+-- - 補休餘額
+-- - 請假申請
+-- - 請假審核紀錄
+-- - 相關函式
+-- ============================================
 
 -- ============================================
--- Leave Types Enum (if not exists)
+-- 1. 請假類型枚舉
 -- ============================================
 
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'leave_type') THEN
-        CREATE TYPE leave_type AS ENUM (
-            'ANNUAL',           -- 特休假
-            'PERSONAL',         -- 事假
-            'SICK',             -- 病假
-            'COMPENSATORY',     -- 補休假
-            'MARRIAGE',         -- 婚假
-            'BEREAVEMENT',      -- 喪假
-            'MATERNITY',        -- 產假
-            'PATERNITY',        -- 陪產假
-            'MENSTRUAL',        -- 生理假
-            'OFFICIAL',         -- 公假
-            'UNPAID'            -- 無薪假
-        );
-    END IF;
-END $$;
-
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'leave_status') THEN
-        CREATE TYPE leave_status AS ENUM (
-            'DRAFT',            -- 草稿
-            'PENDING_L1',       -- 待一級審核（直屬主管）
-            'PENDING_L2',       -- 待二級審核（部門主管）
-            'PENDING_HR',       -- 待行政審核
-            'PENDING_GM',       -- 待總經理核准
-            'APPROVED',         -- 已核准
-            'REJECTED',         -- 已駁回
-            'CANCELLED',        -- 已取消
-            'REVOKED'           -- 已銷假
-        );
-    END IF;
-END $$;
+CREATE TYPE leave_type AS ENUM (
+    'ANNUAL',           -- 特休假
+    'PERSONAL',         -- 事假
+    'SICK',             -- 病假
+    'COMPENSATORY',     -- 補休假
+    'MARRIAGE',         -- 婚假
+    'BEREAVEMENT',      -- 喪假
+    'MATERNITY',        -- 產假
+    'PATERNITY',        -- 陪產假
+    'MENSTRUAL',        -- 生理假
+    'OFFICIAL',         -- 公假
+    'UNPAID'            -- 無薪假
+);
 
 -- ============================================
--- Attendance Records (Clock-in/out)
+-- 2. 請假狀態枚舉
+-- ============================================
+
+CREATE TYPE leave_status AS ENUM (
+    'DRAFT',            -- 草稿
+    'PENDING_L1',       -- 待一級審核（直屬主管）
+    'PENDING_L2',       -- 待二級審核（部門主管）
+    'PENDING_HR',       -- 待行政審核
+    'PENDING_GM',       -- 待總經理核准
+    'APPROVED',         -- 已核准
+    'REJECTED',         -- 已駁回
+    'CANCELLED',        -- 已取消
+    'REVOKED'           -- 已銷假
+);
+
+-- ============================================
+-- 3. 出勤打卡紀錄表
 -- ============================================
 
 CREATE TABLE attendance_records (
@@ -57,8 +60,8 @@ CREATE TABLE attendance_records (
     clock_out_time TIMESTAMPTZ,
     
     -- Calculated fields
-    regular_hours NUMERIC(5,2) DEFAULT 0, -- Normal working hours
-    overtime_hours NUMERIC(5,2) DEFAULT 0, -- Overtime hours
+    regular_hours NUMERIC(5,2) DEFAULT 0,
+    overtime_hours NUMERIC(5,2) DEFAULT 0,
     
     -- Status
     status VARCHAR(20) DEFAULT 'normal', -- 'normal', 'late', 'early_leave', 'absent', 'leave', 'holiday'
@@ -91,7 +94,7 @@ CREATE INDEX idx_attendance_date ON attendance_records(work_date DESC);
 CREATE INDEX idx_attendance_status ON attendance_records(status);
 
 -- ============================================
--- Overtime Records (generates comp time)
+-- 4. 加班紀錄表
 -- ============================================
 
 CREATE TABLE overtime_records (
@@ -112,8 +115,8 @@ CREATE TABLE overtime_records (
     multiplier NUMERIC(3,2) DEFAULT 1.0, -- 1.0, 1.33, 1.66, 2.0
     
     -- Comp time generation
-    comp_time_hours NUMERIC(5,2) NOT NULL, -- hours * multiplier
-    comp_time_expires_at DATE NOT NULL, -- overtime_date + 1 year
+    comp_time_hours NUMERIC(5,2) NOT NULL,
+    comp_time_expires_at DATE NOT NULL,
     comp_time_used_hours NUMERIC(5,2) DEFAULT 0,
     
     -- Approval
@@ -126,7 +129,7 @@ CREATE TABLE overtime_records (
     rejection_reason TEXT,
     
     -- Reason
-    reason TEXT NOT NULL, -- Why overtime was necessary
+    reason TEXT NOT NULL,
     
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -138,7 +141,7 @@ CREATE INDEX idx_overtime_expires ON overtime_records(comp_time_expires_at)
     WHERE status = 'approved' AND comp_time_used_hours < comp_time_hours;
 
 -- ============================================
--- Annual Leave Entitlements (with expiration)
+-- 5. 年假額度表
 -- ============================================
 
 CREATE TABLE annual_leave_entitlements (
@@ -146,27 +149,27 @@ CREATE TABLE annual_leave_entitlements (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     
     -- Entitlement period
-    entitlement_year INTEGER NOT NULL, -- e.g., 2025, 2026
+    entitlement_year INTEGER NOT NULL,
     
     -- Days
     entitled_days NUMERIC(5,2) NOT NULL,
     used_days NUMERIC(5,2) DEFAULT 0,
     
-    -- Expiration (2 years from grant year end)
-    -- 2025 annual leave expires 2027-12-31
+    -- Expiration
     expires_at DATE NOT NULL,
     
     -- Source
     calculation_basis VARCHAR(50), -- 'seniority', 'prorated', 'manual', 'carry_forward'
-    seniority_years NUMERIC(4,2), -- Years of service used for calculation
+    seniority_years NUMERIC(4,2),
     
     -- Status
     is_expired BOOLEAN DEFAULT false,
-    expired_days NUMERIC(5,2) DEFAULT 0, -- Days lost to expiration
+    expired_days NUMERIC(5,2) DEFAULT 0,
     expiry_processed_at TIMESTAMPTZ,
     
     -- Notes
     notes TEXT,
+    adjustment_days NUMERIC(5,2) DEFAULT 0,
     
     created_by UUID REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -180,7 +183,7 @@ CREATE INDEX idx_annual_leave_expires ON annual_leave_entitlements(expires_at)
     WHERE NOT is_expired AND (entitled_days - used_days) > 0;
 
 -- ============================================
--- Comp Time Balances (from overtime, FIFO usage)
+-- 6. 補休餘額表
 -- ============================================
 
 CREATE TABLE comp_time_balances (
@@ -192,14 +195,14 @@ CREATE TABLE comp_time_balances (
     original_hours NUMERIC(5,2) NOT NULL,
     used_hours NUMERIC(5,2) DEFAULT 0,
     
-    -- Expiration (1 year from earned_date, per user requirement)
+    -- Expiration
     earned_date DATE NOT NULL,
-    expires_at DATE NOT NULL, -- 1 year from earned_date
+    expires_at DATE NOT NULL,
     
     -- Status
     is_expired BOOLEAN DEFAULT false,
-    expired_hours NUMERIC(5,2) DEFAULT 0, -- Hours lost to expiration
-    converted_to_pay BOOLEAN DEFAULT false, -- If expired hours were paid out
+    expired_hours NUMERIC(5,2) DEFAULT 0,
+    converted_to_pay BOOLEAN DEFAULT false,
     expiry_processed_at TIMESTAMPTZ,
     
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -215,37 +218,38 @@ CREATE INDEX idx_comp_time_fifo ON comp_time_balances(user_id, earned_date ASC)
     WHERE NOT is_expired AND (original_hours - used_hours) > 0;
 
 -- ============================================
--- Leave Requests
+-- 7. 請假申請表
 -- ============================================
 
 CREATE TABLE leave_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    proxy_user_id UUID REFERENCES users(id),
     
     -- Leave details
     leave_type leave_type NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
-    start_time TIME, -- For partial day leaves
+    start_time TIME,
     end_time TIME,
     
     -- Duration
     total_days NUMERIC(5,2) NOT NULL,
-    total_hours NUMERIC(5,2), -- For hourly leaves
+    total_hours NUMERIC(5,2),
     
     -- Reason and documents
-    reason TEXT NOT NULL,
-    supporting_documents JSONB DEFAULT '[]', -- Array of attachment IDs
+    reason TEXT,
+    supporting_documents JSONB DEFAULT '[]',
     
     -- For comp time usage
-    comp_time_source_ids UUID[], -- Which comp_time_balances are being used
+    comp_time_source_ids UUID[],
     
     -- For annual leave usage
     annual_leave_source_id UUID REFERENCES annual_leave_entitlements(id),
     
-    -- Agent (if applying on behalf)
+    -- Flags
     is_urgent BOOLEAN DEFAULT false,
-    is_retroactive BOOLEAN DEFAULT false, -- 事後補請
+    is_retroactive BOOLEAN DEFAULT false,
     
     -- Status
     status leave_status DEFAULT 'DRAFT',
@@ -271,10 +275,11 @@ CREATE TABLE leave_requests (
 CREATE INDEX idx_leave_user ON leave_requests(user_id, start_date DESC);
 CREATE INDEX idx_leave_status ON leave_requests(status);
 CREATE INDEX idx_leave_date_range ON leave_requests(start_date, end_date);
-CREATE INDEX idx_leave_approver ON leave_requests(current_approver_id) WHERE status IN ('PENDING_L1', 'PENDING_L2', 'PENDING_HR', 'PENDING_GM');
+CREATE INDEX idx_leave_approver ON leave_requests(current_approver_id) 
+    WHERE status IN ('PENDING_L1', 'PENDING_L2', 'PENDING_HR', 'PENDING_GM');
 
 -- ============================================
--- Leave Approvals (Audit Trail)
+-- 8. 請假審核紀錄表
 -- ============================================
 
 CREATE TABLE leave_approvals (
@@ -283,7 +288,7 @@ CREATE TABLE leave_approvals (
     
     -- Approver
     approver_id UUID NOT NULL REFERENCES users(id),
-    approval_level VARCHAR(20) NOT NULL, -- 'L1', 'L2', 'HR', 'GM'
+    approval_level VARCHAR(20) NOT NULL,
     
     -- Action
     action VARCHAR(20) NOT NULL, -- 'APPROVE', 'REJECT', 'REQUEST_REVISION', 'ESCALATE'
@@ -297,7 +302,7 @@ CREATE INDEX idx_approval_request ON leave_approvals(leave_request_id, created_a
 CREATE INDEX idx_approval_approver ON leave_approvals(approver_id, created_at DESC);
 
 -- ============================================
--- Leave Balance Usage Records (for audit)
+-- 9. 請假餘額使用紀錄表
 -- ============================================
 
 CREATE TABLE leave_balance_usage (
@@ -314,7 +319,7 @@ CREATE TABLE leave_balance_usage (
     hours_used NUMERIC(5,2),
     
     -- Action
-    action VARCHAR(20) NOT NULL, -- 'deduct', 'restore' (for cancellation/revocation)
+    action VARCHAR(20) NOT NULL, -- 'deduct', 'restore'
     
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -324,9 +329,10 @@ CREATE INDEX idx_usage_annual ON leave_balance_usage(annual_leave_entitlement_id
 CREATE INDEX idx_usage_comp ON leave_balance_usage(comp_time_balance_id);
 
 -- ============================================
--- Helper function: Get remaining annual leave for user
+-- 10. Helper Functions
 -- ============================================
 
+-- Get remaining annual leave for user
 CREATE OR REPLACE FUNCTION get_annual_leave_balance(p_user_id UUID) 
 RETURNS TABLE (
     entitlement_year INTEGER,
@@ -349,14 +355,11 @@ BEGIN
     WHERE ale.user_id = p_user_id
       AND NOT ale.is_expired
       AND (ale.entitled_days - ale.used_days) > 0
-    ORDER BY ale.expires_at ASC; -- Show expiring soonest first
+    ORDER BY ale.expires_at ASC;
 END;
 $$ LANGUAGE plpgsql;
 
--- ============================================
--- Helper function: Get remaining comp time for user (FIFO order)
--- ============================================
-
+-- Get remaining comp time for user (FIFO order)
 CREATE OR REPLACE FUNCTION get_comp_time_balance(p_user_id UUID) 
 RETURNS TABLE (
     id UUID,
@@ -381,14 +384,11 @@ BEGIN
     WHERE ctb.user_id = p_user_id
       AND NOT ctb.is_expired
       AND (ctb.original_hours - ctb.used_hours) > 0
-    ORDER BY ctb.earned_date ASC; -- FIFO: use oldest first
+    ORDER BY ctb.earned_date ASC;
 END;
 $$ LANGUAGE plpgsql;
 
--- ============================================
--- Helper function: Calculate total comp time remaining
--- ============================================
-
+-- Calculate total comp time remaining
 CREATE OR REPLACE FUNCTION get_total_comp_time_hours(p_user_id UUID) 
 RETURNS NUMERIC AS $$
 DECLARE
@@ -403,3 +403,28 @@ BEGIN
     RETURN v_total;
 END;
 $$ LANGUAGE plpgsql;
+
+-- ============================================
+-- 11. HR 相關權限
+-- ============================================
+
+INSERT INTO permissions (id, code, name, module, description, created_at) VALUES
+    (gen_random_uuid(), 'hr.attendance.view', '查看出勤紀錄', 'hr', '可查看出勤紀錄', NOW()),
+    (gen_random_uuid(), 'hr.attendance.view_all', '查看所有出勤', 'hr', '可查看所有人的出勤紀錄', NOW()),
+    (gen_random_uuid(), 'hr.attendance.clock', '打卡', 'hr', '可進行上下班打卡', NOW()),
+    (gen_random_uuid(), 'hr.attendance.correct', '更正打卡', 'hr', '可更正打卡紀錄', NOW()),
+    (gen_random_uuid(), 'hr.overtime.view', '查看加班紀錄', 'hr', '可查看加班紀錄', NOW()),
+    (gen_random_uuid(), 'hr.overtime.create', '申請加班', 'hr', '可申請加班', NOW()),
+    (gen_random_uuid(), 'hr.overtime.approve', '審核加班', 'hr', '可審核加班申請', NOW()),
+    (gen_random_uuid(), 'hr.leave.view', '查看請假', 'hr', '可查看請假紀錄', NOW()),
+    (gen_random_uuid(), 'hr.leave.view_all', '查看所有請假', 'hr', '可查看所有人的請假紀錄', NOW()),
+    (gen_random_uuid(), 'hr.leave.create', '申請請假', 'hr', '可申請請假', NOW()),
+    (gen_random_uuid(), 'hr.leave.approve', '審核請假', 'hr', '可審核請假申請', NOW()),
+    (gen_random_uuid(), 'hr.leave.manage', '管理假別', 'hr', '可管理假別設定', NOW()),
+    (gen_random_uuid(), 'hr.balance.view', '查看餘額', 'hr', '可查看假期餘額', NOW()),
+    (gen_random_uuid(), 'hr.balance.manage', '管理餘額', 'hr', '可管理假期餘額', NOW())
+ON CONFLICT (code) DO NOTHING;
+
+-- ============================================
+-- 完成
+-- ============================================

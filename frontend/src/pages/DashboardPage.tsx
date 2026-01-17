@@ -59,6 +59,7 @@ import {
   AnimalsOnMedicationWidget,
   VetCommentsWidget,
   StaffAttendanceWidget,
+  CalendarWidget,
   DashboardWidgetConfig,
   DEFAULT_DASHBOARD_WIDGETS,
   widgetNames,
@@ -344,6 +345,8 @@ export function DashboardPage() {
   // Widget 渲染函數
   const renderWidget = (widgetId: string) => {
     switch (widgetId) {
+      case 'calendar_widget':
+        return <CalendarWidget />
       case 'leave_balance':
         return <LeaveBalanceWidget />
       case 'my_projects':

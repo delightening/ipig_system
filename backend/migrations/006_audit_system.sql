@@ -1,10 +1,17 @@
--- Audit Trail Enhancement for GLP Compliance
--- Version: 1.0
--- Created: 2026-01-17
--- Description: Enhanced activity logging, login tracking, and session management
+-- ============================================
+-- Migration 006: Audit System
+-- 
+-- 包含：
+-- - 使用者活動日誌 (分區表)
+-- - 登入事件
+-- - 使用者會話
+-- - 活動聚合
+-- - 安全警報
+-- - 輔助函式
+-- ============================================
 
 -- ============================================
--- User Activity Logs (Partitioned by Date)
+-- 1. 使用者活動日誌 (分區表)
 -- ============================================
 
 CREATE TABLE user_activity_logs (
@@ -14,26 +21,26 @@ CREATE TABLE user_activity_logs (
     actor_user_id UUID REFERENCES users(id),
     actor_email VARCHAR(255),
     actor_display_name VARCHAR(100),
-    actor_roles JSONB, -- Snapshot of roles at time of action
+    actor_roles JSONB,
     
     -- Session context
     session_id UUID,
     session_started_at TIMESTAMPTZ,
     
     -- Event classification
-    event_category VARCHAR(50) NOT NULL, -- 'auth', 'data', 'admin', 'export', 'navigation'
-    event_type VARCHAR(100) NOT NULL, -- 'login_success', 'pig.create', 'protocol.approve', etc.
-    event_severity VARCHAR(20) DEFAULT 'info', -- 'info', 'warning', 'critical'
+    event_category VARCHAR(50) NOT NULL,
+    event_type VARCHAR(100) NOT NULL,
+    event_severity VARCHAR(20) DEFAULT 'info',
     
     -- Target entity
-    entity_type VARCHAR(50), -- 'pig', 'protocol', 'document', 'user', etc.
+    entity_type VARCHAR(50),
     entity_id UUID,
-    entity_display_name VARCHAR(255), -- Human-readable identifier
+    entity_display_name VARCHAR(255),
     
     -- Change tracking
     before_data JSONB,
     after_data JSONB,
-    changed_fields TEXT[], -- Array of field names that changed
+    changed_fields TEXT[],
     
     -- Context
     ip_address INET,
@@ -42,7 +49,7 @@ CREATE TABLE user_activity_logs (
     request_method VARCHAR(10),
     response_status INTEGER,
     
-    -- Geolocation (populated by background job if enabled)
+    -- Geolocation
     geo_country VARCHAR(100),
     geo_city VARCHAR(100),
     
@@ -50,13 +57,13 @@ CREATE TABLE user_activity_logs (
     is_suspicious BOOLEAN DEFAULT false,
     suspicious_reason TEXT,
     
-    -- Timestamps (immutable)
+    -- Timestamps
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
-    -- Partitioning key for future optimization
+    -- Partitioning key
     partition_date DATE NOT NULL DEFAULT CURRENT_DATE,
     
-    -- Composite primary key (required for partitioned tables - must include partition column)
+    -- Composite primary key
     PRIMARY KEY (id, partition_date)
 ) PARTITION BY RANGE (partition_date);
 
@@ -78,10 +85,10 @@ CREATE TABLE user_activity_logs_2027_q3 PARTITION OF user_activity_logs
 CREATE TABLE user_activity_logs_2027_q4 PARTITION OF user_activity_logs
     FOR VALUES FROM ('2027-10-01') TO ('2028-01-01');
 
--- Default partition for any dates outside the range
+-- Default partition
 CREATE TABLE user_activity_logs_default PARTITION OF user_activity_logs DEFAULT;
 
--- Indexes for common query patterns
+-- Indexes
 CREATE INDEX idx_activity_actor ON user_activity_logs(actor_user_id, created_at DESC);
 CREATE INDEX idx_activity_entity ON user_activity_logs(entity_type, entity_id, created_at DESC);
 CREATE INDEX idx_activity_category ON user_activity_logs(event_category, created_at DESC);
@@ -91,7 +98,7 @@ CREATE INDEX idx_activity_ip ON user_activity_logs(ip_address, created_at DESC);
 CREATE INDEX idx_activity_date ON user_activity_logs(partition_date, created_at DESC);
 
 -- ============================================
--- Login Events Table
+-- 2. 登入事件表
 -- ============================================
 
 CREATE TABLE login_events (
@@ -100,12 +107,12 @@ CREATE TABLE login_events (
     email VARCHAR(255) NOT NULL,
     
     -- Event details
-    event_type VARCHAR(20) NOT NULL, -- 'login_success', 'login_failure', 'logout', 'session_expired', 'token_refresh'
+    event_type VARCHAR(20) NOT NULL,
     
     -- Device/Network
     ip_address INET,
     user_agent TEXT,
-    device_type VARCHAR(50), -- 'desktop', 'mobile', 'tablet', 'unknown'
+    device_type VARCHAR(50),
     browser VARCHAR(50),
     os VARCHAR(50),
     
@@ -115,11 +122,11 @@ CREATE TABLE login_events (
     geo_timezone VARCHAR(50),
     
     -- Security analysis
-    is_unusual_time BOOLEAN DEFAULT false, -- Outside normal working hours (before 7 AM or after 10 PM)
-    is_unusual_location BOOLEAN DEFAULT false, -- Different from usual locations
-    is_new_device BOOLEAN DEFAULT false, -- First time seeing this device fingerprint
+    is_unusual_time BOOLEAN DEFAULT false,
+    is_unusual_location BOOLEAN DEFAULT false,
+    is_new_device BOOLEAN DEFAULT false,
     device_fingerprint VARCHAR(255),
-    failure_reason VARCHAR(100), -- 'invalid_password', 'account_locked', 'inactive_user', 'user_not_found', etc.
+    failure_reason VARCHAR(100),
     
     -- Timestamps
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -135,7 +142,7 @@ CREATE INDEX idx_login_failure ON login_events(email, created_at DESC)
     WHERE event_type = 'login_failure';
 
 -- ============================================
--- User Sessions Table
+-- 3. 使用者會話表
 -- ============================================
 
 CREATE TABLE user_sessions (
@@ -147,10 +154,10 @@ CREATE TABLE user_sessions (
     ended_at TIMESTAMPTZ,
     last_activity_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
-    -- Token reference (for invalidation)
+    -- Token reference
     refresh_token_id UUID REFERENCES refresh_tokens(id) ON DELETE SET NULL,
     
-    -- Device/Network (from login)
+    -- Device/Network
     ip_address INET,
     user_agent TEXT,
     device_fingerprint VARCHAR(255),
@@ -161,7 +168,7 @@ CREATE TABLE user_sessions (
     
     -- Status
     is_active BOOLEAN DEFAULT true,
-    ended_reason VARCHAR(50) -- 'logout', 'expired', 'forced_logout', 'new_session', 'token_revoked'
+    ended_reason VARCHAR(50)
 );
 
 CREATE INDEX idx_sessions_user ON user_sessions(user_id, started_at DESC);
@@ -169,7 +176,7 @@ CREATE INDEX idx_sessions_active ON user_sessions(is_active, last_activity_at DE
 CREATE INDEX idx_sessions_token ON user_sessions(refresh_token_id);
 
 -- ============================================
--- User Activity Aggregates (Daily Summary)
+-- 4. 活動聚合表 (每日統計)
 -- ============================================
 
 CREATE TABLE user_activity_aggregates (
@@ -186,9 +193,9 @@ CREATE TABLE user_activity_aggregates (
     action_count INTEGER DEFAULT 0,
     
     -- Breakdowns
-    actions_by_category JSONB DEFAULT '{}', -- {"auth": 5, "data": 10, ...}
-    pages_visited JSONB DEFAULT '[]', -- ["/pigs", "/protocols", ...]
-    entities_modified JSONB DEFAULT '[]', -- [{"type": "pig", "count": 3}, ...]
+    actions_by_category JSONB DEFAULT '{}',
+    pages_visited JSONB DEFAULT '[]',
+    entities_modified JSONB DEFAULT '[]',
     
     -- Security
     unique_ip_count INTEGER DEFAULT 0,
@@ -204,15 +211,15 @@ CREATE INDEX idx_aggregates_user_date ON user_activity_aggregates(user_id, aggre
 CREATE INDEX idx_aggregates_date ON user_activity_aggregates(aggregate_date DESC);
 
 -- ============================================
--- Security Alerts Table
+-- 5. 安全警報表
 -- ============================================
 
 CREATE TABLE security_alerts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     
     -- Alert details
-    alert_type VARCHAR(50) NOT NULL, -- 'brute_force', 'unusual_login', 'high_volume', 'suspicious_pattern'
-    severity VARCHAR(20) NOT NULL DEFAULT 'warning', -- 'info', 'warning', 'critical'
+    alert_type VARCHAR(50) NOT NULL,
+    severity VARCHAR(20) NOT NULL DEFAULT 'warning',
     title VARCHAR(255) NOT NULL,
     description TEXT,
     
@@ -222,10 +229,10 @@ CREATE TABLE security_alerts (
     login_event_id UUID REFERENCES login_events(id),
     
     -- Context
-    context_data JSONB, -- Additional context (IP, patterns, etc.)
+    context_data JSONB,
     
     -- Resolution
-    status VARCHAR(20) DEFAULT 'open', -- 'open', 'acknowledged', 'investigating', 'resolved', 'dismissed'
+    status VARCHAR(20) DEFAULT 'open',
     resolved_by UUID REFERENCES users(id),
     resolved_at TIMESTAMPTZ,
     resolution_notes TEXT,
@@ -236,22 +243,14 @@ CREATE TABLE security_alerts (
 
 CREATE INDEX idx_alerts_status ON security_alerts(status, created_at DESC);
 CREATE INDEX idx_alerts_user ON security_alerts(user_id, created_at DESC);
-CREATE INDEX idx_alerts_severity ON security_alerts(severity, status) WHERE status IN ('open', 'acknowledged', 'investigating');
+CREATE INDEX idx_alerts_severity ON security_alerts(severity, status) 
+    WHERE status IN ('open', 'acknowledged', 'investigating');
 
 -- ============================================
--- Comments on Retention Policy
+-- 6. Helper Functions
 -- ============================================
 
-COMMENT ON TABLE user_activity_logs IS 'GLP Compliance: Retention policy - 2 years hot storage, 5 years cold archive, 7 years total. Partitioned by quarter for efficient archival.';
-COMMENT ON TABLE login_events IS 'GLP Compliance: Retention policy - 2 years hot storage, 5 years cold archive, 7 years total.';
-COMMENT ON TABLE user_sessions IS 'Session tracking for security analysis. Sessions older than 90 days can be archived.';
-COMMENT ON TABLE user_activity_aggregates IS 'Daily aggregates for dashboard. Can be regenerated from activity logs if needed.';
-
--- ============================================
--- Helper Functions
--- ============================================
-
--- Function to log an activity (for use in triggers or application code)
+-- Function to log an activity
 CREATE OR REPLACE FUNCTION log_activity(
     p_actor_user_id UUID,
     p_event_category VARCHAR(50),
@@ -310,7 +309,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to check for brute force attacks (5+ failed logins in 15 minutes)
+-- Function to check for brute force attacks
 CREATE OR REPLACE FUNCTION check_brute_force(p_email VARCHAR(255)) RETURNS BOOLEAN AS $$
 DECLARE
     v_failed_count INTEGER;
@@ -324,3 +323,28 @@ BEGIN
     RETURN v_failed_count >= 5;
 END;
 $$ LANGUAGE plpgsql;
+
+-- ============================================
+-- 7. 審計相關權限
+-- ============================================
+
+INSERT INTO permissions (id, code, name, module, description, created_at) VALUES
+    (gen_random_uuid(), 'audit.logs.view', '查看稽核日誌', 'audit', '可查看稽核日誌', NOW()),
+    (gen_random_uuid(), 'audit.logs.export', '匯出稽核日誌', 'audit', '可匯出稽核日誌', NOW()),
+    (gen_random_uuid(), 'audit.timeline.view', '查看活動時間軸', 'audit', '可查看使用者活動時間軸', NOW()),
+    (gen_random_uuid(), 'audit.alerts.view', '查看安全警報', 'audit', '可查看安全警報', NOW()),
+    (gen_random_uuid(), 'audit.alerts.manage', '管理安全警報', 'audit', '可處理安全警報', NOW())
+ON CONFLICT (code) DO NOTHING;
+
+-- ============================================
+-- 8. GLP 合規說明
+-- ============================================
+
+COMMENT ON TABLE user_activity_logs IS 'GLP Compliance: Retention policy - 2 years hot storage, 5 years cold archive, 7 years total. Partitioned by quarter for efficient archival.';
+COMMENT ON TABLE login_events IS 'GLP Compliance: Retention policy - 2 years hot storage, 5 years cold archive, 7 years total.';
+COMMENT ON TABLE user_sessions IS 'Session tracking for security analysis. Sessions older than 90 days can be archived.';
+COMMENT ON TABLE user_activity_aggregates IS 'Daily aggregates for dashboard. Can be regenerated from activity logs if needed.';
+
+-- ============================================
+-- 完成
+-- ============================================
