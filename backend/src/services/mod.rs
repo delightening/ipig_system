@@ -17,6 +17,7 @@ mod file;
 mod hr;
 mod facility;
 mod calendar;
+pub mod google_calendar;
 mod login_tracker;
 mod session_manager;
 pub mod scheduler;

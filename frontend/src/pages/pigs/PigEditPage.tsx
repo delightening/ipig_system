@@ -5,12 +5,12 @@ import api, {
   Pig,
   PigSource,
   PigStatus,
-  PigBreed,
-  PigGender,
   pigStatusNames,
+  allPigStatusNames,
   pigBreedNames,
   pigGenderNames,
   UpdatePigRequest,
+  ProtocolListItem,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea } from '@/components/ui/input'
@@ -62,6 +62,20 @@ export function PigEditPage() {
     },
   })
 
+  // Query approved protocols (for IACUC NO. dropdown)
+  const { data: approvedProtocols } = useQuery({
+    queryKey: ['approved-protocols'],
+    queryFn: async () => {
+      const res = await api.get<ProtocolListItem[]>('/protocols')
+      // 過濾：已核准且未結案的計畫，且有 IACUC No.
+      return res.data.filter(p => {
+        if (p.status === 'CLOSED') return false
+        if (!((p.status === 'APPROVED' || p.status === 'APPROVED_WITH_CONDITIONS') && p.iacuc_no)) return false
+        return true
+      })
+    },
+  })
+
   // Initialize form data when pig loads
   useEffect(() => {
     if (pig) {
@@ -105,6 +119,15 @@ export function PigEditPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    // 驗證：當狀態為「實驗中」時，IACUC NO. 不可留白
+    if (formData.status === 'in_experiment' && !formData.iacuc_no) {
+      toast({
+        title: '錯誤',
+        description: '選擇「實驗中」狀態時，IACUC NO. 為必填欄位',
+        variant: 'destructive',
+      })
+      return
+    }
     // 只提交可编辑的字段（已移除不可更改的字段）
     updateMutation.mutate(formData)
   }
@@ -274,13 +297,25 @@ export function PigEditPage() {
 
               {/* IACUC NO. */}
               <div className="space-y-2">
-                <Label htmlFor="iacuc_no">IACUC NO.</Label>
-                <Input
-                  id="iacuc_no"
+                <Label htmlFor="iacuc_no">
+                  IACUC NO.
+                  {formData.status === 'in_experiment' && <span className="text-red-500 ml-1">*</span>}
+                </Label>
+                <Select
                   value={formData.iacuc_no || ''}
-                  onChange={(e) => handleChange('iacuc_no', e.target.value)}
-                  placeholder="如：PIG-114017"
-                />
+                  onValueChange={(v) => handleChange('iacuc_no', v === '' ? undefined : v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="選擇 IACUC NO." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {approvedProtocols?.map((protocol) => (
+                      <SelectItem key={protocol.id} value={protocol.iacuc_no!}>
+                        {protocol.iacuc_no}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* 實驗日期 */}

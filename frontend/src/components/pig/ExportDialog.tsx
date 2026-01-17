@@ -189,11 +189,10 @@ export function ExportDialog({ open, onOpenChange, type, pigId, earTag }: Props)
               <button
                 type="button"
                 onClick={() => setFormat('pdf')}
-                className={`flex items-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors ${
-                  format === 'pdf'
+                className={`flex items-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors ${format === 'pdf'
                     ? 'border-purple-500 bg-purple-50 text-purple-700'
                     : 'border-slate-200 hover:border-slate-300'
-                }`}
+                  }`}
               >
                 <FileText className="h-5 w-5" />
                 <span className="font-medium">PDF</span>
@@ -201,11 +200,10 @@ export function ExportDialog({ open, onOpenChange, type, pigId, earTag }: Props)
               <button
                 type="button"
                 onClick={() => setFormat('excel')}
-                className={`flex items-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors ${
-                  format === 'excel'
+                className={`flex items-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors ${format === 'excel'
                     ? 'border-purple-500 bg-purple-50 text-purple-700'
                     : 'border-slate-200 hover:border-slate-300'
-                }`}
+                  }`}
               >
                 <FileSpreadsheet className="h-5 w-5" />
                 <span className="font-medium">Excel</span>
@@ -213,11 +211,10 @@ export function ExportDialog({ open, onOpenChange, type, pigId, earTag }: Props)
               <button
                 type="button"
                 onClick={() => setFormat('csv')}
-                className={`flex items-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors ${
-                  format === 'csv'
+                className={`flex items-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors ${format === 'csv'
                     ? 'border-purple-500 bg-purple-50 text-purple-700'
                     : 'border-slate-200 hover:border-slate-300'
-                }`}
+                  }`}
               >
                 <FileSpreadsheet className="h-5 w-5" />
                 <span className="font-medium">CSV</span>
@@ -242,37 +239,37 @@ export function ExportDialog({ open, onOpenChange, type, pigId, earTag }: Props)
               <Checkbox
                 label="豬隻基本資料"
                 checked={options.basic_info}
-                onChange={(e) => handleOptionChange('basic_info', e.target.checked)}
+                onCheckedChange={(checked) => handleOptionChange('basic_info', checked)}
               />
               <Checkbox
                 label="觀察試驗紀錄"
                 checked={options.observations}
-                onChange={(e) => handleOptionChange('observations', e.target.checked)}
+                onCheckedChange={(checked) => handleOptionChange('observations', checked)}
               />
               <Checkbox
                 label="手術紀錄"
                 checked={options.surgeries}
-                onChange={(e) => handleOptionChange('surgeries', e.target.checked)}
+                onCheckedChange={(checked) => handleOptionChange('surgeries', checked)}
               />
               <Checkbox
                 label="體重紀錄"
                 checked={options.weights}
-                onChange={(e) => handleOptionChange('weights', e.target.checked)}
+                onCheckedChange={(checked) => handleOptionChange('weights', checked)}
               />
               <Checkbox
                 label="疫苗/驅蟲紀錄"
                 checked={options.vaccinations}
-                onChange={(e) => handleOptionChange('vaccinations', e.target.checked)}
+                onCheckedChange={(checked) => handleOptionChange('vaccinations', checked)}
               />
               <Checkbox
                 label="犧牲/採樣紀錄"
                 checked={options.sacrifice}
-                onChange={(e) => handleOptionChange('sacrifice', e.target.checked)}
+                onCheckedChange={(checked) => handleOptionChange('sacrifice', checked)}
               />
               <Checkbox
                 label="病理組織報告"
                 checked={options.pathology}
-                onChange={(e) => handleOptionChange('pathology', e.target.checked)}
+                onCheckedChange={(checked) => handleOptionChange('pathology', checked)}
               />
             </div>
           </div>

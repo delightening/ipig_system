@@ -1,9 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api, { Pig, UpdatePigRequest, pigBreedNames, pigGenderNames } from '@/lib/api'
+import api, { Pig, UpdatePigRequest, pigBreedNames, pigGenderNames, ProtocolListItem } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Dialog,
   DialogContent,
@@ -50,6 +57,21 @@ export function QuickEditPigDialog({ open, onOpenChange, pigId }: Props) {
       setEntryWeightInput(pig.entry_weight !== undefined && pig.entry_weight !== null ? String(pig.entry_weight) : '')
     }
   }, [pig])
+
+  // Query approved protocols (for IACUC NO. dropdown)
+  const { data: approvedProtocols } = useQuery({
+    queryKey: ['approved-protocols'],
+    queryFn: async () => {
+      const res = await api.get<ProtocolListItem[]>('/protocols')
+      // 過濾：已核准且未結案的計畫，且有 IACUC No.
+      return res.data.filter(p => {
+        if (p.status === 'CLOSED') return false
+        if (!((p.status === 'APPROVED' || p.status === 'APPROVED_WITH_CONDITIONS') && p.iacuc_no)) return false
+        return true
+      })
+    },
+    enabled: open,
+  })
 
   // Update mutation
   const updateMutation = useMutation({
@@ -205,12 +227,21 @@ export function QuickEditPigDialog({ open, onOpenChange, pigId }: Props) {
                 {/* IACUC NO. */}
                 <div className="space-y-2">
                   <Label htmlFor="iacuc_no">IACUC NO.</Label>
-                  <Input
-                    id="iacuc_no"
+                  <Select
                     value={formData.iacuc_no || ''}
-                    onChange={(e) => handleChange('iacuc_no', e.target.value)}
-                    placeholder="如：PIG-114017"
-                  />
+                    onValueChange={(v) => handleChange('iacuc_no', v === '' ? undefined : v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="選擇 IACUC NO." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {approvedProtocols?.map((protocol) => (
+                        <SelectItem key={protocol.id} value={protocol.iacuc_no!}>
+                          {protocol.iacuc_no}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>

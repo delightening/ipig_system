@@ -1,5 +1,7 @@
 services:
+  # =========================
   # PostgreSQL Database
+  # =========================
   db:
     image: postgres:16-alpine
     container_name: ipig-db
@@ -13,6 +15,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
+      # 對外給本機用，容器內仍是 5432
       - "${POSTGRES_PORT:-5433}:5432"
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-ipig_db}" ]
@@ -20,8 +23,11 @@ services:
       timeout: 3s
       retries: 10
       start_period: 10s
+    restart: unless-stopped
 
+  # =========================
   # Rust Backend API
+  # =========================
   api:
     build:
       context: ./backend
@@ -32,38 +38,50 @@ services:
     environment:
       HOST: ${HOST:-0.0.0.0}
       PORT: ${PORT:-8000}
+
+      # 後端在 docker 裡，DB host 一律用 service name db，port 用 5432
       DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-ipig_db}
       DATABASE_MAX_CONNECTIONS: ${DATABASE_MAX_CONNECTIONS:-10}
       DATABASE_RETRY_ATTEMPTS: ${DATABASE_RETRY_ATTEMPTS:-10}
       DATABASE_RETRY_DELAY_SECONDS: ${DATABASE_RETRY_DELAY_SECONDS:-3}
+
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION_HOURS: ${JWT_EXPIRATION_HOURS:-24}
       JWT_REFRESH_EXPIRATION_DAYS: ${JWT_REFRESH_EXPIRATION_DAYS:-7}
-      # Email settings (optional - leave SMTP_HOST empty to disable)
+
+      # Email settings
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@erp.local}
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-ERP System}
+
       APP_URL: ${APP_URL:-http://localhost}
-      # File upload directory (can be mounted from NAS)
+
+      # Uploads
       UPLOAD_DIR: ${UPLOAD_DIR:-/app/uploads}
-      # Development settings - seed default dev users in Docker environment
       SEED_DEV_USERS: ${SEED_DEV_USERS:-true}
+
+      # Google Calendar service account
+      # 你程式端用 Google SDK 或自寫讀檔都可以直接吃這個路徑
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/google_service_account.json
+      GOOGLE_CALENDAR_ID: ${GOOGLE_CALENDAR_ID:-primary}
+
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
     volumes:
-      # Mount upload directory - use local path or NAS mount point
-      # For local development: ./uploads:/app/uploads
-      # For NAS: /mnt/nas/ipig/uploads:/app/uploads
       - ${UPLOAD_VOLUME:-./uploads}:/app/uploads
+    secrets:
+      - google_service_account
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
 
-  # React Frontend
+  # =========================
+  # React Frontend (Prod build served by nginx)
+  # =========================
   web:
     build:
       context: ./frontend
@@ -75,7 +93,9 @@ services:
       - api
     restart: unless-stopped
 
-  # React Frontend (Dev: Vite + volume mount)
+  # =========================
+  # React Frontend Dev (Vite)
+  # =========================
   web-dev:
     image: node:20-alpine
     container_name: ipig-web-dev
@@ -85,9 +105,20 @@ services:
       - /app/node_modules
     ports:
       - "${WEB_DEV_PORT:-5173}:5173"
-    command: sh -c "npm install -g npm@latest && npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+    command: >
+      sh -c "npm install -g npm@latest && npm install && npm run dev -- --host 0.0.0.0 --port 5173"
     depends_on:
       - api
 
+# =========================
+# Secrets
+# =========================
+secrets:
+  google_service_account:
+    file: ./secrets/google-service-account.json
+
+# =========================
+# Volumes
+# =========================
 volumes:
   postgres_data:

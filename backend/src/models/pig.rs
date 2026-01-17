@@ -56,7 +56,7 @@ impl<'r> sqlx::Decode<'r, sqlx::Postgres> for PigBreed {
 }
 
 impl<'q> sqlx::Encode<'q, sqlx::Postgres> for PigBreed {
-    fn encode_by_ref(&self, buf: &mut sqlx::postgres::PgArgumentBuffer) -> sqlx::encode::IsNull {
+    fn encode_by_ref(&self, buf: &mut sqlx::postgres::PgArgumentBuffer) -> Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
         let s = match self {
             PigBreed::Minipig => "miniature",
             PigBreed::White => "white",
@@ -271,11 +271,20 @@ pub struct PigPathologyReport {
     pub updated_at: DateTime<Utc>,
 }
 
+/// 獸醫師紀錄類型（對應資料庫 vet_record_type enum）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[sqlx(type_name = "vet_record_type", rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
+pub enum VetRecordType {
+    Observation,
+    Surgery,
+}
+
 /// 獸醫師建議
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct VetRecommendation {
     pub id: i32,
-    pub record_type: String,
+    pub record_type: VetRecordType,
     pub record_id: i32,
     pub content: String,
     pub attachments: Option<serde_json::Value>, // 附件（含圖片）
@@ -361,6 +370,7 @@ pub struct PigQuery {
     pub iacuc_no: Option<String>,
     pub pen_location: Option<String>,
     pub keyword: Option<String>,
+    pub is_on_medication: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]

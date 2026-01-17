@@ -79,10 +79,10 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
       const addText = (text: string, fontSize: number, isBold: boolean = false, x: number = margin) => {
         pdf.setFontSize(fontSize)
         pdf.setFont('helvetica', isBold ? 'bold' : 'normal')
-        
+
         const maxWidth = pageWidth - 2 * margin
         const lines = pdf.splitTextToSize(text, maxWidth)
-        
+
         for (const line of lines) {
           checkPageBreak(lineHeight)
           pdf.text(line, x, yPos)
@@ -467,7 +467,6 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
         })
 
         yPos += sectionSpacing
-        currentPage = pdf.getCurrentPageInfo().pageNumber
       }
 
       // Section 10: 電子簽名
@@ -489,7 +488,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
       pdf.setPage(1)
       pdf.setFontSize(12)
       pdf.setFont('helvetica', 'normal')
-      
+
       for (const section of tocSections) {
         const pageNum = sectionPageNumbers[section.title] || 1
         const tocY = tocYPositions[section.title]
@@ -522,7 +521,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
           匯出 PDF
         </Button>
       </div>
-      
+
       <div ref={contentRef} className="protocol-pdf-view bg-white p-8 shadow-lg max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8 border-b pb-4">
@@ -533,7 +532,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
         {/* 1. 研究資料 */}
         <section className="mb-8 section-1" data-section="1. 研究資料">
           <h2 className="text-2xl font-bold mb-4 border-b pb-2">1. 研究資料</h2>
-          
+
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -642,7 +641,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
         {(purpose.significance || purpose.replacement || purpose.reduction) && (
           <section className="mb-8 border-t pt-6 section-2" data-section="2. 研究目的">
             <h2 className="text-2xl font-bold mb-4 border-b pb-2">2. 研究目的</h2>
-            
+
             {/* 2.1 研究之目的及重要性 */}
             {purpose.significance && (
               <div className="mb-4">
@@ -655,7 +654,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
             {purpose.replacement && (
               <div className="mb-4">
                 <h3 className="text-lg font-semibold mb-2">2.2 請以動物試驗應用3Rs之替代原則，說明本動物試驗之合理性</h3>
-                
+
                 {purpose.replacement.rationale && (
                   <div className="mb-3">
                     <h4 className="text-base font-medium mb-1">2.2.1 請說明活體動物試驗之必要性，以及選擇此動物種別的原因</h4>
@@ -714,7 +713,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
         {items.use_test_item === true && (
           <section className="mb-8 border-t pt-6 section-3" data-section="3. 試驗物質與對照物質">
             <h2 className="text-2xl font-bold mb-4 border-b pb-2">3. 試驗物質與對照物質</h2>
-            
+
             {/* 試驗物質 */}
             {items.test_items && items.test_items.length > 0 && (
               <div className="mb-4">
@@ -797,7 +796,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
         {(design.procedures || design.anesthesia || design.pain || design.endpoints) && (
           <section className="mb-8 border-t pt-6 section-4" data-section="4. 研究設計與方法">
             <h2 className="text-2xl font-bold mb-4 border-b pb-2">4. 研究設計與方法</h2>
-            
+
             {design.procedures && (
               <div className="mb-4">
                 <h3 className="text-lg font-semibold mb-2">動物試驗流程描述</h3>
@@ -851,7 +850,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
         {(guidelines.content || (guidelines.references && guidelines.references.length > 0)) && (
           <section className="mb-8 border-t pt-6 section-5" data-section="5. 相關規範及參考文獻">
             <h2 className="text-2xl font-bold mb-4 border-b pb-2">5. 相關規範及參考文獻</h2>
-            
+
             {guidelines.content && (
               <div className="mb-4">
                 <h3 className="text-lg font-semibold mb-2">相關規範說明</h3>
@@ -883,7 +882,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
         {(surgery.surgery_type || surgery.surgery_description) && (
           <section className="mb-8 border-t pt-6 section-6" data-section="6. 手術計畫書">
             <h2 className="text-2xl font-bold mb-4 border-b pb-2">6. 手術計畫書</h2>
-            
+
             {surgery.surgery_type && (
               <div className="mb-4">
                 <Label className="text-sm font-semibold">手術類型</Label>
@@ -941,7 +940,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
         {animals.animals && animals.animals.length > 0 && (
           <section className="mb-8 border-t pt-6 section-7" data-section="7. 實驗動物資料">
             <h2 className="text-2xl font-bold mb-4 border-b pb-2">7. 實驗動物資料</h2>
-            
+
             <div className="space-y-4">
               {animals.animals.map((animal: any, index: number) => (
                 <div key={index} className="p-4 border rounded bg-slate-50">
@@ -1000,7 +999,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
         {personnel.length > 0 && (
           <section className="mb-8 border-t pt-6 section-8" data-section="8. 試驗人員資料">
             <h2 className="text-2xl font-bold mb-4 border-b pb-2">8. 試驗人員資料</h2>
-            
+
             <div className="space-y-4">
               {personnel.map((person: any, index: number) => (
                 <div key={index} className="p-4 border rounded bg-slate-50">
@@ -1049,7 +1048,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
         {attachments.length > 0 && (
           <section className="mb-8 border-t pt-6 section-9" data-section="9. 附件">
             <h2 className="text-2xl font-bold mb-4 border-b pb-2">9. 附件</h2>
-            
+
             <div className="space-y-2">
               {attachments.map((attachment: any, index: number) => (
                 <div key={index} className="p-3 border rounded">
@@ -1064,7 +1063,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
         {signature.length > 0 && (
           <section className="mb-8 border-t pt-6 section-10" data-section="10. 電子簽名">
             <h2 className="text-2xl font-bold mb-4 border-b pb-2">10. 電子簽名</h2>
-            
+
             <div className="space-y-4">
               {signature.map((sig: any, index: number) => (
                 <div key={index} className="p-4 border rounded">

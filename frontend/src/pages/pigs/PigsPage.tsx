@@ -7,6 +7,7 @@ import api, {
   PigListItem,
   PigStatus,
   pigStatusNames,
+  allPigStatusNames,
   pigBreedNames,
   pigGenderNames,
   PigSource,
@@ -127,7 +128,7 @@ export function PigsPage() {
   const [search, setSearch] = useState('')
   // PI/CLIENT can only see: in_experiment, completed
   // Other users can see: pen, unassigned, in_experiment, completed
-  const allowedStatuses = isPIOrClient 
+  const allowedStatuses = isPIOrClient
     ? ['in_experiment', 'completed']
     : ['pen', 'unassigned', 'in_experiment', 'completed']
   const urlStatus = searchParams.get('status')
@@ -405,22 +406,22 @@ export function PigsPage() {
       // 先根據耳號查詢豬隻
       const searchRes = await api.get<PigListItem[]>(`/pigs?keyword=${encodeURIComponent(earTag)}`)
       const matchingPigs = searchRes.data.filter(p => p.ear_tag === earTag)
-      
+
       if (matchingPigs.length === 0) {
         throw new Error(`找不到耳號為 "${earTag}" 的動物`)
       }
-      
+
       if (matchingPigs.length > 1) {
         throw new Error(`找到多隻耳號為 "${earTag}" 的動物，請使用編輯功能手動移動`)
       }
-      
+
       const pig = matchingPigs[0]
-      
+
       // 檢查豬隻是否已經在目標欄位
       if (pig.pen_location === targetPenLocation) {
         throw new Error(`動物 ${earTag} 已經在 ${targetPenLocation} 欄位`)
       }
-      
+
       // 更新豬隻的欄位
       return api.put<Pig>(`/pigs/${pig.id}`, {
         pen_location: targetPenLocation,
@@ -430,9 +431,9 @@ export function PigsPage() {
       queryClient.invalidateQueries({ queryKey: ['pigs'] })
       queryClient.invalidateQueries({ queryKey: ['pigs-by-pen'] })
       queryClient.invalidateQueries({ queryKey: ['pigs-count'] })
-      toast({ 
-        title: '成功', 
-        description: `動物 ${variables.earTag} 已移動到 ${variables.targetPenLocation}` 
+      toast({
+        title: '成功',
+        description: `動物 ${variables.earTag} 已移動到 ${variables.targetPenLocation}`
       })
       setEditingPenLocation(null)
       setEditingEarTag('')
@@ -543,21 +544,21 @@ export function PigsPage() {
             return true
           })
           .map(tab => (
-          <button
-            key={tab.value}
-            onClick={() => {
-              setStatusFilter(tab.value)
-              setSearchParams(tab.value === 'pen' ? {} : { status: tab.value })
-            }}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${statusFilter === tab.value
-              ? 'border-purple-600 text-purple-600'
-              : 'border-transparent text-slate-500 hover:text-slate-700'
-              }`}
-          >
-            {'icon' in tab && tab.icon}
-            {tab.label} ({tab.count})
-          </button>
-        ))}
+            <button
+              key={tab.value}
+              onClick={() => {
+                setStatusFilter(tab.value)
+                setSearchParams(tab.value === 'pen' ? {} : { status: tab.value })
+              }}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${statusFilter === tab.value
+                ? 'border-purple-600 text-purple-600'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+            >
+              {'icon' in tab && tab.icon}
+              {tab.label} ({tab.count})
+            </button>
+          ))}
       </div>
 
       {/* Filters & Actions */}
@@ -610,7 +611,7 @@ export function PigsPage() {
 
       {/* List View */}
       {statusFilter !== 'pen' && (
-      <Card>
+        <Card>
           <CardContent className="p-0">
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
@@ -677,7 +678,7 @@ export function PigsPage() {
                       </TableCell>
                       <TableCell>
                         <Badge className={statusColors[pig.status]}>
-                          {pigStatusNames[pig.status]}
+                          {allPigStatusNames[pig.status]}
                         </Badge>
                       </TableCell>
                       <TableCell>{pig.breed === 'other' ? (pig.breed_other || '其他') : pigBreedNames[pig.breed]}</TableCell>
@@ -809,7 +810,7 @@ export function PigsPage() {
                   }
 
                   return (
-                    <div 
+                    <div
                       className="grid grid-cols-5 gap-1 px-3 py-2 items-center text-sm group"
                       onMouseEnter={() => {
                         if (!isEditing && !quickMoveMutation.isPending) {

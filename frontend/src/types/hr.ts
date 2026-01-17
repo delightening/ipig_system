@@ -322,3 +322,16 @@ export interface CalendarSyncHistory {
     conflicts_detected: number;
     errors_count: number;
 }
+
+export interface CalendarEvent {
+    id: string;
+    summary: string;
+    start: string;
+    end: string;
+    all_day: boolean;
+    description?: string;
+    location?: string;
+    color_id?: string;
+    html_link?: string;
+}
+

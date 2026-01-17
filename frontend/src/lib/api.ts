@@ -665,7 +665,15 @@ export type PigBreed = 'minipig' | 'white' | 'other'
 export type PigGender = 'male' | 'female'
 export type RecordType = 'abnormal' | 'experiment' | 'observation'
 
-export const pigStatusNames: Record<PigStatus, string> = {
+// Status names for dropdown selection (excludes 'assigned' which is deprecated)
+export const pigStatusNames: Partial<Record<PigStatus, string>> = {
+  unassigned: '未分配',
+  in_experiment: '實驗中',
+  completed: '實驗完畢',
+}
+
+// All status names for display purposes (includes deprecated 'assigned')
+export const allPigStatusNames: Record<PigStatus, string> = {
   unassigned: '未分配',
   assigned: '已分配',
   in_experiment: '實驗中',

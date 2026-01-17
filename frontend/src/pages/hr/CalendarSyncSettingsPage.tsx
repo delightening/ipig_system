@@ -1,10 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { format } from 'date-fns'
+import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
+import FullCalendar from '@fullcalendar/react'
+import dayGridPlugin from '@fullcalendar/daygrid'
+import timeGridPlugin from '@fullcalendar/timegrid'
+import interactionPlugin from '@fullcalendar/interaction'
 import {
     AlertTriangle,
     Calendar,
+    CalendarDays,
     Check,
     CheckCircle,
     Clock,
@@ -15,6 +20,7 @@ import {
     XCircle,
 } from 'lucide-react'
 import api from '@/lib/api'
+import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -39,7 +45,7 @@ import {
 } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
 import { toast } from '@/components/ui/use-toast'
-import type { CalendarSyncHistory, CalendarSyncStatus, ConflictWithDetails } from '@/types/hr'
+import type { CalendarSyncHistory, CalendarSyncStatus, ConflictWithDetails, CalendarEvent } from '@/types/hr'
 
 interface PaginatedResponse<T> {
     data: T[]
@@ -54,7 +60,19 @@ export function CalendarSyncSettingsPage() {
     const [showConnectDialog, setShowConnectDialog] = useState(false)
     const [calendarId, setCalendarId] = useState('')
     const [authEmail, setAuthEmail] = useState('')
+    const [calendarDateRange, setCalendarDateRange] = useState(() => ({
+        start: startOfMonth(new Date()),
+        end: endOfMonth(new Date()),
+    }))
     const queryClient = useQueryClient()
+    const { user } = useAuthStore()
+
+    // 當打開連接對話框時，預設授權 Email 為當前用戶的 Email
+    useEffect(() => {
+        if (showConnectDialog && user?.email) {
+            setAuthEmail(user.email)
+        }
+    }, [showConnectDialog]) // eslint-disable-line react-hooks/exhaustive-deps
 
     // 同步狀態
     const { data: syncStatus, isLoading: loadingStatus } = useQuery({
@@ -85,13 +103,47 @@ export function CalendarSyncSettingsPage() {
         enabled: activeTab === 'conflicts',
     })
 
+    // 日曆事件
+    const { data: calendarEvents, isLoading: loadingEvents, refetch: refetchEvents } = useQuery({
+        queryKey: ['calendar-events', calendarDateRange],
+        queryFn: async () => {
+            const startDate = format(calendarDateRange.start, 'yyyy-MM-dd')
+            const endDate = format(calendarDateRange.end, 'yyyy-MM-dd')
+            const res = await api.get<CalendarEvent[]>(`/hr/calendar/events?start_date=${startDate}&end_date=${endDate}`)
+            return res.data
+        },
+        enabled: activeTab === 'calendar' && syncStatus?.is_configured === true,
+    })
+
+    // FullCalendar 日期範圍變更處理
+    const handleDatesSet = useCallback((dateInfo: { start: Date; end: Date }) => {
+        setCalendarDateRange({
+            start: dateInfo.start,
+            end: dateInfo.end,
+        })
+    }, [])
+
+    // 轉換事件為 FullCalendar 格式
+    const fullCalendarEvents = calendarEvents?.map(event => ({
+        id: event.id,
+        title: event.summary,
+        start: event.start,
+        end: event.end,
+        allDay: event.all_day,
+        extendedProps: {
+            description: event.description,
+            location: event.location,
+            htmlLink: event.html_link,
+        },
+    })) || []
+
     // 連接日曆
     const connectMutation = useMutation({
         mutationFn: async (data: { calendar_id: string; auth_email: string }) => {
             return api.post('/hr/calendar/connect', data)
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['calendar-status'] })
+            queryClient.invalidateQueries({ queryKey: ['calendar-status'], refetchType: 'all' })
             setShowConnectDialog(false)
             setCalendarId('')
             setAuthEmail('')
@@ -180,6 +232,10 @@ export function CalendarSyncSettingsPage() {
                     <TabsTrigger value="status" className="flex items-center gap-2">
                         <Settings className="h-4 w-4" />
                         連線狀態
+                    </TabsTrigger>
+                    <TabsTrigger value="calendar" className="flex items-center gap-2">
+                        <CalendarDays className="h-4 w-4" />
+                        日曆
                     </TabsTrigger>
                     <TabsTrigger value="history" className="flex items-center gap-2">
                         <Clock className="h-4 w-4" />
@@ -290,6 +346,62 @@ export function CalendarSyncSettingsPage() {
                                         <Link2 className="h-4 w-4 mr-2" />
                                         連接 Google Calendar
                                     </Button>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                {/* 日曆視圖 */}
+                <TabsContent value="calendar" className="space-y-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Google Calendar 事件</CardTitle>
+                            <CardDescription>
+                                從已連接的 Google Calendar 讀取的事件
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {!syncStatus?.is_configured ? (
+                                <div className="text-center py-8 space-y-4">
+                                    <Calendar className="h-16 w-16 mx-auto text-muted-foreground" />
+                                    <div>
+                                        <div className="font-medium">尚未連接 Google Calendar</div>
+                                        <div className="text-sm text-muted-foreground">
+                                            請先在「連線狀態」分頁連接 Google Calendar
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : loadingEvents ? (
+                                <div className="text-center py-8">載入中...</div>
+                            ) : (
+                                <div className="calendar-wrapper">
+                                    <FullCalendar
+                                        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                                        initialView="dayGridMonth"
+                                        headerToolbar={{
+                                            left: 'prev,next today',
+                                            center: 'title',
+                                            right: 'dayGridMonth,timeGridWeek,timeGridDay',
+                                        }}
+                                        locale="zh-tw"
+                                        buttonText={{
+                                            today: '今天',
+                                            month: '月',
+                                            week: '週',
+                                            day: '日',
+                                        }}
+                                        events={fullCalendarEvents}
+                                        datesSet={handleDatesSet}
+                                        eventClick={(info) => {
+                                            const htmlLink = info.event.extendedProps.htmlLink
+                                            if (htmlLink) {
+                                                window.open(htmlLink, '_blank')
+                                            }
+                                        }}
+                                        height="auto"
+                                        dayMaxEvents={3}
+                                    />
                                 </div>
                             )}
                         </CardContent>

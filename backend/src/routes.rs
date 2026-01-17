@@ -21,6 +21,9 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/auth/logout", post(handlers::logout))
         .route("/me", get(handlers::me))
         .route("/me/password", put(handlers::change_own_password))
+        // User Preferences
+        .route("/me/preferences", get(handlers::get_all_preferences))
+        .route("/me/preferences/:key", get(handlers::get_preference).put(handlers::upsert_preference).delete(handlers::delete_preference))
         // Users
         .route("/users", get(handlers::list_users).post(handlers::create_user))
         .route("/users/:id", get(handlers::get_user).put(handlers::update_user).delete(handlers::delete_user))
@@ -72,6 +75,7 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/protocols/:id/status", post(handlers::change_protocol_status))
         .route("/protocols/:id/versions", get(handlers::get_protocol_versions))
         .route("/protocols/:id/status-history", get(handlers::get_protocol_status_history))
+        .route("/protocols/:id/animal-stats", get(handlers::get_protocol_animal_stats))
         // Review
         .route("/reviews/assignments", get(handlers::list_review_assignments).post(handlers::assign_reviewer))
         .route("/reviews/comments", get(handlers::list_review_comments).post(handlers::create_review_comment))
@@ -90,6 +94,7 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/pigs/by-pen", get(handlers::list_pigs_by_pen))
         .route("/pigs/batch/assign", post(handlers::batch_assign_pigs))
         .route("/pigs/batch/start-experiment", post(handlers::batch_start_experiment))
+        .route("/pigs/vet-comments", get(handlers::get_vet_comments))
         .route("/pigs/:id", get(handlers::get_pig).put(handlers::update_pig).delete(handlers::delete_pig))
         .route("/pigs/:id/vet-read", post(handlers::mark_pig_vet_read))
         // Pig Records - Observations
@@ -175,6 +180,7 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/hr/attendance", get(handlers::list_attendance))
         .route("/hr/attendance/clock-in", post(handlers::clock_in))
         .route("/hr/attendance/clock-out", post(handlers::clock_out))
+        .route("/hr/attendance/stats", get(handlers::get_attendance_stats))
         .route("/hr/attendance/:id", put(handlers::correct_attendance))
         // ============================================
         // HR Overtime (新增)
@@ -215,6 +221,7 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/hr/calendar/conflicts", get(handlers::list_conflicts))
         .route("/hr/calendar/conflicts/:id", get(handlers::get_conflict))
         .route("/hr/calendar/conflicts/:id/resolve", post(handlers::resolve_conflict))
+        .route("/hr/calendar/events", get(handlers::list_calendar_events))
         // ============================================
         // Facility Management (新增)
         // ============================================

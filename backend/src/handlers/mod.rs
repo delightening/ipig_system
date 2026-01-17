@@ -16,6 +16,7 @@ mod upload;
 mod hr;
 mod facility;
 mod calendar;
+mod user_preferences;
 
 pub use auth::*;
 pub use user::*;
@@ -35,4 +36,5 @@ pub use upload::*;
 pub use hr::*;
 pub use facility::*;
 pub use calendar::*;
+pub use user_preferences::*;
 

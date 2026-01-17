@@ -337,3 +337,73 @@ pub async fn get_my_protocols(
     let protocols = ProtocolService::get_my_protocols(&state.db, current_user.id).await?;
     Ok(Json(protocols))
 }
+
+/// 取得專案的動物統計（儀表板用）
+pub async fn get_protocol_animal_stats(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<serde_json::Value>> {
+    require_permission!(current_user, "aup.protocol.view_own");
+    
+    // 取得該專案的 IACUC No
+    let protocol: Option<(Option<String>,)> = sqlx::query_as(
+        "SELECT iacuc_no FROM protocols WHERE id = $1"
+    )
+    .bind(id)
+    .fetch_optional(&state.db)
+    .await?;
+    
+    let iacuc_no = match protocol {
+        Some((Some(no),)) => no,
+        _ => return Ok(Json(serde_json::json!({
+            "approved_count": 0,
+            "in_use_count": 0,
+            "completed_count": 0,
+            "remaining_count": 0
+        }))),
+    };
+    
+    // 統計動物數量
+    let stats: (i64, i64, i64) = sqlx::query_as(
+        r#"
+        SELECT 
+            COUNT(*) FILTER (WHERE status IN ('assigned', 'in_experiment')) as in_use_count,
+            COUNT(*) FILTER (WHERE status = 'completed') as completed_count,
+            COUNT(*) as total_count
+        FROM pigs
+        WHERE iacuc_no = $1
+        "#
+    )
+    .bind(&iacuc_no)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or((0, 0, 0));
+    
+    // 從 protocol 的 working_content 取得核准數量（如果有的話）
+    let approved_count: (Option<i64>,) = sqlx::query_as(
+        r#"
+        SELECT 
+            (working_content->>'animal_count')::bigint as approved_count
+        FROM protocols
+        WHERE id = $1
+        "#
+    )
+    .bind(id)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or((None,));
+    
+    let approved = approved_count.0.unwrap_or(stats.2);
+    let in_use = stats.0;
+    let completed = stats.1;
+    let remaining = approved - stats.2;
+    
+    Ok(Json(serde_json::json!({
+        "approved_count": approved,
+        "in_use_count": in_use,
+        "completed_count": completed,
+        "remaining_count": remaining.max(0)
+    })))
+}
+

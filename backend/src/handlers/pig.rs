@@ -16,7 +16,7 @@ use crate::{
         CreateVaccinationRequest, CreateVetRecommendationRequest, CreateWeightRequest, Pig,
         PigListItem, PigObservation, PigQuery, PigSacrifice, PigSource, PigSurgery,
         PigVaccination, PigWeight, PigsByPen, UpdatePigRequest, UpdatePigSourceRequest,
-        VetRecommendation, UpdateObservationRequest, UpdateSurgeryRequest, UpdateWeightRequest,
+        VetRecommendation, VetRecordType, UpdateObservationRequest, UpdateSurgeryRequest, UpdateWeightRequest,
         UpdateVaccinationRequest, CopyRecordRequest, VersionHistoryResponse,
         CreateVetRecommendationWithAttachmentsRequest, ExportRequest, PigImportBatch, ObservationListItem, SurgeryListItem, ImportResult,
     },
@@ -600,7 +600,7 @@ pub async fn add_observation_vet_recommendation(
     require_permission!(current_user, "pig.vet.recommend");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
-    let recommendation = PigService::add_vet_recommendation(&state.db, "observation", id, &req, current_user.id).await?;
+    let recommendation = PigService::add_vet_recommendation(&state.db, VetRecordType::Observation, id, &req, current_user.id).await?;
     Ok(Json(recommendation))
 }
 
@@ -614,7 +614,7 @@ pub async fn add_surgery_vet_recommendation(
     require_permission!(current_user, "pig.vet.recommend");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
-    let recommendation = PigService::add_vet_recommendation(&state.db, "surgery", id, &req, current_user.id).await?;
+    let recommendation = PigService::add_vet_recommendation(&state.db, VetRecordType::Surgery, id, &req, current_user.id).await?;
     Ok(Json(recommendation))
 }
 
@@ -629,7 +629,7 @@ pub async fn add_observation_vet_recommendation_with_attachments(
     require_permission!(current_user, "pig.vet.upload_attachment");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
-    let recommendation = PigService::add_vet_recommendation_with_attachments(&state.db, "observation", id, &req, current_user.id).await?;
+    let recommendation = PigService::add_vet_recommendation_with_attachments(&state.db, VetRecordType::Observation, id, &req, current_user.id).await?;
     Ok(Json(recommendation))
 }
 
@@ -644,7 +644,7 @@ pub async fn add_surgery_vet_recommendation_with_attachments(
     require_permission!(current_user, "pig.vet.upload_attachment");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
-    let recommendation = PigService::add_vet_recommendation_with_attachments(&state.db, "surgery", id, &req, current_user.id).await?;
+    let recommendation = PigService::add_vet_recommendation_with_attachments(&state.db, VetRecordType::Surgery, id, &req, current_user.id).await?;
     Ok(Json(recommendation))
 }
 
@@ -654,7 +654,7 @@ pub async fn get_observation_vet_recommendations(
     Extension(_current_user): Extension<CurrentUser>,
     Path(id): Path<i32>,
 ) -> Result<Json<Vec<VetRecommendation>>> {
-    let recommendations = PigService::get_vet_recommendations(&state.db, "observation", id).await?;
+    let recommendations = PigService::get_vet_recommendations(&state.db, VetRecordType::Observation, id).await?;
     Ok(Json(recommendations))
 }
 
@@ -664,7 +664,7 @@ pub async fn get_surgery_vet_recommendations(
     Extension(_current_user): Extension<CurrentUser>,
     Path(id): Path<i32>,
 ) -> Result<Json<Vec<VetRecommendation>>> {
-    let recommendations = PigService::get_vet_recommendations(&state.db, "surgery", id).await?;
+    let recommendations = PigService::get_vet_recommendations(&state.db, VetRecordType::Surgery, id).await?;
     Ok(Json(recommendations))
 }
 
@@ -943,3 +943,61 @@ pub async fn upsert_pig_pathology_report(
     let report = PigService::upsert_pathology_report(&state.db, pig_id, current_user.id).await?;
     Ok(Json(report))
 }
+
+// ============================================
+// 儀表板 API
+// ============================================
+
+/// 取得最近的獸醫師評論（儀表板用）
+pub async fn get_vet_comments(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> Result<Json<serde_json::Value>> {
+    let limit: i64 = params
+        .get("per_page")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(10);
+    
+    // 查詢最近的獸醫建議
+    let comments = sqlx::query_as::<_, (i32, i32, String, Option<String>, String, chrono::NaiveDateTime, String)>(
+        r#"
+        SELECT 
+            vr.id,
+            vr.record_id,
+            p.ear_tag,
+            p.pen_location,
+            vr.content,
+            vr.created_at,
+            u.display_name as created_by_name
+        FROM vet_recommendations vr
+        INNER JOIN pig_observations po ON vr.record_type = 'observation'::vet_record_type AND vr.record_id = po.id
+        INNER JOIN pigs p ON po.pig_id = p.id
+        INNER JOIN users u ON vr.created_by = u.id
+        WHERE po.deleted_at IS NULL
+        ORDER BY vr.created_at DESC
+        LIMIT $1
+        "#
+    )
+    .bind(limit)
+    .fetch_all(&state.db)
+    .await?;
+    
+    let data: Vec<serde_json::Value> = comments
+        .into_iter()
+        .map(|(id, pig_id, ear_tag, pen_location, content, created_at, created_by_name)| {
+            serde_json::json!({
+                "id": id.to_string(),
+                "pig_id": pig_id,
+                "ear_tag": ear_tag,
+                "pen_location": pen_location,
+                "content": content,
+                "created_at": created_at.format("%Y-%m-%dT%H:%M:%S").to_string(),
+                "created_by_name": created_by_name
+            })
+        })
+        .collect();
+    
+    Ok(Json(serde_json::json!({ "data": data })))
+}
+

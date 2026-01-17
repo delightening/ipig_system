@@ -6,6 +6,7 @@ use axum::{
     http::StatusCode,
     Extension, Json,
 };
+use chrono::Datelike;
 use uuid::Uuid;
 
 use crate::{
@@ -408,3 +409,92 @@ pub async fn adjust_balance(
         HrService::adjust_annual_leave(&state.db, id, current_user.id, &payload).await?;
     Ok(Json(entitlement))
 }
+
+// ============================================
+// 儀表板統計 API
+// ============================================
+
+/// 工作人員出勤統計（儀表板用）
+pub async fn get_attendance_stats(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> Result<Json<serde_json::Value>> {
+    // 權限檢查：僅管理員可查看
+    if !current_user.has_permission("hr.attendance.view.all") && !current_user.roles.contains(&"admin".to_string()) {
+        return Err(crate::error::AppError::Forbidden(
+            "無權查看出勤統計".to_string(),
+        ));
+    }
+    
+    let start_date = params.get("start_date").cloned();
+    let end_date = params.get("end_date").cloned();
+    
+    // 如果沒有指定日期，預設為本月
+    let (start_date, end_date) = match (start_date, end_date) {
+        (Some(s), Some(e)) => (s, e),
+        _ => {
+            let now = chrono::Utc::now();
+            let start = chrono::NaiveDate::from_ymd_opt(now.year(), now.month(), 1)
+                .unwrap_or_else(|| now.date_naive());
+            let end = now.date_naive();
+            (start.format("%Y-%m-%d").to_string(), end.format("%Y-%m-%d").to_string())
+        }
+    };
+    
+    // 查詢出勤統計
+    let stats = sqlx::query_as::<_, (uuid::Uuid, String, i64, i64, i64, rust_decimal::Decimal)>(
+        r#"
+        SELECT 
+            u.id as user_id,
+            u.display_name,
+            COUNT(DISTINCT CASE WHEN a.clock_in_time IS NOT NULL THEN DATE(a.clock_in_time) END) as attendance_days,
+            COUNT(DISTINCT CASE WHEN a.is_late = true THEN a.id END) as late_count,
+            COALESCE((
+                SELECT SUM(CASE WHEN l.leave_type IN ('annual', 'sick', 'personal', 'compensatory') 
+                    THEN EXTRACT(EPOCH FROM (l.end_time - l.start_time)) / 86400 ELSE 0 END)
+                FROM leave_requests l
+                WHERE l.user_id = u.id 
+                AND l.status = 'approved'
+                AND l.start_time >= $1::date 
+                AND l.end_time <= $2::date + interval '1 day'
+            ), 0)::bigint as leave_days,
+            COALESCE((
+                SELECT SUM(o.approved_hours)
+                FROM overtime_records o
+                WHERE o.user_id = u.id 
+                AND o.status = 'approved'
+                AND o.overtime_date >= $1::date 
+                AND o.overtime_date <= $2::date
+            ), 0) as overtime_hours
+        FROM users u
+        LEFT JOIN attendance_records a ON u.id = a.user_id 
+            AND DATE(a.clock_in_time) >= $1::date 
+            AND DATE(a.clock_in_time) <= $2::date
+        WHERE u.is_active = true
+        GROUP BY u.id, u.display_name
+        ORDER BY u.display_name
+        "#
+    )
+    .bind(&start_date)
+    .bind(&end_date)
+    .fetch_all(&state.db)
+    .await?;
+    
+    let data: Vec<serde_json::Value> = stats
+        .into_iter()
+        .map(|(user_id, display_name, attendance_days, late_count, leave_days, overtime_hours)| {
+            serde_json::json!({
+                "user_id": user_id.to_string(),
+                "display_name": display_name,
+                "attendance_days": attendance_days,
+                "late_count": late_count,
+                "leave_days": leave_days,
+                "overtime_hours": overtime_hours.to_string().parse::<f64>().unwrap_or(0.0)
+            })
+        })
+        .collect();
+    
+    Ok(Json(serde_json::json!({ "data": data })))
+}
+

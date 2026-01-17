@@ -10,6 +10,7 @@ import api, {
   PigSacrifice,
   PigPathologyReport,
   pigStatusNames,
+  allPigStatusNames,
   pigBreedNames,
   pigGenderNames,
   recordTypeNames,
@@ -464,7 +465,7 @@ export function PigDetailPage() {
               <div>
                 <span className="text-sm text-slate-500">動物狀態</span>
                 <Badge className={`${statusColors[pig.status]} text-white mt-1`}>
-                  {pigStatusNames[pig.status]}
+                  {allPigStatusNames[pig.status]}
                 </Badge>
               </div>
               <div>
@@ -486,8 +487,8 @@ export function PigDetailPage() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === tab.id
-                    ? 'border-orange-500 text-orange-600'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                  ? 'border-orange-500 text-orange-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                   }`}
               >
                 <Icon className="h-4 w-4" />
@@ -1133,7 +1134,7 @@ export function PigDetailPage() {
                 </div>
                 <div>
                   <Label className="text-slate-500">豬隻狀態</Label>
-                  <p className="font-medium">{pigStatusNames[pig.status]}</p>
+                  <p className="font-medium">{allPigStatusNames[pig.status]}</p>
                 </div>
                 <div>
                   <Label className="text-slate-500">進場日期</Label>

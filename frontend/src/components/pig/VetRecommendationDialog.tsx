@@ -209,7 +209,7 @@ export function VetRecommendationDialog({ open, onOpenChange, recordType, record
                     </div>
                   </div>
                   <p className="text-slate-700 whitespace-pre-wrap">{rec.content}</p>
-                  
+
                   {/* Attachments */}
                   {rec.attachments && typeof rec.attachments === 'object' && Object.keys(rec.attachments).length > 0 && (
                     <div className="mt-3 pt-3 border-t">

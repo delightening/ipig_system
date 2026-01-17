@@ -8,7 +8,7 @@ use crate::{
         CreateVaccinationRequest, CreateVetRecommendationRequest, CreateWeightRequest, Pig,
         PigListItem, PigObservation, PigQuery, PigSacrifice, PigSource, PigStatus, PigSurgery,
         PigVaccination, PigWeight, PigsByPen, UpdatePigRequest, UpdatePigSourceRequest,
-        VetRecommendation, UpdateObservationRequest, UpdateSurgeryRequest, UpdateWeightRequest,
+        VetRecommendation, VetRecordType, UpdateObservationRequest, UpdateSurgeryRequest, UpdateWeightRequest,
         UpdateVaccinationRequest, RecordVersion, VersionDiff, VersionHistoryResponse,
         PigImportBatch, ImportStatus, ImportType, ImportResult, ImportErrorDetail,
         PigExportRecord, ExportType, ExportFormat, CreateVetRecommendationWithAttachmentsRequest,
@@ -126,23 +126,33 @@ impl PigService {
                 EXISTS(
                     SELECT 1 FROM pig_observations po 
                     WHERE po.pig_id = p.id 
-                    AND po.record_type = 'abnormal'
+                    AND po.record_type = 'abnormal'::record_type
                     AND po.deleted_at IS NULL
                 ) as has_abnormal_record,
-                EXISTS(
-                    SELECT 1 FROM pig_observations po 
-                    WHERE po.pig_id = p.id 
-                    AND po.no_medication_needed = false
-                    AND po.event_date >= CURRENT_DATE - INTERVAL '30 days'
-                    AND po.deleted_at IS NULL
+                -- 檢查是否正在用藥：
+                -- 只要觀察試驗紀錄或手術紀錄中有任何一筆 no_medication_needed = false，則為正在用藥
+                (
+                    EXISTS(
+                        SELECT 1 FROM pig_observations po 
+                        WHERE po.pig_id = p.id 
+                        AND po.no_medication_needed = false
+                        AND po.deleted_at IS NULL
+                    )
+                    OR
+                    EXISTS(
+                        SELECT 1 FROM pig_surgeries ps 
+                        WHERE ps.pig_id = p.id 
+                        AND ps.no_medication_needed = false
+                        AND ps.deleted_at IS NULL
+                    )
                 ) as is_on_medication,
                 (
                     SELECT MAX(vr.created_at) 
                     FROM vet_recommendations vr
-                    WHERE (vr.record_type = 'observation' AND vr.record_id IN (
+                    WHERE (vr.record_type = 'observation'::vet_record_type AND vr.record_id IN (
                         SELECT id FROM pig_observations WHERE pig_id = p.id AND deleted_at IS NULL
                     ))
-                    OR (vr.record_type = 'surgery' AND vr.record_id IN (
+                    OR (vr.record_type = 'surgery'::vet_record_type AND vr.record_id IN (
                         SELECT id FROM pig_surgeries WHERE pig_id = p.id AND deleted_at IS NULL
                     ))
                 ) as vet_recommendation_date
@@ -178,6 +188,27 @@ impl PigService {
             query_builder.push(" OR p.pen_location ILIKE ");
             query_builder.push_bind(keyword_pattern);
             query_builder.push(")");
+        }
+
+        // 過濾正在用藥的動物
+        if let Some(true) = query.is_on_medication {
+            query_builder.push(r#"
+                AND (
+                    EXISTS(
+                        SELECT 1 FROM pig_observations po 
+                        WHERE po.pig_id = p.id 
+                        AND po.no_medication_needed = false
+                        AND po.deleted_at IS NULL
+                    )
+                    OR
+                    EXISTS(
+                        SELECT 1 FROM pig_surgeries ps 
+                        WHERE ps.pig_id = p.id 
+                        AND ps.no_medication_needed = false
+                        AND ps.deleted_at IS NULL
+                    )
+                )
+            "#);
         }
 
         query_builder.push(" ORDER BY p.id DESC");
@@ -1129,7 +1160,7 @@ impl PigService {
     /// 新增獸醫師建議
     pub async fn add_vet_recommendation(
         pool: &PgPool,
-        record_type: &str,
+        record_type: VetRecordType,
         record_id: i32,
         req: &CreateVetRecommendationRequest,
         created_by: Uuid,
@@ -1141,7 +1172,7 @@ impl PigService {
             RETURNING *
             "#
         )
-        .bind(record_type)
+        .bind(&record_type)
         .bind(record_id)
         .bind(&req.content)
         .bind(created_by)
@@ -1154,7 +1185,7 @@ impl PigService {
     /// 新增獸醫師建議（含附件）
     pub async fn add_vet_recommendation_with_attachments(
         pool: &PgPool,
-        record_type: &str,
+        record_type: VetRecordType,
         record_id: i32,
         req: &CreateVetRecommendationWithAttachmentsRequest,
         created_by: Uuid,
@@ -1166,7 +1197,7 @@ impl PigService {
             RETURNING *
             "#
         )
-        .bind(record_type)
+        .bind(&record_type)
         .bind(record_id)
         .bind(&req.content)
         .bind(&req.attachments)
@@ -1180,13 +1211,13 @@ impl PigService {
     /// 取得紀錄的獸醫師建議
     pub async fn get_vet_recommendations(
         pool: &PgPool,
-        record_type: &str,
+        record_type: VetRecordType,
         record_id: i32,
     ) -> Result<Vec<VetRecommendation>> {
         let recommendations = sqlx::query_as::<_, VetRecommendation>(
             "SELECT * FROM vet_recommendations WHERE record_type = $1 AND record_id = $2 ORDER BY created_at DESC"
         )
-        .bind(record_type)
+        .bind(&record_type)
         .bind(record_id)
         .fetch_all(pool)
         .await?;

@@ -22,7 +22,7 @@ impl CalendarService {
 
     pub async fn get_config(pool: &PgPool) -> Result<GoogleCalendarConfig> {
         let config = sqlx::query_as::<_, GoogleCalendarConfig>(
-            "SELECT * FROM google_calendar_config WHERE id = (SELECT MIN(id) FROM google_calendar_config)",
+            "SELECT * FROM google_calendar_config LIMIT 1",
         )
         .fetch_one(pool)
         .await?;
@@ -73,20 +73,22 @@ impl CalendarService {
         pool: &PgPool,
         payload: &ConnectCalendarRequest,
     ) -> Result<GoogleCalendarConfig> {
+        // Use INSERT with ON CONFLICT on expression index ((true))
+        // This ensures the row exists and properly updates it
         let config = sqlx::query_as::<_, GoogleCalendarConfig>(
             r#"
             INSERT INTO google_calendar_config (id, calendar_id, auth_email, auth_method, is_configured, sync_enabled)
-            VALUES ($1, $2, $3, 'shared_account', true, true)
-            ON CONFLICT (id) DO UPDATE SET
-                calendar_id = $2,
-                auth_email = $3,
+            VALUES (gen_random_uuid(), $1, $2, 'shared_account', true, true)
+            ON CONFLICT ((true)) DO UPDATE SET
+                calendar_id = EXCLUDED.calendar_id,
+                auth_email = EXCLUDED.auth_email,
+                auth_method = 'shared_account',
                 is_configured = true,
                 sync_enabled = true,
                 updated_at = NOW()
             RETURNING *
             "#,
         )
-        .bind(Uuid::new_v4())
         .bind(&payload.calendar_id)
         .bind(&payload.auth_email)
         .fetch_one(pool)

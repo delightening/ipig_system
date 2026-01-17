@@ -15,6 +15,7 @@ mod notification;
 mod hr;
 mod facility;
 mod calendar;
+pub mod user_preferences;
 
 pub use user::*;
 pub use role::*;

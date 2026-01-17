@@ -57,7 +57,7 @@ import {
   History,
   MessageSquare,
   FileText,
-  User,
+  User as UserIcon,
   Building,
   Calendar,
   Loader2,
@@ -88,6 +88,7 @@ const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' |
   REJECTED: 'destructive',
   SUSPENDED: 'destructive',
   CLOSED: 'outline',
+  DELETED: 'destructive',
 }
 
 // 狀態轉換規則
@@ -104,6 +105,7 @@ const allowedTransitions: Record<ProtocolStatus, ProtocolStatus[]> = {
   REJECTED: ['CLOSED'],
   SUSPENDED: ['UNDER_REVIEW', 'CLOSED'],
   CLOSED: [],
+  DELETED: [],
 }
 
 export function ProtocolDetailPage() {
@@ -595,7 +597,7 @@ export function ProtocolDetailPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <User className="h-4 w-4 text-green-500" />
+              <UserIcon className="h-4 w-4 text-green-500" />
               計畫主持人
             </CardTitle>
           </CardHeader>
@@ -648,8 +650,8 @@ export function ProtocolDetailPage() {
               key={tab.key}
               onClick={() => setActiveTab(tab.key as typeof activeTab)}
               className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors whitespace-nowrap ${activeTab === tab.key
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
             >
               <tab.icon className="h-4 w-4" />
@@ -811,7 +813,7 @@ export function ProtocolDetailPage() {
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">
                         <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                          <User className="h-4 w-4 text-blue-600" />
+                          <UserIcon className="h-4 w-4 text-blue-600" />
                         </div>
                         <div>
                           <p className="font-medium">{comment.reviewer_name || comment.reviewer_email}</p>

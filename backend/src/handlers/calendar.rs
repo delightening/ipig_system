@@ -143,3 +143,33 @@ pub async fn resolve_conflict(
     .await?;
     Ok(Json(conflict))
 }
+
+// ============================================
+// Calendar Events (從 Google Calendar 讀取)
+// ============================================
+
+use crate::models::{CalendarEvent, CalendarEventsQuery};
+use crate::services::google_calendar::GoogleCalendarClient;
+
+/// 列出 Google Calendar 事件
+pub async fn list_calendar_events(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+    Query(params): Query<CalendarEventsQuery>,
+) -> Result<Json<Vec<CalendarEvent>>> {
+    // 取得 calendar config
+    let config = CalendarService::get_config(&state.db).await?;
+    
+    if !config.is_configured {
+        return Err(crate::error::AppError::Validation(
+            "Google Calendar 尚未連接".to_string(),
+        ));
+    }
+
+    // 從 Google Calendar 獲取事件
+    let client = GoogleCalendarClient::new(&config.calendar_id);
+    let events = client.fetch_events(params.start_date, params.end_date).await?;
+    
+    Ok(Json(events))
+}
+

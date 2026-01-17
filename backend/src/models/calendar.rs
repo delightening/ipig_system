@@ -197,3 +197,27 @@ pub struct CalendarSyncStatus {
     pub pending_conflicts: i64,
     pub recent_errors: i64,
 }
+
+// ============================================
+// Calendar Events (從 Google Calendar 讀取)
+// ============================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CalendarEvent {
+    pub id: String,
+    pub summary: String,
+    pub start: DateTime<Utc>,
+    pub end: DateTime<Utc>,
+    pub all_day: bool,
+    pub description: Option<String>,
+    pub location: Option<String>,
+    pub color_id: Option<String>,
+    pub html_link: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CalendarEventsQuery {
+    pub start_date: chrono::NaiveDate,
+    pub end_date: chrono::NaiveDate,
+}
+

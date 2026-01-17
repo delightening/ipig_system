@@ -39,7 +39,7 @@ const RECORD_TYPE_OPTIONS: { value: RecordType; label: string }[] = [
 interface TreatmentItem {
   drug: string
   dosage: string
-  end_date: string
+  end_date?: string
 }
 
 // 表單狀態
@@ -245,7 +245,7 @@ export function ObservationFormDialog({ open, onOpenChange, pigId, earTag, obser
                   key={option.value}
                   label={option.label}
                   checked={formData.equipment_used.includes(option.value)}
-                  onChange={(e) => handleEquipmentChange(option.value, e.target.checked)}
+                  onCheckedChange={(checked) => handleEquipmentChange(option.value, checked)}
                 />
               ))}
             </div>
@@ -290,7 +290,7 @@ export function ObservationFormDialog({ open, onOpenChange, pigId, earTag, obser
           <Checkbox
             label="不需用藥/停止用藥"
             checked={formData.no_medication_needed}
-            onChange={(e) => setFormData({ ...formData, no_medication_needed: e.target.checked })}
+            onCheckedChange={(checked) => setFormData({ ...formData, no_medication_needed: checked })}
           />
 
           {/* 治療方式 (Repeater) */}

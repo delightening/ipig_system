@@ -38,13 +38,14 @@ const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' |
   REJECTED: 'destructive',
   SUSPENDED: 'destructive',
   CLOSED: 'outline',
+  DELETED: 'destructive',
 }
 
 export function MyProjectsPage() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const [closeDialogOpen, setCloseDialogOpen] = useState(false)
-  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null)
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
 
   const { data: projects, isLoading } = useQuery({
     queryKey: ['my-projects'],
@@ -56,7 +57,7 @@ export function MyProjectsPage() {
 
   // 結案 mutation
   const closeProtocolMutation = useMutation({
-    mutationFn: async (projectId: number) => {
+    mutationFn: async (projectId: string) => {
       return api.post(`/protocols/${projectId}/status`, {
         to_status: 'CLOSED',
         remark: '計畫結案',
@@ -80,7 +81,7 @@ export function MyProjectsPage() {
     },
   })
 
-  const handleCloseClick = (projectId: number) => {
+  const handleCloseClick = (projectId: string) => {
     setSelectedProjectId(projectId)
     setCloseDialogOpen(true)
   }
@@ -209,57 +210,57 @@ export function MyProjectsPage() {
               <TableBody>
                 {sortedProjects.map((project) => {
                   const projectStatus = getProjectStatus(project.status)
-                  
+
                   return (
-                  <TableRow key={project.id}>
-                    <TableCell className="font-mono text-orange-600 font-semibold">
-                      {project.iacuc_no || '-'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={projectStatus.color}>
-                        {projectStatus.label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{project.pi_name}</TableCell>
-                    <TableCell>{project.pi_organization || '-'}</TableCell>
-                    <TableCell>{getStatusBadge(project.status)}</TableCell>
-                    <TableCell className="max-w-[200px]">
-                      <div className="truncate" title={project.title}>
-                        {project.title}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {project.start_date && project.end_date ? (
-                        <div className="flex items-center gap-1 text-sm">
-                          <Calendar className="h-3 w-3" />
-                          {formatDate(project.start_date)} ~ {formatDate(project.end_date)}
+                    <TableRow key={project.id}>
+                      <TableCell className="font-mono text-orange-600 font-semibold">
+                        {project.iacuc_no || '-'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={projectStatus.color}>
+                          {projectStatus.label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{project.pi_name}</TableCell>
+                      <TableCell>{project.pi_organization || '-'}</TableCell>
+                      <TableCell>{getStatusBadge(project.status)}</TableCell>
+                      <TableCell className="max-w-[200px]">
+                        <div className="truncate" title={project.title}>
+                          {project.title}
                         </div>
-                      ) : (
-                        '-'
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button variant="outline" size="sm" asChild>
-                          <Link to={`/my-projects/${project.id}`}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            檢視
-                          </Link>
-                        </Button>
-                        {project.status !== 'CLOSED' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleCloseClick(project.id)}
-                            disabled={closeProtocolMutation.isPending}
-                          >
-                            <X className="mr-2 h-4 w-4" />
-                            結案
-                          </Button>
+                      </TableCell>
+                      <TableCell>
+                        {project.start_date && project.end_date ? (
+                          <div className="flex items-center gap-1 text-sm">
+                            <Calendar className="h-3 w-3" />
+                            {formatDate(project.start_date)} ~ {formatDate(project.end_date)}
+                          </div>
+                        ) : (
+                          '-'
                         )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button variant="outline" size="sm" asChild>
+                            <Link to={`/my-projects/${project.id}`}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              檢視
+                            </Link>
+                          </Button>
+                          {project.status !== 'CLOSED' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleCloseClick(project.id)}
+                              disabled={closeProtocolMutation.isPending}
+                            >
+                              <X className="mr-2 h-4 w-4" />
+                              結案
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   )
                 })}
               </TableBody>

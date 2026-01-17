@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react' // 引入 React 核心 Hook：狀態、副作用、引用
+import { useState, useEffect, useRef, useMemo } from 'react' // 引入 React 核心 Hook：狀態、副作用、引用、效能優化
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom' // 引入路由組件與導覽 Hook
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query' // 引入資料獲取與變更管理工具
 import { useAuthStore } from '@/stores/auth' // 引入權限管理 Store (Zustand)
@@ -35,7 +35,6 @@ import { // 引入一系列 Lucide 圖示
   ChevronDown,
   Truck,
   ShoppingCart,
-  ClipboardList,
   Globe,
   Key,
   Loader2,
@@ -46,7 +45,27 @@ import { // 引入一系列 Lucide 圖示
   Bell,
   CheckCheck,
   ExternalLink,
+  GripVertical,
+  RotateCcw,
 } from 'lucide-react'
+// 引入 dnd-kit 拖曳排序相關函式庫
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 // 定義導覽選單項目的介面規格
 interface NavItem {
@@ -57,15 +76,29 @@ interface NavItem {
   permission?: string // 需要的權限代碼（選填）
 }
 
-// 靜態定義側邊導覽列的所有項目
-const navItems: NavItem[] = [
+// 預設導覽選單順序（使用者可自行調整）
+const DEFAULT_NAV_ORDER = [
+  '儀表板',
+  '我的計劃',
+  'AUP 審查系統',
+  '人員管理',
+  '實驗動物管理',
+  '採購管理',
+  '銷售管理',
+  '倉儲作業',
+  '報表中心',
+  '基礎資料',
+  '系統管理',
+]
+
+// 靜態定義側邊導覽列的所有項目（以 id 識別）
+const navItemsConfig: NavItem[] = [
   {
     title: '儀表板',
     href: '/dashboard',
     icon: <LayoutDashboard className="h-5 w-5" />,
     permission: 'erp',
   },
-  // AUP 審查系統模組
   {
     title: '我的計劃',
     href: '/my-projects',
@@ -79,7 +112,16 @@ const navItems: NavItem[] = [
       { title: '新增計畫書', href: '/protocols/new' },
     ],
   },
-  // 實驗動物管理系統模組
+  {
+    title: '人員管理',
+    icon: <Users className="h-5 w-5" />,
+    children: [
+      { title: '出勤打卡', href: '/hr/attendance' },
+      { title: '請假管理', href: '/hr/leaves' },
+      { title: '加班管理', href: '/hr/overtime' },
+      { title: '日曆同步', href: '/hr/calendar' },
+    ],
+  },
   {
     title: '實驗動物管理',
     icon: <Stethoscope className="h-5 w-5" />,
@@ -88,18 +130,6 @@ const navItems: NavItem[] = [
       { title: '來源管理', href: '/pig-sources' },
     ],
   },
-  // iPig ERP：基礎資料
-  {
-    title: '基礎資料',
-    icon: <Package className="h-5 w-5" />,
-    children: [
-      { title: '產品管理', href: '/products' },
-      { title: '倉庫管理', href: '/warehouses' },
-      { title: '供應商/客戶', href: '/partners' },
-    ],
-    permission: 'erp',
-  },
-  // iPig ERP：採購管理
   {
     title: '採購管理',
     icon: <Truck className="h-5 w-5" />,
@@ -110,7 +140,6 @@ const navItems: NavItem[] = [
     ],
     permission: 'erp',
   },
-  // iPig ERP：銷售管理
   {
     title: '銷售管理',
     icon: <ShoppingCart className="h-5 w-5" />,
@@ -120,7 +149,6 @@ const navItems: NavItem[] = [
     ],
     permission: 'erp',
   },
-  // iPig ERP：倉儲作業
   {
     title: '倉儲作業',
     icon: <Warehouse className="h-5 w-5" />,
@@ -133,7 +161,6 @@ const navItems: NavItem[] = [
     ],
     permission: 'erp',
   },
-  // 報表中心模組
   {
     title: '報表中心',
     icon: <BarChart3 className="h-5 w-5" />,
@@ -146,7 +173,16 @@ const navItems: NavItem[] = [
     ],
     permission: 'erp',
   },
-  // 系統管理模組（權限限制為 admin）
+  {
+    title: '基礎資料',
+    icon: <Package className="h-5 w-5" />,
+    children: [
+      { title: '產品管理', href: '/products' },
+      { title: '倉庫管理', href: '/warehouses' },
+      { title: '供應商/客戶', href: '/partners' },
+    ],
+    permission: 'erp',
+  },
   {
     title: '系統管理',
     icon: <Settings className="h-5 w-5" />,
@@ -159,18 +195,147 @@ const navItems: NavItem[] = [
     ],
     permission: 'admin',
   },
-  // HR 人員管理模組
-  {
-    title: '人員管理',
-    icon: <Users className="h-5 w-5" />,
-    children: [
-      { title: '出勤打卡', href: '/hr/attendance' },
-      { title: '請假管理', href: '/hr/leaves' },
-      { title: '加班管理', href: '/hr/overtime' },
-      { title: '日曆同步', href: '/hr/calendar' },
-    ],
-  },
 ]
+
+// localStorage 鍵名
+const NAV_ORDER_STORAGE_KEY = 'ipig-nav-order'
+
+// 可排序的導覽項目元件
+function SortableNavItem({
+  item,
+  isEditMode,
+  sidebarOpen,
+  isActive,
+  isChildActive,
+  expandedItems,
+  toggleExpand,
+  navigate,
+}: {
+  item: NavItem
+  isEditMode: boolean
+  sidebarOpen: boolean
+  isActive: (href: string) => boolean
+  isChildActive: (item: NavItem) => boolean
+  expandedItems: string[]
+  toggleExpand: (title: string) => void
+  navigate: (path: string) => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.title })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <li ref={setNodeRef} style={style}>
+      {item.href ? (
+        // 情況 A：直接連結項目
+        <div className="flex items-center">
+          {isEditMode && sidebarOpen && (
+            <button
+              {...attributes}
+              {...listeners}
+              className="p-1 mr-1 cursor-grab active:cursor-grabbing text-slate-500 hover:text-white"
+            >
+              <GripVertical className="h-4 w-4" />
+            </button>
+          )}
+          <Link
+            to={item.href}
+            title={!sidebarOpen ? item.title : undefined}
+            className={cn(
+              'flex flex-1 items-center rounded-lg px-3 py-2.5 transition-colors',
+              sidebarOpen ? 'space-x-3' : 'justify-center',
+              isActive(item.href)
+                ? 'bg-blue-600 text-white'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+            )}
+          >
+            <span className="shrink-0">{item.icon}</span>
+            {sidebarOpen && <span>{item.title}</span>}
+          </Link>
+        </div>
+      ) : (
+        // 情況 B：包含子選單的折疊項目
+        <>
+          <div className="flex items-center">
+            {isEditMode && sidebarOpen && (
+              <button
+                {...attributes}
+                {...listeners}
+                className="p-1 mr-1 cursor-grab active:cursor-grabbing text-slate-500 hover:text-white"
+              >
+                <GripVertical className="h-4 w-4" />
+              </button>
+            )}
+            <button
+              onClick={() => {
+                if (!sidebarOpen && item.children?.[0]?.href) {
+                  navigate(item.children[0].href)
+                } else {
+                  toggleExpand(item.title)
+                }
+              }}
+              title={!sidebarOpen ? item.title : undefined}
+              className={cn(
+                'flex flex-1 items-center rounded-lg px-3 py-2.5 transition-colors',
+                sidebarOpen ? 'justify-between' : 'justify-center',
+                (!sidebarOpen && isChildActive(item))
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              )}
+            >
+              <div className={cn(
+                'flex items-center',
+                sidebarOpen ? 'space-x-3' : ''
+              )}>
+                <span className="shrink-0">{item.icon}</span>
+                {sidebarOpen && <span>{item.title}</span>}
+              </div>
+              {sidebarOpen && (
+                <ChevronDown
+                  className={cn(
+                    'h-4 w-4 transition-transform',
+                    expandedItems.includes(item.title) && 'rotate-180'
+                  )}
+                />
+              )}
+            </button>
+          </div>
+          {/* 子選單內容 */}
+          {sidebarOpen && expandedItems.includes(item.title) && item.children && (
+            <ul className="ml-4 mt-1 space-y-1 border-l border-slate-700 pl-4">
+              {item.children.map((child) => (
+                <li key={child.href}>
+                  <Link
+                    to={child.href}
+                    className={cn(
+                      'block rounded-lg px-3 py-2 text-sm transition-colors',
+                      isActive(child.href)
+                        ? 'bg-blue-600 text-white'
+                        : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                    )}
+                  >
+                    {child.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </li>
+  )
+}
 
 export function MainLayout() {
   const location = useLocation() // 取得當前 URL 路徑資訊
@@ -178,7 +343,7 @@ export function MainLayout() {
   const queryClient = useQueryClient() // TanStack Query 快取管理器
   const { user, logout, hasRole, hasPermission } = useAuthStore() // 從 Auth Store 取得用戶資訊、登出方法與權限檢查
   const [sidebarOpen, setSidebarOpen] = useState(true) // 控制側邊欄展開/縮小的狀態
-  const [expandedItems, setExpandedItems] = useState<string[]>(['基礎資料', '倉儲作業']) // 控制側邊欄摺疊選單展開項目的清單
+  const [expandedItems, setExpandedItems] = useState<string[]>([]) // 控制側邊欄摺疊選單展開項目的清單（預設全部收合）
   const [language, setLanguage] = useState<string>('zh-TW') // 當前系統語言介面狀態
 
   // 通知下拉選單的顯示狀態與引用
@@ -190,6 +355,74 @@ export function MainLayout() {
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+
+  // 側邊欄編輯排序模式狀態
+  const [isEditMode, setIsEditMode] = useState(false)
+
+  // dnd-kit sensors 配置
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
+
+  // 從後端取得導覽列排序偏好
+  const { data: navOrderData } = useQuery({
+    queryKey: ['user-preferences', 'nav_order'],
+    queryFn: async () => {
+      const res = await api.get<{ key: string; value: string[] }>('/me/preferences/nav_order')
+      return res.data.value
+    },
+  })
+
+  // 儲存導覽列排序偏好
+  const saveNavOrderMutation = useMutation({
+    mutationFn: async (order: string[]) => {
+      return api.put('/me/preferences/nav_order', { value: order })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-preferences', 'nav_order'] })
+    },
+  })
+
+  // 重置導覽列排序
+  const resetNavOrderMutation = useMutation({
+    mutationFn: async () => {
+      return api.delete('/me/preferences/nav_order')
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-preferences', 'nav_order'] })
+      toast({ title: '成功', description: '已重置選單排序為預設順序' })
+    },
+  })
+
+  // 根據偏好設定排序導覽項目
+  const sortedNavItems = useMemo(() => {
+    const order = navOrderData || DEFAULT_NAV_ORDER
+    return [...navItemsConfig].sort((a, b) => {
+      const indexA = order.indexOf(a.title)
+      const indexB = order.indexOf(b.title)
+      // 如果找不到，放到最後
+      const posA = indexA === -1 ? 999 : indexA
+      const posB = indexB === -1 ? 999 : indexB
+      return posA - posB
+    })
+  }, [navOrderData])
+
+  // 處理拖曳結束事件
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (over && active.id !== over.id) {
+      const oldIndex = sortedNavItems.findIndex((item) => item.title === active.id)
+      const newIndex = sortedNavItems.findIndex((item) => item.title === over.id)
+      const newOrder = arrayMove(sortedNavItems.map(i => i.title), oldIndex, newIndex)
+      saveNavOrderMutation.mutate(newOrder)
+    }
+  }
+
+  // 重置排序
+  const handleResetNavOrder = () => {
+    resetNavOrderMutation.mutate()
+  }
 
   // 取得未讀通知數量的 API 查詢
   const { data: unreadCount } = useQuery({
@@ -350,23 +583,25 @@ export function MainLayout() {
   }
 
   // 判斷該項目下的任何子項目是否處於啟動狀態 (用於縮合時高亮父圖示)
-  const isChildActive = (item: NavItem) => {
-    return item.children?.some((child) => isActive(child.href))
+  const isChildActive = (item: NavItem): boolean => {
+    return item.children?.some((child) => isActive(child.href)) || false
   }
 
   // 根據使用者權限過濾導覽列顯示項目
-  const filteredNavItems = navItems.filter((item) => {
-    if (item.permission === 'erp') {
-      const hasErpAccess = hasRole('admin') ||
-        user?.roles.some(r => ['purchasing', 'approver', 'WAREHOUSE_MANAGER'].includes(r)) ||
-        user?.permissions.some(p => p.startsWith('erp.'))
-      return hasErpAccess
-    }
-    if (item.permission && !hasPermission(item.permission) && !hasRole(item.permission)) {
-      return false
-    }
-    return true
-  })
+  const filteredNavItems = useMemo(() => {
+    return sortedNavItems.filter((item) => {
+      if (item.permission === 'erp') {
+        const hasErpAccess = hasRole('admin') ||
+          user?.roles.some(r => ['purchasing', 'approver', 'WAREHOUSE_MANAGER'].includes(r)) ||
+          user?.permissions.some(p => p.startsWith('erp.'))
+        return hasErpAccess
+      }
+      if (item.permission && !hasPermission(item.permission) && !hasRole(item.permission)) {
+        return false
+      }
+      return true
+    })
+  }, [sortedNavItems, hasRole, hasPermission, user])
 
   return (
     <div className="flex h-screen bg-slate-50">
@@ -410,86 +645,77 @@ export function MainLayout() {
 
         {/* 導覽選單清單 */}
         <nav className="flex-1 overflow-y-auto p-4">
-          <ul className="space-y-1">
-            {filteredNavItems.map((item) => ( // 遍歷過濾後的導覽項目
-              <li key={item.title}>
-                {item.href ? ( // 情況 A：直接連結項目
-                  <Link
-                    to={item.href}
-                    title={!sidebarOpen ? item.title : undefined} // 縮合時顯示提示文字
-                    className={cn(
-                      'flex items-center rounded-lg px-3 py-2.5 transition-colors',
-                      sidebarOpen ? 'space-x-3' : 'justify-center',
-                      isActive(item.href) // 如果是當前頁面，使用藍色高亮
-                        ? 'bg-blue-600 text-white'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                    )}
+          {/* 編輯模式提示 */}
+          {isEditMode && sidebarOpen && (
+            <div className="mb-3 p-2 bg-blue-600/20 rounded-lg text-xs text-blue-300 text-center">
+              拖曳項目調整順序
+            </div>
+          )}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={filteredNavItems.map(i => i.title)}
+              strategy={verticalListSortingStrategy}
+            >
+              <ul className="space-y-1">
+                {filteredNavItems.map((item) => (
+                  <SortableNavItem
+                    key={item.title}
+                    item={item}
+                    isEditMode={isEditMode}
+                    sidebarOpen={sidebarOpen}
+                    isActive={isActive}
+                    isChildActive={isChildActive}
+                    expandedItems={expandedItems}
+                    toggleExpand={toggleExpand}
+                    navigate={navigate}
+                  />
+                ))}
+              </ul>
+            </SortableContext>
+          </DndContext>
+
+          {/* 編輯排序按鈕 */}
+          {sidebarOpen && (
+            <div className="mt-4 pt-4 border-t border-slate-700 space-y-2">
+              {isEditMode ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsEditMode(false)}
+                    className="w-full text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
                   >
-                    <span className="shrink-0">{item.icon}</span>
-                    {sidebarOpen && <span>{item.title}</span>}
-                  </Link>
-                ) : ( // 情況 B：包含子選單的折疊項目
-                  <>
-                    <button
-                      onClick={() => {
-                        // 縮合狀態且有子選單時，點擊直接進入第一個子頁面
-                        if (!sidebarOpen && item.children?.[0]?.href) {
-                          navigate(item.children[0].href)
-                        } else {
-                          toggleExpand(item.title)
-                        }
-                      }}
-                      title={!sidebarOpen ? item.title : undefined} // 縮合時顯示提示文字
-                      className={cn(
-                        'flex w-full items-center rounded-lg px-3 py-2.5 transition-colors',
-                        sidebarOpen ? 'justify-between' : 'justify-center',
-                        // 縮合時若子頁面活動，圖示顯示藍色高亮
-                        (!sidebarOpen && isChildActive(item))
-                          ? 'bg-blue-600 text-white'
-                          : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                      )}
-                    >
-                      <div className={cn(
-                        'flex items-center',
-                        sidebarOpen ? 'space-x-3' : ''
-                      )}>
-                        <span className="shrink-0">{item.icon}</span>
-                        {sidebarOpen && <span>{item.title}</span>}
-                      </div>
-                      {sidebarOpen && ( // 顯示箭頭圖示
-                        <ChevronDown
-                          className={cn(
-                            'h-4 w-4 transition-transform',
-                            expandedItems.includes(item.title) && 'rotate-180' // 展開時旋轉 180 度
-                          )}
-                        />
-                      )}
-                    </button>
-                    {/* 子選單內容 */}
-                    {sidebarOpen && expandedItems.includes(item.title) && item.children && (
-                      <ul className="ml-4 mt-1 space-y-1 border-l border-slate-700 pl-4">
-                        {item.children.map((child) => (
-                          <li key={child.href}>
-                            <Link
-                              to={child.href}
-                              className={cn(
-                                'block rounded-lg px-3 py-2 text-sm transition-colors',
-                                isActive(child.href)
-                                  ? 'bg-blue-600 text-white'
-                                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                              )}
-                            >
-                              {child.title}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </>
-                )}
-              </li>
-            ))}
-          </ul>
+                    <X className="h-4 w-4 mr-1" />
+                    完成編輯
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleResetNavOrder}
+                    disabled={resetNavOrderMutation.isPending}
+                    className="w-full text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
+                  >
+                    <RotateCcw className="h-4 w-4 mr-1" />
+                    重置為預設
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditMode(true)}
+                  className="w-full text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
+                >
+                  <GripVertical className="h-4 w-4 mr-1" />
+                  編輯選單排序
+                </Button>
+              )}
+            </div>
+          )}
         </nav>
 
         {/* 底部使用者資訊及切換按鍵區域 */}

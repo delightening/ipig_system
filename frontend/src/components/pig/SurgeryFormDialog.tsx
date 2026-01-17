@@ -139,7 +139,7 @@ function DrugCheckInput({
       <Checkbox
         label={label}
         checked={drug.enabled}
-        onChange={(e) => onChange({ ...drug, enabled: e.target.checked })}
+        onCheckedChange={(checked) => onChange({ ...drug, enabled: checked })}
       />
       {drug.enabled && (
         <Input
@@ -281,13 +281,13 @@ export function SurgeryFormDialog({ open, onOpenChange, pigId, earTag, surgery }
         vital_signs:
           data.vital_signs.length > 0
             ? data.vital_signs.map((vs) => ({
-                time: vs.time,
-                breathing_method: vs.breathing_method,
-                heart_rate: parseFloat(vs.heart_rate) || 0,
-                respiration_rate: parseFloat(vs.respiration_rate) || 0,
-                temperature: parseFloat(vs.temperature) || 0,
-                spo2: parseFloat(vs.spo2) || 0,
-              }))
+              time: vs.time,
+              breathing_method: vs.breathing_method,
+              heart_rate: parseFloat(vs.heart_rate) || 0,
+              respiration_rate: parseFloat(vs.respiration_rate) || 0,
+              temperature: parseFloat(vs.temperature) || 0,
+              spo2: parseFloat(vs.spo2) || 0,
+            }))
             : null,
         reflex_recovery: data.reflex_recovery || null,
         respiration_rate: data.respiration_rate_auto ? parseFloat(data.respiration_rate_auto) : null,
@@ -634,7 +634,7 @@ export function SurgeryFormDialog({ open, onOpenChange, pigId, earTag, surgery }
               <Checkbox
                 label="術後給藥-優點軟膏"
                 checked={formData.post_ointment}
-                onChange={(e) => setFormData({ ...formData, post_ointment: e.target.checked })}
+                onCheckedChange={(checked) => setFormData({ ...formData, post_ointment: checked })}
               />
 
               <div className="space-y-2">
@@ -674,7 +674,7 @@ export function SurgeryFormDialog({ open, onOpenChange, pigId, earTag, surgery }
               <Checkbox
                 label="不需用藥/停止用藥"
                 checked={formData.no_medication_needed}
-                onChange={(e) => setFormData({ ...formData, no_medication_needed: e.target.checked })}
+                onCheckedChange={(checked) => setFormData({ ...formData, no_medication_needed: checked })}
               />
             </div>
           </CollapsibleSection>
