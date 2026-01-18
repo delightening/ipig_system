@@ -1,47 +1,80 @@
 # Version History
 
-> **Last Updated**: 2026-01-17
+> **Last Updated**: 2026-01-18
 
 ---
 
 ## Document Versions
 
+### Profiling_Spec v2.0 (2026-01-18)
+
+**Complete Rewrite**
+
+All specification documents have been rewritten to reflect the actual codebase implementation:
+
+| Document | Version | Status |
+|----------|---------|--------|
+| 00_INDEX.md | 2.0 | ✅ Updated |
+| 01_ARCHITECTURE_OVERVIEW.md | 1.0 | ✅ Created (original) |
+| 02_CORE_DOMAIN_MODEL.md | 2.0 | ✅ Created |
+| 03_MODULES_AND_BOUNDARIES.md | 2.0 | ✅ Created |
+| 04_DATABASE_SCHEMA.md | 2.0 | ✅ Created |
+| 05_API_SPECIFICATION.md | 2.0 | ✅ Created |
+| 06_PERMISSIONS_RBAC.md | 2.0 | ✅ Created |
+| 07_AUDIT_LOGGING.md | 1.0 | ✅ Created (original) |
+| 08_ATTENDANCE_MODULE.md | 1.0 | ✅ Created (original) |
+| 09_EXTENSIBILITY.md | 1.0 | ✅ Created (original) |
+| 10_UI_UX_GUIDELINES.md | 2.0 | ✅ Created |
+| 11_NAMING_CONVENTIONS.md | 2.0 | ✅ Created |
+| 12_VERSION_HISTORY.md | 2.0 | ✅ Updated |
+
+**Key Changes**:
+- Updated index with accurate system overview and technology stack
+- Created comprehensive Core Domain Model with all entities and enums
+- Created Modules and Boundaries with detailed module breakdown
+- Created complete Database Schema based on 10 migrations
+- Created full API Specification covering 250+ endpoints
+- Created Permissions & RBAC with all system roles and permissions
+- Created UI/UX Guidelines for frontend development
+- Created Naming Conventions for all code layers
+
+---
+
 ### Profiling_Spec v1.0 (2026-01-17)
 
 **Initial Release**
 
-Created comprehensive system specification documentation including:
-
-| Document | Version | Status |
-|----------|---------|--------|
-| 00_INDEX.md | 1.0 | ✅ Created |
-| 01_ARCHITECTURE_OVERVIEW.md | 1.0 | ✅ Created |
-| 02_CORE_DOMAIN_MODEL.md | 1.0 | 📝 Pending |
-| 03_MODULES_AND_BOUNDARIES.md | 1.0 | 📝 Pending |
-| 04_DATABASE_SCHEMA.md | 1.0 | 📝 Pending |
-| 05_API_SPECIFICATION.md | 1.0 | 📝 Pending |
-| 06_PERMISSIONS_RBAC.md | 1.0 | 📝 Pending |
-| 07_AUDIT_LOGGING.md | 1.0 | 📝 Pending |
-| 08_ATTENDANCE_MODULE.md | 1.0 | 📝 Pending |
-| 09_EXTENSIBILITY.md | 1.0 | 📝 Pending |
-| 10_UI_UX_GUIDELINES.md | 1.0 | 📝 Pending |
-| 11_NAMING_CONVENTIONS.md | 1.0 | 📝 Pending |
-| 12_VERSION_HISTORY.md | 1.0 | ✅ Created |
+Created initial specification documentation framework:
+- 00_INDEX.md - Index
+- 01_ARCHITECTURE_OVERVIEW.md - System architecture
+- 07_AUDIT_LOGGING.md - GLP-compliant audit logging
+- 08_ATTENDANCE_MODULE.md - HR attendance module
+- 09_EXTENSIBILITY.md - Extensibility design
+- 12_VERSION_HISTORY.md - Version tracking
 
 ---
 
 ## Database Migration History
 
-### 2026-01-17: Major System Upgrades
+### 2026-01-18
 
 | Migration | Description |
 |-----------|-------------|
-| 042_audit_trail_enhancement.sql | GLP-compliant audit logging with partitioned tables |
-| 043_audit_permissions.sql | Admin-only audit access permissions |
-| 044_extensibility_foundation.sql | Species, facilities, departments abstraction |
-| 045_attendance_and_leave.sql | Attendance tracking, overtime, leave management |
-| 046_google_calendar_sync.sql | Google Calendar sync with conflict management |
-| 047_hr_permissions.sql | HR module permissions |
+| 010_add_deleted_at_column.sql | Added deleted_at column for pig soft delete |
+
+### 2026-01-17
+
+| Migration | Description |
+|-----------|-------------|
+| 001_aup_system.sql | Core schema: users, roles, ERP, protocols, pigs, notifications |
+| 002_erp_base_data.sql | SKU categories, product categories seed data |
+| 003_seed_accounts.sql | Initial admin account and roles |
+| 004_hr_system.sql | Attendance, overtime, leave management |
+| 005_calendar_sync.sql | Google Calendar integration |
+| 006_audit_system.sql | GLP-compliant audit logging with partitioned tables |
+| 007_seed_data.sql | Reference data (pig sources, permissions) |
+| 008_reset_admin.sql | Admin password reset utility |
+| 009_add_roles_is_active.sql | Added is_active flag to roles table |
 
 ---
 
@@ -67,17 +100,6 @@ When updating documents, add entries in this format:
 
 - Run migration script `XXX.sql` before deploying
 ```
-
----
-
-## Upcoming Changes
-
-### Planned for v1.1
-
-- [ ] Complete remaining specification documents
-- [ ] Add Mermaid diagrams to diagrams/ directory
-- [ ] Add API request/response examples
-- [ ] Add UI component specifications
 
 ---
 
