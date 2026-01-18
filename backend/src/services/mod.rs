@@ -17,6 +17,7 @@ mod file;
 mod hr;
 mod facility;
 mod calendar;
+mod pdf;
 pub mod google_calendar;
 mod login_tracker;
 mod session_manager;
@@ -42,6 +43,7 @@ pub use file::{FileService, FileCategory, UploadResult};
 pub use hr::HrService;
 pub use facility::FacilityService;
 pub use calendar::CalendarService;
+pub use pdf::PdfService;
 
 mod balance_expiration;
 pub use balance_expiration::BalanceExpirationJob;

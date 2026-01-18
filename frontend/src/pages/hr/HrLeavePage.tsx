@@ -66,6 +66,7 @@ interface User {
     email: string
     display_name: string
     is_active: boolean
+    roles?: string[]
 }
 
 // Helper to safely parse Decimal strings from backend
@@ -119,12 +120,14 @@ export function HrLeavePage() {
         // 移除 enabled 條件，讓頁面載入時就抓取待審核數量
     })
 
-    // 取得工作人員列表（供代理人選擇）
+    // 取得試驗工作人員列表（供代理人選擇）
     const { data: usersData } = useQuery({
-        queryKey: ['users-for-proxy'],
+        queryKey: ['users-for-proxy-experiment-staff'],
         queryFn: async () => {
             const res = await api.get<PaginatedResponse<User>>('/users?is_active=true&per_page=100')
-            return res.data
+            // 過濾出具有 EXPERIMENT_STAFF 角色的用戶
+            const filteredUsers = res.data.data.filter(user => user.roles?.includes('EXPERIMENT_STAFF'))
+            return { ...res.data, data: filteredUsers }
         },
     })
 
@@ -262,7 +265,7 @@ export function HrLeavePage() {
             total_days: parseFloat(totalDays),
             reason: reason.trim() || undefined,
             supporting_documents: supportingImages.length > 0 ? supportingImages : undefined,
-            proxy_user_id: proxyUserId || undefined,
+            proxy_user_id: proxyUserId && proxyUserId !== '__none__' ? proxyUserId : undefined,
         })
     }
 
@@ -356,7 +359,7 @@ export function HrLeavePage() {
                                         <SelectValue placeholder="選擇代理人..." />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">不選擇</SelectItem>
+                                        <SelectItem value="__none__">不選擇</SelectItem>
                                         {usersData?.data?.map((user) => (
                                             <SelectItem key={user.id} value={user.id}>
                                                 {user.display_name}

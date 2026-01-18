@@ -119,6 +119,7 @@ const navItemsConfig: NavItem[] = [
       { title: '出勤打卡', href: '/hr/attendance' },
       { title: '請假管理', href: '/hr/leaves' },
       { title: '加班管理', href: '/hr/overtime' },
+      { title: '特休額度管理', href: '/hr/annual-leave' },
       { title: '日曆', href: '/hr/calendar' },
     ],
   },

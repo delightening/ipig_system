@@ -43,6 +43,7 @@ import { AdminAuditPage } from '@/pages/admin/AdminAuditPage'
 import { HrAttendancePage } from '@/pages/hr/HrAttendancePage'
 import { HrLeavePage } from '@/pages/hr/HrLeavePage'
 import { HrOvertimePage } from '@/pages/hr/HrOvertimePage'
+import { HrAnnualLeavePage } from '@/pages/hr/HrAnnualLeavePage'
 import { CalendarSyncSettingsPage } from '@/pages/hr/CalendarSyncSettingsPage'
 
 // Report Pages
@@ -211,6 +212,7 @@ function App() {
                     <Route path="/hr/attendance" element={<HrAttendancePage />} />
                     <Route path="/hr/leaves" element={<HrLeavePage />} />
                     <Route path="/hr/overtime" element={<HrOvertimePage />} />
+                    <Route path="/hr/annual-leave" element={<HrAnnualLeavePage />} />
                     <Route path="/hr/calendar" element={<CalendarSyncSettingsPage />} />
 
                     {/* AUP 計畫書管理 */}

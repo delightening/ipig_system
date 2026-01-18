@@ -1,5 +1,7 @@
 use axum::{
     extract::{Path, Query, State},
+    http::header,
+    response::IntoResponse,
     Extension, Json,
 };
 use uuid::Uuid;
@@ -15,7 +17,7 @@ use crate::{
         UpdateProtocolRequest, UserProtocol,
     },
     require_permission,
-    services::ProtocolService,
+    services::{ProtocolService, PdfService},
     AppError, AppState, Result,
 };
 
@@ -407,3 +409,50 @@ pub async fn get_protocol_animal_stats(
     })))
 }
 
+/// 匯出計畫書 PDF
+pub async fn export_protocol_pdf(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<impl IntoResponse> {
+    require_permission!(current_user, "aup.protocol.view_own");
+    
+    let protocol = ProtocolService::get_by_id(&state.db, id).await?;
+    
+    // 檢查當前使用者是否有查看此專案的權限
+    let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string());
+    let is_pi_or_coeditor: (bool,) = sqlx::query_as(
+        r#"
+        SELECT EXISTS(
+            SELECT 1 FROM user_protocols 
+            WHERE protocol_id = $1 
+            AND user_id = $2 
+            AND role_in_protocol IN ('PI', 'CLIENT', 'CO_EDITOR')
+        )
+        "#
+    )
+    .bind(id)
+    .bind(current_user.id)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or((false,));
+    
+    if !has_view_all && protocol.protocol.pi_user_id != current_user.id && !is_pi_or_coeditor.0 {
+        return Err(AppError::Forbidden("You don't have permission to export this protocol".to_string()));
+    }
+    
+    // 生成 PDF
+    let pdf_bytes = PdfService::generate_protocol_pdf(&protocol)?;
+    
+    // 設定檔案名稱
+    let filename = format!("{}_AUP計畫書.pdf", protocol.protocol.title);
+    let encoded_filename = urlencoding::encode(&filename);
+    
+    Ok((
+        [
+            (header::CONTENT_TYPE, "application/pdf".to_string()),
+            (header::CONTENT_DISPOSITION, format!("attachment; filename*=UTF-8''{}", encoded_filename)),
+        ],
+        pdf_bytes,
+    ))
+}

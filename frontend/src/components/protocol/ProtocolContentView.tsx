@@ -2,19 +2,23 @@ import { Label } from '@/components/ui/label'
 import { formatDate } from '@/lib/utils'
 import { FileText, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
+import api from '@/lib/api'
 
 interface ProtocolContentViewProps {
   workingContent: any
   protocolTitle: string
   startDate?: string
   endDate?: string
+  protocolId?: string  // 新增：用於後端 PDF 匯出
   onExportPDF?: () => void
 }
 
-export function ProtocolContentView({ workingContent, protocolTitle, startDate, endDate, onExportPDF }: ProtocolContentViewProps) {
+export function ProtocolContentView({ workingContent, protocolTitle, startDate, endDate, protocolId, onExportPDF }: ProtocolContentViewProps) {
   const contentRef = useRef<HTMLDivElement>(null)
+  const [isExporting, setIsExporting] = useState(false)
 
   if (!workingContent) {
     return (
@@ -36,480 +40,87 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
   const attachments = workingContent.attachments || []
   const signature = workingContent.signature || []
 
-  const handleExportPDF = async () => {
-    if (!contentRef.current) return
+  // 後端 PDF 匯出
+  const exportFromBackend = async () => {
+    if (!protocolId) return false
 
     try {
-      // Show loading state
+      const response = await api.get(`/protocols/${protocolId}/export-pdf`, {
+        responseType: 'blob'
+      })
+
+      const blob = new Blob([response.data], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${protocolTitle || 'AUP計畫書'}_${new Date().toISOString().split('T')[0]}.pdf`
+      a.click()
+      window.URL.revokeObjectURL(url)
+      return true
+    } catch (error) {
+      console.warn('Backend PDF export failed, falling back to client-side:', error)
+      return false
+    }
+  }
+
+  // 前端 PDF 匯出（備援方案）
+  const exportFromClient = async () => {
+    if (!contentRef.current) return
+
+    const canvas = await html2canvas(contentRef.current, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+    })
+
+    const imgData = canvas.toDataURL('image/png')
+    const pdf = new jsPDF('p', 'mm', 'a4')
+
+    const pageWidth = pdf.internal.pageSize.getWidth()
+    const pageHeight = pdf.internal.pageSize.getHeight()
+    const margin = 10
+
+    const imgWidth = pageWidth - 2 * margin
+    const imgHeight = (canvas.height * imgWidth) / canvas.width
+
+    let heightLeft = imgHeight
+    let position = margin
+    let page = 0
+
+    pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight)
+    heightLeft -= (pageHeight - 2 * margin)
+
+    while (heightLeft > 0) {
+      position = -(pageHeight - 2 * margin) * (page + 1) + margin
+      pdf.addPage()
+      pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight)
+      heightLeft -= (pageHeight - 2 * margin)
+      page++
+    }
+
+    pdf.save(`${protocolTitle || 'AUP計畫書'}_${new Date().toISOString().split('T')[0]}.pdf`)
+  }
+
+  const handleExportPDF = async () => {
+    if (isExporting) return
+
+    try {
+      setIsExporting(true)
       if (onExportPDF) onExportPDF()
 
-      // Create a clone of the content for PDF generation
-      const clone = contentRef.current.cloneNode(true) as HTMLElement
-      clone.style.position = 'absolute'
-      clone.style.left = '-9999px'
-      clone.style.width = '210mm' // A4 width
-      document.body.appendChild(clone)
+      // 優先使用後端 API
+      const success = await exportFromBackend()
 
-      // Wait for images to load
-      await new Promise(resolve => setTimeout(resolve, 500))
-
-      // Generate PDF with table of contents
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      const pageWidth = pdf.internal.pageSize.getWidth()
-      const pageHeight = pdf.internal.pageSize.getHeight()
-      const margin = 20
-      let yPos = margin
-      const lineHeight = 7
-      const sectionSpacing = 10
-
-      // Helper function to add a new page if needed
-      const checkPageBreak = (requiredHeight: number) => {
-        if (yPos + requiredHeight > pageHeight - margin) {
-          // Only add new page if we have content
-          if (yPos > margin + lineHeight) {
-            pdf.addPage()
-            yPos = margin
-            return true
-          }
-        }
-        return false
+      // 後端失敗則使用前端備援
+      if (!success) {
+        await exportFromClient()
       }
-
-      // Helper function to add text with word wrap
-      const addText = (text: string, fontSize: number, isBold: boolean = false, x: number = margin) => {
-        pdf.setFontSize(fontSize)
-        pdf.setFont('helvetica', isBold ? 'bold' : 'normal')
-
-        const maxWidth = pageWidth - 2 * margin
-        const lines = pdf.splitTextToSize(text, maxWidth)
-
-        for (const line of lines) {
-          checkPageBreak(lineHeight)
-          pdf.text(line, x, yPos)
-          yPos += lineHeight
-        }
-      }
-
-      // Table of Contents
-      pdf.setFontSize(18)
-      pdf.setFont('helvetica', 'bold')
-      pdf.text('目錄', pageWidth / 2, yPos, { align: 'center' })
-      yPos += lineHeight * 2
-
-      const tocSections = [
-        { title: '1. 研究資料', hasContent: true },
-        { title: '2. 研究目的', hasContent: purpose.significance || purpose.replacement || purpose.reduction },
-        { title: '3. 試驗物質與對照物質', hasContent: items.use_test_item === true },
-        { title: '4. 研究設計與方法', hasContent: design.procedures || design.anesthesia || design.pain },
-        { title: '5. 相關規範及參考文獻', hasContent: guidelines.content || (guidelines.references && guidelines.references.length > 0) },
-        { title: '6. 手術計畫書', hasContent: surgery.surgery_type || surgery.surgery_description },
-        { title: '7. 實驗動物資料', hasContent: animals.animals && animals.animals.length > 0 },
-        { title: '8. 試驗人員資料', hasContent: personnel.length > 0 },
-        { title: '9. 附件', hasContent: attachments.length > 0 },
-        { title: '10. 電子簽名', hasContent: signature.length > 0 },
-      ].filter(section => section.hasContent)
-
-      // Store page numbers for TOC - we'll update these as we generate content
-      const sectionPageNumbers: { [key: string]: number } = {}
-      const tocYPositions: { [key: string]: number } = {}
-
-      // Add TOC entries and store their Y positions
-      pdf.setFontSize(12)
-      pdf.setFont('helvetica', 'normal')
-      for (const section of tocSections) {
-        checkPageBreak(lineHeight * 2)
-        pdf.text(section.title, margin, yPos)
-        tocYPositions[section.title] = yPos
-        // Placeholder for page number - will be updated later
-        pdf.text('...', pageWidth - margin - 10, yPos, { align: 'right' })
-        yPos += lineHeight * 1.5
-      }
-
-      // Add page break after TOC
-      pdf.addPage()
-      yPos = margin
-
-      // Helper to get current page number
-      const getCurrentPage = () => pdf.getCurrentPageInfo().pageNumber
-
-      // Section 1: 研究資料
-      if (true) {
-        sectionPageNumbers['1. 研究資料'] = getCurrentPage()
-        checkPageBreak(lineHeight * 3)
-        addText('1. 研究資料', 16, true)
-        yPos += sectionSpacing
-
-        if (basic.is_glp !== undefined) {
-          addText(`GLP 屬性: ${basic.is_glp ? '符合 GLP 規範' : '不符合 GLP 規範'}`, 11)
-        }
-        if (protocolTitle) {
-          addText(`研究名稱: ${protocolTitle}`, 11)
-        }
-        if (basic.project_type) {
-          addText(`計畫類型: ${basic.project_type}`, 11)
-        }
-        if (basic.project_category) {
-          addText(`計畫種類: ${basic.project_category}${basic.project_category_other ? ` (${basic.project_category_other})` : ''}`, 11)
-        }
-        if ((startDate || basic.start_date) && (endDate || basic.end_date)) {
-          addText(`預計試驗時程: ${formatDate(startDate || basic.start_date)} ~ ${formatDate(endDate || basic.end_date)}`, 11)
-        }
-
-        if (basic.pi) {
-          yPos += lineHeight
-          addText('計畫主持人:', 12, true)
-          if (basic.pi.name) addText(`  姓名: ${basic.pi.name}`, 11)
-          if (basic.pi.phone) addText(`  電話: ${basic.pi.phone}`, 11)
-          if (basic.pi.email) addText(`  Email: ${basic.pi.email}`, 11)
-          if (basic.pi.address) addText(`  地址: ${basic.pi.address}`, 11)
-        }
-
-        if (basic.sponsor) {
-          yPos += lineHeight
-          addText('委託單位:', 12, true)
-          if (basic.sponsor.name) addText(`  單位名稱: ${basic.sponsor.name}`, 11)
-          if (basic.sponsor.contact_person) addText(`  聯絡人: ${basic.sponsor.contact_person}`, 11)
-          if (basic.sponsor.contact_phone) addText(`  聯絡電話: ${basic.sponsor.contact_phone}`, 11)
-          if (basic.sponsor.contact_email) addText(`  聯絡 Email: ${basic.sponsor.contact_email}`, 11)
-        }
-
-        if (basic.facility) {
-          yPos += lineHeight
-          addText('試驗機構與設施:', 12, true)
-          if (basic.facility.title) addText(`  機構名稱: ${basic.facility.title}`, 11)
-          if (basic.housing_location) addText(`  位置: ${basic.housing_location}`, 11)
-        }
-
-        yPos += sectionSpacing
-      }
-
-      // Section 2: 研究目的
-      if (purpose.significance || purpose.replacement || purpose.reduction) {
-        sectionPageNumbers['2. 研究目的'] = getCurrentPage()
-        checkPageBreak(lineHeight * 3)
-        addText('2. 研究目的', 16, true)
-        yPos += sectionSpacing
-
-        if (purpose.significance) {
-          addText('2.1 研究之目的及重要性', 14, true)
-          addText(purpose.significance, 11)
-          yPos += lineHeight
-        }
-
-        if (purpose.replacement) {
-          addText('2.2 請以動物試驗應用3Rs之替代原則，說明本動物試驗之合理性', 14, true)
-          if (purpose.replacement.rationale) {
-            addText('2.2.1 請說明活體動物試驗之必要性，以及選擇此動物種別的原因', 12, true)
-            addText(purpose.replacement.rationale, 11)
-            yPos += lineHeight
-          }
-          if (purpose.replacement.alt_search) {
-            addText('2.2.2 請於下列網站搜尋非動物性替代方案', 12, true)
-            if (purpose.replacement.alt_search.platforms && purpose.replacement.alt_search.platforms.length > 0) {
-              purpose.replacement.alt_search.platforms.forEach((p: string) => {
-                addText(`  • ${p}`, 11)
-              })
-            }
-            if (purpose.replacement.alt_search.keywords) {
-              addText(`搜尋關鍵字: ${purpose.replacement.alt_search.keywords}`, 11)
-            }
-            if (purpose.replacement.alt_search.conclusion) {
-              addText('搜尋結果與結論:', 11, true)
-              addText(purpose.replacement.alt_search.conclusion, 11)
-            }
-            yPos += lineHeight
-          }
-          if (purpose.duplicate) {
-            addText(`2.2.3 是否為重複他人試驗: ${purpose.duplicate.experiment ? '是' : '否'}`, 12, true)
-            if (purpose.duplicate.experiment && purpose.duplicate.justification) {
-              addText('請說明重複進行之科學理由:', 11, true)
-              addText(purpose.duplicate.justification, 11)
-            }
-            yPos += lineHeight
-          }
-        }
-
-        if (purpose.reduction && purpose.reduction.design) {
-          addText('2.3 請以實驗動物應用3Rs之減量原則，說明動物試驗設計', 14, true)
-          addText(purpose.reduction.design, 11)
-          yPos += lineHeight
-        }
-
-        yPos += sectionSpacing
-      }
-
-      // Section 3: 試驗物質與對照物質
-      if (items.use_test_item === true) {
-        sectionPageNumbers['3. 試驗物質與對照物質'] = getCurrentPage()
-        checkPageBreak(lineHeight * 3)
-        addText('3. 試驗物質與對照物質', 16, true)
-        yPos += sectionSpacing
-
-        if (items.test_items && items.test_items.length > 0) {
-          addText('試驗物質', 14, true)
-          items.test_items.forEach((item: any, index: number) => {
-            addText(`試驗物質 #${index + 1}`, 12, true)
-            if (item.name) addText(`  物質名稱: ${item.name}`, 11)
-            if (item.form) addText(`  劑型: ${item.form}`, 11)
-            if (item.purpose) addText(`  用途: ${item.purpose}`, 11)
-            if (item.storage_conditions) addText(`  保存環境: ${item.storage_conditions}`, 11)
-            addText(`  是否為無菌製備: ${item.is_sterile ? '是' : '否'}`, 11)
-            if (!item.is_sterile && item.non_sterile_justification) {
-              addText(`  說明: ${item.non_sterile_justification}`, 11)
-            }
-            yPos += lineHeight
-          })
-        }
-
-        if (items.control_items && items.control_items.length > 0) {
-          addText('對照物質', 14, true)
-          items.control_items.forEach((item: any, index: number) => {
-            addText(`對照物質 #${index + 1}`, 12, true)
-            if (item.name) addText(`  對照名稱: ${item.name}`, 11)
-            if (item.purpose) addText(`  目的: ${item.purpose}`, 11)
-            if (item.storage_conditions) addText(`  保存環境: ${item.storage_conditions}`, 11)
-            addText(`  是否為無菌製備: ${item.is_sterile ? '是' : '否'}`, 11)
-            if (!item.is_sterile && item.non_sterile_justification) {
-              addText(`  說明: ${item.non_sterile_justification}`, 11)
-            }
-            yPos += lineHeight
-          })
-        }
-
-        yPos += sectionSpacing
-      }
-
-      // Section 4: 研究設計與方法
-      if (design.procedures || design.anesthesia || design.pain) {
-        sectionPageNumbers['4. 研究設計與方法'] = getCurrentPage()
-        checkPageBreak(lineHeight * 3)
-        addText('4. 研究設計與方法', 16, true)
-        yPos += sectionSpacing
-
-        if (design.procedures) {
-          addText('動物試驗流程描述', 14, true)
-          addText(design.procedures, 11)
-          yPos += lineHeight
-        }
-
-        if (design.anesthesia && design.anesthesia.is_under_anesthesia !== null) {
-          addText(`是否於麻醉下進行試驗: ${design.anesthesia.is_under_anesthesia ? '是' : '否'}`, 14, true)
-          if (design.anesthesia.anesthesia_type) {
-            addText(`麻醉類型: ${design.anesthesia.anesthesia_type}`, 11)
-          }
-          yPos += lineHeight
-        }
-
-        if (design.pain && design.pain.category) {
-          addText(`疼痛類別: ${design.pain.category}`, 14, true)
-          if (design.pain.management_plan) {
-            addText('疼痛管理計畫:', 12, true)
-            addText(design.pain.management_plan, 11)
-          }
-          yPos += lineHeight
-        }
-
-        if (design.endpoints) {
-          if (design.endpoints.experimental_endpoint) {
-            addText('實驗終點:', 14, true)
-            addText(design.endpoints.experimental_endpoint, 11)
-            yPos += lineHeight
-          }
-          if (design.endpoints.humane_endpoint) {
-            addText('人道終點:', 14, true)
-            addText(design.endpoints.humane_endpoint, 11)
-            yPos += lineHeight
-          }
-        }
-
-        yPos += sectionSpacing
-      }
-
-      // Section 5: 相關規範及參考文獻
-      if (guidelines.content || (guidelines.references && guidelines.references.length > 0)) {
-        sectionPageNumbers['5. 相關規範及參考文獻'] = getCurrentPage()
-        checkPageBreak(lineHeight * 3)
-        addText('5. 相關規範及參考文獻', 16, true)
-        yPos += sectionSpacing
-
-        if (guidelines.content) {
-          addText('相關規範說明', 14, true)
-          addText(guidelines.content, 11)
-          yPos += lineHeight
-        }
-
-        if (guidelines.references && guidelines.references.length > 0) {
-          addText('參考文獻', 14, true)
-          guidelines.references.forEach((ref: any, index: number) => {
-            if (ref.citation) {
-              addText(`${index + 1}. ${ref.citation}`, 11)
-            }
-            if (ref.url) {
-              addText(`   URL: ${ref.url}`, 10)
-            }
-            yPos += lineHeight
-          })
-        }
-
-        yPos += sectionSpacing
-      }
-
-      // Section 6: 手術計畫書
-      if (surgery.surgery_type || surgery.surgery_description) {
-        sectionPageNumbers['6. 手術計畫書'] = getCurrentPage()
-        checkPageBreak(lineHeight * 3)
-        addText('6. 手術計畫書', 16, true)
-        yPos += sectionSpacing
-
-        if (surgery.surgery_type) {
-          addText(`手術類型: ${surgery.surgery_type}`, 14, true)
-        }
-        if (surgery.preop_preparation) {
-          addText('術前準備:', 14, true)
-          addText(surgery.preop_preparation, 11)
-          yPos += lineHeight
-        }
-        if (surgery.surgery_description) {
-          addText('手術描述:', 14, true)
-          addText(surgery.surgery_description, 11)
-          yPos += lineHeight
-        }
-        if (surgery.monitoring) {
-          addText('監控方式:', 14, true)
-          addText(surgery.monitoring, 11)
-          yPos += lineHeight
-        }
-        if (surgery.postop_care) {
-          addText('術後照護:', 14, true)
-          addText(surgery.postop_care, 11)
-          yPos += lineHeight
-        }
-
-        yPos += sectionSpacing
-      }
-
-      // Section 7: 實驗動物資料
-      if (animals.animals && animals.animals.length > 0) {
-        sectionPageNumbers['7. 實驗動物資料'] = getCurrentPage()
-        checkPageBreak(lineHeight * 3)
-        addText('7. 實驗動物資料', 16, true)
-        yPos += sectionSpacing
-
-        animals.animals.forEach((animal: any, index: number) => {
-          addText(`動物群組 #${index + 1}`, 14, true)
-          if (animal.species) addText(`  物種: ${animal.species}${animal.species_other ? ` (${animal.species_other})` : ''}`, 11)
-          if (animal.strain) addText(`  品系: ${animal.strain}${animal.strain_other ? ` (${animal.strain_other})` : ''}`, 11)
-          if (animal.sex) addText(`  性別: ${animal.sex}`, 11)
-          if (animal.number) addText(`  數量: ${animal.number}`, 11)
-          if (!animal.age_unlimited && (animal.age_min || animal.age_max)) {
-            addText(`  月齡範圍: ${animal.age_min || '不限'} ~ ${animal.age_max || '不限'}`, 11)
-          } else if (animal.age_unlimited) {
-            addText('  月齡範圍: 不限', 11)
-          }
-          if (!animal.weight_unlimited && (animal.weight_min || animal.weight_max)) {
-            addText(`  體重範圍: ${animal.weight_min || '不限'}kg ~ ${animal.weight_max || '不限'}kg`, 11)
-          } else if (animal.weight_unlimited) {
-            addText('  體重範圍: 不限', 11)
-          }
-          if (animal.housing_location) addText(`  飼養位置: ${animal.housing_location}`, 11)
-          yPos += lineHeight
-        })
-
-        if (animals.total_animals) {
-          addText(`總動物數: ${animals.total_animals}`, 12, true)
-        }
-
-        yPos += sectionSpacing
-      }
-
-      // Section 8: 試驗人員資料
-      if (personnel.length > 0) {
-        sectionPageNumbers['8. 試驗人員資料'] = getCurrentPage()
-        checkPageBreak(lineHeight * 3)
-        addText('8. 試驗人員資料', 16, true)
-        yPos += sectionSpacing
-
-        personnel.forEach((person: any, index: number) => {
-          addText(`人員 #${index + 1}`, 14, true)
-          if (person.name) addText(`  姓名: ${person.name}`, 11)
-          if (person.position) addText(`  職位: ${person.position}`, 11)
-          if (person.years_experience) addText(`  參與動物試驗年數: ${person.years_experience} 年`, 11)
-          if (person.roles && person.roles.length > 0) {
-            addText('  工作內容:', 11, true)
-            person.roles.forEach((role: string) => {
-              addText(`    • ${role}`, 10)
-            })
-          }
-          if (person.trainings && person.trainings.length > 0) {
-            addText('  訓練/資格:', 11, true)
-            person.trainings.forEach((training: string) => {
-              addText(`    • ${training}`, 10)
-            })
-          }
-          yPos += lineHeight * 2
-        })
-
-        yPos += sectionSpacing
-      }
-
-      // Section 9: 附件
-      if (attachments.length > 0) {
-        sectionPageNumbers['9. 附件'] = getCurrentPage()
-        checkPageBreak(lineHeight * 3)
-        addText('9. 附件', 16, true)
-        yPos += sectionSpacing
-
-        attachments.forEach((attachment: any, index: number) => {
-          if (attachment.file_name) {
-            addText(`${index + 1}. ${attachment.file_name}`, 11)
-          }
-          yPos += lineHeight
-        })
-
-        yPos += sectionSpacing
-      }
-
-      // Section 10: 電子簽名
-      if (signature.length > 0) {
-        sectionPageNumbers['10. 電子簽名'] = getCurrentPage()
-        checkPageBreak(lineHeight * 3)
-        addText('10. 電子簽名', 16, true)
-        yPos += sectionSpacing
-
-        signature.forEach((sig: any, index: number) => {
-          if (sig.file_name) {
-            addText(`${index + 1}. ${sig.file_name}`, 11)
-          }
-          yPos += lineHeight
-        })
-      }
-
-      // Update TOC with page numbers
-      pdf.setPage(1)
-      pdf.setFontSize(12)
-      pdf.setFont('helvetica', 'normal')
-
-      for (const section of tocSections) {
-        const pageNum = sectionPageNumbers[section.title] || 1
-        const tocY = tocYPositions[section.title]
-        if (tocY) {
-          // Clear the placeholder dots by drawing white rectangle
-          pdf.setDrawColor(255, 255, 255)
-          pdf.setFillColor(255, 255, 255)
-          pdf.rect(pageWidth - margin - 15, tocY - 3, 15, lineHeight, 'F')
-          // Add the page number
-          pdf.text(`${pageNum}`, pageWidth - margin - 5, tocY, { align: 'right' })
-        }
-      }
-
-      // Remove clone
-      document.body.removeChild(clone)
-
-      // Save PDF
-      pdf.save(`${protocolTitle || 'AUP計畫書'}_${new Date().toISOString().split('T')[0]}.pdf`)
     } catch (error) {
       console.error('PDF export error:', error)
       alert('PDF 匯出失敗，請重試')
+    } finally {
+      setIsExporting(false)
     }
   }
 
@@ -710,87 +321,91 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
         )}
 
         {/* 3. 試驗物質與對照物質 */}
-        {items.use_test_item === true && (
-          <section className="mb-8 border-t pt-6 section-3" data-section="3. 試驗物質與對照物質">
-            <h2 className="text-2xl font-bold mb-4 border-b pb-2">3. 試驗物質與對照物質</h2>
+        <section className="mb-8 border-t pt-6 section-3" data-section="3. 試驗物質與對照物質">
+          <h2 className="text-2xl font-bold mb-4 border-b pb-2">3. 試驗物質與對照物質</h2>
 
-            {/* 試驗物質 */}
-            {items.test_items && items.test_items.length > 0 && (
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold mb-3">試驗物質</h3>
-                {items.test_items.map((item: any, index: number) => (
-                  <div key={index} className="mb-4 p-4 border rounded bg-slate-50">
-                    <h4 className="font-medium mb-2">試驗物質 #{index + 1}</h4>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <Label className="font-semibold">物質名稱：</Label>
-                        <span>{item.name || '-'}</span>
-                      </div>
-                      <div>
-                        <Label className="font-semibold">劑型：</Label>
-                        <span>{item.form || '-'}</span>
-                      </div>
-                      <div>
-                        <Label className="font-semibold">用途：</Label>
-                        <span>{item.purpose || '-'}</span>
-                      </div>
-                      <div>
-                        <Label className="font-semibold">保存環境：</Label>
-                        <span>{item.storage_conditions || '-'}</span>
-                      </div>
-                      <div>
-                        <Label className="font-semibold">本物質是否為無菌製備：</Label>
-                        <span>{item.is_sterile ? '是' : '否'}</span>
-                      </div>
-                      {!item.is_sterile && item.non_sterile_justification && (
-                        <div className="col-span-2">
-                          <Label className="font-semibold">說明：</Label>
-                          <p className="mt-1 text-sm whitespace-pre-wrap">{item.non_sterile_justification}</p>
+          {items.use_test_item === true ? (
+            <>
+              {/* 試驗物質 */}
+              {items.test_items && items.test_items.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold mb-3">試驗物質</h3>
+                  {items.test_items.map((item: any, index: number) => (
+                    <div key={index} className="mb-4 p-4 border rounded bg-slate-50">
+                      <h4 className="font-medium mb-2">試驗物質 #{index + 1}</h4>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <Label className="font-semibold">物質名稱：</Label>
+                          <span>{item.name || '-'}</span>
                         </div>
-                      )}
+                        <div>
+                          <Label className="font-semibold">劑型：</Label>
+                          <span>{item.form || '-'}</span>
+                        </div>
+                        <div>
+                          <Label className="font-semibold">用途：</Label>
+                          <span>{item.purpose || '-'}</span>
+                        </div>
+                        <div>
+                          <Label className="font-semibold">保存環境：</Label>
+                          <span>{item.storage_conditions || '-'}</span>
+                        </div>
+                        <div>
+                          <Label className="font-semibold">本物質是否為無菌製備：</Label>
+                          <span>{item.is_sterile ? '是' : '否'}</span>
+                        </div>
+                        {!item.is_sterile && item.non_sterile_justification && (
+                          <div className="col-span-2">
+                            <Label className="font-semibold">說明：</Label>
+                            <p className="mt-1 text-sm whitespace-pre-wrap">{item.non_sterile_justification}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
 
-            {/* 對照物質 */}
-            {items.control_items && items.control_items.length > 0 && (
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold mb-3">對照物質</h3>
-                {items.control_items.map((item: any, index: number) => (
-                  <div key={index} className="mb-4 p-4 border rounded bg-slate-50">
-                    <h4 className="font-medium mb-2">對照物質 #{index + 1}</h4>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <Label className="font-semibold">對照名稱：</Label>
-                        <span>{item.name || '-'}</span>
-                      </div>
-                      <div>
-                        <Label className="font-semibold">目的：</Label>
-                        <span>{item.purpose || '-'}</span>
-                      </div>
-                      <div>
-                        <Label className="font-semibold">保存環境：</Label>
-                        <span>{item.storage_conditions || '-'}</span>
-                      </div>
-                      <div>
-                        <Label className="font-semibold">本物質是否為無菌製備：</Label>
-                        <span>{item.is_sterile ? '是' : '否'}</span>
-                      </div>
-                      {!item.is_sterile && item.non_sterile_justification && (
-                        <div className="col-span-2">
-                          <Label className="font-semibold">說明：</Label>
-                          <p className="mt-1 text-sm whitespace-pre-wrap">{item.non_sterile_justification}</p>
+              {/* 對照物質 */}
+              {items.control_items && items.control_items.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold mb-3">對照物質</h3>
+                  {items.control_items.map((item: any, index: number) => (
+                    <div key={index} className="mb-4 p-4 border rounded bg-slate-50">
+                      <h4 className="font-medium mb-2">對照物質 #{index + 1}</h4>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <Label className="font-semibold">對照名稱：</Label>
+                          <span>{item.name || '-'}</span>
                         </div>
-                      )}
+                        <div>
+                          <Label className="font-semibold">目的：</Label>
+                          <span>{item.purpose || '-'}</span>
+                        </div>
+                        <div>
+                          <Label className="font-semibold">保存環境：</Label>
+                          <span>{item.storage_conditions || '-'}</span>
+                        </div>
+                        <div>
+                          <Label className="font-semibold">本物質是否為無菌製備：</Label>
+                          <span>{item.is_sterile ? '是' : '否'}</span>
+                        </div>
+                        {!item.is_sterile && item.non_sterile_justification && (
+                          <div className="col-span-2">
+                            <Label className="font-semibold">說明：</Label>
+                            <p className="mt-1 text-sm whitespace-pre-wrap">{item.non_sterile_justification}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">略</p>
+          )}
+        </section>
 
         {/* 4. 研究設計與方法 */}
         {(design.procedures || design.anesthesia || design.pain || design.endpoints) && (
@@ -847,94 +462,110 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
         )}
 
         {/* 5. 相關規範及參考文獻 */}
-        {(guidelines.content || (guidelines.references && guidelines.references.length > 0)) && (
-          <section className="mb-8 border-t pt-6 section-5" data-section="5. 相關規範及參考文獻">
-            <h2 className="text-2xl font-bold mb-4 border-b pb-2">5. 相關規範及參考文獻</h2>
+        <section className="mb-8 border-t pt-6 section-5" data-section="5. 相關規範及參考文獻">
+          <h2 className="text-2xl font-bold mb-4 border-b pb-2">5. 相關規範及參考文獻</h2>
 
-            {guidelines.content && (
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold mb-2">相關規範說明</h3>
-                <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{guidelines.content}</p>
-              </div>
-            )}
+          {(guidelines.content || (guidelines.references && guidelines.references.length > 0)) ? (
+            <>
+              {guidelines.content && (
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold mb-2">相關規範說明</h3>
+                  <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{guidelines.content}</p>
+                </div>
+              )}
 
-            {guidelines.references && guidelines.references.length > 0 && (
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold mb-3">參考文獻</h3>
-                <ol className="list-decimal list-inside space-y-2">
-                  {guidelines.references.map((ref: any, index: number) => (
-                    <li key={index} className="text-sm">
-                      {ref.citation || '-'}
-                      {ref.url && (
-                        <span className="text-blue-600 ml-2">
-                          <a href={ref.url} target="_blank" rel="noopener noreferrer">{ref.url}</a>
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            )}
-          </section>
-        )}
+              {guidelines.references && guidelines.references.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold mb-3">參考文獻</h3>
+                  <ol className="list-decimal list-inside space-y-2">
+                    {guidelines.references.map((ref: any, index: number) => (
+                      <li key={index} className="text-sm">
+                        {ref.citation || '-'}
+                        {ref.url && (
+                          <span className="text-blue-600 ml-2">
+                            <a href={ref.url} target="_blank" rel="noopener noreferrer">{ref.url}</a>
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">略</p>
+          )}
+        </section>
 
         {/* 6. 手術計畫書 */}
-        {(surgery.surgery_type || surgery.surgery_description) && (
-          <section className="mb-8 border-t pt-6 section-6" data-section="6. 手術計畫書">
-            <h2 className="text-2xl font-bold mb-4 border-b pb-2">6. 手術計畫書</h2>
+        {(() => {
+          // 判斷是否需要手術計畫書：麻醉下進行試驗且為存活手術或非存活手術
+          const needsSurgeryPlan = design.anesthesia?.is_under_anesthesia === true &&
+            (design.anesthesia?.anesthesia_type === 'survival_surgery' || design.anesthesia?.anesthesia_type === 'non_survival_surgery')
 
-            {surgery.surgery_type && (
-              <div className="mb-4">
-                <Label className="text-sm font-semibold">手術類型</Label>
-                <p className="mt-1">{surgery.surgery_type}</p>
-              </div>
-            )}
+          return (
+            <section className="mb-8 border-t pt-6 section-6" data-section="6. 手術計畫書">
+              <h2 className="text-2xl font-bold mb-4 border-b pb-2">6. 手術計畫書</h2>
 
-            {surgery.preop_preparation && (
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold mb-2">術前準備</h3>
-                <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{surgery.preop_preparation}</p>
-              </div>
-            )}
-
-            {surgery.surgery_description && (
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold mb-2">手術描述</h3>
-                <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{surgery.surgery_description}</p>
-              </div>
-            )}
-
-            {surgery.monitoring && (
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold mb-2">監控方式</h3>
-                <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{surgery.monitoring}</p>
-              </div>
-            )}
-
-            {surgery.postop_care && (
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold mb-2">術後照護</h3>
-                <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{surgery.postop_care}</p>
-              </div>
-            )}
-
-            {surgery.drugs && surgery.drugs.length > 0 && (
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold mb-3">用藥計畫</h3>
-                <div className="space-y-2">
-                  {surgery.drugs.map((drug: any, index: number) => (
-                    <div key={index} className="p-3 border rounded bg-slate-50">
-                      <p className="text-sm font-medium">{drug.drug_name || '-'}</p>
-                      <p className="text-xs text-muted-foreground">
-                        劑量: {drug.dose || '-'} | 途徑: {drug.route || '-'} | 頻率: {drug.frequency || '-'} | 目的: {drug.purpose || '-'}
-                      </p>
+              {needsSurgeryPlan ? (
+                <>
+                  {surgery.surgery_type && (
+                    <div className="mb-4">
+                      <Label className="text-sm font-semibold">手術類型</Label>
+                      <p className="mt-1">{surgery.surgery_type}</p>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-        )}
+                  )}
+
+                  {surgery.preop_preparation && (
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold mb-2">術前準備</h3>
+                      <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{surgery.preop_preparation}</p>
+                    </div>
+                  )}
+
+                  {surgery.surgery_description && (
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold mb-2">手術描述</h3>
+                      <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{surgery.surgery_description}</p>
+                    </div>
+                  )}
+
+                  {surgery.monitoring && (
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold mb-2">監控方式</h3>
+                      <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{surgery.monitoring}</p>
+                    </div>
+                  )}
+
+                  {surgery.postop_care && (
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold mb-2">術後照護</h3>
+                      <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{surgery.postop_care}</p>
+                    </div>
+                  )}
+
+                  {surgery.drugs && surgery.drugs.length > 0 && (
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold mb-3">用藥計畫</h3>
+                      <div className="space-y-2">
+                        {surgery.drugs.map((drug: any, index: number) => (
+                          <div key={index} className="p-3 border rounded bg-slate-50">
+                            <p className="text-sm font-medium">{drug.drug_name || '-'}</p>
+                            <p className="text-xs text-muted-foreground">
+                              劑量: {drug.dose || '-'} | 途徑: {drug.route || '-'} | 頻率: {drug.frequency || '-'} | 目的: {drug.purpose || '-'}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">略</p>
+              )}
+            </section>
+          )
+        })()}
 
         {/* 7. 實驗動物資料 */}
         {animals.animals && animals.animals.length > 0 && (

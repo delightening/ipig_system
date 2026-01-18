@@ -182,11 +182,23 @@ export function ProtocolsPage() {
             ) : protocols && protocols.length > 0 ? (
               protocols.map((protocol) => (
                 <TableRow key={protocol.id}>
-                  <TableCell className="font-mono text-orange-600">
-                    {protocol.iacuc_no || '-'}
+                  <TableCell className="font-mono">
+                    {protocol.iacuc_no ? (
+                      <Link 
+                        to={`/protocols/${protocol.id}`}
+                        className="text-orange-600 hover:text-orange-700 hover:underline cursor-pointer"
+                      >
+                        {protocol.iacuc_no}
+                      </Link>
+                    ) : '-'}
                   </TableCell>
                   <TableCell className="max-w-[200px] truncate">
-                    {protocol.title}
+                    <Link 
+                      to={`/protocols/${protocol.id}`}
+                      className="text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+                    >
+                      {protocol.title}
+                    </Link>
                   </TableCell>
                   <TableCell>{protocol.pi_name}</TableCell>
                   <TableCell>{protocol.pi_organization || '-'}</TableCell>

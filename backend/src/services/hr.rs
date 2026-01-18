@@ -1,7 +1,7 @@
 ﻿// HR Service
 // 包含：Attendance, Overtime, Leave, Balances
 
-use chrono::{NaiveDate, TimeZone, Timelike, Utc};
+use chrono::{Datelike, NaiveDate, TimeZone, Timelike, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -12,7 +12,7 @@ use crate::{
         AdjustBalanceRequest, AnnualLeaveBalanceView, AnnualLeaveEntitlement,
         AttendanceCorrectionRequest, AttendanceQuery, AttendanceRecord, AttendanceWithUser,
         BalanceSummary, CompTimeBalanceView, CreateAnnualLeaveRequest,
-        CreateLeaveRequest, CreateOvertimeRequest, DashboardCalendarData, LeaveQuery, LeaveRequest,
+        CreateLeaveRequest, CreateOvertimeRequest, DashboardCalendarData, ExpiredLeaveReport, LeaveQuery, LeaveRequest,
         LeaveRequestWithUser, OvertimeQuery, OvertimeRecord, OvertimeWithUser, PaginatedResponse,
         TodayLeaveInfo, UpdateLeaveRequest, UpdateOvertimeRequest,
     },
@@ -932,7 +932,8 @@ impl HrService {
         pool: &PgPool,
         user_id: Uuid,
     ) -> Result<Vec<AnnualLeaveBalanceView>> {
-        let rows: Vec<(i32, f64, f64, f64, NaiveDate, i32)> = sqlx::query_as(
+        // 查詢所有有餘額的特休假（包含已過期但有餘額的，供會計參考）
+        let rows: Vec<(i32, f64, f64, f64, NaiveDate, i32, bool)> = sqlx::query_as(
             r#"
             SELECT 
                 entitlement_year,
@@ -940,10 +941,12 @@ impl HrService {
                 used_days::float8,
                 (entitled_days - used_days)::float8 as remaining_days,
                 expires_at,
-                (expires_at - CURRENT_DATE)::integer as days_until_expiry
+                (expires_at - CURRENT_DATE)::integer as days_until_expiry,
+                is_expired OR (expires_at < CURRENT_DATE) as is_expired
             FROM annual_leave_entitlements
-            WHERE user_id = $1 AND is_expired = false
-            ORDER BY entitlement_year DESC
+            WHERE user_id = $1 
+              AND (entitled_days - used_days) > 0
+            ORDER BY expires_at ASC, entitlement_year DESC
             "#,
         )
         .bind(user_id)
@@ -959,6 +962,7 @@ impl HrService {
                 remaining_days: r.3,
                 expires_at: r.4,
                 days_until_expiry: r.5,
+                is_expired: r.6,
             })
             .collect();
 
@@ -1087,9 +1091,31 @@ impl HrService {
         payload: &CreateAnnualLeaveRequest,
     ) -> Result<AnnualLeaveEntitlement> {
         let id = Uuid::new_v4();
-        // 計算到期日：發放年度 + 2 年
-        let expires_at = NaiveDate::from_ymd_opt(payload.entitlement_year + 2, 12, 31)
-            .unwrap_or_else(|| NaiveDate::from_ymd_opt(payload.entitlement_year + 2, 12, 30).unwrap());
+        
+        // 計算到期日：
+        // 如果有提供到職日，則以到職週年日 + 2年為到期日
+        // 例如：2024年授予，到職日3月1日 → 到期日為 2026年3月1日
+        // 如果沒有提供到職日，則以授予年度 + 2年的12月31日為到期日
+        let expires_at = if let Some(hire_date) = payload.hire_date {
+            // 取得到職日的月和日，計算對應的到期日
+            // 到期日 = 發放年度 + 2 年的到職週年日
+            NaiveDate::from_ymd_opt(
+                payload.entitlement_year + 2,
+                hire_date.month(),
+                hire_date.day(),
+            )
+            .unwrap_or_else(|| {
+                // 處理2月29日閏年問題：如果目標年份不是閏年，則使用2月28日
+                NaiveDate::from_ymd_opt(payload.entitlement_year + 2, hire_date.month(), 28)
+                    .unwrap_or_else(|| {
+                        NaiveDate::from_ymd_opt(payload.entitlement_year + 2, 12, 31).unwrap()
+                    })
+            })
+        } else {
+            // 沒有提供到職日，使用年底為到期日
+            NaiveDate::from_ymd_opt(payload.entitlement_year + 2, 12, 31)
+                .unwrap_or_else(|| NaiveDate::from_ymd_opt(payload.entitlement_year + 2, 12, 30).unwrap())
+        };
 
         let record = sqlx::query_as::<_, AnnualLeaveEntitlement>(
             r#"
@@ -1137,6 +1163,100 @@ impl HrService {
         .await?;
 
         Ok(record)
+    }
+
+    /// 取得所有過期但仍有餘額的特休假報表（供會計補償用）
+    pub async fn get_expired_leave_compensation_report(
+        pool: &PgPool,
+    ) -> Result<Vec<ExpiredLeaveReport>> {
+        let rows: Vec<(Uuid, String, String, i32, f64, f64, f64, NaiveDate)> = sqlx::query_as(
+            r#"
+            SELECT 
+                ale.user_id,
+                u.display_name as user_name,
+                u.email as user_email,
+                ale.entitlement_year,
+                ale.entitled_days::float8,
+                ale.used_days::float8,
+                (ale.entitled_days - ale.used_days)::float8 as remaining_days,
+                ale.expires_at
+            FROM annual_leave_entitlements ale
+            INNER JOIN users u ON ale.user_id = u.id
+            WHERE (ale.is_expired = true OR ale.expires_at < CURRENT_DATE)
+              AND (ale.entitled_days - ale.used_days) > 0
+              AND u.is_active = true
+            ORDER BY ale.expires_at ASC, u.display_name
+            "#,
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let reports = rows
+            .into_iter()
+            .map(|r| ExpiredLeaveReport {
+                user_id: r.0,
+                user_name: r.1,
+                user_email: r.2,
+                entitlement_year: r.3,
+                entitled_days: r.4,
+                used_days: r.5,
+                remaining_days: r.6,
+                expires_at: r.7,
+            })
+            .collect();
+
+        Ok(reports)
+    }
+
+    /// 複製上一年度的特休假設定到新年度
+    /// 如果新年度已經有設定則跳過
+    pub async fn copy_previous_year_entitlement(
+        pool: &PgPool,
+        user_id: Uuid,
+        new_year: i32,
+        creator_id: Uuid,
+        hire_date: Option<NaiveDate>,
+    ) -> Result<Option<AnnualLeaveEntitlement>> {
+        // 檢查新年度是否已存在
+        let existing: Option<(Uuid,)> = sqlx::query_as(
+            "SELECT id FROM annual_leave_entitlements WHERE user_id = $1 AND entitlement_year = $2"
+        )
+        .bind(user_id)
+        .bind(new_year)
+        .fetch_optional(pool)
+        .await?;
+
+        if existing.is_some() {
+            return Ok(None); // 已存在，不需要複製
+        }
+
+        // 查找上一年度的設定
+        let previous: Option<(f64, Option<String>)> = sqlx::query_as(
+            r#"
+            SELECT entitled_days::float8, notes
+            FROM annual_leave_entitlements 
+            WHERE user_id = $1 AND entitlement_year = $2
+            "#,
+        )
+        .bind(user_id)
+        .bind(new_year - 1)
+        .fetch_optional(pool)
+        .await?;
+
+        if let Some((entitled_days, notes)) = previous {
+            let payload = CreateAnnualLeaveRequest {
+                user_id,
+                entitlement_year: new_year,
+                entitled_days,
+                hire_date,
+                calculation_basis: Some("copied_from_previous".to_string()),
+                notes: Some(format!("沿用{}年度設定。{}", new_year - 1, notes.unwrap_or_default())),
+            };
+            let record = Self::create_annual_leave_entitlement(pool, creator_id, &payload).await?;
+            Ok(Some(record))
+        } else {
+            Ok(None)
+        }
     }
 
     // ============================================

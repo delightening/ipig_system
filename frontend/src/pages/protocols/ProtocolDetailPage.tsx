@@ -120,6 +120,7 @@ export function ProtocolDetailPage() {
   const [showCommentDialog, setShowCommentDialog] = useState(false)
   const [showAssignDialog, setShowAssignDialog] = useState(false)
   const [showVersionDialog, setShowVersionDialog] = useState(false)
+  const [showCoEditorDialog, setShowCoEditorDialog] = useState(false)
   const [selectedVersion, setSelectedVersion] = useState<ProtocolVersion | null>(null)
   const [newStatus, setNewStatus] = useState<ProtocolStatus | ''>('')
   const [statusRemark, setStatusRemark] = useState('')
@@ -238,7 +239,7 @@ export function ProtocolDetailPage() {
           display_name: user.display_name || user.email,
         }))
     },
-    enabled: showStatusDialog && newStatus === 'PRE_REVIEW',
+    enabled: (showStatusDialog && newStatus === 'PRE_REVIEW') || showCoEditorDialog,
   })
 
   // 提交計畫
@@ -502,8 +503,8 @@ export function ProtocolDetailPage() {
     return allowedTransitions[protocol.status] || []
   }
 
-  const canAddComment = user?.roles?.some(r => ['REVIEWER', 'VET', 'CHAIR', 'IACUC_STAFF', 'SYSTEM_ADMIN'].includes(r))
-  const canAssignReviewer = user?.roles?.some(r => ['IACUC_STAFF', 'CHAIR', 'SYSTEM_ADMIN'].includes(r))
+  const canAddComment = user?.roles?.some(r => ['REVIEWER', 'VET', 'CHAIR', 'IACUC_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
+  const canAssignReviewer = user?.roles?.some(r => ['IACUC_STAFF', 'CHAIR', 'SYSTEM_ADMIN', 'admin'].includes(r))
   const canManageAttachments = protocol?.status === 'DRAFT' || protocol?.status === 'REVISION_REQUIRED'
 
   if (isLoading) {
@@ -680,6 +681,7 @@ export function ProtocolDetailPage() {
                 return cleanedContent
               })()}
               protocolTitle={protocol.title}
+              protocolId={id}
               startDate={protocol.start_date}
               endDate={protocol.end_date}
             />
@@ -932,9 +934,17 @@ export function ProtocolDetailPage() {
 
       {activeTab === 'coeditors' && (
         <Card>
-          <CardHeader>
-            <CardTitle>Co-Editor</CardTitle>
-            <CardDescription>指派的試驗工作人員（co-editor）列表</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Co-Editor</CardTitle>
+              <CardDescription>指派的試驗工作人員（co-editor）列表</CardDescription>
+            </div>
+            {canAssignReviewer && (
+              <Button onClick={() => setShowCoEditorDialog(true)}>
+                <UserPlus className="mr-2 h-4 w-4" />
+                + Co-Editor
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
             {coEditorsLoading ? (
@@ -1247,6 +1257,64 @@ export function ProtocolDetailPage() {
               disabled={!selectedReviewerId || assignReviewerMutation.isPending}
             >
               {assignReviewerMutation.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              確認指派
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 指派 Co-Editor 對話框 */}
+      <Dialog open={showCoEditorDialog} onOpenChange={setShowCoEditorDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>指派 Co-Editor</DialogTitle>
+            <DialogDescription>
+              選擇試驗工作人員作為此計畫的負責窗口（co-editor）
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>試驗工作人員</Label>
+              <Select value={selectedCoEditorId} onValueChange={setSelectedCoEditorId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="請選擇試驗工作人員" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableExperimentStaff?.map((staff) => (
+                    <SelectItem key={staff.id} value={staff.id}>
+                      {staff.display_name || staff.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowCoEditorDialog(false)
+              setSelectedCoEditorId('')
+            }}>
+              取消
+            </Button>
+            <Button
+              onClick={() => {
+                if (selectedCoEditorId && id) {
+                  assignCoEditorMutation.mutate({
+                    protocol_id: id,
+                    user_id: selectedCoEditorId,
+                  }, {
+                    onSuccess: () => {
+                      setShowCoEditorDialog(false)
+                      setSelectedCoEditorId('')
+                    }
+                  })
+                }
+              }}
+              disabled={!selectedCoEditorId || assignCoEditorMutation.isPending}
+            >
+              {assignCoEditorMutation.isPending && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
               確認指派

@@ -397,6 +397,7 @@ pub struct AnnualLeaveBalanceView {
     pub remaining_days: f64,
     pub expires_at: NaiveDate,
     pub days_until_expiry: i32,
+    pub is_expired: bool,  // 是否已過期（待補償）
 }
 
 #[derive(Debug, Serialize)]
@@ -436,6 +437,7 @@ pub struct CreateAnnualLeaveRequest {
     pub user_id: Uuid,
     pub entitlement_year: i32,
     pub entitled_days: f64,
+    pub hire_date: Option<NaiveDate>,  // 到職日，用於計算到期日（到職週年日 + 2年）
     pub calculation_basis: Option<String>,
     pub notes: Option<String>,
 }
@@ -444,6 +446,19 @@ pub struct CreateAnnualLeaveRequest {
 pub struct AdjustBalanceRequest {
     pub adjustment_days: f64,
     pub reason: String,
+}
+
+/// 過期特休假報表（待補償）
+#[derive(Debug, Serialize)]
+pub struct ExpiredLeaveReport {
+    pub user_id: Uuid,
+    pub user_name: String,
+    pub user_email: String,
+    pub entitlement_year: i32,
+    pub entitled_days: f64,
+    pub used_days: f64,
+    pub remaining_days: f64,  // 待補償天數
+    pub expires_at: NaiveDate,
 }
 
 // ============================================

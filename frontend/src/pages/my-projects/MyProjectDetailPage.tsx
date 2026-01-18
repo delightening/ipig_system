@@ -148,7 +148,7 @@ export function MyProjectDetailPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -170,8 +170,8 @@ export function MyProjectDetailPage() {
             下載 PDF
           </Button>
           {(protocol.status === 'APPROVED' || protocol.status === 'APPROVED_WITH_CONDITIONS') && (
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setShowCloseDialog(true)}
             >
               結案
@@ -239,22 +239,20 @@ export function MyProjectDetailPage() {
         <nav className="flex gap-4">
           <button
             onClick={() => setActiveTab('application')}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
-              activeTab === 'application'
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${activeTab === 'application'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+              }`}
           >
             <ClipboardList className="h-4 w-4" />
             申請表
           </button>
           <button
             onClick={() => setActiveTab('pigs')}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
-              activeTab === 'pigs'
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${activeTab === 'pigs'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+              }`}
           >
             <FileText className="h-4 w-4" />
             豬隻紀錄
@@ -277,17 +275,28 @@ export function MyProjectDetailPage() {
                   <dd className="mt-1">{workingContent?.basic?.project_type || '-'}</dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-muted-foreground">經費來源</dt>
-                  <dd className="mt-1">{workingContent?.basic?.funding_source || '-'}</dd>
+                  <dt className="text-sm font-medium text-muted-foreground">計畫種類</dt>
+                  <dd className="mt-1">
+                    {workingContent?.basic?.project_category || '-'}
+                    {workingContent?.basic?.project_category_other && ` (${workingContent.basic.project_category_other})`}
+                  </dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-muted-foreground">GLP 合規</dt>
                   <dd className="mt-1">
-                    {workingContent?.basic?.glp_compliant ? (
+                    {workingContent?.basic?.is_glp ? (
                       <Badge variant="success">是</Badge>
                     ) : (
                       <Badge variant="secondary">否</Badge>
                     )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-muted-foreground">經費來源</dt>
+                  <dd className="mt-1">
+                    {workingContent?.basic?.funding_sources?.length > 0
+                      ? workingContent.basic.funding_sources.join('、')
+                      : '-'}
                   </dd>
                 </div>
               </dl>
@@ -303,19 +312,19 @@ export function MyProjectDetailPage() {
               <div>
                 <h4 className="font-medium text-sm text-muted-foreground mb-1">替代 (Replacement)</h4>
                 <p className="text-sm whitespace-pre-wrap">
-                  {workingContent?.threeRs?.replacement || '未填寫'}
+                  {workingContent?.purpose?.replacement?.rationale || '未填寫'}
                 </p>
               </div>
               <div>
                 <h4 className="font-medium text-sm text-muted-foreground mb-1">減量 (Reduction)</h4>
                 <p className="text-sm whitespace-pre-wrap">
-                  {workingContent?.threeRs?.reduction || '未填寫'}
+                  {workingContent?.purpose?.reduction?.design || '未填寫'}
                 </p>
               </div>
               <div>
-                <h4 className="font-medium text-sm text-muted-foreground mb-1">精緻化 (Refinement)</h4>
+                <h4 className="font-medium text-sm text-muted-foreground mb-1">研究目的及重要性</h4>
                 <p className="text-sm whitespace-pre-wrap">
-                  {workingContent?.threeRs?.refinement || '未填寫'}
+                  {workingContent?.purpose?.significance || '未填寫'}
                 </p>
               </div>
             </CardContent>
@@ -327,29 +336,57 @@ export function MyProjectDetailPage() {
               <CardTitle>試驗物質與對照組</CardTitle>
             </CardHeader>
             <CardContent>
-              <dl className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <dt className="text-sm font-medium text-muted-foreground">試驗物質名稱</dt>
-                  <dd className="mt-1">{workingContent?.testSubstance?.name || '-'}</dd>
+              {workingContent?.items?.use_test_item === true ? (
+                <div className="space-y-4">
+                  {workingContent?.items?.test_items?.length > 0 && (
+                    <div>
+                      <h4 className="font-medium mb-2">試驗物質</h4>
+                      {workingContent.items.test_items.map((item: any, index: number) => (
+                        <div key={index} className="p-3 border rounded mb-2">
+                          <dl className="grid gap-2 md:grid-cols-2 text-sm">
+                            <div>
+                              <dt className="text-muted-foreground">物質名稱</dt>
+                              <dd>{item.name || '-'}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-muted-foreground">用途</dt>
+                              <dd>{item.purpose || '-'}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-muted-foreground">劑型</dt>
+                              <dd>{item.form || '-'}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-muted-foreground">保存環境</dt>
+                              <dd>{item.storage_conditions || '-'}</dd>
+                            </div>
+                          </dl>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {workingContent?.items?.control_items?.length > 0 && (
+                    <div>
+                      <h4 className="font-medium mb-2">對照物質</h4>
+                      {workingContent.items.control_items.map((item: any, index: number) => (
+                        <div key={index} className="p-3 border rounded mb-2">
+                          <dl className="grid gap-2 md:grid-cols-2 text-sm">
+                            <div>
+                              <dt className="text-muted-foreground">對照名稱</dt>
+                              <dd>{item.name || '-'}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-muted-foreground">目的</dt>
+                              <dd>{item.purpose || '-'}</dd>
+                            </div>
+                          </dl>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <dt className="text-sm font-medium text-muted-foreground">來源</dt>
-                  <dd className="mt-1">{workingContent?.testSubstance?.source || '-'}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-muted-foreground">給藥途徑</dt>
-                  <dd className="mt-1">{workingContent?.testSubstance?.route || '-'}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-muted-foreground">劑量</dt>
-                  <dd className="mt-1">{workingContent?.testSubstance?.dose || '-'}</dd>
-                </div>
-              </dl>
-              {workingContent?.testSubstance?.control_group && (
-                <div className="mt-4">
-                  <h4 className="font-medium text-sm text-muted-foreground mb-1">對照組設計</h4>
-                  <p className="text-sm whitespace-pre-wrap">{workingContent.testSubstance.control_group}</p>
-                </div>
+              ) : (
+                <p className="text-muted-foreground">未使用試驗物質</p>
               )}
             </CardContent>
           </Card>
@@ -360,32 +397,64 @@ export function MyProjectDetailPage() {
               <CardTitle>動物資訊</CardTitle>
             </CardHeader>
             <CardContent>
-              <dl className="grid gap-4 md:grid-cols-3">
-                <div>
-                  <dt className="text-sm font-medium text-muted-foreground">物種</dt>
-                  <dd className="mt-1">{workingContent?.animalInfo?.species || '-'}</dd>
+              {workingContent?.animals?.animals?.length > 0 ? (
+                <div className="space-y-3">
+                  {workingContent.animals.animals.map((animal: any, index: number) => (
+                    <div key={index} className="p-3 border rounded">
+                      <h4 className="font-medium mb-2">動物群組 #{index + 1}</h4>
+                      <dl className="grid gap-3 md:grid-cols-3 text-sm">
+                        <div>
+                          <dt className="text-muted-foreground">物種</dt>
+                          <dd>
+                            {animal.species === 'pig' ? '豬' : animal.species === 'other' ? animal.species_other : '-'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-muted-foreground">品系</dt>
+                          <dd>
+                            {animal.strain === 'white_pig' ? '一般白豬' :
+                              animal.strain === 'mini_pig' ? '迷你豬' :
+                                animal.strain_other || '-'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-muted-foreground">性別</dt>
+                          <dd>
+                            {animal.sex === 'male' ? '公' :
+                              animal.sex === 'female' ? '母' :
+                                animal.sex === 'both' ? '公母均可' : '-'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-muted-foreground">數量</dt>
+                          <dd>{animal.number || '-'}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-muted-foreground">月齡範圍</dt>
+                          <dd>
+                            {animal.age_unlimited ? '不限' :
+                              `${animal.age_min || '-'} ~ ${animal.age_max || '-'} 月`}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-muted-foreground">體重範圍</dt>
+                          <dd>
+                            {animal.weight_unlimited ? '不限' :
+                              `${animal.weight_min || '-'} ~ ${animal.weight_max || '-'} kg`}
+                          </dd>
+                        </div>
+                      </dl>
+                    </div>
+                  ))}
+                  {workingContent.animals.total_animals && (
+                    <div className="mt-2 font-medium">
+                      總動物數: {workingContent.animals.total_animals} 頭
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <dt className="text-sm font-medium text-muted-foreground">品種</dt>
-                  <dd className="mt-1">{workingContent?.animalInfo?.breed || '-'}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-muted-foreground">性別</dt>
-                  <dd className="mt-1">{workingContent?.animalInfo?.gender || '-'}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-muted-foreground">數量</dt>
-                  <dd className="mt-1">{workingContent?.animalInfo?.count || '-'}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-muted-foreground">年齡</dt>
-                  <dd className="mt-1">{workingContent?.animalInfo?.age || '-'}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-muted-foreground">體重範圍</dt>
-                  <dd className="mt-1">{workingContent?.animalInfo?.weight || '-'}</dd>
-                </div>
-              </dl>
+              ) : (
+                <p className="text-muted-foreground">尚未填寫動物資訊</p>
+              )}
             </CardContent>
           </Card>
 
@@ -398,19 +467,24 @@ export function MyProjectDetailPage() {
               <div>
                 <h4 className="font-medium text-sm text-muted-foreground mb-1">試驗流程描述</h4>
                 <p className="text-sm whitespace-pre-wrap">
-                  {workingContent?.procedure?.description || '未填寫'}
+                  {workingContent?.design?.procedures || '未填寫'}
                 </p>
               </div>
               <div>
                 <h4 className="font-medium text-sm text-muted-foreground mb-1">麻醉方案</h4>
                 <p className="text-sm whitespace-pre-wrap">
-                  {workingContent?.procedure?.anesthesia || '未填寫'}
+                  {workingContent?.design?.anesthesia?.is_under_anesthesia === true
+                    ? `是 - ${workingContent?.design?.anesthesia?.anesthesia_type || ''}`
+                    : workingContent?.design?.anesthesia?.is_under_anesthesia === false
+                      ? '否'
+                      : '未填寫'}
                 </p>
               </div>
               <div>
                 <h4 className="font-medium text-sm text-muted-foreground mb-1">止痛管理</h4>
                 <p className="text-sm whitespace-pre-wrap">
-                  {workingContent?.procedure?.pain_management || '未填寫'}
+                  {workingContent?.design?.pain?.management_plan ||
+                    (workingContent?.design?.pain?.category ? `疼痛類別: ${workingContent.design.pain.category}` : '未填寫')}
                 </p>
               </div>
             </CardContent>
@@ -502,8 +576,8 @@ export function MyProjectDetailPage() {
             <Button variant="outline" onClick={() => setShowCloseDialog(false)}>
               取消
             </Button>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={() => closeProtocolMutation.mutate()}
               disabled={closeProtocolMutation.isPending}
             >

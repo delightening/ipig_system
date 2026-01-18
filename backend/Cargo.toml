@@ -61,6 +61,9 @@ tokio-cron-scheduler = "0.11"
 # Hashing for migration resolution
 sha2 = "0.10"
 
+# PDF generation
+printpdf = "0.7"
+
 # HTTP Client for external APIs
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 base64 = "0.22"

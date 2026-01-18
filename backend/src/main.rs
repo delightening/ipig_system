@@ -127,6 +127,229 @@ async fn ensure_schema(pool: &sqlx::PgPool) -> Result<()> {
     Ok(())
 }
 
+/// 確保所有角色擁有正確的權限
+/// 在程式啟動時自動配置所有系統角色的權限
+async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
+    // 定義每個角色的權限
+    let role_permissions: Vec<(&str, Vec<&str>)> = vec![
+        // ============================================
+        // WAREHOUSE_MANAGER (倉庫管理員) - ERP 完整權限
+        // ============================================
+        ("WAREHOUSE_MANAGER", vec![
+            // 倉庫管理
+            "erp.warehouse.view", "erp.warehouse.create", "erp.warehouse.edit",
+            // 產品管理
+            "erp.product.view", "erp.product.create", "erp.product.edit",
+            // 夥伴管理
+            "erp.partner.view", "erp.partner.create", "erp.partner.edit",
+            // 單據管理
+            "erp.document.view", "erp.document.create", "erp.document.edit", 
+            "erp.document.submit", "erp.document.approve",
+            // 庫存管理
+            "erp.inventory.view",
+            // 採購
+            "erp.purchase.create", "erp.purchase.approve",
+            "erp.grn.create", "erp.pr.create",
+            // 庫存操作
+            "erp.stock.in", "erp.stock.out", "erp.stock.view", 
+            "erp.stock.adjust", "erp.stock.transfer",
+            "erp.stocktake.create",
+            // 報表
+            "erp.report.view", "erp.report.export", "erp.report.download",
+        ]),
+        
+        // ============================================
+        // PURCHASING (採購人員) - 採購相關權限
+        // ============================================
+        ("PURCHASING", vec![
+            // 基本查詢
+            "erp.warehouse.view", "erp.product.view",
+            // 夥伴管理
+            "erp.partner.view", "erp.partner.create", "erp.partner.edit",
+            // 單據管理
+            "erp.document.view", "erp.document.create", "erp.document.edit", "erp.document.submit",
+            // 庫存查詢
+            "erp.inventory.view",
+            // 採購
+            "erp.purchase.create", "erp.grn.create",
+            // 庫存查詢
+            "erp.stock.view",
+            // 報表
+            "erp.report.view",
+        ]),
+        
+        // ============================================
+        // PI (計畫主持人) - 計畫管理、豬隻查看
+        // ============================================
+        ("PI", vec![
+            // 計畫管理
+            "aup.protocol.view_own", "aup.protocol.create", "aup.protocol.edit", 
+            "aup.protocol.submit", "aup.protocol.delete",
+            // 審查流程
+            "aup.review.view",
+            // 附件管理
+            "aup.attachment.view", "aup.attachment.download", "aup.attachment.upload",
+            // 版本管理
+            "aup.version.view",
+            // 豬隻管理
+            "pig.pig.view_project",
+            "pig.record.view",
+            // 匯出
+            "pig.export.medical", "pig.export.observation", "pig.export.surgery",
+        ]),
+        
+        // ============================================
+        // VET (獸醫師) - 審查計畫、豬隻管理、獸醫建議
+        // ============================================
+        ("VET", vec![
+            // 計畫審查
+            "aup.protocol.view_all", "aup.protocol.review",
+            // 審查流程
+            "aup.review.view", "aup.review.comment",
+            // 附件管理
+            "aup.attachment.view", "aup.attachment.download",
+            // 版本管理
+            "aup.version.view",
+            // 豬隻管理
+            "pig.pig.view_all", "pig.pig.edit", "pig.pig.assign",
+            "pig.record.view", "pig.record.create", "pig.record.edit",
+            // 獸醫師功能
+            "pig.vet.recommend", "pig.vet.read",
+            // 匯出
+            "pig.export.medical", "pig.export.observation", "pig.export.surgery", "pig.export.experiment",
+        ]),
+        
+        // ============================================
+        // REVIEWER (審查委員) - 計畫審查權限
+        // ============================================
+        ("REVIEWER", vec![
+            // 計畫審查
+            "aup.protocol.view_all", "aup.protocol.review",
+            // 審查流程
+            "aup.review.view", "aup.review.comment",
+            // 附件管理
+            "aup.attachment.view", "aup.attachment.download",
+            // 版本管理
+            "aup.version.view",
+        ]),
+        
+        // ============================================
+        // CHAIR (IACUC 主席) - 計畫核准、審查人員指派
+        // ============================================
+        ("CHAIR", vec![
+            // 計畫管理
+            "aup.protocol.view_all", "aup.protocol.review", 
+            "aup.protocol.approve", "aup.protocol.change_status",
+            // 審查流程
+            "aup.review.view", "aup.review.comment", "aup.review.assign",
+            // 附件管理
+            "aup.attachment.view", "aup.attachment.download",
+            // 版本管理
+            "aup.version.view",
+        ]),
+        
+        // ============================================
+        // IACUC_STAFF (執行秘書) - 計畫管理、狀態變更
+        // ============================================
+        ("IACUC_STAFF", vec![
+            // 計畫管理
+            "aup.protocol.view_all", "aup.protocol.create", "aup.protocol.edit", 
+            "aup.protocol.change_status",
+            // 審查流程
+            "aup.review.view", "aup.review.assign",
+            // 附件管理
+            "aup.attachment.view", "aup.attachment.download", "aup.attachment.upload",
+            // 版本管理
+            "aup.version.view",
+            // 豬隻管理
+            "pig.pig.view_all", "pig.pig.create", "pig.pig.edit", 
+            "pig.pig.assign", "pig.pig.import", "pig.pig.delete",
+            "pig.record.view", "pig.record.create", "pig.record.edit", "pig.record.delete",
+            // 匯出
+            "pig.export.medical", "pig.export.observation", "pig.export.surgery", "pig.export.experiment",
+        ]),
+        
+        // ============================================
+        // EXPERIMENT_STAFF (試驗工作人員) - 計畫編輯、豬隻紀錄、ERP 查詢
+        // ============================================
+        ("EXPERIMENT_STAFF", vec![
+            // 計畫管理（含 co-editor 權限）
+            "aup.protocol.view_own", "aup.protocol.create", "aup.protocol.edit", 
+            "aup.protocol.submit", "aup.protocol.delete",
+            // 審查流程
+            "aup.review.view", "aup.review.reply",
+            // 附件管理
+            "aup.attachment.view", "aup.attachment.download", 
+            "aup.attachment.upload", "aup.attachment.delete",
+            // 版本管理
+            "aup.version.view",
+            // 豬隻管理
+            "pig.pig.view_project",
+            "pig.record.view", "pig.record.create", "pig.record.edit",
+            "pig.record.observation", "pig.record.surgery", 
+            "pig.record.weight", "pig.record.vaccine", "pig.record.sacrifice",
+            // 匯出
+            "pig.export.observation", "pig.export.surgery", "pig.export.experiment",
+            // ERP 查詢（僅讀取）
+            "erp.inventory.view", "erp.stock.view",
+            // Dashboard 權限
+            "dashboard.view",
+        ]),
+        
+        // ============================================
+        // CLIENT (委託人) - 計畫/豬隻查看（僅自己相關）
+        // ============================================
+        ("CLIENT", vec![
+            // 計畫查看
+            "aup.protocol.view_own",
+            // 審查流程
+            "aup.review.view",
+            // 附件管理
+            "aup.attachment.view", "aup.attachment.download",
+            // 版本管理
+            "aup.version.view",
+            // 豬隻查看
+            "pig.pig.view_project",
+            "pig.record.view",
+            // 匯出
+            "pig.export.medical", "pig.export.observation", "pig.export.surgery",
+        ]),
+    ];
+    
+    let mut total_assigned = 0;
+    
+    for (role_code, permissions) in &role_permissions {
+        // 為角色分配權限
+        let result = sqlx::query(r#"
+            INSERT INTO role_permissions (role_id, permission_id)
+            SELECT r.id, p.id
+            FROM roles r
+            CROSS JOIN permissions p
+            WHERE r.code = $1
+            AND p.code = ANY($2::text[])
+            ON CONFLICT DO NOTHING
+        "#)
+        .bind(role_code)
+        .bind(&permissions[..])
+        .execute(pool)
+        .await?;
+        
+        let assigned = result.rows_affected();
+        if assigned > 0 {
+            tracing::debug!("[Permissions] {} -> {} new permissions", role_code, assigned);
+            total_assigned += assigned;
+        }
+    }
+    
+    if total_assigned > 0 {
+        tracing::info!("[Permissions] ✓ {} total permissions assigned to all roles", total_assigned);
+    } else {
+        tracing::info!("[Permissions] ✓ All role permissions already configured");
+    }
+    
+    Ok(())
+}
+
 /// 開發環境預設帳號資料
 struct DevUser {
     email: &'static str,
@@ -454,6 +677,11 @@ async fn main() -> anyhow::Result<()> {
     // Ensure default admin user exists
     if let Err(e) = ensure_admin_user(&pool).await {
         tracing::warn!("Failed to ensure admin user (non-fatal): {}", e);
+    }
+
+    // 確保所有角色擁有正確的權限
+    if let Err(e) = ensure_all_role_permissions(&pool).await {
+        tracing::warn!("Failed to ensure role permissions (non-fatal): {}", e);
     }
 
     // Seed development users if enabled

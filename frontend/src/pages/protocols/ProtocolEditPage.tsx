@@ -378,12 +378,12 @@ const defaultFormData: FormData = {
       restraint: [],
       pain: { category: '' },
       restrictions: { is_restricted: null, types: [] },
-      endpoints: { 
-        experimental_endpoint: '', 
+      endpoints: {
+        experimental_endpoint: '',
         humane_endpoint: '實驗過程中如果動物體重下降超過原體重的20%、食慾不振 (無法進食)、身體虛弱、感染，持續治療或傷口清創後無改善，或其他經獸醫師評估不宜持續實驗之情形，則提早結束實驗，以符合動物福祉。'
       },
       final_handling: { method: '', transfer: { recipient_name: '', recipient_org: '', project_name: '' } },
-      carcass_disposal: { 
+      carcass_disposal: {
         method: '委由簽約之合格化製廠商進行化製處理\n (化製廠商名稱：金海龍生物科技股份有限公司，化製廠管編：P6001213)'
       },
       non_pharma_grade: { used: null, description: '' },
@@ -425,7 +425,7 @@ const defaultFormData: FormData = {
       ],
       expected_end_point: ''
     },
-    animals: { 
+    animals: {
       animals: [{
         species: '',
         species_other: '',
@@ -440,8 +440,8 @@ const defaultFormData: FormData = {
         weight_max: undefined,
         weight_unlimited: false,
         housing_location: '豬博士畜牧場'
-      }], 
-      total_animals: 0 
+      }],
+      total_animals: 0
     },
     personnel: [
       {
@@ -677,7 +677,7 @@ export function ProtocolEditPage() {
           const anesthesiaType = mergedWorkingContent.design.anesthesia.anesthesia_type
           const needsSurgeryPlan = mergedWorkingContent.design.anesthesia.is_under_anesthesia === true &&
             (anesthesiaType === 'survival_surgery' || anesthesiaType === 'non_survival_surgery')
-          
+
           if (needsSurgeryPlan) {
             // 如果需要填寫手術計劃書，自動設置手術種類
             if (anesthesiaType === 'survival_surgery') {
@@ -855,6 +855,10 @@ export function ProtocolEditPage() {
     if (!formData.start_date || !formData.end_date) {
       return '請填寫預計試驗時程'
     }
+    // 驗證結束日期必須大於開始日期
+    if (new Date(formData.end_date) <= new Date(formData.start_date)) {
+      return '預計試驗完成日期必須大於起始日期'
+    }
 
     // 3. 計畫類型
     if (!basic.project_type || !basic.project_type.trim()) {
@@ -876,8 +880,16 @@ export function ProtocolEditPage() {
     if (!basic.pi.email || !basic.pi.email.trim()) {
       return '請填寫計畫主持人 Email'
     }
+    // 驗證 PI Email 格式
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(basic.pi.email.trim())) {
+      return '計畫主持人 Email 格式不正確'
+    }
     if (!basic.pi.phone || !basic.pi.phone.trim()) {
       return '請填寫計畫主持人電話'
+    }
+    // 驗證 PI 電話格式 (9-10 碼數字)
+    if (!/^\d{9,10}$/.test(basic.pi.phone.trim())) {
+      return '計畫主持人電話必須為 9 或 10 碼數字'
     }
     if (!basic.pi.address || !basic.pi.address.trim()) {
       return '請填寫計畫主持人地址'
@@ -893,8 +905,16 @@ export function ProtocolEditPage() {
     if (!basic.sponsor.contact_phone || !basic.sponsor.contact_phone.trim()) {
       return '請填寫委託單位聯絡電話'
     }
+    // 驗證委託單位電話格式 (9-10 碼數字)
+    if (!/^\d{9,10}$/.test(basic.sponsor.contact_phone.trim())) {
+      return '委託單位聯絡電話必須為 9 或 10 碼數字'
+    }
     if (!basic.sponsor.contact_email || !basic.sponsor.contact_email.trim()) {
       return '請填寫委託單位聯絡 Email'
+    }
+    // 驗證委託單位 Email 格式
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(basic.sponsor.contact_email.trim())) {
+      return '委託單位聯絡 Email 格式不正確'
     }
 
     // 7. 機構名稱
@@ -1037,7 +1057,7 @@ export function ProtocolEditPage() {
     // 6. 手術計劃書 - 根據 4.1.1 的選擇判斷是否需要填寫
     const needsSurgeryPlan = design.anesthesia.is_under_anesthesia === true &&
       (design.anesthesia.anesthesia_type === 'survival_surgery' || design.anesthesia.anesthesia_type === 'non_survival_surgery')
-    
+
     if (needsSurgeryPlan) {
       const { surgery } = formData.working_content
       if (!surgery.surgery_type || !surgery.surgery_type.trim() || surgery.surgery_type === '略') {
@@ -1211,7 +1231,7 @@ export function ProtocolEditPage() {
         start_date: formData.start_date,
         end_date: formData.end_date,
       }
-      
+
       // 如果不是 IACUC_STAFF，清空試驗編號
       if (!isIACUCStaff) {
         basicContent.apply_study_number = ''
@@ -1571,7 +1591,7 @@ export function ProtocolEditPage() {
                 {/* 2.2 替代原則 */}
                 <div className="space-y-4">
                   <h3 className="font-semibold">2.2 請以動物試驗應用3Rs之替代原則，說明本動物試驗之合理性:</h3>
-                  
+
                   {/* 2.2.1 活體動物試驗之必要性 */}
                   <div className="space-y-2">
                     <Label>2.2.1 請說明活體動物試驗之必要性，以及選擇此動物種別的原因: *</Label>
@@ -1602,9 +1622,9 @@ export function ProtocolEditPage() {
                         />
                         <Label htmlFor="search_altbib" className="font-normal leading-relaxed flex-1">
                           1. ALTBIB-非動物性替代方法參考文獻搜索工具<br />
-                          <a 
-                            href="https://ntp.niehs.nih.gov/whatwestudy/niceatm/altbib" 
-                            target="_blank" 
+                          <a
+                            href="https://ntp.niehs.nih.gov/whatwestudy/niceatm/altbib"
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="text-blue-600 hover:underline text-sm break-all"
                           >
@@ -1627,9 +1647,9 @@ export function ProtocolEditPage() {
                         />
                         <Label htmlFor="search_db_alm" className="font-normal leading-relaxed flex-1">
                           2. DB-ALM動物試驗替代方法資料庫<br />
-                          <a 
-                            href="https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/EURL-ECVAM/datasets/DBALM/LATEST/online/dbalm.html" 
-                            target="_blank" 
+                          <a
+                            href="https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/EURL-ECVAM/datasets/DBALM/LATEST/online/dbalm.html"
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="text-blue-600 hover:underline text-sm break-all"
                           >
@@ -1652,9 +1672,9 @@ export function ProtocolEditPage() {
                         />
                         <Label htmlFor="search_re_place" className="font-normal leading-relaxed flex-1">
                           3. 歐洲動物替代試驗資源平台<br />
-                          <a 
-                            href="https://www.re-place.be/" 
-                            target="_blank" 
+                          <a
+                            href="https://www.re-place.be/"
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="text-blue-600 hover:underline text-sm break-all"
                           >
@@ -1776,6 +1796,10 @@ export function ProtocolEditPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {formData.working_content.items.use_test_item === false && (
+                  <p className="text-muted-foreground italic">略</p>
+                )}
 
                 {formData.working_content.items.use_test_item === true && (
                   <>
@@ -2548,9 +2572,9 @@ export function ProtocolEditPage() {
                                   size="sm"
                                   onClick={() => {
                                     const materials = [...formData.working_content.design.hazards.materials]
-                                    materials.push({ 
-                                      type: formData.working_content.design.hazards.selected_type!, 
-                                      agent_name: '', 
+                                    materials.push({
+                                      type: formData.working_content.design.hazards.selected_type!,
+                                      agent_name: '',
                                       amount: '',
                                       photos: []
                                     })
@@ -3038,8 +3062,8 @@ export function ProtocolEditPage() {
                 {(() => {
                   const needsSurgeryPlan = formData.working_content.design.anesthesia.is_under_anesthesia === true &&
                     (formData.working_content.design.anesthesia.anesthesia_type === 'survival_surgery' ||
-                     formData.working_content.design.anesthesia.anesthesia_type === 'non_survival_surgery')
-                  
+                      formData.working_content.design.anesthesia.anesthesia_type === 'non_survival_surgery')
+
                   if (!needsSurgeryPlan) {
                     // 如果不需要填寫手術計劃書，顯示"略"
                     return (
@@ -3096,16 +3120,16 @@ export function ProtocolEditPage() {
                       </div>
                     )
                   }
-                  
+
                   // 如果需要填寫手術計劃書，顯示正常表單
                   return (
                     <>
                       <div className="space-y-2">
                         <Label>6.1 手術種類 *</Label>
                         <Input
-                          value={formData.working_content.surgery.surgery_type === 'survival' ? '存活手術' : 
-                                 formData.working_content.surgery.surgery_type === 'non_survival' ? '非存活手術' : 
-                                 formData.working_content.surgery.surgery_type || ''}
+                          value={formData.working_content.surgery.surgery_type === 'survival' ? '存活手術' :
+                            formData.working_content.surgery.surgery_type === 'non_survival' ? '非存活手術' :
+                              formData.working_content.surgery.surgery_type || ''}
                           disabled
                           className="bg-slate-50"
                         />
@@ -3775,7 +3799,7 @@ export function ProtocolEditPage() {
                             <th className="border p-2 text-center text-sm font-semibold w-24">姓名</th>
                             <th className="border p-2 text-center text-sm font-semibold w-24">職稱</th>
                             <th className="border p-2 text-center text-sm font-semibold w-32">工作內容</th>
-                            <th className="border p-2 text-center text-sm font-semibold w-24">參與動物<br/>試驗年數</th>
+                            <th className="border p-2 text-center text-sm font-semibold w-24">參與動物<br />試驗年數</th>
                             <th className="border p-2 text-center text-sm font-semibold">訓練/資格/取得時間</th>
                             <th className="border p-2 text-center text-sm font-semibold w-16">操作</th>
                           </tr>
@@ -3870,12 +3894,12 @@ export function ProtocolEditPage() {
                                     const newPersonnel = [...formData.working_content.personnel]
                                     newPersonnel.splice(index, 1)
                                     setFormData((prev) => ({
-                          ...prev,
-                          working_content: {
-                            ...prev.working_content,
-                            personnel: newPersonnel
-                          }
-                        }))
+                                      ...prev,
+                                      working_content: {
+                                        ...prev.working_content,
+                                        personnel: newPersonnel
+                                      }
+                                    }))
                                   }}
                                 >
                                   X
@@ -4012,8 +4036,8 @@ export function ProtocolEditPage() {
                               setNewPersonnel({ ...newPersonnel, roles: [...newPersonnel.roles, role] })
                             } else {
                               const newRoles = newPersonnel.roles.filter(r => r !== role)
-                              setNewPersonnel({ 
-                                ...newPersonnel, 
+                              setNewPersonnel({
+                                ...newPersonnel,
                                 roles: newRoles,
                                 roles_other_text: role === 'i' ? '' : newPersonnel.roles_other_text
                               })
@@ -4026,7 +4050,7 @@ export function ProtocolEditPage() {
                   </div>
                   <div className="mt-2 p-3 bg-slate-50 rounded-md">
                     <p className="text-xs text-muted-foreground">
-                      工作內容說明：<br/>a.計畫督導；b.飼養照顧；c.保定；d.麻醉止痛；e.手術；f.手術支援；g.觀察監測；h.安樂死；i.其他
+                      工作內容說明：<br />a.計畫督導；b.飼養照顧；c.保定；d.麻醉止痛；e.手術；f.手術支援；g.觀察監測；h.安樂死；i.其他
                     </p>
                   </div>
                   {newPersonnel.roles.includes('i') && (
@@ -4069,8 +4093,8 @@ export function ProtocolEditPage() {
                               setNewPersonnel({ ...newPersonnel, trainings: [...newPersonnel.trainings, training.value] })
                             } else {
                               const newTrainings = newPersonnel.trainings.filter(t => t !== training.value)
-                              setNewPersonnel({ 
-                                ...newPersonnel, 
+                              setNewPersonnel({
+                                ...newPersonnel,
                                 trainings: newTrainings,
                                 trainings_other_text: training.value === 'F' ? '' : newPersonnel.trainings_other_text,
                                 training_certificates: newPersonnel.training_certificates.filter(

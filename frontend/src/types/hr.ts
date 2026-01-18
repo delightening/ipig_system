@@ -149,6 +149,7 @@ export interface AnnualLeaveBalanceView {
     remaining_days: number;
     expires_at: string;
     days_until_expiry: number;
+    is_expired: boolean;  // 是否已過期（待補償）
 }
 
 export interface CompTimeBalanceView {
@@ -172,6 +173,28 @@ export interface BalanceSummary {
     comp_time_remaining: number;
     expiring_soon_days: number;
     expiring_soon_hours: number;
+}
+
+// 過期特休假報表（待補償）
+export interface ExpiredLeaveReport {
+    user_id: string;
+    user_name: string;
+    user_email: string;
+    entitlement_year: number;
+    entitled_days: number;
+    used_days: number;
+    remaining_days: number;  // 待補償天數
+    expires_at: string;
+}
+
+// 建立特休額度請求
+export interface CreateAnnualLeaveRequest {
+    user_id: string;
+    entitlement_year: number;
+    entitled_days: number;
+    hire_date?: string;  // 到職日，用於計算到期日（到職週年日 + 2年）
+    calculation_basis?: string;
+    notes?: string;
 }
 
 // Leave Type 顯示名稱映射

@@ -76,6 +76,7 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/protocols/:id/versions", get(handlers::get_protocol_versions))
         .route("/protocols/:id/status-history", get(handlers::get_protocol_status_history))
         .route("/protocols/:id/animal-stats", get(handlers::get_protocol_animal_stats))
+        .route("/protocols/:id/export-pdf", get(handlers::export_protocol_pdf))
         // Review
         .route("/reviews/assignments", get(handlers::list_review_assignments).post(handlers::assign_reviewer))
         .route("/reviews/comments", get(handlers::list_review_comments).post(handlers::create_review_comment))
@@ -208,6 +209,7 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/hr/balances/summary", get(handlers::get_balance_summary))
         .route("/hr/balances/annual-entitlements", post(handlers::create_annual_leave_entitlement))
         .route("/hr/balances/:id/adjust", post(handlers::adjust_balance))
+        .route("/hr/balances/expired-compensation", get(handlers::get_expired_leave_compensation))
         // ============================================
         // HR Dashboard (儀表板)
         // ============================================

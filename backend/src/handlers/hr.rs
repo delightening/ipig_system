@@ -16,7 +16,7 @@ use crate::{
         ApproveLeaveRequest, AttendanceCorrectionRequest, AttendanceQuery, AttendanceWithUser,
         BalanceQuery, BalanceSummary, CancelLeaveRequest, ClockInRequest, ClockOutRequest,
         CompTimeBalanceView, CreateAnnualLeaveRequest, CreateLeaveRequest, CreateOvertimeRequest,
-        DashboardCalendarData, LeaveQuery, LeaveRequest, LeaveRequestWithUser, OvertimeQuery, OvertimeWithUser,
+        DashboardCalendarData, ExpiredLeaveReport, LeaveQuery, LeaveRequest, LeaveRequestWithUser, OvertimeQuery, OvertimeWithUser,
         PaginatedResponse, RejectLeaveRequest, RejectOvertimeRequest, UpdateLeaveRequest,
         UpdateOvertimeRequest,
     },
@@ -410,6 +410,25 @@ pub async fn adjust_balance(
     Ok(Json(entitlement))
 }
 
+/// 取得過期特休假報表（供會計補償用）
+/// 列出所有過期但仍有餘額的特休假，供會計部門處理補償
+pub async fn get_expired_leave_compensation(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+) -> Result<Json<Vec<ExpiredLeaveReport>>> {
+    // 權限檢查：僅管理員或有 hr.balance.manage 權限的人可查看
+    if !current_user.has_permission("hr.balance.manage") 
+        && !current_user.roles.contains(&"admin".to_string())
+        && !current_user.roles.contains(&"IACUC_STAFF".to_string()) {
+        return Err(crate::error::AppError::Forbidden(
+            "無權查看過期特休報表".to_string(),
+        ));
+    }
+    
+    let reports = HrService::get_expired_leave_compensation_report(&state.db).await?;
+    Ok(Json(reports))
+}
+
 // ============================================
 // 儀表板統計 API
 // ============================================
@@ -473,10 +492,11 @@ pub async fn get_attendance_stats(
             AND DATE(a.clock_in_time) >= $1::date 
             AND DATE(a.clock_in_time) <= $2::date
         WHERE u.is_active = true
+        AND u.email != 'admin@ipig.local'
         AND NOT EXISTS (
             SELECT 1 FROM user_roles ur
             JOIN roles r ON ur.role_id = r.id
-            WHERE ur.user_id = u.id AND r.code = 'SYSTEM_ADMIN'
+            WHERE ur.user_id = u.id AND (r.code = 'SYSTEM_ADMIN' OR r.code = 'admin')
         )
         GROUP BY u.id, u.display_name
         ORDER BY u.display_name
