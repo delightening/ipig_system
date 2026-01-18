@@ -44,7 +44,8 @@ export const DEFAULT_DASHBOARD_WIDGETS: DashboardWidgetConfig[] = [
     { id: 'weekly_trend', visible: true, order: 9 },
     { id: 'recent_documents', visible: true, order: 10 },
     { id: 'upcoming_leaves', visible: true, order: 11 },
-    { id: 'staff_attendance', visible: false, order: 12 },
+    { id: 'staff_attendance', visible: true, order: 12 },
+    { id: 'google_calendar_events', visible: true, order: 13 },
 ]
 
 // Widget ID 對應中文名稱
@@ -62,6 +63,7 @@ export const widgetNames: Record<string, string> = {
     recent_documents: '最近單據',
     upcoming_leaves: '即將到期假期',
     staff_attendance: '工作人員出勤表',
+    google_calendar_events: '日曆事件',
 }
 
 // Widget 描述
@@ -79,6 +81,7 @@ export const widgetDescriptions: Record<string, string> = {
     recent_documents: '顯示最近建立的單據',
     upcoming_leaves: '顯示即將到期的假期提醒',
     staff_attendance: '顯示工作人員出勤統計（管理職）',
+    google_calendar_events: '顯示 Google Calendar 本週事件',
 }
 
 // Widget 權限要求
@@ -96,6 +99,7 @@ export const widgetPermissions: Record<string, string | undefined> = {
     recent_documents: 'erp',
     upcoming_leaves: undefined,
     staff_attendance: 'admin',
+    google_calendar_events: undefined,
 }
 
 // Widget 類別
@@ -113,4 +117,5 @@ export const widgetCategories: Record<string, string> = {
     recent_documents: 'erp',
     upcoming_leaves: 'hr',
     staff_attendance: 'report',
+    google_calendar_events: 'hr',
 }

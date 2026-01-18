@@ -60,6 +60,7 @@ import {
   VetCommentsWidget,
   StaffAttendanceWidget,
   CalendarWidget,
+  GoogleCalendarEventsWidget,
   DashboardWidgetConfig,
   DEFAULT_DASHBOARD_WIDGETS,
   widgetNames,
@@ -357,6 +358,8 @@ export function DashboardPage() {
         return <VetCommentsWidget />
       case 'staff_attendance':
         return <StaffAttendanceWidget />
+      case 'google_calendar_events':
+        return <GoogleCalendarEventsWidget />
       case 'low_stock_alert':
         return (
           <Card>

@@ -473,6 +473,11 @@ pub async fn get_attendance_stats(
             AND DATE(a.clock_in_time) >= $1::date 
             AND DATE(a.clock_in_time) <= $2::date
         WHERE u.is_active = true
+        AND NOT EXISTS (
+            SELECT 1 FROM user_roles ur
+            JOIN roles r ON ur.role_id = r.id
+            WHERE ur.user_id = u.id AND r.code = 'SYSTEM_ADMIN'
+        )
         GROUP BY u.id, u.display_name
         ORDER BY u.display_name
         "#
