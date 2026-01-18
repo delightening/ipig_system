@@ -127,7 +127,6 @@ impl PigService {
                     SELECT 1 FROM pig_observations po 
                     WHERE po.pig_id = p.id 
                     AND po.record_type = 'abnormal'::record_type
-                    AND po.deleted_at IS NULL
                 ) as has_abnormal_record,
                 -- 檢查是否正在用藥：
                 -- 只要觀察試驗紀錄或手術紀錄中有任何一筆 no_medication_needed = false，則為正在用藥
@@ -136,24 +135,22 @@ impl PigService {
                         SELECT 1 FROM pig_observations po 
                         WHERE po.pig_id = p.id 
                         AND po.no_medication_needed = false
-                        AND po.deleted_at IS NULL
                     )
                     OR
                     EXISTS(
                         SELECT 1 FROM pig_surgeries ps 
                         WHERE ps.pig_id = p.id 
                         AND ps.no_medication_needed = false
-                        AND ps.deleted_at IS NULL
                     )
                 ) as is_on_medication,
                 (
                     SELECT MAX(vr.created_at) 
                     FROM vet_recommendations vr
                     WHERE (vr.record_type = 'observation'::vet_record_type AND vr.record_id IN (
-                        SELECT id FROM pig_observations WHERE pig_id = p.id AND deleted_at IS NULL
+                        SELECT id FROM pig_observations WHERE pig_id = p.id
                     ))
                     OR (vr.record_type = 'surgery'::vet_record_type AND vr.record_id IN (
-                        SELECT id FROM pig_surgeries WHERE pig_id = p.id AND deleted_at IS NULL
+                        SELECT id FROM pig_surgeries WHERE pig_id = p.id
                     ))
                 ) as vet_recommendation_date
             FROM pigs p
@@ -172,6 +169,7 @@ impl PigService {
             let breed_str = match breed {
                 crate::models::PigBreed::Minipig => "miniature",
                 crate::models::PigBreed::White => "white",
+                crate::models::PigBreed::LYD => "LYD",
                 crate::models::PigBreed::Other => "other",
             };
             query_builder.push(" AND p.breed = ");
@@ -198,14 +196,12 @@ impl PigService {
                         SELECT 1 FROM pig_observations po 
                         WHERE po.pig_id = p.id 
                         AND po.no_medication_needed = false
-                        AND po.deleted_at IS NULL
                     )
                     OR
                     EXISTS(
                         SELECT 1 FROM pig_surgeries ps 
                         WHERE ps.pig_id = p.id 
                         AND ps.no_medication_needed = false
-                        AND ps.deleted_at IS NULL
                     )
                 )
             "#);
@@ -309,6 +305,7 @@ impl PigService {
         let breed_str = match req.breed {
             crate::models::PigBreed::Minipig => "miniature",
             crate::models::PigBreed::White => "white",
+            crate::models::PigBreed::LYD => "LYD",
             crate::models::PigBreed::Other => "other",
         };
         
@@ -484,7 +481,7 @@ impl PigService {
     /// 取得觀察紀錄列表（排除已刪除）
     pub async fn list_observations(pool: &PgPool, pig_id: i32) -> Result<Vec<PigObservation>> {
         let observations = sqlx::query_as::<_, PigObservation>(
-            "SELECT * FROM pig_observations WHERE pig_id = $1 AND deleted_at IS NULL ORDER BY event_date DESC"
+            "SELECT * FROM pig_observations WHERE pig_id = $1 ORDER BY event_date DESC"
         )
         .bind(pig_id)
         .fetch_all(pool)
@@ -503,7 +500,7 @@ impl PigService {
                 o.created_by, o.created_at,
                 (SELECT COUNT(*) FROM vet_recommendations vr WHERE vr.record_type = 'observation' AND vr.record_id = o.id) as recommendation_count
             FROM pig_observations o
-            WHERE o.pig_id = $1 AND o.deleted_at IS NULL
+            WHERE o.pig_id = $1
             ORDER BY o.event_date DESC
             "#
         )
@@ -517,7 +514,7 @@ impl PigService {
     /// 取得單一觀察紀錄
     pub async fn get_observation_by_id(pool: &PgPool, id: i32) -> Result<PigObservation> {
         let observation = sqlx::query_as::<_, PigObservation>(
-            "SELECT * FROM pig_observations WHERE id = $1 AND deleted_at IS NULL"
+            "SELECT * FROM pig_observations WHERE id = $1"
         )
         .bind(id)
         .fetch_optional(pool)
@@ -587,7 +584,7 @@ impl PigService {
                 treatments = COALESCE($9, treatments),
                 remark = COALESCE($10, remark),
                 updated_at = NOW()
-            WHERE id = $1 AND deleted_at IS NULL
+            WHERE id = $1
             RETURNING *
             "#
         )
@@ -607,10 +604,10 @@ impl PigService {
         Ok(observation)
     }
 
-    /// 軟刪除觀察紀錄
+    /// 刪除觀察紀錄
     pub async fn soft_delete_observation(pool: &PgPool, id: i32) -> Result<()> {
         sqlx::query(
-            "UPDATE pig_observations SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1"
+            "DELETE FROM pig_observations WHERE id = $1"
         )
         .bind(id)
         .execute(pool)
@@ -633,9 +630,9 @@ impl PigService {
             INSERT INTO pig_observations (
                 pig_id, event_date, record_type, equipment_used, anesthesia_start,
                 anesthesia_end, content, no_medication_needed, treatments, remark,
-                copied_from_id, created_by, created_at, updated_at
+                created_by, created_at, updated_at
             )
-            VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+            VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
             RETURNING *
             "#
         )
@@ -648,7 +645,6 @@ impl PigService {
         .bind(source.no_medication_needed)
         .bind(&source.treatments)
         .bind(&source.remark)
-        .bind(source_id)
         .bind(created_by)
         .fetch_one(pool)
         .await?;
@@ -689,7 +685,7 @@ impl PigService {
     /// 取得手術紀錄列表（排除已刪除）
     pub async fn list_surgeries(pool: &PgPool, pig_id: i32) -> Result<Vec<PigSurgery>> {
         let surgeries = sqlx::query_as::<_, PigSurgery>(
-            "SELECT * FROM pig_surgeries WHERE pig_id = $1 AND deleted_at IS NULL ORDER BY surgery_date DESC"
+            "SELECT * FROM pig_surgeries WHERE pig_id = $1 ORDER BY surgery_date DESC"
         )
         .bind(pig_id)
         .fetch_all(pool)
@@ -708,7 +704,7 @@ impl PigService {
                 s.created_by, s.created_at,
                 (SELECT COUNT(*) FROM vet_recommendations vr WHERE vr.record_type = 'surgery' AND vr.record_id = s.id) as recommendation_count
             FROM pig_surgeries s
-            WHERE s.pig_id = $1 AND s.deleted_at IS NULL
+            WHERE s.pig_id = $1
             ORDER BY s.surgery_date DESC
             "#
         )
@@ -722,7 +718,7 @@ impl PigService {
     /// 取得單一手術紀錄
     pub async fn get_surgery_by_id(pool: &PgPool, id: i32) -> Result<PigSurgery> {
         let surgery = sqlx::query_as::<_, PigSurgery>(
-            "SELECT * FROM pig_surgeries WHERE id = $1 AND deleted_at IS NULL"
+            "SELECT * FROM pig_surgeries WHERE id = $1"
         )
         .bind(id)
         .fetch_optional(pool)
@@ -804,7 +800,7 @@ impl PigService {
                 remark = COALESCE($14, remark),
                 no_medication_needed = COALESCE($15, no_medication_needed),
                 updated_at = NOW()
-            WHERE id = $1 AND deleted_at IS NULL
+            WHERE id = $1
             RETURNING *
             "#
         )
@@ -829,10 +825,10 @@ impl PigService {
         Ok(surgery)
     }
 
-    /// 軟刪除手術紀錄
+    /// 刪除手術紀錄
     pub async fn soft_delete_surgery(pool: &PgPool, id: i32) -> Result<()> {
         sqlx::query(
-            "UPDATE pig_surgeries SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1"
+            "DELETE FROM pig_surgeries WHERE id = $1"
         )
         .bind(id)
         .execute(pool)
@@ -857,9 +853,9 @@ impl PigService {
                 induction_anesthesia, pre_surgery_medication, positioning,
                 anesthesia_maintenance, anesthesia_observation, vital_signs,
                 reflex_recovery, respiration_rate, post_surgery_medication,
-                remark, no_medication_needed, copied_from_id, created_by, created_at, updated_at
+                remark, no_medication_needed, created_by, created_at, updated_at
             )
-            VALUES ($1, false, CURRENT_DATE, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
+            VALUES ($1, false, CURRENT_DATE, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
             RETURNING *
             "#
         )
@@ -876,7 +872,6 @@ impl PigService {
         .bind(&source.post_surgery_medication)
         .bind(&source.remark)
         .bind(source.no_medication_needed)
-        .bind(source_id)
         .bind(created_by)
         .fetch_one(pool)
         .await?;
@@ -917,7 +912,7 @@ impl PigService {
     /// 取得體重紀錄列表（排除已刪除）
     pub async fn list_weights(pool: &PgPool, pig_id: i32) -> Result<Vec<PigWeight>> {
         let weights = sqlx::query_as::<_, PigWeight>(
-            "SELECT * FROM pig_weights WHERE pig_id = $1 AND deleted_at IS NULL ORDER BY measure_date DESC"
+            "SELECT * FROM pig_weights WHERE pig_id = $1 ORDER BY measure_date DESC"
         )
         .bind(pig_id)
         .fetch_all(pool)
@@ -929,7 +924,7 @@ impl PigService {
     /// 取得最新體重
     pub async fn get_latest_weight(pool: &PgPool, pig_id: i32) -> Result<Option<PigWeight>> {
         let weight = sqlx::query_as::<_, PigWeight>(
-            "SELECT * FROM pig_weights WHERE pig_id = $1 AND deleted_at IS NULL ORDER BY measure_date DESC LIMIT 1"
+            "SELECT * FROM pig_weights WHERE pig_id = $1 ORDER BY measure_date DESC LIMIT 1"
         )
         .bind(pig_id)
         .fetch_optional(pool)
@@ -972,7 +967,7 @@ impl PigService {
             UPDATE pig_weights SET
                 measure_date = COALESCE($2, measure_date),
                 weight = COALESCE($3, weight)
-            WHERE id = $1 AND deleted_at IS NULL
+            WHERE id = $1
             RETURNING *
             "#
         )
@@ -985,9 +980,9 @@ impl PigService {
         Ok(weight)
     }
 
-    /// 軟刪除體重紀錄
+    /// 刪除體重紀錄
     pub async fn soft_delete_weight(pool: &PgPool, id: i32) -> Result<()> {
-        sqlx::query("UPDATE pig_weights SET deleted_at = NOW() WHERE id = $1")
+        sqlx::query("DELETE FROM pig_weights WHERE id = $1")
             .bind(id)
             .execute(pool)
             .await?;
@@ -1002,7 +997,7 @@ impl PigService {
     /// 取得疫苗紀錄列表（排除已刪除）
     pub async fn list_vaccinations(pool: &PgPool, pig_id: i32) -> Result<Vec<PigVaccination>> {
         let vaccinations = sqlx::query_as::<_, PigVaccination>(
-            "SELECT * FROM pig_vaccinations WHERE pig_id = $1 AND deleted_at IS NULL ORDER BY administered_date DESC"
+            "SELECT * FROM pig_vaccinations WHERE pig_id = $1 ORDER BY administered_date DESC"
         )
         .bind(pig_id)
         .fetch_all(pool)
@@ -1047,7 +1042,7 @@ impl PigService {
                 administered_date = COALESCE($2, administered_date),
                 vaccine = COALESCE($3, vaccine),
                 deworming_dose = COALESCE($4, deworming_dose)
-            WHERE id = $1 AND deleted_at IS NULL
+            WHERE id = $1
             RETURNING *
             "#
         )
@@ -1061,9 +1056,9 @@ impl PigService {
         Ok(vaccination)
     }
 
-    /// 軟刪除疫苗紀錄
+    /// 刪除疫苗紀錄
     pub async fn soft_delete_vaccination(pool: &PgPool, id: i32) -> Result<()> {
-        sqlx::query("UPDATE pig_vaccinations SET deleted_at = NOW() WHERE id = $1")
+        sqlx::query("DELETE FROM pig_vaccinations WHERE id = $1")
             .bind(id)
             .execute(pool)
             .await?;

@@ -230,6 +230,7 @@ impl LeaveStatus {
 pub struct LeaveRequest {
     pub id: Uuid,
     pub user_id: Uuid,
+    pub proxy_user_id: Option<Uuid>,  // 代理人
     pub leave_type: String, // 用 String 避免 sqlx enum 問題
     pub start_date: NaiveDate,
     pub end_date: NaiveDate,
@@ -262,6 +263,8 @@ pub struct LeaveRequestWithUser {
     pub user_id: Uuid,
     pub user_email: String,
     pub user_name: String,
+    pub proxy_user_id: Option<Uuid>,
+    pub proxy_user_name: Option<String>,
     pub leave_type: String,
     pub start_date: NaiveDate,
     pub end_date: NaiveDate,
@@ -301,6 +304,7 @@ pub struct CreateLeaveRequest {
     pub supporting_documents: Option<Vec<String>>,  // 附件圖片 URLs
     pub is_urgent: Option<bool>,
     pub is_retroactive: Option<bool>,
+    pub proxy_user_id: Option<Uuid>,  // 代理人
 }
 
 #[derive(Debug, Deserialize)]
@@ -312,6 +316,7 @@ pub struct UpdateLeaveRequest {
     pub total_days: Option<f64>,
     pub total_hours: Option<f64>,
     pub reason: Option<String>,
+    pub proxy_user_id: Option<Uuid>,  // 代理人
 }
 
 #[derive(Debug, Deserialize)]
@@ -439,4 +444,27 @@ pub struct CreateAnnualLeaveRequest {
 pub struct AdjustBalanceRequest {
     pub adjustment_days: f64,
     pub reason: String,
+}
+
+// ============================================
+// Dashboard Calendar (儀表板日曆)
+// ============================================
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TodayLeaveInfo {
+    pub user_id: Uuid,
+    pub user_name: String,
+    pub leave_type: String,
+    pub leave_type_display: String,
+    pub is_all_day: bool,
+    pub start_date: NaiveDate,
+    pub end_date: NaiveDate,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DashboardCalendarData {
+    pub today: NaiveDate,
+    pub today_leaves: Vec<TodayLeaveInfo>,
+    pub today_events: Vec<crate::models::calendar::CalendarEvent>,
+    pub upcoming_leaves: Vec<TodayLeaveInfo>,
 }

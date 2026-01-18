@@ -56,7 +56,7 @@ interface PaginatedResponse<T> {
 }
 
 export function CalendarSyncSettingsPage() {
-    const [activeTab, setActiveTab] = useState('status')
+    const [activeTab, setActiveTab] = useState('calendar')
     const [showConnectDialog, setShowConnectDialog] = useState(false)
     const [calendarId, setCalendarId] = useState('')
     const [authEmail, setAuthEmail] = useState('')
@@ -65,7 +65,8 @@ export function CalendarSyncSettingsPage() {
         end: endOfMonth(new Date()),
     }))
     const queryClient = useQueryClient()
-    const { user } = useAuthStore()
+    const { user, hasRole } = useAuthStore()
+    const isAdmin = hasRole('admin')
 
     // 當打開連接對話框時，預設授權 Email 為當前用戶的 Email
     useEffect(() => {
@@ -213,8 +214,8 @@ export function CalendarSyncSettingsPage() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold">Google Calendar 同步</h1>
-                    <p className="text-muted-foreground">設定與管理請假日曆同步</p>
+                    <h1 className="text-3xl font-bold">Google Calendar</h1>
+                    <p className="text-muted-foreground">設定與管理請假日曆</p>
                 </div>
                 {syncStatus?.is_configured && (
                     <Button
@@ -229,10 +230,6 @@ export function CalendarSyncSettingsPage() {
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList>
-                    <TabsTrigger value="status" className="flex items-center gap-2">
-                        <Settings className="h-4 w-4" />
-                        連線狀態
-                    </TabsTrigger>
                     <TabsTrigger value="calendar" className="flex items-center gap-2">
                         <CalendarDays className="h-4 w-4" />
                         日曆
@@ -241,15 +238,23 @@ export function CalendarSyncSettingsPage() {
                         <Clock className="h-4 w-4" />
                         同步歷史
                     </TabsTrigger>
-                    <TabsTrigger value="conflicts" className="flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4" />
-                        衝突處理
-                        {conflicts && conflicts.total > 0 && (
-                            <Badge variant="destructive" className="ml-1">
-                                {conflicts.total}
-                            </Badge>
-                        )}
-                    </TabsTrigger>
+                    {isAdmin && (
+                        <TabsTrigger value="conflicts" className="flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4" />
+                            衝突處理
+                            {conflicts && conflicts.total > 0 && (
+                                <Badge variant="destructive" className="ml-1">
+                                    {conflicts.total}
+                                </Badge>
+                            )}
+                        </TabsTrigger>
+                    )}
+                    {isAdmin && (
+                        <TabsTrigger value="status" className="flex items-center gap-2">
+                            <Settings className="h-4 w-4" />
+                            連線狀態
+                        </TabsTrigger>
+                    )}
                 </TabsList>
 
                 {/* 連線狀態 */}
@@ -367,9 +372,15 @@ export function CalendarSyncSettingsPage() {
                                     <Calendar className="h-16 w-16 mx-auto text-muted-foreground" />
                                     <div>
                                         <div className="font-medium">尚未連接 Google Calendar</div>
-                                        <div className="text-sm text-muted-foreground">
-                                            請先在「連線狀態」分頁連接 Google Calendar
-                                        </div>
+                                        {isAdmin ? (
+                                            <div className="text-sm text-muted-foreground">
+                                                請先在「連線狀態」分頁連接 Google Calendar
+                                            </div>
+                                        ) : (
+                                            <div className="text-sm text-muted-foreground">
+                                                請聯繫系統管理員設定 Google Calendar 連接
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ) : loadingEvents ? (

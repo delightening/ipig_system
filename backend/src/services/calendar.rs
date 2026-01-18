@@ -1,7 +1,8 @@
 // Calendar Service
 // Google Calendar 同步服務
 
-use sqlx::PgPool;
+use chrono::NaiveDate;
+use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
 use crate::{
@@ -13,7 +14,22 @@ use crate::{
     Result,
 };
 
+/// 用於同步查詢的內部結構
+#[derive(Debug, FromRow)]
+struct PendingSyncItem {
+    id: Uuid,
+    leave_request_id: Uuid,
+    google_event_id: Option<String>,
+    user_name: String,
+    proxy_user_name: Option<String>,
+    leave_type_str: String,
+    start_date: NaiveDate,
+    end_date: NaiveDate,
+    reason: Option<String>,
+}
+
 pub struct CalendarService;
+
 
 impl CalendarService {
     // ============================================
@@ -154,6 +170,8 @@ impl CalendarService {
         pool: &PgPool,
         triggered_by: Option<Uuid>,
     ) -> Result<CalendarSyncHistory> {
+        use crate::services::google_calendar::{GoogleCalendarClient, NewCalendarEvent};
+
         // 建立同步歷史記錄
         let history = sqlx::query_as::<_, CalendarSyncHistory>(
             r#"
@@ -167,37 +185,330 @@ impl CalendarService {
         .fetch_one(pool)
         .await?;
 
-        // TODO: 實際執行 Google Calendar API 同步
-        // 這裡先模擬完成
+        // 取得 Calendar 設定
+        let config = Self::get_config(pool).await?;
+        if !config.is_configured {
+            return Err(crate::error::AppError::Validation(
+                "Google Calendar 尚未設定".to_string(),
+            ));
+        }
+
+        let client = GoogleCalendarClient::new(&config.calendar_id);
+        let mut events_created = 0i32;
+        let mut events_updated = 0i32;
+        let mut events_deleted = 0i32;
+        let mut errors_count = 0i32;
+        let mut error_messages: Vec<String> = Vec::new();
+
+        // ============================================
+        // 1. Push: 處理 pending_create
+        // ============================================
+        let pending_creates: Vec<PendingSyncItem> = sqlx::query_as(
+            r#"
+            SELECT 
+                s.id, s.leave_request_id, s.google_event_id,
+                u.display_name as user_name,
+                proxy.display_name as proxy_user_name,
+                l.leave_type::text as leave_type_str, 
+                l.start_date, l.end_date,
+                l.reason
+            FROM calendar_event_sync s
+            INNER JOIN leave_requests l ON s.leave_request_id = l.id
+            INNER JOIN users u ON l.user_id = u.id
+            LEFT JOIN users proxy ON l.proxy_user_id = proxy.id
+            WHERE s.sync_status = 'pending_create'
+            "#,
+        )
+        .fetch_all(pool)
+        .await
+        .unwrap_or_default();
+
+        for item in pending_creates {
+            // 假別中文名稱
+            let leave_type_display = match item.leave_type_str.as_str() {
+                "ANNUAL" => "特休假",
+                "PERSONAL" => "事假",
+                "SICK" => "病假",
+                "COMPENSATORY" => "補休假",
+                "MARRIAGE" => "婚假",
+                "BEREAVEMENT" => "喪假",
+                "MATERNITY" => "產假",
+                "PATERNITY" => "陪產假",
+                "MENSTRUAL" => "生理假",
+                "OFFICIAL" => "公假",
+                "UNPAID" => "無薪假",
+                _ => "請假",
+            };
+            
+            // 事件標題格式：[假別] 人員（代理人）
+            let summary = if let Some(ref proxy_name) = item.proxy_user_name {
+                format!("[{}] {}（{}）", leave_type_display, item.user_name, proxy_name)
+            } else {
+                format!("[{}] {}", leave_type_display, item.user_name)
+            };
+            let new_event = NewCalendarEvent {
+                summary,
+                description: item.reason.clone(),
+                start_date: item.start_date,
+                end_date: item.end_date,
+                all_day: true,
+                color_id: config.event_color_id.clone(),
+            };
+
+            match client.create_event(new_event).await {
+                Ok(created) => {
+                    // 更新同步記錄
+                    let _ = sqlx::query(
+                        r#"
+                        UPDATE calendar_event_sync
+                        SET google_event_id = $1,
+                            google_event_link = $2,
+                            google_event_etag = $3,
+                            sync_status = 'synced',
+                            sync_version = sync_version + 1,
+                            google_updated_at = NOW(),
+                            updated_at = NOW()
+                        WHERE id = $4
+                        "#,
+                    )
+                    .bind(&created.id)
+                    .bind(&created.html_link)
+                    .bind(&created.etag)
+                    .bind(item.id)
+                    .execute(pool)
+                    .await;
+                    events_created += 1;
+                }
+                Err(e) => {
+                    let err_msg = format!("建立事件失敗 (leave_id={}): {}", item.leave_request_id, e);
+                    error_messages.push(err_msg);
+                    let _ = sqlx::query(
+                        r#"
+                        UPDATE calendar_event_sync
+                        SET sync_status = 'error',
+                            last_error = $1,
+                            error_count = error_count + 1,
+                            last_error_at = NOW(),
+                            updated_at = NOW()
+                        WHERE id = $2
+                        "#,
+                    )
+                    .bind(e.to_string())
+                    .bind(item.id)
+                    .execute(pool)
+                    .await;
+                    errors_count += 1;
+                }
+            }
+        }
+
+        // ============================================
+        // 2. Push: 處理 pending_update
+        // ============================================
+        let pending_updates: Vec<PendingSyncItem> = sqlx::query_as(
+            r#"
+            SELECT 
+                s.id, s.leave_request_id, s.google_event_id,
+                u.display_name as user_name,
+                proxy.display_name as proxy_user_name,
+                l.leave_type::text as leave_type_str, 
+                l.start_date, l.end_date,
+                l.reason
+            FROM calendar_event_sync s
+            INNER JOIN leave_requests l ON s.leave_request_id = l.id
+            INNER JOIN users u ON l.user_id = u.id
+            LEFT JOIN users proxy ON l.proxy_user_id = proxy.id
+            WHERE s.sync_status = 'pending_update' AND s.google_event_id IS NOT NULL
+            "#,
+        )
+        .fetch_all(pool)
+        .await
+        .unwrap_or_default();
+
+        for item in pending_updates {
+            if let Some(ref google_event_id) = item.google_event_id {
+                // 假別中文名稱
+                let leave_type_display = match item.leave_type_str.as_str() {
+                    "ANNUAL" => "特休假",
+                    "PERSONAL" => "事假",
+                    "SICK" => "病假",
+                    "COMPENSATORY" => "補休假",
+                    "MARRIAGE" => "婚假",
+                    "BEREAVEMENT" => "喪假",
+                    "MATERNITY" => "產假",
+                    "PATERNITY" => "陪產假",
+                    "MENSTRUAL" => "生理假",
+                    "OFFICIAL" => "公假",
+                    "UNPAID" => "無薪假",
+                    _ => "請假",
+                };
+                
+                // 事件標題格式：[假別] 人員（代理人）
+                let summary = if let Some(ref proxy_name) = item.proxy_user_name {
+                    format!("[{}] {}（{}）", leave_type_display, item.user_name, proxy_name)
+                } else {
+                    format!("[{}] {}", leave_type_display, item.user_name)
+                };
+                let update_event = NewCalendarEvent {
+                    summary,
+                    description: item.reason.clone(),
+                    start_date: item.start_date,
+                    end_date: item.end_date,
+                    all_day: true,
+                    color_id: config.event_color_id.clone(),
+                };
+
+                match client.update_event(google_event_id, update_event).await {
+                    Ok(updated) => {
+                        let _ = sqlx::query(
+                            r#"
+                            UPDATE calendar_event_sync
+                            SET google_event_etag = $1,
+                                sync_status = 'synced',
+                                sync_version = sync_version + 1,
+                                google_updated_at = NOW(),
+                                updated_at = NOW()
+                            WHERE id = $2
+                            "#,
+                        )
+                        .bind(&updated.etag)
+                        .bind(item.id)
+                        .execute(pool)
+                        .await;
+                        events_updated += 1;
+                    }
+                    Err(e) => {
+                        let err_msg = format!("更新事件失敗 (leave_id={}): {}", item.leave_request_id, e);
+                        error_messages.push(err_msg);
+                        let _ = sqlx::query(
+                            r#"
+                            UPDATE calendar_event_sync
+                            SET sync_status = 'error',
+                                last_error = $1,
+                                error_count = error_count + 1,
+                                last_error_at = NOW(),
+                                updated_at = NOW()
+                            WHERE id = $2
+                            "#,
+                        )
+                        .bind(e.to_string())
+                        .bind(item.id)
+                        .execute(pool)
+                        .await;
+                        errors_count += 1;
+                    }
+                }
+            }
+        }
+
+        // ============================================
+        // 3. Push: 處理 pending_delete
+        // ============================================
+        let pending_deletes: Vec<(Uuid, Option<String>)> = sqlx::query_as(
+            r#"
+            SELECT id, google_event_id 
+            FROM calendar_event_sync 
+            WHERE sync_status = 'pending_delete' AND google_event_id IS NOT NULL
+            "#,
+        )
+        .fetch_all(pool)
+        .await
+        .unwrap_or_default();
+
+        for (sync_id, google_event_id) in pending_deletes {
+            if let Some(ref event_id) = google_event_id {
+                match client.delete_event(event_id).await {
+                    Ok(_) => {
+                        let _ = sqlx::query(
+                            r#"
+                            UPDATE calendar_event_sync
+                            SET sync_status = 'deleted',
+                                google_event_id = NULL,
+                                updated_at = NOW()
+                            WHERE id = $1
+                            "#,
+                        )
+                        .bind(sync_id)
+                        .execute(pool)
+                        .await;
+                        events_deleted += 1;
+                    }
+                    Err(e) => {
+                        let err_msg = format!("刪除事件失敗 (sync_id={}): {}", sync_id, e);
+                        error_messages.push(err_msg);
+                        let _ = sqlx::query(
+                            r#"
+                            UPDATE calendar_event_sync
+                            SET sync_status = 'error',
+                                last_error = $1,
+                                error_count = error_count + 1,
+                                last_error_at = NOW(),
+                                updated_at = NOW()
+                            WHERE id = $2
+                            "#,
+                        )
+                        .bind(e.to_string())
+                        .bind(sync_id)
+                        .execute(pool)
+                        .await;
+                        errors_count += 1;
+                    }
+                }
+            }
+        }
+
+        // ============================================
+        // 4. 更新歷史記錄為完成
+        // ============================================
+        let status = if errors_count > 0 { "completed_with_errors" } else { "completed" };
+        let error_json = serde_json::to_value(&error_messages).unwrap_or_default();
+
         let updated = sqlx::query_as::<_, CalendarSyncHistory>(
             r#"
             UPDATE calendar_sync_history
-            SET status = 'completed',
+            SET status = $2,
                 completed_at = NOW(),
                 duration_ms = EXTRACT(MILLISECONDS FROM (NOW() - started_at))::int,
-                progress_percentage = 100
+                progress_percentage = 100,
+                events_created = $3,
+                events_updated = $4,
+                events_deleted = $5,
+                errors_count = $6,
+                error_messages = $7
             WHERE id = $1
             RETURNING *
             "#,
         )
         .bind(history.id)
+        .bind(status)
+        .bind(events_created)
+        .bind(events_updated)
+        .bind(events_deleted)
+        .bind(errors_count)
+        .bind(error_json)
         .fetch_one(pool)
         .await?;
 
         // 更新 config 的 last_sync
+        let last_status = if errors_count > 0 { "partial" } else { "success" };
         sqlx::query(
             r#"
             UPDATE google_calendar_config
             SET last_sync_at = NOW(),
-                last_sync_status = 'success',
+                last_sync_status = $1,
+                last_sync_events_pushed = $2,
+                last_sync_events_pulled = 0,
                 updated_at = NOW()
             "#,
         )
+        .bind(last_status)
+        .bind(events_created + events_updated)
         .execute(pool)
         .await?;
 
         Ok(updated)
     }
+
 
     pub async fn list_sync_history(
         pool: &PgPool,

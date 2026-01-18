@@ -12,9 +12,9 @@ use crate::{
         AdjustBalanceRequest, AnnualLeaveBalanceView, AnnualLeaveEntitlement,
         AttendanceCorrectionRequest, AttendanceQuery, AttendanceRecord, AttendanceWithUser,
         BalanceSummary, CompTimeBalanceView, CreateAnnualLeaveRequest,
-        CreateLeaveRequest, CreateOvertimeRequest, LeaveQuery, LeaveRequest,
+        CreateLeaveRequest, CreateOvertimeRequest, DashboardCalendarData, LeaveQuery, LeaveRequest,
         LeaveRequestWithUser, OvertimeQuery, OvertimeRecord, OvertimeWithUser, PaginatedResponse,
-        UpdateLeaveRequest, UpdateOvertimeRequest,
+        TodayLeaveInfo, UpdateLeaveRequest, UpdateOvertimeRequest,
     },
     Result,
 };
@@ -84,7 +84,10 @@ impl HrService {
         source: Option<&str>,
         ip: Option<&str>,
     ) -> Result<AttendanceRecord> {
-        let today = Utc::now().date_naive();
+        // 使用台灣時區 (UTC+8) 的日期，而不是 UTC 日期
+        // 這樣當使用者在凌晨打卡時，work_date 會是正確的本地日期
+        let taipei_offset = chrono::FixedOffset::east_opt(8 * 3600).unwrap();
+        let today = Utc::now().with_timezone(&taipei_offset).date_naive();
 
         let existing: Option<AttendanceRecord> = sqlx::query_as(
             "SELECT * FROM attendance_records WHERE user_id = $1 AND work_date = $2",
@@ -129,7 +132,9 @@ impl HrService {
         source: Option<&str>,
         ip: Option<&str>,
     ) -> Result<AttendanceRecord> {
-        let today = Utc::now().date_naive();
+        // 使用台灣時區 (UTC+8) 的日期，與 clock_in 保持一致
+        let taipei_offset = chrono::FixedOffset::east_opt(8 * 3600).unwrap();
+        let today = Utc::now().with_timezone(&taipei_offset).date_naive();
 
         let record = sqlx::query_as::<_, AttendanceRecord>(
             r#"
@@ -523,12 +528,14 @@ impl HrService {
             r#"
             SELECT 
                 l.id, l.user_id, u.email as user_email, u.display_name as user_name,
+                l.proxy_user_id, proxy.display_name as proxy_user_name,
                 l.leave_type::text as leave_type, l.start_date, l.end_date, l.total_days, l.reason,
                 l.is_urgent, l.is_retroactive, l.status::text as status,
                 l.current_approver_id, approver.display_name as current_approver_name,
                 l.submitted_at, l.created_at
             FROM leave_requests l
             INNER JOIN users u ON l.user_id = u.id
+            LEFT JOIN users proxy ON l.proxy_user_id = proxy.id
             LEFT JOIN users approver ON l.current_approver_id = approver.id
             WHERE ($1::uuid IS NULL OR l.user_id = $1)
               AND ($2::text IS NULL OR l.status::text = $2)
@@ -562,7 +569,7 @@ impl HrService {
         let record = sqlx::query_as::<_, LeaveRequest>(
             r#"
             SELECT 
-                id, user_id, leave_type::text as leave_type, start_date, end_date,
+                id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
                 comp_time_source_ids, annual_leave_source_id, is_urgent, is_retroactive,
                 status::text as status, current_approver_id, submitted_at, approved_at,
@@ -596,13 +603,14 @@ impl HrService {
         sqlx::query(
             r#"
             INSERT INTO leave_requests (
-                id, user_id, leave_type, start_date, end_date, start_time, end_time,
+                id, user_id, proxy_user_id, leave_type, start_date, end_date, start_time, end_time,
                 total_days, total_hours, reason, supporting_documents, is_urgent, is_retroactive, status
-            ) VALUES ($1, $2, $3::leave_type, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'DRAFT'::leave_status)
+            ) VALUES ($1, $2, $3, $4::leave_type, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'DRAFT'::leave_status)
             "#,
         )
         .bind(id)
         .bind(user_id)
+        .bind(payload.proxy_user_id)
         .bind(&payload.leave_type)
         .bind(payload.start_date)
         .bind(payload.end_date)
@@ -620,7 +628,7 @@ impl HrService {
         let record = sqlx::query_as::<_, LeaveRequest>(
             r#"
             SELECT 
-                id, user_id, leave_type::text as leave_type, start_date, end_date,
+                id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
                 comp_time_source_ids, annual_leave_source_id, is_urgent, is_retroactive,
                 status::text as status, current_approver_id, submitted_at, approved_at,
@@ -652,6 +660,7 @@ impl HrService {
                 total_days = COALESCE($6, total_days),
                 total_hours = COALESCE($7, total_hours),
                 reason = COALESCE($8, reason),
+                proxy_user_id = COALESCE($9, proxy_user_id),
                 updated_at = NOW()
             WHERE id = $1 AND status = 'DRAFT'::leave_status
             "#,
@@ -664,13 +673,14 @@ impl HrService {
         .bind(payload.total_days)
         .bind(payload.total_hours)
         .bind(&payload.reason)
+        .bind(payload.proxy_user_id)
         .execute(pool)
         .await?;
 
         let record = sqlx::query_as::<_, LeaveRequest>(
             r#"
             SELECT 
-                id, user_id, leave_type::text as leave_type, start_date, end_date,
+                id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
                 comp_time_source_ids, annual_leave_source_id, is_urgent, is_retroactive,
                 status::text as status, current_approver_id, submitted_at, approved_at,
@@ -713,7 +723,7 @@ impl HrService {
         let record = sqlx::query_as::<_, LeaveRequest>(
             r#"
             SELECT 
-                id, user_id, leave_type::text as leave_type, start_date, end_date,
+                id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
                 comp_time_source_ids, annual_leave_source_id, is_urgent, is_retroactive,
                 status::text as status, current_approver_id, submitted_at, approved_at,
@@ -738,7 +748,7 @@ impl HrService {
         let current: LeaveRequest = sqlx::query_as(
             r#"
             SELECT 
-                id, user_id, leave_type::text as leave_type, start_date, end_date,
+                id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
                 comp_time_source_ids, annual_leave_source_id, is_urgent, is_retroactive,
                 status::text as status, current_approver_id, submitted_at, approved_at,
@@ -795,7 +805,7 @@ impl HrService {
         let record = sqlx::query_as::<_, LeaveRequest>(
             r#"
             SELECT 
-                id, user_id, leave_type::text as leave_type, start_date, end_date,
+                id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
                 comp_time_source_ids, annual_leave_source_id, is_urgent, is_retroactive,
                 status::text as status, current_approver_id, submitted_at, approved_at,
@@ -820,7 +830,7 @@ impl HrService {
         let current: LeaveRequest = sqlx::query_as(
             r#"
             SELECT 
-                id, user_id, leave_type::text as leave_type, start_date, end_date,
+                id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
                 comp_time_source_ids, annual_leave_source_id, is_urgent, is_retroactive,
                 status::text as status, current_approver_id, submitted_at, approved_at,
@@ -861,7 +871,7 @@ impl HrService {
         let record = sqlx::query_as::<_, LeaveRequest>(
             r#"
             SELECT 
-                id, user_id, leave_type::text as leave_type, start_date, end_date,
+                id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
                 comp_time_source_ids, annual_leave_source_id, is_urgent, is_retroactive,
                 status::text as status, current_approver_id, submitted_at, approved_at,
@@ -898,7 +908,7 @@ impl HrService {
         let record = sqlx::query_as::<_, LeaveRequest>(
             r#"
             SELECT 
-                id, user_id, leave_type::text as leave_type, start_date, end_date,
+                id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
                 comp_time_source_ids, annual_leave_source_id, is_urgent, is_retroactive,
                 status::text as status, current_approver_id, submitted_at, approved_at,
@@ -1127,6 +1137,141 @@ impl HrService {
         .await?;
 
         Ok(record)
+    }
+
+    // ============================================
+    // Dashboard Calendar
+    // ============================================
+
+    pub async fn get_dashboard_calendar(pool: &PgPool) -> Result<DashboardCalendarData> {
+        // 使用台灣時區取得今日日期
+        let taiwan_tz = chrono::FixedOffset::east_opt(8 * 3600).unwrap();
+        let today = Utc::now().with_timezone(&taiwan_tz).date_naive();
+        let upcoming_end = today + chrono::Duration::days(7);
+
+        // 取得今日請假中的人 (已核准且日期涵蓋今天)
+        let today_leaves_rows: Vec<(Uuid, String, String, NaiveDate, NaiveDate, Option<chrono::NaiveTime>, Option<chrono::NaiveTime>)> = sqlx::query_as(
+            r#"
+            SELECT 
+                l.user_id,
+                u.display_name as user_name,
+                l.leave_type::text as leave_type,
+                l.start_date,
+                l.end_date,
+                l.start_time,
+                l.end_time
+            FROM leave_requests l
+            INNER JOIN users u ON l.user_id = u.id
+            WHERE l.status::text = 'APPROVED'
+              AND l.start_date <= $1
+              AND l.end_date >= $1
+            ORDER BY u.display_name
+            "#,
+        )
+        .bind(today)
+        .fetch_all(pool)
+        .await?;
+
+        let today_leaves: Vec<TodayLeaveInfo> = today_leaves_rows
+            .into_iter()
+            .map(|(user_id, user_name, leave_type, start_date, end_date, start_time, end_time)| {
+                let leave_type_display = match leave_type.as_str() {
+                    "ANNUAL" => "特休假",
+                    "PERSONAL" => "事假",
+                    "SICK" => "病假",
+                    "COMPENSATORY" => "補休假",
+                    "MARRIAGE" => "婚假",
+                    "BEREAVEMENT" => "喪假",
+                    "MATERNITY" => "產假",
+                    "PATERNITY" => "陪產假",
+                    "MENSTRUAL" => "生理假",
+                    "OFFICIAL" => "公假",
+                    "UNPAID" => "無薪假",
+                    _ => "請假",
+                };
+                let is_all_day = start_time.is_none() && end_time.is_none();
+                TodayLeaveInfo {
+                    user_id,
+                    user_name,
+                    leave_type,
+                    leave_type_display: leave_type_display.to_string(),
+                    is_all_day,
+                    start_date,
+                    end_date,
+                }
+            })
+            .collect();
+
+        // 取得近期請假 (未來7天內開始，已核准)
+        let upcoming_leaves_rows: Vec<(Uuid, String, String, NaiveDate, NaiveDate, Option<chrono::NaiveTime>, Option<chrono::NaiveTime>)> = sqlx::query_as(
+            r#"
+            SELECT 
+                l.user_id,
+                u.display_name as user_name,
+                l.leave_type::text as leave_type,
+                l.start_date,
+                l.end_date,
+                l.start_time,
+                l.end_time
+            FROM leave_requests l
+            INNER JOIN users u ON l.user_id = u.id
+            WHERE l.status::text = 'APPROVED'
+              AND l.start_date > $1
+              AND l.start_date <= $2
+            ORDER BY l.start_date, u.display_name
+            LIMIT 10
+            "#,
+        )
+        .bind(today)
+        .bind(upcoming_end)
+        .fetch_all(pool)
+        .await?;
+
+        let upcoming_leaves: Vec<TodayLeaveInfo> = upcoming_leaves_rows
+            .into_iter()
+            .map(|(user_id, user_name, leave_type, start_date, end_date, start_time, end_time)| {
+                let leave_type_display = match leave_type.as_str() {
+                    "ANNUAL" => "特休假",
+                    "PERSONAL" => "事假",
+                    "SICK" => "病假",
+                    "COMPENSATORY" => "補休假",
+                    "MARRIAGE" => "婚假",
+                    "BEREAVEMENT" => "喪假",
+                    "MATERNITY" => "產假",
+                    "PATERNITY" => "陪產假",
+                    "MENSTRUAL" => "生理假",
+                    "OFFICIAL" => "公假",
+                    "UNPAID" => "無薪假",
+                    _ => "請假",
+                };
+                let is_all_day = start_time.is_none() && end_time.is_none();
+                TodayLeaveInfo {
+                    user_id,
+                    user_name,
+                    leave_type,
+                    leave_type_display: leave_type_display.to_string(),
+                    is_all_day,
+                    start_date,
+                    end_date,
+                }
+            })
+            .collect();
+
+        // 嘗試取得 Google Calendar 事件 (如果已設定)
+        let today_events = match crate::services::CalendarService::get_config(pool).await {
+            Ok(config) if config.is_configured => {
+                let client = crate::services::google_calendar::GoogleCalendarClient::new(&config.calendar_id);
+                client.fetch_events(today, today).await.unwrap_or_default()
+            }
+            _ => vec![],
+        };
+
+        Ok(DashboardCalendarData {
+            today,
+            today_leaves,
+            today_events,
+            upcoming_leaves,
+        })
     }
 }
 

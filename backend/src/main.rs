@@ -107,6 +107,26 @@ async fn ensure_admin_user(pool: &sqlx::PgPool) -> Result<()> {
     Ok(())
 }
 
+/// 確保資料庫 schema 完整（用程式碼取代部分 migration）
+async fn ensure_schema(pool: &sqlx::PgPool) -> Result<()> {
+    // 確保 pigs 表有 breed_other 欄位（用於 breed = 'other' 時存放自訂品種名）
+    sqlx::query(r#"
+        DO $$ BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'pigs' AND column_name = 'breed_other'
+            ) THEN
+                ALTER TABLE pigs ADD COLUMN breed_other VARCHAR(100);
+            END IF;
+        END $$;
+    "#)
+    .execute(pool)
+    .await?;
+    
+    tracing::info!("[Schema] ✓ Schema integrity verified");
+    Ok(())
+}
+
 /// 開發環境預設帳號資料
 struct DevUser {
     email: &'static str,
@@ -425,6 +445,11 @@ async fn main() -> anyhow::Result<()> {
     }
 
     tracing::info!("[Database] ✓ Connection established and migrations completed");
+
+    // 確保 schema 完整性（程式碼方式補充 migration 未涵蓋的欄位）
+    if let Err(e) = ensure_schema(&pool).await {
+        tracing::warn!("Failed to ensure schema (non-fatal): {}", e);
+    }
 
     // Ensure default admin user exists
     if let Err(e) = ensure_admin_user(&pool).await {

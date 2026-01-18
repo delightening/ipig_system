@@ -16,7 +16,7 @@ use crate::{
         ApproveLeaveRequest, AttendanceCorrectionRequest, AttendanceQuery, AttendanceWithUser,
         BalanceQuery, BalanceSummary, CancelLeaveRequest, ClockInRequest, ClockOutRequest,
         CompTimeBalanceView, CreateAnnualLeaveRequest, CreateLeaveRequest, CreateOvertimeRequest,
-        LeaveQuery, LeaveRequest, LeaveRequestWithUser, OvertimeQuery, OvertimeWithUser,
+        DashboardCalendarData, LeaveQuery, LeaveRequest, LeaveRequestWithUser, OvertimeQuery, OvertimeWithUser,
         PaginatedResponse, RejectLeaveRequest, RejectOvertimeRequest, UpdateLeaveRequest,
         UpdateOvertimeRequest,
     },
@@ -443,24 +443,25 @@ pub async fn get_attendance_stats(
     };
     
     // 查詢出勤統計
+    // 注意: attendance_records 沒有 is_late 欄位，用 clock_in_time 時間判斷 (09:00 後視為遲到)
     let stats = sqlx::query_as::<_, (uuid::Uuid, String, i64, i64, i64, rust_decimal::Decimal)>(
         r#"
         SELECT 
             u.id as user_id,
             u.display_name,
             COUNT(DISTINCT CASE WHEN a.clock_in_time IS NOT NULL THEN DATE(a.clock_in_time) END) as attendance_days,
-            COUNT(DISTINCT CASE WHEN a.is_late = true THEN a.id END) as late_count,
+            COUNT(DISTINCT CASE WHEN a.clock_in_time IS NOT NULL AND EXTRACT(HOUR FROM a.clock_in_time AT TIME ZONE 'Asia/Taipei') >= 9 
+                AND EXTRACT(MINUTE FROM a.clock_in_time AT TIME ZONE 'Asia/Taipei') > 0 THEN a.id END) as late_count,
             COALESCE((
-                SELECT SUM(CASE WHEN l.leave_type IN ('annual', 'sick', 'personal', 'compensatory') 
-                    THEN EXTRACT(EPOCH FROM (l.end_time - l.start_time)) / 86400 ELSE 0 END)
+                SELECT SUM(l.total_days)
                 FROM leave_requests l
                 WHERE l.user_id = u.id 
-                AND l.status = 'approved'
-                AND l.start_time >= $1::date 
-                AND l.end_time <= $2::date + interval '1 day'
+                AND l.status = 'APPROVED'
+                AND l.start_date >= $1::date 
+                AND l.end_date <= $2::date
             ), 0)::bigint as leave_days,
             COALESCE((
-                SELECT SUM(o.approved_hours)
+                SELECT SUM(o.hours)
                 FROM overtime_records o
                 WHERE o.user_id = u.id 
                 AND o.status = 'approved'
@@ -498,3 +499,15 @@ pub async fn get_attendance_stats(
     Ok(Json(serde_json::json!({ "data": data })))
 }
 
+// ============================================
+// Dashboard Calendar
+// ============================================
+
+/// 取得儀表板日曆資料
+pub async fn get_dashboard_calendar(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+) -> Result<Json<DashboardCalendarData>> {
+    let data = HrService::get_dashboard_calendar(&state.db).await?;
+    Ok(Json(data))
+}

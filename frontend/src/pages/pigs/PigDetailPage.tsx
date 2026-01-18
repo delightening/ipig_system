@@ -76,6 +76,8 @@ const statusColors: Record<PigStatus, string> = {
   assigned: 'bg-blue-500',
   in_experiment: 'bg-orange-500',
   completed: 'bg-green-500',
+  transferred: 'bg-purple-500',
+  deceased: 'bg-red-500',
 }
 
 // 輔助函數：判斷欄位顯示文字

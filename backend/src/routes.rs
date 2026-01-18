@@ -209,6 +209,10 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/hr/balances/annual-entitlements", post(handlers::create_annual_leave_entitlement))
         .route("/hr/balances/:id/adjust", post(handlers::adjust_balance))
         // ============================================
+        // HR Dashboard (儀表板)
+        // ============================================
+        .route("/hr/dashboard/calendar", get(handlers::get_dashboard_calendar))
+        // ============================================
         // Calendar Sync (新增)
         // ============================================
         .route("/hr/calendar/status", get(handlers::get_calendar_status))

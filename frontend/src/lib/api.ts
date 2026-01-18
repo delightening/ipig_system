@@ -660,8 +660,8 @@ export interface UserSimple {
 // 實驗動物管理 Types
 // ============================================
 
-export type PigStatus = 'unassigned' | 'assigned' | 'in_experiment' | 'completed'
-export type PigBreed = 'minipig' | 'white' | 'other'
+export type PigStatus = 'unassigned' | 'assigned' | 'in_experiment' | 'completed' | 'transferred' | 'deceased'
+export type PigBreed = 'minipig' | 'white' | 'lyd' | 'other'
 export type PigGender = 'male' | 'female'
 export type RecordType = 'abnormal' | 'experiment' | 'observation'
 
@@ -678,11 +678,14 @@ export const allPigStatusNames: Record<PigStatus, string> = {
   assigned: '已分配',
   in_experiment: '實驗中',
   completed: '實驗完畢',
+  transferred: '已轉讓',
+  deceased: '已死亡',
 }
 
 export const pigBreedNames: Record<PigBreed, string> = {
   minipig: '迷你豬',
   white: '白豬',
+  lyd: 'LYD',
   other: '其他',
 }
 

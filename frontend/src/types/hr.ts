@@ -126,6 +126,8 @@ export interface LeaveRequestWithUser {
     user_id: string;
     user_email: string;
     user_name: string;
+    proxy_user_id: string | null;
+    proxy_user_name: string | null;
     leave_type: string;
     start_date: string;
     end_date: string;

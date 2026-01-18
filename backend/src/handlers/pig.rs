@@ -974,7 +974,6 @@ pub async fn get_vet_comments(
         INNER JOIN pig_observations po ON vr.record_type = 'observation'::vet_record_type AND vr.record_id = po.id
         INNER JOIN pigs p ON po.pig_id = p.id
         INNER JOIN users u ON vr.created_by = u.id
-        WHERE po.deleted_at IS NULL
         ORDER BY vr.created_at DESC
         LIMIT $1
         "#

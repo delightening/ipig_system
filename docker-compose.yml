@@ -65,7 +65,7 @@ services:
 
       # Google Calendar service account
       # 你程式端用 Google SDK 或自寫讀檔都可以直接吃這個路徑
-      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/google_service_account.json
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/google_service_account
       GOOGLE_CALENDAR_ID: ${GOOGLE_CALENDAR_ID:-primary}
 
     ports:

@@ -61,6 +61,13 @@ interface PaginatedResponse<T> {
     total_pages: number
 }
 
+interface User {
+    id: string
+    email: string
+    display_name: string
+    is_active: boolean
+}
+
 // Helper to safely parse Decimal strings from backend
 const parseDecimal = (value: number | string | null | undefined): number => {
     if (value === null || value === undefined) return 0
@@ -78,6 +85,7 @@ export function HrLeavePage() {
     const [endDate, setEndDate] = useState('')
     const [totalDays, setTotalDays] = useState('1')
     const [reason, setReason] = useState('')
+    const [proxyUserId, setProxyUserId] = useState('')  // 代理人
     const [supportingImages, setSupportingImages] = useState<string[]>([])  // 附件圖片 URLs
     const [uploadingImage, setUploadingImage] = useState(false)
 
@@ -111,6 +119,15 @@ export function HrLeavePage() {
         // 移除 enabled 條件，讓頁面載入時就抓取待審核數量
     })
 
+    // 取得工作人員列表（供代理人選擇）
+    const { data: usersData } = useQuery({
+        queryKey: ['users-for-proxy'],
+        queryFn: async () => {
+            const res = await api.get<PaginatedResponse<User>>('/users?is_active=true&per_page=100')
+            return res.data
+        },
+    })
+
     // 建立請假
     const createLeaveMutation = useMutation({
         mutationFn: async (data: {
@@ -120,6 +137,7 @@ export function HrLeavePage() {
             total_days: number
             reason?: string
             supporting_documents?: string[]
+            proxy_user_id?: string
         }) => {
             return api.post('/hr/leaves', data)
         },
@@ -189,6 +207,7 @@ export function HrLeavePage() {
         setEndDate('')
         setTotalDays('1')
         setReason('')
+        setProxyUserId('')
         setSupportingImages([])
     }
 
@@ -243,6 +262,7 @@ export function HrLeavePage() {
             total_days: parseFloat(totalDays),
             reason: reason.trim() || undefined,
             supporting_documents: supportingImages.length > 0 ? supportingImages : undefined,
+            proxy_user_id: proxyUserId || undefined,
         })
     }
 
@@ -328,6 +348,22 @@ export function HrLeavePage() {
                                     value={totalDays}
                                     onChange={(e) => setTotalDays(e.target.value)}
                                 />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>代理人 <span className="text-muted-foreground text-xs">(選填)</span></Label>
+                                <Select value={proxyUserId} onValueChange={setProxyUserId}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="選擇代理人..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="">不選擇</SelectItem>
+                                        {usersData?.data?.map((user) => (
+                                            <SelectItem key={user.id} value={user.id}>
+                                                {user.display_name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div className="grid gap-2">
                                 <Label>

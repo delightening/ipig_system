@@ -13,6 +13,8 @@ pub enum PigStatus {
     Assigned,
     InExperiment,
     Completed,
+    Transferred,
+    Deceased,
 }
 
 impl PigStatus {
@@ -22,6 +24,8 @@ impl PigStatus {
             PigStatus::Assigned => "已分配",
             PigStatus::InExperiment => "實驗中",
             PigStatus::Completed => "實驗完畢",
+            PigStatus::Transferred => "已轉讓",
+            PigStatus::Deceased => "已死亡",
         }
     }
 }
@@ -33,6 +37,8 @@ pub enum PigBreed {
     #[serde(rename = "minipig")]
     Minipig,  // 前端使用 'minipig'，資料庫存儲為 'miniature'
     White,
+    #[serde(rename = "lyd")]
+    LYD,
     Other,
 }
 
@@ -49,6 +55,7 @@ impl<'r> sqlx::Decode<'r, sqlx::Postgres> for PigBreed {
         match s {
             "miniature" => Ok(PigBreed::Minipig),
             "white" => Ok(PigBreed::White),
+            "LYD" => Ok(PigBreed::LYD),
             "other" => Ok(PigBreed::Other),
             _ => Err(format!("Invalid pig_breed value: {}", s).into()),
         }
@@ -60,6 +67,7 @@ impl<'q> sqlx::Encode<'q, sqlx::Postgres> for PigBreed {
         let s = match self {
             PigBreed::Minipig => "miniature",
             PigBreed::White => "white",
+            PigBreed::LYD => "LYD",
             PigBreed::Other => "other",
         };
         <&str as sqlx::Encode<sqlx::Postgres>>::encode_by_ref(&s, buf)
@@ -69,6 +77,7 @@ impl<'q> sqlx::Encode<'q, sqlx::Postgres> for PigBreed {
         let s = match self {
             PigBreed::Minipig => "miniature",
             PigBreed::White => "white",
+            PigBreed::LYD => "LYD",
             PigBreed::Other => "other",
         };
         <&str as sqlx::Encode<sqlx::Postgres>>::size_hint(&s)
@@ -80,6 +89,7 @@ impl PigBreed {
         match self {
             PigBreed::Minipig => "迷你豬",
             PigBreed::White => "白豬",
+            PigBreed::LYD => "LYD",
             PigBreed::Other => "其他",
         }
     }
@@ -145,7 +155,6 @@ pub struct Pig {
     pub ear_tag: String,
     pub status: PigStatus,
     pub breed: PigBreed,
-    pub breed_other: Option<String>,
     pub source_id: Option<Uuid>,
     pub gender: PigGender,
     pub birth_date: Option<NaiveDate>,
@@ -156,14 +165,18 @@ pub struct Pig {
     pub iacuc_no: Option<String>,
     pub experiment_date: Option<NaiveDate>,
     pub remark: Option<String>,
+    pub is_deleted: bool,
+    pub deleted_at: Option<DateTime<Utc>>,
+    pub deleted_by: Option<Uuid>,
     pub vet_weight_viewed_at: Option<DateTime<Utc>>,
     pub vet_vaccine_viewed_at: Option<DateTime<Utc>>,
     pub vet_sacrifice_viewed_at: Option<DateTime<Utc>>,
     pub vet_last_viewed_at: Option<DateTime<Utc>>,
-    pub deleted_at: Option<DateTime<Utc>>, // 軟刪除時間
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub pen_id: Option<Uuid>,
+    pub breed_other: Option<String>,
 }
 
 /// 觀察試驗紀錄
@@ -178,12 +191,11 @@ pub struct PigObservation {
     pub anesthesia_end: Option<DateTime<Utc>>,
     pub content: String,
     pub no_medication_needed: bool,
+    pub stop_medication: bool,
     pub treatments: Option<serde_json::Value>,
     pub remark: Option<String>,
     pub vet_read: bool,
     pub vet_read_at: Option<DateTime<Utc>>,
-    pub copied_from_id: Option<i32>,       // 複製來源紀錄 ID
-    pub deleted_at: Option<DateTime<Utc>>, // 軟刪除時間
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -210,8 +222,6 @@ pub struct PigSurgery {
     pub no_medication_needed: bool,
     pub vet_read: bool,
     pub vet_read_at: Option<DateTime<Utc>>,
-    pub copied_from_id: Option<i32>,       // 複製來源紀錄 ID
-    pub deleted_at: Option<DateTime<Utc>>, // 軟刪除時間
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -224,7 +234,6 @@ pub struct PigWeight {
     pub pig_id: i32,
     pub measure_date: NaiveDate,
     pub weight: rust_decimal::Decimal,
-    pub deleted_at: Option<DateTime<Utc>>, // 軟刪除時間
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
 }
@@ -237,7 +246,6 @@ pub struct PigVaccination {
     pub administered_date: NaiveDate,
     pub vaccine: Option<String>,
     pub deworming_dose: Option<String>,
-    pub deleted_at: Option<DateTime<Utc>>, // 軟刪除時間
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
 }

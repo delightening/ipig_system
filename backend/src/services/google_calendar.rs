@@ -1,5 +1,5 @@
 // Google Calendar API Client Service
-// 使用 Service Account 認證從 Google Calendar 讀取事件
+// 使用 Service Account 認證與 Google Calendar 進行雙向同步
 
 use chrono::{DateTime, Duration, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
@@ -38,7 +38,7 @@ struct EventsListResponse {
     next_page_token: Option<String>,
 }
 
-/// Google Calendar Event
+/// Google Calendar Event (用於讀取)
 #[derive(Debug, Deserialize)]
 struct GoogleEvent {
     id: String,
@@ -51,16 +51,40 @@ struct GoogleEvent {
     color_id: Option<String>,
     #[serde(rename = "htmlLink")]
     html_link: Option<String>,
+    #[allow(dead_code)]
+    etag: Option<String>,
 }
 
-/// Google Calendar Event Time
-#[derive(Debug, Deserialize)]
+/// Google Calendar Event Time (用於讀取/寫入)
+#[derive(Debug, Deserialize, Serialize, Clone)]
 struct GoogleEventTime {
-    #[serde(rename = "dateTime")]
+    #[serde(rename = "dateTime", skip_serializing_if = "Option::is_none")]
     date_time: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     date: Option<String>,
-    #[allow(dead_code)]
+    #[serde(rename = "timeZone", skip_serializing_if = "Option::is_none")]
     time_zone: Option<String>,
+}
+
+/// 建立/更新事件的請求結構
+#[derive(Debug, Serialize)]
+struct CreateEventRequest {
+    summary: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
+    start: GoogleEventTime,
+    end: GoogleEventTime,
+    #[serde(rename = "colorId", skip_serializing_if = "Option::is_none")]
+    color_id: Option<String>,
+}
+
+/// 建立事件後的回應
+#[derive(Debug, Deserialize)]
+pub struct CreatedEventResponse {
+    pub id: String,
+    #[serde(rename = "htmlLink")]
+    pub html_link: Option<String>,
+    pub etag: Option<String>,
 }
 
 /// JWT Header
@@ -80,6 +104,16 @@ struct JwtClaims {
     iat: i64,
 }
 
+/// 準備建立事件的資料
+pub struct NewCalendarEvent {
+    pub summary: String,
+    pub description: Option<String>,
+    pub start_date: NaiveDate,
+    pub end_date: NaiveDate,
+    pub all_day: bool,
+    pub color_id: Option<String>,
+}
+
 impl GoogleCalendarClient {
     /// 建立新的 Google Calendar 客戶端
     pub fn new(calendar_id: &str) -> Self {
@@ -95,10 +129,8 @@ impl GoogleCalendarClient {
         start_date: NaiveDate,
         end_date: NaiveDate,
     ) -> Result<Vec<CalendarEvent>> {
-        // 取得 access token
         let access_token = self.get_access_token().await?;
 
-        // 建立時間範圍 (RFC3339 格式)
         let time_min = start_date
             .and_hms_opt(0, 0, 0)
             .unwrap()
@@ -110,7 +142,6 @@ impl GoogleCalendarClient {
             .and_utc()
             .to_rfc3339();
 
-        // 呼叫 Google Calendar API
         let url = format!(
             "https://www.googleapis.com/calendar/v3/calendars/{}/events",
             urlencoding::encode(&self.calendar_id)
@@ -146,7 +177,6 @@ impl GoogleCalendarClient {
             AppError::Internal(format!("Failed to parse Google Calendar response: {}", e))
         })?;
 
-        // 轉換為 CalendarEvent
         let events = events_response
             .items
             .unwrap_or_default()
@@ -157,9 +187,217 @@ impl GoogleCalendarClient {
         Ok(events)
     }
 
+    /// 建立新事件到 Google Calendar
+    pub async fn create_event(&self, event: NewCalendarEvent) -> Result<CreatedEventResponse> {
+        let access_token = self.get_access_token().await?;
+
+        let url = format!(
+            "https://www.googleapis.com/calendar/v3/calendars/{}/events",
+            urlencoding::encode(&self.calendar_id)
+        );
+
+        let request_body = self.build_event_request(&event);
+
+        let response = self
+            .http_client
+            .post(&url)
+            .bearer_auth(&access_token)
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to create calendar event: {}", e)))?;
+
+        if !response.status().is_success() {
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(AppError::Internal(format!(
+                "Failed to create calendar event: {}",
+                error_text
+            )));
+        }
+
+        let created: CreatedEventResponse = response.json().await.map_err(|e| {
+            AppError::Internal(format!("Failed to parse create event response: {}", e))
+        })?;
+
+        Ok(created)
+    }
+
+    /// 更新已存在的事件
+    pub async fn update_event(
+        &self,
+        event_id: &str,
+        event: NewCalendarEvent,
+    ) -> Result<CreatedEventResponse> {
+        let access_token = self.get_access_token().await?;
+
+        let url = format!(
+            "https://www.googleapis.com/calendar/v3/calendars/{}/events/{}",
+            urlencoding::encode(&self.calendar_id),
+            urlencoding::encode(event_id)
+        );
+
+        let request_body = self.build_event_request(&event);
+
+        let response = self
+            .http_client
+            .put(&url)
+            .bearer_auth(&access_token)
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to update calendar event: {}", e)))?;
+
+        if !response.status().is_success() {
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(AppError::Internal(format!(
+                "Failed to update calendar event: {}",
+                error_text
+            )));
+        }
+
+        let updated: CreatedEventResponse = response.json().await.map_err(|e| {
+            AppError::Internal(format!("Failed to parse update event response: {}", e))
+        })?;
+
+        Ok(updated)
+    }
+
+    /// 刪除事件
+    pub async fn delete_event(&self, event_id: &str) -> Result<()> {
+        let access_token = self.get_access_token().await?;
+
+        let url = format!(
+            "https://www.googleapis.com/calendar/v3/calendars/{}/events/{}",
+            urlencoding::encode(&self.calendar_id),
+            urlencoding::encode(event_id)
+        );
+
+        let response = self
+            .http_client
+            .delete(&url)
+            .bearer_auth(&access_token)
+            .send()
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to delete calendar event: {}", e)))?;
+
+        // 204 No Content 表示成功刪除，404 表示已經不存在（也算成功）
+        if response.status().is_success() || response.status().as_u16() == 404 {
+            Ok(())
+        } else {
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            Err(AppError::Internal(format!(
+                "Failed to delete calendar event: {}",
+                error_text
+            )))
+        }
+    }
+
+    /// 取得單一事件 (用於衝突偵測)
+    pub async fn get_event(&self, event_id: &str) -> Result<Option<CalendarEvent>> {
+        let access_token = self.get_access_token().await?;
+
+        let url = format!(
+            "https://www.googleapis.com/calendar/v3/calendars/{}/events/{}",
+            urlencoding::encode(&self.calendar_id),
+            urlencoding::encode(event_id)
+        );
+
+        let response = self
+            .http_client
+            .get(&url)
+            .bearer_auth(&access_token)
+            .send()
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to get calendar event: {}", e)))?;
+
+        if response.status().as_u16() == 404 {
+            return Ok(None);
+        }
+
+        if !response.status().is_success() {
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(AppError::Internal(format!(
+                "Failed to get calendar event: {}",
+                error_text
+            )));
+        }
+
+        let event: GoogleEvent = response.json().await.map_err(|e| {
+            AppError::Internal(format!("Failed to parse event response: {}", e))
+        })?;
+
+        Ok(self.convert_event(event))
+    }
+
+    /// 建立事件請求結構
+    fn build_event_request(&self, event: &NewCalendarEvent) -> CreateEventRequest {
+        let (start, end) = if event.all_day {
+            // 全天事件使用 date 格式
+            // Google Calendar 的結束日期是排他的，所以要加一天
+            let end_date = event.end_date + Duration::days(1);
+            (
+                GoogleEventTime {
+                    date: Some(event.start_date.format("%Y-%m-%d").to_string()),
+                    date_time: None,
+                    time_zone: None,
+                },
+                GoogleEventTime {
+                    date: Some(end_date.format("%Y-%m-%d").to_string()),
+                    date_time: None,
+                    time_zone: None,
+                },
+            )
+        } else {
+            // 使用 dateTime 格式
+            let start_dt = event
+                .start_date
+                .and_hms_opt(9, 0, 0)
+                .unwrap()
+                .and_utc()
+                .to_rfc3339();
+            let end_dt = event
+                .end_date
+                .and_hms_opt(18, 0, 0)
+                .unwrap()
+                .and_utc()
+                .to_rfc3339();
+            (
+                GoogleEventTime {
+                    date: None,
+                    date_time: Some(start_dt),
+                    time_zone: Some("Asia/Taipei".to_string()),
+                },
+                GoogleEventTime {
+                    date: None,
+                    date_time: Some(end_dt),
+                    time_zone: Some("Asia/Taipei".to_string()),
+                },
+            )
+        };
+
+        CreateEventRequest {
+            summary: event.summary.clone(),
+            description: event.description.clone(),
+            start,
+            end,
+            color_id: event.color_id.clone(),
+        }
+    }
+
     /// 取得 OAuth2 Access Token (使用 Service Account)
     async fn get_access_token(&self) -> Result<String> {
-        // 優先讀取檔案路徑 (Docker secrets)，否則嘗試讀取 JSON 字串環境變數
         let key_json = if let Ok(credentials_path) = env::var("GOOGLE_APPLICATION_CREDENTIALS") {
             std::fs::read_to_string(&credentials_path).map_err(|e| {
                 AppError::Internal(format!(
@@ -178,18 +416,18 @@ impl GoogleCalendarClient {
         let service_account: ServiceAccountKey = serde_json::from_str(&key_json)
             .map_err(|e| AppError::Internal(format!("Invalid service account key: {}", e)))?;
 
-        // 建立 JWT
         let now = Utc::now().timestamp();
-        let exp = now + 3600; // 1 hour
+        let exp = now + 3600;
 
         let header = JwtHeader {
             alg: "RS256".to_string(),
             typ: "JWT".to_string(),
         };
 
+        // 使用完整的 calendar scope (讀寫權限)
         let claims = JwtClaims {
             iss: service_account.client_email.clone(),
-            scope: "https://www.googleapis.com/auth/calendar.readonly".to_string(),
+            scope: "https://www.googleapis.com/auth/calendar".to_string(),
             aud: service_account.token_uri.clone(),
             exp,
             iat: now,
@@ -197,7 +435,6 @@ impl GoogleCalendarClient {
 
         let jwt = self.create_jwt(&header, &claims, &service_account.private_key)?;
 
-        // 交換 token
         let response = self
             .http_client
             .post(&service_account.token_uri)
@@ -235,11 +472,9 @@ impl GoogleCalendarClient {
         claims: &JwtClaims,
         private_key_pem: &str,
     ) -> Result<String> {
-        // 使用 jsonwebtoken crate 進行簽名
         let encoding_key = jsonwebtoken::EncodingKey::from_rsa_pem(private_key_pem.as_bytes())
             .map_err(|e| AppError::Internal(format!("Invalid RSA private key: {}", e)))?;
 
-        // 使用 jsonwebtoken 來建立並簽名
         let token = jsonwebtoken::encode(
             &jsonwebtoken::Header::new(jsonwebtoken::Algorithm::RS256),
             claims,

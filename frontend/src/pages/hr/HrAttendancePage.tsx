@@ -70,13 +70,19 @@ export function HrAttendancePage() {
     // 打卡上班
     const clockInMutation = useMutation({
         mutationFn: async () => {
-            return api.post('/hr/attendance/clock-in', { source: 'web' })
+            return api.post<{ success: boolean; clock_in_time: string }>('/hr/attendance/clock-in', { source: 'web' })
         },
         onSuccess: (res) => {
+            const clockInTime = res.data.clock_in_time
+            // 立即更新 cache，讓 UI 馬上顯示打卡時間
+            queryClient.setQueryData(['hr-today-attendance'], (old: AttendanceWithUser | null) => ({
+                ...old,
+                clock_in_time: clockInTime,
+            } as AttendanceWithUser))
             refetchToday()
             toast({
                 title: '打卡成功',
-                description: `上班打卡時間：${format(new Date(), 'HH:mm:ss')}`,
+                description: `上班打卡時間：${format(new Date(clockInTime), 'HH:mm:ss')}`,
             })
         },
         onError: (error: any) => {
@@ -91,14 +97,20 @@ export function HrAttendancePage() {
     // 打卡下班
     const clockOutMutation = useMutation({
         mutationFn: async () => {
-            return api.post('/hr/attendance/clock-out', { source: 'web' })
+            return api.post<{ success: boolean; clock_out_time: string }>('/hr/attendance/clock-out', { source: 'web' })
         },
         onSuccess: (res) => {
+            const clockOutTime = res.data.clock_out_time
+            // 立即更新 cache，讓 UI 馬上顯示打卡時間
+            queryClient.setQueryData(['hr-today-attendance'], (old: AttendanceWithUser | null) => ({
+                ...old,
+                clock_out_time: clockOutTime,
+            } as AttendanceWithUser))
             refetchToday()
             queryClient.invalidateQueries({ queryKey: ['hr-attendance-history'] })
             toast({
                 title: '打卡成功',
-                description: `下班打卡時間：${format(new Date(), 'HH:mm:ss')}`,
+                description: `下班打卡時間：${format(new Date(clockOutTime), 'HH:mm:ss')}`,
             })
         },
         onError: (error: any) => {

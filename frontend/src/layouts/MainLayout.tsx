@@ -119,7 +119,7 @@ const navItemsConfig: NavItem[] = [
       { title: '出勤打卡', href: '/hr/attendance' },
       { title: '請假管理', href: '/hr/leaves' },
       { title: '加班管理', href: '/hr/overtime' },
-      { title: '日曆同步', href: '/hr/calendar' },
+      { title: '日曆', href: '/hr/calendar' },
     ],
   },
   {
@@ -592,7 +592,7 @@ export function MainLayout() {
     return sortedNavItems.filter((item) => {
       if (item.permission === 'erp') {
         const hasErpAccess = hasRole('admin') ||
-          user?.roles.some(r => ['purchasing', 'approver', 'WAREHOUSE_MANAGER'].includes(r)) ||
+          user?.roles.some(r => ['purchasing', 'approver', 'WAREHOUSE_MANAGER', 'EXPERIMENT_STAFF'].includes(r)) ||
           user?.permissions.some(p => p.startsWith('erp.'))
         return hasErpAccess
       }

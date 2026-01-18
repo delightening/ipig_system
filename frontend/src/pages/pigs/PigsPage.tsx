@@ -69,6 +69,8 @@ const statusColors: Record<PigStatus, string> = {
   assigned: 'bg-blue-100 text-blue-800',
   in_experiment: 'bg-orange-100 text-orange-800',
   completed: 'bg-green-100 text-green-800',
+  transferred: 'bg-purple-100 text-purple-800',
+  deceased: 'bg-red-100 text-red-800',
 }
 
 // 輔助函數：判斷欄位顯示文字
@@ -310,6 +312,8 @@ export function PigsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pigs'] })
+      queryClient.invalidateQueries({ queryKey: ['pigs-by-pen'] })
+      queryClient.invalidateQueries({ queryKey: ['pigs-count'] })
       toast({ title: '成功', description: '動物已新增' })
       setShowAddDialog(false)
       resetNewPigForm()
