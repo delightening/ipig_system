@@ -61,7 +61,6 @@ import { ProtocolEditPage } from '@/pages/protocols/ProtocolEditPage'
 
 // My Projects Pages
 import { MyProjectsPage } from '@/pages/my-projects/MyProjectsPage'
-import { MyProjectDetailPage } from '@/pages/my-projects/MyProjectDetailPage'
 
 // Pig Management Pages
 import { PigsPage } from '@/pages/pigs/PigsPage'
@@ -223,7 +222,7 @@ function App() {
 
                     {/* 我的計劃 */}
                     <Route path="/my-projects" element={<MyProjectsPage />} />
-                    <Route path="/my-projects/:id" element={<MyProjectDetailPage />} />
+                    <Route path="/my-projects/:id" element={<ProtocolDetailPage />} />
 
                     {/* 實驗動物管理 */}
                     <Route path="/pigs" element={<PigsPage />} />

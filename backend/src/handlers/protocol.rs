@@ -47,12 +47,30 @@ pub async fn list_protocols(
         || current_user.roles.contains(&"SYSTEM_ADMIN".to_string())
         || current_user.roles.contains(&"CHAIR".to_string());
     
-    let protocols = if has_view_all {
+    // 檢查是否為純審查委員角色（只有 REVIEWER 或 VET，沒有其他管理角色）
+    let is_reviewer_only = current_user.roles.iter()
+        .all(|r| ["REVIEWER", "VET"].contains(&r.as_str()))
+        && (current_user.roles.contains(&"REVIEWER".to_string()) 
+            || current_user.roles.contains(&"VET".to_string()));
+    
+    let mut protocols = if has_view_all && !is_reviewer_only {
         ProtocolService::list(&state.db, &query).await?
     } else {
         // 只能查看自己的專案
         ProtocolService::get_my_protocols(&state.db, current_user.id).await?
     };
+    
+    // 審查委員特殊過濾：只能看審查中和已核准的計畫，不能看草稿
+    if is_reviewer_only {
+        protocols.retain(|p| {
+            matches!(p.status, 
+                crate::models::ProtocolStatus::UnderReview |
+                crate::models::ProtocolStatus::Approved |
+                crate::models::ProtocolStatus::ApprovedWithConditions |
+                crate::models::ProtocolStatus::Closed
+            )
+        });
+    }
     
     Ok(Json(protocols))
 }
@@ -68,7 +86,13 @@ pub async fn get_protocol(
     let protocol = ProtocolService::get_by_id(&state.db, id).await?;
     
     // 檢查當前使用者是否有查看此專案的權限
-    let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string());
+    // CHAIR、IACUC_STAFF、SYSTEM_ADMIN 可以查看所有計畫書
+    let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string())
+        || current_user.roles.contains(&"CHAIR".to_string())
+        || current_user.roles.contains(&"IACUC_STAFF".to_string())
+        || current_user.roles.contains(&"SYSTEM_ADMIN".to_string());
+    
+    // 檢查是否為 PI、CLIENT 或 CO_EDITOR
     let is_pi_or_coeditor: (bool,) = sqlx::query_as(
         r#"
         SELECT EXISTS(
@@ -85,7 +109,23 @@ pub async fn get_protocol(
     .await
     .unwrap_or((false,));
     
-    if !has_view_all && protocol.protocol.pi_user_id != current_user.id && !is_pi_or_coeditor.0 {
+    // 檢查是否為已指派的審查委員
+    let is_assigned_reviewer: (bool,) = sqlx::query_as(
+        r#"
+        SELECT EXISTS(
+            SELECT 1 FROM review_assignments 
+            WHERE protocol_id = $1 
+            AND reviewer_id = $2
+        )
+        "#
+    )
+    .bind(id)
+    .bind(current_user.id)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or((false,));
+    
+    if !has_view_all && protocol.protocol.pi_user_id != current_user.id && !is_pi_or_coeditor.0 && !is_assigned_reviewer.0 {
         return Err(AppError::Forbidden("You don't have permission to view this protocol".to_string()));
     }
     
@@ -420,7 +460,13 @@ pub async fn export_protocol_pdf(
     let protocol = ProtocolService::get_by_id(&state.db, id).await?;
     
     // 檢查當前使用者是否有查看此專案的權限
-    let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string());
+    // CHAIR、IACUC_STAFF、SYSTEM_ADMIN 可以查看所有計畫書
+    let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string())
+        || current_user.roles.contains(&"CHAIR".to_string())
+        || current_user.roles.contains(&"IACUC_STAFF".to_string())
+        || current_user.roles.contains(&"SYSTEM_ADMIN".to_string());
+    
+    // 檢查是否為 PI、CLIENT 或 CO_EDITOR
     let is_pi_or_coeditor: (bool,) = sqlx::query_as(
         r#"
         SELECT EXISTS(
@@ -437,7 +483,23 @@ pub async fn export_protocol_pdf(
     .await
     .unwrap_or((false,));
     
-    if !has_view_all && protocol.protocol.pi_user_id != current_user.id && !is_pi_or_coeditor.0 {
+    // 檢查是否為已指派的審查委員
+    let is_assigned_reviewer: (bool,) = sqlx::query_as(
+        r#"
+        SELECT EXISTS(
+            SELECT 1 FROM review_assignments 
+            WHERE protocol_id = $1 
+            AND reviewer_id = $2
+        )
+        "#
+    )
+    .bind(id)
+    .bind(current_user.id)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or((false,));
+    
+    if !has_view_all && protocol.protocol.pi_user_id != current_user.id && !is_pi_or_coeditor.0 && !is_assigned_reviewer.0 {
         return Err(AppError::Forbidden("You don't have permission to export this protocol".to_string()));
     }
     

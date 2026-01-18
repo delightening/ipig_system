@@ -70,6 +70,7 @@ import {
   Eye,
   CheckCircle2,
   Users,
+  ClipboardList,
 } from 'lucide-react'
 import { formatDate, formatDateTime, formatFileSize } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
@@ -115,7 +116,7 @@ export function ProtocolDetailPage() {
   const { user } = useAuthStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const [activeTab, setActiveTab] = useState<'content' | 'versions' | 'history' | 'comments' | 'reviewers' | 'coeditors' | 'attachments'>('content')
+  const [activeTab, setActiveTab] = useState<'content' | 'versions' | 'history' | 'comments' | 'reviewers' | 'coeditors' | 'attachments' | 'pigs'>('content')
   const [showStatusDialog, setShowStatusDialog] = useState(false)
   const [showCommentDialog, setShowCommentDialog] = useState(false)
   const [showAssignDialog, setShowAssignDialog] = useState(false)
@@ -126,6 +127,7 @@ export function ProtocolDetailPage() {
   const [statusRemark, setStatusRemark] = useState('')
   const [commentContent, setCommentContent] = useState('')
   const [selectedReviewerId, setSelectedReviewerId] = useState('')
+  const [selectedReviewerIds, setSelectedReviewerIds] = useState<string[]>([])
   const [selectedCoEditorId, setSelectedCoEditorId] = useState('')
 
   // 取得計畫詳情
@@ -221,7 +223,7 @@ export function ProtocolDetailPage() {
           display_name: user.display_name || user.email,
         }))
     },
-    enabled: showAssignDialog,
+    enabled: showAssignDialog || (showStatusDialog && newStatus === 'UNDER_REVIEW'),
   })
 
   // 取得可指派的試驗工作人員（co-editor）
@@ -269,9 +271,11 @@ export function ProtocolDetailPage() {
       toast({ title: '成功', description: '狀態已變更' })
       queryClient.invalidateQueries({ queryKey: ['protocol', id] })
       queryClient.invalidateQueries({ queryKey: ['protocol-status-history', id] })
+      queryClient.invalidateQueries({ queryKey: ['protocol-reviewers', id] })
       setShowStatusDialog(false)
       setNewStatus('')
       setStatusRemark('')
+      setSelectedReviewerIds([])
       setSelectedCoEditorId('')
     },
     onError: (error: any) => {
@@ -427,11 +431,24 @@ export function ProtocolDetailPage() {
   const handleChangeStatus = async () => {
     if (!newStatus) return
 
+    // 驗證 UNDER_REVIEW 必須選擇 2-3 位審查委員
+    if (newStatus === 'UNDER_REVIEW') {
+      if (selectedReviewerIds.length < 2 || selectedReviewerIds.length > 3) {
+        toast({
+          title: '錯誤',
+          description: '必須選擇 2-3 位審查委員',
+          variant: 'destructive',
+        })
+        return
+      }
+    }
+
     // 先變更狀態
     try {
       await changeStatusMutation.mutateAsync({
         to_status: newStatus,
         remark: statusRemark || undefined,
+        reviewer_ids: newStatus === 'UNDER_REVIEW' ? selectedReviewerIds : undefined,
       })
 
       // 如果目標狀態是行政預審且選擇了 co-editor，則指派 co-editor
@@ -533,7 +550,7 @@ export function ProtocolDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/my-projects')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -572,11 +589,13 @@ export function ProtocolDetailPage() {
               </Link>
             </Button>
           )}
-          {getAvailableTransitions().length > 0 && protocol.status !== 'DRAFT' && (
-            <Button variant="outline" onClick={() => setShowStatusDialog(true)}>
-              變更狀態
-            </Button>
-          )}
+          {/* 只有 IACUC_STAFF、CHAIR、SYSTEM_ADMIN 或 admin 可以變更狀態 */}
+          {getAvailableTransitions().length > 0 && protocol.status !== 'DRAFT' &&
+            user?.roles?.some(r => ['IACUC_STAFF', 'CHAIR', 'SYSTEM_ADMIN', 'admin'].includes(r)) && (
+              <Button variant="outline" onClick={() => setShowStatusDialog(true)}>
+                變更狀態
+              </Button>
+            )}
         </div>
       </div>
 
@@ -640,6 +659,7 @@ export function ProtocolDetailPage() {
         <nav className="flex gap-4 overflow-x-auto">
           {[
             { key: 'content', label: '計畫內容', icon: FileText },
+            { key: 'pigs', label: '豬隻紀錄', icon: ClipboardList },
             { key: 'versions', label: '版本記錄', icon: History },
             { key: 'history', label: '狀態歷程', icon: Clock },
             { key: 'comments', label: '審查意見', icon: MessageSquare },
@@ -1107,6 +1127,24 @@ export function ProtocolDetailPage() {
         </Card>
       )}
 
+      {activeTab === 'pigs' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>豬隻紀錄</CardTitle>
+            <CardDescription>此計畫下所有已分配豬隻清單</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-12">
+              <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-semibold mb-2">尚無豬隻紀錄</h3>
+              <p className="text-muted-foreground">
+                此計畫目前尚未分配豬隻
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* 狀態變更對話框 */}
       <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
         <DialogContent>
@@ -1158,6 +1196,36 @@ export function ProtocolDetailPage() {
                 </p>
               </div>
             )}
+            {newStatus === 'UNDER_REVIEW' && (
+              <div className="space-y-2">
+                <Label>選擇審查委員 (2-3 位) *</Label>
+                <div className="space-y-2 max-h-48 overflow-y-auto border rounded p-2">
+                  {availableReviewers?.map((reviewer) => (
+                    <label key={reviewer.id} className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-1 rounded">
+                      <input
+                        type="checkbox"
+                        checked={selectedReviewerIds.includes(reviewer.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedReviewerIds([...selectedReviewerIds, reviewer.id])
+                          } else {
+                            setSelectedReviewerIds(selectedReviewerIds.filter(id => id !== reviewer.id))
+                          }
+                        }}
+                        className="h-4 w-4"
+                      />
+                      <span>{reviewer.display_name || reviewer.email}</span>
+                    </label>
+                  ))}
+                  {(!availableReviewers || availableReviewers.length === 0) && (
+                    <p className="text-sm text-muted-foreground py-2 text-center">沒有可選擇的審查委員</p>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  已選擇 {selectedReviewerIds.length} 位（需選擇 2-3 位）
+                </p>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>備註說明（選填）</Label>
               <Textarea
@@ -1174,7 +1242,12 @@ export function ProtocolDetailPage() {
             </Button>
             <Button
               onClick={handleChangeStatus}
-              disabled={!newStatus || changeStatusMutation.isPending || assignCoEditorMutation.isPending}
+              disabled={
+                !newStatus ||
+                changeStatusMutation.isPending ||
+                assignCoEditorMutation.isPending ||
+                (newStatus === 'UNDER_REVIEW' && (selectedReviewerIds.length < 2 || selectedReviewerIds.length > 3))
+              }
             >
               {(changeStatusMutation.isPending || assignCoEditorMutation.isPending) && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

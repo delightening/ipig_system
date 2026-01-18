@@ -72,7 +72,7 @@ interface NavItem {
   title: string // 顯示名稱
   href?: string // 跳轉連結（如果有）
   icon: React.ReactNode // 顯示圖示
-  children?: { title: string; href: string }[] // 子選單（選填）
+  children?: { title: string; href: string; permission?: string }[] // 子選單（選填）
   permission?: string // 需要的權限代碼（選填）
 }
 
@@ -119,7 +119,7 @@ const navItemsConfig: NavItem[] = [
       { title: '出勤打卡', href: '/hr/attendance' },
       { title: '請假管理', href: '/hr/leaves' },
       { title: '加班管理', href: '/hr/overtime' },
-      { title: '特休額度管理', href: '/hr/annual-leave' },
+      { title: '特休額度管理', href: '/hr/annual-leave', permission: 'hr.balance.manage' },
       { title: '日曆', href: '/hr/calendar' },
     ],
   },
@@ -128,7 +128,7 @@ const navItemsConfig: NavItem[] = [
     icon: <Stethoscope className="h-5 w-5" />,
     children: [
       { title: '動物列表', href: '/pigs' },
-      { title: '來源管理', href: '/pig-sources' },
+      { title: '來源管理', href: '/pig-sources', permission: 'pig.source.manage' },
     ],
   },
   {
@@ -590,18 +590,48 @@ export function MainLayout() {
 
   // 根據使用者權限過濾導覽列顯示項目
   const filteredNavItems = useMemo(() => {
-    return sortedNavItems.filter((item) => {
-      if (item.permission === 'erp') {
-        const hasErpAccess = hasRole('admin') ||
-          user?.roles.some(r => ['purchasing', 'approver', 'WAREHOUSE_MANAGER', 'EXPERIMENT_STAFF'].includes(r)) ||
-          user?.permissions.some(p => p.startsWith('erp.'))
-        return hasErpAccess
-      }
-      if (item.permission && !hasPermission(item.permission) && !hasRole(item.permission)) {
-        return false
-      }
-      return true
-    })
+    // 檢查是否為純審查角色（只有 REVIEWER, VET, CHAIR，沒有其他管理角色）
+    const isReviewerOrChairOnly = user?.roles?.every(r =>
+      ['REVIEWER', 'VET', 'CHAIR'].includes(r)
+    ) && user?.roles?.some(r => ['REVIEWER', 'VET', 'CHAIR'].includes(r))
+
+    return sortedNavItems
+      .filter((item) => {
+        // 審查委員/獸醫/主席不顯示人員管理
+        if (item.title === '人員管理' && isReviewerOrChairOnly) {
+          return false
+        }
+        if (item.permission === 'erp') {
+          const hasErpAccess = hasRole('admin') ||
+            user?.roles.some(r => ['purchasing', 'approver', 'WAREHOUSE_MANAGER', 'EXPERIMENT_STAFF'].includes(r)) ||
+            user?.permissions.some(p => p.startsWith('erp.'))
+          return hasErpAccess
+        }
+        if (item.permission && !hasPermission(item.permission) && !hasRole(item.permission)) {
+          return false
+        }
+        return true
+      })
+      .map((item) => {
+        // 過濾子選單項目的權限
+        if (item.children) {
+          const filteredChildren = item.children.filter(child => {
+            if (child.permission) {
+              return hasPermission(child.permission) || hasRole('admin')
+            }
+            return true
+          })
+          return { ...item, children: filteredChildren }
+        }
+        return item
+      })
+      .filter((item) => {
+        // 如果有子選單但全部被過濾掉，則隱藏整個項目
+        if (item.children && item.children.length === 0) {
+          return false
+        }
+        return true
+      })
   }, [sortedNavItems, hasRole, hasPermission, user])
 
   return (

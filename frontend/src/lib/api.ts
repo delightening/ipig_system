@@ -599,6 +599,8 @@ export interface UpdateProtocolRequest {
 export interface ChangeStatusRequest {
   to_status: ProtocolStatus
   remark?: string
+  /** 審查委員 ID 列表（當目標狀態為 UNDER_REVIEW 時必填 2-3 位） */
+  reviewer_ids?: string[]
 }
 
 export interface CreateCommentRequest {

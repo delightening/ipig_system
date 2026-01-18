@@ -397,6 +397,16 @@ impl ProtocolService {
         .await?
         .ok_or_else(|| AppError::NotFound("Protocol not found".to_string()))?;
 
+        // 驗證 UNDER_REVIEW 狀態必須提供 2-3 位審查委員
+        if req.to_status == ProtocolStatus::UnderReview {
+            let reviewer_ids = req.reviewer_ids.as_ref()
+                .ok_or_else(|| AppError::Validation("必須選擇審查委員".to_string()))?;
+            
+            if reviewer_ids.len() < 2 || reviewer_ids.len() > 3 {
+                return Err(AppError::Validation("必須選擇 2-3 位審查委員".to_string()));
+            }
+        }
+
         // TODO: 驗證狀態轉移是否合法（根據角色和當前狀態）
 
         // IACUC 編號生成規則：
@@ -449,6 +459,22 @@ impl ProtocolService {
 
         // 記錄狀態變更
         Self::record_status_change(pool, id, Some(protocol.status), req.to_status, changed_by, req.remark.clone()).await?;
+
+        // 當狀態變為 UNDER_REVIEW 時，自動指派選定的審查委員
+        if req.to_status == ProtocolStatus::UnderReview {
+            if let Some(reviewer_ids) = &req.reviewer_ids {
+                for reviewer_id in reviewer_ids {
+                    Self::assign_reviewer(
+                        pool,
+                        &AssignReviewerRequest {
+                            protocol_id: id,
+                            reviewer_id: *reviewer_id,
+                        },
+                        changed_by,
+                    ).await?;
+                }
+            }
+        }
 
         // 當計劃通過時，自動依照 IACUC No. 自動填入客戶
         if (req.to_status == ProtocolStatus::Approved || req.to_status == ProtocolStatus::ApprovedWithConditions) 
@@ -1042,18 +1068,33 @@ impl ProtocolService {
             .fetch_all(pool)
             .await?
         } else {
-            // 一般用戶：只查看自己相關的計畫
+            // 一般用戶：查看自己相關的計畫 + 被指派審查的計畫
             sqlx::query_as::<_, ProtocolListItem>(
                 r#"
-                SELECT 
+                SELECT DISTINCT
                     p.id, p.protocol_no, p.iacuc_no, p.title, p.status,
                     p.pi_user_id, u.display_name as pi_name, u.organization as pi_organization,
                     p.start_date, p.end_date, p.created_at,
                     NULLIF(p.working_content->'basic'->>'apply_study_number', '') as apply_study_number
                 FROM protocols p
                 LEFT JOIN users u ON p.pi_user_id = u.id
-                INNER JOIN user_protocols up ON p.id = up.protocol_id
-                WHERE up.user_id = $1 AND p.status != 'DELETED'
+                WHERE p.status != 'DELETED'
+                AND (
+                    -- 用戶是 PI、CLIENT 或 CO_EDITOR
+                    EXISTS (
+                        SELECT 1 FROM user_protocols up 
+                        WHERE up.protocol_id = p.id AND up.user_id = $1
+                    )
+                    OR
+                    -- 用戶是被指派的審查委員（只能看非草稿狀態）
+                    (
+                        EXISTS (
+                            SELECT 1 FROM review_assignments ra 
+                            WHERE ra.protocol_id = p.id AND ra.reviewer_id = $1
+                        )
+                        AND p.status NOT IN ('DRAFT', 'REVISION_REQUIRED')
+                    )
+                )
                 ORDER BY p.created_at DESC
                 "#
             )

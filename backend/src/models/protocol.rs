@@ -189,6 +189,8 @@ pub struct UpdateProtocolRequest {
 pub struct ChangeStatusRequest {
     pub to_status: ProtocolStatus,
     pub remark: Option<String>,
+    /// 審查委員 ID 列表（當目標狀態為 UNDER_REVIEW 時必填 2-3 位）
+    pub reviewer_ids: Option<Vec<Uuid>>,
 }
 
 #[derive(Debug, Deserialize)]

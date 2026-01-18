@@ -127,6 +127,32 @@ async fn ensure_schema(pool: &sqlx::PgPool) -> Result<()> {
     Ok(())
 }
 
+/// 確保必要的權限存在於資料庫
+/// 用於補充 migration 中未包含的權限
+async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
+    // 需要確保存在的權限清單
+    let required_permissions = vec![
+        ("pig.source.manage", "管理豬隻來源", "pig", "可管理豬隻來源資料"),
+    ];
+    
+    for (code, name, module, description) in required_permissions {
+        sqlx::query(r#"
+            INSERT INTO permissions (id, code, name, module, description, created_at)
+            VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW())
+            ON CONFLICT (code) DO NOTHING
+        "#)
+        .bind(code)
+        .bind(name)
+        .bind(module)
+        .bind(description)
+        .execute(pool)
+        .await?;
+    }
+    
+    tracing::info!("[Permissions] ✓ Required permissions verified");
+    Ok(())
+}
+
 /// 確保所有角色擁有正確的權限
 /// 在程式啟動時自動配置所有系統角色的權限
 async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
@@ -220,21 +246,24 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ]),
         
         // ============================================
-        // REVIEWER (審查委員) - 計畫審查權限
+        // REVIEWER (審查委員) - 計畫審查權限（僅能看被指派的計畫）+ 可查看所有豬隻
         // ============================================
         ("REVIEWER", vec![
-            // 計畫審查
-            "aup.protocol.view_all", "aup.protocol.review",
+            // 計畫審查（只能看自己被指派的）
+            "aup.protocol.view_own", "aup.protocol.review",
             // 審查流程
             "aup.review.view", "aup.review.comment",
             // 附件管理
             "aup.attachment.view", "aup.attachment.download",
             // 版本管理
             "aup.version.view",
+            // 豬隻管理 - 僅查看，不含來源管理
+            "pig.pig.view_all",
+            "pig.record.view",
         ]),
         
         // ============================================
-        // CHAIR (IACUC 主席) - 計畫核准、審查人員指派
+        // CHAIR (IACUC 主席) - 計畫核准、審查人員指派 + 可查看所有豬隻
         // ============================================
         ("CHAIR", vec![
             // 計畫管理
@@ -246,6 +275,9 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "aup.attachment.view", "aup.attachment.download",
             // 版本管理
             "aup.version.view",
+            // 豬隻管理 - 僅查看，不含來源管理
+            "pig.pig.view_all",
+            "pig.record.view",
         ]),
         
         // ============================================
@@ -265,6 +297,8 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "pig.pig.view_all", "pig.pig.create", "pig.pig.edit", 
             "pig.pig.assign", "pig.pig.import", "pig.pig.delete",
             "pig.record.view", "pig.record.create", "pig.record.edit", "pig.record.delete",
+            // 豬隻來源管理
+            "pig.source.manage",
             // 匯出
             "pig.export.medical", "pig.export.observation", "pig.export.surgery", "pig.export.experiment",
         ]),
@@ -283,14 +317,17 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "aup.attachment.upload", "aup.attachment.delete",
             // 版本管理
             "aup.version.view",
-            // 豬隻管理
-            "pig.pig.view_project",
+            // 豬隻管理 - 可查看所有豬隻
+            "pig.pig.view_all",
             "pig.record.view", "pig.record.create", "pig.record.edit",
             "pig.record.observation", "pig.record.surgery", 
             "pig.record.weight", "pig.record.vaccine", "pig.record.sacrifice",
+            // 豬隻來源管理
+            "pig.source.manage",
             // 匯出
             "pig.export.observation", "pig.export.surgery", "pig.export.experiment",
-            // ERP 查詢（僅讀取）
+            // ERP 查詢（僅讀取）- 倉庫、產品、夥伴、庫存
+            "erp.warehouse.view", "erp.product.view", "erp.partner.view",
             "erp.inventory.view", "erp.stock.view",
             // Dashboard 權限
             "dashboard.view",
@@ -677,6 +714,11 @@ async fn main() -> anyhow::Result<()> {
     // Ensure default admin user exists
     if let Err(e) = ensure_admin_user(&pool).await {
         tracing::warn!("Failed to ensure admin user (non-fatal): {}", e);
+    }
+
+    // 確保必要的權限存在
+    if let Err(e) = ensure_required_permissions(&pool).await {
+        tracing::warn!("Failed to ensure required permissions (non-fatal): {}", e);
     }
 
     // 確保所有角色擁有正確的權限

@@ -24,6 +24,7 @@ import {
 import { useToast } from '@/components/ui/use-toast'
 import { Eye, Loader2, FileText, Calendar, Building, X } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+import { useAuthStore } from '@/stores/auth'
 
 const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'> = {
   DRAFT: 'secondary',
@@ -44,6 +45,7 @@ const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' |
 export function MyProjectsPage() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
+  const { user } = useAuthStore()
   const [closeDialogOpen, setCloseDialogOpen] = useState(false)
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
 
@@ -247,17 +249,19 @@ export function MyProjectsPage() {
                               檢視
                             </Link>
                           </Button>
-                          {project.status !== 'CLOSED' && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleCloseClick(project.id)}
-                              disabled={closeProtocolMutation.isPending}
-                            >
-                              <X className="mr-2 h-4 w-4" />
-                              結案
-                            </Button>
-                          )}
+                          {/* 結案按鈕: 審查委員不應有結案功能 */}
+                          {project.status !== 'CLOSED' &&
+                            !user?.roles?.every(role => ['REVIEWER', 'VET'].includes(role)) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleCloseClick(project.id)}
+                                disabled={closeProtocolMutation.isPending}
+                              >
+                                <X className="mr-2 h-4 w-4" />
+                                結案
+                              </Button>
+                            )}
                         </div>
                       </TableCell>
                     </TableRow>

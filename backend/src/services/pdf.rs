@@ -41,7 +41,7 @@ impl PdfService {
             .map_err(|e| AppError::Internal(format!("Failed to load font: {}", e)))?;
 
         // 開始渲染 PDF
-        let mut current_layer = doc.get_page(page1).get_layer(layer1);
+        let current_layer = doc.get_page(page1).get_layer(layer1);
         let mut y_position = PAGE_HEIGHT_MM - MARGIN_MM;
 
         // ========== 標題 ==========

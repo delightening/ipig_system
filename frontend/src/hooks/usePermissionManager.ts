@@ -13,14 +13,27 @@ export interface PermissionGroup {
   }[]
 }
 
-// ??????
+// 模組配置
 const MODULE_CONFIG: Record<string, { name: string; order: number }> = {
   aup: { name: 'AUP', order: 1 },
   pig: { name: 'Pig', order: 2 },
   erp: { name: 'ERP', order: 3 },
-  dev: { name: 'Dev', order: 4 },
-  notification: { name: 'Notification', order: 5 },
-  report: { name: 'Report', order: 6 },
+  notification: { name: 'Notification', order: 4 },
+  report: { name: 'Report', order: 5 },
+  hr: { name: 'HR', order: 6 },
+  facility: { name: 'Facility', order: 7 },
+  building: { name: 'Facility', order: 7 },
+  zone: { name: 'Facility', order: 7 },
+  pen: { name: 'Facility', order: 7 },
+  species: { name: 'Species', order: 8 },
+  department: { name: 'Department', order: 9 },
+  calendar: { name: 'Calendar', order: 10 },
+  audit: { name: 'Audit', order: 11 },
+  user: { name: 'User', order: 12 },
+  role: { name: 'Role', order: 13 },
+  permission: { name: 'Permission', order: 14 },
+  system: { name: 'System', order: 15 },
+  dev: { name: 'Dev', order: 16 },
   other: { name: 'Other', order: 99 },
 }
 
@@ -169,19 +182,19 @@ function getCategoryName(module: string, category: string): string {
   if (CATEGORY_NAMES[module]?.[category]) {
     return CATEGORY_NAMES[module][category]
   }
-  
+
   // ?????????
   for (const mod in CATEGORY_NAMES) {
     if (CATEGORY_NAMES[mod][category]) {
       return CATEGORY_NAMES[mod][category]
     }
   }
-  
+
   // ????????????
   if (OPERATION_NAMES[category]) {
     return OPERATION_NAMES[category]
   }
-  
+
   // ???????????
   return category
     .replace(/_/g, ' ')
@@ -300,7 +313,7 @@ export function usePermissionManager(permissions: Permission[] | undefined) {
   const stats = useMemo(() => {
     const total = uniquePermissions.length
     const moduleCounts = new Map<string, number>()
-    
+
     uniquePermissions.forEach(perm => {
       const module = getPermissionModule(perm)
       moduleCounts.set(module, (moduleCounts.get(module) || 0) + 1)
@@ -360,15 +373,15 @@ export function usePermissionManager(permissions: Permission[] | undefined) {
     // ???
     groupedPermissions: filteredGroups,
     stats,
-    
+
     // ???
     searchQuery,
     setSearchQuery,
-    
+
     // ???
     selectedModule,
     setSelectedModule,
-    
+
     // ???/???
     toggleModule,
     toggleCategory,
