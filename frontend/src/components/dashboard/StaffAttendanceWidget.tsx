@@ -37,7 +37,7 @@ export function StaffAttendanceWidget() {
 
     if (isLoading) {
         return (
-            <Card className="col-span-2">
+            <Card className="h-full overflow-auto">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                         <Users className="h-4 w-4 text-indigo-500" />
@@ -55,7 +55,7 @@ export function StaffAttendanceWidget() {
 
     if (error) {
         return (
-            <Card className="col-span-2">
+            <Card className="h-full overflow-auto">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                         <Users className="h-4 w-4 text-indigo-500" />
@@ -72,7 +72,7 @@ export function StaffAttendanceWidget() {
     const currentMonth = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'long' })
 
     return (
-        <Card className="col-span-2">
+        <Card className="h-full overflow-auto">
             <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <Users className="h-4 w-4 text-indigo-500" />

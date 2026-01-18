@@ -52,7 +52,7 @@ export function CalendarWidget() {
 
     if (isLoading) {
         return (
-            <Card className="col-span-2">
+            <Card className="h-full overflow-auto">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                         <Calendar className="h-4 w-4 text-blue-500" />
@@ -70,7 +70,7 @@ export function CalendarWidget() {
 
     if (error) {
         return (
-            <Card className="col-span-2">
+            <Card className="h-full overflow-auto">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                         <Calendar className="h-4 w-4 text-blue-500" />
@@ -96,7 +96,7 @@ export function CalendarWidget() {
     const hasUpcoming = (data?.upcoming_leaves?.length ?? 0) > 0
 
     return (
-        <Card className="col-span-2">
+        <Card className="h-full overflow-auto flex flex-col">
             <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-blue-500" />

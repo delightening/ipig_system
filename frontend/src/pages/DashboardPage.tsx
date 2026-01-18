@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Slider } from '@/components/ui/slider'
 import {
   Dialog,
   DialogContent,
@@ -24,9 +25,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { toast } from '@/components/ui/use-toast'
-import { formatNumber, formatDate } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 import {
-  Package,
   TrendingUp,
   TrendingDown,
   AlertTriangle,
@@ -34,25 +34,20 @@ import {
   Loader2,
   Calendar,
   Settings2,
-  GripVertical,
+  Lock,
+  Unlock,
 } from 'lucide-react'
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from '@dnd-kit/core'
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  rectSortingStrategy,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
+// react-grid-layout v2.x - using legacy API for backwards compatibility
+import { Responsive, WidthProvider, LayoutItem, Layout } from 'react-grid-layout/legacy'
+import 'react-grid-layout/css/styles.css'
+import 'react-resizable/css/styles.css'
+
+// Create responsive width-aware layout component
+const ResponsiveGridLayout = WidthProvider(Responsive)
+
+// Responsive breakpoints and column configurations
+const BREAKPOINTS = { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }
+const COLS = { lg: 12, md: 9, sm: 6, xs: 4, xxs: 2 }
 import {
   LeaveBalanceWidget,
   MyProjectsWidget,
@@ -61,55 +56,17 @@ import {
   StaffAttendanceWidget,
   CalendarWidget,
   GoogleCalendarEventsWidget,
-  DashboardWidgetConfig,
-  DEFAULT_DASHBOARD_WIDGETS,
+  WidgetLayoutItem,
+  DEFAULT_DASHBOARD_LAYOUT,
+  GRID_COLS,
+  GRID_ROW_HEIGHT,
   widgetNames,
   widgetDescriptions,
   widgetPermissions,
   widgetCategories,
   widgetCategoryNames,
+  widgetOptionsConfig,
 } from '@/components/dashboard'
-
-// 可排序的 Widget 容器
-function SortableWidgetContainer({
-  id,
-  children,
-  isEditMode,
-}: {
-  id: string
-  children: React.ReactNode
-  isEditMode: boolean
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  }
-
-  return (
-    <div ref={setNodeRef} style={style} className="relative">
-      {isEditMode && (
-        <button
-          {...attributes}
-          {...listeners}
-          className="absolute -top-2 -left-2 z-10 p-1 bg-slate-800 text-white rounded-full cursor-grab active:cursor-grabbing shadow-lg"
-        >
-          <GripVertical className="h-4 w-4" />
-        </button>
-      )}
-      {children}
-    </div>
-  )
-}
 
 // 即將到期假期內容組件
 interface BalanceSummaryData {
@@ -184,44 +141,37 @@ export function DashboardPage() {
   const { user, hasRole, hasPermission } = useAuthStore()
   const [showSettingsDialog, setShowSettingsDialog] = useState(false)
   const [isEditMode, setIsEditMode] = useState(false)
-  const [tempWidgetConfig, setTempWidgetConfig] = useState<DashboardWidgetConfig[]>([])
-
-  // dnd-kit sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  )
+  const [tempLayout, setTempLayout] = useState<WidgetLayoutItem[]>([])
 
   // 從後端取得 Widget 配置
-  const { data: widgetConfigData } = useQuery({
+  const { data: layoutData } = useQuery({
     queryKey: ['user-preferences', 'dashboard_widgets'],
     queryFn: async () => {
-      const res = await api.get<{ key: string; value: DashboardWidgetConfig[] }>('/me/preferences/dashboard_widgets')
+      const res = await api.get<{ key: string; value: WidgetLayoutItem[] }>('/me/preferences/dashboard_widgets')
       return res.data.value
     },
   })
 
   // 儲存 Widget 配置
-  const saveWidgetConfigMutation = useMutation({
-    mutationFn: async (config: DashboardWidgetConfig[]) => {
-      return api.put('/me/preferences/dashboard_widgets', { value: config })
+  const saveLayoutMutation = useMutation({
+    mutationFn: async (layout: WidgetLayoutItem[]) => {
+      return api.put('/me/preferences/dashboard_widgets', { value: layout })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-preferences', 'dashboard_widgets'] })
-      toast({ title: '成功', description: '儀表板設定已儲存' })
+      toast({ title: '成功', description: '儀表板佈局已儲存' })
     },
   })
 
-  // 合併後的 Widget 配置
-  const widgetConfig = useMemo(() => {
-    const config = widgetConfigData || DEFAULT_DASHBOARD_WIDGETS
-    return config.sort((a, b) => a.order - b.order)
-  }, [widgetConfigData])
+  // 合併後的佈局配置
+  const currentLayout = useMemo(() => {
+    return layoutData || DEFAULT_DASHBOARD_LAYOUT
+  }, [layoutData])
 
   // 根據權限過濾可顯示的 Widget
   const availableWidgets = useMemo(() => {
-    return widgetConfig.filter((w) => {
-      const permission = widgetPermissions[w.id]
+    return currentLayout.filter((w) => {
+      const permission = widgetPermissions[w.i]
       if (!permission) return true
       if (permission === 'erp') {
         return hasRole('admin') ||
@@ -231,53 +181,66 @@ export function DashboardPage() {
       if (permission === 'admin') return hasRole('admin')
       return hasPermission(permission)
     })
-  }, [widgetConfig, hasRole, hasPermission, user])
+  }, [currentLayout, hasRole, hasPermission, user])
 
   // 可見的 Widget
   const visibleWidgets = useMemo(() => {
-    return availableWidgets.filter((w) => w.visible)
+    return availableWidgets.filter((w) => w.visible !== false)
   }, [availableWidgets])
 
-  // 處理拖曳結束
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event
-    if (over && active.id !== over.id) {
-      const oldIndex = visibleWidgets.findIndex((w) => w.id === active.id)
-      const newIndex = visibleWidgets.findIndex((w) => w.id === over.id)
-      const newOrder = arrayMove(visibleWidgets, oldIndex, newIndex)
+  // 處理佈局變更
+  const handleLayoutChange = (newLayout: LayoutItem[]) => {
+    if (!isEditMode) return
 
-      // 更新整體配置的 order
-      const newConfig = widgetConfig.map((w) => {
-        const newOrderIndex = newOrder.findIndex((nw) => nw.id === w.id)
-        return { ...w, order: newOrderIndex >= 0 ? newOrderIndex : w.order }
-      })
+    // 合併新佈局和現有的自訂屬性
+    const updatedLayout = currentLayout.map(item => {
+      const layoutItem = newLayout.find(l => l.i === item.i)
+      if (layoutItem) {
+        return {
+          ...item,
+          x: layoutItem.x,
+          y: layoutItem.y,
+          w: layoutItem.w,
+          h: layoutItem.h,
+        }
+      }
+      return item
+    })
 
-      saveWidgetConfigMutation.mutate(newConfig)
-    }
+    saveLayoutMutation.mutate(updatedLayout)
   }
 
   // 開啟設定對話框
   const openSettings = () => {
-    setTempWidgetConfig([...widgetConfig])
+    setTempLayout([...currentLayout])
     setShowSettingsDialog(true)
   }
 
   // 儲存設定
   const handleSaveSettings = () => {
-    saveWidgetConfigMutation.mutate(tempWidgetConfig)
+    saveLayoutMutation.mutate(tempLayout)
     setShowSettingsDialog(false)
   }
 
   // 切換 Widget 顯示狀態
   const toggleWidgetVisibility = (widgetId: string) => {
-    setTempWidgetConfig((prev) =>
+    setTempLayout((prev) =>
       prev.map((w) =>
-        w.id === widgetId ? { ...w, visible: !w.visible } : w
+        w.i === widgetId ? { ...w, visible: !w.visible } : w
       )
     )
   }
 
-  // ERP 相關查詢（保留原有功能）
+  // 變更 Widget 選項
+  const changeWidgetOption = (widgetId: string, key: string, value: number) => {
+    setTempLayout((prev) =>
+      prev.map((w) =>
+        w.i === widgetId ? { ...w, options: { ...w.options, [key]: value } } : w
+      )
+    )
+  }
+
+  // ERP 相關查詢
   const { data: lowStockAlerts, isLoading: loadingAlerts } = useQuery({
     queryKey: ['low-stock-alerts'],
     queryFn: async () => {
@@ -324,11 +287,12 @@ export function DashboardPage() {
     return names[type] || type
   }
 
-  const trendData = useMemo(() => {
+  // 產生趨勢資料函數
+  const getTrendData = (days: number = 7) => {
     if (!recentDocuments) return []
     const today = new Date()
-    const days: { date: string; dateStr: string; inbound: number; outbound: number }[] = []
-    for (let i = 6; i >= 0; i--) {
+    const result: { date: string; dateStr: string; inbound: number; outbound: number }[] = []
+    for (let i = days - 1; i >= 0; i--) {
       const date = new Date(today)
       date.setDate(date.getDate() - i)
       const dateStr = date.toISOString().split('T')[0]
@@ -338,13 +302,14 @@ export function DashboardPage() {
       )
       const inbound = dayDocs.filter((d) => ['GRN'].includes(d.doc_type)).length
       const outbound = dayDocs.filter((d) => ['DO', 'PR'].includes(d.doc_type)).length
-      days.push({ date: dateStr, dateStr: displayDate, inbound, outbound })
+      result.push({ date: dateStr, dateStr: displayDate, inbound, outbound })
     }
-    return days
-  }, [recentDocuments])
+    return result
+  }
 
   // Widget 渲染函數
-  const renderWidget = (widgetId: string) => {
+  const renderWidget = (widgetItem: WidgetLayoutItem) => {
+    const widgetId = widgetItem.i
     switch (widgetId) {
       case 'calendar_widget':
         return <CalendarWidget />
@@ -362,7 +327,7 @@ export function DashboardPage() {
         return <GoogleCalendarEventsWidget />
       case 'low_stock_alert':
         return (
-          <Card>
+          <Card className="h-full overflow-auto">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">低庫存警示</CardTitle>
               <AlertTriangle className="h-4 w-4 text-yellow-500" />
@@ -377,7 +342,7 @@ export function DashboardPage() {
         )
       case 'pending_documents':
         return (
-          <Card>
+          <Card className="h-full overflow-auto">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">待處理單據</CardTitle>
               <FileText className="h-4 w-4 text-blue-500" />
@@ -394,7 +359,7 @@ export function DashboardPage() {
         )
       case 'today_inbound':
         return (
-          <Card>
+          <Card className="h-full overflow-auto">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">今日入庫</CardTitle>
               <TrendingUp className="h-4 w-4 text-green-500" />
@@ -416,7 +381,7 @@ export function DashboardPage() {
         )
       case 'today_outbound':
         return (
-          <Card>
+          <Card className="h-full overflow-auto">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">今日出庫</CardTitle>
               <TrendingDown className="h-4 w-4 text-red-500" />
@@ -436,15 +401,17 @@ export function DashboardPage() {
             </CardContent>
           </Card>
         )
-      case 'weekly_trend':
+      case 'weekly_trend': {
+        const days = widgetItem.options?.days || 7
+        const trendData = getTrendData(days)
         return (
-          <Card className="col-span-2">
+          <Card className="h-full overflow-auto">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-indigo-500" />
-                近 7 天出入庫趨勢
+                近 {days} 天出入庫趨勢
               </CardTitle>
-              <CardDescription>最近一週的出入庫單據統計</CardDescription>
+              <CardDescription>最近 {days} 天的出入庫單據統計</CardDescription>
             </CardHeader>
             <CardContent>
               {loadingDocuments ? (
@@ -456,8 +423,8 @@ export function DashboardPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>日期</TableHead>
-                      <TableHead className="text-right">入庫單據</TableHead>
-                      <TableHead className="text-right">出庫單據</TableHead>
+                      <TableHead className="text-right">入庫</TableHead>
+                      <TableHead className="text-right">出庫</TableHead>
                       <TableHead className="text-right">淨變動</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -499,9 +466,10 @@ export function DashboardPage() {
             </CardContent>
           </Card>
         )
+      }
       case 'recent_documents':
         return (
-          <Card>
+          <Card className="h-full overflow-auto">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-blue-500" />
@@ -548,10 +516,9 @@ export function DashboardPage() {
             </CardContent>
           </Card>
         )
-      case 'upcoming_leaves': {
-        // 使用 LeaveBalanceWidget 的資料邏輯
+      case 'upcoming_leaves':
         return (
-          <Card>
+          <Card className="h-full overflow-auto">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-orange-500" />
@@ -564,11 +531,67 @@ export function DashboardPage() {
             </CardContent>
           </Card>
         )
-      }
       default:
         return null
     }
   }
+
+  // 轉換為 react-grid-layout 需要的格式
+  const baseLayout: LayoutItem[] = visibleWidgets.map(w => ({
+    i: w.i,
+    x: w.x,
+    y: w.y,
+    w: w.w,
+    h: w.h,
+    minW: w.minW,
+    minH: w.minH,
+    maxW: w.maxW,
+    maxH: w.maxH,
+  }))
+
+  // 生成響應式佈局
+  const generateResponsiveLayouts = (base: LayoutItem[]) => {
+    // 大螢幕: 使用原始佈局
+    const lgLayout = base
+
+    // 中螢幕 (9列): 調整寬度
+    const mdLayout = base.map(item => ({
+      ...item,
+      w: Math.min(item.w, 9),
+      x: Math.min(item.x, 9 - Math.min(item.w, 9)),
+    }))
+
+    // 小螢幕 (6列): 重新排列為較窄佈局
+    const smLayout = base.map((item, idx) => ({
+      ...item,
+      x: (idx % 2) * 3,
+      y: Math.floor(idx / 2) * 4,
+      w: 3,
+      h: 4,
+    }))
+
+    // 超小螢幕 (4列): 2x2 網格
+    const xsLayout = base.map((item, idx) => ({
+      ...item,
+      x: (idx % 2) * 2,
+      y: Math.floor(idx / 2) * 4,
+      w: 2,
+      h: 4,
+    }))
+
+    // 最小螢幕 (2列): 單列佈局
+    const xxsLayout = base.map((item, idx) => ({
+      ...item,
+      x: 0,
+      y: idx * 4,
+      w: 2,
+      h: 4,
+    }))
+
+    return { lg: lgLayout, md: mdLayout, sm: smLayout, xs: xsLayout, xxs: xxsLayout }
+  }
+
+  const responsiveLayouts = generateResponsiveLayouts(baseLayout)
 
   return (
     <div className="space-y-6">
@@ -579,14 +602,17 @@ export function DashboardPage() {
         </div>
         <div className="flex gap-2">
           {isEditMode ? (
-            <Button variant="outline" size="sm" onClick={() => setIsEditMode(false)}>
-              完成
-            </Button>
+            <>
+              <Button variant="outline" size="sm" onClick={() => setIsEditMode(false)}>
+                <Lock className="h-4 w-4 mr-1" />
+                鎖定佈局
+              </Button>
+            </>
           ) : (
             <>
               <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)}>
-                <GripVertical className="h-4 w-4 mr-1" />
-                調整順序
+                <Unlock className="h-4 w-4 mr-1" />
+                編輯佈局
               </Button>
               <Button variant="outline" size="sm" onClick={openSettings}>
                 <Settings2 className="h-4 w-4 mr-1" />
@@ -600,37 +626,37 @@ export function DashboardPage() {
       {/* 編輯模式提示 */}
       {isEditMode && (
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
-          拖曳 Widget 左上角的圖示來調整順序，完成後點選「完成」按鈕
+          拖曳 Widget 調整位置，拖曳右下角調整大小，完成後點選「鎖定佈局」
         </div>
       )}
 
       {/* Widget Grid */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
+      <ResponsiveGridLayout
+        className="layout"
+        layouts={responsiveLayouts}
+        breakpoints={BREAKPOINTS}
+        cols={COLS}
+        rowHeight={GRID_ROW_HEIGHT}
+        onLayoutChange={(currentLayout) => handleLayoutChange([...currentLayout] as LayoutItem[])}
+        isDraggable={isEditMode}
+        isResizable={isEditMode}
+        margin={[16, 16]}
+        containerPadding={[0, 0]}
+        useCSSTransforms={true}
       >
-        <SortableContext
-          items={visibleWidgets.map((w) => w.id)}
-          strategy={rectSortingStrategy}
-        >
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {visibleWidgets.map((widget) => (
-              <SortableWidgetContainer
-                key={widget.id}
-                id={widget.id}
-                isEditMode={isEditMode}
-              >
-                {renderWidget(widget.id)}
-              </SortableWidgetContainer>
-            ))}
+        {visibleWidgets.map((widget) => (
+          <div
+            key={widget.i}
+            className={`h-full overflow-hidden ${isEditMode ? 'ring-2 ring-blue-300 ring-offset-2 rounded-lg' : ''}`}
+          >
+            {renderWidget(widget)}
           </div>
-        </SortableContext>
-      </DndContext>
+        ))}
+      </ResponsiveGridLayout>
 
       {/* 設定對話框 */}
       <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Settings2 className="h-5 w-5" />
@@ -640,11 +666,11 @@ export function DashboardPage() {
               選擇要顯示的 Widget，可自由開啟或關閉
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 max-h-[400px] overflow-y-auto">
+          <div className="space-y-4">
             {Object.entries(widgetCategoryNames).map(([categoryId, categoryName]) => {
-              const categoryWidgets = tempWidgetConfig.filter(
-                (w) => widgetCategories[w.id] === categoryId && !widgetPermissions[w.id] ||
-                  widgetCategories[w.id] === categoryId && availableWidgets.some(aw => aw.id === w.id)
+              const categoryWidgets = tempLayout.filter(
+                (w) => widgetCategories[w.i] === categoryId && !widgetPermissions[w.i] ||
+                  widgetCategories[w.i] === categoryId && availableWidgets.some(aw => aw.i === w.i)
               )
               if (categoryWidgets.length === 0) return null
               return (
@@ -653,20 +679,37 @@ export function DashboardPage() {
                   <div className="space-y-2">
                     {categoryWidgets.map((widget) => (
                       <div
-                        key={widget.id}
-                        className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/50"
+                        key={widget.i}
+                        className="p-3 border rounded-lg hover:bg-muted/50 space-y-3"
                       >
-                        <Checkbox
-                          id={widget.id}
-                          checked={widget.visible}
-                          onCheckedChange={() => toggleWidgetVisibility(widget.id)}
-                        />
-                        <label htmlFor={widget.id} className="flex-1 cursor-pointer">
-                          <p className="text-sm font-medium">{widgetNames[widget.id]}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {widgetDescriptions[widget.id]}
-                          </p>
-                        </label>
+                        <div className="flex items-start gap-3">
+                          <Checkbox
+                            id={widget.i}
+                            checked={widget.visible !== false}
+                            onCheckedChange={() => toggleWidgetVisibility(widget.i)}
+                          />
+                          <label htmlFor={widget.i} className="flex-1 cursor-pointer">
+                            <p className="text-sm font-medium">{widgetNames[widget.i]}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {widgetDescriptions[widget.i]}
+                            </p>
+                          </label>
+                        </div>
+                        {/* weekly_trend 天數設定 */}
+                        {widget.visible !== false && widget.i === 'weekly_trend' && (
+                          <div className="flex items-center gap-2 ml-6">
+                            <span className="text-xs text-muted-foreground">天數：</span>
+                            <Slider
+                              value={widget.options?.days || 7}
+                              min={3}
+                              max={7}
+                              step={1}
+                              quickValues={[3, 5, 7]}
+                              onChange={(value: number) => changeWidgetOption(widget.i, 'days', value)}
+                              className="w-48"
+                            />
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -678,8 +721,8 @@ export function DashboardPage() {
             <Button variant="outline" onClick={() => setShowSettingsDialog(false)}>
               取消
             </Button>
-            <Button onClick={handleSaveSettings} disabled={saveWidgetConfigMutation.isPending}>
-              {saveWidgetConfigMutation.isPending && (
+            <Button onClick={handleSaveSettings} disabled={saveLayoutMutation.isPending}>
+              {saveLayoutMutation.isPending && (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               )}
               儲存

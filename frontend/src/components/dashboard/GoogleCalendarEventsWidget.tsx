@@ -59,7 +59,7 @@ export function GoogleCalendarEventsWidget() {
 
     if (isLoading) {
         return (
-            <Card>
+            <Card className="h-full overflow-auto">
                 <CardHeader className="pb-2">
                     <CardTitle
                         className="text-sm font-medium flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
@@ -81,7 +81,7 @@ export function GoogleCalendarEventsWidget() {
 
     if (error) {
         return (
-            <Card>
+            <Card className="h-full overflow-auto">
                 <CardHeader className="pb-2">
                     <CardTitle
                         className="text-sm font-medium flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
@@ -106,7 +106,7 @@ export function GoogleCalendarEventsWidget() {
     const weekDateRange = `${format(weekStart, 'M/d')} - ${format(weekEnd, 'M/d')}`
 
     return (
-        <Card>
+        <Card className="h-full overflow-auto">
             <CardHeader className="pb-2">
                 <CardTitle
                     className="text-sm font-medium flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"

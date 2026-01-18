@@ -7,7 +7,7 @@ use crate::error::AppError;
 use crate::middleware::CurrentUser;
 use crate::models::user_preferences::{
     AllPreferencesResponse, PreferenceResponse, UpsertPreferenceRequest, UserPreference,
-    default_nav_order, default_dashboard_widgets,
+    default_nav_order, default_dashboard_widgets, get_dashboard_widgets_for_roles,
 };
 use crate::AppState;
 
@@ -33,8 +33,8 @@ pub async fn get_preference(
     match preference {
         Some(pref) => Ok(Json(PreferenceResponse::from(pref))),
         None => {
-            // 回傳預設值
-            let default_value = get_default_value(&key);
+            // 回傳預設值 (根據角色)
+            let default_value = get_default_value_for_user(&key, &current_user.roles);
             Ok(Json(PreferenceResponse {
                 key,
                 value: default_value,
@@ -127,6 +127,15 @@ fn get_default_value(key: &str) -> serde_json::Value {
     match key {
         "nav_order" => default_nav_order(),
         "dashboard_widgets" => default_dashboard_widgets(),
+        _ => serde_json::Value::Null,
+    }
+}
+
+/// 取得特定 key 的預設值 (根據使用者角色)
+fn get_default_value_for_user(key: &str, roles: &[String]) -> serde_json::Value {
+    match key {
+        "nav_order" => default_nav_order(),
+        "dashboard_widgets" => get_dashboard_widgets_for_roles(roles),
         _ => serde_json::Value::Null,
     }
 }
