@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { User, Role, ResetPasswordRequest } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
@@ -23,7 +23,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { Loader2, Users, Plus, Pencil, Trash2, Shield, UserCheck, UserX, AlertTriangle, Key } from 'lucide-react'
+import { Loader2, Users, Plus, Pencil, Trash2, Shield, UserCheck, UserX, AlertTriangle, Key, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 
 interface CreateUserData {
   email: string
@@ -60,6 +60,10 @@ export function UsersPage() {
     role_ids: [],
   })
 
+  // 排序狀態: 'asc' | 'desc' | null
+  const [sortRole, setSortRole] = useState<'asc' | 'desc' | null>(null)
+  const [sortStatus, setSortStatus] = useState<'asc' | 'desc' | null>(null)
+
   // 獲取用戶列表
   const { data: users, isLoading } = useQuery({
     queryKey: ['users'],
@@ -68,6 +72,38 @@ export function UsersPage() {
       return response.data
     },
   })
+
+  // 排序後的用戶列表
+  const sortedUsers = useMemo(() => {
+    if (!users) return []
+    let sorted = [...users]
+
+    // 按狀態排序
+    if (sortStatus) {
+      sorted.sort((a, b) => {
+        if (sortStatus === 'asc') {
+          return (a.is_active ? 1 : 0) - (b.is_active ? 1 : 0) // 停用在前
+        } else {
+          return (b.is_active ? 1 : 0) - (a.is_active ? 1 : 0) // 啟用在前
+        }
+      })
+    }
+
+    // 按角色排序
+    if (sortRole) {
+      sorted.sort((a, b) => {
+        const aRoles = a.roles.slice().sort().join(',')
+        const bRoles = b.roles.slice().sort().join(',')
+        if (sortRole === 'asc') {
+          return aRoles.localeCompare(bRoles)
+        } else {
+          return bRoles.localeCompare(aRoles)
+        }
+      })
+    }
+
+    return sorted
+  }, [users, sortRole, sortStatus])
 
   // 獲取角色列表
   const { data: roles } = useQuery({
@@ -237,6 +273,33 @@ export function UsersPage() {
     setShowResetPasswordDialog(true)
   }
 
+  // 切換排序
+  const toggleSortRole = () => {
+    if (sortRole === null) {
+      setSortRole('asc')
+    } else if (sortRole === 'asc') {
+      setSortRole('desc')
+    } else {
+      setSortRole(null)
+    }
+  }
+
+  const toggleSortStatus = () => {
+    if (sortStatus === null) {
+      setSortStatus('asc')
+    } else if (sortStatus === 'asc') {
+      setSortStatus('desc')
+    } else {
+      setSortStatus(null)
+    }
+  }
+
+  const getSortIcon = (sort: 'asc' | 'desc' | null) => {
+    if (sort === 'asc') return <ArrowUp className="h-4 w-4" />
+    if (sort === 'desc') return <ArrowDown className="h-4 w-4" />
+    return <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -256,8 +319,24 @@ export function UsersPage() {
             <TableRow>
               <TableHead>Email</TableHead>
               <TableHead>名稱</TableHead>
-              <TableHead>角色</TableHead>
-              <TableHead>狀態</TableHead>
+              <TableHead>
+                <button
+                  className="flex items-center gap-1 hover:text-foreground transition-colors"
+                  onClick={toggleSortRole}
+                >
+                  角色
+                  {getSortIcon(sortRole)}
+                </button>
+              </TableHead>
+              <TableHead>
+                <button
+                  className="flex items-center gap-1 hover:text-foreground transition-colors"
+                  onClick={toggleSortStatus}
+                >
+                  狀態
+                  {getSortIcon(sortStatus)}
+                </button>
+              </TableHead>
               <TableHead className="text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
@@ -268,8 +347,8 @@ export function UsersPage() {
                   <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                 </TableCell>
               </TableRow>
-            ) : users && users.length > 0 ? (
-              users.map((user) => (
+            ) : sortedUsers.length > 0 ? (
+              sortedUsers.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{user.email}</TableCell>
                   <TableCell>{user.display_name}</TableCell>
@@ -478,11 +557,10 @@ export function UsersPage() {
               {roles?.map((role) => (
                 <div
                   key={role.id}
-                  className={`p-3 border rounded-md cursor-pointer transition-colors ${
-                    formData.role_ids.includes(role.id)
-                      ? 'border-primary bg-primary/5'
-                      : 'hover:bg-muted'
-                  }`}
+                  className={`p-3 border rounded-md cursor-pointer transition-colors ${formData.role_ids.includes(role.id)
+                    ? 'border-primary bg-primary/5'
+                    : 'hover:bg-muted'
+                    }`}
                   onClick={() => toggleRole(role.id)}
                 >
                   <div className="flex items-center gap-2">

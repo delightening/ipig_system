@@ -319,6 +319,27 @@ impl AuthService {
         Ok(())
     }
 
+    /// 透過用戶 ID 驗證密碼（用於電子簽章等操作）
+    pub async fn verify_password_by_id(
+        pool: &PgPool,
+        user_id: Uuid,
+        password: &str,
+    ) -> Result<User> {
+        let user = sqlx::query_as::<_, User>(
+            "SELECT * FROM users WHERE id = $1 AND is_active = true"
+        )
+        .bind(user_id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
+
+        if !Self::verify_password(password, &user.password_hash)? {
+            return Err(AppError::Unauthorized);
+        }
+
+        Ok(user)
+    }
+
     /// Admin 重設他人密碼（不需驗證舊密碼）
     pub async fn reset_user_password(
         pool: &PgPool,

@@ -50,14 +50,6 @@ import {
     CreateAnnualLeaveRequest,
 } from '@/types/hr'
 
-interface PaginatedResponse<T> {
-    data: T[]
-    total: number
-    page: number
-    per_page: number
-    total_pages: number
-}
-
 interface User {
     id: string
     email: string
@@ -97,9 +89,10 @@ export function HrAnnualLeavePage() {
     const { data: usersData, isLoading: loadingUsers } = useQuery({
         queryKey: ['internal-users'],
         queryFn: async () => {
-            const res = await api.get<PaginatedResponse<User>>('/users?is_active=true&per_page=100')
-            // 過濾出內部員工
-            return res.data.data.filter(u => u.is_internal)
+            // 後端 /users 回傳的是陣列格式，非分頁格式
+            const res = await api.get<User[]>('/users')
+            // 過濾出內部員工且為啟用狀態
+            return res.data.filter(u => u.is_internal && u.is_active)
         },
     })
 

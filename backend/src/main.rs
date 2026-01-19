@@ -160,7 +160,7 @@ async fn ensure_schema(pool: &sqlx::PgPool) -> Result<()> {
 async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
     // 需要確保存在的權限清單
     let required_permissions = vec![
-        ("pig.source.manage", "管理豬隻來源", "pig", "可管理豬隻來源資料"),
+        ("animal.source.manage", "管理動物來源", "animal", "可管理動物來源資料"),
     ];
     
     for (code, name, module, description) in required_permissions {
@@ -245,11 +245,11 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "aup.attachment.view", "aup.attachment.download", "aup.attachment.upload",
             // 版本管理
             "aup.version.view",
-            // 豬隻管理
-            "pig.pig.view_project",
-            "pig.record.view",
+            // 動物管理
+            "animal.info.view_project",
+            "animal.record.view",
             // 匯出
-            "pig.export.medical", "pig.export.observation", "pig.export.surgery",
+            "animal.export.medical", "animal.export.observation", "animal.export.surgery",
         ]),
         
         // ============================================
@@ -264,13 +264,13 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "aup.attachment.view", "aup.attachment.download",
             // 版本管理
             "aup.version.view",
-            // 豬隻管理
-            "pig.pig.view_all", "pig.pig.edit", "pig.pig.assign",
-            "pig.record.view", "pig.record.create", "pig.record.edit",
+            // 動物管理
+            "animal.info.view_all", "animal.info.edit", "animal.info.assign",
+            "animal.record.view", "animal.record.create", "animal.record.edit",
             // 獸醫師功能
-            "pig.vet.recommend", "pig.vet.read",
+            "animal.vet.recommend", "animal.vet.read",
             // 匯出
-            "pig.export.medical", "pig.export.observation", "pig.export.surgery", "pig.export.experiment",
+            "animal.export.medical", "animal.export.observation", "animal.export.surgery", "animal.export.experiment",
         ]),
         
         // ============================================
@@ -285,9 +285,9 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "aup.attachment.view", "aup.attachment.download",
             // 版本管理
             "aup.version.view",
-            // 豬隻管理 - 僅查看，不含來源管理
-            "pig.pig.view_all",
-            "pig.record.view",
+            // 動物管理 - 僅查看，不含來源管理
+            "animal.info.view_all",
+            "animal.record.view",
         ]),
         
         // ============================================
@@ -303,9 +303,9 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "aup.attachment.view", "aup.attachment.download",
             // 版本管理
             "aup.version.view",
-            // 豬隻管理 - 僅查看，不含來源管理
-            "pig.pig.view_all",
-            "pig.record.view",
+            // 動物管理 - 僅查看，不含來源管理
+            "animal.info.view_all",
+            "animal.record.view",
         ]),
         
         // ============================================
@@ -321,14 +321,14 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "aup.attachment.view", "aup.attachment.download", "aup.attachment.upload",
             // 版本管理
             "aup.version.view",
-            // 豬隻管理
-            "pig.pig.view_all", "pig.pig.create", "pig.pig.edit", 
-            "pig.pig.assign", "pig.pig.import", "pig.pig.delete",
-            "pig.record.view", "pig.record.create", "pig.record.edit", "pig.record.delete",
-            // 豬隻來源管理
-            "pig.source.manage",
+            // 動物管理
+            "animal.info.view_all", "animal.info.create", "animal.info.edit", 
+            "animal.info.assign", "animal.info.import", "animal.info.delete",
+            "animal.record.view", "animal.record.create", "animal.record.edit", "animal.record.delete",
+            // 動物來源管理
+            "animal.source.manage",
             // 匯出
-            "pig.export.medical", "pig.export.observation", "pig.export.surgery", "pig.export.experiment",
+            "animal.export.medical", "animal.export.observation", "animal.export.surgery", "animal.export.experiment",
         ]),
         
         // ============================================
@@ -345,15 +345,15 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "aup.attachment.upload", "aup.attachment.delete",
             // 版本管理
             "aup.version.view",
-            // 豬隻管理 - 可查看所有豬隻
-            "pig.pig.view_all",
-            "pig.record.view", "pig.record.create", "pig.record.edit",
-            "pig.record.observation", "pig.record.surgery", 
-            "pig.record.weight", "pig.record.vaccine", "pig.record.sacrifice",
-            // 豬隻來源管理
-            "pig.source.manage",
+            // 動物管理 - 可查看所有動物
+            "animal.info.view_all",
+            "animal.record.view", "animal.record.create", "animal.record.edit",
+            "animal.record.observation", "animal.record.surgery", 
+            "animal.record.weight", "animal.record.vaccine", "animal.record.sacrifice",
+            // 動物來源管理
+            "animal.source.manage",
             // 匯出
-            "pig.export.observation", "pig.export.surgery", "pig.export.experiment",
+            "animal.export.observation", "animal.export.surgery", "animal.export.experiment",
             // ERP 查詢（僅讀取）- 倉庫、產品、夥伴、庫存
             "erp.warehouse.view", "erp.product.view", "erp.partner.view",
             "erp.inventory.view", "erp.stock.view",
@@ -373,11 +373,11 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "aup.attachment.view", "aup.attachment.download",
             // 版本管理
             "aup.version.view",
-            // 豬隻查看
-            "pig.pig.view_project",
-            "pig.record.view",
+            // 動物查看
+            "animal.info.view_project",
+            "animal.record.view",
             // 匯出
-            "pig.export.medical", "pig.export.observation", "pig.export.surgery",
+            "animal.export.medical", "animal.export.observation", "animal.export.surgery",
         ]),
     ];
     

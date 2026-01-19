@@ -402,12 +402,19 @@ pub async fn get_balance_summary(
     Ok(Json(summary))
 }
 
-/// 建立特休額度（管理員）
+/// 建立特休額度（僅限 Admin）
 pub async fn create_annual_leave_entitlement(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Json(payload): Json<CreateAnnualLeaveRequest>,
 ) -> Result<(StatusCode, Json<AnnualLeaveEntitlement>)> {
+    // 權限檢查：僅 Admin 可建立特休額度
+    if !current_user.roles.contains(&"admin".to_string()) {
+        return Err(crate::error::AppError::Forbidden(
+            "僅管理員可新增特休額度".to_string(),
+        ));
+    }
+    
     let entitlement =
         HrService::create_annual_leave_entitlement(&state.db, current_user.id, &payload)
             .await?;
@@ -551,4 +558,44 @@ pub async fn get_dashboard_calendar(
 ) -> Result<Json<DashboardCalendarData>> {
     let data = HrService::get_dashboard_calendar(&state.db).await?;
     Ok(Json(data))
+}
+
+// ============================================
+// Staff List (for proxy selection)
+// ============================================
+
+/// 工作人員簡易資訊（供下拉選單用）
+#[derive(Debug, serde::Serialize)]
+pub struct StaffInfo {
+    pub id: uuid::Uuid,
+    pub display_name: String,
+    pub email: String,
+}
+
+/// 取得工作人員列表（供請假代理人選擇）
+/// 任何登入用戶都可使用，返回所有 active 的 EXPERIMENT_STAFF
+pub async fn list_staff_for_proxy(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+) -> Result<Json<Vec<StaffInfo>>> {
+    let staff = sqlx::query_as::<_, (uuid::Uuid, String, String)>(
+        r#"
+        SELECT DISTINCT u.id, u.display_name, u.email
+        FROM users u
+        INNER JOIN user_roles ur ON u.id = ur.user_id
+        INNER JOIN roles r ON ur.role_id = r.id
+        WHERE u.is_active = true
+        AND r.code = 'EXPERIMENT_STAFF'
+        ORDER BY u.display_name
+        "#
+    )
+    .fetch_all(&state.db)
+    .await?;
+    
+    let result: Vec<StaffInfo> = staff
+        .into_iter()
+        .map(|(id, display_name, email)| StaffInfo { id, display_name, email })
+        .collect();
+    
+    Ok(Json(result))
 }

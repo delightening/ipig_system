@@ -1,0 +1,102 @@
+﻿cargo :    Compiling erp-backend v0.1.0 (D:
+\Coding\ipig_system\backend)
+位於 線路:1 字元:1
++ cargo build 2>&1 | Out-File -FilePath bui
+ld_errors.txt -Encoding UTF8 ...
++ ~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified 
+   : (   Compiling er...system\backend):S  
+  tring) [], RemoteException
+    + FullyQualifiedErrorId : NativeComman 
+   dError
+ 
+error[E0618]: expected function, found `App
+Error`
+  --> src\handlers\signature.rs:86:22
+   |
+86 |         .map_err(|_| AppError::Unautho
+rized("撖Ⅳ?航炊".into()))?;
+   |                      ^^^^^^^^^^^^^^^^^
+^^^^^-------------------
+   |                      |
+   |                      call expression r
+equires function
+   |
+  ::: src\error.rs:14:5
+   |
+14 |     Unauthorized,
+   |     ------------ `AppError::Unauthoriz
+ed` defined here
+
+error[E0618]: expected function, found `App
+Error`
+   --> src\handlers\signature.rs:186:22
+    |
+186 |         .map_err(|_| AppError::Unauth
+orized("撖Ⅳ?航炊".into()))?;
+    |                      ^^^^^^^^^^^^^^^^
+^^^^^^-------------------
+    |                      |
+    |                      call expression 
+requires function
+    |
+   ::: src\error.rs:14:5
+    |
+ 14 |     Unauthorized,
+    |     ------------ `AppError::Unauthori
+zed` defined here
+
+error[E0618]: expected function, found `App
+Error`
+   --> src\handlers\signature.rs:259:26
+    |
+259 |             .map_err(|_| AppError::Un
+authorized("撖Ⅳ?航炊".into()))?;
+    |                          ^^^^^^^^^^^^
+^^^^^^^^^^-------------------
+    |                          |
+    |                          call express
+ion requires function
+    |
+   ::: src\error.rs:14:5
+    |
+ 14 |     Unauthorized,
+    |     ------------ `AppError::Unauthori
+zed` defined here
+
+error[E0609]: no field `display_name` on ty
+pe `middleware::auth::CurrentUser`
+   --> src\handlers\signature.rs:290:44
+    |
+290 |         created_by_name: Some(current
+_user.display_name.clone()),
+    |                                      
+      ^^^^^^^^^^^^ unknown field
+    |
+    = note: available fields are: `id`, `em
+ail`, `roles`, `permissions`
+
+error[E0618]: expected function, found `App
+Error`
+   --> src\services\auth.rs:337:24
+    |
+337 |             return Err(AppError::Unau
+thorized("撖Ⅳ?航炊".to_string()));
+    |                        ^^^^^^^^^^^^^^
+^^^^^^^^------------------------
+    |                        |
+    |                        call expressio
+n requires function
+    |
+   ::: src\error.rs:14:5
+    |
+ 14 |     Unauthorized,
+    |     ------------ `AppError::Unauthori
+zed` defined here
+
+Some errors have detailed explanations: E06
+09, E0618.
+For more information about an error, try `r
+ustc --explain E0609`.
+error: could not compile `erp-backend` (bin
+ "erp-backend") due to 5 previous errors
