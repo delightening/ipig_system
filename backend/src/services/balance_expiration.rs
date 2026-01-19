@@ -89,7 +89,7 @@ impl BalanceExpirationJob {
     
     /// 發送即將到期警告
     async fn send_expiry_warnings(pool: &PgPool, today: NaiveDate) -> Result<()> {
-        let warning_days = 14; // 14 天前警告
+        let warning_days = 30; // 30 天前警告
         let warning_date = today + chrono::Duration::days(warning_days);
         
         // 查找即將到期的特休

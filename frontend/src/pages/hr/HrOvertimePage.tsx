@@ -219,15 +219,10 @@ export function HrOvertimePage() {
         return format(new Date(dateStr), 'yyyy/MM/dd (EEEE)', { locale: zhTW })
     }
 
-    // 計算預估補休時數 (只有 C 和 D 有補休時數)
+    // 計算預估補休時數 (C 和 D 固定 8 小時補休)
     const calculateCompTime = () => {
-        if (!startTime || !endTime) return 0
-        const [startH, startM] = startTime.split(':').map(Number)
-        const [endH, endM] = endTime.split(':').map(Number)
-        const hours = (endH * 60 + endM - (startH * 60 + startM)) / 60
-        // 只有 C (國定假日) 和 D (天災) 有補休時數
-        if (overtimeType === 'C') return hours * 1.66
-        if (overtimeType === 'D') return hours * 2.0
+        // C (國定假日) 和 D (天災) 固定補給 8 小時 (1天) 補休
+        if (overtimeType === 'C' || overtimeType === 'D') return 8.0
         return 0  // A 和 B 沒有補休時數
     }
 

@@ -298,11 +298,10 @@ impl HrService {
             _ => 1.0,
         };
 
-        // 只有 C (國定假日) 和 D (天災) 兩種加班類型有補休時數
+        // C (國定假日) 和 D (天災) 加班類型固定補給 8 小時 (1天) 補休
         let comp_time_hours = match payload.overtime_type.as_str() {
-            "C" => hours * 1.66,  // 國定假日加班
-            "D" => hours * 2.0,   // 天災加班
-            _ => 0.0,             // A 和 B 沒有補休時數
+            "C" | "D" => 8.0,  // 固定 8 小時 (1天) 補休
+            _ => 0.0,          // A 和 B 沒有補休時數
         };
         let expires_at = payload.overtime_date + chrono::Duration::days(365);
 
