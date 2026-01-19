@@ -12,6 +12,7 @@ import api, {
   protocolStatusNames,
   ChangeStatusRequest,
   CreateCommentRequest,
+  ReplyCommentRequest,
   AssignReviewerRequest,
   AssignCoEditorRequest,
   CoEditorAssignmentResponse,
@@ -71,6 +72,7 @@ import {
   CheckCircle2,
   Users,
   ClipboardList,
+  Reply,
 } from 'lucide-react'
 import { formatDate, formatDateTime, formatFileSize } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
@@ -119,13 +121,16 @@ export function ProtocolDetailPage() {
   const [activeTab, setActiveTab] = useState<'content' | 'versions' | 'history' | 'comments' | 'reviewers' | 'coeditors' | 'attachments' | 'pigs'>('content')
   const [showStatusDialog, setShowStatusDialog] = useState(false)
   const [showCommentDialog, setShowCommentDialog] = useState(false)
+  const [showReplyDialog, setShowReplyDialog] = useState(false)
   const [showAssignDialog, setShowAssignDialog] = useState(false)
   const [showVersionDialog, setShowVersionDialog] = useState(false)
   const [showCoEditorDialog, setShowCoEditorDialog] = useState(false)
   const [selectedVersion, setSelectedVersion] = useState<ProtocolVersion | null>(null)
+  const [selectedCommentForReply, setSelectedCommentForReply] = useState<ReviewCommentResponse | null>(null)
   const [newStatus, setNewStatus] = useState<ProtocolStatus | ''>('')
   const [statusRemark, setStatusRemark] = useState('')
   const [commentContent, setCommentContent] = useState('')
+  const [replyContent, setReplyContent] = useState('')
   const [selectedReviewerId, setSelectedReviewerId] = useState('')
   const [selectedReviewerIds, setSelectedReviewerIds] = useState<string[]>([])
   const [selectedCoEditorId, setSelectedCoEditorId] = useState('')
@@ -147,7 +152,7 @@ export function ProtocolDetailPage() {
       const response = await api.get<ProtocolVersion[]>(`/protocols/${id}/versions`)
       return response.data
     },
-    enabled: !!id && activeTab === 'versions',
+    enabled: !!id && (activeTab === 'versions' || activeTab === 'comments'),
   })
 
   // 取得狀態歷程
@@ -302,6 +307,27 @@ export function ProtocolDetailPage() {
       toast({
         title: '錯誤',
         description: error?.response?.data?.error?.message || '新增意見失敗',
+        variant: 'destructive',
+      })
+    },
+  })
+
+  // 回覆審查意見
+  const replyCommentMutation = useMutation({
+    mutationFn: async (data: ReplyCommentRequest) => {
+      return api.post('/reviews/comments/reply', data)
+    },
+    onSuccess: () => {
+      toast({ title: '成功', description: '回覆已新增' })
+      queryClient.invalidateQueries({ queryKey: ['protocol-comments', id] })
+      setShowReplyDialog(false)
+      setReplyContent('')
+      setSelectedCommentForReply(null)
+    },
+    onError: (error: any) => {
+      toast({
+        title: '錯誤',
+        description: error?.response?.data?.error?.message || '回覆失敗',
         variant: 'destructive',
       })
     },
@@ -520,7 +546,17 @@ export function ProtocolDetailPage() {
     return allowedTransitions[protocol.status] || []
   }
 
-  const canAddComment = user?.roles?.some(r => ['REVIEWER', 'VET', 'CHAIR', 'IACUC_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
+  // 審查委員只能在 UNDER_REVIEW 狀態新增意見
+  const isReviewer = user?.roles?.some(r => ['REVIEWER', 'VET'].includes(r))
+  const isIACUCOrAdmin = user?.roles?.some(r => ['CHAIR', 'IACUC_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
+  const canAddComment = isIACUCOrAdmin || (isReviewer && protocol?.status === 'UNDER_REVIEW')
+
+  // PI、co-editor、IACUC_STAFF 可以回覆審查意見
+  const canReply = user?.roles?.some(r => ['PI', 'EXPERIMENT_STAFF', 'IACUC_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
+
+  // 只有 PI 和 co-editor 可以編輯/修訂計畫
+  const canEditProtocol = user?.roles?.some(r => ['PI', 'EXPERIMENT_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
+
   const canAssignReviewer = user?.roles?.some(r => ['IACUC_STAFF', 'CHAIR', 'SYSTEM_ADMIN', 'admin'].includes(r))
   const canManageAttachments = protocol?.status === 'DRAFT' || protocol?.status === 'REVISION_REQUIRED'
 
@@ -581,7 +617,7 @@ export function ProtocolDetailPage() {
               </Button>
             </>
           )}
-          {protocol.status === 'REVISION_REQUIRED' && (
+          {protocol.status === 'REVISION_REQUIRED' && canEditProtocol && (
             <Button variant="outline" asChild>
               <Link to={`/protocols/${id}/edit`}>
                 <Edit className="mr-2 h-4 w-4" />
@@ -827,49 +863,83 @@ export function ProtocolDetailPage() {
               </div>
             ) : comments && comments.length > 0 ? (
               <div className="space-y-4">
-                {comments.map((comment) => (
-                  <div
-                    key={comment.id}
-                    className={`p-4 rounded-lg border ${comment.is_resolved ? 'bg-green-50 border-green-200' : 'bg-white border-slate-200'}`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                          <UserIcon className="h-4 w-4 text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{comment.reviewer_name || comment.reviewer_email}</p>
-                          <p className="text-xs text-muted-foreground">{formatDateTime(comment.created_at)}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {comment.is_resolved ? (
-                          <Badge variant="success" className="flex items-center gap-1">
-                            <CheckCircle2 className="h-3 w-3" />
-                            已解決
-                          </Badge>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => resolveCommentMutation.mutate(comment.id)}
-                            disabled={resolveCommentMutation.isPending}
-                          >
-                            {resolveCommentMutation.isPending ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <>
-                                <CheckCircle className="mr-1 h-4 w-4" />
-                                標記已解決
-                              </>
+                {comments
+                  .filter(c => !c.parent_comment_id) // 只顯示主評論
+                  .map((comment) => (
+                    <div key={comment.id} className="space-y-2">
+                      <div
+                        className={`p-4 rounded-lg border ${comment.is_resolved ? 'bg-green-50 border-green-200' : 'bg-white border-slate-200'}`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                              <UserIcon className="h-4 w-4 text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium">{comment.reviewer_name || comment.reviewer_email}</p>
+                              <p className="text-xs text-muted-foreground">{formatDateTime(comment.created_at)}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {canReply && !comment.is_resolved && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedCommentForReply(comment)
+                                  setShowReplyDialog(true)
+                                }}
+                              >
+                                <Reply className="mr-1 h-4 w-4" />
+                                回覆
+                              </Button>
                             )}
-                          </Button>
-                        )}
+                            {comment.is_resolved ? (
+                              <Badge variant="success" className="flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3" />
+                                已解決
+                              </Badge>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => resolveCommentMutation.mutate(comment.id)}
+                                disabled={resolveCommentMutation.isPending}
+                              >
+                                {resolveCommentMutation.isPending ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <>
+                                    <CheckCircle className="mr-1 h-4 w-4" />
+                                    標記已解決
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        <p className="mt-3 text-sm text-slate-700 whitespace-pre-wrap">{comment.content}</p>
                       </div>
+
+                      {/* 顯示回覆 */}
+                      {comments
+                        .filter(reply => reply.parent_comment_id === comment.id)
+                        .map(reply => (
+                          <div key={reply.id} className="ml-8 p-4 rounded-lg border bg-slate-50 border-slate-200">
+                            <div className="flex items-center gap-2">
+                              <div className="h-6 w-6 rounded-full bg-green-100 flex items-center justify-center">
+                                <Reply className="h-3 w-3 text-green-600" />
+                              </div>
+                              <div>
+                                <p className="font-medium text-sm">{reply.replied_by_name || reply.reviewer_name || reply.reviewer_email}</p>
+                                <p className="text-xs text-muted-foreground">{formatDateTime(reply.created_at)}</p>
+                              </div>
+                            </div>
+                            <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap">{reply.content}</p>
+                          </div>
+                        ))}
                     </div>
-                    <p className="mt-3 text-sm text-slate-700 whitespace-pre-wrap">{comment.content}</p>
-                  </div>
-                ))}
+                  ))}
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
@@ -1290,6 +1360,65 @@ export function ProtocolDetailPage() {
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
               提交意見
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 回覆審查意見對話框 */}
+      <Dialog open={showReplyDialog} onOpenChange={(open) => {
+        setShowReplyDialog(open)
+        if (!open) {
+          setReplyContent('')
+          setSelectedCommentForReply(null)
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>回覆審查意見</DialogTitle>
+            <DialogDescription>
+              請輸入您對此審查意見的回覆
+            </DialogDescription>
+          </DialogHeader>
+          {selectedCommentForReply && (
+            <div className="bg-slate-50 p-3 rounded-lg border mb-4">
+              <p className="text-sm font-medium text-slate-600">原意見：</p>
+              <p className="text-sm text-slate-700 mt-1">{selectedCommentForReply.content}</p>
+              <p className="text-xs text-muted-foreground mt-2">
+                — {selectedCommentForReply.reviewer_name || selectedCommentForReply.reviewer_email}
+              </p>
+            </div>
+          )}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>回覆內容</Label>
+              <Textarea
+                value={replyContent}
+                onChange={(e) => setReplyContent(e.target.value)}
+                placeholder="請輸入您的回覆..."
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowReplyDialog(false)}>
+              取消
+            </Button>
+            <Button
+              onClick={() => {
+                if (selectedCommentForReply && replyContent.trim()) {
+                  replyCommentMutation.mutate({
+                    parent_comment_id: selectedCommentForReply.id,
+                    content: replyContent.trim(),
+                  })
+                }
+              }}
+              disabled={!replyContent.trim() || replyCommentMutation.isPending}
+            >
+              {replyCommentMutation.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              提交回覆
             </Button>
           </DialogFooter>
         </DialogContent>

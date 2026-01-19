@@ -123,6 +123,34 @@ async fn ensure_schema(pool: &sqlx::PgPool) -> Result<()> {
     .execute(pool)
     .await?;
     
+    // 確保 review_comments 表有 parent_comment_id 欄位（用於審查意見回覆功能）
+    sqlx::query(r#"
+        DO $$ BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'review_comments' AND column_name = 'parent_comment_id'
+            ) THEN
+                ALTER TABLE review_comments ADD COLUMN parent_comment_id UUID REFERENCES review_comments(id);
+            END IF;
+        END $$;
+    "#)
+    .execute(pool)
+    .await?;
+    
+    // 確保 review_comments 表有 replied_by 欄位（用於記錄回覆者）
+    sqlx::query(r#"
+        DO $$ BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'review_comments' AND column_name = 'replied_by'
+            ) THEN
+                ALTER TABLE review_comments ADD COLUMN replied_by UUID REFERENCES users(id);
+            END IF;
+        END $$;
+    "#)
+    .execute(pool)
+    .await?;
+    
     tracing::info!("[Schema] ✓ Schema integrity verified");
     Ok(())
 }
@@ -212,7 +240,7 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "aup.protocol.view_own", "aup.protocol.create", "aup.protocol.edit", 
             "aup.protocol.submit", "aup.protocol.delete",
             // 審查流程
-            "aup.review.view",
+            "aup.review.view", "aup.review.reply",
             // 附件管理
             "aup.attachment.view", "aup.attachment.download", "aup.attachment.upload",
             // 版本管理
@@ -288,7 +316,7 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "aup.protocol.view_all", "aup.protocol.create", "aup.protocol.edit", 
             "aup.protocol.change_status",
             // 審查流程
-            "aup.review.view", "aup.review.assign",
+            "aup.review.view", "aup.review.assign", "aup.review.reply",
             // 附件管理
             "aup.attachment.view", "aup.attachment.download", "aup.attachment.upload",
             // 版本管理

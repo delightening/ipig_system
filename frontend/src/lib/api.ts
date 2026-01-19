@@ -579,6 +579,10 @@ export interface ReviewComment {
 export interface ReviewCommentResponse extends ReviewComment {
   reviewer_name: string
   reviewer_email: string
+  parent_comment_id?: string
+  replied_by?: string
+  replied_by_name?: string
+  replied_by_email?: string
 }
 
 export interface CreateProtocolRequest {
@@ -605,6 +609,11 @@ export interface ChangeStatusRequest {
 
 export interface CreateCommentRequest {
   protocol_version_id: string
+  content: string
+}
+
+export interface ReplyCommentRequest {
+  parent_comment_id: string
   content: string
 }
 
