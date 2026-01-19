@@ -291,12 +291,19 @@ impl HrService {
         let hours = (end_minutes - start_minutes) as f64 / 60.0;
 
         let multiplier = match payload.overtime_type.as_str() {
-            "weekend" => 1.33,
-            "holiday" => 1.66,
+            "A" => 1.0,    // 平日加班
+            "B" => 1.33,   // 假日加班
+            "C" => 1.66,   // 國定假日加班
+            "D" => 2.0,    // 天災加班
             _ => 1.0,
         };
 
-        let comp_time_hours = hours * multiplier;
+        // 只有 C (國定假日) 和 D (天災) 兩種加班類型有補休時數
+        let comp_time_hours = match payload.overtime_type.as_str() {
+            "C" => hours * 1.66,  // 國定假日加班
+            "D" => hours * 2.0,   // 天災加班
+            _ => 0.0,             // A 和 B 沒有補休時數
+        };
         let expires_at = payload.overtime_date + chrono::Duration::days(365);
 
         let id = Uuid::new_v4();

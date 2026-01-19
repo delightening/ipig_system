@@ -60,9 +60,10 @@ interface PaginatedResponse<T> {
 }
 
 const OVERTIME_TYPE_NAMES: Record<string, string> = {
-    weekday: '平日加班',
-    weekend: '假日加班',
-    holiday: '國定假日加班',
+    A: '平日加班',
+    B: '假日加班',
+    C: '國定假日加班',
+    D: '天災加班',
 }
 
 const OVERTIME_STATUS_NAMES: Record<string, string> = {
@@ -82,7 +83,7 @@ export function HrOvertimePage() {
     const [overtimeDate, setOvertimeDate] = useState('')
     const [startTime, setStartTime] = useState('18:00')
     const [endTime, setEndTime] = useState('21:00')
-    const [overtimeType, setOvertimeType] = useState('weekday')
+    const [overtimeType, setOvertimeType] = useState('A')
     const [reason, setReason] = useState('')
 
     // 我的加班記錄
@@ -180,7 +181,7 @@ export function HrOvertimePage() {
         setOvertimeDate('')
         setStartTime('18:00')
         setEndTime('21:00')
-        setOvertimeType('weekday')
+        setOvertimeType('A')
         setReason('')
     }
 
@@ -218,14 +219,16 @@ export function HrOvertimePage() {
         return format(new Date(dateStr), 'yyyy/MM/dd (EEEE)', { locale: zhTW })
     }
 
-    // 計算預估補休時數
+    // 計算預估補休時數 (只有 C 和 D 有補休時數)
     const calculateCompTime = () => {
         if (!startTime || !endTime) return 0
         const [startH, startM] = startTime.split(':').map(Number)
         const [endH, endM] = endTime.split(':').map(Number)
         const hours = (endH * 60 + endM - (startH * 60 + startM)) / 60
-        const multiplier = overtimeType === 'weekday' ? 1.34 : overtimeType === 'weekend' ? 1.67 : 2.0
-        return hours * multiplier
+        // 只有 C (國定假日) 和 D (天災) 有補休時數
+        if (overtimeType === 'C') return hours * 1.66
+        if (overtimeType === 'D') return hours * 2.0
+        return 0  // A 和 B 沒有補休時數
     }
 
     return (

@@ -292,6 +292,7 @@ export function HrAttendancePage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>日期</TableHead>
+                                    <TableHead>人員名稱</TableHead>
                                     <TableHead>上班</TableHead>
                                     <TableHead>下班</TableHead>
                                     <TableHead>工作時數</TableHead>
@@ -303,13 +304,13 @@ export function HrAttendancePage() {
                             <TableBody>
                                 {loadingHistory ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="text-center py-8">
+                                        <TableCell colSpan={8} className="text-center py-8">
                                             載入中...
                                         </TableCell>
                                     </TableRow>
                                 ) : attendanceHistory?.data?.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                                             沒有出勤記錄
                                         </TableCell>
                                     </TableRow>
@@ -318,6 +319,9 @@ export function HrAttendancePage() {
                                         <TableRow key={record.id}>
                                             <TableCell className="whitespace-nowrap">
                                                 {formatDate(record.work_date)}
+                                            </TableCell>
+                                            <TableCell className="font-medium">
+                                                {record.user_name}
                                             </TableCell>
                                             <TableCell>{formatTime(record.clock_in_time)}</TableCell>
                                             <TableCell>{formatTime(record.clock_out_time)}</TableCell>

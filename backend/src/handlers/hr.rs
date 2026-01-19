@@ -185,6 +185,10 @@ pub async fn approve_overtime(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<OvertimeWithUser>> {
+    // 僅 IACUC_STAFF (執行秘書) 可審核加班申請
+    if !current_user.roles.contains(&"IACUC_STAFF".to_string()) {
+        return Err(crate::error::AppError::Forbidden("僅執行秘書可審核加班申請".to_string()));
+    }
     let record = HrService::approve_overtime(&state.db, id, current_user.id).await?;
     Ok(Json(record))
 }
@@ -196,6 +200,10 @@ pub async fn reject_overtime(
     Path(id): Path<Uuid>,
     Json(payload): Json<RejectOvertimeRequest>,
 ) -> Result<Json<OvertimeWithUser>> {
+    // 僅 IACUC_STAFF (執行秘書) 可審核加班申請
+    if !current_user.roles.contains(&"IACUC_STAFF".to_string()) {
+        return Err(crate::error::AppError::Forbidden("僅執行秘書可審核加班申請".to_string()));
+    }
     let record =
         HrService::reject_overtime(&state.db, id, current_user.id, &payload.reason).await?;
     Ok(Json(record))
@@ -293,6 +301,10 @@ pub async fn approve_leave(
     Path(id): Path<Uuid>,
     Json(payload): Json<ApproveLeaveRequest>,
 ) -> Result<Json<LeaveRequest>> {
+    // 僅 IACUC_STAFF (執行秘書) 可審核請假申請
+    if !current_user.roles.contains(&"IACUC_STAFF".to_string()) {
+        return Err(crate::error::AppError::Forbidden("僅執行秘書可審核請假申請".to_string()));
+    }
     let record = HrService::approve_leave(
         &state.db,
         id,
@@ -310,6 +322,10 @@ pub async fn reject_leave(
     Path(id): Path<Uuid>,
     Json(payload): Json<RejectLeaveRequest>,
 ) -> Result<Json<LeaveRequest>> {
+    // 僅 IACUC_STAFF (執行秘書) 可審核請假申請
+    if !current_user.roles.contains(&"IACUC_STAFF".to_string()) {
+        return Err(crate::error::AppError::Forbidden("僅執行秘書可審核請假申請".to_string()));
+    }
     let record =
         HrService::reject_leave(&state.db, id, current_user.id, &payload.reason).await?;
     Ok(Json(record))
