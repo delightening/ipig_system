@@ -123,7 +123,7 @@ pub async fn upload_pig_photo(
     Path(pig_id): Path<i32>,
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
-    require_permission!(current_user, "pig.pig.edit");
+    require_permission!(current_user, "animal.info.edit");
 
     let mut results = Vec::new();
 
@@ -177,7 +177,7 @@ pub async fn upload_pathology_report(
     Path(pig_id): Path<i32>,
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
-    require_permission!(current_user, "pig.pig.edit");
+    require_permission!(current_user, "animal.info.edit");
 
     let mut results = Vec::new();
 
@@ -231,7 +231,7 @@ pub async fn upload_vet_recommendation_attachment(
     Path((record_type, record_id)): Path<(String, i32)>,
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
-    require_permission!(current_user, "pig.vet.upload_attachment");
+    require_permission!(current_user, "animal.vet.upload_attachment");
 
     let mut results = Vec::new();
 
@@ -339,7 +339,7 @@ pub async fn upload_sacrifice_photo(
     Path(pig_id): Path<i32>,
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
-    require_permission!(current_user, "pig.record.create");
+    require_permission!(current_user, "animal.record.create");
 
     // 檢查犧牲記錄是否存在
     let sacrifice_exists: Option<i32> = sqlx::query_scalar(

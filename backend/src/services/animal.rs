@@ -19,9 +19,9 @@ use crate::{
 use calamine::{Reader, Xlsx, Xls, open_workbook_from_rs, Data};
 use std::io::Cursor;
 
-pub struct PigService;
+pub struct AnimalService;
 
-impl PigService {
+impl AnimalService {
     /// 格式化耳號：如果是數字且 < 100，則補零至三位數
     fn format_ear_tag(ear_tag: &str) -> String {
         if let Ok(num) = ear_tag.parse::<u32>() {
@@ -222,6 +222,24 @@ impl PigService {
         Ok(pigs)
     }
 
+    /// 取得使用者關聯計畫的 IACUC 編號清單
+    /// 透過 user_protocols 表查詢使用者作為 PI/CO_EDITOR/CLIENT 的計畫
+    pub async fn get_user_iacuc_nos(pool: &PgPool, user_id: Uuid) -> Result<Vec<String>> {
+        let iacuc_nos: Vec<String> = sqlx::query_scalar(
+            r#"
+            SELECT DISTINCT p.iacuc_no
+            FROM protocols p
+            INNER JOIN user_protocols up ON up.protocol_id = p.id
+            WHERE up.user_id = $1 AND p.iacuc_no IS NOT NULL
+            "#
+        )
+        .bind(user_id)
+        .fetch_all(pool)
+        .await?;
+        
+        Ok(iacuc_nos)
+    }
+
     /// 依欄位分組取得豬隻
     pub async fn list_by_pen(pool: &PgPool) -> Result<Vec<PigsByPen>> {
         let mut pigs = sqlx::query_as::<_, PigListItem>(
@@ -409,6 +427,41 @@ impl PigService {
             .bind(id)
             .execute(pool)
             .await?;
+
+        Ok(())
+    }
+
+    /// 軟刪除豬隻（含刪除原因）- GLP 合規
+    pub async fn delete_with_reason(pool: &PgPool, id: i32, reason: &str, deleted_by: Uuid) -> Result<()> {
+        // 記錄到 change_reasons 表
+        sqlx::query(
+            r#"
+            INSERT INTO change_reasons (entity_type, entity_id, change_type, reason, changed_by)
+            VALUES ('pig', $1::text, 'DELETE', $2, $3)
+            "#
+        )
+        .bind(id)
+        .bind(reason)
+        .bind(deleted_by)
+        .execute(pool)
+        .await?;
+
+        // 執行軟刪除
+        sqlx::query(
+            r#"
+            UPDATE pigs SET 
+                deleted_at = NOW(), 
+                deletion_reason = $2,
+                deleted_by = $3,
+                updated_at = NOW() 
+            WHERE id = $1 AND deleted_at IS NULL
+            "#
+        )
+        .bind(id)
+        .bind(reason)
+        .bind(deleted_by)
+        .execute(pool)
+        .await?;
 
         Ok(())
     }
@@ -610,6 +663,40 @@ impl PigService {
             "DELETE FROM pig_observations WHERE id = $1"
         )
         .bind(id)
+        .execute(pool)
+        .await?;
+
+        Ok(())
+    }
+
+    /// 軟刪除觀察紀錄（含刪除原因）- GLP 合規
+    pub async fn soft_delete_observation_with_reason(pool: &PgPool, id: i32, reason: &str, deleted_by: Uuid) -> Result<()> {
+        // 記錄到 change_reasons 表
+        sqlx::query(
+            r#"
+            INSERT INTO change_reasons (entity_type, entity_id, change_type, reason, changed_by)
+            VALUES ('observation', $1::text, 'DELETE', $2, $3)
+            "#
+        )
+        .bind(id)
+        .bind(reason)
+        .bind(deleted_by)
+        .execute(pool)
+        .await?;
+
+        // 軟刪除（更新 deleted_at 而非硬刪除）
+        sqlx::query(
+            r#"
+            UPDATE pig_observations SET 
+                deleted_at = NOW(), 
+                deletion_reason = $2,
+                deleted_by = $3
+            WHERE id = $1 AND deleted_at IS NULL
+            "#
+        )
+        .bind(id)
+        .bind(reason)
+        .bind(deleted_by)
         .execute(pool)
         .await?;
 
@@ -837,6 +924,38 @@ impl PigService {
         Ok(())
     }
 
+    /// 軟刪除手術紀錄（含刪除原因）- GLP 合規
+    pub async fn soft_delete_surgery_with_reason(pool: &PgPool, id: i32, reason: &str, deleted_by: Uuid) -> Result<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO change_reasons (entity_type, entity_id, change_type, reason, changed_by)
+            VALUES ('surgery', $1::text, 'DELETE', $2, $3)
+            "#
+        )
+        .bind(id)
+        .bind(reason)
+        .bind(deleted_by)
+        .execute(pool)
+        .await?;
+
+        sqlx::query(
+            r#"
+            UPDATE pig_surgeries SET 
+                deleted_at = NOW(), 
+                deletion_reason = $2,
+                deleted_by = $3
+            WHERE id = $1 AND deleted_at IS NULL
+            "#
+        )
+        .bind(id)
+        .bind(reason)
+        .bind(deleted_by)
+        .execute(pool)
+        .await?;
+
+        Ok(())
+    }
+
     /// 複製手術紀錄
     pub async fn copy_surgery(
         pool: &PgPool,
@@ -990,6 +1109,38 @@ impl PigService {
         Ok(())
     }
 
+    /// 軟刪除體重紀錄（含刪除原因）- GLP 合規
+    pub async fn soft_delete_weight_with_reason(pool: &PgPool, id: i32, reason: &str, deleted_by: Uuid) -> Result<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO change_reasons (entity_type, entity_id, change_type, reason, changed_by)
+            VALUES ('weight', $1::text, 'DELETE', $2, $3)
+            "#
+        )
+        .bind(id)
+        .bind(reason)
+        .bind(deleted_by)
+        .execute(pool)
+        .await?;
+
+        sqlx::query(
+            r#"
+            UPDATE pig_weights SET 
+                deleted_at = NOW(), 
+                deletion_reason = $2,
+                deleted_by = $3
+            WHERE id = $1 AND deleted_at IS NULL
+            "#
+        )
+        .bind(id)
+        .bind(reason)
+        .bind(deleted_by)
+        .execute(pool)
+        .await?;
+
+        Ok(())
+    }
+
     // ============================================
     // 疫苗/驅蟲紀錄
     // ============================================
@@ -1062,6 +1213,38 @@ impl PigService {
             .bind(id)
             .execute(pool)
             .await?;
+
+        Ok(())
+    }
+
+    /// 軟刪除疫苗紀錄（含刪除原因）- GLP 合規
+    pub async fn soft_delete_vaccination_with_reason(pool: &PgPool, id: i32, reason: &str, deleted_by: Uuid) -> Result<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO change_reasons (entity_type, entity_id, change_type, reason, changed_by)
+            VALUES ('vaccination', $1::text, 'DELETE', $2, $3)
+            "#
+        )
+        .bind(id)
+        .bind(reason)
+        .bind(deleted_by)
+        .execute(pool)
+        .await?;
+
+        sqlx::query(
+            r#"
+            UPDATE pig_vaccinations SET 
+                deleted_at = NOW(), 
+                deletion_reason = $2,
+                deleted_by = $3
+            WHERE id = $1 AND deleted_at IS NULL
+            "#
+        )
+        .bind(id)
+        .bind(reason)
+        .bind(deleted_by)
+        .execute(pool)
+        .await?;
 
         Ok(())
     }

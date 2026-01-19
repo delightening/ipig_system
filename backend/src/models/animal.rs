@@ -168,6 +168,7 @@ pub struct Pig {
     pub is_deleted: bool,
     pub deleted_at: Option<DateTime<Utc>>,
     pub deleted_by: Option<Uuid>,
+    pub deletion_reason: Option<String>,  // GLP: 刪除原因
     pub vet_weight_viewed_at: Option<DateTime<Utc>>,
     pub vet_vaccine_viewed_at: Option<DateTime<Utc>>,
     pub vet_sacrifice_viewed_at: Option<DateTime<Utc>>,
@@ -787,3 +788,123 @@ pub struct VersionHistoryResponse {
     pub record_id: i32,
     pub versions: Vec<VersionDiff>,
 }
+
+// ============================================
+// GLP 合規相關類型
+// ============================================
+
+/// 刪除請求（含刪除原因）- GLP 合規要求
+#[derive(Debug, Deserialize, Validate)]
+pub struct DeleteRequest {
+    #[validate(length(min = 1, message = "刪除原因為必填"))]
+    pub reason: String,
+}
+
+/// 變更原因記錄
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct ChangeReason {
+    pub id: Uuid,
+    pub entity_type: String,
+    pub entity_id: String,
+    pub change_type: String,
+    pub reason: String,
+    pub old_values: Option<serde_json::Value>,
+    pub new_values: Option<serde_json::Value>,
+    pub changed_fields: Option<Vec<String>>,
+    pub changed_by: Uuid,
+    pub changed_at: DateTime<Utc>,
+}
+
+/// 電子簽章（Phase 2）
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct ElectronicSignature {
+    pub id: Uuid,
+    pub entity_type: String,
+    pub entity_id: String,
+    pub signer_id: Uuid,
+    pub signature_type: String,
+    pub content_hash: String,
+    pub signature_data: String,
+    pub ip_address: Option<String>,
+    pub user_agent: Option<String>,
+    pub signed_at: DateTime<Utc>,
+    pub is_valid: bool,
+    pub invalidated_reason: Option<String>,
+    pub invalidated_at: Option<DateTime<Utc>>,
+    pub invalidated_by: Option<Uuid>,
+}
+
+/// 記錄附註（Phase 2）
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct RecordAnnotation {
+    pub id: Uuid,
+    pub record_type: String,
+    pub record_id: i32,
+    pub annotation_type: String,
+    pub content: String,
+    pub created_by: Uuid,
+    pub created_at: DateTime<Utc>,
+    pub signature_id: Option<Uuid>,
+}
+
+/// 建立附註請求
+#[derive(Debug, Deserialize, Validate)]
+pub struct CreateAnnotationRequest {
+    #[validate(length(min = 1, message = "內容為必填"))]
+    pub content: String,
+    pub annotation_type: String, // NOTE, CORRECTION, ADDENDUM
+}
+
+/// 簽章請求
+#[derive(Debug, Deserialize, Validate)]
+pub struct SignRequest {
+    #[validate(length(min = 1, message = "密碼為必填"))]
+    pub password: String,
+    pub signature_type: String, // APPROVE, CONFIRM, WITNESS
+}
+
+/// 帶變更原因的更新豬隻請求
+#[derive(Debug, Deserialize, Validate)]
+pub struct UpdatePigWithReasonRequest {
+    #[serde(flatten)]
+    pub data: UpdatePigRequest,
+    #[validate(length(min = 1, message = "變更原因為必填"))]
+    pub change_reason: String,
+}
+
+/// 帶變更原因的更新觀察紀錄請求
+#[derive(Debug, Deserialize, Validate)]
+pub struct UpdateObservationWithReasonRequest {
+    #[serde(flatten)]
+    pub data: UpdateObservationRequest,
+    #[validate(length(min = 1, message = "變更原因為必填"))]
+    pub change_reason: String,
+}
+
+/// 帶變更原因的更新手術紀錄請求
+#[derive(Debug, Deserialize, Validate)]
+pub struct UpdateSurgeryWithReasonRequest {
+    #[serde(flatten)]
+    pub data: UpdateSurgeryRequest,
+    #[validate(length(min = 1, message = "變更原因為必填"))]
+    pub change_reason: String,
+}
+
+/// 帶變更原因的更新體重紀錄請求
+#[derive(Debug, Deserialize, Validate)]
+pub struct UpdateWeightWithReasonRequest {
+    #[serde(flatten)]
+    pub data: UpdateWeightRequest,
+    #[validate(length(min = 1, message = "變更原因為必填"))]
+    pub change_reason: String,
+}
+
+/// 帶變更原因的更新疫苗紀錄請求
+#[derive(Debug, Deserialize, Validate)]
+pub struct UpdateVaccinationWithReasonRequest {
+    #[serde(flatten)]
+    pub data: UpdateVaccinationRequest,
+    #[validate(length(min = 1, message = "變更原因為必填"))]
+    pub change_reason: String,
+}
+

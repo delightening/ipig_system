@@ -70,6 +70,7 @@ import { SacrificeFormDialog } from '@/components/pig/SacrificeFormDialog'
 import { ExportDialog } from '@/components/pig/ExportDialog'
 import { VersionHistoryDialog } from '@/components/pig/VersionHistoryDialog'
 import { VetRecommendationDialog } from '@/components/pig/VetRecommendationDialog'
+import { DeleteReasonDialog } from '@/components/ui/delete-reason-dialog'
 
 const statusColors: Record<PigStatus, string> = {
   unassigned: 'bg-gray-500',
@@ -129,6 +130,12 @@ export function PigDetailPage() {
   const [newWeight, setNewWeight] = useState({ measure_date: new Date().toISOString().split('T')[0], weight: '' })
   const [newVaccination, setNewVaccination] = useState({ administered_date: new Date().toISOString().split('T')[0], vaccine: '', deworming_dose: '' })
   const [pathologyFiles, setPathologyFiles] = useState<FileInfo[]>([])
+
+  // Delete dialog states (GLP compliance)
+  const [deleteObservationTarget, setDeleteObservationTarget] = useState<number | null>(null)
+  const [deleteSurgeryTarget, setDeleteSurgeryTarget] = useState<number | null>(null)
+  const [deleteWeightTarget, setDeleteWeightTarget] = useState<number | null>(null)
+  const [deleteVaccinationTarget, setDeleteVaccinationTarget] = useState<number | null>(null)
 
   // Queries
   const { data: pig, isLoading: pigLoading } = useQuery({
@@ -264,42 +271,74 @@ export function PigDetailPage() {
   })
 
   const deleteWeightMutation = useMutation({
-    mutationFn: async (weightId: number) => {
-      return api.delete(`/weights/${weightId}`)
+    mutationFn: async ({ id, reason }: { id: number; reason: string }) => {
+      return api.delete(`/weights/${id}`, { data: { reason } })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pig-weights', pigId] })
       toast({ title: '成功', description: '體重紀錄已刪除' })
+      setDeleteWeightTarget(null)
+    },
+    onError: (error: any) => {
+      toast({
+        title: '錯誤',
+        description: error?.response?.data?.error?.message || '刪除失敗',
+        variant: 'destructive',
+      })
     },
   })
 
   const deleteVaccinationMutation = useMutation({
-    mutationFn: async (vaccinationId: number) => {
-      return api.delete(`/vaccinations/${vaccinationId}`)
+    mutationFn: async ({ id, reason }: { id: number; reason: string }) => {
+      return api.delete(`/vaccinations/${id}`, { data: { reason } })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pig-vaccinations', pigId] })
       toast({ title: '成功', description: '疫苗紀錄已刪除' })
+      setDeleteVaccinationTarget(null)
+    },
+    onError: (error: any) => {
+      toast({
+        title: '錯誤',
+        description: error?.response?.data?.error?.message || '刪除失敗',
+        variant: 'destructive',
+      })
     },
   })
 
   const deleteObservationMutation = useMutation({
-    mutationFn: async (observationId: number) => {
-      return api.delete(`/observations/${observationId}`)
+    mutationFn: async ({ id, reason }: { id: number; reason: string }) => {
+      return api.delete(`/observations/${id}`, { data: { reason } })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pig-observations', pigId] })
       toast({ title: '成功', description: '觀察紀錄已刪除' })
+      setDeleteObservationTarget(null)
+    },
+    onError: (error: any) => {
+      toast({
+        title: '錯誤',
+        description: error?.response?.data?.error?.message || '刪除失敗',
+        variant: 'destructive',
+      })
     },
   })
 
   const deleteSurgeryMutation = useMutation({
-    mutationFn: async (surgeryId: number) => {
-      return api.delete(`/surgeries/${surgeryId}`)
+    mutationFn: async ({ id, reason }: { id: number; reason: string }) => {
+      return api.delete(`/surgeries/${id}`, { data: { reason } })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pig-surgeries', pigId] })
       toast({ title: '成功', description: '手術紀錄已刪除' })
+      setDeleteSurgeryTarget(null)
+    },
+    onError: (error: any) => {
+      toast({
+        title: '錯誤',
+        description: error?.response?.data?.error?.message || '刪除失敗',
+        variant: 'destructive',
+      })
     },
   })
 
@@ -619,11 +658,7 @@ export function PigDetailPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => {
-                                  if (confirm('確定要刪除此紀錄？')) {
-                                    deleteObservationMutation.mutate(obs.id)
-                                  }
-                                }}
+                                onClick={() => setDeleteObservationTarget(obs.id)}
                                 title="刪除"
                               >
                                 <Trash2 className="h-4 w-4 text-red-500" />
@@ -798,11 +833,7 @@ export function PigDetailPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => {
-                                  if (confirm('確定要刪除此紀錄？')) {
-                                    deleteSurgeryMutation.mutate(surgery.id)
-                                  }
-                                }}
+                                onClick={() => setDeleteSurgeryTarget(surgery.id)}
                                 title="刪除"
                               >
                                 <Trash2 className="h-4 w-4 text-red-500" />
@@ -948,11 +979,7 @@ export function PigDetailPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => {
-                                if (confirm('確定要刪除此體重紀錄？')) {
-                                  deleteWeightMutation.mutate(weight.id)
-                                }
-                              }}
+                              onClick={() => setDeleteWeightTarget(weight.id)}
                             >
                               <Trash2 className="h-4 w-4 text-red-500" />
                             </Button>
@@ -1014,11 +1041,7 @@ export function PigDetailPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => {
-                                if (confirm('確定要刪除此紀錄？')) {
-                                  deleteVaccinationMutation.mutate(vac.id)
-                                }
-                              }}
+                              onClick={() => setDeleteVaccinationTarget(vac.id)}
                             >
                               <Trash2 className="h-4 w-4 text-red-500" />
                             </Button>
@@ -1441,6 +1464,43 @@ export function PigDetailPage() {
         pigId={pigId}
         earTag={pig?.ear_tag || ''}
         sacrifice={sacrifice || undefined}
+      />
+
+      {/* Delete Reason Dialogs (GLP Compliance) */}
+      <DeleteReasonDialog
+        open={deleteObservationTarget !== null}
+        onOpenChange={(open) => !open && setDeleteObservationTarget(null)}
+        title="刪除觀察紀錄"
+        description="此操作將標記紀錄為已刪除，資料將保留於系統中以符合 GLP 規範。"
+        onConfirm={(reason) => deleteObservationMutation.mutate({ id: deleteObservationTarget!, reason })}
+        isPending={deleteObservationMutation.isPending}
+      />
+
+      <DeleteReasonDialog
+        open={deleteSurgeryTarget !== null}
+        onOpenChange={(open) => !open && setDeleteSurgeryTarget(null)}
+        title="刪除手術紀錄"
+        description="此操作將標記紀錄為已刪除，資料將保留於系統中以符合 GLP 規範。"
+        onConfirm={(reason) => deleteSurgeryMutation.mutate({ id: deleteSurgeryTarget!, reason })}
+        isPending={deleteSurgeryMutation.isPending}
+      />
+
+      <DeleteReasonDialog
+        open={deleteWeightTarget !== null}
+        onOpenChange={(open) => !open && setDeleteWeightTarget(null)}
+        title="刪除體重紀錄"
+        description="此操作將標記紀錄為已刪除，資料將保留於系統中以符合 GLP 規範。"
+        onConfirm={(reason) => deleteWeightMutation.mutate({ id: deleteWeightTarget!, reason })}
+        isPending={deleteWeightMutation.isPending}
+      />
+
+      <DeleteReasonDialog
+        open={deleteVaccinationTarget !== null}
+        onOpenChange={(open) => !open && setDeleteVaccinationTarget(null)}
+        title="刪除疫苗紀錄"
+        description="此操作將標記紀錄為已刪除，資料將保留於系統中以符合 GLP 規範。"
+        onConfirm={(reason) => deleteVaccinationMutation.mutate({ id: deleteVaccinationTarget!, reason })}
+        isPending={deleteVaccinationMutation.isPending}
       />
     </div>
   )

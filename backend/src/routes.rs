@@ -215,6 +215,10 @@ pub fn api_routes(state: AppState) -> Router {
         // ============================================
         .route("/hr/dashboard/calendar", get(handlers::get_dashboard_calendar))
         // ============================================
+        // HR Staff List (供下拉選單用)
+        // ============================================
+        .route("/hr/staff", get(handlers::list_staff_for_proxy))
+        // ============================================
         // Calendar Sync (新增)
         // ============================================
         .route("/hr/calendar/status", get(handlers::get_calendar_status))
@@ -243,6 +247,12 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/facilities/pens/:id", get(handlers::get_pen).put(handlers::update_pen).delete(handlers::delete_pen))
         .route("/facilities/departments", get(handlers::list_departments).post(handlers::create_department))
         .route("/facilities/departments/:id", get(handlers::get_department).put(handlers::update_department).delete(handlers::delete_department))
+        // ============================================
+        // Electronic Signatures & Annotations (GLP Compliance)
+        // ============================================
+        .route("/signatures/sacrifice/:id", post(handlers::sign_sacrifice_record).get(handlers::get_sacrifice_signature_status))
+        .route("/signatures/observation/:id", post(handlers::sign_observation_record))
+        .route("/annotations/:record_type/:record_id", get(handlers::get_record_annotations).post(handlers::add_record_annotation))
         .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
         .with_state(state);
 

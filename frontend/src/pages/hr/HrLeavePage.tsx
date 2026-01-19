@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
@@ -69,6 +69,13 @@ interface User {
     roles?: string[]
 }
 
+// 工作人員簡易資訊（從 /hr/staff API 返回）
+interface StaffInfo {
+    id: string
+    display_name: string
+    email: string
+}
+
 // Helper to safely parse Decimal strings from backend
 const parseDecimal = (value: number | string | null | undefined): number => {
     if (value === null || value === undefined) return 0
@@ -89,6 +96,9 @@ export function HrLeavePage() {
     const [proxyUserId, setProxyUserId] = useState('')  // 代理人
     const [supportingImages, setSupportingImages] = useState<string[]>([])  // 附件圖片 URLs
     const [uploadingImage, setUploadingImage] = useState(false)
+
+    // 追蹤最後修改的欄位（用於決定計算方向）
+    const [lastChangedField, setLastChangedField] = useState<'startDate' | 'endDate' | 'totalDays' | null>(null)
 
     // 我的餘額
     const { data: balanceSummary } = useQuery({
@@ -121,15 +131,60 @@ export function HrLeavePage() {
     })
 
     // 取得試驗工作人員列表（供代理人選擇）
-    const { data: usersData } = useQuery({
-        queryKey: ['users-for-proxy-experiment-staff'],
+    // 使用專用 API，不需要 dev.user.view 權限
+    const { data: staffList } = useQuery({
+        queryKey: ['hr-staff-for-proxy'],
         queryFn: async () => {
-            const res = await api.get<PaginatedResponse<User>>('/users?is_active=true&per_page=100')
-            // 過濾出具有 EXPERIMENT_STAFF 角色的用戶
-            const filteredUsers = res.data.data.filter(user => user.roles?.includes('EXPERIMENT_STAFF'))
-            return { ...res.data, data: filteredUsers }
+            const res = await api.get<StaffInfo[]>('/hr/staff')
+            return res.data
         },
     })
+
+    // 日期/天數處理函式
+    const handleStartDateChange = (value: string) => {
+        setStartDate(value)
+        setLastChangedField('startDate')
+    }
+
+    const handleEndDateChange = (value: string) => {
+        setEndDate(value)
+        setLastChangedField('endDate')
+    }
+
+    const handleTotalDaysChange = (value: string) => {
+        setTotalDays(value)
+        setLastChangedField('totalDays')
+    }
+
+    // 自動計算日期/天數（雙向計算）
+    useEffect(() => {
+        if (!lastChangedField) return
+
+        // 如果修改的是開始日期或結束日期 → 計算天數
+        if ((lastChangedField === 'startDate' || lastChangedField === 'endDate') && startDate && endDate) {
+            const start = new Date(startDate)
+            const end = new Date(endDate)
+            if (end >= start) {
+                const diffTime = end.getTime() - start.getTime()
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1
+                setTotalDays(String(diffDays))
+            }
+        }
+
+        // 如果修改的是天數 → 計算結束日期
+        if (lastChangedField === 'totalDays' && startDate && totalDays) {
+            const days = parseFloat(totalDays)
+            if (days >= 0.5) {
+                const start = new Date(startDate)
+                // 天數 - 1 是因為開始日期算第一天
+                const end = new Date(start.getTime() + (Math.ceil(days) - 1) * 24 * 60 * 60 * 1000)
+                const newEndDate = end.toISOString().split('T')[0]
+                if (newEndDate !== endDate) {
+                    setEndDate(newEndDate)
+                }
+            }
+        }
+    }, [startDate, endDate, totalDays, lastChangedField])
 
     // 建立請假
     const createLeaveMutation = useMutation({
@@ -330,7 +385,7 @@ export function HrLeavePage() {
                                     <Input
                                         type="date"
                                         value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
+                                        onChange={(e) => handleStartDateChange(e.target.value)}
                                     />
                                 </div>
                                 <div className="grid gap-2">
@@ -338,7 +393,7 @@ export function HrLeavePage() {
                                     <Input
                                         type="date"
                                         value={endDate}
-                                        onChange={(e) => setEndDate(e.target.value)}
+                                        onChange={(e) => handleEndDateChange(e.target.value)}
                                     />
                                 </div>
                             </div>
@@ -349,7 +404,7 @@ export function HrLeavePage() {
                                     step="0.5"
                                     min="0.5"
                                     value={totalDays}
-                                    onChange={(e) => setTotalDays(e.target.value)}
+                                    onChange={(e) => handleTotalDaysChange(e.target.value)}
                                 />
                             </div>
                             <div className="grid gap-2">
@@ -360,9 +415,9 @@ export function HrLeavePage() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="__none__">不選擇</SelectItem>
-                                        {usersData?.data?.map((user) => (
-                                            <SelectItem key={user.id} value={user.id}>
-                                                {user.display_name}
+                                        {staffList?.map((staff) => (
+                                            <SelectItem key={staff.id} value={staff.id}>
+                                                {staff.display_name}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>

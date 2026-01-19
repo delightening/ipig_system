@@ -11,7 +11,7 @@ mod stock;
 mod audit;
 mod sku;
 mod protocol;
-mod pig;
+mod animal;
 mod notification;
 mod file;
 mod hr;
@@ -24,6 +24,7 @@ mod session_manager;
 pub mod scheduler;
 pub mod report;
 pub mod email;
+mod signature;
 
 pub use auth::AuthService;
 pub use user::UserService;
@@ -36,7 +37,7 @@ pub use stock::StockService;
 pub use audit::AuditService;
 pub use sku::SkuService;
 pub use protocol::ProtocolService;
-pub use pig::PigService;
+pub use animal::AnimalService;
 pub use email::EmailService;
 pub use notification::NotificationService;
 pub use file::{FileService, FileCategory, UploadResult};
@@ -44,8 +45,7 @@ pub use hr::HrService;
 pub use facility::FacilityService;
 pub use calendar::CalendarService;
 pub use pdf::PdfService;
+pub use signature::{SignatureService, AnnotationService, SignatureType, AnnotationType};
 
 mod balance_expiration;
 pub use balance_expiration::BalanceExpirationJob;
-
-
