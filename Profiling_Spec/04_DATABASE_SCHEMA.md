@@ -1,6 +1,6 @@
 # Database Schema
 
-> **Version**: 2.0  
+> **Version**: 2.1  
 > **Last Updated**: 2026-01-29  
 > **Audience**: Database Administrators, Developers
 
@@ -8,7 +8,7 @@
 
 ## 1. Overview
 
-The iPig database runs on PostgreSQL 15 and consists of 10 migration files organized by module:
+The iPig database runs on PostgreSQL 15 and consists of **13 migration files** organized by module:
 
 | Migration | Description |
 |-----------|-------------|
@@ -22,6 +22,9 @@ The iPig database runs on PostgreSQL 15 and consists of 10 migration files organ
 | 008_reset_admin.sql | Admin password reset |
 | 009_add_roles_is_active.sql | Role active flag |
 | 010_add_deleted_at_column.sql | Soft delete for pigs |
+| 011_hr_system_updates.sql | Overtime type update (A/B/C/D), data cleanup |
+| 012_seed_attendance_records.sql | Seed attendance records for EXPERIMENT_STAFF |
+| 013_glp_compliance.sql | **GLP Phase 2**: Electronic signatures, record annotations, record locking |
 
 ### Module Overview
 
@@ -935,6 +938,92 @@ CREATE TRIGGER trg_queue_calendar_sync
 
 ---
 
+## 7. GLP Phase 2 Tables (Migration 013)
+
+### 7.1 Electronic Signatures
+
+為 GLP 合規需求，記錄需要電子簽章確認。
+
+```sql
+CREATE TABLE electronic_signatures (
+    id UUID PRIMARY KEY,
+    entity_type VARCHAR(50) NOT NULL,      -- 'sacrifice', 'protocol_approval'
+    entity_id VARCHAR(50) NOT NULL,
+    signer_id UUID NOT NULL REFERENCES users(id),
+    signature_type VARCHAR(50) NOT NULL,   -- 'APPROVE', 'CONFIRM', 'WITNESS'
+    content_hash VARCHAR(64) NOT NULL,     -- SHA-256 of content at signing time
+    signature_data TEXT NOT NULL,          -- Encrypted signature (base64)
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    signed_at TIMESTAMPTZ DEFAULT NOW(),
+    is_valid BOOLEAN DEFAULT true,
+    invalidated_reason TEXT,
+    invalidated_at TIMESTAMPTZ,
+    invalidated_by UUID REFERENCES users(id)
+);
+
+CREATE TABLE signature_verification_logs (
+    id UUID PRIMARY KEY,
+    signature_id UUID NOT NULL REFERENCES electronic_signatures(id),
+    verified_by UUID REFERENCES users(id),
+    verification_result BOOLEAN NOT NULL,
+    verification_method VARCHAR(50) NOT NULL,
+    failure_reason TEXT,
+    verified_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### 7.2 Record Annotations
+
+已簽章/鎖定的記錄只能透過附註進行更正，不能直接修改。
+
+```sql
+CREATE TABLE record_annotations (
+    id UUID PRIMARY KEY,
+    record_type VARCHAR(50) NOT NULL,      -- 'observation', 'surgery', 'sacrifice'
+    record_id INTEGER NOT NULL,
+    annotation_type VARCHAR(20) NOT NULL,  -- 'NOTE', 'CORRECTION', 'ADDENDUM'
+    content TEXT NOT NULL,
+    created_by UUID NOT NULL REFERENCES users(id),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    signature_id UUID REFERENCES electronic_signatures(id)  -- CORRECTION 需要簽章
+);
+```
+
+### 7.3 Change Reasons
+
+記錄所有資料變更的原因（GLP 要求）。
+
+```sql
+CREATE TABLE change_reasons (
+    id UUID PRIMARY KEY,
+    entity_type VARCHAR(50) NOT NULL,      -- 'pig', 'observation', 'surgery'
+    entity_id VARCHAR(50) NOT NULL,
+    change_type VARCHAR(20) NOT NULL,      -- 'UPDATE', 'DELETE'
+    reason TEXT NOT NULL,
+    old_values JSONB,
+    new_values JSONB,
+    changed_fields TEXT[],
+    changed_by UUID NOT NULL REFERENCES users(id),
+    changed_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### 7.4 Record Locking Fields
+
+動物紀錄表（observation, surgery, sacrifice）新增鎖定欄位：
+
+| Column | Type | Description |
+|--------|------|-------------|
+| deleted_at | TIMESTAMPTZ | Soft delete timestamp |
+| deletion_reason | TEXT | Reason for deletion (GLP requirement) |
+| deleted_by | UUID | User who deleted |
+| is_locked | BOOLEAN | Record is locked after signing |
+| locked_at | TIMESTAMPTZ | Lock timestamp |
+| locked_by | UUID | User who locked |
+
+---
+
 ## Summary
 
 | Module | Tables |
@@ -946,7 +1035,8 @@ CREATE TRIGGER trg_queue_calendar_sync
 | HR | 6 |
 | Calendar & Notification | 7 |
 | Audit & Security | 4 |
-| **Total** | **51** |
+| GLP Compliance | 3 |
+| **Total** | **54** |
 
 ---
 

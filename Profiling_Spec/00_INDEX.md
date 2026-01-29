@@ -1,6 +1,6 @@
 # iPig System Specification Index
 
-> **Version**: 2.1 (Consolidated)  
+> **Version**: 2.2 (Profiled)  
 > **Last Updated**: 2026-01-29  
 > **Maintainer**: Development Team
 

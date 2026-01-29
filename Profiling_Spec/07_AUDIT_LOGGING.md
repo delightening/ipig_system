@@ -1,7 +1,7 @@
 # Audit & Logging Specification
 
-> **Version**: 1.0  
-> **Last Updated**: 2026-01-17  
+> **Version**: 2.0  
+> **Last Updated**: 2026-01-29  
 > **Audience**: Security Team, Developers, Compliance Officers
 
 ---
@@ -416,12 +416,46 @@ tokio::spawn(async move {
 
 ---
 
-## 12. Related Documents
+## 12. GLP Phase 2 Enhancements (New)
 
-- [Database Schema](./04_DATABASE_SCHEMA.md) - Full table definitions
-- [Permissions & RBAC](./06_PERMISSIONS_RBAC.md) - Role assignments
-- [API Specification](./05_API_SPECIFICATION.md) - Endpoint details
+### 12.1 Electronic Signature Logging
+
+所有電子簽章操作都會記錄到審計日誌：
+
+| Event Type | Description | Logged Fields |
+|------------|-------------|---------------|
+| SIGNATURE_CREATED | 記錄已簽章 | entity_type, entity_id, signer, signature_type, content_hash |
+| SIGNATURE_VERIFIED | 簽章驗證 | signature_id, verification_result, verification_method |
+| SIGNATURE_INVALIDATED | 簽章作廢 | signature_id, reason, invalidated_by |
+| RECORD_LOCKED | 記錄鎖定 | record_type, record_id, locked_by |
+| ANNOTATION_ADDED | 附註新增 | record_type, record_id, annotation_type, content |
+
+### 12.2 Change Reason Tracking
+
+所有 UPDATE 和 DELETE 操作現在需要記錄變更原因：
+
+```json
+{
+  "entity_type": "pig_observation",
+  "entity_id": "123",
+  "change_type": "UPDATE",
+  "reason": "Correcting typo in observation notes",
+  "old_values": { "notes": "Pig showes normal behavior" },
+  "new_values": { "notes": "Pig shows normal behavior" },
+  "changed_fields": ["notes"],
+  "changed_by": "user-uuid",
+  "changed_at": "2026-01-29T10:30:00Z"
+}
+```
 
 ---
 
-*Last updated: 2026-01-17*
+## 13. Related Documents
+
+- [Database Schema](./04_DATABASE_SCHEMA.md) - Full table definitions including GLP tables
+- [Permissions & RBAC](./06_PERMISSIONS_RBAC.md) - Role assignments
+- [API Specification](./05_API_SPECIFICATION.md) - Endpoint details including signature APIs
+
+---
+
+*Last updated: 2026-01-29*

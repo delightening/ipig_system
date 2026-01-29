@@ -6,6 +6,37 @@
 
 ## Document Versions
 
+### Profiling_Spec v2.2 (2026-01-29)
+
+**Codebase Profiling Update**
+
+Updated documentation to reflect actual codebase implementation:
+
+| Document | Changes |
+|----------|---------|
+| 04_DATABASE_SCHEMA.md | + Added migrations 011-013 (HR updates, GLP compliance) |
+| 04_DATABASE_SCHEMA.md | + Added GLP Phase 2 tables (electronic_signatures, record_annotations, change_reasons) |
+| 05_API_SPECIFICATION.md | + Added GLP Compliance API section (signatures, annotations) |
+| 05_API_SPECIFICATION.md | + Added Protocol PDF Export API |
+| 07_AUDIT_LOGGING.md | + Added GLP Phase 2 enhancements (signature logging, change reason tracking) |
+| 08_ATTENDANCE_MODULE.md | + Updated overtime types (A/B/C/D system) |
+| 08_ATTENDANCE_MODULE.md | + Updated comp time rules (only C/D generate comp time, 8hrs fixed) |
+
+**New Features Documented**:
+- Electronic signatures for sacrifice/observation records
+- Record annotations for locked records (NOTE, CORRECTION, ADDENDUM)
+- Change reason tracking for all UPDATE/DELETE operations
+- Record locking after signature
+- PDF export for AUP protocols
+- New overtime type system (A/B/C/D replacing weekday/weekend/holiday)
+
+**Database Migrations Added**:
+- 011_hr_system_updates.sql - Overtime type refactoring
+- 012_seed_attendance_records.sql - Attendance data seeding
+- 013_glp_compliance.sql - Electronic signatures, annotations, locking
+
+---
+
 ### Profiling_Spec v2.1 (2026-01-29)
 
 **Documentation Consolidation**

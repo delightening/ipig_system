@@ -1,7 +1,7 @@
 # API Specification
 
-> **Version**: 2.0  
-> **Last Updated**: 2026-01-18  
+> **Version**: 2.1  
+> **Last Updated**: 2026-01-29  
 > **Audience**: Frontend Developers, Integration Partners
 
 ---
@@ -500,6 +500,50 @@ Response:
 | POST | `/admin/trigger/low-stock-check` | Trigger low stock check |
 | POST | `/admin/trigger/expiry-check` | Trigger expiry check |
 | POST | `/admin/trigger/notification-cleanup` | Cleanup notifications |
+
+---
+
+## 16. GLP Compliance API (New)
+
+### Electronic Signatures
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/signatures/sacrifice/:id` | Sign sacrifice record (lock after signing) |
+| GET | `/signatures/sacrifice/:id` | Get sacrifice signature status |
+| POST | `/signatures/observation/:id` | Sign observation record |
+
+### Record Annotations
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/annotations/:record_type/:record_id` | List annotations for a record |
+| POST | `/annotations/:record_type/:record_id` | Add annotation to locked record |
+
+#### Create Annotation Request
+```json
+{
+  "annotation_type": "CORRECTION",  // NOTE, CORRECTION, ADDENDUM
+  "content": "Correction: The original weight was misread...",
+  "password": "user_password"  // Required for CORRECTION type
+}
+```
+
+#### Sign Record Request
+```json
+{
+  "password": "user_password",
+  "signature_type": "CONFIRM"  // APPROVE, CONFIRM, WITNESS
+}
+```
+
+---
+
+## 17. Protocol Export API (New)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/protocols/:id/export-pdf` | Export protocol as PDF |
 
 ---
 
