@@ -25,7 +25,7 @@ docker compose logs -f
 
 ### 服務入口
 - 前端: http://localhost:8080
-- API: http://localhost:8000
+- API: http://localhost:3000
 
 ### 預設帳號
 - 帳號: admin@ipig.local

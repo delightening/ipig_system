@@ -384,244 +384,49 @@ protocols.iacuc_no ←──────────────────→ 
 ## 子系統詳細規格
 
 ### 1. 豬博士動物試驗申請書(AUP)提交與審查系統
-IACUC 動物試驗計畫書（AUP）提交與審查系統規格書
 
-#### 1. 系統目的與範圍
-本系統用於管理 IACUC（Institutional Animal Care and Use Committee）動物試驗計畫書（Animal Use Protocol, AUP）的完整生命週期，包含草稿撰寫、提交、審查、修訂、核准、暫停與結案等流程  
+本系統用於管理 IACUC 動物試驗計畫書（AUP）的完整生命週期，包含草稿撰寫、提交、審查、修訂、核准、暫停與結案等流程。
 
-系統支援角色權限控管、完整審查流程、版本控管、附件管理與稽核軌跡，適用於研究機構、CRO、動物試驗單位與其 IACUC 組織  
+> **詳細規格**：AUP 表單欄位定義、驗證規則請參考 [AUP.md](AUP.md)
 
----
-
-#### 2. 使用者角色與權限模型
-##### 2.1 使用者角色
-系統支援以下角色（每位使用者可同時擁有多個角色）：
-
-- PI（計畫主持人）
-- REVIEWER（審查委員）
-- VET（獸醫師）
-- CHAIR（IACUC 主席）
-- IACUC_STAFF（執行秘書／行政人員，管理所有計劃進度）
-- WAREHOUSE_MANAGER（倉庫管理員，專責 ERP）
-- SYSTEM_ADMIN（系統管理員）
-
----
-##### 2.2 角色能力概述
+#### 1.1 角色與權限
 
 | 角色 | 核心能力 |
-|----|----|
+|----|--------|
 | PI | 建立與編輯草稿、提交計畫、回應審查意見 |
 | REVIEWER / VET | 審查指派案件、新增審查意見 |
 | CHAIR | 主導審查決策、核准或否決計畫 |
-| IACUC_STAFF | 指派審查人員、管理流程狀態、管理所有計劃進度 |
-| WAREHOUSE_MANAGER | 專責 ERP 進銷存管理 |
-| SYSTEM_ADMIN | 全系統管理、使用者管理、系統維運 |
+| IACUC_STAFF | 指派審查人員、管理流程狀態 |
+| SYSTEM_ADMIN | 全系統管理 |
+
+#### 1.2 計畫書狀態流程
+
+```
+DRAFT → SUBMITTED → PRE_REVIEW → UNDER_REVIEW → APPROVED
+                                      ↓
+                              REVISION_REQUIRED → RESUBMITTED
+```
+
+**完整狀態**：DRAFT、SUBMITTED、PRE_REVIEW、UNDER_REVIEW、REVISION_REQUIRED、RESUBMITTED、APPROVED、APPROVED_WITH_CONDITIONS、DEFERRED、REJECTED、SUSPENDED、CLOSED
+
+#### 1.3 主要 API 端點
+
+| 類別 | 端點範例 |
+|-----|---------|
+| 計畫書 | `POST/GET/PATCH /protocols`, `/protocols/{id}/submit`, `/protocols/{id}/status` |
+| 審查 | `/reviews/assignments`, `/reviews/comments` |
+| 附件 | `/attachments` |
+| 稽核 | `/audit-logs` |
+
+#### 1.4 前端路由
+
+| 路由 | 說明 |
+|-----|------|
+| `/dashboard` | 計畫書清單 |
+| `/protocol/new` | 建立新計畫書 |
+| `/protocol/:protocolId` | 編輯計畫書 |
 
 ---
-
-#### 3. 核心資料模型（資料庫實體）
-##### 3.1 資料表一覽
-- `users`  
-  系統使用者（含 organization 欄位記錄所屬單位）  
-
-- `user_roles`  
-  使用者角色關係  
-
-- `protocols`  
-  計畫書主檔，包含目前狀態與草稿內容  
-
-- `protocol_versions`  
-  每次提交或重送所產生的不可變版本快照  
-
-- `protocol_status_history`  
-  狀態轉移歷程紀錄  
-
-- `review_assignments`  
-  審查人員與計畫書指派關係  
-
-- `comments`  
-  審查意見（綁定特定版本）  
-
-- `attachments`  
-  附件檔案與其中繼資料  
-
-- `audit_logs`  
-  系統稽核紀錄（所有變動操作）
-
----
-
-#### 4. 計畫書狀態機（State Machine）
-
-##### 4.1 狀態定義
-
-- DRAFT（草稿）
-- SUBMITTED（已提交）
-- PRE_REVIEW（行政預審）
-- UNDER_REVIEW（審查中）
-- REVISION_REQUIRED（需修訂）
-- RESUBMITTED（已重送）
-- APPROVED（核准）
-- APPROVED_WITH_CONDITIONS（附條件核准）
-- DEFERRED（延後審議）
-- REJECTED（否決）
-- SUSPENDED（暫停）
-- CLOSED（結案）
-
----
-
-##### 4.2 允許的狀態轉移與角色
-
-- DRAFT → SUBMITTED  
-  角色：PI  
-
-- SUBMITTED → PRE_REVIEW  
-  角色：IACUC_STAFF、SYSTEM_ADMIN  
-
-- PRE_REVIEW → UNDER_REVIEW  
-  角色：IACUC_STAFF、CHAIR、SYSTEM_ADMIN  
-
-- UNDER_REVIEW → REVISION_REQUIRED  
-  角色：REVIEWER、VET、CHAIR、IACUC_STAFF  
-
-- UNDER_REVIEW → APPROVED / APPROVED_WITH_CONDITIONS / REJECTED  
-  角色：CHAIR、SYSTEM_ADMIN  
-
-- UNDER_REVIEW → DEFERRED  
-  角色：CHAIR、IACUC_STAFF  
-
-- REVISION_REQUIRED → RESUBMITTED  
-  角色：PI  
-
-- RESUBMITTED → PRE_REVIEW / UNDER_REVIEW  
-  角色：IACUC_STAFF、CHAIR  
-
-- APPROVED / APPROVED_WITH_CONDITIONS → SUSPENDED  
-  角色：CHAIR、IACUC_STAFF、SYSTEM_ADMIN  
-
-- DEFERRED / SUSPENDED → UNDER_REVIEW  
-  角色：CHAIR、IACUC_STAFF、SYSTEM_ADMIN  
-
-- 任一狀態 → CLOSED  
-  依狀態機規則與權限限制執行  
-
----
-
-#### 5. 後端 API 規格
-
-##### 5.1 驗證與身分
-
-- POST `/auth/login`
-- POST `/auth/refresh`
-
----
-##### 5.3 使用者
-
-- GET `/users/me`
-- GET `/users`
-- GET `/users/{user_id}`
-
----
-##### 5.4 計畫書（Protocols）
-
-- POST `/protocols`
-- GET `/protocols`
-- GET `/protocols/{protocol_id}`
-- PATCH `/protocols/{protocol_id}`
-- POST `/protocols/{protocol_id}/submit`
-- POST `/protocols/{protocol_id}/status`
-- GET `/protocols/{protocol_id}/versions`
-- GET `/protocols/{protocol_id}/versions/{version_id}`
-- GET `/protocols/{protocol_id}/status-history`
-
----
-##### 5.5 審查流程
-
-- POST `/reviews/assignments`
-- GET `/reviews/assignments`
-- POST `/reviews/comments`
-- GET `/reviews/comments`
-- GET `/reviews/comments/{comment_id}`
-- POST `/reviews/comments/{comment_id}/resolve`
-
----
-##### 5.6 附件管理
-
-- POST `/attachments?protocol_version_id=...`
-- GET `/attachments?protocol_version_id=...`
-- GET `/attachments?protocol_id=...`
-- GET `/attachments/{attachment_id}/download`
-
----
-##### 5.7 稽核紀錄
-
-- GET `/audit-logs`
-- GET `/audit-logs/{log_id}`
-
----
-
-#### 6. 前端頁面與路由
-
-- `/login`  
-  使用者登入  
-
-- `/dashboard`  
-  計畫書清單  
-
-- `/protocol/new`  
-  建立新計畫書（草稿）  
-
-- `/protocol/:protocolId`  
-  編輯、提交與查看計畫書  
-
----
-
-#### 7. AUP 表單資料結構（working_content）
-
-草稿內容儲存於 `protocols.working_content` 欄位，格式為 JSONB，並需具備版本化 schema  
-
-建議章節結構：
-
-- 1. 基本資料（GLP、PI、計畫名稱、期間）
-- 2. 3Rs 原則說明
-- 3. 試驗物質與對照組
-- 4. 試驗流程與麻醉止痛
-- 5. 參考文獻
-- 6. 手術計畫
-- 7. 動物資訊（種類、性別、數量、年齡、體重、來源、飼養）
-- 8. 人員名單與職責
-- 9. 流程圖與附件
-
----
-
-#### 8. 檔案儲存機制
-
-- 所有附件儲存於伺服器檔案系統（`UPLOAD_DIR`）
-- 附件中繼資料存於 `attachments` 資料表
-- 檔案存取必須符合計畫版本權限
-
----
-
-#### 9. 安全與存取控制
-
-- 使用 JWT Access Token 與 Refresh Token
-- 所有資料變動必須寫入 `audit_logs`
-
----
-
-#### 10. 非功能性需求
-
-- 所有狀態變更具備可追蹤性
-- 計畫書編號唯一，格式：`PROTO-YYYY-NNN`
-- 審查流程必須嚴格遵守狀態機規則
-
----
-
-#### 11. 已知缺口與後續改善方向
-
-- 後端尚未提供 PDF 產生端點（目前由前端產生）
-- 前端 TypeScript 型別與實際表單欄位不一致，需統一 schema
-- 尚未實作審查、稽核與使用者管理 UI
-- 建議導入 OpenAPI 規格並進行前後端自動生成
 
 ### 2. 豬博士 iPig ERP (進銷存管理系統)
 
