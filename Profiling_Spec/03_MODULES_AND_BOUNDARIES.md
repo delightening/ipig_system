@@ -340,21 +340,74 @@ graph TD
 
 ---
 
-## 5. Data Flow Between Modules
+## 5. Permissions & RBAC
 
-### 5.1 Protocol → Pig Assignment
+iPig uses Role-Based Access Control (RBAC) where:
+- **Users** have multiple **Roles**
+- **Roles** have multiple **Permissions**
+- **Permissions** are checked at API handler level
+
+### 5.1 System Roles
+
+| Code | Chinese Name | Description | Internal |
+|------|--------------|-------------|----------|
+| `admin` | 系統管理員 | Full system access | Yes |
+| `iacuc_staff` | 執行秘書 | Protocol management, HR approval | Yes |
+| `experiment_staff` | 試驗工作人員 | Animal records, experiments | Yes |
+| `vet` | 獸醫師 | Animal health, recommendations | Yes |
+| `warehouse` | 倉庫管理員 | ERP operations | Yes |
+| `pi` | 計畫主持人 | Protocol submission | No |
+| `client` | 委託人 | View commissioned projects | No |
+
+### 5.2 Permission Categories
+
+| Module | Key Permissions |
+|--------|-----------------|
+| Protocol | `protocol.create`, `protocol.submit`, `protocol.review`, `protocol.approve`, `protocol.view_all` |
+| Animals | `pig.create`, `pig.read`, `pig.update`, `pig.delete`, `pig.assign`, `pig.vet_recommendation` |
+| ERP | `warehouse.manage`, `product.manage`, `partner.manage`, `document.approve`, `inventory.adjust` |
+| HR | `hr.attendance.view_all`, `hr.leave.approve`, `hr.overtime.approve`, `hr.balance.manage` |
+| Audit | `audit.logs.view`, `audit.logs.export`, `audit.alerts.manage` |
+| Admin | `user.manage_roles`, `role.manage`, `system.admin` |
+
+### 5.3 Default Role Assignments
+
+| Role | Key Permissions |
+|------|-----------------|
+| 系統管理員 (admin) | All permissions |
+| 執行秘書 (iacuc_staff) | All protocol permissions, HR approval, calendar management |
+| 試驗工作人員 (experiment_staff) | Full pig CRUD, observation/surgery, own HR access |
+| 獸醫師 (vet) | Pig view, vet recommendations, own HR access |
+| 倉庫管理員 (warehouse) | Full ERP access, inventory, reports |
+| 計畫主持人 (pi) | Protocol CRUD (own), view assigned animals |
+| 委託人 (client) | Protocol view (commissioned only) |
+
+### 5.4 Leave Approval Chain
+
+| Leave Days | Approval Required |
+|------------|-------------------|
+| ≤1 day | L1 (Direct Manager) |
+| 2-3 days | L1 + L2 (Dept Head) |
+| >3 days | L1 + L2 + HR |
+| Special leave types | L1 + L2 + HR + GM |
+
+---
+
+## 6. Data Flow Between Modules
+
+### 6.1 Protocol → Pig Assignment
 1. Protocol approved → `iacuc_no` generated
 2. Pigs assigned to protocol via `pigs.iacuc_no`
 3. Pig status changes to `assigned`
 4. Experiment starts → status changes to `in_experiment`
 
-### 5.2 Overtime → Comp Time
+### 6.2 Overtime → Comp Time
 1. Overtime record submitted → awaits approval
 2. Overtime approved → `comp_time_balances` entry created
 3. Comp time hours = overtime hours × multiplier
 4. Expiration set to 1 year from overtime date
 
-### 5.3 Leave → Calendar Sync
+### 6.3 Leave → Calendar Sync
 1. Leave request approved → trigger `queue_calendar_sync_on_leave_change`
 2. Entry created in `calendar_event_sync` with status `pending_create`
 3. Sync job pushes to Google Calendar

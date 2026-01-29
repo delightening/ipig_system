@@ -1,10 +1,35 @@
 # Version History
 
-> **Last Updated**: 2026-01-18
+> **Last Updated**: 2026-01-29
 
 ---
 
 ## Document Versions
+
+### Profiling_Spec v2.1 (2026-01-29)
+
+**Documentation Consolidation**
+
+Merged and simplified documentation to reduce redundancy:
+
+| Document | Change |
+|----------|--------|
+| 02_CORE_DOMAIN_MODEL.md | → Merged into 04_DATABASE_SCHEMA.md (324→40 lines) |
+| 04_DATABASE_SCHEMA.md | + Added ERD diagrams from database_erd.md |
+| 04_DATABASE_SCHEMA.md | + Added business logic annotations |
+| 06_PERMISSIONS_RBAC.md | → Merged into 03_MODULES_AND_BOUNDARIES.md (249→14 lines) |
+| 08_ATTENDANCE_MODULE.md | Simplified to business rules only (398→150 lines) |
+| 01_ARCHITECTURE_OVERVIEW.md | Simplified tech stack section (291→257 lines) |
+| database_tables.md | ❌ Deleted (794 lines) |
+| database_tables_annotated.md | ❌ Deleted (487 lines) |
+
+**Summary**:
+- Reduced total line count by ~40%
+- Consolidated 4 database files into 1
+- Merged RBAC into Modules document
+- Focused HR module on business rules only
+
+---
 
 ### Profiling_Spec v2.0 (2026-01-18)
 

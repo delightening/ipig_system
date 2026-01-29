@@ -60,48 +60,14 @@ iPig (豬博士動物科技系統) is an integrated experimental animal manageme
 
 ## 3. Technology Stack
 
-### 3.1 Frontend
+> 完整技術棧請參考 [00_INDEX.md](./00_INDEX.md#technology-stack)
 
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| React | 18.x | UI Framework |
-| TypeScript | 5.x | Type safety |
-| Vite | 5.x | Build tool |
-| React Router | 6.x | Client-side routing |
-| TailwindCSS | 3.x | Utility-first CSS |
-| shadcn/ui | - | Component library |
-| Zustand | 4.x | State management |
-| React Query | 5.x | Server state |
-
-### 3.2 Backend
-
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| Rust | 1.75+ | Language |
-| Axum | 0.7.x | Web framework |
-| SQLx | 0.7.x | Database driver (async) |
-| Tokio | 1.x | Async runtime |
-| Serde | 1.x | Serialization |
-| Argon2 | 0.5.x | Password hashing |
-| jsonwebtoken | 9.x | JWT handling |
-| lettre | 0.11.x | Email sending |
-
-### 3.3 Database
-
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| PostgreSQL | 15.x | Primary database |
-| Table partitioning | - | Audit log performance |
-| JSONB | - | Flexible data storage |
-
-### 3.4 Infrastructure
-
-| Technology | Purpose |
-|------------|---------|
-| Docker | Containerization |
-| Docker Compose | Local development orchestration |
-| Nginx | Reverse proxy (production) |
-| Gmail SMTP | Email delivery |
+| Layer | Technologies |
+|-------|--------------|
+| Frontend | React 18, TypeScript, Vite, TailwindCSS, shadcn/ui, Zustand |
+| Backend | Rust 1.75+, Axum 0.7, SQLx 0.7, Tokio |
+| Database | PostgreSQL 15, JSONB, Table Partitioning |
+| Infra | Docker, Docker Compose, Nginx |
 
 ---
 
