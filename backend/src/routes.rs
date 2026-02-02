@@ -218,6 +218,7 @@ pub fn api_routes(state: AppState) -> Router {
         // HR Staff List (供下拉選單用)
         // ============================================
         .route("/hr/staff", get(handlers::list_staff_for_proxy))
+        .route("/hr/internal-users", get(handlers::list_internal_users_for_balance))
         // ============================================
         // Calendar Sync (新增)
         // ============================================

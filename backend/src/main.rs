@@ -362,6 +362,20 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ]),
         
         // ============================================
+        // ADMIN_STAFF (行政) - 審核加班及請假申請、管理特休額度
+        // ============================================
+        ("ADMIN_STAFF", vec![
+            // HR 審核權限
+            "hr.overtime.approve", "hr.leave.approve",
+            // 查看權限
+            "hr.attendance.view.all", "hr.overtime.view.all", "hr.leave.view.all",
+            // 特休額度管理權限
+            "hr.balance.manage",
+            // Dashboard 權限
+            "dashboard.view",
+        ]),
+        
+        // ============================================
         // CLIENT (委託人) - 計畫/豬隻查看（僅自己相關）
         // ============================================
         ("CLIENT", vec![
