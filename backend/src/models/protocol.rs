@@ -125,6 +125,12 @@ pub struct ReviewComment {
     pub resolved_at: Option<DateTime<Utc>>,
     pub parent_comment_id: Option<Uuid>,
     pub replied_by: Option<Uuid>,
+    /// 草稿回覆內容（僅 PI/Coeditor 可見）
+    pub draft_content: Option<String>,
+    /// 草稿撰寫者
+    pub drafted_by: Option<Uuid>,
+    /// 草稿最後更新時間
+    pub draft_updated_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -219,6 +225,21 @@ pub struct ReplyCommentRequest {
     pub content: String,
 }
 
+/// 儲存草稿回覆請求
+#[derive(Debug, Deserialize, Validate)]
+pub struct SaveDraftRequest {
+    pub comment_id: Uuid,
+    #[validate(length(min = 1, message = "Draft content is required"))]
+    pub draft_content: String,
+}
+
+/// 送出回覆請求（將草稿正式送出）
+#[derive(Debug, Deserialize)]
+pub struct SubmitReplyRequest {
+    pub comment_id: Uuid,
+}
+
+
 #[derive(Debug, Deserialize)]
 pub struct ProtocolQuery {
     pub status: Option<ProtocolStatus>,
@@ -275,6 +296,18 @@ pub struct ReviewCommentResponse {
     pub replied_by_name: Option<String>,
     #[sqlx(default)]
     pub replied_by_email: Option<String>,
+    /// 草稿回覆內容（僅 PI/Coeditor 可見，審查委員不可見）
+    #[sqlx(default)]
+    pub draft_content: Option<String>,
+    /// 草稿撰寫者
+    #[sqlx(default)]
+    pub drafted_by: Option<Uuid>,
+    /// 草稿撰寫者姓名
+    #[sqlx(default)]
+    pub drafted_by_name: Option<String>,
+    /// 草稿最後更新時間
+    #[sqlx(default)]
+    pub draft_updated_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
 }
 

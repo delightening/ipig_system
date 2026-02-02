@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react' // 引入 React 核心 Hook：狀態、副作用、引用、效能優化
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom' // 引入路由組件與導覽 Hook
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query' // 引入資料獲取與變更管理工具
+import { useTranslation } from 'react-i18next' // 引入 i18n 翻譯 Hook
 import { useAuthStore } from '@/stores/auth' // 引入權限管理 Store (Zustand)
 import { cn } from '@/lib/utils' // 引入 CSS 類名合併工具
 import api, { ChangeOwnPasswordRequest, NotificationItem } from '@/lib/api' // 引入 API 定義與類型
@@ -211,6 +212,7 @@ function SortableNavItem({
   expandedItems,
   toggleExpand,
   navigate,
+  translateTitle,
 }: {
   item: NavItem
   isEditMode: boolean
@@ -220,6 +222,7 @@ function SortableNavItem({
   expandedItems: string[]
   toggleExpand: (title: string) => void
   navigate: (path: string) => void
+  translateTitle: (title: string) => string
 }) {
   const {
     attributes,
@@ -252,7 +255,7 @@ function SortableNavItem({
           )}
           <Link
             to={item.href}
-            title={!sidebarOpen ? item.title : undefined}
+            title={!sidebarOpen ? translateTitle(item.title) : undefined}
             className={cn(
               'flex flex-1 items-center rounded-lg px-3 py-2.5 transition-colors',
               sidebarOpen ? 'space-x-3' : 'justify-center',
@@ -262,7 +265,7 @@ function SortableNavItem({
             )}
           >
             <span className="shrink-0">{item.icon}</span>
-            {sidebarOpen && <span>{item.title}</span>}
+            {sidebarOpen && <span>{translateTitle(item.title)}</span>}
           </Link>
         </div>
       ) : (
@@ -286,7 +289,7 @@ function SortableNavItem({
                   toggleExpand(item.title)
                 }
               }}
-              title={!sidebarOpen ? item.title : undefined}
+              title={!sidebarOpen ? translateTitle(item.title) : undefined}
               className={cn(
                 'flex flex-1 items-center rounded-lg px-3 py-2.5 transition-colors',
                 sidebarOpen ? 'justify-between' : 'justify-center',
@@ -300,7 +303,7 @@ function SortableNavItem({
                 sidebarOpen ? 'space-x-3' : ''
               )}>
                 <span className="shrink-0">{item.icon}</span>
-                {sidebarOpen && <span>{item.title}</span>}
+                {sidebarOpen && <span>{translateTitle(item.title)}</span>}
               </div>
               {sidebarOpen && (
                 <ChevronDown
@@ -326,7 +329,7 @@ function SortableNavItem({
                         : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                     )}
                   >
-                    {child.title}
+                    {translateTitle(child.title)}
                   </Link>
                 </li>
               ))}
@@ -343,9 +346,64 @@ export function MainLayout() {
   const navigate = useNavigate() // 用於程式化導覽跳轉
   const queryClient = useQueryClient() // TanStack Query 快取管理器
   const { user, logout, hasRole, hasPermission } = useAuthStore() // 從 Auth Store 取得用戶資訊、登出方法與權限檢查
+  const { t, i18n } = useTranslation() // 引入翻譯函數和 i18n 實例
   const [sidebarOpen, setSidebarOpen] = useState(true) // 控制側邊欄展開/縮小的狀態
   const [expandedItems, setExpandedItems] = useState<string[]>([]) // 控制側邊欄摺疊選單展開項目的清單（預設全部收合）
-  const [language, setLanguage] = useState<string>('zh-TW') // 當前系統語言介面狀態
+
+  // 語言切換處理函數
+  const handleLanguageChange = (lang: string) => {
+    i18n.changeLanguage(lang)
+  }
+
+  // 導覽項目翻譯映射表
+  const navTitleMap: Record<string, string> = {
+    '儀表板': t('nav.dashboard'),
+    '我的計劃': t('nav.myProjects'),
+    'AUP 審查系統': t('nav.aupReview'),
+    '計畫書管理': t('nav.protocols'),
+    '新增計畫書': t('nav.newProtocol'),
+    '人員管理': t('nav.hrManagement'),
+    '出勤打卡': t('nav.attendance'),
+    '請假管理': t('nav.leaves'),
+    '加班管理': t('nav.overtime'),
+    '特休額度管理': t('nav.annualLeave'),
+    '日曆': t('nav.calendar'),
+    '實驗動物管理': t('nav.animalManagement'),
+    '動物列表': t('nav.animalList'),
+    '來源管理': t('nav.sourceManagement'),
+    '採購管理': t('nav.purchasing'),
+    '採購單': t('nav.purchaseOrder'),
+    '採購入庫': t('nav.goodsReceipt'),
+    '採購退貨': t('nav.purchaseReturn'),
+    '銷售管理': t('nav.sales'),
+    '銷售單': t('nav.salesOrder'),
+    '銷售出庫': t('nav.deliveryOrder'),
+    '倉儲作業': t('nav.warehouse'),
+    '庫存查詢': t('nav.inventory'),
+    '庫存流水': t('nav.inventoryLedger'),
+    '調撥單': t('nav.transfer'),
+    '盤點單': t('nav.stocktaking'),
+    '調整單': t('nav.adjustment'),
+    '報表中心': t('nav.reports'),
+    '庫存現況報表': t('nav.stockOnHand'),
+    '庫存流水報表': t('nav.stockLedger'),
+    '採購明細報表': t('nav.purchaseLines'),
+    '銷售明細報表': t('nav.salesLines'),
+    '成本摘要報表': t('nav.costSummary'),
+    '基礎資料': t('nav.masterData'),
+    '產品管理': t('nav.products'),
+    '倉庫管理': t('nav.warehouses'),
+    '供應商/客戶': t('nav.partners'),
+    '系統管理': t('nav.system'),
+    '使用者管理': t('nav.users'),
+    '角色權限': t('nav.roles'),
+    '系統設定': t('nav.settings'),
+    '審計日誌': t('nav.auditLogs'),
+    '安全審計': t('nav.securityAudit'),
+  }
+
+  // 翻譯導覽項目標題
+  const translateTitle = (title: string) => navTitleMap[title] || title
 
   // 通知下拉選單的顯示狀態與引用
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false)
@@ -590,10 +648,10 @@ export function MainLayout() {
 
   // 根據使用者權限過濾導覽列顯示項目
   const filteredNavItems = useMemo(() => {
-    // 檢查是否為純審查角色（只有 REVIEWER, VET, CHAIR，沒有其他管理角色）
+    // 檢查是否為純審查角色（只有 REVIEWER, VET, IACUC_CHAIR，沒有其他管理角色）
     const isReviewerOrChairOnly = user?.roles?.every(r =>
-      ['REVIEWER', 'VET', 'CHAIR'].includes(r)
-    ) && user?.roles?.some(r => ['REVIEWER', 'VET', 'CHAIR'].includes(r))
+      ['REVIEWER', 'VET', 'IACUC_CHAIR'].includes(r)
+    ) && user?.roles?.some(r => ['REVIEWER', 'VET', 'IACUC_CHAIR'].includes(r))
 
     return sortedNavItems
       .filter((item) => {
@@ -703,6 +761,7 @@ export function MainLayout() {
                     expandedItems={expandedItems}
                     toggleExpand={toggleExpand}
                     navigate={navigate}
+                    translateTitle={translateTitle}
                   />
                 ))}
               </ul>
@@ -721,7 +780,7 @@ export function MainLayout() {
                     className="w-full text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
                   >
                     <X className="h-4 w-4 mr-1" />
-                    完成編輯
+                    {t('common.finishEdit')}
                   </Button>
                   <Button
                     variant="ghost"
@@ -731,7 +790,7 @@ export function MainLayout() {
                     className="w-full text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
                   >
                     <RotateCcw className="h-4 w-4 mr-1" />
-                    重置為預設
+                    {t('common.resetToDefault')}
                   </Button>
                 </>
               ) : (
@@ -742,7 +801,7 @@ export function MainLayout() {
                   className="w-full text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
                 >
                   <GripVertical className="h-4 w-4 mr-1" />
-                  編輯選單排序
+                  {t('common.editMenuOrder')}
                 </Button>
               )}
             </div>
@@ -772,7 +831,7 @@ export function MainLayout() {
                   className="flex-1 text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
                 >
                   <Key className="h-4 w-4 mr-1" />
-                  修改密碼
+                  {t('common.changePassword')}
                 </Button>
                 <Button
                   variant="ghost"
@@ -781,7 +840,7 @@ export function MainLayout() {
                   className="flex-1 text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
                 >
                   <LogOut className="h-4 w-4 mr-1" />
-                  登出
+                  {t('common.logout')}
                 </Button>
               </div>
             </div>
@@ -923,15 +982,14 @@ export function MainLayout() {
             </div>
 
             {/* 語言切換選擇器 */}
-            <Select value={language} onValueChange={setLanguage}>
+            <Select value={i18n.language} onValueChange={handleLanguageChange}>
               <SelectTrigger className="w-[120px] h-9">
                 <Globe className="h-4 w-4 mr-2" />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="zh-TW">繁體中文</SelectItem>
-                <SelectItem value="zh-CN">简体中文</SelectItem>
-                <SelectItem value="en">English</SelectItem>
+                <SelectItem value="zh-TW">{t('language.zhTW')}</SelectItem>
+                <SelectItem value="en">{t('language.en')}</SelectItem>
               </SelectContent>
             </Select>
           </div>

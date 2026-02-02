@@ -5,7 +5,7 @@ use tracing::{info, error};
 
 use crate::{
     config::Config,
-    services::{EmailService, NotificationService, BalanceExpirationJob, CalendarService, PartitionMaintenanceJob},
+    services::{EmailService, NotificationService, BalanceExpirationJob, CalendarService, PartitionMaintenanceJob, EuthanasiaService},
 };
 
 pub struct SchedulerService;
@@ -104,6 +104,25 @@ impl SchedulerService {
                     }
                     Err(e) => {
                         error!("Partition maintenance failed: {}", e);
+                    }
+                }
+            })
+        })?).await?;
+
+        // 每 5 分鐘檢查安樂死單據超時
+        // 處理 PI 超時未回應和 CHAIR 仲裁超時
+        let db_clone = db.clone();
+        sched.add(Job::new_async("0 */5 * * * *", move |_uuid, _l| {
+            let db = db_clone.clone();
+            Box::pin(async move {
+                match EuthanasiaService::check_expired_orders(&db).await {
+                    Ok(count) => {
+                        if count > 0 {
+                            info!("Euthanasia timeout check: {} orders auto-approved", count);
+                        }
+                    }
+                    Err(e) => {
+                        error!("Euthanasia timeout check failed: {}", e);
                     }
                 }
             })

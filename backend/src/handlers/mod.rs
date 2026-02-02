@@ -18,6 +18,8 @@ mod facility;
 mod calendar;
 mod user_preferences;
 mod signature;
+pub mod euthanasia;
+pub mod amendment;
 
 pub use auth::*;
 pub use user::*;
@@ -39,3 +41,4 @@ pub use facility::*;
 pub use calendar::*;
 pub use user_preferences::*;
 pub use signature::*;
+
