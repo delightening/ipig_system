@@ -28,6 +28,7 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/users", get(handlers::list_users).post(handlers::create_user))
         .route("/users/:id", get(handlers::get_user).put(handlers::update_user).delete(handlers::delete_user))
         .route("/users/:id/password", put(handlers::reset_user_password))
+        .route("/users/:id/impersonate", post(handlers::impersonate_user))
         // Roles
         .route("/roles", get(handlers::list_roles).post(handlers::create_role))
         .route("/roles/:id", get(handlers::get_role).put(handlers::update_role).delete(handlers::delete_role))
@@ -272,6 +273,7 @@ pub fn api_routes(state: AppState) -> Router {
         // Amendments (變更申請系統)
         // ============================================
         .route("/amendments", get(handlers::amendment::list_amendments).post(handlers::amendment::create_amendment))
+        .route("/amendments/pending-count", get(handlers::amendment::get_pending_count))
         .route("/amendments/:id", get(handlers::amendment::get_amendment).patch(handlers::amendment::update_amendment))
         .route("/amendments/:id/submit", post(handlers::amendment::submit_amendment))
         .route("/amendments/:id/classify", post(handlers::amendment::classify_amendment))

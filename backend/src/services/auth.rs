@@ -148,6 +148,54 @@ impl AuthService {
         })
     }
 
+    /// 模擬登入（管理員專用）
+    pub async fn impersonate(
+        pool: &PgPool,
+        config: &Config,
+        target_user_id: Uuid,
+    ) -> Result<LoginResponse> {
+        // 查詢目標用戶
+        let user = sqlx::query_as::<_, User>(
+            "SELECT * FROM users WHERE id = $1 AND is_active = true"
+        )
+        .bind(target_user_id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::Validation("Target user not found or inactive".to_string()))?;
+
+        // 獲取角色和權限
+        let (roles, permissions) = Self::get_user_roles_permissions(pool, user.id).await?;
+
+        // 生成 JWT
+        let (access_token, expires_in) = Self::generate_access_token(config, &user, &roles, &permissions)?;
+
+        // 生成 Refresh Token
+        let refresh_token = Self::generate_refresh_token(pool, user.id, config).await?;
+
+        Ok(LoginResponse {
+            access_token,
+            refresh_token,
+            token_type: "Bearer".to_string(),
+            expires_in,
+            user: UserResponse {
+                id: user.id,
+                email: user.email,
+                display_name: user.display_name,
+                phone: user.phone,
+                organization: user.organization,
+                is_internal: user.is_internal,
+                is_active: user.is_active,
+                must_change_password: user.must_change_password,
+                theme_preference: user.theme_preference.clone(),
+                language_preference: user.language_preference.clone(),
+                last_login_at: user.last_login_at,
+                roles,
+                permissions,
+            },
+            must_change_password: user.must_change_password,
+        })
+    }
+
     /// 登出（撤銷 refresh token）
     pub async fn logout(pool: &PgPool, user_id: Uuid) -> Result<()> {
         sqlx::query("UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL")

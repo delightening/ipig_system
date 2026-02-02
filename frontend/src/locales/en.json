@@ -35,9 +35,10 @@
     "nav": {
         "dashboard": "Dashboard",
         "myProjects": "My Projects",
-        "aupReview": "AUP Review System",
+        "aupReview": "AUP",
         "protocols": "Protocol Management",
         "newProtocol": "New Protocol",
+        "myAmendments": "Amendments",
         "hrManagement": "HR Management",
         "attendance": "Attendance",
         "leaves": "Leave Management",
@@ -76,6 +77,153 @@
         "settings": "Settings",
         "auditLogs": "Audit Logs",
         "securityAudit": "Security Audit"
+    },
+    "dashboard": {
+        "title": "Dashboard",
+        "editMode": {
+            "lock": "Lock Layout",
+            "unlock": "Edit Layout",
+            "hint": "Drag widgets to move, drag corner to resize. Click 'Lock Layout' when finished."
+        },
+        "settings": {
+            "title": "Customize Dashboard",
+            "description": "Select widgets to show or hide",
+            "days": "Days:",
+            "saveSuccess": "Dashboard layout saved"
+        },
+        "widgets": {
+            "categories": {
+                "erp": "ERP & Inventory",
+                "hr": "HR Management",
+                "aup": "Protocol Management",
+                "animal_care": "Animal Care",
+                "report": "Reports"
+            },
+            "names": {
+                "calendar_widget": "Today's Calendar",
+                "leave_balance": "Leave Balance",
+                "my_projects": "My Projects",
+                "animals_on_medication": "Animals on Medication",
+                "vet_comments": "Vet Comments",
+                "low_stock_alert": "Low Stock Alert",
+                "pending_documents": "Pending Documents",
+                "today_inbound": "Today's Inbound",
+                "today_outbound": "Today's Outbound",
+                "weekly_trend": "{{days}}-Day Trend",
+                "recent_documents": "Recent Documents",
+                "upcoming_leaves": "Expiring Soon",
+                "staff_attendance": "Staff Attendance",
+                "google_calendar_events": "Calendar Events"
+            },
+            "descriptions": {
+                "calendar_widget": "Display today's schedule and staff leaves",
+                "leave_balance": "Display your annual and compensatory leave balances",
+                "my_projects": "Display your protocols and animal statistics",
+                "animals_on_medication": "Display animals currently on medication",
+                "vet_comments": "Display recent veterinarian comments",
+                "low_stock_alert": "Display items below safety stock level",
+                "pending_documents": "Display count of documents awaiting approval",
+                "today_inbound": "Display count of today's inbound documents",
+                "today_outbound": "Display count of today's outbound documents",
+                "weekly_trend": "Display inbound/outbound trend for the last {{days}} days",
+                "recent_documents": "Display recently created documents",
+                "upcoming_leaves": "Display reminders for leaves expiring soon",
+                "staff_attendance": "Display staff attendance statistics (Managers)",
+                "google_calendar_events": "Display Google Calendar events for this week"
+            },
+            "common": {
+                "loading": "Loading...",
+                "loadFailed": "Loading failed",
+                "noData": "No data available",
+                "viewAll": "View All",
+                "more": "more...",
+                "today": "Today",
+                "thisWeek": "This Week",
+                "allDay": "All Day",
+                "days": "days",
+                "hours": "hours",
+                "count": "{{count}} people",
+                "viewCount": "View all {{count}} animals"
+            },
+            "animals": {
+                "medicationDescription": "Animals requiring continuous care",
+                "noMedication": "No animals currently on medication",
+                "commentDescription": "Latest medical care recommendations from the veterinarian",
+                "noComments": "No new veterinarian recommendations at this time",
+                "earTag": "Ear Tag",
+                "penFallback": "N/A"
+            },
+            "calendar": {
+                "todayLeave": "Today's Leaves",
+                "noOneLeave": "No one on leave today ✓",
+                "todayEvents": "Today's Schedule",
+                "noEvents": "No events scheduled today",
+                "upcomingLeave": "Upcoming Leaves",
+                "noEventsWeek": "No events scheduled this week ✓",
+                "googleDescription": "Display this week's projects and meetings",
+                "googleNotConnected": "Google Calendar not connected",
+                "googleConnectHint": "Please configure in Calendar page"
+            },
+            "hr": {
+                "balanceDescription": "Your leave balance summary",
+                "annualLeave": "Annual Leave",
+                "compLeave": "Comp. Leave",
+                "usedTotal": "({{used}} used / {{total}} total)",
+                "expiringSoon": "Expiring soon:",
+                "expiringIn30Days": "Expiring within 30 days",
+                "noExpiring": "No leaves expiring within 30 days",
+                "attendanceDescription": "Attendance Stats for {{month}}",
+                "attendanceDays": "Days Present",
+                "lateCount": "Times Late",
+                "leaveDays": "Days Off",
+                "overtimeHours": "OT Hours"
+            },
+            "attendance": {
+                "description": "Real-time staff attendance status for today",
+                "noRecords": "No attendance records for today",
+                "statusNormal": "Normal",
+                "statusLate": "Late",
+                "statusLeave": "Leave",
+                "clockIn": "Clock In"
+            },
+            "projects": {
+                "description": "IACUC protocols you are participating in",
+                "total": "Total",
+                "reviewing": "Reviewing",
+                "active": "Active",
+                "noProjects": "No participation records"
+            },
+            "erp": {
+                "lowStockDesc": "Items needing restock",
+                "pendingDocsDesc": "Documents awaiting approval",
+                "inboundDesc": "Recent inbound count",
+                "outboundDesc": "Recent outbound count",
+                "trendDesc": "Inbound/Outbound stats for the last {{days}} days",
+                "recentDocsDesc": "Recently created or updated documents",
+                "netChange": "Net Change",
+                "docNo": "Doc No.",
+                "docType": "Type",
+                "docDate": "Date",
+                "noDocs": "No document records",
+                "status": {
+                    "draft": "Draft",
+                    "submitted": "Submitted",
+                    "approved": "Approved",
+                    "cancelled": "Cancelled"
+                },
+                "types": {
+                    "PO": "Purchase Order",
+                    "GRN": "Goods Receipt",
+                    "PR": "Purchase Return",
+                    "SO": "Sales Order",
+                    "DO": "Delivery Order",
+                    "TR": "Transfer Order",
+                    "STK": "Stocktaking",
+                    "ADJ": "Adjustment",
+                    "RM": "Return Material"
+                }
+            }
+        }
     },
     "protocols": {
         "title": "Protocol Management",
@@ -181,7 +329,29 @@
             "studyNoPlaceholder": "To be filled by executive secretary",
             "facilityAndLocation": "Test Facility and Location",
             "location": "Location",
-            "specifyOther": "Please specify other category"
+            "specifyOther": "Please specify other category",
+            "validation": {
+                "titleRequired": "Please enter study title",
+                "periodRequired": "Please enter expected study period",
+                "periodInvalid": "End date must be after start date",
+                "projectTypeRequired": "Please select project type",
+                "projectCategoryRequired": "Please select project category",
+                "specifyOtherRequired": "Please specify other project category",
+                "piNameRequired": "Please enter PI name",
+                "piEmailRequired": "Please enter PI email",
+                "piEmailInvalid": "Invalid PI email format",
+                "piPhoneRequired": "Please enter PI phone",
+                "piPhoneInvalid": "PI phone must be 9-10 digits",
+                "piAddressRequired": "Please enter PI address",
+                "sponsorNameRequired": "Please enter sponsor name",
+                "sponsorContactRequired": "Please enter sponsor contact person",
+                "sponsorPhoneRequired": "Please enter sponsor phone",
+                "sponsorPhoneInvalid": "Sponsor phone must be 9-10 digits",
+                "sponsorEmailRequired": "Please enter sponsor email",
+                "sponsorEmailInvalid": "Invalid sponsor email format",
+                "facilityRequired": "Please enter facility name",
+                "locationRequired": "Please enter housing location"
+            }
         },
         "purpose": {
             "title": "Study Purpose",
@@ -205,65 +375,498 @@
             "duplicateJustificationPlaceholder": "Please explain the scientific rationale for replication",
             "reductionPrinciple": "2.3 Explain the experimental design based on the 3Rs Reduction Principle, including animal grouping methods and rationale for the number of animals used:",
             "reductionDesign": "Experimental Design Description",
-            "reductionDesignPlaceholder": "Please describe the animal grouping method, statistical hypothesis, inclusion/exclusion criteria, methods to reduce variability, and rationale for the number of animals used"
+            "reductionDesignPlaceholder": "Please describe the animal grouping method, statistical hypothesis, inclusion/exclusion criteria, methods to reduce variability, and rationale for the number of animals used",
+            "validation": {
+                "significanceRequired": "Please enter study purpose and significance",
+                "rationaleRequired": "Please explain the necessity for live animal testing",
+                "platformsRequired": "Please select at least one database",
+                "keywordsRequired": "Please enter search keywords",
+                "conclusionRequired": "Please enter search results and conclusion",
+                "duplicateJustificationRequired": "Please explain the scientific rationale for replication",
+                "reductionDesignRequired": "Please enter experimental design description"
+            }
         },
         "items": {
             "title": "Testing and Control Item",
-            "subtitle": "Specify test and control items used in the study"
+            "subtitle": "Specify test and control items used in the study",
+            "useTestItemLabel": "Does this study administer \"test substances\" to animals",
+            "skipped": "N/A",
+            "testItems": "Test Items",
+            "controlItems": "Control Items",
+            "add": "Add",
+            "itemName": "Item Name",
+            "dosageForm": "Dosage Form",
+            "dosageFormPlaceholder": "e.g., liquid, powder",
+            "purpose": "Purpose",
+            "storageConditions": "Storage Conditions",
+            "storageConditionsPlaceholder": "Please specify storage conditions",
+            "isSterile": "Is this item prepared under sterile conditions",
+            "nonSterileJustification": "Please explain",
+            "nonSterilePlaceholder": "Please explain why this item is not prepared under sterile conditions",
+            "controlName": "Control Name",
+            "controlNamePlaceholder": "Fill in N/A if no control",
+            "photos": "Photos",
+            "photosPlaceholder": "Drag and drop photos here, or click to select",
+            "validation": {
+                "useTestItemRequired": "Please select whether test substances are administered",
+                "testItemNameRequired": "Please enter name for test substance #{{index}}",
+                "testJustificationRequired": "Please enter non-sterile justification for test substance #{{index}}",
+                "controlItemNameRequired": "Please enter name for control substance #{{index}}",
+                "controlJustificationRequired": "Please enter non-sterile justification for control substance #{{index}}"
+            }
         },
         "design": {
-            "title": "Study Design and Methods",
-            "subtitle": "Describe experimental design, procedures, and animal welfare considerations"
+            "subtitle": "Experimental Design and Methods",
+            "title4_1": "4.1 Please provide a detailed description of the animal experiment procedures based on the 3Rs refinement principle...",
+            "anesthesiaLabel": "4.1.1 Is the experiment performed under anesthesia?",
+            "selectAnesthesiaType": "Please select anesthesia type *",
+            "anesthesiaTypes": {
+                "survival": "1. Survival surgery (Please fill in Section 6. Surgical Plan)",
+                "non_survival": "2. Non-survival surgery (Please fill in Section 6. Surgical Plan)",
+                "gas_only": "3. Non-invasive experiment, using only gas anesthesia (Isoflurane 1-2%) before experiment",
+                "azeperonum_atropine": "4. Using Azeperonum and Atropine IM with gas anesthesia (Isoflurane 1-2%) before experiment",
+                "other": "5. Other"
+            },
+            "explainOther": "Please explain *",
+            "explainOtherPlaceholder": "Please describe other anesthesia methods",
+            "proceduresLabel": "4.1.2 Please provide a detailed description of experimental procedures, injected substances, routes and reasons, blood withdrawals, imaging (CT, MRI, X-ray), restraint, and frequency *",
+            "proceduresNote": "Surgical procedures should be described in Item 6. Surgical Plan",
+            "proceduresPlaceholder": "Please describe experiment procedures and flow in detail",
+            "painCategoryLabel": "4.1.3 Assessment of Animal Pain/Distress Category *",
+            "painCategories": {
+                "B": "Category B: Breeding, observation",
+                "C": "Category C: Procedures causing no or only transient or slight pain or distress. No analgesics required.",
+                "D": "Category D: Procedures causing potentially pain or distress, requiring appropriate analgesics, anesthetics, or sedatives.",
+                "E": "Category E: Procedures causing potentially pain or distress where analgesics/anesthetics are NOT administered."
+            },
+            "restrictionsLabel": "4.1.4 Food or water restrictions?",
+            "selectRestrictionType": "Please select restriction type *",
+            "restrictionTypes": {
+                "fasting": "Fasting before anesthesia",
+                "other": "Other"
+            },
+            "explainRestrictionOther": "Please explain *",
+            "explainRestrictionOtherPlaceholder": "Please describe other restriction methods",
+            "endpointsTitle": "4.1.5 Timing of expected experimental endpoint and humane endpoint",
+            "experimentalEndpoint": "Experimental Endpoint:",
+            "experimentalEndpointPlaceholder": "Describe expected experimental endpoint",
+            "humaneEndpoint": "Humane Endpoint:",
+            "humaneEndpointPlaceholder": "Describe humane endpoint",
+            "finalHandlingTitle": "4.1.6 Euthanasia or final disposition of animals",
+            "selectHandlingMethod": "Please select disposition method",
+            "handlingMethods": {
+                "euthanasia": "Euthanasia",
+                "transfer": "Transfer",
+                "other": "Other"
+            },
+            "euthanasiaLabel": "Euthanasia:",
+            "euthanasiaTypes": {
+                "kcl": "KCl euthanasia under anesthesia. Follow SOP AD-04-03-00.",
+                "electrocution": "220V electrocution under anesthesia. Follow SOP AD-04-03-00.",
+                "other": "Other:"
+            },
+            "euthanasiaOtherPlaceholder": "Describe other euthanasia methods",
+            "transferLabel": "Transfer",
+            "recipientName": "Recipient Name:",
+            "recipientNamePlaceholder": "Enter recipient name",
+            "recipientOrg": "Recipient Organization:",
+            "recipientOrgPlaceholder": "Enter recipient organization",
+            "projectName": "Project Name:",
+            "projectNamePlaceholder": "Enter project name",
+            "otherHandlingPlaceholder": "Describe other handling methods",
+            "carcassDisposalLabel": "4.2 Method of animal carcass disposal",
+            "carcassDisposalPlaceholder": "Describe carcass disposal method",
+            "nonPharmaLabel": "4.3 Use of non-pharmaceutical grade chemicals or other substances?",
+            "nonPharmaExplain": "Explain substance properties, safety, and scientific justification *",
+            "nonPharmaExplainPlaceholder": "Explain substance properties, safety, and scientific justification",
+            "hazardsLabel": "4.4 Use of hazardous materials?",
+            "selectHazardType": "Select hazardous material type:",
+            "selectHazardTypePlaceholder": "Select type",
+            "hazardTypes": {
+                "biological": "1. Biological materials",
+                "radioactive": "2. Radioactive",
+                "chemical": "3. Hazardous chemicals"
+            },
+            "hazardListLabel": "Hazardous Materials List",
+            "agentNamePlaceholder": "Name",
+            "amountPlaceholder": "Required amount",
+            "hazardsWasteLabel": "4.5 Methods for handling hazardous materials and waste (Attach certificates)",
+            "operationLocationLabel": "4.5.1 Application method, route, and location",
+            "operationLocationPlaceholder": "Describe application method, route, and location",
+            "protectionMeasuresLabel": "4.5.2 Protection measures",
+            "protectionMeasuresSubtitle": "Protective measures for personnel, animals, and environment:",
+            "protectionMeasuresPlaceholder": "Describe protection measures",
+            "wasteDisposalLabel": "4.5.3 Disposal of experimental waste and carcasses",
+            "wasteDisposalPlaceholder": "Describe disposal of waste and carcasses",
+            "controlledSubstancesLabel": {
+                "section4_6": "4.6 Use of controlled substances?",
+                "section4_5": "4.5 Use of controlled substances?"
+            },
+            "controlledSubstancesList": "Controlled Substances List",
+            "drugNameLabel": "Drug Name *",
+            "drugNamePlaceholder": "Enter drug name",
+            "approvalNoLabel": "Approval No *",
+            "approvalNoPlaceholder": "Enter approval number",
+            "drugAmountLabel": "Required Amount *",
+            "drugAmountPlaceholder": "Please enter required amount",
+            "authorizedPersonLabel": "Controlled Substances Manager *",
+            "authorizedPersonPlaceholder": "Please enter manager name",
+            "templates": {
+                "preop_preparation": "1. Fast for at least 12 hours before surgery, water is not restricted.\n2. After washing and drying, pigs are sedated with Azeperonum (40 mg/mL) 3-5 mg/kg and Atropine (1 mg/mL) 0.03-0.05 mg/kg intramuscularly. Observe respiration closely.\n3. After 20-30 minutes, induce anesthesia with Zoletil-50 (50 mg/mL) 4.4 mg/kg intramuscularly.\n4. After 5-10 minutes, place the pig on the surgery table in a prone position, intubate, and connect to a gas anesthesia machine. Maintain anesthesia with 2-3 L/min oxygen mixed with 0.5-2% Isoflurane, monitoring anesthesia depth constantly.\n5. Administer Cefazolin 15 mg/kg (antibiotic) and Meloxicam 0.4 mg/kg (analgesic) intramuscularly before surgery.\nPerform according to 'TU-03-09-00 Standard Operating Procedure for Experimental Pig Surgery'.",
+                "surgery_description": "Please describe the surgical procedure in detail, including the surgical site, method, incision size, and suturing.",
+                "monitoring": "Adjust oxygen/nitrous oxide flow and anesthetic gas concentration based on anesthesia depth, respiration, and surgical needs. Maintain body temperature and monitor heart rate, respiration, and temperature using a physiological monitor.\nPerform according to 'TU-03-09-00 Standard Operating Procedure for Experimental Pig Surgery'."
+            },
+            "validation": {
+                "anesthesiaTypeRequired": "Please select anesthesia type",
+                "anesthesiaOtherRequired": "Please describe other anesthesia methods",
+                "proceduresRequired": "Please describe animal experiment procedures and flow in detail",
+                "painCategoryRequired": "Please select animal pain/distress category",
+                "restrictionTypeRequired": "Please select restriction type",
+                "restrictionOtherRequired": "Please describe other restriction methods",
+                "experimentalEndpointRequired": "Please describe the experimental endpoint",
+                "humaneEndpointRequired": "Please describe the humane endpoint",
+                "nonPharmaRequired": "Please explain substance properties, safety, and scientific justification",
+                "hazardTypeRequired": "Please select hazardous material type",
+                "hazardMaterialsRequired": "Please add at least one hazardous material",
+                "hazardAgentNameRequired": "Please enter name for hazardous material #{{index}}",
+                "hazardAmountRequired": "Please enter required amount for hazardous material #{{index}}",
+                "hazardOpsRequired": "Please describe application method, route, and location",
+                "hazardProtectionRequired": "Please describe protection measures",
+                "hazardWasteRequired": "Please describe disposal of waste and carcasses",
+                "controlledSubstancesRequired": "Please add at least one controlled substance",
+                "drugNameRequired": "Please enter drug name for controlled substance #{{index}}",
+                "approvalNoRequired": "Please enter approval number for controlled substance #{{index}}",
+                "drugAmountRequired": "Please enter required amount for controlled substance #{{index}}",
+                "authorizedPersonRequired": "Please enter administrator for controlled substance #{{index}}"
+            }
         },
         "guidelines": {
             "title": "Guidelines and References",
-            "subtitle": "List relevant guidelines and references"
+            "subtitle": "List relevant guidelines and references",
+            "contentLabel": "Related Guidelines Description",
+            "contentPlaceholder": "Example: This project follows the Animal Protection Act and the Guide for the Care and Use of Laboratory Animals",
+            "referencesTitle": "Reference List",
+            "addReference": "Add Reference",
+            "citationPlaceholder": "Citation",
+            "urlPlaceholder": "URL (Optional)"
         },
         "surgery": {
             "title": "Animal Surgical Plan",
-            "subtitle": "Describe surgical procedures and post-operative care"
+            "subtitle": "Describe surgical procedures and post-operative care",
+            "labels": {
+                "surgeryType": "6.1 Surgery Type",
+                "preopPreparation": "6.2 Pre-operative Preparation",
+                "asepticTechniques": "6.3 Aseptic Techniques",
+                "surgeryDescription": "6.4 Surgical Procedure Description",
+                "monitoring": "6.5 Intra-operative Monitoring",
+                "expectedImpact": "6.6 For survival surgery, describe expected post-operative impact on the animal:",
+                "multipleSurgeries": "6.7 Will the animal undergo more than one surgery? If so, specify number and reason:",
+                "postopCare": "6.8 Post-operative Care and Pain Management:",
+                "postopCareType": "Surgery Type",
+                "postopCareDetail": "Details",
+                "expectedEndPoint": "6.9 Expected Experimental End Point:",
+                "drugInfo": "6.10 Surgical Medication Information (pre-anesthesia, sedation, analgesia, etc.):"
+            },
+            "types": {
+                "survival": "Survival Surgery",
+                "non_survival": "Non-survival Surgery"
+            },
+            "placeholders": {
+                "preopPreparation": "Describe fasting, skin preparation, disinfection, etc.",
+                "surgeryDescription": "Describe surgical flow, site, method, incision size, and suturing in detail.",
+                "monitoring": "Adjust oxygen/nitrous oxide flow and anesthetic gas based on depth, respiration, etc. Maintain body temperature and monitor vitals. Perform according to SOP.",
+                "postopCare": "Describe care and analgesia methods.",
+                "expectedEndPoint": "Please specify expected experimental end point.",
+                "drugInfo": "Enter medication details."
+            },
+            "asepticTechniques": {
+                "surgical_site_disinfection": "Surgical site disinfection",
+                "instrument_disinfection": "Instrument disinfection",
+                "sterilized_gowns_gloves": "Sterilized surgical gowns and gloves",
+                "sterilized_drapes": "Sterilized surgical drapes",
+                "surgical_hand_disinfection": "Surgical hand disinfection"
+            },
+            "postOpTemplates": {
+                "orthopedic": "1. Daily post-operative assessment of pig health status and wound care based on condition.\n\n2. Daily pain assessment for 7 days post-op. Administer analgesics and antibiotics as follows:\nOrthopedic Surgery\nAnalgesics:\nketoprofen 1-3 mg/kg IM SID (3 days)\nmeloxicam 0.1-0.4 mg/kg PO SID (4-14 days or long-term)\nAntibiotics:\ncefazolin 15 mg/kg IM BID (1-7 days)\ncephalexin 30 mg/kg PO BID (8-14 days or long-term)\n\n3. Veterinary intervention for any abnormalities.\nPerform according to SOP TU-03-09-00.",
+                "non_orthopedic": "1. Daily post-operative assessment of pig health status and wound care based on condition.\n\n2. Daily pain assessment for 7 days post-op. Administer analgesics and antibiotics as follows:\nNon-Orthopedic Surgery\nAnalgesics:\nmeloxicam 0.1-0.4 mg/kg IM SID (3 days)\nmeloxicam 0.1-0.4 mg/kg PO SID (4-14 days or long-term)\nAntibiotics:\npencillin 10000 u/kg IM SID (1-7 days)\namoxicillin 20 mg/kg PO BID (8-14 days or long-term)\n\n3. Veterinary intervention for any abnormalities.\nPerform according to SOP TU-03-09-00."
+            },
+            "postOpTypes": {
+                "orthopedic": "Orthopedic Surgery",
+                "non_orthopedic": "Non-Orthopedic Surgery"
+            },
+            "drugs": {
+                "headers": {
+                    "name": "Drug Name",
+                    "dose": "Dose",
+                    "route": "Route",
+                    "frequency": "Frequency",
+                    "purpose": "Purpose"
+                }
+            }
         },
         "animals": {
-            "title": "Animal Information",
-            "subtitle": "Specify animal species, strains, and numbers"
+            "title": "Experimental Animal Data",
+            "subtitle": "Fill in animal species, strain, and quantity",
+            "listHeader": "Animal List (Add in sequence for male/female or unlimited sex)",
+            "addAnimal": "Add Animal",
+            "labels": {
+                "species": "Species",
+                "strain": "Strain",
+                "sex": "Sex",
+                "number": "Quantity",
+                "age": "Age",
+                "minAge": "Min Age (Months)",
+                "maxAge": "Max Age (Months)",
+                "weight": "Weight Range",
+                "minWeight": "Min Weight (kg)",
+                "maxWeight": "Max Weight (kg)",
+                "housing": "Housing Environment",
+                "unlimited": "Unlimited",
+                "weightInterval": "5kg per interval"
+            },
+            "species": {
+                "pig": "Pig",
+                "other": "Other"
+            },
+            "strains": {
+                "white_pig": "White Pig",
+                "mini_pig": "Mini Pig"
+            },
+            "sexTypes": {
+                "male": "Male",
+                "female": "Female",
+                "unlimited": "Unlimited"
+            },
+            "placeholders": {
+                "species": "Select species",
+                "speciesOther": "Please specify species",
+                "strain": "Select strain",
+                "strainOther": "Please specify strain",
+                "sex": "Select sex",
+                "number": "Enter quantity",
+                "minAge": "Min months (at least 3)",
+                "maxAge": "Max months",
+                "minWeight": "Min kg (at least 20kg)",
+                "maxWeight": "Max kg (must be > min weight)",
+                "selectSpeciesFirst": "Please select species first"
+            },
+            "notes": {
+                "title": "Notes:",
+                "item1": "* Pig/White Pig, Source: Domestic breeding farm (Dr. Pig Farm); Pig/Mini Pig, Source: Domestic breeding farm (Dr. Pig Farm)",
+                "item2": "* Sex: Male, Female, or Unlimited.",
+                "item3": "* Age: Approximate month range (and above) or unlimited.",
+                "item4": "* Weight: Approximate weight range or unlimited.",
+                "item5": "* White pigs grow rapidly, reaching 100kg in 7 months. If the observation period exceeds 3 months, mini pigs are recommended."
+            }
         },
         "personnel": {
-            "title": "Personnel Working on Animal Study",
-            "subtitle": "List all personnel involved in animal work"
-        },
-        "attachments": {
-            "title": "Attachments",
-            "subtitle": "Upload supporting documents"
-        },
-        "signature": {
-            "title": "Electronic Signature",
-            "subtitle": "Review and sign the protocol"
-        },
-        "messages": {
-            "created": "Protocol created successfully",
-            "saved": "Draft saved successfully",
-            "submitted": "Protocol submitted for review",
-            "saveFailed": "Failed to save protocol",
-            "createFailed": "Failed to create protocol",
-            "submitFailed": "Failed to submit protocol",
-            "validationFailed": "Please complete all required fields"
-        },
-        "projectTypes": {
-            "basic_research": "Basic Research",
-            "applied_research": "Applied Research",
-            "pre_market_testing": "Pre-market Testing",
-            "teaching_training": "Teaching/Training",
-            "biologics_manufacturing": "Biologics Manufacturing"
-        },
-        "projectCategories": {
-            "medical": "Medical/Pharmaceutical",
-            "agricultural": "Agricultural",
-            "drug_herbal": "Herbal Medicine",
-            "health_food": "Health Food",
-            "food": "Food",
-            "toxic_chemical": "Toxic Chemical",
-            "medical_device": "Medical Device",
-            "other": "Other"
+            "title": "Personnel Data",
+            "subtitle": "Information of personnel participating in the animal study",
+            "listHeader": "8.1 Personnel Information for the Animal study",
+            "addPersonnel": "Add Personnel",
+            "table": {
+                "num": "No.",
+                "name": "Name",
+                "position": "Title",
+                "roles": "Responsibility",
+                "experience": "Years of Exp.",
+                "trainings": "Training/Cert/Date",
+                "actions": "Actions",
+                "noPersonnel": "No personnel record, please click '+ Add' to add personnel"
+            },
+            "roles": {
+                "title": "Responsibility Description:",
+                "list": "a. Project supervision; b. Animal care; c. Restraint; d. Anesthesia/Analgesia; e. Surgery; f. Surgical support; g. Observation/Monitoring; h. Euthanasia; i. Other",
+                "items": {
+                    "a": "Project supervision",
+                    "b": "Animal care",
+                    "c": "Restraint",
+                    "d": "Anesthesia/Analgesia",
+                    "e": "Surgery",
+                    "f": "Surgical support",
+                    "g": "Observation/Monitoring",
+                    "h": "Euthanasia",
+                    "i": "Other"
+                },
+                "otherLabel": "Other:"
+            },
+            "experienceUnit": "Years",
+            "yearUnit": "Years",
+            "addDialog": {
+                "title": "Add Personnel",
+                "description": "Please fill in the personal information",
+                "labels": {
+                    "name": "Name",
+                    "position": "Title",
+                    "roles": "Responsibility",
+                    "experience": "Years of Exp. in Animal Study",
+                    "trainings": "Training/Qualification",
+                    "certNo": "Cert. No."
+                },
+                "placeholders": {
+                    "name": "Enter name",
+                    "position": "Enter title",
+                    "rolesOther": "Please specify other responsibility",
+                    "experience": "Enter years",
+                    "trainingsOther": "Please specify other training/qualification",
+                    "certNo": "Certificate No."
+                },
+                "buttons": {
+                    "addCert": "Add Certificate",
+                    "cancel": "Cancel",
+                    "confirm": "Confirm",
+                    "add": "Add Personnel"
+                },
+                "messages": {
+                    "added": "Personnel added successfully"
+                },
+                "validation": {
+                    "nameRequired": "Please enter name",
+                    "rolesRequired": "Please select at least one responsibility",
+                    "rolesOtherRequired": "Please specify other responsibility",
+                    "experienceRequired": "Please enter years of experience",
+                    "trainingsRequired": "Please select at least one training/qualification",
+                    "trainingsOtherRequired": "Please specify other training/qualification"
+                },
+                "trainings": {
+                    "A": "A. IACUC Member Training",
+                    "B": "B. IACUC Educational Workshop",
+                    "C": "C. Radiation Safety Training",
+                    "D": "D. Laboratory Animal Technical Workshop",
+                    "E": "E. Laboratory Animal Regulations and Management",
+                    "F": "F. Other"
+                }
+            },
+            "attachments": {
+                "title": "Attachments",
+                "subtitle": "Upload relevant documents",
+                "label": "Attachments (PDF)",
+                "placeholder": "Drag and drop PDF files here, or click to select files",
+                "hint": "Only PDF format supported, max 20MB per file, up to 10 files"
+            },
+            "signature": {
+                "title": "Electronic Signature",
+                "subtitle": "Review and sign the protocol",
+                "label": "Signature File",
+                "placeholder": "Drag and drop signature file here, or click to select files",
+                "hint": "Support image formats, max 5MB per file, up to 5 files"
+            },
+            "messages": {
+                "created": "Protocol created successfully",
+                "saved": "Draft saved successfully",
+                "submitted": "Protocol submitted for review",
+                "saveFailed": "Failed to save protocol",
+                "createFailed": "Failed to create protocol",
+                "submitFailed": "Failed to submit protocol",
+                "validationFailed": "Please complete all required fields"
+            },
+            "projectTypes": {
+                "basic_research": "Basic Research",
+                "applied_research": "Applied Research",
+                "pre_market_testing": "Pre-market Testing",
+                "teaching_training": "Teaching/Training",
+                "biologics_manufacturing": "Biologics Manufacturing"
+            },
+            "projectCategories": {
+                "medical": "Medical",
+                "agricultural": "Agricultural",
+                "drug_herbal": "Medicinal Plants",
+                "health_food": "Health Food",
+                "food": "Food",
+                "toxic_chemical": "Toxic Chemicals",
+                "medical_device": "Medical Devices",
+                "other": "Other"
+            },
+            "defaults": {
+                "facilityName": "Dr. Pig Animal Technology Co., Ltd.",
+                "housingLocation": "No. 6-15, Waipu, Waipu Village, Houlong Township, Miaoli County",
+                "humaneEndpoint": "If the animal's weight drops by more than 20% of its original body weight during the experiment, or if it experiences loss of appetite (inability to eat), physical weakness, or infection, and there is no improvement after continuous treatment or wound debridement, or in other situations where the veterinarian assesses that the experiment should not continue, the experiment will be terminated early to comply with animal welfare.",
+                "carcassDisposal": "The carcasses will be disposed of by a contracted and qualified chemical processing manufacturer\n (Manufacturer Name: Jinhailong Biotechnology Co., Ltd., Management No.: P6001213)",
+                "preopPreparation": "1. Experimental animals fast for at least 12 hours before surgery, with no water restriction.\n2. The test pigs are washed and dried, then sedated with Azeperonum (40 mg/mL) 3-5 mg/kg and Atropine (1 mg/mL) 0.03-0.05 mg/kg by intramuscular injection. Carefully observe the respiratory rate of the pigs.\n3. After 20-30 minutes, anesthesia is induced by intramuscular injection of Zoletil®-50 at 4.4 mg/kg.\n4. After 5-10 minutes, move the pig to the operating table, perform tracheal intubation in a prone position, and connect to a gas anesthesia machine. Maintain anesthesia with oxygen at a flow rate of 2-3 L/min mixed with 0.5-2% gas anesthetic Isoflurane, always paying attention to the anesthesia depth of the pig.\n5. Pre-operative intramuscular injection of antibiotic Cefazolin 15 mg/kg and analgesic meloxicam 0.4 mg/kg.\nFollow the 'TU-03-09-00 Experimental Pig Surgical Standard Operating Procedure'.",
+                "surgeryDescription": "Please describe the surgical procedure in detail, including the surgical site, surgical method, incision size, and suture treatment.",
+                "monitoring": "During surgery, adjust the oxygen and nitrous oxide flow rates and the anesthetic gas concentration based on the pig's anesthesia depth, respiratory rate, and surgical needs. Simultaneously pay attention to heat preservation, connect a physiological monitor, and monitor and record heart rate, respiration, and body temperature.\nFollow the 'TU-03-09-00 Experimental Pig Surgical Standard Operating Procedure'.",
+                "omitted": "N/A",
+                "postopCareTemplate": "1. Assess the pig's health status daily after surgery and perform wound care based on postoperative conditions.\n2. Perform pain assessments daily for 7 days after surgery and provide analgesics and antibiotics based on the pig's condition and the type of surgery.\nDivided into two categories:\n2.1\nOrthopedic Surgery\nAnalgesics\nketoprofen 1-3 mg/kg IM SID (3 days)\nmeloxicam 0.1-0.4 mg/kg PO SID (4-14 days or long-term)\nAntibiotics\ncefazolin 15 mg/kg IM BID (1-7 days)\ncephalexin 30 mg/kg PO BID (8-14 days or long-term)\n\n2.2\nNon-Orthopedic Surgery\nAnalgesics\nmeloxicam 0.1-0.4 mg/kg IM SID (3 days)\nmeloxicam 0.1-0.4 mg/kg PO SID (4-14 days or long-term)\nAntibiotics\npencillin 10000 u/kg IM SID (1-7 days)\namoxicillin 20 mg/kg PO BID (8-14 days or long-term)\n\n3. If abnormal situations occur, handle them according to the veterinarian's instructions.\nFollow the 'TU-03-09-00 Experimental Pig Surgical Standard Operating Procedure'.",
+                "drugDefaults": [
+                    {
+                        "name": "Atropine",
+                        "dose": "1mg/ml",
+                        "route": "IM",
+                        "frequency": "1 time",
+                        "purpose": "Anesthesia induction"
+                    },
+                    {
+                        "name": "Azeperonum",
+                        "dose": "0.03-0.5mg/kg",
+                        "route": "IM",
+                        "frequency": "1 time",
+                        "purpose": "Anesthesia induction"
+                    },
+                    {
+                        "name": "Zoletil®-50",
+                        "dose": "3-5 mg/kg",
+                        "route": "IM",
+                        "frequency": "1 time",
+                        "purpose": "Anesthesia induction"
+                    },
+                    {
+                        "name": "Cefazolin",
+                        "dose": "15-30 mg/kg",
+                        "route": "IM",
+                        "frequency": "1 time pre-op / SID post-op",
+                        "purpose": "Pre- and post-operative antibiotics"
+                    },
+                    {
+                        "name": "Meloxicam",
+                        "dose": "0.1-0.4mg/kg",
+                        "route": "IM",
+                        "frequency": "1 time pre-op / SID post-op",
+                        "purpose": "Pre- and post-operative analgesics"
+                    },
+                    {
+                        "name": "Isoflurane",
+                        "dose": "0.5-2%",
+                        "route": "Inhalation",
+                        "frequency": "Intraoperative",
+                        "purpose": "Anesthesia maintenance"
+                    },
+                    {
+                        "name": "Ketoprofen",
+                        "dose": "1-3mg/kg",
+                        "route": "IM",
+                        "frequency": "SID",
+                        "purpose": "Post-operative analgesics"
+                    },
+                    {
+                        "name": "Penicillin",
+                        "dose": "0.1-1mL/kg",
+                        "route": "IM",
+                        "frequency": "SID",
+                        "purpose": "Post-operative antibiotics"
+                    },
+                    {
+                        "name": "Cephalexin",
+                        "dose": "30-60mg/kg",
+                        "route": "PO",
+                        "frequency": "BID",
+                        "purpose": "Post-operative antibiotics"
+                    },
+                    {
+                        "name": "Amoxicillin",
+                        "dose": "20-40mg/kg",
+                        "route": "PO",
+                        "frequency": "BID",
+                        "purpose": "Post-operative antibiotics"
+                    },
+                    {
+                        "name": "Meloxicam (Oral)",
+                        "dose": "0.1-0.4mg/kg",
+                        "route": "PO",
+                        "frequency": "SID",
+                        "purpose": "Post-operative analgesics"
+                    }
+                ]
+            }
         }
     }
 }

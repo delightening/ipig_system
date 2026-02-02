@@ -23,7 +23,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { Loader2, Users, Plus, Pencil, Trash2, Shield, UserCheck, UserX, AlertTriangle, Key, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { Loader2, Users, Plus, Pencil, Trash2, Shield, UserCheck, UserX, AlertTriangle, Key, ArrowUpDown, ArrowUp, ArrowDown, LogIn } from 'lucide-react'
 
 interface CreateUserData {
   email: string
@@ -42,7 +42,7 @@ interface UpdateUserData {
 export function UsersPage() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  const { user: currentUser } = useAuthStore()
+  const { user: currentUser, impersonate } = useAuthStore()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showRolesDialog, setShowRolesDialog] = useState(false)
@@ -374,6 +374,17 @@ export function UsersPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      {/* 模擬登入（管理員專用） */}
+                      {user.id !== currentUser?.id && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => impersonate(user.id)}
+                          title="模擬登入 (Login As)"
+                        >
+                          <LogIn className="h-4 w-4 text-blue-500" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"

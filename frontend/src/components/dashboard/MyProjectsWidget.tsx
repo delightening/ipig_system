@@ -1,21 +1,22 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { FolderOpen, Loader2, FileSearch, PlayCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import api, { ProtocolListItem } from '@/lib/api'
 
 // 狀態類別
-const REVIEW_STATUSES = ['SUBMITTED', 'PRE_REVIEW', 'UNDER_REVIEW', 'PENDING_REVISION']
+const REVIEW_STATUSES = ['SUBMITTED', 'PRE_REVIEW', 'UNDER_REVIEW', 'REVISION_REQUIRED']
 const ACTIVE_STATUSES = ['APPROVED', 'APPROVED_WITH_CONDITIONS']
 
 export function MyProjectsWidget() {
+    const { t } = useTranslation()
     const navigate = useNavigate()
 
     const { data: projects, isLoading, error } = useQuery({
         queryKey: ['my-projects-widget'],
         queryFn: async () => {
-            // 直接調用 protocols API（不使用 my-projects）
             const res = await api.get<ProtocolListItem[]>('/my-projects')
             return res.data
         },
@@ -27,7 +28,7 @@ export function MyProjectsWidget() {
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                         <FolderOpen className="h-4 w-4 text-purple-500" />
-                        我的計畫
+                        {t('dashboard.widgets.names.my_projects')}
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -45,11 +46,11 @@ export function MyProjectsWidget() {
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                         <FolderOpen className="h-4 w-4 text-purple-500" />
-                        我的計畫
+                        {t('dashboard.widgets.names.my_projects')}
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-sm text-muted-foreground">載入失敗</p>
+                    <p className="text-sm text-muted-foreground">{t('dashboard.widgets.common.loadFailed')}</p>
                 </CardContent>
             </Card>
         )
@@ -66,7 +67,7 @@ export function MyProjectsWidget() {
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                         <FolderOpen className="h-4 w-4 text-purple-500" />
-                        我的計畫
+                        {t('dashboard.widgets.names.my_projects')}
                     </CardTitle>
                     <Button
                         variant="ghost"
@@ -74,25 +75,25 @@ export function MyProjectsWidget() {
                         onClick={() => navigate('/my-projects')}
                         className="text-xs"
                     >
-                        查看全部
+                        {t('dashboard.widgets.common.viewAll')}
                     </Button>
                 </div>
-                <CardDescription>您參與或主持的 IACUC 計畫</CardDescription>
+                <CardDescription>{t('dashboard.widgets.projects.description')}</CardDescription>
             </CardHeader>
             <CardContent>
                 {/* 統計數字 */}
                 <div className="grid grid-cols-3 gap-2 mb-4">
                     <div className="text-center p-2 bg-slate-50 rounded-lg">
                         <div className="text-2xl font-bold text-slate-700">{totalCount}</div>
-                        <div className="text-xs text-muted-foreground">全部計畫</div>
+                        <div className="text-xs text-muted-foreground">{t('dashboard.widgets.projects.total')}</div>
                     </div>
                     <div className="text-center p-2 bg-yellow-50 rounded-lg">
                         <div className="text-2xl font-bold text-yellow-600">{reviewingProjects.length}</div>
-                        <div className="text-xs text-muted-foreground">審查中</div>
+                        <div className="text-xs text-muted-foreground">{t('dashboard.widgets.projects.reviewing')}</div>
                     </div>
                     <div className="text-center p-2 bg-green-50 rounded-lg">
                         <div className="text-2xl font-bold text-green-600">{activeProjects.length}</div>
-                        <div className="text-xs text-muted-foreground">執行中</div>
+                        <div className="text-xs text-muted-foreground">{t('dashboard.widgets.projects.active')}</div>
                     </div>
                 </div>
 
@@ -101,7 +102,7 @@ export function MyProjectsWidget() {
                     <div className="mb-3">
                         <div className="flex items-center gap-1 text-xs font-medium text-yellow-700 mb-1">
                             <FileSearch className="h-3 w-3" />
-                            審查中
+                            {t('dashboard.widgets.projects.reviewing')}
                         </div>
                         <div className="space-y-1">
                             {reviewingProjects.slice(0, 3).map((project) => (
@@ -118,7 +119,7 @@ export function MyProjectsWidget() {
                             ))}
                             {reviewingProjects.length > 3 && (
                                 <div className="text-xs text-muted-foreground text-center">
-                                    +{reviewingProjects.length - 3} 更多...
+                                    +{reviewingProjects.length - 3} {t('dashboard.widgets.common.viewMore')}
                                 </div>
                             )}
                         </div>
@@ -130,7 +131,7 @@ export function MyProjectsWidget() {
                     <div>
                         <div className="flex items-center gap-1 text-xs font-medium text-green-700 mb-1">
                             <PlayCircle className="h-3 w-3" />
-                            執行中
+                            {t('dashboard.widgets.projects.active')}
                         </div>
                         <div className="space-y-1">
                             {activeProjects.slice(0, 3).map((project) => (
@@ -147,7 +148,7 @@ export function MyProjectsWidget() {
                             ))}
                             {activeProjects.length > 3 && (
                                 <div className="text-xs text-muted-foreground text-center">
-                                    +{activeProjects.length - 3} 更多...
+                                    +{activeProjects.length - 3} {t('dashboard.widgets.common.viewMore')}
                                 </div>
                             )}
                         </div>
@@ -158,7 +159,7 @@ export function MyProjectsWidget() {
                 {totalCount === 0 && (
                     <div className="flex flex-col items-center justify-center py-4 text-muted-foreground">
                         <FolderOpen className="h-8 w-8 mb-2" />
-                        <p className="text-sm">尚無參與的計畫</p>
+                        <p className="text-sm">{t('dashboard.widgets.projects.noProjects')}</p>
                     </div>
                 )}
             </CardContent>

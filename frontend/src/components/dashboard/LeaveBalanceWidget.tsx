@@ -1,41 +1,65 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Calendar, Clock, Loader2 } from 'lucide-react'
+import { Calendar, Info, Loader2 } from 'lucide-react'
 import api from '@/lib/api'
 
-interface LeaveBalanceSummary {
+interface BalanceSummary {
     annual_leave_total: number
     annual_leave_used: number
     annual_leave_remaining: number
     comp_time_total: number
     comp_time_used: number
     comp_time_remaining: number
-    expiring_soon_days: number
-    expiring_soon_hours: number
+}
+
+interface LeaveBalance {
+    leave_type: 'annual' | 'comp'
+    total: number
+    used: number
+    remaining: number
+    unit: 'day' | 'hour'
 }
 
 export function LeaveBalanceWidget() {
+    const { t } = useTranslation()
     const { data, isLoading, error } = useQuery({
-        queryKey: ['hr-balance-summary'],
+        queryKey: ['my-leave-balances'],
         queryFn: async () => {
-            const res = await api.get<LeaveBalanceSummary>('/hr/balances/summary')
-            return res.data
+            const res = await api.get<BalanceSummary>('/hr/balances/summary')
+            const summary = res.data
+
+            const balances: LeaveBalance[] = [
+                {
+                    leave_type: 'annual',
+                    total: summary.annual_leave_total,
+                    used: summary.annual_leave_used,
+                    remaining: summary.annual_leave_remaining,
+                    unit: 'day'
+                },
+                {
+                    leave_type: 'comp',
+                    total: summary.comp_time_total,
+                    used: summary.comp_time_used,
+                    remaining: summary.comp_time_remaining,
+                    unit: 'hour'
+                }
+            ]
+            return balances
         },
     })
 
     if (isLoading) {
         return (
-            <Card>
+            <Card className="h-full">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-blue-500" />
-                        請假餘額
+                        <Calendar className="h-4 w-4 text-orange-500" />
+                        {t('dashboard.widgets.names.leave_balance')}
                     </CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <div className="flex items-center justify-center py-4">
-                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                    </div>
+                <CardContent className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </CardContent>
             </Card>
         )
@@ -43,74 +67,66 @@ export function LeaveBalanceWidget() {
 
     if (error) {
         return (
-            <Card>
+            <Card className="h-full">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-blue-500" />
-                        請假餘額
+                        <Calendar className="h-4 w-4 text-orange-500" />
+                        {t('dashboard.widgets.names.leave_balance')}
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-sm text-muted-foreground">載入失敗</p>
+                    <p className="text-sm text-muted-foreground">{t('dashboard.widgets.common.loadFailed')}</p>
                 </CardContent>
             </Card>
         )
     }
 
     return (
-        <Card>
+        <Card className="h-full">
             <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-blue-500" />
-                    請假餘額
+                    <Calendar className="h-4 w-4 text-orange-500" />
+                    {t('dashboard.widgets.names.leave_balance')}
                 </CardTitle>
-                <CardDescription>您的假期餘額摘要</CardDescription>
+                <CardDescription className="text-xs">{t('dashboard.widgets.hr.balanceDescription')}</CardDescription>
             </CardHeader>
-            <CardContent>
-                <div className="space-y-3">
-                    {/* 特休 */}
-                    <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">特休</span>
-                        <div className="text-right">
-                            <span className="text-lg font-semibold text-blue-600">
-                                {data?.annual_leave_remaining ?? 0}
-                            </span>
-                            <span className="text-sm text-muted-foreground ml-1">天</span>
-                            <span className="text-xs text-muted-foreground ml-2">
-                                (已用 {data?.annual_leave_used ?? 0} / 共 {data?.annual_leave_total ?? 0})
-                            </span>
-                        </div>
-                    </div>
+            <CardContent className="space-y-4">
+                {data?.map((balance) => {
+                    const percentage = balance.total > 0 ? Math.min(100, Math.max(0, (balance.used / balance.total) * 100)) : 0
+                    const isAnnual = balance.leave_type === 'annual'
 
-                    {/* 補休 */}
-                    <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">補休</span>
-                        <div className="text-right">
-                            <span className="text-lg font-semibold text-green-600">
-                                {data?.comp_time_remaining ?? 0}
-                            </span>
-                            <span className="text-sm text-muted-foreground ml-1">小時</span>
-                            <span className="text-xs text-muted-foreground ml-2">
-                                (已用 {data?.comp_time_used ?? 0} / 共 {data?.comp_time_total ?? 0})
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* 即將到期提醒 */}
-                    {((data?.expiring_soon_days ?? 0) > 0 || (data?.expiring_soon_hours ?? 0) > 0) && (
-                        <div className="mt-2 p-2 bg-yellow-50 rounded-lg border border-yellow-200">
-                            <div className="flex items-center gap-2 text-yellow-700 text-xs">
-                                <Clock className="h-3 w-3" />
-                                <span>
-                                    即將到期：
-                                    {(data?.expiring_soon_days ?? 0) > 0 && `特休 ${data?.expiring_soon_days} 天`}
-                                    {(data?.expiring_soon_days ?? 0) > 0 && (data?.expiring_soon_hours ?? 0) > 0 && '、'}
-                                    {(data?.expiring_soon_hours ?? 0) > 0 && `補休 ${data?.expiring_soon_hours} 小時`}
+                    return (
+                        <div key={balance.leave_type} className="space-y-1">
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="font-medium">
+                                    {isAnnual ? t('dashboard.widgets.hr.annualLeave') : t('dashboard.widgets.hr.compLeave')}
+                                </span>
+                                <span className="text-muted-foreground text-xs">
+                                    {t('dashboard.widgets.hr.usedTotal', { used: balance.used, total: balance.total })}
                                 </span>
                             </div>
+                            <div className="space-y-2">
+                                <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-orange-500 transition-all"
+                                        style={{ width: `${percentage}%` }}
+                                    />
+                                </div>
+                                <div className="flex justify-start">
+                                    <span className="text-[10px] font-semibold py-0.5 px-2 rounded-full text-orange-600 bg-orange-100 border border-orange-200">
+                                        {balance.remaining} {balance.unit === 'day' ? t('dashboard.widgets.common.days') : t('dashboard.widgets.common.hours')}
+                                    </span>
+                                </div>
+                            </div>
                         </div>
-                    )}
-                </div>
+                    )
+                })}
+                {(!data || data.length === 0) && (
+                    <div className="flex flex-col items-center justify-center py-4 text-muted-foreground">
+                        <Info className="h-8 w-8 mb-2 opacity-20" />
+                        <p className="text-xs">{t('dashboard.widgets.common.noData')}</p>
+                    </div>
+                )}
             </CardContent>
         </Card>
     )

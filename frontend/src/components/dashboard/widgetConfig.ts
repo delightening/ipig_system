@@ -52,11 +52,11 @@ export interface WidgetDefinition {
 
 // Widget 類別名稱對照
 export const widgetCategoryNames: Record<string, string> = {
-    erp: 'ERP 進銷存',
-    hr: '人員管理',
-    aup: '計畫管理',
-    animal_care: '動物照護',
-    report: '報表',
+    erp: 'dashboard.widgets.categories.erp',
+    hr: 'dashboard.widgets.categories.hr',
+    aup: 'dashboard.widgets.categories.aup',
+    animal_care: 'dashboard.widgets.categories.animal_care',
+    report: 'dashboard.widgets.categories.report',
 }
 
 // 各 Widget 的限制條件
@@ -89,7 +89,7 @@ export interface WidgetOptionDefinition {
 
 export const widgetOptionsConfig: Record<string, WidgetOptionDefinition[]> = {
     weekly_trend: [
-        { type: 'number', label: '顯示天數', key: 'days', min: 3, max: 7, default: 7 }
+        { type: 'number', label: 'dashboard.settings.days', key: 'days', min: 3, max: 7, default: 7 }
     ]
 }
 
@@ -124,40 +124,40 @@ export const DEFAULT_DASHBOARD_LAYOUT: WidgetLayoutItem[] = [
 ]
 
 
-// Widget ID 對應中文名稱
+// Widget ID 對應名稱 Key
 export const widgetNames: Record<string, string> = {
-    calendar_widget: '今日日曆',
-    leave_balance: '請假餘額',
-    my_projects: '我的計畫',
-    animals_on_medication: '正在用藥動物',
-    vet_comments: '獸醫師 Comment',
-    low_stock_alert: '低庫存警示',
-    pending_documents: '待處理單據',
-    today_inbound: '今日入庫',
-    today_outbound: '今日出庫',
-    weekly_trend: '近7天趨勢',
-    recent_documents: '最近單據',
-    upcoming_leaves: '即將到期假期',
-    staff_attendance: '工作人員出勤表',
-    google_calendar_events: '日曆事件',
+    calendar_widget: 'dashboard.widgets.names.calendar_widget',
+    leave_balance: 'dashboard.widgets.names.leave_balance',
+    my_projects: 'dashboard.widgets.names.my_projects',
+    animals_on_medication: 'dashboard.widgets.names.animals_on_medication',
+    vet_comments: 'dashboard.widgets.names.vet_comments',
+    low_stock_alert: 'dashboard.widgets.names.low_stock_alert',
+    pending_documents: 'dashboard.widgets.names.pending_documents',
+    today_inbound: 'dashboard.widgets.names.today_inbound',
+    today_outbound: 'dashboard.widgets.names.today_outbound',
+    weekly_trend: 'dashboard.widgets.names.weekly_trend',
+    recent_documents: 'dashboard.widgets.names.recent_documents',
+    upcoming_leaves: 'dashboard.widgets.names.upcoming_leaves',
+    staff_attendance: 'dashboard.widgets.names.staff_attendance',
+    google_calendar_events: 'dashboard.widgets.names.google_calendar_events',
 }
 
-// Widget 描述
+// Widget 描述 Key
 export const widgetDescriptions: Record<string, string> = {
-    calendar_widget: '顯示今日日程和員工請假資訊',
-    leave_balance: '顯示您的特休和補休餘額',
-    my_projects: '顯示您參與的計畫及動物統計',
-    animals_on_medication: '顯示目前正在用藥的動物清單',
-    vet_comments: '顯示最近的獸醫師評論',
-    low_stock_alert: '顯示低於安全庫存的品項',
-    pending_documents: '顯示等待核准的單據數量',
-    today_inbound: '顯示今日入庫單據數量',
-    today_outbound: '顯示今日出庫單據數量',
-    weekly_trend: '顯示近7天的出入庫趨勢',
-    recent_documents: '顯示最近建立的單據',
-    upcoming_leaves: '顯示即將到期的假期提醒',
-    staff_attendance: '顯示工作人員出勤統計（管理職）',
-    google_calendar_events: '顯示 Google Calendar 本週事件',
+    calendar_widget: 'dashboard.widgets.descriptions.calendar_widget',
+    leave_balance: 'dashboard.widgets.descriptions.leave_balance',
+    my_projects: 'dashboard.widgets.descriptions.my_projects',
+    animals_on_medication: 'dashboard.widgets.descriptions.animals_on_medication',
+    vet_comments: 'dashboard.widgets.descriptions.vet_comments',
+    low_stock_alert: 'dashboard.widgets.descriptions.low_stock_alert',
+    pending_documents: 'dashboard.widgets.descriptions.pending_documents',
+    today_inbound: 'dashboard.widgets.descriptions.today_inbound',
+    today_outbound: 'dashboard.widgets.descriptions.today_outbound',
+    weekly_trend: 'dashboard.widgets.descriptions.weekly_trend',
+    recent_documents: 'dashboard.widgets.descriptions.recent_documents',
+    upcoming_leaves: 'dashboard.widgets.descriptions.upcoming_leaves',
+    staff_attendance: 'dashboard.widgets.descriptions.staff_attendance',
+    google_calendar_events: 'dashboard.widgets.descriptions.google_calendar_events',
 }
 
 // Widget 權限要求

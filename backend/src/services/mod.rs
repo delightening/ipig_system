@@ -56,4 +56,4 @@ mod balance_expiration;
 pub use balance_expiration::BalanceExpirationJob;
 
 mod partition_maintenance;
-pub use partition_maintenance::{PartitionMaintenanceJob, PartitionResult, PartitionStatus};
+pub use partition_maintenance::PartitionMaintenanceJob;

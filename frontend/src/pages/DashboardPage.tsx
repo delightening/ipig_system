@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import { format, parseISO } from 'date-fns'
+import { zhTW, enUS } from 'date-fns/locale'
 import api, { LowStockAlert, DocumentListItem } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -75,6 +78,7 @@ interface BalanceSummaryData {
 }
 
 function UpcomingLeavesContent() {
+  const { t } = useTranslation()
   const { data, isLoading, error } = useQuery({
     queryKey: ['hr-balance-summary-expiring'],
     queryFn: async () => {
@@ -92,7 +96,7 @@ function UpcomingLeavesContent() {
   }
 
   if (error) {
-    return <p className="text-sm text-muted-foreground">載入失敗</p>
+    return <p className="text-sm text-muted-foreground">{t('dashboard.widgets.common.loadFailed')}</p>
   }
 
   const hasExpiring = (data?.expiring_soon_days ?? 0) > 0 || (data?.expiring_soon_hours ?? 0) > 0
@@ -101,7 +105,7 @@ function UpcomingLeavesContent() {
     return (
       <div className="flex flex-col items-center justify-center py-4 text-muted-foreground">
         <Calendar className="h-8 w-8 mb-2 text-green-500" />
-        <p className="text-sm">30天內沒有即將到期的假期</p>
+        <p className="text-sm">{t('dashboard.widgets.hr.noExpiring')}</p>
       </div>
     )
   }
@@ -110,38 +114,41 @@ function UpcomingLeavesContent() {
     <div className="space-y-3">
       {(data?.expiring_soon_days ?? 0) > 0 && (
         <div className="flex justify-between items-center p-2 bg-orange-50 rounded-lg border border-orange-200">
-          <span className="text-sm text-orange-700">即將到期（特休）</span>
+          <span className="text-sm text-orange-700">{t('dashboard.widgets.hr.expiringSoon')}（{t('dashboard.widgets.hr.annualLeave')}）</span>
           <div className="text-right">
             <span className="text-lg font-semibold text-orange-600">
               {data?.expiring_soon_days ?? 0}
             </span>
-            <span className="text-sm text-orange-600 ml-1">天</span>
+            <span className="text-sm text-orange-600 ml-1">{t('dashboard.widgets.common.days')}</span>
           </div>
         </div>
       )}
       {(data?.expiring_soon_hours ?? 0) > 0 && (
         <div className="flex justify-between items-center p-2 bg-orange-50 rounded-lg border border-orange-200">
-          <span className="text-sm text-orange-700">即將到期（補休）</span>
+          <span className="text-sm text-orange-700">{t('dashboard.widgets.hr.expiringSoon')}（{t('dashboard.widgets.hr.compLeave')}）</span>
           <div className="text-right">
             <span className="text-lg font-semibold text-orange-600">
               {data?.expiring_soon_hours ?? 0}
             </span>
-            <span className="text-sm text-orange-600 ml-1">小時</span>
+            <span className="text-sm text-orange-600 ml-1">{t('dashboard.widgets.common.hours')}</span>
           </div>
         </div>
       )}
-      <p className="text-xs text-muted-foreground text-center">30天內到期</p>
+      <p className="text-xs text-muted-foreground text-center">{t('dashboard.widgets.hr.expiringIn30Days')}</p>
     </div>
   )
 }
 
 export function DashboardPage() {
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user, hasRole, hasPermission } = useAuthStore()
   const [showSettingsDialog, setShowSettingsDialog] = useState(false)
   const [isEditMode, setIsEditMode] = useState(false)
   const [tempLayout, setTempLayout] = useState<WidgetLayoutItem[]>([])
+
+  const currentLocale = i18n.language === 'zh-TW' ? zhTW : enUS
 
   // 從後端取得 Widget 配置
   const { data: layoutData } = useQuery({
@@ -159,7 +166,7 @@ export function DashboardPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-preferences', 'dashboard_widgets'] })
-      toast({ title: '成功', description: '儀表板佈局已儲存' })
+      toast({ title: t('common.success'), description: t('dashboard.settings.saveSuccess') })
     },
   })
 
@@ -260,31 +267,20 @@ export function DashboardPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'draft':
-        return <Badge variant="secondary">草稿</Badge>
+        return <Badge variant="secondary">{t('dashboard.widgets.erp.status.draft')}</Badge>
       case 'submitted':
-        return <Badge variant="warning">待核准</Badge>
+        return <Badge variant="warning">{t('dashboard.widgets.erp.status.submitted')}</Badge>
       case 'approved':
-        return <Badge variant="success">已核准</Badge>
+        return <Badge variant="success">{t('dashboard.widgets.erp.status.approved')}</Badge>
       case 'cancelled':
-        return <Badge variant="destructive">已作廢</Badge>
+        return <Badge variant="destructive">{t('dashboard.widgets.erp.status.cancelled')}</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
   }
 
   const getDocTypeName = (type: string) => {
-    const names: Record<string, string> = {
-      PO: '採購單',
-      GRN: '採購入庫',
-      PR: '採購退貨',
-      SO: '銷售單',
-      DO: '銷售出庫',
-      TR: '調撥單',
-      STK: '盤點單',
-      ADJ: '調整單',
-      RM: '退料單',
-    }
-    return names[type] || type
+    return t(`dashboard.widgets.erp.types.${type}`, { defaultValue: type })
   }
 
   // 產生趨勢資料函數
@@ -296,7 +292,7 @@ export function DashboardPage() {
       const date = new Date(today)
       date.setDate(date.getDate() - i)
       const dateStr = date.toISOString().split('T')[0]
-      const displayDate = date.toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' })
+      const displayDate = format(date, 'MMM d', { locale: currentLocale })
       const dayDocs = recentDocuments.filter(
         (d) => d.status === 'approved' && d.approved_at?.startsWith(dateStr)
       )
@@ -329,14 +325,14 @@ export function DashboardPage() {
         return (
           <Card className="h-full overflow-auto">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">低庫存警示</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('dashboard.widgets.names.low_stock_alert')}</CardTitle>
               <AlertTriangle className="h-4 w-4 text-yellow-500" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
                 {loadingAlerts ? '-' : lowStockAlerts?.length || 0}
               </div>
-              <p className="text-xs text-muted-foreground">需要補貨的品項</p>
+              <p className="text-xs text-muted-foreground">{t('dashboard.widgets.erp.lowStockDesc')}</p>
             </CardContent>
           </Card>
         )
@@ -344,7 +340,7 @@ export function DashboardPage() {
         return (
           <Card className="h-full overflow-auto">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">待處理單據</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('dashboard.widgets.names.pending_documents')}</CardTitle>
               <FileText className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
@@ -353,7 +349,7 @@ export function DashboardPage() {
                   ? '-'
                   : recentDocuments?.filter((d) => d.status === 'submitted').length || 0}
               </div>
-              <p className="text-xs text-muted-foreground">等待核准的單據</p>
+              <p className="text-xs text-muted-foreground">{t('dashboard.widgets.erp.pendingDocsDesc')}</p>
             </CardContent>
           </Card>
         )
@@ -361,7 +357,7 @@ export function DashboardPage() {
         return (
           <Card className="h-full overflow-auto">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">今日入庫</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('dashboard.widgets.names.today_inbound')}</CardTitle>
               <TrendingUp className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
@@ -375,7 +371,7 @@ export function DashboardPage() {
                       new Date(d.approved_at || '').toDateString() === new Date().toDateString()
                   ).length || 0}
               </div>
-              <p className="text-xs text-muted-foreground">入庫單據數量</p>
+              <p className="text-xs text-muted-foreground">{t('dashboard.widgets.erp.inboundDesc')}</p>
             </CardContent>
           </Card>
         )
@@ -383,7 +379,7 @@ export function DashboardPage() {
         return (
           <Card className="h-full overflow-auto">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">今日出庫</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('dashboard.widgets.names.today_outbound')}</CardTitle>
               <TrendingDown className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
@@ -397,7 +393,7 @@ export function DashboardPage() {
                       new Date(d.approved_at || '').toDateString() === new Date().toDateString()
                   ).length || 0}
               </div>
-              <p className="text-xs text-muted-foreground">出庫單據數量</p>
+              <p className="text-xs text-muted-foreground">{t('dashboard.widgets.erp.outboundDesc')}</p>
             </CardContent>
           </Card>
         )
@@ -409,9 +405,9 @@ export function DashboardPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-indigo-500" />
-                近 {days} 天出入庫趨勢
+                {t('dashboard.widgets.names.weekly_trend', { days })}
               </CardTitle>
-              <CardDescription>最近 {days} 天的出入庫單據統計</CardDescription>
+              <CardDescription>{t('dashboard.widgets.erp.trendDesc', { days })}</CardDescription>
             </CardHeader>
             <CardContent>
               {loadingDocuments ? (
@@ -422,10 +418,10 @@ export function DashboardPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>日期</TableHead>
-                      <TableHead className="text-right">入庫</TableHead>
-                      <TableHead className="text-right">出庫</TableHead>
-                      <TableHead className="text-right">淨變動</TableHead>
+                      <TableHead>{t('dashboard.widgets.erp.docDate')}</TableHead>
+                      <TableHead className="text-right">{t('nav.goodsReceipt')}</TableHead>
+                      <TableHead className="text-right">{t('nav.deliveryOrder')}</TableHead>
+                      <TableHead className="text-right">{t('dashboard.widgets.erp.netChange')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -473,9 +469,9 @@ export function DashboardPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-blue-500" />
-                最近單據
+                {t('dashboard.widgets.names.recent_documents')}
               </CardTitle>
-              <CardDescription>最近建立或更新的單據</CardDescription>
+              <CardDescription>{t('dashboard.widgets.erp.recentDocsDesc')}</CardDescription>
             </CardHeader>
             <CardContent>
               {loadingDocuments ? (
@@ -486,10 +482,10 @@ export function DashboardPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>單號</TableHead>
-                      <TableHead>類型</TableHead>
-                      <TableHead>狀態</TableHead>
-                      <TableHead>日期</TableHead>
+                      <TableHead>{t('dashboard.widgets.erp.docNo')}</TableHead>
+                      <TableHead>{t('dashboard.widgets.erp.docType')}</TableHead>
+                      <TableHead>{t('protocols.columns.status')}</TableHead>
+                      <TableHead>{t('dashboard.widgets.erp.docDate')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -510,7 +506,7 @@ export function DashboardPage() {
               ) : (
                 <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                   <FileText className="h-12 w-12 mb-2" />
-                  <p>尚無單據資料</p>
+                  <p>{t('dashboard.widgets.erp.noDocs')}</p>
                 </div>
               )}
             </CardContent>
@@ -522,9 +518,9 @@ export function DashboardPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-orange-500" />
-                即將到期假期
+                {t('dashboard.widgets.names.upcoming_leaves')}
               </CardTitle>
-              <CardDescription>請記得使用即將過期的假期</CardDescription>
+              <CardDescription>{t('dashboard.widgets.descriptions.upcoming_leaves')}</CardDescription>
             </CardHeader>
             <CardContent>
               <UpcomingLeavesContent />
@@ -598,25 +594,25 @@ export function DashboardPage() {
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">儀表板</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t('dashboard.title')}</h1>
         </div>
         <div className="flex gap-2">
           {isEditMode ? (
             <>
               <Button variant="outline" size="sm" onClick={() => setIsEditMode(false)}>
                 <Lock className="h-4 w-4 mr-1" />
-                鎖定佈局
+                {t('dashboard.editMode.lock')}
               </Button>
             </>
           ) : (
             <>
               <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)}>
                 <Unlock className="h-4 w-4 mr-1" />
-                編輯佈局
+                {t('dashboard.editMode.unlock')}
               </Button>
               <Button variant="outline" size="sm" onClick={openSettings}>
                 <Settings2 className="h-4 w-4 mr-1" />
-                自訂儀表板
+                {t('dashboard.settings.title')}
               </Button>
             </>
           )}
@@ -626,7 +622,7 @@ export function DashboardPage() {
       {/* 編輯模式提示 */}
       {isEditMode && (
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
-          拖曳 Widget 調整位置，拖曳右下角調整大小，完成後點選「鎖定佈局」
+          {t('dashboard.editMode.hint')}
         </div>
       )}
 
@@ -660,10 +656,10 @@ export function DashboardPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Settings2 className="h-5 w-5" />
-              自訂儀表板
+              {t('dashboard.settings.title')}
             </DialogTitle>
             <DialogDescription>
-              選擇要顯示的 Widget，可自由開啟或關閉
+              {t('dashboard.settings.description')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -675,7 +671,7 @@ export function DashboardPage() {
               if (categoryWidgets.length === 0) return null
               return (
                 <div key={categoryId}>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-2">{categoryName}</h4>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">{t(categoryName)}</h4>
                   <div className="space-y-2">
                     {categoryWidgets.map((widget) => (
                       <div
@@ -689,16 +685,16 @@ export function DashboardPage() {
                             onCheckedChange={() => toggleWidgetVisibility(widget.i)}
                           />
                           <label htmlFor={widget.i} className="flex-1 cursor-pointer">
-                            <p className="text-sm font-medium">{widgetNames[widget.i]}</p>
+                            <p className="text-sm font-medium">{t(widgetNames[widget.i])}</p>
                             <p className="text-xs text-muted-foreground">
-                              {widgetDescriptions[widget.i]}
+                              {t(widgetDescriptions[widget.i])}
                             </p>
                           </label>
                         </div>
                         {/* weekly_trend 天數設定 */}
                         {widget.visible !== false && widget.i === 'weekly_trend' && (
                           <div className="flex items-center gap-2 ml-6">
-                            <span className="text-xs text-muted-foreground">天數：</span>
+                            <span className="text-xs text-muted-foreground">{t('dashboard.settings.days')}</span>
                             <Slider
                               value={widget.options?.days || 7}
                               min={3}
@@ -719,13 +715,13 @@ export function DashboardPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowSettingsDialog(false)}>
-              取消
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleSaveSettings} disabled={saveLayoutMutation.isPending}>
               {saveLayoutMutation.isPending && (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               )}
-              儲存
+              {t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>

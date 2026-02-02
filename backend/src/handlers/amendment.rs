@@ -11,7 +11,7 @@ use crate::{
         Amendment, AmendmentListItem, AmendmentQuery, AmendmentReviewAssignmentResponse,
         AmendmentStatusHistory, AmendmentVersion, ChangeAmendmentStatusRequest,
         ClassifyAmendmentRequest, CreateAmendmentRequest, RecordAmendmentDecisionRequest,
-        UpdateAmendmentRequest,
+        UpdateAmendmentRequest, PendingCountResponse,
     },
     require_permission,
     services::AmendmentService,
@@ -331,4 +331,14 @@ pub async fn list_protocol_amendments(
 ) -> Result<Json<Vec<AmendmentListItem>>> {
     let amendments = AmendmentService::list_by_protocol(&state.db, protocol_id).await?;
     Ok(Json(amendments))
+}
+
+/// 取得待處理變更申請數量
+/// GET /amendments/pending-count
+pub async fn get_pending_count(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+) -> Result<Json<PendingCountResponse>> {
+    let count = AmendmentService::get_pending_count(&state.db).await?;
+    Ok(Json(PendingCountResponse { count }))
 }

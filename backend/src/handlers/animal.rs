@@ -1003,11 +1003,11 @@ pub async fn get_vet_comments(
         .unwrap_or(10);
     
     // 查詢最近的獸醫建議
-    let comments = sqlx::query_as::<_, (i32, i32, String, Option<String>, String, chrono::NaiveDateTime, String)>(
+    let comments = sqlx::query_as::<_, (i32, Uuid, String, Option<String>, String, chrono::NaiveDateTime, String)>(
         r#"
         SELECT 
             vr.id,
-            vr.record_id,
+            p.id as pig_id,
             p.ear_tag,
             p.pen_location,
             vr.content,
@@ -1030,12 +1030,12 @@ pub async fn get_vet_comments(
         .map(|(id, pig_id, ear_tag, pen_location, content, created_at, created_by_name)| {
             serde_json::json!({
                 "id": id.to_string(),
-                "pig_id": pig_id,
-                "ear_tag": ear_tag,
+                "pig_id": pig_id.to_string(),
+                "pig_ear_tag": ear_tag,
                 "pen_location": pen_location,
                 "content": content,
                 "created_at": created_at.format("%Y-%m-%dT%H:%M:%S").to_string(),
-                "created_by_name": created_by_name
+                "author_name": created_by_name
             })
         })
         .collect();

@@ -473,6 +473,8 @@ pub struct TodayLeaveInfo {
     pub is_all_day: bool,
     pub start_date: NaiveDate,
     pub end_date: NaiveDate,
+    pub start_time: Option<NaiveTime>,
+    pub end_time: Option<NaiveTime>,
 }
 
 #[derive(Debug, Serialize)]
