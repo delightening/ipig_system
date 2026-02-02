@@ -14,7 +14,7 @@ use crate::{
         CoEditorAssignmentResponse,
         Protocol, ProtocolListItem, ProtocolQuery, ProtocolResponse, ProtocolStatusHistory,
         ProtocolVersion, ReplyCommentRequest, ReviewAssignment, ReviewComment, ReviewCommentResponse,
-        UpdateProtocolRequest, UserProtocol,
+        UpdateProtocolRequest, UserProtocol, SaveDraftRequest, SubmitReplyRequest,
     },
     require_permission,
     services::{ProtocolService, PdfService},
@@ -45,7 +45,7 @@ pub async fn list_protocols(
     let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string())
         || current_user.roles.contains(&"IACUC_STAFF".to_string())
         || current_user.roles.contains(&"SYSTEM_ADMIN".to_string())
-        || current_user.roles.contains(&"CHAIR".to_string());
+        || current_user.roles.contains(&"IACUC_CHAIR".to_string());
     
     // 檢查是否為純審查委員角色（只有 REVIEWER 或 VET，沒有其他管理角色）
     let is_reviewer_only = current_user.roles.iter()
@@ -86,9 +86,9 @@ pub async fn get_protocol(
     let protocol = ProtocolService::get_by_id(&state.db, id).await?;
     
     // 檢查當前使用者是否有查看此專案的權限
-    // CHAIR、IACUC_STAFF、SYSTEM_ADMIN 可以查看所有計畫書
+    // IACUC_CHAIR、IACUC_STAFF、SYSTEM_ADMIN 可以查看所有計畫書
     let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string())
-        || current_user.roles.contains(&"CHAIR".to_string())
+        || current_user.roles.contains(&"IACUC_CHAIR".to_string())
         || current_user.roles.contains(&"IACUC_STAFF".to_string())
         || current_user.roles.contains(&"SYSTEM_ADMIN".to_string());
     
@@ -371,6 +371,84 @@ pub async fn reply_review_comment(
     Ok(Json(comment))
 }
 
+/// 儲存草稿回覆
+/// Coeditor 或 PI 可以先儲存草稿，稍後由 PI 正式送出
+pub async fn save_reply_draft(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Json(req): Json<SaveDraftRequest>,
+) -> Result<Json<ReviewComment>> {
+    require_permission!(current_user, "aup.review.reply");
+    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    
+    let comment = ProtocolService::save_reply_draft(
+        &state.db, 
+        req.comment_id, 
+        &req.draft_content, 
+        current_user.id
+    ).await?;
+    Ok(Json(comment))
+}
+
+/// 取得草稿回覆
+pub async fn get_reply_draft(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(comment_id): Path<Uuid>,
+) -> Result<Json<Option<String>>> {
+    require_permission!(current_user, "aup.review.reply");
+    
+    let draft = ProtocolService::get_reply_draft(&state.db, comment_id).await?;
+    Ok(Json(draft))
+}
+
+/// 正式送出草稿回覆（只有 PI 可以執行）
+pub async fn submit_reply_from_draft(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Json(req): Json<SubmitReplyRequest>,
+) -> Result<Json<ReviewComment>> {
+    // 取得評論對應的計畫
+    let comment_info: Option<(Uuid,)> = sqlx::query_as(
+        r#"
+        SELECT pv.protocol_id 
+        FROM review_comments rc 
+        JOIN protocol_versions pv ON rc.protocol_version_id = pv.id 
+        WHERE rc.id = $1
+        "#
+    )
+    .bind(req.comment_id)
+    .fetch_optional(&state.db)
+    .await?;
+
+    let (protocol_id,) = comment_info
+        .ok_or_else(|| AppError::NotFound("Comment not found".to_string()))?;
+
+    // 檢查當前用戶是否為該計畫的 PI
+    let is_pi: (bool,) = sqlx::query_as(
+        r#"
+        SELECT EXISTS(
+            SELECT 1 FROM user_protocols 
+            WHERE protocol_id = $1 
+            AND user_id = $2 
+            AND role_in_protocol = 'PI'
+        )
+        "#
+    )
+    .bind(protocol_id)
+    .bind(current_user.id)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or((false,));
+
+    if !is_pi.0 {
+        return Err(AppError::Forbidden("Only PI can submit reply from draft".to_string()));
+    }
+
+    let comment = ProtocolService::submit_reply_from_draft(&state.db, req.comment_id, current_user.id).await?;
+    Ok(Json(comment))
+}
+
 /// 列出我的專案清單
 pub async fn get_my_protocols(
     State(state): State<AppState>,
@@ -460,9 +538,9 @@ pub async fn export_protocol_pdf(
     let protocol = ProtocolService::get_by_id(&state.db, id).await?;
     
     // 檢查當前使用者是否有查看此專案的權限
-    // CHAIR、IACUC_STAFF、SYSTEM_ADMIN 可以查看所有計畫書
+    // IACUC_CHAIR、IACUC_STAFF、SYSTEM_ADMIN 可以查看所有計畫書
     let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string())
-        || current_user.roles.contains(&"CHAIR".to_string())
+        || current_user.roles.contains(&"IACUC_CHAIR".to_string())
         || current_user.roles.contains(&"IACUC_STAFF".to_string())
         || current_user.roles.contains(&"SYSTEM_ADMIN".to_string());
     

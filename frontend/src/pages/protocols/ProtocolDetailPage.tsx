@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import React, { useState, useRef, useMemo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
@@ -548,7 +548,7 @@ export function ProtocolDetailPage() {
 
   // 審查委員只能在 UNDER_REVIEW 狀態新增意見
   const isReviewer = user?.roles?.some(r => ['REVIEWER', 'VET'].includes(r))
-  const isIACUCOrAdmin = user?.roles?.some(r => ['CHAIR', 'IACUC_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
+  const isIACUCOrAdmin = user?.roles?.some(r => ['IACUC_CHAIR', 'IACUC_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
   const canAddComment = isIACUCOrAdmin || (isReviewer && protocol?.status === 'UNDER_REVIEW')
 
   // PI、co-editor、IACUC_STAFF 可以回覆審查意見
@@ -557,8 +557,47 @@ export function ProtocolDetailPage() {
   // 只有 PI 和 co-editor 可以編輯/修訂計畫
   const canEditProtocol = user?.roles?.some(r => ['PI', 'EXPERIMENT_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
 
-  const canAssignReviewer = user?.roles?.some(r => ['IACUC_STAFF', 'CHAIR', 'SYSTEM_ADMIN', 'admin'].includes(r))
+  const canAssignReviewer = user?.roles?.some(r => ['IACUC_STAFF', 'IACUC_CHAIR', 'SYSTEM_ADMIN', 'admin'].includes(r))
   const canManageAttachments = protocol?.status === 'DRAFT' || protocol?.status === 'REVISION_REQUIRED'
+
+  // 審查委員匿名化邏輯
+  // PI/客戶只能看到「審查委員 A/B/C」，IACUC 人員和其他審查委員可看到真實姓名
+  const shouldAnonymizeReviewers = !user?.roles?.some(r =>
+    ['IACUC_STAFF', 'IACUC_CHAIR', 'REVIEWER', 'VET', 'SYSTEM_ADMIN', 'admin'].includes(r)
+  )
+
+  // 建立匿名對照表：隨機打亂審查委員順序
+  const reviewerAnonymousMap = React.useMemo(() => {
+    if (!comments) return new Map<string, string>()
+
+    const uniqueReviewerIds = Array.from(
+      new Set(comments.map(c => c.reviewer_id).filter(Boolean))
+    )
+
+    // 使用穩定的隨機排序（基於 protocol ID 作為種子）
+    const seed = id?.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) || 0
+    const shuffled = [...uniqueReviewerIds].sort((a, b) => {
+      const hashA = ((seed * a.charCodeAt(0)) % 26)
+      const hashB = ((seed * b.charCodeAt(0)) % 26)
+      return hashA - hashB
+    })
+
+    const map = new Map<string, string>()
+    shuffled.forEach((reviewerId, index) => {
+      const letter = String.fromCharCode(65 + index) // A, B, C, ...
+      map.set(reviewerId, `審查委員 ${letter}`)
+    })
+
+    return map
+  }, [comments, id])
+
+  // 取得匿名化後的審查委員名稱
+  const getReviewerDisplayName = (comment: ReviewCommentResponse) => {
+    if (!shouldAnonymizeReviewers) {
+      return comment.reviewer_name || comment.reviewer_email
+    }
+    return reviewerAnonymousMap.get(comment.reviewer_id) || '審查委員'
+  }
 
   if (isLoading) {
     return (
@@ -627,7 +666,7 @@ export function ProtocolDetailPage() {
           )}
           {/* 只有 IACUC_STAFF、CHAIR、SYSTEM_ADMIN 或 admin 可以變更狀態 */}
           {getAvailableTransitions().length > 0 && protocol.status !== 'DRAFT' &&
-            user?.roles?.some(r => ['IACUC_STAFF', 'CHAIR', 'SYSTEM_ADMIN', 'admin'].includes(r)) && (
+            user?.roles?.some(r => ['IACUC_STAFF', 'IACUC_CHAIR', 'SYSTEM_ADMIN', 'admin'].includes(r)) && (
               <Button variant="outline" onClick={() => setShowStatusDialog(true)}>
                 變更狀態
               </Button>
@@ -876,7 +915,7 @@ export function ProtocolDetailPage() {
                               <UserIcon className="h-4 w-4 text-blue-600" />
                             </div>
                             <div>
-                              <p className="font-medium">{comment.reviewer_name || comment.reviewer_email}</p>
+                              <p className="font-medium">{getReviewerDisplayName(comment)}</p>
                               <p className="text-xs text-muted-foreground">{formatDateTime(comment.created_at)}</p>
                             </div>
                           </div>

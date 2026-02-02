@@ -82,6 +82,10 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/reviews/comments", get(handlers::list_review_comments).post(handlers::create_review_comment))
         .route("/reviews/comments/:id/resolve", post(handlers::resolve_review_comment))
         .route("/reviews/comments/reply", post(handlers::reply_review_comment))
+        // Draft Reply (Coeditor 草稿回覆)
+        .route("/reviews/comments/draft", post(handlers::save_reply_draft))
+        .route("/reviews/comments/:id/draft", get(handlers::get_reply_draft))
+        .route("/reviews/comments/submit-draft", post(handlers::submit_reply_from_draft))
         // Co-Editor Assignment
         .route("/protocols/:id/co-editors", get(handlers::list_co_editors).post(handlers::assign_co_editor))
         .route("/protocols/:id/co-editors/:user_id", delete(handlers::remove_co_editor))
@@ -254,6 +258,30 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/signatures/sacrifice/:id", post(handlers::sign_sacrifice_record).get(handlers::get_sacrifice_signature_status))
         .route("/signatures/observation/:id", post(handlers::sign_observation_record))
         .route("/annotations/:record_type/:record_id", get(handlers::get_record_annotations).post(handlers::add_record_annotation))
+        // ============================================
+        // Euthanasia Orders (安樂死管理)
+        // ============================================
+        .route("/euthanasia/orders", post(handlers::euthanasia::create_order))
+        .route("/euthanasia/orders/pending", get(handlers::euthanasia::get_pending_orders))
+        .route("/euthanasia/orders/:id", get(handlers::euthanasia::get_order))
+        .route("/euthanasia/orders/:id/approve", post(handlers::euthanasia::approve_order))
+        .route("/euthanasia/orders/:id/appeal", post(handlers::euthanasia::appeal_order))
+        .route("/euthanasia/orders/:id/execute", post(handlers::euthanasia::execute_order))
+        .route("/euthanasia/appeals/:id/decide", post(handlers::euthanasia::decide_appeal))
+        // ============================================
+        // Amendments (變更申請系統)
+        // ============================================
+        .route("/amendments", get(handlers::amendment::list_amendments).post(handlers::amendment::create_amendment))
+        .route("/amendments/:id", get(handlers::amendment::get_amendment).patch(handlers::amendment::update_amendment))
+        .route("/amendments/:id/submit", post(handlers::amendment::submit_amendment))
+        .route("/amendments/:id/classify", post(handlers::amendment::classify_amendment))
+        .route("/amendments/:id/start-review", post(handlers::amendment::start_amendment_review))
+        .route("/amendments/:id/decision", post(handlers::amendment::record_amendment_decision))
+        .route("/amendments/:id/status", post(handlers::amendment::change_amendment_status))
+        .route("/amendments/:id/versions", get(handlers::amendment::get_amendment_versions))
+        .route("/amendments/:id/history", get(handlers::amendment::get_amendment_history))
+        .route("/amendments/:id/assignments", get(handlers::amendment::get_amendment_assignments))
+        .route("/protocols/:id/amendments", get(handlers::amendment::list_protocol_amendments))
         .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
         .with_state(state);
 

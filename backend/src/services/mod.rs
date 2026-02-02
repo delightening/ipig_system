@@ -25,6 +25,8 @@ pub mod scheduler;
 pub mod report;
 pub mod email;
 mod signature;
+mod euthanasia;
+mod amendment;
 
 pub use auth::AuthService;
 pub use user::UserService;
@@ -46,6 +48,9 @@ pub use facility::FacilityService;
 pub use calendar::CalendarService;
 pub use pdf::PdfService;
 pub use signature::{SignatureService, AnnotationService, SignatureType, AnnotationType};
+pub use euthanasia::EuthanasiaService;
+pub use amendment::AmendmentService;
+
 
 mod balance_expiration;
 pub use balance_expiration::BalanceExpirationJob;

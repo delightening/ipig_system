@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api, { ProtocolListItem, ProtocolStatus, protocolStatusNames } from '@/lib/api'
+import { useTranslation } from 'react-i18next'
+import api, { ProtocolListItem, ProtocolStatus } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -41,6 +42,7 @@ const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' |
 }
 
 export function ProtocolsPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -67,7 +69,7 @@ export function ProtocolsPage() {
   const getStatusBadge = (status: ProtocolStatus) => {
     return (
       <Badge variant={statusColors[status]}>
-        {protocolStatusNames[status]}
+        {t(`protocols.status.${status}`)}
       </Badge>
     )
   }
@@ -87,20 +89,20 @@ export function ProtocolsPage() {
       return api.post(`/protocols/${protocolId}/status`, { to_status: 'DELETED' })
     },
     onSuccess: () => {
-      toast({ title: '成功', description: '計畫書已刪除' })
+      toast({ title: t('common.success'), description: t('protocols.deleted') })
       queryClient.invalidateQueries({ queryKey: ['protocols'] })
     },
     onError: (error: any) => {
       toast({
-        title: '錯誤',
-        description: error?.response?.data?.error?.message || '刪除失敗',
+        title: t('common.error'),
+        description: error?.response?.data?.error?.message || t('protocols.deleteFailed'),
         variant: 'destructive'
       })
     },
   })
 
   const handleDelete = (protocolId: string, title: string) => {
-    if (confirm(`確定要刪除計畫書「${title}」嗎？`)) {
+    if (confirm(t('protocols.deleteConfirm', { title }))) {
       deleteMutation.mutate(protocolId)
     }
   }
@@ -109,15 +111,15 @@ export function ProtocolsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">計畫書管理</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t('protocols.title')}</h1>
           <p className="text-muted-foreground">
-            管理 IACUC 動物試驗計畫書（AUP）
+            {t('protocols.subtitle')}
           </p>
         </div>
         <Button asChild>
           <Link to="/protocols/new">
             <Plus className="mr-2 h-4 w-4" />
-            新增計畫書
+            {t('protocols.createNew')}
           </Link>
         </Button>
       </div>
@@ -127,7 +129,7 @@ export function ProtocolsPage() {
           <div className="relative flex-1 min-w-[200px] max-w-sm">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="搜尋計畫書編號或標題..."
+              placeholder={t('protocols.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -135,15 +137,14 @@ export function ProtocolsPage() {
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-40">
-              <SelectValue placeholder="全部狀態" />
+              <SelectValue placeholder={t('common.allStatus')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">全部狀態</SelectItem>
-              {Object.entries(protocolStatusNames)
-                .filter(([key]) => key !== 'DELETED')
-                .map(([key, name]) => (
+              <SelectItem value="all">{t('common.allStatus')}</SelectItem>
+              {['DRAFT', 'SUBMITTED', 'PRE_REVIEW', 'UNDER_REVIEW', 'REVISION_REQUIRED', 'RESUBMITTED', 'APPROVED', 'APPROVED_WITH_CONDITIONS', 'DEFERRED', 'REJECTED', 'SUSPENDED', 'CLOSED']
+                .map((key) => (
                   <SelectItem key={key} value={key}>
-                    {name}
+                    {t(`protocols.status.${key}`)}
                   </SelectItem>
                 ))}
             </SelectContent>
@@ -152,7 +153,7 @@ export function ProtocolsPage() {
           {hasFilters && (
             <Button variant="ghost" size="sm" onClick={clearFilters}>
               <X className="h-4 w-4 mr-1" />
-              清除篩選
+              {t('common.clearFilters')}
             </Button>
           )}
         </div>
@@ -162,14 +163,14 @@ export function ProtocolsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>IACUC No.</TableHead>
-              <TableHead>計畫書標題</TableHead>
-              <TableHead>計畫書主持人</TableHead>
-              <TableHead>所屬單位</TableHead>
-              <TableHead>狀態</TableHead>
-              <TableHead>執行期間</TableHead>
-              <TableHead>建立日期</TableHead>
-              <TableHead className="text-right">操作</TableHead>
+              <TableHead>{t('protocols.columns.iacucNo')}</TableHead>
+              <TableHead>{t('protocols.columns.protocolTitle')}</TableHead>
+              <TableHead>{t('protocols.columns.pi')}</TableHead>
+              <TableHead>{t('protocols.columns.organization')}</TableHead>
+              <TableHead>{t('protocols.columns.status')}</TableHead>
+              <TableHead>{t('protocols.columns.period')}</TableHead>
+              <TableHead>{t('protocols.columns.createdAt')}</TableHead>
+              <TableHead className="text-right">{t('protocols.columns.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -184,7 +185,7 @@ export function ProtocolsPage() {
                 <TableRow key={protocol.id}>
                   <TableCell className="font-mono">
                     {protocol.iacuc_no ? (
-                      <Link 
+                      <Link
                         to={`/protocols/${protocol.id}`}
                         className="text-orange-600 hover:text-orange-700 hover:underline cursor-pointer"
                       >
@@ -193,7 +194,7 @@ export function ProtocolsPage() {
                     ) : '-'}
                   </TableCell>
                   <TableCell className="max-w-[200px] truncate">
-                    <Link 
+                    <Link
                       to={`/protocols/${protocol.id}`}
                       className="text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
                     >
@@ -211,13 +212,13 @@ export function ProtocolsPage() {
                   <TableCell>{formatDate(protocol.created_at)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" asChild title="查看">
+                      <Button variant="ghost" size="icon" asChild title={t('common.view')}>
                         <Link to={`/protocols/${protocol.id}`}>
                           <Eye className="h-4 w-4" />
                         </Link>
                       </Button>
                       {canEditProtocol(protocol.status) && (
-                        <Button variant="ghost" size="icon" asChild title="編輯">
+                        <Button variant="ghost" size="icon" asChild title={t('common.edit')}>
                           <Link to={`/protocols/${protocol.id}/edit`}>
                             <Edit className="h-4 w-4" />
                           </Link>
@@ -227,7 +228,7 @@ export function ProtocolsPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          title="刪除"
+                          title={t('common.delete')}
                           onClick={() => handleDelete(protocol.id, protocol.title)}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -241,7 +242,7 @@ export function ProtocolsPage() {
               <TableRow>
                 <TableCell colSpan={8} className="text-center py-8">
                   <FileText className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-muted-foreground">尚無計畫書資料</p>
+                  <p className="text-muted-foreground">{t('protocols.noData')}</p>
                 </TableCell>
               </TableRow>
             )}
