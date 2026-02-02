@@ -192,22 +192,103 @@ impl DocumentService {
     }
 
     /// 送審
+    /// 對於調整單(ADJ)，若報廢金額超過門檻，需要主管簽核
     pub async fn submit(pool: &PgPool, id: Uuid) -> Result<DocumentWithLines> {
-        let result = sqlx::query(
-            r#"
-            UPDATE documents SET status = $1, updated_at = NOW()
-            WHERE id = $2 AND status = $3
-            "#
+        // 取得單據資訊
+        let document = sqlx::query_as::<_, Document>(
+            "SELECT * FROM documents WHERE id = $1"
         )
-        .bind(DocStatus::Submitted)
         .bind(id)
-        .bind(DocStatus::Draft)
-        .execute(pool)
-        .await?;
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
 
-        if result.rows_affected() == 0 {
-            return Err(AppError::BusinessRule("Document not found or not in draft status".to_string()));
+        if document.status != DocStatus::Draft {
+            return Err(AppError::BusinessRule("Document must be in draft status to submit".to_string()));
         }
+
+        let mut tx = pool.begin().await?;
+
+        // 對於調整單(報廢)，計算總金額並檢查是否需要主管簽核
+        let (requires_manager_approval, scrap_total_amount) = if document.doc_type == DocType::ADJ {
+            // 計算調整單總金額
+            let total_amount: Option<Decimal> = sqlx::query_scalar(
+                r#"
+                SELECT SUM(ABS(dl.qty) * COALESCE(dl.unit_price, 0)) as total
+                FROM document_lines dl
+                WHERE dl.document_id = $1
+                "#
+            )
+            .bind(id)
+            .fetch_one(&mut *tx)
+            .await?;
+
+            let scrap_amount = total_amount.unwrap_or(Decimal::ZERO);
+
+            // 從系統設定取得報廢簽核門檻
+            let threshold: Option<Decimal> = sqlx::query_scalar(
+                "SELECT setting_value::DECIMAL FROM system_settings WHERE setting_key = 'scrap_approval_threshold'"
+            )
+            .fetch_optional(&mut *tx)
+            .await?;
+
+            let threshold_amount = threshold.unwrap_or(Decimal::new(5000, 0)); // 預設 5000
+
+            if scrap_amount >= threshold_amount {
+                (Some(true), Some(scrap_amount))
+            } else {
+                (Some(false), Some(scrap_amount))
+            }
+        } else {
+            (None, None)
+        };
+
+        // 更新單據狀態
+        if requires_manager_approval == Some(true) {
+            // 需要主管簽核的報廢單
+            sqlx::query(
+                r#"
+                UPDATE documents SET 
+                    status = $1, 
+                    requires_manager_approval = true,
+                    scrap_total_amount = $2,
+                    manager_approval_status = 'pending',
+                    updated_at = NOW()
+                WHERE id = $3
+                "#
+            )
+            .bind(DocStatus::Submitted)
+            .bind(scrap_total_amount)
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+
+            tracing::info!(
+                "[Scrap Approval] Document {} requires manager approval. Total amount: {:?}",
+                id,
+                scrap_total_amount
+            );
+        } else {
+            // 一般單據或金額未超過門檻
+            sqlx::query(
+                r#"
+                UPDATE documents SET 
+                    status = $1, 
+                    requires_manager_approval = COALESCE($2, false),
+                    scrap_total_amount = $3,
+                    updated_at = NOW()
+                WHERE id = $4
+                "#
+            )
+            .bind(DocStatus::Submitted)
+            .bind(requires_manager_approval)
+            .bind(scrap_total_amount)
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        tx.commit().await?;
 
         Self::get_by_id(pool, id).await
     }

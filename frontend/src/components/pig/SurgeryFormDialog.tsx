@@ -92,7 +92,7 @@ interface SurgeryFormData {
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
-  pigId: number
+  pigId: string
   earTag: string
   surgery?: PigSurgery
 }

@@ -86,6 +86,19 @@ pub struct Document {
     pub receipt_status: Option<String>,
     /// 盤點範圍設定（循環盤點用）
     pub stocktake_scope: Option<serde_json::Value>,
+    // 主管簽核相關欄位 (報廢金額超過門檻時使用)
+    #[sqlx(default)]
+    pub requires_manager_approval: Option<bool>,
+    #[sqlx(default)]
+    pub scrap_total_amount: Option<Decimal>,
+    #[sqlx(default)]
+    pub manager_approval_status: Option<String>,  // pending, approved, rejected
+    #[sqlx(default)]
+    pub manager_approved_by: Option<Uuid>,
+    #[sqlx(default)]
+    pub manager_approved_at: Option<DateTime<Utc>>,
+    #[sqlx(default)]
+    pub manager_reject_reason: Option<String>,
 }
 
 /// 單據明細

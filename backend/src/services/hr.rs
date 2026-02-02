@@ -621,7 +621,7 @@ impl HrService {
             SELECT 
                 id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
-                comp_time_source_ids, annual_leave_source_id, is_urgent, is_retroactive,
+                annual_leave_source_id, is_urgent, is_retroactive,
                 status::text as status, current_approver_id, submitted_at, approved_at,
                 rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
                 created_at, updated_at
@@ -680,7 +680,7 @@ impl HrService {
             SELECT 
                 id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
-                comp_time_source_ids, annual_leave_source_id, is_urgent, is_retroactive,
+                annual_leave_source_id, is_urgent, is_retroactive,
                 status::text as status, current_approver_id, submitted_at, approved_at,
                 rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
                 created_at, updated_at
@@ -732,7 +732,7 @@ impl HrService {
             SELECT 
                 id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
-                comp_time_source_ids, annual_leave_source_id, is_urgent, is_retroactive,
+                annual_leave_source_id, is_urgent, is_retroactive,
                 status::text as status, current_approver_id, submitted_at, approved_at,
                 rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
                 created_at, updated_at
@@ -775,7 +775,7 @@ impl HrService {
             SELECT 
                 id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
-                comp_time_source_ids, annual_leave_source_id, is_urgent, is_retroactive,
+                annual_leave_source_id, is_urgent, is_retroactive,
                 status::text as status, current_approver_id, submitted_at, approved_at,
                 rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
                 created_at, updated_at
@@ -800,7 +800,7 @@ impl HrService {
             SELECT 
                 id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
-                comp_time_source_ids, annual_leave_source_id, is_urgent, is_retroactive,
+                annual_leave_source_id, is_urgent, is_retroactive,
                 status::text as status, current_approver_id, submitted_at, approved_at,
                 rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
                 created_at, updated_at
@@ -859,7 +859,7 @@ impl HrService {
             SELECT 
                 id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
-                comp_time_source_ids, annual_leave_source_id, is_urgent, is_retroactive,
+                annual_leave_source_id, is_urgent, is_retroactive,
                 status::text as status, current_approver_id, submitted_at, approved_at,
                 rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
                 created_at, updated_at
@@ -884,7 +884,7 @@ impl HrService {
             SELECT 
                 id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
-                comp_time_source_ids, annual_leave_source_id, is_urgent, is_retroactive,
+                annual_leave_source_id, is_urgent, is_retroactive,
                 status::text as status, current_approver_id, submitted_at, approved_at,
                 rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
                 created_at, updated_at
@@ -925,7 +925,7 @@ impl HrService {
             SELECT 
                 id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
-                comp_time_source_ids, annual_leave_source_id, is_urgent, is_retroactive,
+                annual_leave_source_id, is_urgent, is_retroactive,
                 status::text as status, current_approver_id, submitted_at, approved_at,
                 rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
                 created_at, updated_at
@@ -962,7 +962,7 @@ impl HrService {
             SELECT 
                 id, user_id, proxy_user_id, leave_type::text as leave_type, start_date, end_date,
                 start_time, end_time, total_days, total_hours, reason, supporting_documents,
-                comp_time_source_ids, annual_leave_source_id, is_urgent, is_retroactive,
+                annual_leave_source_id, is_urgent, is_retroactive,
                 status::text as status, current_approver_id, submitted_at, approved_at,
                 rejected_at, cancelled_at, revoked_at, cancellation_reason, revocation_reason,
                 created_at, updated_at

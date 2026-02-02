@@ -40,7 +40,7 @@ interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   type: ExportType
-  pigId?: number
+  pigId?: string
   earTag?: string
 }
 
@@ -190,8 +190,8 @@ export function ExportDialog({ open, onOpenChange, type, pigId, earTag }: Props)
                 type="button"
                 onClick={() => setFormat('pdf')}
                 className={`flex items-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors ${format === 'pdf'
-                    ? 'border-purple-500 bg-purple-50 text-purple-700'
-                    : 'border-slate-200 hover:border-slate-300'
+                  ? 'border-purple-500 bg-purple-50 text-purple-700'
+                  : 'border-slate-200 hover:border-slate-300'
                   }`}
               >
                 <FileText className="h-5 w-5" />
@@ -201,8 +201,8 @@ export function ExportDialog({ open, onOpenChange, type, pigId, earTag }: Props)
                 type="button"
                 onClick={() => setFormat('excel')}
                 className={`flex items-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors ${format === 'excel'
-                    ? 'border-purple-500 bg-purple-50 text-purple-700'
-                    : 'border-slate-200 hover:border-slate-300'
+                  ? 'border-purple-500 bg-purple-50 text-purple-700'
+                  : 'border-slate-200 hover:border-slate-300'
                   }`}
               >
                 <FileSpreadsheet className="h-5 w-5" />
@@ -212,8 +212,8 @@ export function ExportDialog({ open, onOpenChange, type, pigId, earTag }: Props)
                 type="button"
                 onClick={() => setFormat('csv')}
                 className={`flex items-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors ${format === 'csv'
-                    ? 'border-purple-500 bg-purple-50 text-purple-700'
-                    : 'border-slate-200 hover:border-slate-300'
+                  ? 'border-purple-500 bg-purple-50 text-purple-700'
+                  : 'border-slate-200 hover:border-slate-300'
                   }`}
               >
                 <FileSpreadsheet className="h-5 w-5" />
