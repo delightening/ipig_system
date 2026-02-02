@@ -22,6 +22,9 @@ pub enum AppError {
     #[error("Validation error: {0}")]
     Validation(String),
 
+    #[error("Bad request: {0}")]
+    BadRequest(String),
+
     #[error("Conflict: {0}")]
     Conflict(String),
 
@@ -51,6 +54,7 @@ impl IntoResponse for AppError {
             AppError::Forbidden(msg) => (StatusCode::FORBIDDEN, msg.clone()),
             AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg.clone()),
             AppError::Validation(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
+            AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
             AppError::Conflict(msg) => (StatusCode::CONFLICT, msg.clone()),
             AppError::BusinessRule(msg) => (StatusCode::UNPROCESSABLE_ENTITY, msg.clone()),
             AppError::Internal(msg) => {
@@ -97,5 +101,12 @@ impl From<JsonRejection> for AppError {
         };
         tracing::warn!("JSON rejection: {}", error_message);
         AppError::Validation(error_message)
+    }
+}
+
+// 處理 validator 驗證錯誤
+impl From<validator::ValidationErrors> for AppError {
+    fn from(errors: validator::ValidationErrors) -> Self {
+        AppError::Validation(format!("Validation failed: {}", errors))
     }
 }

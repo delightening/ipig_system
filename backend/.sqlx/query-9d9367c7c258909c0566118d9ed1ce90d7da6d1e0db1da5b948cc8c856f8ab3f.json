@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT ea.id, ea.order_id, eo.vet_user_id\n            FROM euthanasia_appeals ea\n            JOIN euthanasia_orders eo ON ea.order_id = eo.id\n            WHERE ea.chair_decision IS NULL \n              AND ea.chair_deadline_at < $1\n              AND eo.status = 'chair_arbitration'\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "order_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "vet_user_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "9d9367c7c258909c0566118d9ed1ce90d7da6d1e0db1da5b948cc8c856f8ab3f"
+}

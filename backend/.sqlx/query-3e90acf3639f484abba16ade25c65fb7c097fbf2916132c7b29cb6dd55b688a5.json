@@ -1,0 +1,148 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT \n                a.id, a.protocol_id, a.amendment_no, a.revision_number,\n                a.amendment_type as \"amendment_type: AmendmentType\",\n                a.status as \"status: AmendmentStatus\",\n                a.title, a.description, a.change_items,\n                a.submitted_at, a.classified_at,\n                a.created_at, a.updated_at,\n                p.iacuc_no as protocol_iacuc_no,\n                p.title as protocol_title,\n                u.display_name as submitted_by_name,\n                c.display_name as classified_by_name\n            FROM amendments a\n            JOIN protocols p ON a.protocol_id = p.id\n            LEFT JOIN users u ON a.submitted_by = u.id\n            LEFT JOIN users c ON a.classified_by = c.id\n            WHERE \n                ($1::uuid IS NULL OR a.protocol_id = $1)\n                AND ($2::text IS NULL OR a.status::text = $2)\n                AND ($3::text IS NULL OR a.amendment_type::text = $3)\n            ORDER BY a.created_at DESC\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "protocol_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "amendment_no",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "revision_number",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "amendment_type: AmendmentType",
+        "type_info": {
+          "Custom": {
+            "name": "amendment_type",
+            "kind": {
+              "Enum": [
+                "MAJOR",
+                "MINOR",
+                "PENDING"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "status: AmendmentStatus",
+        "type_info": {
+          "Custom": {
+            "name": "amendment_status",
+            "kind": {
+              "Enum": [
+                "DRAFT",
+                "SUBMITTED",
+                "CLASSIFIED",
+                "UNDER_REVIEW",
+                "REVISION_REQUIRED",
+                "RESUBMITTED",
+                "APPROVED",
+                "REJECTED",
+                "ADMIN_APPROVED"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "title",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 7,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "change_items",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 9,
+        "name": "submitted_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
+        "name": "classified_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 12,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 13,
+        "name": "protocol_iacuc_no",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 14,
+        "name": "protocol_title",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 15,
+        "name": "submitted_by_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 16,
+        "name": "classified_by_name",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "3e90acf3639f484abba16ade25c65fb7c097fbf2916132c7b29cb6dd55b688a5"
+}

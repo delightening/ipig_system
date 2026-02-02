@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE euthanasia_orders\n            SET status = ($1::TEXT)::euthanasia_order_status, updated_at = NOW()\n            WHERE id = $2\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bd6fe95048b60f6b18ca8b83155e3a79e5f2d108ae14e078e67da37c0d097ac6"
+}

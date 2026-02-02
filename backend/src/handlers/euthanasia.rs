@@ -2,15 +2,14 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    Json,
+    Extension, Json,
 };
-use sqlx::PgPool;
 use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
     error::AppError,
-    middleware::AuthenticatedUser,
+    middleware::CurrentUser,
     models::{
         ChairDecisionRequest, CreateEuthanasiaAppealRequest, CreateEuthanasiaOrderRequest,
     },
@@ -22,7 +21,7 @@ use crate::{
 /// POST /api/euthanasia/orders
 pub async fn create_order(
     State(state): State<AppState>,
-    auth: AuthenticatedUser,
+    Extension(auth): Extension<CurrentUser>,
     Json(req): Json<CreateEuthanasiaOrderRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     // 驗證請求
@@ -33,7 +32,7 @@ pub async fn create_order(
         return Err(AppError::Forbidden("無權限開立安樂死單".to_string()));
     }
 
-    let order = EuthanasiaService::create_order(&state.db, &req, auth.user_id).await?;
+    let order = EuthanasiaService::create_order(&state.db, &req, auth.id).await?;
 
     // 發送 Email 通知給 PI
     // 取得必要資訊
@@ -74,7 +73,7 @@ pub async fn create_order(
 pub async fn get_order(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
-    _auth: AuthenticatedUser,
+    Extension(_auth): Extension<CurrentUser>,
 ) -> Result<impl IntoResponse, AppError> {
     let order = EuthanasiaService::get_order_by_id(&state.db, id).await?;
 
@@ -85,9 +84,9 @@ pub async fn get_order(
 /// GET /api/euthanasia/orders/pending
 pub async fn get_pending_orders(
     State(state): State<AppState>,
-    auth: AuthenticatedUser,
+    Extension(auth): Extension<CurrentUser>,
 ) -> Result<impl IntoResponse, AppError> {
-    let orders = EuthanasiaService::get_pending_orders_for_pi(&state.db, auth.user_id).await?;
+    let orders = EuthanasiaService::get_pending_orders_for_pi(&state.db, auth.id).await?;
 
     Ok(Json(orders))
 }
@@ -97,9 +96,9 @@ pub async fn get_pending_orders(
 pub async fn approve_order(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
-    auth: AuthenticatedUser,
+    Extension(auth): Extension<CurrentUser>,
 ) -> Result<impl IntoResponse, AppError> {
-    let order = EuthanasiaService::pi_approve(&state.db, id, auth.user_id).await?;
+    let order = EuthanasiaService::pi_approve(&state.db, id, auth.id).await?;
 
     Ok(Json(order))
 }
@@ -109,12 +108,12 @@ pub async fn approve_order(
 pub async fn appeal_order(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
-    auth: AuthenticatedUser,
+    Extension(auth): Extension<CurrentUser>,
     Json(req): Json<CreateEuthanasiaAppealRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     req.validate()?;
 
-    let appeal = EuthanasiaService::pi_appeal(&state.db, id, auth.user_id, &req).await?;
+    let appeal = EuthanasiaService::pi_appeal(&state.db, id, auth.id, &req).await?;
 
     Ok((StatusCode::CREATED, Json(appeal)))
 }
@@ -124,7 +123,7 @@ pub async fn appeal_order(
 pub async fn decide_appeal(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
-    auth: AuthenticatedUser,
+    Extension(auth): Extension<CurrentUser>,
     Json(req): Json<ChairDecisionRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     // 驗證權限：只有 CHAIR 可以裁決
@@ -132,7 +131,7 @@ pub async fn decide_appeal(
         return Err(AppError::Forbidden("無權限進行仲裁".to_string()));
     }
 
-    let appeal = EuthanasiaService::chair_decide(&state.db, id, auth.user_id, &req).await?;
+    let appeal = EuthanasiaService::chair_decide(&state.db, id, auth.id, &req).await?;
 
     Ok(Json(appeal))
 }
@@ -142,14 +141,14 @@ pub async fn decide_appeal(
 pub async fn execute_order(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
-    auth: AuthenticatedUser,
+    Extension(auth): Extension<CurrentUser>,
 ) -> Result<impl IntoResponse, AppError> {
     // 驗證權限：只有 VET 可以執行
     if !auth.has_permission("animal.euthanasia.execute") && !auth.has_role("VET") {
         return Err(AppError::Forbidden("無權限執行安樂死".to_string()));
     }
 
-    let order = EuthanasiaService::execute(&state.db, id, auth.user_id).await?;
+    let order = EuthanasiaService::execute(&state.db, id, auth.id).await?;
 
     Ok(Json(order))
 }

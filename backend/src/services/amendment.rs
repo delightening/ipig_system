@@ -191,7 +191,7 @@ impl AmendmentService {
             r#"
             UPDATE amendments
             SET 
-                status = $2::amendment_status,
+                status = ($2::TEXT)::amendment_status,
                 submitted_by = $3,
                 submitted_at = NOW(),
                 updated_at = NOW()
@@ -266,8 +266,8 @@ impl AmendmentService {
             r#"
             UPDATE amendments
             SET 
-                amendment_type = $2::amendment_type,
-                status = $3::amendment_status,
+                amendment_type = ($2::TEXT)::amendment_type,
+                status = ($3::TEXT)::amendment_status,
                 classified_by = $4,
                 classified_at = NOW(),
                 classification_remark = $5,
@@ -535,7 +535,7 @@ impl AmendmentService {
             Amendment,
             r#"
             UPDATE amendments
-            SET status = $2::amendment_status, updated_at = NOW()
+            SET status = ($2::TEXT)::amendment_status, updated_at = NOW()
             WHERE id = $1
             RETURNING 
                 id, protocol_id, amendment_no, revision_number,
@@ -578,7 +578,7 @@ impl AmendmentService {
             r#"
             INSERT INTO amendment_status_history 
                 (id, amendment_id, from_status, to_status, changed_by, remark)
-            VALUES ($1, $2, $3::amendment_status, $4::amendment_status, $5, $6)
+            VALUES ($1, $2, ($3::TEXT)::amendment_status, ($4::TEXT)::amendment_status, $5, $6)
             "#,
             Uuid::new_v4(),
             amendment_id,

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE amendments SET status = 'REJECTED', updated_at = NOW() WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "49226af9bd9d3034e585eb0a35913e9f0bee0cda656d1dbfe6f6ce94a9e19e04"
+}
