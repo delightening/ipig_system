@@ -154,16 +154,26 @@ export function PigsPage() {
   const [showBatchExportDialog, setShowBatchExportDialog] = useState(false)
   const [showImportBasicDialog, setShowImportBasicDialog] = useState(false)
   const [showImportWeightDialog, setShowImportWeightDialog] = useState(false)
-  const [selectedPigs, setSelectedPigs] = useState<number[]>([])
+  const [selectedPigs, setSelectedPigs] = useState<string[]>([])
   const [assignIacucNo, setAssignIacucNo] = useState('')
 
   // Quick edit dialog state
-  const [quickEditPigId, setQuickEditPigId] = useState<number | null>(null)
+  const [quickEditPigId, setQuickEditPigId] = useState<string | null>(null)
   const [showPrintReport, setShowPrintReport] = useState(false)
 
   // Quick move state (空欄位快速移動)
   const [editingPenLocation, setEditingPenLocation] = useState<string | null>(null)
   const [editingEarTag, setEditingEarTag] = useState<string>('')
+
+  // Quick add dialog state (快速新增動物對話框)
+  const [showQuickAddDialog, setShowQuickAddDialog] = useState(false)
+  const [quickAddPending, setQuickAddPending] = useState<{ earTag: string; penLocation: string } | null>(null)
+  const [quickAddForm, setQuickAddForm] = useState({
+    breed: 'minipig' as PigBreed,
+    gender: 'male' as 'male' | 'female',
+    entry_date: new Date().toISOString().split('T')[0],
+    birth_date: '',
+  })
 
   // Form state for new pig
   const [penBuilding, setPenBuilding] = useState('')
@@ -404,40 +414,69 @@ export function PigsPage() {
     },
   })
 
-  // Quick move mutation (空欄位快速移動)
+  // Quick move mutation (空欄位快速移動或新增動物)
   const quickMoveMutation = useMutation({
     mutationFn: async ({ earTag, targetPenLocation }: { earTag: string; targetPenLocation: string }) => {
+      // 格式化耳號：如果是數字則補零至三位數
+      let formattedEarTag = earTag.trim()
+      if (/^\d+$/.test(formattedEarTag)) {
+        formattedEarTag = formattedEarTag.padStart(3, '0')
+      }
+
       // 先根據耳號查詢豬隻
-      const searchRes = await api.get<PigListItem[]>(`/pigs?keyword=${encodeURIComponent(earTag)}`)
-      const matchingPigs = searchRes.data.filter(p => p.ear_tag === earTag)
+      const searchRes = await api.get<PigListItem[]>(`/pigs?keyword=${encodeURIComponent(formattedEarTag)}`)
+      const matchingPigs = searchRes.data.filter(p => p.ear_tag === formattedEarTag)
 
       if (matchingPigs.length === 0) {
-        throw new Error(`找不到耳號為 "${earTag}" 的動物`)
+        // 找不到該耳號，顯示新增對話框
+        return { notFound: true, formattedEarTag, targetPenLocation }
       }
 
       if (matchingPigs.length > 1) {
-        throw new Error(`找到多隻耳號為 "${earTag}" 的動物，請使用編輯功能手動移動`)
+        throw new Error(`找到多隻耳號為 "${formattedEarTag}" 的動物，請使用編輯功能手動移動`)
       }
 
       const pig = matchingPigs[0]
 
       // 檢查豬隻是否已經在目標欄位
       if (pig.pen_location === targetPenLocation) {
-        throw new Error(`動物 ${earTag} 已經在 ${targetPenLocation} 欄位`)
+        throw new Error(`動物 ${formattedEarTag} 已經在 ${targetPenLocation} 欄位`)
       }
 
       // 更新豬隻的欄位
-      return api.put<Pig>(`/pigs/${pig.id}`, {
-        pen_location: targetPenLocation,
-      })
+      return {
+        ...await api.put<Pig>(`/pigs/${pig.id}`, {
+          pen_location: targetPenLocation,
+        }), notFound: false
+      }
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (data: any, variables) => {
+      if (data.notFound) {
+        // 顯示新增對話框
+        setQuickAddPending({ earTag: data.formattedEarTag, penLocation: data.targetPenLocation })
+        setQuickAddForm({
+          breed: 'minipig',
+          gender: 'male',
+          entry_date: new Date().toISOString().split('T')[0],
+          birth_date: '',
+        })
+        setShowQuickAddDialog(true)
+        setEditingPenLocation(null)
+        setEditingEarTag('')
+        return
+      }
+
       queryClient.invalidateQueries({ queryKey: ['pigs'] })
       queryClient.invalidateQueries({ queryKey: ['pigs-by-pen'] })
       queryClient.invalidateQueries({ queryKey: ['pigs-count'] })
+      // 格式化耳號以顯示正確的訊息
+      let formattedEarTag = variables.earTag.trim()
+      if (/^\d+$/.test(formattedEarTag)) {
+        formattedEarTag = formattedEarTag.padStart(3, '0')
+      }
       toast({
         title: '成功',
-        description: `動物 ${variables.earTag} 已移動到 ${variables.targetPenLocation}`
+        description: `動物 ${formattedEarTag} 已移動到 ${variables.targetPenLocation}`
       })
       setEditingPenLocation(null)
       setEditingEarTag('')
@@ -454,6 +493,54 @@ export function PigsPage() {
         variant: 'destructive',
       })
       // 保持編輯狀態，讓用戶可以修正
+    },
+  })
+
+  // Quick add mutation (快速新增動物)
+  const quickAddMutation = useMutation({
+    mutationFn: async () => {
+      if (!quickAddPending) throw new Error('無待處理的新增請求')
+
+      // 驗證必填欄位
+      if (!quickAddForm.entry_date) {
+        throw new Error('進場日期為必填')
+      }
+      if (!quickAddForm.birth_date) {
+        throw new Error('出生日期為必填')
+      }
+
+      const payload = {
+        ear_tag: quickAddPending.earTag,
+        breed: quickAddForm.breed,
+        gender: quickAddForm.gender,
+        entry_date: quickAddForm.entry_date,
+        birth_date: quickAddForm.birth_date,
+        pen_location: quickAddPending.penLocation,
+      }
+      return api.post<Pig>('/pigs', payload)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pigs'] })
+      queryClient.invalidateQueries({ queryKey: ['pigs-by-pen'] })
+      queryClient.invalidateQueries({ queryKey: ['pigs-count'] })
+      toast({
+        title: '成功',
+        description: `已新增動物 ${quickAddPending?.earTag} 至 ${quickAddPending?.penLocation}`
+      })
+      setShowQuickAddDialog(false)
+      setQuickAddPending(null)
+    },
+    onError: (error: any) => {
+      console.error('Quick add error:', error)
+      const errorMessage = error?.response?.data?.error?.message
+        || error?.response?.data?.message
+        || error?.message
+        || '新增失敗'
+      toast({
+        title: '錯誤',
+        description: errorMessage,
+        variant: 'destructive',
+      })
     },
   })
 
@@ -475,7 +562,7 @@ export function PigsPage() {
     })
   }
 
-  const togglePigSelection = (id: number) => {
+  const togglePigSelection = (id: string) => {
     setSelectedPigs(prev =>
       prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
     )
@@ -665,7 +752,7 @@ export function PigsPage() {
                           className="rounded border-slate-300"
                         />
                       </TableCell>
-                      <TableCell className="font-medium">{pig.id}</TableCell>
+                      <TableCell className="font-medium">{pig.pig_no}</TableCell>
                       <TableCell>
                         <Link
                           to={`/pigs/${pig.id}`}
@@ -1406,6 +1493,90 @@ export function PigsPage() {
           pigId={quickEditPigId}
         />
       )}
+
+      {/* Quick Add Dialog (從欄位快速新增動物) */}
+      <Dialog open={showQuickAddDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowQuickAddDialog(false)
+          setQuickAddPending(null)
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>新增動物</DialogTitle>
+            <DialogDescription>
+              耳號 <span className="font-bold text-purple-600">{quickAddPending?.earTag}</span> 不存在，請填寫資料以新增動物至 <span className="font-bold">{quickAddPending?.penLocation}</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>品種 *</Label>
+              <Select
+                value={quickAddForm.breed}
+                onValueChange={(v) => setQuickAddForm({ ...quickAddForm, breed: v as PigBreed })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="minipig">迷你豬</SelectItem>
+                  <SelectItem value="white">白豬</SelectItem>
+                  <SelectItem value="other">其他</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>性別 *</Label>
+              <Select
+                value={quickAddForm.gender}
+                onValueChange={(v) => setQuickAddForm({ ...quickAddForm, gender: v as 'male' | 'female' })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="male">公</SelectItem>
+                  <SelectItem value="female">母</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="quick_entry_date">進場日期 *</Label>
+              <Input
+                id="quick_entry_date"
+                type="date"
+                value={quickAddForm.entry_date}
+                onChange={(e) => setQuickAddForm({ ...quickAddForm, entry_date: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="quick_birth_date">出生日期 *</Label>
+              <Input
+                id="quick_birth_date"
+                type="date"
+                value={quickAddForm.birth_date}
+                onChange={(e) => setQuickAddForm({ ...quickAddForm, birth_date: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowQuickAddDialog(false)
+              setQuickAddPending(null)
+            }}>
+              取消
+            </Button>
+            <Button
+              onClick={() => quickAddMutation.mutate()}
+              disabled={quickAddMutation.isPending || !quickAddForm.entry_date || !quickAddForm.birth_date}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              {quickAddMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              確認新增
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {showPrintReport && (
         <PigPenReport

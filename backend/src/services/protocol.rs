@@ -932,10 +932,14 @@ impl ProtocolService {
                 c.content, c.is_resolved, c.resolved_by, c.resolved_at, 
                 c.parent_comment_id, c.replied_by,
                 ru.display_name as replied_by_name, ru.email as replied_by_email,
+                c.draft_content, c.drafted_by, 
+                du.display_name as drafted_by_name,
+                c.draft_updated_at,
                 c.created_at
             FROM review_comments c
             LEFT JOIN users u ON c.reviewer_id = u.id
             LEFT JOIN users ru ON c.replied_by = ru.id
+            LEFT JOIN users du ON c.drafted_by = du.id
             WHERE c.protocol_version_id = $1
             ORDER BY 
                 COALESCE(c.parent_comment_id, c.id) ASC,
@@ -1012,6 +1016,121 @@ impl ProtocolService {
         .await?;
 
         Ok(comment)
+    }
+
+    /// 儲存草稿回覆
+    /// Coeditor 或 PI 可以先儲存草稿，稍後由 PI 正式送出
+    pub async fn save_reply_draft(
+        pool: &PgPool,
+        comment_id: Uuid,
+        draft_content: &str,
+        drafted_by: Uuid,
+    ) -> Result<ReviewComment> {
+        // 驗證目標評論存在
+        let comment_exists: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM review_comments WHERE id = $1)"
+        )
+        .bind(comment_id)
+        .fetch_one(pool)
+        .await?;
+
+        if !comment_exists {
+            return Err(AppError::NotFound("Comment not found".to_string()));
+        }
+
+        // 更新草稿內容
+        let comment = sqlx::query_as::<_, ReviewComment>(
+            r#"
+            UPDATE review_comments SET
+                draft_content = $2,
+                drafted_by = $3,
+                draft_updated_at = NOW(),
+                updated_at = NOW()
+            WHERE id = $1
+            RETURNING *
+            "#
+        )
+        .bind(comment_id)
+        .bind(draft_content)
+        .bind(drafted_by)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(comment)
+    }
+
+    /// 取得草稿回覆
+    pub async fn get_reply_draft(pool: &PgPool, comment_id: Uuid) -> Result<Option<String>> {
+        let draft: Option<String> = sqlx::query_scalar(
+            "SELECT draft_content FROM review_comments WHERE id = $1"
+        )
+        .bind(comment_id)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(draft)
+    }
+
+    /// 將草稿正式送出為回覆（只有 PI 可以執行）
+    pub async fn submit_reply_from_draft(
+        pool: &PgPool,
+        comment_id: Uuid,
+        submitted_by: Uuid,
+    ) -> Result<ReviewComment> {
+        // 取得目標評論及其草稿內容
+        let target = sqlx::query_as::<_, (Uuid, Option<String>)>(
+            r#"
+            SELECT protocol_version_id, draft_content 
+            FROM review_comments 
+            WHERE id = $1 AND parent_comment_id IS NULL
+            "#
+        )
+        .bind(comment_id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Comment not found or is already a reply".to_string()))?;
+
+        let (protocol_version_id, draft_content) = target;
+
+        let content = draft_content
+            .ok_or_else(|| AppError::BadRequest("No draft content to submit".to_string()))?;
+
+        // 建立正式回覆
+        let reply = sqlx::query_as::<_, ReviewComment>(
+            r#"
+            INSERT INTO review_comments (
+                id, protocol_version_id, reviewer_id, content, 
+                parent_comment_id, replied_by, created_at, updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+            RETURNING *
+            "#
+        )
+        .bind(Uuid::new_v4())
+        .bind(protocol_version_id)
+        .bind(submitted_by)
+        .bind(&content)
+        .bind(comment_id)
+        .bind(submitted_by)
+        .fetch_one(pool)
+        .await?;
+
+        // 清除原評論的草稿內容
+        sqlx::query(
+            r#"
+            UPDATE review_comments SET
+                draft_content = NULL,
+                drafted_by = NULL,
+                draft_updated_at = NULL,
+                updated_at = NOW()
+            WHERE id = $1
+            "#
+        )
+        .bind(comment_id)
+        .execute(pool)
+        .await?;
+
+        Ok(reply)
     }
 
     /// 取得我的計畫列表（依使用者）
@@ -1106,3 +1225,4 @@ impl ProtocolService {
         Ok(protocols)
     }
 }
+

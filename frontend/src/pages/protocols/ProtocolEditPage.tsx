@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api, {
   ProtocolResponse,
   CreateProtocolRequest,
@@ -46,17 +47,17 @@ import {
   Plus,
 } from 'lucide-react'
 
-const formSections = [
-  { key: 'basic', label: <>1. 研究資料<br />（Study Information）</>, icon: FileText },
-  { key: 'purpose', label: <>2. 研究目的<br />（Study Purpose）</>, icon: ClipboardList },
-  { key: 'items', label: <>3. 試驗物質與對照物質<br />（Testing and Control Item）</>, icon: Beaker },
-  { key: 'design', label: <>4. 研究設計與方法<br />（Study Design and Methods）</>, icon: ClipboardList },
-  { key: 'guidelines', label: <>5. 相關規範及參考文獻<br />（Guidelines and References）</>, icon: FileText },
-  { key: 'surgery', label: <>6. 手術計畫書<br />（Animal Surgical Plan）</>, icon: Stethoscope },
-  { key: 'animals', label: <>7. 實驗動物資料<br />（Animal Information）</>, icon: User },
-  { key: 'personnel', label: <>8. 試驗人員資料<br />（Personnel Working on Animal Study）</>, icon: Users },
-  { key: 'attachments', label: <>9. 附件<br />（Attachments）</>, icon: Paperclip },
-  { key: 'signature', label: <>10. 電子簽名<br />（Electronic Signature）</>, icon: FileText },
+const sectionKeys = [
+  { key: 'basic', labelKey: 'aup.section1', icon: FileText },
+  { key: 'purpose', labelKey: 'aup.section2', icon: ClipboardList },
+  { key: 'items', labelKey: 'aup.section3', icon: Beaker },
+  { key: 'design', labelKey: 'aup.section4', icon: ClipboardList },
+  { key: 'guidelines', labelKey: 'aup.section5', icon: FileText },
+  { key: 'surgery', labelKey: 'aup.section6', icon: Stethoscope },
+  { key: 'animals', labelKey: 'aup.section7', icon: User },
+  { key: 'personnel', labelKey: 'aup.section8', icon: Users },
+  { key: 'attachments', labelKey: 'aup.section9', icon: Paperclip },
+  { key: 'signature', labelKey: 'aup.section10', icon: FileText },
 ]
 
 interface FormData {
@@ -524,6 +525,7 @@ const defaultFormData: FormData = {
 }
 
 export function ProtocolEditPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -1306,7 +1308,7 @@ export function ProtocolEditPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold">
-              {isNew ? '新增計畫書' : '編輯計畫書'}
+              {isNew ? t('aup.newProtocol') : t('aup.editProtocol')}
             </h1>
           </div>
         </div>
@@ -1317,7 +1319,7 @@ export function ProtocolEditPage() {
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
-            儲存草稿
+            {t('aup.saveDraft')}
           </Button>
           {!isNew && (
             <Button onClick={handleSubmit} disabled={submitMutation.isPending}>
@@ -1326,7 +1328,7 @@ export function ProtocolEditPage() {
               ) : (
                 <Send className="mr-2 h-4 w-4" />
               )}
-              提交審查
+              {t('aup.submitForReview')}
             </Button>
           )}
         </div>
@@ -1335,11 +1337,11 @@ export function ProtocolEditPage() {
       <div className="grid gap-6 lg:grid-cols-[250px_1fr]">
         <Card className="h-fit">
           <CardHeader>
-            <CardTitle className="text-lg">章節</CardTitle>
+            <CardTitle className="text-lg">{t('aup.sections')}</CardTitle>
           </CardHeader>
           <CardContent className="p-2">
             <nav className="space-y-1">
-              {formSections.map((section) => (
+              {sectionKeys.map((section) => (
                 <button
                   key={section.key}
                   onClick={() => setActiveSection(section.key)}
@@ -1349,7 +1351,7 @@ export function ProtocolEditPage() {
                     }`}
                 >
                   <section.icon className="h-4 w-4" />
-                  <span className="text-sm font-medium">{section.label}</span>
+                  <span className="text-sm font-medium">{t(section.labelKey)}</span>
                 </button>
               ))}
             </nav>
@@ -1360,50 +1362,50 @@ export function ProtocolEditPage() {
           {activeSection === 'basic' && (
             <Card>
               <CardHeader>
-                <CardTitle>1. 研究資料<br />(Study Information)</CardTitle>
-                <CardDescription>填寫研究基本資訊、試驗機構與主持人資料</CardDescription>
+                <CardTitle>{t('aup.section1')}</CardTitle>
+                <CardDescription>{t('aup.basic.subtitle')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* 1. GLP & Title */}
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>GLP 屬性 *</Label>
+                    <Label>{t('aup.basic.glpAttribute')} *</Label>
                     <div className="flex items-center space-x-2 pt-2">
                       <Checkbox
                         id="is_glp"
                         checked={formData.working_content.basic.is_glp}
                         onCheckedChange={(checked) => updateWorkingContent('basic', 'is_glp', checked)}
                       />
-                      <Label htmlFor="is_glp">符合 GLP 規範</Label>
+                      <Label htmlFor="is_glp">{t('aup.basic.glpCompliant')}</Label>
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="title">研究名稱 (Study Title) *</Label>
+                    <Label htmlFor="title">{t('aup.basic.studyTitle')} *</Label>
                     <Input
                       id="title"
                       value={formData.title}
                       onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                      placeholder="請輸入研究名稱"
+                      placeholder={t('aup.basic.studyTitlePlaceholder')}
                     />
                   </div>
                 </div>
 
                 {/* 2. IDs and Dates */}
                 <div className={`grid gap-4 ${isNew || !isIACUCStaff ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
-                  {/* 試驗編號：新增頁面隱藏，編輯頁面只有執行秘書可編輯 */}
+                  {/* Study No: hidden on new page, only editable by IACUC staff on edit page */}
                   {(!isNew && isIACUCStaff) && (
                     <div className="space-y-2">
-                      <Label htmlFor="apply_study_number">試驗編號 (Study No.)</Label>
+                      <Label htmlFor="apply_study_number">{t('aup.basic.studyNo')}</Label>
                       <Input
                         id="apply_study_number"
                         value={formData.working_content.basic.apply_study_number || ''}
                         onChange={(e) => updateWorkingContent('basic', 'apply_study_number', e.target.value)}
-                        placeholder="由執行秘書填寫"
+                        placeholder={t('aup.basic.studyNoPlaceholder')}
                       />
                     </div>
                   )}
                   <div className="space-y-2">
-                    <Label>預計試驗時程 *</Label>
+                    <Label>{t('aup.basic.expectedPeriod')} *</Label>
                     <div className="flex gap-2">
                       <Input
                         type="date"
@@ -1411,7 +1413,7 @@ export function ProtocolEditPage() {
                         onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
                         required
                       />
-                      <span className="self-center">至</span>
+                      <span className="self-center">{t('aup.basic.to')}</span>
                       <Input
                         type="date"
                         value={formData.end_date}
@@ -1425,43 +1427,43 @@ export function ProtocolEditPage() {
                 {/* 3. Types */}
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>計畫類型 *</Label>
+                    <Label>{t('aup.basic.projectType')} *</Label>
                     <Select
                       value={formData.working_content.basic.project_type}
                       onValueChange={(val) => updateWorkingContent('basic', 'project_type', val)}
                     >
-                      <SelectTrigger><SelectValue placeholder="選擇計畫類型" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder={t('aup.basic.selectProjectType')} /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="basic_research">基礎研究</SelectItem>
-                        <SelectItem value="applied_research">應用研究</SelectItem>
-                        <SelectItem value="pre_market_testing">上市前試驗</SelectItem>
-                        <SelectItem value="teaching_training">教學訓練</SelectItem>
-                        <SelectItem value="biologics_manufacturing">生物製劑製造</SelectItem>
+                        <SelectItem value="basic_research">{t('aup.projectTypes.basic_research')}</SelectItem>
+                        <SelectItem value="applied_research">{t('aup.projectTypes.applied_research')}</SelectItem>
+                        <SelectItem value="pre_market_testing">{t('aup.projectTypes.pre_market_testing')}</SelectItem>
+                        <SelectItem value="teaching_training">{t('aup.projectTypes.teaching_training')}</SelectItem>
+                        <SelectItem value="biologics_manufacturing">{t('aup.projectTypes.biologics_manufacturing')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>計畫種類 *</Label>
+                    <Label>{t('aup.basic.projectCategory')} *</Label>
                     <Select
                       value={formData.working_content.basic.project_category}
                       onValueChange={(val) => updateWorkingContent('basic', 'project_category', val)}
                     >
-                      <SelectTrigger><SelectValue placeholder="選擇計畫種類" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder={t('aup.basic.selectProjectCategory')} /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="medical">醫藥</SelectItem>
-                        <SelectItem value="agricultural">農業</SelectItem>
-                        <SelectItem value="drug_herbal">藥用植物</SelectItem>
-                        <SelectItem value="health_food">健康食品</SelectItem>
-                        <SelectItem value="food">食品</SelectItem>
-                        <SelectItem value="toxic_chemical">毒性化學物質</SelectItem>
-                        <SelectItem value="medical_device">醫療器材</SelectItem>
-                        <SelectItem value="other">其他</SelectItem>
+                        <SelectItem value="medical">{t('aup.projectCategories.medical')}</SelectItem>
+                        <SelectItem value="agricultural">{t('aup.projectCategories.agricultural')}</SelectItem>
+                        <SelectItem value="drug_herbal">{t('aup.projectCategories.drug_herbal')}</SelectItem>
+                        <SelectItem value="health_food">{t('aup.projectCategories.health_food')}</SelectItem>
+                        <SelectItem value="food">{t('aup.projectCategories.food')}</SelectItem>
+                        <SelectItem value="toxic_chemical">{t('aup.projectCategories.toxic_chemical')}</SelectItem>
+                        <SelectItem value="medical_device">{t('aup.projectCategories.medical_device')}</SelectItem>
+                        <SelectItem value="other">{t('aup.projectCategories.other')}</SelectItem>
                       </SelectContent>
                     </Select>
                     {formData.working_content.basic.project_category === 'other' && (
                       <div className="pt-2">
                         <Input
-                          placeholder="請說明其他種類"
+                          placeholder={t('aup.basic.specifyOther')}
                           value={formData.working_content.basic.project_category_other || ''}
                           onChange={(e) => updateWorkingContent('basic', 'project_category_other', e.target.value)}
                         />
@@ -1474,31 +1476,31 @@ export function ProtocolEditPage() {
 
                 {/* 4. PI Info */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold">計畫主持人 (Principal Investigator)</h3>
+                  <h3 className="font-semibold">{t('aup.basic.pi')}</h3>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label>姓名 *</Label>
+                      <Label>{t('aup.basic.name')} *</Label>
                       <Input
                         value={formData.working_content.basic.pi.name}
                         onChange={(e) => updateWorkingContent('basic', 'pi.name', e.target.value)}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Email *</Label>
+                      <Label>{t('aup.basic.email')} *</Label>
                       <Input
                         value={formData.working_content.basic.pi.email}
                         onChange={(e) => updateWorkingContent('basic', 'pi.email', e.target.value)}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>電話 *</Label>
+                      <Label>{t('aup.basic.phone')} *</Label>
                       <Input
                         value={formData.working_content.basic.pi.phone}
                         onChange={(e) => updateWorkingContent('basic', 'pi.phone', e.target.value)}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>地址 *</Label>
+                      <Label>{t('aup.basic.address')} *</Label>
                       <Input
                         value={formData.working_content.basic.pi.address}
                         onChange={(e) => updateWorkingContent('basic', 'pi.address', e.target.value)}
@@ -1511,31 +1513,31 @@ export function ProtocolEditPage() {
 
                 {/* 5. Sponsor Info */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold">委託單位 (Sponsor)</h3>
+                  <h3 className="font-semibold">{t('aup.basic.sponsor')}</h3>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label>單位名稱 *</Label>
+                      <Label>{t('aup.basic.organizationName')} *</Label>
                       <Input
                         value={formData.working_content.basic.sponsor.name}
                         onChange={(e) => updateWorkingContent('basic', 'sponsor.name', e.target.value)}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>聯絡人 *</Label>
+                      <Label>{t('aup.basic.contactPerson')} *</Label>
                       <Input
                         value={formData.working_content.basic.sponsor.contact_person}
                         onChange={(e) => updateWorkingContent('basic', 'sponsor.contact_person', e.target.value)}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>聯絡電話 *</Label>
+                      <Label>{t('aup.basic.contactPhone')} *</Label>
                       <Input
                         value={formData.working_content.basic.sponsor.contact_phone}
                         onChange={(e) => updateWorkingContent('basic', 'sponsor.contact_phone', e.target.value)}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>聯絡 Email *</Label>
+                      <Label>{t('aup.basic.contactEmail')} *</Label>
                       <Input
                         value={formData.working_content.basic.sponsor.contact_email}
                         onChange={(e) => updateWorkingContent('basic', 'sponsor.contact_email', e.target.value)}
@@ -1546,17 +1548,17 @@ export function ProtocolEditPage() {
 
                 {/* 6. Facility */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold">試驗機構與設施</h3>
+                  <h3 className="font-semibold">{t('aup.basic.facilityAndLocation')}</h3>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label>機構名稱 *</Label>
+                      <Label>{t('aup.basic.facilityName')} *</Label>
                       <Input
                         value={formData.working_content.basic.facility.title}
                         onChange={(e) => updateWorkingContent('basic', 'facility.title', e.target.value)}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>位置 *</Label>
+                      <Label>{t('aup.basic.location')} *</Label>
                       <Input
                         value={formData.working_content.basic.housing_location}
                         onChange={(e) => updateWorkingContent('basic', 'housing_location', e.target.value)}
@@ -1571,41 +1573,41 @@ export function ProtocolEditPage() {
           {activeSection === 'purpose' && (
             <Card>
               <CardHeader>
-                <CardTitle>2. 研究目的<br />(Study Purpose)</CardTitle>
-                <CardDescription>說明研究目的、重要性與 3Rs 替代、減量原則</CardDescription>
+                <CardTitle>{t('aup.section2')}</CardTitle>
+                <CardDescription>{t('aup.purpose.subtitle')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* 2.1 研究之目的及重要性 */}
+                {/* 2.1 Purpose and Significance */}
                 <div className="space-y-2">
-                  <Label>2.1 研究之目的及重要性 *</Label>
+                  <Label>{t('aup.purpose.significance')} *</Label>
                   <Textarea
                     value={formData.working_content.purpose.significance}
                     onChange={(e) => updateWorkingContent('purpose', 'significance', e.target.value)}
-                    placeholder="請說明研究背景、臨床或科學重要性及其預期成果"
+                    placeholder={t('aup.purpose.significancePlaceholder')}
                     rows={5}
                   />
                 </div>
 
                 <div className="h-px bg-border my-4" />
 
-                {/* 2.2 替代原則 */}
+                {/* 2.2 Replacement Principle */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold">2.2 請以動物試驗應用3Rs之替代原則，說明本動物試驗之合理性:</h3>
+                  <h3 className="font-semibold">{t('aup.purpose.replacementPrinciple')}</h3>
 
-                  {/* 2.2.1 活體動物試驗之必要性 */}
+                  {/* 2.2.1 Live Animal Necessity */}
                   <div className="space-y-2">
-                    <Label>2.2.1 請說明活體動物試驗之必要性，以及選擇此動物種別的原因: *</Label>
+                    <Label>{t('aup.purpose.liveAnimalNecessity')} *</Label>
                     <Textarea
                       value={formData.working_content.purpose.replacement.rationale}
                       onChange={(e) => updateWorkingContent('purpose', 'replacement.rationale', e.target.value)}
-                      placeholder="請說明活體動物試驗之必要性，以及選擇此動物種別的原因"
+                      placeholder={t('aup.purpose.liveAnimalNecessityPlaceholder')}
                       rows={4}
                     />
                   </div>
 
-                  {/* 2.2.2 非動物性替代方案搜尋資料庫 */}
+                  {/* 2.2.2 Alternative Methods Search */}
                   <div className="space-y-2">
-                    <Label>2.2.2 請於下列網站搜尋非動物性替代方案 *</Label>
+                    <Label>{t('aup.purpose.altSearchLabel')} *</Label>
                     <div className="space-y-4 pl-4">
                       <div className="flex items-start space-x-3 py-2">
                         <Checkbox
@@ -1621,7 +1623,7 @@ export function ProtocolEditPage() {
                           className="mt-1"
                         />
                         <Label htmlFor="search_altbib" className="font-normal leading-relaxed flex-1">
-                          1. ALTBIB-非動物性替代方法參考文獻搜索工具<br />
+                          {t('aup.purpose.altbibLabel')}<br />
                           <a
                             href="https://ntp.niehs.nih.gov/whatwestudy/niceatm/altbib"
                             target="_blank"
@@ -1646,7 +1648,7 @@ export function ProtocolEditPage() {
                           className="mt-1"
                         />
                         <Label htmlFor="search_db_alm" className="font-normal leading-relaxed flex-1">
-                          2. DB-ALM動物試驗替代方法資料庫<br />
+                          {t('aup.purpose.dbAlmLabel')}<br />
                           <a
                             href="https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/EURL-ECVAM/datasets/DBALM/LATEST/online/dbalm.html"
                             target="_blank"
@@ -1671,7 +1673,7 @@ export function ProtocolEditPage() {
                           className="mt-1"
                         />
                         <Label htmlFor="search_re_place" className="font-normal leading-relaxed flex-1">
-                          3. 歐洲動物替代試驗資源平台<br />
+                          {t('aup.purpose.rePlaceLabel')}<br />
                           <a
                             href="https://www.re-place.be/"
                             target="_blank"
@@ -1685,7 +1687,7 @@ export function ProtocolEditPage() {
                     </div>
                     {formData.working_content.purpose.replacement.alt_search.platforms.includes('other') && (
                       <Input
-                        placeholder="請說明其他資料庫"
+                        placeholder={t('aup.purpose.otherDbPlaceholder')}
                         value={formData.working_content.purpose.replacement.alt_search.other_name || ''}
                         onChange={(e) => updateWorkingContent('purpose', 'replacement.alt_search.other_name', e.target.value)}
                         className="mt-2"
@@ -1693,52 +1695,51 @@ export function ProtocolEditPage() {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label>搜尋關鍵字 *</Label>
+                    <Label>{t('aup.purpose.searchKeywords')} *</Label>
                     <Input
                       value={formData.working_content.purpose.replacement.alt_search.keywords}
                       onChange={(e) => updateWorkingContent('purpose', 'replacement.alt_search.keywords', e.target.value)}
-                      placeholder="例如：minipig, cardiovascular, replacement"
+                      placeholder={t('aup.purpose.searchKeywordsPlaceholder')}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>搜尋結果與結論 *</Label>
+                    <Label>{t('aup.purpose.searchConclusion')} *</Label>
                     <Textarea
                       value={formData.working_content.purpose.replacement.alt_search.conclusion}
                       onChange={(e) => updateWorkingContent('purpose', 'replacement.alt_search.conclusion', e.target.value)}
-                      placeholder="說明搜尋結果是否發現可替代方案"
+                      placeholder={t('aup.purpose.searchConclusionPlaceholder')}
                       rows={3}
                     />
                   </div>
 
-                  {/* 2.2.3 是否為重複他人試驗 */}
+                  {/* 2.2.3 Duplicate Experiment */}
                   <div className="space-y-2">
-                    <Label>2.2.3 是否為重複他人試驗</Label>
+                    <Label>{t('aup.purpose.duplicateExperiment')}</Label>
                     <Select
                       value={formData.working_content.purpose.duplicate.experiment ? 'yes' : 'no'}
                       onValueChange={(value) => {
                         const isYes = value === 'yes'
                         updateWorkingContent('purpose', 'duplicate.experiment', isYes)
-                        // 如果選擇"否"，清空說明欄位
                         if (!isYes) {
                           updateWorkingContent('purpose', 'duplicate.justification', '')
                         }
                       }}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="請選擇" />
+                        <SelectValue placeholder={t('common.pleaseSelect')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="no">否</SelectItem>
-                        <SelectItem value="yes">是</SelectItem>
+                        <SelectItem value="no">{t('common.no')}</SelectItem>
+                        <SelectItem value="yes">{t('common.yes')}</SelectItem>
                       </SelectContent>
                     </Select>
                     {formData.working_content.purpose.duplicate.experiment && (
                       <div className="space-y-2 mt-2">
-                        <Label>請說明重複進行之科學理由 *</Label>
+                        <Label>{t('aup.purpose.duplicateJustification')} *</Label>
                         <Textarea
                           value={formData.working_content.purpose.duplicate.justification}
                           onChange={(e) => updateWorkingContent('purpose', 'duplicate.justification', e.target.value)}
-                          placeholder="請說明重複進行之科學理由"
+                          placeholder={t('aup.purpose.duplicateJustificationPlaceholder')}
                           rows={3}
                         />
                       </div>
@@ -1748,15 +1749,15 @@ export function ProtocolEditPage() {
 
                 <div className="h-px bg-border my-4" />
 
-                {/* 2.3 減量原則 */}
+                {/* 2.3 Reduction Principle */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold">2.3 請以實驗動物應用3Rs之減量原則，說明動物試驗設計，包括動物分組方法、訂定使用動物數量之理由等:</h3>
+                  <h3 className="font-semibold">{t('aup.purpose.reductionPrinciple')}</h3>
                   <div className="space-y-2">
-                    <Label>實驗設計說明 *</Label>
+                    <Label>{t('aup.purpose.reductionDesign')} *</Label>
                     <Textarea
                       value={formData.working_content.purpose.reduction.design}
                       onChange={(e) => updateWorkingContent('purpose', 'reduction.design', e.target.value)}
-                      placeholder="請說明動物分組方法、統計假設、納入排除標準、減少變異之方法，以及訂定使用動物數量之理由"
+                      placeholder={t('aup.purpose.reductionDesignPlaceholder')}
                       rows={6}
                     />
                   </div>
@@ -1769,8 +1770,8 @@ export function ProtocolEditPage() {
           {activeSection === 'items' && (
             <Card>
               <CardHeader>
-                <CardTitle>3. 試驗物質與對照物質<br />(Testing and Control Item)</CardTitle>
-                <CardDescription>填寫試驗物質與對照物質資訊</CardDescription>
+                <CardTitle>{t('aup.section3')}</CardTitle>
+                <CardDescription>{t('aup.items.subtitle')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
@@ -2080,8 +2081,8 @@ export function ProtocolEditPage() {
           {activeSection === 'design' && (
             <Card>
               <CardHeader>
-                <CardTitle>4. 研究設計與方法<br />(Study Design and Methods)</CardTitle>
-                <CardDescription>描述研究設計、實驗流程、麻醉與人道終點</CardDescription>
+                <CardTitle>{t('aup.section4')}</CardTitle>
+                <CardDescription>{t('aup.design.subtitle')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* 4.1 標題 */}
@@ -2982,8 +2983,8 @@ export function ProtocolEditPage() {
           {activeSection === 'guidelines' && (
             <Card>
               <CardHeader>
-                <CardTitle>5. 相關規範及參考文獻<br />(Guidelines and References)</CardTitle>
-                <CardDescription>填寫本計畫參考之法規、指引或文獻</CardDescription>
+                <CardTitle>{t('aup.section5')}</CardTitle>
+                <CardDescription>{t('aup.guidelines.subtitle')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
@@ -3055,8 +3056,8 @@ export function ProtocolEditPage() {
           {activeSection === 'surgery' && (
             <Card>
               <CardHeader>
-                <CardTitle>6. 手術計畫書<br />(Animal Surgical Plan)</CardTitle>
-                <CardDescription>填寫手術種類、術前準備、無菌措施與術後照護</CardDescription>
+                <CardTitle>{t('aup.section6')}</CardTitle>
+                <CardDescription>{t('aup.surgery.subtitle')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {(() => {
@@ -3419,8 +3420,8 @@ export function ProtocolEditPage() {
           {activeSection === 'animals' && (
             <Card>
               <CardHeader>
-                <CardTitle>7. 實驗動物資料<br />(Animal Information)</CardTitle>
-                <CardDescription>填寫實驗動物物種、來源與飼養資訊</CardDescription>
+                <CardTitle>{t('aup.section7')}</CardTitle>
+                <CardDescription>{t('aup.animals.subtitle')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4 border p-4 rounded-md">
@@ -3762,8 +3763,8 @@ export function ProtocolEditPage() {
           {activeSection === 'personnel' && (
             <Card>
               <CardHeader>
-                <CardTitle>8. 試驗人員資料<br />(Personnel Working on Animal Study)</CardTitle>
-                <CardDescription>參與本計畫之試驗人員清單與資格</CardDescription>
+                <CardTitle>{t('aup.section8')}</CardTitle>
+                <CardDescription>{t('aup.personnel.subtitle')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
@@ -3932,8 +3933,8 @@ export function ProtocolEditPage() {
           {activeSection === 'attachments' && (
             <Card>
               <CardHeader>
-                <CardTitle>9. 附件<br />(Attachments)</CardTitle>
-                <CardDescription>上傳相關附件與文件（PDF格式）</CardDescription>
+                <CardTitle>{t('aup.section9')}</CardTitle>
+                <CardDescription>{t('aup.attachments.subtitle')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -3966,8 +3967,8 @@ export function ProtocolEditPage() {
           {activeSection === 'signature' && (
             <Card>
               <CardHeader>
-                <CardTitle>10. 電子簽名<br />(Electronic Signature)</CardTitle>
-                <CardDescription>上傳簽名檔（支援圖片格式）</CardDescription>
+                <CardTitle>{t('aup.section10')}</CardTitle>
+                <CardDescription>{t('aup.signature.subtitle')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">

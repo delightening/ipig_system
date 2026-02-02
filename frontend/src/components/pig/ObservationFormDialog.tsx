@@ -60,7 +60,7 @@ interface ObservationFormData {
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
-  pigId: number
+  pigId: string
   earTag: string
   observation?: PigObservation // 編輯時傳入
 }

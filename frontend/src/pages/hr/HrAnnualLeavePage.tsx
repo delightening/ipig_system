@@ -85,14 +85,13 @@ export function HrAnnualLeavePage() {
     const [formHireDate, setFormHireDate] = useState('')
     const [formNotes, setFormNotes] = useState('')
 
-    // 取得所有內部員工
+    // 取得所有內部員工（使用專用的 HR 端點）
     const { data: usersData, isLoading: loadingUsers } = useQuery({
-        queryKey: ['internal-users'],
+        queryKey: ['internal-users-for-balance'],
         queryFn: async () => {
-            // 後端 /users 回傳的是陣列格式，非分頁格式
-            const res = await api.get<User[]>('/users')
-            // 過濾出內部員工且為啟用狀態
-            return res.data.filter(u => u.is_internal && u.is_active)
+            // 使用專用的 HR 端點，有 hr.balance.manage 權限即可訪問
+            const res = await api.get<User[]>('/hr/internal-users')
+            return res.data
         },
     })
 

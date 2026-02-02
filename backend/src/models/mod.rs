@@ -15,6 +15,8 @@ mod notification;
 mod hr;
 mod facility;
 mod calendar;
+mod euthanasia;
+mod amendment;
 pub mod user_preferences;
 
 pub use user::*;
@@ -32,6 +34,9 @@ pub use notification::*;
 pub use hr::*;
 pub use facility::*;
 pub use calendar::*;
+pub use euthanasia::*;
+pub use amendment::*;
+
 
 use serde::{Deserialize, Serialize};
 

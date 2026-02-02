@@ -355,6 +355,89 @@ impl NotificationService {
         Ok(result.rows_affected() as i64)
     }
 
+    /// 緊急給藥通知（發送給 VET 和 PI）
+    /// 當實驗工作人員在獸醫不在時緊急執行給藥，系統將發送紅色警報
+    pub async fn notify_emergency_medication(
+        &self,
+        pig_id: Uuid,
+        observation_id: i32,
+        ear_tag: &str,
+        iacuc_no: Option<&str>,
+        operator_name: &str,
+        emergency_reason: &str,
+    ) -> Result<i32, AppError> {
+        // 取得所有 VET 和擁有該計畫的 PI
+        let mut recipients: Vec<(Uuid, String)> = Vec::new();
+
+        // 取得所有獸醫師
+        let vets: Vec<(Uuid, String)> = sqlx::query_as(
+            r#"
+            SELECT DISTINCT u.id, u.display_name
+            FROM users u
+            JOIN user_roles ur ON u.id = ur.user_id
+            JOIN roles r ON ur.role_id = r.id
+            WHERE u.is_active = true AND r.code = 'VET'
+            "#,
+        )
+        .fetch_all(&self.db)
+        .await?;
+        recipients.extend(vets);
+
+        // 如果有 IACUC NO，也通知該計畫的 PI
+        if let Some(iacuc) = iacuc_no {
+            let pis: Vec<(Uuid, String)> = sqlx::query_as(
+                r#"
+                SELECT DISTINCT u.id, u.display_name
+                FROM users u
+                JOIN user_protocols up ON u.id = up.user_id
+                JOIN protocols p ON up.protocol_id = p.id
+                WHERE p.iacuc_no = $1 AND up.role = 'PI' AND u.is_active = true
+                "#,
+            )
+            .bind(iacuc)
+            .fetch_all(&self.db)
+            .await?;
+            recipients.extend(pis);
+        }
+
+        // 去除重複的收件者
+        recipients.sort_by_key(|(id, _)| *id);
+        recipients.dedup_by_key(|(id, _)| *id);
+
+        let notification_title = format!("🚨 [緊急] 緊急給藥 - 耳號 {}", ear_tag);
+        let content = format!(
+            "緊急給藥執行通知\n\n此紀錄需要補簽審核。\n\n耳號：{}\nIACUC NO.：{}\n執行者：{}\n緊急原因：{}\n\n請儘速審核此緊急給藥紀錄。",
+            ear_tag,
+            iacuc_no.unwrap_or("-"),
+            operator_name,
+            emergency_reason
+        );
+
+        let mut count = 0;
+        for (user_id, _name) in recipients {
+            let _ = self
+                .create_notification(CreateNotificationRequest {
+                    user_id,
+                    notification_type: NotificationType::VetRecommendation, // 使用既有類型，或考慮新增 EmergencyMedication 類型
+                    title: notification_title.clone(),
+                    content: Some(content.clone()),
+                    related_entity_type: Some("pig".to_string()),
+                    related_entity_id: Some(pig_id),
+                })
+                .await;
+            count += 1;
+        }
+
+        tracing::warn!(
+            "[Emergency Medication] Alert sent to {} recipients for pig {} (observation {})",
+            count,
+            ear_tag,
+            observation_id
+        );
+
+        Ok(count)
+    }
+
     /// 取得通知設定
     pub async fn get_settings(&self, user_id: Uuid) -> Result<NotificationSettings, AppError> {
         let settings: NotificationSettings = sqlx::query_as(
@@ -745,5 +828,121 @@ impl NotificationService {
         }
 
         Ok(count)
+    }
+
+    // ============================================
+    // 安樂死相關通知
+    // ============================================
+
+    /// 通知 PI 有新的安樂死單據
+    pub async fn notify_euthanasia_order(
+        &self,
+        order_id: Uuid,
+        ear_tag: &str,
+        iacuc_no: Option<&str>,
+        reason: &str,
+        pi_user_id: Uuid,
+    ) -> Result<(), AppError> {
+        let title = format!("[緊急] 豬隻 #{} 安樂死執行通知", ear_tag);
+        let content = format!(
+            "獸醫已開立安樂死單。\n\n耳號：{}\nIACUC NO.：{}\n原因：{}\n\n執行時間：系統將於 24 小時後自動解鎖執行權限。\n\n請登入系統選擇「同意執行」或「申請暫緩」。",
+            ear_tag,
+            iacuc_no.unwrap_or("-"),
+            reason
+        );
+
+        self.create_notification(CreateNotificationRequest {
+            user_id: pi_user_id,
+            notification_type: NotificationType::SystemAlert,
+            title,
+            content: Some(content),
+            related_entity_type: Some("euthanasia_order".to_string()),
+            related_entity_id: Some(order_id),
+        })
+        .await?;
+
+        Ok(())
+    }
+
+    /// 通知獸醫：PI 已同意執行安樂死
+    pub async fn notify_euthanasia_approved(
+        &self,
+        order_id: Uuid,
+        vet_user_id: Uuid,
+    ) -> Result<(), AppError> {
+        let title = "[已核准] PI 已同意執行安樂死".to_string();
+        let content = "PI 已同意執行安樂死。您現在可以進行安樂死操作。".to_string();
+
+        self.create_notification(CreateNotificationRequest {
+            user_id: vet_user_id,
+            notification_type: NotificationType::SystemAlert,
+            title,
+            content: Some(content),
+            related_entity_type: Some("euthanasia_order".to_string()),
+            related_entity_id: Some(order_id),
+        })
+        .await?;
+
+        Ok(())
+    }
+
+    /// 通知 CHAIR：有新的安樂死暫緩申請需要仲裁
+    pub async fn notify_euthanasia_appeal(
+        &self,
+        appeal_id: Uuid,
+        order_id: Uuid,
+        chair_user_id: Uuid,
+        appeal_reason: &str,
+    ) -> Result<(), AppError> {
+        let title = "[仲裁請求] 安樂死暫緩申請".to_string();
+        let content = format!(
+            "PI 已申請暫緩安樂死執行，請進行仲裁。\n\n暫緩理由：{}\n\n請於 24 小時內做出裁決，否則系統將自動核准執行安樂死。",
+            appeal_reason
+        );
+
+        self.create_notification(CreateNotificationRequest {
+            user_id: chair_user_id,
+            notification_type: NotificationType::SystemAlert,
+            title,
+            content: Some(content),
+            related_entity_type: Some("euthanasia_appeal".to_string()),
+            related_entity_id: Some(appeal_id),
+        })
+        .await?;
+
+        tracing::info!(
+            "[Euthanasia Appeal] Notification sent to CHAIR for order {} appeal {}",
+            order_id,
+            appeal_id
+        );
+
+        Ok(())
+    }
+
+    /// 通知獸醫：因超時自動核准執行權限
+    pub async fn notify_euthanasia_timeout_approved(
+        &self,
+        order_id: Uuid,
+        vet_user_id: Uuid,
+    ) -> Result<(), AppError> {
+        let title = "[超時核准] 安樂死執行權限已解鎖".to_string();
+        let content = "因 PI/CHAIR 超時未回應，系統已自動解鎖安樂死執行權限。您現在可以進行安樂死操作。".to_string();
+
+        self.create_notification(CreateNotificationRequest {
+            user_id: vet_user_id,
+            notification_type: NotificationType::SystemAlert,
+            title,
+            content: Some(content),
+            related_entity_type: Some("euthanasia_order".to_string()),
+            related_entity_id: Some(order_id),
+        })
+        .await?;
+
+        tracing::warn!(
+            "[Euthanasia Timeout] Order {} auto-approved due to timeout",
+            order_id
+        );
+
+        Ok(())
     }
 }

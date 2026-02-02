@@ -61,6 +61,8 @@ import {
   Upload,
   Copy,
   Stethoscope,
+  AlertTriangle,
+  AlertOctagon,
 } from 'lucide-react'
 
 // Import form dialog components
@@ -71,6 +73,8 @@ import { ExportDialog } from '@/components/pig/ExportDialog'
 import { VersionHistoryDialog } from '@/components/pig/VersionHistoryDialog'
 import { VetRecommendationDialog } from '@/components/pig/VetRecommendationDialog'
 import { DeleteReasonDialog } from '@/components/ui/delete-reason-dialog'
+import { EmergencyMedicationDialog } from '@/components/pig/EmergencyMedicationDialog'
+import { EuthanasiaOrderDialog } from '@/components/pig/EuthanasiaOrderDialog'
 
 const statusColors: Record<PigStatus, string> = {
   unassigned: 'bg-gray-500',
@@ -95,7 +99,7 @@ export function PigDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const pigId = parseInt(id!)
+  const pigId = id!
 
   const [activeTab, setActiveTab] = useState<TabType>('observations')
 
@@ -107,6 +111,8 @@ export function PigDetailPage() {
   const [showExportDialog, setShowExportDialog] = useState(false)
   const [showPathologyUploadDialog, setShowPathologyUploadDialog] = useState(false)
   const [showSacrificeDialog, setShowSacrificeDialog] = useState(false)
+  const [showEmergencyMedicationDialog, setShowEmergencyMedicationDialog] = useState(false)
+  const [showEuthanasiaOrderDialog, setShowEuthanasiaOrderDialog] = useState(false)
 
   // Edit states
   const [editingObservation, setEditingObservation] = useState<PigObservation | null>(null)
@@ -457,6 +463,28 @@ export function PigDetailPage() {
         </Button>
       </div>
 
+      {/* Emergency Actions - Only for VET role and active pigs */}
+      {['assigned', 'in_experiment'].includes(pig.status) && (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className="border-amber-500 text-amber-600 hover:bg-amber-50"
+            onClick={() => setShowEmergencyMedicationDialog(true)}
+          >
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            緊急給藥
+          </Button>
+          <Button
+            variant="outline"
+            className="border-red-500 text-red-600 hover:bg-red-50"
+            onClick={() => setShowEuthanasiaOrderDialog(true)}
+          >
+            <AlertOctagon className="h-4 w-4 mr-2" />
+            開立安樂死單
+          </Button>
+        </div>
+      )}
+
       {/* Pig Header Card */}
       <Card className="bg-gradient-to-r from-slate-50 to-blue-50 border-slate-200">
         <CardContent className="pt-6">
@@ -501,7 +529,7 @@ export function PigDetailPage() {
             <div className="space-y-3">
               <div>
                 <span className="text-sm text-slate-500">系統號</span>
-                <p className="font-medium">{pig.id}</p>
+                <p className="font-medium">{pig.pig_no}</p>
               </div>
               <div>
                 <span className="text-sm text-slate-500">動物狀態</span>
@@ -1211,7 +1239,7 @@ export function PigDetailPage() {
                 </div>
                 <div>
                   <Label className="text-slate-500">系統號</Label>
-                  <p className="font-medium">{pig.id}</p>
+                  <p className="font-medium">{pig.pig_no}</p>
                 </div>
                 <div>
                   <Label className="text-slate-500">建立時間</Label>
@@ -1501,6 +1529,23 @@ export function PigDetailPage() {
         description="此操作將標記紀錄為已刪除，資料將保留於系統中以符合 GLP 規範。"
         onConfirm={(reason) => deleteVaccinationMutation.mutate({ id: deleteVaccinationTarget!, reason })}
         isPending={deleteVaccinationMutation.isPending}
+      />
+
+      {/* Emergency Medication Dialog */}
+      <EmergencyMedicationDialog
+        open={showEmergencyMedicationDialog}
+        onOpenChange={setShowEmergencyMedicationDialog}
+        pigId={pigId}
+        earTag={pig.ear_tag}
+      />
+
+      {/* Euthanasia Order Dialog */}
+      <EuthanasiaOrderDialog
+        open={showEuthanasiaOrderDialog}
+        onOpenChange={setShowEuthanasiaOrderDialog}
+        pigId={pigId}
+        earTag={pig.ear_tag}
+        iacucNo={pig.iacuc_no}
       />
     </div>
   )

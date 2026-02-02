@@ -116,8 +116,22 @@ pub async fn list_overtime(
     
     // 如果是查「待我審核」的加班申請
     if query.pending_approval.unwrap_or(false) {
-        // 只顯示狀態為 pending 的記錄（已送審待審核）
-        query.status = Some("pending".to_string());
+        let is_admin = current_user.roles.contains(&"admin".to_string());
+        let is_admin_staff = current_user.roles.contains(&"ADMIN_STAFF".to_string());
+        
+        // 根據角色決定可審核的狀態
+        // admin 可審核 pending_admin_staff 和 pending_admin
+        // ADMIN_STAFF 只能審核 pending_admin_staff
+        if is_admin {
+            // Admin sees both levels - we'll need to use a special query
+            // For now, set to pending_admin_staff which is more common
+            query.status = Some("pending_admin_staff,pending_admin".to_string());
+        } else if is_admin_staff {
+            query.status = Some("pending_admin_staff".to_string());
+        } else {
+            // Others can't see pending approvals - return empty
+            query.status = Some("__none__".to_string());
+        }
         query.user_id = None; // 查看所有人的待審核申請
     } else {
         // 「我的加班」：強制只查自己的記錄
@@ -185,11 +199,42 @@ pub async fn approve_overtime(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<OvertimeWithUser>> {
-    // 僅 IACUC_STAFF (執行秘書) 可審核加班申請
-    if !current_user.roles.contains(&"IACUC_STAFF".to_string()) {
-        return Err(crate::error::AppError::Forbidden("僅執行秘書可審核加班申請".to_string()));
+    // Determine approval level based on user role
+    // admin can approve at any level, ADMIN_STAFF can only approve at admin_staff level
+    let is_admin = current_user.roles.contains(&"admin".to_string());
+    let is_admin_staff = current_user.roles.contains(&"ADMIN_STAFF".to_string());
+    
+    if !is_admin && !is_admin_staff {
+        return Err(crate::error::AppError::Forbidden("僅行政或負責人可審核加班申請".to_string()));
     }
-    let record = HrService::approve_overtime(&state.db, id, current_user.id).await?;
+    
+    // Get current overtime status to determine which level to approve
+    let current: (String,) = sqlx::query_as(
+        "SELECT status FROM overtime_records WHERE id = $1"
+    )
+    .bind(id)
+    .fetch_one(&state.db)
+    .await?;
+    
+    let approval_level = match current.0.as_str() {
+        "pending_admin_staff" => {
+            if is_admin_staff || is_admin {
+                "admin_staff"
+            } else {
+                return Err(crate::error::AppError::Forbidden("此階段需要行政審核".to_string()));
+            }
+        },
+        "pending_admin" => {
+            if is_admin {
+                "admin"
+            } else {
+                return Err(crate::error::AppError::Forbidden("此階段需要負責人審核".to_string()));
+            }
+        },
+        _ => return Err(crate::error::AppError::Validation(format!("無法審核狀態為 {} 的加班申請", current.0))),
+    };
+    
+    let record = HrService::approve_overtime(&state.db, id, current_user.id, approval_level).await?;
     Ok(Json(record))
 }
 
@@ -200,9 +245,11 @@ pub async fn reject_overtime(
     Path(id): Path<Uuid>,
     Json(payload): Json<RejectOvertimeRequest>,
 ) -> Result<Json<OvertimeWithUser>> {
-    // 僅 IACUC_STAFF (執行秘書) 可審核加班申請
-    if !current_user.roles.contains(&"IACUC_STAFF".to_string()) {
-        return Err(crate::error::AppError::Forbidden("僅執行秘書可審核加班申請".to_string()));
+    // 行政或負責人可駁回加班申請
+    let can_reject = current_user.roles.contains(&"admin".to_string())
+        || current_user.roles.contains(&"ADMIN_STAFF".to_string());
+    if !can_reject {
+        return Err(crate::error::AppError::Forbidden("僅行政或負責人可駁回加班申請".to_string()));
     }
     let record =
         HrService::reject_overtime(&state.db, id, current_user.id, &payload.reason).await?;
@@ -301,10 +348,71 @@ pub async fn approve_leave(
     Path(id): Path<Uuid>,
     Json(payload): Json<ApproveLeaveRequest>,
 ) -> Result<Json<LeaveRequest>> {
-    // 僅 IACUC_STAFF (執行秘書) 可審核請假申請
-    if !current_user.roles.contains(&"IACUC_STAFF".to_string()) {
-        return Err(crate::error::AppError::Forbidden("僅執行秘書可審核請假申請".to_string()));
+    // Get current leave request to check status and determine required approver
+    let current: (String, Uuid) = sqlx::query_as(
+        "SELECT status::text, user_id FROM leave_requests WHERE id = $1"
+    )
+    .bind(id)
+    .fetch_one(&state.db)
+    .await?;
+    
+    let (current_status, applicant_id) = current;
+    let is_admin = current_user.roles.contains(&"admin".to_string());
+    let is_admin_staff = current_user.roles.contains(&"ADMIN_STAFF".to_string());
+    
+    // Determine if user can approve at current level
+    match current_status.as_str() {
+        "PENDING_L1" => {
+            // Level 1: Department Manager approval
+            // Check if current user is the department manager of the applicant
+            let is_dept_manager: Option<(bool,)> = sqlx::query_as(
+                r#"
+                SELECT EXISTS(
+                    SELECT 1 FROM users u
+                    JOIN departments d ON u.department_id = d.id
+                    WHERE u.id = $1 AND d.manager_id = $2
+                )
+                "#
+            )
+            .bind(applicant_id)
+            .bind(current_user.id)
+            .fetch_optional(&state.db)
+            .await?;
+            
+            // Allow department manager, admin staff, or admin to approve L1
+            let can_approve = is_dept_manager.map(|r| r.0).unwrap_or(false) 
+                || is_admin_staff 
+                || is_admin;
+            
+            if !can_approve {
+                return Err(crate::error::AppError::Forbidden(
+                    "此階段需要部門主管、行政或負責人審核".to_string()
+                ));
+            }
+        },
+        "PENDING_HR" => {
+            // Level 2: Admin Staff (行政) approval
+            if !is_admin_staff && !is_admin {
+                return Err(crate::error::AppError::Forbidden(
+                    "此階段需要行政或負責人審核".to_string()
+                ));
+            }
+        },
+        "PENDING_GM" => {
+            // Level 3: Admin (負責人) approval
+            if !is_admin {
+                return Err(crate::error::AppError::Forbidden(
+                    "此階段需要負責人審核".to_string()
+                ));
+            }
+        },
+        _ => {
+            return Err(crate::error::AppError::Validation(
+                format!("無法審核狀態為 {} 的請假申請", current_status)
+            ));
+        }
     }
+    
     let record = HrService::approve_leave(
         &state.db,
         id,
@@ -322,10 +430,47 @@ pub async fn reject_leave(
     Path(id): Path<Uuid>,
     Json(payload): Json<RejectLeaveRequest>,
 ) -> Result<Json<LeaveRequest>> {
-    // 僅 IACUC_STAFF (執行秘書) 可審核請假申請
-    if !current_user.roles.contains(&"IACUC_STAFF".to_string()) {
-        return Err(crate::error::AppError::Forbidden("僅執行秘書可審核請假申請".to_string()));
+    // 行政或負責人可駁回請假申請，部門主管也可在 L1 階段駁回
+    let is_admin = current_user.roles.contains(&"admin".to_string());
+    let is_admin_staff = current_user.roles.contains(&"ADMIN_STAFF".to_string());
+    
+    if !is_admin_staff && !is_admin {
+        // Check if user is department manager and leave is at L1
+        let current: Option<(String, Uuid)> = sqlx::query_as(
+            "SELECT status::text, user_id FROM leave_requests WHERE id = $1"
+        )
+        .bind(id)
+        .fetch_optional(&state.db)
+        .await?;
+        
+        if let Some((status, applicant_id)) = current {
+            if status == "PENDING_L1" {
+                // Check if current user is department manager
+                let is_dept_manager: Option<(bool,)> = sqlx::query_as(
+                    r#"
+                    SELECT EXISTS(
+                        SELECT 1 FROM users u
+                        JOIN departments d ON u.department_id = d.id
+                        WHERE u.id = $1 AND d.manager_id = $2
+                    )
+                    "#
+                )
+                .bind(applicant_id)
+                .bind(current_user.id)
+                .fetch_optional(&state.db)
+                .await?;
+                
+                if !is_dept_manager.map(|r| r.0).unwrap_or(false) {
+                    return Err(crate::error::AppError::Forbidden("僅部門主管、行政或負責人可駁回請假申請".to_string()));
+                }
+            } else {
+                return Err(crate::error::AppError::Forbidden("僅行政或負責人可駁回此階段的請假申請".to_string()));
+            }
+        } else {
+            return Err(crate::error::AppError::NotFound("請假申請不存在".to_string()));
+        }
     }
+    
     let record =
         HrService::reject_leave(&state.db, id, current_user.id, &payload.reason).await?;
     Ok(Json(record))
@@ -402,16 +547,18 @@ pub async fn get_balance_summary(
     Ok(Json(summary))
 }
 
-/// 建立特休額度（僅限 Admin）
+/// 建立特休額度（Admin 或有 hr.balance.manage 權限的人）
 pub async fn create_annual_leave_entitlement(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Json(payload): Json<CreateAnnualLeaveRequest>,
 ) -> Result<(StatusCode, Json<AnnualLeaveEntitlement>)> {
-    // 權限檢查：僅 Admin 可建立特休額度
-    if !current_user.roles.contains(&"admin".to_string()) {
+    // 權限檢查：Admin、ADMIN_STAFF 或有 hr.balance.manage 權限的人可建立特休額度
+    if !current_user.roles.contains(&"admin".to_string()) 
+        && !current_user.roles.contains(&"ADMIN_STAFF".to_string())
+        && !current_user.has_permission("hr.balance.manage") {
         return Err(crate::error::AppError::Forbidden(
-            "僅管理員可新增特休額度".to_string(),
+            "僅管理員或行政可新增特休額度".to_string(),
         ));
     }
     
@@ -439,10 +586,11 @@ pub async fn get_expired_leave_compensation(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<ExpiredLeaveReport>>> {
-    // 權限檢查：僅管理員或有 hr.balance.manage 權限的人可查看
+    // 權限檢查：管理員、IACUC_STAFF、ADMIN_STAFF 或有 hr.balance.manage 權限的人可查看
     if !current_user.has_permission("hr.balance.manage") 
         && !current_user.roles.contains(&"admin".to_string())
-        && !current_user.roles.contains(&"IACUC_STAFF".to_string()) {
+        && !current_user.roles.contains(&"IACUC_STAFF".to_string())
+        && !current_user.roles.contains(&"ADMIN_STAFF".to_string()) {
         return Err(crate::error::AppError::Forbidden(
             "無權查看過期特休報表".to_string(),
         ));
@@ -586,6 +734,41 @@ pub async fn list_staff_for_proxy(
         INNER JOIN roles r ON ur.role_id = r.id
         WHERE u.is_active = true
         AND r.code = 'EXPERIMENT_STAFF'
+        ORDER BY u.display_name
+        "#
+    )
+    .fetch_all(&state.db)
+    .await?;
+    
+    let result: Vec<StaffInfo> = staff
+        .into_iter()
+        .map(|(id, display_name, email)| StaffInfo { id, display_name, email })
+        .collect();
+    
+    Ok(Json(result))
+}
+
+/// 取得所有內部員工列表（供特休額度管理用）
+/// 需要 hr.balance.manage 權限
+pub async fn list_internal_users_for_balance(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+) -> Result<Json<Vec<StaffInfo>>> {
+    // 權限檢查：Admin、ADMIN_STAFF 或有 hr.balance.manage 權限
+    if !current_user.roles.contains(&"admin".to_string()) 
+        && !current_user.roles.contains(&"ADMIN_STAFF".to_string())
+        && !current_user.has_permission("hr.balance.manage") {
+        return Err(crate::error::AppError::Forbidden(
+            "無權查看員工列表".to_string(),
+        ));
+    }
+    
+    let staff = sqlx::query_as::<_, (uuid::Uuid, String, String)>(
+        r#"
+        SELECT u.id, u.display_name, u.email
+        FROM users u
+        WHERE u.is_active = true
+        AND u.is_internal = true
         ORDER BY u.display_name
         "#
     )
