@@ -1,10 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
-import { format, startOfWeek, endOfWeek, isToday, parseISO } from 'date-fns'
-import { zhTW } from 'date-fns/locale'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { CalendarDays, Clock, Loader2, Calendar, ExternalLink } from 'lucide-react'
+import { Calendar, Clock, Loader2, ExternalLink, CalendarX } from 'lucide-react'
 import api from '@/lib/api'
 
 interface CalendarEvent {
@@ -15,65 +13,53 @@ interface CalendarEvent {
     all_day: boolean
     description?: string
     location?: string
-    html_link?: string
-}
-
-function formatEventTime(dateStr: string, allDay: boolean): string {
-    const date = parseISO(dateStr)
-    if (allDay) {
-        return format(date, 'M/d (EEE)', { locale: zhTW })
-    }
-    return format(date, 'M/d HH:mm', { locale: zhTW })
-}
-
-function formatTimeOnly(dateStr: string): string {
-    return format(parseISO(dateStr), 'HH:mm')
 }
 
 export function GoogleCalendarEventsWidget() {
-    const navigate = useNavigate()
-
-    // 取得本週的日期範圍
-    const today = new Date()
-    const weekStart = startOfWeek(today, { weekStartsOn: 1 }) // Monday
-    const weekEnd = endOfWeek(today, { weekStartsOn: 1 })
-
+    const { t, i18n } = useTranslation()
     const { data: events, isLoading, error } = useQuery({
-        queryKey: ['calendar-events-widget', format(weekStart, 'yyyy-MM-dd')],
+        queryKey: ['google-calendar-events-widget'],
         queryFn: async () => {
-            const startDate = format(weekStart, 'yyyy-MM-dd')
-            const endDate = format(weekEnd, 'yyyy-MM-dd')
-            const res = await api.get<CalendarEvent[]>(`/hr/calendar/events?start_date=${startDate}&end_date=${endDate}`)
-            return res.data
+            try {
+                const res = await api.get<CalendarEvent[]>('/hr/calendar/events')
+                return res.data
+            } catch (err: any) {
+                if (err.response?.status === 400 &&
+                    (err.response?.data?.message?.includes('Google Calendar') ||
+                        err.response?.data?.error?.includes('Google Calendar'))) {
+                    return null // Representing not connected
+                }
+                throw err
+            }
         },
-        staleTime: 5 * 60 * 1000, // 5 minutes
     })
 
-    // 分類事件：今日 vs 本週其他
-    const todayEvents = events?.filter(e => isToday(parseISO(e.start))) || []
-    const weekEvents = events?.filter(e => !isToday(parseISO(e.start))) || []
+    const formatTime = (dateStr: string) => {
+        return new Date(dateStr).toLocaleTimeString(i18n.language, {
+            hour: '2-digit',
+            minute: '2-digit',
+        })
+    }
 
-    const handleTitleClick = () => {
-        navigate('/hr/calendar')
+    const formatDate = (dateStr: string) => {
+        return new Date(dateStr).toLocaleDateString(i18n.language, {
+            month: 'short',
+            day: 'numeric',
+            weekday: 'short',
+        })
     }
 
     if (isLoading) {
         return (
-            <Card className="h-full overflow-auto">
+            <Card className="h-full">
                 <CardHeader className="pb-2">
-                    <CardTitle
-                        className="text-sm font-medium flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
-                        onClick={handleTitleClick}
-                    >
-                        <CalendarDays className="h-4 w-4 text-indigo-500" />
-                        日曆事件
-                        <ExternalLink className="h-3 w-3 ml-auto text-muted-foreground" />
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-blue-500" />
+                        {t('dashboard.widgets.names.google_calendar_events')}
                     </CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <div className="flex items-center justify-center py-6">
-                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                    </div>
+                <CardContent className="flex items-center justify-center py-10">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </CardContent>
             </Card>
         )
@@ -81,129 +67,74 @@ export function GoogleCalendarEventsWidget() {
 
     if (error) {
         return (
-            <Card className="h-full overflow-auto">
+            <Card className="h-full">
                 <CardHeader className="pb-2">
-                    <CardTitle
-                        className="text-sm font-medium flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
-                        onClick={handleTitleClick}
-                    >
-                        <CalendarDays className="h-4 w-4 text-indigo-500" />
-                        日曆事件
-                        <ExternalLink className="h-3 w-3 ml-auto text-muted-foreground" />
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-blue-500" />
+                        {t('dashboard.widgets.names.google_calendar_events')}
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="text-center py-4 text-muted-foreground">
-                        <Calendar className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
-                        <p className="text-sm">尚未連接 Google Calendar</p>
-                        <p className="text-xs mt-1">請至日曆頁面設定</p>
-                    </div>
+                    <p className="text-sm text-muted-foreground">{t('dashboard.widgets.common.loadFailed')}</p>
                 </CardContent>
             </Card>
         )
     }
 
-    const weekDateRange = `${format(weekStart, 'M/d')} - ${format(weekEnd, 'M/d')}`
-
     return (
-        <Card className="h-full overflow-auto">
-            <CardHeader className="pb-2">
-                <CardTitle
-                    className="text-sm font-medium flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
-                    onClick={handleTitleClick}
-                >
-                    <CalendarDays className="h-4 w-4 text-indigo-500" />
-                    日曆事件
-                    <ExternalLink className="h-3 w-3 ml-auto text-muted-foreground" />
+        <Card className="h-full flex flex-col overflow-hidden">
+            <CardHeader className="pb-2 border-b bg-muted/30">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-blue-500" />
+                    {t('dashboard.widgets.names.google_calendar_events')}
                 </CardTitle>
-                <CardDescription className="text-xs">
-                    本週 {weekDateRange}
-                </CardDescription>
+                <CardDescription className="text-xs">{t('dashboard.widgets.calendar.googleDescription')}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-                {/* 今日事件 */}
-                <div>
-                    <div className="flex items-center gap-2 mb-2">
-                        <Clock className="h-3 w-3 text-orange-500" />
-                        <span className="text-xs font-medium text-muted-foreground">今日</span>
-                        {todayEvents.length > 0 && (
-                            <Badge variant="secondary" className="text-xs px-1.5 py-0">
-                                {todayEvents.length}
-                            </Badge>
-                        )}
+            <CardContent className="flex-1 overflow-auto p-0">
+                {events === null ? (
+                    <div className="flex flex-col items-center justify-center py-10 text-muted-foreground bg-muted/5">
+                        <CalendarX className="h-8 w-8 mb-2 opacity-20" />
+                        <p className="text-sm font-medium">{t('dashboard.widgets.calendar.googleNotConnected')}</p>
+                        <p className="text-xs mt-1 opacity-70">{t('dashboard.widgets.calendar.googleConnectHint')}</p>
                     </div>
-                    {todayEvents.length > 0 ? (
-                        <div className="space-y-1.5">
-                            {todayEvents.slice(0, 3).map((event) => (
-                                <div
-                                    key={event.id}
-                                    className="flex items-center gap-2 p-2 bg-orange-50 rounded-md border border-orange-100"
-                                >
+                ) : events && events.length > 0 ? (
+                    <div className="divide-y">
+                        {events.map((event) => (
+                            <div key={event.id} className="p-3 hover:bg-muted/50 transition-colors group">
+                                <div className="flex items-start justify-between gap-2">
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-orange-900 truncate">
-                                            {event.summary}
-                                        </p>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-xs font-semibold text-blue-600">
+                                                {formatDate(event.start)}
+                                            </span>
+                                            {event.all_day && (
+                                                <Badge variant="outline" className="h-4 px-1 text-[9px] bg-blue-50 text-blue-700 border-blue-200">
+                                                    {t('dashboard.widgets.common.allDay')}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        <p className="text-sm font-medium line-clamp-2">{event.summary}</p>
                                         {!event.all_day && (
-                                            <p className="text-xs text-orange-600">
-                                                {formatTimeOnly(event.start)} - {formatTimeOnly(event.end)}
+                                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-1">
+                                                <Clock className="h-3 w-3" />
+                                                <span>{formatTime(event.start)} - {formatTime(event.end)}</span>
+                                            </div>
+                                        )}
+                                        {event.location && (
+                                            <p className="text-[10px] text-muted-foreground mt-1 truncate">
+                                                📍 {event.location}
                                             </p>
                                         )}
                                     </div>
-                                    {event.all_day && (
-                                        <Badge variant="outline" className="text-xs text-orange-600 border-orange-200">
-                                            全天
-                                        </Badge>
-                                    )}
+                                    <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </div>
-                            ))}
-                            {todayEvents.length > 3 && (
-                                <p className="text-xs text-muted-foreground text-center">
-                                    還有 {todayEvents.length - 3} 個事件...
-                                </p>
-                            )}
-                        </div>
-                    ) : (
-                        <p className="text-xs text-muted-foreground pl-5">無排程事件</p>
-                    )}
-                </div>
-
-                {/* 本週其他事件 */}
-                {weekEvents.length > 0 && (
-                    <div>
-                        <div className="flex items-center gap-2 mb-2">
-                            <CalendarDays className="h-3 w-3 text-indigo-500" />
-                            <span className="text-xs font-medium text-muted-foreground">本週</span>
-                            <Badge variant="secondary" className="text-xs px-1.5 py-0">
-                                {weekEvents.length}
-                            </Badge>
-                        </div>
-                        <div className="space-y-1">
-                            {weekEvents.slice(0, 3).map((event) => (
-                                <div
-                                    key={event.id}
-                                    className="flex items-center justify-between text-sm px-2"
-                                >
-                                    <span className="truncate text-muted-foreground">
-                                        {event.summary}
-                                    </span>
-                                    <span className="text-xs text-indigo-600 whitespace-nowrap ml-2">
-                                        {formatEventTime(event.start, event.all_day)}
-                                    </span>
-                                </div>
-                            ))}
-                            {weekEvents.length > 3 && (
-                                <p className="text-xs text-muted-foreground text-center">
-                                    還有 {weekEvents.length - 3} 個事件...
-                                </p>
-                            )}
-                        </div>
+                            </div>
+                        ))}
                     </div>
-                )}
-
-                {/* 空狀態 */}
-                {todayEvents.length === 0 && weekEvents.length === 0 && (
-                    <div className="text-center py-2">
-                        <p className="text-xs text-muted-foreground">本週無排程事件 ✓</p>
+                ) : (
+                    <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+                        <CalendarX className="h-8 w-8 mb-2 opacity-20" />
+                        <p className="text-xs">{t('dashboard.widgets.calendar.noEvents')}</p>
                     </div>
                 )}
             </CardContent>

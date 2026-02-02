@@ -1,12 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Pill, Loader2, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import api, { PigListItem } from '@/lib/api'
 
+
+
 export function AnimalsOnMedicationWidget() {
+    const { t, i18n } = useTranslation()
     const navigate = useNavigate()
 
     const { data, isLoading, error } = useQuery({
@@ -24,7 +28,7 @@ export function AnimalsOnMedicationWidget() {
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                         <Pill className="h-4 w-4 text-red-500" />
-                        正在用藥動物
+                        {t('dashboard.widgets.names.animals_on_medication')}
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -42,11 +46,11 @@ export function AnimalsOnMedicationWidget() {
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                         <Pill className="h-4 w-4 text-red-500" />
-                        正在用藥動物
+                        {t('dashboard.widgets.names.animals_on_medication')}
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-sm text-muted-foreground">載入失敗</p>
+                    <p className="text-sm text-muted-foreground">{t('dashboard.widgets.common.loadFailed')}</p>
                 </CardContent>
             </Card>
         )
@@ -58,7 +62,7 @@ export function AnimalsOnMedicationWidget() {
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                         <Pill className="h-4 w-4 text-red-500" />
-                        正在用藥動物
+                        {t('dashboard.widgets.names.animals_on_medication')}
                     </CardTitle>
                     {data && data.length > 0 && (
                         <Badge variant="destructive" className="text-xs">
@@ -66,7 +70,7 @@ export function AnimalsOnMedicationWidget() {
                         </Badge>
                     )}
                 </div>
-                <CardDescription>需要持續照護的動物</CardDescription>
+                <CardDescription>{t('dashboard.widgets.animals.medicationDescription')}</CardDescription>
             </CardHeader>
             <CardContent>
                 {data && data.length > 0 ? (
@@ -83,13 +87,13 @@ export function AnimalsOnMedicationWidget() {
                                     </div>
                                     <div>
                                         <p className="text-sm font-medium">{pig.ear_tag}</p>
-                                        <p className="text-xs text-muted-foreground">{pig.pen_location || '未指定欄位'}</p>
+                                        <p className="text-xs text-muted-foreground">{pig.pen_location || t('dashboard.widgets.animals.penFallback')}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {pig.last_medication_date && (
                                         <span className="text-xs text-muted-foreground">
-                                            {new Date(pig.last_medication_date).toLocaleDateString('zh-TW')}
+                                            {new Date(pig.last_medication_date).toLocaleDateString(i18n.language)}
                                         </span>
                                     )}
                                     <ExternalLink className="h-4 w-4 text-muted-foreground" />
@@ -103,14 +107,14 @@ export function AnimalsOnMedicationWidget() {
                                 onClick={() => navigate('/pigs?is_on_medication=true')}
                                 className="w-full text-xs"
                             >
-                                查看全部 {data.length} 隻
+                                {t('dashboard.widgets.common.viewCount', { count: data.length })}
                             </Button>
                         )}
                     </div>
                 ) : (
                     <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
                         <Pill className="h-8 w-8 mb-2" />
-                        <p className="text-sm">目前沒有正在用藥的動物</p>
+                        <p className="text-sm">{t('dashboard.widgets.animals.noMedication')}</p>
                     </div>
                 )}
             </CardContent>

@@ -350,8 +350,8 @@ const defaultFormData: FormData = {
       pi: { name: '', phone: '', email: '', address: '' },
       sponsor: { name: '', contact_person: '', contact_phone: '', contact_email: '' },
       sd: { name: '', email: '' },
-      facility: { title: '豬博士動物科技股份有限公司', address: '' },
-      housing_location: '苗栗縣後龍鎮外埔里外埔6-15號'
+      facility: { title: '', address: '' },
+      housing_location: ''
     },
     purpose: {
       significance: '',
@@ -381,11 +381,11 @@ const defaultFormData: FormData = {
       restrictions: { is_restricted: null, types: [] },
       endpoints: {
         experimental_endpoint: '',
-        humane_endpoint: '實驗過程中如果動物體重下降超過原體重的20%、食慾不振 (無法進食)、身體虛弱、感染，持續治療或傷口清創後無改善，或其他經獸醫師評估不宜持續實驗之情形，則提早結束實驗，以符合動物福祉。'
+        humane_endpoint: ''
       },
       final_handling: { method: '', transfer: { recipient_name: '', recipient_org: '', project_name: '' } },
       carcass_disposal: {
-        method: '委由簽約之合格化製廠商進行化製處理\n (化製廠商名稱：金海龍生物科技股份有限公司，化製廠管編：P6001213)'
+        method: ''
       },
       non_pharma_grade: { used: null, description: '' },
       hazards: {
@@ -402,11 +402,11 @@ const defaultFormData: FormData = {
     guidelines: { content: '', references: [] },
     surgery: {
       surgery_type: '',
-      preop_preparation: '1.實驗動物術前禁食至少12小時，不禁水。\n2.試驗豬隻經清洗擦乾後，以畜舒坦( Azeperonum 40 mg/mL)3-5 mg/kg和0.03-0.05 mg/kg阿托平(Atropine® 1 mg/mL)肌肉注射鎮靜。仔細觀察豬隻呼吸頻率。\n3.經20-30分鐘後，以4.4 mg/kg舒泰-50(Zoletil®-50)肌肉注射誘導麻醉\n4.經5-10分鐘後，將豬隻移至手術檯上，以趴姿進行氣管插管，接上氣體麻醉機，以2-3 L/min流速的氧氣混合0.5-2%氣體麻醉劑Isoflurane維持麻醉，隨時注意觀察豬隻麻醉深度。\n5.術前肌肉注射抗生素Cefazolin 15 mg/kg及止痛劑meloxicam 0.4 mg/kg\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行',
+      preop_preparation: '',
       aseptic_techniques: [],
-      surgery_description: '請詳述手術流程，包含手術位置、手術方法、切創大小及縫合處理',
+      surgery_description: '',
       surgery_steps: [],
-      monitoring: '手術進行中依試驗豬隻麻醉深度、呼吸頻率及手術需要，調整氧氣、笑氣流速及麻醉氣體濃度，同時注意保溫，接上生理監視器，監控記錄心跳、呼吸及體溫。\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行',
+      monitoring: '',
       postop_expected_impact: '',
       multiple_surgeries: { used: false, number: 0, reason: '' },
       postop_care_type: undefined,
@@ -440,85 +440,11 @@ const defaultFormData: FormData = {
         weight_min: undefined,
         weight_max: undefined,
         weight_unlimited: false,
-        housing_location: '豬博士畜牧場'
+        housing_location: ''
       }],
       total_animals: 0
     },
-    personnel: [
-      {
-        id: 1,
-        name: '許芮蓁',
-        position: '',
-        roles: ['b', 'c', 'd', 'f', 'g', 'h'],
-        roles_other_text: '',
-        years_experience: 6,
-        trainings: ['C', 'A'],
-        training_certificates: [
-          { training_code: 'C', certificate_no: '輻安訓字第1080551' },
-          { training_code: 'C', certificate_no: '111輻協訓繼教證字第0983號' },
-          { training_code: 'A', certificate_no: '111農科實動字第0513號' },
-          { training_code: 'C', certificate_no: '112輻協訓繼教證字第3107號' }
-        ]
-      },
-      {
-        id: 2,
-        name: '陳怡均',
-        position: '',
-        roles: ['b', 'c', 'd', 'f', 'g', 'h'],
-        roles_other_text: '',
-        years_experience: 6,
-        trainings: ['C', 'A'],
-        training_certificates: [
-          { training_code: 'C', certificate_no: '輻安訓字第1080552' },
-          { training_code: 'A', certificate_no: '110農科實動字第0461號' },
-          { training_code: 'C', certificate_no: '111輻協訓繼教證字第4159號' },
-          { training_code: 'A', certificate_no: '112農科實動字第0213號' }
-        ]
-      },
-      {
-        id: 3,
-        name: '林莉珊',
-        position: '',
-        roles: ['b', 'c', 'd', 'f', 'g', 'h'],
-        roles_other_text: '',
-        years_experience: 4,
-        trainings: ['C', 'A'],
-        training_certificates: [
-          { training_code: 'C', certificate_no: '輻安訓字第1091274' },
-          { training_code: 'C', certificate_no: '111輻協訓繼教證字第0979號' },
-          { training_code: 'A', certificate_no: '111農科實動字第0512號' },
-          { training_code: 'C', certificate_no: '111輻協訓繼教證字第3105號' }
-        ]
-      },
-      {
-        id: 4,
-        name: '王永發',
-        position: '',
-        roles: ['b', 'c', 'd', 'f', 'g', 'h'],
-        roles_other_text: '',
-        years_experience: 5,
-        trainings: ['C', 'A'],
-        training_certificates: [
-          { training_code: 'C', certificate_no: '輻安訓字第1090109' },
-          { training_code: 'A', certificate_no: '109農科實動字第0093號' },
-          { training_code: 'C', certificate_no: '111輻協訓繼教證字第0982號' },
-          { training_code: 'A', certificate_no: '111農科實動字第0514號' }
-        ]
-      },
-      {
-        id: 5,
-        name: '潘映潔',
-        position: '',
-        roles: ['b', 'c', 'd', 'f', 'g', 'h'],
-        roles_other_text: '',
-        years_experience: 1,
-        trainings: ['C', 'A'],
-        training_certificates: [
-          { training_code: 'C', certificate_no: '輻安訓字第1130188' },
-          { training_code: 'A', certificate_no: '113優農實動字第0006號' }
-        ]
-      }
-    ],
+    personnel: [],
     attachments: [],
     signature: [],
   },
@@ -573,11 +499,11 @@ export function ProtocolEditPage() {
           if (!mergedWorkingContent.basic.facility?.title || !mergedWorkingContent.basic.facility.title.trim()) {
             mergedWorkingContent.basic.facility = {
               ...mergedWorkingContent.basic.facility,
-              title: '豬博士動物科技股份有限公司'
+              title: t('aup.defaults.facilityName')
             }
           }
           if (!mergedWorkingContent.basic.housing_location || !mergedWorkingContent.basic.housing_location.trim()) {
-            mergedWorkingContent.basic.housing_location = '苗栗縣後龍鎮外埔里外埔6-15號'
+            mergedWorkingContent.basic.housing_location = t('aup.defaults.housingLocation')
           }
         }
 
@@ -605,14 +531,14 @@ export function ProtocolEditPage() {
         // 確保人道終點有預設內容
         if (mergedWorkingContent.design && mergedWorkingContent.design.endpoints) {
           if (!mergedWorkingContent.design.endpoints.humane_endpoint || !mergedWorkingContent.design.endpoints.humane_endpoint.trim()) {
-            mergedWorkingContent.design.endpoints.humane_endpoint = '實驗過程中如果動物體重下降超過原體重的20%、食慾不振 (無法進食)、身體虛弱、感染，持續治療或傷口清創後無改善，或其他經獸醫師評估不宜持續實驗之情形，則提早結束實驗，以符合動物福祉。'
+            mergedWorkingContent.design.endpoints.humane_endpoint = t('aup.defaults.humaneEndpoint')
           }
         }
 
         // 確保動物屍體處理方法有預設內容
         if (mergedWorkingContent.design && mergedWorkingContent.design.carcass_disposal) {
           if (!mergedWorkingContent.design.carcass_disposal.method || !mergedWorkingContent.design.carcass_disposal.method.trim()) {
-            mergedWorkingContent.design.carcass_disposal.method = '委由簽約之合格化製廠商進行化製處理\n(名稱：金海龍生物科技股份有限公司，化製廠管編：P6001213)'
+            mergedWorkingContent.design.carcass_disposal.method = t('aup.defaults.carcassDisposal')
           }
         }
 
@@ -689,39 +615,39 @@ export function ProtocolEditPage() {
             }
             // 如果術前準備為空，設置預設內容
             if (!mergedWorkingContent.surgery.preop_preparation || mergedWorkingContent.surgery.preop_preparation.trim() === '') {
-              mergedWorkingContent.surgery.preop_preparation = '1.實驗動物術前禁食至少12小時，不禁水。\n2.試驗豬隻經清洗擦乾後，以畜舒坦( Azeperonum 40 mg/mL)3-5 mg/kg和0.03-0.05 mg/kg阿托平(Atropine® 1 mg/mL)肌肉注射鎮靜。仔細觀察豬隻呼吸頻率。\n3.經20-30分鐘後，以4.4 mg/kg舒泰-50(Zoletil®-50)肌肉注射誘導麻醉\n4.經5-10分鐘後，將豬隻移至手術檯上，以趴姿進行氣管插管，接上氣體麻醉機，以2-3 L/min流速的氧氣混合0.5-2%氣體麻醉劑Isoflurane維持麻醉，隨時注意觀察豬隻麻醉深度。\n5.術前肌肉注射抗生素Cefazolin 15 mg/kg及止痛劑meloxicam 0.4 mg/kg\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行'
+              mergedWorkingContent.surgery.preop_preparation = t('aup.defaults.preopPreparation')
             }
             // 如果手術內容說明為空，設置預設內容
             if (!mergedWorkingContent.surgery.surgery_description || mergedWorkingContent.surgery.surgery_description.trim() === '') {
-              mergedWorkingContent.surgery.surgery_description = '請詳述手術流程，包含手術位置、手術方法、切創大小及縫合處理'
+              mergedWorkingContent.surgery.surgery_description = t('aup.defaults.surgeryDescription')
             }
             // 如果術中監控為空，設置預設內容
             if (!mergedWorkingContent.surgery.monitoring || mergedWorkingContent.surgery.monitoring.trim() === '') {
-              mergedWorkingContent.surgery.monitoring = '手術進行中依試驗豬隻麻醉深度、呼吸頻率及手術需要，調整氧氣、笑氣流速及麻醉氣體濃度，同時注意保溫，接上生理監視器，監控記錄心跳、呼吸及體溫。\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行'
+              mergedWorkingContent.surgery.monitoring = t('aup.defaults.monitoring')
             }
             // 如果術後照護類型未選擇，不自動設置（讓用戶選擇）
           } else {
             // 如果不需要填寫手術計劃書，自動填寫"略"
             if (!mergedWorkingContent.surgery.surgery_type || mergedWorkingContent.surgery.surgery_type.trim() === '') {
-              mergedWorkingContent.surgery.surgery_type = '略'
+              mergedWorkingContent.surgery.surgery_type = t('aup.defaults.omitted')
             }
             if (!mergedWorkingContent.surgery.preop_preparation || mergedWorkingContent.surgery.preop_preparation.trim() === '') {
-              mergedWorkingContent.surgery.preop_preparation = '略'
+              mergedWorkingContent.surgery.preop_preparation = t('aup.defaults.omitted')
             }
             if (!mergedWorkingContent.surgery.surgery_description || mergedWorkingContent.surgery.surgery_description.trim() === '') {
-              mergedWorkingContent.surgery.surgery_description = '略'
+              mergedWorkingContent.surgery.surgery_description = t('aup.defaults.omitted')
             }
             if (!mergedWorkingContent.surgery.monitoring || mergedWorkingContent.surgery.monitoring.trim() === '') {
-              mergedWorkingContent.surgery.monitoring = '略'
+              mergedWorkingContent.surgery.monitoring = t('aup.defaults.omitted')
             }
             if (!mergedWorkingContent.surgery.postop_expected_impact || mergedWorkingContent.surgery.postop_expected_impact.trim() === '') {
-              mergedWorkingContent.surgery.postop_expected_impact = '略'
+              mergedWorkingContent.surgery.postop_expected_impact = t('aup.defaults.omitted')
             }
             if (!mergedWorkingContent.surgery.postop_care || mergedWorkingContent.surgery.postop_care.trim() === '') {
-              mergedWorkingContent.surgery.postop_care = '1.術後每日評估豬隻健康狀態，依術後狀況進行傷口護理。\n2.術後7日內每日進行疼痛評估依豬隻狀況並依照不同手術給予止痛藥及抗生素\n分為兩項：\n2.1\n骨科手術\n止痛藥\nketoprofen 1-3 mg/kg IM SID (3天)\nmeloxicam 0.1-0.4 mg/kg PO SID (4-14天或長期給予)\n抗生素\ncefazolin 15 mg/kg IM BID (1-7天)\ncephalexin 30 mg/kg PO BID (8-14天或長期給予)\n\n2.2\n非骨科手術\n止痛藥\nmeloxicam 0.1-0.4 mg/kg IM SID (3天)\nmeloxicam 0.1-0.4 mg/kg PO SID (4-14天或長期給予)\n抗生素\npencillin 10000 u/kg IM SID (1-7天)\namoxicillin 20 mg/kg PO BID (8-14天或長期給予)\n\n3.若動物發生異常情形，則依獸醫師指示處理。\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行'
+              mergedWorkingContent.surgery.postop_care = t('aup.defaults.postopCareTemplate')
             }
             if (!mergedWorkingContent.surgery.expected_end_point || mergedWorkingContent.surgery.expected_end_point.trim() === '') {
-              mergedWorkingContent.surgery.expected_end_point = '略'
+              mergedWorkingContent.surgery.expected_end_point = t('aup.defaults.omitted')
             }
             // 如果不需要填寫手術計劃書，清空用藥資訊
             if (!mergedWorkingContent.surgery.drugs || mergedWorkingContent.surgery.drugs.length === 0) {
@@ -729,19 +655,14 @@ export function ProtocolEditPage() {
             }
             // 如果手術用藥資訊為空，設置預設內容
             if (!mergedWorkingContent.surgery.drugs || mergedWorkingContent.surgery.drugs.length === 0) {
-              mergedWorkingContent.surgery.drugs = [
-                { drug_name: 'Atropine', dose: '1mg/ml', route: 'IM', frequency: '1次', purpose: '麻醉誘導' },
-                { drug_name: '畜舒坦(Azeperonum)', dose: '0.03-0.5mg/kg', route: 'IM', frequency: '1次', purpose: '麻醉誘導' },
-                { drug_name: '舒泰Zoletil®-50', dose: '3-5 mg/kg', route: 'IM', frequency: '1次', purpose: '麻醉誘導' },
-                { drug_name: 'Cefazolin', dose: '15-30 mg/kg', route: 'IM', frequency: '術前1次/術後SID', purpose: '術前及術後抗生素' },
-                { drug_name: 'meloxicam', dose: '0.1-0.4mg/kg', route: 'IM', frequency: '術前1次/術後SID', purpose: '術前及術後止痛藥' },
-                { drug_name: 'Isoflurane', dose: '0.5-2%', route: '吸入', frequency: '術中', purpose: '麻醉維持' },
-                { drug_name: 'ketoprofen', dose: '1-3mg/kg', route: 'IM', frequency: 'SID', purpose: '術後止痛藥' },
-                { drug_name: 'pencillin', dose: '0.1-1mL/kg', route: 'IM', frequency: 'SID', purpose: '術後抗生素' },
-                { drug_name: 'cephalexin', dose: '30-60mg/kg', route: 'PO', frequency: 'BID', purpose: '術後抗生素' },
-                { drug_name: 'amoxicillin', dose: '20-40mg/kg', route: 'PO', frequency: 'BID', purpose: '術後抗生素' },
-                { drug_name: 'meloxicam', dose: '0.1-0.4mg/kg', route: 'PO', frequency: 'SID', purpose: '術後止痛藥' }
-              ]
+              const drugDefaults = t('aup.defaults.drugDefaults', { returnObjects: true }) as any[]
+              mergedWorkingContent.surgery.drugs = drugDefaults.map(d => ({
+                drug_name: d.name,
+                dose: d.dose,
+                route: d.route,
+                frequency: d.frequency,
+                purpose: d.purpose
+              }))
             }
           }
         }
@@ -791,16 +712,16 @@ export function ProtocolEditPage() {
     mutationFn: async (data: CreateProtocolRequest) => api.post('/protocols', data),
     onSuccess: (response) => {
       toast({
-        title: '成功',
-        description: '計畫書已建立',
+        title: t('common.success'),
+        description: t('aup.messages.created'),
       })
       queryClient.invalidateQueries({ queryKey: ['protocols'] })
       navigate(`/protocols/${response.data.id}`)
     },
     onError: (error: any) => {
       toast({
-        title: '錯誤',
-        description: error?.response?.data?.error?.message || '建立失敗',
+        title: t('common.error'),
+        description: error?.response?.data?.error?.message || t('aup.messages.createFailed'),
         variant: 'destructive',
       })
     },
@@ -810,16 +731,16 @@ export function ProtocolEditPage() {
     mutationFn: async (data: UpdateProtocolRequest) => api.put(`/protocols/${id}`, data),
     onSuccess: () => {
       toast({
-        title: '成功',
-        description: '計畫書已儲存',
+        title: t('common.success'),
+        description: t('aup.messages.saved'),
       })
       queryClient.invalidateQueries({ queryKey: ['protocol', id] })
       queryClient.invalidateQueries({ queryKey: ['protocols'] })
     },
     onError: (error: any) => {
       toast({
-        title: '錯誤',
-        description: error?.response?.data?.error?.message || '儲存失敗',
+        title: t('common.error'),
+        description: error?.response?.data?.error?.message || t('aup.messages.saveFailed'),
         variant: 'destructive',
       })
     },
@@ -829,16 +750,16 @@ export function ProtocolEditPage() {
     mutationFn: async () => api.post(`/protocols/${id}/submit`),
     onSuccess: () => {
       toast({
-        title: '成功',
-        description: '計畫書已提交審查',
+        title: t('common.success'),
+        description: t('aup.messages.submitted'),
       })
       queryClient.invalidateQueries({ queryKey: ['protocol', id] })
       navigate(`/protocols/${id}`)
     },
     onError: (error: any) => {
       toast({
-        title: '錯誤',
-        description: error?.response?.data?.error?.message || '提交失敗',
+        title: t('common.error'),
+        description: error?.response?.data?.error?.message || t('aup.messages.submitFailed'),
         variant: 'destructive',
       })
     },
@@ -846,119 +767,149 @@ export function ProtocolEditPage() {
 
   // 驗證必填字段（Section 1 - 研究資料）
   const validateRequiredFields = (): string | null => {
-    const { basic, purpose } = formData.working_content
+    const { basic, purpose, items } = formData.working_content
 
     // 1. 研究名稱
     if (!formData.title.trim()) {
-      return '請填寫研究名稱 (Study Title)'
+      return t('aup.basic.validation.titleRequired')
     }
 
     // 2. 預計試驗時程
     if (!formData.start_date || !formData.end_date) {
-      return '請填寫預計試驗時程'
+      return t('aup.basic.validation.periodRequired')
     }
     // 驗證結束日期必須大於開始日期
     if (new Date(formData.end_date) <= new Date(formData.start_date)) {
-      return '預計試驗完成日期必須大於起始日期'
+      return t('aup.basic.validation.periodInvalid')
     }
 
     // 3. 計畫類型
     if (!basic.project_type || !basic.project_type.trim()) {
-      return '請選擇計畫類型'
+      return t('aup.basic.validation.projectTypeRequired')
     }
 
     // 4. 計畫種類
     if (!basic.project_category || !basic.project_category.trim()) {
-      return '請選擇計畫種類'
+      return t('aup.basic.validation.projectCategoryRequired')
     }
     if (basic.project_category === 'other' && (!basic.project_category_other || !basic.project_category_other.trim())) {
-      return '請填寫其他計畫種類說明'
+      return t('aup.basic.validation.specifyOtherRequired')
     }
 
     // 5. PI 資訊
     if (!basic.pi.name || !basic.pi.name.trim()) {
-      return '請填寫計畫主持人姓名'
+      return t('aup.basic.validation.piNameRequired')
     }
     if (!basic.pi.email || !basic.pi.email.trim()) {
-      return '請填寫計畫主持人 Email'
+      return t('aup.basic.validation.piEmailRequired')
     }
     // 驗證 PI Email 格式
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(basic.pi.email.trim())) {
-      return '計畫主持人 Email 格式不正確'
+      return t('aup.basic.validation.piEmailInvalid')
     }
     if (!basic.pi.phone || !basic.pi.phone.trim()) {
-      return '請填寫計畫主持人電話'
+      return t('aup.basic.validation.piPhoneRequired')
     }
     // 驗證 PI 電話格式 (9-10 碼數字)
     if (!/^\d{9,10}$/.test(basic.pi.phone.trim())) {
-      return '計畫主持人電話必須為 9 或 10 碼數字'
+      return t('aup.basic.validation.piPhoneInvalid')
     }
     if (!basic.pi.address || !basic.pi.address.trim()) {
-      return '請填寫計畫主持人地址'
+      return t('aup.basic.validation.piAddressRequired')
     }
 
     // 6. Sponsor 資訊
     if (!basic.sponsor.name || !basic.sponsor.name.trim()) {
-      return '請填寫委託單位名稱'
+      return t('aup.basic.validation.sponsorNameRequired')
     }
     if (!basic.sponsor.contact_person || !basic.sponsor.contact_person.trim()) {
-      return '請填寫委託單位聯絡人'
+      return t('aup.basic.validation.sponsorContactRequired')
     }
     if (!basic.sponsor.contact_phone || !basic.sponsor.contact_phone.trim()) {
-      return '請填寫委託單位聯絡電話'
+      return t('aup.basic.validation.sponsorPhoneRequired')
     }
     // 驗證委託單位電話格式 (9-10 碼數字)
     if (!/^\d{9,10}$/.test(basic.sponsor.contact_phone.trim())) {
-      return '委託單位聯絡電話必須為 9 或 10 碼數字'
+      return t('aup.basic.validation.sponsorPhoneInvalid')
     }
     if (!basic.sponsor.contact_email || !basic.sponsor.contact_email.trim()) {
-      return '請填寫委託單位聯絡 Email'
+      return t('aup.basic.validation.sponsorEmailRequired')
     }
     // 驗證委託單位 Email 格式
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(basic.sponsor.contact_email.trim())) {
-      return '委託單位聯絡 Email 格式不正確'
+      return t('aup.basic.validation.sponsorEmailInvalid')
     }
 
     // 7. 機構名稱
     if (!basic.facility.title || !basic.facility.title.trim()) {
-      return '請填寫機構名稱'
+      return t('aup.basic.validation.facilityRequired')
     }
 
     // 8. 位置
     if (!basic.housing_location || !basic.housing_location.trim()) {
-      return '請填寫位置'
+      return t('aup.basic.validation.locationRequired')
     }
 
     // Section 2 - 研究目的
     // 2.1 研究之目的及重要性
     if (!purpose.significance || !purpose.significance.trim()) {
-      return '請填寫研究之目的及重要性'
+      return t('aup.purpose.validation.significanceRequired')
     }
 
     // 2.2.1 活體動物試驗之必要性
     if (!purpose.replacement.rationale || !purpose.replacement.rationale.trim()) {
-      return '請說明活體動物試驗之必要性，以及選擇此動物種別的原因'
+      return t('aup.purpose.validation.rationaleRequired')
     }
 
     // 2.2.2 非動物替代方案搜尋資料庫
     if (!purpose.replacement.alt_search.platforms || purpose.replacement.alt_search.platforms.length === 0) {
-      return '請至少選擇一個非動物性替代方案搜尋資料庫'
+      return t('aup.purpose.validation.platformsRequired')
     }
     if (!purpose.replacement.alt_search.keywords || !purpose.replacement.alt_search.keywords.trim()) {
-      return '請填寫搜尋關鍵字'
+      return t('aup.purpose.validation.keywordsRequired')
     }
     if (!purpose.replacement.alt_search.conclusion || !purpose.replacement.alt_search.conclusion.trim()) {
-      return '請填寫搜尋結果與結論'
+      return t('aup.purpose.validation.conclusionRequired')
     }
 
     // 2.2.3 重複試驗理由（如果選擇"是"）
     if (purpose.duplicate.experiment && (!purpose.duplicate.justification || !purpose.duplicate.justification.trim())) {
-      return '請說明重複進行之科學理由'
+      return t('aup.purpose.validation.duplicateJustificationRequired')
     }
 
     // 2.3 減量原則 - 實驗設計說明
     if (!purpose.reduction.design || !purpose.reduction.design.trim()) {
-      return '請填寫實驗設計說明（包括動物分組方法、訂定使用動物數量之理由等）'
+      return t('aup.purpose.validation.reductionDesignRequired')
+    }
+
+    // Section 3 - 試驗物質與對照物質
+    if (items.use_test_item === null) {
+      return t('aup.items.validation.useTestItemRequired')
+    }
+
+    // 如果選擇"是"，驗證試驗物質和對照物質的必填字段
+    if (items.use_test_item === true) {
+      // 驗證試驗物質
+      for (let i = 0; i < items.test_items.length; i++) {
+        const item = items.test_items[i]
+        if (!item.name || !item.name.trim()) {
+          return t('aup.items.validation.testItemNameRequired', { index: i + 1 })
+        }
+        if (!item.is_sterile && (!item.non_sterile_justification || !item.non_sterile_justification.trim())) {
+          return t('aup.items.validation.testJustificationRequired', { index: i + 1 })
+        }
+      }
+
+      // 驗證對照物質
+      for (let i = 0; i < items.control_items.length; i++) {
+        const item = items.control_items[i]
+        if (!item.name || !item.name.trim()) {
+          return t('aup.items.validation.controlItemNameRequired', { index: i + 1 })
+        }
+        if (!item.is_sterile && (!item.non_sterile_justification || !item.non_sterile_justification.trim())) {
+          return t('aup.items.validation.controlJustificationRequired', { index: i + 1 })
+        }
+      }
     }
 
     // Section 4 - 研究設計與方法
@@ -966,92 +917,92 @@ export function ProtocolEditPage() {
     // 4.1.1 如果選擇"是"（進行麻醉），必須選擇麻醉類型
     if (design.anesthesia.is_under_anesthesia === true) {
       if (!design.anesthesia.anesthesia_type || !design.anesthesia.anesthesia_type.trim()) {
-        return '請選擇麻醉類型'
+        return t('aup.design.validation.anesthesiaTypeRequired')
       }
       // 如果選擇"其他"，必須填寫說明
       if (design.anesthesia.anesthesia_type === 'other' && (!design.anesthesia.other_description || !design.anesthesia.other_description.trim())) {
-        return '請填寫其他麻醉方式的說明'
+        return t('aup.design.validation.anesthesiaOtherRequired')
       }
     }
     // 4.1.2 詳細敘述動物試驗內容及流程
     if (!design.procedures || !design.procedures.trim()) {
-      return '請詳細敘述動物試驗內容及流程'
+      return t('aup.design.validation.proceduresRequired')
     }
     // 4.1.3 實驗動物等級評估
     if (!design.pain.category || !design.pain.category.trim()) {
-      return '請選擇實驗動物等級評估'
+      return t('aup.design.validation.painCategoryRequired')
     }
     // 4.1.4 如果選擇"是"（限制飲食或飲水），必須選擇限制類型
     if (design.restrictions.is_restricted === true) {
       if (!design.restrictions.restriction_type || !design.restrictions.restriction_type.trim()) {
-        return '請選擇限制類型'
+        return t('aup.design.validation.restrictionTypeRequired')
       }
       // 如果選擇"其他"，必須填寫說明
       if (design.restrictions.restriction_type === 'other' && (!design.restrictions.other_description || !design.restrictions.other_description.trim())) {
-        return '請填寫其他限制方式的說明'
+        return t('aup.design.validation.restrictionOtherRequired')
       }
     }
     // 4.1.5 實驗預期結束之時機
     if (!design.endpoints.experimental_endpoint || !design.endpoints.experimental_endpoint.trim()) {
-      return '請填寫實驗終點'
+      return t('aup.design.validation.experimentalEndpointRequired')
     }
     if (!design.endpoints.humane_endpoint || !design.endpoints.humane_endpoint.trim()) {
-      return '請填寫人道終點'
+      return t('aup.design.validation.humaneEndpointRequired')
     }
     // 4.3 如果選擇"是"（使用非醫藥級化學藥品），必須填寫說明
     if (design.non_pharma_grade.used === true) {
       if (!design.non_pharma_grade.description || !design.non_pharma_grade.description.trim()) {
-        return '請說明物質性質、安全性及使用之科學理由'
+        return t('aup.design.validation.nonPharmaRequired')
       }
     }
     // 4.4 如果選擇"是"（使用危害性物質材料），必須選擇類型並填寫材料資訊
     if (design.hazards.used === true) {
       if (!design.hazards.selected_type || !design.hazards.selected_type.trim()) {
-        return '請選擇危害性物質類型'
+        return t('aup.design.validation.hazardTypeRequired')
       }
       if (design.hazards.materials.length === 0 || design.hazards.materials.every(m => !m.agent_name || !m.agent_name.trim())) {
-        return '請至少填寫一個危害性物質的名稱'
+        return t('aup.design.validation.hazardMaterialsRequired')
       }
       // 驗證每個材料都有名稱和用量
       for (let i = 0; i < design.hazards.materials.length; i++) {
         const material = design.hazards.materials[i]
         if (!material.agent_name || !material.agent_name.trim()) {
-          return `請填寫第 ${i + 1} 個危害性物質的名稱`
+          return t('aup.design.validation.hazardAgentNameRequired', { index: i + 1 })
         }
         if (!material.amount || !material.amount.trim()) {
-          return `請填寫第 ${i + 1} 個危害性物質的所需用量`
+          return t('aup.design.validation.hazardAmountRequired', { index: i + 1 })
         }
       }
       // 4.5 危害性物質及其廢棄物處理方式（如果 4.4 為"是"）
       if (!design.hazards.operation_location_method || !design.hazards.operation_location_method.trim()) {
-        return '請填寫施用方法、途徑與使用場所'
+        return t('aup.design.validation.hazardOpsRequired')
       }
       if (!design.hazards.protection_measures || !design.hazards.protection_measures.trim()) {
-        return '請填寫保護措施'
+        return t('aup.design.validation.hazardProtectionRequired')
       }
       if (!design.hazards.waste_and_carcass_disposal || !design.hazards.waste_and_carcass_disposal.trim()) {
-        return '請填寫實驗廢棄物與屍體之處理方式'
+        return t('aup.design.validation.hazardWasteRequired')
       }
     }
     // 4.6 或 4.5（當 4.4 為"否"時）是否使用管制藥品
     if (design.controlled_substances.used === true) {
       if (design.controlled_substances.items.length === 0) {
-        return '請至少添加一個管制藥品'
+        return t('aup.design.validation.controlledSubstancesRequired')
       }
       // 驗證每個管制藥品的必填字段
       for (let i = 0; i < design.controlled_substances.items.length; i++) {
         const item = design.controlled_substances.items[i]
         if (!item.drug_name || !item.drug_name.trim()) {
-          return `請填寫第 ${i + 1} 個管制藥品的藥品名稱`
+          return t('aup.design.validation.drugNameRequired', { index: i + 1 })
         }
         if (!item.approval_no || !item.approval_no.trim()) {
-          return `請填寫第 ${i + 1} 個管制藥品的核准編號`
+          return t('aup.design.validation.approvalNoRequired', { index: i + 1 })
         }
         if (!item.amount || !item.amount.trim()) {
-          return `請填寫第 ${i + 1} 個管制藥品的所需用量`
+          return t('aup.design.validation.drugAmountRequired', { index: i + 1 })
         }
         if (!item.authorized_person || !item.authorized_person.trim()) {
-          return `請填寫第 ${i + 1} 個管制藥品的管制藥品管理人`
+          return t('aup.design.validation.authorizedPersonRequired', { index: i + 1 })
         }
       }
     }
@@ -1121,38 +1072,7 @@ export function ProtocolEditPage() {
       }
     }
 
-    // Section 3 - 試驗物質與對照物質
-    const { items } = formData.working_content
-    if (items.use_test_item === null) {
-      return '請選擇是否投予「試驗物質」於動物'
-    }
 
-    // 如果選擇"是"，驗證試驗物質和對照物質的必填字段
-    if (items.use_test_item === true) {
-      // 驗證試驗物質
-      for (let i = 0; i < items.test_items.length; i++) {
-        const item = items.test_items[i]
-        if (!item.name || !item.name.trim()) {
-          return `請填寫第 ${i + 1} 個試驗物質的名稱`
-        }
-        // 如果選擇"否"（非無菌製備），必須填寫說明
-        if (!item.is_sterile && (!item.non_sterile_justification || !item.non_sterile_justification.trim())) {
-          return `請填寫第 ${i + 1} 個試驗物質的非無菌製備說明`
-        }
-      }
-
-      // 驗證對照物質
-      for (let i = 0; i < items.control_items.length; i++) {
-        const item = items.control_items[i]
-        if (!item.name || !item.name.trim()) {
-          return `請填寫第 ${i + 1} 個對照物質的名稱`
-        }
-        // 如果選擇"否"（非無菌製備），必須填寫說明
-        if (!item.is_sterile && (!item.non_sterile_justification || !item.non_sterile_justification.trim())) {
-          return `請填寫第 ${i + 1} 個對照物質的非無菌製備說明`
-        }
-      }
-    }
 
     // Section 7 - 實驗動物資料
     const { animals } = formData.working_content
@@ -1212,16 +1132,20 @@ export function ProtocolEditPage() {
     return null
   }
 
-  const handleSave = async () => {
+  const handleSave = async (isSubmit = false) => {
     // 驗證必填字段
-    const validationError = validateRequiredFields()
+    // 儲存草稿時只需要驗證研究名稱，提交時需驗證所有欄位
+    const validationError = isSubmit
+      ? validateRequiredFields()
+      : (!formData.title.trim() ? t('aup.basic.validation.titleRequired') : null)
+
     if (validationError) {
       toast({
-        title: '錯誤',
+        title: t('common.error'),
         description: validationError,
         variant: 'destructive',
       })
-      return
+      return false
     }
 
     setIsSaving(true)
@@ -1254,6 +1178,10 @@ export function ProtocolEditPage() {
       } else {
         await updateMutation.mutateAsync(data)
       }
+      return true
+    } catch (error) {
+      // 錯誤已在 mutation 的 onError 中處理
+      return false
     } finally {
       setIsSaving(false)
     }
@@ -1261,9 +1189,10 @@ export function ProtocolEditPage() {
 
   const handleSubmit = async () => {
     if (!id) return
-    await handleSave()
+    const isSaved = await handleSave(true)
+    if (!isSaved) return
 
-    if (confirm('確認要提交此計畫書進行審查嗎？提交後將無法直接修改')) {
+    if (confirm(t('aup.messages.confirmSubmit'))) {
       submitMutation.mutate()
     }
   }
@@ -1271,9 +1200,7 @@ export function ProtocolEditPage() {
   const updateWorkingContent = (section: keyof FormData['working_content'], path: string, value: any) => {
     setFormData((prev) => {
       const newContent = { ...prev.working_content }
-      // @ts-ignore
       const sectionData = { ...(newContent[section] as any) }
-
       if (path.includes('.')) {
         const parts = path.split('.')
         let current = sectionData
@@ -1313,7 +1240,7 @@ export function ProtocolEditPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleSave} disabled={isSaving}>
+          <Button variant="outline" onClick={() => handleSave()} disabled={isSaving}>
             {isSaving ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
@@ -1369,6 +1296,15 @@ export function ProtocolEditPage() {
                 {/* 1. GLP & Title */}
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
+                    <Label htmlFor="title">{t('aup.basic.studyTitle')} *</Label>
+                    <Input
+                      id="title"
+                      value={formData.title}
+                      onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                      placeholder={t('aup.basic.studyTitlePlaceholder')}
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label>{t('aup.basic.glpAttribute')} *</Label>
                     <div className="flex items-center space-x-2 pt-2">
                       <Checkbox
@@ -1378,15 +1314,6 @@ export function ProtocolEditPage() {
                       />
                       <Label htmlFor="is_glp">{t('aup.basic.glpCompliant')}</Label>
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="title">{t('aup.basic.studyTitle')} *</Label>
-                    <Input
-                      id="title"
-                      value={formData.title}
-                      onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                      placeholder={t('aup.basic.studyTitlePlaceholder')}
-                    />
                   </div>
                 </div>
 
@@ -1775,7 +1702,7 @@ export function ProtocolEditPage() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
-                  <Label>本計畫是否投予「試驗物質」於動物 *</Label>
+                  <Label>{t('aup.items.useTestItemLabel')} *</Label>
                   <Select
                     value={formData.working_content.items.use_test_item === null ? '' : (formData.working_content.items.use_test_item ? 'yes' : 'no')}
                     onValueChange={(value) => {
@@ -1789,25 +1716,25 @@ export function ProtocolEditPage() {
                     }}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="請選擇" />
+                      <SelectValue placeholder={t('common.pleaseSelect')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="no">否</SelectItem>
-                      <SelectItem value="yes">是</SelectItem>
+                      <SelectItem value="no">{t('common.no')}</SelectItem>
+                      <SelectItem value="yes">{t('common.yes')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 {formData.working_content.items.use_test_item === false && (
-                  <p className="text-muted-foreground italic">略</p>
+                  <p className="text-muted-foreground italic">{t('aup.items.skipped')}</p>
                 )}
 
                 {formData.working_content.items.use_test_item === true && (
                   <>
-                    {/* 試驗物質列表 */}
+                    {/* Test Items */}
                     <div className="space-y-4 border p-4 rounded-md">
                       <div className="flex justify-between items-center">
-                        <h3 className="font-semibold">試驗物質</h3>
+                        <h3 className="font-semibold">{t('aup.items.testItems')}</h3>
                         <Button
                           variant="outline"
                           size="sm"
@@ -1819,7 +1746,7 @@ export function ProtocolEditPage() {
                           }}
                         >
                           <Plus className="h-4 w-4 mr-1" />
-                          新增
+                          {t('aup.items.add')}
                         </Button>
                       </div>
                       {formData.working_content.items.test_items.map((item, index) => (
@@ -1838,7 +1765,7 @@ export function ProtocolEditPage() {
                           </Button>
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                              <Label>物質名稱 *</Label>
+                              <Label>{t('aup.items.itemName')} *</Label>
                               <Input
                                 value={item.name}
                                 onChange={(e) => {
@@ -1849,7 +1776,7 @@ export function ProtocolEditPage() {
                               />
                             </div>
                             <div className="space-y-2">
-                              <Label>劑型</Label>
+                              <Label>{t('aup.items.dosageForm')}</Label>
                               <Input
                                 value={item.form || ''}
                                 onChange={(e) => {
@@ -1857,12 +1784,12 @@ export function ProtocolEditPage() {
                                   newItems[index].form = e.target.value
                                   updateWorkingContent('items', 'test_items', newItems)
                                 }}
-                                placeholder="如：液體、粉末"
+                                placeholder={t('aup.items.dosageFormPlaceholder')}
                               />
                             </div>
                           </div>
                           <div className="space-y-2">
-                            <Label>用途</Label>
+                            <Label>{t('aup.items.purpose')}</Label>
                             <Input
                               value={item.purpose}
                               onChange={(e) => {
@@ -1873,7 +1800,7 @@ export function ProtocolEditPage() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label>保存環境</Label>
+                            <Label>{t('aup.items.storageConditions')}</Label>
                             <Input
                               value={item.storage_conditions || ''}
                               onChange={(e) => {
@@ -1881,11 +1808,11 @@ export function ProtocolEditPage() {
                                 newItems[index].storage_conditions = e.target.value
                                 updateWorkingContent('items', 'test_items', newItems)
                               }}
-                              placeholder="請填寫保存環境"
+                              placeholder={t('aup.items.storageConditionsPlaceholder')}
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label>本物質是否為無菌製備</Label>
+                            <Label>{t('aup.items.isSterile')}</Label>
                             <Select
                               value={item.is_sterile ? 'yes' : 'no'}
                               onValueChange={(value) => {
@@ -1900,16 +1827,16 @@ export function ProtocolEditPage() {
                               }}
                             >
                               <SelectTrigger>
-                                <SelectValue placeholder="請選擇" />
+                                <SelectValue placeholder={t('common.pleaseSelect')} />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="no">否</SelectItem>
-                                <SelectItem value="yes">是</SelectItem>
+                                <SelectItem value="no">{t('common.no')}</SelectItem>
+                                <SelectItem value="yes">{t('common.yes')}</SelectItem>
                               </SelectContent>
                             </Select>
                             {!item.is_sterile && (
                               <div className="space-y-2 mt-2">
-                                <Label>請說明 *</Label>
+                                <Label>{t('aup.items.nonSterileJustification')} *</Label>
                                 <Textarea
                                   value={item.non_sterile_justification || ''}
                                   onChange={(e) => {
@@ -1917,15 +1844,15 @@ export function ProtocolEditPage() {
                                     newItems[index].non_sterile_justification = e.target.value
                                     updateWorkingContent('items', 'test_items', newItems)
                                   }}
-                                  placeholder="請說明為何本物質非無菌製備"
+                                  placeholder={t('aup.items.nonSterilePlaceholder')}
                                   rows={3}
                                 />
                               </div>
                             )}
                           </div>
-                          {/* 照片上傳 */}
+                          {/* Photos Upload */}
                           <div className="space-y-2">
-                            <Label>照片</Label>
+                            <Label>{t('aup.items.photos')}</Label>
                             <FileUpload
                               value={item.photos || []}
                               onChange={(photos) => {
@@ -1937,17 +1864,17 @@ export function ProtocolEditPage() {
                               multiple={true}
                               maxSize={10}
                               maxFiles={10}
-                              placeholder="拖曳照片到此處，或點擊選擇照片"
+                              placeholder={t('aup.items.photosPlaceholder')}
                             />
                           </div>
                         </div>
                       ))}
                     </div>
 
-                    {/* 對照物質列表 */}
+                    {/* Control Items */}
                     <div className="space-y-4 border p-4 rounded-md">
                       <div className="flex justify-between items-center">
-                        <h3 className="font-semibold">對照物質</h3>
+                        <h3 className="font-semibold">{t('aup.items.controlItems')}</h3>
                         <Button
                           variant="outline"
                           size="sm"
@@ -1959,7 +1886,7 @@ export function ProtocolEditPage() {
                           }}
                         >
                           <Plus className="h-4 w-4 mr-1" />
-                          新增
+                          {t('aup.items.add')}
                         </Button>
                       </div>
                       {formData.working_content.items.control_items.map((item, index) => (
@@ -1978,7 +1905,7 @@ export function ProtocolEditPage() {
                           </Button>
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                              <Label>對照名稱 *</Label>
+                              <Label>{t('aup.items.controlName')} *</Label>
                               <Input
                                 value={item.name}
                                 onChange={(e) => {
@@ -1986,11 +1913,11 @@ export function ProtocolEditPage() {
                                   newControls[index].name = e.target.value
                                   updateWorkingContent('items', 'control_items', newControls)
                                 }}
-                                placeholder="若無對照請填寫 N/A"
+                                placeholder={t('aup.items.controlNamePlaceholder')}
                               />
                             </div>
                             <div className="space-y-2">
-                              <Label>用途</Label>
+                              <Label>{t('aup.items.purpose')}</Label>
                               <Input
                                 value={item.purpose}
                                 onChange={(e) => {
@@ -2002,7 +1929,7 @@ export function ProtocolEditPage() {
                             </div>
                           </div>
                           <div className="space-y-2">
-                            <Label>保存環境</Label>
+                            <Label>{t('aup.items.storageConditions')}</Label>
                             <Input
                               value={item.storage_conditions || ''}
                               onChange={(e) => {
@@ -2010,11 +1937,11 @@ export function ProtocolEditPage() {
                                 newControls[index].storage_conditions = e.target.value
                                 updateWorkingContent('items', 'control_items', newControls)
                               }}
-                              placeholder="請填寫保存環境"
+                              placeholder={t('aup.items.storageConditionsPlaceholder')}
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label>本物質是否為無菌製備</Label>
+                            <Label>{t('aup.items.isSterile')}</Label>
                             <Select
                               value={item.is_sterile ? 'yes' : 'no'}
                               onValueChange={(value) => {
@@ -2029,16 +1956,16 @@ export function ProtocolEditPage() {
                               }}
                             >
                               <SelectTrigger>
-                                <SelectValue placeholder="請選擇" />
+                                <SelectValue placeholder={t('common.pleaseSelect')} />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="no">否</SelectItem>
-                                <SelectItem value="yes">是</SelectItem>
+                                <SelectItem value="no">{t('common.no')}</SelectItem>
+                                <SelectItem value="yes">{t('common.yes')}</SelectItem>
                               </SelectContent>
                             </Select>
                             {!item.is_sterile && (
                               <div className="space-y-2 mt-2">
-                                <Label>請說明 *</Label>
+                                <Label>{t('aup.items.nonSterileJustification')} *</Label>
                                 <Textarea
                                   value={item.non_sterile_justification || ''}
                                   onChange={(e) => {
@@ -2046,15 +1973,15 @@ export function ProtocolEditPage() {
                                     newControls[index].non_sterile_justification = e.target.value
                                     updateWorkingContent('items', 'control_items', newControls)
                                   }}
-                                  placeholder="請說明為何本物質非無菌製備"
+                                  placeholder={t('aup.items.nonSterilePlaceholder')}
                                   rows={3}
                                 />
                               </div>
                             )}
                           </div>
-                          {/* 照片上傳 */}
+                          {/* Photos Upload */}
                           <div className="space-y-2">
-                            <Label>照片</Label>
+                            <Label>{t('aup.items.photos')}</Label>
                             <FileUpload
                               value={item.photos || []}
                               onChange={(photos) => {
@@ -2066,7 +1993,7 @@ export function ProtocolEditPage() {
                               multiple={true}
                               maxSize={10}
                               maxFiles={10}
-                              placeholder="拖曳照片到此處，或點擊選擇照片"
+                              placeholder={t('aup.items.photosPlaceholder')}
                             />
                           </div>
                         </div>
@@ -2087,13 +2014,13 @@ export function ProtocolEditPage() {
               <CardContent className="space-y-6">
                 {/* 4.1 標題 */}
                 <div className="space-y-2">
-                  <h3 className="text-lg font-semibold">4.1 請以實驗動物應用3Rs之精緻化原則，詳細說明實驗中所進行之動物試驗內容。使實驗動物照護及使用委員會委員了解動物試驗所有過程:</h3>
+                  <h3 className="text-lg font-semibold">{t('aup.design.title4_1')}</h3>
                 </div>
 
                 {/* 4.1.1 是否於麻醉下進行試驗 */}
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>4.1.1 是否於麻醉下進行試驗</Label>
+                    <Label>{t('aup.design.anesthesiaLabel')}</Label>
                     <Select
                       value={formData.working_content.design.anesthesia.is_under_anesthesia === null ? '' : (formData.working_content.design.anesthesia.is_under_anesthesia === true ? 'yes' : 'no')}
                       onValueChange={(value) => {
@@ -2107,11 +2034,11 @@ export function ProtocolEditPage() {
                       }}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="請選擇" />
+                        <SelectValue placeholder={t('common.pleaseSelect')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="no">否</SelectItem>
-                        <SelectItem value="yes">是</SelectItem>
+                        <SelectItem value="no">{t('common.no')}</SelectItem>
+                        <SelectItem value="yes">{t('common.yes')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -2119,7 +2046,7 @@ export function ProtocolEditPage() {
                   {formData.working_content.design.anesthesia.is_under_anesthesia === true && (
                     <div className="space-y-4 pl-6 border-l-2 border-slate-200">
                       <div className="space-y-2">
-                        <Label>請選擇麻醉類型 *</Label>
+                        <Label>{t('aup.design.selectAnesthesiaType')}</Label>
                         <Select
                           value={formData.working_content.design.anesthesia.anesthesia_type || ''}
                           onValueChange={(value) => {
@@ -2133,16 +2060,16 @@ export function ProtocolEditPage() {
                               // 如果是存活手術，自動設置手術種類為"存活手術"
                               updateWorkingContent('surgery', 'surgery_type', 'survival')
                               // 如果術前準備是"略"或為空，設置預設內容
-                              if (formData.working_content.surgery.preop_preparation === '略' || !formData.working_content.surgery.preop_preparation) {
-                                updateWorkingContent('surgery', 'preop_preparation', '1.實驗動物術前禁食至少12小時，不禁水。\n2.試驗豬隻經清洗擦乾後，以畜舒坦( Azeperonum 40 mg/mL)3-5 mg/kg和0.03-0.05 mg/kg阿托平(Atropine® 1 mg/mL)肌肉注射鎮靜。仔細觀察豬隻呼吸頻率。\n3.經20-30分鐘後，以4.4 mg/kg舒泰-50(Zoletil®-50)肌肉注射誘導麻醉\n4.經5-10分鐘後，將豬隻移至手術檯上，以趴姿進行氣管插管，接上氣體麻醉機，以2-3 L/min流速的氧氣混合0.5-2%氣體麻醉劑Isoflurane維持麻醉，隨時注意觀察豬隻麻醉深度。\n5.術前肌肉注射抗生素Cefazolin 15 mg/kg及止痛劑meloxicam 0.4 mg/kg\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行')
+                              if (formData.working_content.surgery.preop_preparation === '略' || formData.working_content.surgery.preop_preparation === t('common.na') || !formData.working_content.surgery.preop_preparation) {
+                                updateWorkingContent('surgery', 'preop_preparation', t('aup.design.templates.preop_preparation'))
                               }
                               // 如果手術內容說明是"略"或為空，設置預設內容
-                              if (formData.working_content.surgery.surgery_description === '略' || !formData.working_content.surgery.surgery_description) {
-                                updateWorkingContent('surgery', 'surgery_description', '請詳述手術流程，包含手術位置、手術方法、切創大小及縫合處理')
+                              if (formData.working_content.surgery.surgery_description === '略' || formData.working_content.surgery.surgery_description === t('common.na') || !formData.working_content.surgery.surgery_description) {
+                                updateWorkingContent('surgery', 'surgery_description', t('aup.design.templates.surgery_description'))
                               }
                               // 如果術中監控為空，設置預設內容
                               if (!formData.working_content.surgery.monitoring) {
-                                updateWorkingContent('surgery', 'monitoring', '手術進行中依試驗豬隻麻醉深度、呼吸頻率及手術需要，調整氧氣、笑氣流速及麻醉氣體濃度，同時注意保溫，接上生理監視器，監控記錄心跳、呼吸及體溫。\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行')
+                                updateWorkingContent('surgery', 'monitoring', t('aup.design.templates.monitoring'))
                               }
                               // 術後照護類型由用戶選擇，不自動設置
                               updateWorkingContent('surgery', 'aseptic_techniques', [])
@@ -2150,55 +2077,56 @@ export function ProtocolEditPage() {
                               // 如果是非存活手術，自動設置手術種類為"非存活手術"
                               updateWorkingContent('surgery', 'surgery_type', 'non_survival')
                               // 如果術前準備是"略"或為空，設置預設內容
-                              if (formData.working_content.surgery.preop_preparation === '略' || !formData.working_content.surgery.preop_preparation) {
-                                updateWorkingContent('surgery', 'preop_preparation', '1.實驗動物術前禁食至少12小時，不禁水。\n2.試驗豬隻經清洗擦乾後，以畜舒坦( Azeperonum 40 mg/mL)3-5 mg/kg和0.03-0.05 mg/kg阿托平(Atropine® 1 mg/mL)肌肉注射鎮靜。仔細觀察豬隻呼吸頻率。\n3.經20-30分鐘後，以4.4 mg/kg舒泰-50(Zoletil®-50)肌肉注射誘導麻醉\n4.經5-10分鐘後，將豬隻移至手術檯上，以趴姿進行氣管插管，接上氣體麻醉機，以2-3 L/min流速的氧氣混合0.5-2%氣體麻醉劑Isoflurane維持麻醉，隨時注意觀察豬隻麻醉深度。\n5.術前肌肉注射抗生素Cefazolin 15 mg/kg及止痛劑meloxicam 0.4 mg/kg\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行')
+                              if (formData.working_content.surgery.preop_preparation === '略' || formData.working_content.surgery.preop_preparation === t('common.na') || !formData.working_content.surgery.preop_preparation) {
+                                updateWorkingContent('surgery', 'preop_preparation', t('aup.design.templates.preop_preparation'))
                               }
                               // 如果手術內容說明是"略"或為空，設置預設內容
-                              if (formData.working_content.surgery.surgery_description === '略' || !formData.working_content.surgery.surgery_description) {
-                                updateWorkingContent('surgery', 'surgery_description', '請詳述手術流程，包含手術位置、手術方法、切創大小及縫合處理')
+                              if (formData.working_content.surgery.surgery_description === '略' || formData.working_content.surgery.surgery_description === t('common.na') || !formData.working_content.surgery.surgery_description) {
+                                updateWorkingContent('surgery', 'surgery_description', t('aup.design.templates.surgery_description'))
                               }
                               // 如果術中監控為空，設置預設內容
                               if (!formData.working_content.surgery.monitoring) {
-                                updateWorkingContent('surgery', 'monitoring', '手術進行中依試驗豬隻麻醉深度、呼吸頻率及手術需要，調整氧氣、笑氣流速及麻醉氣體濃度，同時注意保溫，接上生理監視器，監控記錄心跳、呼吸及體溫。\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行')
+                                updateWorkingContent('surgery', 'monitoring', t('aup.design.templates.monitoring'))
                               }
                               // 術後照護類型由用戶選擇，不自動設置
                               updateWorkingContent('surgery', 'aseptic_techniques', [])
                             } else if (value && value !== '') {
                               // 如果不是存活手術或非存活手術，自動填寫"略"
-                              updateWorkingContent('surgery', 'surgery_type', '略')
-                              updateWorkingContent('surgery', 'preop_preparation', '略')
-                              updateWorkingContent('surgery', 'surgery_description', '略')
-                              updateWorkingContent('surgery', 'monitoring', '略')
-                              updateWorkingContent('surgery', 'postop_expected_impact', '略')
+                              const naText = t('common.na')
+                              updateWorkingContent('surgery', 'surgery_type', naText)
+                              updateWorkingContent('surgery', 'preop_preparation', naText)
+                              updateWorkingContent('surgery', 'surgery_description', naText)
+                              updateWorkingContent('surgery', 'monitoring', naText)
+                              updateWorkingContent('surgery', 'postop_expected_impact', naText)
                               updateWorkingContent('surgery', 'multiple_surgeries', { used: false, number: 0, reason: '' })
-                              updateWorkingContent('surgery', 'postop_care', '略')
+                              updateWorkingContent('surgery', 'postop_care', naText)
                               updateWorkingContent('surgery', 'postop_care_type', undefined)
-                              updateWorkingContent('surgery', 'expected_end_point', '略')
+                              updateWorkingContent('surgery', 'expected_end_point', naText)
                               updateWorkingContent('surgery', 'drugs', [])
                               updateWorkingContent('surgery', 'aseptic_techniques', [])
                             }
                           }}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="請選擇" />
+                            <SelectValue placeholder={t('common.pleaseSelect')} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="survival_surgery">1. 存活手術（請填寫6. 手術計劃書）</SelectItem>
-                            <SelectItem value="non_survival_surgery">2. 非存活手術（請填寫6. 手術計劃書）</SelectItem>
-                            <SelectItem value="gas_only">3. 非侵入式試驗，僅使用氣體麻醉(Isoflurane 1-2%)誘導後再進行實驗( Isoflurane inhalation before experiment)</SelectItem>
-                            <SelectItem value="azeperonum_atropine">4. 使用畜舒坦( Azeperonum 40 mg/mL)3-5 mg/kg和0.03-0.05 mg/kg阿托平(Atropine® 1 mg/mL)肌肉注射鎮靜後，氣體麻醉(Isoflurane 1-2%)再進行實驗 (Using Azeperonum and Atropine IM with Isoflurane inhalation before experiment)</SelectItem>
-                            <SelectItem value="other">5. 其他</SelectItem>
+                            <SelectItem value="survival_surgery">{t('aup.design.anesthesiaTypes.survival')}</SelectItem>
+                            <SelectItem value="non_survival_surgery">{t('aup.design.anesthesiaTypes.non_survival')}</SelectItem>
+                            <SelectItem value="gas_only">{t('aup.design.anesthesiaTypes.gas_only')}</SelectItem>
+                            <SelectItem value="azeperonum_atropine">{t('aup.design.anesthesiaTypes.azeperonum_atropine')}</SelectItem>
+                            <SelectItem value="other">{t('aup.design.anesthesiaTypes.other')}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
 
                       {formData.working_content.design.anesthesia.anesthesia_type === 'other' && (
                         <div className="space-y-2">
-                          <Label>請說明 *</Label>
+                          <Label>{t('aup.design.explainOther')}</Label>
                           <Textarea
                             value={formData.working_content.design.anesthesia.other_description || ''}
                             onChange={(e) => updateWorkingContent('design', 'anesthesia.other_description', e.target.value)}
-                            placeholder="請說明其他麻醉方式"
+                            placeholder={t('aup.design.explainOtherPlaceholder')}
                             rows={3}
                           />
                         </div>
@@ -2211,12 +2139,12 @@ export function ProtocolEditPage() {
 
                 {/* 4.1.2 詳細敘述動物試驗內容及流程 */}
                 <div className="space-y-2">
-                  <Label>4.1.2 請詳細敘述動物試驗內容及流程 (Animal experiment procedures)、試驗投予物質 (experimental injections or inoculations) 、投予途徑及選擇該途徑之理由、採血 (blood withdrawals)、影像觀察 (CT, MRI, X-ray)、保定 (methods of restraint)、頻率 (frequency) *</Label>
-                  <p className="text-sm text-muted-foreground mb-2">手術相關內容請於項次6. 手術計畫書中說明 (surgical procedures fill in surgical plan)</p>
+                  <Label>{t('aup.design.proceduresLabel')}</Label>
+                  <p className="text-sm text-muted-foreground mb-2">{t('aup.design.proceduresNote')}</p>
                   <Textarea
                     value={formData.working_content.design.procedures}
                     onChange={(e) => updateWorkingContent('design', 'procedures', e.target.value)}
-                    placeholder="請詳細描述動物試驗內容及流程"
+                    placeholder={t('aup.design.proceduresPlaceholder')}
                     rows={8}
                   />
                 </div>
@@ -2226,17 +2154,17 @@ export function ProtocolEditPage() {
                 {/* 4.1.3 實驗動物等級評估 */}
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>4.1.3 實驗動物等級評估 *</Label>
+                    <Label>{t('aup.design.painCategoryLabel')}</Label>
                     <Select
                       value={formData.working_content.design.pain.category}
                       onValueChange={(val) => updateWorkingContent('design', 'pain.category', val)}
                     >
-                      <SelectTrigger><SelectValue placeholder="請選擇等級" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder={t('common.pleaseSelect')} /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="B">Category B 繁殖、觀察</SelectItem>
-                        <SelectItem value="C">Category C 動物進行不會造成痛苦或緊迫的操作。動物進行只造成短暫或輕微痛苦及緊迫的操作。這些操作不需使用到止痛藥。</SelectItem>
-                        <SelectItem value="D">Category D 動物進行可能產生疼痛或緊迫的操作，且會給予適當之止痛、麻醉或鎮定藥。</SelectItem>
-                        <SelectItem value="E">Category E 動物進行可能產生疼痛或緊迫的操作，且不會給予止痛、麻醉或鎮定藥。</SelectItem>
+                        <SelectItem value="B">{t('aup.design.painCategories.B')}</SelectItem>
+                        <SelectItem value="C">{t('aup.design.painCategories.C')}</SelectItem>
+                        <SelectItem value="D">{t('aup.design.painCategories.D')}</SelectItem>
+                        <SelectItem value="E">{t('aup.design.painCategories.E')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -2247,7 +2175,7 @@ export function ProtocolEditPage() {
                 {/* 4.1.4 是否限制實驗動物飲食或飲水 */}
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>4.1.4 是否限制實驗動物飲食或飲水</Label>
+                    <Label>{t('aup.design.restrictionsLabel')}</Label>
                     <Select
                       value={formData.working_content.design.restrictions.is_restricted === null ? '' : (formData.working_content.design.restrictions.is_restricted === true ? 'yes' : 'no')}
                       onValueChange={(value) => {
@@ -2261,11 +2189,11 @@ export function ProtocolEditPage() {
                       }}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="請選擇" />
+                        <SelectValue placeholder={t('common.pleaseSelect')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="no">否</SelectItem>
-                        <SelectItem value="yes">是</SelectItem>
+                        <SelectItem value="no">{t('common.no')}</SelectItem>
+                        <SelectItem value="yes">{t('common.yes')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -2273,7 +2201,7 @@ export function ProtocolEditPage() {
                   {formData.working_content.design.restrictions.is_restricted === true && (
                     <div className="space-y-4 pl-6 border-l-2 border-slate-200">
                       <div className="space-y-2">
-                        <Label>請選擇限制類型 *</Label>
+                        <Label>{t('aup.design.selectRestrictionType')}</Label>
                         <Select
                           value={formData.working_content.design.restrictions.restriction_type || ''}
                           onValueChange={(value) => {
@@ -2285,22 +2213,22 @@ export function ProtocolEditPage() {
                           }}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="請選擇" />
+                            <SelectValue placeholder={t('common.pleaseSelect')} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="fasting_before_anesthesia">麻醉前禁食</SelectItem>
-                            <SelectItem value="other">其他</SelectItem>
+                            <SelectItem value="fasting_before_anesthesia">{t('aup.design.restrictionTypes.fasting')}</SelectItem>
+                            <SelectItem value="other">{t('aup.design.restrictionTypes.other')}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
 
                       {formData.working_content.design.restrictions.restriction_type === 'other' && (
                         <div className="space-y-2">
-                          <Label>請說明 *</Label>
+                          <Label>{t('aup.design.explainRestrictionOther')}</Label>
                           <Textarea
                             value={formData.working_content.design.restrictions.other_description || ''}
                             onChange={(e) => updateWorkingContent('design', 'restrictions.other_description', e.target.value)}
-                            placeholder="請說明其他限制方式"
+                            placeholder={t('aup.design.explainRestrictionOtherPlaceholder')}
                             rows={3}
                           />
                         </div>
@@ -2314,23 +2242,23 @@ export function ProtocolEditPage() {
                 {/* 4.1.5 實驗預期結束之時機 */}
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-base font-semibold">4.1.5 實驗預期結束之時機，以及動物出現何種異常與痛苦症狀時，應提前終止試驗</Label>
+                    <Label className="text-base font-semibold">{t('aup.design.endpointsTitle')}</Label>
                   </div>
                   <div className="space-y-2">
-                    <Label>實驗終點：</Label>
+                    <Label>{t('aup.design.experimentalEndpoint')}</Label>
                     <Textarea
                       value={formData.working_content.design.endpoints.experimental_endpoint}
                       onChange={(e) => updateWorkingContent('design', 'endpoints.experimental_endpoint', e.target.value)}
-                      placeholder="請說明實驗預期結束之時機"
+                      placeholder={t('aup.design.experimentalEndpointPlaceholder')}
                       rows={3}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>人道終點：</Label>
+                    <Label>{t('aup.design.humaneEndpoint')}</Label>
                     <Textarea
                       value={formData.working_content.design.endpoints.humane_endpoint}
                       onChange={(e) => updateWorkingContent('design', 'endpoints.humane_endpoint', e.target.value)}
-                      placeholder="請說明人道終點"
+                      placeholder={t('aup.design.humaneEndpointPlaceholder')}
                       rows={4}
                     />
                   </div>
@@ -2341,7 +2269,7 @@ export function ProtocolEditPage() {
                 {/* 4.1.6 動物安樂死或最終處置方式 */}
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-base font-semibold">4.1.6 動物安樂死或最終處置方式</Label>
+                    <Label className="text-base font-semibold">{t('aup.design.finalHandlingTitle')}</Label>
                     <Select
                       value={formData.working_content.design.final_handling.method || ''}
                       onValueChange={(value) => {
@@ -2362,12 +2290,12 @@ export function ProtocolEditPage() {
                       }}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="請選擇處置方式" />
+                        <SelectValue placeholder={t('aup.design.selectHandlingMethod')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="euthanasia">安樂死</SelectItem>
-                        <SelectItem value="transfer">轉讓</SelectItem>
-                        <SelectItem value="other">其他</SelectItem>
+                        <SelectItem value="euthanasia">{t('aup.design.handlingMethods.euthanasia')}</SelectItem>
+                        <SelectItem value="transfer">{t('aup.design.handlingMethods.transfer')}</SelectItem>
+                        <SelectItem value="other">{t('aup.design.handlingMethods.other')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -2375,7 +2303,7 @@ export function ProtocolEditPage() {
                   {/* 1. 安樂死 */}
                   {formData.working_content.design.final_handling.method === 'euthanasia' && (
                     <div className="space-y-3 border-l-2 border-slate-200 pl-6">
-                      <Label className="text-sm font-medium">安樂死：</Label>
+                      <Label className="text-sm font-medium">{t('aup.design.euthanasiaLabel')}</Label>
                       <Select
                         value={formData.working_content.design.final_handling.euthanasia_type || ''}
                         onValueChange={(value) => {
@@ -2387,12 +2315,12 @@ export function ProtocolEditPage() {
                         }}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="請選擇" />
+                          <SelectValue placeholder={t('common.pleaseSelect')} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="kcl">麻醉下(Zoletil®-50 4.4 mg/kg)，以KCl 安樂死後放血。依照「AD-04-03-00試驗豬隻安樂死規範標準作業程序書」執行</SelectItem>
-                          <SelectItem value="electrocution">麻醉下(Zoletil®-50 4.4 mg/kg)，以220V電擊後放血。依照「AD-04-03-00試驗豬隻安樂死規範標準作業程序書」執行</SelectItem>
-                          <SelectItem value="other">其他：</SelectItem>
+                          <SelectItem value="kcl">{t('aup.design.euthanasiaTypes.kcl')}</SelectItem>
+                          <SelectItem value="electrocution">{t('aup.design.euthanasiaTypes.electrocution')}</SelectItem>
+                          <SelectItem value="other">{t('aup.design.euthanasiaTypes.other')}</SelectItem>
                         </SelectContent>
                       </Select>
                       {formData.working_content.design.final_handling.euthanasia_type === 'other' && (
@@ -2400,7 +2328,7 @@ export function ProtocolEditPage() {
                           <Textarea
                             value={formData.working_content.design.final_handling.euthanasia_other_description || ''}
                             onChange={(e) => updateWorkingContent('design', 'final_handling.euthanasia_other_description', e.target.value)}
-                            placeholder="請說明其他安樂死方式"
+                            placeholder={t('aup.design.euthanasiaOtherPlaceholder')}
                             rows={3}
                           />
                         </div>
@@ -2411,30 +2339,30 @@ export function ProtocolEditPage() {
                   {/* 2. 轉讓 */}
                   {formData.working_content.design.final_handling.method === 'transfer' && (
                     <div className="space-y-3 border-l-2 border-slate-200 pl-6">
-                      <Label className="text-sm font-medium">轉讓</Label>
+                      <Label className="text-sm font-medium">{t('aup.design.transferLabel')}</Label>
                       <div className="space-y-3">
                         <div className="space-y-2">
-                          <Label className="text-sm">接受者姓名：</Label>
+                          <Label className="text-sm">{t('aup.design.recipientName')}</Label>
                           <Input
                             value={formData.working_content.design.final_handling.transfer.recipient_name}
                             onChange={(e) => updateWorkingContent('design', 'final_handling.transfer.recipient_name', e.target.value)}
-                            placeholder="請填寫接受者姓名"
+                            placeholder={t('aup.design.recipientNamePlaceholder')}
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-sm">接受者單位：</Label>
+                          <Label className="text-sm">{t('aup.design.recipientOrg')}</Label>
                           <Input
                             value={formData.working_content.design.final_handling.transfer.recipient_org}
                             onChange={(e) => updateWorkingContent('design', 'final_handling.transfer.recipient_org', e.target.value)}
-                            placeholder="請填寫接受者單位"
+                            placeholder={t('aup.design.recipientOrgPlaceholder')}
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-sm">計畫名稱：</Label>
+                          <Label className="text-sm">{t('aup.design.projectName')}</Label>
                           <Input
                             value={formData.working_content.design.final_handling.transfer.project_name}
                             onChange={(e) => updateWorkingContent('design', 'final_handling.transfer.project_name', e.target.value)}
-                            placeholder="請填寫計畫名稱"
+                            placeholder={t('aup.design.projectNamePlaceholder')}
                           />
                         </div>
                       </div>
@@ -2444,11 +2372,11 @@ export function ProtocolEditPage() {
                   {/* 3. 其他 */}
                   {formData.working_content.design.final_handling.method === 'other' && (
                     <div className="space-y-3 border-l-2 border-slate-200 pl-6">
-                      <Label className="text-sm font-medium">其他：</Label>
+                      <Label className="text-sm font-medium">{t('aup.design.handlingMethods.other')}：</Label>
                       <Textarea
                         value={formData.working_content.design.final_handling.other_description || ''}
                         onChange={(e) => updateWorkingContent('design', 'final_handling.other_description', e.target.value)}
-                        placeholder="請說明其他處置方式"
+                        placeholder={t('aup.design.otherHandlingPlaceholder')}
                         rows={3}
                       />
                     </div>
@@ -2460,11 +2388,11 @@ export function ProtocolEditPage() {
                 {/* 4.2 動物屍體處理方法 */}
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-base font-semibold">4.2 動物屍體處理方法</Label>
+                    <Label className="text-base font-semibold">{t('aup.design.carcassDisposalLabel')}</Label>
                     <Textarea
                       value={formData.working_content.design.carcass_disposal.method}
                       onChange={(e) => updateWorkingContent('design', 'carcass_disposal.method', e.target.value)}
-                      placeholder="請說明動物屍體處理方法"
+                      placeholder={t('aup.design.carcassDisposalPlaceholder')}
                       rows={4}
                     />
                   </div>
@@ -2475,7 +2403,7 @@ export function ProtocolEditPage() {
                 {/* 4.3 是否使用非醫藥級化學藥品或其他物質 */}
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>4.3 是否使用非醫藥級化學藥品或其他物質</Label>
+                    <Label>{t('aup.design.nonPharmaLabel')}</Label>
                     <Select
                       value={formData.working_content.design.non_pharma_grade.used === null ? '' : (formData.working_content.design.non_pharma_grade.used === true ? 'yes' : 'no')}
                       onValueChange={(value) => {
@@ -2488,20 +2416,20 @@ export function ProtocolEditPage() {
                       }}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="請選擇" />
+                        <SelectValue placeholder={t('common.pleaseSelect')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="no">否</SelectItem>
-                        <SelectItem value="yes">是</SelectItem>
+                        <SelectItem value="no">{t('common.no')}</SelectItem>
+                        <SelectItem value="yes">{t('common.yes')}</SelectItem>
                       </SelectContent>
                     </Select>
                     {formData.working_content.design.non_pharma_grade.used === true && (
                       <div className="space-y-2 mt-2">
-                        <Label>請說明物質性質、安全性及使用之科學理由 *</Label>
+                        <Label>{t('aup.design.nonPharmaExplain')}</Label>
                         <Textarea
                           value={formData.working_content.design.non_pharma_grade.description}
                           onChange={(e) => updateWorkingContent('design', 'non_pharma_grade.description', e.target.value)}
-                          placeholder="請說明物質性質、安全性及使用之科學理由"
+                          placeholder={t('aup.design.nonPharmaExplainPlaceholder')}
                           rows={4}
                         />
                       </div>
@@ -2514,7 +2442,7 @@ export function ProtocolEditPage() {
                 {/* 4.4 是否使用危害性物質材料 */}
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>4.4 是否使用危害性物質材料</Label>
+                    <Label>{t('aup.design.hazardsLabel')}</Label>
                     <Select
                       value={formData.working_content.design.hazards.used === null ? '' : (formData.working_content.design.hazards.used === true ? 'yes' : 'no')}
                       onValueChange={(value) => {
@@ -2527,18 +2455,18 @@ export function ProtocolEditPage() {
                       }}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="請選擇" />
+                        <SelectValue placeholder={t('common.pleaseSelect')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="no">否</SelectItem>
-                        <SelectItem value="yes">是</SelectItem>
+                        <SelectItem value="no">{t('common.no')}</SelectItem>
+                        <SelectItem value="yes">{t('common.yes')}</SelectItem>
                       </SelectContent>
                     </Select>
                     {formData.working_content.design.hazards.used === true && (
                       <div className="space-y-4 mt-2 pl-6 border-l-2 border-slate-200">
                         <div className="space-y-3">
                           <div className="space-y-2">
-                            <Label className="text-sm font-medium">請選擇危害性物質類型：</Label>
+                            <Label className="text-sm font-medium">{t('aup.design.selectHazardType')}</Label>
                             <Select
                               value={formData.working_content.design.hazards.selected_type || ''}
                               onValueChange={(value) => {
@@ -2549,12 +2477,12 @@ export function ProtocolEditPage() {
                               }}
                             >
                               <SelectTrigger>
-                                <SelectValue placeholder="請選擇類型" />
+                                <SelectValue placeholder={t('aup.design.selectHazardTypePlaceholder')} />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="biological">1. 生物性材料</SelectItem>
-                                <SelectItem value="radioactive">2. 放射性</SelectItem>
-                                <SelectItem value="chemical">3. 危險性化學藥品</SelectItem>
+                                <SelectItem value="biological">{t('aup.design.hazardTypes.biological')}</SelectItem>
+                                <SelectItem value="radioactive">{t('aup.design.hazardTypes.radioactive')}</SelectItem>
+                                <SelectItem value="chemical">{t('aup.design.hazardTypes.chemical')}</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -2564,9 +2492,9 @@ export function ProtocolEditPage() {
                             <div className="space-y-3">
                               <div className="flex justify-between items-center">
                                 <Label className="text-sm font-medium">
-                                  {formData.working_content.design.hazards.selected_type === 'biological' && '1. 生物性材料'}
-                                  {formData.working_content.design.hazards.selected_type === 'radioactive' && '2. 放射性'}
-                                  {formData.working_content.design.hazards.selected_type === 'chemical' && '3. 危險性化學藥品'}
+                                  {formData.working_content.design.hazards.selected_type === 'biological' && t('aup.design.hazardTypes.biological')}
+                                  {formData.working_content.design.hazards.selected_type === 'radioactive' && t('aup.design.hazardTypes.radioactive')}
+                                  {formData.working_content.design.hazards.selected_type === 'chemical' && t('aup.design.hazardTypes.chemical')}
                                 </Label>
                                 <Button
                                   variant="outline"
@@ -2583,7 +2511,7 @@ export function ProtocolEditPage() {
                                   }}
                                 >
                                   <Plus className="h-4 w-4 mr-1" />
-                                  新增
+                                  {t('aup.items.add')}
                                 </Button>
                               </div>
                               {formData.working_content.design.hazards.materials
@@ -2606,7 +2534,7 @@ export function ProtocolEditPage() {
                                       </Button>
                                       <div className="grid grid-cols-2 gap-3">
                                         <Input
-                                          placeholder="名稱"
+                                          placeholder={t('aup.design.agentNamePlaceholder')}
                                           value={material.agent_name}
                                           onChange={(e) => {
                                             const materials = [...formData.working_content.design.hazards.materials]
@@ -2615,7 +2543,7 @@ export function ProtocolEditPage() {
                                           }}
                                         />
                                         <Input
-                                          placeholder="所需用量"
+                                          placeholder={t('aup.design.amountPlaceholder')}
                                           value={material.amount}
                                           onChange={(e) => {
                                             const materials = [...formData.working_content.design.hazards.materials]
@@ -2626,7 +2554,7 @@ export function ProtocolEditPage() {
                                       </div>
                                       {/* 照片上傳 */}
                                       <div className="space-y-2">
-                                        <Label className="text-sm">照片</Label>
+                                        <Label className="text-sm">{t('aup.items.photos')}</Label>
                                         <FileUpload
                                           value={material.photos || []}
                                           onChange={(photos) => {
@@ -2638,7 +2566,7 @@ export function ProtocolEditPage() {
                                           multiple={true}
                                           maxSize={10}
                                           maxFiles={10}
-                                          placeholder="拖曳照片到此處，或點擊選擇照片"
+                                          placeholder={t('aup.items.photosPlaceholder')}
                                         />
                                       </div>
                                     </div>
@@ -2660,39 +2588,39 @@ export function ProtocolEditPage() {
                     {/* 4.5 危害性物質及其廢棄物處理方式 */}
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label className="text-base font-semibold">4.5 危害性物質及其廢棄物處理方式（請附上主觀機關認可之證明文件）</Label>
+                        <Label className="text-base font-semibold">{t('aup.design.hazardsWasteLabel')}</Label>
                       </div>
 
                       {/* 4.5.1 施用方法、途徑與使用場所 */}
                       <div className="space-y-2">
-                        <Label>4.5.1 施用方法、途徑與使用場所</Label>
+                        <Label>{t('aup.design.operationLocationLabel')}</Label>
                         <Textarea
                           value={formData.working_content.design.hazards.operation_location_method}
                           onChange={(e) => updateWorkingContent('design', 'hazards.operation_location_method', e.target.value)}
-                          placeholder="請說明施用方法、途徑與使用場所"
+                          placeholder={t('aup.design.operationLocationPlaceholder')}
                           rows={4}
                         />
                       </div>
 
                       {/* 4.5.2 保護措施 */}
                       <div className="space-y-2">
-                        <Label>4.5.2 保護措施</Label>
-                        <p className="text-sm text-muted-foreground mb-2">針對試驗人員、實驗動物以及飼養環境所採行之保護措施:</p>
+                        <Label>{t('aup.design.protectionMeasuresLabel')}</Label>
+                        <p className="text-sm text-muted-foreground mb-2">{t('aup.design.protectionMeasuresSubtitle')}</p>
                         <Textarea
                           value={formData.working_content.design.hazards.protection_measures}
                           onChange={(e) => updateWorkingContent('design', 'hazards.protection_measures', e.target.value)}
-                          placeholder="請說明保護措施"
+                          placeholder={t('aup.design.protectionMeasuresPlaceholder')}
                           rows={4}
                         />
                       </div>
 
                       {/* 4.5.3 實驗廢棄物與屍體之處理方式 */}
                       <div className="space-y-2">
-                        <Label>4.5.3 實驗廢棄物與屍體之處理方式</Label>
+                        <Label>{t('aup.design.wasteDisposalLabel')}</Label>
                         <Textarea
                           value={formData.working_content.design.hazards.waste_and_carcass_disposal}
                           onChange={(e) => updateWorkingContent('design', 'hazards.waste_and_carcass_disposal', e.target.value)}
-                          placeholder="請說明實驗廢棄物與屍體之處理方式"
+                          placeholder={t('aup.design.wasteDisposalPlaceholder')}
                           rows={4}
                         />
                       </div>
@@ -2703,7 +2631,7 @@ export function ProtocolEditPage() {
                     {/* 4.6 是否使用管制藥品 */}
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label>4.6 是否使用管制藥品</Label>
+                        <Label>{t('aup.design.controlledSubstancesLabel.section4_6')}</Label>
                         <Select
                           value={formData.working_content.design.controlled_substances.used === null ? '' : (formData.working_content.design.controlled_substances.used === true ? 'yes' : 'no')}
                           onValueChange={(value) => {
@@ -2716,11 +2644,11 @@ export function ProtocolEditPage() {
                           }}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="請選擇" />
+                            <SelectValue placeholder={t('common.pleaseSelect')} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="no">否</SelectItem>
-                            <SelectItem value="yes">是</SelectItem>
+                            <SelectItem value="no">{t('common.no')}</SelectItem>
+                            <SelectItem value="yes">{t('common.yes')}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -2728,7 +2656,7 @@ export function ProtocolEditPage() {
                       {formData.working_content.design.controlled_substances.used === true && (
                         <div className="space-y-4 pl-6 border-l-2 border-slate-200">
                           <div className="flex justify-between items-center">
-                            <Label className="text-sm font-medium">管制藥品列表</Label>
+                            <Label className="text-sm font-medium">{t('aup.design.controlledSubstancesList')}</Label>
                             <Button
                               variant="outline"
                               size="sm"
@@ -2744,7 +2672,7 @@ export function ProtocolEditPage() {
                               }}
                             >
                               <Plus className="h-4 w-4 mr-1" />
-                              新增
+                              {t('aup.items.add')}
                             </Button>
                           </div>
                           {formData.working_content.design.controlled_substances.items.map((item, index) => (
@@ -2763,7 +2691,7 @@ export function ProtocolEditPage() {
                               </Button>
                               <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-2">
-                                  <Label className="text-sm">藥品名稱 *</Label>
+                                  <Label className="text-sm">{t('aup.design.drugNameLabel')}</Label>
                                   <Input
                                     value={item.drug_name}
                                     onChange={(e) => {
@@ -2771,11 +2699,11 @@ export function ProtocolEditPage() {
                                       items[index].drug_name = e.target.value
                                       updateWorkingContent('design', 'controlled_substances.items', items)
                                     }}
-                                    placeholder="請填寫藥品名稱"
+                                    placeholder={t('aup.design.drugNamePlaceholder')}
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <Label className="text-sm">核准編號 *</Label>
+                                  <Label className="text-sm">{t('aup.design.approvalNoLabel')}</Label>
                                   <Input
                                     value={item.approval_no}
                                     onChange={(e) => {
@@ -2783,11 +2711,11 @@ export function ProtocolEditPage() {
                                       items[index].approval_no = e.target.value
                                       updateWorkingContent('design', 'controlled_substances.items', items)
                                     }}
-                                    placeholder="請填寫核准編號"
+                                    placeholder={t('aup.design.approvalNoPlaceholder')}
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <Label className="text-sm">所需用量 *</Label>
+                                  <Label className="text-sm">{t('aup.design.drugAmountLabel')}</Label>
                                   <Input
                                     value={item.amount}
                                     onChange={(e) => {
@@ -2795,11 +2723,11 @@ export function ProtocolEditPage() {
                                       items[index].amount = e.target.value
                                       updateWorkingContent('design', 'controlled_substances.items', items)
                                     }}
-                                    placeholder="請填寫所需用量"
+                                    placeholder={t('aup.design.drugAmountPlaceholder')}
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <Label className="text-sm">管制藥品管理人 *</Label>
+                                  <Label className="text-sm">{t('aup.design.authorizedPersonLabel')}</Label>
                                   <Input
                                     value={item.authorized_person}
                                     onChange={(e) => {
@@ -2807,13 +2735,13 @@ export function ProtocolEditPage() {
                                       items[index].authorized_person = e.target.value
                                       updateWorkingContent('design', 'controlled_substances.items', items)
                                     }}
-                                    placeholder="請填寫管制藥品管理人"
+                                    placeholder={t('aup.design.authorizedPersonPlaceholder')}
                                   />
                                 </div>
                               </div>
                               {/* 照片上傳 */}
                               <div className="space-y-2">
-                                <Label className="text-sm">照片</Label>
+                                <Label className="text-sm">{t('aup.items.photos')}</Label>
                                 <FileUpload
                                   value={item.photos || []}
                                   onChange={(photos) => {
@@ -2825,7 +2753,7 @@ export function ProtocolEditPage() {
                                   multiple={true}
                                   maxSize={10}
                                   maxFiles={10}
-                                  placeholder="拖曳照片到此處，或點擊選擇照片"
+                                  placeholder={t('aup.items.photosPlaceholder')}
                                 />
                               </div>
                             </div>
@@ -2844,7 +2772,7 @@ export function ProtocolEditPage() {
                     {/* 4.5 是否使用管制藥品 */}
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label>4.5 是否使用管制藥品</Label>
+                        <Label>{t('aup.design.controlledSubstancesLabel.section4_5')}</Label>
                         <Select
                           value={formData.working_content.design.controlled_substances.used === null ? '' : (formData.working_content.design.controlled_substances.used === true ? 'yes' : 'no')}
                           onValueChange={(value) => {
@@ -2857,11 +2785,11 @@ export function ProtocolEditPage() {
                           }}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="請選擇" />
+                            <SelectValue placeholder={t('common.pleaseSelect')} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="no">否</SelectItem>
-                            <SelectItem value="yes">是</SelectItem>
+                            <SelectItem value="no">{t('common.no')}</SelectItem>
+                            <SelectItem value="yes">{t('common.yes')}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -2869,7 +2797,7 @@ export function ProtocolEditPage() {
                       {formData.working_content.design.controlled_substances.used === true && (
                         <div className="space-y-4 pl-6 border-l-2 border-slate-200">
                           <div className="flex justify-between items-center">
-                            <Label className="text-sm font-medium">管制藥品列表</Label>
+                            <Label className="text-sm font-medium">{t('aup.design.controlledSubstancesList')}</Label>
                             <Button
                               variant="outline"
                               size="sm"
@@ -2885,7 +2813,7 @@ export function ProtocolEditPage() {
                               }}
                             >
                               <Plus className="h-4 w-4 mr-1" />
-                              新增
+                              {t('aup.items.add')}
                             </Button>
                           </div>
                           {formData.working_content.design.controlled_substances.items.map((item, index) => (
@@ -2904,7 +2832,7 @@ export function ProtocolEditPage() {
                               </Button>
                               <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-2">
-                                  <Label className="text-sm">藥品名稱 *</Label>
+                                  <Label className="text-sm">{t('aup.design.drugNameLabel')}</Label>
                                   <Input
                                     value={item.drug_name}
                                     onChange={(e) => {
@@ -2912,11 +2840,11 @@ export function ProtocolEditPage() {
                                       items[index].drug_name = e.target.value
                                       updateWorkingContent('design', 'controlled_substances.items', items)
                                     }}
-                                    placeholder="請填寫藥品名稱"
+                                    placeholder={t('aup.design.drugNamePlaceholder')}
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <Label className="text-sm">核准編號 *</Label>
+                                  <Label className="text-sm">{t('aup.design.approvalNoLabel')}</Label>
                                   <Input
                                     value={item.approval_no}
                                     onChange={(e) => {
@@ -2924,11 +2852,11 @@ export function ProtocolEditPage() {
                                       items[index].approval_no = e.target.value
                                       updateWorkingContent('design', 'controlled_substances.items', items)
                                     }}
-                                    placeholder="請填寫核准編號"
+                                    placeholder={t('aup.design.approvalNoPlaceholder')}
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <Label className="text-sm">所需用量 *</Label>
+                                  <Label className="text-sm">{t('aup.design.drugAmountLabel')}</Label>
                                   <Input
                                     value={item.amount}
                                     onChange={(e) => {
@@ -2936,11 +2864,11 @@ export function ProtocolEditPage() {
                                       items[index].amount = e.target.value
                                       updateWorkingContent('design', 'controlled_substances.items', items)
                                     }}
-                                    placeholder="請填寫所需用量"
+                                    placeholder={t('aup.design.drugAmountPlaceholder')}
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <Label className="text-sm">管制藥品管理人 *</Label>
+                                  <Label className="text-sm">{t('aup.design.authorizedPersonLabel')}</Label>
                                   <Input
                                     value={item.authorized_person}
                                     onChange={(e) => {
@@ -2948,13 +2876,13 @@ export function ProtocolEditPage() {
                                       items[index].authorized_person = e.target.value
                                       updateWorkingContent('design', 'controlled_substances.items', items)
                                     }}
-                                    placeholder="請填寫管制藥品管理人"
+                                    placeholder={t('aup.design.authorizedPersonPlaceholder')}
                                   />
                                 </div>
                               </div>
                               {/* 照片上傳 */}
                               <div className="space-y-2">
-                                <Label className="text-sm">照片</Label>
+                                <Label className="text-sm">{t('aup.items.photos')}</Label>
                                 <FileUpload
                                   value={item.photos || []}
                                   onChange={(photos) => {
@@ -2966,7 +2894,7 @@ export function ProtocolEditPage() {
                                   multiple={true}
                                   maxSize={10}
                                   maxFiles={10}
-                                  placeholder="拖曳照片到此處，或點擊選擇照片"
+                                  placeholder={t('aup.items.photosPlaceholder')}
                                 />
                               </div>
                             </div>
@@ -2988,17 +2916,17 @@ export function ProtocolEditPage() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
-                  <Label>相關規範說明</Label>
+                  <Label>{t('aup.guidelines.contentLabel')}</Label>
                   <Textarea
                     value={formData.working_content.guidelines.content}
                     onChange={(e) => updateWorkingContent('guidelines', 'content', e.target.value)}
-                    placeholder="例如：本計畫遵循動物保護法及實驗動物照護及使用指引"
+                    placeholder={t('aup.guidelines.contentPlaceholder')}
                     rows={5}
                   />
                 </div>
                 <div className="space-y-4 border p-4 rounded-md">
                   <div className="flex justify-between items-center">
-                    <h3 className="font-semibold">參考文獻列表</h3>
+                    <h3 className="font-semibold">{t('aup.guidelines.referencesTitle')}</h3>
                     <Button
                       variant="outline"
                       size="sm"
@@ -3007,7 +2935,7 @@ export function ProtocolEditPage() {
                         updateWorkingContent('guidelines', 'references', newRefs)
                       }}
                     >
-                      新增文獻
+                      {t('aup.guidelines.addReference')}
                     </Button>
                   </div>
                   {formData.working_content.guidelines.references.map((ref, index) => (
@@ -3015,7 +2943,7 @@ export function ProtocolEditPage() {
                       <div className="flex gap-2 items-start">
                         <div className="grid gap-2 flex-1">
                           <Input
-                            placeholder="文獻引用 (Citation)"
+                            placeholder={t('aup.guidelines.citationPlaceholder')}
                             value={ref.citation}
                             onChange={(e) => {
                               const newRefs = [...formData.working_content.guidelines.references]
@@ -3024,7 +2952,7 @@ export function ProtocolEditPage() {
                             }}
                           />
                           <Input
-                            placeholder="URL (Optional)"
+                            placeholder={t('aup.guidelines.urlPlaceholder')}
                             value={ref.url || ''}
                             onChange={(e) => {
                               const newRefs = [...formData.working_content.guidelines.references]
@@ -3070,53 +2998,53 @@ export function ProtocolEditPage() {
                     return (
                       <div className="space-y-4">
                         <div className="space-y-2">
-                          <Label>6.1 手術種類</Label>
-                          <Input value="略" disabled />
+                          <Label>{t('aup.surgery.labels.surgeryType')}</Label>
+                          <Input value={t('common.na')} disabled />
                         </div>
                         <div className="space-y-2">
-                          <Label>6.2 術前準備</Label>
-                          <Textarea value="略" disabled rows={3} />
+                          <Label>{t('aup.surgery.labels.preopPreparation')}</Label>
+                          <Textarea value={t('common.na')} disabled rows={3} />
                         </div>
                         <div className="space-y-2">
-                          <Label>6.3 無菌措施 (Aseptic Techniques)</Label>
-                          <Input value="略" disabled />
+                          <Label>{t('aup.surgery.labels.asepticTechniques')}</Label>
+                          <Input value={t('common.na')} disabled />
                         </div>
                         <div className="space-y-2">
-                          <Label>6.4 手術內容說明</Label>
-                          <Textarea value="略" disabled rows={5} />
+                          <Label>{t('aup.surgery.labels.surgeryDescription')}</Label>
+                          <Textarea value={t('common.na')} disabled rows={5} />
                         </div>
                         <div className="space-y-2">
-                          <Label>6.5 術中監控</Label>
-                          <Textarea value="略" disabled rows={5} />
+                          <Label>{t('aup.surgery.labels.monitoring')}</Label>
+                          <Textarea value={t('common.na')} disabled rows={5} />
                         </div>
                         <div className="space-y-2">
-                          <Label>6.6 存活手術，請說明預期術後可能對實驗動物造成之影響:</Label>
-                          <Textarea value="略" disabled rows={4} />
+                          <Label>{t('aup.surgery.labels.expectedImpact')}</Label>
+                          <Textarea value={t('common.na')} disabled rows={4} />
                         </div>
                         <div className="space-y-2">
-                          <Label>6.7 動物是否會接受一次以上的手術，若有，則寫出數量及原因:</Label>
-                          <Input value="略" disabled />
+                          <Label>{t('aup.surgery.labels.multipleSurgeries')}</Label>
+                          <Input value={t('common.na')} disabled />
                         </div>
                         <div className="space-y-2">
-                          <Label>6.8 請說明動物術後照護及止痛給藥方法:</Label>
+                          <Label>{t('aup.surgery.labels.postopCare')}</Label>
                           <div className="space-y-4">
                             <div className="space-y-2">
-                              <Label>手術類型</Label>
-                              <Input value="略" disabled />
+                              <Label>{t('aup.surgery.labels.postopCareType')}</Label>
+                              <Input value={t('common.na')} disabled />
                             </div>
                             <div className="space-y-2">
-                              <Label>詳細內容</Label>
-                              <Textarea value="略" disabled rows={5} />
+                              <Label>{t('aup.surgery.labels.postopCareDetail')}</Label>
+                              <Textarea value={t('common.na')} disabled rows={5} />
                             </div>
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label>6.9 請說明實驗預期結束之時機(Please specify expected experimental end point):</Label>
-                          <Textarea value="略" disabled rows={4} />
+                          <Label>{t('aup.surgery.labels.expectedEndPoint')}</Label>
+                          <Textarea value={t('common.na')} disabled rows={4} />
                         </div>
                         <div className="space-y-2">
-                          <Label>6.10 手術用藥資訊，投與麻醉前導、鎮靜、止痛或其他藥物資訊:</Label>
-                          <Input value="略" disabled />
+                          <Label>{t('aup.surgery.labels.drugInfo')}</Label>
+                          <Input value={t('common.na')} disabled />
                         </div>
                       </div>
                     )
@@ -3126,33 +3054,33 @@ export function ProtocolEditPage() {
                   return (
                     <>
                       <div className="space-y-2">
-                        <Label>6.1 手術種類 *</Label>
+                        <Label>{t('aup.surgery.labels.surgeryType')} *</Label>
                         <Input
-                          value={formData.working_content.surgery.surgery_type === 'survival' ? '存活手術' :
-                            formData.working_content.surgery.surgery_type === 'non_survival' ? '非存活手術' :
+                          value={formData.working_content.surgery.surgery_type === 'survival' ? t('aup.surgery.types.survival') :
+                            formData.working_content.surgery.surgery_type === 'non_survival' ? t('aup.surgery.types.non_survival') :
                               formData.working_content.surgery.surgery_type || ''}
                           disabled
                           className="bg-slate-50"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>6.2 術前準備 *</Label>
+                        <Label>{t('aup.surgery.labels.preopPreparation')} *</Label>
                         <Textarea
                           value={formData.working_content.surgery.preop_preparation}
                           onChange={(e) => updateWorkingContent('surgery', 'preop_preparation', e.target.value)}
-                          placeholder="說明禁食禁水時間、備皮、消毒等"
+                          placeholder={t('aup.surgery.placeholders.preopPreparation')}
                           rows={8}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>6.3 無菌措施 (Aseptic Techniques) *</Label>
+                        <Label>{t('aup.surgery.labels.asepticTechniques')} *</Label>
                         <div className="space-y-2">
                           {[
-                            { value: 'surgical_site_disinfection', label: '動物術部消毒(Surgical site disinfection)' },
-                            { value: 'instrument_disinfection', label: '器械消毒(Instrument disinfection)' },
-                            { value: 'sterilized_gowns_gloves', label: '無菌手術衣及手套(Sterilizd surgical gowns and gloves)' },
-                            { value: 'sterilized_drapes', label: '無菌手術覆布Sterilized surgical drapes' },
-                            { value: 'surgical_hand_disinfection', label: '術者刷手Surgical hand disinfection' }
+                            { value: 'surgical_site_disinfection', label: t('aup.surgery.asepticTechniques.surgical_site_disinfection') },
+                            { value: 'instrument_disinfection', label: t('aup.surgery.asepticTechniques.instrument_disinfection') },
+                            { value: 'sterilized_gowns_gloves', label: t('aup.surgery.asepticTechniques.sterilized_gowns_gloves') },
+                            { value: 'sterilized_drapes', label: t('aup.surgery.asepticTechniques.sterilized_drapes') },
+                            { value: 'surgical_hand_disinfection', label: t('aup.surgery.asepticTechniques.surgical_hand_disinfection') }
                           ].map(item => (
                             <div key={item.value} className="flex items-center space-x-2">
                               <Checkbox
@@ -3172,34 +3100,34 @@ export function ProtocolEditPage() {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label>6.4 手術內容說明 *</Label>
+                        <Label>{t('aup.surgery.labels.surgeryDescription')} *</Label>
                         <Textarea
                           value={formData.working_content.surgery.surgery_description}
                           onChange={(e) => updateWorkingContent('surgery', 'surgery_description', e.target.value)}
-                          placeholder="請詳述手術流程，包含手術位置、手術方法、切創大小及縫合處理"
+                          placeholder={t('aup.surgery.placeholders.surgeryDescription')}
                           rows={5}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>6.5 術中監控 *</Label>
+                        <Label>{t('aup.surgery.labels.monitoring')} *</Label>
                         <Textarea
                           value={formData.working_content.surgery.monitoring}
                           onChange={(e) => updateWorkingContent('surgery', 'monitoring', e.target.value)}
-                          placeholder="手術進行中依試驗豬隻麻醉深度、呼吸頻率及手術需要，調整氧氣、笑氣流速及麻醉氣體濃度，同時注意保溫，接上生理監視器，監控記錄心跳、呼吸及體溫。依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行"
+                          placeholder={t('aup.surgery.placeholders.monitoring')}
                           rows={5}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>6.6 存活手術，請說明預期術後可能對實驗動物造成之影響:</Label>
+                        <Label>{t('aup.surgery.labels.expectedImpact')}</Label>
                         <Textarea
                           value={formData.working_content.surgery.postop_expected_impact}
                           onChange={(e) => updateWorkingContent('surgery', 'postop_expected_impact', e.target.value)}
-                          placeholder="請說明預期術後可能對實驗動物造成之影響"
+                          placeholder={t('aup.surgery.labels.expectedImpact')}
                           rows={4}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>6.7 動物是否會接受一次以上的手術，若有，則寫出數量及原因:</Label>
+                        <Label>{t('aup.surgery.labels.multipleSurgeries')}</Label>
                         <div className="space-y-4">
                           <div className="flex items-center space-x-2">
                             <Checkbox
@@ -3213,25 +3141,25 @@ export function ProtocolEditPage() {
                                 }
                               }}
                             />
-                            <Label htmlFor="multiple_surgeries" className="font-normal cursor-pointer">是</Label>
+                            <Label htmlFor="multiple_surgeries" className="font-normal cursor-pointer">{t('common.yes')}</Label>
                           </div>
                           {formData.working_content.surgery.multiple_surgeries.used && (
                             <div className="space-y-4 pl-6 border-l-2 border-slate-200">
                               <div className="space-y-2">
-                                <Label>數量 *</Label>
+                                <Label>{t('aup.items.amount')} *</Label>
                                 <Input
                                   type="number"
                                   value={formData.working_content.surgery.multiple_surgeries.number || ''}
                                   onChange={(e) => updateWorkingContent('surgery', 'multiple_surgeries.number', parseInt(e.target.value) || 0)}
-                                  placeholder="請輸入手術次數"
+                                  placeholder={t('aup.items.amount')}
                                 />
                               </div>
                               <div className="space-y-2">
-                                <Label>原因 *</Label>
+                                <Label>{t('aup.items.reason')} *</Label>
                                 <Textarea
                                   value={formData.working_content.surgery.multiple_surgeries.reason}
                                   onChange={(e) => updateWorkingContent('surgery', 'multiple_surgeries.reason', e.target.value)}
-                                  placeholder="請說明原因"
+                                  placeholder={t('aup.items.reason')}
                                   rows={3}
                                 />
                               </div>
@@ -3240,52 +3168,52 @@ export function ProtocolEditPage() {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label>6.8 請說明動物術後照護及止痛給藥方法: *</Label>
+                        <Label>{t('aup.surgery.labels.postopCare')} *</Label>
                         <div className="space-y-4">
                           <div className="space-y-2">
-                            <Label>手術類型 *</Label>
+                            <Label>{t('aup.surgery.labels.postopCareType')} *</Label>
                             <Select
                               value={formData.working_content.surgery.postop_care_type || ''}
                               onValueChange={(value) => {
                                 updateWorkingContent('surgery', 'postop_care_type', value as 'orthopedic' | 'non_orthopedic')
                                 // 根據選擇自動設置對應的預設內容
                                 if (value === 'orthopedic') {
-                                  updateWorkingContent('surgery', 'postop_care', '1.術後每日評估豬隻健康狀態，依術後狀況進行傷口護理。\n\n2.術後7日內每日進行疼痛評估依豬隻狀況並依照不同手術給予止痛藥及抗生素\n骨科手術\n止痛藥\nketoprofen 1-3 mg/kg IM SID (3天)\nmeloxicam 0.1-0.4 mg/kg PO SID (4-14天或長期給予)\n抗生素\ncefazolin 15 mg/kg IM BID (1-7天)\ncephalexin 30 mg/kg PO BID (8-14天或長期給予)\n\n3.若動物發生異常情形，則依獸醫師指示處理。\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行')
+                                  updateWorkingContent('surgery', 'postop_care', t('aup.surgery.postOpTemplates.orthopedic'))
                                 } else if (value === 'non_orthopedic') {
-                                  updateWorkingContent('surgery', 'postop_care', '1.術後每日評估豬隻健康狀態，依術後狀況進行傷口護理。\n\n2.術後7日內每日進行疼痛評估依豬隻狀況並依照不同手術給予止痛藥及抗生素\n非骨科手術\n止痛藥\nmeloxicam 0.1-0.4 mg/kg IM SID (3天)\nmeloxicam 0.1-0.4 mg/kg PO SID (4-14天或長期給予)\n抗生素\npencillin 10000 u/kg IM SID (1-7天)\namoxicillin 20 mg/kg PO BID (8-14天或長期給予)\n\n3.若動物發生異常情形，則依獸醫師指示處理。\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行')
+                                  updateWorkingContent('surgery', 'postop_care', t('aup.surgery.postOpTemplates.non_orthopedic'))
                                 }
                               }}
                             >
-                              <SelectTrigger><SelectValue placeholder="請選擇手術類型" /></SelectTrigger>
+                              <SelectTrigger><SelectValue placeholder={t('aup.surgery.labels.postopCareType')} /></SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="orthopedic">骨科手術</SelectItem>
-                                <SelectItem value="non_orthopedic">非骨科手術</SelectItem>
+                                <SelectItem value="orthopedic">{t('aup.surgery.postOpTypes.orthopedic')}</SelectItem>
+                                <SelectItem value="non_orthopedic">{t('aup.surgery.postOpTypes.non_orthopedic')}</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
                           <div className="space-y-2">
-                            <Label>詳細內容 *</Label>
+                            <Label>{t('aup.surgery.labels.postopCareDetail')} *</Label>
                             <Textarea
                               value={formData.working_content.surgery.postop_care}
                               onChange={(e) => updateWorkingContent('surgery', 'postop_care', e.target.value)}
-                              placeholder="請說明動物術後照護及止痛給藥方法"
+                              placeholder={t('aup.surgery.placeholders.postopCare')}
                               rows={15}
                             />
                           </div>
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label>6.9 請說明實驗預期結束之時機(Please specify expected experimental end point): *</Label>
+                        <Label>{t('aup.surgery.labels.expectedEndPoint')} *</Label>
                         <Textarea
                           value={formData.working_content.surgery.expected_end_point}
                           onChange={(e) => updateWorkingContent('surgery', 'expected_end_point', e.target.value)}
-                          placeholder="請說明實驗預期結束之時機"
+                          placeholder={t('aup.surgery.placeholders.expectedEndPoint')}
                           rows={4}
                         />
                       </div>
                       <div className="space-y-4">
                         <div className="flex justify-between items-center">
-                          <Label>6.10 手術用藥資訊，投與麻醉前導、鎮靜、止痛或其他藥物資訊 *</Label>
+                          <Label>{t('aup.surgery.labels.drugInfo')} *</Label>
                           <Button
                             type="button"
                             variant="outline"
@@ -3302,7 +3230,7 @@ export function ProtocolEditPage() {
                               updateWorkingContent('surgery', 'drugs', newDrugs)
                             }}
                           >
-                            + 新增
+                            + {t('aup.items.add')}
                           </Button>
                         </div>
                         <div className="border rounded-md overflow-hidden">
@@ -3310,12 +3238,12 @@ export function ProtocolEditPage() {
                             <table className="w-full border-collapse">
                               <thead>
                                 <tr className="bg-slate-100">
-                                  <th className="border p-2 text-left text-sm font-semibold">藥品名稱</th>
-                                  <th className="border p-2 text-left text-sm font-semibold">劑量</th>
-                                  <th className="border p-2 text-left text-sm font-semibold">投與途徑</th>
-                                  <th className="border p-2 text-left text-sm font-semibold">頻率</th>
-                                  <th className="border p-2 text-left text-sm font-semibold">給藥目的</th>
-                                  <th className="border p-2 text-center text-sm font-semibold w-16">操作</th>
+                                  <th className="border p-2 text-left text-sm font-semibold">{t('aup.surgery.drugs.headers.name')}</th>
+                                  <th className="border p-2 text-left text-sm font-semibold">{t('aup.surgery.drugs.headers.dose')}</th>
+                                  <th className="border p-2 text-left text-sm font-semibold">{t('aup.surgery.drugs.headers.route')}</th>
+                                  <th className="border p-2 text-left text-sm font-semibold">{t('aup.surgery.drugs.headers.frequency')}</th>
+                                  <th className="border p-2 text-left text-sm font-semibold">{t('aup.surgery.drugs.headers.purpose')}</th>
+                                  <th className="border p-2 text-center text-sm font-semibold w-16">{t('aup.items.actions')}</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -3329,7 +3257,7 @@ export function ProtocolEditPage() {
                                           newDrugs[index].drug_name = e.target.value
                                           updateWorkingContent('surgery', 'drugs', newDrugs)
                                         }}
-                                        placeholder="藥品名稱"
+                                        placeholder={t('aup.surgery.drugs.headers.name')}
                                         className="border-0 focus-visible:ring-0"
                                       />
                                     </td>
@@ -3341,7 +3269,7 @@ export function ProtocolEditPage() {
                                           newDrugs[index].dose = e.target.value
                                           updateWorkingContent('surgery', 'drugs', newDrugs)
                                         }}
-                                        placeholder="劑量"
+                                        placeholder={t('aup.surgery.drugs.headers.dose')}
                                         className="border-0 focus-visible:ring-0"
                                       />
                                     </td>
@@ -3353,7 +3281,7 @@ export function ProtocolEditPage() {
                                           newDrugs[index].route = e.target.value
                                           updateWorkingContent('surgery', 'drugs', newDrugs)
                                         }}
-                                        placeholder="投與途徑"
+                                        placeholder={t('aup.surgery.drugs.headers.route')}
                                         className="border-0 focus-visible:ring-0"
                                       />
                                     </td>
@@ -3365,7 +3293,7 @@ export function ProtocolEditPage() {
                                           newDrugs[index].frequency = e.target.value
                                           updateWorkingContent('surgery', 'drugs', newDrugs)
                                         }}
-                                        placeholder="頻率"
+                                        placeholder={t('aup.surgery.drugs.headers.frequency')}
                                         className="border-0 focus-visible:ring-0"
                                       />
                                     </td>
@@ -3377,7 +3305,7 @@ export function ProtocolEditPage() {
                                           newDrugs[index].purpose = e.target.value
                                           updateWorkingContent('surgery', 'drugs', newDrugs)
                                         }}
-                                        placeholder="給藥目的"
+                                        placeholder={t('aup.surgery.drugs.headers.purpose')}
                                         className="border-0 focus-visible:ring-0"
                                       />
                                     </td>
@@ -3426,7 +3354,7 @@ export function ProtocolEditPage() {
               <CardContent className="space-y-6">
                 <div className="space-y-4 border p-4 rounded-md">
                   <div className="flex justify-between items-center">
-                    <h3 className="font-semibold">動物清單（依序添加公母或性別不限）</h3>
+                    <h3 className="font-semibold">{t('aup.animals.listHeader')}</h3>
                     <Button
                       variant="outline"
                       size="sm"
@@ -3447,10 +3375,10 @@ export function ProtocolEditPage() {
                           weight_unlimited: false,
                           housing_location: '豬博士畜牧場'
                         }]
-                        updateWorkingContent('animals', 'animals', newAnimals) // Special case for direct array update if passing null key or just replace 'animals'
+                        updateWorkingContent('animals', 'animals', newAnimals)
                       }}
                     >
-                      ＋新增動物
+                      ＋{t('aup.animals.addAnimal')}
                     </Button>
                   </div>
                   {/* Helper to update entire animals array */}
@@ -3470,7 +3398,7 @@ export function ProtocolEditPage() {
                       </Button>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>物種 *</Label>
+                          <Label>{t('aup.animals.labels.species')} *</Label>
                           <Select
                             value={animal.species || ''}
                             onValueChange={(value) => {
@@ -3486,10 +3414,10 @@ export function ProtocolEditPage() {
                               updateWorkingContent('animals', 'animals', newAnimals)
                             }}
                           >
-                            <SelectTrigger><SelectValue placeholder="請選擇物種" /></SelectTrigger>
+                            <SelectTrigger><SelectValue placeholder={t('aup.animals.placeholders.species')} /></SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="pig">豬</SelectItem>
-                              <SelectItem value="other">其他</SelectItem>
+                              <SelectItem value="pig">{t('aup.animals.species.pig')}</SelectItem>
+                              <SelectItem value="other">{t('aup.animals.species.other')}</SelectItem>
                             </SelectContent>
                           </Select>
                           {animal.species === 'other' && (
@@ -3500,12 +3428,12 @@ export function ProtocolEditPage() {
                                 newAnimals[index].species_other = e.target.value
                                 updateWorkingContent('animals', 'animals', newAnimals)
                               }}
-                              placeholder="請填寫物種"
+                              placeholder={t('aup.animals.placeholders.speciesOther')}
                             />
                           )}
                         </div>
                         <div className="space-y-2">
-                          <Label>品系</Label>
+                          <Label>{t('aup.animals.labels.strain')}</Label>
                           {animal.species === 'pig' ? (
                             <Select
                               value={animal.strain || ''}
@@ -3515,10 +3443,10 @@ export function ProtocolEditPage() {
                                 updateWorkingContent('animals', 'animals', newAnimals)
                               }}
                             >
-                              <SelectTrigger><SelectValue placeholder="請選擇品系" /></SelectTrigger>
+                              <SelectTrigger><SelectValue placeholder={t('aup.animals.placeholders.strain')} /></SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="white_pig">白豬</SelectItem>
-                                <SelectItem value="mini_pig">迷你豬</SelectItem>
+                                <SelectItem value="white_pig">{t('aup.animals.strains.white_pig')}</SelectItem>
+                                <SelectItem value="mini_pig">{t('aup.animals.strains.mini_pig')}</SelectItem>
                               </SelectContent>
                             </Select>
                           ) : animal.species === 'other' ? (
@@ -3529,16 +3457,16 @@ export function ProtocolEditPage() {
                                 newAnimals[index].strain_other = e.target.value
                                 updateWorkingContent('animals', 'animals', newAnimals)
                               }}
-                              placeholder="請填寫品系"
+                              placeholder={t('aup.animals.placeholders.strainOther')}
                             />
                           ) : (
-                            <Input disabled placeholder="請先選擇物種" />
+                            <Input disabled placeholder={t('aup.animals.placeholders.selectSpeciesFirst')} />
                           )}
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>性別 *</Label>
+                          <Label>{t('aup.animals.labels.sex')} *</Label>
                           <Select
                             value={animal.sex || ''}
                             onValueChange={(value) => {
@@ -3547,16 +3475,16 @@ export function ProtocolEditPage() {
                               updateWorkingContent('animals', 'animals', newAnimals)
                             }}
                           >
-                            <SelectTrigger><SelectValue placeholder="請選擇性別" /></SelectTrigger>
+                            <SelectTrigger><SelectValue placeholder={t('aup.animals.placeholders.sex')} /></SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="male">公</SelectItem>
-                              <SelectItem value="female">母</SelectItem>
-                              <SelectItem value="unlimited">不限</SelectItem>
+                              <SelectItem value="male">{t('aup.animals.sexTypes.male')}</SelectItem>
+                              <SelectItem value="female">{t('aup.animals.sexTypes.female')}</SelectItem>
+                              <SelectItem value="unlimited">{t('aup.animals.sexTypes.unlimited')}</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label>數量 *</Label>
+                          <Label>{t('aup.animals.labels.number')} *</Label>
                           <Input
                             type="number"
                             min="0"
@@ -3568,7 +3496,7 @@ export function ProtocolEditPage() {
                               newAnimals[index].number = value >= 0 ? value : 0
                               updateWorkingContent('animals', 'animals', newAnimals)
                             }}
-                            placeholder="請輸入數量"
+                            placeholder={t('aup.animals.placeholders.number')}
                           />
                         </div>
                       </div>
@@ -3579,7 +3507,7 @@ export function ProtocolEditPage() {
                             {!animal.age_unlimited && (
                               <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                  <Label>最小年齡 (月齡)</Label>
+                                  <Label>{t('aup.animals.labels.minAge')}</Label>
                                   <Input
                                     type="number"
                                     min="3"
@@ -3605,11 +3533,11 @@ export function ProtocolEditPage() {
                                       }
                                       updateWorkingContent('animals', 'animals', newAnimals)
                                     }}
-                                    placeholder="最小月齡（至少3）"
+                                    placeholder={t('aup.animals.placeholders.minAge')}
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <Label>最大年齡 (月齡)</Label>
+                                  <Label>{t('aup.animals.labels.maxAge')}</Label>
                                   <Input
                                     type="number"
                                     min={animal.age_min !== undefined ? animal.age_min + 1 : 4}
@@ -3628,7 +3556,7 @@ export function ProtocolEditPage() {
                                       }
                                       updateWorkingContent('animals', 'animals', newAnimals)
                                     }}
-                                    placeholder="最大月齡"
+                                    placeholder={t('aup.animals.placeholders.maxAge')}
                                   />
                                 </div>
                               </div>
@@ -3648,7 +3576,7 @@ export function ProtocolEditPage() {
                                 updateWorkingContent('animals', 'animals', newAnimals)
                               }}
                             />
-                            <Label htmlFor={`age_unlimited_${index}`} className="font-normal cursor-pointer">不限</Label>
+                            <Label htmlFor={`age_unlimited_${index}`} className="font-normal cursor-pointer">{t('aup.animals.labels.unlimited')}</Label>
                           </div>
                         </div>
                       </div>
@@ -3660,7 +3588,7 @@ export function ProtocolEditPage() {
                               <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4">
                                   <div className="space-y-2">
-                                    <Label>最小體重 (kg)</Label>
+                                    <Label>{t('aup.animals.labels.minWeight')}</Label>
                                     <Input
                                       type="number"
                                       min="20"
@@ -3687,12 +3615,12 @@ export function ProtocolEditPage() {
                                         }
                                         updateWorkingContent('animals', 'animals', newAnimals)
                                       }}
-                                      placeholder="最小體重（至少20kg）"
+                                      placeholder={t('aup.animals.placeholders.minWeight')}
                                     />
-                                    <p className="text-xs text-muted-foreground">每五公斤一個區間</p>
+                                    <p className="text-xs text-muted-foreground">{t('aup.animals.labels.weightInterval')}</p>
                                   </div>
                                   <div className="space-y-2">
-                                    <Label>最大體重 (kg)</Label>
+                                    <Label>{t('aup.animals.labels.maxWeight')}</Label>
                                     <Input
                                       type="number"
                                       min={animal.weight_min !== undefined ? animal.weight_min + 5 : 25}
@@ -3715,7 +3643,7 @@ export function ProtocolEditPage() {
                                         }
                                         updateWorkingContent('animals', 'animals', newAnimals)
                                       }}
-                                      placeholder="最大體重（必須大於最小體重）"
+                                      placeholder={t('aup.animals.placeholders.maxWeight')}
                                     />
                                   </div>
                                 </div>
@@ -3736,7 +3664,7 @@ export function ProtocolEditPage() {
                                 updateWorkingContent('animals', 'animals', newAnimals)
                               }}
                             />
-                            <Label htmlFor={`weight_unlimited_${index}`} className="font-normal cursor-pointer">不限</Label>
+                            <Label htmlFor={`weight_unlimited_${index}`} className="font-normal cursor-pointer">{t('aup.animals.labels.unlimited')}</Label>
                           </div>
                         </div>
                       </div>
@@ -3746,13 +3674,13 @@ export function ProtocolEditPage() {
                     </div>
                   ))}
                   <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
-                    <h4 className="font-semibold text-sm mb-2">備註：</h4>
+                    <h4 className="font-semibold text-sm mb-2">{t('aup.animals.notes.title')}</h4>
                     <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
-                      <li>※豬/白豬，來源：國內繁殖場(豬博士畜牧場)；豬/迷你豬，來源：國內繁殖場(豬博士畜牧場)</li>
-                      <li>※性別：公、母或不限。</li>
-                      <li>※年齡：大約月齡範圍(以上)或不限。</li>
-                      <li>※體重：大約體重範圍或不限。</li>
-                      <li>※白豬成長快速，7個月齡可達100公斤，觀察期超過3個月建議使用迷你豬進行試驗。</li>
+                      <li>{t('aup.animals.notes.item1')}</li>
+                      <li>{t('aup.animals.notes.item2')}</li>
+                      <li>{t('aup.animals.notes.item3')}</li>
+                      <li>{t('aup.animals.notes.item4')}</li>
+                      <li>{t('aup.animals.notes.item5')}</li>
                     </ul>
                   </div>
                 </div>
@@ -3769,7 +3697,7 @@ export function ProtocolEditPage() {
               <CardContent className="space-y-6">
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <h3 className="font-semibold">8.1 負責進行動物試驗之相關人員資料</h3>
+                    <h3 className="font-semibold">{t('aup.personnel.listHeader')}</h3>
                     <Button
                       type="button"
                       variant="outline"
@@ -3788,7 +3716,7 @@ export function ProtocolEditPage() {
                         setIsAddPersonnelDialogOpen(true)
                       }}
                     >
-                      ＋新增人員
+                      ＋{t('aup.personnel.addPersonnel')}
                     </Button>
                   </div>
                   <div className="border rounded-md overflow-hidden">
@@ -3796,13 +3724,13 @@ export function ProtocolEditPage() {
                       <table className="w-full border-collapse table-fixed">
                         <thead>
                           <tr className="bg-slate-100">
-                            <th className="border p-2 text-center text-sm font-semibold w-16">編號</th>
-                            <th className="border p-2 text-center text-sm font-semibold w-24">姓名</th>
-                            <th className="border p-2 text-center text-sm font-semibold w-24">職稱</th>
-                            <th className="border p-2 text-center text-sm font-semibold w-32">工作內容</th>
-                            <th className="border p-2 text-center text-sm font-semibold w-24">參與動物<br />試驗年數</th>
-                            <th className="border p-2 text-center text-sm font-semibold">訓練/資格/取得時間</th>
-                            <th className="border p-2 text-center text-sm font-semibold w-16">操作</th>
+                            <th className="border p-2 text-center text-sm font-semibold w-16">{t('aup.personnel.table.num')}</th>
+                            <th className="border p-2 text-center text-sm font-semibold w-24">{t('aup.personnel.table.name')}</th>
+                            <th className="border p-2 text-center text-sm font-semibold w-24">{t('aup.personnel.table.position')}</th>
+                            <th className="border p-2 text-center text-sm font-semibold w-32">{t('aup.personnel.table.roles')}</th>
+                            <th className="border p-2 text-center text-sm font-semibold w-24">{t('aup.personnel.table.experience')}</th>
+                            <th className="border p-2 text-center text-sm font-semibold">{t('aup.personnel.table.trainings')}</th>
+                            <th className="border p-2 text-center text-sm font-semibold w-16">{t('aup.personnel.table.actions')}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -3837,14 +3765,14 @@ export function ProtocolEditPage() {
                                   </div>
                                   {(person.roles || []).includes('i') && person.roles_other_text && (
                                     <div className="text-xs text-muted-foreground mt-1 truncate">
-                                      其他：{person.roles_other_text}
+                                      {t('aup.personnel.roles.otherLabel')}{person.roles_other_text}
                                     </div>
                                   )}
                                 </div>
                               </td>
                               <td className="border p-2 w-24">
                                 <div className="px-2 py-1 text-center">
-                                  {person.years_experience ? `${person.years_experience}年` : '-'}
+                                  {person.years_experience ? `${person.years_experience}${t('aup.personnel.experienceUnit')}` : '-'}
                                 </div>
                               </td>
                               <td className="border p-2">
@@ -3911,7 +3839,7 @@ export function ProtocolEditPage() {
                           {(!formData.working_content.personnel || formData.working_content.personnel.length === 0) && (
                             <tr>
                               <td colSpan={7} className="border p-4 text-center text-muted-foreground">
-                                暫無人員資料，請點擊「+ 新增」添加
+                                {t('aup.personnel.table.noPersonnel')}
                               </td>
                             </tr>
                           )}
@@ -3920,9 +3848,9 @@ export function ProtocolEditPage() {
                     </div>
                   </div>
                   <div className="mt-4 p-4 bg-slate-50 rounded-md">
-                    <p className="text-sm font-semibold mb-2">工作內容說明：</p>
+                    <p className="text-sm font-semibold mb-2">{t('aup.personnel.roles.title')}</p>
                     <p className="text-xs text-muted-foreground">
-                      a.計畫督導；b.飼養照顧；c.保定；d.麻醉止痛；e.手術；f.手術支援；g.觀察監測；h.安樂死；i.其他
+                      {t('aup.personnel.roles.list')}
                     </p>
                   </div>
                 </div>
@@ -3938,7 +3866,7 @@ export function ProtocolEditPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>附件（PDF）</Label>
+                  <Label>{t('aup.attachments.label')}</Label>
                   <FileUpload
                     value={formData.working_content.attachments || []}
                     onChange={(attachments) => {
@@ -3951,13 +3879,13 @@ export function ProtocolEditPage() {
                       }))
                     }}
                     accept="application/pdf,.pdf"
-                    placeholder="拖曳PDF檔案到此處，或點擊選擇檔案"
+                    placeholder={t('aup.attachments.placeholder')}
                     maxSize={20}
                     maxFiles={10}
                     showPreview={false}
                   />
                   <p className="text-xs text-muted-foreground">
-                    僅支援 PDF 格式，單個檔案大小上限 20MB，最多可上傳 10 個檔案
+                    {t('aup.attachments.hint')}
                   </p>
                 </div>
               </CardContent>
@@ -3972,7 +3900,7 @@ export function ProtocolEditPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>簽名檔</Label>
+                  <Label>{t('aup.signature.label')}</Label>
                   <FileUpload
                     value={formData.working_content.signature || []}
                     onChange={(signature) => {
@@ -3985,13 +3913,13 @@ export function ProtocolEditPage() {
                       }))
                     }}
                     accept="image/*,.png,.jpg,.jpeg,.gif,.bmp"
-                    placeholder="拖曳簽名檔到此處，或點擊選擇檔案"
+                    placeholder={t('aup.signature.placeholder')}
                     maxSize={5}
                     maxFiles={5}
                     showPreview={true}
                   />
                   <p className="text-xs text-muted-foreground">
-                    支援圖片格式（PNG、JPG、JPEG、GIF、BMP），單個檔案大小上限 5MB，最多可上傳 5 個檔案
+                    {t('aup.signature.hint')}
                   </p>
                 </div>
               </CardContent>
@@ -4002,30 +3930,30 @@ export function ProtocolEditPage() {
           <Dialog open={isAddPersonnelDialogOpen} onOpenChange={setIsAddPersonnelDialogOpen}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>新增人員</DialogTitle>
-                <DialogDescription>請填寫人員基本資料</DialogDescription>
+                <DialogTitle>{t('aup.personnel.addDialog.title')}</DialogTitle>
+                <DialogDescription>{t('aup.personnel.addDialog.description')}</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>姓名 *</Label>
+                    <Label>{t('aup.personnel.addDialog.labels.name')} *</Label>
                     <Input
                       value={newPersonnel.name}
                       onChange={(e) => setNewPersonnel({ ...newPersonnel, name: e.target.value })}
-                      placeholder="請輸入姓名"
+                      placeholder={t('aup.personnel.addDialog.placeholders.name')}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>職稱</Label>
+                    <Label>{t('aup.personnel.addDialog.labels.position')}</Label>
                     <Input
                       value={newPersonnel.position}
                       onChange={(e) => setNewPersonnel({ ...newPersonnel, position: e.target.value })}
-                      placeholder="請輸入職稱"
+                      placeholder={t('aup.personnel.addDialog.placeholders.position')}
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>工作內容 *</Label>
+                  <Label>{t('aup.personnel.addDialog.labels.roles')} *</Label>
                   <div className="flex flex-wrap gap-2">
                     {['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'].map(role => (
                       <div key={role} className="flex items-center space-x-1">
@@ -4051,39 +3979,39 @@ export function ProtocolEditPage() {
                   </div>
                   <div className="mt-2 p-3 bg-slate-50 rounded-md">
                     <p className="text-xs text-muted-foreground">
-                      工作內容說明：<br />a.計畫督導；b.飼養照顧；c.保定；d.麻醉止痛；e.手術；f.手術支援；g.觀察監測；h.安樂死；i.其他
+                      {t('aup.personnel.roles.title')}<br />{t('aup.personnel.roles.list')}
                     </p>
                   </div>
                   {newPersonnel.roles.includes('i') && (
                     <Input
                       value={newPersonnel.roles_other_text}
                       onChange={(e) => setNewPersonnel({ ...newPersonnel, roles_other_text: e.target.value })}
-                      placeholder="請說明其他工作內容 *"
+                      placeholder={t('aup.personnel.addDialog.placeholders.rolesOther')}
                       className="mt-2"
                     />
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label>參與動物試驗年數 *</Label>
+                  <Label>{t('aup.personnel.addDialog.labels.experience')} *</Label>
                   <Input
                     type="number"
                     min="0"
                     step="1"
                     value={newPersonnel.years_experience || ''}
                     onChange={(e) => setNewPersonnel({ ...newPersonnel, years_experience: parseInt(e.target.value) || 0 })}
-                    placeholder="請輸入年數"
+                    placeholder={t('aup.personnel.addDialog.placeholders.experience')}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>訓練/資格 *</Label>
+                  <Label>{t('aup.personnel.addDialog.labels.trainings')} *</Label>
                   <div className="flex flex-wrap gap-2 mb-2">
                     {[
-                      { value: 'A', label: 'A. 實驗動物照護及使用委員會或小組成員訓練班' },
-                      { value: 'B', label: 'B. IACUC教育訓練研討會' },
-                      { value: 'C', label: 'C. 輻射安全訓練班' },
-                      { value: 'D', label: 'D. 生醫產業用畜禽應用研習會及技術研習會' },
-                      { value: 'E', label: 'E. 實驗動物法規及照護管理班' },
-                      { value: 'F', label: 'F. 其他' }
+                      { value: 'A', label: t('aup.personnel.trainings.A') },
+                      { value: 'B', label: t('aup.personnel.trainings.B') },
+                      { value: 'C', label: t('aup.personnel.trainings.C') },
+                      { value: 'D', label: t('aup.personnel.trainings.D') },
+                      { value: 'E', label: t('aup.personnel.trainings.E') },
+                      { value: 'F', label: t('aup.personnel.trainings.F') }
                     ].map(training => (
                       <div key={training.value} className="flex items-center space-x-1">
                         <Checkbox
@@ -4113,7 +4041,7 @@ export function ProtocolEditPage() {
                     <Input
                       value={newPersonnel.trainings_other_text}
                       onChange={(e) => setNewPersonnel({ ...newPersonnel, trainings_other_text: e.target.value })}
-                      placeholder="請說明其他訓練/資格 *"
+                      placeholder={t('aup.personnel.addDialog.placeholders.trainingsOther')}
                       className="mt-2"
                     />
                   )}
@@ -4147,7 +4075,7 @@ export function ProtocolEditPage() {
                                     setNewPersonnel({ ...newPersonnel, training_certificates: newCerts })
                                   }
                                 }}
-                                placeholder="證書編號"
+                                placeholder={t('aup.personnel.addDialog.placeholders.certNo')}
                                 className="text-xs h-7"
                               />
                               <Button
@@ -4183,7 +4111,7 @@ export function ProtocolEditPage() {
                             })
                           }}
                         >
-                          + 新增證書
+                          + {t('aup.personnel.addDialog.buttons.addCert')}
                         </Button>
                       </div>
                     )
@@ -4196,7 +4124,7 @@ export function ProtocolEditPage() {
                   variant="outline"
                   onClick={() => setIsAddPersonnelDialogOpen(false)}
                 >
-                  取消
+                  {t('aup.personnel.addDialog.buttons.cancel')}
                 </Button>
                 <Button
                   type="button"
@@ -4204,74 +4132,69 @@ export function ProtocolEditPage() {
                     // 驗證必填欄位
                     if (!newPersonnel.name.trim()) {
                       toast({
-                        title: '錯誤',
-                        description: '請填寫姓名',
+                        title: t('common.error'),
+                        description: t('aup.personnel.addDialog.validation.nameRequired'),
                         variant: 'destructive',
                       })
                       return
                     }
                     if (newPersonnel.roles.length === 0) {
                       toast({
-                        title: '錯誤',
-                        description: '請至少選擇一項工作內容',
+                        title: t('common.error'),
+                        description: t('aup.personnel.addDialog.validation.rolesRequired'),
                         variant: 'destructive',
                       })
                       return
                     }
                     if (newPersonnel.roles.includes('i') && !newPersonnel.roles_other_text.trim()) {
                       toast({
-                        title: '錯誤',
-                        description: '請說明其他工作內容',
+                        title: t('common.error'),
+                        description: t('aup.personnel.addDialog.validation.rolesOtherRequired'),
                         variant: 'destructive',
                       })
                       return
                     }
                     if (newPersonnel.years_experience <= 0) {
                       toast({
-                        title: '錯誤',
-                        description: '請填寫參與動物試驗年數',
+                        title: t('common.error'),
+                        description: t('aup.personnel.addDialog.validation.experienceRequired'),
                         variant: 'destructive',
                       })
                       return
                     }
                     if (newPersonnel.trainings.length === 0) {
                       toast({
-                        title: '錯誤',
-                        description: '請至少選擇一項訓練/資格',
+                        title: t('common.error'),
+                        description: t('aup.personnel.addDialog.validation.trainingsRequired'),
                         variant: 'destructive',
                       })
                       return
                     }
                     if (newPersonnel.trainings.includes('F') && !newPersonnel.trainings_other_text.trim()) {
                       toast({
-                        title: '錯誤',
-                        description: '請說明其他訓練/資格',
+                        title: t('common.error'),
+                        description: t('aup.personnel.addDialog.validation.trainingsOtherRequired'),
                         variant: 'destructive',
                       })
                       return
                     }
 
-                    // 添加人員
-                    const currentPersonnel = formData.working_content.personnel || []
-                    const personnelToAdd = {
-                      id: currentPersonnel.length + 1,
-                      ...newPersonnel
-                    }
+                    const newPersonnelList = [...(formData.working_content.personnel || []), newPersonnel]
                     setFormData((prev) => ({
                       ...prev,
                       working_content: {
                         ...prev.working_content,
-                        personnel: [...currentPersonnel, personnelToAdd]
+                        personnel: newPersonnelList
                       }
                     }))
                     setIsAddPersonnelDialogOpen(false)
                     toast({
-                      title: '成功',
-                      description: '人員已新增',
+                      title: t('common.success'),
+                      description: t('aup.personnel.addDialog.messages.added'),
                     })
                   }}
                 >
-                  確認新增
+                  {t('aup.personnel.addDialog.buttons.add')}
                 </Button>
               </DialogFooter>
             </DialogContent>

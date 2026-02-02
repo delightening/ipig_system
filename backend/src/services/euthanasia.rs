@@ -6,7 +6,7 @@ use crate::{
     error::AppError,
     models::{
         ChairDecisionRequest, CreateEuthanasiaAppealRequest, CreateEuthanasiaOrderRequest,
-        EuthanasiaAppeal, EuthanasiaAppealResponse, EuthanasiaOrder, EuthanasiaOrderResponse,
+        EuthanasiaAppeal, EuthanasiaOrder, EuthanasiaOrderResponse,
         EuthanasiaOrderStatus, PigStatus,
     },
     services::NotificationService,

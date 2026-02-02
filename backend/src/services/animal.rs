@@ -119,7 +119,7 @@ impl AnimalService {
         let mut query_builder = sqlx::QueryBuilder::new(
             r#"
             SELECT 
-                p.id, p.ear_tag, p.status, p.breed, p.breed_other, p.gender, p.pen_location,
+                p.id, p.pig_no, p.ear_tag, p.status, p.breed, p.breed_other, p.gender, p.pen_location,
                 p.iacuc_no, p.entry_date, s.name as source_name,
                 p.vet_last_viewed_at, p.created_at,
                 -- Computed fields for frontend
@@ -245,7 +245,7 @@ impl AnimalService {
         let mut pigs = sqlx::query_as::<_, PigListItem>(
             r#"
             SELECT 
-                p.id, p.ear_tag, p.status, p.breed, p.breed_other, p.gender, p.pen_location,
+                p.id, p.pig_no, p.ear_tag, p.status, p.breed, p.breed_other, p.gender, p.pen_location,
                 p.iacuc_no, p.entry_date, s.name as source_name,
                 p.vet_last_viewed_at, p.created_at
             FROM pigs p

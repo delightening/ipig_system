@@ -247,3 +247,9 @@ pub struct AmendmentReviewAssignmentResponse {
     #[sqlx(default)]
     pub reviewer_email: String,
 }
+
+/// 待處理變更申請數量回應
+#[derive(Debug, Serialize)]
+pub struct PendingCountResponse {
+    pub count: i64,
+}

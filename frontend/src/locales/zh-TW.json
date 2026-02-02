@@ -35,7 +35,7 @@
   "nav": {
     "dashboard": "儀表板",
     "myProjects": "我的計劃",
-    "aupReview": "AUP 審查系統",
+    "aupReview": "AUP",
     "protocols": "計畫書管理",
     "newProtocol": "新增計畫書",
     "hrManagement": "人員管理",
@@ -75,7 +75,155 @@
     "roles": "角色權限",
     "settings": "系統設定",
     "auditLogs": "審計日誌",
-    "securityAudit": "安全審計"
+    "securityAudit": "安全審計",
+    "myAmendments": "變更申請"
+  },
+  "dashboard": {
+    "title": "儀表板",
+    "editMode": {
+      "lock": "鎖定佈局",
+      "unlock": "編輯佈局",
+      "hint": "拖曳 Widget 調整位置，拖曳右下角調整大小，完成後點選「鎖定佈局」"
+    },
+    "settings": {
+      "title": "自訂儀表板",
+      "description": "選擇要顯示的 Widget，可自由開啟或關閉",
+      "days": "天數：",
+      "saveSuccess": "儀表板佈局已儲存"
+    },
+    "widgets": {
+      "categories": {
+        "erp": "ERP 進銷存",
+        "hr": "人員管理",
+        "aup": "計畫管理",
+        "animal_care": "動物照護",
+        "report": "報表"
+      },
+      "names": {
+        "calendar_widget": "今日日曆",
+        "leave_balance": "請假餘額",
+        "my_projects": "我的計畫",
+        "animals_on_medication": "正在用藥動物",
+        "vet_comments": "獸醫師建議",
+        "low_stock_alert": "低庫存警示",
+        "pending_documents": "待處理單據",
+        "today_inbound": "今日入庫",
+        "today_outbound": "今日出庫",
+        "weekly_trend": "近{{days}}天出入庫趨勢",
+        "recent_documents": "最近單據",
+        "upcoming_leaves": "即將到期假期",
+        "staff_attendance": "工作人員出勤表",
+        "google_calendar_events": "日曆事件"
+      },
+      "descriptions": {
+        "calendar_widget": "顯示今日日程和員工請假資訊",
+        "leave_balance": "顯示您的特休和補休餘額",
+        "my_projects": "顯示您參與的計畫及動物統計",
+        "animals_on_medication": "顯示目前正在用藥的動物清單",
+        "vet_comments": "顯示最近的獸醫師建議",
+        "low_stock_alert": "顯示低於安全庫存的品項",
+        "pending_documents": "顯示等待核准的單據數量",
+        "today_inbound": "顯示今日入庫單據數量",
+        "today_outbound": "顯示今日出庫單據數量",
+        "weekly_trend": "顯示近{{days}}天的出入庫趨勢",
+        "recent_documents": "顯示最近建立的單據",
+        "upcoming_leaves": "顯示即將到期的假期提醒",
+        "staff_attendance": "顯示工作人員出勤統計（管理職）",
+        "google_calendar_events": "顯示 Google Calendar 本週事件"
+      },
+      "common": {
+        "loading": "載入中...",
+        "loadFailed": "載入失敗",
+        "noData": "尚無資料",
+        "viewAll": "查看全部",
+        "more": "更多...",
+        "today": "今日",
+        "thisWeek": "本週",
+        "allDay": "全天",
+        "days": "天",
+        "hours": "小時",
+        "count": "{{count}} 人",
+        "viewCount": "查看全部 {{count}} 隻"
+      },
+      "animals": {
+        "medicationDescription": "需要持續照護的動物",
+        "noMedication": "目前沒有正在用藥的動物",
+        "commentDescription": "來自獸醫師的最新醫療照護建議",
+        "noComments": "目前沒有新的獸醫師建議",
+        "earTag": "耳標",
+        "penFallback": "未指定欄位"
+      },
+      "calendar": {
+        "todayLeave": "今日請假",
+        "noOneLeave": "今日無人請假 ✓",
+        "todayEvents": "今日日程",
+        "noEvents": "今日無排程事件",
+        "upcomingLeave": "近期請假",
+        "noEventsWeek": "本週無排程事件 ✓",
+        "googleDescription": "顯示本週專案與會議行程",
+        "googleNotConnected": "尚未連接 Google Calendar",
+        "googleConnectHint": "請至日曆頁面設定"
+      },
+      "hr": {
+        "balanceDescription": "您的假期餘額摘要",
+        "annualLeave": "特休",
+        "compLeave": "補休",
+        "usedTotal": "(已用 {{used}} / 共 {{total}})",
+        "expiringSoon": "即將到期：",
+        "expiringIn30Days": "30天內到期",
+        "noExpiring": "30天內沒有即將到期的假期",
+        "attendanceDescription": "{{month}} 出勤統計",
+        "attendanceDays": "出勤天數",
+        "lateCount": "遲到次數",
+        "leaveDays": "請假天數",
+        "overtimeHours": "加班時數"
+      },
+      "attendance": {
+        "description": "當日工作人員出勤即時狀態",
+        "noRecords": "今日尚無出勤紀錄",
+        "statusNormal": "正常",
+        "statusLate": "遲到",
+        "statusLeave": "請假",
+        "clockIn": "打卡時間"
+      },
+      "projects": {
+        "description": "您參與或主持的 IACUC 計畫",
+        "total": "全部計畫",
+        "reviewing": "審查中",
+        "active": "執行中",
+        "noProjects": "尚無參與的計畫"
+      },
+      "erp": {
+        "lowStockDesc": "需要補貨的品項",
+        "pendingDocsDesc": "等待核准的單據",
+        "inboundDesc": "入庫單據數量",
+        "outboundDesc": "出庫單據數量",
+        "trendDesc": "最近 {{days}} 天的出入庫單據統計",
+        "recentDocsDesc": "最近建立或更新的單據",
+        "netChange": "淨變動",
+        "docNo": "單號",
+        "docType": "類型",
+        "docDate": "日期",
+        "noDocs": "尚無單據資料",
+        "status": {
+          "draft": "草稿",
+          "submitted": "待核准",
+          "approved": "已核准",
+          "cancelled": "已作廢"
+        },
+        "types": {
+          "PO": "採購單",
+          "GRN": "採購入庫",
+          "PR": "採購退貨",
+          "SO": "銷售單",
+          "DO": "銷售出庫",
+          "TR": "調撥單",
+          "STK": "盤點單",
+          "ADJ": "調整單",
+          "RM": "退料單"
+        }
+      }
+    }
   },
   "protocols": {
     "title": "計畫書管理",
@@ -181,7 +329,29 @@
       "studyNoPlaceholder": "由執行秘書填寫",
       "facilityAndLocation": "試驗機構與設施",
       "location": "位置",
-      "specifyOther": "請說明其他種類"
+      "specifyOther": "請說明其他種類",
+      "validation": {
+        "titleRequired": "請填寫研究名稱",
+        "periodRequired": "請填寫預計試驗時程",
+        "periodInvalid": "預計試驗完成日期必須大於起始日期",
+        "projectTypeRequired": "請選擇計畫類型",
+        "projectCategoryRequired": "請選擇計畫種類",
+        "specifyOtherRequired": "請填寫其他計畫種類說明",
+        "piNameRequired": "請填寫計畫主持人姓名",
+        "piEmailRequired": "請填寫計畫主持人 Email",
+        "piEmailInvalid": "計畫主持人 Email 格式不正確",
+        "piPhoneRequired": "請填寫計畫主持人電話",
+        "piPhoneInvalid": "計畫主持人電話必須為 9 或 10 碼數字",
+        "piAddressRequired": "請填寫計畫主持人地址",
+        "sponsorNameRequired": "請填寫委託單位名稱",
+        "sponsorContactRequired": "請填寫委託單位聯絡人",
+        "sponsorPhoneRequired": "請填寫委託單位聯絡電話",
+        "sponsorPhoneInvalid": "委託單位聯絡電話必須為 9 或 10 碼數字",
+        "sponsorEmailRequired": "請填寫委託單位聯絡 Email",
+        "sponsorEmailInvalid": "委託單位聯絡 Email 格式不正確",
+        "facilityRequired": "請填寫機構名稱",
+        "locationRequired": "請填寫位置"
+      }
     },
     "purpose": {
       "title": "研究目的",
@@ -205,39 +375,382 @@
       "duplicateJustificationPlaceholder": "請說明重複進行之科學理由",
       "reductionPrinciple": "2.3 請以實驗動物應用3Rs之減量原則，說明動物試驗設計，包括動物分組方法、訂定使用動物數量之理由等:",
       "reductionDesign": "實驗設計說明",
-      "reductionDesignPlaceholder": "請說明動物分組方法、統計假設、納入排除標準、減少變異之方法，以及訂定使用動物數量之理由"
+      "reductionDesignPlaceholder": "請說明動物分組方法、統計假設、納入排除標準、減少變異之方法，以及訂定使用動物數量之理由",
+      "validation": {
+        "significanceRequired": "請填寫研究之目的及重要性",
+        "rationaleRequired": "請說明活體動物試驗之必要性，以及選擇此動物種別的原因",
+        "platformsRequired": "請至少選擇一個非動物性替代方案搜尋資料庫",
+        "keywordsRequired": "請填寫搜尋關鍵字",
+        "conclusionRequired": "請填寫搜尋結果與結論",
+        "duplicateJustificationRequired": "請說明重複進行之科學理由",
+        "reductionDesignRequired": "請填寫實驗設計說明"
+      }
     },
     "items": {
       "title": "試驗物質與對照物質",
-      "subtitle": "列舉研究使用的試驗物質與對照物質"
+      "subtitle": "列舉研究使用的試驗物質與對照物質",
+      "useTestItemLabel": "本計畫是否投予「試驗物質」於動物",
+      "skipped": "略",
+      "testItems": "試驗物質",
+      "controlItems": "對照物質",
+      "add": "新增",
+      "itemName": "物質名稱",
+      "dosageForm": "劑型",
+      "dosageFormPlaceholder": "如：液體、粉末",
+      "purpose": "用途",
+      "storageConditions": "保存環境",
+      "storageConditionsPlaceholder": "請填寫保存環境",
+      "isSterile": "本物質是否為無菌製備",
+      "nonSterileJustification": "請說明",
+      "nonSterilePlaceholder": "請說明為何本物質非無菌製備",
+      "controlName": "對照名稱",
+      "controlNamePlaceholder": "若無對照請填寫 N/A",
+      "photos": "照片",
+      "photosPlaceholder": "拖曳照片到此處，或點擊選擇照片",
+      "validation": {
+        "useTestItemRequired": "請選擇是否投予「試驗物質」於動物",
+        "testItemNameRequired": "請填寫第 {{index}} 個試驗物質的名稱",
+        "testJustificationRequired": "請填寫第 {{index}} 個試驗物質的非無菌製備說明",
+        "controlItemNameRequired": "請填寫第 {{index}} 個對照物質的名稱",
+        "controlJustificationRequired": "請填寫第 {{index}} 個對照物質的非無菌製備說明"
+      }
     },
     "design": {
-      "title": "研究設計與方法",
-      "subtitle": "說明實驗設計、流程及動物福祉考量"
+      "subtitle": "研究設計與方法",
+      "title4_1": "4.1 請以實驗動物應用3Rs之精緻化原則，詳細說明實驗中所進行之動物試驗內容。使實驗動物照護及使用委員會委員了解動物試驗所有過程:",
+      "anesthesiaLabel": "4.1.1 是否於麻醉下進行試驗",
+      "selectAnesthesiaType": "請選擇麻醉類型 *",
+      "anesthesiaTypes": {
+        "survival": "1. 存活手術（請填寫6. 手術計劃書）",
+        "non_survival": "2. 非存活手術（請填寫6. 手術計劃書）",
+        "gas_only": "3. 非侵入式試驗，僅使用氣體麻醉(Isoflurane 1-2%)誘導後再進行實驗( Isoflurane inhalation before experiment)",
+        "azeperonum_atropine": "4. 使用畜舒坦( Azeperonum 40 mg/mL)3-5 mg/kg和0.03-0.05 mg/kg阿托平(Atropine® 1 mg/mL)肌肉注射鎮靜後，氣體麻醉(Isoflurane 1-2%)再進行實驗 (Using Azeperonum and Atropine IM with Isoflurane inhalation before experiment)",
+        "other": "5. 其他"
+      },
+      "explainOther": "請說明 *",
+      "explainOtherPlaceholder": "請說明其他麻醉方式",
+      "proceduresLabel": "4.1.2 請詳細敘述動物試驗內容及流程 (Animal experiment procedures)、試驗投予物質 (experimental injections or inoculations) 、投予途徑及選擇該途徑之理由、採血 (blood withdrawals)、影像觀察 (CT, MRI, X-ray)、保定 (methods of restraint)、頻率 (frequency) *",
+      "proceduresNote": "手術相關內容請於項次6. 手術計畫書中說明 (surgical procedures fill in surgical plan)",
+      "proceduresPlaceholder": "請詳細描述動物試驗內容及流程",
+      "painCategoryLabel": "4.1.3 實驗動物等級評估 *",
+      "painCategories": {
+        "B": "Category B 繁殖、觀察",
+        "C": "Category C 動物進行不會造成痛苦或緊迫的操作。動物進行只造成短暫或輕微痛苦及緊迫的操作。這些操作不需使用到止痛藥。",
+        "D": "Category D 動物進行可能產生疼痛或緊迫的操作，且會給予適當之止痛、麻醉或鎮定藥。",
+        "E": "Category E 動物進行可能產生疼痛或緊迫的操作，且不會給予止痛、麻醉或鎮定藥。"
+      },
+      "restrictionsLabel": "4.1.4 是否限制實驗動物飲食或飲水",
+      "selectRestrictionType": "請選擇限制類型 *",
+      "restrictionTypes": {
+        "fasting": "麻醉前禁食",
+        "other": "其他"
+      },
+      "explainRestrictionOther": "請說明 *",
+      "explainRestrictionOtherPlaceholder": "請說明其他限制方式",
+      "endpointsTitle": "4.1.5 實驗預期結束之時機，以及動物出現何種異常與痛苦症狀時，應提前終止試驗",
+      "experimentalEndpoint": "實驗終點：",
+      "experimentalEndpointPlaceholder": "請說明實驗預期結束之時機",
+      "humaneEndpoint": "人道終點：",
+      "humaneEndpointPlaceholder": "請說明人道終點",
+      "finalHandlingTitle": "4.1.6 動物安樂死或最終處置方式",
+      "selectHandlingMethod": "請選擇處置方式",
+      "handlingMethods": {
+        "euthanasia": "安樂死",
+        "transfer": "轉讓",
+        "other": "其他"
+      },
+      "euthanasiaLabel": "安樂死：",
+      "euthanasiaTypes": {
+        "kcl": "麻醉下(Zoletil®-50 4.4 mg/kg)，以KCl 安樂死後放血。依照「AD-04-03-00試驗豬隻安樂死規範標準作業程序書」執行",
+        "electrocution": "麻醉下(Zoletil®-50 4.4 mg/kg)，以220V電擊後放血。依照「AD-04-03-00試驗豬隻安樂死規範標準作業程序書」執行",
+        "other": "其他："
+      },
+      "euthanasiaOtherPlaceholder": "請說明其他安樂死方式",
+      "transferLabel": "轉讓",
+      "recipientName": "接受者姓名：",
+      "recipientNamePlaceholder": "請填寫接受者姓名",
+      "recipientOrg": "接受者單位：",
+      "recipientOrgPlaceholder": "請填寫接受者單位",
+      "projectName": "計畫名稱：",
+      "projectNamePlaceholder": "請填寫計畫名稱",
+      "otherHandlingPlaceholder": "請說明其他處置方式",
+      "carcassDisposalLabel": "4.2 動物屍體處理方法",
+      "carcassDisposalPlaceholder": "請說明動物屍體處理方法",
+      "nonPharmaLabel": "4.3 是否使用學術研究用化學藥品或非醫藥級物質",
+      "nonPharmaExplain": "請說明物質性質、安全性及使用之科學理由 *",
+      "nonPharmaExplainPlaceholder": "請說明物質性質、安全性及使用之科學理由",
+      "hazardsLabel": "4.4 是否使用危害性物質材料",
+      "selectHazardType": "請選擇危害性物質類型：",
+      "selectHazardTypePlaceholder": "請選擇類型",
+      "hazardTypes": {
+        "biological": "1. 生物性材料",
+        "radioactive": "2. 放射性",
+        "chemical": "3. 危險性化學藥品"
+      },
+      "hazardListLabel": "危害性物質列表",
+      "agentNamePlaceholder": "名稱",
+      "amountPlaceholder": "所需用量",
+      "hazardsWasteLabel": "4.5 危害性物質及其廢棄物處理方式（請附上主觀機關認可之證明文件）",
+      "operationLocationLabel": "4.5.1 施用方法、途徑與使用場所",
+      "operationLocationPlaceholder": "請說明施用方法、途徑與使用場所",
+      "protectionMeasuresLabel": "4.5.2 保護措施",
+      "protectionMeasuresSubtitle": "針對試驗人員、實驗動物以及飼養環境所採行之保護措施:",
+      "protectionMeasuresPlaceholder": "請說明保護措施",
+      "wasteDisposalLabel": "4.5.3 實驗廢棄物與屍體之處理方式",
+      "wasteDisposalPlaceholder": "請說明實驗廢棄物與屍體之處理方式",
+      "controlledSubstancesLabel": {
+        "section4_6": "4.6 是否使用管制藥品",
+        "section4_5": "4.5 是否使用管制藥品"
+      },
+      "controlledSubstancesList": "管制藥品列表",
+      "drugNameLabel": "藥品名稱 *",
+      "drugNamePlaceholder": "請填寫藥品名稱",
+      "approvalNoLabel": "核准編號 *",
+      "approvalNoPlaceholder": "請填寫核准編號",
+      "drugAmountLabel": "所需用量 *",
+      "drugAmountPlaceholder": "請填寫所需用量",
+      "authorizedPersonLabel": "管制藥品管理人 *",
+      "authorizedPersonPlaceholder": "請填寫管制藥品管理人",
+      "templates": {
+        "preop_preparation": "1.實驗動物術前禁食至少12小時，不禁水。\n2.試驗豬隻經清洗擦乾後，以畜舒坦( Azeperonum 40 mg/mL)3-5 mg/kg和0.03-0.05 mg/kg阿托平(Atropine® 1 mg/mL)肌肉注射鎮靜。仔細觀察豬隻呼吸頻率。\n3.經20-30分鐘後，以4.4 mg/kg舒泰-50(Zoletil®-50)肌肉注射誘導麻醉\n4.經5-10分鐘後，將豬隻移至手術檯上，以趴姿進行氣管插管，接上氣體麻醉機，以2-3 L/min流速的氧氣混合0.5-2%氣體麻醉劑Isoflurane維持麻醉，隨時注意觀察豬隻麻醉深度。\n5.術前肌肉注射抗生素Cefazolin 15 mg/kg及止痛劑meloxicam 0.4 mg/kg\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行",
+        "surgery_description": "請詳述手術流程，包含手術位置、手術方法、切創大小及縫合處理",
+        "monitoring": "手術進行中依試驗豬隻麻醉深度、呼吸頻率及手術需要，調整氧氣、笑氣流速及麻醉氣體濃度，同時注意保溫，接上生理監視器，監控記錄心跳、呼吸及體溫。\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行"
+      },
+      "validation": {
+        "anesthesiaTypeRequired": "請選擇麻醉類型",
+        "anesthesiaOtherRequired": "請填寫其他麻醉方式的說明",
+        "proceduresRequired": "請詳細敘述動物試驗內容及流程",
+        "painCategoryRequired": "請選擇實驗動物等級評估",
+        "restrictionTypeRequired": "請選擇限制類型",
+        "restrictionOtherRequired": "請填寫其他限制方式的說明",
+        "experimentalEndpointRequired": "請填寫實驗終點",
+        "humaneEndpointRequired": "請填寫人道終點",
+        "nonPharmaRequired": "請說明物質性質、安全性及使用之科學理由",
+        "hazardTypeRequired": "請選擇危害性物質類型",
+        "hazardMaterialsRequired": "請至少填寫一個危害性物質的名稱",
+        "hazardAgentNameRequired": "請填寫第 {{index}} 個危害性物質的名稱",
+        "hazardAmountRequired": "請填寫第 {{index}} 個危害性物質的所需用量",
+        "hazardOpsRequired": "請填寫施用方法、途徑與使用場所",
+        "hazardProtectionRequired": "請填寫保護措施",
+        "hazardWasteRequired": "請填寫實驗廢棄物與屍體之處理方式",
+        "controlledSubstancesRequired": "請至少添加一個管制藥品",
+        "drugNameRequired": "請填寫第 {{index}} 個管制藥品的藥品名稱",
+        "approvalNoRequired": "請填寫第 {{index}} 個管制藥品的核准編號",
+        "drugAmountRequired": "請填寫第 {{index}} 個管制藥品的所需用量",
+        "authorizedPersonRequired": "請填寫第 {{index}} 個管制藥品的管制藥品管理人"
+      }
     },
     "guidelines": {
       "title": "相關規範及參考文獻",
-      "subtitle": "列舉相關規範與參考文獻"
+      "subtitle": "列舉相關規範與參考文獻",
+      "contentLabel": "相關規範說明",
+      "contentPlaceholder": "例如：本計畫遵循動物保護法及實驗動物照護及使用指引",
+      "referencesTitle": "參考文獻列表",
+      "addReference": "新增文獻",
+      "citationPlaceholder": "文獻引用 (Citation)",
+      "urlPlaceholder": "URL (選填)"
     },
     "surgery": {
       "title": "手術計畫書",
-      "subtitle": "說明手術流程與術後照護"
+      "subtitle": "說明手術流程與術後照護",
+      "labels": {
+        "surgeryType": "6.1 手術種類",
+        "preopPreparation": "6.2 術前準備",
+        "asepticTechniques": "6.3 無菌措施 (Aseptic Techniques)",
+        "surgeryDescription": "6.4 手術內容說明",
+        "monitoring": "6.5 術中監控",
+        "expectedImpact": "6.6 存活手術，請說明預期術後可能對實驗動物造成之影響:",
+        "multipleSurgeries": "6.7 動物是否會接受一次以上的手術，若有，則寫出數量及原因:",
+        "postopCare": "6.8 請說明動物術後照護及止痛給藥方法:",
+        "postopCareType": "手術類型",
+        "postopCareDetail": "詳細內容",
+        "expectedEndPoint": "6.9 請說明實驗預期結束之時機(Please specify expected experimental end point):",
+        "drugInfo": "6.10 手術用藥資訊，投與麻醉前導、鎮靜、止痛或其他藥物資訊:"
+      },
+      "types": {
+        "survival": "存活手術",
+        "non_survival": "非存活手術"
+      },
+      "placeholders": {
+        "preopPreparation": "說明禁食禁水時間、備皮、消毒等",
+        "surgeryDescription": "請詳述手術流程，包含手術位置、手術方法、切創大小及縫合處理",
+        "monitoring": "手術進行中依試驗豬隻麻醉深度、呼吸頻率及手術需要，調整氧氣、笑氣流速及麻醉氣體濃度，同時注意保溫，接上生理監視器，監控記錄心跳、呼吸及體溫。依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行",
+        "postopCare": "請說明動物術後照護及止痛給藥方法",
+        "expectedEndPoint": "請說明實驗預期結束之時機",
+        "drugInfo": "請填寫手術用藥資訊"
+      },
+      "asepticTechniques": {
+        "surgical_site_disinfection": "動物術部消毒(Surgical site disinfection)",
+        "instrument_disinfection": "器械消毒(Instrument disinfection)",
+        "sterilized_gowns_gloves": "無菌手術衣及手套(Sterilizd surgical gowns and gloves)",
+        "sterilized_drapes": "無菌手術覆布Sterilized surgical drapes",
+        "surgical_hand_disinfection": "術者刷手Surgical hand disinfection"
+      },
+      "postOpTemplates": {
+        "orthopedic": "1.術後每日評估豬隻健康狀態，依術後狀況進行傷口護理。\n\n2.術後7日內每日進行疼痛評估依豬隻狀況並依照不同手術給予止痛藥及抗生素\n骨科手術\n止痛藥\nketoprofen 1-3 mg/kg IM SID (3天)\nmeloxicam 0.1-0.4 mg/kg PO SID (4-14天或長期給予)\n抗生素\ncefazolin 15 mg/kg IM BID (1-7天)\ncephalexin 30 mg/kg PO BID (8-14天或長期給予)\n\n3.若動物發生異常情形，則依獸醫師指示處理。\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行",
+        "non_orthopedic": "1.術後每日評估豬隻健康狀態，依術後狀況進行傷口護理。\n\n2.術後7日內每日進行疼痛評估依豬隻狀況並依照不同手術給予止痛藥及抗生素\n非骨科手術\n止痛藥\nmeloxicam 0.1-0.4 mg/kg IM SID (3天)\nmeloxicam 0.1-0.4 mg/kg PO SID (4-14天或長期給予)\n抗生素\npencillin 10000 u/kg IM SID (1-7天)\namoxicillin 20 mg/kg PO BID (8-14天或長期給予)\n\n3.若動物發生異常情形，則依獸醫師指示處理。\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行"
+      },
+      "postOpTypes": {
+        "orthopedic": "骨科手術",
+        "non_orthopedic": "非骨科手術"
+      },
+      "drugs": {
+        "headers": {
+          "name": "藥品名稱",
+          "dose": "劑量",
+          "route": "投與途徑",
+          "frequency": "頻率",
+          "purpose": "給藥目的"
+        }
+      }
     },
     "animals": {
       "title": "實驗動物資料",
-      "subtitle": "填寫動物物種、品系及數量"
+      "subtitle": "填寫動物物種、品系及數量",
+      "listHeader": "動物清單（依序添加公母或性別不限）",
+      "addAnimal": "新增動物",
+      "labels": {
+        "species": "物種",
+        "strain": "品系",
+        "sex": "性別",
+        "number": "數量",
+        "age": "年齡",
+        "minAge": "最小年齡 (月齡)",
+        "maxAge": "最大年齡 (月齡)",
+        "weight": "體重範圍",
+        "minWeight": "最小體重 (kg)",
+        "maxWeight": "最大體重 (kg)",
+        "housing": "飼養環境",
+        "unlimited": "不限",
+        "weightInterval": "每五公斤一個區間"
+      },
+      "species": {
+        "pig": "豬",
+        "other": "其他"
+      },
+      "strains": {
+        "white_pig": "白豬",
+        "mini_pig": "迷你豬"
+      },
+      "sexTypes": {
+        "male": "公",
+        "female": "母",
+        "unlimited": "不限"
+      },
+      "placeholders": {
+        "species": "請選擇物種",
+        "speciesOther": "請填寫物種",
+        "strain": "請選擇品系",
+        "strainOther": "請填寫品系",
+        "sex": "請選擇性別",
+        "number": "請輸入數量",
+        "minAge": "最小月齡 (至少3)",
+        "maxAge": "最大月齡",
+        "minWeight": "最小體重 (至少20kg)",
+        "maxWeight": "最大體重 (必須大於最小體重)",
+        "selectSpeciesFirst": "請先選擇物種"
+      },
+      "notes": {
+        "title": "備註：",
+        "item1": "※豬/白豬，來源：國內繁殖場(豬博士畜牧場)；豬/迷你豬，來源：國內繁殖場(豬博士畜牧場)",
+        "item2": "※性別：公、母或不限。",
+        "item3": "※年齡：大約月齡範圍(以上)或不限。",
+        "item4": "※體重：大約體重範圍或不限。",
+        "item5": "※白豬成長快速，7個月齡可達100公斤，觀察期超過3個月建議使用迷你豬進行試驗。"
+      }
     },
     "personnel": {
       "title": "試驗人員資料",
-      "subtitle": "列舉參與動物試驗的所有人員"
+      "subtitle": "負責進行動物試驗之相關人員資料",
+      "listHeader": "8.1 負責進行動物試驗之相關人員資料",
+      "addPersonnel": "新增人員",
+      "table": {
+        "num": "編號",
+        "name": "姓名",
+        "position": "職稱",
+        "roles": "工作內容",
+        "experience": "參與動物試驗年數",
+        "trainings": "訓練/資格/取得時間",
+        "actions": "操作",
+        "noPersonnel": "暫無人員資料，請點擊「+ 新增」添加"
+      },
+      "roles": {
+        "title": "工作內容說明：",
+        "list": "a.計畫督導；b.飼養照顧；c.保定；d.麻醉止痛；e.手術；f.手術支援；g.觀察監測；h.安樂死；i.其他",
+        "items": {
+          "a": "計畫督導",
+          "b": "飼養照顧",
+          "c": "保定",
+          "d": "麻醉止痛",
+          "e": "手術",
+          "f": "手術支援",
+          "g": "觀察監測",
+          "h": "安樂死",
+          "i": "其他"
+        },
+        "otherLabel": "其他："
+      },
+      "experienceUnit": "年",
+      "yearUnit": "年",
+      "addDialog": {
+        "title": "新增人員",
+        "description": "請填寫人員基本資料",
+        "labels": {
+          "name": "姓名",
+          "position": "職稱",
+          "roles": "工作內容",
+          "experience": "參與動物試驗年數",
+          "trainings": "訓練/資格",
+          "certNo": "證書編號"
+        },
+        "placeholders": {
+          "name": "請輸入姓名",
+          "position": "請輸入職稱",
+          "rolesOther": "請說明其他工作內容",
+          "experience": "請輸入年數",
+          "trainingsOther": "請說明其他訓練/資格",
+          "certNo": "證書編號"
+        },
+        "buttons": {
+          "addCert": "新增證書",
+          "cancel": "取消",
+          "confirm": "確認",
+          "add": "確認新增"
+        },
+        "messages": {
+          "added": "人員已新增"
+        },
+        "validation": {
+          "nameRequired": "請填寫姓名",
+          "rolesRequired": "請至少選擇一項工作內容",
+          "rolesOtherRequired": "請說明其他工作內容",
+          "experienceRequired": "請填寫參與動物試驗年數",
+          "trainingsRequired": "請至少選擇一項訓練/資格",
+          "trainingsOtherRequired": "請說明其他訓練/資格"
+        }
+      },
+      "trainings": {
+        "A": "A. 實驗動物照護及使用委員會或小組成員訓練班",
+        "B": "B. IACUC教育訓練研討會",
+        "C": "C. 輻射安全訓練班",
+        "D": "D. 生醫產業用畜禽應用研習會及技術研習會",
+        "E": "E. 實驗動物法規及照護管理班",
+        "F": "F. 其他"
+      }
     },
     "attachments": {
       "title": "附件",
-      "subtitle": "上傳相關文件"
+      "subtitle": "上傳相關文件",
+      "label": "附件（PDF）",
+      "placeholder": "拖曳PDF檔案到此處，或點擊選擇檔案",
+      "hint": "僅支援 PDF 格式，單個檔案大小上限 20MB，最多可上傳 10 個檔案"
     },
     "signature": {
       "title": "電子簽名",
-      "subtitle": "審閱並簽署計畫書"
+      "subtitle": "審閱並簽署計畫書",
+      "label": "簽名檔",
+      "placeholder": "拖曳簽名檔到此處，或點擊選擇檔案",
+      "hint": "支援圖片格式，單個檔案大小上限 5MB，最多可上傳 5 個檔案"
     },
     "messages": {
       "created": "計畫書已建立",
@@ -264,6 +777,96 @@
       "toxic_chemical": "毒性化學物質",
       "medical_device": "醫療器材",
       "other": "其他"
+    },
+    "defaults": {
+      "facilityName": "豬博士動物科技股份有限公司",
+      "housingLocation": "苗栗縣後龍鎮外埔里外埔6-15號",
+      "humaneEndpoint": "實驗過程中如果動物體重下降超過原體重的20%、食慾不振 (無法進食)、身體虛弱、感染，持續治療或傷口清創後無改善，或其他經獸醫師評估不宜持續實驗之情形，則提早結束實驗，以符合動物福祉。",
+      "carcassDisposal": "委由簽約之合格化製廠商進行化製處理\n (化製廠商名稱：金海龍生物科技股份有限公司，化製廠管編：P6001213)",
+      "preopPreparation": "1.實驗動物術前禁食至少12小時，不禁水。\n2.試驗豬隻經清洗擦乾後，以畜舒坦( Azeperonum 40 mg/mL)3-5 mg/kg和0.03-0.05 mg/kg阿托平(Atropine® 1 mg/mL)肌肉注射鎮靜。仔細觀察豬隻呼吸頻率。\n3.經20-30分鐘後，以4.4 mg/kg舒泰-50(Zoletil®-50)肌肉注射誘導麻醉\n4.經5-10分鐘後，將豬隻移至手術檯上，以趴姿進行氣管插管，接上氣體麻醉機，以2-3 L/min流速的氧氣混合0.5-2%氣體麻醉劑Isoflurane維持麻醉，隨時注意觀察豬隻麻醉深度。\n5.術前肌肉注射抗生素Cefazolin 15 mg/kg及止痛劑meloxicam 0.4 mg/kg\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行",
+      "surgeryDescription": "請詳述手術流程，包含手術位置、手術方法、切創大小及縫合處理",
+      "monitoring": "手術進行中依試驗豬隻麻醉深度、呼吸頻率及手術需要，調整氧氣、笑氣流速及麻醉氣體濃度，同時注意保溫，接上生理監視器，監控記錄心跳、呼吸及體溫。\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行",
+      "omitted": "略",
+      "postopCareTemplate": "1.術後每日評估豬隻健康狀態，依術後狀況進行傷口護理。\n2.術後7日內每日進行疼痛評估依豬隻狀況並依照不同手術給予止痛藥及抗生素\n分為兩項：\n2.1\n骨科手術\n止痛藥\nketoprofen 1-3 mg/kg IM SID (3天)\nmeloxicam 0.1-0.4 mg/kg PO SID (4-14天或長期給予)\n抗生素\ncefazolin 15 mg/kg IM BID (1-7天)\ncephalexin 30 mg/kg PO BID (8-14天或長期給予)\n\n2.2\n非骨科手術\n止痛藥\nmeloxicam 0.1-0.4 mg/kg IM SID (3天)\nmeloxicam 0.1-0.4 mg/kg PO SID (4-14天或長期給予)\n抗生素\npencillin 10000 u/kg IM SID (1-7天)\namoxicillin 20 mg/kg PO BID (8-14天或長期給予)\n\n3.若動物發生異常情形，則依獸醫師指示處理。\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行",
+      "drugDefaults": [
+        {
+          "name": "Atropine",
+          "dose": "1mg/ml",
+          "route": "IM",
+          "frequency": "1次",
+          "purpose": "麻醉誘導"
+        },
+        {
+          "name": "畜舒坦(Azeperonum)",
+          "dose": "0.03-0.5mg/kg",
+          "route": "IM",
+          "frequency": "1次",
+          "purpose": "麻醉誘導"
+        },
+        {
+          "name": "舒泰Zoletil®-50",
+          "dose": "3-5 mg/kg",
+          "route": "IM",
+          "frequency": "1次",
+          "purpose": "麻醉誘導"
+        },
+        {
+          "name": "Cefazolin",
+          "dose": "15-30 mg/kg",
+          "route": "IM",
+          "frequency": "術前1次/術後SID",
+          "purpose": "術前及術後抗生素"
+        },
+        {
+          "name": "meloxicam",
+          "dose": "0.1-0.4mg/kg",
+          "route": "IM",
+          "frequency": "術前1次/術後SID",
+          "purpose": "術前及術後止痛藥"
+        },
+        {
+          "name": "Isoflurane",
+          "dose": "0.5-2%",
+          "route": "吸入",
+          "frequency": "術中",
+          "purpose": "麻醉維持"
+        },
+        {
+          "name": "ketoprofen",
+          "dose": "1-3mg/kg",
+          "route": "IM",
+          "frequency": "SID",
+          "purpose": "術後止痛藥"
+        },
+        {
+          "name": "pencillin",
+          "dose": "0.1-1mL/kg",
+          "route": "IM",
+          "frequency": "SID",
+          "purpose": "術後抗生素"
+        },
+        {
+          "name": "cephalexin",
+          "dose": "30-60mg/kg",
+          "route": "PO",
+          "frequency": "BID",
+          "purpose": "術後抗生素"
+        },
+        {
+          "name": "amoxicillin",
+          "dose": "20-40mg/kg",
+          "route": "PO",
+          "frequency": "BID",
+          "purpose": "術後抗生素"
+        },
+        {
+          "name": "meloxicam",
+          "dose": "0.1-0.4mg/kg",
+          "route": "PO",
+          "frequency": "SID",
+          "purpose": "術後止痛藥"
+        }
+      ]
     }
   }
 }

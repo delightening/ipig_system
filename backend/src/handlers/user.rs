@@ -134,3 +134,40 @@ pub async fn reset_user_password(
     
     Ok(Json(serde_json::json!({ "message": "Password reset successfully" })))
 }
+
+/// 模擬登入使用者（管理員專用的測試功能）
+pub async fn impersonate_user(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<crate::models::LoginResponse>> {
+    // 檢查權限，必須是 Admin 角色
+    if !current_user.roles.contains(&"admin".to_string()) && !current_user.roles.contains(&"SYSTEM_ADMIN".to_string()) {
+        return Err(AppError::BusinessRule("Only admin can impersonate other users".to_string()));
+    }
+    
+    // 不允許模擬自己（雖然技術上可行，但沒意義）
+    if id == current_user.id {
+        return Err(AppError::Validation("Cannot impersonate yourself".to_string()));
+    }
+    
+    // 執行模擬登入
+    let login_response = AuthService::impersonate(&state.db, &state.config, id).await?;
+    
+    // 記錄稽核日誌
+    AuditService::log(
+        &state.db,
+        current_user.id,
+        AuditAction::Impersonate,
+        "user",
+        id,
+        None,
+        Some(serde_json::json!({
+            "impersonated_user_id": id,
+            "impersonated_by": current_user.id,
+            "reason": "Admin impersonation for testing",
+        })),
+    ).await?;
+    
+    Ok(Json(login_response))
+}

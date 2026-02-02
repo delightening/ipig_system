@@ -400,7 +400,7 @@ export function SettingsPage() {
 
                 {/* AUP 計畫相關 */}
                 <div className="space-y-4">
-                  <h4 className="text-sm font-medium text-muted-foreground">AUP 審查系統</h4>
+                  <h4 className="text-sm font-medium text-muted-foreground">AUP</h4>
 
                   <div className="flex items-start space-x-3">
                     <Checkbox

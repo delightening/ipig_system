@@ -49,6 +49,8 @@ import { // 引入一系列 Lucide 圖示
   GripVertical,
   RotateCcw,
   FileEdit,
+  UserCircle,
+  ArrowLeft,
 } from 'lucide-react'
 // 引入 dnd-kit 拖曳排序相關函式庫
 import {
@@ -83,8 +85,7 @@ interface NavItem {
 const DEFAULT_NAV_ORDER = [
   '儀表板',
   '我的計劃',
-  '我的變更申請',
-  'AUP 審查系統',
+  'AUP',
   '人員管理',
   '實驗動物管理',
   '採購管理',
@@ -109,16 +110,12 @@ const navItemsConfig: NavItem[] = [
     icon: <FolderOpen className="h-5 w-5" />,
   },
   {
-    title: '我的變更申請',
-    href: '/my-amendments',
-    icon: <FileEdit className="h-5 w-5" />,
-  },
-  {
-    title: 'AUP 審查系統',
+    title: 'AUP',
     icon: <FileText className="h-5 w-5" />,
     children: [
       { title: '計畫書管理', href: '/protocols' },
       { title: '新增計畫書', href: '/protocols/new' },
+      { title: '變更申請', href: '/my-amendments' },
     ],
   },
   {
@@ -367,7 +364,7 @@ export function MainLayout() {
   const location = useLocation() // 取得當前 URL 路徑資訊
   const navigate = useNavigate() // 用於程式化導覽跳轉
   const queryClient = useQueryClient() // TanStack Query 快取管理器
-  const { user, logout, hasRole, hasPermission } = useAuthStore() // 從 Auth Store 取得用戶資訊、登出方法與權限檢查
+  const { user, logout, hasRole, hasPermission, isImpersonating, stopImpersonating } = useAuthStore() // 從 Auth Store 取得用戶資訊、登出方法與權限檢查
   const { t, i18n } = useTranslation() // 引入翻譯函數和 i18n 實例
   const [sidebarOpen, setSidebarOpen] = useState(true) // 控制側邊欄展開/縮小的狀態
   const [expandedItems, setExpandedItems] = useState<string[]>([]) // 控制側邊欄摺疊選單展開項目的清單（預設全部收合）
@@ -381,9 +378,10 @@ export function MainLayout() {
   const navTitleMap: Record<string, string> = {
     '儀表板': t('nav.dashboard'),
     '我的計劃': t('nav.myProjects'),
-    'AUP 審查系統': t('nav.aupReview'),
+    'AUP': t('nav.aupReview'),
     '計畫書管理': t('nav.protocols'),
     '新增計畫書': t('nav.newProtocol'),
+    '變更申請': t('nav.myAmendments'),
     '人員管理': t('nav.hrManagement'),
     '出勤打卡': t('nav.attendance'),
     '請假管理': t('nav.leaves'),
@@ -422,7 +420,6 @@ export function MainLayout() {
     '系統設定': t('nav.settings'),
     '審計日誌': t('nav.auditLogs'),
     '安全審計': t('nav.securityAudit'),
-    '我的變更申請': t('nav.myAmendments'),
   }
 
   // 翻譯導覽項目標題
@@ -904,9 +901,29 @@ export function MainLayout() {
 
       {/* 主要內容區域 */}
       <main className={cn(
-        "flex-1 overflow-y-auto transition-all duration-300",
+        "flex-1 overflow-y-auto transition-all duration-300 relative",
         sidebarOpen ? 'ml-64 lg:ml-0' : 'ml-16 lg:ml-0' // 桌機版 (lg) 設為 ml-0 避免重複間距
       )}>
+        {/* 模擬登入提示 Banner */}
+        {isImpersonating && (
+          <div className="bg-blue-600 text-white px-4 py-2 flex items-center justify-between sticky top-0 z-[60] shadow-md">
+            <div className="flex items-center gap-2">
+              <UserCircle className="h-5 w-5" />
+              <span className="text-sm font-medium">
+                您正在模擬使用者：<span className="font-bold underline">{user?.display_name || user?.email}</span> ({user?.roles?.join(', ')})
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={stopImpersonating}
+              className="bg-white/20 border-white text-white hover:bg-white hover:text-blue-600 h-8 font-semibold transition-all"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              返回管理員帳號
+            </Button>
+          </div>
+        )}
         {/* 頂部導覽列 */}
         <header className="sticky top-0 z-40 flex h-16 items-center justify-end border-b bg-white px-4 shadow-sm">
           <div className="flex items-center space-x-4">

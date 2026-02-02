@@ -41,6 +41,4 @@ pub use facility::*;
 pub use calendar::*;
 pub use user_preferences::*;
 pub use signature::*;
-pub use euthanasia::*;
-pub use amendment::*;
 

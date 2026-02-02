@@ -164,6 +164,7 @@ pub enum AuditAction {
     StatusChange,
     Assign,
     Unassign,
+    Impersonate,
 }
 
 impl AuditAction {
@@ -182,6 +183,7 @@ impl AuditAction {
             AuditAction::StatusChange => "STATUS_CHANGE",
             AuditAction::Assign => "ASSIGN",
             AuditAction::Unassign => "UNASSIGN",
+            AuditAction::Impersonate => "IMPERSONATE",
         }
     }
 }

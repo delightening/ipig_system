@@ -1,4 +1,3 @@
-use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
 use validator::Validate;
@@ -777,5 +776,19 @@ impl AmendmentService {
         .await?;
 
         Ok(assignments)
+    }
+
+    /// 取得待處理變更申請數量 (包含待分類 SUBMITTED/RESUBMITTED 和待審查 CLASSIFIED/UNDER_REVIEW)
+    pub async fn get_pending_count(pool: &PgPool) -> Result<i64> {
+        let count: (i64,) = sqlx::query_as(
+            r#"
+            SELECT COUNT(*) FROM amendments 
+            WHERE status IN ('SUBMITTED', 'RESUBMITTED', 'CLASSIFIED', 'UNDER_REVIEW')
+            "#
+        )
+        .fetch_one(pool)
+        .await?;
+
+        Ok(count.0)
     }
 }

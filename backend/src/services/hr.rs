@@ -1067,8 +1067,9 @@ impl HrService {
         // 取得使用者名稱
         let user_name: (String,) = sqlx::query_as("SELECT display_name FROM users WHERE id = $1")
             .bind(user_id)
-            .fetch_one(pool)
-            .await?;
+            .fetch_optional(pool)
+            .await?
+            .ok_or_else(|| AppError::NotFound(format!("User not found: {}", user_id)))?;
 
         let annual: (f64, f64) = sqlx::query_as(
             r#"
@@ -1370,6 +1371,8 @@ impl HrService {
                     is_all_day,
                     start_date,
                     end_date,
+                    start_time,
+                    end_time,
                 }
             })
             .collect();
@@ -1425,6 +1428,8 @@ impl HrService {
                     is_all_day,
                     start_date,
                     end_date,
+                    start_time,
+                    end_time,
                 }
             })
             .collect();

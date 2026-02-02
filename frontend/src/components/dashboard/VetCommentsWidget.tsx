@@ -1,27 +1,26 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { MessageSquare, Loader2, ExternalLink } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { MessageSquare, Loader2, User, Calendar } from 'lucide-react'
 import api from '@/lib/api'
 
 interface VetComment {
     id: string
-    pig_id: number
-    ear_tag: string
-    pen_location?: string
+    pig_id: string
+    pig_num: string
+    author_name: string
     content: string
     created_at: string
-    created_by_name: string
 }
 
 export function VetCommentsWidget() {
+    const { t, i18n } = useTranslation()
     const navigate = useNavigate()
 
     const { data, isLoading, error } = useQuery({
         queryKey: ['recent-vet-comments'],
         queryFn: async () => {
-            // 取得最近的獸醫師評論
             const res = await api.get<{ data: VetComment[] }>('/pigs/vet-comments?per_page=5')
             return res.data.data
         },
@@ -32,8 +31,8 @@ export function VetCommentsWidget() {
             <Card>
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <MessageSquare className="h-4 w-4 text-teal-500" />
-                        獸醫師建議
+                        <MessageSquare className="h-4 w-4 text-emerald-500" />
+                        {t('dashboard.widgets.names.vet_comments')}
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -50,41 +49,25 @@ export function VetCommentsWidget() {
             <Card>
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <MessageSquare className="h-4 w-4 text-teal-500" />
-                        獸醫師建議
+                        <MessageSquare className="h-4 w-4 text-emerald-500" />
+                        {t('dashboard.widgets.names.vet_comments')}
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-sm text-muted-foreground">載入失敗</p>
+                    <p className="text-sm text-muted-foreground">{t('dashboard.widgets.common.loadFailed')}</p>
                 </CardContent>
             </Card>
         )
     }
 
-    // 格式化時間
-    const formatTime = (dateStr: string) => {
-        const date = new Date(dateStr)
-        const now = new Date()
-        const diff = now.getTime() - date.getTime()
-        const hours = Math.floor(diff / 3600000)
-        const days = Math.floor(diff / 86400000)
-
-        if (hours < 1) return '剛剛'
-        if (hours < 24) return `${hours} 小時前`
-        if (days < 7) return `${days} 天前`
-        return date.toLocaleDateString('zh-TW')
-    }
-
     return (
         <Card>
             <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <MessageSquare className="h-4 w-4 text-teal-500" />
-                        獸醫師建議
-                    </CardTitle>
-                </div>
-                <CardDescription>最近的獸醫師建議</CardDescription>
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4 text-emerald-500" />
+                    {t('dashboard.widgets.names.vet_comments')}
+                </CardTitle>
+                <CardDescription>{t('dashboard.widgets.animals.commentDescription')}</CardDescription>
             </CardHeader>
             <CardContent>
                 {data && data.length > 0 ? (
@@ -95,33 +78,33 @@ export function VetCommentsWidget() {
                                 className="p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
                                 onClick={() => navigate(`/pigs/${comment.pig_id}`)}
                             >
-                                <div className="flex items-start justify-between mb-1">
+                                <div className="flex items-start justify-between mb-2">
                                     <div className="flex items-center gap-2">
-                                        <span className="text-sm font-medium">{comment.ear_tag}</span>
-                                        {comment.pen_location && (
-                                            <span className="text-xs text-muted-foreground">({comment.pen_location})</span>
-                                        )}
+                                        <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center">
+                                            <User className="h-3 w-3 text-emerald-600" />
+                                        </div>
+                                        <span className="text-xs font-semibold">{comment.author_name}</span>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-xs text-muted-foreground">
-                                            {formatTime(comment.created_at)}
-                                        </span>
-                                        <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                                    </div>
+                                    <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                        <Calendar className="h-3 w-3" />
+                                        {new Date(comment.created_at).toLocaleDateString(i18n.language)}
+                                    </span>
                                 </div>
-                                <p className="text-sm text-muted-foreground line-clamp-2">
-                                    {comment.content}
+                                <p className="text-xs text-muted-foreground line-clamp-2 mb-2 italic">
+                                    "{comment.content}"
                                 </p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    — {comment.created_by_name}
-                                </p>
+                                <div className="flex justify-end">
+                                    <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full font-medium">
+                                        {t('dashboard.widgets.animals.earTag')}: {comment.pig_num}
+                                    </span>
+                                </div>
                             </div>
                         ))}
                     </div>
                 ) : (
                     <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
-                        <MessageSquare className="h-8 w-8 mb-2" />
-                        <p className="text-sm">目前沒有獸醫師建議</p>
+                        <MessageSquare className="h-8 w-8 mb-2 opacity-20" />
+                        <p className="text-sm">{t('dashboard.widgets.animals.noComments')}</p>
                     </div>
                 )}
             </CardContent>
