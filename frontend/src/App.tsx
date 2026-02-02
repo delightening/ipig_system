@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { useAuthStore } from '@/stores/auth'
+import { RequirePermission } from '@/components/auth'
 
 // Layouts
 import { MainLayout } from '@/layouts/MainLayout'
@@ -115,6 +116,21 @@ function ErpRoute({ children }: { children?: React.ReactNode }) {
     return children ? <>{children}</> : <Outlet />
 }
 
+// Admin Route - 僅限管理員
+function AdminRoute({ children }: { children?: React.ReactNode }) {
+    const { hasRole } = useAuthStore()
+
+    if (!hasRole('admin')) {
+        return (
+            <RequirePermission role="admin">
+                {children || <Outlet />}
+            </RequirePermission>
+        )
+    }
+
+    return children ? <>{children}</> : <Outlet />
+}
+
 function App() {
     const { checkAuth, isAuthenticated, user, hasRole } = useAuthStore()
 
@@ -200,18 +216,27 @@ function App() {
                         <Route path="/reports/cost-summary" element={<CostSummaryReportPage />} />
                     </Route>
 
-                    {/* 系統管理 */}
-                    <Route path="/admin/users" element={<UsersPage />} />
-                    <Route path="/admin/roles" element={<RolesPage />} />
-                    <Route path="/admin/settings" element={<SettingsPage />} />
-                    <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
-                    <Route path="/admin/audit" element={<AdminAuditPage />} />
+                    {/* 系統管理 - 需要 admin 角色 */}
+                    <Route element={<AdminRoute />}>
+                        <Route path="/admin/users" element={<UsersPage />} />
+                        <Route path="/admin/roles" element={<RolesPage />} />
+                        <Route path="/admin/settings" element={<SettingsPage />} />
+                        <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
+                        <Route path="/admin/audit" element={<AdminAuditPage />} />
+                    </Route>
 
                     {/* HR 人員管理 */}
                     <Route path="/hr/attendance" element={<HrAttendancePage />} />
                     <Route path="/hr/leaves" element={<HrLeavePage />} />
                     <Route path="/hr/overtime" element={<HrOvertimePage />} />
-                    <Route path="/hr/annual-leave" element={<HrAnnualLeavePage />} />
+                    <Route path="/hr/annual-leave" element={
+                        <RequirePermission anyOf={[
+                            { permission: 'hr.balance.manage' },
+                            { role: 'admin' }
+                        ]}>
+                            <HrAnnualLeavePage />
+                        </RequirePermission>
+                    } />
                     <Route path="/hr/calendar" element={<CalendarSyncSettingsPage />} />
 
                     {/* AUP 計畫書管理 */}

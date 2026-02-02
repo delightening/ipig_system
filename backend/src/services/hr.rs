@@ -203,11 +203,12 @@ impl HrService {
         let per_page = query.per_page.unwrap_or(50).min(500);
         let offset = (page - 1) * per_page;
 
+        // Handle comma-separated status values (e.g., "pending_admin_staff,pending_admin")
         let total: (i64,) = sqlx::query_as(
             r#"
             SELECT COUNT(*) FROM overtime_records
             WHERE ($1::uuid IS NULL OR user_id = $1)
-              AND ($2::text IS NULL OR status = $2)
+              AND ($2::text IS NULL OR status = ANY(string_to_array($2, ',')))
               AND ($3::date IS NULL OR overtime_date >= $3)
               AND ($4::date IS NULL OR overtime_date <= $4)
             "#,
@@ -229,7 +230,7 @@ impl HrService {
             FROM overtime_records o
             INNER JOIN users u ON o.user_id = u.id
             WHERE ($1::uuid IS NULL OR o.user_id = $1)
-              AND ($2::text IS NULL OR o.status = $2)
+              AND ($2::text IS NULL OR o.status = ANY(string_to_array($2, ',')))
               AND ($3::date IS NULL OR o.overtime_date >= $3)
               AND ($4::date IS NULL OR o.overtime_date <= $4)
             ORDER BY o.overtime_date DESC
@@ -392,7 +393,7 @@ impl HrService {
         sqlx::query(
             r#"
             UPDATE overtime_records
-            SET status = 'pending', submitted_at = NOW(), updated_at = NOW()
+            SET status = 'pending_admin_staff', submitted_at = NOW(), updated_at = NOW()
             WHERE id = $1 AND status = 'draft'
             "#,
         )
@@ -407,35 +408,78 @@ impl HrService {
         pool: &PgPool,
         id: Uuid,
         approver_id: Uuid,
+        approval_level: &str, // "admin_staff" or "admin"
     ) -> Result<OvertimeWithUser> {
+        // Get current record to check status
+        let current: OvertimeRecord = sqlx::query_as(
+            "SELECT * FROM overtime_records WHERE id = $1"
+        )
+        .bind(id)
+        .fetch_one(pool)
+        .await?;
+
+        // Determine next status based on current status and approval level
+        let (expected_status, next_status, is_final) = match approval_level {
+            "admin_staff" => ("pending_admin_staff", "pending_admin", false),
+            "admin" => ("pending_admin", "approved", true),
+            _ => return Err(AppError::Validation("無效的審核層級".to_string())),
+        };
+
+        // Verify current status matches expected
+        if current.status != expected_status {
+            return Err(AppError::Validation(format!(
+                "目前狀態為 {}，無法進行 {} 層級審核",
+                current.status, approval_level
+            )));
+        }
+
+        // Update status
         let record: OvertimeRecord = sqlx::query_as(
             r#"
             UPDATE overtime_records
-            SET status = 'approved', approved_by = $2, approved_at = NOW(), updated_at = NOW()
+            SET status = $2, approved_by = $3, approved_at = NOW(), updated_at = NOW()
             WHERE id = $1
             RETURNING *
             "#,
         )
         .bind(id)
+        .bind(next_status)
         .bind(approver_id)
         .fetch_one(pool)
         .await?;
 
+        // Record approval in overtime_approvals table
         sqlx::query(
             r#"
-            INSERT INTO comp_time_balances (
-                id, user_id, overtime_record_id, original_hours, earned_date, expires_at
-            ) VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO overtime_approvals (id, overtime_record_id, approver_id, approval_level, action)
+            VALUES ($1, $2, $3, $4, 'APPROVE')
             "#,
         )
         .bind(Uuid::new_v4())
-        .bind(record.user_id)
-        .bind(record.id)
-        .bind(record.comp_time_hours)
-        .bind(record.overtime_date)
-        .bind(record.comp_time_expires_at)
+        .bind(id)
+        .bind(approver_id)
+        .bind(approval_level)
         .execute(pool)
         .await?;
+
+        // Only credit comp_time after final approval (admin level)
+        if is_final {
+            sqlx::query(
+                r#"
+                INSERT INTO comp_time_balances (
+                    id, user_id, overtime_record_id, original_hours, earned_date, expires_at
+                ) VALUES ($1, $2, $3, $4, $5, $6)
+                "#,
+            )
+            .bind(Uuid::new_v4())
+            .bind(record.user_id)
+            .bind(record.id)
+            .bind(record.comp_time_hours)
+            .bind(record.overtime_date)
+            .bind(record.comp_time_expires_at)
+            .execute(pool)
+            .await?;
+        }
 
         let result = sqlx::query_as::<_, OvertimeWithUser>(
             r#"
@@ -767,11 +811,13 @@ impl HrService {
             .fetch_one(pool)
             .await?;
 
+        // Determine next status based on current status
+        // PENDING_L1 (部門主管) → PENDING_HR (行政) → PENDING_GM (負責人) → APPROVED
         let next_status = match current.status.as_str() {
-            "PENDING_L1" => "APPROVED",
-            "PENDING_L2" => "APPROVED",
-            "PENDING_HR" => "APPROVED",
-            "PENDING_GM" => "APPROVED",
+            "PENDING_L1" => "PENDING_HR",   // After dept manager approval, go to admin staff
+            "PENDING_L2" => "PENDING_HR",   // Fallback for L2 (unused, but keep for compatibility)
+            "PENDING_HR" => "PENDING_GM",   // After admin staff approval, go to admin
+            "PENDING_GM" => "APPROVED",     // After admin approval, final approval
             _ => return Err(AppError::Validation("無法核准此狀態的請假".to_string())),
         };
 
