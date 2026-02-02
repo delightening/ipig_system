@@ -13,172 +13,225 @@ export interface PermissionGroup {
   }[]
 }
 
-// 模組配置
+// 模組配置 - 中文顯示名稱
 const MODULE_CONFIG: Record<string, { name: string; order: number }> = {
-  aup: { name: 'AUP', order: 1 },
-  pig: { name: 'Pig', order: 2 },
-  erp: { name: 'ERP', order: 3 },
-  notification: { name: 'Notification', order: 4 },
-  report: { name: 'Report', order: 5 },
-  hr: { name: 'HR', order: 6 },
-  facility: { name: 'Facility', order: 7 },
-  building: { name: 'Facility', order: 7 },
-  zone: { name: 'Facility', order: 7 },
-  pen: { name: 'Facility', order: 7 },
-  species: { name: 'Species', order: 8 },
-  department: { name: 'Department', order: 9 },
-  calendar: { name: 'Calendar', order: 10 },
-  audit: { name: 'Audit', order: 11 },
-  user: { name: 'User', order: 12 },
-  role: { name: 'Role', order: 13 },
-  permission: { name: 'Permission', order: 14 },
-  system: { name: 'System', order: 15 },
-  dev: { name: 'Dev', order: 16 },
-  other: { name: 'Other', order: 99 },
+  // 動物使用計畫
+  aup: { name: '動物使用計畫', order: 1 },
+
+  // 動物管理（含物種管理、動物來源、緊急給藥等）
+  pig: { name: '動物管理', order: 2 },
+  animal: { name: '動物管理', order: 2 },
+  species: { name: '動物管理', order: 2 },
+
+  // 庫存管理
+  erp: { name: '庫存管理', order: 3 },
+
+  // 管理階級（通知、報表、人事、設施、部門、稽核等）
+  notification: { name: '管理階級', order: 4 },
+  report: { name: '管理階級', order: 4 },
+  hr: { name: '管理階級', order: 4 },
+  facility: { name: '管理階級', order: 4 },
+  building: { name: '管理階級', order: 4 },
+  zone: { name: '管理階級', order: 4 },
+  pen: { name: '管理階級', order: 4 },
+  department: { name: '管理階級', order: 4 },
+  audit: { name: '管理階級', order: 4 },
+  calendar: { name: '管理階級', order: 4 },
+
+  // 系統管理（使用者、角色、權限）
+  admin: { name: '系統管理', order: 5 },
+  user: { name: '系統管理', order: 5 },
+  role: { name: '系統管理', order: 5 },
+  permission: { name: '系統管理', order: 5 },
+  system: { name: '系統管理', order: 5 },
+
+  // 開發工具
+  dev: { name: '開發工具', order: 6 },
+
+  // 其他
+  record: { name: '其他', order: 99 },
+  source: { name: '其他', order: 99 },
+  other: { name: '其他', order: 99 },
 }
 
-// Category display names
+// 類別顯示名稱 - 中文
 const CATEGORY_NAMES: Record<string, Record<string, string>> = {
+  admin: {
+    user: '使用者',
+    role: '角色',
+    permission: '權限',
+    audit: '稽核',
+  },
   aup: {
-    protocol: 'Protocols',
-    review: 'Reviews',
-    attachment: 'Attachments',
-    version: 'Versions',
+    protocol: '計畫',
+    review: '審查',
+    attachment: '附件',
+    version: '版本',
   },
   pig: {
-    pig: 'Pigs',
-    record: 'Records',
-    vet: 'Vet',
-    export: 'Export',
-    pathology: 'Pathology',
+    pig: '動物',
+    record: '紀錄',
+    vet: '獸醫',
+    export: '匯出',
+    pathology: '病理',
+    source: '來源',
+  },
+  animal: {
+    record: '紀錄',
+    source: '來源',
   },
   erp: {
-    warehouse: 'Warehouses',
-    product: 'Products',
-    partner: 'Partners',
-    document: 'Documents',
-    purchase: 'Purchasing',
-    grn: 'GRN',
-    pr: 'PR',
-    sales: 'Sales',
-    do: 'DO',
-    stock: 'Stock',
-    stocktake: 'Stocktake',
-    report: 'Reports',
-    po: 'PO',
-    so: 'SO',
-    tr: 'Transfer',
-    stk: 'Stocktake',
-    adj: 'Adjustment',
-    inventory: 'Inventory',
-    create: 'Create',
-    approve: 'Approve',
-    cancel: 'Cancel',
-    submit: 'Submit',
-    update: 'Update',
-    delete: 'Delete',
-    view: 'View',
-    read: 'Read',
-    edit: 'Edit',
-    schedule: 'Schedule',
-    download: 'Download',
+    warehouse: '倉庫',
+    product: '產品',
+    partner: '合作夥伴',
+    document: '文件',
+    purchase: '採購',
+    grn: '收貨',
+    pr: '採購申請',
+    sales: '銷售',
+    do: '出貨',
+    stock: '庫存',
+    stocktake: '盤點',
+    report: '報表',
+    po: '採購單',
+    so: '銷售單',
+    tr: '調撥',
+    stk: '盤點',
+    adj: '庫存調整',
+    inventory: '庫存',
+    create: '新增',
+    approve: '審核',
+    cancel: '取消',
+    submit: '提交',
+    update: '更新',
+    delete: '刪除',
+    view: '檢視',
+    read: '讀取',
+    edit: '編輯',
+    schedule: '排程',
+    download: '下載',
   },
   dev: {
-    user: 'Users',
-    role: 'Roles',
-    permission: 'Permissions',
-    system: 'System',
-    audit: 'Audit',
-    log: 'Logs',
-    notification: 'Notifications',
-    database: 'Database',
-    create: 'Create',
-    view: 'View',
-    read: 'Read',
-    edit: 'Edit',
-    update: 'Update',
-    delete: 'Delete',
-    manage: 'Manage',
-    assign: 'Assign',
-    reset_password: 'Reset Password',
-    export: 'Export',
-    download: 'Download',
-    query: 'Query',
-    migrate: 'Migrate',
-    seed: 'Seed',
-    send: 'Send',
-    backup: 'Backup',
-    restore: 'Restore',
-    trigger: 'Trigger',
-    schedule: 'Schedule',
-    upload: 'Upload',
+    user: '使用者',
+    role: '角色',
+    permission: '權限',
+    system: '系統',
+    audit: '稽核',
+    log: '日誌',
+    notification: '通知',
+    database: '資料庫',
+    create: '新增',
+    view: '檢視',
+    read: '讀取',
+    edit: '編輯',
+    update: '更新',
+    delete: '刪除',
+    manage: '管理',
+    assign: '指派',
+    reset_password: '重設密碼',
+    export: '匯出',
+    download: '下載',
+    query: '查詢',
+    migrate: '遷移',
+    seed: '初始資料',
+    send: '發送',
+    backup: '備份',
+    restore: '還原',
+    trigger: '觸發',
+    schedule: '排程',
+    upload: '上傳',
   },
   notification: {
-    manage: 'Manage',
-    send: 'Send',
-    trigger: 'Trigger',
-    view: 'View',
-    notification: 'Notifications',
+    manage: '管理',
+    send: '發送',
+    trigger: '觸發',
+    view: '檢視',
+    notification: '通知',
   },
   report: {
-    download: 'Download',
-    schedule: 'Schedule',
-    view: 'View',
-    export: 'Export',
-    report: 'Reports',
+    download: '下載',
+    schedule: '排程',
+    view: '檢視',
+    export: '匯出',
+    report: '報表',
   },
-  // Consolidated module categories (for 2-part permission codes like species.create)
+  // 合併模組類別 (兩段式權限碼如 species.create)
   species: {
-    species: 'Species',
+    species: '物種',
+    create: '新增',
+    read: '讀取',
+    update: '更新',
+    delete: '刪除',
   },
   department: {
-    department: 'Departments',
+    department: '部門',
   },
   facility: {
-    facility: 'Facilities',
-    building: 'Buildings',
-    zone: 'Zones',
-    pen: 'Pens',
+    facility: '設施',
+    building: '建築物',
+    zone: '區域',
+    pen: '欄位',
   },
   building: {
-    building: 'Buildings',
+    building: '建築物',
   },
   zone: {
-    zone: 'Zones',
+    zone: '區域',
   },
   pen: {
-    pen: 'Pens',
+    pen: '欄位',
+  },
+  record: {
+    record: '紀錄',
+  },
+  source: {
+    source: '來源',
+  },
+  audit: {
+    audit: '稽核',
+    alerts: '警示',
+    logs: '日誌',
+    timeline: '時間軸',
+  },
+  user: {
+    user: '使用者',
+  },
+  role: {
+    role: '角色',
+  },
+  permission: {
+    permission: '權限',
   },
 }
 
-// Operation display names
+// 操作顯示名稱 - 中文
 const OPERATION_NAMES: Record<string, string> = {
-  create: 'Create',
-  approve: 'Approve',
-  cancel: 'Cancel',
-  submit: 'Submit',
-  update: 'Update',
-  delete: 'Delete',
-  view: 'View',
-  read: 'Read',
-  edit: 'Edit',
-  manage: 'Manage',
-  assign: 'Assign',
-  reset_password: 'Reset Password',
-  export: 'Export',
-  download: 'Download',
-  query: 'Query',
-  migrate: 'Migrate',
-  seed: 'Seed',
-  send: 'Send',
-  backup: 'Backup',
-  restore: 'Restore',
-  upload: 'Upload',
-  trigger: 'Trigger',
-  schedule: 'Schedule',
+  create: '新增',
+  approve: '審核',
+  cancel: '取消',
+  submit: '提交',
+  update: '更新',
+  delete: '刪除',
+  view: '檢視',
+  read: '讀取',
+  edit: '編輯',
+  manage: '管理',
+  assign: '指派',
+  reset_password: '重設密碼',
+  export: '匯出',
+  download: '下載',
+  query: '查詢',
+  migrate: '遷移',
+  seed: '初始資料',
+  send: '發送',
+  backup: '備份',
+  restore: '還原',
+  upload: '上傳',
+  trigger: '觸發',
+  schedule: '排程',
 }
 /**
- * ???????????
+ * 取得權限所屬模組
  */
 function getPermissionModule(perm: Permission): string {
   if (perm.module) {
@@ -186,10 +239,13 @@ function getPermissionModule(perm: Permission): string {
   }
 
   const prefix = perm.code.split('.')[0]
-  if (prefix === 'aup') return 'aup'
-  if (prefix === 'pig') return 'pig'
-  if (prefix === 'erp') return 'erp'
-  if (prefix === 'dev') return 'dev'
+
+  // 檢查是否為已知模組
+  if (MODULE_CONFIG[prefix]) {
+    return prefix
+  }
+
+  // 回退至 other
   return 'other'
 }
 function getPermissionCategory(code: string): string {
@@ -256,35 +312,50 @@ export function usePermissionManager(permissions: Permission[] | undefined) {
     })
   }, [permissions])
 
-  // ?????????????????ID ?????????????????
-  // ???????????? code?????pig.record.* ?????animal.record.*??
+  // 根據模組顯示名稱分組權限（相同顯示名稱的模組會合併）
+  // 例如 notification、hr、facility 都映射到「管理階級」會合併成一組
   const groupedPermissions = useMemo(() => {
-    const groups = new Map<string, Map<string, Permission[]>>()
+    // 第一步：按模組顯示名稱分組
+    const groupsByName = new Map<string, {
+      moduleOrder: number
+      categories: Map<string, Permission[]>
+    }>()
 
     uniquePermissions.forEach(perm => {
-      const module = getPermissionModule(perm)
-      const category = getPermissionCategory(perm.code)
+      const moduleCode = getPermissionModule(perm)
+      const moduleConfig = MODULE_CONFIG[moduleCode] || MODULE_CONFIG.other
+      const moduleName = moduleConfig.name
+      const moduleOrder = moduleConfig.order
 
-      if (!groups.has(module)) {
-        groups.set(module, new Map())
+      // 對於合併的模組（相同 moduleName），使用原始 moduleCode 作為類別
+      // 對於 2 段式權限碼，類別就是 moduleCode 本身
+      // 對於 3+ 段式權限碼，類別是第二段
+      const rawCategory = getPermissionCategory(perm.code)
+      // 如果類別和模組碼相同（2段式權限），使用模組碼作為類別
+      const category = rawCategory === moduleCode ? moduleCode : rawCategory
+
+      if (!groupsByName.has(moduleName)) {
+        groupsByName.set(moduleName, {
+          moduleOrder,
+          categories: new Map()
+        })
       }
-      const moduleMap = groups.get(module)!
+      const group = groupsByName.get(moduleName)!
 
-      if (!moduleMap.has(category)) {
-        moduleMap.set(category, [])
+      if (!group.categories.has(category)) {
+        group.categories.set(category, [])
       }
 
-      const categoryPerms = moduleMap.get(category)!
-      categoryPerms.push(perm)
+      group.categories.get(category)!.push(perm)
     })
 
-    const result: PermissionGroup[] = Array.from(groups.entries())
-      .map(([module, categories]) => {
-        const moduleConfig = MODULE_CONFIG[module] || MODULE_CONFIG.other
+    // 第二步：轉換為結果格式
+    const result: PermissionGroup[] = Array.from(groupsByName.entries())
+      .map(([moduleName, { moduleOrder, categories }]) => {
         return {
-          module,
-          moduleName: moduleConfig.name,
-          moduleOrder: moduleConfig.order,
+          module: moduleName, // 使用顯示名稱作為 module key
+          moduleName: moduleName,
+          moduleOrder: moduleOrder,
           categories: Array.from(categories.entries())
             .map(([category, perms]) => {
               const seen = new Set<string>()
@@ -294,9 +365,16 @@ export function usePermissionManager(permissions: Permission[] | undefined) {
                 return true
               })
 
+              // 獲取類別顯示名稱 - 優先從原始模組碼查找
+              let categoryName = getCategoryName(category, category)
+              // 如果找不到，嘗試從 CATEGORY_NAMES 中查找（使用類別作為模組鍵）
+              if (categoryName === category && CATEGORY_NAMES[category]?.[category]) {
+                categoryName = CATEGORY_NAMES[category][category]
+              }
+
               return {
                 category,
-                categoryName: getCategoryName(module, category),
+                categoryName,
                 permissions: uniquePerms.sort((a, b) => a.name.localeCompare(b.name)),
               }
             })
