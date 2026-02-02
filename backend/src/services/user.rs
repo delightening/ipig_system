@@ -31,10 +31,10 @@ impl UserService {
         let user = sqlx::query_as::<_, User>(
             r#"
             INSERT INTO users (
-                id, email, password_hash, display_name, phone, organization,
+                id, email, password_hash, display_name, phone, organization, experience,
                 is_internal, is_active, must_change_password, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, true, true, NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, true, NOW(), NOW())
             RETURNING *
             "#
         )
@@ -44,6 +44,7 @@ impl UserService {
         .bind(&req.display_name)
         .bind(&req.phone)
         .bind(&req.organization)
+        .bind(&req.experience)
         .bind(req.is_internal)
         .fetch_one(pool)
         .await?;
@@ -95,6 +96,7 @@ impl UserService {
                 theme_preference: user.theme_preference,
                 language_preference: user.language_preference,
                 last_login_at: user.last_login_at,
+                experience: user.experience,
                 roles,
                 permissions,
             });
@@ -125,6 +127,7 @@ impl UserService {
             theme_preference: user.theme_preference,
             language_preference: user.language_preference,
             last_login_at: user.last_login_at,
+            experience: user.experience,
             roles,
             permissions,
         })
@@ -162,10 +165,11 @@ impl UserService {
                 display_name = COALESCE($2, display_name),
                 phone = COALESCE($3, phone),
                 organization = COALESCE($4, organization),
-                is_internal = COALESCE($5, is_internal),
-                is_active = COALESCE($6, is_active),
+                experience = COALESCE($5, experience),
+                is_internal = COALESCE($6, is_internal),
+                is_active = COALESCE($7, is_active),
                 updated_at = NOW()
-            WHERE id = $7
+            WHERE id = $8
             RETURNING *
             "#
         )
@@ -173,6 +177,7 @@ impl UserService {
         .bind(&req.display_name)
         .bind(&req.phone)
         .bind(&req.organization)
+        .bind(&req.experience)
         .bind(req.is_internal)
         .bind(req.is_active)
         .bind(id)
@@ -211,6 +216,7 @@ impl UserService {
             theme_preference: updated_user.theme_preference,
             language_preference: updated_user.language_preference,
             last_login_at: updated_user.last_login_at,
+            experience: updated_user.experience,
             roles,
             permissions,
         })

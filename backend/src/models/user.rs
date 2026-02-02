@@ -54,6 +54,7 @@ pub struct User {
     pub language_preference: String,
     // 時間戳
     pub last_login_at: Option<DateTime<Utc>>,
+    pub experience: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -73,6 +74,7 @@ pub struct UserWithRoles {
     pub theme_preference: String,
     pub language_preference: String,
     pub last_login_at: Option<DateTime<Utc>>,
+    pub experience: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub roles: Vec<String>,
@@ -89,6 +91,7 @@ pub struct CreateUserRequest {
     pub display_name: String,
     pub phone: Option<String>,
     pub organization: Option<String>,
+    pub experience: Option<String>,
     #[serde(default = "default_is_internal")]
     pub is_internal: bool,
     #[serde(default)]
@@ -107,6 +110,7 @@ pub struct UpdateUserRequest {
     pub display_name: Option<String>,
     pub phone: Option<String>,
     pub organization: Option<String>,
+    pub experience: Option<String>,
     pub is_internal: Option<bool>,
     pub is_active: Option<bool>,
     pub role_ids: Option<Vec<Uuid>>,
@@ -143,6 +147,7 @@ pub struct UserResponse {
     pub theme_preference: String,
     pub language_preference: String,
     pub last_login_at: Option<DateTime<Utc>>,
+    pub experience: Option<String>,
     pub roles: Vec<String>,
     pub permissions: Vec<String>,
 }

@@ -1,10 +1,12 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { User, Role, ResetPasswordRequest } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import {
   Table,
@@ -30,6 +32,7 @@ interface CreateUserData {
   password: string
   display_name: string
   role_ids: string[]
+  experience?: string
 }
 
 interface UpdateUserData {
@@ -37,9 +40,11 @@ interface UpdateUserData {
   display_name?: string
   is_active?: boolean
   role_ids?: string[]
+  experience?: string
 }
 
 export function UsersPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const { user: currentUser, impersonate } = useAuthStore()
@@ -58,6 +63,7 @@ export function UsersPage() {
     password: '',
     display_name: '',
     role_ids: [],
+    experience: '',
   })
 
   // 排序狀態: 'asc' | 'desc' | null
@@ -181,7 +187,7 @@ export function UsersPage() {
   })
 
   const resetForm = () => {
-    setFormData({ email: '', password: '', display_name: '', role_ids: [] })
+    setFormData({ email: '', password: '', display_name: '', role_ids: [], experience: '' })
   }
 
   const handleCreate = () => {
@@ -199,6 +205,7 @@ export function UsersPage() {
       password: '',
       display_name: user.display_name,
       role_ids: [],
+      experience: user.experience || '',
     })
     setShowEditDialog(true)
   }
@@ -210,6 +217,7 @@ export function UsersPage() {
       data: {
         email: formData.email || undefined,
         display_name: formData.display_name || undefined,
+        experience: formData.experience || undefined,
       },
     })
   }
@@ -489,6 +497,16 @@ export function UsersPage() {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="experience">{t('user.experience')}</Label>
+              <Textarea
+                id="experience"
+                value={formData.experience}
+                onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
+                placeholder={t('user.experiencePlaceholder')}
+                rows={4}
+              />
+            </div>
+            <div className="space-y-2">
               <Label>指派角色</Label>
               <div className="flex flex-wrap gap-2 p-3 border rounded-md">
                 {roles?.map((role) => (
@@ -539,6 +557,16 @@ export function UsersPage() {
                 id="edit-display_name"
                 value={formData.display_name}
                 onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-experience">{t('user.experience')}</Label>
+              <Textarea
+                id="edit-experience"
+                value={formData.experience}
+                onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
+                placeholder={t('user.experiencePlaceholder')}
+                rows={4}
               />
             </div>
           </div>

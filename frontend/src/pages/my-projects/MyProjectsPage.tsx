@@ -25,6 +25,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { Eye, Loader2, FileText, Calendar, Building, X } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
+import { useTranslation } from 'react-i18next'
 
 const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'> = {
   DRAFT: 'secondary',
@@ -43,6 +44,7 @@ const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' |
 }
 
 export function MyProjectsPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const { user } = useAuthStore()
@@ -67,8 +69,8 @@ export function MyProjectsPage() {
     },
     onSuccess: () => {
       toast({
-        title: '成功',
-        description: '計畫已結案',
+        title: t('common.success'),
+        description: t('common.saved'),
       })
       queryClient.invalidateQueries({ queryKey: ['my-projects'] })
       setCloseDialogOpen(false)
@@ -76,8 +78,8 @@ export function MyProjectsPage() {
     },
     onError: (error: any) => {
       toast({
-        title: '錯誤',
-        description: error?.response?.data?.error?.message || '結案失敗',
+        title: t('common.error'),
+        description: error?.response?.data?.error?.message || t('common.error'),
         variant: 'destructive',
       })
     },
@@ -105,11 +107,11 @@ export function MyProjectsPage() {
   // 計算計畫狀態：申請中、進行中、已結案
   const getProjectStatus = (status: ProtocolStatus): { label: string; color: 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline' } => {
     if (status === 'CLOSED') {
-      return { label: '已結案', color: 'outline' }
+      return { label: t('dashboard.projectStats.closed'), color: 'outline' }
     } else if (status === 'APPROVED' || status === 'APPROVED_WITH_CONDITIONS') {
-      return { label: '進行中', color: 'success' }
+      return { label: t('dashboard.projectStats.ongoing'), color: 'success' }
     } else {
-      return { label: '申請中', color: 'warning' }
+      return { label: t('dashboard.projectStats.applying'), color: 'warning' }
     }
   }
 
@@ -142,9 +144,9 @@ export function MyProjectsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">我的計劃</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{t('nav.myProjects')}</h1>
         <p className="text-muted-foreground">
-          查看您參與或主持的 IACUC 計劃
+          {t('dashboard.widgets.projects.description')}
         </p>
       </div>
 
@@ -152,7 +154,7 @@ export function MyProjectsPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">全部計劃</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('dashboard.widgets.projects.total')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.total}</div>
@@ -160,7 +162,7 @@ export function MyProjectsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-green-600">已核准</CardTitle>
+            <CardTitle className="text-sm font-medium text-green-600">{t('protocols.status.APPROVED')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
@@ -168,7 +170,7 @@ export function MyProjectsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-yellow-600">審查中</CardTitle>
+            <CardTitle className="text-sm font-medium text-yellow-600">{t('dashboard.widgets.projects.reviewing')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">{stats.underReview}</div>
@@ -176,7 +178,7 @@ export function MyProjectsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">草稿</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-500">{t('protocols.status.DRAFT')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-slate-500">{stats.draft}</div>
@@ -187,8 +189,8 @@ export function MyProjectsPage() {
       {/* 計劃列表 */}
       <Card>
         <CardHeader>
-          <CardTitle>計劃清單</CardTitle>
-          <CardDescription>您參與的所有 IACUC 計劃</CardDescription>
+          <CardTitle>{t('dashboard.widgets.names.my_projects')}</CardTitle>
+          <CardDescription>{t('dashboard.widgets.projects.description')}</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -199,14 +201,14 @@ export function MyProjectsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>IACUC No.</TableHead>
-                  <TableHead>狀態</TableHead>
-                  <TableHead>委託單位代表人（主管）</TableHead>
-                  <TableHead>委託單位</TableHead>
-                  <TableHead>審查狀態</TableHead>
-                  <TableHead>計畫名稱</TableHead>
-                  <TableHead>起迄執行日期</TableHead>
-                  <TableHead className="text-right">詳細內容</TableHead>
+                  <TableHead>{t('protocols.columns.iacucNo')}</TableHead>
+                  <TableHead>{t('protocols.columns.status')}</TableHead>
+                  <TableHead>{t('aup.basic.contactPerson')}</TableHead>
+                  <TableHead>{t('aup.basic.organizationName')}</TableHead>
+                  <TableHead>{t('protocols.columns.status')}</TableHead>
+                  <TableHead>{t('protocols.columns.protocolTitle')}</TableHead>
+                  <TableHead>{t('protocols.columns.period')}</TableHead>
+                  <TableHead className="text-right">{t('protocols.columns.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -246,7 +248,7 @@ export function MyProjectsPage() {
                           <Button variant="outline" size="sm" asChild>
                             <Link to={`/my-projects/${project.id}`}>
                               <Eye className="mr-2 h-4 w-4" />
-                              檢視
+                              {t('common.view')}
                             </Link>
                           </Button>
                           {/* 結案按鈕: 審查委員不應有結案功能 */}
@@ -259,7 +261,7 @@ export function MyProjectsPage() {
                                 disabled={closeProtocolMutation.isPending}
                               >
                                 <X className="mr-2 h-4 w-4" />
-                                結案
+                                {t('common.delete')}
                               </Button>
                             )}
                         </div>
@@ -272,9 +274,9 @@ export function MyProjectsPage() {
           ) : (
             <div className="text-center py-12">
               <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold mb-2">尚無計劃資料</h3>
+              <h3 className="text-lg font-semibold mb-2">{t('common.noData')}</h3>
               <p className="text-muted-foreground">
-                您目前沒有參與任何 IACUC 計劃
+                {t('dashboard.widgets.projects.noProjects')}
               </p>
             </div>
           )}
@@ -285,9 +287,9 @@ export function MyProjectsPage() {
       <Dialog open={closeDialogOpen} onOpenChange={setCloseDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>確認結案</DialogTitle>
+            <DialogTitle>{t('common.closeTitle')}</DialogTitle>
             <DialogDescription>
-              確定要結案此計畫嗎？此操作無法復原。
+              {t('common.closeDescription')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -296,7 +298,7 @@ export function MyProjectsPage() {
               onClick={() => setCloseDialogOpen(false)}
               disabled={closeProtocolMutation.isPending}
             >
-              取消
+              {t('common.cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -306,10 +308,10 @@ export function MyProjectsPage() {
               {closeProtocolMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  處理中...
+                  {t('common.processed')}
                 </>
               ) : (
-                '確認結案'
+                t('common.confirm')
               )}
             </Button>
           </DialogFooter>

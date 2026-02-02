@@ -99,106 +99,105 @@ const DEFAULT_NAV_ORDER = [
 // 靜態定義側邊導覽列的所有項目（以 id 識別）
 const navItemsConfig: NavItem[] = [
   {
-    title: '儀表板',
+    title: 'dashboard',
     href: '/dashboard',
     icon: <LayoutDashboard className="h-5 w-5" />,
     permission: 'erp',
   },
   {
-    title: '我的計劃',
+    title: 'myProjects',
     href: '/my-projects',
     icon: <FolderOpen className="h-5 w-5" />,
   },
   {
-    title: 'AUP',
+    title: 'aupReview',
     icon: <FileText className="h-5 w-5" />,
     children: [
-      { title: '計畫書管理', href: '/protocols' },
-      { title: '新增計畫書', href: '/protocols/new' },
-      { title: '變更申請', href: '/my-amendments' },
+      { title: 'protocols', href: '/protocols' },
+      { title: 'newProtocol', href: '/protocols/new' },
+      { title: 'myAmendments', href: '/my-amendments' },
     ],
   },
   {
-    title: '人員管理',
+    title: 'hrManagement',
     icon: <Users className="h-5 w-5" />,
     children: [
-      { title: '出勤打卡', href: '/hr/attendance' },
-      { title: '請假管理', href: '/hr/leaves' },
-      { title: '加班管理', href: '/hr/overtime' },
-      { title: '特休額度管理', href: '/hr/annual-leave', permission: 'hr.balance.manage' },
-      { title: '日曆', href: '/hr/calendar' },
+      { title: 'attendance', href: '/hr/attendance' },
+      { title: 'leaves', href: '/hr/leaves' },
+      { title: 'overtime', href: '/hr/overtime' },
+      { title: 'annualLeave', href: '/hr/annual-leave', permission: 'hr.balance.manage' },
+      { title: 'calendar', href: '/hr/calendar' },
     ],
   },
   {
-    title: '實驗動物管理',
+    title: 'animalManagement',
     icon: <Stethoscope className="h-5 w-5" />,
     children: [
-      { title: '動物列表', href: '/pigs' },
-      { title: '來源管理', href: '/pig-sources', permission: 'pig.source.manage' },
+      { title: 'animalList', href: '/pigs' },
+      { title: 'sourceManagement', href: '/pig-sources', permission: 'pig.source.manage' },
     ],
   },
   {
-    title: '採購管理',
+    title: 'purchasing',
     icon: <Truck className="h-5 w-5" />,
     children: [
-      { title: '採購單', href: '/documents?type=PO' },
-      { title: '採購入庫', href: '/documents?type=GRN' },
-      { title: '採購退貨', href: '/documents?type=PR' },
+      { title: 'purchaseOrder', href: '/documents?type=PO' },
+      { title: 'purchaseReturn', href: '/documents?type=PR' },
     ],
     permission: 'erp',
   },
   {
-    title: '銷售管理',
+    title: 'sales',
     icon: <ShoppingCart className="h-5 w-5" />,
     children: [
-      { title: '銷售單', href: '/documents?type=SO' },
-      { title: '銷售出庫', href: '/documents?type=DO' },
+      { title: 'salesOrder', href: '/documents?type=SO' },
+      { title: 'deliveryOrder', href: '/documents?type=DO' },
     ],
     permission: 'erp',
   },
   {
-    title: '倉儲作業',
+    title: 'warehouse',
     icon: <Warehouse className="h-5 w-5" />,
     children: [
-      { title: '庫存查詢', href: '/inventory' },
-      { title: '庫存流水', href: '/inventory/ledger' },
-      { title: '調撥單', href: '/documents?type=TR' },
-      { title: '盤點單', href: '/documents?type=STK' },
-      { title: '調整單', href: '/documents?type=ADJ' },
+      { title: 'inventory', href: '/inventory' },
+      { title: 'inventoryLedger', href: '/inventory/ledger' },
+      { title: 'transfer', href: '/documents?type=TR' },
+      { title: 'stocktaking', href: '/documents?type=STK' },
+      { title: 'adjustment', href: '/documents?type=ADJ' },
     ],
     permission: 'erp',
   },
   {
-    title: '報表中心',
+    title: 'reports',
     icon: <BarChart3 className="h-5 w-5" />,
     children: [
-      { title: '庫存現況報表', href: '/reports/stock-on-hand' },
-      { title: '庫存流水報表', href: '/reports/stock-ledger' },
-      { title: '採購明細報表', href: '/reports/purchase-lines' },
-      { title: '銷售明細報表', href: '/reports/sales-lines' },
-      { title: '成本摘要報表', href: '/reports/cost-summary' },
+      { title: 'stockOnHand', href: '/reports/stock-on-hand' },
+      { title: 'stockLedger', href: '/reports/stock-ledger' },
+      { title: 'purchaseLines', href: '/reports/purchase-lines' },
+      { title: 'salesLines', href: '/reports/sales-lines' },
+      { title: 'costSummary', href: '/reports/cost-summary' },
     ],
     permission: 'erp',
   },
   {
-    title: '基礎資料',
+    title: 'masterData',
     icon: <Package className="h-5 w-5" />,
     children: [
-      { title: '產品管理', href: '/products' },
-      { title: '倉庫管理', href: '/warehouses' },
-      { title: '供應商/客戶', href: '/partners' },
+      { title: 'products', href: '/products' },
+      { title: 'warehouses', href: '/warehouses' },
+      { title: 'partners', href: '/partners' },
     ],
     permission: 'erp',
   },
   {
-    title: '系統管理',
+    title: 'system',
     icon: <Settings className="h-5 w-5" />,
     children: [
-      { title: '使用者管理', href: '/admin/users' },
-      { title: '角色權限', href: '/admin/roles' },
-      { title: '系統設定', href: '/admin/settings' },
-      { title: '審計日誌', href: '/admin/audit-logs' },
-      { title: '安全審計', href: '/admin/audit' },
+      { title: 'users', href: '/admin/users' },
+      { title: 'roles', href: '/admin/roles' },
+      { title: 'settings', href: '/admin/settings' },
+      { title: 'auditLogs', href: '/admin/audit-logs' },
+      { title: 'securityAudit', href: '/admin/audit' },
     ],
     permission: 'admin',
   },
@@ -423,7 +422,7 @@ export function MainLayout() {
   }
 
   // 翻譯導覽項目標題
-  const translateTitle = (title: string) => navTitleMap[title] || title
+  const translateTitle = (title: string) => t(`nav.${title}`) || title
 
   // 通知下拉選單的顯示狀態與引用
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false)
@@ -470,7 +469,7 @@ export function MainLayout() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-preferences', 'nav_order'] })
-      toast({ title: '成功', description: '已重置選單排序為預設順序' })
+      toast({ title: t('common.success'), description: t('common.resetSuccess') })
     },
   })
 
@@ -553,7 +552,7 @@ export function MainLayout() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
       queryClient.invalidateQueries({ queryKey: ['notifications-recent'] })
-      toast({ title: '成功', description: '已標記所有通知為已讀' })
+      toast({ title: t('common.success'), description: t('common.saved') })
     },
   })
 
@@ -600,11 +599,11 @@ export function MainLayout() {
     const hours = Math.floor(diff / 3600000)
     const days = Math.floor(diff / 86400000)
 
-    if (minutes < 1) return '剛剛'
-    if (minutes < 60) return `${minutes} 分鐘前`
-    if (hours < 24) return `${hours} 小時前`
-    if (days < 7) return `${days} 天前`
-    return date.toLocaleDateString('zh-TW')
+    if (minutes < 1) return t('common.justNow')
+    if (minutes < 60) return t('common.minutesAgo', { count: minutes })
+    if (hours < 24) return t('common.hoursAgo', { count: hours })
+    if (days < 7) return t('common.daysAgo', { count: days })
+    return date.toLocaleDateString(i18n.language)
   }
 
   // 修改密碼的 API 變更操作
@@ -613,15 +612,15 @@ export function MainLayout() {
       return api.put('/me/password', data)
     },
     onSuccess: () => {
-      toast({ title: '成功', description: '密碼已修改，請使用新密碼重新登入' })
+      toast({ title: t('common.success'), description: t('password.success') })
       setShowPasswordDialog(false)
       resetPasswordForm()
       logout() // 改完密碼強制登出，要求使用者重新驗證
     },
     onError: (error: any) => {
       toast({
-        title: '錯誤',
-        description: error?.response?.data?.error?.message || '密碼修改失敗',
+        title: t('common.error'),
+        description: error?.response?.data?.error?.message || t('password.failed'),
         variant: 'destructive',
       })
     },
@@ -637,15 +636,15 @@ export function MainLayout() {
   // 客戶端驗證並觸發修改密碼 API
   const handleChangePassword = () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      toast({ title: '錯誤', description: '請填寫所有欄位', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('password.fillAllFields'), variant: 'destructive' })
       return
     }
     if (newPassword.length < 6) {
-      toast({ title: '錯誤', description: '新密碼至少需要 6 個字元', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('password.minLength'), variant: 'destructive' })
       return
     }
     if (newPassword !== confirmPassword) {
-      toast({ title: '錯誤', description: '新密碼與確認密碼不一致', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('password.mismatch'), variant: 'destructive' })
       return
     }
     changePasswordMutation.mutate({
@@ -752,7 +751,7 @@ export function MainLayout() {
             <button
               onClick={() => setSidebarOpen(true)}
               className="flex items-center justify-center hover:bg-slate-800 rounded-lg transition-colors"
-              title="展開側邊欄"
+              title={t('nav.expandSidebar')}
             >
               <img src="/pigmodel-logo.png" alt="Logo" className="h-8 w-auto" />
             </button>
@@ -774,7 +773,7 @@ export function MainLayout() {
           {/* 編輯模式提示 */}
           {isEditMode && sidebarOpen && (
             <div className="mb-3 p-2 bg-blue-600/20 rounded-lg text-xs text-blue-300 text-center">
-              拖曳項目調整順序
+              {t('nav.editModeHint')}
             </div>
           )}
           <DndContext
@@ -910,7 +909,7 @@ export function MainLayout() {
             <div className="flex items-center gap-2">
               <UserCircle className="h-5 w-5" />
               <span className="text-sm font-medium">
-                您正在模擬使用者：<span className="font-bold underline">{user?.display_name || user?.email}</span> ({user?.roles?.join(', ')})
+                {t('common.impersonating')}：<span className="font-bold underline">{user?.display_name || user?.email}</span> ({user?.roles?.join(', ')})
               </span>
             </div>
             <Button
@@ -920,7 +919,7 @@ export function MainLayout() {
               className="bg-white/20 border-white text-white hover:bg-white hover:text-blue-600 h-8 font-semibold transition-all"
             >
               <ArrowLeft className="h-4 w-4 mr-1" />
-              返回管理員帳號
+              {t('common.backToAdmin')}
             </Button>
           </div>
         )}
@@ -929,7 +928,7 @@ export function MainLayout() {
           <div className="flex items-center space-x-4">
             {/* 顯示目前日期 */}
             <span className="text-sm text-muted-foreground">
-              {new Date().toLocaleDateString('zh-TW', {
+              {new Date().toLocaleDateString(i18n.language, {
                 weekday: 'long',
                 year: 'numeric',
                 month: 'long',
@@ -958,7 +957,7 @@ export function MainLayout() {
                 <div className="absolute right-0 top-12 w-96 bg-white rounded-lg shadow-xl border z-50 overflow-hidden">
                   {/* 選單標頭：標題與全部標為已讀按鈕 */}
                   <div className="flex items-center justify-between px-4 py-3 border-b bg-slate-50">
-                    <h3 className="font-semibold text-slate-900">通知</h3>
+                    <h3 className="font-semibold text-slate-900">{t('common.notifications')}</h3>
                     {unreadCount && unreadCount > 0 && (
                       <button
                         onClick={() => markAllReadMutation.mutate()}
@@ -966,7 +965,7 @@ export function MainLayout() {
                         disabled={markAllReadMutation.isPending}
                       >
                         <CheckCheck className="h-4 w-4" />
-                        全部標為已讀
+                        {t('common.markAllRead')}
                       </button>
                     )}
                   </div>
@@ -1015,7 +1014,7 @@ export function MainLayout() {
                     ) : (
                       <div className="px-4 py-8 text-center text-slate-500">
                         <Bell className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                        <p>沒有通知</p>
+                        <p>{t('common.noNotifications')}</p>
                       </div>
                     )}
                   </div>
@@ -1030,7 +1029,7 @@ export function MainLayout() {
                         }}
                         className="text-sm text-blue-600 hover:text-blue-800 w-full text-center"
                       >
-                        查看所有通知
+                        {t('common.viewAll')}
                       </button>
                     </div>
                   )}
@@ -1067,41 +1066,41 @@ export function MainLayout() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Key className="h-5 w-5" />
-              修改密碼
+              {t('password.title')}
             </DialogTitle>
             <DialogDescription>
-              請輸入目前密碼和新密碼。修改後需要重新登入。
+              {t('password.description')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="current-password">目前密碼</Label>
+              <Label htmlFor="current-password">{t('password.currentPassword')}</Label>
               <Input
                 id="current-password"
                 type="password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
-                placeholder="請輸入目前密碼"
+                placeholder={t('password.currentPassword')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="new-password">新密碼</Label>
+              <Label htmlFor="new-password">{t('password.newPassword')}</Label>
               <Input
                 id="new-password"
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="至少 6 個字元"
+                placeholder={t('password.minLength')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirm-password">確認新密碼</Label>
+              <Label htmlFor="confirm-password">{t('password.confirmPassword')}</Label>
               <Input
                 id="confirm-password"
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="再次輸入新密碼"
+                placeholder={t('password.confirmPassword')}
               />
             </div>
           </div>
@@ -1114,7 +1113,7 @@ export function MainLayout() {
               }}
               disabled={changePasswordMutation.isPending}
             >
-              取消
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={handleChangePassword}
@@ -1123,7 +1122,7 @@ export function MainLayout() {
               {changePasswordMutation.isPending && ( // 正在提交時顯示載入動畫
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               )}
-              確認修改
+              {t('password.submit')}
             </Button>
           </DialogFooter>
         </DialogContent>

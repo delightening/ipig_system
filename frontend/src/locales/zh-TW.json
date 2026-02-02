@@ -30,7 +30,17 @@
     "minutesAgo": "{{count}} 分鐘前",
     "hoursAgo": "{{count}} 小時前",
     "daysAgo": "{{count}} 天前",
-    "noNotifications": "暫無通知"
+    "noNotifications": "暫無通知",
+    "saved": "已儲存",
+    "processed": "處理中...",
+    "confirmTitle": "確認",
+    "deleteTitle": "確認刪除",
+    "closeTitle": "確認結案",
+    "closeDescription": "確定要結案此計畫嗎？此操作無法復原。"
+  },
+  "user": {
+    "experience": "學經歷",
+    "experiencePlaceholder": "請輸入學術與研究經歷（將用於 AUP 第 8 節人員資料）"
   },
   "nav": {
     "dashboard": "儀表板",
@@ -76,7 +86,9 @@
     "settings": "系統設定",
     "auditLogs": "審計日誌",
     "securityAudit": "安全審計",
-    "myAmendments": "變更申請"
+    "myAmendments": "變更申請",
+    "editModeHint": "拖曳項目調整順序",
+    "expandSidebar": "展開側邊欄"
   },
   "dashboard": {
     "title": "儀表板",
@@ -136,6 +148,7 @@
         "loadFailed": "載入失敗",
         "noData": "尚無資料",
         "viewAll": "查看全部",
+        "viewMore": "查看更多",
         "more": "更多...",
         "today": "今日",
         "thisWeek": "本週",
@@ -223,6 +236,11 @@
           "RM": "退料單"
         }
       }
+    },
+    "projectStats": {
+      "applying": "申請中",
+      "ongoing": "進行中",
+      "closed": "已結案"
     }
   },
   "protocols": {
@@ -258,6 +276,241 @@
       "SUSPENDED": "已暫停",
       "CLOSED": "已結案",
       "DELETED": "已刪除"
+    },
+    "detail": {
+      "backToList": "返回列表",
+      "notFound": "找不到計畫書",
+      "notFoundDesc": "此計畫書不存在或您沒有權限查看",
+      "edit": "編輯",
+      "submit": "提交審查",
+      "revise": "修訂計畫",
+      "changeStatus": "變更狀態",
+      "submitConfirm": "確定要提交此計畫書進行審查嗎？",
+      "submitSuccess": "計畫書已提交審查",
+      "submitFailed": "提交失敗",
+      "statusChangeSuccess": "狀態已變更",
+      "statusChangeFailed": "狀態變更失敗",
+      "info": {
+        "apigNo": "APIG 編號",
+        "iacucNo": "IACUC 編號",
+        "notIssued": "尚未核發",
+        "pi": "計畫主持人",
+        "organization": "所屬單位",
+        "period": "執行期間",
+        "notSet": "尚未設定"
+      },
+      "tabs": {
+        "content": "計畫內容",
+        "pigs": "豬隻紀錄",
+        "versions": "版本記錄",
+        "history": "狀態歷程",
+        "comments": "審查意見",
+        "reviewers": "審查人員",
+        "coeditors": "Co-Editor",
+        "attachments": "附件",
+        "amendments": "變更申請"
+      },
+      "sections": {
+        "contentTitle": "計畫書內容",
+        "contentDesc": "AUP 動物試驗計畫書詳細內容",
+        "versionsTitle": "版本記錄",
+        "versionsDesc": "計畫書每次提交的版本快照",
+        "historyTitle": "狀態歷程",
+        "historyDesc": "計畫書狀態變更記錄",
+        "commentsTitle": "審查意見",
+        "commentsDesc": "審查委員的意見與回覆",
+        "reviewersTitle": "審查人員",
+        "reviewersDesc": "指派的審查委員與獸醫師",
+        "coeditorsTitle": "Co-Editor",
+        "coeditorsDesc": "指派的試驗工作人員（co-editor）列表",
+        "attachmentsTitle": "附件",
+        "attachmentsDesc": "計畫書相關文件與檔案",
+        "pigsTitle": "豬隻紀錄",
+        "pigsDesc": "此計畫下所有已分配豬隻清單"
+      },
+      "dialogs": {
+        "status": {
+          "title": "變更計畫狀態",
+          "desc": "選擇要變更的目標狀態，並可選填備註說明",
+          "current": "目前狀態",
+          "target": "目標狀態",
+          "placeholder": "請選擇目標狀態",
+          "coeditor": "指定 Co-Editor（選填）",
+          "coeditorPlaceholder": "請選擇試驗工作人員作為 co-editor",
+          "coeditorHint": "可選擇一位試驗工作人員作為 co-editor，協助編輯此計畫",
+          "reviewers": "選擇審查委員 (2-3 位) *",
+          "noReviewers": "沒有可選擇的審查委員",
+          "selected": "已選擇 {{count}} 位（需選擇 2-3 位）",
+          "remark": "備註說明（選填）",
+          "remarkPlaceholder": "輸入狀態變更的原因或說明...",
+          "confirm": "確認變更"
+        },
+        "comment": {
+          "title": "新增審查意見",
+          "desc": "請輸入您對此計畫書的審查意見",
+          "placeholder": "請輸入詳細的審查意見...",
+          "submit": "提交意見",
+          "firstComment": "新增第一條審查意見"
+        },
+        "reply": {
+          "title": "回覆審查意見",
+          "desc": "請輸入您對此審查意見的回覆",
+          "original": "原意見：",
+          "placeholder": "請輸入您的回覆...",
+          "submit": "提交回覆"
+        },
+        "assign": {
+          "title": "指派審查人員",
+          "desc": "選擇要指派的審查委員或獸醫師",
+          "placeholder": "請選擇審查人員",
+          "confirm": "確認指派"
+        },
+        "coeditor": {
+          "title": "指派 Co-Editor",
+          "desc": "選擇試驗工作人員作為此計畫的負責窗口（co-editor）",
+          "placeholder": "請選擇試驗工作人員"
+        },
+        "version": {
+          "title": "版本內容 - v{{version}}",
+          "submitted": "提交時間：{{time}}",
+          "noContent": "無內容"
+        }
+      },
+      "tables": {
+        "versionNo": "版本號",
+        "submitTime": "提交時間",
+        "actions": "操作",
+        "viewContent": "查看內容",
+        "noVersions": "尚無版本記錄",
+        "assignedTime": "指派時間",
+        "assignedBy": "指派者",
+        "completedTime": "完成時間",
+        "reviewing": "審查中",
+        "noReviewers": "尚未指派審查人員",
+        "assignFirst": "指派第一位審查人員",
+        "grantedTime": "指派時間",
+        "noCoeditors": "尚未指派 co-editor",
+        "coeditorHint": "可在狀態變更為「行政預審」時指派 co-editor",
+        "fileName": "檔案名稱",
+        "size": "大小",
+        "uploadedBy": "上傳者",
+        "uploadTime": "上傳時間",
+        "upload": "上傳附件",
+        "noAttachments": "尚無附件",
+        "uploadFirst": "上傳第一個附件",
+        "noPigs": "尚無豬隻紀錄",
+        "noPigsDesc": "此計畫目前尚未分配豬隻"
+      },
+      "actions": {
+        "reply": "回覆",
+        "resolved": "已解決",
+        "markResolved": "標記已解決",
+        "deleteConfirm": "確定要刪除此附件嗎？",
+        "removeCoeditorConfirm": "確定要移除此 co-editor 嗎？",
+        "reviewer": "審查委員",
+        "reviewerA": "審查委員 A",
+        "reviewerB": "審查委員 B",
+        "reviewerC": "審查委員 C"
+      }
+    },
+    "content": {
+      "exportPDF": "匯出 PDF",
+      "exporting": "匯出中...",
+      "exportFailed": "PDF 匯出失敗，請重試",
+      "noContent": "尚未填寫計畫內容",
+      "title": "AUP 動物試驗計畫書",
+      "sections": {
+        "researchInfo": "1. 研究資料",
+        "glpAttribute": "GLP 屬性",
+        "glpCompliant": "符合 GLP 規範",
+        "glpNonCompliant": "不符合 GLP 規範",
+        "projectName": "研究名稱",
+        "projectType": "計畫類型",
+        "projectCategory": "計畫種類",
+        "expectedSchedule": "預計試驗時程",
+        "piInfo": "計畫主持人",
+        "piName": "姓名",
+        "piPhone": "電話",
+        "piEmail": "Email",
+        "piAddress": "地址",
+        "sponsorInfo": "委託單位",
+        "sponsorName": "單位名稱",
+        "contactPerson": "聯絡人",
+        "contactPhone": "聯絡電話",
+        "contactEmail": "聯絡 Email",
+        "facility": "試驗機構與設施",
+        "facilityName": "機構名稱",
+        "location": "位置",
+        "purpose": "2. 研究目的",
+        "significance": "2.1 研究之目的及重要性",
+        "replacement": "2.2 3Rs之替代原則",
+        "replacementRationale": "2.2.1 活體動物試驗之必要性及動物種別選擇原因",
+        "alternativeSearch": "2.2.2 搜尋非動物性替代方案",
+        "searchPlatforms": "搜尋平台",
+        "searchKeywords": "搜尋關鍵字",
+        "searchConclusion": "搜尋結果與結論",
+        "duplicate": "2.2.3 是否為重複他人試驗",
+        "duplicateYes": "是",
+        "duplicateNo": "否",
+        "duplicateJustification": "重複進行之科學理由：",
+        "reduction": "2.3 3Rs之減量原則",
+        "reductionDesign": "動物試驗設計及數量理由",
+        "items": "3. 試驗物質與對照物質",
+        "testItems": "試驗物質",
+        "controlItems": "對照物質",
+        "itemName": "物質名稱",
+        "itemForm": "劑型",
+        "itemPurpose": "用途",
+        "itemStorage": "保存環境",
+        "isSterile": "本物質是否為無菌製備",
+        "sterileYes": "是",
+        "sterileNo": "否",
+        "nonSterileJustification": "說明：",
+        "omitted": "略",
+        "design": "4. 研究設計與方法",
+        "procedures": "動物試驗流程描述",
+        "anesthesia": "是否於麻醉下進行試驗",
+        "anesthesiaType": "麻醉類型",
+        "painCategory": "疼痛類別",
+        "painManagement": "疼痛管理計畫：",
+        "endpoints": "終點",
+        "experimentalEndpoint": "實驗終點",
+        "humaneEndpoint": "人道終點",
+        "guidelines": "5. 相關規範及參考文獻",
+        "guidelinesContent": "相關規範說明",
+        "references": "參考文獻",
+        "surgery": "6. 手術計畫書",
+        "surgeryType": "手術類型",
+        "preopPreparation": "術前準備",
+        "surgeryDescription": "手術描述",
+        "monitoring": "監控方式",
+        "postopCare": "術後照護",
+        "drugPlan": "用藥計畫",
+        "drugName": "藥物名稱",
+        "dose": "劑量",
+        "route": "途徑",
+        "frequency": "頻率",
+        "animals": "7. 實驗動物資料",
+        "animalGroup": "動物群組",
+        "species": "物種",
+        "strain": "品系",
+        "sex": "性別",
+        "number": "數量",
+        "ageRange": "月齡範圍",
+        "weightRange": "體重範圍",
+        "housingLocation": "飼養位置",
+        "unlimited": "不限",
+        "totalAnimals": "總動物數",
+        "personnel": "8. 試驗人員資料",
+        "person": "人員",
+        "position": "職位",
+        "yearsExperience": "參與動物試驗年數",
+        "years": "年",
+        "workContent": "工作內容",
+        "training": "訓練/資格",
+        "attachments": "9. 附件",
+        "signatures": "10. 電子簽名"
+      }
     }
   },
   "password": {
@@ -601,7 +854,26 @@
           "route": "投與途徑",
           "frequency": "頻率",
           "purpose": "給藥目的"
-        }
+        },
+        "noDrugs": "暫無用藥資訊，請點擊「+ 新增」添加"
+      },
+      "validation": {
+        "surgeryTypeRequired": "請填寫手術種類",
+        "preopPreparationRequired": "請填寫術前準備",
+        "surgeryDescriptionRequired": "請填寫手術內容說明",
+        "monitoringRequired": "請填寫術中監控",
+        "expectedImpactRequired": "請填寫存活手術預期術後可能對實驗動物造成之影響",
+        "multipleSurgeriesNumberRequired": "請填寫多次手術的數量",
+        "multipleSurgeriesReasonRequired": "請填寫多次手術的原因",
+        "postopCareTypeRequired": "請選擇手術類型（骨科手術或非骨科手術）",
+        "postopCareRequired": "請填寫動物術後照護及止痛給藥方法",
+        "expectedEndPointRequired": "請填寫實驗預期結束之時機",
+        "drugsRequired": "請至少添加一個手術用藥資訊",
+        "drugNameRequired": "請填寫第 {{index}} 個用藥的藥品名稱",
+        "drugDoseRequired": "請填寫第 {{index}} 個用藥的劑量",
+        "drugRouteRequired": "請填寫第 {{index}} 個用藥的投與途徑",
+        "drugFrequencyRequired": "請填寫第 {{index}} 個用藥的頻率",
+        "drugPurposeRequired": "請填寫第 {{index}} 個用藥的給藥目的"
       }
     },
     "animals": {
@@ -621,6 +893,7 @@
         "minWeight": "最小體重 (kg)",
         "maxWeight": "最大體重 (kg)",
         "housing": "飼養環境",
+        "defaultHousingLocation": "豬博士畜牧場",
         "unlimited": "不限",
         "weightInterval": "每五公斤一個區間"
       },
@@ -657,6 +930,19 @@
         "item3": "※年齡：大約月齡範圍(以上)或不限。",
         "item4": "※體重：大約體重範圍或不限。",
         "item5": "※白豬成長快速，7個月齡可達100公斤，觀察期超過3個月建議使用迷你豬進行試驗。"
+      },
+      "validation": {
+        "animalsRequired": "請至少添加一個實驗動物資料",
+        "speciesRequired": "請選擇第 {{index}} 個動物的物種",
+        "strainRequired": "請選擇第 {{index}} 個動物的品系",
+        "sexRequired": "請選擇第 {{index}} 個動物的性別",
+        "numberRequired": "請填寫第 {{index}} 個動物的數量（必須大於0）",
+        "ageMinRequired": "第 {{index}} 個動物的最小月齡必須至少為3個月",
+        "ageMaxRequired": "請填寫第 {{index}} 個動物的最大月齡",
+        "ageMaxInvalid": "第 {{index}} 個動物的最大月齡必須大於最小月齡",
+        "weightMinRequired": "第 {{index}} 個動物的最小體重必須至少為20公斤",
+        "weightMaxRequired": "請填寫第 {{index}} 個動物的最大體重",
+        "weightMaxInvalid": "第 {{index}} 個動物的最大體重必須大於最小體重"
       }
     },
     "personnel": {
