@@ -98,7 +98,7 @@ const CATEGORY_NAMES: Record<string, Record<string, string>> = {
     tr: '調撥',
     stk: '盤點',
     adj: '庫存調整',
-    inventory: '庫存',
+    inventory: '庫存現況',
     create: '新增',
     approve: '審核',
     cancel: '取消',
@@ -202,6 +202,31 @@ const CATEGORY_NAMES: Record<string, Record<string, string>> = {
   permission: {
     permission: '權限',
   },
+  // HR 人事模組類別
+  hr: {
+    leave: '請假',
+    attendance: '出勤',
+    overtime: '加班',
+    balance: '假期餘額',
+    hr: '人事',
+  },
+  // 行事曆模組
+  calendar: {
+    calendar: '行事曆',
+  },
+  // 通用類別（用於合併模組顯示）
+  leave: {
+    leave: '請假',
+  },
+  attendance: {
+    attendance: '出勤',
+  },
+  overtime: {
+    overtime: '加班',
+  },
+  balance: {
+    balance: '假期餘額',
+  },
 }
 
 // 操作顯示名稱 - 中文
@@ -248,6 +273,12 @@ function getPermissionModule(perm: Permission): string {
   // 回退至 other
   return 'other'
 }
+
+// 類別合併映射 - 將某些類別合併到其他類別
+const CATEGORY_MERGE_MAP: Record<string, string> = {
+  inventory: 'stock', // 將 inventory 合併到 stock
+}
+
 function getPermissionCategory(code: string): string {
   const parts = code.split('.')
   if (parts.length < 2) return 'other'
@@ -255,10 +286,19 @@ function getPermissionCategory(code: string): string {
   // e.g., species.create -> category 'species' (same as module)
   // For complex module.entity.action permissions (3+ parts), use entity as category
   // e.g., pig.record.create -> category 'record'
+  let category: string
   if (parts.length === 2) {
-    return parts[0]
+    category = parts[0]
+  } else {
+    category = parts[1]
   }
-  return parts[1]
+
+  // 應用類別合併映射
+  if (CATEGORY_MERGE_MAP[category]) {
+    return CATEGORY_MERGE_MAP[category]
+  }
+
+  return category
 }
 
 /**
