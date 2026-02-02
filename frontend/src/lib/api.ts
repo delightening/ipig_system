@@ -94,6 +94,7 @@ export interface User {
   roles: string[]
   permissions: string[]
   must_change_password?: boolean
+  experience?: string | null
 }
 
 export interface LoginResponse {

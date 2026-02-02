@@ -19,6 +19,7 @@ import api, {
   UserSimple,
   User,
 } from '@/lib/api'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -116,6 +117,7 @@ const allowedTransitions: Record<ProtocolStatus, ProtocolStatus[]> = {
 export function ProtocolDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { user } = useAuthStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -137,7 +139,7 @@ export function ProtocolDetailPage() {
   const [selectedReviewerIds, setSelectedReviewerIds] = useState<string[]>([])
   const [selectedCoEditorId, setSelectedCoEditorId] = useState('')
 
-  // 取得計畫詳情
+  // Fetch protocol details
   const { data: protocol, isLoading } = useQuery({
     queryKey: ['protocol', id],
     queryFn: async () => {
@@ -147,7 +149,7 @@ export function ProtocolDetailPage() {
     enabled: !!id,
   })
 
-  // 取得版本列表
+  // Fetch version list
   const { data: versions } = useQuery({
     queryKey: ['protocol-versions', id],
     queryFn: async () => {
@@ -157,7 +159,7 @@ export function ProtocolDetailPage() {
     enabled: !!id && (activeTab === 'versions' || activeTab === 'comments'),
   })
 
-  // 取得狀態歷程
+  // Fetch status history
   const { data: statusHistory } = useQuery({
     queryKey: ['protocol-status-history', id],
     queryFn: async () => {
@@ -167,7 +169,7 @@ export function ProtocolDetailPage() {
     enabled: !!id && activeTab === 'history',
   })
 
-  // 取得審查意見
+  // Fetch review comments
   const { data: comments, isLoading: commentsLoading } = useQuery({
     queryKey: ['protocol-comments', id, versions?.[0]?.id],
     queryFn: async () => {
@@ -181,7 +183,7 @@ export function ProtocolDetailPage() {
     enabled: !!id && !!versions && versions.length > 0 && activeTab === 'comments',
   })
 
-  // 取得審查指派
+  // Fetch review assignments
   const { data: reviewers, isLoading: reviewersLoading } = useQuery({
     queryKey: ['protocol-reviewers', id],
     queryFn: async () => {
@@ -193,7 +195,7 @@ export function ProtocolDetailPage() {
     enabled: !!id && activeTab === 'reviewers',
   })
 
-  // 取得附件
+  // Fetch attachments
   const { data: attachments, isLoading: attachmentsLoading } = useQuery({
     queryKey: ['protocol-attachments', id],
     queryFn: async () => {
@@ -205,7 +207,7 @@ export function ProtocolDetailPage() {
     enabled: !!id && activeTab === 'attachments',
   })
 
-  // 取得 co-editor 列表
+  // Fetch co-editor list
   const { data: coEditors, isLoading: coEditorsLoading } = useQuery({
     queryKey: ['protocol-co-editors', id],
     queryFn: async () => {
@@ -215,7 +217,7 @@ export function ProtocolDetailPage() {
     enabled: !!id && activeTab === 'coeditors',
   })
 
-  // 取得可指派的審查人員
+  // Fetch assignable reviewers
   const { data: availableReviewers } = useQuery({
     queryKey: ['available-reviewers'],
     queryFn: async () => {
@@ -233,7 +235,7 @@ export function ProtocolDetailPage() {
     enabled: showAssignDialog || (showStatusDialog && newStatus === 'UNDER_REVIEW'),
   })
 
-  // 取得可指派的試驗工作人員（co-editor）
+  // Fetch assignable experiment staff (co-editor)
   const { data: availableExperimentStaff } = useQuery({
     queryKey: ['available-experiment-staff'],
     queryFn: async () => {
@@ -251,31 +253,31 @@ export function ProtocolDetailPage() {
     enabled: (showStatusDialog && newStatus === 'PRE_REVIEW') || showCoEditorDialog,
   })
 
-  // 提交計畫
+  // Submit protocol mutation
   const submitMutation = useMutation({
     mutationFn: async () => {
       return api.post(`/protocols/${id}/submit`)
     },
     onSuccess: () => {
-      toast({ title: '成功', description: '計畫書已提交審查' })
+      toast({ title: t('common.success'), description: t('protocols.detail.submitSuccess') })
       queryClient.invalidateQueries({ queryKey: ['protocol', id] })
     },
     onError: (error: any) => {
       toast({
-        title: '錯誤',
-        description: error?.response?.data?.error?.message || '提交失敗',
+        title: t('common.error'),
+        description: error?.response?.data?.error?.message || t('protocols.detail.submitFailed'),
         variant: 'destructive',
       })
     },
   })
 
-  // 變更狀態
+  // Change status mutation
   const changeStatusMutation = useMutation({
     mutationFn: async (data: ChangeStatusRequest) => {
       return api.post(`/protocols/${id}/status`, data)
     },
     onSuccess: () => {
-      toast({ title: '成功', description: '狀態已變更' })
+      toast({ title: t('common.success'), description: t('protocols.detail.statusChangeSuccess') })
       queryClient.invalidateQueries({ queryKey: ['protocol', id] })
       queryClient.invalidateQueries({ queryKey: ['protocol-status-history', id] })
       queryClient.invalidateQueries({ queryKey: ['protocol-reviewers', id] })
@@ -287,40 +289,40 @@ export function ProtocolDetailPage() {
     },
     onError: (error: any) => {
       toast({
-        title: '錯誤',
-        description: error?.response?.data?.error?.message || '狀態變更失敗',
+        title: t('common.error'),
+        description: error?.response?.data?.error?.message || t('protocols.detail.statusChangeFailed'),
         variant: 'destructive',
       })
     },
   })
 
-  // 新增審查意見
+  // Add review comment mutation
   const addCommentMutation = useMutation({
     mutationFn: async (data: CreateCommentRequest) => {
       return api.post('/reviews/comments', data)
     },
     onSuccess: () => {
-      toast({ title: '成功', description: '審查意見已新增' })
+      toast({ title: t('common.success'), description: t('protocols.detail.dialogs.comment.success') })
       queryClient.invalidateQueries({ queryKey: ['protocol-comments', id] })
       setShowCommentDialog(false)
       setCommentContent('')
     },
     onError: (error: any) => {
       toast({
-        title: '錯誤',
-        description: error?.response?.data?.error?.message || '新增意見失敗',
+        title: t('common.error'),
+        description: error?.response?.data?.error?.message || t('protocols.detail.dialogs.comment.failed'),
         variant: 'destructive',
       })
     },
   })
 
-  // 回覆審查意見
+  // Reply to review comment mutation
   const replyCommentMutation = useMutation({
     mutationFn: async (data: ReplyCommentRequest) => {
       return api.post('/reviews/comments/reply', data)
     },
     onSuccess: () => {
-      toast({ title: '成功', description: '回覆已新增' })
+      toast({ title: t('common.success'), description: t('protocols.detail.dialogs.reply.success') })
       queryClient.invalidateQueries({ queryKey: ['protocol-comments', id] })
       setShowReplyDialog(false)
       setReplyContent('')
@@ -328,89 +330,89 @@ export function ProtocolDetailPage() {
     },
     onError: (error: any) => {
       toast({
-        title: '錯誤',
-        description: error?.response?.data?.error?.message || '回覆失敗',
+        title: t('common.error'),
+        description: error?.response?.data?.error?.message || t('protocols.detail.dialogs.reply.failed'),
         variant: 'destructive',
       })
     },
   })
 
-  // 解決審查意見
+  // Resolve review comment mutation
   const resolveCommentMutation = useMutation({
     mutationFn: async (commentId: string) => {
       return api.post(`/reviews/comments/${commentId}/resolve`)
     },
     onSuccess: () => {
-      toast({ title: '成功', description: '意見已標記為已解決' })
+      toast({ title: t('common.success'), description: t('protocols.detail.actions.resolved') })
       queryClient.invalidateQueries({ queryKey: ['protocol-comments', id] })
     },
     onError: (error: any) => {
       toast({
-        title: '錯誤',
-        description: error?.response?.data?.error?.message || '操作失敗',
+        title: t('common.error'),
+        description: error?.response?.data?.error?.message || t('common.error'),
         variant: 'destructive',
       })
     },
   })
 
-  // 指派審查人員
+  // Assign reviewer mutation
   const assignReviewerMutation = useMutation({
     mutationFn: async (data: AssignReviewerRequest) => {
       return api.post('/reviews/assignments', data)
     },
     onSuccess: () => {
-      toast({ title: '成功', description: '審查人員已指派' })
+      toast({ title: t('common.success'), description: t('protocols.detail.tables.assignSuccess') })
       queryClient.invalidateQueries({ queryKey: ['protocol-reviewers', id] })
       setShowAssignDialog(false)
       setSelectedReviewerId('')
     },
     onError: (error: any) => {
       toast({
-        title: '錯誤',
-        description: error?.response?.data?.error?.message || '指派失敗',
+        title: t('common.error'),
+        description: error?.response?.data?.error?.message || t('protocols.detail.tables.assignFailed'),
         variant: 'destructive',
       })
     },
   })
 
-  // 指派 co-editor
+  // Assign co-editor mutation
   const assignCoEditorMutation = useMutation({
     mutationFn: async (data: AssignCoEditorRequest) => {
       return api.post(`/protocols/${id}/co-editors`, data)
     },
     onSuccess: () => {
-      toast({ title: '成功', description: 'Co-editor 已指派' })
+      toast({ title: t('common.success'), description: t('protocols.detail.tables.assignCoeditorSuccess') })
       queryClient.invalidateQueries({ queryKey: ['protocol', id] })
       queryClient.invalidateQueries({ queryKey: ['protocol-co-editors', id] })
     },
     onError: (error: any) => {
       toast({
-        title: '錯誤',
-        description: error?.response?.data?.error?.message || '指派 co-editor 失敗',
+        title: t('common.error'),
+        description: error?.response?.data?.error?.message || t('protocols.detail.tables.assignCoeditorFailed'),
         variant: 'destructive',
       })
     },
   })
 
-  // 移除 co-editor
+  // Remove co-editor mutation
   const removeCoEditorMutation = useMutation({
     mutationFn: async (userId: string) => {
       return api.delete(`/protocols/${id}/co-editors/${userId}`)
     },
     onSuccess: () => {
-      toast({ title: '成功', description: 'Co-editor 已移除' })
+      toast({ title: t('common.success'), description: t('protocols.detail.actions.removeCoeditorSuccess') })
       queryClient.invalidateQueries({ queryKey: ['protocol-co-editors', id] })
     },
     onError: (error: any) => {
       toast({
-        title: '錯誤',
-        description: error?.response?.data?.error?.message || '移除 co-editor 失敗',
+        title: t('common.error'),
+        description: error?.response?.data?.error?.message || t('protocols.detail.actions.removeCoeditorFailed'),
         variant: 'destructive',
       })
     },
   })
 
-  // 上傳附件
+  // Upload attachment mutation
   const uploadAttachmentMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData()
@@ -420,38 +422,38 @@ export function ProtocolDetailPage() {
       })
     },
     onSuccess: () => {
-      toast({ title: '成功', description: '附件已上傳' })
+      toast({ title: t('common.success'), description: t('protocols.detail.tables.uploadSuccess') })
       queryClient.invalidateQueries({ queryKey: ['protocol-attachments', id] })
     },
     onError: (error: any) => {
       toast({
-        title: '錯誤',
-        description: error?.response?.data?.error?.message || '上傳失敗',
+        title: t('common.error'),
+        description: error?.response?.data?.error?.message || t('protocols.detail.tables.uploadFailed'),
         variant: 'destructive',
       })
     },
   })
 
-  // 刪除附件
+  // Delete attachment mutation
   const deleteAttachmentMutation = useMutation({
     mutationFn: async (attachmentId: string) => {
       return api.delete(`/attachments/${attachmentId}`)
     },
     onSuccess: () => {
-      toast({ title: '成功', description: '附件已刪除' })
+      toast({ title: t('common.success'), description: t('protocols.detail.actions.deleteSuccess') })
       queryClient.invalidateQueries({ queryKey: ['protocol-attachments', id] })
     },
     onError: (error: any) => {
       toast({
-        title: '錯誤',
-        description: error?.response?.data?.error?.message || '刪除失敗',
+        title: t('common.error'),
+        description: error?.response?.data?.error?.message || t('protocols.detail.actions.deleteFailed'),
         variant: 'destructive',
       })
     },
   })
 
   const handleSubmit = () => {
-    if (confirm('確定要提交此計畫書進行審查嗎？')) {
+    if (confirm(t('protocols.detail.submitConfirm'))) {
       submitMutation.mutate()
     }
   }
@@ -459,19 +461,19 @@ export function ProtocolDetailPage() {
   const handleChangeStatus = async () => {
     if (!newStatus) return
 
-    // 驗證 UNDER_REVIEW 必須選擇 2-3 位審查委員
+    // Validate UNDER_REVIEW must select 2-3 reviewers
     if (newStatus === 'UNDER_REVIEW') {
       if (selectedReviewerIds.length < 2 || selectedReviewerIds.length > 3) {
         toast({
-          title: '錯誤',
-          description: '必須選擇 2-3 位審查委員',
+          title: t('common.error'),
+          description: t('protocols.detail.dialogs.status.selected', { count: selectedReviewerIds.length }),
           variant: 'destructive',
         })
         return
       }
     }
 
-    // 先變更狀態
+    // Change status first
     try {
       await changeStatusMutation.mutateAsync({
         to_status: newStatus,
@@ -479,7 +481,7 @@ export function ProtocolDetailPage() {
         reviewer_ids: newStatus === 'UNDER_REVIEW' ? selectedReviewerIds : undefined,
       })
 
-      // 如果目標狀態是行政預審且選擇了 co-editor，則指派 co-editor
+      // If target status is PRE_REVIEW and co-editor is selected, assign co-editor
       if (newStatus === 'PRE_REVIEW' && selectedCoEditorId && id) {
         try {
           await assignCoEditorMutation.mutateAsync({
@@ -489,8 +491,8 @@ export function ProtocolDetailPage() {
         } catch (error) {
           // co-editor 指派失敗不影響狀態變更，只顯示警告
           toast({
-            title: '警告',
-            description: '狀態已變更，但指派 co-editor 失敗',
+            title: t('common.warning'),
+            description: t('protocols.detail.tables.assignCoeditorFailedWarning'),
             variant: 'destructive',
           })
         }
@@ -539,7 +541,7 @@ export function ProtocolDetailPage() {
       link.click()
       link.remove()
     } catch (error) {
-      toast({ title: '錯誤', description: '下載失敗', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('common.downloadFailed'), variant: 'destructive' })
     }
   }
 
@@ -548,27 +550,27 @@ export function ProtocolDetailPage() {
     return allowedTransitions[protocol.status] || []
   }
 
-  // 審查委員只能在 UNDER_REVIEW 狀態新增意見
+  // Reviewers can only add comments in UNDER_REVIEW status
   const isReviewer = user?.roles?.some(r => ['REVIEWER', 'VET'].includes(r))
   const isIACUCOrAdmin = user?.roles?.some(r => ['IACUC_CHAIR', 'IACUC_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
   const canAddComment = isIACUCOrAdmin || (isReviewer && protocol?.status === 'UNDER_REVIEW')
 
-  // PI、co-editor、IACUC_STAFF 可以回覆審查意見
+  // PI, co-editor, and IACUC_STAFF can reply to review comments
   const canReply = user?.roles?.some(r => ['PI', 'EXPERIMENT_STAFF', 'IACUC_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
 
-  // 只有 PI 和 co-editor 可以編輯/修訂計畫
+  // Only PI and co-editor can edit/revise the protocol
   const canEditProtocol = user?.roles?.some(r => ['PI', 'EXPERIMENT_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
 
   const canAssignReviewer = user?.roles?.some(r => ['IACUC_STAFF', 'IACUC_CHAIR', 'SYSTEM_ADMIN', 'admin'].includes(r))
   const canManageAttachments = protocol?.status === 'DRAFT' || protocol?.status === 'REVISION_REQUIRED'
 
-  // 審查委員匿名化邏輯
-  // PI/客戶只能看到「審查委員 A/B/C」，IACUC 人員和其他審查委員可看到真實姓名
+  // Reviewer anonymization logic
+  // PI/Client can only see "Reviewer A/B/C", IACUC staff and other reviewers see real names
   const shouldAnonymizeReviewers = !user?.roles?.some(r =>
     ['IACUC_STAFF', 'IACUC_CHAIR', 'REVIEWER', 'VET', 'SYSTEM_ADMIN', 'admin'].includes(r)
   )
 
-  // 建立匿名對照表：隨機打亂審查委員順序
+  // Create anonymous mapping: Shuffling reviewer order randomly
   const reviewerAnonymousMap = React.useMemo(() => {
     if (!comments) return new Map<string, string>()
 
@@ -587,18 +589,18 @@ export function ProtocolDetailPage() {
     const map = new Map<string, string>()
     shuffled.forEach((reviewerId, index) => {
       const letter = String.fromCharCode(65 + index) // A, B, C, ...
-      map.set(reviewerId, `審查委員 ${letter}`)
+      map.set(reviewerId, t(`protocols.detail.actions.reviewer${letter}`))
     })
 
     return map
   }, [comments, id])
 
-  // 取得匿名化後的審查委員名稱
+  // Get anonymized reviewer display name
   const getReviewerDisplayName = (comment: ReviewCommentResponse) => {
     if (!shouldAnonymizeReviewers) {
       return comment.reviewer_name || comment.reviewer_email
     }
-    return reviewerAnonymousMap.get(comment.reviewer_id) || '審查委員'
+    return reviewerAnonymousMap.get(comment.reviewer_id) || t('protocols.detail.actions.reviewer')
   }
 
   if (isLoading) {
@@ -613,10 +615,10 @@ export function ProtocolDetailPage() {
     return (
       <div className="text-center py-12">
         <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
-        <h2 className="text-xl font-semibold mb-2">找不到計畫書</h2>
-        <p className="text-muted-foreground mb-4">此計畫書不存在或您沒有權限查看</p>
+        <h2 className="text-xl font-semibold mb-2">{t('protocols.detail.notFound')}</h2>
+        <p className="text-muted-foreground mb-4">{t('protocols.detail.notFoundDesc')}</p>
         <Button asChild>
-          <Link to="/protocols">返回列表</Link>
+          <Link to="/protocols">{t('protocols.detail.backToList')}</Link>
         </Button>
       </div>
     )
@@ -645,7 +647,7 @@ export function ProtocolDetailPage() {
               <Button variant="outline" asChild>
                 <Link to={`/protocols/${id}/edit`}>
                   <Edit className="mr-2 h-4 w-4" />
-                  編輯
+                  {t('protocols.detail.edit')}
                 </Link>
               </Button>
               <Button onClick={handleSubmit} disabled={submitMutation.isPending}>
@@ -654,7 +656,7 @@ export function ProtocolDetailPage() {
                 ) : (
                   <Send className="mr-2 h-4 w-4" />
                 )}
-                提交審查
+                {t('protocols.detail.submit')}
               </Button>
             </>
           )}
@@ -662,7 +664,7 @@ export function ProtocolDetailPage() {
             <Button variant="outline" asChild>
               <Link to={`/protocols/${id}/edit`}>
                 <Edit className="mr-2 h-4 w-4" />
-                修訂計畫
+                {t('protocols.detail.revise')}
               </Link>
             </Button>
           )}
@@ -670,7 +672,7 @@ export function ProtocolDetailPage() {
           {getAvailableTransitions().length > 0 && protocol.status !== 'DRAFT' &&
             user?.roles?.some(r => ['IACUC_STAFF', 'IACUC_CHAIR', 'SYSTEM_ADMIN', 'admin'].includes(r)) && (
               <Button variant="outline" onClick={() => setShowStatusDialog(true)}>
-                變更狀態
+                {t('protocols.detail.changeStatus')}
               </Button>
             )}
         </div>
@@ -682,12 +684,12 @@ export function ProtocolDetailPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <FileText className="h-4 w-4 text-blue-500" />
-              {protocol.iacuc_no?.startsWith('APIG-') ? 'APIG 編號' : 'IACUC 編號'}
+              {protocol.iacuc_no?.startsWith('APIG-') ? t('protocols.detail.info.apigNo') : t('protocols.detail.info.iacucNo')}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xl font-bold text-orange-600">
-              {protocol.iacuc_no || '尚未核發'}
+              {protocol.iacuc_no || t('protocols.detail.info.notIssued')}
             </p>
           </CardContent>
         </Card>
@@ -695,7 +697,7 @@ export function ProtocolDetailPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <UserIcon className="h-4 w-4 text-green-500" />
-              計畫主持人
+              {t('protocols.detail.info.pi')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -707,7 +709,7 @@ export function ProtocolDetailPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Building className="h-4 w-4 text-purple-500" />
-              所屬單位
+              {t('protocols.detail.info.organization')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -718,14 +720,14 @@ export function ProtocolDetailPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Calendar className="h-4 w-4 text-yellow-500" />
-              執行期間
+              {t('protocols.detail.info.period')}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-lg font-semibold">
               {protocol.start_date && protocol.end_date
                 ? `${formatDate(protocol.start_date)} ~ ${formatDate(protocol.end_date)}`
-                : '尚未設定'}
+                : t('protocols.detail.info.notSet')}
             </p>
           </CardContent>
         </Card>
@@ -735,15 +737,15 @@ export function ProtocolDetailPage() {
       <div className="border-b">
         <nav className="flex gap-4 overflow-x-auto">
           {[
-            { key: 'content', label: '計畫內容', icon: FileText },
-            { key: 'pigs', label: '豬隻紀錄', icon: ClipboardList },
-            { key: 'versions', label: '版本記錄', icon: History },
-            { key: 'history', label: '狀態歷程', icon: Clock },
-            { key: 'comments', label: '審查意見', icon: MessageSquare },
-            { key: 'reviewers', label: '審查人員', icon: Users },
-            { key: 'coeditors', label: 'Co-Editor', icon: UserPlus },
-            { key: 'attachments', label: '附件', icon: Paperclip },
-            { key: 'amendments', label: '變更申請', icon: FileEdit },
+            { key: 'content', label: t('protocols.detail.tabs.content'), icon: FileText },
+            { key: 'pigs', label: t('protocols.detail.tabs.pigs'), icon: ClipboardList },
+            { key: 'versions', label: t('protocols.detail.tabs.versions'), icon: History },
+            { key: 'history', label: t('protocols.detail.tabs.history'), icon: Clock },
+            { key: 'comments', label: t('protocols.detail.tabs.comments'), icon: MessageSquare },
+            { key: 'reviewers', label: t('protocols.detail.tabs.reviewers'), icon: Users },
+            { key: 'coeditors', label: t('protocols.detail.tabs.coeditors'), icon: UserPlus },
+            { key: 'attachments', label: t('protocols.detail.tabs.attachments'), icon: Paperclip },
+            { key: 'amendments', label: t('protocols.detail.tabs.amendments'), icon: FileEdit },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -764,8 +766,8 @@ export function ProtocolDetailPage() {
       {activeTab === 'content' && (
         <Card>
           <CardHeader>
-            <CardTitle>計畫書內容</CardTitle>
-            <CardDescription>AUP 動物試驗計畫書詳細內容</CardDescription>
+            <CardTitle>{t('protocols.detail.sections.contentTitle')}</CardTitle>
+            <CardDescription>{t('protocols.detail.sections.contentDesc')}</CardDescription>
           </CardHeader>
           <CardContent>
             <ProtocolContentView
@@ -790,17 +792,17 @@ export function ProtocolDetailPage() {
       {activeTab === 'versions' && (
         <Card>
           <CardHeader>
-            <CardTitle>版本記錄</CardTitle>
-            <CardDescription>計畫書每次提交的版本快照</CardDescription>
+            <CardTitle>{t('protocols.detail.sections.versionsTitle')}</CardTitle>
+            <CardDescription>{t('protocols.detail.sections.versionsDesc')}</CardDescription>
           </CardHeader>
           <CardContent>
             {versions && versions.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>版本號</TableHead>
-                    <TableHead>提交時間</TableHead>
-                    <TableHead>操作</TableHead>
+                    <TableHead>{t('protocols.detail.tables.versionNo')}</TableHead>
+                    <TableHead>{t('protocols.detail.tables.submitTime')}</TableHead>
+                    <TableHead>{t('protocols.detail.tables.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -818,7 +820,7 @@ export function ProtocolDetailPage() {
                           }}
                         >
                           <Eye className="mr-1 h-4 w-4" />
-                          查看內容
+                          {t('protocols.detail.tables.viewContent')}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -828,7 +830,7 @@ export function ProtocolDetailPage() {
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <History className="h-12 w-12 mx-auto mb-2" />
-                <p>尚無版本記錄</p>
+                <p>{t('protocols.detail.tables.noVersions')}</p>
               </div>
             )}
           </CardContent>
@@ -838,8 +840,8 @@ export function ProtocolDetailPage() {
       {activeTab === 'history' && (
         <Card>
           <CardHeader>
-            <CardTitle>狀態歷程</CardTitle>
-            <CardDescription>計畫書狀態變更記錄</CardDescription>
+            <CardTitle>{t('protocols.detail.sections.historyTitle')}</CardTitle>
+            <CardDescription>{t('protocols.detail.sections.historyDesc')}</CardDescription>
           </CardHeader>
           <CardContent>
             {statusHistory && statusHistory.length > 0 ? (
@@ -877,7 +879,7 @@ export function ProtocolDetailPage() {
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <Clock className="h-12 w-12 mx-auto mb-2" />
-                <p>尚無狀態變更記錄</p>
+                <p>{t('protocols.detail.tables.noHistory')}</p>
               </div>
             )}
           </CardContent>
@@ -888,13 +890,13 @@ export function ProtocolDetailPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle>審查意見</CardTitle>
-              <CardDescription>審查委員的意見與回覆</CardDescription>
+              <CardTitle>{t('protocols.detail.sections.commentsTitle')}</CardTitle>
+              <CardDescription>{t('protocols.detail.sections.commentsDesc')}</CardDescription>
             </div>
             {canAddComment && protocol.status !== 'DRAFT' && (
               <Button onClick={() => setShowCommentDialog(true)}>
                 <MessageSquare className="mr-2 h-4 w-4" />
-                新增意見
+                {t('protocols.detail.dialogs.comment.title')}
               </Button>
             )}
           </CardHeader>
@@ -933,13 +935,13 @@ export function ProtocolDetailPage() {
                                 }}
                               >
                                 <Reply className="mr-1 h-4 w-4" />
-                                回覆
+                                {t('protocols.detail.actions.reply')}
                               </Button>
                             )}
                             {comment.is_resolved ? (
                               <Badge variant="success" className="flex items-center gap-1">
                                 <CheckCircle2 className="h-3 w-3" />
-                                已解決
+                                {t('protocols.detail.actions.resolved')}
                               </Badge>
                             ) : (
                               <Button
@@ -953,7 +955,7 @@ export function ProtocolDetailPage() {
                                 ) : (
                                   <>
                                     <CheckCircle className="mr-1 h-4 w-4" />
-                                    標記已解決
+                                    {t('protocols.detail.actions.markResolved')}
                                   </>
                                 )}
                               </Button>
@@ -986,10 +988,10 @@ export function ProtocolDetailPage() {
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <MessageSquare className="h-12 w-12 mx-auto mb-2" />
-                <p>尚無審查意見</p>
+                <p>{t('protocols.detail.tables.noComments')}</p>
                 {canAddComment && protocol.status !== 'DRAFT' && (
                   <Button variant="link" onClick={() => setShowCommentDialog(true)} className="mt-2">
-                    新增第一條審查意見
+                    {t('protocols.detail.dialogs.comment.firstComment')}
                   </Button>
                 )}
               </div>
@@ -1002,13 +1004,13 @@ export function ProtocolDetailPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle>審查人員</CardTitle>
-              <CardDescription>指派的審查委員與獸醫師</CardDescription>
+              <CardTitle>{t('protocols.detail.sections.reviewersTitle')}</CardTitle>
+              <CardDescription>{t('protocols.detail.sections.reviewersDesc')}</CardDescription>
             </div>
             {canAssignReviewer && protocol.status !== 'DRAFT' && protocol.status !== 'CLOSED' && (
               <Button onClick={() => setShowAssignDialog(true)}>
                 <UserPlus className="mr-2 h-4 w-4" />
-                指派審查人員
+                {t('protocols.detail.dialogs.assign.title')}
               </Button>
             )}
           </CardHeader>
@@ -1021,10 +1023,10 @@ export function ProtocolDetailPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>審查人員</TableHead>
-                    <TableHead>指派時間</TableHead>
-                    <TableHead>指派者</TableHead>
-                    <TableHead>完成時間</TableHead>
+                    <TableHead>{t('protocols.detail.tables.reviewer')}</TableHead>
+                    <TableHead>{t('protocols.detail.tables.assignedTime')}</TableHead>
+                    <TableHead>{t('protocols.detail.tables.assignedBy')}</TableHead>
+                    <TableHead>{t('protocols.detail.tables.completedTime')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1042,7 +1044,7 @@ export function ProtocolDetailPage() {
                         {reviewer.completed_at ? (
                           <Badge variant="success">{formatDateTime(reviewer.completed_at)}</Badge>
                         ) : (
-                          <Badge variant="secondary">審查中</Badge>
+                          <Badge variant="secondary">{t('protocols.detail.tables.reviewing')}</Badge>
                         )}
                       </TableCell>
                     </TableRow>
@@ -1052,10 +1054,10 @@ export function ProtocolDetailPage() {
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <Users className="h-12 w-12 mx-auto mb-2" />
-                <p>尚未指派審查人員</p>
+                <p>{t('protocols.detail.tables.noReviewers')}</p>
                 {canAssignReviewer && protocol.status !== 'DRAFT' && (
                   <Button variant="link" onClick={() => setShowAssignDialog(true)} className="mt-2">
-                    指派第一位審查人員
+                    {t('protocols.detail.tables.assignFirst')}
                   </Button>
                 )}
               </div>
@@ -1068,8 +1070,8 @@ export function ProtocolDetailPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle>Co-Editor</CardTitle>
-              <CardDescription>指派的試驗工作人員（co-editor）列表</CardDescription>
+              <CardTitle>{t('protocols.detail.tabs.coeditors')}</CardTitle>
+              <CardDescription>{t('protocols.detail.sections.coeditorsDesc')}</CardDescription>
             </div>
             {canAssignReviewer && (
               <Button onClick={() => setShowCoEditorDialog(true)}>
@@ -1242,15 +1244,15 @@ export function ProtocolDetailPage() {
       {activeTab === 'pigs' && (
         <Card>
           <CardHeader>
-            <CardTitle>豬隻紀錄</CardTitle>
-            <CardDescription>此計畫下所有已分配豬隻清單</CardDescription>
+            <CardTitle>{t('protocols.detail.tabs.pigs')}</CardTitle>
+            <CardDescription>{t('protocols.detail.sections.pigsDesc')}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-center py-12">
               <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold mb-2">尚無豬隻紀錄</h3>
+              <h3 className="text-lg font-semibold mb-2">{t('protocols.detail.tables.noPigs')}</h3>
               <p className="text-muted-foreground">
-                此計畫目前尚未分配豬隻
+                {t('protocols.detail.tables.noPigsDesc')}
               </p>
             </div>
           </CardContent>
@@ -1261,27 +1263,27 @@ export function ProtocolDetailPage() {
         <AmendmentsTab protocolId={id} protocolStatus={protocol.status} />
       )}
 
-      {/* 狀態變更對話框 */}
+      {/* Status change dialog */}
       <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>變更計畫狀態</DialogTitle>
+            <DialogTitle>{t('protocols.detail.dialogs.status.title')}</DialogTitle>
             <DialogDescription>
-              選擇要變更的目標狀態，並可選填備註說明
+              {t('protocols.detail.dialogs.status.desc')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>目前狀態</Label>
+              <Label>{t('protocols.detail.dialogs.status.current')}</Label>
               <Badge variant={statusColors[protocol.status]} className="text-sm">
                 {protocolStatusNames[protocol.status]}
               </Badge>
             </div>
             <div className="space-y-2">
-              <Label>目標狀態</Label>
+              <Label>{t('protocols.detail.dialogs.status.target')}</Label>
               <Select value={newStatus} onValueChange={(v) => setNewStatus(v as ProtocolStatus)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="請選擇目標狀態" />
+                  <SelectValue placeholder={t('protocols.detail.dialogs.status.placeholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {getAvailableTransitions().map((status) => (
@@ -1294,10 +1296,10 @@ export function ProtocolDetailPage() {
             </div>
             {newStatus === 'PRE_REVIEW' && (
               <div className="space-y-2">
-                <Label>指定 Co-Editor（選填）</Label>
+                <Label>{t('protocols.detail.dialogs.status.coeditor')}</Label>
                 <Select value={selectedCoEditorId} onValueChange={setSelectedCoEditorId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="請選擇試驗工作人員作為 co-editor" />
+                    <SelectValue placeholder={t('protocols.detail.dialogs.status.coeditorPlaceholder')} />
                   </SelectTrigger>
                   <SelectContent>
                     {availableExperimentStaff?.map((staff) => (
@@ -1308,13 +1310,13 @@ export function ProtocolDetailPage() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  可選擇一位試驗工作人員作為 co-editor，協助編輯此計畫
+                  {t('protocols.detail.dialogs.status.coeditorHint')}
                 </p>
               </div>
             )}
             {newStatus === 'UNDER_REVIEW' && (
               <div className="space-y-2">
-                <Label>選擇審查委員 (2-3 位) *</Label>
+                <Label>{t('protocols.detail.dialogs.status.reviewers')}</Label>
                 <div className="space-y-2 max-h-48 overflow-y-auto border rounded p-2">
                   {availableReviewers?.map((reviewer) => (
                     <label key={reviewer.id} className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-1 rounded">
@@ -1334,27 +1336,27 @@ export function ProtocolDetailPage() {
                     </label>
                   ))}
                   {(!availableReviewers || availableReviewers.length === 0) && (
-                    <p className="text-sm text-muted-foreground py-2 text-center">沒有可選擇的審查委員</p>
+                    <p className="text-sm text-muted-foreground py-2 text-center">{t('protocols.detail.dialogs.status.noReviewers')}</p>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  已選擇 {selectedReviewerIds.length} 位（需選擇 2-3 位）
+                  {t('protocols.detail.dialogs.status.selected', { count: selectedReviewerIds.length })}
                 </p>
               </div>
             )}
             <div className="space-y-2">
-              <Label>備註說明（選填）</Label>
+              <Label>{t('protocols.detail.dialogs.status.remark')}</Label>
               <Textarea
                 value={statusRemark}
                 onChange={(e) => setStatusRemark(e.target.value)}
-                placeholder="輸入狀態變更的原因或說明..."
+                placeholder={t('protocols.detail.dialogs.status.remarkPlaceholder')}
                 rows={3}
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowStatusDialog(false)}>
-              取消
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={handleChangeStatus}
@@ -1368,35 +1370,35 @@ export function ProtocolDetailPage() {
               {(changeStatusMutation.isPending || assignCoEditorMutation.isPending) && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
-              確認變更
+              {t('protocols.detail.dialogs.status.confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* 新增審查意見對話框 */}
+      {/* Add review comment dialog */}
       <Dialog open={showCommentDialog} onOpenChange={setShowCommentDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>新增審查意見</DialogTitle>
+            <DialogTitle>{t('protocols.detail.dialogs.comment.title')}</DialogTitle>
             <DialogDescription>
-              請輸入您對此計畫書的審查意見
+              {t('protocols.detail.dialogs.comment.desc')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>審查意見</Label>
+              <Label>{t('protocols.detail.dialogs.comment.placeholder')}</Label>
               <Textarea
                 value={commentContent}
                 onChange={(e) => setCommentContent(e.target.value)}
-                placeholder="請輸入詳細的審查意見..."
+                placeholder={t('protocols.detail.dialogs.comment.placeholder')}
                 rows={5}
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCommentDialog(false)}>
-              取消
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={handleAddComment}
@@ -1405,13 +1407,13 @@ export function ProtocolDetailPage() {
               {addCommentMutation.isPending && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
-              提交意見
+              {t('protocols.detail.dialogs.comment.submit')}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* 回覆審查意見對話框 */}
+      {/* Reply to review comment dialog */}
       <Dialog open={showReplyDialog} onOpenChange={(open) => {
         setShowReplyDialog(open)
         if (!open) {
@@ -1421,14 +1423,14 @@ export function ProtocolDetailPage() {
       }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>回覆審查意見</DialogTitle>
+            <DialogTitle>{t('protocols.detail.dialogs.reply.title')}</DialogTitle>
             <DialogDescription>
-              請輸入您對此審查意見的回覆
+              {t('protocols.detail.dialogs.reply.desc')}
             </DialogDescription>
           </DialogHeader>
           {selectedCommentForReply && (
             <div className="bg-slate-50 p-3 rounded-lg border mb-4">
-              <p className="text-sm font-medium text-slate-600">原意見：</p>
+              <p className="text-sm font-medium text-slate-600">{t('protocols.detail.dialogs.reply.original')}</p>
               <p className="text-sm text-slate-700 mt-1">{selectedCommentForReply.content}</p>
               <p className="text-xs text-muted-foreground mt-2">
                 — {selectedCommentForReply.reviewer_name || selectedCommentForReply.reviewer_email}
@@ -1437,18 +1439,18 @@ export function ProtocolDetailPage() {
           )}
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>回覆內容</Label>
+              <Label>{t('protocols.detail.dialogs.reply.placeholder')}</Label>
               <Textarea
                 value={replyContent}
                 onChange={(e) => setReplyContent(e.target.value)}
-                placeholder="請輸入您的回覆..."
+                placeholder={t('protocols.detail.dialogs.reply.placeholder')}
                 rows={4}
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowReplyDialog(false)}>
-              取消
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={() => {
@@ -1464,27 +1466,27 @@ export function ProtocolDetailPage() {
               {replyCommentMutation.isPending && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
-              提交回覆
+              {t('protocols.detail.dialogs.reply.submit')}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* 指派審查人員對話框 */}
+      {/* Assign reviewer dialog */}
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>指派審查人員</DialogTitle>
+            <DialogTitle>{t('protocols.detail.dialogs.assign.title')}</DialogTitle>
             <DialogDescription>
-              選擇要指派的審查委員或獸醫師
+              {t('protocols.detail.dialogs.assign.desc')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>審查人員</Label>
+              <Label>{t('protocols.detail.dialogs.assign.placeholder')}</Label>
               <Select value={selectedReviewerId} onValueChange={setSelectedReviewerId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="請選擇審查人員" />
+                  <SelectValue placeholder={t('protocols.detail.dialogs.assign.placeholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {availableReviewers?.map((reviewer) => (
@@ -1498,7 +1500,7 @@ export function ProtocolDetailPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
-              取消
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={handleAssignReviewer}
@@ -1507,27 +1509,27 @@ export function ProtocolDetailPage() {
               {assignReviewerMutation.isPending && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
-              確認指派
+              {t('protocols.detail.dialogs.assign.confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* 指派 Co-Editor 對話框 */}
+      {/* Assign Co-Editor dialog */}
       <Dialog open={showCoEditorDialog} onOpenChange={setShowCoEditorDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>指派 Co-Editor</DialogTitle>
+            <DialogTitle>{t('protocols.detail.dialogs.coeditor.title')}</DialogTitle>
             <DialogDescription>
-              選擇試驗工作人員作為此計畫的負責窗口（co-editor）
+              {t('protocols.detail.dialogs.coeditor.desc')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>試驗工作人員</Label>
+              <Label>{t('protocols.detail.dialogs.coeditor.placeholder')}</Label>
               <Select value={selectedCoEditorId} onValueChange={setSelectedCoEditorId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="請選擇試驗工作人員" />
+                  <SelectValue placeholder={t('protocols.detail.dialogs.coeditor.placeholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {availableExperimentStaff?.map((staff) => (
@@ -1544,7 +1546,7 @@ export function ProtocolDetailPage() {
               setShowCoEditorDialog(false)
               setSelectedCoEditorId('')
             }}>
-              取消
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={() => {
@@ -1565,19 +1567,19 @@ export function ProtocolDetailPage() {
               {assignCoEditorMutation.isPending && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
-              確認指派
+              {t('protocols.detail.dialogs.assign.confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* 版本內容檢視對話框 */}
+      {/* Version content view dialog */}
       <Dialog open={showVersionDialog} onOpenChange={setShowVersionDialog}>
         <DialogContent className="max-w-3xl max-h-[80vh]">
           <DialogHeader>
-            <DialogTitle>版本內容 - v{selectedVersion?.version_no}</DialogTitle>
+            <DialogTitle>{t('protocols.detail.dialogs.version.title', { version: selectedVersion?.version_no })}</DialogTitle>
             <DialogDescription>
-              提交時間：{selectedVersion && formatDateTime(selectedVersion.submitted_at)}
+              {selectedVersion && t('protocols.detail.dialogs.version.submitted', { time: formatDateTime(selectedVersion.submitted_at) })}
             </DialogDescription>
           </DialogHeader>
           <div className="overflow-auto max-h-[60vh]">
@@ -1586,12 +1588,12 @@ export function ProtocolDetailPage() {
                 {JSON.stringify(selectedVersion.content_snapshot, null, 2)}
               </pre>
             ) : (
-              <p className="text-center text-muted-foreground py-8">無內容</p>
+              <p className="text-center text-muted-foreground py-8">{t('protocols.detail.dialogs.version.noContent')}</p>
             )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowVersionDialog(false)}>
-              關閉
+              {t('common.close')}
             </Button>
           </DialogFooter>
         </DialogContent>

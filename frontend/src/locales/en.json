@@ -30,7 +30,13 @@
         "minutesAgo": "{{count}} min ago",
         "hoursAgo": "{{count}} hr ago",
         "daysAgo": "{{count}} days ago",
-        "noNotifications": "No notifications"
+        "noNotifications": "No notifications",
+        "saved": "Saved",
+        "processed": "Processing...",
+        "confirmTitle": "Confirm",
+        "deleteTitle": "Confirm Delete",
+        "closeTitle": "Confirm Close",
+        "closeDescription": "Are you sure you want to close this project? This action cannot be undone."
     },
     "nav": {
         "dashboard": "Dashboard",
@@ -136,6 +142,7 @@
                 "loadFailed": "Loading failed",
                 "noData": "No data available",
                 "viewAll": "View All",
+                "viewMore": "View More",
                 "more": "more...",
                 "today": "Today",
                 "thisWeek": "This Week",
@@ -223,6 +230,11 @@
                     "RM": "Return Material"
                 }
             }
+        },
+        "projectStats": {
+            "applying": "Applying",
+            "ongoing": "Ongoing",
+            "closed": "Closed"
         }
     },
     "protocols": {
@@ -258,6 +270,142 @@
             "SUSPENDED": "Suspended",
             "CLOSED": "Closed",
             "DELETED": "Deleted"
+        },
+        "detail": {
+            "backToList": "Back to List",
+            "notFound": "Protocol Not Found",
+            "notFoundDesc": "This protocol does not exist or you don't have permission to view it.",
+            "edit": "Edit",
+            "submit": "Submit for Review",
+            "revise": "Revise Protocol",
+            "changeStatus": "Change Status",
+            "submitConfirm": "Are you sure you want to submit this protocol for review?",
+            "submitSuccess": "Protocol submitted for review",
+            "submitFailed": "Submission failed",
+            "statusChangeSuccess": "Status changed",
+            "statusChangeFailed": "Status change failed",
+            "info": {
+                "apigNo": "APIG No.",
+                "iacucNo": "IACUC No.",
+                "notIssued": "Not yet issued",
+                "pi": "Principal Investigator",
+                "organization": "Organization",
+                "period": "Execution Period",
+                "notSet": "Not yet set"
+            },
+            "tabs": {
+                "content": "Protocol Content",
+                "pigs": "Pig Records",
+                "versions": "Versions",
+                "history": "Status History",
+                "comments": "Review Comments",
+                "reviewers": "Reviewers",
+                "coeditors": "Co-Editors",
+                "attachments": "Attachments",
+                "amendments": "Amendments"
+            },
+            "sections": {
+                "contentTitle": "Protocol Content",
+                "contentDesc": "Detailed content of the AUP animal use protocol",
+                "versionsTitle": "Version History",
+                "versionsDesc": "Snapshot of each version submitted",
+                "historyTitle": "Status History",
+                "historyDesc": "Record of protocol status changes",
+                "commentsTitle": "Review Comments",
+                "commentsDesc": "Comments and replies from reviewers",
+                "reviewersTitle": "Reviewers",
+                "reviewersDesc": "Assigned reviewers and veterinarians",
+                "coeditorsTitle": "Co-Editors",
+                "coeditorsDesc": "Assigned co-editors",
+                "attachmentsTitle": "Attachments",
+                "attachmentsDesc": "Related documents and files",
+                "pigsTitle": "Pig Records",
+                "pigsDesc": "List of all pigs assigned to this protocol"
+            },
+            "dialogs": {
+                "status": {
+                    "title": "Change Protocol Status",
+                    "desc": "Select the target status and optionally provide remarks",
+                    "current": "Current Status",
+                    "target": "Target Status",
+                    "placeholder": "Select target status",
+                    "coeditor": "Assign Co-Editor (Optional)",
+                    "coeditorPlaceholder": "Select experiment staff as co-editor",
+                    "coeditorHint": "Assign a co-editor to help edit this protocol",
+                    "reviewers": "Select Reviewers (2-3) *",
+                    "noReviewers": "No reviewers available",
+                    "selected": "Selected {{count}} (Need 2-3)",
+                    "remark": "Remarks (Optional)",
+                    "remarkPlaceholder": "Enter reason or description...",
+                    "confirm": "Confirm Change"
+                },
+                "comment": {
+                    "title": "Add Review Comment",
+                    "desc": "Please enter your review comment for this protocol",
+                    "placeholder": "Enter detailed review comment...",
+                    "submit": "Submit Comment",
+                    "firstComment": "Add the first review comment"
+                },
+                "reply": {
+                    "title": "Reply to Comment",
+                    "desc": "Please enter your reply to this review comment",
+                    "original": "Original Comment:",
+                    "placeholder": "Enter your reply...",
+                    "submit": "Submit Reply"
+                },
+                "assign": {
+                    "title": "Assign Reviewer",
+                    "desc": "Select a reviewer or veterinarian to assign",
+                    "placeholder": "Select reviewer",
+                    "confirm": "Confirm Assignment"
+                },
+                "coeditor": {
+                    "title": "Assign Co-Editor",
+                    "desc": "Select experiment staff as the co-editor for this protocol",
+                    "placeholder": "Select experiment staff"
+                },
+                "version": {
+                    "title": "Version Content - v{{version}}",
+                    "submitted": "Submitted at: {{time}}",
+                    "noContent": "No content"
+                }
+            },
+            "tables": {
+                "versionNo": "Version",
+                "submitTime": "Submission Time",
+                "actions": "Actions",
+                "viewContent": "View Content",
+                "noVersions": "No version history",
+                "assignedTime": "Assigned Time",
+                "assignedBy": "Assigned By",
+                "completedTime": "Completed Time",
+                "reviewing": "Reviewing",
+                "noReviewers": "No reviewers assigned yet",
+                "assignFirst": "Assign the first reviewer",
+                "grantedTime": "Granted Time",
+                "noCoeditors": "No co-editors assigned yet",
+                "coeditorHint": "Co-editors can be assigned during 'Pre-Review' status change",
+                "fileName": "File Name",
+                "size": "Size",
+                "uploadedBy": "Uploaded By",
+                "uploadTime": "Upload Time",
+                "upload": "Upload Attachment",
+                "noAttachments": "No attachments",
+                "uploadFirst": "Upload the first attachment",
+                "noPigs": "No pig records",
+                "noPigsDesc": "No pigs have been assigned to this protocol yet"
+            },
+            "actions": {
+                "reply": "Reply",
+                "resolved": "Resolved",
+                "markResolved": "Mark as Resolved",
+                "deleteConfirm": "Are you sure you want to delete this attachment?",
+                "removeCoeditorConfirm": "Are you sure you want to remove this co-editor?",
+                "reviewer": "Reviewer",
+                "reviewerA": "Reviewer A",
+                "reviewerB": "Reviewer B",
+                "reviewerC": "Reviewer C"
+            }
         }
     },
     "password": {
@@ -292,7 +440,7 @@
         "section5": "5. Guidelines and References",
         "section6": "6. Animal Surgical Plan",
         "section7": "7. Animal Information",
-        "section8": "8. Personnel Working on Animal Study",
+        "section8": "8. Working Personnel",
         "section9": "9. Attachments",
         "section10": "10. Electronic Signature",
         "basic": {
@@ -601,7 +749,26 @@
                     "route": "Route",
                     "frequency": "Frequency",
                     "purpose": "Purpose"
-                }
+                },
+                "noDrugs": "No drug information available. Click \"+ Add\" to add."
+            },
+            "validation": {
+                "surgeryTypeRequired": "Please enter surgery type",
+                "preopPreparationRequired": "Please enter pre-operative preparation",
+                "surgeryDescriptionRequired": "Please enter surgical procedure description",
+                "monitoringRequired": "Please enter intra-operative monitoring",
+                "expectedImpactRequired": "Please describe expected post-operative impact on the animal",
+                "multipleSurgeriesNumberRequired": "Please enter the number of surgeries",
+                "multipleSurgeriesReasonRequired": "Please enter the reason for multiple surgeries",
+                "postopCareTypeRequired": "Please select surgery type (orthopedic or non-orthopedic)",
+                "postopCareRequired": "Please enter post-operative care and pain management",
+                "expectedEndPointRequired": "Please specify expected experimental end point",
+                "drugsRequired": "Please add at least one surgical medication",
+                "drugNameRequired": "Please enter drug name for medication #{{index}}",
+                "drugDoseRequired": "Please enter dose for medication #{{index}}",
+                "drugRouteRequired": "Please enter route for medication #{{index}}",
+                "drugFrequencyRequired": "Please enter frequency for medication #{{index}}",
+                "drugPurposeRequired": "Please enter purpose for medication #{{index}}"
             }
         },
         "animals": {
@@ -621,6 +788,7 @@
                 "minWeight": "Min Weight (kg)",
                 "maxWeight": "Max Weight (kg)",
                 "housing": "Housing Environment",
+                "defaultHousingLocation": "Dr. Pig Animal Farm",
                 "unlimited": "Unlimited",
                 "weightInterval": "5kg per interval"
             },
@@ -657,12 +825,25 @@
                 "item3": "* Age: Approximate month range (and above) or unlimited.",
                 "item4": "* Weight: Approximate weight range or unlimited.",
                 "item5": "* White pigs grow rapidly, reaching 100kg in 7 months. If the observation period exceeds 3 months, mini pigs are recommended."
+            },
+            "validation": {
+                "animalsRequired": "Please add at least one experimental animal",
+                "speciesRequired": "Please select species for animal #{{index}}",
+                "strainRequired": "Please select strain for animal #{{index}}",
+                "sexRequired": "Please select sex for animal #{{index}}",
+                "numberRequired": "Please enter quantity for animal #{{index}} (must be > 0)",
+                "ageMinRequired": "Min age for animal #{{index}} must be at least 3 months",
+                "ageMaxRequired": "Please enter max age for animal #{{index}}",
+                "ageMaxInvalid": "Max age for animal #{{index}} must be greater than min age",
+                "weightMinRequired": "Min weight for animal #{{index}} must be at least 20kg",
+                "weightMaxRequired": "Please enter max weight for animal #{{index}}",
+                "weightMaxInvalid": "Max weight for animal #{{index}} must be greater than min weight"
             }
         },
         "personnel": {
             "title": "Personnel Data",
-            "subtitle": "Information of personnel participating in the animal study",
-            "listHeader": "8.1 Personnel Information for the Animal study",
+            "subtitle": "Personnel participating in the animal study",
+            "listHeader": "8.1 Working Personnel Information",
             "addPersonnel": "Add Personnel",
             "table": {
                 "num": "No.",
@@ -866,6 +1047,105 @@
                         "purpose": "Post-operative analgesics"
                     }
                 ]
+            }
+        },
+        "content": {
+            "exportPDF": "Export PDF",
+            "exporting": "Exporting...",
+            "exportFailed": "PDF export failed, please try again",
+            "noContent": "Protocol content not filled yet",
+            "title": "AUP Animal Study Protocol",
+            "sections": {
+                "researchInfo": "1. Research Information",
+                "glpAttribute": "GLP Attribute",
+                "glpCompliant": "GLP Compliant",
+                "glpNonCompliant": "Not GLP Compliant",
+                "projectName": "Project Name",
+                "projectType": "Project Type",
+                "projectCategory": "Project Category",
+                "expectedSchedule": "Expected Schedule",
+                "piInfo": "Principal Investigator (PI)",
+                "piName": "Name",
+                "piPhone": "Phone",
+                "piEmail": "Email",
+                "piAddress": "Address",
+                "sponsorInfo": "Sponsor",
+                "sponsorName": "Sponsor Name",
+                "contactPerson": "Contact Person",
+                "contactPhone": "Contact Phone",
+                "contactEmail": "Contact Email",
+                "facility": "Institution and Facility",
+                "facilityName": "Institution Name",
+                "location": "Location",
+                "purpose": "2. Research Purpose",
+                "significance": "2.1 Purpose and Significance of the Study",
+                "replacement": "2.2 3Rs - Replacement Principles",
+                "replacementRationale": "2.2.1 Necessity of in vivo animal testing and species selection",
+                "alternativeSearch": "2.2.2 Search for non-animal alternatives",
+                "searchPlatforms": "Search Platforms",
+                "searchKeywords": "Search Keywords",
+                "searchConclusion": "Search Results and Conclusion",
+                "duplicate": "2.2.3 Replication of another's experiment",
+                "duplicateYes": "Yes",
+                "duplicateNo": "No",
+                "duplicateJustification": "Scientific rationale for replication:",
+                "reduction": "2.3 3Rs - Reduction Principles",
+                "reductionDesign": "Reasoning for animal study design and numbers",
+                "items": "3. Test and Control Items",
+                "testItems": "Test Items",
+                "controlItems": "Control Items",
+                "itemName": "Item Name",
+                "itemForm": "Dosage Form",
+                "itemPurpose": "Purpose",
+                "itemStorage": "Storage Conditions",
+                "isSterile": "Sterile Preparation",
+                "sterileYes": "Yes",
+                "sterileNo": "No",
+                "nonSterileJustification": "Justification:",
+                "omitted": "Omitted",
+                "design": "4. Research Design and Methods",
+                "procedures": "Description of Animal Procedures",
+                "anesthesia": "Under Anesthesia",
+                "anesthesiaType": "Anesthesia Type",
+                "painCategory": "Pain Category",
+                "painManagement": "Pain Management Plan:",
+                "endpoints": "Endpoints",
+                "experimentalEndpoint": "Experimental Endpoint",
+                "humaneEndpoint": "Humane Endpoint",
+                "guidelines": "5. Relevant Guidelines and References",
+                "guidelinesContent": "Relevant Guidelines Description",
+                "references": "References",
+                "surgery": "6. Surgery Protocol",
+                "surgeryType": "Surgery Type",
+                "preopPreparation": "Pre-operative Preparation",
+                "surgeryDescription": "Surgery Description",
+                "monitoring": "Monitoring Methods",
+                "postopCare": "Post-operative Care",
+                "drugPlan": "Drug Plan",
+                "drugName": "Drug Name",
+                "dose": "Dose",
+                "route": "Route",
+                "frequency": "Frequency",
+                "animals": "7. Experimental Animal Data",
+                "animalGroup": "Animal Group",
+                "species": "Species",
+                "strain": "Strain",
+                "sex": "Sex",
+                "number": "Number",
+                "ageRange": "Age Range",
+                "weightRange": "Weight Range",
+                "housingLocation": "Housing Location",
+                "unlimited": "Unlimited",
+                "totalAnimals": "Total Animals",
+                "personnel": "8. Study Personnel Data",
+                "person": "Personnel",
+                "position": "Title",
+                "yearsExperience": "Years of Experience in Animal Studies",
+                "years": "Years",
+                "workContent": "Responsibility",
+                "training": "Training/Qualifications",
+                "attachments": "9. Attachments",
+                "signatures": "10. Electronic Signatures"
             }
         }
     }

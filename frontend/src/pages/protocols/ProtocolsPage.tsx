@@ -54,7 +54,7 @@ export function ProtocolsPage() {
       if (statusFilter && statusFilter !== 'all') params += `status=${statusFilter}&`
       if (search) params += `keyword=${encodeURIComponent(search)}&`
       const response = await api.get<ProtocolListItem[]>(`/protocols?${params}`)
-      // 雙重保險：即使後端返回了 DELETED 狀態，前端也要過濾掉
+      // Double insurance: even if the backend returns DELETED status, filter it out on the frontend
       return response.data.filter(p => p.status !== 'DELETED')
     },
   })
