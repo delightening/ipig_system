@@ -1,7 +1,7 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **評估日期：** 2026-01-19  
-> **規格版本：** v1.1  
+> **評估日期：** 2026-02-02  
+> **規格版本：** v1.2  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
 ---
@@ -355,6 +355,7 @@
 | 008_add_deleted_status.sql | 計劃書刪除狀態 | ✅ |
 | 009_hr_system.sql | HR 特休表、hire_date 欄位 | ✅ |
 | 010_glp_compliance.sql | 電子簽章、附註、變更原因表 | ✅ |
+| 022_amendment_system.sql | 變更申請系統、review_comments 草稿欄位 | ✅ |
 
 ---
 
@@ -561,6 +562,40 @@
 6. ✅ **審查意見回覆功能**
    - 回覆按鈕與輸入對話框
    - PI、IACUC_STAFF、EXPERIMENT_STAFF 可回覆
+
+**最新更新（資料庫現代化與功能增強 - 2026-02-02）：**
+
+1. ✅ **資料庫架構現代化**
+   - 豬隻 ID 遷移至 UUID - 將 pig 模組主鍵從 INTEGER 改為 UUID，保留 `pig_no` 作為顯示用途
+   - GIN 索引優化 - 在 JSONB 欄位（`protocols.working_content`、`pig_observations.treatments`）建立 GIN 索引
+   - Array Foreign Key 完整性修復 - 透過 `leave_balance_usage` 關聯表處理 `comp_time_source_ids`
+   - 自動 Partition 維護 - 實作排程器自動建立 `user_activity_logs` 新分區表
+
+2. ✅ **Amendment 變更申請系統（後端完成）**
+   - 資料庫遷移：`022_amendment_system.sql`（amendments、amendment_versions、amendment_review_assignments、amendment_status_history）
+   - 後端 Models：`AmendmentType`、`AmendmentStatus`、`Amendment` 等完整資料結構
+   - 後端 Services：`AmendmentService` 支援建立、分類、審查、版本快照等功能
+   - 後端 Handlers：完整 REST API（建立、列表、詳情、更新、提交、分類、審查決定）
+   - 權限設定：PI 建立/更新、IACUC_STAFF 分類/行政審查、REVIEWER 審查、CHAIR 核准
+   - 草稿回覆功能：`review_comments` 表新增 `draft_content`、`drafted_by`、`draft_updated_at` 欄位
+
+3. ✅ **動物管理功能增強**
+   - 緊急用藥通知 - 觸發緊急通知，警示獸醫師和 PI
+   - 快速新增動物對話框 - 耳號未找到時可手動新增，支援自動格式化耳號、品種、性別、進場日期、出生日期
+   - 安樂死工作流程 UI - 實作安樂死命令建立、PI 核准/申訴、CHAIR 仲裁介面
+
+4. ✅ **審查系統改進**
+   - 審查者匿名化 - PI/CLIENT 角色檢視時顯示「Reviewer A」、「Reviewer B」等（IACUC_STAFF、IACUC_CHAIR、SYSTEM_ADMIN 可見真名）
+   - AUP 表單翻譯 - 將 `ProtocolEditPage.tsx` 中所有章節標題與副標題從中文翻譯為英文
+
+5. ✅ **權限系統優化**
+   - 權限分類整合 - 重新組織並翻譯權限分類，合併重複的「其他」類別，將 CRUD 操作分組至父模組下
+   - 階層結構建立：動物使用計畫、動物管理、庫存管理、管理階級、系統管理、開發工具
+
+6. 🔶 **待完成項目**
+   - Amendment 前端頁面開發
+   - Coeditor 草稿回覆前端 UI 整合
+   - 前端 API 介接（`api.ts` 新增 Amendment types）
 
 **v1.0 已完成，系統可正式上線！**
 

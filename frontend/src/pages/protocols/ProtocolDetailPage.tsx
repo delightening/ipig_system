@@ -73,10 +73,12 @@ import {
   Users,
   ClipboardList,
   Reply,
+  FileEdit,
 } from 'lucide-react'
 import { formatDate, formatDateTime, formatFileSize } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
 import { ProtocolContentView } from '@/components/protocol/ProtocolContentView'
+import { AmendmentsTab } from '@/components/protocol/AmendmentsTab'
 
 const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'> = {
   DRAFT: 'secondary',
@@ -118,7 +120,7 @@ export function ProtocolDetailPage() {
   const { user } = useAuthStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const [activeTab, setActiveTab] = useState<'content' | 'versions' | 'history' | 'comments' | 'reviewers' | 'coeditors' | 'attachments' | 'pigs'>('content')
+  const [activeTab, setActiveTab] = useState<'content' | 'versions' | 'history' | 'comments' | 'reviewers' | 'coeditors' | 'attachments' | 'pigs' | 'amendments'>('content')
   const [showStatusDialog, setShowStatusDialog] = useState(false)
   const [showCommentDialog, setShowCommentDialog] = useState(false)
   const [showReplyDialog, setShowReplyDialog] = useState(false)
@@ -741,6 +743,7 @@ export function ProtocolDetailPage() {
             { key: 'reviewers', label: '審查人員', icon: Users },
             { key: 'coeditors', label: 'Co-Editor', icon: UserPlus },
             { key: 'attachments', label: '附件', icon: Paperclip },
+            { key: 'amendments', label: '變更申請', icon: FileEdit },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -1252,6 +1255,10 @@ export function ProtocolDetailPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {activeTab === 'amendments' && id && (
+        <AmendmentsTab protocolId={id} protocolStatus={protocol.status} />
       )}
 
       {/* 狀態變更對話框 */}

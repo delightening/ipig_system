@@ -63,6 +63,9 @@ import { ProtocolEditPage } from '@/pages/protocols/ProtocolEditPage'
 // My Projects Pages
 import { MyProjectsPage } from '@/pages/my-projects/MyProjectsPage'
 
+// Amendment Pages
+import { MyAmendmentsPage } from '@/pages/amendments/MyAmendmentsPage'
+
 // Pig Management Pages
 import { PigsPage } from '@/pages/pigs/PigsPage'
 import { PigDetailPage } from '@/pages/pigs/PigDetailPage'
@@ -248,6 +251,9 @@ function App() {
                     {/* 我的計劃 */}
                     <Route path="/my-projects" element={<MyProjectsPage />} />
                     <Route path="/my-projects/:id" element={<ProtocolDetailPage />} />
+
+                    {/* 我的變更申請 */}
+                    <Route path="/my-amendments" element={<MyAmendmentsPage />} />
 
                     {/* 實驗動物管理 */}
                     <Route path="/pigs" element={<PigsPage />} />

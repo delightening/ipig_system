@@ -24,7 +24,7 @@ impl EuthanasiaService {
         // 查詢豬隻的關聯 PI
         let pig = sqlx::query!(
             r#"
-            SELECT p.id, p.ear_tag, p.iacuc_no, pr.pi_user_id
+            SELECT p.id, p.ear_tag, p.iacuc_no, pr.pi_user_id as "pi_user_id?"
             FROM pigs p
             LEFT JOIN protocols pr ON p.iacuc_no = pr.iacuc_no
             WHERE p.id = $1 AND p.is_deleted = false
@@ -330,7 +330,7 @@ impl EuthanasiaService {
         sqlx::query!(
             r#"
             UPDATE euthanasia_orders
-            SET status = $1::euthanasia_order_status, updated_at = NOW()
+            SET status = ($1::TEXT)::euthanasia_order_status, updated_at = NOW()
             WHERE id = $2
             "#,
             new_status,

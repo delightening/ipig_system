@@ -34,10 +34,10 @@ pub async fn create_amendment(
             WHERE user_id = $1 AND protocol_id = $2 AND role_in_protocol = 'PI'
         ) as "exists!"
         "#,
-        current_user.user_id,
+        current_user.id,
         req.protocol_id
     )
-    .fetch_one(&state.pool)
+    .fetch_one(&state.db)
     .await?;
 
     if !is_pi && !current_user.roles.contains(&"admin".to_string()) 
@@ -46,7 +46,7 @@ pub async fn create_amendment(
     }
 
     req.validate()?;
-    let amendment = AmendmentService::create(&state.pool, &req, current_user.user_id).await?;
+    let amendment = AmendmentService::create(&state.db, &req, current_user.id).await?;
     Ok(Json(amendment))
 }
 
@@ -64,18 +64,18 @@ pub async fn list_amendments(
     );
 
     let amendments = if is_staff {
-        AmendmentService::list(&state.pool, &query).await?
+        AmendmentService::list(&state.db, &query).await?
     } else {
         // 查詢使用者相關的計畫
         let my_protocols: Vec<Uuid> = sqlx::query_scalar!(
             r#"SELECT protocol_id FROM user_protocols WHERE user_id = $1"#,
-            current_user.user_id
+            current_user.id
         )
-        .fetch_all(&state.pool)
+        .fetch_all(&state.db)
         .await?;
 
         // 只返回使用者相關計畫的變更申請
-        let all = AmendmentService::list(&state.pool, &query).await?;
+        let all = AmendmentService::list(&state.db, &query).await?;
         all.into_iter()
             .filter(|a| my_protocols.contains(&a.protocol_id))
             .collect()
@@ -91,7 +91,7 @@ pub async fn get_amendment(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Amendment>> {
-    let amendment = AmendmentService::get_by_id(&state.pool, id).await?;
+    let amendment = AmendmentService::get_by_id(&state.db, id).await?;
 
     // 權限檢查
     let is_staff = current_user.roles.iter().any(|r| 
@@ -107,10 +107,10 @@ pub async fn get_amendment(
                 WHERE user_id = $1 AND protocol_id = $2
             ) as "exists!"
             "#,
-            current_user.user_id,
+            current_user.id,
             amendment.protocol_id
         )
-        .fetch_one(&state.pool)
+        .fetch_one(&state.db)
         .await?;
 
         if !is_related {
@@ -129,7 +129,7 @@ pub async fn update_amendment(
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateAmendmentRequest>,
 ) -> Result<Json<Amendment>> {
-    let current = AmendmentService::get_by_id(&state.pool, id).await?;
+    let current = AmendmentService::get_by_id(&state.db, id).await?;
 
     // 檢查是否為該計畫的 PI
     let is_pi = sqlx::query_scalar!(
@@ -139,10 +139,10 @@ pub async fn update_amendment(
             WHERE user_id = $1 AND protocol_id = $2 AND role_in_protocol = 'PI'
         ) as "exists!"
         "#,
-        current_user.user_id,
+        current_user.id,
         current.protocol_id
     )
-    .fetch_one(&state.pool)
+    .fetch_one(&state.db)
     .await?;
 
     if !is_pi && !current_user.roles.contains(&"admin".to_string()) {
@@ -150,7 +150,7 @@ pub async fn update_amendment(
     }
 
     req.validate()?;
-    let amendment = AmendmentService::update(&state.pool, id, &req).await?;
+    let amendment = AmendmentService::update(&state.db, id, &req).await?;
     Ok(Json(amendment))
 }
 
@@ -161,7 +161,7 @@ pub async fn submit_amendment(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Amendment>> {
-    let current = AmendmentService::get_by_id(&state.pool, id).await?;
+    let current = AmendmentService::get_by_id(&state.db, id).await?;
 
     // 只有 PI 可以提交
     let is_pi = sqlx::query_scalar!(
@@ -171,17 +171,17 @@ pub async fn submit_amendment(
             WHERE user_id = $1 AND protocol_id = $2 AND role_in_protocol = 'PI'
         ) as "exists!"
         "#,
-        current_user.user_id,
+        current_user.id,
         current.protocol_id
     )
-    .fetch_one(&state.pool)
+    .fetch_one(&state.db)
     .await?;
 
     if !is_pi && !current_user.roles.contains(&"admin".to_string()) {
         return Err(AppError::Forbidden("Only PI can submit amendments".into()));
     }
 
-    let amendment = AmendmentService::submit(&state.pool, id, current_user.user_id).await?;
+    let amendment = AmendmentService::submit(&state.db, id, current_user.id).await?;
     Ok(Json(amendment))
 }
 
@@ -194,9 +194,9 @@ pub async fn classify_amendment(
     Json(req): Json<ClassifyAmendmentRequest>,
 ) -> Result<Json<Amendment>> {
     // 只有 IACUC_STAFF 可以分類
-    require_permission!(state, current_user, "amendment.classify");
+    require_permission!(current_user, "amendment.classify");
 
-    let amendment = AmendmentService::classify(&state.pool, id, &req, current_user.user_id).await?;
+    let amendment = AmendmentService::classify(&state.db, id, &req, current_user.id).await?;
     Ok(Json(amendment))
 }
 
@@ -216,7 +216,7 @@ pub async fn start_amendment_review(
         return Err(AppError::Forbidden("Not authorized to start review".into()));
     }
 
-    let amendment = AmendmentService::start_review(&state.pool, id, current_user.user_id).await?;
+    let amendment = AmendmentService::start_review(&state.db, id, current_user.id).await?;
     Ok(Json(amendment))
 }
 
@@ -237,9 +237,9 @@ pub async fn record_amendment_decision(
         ) as "exists!"
         "#,
         id,
-        current_user.user_id
+        current_user.id
     )
-    .fetch_one(&state.pool)
+    .fetch_one(&state.db)
     .await?;
 
     if !is_reviewer && !current_user.roles.contains(&"admin".to_string()) {
@@ -247,14 +247,14 @@ pub async fn record_amendment_decision(
     }
 
     let assignment = AmendmentService::record_decision(
-        &state.pool, 
+        &state.db, 
         id, 
-        current_user.user_id, 
+        current_user.id, 
         &req
     ).await?;
 
     // 返回完整資訊
-    let assignments = AmendmentService::get_review_assignments(&state.pool, id).await?;
+    let assignments = AmendmentService::get_review_assignments(&state.db, id).await?;
     let result = assignments.into_iter()
         .find(|a| a.id == assignment.id)
         .ok_or_else(|| AppError::NotFound("Assignment not found".into()))?;
@@ -280,10 +280,10 @@ pub async fn change_amendment_status(
     }
 
     let amendment = AmendmentService::change_status(
-        &state.pool, 
+        &state.db, 
         id, 
         &req, 
-        current_user.user_id
+        current_user.id
     ).await?;
 
     Ok(Json(amendment))
@@ -296,7 +296,7 @@ pub async fn get_amendment_versions(
     Extension(_current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<AmendmentVersion>>> {
-    let versions = AmendmentService::get_versions(&state.pool, id).await?;
+    let versions = AmendmentService::get_versions(&state.db, id).await?;
     Ok(Json(versions))
 }
 
@@ -307,7 +307,7 @@ pub async fn get_amendment_history(
     Extension(_current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<AmendmentStatusHistory>>> {
-    let history = AmendmentService::get_status_history(&state.pool, id).await?;
+    let history = AmendmentService::get_status_history(&state.db, id).await?;
     Ok(Json(history))
 }
 
@@ -318,7 +318,7 @@ pub async fn get_amendment_assignments(
     Extension(_current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<AmendmentReviewAssignmentResponse>>> {
-    let assignments = AmendmentService::get_review_assignments(&state.pool, id).await?;
+    let assignments = AmendmentService::get_review_assignments(&state.db, id).await?;
     Ok(Json(assignments))
 }
 
@@ -329,6 +329,6 @@ pub async fn list_protocol_amendments(
     Extension(_current_user): Extension<CurrentUser>,
     Path(protocol_id): Path<Uuid>,
 ) -> Result<Json<Vec<AmendmentListItem>>> {
-    let amendments = AmendmentService::list_by_protocol(&state.pool, protocol_id).await?;
+    let amendments = AmendmentService::list_by_protocol(&state.db, protocol_id).await?;
     Ok(Json(amendments))
 }

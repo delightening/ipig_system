@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE euthanasia_orders\n                SET status = 'approved', updated_at = NOW()\n                WHERE id = $1\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "caa571a7100fa63322965eb05f6bf1e1e302c869dce949c3b9f29b5e5535f6c6"
+}

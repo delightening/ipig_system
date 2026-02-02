@@ -111,6 +111,38 @@
 
 ---
 
+## ✅ v1.2 - 已完成 (2026-02-02)
+
+### 資料庫架構現代化
+- [x] 豬隻 ID 遷移至 UUID - pig 模組主鍵從 INTEGER 改為 UUID，保留 `pig_no` 顯示
+- [x] GIN 索引優化 - JSONB 欄位（protocols.working_content、pig_observations.treatments）
+- [x] Array Foreign Key 完整性修復 - 透過 `leave_balance_usage` 處理 `comp_time_source_ids`
+- [x] 自動 Partition 維護 - 排程器自動建立 `user_activity_logs` 新分區表
+- [x] 編譯錯誤修復 - `display_name` 欄位錯誤、`create_weight` 類型不匹配（Uuid vs i32）
+
+### Amendment 變更申請系統（後端完成）
+- [x] 資料庫遷移 `022_amendment_system.sql` - amendments、amendment_versions、amendment_review_assignments、amendment_status_history
+- [x] Models - AmendmentType、AmendmentStatus、Amendment、CreateAmendmentRequest 等
+- [x] Services - AmendmentService 完整實作（建立、分類、審查、版本快照）
+- [x] Handlers - REST API（建立、列表、詳情、更新、提交、分類、審查決定）
+- [x] 權限設定 - PI/IACUC_STAFF/REVIEWER/CHAIR 各角色權限
+- [x] Coeditor 草稿回覆 - review_comments 新增 draft_content、drafted_by、draft_updated_at
+
+### 動物管理功能增強
+- [x] 緊急用藥通知 - 觸發緊急通知警示獸醫師和 PI
+- [x] 快速新增動物對話框 - 耳號未找到時手動新增，自動格式化
+- [x] 安樂死工作流程 UI - 命令建立、PI 核准/申訴、CHAIR 仲裁
+
+### 審查系統改進
+- [x] 審查者匿名化 - PI/CLIENT 視角顯示 "Reviewer A/B/C"
+- [x] AUP 表單翻譯 - ProtocolEditPage.tsx 章節標題中翻英
+
+### 權限系統優化
+- [x] 權限分類整合 - 合併重複「其他」類別，CRUD 操作分組至父模組
+- [x] 階層結構 - 動物使用計畫、動物管理、庫存管理、管理階級、系統管理、開發工具
+
+---
+
 ## 📋 v2.0 規劃功能
 
 ### iPig ERP 系統

@@ -1,0 +1,154 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE amendments\n            SET \n                status = ($2::TEXT)::amendment_status,\n                submitted_by = $3,\n                submitted_at = NOW(),\n                updated_at = NOW()\n            WHERE id = $1\n            RETURNING \n                id, protocol_id, amendment_no, revision_number,\n                amendment_type as \"amendment_type: AmendmentType\",\n                status as \"status: AmendmentStatus\",\n                title, description, change_items,\n                changes_content, submitted_by, submitted_at,\n                classified_by, classified_at, classification_remark,\n                created_by, created_at, updated_at\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "protocol_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "amendment_no",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "revision_number",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "amendment_type: AmendmentType",
+        "type_info": {
+          "Custom": {
+            "name": "amendment_type",
+            "kind": {
+              "Enum": [
+                "MAJOR",
+                "MINOR",
+                "PENDING"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "status: AmendmentStatus",
+        "type_info": {
+          "Custom": {
+            "name": "amendment_status",
+            "kind": {
+              "Enum": [
+                "DRAFT",
+                "SUBMITTED",
+                "CLASSIFIED",
+                "UNDER_REVIEW",
+                "REVISION_REQUIRED",
+                "RESUBMITTED",
+                "APPROVED",
+                "REJECTED",
+                "ADMIN_APPROVED"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "title",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 7,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "change_items",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 9,
+        "name": "changes_content",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 10,
+        "name": "submitted_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 11,
+        "name": "submitted_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 12,
+        "name": "classified_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 13,
+        "name": "classified_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 14,
+        "name": "classification_remark",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 15,
+        "name": "created_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 16,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 17,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "115ee43b69cd872feb6e4322bfa8ad485fd0d299a7b7d4f080a215a8a6fc0ae2"
+}

@@ -48,6 +48,7 @@ import { // 引入一系列 Lucide 圖示
   ExternalLink,
   GripVertical,
   RotateCcw,
+  FileEdit,
 } from 'lucide-react'
 // 引入 dnd-kit 拖曳排序相關函式庫
 import {
@@ -75,12 +76,14 @@ interface NavItem {
   icon: React.ReactNode // 顯示圖示
   children?: { title: string; href: string; permission?: string }[] // 子選單（選填）
   permission?: string // 需要的權限代碼（選填）
+  badge?: number // 待處理數量徽章（選填）
 }
 
 // 預設導覽選單順序（使用者可自行調整）
 const DEFAULT_NAV_ORDER = [
   '儀表板',
   '我的計劃',
+  '我的變更申請',
   'AUP 審查系統',
   '人員管理',
   '實驗動物管理',
@@ -104,6 +107,11 @@ const navItemsConfig: NavItem[] = [
     title: '我的計劃',
     href: '/my-projects',
     icon: <FolderOpen className="h-5 w-5" />,
+  },
+  {
+    title: '我的變更申請',
+    href: '/my-amendments',
+    icon: <FileEdit className="h-5 w-5" />,
   },
   {
     title: 'AUP 審查系統',
@@ -265,7 +273,21 @@ function SortableNavItem({
             )}
           >
             <span className="shrink-0">{item.icon}</span>
-            {sidebarOpen && <span>{translateTitle(item.title)}</span>}
+            {sidebarOpen && (
+              <span className="flex-1 flex items-center justify-between">
+                <span>{translateTitle(item.title)}</span>
+                {item.badge && item.badge > 0 && (
+                  <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium rounded-full bg-red-500 text-white">
+                    {item.badge > 99 ? '99+' : item.badge}
+                  </span>
+                )}
+              </span>
+            )}
+            {!sidebarOpen && item.badge && item.badge > 0 && (
+              <span className="absolute -top-1 -right-1 inline-flex items-center justify-center w-5 h-5 text-xs font-medium rounded-full bg-red-500 text-white">
+                {item.badge > 9 ? '9+' : item.badge}
+              </span>
+            )}
           </Link>
         </div>
       ) : (
@@ -400,6 +422,7 @@ export function MainLayout() {
     '系統設定': t('nav.settings'),
     '審計日誌': t('nav.auditLogs'),
     '安全審計': t('nav.securityAudit'),
+    '我的變更申請': t('nav.myAmendments'),
   }
 
   // 翻譯導覽項目標題
@@ -491,6 +514,16 @@ export function MainLayout() {
       return res.data.count
     },
     refetchInterval: 60000, // 每 60 秒自動重新獲取最新數量
+  })
+
+  // 取得待處理變更申請數量
+  const { data: pendingAmendmentsCount } = useQuery({
+    queryKey: ['amendments-pending-count'],
+    queryFn: async () => {
+      const res = await api.get<{ count: number }>('/amendments/pending-count')
+      return res.data.count
+    },
+    refetchInterval: 60000, // 每 60 秒自動重新獲取
   })
 
   // 取得最近 10 筆通知的 API 查詢 (僅在選單開啟時觸發)
@@ -690,7 +723,14 @@ export function MainLayout() {
         }
         return true
       })
-  }, [sortedNavItems, hasRole, hasPermission, user])
+      .map((item) => {
+        // 動態注入待處理變更申請數量到「我的變更申請」項目
+        if (item.title === '我的變更申請' && pendingAmendmentsCount) {
+          return { ...item, badge: pendingAmendmentsCount }
+        }
+        return item
+      })
+  }, [sortedNavItems, hasRole, hasPermission, user, pendingAmendmentsCount])
 
   return (
     <div className="flex h-screen bg-slate-50">

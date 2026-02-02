@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE euthanasia_orders\n            SET status = 'appealed', pi_responded_at = NOW(), updated_at = NOW()\n            WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0a7dedee1d63b93501f35dc1e461a5ef3f2b357414ba031468af5dc8b1437b02"
+}
