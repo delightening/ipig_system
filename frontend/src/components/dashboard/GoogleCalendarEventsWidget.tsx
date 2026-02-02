@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { format, startOfISOWeek, endOfISOWeek } from 'date-fns'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Calendar, Clock, Loader2, ExternalLink, CalendarX } from 'lucide-react'
+import { Calendar as CalendarIcon, Clock, Loader2, ExternalLink, CalendarX } from 'lucide-react'
 import api from '@/lib/api'
 
 interface CalendarEvent {
@@ -21,12 +22,19 @@ export function GoogleCalendarEventsWidget() {
         queryKey: ['google-calendar-events-widget'],
         queryFn: async () => {
             try {
-                const res = await api.get<CalendarEvent[]>('/hr/calendar/events')
+                const now = new Date()
+                const startOfWeek = format(startOfISOWeek(now), 'yyyy-MM-dd')
+                const endOfWeek = format(endOfISOWeek(now), 'yyyy-MM-dd')
+
+                const res = await api.get<CalendarEvent[]>('/hr/calendar/events', {
+                    params: { start_date: startOfWeek, end_date: endOfWeek }
+                })
                 return res.data
             } catch (err: any) {
-                if (err.response?.status === 400 &&
-                    (err.response?.data?.message?.includes('Google Calendar') ||
-                        err.response?.data?.error?.includes('Google Calendar'))) {
+                const data = err.response?.data
+                const errorMsg = data?.message || data?.error?.message || (typeof data?.error === 'string' ? data.error : '')
+
+                if (err.response?.status === 400 && errorMsg.includes('Google Calendar')) {
                     return null // Representing not connected
                 }
                 throw err
@@ -54,7 +62,7 @@ export function GoogleCalendarEventsWidget() {
             <Card className="h-full">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-blue-500" />
+                        <CalendarIcon className="h-4 w-4 text-blue-500" />
                         {t('dashboard.widgets.names.google_calendar_events')}
                     </CardTitle>
                 </CardHeader>
@@ -70,7 +78,7 @@ export function GoogleCalendarEventsWidget() {
             <Card className="h-full">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-blue-500" />
+                        <CalendarIcon className="h-4 w-4 text-blue-500" />
                         {t('dashboard.widgets.names.google_calendar_events')}
                     </CardTitle>
                 </CardHeader>
@@ -85,7 +93,7 @@ export function GoogleCalendarEventsWidget() {
         <Card className="h-full flex flex-col overflow-hidden">
             <CardHeader className="pb-2 border-b bg-muted/30">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-blue-500" />
+                    <CalendarIcon className="h-4 w-4 text-blue-500" />
                     {t('dashboard.widgets.names.google_calendar_events')}
                 </CardTitle>
                 <CardDescription className="text-xs">{t('dashboard.widgets.calendar.googleDescription')}</CardDescription>
