@@ -49,3 +49,6 @@ pub use signature::{SignatureService, AnnotationService, SignatureType, Annotati
 
 mod balance_expiration;
 pub use balance_expiration::BalanceExpirationJob;
+
+mod partition_maintenance;
+pub use partition_maintenance::{PartitionMaintenanceJob, PartitionResult, PartitionStatus};

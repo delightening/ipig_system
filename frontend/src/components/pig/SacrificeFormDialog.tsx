@@ -60,7 +60,7 @@ interface SacrificeFormData {
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
-  pigId: number
+  pigId: string
   earTag: string
   sacrifice?: PigSacrifice // 編輯時傳入
 }
@@ -91,7 +91,7 @@ export function SacrificeFormDialog({ open, onOpenChange, pigId, earTag, sacrifi
       const samplingArray = sacrifice.sampling
         ? sacrifice.sampling.split(',').map((s) => s.trim()).filter(Boolean)
         : []
-      
+
       setFormData({
         sacrifice_date: sacrifice.sacrifice_date
           ? sacrifice.sacrifice_date.split('T')[0]
@@ -217,7 +217,7 @@ export function SacrificeFormDialog({ open, onOpenChange, pigId, earTag, sacrifi
           {/* 犧牲方式 */}
           <div className="space-y-4">
             <Label>犧牲方式</Label>
-            
+
             {/* 麻醉（填寫劑量） */}
             <div className="space-y-2">
               <Label htmlFor="zoletil_dose" className="text-sm font-normal">
@@ -253,8 +253,8 @@ export function SacrificeFormDialog({ open, onOpenChange, pigId, earTag, sacrifi
                   label="其他"
                   checked={formData.method_other_enabled}
                   onCheckedChange={(checked) => {
-                    setFormData({ 
-                      ...formData, 
+                    setFormData({
+                      ...formData,
                       method_other_enabled: checked,
                       method_other: checked ? (formData.method_other || '') : ''
                     })

@@ -95,7 +95,7 @@ export function PigDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const pigId = parseInt(id!)
+  const pigId = id!
 
   const [activeTab, setActiveTab] = useState<TabType>('observations')
 
@@ -501,7 +501,7 @@ export function PigDetailPage() {
             <div className="space-y-3">
               <div>
                 <span className="text-sm text-slate-500">系統號</span>
-                <p className="font-medium">{pig.id}</p>
+                <p className="font-medium">{pig.pig_no}</p>
               </div>
               <div>
                 <span className="text-sm text-slate-500">動物狀態</span>
@@ -1211,7 +1211,7 @@ export function PigDetailPage() {
                 </div>
                 <div>
                   <Label className="text-slate-500">系統號</Label>
-                  <p className="font-medium">{pig.id}</p>
+                  <p className="font-medium">{pig.pig_no}</p>
                 </div>
                 <div>
                   <Label className="text-slate-500">建立時間</Label>

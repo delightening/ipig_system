@@ -240,7 +240,6 @@ pub struct LeaveRequest {
     pub total_hours: Option<Decimal>,
     pub reason: String,
     pub supporting_documents: Option<serde_json::Value>,
-    pub comp_time_source_ids: Option<Vec<Uuid>>,
     pub annual_leave_source_id: Option<Uuid>,
     pub is_urgent: bool,
     pub is_retroactive: bool,

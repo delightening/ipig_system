@@ -723,7 +723,8 @@ export interface PigSource {
 }
 
 export interface Pig {
-  id: number
+  id: string
+  pig_no: number
   ear_tag: string
   status: PigStatus
   breed: PigBreed
@@ -757,7 +758,7 @@ export interface PigListItem extends Pig {
 
 export interface PigObservation {
   id: number
-  pig_id: number
+  pig_id: string
   event_date: string
   record_type: RecordType
   equipment_used?: string[]
@@ -781,7 +782,7 @@ export interface PigObservation {
 
 export interface PigSurgery {
   id: number
-  pig_id: number
+  pig_id: string
   is_first_experiment: boolean
   surgery_date: string
   surgery_site: string
@@ -812,7 +813,7 @@ export interface PigSurgery {
 
 export interface PigWeight {
   id: number
-  pig_id: number
+  pig_id: string
   measure_date: string
   weight: number
   created_by?: string
@@ -822,7 +823,7 @@ export interface PigWeight {
 
 export interface PigVaccination {
   id: number
-  pig_id: number
+  pig_id: string
   administered_date: string
   vaccine?: string
   deworming_dose?: string
@@ -833,7 +834,7 @@ export interface PigVaccination {
 
 export interface PigSacrifice {
   id: number
-  pig_id: number
+  pig_id: string
   sacrifice_date?: string
   zoletil_dose?: string
   method_electrocution: boolean
@@ -851,7 +852,7 @@ export interface PigSacrifice {
 
 export interface PigPathologyReport {
   id: number
-  pig_id: number
+  pig_id: string
   attachments?: {
     id: string
     file_name: string

@@ -25,7 +25,7 @@ import { Loader2 } from 'lucide-react'
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
-  pigId: number
+  pigId: string
 }
 
 export function QuickEditPigDialog({ open, onOpenChange, pigId }: Props) {
@@ -40,7 +40,7 @@ export function QuickEditPigDialog({ open, onOpenChange, pigId }: Props) {
       const res = await api.get<Pig>(`/pigs/${pigId}`)
       return res.data
     },
-    enabled: open && pigId > 0,
+    enabled: open && !!pigId,
     staleTime: 0,
     refetchOnWindowFocus: false,
     refetchOnMount: true,
@@ -125,7 +125,7 @@ export function QuickEditPigDialog({ open, onOpenChange, pigId }: Props) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-slate-500">系統號</Label>
-                  <Input value={pig.id} disabled className="bg-slate-50" />
+                  <Input value={pig.pig_no} disabled className="bg-slate-50" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-slate-500">耳號</Label>

@@ -118,12 +118,36 @@ const CATEGORY_NAMES: Record<string, Record<string, string>> = {
     send: 'Send',
     trigger: 'Trigger',
     view: 'View',
+    notification: 'Notifications',
   },
   report: {
     download: 'Download',
     schedule: 'Schedule',
     view: 'View',
     export: 'Export',
+    report: 'Reports',
+  },
+  // Consolidated module categories (for 2-part permission codes like species.create)
+  species: {
+    species: 'Species',
+  },
+  department: {
+    department: 'Departments',
+  },
+  facility: {
+    facility: 'Facilities',
+    building: 'Buildings',
+    zone: 'Zones',
+    pen: 'Pens',
+  },
+  building: {
+    building: 'Buildings',
+  },
+  zone: {
+    zone: 'Zones',
+  },
+  pen: {
+    pen: 'Pens',
   },
 }
 
@@ -171,6 +195,13 @@ function getPermissionModule(perm: Permission): string {
 function getPermissionCategory(code: string): string {
   const parts = code.split('.')
   if (parts.length < 2) return 'other'
+  // For simple module.action permissions (2 parts), use module as category
+  // e.g., species.create -> category 'species' (same as module)
+  // For complex module.entity.action permissions (3+ parts), use entity as category
+  // e.g., pig.record.create -> category 'record'
+  if (parts.length === 2) {
+    return parts[0]
+  }
   return parts[1]
 }
 

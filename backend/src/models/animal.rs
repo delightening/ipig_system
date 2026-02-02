@@ -151,7 +151,8 @@ pub struct PigSource {
 /// 豬隻主表
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Pig {
-    pub id: i32,
+    pub id: Uuid,
+    pub pig_no: i32,
     pub ear_tag: String,
     pub status: PigStatus,
     pub breed: PigBreed,
@@ -184,7 +185,7 @@ pub struct Pig {
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct PigObservation {
     pub id: i32,
-    pub pig_id: i32,
+    pub pig_id: Uuid,
     pub event_date: NaiveDate,
     pub record_type: RecordType,
     pub equipment_used: Option<serde_json::Value>,
@@ -200,13 +201,24 @@ pub struct PigObservation {
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    // 緊急給藥相關欄位
+    #[sqlx(default)]
+    pub is_emergency: Option<bool>,
+    #[sqlx(default)]
+    pub emergency_status: Option<String>,  // pending_review, approved, rejected
+    #[sqlx(default)]
+    pub emergency_reason: Option<String>,
+    #[sqlx(default)]
+    pub reviewed_by: Option<Uuid>,
+    #[sqlx(default)]
+    pub reviewed_at: Option<DateTime<Utc>>,
 }
 
 /// 手術紀錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct PigSurgery {
     pub id: i32,
-    pub pig_id: i32,
+    pub pig_id: Uuid,
     pub is_first_experiment: bool,
     pub surgery_date: NaiveDate,
     pub surgery_site: String,
@@ -232,7 +244,7 @@ pub struct PigSurgery {
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct PigWeight {
     pub id: i32,
-    pub pig_id: i32,
+    pub pig_id: Uuid,
     pub measure_date: NaiveDate,
     pub weight: rust_decimal::Decimal,
     pub created_by: Option<Uuid>,
@@ -243,7 +255,7 @@ pub struct PigWeight {
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct PigVaccination {
     pub id: i32,
-    pub pig_id: i32,
+    pub pig_id: Uuid,
     pub administered_date: NaiveDate,
     pub vaccine: Option<String>,
     pub deworming_dose: Option<String>,
@@ -255,7 +267,7 @@ pub struct PigVaccination {
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct PigSacrifice {
     pub id: i32,
-    pub pig_id: i32,
+    pub pig_id: Uuid,
     pub sacrifice_date: Option<NaiveDate>,
     pub zoletil_dose: Option<String>,
     pub method_electrocution: bool,
@@ -274,7 +286,7 @@ pub struct PigSacrifice {
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct PigPathologyReport {
     pub id: i32,
-    pub pig_id: i32,
+    pub pig_id: Uuid,
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -384,13 +396,13 @@ pub struct PigQuery {
 
 #[derive(Debug, Deserialize)]
 pub struct BatchAssignRequest {
-    pub pig_ids: Vec<i32>,
+    pub pig_ids: Vec<Uuid>,
     pub iacuc_no: String,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct BatchStartExperimentRequest {
-    pub pig_ids: Vec<i32>,
+    pub pig_ids: Vec<Uuid>,
 }
 
 #[derive(Debug, Deserialize, Validate)]
@@ -406,6 +418,10 @@ pub struct CreateObservationRequest {
     pub no_medication_needed: bool,
     pub treatments: Option<serde_json::Value>,
     pub remark: Option<String>,
+    // 緊急給藥 (當獸醫不在時，可先執行並待補簽)
+    #[serde(default)]
+    pub is_emergency: bool,
+    pub emergency_reason: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Validate)]
@@ -492,7 +508,8 @@ pub struct UpdatePigSourceRequest {
 /// 豬隻列表項目（含來源名稱）
 #[derive(Debug, Serialize, FromRow)]
 pub struct PigListItem {
-    pub id: i32,
+    pub id: Uuid,
+    pub pig_no: i32,
     pub ear_tag: String,
     pub status: PigStatus,
     pub breed: PigBreed,
@@ -579,7 +596,7 @@ pub struct PigImportBatch {
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct PigExportRecord {
     pub id: Uuid,
-    pub pig_id: Option<i32>,
+    pub pig_id: Option<Uuid>,
     pub iacuc_no: Option<String>,
     pub export_type: ExportType,
     pub export_format: ExportFormat,
@@ -635,6 +652,8 @@ pub struct UpdateObservationRequest {
     pub no_medication_needed: Option<bool>,
     pub treatments: Option<serde_json::Value>,
     pub remark: Option<String>,
+    // 緊急給藥審核 (VET/PI 可審核)
+    pub emergency_status: Option<String>,  // approved, rejected
 }
 
 /// 更新手術紀錄請求
@@ -688,7 +707,7 @@ pub struct CreateVetRecommendationWithAttachmentsRequest {
 /// 匯出請求
 #[derive(Debug, Deserialize)]
 pub struct ExportRequest {
-    pub pig_id: Option<i32>,
+    pub pig_id: Option<Uuid>,
     pub iacuc_no: Option<String>,
     pub export_type: ExportType,
     pub format: ExportFormat,
@@ -743,7 +762,7 @@ pub struct WeightImportRow {
 #[derive(Debug, Serialize, FromRow)]
 pub struct ObservationListItem {
     pub id: i32,
-    pub pig_id: i32,
+    pub pig_id: Uuid,
     pub event_date: NaiveDate,
     pub record_type: RecordType,
     pub content: String,
@@ -759,7 +778,7 @@ pub struct ObservationListItem {
 #[derive(Debug, Serialize, FromRow)]
 pub struct SurgeryListItem {
     pub id: i32,
-    pub pig_id: i32,
+    pub pig_id: Uuid,
     pub is_first_experiment: bool,
     pub surgery_date: NaiveDate,
     pub surgery_site: String,

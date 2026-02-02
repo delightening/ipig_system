@@ -283,7 +283,7 @@ impl AnimalService {
     }
 
     /// 取得單一豬隻
-    pub async fn get_by_id(pool: &PgPool, id: i32) -> Result<Pig> {
+    pub async fn get_by_id(pool: &PgPool, id: Uuid) -> Result<Pig> {
         let mut pig = sqlx::query_as::<_, Pig>("SELECT * FROM pigs WHERE id = $1 AND deleted_at IS NULL")
             .bind(id)
             .fetch_optional(pool)
@@ -384,7 +384,7 @@ impl AnimalService {
     }
 
     /// 更新豬隻
-    pub async fn update(pool: &PgPool, id: i32, req: &UpdatePigRequest) -> Result<Pig> {
+    pub async fn update(pool: &PgPool, id: Uuid, req: &UpdatePigRequest) -> Result<Pig> {
         // 以下欄位於建立後不可更改，不會在更新時修改：
         // - ear_tag (耳號)
         // - breed (品種)
@@ -422,7 +422,7 @@ impl AnimalService {
     }
 
     /// 軟刪除豬隻
-    pub async fn delete(pool: &PgPool, id: i32) -> Result<()> {
+    pub async fn delete(pool: &PgPool, id: Uuid) -> Result<()> {
         sqlx::query("UPDATE pigs SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL")
             .bind(id)
             .execute(pool)
@@ -432,7 +432,7 @@ impl AnimalService {
     }
 
     /// 軟刪除豬隻（含刪除原因）- GLP 合規
-    pub async fn delete_with_reason(pool: &PgPool, id: i32, reason: &str, deleted_by: Uuid) -> Result<()> {
+    pub async fn delete_with_reason(pool: &PgPool, id: Uuid, reason: &str, deleted_by: Uuid) -> Result<()> {
         // 記錄到 change_reasons 表
         sqlx::query(
             r#"
@@ -440,7 +440,7 @@ impl AnimalService {
             VALUES ('pig', $1::text, 'DELETE', $2, $3)
             "#
         )
-        .bind(id)
+        .bind(id.to_string())
         .bind(reason)
         .bind(deleted_by)
         .execute(pool)
@@ -532,7 +532,7 @@ impl AnimalService {
     // ============================================
 
     /// 取得觀察紀錄列表（排除已刪除）
-    pub async fn list_observations(pool: &PgPool, pig_id: i32) -> Result<Vec<PigObservation>> {
+    pub async fn list_observations(pool: &PgPool, pig_id: Uuid) -> Result<Vec<PigObservation>> {
         let observations = sqlx::query_as::<_, PigObservation>(
             "SELECT * FROM pig_observations WHERE pig_id = $1 ORDER BY event_date DESC"
         )
@@ -544,7 +544,7 @@ impl AnimalService {
     }
 
     /// 取得觀察紀錄列表（含獸醫師建議數量）
-    pub async fn list_observations_with_recommendations(pool: &PgPool, pig_id: i32) -> Result<Vec<ObservationListItem>> {
+    pub async fn list_observations_with_recommendations(pool: &PgPool, pig_id: Uuid) -> Result<Vec<ObservationListItem>> {
         let observations = sqlx::query_as::<_, ObservationListItem>(
             r#"
             SELECT 
@@ -579,18 +579,26 @@ impl AnimalService {
 
     pub async fn create_observation(
         pool: &PgPool,
-        pig_id: i32,
+        pig_id: Uuid,
         req: &CreateObservationRequest,
         created_by: Uuid,
     ) -> Result<PigObservation> {
+        // 如果是緊急給藥，設定狀態為 pending_review
+        let emergency_status = if req.is_emergency {
+            Some("pending_review".to_string())
+        } else {
+            None
+        };
+
         let observation = sqlx::query_as::<_, PigObservation>(
             r#"
             INSERT INTO pig_observations (
                 pig_id, event_date, record_type, equipment_used, anesthesia_start,
                 anesthesia_end, content, no_medication_needed, treatments, remark,
+                is_emergency, emergency_status, emergency_reason,
                 created_by, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
             RETURNING *
             "#
         )
@@ -604,6 +612,9 @@ impl AnimalService {
         .bind(req.no_medication_needed)
         .bind(&req.treatments)
         .bind(&req.remark)
+        .bind(req.is_emergency)
+        .bind(&emergency_status)
+        .bind(&req.emergency_reason)
         .bind(created_by)
         .fetch_one(pool)
         .await?;
@@ -706,7 +717,7 @@ impl AnimalService {
     /// 複製觀察紀錄
     pub async fn copy_observation(
         pool: &PgPool,
-        pig_id: i32,
+        pig_id: Uuid,
         source_id: i32,
         created_by: Uuid,
     ) -> Result<PigObservation> {
@@ -770,7 +781,7 @@ impl AnimalService {
     // ============================================
 
     /// 取得手術紀錄列表（排除已刪除）
-    pub async fn list_surgeries(pool: &PgPool, pig_id: i32) -> Result<Vec<PigSurgery>> {
+    pub async fn list_surgeries(pool: &PgPool, pig_id: Uuid) -> Result<Vec<PigSurgery>> {
         let surgeries = sqlx::query_as::<_, PigSurgery>(
             "SELECT * FROM pig_surgeries WHERE pig_id = $1 ORDER BY surgery_date DESC"
         )
@@ -782,7 +793,7 @@ impl AnimalService {
     }
 
     /// 取得手術紀錄列表（含獸醫師建議數量）
-    pub async fn list_surgeries_with_recommendations(pool: &PgPool, pig_id: i32) -> Result<Vec<SurgeryListItem>> {
+    pub async fn list_surgeries_with_recommendations(pool: &PgPool, pig_id: Uuid) -> Result<Vec<SurgeryListItem>> {
         let surgeries = sqlx::query_as::<_, SurgeryListItem>(
             r#"
             SELECT 
@@ -817,7 +828,7 @@ impl AnimalService {
 
     pub async fn create_surgery(
         pool: &PgPool,
-        pig_id: i32,
+        pig_id: Uuid,
         req: &CreateSurgeryRequest,
         created_by: Uuid,
     ) -> Result<PigSurgery> {
@@ -959,7 +970,7 @@ impl AnimalService {
     /// 複製手術紀錄
     pub async fn copy_surgery(
         pool: &PgPool,
-        pig_id: i32,
+        pig_id: Uuid,
         source_id: i32,
         created_by: Uuid,
     ) -> Result<PigSurgery> {
@@ -1029,7 +1040,7 @@ impl AnimalService {
     // ============================================
 
     /// 取得體重紀錄列表（排除已刪除）
-    pub async fn list_weights(pool: &PgPool, pig_id: i32) -> Result<Vec<PigWeight>> {
+    pub async fn list_weights(pool: &PgPool, pig_id: Uuid) -> Result<Vec<PigWeight>> {
         let weights = sqlx::query_as::<_, PigWeight>(
             "SELECT * FROM pig_weights WHERE pig_id = $1 ORDER BY measure_date DESC"
         )
@@ -1041,7 +1052,7 @@ impl AnimalService {
     }
 
     /// 取得最新體重
-    pub async fn get_latest_weight(pool: &PgPool, pig_id: i32) -> Result<Option<PigWeight>> {
+    pub async fn get_latest_weight(pool: &PgPool, pig_id: Uuid) -> Result<Option<PigWeight>> {
         let weight = sqlx::query_as::<_, PigWeight>(
             "SELECT * FROM pig_weights WHERE pig_id = $1 ORDER BY measure_date DESC LIMIT 1"
         )
@@ -1054,7 +1065,7 @@ impl AnimalService {
 
     pub async fn create_weight(
         pool: &PgPool,
-        pig_id: i32,
+        pig_id: Uuid,
         req: &CreateWeightRequest,
         created_by: Uuid,
     ) -> Result<PigWeight> {
@@ -1146,7 +1157,7 @@ impl AnimalService {
     // ============================================
 
     /// 取得疫苗紀錄列表（排除已刪除）
-    pub async fn list_vaccinations(pool: &PgPool, pig_id: i32) -> Result<Vec<PigVaccination>> {
+    pub async fn list_vaccinations(pool: &PgPool, pig_id: Uuid) -> Result<Vec<PigVaccination>> {
         let vaccinations = sqlx::query_as::<_, PigVaccination>(
             "SELECT * FROM pig_vaccinations WHERE pig_id = $1 ORDER BY administered_date DESC"
         )
@@ -1159,7 +1170,7 @@ impl AnimalService {
 
     pub async fn create_vaccination(
         pool: &PgPool,
-        pig_id: i32,
+        pig_id: Uuid,
         req: &CreateVaccinationRequest,
         created_by: Uuid,
     ) -> Result<PigVaccination> {
@@ -1253,7 +1264,7 @@ impl AnimalService {
     // 犧牲/採樣紀錄
     // ============================================
 
-    pub async fn get_sacrifice(pool: &PgPool, pig_id: i32) -> Result<Option<PigSacrifice>> {
+    pub async fn get_sacrifice(pool: &PgPool, pig_id: Uuid) -> Result<Option<PigSacrifice>> {
         let sacrifice = sqlx::query_as::<_, PigSacrifice>(
             "SELECT * FROM pig_sacrifices WHERE pig_id = $1"
         )
@@ -1266,7 +1277,7 @@ impl AnimalService {
 
     pub async fn upsert_sacrifice(
         pool: &PgPool,
-        pig_id: i32,
+        pig_id: Uuid,
         req: &CreateSacrificeRequest,
         created_by: Uuid,
     ) -> Result<PigSacrifice> {
@@ -1319,7 +1330,7 @@ impl AnimalService {
     // ============================================
 
     /// 標記獸醫師已讀
-    pub async fn mark_vet_read(pool: &PgPool, pig_id: i32) -> Result<()> {
+    pub async fn mark_vet_read(pool: &PgPool, pig_id: Uuid) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE pigs SET
@@ -1563,7 +1574,7 @@ impl AnimalService {
     /// 建立匯出記錄
     pub async fn create_export_record(
         pool: &PgPool,
-        pig_id: Option<i32>,
+        pig_id: Option<Uuid>,
         iacuc_no: Option<&str>,
         export_type: ExportType,
         export_format: ExportFormat,
@@ -1591,7 +1602,7 @@ impl AnimalService {
     }
 
     /// 取得豬隻完整病歷資料（用於匯出）
-    pub async fn get_pig_medical_data(pool: &PgPool, pig_id: i32) -> Result<serde_json::Value> {
+    pub async fn get_pig_medical_data(pool: &PgPool, pig_id: Uuid) -> Result<serde_json::Value> {
         let pig = Self::get_by_id(pool, pig_id).await?;
         let observations = Self::list_observations(pool, pig_id).await?;
         let surgeries = Self::list_surgeries(pool, pig_id).await?;
@@ -1637,7 +1648,7 @@ impl AnimalService {
     // ============================================
 
     /// 取得病理報告
-    pub async fn get_pathology_report(pool: &PgPool, pig_id: i32) -> Result<Option<crate::models::PigPathologyReport>> {
+    pub async fn get_pathology_report(pool: &PgPool, pig_id: Uuid) -> Result<Option<crate::models::PigPathologyReport>> {
         let report = sqlx::query_as::<_, crate::models::PigPathologyReport>(
             "SELECT * FROM pig_pathology_reports WHERE pig_id = $1"
         )
@@ -1651,7 +1662,7 @@ impl AnimalService {
     /// 建立或更新病理報告
     pub async fn upsert_pathology_report(
         pool: &PgPool,
-        pig_id: i32,
+        pig_id: Uuid,
         created_by: Uuid,
     ) -> Result<crate::models::PigPathologyReport> {
         let report = sqlx::query_as::<_, crate::models::PigPathologyReport>(
@@ -2015,7 +2026,7 @@ impl AnimalService {
             };
 
             // 檢查耳號是否已存在（僅檢查未刪除的豬隻）
-            let existing = sqlx::query_scalar::<_, i32>(
+            let existing = sqlx::query_scalar::<_, Uuid>(
                 "SELECT id FROM pigs WHERE ear_tag = $1 AND deleted_at IS NULL"
             )
             .bind(&formatted_ear_tag)
@@ -2212,7 +2223,7 @@ impl AnimalService {
             };
 
             // 查找豬隻（僅查找未刪除的豬隻）
-            let pig = sqlx::query_scalar::<_, i32>(
+            let pig = sqlx::query_scalar::<_, Uuid>(
                 "SELECT id FROM pigs WHERE ear_tag = $1 AND deleted_at IS NULL"
             )
             .bind(&formatted_ear_tag)

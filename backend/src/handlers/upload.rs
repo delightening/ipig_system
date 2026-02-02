@@ -120,7 +120,7 @@ pub async fn upload_protocol_attachment(
 pub async fn upload_pig_photo(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(pig_id): Path<i32>,
+    Path(pig_id): Path<Uuid>,
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
     require_permission!(current_user, "animal.info.edit");
@@ -174,7 +174,7 @@ pub async fn upload_pig_photo(
 pub async fn upload_pathology_report(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(pig_id): Path<i32>,
+    Path(pig_id): Path<Uuid>,
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
     require_permission!(current_user, "animal.info.edit");
@@ -336,7 +336,7 @@ pub async fn upload_leave_attachment(
 pub async fn upload_sacrifice_photo(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(pig_id): Path<i32>,
+    Path(pig_id): Path<Uuid>,
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
     require_permission!(current_user, "animal.record.create");
