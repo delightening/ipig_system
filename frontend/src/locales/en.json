@@ -99,6 +99,7 @@
         "dashboard": "Dashboard",
         "myProjects": "My Projects",
         "aupReview": "AUP",
+        "protocolManagement": "Protocol Management",
         "newProtocol": "New Protocol",
         "myAmendments": "Amendments",
         "animalManagement": "Animals",
@@ -119,13 +120,109 @@
         },
         "widgets": {
             "categories": {
-                "aup": "Protocol Management"
+                "erp": "ERP & Inventory",
+                "hr": "HR Management",
+                "aup": "Protocol Management",
+                "animal_care": "Animal Care",
+                "report": "Reports"
             },
             "names": {
-                "my_projects": "My Projects"
+                "calendar_widget": "Today's Calendar",
+                "leave_balance": "Leave Balance",
+                "my_projects": "My Projects",
+                "animals_on_medication": "Animals on Medication",
+                "vet_comments": "Vet Comments",
+                "low_stock_alert": "Low Stock Alert",
+                "pending_documents": "Pending Documents",
+                "today_inbound": "Today's Inbound",
+                "today_outbound": "Today's Outbound",
+                "weekly_trend": "Trend Chart",
+                "recent_documents": "Recent Documents",
+                "upcoming_leaves": "Expiring Leave",
+                "staff_attendance": "Staff Attendance",
+                "google_calendar_events": "Google Calendar Events"
             },
             "descriptions": {
-                "my_projects": "Display your protocols and animal statistics"
+                "calendar_widget": "Display today's schedule and staff leave info",
+                "leave_balance": "Display your annual and comp leave balance",
+                "my_projects": "Display your protocols and animal statistics",
+                "animals_on_medication": "Display list of animals on medication",
+                "vet_comments": "Display veterinarian comments and suggestions",
+                "low_stock_alert": "Display items below safety stock level",
+                "pending_documents": "Display pending documents count",
+                "today_inbound": "Display today's completed inbound documents",
+                "today_outbound": "Display today's completed outbound documents",
+                "weekly_trend": "Display inbound/outbound trend",
+                "recent_documents": "Display recently created or modified documents",
+                "upcoming_leaves": "Display expiring annual or comp leave reminders",
+                "staff_attendance": "Display staff attendance summary",
+                "google_calendar_events": "Display connected Google Calendar events"
+            },
+            "common": {
+                "loadFailed": "Loading failed",
+                "days": "days",
+                "hours": "hours",
+                "daysUnit": " days",
+                "today": "Today",
+                "allDay": "All Day",
+                "viewAll": "View All",
+                "viewMore": "more",
+                "noData": "No data",
+                "viewCount": "{{count}} animals"
+            },
+            "calendar": {
+                "todayLeave": "Today's Leave",
+                "noOneLeave": "No one on leave today",
+                "todayEvents": "Today's Events",
+                "noEvents": "No events today",
+                "upcomingLeave": "Upcoming Leave",
+                "googleDescription": "Display Google Calendar events",
+                "googleNotConnected": "Google Calendar not connected",
+                "googleConnectHint": "Go to settings to connect your Google account"
+            },
+            "animals": {
+                "medicationDescription": "Display list of animals on medication",
+                "penFallback": "Unassigned pen",
+                "noMedication": "No animals on medication",
+                "commentDescription": "Display veterinarian comments and suggestions",
+                "earTag": "Ear Tag",
+                "noComments": "No veterinarian comments"
+            },
+            "hr": {
+                "noExpiring": "No leave expiring soon",
+                "expiringSoon": "Expiring Soon",
+                "annualLeave": "Annual Leave",
+                "compLeave": "Comp Leave",
+                "expiringIn30Days": "Leave expiring within 30 days",
+                "balanceDescription": "Display your annual and comp leave balance",
+                "usedTotal": "Used {{used}} / Total {{total}}"
+            },
+            "erp": {
+                "status": {
+                    "draft": "Draft",
+                    "submitted": "Pending",
+                    "approved": "Approved",
+                    "cancelled": "Cancelled"
+                },
+                "types": {
+                    "GRN": "Goods Receipt",
+                    "DO": "Delivery Order",
+                    "PR": "Purchase Request",
+                    "PO": "Purchase Order"
+                },
+                "docNo": "Doc No.",
+                "docType": "Type",
+                "docDate": "Date",
+                "netChange": "Net Change",
+                "noDocs": "No documents",
+                "trendDesc": "Display inbound/outbound trend for the last {{days}} days"
+            },
+            "attendance": {
+                "normal": "Normal",
+                "late": "Late",
+                "leave": "On Leave",
+                "clockInTime": "Clock In",
+                "noRecords": "No attendance records"
             },
             "projects": {
                 "description": "IACUC protocols you are participating in",

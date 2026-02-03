@@ -80,7 +80,7 @@ interface NavItem {
 
 // 預設導覽選單順序（使用者可自行調整）
 const DEFAULT_NAV_ORDER = [
-  '儀表板',
+  'dashboard',
   'myProjects',
   'aupReview',
   'animalManagement',
@@ -92,11 +92,11 @@ const DEFAULT_NAV_ORDER = [
 // 靜態定義側邊導覽列的所有項目（以 id 識別）
 const navItemsConfig: NavItem[] = [
   {
-    title: '儀表板',
+    title: 'dashboard',
     href: '/dashboard',
     icon: <LayoutDashboard className="h-5 w-5" />,
     permission: 'erp',
-    translate: false,
+    translate: true,
   },
   {
     title: 'myProjects',
@@ -109,7 +109,7 @@ const navItemsConfig: NavItem[] = [
     icon: <FileText className="h-5 w-5" />,
     translate: true,
     children: [
-      { title: '計畫書管理', href: '/protocols', translate: false },
+      { title: 'protocolManagement', href: '/protocols', translate: true },
       { title: 'newProtocol', href: '/protocols/new', translate: true },
       { title: 'myAmendments', href: '/my-amendments', translate: true },
     ],
