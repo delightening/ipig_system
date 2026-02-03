@@ -325,14 +325,14 @@ export function DashboardPage() {
         return (
           <Card className="h-full overflow-auto">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">低庫存警示</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('dashboard.widgets.names.low_stock_alert')}</CardTitle>
               <AlertTriangle className="h-4 w-4 text-yellow-500" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
                 {loadingAlerts ? '-' : lowStockAlerts?.length || 0}
               </div>
-              <p className="text-xs text-muted-foreground">顯示庫存低於安全存量的品項</p>
+              <p className="text-xs text-muted-foreground">{t('dashboard.widgets.descriptions.low_stock_alert')}</p>
             </CardContent>
           </Card>
         )
@@ -340,7 +340,7 @@ export function DashboardPage() {
         return (
           <Card className="h-full overflow-auto">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">待處理單據</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('dashboard.widgets.names.pending_documents')}</CardTitle>
               <FileText className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
@@ -349,7 +349,7 @@ export function DashboardPage() {
                   ? '-'
                   : recentDocuments?.filter((d) => d.status === 'submitted').length || 0}
               </div>
-              <p className="text-xs text-muted-foreground">{t('dashboard.widgets.erp.pendingDocsDesc')}</p>
+              <p className="text-xs text-muted-foreground">{t('dashboard.widgets.descriptions.pending_documents')}</p>
             </CardContent>
           </Card>
         )
@@ -357,7 +357,7 @@ export function DashboardPage() {
         return (
           <Card className="h-full overflow-auto">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">今日入庫</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('dashboard.widgets.names.today_inbound')}</CardTitle>
               <TrendingUp className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
@@ -371,7 +371,7 @@ export function DashboardPage() {
                       new Date(d.approved_at || '').toDateString() === new Date().toDateString()
                   ).length || 0}
               </div>
-              <p className="text-xs text-muted-foreground">顯示今日已完成的進貨/入庫單據</p>
+              <p className="text-xs text-muted-foreground">{t('dashboard.widgets.descriptions.today_inbound')}</p>
             </CardContent>
           </Card>
         )
@@ -379,7 +379,7 @@ export function DashboardPage() {
         return (
           <Card className="h-full overflow-auto">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">今日出庫</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('dashboard.widgets.names.today_outbound')}</CardTitle>
               <TrendingDown className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
@@ -393,7 +393,7 @@ export function DashboardPage() {
                       new Date(d.approved_at || '').toDateString() === new Date().toDateString()
                   ).length || 0}
               </div>
-              <p className="text-xs text-muted-foreground">顯示今日已完成的出貨/出庫單據</p>
+              <p className="text-xs text-muted-foreground">{t('dashboard.widgets.descriptions.today_outbound')}</p>
             </CardContent>
           </Card>
         )
@@ -405,9 +405,9 @@ export function DashboardPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-indigo-500" />
-                趨勢圖 ({days}天)
+                {t('dashboard.widgets.names.weekly_trend')} ({days}{t('dashboard.widgets.common.daysUnit')})
               </CardTitle>
-              <CardDescription>顯示最近 {days} 天的進出庫趨勢</CardDescription>
+              <CardDescription>{t('dashboard.widgets.erp.trendDesc', { days })}</CardDescription>
             </CardHeader>
             <CardContent>
               {loadingDocuments ? (
@@ -419,8 +419,8 @@ export function DashboardPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>{t('dashboard.widgets.erp.docDate')}</TableHead>
-                      <TableHead className="text-right">{t('nav.goodsReceipt')}</TableHead>
-                      <TableHead className="text-right">{t('nav.deliveryOrder')}</TableHead>
+                      <TableHead className="text-right">{t('dashboard.widgets.erp.types.GRN')}</TableHead>
+                      <TableHead className="text-right">{t('dashboard.widgets.erp.types.DO')}</TableHead>
                       <TableHead className="text-right">{t('dashboard.widgets.erp.netChange')}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -469,9 +469,9 @@ export function DashboardPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-blue-500" />
-                最近單據
+                {t('dashboard.widgets.names.recent_documents')}
               </CardTitle>
-              <CardDescription>顯示最近建立或異動的單據</CardDescription>
+              <CardDescription>{t('dashboard.widgets.descriptions.recent_documents')}</CardDescription>
             </CardHeader>
             <CardContent>
               {loadingDocuments ? (
@@ -518,9 +518,9 @@ export function DashboardPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-orange-500" />
-                即將到期假期
+                {t('dashboard.widgets.names.upcoming_leaves')}
               </CardTitle>
-              <CardDescription>顯示即將過期的特休或補休提醒</CardDescription>
+              <CardDescription>{t('dashboard.widgets.descriptions.upcoming_leaves')}</CardDescription>
             </CardHeader>
             <CardContent>
               <UpcomingLeavesContent />

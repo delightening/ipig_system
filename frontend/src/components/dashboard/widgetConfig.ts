@@ -52,11 +52,11 @@ export interface WidgetDefinition {
 
 // Widget 類別名稱對照
 export const widgetCategoryNames: Record<string, { label: string; translate: boolean }> = {
-    erp: { label: 'ERP & 庫存', translate: false },
-    hr: { label: '人事管理', translate: false },
+    erp: { label: 'dashboard.widgets.categories.erp', translate: true },
+    hr: { label: 'dashboard.widgets.categories.hr', translate: true },
     aup: { label: 'dashboard.widgets.categories.aup', translate: true },
     animal_care: { label: 'dashboard.widgets.categories.animal_care', translate: true },
-    report: { label: '報表中心', translate: false },
+    report: { label: 'dashboard.widgets.categories.report', translate: true },
 }
 
 // 各 Widget 的限制條件
@@ -126,37 +126,37 @@ export const DEFAULT_DASHBOARD_LAYOUT: WidgetLayoutItem[] = [
 
 // Widget ID 對應名稱
 export const widgetNames: Record<string, { label: string; translate: boolean }> = {
-    calendar_widget: { label: '今日日曆', translate: false },
-    leave_balance: { label: '請假餘額', translate: false },
+    calendar_widget: { label: 'dashboard.widgets.names.calendar_widget', translate: true },
+    leave_balance: { label: 'dashboard.widgets.names.leave_balance', translate: true },
     my_projects: { label: 'dashboard.widgets.names.my_projects', translate: true },
     animals_on_medication: { label: 'dashboard.widgets.names.animals_on_medication', translate: true },
     vet_comments: { label: 'dashboard.widgets.names.vet_comments', translate: true },
-    low_stock_alert: { label: '低庫存警示', translate: false },
-    pending_documents: { label: '待處理單據', translate: false },
-    today_inbound: { label: '今日入庫', translate: false },
-    today_outbound: { label: '今日出庫', translate: false },
-    weekly_trend: { label: '趨勢圖', translate: false },
-    recent_documents: { label: '最近單據', translate: false },
-    upcoming_leaves: { label: '即將到期假期', translate: false },
-    staff_attendance: { label: '員工出勤狀態', translate: false },
+    low_stock_alert: { label: 'dashboard.widgets.names.low_stock_alert', translate: true },
+    pending_documents: { label: 'dashboard.widgets.names.pending_documents', translate: true },
+    today_inbound: { label: 'dashboard.widgets.names.today_inbound', translate: true },
+    today_outbound: { label: 'dashboard.widgets.names.today_outbound', translate: true },
+    weekly_trend: { label: 'dashboard.widgets.names.weekly_trend', translate: true },
+    recent_documents: { label: 'dashboard.widgets.names.recent_documents', translate: true },
+    upcoming_leaves: { label: 'dashboard.widgets.names.upcoming_leaves', translate: true },
+    staff_attendance: { label: 'dashboard.widgets.names.staff_attendance', translate: true },
     google_calendar_events: { label: 'dashboard.widgets.names.google_calendar_events', translate: true },
 }
 
 // Widget 描述
 export const widgetDescriptions: Record<string, { label: string; translate: boolean }> = {
-    calendar_widget: { label: '顯示今日日程和員工請假資訊', translate: false },
-    leave_balance: { label: '顯示您的特休和補休餘額', translate: false },
+    calendar_widget: { label: 'dashboard.widgets.descriptions.calendar_widget', translate: true },
+    leave_balance: { label: 'dashboard.widgets.descriptions.leave_balance', translate: true },
     my_projects: { label: 'dashboard.widgets.descriptions.my_projects', translate: true },
     animals_on_medication: { label: 'dashboard.widgets.descriptions.animals_on_medication', translate: true },
     vet_comments: { label: 'dashboard.widgets.descriptions.vet_comments', translate: true },
-    low_stock_alert: { label: '顯示庫存低於安全存量的品項', translate: false },
-    pending_documents: { label: '顯示等待審核或處理的單據數量', translate: false },
-    today_inbound: { label: '顯示今日已完成的進貨/入庫單據', translate: false },
-    today_outbound: { label: '顯示今日已完成的出貨/出庫單據', translate: false },
-    weekly_trend: { label: '顯示最近幾天的進出庫趨勢', translate: false },
-    recent_documents: { label: '顯示最近建立或異動的單據', translate: false },
-    upcoming_leaves: { label: '顯示即將過期的特休或補休提醒', translate: false },
-    staff_attendance: { label: '顯示主管轄下員工的今日出勤彙總', translate: false },
+    low_stock_alert: { label: 'dashboard.widgets.descriptions.low_stock_alert', translate: true },
+    pending_documents: { label: 'dashboard.widgets.descriptions.pending_documents', translate: true },
+    today_inbound: { label: 'dashboard.widgets.descriptions.today_inbound', translate: true },
+    today_outbound: { label: 'dashboard.widgets.descriptions.today_outbound', translate: true },
+    weekly_trend: { label: 'dashboard.widgets.descriptions.weekly_trend', translate: true },
+    recent_documents: { label: 'dashboard.widgets.descriptions.recent_documents', translate: true },
+    upcoming_leaves: { label: 'dashboard.widgets.descriptions.upcoming_leaves', translate: true },
+    staff_attendance: { label: 'dashboard.widgets.descriptions.staff_attendance', translate: true },
     google_calendar_events: { label: 'dashboard.widgets.descriptions.google_calendar_events', translate: true },
 }
 

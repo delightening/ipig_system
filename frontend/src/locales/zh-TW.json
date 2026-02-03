@@ -100,6 +100,7 @@
     "dashboard": "儀表板",
     "myProjects": "我的計劃",
     "aupReview": "AUP",
+    "protocolManagement": "計畫書管理",
     "newProtocol": "新增計畫書",
     "myAmendments": "變更申請",
     "animalManagement": "實驗動物管理",
@@ -121,13 +122,109 @@
     },
     "widgets": {
       "categories": {
-        "aup": "計畫管理"
+        "erp": "ERP & 庫存",
+        "hr": "人事管理",
+        "aup": "計畫管理",
+        "animal_care": "動物照護",
+        "report": "報表中心"
       },
       "names": {
-        "my_projects": "我的計畫"
+        "calendar_widget": "今日日曆",
+        "leave_balance": "請假餘額",
+        "my_projects": "我的計畫",
+        "animals_on_medication": "用藥中動物",
+        "vet_comments": "獸醫師評論",
+        "low_stock_alert": "低庫存警示",
+        "pending_documents": "待處理單據",
+        "today_inbound": "今日入庫",
+        "today_outbound": "今日出庫",
+        "weekly_trend": "趨勢圖",
+        "recent_documents": "最近單據",
+        "upcoming_leaves": "即將到期假期",
+        "staff_attendance": "員工出勤狀態",
+        "google_calendar_events": "Google 日曆事件"
       },
       "descriptions": {
-        "my_projects": "顯示您參與的計畫及動物統計"
+        "calendar_widget": "顯示今日日程和員工請假資訊",
+        "leave_balance": "顯示您的特休和補休餘額",
+        "my_projects": "顯示您參與的計畫及動物統計",
+        "animals_on_medication": "顯示正在用藥的動物清單",
+        "vet_comments": "顯示獸醫師評論與建議",
+        "low_stock_alert": "顯示庫存低於安全存量的品項",
+        "pending_documents": "顯示等待審核或處理的單據數量",
+        "today_inbound": "顯示今日已完成的進貨/入庫單據",
+        "today_outbound": "顯示今日已完成的出貨/出庫單據",
+        "weekly_trend": "顯示最近幾天的進出庫趨勢",
+        "recent_documents": "顯示最近建立或異動的單據",
+        "upcoming_leaves": "顯示即將過期的特休或補休提醒",
+        "staff_attendance": "顯示主管轄下員工的今日出勤彙總",
+        "google_calendar_events": "顯示連結的 Google 日曆事件"
+      },
+      "common": {
+        "loadFailed": "載入失敗",
+        "days": "天",
+        "hours": "小時",
+        "daysUnit": "天",
+        "today": "今天",
+        "allDay": "整天",
+        "viewAll": "查看全部",
+        "viewMore": "查看更多",
+        "noData": "尚無資料",
+        "viewCount": "共 {{count}} 隻"
+      },
+      "calendar": {
+        "todayLeave": "今日請假",
+        "noOneLeave": "今天沒有人請假",
+        "todayEvents": "今日行程",
+        "noEvents": "今天沒有行程",
+        "upcomingLeave": "即將請假",
+        "googleDescription": "顯示 Google 日曆上的事件",
+        "googleNotConnected": "尚未連結 Google 日曆",
+        "googleConnectHint": "請前往設定頁面連結您的 Google 帳戶"
+      },
+      "animals": {
+        "medicationDescription": "顯示正在用藥的動物清單",
+        "penFallback": "未分配欄位",
+        "noMedication": "目前沒有動物正在用藥",
+        "commentDescription": "顯示獸醫師評論與建議",
+        "earTag": "耳號",
+        "noComments": "目前沒有獸醫師評論"
+      },
+      "hr": {
+        "noExpiring": "目前沒有即將到期的假期",
+        "expiringSoon": "即將到期",
+        "annualLeave": "特休",
+        "compLeave": "補休",
+        "expiringIn30Days": "顯示 30 天內即將過期的假期",
+        "balanceDescription": "顯示您的特休和補休餘額",
+        "usedTotal": "已使用 {{used}} / 共 {{total}}"
+      },
+      "erp": {
+        "status": {
+          "draft": "草稿",
+          "submitted": "待審核",
+          "approved": "已核准",
+          "cancelled": "已取消"
+        },
+        "types": {
+          "GRN": "進貨單",
+          "DO": "出貨單",
+          "PR": "請購單",
+          "PO": "採購單"
+        },
+        "docNo": "單據編號",
+        "docType": "單據類型",
+        "docDate": "日期",
+        "netChange": "淨變動",
+        "noDocs": "尚無單據",
+        "trendDesc": "顯示最近 {{days}} 天的進出庫趨勢"
+      },
+      "attendance": {
+        "normal": "正常",
+        "late": "遲到",
+        "leave": "請假",
+        "clockInTime": "簽到時間",
+        "noRecords": "尚無出勤紀錄"
       },
       "projects": {
         "description": "您參與或主持的 IACUC 計畫",

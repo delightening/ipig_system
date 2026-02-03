@@ -1331,7 +1331,7 @@ export function ProtocolEditPage() {
               <CardContent className="space-y-6">
                 {/* 2.1 Purpose and Significance */}
                 <div className="space-y-2">
-                  <Label>{t('aup.purpose.significance')} *</Label>
+                  <h3 className="font-semibold">{t('aup.purpose.significance')}</h3>
                   <Textarea
                     value={formData.working_content.purpose.significance}
                     onChange={(e) => updateWorkingContent('purpose', 'significance', e.target.value)}
@@ -1839,7 +1839,7 @@ export function ProtocolEditPage() {
               <CardContent className="space-y-6">
                 {/* 4.1 Title */}
                 <div className="space-y-2">
-                  <h3 className="text-lg font-semibold">{t('aup.design.title4_1')}</h3>
+                  <h3 className="font-semibold">{t('aup.design.title4_1')}</h3>
                 </div>
 
                 {/* 4.1.1 Is experiment conducted under anesthesia */}
@@ -2066,9 +2066,7 @@ export function ProtocolEditPage() {
 
                 {/* 4.1.5 Expected timing of experiment completion */}
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-base font-semibold">{t('aup.design.endpointsTitle')}</Label>
-                  </div>
+                  <Label>{t('aup.design.endpointsTitle')}</Label>
                   <div className="space-y-2">
                     <Label>{t('aup.design.experimentalEndpoint')}</Label>
                     <Textarea
@@ -2093,8 +2091,8 @@ export function ProtocolEditPage() {
 
                 {/* 4.1.6 Animal euthanasia or final disposal method */}
                 <div className="space-y-4">
+                  <Label>{t('aup.design.finalHandlingTitle')}</Label>
                   <div className="space-y-2">
-                    <Label className="text-base font-semibold">{t('aup.design.finalHandlingTitle')}</Label>
                     <Select
                       value={formData.working_content.design.final_handling.method || ''}
                       onValueChange={(value) => {
@@ -2212,8 +2210,8 @@ export function ProtocolEditPage() {
 
                 {/* 4.2 Animal carcass disposal method */}
                 <div className="space-y-4">
+                  <h3 className="font-semibold">{t('aup.design.carcassDisposalLabel')}</h3>
                   <div className="space-y-2">
-                    <Label className="text-base font-semibold">{t('aup.design.carcassDisposalLabel')}</Label>
                     <Textarea
                       value={formData.working_content.design.carcass_disposal.method}
                       onChange={(e) => updateWorkingContent('design', 'carcass_disposal.method', e.target.value)}
@@ -2228,7 +2226,7 @@ export function ProtocolEditPage() {
                 {/* 4.3 Use of non-pharmaceutical chemical drugs or other substances */}
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>{t('aup.design.nonPharmaLabel')}</Label>
+                    <h3 className="font-semibold">{t('aup.design.nonPharmaLabel')}</h3>
                     <Select
                       value={formData.working_content.design.non_pharma_grade.used === null ? '' : (formData.working_content.design.non_pharma_grade.used === true ? 'yes' : 'no')}
                       onValueChange={(value) => {
@@ -2267,7 +2265,7 @@ export function ProtocolEditPage() {
                 {/* 4.4 Use of hazardous materials */}
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>{t('aup.design.hazardsLabel')}</Label>
+                    <h3 className="font-semibold">{t('aup.design.hazardsLabel')}</h3>
                     <Select
                       value={formData.working_content.design.hazards.used === null ? '' : (formData.working_content.design.hazards.used === true ? 'yes' : 'no')}
                       onValueChange={(value) => {
@@ -2412,9 +2410,7 @@ export function ProtocolEditPage() {
 
                     {/* 4.5 Hazardous substances and waste disposal methods */}
                     <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label className="text-base font-semibold">{t('aup.design.hazardsWasteLabel')}</Label>
-                      </div>
+                      <h3 className="font-semibold">{t('aup.design.hazardsWasteLabel')}</h3>
 
                       {/* 4.5.1 Administration method, route and place of use */}
                       <div className="space-y-2">
@@ -2456,7 +2452,7 @@ export function ProtocolEditPage() {
                     {/* 4.6 Use of controlled substances */}
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label>{t('aup.design.controlledSubstancesLabel.section4_6')}</Label>
+                        <h3 className="font-semibold">{t('aup.design.controlledSubstancesLabel.section4_6')}</h3>
                         <Select
                           value={formData.working_content.design.controlled_substances.used === null ? '' : (formData.working_content.design.controlled_substances.used === true ? 'yes' : 'no')}
                           onValueChange={(value) => {
@@ -2823,35 +2819,35 @@ export function ProtocolEditPage() {
                     return (
                       <div className="space-y-4">
                         <div className="space-y-2">
-                          <Label>{t('aup.surgery.labels.surgeryType')}</Label>
+                          <h3 className="font-semibold">{t('aup.surgery.labels.surgeryType')}</h3>
                           <Input value={t('common.na')} disabled />
                         </div>
                         <div className="space-y-2">
-                          <Label>{t('aup.surgery.labels.preopPreparation')}</Label>
+                          <h3 className="font-semibold">{t('aup.surgery.labels.preopPreparation')}</h3>
                           <Textarea value={t('common.na')} disabled rows={3} />
                         </div>
                         <div className="space-y-2">
-                          <Label>{t('aup.surgery.labels.asepticTechniques')}</Label>
+                          <h3 className="font-semibold">{t('aup.surgery.labels.asepticTechniques')}</h3>
                           <Input value={t('common.na')} disabled />
                         </div>
                         <div className="space-y-2">
-                          <Label>{t('aup.surgery.labels.surgeryDescription')}</Label>
+                          <h3 className="font-semibold">{t('aup.surgery.labels.surgeryDescription')}</h3>
                           <Textarea value={t('common.na')} disabled rows={5} />
                         </div>
                         <div className="space-y-2">
-                          <Label>{t('aup.surgery.labels.monitoring')}</Label>
+                          <h3 className="font-semibold">{t('aup.surgery.labels.monitoring')}</h3>
                           <Textarea value={t('common.na')} disabled rows={5} />
                         </div>
                         <div className="space-y-2">
-                          <Label>{t('aup.surgery.labels.expectedImpact')}</Label>
+                          <h3 className="font-semibold">{t('aup.surgery.labels.expectedImpact')}</h3>
                           <Textarea value={t('common.na')} disabled rows={4} />
                         </div>
                         <div className="space-y-2">
-                          <Label>{t('aup.surgery.labels.multipleSurgeries')}</Label>
+                          <h3 className="font-semibold">{t('aup.surgery.labels.multipleSurgeries')}</h3>
                           <Input value={t('common.na')} disabled />
                         </div>
                         <div className="space-y-2">
-                          <Label>{t('aup.surgery.labels.postopCare')}</Label>
+                          <h3 className="font-semibold">{t('aup.surgery.labels.postopCare')}</h3>
                           <div className="space-y-4">
                             <div className="space-y-2">
                               <Label>{t('aup.surgery.labels.postopCareType')}</Label>
@@ -2864,11 +2860,11 @@ export function ProtocolEditPage() {
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label>{t('aup.surgery.labels.expectedEndPoint')}</Label>
+                          <h3 className="font-semibold">{t('aup.surgery.labels.expectedEndPoint')}</h3>
                           <Textarea value={t('common.na')} disabled rows={4} />
                         </div>
                         <div className="space-y-2">
-                          <Label>{t('aup.surgery.labels.drugInfo')}</Label>
+                          <h3 className="font-semibold">{t('aup.surgery.labels.drugInfo')}</h3>
                           <Input value={t('common.na')} disabled />
                         </div>
                       </div>
@@ -2879,7 +2875,7 @@ export function ProtocolEditPage() {
                   return (
                     <>
                       <div className="space-y-2">
-                        <Label>{t('aup.surgery.labels.surgeryType')} *</Label>
+                        <h3 className="font-semibold">{t('aup.surgery.labels.surgeryType')}</h3>
                         <Input
                           value={formData.working_content.surgery.surgery_type === 'survival' ? t('aup.surgery.types.survival') :
                             formData.working_content.surgery.surgery_type === 'non_survival' ? t('aup.surgery.types.non_survival') :
@@ -2889,7 +2885,7 @@ export function ProtocolEditPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>{t('aup.surgery.labels.preopPreparation')} *</Label>
+                        <h3 className="font-semibold">{t('aup.surgery.labels.preopPreparation')}</h3>
                         <Textarea
                           value={formData.working_content.surgery.preop_preparation}
                           onChange={(e) => updateWorkingContent('surgery', 'preop_preparation', e.target.value)}
@@ -2898,7 +2894,7 @@ export function ProtocolEditPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>{t('aup.surgery.labels.asepticTechniques')} *</Label>
+                        <h3 className="font-semibold">{t('aup.surgery.labels.asepticTechniques')}</h3>
                         <div className="space-y-2">
                           {[
                             { value: 'surgical_site_disinfection', label: t('aup.surgery.asepticTechniques.surgical_site_disinfection') },
@@ -2925,7 +2921,7 @@ export function ProtocolEditPage() {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label>{t('aup.surgery.labels.surgeryDescription')} *</Label>
+                        <h3 className="font-semibold">{t('aup.surgery.labels.surgeryDescription')}</h3>
                         <Textarea
                           value={formData.working_content.surgery.surgery_description}
                           onChange={(e) => updateWorkingContent('surgery', 'surgery_description', e.target.value)}
@@ -2934,7 +2930,7 @@ export function ProtocolEditPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>{t('aup.surgery.labels.monitoring')} *</Label>
+                        <h3 className="font-semibold">{t('aup.surgery.labels.monitoring')}</h3>
                         <Textarea
                           value={formData.working_content.surgery.monitoring}
                           onChange={(e) => updateWorkingContent('surgery', 'monitoring', e.target.value)}
@@ -2943,7 +2939,7 @@ export function ProtocolEditPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>{t('aup.surgery.labels.expectedImpact')}</Label>
+                        <h3 className="font-semibold">{t('aup.surgery.labels.expectedImpact')}</h3>
                         <Textarea
                           value={formData.working_content.surgery.postop_expected_impact}
                           onChange={(e) => updateWorkingContent('surgery', 'postop_expected_impact', e.target.value)}
@@ -2952,7 +2948,7 @@ export function ProtocolEditPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>{t('aup.surgery.labels.multipleSurgeries')}</Label>
+                        <h3 className="font-semibold">{t('aup.surgery.labels.multipleSurgeries')}</h3>
                         <div className="space-y-4">
                           <div className="flex items-center space-x-2">
                             <Checkbox
@@ -2993,7 +2989,7 @@ export function ProtocolEditPage() {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label>{t('aup.surgery.labels.postopCare')} *</Label>
+                        <h3 className="font-semibold">{t('aup.surgery.labels.postopCare')}</h3>
                         <div className="space-y-4">
                           <div className="space-y-2">
                             <Label>{t('aup.surgery.labels.postopCareType')} *</Label>
@@ -3028,7 +3024,7 @@ export function ProtocolEditPage() {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label>{t('aup.surgery.labels.expectedEndPoint')} *</Label>
+                        <h3 className="font-semibold">{t('aup.surgery.labels.expectedEndPoint')}</h3>
                         <Textarea
                           value={formData.working_content.surgery.expected_end_point}
                           onChange={(e) => updateWorkingContent('surgery', 'expected_end_point', e.target.value)}
@@ -3038,7 +3034,7 @@ export function ProtocolEditPage() {
                       </div>
                       <div className="space-y-4">
                         <div className="flex justify-between items-center">
-                          <Label>{t('aup.surgery.labels.drugInfo')} *</Label>
+                          <h3 className="font-semibold">{t('aup.surgery.labels.drugInfo')}</h3>
                           <Button
                             type="button"
                             variant="outline"

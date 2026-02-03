@@ -712,7 +712,7 @@ export function PigsPage() {
             ) : pigs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-slate-500">
                 <AlertCircle className="h-12 w-12 mb-4" />
-                <p>沒有符合條件的豬隻</p>
+                <p>{t('pigs.noPigsFound')}</p>
               </div>
             ) : (
               <Table>
