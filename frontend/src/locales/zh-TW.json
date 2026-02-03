@@ -48,6 +48,11 @@
       "hint": "最大 {{maxSize}}MB，最多 {{maxFiles}} 個檔案"
     }
   },
+  "datePicker": {
+    "placeholder": "選擇日期",
+    "clear": "清空",
+    "today": "今天"
+  },
   "user": {},
   "profile": {
     "settings": "個人帳號設定",
@@ -379,6 +384,12 @@
         "actions": "操作",
         "viewContent": "查看內容",
         "noVersions": "尚無版本記錄",
+        "noHistory": "尚無狀態歷程",
+        "noComments": "尚無審查意見",
+        "compareVersions": "比較版本",
+        "twoVersionsSelected": "已選擇兩個版本進行比較",
+        "startCompare": "開始比較",
+        "reviewer": "審查人員",
         "assignedTime": "指派時間",
         "assignedBy": "指派者",
         "completedTime": "完成時間",
@@ -388,6 +399,7 @@
         "grantedTime": "指派時間",
         "noCoeditors": "尚未指派 co-editor",
         "coeditorHint": "可在狀態變更為「行政預審」時指派 co-editor",
+        "addCoeditor": "+ Co-Editor",
         "fileName": "檔案名稱",
         "size": "大小",
         "uploadedBy": "上傳者",
@@ -507,6 +519,44 @@
         "training": "訓練/資格",
         "attachments": "9. 附件",
         "signatures": "10. 電子簽名"
+      }
+    },
+    "amendments": {
+      "title": "變更申請",
+      "description": "計畫書變更申請記錄",
+      "create": "新增變更申請",
+      "noAmendments": "尚無變更申請",
+      "noAmendmentsHint": "點擊「新增變更申請」按鈕來建立您的第一個變更申請",
+      "notApproved": "計畫書須先核准後才能提出變更申請",
+      "createSuccess": "變更申請已建立",
+      "createFailed": "建立變更申請失敗",
+      "submitSuccess": "變更申請已提交",
+      "submitFailed": "提交失敗",
+      "submit": "提交",
+      "view": "查看",
+      "table": {
+        "amendmentNo": "變更編號",
+        "title": "標題",
+        "type": "變更類型",
+        "status": "狀態",
+        "submittedAt": "提交時間",
+        "actions": "操作"
+      },
+      "dialog": {
+        "title": "建立變更申請",
+        "description": "填寫變更申請資訊，選擇本次變更的項目",
+        "amendmentTitle": "變更標題 *",
+        "titlePlaceholder": "例如：第二年動物數量調整",
+        "changeItems": "變更項目（可多選）*",
+        "selectedCount": "已選擇 {{count}} 項",
+        "amendmentDescription": "變更說明",
+        "descriptionPlaceholder": "詳細說明本次變更的原因和內容...",
+        "cancel": "取消",
+        "create": "建立變更申請"
+      },
+      "validation": {
+        "titleRequired": "請輸入變更標題",
+        "changeItemsRequired": "請至少選擇一個變更項目"
       }
     }
   },

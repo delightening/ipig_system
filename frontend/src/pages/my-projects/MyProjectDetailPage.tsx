@@ -4,8 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
   ProtocolResponse,
   ProtocolStatus,
-  protocolStatusNames,
 } from '@/lib/api'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -75,6 +75,7 @@ const getPenLocationDisplay = (pig: { status: string; penLocation?: string | nul
 }
 
 export function MyProjectDetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -156,7 +157,7 @@ export function MyProjectDetailPage() {
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold">{protocol.title}</h1>
               <Badge variant={statusColors[protocol.status]} className="text-sm">
-                {protocolStatusNames[protocol.status]}
+                {t(`protocols.status.${protocol.status}`)}
               </Badge>
             </div>
             <p className="text-muted-foreground mt-1">
@@ -240,8 +241,8 @@ export function MyProjectDetailPage() {
           <button
             onClick={() => setActiveTab('application')}
             className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${activeTab === 'application'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
           >
             <ClipboardList className="h-4 w-4" />
@@ -250,8 +251,8 @@ export function MyProjectDetailPage() {
           <button
             onClick={() => setActiveTab('pigs')}
             className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${activeTab === 'pigs'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
           >
             <FileText className="h-4 w-4" />

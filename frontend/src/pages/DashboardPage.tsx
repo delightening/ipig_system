@@ -643,7 +643,11 @@ export function DashboardPage() {
         {visibleWidgets.map((widget) => (
           <div
             key={widget.i}
-            className={`h-full overflow-hidden ${isEditMode ? 'ring-2 ring-blue-300 ring-offset-2 rounded-lg' : ''}`}
+            className="h-full"
+            style={isEditMode ? {
+              boxShadow: '0 0 0 2px rgb(147, 197, 253), 0 0 0 4px rgba(147, 197, 253, 0.3)',
+              borderRadius: '0.5rem',
+            } : undefined}
           >
             {renderWidget(widget)}
           </div>

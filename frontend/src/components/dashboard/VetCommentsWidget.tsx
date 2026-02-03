@@ -28,7 +28,7 @@ export function VetCommentsWidget() {
 
     if (isLoading) {
         return (
-            <Card>
+            <Card className="h-full">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                         <MessageSquare className="h-4 w-4 text-emerald-500" />
@@ -46,7 +46,7 @@ export function VetCommentsWidget() {
 
     if (error) {
         return (
-            <Card>
+            <Card className="h-full">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                         <MessageSquare className="h-4 w-4 text-emerald-500" />
@@ -61,7 +61,7 @@ export function VetCommentsWidget() {
     }
 
     return (
-        <Card>
+        <Card className="h-full flex flex-col">
             <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <MessageSquare className="h-4 w-4 text-emerald-500" />

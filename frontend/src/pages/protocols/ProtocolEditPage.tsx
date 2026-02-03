@@ -9,6 +9,7 @@ import api, {
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea } from '@/components/ui/input'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -1158,18 +1159,16 @@ export function ProtocolEditPage() {
                   )}
                   <div className="space-y-2">
                     <Label>{t('aup.basic.expectedPeriod')} *</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        type="date"
+                    <div className="flex gap-2 items-center">
+                      <DatePicker
                         value={formData.start_date}
-                        onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
+                        onChange={(value) => setFormData(prev => ({ ...prev, start_date: value }))}
                         required
                       />
                       <span className="self-center">{t('aup.basic.to')}</span>
-                      <Input
-                        type="date"
+                      <DatePicker
                         value={formData.end_date}
-                        onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
+                        onChange={(value) => setFormData(prev => ({ ...prev, end_date: value }))}
                         required
                       />
                     </div>

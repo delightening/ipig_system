@@ -24,7 +24,7 @@ export function AnimalsOnMedicationWidget() {
 
     if (isLoading) {
         return (
-            <Card>
+            <Card className="h-full">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                         <Pill className="h-4 w-4 text-red-500" />
@@ -42,7 +42,7 @@ export function AnimalsOnMedicationWidget() {
 
     if (error) {
         return (
-            <Card>
+            <Card className="h-full">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                         <Pill className="h-4 w-4 text-red-500" />
@@ -57,7 +57,7 @@ export function AnimalsOnMedicationWidget() {
     }
 
     return (
-        <Card>
+        <Card className="h-full flex flex-col">
             <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">

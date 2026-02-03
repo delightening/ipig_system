@@ -592,15 +592,17 @@ export function MainLayout() {
 
   // 根據使用者權限過濾導覽列顯示項目
   const filteredNavItems = useMemo(() => {
-    // 檢查是否為純審查角色（只有 REVIEWER, VET, IACUC_CHAIR，沒有其他管理角色）
-    const isReviewerOrChairOnly = user?.roles?.every(r =>
-      ['REVIEWER', 'VET', 'IACUC_CHAIR'].includes(r)
-    ) && user?.roles?.some(r => ['REVIEWER', 'VET', 'IACUC_CHAIR'].includes(r))
+    // 檢查是否為純審查角色（只有 REVIEWER, VET, IACUC_CHAIR, PI，沒有其他管理角色）
+    // 這些角色不應該看到人員管理選單
+    const rolesWithoutHrAccess = ['REVIEWER', 'VET', 'IACUC_CHAIR', 'PI']
+    const shouldHideHr = user?.roles?.every(r =>
+      rolesWithoutHrAccess.includes(r)
+    ) && user?.roles?.some(r => rolesWithoutHrAccess.includes(r))
 
     return sortedNavItems
       .filter((item) => {
-        // 審查委員/獸醫/主席不顯示人員管理
-        if (item.title === '人員管理' && isReviewerOrChairOnly) {
+        // 審查委員/獸醫/主席/PI 不顯示人員管理
+        if (item.title === '人員管理' && shouldHideHr) {
           return false
         }
         if (item.permission === 'erp') {
