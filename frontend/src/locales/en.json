@@ -48,6 +48,11 @@
             "hint": "Max {{maxSize}}MB, up to {{maxFiles}} files"
         }
     },
+    "datePicker": {
+        "placeholder": "Select date",
+        "clear": "Clear",
+        "today": "Today"
+    },
     "profile": {
         "settings": "Profile Settings",
         "description": "Manage your profile, contact info and AUP personnel qualifications",
@@ -377,6 +382,12 @@
                 "actions": "Actions",
                 "viewContent": "View Content",
                 "noVersions": "No version history",
+                "noHistory": "No status history",
+                "noComments": "No review comments",
+                "compareVersions": "Compare Versions",
+                "twoVersionsSelected": "Two versions selected for comparison",
+                "startCompare": "Start Compare",
+                "reviewer": "Reviewer",
                 "assignedTime": "Assigned Time",
                 "assignedBy": "Assigned By",
                 "completedTime": "Completed Time",
@@ -386,6 +397,7 @@
                 "grantedTime": "Granted Time",
                 "noCoeditors": "No co-editors assigned yet",
                 "coeditorHint": "Co-editors can be assigned during 'Pre-Review' status change",
+                "addCoeditor": "+ Co-Editor",
                 "fileName": "File Name",
                 "size": "Size",
                 "uploadedBy": "Uploaded By",
@@ -493,7 +505,7 @@
                     "ageRange": "Age Range",
                     "weightRange": "Weight Range",
                     "housingLocation": "Housing Location",
-                    "unlimited": "Unlimited",
+                    "unlimited": "Any",
                     "totalAnimals": "Total Animals",
                     "personnel": "8. Study Personnel Data",
                     "person": "Personnel",
@@ -505,6 +517,44 @@
                     "attachments": "9. Attachments",
                     "signatures": "10. Electronic Signatures"
                 }
+            }
+        },
+        "amendments": {
+            "title": "Amendments",
+            "description": "Protocol amendment request records",
+            "create": "New Amendment",
+            "noAmendments": "No amendments",
+            "noAmendmentsHint": "Click 'New Amendment' button to create your first amendment request",
+            "notApproved": "Protocol must be approved before amendments can be submitted",
+            "createSuccess": "Amendment request created",
+            "createFailed": "Failed to create amendment request",
+            "submitSuccess": "Amendment request submitted",
+            "submitFailed": "Submission failed",
+            "submit": "Submit",
+            "view": "View",
+            "table": {
+                "amendmentNo": "Amendment No.",
+                "title": "Title",
+                "type": "Amendment Type",
+                "status": "Status",
+                "submittedAt": "Submitted At",
+                "actions": "Actions"
+            },
+            "dialog": {
+                "title": "Create Amendment Request",
+                "description": "Fill in amendment information and select items to change",
+                "amendmentTitle": "Amendment Title *",
+                "titlePlaceholder": "e.g., Year 2 Animal Count Adjustment",
+                "changeItems": "Change Items (multiple select) *",
+                "selectedCount": "{{count}} items selected",
+                "amendmentDescription": "Amendment Description",
+                "descriptionPlaceholder": "Describe the reason and content of this amendment...",
+                "cancel": "Cancel",
+                "create": "Create Amendment"
+            },
+            "validation": {
+                "titleRequired": "Please enter amendment title",
+                "changeItemsRequired": "Please select at least one change item"
             }
         }
     },
@@ -861,7 +911,7 @@
         "animals": {
             "title": "Experimental Animal Data",
             "subtitle": "Fill in animal species, strain, and quantity",
-            "listHeader": "Animal List (Add in sequence for male/female or unlimited sex)",
+            "listHeader": "Animal List (Add in sequence for male/female or any sex)",
             "addAnimal": "Add Animal",
             "labels": {
                 "species": "Species",
@@ -876,7 +926,7 @@
                 "maxWeight": "Max Weight (kg)",
                 "housing": "Housing Environment",
                 "defaultHousingLocation": "Dr. Pig Animal Farm",
-                "unlimited": "Unlimited",
+                "unlimited": "Any",
                 "weightInterval": "5kg per interval"
             },
             "species": {
@@ -890,7 +940,7 @@
             "sexTypes": {
                 "male": "Male",
                 "female": "Female",
-                "unlimited": "Unlimited"
+                "unlimited": "Any"
             },
             "placeholders": {
                 "species": "Select species",
@@ -908,9 +958,9 @@
             "notes": {
                 "title": "Notes:",
                 "item1": "* Pig/White Pig, Source: Domestic breeding farm (Dr. Pig Farm); Pig/Mini Pig, Source: Domestic breeding farm (Dr. Pig Farm)",
-                "item2": "* Sex: Male, Female, or Unlimited.",
-                "item3": "* Age: Approximate month range (and above) or unlimited.",
-                "item4": "* Weight: Approximate weight range or unlimited.",
+                "item2": "* Sex: Male, Female, or Any.",
+                "item3": "* Age: Approximate month range (and above) or any.",
+                "item4": "* Weight: Approximate weight range or any.",
                 "item5": "* White pigs grow rapidly, reaching 100kg in 7 months. If the observation period exceeds 3 months, mini pigs are recommended."
             },
             "validation": {

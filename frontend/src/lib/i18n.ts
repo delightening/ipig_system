@@ -10,6 +10,19 @@ const resources = {
     'en': { translation: en },
 }
 
+// Map i18n language codes to HTML lang attribute values
+const langMap: Record<string, string> = {
+    'zh-TW': 'zh-TW',
+    'en': 'en',
+}
+
+// Update the HTML lang attribute to match the current language
+// This affects native browser elements like date pickers
+const updateHtmlLang = (lng: string) => {
+    const htmlLang = langMap[lng] || lng
+    document.documentElement.lang = htmlLang
+}
+
 i18n
     .use(LanguageDetector)
     .use(initReactI18next)
@@ -26,4 +39,11 @@ i18n
         },
     })
 
+// Set initial HTML lang attribute
+updateHtmlLang(i18n.language)
+
+// Listen for language changes and update HTML lang attribute
+i18n.on('languageChanged', updateHtmlLang)
+
 export default i18n
+

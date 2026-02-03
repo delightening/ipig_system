@@ -36,6 +36,7 @@ import { Loader2, Plus, FileEdit, Send, Eye } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '@/stores/auth'
+import { useTranslation } from 'react-i18next'
 
 interface AmendmentsTabProps {
     protocolId: string
@@ -43,6 +44,7 @@ interface AmendmentsTabProps {
 }
 
 export function AmendmentsTab({ protocolId, protocolStatus }: AmendmentsTabProps) {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
     const { user } = useAuthStore()
 
@@ -67,14 +69,14 @@ export function AmendmentsTab({ protocolId, protocolStatus }: AmendmentsTabProps
             return api.post('/amendments', req)
         },
         onSuccess: () => {
-            toast({ title: '成功', description: '變更申請已建立' })
+            toast({ title: t('common.success'), description: t('protocols.amendments.createSuccess') })
             queryClient.invalidateQueries({ queryKey: ['protocol-amendments', protocolId] })
             resetForm()
         },
         onError: (error: any) => {
             toast({
-                title: '錯誤',
-                description: error?.response?.data?.error?.message || '建立變更申請失敗',
+                title: t('common.error'),
+                description: error?.response?.data?.error?.message || t('protocols.amendments.createFailed'),
                 variant: 'destructive',
             })
         },
@@ -86,13 +88,13 @@ export function AmendmentsTab({ protocolId, protocolStatus }: AmendmentsTabProps
             return api.post(`/amendments/${amendmentId}/submit`)
         },
         onSuccess: () => {
-            toast({ title: '成功', description: '變更申請已提交' })
+            toast({ title: t('common.success'), description: t('protocols.amendments.submitSuccess') })
             queryClient.invalidateQueries({ queryKey: ['protocol-amendments', protocolId] })
         },
         onError: (error: any) => {
             toast({
-                title: '錯誤',
-                description: error?.response?.data?.error?.message || '提交失敗',
+                title: t('common.error'),
+                description: error?.response?.data?.error?.message || t('protocols.amendments.submitFailed'),
                 variant: 'destructive',
             })
         },
@@ -107,11 +109,11 @@ export function AmendmentsTab({ protocolId, protocolStatus }: AmendmentsTabProps
 
     const handleCreateAmendment = () => {
         if (!amendmentTitle.trim()) {
-            toast({ title: '錯誤', description: '請輸入變更標題', variant: 'destructive' })
+            toast({ title: t('common.error'), description: t('protocols.amendments.validation.titleRequired'), variant: 'destructive' })
             return
         }
         if (selectedChangeItems.length === 0) {
-            toast({ title: '錯誤', description: '請至少選擇一個變更項目', variant: 'destructive' })
+            toast({ title: t('common.error'), description: t('protocols.amendments.validation.changeItemsRequired'), variant: 'destructive' })
             return
         }
 
@@ -145,13 +147,13 @@ export function AmendmentsTab({ protocolId, protocolStatus }: AmendmentsTabProps
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                    <CardTitle>變更申請</CardTitle>
-                    <CardDescription>計畫書變更申請記錄</CardDescription>
+                    <CardTitle>{t('protocols.amendments.title')}</CardTitle>
+                    <CardDescription>{t('protocols.amendments.description')}</CardDescription>
                 </div>
                 {canCreateAmendment && isPIorCoEditor && (
                     <Button onClick={() => setShowCreateDialog(true)}>
                         <Plus className="mr-2 h-4 w-4" />
-                        新增變更申請
+                        {t('protocols.amendments.create')}
                     </Button>
                 )}
             </CardHeader>
@@ -164,12 +166,12 @@ export function AmendmentsTab({ protocolId, protocolStatus }: AmendmentsTabProps
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>變更編號</TableHead>
-                                <TableHead>標題</TableHead>
-                                <TableHead>變更類型</TableHead>
-                                <TableHead>狀態</TableHead>
-                                <TableHead>提交時間</TableHead>
-                                <TableHead>操作</TableHead>
+                                <TableHead>{t('protocols.amendments.table.amendmentNo')}</TableHead>
+                                <TableHead>{t('protocols.amendments.table.title')}</TableHead>
+                                <TableHead>{t('protocols.amendments.table.type')}</TableHead>
+                                <TableHead>{t('protocols.amendments.table.status')}</TableHead>
+                                <TableHead>{t('protocols.amendments.table.submittedAt')}</TableHead>
+                                <TableHead>{t('protocols.amendments.table.actions')}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -207,7 +209,7 @@ export function AmendmentsTab({ protocolId, protocolStatus }: AmendmentsTabProps
                                                     ) : (
                                                         <>
                                                             <Send className="mr-1 h-4 w-4" />
-                                                            提交
+                                                            {t('protocols.amendments.submit')}
                                                         </>
                                                     )}
                                                 </Button>
@@ -215,7 +217,7 @@ export function AmendmentsTab({ protocolId, protocolStatus }: AmendmentsTabProps
                                             <Button variant="ghost" size="sm" asChild>
                                                 <Link to={`/protocols/${protocolId}?tab=amendments&amendmentId=${amendment.id}`}>
                                                     <Eye className="mr-1 h-4 w-4" />
-                                                    查看
+                                                    {t('protocols.amendments.view')}
                                                 </Link>
                                             </Button>
                                         </div>
@@ -227,12 +229,12 @@ export function AmendmentsTab({ protocolId, protocolStatus }: AmendmentsTabProps
                 ) : (
                     <div className="text-center py-8 text-muted-foreground">
                         <FileEdit className="h-12 w-12 mx-auto mb-2" />
-                        <p>尚無變更申請</p>
+                        <p>{t('protocols.amendments.noAmendments')}</p>
                         {canCreateAmendment && isPIorCoEditor && (
-                            <p className="text-sm mt-2">點擊「新增變更申請」按鈕來建立您的第一個變更申請</p>
+                            <p className="text-sm mt-2">{t('protocols.amendments.noAmendmentsHint')}</p>
                         )}
                         {!canCreateAmendment && (
-                            <p className="text-sm mt-2">計畫書需先核准後才能提出變更申請</p>
+                            <p className="text-sm mt-2">{t('protocols.amendments.notApproved')}</p>
                         )}
                     </div>
                 )}
@@ -242,24 +244,24 @@ export function AmendmentsTab({ protocolId, protocolStatus }: AmendmentsTabProps
             <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
-                        <DialogTitle>建立變更申請</DialogTitle>
+                        <DialogTitle>{t('protocols.amendments.dialog.title')}</DialogTitle>
                         <DialogDescription>
-                            填寫變更申請資訊，選擇本次變更的項目
+                            {t('protocols.amendments.dialog.description')}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
-                            <Label htmlFor="amendment-title">變更標題 *</Label>
+                            <Label htmlFor="amendment-title">{t('protocols.amendments.dialog.amendmentTitle')}</Label>
                             <Input
                                 id="amendment-title"
                                 value={amendmentTitle}
                                 onChange={(e) => setAmendmentTitle(e.target.value)}
-                                placeholder="例如：第二年動物數量調整"
+                                placeholder={t('protocols.amendments.dialog.titlePlaceholder')}
                             />
                         </div>
 
                         <div className="space-y-2">
-                            <Label>變更項目（可多選）*</Label>
+                            <Label>{t('protocols.amendments.dialog.changeItems')}</Label>
                             <div className="grid grid-cols-2 gap-2 mt-2">
                                 {AMENDMENT_CHANGE_ITEM_OPTIONS.map((option) => (
                                     <div key={option.value} className="flex items-center space-x-2">
@@ -279,25 +281,25 @@ export function AmendmentsTab({ protocolId, protocolStatus }: AmendmentsTabProps
                             </div>
                             {selectedChangeItems.length > 0 && (
                                 <p className="text-xs text-muted-foreground mt-1">
-                                    已選擇 {selectedChangeItems.length} 項
+                                    {t('protocols.amendments.dialog.selectedCount', { count: selectedChangeItems.length })}
                                 </p>
                             )}
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="amendment-description">變更說明</Label>
+                            <Label htmlFor="amendment-description">{t('protocols.amendments.dialog.amendmentDescription')}</Label>
                             <Textarea
                                 id="amendment-description"
                                 value={amendmentDescription}
                                 onChange={(e) => setAmendmentDescription(e.target.value)}
-                                placeholder="詳細說明本次變更的原因和內容..."
+                                placeholder={t('protocols.amendments.dialog.descriptionPlaceholder')}
                                 rows={4}
                             />
                         </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={resetForm}>
-                            取消
+                            {t('protocols.amendments.dialog.cancel')}
                         </Button>
                         <Button
                             onClick={handleCreateAmendment}
@@ -306,7 +308,7 @@ export function AmendmentsTab({ protocolId, protocolStatus }: AmendmentsTabProps
                             {createAmendmentMutation.isPending && (
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             )}
-                            建立變更申請
+                            {t('protocols.amendments.dialog.create')}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

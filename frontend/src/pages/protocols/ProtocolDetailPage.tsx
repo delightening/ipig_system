@@ -9,7 +9,6 @@ import api, {
   ReviewAssignmentResponse,
   ProtocolAttachment,
   ProtocolStatus,
-  protocolStatusNames,
   ChangeStatusRequest,
   CreateCommentRequest,
   ReplyCommentRequest,
@@ -645,7 +644,7 @@ export function ProtocolDetailPage() {
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold">{protocol.title}</h1>
               <Badge variant={statusColors[protocol.status]} className="text-sm">
-                {protocolStatusNames[protocol.status]}
+                {t(`protocols.status.${protocol.status}`)}
               </Badge>
             </div>
           </div>
@@ -812,7 +811,7 @@ export function ProtocolDetailPage() {
                     setSelectedCompareIds([])
                   }}
                 >
-                  {compareMode ? t('common.cancel') : '比較版本'}
+                  {compareMode ? t('common.cancel') : t('protocols.detail.tables.compareVersions')}
                 </Button>
               )}
             </div>
@@ -823,7 +822,7 @@ export function ProtocolDetailPage() {
                 {compareMode && selectedCompareIds.length === 2 && (
                   <div className="bg-blue-50 border border-blue-100 p-3 rounded-md flex justify-between items-center">
                     <span className="text-sm font-medium text-blue-700">
-                      已選擇兩個版本進行比較
+                      {t('protocols.detail.tables.twoVersionsSelected')}
                     </span>
                     <Button
                       size="sm"
@@ -843,7 +842,7 @@ export function ProtocolDetailPage() {
                         }
                       }}
                     >
-                      開始比較
+                      {t('protocols.detail.tables.startCompare')}
                     </Button>
                   </div>
                 )}
@@ -926,13 +925,13 @@ export function ProtocolDetailPage() {
                           {history.from_status && (
                             <>
                               <Badge variant={statusColors[history.from_status]}>
-                                {protocolStatusNames[history.from_status]}
+                                {t(`protocols.status.${history.from_status}`)}
                               </Badge>
                               <span className="text-muted-foreground">→</span>
                             </>
                           )}
                           <Badge variant={statusColors[history.to_status]}>
-                            {protocolStatusNames[history.to_status]}
+                            {t(`protocols.status.${history.to_status}`)}
                           </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">
@@ -1146,7 +1145,7 @@ export function ProtocolDetailPage() {
             {canAssignReviewer && (
               <Button onClick={() => setShowCoEditorDialog(true)}>
                 <UserPlus className="mr-2 h-4 w-4" />
-                + Co-Editor
+                {t('protocols.detail.tables.addCoeditor')}
               </Button>
             )}
           </CardHeader>
@@ -1159,10 +1158,10 @@ export function ProtocolDetailPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Co-Editor</TableHead>
-                    <TableHead>指派時間</TableHead>
-                    <TableHead>指派者</TableHead>
-                    <TableHead>操作</TableHead>
+                    <TableHead>{t('protocols.detail.tabs.coeditors')}</TableHead>
+                    <TableHead>{t('protocols.detail.tables.assignedTime')}</TableHead>
+                    <TableHead>{t('protocols.detail.tables.assignedBy')}</TableHead>
+                    <TableHead>{t('protocols.detail.tables.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1182,7 +1181,7 @@ export function ProtocolDetailPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => {
-                              if (confirm('確定要移除此 co-editor 嗎？')) {
+                              if (confirm(t('protocols.detail.actions.removeCoeditorConfirm'))) {
                                 removeCoEditorMutation.mutate(coEditor.user_id)
                               }
                             }}
@@ -1205,8 +1204,8 @@ export function ProtocolDetailPage() {
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <UserPlus className="h-12 w-12 mx-auto mb-2" />
-                <p>尚未指派 co-editor</p>
-                <p className="text-sm mt-2">可在狀態變更為「行政預審」時指派 co-editor</p>
+                <p>{t('protocols.detail.tables.noCoeditors')}</p>
+                <p className="text-sm mt-2">{t('protocols.detail.tables.coeditorHint')}</p>
               </div>
             )}
           </CardContent>
@@ -1217,8 +1216,8 @@ export function ProtocolDetailPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle>附件</CardTitle>
-              <CardDescription>計畫書相關文件與檔案</CardDescription>
+              <CardTitle>{t('protocols.detail.sections.attachmentsTitle')}</CardTitle>
+              <CardDescription>{t('protocols.detail.sections.attachmentsDesc')}</CardDescription>
             </div>
             {canManageAttachments && (
               <>
@@ -1234,7 +1233,7 @@ export function ProtocolDetailPage() {
                   ) : (
                     <Upload className="mr-2 h-4 w-4" />
                   )}
-                  上傳附件
+                  {t('protocols.detail.tables.upload')}
                 </Button>
               </>
             )}
@@ -1248,11 +1247,11 @@ export function ProtocolDetailPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>檔案名稱</TableHead>
-                    <TableHead>大小</TableHead>
-                    <TableHead>上傳者</TableHead>
-                    <TableHead>上傳時間</TableHead>
-                    <TableHead>操作</TableHead>
+                    <TableHead>{t('protocols.detail.tables.fileName')}</TableHead>
+                    <TableHead>{t('protocols.detail.tables.size')}</TableHead>
+                    <TableHead>{t('protocols.detail.tables.uploadedBy')}</TableHead>
+                    <TableHead>{t('protocols.detail.tables.uploadTime')}</TableHead>
+                    <TableHead>{t('protocols.detail.tables.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1281,7 +1280,7 @@ export function ProtocolDetailPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => {
-                                if (confirm('確定要刪除此附件嗎？')) {
+                                if (confirm(t('protocols.detail.actions.deleteConfirm'))) {
                                   deleteAttachmentMutation.mutate(attachment.id)
                                 }
                               }}
@@ -1299,10 +1298,10 @@ export function ProtocolDetailPage() {
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <Paperclip className="h-12 w-12 mx-auto mb-2" />
-                <p>尚無附件</p>
+                <p>{t('protocols.detail.tables.noAttachments')}</p>
                 {canManageAttachments && (
                   <Button variant="link" onClick={() => fileInputRef.current?.click()} className="mt-2">
-                    上傳第一個附件
+                    {t('protocols.detail.tables.uploadFirst')}
                   </Button>
                 )}
               </div>
@@ -1346,7 +1345,7 @@ export function ProtocolDetailPage() {
             <div className="space-y-2">
               <Label>{t('protocols.detail.dialogs.status.current')}</Label>
               <Badge variant={statusColors[protocol.status]} className="text-sm">
-                {protocolStatusNames[protocol.status]}
+                {t(`protocols.status.${protocol.status}`)}
               </Badge>
             </div>
             <div className="space-y-2">
@@ -1358,7 +1357,7 @@ export function ProtocolDetailPage() {
                 <SelectContent>
                   {getAvailableTransitions().map((status) => (
                     <SelectItem key={status} value={status}>
-                      {protocolStatusNames[status]}
+                      {t(`protocols.status.${status}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -129,6 +129,11 @@ export function ProfileSettingsPage() {
         setFormData({ ...formData, trainings })
     }
 
+    // Staff roles that should see AUP Section 8 Data
+    // PI-only users should NOT see/edit this section
+    const staffRoles = ['IACUC_STAFF', 'EXPERIMENT_STAFF', 'VET', 'ANIMAL_CARE_STAFF', 'admin', 'SYSTEM_ADMIN']
+    const isStaff = currentUser?.roles?.some(r => staffRoles.includes(r)) ?? false
+
     if (!currentUser) {
         return (
             <div className="flex items-center justify-center h-[60vh]">
@@ -163,9 +168,9 @@ export function ProfileSettingsPage() {
                 </Button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className={`grid grid-cols-1 ${isStaff ? 'lg:grid-cols-3' : ''} gap-8`}>
                 {/* Left Column: Basic Info */}
-                <div className="space-y-8 lg:col-span-1">
+                <div className={`space-y-8 ${isStaff ? 'lg:col-span-1' : ''}`}>
                     <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm">
                         <CardHeader className="border-b bg-slate-50/50">
                             <CardTitle className="flex items-center gap-2 text-slate-800">
@@ -230,227 +235,229 @@ export function ProfileSettingsPage() {
                     </Card>
                 </div>
 
-                {/* Right Column: AUP Section 8 Data */}
-                <div className="lg:col-span-2 space-y-8">
-                    <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm">
-                        <CardHeader className="border-b bg-slate-50/50">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="flex items-center gap-2 text-slate-800">
-                                    <GraduationCap className="h-5 w-5 text-indigo-500" />
-                                    {t('profile.aupSection8')}
-                                </CardTitle>
-                                <Badge variant="outline" className="border-indigo-200 text-indigo-600">符合規範</Badge>
-                            </div>
-                            <CardDescription>
-                                {t('profile.aupSection8Description')}
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="pt-6 space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <Label htmlFor="entry_date" className="flex items-center gap-2">
-                                        <History className="h-4 w-4 text-slate-400" /> {t('profile.entryDate')}
-                                    </Label>
-                                    <Input
-                                        id="entry_date"
-                                        type="date"
-                                        value={formData.entry_date || ''}
-                                        onChange={e => setFormData({ ...formData, entry_date: e.target.value })}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="position" className="flex items-center gap-2">
-                                        <Briefcase className="h-4 w-4 text-slate-400" /> {t('profile.position') || '職稱'}
-                                    </Label>
-                                    <Input
-                                        id="position"
-                                        value={formData.position || ''}
-                                        onChange={e => setFormData({ ...formData, position: e.target.value })}
-                                        placeholder={t('profile.positionPlaceholder')}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="years_experience" className="flex items-center gap-2">
-                                        {t('profile.yearsExperience')}
-                                    </Label>
-                                    <Input
-                                        id="years_experience"
-                                        type="number"
-                                        min={0}
-                                        value={formData.years_experience}
-                                        onChange={e => setFormData({ ...formData, years_experience: parseInt(e.target.value) || 0 })}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="space-y-4 pt-4 border-t border-slate-100">
-                                <Label className="text-base font-semibold">{t('profile.aupRoles')}</Label>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                    {AUP_ROLE_OPTIONS.map(role => (
-                                        <div
-                                            key={role.value}
-                                            className={cn(
-                                                "flex items-center space-x-2 p-3 rounded-lg border transition-all cursor-pointer",
-                                                formData.aup_roles?.includes(role.value)
-                                                    ? "bg-indigo-50 border-indigo-200 ring-1 ring-indigo-200"
-                                                    : "hover:bg-slate-50 border-slate-200"
-                                            )}
-                                            onClick={() => toggleAupRole(role.value)}
-                                        >
-                                            <Checkbox
-                                                id={`role-${role.value}`}
-                                                checked={formData.aup_roles?.includes(role.value)}
-                                                onCheckedChange={() => toggleAupRole(role.value)}
-                                            />
-                                            <label
-                                                htmlFor={`role-${role.value}`}
-                                                className="text-sm font-medium leading-none cursor-pointer"
-                                            >
-                                                {t(`profile.roles.${role.key}`)}
-                                            </label>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-
-
-                            <div className="space-y-4 pt-4 border-t border-slate-100">
+                {/* Right Column: AUP Section 8 Data - Only visible to staff */}
+                {isStaff && (
+                    <div className="lg:col-span-2 space-y-8">
+                        <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm">
+                            <CardHeader className="border-b bg-slate-50/50">
                                 <div className="flex items-center justify-between">
-                                    <Label className="text-base font-semibold flex items-center gap-2">
-                                        <Award className="h-5 w-5 text-amber-500" />
-                                        {t('profile.trainings')}
-                                    </Label>
-                                    <div className="flex gap-1">
-                                        {formData.trainings?.length === 0 ? (
-                                            <Badge variant="destructive" className="animate-pulse">{t('profile.notFilled')}</Badge>
-                                        ) : (
-                                            <Badge variant="success" className="bg-green-500">{t('profile.completedCount', { count: formData.trainings?.length })}</Badge>
-                                        )}
+                                    <CardTitle className="flex items-center gap-2 text-slate-800">
+                                        <GraduationCap className="h-5 w-5 text-indigo-500" />
+                                        {t('profile.aupSection8')}
+                                    </CardTitle>
+                                    <Badge variant="outline" className="border-indigo-200 text-indigo-600">符合規範</Badge>
+                                </div>
+                                <CardDescription>
+                                    {t('profile.aupSection8Description')}
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="pt-6 space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="entry_date" className="flex items-center gap-2">
+                                            <History className="h-4 w-4 text-slate-400" /> {t('profile.entryDate')}
+                                        </Label>
+                                        <Input
+                                            id="entry_date"
+                                            type="date"
+                                            value={formData.entry_date || ''}
+                                            onChange={e => setFormData({ ...formData, entry_date: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="position" className="flex items-center gap-2">
+                                            <Briefcase className="h-4 w-4 text-slate-400" /> {t('profile.position') || '職稱'}
+                                        </Label>
+                                        <Input
+                                            id="position"
+                                            value={formData.position || ''}
+                                            onChange={e => setFormData({ ...formData, position: e.target.value })}
+                                            placeholder={t('profile.positionPlaceholder')}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="years_experience" className="flex items-center gap-2">
+                                            {t('profile.yearsExperience')}
+                                        </Label>
+                                        <Input
+                                            id="years_experience"
+                                            type="number"
+                                            min={0}
+                                            value={formData.years_experience}
+                                            onChange={e => setFormData({ ...formData, years_experience: parseInt(e.target.value) || 0 })}
+                                        />
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {TRAINING_OPTIONS.map(code => {
-                                        const training = formData.trainings?.find(t => t.code === code)
-                                        return (
+                                <div className="space-y-4 pt-4 border-t border-slate-100">
+                                    <Label className="text-base font-semibold">{t('profile.aupRoles')}</Label>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                        {AUP_ROLE_OPTIONS.map(role => (
                                             <div
-                                                key={code}
+                                                key={role.value}
                                                 className={cn(
-                                                    "p-4 rounded-xl border transition-all space-y-3",
-                                                    training
-                                                        ? "bg-amber-50/50 border-amber-200 shadow-sm"
-                                                        : "border-slate-100 hover:border-slate-200"
+                                                    "flex items-center space-x-2 p-3 rounded-lg border transition-all cursor-pointer",
+                                                    formData.aup_roles?.includes(role.value)
+                                                        ? "bg-indigo-50 border-indigo-200 ring-1 ring-indigo-200"
+                                                        : "hover:bg-slate-50 border-slate-200"
                                                 )}
+                                                onClick={() => toggleAupRole(role.value)}
                                             >
-                                                <div className="flex items-center space-x-3">
-                                                    <Checkbox
-                                                        id={`training-${code}`}
-                                                        checked={!!training}
-                                                        onCheckedChange={() => toggleTraining(code)}
-                                                    />
-                                                    <label
-                                                        htmlFor={`training-${code}`}
-                                                        className="text-sm font-bold leading-none cursor-pointer text-slate-700"
-                                                    >
-                                                        {t(`aup.personnel.addDialog.trainings.${code}`)}
-                                                    </label>
-                                                </div>
-
-                                                {training && (
-                                                    <div className="pl-7 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                                                        <div className="space-y-1.5">
-                                                            <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">
-                                                                {t('profile.certNo')}
-                                                            </Label>
-                                                            <Input
-                                                                size={30}
-                                                                className="h-8 text-xs bg-white"
-                                                                placeholder={t('profile.certNoPlaceholder')}
-                                                                value={training.certificate_no || ''}
-                                                                onChange={e => updateTrainingDetail(code, 'certificate_no', e.target.value)}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-
-                                {formData.trainings && formData.trainings.length > 0 && (
-                                    <div className="mt-6 space-y-4 bg-slate-50 p-4 rounded-xl border border-slate-200 border-dashed">
-                                        <h4 className="text-sm font-bold text-slate-700">{t('profile.trainingDetailTitle')}</h4>
-                                        {formData.trainings.map((training) => (
-                                            <div key={training.code} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center animate-in zoom-in-95 duration-200">
-                                                <div className="md:col-span-1">
-                                                    <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">
-                                                        {training.code}
-                                                    </div>
-                                                </div>
-                                                <div className="md:col-span-6">
-                                                    <Input
-                                                        placeholder={t('profile.certNo')}
-                                                        value={training.certificate_no || ''}
-                                                        onChange={(e) => updateTrainingDetail(training.code, 'certificate_no', e.target.value)}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                        className="bg-white"
-                                                    />
-                                                </div>
-                                                <div className="md:col-span-5">
-                                                    <Input
-                                                        type="date"
-                                                        value={training.received_date || ''}
-                                                        onChange={(e) => updateTrainingDetail(training.code, 'received_date', e.target.value)}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                        className="bg-white"
-                                                    />
-                                                </div>
+                                                <Checkbox
+                                                    id={`role-${role.value}`}
+                                                    checked={formData.aup_roles?.includes(role.value)}
+                                                    onCheckedChange={() => toggleAupRole(role.value)}
+                                                />
+                                                <label
+                                                    htmlFor={`role-${role.value}`}
+                                                    className="text-sm font-medium leading-none cursor-pointer"
+                                                >
+                                                    {t(`profile.roles.${role.key}`)}
+                                                </label>
                                             </div>
                                         ))}
                                     </div>
-                                )}
+                                </div>
 
-                                <div className="rounded-lg bg-amber-50 p-4 border border-amber-200 flex gap-3">
-                                    <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                                    <div className="text-xs text-amber-800 space-y-1">
-                                        <p className="font-bold">{t('profile.trainingNotice')}</p>
-                                        <p>{t('aup.personnel.roles.list')}</p>
-                                        <p className="opacity-80">{t('profile.trainingNoticeDetail')}</p>
+
+
+                                <div className="space-y-4 pt-4 border-t border-slate-100">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-base font-semibold flex items-center gap-2">
+                                            <Award className="h-5 w-5 text-amber-500" />
+                                            {t('profile.trainings')}
+                                        </Label>
+                                        <div className="flex gap-1">
+                                            {formData.trainings?.length === 0 ? (
+                                                <Badge variant="destructive" className="animate-pulse">{t('profile.notFilled')}</Badge>
+                                            ) : (
+                                                <Badge variant="success" className="bg-green-500">{t('profile.completedCount', { count: formData.trainings?.length })}</Badge>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {TRAINING_OPTIONS.map(code => {
+                                            const training = formData.trainings?.find(t => t.code === code)
+                                            return (
+                                                <div
+                                                    key={code}
+                                                    className={cn(
+                                                        "p-4 rounded-xl border transition-all space-y-3",
+                                                        training
+                                                            ? "bg-amber-50/50 border-amber-200 shadow-sm"
+                                                            : "border-slate-100 hover:border-slate-200"
+                                                    )}
+                                                >
+                                                    <div className="flex items-center space-x-3">
+                                                        <Checkbox
+                                                            id={`training-${code}`}
+                                                            checked={!!training}
+                                                            onCheckedChange={() => toggleTraining(code)}
+                                                        />
+                                                        <label
+                                                            htmlFor={`training-${code}`}
+                                                            className="text-sm font-bold leading-none cursor-pointer text-slate-700"
+                                                        >
+                                                            {t(`aup.personnel.addDialog.trainings.${code}`)}
+                                                        </label>
+                                                    </div>
+
+                                                    {training && (
+                                                        <div className="pl-7 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                                                            <div className="space-y-1.5">
+                                                                <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">
+                                                                    {t('profile.certNo')}
+                                                                </Label>
+                                                                <Input
+                                                                    size={30}
+                                                                    className="h-8 text-xs bg-white"
+                                                                    placeholder={t('profile.certNoPlaceholder')}
+                                                                    value={training.certificate_no || ''}
+                                                                    onChange={e => updateTrainingDetail(code, 'certificate_no', e.target.value)}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+
+                                    {formData.trainings && formData.trainings.length > 0 && (
+                                        <div className="mt-6 space-y-4 bg-slate-50 p-4 rounded-xl border border-slate-200 border-dashed">
+                                            <h4 className="text-sm font-bold text-slate-700">{t('profile.trainingDetailTitle')}</h4>
+                                            {formData.trainings.map((training) => (
+                                                <div key={training.code} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center animate-in zoom-in-95 duration-200">
+                                                    <div className="md:col-span-1">
+                                                        <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">
+                                                            {training.code}
+                                                        </div>
+                                                    </div>
+                                                    <div className="md:col-span-6">
+                                                        <Input
+                                                            placeholder={t('profile.certNo')}
+                                                            value={training.certificate_no || ''}
+                                                            onChange={(e) => updateTrainingDetail(training.code, 'certificate_no', e.target.value)}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            className="bg-white"
+                                                        />
+                                                    </div>
+                                                    <div className="md:col-span-5">
+                                                        <Input
+                                                            type="date"
+                                                            value={training.received_date || ''}
+                                                            onChange={(e) => updateTrainingDetail(training.code, 'received_date', e.target.value)}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            className="bg-white"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    <div className="rounded-lg bg-amber-50 p-4 border border-amber-200 flex gap-3">
+                                        <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                                        <div className="text-xs text-amber-800 space-y-1">
+                                            <p className="font-bold">{t('profile.trainingNotice')}</p>
+                                            <p>{t('aup.personnel.roles.list')}</p>
+                                            <p className="opacity-80">{t('profile.trainingNoticeDetail')}</p>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
 
-                    <Card className="border-none shadow-xl bg-gradient-to-br from-slate-900 to-slate-800 text-white overflow-hidden relative">
-                        <div className="absolute top-0 right-0 p-8 opacity-10">
-                            <CheckCircle2 className="h-32 w-32" />
-                        </div>
-                        <CardContent className="p-8 relative z-10">
-                            <div className="flex flex-col md:flex-row items-center gap-6">
-                                <div className="bg-white/10 p-4 rounded-full backdrop-blur-md">
-                                    <Save className="h-10 w-10 text-blue-400" />
-                                </div>
-                                <div>
-                                    <h3 className="text-xl font-bold">{t('profile.confirmTitle')}</h3>
-                                    <p className="text-slate-300 mt-2 max-w-md">
-                                        {t('profile.confirmDescription')}
-                                    </p>
-                                </div>
-                                <Button
-                                    size="lg"
-                                    variant="secondary"
-                                    className="md:ml-auto bg-white text-slate-900 hover:bg-slate-100 font-bold"
-                                    onClick={handleSubmit}
-                                    disabled={updateMutation.isPending}
-                                >
-                                    {updateMutation.isPending ? t('profile.saving') : t('profile.confirmAndSave')}
-                                </Button>
+                        <Card className="border-none shadow-xl bg-gradient-to-br from-slate-900 to-slate-800 text-white overflow-hidden relative">
+                            <div className="absolute top-0 right-0 p-8 opacity-10">
+                                <CheckCircle2 className="h-32 w-32" />
                             </div>
-                        </CardContent>
-                    </Card>
-                </div>
+                            <CardContent className="p-8 relative z-10">
+                                <div className="flex flex-col md:flex-row items-center gap-6">
+                                    <div className="bg-white/10 p-4 rounded-full backdrop-blur-md">
+                                        <Save className="h-10 w-10 text-blue-400" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-bold">{t('profile.confirmTitle')}</h3>
+                                        <p className="text-slate-300 mt-2 max-w-md">
+                                            {t('profile.confirmDescription')}
+                                        </p>
+                                    </div>
+                                    <Button
+                                        size="lg"
+                                        variant="secondary"
+                                        className="md:ml-auto bg-white text-slate-900 hover:bg-slate-100 font-bold"
+                                        onClick={handleSubmit}
+                                        disabled={updateMutation.isPending}
+                                    >
+                                        {updateMutation.isPending ? t('profile.saving') : t('profile.confirmAndSave')}
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
             </div>
         </div>
     )
