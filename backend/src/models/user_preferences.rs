@@ -45,18 +45,15 @@ pub struct AllPreferencesResponse {
 }
 
 /// 預設的側邊欄順序
+/// 使用前端 NavItem 的 title 屬性作為識別符
 pub fn default_nav_order() -> serde_json::Value {
     serde_json::json!([
         "儀表板",
-        "我的計劃",
-        "AUP 審查系統",
+        "myProjects",
+        "aupReview",
+        "animalManagement",
         "人員管理",
-        "實驗動物管理",
-        "採購管理",
-        "銷售管理",
-        "倉儲作業",
-        "報表中心",
-        "基礎資料",
+        "ERP",
         "系統管理"
     ])
 }

@@ -4,10 +4,10 @@ use validator::Validate;
 use crate::{
     middleware::CurrentUser,
     models::{
-        AuditAction, ChangeOwnPasswordRequest, ForgotPasswordRequest, LoginRequest, LoginResponse,
+        ChangeOwnPasswordRequest, ForgotPasswordRequest, LoginRequest, LoginResponse,
         RefreshTokenRequest, ResetPasswordWithTokenRequest, UpdateUserRequest, User, UserResponse,
     },
-    services::{AuthService, AuditService, UserService, EmailService},
+    services::{AuthService, UserService, EmailService},
     AppError, AppState, Result,
 };
 

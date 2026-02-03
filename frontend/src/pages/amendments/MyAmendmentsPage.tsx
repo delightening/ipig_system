@@ -1,12 +1,11 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import api, {
     AmendmentListItem,
     AmendmentStatus,
-    amendmentStatusNames,
     amendmentStatusColors,
-    amendmentTypeNames,
     AMENDMENT_CHANGE_ITEM_OPTIONS,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -30,19 +29,20 @@ import {
 import { Loader2, FileEdit, Eye, Filter } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils'
 
-const statusFilterOptions: { value: string; label: string }[] = [
-    { value: 'ALL', label: '全部狀態' },
-    { value: 'DRAFT', label: '草稿' },
-    { value: 'SUBMITTED', label: '已提交' },
-    { value: 'CLASSIFIED', label: '已分類' },
-    { value: 'UNDER_REVIEW', label: '審查中' },
-    { value: 'REVISION_REQUIRED', label: '需修訂' },
-    { value: 'APPROVED', label: '已核准' },
-    { value: 'REJECTED', label: '已否決' },
-]
-
 export function MyAmendmentsPage() {
+    const { t } = useTranslation()
     const [statusFilter, setStatusFilter] = useState<string>('ALL')
+
+    const statusFilterOptions = useMemo(() => [
+        { value: 'ALL', label: t('amendments.allStatus') },
+        { value: 'DRAFT', label: t('amendments.status.DRAFT') },
+        { value: 'SUBMITTED', label: t('amendments.status.SUBMITTED') },
+        { value: 'CLASSIFIED', label: t('amendments.status.CLASSIFIED') },
+        { value: 'UNDER_REVIEW', label: t('amendments.status.UNDER_REVIEW') },
+        { value: 'REVISION_REQUIRED', label: t('amendments.status.REVISION_REQUIRED') },
+        { value: 'APPROVED', label: t('amendments.status.APPROVED') },
+        { value: 'REJECTED', label: t('amendments.status.REJECTED') },
+    ], [t])
 
     // 取得使用者的變更申請列表
     const { data: amendments, isLoading } = useQuery({
@@ -63,26 +63,26 @@ export function MyAmendmentsPage() {
     const getChangeItemLabels = (changeItems?: string[]) => {
         if (!changeItems || changeItems.length === 0) return '-'
         return changeItems
-            .map(item => AMENDMENT_CHANGE_ITEM_OPTIONS.find(opt => opt.value === item)?.label || item)
+            .map(item => t(`amendments.changeItemLabels.${item}`) || item)
             .join('、')
     }
 
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-3xl font-bold">我的變更申請</h1>
+                <h1 className="text-3xl font-bold">{t('amendments.title')}</h1>
                 <p className="text-muted-foreground mt-2">
-                    查看和管理您提交的計畫書變更申請
+                    {t('amendments.description')}
                 </p>
             </div>
 
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
-                        <CardTitle>變更申請列表</CardTitle>
+                        <CardTitle>{t('amendments.listTitle')}</CardTitle>
                         <CardDescription>
-                            {amendments?.length || 0} 筆變更申請
-                            {statusFilter !== 'ALL' && ` (顯示 ${filteredAmendments?.length || 0} 筆)`}
+                            {amendments?.length || 0} {t('amendments.countSuffix')}
+                            {statusFilter !== 'ALL' && ` (${t('amendments.displayCountPrefix')} ${filteredAmendments?.length || 0})`}
                         </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
@@ -110,14 +110,14 @@ export function MyAmendmentsPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>變更編號</TableHead>
-                                    <TableHead>計畫書</TableHead>
-                                    <TableHead>標題</TableHead>
-                                    <TableHead>變更項目</TableHead>
-                                    <TableHead>類型</TableHead>
-                                    <TableHead>狀態</TableHead>
-                                    <TableHead>提交時間</TableHead>
-                                    <TableHead>操作</TableHead>
+                                    <TableHead>{t('amendments.columns.amendmentNo')}</TableHead>
+                                    <TableHead>{t('amendments.columns.protocol')}</TableHead>
+                                    <TableHead>{t('amendments.columns.title')}</TableHead>
+                                    <TableHead>{t('amendments.columns.changeItems')}</TableHead>
+                                    <TableHead>{t('amendments.columns.type')}</TableHead>
+                                    <TableHead>{t('amendments.columns.status')}</TableHead>
+                                    <TableHead>{t('amendments.columns.submittedAt')}</TableHead>
+                                    <TableHead>{t('amendments.columns.actions')}</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -142,12 +142,12 @@ export function MyAmendmentsPage() {
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant="outline">
-                                                {amendmentTypeNames[amendment.amendment_type]}
+                                                {t(`amendments.types.${amendment.amendment_type}`)}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant={amendmentStatusColors[amendment.status]}>
-                                                {amendmentStatusNames[amendment.status]}
+                                                {t(`amendments.status.${amendment.status}`)}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
@@ -159,7 +159,7 @@ export function MyAmendmentsPage() {
                                             <Button variant="ghost" size="sm" asChild>
                                                 <Link to={`/protocols/${amendment.protocol_id}?tab=amendments`}>
                                                     <Eye className="mr-1 h-4 w-4" />
-                                                    查看
+                                                    {t('common.view')}
                                                 </Link>
                                             </Button>
                                         </TableCell>
@@ -168,15 +168,15 @@ export function MyAmendmentsPage() {
                             </TableBody>
                         </Table>
                     ) : (
-                        <div className="text-center py-12 text-muted-foreground">
+                        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                             <FileEdit className="h-12 w-12 mx-auto mb-4" />
                             <h3 className="text-lg font-semibold mb-2">
-                                {statusFilter === 'ALL' ? '尚無變更申請' : '無符合條件的變更申請'}
+                                {statusFilter === 'ALL' ? t('amendments.noData') : t('amendments.noDataFiltered')}
                             </h3>
                             <p className="text-sm">
                                 {statusFilter === 'ALL'
-                                    ? '您可以在已核准的計畫書中提出變更申請'
-                                    : '請嘗試選擇其他狀態篩選條件'}
+                                    ? t('amendments.emptyHint')
+                                    : t('amendments.filterHint')}
                             </p>
                         </div>
                     )}

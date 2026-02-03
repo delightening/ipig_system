@@ -51,12 +51,12 @@ export interface WidgetDefinition {
 }
 
 // Widget 類別名稱對照
-export const widgetCategoryNames: Record<string, string> = {
-    erp: 'dashboard.widgets.categories.erp',
-    hr: 'dashboard.widgets.categories.hr',
-    aup: 'dashboard.widgets.categories.aup',
-    animal_care: 'dashboard.widgets.categories.animal_care',
-    report: 'dashboard.widgets.categories.report',
+export const widgetCategoryNames: Record<string, { label: string; translate: boolean }> = {
+    erp: { label: 'ERP & 庫存', translate: false },
+    hr: { label: '人事管理', translate: false },
+    aup: { label: 'dashboard.widgets.categories.aup', translate: true },
+    animal_care: { label: 'dashboard.widgets.categories.animal_care', translate: true },
+    report: { label: '報表中心', translate: false },
 }
 
 // 各 Widget 的限制條件
@@ -124,40 +124,40 @@ export const DEFAULT_DASHBOARD_LAYOUT: WidgetLayoutItem[] = [
 ]
 
 
-// Widget ID 對應名稱 Key
-export const widgetNames: Record<string, string> = {
-    calendar_widget: 'dashboard.widgets.names.calendar_widget',
-    leave_balance: 'dashboard.widgets.names.leave_balance',
-    my_projects: 'dashboard.widgets.names.my_projects',
-    animals_on_medication: 'dashboard.widgets.names.animals_on_medication',
-    vet_comments: 'dashboard.widgets.names.vet_comments',
-    low_stock_alert: 'dashboard.widgets.names.low_stock_alert',
-    pending_documents: 'dashboard.widgets.names.pending_documents',
-    today_inbound: 'dashboard.widgets.names.today_inbound',
-    today_outbound: 'dashboard.widgets.names.today_outbound',
-    weekly_trend: 'dashboard.widgets.names.weekly_trend',
-    recent_documents: 'dashboard.widgets.names.recent_documents',
-    upcoming_leaves: 'dashboard.widgets.names.upcoming_leaves',
-    staff_attendance: 'dashboard.widgets.names.staff_attendance',
-    google_calendar_events: 'dashboard.widgets.names.google_calendar_events',
+// Widget ID 對應名稱
+export const widgetNames: Record<string, { label: string; translate: boolean }> = {
+    calendar_widget: { label: '今日日曆', translate: false },
+    leave_balance: { label: '請假餘額', translate: false },
+    my_projects: { label: 'dashboard.widgets.names.my_projects', translate: true },
+    animals_on_medication: { label: 'dashboard.widgets.names.animals_on_medication', translate: true },
+    vet_comments: { label: 'dashboard.widgets.names.vet_comments', translate: true },
+    low_stock_alert: { label: '低庫存警示', translate: false },
+    pending_documents: { label: '待處理單據', translate: false },
+    today_inbound: { label: '今日入庫', translate: false },
+    today_outbound: { label: '今日出庫', translate: false },
+    weekly_trend: { label: '趨勢圖', translate: false },
+    recent_documents: { label: '最近單據', translate: false },
+    upcoming_leaves: { label: '即將到期假期', translate: false },
+    staff_attendance: { label: '員工出勤狀態', translate: false },
+    google_calendar_events: { label: 'dashboard.widgets.names.google_calendar_events', translate: true },
 }
 
-// Widget 描述 Key
-export const widgetDescriptions: Record<string, string> = {
-    calendar_widget: 'dashboard.widgets.descriptions.calendar_widget',
-    leave_balance: 'dashboard.widgets.descriptions.leave_balance',
-    my_projects: 'dashboard.widgets.descriptions.my_projects',
-    animals_on_medication: 'dashboard.widgets.descriptions.animals_on_medication',
-    vet_comments: 'dashboard.widgets.descriptions.vet_comments',
-    low_stock_alert: 'dashboard.widgets.descriptions.low_stock_alert',
-    pending_documents: 'dashboard.widgets.descriptions.pending_documents',
-    today_inbound: 'dashboard.widgets.descriptions.today_inbound',
-    today_outbound: 'dashboard.widgets.descriptions.today_outbound',
-    weekly_trend: 'dashboard.widgets.descriptions.weekly_trend',
-    recent_documents: 'dashboard.widgets.descriptions.recent_documents',
-    upcoming_leaves: 'dashboard.widgets.descriptions.upcoming_leaves',
-    staff_attendance: 'dashboard.widgets.descriptions.staff_attendance',
-    google_calendar_events: 'dashboard.widgets.descriptions.google_calendar_events',
+// Widget 描述
+export const widgetDescriptions: Record<string, { label: string; translate: boolean }> = {
+    calendar_widget: { label: '顯示今日日程和員工請假資訊', translate: false },
+    leave_balance: { label: '顯示您的特休和補休餘額', translate: false },
+    my_projects: { label: 'dashboard.widgets.descriptions.my_projects', translate: true },
+    animals_on_medication: { label: 'dashboard.widgets.descriptions.animals_on_medication', translate: true },
+    vet_comments: { label: 'dashboard.widgets.descriptions.vet_comments', translate: true },
+    low_stock_alert: { label: '顯示庫存低於安全存量的品項', translate: false },
+    pending_documents: { label: '顯示等待審核或處理的單據數量', translate: false },
+    today_inbound: { label: '顯示今日已完成的進貨/入庫單據', translate: false },
+    today_outbound: { label: '顯示今日已完成的出貨/出庫單據', translate: false },
+    weekly_trend: { label: '顯示最近幾天的進出庫趨勢', translate: false },
+    recent_documents: { label: '顯示最近建立或異動的單據', translate: false },
+    upcoming_leaves: { label: '顯示即將過期的特休或補休提醒', translate: false },
+    staff_attendance: { label: '顯示主管轄下員工的今日出勤彙總', translate: false },
+    google_calendar_events: { label: 'dashboard.widgets.descriptions.google_calendar_events', translate: true },
 }
 
 // Widget 權限要求

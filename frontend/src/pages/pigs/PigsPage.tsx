@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth'
 import api, {
   Pig,
@@ -73,10 +74,9 @@ const statusColors: Record<PigStatus, string> = {
   deceased: 'bg-red-100 text-red-800',
 }
 
-// 輔助函數：判斷欄位顯示文字
-const getPenLocationDisplay = (pig: { status: PigStatus; pen_location?: string | null }) => {
+const getPenLocationDisplay = (pig: { status: PigStatus; pen_location?: string | null }, t: any) => {
   if (pig.status === 'completed' && !pig.pen_location) {
-    return '犧牲'
+    return t('pigs.sacrificed')
   }
   return pig.pen_location || '-'
 }
@@ -119,6 +119,7 @@ export function PigsPage() {
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
   const { hasRole } = useAuthStore()
+  const { t } = useTranslation()
 
   // Check if user is PI or CLIENT
   const isPIOrClient = hasRole('PI') || hasRole('CLIENT')
@@ -592,29 +593,29 @@ export function PigsPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">動物列表</h1>
-          <p className="text-slate-500">管理系統中的所有實驗動物</p>
+          <h1 className="text-2xl font-bold text-slate-900">{t('pigs.title')}</h1>
+          <p className="text-slate-500">{t('pigs.description')}</p>
         </div>
         <div className="grid grid-cols-3 gap-2">
           <Button variant="outline" className="w-full gap-2 text-orange-600 border-orange-200 hover:bg-orange-50" onClick={() => setShowPrintReport(true)}>
             <Download className="h-4 w-4" />
-            產生欄位狀態表
+            {t('pigs.generateReport')}
           </Button>
           <Button variant="outline" className="w-full gap-2" onClick={() => setShowImportWeightDialog(true)}>
             <Upload className="h-4 w-4" />
-            匯入體重
+            {t('pigs.importWeight')}
           </Button>
           <Button variant="outline" className="w-full gap-2" onClick={() => setShowImportBasicDialog(true)}>
             <Upload className="h-4 w-4" />
-            匯入基本資料
+            {t('pigs.importBasic')}
           </Button>
           <Button variant="outline" className="w-full gap-2" onClick={() => setShowBatchExportDialog(true)}>
             <FileSpreadsheet className="h-4 w-4" />
-            批次匯出病歷
+            {t('pigs.batchExport')}
           </Button>
           <Button onClick={() => setShowAddDialog(true)} className="col-span-2 w-full gap-2 bg-purple-600 hover:bg-purple-700">
             <Plus className="h-4 w-4" />
-            新增動物
+            {t('pigs.addPig')}
           </Button>
         </div>
       </div>
@@ -622,10 +623,10 @@ export function PigsPage() {
       {/* Status Tabs */}
       <div className="flex gap-2 border-b">
         {[
-          { value: 'pen', label: '欄位', count: allPigs.length, icon: <LayoutGrid className="h-4 w-4" /> },
-          { value: 'unassigned', label: '未分配', count: statusCounts['unassigned'] || 0 },
-          { value: 'in_experiment', label: '實驗中', count: statusCounts['in_experiment'] || 0 },
-          { value: 'completed', label: '實驗完成', count: statusCounts['completed'] || 0 },
+          { value: 'pen', label: t('pigs.statusLabels.pen'), count: allPigs.length, icon: <LayoutGrid className="h-4 w-4" /> },
+          { value: 'unassigned', label: t('pigs.statusLabels.unassigned'), count: statusCounts['unassigned'] || 0 },
+          { value: 'in_experiment', label: t('pigs.statusLabels.in_experiment'), count: statusCounts['in_experiment'] || 0 },
+          { value: 'completed', label: t('pigs.statusLabels.completed'), count: statusCounts['completed'] || 0 },
         ]
           .filter(tab => {
             // PI and CLIENT can only see: 實驗中, 實驗完成
@@ -660,7 +661,7 @@ export function PigsPage() {
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
-                  placeholder="搜尋耳號、欄位、IACUC NO..."
+                  placeholder={t('pigs.searchPlaceholder')}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-9"
@@ -671,10 +672,10 @@ export function PigsPage() {
                   <SelectValue placeholder="品種" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">全部品種</SelectItem>
-                  <SelectItem value="minipig">迷你豬</SelectItem>
-                  <SelectItem value="white">白豬</SelectItem>
-                  <SelectItem value="other">其他</SelectItem>
+                  <SelectItem value="all">{t('pigs.allBreeds')}</SelectItem>
+                  <SelectItem value="minipig">{t('pigs.breedLabels.minipig')}</SelectItem>
+                  <SelectItem value="white">{t('pigs.breedLabels.white')}</SelectItem>
+                  <SelectItem value="other">{t('pigs.breedLabels.other')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -683,7 +684,7 @@ export function PigsPage() {
             {selectedPigs.length > 0 && (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-slate-500">
-                  已選擇 {selectedPigs.length} 隻
+                  {t('pigs.selectedCount', { count: selectedPigs.length })}
                 </span>
                 {statusFilter === 'unassigned' && (
                   <Button
@@ -725,17 +726,17 @@ export function PigsPage() {
                         className="rounded border-slate-300"
                       />
                     </TableHead>
-                    <TableHead>系統號</TableHead>
-                    <TableHead>耳號</TableHead>
-                    <TableHead>欄位</TableHead>
-                    <TableHead>IACUC NO.</TableHead>
-                    <TableHead>狀態</TableHead>
-                    <TableHead>品種</TableHead>
-                    <TableHead>性別</TableHead>
-                    <TableHead>用藥中</TableHead>
-                    <TableHead>獸醫建議</TableHead>
-                    <TableHead>進場日期</TableHead>
-                    <TableHead className="text-right">動作</TableHead>
+                    <TableHead>{t('pigs.systemNo')}</TableHead>
+                    <TableHead>{t('pigs.earTag')}</TableHead>
+                    <TableHead>{t('pigs.pen')}</TableHead>
+                    <TableHead>{t('pigs.iacucNo')}</TableHead>
+                    <TableHead>{t('pigs.status')}</TableHead>
+                    <TableHead>{t('pigs.breed')}</TableHead>
+                    <TableHead>{t('pigs.gender')}</TableHead>
+                    <TableHead>{t('pigs.onMedicationShort')}</TableHead>
+                    <TableHead>{t('pigs.vetRecommendation')}</TableHead>
+                    <TableHead>{t('pigs.entryDate')}</TableHead>
+                    <TableHead className="text-right">{t('pigs.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -761,7 +762,7 @@ export function PigsPage() {
                           {pig.ear_tag}
                         </Link>
                       </TableCell>
-                      <TableCell>{getPenLocationDisplay(pig)}</TableCell>
+                      <TableCell>{getPenLocationDisplay(pig, t)}</TableCell>
                       <TableCell>
                         {pig.iacuc_no || (
                           <span className="text-slate-400">未分配</span>
@@ -769,22 +770,22 @@ export function PigsPage() {
                       </TableCell>
                       <TableCell>
                         <Badge className={statusColors[pig.status]}>
-                          {allPigStatusNames[pig.status]}
+                          {t(`pigs.statusLabels.${pig.status}`)}
                         </Badge>
                       </TableCell>
-                      <TableCell>{pig.breed === 'other' ? (pig.breed_other || '其他') : pigBreedNames[pig.breed]}</TableCell>
-                      <TableCell>{pigGenderNames[pig.gender]}</TableCell>
+                      <TableCell>{pig.breed === 'other' ? (pig.breed_other || t('pigs.breedLabels.other')) : t(`pigs.breedLabels.${pig.breed}`)}</TableCell>
+                      <TableCell>{t(`pigs.genderLabels.${pig.gender}`)}</TableCell>
                       <TableCell>
                         {pig.is_on_medication ? (
-                          <Badge variant="destructive" className="text-xs">是</Badge>
+                          <Badge variant="destructive" className="text-xs">{t('pigs.onMedication')}</Badge>
                         ) : (
-                          <span className="text-slate-400">否</span>
+                          <span className="text-slate-400">{t('pigs.notOnMedication')}</span>
                         )}
                       </TableCell>
                       <TableCell>
                         {pig.vet_recommendation_date ? (
                           <span className="text-sm text-slate-600">
-                            {new Date(pig.vet_recommendation_date).toLocaleDateString('zh-TW')}
+                            {new Date(pig.vet_recommendation_date).toLocaleDateString()}
                           </span>
                         ) : (
                           <span className="text-slate-400">-</span>
@@ -792,7 +793,7 @@ export function PigsPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <span>{new Date(pig.entry_date).toLocaleDateString('zh-TW')}</span>
+                          <span>{new Date(pig.entry_date).toLocaleDateString()}</span>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -806,12 +807,12 @@ export function PigsPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="icon" asChild>
+                          <Button variant="ghost" size="icon" asChild title={t('common.view')}>
                             <Link to={`/pigs/${pig.id}`}>
                               <Eye className="h-4 w-4" />
                             </Link>
                           </Button>
-                          <Button variant="ghost" size="icon" asChild>
+                          <Button variant="ghost" size="icon" asChild title={t('common.edit')}>
                             <Link to={`/pigs/${pig.id}/edit`}>
                               <Edit2 className="h-4 w-4" />
                             </Link>

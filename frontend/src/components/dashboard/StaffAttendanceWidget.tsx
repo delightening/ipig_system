@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { UserCheck, Clock, Loader2, UserX } from 'lucide-react'
@@ -18,7 +17,6 @@ interface PaginatedResponse<T> {
 }
 
 export function StaffAttendanceWidget() {
-    const { t, i18n } = useTranslation()
     const { data: records, isLoading, error } = useQuery({
         queryKey: ['staff-attendance-widget'],
         queryFn: async () => {
@@ -35,7 +33,7 @@ export function StaffAttendanceWidget() {
 
     const formatTime = (timeStr: string | null) => {
         if (!timeStr) return '--:--'
-        return new Date(timeStr).toLocaleTimeString(i18n.language, {
+        return new Date(timeStr).toLocaleTimeString('zh-TW', {
             hour: '2-digit',
             minute: '2-digit',
         })
@@ -45,13 +43,13 @@ export function StaffAttendanceWidget() {
         const lowerStatus = status.toLowerCase()
         switch (lowerStatus) {
             case 'normal':
-                return <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 border-none text-[10px]">{t('dashboard.widgets.attendance.statusNormal')}</Badge>
+                return <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 border-none text-[10px]">正常</Badge>
             case 'late':
-                return <Badge variant="destructive" className="text-[10px]">{t('dashboard.widgets.attendance.statusLate')}</Badge>
+                return <Badge variant="destructive" className="text-[10px]">遲到</Badge>
             case 'leave':
-                return <Badge variant="outline" className="text-[10px]">{t('dashboard.widgets.attendance.statusLeave')}</Badge>
+                return <Badge variant="outline" className="text-[10px]">請假</Badge>
             default:
-                return <Badge variant="secondary" className="text-[10px]">{t('dashboard.widgets.attendance.statusNormal')}</Badge>
+                return <Badge variant="secondary" className="text-[10px]">正常</Badge>
         }
     }
 
@@ -61,7 +59,7 @@ export function StaffAttendanceWidget() {
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                         <UserCheck className="h-4 w-4 text-emerald-500" />
-                        {t('dashboard.widgets.names.staff_attendance')}
+                        員工出勤狀態
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="flex items-center justify-center py-10">
@@ -77,11 +75,11 @@ export function StaffAttendanceWidget() {
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                         <UserCheck className="h-4 w-4 text-emerald-500" />
-                        {t('dashboard.widgets.names.staff_attendance')}
+                        員工出勤狀態
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-sm text-muted-foreground">{t('dashboard.widgets.common.loadFailed')}</p>
+                    <p className="text-sm text-muted-foreground">載入失敗</p>
                 </CardContent>
             </Card>
         )
@@ -92,9 +90,9 @@ export function StaffAttendanceWidget() {
             <CardHeader className="pb-2 border-b bg-muted/30">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <UserCheck className="h-4 w-4 text-emerald-500" />
-                    {t('dashboard.widgets.names.staff_attendance')}
+                    員工出勤狀態
                 </CardTitle>
-                <CardDescription className="text-xs">{t('dashboard.widgets.attendance.description')}</CardDescription>
+                <CardDescription className="text-xs">顯示今日團隊成員的出勤彙總資訊</CardDescription>
             </CardHeader>
             <CardContent className="flex-1 overflow-auto p-0">
                 {records && records.length > 0 ? (
@@ -117,7 +115,7 @@ export function StaffAttendanceWidget() {
                                         <Clock className="h-3 w-3" />
                                         <span>{record.clock_in ? formatTime(record.clock_in) : '--:--'}</span>
                                     </div>
-                                    <p className="text-[10px] text-muted-foreground mt-0.5">{t('dashboard.widgets.attendance.clockIn')}</p>
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">簽到時間</p>
                                 </div>
                             </div>
                         ))}
@@ -125,7 +123,7 @@ export function StaffAttendanceWidget() {
                 ) : (
                     <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
                         <UserX className="h-8 w-8 mb-2 opacity-20" />
-                        <p className="text-xs">{t('dashboard.widgets.attendance.noRecords')}</p>
+                        <p className="text-xs">尚無出勤紀錄</p>
                     </div>
                 )}
             </CardContent>

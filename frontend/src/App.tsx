@@ -56,6 +56,9 @@ import { PurchaseLinesReportPage } from '@/pages/reports/PurchaseLinesReportPage
 import { SalesLinesReportPage } from '@/pages/reports/SalesLinesReportPage'
 import { CostSummaryReportPage } from '@/pages/reports/CostSummaryReportPage'
 
+// ERP Page
+import { ErpPage } from '@/pages/erp/ErpPage'
+
 // AUP Protocol Pages
 import { ProtocolsPage } from '@/pages/protocols/ProtocolsPage'
 import { ProtocolDetailPage } from '@/pages/protocols/ProtocolDetailPage'
@@ -192,8 +195,8 @@ function App() {
                     {/* ERP 模組路由 */}
                     <Route element={<ErpRoute />}>
                         <Route path="/dashboard" element={<DashboardPage />} />
+                        <Route path="/erp" element={<ErpPage />} />
 
-                        {/* 基礎資料 */}
                         <Route path="/products" element={<ProductsPage />} />
                         <Route path="/products/new" element={<CreateProductPage />} />
                         <Route path="/products/:id" element={<ProductDetailPage />} />
