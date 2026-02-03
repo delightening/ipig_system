@@ -677,6 +677,7 @@ impl EmailService {
         iacuc_no: Option<&str>,
         record_type: &str,
         recommendation_content: &str,
+        is_urgent: bool,  // 新增：緊急標記
     ) -> anyhow::Result<()> {
         if !config.is_email_enabled() {
             tracing::info!(
@@ -690,6 +691,17 @@ impl EmailService {
         let pigs_url = format!("{}/pigs", config.app_url);
         let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 
+        // 根據緊急程度調整樣式
+        let (header_bg, header_icon, urgency_note) = if is_urgent {
+            (
+                "#dc2626",
+                "🚨",
+                "<p style=\"color: #dc2626; font-weight: bold;\">⚠️ 此為緊急建議，請立即處理！</p>"
+            )
+        } else {
+            ("#059669", "🩺", "")
+        };
+
         let html_body = format!(
             r#"<!DOCTYPE html>
 <html>
@@ -698,11 +710,11 @@ impl EmailService {
     <style>
         body {{ font-family: 'Microsoft JhengHei', Arial, sans-serif; line-height: 1.6; color: #333; }}
         .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background: #059669; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }}
+        .header {{ background: {header_bg}; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }}
         .content {{ background: #f8fafc; padding: 30px; border: 1px solid #e2e8f0; }}
-        .info-box {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #059669; }}
+        .info-box {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid {header_bg}; }}
         .recommendation {{ background: #ecfdf5; padding: 15px; border-radius: 8px; margin: 15px 0; }}
-        .button {{ display: inline-block; background: #059669; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; }}
+        .button {{ display: inline-block; background: {header_bg}; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; }}
         .footer {{ text-align: center; padding: 20px; color: #64748b; font-size: 12px; }}
     </style>
 </head>
@@ -712,10 +724,11 @@ impl EmailService {
             <div style="text-align: center; margin-bottom: 15px;">
                 <img src="{logo_url}" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
             </div>
-            <h1>🩺 獸醫師建議通知</h1>
+            <h1>{header_icon} 獸醫師建議通知</h1>
         </div>
         <div class="content">
             <p>親愛的 <strong>{display_name}</strong>，您好！</p>
+            {urgency_note}
             <p>獸醫師已對以下豬隻新增照護建議，請查閱並執行。</p>
             
             <div class="info-box">
@@ -740,6 +753,9 @@ impl EmailService {
     </div>
 </body>
 </html>"#,
+            header_bg = header_bg,
+            header_icon = header_icon,
+            urgency_note = urgency_note,
             display_name = display_name,
             ear_tag = ear_tag,
             iacuc_no = iacuc_no.unwrap_or("-"),
@@ -749,12 +765,15 @@ impl EmailService {
             logo_url = logo_url,
         );
 
+        let urgency_prefix = if is_urgent { "[緊急] " } else { "" };
+        let plain_urgency = if is_urgent { "⚠️ 此為緊急建議，請立即處理！\n\n" } else { "" };
+
         let plain_body = format!(
             r#"獸醫師建議通知
 
 親愛的 {display_name}，您好！
 
-獸醫師已對以下豬隻新增照護建議，請查閱並執行。
+{plain_urgency}獸醫師已對以下豬隻新增照護建議，請查閱並執行。
 
 【豬隻資訊】
 耳號：{ear_tag}
@@ -769,6 +788,7 @@ IACUC NO.：{iacuc_no}
 此信件由系統自動發送，請勿直接回覆。
 © 2026 豬博士動物科技有限公司"#,
             display_name = display_name,
+            plain_urgency = plain_urgency,
             ear_tag = ear_tag,
             iacuc_no = iacuc_no.unwrap_or("-"),
             record_type = record_type,
@@ -781,15 +801,16 @@ IACUC NO.：{iacuc_no}
             smtp_host,
             to_email,
             display_name,
-            &format!("[iPig] 獸醫師建議 - 耳號 {}", ear_tag),
+            &format!("{}[iPig] 獸醫師建議 - 耳號 {}", urgency_prefix, ear_tag),
             &plain_body,
             &html_body,
         )
         .await?;
 
-        tracing::info!("Vet recommendation email sent to {}", to_email);
+        tracing::info!("Vet recommendation email sent to {} (urgent: {})", to_email, is_urgent);
         Ok(())
     }
+
 
     /// 寄送低庫存提醒
     pub async fn send_low_stock_alert_email(

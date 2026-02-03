@@ -595,11 +595,32 @@
 6. ✅ **使用者管理功能增強 (2026-02-03)**
    - 使用者資料新增「學經歷」欄位（後端 migration + DTO + UserService）
    - 使用者管理介面新增學經歷編輯（Textarea）
+   - 使用者資料新增「entry_date」入職日期欄位，用於計算年資
+   - 使用者資料新增「years_experience」、「position」、「aup_roles」、「trainings」欄位
 
-7. 🔶 **待完成項目**
-   - AUP 第 8 節人員名單整合學經歷欄位
-   - 個人「人員設定」頁面：允許員工自行維護學經歷、教育訓練課程
-   - Amendment 前端頁面開發
+7. ✅ **角色權限系統強化 (2026-02-03)**
+   - 角色權限驗證 - 確保每個權限名稱正確且各角色擁有適當存取權
+   - Admin 完整權限 - 確保系統管理員擁有所有權限
+   - 使用者建立錯誤修復 - 解決 422 BusinessRule 錯誤，修正權限檢查與資料驗證邏輯
+
+8. ✅ **AUP 審查系統改進 (2026-02-03)**
+   - 條件式人員對話框 - PI 角色顯示文字輸入，Co-editor 角色顯示員工下拉選單
+   - 人員名稱修正 - 更新「許芮蓁」為「芮蓁」
+   - Protocol 表單預設值修復 - 修正 personnel、training_certificates、roles 陣列初始化
+
+9. ✅ **獸醫師通知增強 (2026-02-03)**
+   - 緊急旗標功能 - 獸醫師建議新增 is_urgent 欄位
+   - 差異化通知發送 - 緊急建議觸發站內通知 + Email，一般建議僅觸發站內通知
+   - 後端 AnimalService、NotificationService、EmailService 更新
+
+10. ✅ **編譯錯誤修復 (2026-02-03)**
+    - UserResponse struct 更新 - 新增 entry_date、experience、position、aup_roles、years_experience、trainings 欄位
+    - JSX 語法修復 - UsersPage.tsx 標籤正確閉合
+    - Docker 容器建置成功
+
+11. 🔶 **待完成項目**
+    - 個人「人員設定」頁面：允許員工自行維護學經歷、教育訓練課程
+    - Amendment 前端頁面開發
 
 **v1.0 已完成，系統可正式上線！**
 

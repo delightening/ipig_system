@@ -543,7 +543,8 @@ export function ProtocolEditPage() {
     years_experience: 0,
     trainings: [] as string[],
     trainings_other_text: '', // 如果選擇 F.其他，需要填寫說明
-    training_certificates: [] as Array<{ training_code: string; certificate_no: string }>
+    training_certificates: [] as Array<{ training_code: string; certificate_no: string }>,
+    bio: '' // 學經歷
   })
   const [isSaving, setIsSaving] = useState(false)
 
@@ -562,7 +563,17 @@ export function ProtocolEditPage() {
   const { data: staffMembers = [] } = useQuery({
     queryKey: ['staff'],
     queryFn: async () => {
-      const response = await api.get<{ id: string, display_name: string, email: string }[]>('/hr/staff')
+      const response = await api.get<{
+        id: string
+        display_name: string
+        email: string
+        experience?: string
+        entry_date?: string
+        position?: string
+        aup_roles?: string[]
+        years_experience?: number
+        trainings?: { code: string; certificate_no?: string; received_date?: string }[]
+      }[]>('/hr/staff')
       return response.data
     },
   })
@@ -3791,7 +3802,8 @@ export function ProtocolEditPage() {
                           years_experience: 0,
                           trainings: [],
                           trainings_other_text: '',
-                          training_certificates: []
+                          training_certificates: [],
+                          bio: ''
                         })
                         setIsAddPersonnelDialogOpen(true)
                       }}
@@ -3801,7 +3813,7 @@ export function ProtocolEditPage() {
                   </div>
                   <div className="border rounded-md overflow-hidden">
                     <div className="overflow-x-auto">
-                      <table className="w-full border-collapse table-fixed">
+                      <table className="w-full border-collapse">
                         <thead>
                           <tr className="bg-slate-100">
                             <th className="border p-2 text-center text-sm font-semibold w-16">{t('aup.personnel.table.num')}</th>
@@ -3828,7 +3840,7 @@ export function ProtocolEditPage() {
                               </td>
                               <td className="border p-2 w-24">
                                 <div className="px-2 py-1 truncate">
-                                  {person.position || '-'}
+                                  研究人員
                                 </div>
                               </td>
                               <td className="border p-2 w-32"> {/* Work Content */}
@@ -3852,7 +3864,7 @@ export function ProtocolEditPage() {
                               </td>
                               <td className="border p-2 w-24">
                                 <div className="px-2 py-1 text-center">
-                                  {person.years_experience ? `${person.years_experience}${t('aup.personnel.experienceUnit')}` : '-'}
+                                  {person.years_experience ? `${person.years_experience} ${t('aup.personnel.experienceUnit')}` : '-'}
                                 </div>
                               </td>
                               <td className="border p-2">
@@ -3918,7 +3930,7 @@ export function ProtocolEditPage() {
                           ))}
                           {(!formData.working_content.personnel || formData.working_content.personnel.length === 0) && (
                             <tr>
-                              <td colSpan={7} className="border p-4 text-center text-muted-foreground">
+                              <td colSpan={8} className="border p-4 text-center text-muted-foreground">
                                 {t('aup.personnel.table.noPersonnel')}
                               </td>
                             </tr>
@@ -4017,36 +4029,61 @@ export function ProtocolEditPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>{t('aup.personnel.addDialog.labels.name')} *</Label>
-                    <div className="flex gap-2">
-                      <Select
-                        onValueChange={(value) => {
-                          const selectedStaff = staffMembers.find((s: any) => s.id === value)
-                          if (selectedStaff) {
-                            setNewPersonnel({
-                              ...newPersonnel,
-                              name: selectedStaff.display_name
-                            })
-                          }
-                        }}
-                      >
-                        <SelectTrigger className="w-48">
-                          <SelectValue placeholder={t('aup.personnel.addDialog.placeholders.name')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {staffMembers.map((staff: any) => (
-                            <SelectItem key={staff.id} value={staff.id}>
-                              {staff.display_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    {isIACUCStaff ? (
+                      <div className="flex gap-2">
+                        <Select
+                          onValueChange={(value) => {
+                            const selectedStaff = staffMembers.find((s: any) => s.id === value)
+                            if (selectedStaff) {
+                              // 從入職日期計算年資，若無則使用 years_experience
+                              let calculatedYears = selectedStaff.years_experience || 0
+                              if (selectedStaff.entry_date) {
+                                const entryYear = new Date(selectedStaff.entry_date).getFullYear()
+                                const currentYear = new Date().getFullYear()
+                                calculatedYears = currentYear - entryYear
+                              }
+
+                              setNewPersonnel({
+                                ...newPersonnel,
+                                name: selectedStaff.display_name,
+                                bio: selectedStaff.experience || '',
+                                position: '研究人員',  // 固定值
+                                years_experience: calculatedYears,
+                                roles: ['b', 'c', 'd', 'f', 'g', 'h'],  // 研究人員預設工作內容
+                                trainings: (selectedStaff.trainings || []).map((t: any) => t.code),
+                                training_certificates: (selectedStaff.trainings || []).map((t: any) => ({
+                                  training_code: t.code,
+                                  certificate_no: t.certificate_no || ''
+                                }))
+                              })
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="w-48">
+                            <SelectValue placeholder={t('aup.personnel.addDialog.placeholders.name')} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {staffMembers.map((staff: any) => (
+                              <SelectItem key={staff.id} value={staff.id}>
+                                {staff.display_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          value={newPersonnel.name}
+                          onChange={(e) => setNewPersonnel({ ...newPersonnel, name: e.target.value })}
+                          placeholder={t('aup.personnel.addDialog.placeholders.name')}
+                          className="flex-1"
+                        />
+                      </div>
+                    ) : (
                       <Input
                         value={newPersonnel.name}
                         onChange={(e) => setNewPersonnel({ ...newPersonnel, name: e.target.value })}
                         placeholder={t('aup.personnel.addDialog.placeholders.name')}
-                        className="flex-1"
                       />
-                    </div>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>{t('aup.personnel.addDialog.labels.position')}</Label>
@@ -4105,6 +4142,15 @@ export function ProtocolEditPage() {
                     value={newPersonnel.years_experience || ''}
                     onChange={(e) => setNewPersonnel({ ...newPersonnel, years_experience: parseInt(e.target.value) || 0 })}
                     placeholder={t('aup.personnel.addDialog.placeholders.experience')}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('aup.personnel.addDialog.labels.bio')}</Label>
+                  <Textarea
+                    value={newPersonnel.bio}
+                    onChange={(e) => setNewPersonnel({ ...newPersonnel, bio: e.target.value })}
+                    placeholder={t('aup.personnel.addDialog.placeholders.bio')}
+                    rows={3}
                   />
                 </div>
                 <div className="space-y-2">

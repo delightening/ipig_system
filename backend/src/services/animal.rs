@@ -1356,14 +1356,15 @@ impl AnimalService {
     ) -> Result<VetRecommendation> {
         let recommendation = sqlx::query_as::<_, VetRecommendation>(
             r#"
-            INSERT INTO vet_recommendations (record_type, record_id, content, created_by, created_at)
-            VALUES ($1, $2, $3, $4, NOW())
+            INSERT INTO vet_recommendations (record_type, record_id, content, is_urgent, created_by, created_at)
+            VALUES ($1, $2, $3, $4, $5, NOW())
             RETURNING *
             "#
         )
         .bind(&record_type)
         .bind(record_id)
         .bind(&req.content)
+        .bind(req.is_urgent)
         .bind(created_by)
         .fetch_one(pool)
         .await?;
@@ -1381,8 +1382,8 @@ impl AnimalService {
     ) -> Result<VetRecommendation> {
         let recommendation = sqlx::query_as::<_, VetRecommendation>(
             r#"
-            INSERT INTO vet_recommendations (record_type, record_id, content, attachments, created_by, created_at)
-            VALUES ($1, $2, $3, $4, $5, NOW())
+            INSERT INTO vet_recommendations (record_type, record_id, content, attachments, is_urgent, created_by, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, NOW())
             RETURNING *
             "#
         )
@@ -1390,6 +1391,7 @@ impl AnimalService {
         .bind(record_id)
         .bind(&req.content)
         .bind(&req.attachments)
+        .bind(req.is_urgent)
         .bind(created_by)
         .fetch_one(pool)
         .await?;

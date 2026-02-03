@@ -24,7 +24,7 @@ pub async fn create_user(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<CreateUserRequest>,
 ) -> Result<Json<UserResponse>> {
-    require_permission!(current_user, "dev.user.create");
+    require_permission!(current_user, "admin.user.create");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     // 保存原始密碼用於發送歡迎郵件
@@ -52,7 +52,7 @@ pub async fn list_users(
     Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<UserQuery>,
 ) -> Result<Json<Vec<UserResponse>>> {
-    require_permission!(current_user, "dev.user.view");
+    require_permission!(current_user, "admin.user.view");
     
     let users = UserService::list(&state.db, query.keyword.as_deref()).await?;
     Ok(Json(users))
@@ -64,7 +64,7 @@ pub async fn get_user(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<UserResponse>> {
-    require_permission!(current_user, "dev.user.view");
+    require_permission!(current_user, "admin.user.view");
     
     let user = UserService::get_by_id(&state.db, id).await?;
     Ok(Json(user))
@@ -77,7 +77,7 @@ pub async fn update_user(
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateUserRequest>,
 ) -> Result<Json<UserResponse>> {
-    require_permission!(current_user, "dev.user.edit");
+    require_permission!(current_user, "admin.user.edit");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let user = UserService::update(&state.db, id, &req).await?;
@@ -90,7 +90,7 @@ pub async fn delete_user(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
-    require_permission!(current_user, "dev.user.delete");
+    require_permission!(current_user, "admin.user.delete");
     
     UserService::delete(&state.db, id).await?;
     Ok(Json(serde_json::json!({ "message": "User deleted successfully" })))

@@ -34,6 +34,14 @@ impl Default for LanguagePreference {
     }
 }
 
+/// 使用者訓練/資格資料
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct UserTraining {
+    pub code: String,                    // A~F
+    pub certificate_no: Option<String>,  // 證書編號
+    pub received_date: Option<String>,   // 取得時間
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct User {
     pub id: Uuid,
@@ -54,7 +62,12 @@ pub struct User {
     pub language_preference: String,
     // 時間戳
     pub last_login_at: Option<DateTime<Utc>>,
-    pub experience: Option<String>,
+    // AUP 第 8 節人員資料
+    pub entry_date: Option<chrono::NaiveDate>,
+    pub position: Option<String>,
+    pub aup_roles: Vec<String>,
+    pub years_experience: i32,
+    pub trainings: sqlx::types::Json<Vec<UserTraining>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -74,7 +87,12 @@ pub struct UserWithRoles {
     pub theme_preference: String,
     pub language_preference: String,
     pub last_login_at: Option<DateTime<Utc>>,
-    pub experience: Option<String>,
+    // AUP 第 8 節人員資料
+    pub entry_date: Option<chrono::NaiveDate>,
+    pub position: Option<String>,
+    pub aup_roles: Vec<String>,
+    pub years_experience: i32,
+    pub trainings: sqlx::types::Json<Vec<UserTraining>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub roles: Vec<String>,
@@ -91,7 +109,15 @@ pub struct CreateUserRequest {
     pub display_name: String,
     pub phone: Option<String>,
     pub organization: Option<String>,
-    pub experience: Option<String>,
+    // AUP 第 8 節人員資料
+    pub entry_date: Option<chrono::NaiveDate>,
+    pub position: Option<String>,
+    #[serde(default)]
+    pub aup_roles: Vec<String>,
+    #[serde(default)]
+    pub years_experience: i32,
+    #[serde(default)]
+    pub trainings: Vec<UserTraining>,
     #[serde(default = "default_is_internal")]
     pub is_internal: bool,
     #[serde(default)]
@@ -110,7 +136,12 @@ pub struct UpdateUserRequest {
     pub display_name: Option<String>,
     pub phone: Option<String>,
     pub organization: Option<String>,
-    pub experience: Option<String>,
+    // AUP 第 8 節人員資料
+    pub entry_date: Option<chrono::NaiveDate>,
+    pub position: Option<String>,
+    pub aup_roles: Option<Vec<String>>,
+    pub years_experience: Option<i32>,
+    pub trainings: Option<Vec<UserTraining>>,
     pub is_internal: Option<bool>,
     pub is_active: Option<bool>,
     pub role_ids: Option<Vec<Uuid>>,
@@ -147,7 +178,12 @@ pub struct UserResponse {
     pub theme_preference: String,
     pub language_preference: String,
     pub last_login_at: Option<DateTime<Utc>>,
-    pub experience: Option<String>,
+    // AUP 第 8 節人員資料
+    pub entry_date: Option<chrono::NaiveDate>,
+    pub position: Option<String>,
+    pub aup_roles: Vec<String>,
+    pub years_experience: i32,
+    pub trainings: Vec<UserTraining>,
     pub roles: Vec<String>,
     pub permissions: Vec<String>,
 }

@@ -11,6 +11,7 @@ interface AuthState {
   isImpersonating: boolean
   impersonate: (userId: string) => Promise<void>
   stopImpersonating: () => Promise<void>
+  checkAuth: () => Promise<void>
   hasPermission: (permission: string) => boolean
   hasRole: (role: string) => boolean
 }

@@ -718,6 +718,12 @@ pub struct StaffInfo {
     pub id: uuid::Uuid,
     pub display_name: String,
     pub email: String,
+    // AUP 第 8 節人員資料
+    pub entry_date: Option<chrono::NaiveDate>,
+    pub position: Option<String>,
+    pub aup_roles: Vec<String>,
+    pub years_experience: i32,
+    pub trainings: serde_json::Value,
 }
 
 /// 取得工作人員列表（供請假代理人選擇）
@@ -726,9 +732,13 @@ pub async fn list_staff_for_proxy(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<StaffInfo>>> {
-    let staff = sqlx::query_as::<_, (uuid::Uuid, String, String)>(
+    let staff = sqlx::query_as::<_, (
+        uuid::Uuid, String, String,
+        Option<chrono::NaiveDate>, Option<String>, Vec<String>, i32, serde_json::Value
+    )>(
         r#"
-        SELECT DISTINCT u.id, u.display_name, u.email
+        SELECT DISTINCT u.id, u.display_name, u.email,
+               u.entry_date, u.position, u.aup_roles, u.years_experience, u.trainings
         FROM users u
         INNER JOIN user_roles ur ON u.id = ur.user_id
         INNER JOIN roles r ON ur.role_id = r.id
@@ -742,7 +752,8 @@ pub async fn list_staff_for_proxy(
     
     let result: Vec<StaffInfo> = staff
         .into_iter()
-        .map(|(id, display_name, email)| StaffInfo { id, display_name, email })
+        .map(|(id, display_name, email, entry_date, position, aup_roles, years_experience, trainings)| 
+            StaffInfo { id, display_name, email, entry_date, position, aup_roles, years_experience, trainings })
         .collect();
     
     Ok(Json(result))
@@ -763,9 +774,13 @@ pub async fn list_internal_users_for_balance(
         ));
     }
     
-    let staff = sqlx::query_as::<_, (uuid::Uuid, String, String)>(
+    let staff = sqlx::query_as::<_, (
+        uuid::Uuid, String, String,
+        Option<chrono::NaiveDate>, Option<String>, Vec<String>, i32, serde_json::Value
+    )>(
         r#"
-        SELECT u.id, u.display_name, u.email
+        SELECT u.id, u.display_name, u.email,
+               u.entry_date, u.position, u.aup_roles, u.years_experience, u.trainings
         FROM users u
         WHERE u.is_active = true
         AND u.is_internal = true
@@ -777,7 +792,8 @@ pub async fn list_internal_users_for_balance(
     
     let result: Vec<StaffInfo> = staff
         .into_iter()
-        .map(|(id, display_name, email)| StaffInfo { id, display_name, email })
+        .map(|(id, display_name, email, entry_date, position, aup_roles, years_experience, trainings)| 
+            StaffInfo { id, display_name, email, entry_date, position, aup_roles, years_experience, trainings })
         .collect();
     
     Ok(Json(result))

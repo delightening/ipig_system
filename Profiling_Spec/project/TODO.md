@@ -5,12 +5,15 @@
 ## 🚧 今日未完成事項 (2026-02-03)
 
 ### AUP 審查系統
-- [ ] ProtocolEditPage 整合學經歷欄位 - 整合至第 8 節人員名單，支援自動填入
 - [ ] /api/hr/staff 後端端點更新 - 支援回傳學經歷欄位
 - [ ] UUID 遷移完整測試 - 執行資料庫遷移並進行端對端測試 (遺留)
 
 ### 其他
-- [ ] Docker 建置測試 - 確認後端與前端建置成功 (遺留)
+- [x] Docker 建置測試 - 確認後端與前端建置成功 ✅ 已完成
+
+### 📝 技術備註
+- **權限代碼命名**: `main.rs` 使用 `animal.*` 開頭，但部分 migration 使用 `pig.*`。系統透過 `ensure_required_permissions()` 在啟動時補齊。
+- **Admin 全權限**: Migration `027_admin_all_permissions.sql` 確保 admin 擁有所有權限。
 
 ---
 
@@ -141,6 +144,28 @@
 - [x] 新增「學經歷」欄位 - 在使用者管理介面新增「學經歷」多行文字框，支援建立與編輯
 - [x] 資料庫遷移 `023_add_user_experience.sql` - users 表新增 `experience` 欄位
 - [x] 端點更新 - `UserService` 與相關 DTO 支援 `experience` 欄位
+- [x] 新增「entry_date」入職日期欄位 - 用於計算員工年資 `years_experience`
+- [x] 新增「position」、「aup_roles」、「trainings」欄位 - 完善使用者資料結構
+
+### 角色權限系統強化
+- [x] 角色權限驗證 - 確保每個權限名稱正確，各角色擁有適當的存取權限
+- [x] Admin 完整權限 - 確保系統管理員（admin）擁有所有權限
+- [x] 使用者建立錯誤修復 - 解決 422 BusinessRule 錯誤，修正權限檢查與資料驗證邏輯
+
+### AUP 審查系統改進
+- [x] 條件式人員對話框 - PI 角色顯示文字輸入框，Co-editor 角色顯示員工下拉選單
+- [x] 人員名稱修正 - 更新「許芮蓁」為「芮蓁」
+- [x] Protocol 表單錯誤修復 - 修正 personnel、training_certificates、roles 陣列初始化問題
+
+### 獸醫師通知增強
+- [x] 緊急旗標功能 - 獸醫師建議新增 `is_urgent` 欄位
+- [x] 差異化通知發送 - 緊急建議觸發站內通知 + Email，一般建議僅觸發站內通知
+- [x] 後端服務更新 - AnimalService、NotificationService、EmailService 支援緊急旗標邏輯
+
+### 編譯錯誤修復
+- [x] UserResponse struct 更新 - 新增 entry_date、experience、position、aup_roles、years_experience、trainings 欄位
+- [x] JSX 語法修復 - UsersPage.tsx 標籤正確閉合
+- [x] Docker 容器建置成功
 
 ---
 
@@ -178,6 +203,7 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-02-03 | 角色權限驗證、Admin 完整權限、使用者建立錯誤修復、條件式人員對話框、獸醫師通知緊急旗標、entry_date 欄位、編譯錯誤修復、Docker 建置成功 |
 | 2026-02-03 | 新增學經歷欄位（後端/使用者管理前端）、規劃 AUP 第 8 節整合 |
 | 2026-02-02 | 新增今日未完成事項：UUID 遷移測試、Emergency Medication UI、Euthanasia Workflow、AUP 翻譯驗證、Reviewer Anonymization 測試、權限分類驗證 |
 | 2026-01-19 | GLP 前端整合完成、HR 特休管理、協編者權限、PDF 全 9 節完成、審查意見回覆、頁面整合 |

@@ -31,10 +31,11 @@ impl UserService {
         let user = sqlx::query_as::<_, User>(
             r#"
             INSERT INTO users (
-                id, email, password_hash, display_name, phone, organization, experience,
+                id, email, password_hash, display_name, phone, organization,
+                entry_date, position, aup_roles, years_experience, trainings,
                 is_internal, is_active, must_change_password, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, true, NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, true, true, NOW(), NOW())
             RETURNING *
             "#
         )
@@ -44,7 +45,11 @@ impl UserService {
         .bind(&req.display_name)
         .bind(&req.phone)
         .bind(&req.organization)
-        .bind(&req.experience)
+        .bind(&req.entry_date)
+        .bind(&req.position)
+        .bind(&req.aup_roles)
+        .bind(req.years_experience)
+        .bind(sqlx::types::Json(&req.trainings))
         .bind(req.is_internal)
         .fetch_one(pool)
         .await?;
@@ -96,7 +101,11 @@ impl UserService {
                 theme_preference: user.theme_preference,
                 language_preference: user.language_preference,
                 last_login_at: user.last_login_at,
-                experience: user.experience,
+                entry_date: user.entry_date,
+                position: user.position,
+                aup_roles: user.aup_roles,
+                years_experience: user.years_experience,
+                trainings: user.trainings.0,
                 roles,
                 permissions,
             });
@@ -127,7 +136,11 @@ impl UserService {
             theme_preference: user.theme_preference,
             language_preference: user.language_preference,
             last_login_at: user.last_login_at,
-            experience: user.experience,
+            entry_date: user.entry_date,
+            position: user.position,
+            aup_roles: user.aup_roles,
+            years_experience: user.years_experience,
+            trainings: user.trainings.0,
             roles,
             permissions,
         })
@@ -158,6 +171,7 @@ impl UserService {
         }
 
         // 更新用戶
+        let trainings_json = req.trainings.as_ref().map(|t| sqlx::types::Json(t));
         let updated_user = sqlx::query_as::<_, User>(
             r#"
             UPDATE users SET
@@ -165,11 +179,15 @@ impl UserService {
                 display_name = COALESCE($2, display_name),
                 phone = COALESCE($3, phone),
                 organization = COALESCE($4, organization),
-                experience = COALESCE($5, experience),
-                is_internal = COALESCE($6, is_internal),
-                is_active = COALESCE($7, is_active),
+                entry_date = COALESCE($5, entry_date),
+                position = COALESCE($6, position),
+                aup_roles = COALESCE($7, aup_roles),
+                years_experience = COALESCE($8, years_experience),
+                trainings = COALESCE($9, trainings),
+                is_internal = COALESCE($10, is_internal),
+                is_active = COALESCE($11, is_active),
                 updated_at = NOW()
-            WHERE id = $8
+            WHERE id = $12
             RETURNING *
             "#
         )
@@ -177,7 +195,11 @@ impl UserService {
         .bind(&req.display_name)
         .bind(&req.phone)
         .bind(&req.organization)
-        .bind(&req.experience)
+        .bind(&req.entry_date)
+        .bind(&req.position)
+        .bind(&req.aup_roles)
+        .bind(req.years_experience)
+        .bind(&trainings_json)
         .bind(req.is_internal)
         .bind(req.is_active)
         .bind(id)
@@ -216,7 +238,11 @@ impl UserService {
             theme_preference: updated_user.theme_preference,
             language_preference: updated_user.language_preference,
             last_login_at: updated_user.last_login_at,
-            experience: updated_user.experience,
+            entry_date: updated_user.entry_date,
+            position: updated_user.position,
+            aup_roles: updated_user.aup_roles,
+            years_experience: updated_user.years_experience,
+            trainings: updated_user.trainings.0,
             roles,
             permissions,
         })

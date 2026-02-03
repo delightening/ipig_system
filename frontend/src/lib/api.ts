@@ -86,6 +86,12 @@ export function formatEarTag(earTag: string): string {
 export default api
 
 // API Types
+export interface UserTraining {
+  code: string
+  certificate_no?: string
+  received_date?: string
+}
+
 export interface User {
   id: string
   email: string
@@ -95,6 +101,12 @@ export interface User {
   permissions: string[]
   must_change_password?: boolean
   experience?: string | null
+  // AUP 第 8 節人員資料
+  entry_date?: string | null
+  position?: string | null
+  aup_roles?: string[]
+  years_experience?: number
+  trainings?: UserTraining[]
 }
 
 export interface LoginResponse {
@@ -872,11 +884,13 @@ export interface VetRecommendation {
   record_type: 'observation' | 'surgery'
   record_id: number
   content: string
+  is_urgent: boolean
   attachments?: Record<string, unknown>
   created_by?: string
   created_by_name?: string
   created_at: string
 }
+
 
 // Pig API Request Types
 export interface CreatePigRequest {

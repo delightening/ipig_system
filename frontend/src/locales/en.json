@@ -851,6 +851,7 @@
                 "position": "Title",
                 "roles": "Responsibility",
                 "experience": "Years of Exp.",
+                "bio": "Education & Experience",
                 "trainings": "Training/Cert/Date",
                 "actions": "Actions",
                 "noPersonnel": "No personnel record, please click '+ Add' to add personnel"
@@ -881,6 +882,7 @@
                     "position": "Title",
                     "roles": "Responsibility",
                     "experience": "Years of Exp. in Animal Study",
+                    "bio": "Education & Experience",
                     "trainings": "Training/Qualification",
                     "certNo": "Cert. No."
                 },
@@ -889,6 +891,7 @@
                     "position": "Enter title",
                     "rolesOther": "Please specify other responsibility",
                     "experience": "Enter years",
+                    "bio": "Enter academic and research experience",
                     "trainingsOther": "Please specify other training/qualification",
                     "certNo": "Certificate No."
                 },

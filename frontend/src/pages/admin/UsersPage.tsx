@@ -27,12 +27,22 @@ import {
 import { useToast } from '@/components/ui/use-toast'
 import { Loader2, Users, Plus, Pencil, Trash2, Shield, UserCheck, UserX, AlertTriangle, Key, ArrowUpDown, ArrowUp, ArrowDown, LogIn } from 'lucide-react'
 
+interface UserTrainingInput {
+  code: string
+  certificate_no: string
+  received_date: string
+}
+
 interface CreateUserData {
   email: string
   password: string
   display_name: string
   role_ids: string[]
-  experience?: string
+  entry_date?: string
+  position?: string
+  aup_roles: string[]
+  years_experience: number
+  trainings: UserTrainingInput[]
 }
 
 interface UpdateUserData {
@@ -40,7 +50,11 @@ interface UpdateUserData {
   display_name?: string
   is_active?: boolean
   role_ids?: string[]
-  experience?: string
+  entry_date?: string
+  position?: string
+  aup_roles?: string[]
+  years_experience?: number
+  trainings?: UserTrainingInput[]
 }
 
 export function UsersPage() {
@@ -63,7 +77,11 @@ export function UsersPage() {
     password: '',
     display_name: '',
     role_ids: [],
-    experience: '',
+    entry_date: '',
+    position: '',
+    aup_roles: [],
+    years_experience: 0,
+    trainings: [],
   })
 
   // 排序狀態: 'asc' | 'desc' | null
@@ -133,7 +151,41 @@ export function UsersPage() {
       toast({ title: '成功', description: '用戶已創建' })
     },
     onError: (error: any) => {
-      toast({ title: '錯誤', description: error.response?.data?.error?.message || '創建失敗', variant: 'destructive' })
+      // 解析詳細的錯誤訊息
+      let errorMessage = '創建失敗'
+      const backendMessage = error.response?.data?.error?.message
+      const statusCode = error.response?.status
+
+      if (backendMessage) {
+        // 翻譯常見的驗證錯誤訊息
+        if (backendMessage.includes('Password must be at least')) {
+          errorMessage = '密碼至少需要 6 個字元'
+        } else if (backendMessage.includes('Password must contain uppercase, lowercase, and numeric')) {
+          errorMessage = '密碼必須包含大寫字母、小寫字母和數字'
+        } else if (backendMessage.includes('Invalid email format')) {
+          errorMessage = 'Email 格式不正確'
+        } else if (backendMessage.includes('Display name is required')) {
+          errorMessage = '顯示名稱為必填欄位'
+        } else if (backendMessage.includes('Email already exists')) {
+          errorMessage = '此 Email 已被使用'
+        } else if (backendMessage.includes('password')) {
+          // 其他密碼相關錯誤
+          errorMessage = `密碼錯誤: ${backendMessage}`
+        } else if (backendMessage.includes('Database error')) {
+          errorMessage = '資料庫錯誤，請聯繫系統管理員'
+        } else if (backendMessage.includes('Validation failed')) {
+          // 提取驗證失敗的詳細訊息
+          errorMessage = backendMessage.replace('Validation failed:', '驗證失敗:')
+        } else {
+          errorMessage = backendMessage
+        }
+      } else if (statusCode === 500) {
+        errorMessage = '伺服器內部錯誤，請稍後再試'
+      } else if (statusCode === 403) {
+        errorMessage = '權限不足'
+      }
+
+      toast({ title: '錯誤', description: errorMessage, variant: 'destructive' })
     },
   })
 
@@ -187,12 +239,19 @@ export function UsersPage() {
   })
 
   const resetForm = () => {
-    setFormData({ email: '', password: '', display_name: '', role_ids: [], experience: '' })
+    setFormData({
+      email: '', password: '', display_name: '', role_ids: [],
+      entry_date: '', position: '', aup_roles: [], years_experience: 0, trainings: []
+    })
   }
 
   const handleCreate = () => {
     if (!formData.email || !formData.password || !formData.display_name) {
       toast({ title: '錯誤', description: '請填寫所有必填欄位', variant: 'destructive' })
+      return
+    }
+    if (formData.password.length < 6) {
+      toast({ title: '錯誤', description: '密碼至少需要 6 個字元', variant: 'destructive' })
       return
     }
     createMutation.mutate(formData)
@@ -205,7 +264,15 @@ export function UsersPage() {
       password: '',
       display_name: user.display_name,
       role_ids: [],
-      experience: user.experience || '',
+      entry_date: user.entry_date || '',
+      position: user.position || '',
+      aup_roles: user.aup_roles || [],
+      years_experience: user.years_experience || 0,
+      trainings: (user.trainings || []).map(t => ({
+        code: t.code,
+        certificate_no: t.certificate_no || '',
+        received_date: t.received_date || ''
+      })),
     })
     setShowEditDialog(true)
   }
@@ -217,7 +284,11 @@ export function UsersPage() {
       data: {
         email: formData.email || undefined,
         display_name: formData.display_name || undefined,
-        experience: formData.experience || undefined,
+        entry_date: formData.entry_date || undefined,
+        position: formData.position || undefined,
+        aup_roles: formData.aup_roles,
+        years_experience: formData.years_experience,
+        trainings: formData.trainings,
       },
     })
   }
@@ -496,16 +567,7 @@ export function UsersPage() {
                 placeholder="使用者名稱"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="experience">{t('user.experience')}</Label>
-              <Textarea
-                id="experience"
-                value={formData.experience}
-                onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
-                placeholder={t('user.experiencePlaceholder')}
-                rows={4}
-              />
-            </div>
+
             <div className="space-y-2">
               <Label>指派角色</Label>
               <div className="flex flex-wrap gap-2 p-3 border rounded-md">
@@ -559,15 +621,76 @@ export function UsersPage() {
                 onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-experience">{t('user.experience')}</Label>
-              <Textarea
-                id="edit-experience"
-                value={formData.experience}
-                onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
-                placeholder={t('user.experiencePlaceholder')}
-                rows={4}
-              />
+
+
+            {/* 入職日期與訓練/資格欄位 */}
+            <div className="border-t pt-4 mt-4">
+              <h4 className="font-medium mb-3">AUP 人員資料</h4>
+
+              <div className="space-y-2 mb-4">
+                <Label htmlFor="edit-entry_date">入職日期 (Entry Date)</Label>
+                <Input
+                  id="edit-entry_date"
+                  type="date"
+                  value={formData.entry_date || ''}
+                  onChange={(e) => setFormData({ ...formData, entry_date: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>訓練/資格 (Trainings)</Label>
+                <div className="flex flex-wrap gap-2 p-3 border rounded-md">
+                  {['A', 'B', 'C', 'D', 'E', 'F'].map((code) => (
+                    <Badge
+                      key={code}
+                      variant={formData.trainings.some(t => t.code === code) ? 'default' : 'outline'}
+                      className="cursor-pointer"
+                      onClick={() => {
+                        const exists = formData.trainings.some(t => t.code === code)
+                        const newTrainings = exists
+                          ? formData.trainings.filter(t => t.code !== code)
+                          : [...formData.trainings, { code, certificate_no: '', received_date: '' }]
+                        setFormData({ ...formData, trainings: newTrainings })
+                      }}
+                    >
+                      {code}
+                    </Badge>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  A.IACUC訓練班 B.IACUC研討會 C.輻射安全 D.生醫產業研習 E.動物法規管理班 F.其他
+                </p>
+
+                {formData.trainings.length > 0 && (
+                  <div className="space-y-2 mt-3">
+                    {formData.trainings.map((training, idx) => (
+                      <div key={training.code} className="flex gap-2 items-center">
+                        <Badge variant="secondary">{training.code}</Badge>
+                        <Input
+                          placeholder="證書編號"
+                          value={training.certificate_no}
+                          onChange={(e) => {
+                            const newTrainings = [...formData.trainings]
+                            newTrainings[idx] = { ...training, certificate_no: e.target.value }
+                            setFormData({ ...formData, trainings: newTrainings })
+                          }}
+                          className="w-32"
+                        />
+                        <Input
+                          type="date"
+                          value={training.received_date}
+                          onChange={(e) => {
+                            const newTrainings = [...formData.trainings]
+                            newTrainings[idx] = { ...training, received_date: e.target.value }
+                            setFormData({ ...formData, trainings: newTrainings })
+                          }}
+                          className="w-36"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <DialogFooter>
