@@ -38,6 +38,22 @@
         "closeTitle": "Confirm Close",
         "closeDescription": "Are you sure you want to close this project? This action cannot be undone."
     },
+    "profile": {
+        "settings": "Profile Settings",
+        "description": "Manage your profile, contact info and AUP personnel qualifications",
+        "updateSuccess": "Profile updated successfully",
+        "basicInfo": "Basic Information",
+        "displayName": "Display Name",
+        "email": "Email",
+        "phone": "Phone",
+        "organization": "Organization",
+        "aupSection8": "AUP Section 8 Data",
+        "entryDate": "Entry Date",
+        "position": "Position",
+        "yearsExperience": "Years of Experience",
+        "trainings": "Trainings/Qualifications",
+        "saveChanges": "Save Changes"
+    },
     "nav": {
         "dashboard": "Dashboard",
         "myProjects": "My Projects",

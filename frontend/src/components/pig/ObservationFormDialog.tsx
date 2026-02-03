@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
-import { Loader2 } from 'lucide-react'
+import { Loader2, FastForward } from 'lucide-react'
 
 // 使用儀器選項
 const EQUIPMENT_OPTIONS = [
@@ -195,12 +195,61 @@ export function ObservationFormDialog({ open, onOpenChange, pigId, earTag, obser
     mutation.mutate(formData)
   }
 
+  // 尋找下一個空白欄位
+  const jumpToNextEmptyField = () => {
+    const fields = [
+      { id: 'event_date', value: formData.event_date },
+      { id: 'anesthesia_start', value: formData.anesthesia_start },
+      { id: 'anesthesia_end', value: formData.anesthesia_end },
+      { id: 'content', value: formData.content },
+      { id: 'remark', value: formData.remark },
+    ]
+
+    const nextEmpty = fields.find(f => !f.value || f.value.trim() === '')
+    if (nextEmpty) {
+      const element = document.getElementById(nextEmpty.id)
+      if (element) {
+        element.focus()
+        toast({ title: '已跳轉', description: `跳轉至下一個空白欄位`, duration: 2000 })
+        return
+      }
+    }
+    toast({ title: '完成', description: '所有主要欄位皆已填寫', duration: 2000 })
+  }
+
+  // 快捷鍵支援 (Alt + N)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && e.key === 'n') {
+        e.preventDefault()
+        jumpToNextEmptyField()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [formData])
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? '編輯觀察試驗紀錄' : '新增觀察試驗紀錄'}</DialogTitle>
-          <DialogDescription>耳號：{earTag}</DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle>{isEdit ? '編輯觀察試驗紀錄' : '新增觀察試驗紀錄'}</DialogTitle>
+              <DialogDescription>耳號：{earTag}</DialogDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={jumpToNextEmptyField}
+              className="flex items-center gap-2 border-purple-200 text-purple-600 hover:bg-purple-50"
+              title="快捷鍵: Alt + N"
+            >
+              <FastForward className="h-4 w-4" />
+              下一個空白欄位
+            </Button>
+          </div>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">

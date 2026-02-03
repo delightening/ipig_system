@@ -65,6 +65,8 @@ import {
   AlertOctagon,
 } from 'lucide-react'
 
+import { AnimalTimelineView } from '@/components/pig/AnimalTimelineView'
+
 // Import form dialog components
 import { ObservationFormDialog } from '@/components/pig/ObservationFormDialog'
 import { SurgeryFormDialog } from '@/components/pig/SurgeryFormDialog'
@@ -93,7 +95,7 @@ const getPenLocationDisplay = (pig: { status: PigStatus; pen_location?: string |
   return pig.pen_location || '-'
 }
 
-type TabType = 'observations' | 'surgeries' | 'weights' | 'vaccinations' | 'sacrifice' | 'info' | 'pathology'
+type TabType = 'timeline' | 'observations' | 'surgeries' | 'weights' | 'vaccinations' | 'sacrifice' | 'info' | 'pathology'
 
 export function PigDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -101,7 +103,7 @@ export function PigDetailPage() {
   const queryClient = useQueryClient()
   const pigId = id!
 
-  const [activeTab, setActiveTab] = useState<TabType>('observations')
+  const [activeTab, setActiveTab] = useState<TabType>('timeline')
 
   // Dialog states
   const [showAddObservationDialog, setShowAddObservationDialog] = useState(false)
@@ -440,6 +442,7 @@ export function PigDetailPage() {
   }
 
   const tabs = [
+    { id: 'timeline' as const, label: '紀錄時間軸', icon: History },
     { id: 'observations' as const, label: '觀察試驗紀錄', icon: ClipboardList },
     { id: 'surgeries' as const, label: '手術紀錄', icon: Scissors },
     { id: 'weights' as const, label: '體重紀錄', icon: Scale },
@@ -569,7 +572,42 @@ export function PigDetailPage() {
       </div>
 
       {/* Tab Content */}
-      <div>
+      <div className="mt-6">
+        {/* 紀錄時間軸 Tab */}
+        {activeTab === 'timeline' && (
+          <AnimalTimelineView
+            observations={observations || []}
+            surgeries={surgeries || []}
+            onView={(type, id) => {
+              if (type === 'observation') setExpandedObservation(expandedObservation === id ? null : id)
+              else setExpandedSurgery(expandedSurgery === id ? null : id)
+              setActiveTab(type === 'observation' ? 'observations' : 'surgeries')
+            }}
+            onEdit={(type, record) => {
+              if (type === 'observation') {
+                setEditingObservation(record)
+                setShowAddObservationDialog(true)
+              } else {
+                setEditingSurgery(record)
+                setShowAddSurgeryDialog(true)
+              }
+            }}
+            onCopy={(type, id) => {
+              if (type === 'observation') {
+                if (confirm('確定要複製此紀錄？')) copyObservationMutation.mutate(id)
+              } else {
+                if (confirm('確定要複製此紀錄？')) copySurgeryMutation.mutate(id)
+              }
+            }}
+            onHistory={handleShowVersionHistory}
+            onVet={handleShowVetRecommendation}
+            onDelete={(type, id) => {
+              if (type === 'observation') setDeleteObservationTarget(id)
+              else setDeleteSurgeryTarget(id)
+            }}
+          />
+        )}
+
         {/* 觀察試驗紀錄 Tab */}
         {activeTab === 'observations' && (
           <Card>

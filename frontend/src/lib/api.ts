@@ -96,11 +96,12 @@ export interface User {
   id: string
   email: string
   display_name: string
+  phone?: string
+  organization?: string
   is_active: boolean
   roles: string[]
   permissions: string[]
   must_change_password?: boolean
-  experience?: string | null
   // AUP 第 8 節人員資料
   entry_date?: string | null
   position?: string | null
@@ -386,8 +387,16 @@ export interface CreateUserRequest {
 export interface UpdateUserRequest {
   email?: string
   display_name?: string
+  phone?: string
+  organization?: string
   is_active?: boolean
   role_ids?: string[]
+  // AUP 第 8 節人員資料
+  entry_date?: string | null
+  position?: string | null
+  aup_roles?: string[]
+  years_experience?: number
+  trainings?: UserTraining[]
 }
 
 export interface CreateRoleRequest {
@@ -512,6 +521,8 @@ export const protocolStatusNames: Record<ProtocolStatus, string> = {
   DELETED: '已刪除',
 }
 
+import { ProtocolWorkingContent } from '@/types/protocol'
+
 export interface Protocol {
   id: string
   protocol_no: string
@@ -519,7 +530,7 @@ export interface Protocol {
   title: string
   status: ProtocolStatus
   pi_user_id: string
-  working_content?: Record<string, unknown>
+  working_content?: ProtocolWorkingContent
   start_date?: string
   end_date?: string
   created_by: string
@@ -553,7 +564,7 @@ export interface ProtocolVersion {
   id: string
   protocol_id: string
   version_no: number
-  content_snapshot: Record<string, unknown>
+  content_snapshot: ProtocolWorkingContent
   submitted_at: string
   submitted_by: string
 }
@@ -601,14 +612,14 @@ export interface ReviewCommentResponse extends ReviewComment {
 export interface CreateProtocolRequest {
   title: string
   pi_user_id?: string
-  working_content?: Record<string, unknown>
+  working_content?: ProtocolWorkingContent
   start_date?: string
   end_date?: string
 }
 
 export interface UpdateProtocolRequest {
   title?: string
-  working_content?: Record<string, unknown>
+  working_content?: ProtocolWorkingContent
   start_date?: string
   end_date?: string
 }

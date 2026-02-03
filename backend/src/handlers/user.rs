@@ -80,7 +80,7 @@ pub async fn update_user(
     require_permission!(current_user, "admin.user.edit");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
-    let user = UserService::update(&state.db, id, &req).await?;
+    let user = UserService::update(&state.db, id, current_user.id, &req).await?;
     Ok(Json(user))
 }
 
