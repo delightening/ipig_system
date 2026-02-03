@@ -19,7 +19,7 @@ pub fn api_routes(state: AppState) -> Router {
     let protected_routes = Router::new()
         // Auth
         .route("/auth/logout", post(handlers::logout))
-        .route("/me", get(handlers::me))
+        .route("/me", get(handlers::me).put(handlers::update_me))
         .route("/me/password", put(handlers::change_own_password))
         // User Preferences
         .route("/me/preferences", get(handlers::get_all_preferences))

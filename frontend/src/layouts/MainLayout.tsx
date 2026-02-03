@@ -859,12 +859,21 @@ export function MainLayout() {
                   )}
                 </div>
               </div>
-              <div className="flex gap-1">
+              <div className="grid grid-cols-2 gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/profile/settings')}
+                  className="text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
+                >
+                  <UserCircle className="h-4 w-4 mr-1" />
+                  {t('profile.settings')}
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowPasswordDialog(true)}
-                  className="flex-1 text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
+                  className="text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
                 >
                   <Key className="h-4 w-4 mr-1" />
                   {t('common.changePassword')}
@@ -873,7 +882,7 @@ export function MainLayout() {
                   variant="ghost"
                   size="sm"
                   onClick={logout}
-                  className="flex-1 text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
+                  className="col-span-2 text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
                 >
                   <LogOut className="h-4 w-4 mr-1" />
                   {t('common.logout')}

@@ -23,7 +23,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
-import { Loader2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Loader2, ChevronDown, ChevronUp, FastForward } from 'lucide-react'
 
 // 誘導麻醉藥物項目
 interface AnesthesiaDrug {
@@ -324,12 +324,63 @@ export function SurgeryFormDialog({ open, onOpenChange, pigId, earTag, surgery }
     mutation.mutate(formData)
   }
 
+  // 尋找下一個空白欄位
+  const jumpToNextEmptyField = () => {
+    const fields = [
+      { id: 'surgery_date', value: formData.surgery_date },
+      { id: 'surgery_site', value: formData.surgery_site },
+      { id: 'positioning', value: formData.positioning },
+      { id: 'anesthesia_observation', value: formData.anesthesia_observation },
+      { id: 'reflex_recovery', value: formData.reflex_recovery },
+      { id: 'respiration_auto', value: formData.respiration_rate_auto },
+      { id: 'remark', value: formData.remark },
+    ]
+
+    const nextEmpty = fields.find(f => !f.value || (typeof f.value === 'string' && f.value.trim() === ''))
+    if (nextEmpty) {
+      const element = document.getElementById(nextEmpty.id)
+      if (element) {
+        element.focus()
+        toast({ title: '已跳轉', description: `跳轉至下一個空白欄位`, duration: 2000 })
+        return
+      }
+    }
+    toast({ title: '完成', description: '主要欄位皆已填寫', duration: 2000 })
+  }
+
+  // 快捷鍵支援 (Alt + N)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && e.key === 'n') {
+        e.preventDefault()
+        jumpToNextEmptyField()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [formData])
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? '編輯手術紀錄' : '新增手術紀錄'}</DialogTitle>
-          <DialogDescription>耳號：{earTag}</DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle>{isEdit ? '編輯手術紀錄' : '新增手術紀錄'}</DialogTitle>
+              <DialogDescription>耳號：{earTag}</DialogDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={jumpToNextEmptyField}
+              className="flex items-center gap-2 border-purple-200 text-purple-600 hover:bg-purple-50 mr-4"
+              title="快捷鍵: Alt + N"
+            >
+              <FastForward className="h-4 w-4" />
+              下一個空白欄位
+            </Button>
+          </div>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">

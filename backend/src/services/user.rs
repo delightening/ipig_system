@@ -2,8 +2,8 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
-    models::{CreateUserRequest, UpdateUserRequest, User, UserResponse},
-    services::AuthService,
+    models::{AuditAction, CreateUserRequest, UpdateUserRequest, User, UserResponse},
+    services::{AuthService, AuditService},
     AppError, Result,
 };
 
@@ -147,9 +147,9 @@ impl UserService {
     }
 
     /// 更新用戶
-    pub async fn update(pool: &PgPool, id: Uuid, req: &UpdateUserRequest) -> Result<UserResponse> {
+    pub async fn update(pool: &PgPool, id: Uuid, actor_user_id: Uuid, req: &UpdateUserRequest) -> Result<UserResponse> {
         // 檢查用戶是否存在
-        let _user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
+        let before_user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
             .bind(id)
             .fetch_optional(pool)
             .await?
@@ -205,6 +205,17 @@ impl UserService {
         .bind(id)
         .fetch_one(pool)
         .await?;
+
+        // 記錄稽核日誌
+        AuditService::log(
+            pool,
+            actor_user_id,
+            AuditAction::Update,
+            "user",
+            id,
+            Some(serde_json::to_value(&before_user).unwrap_or(serde_json::Value::Null)),
+            Some(serde_json::to_value(&updated_user).unwrap_or(serde_json::Value::Null)),
+        ).await?;
 
         // 如果要更新角色
         if let Some(ref role_ids) = req.role_ids {

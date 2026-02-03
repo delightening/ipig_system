@@ -23,6 +23,7 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Table,
   TableBody,
@@ -80,6 +81,7 @@ import { formatDate, formatDateTime, formatFileSize } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
 import { ProtocolContentView } from '@/components/protocol/ProtocolContentView'
 import { AmendmentsTab } from '@/components/protocol/AmendmentsTab'
+import { ProtocolComparisonDialog } from '@/components/protocols/ProtocolComparisonDialog'
 
 const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'> = {
   DRAFT: 'secondary',
@@ -138,6 +140,13 @@ export function ProtocolDetailPage() {
   const [selectedReviewerId, setSelectedReviewerId] = useState('')
   const [selectedReviewerIds, setSelectedReviewerIds] = useState<string[]>([])
   const [selectedCoEditorId, setSelectedCoEditorId] = useState('')
+
+  // Comparison state
+  const [comparisonOpen, setComparisonOpen] = useState(false)
+  const [versionA, setVersionA] = useState<ProtocolVersion | null>(null)
+  const [versionB, setVersionB] = useState<ProtocolVersion | null>(null)
+  const [compareMode, setCompareMode] = useState(false)
+  const [selectedCompareIds, setSelectedCompareIds] = useState<string[]>([])
 
   // Fetch protocol details
   const { data: protocol, isLoading } = useQuery({
@@ -792,47 +801,108 @@ export function ProtocolDetailPage() {
       {activeTab === 'versions' && (
         <Card>
           <CardHeader>
-            <CardTitle>{t('protocols.detail.sections.versionsTitle')}</CardTitle>
-            <CardDescription>{t('protocols.detail.sections.versionsDesc')}</CardDescription>
+            <div className="flex justify-between items-center mb-4">
+              <CardDescription>{t('protocols.detail.sections.versionsDesc')}</CardDescription>
+              {versions && versions.length >= 2 && (
+                <Button
+                  variant={compareMode ? "destructive" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setCompareMode(!compareMode)
+                    setSelectedCompareIds([])
+                  }}
+                >
+                  {compareMode ? t('common.cancel') : '比較版本'}
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {versions && versions.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('protocols.detail.tables.versionNo')}</TableHead>
-                    <TableHead>{t('protocols.detail.tables.submitTime')}</TableHead>
-                    <TableHead>{t('protocols.detail.tables.actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {versions.map((version) => (
-                    <TableRow key={version.id}>
-                      <TableCell className="font-medium">v{version.version_no}</TableCell>
-                      <TableCell>{formatDateTime(version.submitted_at)}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedVersion(version)
-                            setShowVersionDialog(true)
-                          }}
-                        >
-                          <Eye className="mr-1 h-4 w-4" />
-                          {t('protocols.detail.tables.viewContent')}
-                        </Button>
-                      </TableCell>
+              <div className="space-y-4">
+                {compareMode && selectedCompareIds.length === 2 && (
+                  <div className="bg-blue-50 border border-blue-100 p-3 rounded-md flex justify-between items-center">
+                    <span className="text-sm font-medium text-blue-700">
+                      已選擇兩個版本進行比較
+                    </span>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const vA = versions.find(v => v.id === selectedCompareIds[0])
+                        const vB = versions.find(v => v.id === selectedCompareIds[1])
+                        if (vA && vB) {
+                          // Ensure A is the older version based on version_no
+                          if (vA.version_no > vB.version_no) {
+                            setVersionA(vB)
+                            setVersionB(vA)
+                          } else {
+                            setVersionA(vA)
+                            setVersionB(vB)
+                          }
+                          setComparisonOpen(true)
+                        }
+                      }}
+                    >
+                      開始比較
+                    </Button>
+                  </div>
+                )}
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {compareMode && <TableHead className="w-[50px]"></TableHead>}
+                      <TableHead>{t('protocols.detail.tables.versionNo')}</TableHead>
+                      <TableHead>{t('protocols.detail.tables.submitTime')}</TableHead>
+                      <TableHead>{t('protocols.detail.tables.actions')}</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {versions.map((version) => (
+                      <TableRow key={version.id}>
+                        {compareMode && (
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedCompareIds.includes(version.id)}
+                              onCheckedChange={(checked: boolean) => {
+                                if (checked) {
+                                  if (selectedCompareIds.length < 2) {
+                                    setSelectedCompareIds([...selectedCompareIds, version.id])
+                                  }
+                                } else {
+                                  setSelectedCompareIds(selectedCompareIds.filter(id => id !== version.id))
+                                }
+                              }}
+                              disabled={!selectedCompareIds.includes(version.id) && selectedCompareIds.length >= 2}
+                            />
+                          </TableCell>
+                        )}
+                        <TableCell className="font-medium">v{version.version_no}</TableCell>
+                        <TableCell>{formatDateTime(version.submitted_at)}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedVersion(version)
+                              setShowVersionDialog(true)
+                            }}
+                          >
+                            <Eye className="mr-1 h-4 w-4" />
+                            {t('protocols.detail.tables.viewContent')}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <History className="h-12 w-12 mx-auto mb-2" />
                 <p>{t('protocols.detail.tables.noVersions')}</p>
               </div>
             )}
+
           </CardContent>
         </Card>
       )}
@@ -1598,6 +1668,23 @@ export function ProtocolDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Version Comparison Dialog */}
+      {versionA && versionB && (
+        <ProtocolComparisonDialog
+          open={comparisonOpen}
+          onOpenChange={setComparisonOpen}
+          versionA={{
+            version_no: versionA.version_no,
+            content: versionA.content_snapshot as any
+          }}
+          versionB={{
+            version_no: versionB.version_no,
+            content: versionB.content_snapshot as any
+          }}
+          protocolTitle={protocol.title}
+        />
+      )}
     </div>
   )
 }

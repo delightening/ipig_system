@@ -4,10 +4,10 @@ use validator::Validate;
 use crate::{
     middleware::CurrentUser,
     models::{
-        ChangeOwnPasswordRequest, ForgotPasswordRequest, LoginRequest, LoginResponse,
-        RefreshTokenRequest, ResetPasswordWithTokenRequest, User, UserResponse,
+        AuditAction, ChangeOwnPasswordRequest, ForgotPasswordRequest, LoginRequest, LoginResponse,
+        RefreshTokenRequest, ResetPasswordWithTokenRequest, UpdateUserRequest, User, UserResponse,
     },
-    services::{AuthService, EmailService},
+    services::{AuthService, AuditService, UserService, EmailService},
     AppError, AppState, Result,
 };
 
@@ -76,6 +76,24 @@ pub async fn me(
         roles,
         permissions,
     }))
+}
+
+/// 更新自己的資訊
+pub async fn update_me(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Json(mut req): Json<UpdateUserRequest>,
+) -> Result<Json<UserResponse>> {
+    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    
+    // 限制使用者只能修改特定欄位
+    // 預防安全性問題，強制將不允許修改的欄位設為 None
+    req.is_active = None;
+    req.is_internal = None;
+    req.role_ids = None;
+    
+    let user = UserService::update(&state.db, current_user.id, current_user.id, &req).await?;
+    Ok(Json(user))
 }
 
 /// 變更自己的密碼

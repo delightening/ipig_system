@@ -16,6 +16,7 @@ import { ForceChangePasswordPage } from '@/pages/auth/ForceChangePasswordPage'
 
 // Dashboard
 import { DashboardPage } from '@/pages/DashboardPage'
+import { ProfileSettingsPage } from '@/pages/ProfileSettingsPage'
 
 // Master Data Pages
 import { ProductsPage } from '@/pages/master/ProductsPage'
@@ -260,6 +261,9 @@ function App() {
                     <Route path="/pigs/:id" element={<PigDetailPage />} />
                     <Route path="/pigs/:id/edit" element={<PigEditPage />} />
                     <Route path="/pig-sources" element={<PigSourcesPage />} />
+
+                    {/* 個人設定 */}
+                    <Route path="/profile/settings" element={<ProfileSettingsPage />} />
                 </Route>
 
                 {/* Catch all */}
