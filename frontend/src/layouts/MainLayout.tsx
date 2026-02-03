@@ -27,15 +27,11 @@ import { toast } from '@/components/ui/use-toast' // 引入通知提醒工具
 import { // 引入一系列 Lucide 圖示
   LayoutDashboard,
   Package,
-  Warehouse,
-  BarChart3,
   Settings,
   LogOut,
   Menu,
   X,
   ChevronDown,
-  Truck,
-  ShoppingCart,
   Globe,
   Key,
   Loader2,
@@ -73,131 +69,95 @@ import { CSS } from '@dnd-kit/utilities'
 
 // 定義導覽選單項目的介面規格
 interface NavItem {
-  title: string // 顯示名稱
+  title: string // 顯示名稱 或 i18n key
   href?: string // 跳轉連結（如果有）
   icon: React.ReactNode // 顯示圖示
-  children?: { title: string; href: string; permission?: string }[] // 子選單（選填）
+  children?: { title: string; href: string; permission?: string; translate?: boolean }[] // 子選單（選填）
   permission?: string // 需要的權限代碼（選填）
   badge?: number // 待處理數量徽章（選填）
+  translate?: boolean // 是否需要翻譯
 }
 
 // 預設導覽選單順序（使用者可自行調整）
 const DEFAULT_NAV_ORDER = [
   '儀表板',
-  '我的計劃',
-  'AUP',
+  'myProjects',
+  'aupReview',
+  'animalManagement',
   '人員管理',
-  '實驗動物管理',
-  '採購管理',
-  '銷售管理',
-  '倉儲作業',
-  '報表中心',
-  '基礎資料',
+  'ERP',
   '系統管理',
 ]
 
 // 靜態定義側邊導覽列的所有項目（以 id 識別）
 const navItemsConfig: NavItem[] = [
   {
-    title: 'dashboard',
+    title: '儀表板',
     href: '/dashboard',
     icon: <LayoutDashboard className="h-5 w-5" />,
     permission: 'erp',
+    translate: false,
   },
   {
     title: 'myProjects',
     href: '/my-projects',
     icon: <FolderOpen className="h-5 w-5" />,
+    translate: true,
   },
   {
-    title: 'aupReview',
+    title: 'aupReview', // 這裡的 i18n key "nav.aupReview" 是 "AUP"
     icon: <FileText className="h-5 w-5" />,
+    translate: true,
     children: [
-      { title: 'protocols', href: '/protocols' },
-      { title: 'newProtocol', href: '/protocols/new' },
-      { title: 'myAmendments', href: '/my-amendments' },
+      { title: '計畫書管理', href: '/protocols', translate: false },
+      { title: 'newProtocol', href: '/protocols/new', translate: true },
+      { title: 'myAmendments', href: '/my-amendments', translate: true },
     ],
   },
   {
-    title: 'hrManagement',
+    title: '人員管理',
     icon: <Users className="h-5 w-5" />,
+    translate: false,
     children: [
-      { title: 'attendance', href: '/hr/attendance' },
-      { title: 'leaves', href: '/hr/leaves' },
-      { title: 'overtime', href: '/hr/overtime' },
-      { title: 'annualLeave', href: '/hr/annual-leave', permission: 'hr.balance.manage' },
-      { title: 'calendar', href: '/hr/calendar' },
+      { title: '出勤打卡', href: '/hr/attendance', translate: false },
+      { title: '請假管理', href: '/hr/leaves', translate: false },
+      { title: '加班管理', href: '/hr/overtime', translate: false },
+      { title: '特休額度管理', href: '/hr/annual-leave', permission: 'hr.balance.manage', translate: false },
+      { title: '日曆', href: '/hr/calendar', translate: false },
     ],
   },
   {
     title: 'animalManagement',
     icon: <Stethoscope className="h-5 w-5" />,
+    translate: true,
     children: [
-      { title: 'animalList', href: '/pigs' },
-      { title: 'sourceManagement', href: '/pig-sources', permission: 'pig.source.manage' },
+      { title: 'animalList', href: '/pigs', translate: true },
+      { title: '來源管理', href: '/pig-sources', permission: 'pig.source.manage', translate: false },
     ],
   },
   {
-    title: 'purchasing',
-    icon: <Truck className="h-5 w-5" />,
-    children: [
-      { title: 'purchaseOrder', href: '/documents?type=PO' },
-      { title: 'purchaseReturn', href: '/documents?type=PR' },
-    ],
-    permission: 'erp',
-  },
-  {
-    title: 'sales',
-    icon: <ShoppingCart className="h-5 w-5" />,
-    children: [
-      { title: 'salesOrder', href: '/documents?type=SO' },
-      { title: 'deliveryOrder', href: '/documents?type=DO' },
-    ],
-    permission: 'erp',
-  },
-  {
-    title: 'warehouse',
-    icon: <Warehouse className="h-5 w-5" />,
-    children: [
-      { title: 'inventory', href: '/inventory' },
-      { title: 'inventoryLedger', href: '/inventory/ledger' },
-      { title: 'transfer', href: '/documents?type=TR' },
-      { title: 'stocktaking', href: '/documents?type=STK' },
-      { title: 'adjustment', href: '/documents?type=ADJ' },
-    ],
-    permission: 'erp',
-  },
-  {
-    title: 'reports',
-    icon: <BarChart3 className="h-5 w-5" />,
-    children: [
-      { title: 'stockOnHand', href: '/reports/stock-on-hand' },
-      { title: 'stockLedger', href: '/reports/stock-ledger' },
-      { title: 'purchaseLines', href: '/reports/purchase-lines' },
-      { title: 'salesLines', href: '/reports/sales-lines' },
-      { title: 'costSummary', href: '/reports/cost-summary' },
-    ],
-    permission: 'erp',
-  },
-  {
-    title: 'masterData',
+    title: 'ERP',
     icon: <Package className="h-5 w-5" />,
-    children: [
-      { title: 'products', href: '/products' },
-      { title: 'warehouses', href: '/warehouses' },
-      { title: 'partners', href: '/partners' },
-    ],
+    translate: false,
     permission: 'erp',
+    children: [
+      { title: '採購管理', href: '/erp?tab=purchasing', translate: false },
+      { title: '銷售管理', href: '/erp?tab=sales', translate: false },
+      { title: '倉儲作業', href: '/erp?tab=warehouse', translate: false },
+      { title: '報表中心', href: '/erp?tab=reports', translate: false },
+      { title: '基礎資料', href: '/erp?tab=master', translate: false },
+    ],
   },
   {
-    title: 'system',
+    title: '系統管理',
     icon: <Settings className="h-5 w-5" />,
+    translate: false,
     children: [
-      { title: 'users', href: '/admin/users' },
-      { title: 'roles', href: '/admin/roles' },
-      { title: 'settings', href: '/admin/settings' },
-      { title: 'auditLogs', href: '/admin/audit-logs' },
-      { title: 'securityAudit', href: '/admin/audit' },
+      { title: '使用者管理', href: '/admin/users', translate: false },
+      { title: '角色權限', href: '/admin/roles', translate: false },
+      { title: '系統設定', href: '/admin/settings', translate: false },
+      { title: '審計日誌', href: '/admin/audit-logs', translate: false },
+      { title: '安全審計', href: '/admin/audit', translate: false },
     ],
     permission: 'admin',
   },
@@ -226,7 +186,7 @@ function SortableNavItem({
   expandedItems: string[]
   toggleExpand: (title: string) => void
   navigate: (path: string) => void
-  translateTitle: (title: string) => string
+  translateTitle: (item: { title: string; translate?: boolean }) => string
 }) {
   const {
     attributes,
@@ -259,7 +219,7 @@ function SortableNavItem({
           )}
           <Link
             to={item.href}
-            title={!sidebarOpen ? translateTitle(item.title) : undefined}
+            title={!sidebarOpen ? translateTitle(item) : undefined}
             className={cn(
               'flex flex-1 items-center rounded-lg px-3 py-2.5 transition-colors',
               sidebarOpen ? 'space-x-3' : 'justify-center',
@@ -271,7 +231,7 @@ function SortableNavItem({
             <span className="shrink-0">{item.icon}</span>
             {sidebarOpen && (
               <span className="flex-1 flex items-center justify-between">
-                <span>{translateTitle(item.title)}</span>
+                <span>{translateTitle(item)}</span>
                 {item.badge && item.badge > 0 && (
                   <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium rounded-full bg-red-500 text-white">
                     {item.badge > 99 ? '99+' : item.badge}
@@ -307,7 +267,7 @@ function SortableNavItem({
                   toggleExpand(item.title)
                 }
               }}
-              title={!sidebarOpen ? translateTitle(item.title) : undefined}
+              title={!sidebarOpen ? translateTitle(item) : undefined}
               className={cn(
                 'flex flex-1 items-center rounded-lg px-3 py-2.5 transition-colors',
                 sidebarOpen ? 'justify-between' : 'justify-center',
@@ -321,7 +281,7 @@ function SortableNavItem({
                 sidebarOpen ? 'space-x-3' : ''
               )}>
                 <span className="shrink-0">{item.icon}</span>
-                {sidebarOpen && <span>{translateTitle(item.title)}</span>}
+                {sidebarOpen && <span>{translateTitle(item)}</span>}
               </div>
               {sidebarOpen && (
                 <ChevronDown
@@ -347,7 +307,7 @@ function SortableNavItem({
                         : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                     )}
                   >
-                    {translateTitle(child.title)}
+                    {translateTitle(child)}
                   </Link>
                 </li>
               ))}
@@ -373,56 +333,11 @@ export function MainLayout() {
     i18n.changeLanguage(lang)
   }
 
-  // 導覽項目翻譯映射表
-  const navTitleMap: Record<string, string> = {
-    '儀表板': t('nav.dashboard'),
-    '我的計劃': t('nav.myProjects'),
-    'AUP': t('nav.aupReview'),
-    '計畫書管理': t('nav.protocols'),
-    '新增計畫書': t('nav.newProtocol'),
-    '變更申請': t('nav.myAmendments'),
-    '人員管理': t('nav.hrManagement'),
-    '出勤打卡': t('nav.attendance'),
-    '請假管理': t('nav.leaves'),
-    '加班管理': t('nav.overtime'),
-    '特休額度管理': t('nav.annualLeave'),
-    '日曆': t('nav.calendar'),
-    '實驗動物管理': t('nav.animalManagement'),
-    '動物列表': t('nav.animalList'),
-    '來源管理': t('nav.sourceManagement'),
-    '採購管理': t('nav.purchasing'),
-    '採購單': t('nav.purchaseOrder'),
-    '採購入庫': t('nav.goodsReceipt'),
-    '採購退貨': t('nav.purchaseReturn'),
-    '銷售管理': t('nav.sales'),
-    '銷售單': t('nav.salesOrder'),
-    '銷售出庫': t('nav.deliveryOrder'),
-    '倉儲作業': t('nav.warehouse'),
-    '庫存查詢': t('nav.inventory'),
-    '庫存流水': t('nav.inventoryLedger'),
-    '調撥單': t('nav.transfer'),
-    '盤點單': t('nav.stocktaking'),
-    '調整單': t('nav.adjustment'),
-    '報表中心': t('nav.reports'),
-    '庫存現況報表': t('nav.stockOnHand'),
-    '庫存流水報表': t('nav.stockLedger'),
-    '採購明細報表': t('nav.purchaseLines'),
-    '銷售明細報表': t('nav.salesLines'),
-    '成本摘要報表': t('nav.costSummary'),
-    '基礎資料': t('nav.masterData'),
-    '產品管理': t('nav.products'),
-    '倉庫管理': t('nav.warehouses'),
-    '供應商/客戶': t('nav.partners'),
-    '系統管理': t('nav.system'),
-    '使用者管理': t('nav.users'),
-    '角色權限': t('nav.roles'),
-    '系統設定': t('nav.settings'),
-    '審計日誌': t('nav.auditLogs'),
-    '安全審計': t('nav.securityAudit'),
-  }
-
   // 翻譯導覽項目標題
-  const translateTitle = (title: string) => t(`nav.${title}`) || title
+  const translateTitle = (item: { title: string; translate?: boolean }) => {
+    if (item.translate === false) return item.title
+    return t(`nav.${item.title}`) || item.title
+  }
 
   // 通知下拉選單的顯示狀態與引用
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false)

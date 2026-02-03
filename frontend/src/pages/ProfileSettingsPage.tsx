@@ -26,17 +26,15 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-const TRAINING_OPTIONS = [
-    { code: 'A', label: 'IACUC訓練班' },
-    { code: 'B', label: 'IACUC研討會' },
-    { code: 'C', label: '輻射安全' },
-    { code: 'D', label: '生醫產業研習' },
-    { code: 'E', label: '動物法規管理班' },
-    { code: 'F', label: '其他' },
-]
+const TRAINING_OPTIONS = ['A', 'B', 'C', 'D', 'E', 'F']
 
 const AUP_ROLE_OPTIONS = [
-    'PI', 'Co-PI', 'Experimenter', 'Experiment Staff', 'Veterinarian', 'Animal Care Staff'
+    { value: 'PI', key: 'PI' },
+    { value: 'Co-PI', key: 'Co-PI' },
+    { value: 'Experimenter', key: 'Experimenter' },
+    { value: 'Experiment Staff', key: 'ExperimentStaff' },
+    { value: 'Veterinarian', key: 'Veterinarian' },
+    { value: 'Animal Care Staff', key: 'AnimalCareStaff' }
 ]
 
 export function ProfileSettingsPage() {
@@ -80,7 +78,7 @@ export function ProfileSettingsPage() {
         onSuccess: () => {
             toast({
                 title: t('common.success'),
-                description: t('profile.updateSuccess') || '個人資料已成功更新',
+                description: t('profile.updateSuccess'),
             })
             queryClient.invalidateQueries({ queryKey: ['users', 'me'] })
             checkAuth() // Refresh local store
@@ -88,7 +86,7 @@ export function ProfileSettingsPage() {
         onError: (error: any) => {
             toast({
                 title: t('common.error'),
-                description: error.response?.data?.error?.message || '更新失敗',
+                description: error.response?.data?.error?.message || t('common.error'),
                 variant: 'destructive',
             })
         },
@@ -99,12 +97,12 @@ export function ProfileSettingsPage() {
         updateMutation.mutate(formData)
     }
 
-    const toggleAupRole = (role: string) => {
+    const toggleAupRole = (roleValue: string) => {
         const roles = formData.aup_roles || []
-        if (roles.includes(role)) {
-            setFormData({ ...formData, aup_roles: roles.filter(r => r !== role) })
+        if (roles.includes(roleValue)) {
+            setFormData({ ...formData, aup_roles: roles.filter(r => r !== roleValue) })
         } else {
-            setFormData({ ...formData, aup_roles: [...roles, role] })
+            setFormData({ ...formData, aup_roles: [...roles, roleValue] })
         }
     }
 
@@ -144,10 +142,10 @@ export function ProfileSettingsPage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                        {t('profile.settings') || '個人帳號設定'}
+                        {t('profile.settings')}
                     </h1>
                     <p className="text-muted-foreground mt-1">
-                        {t('profile.description') || '管理您的個人資料、聯絡資訊與 AUP 相關人員資格'}
+                        {t('profile.description')}
                     </p>
                 </div>
                 <Button
@@ -161,7 +159,7 @@ export function ProfileSettingsPage() {
                     ) : (
                         <Save className="mr-2 h-5 w-5" />
                     )}
-                    {t('common.saveChanges') || '儲存所有變更'}
+                    {t('common.saveChanges')}
                 </Button>
             </div>
 
@@ -172,7 +170,7 @@ export function ProfileSettingsPage() {
                         <CardHeader className="border-b bg-slate-50/50">
                             <CardTitle className="flex items-center gap-2 text-slate-800">
                                 <UserIcon className="h-5 w-5 text-blue-500" />
-                                {t('profile.basicInfo') || '基本資料'}
+                                {t('profile.basicInfo')}
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="pt-6 space-y-4">
@@ -187,44 +185,44 @@ export function ProfileSettingsPage() {
                             <div className="space-y-4 pt-4">
                                 <div className="space-y-2">
                                     <Label className="flex items-center gap-2 text-slate-600">
-                                        <Mail className="h-4 w-4" /> {t('profile.email') || '電子郵件'} (只讀)
+                                        <Mail className="h-4 w-4" /> {t('profile.email')} {t('profile.readOnly')}
                                     </Label>
                                     <Input value={currentUser.email} disabled className="bg-slate-50" />
                                 </div>
 
                                 <div className="space-y-2">
                                     <Label htmlFor="display_name" className="flex items-center gap-2">
-                                        {t('profile.displayName') || '顯示名稱'}
+                                        {t('profile.displayName')}
                                     </Label>
                                     <Input
                                         id="display_name"
                                         value={formData.display_name}
                                         onChange={e => setFormData({ ...formData, display_name: e.target.value })}
-                                        placeholder="您的稱呼"
+                                        placeholder={t('profile.displayNamePlaceholder')}
                                     />
                                 </div>
 
                                 <div className="space-y-2">
                                     <Label htmlFor="phone" className="flex items-center gap-2">
-                                        <Phone className="h-4 w-4" /> {t('profile.phone') || '聯絡電話'}
+                                        <Phone className="h-4 w-4" /> {t('profile.phone')}
                                     </Label>
                                     <Input
                                         id="phone"
                                         value={formData.phone || ''}
                                         onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                                        placeholder="0912-345-678"
+                                        placeholder={t('profile.phonePlaceholder')}
                                     />
                                 </div>
 
                                 <div className="space-y-2">
                                     <Label htmlFor="organization" className="flex items-center gap-2">
-                                        <Building2 className="h-4 w-4" /> {t('profile.organization') || '所屬單位'}
+                                        <Building2 className="h-4 w-4" /> {t('profile.organization')}
                                     </Label>
                                     <Input
                                         id="organization"
                                         value={formData.organization || ''}
                                         onChange={e => setFormData({ ...formData, organization: e.target.value })}
-                                        placeholder="例如：醫政署、OO大學"
+                                        placeholder={t('profile.organizationPlaceholder')}
                                     />
                                 </div>
                             </div>
@@ -239,19 +237,19 @@ export function ProfileSettingsPage() {
                             <div className="flex items-center justify-between">
                                 <CardTitle className="flex items-center gap-2 text-slate-800">
                                     <GraduationCap className="h-5 w-5 text-indigo-500" />
-                                    {t('profile.aupSection8') || 'AUP 第 8 節人員資料'}
+                                    {t('profile.aupSection8')}
                                 </CardTitle>
                                 <Badge variant="outline" className="border-indigo-200 text-indigo-600">符合規範</Badge>
                             </div>
                             <CardDescription>
-                                此處資訊將自動帶入您的 AUP 申請書中，確保資料準確性
+                                {t('profile.aupSection8Description')}
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="pt-6 space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <Label htmlFor="entry_date" className="flex items-center gap-2">
-                                        <History className="h-4 w-4 text-slate-400" /> {t('profile.entryDate') || '入職日期'}
+                                        <History className="h-4 w-4 text-slate-400" /> {t('profile.entryDate')}
                                     </Label>
                                     <Input
                                         id="entry_date"
@@ -268,12 +266,12 @@ export function ProfileSettingsPage() {
                                         id="position"
                                         value={formData.position || ''}
                                         onChange={e => setFormData({ ...formData, position: e.target.value })}
-                                        placeholder="例如：研究員、教授"
+                                        placeholder={t('profile.positionPlaceholder')}
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="years_experience" className="flex items-center gap-2">
-                                        {t('profile.yearsExperience') || '動物實驗相關經驗 (年)'}
+                                        {t('profile.yearsExperience')}
                                     </Label>
                                     <Input
                                         id="years_experience"
@@ -286,68 +284,103 @@ export function ProfileSettingsPage() {
                             </div>
 
                             <div className="space-y-4 pt-4 border-t border-slate-100">
-                                <Label className="text-base font-semibold">您可以擔任的 AUP 角色</Label>
+                                <Label className="text-base font-semibold">{t('profile.aupRoles')}</Label>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                     {AUP_ROLE_OPTIONS.map(role => (
                                         <div
-                                            key={role}
+                                            key={role.value}
                                             className={cn(
                                                 "flex items-center space-x-2 p-3 rounded-lg border transition-all cursor-pointer",
-                                                formData.aup_roles?.includes(role)
+                                                formData.aup_roles?.includes(role.value)
                                                     ? "bg-indigo-50 border-indigo-200 ring-1 ring-indigo-200"
                                                     : "hover:bg-slate-50 border-slate-200"
                                             )}
-                                            onClick={() => toggleAupRole(role)}
+                                            onClick={() => toggleAupRole(role.value)}
                                         >
-                                            <Checkbox checked={formData.aup_roles?.includes(role)} />
-                                            <span className="text-sm font-medium">{role}</span>
+                                            <Checkbox
+                                                id={`role-${role.value}`}
+                                                checked={formData.aup_roles?.includes(role.value)}
+                                                onCheckedChange={() => toggleAupRole(role.value)}
+                                            />
+                                            <label
+                                                htmlFor={`role-${role.value}`}
+                                                className="text-sm font-medium leading-none cursor-pointer"
+                                            >
+                                                {t(`profile.roles.${role.key}`)}
+                                            </label>
                                         </div>
                                     ))}
                                 </div>
                             </div>
 
+
+
                             <div className="space-y-4 pt-4 border-t border-slate-100">
                                 <div className="flex items-center justify-between">
                                     <Label className="text-base font-semibold flex items-center gap-2">
                                         <Award className="h-5 w-5 text-amber-500" />
-                                        {t('profile.trainings') || '訓練/資格 (Trainings)'}
+                                        {t('profile.trainings')}
                                     </Label>
                                     <div className="flex gap-1">
                                         {formData.trainings?.length === 0 ? (
-                                            <Badge variant="destructive" className="animate-pulse">未填寫</Badge>
+                                            <Badge variant="destructive" className="animate-pulse">{t('profile.notFilled')}</Badge>
                                         ) : (
-                                            <Badge variant="success" className="bg-green-500">已完成 {formData.trainings?.length} 項</Badge>
+                                            <Badge variant="success" className="bg-green-500">{t('profile.completedCount', { count: formData.trainings?.length })}</Badge>
                                         )}
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                    {TRAINING_OPTIONS.map(opt => (
-                                        <div
-                                            key={opt.code}
-                                            className={cn(
-                                                "group relative flex flex-col p-3 rounded-xl border transition-all cursor-pointer overflow-hidden",
-                                                formData.trainings?.find(t => t.code === opt.code)
-                                                    ? "bg-blue-50 border-blue-200 ring-1 ring-blue-200"
-                                                    : "hover:bg-slate-50 border-slate-200"
-                                            )}
-                                            onClick={() => toggleTraining(opt.code)}
-                                        >
-                                            <div className="flex items-center justify-between z-10">
-                                                <span className="text-lg font-black text-slate-400 group-hover:text-blue-400 transition-colors">{opt.code}</span>
-                                                <Checkbox checked={!!formData.trainings?.find(t => t.code === opt.code)} />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {TRAINING_OPTIONS.map(code => {
+                                        const training = formData.trainings?.find(t => t.code === code)
+                                        return (
+                                            <div
+                                                key={code}
+                                                className={cn(
+                                                    "p-4 rounded-xl border transition-all space-y-3",
+                                                    training
+                                                        ? "bg-amber-50/50 border-amber-200 shadow-sm"
+                                                        : "border-slate-100 hover:border-slate-200"
+                                                )}
+                                            >
+                                                <div className="flex items-center space-x-3">
+                                                    <Checkbox
+                                                        id={`training-${code}`}
+                                                        checked={!!training}
+                                                        onCheckedChange={() => toggleTraining(code)}
+                                                    />
+                                                    <label
+                                                        htmlFor={`training-${code}`}
+                                                        className="text-sm font-bold leading-none cursor-pointer text-slate-700"
+                                                    >
+                                                        {t(`aup.personnel.addDialog.trainings.${code}`)}
+                                                    </label>
+                                                </div>
+
+                                                {training && (
+                                                    <div className="pl-7 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                                                        <div className="space-y-1.5">
+                                                            <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">
+                                                                {t('profile.certNo')}
+                                                            </Label>
+                                                            <Input
+                                                                size={30}
+                                                                className="h-8 text-xs bg-white"
+                                                                placeholder={t('profile.certNoPlaceholder')}
+                                                                value={training.certificate_no || ''}
+                                                                onChange={e => updateTrainingDetail(code, 'certificate_no', e.target.value)}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <span className="text-xs font-bold mt-1 z-10">{opt.label}</span>
-                                            <div className="absolute -right-2 -bottom-2 opacity-10 group-hover:opacity-20 transition-opacity">
-                                                <Award className="h-12 w-12 text-blue-600 rotate-12" />
-                                            </div>
-                                        </div>
-                                    ))}
+                                        )
+                                    })}
                                 </div>
 
                                 {formData.trainings && formData.trainings.length > 0 && (
                                     <div className="mt-6 space-y-4 bg-slate-50 p-4 rounded-xl border border-slate-200 border-dashed">
-                                        <h4 className="text-sm font-bold text-slate-700">詳細證書資訊</h4>
+                                        <h4 className="text-sm font-bold text-slate-700">{t('profile.trainingDetailTitle')}</h4>
                                         {formData.trainings.map((training) => (
                                             <div key={training.code} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center animate-in zoom-in-95 duration-200">
                                                 <div className="md:col-span-1">
@@ -357,7 +390,7 @@ export function ProfileSettingsPage() {
                                                 </div>
                                                 <div className="md:col-span-6">
                                                     <Input
-                                                        placeholder="證書編號 (Certificate No.)"
+                                                        placeholder={t('profile.certNo')}
                                                         value={training.certificate_no || ''}
                                                         onChange={(e) => updateTrainingDetail(training.code, 'certificate_no', e.target.value)}
                                                         onClick={(e) => e.stopPropagation()}
@@ -381,9 +414,9 @@ export function ProfileSettingsPage() {
                                 <div className="rounded-lg bg-amber-50 p-4 border border-amber-200 flex gap-3">
                                     <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                                     <div className="text-xs text-amber-800 space-y-1">
-                                        <p className="font-bold">填寫說明</p>
-                                        <p>A. IACUC 訓練班 | B. IACUC 研討會 | C. 輻射安全 | D. 生醫產業研習 | E. 動物法規管理班 | F. 其他</p>
-                                        <p className="opacity-80">如果您有相關證照但未列於此，請選擇 F 並註記在 AUP 申請書備註欄。</p>
+                                        <p className="font-bold">{t('profile.trainingNotice')}</p>
+                                        <p>{t('aup.personnel.roles.list')}</p>
+                                        <p className="opacity-80">{t('profile.trainingNoticeDetail')}</p>
                                     </div>
                                 </div>
                             </div>
@@ -400,9 +433,9 @@ export function ProfileSettingsPage() {
                                     <Save className="h-10 w-10 text-blue-400" />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-bold">確認資料無誤？</h3>
+                                    <h3 className="text-xl font-bold">{t('profile.confirmTitle')}</h3>
                                     <p className="text-slate-300 mt-2 max-w-md">
-                                        儲存後，您的 AUP 計畫書將在下一次建立或更新時自動帶入這些資訊，省去重複填寫的時間。
+                                        {t('profile.confirmDescription')}
                                     </p>
                                 </div>
                                 <Button
@@ -412,7 +445,7 @@ export function ProfileSettingsPage() {
                                     onClick={handleSubmit}
                                     disabled={updateMutation.isPending}
                                 >
-                                    {updateMutation.isPending ? '儲存中...' : '確認並儲存'}
+                                    {updateMutation.isPending ? t('profile.saving') : t('profile.confirmAndSave')}
                                 </Button>
                             </div>
                         </CardContent>

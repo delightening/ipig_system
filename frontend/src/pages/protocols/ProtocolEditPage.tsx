@@ -3573,7 +3573,7 @@ export function ProtocolEditPage() {
                               </td>
                               <td className="border p-2 w-24">
                                 <div className="px-2 py-1 truncate">
-                                  研究人員
+                                  {t('aup.personnel.defaults.researcher')}
                                 </div>
                               </td>
                               <td className="border p-2 w-32"> {/* Work Content */}
@@ -3708,10 +3708,8 @@ export function ProtocolEditPage() {
                     maxSize={20}
                     maxFiles={10}
                     showPreview={false}
+                    hint={t('aup.attachments.hint')}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    {t('aup.attachments.hint')}
-                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -3742,10 +3740,8 @@ export function ProtocolEditPage() {
                     maxSize={5}
                     maxFiles={5}
                     showPreview={true}
+                    hint={t('aup.signature.hint')}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    {t('aup.signature.hint')}
-                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -3779,7 +3775,7 @@ export function ProtocolEditPage() {
                               setNewPersonnel({
                                 ...newPersonnel,
                                 name: selectedStaff.display_name,
-                                position: '研究人員',  // 固定值
+                                position: t('aup.personnel.defaults.researcher'),  // 固定值
                                 years_experience: calculatedYears,
                                 roles: ['b', 'c', 'd', 'f', 'g', 'h'],  // 研究人員預設工作內容
                                 trainings: (selectedStaff.trainings || []).map((t: any) => t.code),

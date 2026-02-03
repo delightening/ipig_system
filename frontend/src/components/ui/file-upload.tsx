@@ -1,6 +1,7 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { Upload, X, FileText, Image, Loader2 } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { Button } from "./button"
 
 export interface FileInfo {
@@ -25,6 +26,8 @@ export interface FileUploadProps {
   className?: string
   placeholder?: string
   showPreview?: boolean
+  hint?: string
+  hideHint?: boolean
 }
 
 const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
@@ -38,9 +41,12 @@ const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
     maxFiles = 10,
     disabled = false,
     className,
-    placeholder = "拖曳檔案到此處，或點擊選擇檔案",
+    placeholder,
     showPreview = true,
+    hint,
+    hideHint = false,
   }, ref) => {
+    const { t } = useTranslation()
     const [isDragging, setIsDragging] = React.useState(false)
     const [uploading, setUploading] = React.useState(false)
     const [error, setError] = React.useState<string | null>(null)
@@ -64,14 +70,14 @@ const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
 
       // Validate file count
       if (value.length + fileArray.length > maxFiles) {
-        setError(`最多只能上傳 ${maxFiles} 個檔案`)
+        setError(t('common.fileUpload.errorMaxFiles', { maxFiles }))
         return
       }
 
       // Validate file sizes
       for (const file of fileArray) {
         if (file.size > maxSize * 1024 * 1024) {
-          setError(`檔案 ${file.name} 超過 ${maxSize}MB 限制`)
+          setError(t('common.fileUpload.errorMaxSize', { fileName: file.name, maxSize }))
           return
         }
       }
@@ -86,7 +92,7 @@ const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
           }
           onChange?.([...value, ...uploadedFiles])
         } catch (err) {
-          setError('上傳失敗，請重試')
+          setError(t('common.fileUpload.errorUploadFailed'))
           console.error('Upload error:', err)
         } finally {
           setUploading(false)
@@ -160,19 +166,23 @@ const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
             className="hidden"
             disabled={disabled}
           />
-          
+
           {uploading ? (
             <>
               <Loader2 className="h-8 w-8 animate-spin text-purple-500 mb-2" />
-              <p className="text-sm text-slate-600">上傳中...</p>
+              <p className="text-sm text-slate-600">{t('common.fileUpload.uploading')}</p>
             </>
           ) : (
             <>
               <Upload className="h-8 w-8 text-slate-400 mb-2" />
-              <p className="text-sm text-slate-600 text-center">{placeholder}</p>
-              <p className="text-xs text-slate-400 mt-1">
-                最大 {maxSize}MB，最多 {maxFiles} 個檔案
+              <p className="text-sm text-slate-600 text-center">
+                {placeholder || t('common.fileUpload.placeholder')}
               </p>
+              {!hideHint && (
+                <p className="text-xs text-slate-400 mt-1">
+                  {hint || t('common.fileUpload.hint', { maxSize, maxFiles })}
+                </p>
+              )}
             </>
           )}
         </div>

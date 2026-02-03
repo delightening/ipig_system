@@ -153,8 +153,10 @@ export function UsersPage() {
     onError: (error: any) => {
       // 解析詳細的錯誤訊息
       let errorMessage = '創建失敗'
+      let detailMessage = ''
       const backendMessage = error.response?.data?.error?.message
       const statusCode = error.response?.status
+      const rawData = error.response?.data
 
       if (backendMessage) {
         // 翻譯常見的驗證錯誤訊息
@@ -168,24 +170,44 @@ export function UsersPage() {
           errorMessage = '顯示名稱為必填欄位'
         } else if (backendMessage.includes('Email already exists')) {
           errorMessage = '此 Email 已被使用'
-        } else if (backendMessage.includes('password')) {
-          // 其他密碼相關錯誤
-          errorMessage = `密碼錯誤: ${backendMessage}`
-        } else if (backendMessage.includes('Database error')) {
-          errorMessage = '資料庫錯誤，請聯繫系統管理員'
         } else if (backendMessage.includes('Validation failed')) {
           // 提取驗證失敗的詳細訊息
           errorMessage = backendMessage.replace('Validation failed:', '驗證失敗:')
         } else {
           errorMessage = backendMessage
         }
+      } else if (typeof rawData === 'string' && statusCode === 422) {
+        // 處理 Axum 預設的 422 錯誤（通常是 JSON 解析失敗）
+        errorMessage = '資料格式錯誤 (422)'
+        detailMessage = rawData
       } else if (statusCode === 500) {
         errorMessage = '伺服器內部錯誤，請稍後再試'
       } else if (statusCode === 403) {
         errorMessage = '權限不足'
+      } else if (rawData?.error?.message) {
+        errorMessage = rawData.error.message
+      } else if (rawData?.message) {
+        errorMessage = rawData.message
+      } else {
+        // 最後備案：顯示狀態碼與原始訊息
+        errorMessage = `請求失敗 (${statusCode || 'Unknown'})`
+        detailMessage = typeof rawData === 'object' ? JSON.stringify(rawData) : String(rawData)
       }
 
-      toast({ title: '錯誤', description: errorMessage, variant: 'destructive' })
+      toast({
+        title: '錯誤',
+        description: (
+          <div className="space-y-1">
+            <p>{errorMessage}</p>
+            {detailMessage && (
+              <p className="text-xs opacity-70 break-all font-mono bg-black/5 p-1 rounded">
+                Detail: {detailMessage}
+              </p>
+            )}
+          </div>
+        ),
+        variant: 'destructive',
+      })
     },
   })
 
@@ -254,7 +276,32 @@ export function UsersPage() {
       toast({ title: '錯誤', description: '密碼至少需要 6 個字元', variant: 'destructive' })
       return
     }
-    createMutation.mutate(formData)
+
+    // 檢查是否包含「試驗工作人員」或「行政」角色
+    const selectedRoleCodes = roles
+      ?.filter(r => formData.role_ids.includes(r.id))
+      .map(r => r.code) || []
+
+    const needsEntryDate = selectedRoleCodes.some(code =>
+      code === 'EXPERIMENT_STAFF' || code === 'ADMIN_STAFF'
+    )
+
+    if (needsEntryDate && !formData.entry_date) {
+      toast({
+        title: '錯誤',
+        description: '「試驗工作人員」與「行政」角色必須填寫入職日期',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    // 處理空字串欄位，避免後端反序列化失敗 (422)
+    const data = {
+      ...formData,
+      entry_date: formData.entry_date || undefined,
+      position: formData.position || undefined,
+    }
+    createMutation.mutate(data)
   }
 
   const handleEdit = (user: User) => {

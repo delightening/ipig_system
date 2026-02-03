@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api, { ProtocolListItem, ProtocolStatus, protocolStatusNames } from '@/lib/api'
+import api, { ProtocolListItem, ProtocolStatus } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -99,7 +99,7 @@ export function MyProjectsPage() {
   const getStatusBadge = (status: ProtocolStatus) => {
     return (
       <Badge variant={statusColors[status]}>
-        {protocolStatusNames[status]}
+        {t(`protocols.status.${status}`)}
       </Badge>
     )
   }

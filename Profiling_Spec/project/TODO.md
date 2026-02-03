@@ -5,7 +5,6 @@
 ## 🚧 今日未完成事項 (2026-02-03)
 
 ### AUP 審查系統
-- [x] /api/hr/staff 後端端點更新 - 支援回傳學經歷欄位 ✅
 - [x] 計畫書版本比較邏輯強化 - 支援 nested comparison ✅
 - [ ] UUID 遷移完整測試 - 執行資料庫遷移並進行端對端測試 (進行中)
 
@@ -144,9 +143,6 @@
 ## ✅ v1.3 - 已完成 (2026-02-03)
 
 ### 使用者管理功能增強
-- [x] 新增「學經歷」欄位 - 在使用者管理介面新增「學經歷」多行文字框，支援建立與編輯
-- [x] 資料庫遷移 `023_add_user_experience.sql` - users 表新增 `experience` 欄位
-- [x] 端點更新 - `UserService` 與相關 DTO 支援 `experience` 欄位
 - [x] 新增「entry_date」入職日期欄位 - 用於計算員工年資 `years_experience`
 - [x] 新增「position」、「aup_roles」、「trainings」欄位 - 完善使用者資料結構
 
@@ -166,7 +162,7 @@
 - [x] 後端服務更新 - AnimalService、NotificationService、EmailService 支援緊急旗標邏輯
 
 ### 編譯錯誤修復
-- [x] UserResponse struct 更新 - 新增 entry_date、experience、position、aup_roles、years_experience、trainings 欄位
+- [x] UserResponse struct 更新 - 新增 entry_date、position、aup_roles、years_experience、trainings 欄位
 - [x] JSX 語法修復 - UsersPage.tsx 標籤正確閉合
 - [x] Docker 容器建置成功
 
@@ -176,8 +172,6 @@
 
 ### 系統整合與安全性
 - [x] Login As 身分切換功能 - 支援管理員模擬其他使用者進行操作/除錯
-- [x] /api/hr/staff 端點更新 - 回傳學經歷、訓練課程等 AUP 相關欄位
-- [x] 個人資歷維護介面 - 使用者可自行更新學經歷，自動同步至 AUP 表單
 
 ### UI/UX 與國際化
 - [x] AUP 計畫書內容完整國際化 (ProtocolContentView.tsx)
@@ -222,10 +216,10 @@
 
 | 日期 | 內容 |
 |------|------|
-| 2026-02-03 | Login As 功能、AUP 第 8 節資歷管理、計畫書版本比較強化、Dashboard 錯誤處理優化 |
+| 2026-02-03 | Login As 功能、計畫書版本比較強化、Dashboard 錯誤處理優化 |
 | 2026-02-03 | 角色權限驗證、Admin 完整權限、使用者建立錯誤修復、條件式人員對話框、獸醫師通知緊急旗標、entry_date 欄位、編譯錯誤修復、Docker 建置成功 |
 
-| 2026-02-03 | 新增學經歷欄位（後端/使用者管理前端）、規劃 AUP 第 8 節整合 |
+
 | 2026-02-02 | 新增今日未完成事項：UUID 遷移測試、Emergency Medication UI、Euthanasia Workflow、AUP 翻譯驗證、Reviewer Anonymization 測試、權限分類驗證 |
 | 2026-01-19 | GLP 前端整合完成、HR 特休管理、協編者權限、PDF 全 9 節完成、審查意見回覆、頁面整合 |
 | 2026-01-19 | GLP 合規功能：軟刪除+刪除原因、電子簽章、附註服務（後端完成） |

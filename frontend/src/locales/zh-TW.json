@@ -3,6 +3,7 @@
     "loading": "載入中...",
     "search": "搜尋",
     "save": "儲存",
+    "saveChanges": "儲存",
     "cancel": "取消",
     "delete": "刪除",
     "edit": "編輯",
@@ -25,6 +26,7 @@
     "dragToReorder": "拖曳項目調整順序",
     "resetSuccess": "已重置選單排序為預設順序",
     "markAllRead": "全部標記已讀",
+    "notifications": "通知",
     "viewAll": "查看全部",
     "justNow": "剛剛",
     "minutesAgo": "{{count}} 分鐘前",
@@ -36,7 +38,15 @@
     "confirmTitle": "確認",
     "deleteTitle": "確認刪除",
     "closeTitle": "確認結案",
-    "closeDescription": "確定要結案此計畫嗎？此操作無法復原。"
+    "closeDescription": "確定要結案此計畫嗎？此操作無法復原。",
+    "fileUpload": {
+      "placeholder": "拖曳檔案到此處，或點擊選擇檔案",
+      "uploading": "上傳中...",
+      "errorMaxFiles": "最多只能上傳 {{maxFiles}} 個檔案",
+      "errorMaxSize": "檔案 {{fileName}} 超過 {{maxSize}}MB 限制",
+      "errorUploadFailed": "上傳失敗，請重試",
+      "hint": "最大 {{maxSize}}MB，最多 {{maxFiles}} 個檔案"
+    }
   },
   "user": {},
   "profile": {
@@ -45,62 +55,55 @@
     "updateSuccess": "個人資料已成功更新",
     "basicInfo": "基本資料",
     "displayName": "顯示名稱",
+    "displayNamePlaceholder": "您的稱呼",
     "email": "電子郵件",
+    "readOnly": "(唯讀)",
     "phone": "聯絡電話",
+    "phonePlaceholder": "0912-345-678",
     "organization": "所屬單位",
+    "organizationPlaceholder": "例如：醫政署、OO大學",
     "aupSection8": "AUP 第 8 節人員資料",
     "entryDate": "入職日期",
     "position": "職稱",
+    "positionPlaceholder": "例如：研究員、教授",
     "yearsExperience": "參與動物試驗年數",
-    "trainings": "訓練/資格 (Trainings)",
-    "saveChanges": "儲存變更"
+    "trainings": "訓練/資格",
+    "saveChanges": "儲存所有變更",
+    "trainingTitle": "教育訓練與證照",
+    "trainingSubtitle": "勾選您已取得的實驗動物相關訓練",
+    "trainingDetailTitle": "詳細證書資訊",
+    "certNo": "證照編號",
+    "certNoDescription": "請留空或輸入系統核發之證照編號",
+    "certNoPlaceholder": "例如：(112)動訓字第 001 號",
+    "trainingNotice": "填寫說明",
+    "trainingNoticeDetail": "如果您有相關證照但未列於此，請選擇 F 並註記在 AUP 申請書備註欄。",
+    "statusCompliant": "符合規範",
+    "aupNote": "此處資訊將自動帶入您的 AUP 申請書中，確保資料準確性",
+    "confirmTitle": "確認資料無誤？",
+    "confirmDescription": "儲存後，您的 AUP 計畫書將在下一次建立或更新時自動帶入這些資訊，省去重複填寫的時間。",
+    "saving": "儲存中...",
+    "confirmAndSave": "確認並儲存",
+    "aupRoles": "您可以擔任的 AUP 角色",
+    "aupSection8Description": "此處資訊將自動帶入您的 AUP 申請書中，確保資料準確性",
+    "notFilled": "未填寫",
+    "completedCount": "已完成 {{count}} 項",
+    "roles": {
+      "PI": "計畫主持人 (PI)",
+      "Co-PI": "共同主持人 (Co-PI)",
+      "Experimenter": "試驗執行人員",
+      "ExperimentStaff": "試驗工作人員",
+      "Veterinarian": "獸醫師",
+      "AnimalCareStaff": "動物照護人員"
+    }
   },
   "nav": {
     "dashboard": "儀表板",
     "myProjects": "我的計劃",
     "aupReview": "AUP",
-    "protocols": "計畫書管理",
     "newProtocol": "新增計畫書",
-    "hrManagement": "人員管理",
-    "attendance": "出勤打卡",
-    "leaves": "請假管理",
-    "overtime": "加班管理",
-    "annualLeave": "特休額度管理",
-    "calendar": "日曆",
+    "myAmendments": "變更申請",
     "animalManagement": "實驗動物管理",
     "animalList": "動物列表",
-    "sourceManagement": "來源管理",
-    "purchasing": "採購管理",
-    "purchaseOrder": "採購單",
-    "goodsReceipt": "採購入庫",
-    "purchaseReturn": "採購退貨",
-    "sales": "銷售管理",
-    "salesOrder": "銷售單",
-    "deliveryOrder": "銷售出庫",
-    "warehouse": "倉儲作業",
-    "inventory": "庫存查詢",
-    "inventoryLedger": "庫存流水",
-    "transfer": "調撥單",
-    "stocktaking": "盤點單",
-    "adjustment": "調整單",
-    "reports": "報表中心",
-    "stockOnHand": "庫存現況報表",
-    "stockLedger": "庫存流水報表",
-    "purchaseLines": "採購明細報表",
-    "salesLines": "銷售明細報表",
-    "costSummary": "成本摘要報表",
-    "masterData": "基礎資料",
-    "products": "產品管理",
-    "warehouses": "倉庫管理",
-    "partners": "供應商/客戶",
-    "system": "系統管理",
-    "users": "使用者管理",
-    "roles": "角色權限",
-    "settings": "系統設定",
-    "auditLogs": "審計日誌",
-    "securityAudit": "安全審計",
-    "myAmendments": "變更申請",
-    "editModeHint": "拖曳項目調整順序",
     "expandSidebar": "展開側邊欄"
   },
   "dashboard": {
@@ -118,99 +121,13 @@
     },
     "widgets": {
       "categories": {
-        "erp": "ERP 進銷存",
-        "hr": "人員管理",
-        "aup": "計畫管理",
-        "animal_care": "動物照護",
-        "report": "報表"
+        "aup": "計畫管理"
       },
       "names": {
-        "calendar_widget": "今日日曆",
-        "leave_balance": "請假餘額",
-        "my_projects": "我的計畫",
-        "animals_on_medication": "正在用藥動物",
-        "vet_comments": "獸醫師建議",
-        "low_stock_alert": "低庫存警示",
-        "pending_documents": "待處理單據",
-        "today_inbound": "今日入庫",
-        "today_outbound": "今日出庫",
-        "weekly_trend": "近{{days}}天出入庫趨勢",
-        "recent_documents": "最近單據",
-        "upcoming_leaves": "即將到期假期",
-        "staff_attendance": "工作人員出勤表",
-        "google_calendar_events": "日曆事件"
+        "my_projects": "我的計畫"
       },
       "descriptions": {
-        "calendar_widget": "顯示今日日程和員工請假資訊",
-        "leave_balance": "顯示您的特休和補休餘額",
-        "my_projects": "顯示您參與的計畫及動物統計",
-        "animals_on_medication": "顯示目前正在用藥的動物清單",
-        "vet_comments": "顯示最近的獸醫師建議",
-        "low_stock_alert": "顯示低於安全庫存的品項",
-        "pending_documents": "顯示等待核准的單據數量",
-        "today_inbound": "顯示今日入庫單據數量",
-        "today_outbound": "顯示今日出庫單據數量",
-        "weekly_trend": "顯示近{{days}}天的出入庫趨勢",
-        "recent_documents": "顯示最近建立的單據",
-        "upcoming_leaves": "顯示即將到期的假期提醒",
-        "staff_attendance": "顯示工作人員出勤統計（管理職）",
-        "google_calendar_events": "顯示 Google Calendar 本週事件"
-      },
-      "common": {
-        "loading": "載入中...",
-        "loadFailed": "載入失敗",
-        "noData": "尚無資料",
-        "viewAll": "查看全部",
-        "viewMore": "查看更多",
-        "more": "更多...",
-        "today": "今日",
-        "thisWeek": "本週",
-        "allDay": "全天",
-        "days": "天",
-        "hours": "小時",
-        "count": "{{count}} 人",
-        "viewCount": "查看全部 {{count}} 隻"
-      },
-      "animals": {
-        "medicationDescription": "需要持續照護的動物",
-        "noMedication": "目前沒有正在用藥的動物",
-        "commentDescription": "來自獸醫師的最新醫療照護建議",
-        "noComments": "目前沒有新的獸醫師建議",
-        "earTag": "耳標",
-        "penFallback": "未指定欄位"
-      },
-      "calendar": {
-        "todayLeave": "今日請假",
-        "noOneLeave": "今日無人請假 ✓",
-        "todayEvents": "今日日程",
-        "noEvents": "今日無排程事件",
-        "upcomingLeave": "近期請假",
-        "noEventsWeek": "本週無排程事件 ✓",
-        "googleDescription": "顯示本週專案與會議行程",
-        "googleNotConnected": "尚未連接 Google Calendar",
-        "googleConnectHint": "請至日曆頁面設定"
-      },
-      "hr": {
-        "balanceDescription": "您的假期餘額摘要",
-        "annualLeave": "特休",
-        "compLeave": "補休",
-        "usedTotal": "(已用 {{used}} / 共 {{total}})",
-        "expiringSoon": "即將到期：",
-        "expiringIn30Days": "30天內到期",
-        "noExpiring": "30天內沒有即將到期的假期",
-        "attendanceDescription": "{{month}} 出勤統計",
-        "attendanceDays": "出勤天數",
-        "lateCount": "遲到次數",
-        "leaveDays": "請假天數",
-        "overtimeHours": "加班時數"
-      },
-      "attendance": {
-        "description": "當日工作人員出勤即時狀態",
-        "noRecords": "今日尚無出勤紀錄",
-        "statusNormal": "正常",
-        "statusLate": "遲到",
-        "statusLeave": "請假",
-        "clockIn": "打卡時間"
+        "my_projects": "顯示您參與的計畫及動物統計"
       },
       "projects": {
         "description": "您參與或主持的 IACUC 計畫",
@@ -218,36 +135,6 @@
         "reviewing": "審查中",
         "active": "執行中",
         "noProjects": "尚無參與的計畫"
-      },
-      "erp": {
-        "lowStockDesc": "需要補貨的品項",
-        "pendingDocsDesc": "等待核准的單據",
-        "inboundDesc": "入庫單據數量",
-        "outboundDesc": "出庫單據數量",
-        "trendDesc": "最近 {{days}} 天的出入庫單據統計",
-        "recentDocsDesc": "最近建立或更新的單據",
-        "netChange": "淨變動",
-        "docNo": "單號",
-        "docType": "類型",
-        "docDate": "日期",
-        "noDocs": "尚無單據資料",
-        "status": {
-          "draft": "草稿",
-          "submitted": "待核准",
-          "approved": "已核准",
-          "cancelled": "已作廢"
-        },
-        "types": {
-          "PO": "採購單",
-          "GRN": "採購入庫",
-          "PR": "採購退貨",
-          "SO": "銷售單",
-          "DO": "銷售出庫",
-          "TR": "調撥單",
-          "STK": "盤點單",
-          "ADJ": "調整單",
-          "RM": "退料單"
-        }
       }
     },
     "projectStats": {
@@ -525,19 +412,6 @@
         "signatures": "10. 電子簽名"
       }
     }
-  },
-  "password": {
-    "title": "修改密碼",
-    "description": "請輸入您的目前密碼及新密碼",
-    "currentPassword": "目前密碼",
-    "newPassword": "新密碼",
-    "confirmPassword": "確認新密碼",
-    "submit": "確認修改",
-    "fillAllFields": "請填寫所有欄位",
-    "minLength": "新密碼至少需要 6 個字元",
-    "mismatch": "新密碼與確認密碼不一致",
-    "success": "密碼已修改，請使用新密碼重新登入",
-    "failed": "密碼修改失敗"
   },
   "language": {
     "zhTW": "繁體中文",
@@ -974,6 +848,9 @@
         "actions": "操作",
         "noPersonnel": "暫無人員資料，請點擊「+ 新增」添加"
       },
+      "defaults": {
+        "researcher": "研究人員"
+      },
       "roles": {
         "title": "工作內容說明：",
         "list": "a.計畫督導；b.飼養照顧；c.保定；d.麻醉止痛；e.手術；f.手術支援；g.觀察監測；h.安樂死；i.其他",
@@ -1001,7 +878,14 @@
           "roles": "工作內容",
           "experience": "參與動物試驗年數",
           "bio": "學經歷",
-          "trainings": "訓練/資格",
+          "trainings": {
+            "A": "IACUC 訓練班",
+            "B": "IACUC 研討會",
+            "C": "輻射安全",
+            "D": "生醫產業研習",
+            "E": "動物法規管理班",
+            "F": "其他"
+          },
           "certNo": "證書編號"
         },
         "placeholders": {
@@ -1234,5 +1118,117 @@
       "noNotifyEnabled": "尚未啟用任何通知",
       "save": "儲存通知設定"
     }
+  },
+  "pigs": {
+    "title": "動物列表",
+    "description": "管理系統中的所有實驗動物",
+    "generateReport": "產生欄位狀態表",
+    "importWeight": "匯入體重",
+    "importBasic": "匯入基本資料",
+    "batchExport": "批次匯出病歷",
+    "addPig": "新增動物",
+    "searchPlaceholder": "搜尋耳號、欄位、IACUC NO...",
+    "breedFilter": "品種",
+    "allBreeds": "全部品種",
+    "selectedCount": "已選擇 {{count}} 隻",
+    "batchAssign": "分配至計畫",
+    "systemNo": "系統號",
+    "earTag": "耳號",
+    "pen": "欄位",
+    "iacucNo": "IACUC NO.",
+    "status": "狀態",
+    "breed": "品種",
+    "gender": "性別",
+    "onMedicationShort": "用藥中",
+    "vetRecommendation": "獸醫建議",
+    "entryDate": "進場日期",
+    "actions": "動作",
+    "noPigsFound": "沒有符合條件的豬隻",
+    "notAssigned": "未分配",
+    "onMedication": "是",
+    "notOnMedication": "否",
+    "statusLabels": {
+      "pen": "欄位",
+      "unassigned": "未分配",
+      "in_experiment": "實驗中",
+      "completed": "實驗完成",
+      "assigned": "已分配",
+      "transferred": "已轉讓",
+      "deceased": "已死亡"
+    },
+    "breedLabels": {
+      "minipig": "迷你豬",
+      "white": "白豬",
+      "lyd": "LYD",
+      "other": "其他"
+    },
+    "genderLabels": {
+      "male": "公",
+      "female": "母"
+    },
+    "sacrificed": "犧牲"
+  },
+  "password": {
+    "title": "修改密碼",
+    "description": "請輸入目前密碼與新密碼以完成修改",
+    "currentPassword": "目前密碼",
+    "newPassword": "新密碼",
+    "confirmPassword": "確認新密碼",
+    "submit": "更新密碼",
+    "success": "密碼已成功更新",
+    "failed": "密碼更新失敗，請檢查目前密碼是否正確",
+    "fillAllFields": "請填寫所有欄位",
+    "mismatch": "新密碼與確認密碼不符",
+    "minLength": "密碼長度至少需要 6 個字元"
+  },
+  "amendments": {
+    "title": "我的變更申請",
+    "description": "查看和管理您提交的計畫書變更申請",
+    "listTitle": "變更申請列表",
+    "countSuffix": "筆變更申請",
+    "displayCountPrefix": "顯示",
+    "allStatus": "全部狀態",
+    "columns": {
+      "amendmentNo": "變更編號",
+      "protocol": "計畫書",
+      "title": "標題",
+      "changeItems": "變更項目",
+      "type": "類型",
+      "status": "狀態",
+      "submittedAt": "提交時間",
+      "actions": "操作"
+    },
+    "status": {
+      "DRAFT": "草稿",
+      "SUBMITTED": "已提交",
+      "CLASSIFIED": "已分類",
+      "UNDER_REVIEW": "審查中",
+      "REVISION_REQUIRED": "需修訂",
+      "RESUBMITTED": "已重送",
+      "APPROVED": "已核准",
+      "REJECTED": "已否決",
+      "ADMIN_APPROVED": "行政核准"
+    },
+    "types": {
+      "MAJOR": "重大變更",
+      "MINOR": "小變更",
+      "PENDING": "待分類"
+    },
+    "changeItemLabels": {
+      "ANIMAL_COUNT": "動物數量",
+      "PROCEDURE": "實驗程序",
+      "PERSONNEL": "試驗工作人員",
+      "DURATION": "執行期間",
+      "FUNDING": "經費來源",
+      "FACILITY": "設施/場地",
+      "SPECIES": "動物種類/品系",
+      "ANESTHESIA": "麻醉方式",
+      "EUTHANASIA": "安樂死方法",
+      "OTHER": "其他"
+    },
+    "noData": "尚無變更申請",
+    "noDataFiltered": "無符合條件的變更申請",
+    "emptyHint": "您可以在已核准的計畫書中提出變更申請",
+    "filterHint": "請嘗試選擇其他狀態篩選條件"
   }
 }

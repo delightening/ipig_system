@@ -325,14 +325,14 @@ export function DashboardPage() {
         return (
           <Card className="h-full overflow-auto">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t('dashboard.widgets.names.low_stock_alert')}</CardTitle>
+              <CardTitle className="text-sm font-medium">低庫存警示</CardTitle>
               <AlertTriangle className="h-4 w-4 text-yellow-500" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
                 {loadingAlerts ? '-' : lowStockAlerts?.length || 0}
               </div>
-              <p className="text-xs text-muted-foreground">{t('dashboard.widgets.erp.lowStockDesc')}</p>
+              <p className="text-xs text-muted-foreground">顯示庫存低於安全存量的品項</p>
             </CardContent>
           </Card>
         )
@@ -340,7 +340,7 @@ export function DashboardPage() {
         return (
           <Card className="h-full overflow-auto">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t('dashboard.widgets.names.pending_documents')}</CardTitle>
+              <CardTitle className="text-sm font-medium">待處理單據</CardTitle>
               <FileText className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
@@ -357,7 +357,7 @@ export function DashboardPage() {
         return (
           <Card className="h-full overflow-auto">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t('dashboard.widgets.names.today_inbound')}</CardTitle>
+              <CardTitle className="text-sm font-medium">今日入庫</CardTitle>
               <TrendingUp className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
@@ -371,7 +371,7 @@ export function DashboardPage() {
                       new Date(d.approved_at || '').toDateString() === new Date().toDateString()
                   ).length || 0}
               </div>
-              <p className="text-xs text-muted-foreground">{t('dashboard.widgets.erp.inboundDesc')}</p>
+              <p className="text-xs text-muted-foreground">顯示今日已完成的進貨/入庫單據</p>
             </CardContent>
           </Card>
         )
@@ -379,7 +379,7 @@ export function DashboardPage() {
         return (
           <Card className="h-full overflow-auto">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t('dashboard.widgets.names.today_outbound')}</CardTitle>
+              <CardTitle className="text-sm font-medium">今日出庫</CardTitle>
               <TrendingDown className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
@@ -393,7 +393,7 @@ export function DashboardPage() {
                       new Date(d.approved_at || '').toDateString() === new Date().toDateString()
                   ).length || 0}
               </div>
-              <p className="text-xs text-muted-foreground">{t('dashboard.widgets.erp.outboundDesc')}</p>
+              <p className="text-xs text-muted-foreground">顯示今日已完成的出貨/出庫單據</p>
             </CardContent>
           </Card>
         )
@@ -405,9 +405,9 @@ export function DashboardPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-indigo-500" />
-                {t('dashboard.widgets.names.weekly_trend', { days })}
+                趨勢圖 ({days}天)
               </CardTitle>
-              <CardDescription>{t('dashboard.widgets.erp.trendDesc', { days })}</CardDescription>
+              <CardDescription>顯示最近 {days} 天的進出庫趨勢</CardDescription>
             </CardHeader>
             <CardContent>
               {loadingDocuments ? (
@@ -469,9 +469,9 @@ export function DashboardPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-blue-500" />
-                {t('dashboard.widgets.names.recent_documents')}
+                最近單據
               </CardTitle>
-              <CardDescription>{t('dashboard.widgets.erp.recentDocsDesc')}</CardDescription>
+              <CardDescription>顯示最近建立或異動的單據</CardDescription>
             </CardHeader>
             <CardContent>
               {loadingDocuments ? (
@@ -518,9 +518,9 @@ export function DashboardPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-orange-500" />
-                {t('dashboard.widgets.names.upcoming_leaves')}
+                即將到期假期
               </CardTitle>
-              <CardDescription>{t('dashboard.widgets.descriptions.upcoming_leaves')}</CardDescription>
+              <CardDescription>顯示即將過期的特休或補休提醒</CardDescription>
             </CardHeader>
             <CardContent>
               <UpcomingLeavesContent />
@@ -671,43 +671,51 @@ export function DashboardPage() {
               if (categoryWidgets.length === 0) return null
               return (
                 <div key={categoryId}>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-2">{t(categoryName)}</h4>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">
+                    {categoryName.translate ? t(categoryName.label) : categoryName.label}
+                  </h4>
                   <div className="space-y-2">
-                    {categoryWidgets.map((widget) => (
-                      <div
-                        key={widget.i}
-                        className="p-3 border rounded-lg hover:bg-muted/50 space-y-3"
-                      >
-                        <div className="flex items-start gap-3">
-                          <Checkbox
-                            id={widget.i}
-                            checked={widget.visible !== false}
-                            onCheckedChange={() => toggleWidgetVisibility(widget.i)}
-                          />
-                          <label htmlFor={widget.i} className="flex-1 cursor-pointer">
-                            <p className="text-sm font-medium">{t(widgetNames[widget.i])}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {t(widgetDescriptions[widget.i])}
-                            </p>
-                          </label>
-                        </div>
-                        {/* weekly_trend 天數設定 */}
-                        {widget.visible !== false && widget.i === 'weekly_trend' && (
-                          <div className="flex items-center gap-2 ml-6">
-                            <span className="text-xs text-muted-foreground">{t('dashboard.settings.days')}</span>
-                            <Slider
-                              value={widget.options?.days || 7}
-                              min={3}
-                              max={7}
-                              step={1}
-                              quickValues={[3, 5, 7]}
-                              onChange={(value: number) => changeWidgetOption(widget.i, 'days', value)}
-                              className="w-48"
+                    {categoryWidgets.map((widget) => {
+                      const nameCfg = widgetNames[widget.i]
+                      const descCfg = widgetDescriptions[widget.i]
+                      return (
+                        <div
+                          key={widget.i}
+                          className="p-3 border rounded-lg hover:bg-muted/50 space-y-3"
+                        >
+                          <div className="flex items-start gap-3">
+                            <Checkbox
+                              id={widget.i}
+                              checked={widget.visible !== false}
+                              onCheckedChange={() => toggleWidgetVisibility(widget.i)}
                             />
+                            <label htmlFor={widget.i} className="flex-1 cursor-pointer">
+                              <p className="text-sm font-medium">
+                                {nameCfg.translate ? t(nameCfg.label) : nameCfg.label}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {descCfg.translate ? t(descCfg.label) : descCfg.label}
+                              </p>
+                            </label>
                           </div>
-                        )}
-                      </div>
-                    ))}
+                          {/* weekly_trend 天數設定 */}
+                          {widget.visible !== false && widget.i === 'weekly_trend' && (
+                            <div className="flex items-center gap-2 ml-6">
+                              <span className="text-xs text-muted-foreground">{t('dashboard.settings.days')}</span>
+                              <Slider
+                                value={widget.options?.days || 7}
+                                min={3}
+                                max={7}
+                                step={1}
+                                quickValues={[3, 5, 7]}
+                                onChange={(value: number) => changeWidgetOption(widget.i, 'days', value)}
+                                className="w-48"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               )
