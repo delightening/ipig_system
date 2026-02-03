@@ -68,6 +68,11 @@ pub async fn me(
         theme_preference: user.theme_preference,
         language_preference: user.language_preference,
         last_login_at: user.last_login_at,
+        entry_date: user.entry_date,
+        position: user.position,
+        aup_roles: user.aup_roles,
+        years_experience: user.years_experience,
+        trainings: user.trainings.0,
         roles,
         permissions,
     }))

@@ -7,6 +7,7 @@ use axum::{
 };
 use uuid::Uuid;
 use validator::Validate;
+use sqlx::PgPool;
 
 use crate::{
     middleware::CurrentUser,
@@ -28,8 +29,51 @@ use crate::{
 use axum::extract::Multipart;
 
 // ============================================
+// Helper functions for notification
+// ============================================
+
+/// 從觀察紀錄 ID 取得豬隻資訊（用於發送通知）
+async fn get_pig_info_from_observation(
+    pool: &PgPool,
+    observation_id: i32,
+) -> std::result::Result<Option<(Uuid, String, Option<Uuid>)>, sqlx::Error> {
+    sqlx::query_as::<_, (Uuid, String, Option<Uuid>)>(
+        r#"
+        SELECT p.id, p.ear_tag, pr.id as protocol_id
+        FROM pig_observations po
+        JOIN pigs p ON po.pig_id = p.id
+        LEFT JOIN protocols pr ON p.iacuc_no = pr.iacuc_no
+        WHERE po.id = $1
+        "#
+    )
+    .bind(observation_id)
+    .fetch_optional(pool)
+    .await
+}
+
+/// 從手術紀錄 ID 取得豬隻資訊（用於發送通知）
+async fn get_pig_info_from_surgery(
+    pool: &PgPool,
+    surgery_id: i32,
+) -> std::result::Result<Option<(Uuid, String, Option<Uuid>)>, sqlx::Error> {
+    sqlx::query_as::<_, (Uuid, String, Option<Uuid>)>(
+        r#"
+        SELECT p.id, p.ear_tag, pr.id as protocol_id
+        FROM pig_surgeries ps
+        JOIN pigs p ON ps.pig_id = p.id
+        LEFT JOIN protocols pr ON p.iacuc_no = pr.iacuc_no
+        WHERE ps.id = $1
+        "#
+    )
+    .bind(surgery_id)
+    .fetch_optional(pool)
+    .await
+}
+
+// ============================================
 // 豬源管理
 // ============================================
+
 
 /// 列出所有豬源
 pub async fn list_pig_sources(
@@ -46,7 +90,7 @@ pub async fn create_pig_source(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<CreatePigSourceRequest>,
 ) -> Result<Json<PigSource>> {
-    require_permission!(current_user, "dev.user.create"); // 需要使用者建立權限
+    require_permission!(current_user, "admin.user.create"); // 需要使用者建立權限
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let source = AnimalService::create_source(&state.db, &req).await?;
@@ -60,7 +104,7 @@ pub async fn update_pig_source(
     Path(id): Path<Uuid>,
     Json(req): Json<UpdatePigSourceRequest>,
 ) -> Result<Json<PigSource>> {
-    require_permission!(current_user, "dev.user.edit");
+    require_permission!(current_user, "admin.user.edit");
     
     let source = AnimalService::update_source(&state.db, id, &req).await?;
     Ok(Json(source))
@@ -72,7 +116,7 @@ pub async fn delete_pig_source(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
-    require_permission!(current_user, "dev.user.delete");
+    require_permission!(current_user, "admin.user.delete");
     
     AnimalService::delete_source(&state.db, id).await?;
     Ok(Json(serde_json::json!({ "message": "Pig source deleted successfully" })))
@@ -644,6 +688,22 @@ pub async fn add_observation_vet_recommendation(
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let recommendation = AnimalService::add_vet_recommendation(&state.db, VetRecordType::Observation, id, &req, current_user.id).await?;
+    
+    // 發送通知給 PI/Coeditor
+    if let Ok(Some((pig_id, ear_tag, protocol_id))) = get_pig_info_from_observation(&state.db, id).await {
+        let notification_service = crate::services::NotificationService::new(state.db.clone());
+        let record_type_str = "觀察紀錄";
+        let _ = notification_service.notify_vet_recommendation(
+            pig_id,
+            &ear_tag,
+            protocol_id,
+            record_type_str,
+            &req.content,
+            req.is_urgent,
+            Some(&state.config),
+        ).await;
+    }
+    
     Ok(Json(recommendation))
 }
 
@@ -658,6 +718,22 @@ pub async fn add_surgery_vet_recommendation(
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let recommendation = AnimalService::add_vet_recommendation(&state.db, VetRecordType::Surgery, id, &req, current_user.id).await?;
+    
+    // 發送通知給 PI/Coeditor
+    if let Ok(Some((pig_id, ear_tag, protocol_id))) = get_pig_info_from_surgery(&state.db, id).await {
+        let notification_service = crate::services::NotificationService::new(state.db.clone());
+        let record_type_str = "手術紀錄";
+        let _ = notification_service.notify_vet_recommendation(
+            pig_id,
+            &ear_tag,
+            protocol_id,
+            record_type_str,
+            &req.content,
+            req.is_urgent,
+            Some(&state.config),
+        ).await;
+    }
+    
     Ok(Json(recommendation))
 }
 
@@ -673,6 +749,22 @@ pub async fn add_observation_vet_recommendation_with_attachments(
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let recommendation = AnimalService::add_vet_recommendation_with_attachments(&state.db, VetRecordType::Observation, id, &req, current_user.id).await?;
+    
+    // 發送通知給 PI/Coeditor
+    if let Ok(Some((pig_id, ear_tag, protocol_id))) = get_pig_info_from_observation(&state.db, id).await {
+        let notification_service = crate::services::NotificationService::new(state.db.clone());
+        let record_type_str = "觀察紀錄";
+        let _ = notification_service.notify_vet_recommendation(
+            pig_id,
+            &ear_tag,
+            protocol_id,
+            record_type_str,
+            &req.content,
+            req.is_urgent,
+            Some(&state.config),
+        ).await;
+    }
+    
     Ok(Json(recommendation))
 }
 
@@ -688,6 +780,22 @@ pub async fn add_surgery_vet_recommendation_with_attachments(
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let recommendation = AnimalService::add_vet_recommendation_with_attachments(&state.db, VetRecordType::Surgery, id, &req, current_user.id).await?;
+    
+    // 發送通知給 PI/Coeditor
+    if let Ok(Some((pig_id, ear_tag, protocol_id))) = get_pig_info_from_surgery(&state.db, id).await {
+        let notification_service = crate::services::NotificationService::new(state.db.clone());
+        let record_type_str = "手術紀錄";
+        let _ = notification_service.notify_vet_recommendation(
+            pig_id,
+            &ear_tag,
+            protocol_id,
+            record_type_str,
+            &req.content,
+            req.is_urgent,
+            Some(&state.config),
+        ).await;
+    }
+    
     Ok(Json(recommendation))
 }
 

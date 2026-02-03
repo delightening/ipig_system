@@ -309,6 +309,8 @@ pub struct VetRecommendation {
     pub record_id: i32,
     pub content: String,
     pub attachments: Option<serde_json::Value>, // 附件（含圖片）
+    #[sqlx(default)]
+    pub is_urgent: bool,  // 是否為緊急建議
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
 }
@@ -482,6 +484,8 @@ pub struct CreateSacrificeRequest {
 pub struct CreateVetRecommendationRequest {
     #[validate(length(min = 1, message = "Content is required"))]
     pub content: String,
+    #[serde(default)]
+    pub is_urgent: bool,  // 是否為緊急建議（影響通知管道）
 }
 
 #[derive(Debug, Deserialize, Validate)]
@@ -702,6 +706,8 @@ pub struct CreateVetRecommendationWithAttachmentsRequest {
     #[validate(length(min = 1, message = "Content is required"))]
     pub content: String,
     pub attachments: Option<serde_json::Value>, // [{file_name, file_path, file_type}]
+    #[serde(default)]
+    pub is_urgent: bool,  // 是否為緊急建議（影響通知管道）
 }
 
 /// 匯出請求

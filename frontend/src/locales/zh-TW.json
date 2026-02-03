@@ -956,6 +956,7 @@
         "position": "職稱",
         "roles": "工作內容",
         "experience": "參與動物試驗年數",
+        "bio": "學經歷",
         "trainings": "訓練/資格/取得時間",
         "actions": "操作",
         "noPersonnel": "暫無人員資料，請點擊「+ 新增」添加"
@@ -986,6 +987,7 @@
           "position": "職稱",
           "roles": "工作內容",
           "experience": "參與動物試驗年數",
+          "bio": "學經歷",
           "trainings": "訓練/資格",
           "certNo": "證書編號"
         },
@@ -994,6 +996,7 @@
           "position": "請輸入職稱",
           "rolesOther": "請說明其他工作內容",
           "experience": "請輸入年數",
+          "bio": "請輸入學術與研究經歷",
           "trainingsOther": "請說明其他訓練/資格",
           "certNo": "證書編號"
         },
@@ -1153,6 +1156,70 @@
           "purpose": "術後止痛藥"
         }
       ]
+    }
+  },
+  "settings": {
+    "basic": {
+      "title": "基本設定",
+      "description": "設定公司基本資訊",
+      "companyName": "公司名稱",
+      "companyNamePlaceholder": "輸入公司名稱",
+      "defaultWarehouse": "預設倉庫",
+      "selectWarehouse": "選擇預設倉庫",
+      "mainWarehouse": "主倉庫",
+      "secondaryWarehouse": "副倉庫"
+    },
+    "inventory": {
+      "title": "庫存設定",
+      "description": "設定庫存計算方式",
+      "costMethod": "成本計算方式",
+      "weightedAverage": "加權平均法",
+      "movingAverage": "移動平均法",
+      "fifo": "先進先出",
+      "lifo": "後進先出",
+      "supportHint": "目前版本支援加權平均法和移動平均法"
+    },
+    "email": {
+      "title": "郵件設定",
+      "description": "設定 SMTP 郵件伺服器",
+      "smtpServer": "SMTP 伺服器",
+      "port": "連接埠",
+      "account": "帳號"
+    },
+    "security": {
+      "title": "安全設定",
+      "description": "設定系統安全相關參數",
+      "sessionTimeout": "Session 逾時（分鐘）"
+    },
+    "saveSystem": "儲存系統設定",
+    "notifications": {
+      "preferences": "通知偏好設定",
+      "preferencesDescription": "設定您希望接收的通知類型",
+      "emailTitle": "Email 通知",
+      "emailDescription": "設定哪些事件要發送 Email 通知",
+      "paramsTitle": "預警參數",
+      "paramsDescription": "設定預警通知的觸發條件",
+      "loadFailed": "無法載入通知設定，請重新整理頁面",
+      "lowStock": "低庫存預警",
+      "lowStockHint": "當產品庫存低於安全存量時發送通知",
+      "immediateNotify": "即時通知",
+      "immediateNotifyHint": "立即發送通知而非每日彙整",
+      "expiryWarning": "效期預警",
+      "expiryWarningHint": "當產品即將到期時發送通知",
+      "docApproval": "單據審核通知",
+      "docApprovalHint": "當單據需要審核或審核完成時通知",
+      "protocolStatus": "計畫狀態變更",
+      "protocolStatusHint": "當計畫審查狀態變更時發送通知",
+      "monthlyReport": "月報通知",
+      "monthlyReportHint": "每月自動發送庫存與成本彙整報表",
+      "expiryWarningDetail": "產品在到期前 {{days}} 天會發送預警通知",
+      "timeDescription": "通知時間說明",
+      "lowStockCheck": "低庫存檢查：每日上午 8:00 執行",
+      "expiryCheck": "效期檢查：每日上午 8:00 執行",
+      "cleanupCheck": "過期通知清理：每週日凌晨 3:00 執行",
+      "summary": "目前啟用的通知",
+      "noNotifyEnabled": "尚未啟用任何通知",
+      "save": "儲存通知設定"
     }
   }
 }

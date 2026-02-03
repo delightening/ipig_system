@@ -4,6 +4,7 @@ import api, { VetRecommendation } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import { FileUpload, FileInfo } from '@/components/ui/file-upload'
 import {
   Dialog,
@@ -22,6 +23,7 @@ import {
   Clock,
   FileText,
   Stethoscope,
+  AlertTriangle,
 } from 'lucide-react'
 
 type RecordType = 'observation' | 'surgery'
@@ -44,6 +46,7 @@ export function VetRecommendationDialog({ open, onOpenChange, recordType, record
   const [showAddForm, setShowAddForm] = useState(false)
   const [content, setContent] = useState('')
   const [attachments, setAttachments] = useState<FileInfo[]>([])
+  const [isUrgent, setIsUrgent] = useState(false)
 
   // Query recommendations
   const { data: recommendations, isLoading } = useQuery({
@@ -66,15 +69,17 @@ export function VetRecommendationDialog({ open, onOpenChange, recordType, record
         : `/surgeries/${recordId}/recommendations`
       return api.post(endpoint, {
         content,
+        is_urgent: isUrgent,
         // TODO: Handle file upload
       })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vet-recommendations', recordType, recordId] })
-      toast({ title: '成功', description: '獸醫師建議已新增' })
+      toast({ title: '成功', description: isUrgent ? '緊急建議已新增，已發送 Email 通知' : '獸醫師建議已新增' })
       setShowAddForm(false)
       setContent('')
       setAttachments([])
+      setIsUrgent(false)
     },
     onError: (error: any) => {
       toast({
@@ -84,6 +89,7 @@ export function VetRecommendationDialog({ open, onOpenChange, recordType, record
       })
     },
   })
+
 
   const formatDateTime = (dateStr: string) => {
     return new Date(dateStr).toLocaleString('zh-TW', {
@@ -147,6 +153,41 @@ export function VetRecommendationDialog({ open, onOpenChange, recordType, record
                   />
                 </div>
 
+                {/* Urgent Checkbox */}
+                <div className="flex items-start space-x-3">
+                  <Checkbox
+                    id="is_urgent"
+                    checked={isUrgent}
+                    onCheckedChange={(checked) => setIsUrgent(checked === true)}
+                    className="mt-1"
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <Label
+                      htmlFor="is_urgent"
+                      className="flex items-center gap-2 text-sm font-medium cursor-pointer"
+                    >
+                      <AlertTriangle className="h-4 w-4 text-red-500" />
+                      緊急建議
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      勾選後將同時發送 Email 通知計畫主持人及共同計畫主持人
+                    </p>
+                  </div>
+                </div>
+
+                {/* Urgent Warning */}
+                {isUrgent && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                    <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-red-700">
+                      <p className="font-medium">緊急通知模式</p>
+                      <p className="text-xs mt-1">
+                        系統將立即發送 Email 通知至計畫主持人 (PI) 及共同計畫主持人 (Coeditor)，請確認建議內容正確無誤。
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label>附件</Label>
                   <FileUpload
@@ -167,6 +208,7 @@ export function VetRecommendationDialog({ open, onOpenChange, recordType, record
                       setShowAddForm(false)
                       setContent('')
                       setAttachments([])
+                      setIsUrgent(false)
                     }}
                   >
                     取消
@@ -174,15 +216,16 @@ export function VetRecommendationDialog({ open, onOpenChange, recordType, record
                   <Button
                     type="submit"
                     disabled={addMutation.isPending}
-                    className="bg-green-600 hover:bg-green-700"
+                    className={isUrgent ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"}
                   >
                     {addMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    送出建議
+                    {isUrgent ? '發送緊急建議' : '送出建議'}
                   </Button>
                 </div>
               </div>
             </form>
           )}
+
 
           {/* Recommendations List */}
           {isLoading ? (
