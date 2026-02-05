@@ -77,6 +77,8 @@ import { VetRecommendationDialog } from '@/components/pig/VetRecommendationDialo
 import { DeleteReasonDialog } from '@/components/ui/delete-reason-dialog'
 import { EmergencyMedicationDialog } from '@/components/pig/EmergencyMedicationDialog'
 import { EuthanasiaOrderDialog } from '@/components/pig/EuthanasiaOrderDialog'
+import { useAuthStore } from '@/stores/auth'
+import { useUIPreferences } from '@/stores/uiPreferences'
 
 const statusColors: Record<PigStatus, string> = {
   unassigned: 'bg-gray-500',
@@ -102,6 +104,10 @@ export function PigDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const pigId = id!
+
+  // Auth and UI preferences
+  const { hasRole } = useAuthStore()
+  const { developerMode, toggleDeveloperMode } = useUIPreferences()
 
   const [activeTab, setActiveTab] = useState<TabType>('timeline')
 
@@ -536,9 +542,11 @@ export function PigDetailPage() {
               </div>
               <div>
                 <span className="text-sm text-slate-500">動物狀態</span>
-                <Badge className={`${statusColors[pig.status]} text-white mt-1`}>
-                  {allPigStatusNames[pig.status]}
-                </Badge>
+                <p className="mt-1">
+                  <Badge className={`${statusColors[pig.status]} text-white`}>
+                    {allPigStatusNames[pig.status]}
+                  </Badge>
+                </p>
               </div>
               <div>
                 <span className="text-sm text-slate-500">性別</span>
@@ -1006,10 +1014,23 @@ export function PigDetailPage() {
                 <CardTitle>體重紀錄</CardTitle>
                 <CardDescription>記錄豬隻體重變化歷程</CardDescription>
               </div>
-              <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => setShowAddWeightDialog(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                新增紀錄
-              </Button>
+              <div className="flex items-center gap-2">
+                {hasRole('admin') && (
+                  <label className="flex items-center gap-2 text-sm text-slate-500 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={developerMode}
+                      onChange={() => toggleDeveloperMode()}
+                      className="rounded"
+                    />
+                    顯示系統號
+                  </label>
+                )}
+                <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => setShowAddWeightDialog(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  新增紀錄
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {!weights || weights.length === 0 ? (
@@ -1021,7 +1042,7 @@ export function PigDetailPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>系統號</TableHead>
+                      {developerMode && <TableHead>系統號</TableHead>}
                       <TableHead>測量日期</TableHead>
                       <TableHead>體重 (kg)</TableHead>
                       <TableHead>記錄者</TableHead>
@@ -1031,21 +1052,26 @@ export function PigDetailPage() {
                   </TableHeader>
                   <TableBody>
                     {weights.map((weight) => (
-                      <TableRow key={weight.id}>
-                        <TableCell>{weight.id}</TableCell>
+                      <TableRow key={weight.id} data-record-id={weight.id}>
+                        {developerMode && <TableCell>{weight.id}</TableCell>}
                         <TableCell>{new Date(weight.measure_date).toLocaleDateString('zh-TW')}</TableCell>
                         <TableCell className="font-medium">{weight.weight}</TableCell>
                         <TableCell>{weight.created_by_name || '-'}</TableCell>
                         <TableCell>{new Date(weight.created_at).toLocaleString('zh-TW')}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="icon">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title={`系統號: ${weight.id} - 點擊編輯`}
+                            >
                               <Edit2 className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => setDeleteWeightTarget(weight.id)}
+                              title={`系統號: ${weight.id} - 點擊刪除`}
                             >
                               <Trash2 className="h-4 w-4 text-red-500" />
                             </Button>

@@ -48,7 +48,7 @@ pub struct AllPreferencesResponse {
 /// 使用前端 NavItem 的 title 屬性作為識別符
 pub fn default_nav_order() -> serde_json::Value {
     serde_json::json!([
-        "儀表板",
+        "dashboard",
         "myProjects",
         "aupReview",
         "animalManagement",

@@ -113,6 +113,12 @@ const erpModules: ErpModule[] = [
                 icon: <Settings2 className="h-4 w-4" />,
                 description: '庫存數量調整',
             },
+            {
+                title: '倉庫佈局',
+                href: '/inventory/layout',
+                icon: <Warehouse className="h-4 w-4" />,
+                description: '視覺化管理貨架位置',
+            },
         ],
     },
     {

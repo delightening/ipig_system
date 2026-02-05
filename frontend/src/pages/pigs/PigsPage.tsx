@@ -171,6 +171,7 @@ export function PigsPage() {
   const [quickAddPending, setQuickAddPending] = useState<{ earTag: string; penLocation: string } | null>(null)
   const [quickAddForm, setQuickAddForm] = useState({
     breed: 'minipig' as PigBreed,
+    breed_other: '',
     gender: 'male' as 'male' | 'female',
     entry_date: new Date().toISOString().split('T')[0],
     birth_date: '',
@@ -457,6 +458,7 @@ export function PigsPage() {
         setQuickAddPending({ earTag: data.formattedEarTag, penLocation: data.targetPenLocation })
         setQuickAddForm({
           breed: 'minipig',
+          breed_other: '',
           gender: 'male',
           entry_date: new Date().toISOString().split('T')[0],
           birth_date: '',
@@ -513,6 +515,7 @@ export function PigsPage() {
       const payload = {
         ear_tag: quickAddPending.earTag,
         breed: quickAddForm.breed,
+        breed_other: quickAddForm.breed === 'other' ? quickAddForm.breed_other : undefined,
         gender: quickAddForm.gender,
         entry_date: quickAddForm.entry_date,
         birth_date: quickAddForm.birth_date,
@@ -1525,6 +1528,14 @@ export function PigsPage() {
                   <SelectItem value="other">其他</SelectItem>
                 </SelectContent>
               </Select>
+              {quickAddForm.breed === 'other' && (
+                <Input
+                  placeholder="請輸入品種名稱"
+                  value={quickAddForm.breed_other}
+                  onChange={(e) => setQuickAddForm({ ...quickAddForm, breed_other: e.target.value })}
+                  className="mt-2"
+                />
+              )}
             </div>
             <div className="space-y-2">
               <Label>性別 *</Label>

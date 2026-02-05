@@ -20,6 +20,7 @@ mod user_preferences;
 mod signature;
 pub mod euthanasia;
 pub mod amendment;
+pub mod storage_location;
 
 pub use auth::*;
 pub use user::*;
