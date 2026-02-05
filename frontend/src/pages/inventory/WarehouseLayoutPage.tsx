@@ -465,10 +465,8 @@ export function WarehouseLayoutPage() {
                                 >
                                     <div className="h-full p-3 flex flex-col justify-between text-white">
                                         <div>
-                                            <div className="font-bold text-lg" style={{ marginBottom: '10px' }}>{loc.code}</div>
-                                            {loc.name && (
-                                                <div className="text-sm opacity-90 truncate">{loc.name}</div>
-                                            )}
+                                            <div className="font-bold text-lg" style={{ marginBottom: '10px' }}>{loc.name || loc.code}</div>
+                                            <div className="text-sm opacity-90 truncate">{loc.code}</div>
                                         </div>
                                         <div className="flex items-center justify-between mt-2">
                                             <Badge

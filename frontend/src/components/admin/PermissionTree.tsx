@@ -27,10 +27,12 @@ export function PermissionTree({
     setSelectedModule,
     toggleModule,
     toggleCategory,
+    toggleSubCategory,
     expandAllModules,
     collapseAllModules,
     isModuleExpanded,
     isCategoryExpanded,
+    isSubCategoryExpanded,
   } = usePermissionManager(permissions)
 
   // 模組選項
@@ -96,9 +98,11 @@ export function PermissionTree({
               selectedPermissionIds={selectedPermissionIds}
               onTogglePermission={onTogglePermission}
               onToggleCategory={(category) => toggleCategory(group.module, category)}
+              onToggleSubCategory={(category, subCategory) => toggleSubCategory(group.module, category, subCategory)}
               isExpanded={isModuleExpanded(group.module)}
               onToggleExpand={() => toggleModule(group.module)}
               isCategoryExpanded={(module, category) => isCategoryExpanded(module, category)}
+              isSubCategoryExpanded={(module, category, subCategory) => isSubCategoryExpanded(module, category, subCategory)}
               searchQuery={searchQuery}
             />
           ))
