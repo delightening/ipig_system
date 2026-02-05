@@ -33,6 +33,7 @@ import { DocumentEditPage } from '@/pages/documents/DocumentEditPage'
 // Inventory Pages
 import { InventoryPage } from '@/pages/inventory/InventoryPage'
 import { StockLedgerPage } from '@/pages/inventory/StockLedgerPage'
+import { WarehouseLayoutPage } from '@/pages/inventory/WarehouseLayoutPage'
 
 // Admin Pages
 import { UsersPage } from '@/pages/admin/UsersPage'
@@ -213,6 +214,7 @@ function App() {
                         {/* 庫存管理 */}
                         <Route path="/inventory" element={<InventoryPage />} />
                         <Route path="/inventory/ledger" element={<StockLedgerPage />} />
+                        <Route path="/inventory/layout" element={<WarehouseLayoutPage />} />
 
                         {/* 報表中心 */}
                         <Route path="/reports" element={<ReportsPage />} />

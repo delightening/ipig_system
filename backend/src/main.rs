@@ -404,19 +404,21 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "aup.attachment.upload", "aup.attachment.delete",
             // 版本管理
             "aup.version.view",
-            // 動物管理 - 可查看所有動物
-            "animal.info.view_all",
+            // 物種管理
+            "species.read", "species.create", "species.update",
+            // 動物管理 - 可查看所有動物、新增、編輯、匯入
+            "animal.info.view_all", "animal.info.create", "animal.info.edit", "animal.info.import",
             "animal.record.view", "animal.record.create", "animal.record.edit",
             "animal.record.observation", "animal.record.surgery", 
             "animal.record.weight", "animal.record.vaccine", "animal.record.sacrifice",
             // 動物來源管理
             "animal.source.manage",
-            // 緊急用藥執行權限（執行後通知 VET）
-            "animal.emergency.medication",
+            // 緊急處置權限
+            "animal.emergency.medication", "animal.emergency.stop",
             // 安樂死執行權限（需由 PI 或 VET 核准）
             "animal.euthanasia.execute",
-            // 匯出
-            "animal.export.observation", "animal.export.surgery", "animal.export.experiment",
+            // 匯出（含病歷）
+            "animal.export.medical", "animal.export.observation", "animal.export.surgery", "animal.export.experiment",
             // ERP 查詢（僅讀取）+ 請購單建立
             "erp.warehouse.view", "erp.product.view", "erp.partner.view",
             "erp.inventory.view", "erp.stock.view",

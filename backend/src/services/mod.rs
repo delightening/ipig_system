@@ -27,6 +27,7 @@ pub mod email;
 mod signature;
 mod euthanasia;
 mod amendment;
+mod storage_location;
 
 pub use auth::AuthService;
 pub use user::UserService;
@@ -50,6 +51,7 @@ pub use pdf::PdfService;
 pub use signature::{SignatureService, AnnotationService, SignatureType, AnnotationType};
 pub use euthanasia::EuthanasiaService;
 pub use amendment::AmendmentService;
+pub use storage_location::StorageLocationService;
 
 
 mod balance_expiration;

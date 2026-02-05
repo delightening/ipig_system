@@ -16,7 +16,7 @@ use crate::{
         CreatePigRequest, CreatePigSourceRequest, CreateSacrificeRequest, CreateSurgeryRequest,
         CreateVaccinationRequest, CreateVetRecommendationRequest, CreateWeightRequest, Pig,
         PigListItem, PigObservation, PigQuery, PigSacrifice, PigSource, PigSurgery,
-        PigVaccination, PigWeight, PigsByPen, UpdatePigRequest, UpdatePigSourceRequest,
+        PigVaccination, PigWeight, PigWeightResponse, PigsByPen, UpdatePigRequest, UpdatePigSourceRequest,
         VetRecommendation, VetRecordType, UpdateObservationRequest, UpdateSurgeryRequest, UpdateWeightRequest,
         UpdateVaccinationRequest, CopyRecordRequest, VersionHistoryResponse,
         CreateVetRecommendationWithAttachmentsRequest, ExportRequest, PigImportBatch, ObservationListItem, SurgeryListItem, ImportResult,
@@ -547,7 +547,7 @@ pub async fn list_pig_weights(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(pig_id): Path<Uuid>,
-) -> Result<Json<Vec<PigWeight>>> {
+) -> Result<Json<Vec<PigWeightResponse>>> {
     let weights = AnimalService::list_weights(&state.db, pig_id).await?;
     Ok(Json(weights))
 }

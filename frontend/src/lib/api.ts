@@ -128,6 +128,69 @@ export interface Warehouse {
   updated_at: string
 }
 
+// Storage Location Types (儲位/貨架)
+export type StorageLocationType = 'shelf' | 'rack' | 'zone' | 'bin'
+
+export interface StorageLocation {
+  id: string
+  warehouse_id: string
+  code: string
+  name?: string
+  location_type: StorageLocationType
+  row_index: number
+  col_index: number
+  width: number
+  height: number
+  capacity?: number
+  current_count: number
+  color?: string
+  is_active: boolean
+  config?: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+export interface StorageLocationWithWarehouse extends StorageLocation {
+  warehouse_code: string
+  warehouse_name: string
+}
+
+export interface StorageLayoutItem {
+  id: string
+  row_index: number
+  col_index: number
+  width: number
+  height: number
+}
+
+export interface UpdateStorageLayoutRequest {
+  items: StorageLayoutItem[]
+}
+
+export const storageLocationTypeNames: Record<StorageLocationType, string> = {
+  shelf: '貨架',
+  rack: '儲物架',
+  zone: '區域',
+  bin: '儲物格',
+}
+
+export interface StorageLocationInventoryItem {
+  id: string
+  storage_location_id: string
+  product_id: string
+  product_sku: string
+  product_name: string
+  on_hand_qty: string
+  base_uom: string
+  batch_no?: string
+  expiry_date?: string
+  updated_at: string
+}
+
+export interface UpdateStorageLocationInventoryItemRequest {
+  on_hand_qty: string
+}
+
 export interface Product {
   id: string
   sku: string

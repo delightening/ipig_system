@@ -17,6 +17,7 @@ mod facility;
 mod calendar;
 mod euthanasia;
 mod amendment;
+mod storage_location;
 pub mod user_preferences;
 
 pub use user::*;
@@ -36,6 +37,7 @@ pub use facility::*;
 pub use calendar::*;
 pub use euthanasia::*;
 pub use amendment::*;
+pub use storage_location::*;
 
 
 use serde::{Deserialize, Serialize};

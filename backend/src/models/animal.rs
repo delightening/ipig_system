@@ -251,6 +251,19 @@ pub struct PigWeight {
     pub created_at: DateTime<Utc>,
 }
 
+/// 體重紀錄回應（含建立者名稱）
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct PigWeightResponse {
+    pub id: i32,
+    pub pig_id: Uuid,
+    pub measure_date: NaiveDate,
+    pub weight: rust_decimal::Decimal,
+    pub created_by: Option<Uuid>,
+    pub created_by_name: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+
 /// 疫苗/驅蟲紀錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct PigVaccination {

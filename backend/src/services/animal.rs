@@ -7,7 +7,7 @@ use crate::{
         CreatePigSourceRequest, CreateSacrificeRequest, CreateSurgeryRequest,
         CreateVaccinationRequest, CreateVetRecommendationRequest, CreateWeightRequest, Pig,
         PigListItem, PigObservation, PigQuery, PigSacrifice, PigSource, PigStatus, PigSurgery,
-        PigVaccination, PigWeight, PigsByPen, UpdatePigRequest, UpdatePigSourceRequest,
+        PigVaccination, PigWeight, PigWeightResponse, PigsByPen, UpdatePigRequest, UpdatePigSourceRequest,
         VetRecommendation, VetRecordType, UpdateObservationRequest, UpdateSurgeryRequest, UpdateWeightRequest,
         UpdateVaccinationRequest, RecordVersion, VersionDiff, VersionHistoryResponse,
         PigImportBatch, ImportStatus, ImportType, ImportResult, ImportErrorDetail,
@@ -1040,9 +1040,17 @@ impl AnimalService {
     // ============================================
 
     /// 取得體重紀錄列表（排除已刪除）
-    pub async fn list_weights(pool: &PgPool, pig_id: Uuid) -> Result<Vec<PigWeight>> {
-        let weights = sqlx::query_as::<_, PigWeight>(
-            "SELECT * FROM pig_weights WHERE pig_id = $1 ORDER BY measure_date DESC"
+    pub async fn list_weights(pool: &PgPool, pig_id: Uuid) -> Result<Vec<PigWeightResponse>> {
+        let weights = sqlx::query_as::<_, PigWeightResponse>(
+            r#"
+            SELECT 
+                w.id, w.pig_id, w.measure_date, w.weight, 
+                w.created_by, u.display_name as created_by_name, w.created_at
+            FROM pig_weights w
+            LEFT JOIN users u ON w.created_by = u.id
+            WHERE w.pig_id = $1 AND w.deleted_at IS NULL
+            ORDER BY w.measure_date DESC
+            "#
         )
         .bind(pig_id)
         .fetch_all(pool)

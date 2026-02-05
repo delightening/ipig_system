@@ -1,0 +1,4 @@
+ear_tag,breed (minipig/white),gender (male/female),birth_date,entry_date,entry_weight,pen_location,pre_experiment_code,remark
+101,minipig,male,2024-06-15,2024-07-01,12.5,A02,PRE-101,測試匯入1
+102,white,female,2024-06-20,2024-07-05,15.0,A03,PRE-102,測試匯入2
+103,minipig,male,2024-05-10,2024-06-15,10.2,B01,PRE-103,

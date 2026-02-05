@@ -86,6 +86,10 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
           title: '匯入成功',
           description: `成功匯入 ${data.success_count} 筆資料`
         })
+        // 自動重新整理頁面
+        setTimeout(() => {
+          window.location.reload()
+        }, 1500)
       } else {
         toast({
           title: '匯入完成（部分失敗）',
