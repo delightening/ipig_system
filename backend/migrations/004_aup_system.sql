@@ -150,15 +150,18 @@ CREATE TABLE amendments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     protocol_id UUID NOT NULL REFERENCES protocols(id) ON DELETE CASCADE,
     amendment_no VARCHAR(50) NOT NULL,
-    amendment_type amendment_type NOT NULL,
+    revision_number INTEGER NOT NULL DEFAULT 1,
+    amendment_type amendment_type NOT NULL DEFAULT 'PENDING',
     status amendment_status NOT NULL DEFAULT 'DRAFT',
-    description TEXT NOT NULL,
-    changes_summary TEXT,
-    working_content JSONB,
-    submitted_at TIMESTAMPTZ,
+    title VARCHAR(200) NOT NULL,
+    description TEXT,
+    change_items VARCHAR(255)[] DEFAULT '{}',
+    changes_content JSONB,
     submitted_by UUID REFERENCES users(id),
-    approved_at TIMESTAMPTZ,
-    approved_by UUID REFERENCES users(id),
+    submitted_at TIMESTAMPTZ,
+    classified_by UUID REFERENCES users(id),
+    classified_at TIMESTAMPTZ,
+    classification_remark TEXT,
     created_by UUID NOT NULL REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -172,20 +175,48 @@ CREATE INDEX idx_amendments_status ON amendments(status);
 -- 9. 修正案審查表
 -- ============================================
 
-CREATE TABLE amendment_reviews (
+CREATE TABLE amendment_review_assignments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     amendment_id UUID NOT NULL REFERENCES amendments(id) ON DELETE CASCADE,
     reviewer_id UUID NOT NULL REFERENCES users(id),
+    assigned_by UUID NOT NULL REFERENCES users(id),
+    assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     decision VARCHAR(20),
-    comments TEXT,
-    reviewed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (amendment_id, reviewer_id),
-    CONSTRAINT chk_decision CHECK (decision IS NULL OR decision IN ('approve', 'reject', 'request_revision'))
+    decided_at TIMESTAMPTZ,
+    comment TEXT,
+    UNIQUE (amendment_id, reviewer_id)
 );
 
-CREATE INDEX idx_amendment_reviews_amendment_id ON amendment_reviews(amendment_id);
-CREATE INDEX idx_amendment_reviews_reviewer_id ON amendment_reviews(reviewer_id);
+CREATE INDEX idx_amendment_review_assignments_amendment ON amendment_review_assignments(amendment_id);
+CREATE INDEX idx_amendment_review_assignments_reviewer ON amendment_review_assignments(reviewer_id);
+
+-- ============================================
+-- 10. 修正案版本快照
+-- ============================================
+
+CREATE TABLE amendment_versions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    amendment_id UUID NOT NULL REFERENCES amendments(id) ON DELETE CASCADE,
+    version_no INTEGER NOT NULL,
+    content_snapshot JSONB NOT NULL,
+    submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    submitted_by UUID NOT NULL REFERENCES users(id),
+    UNIQUE (amendment_id, version_no)
+);
+
+-- ============================================
+-- 11. 修正案狀態歷程
+-- ============================================
+
+CREATE TABLE amendment_status_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    amendment_id UUID NOT NULL REFERENCES amendments(id) ON DELETE CASCADE,
+    from_status amendment_status,
+    to_status amendment_status NOT NULL,
+    changed_by UUID NOT NULL,
+    remark TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 -- ============================================
 -- 10. 使用者 AUP Profile

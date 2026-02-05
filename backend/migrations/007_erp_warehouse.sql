@@ -267,6 +267,7 @@ CREATE TABLE storage_locations (
     capacity INTEGER,
     current_count INTEGER DEFAULT 0,
     color VARCHAR(20),
+    zone VARCHAR(50),
     is_active BOOLEAN NOT NULL DEFAULT true,
     config JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -285,9 +286,11 @@ CREATE TABLE storage_location_inventory (
     on_hand_qty NUMERIC(18, 4) NOT NULL DEFAULT 0,
     batch_no VARCHAR(50),
     expiry_date DATE,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(storage_location_id, product_id, COALESCE(batch_no, ''), COALESCE(expiry_date, '1900-01-01'::date))
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX idx_storage_location_inventory_unique 
+ON storage_location_inventory (storage_location_id, product_id, COALESCE(batch_no, ''), COALESCE(expiry_date, '1900-01-01'::date));
 
 CREATE INDEX idx_storage_location_inventory_location ON storage_location_inventory(storage_location_id);
 CREATE INDEX idx_storage_location_inventory_product ON storage_location_inventory(product_id);
