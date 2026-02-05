@@ -654,6 +654,28 @@
 
 **v1.0 已完成，系統可正式上線！**
 
+**最新更新 (2026-02-05)：**
+
+1. ✅ **倉庫平面圖編輯器改進**
+   - 儲位上下移動功能修復 - 加入 `compactType={null}` 禁用自動壓縮，`autoSize={true}` 自動調整高度
+   - 容器最小高度增加至 600px，提供更多垂直空間
+   - 「門」字樣下方增加 10px 間距
+
+2. ✅ **儲位表單簡化**
+   - 移除「代碼」輸入欄位，改為系統自動產生
+   - 「名稱」欄位改為必填
+   - 後端 `CreateStorageLocationRequest.code` 改為 `Option<String>`
+   - 後端 `CreateStorageLocationRequest.name` 改為 `String`（必填）
+   - `StorageLocationService.create()` 自動呼叫 `generate_code()` 產生唯一代碼（A01, A02...）
+
+3. ✅ **儲位庫存管理功能**
+   - 儲位庫存顯示 - 點擊儲位顯示該位置的庫存明細
+   - 庫存數量直接編輯 - 支援在對話框中直接修改庫存數量
+   - 後端 API 擴充 - `/storage-locations/:id/inventory` 取得儲位庫存、`/storage-locations/inventory/:item_id` 更新庫存
+   - 資料庫遷移 - `030_storage_location_inventory.sql` 建立儲位庫存關聯表
+
+4. ✅ **權限系統更新**
+   - 實驗人員權限擴充 - 新增物種管理、動物資訊管理（建立/編輯/匯入）、病歷匯出、緊急停止等權限
 
 **v2.0 規劃功能：**
 1. 行動端適配
@@ -664,3 +686,4 @@
 ---
 
 *本報告由系統自動產生，如有疑問請聯繫開發團隊。*
+
