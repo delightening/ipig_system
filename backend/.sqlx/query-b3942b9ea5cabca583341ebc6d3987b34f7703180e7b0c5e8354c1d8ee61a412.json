@@ -1,0 +1,127 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT \n                eo.id, eo.pig_id, eo.vet_user_id, eo.pi_user_id, eo.reason,\n                eo.status as \"status: EuthanasiaOrderStatus\",\n                eo.deadline_at, eo.pi_responded_at, eo.executed_at, eo.executed_by,\n                eo.created_at, eo.updated_at,\n                p.ear_tag as pig_ear_tag,\n                p.iacuc_no as pig_iacuc_no,\n                uv.display_name as vet_name,\n                up.display_name as pi_name\n            FROM euthanasia_orders eo\n            JOIN pigs p ON eo.pig_id = p.id\n            JOIN users uv ON eo.vet_user_id = uv.id\n            JOIN users up ON eo.pi_user_id = up.id\n            WHERE eo.pi_user_id = $1 AND eo.status = 'pending_pi'\n            ORDER BY eo.deadline_at ASC\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "pig_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "vet_user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "pi_user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "reason",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "status: EuthanasiaOrderStatus",
+        "type_info": {
+          "Custom": {
+            "name": "euthanasia_order_status",
+            "kind": {
+              "Enum": [
+                "pending_pi",
+                "appealed",
+                "chair_arbitration",
+                "approved",
+                "rejected",
+                "executed",
+                "cancelled"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "deadline_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "pi_responded_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "executed_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "executed_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 10,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 12,
+        "name": "pig_ear_tag",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 13,
+        "name": "pig_iacuc_no",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 14,
+        "name": "vet_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 15,
+        "name": "pi_name",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "b3942b9ea5cabca583341ebc6d3987b34f7703180e7b0c5e8354c1d8ee61a412"
+}

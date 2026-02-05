@@ -1,0 +1,77 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE euthanasia_appeals\n            SET chair_decision = $1, chair_decided_at = NOW()\n            WHERE id = $2\n            RETURNING id, order_id, pi_user_id, reason, attachment_path, chair_user_id,\n                      chair_decision, chair_decided_at, chair_deadline_at, created_at\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "order_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "pi_user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "reason",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "attachment_path",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "chair_user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 6,
+        "name": "chair_decision",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 7,
+        "name": "chair_decided_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "chair_deadline_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "a47afd39f714c1b07564a2e3a68bcffea4f8bf98365b6c623a213e1329828b12"
+}

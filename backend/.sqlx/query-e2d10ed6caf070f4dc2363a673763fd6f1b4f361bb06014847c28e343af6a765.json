@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE euthanasia_orders\n            SET status = 'approved', updated_at = NOW()\n            WHERE status = 'pending_pi' AND deadline_at < $1\n            RETURNING id, vet_user_id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "vet_user_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "e2d10ed6caf070f4dc2363a673763fd6f1b4f361bb06014847c28e343af6a765"
+}

@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT \n                COUNT(*) as \"total!\",\n                COUNT(decision) as \"decided!\",\n                COUNT(*) FILTER (WHERE decision = 'APPROVE') as \"approved!\",\n                COUNT(*) FILTER (WHERE decision = 'REJECT') as \"rejected!\",\n                COUNT(*) FILTER (WHERE decision = 'REVISION') as \"revision!\"\n            FROM amendment_review_assignments\n            WHERE amendment_id = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "total!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "decided!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "approved!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "rejected!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "revision!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "3270426c57a0191767fa1227d1e21d014938b4c1571f6b90d98536eaa77bbd2c"
+}
