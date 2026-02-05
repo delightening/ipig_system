@@ -23,7 +23,7 @@ impl SessionManager {
             INSERT INTO user_sessions (
                 id, user_id, started_at, last_activity_at,
                 ip_address, user_agent, is_active
-            ) VALUES ($1, $2, NOW(), NOW(), $3, $4, true)
+            ) VALUES ($1, $2, NOW(), NOW(), $3::INET, $4, true)
             "#,
         )
         .bind(session_id)

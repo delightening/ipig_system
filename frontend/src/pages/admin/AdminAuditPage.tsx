@@ -54,8 +54,19 @@ interface PaginatedResponse<T> {
 export function AdminAuditPage() {
     const [activeTab, setActiveTab] = useState('dashboard')
     const [searchTerm, setSearchTerm] = useState('')
-    const [dateFrom, setDateFrom] = useState('')
-    const [dateTo, setDateTo] = useState('')
+
+    // Default date range: first day of current month to today
+    const getDefaultDateFrom = () => {
+        const now = new Date()
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+    }
+    const getDefaultDateTo = () => {
+        const now = new Date()
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    }
+
+    const [dateFrom, setDateFrom] = useState(getDefaultDateFrom)
+    const [dateTo, setDateTo] = useState(getDefaultDateTo)
     const queryClient = useQueryClient()
 
     // Dashboard Stats

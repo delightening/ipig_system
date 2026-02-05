@@ -786,6 +786,12 @@ pub async fn list_internal_users_for_balance(
         FROM users u
         WHERE u.is_active = true
         AND u.is_internal = true
+        AND u.email != 'admin@ipig.local'
+        AND NOT EXISTS (
+            SELECT 1 FROM user_roles ur
+            JOIN roles r ON ur.role_id = r.id
+            WHERE ur.user_id = u.id AND (r.code = 'SYSTEM_ADMIN' OR r.code = 'admin')
+        )
         ORDER BY u.display_name
         "#
     )

@@ -1,4 +1,9 @@
-use axum::{extract::State, Extension, Json};
+use axum::{
+    extract::{ConnectInfo, State},
+    http::HeaderMap,
+    Extension, Json,
+};
+use std::net::SocketAddr;
 use validator::Validate;
 
 use crate::{
@@ -7,20 +12,65 @@ use crate::{
         ChangeOwnPasswordRequest, ForgotPasswordRequest, LoginRequest, LoginResponse,
         RefreshTokenRequest, ResetPasswordWithTokenRequest, UpdateUserRequest, User, UserResponse,
     },
-    services::{AuthService, UserService, EmailService},
+    services::{AuthService, UserService, EmailService, LoginTracker, SessionManager},
     AppError, AppState, Result,
 };
+
 
 /// 登入
 pub async fn login(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Json(req): Json<LoginRequest>,
 ) -> Result<Json<LoginResponse>> {
+    // 提取 IP 和 User-Agent
+    let ip = addr.ip().to_string();
+    let user_agent = headers
+        .get("user-agent")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
-    let response = AuthService::login(&state.db, &state.config, &req).await?;
+    // 嘗試登入
+    let response = match AuthService::login(&state.db, &state.config, &req).await {
+        Ok(resp) => {
+            // 登入成功：記錄事件和建立 session
+            let _ = LoginTracker::log_success(
+                &state.db,
+                resp.user.id,
+                &req.email,
+                Some(&ip),
+                user_agent.as_deref(),
+            ).await;
+            
+            let _ = SessionManager::create_session(
+                &state.db,
+                resp.user.id,
+                Some(&ip),
+                user_agent.as_deref(),
+            ).await;
+            
+            resp
+        }
+        Err(e) => {
+            // 登入失敗：記錄失敗事件（會自動檢測暴力破解）
+            let _ = LoginTracker::log_failure(
+                &state.db,
+                &req.email,
+                Some(&ip),
+                user_agent.as_deref(),
+                &e.to_string(),
+            ).await;
+            
+            return Err(e);
+        }
+    };
+    
     Ok(Json(response))
 }
+
 
 /// 重新整理 Token
 pub async fn refresh_token(
@@ -34,11 +84,28 @@ pub async fn refresh_token(
 /// 登出
 pub async fn logout(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<serde_json::Value>> {
+    // 記錄登出事件
+    let _ = LoginTracker::log_logout(
+        &state.db,
+        current_user.id,
+        &current_user.email,
+        Some(&addr.ip().to_string()),
+    ).await;
+    
+    // 結束所有 sessions
+    let _ = SessionManager::end_all_sessions(
+        &state.db,
+        current_user.id,
+        "logout",
+    ).await;
+    
     AuthService::logout(&state.db, current_user.id).await?;
     Ok(Json(serde_json::json!({ "message": "Logged out successfully" })))
 }
+
 
 /// 取得當前使用者資訊
 pub async fn me(

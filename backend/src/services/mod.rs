@@ -52,6 +52,9 @@ pub use signature::{SignatureService, AnnotationService, SignatureType, Annotati
 pub use euthanasia::EuthanasiaService;
 pub use amendment::AmendmentService;
 pub use storage_location::StorageLocationService;
+pub use login_tracker::LoginTracker;
+pub use session_manager::SessionManager;
+
 
 
 mod balance_expiration;

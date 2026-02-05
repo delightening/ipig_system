@@ -103,27 +103,27 @@ WHERE r.code = 'EXPERIMENT_STAFF'
     'aup.protocol.view_own',
     'aup.attachment.view',
     'aup.attachment.download',
-    -- 豬隻完整權限
-    'pig.pig.view_all',
-    'pig.pig.view_project',
-    'pig.pig.create',
-    'pig.pig.edit',
-    'pig.pig.assign',
-    'pig.pig.import',
-    'pig.pig.delete',
-    'pig.record.view',
-    'pig.record.create',
-    'pig.record.edit',
-    'pig.record.delete',
-    'pig.record.observation',
-    'pig.record.surgery',
-    'pig.record.weight',
-    'pig.record.vaccine',
-    'pig.record.sacrifice',
-    'pig.export.medical',
-    'pig.export.observation',
-    'pig.export.surgery',
-    'pig.export.experiment',
+    -- 動物完整權限
+    'animal.animal.view_all',
+    'animal.animal.view_project',
+    'animal.animal.create',
+    'animal.animal.edit',
+    'animal.animal.assign',
+    'animal.animal.import',
+    'animal.animal.delete',
+    'animal.record.view',
+    'animal.record.create',
+    'animal.record.edit',
+    'animal.record.delete',
+    'animal.record.observation',
+    'animal.record.surgery',
+    'animal.record.weight',
+    'animal.record.vaccine',
+    'animal.record.sacrifice',
+    'animal.export.medical',
+    'animal.export.observation',
+    'animal.export.surgery',
+    'animal.export.experiment',
     -- HR 個人權限
     'hr.attendance.view',
     'hr.attendance.clock',
@@ -166,17 +166,17 @@ WHERE r.code = 'VET'
     'amendment.read',
     'amendment.review',
     -- 動物管理（只看）
-    'pig.pig.view_all',
-    'pig.pig.view_project',
-    'pig.record.view',
+    'animal.animal.view_all',
+    'animal.animal.view_project',
+    'animal.record.view',
     -- 匯出（所有紀錄）
-    'pig.export.medical',
-    'pig.export.observation',
-    'pig.export.surgery',
-    'pig.export.experiment',
+    'animal.export.medical',
+    'animal.export.observation',
+    'animal.export.surgery',
+    'animal.export.experiment',
     -- 獸醫師功能（所有）
-    'pig.vet.recommend',
-    'pig.vet.read',
+    'animal.vet.recommend',
+    'animal.vet.read',
     -- 緊急處置
     'animal.emergency.stop',
     'animal.euthanasia.recommend',
@@ -274,9 +274,9 @@ WHERE r.code = 'PI'
     'aup.attachment.view',
     'aup.attachment.download',
     'aup.version.view',
-    -- 豬隻權限（計畫內）
-    'pig.pig.view_project',
-    'pig.record.view',
+    -- 動物權限（計畫內）
+    'animal.animal.view_project',
+    'animal.record.view',
     -- 通知
     'notification.view'
   )
@@ -356,9 +356,9 @@ WHERE r.code = 'CLIENT'
     -- 計畫權限（自己的）
     'aup.protocol.view_own',
     'aup.attachment.view',
-    -- 豬隻權限（計畫內）
-    'pig.pig.view_project',
-    'pig.record.view',
+    -- 動物權限（計畫內）
+    'animal.animal.view_project',
+    'animal.record.view',
     -- 通知
     'notification.view'
   )
@@ -369,4 +369,99 @@ WHERE r.code = 'CLIENT'
 
 -- ============================================
 -- 完成
+-- ============================================
+-- ============================================
+-- Migration 027: Ensure Admin Has All Permissions
+-- 
+-- 蝣箔? admin 閫??鞈?摨思葉??????-- ?蝘餅??冽?甈⊥憓???蝣箔? admin 隞????湔???-- ============================================
+
+-- ??admin 閫?晷??????INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM roles r
+CROSS JOIN permissions p
+WHERE r.code = 'admin'
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+
+-- ??銋 SYSTEM_ADMIN 閫嚗????剁??晷?????INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM roles r
+CROSS JOIN permissions p
+WHERE r.code = 'SYSTEM_ADMIN'
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+
+-- 憿舐內蝯?
+DO $$
+DECLARE
+    admin_permission_count INTEGER;
+    total_permission_count INTEGER;
+BEGIN
+    SELECT COUNT(*) INTO total_permission_count FROM permissions;
+    
+    SELECT COUNT(*) INTO admin_permission_count 
+    FROM role_permissions rp
+    JOIN roles r ON rp.role_id = r.id
+    WHERE r.code = 'admin';
+    
+    RAISE NOTICE 'Admin role now has % out of % total permissions', admin_permission_count, total_permission_count;
+END $$;
+-- Migration: 033_rename_pig_to_animal.sql
+-- Description: 撠???pig.* 甈?隞?Ⅳ??賢???animal.*
+-- Date: 2026-02-06
+
+-- ============================================
+-- 1. ????????pig.export.medical ??animal.export.medical嚗?
+-- ============================================
+
+-- 撠?pig.export.medical ???脫???蝘餌策 animal.export.medical
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT rp.role_id, p2.id
+FROM role_permissions rp
+JOIN permissions p1 ON rp.permission_id = p1.id
+JOIN permissions p2 ON p2.code = 'animal.export.medical'
+WHERE p1.code = 'pig.export.medical'
+ON CONFLICT DO NOTHING;
+
+-- ?芷 pig.export.medical
+DELETE FROM permissions WHERE code = 'pig.export.medical';
+
+-- ============================================
+-- 2. ?????pig.* 甈???animal.*
+-- ============================================
+
+-- pig.pig.* ??animal.animal.*
+UPDATE permissions SET code = 'animal.animal.view_all', module = 'animal' WHERE code = 'pig.pig.view_all';
+UPDATE permissions SET code = 'animal.animal.view_project', module = 'animal' WHERE code = 'pig.pig.view_project';
+UPDATE permissions SET code = 'animal.animal.create', module = 'animal' WHERE code = 'pig.pig.create';
+UPDATE permissions SET code = 'animal.animal.edit', module = 'animal' WHERE code = 'pig.pig.edit';
+UPDATE permissions SET code = 'animal.animal.assign', module = 'animal' WHERE code = 'pig.pig.assign';
+UPDATE permissions SET code = 'animal.animal.import', module = 'animal' WHERE code = 'pig.pig.import';
+UPDATE permissions SET code = 'animal.animal.delete', module = 'animal' WHERE code = 'pig.pig.delete';
+
+-- pig.record.* ??animal.record.*
+UPDATE permissions SET code = 'animal.record.view', module = 'animal' WHERE code = 'pig.record.view';
+UPDATE permissions SET code = 'animal.record.create', module = 'animal' WHERE code = 'pig.record.create';
+UPDATE permissions SET code = 'animal.record.edit', module = 'animal' WHERE code = 'pig.record.edit';
+UPDATE permissions SET code = 'animal.record.delete', module = 'animal' WHERE code = 'pig.record.delete';
+UPDATE permissions SET code = 'animal.record.observation', module = 'animal' WHERE code = 'pig.record.observation';
+UPDATE permissions SET code = 'animal.record.surgery', module = 'animal' WHERE code = 'pig.record.surgery';
+UPDATE permissions SET code = 'animal.record.weight', module = 'animal' WHERE code = 'pig.record.weight';
+UPDATE permissions SET code = 'animal.record.vaccine', module = 'animal' WHERE code = 'pig.record.vaccine';
+UPDATE permissions SET code = 'animal.record.sacrifice', module = 'animal' WHERE code = 'pig.record.sacrifice';
+
+-- pig.export.* ??animal.export.*
+UPDATE permissions SET code = 'animal.export.observation', module = 'animal' WHERE code = 'pig.export.observation';
+UPDATE permissions SET code = 'animal.export.surgery', module = 'animal' WHERE code = 'pig.export.surgery';
+UPDATE permissions SET code = 'animal.export.experiment', module = 'animal' WHERE code = 'pig.export.experiment';
+
+-- pig.vet.* ??animal.vet.*
+UPDATE permissions SET code = 'animal.vet.recommend', module = 'animal' WHERE code = 'pig.vet.recommend';
+UPDATE permissions SET code = 'animal.vet.read', module = 'animal' WHERE code = 'pig.vet.read';
+
+-- ============================================
+-- 3. ?湔?膩銝剔??惇?颯???押?
+-- ============================================
+UPDATE permissions SET description = REPLACE(description, '鞊祇', '?') WHERE code LIKE 'animal.%';
+
+-- ============================================
+-- 摰?
 -- ============================================

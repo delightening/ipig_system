@@ -133,8 +133,8 @@ pub async fn list_pigs(
     Query(query): Query<PigQuery>,
 ) -> Result<Json<Vec<PigListItem>>> {
     // 檢查權限
-    let has_view_all = current_user.has_permission("animal.info.view_all");
-    let has_view_project = current_user.has_permission("animal.info.view_project");
+    let has_view_all = current_user.has_permission("pig.pig.view_all");
+    let has_view_project = current_user.has_permission("pig.pig.view_project");
     
     if !has_view_all && !has_view_project {
         // 如果沒有查看權限，返回空列表
@@ -165,7 +165,7 @@ pub async fn list_pigs_by_pen(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<PigsByPen>>> {
-    require_permission!(current_user, "animal.info.view_all");
+    require_permission!(current_user, "pig.pig.view_all");
     
     let pigs = AnimalService::list_by_pen(&state.db).await?;
     Ok(Json(pigs))

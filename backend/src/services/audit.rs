@@ -251,7 +251,7 @@ impl AuditService {
             r#"
             SELECT 
                 le.id, le.user_id, le.email, u.display_name as user_name,
-                le.event_type, le.ip_address, le.user_agent,
+                le.event_type, le.ip_address::TEXT, le.user_agent,
                 le.device_type, le.browser, le.os,
                 le.is_unusual_time, le.is_unusual_location, le.is_new_device,
                 le.failure_reason, le.created_at
@@ -313,7 +313,7 @@ impl AuditService {
             SELECT 
                 s.id, s.user_id, u.email as user_email, u.display_name as user_name,
                 s.started_at, s.ended_at, s.last_activity_at,
-                s.ip_address, s.user_agent,
+                s.ip_address::TEXT, s.user_agent,
                 s.page_view_count, s.action_count,
                 s.is_active, s.ended_reason
             FROM user_sessions s

@@ -33,7 +33,7 @@ impl LoginTracker {
                 created_at
             ) VALUES (
                 $1, $2, $3, 'login_success',
-                $4, $5, $6, $7, $8, $9, $10, $11, NOW()
+                $4::INET, $5, $6, $7, $8, $9, $10, $11, NOW()
             )
             "#,
         )
@@ -92,7 +92,7 @@ impl LoginTracker {
                 created_at
             ) VALUES (
                 $1, $2, $3, 'login_failure',
-                $4, $5, $6, $7, $8, $9, NOW()
+                $4::INET, $5, $6, $7, $8, $9, NOW()
             )
             "#,
         )
@@ -124,7 +124,7 @@ impl LoginTracker {
         sqlx::query(
             r#"
             INSERT INTO login_events (id, user_id, email, event_type, ip_address, created_at)
-            VALUES ($1, $2, $3, 'logout', $4, NOW())
+            VALUES ($1, $2, $3, 'logout', $4::INET, NOW())
             "#,
         )
         .bind(Uuid::new_v4())
@@ -288,11 +288,14 @@ fn parse_user_agent(ua: Option<&str>) -> DeviceInfo {
     }
 }
 
+
 fn check_unusual_time() -> bool {
-    let hour = Utc::now().hour();
-    // 非工作時間：晚上 10 點到早上 6 點
-    hour >= 22 || hour < 6
+    // 台灣時區 UTC+8
+    let taiwan_hour = (Utc::now().hour() + 8) % 24;
+    // 非工作時間：晚上 10 點到早上 6 點（台灣時間）
+    taiwan_hour >= 22 || taiwan_hour < 6
 }
+
 
 async fn check_new_device(pool: &PgPool, user_id: Uuid, user_agent: Option<&str>) -> bool {
     let ua = match user_agent {
