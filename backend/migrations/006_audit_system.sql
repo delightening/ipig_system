@@ -1,5 +1,5 @@
 -- ============================================
--- Migration 006: Audit System
+-- Migration 004b: Audit System
 -- 
 -- 包含：
 -- - 使用者活動日誌 (分區表)
@@ -8,6 +8,8 @@
 -- - 活動聚合
 -- - 安全警報
 -- - 輔助函式
+-- 
+-- 編碼: UTF-8 (無 BOM)
 -- ============================================
 
 -- ============================================
@@ -17,57 +19,57 @@
 CREATE TABLE user_activity_logs (
     id UUID DEFAULT gen_random_uuid(),
     
-    -- Actor information
+    -- 行為者資訊
     actor_user_id UUID REFERENCES users(id),
     actor_email VARCHAR(255),
     actor_display_name VARCHAR(100),
     actor_roles JSONB,
     
-    -- Session context
+    -- Session 上下文
     session_id UUID,
     session_started_at TIMESTAMPTZ,
     
-    -- Event classification
+    -- 事件分類
     event_category VARCHAR(50) NOT NULL,
     event_type VARCHAR(100) NOT NULL,
     event_severity VARCHAR(20) DEFAULT 'info',
     
-    -- Target entity
+    -- 目標實體
     entity_type VARCHAR(50),
     entity_id UUID,
     entity_display_name VARCHAR(255),
     
-    -- Change tracking
+    -- 變更追蹤
     before_data JSONB,
     after_data JSONB,
     changed_fields TEXT[],
     
-    -- Context
+    -- 上下文
     ip_address INET,
     user_agent TEXT,
     request_path VARCHAR(500),
     request_method VARCHAR(10),
     response_status INTEGER,
     
-    -- Geolocation
+    -- 地理位置
     geo_country VARCHAR(100),
     geo_city VARCHAR(100),
     
-    -- Security flags
+    -- 安全標記
     is_suspicious BOOLEAN DEFAULT false,
     suspicious_reason TEXT,
     
-    -- Timestamps
+    -- 時間戳
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
-    -- Partitioning key
+    -- 分區鍵
     partition_date DATE NOT NULL DEFAULT CURRENT_DATE,
     
-    -- Composite primary key
+    -- 複合主鍵
     PRIMARY KEY (id, partition_date)
 ) PARTITION BY RANGE (partition_date);
 
--- Create partitions for 2 years of data (2026-2027)
+-- 建立 2026-2027 年的分區
 CREATE TABLE user_activity_logs_2026_q1 PARTITION OF user_activity_logs
     FOR VALUES FROM ('2026-01-01') TO ('2026-04-01');
 CREATE TABLE user_activity_logs_2026_q2 PARTITION OF user_activity_logs
@@ -85,10 +87,7 @@ CREATE TABLE user_activity_logs_2027_q3 PARTITION OF user_activity_logs
 CREATE TABLE user_activity_logs_2027_q4 PARTITION OF user_activity_logs
     FOR VALUES FROM ('2027-10-01') TO ('2028-01-01');
 
--- Default partition
-CREATE TABLE user_activity_logs_default PARTITION OF user_activity_logs DEFAULT;
-
--- Indexes
+-- 索引
 CREATE INDEX idx_activity_actor ON user_activity_logs(actor_user_id, created_at DESC);
 CREATE INDEX idx_activity_entity ON user_activity_logs(entity_type, entity_id, created_at DESC);
 CREATE INDEX idx_activity_category ON user_activity_logs(event_category, created_at DESC);
@@ -106,29 +105,29 @@ CREATE TABLE login_events (
     user_id UUID REFERENCES users(id),
     email VARCHAR(255) NOT NULL,
     
-    -- Event details
+    -- 事件詳情
     event_type VARCHAR(20) NOT NULL,
     
-    -- Device/Network
+    -- 設備/網路
     ip_address INET,
     user_agent TEXT,
     device_type VARCHAR(50),
     browser VARCHAR(50),
     os VARCHAR(50),
     
-    -- Geolocation
+    -- 地理位置
     geo_country VARCHAR(100),
     geo_city VARCHAR(100),
     geo_timezone VARCHAR(50),
     
-    -- Security analysis
+    -- 安全分析
     is_unusual_time BOOLEAN DEFAULT false,
     is_unusual_location BOOLEAN DEFAULT false,
     is_new_device BOOLEAN DEFAULT false,
     device_fingerprint VARCHAR(255),
     failure_reason VARCHAR(100),
     
-    -- Timestamps
+    -- 時間戳
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -149,24 +148,24 @@ CREATE TABLE user_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     
-    -- Session details
+    -- 會話詳情
     started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     ended_at TIMESTAMPTZ,
     last_activity_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
-    -- Token reference
+    -- Token 參照
     refresh_token_id UUID REFERENCES refresh_tokens(id) ON DELETE SET NULL,
     
-    -- Device/Network
+    -- 設備/網路
     ip_address INET,
     user_agent TEXT,
     device_fingerprint VARCHAR(255),
     
-    -- Activity summary
+    -- 活動摘要
     page_view_count INTEGER DEFAULT 0,
     action_count INTEGER DEFAULT 0,
     
-    -- Status
+    -- 狀態
     is_active BOOLEAN DEFAULT true,
     ended_reason VARCHAR(50)
 );
@@ -184,7 +183,7 @@ CREATE TABLE user_activity_aggregates (
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     aggregate_date DATE NOT NULL,
     
-    -- Counts
+    -- 計數
     login_count INTEGER DEFAULT 0,
     failed_login_count INTEGER DEFAULT 0,
     session_count INTEGER DEFAULT 0,
@@ -192,12 +191,12 @@ CREATE TABLE user_activity_aggregates (
     page_view_count INTEGER DEFAULT 0,
     action_count INTEGER DEFAULT 0,
     
-    -- Breakdowns
+    -- 細分
     actions_by_category JSONB DEFAULT '{}',
     pages_visited JSONB DEFAULT '[]',
     entities_modified JSONB DEFAULT '[]',
     
-    -- Security
+    -- 安全
     unique_ip_count INTEGER DEFAULT 0,
     unusual_activity_count INTEGER DEFAULT 0,
     
@@ -217,28 +216,31 @@ CREATE INDEX idx_aggregates_date ON user_activity_aggregates(aggregate_date DESC
 CREATE TABLE security_alerts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     
-    -- Alert details
+    -- 警報詳情
     alert_type VARCHAR(50) NOT NULL,
     severity VARCHAR(20) NOT NULL DEFAULT 'warning',
     title VARCHAR(255) NOT NULL,
     description TEXT,
     
-    -- Related entities
+    -- 相關實體
     user_id UUID REFERENCES users(id),
     activity_log_id UUID,
     login_event_id UUID REFERENCES login_events(id),
     
-    -- Context
+    -- 上下文
     context_data JSONB,
     
-    -- Resolution
+    -- 處理
     status VARCHAR(20) DEFAULT 'open',
     resolved_by UUID REFERENCES users(id),
     resolved_at TIMESTAMPTZ,
     resolution_notes TEXT,
     
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    CONSTRAINT chk_severity CHECK (severity IN ('info', 'warning', 'critical')),
+    CONSTRAINT chk_alert_status CHECK (status IN ('open', 'acknowledged', 'investigating', 'resolved', 'false_positive'))
 );
 
 CREATE INDEX idx_alerts_status ON security_alerts(status, created_at DESC);
@@ -247,10 +249,10 @@ CREATE INDEX idx_alerts_severity ON security_alerts(severity, status)
     WHERE status IN ('open', 'acknowledged', 'investigating');
 
 -- ============================================
--- 6. Helper Functions
+-- 6. 輔助函式
 -- ============================================
 
--- Function to log an activity
+-- 記錄活動
 CREATE OR REPLACE FUNCTION log_activity(
     p_actor_user_id UUID,
     p_event_category VARCHAR(50),
@@ -270,17 +272,17 @@ DECLARE
     v_actor_roles JSONB;
     v_changed_fields TEXT[];
 BEGIN
-    -- Get actor info
+    -- 取得行為者資訊
     SELECT email, display_name INTO v_actor_email, v_actor_display_name
     FROM users WHERE id = p_actor_user_id;
     
-    -- Get actor roles
+    -- 取得行為者角色
     SELECT jsonb_agg(r.code) INTO v_actor_roles
     FROM user_roles ur
     JOIN roles r ON ur.role_id = r.id
     WHERE ur.user_id = p_actor_user_id;
     
-    -- Calculate changed fields
+    -- 計算變更欄位
     IF p_before_data IS NOT NULL AND p_after_data IS NOT NULL THEN
         SELECT array_agg(key) INTO v_changed_fields
         FROM (
@@ -290,7 +292,7 @@ BEGIN
         ) changed_keys;
     END IF;
     
-    -- Insert log entry
+    -- 插入日誌
     INSERT INTO user_activity_logs (
         actor_user_id, actor_email, actor_display_name, actor_roles,
         event_category, event_type,
@@ -309,7 +311,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to check for brute force attacks
+-- 檢查暴力破解
 CREATE OR REPLACE FUNCTION check_brute_force(p_email VARCHAR(255)) RETURNS BOOLEAN AS $$
 DECLARE
     v_failed_count INTEGER;
@@ -325,19 +327,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ============================================
--- 7. 審計相關權限
--- ============================================
-
-INSERT INTO permissions (id, code, name, module, description, created_at) VALUES
-    (gen_random_uuid(), 'audit.logs.view', '查看稽核日誌', 'audit', '可查看稽核日誌', NOW()),
-    (gen_random_uuid(), 'audit.logs.export', '匯出稽核日誌', 'audit', '可匯出稽核日誌', NOW()),
-    (gen_random_uuid(), 'audit.timeline.view', '查看活動時間軸', 'audit', '可查看使用者活動時間軸', NOW()),
-    (gen_random_uuid(), 'audit.alerts.view', '查看安全警報', 'audit', '可查看安全警報', NOW()),
-    (gen_random_uuid(), 'audit.alerts.manage', '管理安全警報', 'audit', '可處理安全警報', NOW())
-ON CONFLICT (code) DO NOTHING;
-
--- ============================================
--- 8. GLP 合規說明
+-- 7. GLP 合規說明
 -- ============================================
 
 COMMENT ON TABLE user_activity_logs IS 'GLP Compliance: Retention policy - 2 years hot storage, 5 years cold archive, 7 years total. Partitioned by quarter for efficient archival.';
