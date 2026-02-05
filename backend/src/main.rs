@@ -216,8 +216,6 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             // 單據管理
             "erp.document.view", "erp.document.create", "erp.document.edit", 
             "erp.document.submit", "erp.document.approve",
-            // 庫存管理
-            "erp.inventory.view",
             // 採購
             "erp.purchase.create", "erp.purchase.approve",
             "erp.grn.create", "erp.pr.create",
@@ -227,17 +225,12 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "erp.stocktake.create",
             // 報表
             "erp.report.view", "erp.report.export", "erp.report.download",
-            // HR 權限（內部員工基本權限）
-            "hr.attendance.view", "hr.attendance.clock",
-            "hr.leave.view", "hr.leave.create",
-            "hr.overtime.view", "hr.overtime.create",
-            "hr.balance.view",
             // Dashboard
             "dashboard.view",
         ]),
         
         // ============================================
-        // PURCHASING (採購人員) - 採購相關權限
+        // PURCHASING (採購人員) - ERP 採購相關權限
         // ============================================
         ("PURCHASING", vec![
             // 基本查詢
@@ -246,19 +239,12 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "erp.partner.view", "erp.partner.create", "erp.partner.edit",
             // 單據管理
             "erp.document.view", "erp.document.create", "erp.document.edit", "erp.document.submit",
-            // 庫存查詢
-            "erp.inventory.view",
             // 採購
-            "erp.purchase.create", "erp.grn.create",
+            "erp.purchase.create", "erp.grn.create", "erp.pr.create",
             // 庫存查詢
             "erp.stock.view",
             // 報表
             "erp.report.view",
-            // HR 權限（內部員工基本權限）
-            "hr.attendance.view", "hr.attendance.clock",
-            "hr.leave.view", "hr.leave.create",
-            "hr.overtime.view", "hr.overtime.create",
-            "hr.balance.view",
             // Dashboard
             "dashboard.view",
         ]),
@@ -287,10 +273,38 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ]),
         
         // ============================================
-        // VET (獸醫師) - 審查計畫、豬隻管理、獸醫建議、緊急處置
+        // VET (獸醫師) - 審查計畫、動物查看、獸醫建議、緊急處置
+        // 只看、給建議，不參與現場工作
         // ============================================
         ("VET", vec![
-            // 計畫審查
+            // AUP 計畫審查
+            "aup.protocol.view_all", "aup.protocol.review",
+            "aup.review.view", "aup.review.comment",
+            // AUP 附件
+            "aup.attachment.view", "aup.attachment.download",
+            // AUP 版本
+            "aup.version.view",
+            // Amendment 變更申請（審查、檢視）
+            "amendment.read", "amendment.review",
+            // 動物管理（只看）
+            "animal.info.view_all", "animal.info.view_project",
+            "animal.record.view",
+            // 匯出（所有紀錄）
+            "animal.export.medical", "animal.export.observation", "animal.export.surgery", "animal.export.experiment",
+            // 獸醫師功能（所有）
+            "animal.vet.recommend", "animal.vet.read",
+            // 緊急處置
+            "animal.emergency.stop",
+            "animal.euthanasia.recommend", "animal.euthanasia.approve",
+            // Dashboard
+            "dashboard.view",
+        ]),
+        
+        // ============================================
+        // REVIEWER (審查委員) - 查看所有計畫、計畫審查權限
+        // ============================================
+        ("REVIEWER", vec![
+            // 計畫審查（查看所有計畫）
             "aup.protocol.view_all", "aup.protocol.review",
             // 審查流程
             "aup.review.view", "aup.review.comment",
@@ -298,40 +312,8 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "aup.attachment.view", "aup.attachment.download",
             // 版本管理
             "aup.version.view",
-            // 動物管理
-            "animal.info.view_all", "animal.info.edit", "animal.info.assign",
-            "animal.record.view", "animal.record.create", "animal.record.edit",
-            // 獸醫師功能
-            "animal.vet.recommend", "animal.vet.read",
-            // 緊急處置權限（動物福利核心權限）
-            "animal.emergency.stop", "animal.euthanasia.recommend", "animal.euthanasia.approve",
-            // 匯出
-            "animal.export.medical", "animal.export.observation", "animal.export.surgery", "animal.export.experiment",
-            // HR 權限（內部員工基本權限）
-            "hr.attendance.view", "hr.attendance.clock",
-            "hr.leave.view", "hr.leave.create",
-            "hr.overtime.view", "hr.overtime.create",
-            "hr.balance.view",
-            // Dashboard
-            "dashboard.view",
-        ]),
-        
-        // ============================================
-        // REVIEWER (審查委員) - 計畫審查權限（僅能看被指派的計畫）+ 可查看所有豬隻
-        // 注意：REVIEWER 不是公司員工，無 HR 權限
-        // ============================================
-        ("REVIEWER", vec![
-            // 計畫審查（只能看自己被指派的）
-            "aup.protocol.view_own", "aup.protocol.review",
-            // 審查流程
-            "aup.review.view", "aup.review.comment",
-            // 附件管理
-            "aup.attachment.view", "aup.attachment.download",
-            // 版本管理
-            "aup.version.view",
-            // 動物管理 - 僅查看，不含來源管理
-            "animal.info.view_all",
-            "animal.record.view",
+            // Amendment 變更申請（審查、檢視）
+            "amendment.read", "amendment.review",
             // Dashboard
             "dashboard.view",
         ]),
@@ -360,33 +342,23 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ]),
         
         // ============================================
+        // IACUC_STAFF (執行秘書) - 所有 AUP 權限
+        // ============================================
         ("IACUC_STAFF", vec![
-            // 計畫管理
-            "aup.protocol.view_all", "aup.protocol.create", "aup.protocol.edit", 
-            "aup.protocol.change_status",
-            // Amendment 分類權限（執行秘書負責判斷 Major/Minor）
-            "aup.amendment.classify",
-            // 審查流程
-            "aup.review.view", "aup.review.assign", "aup.review.reply",
-            // Co-Editor 指派權限
-            "aup.coeditor.assign",
-            // 附件管理
-            "aup.attachment.view", "aup.attachment.download", "aup.attachment.upload",
-            // 版本管理
-            "aup.version.view",
-            // 動物管理
-            "animal.info.view_all", "animal.info.create", "animal.info.edit", 
-            "animal.info.assign", "animal.info.import", "animal.info.delete",
-            "animal.record.view", "animal.record.create", "animal.record.edit", "animal.record.delete",
-            // 動物來源管理（僅 IACUC_STAFF 負責）
-            "animal.source.manage",
-            // 匯出
-            "animal.export.medical", "animal.export.observation", "animal.export.surgery", "animal.export.experiment",
-            // HR 權限（內部員工基本權限）
-            "hr.attendance.view", "hr.attendance.clock",
-            "hr.leave.view", "hr.leave.create",
-            "hr.overtime.view", "hr.overtime.create",
-            "hr.balance.view",
+            // AUP 計畫管理（全部）
+            "aup.protocol.view_all", "aup.protocol.view_own", 
+            "aup.protocol.create", "aup.protocol.edit", "aup.protocol.submit",
+            "aup.protocol.review", "aup.protocol.approve", "aup.protocol.change_status",
+            "aup.protocol.delete",
+            // AUP 審查流程（全部）
+            "aup.review.view", "aup.review.assign", "aup.review.comment", "aup.review.reply",
+            // AUP 附件管理（全部）
+            "aup.attachment.view", "aup.attachment.download", "aup.attachment.upload", "aup.attachment.delete",
+            // AUP 版本管理
+            "aup.version.view", "aup.version.restore",
+            // AUP 額外功能
+            "aup.amendment.classify",   // 分類修正案（執行秘書負責判斷 Major/Minor）
+            "aup.coeditor.assign",      // 指派協作編輯
             // Dashboard
             "dashboard.view",
         ]),
@@ -421,7 +393,7 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "animal.export.medical", "animal.export.observation", "animal.export.surgery", "animal.export.experiment",
             // ERP 查詢（僅讀取）+ 請購單建立
             "erp.warehouse.view", "erp.product.view", "erp.partner.view",
-            "erp.inventory.view", "erp.stock.view",
+            "erp.stock.view",
             "erp.pr.create",  // 可建立請購單
             // HR 權限（內部員工基本權限）
             "hr.attendance.view", "hr.attendance.clock",
@@ -433,15 +405,19 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ]),
         
         // ============================================
-        // ADMIN_STAFF (行政) - 審核加班及請假申請、管理特休額度
+        // ADMIN_STAFF (行政) - 全部 HR 權限 + 庫存報表 Audit + 管理階級 Audit
         // ============================================
         ("ADMIN_STAFF", vec![
-            // HR 審核權限
-            "hr.overtime.approve", "hr.leave.approve",
-            // 查看權限
-            "hr.attendance.view.all", "hr.overtime.view.all", "hr.leave.view.all",
-            // 特休額度管理權限
-            "hr.balance.manage",
+            // HR 權限（全部 18 個）
+            "hr.attendance.view", "hr.attendance.view_all", "hr.attendance.clock", "hr.attendance.correct",
+            "hr.overtime.view", "hr.overtime.create", "hr.overtime.approve",
+            "hr.leave.view", "hr.leave.view_all", "hr.leave.create", "hr.leave.approve", "hr.leave.manage",
+            "hr.balance.view", "hr.balance.manage",
+            "hr.calendar.config", "hr.calendar.view", "hr.calendar.sync", "hr.calendar.conflicts",
+            // 庫存報表 Audit 權限
+            "erp.stock.view", "erp.report.view",
+            // 管理階級 Audit 權限（全部 5 個）
+            "audit.logs.view", "audit.logs.export", "audit.timeline.view", "audit.alerts.view", "audit.alerts.manage",
             // Dashboard 權限
             "dashboard.view",
         ]),
