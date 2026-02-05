@@ -1,0 +1,67 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE amendment_review_assignments\n            SET \n                decision = $3,\n                decided_at = NOW(),\n                comment = $4\n            WHERE amendment_id = $1 AND reviewer_id = $2\n            RETURNING \n                id, amendment_id, reviewer_id, assigned_by, assigned_at,\n                decision, decided_at, comment\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "amendment_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "reviewer_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "assigned_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "assigned_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "decision",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 6,
+        "name": "decided_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "comment",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Varchar",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "0f1b8d3e20f7a10095cc6118271876594369f5fec1a91c4f7faed5f6261e945a"
+}
