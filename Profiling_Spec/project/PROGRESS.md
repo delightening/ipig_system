@@ -677,21 +677,6 @@
 4. ✅ **權限系統更新**
    - 實驗人員權限擴充 - 新增物種管理、動物資訊管理（建立/編輯/匯入）、病歷匯出、緊急停止等權限
 
-**最新更新 (2026-02-06)：**
-
-1. ✅ **權限代碼標準化**
-   - 將所有 `pig.*` 權限代碼重命名為 `animal.*`
-   - 更新 21 個權限代碼：`pig.pig.*` → `animal.animal.*`、`pig.record.*` → `animal.record.*`、`pig.export.*` → `animal.export.*`、`pig.vet.*` → `animal.vet.*`
-   - 處理重複權限衝突（`pig.export.medical` 合併至 `animal.export.medical`）
-   - 更新相關 migration 檔案（001, 032, 033）
-
-2. ✅ **Migration 檔案整合（開發環境專用）**
-   - 將 33+ 個 migration 整合為 3 個檔案
-   - `001_schema.sql` (~122KB) - 所有表結構、索引、觸發器、視圖
-   - `002_seed_data.sql` (~33KB) - ERP 基礎資料、使用者帳號、種子資料
-   - `003_permissions.sql` (~16KB) - 角色權限分配
-   - 原始檔案保留於 `archived_migrations/` 供歷史參考
-
 **v2.0 規劃功能：**
 1. 行動端適配
 2. ~~PDF 報表生成~~（已於 v1.1 完成）
