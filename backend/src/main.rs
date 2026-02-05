@@ -65,15 +65,8 @@ async fn ensure_admin_user(pool: &sqlx::PgPool) -> Result<()> {
         .await?;
     
     let user_id = if let Some(id) = existing_id {
-        // 用戶已存在：更新密碼 hash 和狀態（確保密碼正確）
-        sqlx::query(
-            "UPDATE users SET password_hash = $1, is_active = true, must_change_password = false, updated_at = NOW() WHERE id = $2"
-        )
-        .bind(&password_hash)
-        .bind(id)
-        .execute(pool)
-        .await?;
-        tracing::info!("[Admin] Existing admin user password reset: {}", email);
+        // 用戶已存在：不更新密碼 hash（保留現有密碼）
+        tracing::info!("[Admin] Existing admin user found, preserving password: {}", email);
         id
     } else {
         // 用戶不存在：創建新用戶
@@ -264,7 +257,7 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             // 版本管理（含還原）
             "aup.version.view", "aup.version.restore",
             // 動物管理
-            "animal.info.view_project",
+            "pig.pig.view_project",
             "animal.record.view",
             // 匯出
             "animal.export.medical", "animal.export.observation", "animal.export.surgery",
@@ -287,7 +280,7 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             // Amendment 變更申請（審查、檢視）
             "amendment.read", "amendment.review",
             // 動物管理（只看）
-            "animal.info.view_all", "animal.info.view_project",
+            "pig.pig.view_all", "pig.pig.view_project",
             "animal.record.view",
             // 匯出（所有紀錄）
             "animal.export.medical", "animal.export.observation", "animal.export.surgery", "animal.export.experiment",
@@ -333,7 +326,7 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             // 版本管理
             "aup.version.view",
             // 動物管理 - 僅查看，不含來源管理
-            "animal.info.view_all",
+            "pig.pig.view_all",
             "animal.record.view",
             // 安樂死仲裁權限（IACUC_CHAIR 為最終決策者）
             "animal.euthanasia.approve", "animal.euthanasia.arbitrate",
@@ -379,7 +372,7 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             // 物種管理
             "species.read", "species.create", "species.update",
             // 動物管理 - 可查看所有動物、新增、編輯、匯入
-            "animal.info.view_all", "animal.info.create", "animal.info.edit", "animal.info.import",
+            "pig.pig.view_all", "animal.info.create", "animal.info.edit", "animal.info.import",
             "animal.record.view", "animal.record.create", "animal.record.edit",
             "animal.record.observation", "animal.record.surgery", 
             "animal.record.weight", "animal.record.vaccine", "animal.record.sacrifice",
@@ -435,7 +428,7 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             // 版本管理
             "aup.version.view",
             // 動物查看
-            "animal.info.view_project",
+            "pig.pig.view_project",
             "animal.record.view",
             // 匯出
             "animal.export.medical", "animal.export.observation", "animal.export.surgery",
@@ -535,15 +528,8 @@ async fn seed_dev_users(pool: &sqlx::PgPool) -> Result<()> {
             .await?;
         
         let user_id = if let Some(id) = existing_id {
-            // 用戶已存在：更新密碼 hash（確保密碼正確）
-            sqlx::query(
-                "UPDATE users SET password_hash = $1, is_active = true, must_change_password = false, updated_at = NOW() WHERE id = $2"
-            )
-            .bind(&password_hash)
-            .bind(id)
-            .execute(pool)
-            .await?;
-            tracing::info!("[DevUser] Updated password for existing user: {}", dev_user.email);
+            // 用戶已存在：不更新密碼 hash（保留現有密碼）
+            tracing::info!("[DevUser] Existing user found, preserving password: {}", dev_user.email);
             id
         } else {
             // 用戶不存在：創建新用戶
@@ -867,7 +853,7 @@ async fn main() -> anyhow::Result<()> {
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!("Server listening on {}", addr);
 
-    axum::serve(listener, app).await?;
+    axum::serve(listener, app.into_make_service_with_connect_info::<std::net::SocketAddr>()).await?;
 
     Ok(())
 }
