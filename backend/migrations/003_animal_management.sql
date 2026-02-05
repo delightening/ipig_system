@@ -333,21 +333,34 @@ CREATE INDEX idx_export_jobs_created_by ON export_jobs(created_by);
 CREATE TABLE euthanasia_orders (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     pig_id UUID NOT NULL REFERENCES pigs(id) ON DELETE CASCADE,
-    status euthanasia_order_status NOT NULL DEFAULT 'pending_review',
+    vet_user_id UUID NOT NULL REFERENCES users(id),
+    pi_user_id UUID NOT NULL REFERENCES users(id),
+    status euthanasia_order_status NOT NULL DEFAULT 'pending_pi',
     reason TEXT NOT NULL,
-    recommended_by UUID NOT NULL REFERENCES users(id),
-    recommended_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    reviewed_by UUID REFERENCES users(id),
-    reviewed_at TIMESTAMPTZ,
-    review_notes TEXT,
+    deadline_at TIMESTAMPTZ NOT NULL,
+    pi_responded_at TIMESTAMPTZ,
     executed_at TIMESTAMPTZ,
     executed_by UUID REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE euthanasia_appeals (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id UUID NOT NULL REFERENCES euthanasia_orders(id) ON DELETE CASCADE,
+    pi_user_id UUID NOT NULL REFERENCES users(id),
+    reason TEXT NOT NULL,
+    attachment_path VARCHAR(500),
+    chair_user_id UUID REFERENCES users(id),
+    chair_decision VARCHAR(50),
+    chair_decided_at TIMESTAMPTZ,
+    chair_deadline_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX idx_euthanasia_orders_pig_id ON euthanasia_orders(pig_id);
 CREATE INDEX idx_euthanasia_orders_status ON euthanasia_orders(status);
+CREATE INDEX idx_euthanasia_appeals_order ON euthanasia_appeals(order_id);
 
 -- ============================================
 -- 完成

@@ -99,26 +99,31 @@ CREATE TYPE leave_status AS ENUM (
 
 -- 修正案相關類型
 CREATE TYPE amendment_type AS ENUM (
-    'ANIMAL_NUMBER',
-    'PROCEDURE',
-    'PERSONNEL',
-    'DURATION',
-    'OTHER'
+    'MAJOR',
+    'MINOR',
+    'PENDING'
 );
 CREATE TYPE amendment_status AS ENUM (
     'DRAFT',
     'SUBMITTED',
+    'CLASSIFIED',
     'UNDER_REVIEW',
+    'REVISION_REQUIRED',
+    'RESUBMITTED',
     'APPROVED',
-    'REJECTED'
+    'REJECTED',
+    'ADMIN_APPROVED'
 );
 
 -- 安樂死審查類型
 CREATE TYPE euthanasia_order_status AS ENUM (
-    'pending_review',
+    'pending_pi',
+    'appealed',
+    'chair_arbitration',
     'approved',
     'rejected',
-    'executed'
+    'executed',
+    'cancelled'
 );
 
 -- 匯入匯出類型
