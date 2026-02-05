@@ -14,11 +14,12 @@ impl SchedulerService {
     /// 啟動排程服務
     pub async fn start(db: PgPool, config: Arc<Config>) -> Result<JobScheduler, Box<dyn std::error::Error + Send + Sync>> {
         let sched = JobScheduler::new().await?;
+        let mut job_count = 0;
 
         // 每日 08:00 執行低庫存檢查
         let db_clone = db.clone();
         let config_clone = config.clone();
-        sched.add(Job::new_async("0 0 8 * * *", move |_uuid, _l| {
+        let job = Job::new_async("0 0 8 * * *", move |_uuid, _l| {
             let db = db_clone.clone();
             let config = config_clone.clone();
             Box::pin(async move {
@@ -27,12 +28,15 @@ impl SchedulerService {
                     error!("Low stock check failed: {}", e);
                 }
             })
-        })?).await?;
+        })?;
+        sched.add(job).await?;
+        info!("[Scheduler] ✓ Job 'low_stock_check' registered");
+        job_count += 1;
 
         // 每日 08:00 執行效期檢查
         let db_clone = db.clone();
         let config_clone = config.clone();
-        sched.add(Job::new_async("0 0 8 * * *", move |_uuid, _l| {
+        let job = Job::new_async("0 0 8 * * *", move |_uuid, _l| {
             let db = db_clone.clone();
             let config = config_clone.clone();
             Box::pin(async move {
@@ -41,11 +45,15 @@ impl SchedulerService {
                     error!("Expiry check failed: {}", e);
                 }
             })
-        })?).await?;
+        })?;
+        sched.add(job).await?;
+        info!("[Scheduler] ✓ Job 'expiry_check' registered");
+        job_count += 1;
 
         // 每週日 03:00 清理過期通知
+        // 使用 "Sun" 作為星期日，避免數字 0 的相容性問題
         let db_clone = db.clone();
-        sched.add(Job::new_async("0 0 3 * * 0", move |_uuid, _l| {
+        let job = Job::new_async("0 0 3 * * Sun", move |_uuid, _l| {
             let db = db_clone.clone();
             Box::pin(async move {
                 info!("Running weekly notification cleanup...");
@@ -53,11 +61,14 @@ impl SchedulerService {
                     error!("Notification cleanup failed: {}", e);
                 }
             })
-        })?).await?;
+        })?;
+        sched.add(job).await?;
+        info!("[Scheduler] ✓ Job 'notification_cleanup' registered");
+        job_count += 1;
 
         // 每日 00:30 執行餘額到期檢查
         let db_clone = db.clone();
-        sched.add(Job::new_async("0 30 0 * * *", move |_uuid, _l| {
+        let job = Job::new_async("0 30 0 * * *", move |_uuid, _l| {
             let db = db_clone.clone();
             Box::pin(async move {
                 info!("Running daily balance expiration check...");
@@ -71,14 +82,17 @@ impl SchedulerService {
                     }
                 }
             })
-        })?).await?;
+        })?;
+        sched.add(job).await?;
+        info!("[Scheduler] ✓ Job 'balance_expiration' registered");
+        job_count += 1;
 
-        // 每日 08:00 和 18:00 執行 Google Calendar 同步
+        // 每日 08:00 執行 Google Calendar 同步（早上）
         let db_clone = db.clone();
-        sched.add(Job::new_async("0 0 8,18 * * *", move |_uuid, _l| {
+        let job = Job::new_async("0 0 8 * * *", move |_uuid, _l| {
             let db = db_clone.clone();
             Box::pin(async move {
-                info!("Running scheduled calendar sync...");
+                info!("Running scheduled calendar sync (morning)...");
                 match CalendarService::trigger_sync(&db, None).await {
                     Ok(history) => {
                         info!("Calendar sync completed: {:?}", history.status);
@@ -88,12 +102,35 @@ impl SchedulerService {
                     }
                 }
             })
-        })?).await?;
+        })?;
+        sched.add(job).await?;
+        info!("[Scheduler] ✓ Job 'calendar_sync_morning' registered");
+        job_count += 1;
+        
+        // 每日 18:00 執行 Google Calendar 同步（傍晚）
+        let db_clone = db.clone();
+        let job = Job::new_async("0 0 18 * * *", move |_uuid, _l| {
+            let db = db_clone.clone();
+            Box::pin(async move {
+                info!("Running scheduled calendar sync (evening)...");
+                match CalendarService::trigger_sync(&db, None).await {
+                    Ok(history) => {
+                        info!("Calendar sync completed: {:?}", history.status);
+                    }
+                    Err(e) => {
+                        error!("Calendar sync failed: {}", e);
+                    }
+                }
+            })
+        })?;
+        sched.add(job).await?;
+        info!("[Scheduler] ✓ Job 'calendar_sync_evening' registered");
+        job_count += 1;
 
         // 每年 12 月 1 日 03:00 執行分區表維護
         // 確保 user_activity_logs 表有未來 2 年的季度分區
         let db_clone = db.clone();
-        sched.add(Job::new_async("0 0 3 1 12 *", move |_uuid, _l| {
+        let job = Job::new_async("0 0 3 1 12 *", move |_uuid, _l| {
             let db = db_clone.clone();
             Box::pin(async move {
                 info!("Running annual partition maintenance...");
@@ -107,12 +144,16 @@ impl SchedulerService {
                     }
                 }
             })
-        })?).await?;
+        })?;
+        sched.add(job).await?;
+        info!("[Scheduler] ✓ Job 'partition_maintenance' registered");
+        job_count += 1;
 
         // 每 5 分鐘檢查安樂死單據超時
         // 處理 PI 超時未回應和 CHAIR 仲裁超時
+        // 使用 "0/5" 語法表示從 0 開始每 5 分鐘
         let db_clone = db.clone();
-        sched.add(Job::new_async("0 */5 * * * *", move |_uuid, _l| {
+        let job = Job::new_async("0 0/5 * * * *", move |_uuid, _l| {
             let db = db_clone.clone();
             Box::pin(async move {
                 match EuthanasiaService::check_expired_orders(&db).await {
@@ -126,14 +167,18 @@ impl SchedulerService {
                     }
                 }
             })
-        })?).await?;
+        })?;
+        sched.add(job).await?;
+        info!("[Scheduler] ✓ Job 'euthanasia_timeout' registered");
+        job_count += 1;
 
         // 啟動排程器
         sched.start().await?;
-        info!("Scheduler started successfully");
+        info!("[Scheduler] ✓ All {} jobs registered and scheduler started successfully", job_count);
 
         Ok(sched)
     }
+
 
     /// 檢查低庫存並發送通知
     async fn check_low_stock(db: &PgPool, config: &Config) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
