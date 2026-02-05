@@ -516,7 +516,7 @@ async fn seed_dev_users(pool: &sqlx::PgPool) -> Result<()> {
         DevUser {
             email: "smen1971@gmail.com",
             display_name: "意萍",
-            roles: &["EXPERIMENT_STAFF", "WAREHOUSE_MANAGER", "PURCHASING"],
+            roles: &["EXPERIMENT_STAFF", "WAREHOUSE_MANAGER", "PURCHASING", "ADMIN_STAFF"],
         },
     ];
     

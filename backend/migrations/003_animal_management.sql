@@ -1,5 +1,5 @@
 -- ============================================
--- Migration 002: Animal Management System
+-- Migration 003: Animal Management System
 -- 
 -- 包含：
 -- - 動物來源表

@@ -1,5 +1,5 @@
 -- ============================================
--- Migration 004b: Audit System
+-- Migration 006: Audit System
 -- 
 -- 包含：
 -- - 使用者活動日誌 (分區表)

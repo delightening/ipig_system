@@ -147,6 +147,12 @@ CREATE TABLE users (
     locked_until TIMESTAMPTZ,
     theme_preference VARCHAR(20) NOT NULL DEFAULT 'light',
     language_preference VARCHAR(10) NOT NULL DEFAULT 'zh-TW',
+    -- 員工相關欄位 (用於 AUP Section 8 經驗計算)
+    entry_date DATE,                          -- 入職日期
+    position VARCHAR(100),                    -- 職位
+    aup_roles VARCHAR(255)[] DEFAULT '{}',    -- AUP 角色 (可多選)
+    years_experience INTEGER NOT NULL DEFAULT 0,  -- 先前經驗年數
+    trainings JSONB NOT NULL DEFAULT '[]',    -- 教育訓練記錄 (JSON 格式)
     deleted_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -342,9 +348,10 @@ ON CONFLICT (code) DO NOTHING;
 -- 8. 插入種子帳號
 -- ============================================
 
--- 統一密碼 Hash (bcrypt, cost=10): password123
+-- 統一密碼 Hash (Argon2id): password123
+-- Generated using argon2 crate with default settings
 INSERT INTO users (id, email, password_hash, display_name, is_internal, is_active, must_change_password, created_at, updated_at) VALUES
-    (gen_random_uuid(), 'admin@system.local', '$2b$10$N9qo8uLOickgx2ZMRZoMy.MqrqE7cCfK3.9uGg0FhE2VZQqhF5C.O', '系統管理員', true, true, true, NOW(), NOW())
+    (gen_random_uuid(), 'admin@system.local', '$argon2id$v=19$m=65536,t=3,p=4$VvlEG9rpCr/G9l0sRncC/A$jw/Shq555yDjLEm4TO0J16+M2zszQbVpHraFAyrn0Ww', '系統管理員', true, true, true, NOW(), NOW())
 ON CONFLICT (email) DO NOTHING;
 
 -- 為 admin 帳號指派 admin 角色

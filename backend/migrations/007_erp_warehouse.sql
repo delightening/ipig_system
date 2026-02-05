@@ -1,5 +1,5 @@
 -- ============================================
--- Migration 005: ERP Warehouse System
+-- Migration 007: ERP Warehouse System
 -- 
 -- 包含：
 -- - 倉庫表
@@ -30,14 +30,6 @@ CREATE TABLE warehouses (
 
 CREATE INDEX idx_warehouses_code ON warehouses(code);
 CREATE INDEX idx_warehouses_is_active ON warehouses(is_active);
-
--- 插入預設倉庫
-INSERT INTO warehouses (id, code, name) VALUES
-    (gen_random_uuid(), 'MAIN', '主倉庫'),
-    (gen_random_uuid(), 'DRUG', '藥品庫'),
-    (gen_random_uuid(), 'FEED', '飼料庫'),
-    (gen_random_uuid(), 'CONSUMABLE', '耗材庫')
-ON CONFLICT (code) DO NOTHING;
 
 -- ============================================
 -- 2. 產品類別表
@@ -84,27 +76,8 @@ CREATE TABLE sku_sequences (
     PRIMARY KEY (category_code, subcategory_code)
 );
 
--- 插入預設 SKU 類別
-INSERT INTO sku_categories (code, name, sort_order) VALUES
-    ('DRG', '藥品', 1),
-    ('CNS', '耗材', 2),
-    ('FED', '飼料', 3),
-    ('EQP', '設備', 4)
-ON CONFLICT (code) DO NOTHING;
 
-INSERT INTO sku_subcategories (category_code, code, name, sort_order) VALUES
-    ('DRG', 'ANS', '麻醉藥', 1),
-    ('DRG', 'ANB', '抗生素', 2),
-    ('DRG', 'AIP', '止痛藥', 3),
-    ('DRG', 'VMN', '維生素', 4),
-    ('CNS', 'SRG', '手術耗材', 1),
-    ('CNS', 'INJ', '注射耗材', 2),
-    ('CNS', 'CLN', '清潔用品', 3),
-    ('FED', 'STD', '標準飼料', 1),
-    ('FED', 'SPC', '特殊飼料', 2),
-    ('EQP', 'SRG', '手術設備', 1),
-    ('EQP', 'MON', '監測設備', 2)
-ON CONFLICT DO NOTHING;
+-- ============================================
 
 -- ============================================
 -- 4. 產品表
@@ -285,14 +258,17 @@ CREATE TABLE storage_locations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     warehouse_id UUID NOT NULL REFERENCES warehouses(id) ON DELETE CASCADE,
     code VARCHAR(50) NOT NULL,
-    name VARCHAR(100),
-    zone VARCHAR(50),
-    rack VARCHAR(50),
-    shelf VARCHAR(50),
-    bin VARCHAR(50),
-    max_capacity NUMERIC(18, 4),
-    capacity_uom VARCHAR(20),
+    name VARCHAR(200),
+    location_type VARCHAR(50) NOT NULL DEFAULT 'shelf',
+    row_index INTEGER NOT NULL DEFAULT 0,
+    col_index INTEGER NOT NULL DEFAULT 0,
+    width INTEGER NOT NULL DEFAULT 2,
+    height INTEGER NOT NULL DEFAULT 2,
+    capacity INTEGER,
+    current_count INTEGER DEFAULT 0,
+    color VARCHAR(20),
     is_active BOOLEAN NOT NULL DEFAULT true,
+    config JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(warehouse_id, code)
@@ -302,20 +278,19 @@ CREATE INDEX idx_storage_locations_warehouse ON storage_locations(warehouse_id);
 CREATE INDEX idx_storage_locations_zone ON storage_locations(zone);
 
 -- 儲位庫存表
-CREATE TABLE storage_inventory (
+CREATE TABLE storage_location_inventory (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     storage_location_id UUID NOT NULL REFERENCES storage_locations(id) ON DELETE CASCADE,
-    product_id UUID NOT NULL REFERENCES products(id),
+    product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    on_hand_qty NUMERIC(18, 4) NOT NULL DEFAULT 0,
     batch_no VARCHAR(50),
     expiry_date DATE,
-    qty NUMERIC(18, 4) NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(storage_location_id, product_id, batch_no, expiry_date)
+    UNIQUE(storage_location_id, product_id, COALESCE(batch_no, ''), COALESCE(expiry_date, '1900-01-01'::date))
 );
 
-CREATE INDEX idx_storage_inventory_location ON storage_inventory(storage_location_id);
-CREATE INDEX idx_storage_inventory_product ON storage_inventory(product_id);
+CREATE INDEX idx_storage_location_inventory_location ON storage_location_inventory(storage_location_id);
+CREATE INDEX idx_storage_location_inventory_product ON storage_location_inventory(product_id);
 
 -- ============================================
 -- 10. 視圖 (Views)

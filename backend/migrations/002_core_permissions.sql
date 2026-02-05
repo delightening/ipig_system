@@ -1,5 +1,5 @@
 -- ============================================
--- Migration 001b: Core Permissions
+-- Migration 002: Core Permissions
 -- 
 -- 包含：
 -- - 所有權限定義
