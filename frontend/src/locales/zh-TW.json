@@ -371,7 +371,8 @@
           "title": "指派審查人員",
           "desc": "選擇要指派的審查委員或獸醫師",
           "placeholder": "請選擇審查人員",
-          "confirm": "確認指派"
+          "confirm": "確認指派",
+          "success": "審查人員指派成功"
         },
         "coeditor": {
           "title": "指派 Co-Editor",

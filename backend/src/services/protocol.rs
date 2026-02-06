@@ -1329,10 +1329,15 @@ impl ProtocolService {
         let roles: Vec<&str> = roles_str.split(',').filter(|s| !s.is_empty()).collect();
         let permissions: Vec<&str> = permissions_str.split(',').filter(|s| !s.is_empty()).collect();
         
-        let has_client_role = roles.contains(&"CLIENT");
         let has_view_all_permission = permissions.contains(&"aup.protocol.view_all");
-        let has_privileged_role = roles.iter().any(|&r| ["admin", "VET", "IACUC_STAFF", "IACUC_CHAIR"].contains(&r));
-        let has_broad_access = has_view_all_permission || has_privileged_role;
+        let has_client_role = roles.contains(&"CLIENT");
+        
+        let is_vet_or_reviewer = roles.contains(&"VET") || roles.contains(&"REVIEWER");
+        let has_other_privileged_role = roles.iter().any(|&r| ["admin", "IACUC_STAFF", "IACUC_CHAIR"].contains(&r));
+        
+        // VET 與 REVIEWER 角色特殊處理：在「我的計畫」中，預設點進來只看受指派的任務（除非具備其他管理員角色）
+        // 這樣能將 AUP 管理清單（全面查看）與我的計畫（任務導向）明確區分
+        let has_broad_access = (has_view_all_permission || has_other_privileged_role) && (!is_vet_or_reviewer || has_other_privileged_role);
 
         // 如果具備特權角色或廣泛查看權限，則查看所有計畫
         if has_broad_access {

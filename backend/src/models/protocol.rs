@@ -352,6 +352,24 @@ pub struct ReviewCommentResponse {
     pub created_at: DateTime<Utc>,
 }
 
+/// 審查指派回應（含審查者與指派者資訊）
+#[derive(Debug, Serialize, FromRow)]
+pub struct ReviewAssignmentResponse {
+    pub id: Uuid,
+    pub protocol_id: Uuid,
+    pub reviewer_id: Uuid,
+    pub reviewer_name: String,
+    pub reviewer_email: String,
+    pub assigned_by: Uuid,
+    pub assigned_by_name: String,
+    pub assigned_at: DateTime<Utc>,
+    pub completed_at: Option<DateTime<Utc>>,
+    #[sqlx(default)]
+    pub is_primary_reviewer: bool,
+    #[sqlx(default)]
+    pub review_stage: Option<String>,
+}
+
 /// Co-Editor 指派回應（含用戶資訊）
 #[derive(Debug, Serialize, FromRow)]
 pub struct CoEditorAssignmentResponse {

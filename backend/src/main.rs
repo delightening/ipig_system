@@ -298,7 +298,7 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
         // ============================================
         ("REVIEWER", vec![
             // 計畫審查（查看所有計畫）
-            "aup.protocol.view_all", "aup.protocol.review",
+            "aup.protocol.view_all", "aup.protocol.view_own", "aup.protocol.review",
             // 審查流程
             "aup.review.view", "aup.review.comment",
             // 附件管理
@@ -317,7 +317,7 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
         // ============================================
         ("IACUC_CHAIR", vec![
             // 計畫管理
-            "aup.protocol.view_all", "aup.protocol.review", 
+            "aup.protocol.view_all", "aup.protocol.view_own", "aup.protocol.review", 
             "aup.protocol.approve", "aup.protocol.change_status",
             // 審查流程
             "aup.review.view", "aup.review.comment", "aup.review.assign",
