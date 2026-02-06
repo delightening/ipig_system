@@ -161,12 +161,15 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-sm font-semibold">{t('protocols.content.sections.projectType')}</Label>
-                <p className="mt-1">{basic.project_type || '-'}</p>
+                <p className="mt-1">
+                  {basic.project_type ? t(`aup.projectTypes.${basic.project_type}`) : '-'}
+                  {basic.project_type_other && ` (${basic.project_type_other})`}
+                </p>
               </div>
               <div>
                 <Label className="text-sm font-semibold">{t('protocols.content.sections.projectCategory')}</Label>
                 <p className="mt-1">
-                  {basic.project_category || '-'}
+                  {basic.project_category ? t(`aup.projectCategories.${basic.project_category}`) : '-'}
                   {basic.project_category_other && ` (${basic.project_category_other})`}
                 </p>
               </div>

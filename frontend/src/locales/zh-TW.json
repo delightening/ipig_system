@@ -600,12 +600,14 @@
       "selectProjectCategory": "選擇計畫種類",
       "pi": "計畫主持人 (Principal Investigator)",
       "name": "姓名",
+      "piNamePlaceholder": "試驗單位主導人員",
       "email": "Email",
       "phone": "電話",
       "address": "地址",
       "sponsor": "委託單位",
       "organizationName": "單位名稱",
       "contactPerson": "聯絡人",
+      "contactPersonPlaceholder": "試驗執行主要聯絡人員",
       "contactPhone": "聯絡電話",
       "contactEmail": "聯絡信箱",
       "sd": "試驗負責人 (SD)",
@@ -618,6 +620,15 @@
       "facilityAndLocation": "試驗機構與設施",
       "location": "位置",
       "specifyOther": "請說明其他種類",
+      "fundingSources": "資金來源",
+      "fundingSourceOptions": {
+        "moa": "農業部 Ministry of Agriculture",
+        "mohw": "衛生福利部 Ministry of Health and Welfare",
+        "nstc": "國家科學及技術委員會 NSTC",
+        "moe": "教育部 Ministry of Education",
+        "env": "環境部 Ministry of Environment",
+        "other": "其他，說明 Other, Explanation"
+      },
       "validation": {
         "titleRequired": "請填寫研究名稱",
         "periodRequired": "請填寫預計試驗時程",
@@ -693,13 +704,19 @@
       "nonSterilePlaceholder": "請說明為何本物質非無菌製備",
       "controlName": "對照名稱",
       "controlNamePlaceholder": "若無對照請填寫 N/A",
-      "photos": "照片",
+      "photos": "佐證資料",
       "photosPlaceholder": "拖曳照片到此處，或點擊選擇照片",
       "validation": {
         "useTestItemRequired": "請選擇是否投予「試驗物質」於動物",
         "testItemNameRequired": "請填寫第 {{index}} 個試驗物質的名稱",
+        "testFormRequired": "請填寫第 {{index}} 個試驗物質的劑型",
+        "testPurposeRequired": "請填寫第 {{index}} 個試驗物質的用途",
+        "testStorageRequired": "請填寫第 {{index}} 個試驗物質的保存環境",
         "testJustificationRequired": "請填寫第 {{index}} 個試驗物質的非無菌製備說明",
         "controlItemNameRequired": "請填寫第 {{index}} 個對照物質的名稱",
+        "controlFormRequired": "請填寫第 {{index}} 個對照物質的劑型",
+        "controlPurposeRequired": "請填寫第 {{index}} 個對照物質的用途",
+        "controlStorageRequired": "請填寫第 {{index}} 個對照物質的保存環境",
         "controlJustificationRequired": "請填寫第 {{index}} 個對照物質的非無菌製備說明"
       }
     },
@@ -711,7 +728,7 @@
       "anesthesiaTypes": {
         "survival": "1. 存活手術（請填寫6. 手術計劃書）",
         "non_survival": "2. 非存活手術（請填寫6. 手術計劃書）",
-        "gas_only": "3. 非侵入式試驗，僅使用氣體麻醉(Isoflurane 1-2%)誘導後再進行實驗( Isoflurane inhalation before experiment)",
+        "gas_only": "3. 僅使用氣體麻醉(Isoflurane 1-2%)誘導後再進行實驗( Isoflurane inhalation before experiment)",
         "azeperonum_atropine": "4. 使用畜舒坦( Azeperonum 40 mg/mL)3-5 mg/kg和0.03-0.05 mg/kg阿托平(Atropine® 1 mg/mL)肌肉注射鎮靜後，氣體麻醉(Isoflurane 1-2%)再進行實驗 (Using Azeperonum and Atropine IM with Isoflurane inhalation before experiment)",
         "other": "5. 其他"
       },
@@ -1096,25 +1113,30 @@
       "validationFailed": "請填寫所有必填欄位"
     },
     "projectTypes": {
-      "basic_research": "基礎研究",
-      "applied_research": "應用研究",
-      "pre_market_testing": "上市前試驗",
-      "teaching_training": "教學訓練",
-      "biologics_manufacturing": "生物製劑製造"
+      "1_basic_research": "1. 基礎研究",
+      "2_applied_research": "2. 應用研究",
+      "3_pre_market_testing": "3. 產品上市前測試",
+      "4_educational": "4. 教學訓練",
+      "5_biologics_manufacturing": "5. 製造生物製劑",
+      "6_other": "6. 其他"
     },
     "projectCategories": {
-      "medical": "醫藥",
-      "agricultural": "農業",
-      "drug_herbal": "藥用植物",
-      "health_food": "健康食品",
-      "food": "食品",
-      "toxic_chemical": "毒性化學物質",
-      "medical_device": "醫療器材",
-      "other": "其他"
+      "1_medical": "1. 醫學研究",
+      "2_agricultural": "2. 農業研究",
+      "3_drugs_vaccines": "3. 藥物及疫苗",
+      "4_supplements": "4. 健康食品",
+      "5_food": "5. 食品",
+      "6_toxics_chemicals": "6. 毒、化學品",
+      "7_medical_materials": "7. 醫療器材",
+      "8_pesticide": "8. 農藥",
+      "9_animal_drugs_vaccines": "9. 動物用藥及疫苗",
+      "10_animal_supplements_feed": "10. 動物保健品、飼料添加物",
+      "11_cosmetics": "11. (含藥)化妝品",
+      "12_other": "12. 其他"
     },
     "defaults": {
       "facilityName": "豬博士動物科技股份有限公司",
-      "housingLocation": "苗栗縣後龍鎮外埔里外埔6-15號",
+      "housingLocation": "苗栗縣後龍鎮外埔里2鄰外埔6-15號",
       "humaneEndpoint": "實驗過程中如果動物體重下降超過原體重的20%、食慾不振 (無法進食)、身體虛弱、感染，持續治療或傷口清創後無改善，或其他經獸醫師評估不宜持續實驗之情形，則提早結束實驗，以符合動物福祉。",
       "carcassDisposal": "委由簽約之合格化製廠商進行化製處理\n (化製廠商名稱：金海龍生物科技股份有限公司，化製廠管編：P6001213)",
       "preopPreparation": "1.實驗動物術前禁食至少12小時，不禁水。\n2.試驗豬隻經清洗擦乾後，以畜舒坦( Azeperonum 40 mg/mL)3-5 mg/kg和0.03-0.05 mg/kg阿托平(Atropine® 1 mg/mL)肌肉注射鎮靜。仔細觀察豬隻呼吸頻率。\n3.經20-30分鐘後，以4.4 mg/kg舒泰-50(Zoletil®-50)肌肉注射誘導麻醉\n4.經5-10分鐘後，將豬隻移至手術檯上，以趴姿進行氣管插管，接上氣體麻醉機，以2-3 L/min流速的氧氣混合0.5-2%氣體麻醉劑Isoflurane維持麻醉，隨時注意觀察豬隻麻醉深度。\n5.術前肌肉注射抗生素Cefazolin 15 mg/kg及止痛劑meloxicam 0.4 mg/kg\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行",
@@ -1290,6 +1312,7 @@
     "onMedicationShort": "用藥中",
     "vetRecommendation": "獸醫建議",
     "entryDate": "進場日期",
+    "currentWeight": "現在體重",
     "actions": "動作",
     "noPigsFound": "沒有符合條件的豬隻",
     "notAssigned": "未分配",
