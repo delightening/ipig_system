@@ -271,7 +271,7 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
         // ============================================
         ("VET", vec![
             // AUP 計畫審查
-            "aup.protocol.view_all", "aup.protocol.review",
+            "aup.protocol.view_all", "aup.protocol.view_own", "aup.protocol.review",
             "aup.review.view", "aup.review.comment",
             // AUP 附件
             "aup.attachment.view", "aup.attachment.download",

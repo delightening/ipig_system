@@ -414,11 +414,33 @@ impl ProtocolService {
             }
         }
 
-        // 驗證 VET_REVIEW 狀態必須從 PRE_REVIEW 進入
-        if req.to_status == ProtocolStatus::VetReview {
-            if protocol.status != ProtocolStatus::PreReview {
+        // 驗證 PRE_REVIEW 狀態必須從 SUBMITTED 進入且必須已指派 co-editor
+        if req.to_status == ProtocolStatus::PreReview {
+            if protocol.status != ProtocolStatus::Submitted {
                 return Err(AppError::BusinessRule(
-                    "必須從預審狀態進入獸醫審查".to_string()
+                    "必須從已送審狀態進入行政預審".to_string()
+                ));
+            }
+
+            let co_editor_count: i64 = sqlx::query_scalar(
+                "SELECT COUNT(*) FROM user_protocols WHERE protocol_id = $1 AND role_in_protocol = 'CO_EDITOR'"
+            )
+            .bind(id)
+            .fetch_one(pool)
+            .await?;
+
+            if co_editor_count == 0 {
+                return Err(AppError::BusinessRule(
+                    "進入行政預審前必須指派至少一位試驗工作人員 (Co-editor)".to_string()
+                ));
+            }
+        }
+
+        // 驗證 VET_REVIEW 狀態必須從 PRE_REVIEW 或 SUBMITTED 進入
+        if req.to_status == ProtocolStatus::VetReview {
+            if protocol.status != ProtocolStatus::PreReview && protocol.status != ProtocolStatus::Submitted {
+                return Err(AppError::BusinessRule(
+                    "必須從行政預審或已送審狀態進入獸醫審查".to_string()
                 ));
             }
         }
@@ -492,6 +514,7 @@ impl ProtocolService {
         if req.to_status == ProtocolStatus::VetReview {
             Self::assign_vet_reviewer(pool, id, req.vet_id, changed_by).await?;
         }
+
 
         // 當計劃通過時，自動依照 IACUC No. 自動填入客戶
         if (req.to_status == ProtocolStatus::Approved || req.to_status == ProtocolStatus::ApprovedWithConditions) 
@@ -1280,16 +1303,20 @@ impl ProtocolService {
 
     /// 取得我的計畫列表（依使用者）
     /// 支援委託單位主管：如果用戶是 CLIENT 角色且為主管，可查看同組織下所有用戶的計畫
+    /// 支援特權角色：如果用戶是管理員、獸醫師或 IACUC 工作人員，可查看所有計畫
     pub async fn get_my_protocols(pool: &PgPool, user_id: Uuid) -> Result<Vec<ProtocolListItem>> {
-        // 檢查用戶是否有 CLIENT 角色
-        let user_info: Option<(String, Option<String>)> = sqlx::query_as(
+        // 檢查用戶角色與權限
+        let user_info: Option<(String, String, Option<String>)> = sqlx::query_as(
             r#"
             SELECT 
-                string_agg(DISTINCT r.code, ',') as roles,
+                COALESCE(string_agg(DISTINCT r.code, ','), '') as roles,
+                COALESCE(string_agg(DISTINCT p.code, ','), '') as permissions,
                 u.organization
             FROM users u
             LEFT JOIN user_roles ur ON u.id = ur.user_id
             LEFT JOIN roles r ON ur.role_id = r.id
+            LEFT JOIN role_permissions rp ON r.id = rp.role_id
+            LEFT JOIN permissions p ON rp.permission_id = p.id
             WHERE u.id = $1
             GROUP BY u.id, u.organization
             "#
@@ -1298,9 +1325,34 @@ impl ProtocolService {
         .fetch_optional(pool)
         .await?;
 
-        let (roles_str, organization) = user_info.ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
+        let (roles_str, permissions_str, organization) = user_info.ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
         let roles: Vec<&str> = roles_str.split(',').filter(|s| !s.is_empty()).collect();
+        let permissions: Vec<&str> = permissions_str.split(',').filter(|s| !s.is_empty()).collect();
+        
         let has_client_role = roles.contains(&"CLIENT");
+        let has_view_all_permission = permissions.contains(&"aup.protocol.view_all");
+        let has_privileged_role = roles.iter().any(|&r| ["admin", "VET", "IACUC_STAFF", "IACUC_CHAIR"].contains(&r));
+        let has_broad_access = has_view_all_permission || has_privileged_role;
+
+        // 如果具備特權角色或廣泛查看權限，則查看所有計畫
+        if has_broad_access {
+            return sqlx::query_as::<_, ProtocolListItem>(
+                r#"
+                SELECT DISTINCT
+                    p.id, p.protocol_no, p.iacuc_no, p.title, p.status,
+                    p.pi_user_id, u.display_name as pi_name, u.organization as pi_organization,
+                    p.start_date, p.end_date, p.created_at,
+                    NULLIF(p.working_content->'basic'->>'apply_study_number', '') as apply_study_number
+                FROM protocols p
+                LEFT JOIN users u ON p.pi_user_id = u.id
+                WHERE p.status != 'DELETED'
+                ORDER BY p.created_at DESC
+                "#
+            )
+            .fetch_all(pool)
+            .await
+            .map_err(Into::into);
+        }
 
         // 如果是 CLIENT 角色且有組織，則查看同組織下所有用戶的計畫（委託單位主管權限）
         let protocols = if has_client_role && organization.is_some() {
@@ -1357,6 +1409,12 @@ impl ProtocolService {
                             WHERE ra.protocol_id = p.id AND ra.reviewer_id = $1
                         )
                         AND p.status NOT IN ('DRAFT', 'REVISION_REQUIRED')
+                    )
+                    OR
+                    -- 用戶是被指派的獸醫審查員
+                    EXISTS (
+                        SELECT 1 FROM vet_review_assignments vra
+                        WHERE vra.protocol_id = p.id AND vra.vet_id = $1
                     )
                 )
                 ORDER BY p.created_at DESC
