@@ -312,8 +312,6 @@ export function WarehouseLayoutPage() {
             y: loc.row_index,
             w: loc.width,
             h: loc.height,
-            minW: 1,
-            minH: 1,
         }))
     }, [locations])
 

@@ -178,12 +178,28 @@ impl AnimalService {
                     OR (vr.record_type = 'surgery'::vet_record_type AND vr.record_id IN (
                         SELECT id FROM pig_surgeries WHERE pig_id = p.id
                     ))
-                ) as vet_recommendation_date
+                ) as vet_recommendation_date,
+                -- 最新體重
+                (
+                    SELECT pw.weight 
+                    FROM pig_weights pw 
+                    WHERE pw.pig_id = p.id 
+                    ORDER BY pw.measure_date DESC 
+                    LIMIT 1
+                ) as latest_weight,
+                (
+                    SELECT pw.measure_date 
+                    FROM pig_weights pw 
+                    WHERE pw.pig_id = p.id 
+                    ORDER BY pw.measure_date DESC 
+                    LIMIT 1
+                ) as latest_weight_date
             FROM pigs p
             LEFT JOIN pig_sources s ON p.source_id = s.id
             WHERE p.deleted_at IS NULL
             "#
         );
+
 
         // Add filters with proper parameterization
         if let Some(status) = &query.status {

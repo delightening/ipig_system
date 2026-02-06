@@ -544,6 +544,10 @@ pub struct PigListItem {
     pub is_on_medication: Option<bool>,
     #[sqlx(default)]
     pub vet_recommendation_date: Option<DateTime<Utc>>,
+    #[sqlx(default)]
+    pub latest_weight: Option<rust_decimal::Decimal>,
+    #[sqlx(default)]
+    pub latest_weight_date: Option<NaiveDate>,
 }
 
 /// 依欄位分組的豬隻

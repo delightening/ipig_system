@@ -786,6 +786,7 @@ export function PigsPage() {
                     <TableHead>{t('pigs.onMedicationShort')}</TableHead>
                     <TableHead>{t('pigs.vetRecommendation')}</TableHead>
                     <SortableHeader column="entry_date" label={t('pigs.entryDate')} />
+                    <TableHead>{t('pigs.currentWeight')}</TableHead>
                     <TableHead className="text-right">{t('pigs.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -854,6 +855,15 @@ export function PigsPage() {
                             <Edit2 className="h-3 w-3" />
                           </Button>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {pig.latest_weight ? (
+                          <span className="text-sm text-slate-700 font-medium" title={pig.latest_weight_date ? `量測日期: ${new Date(pig.latest_weight_date).toLocaleDateString()}` : undefined}>
+                            {pig.latest_weight} kg
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">

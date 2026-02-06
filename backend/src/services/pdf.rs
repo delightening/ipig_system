@@ -91,6 +91,46 @@ impl PdfContext {
 pub struct PdfService;
 
 impl PdfService {
+    fn get_project_type_label(key: &str, other: Option<&str>) -> String {
+        let label = match key {
+            "1_basic_research" | "basic_research" => "1. 基礎研究",
+            "2_applied_research" | "applied_research" => "2. 應用研究",
+            "3_pre_market_testing" | "pre_market_testing" => "3. 產品上市前測試",
+            "4_educational" | "educational" | "4_teaching_training" | "teaching_training" => "4. 教學訓練",
+            "5_biologics_manufacturing" | "biologics_manufacturing" => "5. 製造生物製劑",
+            "6_other" | "other" => "6. 其他",
+            _ => return key.to_string(),
+        };
+        
+        match other {
+            Some(o) if !o.is_empty() => format!("{} ({})", label, o),
+            _ => label.to_string(),
+        }
+    }
+
+    fn get_project_category_label(key: &str, other: Option<&str>) -> String {
+        let label = match key {
+            "1_medical" | "medical" => "1. 醫學研究",
+            "2_agricultural" | "agricultural" => "2. 農業研究",
+            "3_drugs_vaccines" | "drugs_vaccines" | "3_drug_herbal" | "drug_herbal" => "3. 藥物及疫苗",
+            "4_supplements" | "supplements" | "4_health_food" | "health_food" => "4. 健康食品",
+            "5_food" | "food" => "5. 食品",
+            "6_toxics_chemicals" | "toxics_chemicals" | "6_toxic_chemical" | "toxic_chemical" => "6. 毒、化學品",
+            "7_medical_materials" | "medical_materials" | "7_medical_device" | "medical_device" => "7. 醫療器材",
+            "8_pesticide" | "pesticide" => "8. 農藥",
+            "9_animal_drugs_vaccines" | "animal_drugs_vaccines" => "9. 動物用藥及疫苗",
+            "10_animal_supplements_feed" | "animal_supplements_feed" => "10. 動物保健品、飼料添加物",
+            "11_cosmetics" | "cosmetics" => "11. (含藥)化妝品",
+            "12_other" | "other" => "12. 其他",
+            _ => return key.to_string(),
+        };
+        
+        match other {
+            Some(o) if !o.is_empty() => format!("{} ({})", label, o),
+            _ => label.to_string(),
+        }
+    }
+
     /// 生成 AUP 計畫書 PDF
     pub fn generate_protocol_pdf(protocol: &ProtocolResponse) -> Result<Vec<u8>> {
         // 建立 PDF 文件
@@ -147,13 +187,44 @@ impl PdfService {
                 ctx.render_label_value("GLP 屬性", if is_glp { "符合 GLP 規範" } else { "不符合 GLP 規範" });
 
                 if let Some(project_type) = basic.get("project_type").and_then(|v| v.as_str()) {
-                    ctx.render_label_value("計畫類型", project_type);
+                    let other = basic.get("project_type_other").and_then(|v| v.as_str());
+                    ctx.render_label_value("計畫類型", &Self::get_project_type_label(project_type, other));
                 }
                 if let Some(project_category) = basic.get("project_category").and_then(|v| v.as_str()) {
-                    ctx.render_label_value("計畫種類", project_category);
+                    let other = basic.get("project_category_other").and_then(|v| v.as_str());
+                    ctx.render_label_value("計畫種類", &Self::get_project_category_label(project_category, other));
                 }
                 if let (Some(start), Some(end)) = (protocol.protocol.start_date, protocol.protocol.end_date) {
                     ctx.render_label_value("預計試驗時程", &format!("{} ~ {}", start, end));
+                }
+
+                if let Some(funding_sources) = basic.get("funding_sources").and_then(|v| v.as_array()) {
+                    let mut labels = Vec::new();
+                    for source in funding_sources {
+                        if let Some(s) = source.as_str() {
+                            let label = match s {
+                                "moa" => "農業部 Ministry of Agriculture",
+                                "mohw" => "衛生福利部 Ministry of Health and Welfare",
+                                "nstc" => "國家科學及技術委員會 NSTC",
+                                "moe" => "教育部 Ministry of Education",
+                                "env" => "環境部 Ministry of Environment",
+                                "other" => "其他 Other",
+                                _ => s,
+                            };
+                            labels.push(label);
+                        }
+                    }
+                    if !labels.is_empty() {
+                        let mut value = labels.join(", ");
+                        if funding_sources.iter().any(|s| s.as_str() == Some("other")) {
+                            if let Some(other) = basic.get("funding_other").and_then(|v| v.as_str()) {
+                                if !other.is_empty() {
+                                    value = format!("{} ({})", value, other);
+                                }
+                            }
+                        }
+                        ctx.render_label_value("資金來源", &value);
+                    }
                 }
 
                 // 計畫主持人

@@ -78,10 +78,12 @@ const defaultFormData: FormData = {
       start_date: '',
       end_date: '',
       project_type: '',
+      project_type_other: '',
       project_category: '',
       test_item_type: '',
       tech_categories: [],
       funding_sources: [],
+      funding_other: '',
       pi: { name: '', phone: '', email: '', address: '' },
       sponsor: { name: '', contact_person: '', contact_phone: '', contact_email: '' },
       sd: { name: '', email: '' },
@@ -312,6 +314,35 @@ export function ProtocolEditPage() {
       return response.data
     },
   })
+
+  // 新建計畫書時設置預設值
+  useEffect(() => {
+    if (isNew) {
+      setFormData((prev) => {
+        const updated = { ...prev }
+        // 設置機構名稱預設值
+        if (!updated.working_content.basic.facility?.title || !updated.working_content.basic.facility.title.trim()) {
+          updated.working_content.basic.facility = {
+            ...updated.working_content.basic.facility,
+            title: t('aup.defaults.facilityName')
+          }
+        }
+        // 設置飼養地點預設值
+        if (!updated.working_content.basic.housing_location || !updated.working_content.basic.housing_location.trim()) {
+          updated.working_content.basic.housing_location = t('aup.defaults.housingLocation')
+        }
+        // 設置人道終點預設值
+        if (!updated.working_content.design.endpoints.humane_endpoint || !updated.working_content.design.endpoints.humane_endpoint.trim()) {
+          updated.working_content.design.endpoints.humane_endpoint = t('aup.defaults.humaneEndpoint')
+        }
+        // 設置動物屍體處理方法預設值
+        if (!updated.working_content.design.carcass_disposal.method || !updated.working_content.design.carcass_disposal.method.trim()) {
+          updated.working_content.design.carcass_disposal.method = t('aup.defaults.carcassDisposal')
+        }
+        return updated
+      })
+    }
+  }, [isNew, t])
 
   useEffect(() => {
     if (protocol) {
@@ -723,6 +754,15 @@ export function ProtocolEditPage() {
         if (!item.name || !item.name.trim()) {
           return t('aup.items.validation.testItemNameRequired', { index: i + 1 })
         }
+        if (!item.form || !item.form.trim()) {
+          return t('aup.items.validation.testFormRequired', { index: i + 1 })
+        }
+        if (!item.purpose || !item.purpose.trim()) {
+          return t('aup.items.validation.testPurposeRequired', { index: i + 1 })
+        }
+        if (!item.storage_conditions || !item.storage_conditions.trim()) {
+          return t('aup.items.validation.testStorageRequired', { index: i + 1 })
+        }
         if (!item.is_sterile && (!item.non_sterile_justification || !item.non_sterile_justification.trim())) {
           return t('aup.items.validation.testJustificationRequired', { index: i + 1 })
         }
@@ -733,6 +773,12 @@ export function ProtocolEditPage() {
         const item = items.control_items[i]
         if (!item.name || !item.name.trim()) {
           return t('aup.items.validation.controlItemNameRequired', { index: i + 1 })
+        }
+        if (!item.purpose || !item.purpose.trim()) {
+          return t('aup.items.validation.controlPurposeRequired', { index: i + 1 })
+        }
+        if (!item.storage_conditions || !item.storage_conditions.trim()) {
+          return t('aup.items.validation.controlStorageRequired', { index: i + 1 })
         }
         if (!item.is_sterile && (!item.non_sterile_justification || !item.non_sterile_justification.trim())) {
           return t('aup.items.validation.controlJustificationRequired', { index: i + 1 })
@@ -1185,13 +1231,23 @@ export function ProtocolEditPage() {
                     >
                       <SelectTrigger><SelectValue placeholder={t('aup.basic.selectProjectType')} /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="basic_research">{t('aup.projectTypes.basic_research')}</SelectItem>
-                        <SelectItem value="applied_research">{t('aup.projectTypes.applied_research')}</SelectItem>
-                        <SelectItem value="pre_market_testing">{t('aup.projectTypes.pre_market_testing')}</SelectItem>
-                        <SelectItem value="teaching_training">{t('aup.projectTypes.teaching_training')}</SelectItem>
-                        <SelectItem value="biologics_manufacturing">{t('aup.projectTypes.biologics_manufacturing')}</SelectItem>
+                        <SelectItem value="1_basic_research">{t('aup.projectTypes.1_basic_research')}</SelectItem>
+                        <SelectItem value="2_applied_research">{t('aup.projectTypes.2_applied_research')}</SelectItem>
+                        <SelectItem value="3_pre_market_testing">{t('aup.projectTypes.3_pre_market_testing')}</SelectItem>
+                        <SelectItem value="4_educational">{t('aup.projectTypes.4_educational')}</SelectItem>
+                        <SelectItem value="5_biologics_manufacturing">{t('aup.projectTypes.5_biologics_manufacturing')}</SelectItem>
+                        <SelectItem value="6_other">{t('aup.projectTypes.6_other')}</SelectItem>
                       </SelectContent>
                     </Select>
+                    {formData.working_content.basic.project_type === '6_other' && (
+                      <div className="pt-2">
+                        <Input
+                          placeholder={t('aup.basic.specifyOther')}
+                          value={formData.working_content.basic.project_type_other || ''}
+                          onChange={(e) => updateWorkingContent('basic', 'project_type_other', e.target.value)}
+                        />
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>{t('aup.basic.projectCategory')} *</Label>
@@ -1201,17 +1257,21 @@ export function ProtocolEditPage() {
                     >
                       <SelectTrigger><SelectValue placeholder={t('aup.basic.selectProjectCategory')} /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="medical">{t('aup.projectCategories.medical')}</SelectItem>
-                        <SelectItem value="agricultural">{t('aup.projectCategories.agricultural')}</SelectItem>
-                        <SelectItem value="drug_herbal">{t('aup.projectCategories.drug_herbal')}</SelectItem>
-                        <SelectItem value="health_food">{t('aup.projectCategories.health_food')}</SelectItem>
-                        <SelectItem value="food">{t('aup.projectCategories.food')}</SelectItem>
-                        <SelectItem value="toxic_chemical">{t('aup.projectCategories.toxic_chemical')}</SelectItem>
-                        <SelectItem value="medical_device">{t('aup.projectCategories.medical_device')}</SelectItem>
-                        <SelectItem value="other">{t('aup.projectCategories.other')}</SelectItem>
+                        <SelectItem value="1_medical">{t('aup.projectCategories.1_medical')}</SelectItem>
+                        <SelectItem value="2_agricultural">{t('aup.projectCategories.2_agricultural')}</SelectItem>
+                        <SelectItem value="3_drugs_vaccines">{t('aup.projectCategories.3_drugs_vaccines')}</SelectItem>
+                        <SelectItem value="4_supplements">{t('aup.projectCategories.4_supplements')}</SelectItem>
+                        <SelectItem value="5_food">{t('aup.projectCategories.5_food')}</SelectItem>
+                        <SelectItem value="6_toxics_chemicals">{t('aup.projectCategories.6_toxics_chemicals')}</SelectItem>
+                        <SelectItem value="7_medical_materials">{t('aup.projectCategories.7_medical_materials')}</SelectItem>
+                        <SelectItem value="8_pesticide">{t('aup.projectCategories.8_pesticide')}</SelectItem>
+                        <SelectItem value="9_animal_drugs_vaccines">{t('aup.projectCategories.9_animal_drugs_vaccines')}</SelectItem>
+                        <SelectItem value="10_animal_supplements_feed">{t('aup.projectCategories.10_animal_supplements_feed')}</SelectItem>
+                        <SelectItem value="11_cosmetics">{t('aup.projectCategories.11_cosmetics')}</SelectItem>
+                        <SelectItem value="12_other">{t('aup.projectCategories.12_other')}</SelectItem>
                       </SelectContent>
                     </Select>
-                    {formData.working_content.basic.project_category === 'other' && (
+                    {formData.working_content.basic.project_category === '12_other' && (
                       <div className="pt-2">
                         <Input
                           placeholder={t('aup.basic.specifyOther')}
@@ -1225,6 +1285,45 @@ export function ProtocolEditPage() {
 
                 <div className="h-px bg-border my-4" />
 
+                {/* 資金來源 */}
+                <div className="space-y-4">
+                  <Label className="text-base font-semibold">{t('aup.basic.fundingSources')} (複選)</Label>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pl-4 text-sm">
+                    {['moa', 'mohw', 'nstc', 'moe', 'env', 'other'].map((option) => (
+                      <div key={option} className="flex items-center space-x-3">
+                        <Checkbox
+                          id={`funding_${option}`}
+                          checked={formData.working_content.basic.funding_sources.includes(option)}
+                          onCheckedChange={(checked) => {
+                            const current = formData.working_content.basic.funding_sources || []
+                            let updated: string[]
+                            if (checked) {
+                              updated = [...current, option]
+                            } else {
+                              updated = current.filter(s => s !== option)
+                            }
+                            updateWorkingContent('basic', 'funding_sources', updated)
+                          }}
+                        />
+                        <Label htmlFor={`funding_${option}`} className="font-normal cursor-pointer">
+                          {t(`aup.basic.fundingSourceOptions.${option}`)}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                  {formData.working_content.basic.funding_sources.includes('other') && (
+                    <div className="pl-4 pt-2 lg:w-1/2">
+                      <Input
+                        placeholder={t('aup.basic.specifyOther')}
+                        value={formData.working_content.basic.funding_other || ''}
+                        onChange={(e) => updateWorkingContent('basic', 'funding_other', e.target.value)}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="h-px bg-border my-4" />
+
                 {/* 4. PI Info */}
                 <div className="space-y-4">
                   <h3 className="font-semibold">{t('aup.basic.pi')}</h3>
@@ -1234,6 +1333,7 @@ export function ProtocolEditPage() {
                       <Input
                         value={formData.working_content.basic.pi.name}
                         onChange={(e) => updateWorkingContent('basic', 'pi.name', e.target.value)}
+                        placeholder={t('aup.basic.piNamePlaceholder')}
                       />
                     </div>
                     <div className="space-y-2">
@@ -1278,6 +1378,7 @@ export function ProtocolEditPage() {
                       <Input
                         value={formData.working_content.basic.sponsor.contact_person}
                         onChange={(e) => updateWorkingContent('basic', 'sponsor.contact_person', e.target.value)}
+                        placeholder={t('aup.basic.contactPersonPlaceholder')}
                       />
                     </div>
                     <div className="space-y-2">
@@ -1306,6 +1407,7 @@ export function ProtocolEditPage() {
                       <Input
                         value={formData.working_content.basic.facility.title}
                         onChange={(e) => updateWorkingContent('basic', 'facility.title', e.target.value)}
+                        disabled={!useAuthStore.getState().hasRole('admin') && !useAuthStore.getState().hasRole('IACUC_STAFF')}
                       />
                     </div>
                     <div className="space-y-2">
@@ -1313,6 +1415,7 @@ export function ProtocolEditPage() {
                       <Input
                         value={formData.working_content.basic.housing_location}
                         onChange={(e) => updateWorkingContent('basic', 'housing_location', e.target.value)}
+                        disabled={!useAuthStore.getState().hasRole('admin') && !useAuthStore.getState().hasRole('IACUC_STAFF')}
                       />
                     </div>
                   </div>
@@ -1600,7 +1703,7 @@ export function ProtocolEditPage() {
                               />
                             </div>
                             <div className="space-y-2">
-                              <Label>{t('aup.items.dosageForm')}</Label>
+                              <Label>{t('aup.items.dosageForm')} *</Label>
                               <Input
                                 value={item.form || ''}
                                 onChange={(e) => {
@@ -1613,7 +1716,7 @@ export function ProtocolEditPage() {
                             </div>
                           </div>
                           <div className="space-y-2">
-                            <Label>{t('aup.items.purpose')}</Label>
+                            <Label>{t('aup.items.purpose')} *</Label>
                             <Input
                               value={item.purpose}
                               onChange={(e) => {
@@ -1624,7 +1727,7 @@ export function ProtocolEditPage() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label>{t('aup.items.storageConditions')}</Label>
+                            <Label>{t('aup.items.storageConditions')} *</Label>
                             <Input
                               value={item.storage_conditions || ''}
                               onChange={(e) => {
@@ -1636,7 +1739,7 @@ export function ProtocolEditPage() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label>{t('aup.items.isSterile')}</Label>
+                            <Label>{t('aup.items.isSterile')} *</Label>
                             <Select
                               value={item.is_sterile ? 'yes' : 'no'}
                               onValueChange={(value) => {
@@ -1741,7 +1844,7 @@ export function ProtocolEditPage() {
                               />
                             </div>
                             <div className="space-y-2">
-                              <Label>{t('aup.items.purpose')}</Label>
+                              <Label>{t('aup.items.purpose')} *</Label>
                               <Input
                                 value={item.purpose}
                                 onChange={(e) => {
@@ -1753,7 +1856,7 @@ export function ProtocolEditPage() {
                             </div>
                           </div>
                           <div className="space-y-2">
-                            <Label>{t('aup.items.storageConditions')}</Label>
+                            <Label>{t('aup.items.storageConditions')} *</Label>
                             <Input
                               value={item.storage_conditions || ''}
                               onChange={(e) => {
@@ -1765,7 +1868,7 @@ export function ProtocolEditPage() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label>{t('aup.items.isSterile')}</Label>
+                            <Label>{t('aup.items.isSterile')} *</Label>
                             <Select
                               value={item.is_sterile ? 'yes' : 'no'}
                               onValueChange={(value) => {

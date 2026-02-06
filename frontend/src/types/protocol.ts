@@ -10,6 +10,7 @@ export interface ProtocolWorkingContent {
         start_date: string
         end_date: string
         project_type: string
+        project_type_other?: string
         project_category: string
         project_category_other?: string
         test_item_type: string
