@@ -82,6 +82,8 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
       setResult(data)
       if (data.error_count === 0) {
         queryClient.invalidateQueries({ queryKey: ['pigs'] })
+        queryClient.invalidateQueries({ queryKey: ['pigs-by-pen'] })
+        queryClient.invalidateQueries({ queryKey: ['pigs-count'] })
         toast({
           title: '匯入成功',
           description: `成功匯入 ${data.success_count} 筆資料`

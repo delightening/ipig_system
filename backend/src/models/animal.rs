@@ -152,7 +152,7 @@ pub struct PigSource {
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Pig {
     pub id: Uuid,
-    pub pig_no: i32,
+    pub animal_no: Option<String>,  // 動物編號（由使用者命名）
     pub ear_tag: String,
     pub status: PigStatus,
     pub breed: PigBreed,
@@ -177,8 +177,8 @@ pub struct Pig {
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub pen_id: Option<Uuid>,
-    pub breed_other: Option<String>,
+    pub animal_id: Option<Uuid>,  // 動物 ID
+    pub breed_other: Option<String>,  // 其他品種說明
 }
 
 /// 觀察試驗紀錄
@@ -526,7 +526,7 @@ pub struct UpdatePigSourceRequest {
 #[derive(Debug, Serialize, FromRow)]
 pub struct PigListItem {
     pub id: Uuid,
-    pub pig_no: i32,
+    pub animal_no: Option<String>,  // 動物編號（由使用者命名）
     pub ear_tag: String,
     pub status: PigStatus,
     pub breed: PigBreed,
@@ -737,11 +737,11 @@ pub struct ExportRequest {
 pub struct PigImportRow {
     #[serde(alias = "\u{feff}Number", alias = "Number", alias = "耳號*", alias = "耳號")]
     pub ear_tag: String,
-    #[serde(alias = "Species", alias = "品種*", alias = "品種")]
+    #[serde(alias = "Species", alias = "Species (minipig/white)", alias = "品種*", alias = "品種")]
     pub breed: String,
     #[serde(alias = "Breed Other", alias = "品種其他", alias = "其他品種", default)]
     pub breed_other: Option<String>,
-    #[serde(alias = "Sex", alias = "性別*", alias = "性別")]
+    #[serde(alias = "Sex", alias = "Sex (male/female)", alias = "性別*", alias = "性別")]
     pub gender: String,
     #[serde(alias = "Source", alias = "來源代碼", default)]
     pub source_code: Option<String>,

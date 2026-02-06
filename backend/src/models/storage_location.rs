@@ -151,3 +151,20 @@ pub struct UpdateStorageLocationInventoryItemRequest {
     // Validation for non-negative values is handled in the service layer
     pub on_hand_qty: rust_decimal::Decimal,
 }
+
+/// 新增儲位庫存項目請求
+#[derive(Debug, Deserialize, Validate)]
+pub struct CreateStorageLocationInventoryItemRequest {
+    pub product_id: Uuid,
+    pub on_hand_qty: rust_decimal::Decimal,
+    #[validate(length(max = 50, message = "Batch number must be at most 50 characters"))]
+    pub batch_no: Option<String>,
+    pub expiry_date: Option<chrono::NaiveDate>,
+}
+
+/// 調撥儲位庫存請求 (同倉庫內不需單據)
+#[derive(Debug, Deserialize, Validate)]
+pub struct TransferStorageLocationInventoryRequest {
+    pub to_storage_location_id: Uuid,
+    pub qty: rust_decimal::Decimal,
+}

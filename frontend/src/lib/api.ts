@@ -557,6 +557,7 @@ export type ProtocolStatus =
   | 'DRAFT'
   | 'SUBMITTED'
   | 'PRE_REVIEW'
+  | 'VET_REVIEW'
   | 'UNDER_REVIEW'
   | 'REVISION_REQUIRED'
   | 'RESUBMITTED'
@@ -572,6 +573,7 @@ export const protocolStatusNames: Record<ProtocolStatus, string> = {
   DRAFT: '草稿',
   SUBMITTED: '已提交',
   PRE_REVIEW: '行政預審',
+  VET_REVIEW: '獸醫審查',
   UNDER_REVIEW: '審查中',
   REVISION_REQUIRED: '需修訂',
   RESUBMITTED: '已重送',
@@ -649,16 +651,23 @@ export interface ReviewAssignment {
   assigned_by: string
   assigned_at: string
   completed_at?: string
+  /** 是否為正式審查委員（可撰寫意見） */
+  is_primary_reviewer?: boolean
+  /** 審查階段 */
+  review_stage?: 'PRE_REVIEW' | 'VET_REVIEW' | 'UNDER_REVIEW'
 }
 
 export interface ReviewComment {
   id: string
-  protocol_version_id: string
+  protocol_version_id?: string
+  protocol_id?: string
   reviewer_id: string
   content: string
   is_resolved: boolean
   resolved_by?: string
   resolved_at?: string
+  /** 審查階段 */
+  review_stage?: 'PRE_REVIEW' | 'VET_REVIEW' | 'UNDER_REVIEW'
   created_at: string
   updated_at: string
 }
@@ -692,6 +701,8 @@ export interface ChangeStatusRequest {
   remark?: string
   /** 審查委員 ID 列表（當目標狀態為 UNDER_REVIEW 時必填 2-3 位） */
   reviewer_ids?: string[]
+  /** 獸醫師 ID（當目標狀態為 VET_REVIEW 時可選，未設定則使用預設獸醫） */
+  vet_id?: string
 }
 
 export interface CreateCommentRequest {
@@ -811,7 +822,8 @@ export interface PigSource {
 
 export interface Pig {
   id: string
-  pig_no: number
+  animal_no?: string
+  animal_id?: string
   ear_tag: string
   status: PigStatus
   breed: PigBreed
@@ -827,6 +839,7 @@ export interface Pig {
   iacuc_no?: string
   experiment_date?: string
   remark?: string
+  deletion_reason?: string
   vet_last_viewed_at?: string
   created_by?: string
   created_at: string

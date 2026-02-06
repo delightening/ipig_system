@@ -266,6 +266,7 @@
             "DRAFT": "Draft",
             "SUBMITTED": "Submitted",
             "PRE_REVIEW": "Pre-Review",
+            "VET_REVIEW": "Veterinary Review",
             "UNDER_REVIEW": "Under Review",
             "REVISION_REQUIRED": "Revision Required",
             "RESUBMITTED": "Resubmitted",
@@ -1224,6 +1225,7 @@
         "sacrificed": "Sacrificed",
         "statusLabels": {
             "pen": "Pen View",
+            "all": "All Animals",
             "unassigned": "Unassigned",
             "in_experiment": "In Experiment",
             "completed": "Completed",

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -57,6 +57,7 @@ import {
   FileSpreadsheet,
   LayoutGrid,
   MapPin,
+  ArrowUpDown,
 } from 'lucide-react'
 
 // Import Export Dialog
@@ -133,7 +134,7 @@ export function PigsPage() {
   // Other users can see: pen, unassigned, in_experiment, completed
   const allowedStatuses = isPIOrClient
     ? ['in_experiment', 'completed']
-    : ['pen', 'unassigned', 'in_experiment', 'completed']
+    : ['pen', 'unassigned', 'in_experiment', 'completed', 'all']
   const urlStatus = searchParams.get('status')
   // Default: PI/CLIENT -> 'in_experiment', others -> 'pen'
   const defaultStatus = isPIOrClient ? 'in_experiment' : 'pen'
@@ -161,6 +162,10 @@ export function PigsPage() {
   // Quick edit dialog state
   const [quickEditPigId, setQuickEditPigId] = useState<string | null>(null)
   const [showPrintReport, setShowPrintReport] = useState(false)
+
+  // Sorting state
+  const [sortColumn, setSortColumn] = useState<string | null>(null)
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
 
   // Quick move state (空欄位快速移動)
   const [editingPenLocation, setEditingPenLocation] = useState<string | null>(null)
@@ -585,6 +590,47 @@ export function PigsPage() {
   const pigs = pigsData || []
   const allPigs = allPigsData || []
 
+  // Sorting handler
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortColumn(column)
+      setSortDirection('asc')
+    }
+  }
+
+  // Sorted pigs data
+  const sortedPigs = useMemo(() => {
+    if (!sortColumn) return pigs
+    return [...pigs].sort((a, b) => {
+      let aVal: any = a[sortColumn as keyof typeof a] ?? ''
+      let bVal: any = b[sortColumn as keyof typeof b] ?? ''
+      if (sortColumn === 'entry_date') {
+        aVal = aVal ? new Date(aVal).getTime() : 0
+        bVal = bVal ? new Date(bVal).getTime() : 0
+      }
+      if (typeof aVal === 'string') aVal = aVal.toLowerCase()
+      if (typeof bVal === 'string') bVal = bVal.toLowerCase()
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [pigs, sortColumn, sortDirection])
+
+  // Sortable header component
+  const SortableHeader = ({ column, label }: { column: string; label: string }) => (
+    <TableHead
+      className="cursor-pointer hover:bg-slate-100 select-none"
+      onClick={() => handleSort(column)}
+    >
+      <div className="flex items-center gap-1">
+        {label}
+        <ArrowUpDown className={`h-3 w-3 ${sortColumn === column ? 'text-purple-600' : 'text-slate-400'}`} />
+      </div>
+    </TableHead>
+  )
+
   // 計算狀態計數（基於所有豬隻，而非過濾後的結果）
   const statusCounts = allPigs.reduce((acc, pig) => {
     acc[pig.status] = (acc[pig.status] || 0) + 1
@@ -630,6 +676,7 @@ export function PigsPage() {
           { value: 'unassigned', label: t('pigs.statusLabels.unassigned'), count: statusCounts['unassigned'] || 0 },
           { value: 'in_experiment', label: t('pigs.statusLabels.in_experiment'), count: statusCounts['in_experiment'] || 0 },
           { value: 'completed', label: t('pigs.statusLabels.completed'), count: statusCounts['completed'] || 0 },
+          { value: 'all', label: t('pigs.statusLabels.all'), count: allPigs.length },
         ]
           .filter(tab => {
             // PI and CLIENT can only see: 實驗中, 實驗完成
@@ -729,21 +776,21 @@ export function PigsPage() {
                         className="rounded border-slate-300"
                       />
                     </TableHead>
-                    <TableHead>{t('pigs.systemNo')}</TableHead>
-                    <TableHead>{t('pigs.earTag')}</TableHead>
-                    <TableHead>{t('pigs.pen')}</TableHead>
-                    <TableHead>{t('pigs.iacucNo')}</TableHead>
+
+                    <SortableHeader column="ear_tag" label={t('pigs.earTag')} />
+                    <SortableHeader column="pen_location" label={t('pigs.pen')} />
+                    <SortableHeader column="iacuc_no" label={t('pigs.iacucNo')} />
                     <TableHead>{t('pigs.status')}</TableHead>
                     <TableHead>{t('pigs.breed')}</TableHead>
                     <TableHead>{t('pigs.gender')}</TableHead>
                     <TableHead>{t('pigs.onMedicationShort')}</TableHead>
                     <TableHead>{t('pigs.vetRecommendation')}</TableHead>
-                    <TableHead>{t('pigs.entryDate')}</TableHead>
+                    <SortableHeader column="entry_date" label={t('pigs.entryDate')} />
                     <TableHead className="text-right">{t('pigs.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {pigs.map((pig) => (
+                  {sortedPigs.map((pig) => (
                     <TableRow
                       key={pig.id}
                       className={pig.has_abnormal_record ? 'bg-yellow-50' : ''}
@@ -756,11 +803,11 @@ export function PigsPage() {
                           className="rounded border-slate-300"
                         />
                       </TableCell>
-                      <TableCell className="font-medium">{pig.pig_no}</TableCell>
                       <TableCell>
                         <Link
                           to={`/pigs/${pig.id}`}
                           className="text-orange-600 hover:text-orange-700 font-medium"
+                          title={`系統號: ${pig.id}`}
                         >
                           {pig.ear_tag}
                         </Link>

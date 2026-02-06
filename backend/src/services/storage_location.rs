@@ -390,4 +390,252 @@ impl StorageLocationService {
 
         Ok(item)
     }
+
+    /// 新增儲位庫存項目
+    pub async fn create_inventory_item(
+        pool: &PgPool,
+        storage_location_id: Uuid,
+        req: &crate::models::CreateStorageLocationInventoryItemRequest,
+    ) -> Result<crate::models::StorageLocationInventoryItem> {
+        // 驗證數量
+        if req.on_hand_qty < rust_decimal::Decimal::ZERO {
+            return Err(crate::AppError::Validation("Quantity must be non-negative".to_string()));
+        }
+
+        // 驗證儲位存在
+        let _location = sqlx::query_scalar::<_, Uuid>(
+            "SELECT id FROM storage_locations WHERE id = $1"
+        )
+        .bind(storage_location_id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| crate::AppError::NotFound("Storage location not found".to_string()))?;
+
+        let item_id = Uuid::new_v4();
+
+        // 插入或更新庫存記錄
+        sqlx::query(
+            r#"
+            INSERT INTO storage_location_inventory (
+                id, storage_location_id, product_id, on_hand_qty, batch_no, expiry_date, updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, NOW())
+            ON CONFLICT (storage_location_id, product_id, COALESCE(batch_no, ''), COALESCE(expiry_date, '1970-01-01'::date))
+            DO UPDATE SET 
+                on_hand_qty = storage_location_inventory.on_hand_qty + EXCLUDED.on_hand_qty,
+                updated_at = NOW()
+            "#,
+        )
+        .bind(item_id)
+        .bind(storage_location_id)
+        .bind(req.product_id)
+        .bind(req.on_hand_qty)
+        .bind(&req.batch_no)
+        .bind(req.expiry_date)
+        .execute(pool)
+        .await?;
+
+        // 更新儲位的 current_count
+        sqlx::query(
+            r#"
+            UPDATE storage_locations 
+            SET current_count = (
+                SELECT COUNT(*) FROM storage_location_inventory 
+                WHERE storage_location_id = $1 AND on_hand_qty > 0
+            ),
+            updated_at = NOW()
+            WHERE id = $1
+            "#,
+        )
+        .bind(storage_location_id)
+        .execute(pool)
+        .await?;
+
+        // 查詢並返回新增的項目
+        let item = sqlx::query_as::<_, crate::models::StorageLocationInventoryItem>(
+            r#"
+            SELECT 
+                sli.id,
+                sli.storage_location_id,
+                sli.product_id,
+                p.sku as product_sku,
+                p.name as product_name,
+                sli.on_hand_qty,
+                p.base_uom,
+                sli.batch_no,
+                sli.expiry_date,
+                sli.updated_at
+            FROM storage_location_inventory sli
+            JOIN products p ON sli.product_id = p.id
+            WHERE sli.storage_location_id = $1 AND sli.product_id = $2
+            ORDER BY sli.updated_at DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(storage_location_id)
+        .bind(req.product_id)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(item)
+    }
+
+    /// 調撥儲位庫存 (同倉庫內不需單據)
+    pub async fn transfer_inventory(
+        pool: &PgPool,
+        item_id: Uuid,
+        req: &crate::models::TransferStorageLocationInventoryRequest,
+    ) -> Result<crate::models::StorageLocationInventoryItem> {
+        // 驗證數量
+        if req.qty <= rust_decimal::Decimal::ZERO {
+            return Err(crate::AppError::Validation("Transfer quantity must be positive".to_string()));
+        }
+
+        // 取得來源庫存項目
+        let source_item = sqlx::query_as::<_, crate::models::StorageLocationInventoryItem>(
+            r#"
+            SELECT 
+                sli.id,
+                sli.storage_location_id,
+                sli.product_id,
+                p.sku as product_sku,
+                p.name as product_name,
+                sli.on_hand_qty,
+                p.base_uom,
+                sli.batch_no,
+                sli.expiry_date,
+                sli.updated_at
+            FROM storage_location_inventory sli
+            JOIN products p ON sli.product_id = p.id
+            WHERE sli.id = $1
+            "#,
+        )
+        .bind(item_id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| crate::AppError::NotFound("Inventory item not found".to_string()))?;
+
+        // 驗證數量足夠
+        if source_item.on_hand_qty < req.qty {
+            return Err(crate::AppError::BusinessRule(format!(
+                "Insufficient quantity. Available: {}, Requested: {}",
+                source_item.on_hand_qty, req.qty
+            )));
+        }
+
+        // 驗證來源和目標儲位在同一倉庫
+        let same_warehouse: Option<bool> = sqlx::query_scalar(
+            r#"
+            SELECT (SELECT warehouse_id FROM storage_locations WHERE id = $1) = 
+                   (SELECT warehouse_id FROM storage_locations WHERE id = $2)
+            "#,
+        )
+        .bind(source_item.storage_location_id)
+        .bind(req.to_storage_location_id)
+        .fetch_one(pool)
+        .await?;
+
+        if same_warehouse != Some(true) {
+            return Err(crate::AppError::BusinessRule(
+                "Internal transfer must be within the same warehouse".to_string()
+            ));
+        }
+
+        let mut tx = pool.begin().await?;
+
+        // 從來源扣減
+        sqlx::query(
+            r#"
+            UPDATE storage_location_inventory 
+            SET on_hand_qty = on_hand_qty - $1, updated_at = NOW()
+            WHERE id = $2
+            "#,
+        )
+        .bind(req.qty)
+        .bind(item_id)
+        .execute(&mut *tx)
+        .await?;
+
+        // 增加到目標儲位
+        let target_item_id = Uuid::new_v4();
+        sqlx::query(
+            r#"
+            INSERT INTO storage_location_inventory (
+                id, storage_location_id, product_id, on_hand_qty, batch_no, expiry_date, updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, NOW())
+            ON CONFLICT (storage_location_id, product_id, COALESCE(batch_no, ''), COALESCE(expiry_date, '1970-01-01'::date))
+            DO UPDATE SET 
+                on_hand_qty = storage_location_inventory.on_hand_qty + EXCLUDED.on_hand_qty,
+                updated_at = NOW()
+            "#,
+        )
+        .bind(target_item_id)
+        .bind(req.to_storage_location_id)
+        .bind(source_item.product_id)
+        .bind(req.qty)
+        .bind(&source_item.batch_no)
+        .bind(source_item.expiry_date)
+        .execute(&mut *tx)
+        .await?;
+
+        // 更新來源儲位的 current_count
+        sqlx::query(
+            r#"
+            UPDATE storage_locations 
+            SET current_count = (
+                SELECT COUNT(*) FROM storage_location_inventory 
+                WHERE storage_location_id = $1 AND on_hand_qty > 0
+            ),
+            updated_at = NOW()
+            WHERE id = $1
+            "#,
+        )
+        .bind(source_item.storage_location_id)
+        .execute(&mut *tx)
+        .await?;
+
+        // 更新目標儲位的 current_count
+        sqlx::query(
+            r#"
+            UPDATE storage_locations 
+            SET current_count = (
+                SELECT COUNT(*) FROM storage_location_inventory 
+                WHERE storage_location_id = $1 AND on_hand_qty > 0
+            ),
+            updated_at = NOW()
+            WHERE id = $1
+            "#,
+        )
+        .bind(req.to_storage_location_id)
+        .execute(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
+
+        // 回傳更新後的來源項目
+        let updated_item = sqlx::query_as::<_, crate::models::StorageLocationInventoryItem>(
+            r#"
+            SELECT 
+                sli.id,
+                sli.storage_location_id,
+                sli.product_id,
+                p.sku as product_sku,
+                p.name as product_name,
+                sli.on_hand_qty,
+                p.base_uom,
+                sli.batch_no,
+                sli.expiry_date,
+                sli.updated_at
+            FROM storage_location_inventory sli
+            JOIN products p ON sli.product_id = p.id
+            WHERE sli.id = $1
+            "#,
+        )
+        .bind(item_id)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(updated_item)
+    }
 }

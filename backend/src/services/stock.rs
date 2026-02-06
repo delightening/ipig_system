@@ -37,6 +37,18 @@ impl StockService {
                         line.qty,
                         line.unit_price,
                     ).await?;
+
+                    // 如果有指定儲位，同時更新儲位庫存
+                    if let Some(storage_location_id) = line.storage_location_id {
+                        Self::upsert_storage_location_inventory(
+                            tx,
+                            storage_location_id,
+                            line.product_id,
+                            line.qty,
+                            line.batch_no.clone(),
+                            line.expiry_date,
+                        ).await?;
+                    }
                 }
                 DocType::PR => {
                     // 採購退貨：減少庫存
@@ -184,6 +196,57 @@ impl StockService {
         .bind(unit_price)
         .bind(&line.batch_no)
         .bind(line.expiry_date)
+        .execute(&mut **tx)
+        .await?;
+
+        Ok(())
+    }
+
+    /// 更新/新增儲位庫存 (GRN 入庫時使用)
+    async fn upsert_storage_location_inventory(
+        tx: &mut Transaction<'_, Postgres>,
+        storage_location_id: Uuid,
+        product_id: Uuid,
+        qty: Decimal,
+        batch_no: Option<String>,
+        expiry_date: Option<chrono::NaiveDate>,
+    ) -> Result<()> {
+        // 嘗試更新現有記錄，如果不存在則插入新記錄
+        let _result = sqlx::query(
+            r#"
+            INSERT INTO storage_location_inventory (
+                id, storage_location_id, product_id, on_hand_qty, batch_no, expiry_date, updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, NOW())
+            ON CONFLICT (storage_location_id, product_id, COALESCE(batch_no, ''), COALESCE(expiry_date, '1970-01-01'::date))
+            DO UPDATE SET 
+                on_hand_qty = storage_location_inventory.on_hand_qty + EXCLUDED.on_hand_qty,
+                updated_at = NOW()
+            "#
+        )
+        .bind(Uuid::new_v4())
+        .bind(storage_location_id)
+        .bind(product_id)
+        .bind(qty)
+        .bind(&batch_no)
+        .bind(expiry_date)
+        .execute(&mut **tx)
+        .await?;
+
+        // 更新儲位的 current_count
+        sqlx::query(
+            r#"
+            UPDATE storage_locations SET
+                current_count = (
+                    SELECT COUNT(DISTINCT product_id)
+                    FROM storage_location_inventory
+                    WHERE storage_location_id = $1
+                ),
+                updated_at = NOW()
+            WHERE id = $1
+            "#
+        )
+        .bind(storage_location_id)
         .execute(&mut **tx)
         .await?;
 

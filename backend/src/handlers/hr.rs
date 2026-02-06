@@ -36,7 +36,7 @@ pub async fn list_attendance(
 ) -> Result<Json<PaginatedResponse<AttendanceWithUser>>> {
     // 如果沒有指定 user_id，預設查自己的記錄
     let mut query = params;
-    if query.user_id.is_none() && !current_user.has_permission("hr.attendance.view.all") {
+    if query.user_id.is_none() && !current_user.has_permission("hr.attendance.view_all") {
         query.user_id = Some(current_user.id);
     }
     
@@ -280,7 +280,7 @@ pub async fn list_leaves(
         if query.user_id.is_none() {
             query.user_id = Some(current_user.id);
         } else if query.user_id.unwrap() != current_user.id 
-            && !current_user.has_permission("hr.leave.view.all") {
+            && !current_user.has_permission("hr.leave.view_all") {
             // 如果嘗試查看別人的請假但沒有權限，強制查自己
             query.user_id = Some(current_user.id);
         }
@@ -501,7 +501,7 @@ pub async fn get_annual_leave_balances(
     let user_id = params.user_id.unwrap_or(current_user.id);
     
     // 權限檢查
-    if user_id != current_user.id && !current_user.has_permission("hr.balance.view.all") {
+    if user_id != current_user.id && !current_user.has_permission("hr.balance.view_all") {
         return Err(crate::error::AppError::Forbidden(
             "無權查看他人餘額".to_string(),
         ));
@@ -519,7 +519,7 @@ pub async fn get_comp_time_balances(
 ) -> Result<Json<Vec<CompTimeBalanceView>>> {
     let user_id = params.user_id.unwrap_or(current_user.id);
     
-    if user_id != current_user.id && !current_user.has_permission("hr.balance.view.all") {
+    if user_id != current_user.id && !current_user.has_permission("hr.balance.view_all") {
         return Err(crate::error::AppError::Forbidden(
             "無權查看他人餘額".to_string(),
         ));
@@ -537,7 +537,7 @@ pub async fn get_balance_summary(
 ) -> Result<Json<BalanceSummary>> {
     let user_id = params.user_id.unwrap_or(current_user.id);
     
-    if user_id != current_user.id && !current_user.has_permission("hr.balance.view.all") {
+    if user_id != current_user.id && !current_user.has_permission("hr.balance.view_all") {
         return Err(crate::error::AppError::Forbidden(
             "無權查看他人餘額".to_string(),
         ));
@@ -611,7 +611,7 @@ pub async fn get_attendance_stats(
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Result<Json<serde_json::Value>> {
     // 權限檢查：僅管理員可查看
-    if !current_user.has_permission("hr.attendance.view.all") && !current_user.roles.contains(&"admin".to_string()) {
+    if !current_user.has_permission("hr.attendance.view_all") && !current_user.roles.contains(&"admin".to_string()) {
         return Err(crate::error::AppError::Forbidden(
             "無權查看出勤統計".to_string(),
         ));

@@ -40,8 +40,9 @@ pub fn api_routes(state: AppState) -> Router {
         // Storage Locations (倉庫儲位)
         .route("/storage-locations", get(handlers::storage_location::list_storage_locations).post(handlers::storage_location::create_storage_location))
         .route("/storage-locations/:id", get(handlers::storage_location::get_storage_location).put(handlers::storage_location::update_storage_location).delete(handlers::storage_location::delete_storage_location))
-        .route("/storage-locations/:id/inventory", get(handlers::storage_location::get_storage_location_inventory))
+        .route("/storage-locations/:id/inventory", get(handlers::storage_location::get_storage_location_inventory).post(handlers::storage_location::create_storage_location_inventory_item))
         .route("/storage-locations/inventory/:item_id", put(handlers::storage_location::update_storage_location_inventory_item))
+        .route("/storage-locations/inventory/:item_id/transfer", post(handlers::storage_location::transfer_storage_location_inventory))
         .route("/storage-locations/generate-code/:warehouse_id", get(handlers::storage_location::generate_storage_location_code))
         // Products
         .route("/products", get(handlers::list_products).post(handlers::create_product))

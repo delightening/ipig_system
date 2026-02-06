@@ -125,7 +125,7 @@ export function QuickEditPigDialog({ open, onOpenChange, pigId }: Props) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-slate-500">系統號</Label>
-                  <Input value={pig.pig_no} disabled className="bg-slate-50" />
+                  <Input value={pig.id.slice(0, 8)} disabled className="bg-slate-50" title={pig.id} />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-slate-500">耳號</Label>
