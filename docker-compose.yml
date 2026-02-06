@@ -105,6 +105,8 @@ services:
       - /app/node_modules
     ports:
       - "${WEB_DEV_PORT:-5173}:5173"
+    environment:
+      - VITE_API_URL=http://api:8000
     command: >
       sh -c "npm install -g npm@latest && npm install && npm run dev -- --host 0.0.0.0 --port 5173"
     depends_on:

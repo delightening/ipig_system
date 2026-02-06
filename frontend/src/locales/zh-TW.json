@@ -10,10 +10,12 @@
     "view": "檢視",
     "create": "新增",
     "confirm": "確認",
+    "actions": "操作",
     "success": "成功",
     "error": "錯誤",
     "yes": "是",
     "no": "否",
+    "na": "N/A",
     "pleaseSelect": "請選擇",
     "noData": "尚無資料",
     "clearFilters": "清除篩選",
@@ -477,7 +479,7 @@
         "sterileNo": "否",
         "nonSterileJustification": "說明：",
         "omitted": "略",
-        "design": "4. 研究設計與方法",
+        "design": "",
         "procedures": "動物試驗流程描述",
         "anesthesia": "是否於麻醉下進行試驗",
         "anesthesiaType": "麻醉類型",
@@ -598,7 +600,7 @@
       "selectProjectType": "選擇計畫類型",
       "projectCategory": "計畫種類",
       "selectProjectCategory": "選擇計畫種類",
-      "pi": "計畫主持人 (Principal Investigator)",
+      "pi": "計畫主持人",
       "name": "姓名",
       "piNamePlaceholder": "試驗單位主導人員",
       "email": "Email",
@@ -622,12 +624,12 @@
       "specifyOther": "請說明其他種類",
       "fundingSources": "資金來源",
       "fundingSourceOptions": {
-        "moa": "農業部 Ministry of Agriculture",
-        "mohw": "衛生福利部 Ministry of Health and Welfare",
-        "nstc": "國家科學及技術委員會 NSTC",
-        "moe": "教育部 Ministry of Education",
-        "env": "環境部 Ministry of Environment",
-        "other": "其他，說明 Other, Explanation"
+        "moa": "農業部",
+        "mohw": "衛生福利部",
+        "nstc": "國家科學及技術委員會",
+        "moe": "教育部",
+        "env": "環境部",
+        "other": "其他，說明"
       },
       "validation": {
         "titleRequired": "請填寫研究名稱",
@@ -656,7 +658,7 @@
       "title": "研究目的",
       "subtitle": "說明研究目的、重要性與 3Rs 替代、減量原則",
       "significance": "2.1 研究之目的及重要性",
-      "significancePlaceholder": "請說明研究背景、臨床或科學重要性及其預期成果",
+      "significancePlaceholder": "摘要並簡單闡述本動物實驗計畫的意義及基本理由\n此段描述不同於發表學術期刊及研討會所需的摘要，\n而是提供給具有社會公正人士身分的 IACUC 委員進行審查的重要根據，\n故應避免使醫學專用字彙與艱深科學概念(或盡可能說明清楚科學意義)\n，與避免透露專利相關事宜。且需定義縮寫字詞，此處所撰寫內容請勿超過一個A4頁面\n，相當於 250-500 個英文單字或 500-1000 個中文字。",
       "replacementPrinciple": "2.2 請以動物試驗應用3Rs之替代原則，說明本動物試驗之合理性:",
       "liveAnimalNecessity": "2.2.1 請說明活體動物試驗之必要性，以及選擇此動物種別的原因:",
       "liveAnimalNecessityPlaceholder": "請說明活體動物試驗之必要性，以及選擇此動物種別的原因",
@@ -706,6 +708,7 @@
       "controlNamePlaceholder": "若無對照請填寫 N/A",
       "photos": "佐證資料",
       "photosPlaceholder": "拖曳照片到此處，或點擊選擇照片",
+      "actions": "操作",
       "validation": {
         "useTestItemRequired": "請選擇是否投予「試驗物質」於動物",
         "testItemNameRequired": "請填寫第 {{index}} 個試驗物質的名稱",
@@ -721,7 +724,7 @@
       }
     },
     "design": {
-      "subtitle": "研究設計與方法",
+      "subtitle": "",
       "title4_1": "4.1 請以實驗動物應用3Rs之精緻化原則，詳細說明實驗中所進行之動物試驗內容。使實驗動物照護及使用委員會委員了解動物試驗所有過程:",
       "anesthesiaLabel": "4.1.1 是否於麻醉下進行試驗",
       "selectAnesthesiaType": "請選擇麻醉類型 *",
@@ -734,8 +737,8 @@
       },
       "explainOther": "請說明 *",
       "explainOtherPlaceholder": "請說明其他麻醉方式",
-      "proceduresLabel": "4.1.2 請詳細敘述動物試驗內容及流程 (Animal experiment procedures)、試驗投予物質 (experimental injections or inoculations) 、投予途徑及選擇該途徑之理由、採血 (blood withdrawals)、影像觀察 (CT, MRI, X-ray)、保定 (methods of restraint)、頻率 (frequency) *",
-      "proceduresNote": "手術相關內容請於項次6. 手術計畫書中說明 (surgical procedures fill in surgical plan)",
+      "proceduresLabel": "4.1.2 請詳細敘述動物試驗內容及流程、試驗投予物質、投予途徑及選擇該途徑之理由、採血、影像觀察 (CT, MRI, X-ray)、保定、頻率 *",
+      "proceduresNote": "手術相關內容請於項次6. 手術計畫書中說明",
       "proceduresPlaceholder": "請詳細描述動物試驗內容及流程",
       "painCategoryLabel": "4.1.3 實驗動物等級評估 *",
       "painCategories": {
@@ -847,12 +850,12 @@
     },
     "guidelines": {
       "title": "相關規範及參考文獻",
-      "subtitle": "列舉相關規範與參考文獻",
+      "subtitle": "",
       "contentLabel": "相關規範說明",
       "contentPlaceholder": "例如：本計畫遵循動物保護法及實驗動物照護及使用指引",
       "referencesTitle": "參考文獻列表",
       "addReference": "新增文獻",
-      "citationPlaceholder": "文獻引用 (Citation)",
+      "citationPlaceholder": "文獻引用",
       "urlPlaceholder": "URL (選填)"
     },
     "surgery": {
@@ -861,7 +864,7 @@
       "labels": {
         "surgeryType": "6.1 手術種類",
         "preopPreparation": "6.2 術前準備",
-        "asepticTechniques": "6.3 無菌措施 (Aseptic Techniques)",
+        "asepticTechniques": "6.3 無菌措施",
         "surgeryDescription": "6.4 手術內容說明",
         "monitoring": "6.5 術中監控",
         "expectedImpact": "6.6 存活手術，請說明預期術後可能對實驗動物造成之影響:",
@@ -869,7 +872,7 @@
         "postopCare": "6.8 請說明動物術後照護及止痛給藥方法:",
         "postopCareType": "手術類型",
         "postopCareDetail": "詳細內容",
-        "expectedEndPoint": "6.9 請說明實驗預期結束之時機(Please specify expected experimental end point):",
+        "expectedEndPoint": "6.9 請說明實驗預期結束之時機:",
         "drugInfo": "6.10 手術用藥資訊，投與麻醉前導、鎮靜、止痛或其他藥物資訊:"
       },
       "types": {
@@ -885,11 +888,11 @@
         "drugInfo": "請填寫手術用藥資訊"
       },
       "asepticTechniques": {
-        "surgical_site_disinfection": "動物術部消毒(Surgical site disinfection)",
-        "instrument_disinfection": "器械消毒(Instrument disinfection)",
-        "sterilized_gowns_gloves": "無菌手術衣及手套(Sterilizd surgical gowns and gloves)",
-        "sterilized_drapes": "無菌手術覆布Sterilized surgical drapes",
-        "surgical_hand_disinfection": "術者刷手Surgical hand disinfection"
+        "surgical_site_disinfection": "動物術部消毒",
+        "instrument_disinfection": "器械消毒",
+        "sterilized_gowns_gloves": "無菌手術衣及手套",
+        "sterilized_drapes": "無菌手術覆布",
+        "surgical_hand_disinfection": "術者刷手"
       },
       "postOpTemplates": {
         "orthopedic": "1.術後每日評估豬隻健康狀態，依術後狀況進行傷口護理。\n\n2.術後7日內每日進行疼痛評估依豬隻狀況並依照不同手術給予止痛藥及抗生素\n骨科手術\n止痛藥\nketoprofen 1-3 mg/kg IM SID (3天)\nmeloxicam 0.1-0.4 mg/kg PO SID (4-14天或長期給予)\n抗生素\ncefazolin 15 mg/kg IM BID (1-7天)\ncephalexin 30 mg/kg PO BID (8-14天或長期給予)\n\n3.若動物發生異常情形，則依獸醫師指示處理。\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行",
@@ -926,7 +929,8 @@
         "drugRouteRequired": "請填寫第 {{index}} 個用藥的投與途徑",
         "drugFrequencyRequired": "請填寫第 {{index}} 個用藥的頻率",
         "drugPurposeRequired": "請填寫第 {{index}} 個用藥的給藥目的"
-      }
+      },
+      "loadDefaults": "載入預設值"
     },
     "animals": {
       "title": "實驗動物資料",
@@ -944,8 +948,7 @@
         "weight": "體重範圍",
         "minWeight": "最小體重 (kg)",
         "maxWeight": "最大體重 (kg)",
-        "housing": "飼養環境",
-        "defaultHousingLocation": "豬博士畜牧場",
+        "housing": "動物飼養場所：豬博士畜牧場",
         "unlimited": "不限",
         "weightInterval": "每五公斤一個區間"
       },

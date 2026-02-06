@@ -10,10 +10,12 @@
         "view": "View",
         "create": "Create",
         "confirm": "Confirm",
+        "actions": "Actions",
         "success": "Success",
         "error": "Error",
         "yes": "Yes",
         "no": "No",
+        "na": "N/A",
         "pleaseSelect": "Please select",
         "noData": "No data available",
         "clearFilters": "Clear filters",
@@ -704,6 +706,7 @@
             "controlNamePlaceholder": "Fill in N/A if no control",
             "photos": "Supporting Documents",
             "photosPlaceholder": "Drag and drop photos here, or click to select",
+            "actions": "Actions",
             "validation": {
                 "useTestItemRequired": "Please select whether test substances are administered",
                 "testItemNameRequired": "Please enter name for test substance #{{index}}",
@@ -924,7 +927,8 @@
                 "drugRouteRequired": "Please enter route for medication #{{index}}",
                 "drugFrequencyRequired": "Please enter frequency for medication #{{index}}",
                 "drugPurposeRequired": "Please enter purpose for medication #{{index}}"
-            }
+            },
+            "loadDefaults": "Load Defaults"
         },
         "animals": {
             "title": "Experimental Animal Data",
@@ -942,8 +946,7 @@
                 "weight": "Weight Range",
                 "minWeight": "Min Weight (kg)",
                 "maxWeight": "Max Weight (kg)",
-                "housing": "Housing Environment",
-                "defaultHousingLocation": "Dr. Pig Animal Farm",
+                "housing": "Housing Environment: Pigmodel Animal Technology Co., Ltd.",
                 "unlimited": "Any",
                 "weightInterval": "5kg per interval"
             },
