@@ -983,7 +983,7 @@ export function ProtocolDetailPage() {
                   .map((comment) => (
                     <div key={comment.id} className="space-y-2">
                       <div
-                        className={`p-4 rounded-lg border ${comment.is_resolved ? 'bg-green-50 border-green-200' : 'bg-white border-slate-200'}`}
+                        className={`p-4 rounded-lg border max-w-[85%] mr-auto ${comment.is_resolved ? 'bg-green-50 border-green-200' : 'bg-white border-slate-200'}`}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-2">
@@ -1015,21 +1015,24 @@ export function ProtocolDetailPage() {
                                 {t('protocols.detail.actions.resolved')}
                               </Badge>
                             ) : (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => resolveCommentMutation.mutate(comment.id)}
-                                disabled={resolveCommentMutation.isPending}
-                              >
-                                {resolveCommentMutation.isPending ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <>
-                                    <CheckCircle className="mr-1 h-4 w-4" />
-                                    {t('protocols.detail.actions.markResolved')}
-                                  </>
-                                )}
-                              </Button>
+                              // 只有提出意見的人才能標記為已解決
+                              user?.id === comment.reviewer_id && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => resolveCommentMutation.mutate(comment.id)}
+                                  disabled={resolveCommentMutation.isPending}
+                                >
+                                  {resolveCommentMutation.isPending ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <CheckCircle className="mr-1 h-4 w-4" />
+                                      {t('protocols.detail.actions.markResolved')}
+                                    </>
+                                  )}
+                                </Button>
+                              )
                             )}
                           </div>
                         </div>
@@ -1040,17 +1043,17 @@ export function ProtocolDetailPage() {
                       {comments
                         .filter(reply => reply.parent_comment_id === comment.id)
                         .map(reply => (
-                          <div key={reply.id} className="ml-8 p-4 rounded-lg border bg-slate-50 border-slate-200">
-                            <div className="flex items-center gap-2">
-                              <div className="h-6 w-6 rounded-full bg-green-100 flex items-center justify-center">
-                                <Reply className="h-3 w-3 text-green-600" />
-                              </div>
-                              <div>
+                          <div key={reply.id} className="ml-auto max-w-[85%] p-4 rounded-lg border bg-slate-50 border-slate-200">
+                            <div className="flex items-center gap-2 justify-end">
+                              <div className="text-right">
                                 <p className="font-medium text-sm">{reply.replied_by_name || reply.reviewer_name || reply.reviewer_email}</p>
                                 <p className="text-xs text-muted-foreground">{formatDateTime(reply.created_at)}</p>
                               </div>
+                              <div className="h-6 w-6 rounded-full bg-green-100 flex items-center justify-center">
+                                <Reply className="h-3 w-3 text-green-600" />
+                              </div>
                             </div>
-                            <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap">{reply.content}</p>
+                            <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap text-right">{reply.content}</p>
                           </div>
                         ))}
                     </div>

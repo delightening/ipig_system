@@ -35,7 +35,7 @@ impl EuthanasiaService {
         .await?
         .ok_or_else(|| AppError::NotFound("找不到指定的豬隻".to_string()))?;
 
-        let pi_user_id = pig.pi_user_id.ok_or_else(|| {
+        let pi_user_id = pig.pi_user_id.filter(|u| !u.is_nil()).ok_or_else(|| {
             AppError::BadRequest("該豬隻尚未關聯至任何計畫，無法開立安樂死單".to_string())
         })?;
 

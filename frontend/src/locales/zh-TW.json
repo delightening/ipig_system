@@ -354,6 +354,8 @@
           "desc": "請輸入您對此計畫書的審查意見",
           "placeholder": "請輸入詳細的審查意見...",
           "submit": "提交意見",
+          "success": "審查意見已新增",
+          "failed": "新增意見失敗",
           "firstComment": "新增第一條審查意見"
         },
         "reply": {
@@ -361,7 +363,9 @@
           "desc": "請輸入您對此審查意見的回覆",
           "original": "原意見：",
           "placeholder": "請輸入您的回覆...",
-          "submit": "提交回覆"
+          "submit": "提交回覆",
+          "success": "回覆已提交",
+          "failed": "提交回覆失敗"
         },
         "assign": {
           "title": "指派審查人員",
@@ -659,7 +663,7 @@
       "title": "研究目的",
       "subtitle": "說明研究目的、重要性與 3Rs 替代、減量原則",
       "significance": "2.1 研究之目的及重要性",
-      "significancePlaceholder": "摘要並簡單闡述本動物實驗計畫的意義及基本理由\n此段描述不同於發表學術期刊及研討會所需的摘要，\n而是提供給具有社會公正人士身分的 IACUC 委員進行審查的重要根據，\n故應避免使醫學專用字彙與艱深科學概念(或盡可能說明清楚科學意義)\n，與避免透露專利相關事宜。且需定義縮寫字詞，此處所撰寫內容請勿超過一個A4頁面",
+      "significancePlaceholder": "摘要並簡單闡述本動物實驗計畫的意義及基本理由，此段描述不同於發表學術期刊及研討會所需的摘要，\n而是提供給具有社會公正人士身分的 IACUC 委員進行審查的重要根據，\n故應避免使醫學專用字彙與艱深科學概念(或盡可能說明清楚科學意義)，並避免透露專利相關事宜，同時注意定義縮寫字詞。",
       "replacementPrinciple": "2.2 請以動物試驗應用3Rs之替代原則，說明本動物試驗之合理性:",
       "liveAnimalNecessity": "2.2.1 請說明活體動物試驗之必要性，以及選擇此動物種別的原因:",
       "liveAnimalNecessityPlaceholder": "請說明活體動物試驗之必要性，以及選擇此動物種別的原因",
@@ -887,6 +891,7 @@
         "preopPreparation": "說明禁食禁水時間、備皮、消毒等",
         "surgeryDescription": "請詳述手術流程，包含手術位置、手術方法、切創大小及縫合處理",
         "monitoring": "",
+        "expectedImpact": "",
         "postopCare": "請說明動物術後照護及止痛給藥方法",
         "expectedEndPoint": "請說明實驗預期結束之時機",
         "drugInfo": "請填寫手術用藥資訊"
@@ -1116,6 +1121,7 @@
       "created": "計畫書已建立",
       "saved": "草稿已儲存",
       "submitted": "計畫書已送出審查",
+      "confirmSubmit": "確定要提交此計畫書進行審查嗎？ (Are you sure you want to submit this protocol for review?)",
       "saveFailed": "儲存計畫書失敗",
       "createFailed": "建立計畫書失敗",
       "submitFailed": "送出計畫書失敗",

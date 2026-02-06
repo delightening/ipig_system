@@ -354,6 +354,8 @@
                     "desc": "Please enter your review comment for this protocol",
                     "placeholder": "Enter detailed review comment...",
                     "submit": "Submit Comment",
+                    "success": "Review comment added",
+                    "failed": "Failed to add comment",
                     "firstComment": "Add the first review comment"
                 },
                 "reply": {
@@ -361,7 +363,9 @@
                     "desc": "Please enter your reply to this review comment",
                     "original": "Original Comment:",
                     "placeholder": "Enter your reply...",
-                    "submit": "Submit Reply"
+                    "submit": "Submit Reply",
+                    "success": "Reply submitted",
+                    "failed": "Failed to submit reply"
                 },
                 "assign": {
                     "title": "Assign Reviewer",
@@ -657,7 +661,7 @@
             "title": "Study Purpose",
             "subtitle": "Describe the purpose, significance and 3Rs replacement/reduction principles",
             "significance": "2.1 Purpose and Significance of the Study",
-            "significancePlaceholder": "Please describe the research background, clinical or scientific significance, and expected outcomes",
+            "significancePlaceholder": "Summarize and briefly explain the significance and basic rationale of this animal experiment protocol.\n This description differs from the abstract required for academic journals or conferences;\n it serves as a critical basis for review by IACUC members, including public members.\n Avoid technical medical jargon and complex scientific concepts (or explain them as clearly as possible), avoid disclosing patent-related matters, and ensure all abbreviations are defined.",
             "replacementPrinciple": "2.2 Explain the rationale for this animal study based on the 3Rs Replacement Principle:",
             "liveAnimalNecessity": "2.2.1 Please explain the necessity for live animal testing and the reason for selecting this animal species:",
             "liveAnimalNecessityPlaceholder": "Please explain the necessity for live animal testing and the reason for selecting this animal species",
@@ -723,7 +727,7 @@
             }
         },
         "design": {
-            "subtitle": "Experimental Design and Methods",
+            "subtitle": "",
             "title4_1": "4.1 Please provide a detailed description of the animal experiment procedures based on the 3Rs refinement principle...",
             "anesthesiaLabel": "4.1.1 Is the experiment performed under anesthesia?",
             "selectAnesthesiaType": "Please select anesthesia type *",
@@ -849,7 +853,7 @@
         },
         "guidelines": {
             "title": "Guidelines and References",
-            "subtitle": "List relevant guidelines and references",
+            "subtitle": "",
             "contentLabel": "Related Guidelines Description",
             "contentPlaceholder": "Example: This project follows the Animal Protection Act and the Guide for the Care and Use of Laboratory Animals",
             "referencesTitle": "Reference List",
@@ -1102,6 +1106,7 @@
             "created": "Protocol created successfully",
             "saved": "Draft saved successfully",
             "submitted": "Protocol submitted for review",
+            "confirmSubmit": "確定要提交此計畫書進行審查嗎？ (Are you sure you want to submit this protocol for review?)",
             "saveFailed": "Failed to save protocol",
             "createFailed": "Failed to create protocol",
             "submitFailed": "Failed to submit protocol",
