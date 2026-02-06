@@ -2936,16 +2936,25 @@ export function ProtocolEditPage() {
                         size="sm"
                         onClick={() => {
                           // Load default values for surgery section
+                          // 6.2 Pre-operative
                           updateWorkingContent('surgery', 'preop_preparation', t('aup.defaults.preopPreparation'))
+                          // 6.3 Aseptic (unbox all)
+                          updateWorkingContent('surgery', 'aseptic_techniques', [])
+                          // 6.4 Surgery description (clear)
+                          updateWorkingContent('surgery', 'surgery_description', '')
+                          // 6.5 Monitoring
                           updateWorkingContent('surgery', 'monitoring', t('aup.defaults.monitoring'))
-                          updateWorkingContent('surgery', 'aseptic_techniques', [
-                            'surgical_site_disinfection',
-                            'instrument_disinfection',
-                            'sterilized_gowns_gloves',
-                            'sterilized_drapes',
-                            'surgical_hand_disinfection'
-                          ])
-                          // Load default drugs
+                          // 6.6 Post-operative impact (clear)
+                          updateWorkingContent('surgery', 'postop_expected_impact', '')
+                          // 6.7 Multiple surgeries (set to "No")
+                          updateWorkingContent('surgery', 'multiple_surgeries', { used: false, number: 0, reason: '' })
+                          // 6.8 Orthopedic/Non-orthopedic (deselect)
+                          updateWorkingContent('surgery', 'postop_care_type', undefined)
+                          updateWorkingContent('surgery', 'postop_care', '')
+                          // 6.9 Expected end point (clear)
+                          updateWorkingContent('surgery', 'expected_end_point', '')
+
+                          // 6.10 Load default drugs
                           const defaultDrugs = t('aup.defaults.drugDefaults', { returnObjects: true }) as any[]
                           if (Array.isArray(defaultDrugs)) {
                             const formattedDrugs = defaultDrugs.map(drug => ({
@@ -2958,6 +2967,7 @@ export function ProtocolEditPage() {
                             updateWorkingContent('surgery', 'drugs', formattedDrugs)
                           }
                         }}
+
                       >
                         {t('aup.surgery.loadDefaults')}
                       </Button>
