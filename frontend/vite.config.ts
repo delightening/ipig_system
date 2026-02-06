@@ -12,9 +12,12 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    host: '0.0.0.0', // Ensure it binds to all interfaces for Docker
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        // In Docker, 'api' is the service name. Locally, it should be 'localhost'.
+        // We use an environment variable VITE_API_URL or fallback.
+        target: process.env.VITE_API_URL || 'http://localhost:8000',
         changeOrigin: true,
       },
     },

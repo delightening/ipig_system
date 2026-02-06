@@ -669,8 +669,9 @@ export function ProtocolEditPage() {
     if (!basic.pi.phone || !basic.pi.phone.trim()) {
       return t('aup.basic.validation.piPhoneRequired')
     }
-    // 驗證 PI 電話格式 (9-10 碼數字)
-    if (!/^\d{9,10}$/.test(basic.pi.phone.trim())) {
+    // 驗證 PI 電話格式 (9-10 碼數字，允許中間有 -)
+    const piPhoneDigits = basic.pi.phone.trim().replace(/-/g, '')
+    if (!/^\d{9,10}$/.test(piPhoneDigits)) {
       return t('aup.basic.validation.piPhoneInvalid')
     }
     if (!basic.pi.address || !basic.pi.address.trim()) {
@@ -687,8 +688,9 @@ export function ProtocolEditPage() {
     if (!basic.sponsor.contact_phone || !basic.sponsor.contact_phone.trim()) {
       return t('aup.basic.validation.sponsorPhoneRequired')
     }
-    // 驗證委託單位電話格式 (9-10 碼數字)
-    if (!/^\d{9,10}$/.test(basic.sponsor.contact_phone.trim())) {
+    // 驗證委託單位電話格式 (9-10 碼數字，允許中間有 -)
+    const sponsorPhoneDigits = basic.sponsor.contact_phone.trim().replace(/-/g, '')
+    if (!/^\d{9,10}$/.test(sponsorPhoneDigits)) {
       return t('aup.basic.validation.sponsorPhoneInvalid')
     }
     if (!basic.sponsor.contact_email || !basic.sponsor.contact_email.trim()) {
@@ -1953,10 +1955,23 @@ export function ProtocolEditPage() {
                       onValueChange={(value) => {
                         const isYes = value === 'yes'
                         updateWorkingContent('design', 'anesthesia.is_under_anesthesia', isYes as boolean | null)
-                        // If "No" is selected, clear related fields
+                        // If "No" is selected, clear related fields and auto-fill surgery plan with "N/A"
                         if (!isYes) {
                           updateWorkingContent('design', 'anesthesia.anesthesia_type', undefined)
                           updateWorkingContent('design', 'anesthesia.other_description', undefined)
+                          // Auto-fill surgery plan with "N/A" when not under anesthesia
+                          const naText = 'N/A'
+                          updateWorkingContent('surgery', 'surgery_type', naText)
+                          updateWorkingContent('surgery', 'preop_preparation', naText)
+                          updateWorkingContent('surgery', 'surgery_description', naText)
+                          updateWorkingContent('surgery', 'monitoring', naText)
+                          updateWorkingContent('surgery', 'postop_expected_impact', naText)
+                          updateWorkingContent('surgery', 'multiple_surgeries', { used: false, number: 0, reason: '' })
+                          updateWorkingContent('surgery', 'postop_care', naText)
+                          updateWorkingContent('surgery', 'postop_care_type', undefined)
+                          updateWorkingContent('surgery', 'expected_end_point', naText)
+                          updateWorkingContent('surgery', 'drugs', [])
+                          updateWorkingContent('surgery', 'aseptic_techniques', [])
                         }
                       }}
                     >
@@ -2019,7 +2034,7 @@ export function ProtocolEditPage() {
                               updateWorkingContent('surgery', 'aseptic_techniques', [])
                             } else if (value && value !== '') {
                               // If not survival or non-survival surgery, auto-fill "N/A"
-                              const naText = t('common.na')
+                              const naText = 'N/A'
                               updateWorkingContent('surgery', 'surgery_type', naText)
                               updateWorkingContent('surgery', 'preop_preparation', naText)
                               updateWorkingContent('surgery', 'surgery_description', naText)
@@ -2907,8 +2922,47 @@ export function ProtocolEditPage() {
           {activeSection === 'surgery' && (
             <Card>
               <CardHeader>
-                <CardTitle>{t('aup.section6')}</CardTitle>
-                <CardDescription>{t('aup.surgery.subtitle')}</CardDescription>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>{t('aup.section6')}</CardTitle>
+                    <CardDescription>{t('aup.surgery.subtitle')}</CardDescription>
+                  </div>
+                  {formData.working_content.design.anesthesia.is_under_anesthesia === true &&
+                    (formData.working_content.design.anesthesia.anesthesia_type === 'survival_surgery' ||
+                      formData.working_content.design.anesthesia.anesthesia_type === 'non_survival_surgery') && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          // Load default values for surgery section
+                          updateWorkingContent('surgery', 'preop_preparation', t('aup.defaults.preopPreparation'))
+                          updateWorkingContent('surgery', 'monitoring', t('aup.defaults.monitoring'))
+                          updateWorkingContent('surgery', 'aseptic_techniques', [
+                            'surgical_site_disinfection',
+                            'instrument_disinfection',
+                            'sterilized_gowns_gloves',
+                            'sterilized_drapes',
+                            'surgical_hand_disinfection'
+                          ])
+                          // Load default drugs
+                          const defaultDrugs = t('aup.defaults.drugDefaults', { returnObjects: true }) as any[]
+                          if (Array.isArray(defaultDrugs)) {
+                            const formattedDrugs = defaultDrugs.map(drug => ({
+                              drug_name: drug.name,
+                              dose: drug.dose,
+                              route: drug.route,
+                              frequency: drug.frequency,
+                              purpose: drug.purpose
+                            }))
+                            updateWorkingContent('surgery', 'drugs', formattedDrugs)
+                          }
+                        }}
+                      >
+                        {t('aup.surgery.loadDefaults')}
+                      </Button>
+                    )}
+                </div>
               </CardHeader>
               <CardContent className="space-y-6">
                 {(() => {
@@ -3052,20 +3106,25 @@ export function ProtocolEditPage() {
                       <div className="space-y-2">
                         <h3 className="font-semibold">{t('aup.surgery.labels.multipleSurgeries')}</h3>
                         <div className="space-y-4">
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id="multiple_surgeries"
-                              checked={formData.working_content.surgery.multiple_surgeries.used}
-                              onCheckedChange={(checked) => {
-                                updateWorkingContent('surgery', 'multiple_surgeries.used', checked)
-                                if (!checked) {
-                                  updateWorkingContent('surgery', 'multiple_surgeries.number', 0)
-                                  updateWorkingContent('surgery', 'multiple_surgeries.reason', '')
-                                }
-                              }}
-                            />
-                            <Label htmlFor="multiple_surgeries" className="font-normal cursor-pointer">{t('common.yes')}</Label>
-                          </div>
+                          <Select
+                            value={formData.working_content.surgery.multiple_surgeries.used === true ? 'yes' : formData.working_content.surgery.multiple_surgeries.used === false ? 'no' : ''}
+                            onValueChange={(value) => {
+                              const isYes = value === 'yes'
+                              updateWorkingContent('surgery', 'multiple_surgeries.used', isYes)
+                              if (!isYes) {
+                                updateWorkingContent('surgery', 'multiple_surgeries.number', 0)
+                                updateWorkingContent('surgery', 'multiple_surgeries.reason', '')
+                              }
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={t('common.pleaseSelect')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="no">{t('common.no')}</SelectItem>
+                              <SelectItem value="yes">{t('common.yes')}</SelectItem>
+                            </SelectContent>
+                          </Select>
                           {formData.working_content.surgery.multiple_surgeries.used && (
                             <div className="space-y-4 pl-6 border-l-2 border-slate-200">
                               <div className="space-y-2">
@@ -3166,7 +3225,7 @@ export function ProtocolEditPage() {
                                   <th className="border p-2 text-left text-sm font-semibold">{t('aup.surgery.drugs.headers.route')}</th>
                                   <th className="border p-2 text-left text-sm font-semibold">{t('aup.surgery.drugs.headers.frequency')}</th>
                                   <th className="border p-2 text-left text-sm font-semibold">{t('aup.surgery.drugs.headers.purpose')}</th>
-                                  <th className="border p-2 text-center text-sm font-semibold w-16">{t('aup.items.actions')}</th>
+                                  <th className="border p-2 text-center text-sm font-semibold w-16">{t('common.actions')}</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -3296,7 +3355,7 @@ export function ProtocolEditPage() {
                           weight_min: undefined,
                           weight_max: undefined,
                           weight_unlimited: false,
-                          housing_location: t('aup.animals.defaultHousingLocation')
+                          housing_location: ''
                         }]
                         updateWorkingContent('animals', 'animals', newAnimals)
                       }}
@@ -3592,7 +3651,7 @@ export function ProtocolEditPage() {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label>{t('aup.animals.labels.housing')}: {t('aup.animals.defaultHousingLocation')}</Label>
+                        <Label>{t('aup.animals.labels.housing')}</Label>
                       </div>
                     </div>
                   ))}
