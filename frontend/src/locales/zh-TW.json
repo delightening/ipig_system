@@ -268,6 +268,7 @@
       "DRAFT": "草稿",
       "SUBMITTED": "已送審",
       "PRE_REVIEW": "預審中",
+      "VET_REVIEW": "獸醫審查",
       "UNDER_REVIEW": "審查中",
       "REVISION_REQUIRED": "需修正",
       "RESUBMITTED": "已重新送審",
@@ -1296,6 +1297,7 @@
     "notOnMedication": "否",
     "statusLabels": {
       "pen": "欄位",
+      "all": "所有豬隻",
       "unassigned": "未分配",
       "in_experiment": "實驗中",
       "completed": "實驗完成",

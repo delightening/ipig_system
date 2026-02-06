@@ -43,6 +43,7 @@ const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' |
   DRAFT: 'secondary',
   SUBMITTED: 'default',
   PRE_REVIEW: 'default',
+  VET_REVIEW: 'warning',
   UNDER_REVIEW: 'warning',
   REVISION_REQUIRED: 'destructive',
   RESUBMITTED: 'default',

@@ -399,6 +399,13 @@ impl ProtocolService {
 
         // 驗證 UNDER_REVIEW 狀態必須提供 2-3 位審查委員
         if req.to_status == ProtocolStatus::UnderReview {
+            // 檢查上一個狀態是否是 VET_REVIEW（從預審或重送進入）
+            if protocol.status != ProtocolStatus::VetReview && protocol.status != ProtocolStatus::Resubmitted {
+                return Err(AppError::BusinessRule(
+                    "必須從獸醫審查或重送狀態進入正式審查".to_string()
+                ));
+            }
+            
             let reviewer_ids = req.reviewer_ids.as_ref()
                 .ok_or_else(|| AppError::Validation("必須選擇審查委員".to_string()))?;
             
@@ -407,7 +414,14 @@ impl ProtocolService {
             }
         }
 
-        // TODO: 驗證狀態轉移是否合法（根據角色和當前狀態）
+        // 驗證 VET_REVIEW 狀態必須從 PRE_REVIEW 進入
+        if req.to_status == ProtocolStatus::VetReview {
+            if protocol.status != ProtocolStatus::PreReview {
+                return Err(AppError::BusinessRule(
+                    "必須從預審狀態進入獸醫審查".to_string()
+                ));
+            }
+        }
 
         // IACUC 編號生成規則：
         // 1. 在計劃被提交審查與核准前（Submitted 狀態），生成 APIG-{ROC}{03}
@@ -460,20 +474,23 @@ impl ProtocolService {
         // 記錄狀態變更
         Self::record_status_change(pool, id, Some(protocol.status), req.to_status, changed_by, req.remark.clone()).await?;
 
-        // 當狀態變為 UNDER_REVIEW 時，自動指派選定的審查委員
+        // 當狀態變為 UNDER_REVIEW 時，自動指派選定的審查委員（標記為正式審查委員）
         if req.to_status == ProtocolStatus::UnderReview {
             if let Some(reviewer_ids) = &req.reviewer_ids {
                 for reviewer_id in reviewer_ids {
-                    Self::assign_reviewer(
+                    Self::assign_primary_reviewer(
                         pool,
-                        &AssignReviewerRequest {
-                            protocol_id: id,
-                            reviewer_id: *reviewer_id,
-                        },
+                        id,
+                        *reviewer_id,
                         changed_by,
                     ).await?;
                 }
             }
+        }
+
+        // 當狀態變為 VET_REVIEW 時，自動指派獸醫師
+        if req.to_status == ProtocolStatus::VetReview {
+            Self::assign_vet_reviewer(pool, id, req.vet_id, changed_by).await?;
         }
 
         // 當計劃通過時，自動依照 IACUC No. 自動填入客戶
@@ -768,6 +785,122 @@ impl ProtocolService {
         .await?;
 
         Ok(assignment)
+    }
+
+    /// 指派正式審查委員（可撰寫意見，限 2-3 位）
+    async fn assign_primary_reviewer(
+        pool: &PgPool,
+        protocol_id: Uuid,
+        reviewer_id: Uuid,
+        assigned_by: Uuid,
+    ) -> Result<ReviewAssignment> {
+        let assignment = sqlx::query_as::<_, ReviewAssignment>(
+            r#"
+            INSERT INTO review_assignments (id, protocol_id, reviewer_id, assigned_by, assigned_at, is_primary_reviewer, review_stage)
+            VALUES ($1, $2, $3, $4, NOW(), true, 'UNDER_REVIEW')
+            ON CONFLICT (protocol_id, reviewer_id) DO UPDATE SET 
+                assigned_at = NOW(),
+                is_primary_reviewer = true,
+                review_stage = 'UNDER_REVIEW'
+            RETURNING *
+            "#
+        )
+        .bind(Uuid::new_v4())
+        .bind(protocol_id)
+        .bind(reviewer_id)
+        .bind(assigned_by)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(assignment)
+    }
+
+    /// 指派獸醫審查員
+    /// 如果未指定 vet_id，則從系統設定取得預設獸醫師
+    async fn assign_vet_reviewer(
+        pool: &PgPool,
+        protocol_id: Uuid,
+        vet_id: Option<Uuid>,
+        assigned_by: Uuid,
+    ) -> Result<()> {
+        // 如果未指定獸醫師，從系統設定取得預設獸醫師
+        let vet_user_id = if let Some(id) = vet_id {
+            id
+        } else {
+            // 從系統設定取得預設獸醫師
+            let setting: Option<serde_json::Value> = sqlx::query_scalar(
+                "SELECT value FROM system_settings WHERE key = 'default_vet_reviewer'"
+            )
+            .fetch_optional(pool)
+            .await?;
+
+            let default_vet_id = setting
+                .and_then(|v| v.get("user_id")?.as_str().map(|s| s.to_string()))
+                .and_then(|s| Uuid::parse_str(&s).ok());
+
+            match default_vet_id {
+                Some(id) => id,
+                None => {
+                    // 如果沒有設定預設獸醫師，查找第一個具有 VET 角色的使用者
+                    let first_vet: Option<Uuid> = sqlx::query_scalar(
+                        r#"
+                        SELECT u.id FROM users u
+                        INNER JOIN user_roles ur ON u.id = ur.user_id
+                        INNER JOIN roles r ON ur.role_id = r.id
+                        WHERE r.code = 'VET' AND u.is_active = true
+                        LIMIT 1
+                        "#
+                    )
+                    .fetch_optional(pool)
+                    .await?;
+
+                    first_vet.ok_or_else(|| {
+                        AppError::BusinessRule("系統中沒有可用的獸醫師".to_string())
+                    })?
+                }
+            }
+        };
+
+        // 驗證指定的使用者是獸醫師
+        let is_vet: (bool,) = sqlx::query_as(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM user_roles ur
+                INNER JOIN roles r ON ur.role_id = r.id
+                WHERE ur.user_id = $1 AND r.code = 'VET'
+            )
+            "#
+        )
+        .bind(vet_user_id)
+        .fetch_one(pool)
+        .await?;
+
+        if !is_vet.0 {
+            return Err(AppError::Validation("指定的使用者不具有獸醫師角色".to_string()));
+        }
+
+        // 建立獸醫審查指派記錄
+        sqlx::query(
+            r#"
+            INSERT INTO vet_review_assignments (id, protocol_id, vet_id, assigned_by, assigned_at)
+            VALUES ($1, $2, $3, $4, NOW())
+            ON CONFLICT (protocol_id) DO UPDATE SET 
+                vet_id = $3,
+                assigned_by = $4,
+                assigned_at = NOW(),
+                completed_at = NULL,
+                decision = NULL,
+                decision_remark = NULL
+            "#
+        )
+        .bind(Uuid::new_v4())
+        .bind(protocol_id)
+        .bind(vet_user_id)
+        .bind(assigned_by)
+        .execute(pool)
+        .await?;
+
+        Ok(())
     }
 
     /// 指派 co-editor（試驗工作人員）

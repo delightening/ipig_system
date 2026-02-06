@@ -34,6 +34,32 @@ impl AnimalService {
             ear_tag.to_string()
         }
     }
+
+    /// 格式化欄位編號：將 [A-G][1-9] 補零為 [A-G][01-09]
+    fn format_pen_location(pen_location: &str) -> String {
+        let trimmed = pen_location.trim();
+        if trimmed.is_empty() {
+            return String::new();
+        }
+
+        // 預期格式為 [A-G][數字]，不分大小寫
+        // 例如 "d1" -> "D01", "C3" -> "C03", "A-1" -> "A01"
+        let normalized = trimmed.to_uppercase().replace('-', "");
+        
+        if normalized.len() >= 2 {
+            let zone = &normalized[0..1];
+            let num_part = &normalized[1..];
+            
+            // 檢查 zone 是否在 A-G 範圍內
+            if matches!(zone, "A" | "B" | "C" | "D" | "E" | "F" | "G") {
+                if let Ok(num) = num_part.parse::<u32>() {
+                    return format!("{}{:02}", zone, num);
+                }
+            }
+        }
+        
+        trimmed.to_string()
+    }
     // ============================================
     // 豬隻來源管理
     // ============================================
@@ -119,7 +145,7 @@ impl AnimalService {
         let mut query_builder = sqlx::QueryBuilder::new(
             r#"
             SELECT 
-                p.id, p.pig_no, p.ear_tag, p.status, p.breed, p.breed_other, p.gender, p.pen_location,
+                p.id, p.animal_no, p.ear_tag, p.status, p.breed, p.breed_other, p.gender, p.pen_location,
                 p.iacuc_no, p.entry_date, s.name as source_name,
                 p.vet_last_viewed_at, p.created_at,
                 -- Computed fields for frontend
@@ -214,9 +240,12 @@ impl AnimalService {
             .fetch_all(pool)
             .await?;
 
-        // 格式化所有耳號
+        // 格式化所有耳號與欄位編號
         for pig in &mut pigs {
             pig.ear_tag = Self::format_ear_tag(&pig.ear_tag);
+            if let Some(pen) = &pig.pen_location {
+                pig.pen_location = Some(Self::format_pen_location(pen));
+            }
         }
 
         Ok(pigs)
@@ -245,7 +274,7 @@ impl AnimalService {
         let mut pigs = sqlx::query_as::<_, PigListItem>(
             r#"
             SELECT 
-                p.id, p.pig_no, p.ear_tag, p.status, p.breed, p.breed_other, p.gender, p.pen_location,
+                p.id, p.animal_no, p.ear_tag, p.status, p.breed, p.breed_other, p.gender, p.pen_location,
                 p.iacuc_no, p.entry_date, s.name as source_name,
                 p.vet_last_viewed_at, p.created_at
             FROM pigs p
@@ -258,9 +287,12 @@ impl AnimalService {
         .fetch_all(pool)
         .await?;
 
-        // 格式化所有耳號
+        // 格式化所有耳號與欄位編號
         for pig in &mut pigs {
             pig.ear_tag = Self::format_ear_tag(&pig.ear_tag);
+            if let Some(pen) = &pig.pen_location {
+                pig.pen_location = Some(Self::format_pen_location(pen));
+            }
         }
 
         // 依欄位分組
@@ -290,8 +322,11 @@ impl AnimalService {
             .await?
             .ok_or_else(|| AppError::NotFound("Pig not found".to_string()))?;
 
-        // 格式化耳號
+        // 格式化耳號與欄位編號
         pig.ear_tag = Self::format_ear_tag(&pig.ear_tag);
+        if let Some(pen) = &pig.pen_location {
+            pig.pen_location = Some(Self::format_pen_location(pen));
+        }
 
         Ok(pig)
     }
@@ -312,12 +347,11 @@ impl AnimalService {
             ));
         }
 
-        // 驗證欄位必須填寫
-        if req.pen_location.is_none() || req.pen_location.as_ref().map(|s| s.trim().is_empty()).unwrap_or(true) {
-            return Err(AppError::Validation(
-                "欄位為必填".to_string()
-            ));
-        }
+        // 驗證欄位必須填寫並格式化
+        let pen_location = match &req.pen_location {
+            Some(s) if !s.trim().is_empty() => Some(Self::format_pen_location(s)),
+            _ => return Err(AppError::Validation("欄位為必填".to_string())),
+        };
 
         // 將 breed enum 轉換為資料庫期望的字串值
         let breed_str = match req.breed {
@@ -347,7 +381,7 @@ impl AnimalService {
         .bind(req.birth_date)
         .bind(req.entry_date)
         .bind(req.entry_weight)
-        .bind(&req.pen_location)
+        .bind(&pen_location)
         .bind(&req.pre_experiment_code)
         .bind(&req.remark)
         .bind(created_by)
@@ -411,7 +445,7 @@ impl AnimalService {
         )
         .bind(id)
         .bind(req.status)
-        .bind(&req.pen_location)
+        .bind(req.pen_location.as_ref().map(|s| Self::format_pen_location(s)))
         .bind(&req.iacuc_no)
         .bind(req.experiment_date)
         .bind(&req.remark)
@@ -1944,11 +1978,19 @@ impl AnimalService {
                 continue;
             }
 
-            // 驗證品種
-            let breed = match row.breed.to_lowercase().as_str() {
-                "minipig" | "miniature" | "mini" | "m" | "迷你豬" | "迷你" => PigBreed::Minipig,
-                "white" | "w" | "白豬" | "大白豬" => PigBreed::White,
-                _ => PigBreed::Other,
+            // 驗證品種（保存原始值用於 breed_other）
+            let (breed, raw_breed_other) = match row.breed.to_lowercase().as_str() {
+                "minipig" | "miniature" | "mini" | "m" | "迷你豬" | "迷你" => (PigBreed::Minipig, None),
+                "white" | "w" | "白豬" | "大白豬" => (PigBreed::White, None),
+                _ => {
+                    // 非標準品種，將原始值保存到 breed_other
+                    let trimmed = row.breed.trim().to_string();
+                    if trimmed.is_empty() {
+                        (PigBreed::Other, None)
+                    } else {
+                        (PigBreed::Other, Some(trimmed))
+                    }
+                }
             };
 
             // 驗證性別
@@ -2053,7 +2095,7 @@ impl AnimalService {
                 continue;
             }
 
-            // 處理欄位位置
+            // 處理欄位位置並格式化
             let pen_location = row.pen_location.clone().or_else(|| {
                 match (&row.field_region, &row.field_number) {
                     (Some(r), Some(n)) => Some(format!("{}{}", r, n)),
@@ -2061,17 +2103,31 @@ impl AnimalService {
                     (None, Some(n)) => Some(n.clone()),
                     (None, None) => None,
                 }
-            }).map(|s| s.trim().to_string());
+            }).map(|s| Self::format_pen_location(&s));
+
+            // 驗證欄位位置（必填）
+            if pen_location.is_none() || pen_location.as_ref().map(|s| s.is_empty()).unwrap_or(true) {
+                errors.push(ImportErrorDetail {
+                    row: row_number,
+                    ear_tag: Some(row.ear_tag.clone()),
+                    error: "欄位為必填，請填寫 Field Region 或 Field Number".to_string(),
+                });
+                error_count += 1;
+                continue;
+            }
 
             // 處理品種其他（當 breed 為 Other 時使用）
+            // 優先使用從 CSV 欄位解析出的非標準品種值，若沒有則使用明確的 breed_other 欄位
             let breed_other = if matches!(breed, PigBreed::Other) {
-                row.breed_other.clone().and_then(|s| {
-                    let trimmed = s.trim().to_string();
-                    if trimmed.is_empty() {
-                        None
-                    } else {
-                        Some(trimmed)
-                    }
+                raw_breed_other.or_else(|| {
+                    row.breed_other.clone().and_then(|s| {
+                        let trimmed = s.trim().to_string();
+                        if trimmed.is_empty() {
+                            None
+                        } else {
+                            Some(trimmed)
+                        }
+                    })
                 })
             } else {
                 None

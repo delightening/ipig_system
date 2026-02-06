@@ -133,8 +133,8 @@ pub async fn list_pigs(
     Query(query): Query<PigQuery>,
 ) -> Result<Json<Vec<PigListItem>>> {
     // 檢查權限
-    let has_view_all = current_user.has_permission("pig.pig.view_all");
-    let has_view_project = current_user.has_permission("pig.pig.view_project");
+    let has_view_all = current_user.has_permission("animal.animal.view_all");
+    let has_view_project = current_user.has_permission("animal.animal.view_project");
     
     if !has_view_all && !has_view_project {
         // 如果沒有查看權限，返回空列表
@@ -165,7 +165,7 @@ pub async fn list_pigs_by_pen(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<PigsByPen>>> {
-    require_permission!(current_user, "pig.pig.view_all");
+    require_permission!(current_user, "animal.animal.view_all");
     
     let pigs = AnimalService::list_by_pen(&state.db).await?;
     Ok(Json(pigs))
@@ -187,7 +187,7 @@ pub async fn create_pig(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<CreatePigRequest>,
 ) -> Result<Json<Pig>> {
-    require_permission!(current_user, "animal.info.create");
+    require_permission!(current_user, "animal.animal.create");
     
     // 記錄建立豬的請求資訊，用於除錯
     tracing::debug!("Create pig request: ear_tag={}, breed={:?}, gender={:?}, entry_date={:?}, birth_date={:?}, entry_weight={:?}", 
@@ -229,7 +229,7 @@ pub async fn update_pig(
     Path(id): Path<Uuid>,
     Json(req): Json<UpdatePigRequest>,
 ) -> Result<Json<Pig>> {
-    require_permission!(current_user, "animal.info.edit");
+    require_permission!(current_user, "animal.animal.edit");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let pig = AnimalService::update(&state.db, id, &req).await?;
@@ -243,7 +243,7 @@ pub async fn delete_pig(
     Path(id): Path<Uuid>,
     Json(req): Json<DeleteRequest>,
 ) -> Result<Json<serde_json::Value>> {
-    require_permission!(current_user, "animal.info.edit");
+    require_permission!(current_user, "animal.animal.edit");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     AnimalService::delete_with_reason(&state.db, id, &req.reason, current_user.id).await?;
@@ -889,7 +889,7 @@ pub async fn list_import_batches(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<PigImportBatch>>> {
-    require_permission!(current_user, "animal.info.import");
+    require_permission!(current_user, "animal.animal.import");
     
     let batches = AnimalService::list_import_batches(&state.db, 50).await?;
     Ok(Json(batches))
@@ -900,7 +900,7 @@ pub async fn download_basic_import_template(
     Extension(current_user): Extension<CurrentUser>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Result<Response> {
-    require_permission!(current_user, "animal.info.import");
+    require_permission!(current_user, "animal.animal.import");
     
     let format = params.get("format").map(|s| s.as_str()).unwrap_or("xlsx");
     
@@ -936,7 +936,7 @@ pub async fn download_weight_import_template(
     Extension(current_user): Extension<CurrentUser>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Result<Response> {
-    require_permission!(current_user, "animal.info.import");
+    require_permission!(current_user, "animal.animal.import");
     
     let format = params.get("format").map(|s| s.as_str()).unwrap_or("xlsx");
     
@@ -973,7 +973,7 @@ pub async fn import_basic_data(
     Extension(current_user): Extension<CurrentUser>,
     mut multipart: Multipart,
 ) -> Result<Json<ImportResult>> {
-    require_permission!(current_user, "animal.info.import");
+    require_permission!(current_user, "animal.animal.import");
 
     let mut file_data: Option<Vec<u8>> = None;
     let mut file_name = String::from("unknown");
@@ -1023,7 +1023,7 @@ pub async fn import_weight_data(
     Extension(current_user): Extension<CurrentUser>,
     mut multipart: Multipart,
 ) -> Result<Json<ImportResult>> {
-    require_permission!(current_user, "animal.info.import");
+    require_permission!(current_user, "animal.animal.import");
 
     let mut file_data: Option<Vec<u8>> = None;
     let mut file_name = String::from("unknown");

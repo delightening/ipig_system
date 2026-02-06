@@ -41,6 +41,7 @@ import {
     Check,
     Package,
     Warehouse as WarehouseIcon,
+    Trash2,
 } from 'lucide-react'
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy'
 import 'react-grid-layout/css/styles.css'
@@ -680,19 +681,44 @@ export function WarehouseLayoutPage() {
                                 )}
                             </div>
                         )}
-                        <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>
-                                取消
-                            </Button>
-                            <Button
-                                type="submit"
-                                disabled={createMutation.isPending || updateMutation.isPending}
-                            >
-                                {(createMutation.isPending || updateMutation.isPending) && (
-                                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        <DialogFooter className="flex justify-between">
+                            <div>
+                                {editingLocation && (
+                                    <Button
+                                        type="button"
+                                        variant="destructive"
+                                        onClick={() => {
+                                            if (confirm('確定要刪除此儲位嗎？此操作無法復原。')) {
+                                                deleteMutation.mutate(editingLocation.id)
+                                                setShowDialog(false)
+                                                resetForm()
+                                            }
+                                        }}
+                                        disabled={deleteMutation.isPending}
+                                    >
+                                        {deleteMutation.isPending ? (
+                                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                        ) : (
+                                            <Trash2 className="h-4 w-4 mr-1" />
+                                        )}
+                                        刪除儲位
+                                    </Button>
                                 )}
-                                {editingLocation ? '更新' : '建立'}
-                            </Button>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>
+                                    取消
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    disabled={createMutation.isPending || updateMutation.isPending}
+                                >
+                                    {(createMutation.isPending || updateMutation.isPending) && (
+                                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                    )}
+                                    {editingLocation ? '更新' : '建立'}
+                                </Button>
+                            </div>
                         </DialogFooter>
                     </form>
                 </DialogContent>

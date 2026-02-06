@@ -76,9 +76,9 @@ impl DocumentService {
                 r#"
                 INSERT INTO document_lines (
                     id, document_id, line_no, product_id, qty, uom, unit_price,
-                    batch_no, expiry_date, remark
+                    batch_no, expiry_date, remark, storage_location_id
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                 RETURNING *
                 "#
             )
@@ -92,6 +92,7 @@ impl DocumentService {
             .bind(&line.batch_no)
             .bind(line.expiry_date)
             .bind(&line.remark)
+            .bind(line.storage_location_id)
             .fetch_one(&mut *tx)
             .await?;
             lines.push(doc_line);
@@ -166,9 +167,9 @@ impl DocumentService {
                     r#"
                     INSERT INTO document_lines (
                         id, document_id, line_no, product_id, qty, uom, unit_price,
-                        batch_no, expiry_date, remark
+                        batch_no, expiry_date, remark, storage_location_id
                     )
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                     "#
                 )
                 .bind(Uuid::new_v4())
@@ -181,6 +182,7 @@ impl DocumentService {
                 .bind(&line.batch_no)
                 .bind(line.expiry_date)
                 .bind(&line.remark)
+                .bind(line.storage_location_id)
                 .execute(&mut *tx)
                 .await?;
             }
@@ -776,7 +778,8 @@ impl DocumentService {
             SELECT 
                 dl.id, dl.document_id, dl.line_no, dl.product_id,
                 p.sku as product_sku, p.name as product_name,
-                dl.qty, dl.uom, dl.unit_price, dl.batch_no, dl.expiry_date, dl.remark
+                dl.qty, dl.uom, dl.unit_price, dl.batch_no, dl.expiry_date, dl.remark,
+                dl.storage_location_id
             FROM document_lines dl
             INNER JOIN products p ON dl.product_id = p.id
             WHERE dl.document_id = $1
@@ -976,6 +979,7 @@ impl DocumentService {
                 batch_no: None,
                 expiry_date: None,
                 remark: Some("系統庫存".to_string()),
+                storage_location_id: None,
             })
             .collect();
 

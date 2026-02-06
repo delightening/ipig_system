@@ -12,6 +12,7 @@ pub enum ProtocolStatus {
     Draft,
     Submitted,
     PreReview,
+    VetReview,
     UnderReview,
     RevisionRequired,
     Resubmitted,
@@ -30,6 +31,7 @@ impl ProtocolStatus {
             ProtocolStatus::Draft => "DRAFT",
             ProtocolStatus::Submitted => "SUBMITTED",
             ProtocolStatus::PreReview => "PRE_REVIEW",
+            ProtocolStatus::VetReview => "VET_REVIEW",
             ProtocolStatus::UnderReview => "UNDER_REVIEW",
             ProtocolStatus::RevisionRequired => "REVISION_REQUIRED",
             ProtocolStatus::Resubmitted => "RESUBMITTED",
@@ -48,6 +50,7 @@ impl ProtocolStatus {
             ProtocolStatus::Draft => "草稿",
             ProtocolStatus::Submitted => "已提交",
             ProtocolStatus::PreReview => "行政預審",
+            ProtocolStatus::VetReview => "獸醫審查",
             ProtocolStatus::UnderReview => "審查中",
             ProtocolStatus::RevisionRequired => "需修訂",
             ProtocolStatus::Resubmitted => "已重送",
@@ -111,13 +114,20 @@ pub struct ReviewAssignment {
     pub assigned_by: Uuid,
     pub assigned_at: DateTime<Utc>,
     pub completed_at: Option<DateTime<Utc>>,
+    /// 是否為正式審查委員（可撰寫意見，限 2-3 位）
+    #[sqlx(default)]
+    pub is_primary_reviewer: bool,
+    /// 審查階段
+    #[sqlx(default)]
+    pub review_stage: Option<String>,
 }
 
 /// 審查意見
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct ReviewComment {
     pub id: Uuid,
-    pub protocol_version_id: Uuid,
+    #[sqlx(default)]
+    pub protocol_version_id: Option<Uuid>,
     pub reviewer_id: Uuid,
     pub content: String,
     pub is_resolved: bool,
@@ -131,6 +141,12 @@ pub struct ReviewComment {
     pub drafted_by: Option<Uuid>,
     /// 草稿最後更新時間
     pub draft_updated_at: Option<DateTime<Utc>>,
+    /// 直接關聯的計畫 ID（用於預審階段）
+    #[sqlx(default)]
+    pub protocol_id: Option<Uuid>,
+    /// 審查階段（PRE_REVIEW, VET_REVIEW, UNDER_REVIEW）
+    #[sqlx(default)]
+    pub review_stage: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -168,6 +184,29 @@ pub struct UserProtocol {
     pub granted_by: Option<Uuid>,
 }
 
+/// 獸醫審查指派
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct VetReviewAssignment {
+    pub id: Uuid,
+    pub protocol_id: Uuid,
+    pub vet_id: Uuid,
+    pub assigned_by: Option<Uuid>,
+    pub assigned_at: DateTime<Utc>,
+    pub completed_at: Option<DateTime<Utc>>,
+    pub decision: Option<String>,
+    pub decision_remark: Option<String>,
+}
+
+/// 系統設定
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct SystemSetting {
+    pub key: String,
+    pub value: serde_json::Value,
+    pub description: Option<String>,
+    pub updated_at: DateTime<Utc>,
+    pub updated_by: Option<Uuid>,
+}
+
 // ============================================
 // Request/Response DTOs
 // ============================================
@@ -197,6 +236,8 @@ pub struct ChangeStatusRequest {
     pub remark: Option<String>,
     /// 審查委員 ID 列表（當目標狀態為 UNDER_REVIEW 時必填 2-3 位）
     pub reviewer_ids: Option<Vec<Uuid>>,
+    /// 獸醫師 ID（當目標狀態為 VET_REVIEW 時可選，未設定則使用預設獸醫）
+    pub vet_id: Option<Uuid>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -134,3 +134,33 @@ pub async fn update_storage_location_inventory_item(
     let item = StorageLocationService::update_inventory_item(&state.db, item_id, &req).await?;
     Ok(Json(item))
 }
+
+/// 新增儲位庫存項目
+pub async fn create_storage_location_inventory_item(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(storage_location_id): Path<Uuid>,
+    Json(req): Json<crate::models::CreateStorageLocationInventoryItemRequest>,
+) -> Result<Json<crate::models::StorageLocationInventoryItem>> {
+    require_permission!(current_user, "erp.storage_location.inventory.edit");
+    req.validate()
+        .map_err(|e| AppError::Validation(e.to_string()))?;
+
+    let item = StorageLocationService::create_inventory_item(&state.db, storage_location_id, &req).await?;
+    Ok(Json(item))
+}
+
+/// 調撥儲位庫存 (同倉庫內)
+pub async fn transfer_storage_location_inventory(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(item_id): Path<Uuid>,
+    Json(req): Json<crate::models::TransferStorageLocationInventoryRequest>,
+) -> Result<Json<crate::models::StorageLocationInventoryItem>> {
+    require_permission!(current_user, "erp.storage_location.inventory.edit");
+    req.validate()
+        .map_err(|e| AppError::Validation(e.to_string()))?;
+
+    let item = StorageLocationService::transfer_inventory(&state.db, item_id, &req).await?;
+    Ok(Json(item))
+}

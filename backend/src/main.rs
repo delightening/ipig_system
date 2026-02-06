@@ -280,7 +280,7 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             // Amendment 變更申請（審查、檢視）
             "amendment.read", "amendment.review",
             // 動物管理（只看）
-            "pig.pig.view_all", "pig.pig.view_project",
+            "animal.animal.view_all", "animal.animal.view_project",
             "animal.record.view",
             // 匯出（所有紀錄）
             "animal.export.medical", "animal.export.observation", "animal.export.surgery", "animal.export.experiment",
@@ -326,7 +326,7 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             // 版本管理
             "aup.version.view",
             // 動物管理 - 僅查看，不含來源管理
-            "pig.pig.view_all",
+            "animal.animal.view_all",
             "animal.record.view",
             // 安樂死仲裁權限（IACUC_CHAIR 為最終決策者）
             "animal.euthanasia.approve", "animal.euthanasia.arbitrate",
@@ -372,7 +372,7 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             // 物種管理
             "species.read", "species.create", "species.update",
             // 動物管理 - 可查看所有動物、新增、編輯、匯入
-            "pig.pig.view_all", "animal.info.create", "animal.info.edit", "animal.info.import",
+            "animal.animal.view_all", "animal.animal.create", "animal.animal.edit", "animal.animal.import",
             "animal.record.view", "animal.record.create", "animal.record.edit",
             "animal.record.observation", "animal.record.surgery", 
             "animal.record.weight", "animal.record.vaccine", "animal.record.sacrifice",

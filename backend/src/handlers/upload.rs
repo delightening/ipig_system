@@ -123,7 +123,7 @@ pub async fn upload_pig_photo(
     Path(pig_id): Path<Uuid>,
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
-    require_permission!(current_user, "animal.info.edit");
+    require_permission!(current_user, "animal.animal.edit");
 
     let mut results = Vec::new();
 
@@ -177,7 +177,7 @@ pub async fn upload_pathology_report(
     Path(pig_id): Path<Uuid>,
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
-    require_permission!(current_user, "animal.info.edit");
+    require_permission!(current_user, "animal.animal.edit");
 
     let mut results = Vec::new();
 

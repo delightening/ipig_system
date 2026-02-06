@@ -114,6 +114,8 @@ pub struct DocumentLine {
     pub batch_no: Option<String>,
     pub expiry_date: Option<NaiveDate>,
     pub remark: Option<String>,
+    /// 儲位 ID（GRN 入庫指定儲位）
+    pub storage_location_id: Option<Uuid>,
 }
 
 /// 建立單據請求
@@ -142,6 +144,8 @@ pub struct DocumentLineInput {
     pub batch_no: Option<String>,
     pub expiry_date: Option<NaiveDate>,
     pub remark: Option<String>,
+    /// 儲位 ID（GRN 入庫指定儲位）
+    pub storage_location_id: Option<Uuid>,
 }
 
 /// 更新單據請求 (僅 Draft 狀態可更新)
@@ -196,6 +200,8 @@ pub struct DocumentLineWithProduct {
     pub batch_no: Option<String>,
     pub expiry_date: Option<NaiveDate>,
     pub remark: Option<String>,
+    /// 儲位 ID（GRN 入庫指定儲位）
+    pub storage_location_id: Option<Uuid>,
 }
 
 /// 單據列表項
