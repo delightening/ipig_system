@@ -64,6 +64,9 @@ pub async fn list_protocols(
     if is_reviewer_only {
         protocols.retain(|p| {
             matches!(p.status, 
+                crate::models::ProtocolStatus::Submitted |
+                crate::models::ProtocolStatus::PreReview |
+                crate::models::ProtocolStatus::VetReview |
                 crate::models::ProtocolStatus::UnderReview |
                 crate::models::ProtocolStatus::Approved |
                 crate::models::ProtocolStatus::ApprovedWithConditions |
@@ -86,10 +89,11 @@ pub async fn get_protocol(
     let protocol = ProtocolService::get_by_id(&state.db, id).await?;
     
     // 檢查當前使用者是否有查看此專案的權限
-    // IACUC_CHAIR、IACUC_STAFF、SYSTEM_ADMIN 可以查看所有計畫書
+    // IACUC_CHAIR、IACUC_STAFF、SYSTEM_ADMIN、VET 可以查看所有計畫書
     let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string())
         || current_user.roles.contains(&"IACUC_CHAIR".to_string())
         || current_user.roles.contains(&"IACUC_STAFF".to_string())
+        || current_user.roles.contains(&"VET".to_string())
         || current_user.roles.contains(&"SYSTEM_ADMIN".to_string());
     
     // 檢查是否為 PI、CLIENT 或 CO_EDITOR
@@ -124,8 +128,24 @@ pub async fn get_protocol(
     .fetch_one(&state.db)
     .await
     .unwrap_or((false,));
+
+    // 檢查是否為已指派的獸醫審查員
+    let is_assigned_vet: (bool,) = sqlx::query_as(
+        r#"
+        SELECT EXISTS(
+            SELECT 1 FROM vet_review_assignments 
+            WHERE protocol_id = $1 
+            AND vet_id = $2
+        )
+        "#
+    )
+    .bind(id)
+    .bind(current_user.id)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or((false,));
     
-    if !has_view_all && protocol.protocol.pi_user_id != current_user.id && !is_pi_or_coeditor.0 && !is_assigned_reviewer.0 {
+    if !has_view_all && protocol.protocol.pi_user_id != current_user.id && !is_pi_or_coeditor.0 && !is_assigned_reviewer.0 && !is_assigned_vet.0 {
         return Err(AppError::Forbidden("You don't have permission to view this protocol".to_string()));
     }
     
@@ -538,10 +558,11 @@ pub async fn export_protocol_pdf(
     let protocol = ProtocolService::get_by_id(&state.db, id).await?;
     
     // 檢查當前使用者是否有查看此專案的權限
-    // IACUC_CHAIR、IACUC_STAFF、SYSTEM_ADMIN 可以查看所有計畫書
+    // IACUC_CHAIR、IACUC_STAFF、SYSTEM_ADMIN、VET 可以查看所有計畫書
     let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string())
         || current_user.roles.contains(&"IACUC_CHAIR".to_string())
         || current_user.roles.contains(&"IACUC_STAFF".to_string())
+        || current_user.roles.contains(&"VET".to_string())
         || current_user.roles.contains(&"SYSTEM_ADMIN".to_string());
     
     // 檢查是否為 PI、CLIENT 或 CO_EDITOR
@@ -576,8 +597,24 @@ pub async fn export_protocol_pdf(
     .fetch_one(&state.db)
     .await
     .unwrap_or((false,));
+
+    // 檢查是否為已指派的獸醫審查員
+    let is_assigned_vet: (bool,) = sqlx::query_as(
+        r#"
+        SELECT EXISTS(
+            SELECT 1 FROM vet_review_assignments 
+            WHERE protocol_id = $1 
+            AND vet_id = $2
+        )
+        "#
+    )
+    .bind(id)
+    .bind(current_user.id)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or((false,));
     
-    if !has_view_all && protocol.protocol.pi_user_id != current_user.id && !is_pi_or_coeditor.0 && !is_assigned_reviewer.0 {
+    if !has_view_all && protocol.protocol.pi_user_id != current_user.id && !is_pi_or_coeditor.0 && !is_assigned_reviewer.0 && !is_assigned_vet.0 {
         return Err(AppError::Forbidden("You don't have permission to export this protocol".to_string()));
     }
     

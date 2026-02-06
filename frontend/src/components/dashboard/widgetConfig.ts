@@ -162,8 +162,8 @@ export const widgetDescriptions: Record<string, { label: string; translate: bool
 
 // Widget 權限要求
 export const widgetPermissions: Record<string, string | undefined> = {
-    calendar_widget: undefined,
-    leave_balance: undefined,
+    calendar_widget: 'hr.attendance.view',
+    leave_balance: 'hr.balance.view',
     my_projects: undefined,
     animals_on_medication: undefined,
     vet_comments: undefined,
@@ -173,9 +173,9 @@ export const widgetPermissions: Record<string, string | undefined> = {
     today_outbound: 'erp',
     weekly_trend: 'erp',
     recent_documents: 'erp',
-    upcoming_leaves: undefined,
+    upcoming_leaves: 'hr.leave.view',
     staff_attendance: 'admin',
-    google_calendar_events: undefined,
+    google_calendar_events: 'hr.attendance.view',
 }
 
 // Widget 類別

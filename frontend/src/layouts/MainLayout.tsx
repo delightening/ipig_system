@@ -95,7 +95,7 @@ const navItemsConfig: NavItem[] = [
     title: 'dashboard',
     href: '/dashboard',
     icon: <LayoutDashboard className="h-5 w-5" />,
-    permission: 'erp',
+    permission: 'dashboard.view',
     translate: true,
   },
   {
@@ -606,9 +606,11 @@ export function MainLayout() {
           return false
         }
         if (item.permission === 'erp') {
-          const hasErpAccess = hasRole('admin') ||
-            user?.roles.some(r => ['purchasing', 'approver', 'WAREHOUSE_MANAGER', 'EXPERIMENT_STAFF'].includes(r)) ||
-            user?.permissions.some(p => p.startsWith('erp.'))
+          // 獸醫師不應該看到 ERP 相關功能
+          if (user?.roles?.includes('VET') && !hasRole('admin')) {
+            return false
+          }
+          const hasErpAccess = hasRole('admin') || user?.roles?.includes('EXPERIMENT_STAFF')
           return hasErpAccess
         }
         if (item.permission && !hasPermission(item.permission) && !hasRole(item.permission)) {

@@ -102,7 +102,7 @@ const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' |
 // 狀態轉換規則
 const allowedTransitions: Record<ProtocolStatus, ProtocolStatus[]> = {
   DRAFT: ['SUBMITTED'],
-  SUBMITTED: ['PRE_REVIEW'],
+  SUBMITTED: ['PRE_REVIEW', 'VET_REVIEW'],
   PRE_REVIEW: ['VET_REVIEW', 'REVISION_REQUIRED'],
   VET_REVIEW: ['UNDER_REVIEW', 'REVISION_REQUIRED'],
   UNDER_REVIEW: ['REVISION_REQUIRED', 'APPROVED', 'APPROVED_WITH_CONDITIONS', 'REJECTED', 'DEFERRED'],
@@ -490,23 +490,6 @@ export function ProtocolDetailPage() {
         remark: statusRemark || undefined,
         reviewer_ids: newStatus === 'UNDER_REVIEW' ? selectedReviewerIds : undefined,
       })
-
-      // If target status is PRE_REVIEW and co-editor is selected, assign co-editor
-      if (newStatus === 'PRE_REVIEW' && selectedCoEditorId && id) {
-        try {
-          await assignCoEditorMutation.mutateAsync({
-            protocol_id: id,
-            user_id: selectedCoEditorId,
-          })
-        } catch (error) {
-          // co-editor 指派失敗不影響狀態變更，只顯示警告
-          toast({
-            title: t('common.warning'),
-            description: t('protocols.detail.tables.assignCoeditorFailedWarning'),
-            variant: 'destructive',
-          })
-        }
-      }
     } catch (error) {
       // 錯誤已在 mutation 中處理
     }
@@ -635,9 +618,9 @@ export function ProtocolDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" >
       {/* Header */}
-      <div className="flex items-center justify-between">
+      < div className="flex items-center justify-between" >
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-5 w-5" />
@@ -686,10 +669,10 @@ export function ProtocolDetailPage() {
               </Button>
             )}
         </div>
-      </div>
+      </div >
 
       {/* Info Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      < div className="grid gap-4 md:grid-cols-4" >
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -741,10 +724,10 @@ export function ProtocolDetailPage() {
             </p>
           </CardContent>
         </Card>
-      </div>
+      </div >
 
       {/* Tabs */}
-      <div className="border-b">
+      < div className="border-b" >
         <nav className="flex gap-4 overflow-x-auto">
           {[
             { key: 'content', label: t('protocols.detail.tabs.content'), icon: FileText },
@@ -770,572 +753,590 @@ export function ProtocolDetailPage() {
             </button>
           ))}
         </nav>
-      </div>
+      </div >
 
       {/* Tab Content */}
-      {activeTab === 'content' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('protocols.detail.sections.contentTitle')}</CardTitle>
-            <CardDescription>{t('protocols.detail.sections.contentDesc')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ProtocolContentView
-              workingContent={(() => {
-                if (!protocol.working_content) return null
-                // 創建一個副本，去除 apply_study_number 字段
-                const cleanedContent = JSON.parse(JSON.stringify(protocol.working_content))
-                if (cleanedContent.basic && cleanedContent.basic.apply_study_number !== undefined) {
-                  delete cleanedContent.basic.apply_study_number
-                }
-                return cleanedContent
-              })()}
-              protocolTitle={protocol.title}
-              protocolId={id}
-              startDate={protocol.start_date}
-              endDate={protocol.end_date}
-            />
-          </CardContent>
-        </Card>
-      )}
+      {
+        activeTab === 'content' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('protocols.detail.sections.contentTitle')}</CardTitle>
+              <CardDescription>{t('protocols.detail.sections.contentDesc')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ProtocolContentView
+                workingContent={(() => {
+                  if (!protocol.working_content) return null
+                  // 創建一個副本，去除 apply_study_number 字段
+                  const cleanedContent = JSON.parse(JSON.stringify(protocol.working_content))
+                  if (cleanedContent.basic && cleanedContent.basic.apply_study_number !== undefined) {
+                    delete cleanedContent.basic.apply_study_number
+                  }
+                  return cleanedContent
+                })()}
+                protocolTitle={protocol.title}
+                protocolId={id}
+                startDate={protocol.start_date}
+                endDate={protocol.end_date}
+              />
+            </CardContent>
+          </Card>
+        )
+      }
 
-      {activeTab === 'versions' && (
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-center mb-4">
-              <CardDescription>{t('protocols.detail.sections.versionsDesc')}</CardDescription>
-              {versions && versions.length >= 2 && (
-                <Button
-                  variant={compareMode ? "destructive" : "outline"}
-                  size="sm"
-                  onClick={() => {
-                    setCompareMode(!compareMode)
-                    setSelectedCompareIds([])
-                  }}
-                >
-                  {compareMode ? t('common.cancel') : t('protocols.detail.tables.compareVersions')}
+      {
+        activeTab === 'versions' && (
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center mb-4">
+                <CardDescription>{t('protocols.detail.sections.versionsDesc')}</CardDescription>
+                {versions && versions.length >= 2 && (
+                  <Button
+                    variant={compareMode ? "destructive" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setCompareMode(!compareMode)
+                      setSelectedCompareIds([])
+                    }}
+                  >
+                    {compareMode ? t('common.cancel') : t('protocols.detail.tables.compareVersions')}
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {versions && versions.length > 0 ? (
+                <div className="space-y-4">
+                  {compareMode && selectedCompareIds.length === 2 && (
+                    <div className="bg-blue-50 border border-blue-100 p-3 rounded-md flex justify-between items-center">
+                      <span className="text-sm font-medium text-blue-700">
+                        {t('protocols.detail.tables.twoVersionsSelected')}
+                      </span>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          const vA = versions.find(v => v.id === selectedCompareIds[0])
+                          const vB = versions.find(v => v.id === selectedCompareIds[1])
+                          if (vA && vB) {
+                            // Ensure A is the older version based on version_no
+                            if (vA.version_no > vB.version_no) {
+                              setVersionA(vB)
+                              setVersionB(vA)
+                            } else {
+                              setVersionA(vA)
+                              setVersionB(vB)
+                            }
+                            setComparisonOpen(true)
+                          }
+                        }}
+                      >
+                        {t('protocols.detail.tables.startCompare')}
+                      </Button>
+                    </div>
+                  )}
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        {compareMode && <TableHead className="w-[50px]"></TableHead>}
+                        <TableHead>{t('protocols.detail.tables.versionNo')}</TableHead>
+                        <TableHead>{t('protocols.detail.tables.submitTime')}</TableHead>
+                        <TableHead>{t('protocols.detail.tables.actions')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {versions.map((version) => (
+                        <TableRow key={version.id}>
+                          {compareMode && (
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedCompareIds.includes(version.id)}
+                                onCheckedChange={(checked: boolean) => {
+                                  if (checked) {
+                                    if (selectedCompareIds.length < 2) {
+                                      setSelectedCompareIds([...selectedCompareIds, version.id])
+                                    }
+                                  } else {
+                                    setSelectedCompareIds(selectedCompareIds.filter(id => id !== version.id))
+                                  }
+                                }}
+                                disabled={!selectedCompareIds.includes(version.id) && selectedCompareIds.length >= 2}
+                              />
+                            </TableCell>
+                          )}
+                          <TableCell className="font-medium">v{version.version_no}</TableCell>
+                          <TableCell>{formatDateTime(version.submitted_at)}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedVersion(version)
+                                setShowVersionDialog(true)
+                              }}
+                            >
+                              <Eye className="mr-1 h-4 w-4" />
+                              {t('protocols.detail.tables.viewContent')}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <History className="h-12 w-12 mx-auto mb-2" />
+                  <p>{t('protocols.detail.tables.noVersions')}</p>
+                </div>
+              )}
+
+            </CardContent>
+          </Card>
+        )
+      }
+
+      {
+        activeTab === 'history' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('protocols.detail.sections.historyTitle')}</CardTitle>
+              <CardDescription>{t('protocols.detail.sections.historyDesc')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {statusHistory && statusHistory.length > 0 ? (
+                <div className="relative">
+                  <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200" />
+                  <ul className="space-y-4">
+                    {statusHistory.map((history, index) => (
+                      <li key={history.id} className="relative pl-10">
+                        <div className="absolute left-2 w-4 h-4 rounded-full bg-blue-600 border-2 border-white" />
+                        <div className="bg-slate-50 p-4 rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            {history.from_status && (
+                              <>
+                                <Badge variant={statusColors[history.from_status]}>
+                                  {t(`protocols.status.${history.from_status}`)}
+                                </Badge>
+                                <span className="text-muted-foreground">→</span>
+                              </>
+                            )}
+                            <Badge variant={statusColors[history.to_status]}>
+                              {t(`protocols.status.${history.to_status}`)}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {formatDateTime(history.created_at)}
+                          </p>
+                          {history.remark && (
+                            <p className="text-sm mt-2 text-slate-600">{history.remark}</p>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Clock className="h-12 w-12 mx-auto mb-2" />
+                  <p>{t('protocols.detail.tables.noHistory')}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )
+      }
+
+      {
+        activeTab === 'comments' && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>{t('protocols.detail.sections.commentsTitle')}</CardTitle>
+                <CardDescription>{t('protocols.detail.sections.commentsDesc')}</CardDescription>
+              </div>
+              {canAddComment && protocol.status !== 'DRAFT' && (
+                <Button onClick={() => setShowCommentDialog(true)}>
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  {t('protocols.detail.dialogs.comment.title')}
                 </Button>
               )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {versions && versions.length > 0 ? (
-              <div className="space-y-4">
-                {compareMode && selectedCompareIds.length === 2 && (
-                  <div className="bg-blue-50 border border-blue-100 p-3 rounded-md flex justify-between items-center">
-                    <span className="text-sm font-medium text-blue-700">
-                      {t('protocols.detail.tables.twoVersionsSelected')}
-                    </span>
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        const vA = versions.find(v => v.id === selectedCompareIds[0])
-                        const vB = versions.find(v => v.id === selectedCompareIds[1])
-                        if (vA && vB) {
-                          // Ensure A is the older version based on version_no
-                          if (vA.version_no > vB.version_no) {
-                            setVersionA(vB)
-                            setVersionB(vA)
-                          } else {
-                            setVersionA(vA)
-                            setVersionB(vB)
-                          }
-                          setComparisonOpen(true)
-                        }
-                      }}
-                    >
-                      {t('protocols.detail.tables.startCompare')}
+            </CardHeader>
+            <CardContent>
+              {commentsLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : comments && comments.length > 0 ? (
+                <div className="space-y-4">
+                  {comments
+                    .filter(c => !c.parent_comment_id) // 只顯示主評論
+                    .map((comment) => (
+                      <div key={comment.id} className="space-y-2">
+                        <div
+                          className={`p-4 rounded-lg border max-w-[85%] mr-auto ${comment.is_resolved ? 'bg-green-50 border-green-200' : 'bg-white border-slate-200'}`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                <UserIcon className="h-4 w-4 text-blue-600" />
+                              </div>
+                              <div>
+                                <p className="font-medium">{getReviewerDisplayName(comment)}</p>
+                                <p className="text-xs text-muted-foreground">{formatDateTime(comment.created_at)}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {canReply && !comment.is_resolved && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedCommentForReply(comment)
+                                    setShowReplyDialog(true)
+                                  }}
+                                >
+                                  <Reply className="mr-1 h-4 w-4" />
+                                  {t('protocols.detail.actions.reply')}
+                                </Button>
+                              )}
+                              {comment.is_resolved ? (
+                                <Badge variant="success" className="flex items-center gap-1">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  {t('protocols.detail.actions.resolved')}
+                                </Badge>
+                              ) : (
+                                // 只有提出意見的人才能標記為已解決
+                                user?.id === comment.reviewer_id && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => resolveCommentMutation.mutate(comment.id)}
+                                    disabled={resolveCommentMutation.isPending}
+                                  >
+                                    {resolveCommentMutation.isPending ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <>
+                                        <CheckCircle className="mr-1 h-4 w-4" />
+                                        {t('protocols.detail.actions.markResolved')}
+                                      </>
+                                    )}
+                                  </Button>
+                                )
+                              )}
+                            </div>
+                          </div>
+                          <p className="mt-3 text-sm text-slate-700 whitespace-pre-wrap">{comment.content}</p>
+                        </div>
+
+                        {/* 顯示回覆 */}
+                        {comments
+                          .filter(reply => reply.parent_comment_id === comment.id)
+                          .map(reply => (
+                            <div key={reply.id} className="ml-auto max-w-[85%] p-4 rounded-lg border bg-slate-50 border-slate-200">
+                              <div className="flex items-center gap-2 justify-end">
+                                <div className="text-right">
+                                  <p className="font-medium text-sm">{reply.replied_by_name || reply.reviewer_name || reply.reviewer_email}</p>
+                                  <p className="text-xs text-muted-foreground">{formatDateTime(reply.created_at)}</p>
+                                </div>
+                                <div className="h-6 w-6 rounded-full bg-green-100 flex items-center justify-center">
+                                  <Reply className="h-3 w-3 text-green-600" />
+                                </div>
+                              </div>
+                              <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap text-right">{reply.content}</p>
+                            </div>
+                          ))}
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <MessageSquare className="h-12 w-12 mx-auto mb-2" />
+                  <p>{t('protocols.detail.tables.noComments')}</p>
+                  {canAddComment && protocol.status !== 'DRAFT' && (
+                    <Button variant="link" onClick={() => setShowCommentDialog(true)} className="mt-2">
+                      {t('protocols.detail.dialogs.comment.firstComment')}
                     </Button>
-                  </div>
-                )}
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )
+      }
+
+      {
+        activeTab === 'reviewers' && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>{t('protocols.detail.sections.reviewersTitle')}</CardTitle>
+                <CardDescription>{t('protocols.detail.sections.reviewersDesc')}</CardDescription>
+              </div>
+              {canAssignReviewer && protocol.status !== 'DRAFT' && protocol.status !== 'CLOSED' && (
+                <Button onClick={() => setShowAssignDialog(true)}>
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  {t('protocols.detail.dialogs.assign.title')}
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent>
+              {reviewersLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : reviewers && reviewers.length > 0 ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {compareMode && <TableHead className="w-[50px]"></TableHead>}
-                      <TableHead>{t('protocols.detail.tables.versionNo')}</TableHead>
-                      <TableHead>{t('protocols.detail.tables.submitTime')}</TableHead>
-                      <TableHead>{t('protocols.detail.tables.actions')}</TableHead>
+                      <TableHead>{t('protocols.detail.tables.reviewer')}</TableHead>
+                      <TableHead>{t('protocols.detail.tables.assignedTime')}</TableHead>
+                      <TableHead>{t('protocols.detail.tables.assignedBy')}</TableHead>
+                      <TableHead>{t('protocols.detail.tables.completedTime')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {versions.map((version) => (
-                      <TableRow key={version.id}>
-                        {compareMode && (
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedCompareIds.includes(version.id)}
-                              onCheckedChange={(checked: boolean) => {
-                                if (checked) {
-                                  if (selectedCompareIds.length < 2) {
-                                    setSelectedCompareIds([...selectedCompareIds, version.id])
-                                  }
-                                } else {
-                                  setSelectedCompareIds(selectedCompareIds.filter(id => id !== version.id))
-                                }
-                              }}
-                              disabled={!selectedCompareIds.includes(version.id) && selectedCompareIds.length >= 2}
-                            />
-                          </TableCell>
-                        )}
-                        <TableCell className="font-medium">v{version.version_no}</TableCell>
-                        <TableCell>{formatDateTime(version.submitted_at)}</TableCell>
+                    {reviewers.map((reviewer) => (
+                      <TableRow key={reviewer.id}>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedVersion(version)
-                              setShowVersionDialog(true)
-                            }}
-                          >
-                            <Eye className="mr-1 h-4 w-4" />
-                            {t('protocols.detail.tables.viewContent')}
-                          </Button>
+                          <div>
+                            <p className="font-medium">{reviewer.reviewer_name || '-'}</p>
+                            <p className="text-sm text-muted-foreground">{reviewer.reviewer_email}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>{formatDateTime(reviewer.assigned_at)}</TableCell>
+                        <TableCell>{reviewer.assigned_by_name || '-'}</TableCell>
+                        <TableCell>
+                          {reviewer.completed_at ? (
+                            <Badge variant="success">{formatDateTime(reviewer.completed_at)}</Badge>
+                          ) : (
+                            <Badge variant="secondary">{t('protocols.detail.tables.reviewing')}</Badge>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <History className="h-12 w-12 mx-auto mb-2" />
-                <p>{t('protocols.detail.tables.noVersions')}</p>
-              </div>
-            )}
-
-          </CardContent>
-        </Card>
-      )}
-
-      {activeTab === 'history' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('protocols.detail.sections.historyTitle')}</CardTitle>
-            <CardDescription>{t('protocols.detail.sections.historyDesc')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {statusHistory && statusHistory.length > 0 ? (
-              <div className="relative">
-                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200" />
-                <ul className="space-y-4">
-                  {statusHistory.map((history, index) => (
-                    <li key={history.id} className="relative pl-10">
-                      <div className="absolute left-2 w-4 h-4 rounded-full bg-blue-600 border-2 border-white" />
-                      <div className="bg-slate-50 p-4 rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          {history.from_status && (
-                            <>
-                              <Badge variant={statusColors[history.from_status]}>
-                                {t(`protocols.status.${history.from_status}`)}
-                              </Badge>
-                              <span className="text-muted-foreground">→</span>
-                            </>
-                          )}
-                          <Badge variant={statusColors[history.to_status]}>
-                            {t(`protocols.status.${history.to_status}`)}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDateTime(history.created_at)}
-                        </p>
-                        {history.remark && (
-                          <p className="text-sm mt-2 text-slate-600">{history.remark}</p>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <Clock className="h-12 w-12 mx-auto mb-2" />
-                <p>{t('protocols.detail.tables.noHistory')}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {activeTab === 'comments' && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>{t('protocols.detail.sections.commentsTitle')}</CardTitle>
-              <CardDescription>{t('protocols.detail.sections.commentsDesc')}</CardDescription>
-            </div>
-            {canAddComment && protocol.status !== 'DRAFT' && (
-              <Button onClick={() => setShowCommentDialog(true)}>
-                <MessageSquare className="mr-2 h-4 w-4" />
-                {t('protocols.detail.dialogs.comment.title')}
-              </Button>
-            )}
-          </CardHeader>
-          <CardContent>
-            {commentsLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : comments && comments.length > 0 ? (
-              <div className="space-y-4">
-                {comments
-                  .filter(c => !c.parent_comment_id) // 只顯示主評論
-                  .map((comment) => (
-                    <div key={comment.id} className="space-y-2">
-                      <div
-                        className={`p-4 rounded-lg border max-w-[85%] mr-auto ${comment.is_resolved ? 'bg-green-50 border-green-200' : 'bg-white border-slate-200'}`}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                              <UserIcon className="h-4 w-4 text-blue-600" />
-                            </div>
-                            <div>
-                              <p className="font-medium">{getReviewerDisplayName(comment)}</p>
-                              <p className="text-xs text-muted-foreground">{formatDateTime(comment.created_at)}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {canReply && !comment.is_resolved && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedCommentForReply(comment)
-                                  setShowReplyDialog(true)
-                                }}
-                              >
-                                <Reply className="mr-1 h-4 w-4" />
-                                {t('protocols.detail.actions.reply')}
-                              </Button>
-                            )}
-                            {comment.is_resolved ? (
-                              <Badge variant="success" className="flex items-center gap-1">
-                                <CheckCircle2 className="h-3 w-3" />
-                                {t('protocols.detail.actions.resolved')}
-                              </Badge>
-                            ) : (
-                              // 只有提出意見的人才能標記為已解決
-                              user?.id === comment.reviewer_id && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => resolveCommentMutation.mutate(comment.id)}
-                                  disabled={resolveCommentMutation.isPending}
-                                >
-                                  {resolveCommentMutation.isPending ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <>
-                                      <CheckCircle className="mr-1 h-4 w-4" />
-                                      {t('protocols.detail.actions.markResolved')}
-                                    </>
-                                  )}
-                                </Button>
-                              )
-                            )}
-                          </div>
-                        </div>
-                        <p className="mt-3 text-sm text-slate-700 whitespace-pre-wrap">{comment.content}</p>
-                      </div>
-
-                      {/* 顯示回覆 */}
-                      {comments
-                        .filter(reply => reply.parent_comment_id === comment.id)
-                        .map(reply => (
-                          <div key={reply.id} className="ml-auto max-w-[85%] p-4 rounded-lg border bg-slate-50 border-slate-200">
-                            <div className="flex items-center gap-2 justify-end">
-                              <div className="text-right">
-                                <p className="font-medium text-sm">{reply.replied_by_name || reply.reviewer_name || reply.reviewer_email}</p>
-                                <p className="text-xs text-muted-foreground">{formatDateTime(reply.created_at)}</p>
-                              </div>
-                              <div className="h-6 w-6 rounded-full bg-green-100 flex items-center justify-center">
-                                <Reply className="h-3 w-3 text-green-600" />
-                              </div>
-                            </div>
-                            <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap text-right">{reply.content}</p>
-                          </div>
-                        ))}
-                    </div>
-                  ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <MessageSquare className="h-12 w-12 mx-auto mb-2" />
-                <p>{t('protocols.detail.tables.noComments')}</p>
-                {canAddComment && protocol.status !== 'DRAFT' && (
-                  <Button variant="link" onClick={() => setShowCommentDialog(true)} className="mt-2">
-                    {t('protocols.detail.dialogs.comment.firstComment')}
-                  </Button>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {activeTab === 'reviewers' && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>{t('protocols.detail.sections.reviewersTitle')}</CardTitle>
-              <CardDescription>{t('protocols.detail.sections.reviewersDesc')}</CardDescription>
-            </div>
-            {canAssignReviewer && protocol.status !== 'DRAFT' && protocol.status !== 'CLOSED' && (
-              <Button onClick={() => setShowAssignDialog(true)}>
-                <UserPlus className="mr-2 h-4 w-4" />
-                {t('protocols.detail.dialogs.assign.title')}
-              </Button>
-            )}
-          </CardHeader>
-          <CardContent>
-            {reviewersLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : reviewers && reviewers.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('protocols.detail.tables.reviewer')}</TableHead>
-                    <TableHead>{t('protocols.detail.tables.assignedTime')}</TableHead>
-                    <TableHead>{t('protocols.detail.tables.assignedBy')}</TableHead>
-                    <TableHead>{t('protocols.detail.tables.completedTime')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {reviewers.map((reviewer) => (
-                    <TableRow key={reviewer.id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{reviewer.reviewer_name || '-'}</p>
-                          <p className="text-sm text-muted-foreground">{reviewer.reviewer_email}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>{formatDateTime(reviewer.assigned_at)}</TableCell>
-                      <TableCell>{reviewer.assigned_by_name || '-'}</TableCell>
-                      <TableCell>
-                        {reviewer.completed_at ? (
-                          <Badge variant="success">{formatDateTime(reviewer.completed_at)}</Badge>
-                        ) : (
-                          <Badge variant="secondary">{t('protocols.detail.tables.reviewing')}</Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-2" />
-                <p>{t('protocols.detail.tables.noReviewers')}</p>
-                {canAssignReviewer && protocol.status !== 'DRAFT' && (
-                  <Button variant="link" onClick={() => setShowAssignDialog(true)} className="mt-2">
-                    {t('protocols.detail.tables.assignFirst')}
-                  </Button>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {activeTab === 'coeditors' && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>{t('protocols.detail.tabs.coeditors')}</CardTitle>
-              <CardDescription>{t('protocols.detail.sections.coeditorsDesc')}</CardDescription>
-            </div>
-            {canAssignReviewer && (
-              <Button onClick={() => setShowCoEditorDialog(true)}>
-                <UserPlus className="mr-2 h-4 w-4" />
-                {t('protocols.detail.tables.addCoeditor')}
-              </Button>
-            )}
-          </CardHeader>
-          <CardContent>
-            {coEditorsLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : coEditors && coEditors.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('protocols.detail.tabs.coeditors')}</TableHead>
-                    <TableHead>{t('protocols.detail.tables.assignedTime')}</TableHead>
-                    <TableHead>{t('protocols.detail.tables.assignedBy')}</TableHead>
-                    <TableHead>{t('protocols.detail.tables.actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {coEditors.map((coEditor) => (
-                    <TableRow key={coEditor.user_id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{coEditor.user_name}</p>
-                          <p className="text-sm text-muted-foreground">{coEditor.user_email}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>{formatDateTime(coEditor.granted_at)}</TableCell>
-                      <TableCell>{coEditor.granted_by_name || '-'}</TableCell>
-                      <TableCell>
-                        {canAssignReviewer && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              if (confirm(t('protocols.detail.actions.removeCoeditorConfirm'))) {
-                                removeCoEditorMutation.mutate(coEditor.user_id)
-                              }
-                            }}
-                            disabled={removeCoEditorMutation.isPending}
-                          >
-                            {removeCoEditorMutation.isPending ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <>
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </>
-                            )}
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <UserPlus className="h-12 w-12 mx-auto mb-2" />
-                <p>{t('protocols.detail.tables.noCoeditors')}</p>
-                <p className="text-sm mt-2">{t('protocols.detail.tables.coeditorHint')}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {activeTab === 'attachments' && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>{t('protocols.detail.sections.attachmentsTitle')}</CardTitle>
-              <CardDescription>{t('protocols.detail.sections.attachmentsDesc')}</CardDescription>
-            </div>
-            {canManageAttachments && (
-              <>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-                <Button onClick={() => fileInputRef.current?.click()} disabled={uploadAttachmentMutation.isPending}>
-                  {uploadAttachmentMutation.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Upload className="mr-2 h-4 w-4" />
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Users className="h-12 w-12 mx-auto mb-2" />
+                  <p>{t('protocols.detail.tables.noReviewers')}</p>
+                  {canAssignReviewer && protocol.status !== 'DRAFT' && (
+                    <Button variant="link" onClick={() => setShowAssignDialog(true)} className="mt-2">
+                      {t('protocols.detail.tables.assignFirst')}
+                    </Button>
                   )}
-                  {t('protocols.detail.tables.upload')}
-                </Button>
-              </>
-            )}
-          </CardHeader>
-          <CardContent>
-            {attachmentsLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )
+      }
+
+      {
+        activeTab === 'coeditors' && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>{t('protocols.detail.tabs.coeditors')}</CardTitle>
+                <CardDescription>{t('protocols.detail.sections.coeditorsDesc')}</CardDescription>
               </div>
-            ) : attachments && attachments.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('protocols.detail.tables.fileName')}</TableHead>
-                    <TableHead>{t('protocols.detail.tables.size')}</TableHead>
-                    <TableHead>{t('protocols.detail.tables.uploadedBy')}</TableHead>
-                    <TableHead>{t('protocols.detail.tables.uploadTime')}</TableHead>
-                    <TableHead>{t('protocols.detail.tables.actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {attachments.map((attachment) => (
-                    <TableRow key={attachment.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Paperclip className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium">{attachment.file_name}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>{formatFileSize(attachment.file_size)}</TableCell>
-                      <TableCell>{attachment.uploaded_by_name || '-'}</TableCell>
-                      <TableCell>{formatDateTime(attachment.created_at)}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDownloadAttachment(attachment)}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          {canManageAttachments && (
+              {canAssignReviewer && (
+                <Button onClick={() => setShowCoEditorDialog(true)}>
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  {t('protocols.detail.tables.addCoeditor')}
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent>
+              {coEditorsLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : coEditors && coEditors.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t('protocols.detail.tabs.coeditors')}</TableHead>
+                      <TableHead>{t('protocols.detail.tables.assignedTime')}</TableHead>
+                      <TableHead>{t('protocols.detail.tables.assignedBy')}</TableHead>
+                      <TableHead>{t('protocols.detail.tables.actions')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {coEditors.map((coEditor) => (
+                      <TableRow key={coEditor.user_id}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{coEditor.user_name}</p>
+                            <p className="text-sm text-muted-foreground">{coEditor.user_email}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>{formatDateTime(coEditor.granted_at)}</TableCell>
+                        <TableCell>{coEditor.granted_by_name || '-'}</TableCell>
+                        <TableCell>
+                          {canAssignReviewer && (
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => {
-                                if (confirm(t('protocols.detail.actions.deleteConfirm'))) {
-                                  deleteAttachmentMutation.mutate(attachment.id)
+                                if (confirm(t('protocols.detail.actions.removeCoeditorConfirm'))) {
+                                  removeCoEditorMutation.mutate(coEditor.user_id)
                                 }
                               }}
-                              disabled={deleteAttachmentMutation.isPending}
+                              disabled={removeCoEditorMutation.isPending}
                             >
-                              <Trash2 className="h-4 w-4 text-destructive" />
+                              {removeCoEditorMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </>
+                              )}
                             </Button>
                           )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <Paperclip className="h-12 w-12 mx-auto mb-2" />
-                <p>{t('protocols.detail.tables.noAttachments')}</p>
-                {canManageAttachments && (
-                  <Button variant="link" onClick={() => fileInputRef.current?.click()} className="mt-2">
-                    {t('protocols.detail.tables.uploadFirst')}
-                  </Button>
-                )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <UserPlus className="h-12 w-12 mx-auto mb-2" />
+                  <p>{t('protocols.detail.tables.noCoeditors')}</p>
+                  <p className="text-sm mt-2">{t('protocols.detail.tables.coeditorHint')}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )
+      }
+
+      {
+        activeTab === 'attachments' && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>{t('protocols.detail.sections.attachmentsTitle')}</CardTitle>
+                <CardDescription>{t('protocols.detail.sections.attachmentsDesc')}</CardDescription>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+              {canManageAttachments && (
+                <>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                  <Button onClick={() => fileInputRef.current?.click()} disabled={uploadAttachmentMutation.isPending}>
+                    {uploadAttachmentMutation.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Upload className="mr-2 h-4 w-4" />
+                    )}
+                    {t('protocols.detail.tables.upload')}
+                  </Button>
+                </>
+              )}
+            </CardHeader>
+            <CardContent>
+              {attachmentsLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : attachments && attachments.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t('protocols.detail.tables.fileName')}</TableHead>
+                      <TableHead>{t('protocols.detail.tables.size')}</TableHead>
+                      <TableHead>{t('protocols.detail.tables.uploadedBy')}</TableHead>
+                      <TableHead>{t('protocols.detail.tables.uploadTime')}</TableHead>
+                      <TableHead>{t('protocols.detail.tables.actions')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {attachments.map((attachment) => (
+                      <TableRow key={attachment.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Paperclip className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{attachment.file_name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>{formatFileSize(attachment.file_size)}</TableCell>
+                        <TableCell>{attachment.uploaded_by_name || '-'}</TableCell>
+                        <TableCell>{formatDateTime(attachment.created_at)}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDownloadAttachment(attachment)}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                            {canManageAttachments && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  if (confirm(t('protocols.detail.actions.deleteConfirm'))) {
+                                    deleteAttachmentMutation.mutate(attachment.id)
+                                  }
+                                }}
+                                disabled={deleteAttachmentMutation.isPending}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Paperclip className="h-12 w-12 mx-auto mb-2" />
+                  <p>{t('protocols.detail.tables.noAttachments')}</p>
+                  {canManageAttachments && (
+                    <Button variant="link" onClick={() => fileInputRef.current?.click()} className="mt-2">
+                      {t('protocols.detail.tables.uploadFirst')}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )
+      }
 
-      {activeTab === 'pigs' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('protocols.detail.tabs.pigs')}</CardTitle>
-            <CardDescription>{t('protocols.detail.sections.pigsDesc')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center py-12">
-              <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold mb-2">{t('protocols.detail.tables.noPigs')}</h3>
-              <p className="text-muted-foreground">
-                {t('protocols.detail.tables.noPigsDesc')}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {
+        activeTab === 'pigs' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('protocols.detail.tabs.pigs')}</CardTitle>
+              <CardDescription>{t('protocols.detail.sections.pigsDesc')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-12">
+                <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-lg font-semibold mb-2">{t('protocols.detail.tables.noPigs')}</h3>
+                <p className="text-muted-foreground">
+                  {t('protocols.detail.tables.noPigsDesc')}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )
+      }
 
-      {activeTab === 'amendments' && id && (
-        <AmendmentsTab protocolId={id} protocolStatus={protocol.status} />
-      )}
+      {
+        activeTab === 'amendments' && id && (
+          <AmendmentsTab protocolId={id} protocolStatus={protocol.status} />
+        )
+      }
 
       {/* Status change dialog */}
       <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
@@ -1368,26 +1369,6 @@ export function ProtocolDetailPage() {
                 </SelectContent>
               </Select>
             </div>
-            {newStatus === 'PRE_REVIEW' && (
-              <div className="space-y-2">
-                <Label>{t('protocols.detail.dialogs.status.coeditor')}</Label>
-                <Select value={selectedCoEditorId} onValueChange={setSelectedCoEditorId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={t('protocols.detail.dialogs.status.coeditorPlaceholder')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableExperimentStaff?.map((staff) => (
-                      <SelectItem key={staff.id} value={staff.id}>
-                        {staff.display_name || staff.email}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  {t('protocols.detail.dialogs.status.coeditorHint')}
-                </p>
-              </div>
-            )}
             {newStatus === 'UNDER_REVIEW' && (
               <div className="space-y-2">
                 <Label>{t('protocols.detail.dialogs.status.reviewers')}</Label>
@@ -1674,21 +1655,23 @@ export function ProtocolDetailPage() {
       </Dialog>
 
       {/* Version Comparison Dialog */}
-      {versionA && versionB && (
-        <ProtocolComparisonDialog
-          open={comparisonOpen}
-          onOpenChange={setComparisonOpen}
-          versionA={{
-            version_no: versionA.version_no,
-            content: versionA.content_snapshot as any
-          }}
-          versionB={{
-            version_no: versionB.version_no,
-            content: versionB.content_snapshot as any
-          }}
-          protocolTitle={protocol.title}
-        />
-      )}
-    </div>
+      {
+        versionA && versionB && (
+          <ProtocolComparisonDialog
+            open={comparisonOpen}
+            onOpenChange={setComparisonOpen}
+            versionA={{
+              version_no: versionA.version_no,
+              content: versionA.content_snapshot as any
+            }}
+            versionB={{
+              version_no: versionB.version_no,
+              content: versionB.content_snapshot as any
+            }}
+            protocolTitle={protocol.title}
+          />
+        )
+      }
+    </div >
   )
 }

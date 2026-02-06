@@ -109,15 +109,15 @@ function ForcePasswordRoute({ children }: { children: React.ReactNode }) {
     return <>{children}</>
 }
 
-// Erp Route - 僅限具備 ERP 權限的使用者
-function ErpRoute({ children }: { children?: React.ReactNode }) {
+// Dashboard Route - 僅限具備權限或是審查/主席/獸醫角色的人員
+function DashboardRoute({ children }: { children?: React.ReactNode }) {
     const { user, hasRole, hasPermission } = useAuthStore()
 
-    const hasErpAccess = hasRole('admin') ||
-        user?.roles.some(r => ['purchasing', 'approver', 'WAREHOUSE_MANAGER', 'EXPERIMENT_STAFF'].includes(r)) ||
+    const hasDashboardAccess = hasRole('admin') ||
+        user?.roles.some(r => ['purchasing', 'approver', 'WAREHOUSE_MANAGER', 'EXPERIMENT_STAFF', 'REVIEWER', 'VET', 'IACUC_CHAIR'].includes(r)) ||
         user?.permissions.some(p => p.startsWith('erp.'))
 
-    if (!hasErpAccess) {
+    if (!hasDashboardAccess) {
         return <Navigate to="/my-projects" replace />
     }
 
@@ -154,11 +154,11 @@ function App() {
 
     // 判斷首頁導向
     const getHomeRedirect = () => {
-        const hasErpAccess = hasRole('admin') ||
-            user?.roles.some(r => ['warehouse', 'purchasing', 'sales', 'approver', 'EXPERIMENT_STAFF'].includes(r)) ||
+        const hasDashboardAccess = hasRole('admin') ||
+            user?.roles.some(r => ['warehouse', 'purchasing', 'sales', 'approver', 'EXPERIMENT_STAFF', 'REVIEWER', 'VET', 'IACUC_CHAIR'].includes(r)) ||
             user?.permissions.some(p => p.startsWith('erp.'))
 
-        return hasErpAccess ? "/dashboard" : "/my-projects"
+        return hasDashboardAccess ? "/dashboard" : "/my-projects"
     }
 
     return (
@@ -193,8 +193,8 @@ function App() {
                 >
                     <Route path="/" element={<Navigate to={getHomeRedirect()} replace />} />
 
-                    {/* ERP 模組路由 */}
-                    <Route element={<ErpRoute />}>
+                    {/* Dashboard 與 ERP 模組路由 */}
+                    <Route element={<DashboardRoute />}>
                         <Route path="/dashboard" element={<DashboardPage />} />
                         <Route path="/erp" element={<ErpPage />} />
 
