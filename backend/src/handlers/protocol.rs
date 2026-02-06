@@ -13,7 +13,7 @@ use crate::{
         AssignReviewerRequest, AssignCoEditorRequest, ChangeStatusRequest, CreateCommentRequest, CreateProtocolRequest,
         CoEditorAssignmentResponse,
         Protocol, ProtocolListItem, ProtocolQuery, ProtocolResponse, ProtocolStatusHistory,
-        ProtocolVersion, ReplyCommentRequest, ReviewAssignment, ReviewComment, ReviewCommentResponse,
+        ProtocolVersion, ReplyCommentRequest, ReviewAssignment, ReviewAssignmentResponse, ReviewComment, ReviewCommentResponse,
         UpdateProtocolRequest, UserProtocol, SaveDraftRequest, SubmitReplyRequest,
     },
     require_permission,
@@ -42,10 +42,8 @@ pub async fn list_protocols(
 ) -> Result<Json<Vec<ProtocolListItem>>> {
     // 檢查當前使用者是否有查看所有專案的權限
     // IACUC_STAFF 可以查看所有專案，其他角色只能查看自己的專案，詳見 role.md 和 AUP 規格說明
-    let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string())
-        || current_user.roles.contains(&"IACUC_STAFF".to_string())
-        || current_user.roles.contains(&"SYSTEM_ADMIN".to_string())
-        || current_user.roles.contains(&"IACUC_CHAIR".to_string());
+    let has_view_all = current_user.has_permission("aup.protocol.view_all")
+        || current_user.roles.iter().any(|r| ["IACUC_STAFF", "VET", "REVIEWER", "IACUC_CHAIR"].contains(&r.as_str()));
     
     // 檢查是否為純審查委員角色（只有 REVIEWER 或 VET，沒有其他管理角色）
     let is_reviewer_only = current_user.roles.iter()
@@ -89,11 +87,12 @@ pub async fn get_protocol(
     let protocol = ProtocolService::get_by_id(&state.db, id).await?;
     
     // 檢查當前使用者是否有查看此專案的權限
-    // IACUC_CHAIR、IACUC_STAFF、SYSTEM_ADMIN、VET 可以查看所有計畫書
+    // IACUC_CHAIR、IACUC_STAFF、SYSTEM_ADMIN、VET、REVIEWER 可以查看所有計畫書
     let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string())
         || current_user.roles.contains(&"IACUC_CHAIR".to_string())
         || current_user.roles.contains(&"IACUC_STAFF".to_string())
         || current_user.roles.contains(&"VET".to_string())
+        || current_user.roles.contains(&"REVIEWER".to_string())
         || current_user.roles.contains(&"SYSTEM_ADMIN".to_string());
     
     // 檢查是否為 PI、CLIENT 或 CO_EDITOR
@@ -316,20 +315,101 @@ pub async fn list_review_assignments(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<ProtocolIdQuery>,
-) -> Result<Json<Vec<ReviewAssignment>>> {
+) -> Result<Json<Vec<ReviewAssignmentResponse>>> {
     require_permission!(current_user, "aup.protocol.view_own");
     
     let protocol_id = query.protocol_id
         .ok_or_else(|| AppError::Validation("protocol_id is required".to_string()))?;
+
+    // 檢查當前使用者是否有查看所有專案的權限 (管理員、預審員、主席等)
+    let has_view_all = current_user.has_permission("aup.protocol.view_all")
+        || current_user.roles.iter().any(|r| ["IACUC_CHAIR", "IACUC_STAFF"].contains(&r.as_str()));
+
+    if !has_view_all {
+        // 檢查是否為已指派的審查委員
+        let is_assigned_reviewer: (bool,) = sqlx::query_as(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM review_assignments 
+                WHERE protocol_id = $1 
+                AND reviewer_id = $2
+            )
+            "#
+        )
+        .bind(protocol_id)
+        .bind(current_user.id)
+        .fetch_one(&state.db)
+        .await
+        .unwrap_or((false,));
+
+        // 檢查是否為已指派的獸醫審查員
+        let is_assigned_vet: (bool,) = sqlx::query_as(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM vet_review_assignments 
+                WHERE protocol_id = $1 
+                AND vet_id = $2
+            )
+            "#
+        )
+        .bind(protocol_id)
+        .bind(current_user.id)
+        .fetch_one(&state.db)
+        .await
+        .unwrap_or((false,));
+
+        if !is_assigned_reviewer.0 && !is_assigned_vet.0 {
+            return Err(AppError::Forbidden("You don't have permission to view reviewer assignments for this protocol".to_string()));
+        }
+    }
     
-    let assignments: Vec<ReviewAssignment> = sqlx::query_as(
-        "SELECT * FROM review_assignments WHERE protocol_id = $1"
+    // 獲取一般審查指派
+    let assignments: Vec<ReviewAssignmentResponse> = sqlx::query_as(
+        r#"
+        SELECT 
+            ra.*,
+            u_rev.display_name as reviewer_name,
+            u_rev.email as reviewer_email,
+            u_as.display_name as assigned_by_name
+        FROM review_assignments ra
+        JOIN users u_rev ON ra.reviewer_id = u_rev.id
+        JOIN users u_as ON ra.assigned_by = u_as.id
+        WHERE ra.protocol_id = $1
+        "#
+    )
+    .bind(protocol_id)
+    .fetch_all(&state.db)
+    .await?;
+
+    // 獲取獸醫審查指派並轉換為 ReviewAssignmentResponse
+    let vet_assignments: Vec<ReviewAssignmentResponse> = sqlx::query_as(
+        r#"
+        SELECT 
+            id,
+            protocol_id,
+            vet_id as reviewer_id,
+            u_vet.display_name as reviewer_name,
+            u_vet.email as reviewer_email,
+            COALESCE(assigned_by, id) as assigned_by,
+            COALESCE(u_as.display_name, 'System') as assigned_by_name,
+            assigned_at,
+            completed_at,
+            true as is_primary_reviewer,
+            'VET_REVIEW' as review_stage
+        FROM vet_review_assignments vra
+        JOIN users u_vet ON vra.vet_id = u_vet.id
+        LEFT JOIN users u_as ON vra.assigned_by = u_as.id
+        WHERE vra.protocol_id = $1
+        "#
     )
     .bind(protocol_id)
     .fetch_all(&state.db)
     .await?;
     
-    Ok(Json(assignments))
+    let mut all_assignments = assignments;
+    all_assignments.extend(vet_assignments);
+    
+    Ok(Json(all_assignments))
 }
 
 #[derive(Debug, serde::Deserialize)]

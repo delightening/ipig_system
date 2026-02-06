@@ -545,8 +545,9 @@ export function ProtocolDetailPage() {
 
   // Reviewers can only add comments in UNDER_REVIEW status
   const isReviewer = user?.roles?.some(r => ['REVIEWER', 'VET'].includes(r))
+  const isVet = user?.roles?.includes('VET')
   const isIACUCOrAdmin = user?.roles?.some(r => ['IACUC_CHAIR', 'IACUC_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
-  const canAddComment = isIACUCOrAdmin || (isReviewer && protocol?.status === 'UNDER_REVIEW')
+  const canAddComment = isIACUCOrAdmin || (isReviewer && (protocol?.status === 'UNDER_REVIEW' || (isVet && protocol?.status === 'VET_REVIEW')))
 
   // PI, co-editor, and IACUC_STAFF can reply to review comments
   const canReply = user?.roles?.some(r => ['PI', 'EXPERIMENT_STAFF', 'IACUC_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
@@ -661,9 +662,10 @@ export function ProtocolDetailPage() {
               </Link>
             </Button>
           )}
-          {/* 只有 IACUC_STAFF、CHAIR、SYSTEM_ADMIN 或 admin 可以變更狀態 */}
+          {/* 只有 IACUC_STAFF、CHAIR、SYSTEM_ADMIN、admin 或受指派的獸醫師 (在 VET_REVIEW 階段) 可以變更狀態 */}
           {getAvailableTransitions().length > 0 && protocol.status !== 'DRAFT' &&
-            user?.roles?.some(r => ['IACUC_STAFF', 'IACUC_CHAIR', 'SYSTEM_ADMIN', 'admin'].includes(r)) && (
+            (user?.roles?.some(r => ['IACUC_STAFF', 'IACUC_CHAIR', 'SYSTEM_ADMIN', 'admin'].includes(r)) ||
+              (isVet && protocol.status === 'VET_REVIEW')) && (
               <Button variant="outline" onClick={() => setShowStatusDialog(true)}>
                 {t('protocols.detail.changeStatus')}
               </Button>
@@ -739,7 +741,13 @@ export function ProtocolDetailPage() {
             { key: 'coeditors', label: t('protocols.detail.tabs.coeditors'), icon: UserPlus },
             { key: 'attachments', label: t('protocols.detail.tabs.attachments'), icon: Paperclip },
             { key: 'amendments', label: t('protocols.detail.tabs.amendments'), icon: FileEdit },
-          ].map((tab) => (
+          ].filter(tab => {
+            if (tab.key === 'reviewers') {
+              // Only staff, reviewers, and vets can see the reviewers list
+              return !shouldAnonymizeReviewers
+            }
+            return true
+          }).map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key as typeof activeTab)}
