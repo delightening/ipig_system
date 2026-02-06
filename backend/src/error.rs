@@ -62,8 +62,9 @@ impl IntoResponse for AppError {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string())
             }
             AppError::Database(e) => {
-                tracing::error!("Database error: {:?}", e);
-                (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
+                let msg = format!("Database error: {}", e);
+                tracing::error!("{}", msg);
+                (StatusCode::INTERNAL_SERVER_ERROR, msg)
             }
             AppError::Anyhow(e) => {
                 tracing::error!("Unexpected error: {:?}", e);

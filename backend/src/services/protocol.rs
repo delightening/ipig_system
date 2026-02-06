@@ -1038,15 +1038,27 @@ impl ProtocolService {
         req: &CreateCommentRequest,
         reviewer_id: Uuid,
     ) -> Result<ReviewComment> {
+        // 獲取關聯的 protocol_id
+        let protocol_id: Uuid = sqlx::query_scalar(
+            "SELECT protocol_id FROM protocol_versions WHERE id = $1"
+        )
+        .bind(req.protocol_version_id)
+        .fetch_one(pool)
+        .await?;
+
         let comment = sqlx::query_as::<_, ReviewComment>(
             r#"
-            INSERT INTO review_comments (id, protocol_version_id, reviewer_id, content, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, NOW(), NOW())
+            INSERT INTO review_comments (
+                id, protocol_version_id, protocol_id, reviewer_id, 
+                content, review_stage, created_at, updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, 'UNDER_REVIEW', NOW(), NOW())
             RETURNING *
             "#
         )
         .bind(Uuid::new_v4())
         .bind(req.protocol_version_id)
+        .bind(protocol_id)
         .bind(reviewer_id)
         .bind(&req.content)
         .fetch_one(pool)
