@@ -66,9 +66,6 @@
         "readOnly": "(Read only)",
         "phone": "Phone",
         "phonePlaceholder": "e.g. 0912-345-678",
-        "aupSection8Description": "This information will be automatically filled into your AUP applications. Please ensure accuracy.",
-        "notFilled": "Not Filled",
-        "completedCount": "{{count}} items completed",
         "organization": "Organization",
         "organizationPlaceholder": "e.g. MOHW, University Name",
         "aupSection8": "AUP Section 8 Data",
@@ -93,6 +90,9 @@
         "saving": "Saving...",
         "confirmAndSave": "Confirm and Save",
         "aupRoles": "AUP Roles You Can Undertake",
+        "aupSection8Description": "This information will be automatically filled into your AUP applications. Please ensure accuracy.",
+        "notFilled": "Not Filled",
+        "completedCount": "{{count}} items completed",
         "roles": {
             "PI": "Principal Investigator (PI)",
             "Co-PI": "Co-Principal Investigator (Co-PI)",
@@ -110,7 +110,8 @@
         "newProtocol": "New Protocol",
         "myAmendments": "Amendments",
         "animalManagement": "Animals",
-        "animalList": "Animal List"
+        "animalList": "Animal List",
+        "expandSidebar": "Expand Sidebar"
     },
     "dashboard": {
         "title": "Dashboard",

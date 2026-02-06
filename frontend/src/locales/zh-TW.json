@@ -55,7 +55,6 @@
     "clear": "清空",
     "today": "今天"
   },
-  "user": {},
   "profile": {
     "settings": "個人帳號設定",
     "description": "管理您的個人資料、聯絡資訊與 AUP 相關人員資格",
@@ -586,6 +585,7 @@
     "section9": "9. 附件",
     "section10": "10. 電子簽名",
     "basic": {
+      "_comment": "第 1 節：基本資料",
       "title": "研究資料",
       "subtitle": "填寫研究基本資訊、試驗機構與主持人資料",
       "glpAttribute": "GLP 屬性",
@@ -655,10 +655,11 @@
       }
     },
     "purpose": {
+      "_comment": "第 2 節：研究目的",
       "title": "研究目的",
       "subtitle": "說明研究目的、重要性與 3Rs 替代、減量原則",
       "significance": "2.1 研究之目的及重要性",
-      "significancePlaceholder": "摘要並簡單闡述本動物實驗計畫的意義及基本理由\n此段描述不同於發表學術期刊及研討會所需的摘要，\n而是提供給具有社會公正人士身分的 IACUC 委員進行審查的重要根據，\n故應避免使醫學專用字彙與艱深科學概念(或盡可能說明清楚科學意義)\n，與避免透露專利相關事宜。且需定義縮寫字詞，此處所撰寫內容請勿超過一個A4頁面\n，相當於 250-500 個英文單字或 500-1000 個中文字。",
+      "significancePlaceholder": "摘要並簡單闡述本動物實驗計畫的意義及基本理由\n此段描述不同於發表學術期刊及研討會所需的摘要，\n而是提供給具有社會公正人士身分的 IACUC 委員進行審查的重要根據，\n故應避免使醫學專用字彙與艱深科學概念(或盡可能說明清楚科學意義)\n，與避免透露專利相關事宜。且需定義縮寫字詞，此處所撰寫內容請勿超過一個A4頁面",
       "replacementPrinciple": "2.2 請以動物試驗應用3Rs之替代原則，說明本動物試驗之合理性:",
       "liveAnimalNecessity": "2.2.1 請說明活體動物試驗之必要性，以及選擇此動物種別的原因:",
       "liveAnimalNecessityPlaceholder": "請說明活體動物試驗之必要性，以及選擇此動物種別的原因",
@@ -688,6 +689,7 @@
       }
     },
     "items": {
+      "_comment": "第 3 節：試驗物質與對照物質",
       "title": "試驗物質與對照物質",
       "subtitle": "列舉研究使用的試驗物質與對照物質",
       "useTestItemLabel": "本計畫是否投予「試驗物質」於動物",
@@ -724,6 +726,7 @@
       }
     },
     "design": {
+      "_comment": "第 4 節：試驗設計與處置",
       "subtitle": "",
       "title4_1": "4.1 請以實驗動物應用3Rs之精緻化原則，詳細說明實驗中所進行之動物試驗內容。使實驗動物照護及使用委員會委員了解動物試驗所有過程:",
       "anesthesiaLabel": "4.1.1 是否於麻醉下進行試驗",
@@ -859,6 +862,7 @@
       "urlPlaceholder": "URL (選填)"
     },
     "surgery": {
+      "_comment": "第 6 節：手術計畫書",
       "title": "手術計畫書",
       "subtitle": "說明手術流程與術後照護",
       "labels": {
@@ -882,7 +886,7 @@
       "placeholders": {
         "preopPreparation": "說明禁食禁水時間、備皮、消毒等",
         "surgeryDescription": "請詳述手術流程，包含手術位置、手術方法、切創大小及縫合處理",
-        "monitoring": "手術進行中依試驗豬隻麻醉深度、呼吸頻率及手術需要，調整氧氣、笑氣流速及麻醉氣體濃度，同時注意保溫，接上生理監視器，監控記錄心跳、呼吸及體溫。依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行",
+        "monitoring": "",
         "postopCare": "請說明動物術後照護及止痛給藥方法",
         "expectedEndPoint": "請說明實驗預期結束之時機",
         "drugInfo": "請填寫手術用藥資訊"
@@ -933,6 +937,7 @@
       "loadDefaults": "載入預設值"
     },
     "animals": {
+      "_comment": "第 7 節：實驗動物資料",
       "title": "實驗動物資料",
       "subtitle": "填寫動物物種、品系及數量",
       "listHeader": "動物清單（依序添加公母或性別不限）",
@@ -1001,6 +1006,7 @@
       }
     },
     "personnel": {
+      "_comment": "第 8 節：試驗人員資料",
       "title": "試驗人員資料",
       "subtitle": "負責進行動物試驗之相關人員資料",
       "listHeader": "8.1 負責進行動物試驗之相關人員資料",
@@ -1230,6 +1236,7 @@
   },
   "settings": {
     "basic": {
+      "_comment": "第 11 節：基本設定",
       "title": "基本設定",
       "description": "設定公司基本資訊",
       "companyName": "公司名稱",
@@ -1240,6 +1247,7 @@
       "secondaryWarehouse": "副倉庫"
     },
     "inventory": {
+      "_comment": "第 12 節：庫存設定",
       "title": "庫存設定",
       "description": "設定庫存計算方式",
       "costMethod": "成本計算方式",
@@ -1250,6 +1258,7 @@
       "supportHint": "目前版本支援加權平均法和移動平均法"
     },
     "email": {
+      "_comment": "第 13 節：郵件設定",
       "title": "郵件設定",
       "description": "設定 SMTP 郵件伺服器",
       "smtpServer": "SMTP 伺服器",
@@ -1257,12 +1266,14 @@
       "account": "帳號"
     },
     "security": {
+      "_comment": "第 14 節：安全設定",
       "title": "安全設定",
       "description": "設定系統安全相關參數",
       "sessionTimeout": "Session 逾時（分鐘）"
     },
     "saveSystem": "儲存系統設定",
     "notifications": {
+      "_comment": "第 15 節：通知設定",
       "preferences": "通知偏好設定",
       "preferencesDescription": "設定您希望接收的通知類型",
       "emailTitle": "Email 通知",
