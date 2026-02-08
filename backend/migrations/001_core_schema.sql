@@ -356,14 +356,14 @@ ON CONFLICT (code) DO NOTHING;
 -- 統一密碼 Hash (Argon2id): password123
 -- Generated using argon2 crate with default settings
 INSERT INTO users (id, email, password_hash, display_name, is_internal, is_active, must_change_password, created_at, updated_at) VALUES
-    (gen_random_uuid(), 'admin@system.local', '$argon2id$v=19$m=65536,t=3,p=4$VvlEG9rpCr/G9l0sRncC/A$jw/Shq555yDjLEm4TO0J16+M2zszQbVpHraFAyrn0Ww', '系統管理員', true, true, true, NOW(), NOW())
+    (gen_random_uuid(), 'admin@ipig.local', '$argon2id$v=19$m=65536,t=3,p=4$VvlEG9rpCr/G9l0sRncC/A$jw/Shq555yDjLEm4TO0J16+M2zszQbVpHraFAyrn0Ww', '系統管理員', true, true, true, NOW(), NOW())
 ON CONFLICT (email) DO NOTHING;
 
 -- 為 admin 帳號指派 admin 角色
 INSERT INTO user_roles (user_id, role_id, assigned_at)
 SELECT u.id, r.id, NOW()
 FROM users u, roles r
-WHERE u.email = 'admin@system.local' AND r.code = 'admin'
+WHERE u.email = 'admin@ipig.local' AND r.code = 'admin'
 ON CONFLICT (user_id, role_id) DO NOTHING;
 
 -- ============================================
