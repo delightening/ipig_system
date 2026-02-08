@@ -474,7 +474,7 @@ export function ProtocolEditPage() {
             }
             // 如果術前準備為空，設置預設內容
             if (!mergedWorkingContent.surgery.preop_preparation || mergedWorkingContent.surgery.preop_preparation.trim() === '') {
-              mergedWorkingContent.surgery.preop_preparation = t('aup.defaults.preopPreparation')
+              mergedWorkingContent.surgery.preop_preparation = t('aup.defaults.preop_Preparation')
             }
             // 如果手術內容說明為空，設置預設內容
             if (!mergedWorkingContent.surgery.surgery_description || mergedWorkingContent.surgery.surgery_description.trim() === '') {
@@ -893,7 +893,7 @@ export function ProtocolEditPage() {
         return t('aup.surgery.validation.surgeryTypeRequired')
       }
       if (!surgery.preop_preparation || !surgery.preop_preparation.trim() || surgery.preop_preparation === '略') {
-        return t('aup.surgery.validation.preopPreparationRequired')
+        return t('aup.surgery.validation.preop_PreparationRequired')
       }
       if (!surgery.surgery_description || !surgery.surgery_description.trim() || surgery.surgery_description === '略') {
         return t('aup.surgery.validation.surgeryDescriptionRequired')
@@ -1439,7 +1439,7 @@ export function ProtocolEditPage() {
                   <Textarea
                     value={formData.working_content.purpose.significance}
                     onChange={(e) => updateWorkingContent('purpose', 'significance', e.target.value)}
-                    placeholder={t('aup.purpose.significancePlaceholder')}
+                    placeholder={t('aup.purpose.placeholders.significance')}
                     rows={5}
                   />
                 </div>
@@ -1456,7 +1456,7 @@ export function ProtocolEditPage() {
                     <Textarea
                       value={formData.working_content.purpose.replacement.rationale}
                       onChange={(e) => updateWorkingContent('purpose', 'replacement.rationale', e.target.value)}
-                      placeholder={t('aup.purpose.liveAnimalNecessityPlaceholder')}
+                      placeholder={t('aup.purpose.placeholders.rationale')}
                       rows={4}
                     />
                   </div>
@@ -1543,7 +1543,7 @@ export function ProtocolEditPage() {
                     </div>
                     {formData.working_content.purpose.replacement.alt_search.platforms.includes('other') && (
                       <Input
-                        placeholder={t('aup.purpose.otherDbPlaceholder')}
+                        placeholder={t('aup.purpose.placeholders.otherDb')}
                         value={formData.working_content.purpose.replacement.alt_search.other_name || ''}
                         onChange={(e) => updateWorkingContent('purpose', 'replacement.alt_search.other_name', e.target.value)}
                         className="mt-2"
@@ -1555,7 +1555,7 @@ export function ProtocolEditPage() {
                     <Input
                       value={formData.working_content.purpose.replacement.alt_search.keywords}
                       onChange={(e) => updateWorkingContent('purpose', 'replacement.alt_search.keywords', e.target.value)}
-                      placeholder={t('aup.purpose.searchKeywordsPlaceholder')}
+                      placeholder={t('aup.purpose.placeholders.keywords')}
                     />
                   </div>
                   <div className="space-y-2">
@@ -1563,7 +1563,7 @@ export function ProtocolEditPage() {
                     <Textarea
                       value={formData.working_content.purpose.replacement.alt_search.conclusion}
                       onChange={(e) => updateWorkingContent('purpose', 'replacement.alt_search.conclusion', e.target.value)}
-                      placeholder={t('aup.purpose.searchConclusionPlaceholder')}
+                      placeholder={t('aup.purpose.placeholders.conclusion')}
                       rows={3}
                     />
                   </div>
@@ -1595,7 +1595,7 @@ export function ProtocolEditPage() {
                         <Textarea
                           value={formData.working_content.purpose.duplicate.justification}
                           onChange={(e) => updateWorkingContent('purpose', 'duplicate.justification', e.target.value)}
-                          placeholder={t('aup.purpose.duplicateJustificationPlaceholder')}
+                          placeholder={t('aup.purpose.placeholders.duplicateJustification')}
                           rows={3}
                         />
                       </div>
@@ -1613,7 +1613,7 @@ export function ProtocolEditPage() {
                     <Textarea
                       value={formData.working_content.purpose.reduction.design}
                       onChange={(e) => updateWorkingContent('purpose', 'reduction.design', e.target.value)}
-                      placeholder={t('aup.purpose.reductionDesignPlaceholder')}
+                      placeholder={t('aup.purpose.placeholders.reductionDesign')}
                       rows={6}
                     />
                   </div>
@@ -1713,7 +1713,7 @@ export function ProtocolEditPage() {
                                   newItems[index].form = e.target.value
                                   updateWorkingContent('items', 'test_items', newItems)
                                 }}
-                                placeholder={t('aup.items.dosageFormPlaceholder')}
+                                placeholder={t('aup.items.placeholders.dosageForm')}
                               />
                             </div>
                           </div>
@@ -1773,7 +1773,7 @@ export function ProtocolEditPage() {
                                     newItems[index].non_sterile_justification = e.target.value
                                     updateWorkingContent('items', 'test_items', newItems)
                                   }}
-                                  placeholder={t('aup.items.nonSterilePlaceholder')}
+                                  placeholder={t('aup.items.placeholders.nonSterile')}
                                   rows={3}
                                 />
                               </div>
@@ -1842,7 +1842,7 @@ export function ProtocolEditPage() {
                                   newControls[index].name = e.target.value
                                   updateWorkingContent('items', 'control_items', newControls)
                                 }}
-                                placeholder={t('aup.items.controlNamePlaceholder')}
+                                placeholder={t('aup.items.placeholders.controlName')}
                               />
                             </div>
                             <div className="space-y-2">
@@ -1902,7 +1902,7 @@ export function ProtocolEditPage() {
                                     newControls[index].non_sterile_justification = e.target.value
                                     updateWorkingContent('items', 'control_items', newControls)
                                   }}
-                                  placeholder={t('aup.items.nonSterilePlaceholder')}
+                                  placeholder={t('aup.items.placeholders.nonSterile')}
                                   rows={3}
                                 />
                               </div>
@@ -2068,7 +2068,7 @@ export function ProtocolEditPage() {
                           <Textarea
                             value={formData.working_content.design.anesthesia.other_description || ''}
                             onChange={(e) => updateWorkingContent('design', 'anesthesia.other_description', e.target.value)}
-                            placeholder={t('aup.design.explainOtherPlaceholder')}
+                            placeholder={t('aup.design.placeholders.explainOther')}
                             rows={3}
                           />
                         </div>
@@ -2086,7 +2086,7 @@ export function ProtocolEditPage() {
                   <Textarea
                     value={formData.working_content.design.procedures}
                     onChange={(e) => updateWorkingContent('design', 'procedures', e.target.value)}
-                    placeholder={t('aup.design.proceduresPlaceholder')}
+                    placeholder={t('aup.design.placeholders.procedures')}
                     rows={8}
                   />
                 </div>
@@ -2170,7 +2170,7 @@ export function ProtocolEditPage() {
                           <Textarea
                             value={formData.working_content.design.restrictions.other_description || ''}
                             onChange={(e) => updateWorkingContent('design', 'restrictions.other_description', e.target.value)}
-                            placeholder={t('aup.design.explainRestrictionOtherPlaceholder')}
+                            placeholder={t('aup.design.placeholders.explainRestrictionOther')}
                             rows={3}
                           />
                         </div>
@@ -2189,7 +2189,7 @@ export function ProtocolEditPage() {
                     <Textarea
                       value={formData.working_content.design.endpoints.experimental_endpoint}
                       onChange={(e) => updateWorkingContent('design', 'endpoints.experimental_endpoint', e.target.value)}
-                      placeholder={t('aup.design.experimentalEndpointPlaceholder')}
+                      placeholder={t('aup.design.placeholders.experimentalEndpoint')}
                       rows={3}
                     />
                   </div>
@@ -2198,7 +2198,7 @@ export function ProtocolEditPage() {
                     <Textarea
                       value={formData.working_content.design.endpoints.humane_endpoint}
                       onChange={(e) => updateWorkingContent('design', 'endpoints.humane_endpoint', e.target.value)}
-                      placeholder={t('aup.design.humaneEndpointPlaceholder')}
+                      placeholder={t('aup.design.placeholders.humaneEndpoint')}
                       rows={4}
                     />
                   </div>
@@ -2268,7 +2268,7 @@ export function ProtocolEditPage() {
                           <Textarea
                             value={formData.working_content.design.final_handling.euthanasia_other_description || ''}
                             onChange={(e) => updateWorkingContent('design', 'final_handling.euthanasia_other_description', e.target.value)}
-                            placeholder={t('aup.design.euthanasiaOtherPlaceholder')}
+                            placeholder={t('aup.design.placeholders.euthanasiaOther')}
                             rows={3}
                           />
                         </div>
@@ -2506,7 +2506,7 @@ export function ProtocolEditPage() {
                                           multiple={true}
                                           maxSize={10}
                                           maxFiles={10}
-                                          placeholder={t('aup.items.photosPlaceholder')}
+                                          placeholder={t('aup.items.placeholders.photos')}
                                         />
                                       </div>
                                     </div>
@@ -2937,7 +2937,7 @@ export function ProtocolEditPage() {
                         onClick={() => {
                           // Load default values for surgery section
                           // 6.2 Pre-operative
-                          updateWorkingContent('surgery', 'preop_preparation', t('aup.defaults.preopPreparation'))
+                          updateWorkingContent('surgery', 'preop_preparation', t('aup.defaults.preop_Preparation'))
                           // 6.3 Aseptic (unbox all)
                           updateWorkingContent('surgery', 'aseptic_techniques', [])
                           // 6.4 Surgery description (clear)
@@ -2989,7 +2989,7 @@ export function ProtocolEditPage() {
                           <Input value={t('common.na')} disabled />
                         </div>
                         <div className="space-y-2">
-                          <h3 className="font-semibold">{t('aup.surgery.labels.preopPreparation')}</h3>
+                          <h3 className="font-semibold">{t('aup.surgery.labels.preop_Preparation')}</h3>
                           <Textarea value={t('common.na')} disabled rows={3} />
                         </div>
                         <div className="space-y-2">
@@ -3051,11 +3051,11 @@ export function ProtocolEditPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <h3 className="font-semibold">{t('aup.surgery.labels.preopPreparation')}</h3>
+                        <h3 className="font-semibold">{t('aup.surgery.labels.preop_Preparation')}</h3>
                         <Textarea
                           value={formData.working_content.surgery.preop_preparation}
                           onChange={(e) => updateWorkingContent('surgery', 'preop_preparation', e.target.value)}
-                          placeholder={t('aup.surgery.placeholders.preopPreparation')}
+                          placeholder={t('aup.surgery.placeholders.preop_Preparation')}
                           rows={8}
                         />
                       </div>
@@ -3109,7 +3109,7 @@ export function ProtocolEditPage() {
                         <Textarea
                           value={formData.working_content.surgery.postop_expected_impact}
                           onChange={(e) => updateWorkingContent('surgery', 'postop_expected_impact', e.target.value)}
-                          placeholder={t('aup.surgery.labels.expectedImpact')}
+                          placeholder={t('aup.surgery.placeholders.expectedImpact')}
                           rows={4}
                         />
                       </div>
@@ -3249,7 +3249,7 @@ export function ProtocolEditPage() {
                                           newDrugs[index].drug_name = e.target.value
                                           updateWorkingContent('surgery', 'drugs', newDrugs)
                                         }}
-                                        placeholder={t('aup.surgery.drugs.headers.name')}
+                                        placeholder={t('aup.surgery.placeholders.drugName')}
                                         className="border-0 focus-visible:ring-0"
                                       />
                                     </td>
@@ -3261,7 +3261,7 @@ export function ProtocolEditPage() {
                                           newDrugs[index].dose = e.target.value
                                           updateWorkingContent('surgery', 'drugs', newDrugs)
                                         }}
-                                        placeholder={t('aup.surgery.drugs.headers.dose')}
+                                        placeholder={t('aup.surgery.placeholders.drugDose')}
                                         className="border-0 focus-visible:ring-0"
                                       />
                                     </td>
@@ -3273,7 +3273,7 @@ export function ProtocolEditPage() {
                                           newDrugs[index].route = e.target.value
                                           updateWorkingContent('surgery', 'drugs', newDrugs)
                                         }}
-                                        placeholder={t('aup.surgery.drugs.headers.route')}
+                                        placeholder={t('aup.surgery.placeholders.drugRoute')}
                                         className="border-0 focus-visible:ring-0"
                                       />
                                     </td>
@@ -3285,7 +3285,7 @@ export function ProtocolEditPage() {
                                           newDrugs[index].frequency = e.target.value
                                           updateWorkingContent('surgery', 'drugs', newDrugs)
                                         }}
-                                        placeholder={t('aup.surgery.drugs.headers.frequency')}
+                                        placeholder={t('aup.surgery.placeholders.drugFrequency')}
                                         className="border-0 focus-visible:ring-0"
                                       />
                                     </td>
@@ -3297,7 +3297,7 @@ export function ProtocolEditPage() {
                                           newDrugs[index].purpose = e.target.value
                                           updateWorkingContent('surgery', 'drugs', newDrugs)
                                         }}
-                                        placeholder={t('aup.surgery.drugs.headers.purpose')}
+                                        placeholder={t('aup.surgery.placeholders.drugPurpose')}
                                         className="border-0 focus-visible:ring-0"
                                       />
                                     </td>
@@ -3968,7 +3968,7 @@ export function ProtocolEditPage() {
                         <Input
                           value={newPersonnel.name}
                           onChange={(e) => setNewPersonnel({ ...newPersonnel, name: e.target.value })}
-                          placeholder={t('aup.personnel.addDialog.placeholders.name')}
+                          placeholder={t('aup.personnel.placeholders.name')}
                           className="flex-1"
                         />
                       </div>

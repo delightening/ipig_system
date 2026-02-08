@@ -160,7 +160,7 @@ export function ProtocolComparisonDialog({
             'design.hazards.used': '使用危害性物質',
             'design.controlled_substances.used': '使用管制藥品',
             'surgery.surgery_type': t('protocols.content.sections.surgeryType'),
-            'surgery.preop_preparation': t('protocols.content.sections.preopPreparation'),
+            'surgery.preop_preparation': t('protocols.content.sections.preop_Preparation'),
             'surgery.surgery_description': t('protocols.content.sections.surgeryDescription'),
             'surgery.monitoring': t('protocols.content.sections.monitoring'),
             'surgery.postop_care': t('protocols.content.sections.postopCare'),

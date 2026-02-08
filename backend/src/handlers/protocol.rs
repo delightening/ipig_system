@@ -14,7 +14,7 @@ use crate::{
         CoEditorAssignmentResponse,
         Protocol, ProtocolListItem, ProtocolQuery, ProtocolResponse, ProtocolStatusHistory,
         ProtocolVersion, ReplyCommentRequest, ReviewAssignment, ReviewAssignmentResponse, ReviewComment, ReviewCommentResponse,
-        UpdateProtocolRequest, UserProtocol, SaveDraftRequest, SubmitReplyRequest,
+        UpdateProtocolRequest, UserProtocol, SaveDraftRequest, SubmitReplyRequest, UserActivityLog,
     },
     require_permission,
     services::{ProtocolService, PdfService},
@@ -185,7 +185,7 @@ pub async fn update_protocol(
     
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
-    let protocol = ProtocolService::update(&state.db, id, &req).await?;
+    let protocol = ProtocolService::update(&state.db, id, &req, current_user.id).await?;
     Ok(Json(protocol))
 }
 
@@ -224,14 +224,26 @@ pub async fn submit_protocol(
     Ok(Json(protocol))
 }
 
-/// 變更專案狀態
 pub async fn change_protocol_status(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
     Json(req): Json<ChangeStatusRequest>,
 ) -> Result<Json<Protocol>> {
-    require_permission!(current_user, "aup.protocol.change_status");
+    // 增加除錯日誌，追蹤權限判定過程
+    tracing::info!("[ChangeStatus] User: {}, Target Status: {:?}", 
+        current_user.id, req.to_status);
+
+    // 檢查目標狀態
+    if matches!(req.to_status, crate::models::ProtocolStatus::Deleted) {
+        // 如果是要刪除，則檢查用戶是否有直接刪除權限
+        tracing::info!("[ChangeStatus] Entering Delete Permission Check for status DELETED");
+        require_permission!(current_user, "aup.protocol.delete");
+    } else {
+        // 普通狀態變更檢查
+        tracing::info!("[ChangeStatus] Entering Normal Status Change Check");
+        require_permission!(current_user, "aup.protocol.change_status");
+    }
     
     let protocol = ProtocolService::change_status(&state.db, id, &req, current_user.id).await?;
     Ok(Json(protocol))
@@ -464,8 +476,37 @@ pub async fn reply_review_comment(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<ReplyCommentRequest>,
 ) -> Result<Json<ReviewComment>> {
-    require_permission!(current_user, "aup.review.reply");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    
+    // 檢查權限：要麼有全域回復權限，要麼是該計畫的 PI/Co-editor
+    if !current_user.has_permission("aup.review.reply") {
+        // 查出計畫 ID
+        let (protocol_id,): (Uuid,) = sqlx::query_as(
+            "SELECT pv.protocol_id FROM review_comments rc JOIN protocol_versions pv ON rc.protocol_version_id = pv.id WHERE rc.id = $1"
+        )
+        .bind(req.parent_comment_id)
+        .fetch_one(&state.db)
+        .await?;
+
+        // 檢查是否為該計畫的 PI 或 Co-editor
+        let is_owner = sqlx::query_scalar::<_, bool>(
+            r#"
+            SELECT EXISTS (
+                SELECT 1 FROM protocols WHERE id = $1 AND pi_user_id = $2
+                UNION
+                SELECT 1 FROM user_protocols WHERE protocol_id = $1 AND user_id = $2
+            )
+            "#
+        )
+        .bind(protocol_id)
+        .bind(current_user.id)
+        .fetch_one(&state.db)
+        .await?;
+
+        if !is_owner {
+            return Err(AppError::Forbidden("Permission denied: requires aup.review.reply or being the protocol owner/co-editor".to_string()));
+        }
+    }
     
     let comment = ProtocolService::reply_comment(&state.db, &req, current_user.id).await?;
     Ok(Json(comment))
@@ -478,8 +519,35 @@ pub async fn save_reply_draft(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<SaveDraftRequest>,
 ) -> Result<Json<ReviewComment>> {
-    require_permission!(current_user, "aup.review.reply");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    
+    // 同步 reply_review_comment 的權限邏輯
+    if !current_user.has_permission("aup.review.reply") {
+        let (protocol_id,): (Uuid,) = sqlx::query_as(
+            "SELECT pv.protocol_id FROM review_comments rc JOIN protocol_versions pv ON rc.protocol_version_id = pv.id WHERE rc.id = $1"
+        )
+        .bind(req.comment_id)
+        .fetch_one(&state.db)
+        .await?;
+
+        let is_owner = sqlx::query_scalar::<_, bool>(
+            r#"
+            SELECT EXISTS (
+                SELECT 1 FROM protocols WHERE id = $1 AND pi_id = $2
+                UNION
+                SELECT 1 FROM protocol_co_editors WHERE protocol_id = $1 AND user_id = $2
+            )
+            "#
+        )
+        .bind(protocol_id)
+        .bind(current_user.id)
+        .fetch_one(&state.db)
+        .await?;
+
+        if !is_owner {
+            return Err(AppError::Forbidden("Permission denied: requires aup.review.reply or being the protocol owner/co-editor".to_string()));
+        }
+    }
     
     let comment = ProtocolService::save_reply_draft(
         &state.db, 
@@ -496,7 +564,33 @@ pub async fn get_reply_draft(
     Extension(current_user): Extension<CurrentUser>,
     Path(comment_id): Path<Uuid>,
 ) -> Result<Json<Option<String>>> {
-    require_permission!(current_user, "aup.review.reply");
+    // 同步權限邏輯
+    if !current_user.has_permission("aup.review.reply") {
+        let (protocol_id,): (Uuid,) = sqlx::query_as(
+            "SELECT pv.protocol_id FROM review_comments rc JOIN protocol_versions pv ON rc.protocol_version_id = pv.id WHERE rc.id = $1"
+        )
+        .bind(comment_id)
+        .fetch_one(&state.db)
+        .await?;
+
+        let is_owner = sqlx::query_scalar::<_, bool>(
+            r#"
+            SELECT EXISTS (
+                SELECT 1 FROM protocols WHERE id = $1 AND pi_id = $2
+                UNION
+                SELECT 1 FROM protocol_co_editors WHERE protocol_id = $1 AND user_id = $2
+            )
+            "#
+        )
+        .bind(protocol_id)
+        .bind(current_user.id)
+        .fetch_one(&state.db)
+        .await?;
+
+        if !is_owner {
+            return Err(AppError::Forbidden("Permission denied: requires aup.review.reply or being the protocol owner/co-editor".to_owned()));
+        }
+    }
     
     let draft = ProtocolService::get_reply_draft(&state.db, comment_id).await?;
     Ok(Json(draft))
@@ -712,4 +806,16 @@ pub async fn export_protocol_pdf(
         ],
         pdf_bytes,
     ))
+}
+
+/// 取得計畫書活動歷程
+pub async fn get_protocol_activities(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<Vec<UserActivityLog>>> {
+    require_permission!(current_user, "aup.protocol.view_own");
+    
+    let activities = ProtocolService::get_activities(&state.db, id).await?;
+    Ok(Json(activities))
 }

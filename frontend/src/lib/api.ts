@@ -743,6 +743,33 @@ export interface ReviewAssignmentResponse extends ReviewAssignment {
 }
 
 // ============================================
+// Activity Log Types
+// ============================================
+
+export interface UserActivityLog {
+  id: string
+  actor_user_id: string
+  actor_email: string
+  actor_display_name: string
+  actor_roles: string[]
+  event_category: string
+  event_type: string
+  event_severity: string
+  entity_type?: string
+  entity_id?: string
+  entity_display_name?: string
+  before_data?: any
+  after_data?: any
+  changed_fields?: string[]
+  ip_address?: string
+  user_agent?: string
+  request_path?: string
+  request_method?: string
+  response_status?: number
+  created_at: string
+}
+
+// ============================================
 // 附件管理 Types
 // ============================================
 
@@ -1277,4 +1304,9 @@ export interface AmendmentReviewAssignment {
   comment?: string
   reviewer_name?: string
   reviewer_email?: string
+}
+
+export const getProtocolActivities = async (id: string) => {
+  const response = await api.get<UserActivityLog[]>(`/protocols/${id}/activities`)
+  return response.data
 }

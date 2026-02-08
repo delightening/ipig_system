@@ -8,6 +8,7 @@ import api, {
   ReviewCommentResponse,
   ReviewAssignmentResponse,
   ProtocolAttachment,
+  UserActivityLog,
   ProtocolStatus,
   ChangeStatusRequest,
   CreateCommentRequest,
@@ -17,6 +18,7 @@ import api, {
   CoEditorAssignmentResponse,
   UserSimple,
   User,
+  getProtocolActivities,
 } from '@/lib/api'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
@@ -169,13 +171,10 @@ export function ProtocolDetailPage() {
     enabled: !!id && (activeTab === 'versions' || activeTab === 'comments'),
   })
 
-  // Fetch status history
-  const { data: statusHistory } = useQuery({
-    queryKey: ['protocol-status-history', id],
-    queryFn: async () => {
-      const response = await api.get<ProtocolStatusHistory[]>(`/protocols/${id}/status-history`)
-      return response.data
-    },
+  // Fetch activity history
+  const { data: activities, isLoading: activitiesLoading } = useQuery({
+    queryKey: ['protocol-activities', id],
+    queryFn: () => getProtocolActivities(id!),
     enabled: !!id && activeTab === 'history',
   })
 
@@ -483,15 +482,35 @@ export function ProtocolDetailPage() {
       }
     }
 
-    // Change status first
+    // Validate PRE_REVIEW must select a co-editor
+    if (newStatus === 'PRE_REVIEW') {
+      if (!selectedCoEditorId) {
+        toast({
+          title: t('common.error'),
+          description: t('protocols.detail.tables.assignCoeditorFailed'), // 這裡延用指派失敗的 key，或使用更準確的提示
+          variant: 'destructive',
+        })
+        return
+      }
+    }
+
     try {
+      // If PRE_REVIEW, assign co-editor first
+      if (newStatus === 'PRE_REVIEW' && selectedCoEditorId) {
+        await assignCoEditorMutation.mutateAsync({
+          protocol_id: id!,
+          user_id: selectedCoEditorId,
+        })
+      }
+
+      // Change status
       await changeStatusMutation.mutateAsync({
         to_status: newStatus,
         remark: statusRemark || undefined,
         reviewer_ids: newStatus === 'UNDER_REVIEW' ? selectedReviewerIds : undefined,
       })
     } catch (error) {
-      // 錯誤已在 mutation 中處理
+      // Errors are handled in mutation callbacks
     }
   }
 
@@ -911,32 +930,79 @@ export function ProtocolDetailPage() {
               <CardDescription>{t('protocols.detail.sections.historyDesc')}</CardDescription>
             </CardHeader>
             <CardContent>
-              {statusHistory && statusHistory.length > 0 ? (
+              {activitiesLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : activities && activities.length > 0 ? (
                 <div className="relative">
                   <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200" />
                   <ul className="space-y-4">
-                    {statusHistory.map((history, index) => (
-                      <li key={history.id} className="relative pl-10">
-                        <div className="absolute left-2 w-4 h-4 rounded-full bg-blue-600 border-2 border-white" />
-                        <div className="bg-slate-50 p-4 rounded-lg">
-                          <div className="flex items-center gap-2 mb-2">
-                            {history.from_status && (
-                              <>
-                                <Badge variant={statusColors[history.from_status]}>
-                                  {t(`protocols.status.${history.from_status}`)}
-                                </Badge>
-                                <span className="text-muted-foreground">→</span>
-                              </>
-                            )}
-                            <Badge variant={statusColors[history.to_status]}>
-                              {t(`protocols.status.${history.to_status}`)}
-                            </Badge>
+                    {activities.map((log: UserActivityLog) => (
+                      <li key={log.id} className="relative pl-10">
+                        <div className="absolute left-2 w-4 h-4 rounded-full bg-blue-600 border-2 border-white mt-1.5" />
+                        <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 shadow-sm">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-[10px] uppercase font-bold py-0 h-5">
+                                {(() => {
+                                  switch (log.event_type) {
+                                    case 'PROTOCOL_UPDATE': return t('common.save');
+                                    case 'PROTOCOL_SUBMIT': return t('protocols.detail.submit');
+                                    case 'PROTOCOL_STATUS_CHANGE': return t('protocols.detail.changeStatus');
+                                    case 'COMMENT_REPLY': return t('protocols.detail.actions.reply');
+                                    default: return log.event_type;
+                                  }
+                                })()}
+                              </Badge>
+                              <span className="font-semibold text-slate-900">{log.actor_display_name}</span>
+                            </div>
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {formatDateTime(log.created_at)}
+                            </span>
                           </div>
-                          <p className="text-sm text-muted-foreground">
-                            {formatDateTime(history.created_at)}
-                          </p>
-                          {history.remark && (
-                            <p className="text-sm mt-2 text-slate-600">{history.remark}</p>
+
+                          {log.event_type === 'PROTOCOL_UPDATE' && (
+                            <p className="text-sm text-slate-600 italic">
+                              {t('protocols.detail.sections.contentTitle')} - {t('common.saved')}
+                            </p>
+                          )}
+
+                          {log.event_type === 'PROTOCOL_SUBMIT' && (
+                            <p className="text-sm text-slate-600">
+                              {t('protocols.detail.submitSuccess')}
+                            </p>
+                          )}
+
+                          {log.event_type === 'PROTOCOL_STATUS_CHANGE' && (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2 text-sm">
+                                {log.before_data?.status && (
+                                  <>
+                                    <Badge variant={statusColors[log.before_data.status as ProtocolStatus] || 'outline'}>
+                                      {t(`protocols.status.${log.before_data.status}`)}
+                                    </Badge>
+                                    <span className="text-slate-400">→</span>
+                                  </>
+                                )}
+                                <Badge variant={statusColors[log.after_data?.status as ProtocolStatus] || 'outline'}>
+                                  {t(`protocols.status.${log.after_data?.status}`)}
+                                </Badge>
+                              </div>
+                              {log.after_data?.remark && (
+                                <div className="bg-white p-2 rounded border border-slate-200 text-sm text-slate-600 mt-2">
+                                  <span className="font-medium text-xs text-slate-400 block mb-1">{t('protocols.detail.dialogs.status.remark')}:</span>
+                                  {log.after_data.remark}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {log.event_type === 'COMMENT_REPLY' && (
+                            <p className="text-sm text-slate-600">
+                              {t('protocols.detail.dialogs.reply.success')}
+                            </p>
                           )}
                         </div>
                       </li>
@@ -1407,6 +1473,28 @@ export function ProtocolDetailPage() {
                 </p>
               </div>
             )}
+            {newStatus === 'PRE_REVIEW' && (
+              <div className="space-y-2">
+                <Label>{t('protocols.detail.tabs.coeditors')}</Label>
+                <Select value={selectedCoEditorId} onValueChange={setSelectedCoEditorId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('protocols.detail.tables.coeditorHint')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableExperimentStaff?.map((staff) => (
+                      <SelectItem key={staff.id} value={staff.id}>
+                        {staff.display_name || staff.email}
+                      </SelectItem>
+                    ))}
+                    {(!availableExperimentStaff || availableExperimentStaff.length === 0) && (
+                      <div className="text-center py-2 text-sm text-muted-foreground">
+                        {t('protocols.detail.tables.noCoeditors')}
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>{t('protocols.detail.dialogs.status.remark')}</Label>
               <Textarea
@@ -1427,7 +1515,8 @@ export function ProtocolDetailPage() {
                 !newStatus ||
                 changeStatusMutation.isPending ||
                 assignCoEditorMutation.isPending ||
-                (newStatus === 'UNDER_REVIEW' && (selectedReviewerIds.length < 2 || selectedReviewerIds.length > 3))
+                (newStatus === 'UNDER_REVIEW' && (selectedReviewerIds.length < 2 || selectedReviewerIds.length > 3)) ||
+                (newStatus === 'PRE_REVIEW' && !selectedCoEditorId)
               }
             >
               {(changeStatusMutation.isPending || assignCoEditorMutation.isPending) && (

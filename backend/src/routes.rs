@@ -86,6 +86,7 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/protocols/:id/status-history", get(handlers::get_protocol_status_history))
         .route("/protocols/:id/animal-stats", get(handlers::get_protocol_animal_stats))
         .route("/protocols/:id/export-pdf", get(handlers::export_protocol_pdf))
+        .route("/protocols/:id/activities", get(handlers::get_protocol_activities))
         // Review
         .route("/reviews/assignments", get(handlers::list_review_assignments).post(handlers::assign_reviewer))
         .route("/reviews/comments", get(handlers::list_review_comments).post(handlers::create_review_comment))

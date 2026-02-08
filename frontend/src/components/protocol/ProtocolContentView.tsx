@@ -523,7 +523,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
 
                   {surgery.preop_preparation && (
                     <div className="mb-4">
-                      <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.preopPreparation')}</h3>
+                      <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.preop_Preparation')}</h3>
                       <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{surgery.preop_preparation}</p>
                     </div>
                   )}

@@ -12,7 +12,7 @@ use crate::{
         ReviewCommentResponse, UpdateProtocolRequest, ProtocolRole, UserProtocol, CreatePartnerRequest, PartnerType,
         CoEditorAssignmentResponse,
     },
-    services::PartnerService,
+    services::{PartnerService, AuditService},
     AppError, Result,
 };
 
@@ -105,6 +105,21 @@ impl ProtocolService {
         .bind(created_by)
         .execute(pool)
         .await?;
+
+        // 記錄活動日誌
+        let _ = AuditService::log_activity(
+            pool,
+            created_by,
+            "AUP",
+            "PROTOCOL_CREATE",
+            Some("protocol"),
+            Some(protocol.id),
+            Some(&protocol.title),
+            None,
+            Some(serde_json::to_value(&protocol).unwrap_or_default()),
+            None,
+            None,
+        ).await;
 
         Ok(protocol)
     }
@@ -237,6 +252,7 @@ impl ProtocolService {
         pool: &PgPool,
         id: Uuid,
         req: &UpdateProtocolRequest,
+        updated_by: Uuid,
     ) -> Result<Protocol> {
         // 只有草稿狀態可以編輯
         let protocol = sqlx::query_as::<_, Protocol>(
@@ -270,6 +286,21 @@ impl ProtocolService {
         .bind(req.end_date)
         .fetch_one(pool)
         .await?;
+
+        // 記錄活動日誌（儲存草稿）
+        let _ = AuditService::log_activity(
+            pool,
+            updated_by,
+            "AUP",
+            "PROTOCOL_UPDATE",
+            Some("protocol"),
+            Some(protocol.id),
+            Some(&protocol.title),
+            None,
+            Some(serde_json::to_value(&updated).unwrap_or_default()),
+            None,
+            None,
+        ).await;
 
         Ok(updated)
     }
@@ -379,6 +410,21 @@ impl ProtocolService {
         // 記錄狀態變更
         Self::record_status_change(pool, id, Some(protocol.status), new_status, submitted_by, None).await?;
 
+        // 記錄活動日誌（送出審查）
+        let _ = AuditService::log_activity(
+            pool,
+            submitted_by,
+            "AUP",
+            "PROTOCOL_SUBMIT",
+            Some("protocol"),
+            Some(id),
+            Some(&protocol.title),
+            None,
+            None,
+            None,
+            None,
+        ).await;
+
         Ok(updated)
     }
 
@@ -396,6 +442,15 @@ impl ProtocolService {
         .fetch_optional(pool)
         .await?
         .ok_or_else(|| AppError::NotFound("Protocol not found".to_string()))?;
+
+        // 驗證 DELETED 狀態：僅允許草稿或需修訂狀態
+        if req.to_status == ProtocolStatus::Deleted {
+            if protocol.status != ProtocolStatus::Draft && protocol.status != ProtocolStatus::RevisionRequired {
+                return Err(AppError::BusinessRule(
+                    "Only draft or revision-required protocols can be deleted".to_string()
+                ));
+            }
+        }
 
         // 驗證 UNDER_REVIEW 狀態必須提供 2-3 位審查委員
         if req.to_status == ProtocolStatus::UnderReview {
@@ -588,6 +643,21 @@ impl ProtocolService {
                 tracing::warn!("No customer found for closed IACUC: {}", iacuc_no);
             }
         }
+
+        // 記錄活動日誌（狀態變更）
+        let _ = AuditService::log_activity(
+            pool,
+            changed_by,
+            "AUP",
+            "PROTOCOL_STATUS_CHANGE",
+            Some("protocol"),
+            Some(id),
+            Some(&protocol.title),
+            Some(serde_json::json!({ "status": protocol.status })),
+            Some(serde_json::json!({ "status": req.to_status, "remark": req.remark })),
+            None,
+            None,
+        ).await;
 
         Ok(updated)
     }
@@ -1155,12 +1225,36 @@ impl ProtocolService {
         )
         .bind(Uuid::new_v4())
         .bind(protocol_version_id)
-        .bind(replied_by) // 回覆者作為 reviewer_id（用於顯示）
+        .bind(replied_by)
         .bind(&req.content)
         .bind(req.parent_comment_id)
-        .bind(replied_by) // replied_by 欄位
+        .bind(replied_by)
         .fetch_one(pool)
         .await?;
+
+        // 記錄活動日誌（回覆意見）
+        // 嘗試獲取 protocol_id
+        let protocol_id: Option<Uuid> = sqlx::query_scalar(
+            "SELECT protocol_id FROM review_comments WHERE id = $1"
+        )
+        .bind(req.parent_comment_id)
+        .fetch_optional(pool)
+        .await
+        .unwrap_or(None);
+
+        let _ = AuditService::log_activity(
+            pool,
+            replied_by,
+            "AUP",
+            "COMMENT_REPLY",
+            Some("protocol"),
+            protocol_id,
+            None,
+            None,
+            Some(serde_json::json!({ "comment_id": comment.id, "parent_id": req.parent_comment_id })),
+            None,
+            None,
+        ).await;
 
         Ok(comment)
     }
@@ -1431,6 +1525,22 @@ impl ProtocolService {
         };
 
         Ok(protocols)
+    }
+
+    /// 取得計畫書活動歷程
+    pub async fn get_activities(pool: &PgPool, protocol_id: Uuid) -> Result<Vec<crate::models::UserActivityLog>> {
+        let activities = sqlx::query_as::<_, crate::models::UserActivityLog>(
+            r#"
+            SELECT * FROM user_activity_logs 
+            WHERE entity_type = 'protocol' AND entity_id = $1
+            ORDER BY created_at DESC
+            "#
+        )
+        .bind(protocol_id)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(activities)
     }
 }
 
