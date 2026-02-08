@@ -823,7 +823,7 @@
             "authorizedPersonLabel": "Controlled Substances Manager *",
             "authorizedPersonPlaceholder": "Please enter manager name",
             "templates": {
-                "preop_preparation": "1. Fast for at least 12 hours before surgery, water is not restricted.\n2. After washing and drying, pigs are sedated with Azeperonum (40 mg/mL) 3-5 mg/kg and Atropine (1 mg/mL) 0.03-0.05 mg/kg intramuscularly. Observe respiration closely.\n3. After 20-30 minutes, induce anesthesia with Zoletil-50 (50 mg/mL) 4.4 mg/kg intramuscularly.\n4. After 5-10 minutes, place the pig on the surgery table in a prone position, intubate, and connect to a gas anesthesia machine. Maintain anesthesia with 2-3 L/min oxygen mixed with 0.5-2% Isoflurane, monitoring anesthesia depth constantly.\n5. Administer Cefazolin 15 mg/kg (antibiotic) and Meloxicam 0.4 mg/kg (analgesic) intramuscularly before surgery.\nPerform according to 'TU-03-09-00 Standard Operating Procedure for Experimental Pig Surgery'.",
+                "preop_preparation": "1. Fasting for at least 12 hours before surgery, water ad libitum.\n2. Pigs are sedated with Azeperonum (40 mg/mL) 3-5 mg/kg and Atropine (1 mg/mL) 0.03-0.05 mg/kg IM. Monitor respiratory rate closely.\n3. After 20-30 mins, induce anesthesia with Zoletil-50 4.4 mg/kg IM.\n4. After 5-10 mins, move pig to surgery table, perform endotracheal intubation in prone position, connect to gas anesthesia machine (Isoflurane 0.5-2% in 2-3 L/min O2). Monitor anesthesia depth.\n5. Pre-operative preparation: Move pig to table, prone intubation, clipping hairs, connect anesthesia machine.\n6. Pre-op IM antibiotics Cefazolin 15 mg/kg and analgesic Meloxicam 0.4 mg/kg.\nFollow SOP TU-03-09-00.",
                 "surgery_description": "Please describe the surgical procedure in detail, including the surgical site, method, incision size, and suturing.",
                 "monitoring": "Adjust oxygen/nitrous oxide flow and anesthetic gas concentration based on anesthesia depth, respiration, and surgical needs. Maintain body temperature and monitor heart rate, respiration, and temperature using a physiological monitor.\nPerform according to 'TU-03-09-00 Standard Operating Procedure for Experimental Pig Surgery'."
             },
@@ -856,9 +856,9 @@
             "subtitle": "",
             "contentLabel": "Related Guidelines Description",
             "contentPlaceholder": "Example: This project follows the Animal Protection Act and the Guide for the Care and Use of Laboratory Animals",
-            "referencesTitle": "Reference List",
+            "referencesTitle": "Reference List (Follow MOA format)",
             "addReference": "Add Reference",
-            "citationPlaceholder": "Citation (e.g.: Smith, J. et al., 2023, Study on Pig Health, Journal of Animal Science, 45(2), 123-134)",
+            "citationPlaceholder": "Citation Format: Author (Year). Title. Journal, Vol(No), Pages. (e.g., Smith, J. et al. (2023). Study on Pig Health. Journal of Animal Science, 45(2), 123-134)",
             "urlPlaceholder": "URL (Optional)"
         },
         "surgery": {
@@ -883,7 +883,7 @@
                 "non_survival": "Non-survival Surgery"
             },
             "placeholders": {
-                "preopPreparation": "Describe fasting, skin preparation, disinfection, etc.",
+                "preopPreparation": "Describe pre-op preparation (e.g., move to table, prone intubation, clipping, connect machine)",
                 "surgeryDescription": "Describe surgical flow, site, method, incision size, and suturing in detail.",
                 "monitoring": "Adjust oxygen/nitrous oxide flow and anesthetic gas based on depth, respiration, etc. Maintain body temperature and monitor vitals. Perform according to SOP.",
                 "postopCare": "Describe care and analgesia methods.",

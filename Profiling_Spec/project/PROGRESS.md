@@ -388,29 +388,10 @@
 | 項目 | 描述 | 優先級 |
 |------|------|:------:|
 | ~~檔案上傳實際後端~~ | ✅ 已完成 - FileService + handlers | - |
-| 表單驗證統一 | 使用 Zod schema 統一驗證 | 低 |
-| 錯誤處理統一 | 統一錯誤顯示與處理方式 | 中 |
-| Loading 狀態統一 | 骨架屏與 Loading 指示器 | 低 |
-| 響應式設計 | 行動裝置適配 | 低 |
-| PDF 分頁優化 | 每個 Session 獨立分頁（目前未處理分頁問題） | 中 |
 
 ---
 
 ## 9. 版本規劃
-
-### v1.0 MVP（完成度：100% ✅）
-
-- [x] 共用基礎架構
-- [x] 進銷存核心功能
-- [x] 實驗動物管理完整表單
-- [x] 資料匯出功能
-- [x] 站內通知系統
-- [x] 複製紀錄功能
-- [x] 版本歷史檢視
-- [x] 獸醫師建議功能
-- [x] AUP 審查流程完整 UI（審查意見、指派、附件）
-- [x] 檔案上傳後端服務
-- [x] 通知偏好設定前端
 
 ### v1.1（已完成 2026-01-19）
 
@@ -428,42 +409,199 @@
 - [x] 權限系統優化（審查員、實驗人員）
 - [x] 資料庫 ERD 文件
 
-### v2.0（遠程規劃）
+### v1.0 MVP（完成度：100% ✅ 2026-01-08）
 
-- [ ] 行動端適配
-- [🔶] PDF 報表生成（分頁問題待解決）
-- [ ] 進階成本法（FIFO）
-- [ ] 條碼掃描功能
+- [x] 共用基礎架構
+- [x] 進銷存核心功能
+- [x] 實驗動物管理完整表單
+- [x] 資料匯出功能
+- [x] 站內通知系統
+- [x] 複製紀錄功能
+- [x] 版本歷史檢視
+- [x] 獸醫師建議功能
+- [x] AUP 審查流程完整 UI（審查意見、指派、附件）
+- [x] 檔案上傳後端服務
+- [x] 通知偏好設定前端
 
 ---
 
-## 11. 結論
+## 10. 更新紀錄
 
-豬博士 iPig 系統整體完成度 **100%** ✅，所有子系統均已完成：
+**最新更新（系統架構重構 - 2026-02-07）：**
 
-1. **共用基礎架構** 完整 100%，認證授權、Email 服務均已就緒
-2. **AUP 審查系統** 完整 100%，審查流程 UI 完整，PDF 匯出已完成
-3. **iPig ERP (進銷存管理系統)** 完成度 100%，已可投入使用
-4. **實驗動物管理系統** 完整 100%，所有功能均已實作，GLP 合規完成
-5. **通知系統** 完整 100%，排程任務、Email 通知、偏好設定均已完成
-6. **HR 人事管理系統** 完整 100%，特休管理、Google Calendar 整合已完成
+1. ✅ **後端與規格重組**
+   - 執行大規模專案規格（Profiling_Spec）目錄重組，提升架構清晰度
+   - 後端 Service 與 Handler 層級重構，優化代碼組織結構
+   - 完整實作跨領域的語言文件更新與同步
 
-**本次更新完成內容（v1.0 收尾）：**
-1. ✅ 檔案上傳後端服務 - FileService 支援多類型檔案
-2. ✅ 附件 Handler - 上傳/下載/刪除 API 端點
-3. ✅ 附件資料庫遷移 - 006_attachments.sql
-4. ✅ 通知偏好設定前端 - SettingsPage 整合完整 UI
-5. ✅ 路由更新 - 檔案上傳相關 API 端點
+2. ✅ **計畫管理系統強化**
+   - 引入更完善的計畫管理核心系統，整合 API、Services 與 Models
+   - 強化資料一致性驗證邏輯
 
-**最新更新（UI 改進）：**
-1. ✅ 修復側邊欄收合時 icon 大小問題 - 使用 `shrink-0` 保護 icon 不被壓縮，收合時保持 `h-5 w-5` 大小並居中顯示
-2. ✅ 移除側邊欄左側空白問題 - 刪除 JSX 中的錯誤註釋並修正背景色
+**最新更新（表單功能與 UI 優化 - 2026-02-06）：**
 
-**最新更新（計劃書管理）：**
-1. ✅ 計劃書刪除功能改進 - 刪除的計劃書從 UI 上完全消失，不再顯示"已刪除"狀態
-   - 後端：`list` 和 `get_my_protocols` 方法始終排除 DELETED 狀態的計劃書
-   - 前端：狀態選擇器中移除 DELETED 選項，查詢函數中雙重過濾確保不顯示已刪除的計劃書
-   - 不需要恢復功能，刪除即永久隱藏
+1. ✅ **AUP 表單預設值功能**
+   - 實作第 6 節（手術計畫）「載入預設值」功能
+   - 實作第 6.3 節（無菌作業）「載入預設值」功能，自動填寫標準作業程序
+
+2. ✅ **流程控管與國際化**
+   - 強化協編者邏輯：計畫書轉入 "Pre-review" 狀態前，強制檢查是否已指派協編者
+   - 提交確認對話框（confirmSubmit）支援中英雙語顯示
+
+3. ✅ **UI/UX 微調與存取控制**
+   - 側邊欄優化：修正文字折行問題，提升佈局美觀度
+   - 存取限制：限制 ERP 系統僅 `EXPERIMENT_STAFF` 或 `admin` 角色可進入
+   - 權限隱藏：對獸醫師角色隱藏「審查人員」頁籤，減少冗餘資訊
+
+**最新更新（AUP 審查系統與權限 - 2026-02-06）：**
+
+1. ✅ **審查人員介面優化**
+   - 修復審查人員列表顯示問題，確保已指派人員正確呈現
+   - 實作跨審查員可見性，允許審查員查看同一專案的其他審查意見
+   - 修復權限錯誤：解決被指派審查員在查看計畫詳情時出現 "Permission Denied" 的問題
+
+2. ✅ **角色權限調整**
+   - 資料庫遷移：`013_rename_chair_role.sql` 實作
+   - 將系統中所有 `CHAIR` 角色統一重新命名為 `IACUC_CHAIR`，包括資料庫內容、後端代碼與前端顯示
+   - 修正 `REVIEWER` 與 `IACUC_CHAIR` 缺少 `aup.protocol.view_own` 權限的問題
+
+3. ✅ **審查意見互動增強**
+   - 優化審查意見與回覆的對齊樣式，提升閱讀體驗
+   - 修復中文化翻譯鍵：`protocols.detail.dialogs.comment.success` 補完
+
+**最新更新 (2026-02-05)：**
+
+1. ✅ **倉庫平面圖編輯器改進**
+   - 儲位上下移動功能修復 - 加入 `compactType={null}` 禁用自動壓縮，`autoSize={true}` 自動調整高度
+   - 容器最小高度增加至 600px，提供更多垂直空間
+   - 「門」字樣下方增加 10px 間距
+
+2. ✅ **儲位表單簡化**
+   - 移除「代碼」輸入欄位，改為系統自動產生
+   - 「名稱」欄位改為必填
+   - 後端 `CreateStorageLocationRequest.code` 改為 `Option<String>`
+   - 後端 `CreateStorageLocationRequest.name` 改為 `String`（必填）
+   - `StorageLocationService.create()` 自動呼叫 `generate_code()` 產生唯一代碼（A01, A02...）
+
+3. ✅ **儲位庫存管理功能**
+   - 儲位庫存顯示 - 點擊儲位顯示該位置的庫存明細
+   - 庫存數量直接編輯 - 支援在對話框中直接修改庫存數量
+   - 後端 API 擴充 - `/storage-locations/:id/inventory` 取得儲位庫存、`/storage-locations/inventory/:item_id` 更新庫存
+   - 資料庫遷移 - `030_storage_location_inventory.sql` 建立儲位庫存關聯表
+
+4. ✅ **權限系統更新**
+   - 實驗人員權限擴充 - 新增物種管理、動物資訊管理（建立/編輯/匯入）、病歷匯出、緊急停止等權限
+
+**最新更新 (機能強化 - 2026-02-03)：**
+1. ✅ **角色切換 (Login As) 功能**
+   - 實作後端 impersonation 邏輯與權限檢查
+   - 前端 AuthStore 支援切換身分狀態
+   - 管理員可從使用者列表直接「切換為此使用者」
+
+2. ✅ **AUP 第 8 節資歷管理**
+   - 員工可維護個人的「學術研究經歷」與「專業訓練課程」
+   - 系統自動帶入 AUP 第 8 節表單，減少重複輸入
+   - 更新 `/api/hr/staff` 端點以支援完整資歷回傳
+
+3. ✅ **計畫書版本比較改進**
+   - 擴展 `ProtocolComparisonDialog` 支援更多欄位
+   - 實作遞迴比較邏輯，可精確顯示陣列或物件內的細微變更
+   - 完整中文化欄位標籤與內容
+
+4. ✅ **系統穩定性與 UI 優化**
+   - 修復 Dashboard Widget 在 Google Calendar 未連接時的 Loading 錯誤
+   - `ProtocolContentView.tsx` 完整國際化與樣式調整
+   - 員工選擇對話框新增搜尋與分頁功能
+
+**最新更新（使用者管理功能增強 - 2026-02-03）：**
+
+1. ✅ **使用者管理功能增強**
+   - 使用者資料新增「學經歷」欄位（後端 migration + DTO + UserService）
+   - 使用者管理介面新增學經歷編輯（Textarea）
+   - 使用者資料新增「entry_date」入職日期欄位，用於計算年資
+   - 使用者資料新增「years_experience」、「position」、「aup_roles」、「trainings」欄位
+
+2. ✅ **角色權限系統強化**
+   - 角色權限驗證 - 確保每個權限名稱正確且各角色擁有適當存取權
+   - Admin 完整權限 - 確保系統管理員擁有所有權限
+   - 使用者建立錯誤修復 - 解決 422 BusinessRule 錯誤，修正權限檢查與資料驗證邏輯
+
+3. ✅ **AUP 審查系統改進**
+   - 條件式人員對話框 - PI 角色顯示文字輸入，Co-editor 角色顯示員工下拉選單
+   - 人員名稱修正 - 更新「許芮蓁」為「芮蓁」
+   - Protocol 表單預設值修復 - 修正 personnel、training_certificates、roles 陣列初始化
+
+4. ✅ **獸醫師通知增強**
+   - 緊急旗標功能 - 獸醫師建議新增 is_urgent 欄位
+   - 差異化通知發送 - 緊急建議觸發站內通知 + Email，一般建議僅觸發站內通知
+   - 後端 AnimalService、NotificationService、EmailService 更新
+
+5. ✅ **編譯錯誤修復**
+    - UserResponse struct 更新 - 新增 entry_date、experience、position、aup_roles、years_experience、trainings 欄位
+    - JSX 語法修復 - UsersPage.tsx 標籤正確閉合
+    - Docker 容器建置成功
+
+**最新更新（資料庫現代化與功能增強 - 2026-02-02）：**
+
+1. ✅ **資料庫架構現代化**
+   - 豬隻 ID 遷移至 UUID - 將 pig 模組主鍵從 INTEGER 改為 UUID，保留 `pig_no` 作為顯示用途
+   - GIN 索引優化 - 在 JSONB 欄位（`protocols.working_content`、`pig_observations.treatments`）建立 GIN 索引
+   - Array Foreign Key 完整性修復 - 透過 `leave_balance_usage` 關聯表處理 `comp_time_source_ids`
+   - 自動 Partition 維護 - 實作排程器自動建立 `user_activity_logs` 新分區表
+
+2. ✅ **Amendment 變更申請系統（後端完成）**
+   - 資料庫遷移：`022_amendment_system.sql`（amendments、amendment_versions、amendment_review_assignments、amendment_status_history）
+   - 後端 Models：`AmendmentType`、`AmendmentStatus`、`Amendment` 等完整資料結構
+   - 後端 Services：`AmendmentService` 支援建立、分類、審查、版本快照等功能
+   - 後端 Handlers：完整 REST API（建立、列表、詳情、更新、提交、分類、審查決定）
+   - 權限設定：PI 建立/更新、IACUC_STAFF 分類/行政審查、REVIEWER 審查、CHAIR 核准
+   - 草稿回覆功能：`review_comments` 表新增 `draft_content`、`drafted_by`、`draft_updated_at` 欄位
+
+3. ✅ **動物管理功能增強**
+   - 緊急用藥通知 - 觸發緊急通知，警示獸醫師和 PI
+   - 快速新增動物對話框 - 耳號未找到時可手動新增，支援自動格式化耳號、品種、性別、進場日期、出生日期
+   - 安樂死工作流程 UI - 實作安樂死命令建立、PI 核准/申訴、CHAIR 仲裁介面
+
+4. ✅ **審查系統改進**
+   - 審查者匿名化 - PI/CLIENT 角色檢視時顯示「Reviewer A」、「Reviewer B」等（IACUC_STAFF、IACUC_CHAIR、SYSTEM_ADMIN 可見真名）
+   - AUP 表單翻譯 - 將 `ProtocolEditPage.tsx` 中所有章節標題與副標題從中文翻譯為英文
+
+5. ✅ **權限系統優化**
+   - 權限分類整合 - 重新組織並翻譯權限分類，合併重複的「其他」類別，將 CRUD 操作分組至父模組下
+   - 階層結構建立：動物使用計畫、動物管理、庫存管理、管理階級、系統管理、開發工具
+
+**最新更新（功能增強與修復 - 2026-01-19）：**
+
+1. ✅ **HR 人事管理系統**
+   - 特休額度管理 - 僅管理員可存取
+   - 員工到職日期支援 - 按到職日計算特休
+   - 週年制特休到期邏輯 - 到職日 + 2 年到期
+   - 未休補償追蹤機制
+
+2. ✅ **權限系統優化**
+   - 角色權限分類改進 - MODULE_CONFIG 重新分類
+   - 審查人員權限修正 - 僅可見被指派之計畫
+   - 實驗人員權限調整 - 移除狀態變更能力
+   - 導覽列條件式渲染 - 依角色顯示功能
+
+3. ✅ **計畫書頁面整合**
+   - ProtocolDetailPage 與 MyProjectDetailPage 整合
+   - 統一 URL 路由至 ProtocolDetailPage
+   - 豬隻紀錄 Tab 整合至詳情頁
+
+4. ✅ **PDF 匯出完整實作**
+   - AUP 計畫書完整 9 節 PDF 匯出
+   - PdfService 重構為 genpdf 套件
+   - 中文字型支援 (Noto Sans TC)
+
+5. ✅ **協編者權限修正**
+   - 協編者可正確檢視/編輯計畫書
+   - 權限初始化邏輯移至 Rust 啟動時執行
+   - 協編者指派功能（詳情頁 Tab）
+
+6. ✅ **審查意見回覆功能**
+   - 回覆按鈕與輸入對話框
+   - PI、IACUC_STAFF、EXPERIMENT_STAFF 可回覆
 
 **最新更新（資料匯入功能 - 2026-01-11）：**
 1. ✅ 完整實作檔案匯入功能
@@ -541,199 +679,36 @@
    - 修正：後端 `/pigs` API 返回格式為 `Vec<PigListItem>`（數組），與前端預期一致
    - 影響：減少前端處理複雜度，數據提取更直接
 
-**最新更新（功能增強與修復 - 2026-01-19）：**
+**最新更新（計劃書管理）：**
+1. ✅ 計劃書刪除功能改進 - 刪除的計劃書從 UI 上完全消失，不再顯示"已刪除"狀態
+   - 後端：`list` 和 `get_my_protocols` 方法始終排除 DELETED 狀態的計劃書
+   - 前端：狀態選擇器中移除 DELETED 選項，查詢函數中雙重過濾確保不顯示已刪除的計劃書
+   - 不需要恢復功能，刪除即永久隱藏
 
-1. ✅ **HR 人事管理系統**
-   - 特休額度管理 - 僅管理員可存取
-   - 員工到職日期支援 - 按到職日計算特休
-   - 週年制特休到期邏輯 - 到職日 + 2 年到期
-   - 未休補償追蹤機制
+**最新更新（UI 改進）：**
+1. ✅ 修復側邊欄收合時 icon 大小問題 - 使用 `shrink-0` 保護 icon 不被壓縮，收合時保持 `h-5 w-5` 大小並居中顯示
+2. ✅ 移除側邊欄左側空白問題 - 刪除 JSX 中的錯誤註釋並修正背景色
 
-2. ✅ **權限系統優化**
-   - 角色權限分類改進 - MODULE_CONFIG 重新分類
-   - 審查人員權限修正 - 僅可見被指派之計畫
-   - 實驗人員權限調整 - 移除狀態變更能力
-   - 導覽列條件式渲染 - 依角色顯示功能
+**本次更新完成內容（v1.0 收尾）：**
+1. ✅ 檔案上傳後端服務 - FileService 支援多類型檔案
+2. ✅ 附件 Handler - 上傳/下載/刪除 API 端點
+3. ✅ 附件資料庫遷移 - 006_attachments.sql
+4. ✅ 通知偏好設定前端 - SettingsPage 整合完整 UI
+5. ✅ 路由更新 - 檔案上傳相關 API 端點
 
-3. ✅ **計畫書頁面整合**
-   - ProtocolDetailPage 與 MyProjectDetailPage 整合
-   - 統一 URL 路由至 ProtocolDetailPage
-   - 豬隻紀錄 Tab 整合至詳情頁
+---
 
-4. ✅ **PDF 匯出完整實作**
-   - AUP 計畫書完整 9 節 PDF 匯出
-   - PdfService 重構為 genpdf 套件
-   - 中文字型支援 (Noto Sans TC)
+## 11. 結論
 
-5. ✅ **協編者權限修正**
-   - 協編者可正確檢視/編輯計畫書
-   - 權限初始化邏輯移至 Rust 啟動時執行
-   - 協編者指派功能（詳情頁 Tab）
+豬博士 iPig 系統整體完成度 **100%** ✅，所有子系統均已完成：
 
-6. ✅ **審查意見回覆功能**
-   - 回覆按鈕與輸入對話框
-   - PI、IACUC_STAFF、EXPERIMENT_STAFF 可回覆
-
-**最新更新（資料庫現代化與功能增強 - 2026-02-02）：**
-
-1. ✅ **資料庫架構現代化**
-   - 豬隻 ID 遷移至 UUID - 將 pig 模組主鍵從 INTEGER 改為 UUID，保留 `pig_no` 作為顯示用途
-   - GIN 索引優化 - 在 JSONB 欄位（`protocols.working_content`、`pig_observations.treatments`）建立 GIN 索引
-   - Array Foreign Key 完整性修復 - 透過 `leave_balance_usage` 關聯表處理 `comp_time_source_ids`
-   - 自動 Partition 維護 - 實作排程器自動建立 `user_activity_logs` 新分區表
-
-2. ✅ **Amendment 變更申請系統（後端完成）**
-   - 資料庫遷移：`022_amendment_system.sql`（amendments、amendment_versions、amendment_review_assignments、amendment_status_history）
-   - 後端 Models：`AmendmentType`、`AmendmentStatus`、`Amendment` 等完整資料結構
-   - 後端 Services：`AmendmentService` 支援建立、分類、審查、版本快照等功能
-   - 後端 Handlers：完整 REST API（建立、列表、詳情、更新、提交、分類、審查決定）
-   - 權限設定：PI 建立/更新、IACUC_STAFF 分類/行政審查、REVIEWER 審查、CHAIR 核准
-   - 草稿回覆功能：`review_comments` 表新增 `draft_content`、`drafted_by`、`draft_updated_at` 欄位
-
-3. ✅ **動物管理功能增強**
-   - 緊急用藥通知 - 觸發緊急通知，警示獸醫師和 PI
-   - 快速新增動物對話框 - 耳號未找到時可手動新增，支援自動格式化耳號、品種、性別、進場日期、出生日期
-   - 安樂死工作流程 UI - 實作安樂死命令建立、PI 核准/申訴、CHAIR 仲裁介面
-
-4. ✅ **審查系統改進**
-   - 審查者匿名化 - PI/CLIENT 角色檢視時顯示「Reviewer A」、「Reviewer B」等（IACUC_STAFF、IACUC_CHAIR、SYSTEM_ADMIN 可見真名）
-   - AUP 表單翻譯 - 將 `ProtocolEditPage.tsx` 中所有章節標題與副標題從中文翻譯為英文
-
-5. ✅ **權限系統優化**
-   - 權限分類整合 - 重新組織並翻譯權限分類，合併重複的「其他」類別，將 CRUD 操作分組至父模組下
-   - 階層結構建立：動物使用計畫、動物管理、庫存管理、管理階級、系統管理、開發工具
-
-6. ✅ **使用者管理功能增強 (2026-02-03)**
-   - 使用者資料新增「學經歷」欄位（後端 migration + DTO + UserService）
-   - 使用者管理介面新增學經歷編輯（Textarea）
-   - 使用者資料新增「entry_date」入職日期欄位，用於計算年資
-   - 使用者資料新增「years_experience」、「position」、「aup_roles」、「trainings」欄位
-
-7. ✅ **角色權限系統強化 (2026-02-03)**
-   - 角色權限驗證 - 確保每個權限名稱正確且各角色擁有適當存取權
-   - Admin 完整權限 - 確保系統管理員擁有所有權限
-   - 使用者建立錯誤修復 - 解決 422 BusinessRule 錯誤，修正權限檢查與資料驗證邏輯
-
-8. ✅ **AUP 審查系統改進 (2026-02-03)**
-   - 條件式人員對話框 - PI 角色顯示文字輸入，Co-editor 角色顯示員工下拉選單
-   - 人員名稱修正 - 更新「許芮蓁」為「芮蓁」
-   - Protocol 表單預設值修復 - 修正 personnel、training_certificates、roles 陣列初始化
-
-9. ✅ **獸醫師通知增強 (2026-02-03)**
-   - 緊急旗標功能 - 獸醫師建議新增 is_urgent 欄位
-   - 差異化通知發送 - 緊急建議觸發站內通知 + Email，一般建議僅觸發站內通知
-   - 後端 AnimalService、NotificationService、EmailService 更新
-
-10. ✅ **編譯錯誤修復 (2026-02-03)**
-    - UserResponse struct 更新 - 新增 entry_date、experience、position、aup_roles、years_experience、trainings 欄位
-    - JSX 語法修復 - UsersPage.tsx 標籤正確閉合
-    - Docker 容器建置成功
-
-11. 🔶 **待完成項目**
-    - Amendment 前端頁面開發
-    - 疼痛評估記錄時間軸檢視
-
-**最新更新 (機能強化 - 2026-02-03 晚間)：**
-1. ✅ **角色切換 (Login As) 功能**
-   - 實作後端 impersonation 邏輯與權限檢查
-   - 前端 AuthStore 支援切換身分狀態
-   - 管理員可從使用者列表直接「切換為此使用者」
-
-2. ✅ **AUP 第 8 節資歷管理**
-   - 員工可維護個人的「學術研究經歷」與「專業訓練課程」
-   - 系統自動帶入 AUP 第 8 節表單，減少重複輸入
-   - 更新 `/api/hr/staff` 端點以支援完整資歷回傳
-
-3. ✅ **計畫書版本比較改進**
-   - 擴展 `ProtocolComparisonDialog` 支援更多欄位
-   - 實作遞迴比較邏輯，可精確顯示陣列或物件內的細微變更
-   - 完整中文化欄位標籤與內容
-
-4. ✅ **系統穩定性與 UI 優化**
-   - 修復 Dashboard Widget 在 Google Calendar 未連接時的 Loading 錯誤
-   - `ProtocolContentView.tsx` 完整國際化與樣式調整
-   - 員工選擇對話框新增搜尋與分頁功能
-
-**最新更新 (PDF 報表優化需求 - 2026-02-08)：**
-1. 🔶 **PDF 報表分頁問題**
-   - 目前匯出結果不盡人意，需要討論分頁邏輯
-   - 研議「每個 Session 獨立分頁」的可行性
-
-**v1.0 已完成，系統可正式上線！**
-
-**最新更新 (2026-02-05)：**
-
-1. ✅ **倉庫平面圖編輯器改進**
-   - 儲位上下移動功能修復 - 加入 `compactType={null}` 禁用自動壓縮，`autoSize={true}` 自動調整高度
-   - 容器最小高度增加至 600px，提供更多垂直空間
-   - 「門」字樣下方增加 10px 間距
-
-2. ✅ **儲位表單簡化**
-   - 移除「代碼」輸入欄位，改為系統自動產生
-   - 「名稱」欄位改為必填
-   - 後端 `CreateStorageLocationRequest.code` 改為 `Option<String>`
-   - 後端 `CreateStorageLocationRequest.name` 改為 `String`（必填）
-   - `StorageLocationService.create()` 自動呼叫 `generate_code()` 產生唯一代碼（A01, A02...）
-
-3. ✅ **儲位庫存管理功能**
-   - 儲位庫存顯示 - 點擊儲位顯示該位置的庫存明細
-   - 庫存數量直接編輯 - 支援在對話框中直接修改庫存數量
-   - 後端 API 擴充 - `/storage-locations/:id/inventory` 取得儲位庫存、`/storage-locations/inventory/:item_id` 更新庫存
-   - 資料庫遷移 - `030_storage_location_inventory.sql` 建立儲位庫存關聯表
-
-4. ✅ **權限系統更新**
-   - 實驗人員權限擴充 - 新增物種管理、動物資訊管理（建立/編輯/匯入）、病歷匯出、緊急停止等權限
-
-**最新更新（AUP 審查系統與權限 - 2026-02-06）：**
-
-1. ✅ **審查人員介面優化**
-   - 修復審查人員列表顯示問題，確保已指派人員正確呈現
-   - 實作跨審查員可見性，允許審查員查看同一專案的其他審查意見
-   - 修復權限錯誤：解決被指派審查員在查看計畫詳情時出現 "Permission Denied" 的問題
-
-2. ✅ **角色權限調整**
-   - 資料庫遷移：`013_rename_chair_role.sql` 實作
-   - 將系統中所有 `CHAIR` 角色統一重新命名為 `IACUC_CHAIR`，包括資料庫內容、後端代碼與前端顯示
-   - 修正 `REVIEWER` 與 `IACUC_CHAIR` 缺少 `aup.protocol.view_own` 權限的問題
-
-3. ✅ **審查意見互動增強**
-   - 優化審查意見與回覆的對齊樣式，提升閱讀體驗
-   - 修復中文化翻譯鍵：`protocols.detail.dialogs.comment.success` 補完
-
-**最新更新（表單功能與 UI 優化 - 2026-02-06）：**
-
-1. ✅ **AUP 表單預設值功能**
-   - 實作第 6 節（手術計畫）「載入預設值」功能
-   - 實作第 6.3 節（無菌作業）「載入預設值」功能，自動填寫標準作業程序
-
-2. ✅ **流程控管與國際化**
-   - 強化協編者邏輯：計畫書轉入 "Pre-review" 狀態前，強制檢查是否已指派協編者
-   - 提交確認對話框（confirmSubmit）支援中英雙語顯示
-
-3. ✅ **UI/UX 微調與存取控制**
-   - 側邊欄優化：修正文字折行問題，提升佈局美觀度
-   - 存取限制：限制 ERP 系統僅 `EXPERIMENT_STAFF` 或 `admin` 角色可進入
-   - 權限隱藏：對獸醫師角色隱藏「審查人員」頁籤，減少冗餘資訊
-
-**最新更新（系統架構重構 - 2026-02-07）：**
-
-1. ✅ **後端與規格重組**
-   - 執行大規模專案規格（Profiling_Spec）目錄重組，提升架構清晰度
-   - 後端 Service 與 Handler 層級重構，優化代碼組織結構
-   - 完整實作跨領域的語言文件更新與同步
-
-2. ✅ **計畫管理系統強化**
-   - 引入更完善的計畫管理核心系統，整合 API、Services 與 Models
-   - 強化資料一致性驗證邏輯
-
-**v2.0 規劃功能：**
-
-1. 行動端適配
-2. 🔶 PDF 報表生成 - 目前分頁邏輯不盡人意，規劃改為每個 Session 獨立分頁
-3. 進階成本法（FIFO）
-4. 條碼掃描功能
+1. **共用基礎架構** 完整 100%，認證授權、Email 服務均已就緒
+2. **AUP 審查系統** 完整 100%，審查流程 UI 完整，PDF 匯出已完成
+3. **iPig ERP (進銷存管理系統)** 完成度 100%，已可投入使用
+4. **實驗動物管理系統** 完整 100%，所有功能均已實作，GLP 合規完成
+5. **通知系統** 完整 100%，排程任務、Email 通知、偏好設定均已完成
+6. **HR 人事管理系統** 完整 100%，特休管理、Google Calendar 整合已完成
 
 ---
 
 *本報告由系統自動產生，如有疑問請聯繫開發團隊。*
-
