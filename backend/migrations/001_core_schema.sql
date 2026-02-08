@@ -8,7 +8,7 @@
 -- - 觸發器與函式
 -- 
 -- 編碼: UTF-8 (無 BOM)
--- 密碼 Hash: password123 → $2b$10$N9qo8uLOickgx2ZMRZoMy.MqrqE7cCfK3.9uGg0FhE2VZQqhF5C.O
+-- 預設密碼: admin123 (由後端 ensure_admin_user 函式在啟動時自動建立，此處 hash 僅供參考)
 -- ============================================
 
 -- ============================================
@@ -353,18 +353,12 @@ ON CONFLICT (code) DO NOTHING;
 -- 8. 插入種子帳號
 -- ============================================
 
--- 統一密碼 Hash (Argon2id): password123
--- Generated using argon2 crate with default settings
-INSERT INTO users (id, email, password_hash, display_name, is_internal, is_active, must_change_password, created_at, updated_at) VALUES
-    (gen_random_uuid(), 'admin@ipig.local', '$argon2id$v=19$m=65536,t=3,p=4$VvlEG9rpCr/G9l0sRncC/A$jw/Shq555yDjLEm4TO0J16+M2zszQbVpHraFAyrn0Ww', '系統管理員', true, true, true, NOW(), NOW())
-ON CONFLICT (email) DO NOTHING;
+-- 注意：admin 帳號由後端 ensure_admin_user() 函式在啟動時動態建立
+-- 預設帳號：admin@ipig.local
+-- 預設密碼：admin123
+-- 這樣可以確保密碼 hash 使用與後端驗證一致的 Argon2 參數
 
--- 為 admin 帳號指派 admin 角色
-INSERT INTO user_roles (user_id, role_id, assigned_at)
-SELECT u.id, r.id, NOW()
-FROM users u, roles r
-WHERE u.email = 'admin@ipig.local' AND r.code = 'admin'
-ON CONFLICT (user_id, role_id) DO NOTHING;
+-- 原本的 SQL seed 已移除，由後端啟動時自動建立 admin 帳號並指派角色
 
 -- ============================================
 -- 完成
