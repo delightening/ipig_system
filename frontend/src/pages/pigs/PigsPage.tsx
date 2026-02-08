@@ -612,9 +612,12 @@ export function PigsPage() {
       if (sortColumn === 'entry_date') {
         aVal = aVal ? new Date(aVal).getTime() : 0
         bVal = bVal ? new Date(bVal).getTime() : 0
-      }
-      if (typeof aVal === 'string') aVal = aVal.toLowerCase()
-      if (typeof bVal === 'string') bVal = bVal.toLowerCase()
+      } else if (sortColumn === 'latest_weight') {
+        aVal = aVal !== null && aVal !== undefined ? Number(aVal) : (sortDirection === 'asc' ? Infinity : -Infinity)
+        bVal = bVal !== null && bVal !== undefined ? Number(bVal) : (sortDirection === 'asc' ? Infinity : -Infinity)
+      } else if (typeof aVal === 'string') aVal = aVal.toLowerCase()
+      if (typeof bVal === 'string' && sortColumn !== 'latest_weight') bVal = bVal.toLowerCase()
+
       if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1
       if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1
       return 0
@@ -789,7 +792,7 @@ export function PigsPage() {
                     <TableHead>{t('pigs.onMedicationShort')}</TableHead>
                     <TableHead>{t('pigs.vetRecommendation')}</TableHead>
                     <SortableHeader column="entry_date" label={t('pigs.entryDate')} />
-                    <TableHead>{t('pigs.currentWeight')}</TableHead>
+                    <SortableHeader column="latest_weight" label={t('pigs.currentWeight')} />
                     <TableHead className="text-right">{t('pigs.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>

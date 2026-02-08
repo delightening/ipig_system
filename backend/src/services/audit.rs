@@ -147,6 +147,39 @@ impl AuditService {
         Ok(logs)
     }
 
+    /// 記錄詳細活動日誌
+    pub async fn log_activity(
+        pool: &PgPool,
+        actor_user_id: Uuid,
+        event_category: &str,
+        event_type: &str,
+        entity_type: Option<&str>,
+        entity_id: Option<Uuid>,
+        entity_display_name: Option<&str>,
+        before_data: Option<serde_json::Value>,
+        after_data: Option<serde_json::Value>,
+        ip_address: Option<&str>,
+        user_agent: Option<&str>,
+    ) -> Result<Uuid> {
+        let result: (Uuid,) = sqlx::query_as(
+            "SELECT log_activity($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"
+        )
+        .bind(actor_user_id)
+        .bind(event_category)
+        .bind(event_type)
+        .bind(entity_type)
+        .bind(entity_id)
+        .bind(entity_display_name)
+        .bind(before_data)
+        .bind(after_data)
+        .bind(ip_address)
+        .bind(user_agent)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(result.0)
+    }
+
     // ============================================
     // 新增的 Activity Logs 方法
     // ============================================

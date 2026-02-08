@@ -50,6 +50,7 @@ export function MyProjectsPage() {
   const { toast } = useToast()
   const { user } = useAuthStore()
   const [closeDialogOpen, setCloseDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
 
   const { data: projects, isLoading } = useQuery({
@@ -86,14 +87,51 @@ export function MyProjectsPage() {
     },
   })
 
+  // 刪除 mutation
+  const deleteProtocolMutation = useMutation({
+    mutationFn: async (projectId: string) => {
+      return api.post(`/protocols/${projectId}/status`, {
+        to_status: 'DELETED',
+        remark: '使用者刪除計畫',
+      })
+    },
+    onSuccess: () => {
+      toast({
+        title: t('common.success'),
+        description: t('common.deleted'),
+      })
+      queryClient.invalidateQueries({ queryKey: ['my-projects'] })
+      setDeleteDialogOpen(false)
+      setSelectedProjectId(null)
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('common.error'),
+        description: error?.response?.data?.error?.message || t('common.error'),
+        variant: 'destructive',
+      })
+    },
+  })
+
   const handleCloseClick = (projectId: string) => {
     setSelectedProjectId(projectId)
     setCloseDialogOpen(true)
   }
 
+  const handleDeleteClick = (projectId: string) => {
+    setSelectedProjectId(projectId)
+    setDeleteDialogOpen(true)
+  }
+
   const handleConfirmClose = () => {
     if (selectedProjectId) {
       closeProtocolMutation.mutate(selectedProjectId)
+    }
+  }
+
+  const handleConfirmDelete = () => {
+    if (selectedProjectId) {
+      deleteProtocolMutation.mutate(selectedProjectId)
     }
   }
 
@@ -253,18 +291,30 @@ export function MyProjectsPage() {
                             </Link>
                           </Button>
                           {/* 結案按鈕: 審查委員不應有結案功能 */}
-                          {project.status !== 'CLOSED' &&
-                            !user?.roles?.every(role => ['REVIEWER', 'VET'].includes(role)) && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleCloseClick(project.id)}
-                                disabled={closeProtocolMutation.isPending}
-                              >
-                                <X className="mr-2 h-4 w-4" />
-                                {t('common.delete')}
-                              </Button>
-                            )}
+                          {/* 只有草稿或需修訂狀態可刪除 */}
+                          {['DRAFT', 'REVISION_REQUIRED'].includes(project.status) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteClick(project.id)}
+                              disabled={deleteProtocolMutation.isPending}
+                            >
+                              <X className="mr-2 h-4 w-4" />
+                              {t('common.delete')}
+                            </Button>
+                          )}
+                          {/* 只有核准狀態可結案 */}
+                          {(project.status === 'APPROVED' || project.status === 'APPROVED_WITH_CONDITIONS') && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleCloseClick(project.id)}
+                              disabled={closeProtocolMutation.isPending}
+                            >
+                              <X className="mr-2 h-4 w-4" />
+                              {t('common.close')}
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -302,7 +352,7 @@ export function MyProjectsPage() {
               {t('common.cancel')}
             </Button>
             <Button
-              variant="destructive"
+              variant="default"
               onClick={handleConfirmClose}
               disabled={closeProtocolMutation.isPending}
             >
