@@ -483,7 +483,7 @@
         "sterileNo": "否",
         "nonSterileJustification": "說明：",
         "omitted": "略",
-        "design": "",
+        "design": "4. 研究設計與方法",
         "procedures": "動物試驗流程描述",
         "anesthesia": "是否於麻醉下進行試驗",
         "anesthesiaType": "麻醉類型",
@@ -863,7 +863,7 @@
       "contentPlaceholder": "例如：本計畫遵循動物保護法及實驗動物照護及使用指引",
       "referencesTitle": "參考文獻列表",
       "addReference": "新增文獻",
-      "citationPlaceholder": "文獻引用",
+      "citationPlaceholder": "文獻引用 (例如：Smith, J. et al., 2023, Study on Pig Health, Journal of Animal Science, 45(2), 123-134)",
       "urlPlaceholder": "URL (選填)"
     },
     "surgery": {
@@ -1155,7 +1155,7 @@
       "housingLocation": "苗栗縣後龍鎮外埔里2鄰外埔6-15號",
       "humaneEndpoint": "實驗過程中如果動物體重下降超過原體重的20%、食慾不振 (無法進食)、身體虛弱、感染，持續治療或傷口清創後無改善，或其他經獸醫師評估不宜持續實驗之情形，則提早結束實驗，以符合動物福祉。",
       "carcassDisposal": "委由簽約之合格化製廠商進行化製處理\n (化製廠商名稱：金海龍生物科技股份有限公司，化製廠管編：P6001213)",
-      "preopPreparation": "1.實驗動物術前禁食至少12小時，不禁水。\n2.試驗豬隻經清洗擦乾後，以畜舒坦( Azeperonum 40 mg/mL)3-5 mg/kg和0.03-0.05 mg/kg阿托平(Atropine® 1 mg/mL)肌肉注射鎮靜。仔細觀察豬隻呼吸頻率。\n3.經20-30分鐘後，以4.4 mg/kg舒泰-50(Zoletil®-50)肌肉注射誘導麻醉\n4.經5-10分鐘後，將豬隻移至手術檯上，以趴姿進行氣管插管，接上氣體麻醉機，以2-3 L/min流速的氧氣混合0.5-2%氣體麻醉劑Isoflurane維持麻醉，隨時注意觀察豬隻麻醉深度。\n5.術前肌肉注射抗生素Cefazolin 15 mg/kg及止痛劑meloxicam 0.4 mg/kg\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行",
+      "preopPreparation": "1.實驗動物術前禁食至少12小時，不禁水。\n2.試驗豬隻經清洗擦乾後，以畜舒坦( Azeperonum 40 mg/mL)3-5 mg/kg和0.03-0.05 mg/kg阿托平(Atropine® 1 mg/mL)肌肉注射鎮靜。仔細觀察豬隻呼吸頻率。\n3.經20-30分鐘後，以4.4 mg/kg舒泰-50(Zoletil®-50)肌肉注射誘導麻醉\n4.經5-10分鐘後，將豬隻移至手術檯上，以趴姿進行氣管插管，電剪剃毛，接上氣體麻醉機，以2-3 L/min流速的氧氣混合0.5-2%氣體麻醉劑Isoflurane維持麻醉，隨時注意觀察豬隻麻醉深度。\n5.術前肌肉注射抗生素Cefazolin 15 mg/kg及止痛劑meloxicam 0.4 mg/kg\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行",
       "surgeryDescription": "請詳述手術流程，包含手術位置、手術方法、切創大小及縫合處理",
       "monitoring": "手術進行中依試驗豬隻麻醉深度、呼吸頻率及手術需要，調整氧氣、笑氣流速及麻醉氣體濃度，同時注意保溫，接上生理監視器，監控記錄心跳、呼吸及體溫。\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行",
       "omitted": "略",

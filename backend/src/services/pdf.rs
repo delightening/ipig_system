@@ -50,6 +50,12 @@ impl PdfContext {
         self.y_position = PAGE_HEIGHT_MM - MARGIN_MM;
     }
 
+    fn force_new_page(&mut self) {
+        if self.y_position < PAGE_HEIGHT_MM - MARGIN_MM - 10.0 {
+            self.add_new_page();
+        }
+    }
+
     fn render_section_header(&mut self, text: &str) {
         self.check_page_break(LINE_HEIGHT_MM * 3.0);
         self.current_layer.use_text(text, 14.0, Mm(MARGIN_MM), Mm(self.y_position), &self.font);
@@ -179,6 +185,7 @@ impl PdfService {
         ctx.y_position -= SECTION_SPACING_MM * 2.0;
 
         // ========== 第1節：研究資料 ==========
+        ctx.force_new_page();
         ctx.render_section_header("1. 研究資料");
         
         if let Some(ref content) = protocol.protocol.working_content {
@@ -260,6 +267,7 @@ impl PdfService {
 
             // ========== 第2節：研究目的 ==========
             if let Some(purpose) = content.get("purpose") {
+                ctx.force_new_page();
                 ctx.render_section_header("2. 研究目的");
                 if let Some(significance) = purpose.get("significance").and_then(|v| v.as_str()) {
                     ctx.render_subsection_header("2.1 研究之目的及重要性");
@@ -298,6 +306,7 @@ impl PdfService {
             // ========== 第3節：試驗物質 ==========
             if let Some(items) = content.get("items") {
                 let use_test_item = items.get("use_test_item").and_then(|v| v.as_bool()).unwrap_or(false);
+                ctx.force_new_page();
                 ctx.render_section_header("3. 試驗物質與對照物質");
                 if use_test_item {
                     if let Some(test_items) = items.get("test_items").and_then(|v| v.as_array()) {
@@ -326,6 +335,7 @@ impl PdfService {
 
             // ========== 第4節：研究設計 ==========
             if let Some(design) = content.get("design") {
+                ctx.force_new_page();
                 ctx.render_section_header("4. 研究設計與方法");
                 if let Some(procedures) = design.get("procedures").and_then(|v| v.as_str()) {
                     ctx.render_subsection_header("動物試驗流程描述");
@@ -349,6 +359,7 @@ impl PdfService {
 
             // ========== 第5節：相關規範及參考文獻 ==========
             if let Some(guide) = content.get("guidelines") {
+                ctx.force_new_page();
                 ctx.render_section_header("5. 相關規範及參考文獻");
                 if let Some(g_content) = guide.get("content").and_then(|v| v.as_str()) {
                     ctx.render_subsection_header("相關規範說明");
@@ -375,6 +386,7 @@ impl PdfService {
                     let a_type = a.get("anesthesia_type").and_then(|v| v.as_str()).unwrap_or("");
                     if is_under && (a_type == "survival_surgery" || a_type == "non_survival_surgery") { Some(true) } else { None }
                 }).unwrap_or(false);
+                ctx.force_new_page();
                 ctx.render_section_header("6. 手術計畫書");
                 if needs_surgery {
                     if let Some(st) = surg.get("surgery_type").and_then(|v| v.as_str()) { ctx.render_label_value("手術類型", st); }
@@ -402,6 +414,7 @@ impl PdfService {
 
             // ========== 第7節：實驗動物資料 ==========
             if let Some(animals) = content.get("animals") {
+                ctx.force_new_page();
                 ctx.render_section_header("7. 實驗動物資料");
                 if let Some(animal_list) = animals.get("animals").and_then(|v| v.as_array()) {
                     for (i, animal) in animal_list.iter().enumerate() {
@@ -434,6 +447,7 @@ impl PdfService {
             // ========== 第8節：試驗人員資料 ==========
             if let Some(personnel) = content.get("personnel").and_then(|v| v.as_array()) {
                 if !personnel.is_empty() {
+                    ctx.force_new_page();
                     ctx.render_section_header("8. 試驗人員資料");
                     for (i, person) in personnel.iter().enumerate() {
                         ctx.render_subsection_header(&format!("人員 #{}", i + 1));
@@ -456,6 +470,7 @@ impl PdfService {
             // ========== 第9節：附件 ==========
             if let Some(attachments) = content.get("attachments").and_then(|v| v.as_array()) {
                 if !attachments.is_empty() {
+                    ctx.force_new_page();
                     ctx.render_section_header("9. 附件");
                     for (i, att) in attachments.iter().enumerate() {
                         if let Some(fname) = att.get("file_name").and_then(|v| v.as_str()) {
@@ -479,6 +494,215 @@ impl PdfService {
         );
 
         // 輸出 PDF 為 bytes
+        let pdf_bytes = ctx.doc.save_to_bytes()
+            .map_err(|e| AppError::Internal(format!("Failed to generate PDF: {}", e)))?;
+
+        Ok(pdf_bytes)
+    }
+
+    /// 生成豬隻病歷 PDF
+    pub fn generate_medical_pdf(data: &serde_json::Value) -> Result<Vec<u8>> {
+        // 建立 PDF 文件
+        let (doc, page1, layer1) = PdfDocument::new(
+            "豬隻病歷紀錄",
+            Mm(PAGE_WIDTH_MM),
+            Mm(PAGE_HEIGHT_MM),
+            "第1頁"
+        );
+
+        // 載入中文字型
+        let font_path = std::path::Path::new("resources/fonts/NotoSansSC-Regular.ttf");
+        let font_bytes = std::fs::read(font_path)
+            .map_err(|e| AppError::Internal(format!("Failed to read font file: {}", e)))?;
+        let font = doc.add_external_font(&*font_bytes)
+            .map_err(|e| AppError::Internal(format!("Failed to load font: {}", e)))?;
+
+        let initial_layer = doc.get_page(page1).get_layer(layer1);
+        let mut ctx = PdfContext::new(doc, font, initial_layer);
+
+        // ========== 標題 ==========
+        ctx.current_layer.use_text(
+            "豬隻病歷紀錄總表",
+            20.0,
+            Mm(PAGE_WIDTH_MM / 2.0 - 40.0),
+            Mm(ctx.y_position),
+            &ctx.font
+        );
+        ctx.y_position -= SECTION_SPACING_MM * 2.0;
+
+        // ========== 1. 豬隻基本資料 ==========
+        if let Some(pig) = data.get("pig") {
+            ctx.render_section_header("1. 豬隻基本資料");
+            let ear_tag = pig.get("ear_tag").and_then(|v| v.as_str()).unwrap_or("-");
+            let breed = pig.get("breed").and_then(|v| v.as_str()).unwrap_or("-");
+            let gender = pig.get("gender").and_then(|v| v.as_str()).unwrap_or("-");
+            let iacuc_no = pig.get("iacuc_no").and_then(|v| v.as_str()).unwrap_or("未分配");
+            
+            ctx.render_label_value("耳號", ear_tag);
+            ctx.render_label_value("計畫編號", iacuc_no);
+            ctx.render_label_value("品種", breed);
+            ctx.render_label_value("性別", if gender == "male" { "公" } else { "母" });
+            
+            if let Some(entry_date) = pig.get("entry_date").and_then(|v| v.as_str()) {
+                ctx.render_label_value("進場日期", entry_date);
+            }
+            if let Some(birth_date) = pig.get("birth_date").and_then(|v| v.as_str()) {
+                ctx.render_label_value("出生日期", birth_date);
+            }
+            if let Some(loc) = pig.get("pen_location").and_then(|v| v.as_str()) {
+                ctx.render_label_value("欄位編號", loc);
+            }
+            ctx.add_section_spacing();
+        }
+
+        // ========== 2. 體重紀錄 ==========
+        if let Some(weights) = data.get("weights").and_then(|v| v.as_array()) {
+            if !weights.is_empty() {
+                ctx.render_section_header("2. 體重紀錄");
+                for w in weights {
+                    let date = w.get("measure_date").and_then(|v| v.as_str()).unwrap_or("-");
+                    let weight = w.get("weight").map(|v| v.to_string()).unwrap_or("-".to_string());
+                    ctx.render_label_value(&format!("日期: {}", date), &format!("{} kg", weight));
+                }
+                ctx.add_section_spacing();
+            }
+        }
+
+        // ========== 3. 疫苗/驅蟲紀錄 ==========
+        if let Some(vaccinations) = data.get("vaccinations").and_then(|v| v.as_array()) {
+            if !vaccinations.is_empty() {
+                ctx.render_section_header("3. 疫苗/驅蟲紀錄");
+                for v in vaccinations {
+                    let date = v.get("administered_date").and_then(|v| v.as_str()).unwrap_or("-");
+                    let vaccine = v.get("vaccine").and_then(|v| v.as_str()).unwrap_or("-");
+                    let dose = v.get("deworming_dose").and_then(|v| v.as_str()).unwrap_or("-");
+                    ctx.render_label_value(&format!("日期: {}", date), &format!("項目: {}, 劑量: {}", vaccine, dose));
+                }
+                ctx.add_section_spacing();
+            }
+        }
+
+        // ========== 4. 觀察試驗紀錄 (Session per page) ==========
+        if let Some(observations) = data.get("observations").and_then(|v| v.as_array()) {
+            if !observations.is_empty() {
+                ctx.render_section_header("4. 觀察試驗紀錄");
+                for obs in observations {
+                    ctx.force_new_page();
+                    let date = obs.get("event_date").and_then(|v| v.as_str()).unwrap_or("-");
+                    let rtype = obs.get("record_type").and_then(|v| v.as_str()).unwrap_or("-");
+                    let content = obs.get("content").and_then(|v| v.as_str()).unwrap_or("-");
+                    
+                    ctx.render_subsection_header(&format!("觀察紀錄 - {}", date));
+                    ctx.render_label_value("紀錄類型", rtype);
+                    ctx.render_label_value("內容", "");
+                    ctx.render_paragraph(content);
+                    
+                    if let Some(treatments) = obs.get("treatments").and_then(|v| v.as_array()) {
+                        if !treatments.is_empty() {
+                            ctx.render_label_value("治療方式", "");
+                            for t in treatments {
+                                let drug = t.get("drug").and_then(|v| v.as_str()).unwrap_or("-");
+                                let dose = t.get("dosage").and_then(|v| v.as_str()).unwrap_or("-");
+                                ctx.render_paragraph(&format!("藥物: {}, 劑量: {}", drug, dose));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ========== 5. 手術紀錄 (Session per page) ==========
+        if let Some(surgeries) = data.get("surgeries").and_then(|v| v.as_array()) {
+            if !surgeries.is_empty() {
+                ctx.render_section_header("5. 手術紀錄");
+                for surg in surgeries {
+                    ctx.force_new_page();
+                    let date = surg.get("surgery_date").and_then(|v| v.as_str()).unwrap_or("-");
+                    let site = surg.get("surgery_site").and_then(|v| v.as_str()).unwrap_or("-");
+                    
+                    ctx.render_subsection_header(&format!("手術紀錄 - {}", date));
+                    ctx.render_label_value("手術部位", site);
+                    
+                    if let Some(remark) = surg.get("remark").and_then(|v| v.as_str()) {
+                        ctx.render_label_value("備註", "");
+                        ctx.render_paragraph(remark);
+                    }
+                }
+            }
+        }
+
+        // ========== 頁尾 ==========
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        ctx.current_layer.use_text(
+            &format!("生成日期: {} | 頁 {} ", today, ctx.page_number),
+            8.0,
+            Mm(MARGIN_MM),
+            Mm(MARGIN_MM),
+            &ctx.font
+        );
+
+        let pdf_bytes = ctx.doc.save_to_bytes()
+            .map_err(|e| AppError::Internal(format!("Failed to generate PDF: {}", e)))?;
+
+        Ok(pdf_bytes)
+    }
+
+    /// 生成計畫下所有豬隻病歷 PDF
+    pub fn generate_project_medical_pdf(iacuc_no: &str, pigs_data: &serde_json::Value) -> Result<Vec<u8>> {
+        // 建立 PDF 文件
+        let (doc, page1, layer1) = PdfDocument::new(
+            format!("計畫病歷匯出 - {}", iacuc_no),
+            Mm(PAGE_WIDTH_MM),
+            Mm(PAGE_HEIGHT_MM),
+            "第1頁"
+        );
+
+        // 載入中文字型
+        let font_path = std::path::Path::new("resources/fonts/NotoSansSC-Regular.ttf");
+        let font_bytes = std::fs::read(font_path)
+            .map_err(|e| AppError::Internal(format!("Failed to read font file: {}", e)))?;
+        let font = doc.add_external_font(&*font_bytes)
+            .map_err(|e| AppError::Internal(format!("Failed to load font: {}", e)))?;
+
+        let initial_layer = doc.get_page(page1).get_layer(layer1);
+        let mut ctx = PdfContext::new(doc, font, initial_layer);
+
+        // ========== 標題 ==========
+        ctx.current_layer.use_text(
+            &format!("計畫病歷匯出總表 - {}", iacuc_no),
+            20.0,
+            Mm(MARGIN_MM),
+            Mm(ctx.y_position),
+            &ctx.font
+        );
+        ctx.y_position -= SECTION_SPACING_MM * 3.0;
+
+        if let Some(pigs) = pigs_data.get("pigs").and_then(|v| v.as_array()) {
+            for (i, pig_data) in pigs.iter().enumerate() {
+                if i > 0 {
+                    ctx.add_new_page();
+                }
+
+                // 直接在目前 context 中渲染豬隻資料
+                // 為了簡單起見，我們重用一些邏輯
+                if let Some(pig) = pig_data.get("pig") {
+                    let ear_tag = pig.get("ear_tag").and_then(|v| v.as_str()).unwrap_or("-");
+                    ctx.render_section_header(&format!("豬隻耳號: {}", ear_tag));
+                    
+                    // 基本資料
+                    let breed = pig.get("breed").and_then(|v| v.as_str()).unwrap_or("-");
+                    let gender = pig.get("gender").and_then(|v| v.as_str()).unwrap_or("-");
+                    ctx.render_label_value("品種", breed);
+                    ctx.render_label_value("性別", if gender == "male" { "公" } else { "母" });
+                    ctx.add_section_spacing();
+                }
+
+                // 這裡可以繼續渲染其他詳細內容，或者只渲染摘要
+                // 為了符合 "session per page" 而且又是批次匯出，內容可能會非常多
+                // 這邊先實現基本結構
+            }
+        }
+
         let pdf_bytes = ctx.doc.save_to_bytes()
             .map_err(|e| AppError::Internal(format!("Failed to generate PDF: {}", e)))?;
 

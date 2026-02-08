@@ -180,6 +180,7 @@ export function PigsPage() {
     gender: 'male' as 'male' | 'female',
     entry_date: new Date().toISOString().split('T')[0],
     birth_date: '',
+    entry_weight: '',
   })
 
   // Form state for new pig
@@ -467,6 +468,7 @@ export function PigsPage() {
           gender: 'male',
           entry_date: new Date().toISOString().split('T')[0],
           birth_date: '',
+          entry_weight: '',
         })
         setShowQuickAddDialog(true)
         setEditingPenLocation(null)
@@ -524,6 +526,7 @@ export function PigsPage() {
         gender: quickAddForm.gender,
         entry_date: quickAddForm.entry_date,
         birth_date: quickAddForm.birth_date,
+        entry_weight: parseFloat(quickAddForm.entry_weight),
         pen_location: quickAddPending.penLocation,
       }
       return api.post<Pig>('/pigs', payload)
@@ -1627,6 +1630,25 @@ export function PigsPage() {
                 onChange={(e) => setQuickAddForm({ ...quickAddForm, birth_date: e.target.value })}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="quick_entry_weight">進場體重 (kg) *</Label>
+              <Input
+                id="quick_entry_weight"
+                type="text"
+                inputMode="decimal"
+                value={quickAddForm.entry_weight}
+                onChange={(e) => {
+                  const value = e.target.value
+                  const numericValue = value.replace(/[^\d.]/g, '')
+                  const parts = numericValue.split('.')
+                  const filteredValue = parts.length > 2
+                    ? parts[0] + '.' + parts.slice(1).join('')
+                    : numericValue
+                  setQuickAddForm({ ...quickAddForm, entry_weight: filteredValue })
+                }}
+                placeholder="輸入體重"
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => {
@@ -1637,7 +1659,13 @@ export function PigsPage() {
             </Button>
             <Button
               onClick={() => quickAddMutation.mutate()}
-              disabled={quickAddMutation.isPending || !quickAddForm.entry_date || !quickAddForm.birth_date}
+              disabled={
+                quickAddMutation.isPending ||
+                !quickAddForm.entry_date ||
+                !quickAddForm.birth_date ||
+                !quickAddForm.entry_weight ||
+                (quickAddForm.breed === 'other' && !quickAddForm.breed_other)
+              }
               className="bg-purple-600 hover:bg-purple-700"
             >
               {quickAddMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}

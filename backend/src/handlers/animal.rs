@@ -23,7 +23,7 @@ use crate::{
         DeleteRequest,  // GLP: 刪除請求含原因
     },
     require_permission,
-    services::AnimalService,
+    services::{AnimalService, PdfService},
     AppError, AppState, Result,
 };
 use axum::extract::Multipart;
@@ -829,7 +829,7 @@ pub async fn export_pig_medical_data(
     Extension(current_user): Extension<CurrentUser>,
     Path(pig_id): Path<Uuid>,
     Json(req): Json<ExportRequest>,
-) -> Result<Json<serde_json::Value>> {
+) -> Result<Response> {
     require_permission!(current_user, "animal.export.medical");
     
     // 取得醫療資料
@@ -845,13 +845,35 @@ pub async fn export_pig_medical_data(
         None,
         current_user.id,
     ).await?;
-    
-    // 返回資料，前端負責轉換為 PDF/Excel 格式並下載
-    Ok(Json(serde_json::json!({
-        "data": data,
-        "format": req.format,
-        "export_type": req.export_type,
-    })))
+
+    match req.format {
+        crate::models::ExportFormat::Pdf => {
+            let pdf_bytes = PdfService::generate_medical_pdf(&data)?;
+            let filename = format!("medical_record_{}.pdf", pig_id);
+            
+            Ok(Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, "application/pdf")
+                .header(
+                    header::CONTENT_DISPOSITION,
+                    format!("attachment; filename=\"{}\"", filename),
+                )
+                .body(Body::from(pdf_bytes))
+                .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))?)
+        }
+        _ => {
+            // 目前僅 PDF 支援後端生成，其他格式暫時維持原樣（返回 JSON 由前端處理或待後續實現）
+            Ok(Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(serde_json::to_vec(&serde_json::json!({
+                    "data": data,
+                    "format": req.format,
+                    "export_type": req.export_type,
+                })).unwrap()))
+                .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))?)
+        }
+    }
 }
 
 /// 匯出專案的醫療資料
@@ -860,7 +882,7 @@ pub async fn export_project_medical_data(
     Extension(current_user): Extension<CurrentUser>,
     Path(iacuc_no): Path<String>,
     Json(req): Json<ExportRequest>,
-) -> Result<Json<serde_json::Value>> {
+) -> Result<Response> {
     require_permission!(current_user, "animal.export.medical");
     
     // 取得專案下所有豬的醫療資料
@@ -877,11 +899,33 @@ pub async fn export_project_medical_data(
         current_user.id,
     ).await?;
     
-    Ok(Json(serde_json::json!({
-        "data": data,
-        "format": req.format,
-        "export_type": req.export_type,
-    })))
+    match req.format {
+        crate::models::ExportFormat::Pdf => {
+            let pdf_bytes = PdfService::generate_project_medical_pdf(&iacuc_no, &data)?;
+            let filename = format!("project_medical_{}.pdf", iacuc_no);
+            
+            Ok(Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, "application/pdf")
+                .header(
+                    header::CONTENT_DISPOSITION,
+                    format!("attachment; filename=\"{}\"", filename),
+                )
+                .body(Body::from(pdf_bytes))
+                .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))?)
+        }
+        _ => {
+            Ok(Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(serde_json::to_vec(&serde_json::json!({
+                    "data": data,
+                    "format": req.format,
+                    "export_type": req.export_type,
+                })).unwrap()))
+                .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))?)
+        }
+    }
 }
 
 /// 列出所有匯入批次
