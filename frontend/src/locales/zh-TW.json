@@ -828,7 +828,7 @@
       "authorizedPersonLabel": "管制藥品管理人 *",
       "authorizedPersonPlaceholder": "請填寫管制藥品管理人",
       "templates": {
-        "preop_preparation": "1.實驗動物術前禁食至少12小時，不禁水。\n2.試驗豬隻經清洗擦乾後，以畜舒坦( Azeperonum 40 mg/mL)3-5 mg/kg和0.03-0.05 mg/kg阿托平(Atropine® 1 mg/mL)肌肉注射鎮靜。仔細觀察豬隻呼吸頻率。\n3.經20-30分鐘後，以4.4 mg/kg舒泰-50(Zoletil®-50)肌肉注射誘導麻醉\n4.經5-10分鐘後，將豬隻移至手術檯上，以趴姿進行氣管插管，接上氣體麻醉機，以2-3 L/min流速的氧氣混合0.5-2%氣體麻醉劑Isoflurane維持麻醉，隨時注意觀察豬隻麻醉深度。\n5.術前肌肉注射抗生素Cefazolin 15 mg/kg及止痛劑meloxicam 0.4 mg/kg\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行",
+        "preop_preparation": "1. 實驗動物術前禁食至少 12 小時，不禁水。\n2. 試驗豬隻經清洗擦乾後，以畜舒坦 (Azeperonum 40 mg/mL) 3-5 mg/kg 和 0.03-0.05 mg/kg 阿托平 (Atropine® 1 mg/mL) 肌肉注射鎮定。仔細觀察豬隻呼吸頻率。\n3. 經 20-30 分鐘後，以 4.4 mg/kg 舒泰-50 (Zoletil®-50) 肌肉注射誘導麻醉。\n4. 經 5-10 分鐘後，將豬隻移至手術檯上，以趴姿進行氣管插管，接上氣體麻醉機，以 2-3 L/min 流速的氧氣混合 0.5-2% 氣體麻醉劑 Isoflurane 維持麻醉，隨時注意觀察豬隻麻醉深度。\n5. 術前準備包含：豬隻移至手術檯、趴姿氣管插管、電剪剃毛、接麻醉機。\n6. 術前肌肉注射抗生素 Cefazolin 15 mg/kg 及止痛劑 meloxicam 0.4 mg/kg。\n依「TU-03-09-00 試驗豬隻外科手術標準作業程序書」進行",
         "surgery_description": "請詳述手術流程，包含手術位置、手術方法、切創大小及縫合處理",
         "monitoring": "手術進行中依試驗豬隻麻醉深度、呼吸頻率及手術需要，調整氧氣、笑氣流速及麻醉氣體濃度，同時注意保溫，接上生理監視器，監控記錄心跳、呼吸及體溫。\n依「TU-03-09-00試驗豬隻外科手術標準作業程序書」進行"
       },
@@ -861,9 +861,9 @@
       "subtitle": "",
       "contentLabel": "相關規範說明",
       "contentPlaceholder": "例如：本計畫遵循動物保護法及實驗動物照護及使用指引",
-      "referencesTitle": "參考文獻列表",
+      "referencesTitle": "參考文獻列表 (請參考農業部提供之格式)",
       "addReference": "新增文獻",
-      "citationPlaceholder": "文獻引用 (例如：Smith, J. et al., 2023, Study on Pig Health, Journal of Animal Science, 45(2), 123-134)",
+      "citationPlaceholder": "文獻引用方式：作者 (年份). 標題. 期刊名, 卷(期), 頁碼. (例如：Smith, J. et al. (2023). Study on Pig Health. Journal of Animal Science, 45(2), 123-134)",
       "urlPlaceholder": "URL (選填)"
     },
     "surgery": {
@@ -889,7 +889,7 @@
         "non_survival": "非存活手術"
       },
       "placeholders": {
-        "preopPreparation": "說明禁食禁水時間、備皮、消毒等",
+        "preopPreparation": "說明術前準備項目 (例如：豬隻移至手術檯、趴姿氣管插管、電剪剃毛、接麻醉機等)",
         "surgeryDescription": "請詳述手術流程，包含手術位置、手術方法、切創大小及縫合處理",
         "monitoring": "",
         "expectedImpact": "",
