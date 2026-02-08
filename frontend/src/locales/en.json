@@ -858,7 +858,7 @@
             "contentPlaceholder": "Example: This project follows the Animal Protection Act and the Guide for the Care and Use of Laboratory Animals",
             "referencesTitle": "Reference List",
             "addReference": "Add Reference",
-            "citationPlaceholder": "Citation",
+            "citationPlaceholder": "Citation (e.g.: Smith, J. et al., 2023, Study on Pig Health, Journal of Animal Science, 45(2), 123-134)",
             "urlPlaceholder": "URL (Optional)"
         },
         "surgery": {

@@ -420,15 +420,13 @@ impl AnimalService {
             AppError::Database(e)
         })?;
 
-        // 如果有進場體重，自動建立第一筆體重紀錄
-        if let Some(entry_weight) = req.entry_weight {
-            let weight_req = CreateWeightRequest {
-                measure_date: req.entry_date,
-                weight: entry_weight,
-            };
-            // 忽略錯誤，避免影響豬隻建立
-            let _ = Self::create_weight(pool, pig.id, &weight_req, created_by).await;
-        }
+        // 自動建立第一筆體重紀錄
+        let weight_req = CreateWeightRequest {
+            measure_date: req.entry_date,
+            weight: req.entry_weight,
+        };
+        // 忽略錯誤，避免影響豬隻建立
+        let _ = Self::create_weight(pool, pig.id, &weight_req, created_by).await;
 
         Ok(pig)
     }
@@ -1782,7 +1780,7 @@ impl AnimalService {
         worksheet.write_string_with_format(0, 2, "性別*", &header_format)?;
         worksheet.write_string_with_format(0, 3, "出生日期", &header_format)?;
         worksheet.write_string_with_format(0, 4, "進場日期*", &header_format)?;
-        worksheet.write_string_with_format(0, 5, "進場體重", &header_format)?;
+        worksheet.write_string_with_format(0, 5, "進場體重*", &header_format)?;
         worksheet.write_string_with_format(0, 6, "欄位編號", &header_format)?;
         worksheet.write_string_with_format(0, 7, "實驗前代號", &header_format)?;
         worksheet.write_string_with_format(0, 8, "備註", &header_format)?;
@@ -1872,7 +1870,7 @@ impl AnimalService {
             "性別*",
             "出生日期",
             "進場日期*",
-            "進場體重",
+            "進場體重*",
             "欄位編號",
             "實驗前代號",
             "備註",
@@ -2062,12 +2060,21 @@ impl AnimalService {
                 None
             };
 
-            // 解析進場體重（選填）
-            let entry_weight = row.entry_weight.as_ref().and_then(|w| {
+            // 解析進場體重（必填）
+            let entry_weight = match row.entry_weight.as_ref().and_then(|w| {
                 w.replace("kg", "").replace("公斤", "").trim().parse::<f64>().ok()
-            }).map(|w| {
-                rust_decimal::Decimal::from_f64_retain(w).unwrap_or_default()
-            });
+            }) {
+                Some(w) if w > 0.0 => rust_decimal::Decimal::from_f64_retain(w).unwrap_or_default(),
+                _ => {
+                    errors.push(ImportErrorDetail {
+                        row: row_number,
+                        ear_tag: Some(row.ear_tag.clone()),
+                        error: "進場體重為必填欄位且必須是大於 0 的數字".to_string(),
+                    });
+                    error_count += 1;
+                    continue;
+                }
+            };
 
             // 查找來源 ID（如果有提供 source_code）
             let source_id = if let Some(ref code) = row.source_code {

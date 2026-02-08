@@ -72,22 +72,16 @@ export function ExportDialog({ open, onOpenChange, type, pigId, earTag }: Props)
   const exportMutation = useMutation({
     mutationFn: async () => {
       const endpoint =
-        type === 'single_pig' ? `/pigs/${pigId}/export` : `/pigs/batch-export`
+        type === 'single_pig' ? `/pigs/${pigId}/export` : `/projects/${selectedProject}/export`
 
-      const params: any = {
+      const body = {
         format,
-        include: Object.entries(options)
-          .filter(([_, v]) => v)
-          .map(([k]) => k)
-          .join(','),
+        export_type: 'medical_summary', // 主要對應病歷紀錄進程
+        pig_id: pigId,
+        iacuc_no: selectedProject,
       }
 
-      if (type === 'batch_project' && selectedProject) {
-        params.iacuc_no = selectedProject
-      }
-
-      const response = await api.get(endpoint, {
-        params,
+      const response = await api.post(endpoint, body, {
         responseType: 'blob',
       })
 
@@ -98,11 +92,13 @@ export function ExportDialog({ open, onOpenChange, type, pigId, earTag }: Props)
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
+      a.style.display = 'none'
 
+      const dateStr = new Date().toISOString().split('T')[0]
       const filename =
         type === 'single_pig'
-          ? `豬隻病歷_${earTag}_${new Date().toISOString().split('T')[0]}.${format === 'pdf' ? 'pdf' : 'xlsx'}`
-          : `計畫病歷匯出_${selectedProject}_${new Date().toISOString().split('T')[0]}.${format === 'pdf' ? 'pdf' : 'xlsx'}`
+          ? `豬隻病歷_${earTag}_${dateStr}.${format === 'pdf' ? 'pdf' : 'xlsx'}`
+          : `計畫病歷匯出_${selectedProject}_${dateStr}.${format === 'pdf' ? 'pdf' : 'xlsx'}`
 
       a.download = filename
       document.body.appendChild(a)

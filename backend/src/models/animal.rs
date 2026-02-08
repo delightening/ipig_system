@@ -371,7 +371,7 @@ pub struct CreatePigRequest {
     pub gender: PigGender,
     pub birth_date: Option<NaiveDate>,
     pub entry_date: NaiveDate,
-    pub entry_weight: Option<rust_decimal::Decimal>,
+    pub entry_weight: rust_decimal::Decimal,
     #[validate(required(message = "欄位為必填"))]
     #[validate(custom(function = "validate_pen_location", message = "欄位不能為空"))]
     pub pen_location: Option<String>,
