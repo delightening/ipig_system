@@ -684,6 +684,7 @@
             "dbAlmLabel": "2. DB-ALM Alternative Methods Database",
             "rePlaceLabel": "3. European Alternative Testing Resource Platform",
             "searchKeywords": "Search Keywords",
+            "searchKeywordsPlaceholder": "e.g.: minipig, cardiovascular, replacement",
             "searchConclusion": "Search Results and Conclusion",
             "duplicateExperiment": "2.2.3 Is this a replication of another's experiment",
             "duplicateJustification": "Please explain the scientific rationale for replication",

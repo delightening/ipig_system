@@ -1,0 +1,15 @@
+{
+  "method": "POST",
+  "url": "http://localhost:8000/api/protocols/e7c8d640-af41-46f7-8265-f2a1551f4ebe/status",
+  "status": 400,
+  "payload": {
+    "to_status": "UNDER_REVIEW"
+  },
+  "response": "{\"error\":{\"code\":400,\"message\":\"必須選擇審查委員\"}}",
+  "response_json": {
+    "error": {
+      "code": 400,
+      "message": "必須選擇審查委員"
+    }
+  }
+}

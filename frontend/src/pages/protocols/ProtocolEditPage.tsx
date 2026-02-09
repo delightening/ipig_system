@@ -1555,7 +1555,7 @@ export function ProtocolEditPage() {
                     <Input
                       value={formData.working_content.purpose.replacement.alt_search.keywords}
                       onChange={(e) => updateWorkingContent('purpose', 'replacement.alt_search.keywords', e.target.value)}
-                      placeholder={t('aup.purpose.placeholders.keywords')}
+                      placeholder={t('aup.purpose.searchKeywordsPlaceholder')}
                     />
                   </div>
                   <div className="space-y-2">
@@ -2369,7 +2369,6 @@ export function ProtocolEditPage() {
                         <Textarea
                           value={formData.working_content.design.non_pharma_grade.description}
                           onChange={(e) => updateWorkingContent('design', 'non_pharma_grade.description', e.target.value)}
-                          placeholder={t('aup.design.nonPharmaExplainPlaceholder')}
                           rows={4}
                         />
                       </div>
@@ -2535,7 +2534,6 @@ export function ProtocolEditPage() {
                         <Textarea
                           value={formData.working_content.design.hazards.operation_location_method}
                           onChange={(e) => updateWorkingContent('design', 'hazards.operation_location_method', e.target.value)}
-                          placeholder={t('aup.design.operationLocationPlaceholder')}
                           rows={4}
                         />
                       </div>
@@ -2547,7 +2545,6 @@ export function ProtocolEditPage() {
                         <Textarea
                           value={formData.working_content.design.hazards.protection_measures}
                           onChange={(e) => updateWorkingContent('design', 'hazards.protection_measures', e.target.value)}
-                          placeholder={t('aup.design.protectionMeasuresPlaceholder')}
                           rows={4}
                         />
                       </div>
@@ -2558,7 +2555,6 @@ export function ProtocolEditPage() {
                         <Textarea
                           value={formData.working_content.design.hazards.waste_and_carcass_disposal}
                           onChange={(e) => updateWorkingContent('design', 'hazards.waste_and_carcass_disposal', e.target.value)}
-                          placeholder={t('aup.design.wasteDisposalPlaceholder')}
                           rows={4}
                         />
                       </div>

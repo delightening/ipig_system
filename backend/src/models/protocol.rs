@@ -173,7 +173,7 @@ impl ProtocolActivityType {
     
     pub fn display_name(&self) -> &'static str {
         match self {
-            ProtocolActivityType::Created => "建立計畫",
+            ProtocolActivityType::Created => "創建草稿",
             ProtocolActivityType::Updated => "編輯計畫",
             ProtocolActivityType::Submitted => "送審",
             ProtocolActivityType::Resubmitted => "重新送審",

@@ -251,25 +251,86 @@ pub async fn change_protocol_status(
     Ok(Json(protocol))
 }
 
-/// 列出專案所有版本
 pub async fn get_protocol_versions(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<ProtocolVersion>>> {
-    require_permission!(current_user, "aup.protocol.view_own");
+    // 檢查是否有查看權限（IACUC 管理人員或相關審查委員）
+    let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string())
+        || current_user.roles.contains(&"IACUC_CHAIR".to_string())
+        || current_user.roles.contains(&"IACUC_STAFF".to_string())
+        || current_user.roles.contains(&"VET".to_string())
+        || current_user.roles.contains(&"REVIEWER".to_string())
+        || current_user.roles.contains(&"SYSTEM_ADMIN".to_string());
+
+    if !has_view_all {
+        // 檢查是否為計畫相關人員（PI, Co-editor, 或被指派的審查者）
+        let is_authorized: (bool,) = sqlx::query_as(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM protocols p WHERE p.id = $1 AND p.pi_user_id = $2
+                UNION
+                SELECT 1 FROM user_protocols WHERE protocol_id = $1 AND user_id = $2
+                UNION
+                SELECT 1 FROM review_assignments WHERE protocol_id = $1 AND reviewer_id = $2
+                UNION
+                SELECT 1 FROM vet_review_assignments WHERE protocol_id = $1 AND vet_id = $2
+            )
+            "#
+        )
+        .bind(id)
+        .bind(current_user.id)
+        .fetch_one(&state.db)
+        .await
+        .unwrap_or((false,));
+
+        if !is_authorized.0 {
+            require_permission!(current_user, "aup.protocol.view_own");
+        }
+    }
     
     let versions = ProtocolService::get_versions(&state.db, id).await?;
     Ok(Json(versions))
 }
 
-/// 列出專案活動歷程
 pub async fn get_protocol_activities(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<ProtocolActivityResponse>>> {
-    require_permission!(current_user, "aup.protocol.view_own");
+    // 比照版本列表放寬權限
+    let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string())
+        || current_user.roles.contains(&"IACUC_CHAIR".to_string())
+        || current_user.roles.contains(&"IACUC_STAFF".to_string())
+        || current_user.roles.contains(&"VET".to_string())
+        || current_user.roles.contains(&"REVIEWER".to_string())
+        || current_user.roles.contains(&"SYSTEM_ADMIN".to_string());
+
+    if !has_view_all {
+        let is_authorized: (bool,) = sqlx::query_as(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM protocols p WHERE p.id = $1 AND p.pi_user_id = $2
+                UNION
+                SELECT 1 FROM user_protocols WHERE protocol_id = $1 AND user_id = $2
+                UNION
+                SELECT 1 FROM review_assignments WHERE protocol_id = $1 AND reviewer_id = $2
+                UNION
+                SELECT 1 FROM vet_review_assignments WHERE protocol_id = $1 AND vet_id = $2
+            )
+            "#
+        )
+        .bind(id)
+        .bind(current_user.id)
+        .fetch_one(&state.db)
+        .await
+        .unwrap_or((false,));
+
+        if !is_authorized.0 {
+            require_permission!(current_user, "aup.protocol.view_own");
+        }
+    }
     
     let activities = ProtocolService::get_activities(&state.db, id).await?;
     Ok(Json(activities))
@@ -457,8 +518,43 @@ pub async fn create_review_comment(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<CreateCommentRequest>,
 ) -> Result<Json<ReviewComment>> {
-    require_permission!(current_user, "aup.review.comment");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+
+    // 檢查是否有查看權限（IACUC 管理人員或相關審查委員）
+    let has_global_perm = current_user.permissions.contains(&"aup.review.comment".to_string())
+        || current_user.roles.contains(&"IACUC_CHAIR".to_string())
+        || current_user.roles.contains(&"IACUC_STAFF".to_string())
+        || current_user.roles.contains(&"SYSTEM_ADMIN".to_string());
+
+    if !has_global_perm {
+        // 查出計畫 ID
+        let (protocol_id,): (Uuid,) = sqlx::query_as(
+            "SELECT protocol_id FROM protocol_versions WHERE id = $1"
+        )
+        .bind(req.protocol_version_id)
+        .fetch_one(&state.db)
+        .await?;
+
+        // 檢查是否為被指派的審查委員或獸醫
+        let is_authorized: (bool,) = sqlx::query_as(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM review_assignments WHERE protocol_id = $1 AND reviewer_id = $2
+                UNION
+                SELECT 1 FROM vet_review_assignments WHERE protocol_id = $1 AND vet_id = $2
+            )
+            "#
+        )
+        .bind(protocol_id)
+        .bind(current_user.id)
+        .fetch_one(&state.db)
+        .await
+        .unwrap_or((false,));
+
+        if !is_authorized.0 {
+            require_permission!(current_user, "aup.review.comment");
+        }
+    }
     
     let comment = ProtocolService::add_comment(&state.db, &req, current_user.id).await?;
     Ok(Json(comment))
@@ -470,10 +566,48 @@ pub async fn list_review_comments(
     Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<ProtocolIdQuery>,
 ) -> Result<Json<Vec<ReviewCommentResponse>>> {
-    require_permission!(current_user, "aup.protocol.view_own");
-    
     let protocol_version_id = query.protocol_version_id
         .ok_or_else(|| AppError::Validation("protocol_version_id is required".to_string()))?;
+
+    // 比照版本列表放寬讀取權限
+    let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string())
+        || current_user.roles.contains(&"IACUC_CHAIR".to_string())
+        || current_user.roles.contains(&"IACUC_STAFF".to_string())
+        || current_user.roles.contains(&"VET".to_string())
+        || current_user.roles.contains(&"REVIEWER".to_string())
+        || current_user.roles.contains(&"SYSTEM_ADMIN".to_string());
+
+    if !has_view_all {
+        let (protocol_id,): (Uuid,) = sqlx::query_as(
+            "SELECT protocol_id FROM protocol_versions WHERE id = $1"
+        )
+        .bind(protocol_version_id)
+        .fetch_one(&state.db)
+        .await?;
+
+        let is_authorized: (bool,) = sqlx::query_as(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM protocols p WHERE p.id = $1 AND p.pi_user_id = $2
+                UNION
+                SELECT 1 FROM user_protocols WHERE protocol_id = $1 AND user_id = $2
+                UNION
+                SELECT 1 FROM review_assignments WHERE protocol_id = $1 AND reviewer_id = $2
+                UNION
+                SELECT 1 FROM vet_review_assignments WHERE protocol_id = $1 AND vet_id = $2
+            )
+            "#
+        )
+        .bind(protocol_id)
+        .bind(current_user.id)
+        .fetch_one(&state.db)
+        .await
+        .unwrap_or((false,));
+
+        if !is_authorized.0 {
+            require_permission!(current_user, "aup.protocol.view_own");
+        }
+    }
     
     let comments = ProtocolService::get_comments(&state.db, protocol_version_id).await?;
     Ok(Json(comments))
