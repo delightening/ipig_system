@@ -1,15 +1,37 @@
 {
   "method": "POST",
-  "url": "http://localhost:8000/api/protocols/e7c8d640-af41-46f7-8265-f2a1551f4ebe/status",
-  "status": 400,
+  "url": "http://localhost:8000/api/protocols",
+  "status": 403,
   "payload": {
-    "to_status": "UNDER_REVIEW"
+    "title": "AUP測試_1770657331",
+    "working_content": {
+      "basic": {
+        "study_title": "AUP 14步測試計畫 (自動化測試)",
+        "project_type": "Research",
+        "is_glp": false,
+        "apply_study_number": "AUP-331657",
+        "registration_authorities": [],
+        "pi_user_id": "e751945a-fe07-4e8a-8aad-36f7eab2d178"
+      },
+      "animals": [
+        {
+          "species": "Pig",
+          "count": 10,
+          "strain": "L6",
+          "sex": "MIXED",
+          "age": "8 weeks"
+        }
+      ]
+    },
+    "start_date": "2026-04-01",
+    "end_date": "2027-04-01",
+    "pi_user_id": "e751945a-fe07-4e8a-8aad-36f7eab2d178"
   },
-  "response": "{\"error\":{\"code\":400,\"message\":\"必須選擇審查委員\"}}",
+  "response": "{\"error\":{\"code\":403,\"message\":\"Permission denied: requires aup.protocol.create or PI role\"}}",
   "response_json": {
     "error": {
-      "code": 400,
-      "message": "必須選擇審查委員"
+      "code": 403,
+      "message": "Permission denied: requires aup.protocol.create or PI role"
     }
   }
 }
