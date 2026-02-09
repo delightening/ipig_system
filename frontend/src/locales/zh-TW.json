@@ -407,7 +407,7 @@
         "assignFirst": "指派第一位審查人員",
         "grantedTime": "指派時間",
         "noCoeditors": "尚未指派 co-editor",
-        "coeditorHint": "可在狀態變更為「行政預審」時指派 co-editor",
+        "coeditorHint": "狀態變更為「行政預審」時，需指派 co-editor",
         "addCoeditor": "+ Co-Editor",
         "fileName": "檔案名稱",
         "size": "大小",
@@ -821,7 +821,6 @@
       "carcassDisposalPlaceholder": "請說明動物屍體處理方法",
       "nonPharmaLabel": "4.3 是否使用學術研究用化學藥品或非醫藥級物質",
       "nonPharmaExplain": "請說明物質性質、安全性及使用之科學理由 *",
-      "nonPharmaExplainPlaceholder": "請說明物質性質、安全性及使用之科學理由",
       "placeholders": {
         "explainOther": "請說明其他麻醉方式",
         "procedures": "請詳細描述動物試驗內容及流程",
@@ -859,12 +858,9 @@
       "amountPlaceholder": "所需用量",
       "hazardsWasteLabel": "4.5 危害性物質及其廢棄物處理方式（請附上主觀機關認可之證明文件）",
       "operationLocationLabel": "4.5.1 施用方法、途徑與使用場所",
-      "operationLocationPlaceholder": "請說明施用方法、途徑與使用場所",
       "protectionMeasuresLabel": "4.5.2 保護措施",
       "protectionMeasuresSubtitle": "針對試驗人員、實驗動物以及飼養環境所採行之保護措施:",
-      "protectionMeasuresPlaceholder": "請說明保護措施",
       "wasteDisposalLabel": "4.5.3 實驗廢棄物與屍體之處理方式",
-      "wasteDisposalPlaceholder": "請說明實驗廢棄物與屍體之處理方式",
       "controlledSubstancesLabel": {
         "section4_6": "4.6 是否使用管制藥品",
         "section4_5": "4.5 是否使用管制藥品"
@@ -910,9 +906,9 @@
     "guidelines": {
       "title": "相關規範及參考文獻",
       "subtitle": "",
-      "contentLabel": "相關規範說明",
+      "contentLabel": "5.1 請說明本實驗的法源依據(指南或標準)及相關參考文獻，若無法源依據請務必填寫參考文獻",
       "contentPlaceholder": "例如：本計畫遵循動物保護法及實驗動物照護及使用指引",
-      "referencesTitle": "參考文獻列表 (請參考農業部提供之格式)",
+      "referencesTitle": "5.2 參考文獻列表 (請參考農業部提供之格式)",
       "addReference": "新增文獻",
       "citationPlaceholder": "文獻引用方式：作者 (年份). 標題. 期刊名, 卷(期), 頁碼. (例如：Smith, J. et al. (2023). Study on Pig Health. Journal of Animal Science, 45(2), 123-134)",
       "urlPlaceholder": "URL (選填)"

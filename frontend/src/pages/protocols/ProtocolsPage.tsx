@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Search, Eye, Edit, Loader2, FileText, X, Trash2 } from 'lucide-react'
+import { Plus, Search, Eye, Edit, Loader2, FileText, X, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { toast } from '@/components/ui/use-toast'
 
@@ -29,7 +29,9 @@ const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' |
   DRAFT: 'secondary',
   SUBMITTED: 'default',
   PRE_REVIEW: 'default',
+  PRE_REVIEW_REVISION_REQUIRED: 'destructive',
   VET_REVIEW: 'warning',
+  VET_REVISION_REQUIRED: 'destructive',
   UNDER_REVIEW: 'warning',
   REVISION_REQUIRED: 'destructive',
   RESUBMITTED: 'default',
@@ -42,20 +44,27 @@ const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' |
   DELETED: 'outline',
 }
 
-// Status names are now fetched via i18n - see getStatusName function
+type SortField = 'iacuc_no' | 'title' | 'pi_name' | 'pi_organization' | 'status' | 'start_date' | 'created_at'
+type SortOrder = 'asc' | 'desc'
+
+interface SortConfig {
+  field: SortField
+  order: SortOrder
+}
 
 export function ProtocolsPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ field: 'created_at', order: 'desc' })
 
   // Get status name from i18n
   const getStatusName = (status: ProtocolStatus) => {
     return t(`protocols.status.${status}`) || status
   }
 
-  const { data: protocols, isLoading } = useQuery({
+  const { data: rawProtocols, isLoading } = useQuery({
     queryKey: ['protocols', statusFilter, search],
     queryFn: async () => {
       let params = ''
@@ -65,6 +74,43 @@ export function ProtocolsPage() {
       return response.data.filter(p => p.status !== 'DELETED')
     },
   })
+
+  // Sort logic
+  const sortedProtocols = useMemo(() => {
+    if (!rawProtocols) return []
+    const sorted = [...rawProtocols]
+
+    sorted.sort((a, b) => {
+      let valA: any = a[sortConfig.field] || ''
+      let valB: any = b[sortConfig.field] || ''
+
+      // Handle status sorting by translated name
+      if (sortConfig.field === 'status') {
+        valA = getStatusName(a.status)
+        valB = getStatusName(b.status)
+      }
+
+      if (valA < valB) return sortConfig.order === 'asc' ? -1 : 1
+      if (valA > valB) return sortConfig.order === 'asc' ? 1 : -1
+      return 0
+    })
+
+    return sorted
+  }, [rawProtocols, sortConfig, t])
+
+  const handleSort = (field: SortField) => {
+    setSortConfig(prev => ({
+      field,
+      order: prev.field === field && prev.order === 'asc' ? 'desc' : 'asc'
+    }))
+  }
+
+  const getSortIcon = (field: SortField) => {
+    if (sortConfig.field !== field) return <ArrowUpDown className="ml-1 h-3 w-3" />
+    return sortConfig.order === 'asc' ?
+      <ArrowUp className="ml-1 h-3 w-3 text-primary" /> :
+      <ArrowDown className="ml-1 h-3 w-3 text-primary" />
+  }
 
   const clearFilters = () => {
     setSearch('')
@@ -169,13 +215,69 @@ export function ProtocolsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{t('protocols.columns.iacucNo')}</TableHead>
-              <TableHead>{t('protocols.columns.protocolTitle')}</TableHead>
-              <TableHead>{t('protocols.columns.pi')}</TableHead>
-              <TableHead>{t('protocols.columns.organization')}</TableHead>
-              <TableHead>{t('protocols.columns.status')}</TableHead>
-              <TableHead>{t('protocols.columns.period')}</TableHead>
-              <TableHead>{t('protocols.columns.createdAt')}</TableHead>
+              <TableHead
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => handleSort('iacuc_no')}
+              >
+                <div className="flex items-center">
+                  {t('protocols.columns.iacucNo')}
+                  {getSortIcon('iacuc_no')}
+                </div>
+              </TableHead>
+              <TableHead
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => handleSort('title')}
+              >
+                <div className="flex items-center">
+                  {t('protocols.columns.protocolTitle')}
+                  {getSortIcon('title')}
+                </div>
+              </TableHead>
+              <TableHead
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => handleSort('pi_name')}
+              >
+                <div className="flex items-center">
+                  {t('protocols.columns.pi')}
+                  {getSortIcon('pi_name')}
+                </div>
+              </TableHead>
+              <TableHead
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => handleSort('pi_organization')}
+              >
+                <div className="flex items-center">
+                  {t('protocols.columns.organization')}
+                  {getSortIcon('pi_organization')}
+                </div>
+              </TableHead>
+              <TableHead
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => handleSort('status')}
+              >
+                <div className="flex items-center">
+                  {t('protocols.columns.status')}
+                  {getSortIcon('status')}
+                </div>
+              </TableHead>
+              <TableHead
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => handleSort('start_date')}
+              >
+                <div className="flex items-center">
+                  {t('protocols.columns.period')}
+                  {getSortIcon('start_date')}
+                </div>
+              </TableHead>
+              <TableHead
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => handleSort('created_at')}
+              >
+                <div className="flex items-center">
+                  {t('protocols.columns.createdAt')}
+                  {getSortIcon('created_at')}
+                </div>
+              </TableHead>
               <TableHead className="text-right">{t('protocols.columns.actions')}</TableHead>
             </TableRow>
           </TableHeader>
@@ -186,8 +288,8 @@ export function ProtocolsPage() {
                   <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                 </TableCell>
               </TableRow>
-            ) : protocols && protocols.length > 0 ? (
-              protocols.map((protocol) => (
+            ) : sortedProtocols && sortedProtocols.length > 0 ? (
+              sortedProtocols.map((protocol) => (
                 <TableRow key={protocol.id}>
                   <TableCell className="font-mono">
                     {protocol.iacuc_no ? (

@@ -352,6 +352,7 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             // AUP 額外功能
             "aup.amendment.classify",   // 分類修正案（執行秘書負責判斷 Major/Minor）
             "aup.coeditor.assign",      // 指派協作編輯
+            "aup.protocol.assign_co_editor", // 確保相容性
             // Dashboard
             "dashboard.view",
         ]),
