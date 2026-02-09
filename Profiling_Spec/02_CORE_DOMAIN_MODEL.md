@@ -1,18 +1,18 @@
-# Core Domain Model
+# 核心領域模型
 
-> **Version**: 2.0  
-> **Last Updated**: 2026-01-18  
-> **Audience**: Developers
-
----
-
-## 1. Overview
-
-This document defines the core entities, their relationships, and business rules that form the iPig system's domain model.
+> **版本**：2.0  
+> **最後更新**：2026-01-18  
+> **對象**：開發人員
 
 ---
 
-## 2. Entity Diagram
+## 1. 概覽
+
+本文件定義構成 iPig 系統領域模型的核心實體、其關係及商業規則。
+
+---
+
+## 2. 實體關係圖
 
 ```mermaid
 erDiagram
@@ -50,43 +50,43 @@ erDiagram
 
 ---
 
-## 3. Core Entities
+## 3. 核心實體
 
-### 3.1 Users & Authentication
+### 3.1 使用者與認證
 
-#### User
-| Field | Type | Description |
-|-------|------|-------------|
-| id | UUID | Primary key |
-| email | VARCHAR(255) | Unique login email |
-| password_hash | VARCHAR(255) | Argon2 hash |
-| display_name | VARCHAR(100) | Display name |
-| phone | VARCHAR(20) | Optional |
-| organization | VARCHAR(200) | Optional |
-| is_internal | BOOLEAN | Internal staff flag |
-| is_active | BOOLEAN | Account active |
-| must_change_password | BOOLEAN | Force password change |
+#### 使用者 (User)
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | UUID | 主鍵 |
+| email | VARCHAR(255) | 唯一登入信箱 |
+| password_hash | VARCHAR(255) | Argon2 雜湊 |
+| display_name | VARCHAR(100) | 顯示名稱 |
+| phone | VARCHAR(20) | 選填 |
+| organization | VARCHAR(200) | 選填 |
+| is_internal | BOOLEAN | 內部員工標記 |
+| is_active | BOOLEAN | 帳號啟用 |
+| must_change_password | BOOLEAN | 強制變更密碼 |
 | theme_preference | VARCHAR(20) | light/dark/system |
 | language_preference | VARCHAR(10) | zh-TW/en |
 
-**Business Rules**:
-- Email must be unique across system
-- Password must meet complexity requirements
-- Internal users (`is_internal=true`) can access HR features
-- Accounts can be deactivated but not deleted (for audit trail)
+**商業規則**：
+- 信箱必須全系統唯一
+- 密碼必須符合複雜度要求
+- 內部使用者（`is_internal=true`）可存取 HR 功能
+- 帳號可停用但不可刪除（保留稽核軌跡）
 
-#### Role
-| Field | Type | Description |
-|-------|------|-------------|
-| id | UUID | Primary key |
-| code | VARCHAR(50) | Unique code |
-| name | VARCHAR(100) | Display name |
-| is_internal | BOOLEAN | For internal users only |
-| is_system | BOOLEAN | System-defined, cannot delete |
-| is_deleted | BOOLEAN | Soft delete flag |
-| is_active | BOOLEAN | Active flag |
+#### 角色 (Role)
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | UUID | 主鍵 |
+| code | VARCHAR(50) | 唯一代碼 |
+| name | VARCHAR(100) | 顯示名稱 |
+| is_internal | BOOLEAN | 僅限內部使用者 |
+| is_system | BOOLEAN | 系統定義，不可刪除 |
+| is_deleted | BOOLEAN | 軟刪除標記 |
+| is_active | BOOLEAN | 啟用標記 |
 
-**System Roles**:
+**系統角色**：
 - `admin` - 系統管理員
 - `iacuc_staff` - 執行秘書
 - `experiment_staff` - 試驗工作人員
@@ -97,181 +97,181 @@ erDiagram
 
 ---
 
-### 3.2 Protocols (AUP Review System)
+### 3.2 計畫書（AUP 審查系統）
 
-#### Protocol
-| Field | Type | Description |
-|-------|------|-------------|
-| id | UUID | Primary key |
-| protocol_no | VARCHAR(50) | System-generated number |
-| iacuc_no | VARCHAR(50) | IACUC approval number |
-| title | VARCHAR(500) | Protocol title |
-| status | protocol_status | Current status |
-| pi_user_id | UUID | Principal Investigator |
-| working_content | JSONB | Form data |
-| start_date | DATE | Project start |
-| end_date | DATE | Project end |
+#### 計畫書 (Protocol)
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | UUID | 主鍵 |
+| protocol_no | VARCHAR(50) | 系統產生編號 |
+| iacuc_no | VARCHAR(50) | IACUC 核准編號 |
+| title | VARCHAR(500) | 計畫名稱 |
+| status | protocol_status | 目前狀態 |
+| pi_user_id | UUID | 計畫主持人 |
+| working_content | JSONB | 表單資料 |
+| start_date | DATE | 計畫開始日 |
+| end_date | DATE | 計畫結束日 |
 
-**Status Enum (protocol_status)**:
+**狀態列舉 (protocol_status)**：
 ```
 DRAFT → SUBMITTED → PRE_REVIEW → UNDER_REVIEW
                                     ↓
          ┌─────────────────────────────────────────────────┐
          ↓                    ↓                 ↓          ↓
 REVISION_REQUIRED ← RESUBMITTED   APPROVED   REJECTED   DEFERRED
-         │                        (or APPROVED_WITH_CONDITIONS)
+         │                        (或 APPROVED_WITH_CONDITIONS)
          └→ RESUBMITTED          
                                     ↓
                     SUSPENDED ←→ CLOSED ← DELETED
 ```
 
-**Role in Protocol (protocol_role)**:
-- `PI` - Principal Investigator
-- `CLIENT` - 委託人 (client funding the project)
-- `CO_EDITOR` - Co-editor with edit permissions
+**計畫書角色 (protocol_role)**：
+- `PI` - 計畫主持人
+- `CLIENT` - 委託人（資助專案的客戶）
+- `CO_EDITOR` - 協編者（具編輯權限）
 
 ---
 
-### 3.3 Animals (Pigs)
+### 3.3 動物（豬隻）
 
-#### Pig
-| Field | Type | Description |
-|-------|------|-------------|
-| id | SERIAL | Primary key |
-| ear_tag | VARCHAR(10) | Ear tag identifier |
-| status | pig_status | Current status |
-| breed | pig_breed | Breed type |
-| source_id | UUID | Origin/source |
+#### 豬隻 (Pig)
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | SERIAL | 主鍵 |
+| ear_tag | VARCHAR(10) | 耳號識別碼 |
+| status | pig_status | 目前狀態 |
+| breed | pig_breed | 品種類型 |
+| source_id | UUID | 來源/供應商 |
 | gender | pig_gender | male/female |
-| birth_date | DATE | Date of birth |
-| entry_date | DATE | Entry to facility |
-| entry_weight | NUMERIC(5,1) | Initial weight (kg) |
-| pen_location | VARCHAR(10) | Current pen (e.g., "A01") |
-| pre_experiment_code | VARCHAR(20) | Pre-experiment identifier |
-| iacuc_no | VARCHAR(20) | Assigned IACUC protocol |
-| experiment_date | DATE | Experiment start date |
-| is_deleted | BOOLEAN | Soft delete flag |
+| birth_date | DATE | 出生日期 |
+| entry_date | DATE | 進場日期 |
+| entry_weight | NUMERIC(5,1) | 進場體重 (kg) |
+| pen_location | VARCHAR(10) | 目前欄位（如「A01」）|
+| pre_experiment_code | VARCHAR(20) | 試驗前編號 |
+| iacuc_no | VARCHAR(20) | 指派的 IACUC 計畫 |
+| experiment_date | DATE | 試驗開始日期 |
+| is_deleted | BOOLEAN | 軟刪除標記 |
 
-**Status Enum (pig_status)**:
+**狀態列舉 (pig_status)**：
 ```
 unassigned → assigned → in_experiment → completed
                  ↓                          ↓
             transferred              deceased
 ```
 
-**Breed Enum (pig_breed)**:
+**品種列舉 (pig_breed)**：
 - `miniature` - 迷你豬
 - `white` - 白豬
 - `LYD` - 藍瑞斯×約克夏×杜洛克
 - `other` - 其他
 
-#### Pig Observation
-| Field | Type | Description |
-|-------|------|-------------|
-| id | SERIAL | Primary key |
-| pig_id | INTEGER | Foreign key to pigs |
-| event_date | DATE | Event date |
+#### 豬隻觀察紀錄 (Pig Observation)
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | SERIAL | 主鍵 |
+| pig_id | INTEGER | 外鍵關聯 pigs |
+| event_date | DATE | 事件日期 |
 | record_type | record_type | abnormal/experiment/observation |
-| content | TEXT | Observation content |
-| no_medication_needed | BOOLEAN | No medication required |
-| stop_medication | BOOLEAN | Stop medication flag |
-| treatments | JSONB | Treatment details |
-| vet_read | BOOLEAN | Vet has reviewed |
+| content | TEXT | 觀察內容 |
+| no_medication_needed | BOOLEAN | 無需用藥 |
+| stop_medication | BOOLEAN | 停藥標記 |
+| treatments | JSONB | 治療詳情 |
+| vet_read | BOOLEAN | 獸醫已閱讀 |
 
-**Record Type Enum (record_type)**:
+**紀錄類型列舉 (record_type)**：
 - `abnormal` - 異常紀錄
 - `experiment` - 試驗紀錄
 - `observation` - 一般觀察
 
-#### Pig Surgery
-| Field | Type | Description |
-|-------|------|-------------|
-| id | SERIAL | Primary key |
-| pig_id | INTEGER | Foreign key to pigs |
-| is_first_experiment | BOOLEAN | First experiment flag |
-| surgery_date | DATE | Surgery date |
-| surgery_site | VARCHAR(200) | Surgical site |
-| induction_anesthesia | JSONB | Induction details |
-| pre_surgery_medication | JSONB | Pre-op medications |
-| anesthesia_maintenance | JSONB | Maintenance details |
-| vital_signs | JSONB | Vital sign tracking |
-| post_surgery_medication | JSONB | Post-op medications |
-| vet_read | BOOLEAN | Vet has reviewed |
+#### 豬隻手術紀錄 (Pig Surgery)
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | SERIAL | 主鍵 |
+| pig_id | INTEGER | 外鍵關聯 pigs |
+| is_first_experiment | BOOLEAN | 首次實驗標記 |
+| surgery_date | DATE | 手術日期 |
+| surgery_site | VARCHAR(200) | 手術部位 |
+| induction_anesthesia | JSONB | 誘導麻醉詳情 |
+| pre_surgery_medication | JSONB | 術前用藥 |
+| anesthesia_maintenance | JSONB | 維持麻醉詳情 |
+| vital_signs | JSONB | 生命徵象追蹤 |
+| post_surgery_medication | JSONB | 術後用藥 |
+| vet_read | BOOLEAN | 獸醫已閱讀 |
 
 ---
 
-### 3.4 ERP (Inventory & Procurement)
+### 3.4 ERP（庫存與採購）
 
-#### Product
-| Field | Type | Description |
-|-------|------|-------------|
-| id | UUID | Primary key |
-| sku | VARCHAR(50) | Stock-keeping unit |
-| name | VARCHAR(200) | Product name |
-| spec | TEXT | Specifications |
-| category_code | CHAR(3) | SKU category |
-| subcategory_code | CHAR(3) | SKU subcategory |
-| base_uom | VARCHAR(20) | Base unit of measure |
-| track_batch | BOOLEAN | Track batch numbers |
-| track_expiry | BOOLEAN | Track expiry dates |
-| safety_stock | NUMERIC(18,4) | Minimum stock level |
+#### 產品 (Product)
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | UUID | 主鍵 |
+| sku | VARCHAR(50) | 庫存單位 |
+| name | VARCHAR(200) | 產品名稱 |
+| spec | TEXT | 規格 |
+| category_code | CHAR(3) | SKU 類別 |
+| subcategory_code | CHAR(3) | SKU 子類別 |
+| base_uom | VARCHAR(20) | 基本計量單位 |
+| track_batch | BOOLEAN | 追蹤批號 |
+| track_expiry | BOOLEAN | 追蹤效期 |
+| safety_stock | NUMERIC(18,4) | 安全庫存量 |
 | status | VARCHAR(20) | active/inactive/discontinued |
 
-**SKU Format**: `[CAT][SUB]-[SEQUENCE]` (e.g., `DRG-ANT-001`)
+**SKU 格式**：`[CAT][SUB]-[SEQUENCE]`（如 `DRG-ANT-001`）
 
-#### Document
-| Field | Type | Description |
-|-------|------|-------------|
-| id | UUID | Primary key |
-| doc_type | doc_type | Document type |
-| doc_no | VARCHAR(50) | Unique document number |
+#### 單據 (Document)
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | UUID | 主鍵 |
+| doc_type | doc_type | 單據類型 |
+| doc_no | VARCHAR(50) | 唯一單據編號 |
 | status | doc_status | draft/submitted/approved/cancelled |
-| warehouse_id | UUID | Target warehouse |
-| partner_id | UUID | Supplier or customer |
-| doc_date | DATE | Document date |
+| warehouse_id | UUID | 目標倉庫 |
+| partner_id | UUID | 供應商或客戶 |
+| doc_date | DATE | 單據日期 |
 
-**Document Types (doc_type)**:
-- `PO` - Purchase Order (採購單)
-- `GRN` - Goods Receipt Note (入庫單)
-- `PR` - Purchase Requisition (請購單)
-- `SO` - Sales Order (銷售單)
-- `DO` - Delivery Order (出貨單)
-- `SR` - Stock Return (退貨單)
-- `TR` - Transfer (調撥單)
-- `STK` - Stocktake (盤點單)
-- `ADJ` - Adjustment (調整單)
-- `RTN` - Return (退回單)
+**單據類型 (doc_type)**：
+- `PO` - Purchase Order（採購單）
+- `GRN` - Goods Receipt Note（入庫單）
+- `PR` - Purchase Requisition（請購單）
+- `SO` - Sales Order（銷售單）
+- `DO` - Delivery Order（出貨單）
+- `SR` - Stock Return（退貨單）
+- `TR` - Transfer（調撥單）
+- `STK` - Stocktake（盤點單）
+- `ADJ` - Adjustment（調整單）
+- `RTN` - Return（退回單）
 
 ---
 
-### 3.5 HR/Personnel
+### 3.5 人事管理
 
-#### Attendance Record
-| Field | Type | Description |
-|-------|------|-------------|
-| id | UUID | Primary key |
-| user_id | UUID | Employee |
-| work_date | DATE | Work date |
-| clock_in_time | TIMESTAMPTZ | Check-in time |
-| clock_out_time | TIMESTAMPTZ | Check-out time |
-| regular_hours | NUMERIC(5,2) | Normal hours |
-| overtime_hours | NUMERIC(5,2) | OT hours |
+#### 出勤紀錄 (Attendance Record)
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | UUID | 主鍵 |
+| user_id | UUID | 員工 |
+| work_date | DATE | 工作日期 |
+| clock_in_time | TIMESTAMPTZ | 簽到時間 |
+| clock_out_time | TIMESTAMPTZ | 簽退時間 |
+| regular_hours | NUMERIC(5,2) | 正常工時 |
+| overtime_hours | NUMERIC(5,2) | 加班時數 |
 | status | VARCHAR(20) | normal/late/early_leave/absent/leave/holiday |
 
-#### Leave Request
-| Field | Type | Description |
-|-------|------|-------------|
-| id | UUID | Primary key |
-| user_id | UUID | Requester |
-| proxy_user_id | UUID | Deputy/proxy (optional) |
-| leave_type | leave_type | Type of leave |
-| start_date | DATE | Leave start |
-| end_date | DATE | Leave end |
-| total_days | NUMERIC(5,2) | Total days |
-| status | leave_status | Current status |
-| current_approver_id | UUID | Next approver |
+#### 請假申請 (Leave Request)
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | UUID | 主鍵 |
+| user_id | UUID | 申請人 |
+| proxy_user_id | UUID | 代理人（選填）|
+| leave_type | leave_type | 請假類型 |
+| start_date | DATE | 請假開始日 |
+| end_date | DATE | 請假結束日 |
+| total_days | NUMERIC(5,2) | 總天數 |
+| status | leave_status | 目前狀態 |
+| current_approver_id | UUID | 下一位審核者 |
 
-**Leave Types (leave_type)**:
+**請假類型 (leave_type)**：
 - `ANNUAL` - 特休假
 - `PERSONAL` - 事假
 - `SICK` - 病假
@@ -286,38 +286,38 @@ unassigned → assigned → in_experiment → completed
 
 ---
 
-## 4. Cross-Entity Relationships
+## 4. 跨實體關係
 
-### 4.1 Protocol ↔ Pig
-- Pigs are assigned to protocols via `iacuc_no`
-- A protocol can have multiple pigs
-- A pig can only be assigned to one active protocol
+### 4.1 計畫書 ↔ 豬隻
+- 豬隻透過 `iacuc_no` 指派至計畫書
+- 一個計畫書可有多隻豬
+- 一隻豬只能指派至一個活動計畫
 
-### 4.2 User ↔ Role ↔ Permission
-- Users have multiple roles (many-to-many via `user_roles`)
-- Roles have multiple permissions (many-to-many via `role_permissions`)
-- Permission checks are done at handler level
+### 4.2 使用者 ↔ 角色 ↔ 權限
+- 使用者擁有多個角色（透過 `user_roles` 多對多）
+- 角色擁有多個權限（透過 `role_permissions` 多對多）
+- 權限檢查在處理器層級執行
 
-### 4.3 Overtime ↔ Comp Time
-- Approved overtime generates comp time balances
-- Comp time has 1-year expiration from overtime date
-- Usage follows FIFO (oldest expires first)
+### 4.3 加班 ↔ 補休
+- 核准的加班產生補休時數
+- 補休自加班日起 1 年到期
+- 使用順序為 FIFO（最舊先過期）
 
-### 4.4 Leave ↔ Balance
-- Annual leave from `annual_leave_entitlements` (2-year expiration)
-- Comp time from `comp_time_balances` (1-year expiration)
-- Leave requests deduct from respective balances
-
----
-
-## 5. Audit Trail
-
-All entities maintain audit trails through:
-- `created_at` / `updated_at` timestamps
-- `created_by` / `updated_by` user references
-- `user_activity_logs` for detailed change tracking
-- `audit_logs` for ERP operations
+### 4.4 請假 ↔ 餘額
+- 特休來自 `annual_leave_entitlements`（2 年到期）
+- 補休來自 `comp_time_balances`（1 年到期）
+- 請假申請從各自餘額扣除
 
 ---
 
-*Next: [Modules and Boundaries](./03_MODULES_AND_BOUNDARIES.md)*
+## 5. 稽核軌跡
+
+所有實體透過以下方式維護稽核軌跡：
+- `created_at` / `updated_at` 時間戳記
+- `created_by` / `updated_by` 使用者參照
+- `user_activity_logs` 詳細變更追蹤
+- `audit_logs` ERP 作業紀錄
+
+---
+
+*下一章：[模組與邊界](./03_MODULES_AND_BOUNDARIES.md)*

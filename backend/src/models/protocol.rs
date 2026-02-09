@@ -12,7 +12,9 @@ pub enum ProtocolStatus {
     Draft,
     Submitted,
     PreReview,
+    PreReviewRevisionRequired,
     VetReview,
+    VetRevisionRequired,
     UnderReview,
     RevisionRequired,
     Resubmitted,
@@ -31,7 +33,9 @@ impl ProtocolStatus {
             ProtocolStatus::Draft => "DRAFT",
             ProtocolStatus::Submitted => "SUBMITTED",
             ProtocolStatus::PreReview => "PRE_REVIEW",
+            ProtocolStatus::PreReviewRevisionRequired => "PRE_REVIEW_REVISION_REQUIRED",
             ProtocolStatus::VetReview => "VET_REVIEW",
+            ProtocolStatus::VetRevisionRequired => "VET_REVISION_REQUIRED",
             ProtocolStatus::UnderReview => "UNDER_REVIEW",
             ProtocolStatus::RevisionRequired => "REVISION_REQUIRED",
             ProtocolStatus::Resubmitted => "RESUBMITTED",
@@ -50,7 +54,9 @@ impl ProtocolStatus {
             ProtocolStatus::Draft => "草稿",
             ProtocolStatus::Submitted => "已提交",
             ProtocolStatus::PreReview => "行政預審",
+            ProtocolStatus::PreReviewRevisionRequired => "行政預審補件",
             ProtocolStatus::VetReview => "獸醫審查",
+            ProtocolStatus::VetRevisionRequired => "獸醫要求修訂",
             ProtocolStatus::UnderReview => "審查中",
             ProtocolStatus::RevisionRequired => "需修訂",
             ProtocolStatus::Resubmitted => "已重送",
@@ -93,17 +99,171 @@ pub struct ProtocolVersion {
     pub submitted_by: Uuid,
 }
 
-/// 計畫狀態歷程
+/// 計畫活動類型
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[sqlx(type_name = "protocol_activity_type", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ProtocolActivityType {
+    // 生命週期
+    Created,
+    Updated,
+    Submitted,
+    Resubmitted,
+    Approved,
+    ApprovedWithConditions,
+    Closed,
+    Rejected,
+    Suspended,
+    Deleted,
+    // 審查流程
+    StatusChanged,
+    ReviewerAssigned,
+    VetAssigned,
+    CoeditorAssigned,
+    CoeditorRemoved,
+    // 審查意見
+    CommentAdded,
+    CommentReplied,
+    CommentResolved,
+    // 附件
+    AttachmentUploaded,
+    AttachmentDeleted,
+    // 版本
+    VersionCreated,
+    VersionRecovered,
+    // 修正案
+    AmendmentCreated,
+    AmendmentSubmitted,
+    // 動物管理
+    PigAssigned,
+    PigUnassigned,
+}
+
+impl ProtocolActivityType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ProtocolActivityType::Created => "CREATED",
+            ProtocolActivityType::Updated => "UPDATED",
+            ProtocolActivityType::Submitted => "SUBMITTED",
+            ProtocolActivityType::Resubmitted => "RESUBMITTED",
+            ProtocolActivityType::Approved => "APPROVED",
+            ProtocolActivityType::ApprovedWithConditions => "APPROVED_WITH_CONDITIONS",
+            ProtocolActivityType::Closed => "CLOSED",
+            ProtocolActivityType::Rejected => "REJECTED",
+            ProtocolActivityType::Suspended => "SUSPENDED",
+            ProtocolActivityType::Deleted => "DELETED",
+            ProtocolActivityType::StatusChanged => "STATUS_CHANGED",
+            ProtocolActivityType::ReviewerAssigned => "REVIEWER_ASSIGNED",
+            ProtocolActivityType::VetAssigned => "VET_ASSIGNED",
+            ProtocolActivityType::CoeditorAssigned => "COEDITOR_ASSIGNED",
+            ProtocolActivityType::CoeditorRemoved => "COEDITOR_REMOVED",
+            ProtocolActivityType::CommentAdded => "COMMENT_ADDED",
+            ProtocolActivityType::CommentReplied => "COMMENT_REPLIED",
+            ProtocolActivityType::CommentResolved => "COMMENT_RESOLVED",
+            ProtocolActivityType::AttachmentUploaded => "ATTACHMENT_UPLOADED",
+            ProtocolActivityType::AttachmentDeleted => "ATTACHMENT_DELETED",
+            ProtocolActivityType::VersionCreated => "VERSION_CREATED",
+            ProtocolActivityType::VersionRecovered => "VERSION_RECOVERED",
+            ProtocolActivityType::AmendmentCreated => "AMENDMENT_CREATED",
+            ProtocolActivityType::AmendmentSubmitted => "AMENDMENT_SUBMITTED",
+            ProtocolActivityType::PigAssigned => "PIG_ASSIGNED",
+            ProtocolActivityType::PigUnassigned => "PIG_UNASSIGNED",
+        }
+    }
+    
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            ProtocolActivityType::Created => "建立計畫",
+            ProtocolActivityType::Updated => "編輯計畫",
+            ProtocolActivityType::Submitted => "送審",
+            ProtocolActivityType::Resubmitted => "重新送審",
+            ProtocolActivityType::Approved => "通過",
+            ProtocolActivityType::ApprovedWithConditions => "附條件通過",
+            ProtocolActivityType::Closed => "結案",
+            ProtocolActivityType::Rejected => "否決",
+            ProtocolActivityType::Suspended => "暫停",
+            ProtocolActivityType::Deleted => "刪除",
+            ProtocolActivityType::StatusChanged => "狀態變更",
+            ProtocolActivityType::ReviewerAssigned => "指派審查委員",
+            ProtocolActivityType::VetAssigned => "指派獸醫師",
+            ProtocolActivityType::CoeditorAssigned => "指派共同編輯者",
+            ProtocolActivityType::CoeditorRemoved => "移除共同編輯者",
+            ProtocolActivityType::CommentAdded => "新增審查意見",
+            ProtocolActivityType::CommentReplied => "回覆審查意見",
+            ProtocolActivityType::CommentResolved => "解決審查意見",
+            ProtocolActivityType::AttachmentUploaded => "上傳附件",
+            ProtocolActivityType::AttachmentDeleted => "刪除附件",
+            ProtocolActivityType::VersionCreated => "建立版本快照",
+            ProtocolActivityType::VersionRecovered => "回復至版本",
+            ProtocolActivityType::AmendmentCreated => "建立修正案",
+            ProtocolActivityType::AmendmentSubmitted => "送審修正案",
+            ProtocolActivityType::PigAssigned => "分配動物",
+            ProtocolActivityType::PigUnassigned => "移除動物",
+        }
+    }
+}
+
+/// 計畫活動歷程
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct ProtocolStatusHistory {
+pub struct ProtocolActivity {
     pub id: Uuid,
     pub protocol_id: Uuid,
-    pub from_status: Option<ProtocolStatus>,
-    pub to_status: ProtocolStatus,
-    pub changed_by: Uuid,
+    pub activity_type: ProtocolActivityType,
+    pub actor_id: Uuid,
+    pub actor_name: Option<String>,
+    pub actor_email: Option<String>,
+    pub from_value: Option<String>,
+    pub to_value: Option<String>,
+    pub target_entity_type: Option<String>,
+    pub target_entity_id: Option<Uuid>,
+    pub target_entity_name: Option<String>,
     pub remark: Option<String>,
+    pub extra_data: Option<serde_json::Value>,
     pub created_at: DateTime<Utc>,
 }
+
+/// 計畫活動歷程回應（用於 API）
+#[derive(Debug, Clone, Serialize)]
+pub struct ProtocolActivityResponse {
+    pub id: Uuid,
+    pub protocol_id: Uuid,
+    pub activity_type: ProtocolActivityType,
+    pub activity_type_display: String,
+    pub actor_id: Uuid,
+    pub actor_name: String,
+    pub actor_email: String,
+    pub from_value: Option<String>,
+    pub to_value: Option<String>,
+    pub target_entity_type: Option<String>,
+    pub target_entity_id: Option<Uuid>,
+    pub target_entity_name: Option<String>,
+    pub remark: Option<String>,
+    pub extra_data: Option<serde_json::Value>,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<ProtocolActivity> for ProtocolActivityResponse {
+    fn from(activity: ProtocolActivity) -> Self {
+        Self {
+            id: activity.id,
+            protocol_id: activity.protocol_id,
+            activity_type: activity.activity_type,
+            activity_type_display: activity.activity_type.display_name().to_string(),
+            actor_id: activity.actor_id,
+            actor_name: activity.actor_name.unwrap_or_default(),
+            actor_email: activity.actor_email.unwrap_or_default(),
+            from_value: activity.from_value,
+            to_value: activity.to_value,
+            target_entity_type: activity.target_entity_type,
+            target_entity_id: activity.target_entity_id,
+            target_entity_name: activity.target_entity_name,
+            remark: activity.remark,
+            extra_data: activity.extra_data,
+            created_at: activity.created_at,
+        }
+    }
+}
+
 
 /// 審查人員指派
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]

@@ -1,72 +1,72 @@
-# Extensibility Specification
+# 擴展性規格
 
-> **Version**: 1.0  
-> **Last Updated**: 2026-01-17  
-> **Audience**: Architects, Senior Developers
-
----
-
-## 1. Purpose
-
-This document describes the extensibility architecture of iPig, enabling the system to grow to support:
-
-- **New Animal Species** - Beyond pigs (rabbits, mice, etc.)
-- **New Facilities** - Additional research centers, buildings
-- **New Roles & Departments** - Organizational growth
-- **New Modules** - Future functionality
-
-The guiding principle is: **"Grow like Notion, don't disturb users"**
-- Additive changes over breaking changes
-- Stable navigation and workflows
-- Clear migration paths
-- Minimal retraining required
+> **版本**：1.0  
+> **最後更新**：2026-01-17  
+> **對象**：架構師、資深開發人員
 
 ---
 
-## 2. Current State Analysis
+## 1. 目的
 
-### 2.1 Animals (Pigs)
+本文件描述 iPig 的擴展性架構，使系統能夠擴展以支援：
 
-| Current | Limitation |
-|---------|------------|
-| `pigs` table hardcoded | Adding species requires new tables |
-| `breed` as ENUM | New breeds require migrations |
-| Routes `/api/pigs/*` | URLs tied to species |
-| Permissions `pig.*` | Per-species permission sets |
-| `ear_tag` identifier | Not all species use ear tags |
+- **新動物物種** - 豬隻以外的動物（兔、小鼠等）
+- **新設施** - 額外的研究中心、建築
+- **新角色與部門** - 組織成長
+- **新模組** - 未來功能
 
-### 2.2 Facilities/Locations
-
-| Current | Limitation |
-|---------|------------|
-| `pen_location` as VARCHAR | No structure (e.g., "A01") |
-| Zone colors in CSS | Hardcoded, not configurable |
-| Building A/B in UI | Hardcoded toggle buttons |
-
-### 2.3 Roles/Departments
-
-| Current | Limitation |
-|---------|------------|
-| Flat role model | No hierarchy |
-| No departments | Can't organize by team |
-| No direct manager | Can't auto-route approvals |
+指導原則：**「像 Notion 一樣成長，不干擾使用者」**
+- 新增式變更優先於破壞性變更
+- 穩定的導覽與工作流程
+- 清晰的遷移路徑
+- 最小化重新訓練需求
 
 ---
 
-## 3. New Architecture
+## 2. 現況分析
 
-### 3.1 Species Abstraction
+### 2.1 動物（豬隻）
+
+| 現況 | 限制 |
+|------|------|
+| `pigs` 資料表硬編碼 | 新增物種需建立新資料表 |
+| `breed` 使用 ENUM | 新品種需執行遷移 |
+| 路由 `/api/pigs/*` | URL 綁定物種 |
+| 權限 `pig.*` | 每物種需獨立權限集 |
+| `ear_tag` 識別碼 | 並非所有物種使用耳號 |
+
+### 2.2 設施/位置
+
+| 現況 | 限制 |
+|------|------|
+| `pen_location` 為 VARCHAR | 無結構（如「A01」）|
+| 區域顏色寫在 CSS | 硬編碼，不可設定 |
+| 畫面上 A/B 棟 | 硬編碼切換按鈕 |
+
+### 2.3 角色/部門
+
+| 現況 | 限制 |
+|------|------|
+| 扁平角色模型 | 無階層 |
+| 無部門概念 | 無法依團隊組織 |
+| 無直屬主管 | 無法自動路由核准 |
+
+---
+
+## 3. 新架構
+
+### 3.1 物種抽象化
 
 ```sql
--- Generic species configuration
+-- 通用物種設定
 CREATE TABLE species (
     id UUID PRIMARY KEY,
     code VARCHAR(50) UNIQUE, -- 'pig', 'rabbit', 'mouse'
     name VARCHAR(100),        -- '豬', '兔', '小鼠'
-    config JSONB              -- Species-specific settings
+    config JSONB              -- 物種特定設定
 );
 
--- Config example for pigs:
+-- 豬隻設定範例：
 {
     "breeds": ["Minipig", "White", "Other"],
     "identifier_label": "耳號",
@@ -76,21 +76,21 @@ CREATE TABLE species (
 }
 ```
 
-#### Migration Strategy
+#### 遷移策略
 
-1. Create `species` table with `pig` seed data
-2. Add `species_id` to `pigs` table (nullable initially)
-3. Backfill existing pigs with pig species ID
-4. Make `species_id` NOT NULL
-5. Create `animals` view over `pigs` for generic access
+1. 建立 `species` 資料表，含豬隻種子資料
+2. 在 `pigs` 資料表新增 `species_id`（初始允許 NULL）
+3. 回填現有豬隻的物種 ID
+4. 將 `species_id` 設為 NOT NULL
+5. 建立 `animals` 視圖以提供通用存取
 
-### 3.2 Facility Hierarchy
+### 3.2 設施階層
 
 ```
-Facility (設施)
-    └── Building (棟舍)
-            └── Zone (區域)
-                    └── Pen (欄位)
+設施 (Facility)
+    └── 棟舍 (Building)
+            └── 區域 (Zone)
+                    └── 欄位 (Pen)
 ```
 
 ```sql
@@ -106,15 +106,15 @@ CREATE TABLE buildings (
     facility_id UUID REFERENCES facilities(id),
     code VARCHAR(20),     -- 'A', 'B'
     name VARCHAR(100),    -- 'A棟', 'B棟'
-    config JSONB          -- Building-specific settings
+    config JSONB          -- 棟舍特定設定
 );
 
 CREATE TABLE zones (
     id UUID PRIMARY KEY,
     building_id UUID REFERENCES buildings(id),
     code VARCHAR(20),     -- 'A', 'B', 'C'...
-    color VARCHAR(20),    -- '#4CAF50' (configurable!)
-    layout_config JSONB   -- Row/column arrangement
+    color VARCHAR(20),    -- '#4CAF50'（可設定！）
+    layout_config JSONB   -- 行列配置
 );
 
 CREATE TABLE pens (
@@ -126,40 +126,40 @@ CREATE TABLE pens (
 );
 ```
 
-#### Migration Strategy
+#### 遷移策略
 
-1. Create new tables without foreign keys to `pigs`
-2. Seed with current A/B棟 structure
-3. Add `pen_id` to `pigs` (nullable)
-4. Create script to match `pen_location` → `pen_id`
-5. Run automatic migration for exact matches
-6. Manual review for unmatched records
-7. Keep `pen_location` for backward compatibility (deprecated)
+1. 建立新資料表，不含對 `pigs` 的外鍵
+2. 植入目前 A/B 棟結構
+3. 在 `pigs` 新增 `pen_id`（允許 NULL）
+4. 建立腳本將 `pen_location` 對應至 `pen_id`
+5. 執行完全符合項目的自動遷移
+6. 不符合項目需人工審查
+7. 保留 `pen_location` 以向後相容（標記棄用）
 
-### 3.3 Department & Manager Hierarchy
+### 3.3 部門與主管階層
 
 ```sql
 CREATE TABLE departments (
     id UUID PRIMARY KEY,
     code VARCHAR(50) UNIQUE,
     name VARCHAR(100),
-    parent_id UUID REFERENCES departments(id), -- Hierarchy
-    manager_id UUID REFERENCES users(id)       -- Department head
+    parent_id UUID REFERENCES departments(id), -- 階層
+    manager_id UUID REFERENCES users(id)       -- 部門主管
 );
 
--- Add to users
+-- 新增至 users
 ALTER TABLE users ADD COLUMN department_id UUID;
 ALTER TABLE users ADD COLUMN direct_manager_id UUID;
 ```
 
-This enables:
-- Automatic approval routing (user → manager → dept head)
-- Department-based permissions
-- Team-based views
+此架構可實現：
+- 自動核准路由（員工 → 主管 → 部門主管）
+- 基於部門的權限
+- 團隊檢視功能
 
-### 3.4 Role Groups
+### 3.4 角色群組
 
-Pre-defined bundles of roles for common job functions:
+常見職能的預定義角色組合：
 
 ```sql
 CREATE TABLE role_groups (
@@ -175,118 +175,118 @@ CREATE TABLE role_group_roles (
 );
 ```
 
-Example role groups:
-- `INTERNAL_STAFF` → Basic HR permissions
-- `EXPERIMENT_TEAM` → Animal management permissions
-- `ADMIN_TEAM` → System administration permissions
+角色群組範例：
+- `INTERNAL_STAFF` → 基本 HR 權限
+- `EXPERIMENT_TEAM` → 動物管理權限
+- `ADMIN_TEAM` → 系統管理權限
 
 ---
 
-## 4. Extension Points
+## 4. 擴展點
 
-### 4.1 API Design for Extensions
+### 4.1 擴展 API 設計
 
-#### Current (Species-specific)
+#### 現行（物種特定）
 ```
 GET /api/pigs
 GET /api/pigs/:id
 POST /api/pigs
 ```
 
-#### New (Generic + Alias)
+#### 新設計（通用 + 別名）
 ```
-# Generic endpoints
+# 通用端點
 GET /api/animals?species=pig
 GET /api/animals/:id
 POST /api/animals { species_id: "...", ... }
 
-# Backward-compatible aliases (deprecated warnings)
-GET /api/pigs → redirects to /api/animals?species=pig
+# 向後相容別名（棄用警告）
+GET /api/pigs → 重導向至 /api/animals?species=pig
 ```
 
-### 4.2 Permission Pattern
+### 4.2 權限模式
 
-#### Current
+#### 現行
 ```
 pig.read, pig.create, pig.update, pig.delete
 ```
 
-#### New
+#### 新設計
 ```
-# Generic
+# 通用
 animal.read, animal.create, animal.update, animal.delete
 
-# Species-specific (optional, for fine-grained control)
+# 物種特定（選用，細粒度控制）
 animal.pig.read, animal.rabbit.read
 ```
 
-### 4.3 UI Configuration
+### 4.3 UI 設定
 
-Instead of hardcoding zone colors:
+不再硬編碼區域顏色：
 
 ```typescript
-// From admin configuration or API
+// 從管理員設定或 API 取得
 const zoneConfig = await fetchZoneConfig();
 // { "A": { color: "#4CAF50", ... }, "B": { color: "#2196F3", ... } }
 ```
 
-Facility selector becomes dynamic:
+設施選擇器變為動態：
 ```typescript
 const buildings = await fetchBuildings();
-// Dynamic tabs instead of hardcoded A棟/B棟
+// 動態頁籤取代硬編碼的 A棟/B棟
 ```
 
 ---
 
-## 5. Implementation Phases
+## 5. 實作階段
 
-### Phase 1: Database Foundation (Weeks 1-2) ✅
+### 第一階段：資料庫基礎（第 1-2 週）✅
 
-- [x] Create `species` table with pig seed
-- [x] Create `facilities`, `buildings`, `zones`, `pens` tables
-- [x] Seed current pen structure
-- [x] Create `departments` table
-- [x] Add `department_id`, `direct_manager_id` to users
-- [x] Add `pen_id` to pigs
-- [x] Create `pen_details` view
+- [x] 建立 `species` 資料表並植入豬隻
+- [x] 建立 `facilities`、`buildings`、`zones`、`pens` 資料表
+- [x] 植入現有欄位結構
+- [x] 建立 `departments` 資料表
+- [x] 在 users 新增 `department_id`、`direct_manager_id`
+- [x] 在 pigs 新增 `pen_id`
+- [x] 建立 `pen_details` 視圖
 
-### Phase 2: Backend Abstraction (Weeks 3-4)
+### 第二階段：後端抽象（第 3-4 週）
 
-- [ ] Create `animals` view over `pigs`
-- [ ] Add `/api/animals/*` routes
-- [ ] Keep `/api/pigs/*` as aliases with deprecation headers
-- [ ] Create `/api/facilities/*` CRUD
-- [ ] Create `/api/buildings/*` CRUD
-- [ ] Create `/api/zones/*` CRUD
-- [ ] Create `/api/pens/*` CRUD
-- [ ] Update permission checks to generic pattern
+- [ ] 建立基於 `pigs` 的 `animals` 視圖
+- [ ] 新增 `/api/animals/*` 路由
+- [ ] 保留 `/api/pigs/*` 作為別名，附棄用標頭
+- [ ] 建立 `/api/facilities/*` CRUD
+- [ ] 建立 `/api/buildings/*` CRUD
+- [ ] 建立 `/api/zones/*` CRUD
+- [ ] 建立 `/api/pens/*` CRUD
+- [ ] 更新權限檢查為通用模式
 
-### Phase 3: Frontend Progressive Enhancement (Weeks 5-8)
+### 第三階段：前端漸進增強（第 5-8 週）
 
-- [ ] Create configurable zone color system
-- [ ] Create dynamic facility/building selector
-- [ ] Create facility management admin page
-- [ ] Replace hardcoded pen references incrementally
-- [ ] Feature flag new components
+- [ ] 建立可設定的區域顏色系統
+- [ ] 建立動態設施/棟舍選擇器
+- [ ] 建立設施管理管理員頁面
+- [ ] 逐步替換硬編碼的欄位參照
+- [ ] 功能開關控制新元件
 
-### Phase 4: Rollout & Cleanup (Weeks 9-12)
+### 第四階段：上線與清理（第 9-12 週）
 
-- [ ] Enable new UI for beta users
-- [ ] Gather feedback and iterate
-- [ ] Enable for all users
-- [ ] Log usage of deprecated endpoints
-- [ ] Announce deprecation timeline
-- [ ] Remove deprecated code after 6 months
+- [ ] 對測試使用者啟用新 UI
+- [ ] 收集回饋並迭代
+- [ ] 對所有使用者啟用
+- [ ] 記錄棄用端點的使用
+- [ ] 公告棄用時程
+- [ ] 6 個月後移除棄用程式碼
 
 ---
 
-## 6. Backward Compatibility
+## 6. 向後相容性
 
-### 6.1 Views for Legacy Queries
+### 6.1 舊版查詢視圖
 
 ```sql
--- Keep pigs as the primary table name
--- OR create a view that looks like the old structure
+-- 保留 pigs 作為主要資料表名稱
+-- 或建立看起來像舊結構的視圖
 CREATE VIEW legacy_pigs AS
 SELECT 
     p.*,
@@ -295,15 +295,15 @@ FROM pigs p
 LEFT JOIN pens pn ON p.pen_id = pn.id;
 ```
 
-### 6.2 Route Aliases
+### 6.2 路由別名
 
 ```rust
-// In routes.rs
-.route("/pigs", get(handlers::list_pigs_deprecated))  // Logs deprecation
-.route("/animals", get(handlers::list_animals))        // New endpoint
+// 在 routes.rs
+.route("/pigs", get(handlers::list_pigs_deprecated))  // 記錄棄用
+.route("/animals", get(handlers::list_animals))        // 新端點
 ```
 
-### 6.3 Deprecation Headers
+### 6.3 棄用標頭
 
 ```rust
 fn add_deprecation_header(response: &mut Response) {
@@ -320,73 +320,73 @@ fn add_deprecation_header(response: &mut Response) {
 
 ---
 
-## 7. Adding a New Species (Example)
+## 7. 新增物種範例
 
-### 7.1 Database Changes
+### 7.1 資料庫變更
 
 ```sql
--- Add species
+-- 新增物種
 INSERT INTO species (code, name, config) VALUES (
     'rabbit', 
     '兔',
     '{"breeds": ["NZW", "JW"], "identifier_label": "耳號"}'
 );
 
--- Create species-specific table (optional, if schema differs significantly)
--- OR just add to animals table if schema is similar enough
+-- 建立物種特定資料表（選用，若綱要差異較大）
+-- 或若綱要足夠相似，直接使用 animals 資料表
 ```
 
-### 7.2 Backend Changes
+### 7.2 後端變更
 
-If using existing `pigs` schema:
-- Just add species_id filter in queries
+若使用現有 `pigs` 綱要：
+- 只需在查詢中加入 species_id 篩選
 
-If species needs custom fields:
-- Create new table with common + custom columns
-- Extend animal handlers to route to correct table
+若物種需要自訂欄位：
+- 建立新資料表，包含共用與自訂欄位
+- 擴展動物處理器以路由至正確資料表
 
-### 7.3 Frontend Changes
+### 7.3 前端變更
 
 ```typescript
-// Already dynamic if using config-based approach
+// 若使用設定導向方式則已是動態
 const species = await fetchSpecies();
-// Renders species selector automatically
+// 自動渲染物種選擇器
 ```
 
 ---
 
-## 8. Adding a New Facility (Example)
+## 8. 新增設施範例
 
-### 8.1 Admin UI
+### 8.1 管理員 UI
 
-1. Go to **系統管理 → 設施管理**
-2. Click **新增設施**
-3. Enter name, address
-4. Add buildings under facility
-5. Add zones under buildings
-6. Add pens under zones
+1. 前往 **系統管理 → 設施管理**
+2. 點擊 **新增設施**
+3. 輸入名稱、地址
+4. 在設施下新增棟舍
+5. 在棟舍下新增區域
+6. 在區域下新增欄位
 
-### 8.2 Data Entry
+### 8.2 資料輸入
 
 ```sql
 INSERT INTO facilities (code, name) VALUES ('BRANCH2', '二廠');
 INSERT INTO buildings (facility_id, code, name) VALUES (?, 'A', 'A棟');
 INSERT INTO zones (building_id, code, color) VALUES (?, 'A', '#4CAF50');
--- ... pens
+-- ... 欄位
 ```
 
-### 8.3 UI Updates
+### 8.3 UI 更新
 
-No code changes needed if using dynamic facility loading:
-- Facility selector automatically shows new facility
-- Building tabs automatically populate
-- Pen grid automatically generated from config
+若使用動態設施載入，無需程式碼變更：
+- 設施選擇器自動顯示新設施
+- 棟舍頁籤自動填入
+- 欄位格線自動依設定產生
 
 ---
 
-## 9. Navigation Evolution
+## 9. 導覽演進
 
-### Current Structure
+### 現行結構
 ```
 📊 儀表板
 📋 動物使用計畫 (AUP)
@@ -397,7 +397,7 @@ No code changes needed if using dynamic facility loading:
 ⚙️ 系統管理
 ```
 
-### Future Structure (Additive)
+### 未來結構（新增式）
 ```
 📊 儀表板
 📋 動物使用計畫 (AUP)
@@ -405,55 +405,55 @@ No code changes needed if using dynamic facility loading:
   ├─ 所有動物
   ├─ 依物種瀏覽 ▶
   │   ├─ 豬隻
-  │   ├─ 兔 (future)
-  │   └─ 小鼠 (future)
+  │   ├─ 兔（未來）
+  │   └─ 小鼠（未來）
   └─ 我的計劃
 📦 ERP
-🏢 設施管理 ▶ (Admin only)
+🏢 設施管理 ▶（僅限管理員）
   ├─ 設施/棟舍
   └─ 欄位配置
-👥 人員管理 ▶ (HR)
+👥 人員管理 ▶（HR）
   ├─ 出勤打卡
   └─ 請假管理
 ⚙️ 系統管理
-  ├─ ...existing...
-  └─ 安全審計 ▶ (new)
+  ├─ ...現有...
+  └─ 安全審計 ▶（新增）
 ```
 
-**Key Principle**: Existing navigation items stay in place. New items are added at the end or as sub-items.
+**關鍵原則**：現有導覽項目保持原位。新項目新增於末端或作為子項目。
 
 ---
 
-## 10. Risk Mitigation
+## 10. 風險緩解
 
-| Risk | Mitigation |
-|------|------------|
-| Data migration errors | Run migration on staging first; manual review for edge cases |
-| Performance regression | Test query performance; add indexes proactively |
-| User confusion | Phase rollout; collect feedback; provide training |
-| Breaking integrations | 6-month deprecation period for old endpoints |
-| Incomplete migration | Track unmigrated records; provide admin tools |
-
----
-
-## 11. Success Metrics
-
-| Metric | Target |
-|--------|--------|
-| Old endpoint usage | <10% after 3 months |
-| New UI adoption | >90% after 1 month |
-| Support tickets | No increase during rollout |
-| Query performance | Same or better than current |
-| User satisfaction | No complaints about navigation changes |
+| 風險 | 緩解措施 |
+|------|----------|
+| 資料遷移錯誤 | 先於測試環境執行遷移；邊界案例人工審查 |
+| 效能退化 | 測試查詢效能；主動新增索引 |
+| 使用者困惑 | 分階段上線；收集回饋；提供培訓 |
+| 破壞整合 | 舊端點設定 6 個月棄用期 |
+| 遷移不完整 | 追蹤未遷移紀錄；提供管理員工具 |
 
 ---
 
-## 12. Related Documents
+## 11. 成功指標
 
-- [Database Schema](./04_DATABASE_SCHEMA.md) - Table definitions
-- [API Specification](./05_API_SPECIFICATION.md) - Endpoint details
-- [UI/UX Guidelines](./10_UI_UX_GUIDELINES.md) - Navigation principles
+| 指標 | 目標 |
+|------|------|
+| 舊端點使用率 | 3 個月後 <10% |
+| 新 UI 採用率 | 1 個月後 >90% |
+| 客服工單量 | 上線期間無增加 |
+| 查詢效能 | 與現行相同或更佳 |
+| 使用者滿意度 | 導覽變更無抱怨 |
 
 ---
 
-*Last updated: 2026-01-17*
+## 12. 相關文件
+
+- [資料庫綱要](./04_DATABASE_SCHEMA.md) - 資料表定義
+- [API 規格](./05_API_SPECIFICATION.md) - 端點詳情
+- [UI/UX 指南](./10_UI_UX_GUIDELINES.md) - 導覽原則
+
+---
+
+*最後更新：2026-01-17*

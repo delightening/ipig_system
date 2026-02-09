@@ -1,506 +1,552 @@
-# API Specification
+# API 規格
 
-> **Version**: 2.0  
-> **Last Updated**: 2026-01-18  
-> **Audience**: Frontend Developers, Integration Partners
+> **版本**：2.0  
+> **最後更新**：2026-01-18  
+> **對象**：開發人員、前端工程師
 
 ---
 
-## 1. Overview
+## 1. 概覽
 
-Base URL: `http://localhost:8080/api` (development) or `https://ipig.example.com/api` (production)
+### 1.1 基礎 URL
+- **開發環境**：`http://localhost:8080/api`
+- **生產環境**：`https://yourdomain.com/api`
 
-### Authentication
-- All endpoints except auth require a valid JWT Access Token
-- Include token in header: `Authorization: Bearer <token>`
-- Access tokens expire in 15 minutes
-- Refresh tokens expire in 7 days
+### 1.2 認證
+所有端點（登入除外）需於標頭提供 JWT 令牌：
+```
+Authorization: Bearer <token>
+```
 
-### Response Format
+### 1.3 回應格式
+所有回應皆為 JSON 格式。成功回應結構：
 ```json
 {
-  "data": { ... },      // Success response
-  "error": "message",   // Error response
-  "message": "string"   // Optional message
+  "data": { ... },
+  "message": "操作成功"
 }
 ```
 
+錯誤回應結構：
+```json
+{
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "錯誤說明"
+  }
+}
+```
+
+### 1.4 分頁
+列表端點支援以下查詢參數：
+- `page` - 頁碼（預設：1）
+- `per_page` - 每頁筆數（預設：20，最大：100）
+- `sort_by` - 排序欄位
+- `sort_order` - `asc` 或 `desc`
+
 ---
 
-## 2. Authentication API
+## 2. 認證 API
 
-### Public Endpoints (No Auth Required)
+### 2.1 登入
+```
+POST /auth/login
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/auth/login` | User login |
-| POST | `/auth/refresh` | Refresh access token |
-| POST | `/auth/forgot-password` | Request password reset |
-| POST | `/auth/reset-password` | Reset password with token |
-
-### Protected Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/auth/logout` | User logout |
-| GET | `/me` | Get current user info |
-| PUT | `/me/password` | Change own password |
-
-### Login
-```http
-POST /api/auth/login
-Content-Type: application/json
-
+**請求**
+```json
 {
   "email": "user@example.com",
   "password": "password123"
 }
 ```
-Response:
+
+**回應**
 ```json
 {
-  "access_token": "eyJ...",
-  "refresh_token": "eyJ...",
+  "access_token": "eyJhbGc...",
+  "token_type": "Bearer",
+  "expires_in": 900,
   "user": {
     "id": "uuid",
     "email": "user@example.com",
-    "display_name": "User Name",
-    "roles": ["admin"]
+    "display_name": "使用者名稱",
+    "roles": ["admin", "pi"],
+    "permissions": ["user.read", "protocol.create"]
   }
 }
 ```
 
----
+### 2.2 刷新令牌
+```
+POST /auth/refresh
+```
 
-## 3. User Management API
+### 2.3 登出
+```
+POST /auth/logout
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/users` | List users |
-| POST | `/users` | Create user |
-| GET | `/users/:id` | Get user |
-| PUT | `/users/:id` | Update user |
-| DELETE | `/users/:id` | Delete user |
-| PUT | `/users/:id/password` | Reset user password |
+### 2.4 忘記密碼
+```
+POST /auth/forgot-password
+Content: { "email": "user@example.com" }
+```
 
-### User Preferences
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/me/preferences` | Get all preferences |
-| GET | `/me/preferences/:key` | Get preference |
-| PUT | `/me/preferences/:key` | Set preference |
-| DELETE | `/me/preferences/:key` | Delete preference |
-
----
-
-## 4. Roles & Permissions API
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/roles` | List roles |
-| POST | `/roles` | Create role |
-| GET | `/roles/:id` | Get role |
-| PUT | `/roles/:id` | Update role |
-| DELETE | `/roles/:id` | Delete role |
-| GET | `/permissions` | List all permissions |
+### 2.5 重設密碼
+```
+POST /auth/reset-password
+Content: { "token": "reset_token", "new_password": "new_pass123" }
+```
 
 ---
 
-## 5. Protocol (AUP) API
+## 3. 使用者 API
 
-### Protocols
+### 3.1 列表使用者（管理員）
+```
+GET /admin/users?page=1&per_page=20&search=keyword&is_active=true
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/protocols` | List protocols |
-| POST | `/protocols` | Create protocol |
-| GET | `/protocols/:id` | Get protocol |
-| PUT | `/protocols/:id` | Update protocol |
-| POST | `/protocols/:id/submit` | Submit for review |
-| POST | `/protocols/:id/status` | Change status |
-| GET | `/protocols/:id/versions` | Get versions |
-| GET | `/protocols/:id/status-history` | Get status history |
-| GET | `/protocols/:id/animal-stats` | Get animal statistics |
+### 3.2 建立使用者（管理員）
+```
+POST /admin/users
+Content: { "email": "...", "display_name": "...", "password": "...", "roles": ["uuid"] }
+```
 
-### Review System
+### 3.3 更新使用者（管理員）
+```
+PUT /admin/users/:id
+Content: { "display_name": "...", "is_active": true, "roles": ["uuid"] }
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/reviews/assignments` | List review assignments |
-| POST | `/reviews/assignments` | Assign reviewer |
-| GET | `/reviews/comments` | List review comments |
-| POST | `/reviews/comments` | Create comment |
-| POST | `/reviews/comments/:id/resolve` | Resolve comment |
-| POST | `/reviews/comments/reply` | Reply to comment |
+### 3.4 取得個人資料
+```
+GET /users/me
+```
 
-### Co-Editors
+### 3.5 更新個人資料
+```
+PUT /users/me
+Content: { "display_name": "...", "phone": "...", "theme_preference": "dark" }
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/protocols/:id/co-editors` | List co-editors |
-| POST | `/protocols/:id/co-editors` | Assign co-editor |
-| DELETE | `/protocols/:id/co-editors/:user_id` | Remove co-editor |
-
-### My Projects
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/my-projects` | Get my protocols |
+### 3.6 變更密碼
+```
+POST /users/me/change-password
+Content: { "current_password": "...", "new_password": "..." }
+```
 
 ---
 
-## 6. Animal (Pig) Management API
+## 4. 計畫書 API
 
-### Pig CRUD
+### 4.1 列表計畫書
+```
+GET /protocols?status=DRAFT&search=keyword
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/pigs` | List pigs |
-| POST | `/pigs` | Create pig |
-| GET | `/pigs/:id` | Get pig |
-| PUT | `/pigs/:id` | Update pig |
-| DELETE | `/pigs/:id` | Soft delete pig |
-| GET | `/pigs/by-pen` | List pigs by pen |
+### 4.2 建立計畫書
+```
+POST /protocols
+Content: { "title": "計畫名稱", "working_content": {...} }
+```
 
-### Batch Operations
+### 4.3 取得計畫書
+```
+GET /protocols/:id
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/pigs/batch/assign` | Batch assign pigs to protocol |
-| POST | `/pigs/batch/start-experiment` | Batch start experiment |
+### 4.4 更新計畫書
+```
+PUT /protocols/:id
+Content: { "title": "...", "working_content": {...} }
+```
 
-### Pig Sources
+### 4.5 送審計畫書
+```
+POST /protocols/:id/submit
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/pig-sources` | List sources |
-| POST | `/pig-sources` | Create source |
-| PUT | `/pig-sources/:id` | Update source |
-| DELETE | `/pig-sources/:id` | Delete source |
+### 4.6 變更狀態（管理員/審查員）
+```
+POST /protocols/:id/status
+Content: { "status": "APPROVED", "remark": "核准備註" }
+```
 
-### Observations
+### 4.7 取得版本歷程
+```
+GET /protocols/:id/versions
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/pigs/:id/observations` | List observations |
-| POST | `/pigs/:id/observations` | Create observation |
-| GET | `/pigs/:id/observations/with-recommendations` | With vet recommendations |
-| POST | `/pigs/:id/observations/copy` | Copy observation |
-| GET | `/observations/:id` | Get observation |
-| PUT | `/observations/:id` | Update observation |
-| DELETE | `/observations/:id` | Delete observation |
-| POST | `/observations/:id/vet-read` | Mark vet read |
-| GET | `/observations/:id/versions` | Get versions |
-| GET | `/observations/:id/recommendations` | Get recommendations |
-| POST | `/observations/:id/recommendations` | Add recommendation |
-
-### Surgeries
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/pigs/:id/surgeries` | List surgeries |
-| POST | `/pigs/:id/surgeries` | Create surgery |
-| GET | `/pigs/:id/surgeries/with-recommendations` | With vet recommendations |
-| POST | `/pigs/:id/surgeries/copy` | Copy surgery |
-| GET | `/surgeries/:id` | Get surgery |
-| PUT | `/surgeries/:id` | Update surgery |
-| DELETE | `/surgeries/:id` | Delete surgery |
-| POST | `/surgeries/:id/vet-read` | Mark vet read |
-| GET | `/surgeries/:id/versions` | Get versions |
-
-### Weights
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/pigs/:id/weights` | List weights |
-| POST | `/pigs/:id/weights` | Create weight |
-| PUT | `/weights/:id` | Update weight |
-| DELETE | `/weights/:id` | Delete weight |
-
-### Vaccinations
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/pigs/:id/vaccinations` | List vaccinations |
-| POST | `/pigs/:id/vaccinations` | Create vaccination |
-| PUT | `/vaccinations/:id` | Update vaccination |
-| DELETE | `/vaccinations/:id` | Delete vaccination |
-
-### Sacrifice & Pathology
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/pigs/:id/sacrifice` | Get sacrifice record |
-| POST | `/pigs/:id/sacrifice` | Upsert sacrifice |
-| GET | `/pigs/:id/pathology` | Get pathology report |
-| POST | `/pigs/:id/pathology` | Upsert pathology |
-
-### Data Import/Export
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/pigs/import/batches` | List import batches |
-| GET | `/pigs/import/template/basic` | Download basic template |
-| GET | `/pigs/import/template/weight` | Download weight template |
-| POST | `/pigs/import/basic` | Import basic data |
-| POST | `/pigs/import/weights` | Import weight data |
-| POST | `/pigs/:id/export` | Export pig medical data |
-| POST | `/projects/:iacuc_no/export` | Export project data |
-
-### Vet Dashboard
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/pigs/vet-comments` | Get vet comments |
-| POST | `/pigs/:id/vet-read` | Mark pig vet read |
+### 4.8 取得特定版本
+```
+GET /protocols/:id/versions/:version_no
+```
 
 ---
 
-## 7. ERP API
+## 5. 審查 API
 
-### Warehouses
+### 5.1 取得審查指派
+```
+GET /reviews/assignments?protocol_id=uuid
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/warehouses` | List warehouses |
-| POST | `/warehouses` | Create warehouse |
-| GET | `/warehouses/:id` | Get warehouse |
-| PUT | `/warehouses/:id` | Update warehouse |
-| DELETE | `/warehouses/:id` | Delete warehouse |
+### 5.2 建立審查指派（管理員）
+```
+POST /reviews/assignments
+Content: { "protocol_id": "uuid", "reviewer_id": "uuid" }
+```
 
-### Products
+### 5.3 移除審查指派（管理員）
+```
+DELETE /reviews/assignments/:id
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/products` | List products |
-| POST | `/products` | Create product |
-| GET | `/products/:id` | Get product |
-| PUT | `/products/:id` | Update product |
-| DELETE | `/products/:id` | Delete product |
-| GET | `/categories` | List categories |
-| POST | `/categories` | Create category |
+### 5.4 取得審查意見
+```
+GET /reviews/comments?protocol_version_id=uuid
+```
 
-### SKU
+### 5.5 建立審查意見
+```
+POST /reviews/comments
+Content: { "protocol_version_id": "uuid", "content": "意見內容" }
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/sku/categories` | Get SKU categories |
-| GET | `/sku/categories/:code/subcategories` | Get subcategories |
-| POST | `/sku/generate` | Generate SKU |
-| POST | `/sku/validate` | Validate SKU |
-| POST | `/skus/preview` | Preview SKU |
-| POST | `/products/with-sku` | Create product with SKU |
-
-### Partners
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/partners` | List partners |
-| POST | `/partners` | Create partner |
-| GET | `/partners/generate-code` | Generate code |
-| GET | `/partners/:id` | Get partner |
-| PUT | `/partners/:id` | Update partner |
-| DELETE | `/partners/:id` | Delete partner |
-
-### Documents
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/documents` | List documents |
-| POST | `/documents` | Create document |
-| GET | `/documents/:id` | Get document |
-| PUT | `/documents/:id` | Update document |
-| DELETE | `/documents/:id` | Delete document |
-| POST | `/documents/:id/submit` | Submit document |
-| POST | `/documents/:id/approve` | Approve document |
-| POST | `/documents/:id/cancel` | Cancel document |
-
-### Inventory
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/inventory/on-hand` | Get on-hand inventory |
-| GET | `/inventory/ledger` | Get stock ledger |
-| GET | `/inventory/low-stock` | Get low stock alerts |
+### 5.6 解決意見
+```
+POST /reviews/comments/:id/resolve
+```
 
 ---
 
-## 8. HR API
+## 6. 動物（豬隻）API
 
-### Attendance
+### 6.1 列表豬隻
+```
+GET /pigs?status=in_experiment&iacuc_no=IACUC-2026-001&search=耳號
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/hr/attendance` | List attendance |
-| POST | `/hr/attendance/clock-in` | Clock in |
-| POST | `/hr/attendance/clock-out` | Clock out |
-| GET | `/hr/attendance/stats` | Get statistics |
-| PUT | `/hr/attendance/:id` | Correct attendance |
+### 6.2 依欄位取得
+```
+GET /pigs/by-pen?building=A
+回應：以 pen_location 分組的豬隻
+```
 
-### Overtime
+### 6.3 取得豬隻詳情
+```
+GET /pigs/:id
+包含：觀察紀錄、手術紀錄、體重、疫苗
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/hr/overtime` | List overtime records |
-| POST | `/hr/overtime` | Create overtime |
-| GET | `/hr/overtime/:id` | Get overtime |
-| PUT | `/hr/overtime/:id` | Update overtime |
-| DELETE | `/hr/overtime/:id` | Delete overtime |
-| POST | `/hr/overtime/:id/submit` | Submit for approval |
-| POST | `/hr/overtime/:id/approve` | Approve overtime |
-| POST | `/hr/overtime/:id/reject` | Reject overtime |
+### 6.4 建立豬隻
+```
+POST /pigs
+Content: { "ear_tag": "001", "breed": "miniature", "gender": "male", ... }
+```
 
-### Leave
+### 6.5 更新豬隻
+```
+PUT /pigs/:id
+Content: { "pen_location": "A02", "status": "assigned", ... }
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/hr/leaves` | List leave requests |
-| POST | `/hr/leaves` | Create leave |
-| GET | `/hr/leaves/:id` | Get leave |
-| PUT | `/hr/leaves/:id` | Update leave |
-| DELETE | `/hr/leaves/:id` | Delete leave |
-| POST | `/hr/leaves/:id/submit` | Submit for approval |
-| POST | `/hr/leaves/:id/approve` | Approve leave |
-| POST | `/hr/leaves/:id/reject` | Reject leave |
-| POST | `/hr/leaves/:id/cancel` | Cancel leave |
-| POST | `/hr/leaves/attachments` | Upload attachment |
+### 6.6 刪除豬隻（軟刪除）
+```
+DELETE /pigs/:id
+Content: { "reason": "刪除原因" }
+```
 
-### Balances
+### 6.7 批次指派
+```
+POST /pigs/batch/assign
+Content: { "pig_ids": [1, 2, 3], "iacuc_no": "IACUC-2026-001" }
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/hr/balances/annual` | Annual leave balances |
-| GET | `/hr/balances/comp-time` | Comp time balances |
-| GET | `/hr/balances/summary` | Balance summary |
-| POST | `/hr/balances/annual-entitlements` | Create entitlement |
-| POST | `/hr/balances/:id/adjust` | Adjust balance |
-
-### Dashboard
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/hr/dashboard/calendar` | Dashboard calendar data |
-
-### Calendar Sync
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/hr/calendar/status` | Get sync status |
-| GET | `/hr/calendar/config` | Get config |
-| PUT | `/hr/calendar/config` | Update config |
-| POST | `/hr/calendar/connect` | Connect calendar |
-| POST | `/hr/calendar/disconnect` | Disconnect calendar |
-| POST | `/hr/calendar/sync` | Trigger sync |
-| GET | `/hr/calendar/history` | Sync history |
-| GET | `/hr/calendar/pending` | Pending syncs |
-| GET | `/hr/calendar/conflicts` | List conflicts |
-| GET | `/hr/calendar/conflicts/:id` | Get conflict |
-| POST | `/hr/calendar/conflicts/:id/resolve` | Resolve conflict |
-| GET | `/hr/calendar/events` | List calendar events |
+### 6.8 批次開始實驗
+```
+POST /pigs/batch/start-experiment
+Content: { "pig_ids": [1, 2, 3], "experiment_date": "2026-01-20" }
+```
 
 ---
 
-## 9. Admin Audit API
+## 7. 豬隻紀錄 API
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/admin/audit/activities` | List activity logs |
-| GET | `/admin/audit/activities/user/:user_id` | User timeline |
-| GET | `/admin/audit/activities/entity/:type/:id` | Entity history |
-| GET | `/admin/audit/logins` | Login events |
-| GET | `/admin/audit/sessions` | List sessions |
-| POST | `/admin/audit/sessions/:id/logout` | Force logout |
-| GET | `/admin/audit/alerts` | Security alerts |
-| POST | `/admin/audit/alerts/:id/resolve` | Resolve alert |
-| GET | `/admin/audit/dashboard` | Audit dashboard |
+### 7.1 觀察紀錄
+```
+GET /pigs/:id/observations
+POST /pigs/:id/observations
+Content: { "event_date": "2026-01-20", "record_type": "observation", "content": "正常" }
 
----
+PUT /observations/:id
+DELETE /observations/:id
+```
 
-## 10. Facility Management API
+### 7.2 手術紀錄
+```
+GET /pigs/:id/surgeries
+POST /pigs/:id/surgeries
+Content: { "surgery_date": "2026-01-20", "surgery_site": "腹部", ... }
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/facilities/species` | List species |
-| POST | `/facilities/species` | Create species |
-| GET | `/facilities/species/:id` | Get species |
-| PUT | `/facilities/species/:id` | Update species |
-| DELETE | `/facilities/species/:id` | Delete species |
-| GET | `/facilities` | List facilities |
-| POST | `/facilities` | Create facility |
-| GET | `/facilities/:id` | Get facility |
-| PUT | `/facilities/:id` | Update facility |
-| DELETE | `/facilities/:id` | Delete facility |
-| GET | `/facilities/buildings` | List buildings |
-| POST | `/facilities/buildings` | Create building |
-| GET | `/facilities/zones` | List zones |
-| GET | `/facilities/pens` | List pens |
-| GET | `/facilities/departments` | List departments |
+PUT /surgeries/:id
+DELETE /surgeries/:id
+```
 
----
+### 7.3 體重紀錄
+```
+GET /pigs/:id/weights
+POST /pigs/:id/weights
+Content: { "measure_date": "2026-01-20", "weight": 25.5 }
+```
 
-## 11. Notifications API
+### 7.4 疫苗紀錄
+```
+GET /pigs/:id/vaccinations
+POST /pigs/:id/vaccinations
+Content: { "administered_date": "2026-01-20", "vaccine": "狂犬病疫苗" }
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/notifications` | List notifications |
-| GET | `/notifications/unread-count` | Unread count |
-| POST | `/notifications/read` | Mark as read |
-| POST | `/notifications/read-all` | Mark all read |
-| DELETE | `/notifications/:id` | Delete notification |
-| GET | `/notifications/settings` | Get settings |
-| PUT | `/notifications/settings` | Update settings |
+### 7.5 犧牲紀錄
+```
+GET /pigs/:id/sacrifice
+POST /pigs/:id/sacrifice
+Content: { "sacrifice_date": "2026-01-20", "confirmed_sacrifice": true }
+```
 
----
+### 7.6 病理報告
+```
+GET /pigs/:id/pathology
+POST /pigs/:id/pathology
+Content: { ... }
+```
 
-## 12. Reports API
+### 7.7 獸醫建議
+```
+POST /observations/:id/vet-recommendations
+POST /surgeries/:id/vet-recommendations
+Content: { "content": "建議內容" }
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/reports/stock-on-hand` | On-hand report |
-| GET | `/reports/stock-ledger` | Ledger report |
-| GET | `/reports/purchase-lines` | Purchase report |
-| GET | `/reports/sales-lines` | Sales report |
-| GET | `/reports/cost-summary` | Cost report |
-| GET | `/scheduled-reports` | List scheduled |
-| POST | `/scheduled-reports` | Create scheduled |
-| GET | `/report-history` | Report history |
-| GET | `/report-history/:id/download` | Download report |
+### 7.8 匯出醫療資料
+```
+POST /pigs/:id/export
+回應：PDF 檔案
+```
 
 ---
 
-## 13. File Upload API
+## 8. ERP API
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/protocols/:id/attachments` | Protocol attachment |
-| POST | `/pigs/:id/photos` | Pig photo |
-| POST | `/pigs/:id/pathology/attachments` | Pathology attachment |
-| POST | `/pigs/:id/sacrifice/photos` | Sacrifice photo |
-| POST | `/vet-recommendations/:record_type/:record_id/attachments` | Vet rec attachment |
-| GET | `/attachments` | List attachments |
-| GET | `/attachments/:id` | Download attachment |
-| DELETE | `/attachments/:id` | Delete attachment |
+### 8.1 單據
+```
+GET /documents?doc_type=PO&status=draft
+POST /documents
+PUT /documents/:id
+POST /documents/:id/submit
+POST /documents/:id/approve
+POST /documents/:id/cancel
+```
+
+### 8.2 產品
+```
+GET /products?category_code=DRG&search=keyword
+POST /products
+PUT /products/:id
+POST /products/with-sku（建立並自動產生 SKU）
+```
+
+### 8.3 SKU 管理
+```
+GET /sku/categories
+GET /sku/categories/:code/subcategories
+POST /sku/generate
+Content: { "category_code": "DRG", "subcategory_code": "ANT" }
+回應：{ "sku": "DRG-ANT-001" }
+```
+
+### 8.4 倉庫
+```
+GET /warehouses
+POST /warehouses
+PUT /warehouses/:id
+```
+
+### 8.5 夥伴
+```
+GET /partners?partner_type=supplier
+POST /partners
+PUT /partners/:id
+```
+
+### 8.6 庫存
+```
+GET /inventory/on-hand?warehouse_id=uuid
+GET /inventory/ledger?product_id=uuid&from=2026-01-01&to=2026-01-31
+GET /inventory/low-stock
+GET /inventory/expiring?days=30
+```
 
 ---
 
-## 14. Alert API
+## 9. 人事 API
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/alerts/low-stock` | Low stock alerts |
-| GET | `/alerts/expiry` | Expiry alerts |
+### 9.1 出勤
+```
+GET /hr/attendance?from=2026-01-01&to=2026-01-31
+POST /hr/attendance/clock-in
+POST /hr/attendance/clock-out
+PUT /hr/attendance/:id（手動修正）
+```
+
+### 9.2 加班
+```
+GET /hr/overtime?status=approved
+POST /hr/overtime
+Content: { "overtime_date": "2026-01-20", "start_time": "...", "end_time": "...", "overtime_type": "平日" }
+
+POST /hr/overtime/:id/submit
+POST /hr/overtime/:id/approve
+POST /hr/overtime/:id/reject
+```
+
+### 9.3 請假
+```
+GET /hr/leaves?status=PENDING_L1
+POST /hr/leaves
+Content: { "leave_type": "ANNUAL", "start_date": "...", "end_date": "...", "reason": "..." }
+
+GET /hr/leaves/:id
+POST /hr/leaves/:id/submit
+POST /hr/leaves/:id/approve
+POST /hr/leaves/:id/reject
+POST /hr/leaves/:id/cancel
+POST /hr/leaves/:id/revoke
+```
+
+### 9.4 餘額
+```
+GET /hr/balances/annual
+GET /hr/balances/comp-time
+GET /hr/balances/summary
+```
 
 ---
 
-## 15. Admin Triggers API
+## 10. 行事曆同步 API
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/admin/trigger/low-stock-check` | Trigger low stock check |
-| POST | `/admin/trigger/expiry-check` | Trigger expiry check |
-| POST | `/admin/trigger/notification-cleanup` | Cleanup notifications |
+```
+GET /hr/calendar/status
+POST /hr/calendar/connect
+Content: { "calendar_id": "...", "calendar_name": "..." }
+
+POST /hr/calendar/disconnect
+POST /hr/calendar/sync（手動同步）
+PUT /hr/calendar/settings
+
+GET /hr/calendar/conflicts
+POST /hr/calendar/conflicts/:id/resolve
+Content: { "resolution": "keep_ipig" | "accept_google" | "dismiss" }
+```
 
 ---
 
-*Next: [Permissions & RBAC](./06_PERMISSIONS_RBAC.md)*
+## 11. 通知 API
+
+```
+GET /notifications?is_read=false
+GET /notifications/unread-count
+POST /notifications/read
+Content: { "notification_ids": ["uuid1", "uuid2"] }
+
+POST /notifications/read-all
+GET /notifications/settings
+PUT /notifications/settings
+```
+
+---
+
+## 12. 稽核 API（管理員）
+
+```
+GET /admin/audit/activities?user_id=uuid&from=2026-01-01
+GET /admin/audit/activities/user/:id（使用者時間軸）
+GET /admin/audit/activities/entity/:type/:id（實體歷程）
+
+GET /admin/audit/logins?user_id=uuid
+GET /admin/audit/sessions?is_active=true
+POST /admin/audit/sessions/:id/logout（強制登出）
+
+GET /admin/audit/alerts?status=open
+POST /admin/audit/alerts/:id/acknowledge
+
+GET /admin/audit/dashboard
+```
+
+---
+
+## 13. 報表 API
+
+```
+GET /reports/stock-on-hand?warehouse_id=uuid
+GET /reports/stock-ledger?from=2026-01-01&to=2026-01-31
+GET /reports/purchase-lines?from=2026-01-01&to=2026-01-31
+GET /reports/sales-lines?from=2026-01-01&to=2026-01-31
+GET /reports/cost-summary?from=2026-01-01&to=2026-01-31
+
+GET /scheduled-reports
+POST /scheduled-reports
+PUT /scheduled-reports/:id
+DELETE /scheduled-reports/:id
+
+GET /report-history
+```
+
+---
+
+## 14. 設施 API
+
+```
+GET /facilities/species
+POST /facilities/species
+PUT /facilities/species/:id
+
+GET /facilities
+POST /facilities
+PUT /facilities/:id
+
+GET /facilities/buildings
+POST /facilities/buildings
+PUT /facilities/buildings/:id
+
+GET /facilities/zones
+POST /facilities/zones
+PUT /facilities/zones/:id
+
+GET /facilities/pens
+POST /facilities/pens
+PUT /facilities/pens/:id
+
+GET /facilities/departments
+POST /facilities/departments
+PUT /facilities/departments/:id
+```
+
+---
+
+## 15. 常見錯誤代碼
+
+| 代碼 | HTTP 狀態 | 說明 |
+|------|-----------|------|
+| UNAUTHORIZED | 401 | 未授權或令牌無效 |
+| FORBIDDEN | 403 | 權限不足 |
+| NOT_FOUND | 404 | 資源不存在 |
+| VALIDATION_ERROR | 400 | 輸入驗證失敗 |
+| DUPLICATE_ENTRY | 409 | 資源已存在 |
+| INTERNAL_ERROR | 500 | 伺服器錯誤 |
+
+---
+
+*下一章：[權限與 RBAC](./06_PERMISSIONS_RBAC.md)*

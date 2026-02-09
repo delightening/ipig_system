@@ -8,7 +8,7 @@ use crate::{
     models::{
         AssignReviewerRequest, AssignCoEditorRequest, ChangeStatusRequest, CreateCommentRequest, CreateProtocolRequest,
         Protocol, ProtocolListItem, ProtocolQuery, ProtocolResponse, ProtocolStatus,
-        ProtocolStatusHistory, ProtocolVersion, ReplyCommentRequest, ReviewAssignment, ReviewComment,
+        ProtocolActivity, ProtocolActivityType, ProtocolActivityResponse, ProtocolVersion, ReplyCommentRequest, ReviewAssignment, ReviewComment,
         ReviewCommentResponse, UpdateProtocolRequest, ProtocolRole, UserProtocol, CreatePartnerRequest, PartnerType,
         CoEditorAssignmentResponse,
     },
@@ -263,7 +263,10 @@ impl ProtocolService {
         .await?
         .ok_or_else(|| AppError::NotFound("Protocol not found".to_string()))?;
 
-        if protocol.status != ProtocolStatus::Draft && protocol.status != ProtocolStatus::RevisionRequired {
+        if protocol.status != ProtocolStatus::Draft 
+            && protocol.status != ProtocolStatus::RevisionRequired 
+            && protocol.status != ProtocolStatus::PreReviewRevisionRequired
+            && protocol.status != ProtocolStatus::VetRevisionRequired {
             return Err(AppError::BusinessRule("Only draft or revision-required protocols can be edited".to_string()));
         }
 
@@ -469,33 +472,120 @@ impl ProtocolService {
             }
         }
 
-        // 驗證 PRE_REVIEW 狀態必須從 SUBMITTED 進入且必須已指派 co-editor
+        // 驗證 PRE_REVIEW 狀態必須從 SUBMITTED 或 PRE_REVIEW_REVISION_REQUIRED 進入
         if req.to_status == ProtocolStatus::PreReview {
-            if protocol.status != ProtocolStatus::Submitted {
+            if protocol.status != ProtocolStatus::Submitted 
+                && protocol.status != ProtocolStatus::PreReviewRevisionRequired {
                 return Err(AppError::BusinessRule(
-                    "必須從已送審狀態進入行政預審".to_string()
+                    "必須從已送審或行政補件狀態進入行政預審".to_string()
                 ));
             }
 
-            let co_editor_count: i64 = sqlx::query_scalar(
-                "SELECT COUNT(*) FROM user_protocols WHERE protocol_id = $1 AND role_in_protocol = 'CO_EDITOR'"
-            )
-            .bind(id)
-            .fetch_one(pool)
-            .await?;
+            // 只有從 SUBMITTED 進入時才需要檢查 co-editor
+            if protocol.status == ProtocolStatus::Submitted {
+                let co_editor_count: i64 = sqlx::query_scalar(
+                    "SELECT COUNT(*) FROM user_protocols WHERE protocol_id = $1 AND role_in_protocol = 'CO_EDITOR'"
+                )
+                .bind(id)
+                .fetch_one(pool)
+                .await?;
 
-            if co_editor_count == 0 {
+                if co_editor_count == 0 {
+                    return Err(AppError::BusinessRule(
+                        "進入行政預審前必須指派至少一位試驗工作人員 (Co-editor)".to_string()
+                    ));
+                }
+            }
+        }
+
+        // 驗證 PRE_REVIEW_REVISION_REQUIRED 狀態必須從 PRE_REVIEW 進入
+        if req.to_status == ProtocolStatus::PreReviewRevisionRequired {
+            if protocol.status != ProtocolStatus::PreReview {
                 return Err(AppError::BusinessRule(
-                    "進入行政預審前必須指派至少一位試驗工作人員 (Co-editor)".to_string()
+                    "只能從行政預審狀態要求補件".to_string()
                 ));
             }
         }
 
-        // 驗證 VET_REVIEW 狀態必須從 PRE_REVIEW 或 SUBMITTED 進入
+        // 驗證 VET_REVIEW 狀態必須從 PRE_REVIEW、SUBMITTED 或 VET_REVISION_REQUIRED 進入
         if req.to_status == ProtocolStatus::VetReview {
-            if protocol.status != ProtocolStatus::PreReview && protocol.status != ProtocolStatus::Submitted {
+            if protocol.status != ProtocolStatus::PreReview 
+                && protocol.status != ProtocolStatus::Submitted
+                && protocol.status != ProtocolStatus::VetRevisionRequired {
                 return Err(AppError::BusinessRule(
-                    "必須從行政預審或已送審狀態進入獸醫審查".to_string()
+                    "必須從行政預審、已送審或獸醫修訂狀態進入獸醫審查".to_string()
+                ));
+            }
+        }
+
+        // 驗證 VET_REVISION_REQUIRED 狀態必須從 VET_REVIEW 進入
+        if req.to_status == ProtocolStatus::VetRevisionRequired {
+            if protocol.status != ProtocolStatus::VetReview {
+                return Err(AppError::BusinessRule(
+                    "只能從獸醫審查狀態要求修訂".to_string()
+                ));
+            }
+        }
+
+        // 驗證 APPROVED / APPROVED_WITH_CONDITIONS 狀態：所有被指派的審查委員必須發表過意見
+        if req.to_status == ProtocolStatus::Approved || req.to_status == ProtocolStatus::ApprovedWithConditions {
+            // 檢查是否從 UNDER_REVIEW 狀態進入
+            if protocol.status != ProtocolStatus::UnderReview {
+                return Err(AppError::BusinessRule(
+                    "必須從正式審查狀態進入核准".to_string()
+                ));
+            }
+
+            // 查詢所有被指派的正式審查委員
+            let assigned_reviewers: Vec<Uuid> = sqlx::query_scalar(
+                r#"
+                SELECT reviewer_id FROM review_assignments 
+                WHERE protocol_id = $1 AND is_primary_reviewer = true
+                "#
+            )
+            .bind(id)
+            .fetch_all(pool)
+            .await?;
+
+            if assigned_reviewers.is_empty() {
+                return Err(AppError::BusinessRule(
+                    "尚未指派審查委員，無法核准".to_string()
+                ));
+            }
+
+            // 查詢已發表意見的審查委員（包含透過 protocol_id 或 protocol_version_id 發表的意見）
+            let reviewers_with_comments: Vec<Uuid> = sqlx::query_scalar(
+                r#"
+                SELECT DISTINCT reviewer_id FROM review_comments 
+                WHERE (protocol_id = $1 OR protocol_version_id IN (
+                    SELECT id FROM protocol_versions WHERE protocol_id = $1
+                ))
+                AND parent_comment_id IS NULL
+                "#
+            )
+            .bind(id)
+            .fetch_all(pool)
+            .await?;
+
+            // 找出尚未發表意見的審查委員
+            let missing_reviewers: Vec<&Uuid> = assigned_reviewers.iter()
+                .filter(|r| !reviewers_with_comments.contains(r))
+                .collect();
+
+            if !missing_reviewers.is_empty() {
+                // 查詢尚未發表意見的審查委員姓名
+                let missing_names: Vec<String> = sqlx::query_scalar(
+                    r#"
+                    SELECT COALESCE(display_name, email) FROM users 
+                    WHERE id = ANY($1::uuid[])
+                    "#
+                )
+                .bind(&missing_reviewers.iter().cloned().collect::<Vec<_>>())
+                .fetch_all(pool)
+                .await?;
+
+                return Err(AppError::BusinessRule(
+                    format!("以下審查委員尚未發表意見，無法核准：{}", missing_names.join("、"))
                 ));
             }
         }
@@ -805,7 +895,62 @@ impl ProtocolService {
         Ok(max_version.unwrap_or(0) + 1)
     }
 
-    /// 記錄狀態變更
+    /// 記錄活動
+    pub async fn record_activity(
+        pool: &PgPool,
+        protocol_id: Uuid,
+        activity_type: ProtocolActivityType,
+        actor_id: Uuid,
+        from_value: Option<String>,
+        to_value: Option<String>,
+        target_entity: Option<(&str, Uuid, &str)>,
+        remark: Option<String>,
+        extra_data: Option<Value>,
+    ) -> Result<ProtocolActivity> {
+        // 取得行為者資訊
+        let actor_info: Option<(String, String)> = sqlx::query_as(
+            "SELECT COALESCE(display_name, email), email FROM users WHERE id = $1"
+        )
+        .bind(actor_id)
+        .fetch_optional(pool)
+        .await?;
+
+        let (actor_name, actor_email) = actor_info.unwrap_or_default();
+        
+        let (target_type, target_id, target_name) = target_entity
+            .map(|(t, i, n)| (Some(t.to_string()), Some(i), Some(n.to_string())))
+            .unwrap_or((None, None, None));
+
+        let activity = sqlx::query_as::<_, ProtocolActivity>(
+            r#"
+            INSERT INTO protocol_activities (
+                protocol_id, activity_type, actor_id, actor_name, actor_email,
+                from_value, to_value, target_entity_type, target_entity_id, target_entity_name,
+                remark, extra_data, created_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+            RETURNING *
+            "#
+        )
+        .bind(protocol_id)
+        .bind(activity_type)
+        .bind(actor_id)
+        .bind(&actor_name)
+        .bind(&actor_email)
+        .bind(&from_value)
+        .bind(&to_value)
+        .bind(&target_type)
+        .bind(target_id)
+        .bind(&target_name)
+        .bind(&remark)
+        .bind(&extra_data)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(activity)
+    }
+
+    /// 記錄狀態變更（相容舊介面，內部轉換為 record_activity）
     async fn record_status_change(
         pool: &PgPool,
         protocol_id: Uuid,
@@ -814,20 +959,30 @@ impl ProtocolService {
         changed_by: Uuid,
         remark: Option<String>,
     ) -> Result<()> {
-        sqlx::query(
-            r#"
-            INSERT INTO protocol_status_history (id, protocol_id, from_status, to_status, changed_by, remark, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6, NOW())
-            "#
-        )
-        .bind(Uuid::new_v4())
-        .bind(protocol_id)
-        .bind(from_status)
-        .bind(to_status)
-        .bind(changed_by)
-        .bind(remark)
-        .execute(pool)
-        .await?;
+        // 決定活動類型
+        let activity_type = match to_status {
+            ProtocolStatus::Approved => ProtocolActivityType::Approved,
+            ProtocolStatus::ApprovedWithConditions => ProtocolActivityType::ApprovedWithConditions,
+            ProtocolStatus::Closed => ProtocolActivityType::Closed,
+            ProtocolStatus::Rejected => ProtocolActivityType::Rejected,
+            ProtocolStatus::Suspended => ProtocolActivityType::Suspended,
+            ProtocolStatus::Deleted => ProtocolActivityType::Deleted,
+            ProtocolStatus::Submitted => ProtocolActivityType::Submitted,
+            ProtocolStatus::Resubmitted => ProtocolActivityType::Resubmitted,
+            _ => ProtocolActivityType::StatusChanged,
+        };
+
+        let _ = Self::record_activity(
+            pool,
+            protocol_id,
+            activity_type,
+            changed_by,
+            from_status.map(|s| s.as_str().to_string()),
+            Some(to_status.as_str().to_string()),
+            None,
+            remark,
+            None,
+        ).await?;
 
         Ok(())
     }
@@ -844,16 +999,16 @@ impl ProtocolService {
         Ok(versions)
     }
 
-    /// 取得狀態歷程
-    pub async fn get_status_history(pool: &PgPool, protocol_id: Uuid) -> Result<Vec<ProtocolStatusHistory>> {
-        let history = sqlx::query_as::<_, ProtocolStatusHistory>(
-            "SELECT * FROM protocol_status_history WHERE protocol_id = $1 ORDER BY created_at DESC"
+    /// 取得活動歷程
+    pub async fn get_activities(pool: &PgPool, protocol_id: Uuid) -> Result<Vec<ProtocolActivityResponse>> {
+        let activities = sqlx::query_as::<_, ProtocolActivity>(
+            "SELECT * FROM protocol_activities WHERE protocol_id = $1 ORDER BY created_at DESC"
         )
         .bind(protocol_id)
         .fetch_all(pool)
         .await?;
 
-        Ok(history)
+        Ok(activities.into_iter().map(ProtocolActivityResponse::from).collect())
     }
 
     /// 指派審查人員
@@ -1525,22 +1680,6 @@ impl ProtocolService {
         };
 
         Ok(protocols)
-    }
-
-    /// 取得計畫書活動歷程
-    pub async fn get_activities(pool: &PgPool, protocol_id: Uuid) -> Result<Vec<crate::models::UserActivityLog>> {
-        let activities = sqlx::query_as::<_, crate::models::UserActivityLog>(
-            r#"
-            SELECT * FROM user_activity_logs 
-            WHERE entity_type = 'protocol' AND entity_id = $1
-            ORDER BY created_at DESC
-            "#
-        )
-        .bind(protocol_id)
-        .fetch_all(pool)
-        .await?;
-
-        Ok(activities)
     }
 }
 

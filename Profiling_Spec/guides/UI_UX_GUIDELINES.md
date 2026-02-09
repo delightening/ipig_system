@@ -1,59 +1,59 @@
-# UI/UX Guidelines
+# UI/UX 設計指南
 
-> **Version**: 2.0  
-> **Last Updated**: 2026-01-18  
-> **Audience**: Designers, Frontend Developers
-
----
-
-## 1. Design Principles
-
-### 1.1 Core Principles
-
-| Principle | Description |
-|-----------|-------------|
-| **Clarity** | Clear visual hierarchy, obvious actions |
-| **Efficiency** | Minimize clicks for common tasks |
-| **Consistency** | Uniform patterns across modules |
-| **Accessibility** | Support Chinese/English, light/dark modes |
-
-### 1.2 Technology Stack
-
-| Tool | Purpose |
-|------|---------|
-| React 18 | UI Framework |
-| TailwindCSS | Utility-first styling |
-| shadcn/ui | Component library |
-| Zustand | State management |
-| React Query | Server state |
-| React Router 6 | Client-side routing |
+> **版本**：2.0  
+> **最後更新**：2026-01-18  
+> **對象**：設計師、前端開發人員
 
 ---
 
-## 2. Layout Structure
+## 1. 設計原則
 
-### 2.1 Main Layout
+### 1.1 核心原則
+
+| 原則 | 說明 |
+|------|------|
+| **清晰** | 清楚的視覺層次，明確的操作 |
+| **效率** | 常見任務最少點擊次數 |
+| **一致** | 各模組統一的設計模式 |
+| **無障礙** | 支援中英文切換、明暗主題 |
+
+### 1.2 技術堆疊
+
+| 工具 | 用途 |
+|------|------|
+| React 18 | UI 框架 |
+| TailwindCSS | 工具優先樣式 |
+| shadcn/ui | 元件庫 |
+| Zustand | 狀態管理 |
+| React Query | 伺服器狀態 |
+| React Router 6 | 客戶端路由 |
+
+---
+
+## 2. 版面結構
+
+### 2.1 主要版面
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Header (Navbar)                                 [Notifications] [User] │
+│ 頁首 (Navbar)                              [通知] [使用者]  │
 ├──────────────┬──────────────────────────────────────────────┤
 │              │                                              │
-│   Sidebar    │              Main Content                    │
+│   側邊欄     │              主要內容區                       │
 │   (260px)    │                                              │
 │              │                                              │
 │   [Logo]     │   ┌─────────────────────────────────────┐   │
-│              │   │     Page Header                      │   │
-│   [Nav]      │   ├─────────────────────────────────────┤   │
+│              │   │     頁面標題                         │   │
+│   [導覽]     │   ├─────────────────────────────────────┤   │
 │              │   │                                     │   │
-│              │   │     Page Content                    │   │
+│              │   │     頁面內容                         │   │
 │              │   │                                     │   │
 │              │   └─────────────────────────────────────┘   │
 │              │                                              │
 └──────────────┴──────────────────────────────────────────────┘
 ```
 
-### 2.2 Navigation Structure
+### 2.2 導覽結構
 
 ```
 📊 儀表板 (Dashboard)
@@ -81,181 +81,181 @@
 
 ---
 
-## 3. Component Guidelines
+## 3. 元件指南
 
-### 3.1 Buttons
+### 3.1 按鈕
 
-| Type | Usage |
-|------|-------|
-| Primary | Main actions (Submit, Save) |
-| Secondary | Alternative actions |
-| Outline | Less prominent actions |
-| Ghost | Subtle actions, icons |
-| Destructive | Delete, dangerous actions |
+| 類型 | 用途 |
+|------|------|
+| Primary | 主要動作（送出、儲存）|
+| Secondary | 替代動作 |
+| Outline | 較不顯眼的動作 |
+| Ghost | 細微動作、圖示 |
+| Destructive | 刪除、危險操作 |
 
-### 3.2 Forms
+### 3.2 表單
 
-- Use labels above inputs
-- Group related fields
-- Show validation inline
-- Required fields marked with asterisk
-- Use appropriate input types (date, select, textarea)
+- 標籤置於輸入欄位上方
+- 相關欄位分組
+- 驗證訊息行內顯示
+- 必填欄位標示星號
+- 使用適當的輸入類型（日期、下拉選單、文字區域）
 
-### 3.3 Tables
+### 3.3 表格
 
-- Zebra striping for readability
-- Sortable columns with indicators
-- Pagination for large datasets
-- Action buttons on right
-- Status badges with colors
+- 斑馬紋提升可讀性
+- 可排序欄位附指示器
+- 大量資料使用分頁
+- 操作按鈕置於右側
+- 狀態標籤使用顏色
 
-### 3.4 Cards
+### 3.4 卡片
 
-- Use for grouped information
-- Clear header with title
-- Consistent padding
-- Optional footer for actions
-
----
-
-## 4. Color Scheme
-
-### 4.1 Brand Colors
-
-| Name | Usage |
-|------|-------|
-| Primary | Main actions, links |
-| Secondary | Supporting elements |
-| Accent | Highlights |
-
-### 4.2 Semantic Colors
-
-| Color | Usage |
-|-------|-------|
-| Green | Success, approved |
-| Red | Error, rejected, destructive |
-| Yellow | Warning, pending |
-| Blue | Info, in progress |
-| Gray | Neutral, disabled |
-
-### 4.3 Status Badge Colors
-
-| Status | Color |
-|--------|-------|
-| Draft | Gray |
-| Pending | Yellow |
-| Approved | Green |
-| Rejected | Red |
-| In Progress | Blue |
-| Completed | Green |
+- 用於分組資訊
+- 清楚的標題區
+- 一致的內距
+- 可選的頁尾放置操作
 
 ---
 
-## 5. Icons
+## 4. 色彩配置
 
-Use **Lucide React** icons consistently:
+### 4.1 品牌色
 
-| Category | Icons |
-|----------|-------|
-| Navigation | Home, FileText, Pig, Package, Users, Settings |
-| Actions | Plus, Edit, Trash, Eye, Download, Upload |
-| Status | Check, X, Clock, AlertTriangle |
+| 名稱 | 用途 |
+|------|------|
+| Primary | 主要動作、連結 |
+| Secondary | 輔助元素 |
+| Accent | 強調重點 |
+
+### 4.2 語意色
+
+| 顏色 | 用途 |
+|------|------|
+| 綠色 | 成功、已核准 |
+| 紅色 | 錯誤、已駁回、危險 |
+| 黃色 | 警告、待處理 |
+| 藍色 | 資訊、進行中 |
+| 灰色 | 中性、停用 |
+
+### 4.3 狀態標籤顏色
+
+| 狀態 | 顏色 |
+|------|------|
+| 草稿 | 灰色 |
+| 待處理 | 黃色 |
+| 已核准 | 綠色 |
+| 已駁回 | 紅色 |
+| 進行中 | 藍色 |
+| 已完成 | 綠色 |
+
+---
+
+## 5. 圖示
+
+統一使用 **Lucide React** 圖示：
+
+| 類別 | 圖示 |
+|------|------|
+| 導覽 | Home, FileText, Pig, Package, Users, Settings |
+| 操作 | Plus, Edit, Trash, Eye, Download, Upload |
+| 狀態 | Check, X, Clock, AlertTriangle |
 | UI | ChevronDown, ChevronRight, Menu, Search |
 
 ---
 
-## 6. Responsive Design
+## 6. 響應式設計
 
-### 6.1 Breakpoints
+### 6.1 斷點
 
-| Name | Width | Usage |
-|------|-------|-------|
-| Mobile | <768px | Full-width, collapsed sidebar |
-| Tablet | 768-1024px | Reduced sidebar |
-| Desktop | >1024px | Full layout |
+| 名稱 | 寬度 | 用途 |
+|------|------|------|
+| 手機 | <768px | 全寬、收合側邊欄 |
+| 平板 | 768-1024px | 縮小側邊欄 |
+| 桌面 | >1024px | 完整版面 |
 
-### 6.2 Mobile Considerations
+### 6.2 手機考量
 
-- Collapsible sidebar
-- Stack cards vertically
-- Touch-friendly targets (44px min)
-- Simplified tables
+- 可收合側邊欄
+- 卡片垂直堆疊
+- 觸控友善目標（最小 44px）
+- 簡化表格
 
 ---
 
-## 7. Animations
+## 7. 動畫
 
-### 7.1 Transitions
+### 7.1 過渡效果
 
-| Element | Duration | Easing |
-|---------|----------|--------|
-| Hover | 150ms | ease-out |
-| Modal | 200ms | ease-in-out |
-| Sidebar | 300ms | ease-in-out |
+| 元素 | 時長 | 緩動 |
+|------|------|------|
+| 懸停 | 150ms | ease-out |
+| 對話框 | 200ms | ease-in-out |
+| 側邊欄 | 300ms | ease-in-out |
 | Toast | 300ms | ease-out |
 
-### 7.2 Loading States
+### 7.2 載入狀態
 
-- Skeleton loaders for content
-- Spinner for buttons during submit
-- Progress bar for long operations
+- 內容使用骨架載入器
+- 送出時按鈕顯示轉圈圖示
+- 長時間操作使用進度條
 
 ---
 
-## 8. Internationalization
+## 8. 國際化
 
-### 8.1 Supported Languages
+### 8.1 支援語言
 
-| Code | Language |
-|------|----------|
-| zh-TW | 繁體中文 (default) |
+| 代碼 | 語言 |
+|------|------|
+| zh-TW | 繁體中文（預設）|
 | en | English |
 
-### 8.2 Guidelines
+### 8.2 指南
 
-- Use translation keys, not hardcoded strings
-- Support RTL for future expansion
-- Format dates/numbers per locale
-- Store preference in user settings
-
----
-
-## 9. Accessibility
-
-### 9.1 Requirements
-
-- ARIA labels for interactive elements
-- Keyboard navigation support
-- Focus indicators
-- Sufficient color contrast
-- Alt text for images
-
-### 9.2 Testing
-
-- Screen reader testing
-- Keyboard-only navigation
-- Color blindness simulation
+- 使用翻譯鍵，而非硬編碼字串
+- 支援 RTL 以利未來擴展
+- 依地區設定格式化日期/數字
+- 偏好設定儲存於使用者設定
 
 ---
 
-## 10. Dark Mode
+## 9. 無障礙
 
-### 10.1 Implementation
+### 9.1 需求
 
-- System preference detection
-- User preference override
-- CSS variables for theming
-- Smooth transition between modes
+- 互動元素需有 ARIA 標籤
+- 支援鍵盤導覽
+- 焦點指示器
+- 足夠的顏色對比
+- 圖片需有替代文字
 
-### 10.2 Color Adjustments
+### 9.2 測試
 
-| Element | Light | Dark |
-|---------|-------|------|
-| Background | White | Slate 900 |
-| Text | Slate 900 | Slate 100 |
-| Cards | White | Slate 800 |
-| Borders | Slate 200 | Slate 700 |
+- 螢幕閱讀器測試
+- 純鍵盤導覽
+- 色盲模擬
 
 ---
 
-*Next: [Naming Conventions](./11_NAMING_CONVENTIONS.md)*
+## 10. 深色模式
+
+### 10.1 實作
+
+- 系統偏好偵測
+- 使用者偏好覆寫
+- CSS 變數用於主題
+- 模式切換平滑過渡
+
+### 10.2 顏色調整
+
+| 元素 | 淺色 | 深色 |
+|------|------|------|
+| 背景 | 白色 | Slate 900 |
+| 文字 | Slate 900 | Slate 100 |
+| 卡片 | 白色 | Slate 800 |
+| 邊框 | Slate 200 | Slate 700 |
+
+---
+
+*下一章：[命名慣例](./NAMING_CONVENTIONS.md)*

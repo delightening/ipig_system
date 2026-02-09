@@ -1435,7 +1435,7 @@ export function ProtocolEditPage() {
               <CardContent className="space-y-6">
                 {/* 2.1 Purpose and Significance */}
                 <div className="space-y-2">
-                  <h3 className="font-semibold">{t('aup.purpose.significance')}</h3>
+                  <h3 className="font-semibold">{t('aup.purpose.significance')} *</h3>
                   <Textarea
                     value={formData.working_content.purpose.significance}
                     onChange={(e) => updateWorkingContent('purpose', 'significance', e.target.value)}
@@ -1949,7 +1949,7 @@ export function ProtocolEditPage() {
                 {/* 4.1.1 Is experiment conducted under anesthesia */}
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>{t('aup.design.anesthesiaLabel')}</Label>
+                    <Label>{t('aup.design.anesthesiaLabel')} *</Label>
                     <Select
                       value={formData.working_content.design.anesthesia.is_under_anesthesia === null ? '' : (formData.working_content.design.anesthesia.is_under_anesthesia === true ? 'yes' : 'no')}
                       onValueChange={(value) => {
@@ -2117,7 +2117,7 @@ export function ProtocolEditPage() {
                 {/* 4.1.4 Whether to restrict diet or water for experimental animals */}
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>{t('aup.design.restrictionsLabel')}</Label>
+                    <Label>{t('aup.design.restrictionsLabel')} *</Label>
                     <Select
                       value={formData.working_content.design.restrictions.is_restricted === null ? '' : (formData.working_content.design.restrictions.is_restricted === true ? 'yes' : 'no')}
                       onValueChange={(value) => {
@@ -2185,7 +2185,7 @@ export function ProtocolEditPage() {
                 <div className="space-y-4">
                   <Label>{t('aup.design.endpointsTitle')}</Label>
                   <div className="space-y-2">
-                    <Label>{t('aup.design.experimentalEndpoint')}</Label>
+                    <Label>{t('aup.design.experimentalEndpoint')} *</Label>
                     <Textarea
                       value={formData.working_content.design.endpoints.experimental_endpoint}
                       onChange={(e) => updateWorkingContent('design', 'endpoints.experimental_endpoint', e.target.value)}
@@ -2194,7 +2194,7 @@ export function ProtocolEditPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>{t('aup.design.humaneEndpoint')}</Label>
+                    <Label>{t('aup.design.humaneEndpoint')} *</Label>
                     <Textarea
                       value={formData.working_content.design.endpoints.humane_endpoint}
                       onChange={(e) => updateWorkingContent('design', 'endpoints.humane_endpoint', e.target.value)}
@@ -2208,7 +2208,7 @@ export function ProtocolEditPage() {
 
                 {/* 4.1.6 Animal euthanasia or final disposal method */}
                 <div className="space-y-4">
-                  <Label>{t('aup.design.finalHandlingTitle')}</Label>
+                  <Label>{t('aup.design.finalHandlingTitle')} *</Label>
                   <div className="space-y-2">
                     <Select
                       value={formData.working_content.design.final_handling.method || ''}
@@ -2327,7 +2327,7 @@ export function ProtocolEditPage() {
 
                 {/* 4.2 Animal carcass disposal method */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold">{t('aup.design.carcassDisposalLabel')}</h3>
+                  <h3 className="font-semibold">{t('aup.design.carcassDisposalLabel')} *</h3>
                   <div className="space-y-2">
                     <Textarea
                       value={formData.working_content.design.carcass_disposal.method}
@@ -2343,7 +2343,7 @@ export function ProtocolEditPage() {
                 {/* 4.3 Use of non-pharmaceutical chemical drugs or other substances */}
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <h3 className="font-semibold">{t('aup.design.nonPharmaLabel')}</h3>
+                    <h3 className="font-semibold">{t('aup.design.nonPharmaLabel')} *</h3>
                     <Select
                       value={formData.working_content.design.non_pharma_grade.used === null ? '' : (formData.working_content.design.non_pharma_grade.used === true ? 'yes' : 'no')}
                       onValueChange={(value) => {
@@ -2382,7 +2382,7 @@ export function ProtocolEditPage() {
                 {/* 4.4 Use of hazardous materials */}
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <h3 className="font-semibold">{t('aup.design.hazardsLabel')}</h3>
+                    <h3 className="font-semibold">{t('aup.design.hazardsLabel')} *</h3>
                     <Select
                       value={formData.working_content.design.hazards.used === null ? '' : (formData.working_content.design.hazards.used === true ? 'yes' : 'no')}
                       onValueChange={(value) => {
@@ -2854,7 +2854,7 @@ export function ProtocolEditPage() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
-                  <Label>{t('aup.guidelines.contentLabel')}</Label>
+                  <Label>{t('aup.guidelines.contentLabel')} *</Label>
                   <Textarea
                     value={formData.working_content.guidelines.content}
                     onChange={(e) => updateWorkingContent('guidelines', 'content', e.target.value)}
