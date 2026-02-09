@@ -1,248 +1,350 @@
-# Permissions & RBAC
+# 權限與 RBAC
 
-> **Version**: 2.0  
-> **Last Updated**: 2026-01-18  
-> **Audience**: Administrators, Developers
-
----
-
-## 1. Overview
-
-iPig uses Role-Based Access Control (RBAC) where:
-- **Users** have multiple **Roles**
-- **Roles** have multiple **Permissions**
-- **Permissions** are checked at API handler level
+> **版本**：2.0  
+> **最後更新**：2026-01-18  
+> **對象**：系統管理員、開發人員
 
 ---
 
-## 2. System Roles
+## 1. 概覽
 
-### 2.1 Core Roles
+iPig 使用角色權限控制（Role-Based Access Control, RBAC）來管理存取權限：
 
-| Code | Chinese Name | Description | Internal |
-|------|--------------|-------------|----------|
-| `admin` | 系統管理員 | Full system access | Yes |
-| `iacuc_staff` | 執行秘書 | Protocol management, HR approval | Yes |
-| `experiment_staff` | 試驗工作人員 | Animal records, experiments | Yes |
-| `vet` | 獸醫師 | Animal health, recommendations | Yes |
-| `warehouse` | 倉庫管理員 | ERP operations | Yes |
-| `pi` | 計畫主持人 | Protocol submission | No |
-| `client` | 委託人 | View commissioned projects | No |
+- **權限**：定義使用者可執行的具體操作
+- **角色**：將權限組合成邏輯群組
+- **使用者-角色**：將角色指派給使用者
 
-### 2.2 Role Flags
-
-| Flag | Description |
-|------|-------------|
-| `is_internal` | Role for internal employees (enables HR access) |
-| `is_system` | System-defined role, cannot be deleted |
-| `is_active` | Active/inactive flag |
-| `is_deleted` | Soft delete flag |
+```
+使用者 ──(多對多)──► 角色 ──(多對多)──► 權限
+```
 
 ---
 
-## 3. Permission Categories
+## 2. 系統角色
 
-### 3.1 Protocol Permissions
+### 2.1 系統定義角色
 
-| Code | Description |
-|------|-------------|
-| `protocol.create` | Create protocols |
-| `protocol.read` | View protocols |
-| `protocol.update` | Edit protocols |
-| `protocol.delete` | Delete protocols |
-| `protocol.submit` | Submit for review |
-| `protocol.review` | Review protocols |
-| `protocol.approve` | Approve protocols |
-| `protocol.manage_status` | Change protocol status |
-| `protocol.assign_reviewer` | Assign reviewers |
-| `protocol.view_all` | View all protocols |
+這些角色由系統預設建立且不可刪除：
 
-### 3.2 Animal (Pig) Permissions
+| 角色代碼 | 名稱 | 說明 | 適用對象 |
+|----------|------|------|----------|
+| admin | 系統管理員 | 完整系統存取權限 | 僅限內部 |
+| iacuc_staff | 執行秘書 | 計畫書審查管理 | 僅限內部 |
+| experiment_staff | 試驗工作人員 | 動物管理操作 | 僅限內部 |
+| vet | 獸醫師 | 醫療紀錄與建議 | 僅限內部 |
+| warehouse | 倉庫管理員 | 庫存管理 | 僅限內部 |
+| pi | 計畫主持人 | 計畫書擁有者 | 內部/外部 |
+| client | 委託人 | 檢視計畫與動物 | 內部/外部 |
 
-| Code | Description |
-|------|-------------|
-| `pig.create` | Create pig records |
-| `pig.read` | View pig records |
-| `pig.update` | Edit pig records |
-| `pig.delete` | Delete pig records |
-| `pig.assign` | Assign pigs to protocols |
-| `pig.observation.create` | Create observations |
-| `pig.observation.read` | View observations |
-| `pig.surgery.create` | Create surgery records |
-| `pig.surgery.read` | View surgery records |
-| `pig.vet_recommendation` | Add vet recommendations |
-| `pig.export` | Export medical data |
-| `pig.import` | Import pig data |
+### 2.2 角色權限規劃
 
-### 3.3 ERP Permissions
-
-| Code | Description |
-|------|-------------|
-| `warehouse.read` | View warehouses |
-| `warehouse.manage` | Manage warehouses |
-| `product.read` | View products |
-| `product.manage` | Manage products |
-| `partner.read` | View partners |
-| `partner.manage` | Manage partners |
-| `document.create` | Create documents |
-| `document.read` | View documents |
-| `document.approve` | Approve documents |
-| `inventory.read` | View inventory |
-| `inventory.adjust` | Adjust inventory |
-
-### 3.4 HR Permissions
-
-| Code | Description |
-|------|-------------|
-| `hr.attendance.view` | 查看出勤紀錄 |
-| `hr.attendance.view_all` | 查看所有出勤 |
-| `hr.attendance.clock` | 打卡 |
-| `hr.attendance.correct` | 更正打卡 |
-| `hr.overtime.view` | 查看加班紀錄 |
-| `hr.overtime.create` | 申請加班 |
-| `hr.overtime.approve` | 審核加班 |
-| `hr.leave.view` | 查看請假 |
-| `hr.leave.view_all` | 查看所有請假 |
-| `hr.leave.create` | 申請請假 |
-| `hr.leave.approve` | 審核請假 |
-| `hr.leave.manage` | 管理假別 |
-| `hr.balance.view` | 查看餘額 |
-| `hr.balance.manage` | 管理餘額 |
-| `hr.calendar.config` | 設定行事曆同步 |
-| `hr.calendar.view` | 檢視行事曆同步狀態 |
-| `hr.calendar.sync` | 手動觸發行事曆同步 |
-| `hr.calendar.conflicts` | 處理行事曆同步衝突 |
-
-### 3.5 Audit Permissions
-
-| Code | Description |
-|------|-------------|
-| `audit.logs.view` | 查看稽核日誌 |
-| `audit.logs.export` | 匯出稽核日誌 |
-| `audit.timeline.view` | 查看活動時間軸 |
-| `audit.alerts.view` | 查看安全警報 |
-| `audit.alerts.manage` | 管理安全警報 |
-
-### 3.6 Admin Permissions
-
-| Code | Description |
-|------|-------------|
-| `user.create` | Create users |
-| `user.read` | View users |
-| `user.update` | Edit users |
-| `user.delete` | Delete users |
-| `user.manage_roles` | Assign roles |
-| `role.read` | View roles |
-| `role.manage` | Manage roles |
-| `notification.manage` | Manage notifications |
-| `system.admin` | Full system administration |
+```mermaid
+graph TD
+    subgraph Roles[角色]
+        admin[admin<br>系統管理員]
+        iacuc[iacuc_staff<br>執行秘書]
+        exp[experiment_staff<br>試驗工作人員]
+        vet[vet<br>獸醫師]
+        warehouse[warehouse<br>倉庫管理員]
+        pi[pi<br>計畫主持人]
+        client[client<br>委託人]
+    end
+    
+    subgraph Scope[權限範圍]
+        full[完整系統權限]
+        review[審查管理]
+        animal[動物管理]
+        vetmed[醫療紀錄]
+        inv[庫存管理]
+        protocol[計畫書存取]
+        viewonly[唯讀存取]
+    end
+    
+    admin --> full
+    iacuc --> review
+    exp --> animal
+    vet --> vetmed
+    warehouse --> inv
+    pi --> protocol
+    client --> viewonly
+```
 
 ---
 
-## 4. Default Role Assignments
+## 3. 權限代碼
 
-### 4.1 系統管理員 (admin)
-All permissions
+### 3.1 使用者管理
 
-### 4.2 執行秘書 (iacuc_staff)
-- All protocol permissions
-- HR approval permissions (`hr.leave.approve`, `hr.overtime.approve`)
-- HR calendar management
-- Basic pig view access
-- Notification management
+| 權限代碼 | 說明 |
+|----------|------|
+| user.read | 檢視使用者列表 |
+| user.create | 建立新使用者 |
+| user.update | 更新使用者資料 |
+| user.delete | 停用使用者 |
+| role.read | 檢視角色 |
+| role.create | 建立自訂角色 |
+| role.update | 更新角色權限 |
+| role.delete | 刪除自訂角色 |
 
-### 4.3 試驗工作人員 (experiment_staff)
-- Protocol view (own projects)
-- Full pig CRUD access
-- Observation and surgery management
-- Weight and vaccination management
-- Sacrifice and pathology access
-- HR attendance (own)
-- HR leave request (own)
+### 3.2 計畫書管理
 
-### 4.4 獸醫師 (vet)
-- Protocol view
-- Pig view access
-- Vet recommendation permissions
-- Observation/surgery read and comment
-- HR attendance (own)
-- HR leave request (own)
+| 權限代碼 | 說明 |
+|----------|------|
+| protocol.read | 檢視計畫書 |
+| protocol.create | 建立新計畫書 |
+| protocol.update | 編輯計畫書 |
+| protocol.delete | 刪除草稿計畫書 |
+| protocol.submit | 送審計畫書 |
+| protocol.review | 指派審查員 |
+| protocol.approve | 核准/駁回計畫書 |
+| review.comment | 新增審查意見 |
+| review.resolve | 解決意見 |
 
-### 4.5 倉庫管理員 (warehouse)
-- Full ERP access
-- Inventory management
-- Document workflow
-- Partner management
-- Report access
+### 3.3 動物管理
 
-### 4.6 計畫主持人 (pi)
-- Protocol CRUD (own)
-- Protocol submit
-- View assigned animals
-- My Projects access
+| 權限代碼 | 說明 |
+|----------|------|
+| pig.read | 檢視豬隻資料 |
+| pig.create | 登錄新豬隻 |
+| pig.update | 更新豬隻資訊 |
+| pig.delete | 軟刪除豬隻紀錄 |
+| pig.assign | 指派豬隻至計畫 |
+| observation.read | 檢視觀察紀錄 |
+| observation.create | 新增觀察紀錄 |
+| observation.update | 編輯觀察紀錄 |
+| surgery.read | 檢視手術紀錄 |
+| surgery.create | 新增手術紀錄 |
+| surgery.update | 編輯手術紀錄 |
+| vet.recommend | 新增獸醫建議 |
+| vet.mark_read | 標記紀錄已閱讀 |
 
-### 4.7 委託人 (client)
-- Protocol view (commissioned only)
-- My Projects view (assigned)
+### 3.4 ERP 管理
+
+| 權限代碼 | 說明 |
+|----------|------|
+| product.read | 檢視產品 |
+| product.create | 建立產品 |
+| product.update | 更新產品 |
+| document.read | 檢視單據 |
+| document.create | 建立單據 |
+| document.submit | 送審單據 |
+| document.approve | 核准單據 |
+| inventory.read | 檢視庫存 |
+| inventory.adjust | 調整庫存 |
+| warehouse.manage | 管理倉庫 |
+| partner.manage | 管理夥伴 |
+| report.view | 檢視報表 |
+| report.export | 匯出報表 |
+
+### 3.5 人事管理
+
+| 權限代碼 | 說明 |
+|----------|------|
+| hr.attendance.view.own | 檢視個人出勤 |
+| hr.attendance.clock | 打卡 |
+| hr.attendance.view.all | 檢視所有出勤 |
+| hr.attendance.correct | 修正出勤 |
+| hr.overtime.view.own | 檢視個人加班 |
+| hr.overtime.create | 申請加班 |
+| hr.overtime.approve | 核准加班 |
+| hr.leave.view.own | 檢視個人請假 |
+| hr.leave.create | 申請請假 |
+| hr.leave.approve.l1 | L1 核准 |
+| hr.leave.approve.l2 | L2 核准 |
+| hr.leave.approve.hr | HR 核准 |
+| hr.leave.approve.gm | GM 核准 |
+| hr.balance.view.own | 檢視個人餘額 |
+| hr.balance.view.all | 檢視所有餘額 |
+| hr.balance.manage | 調整餘額 |
+| hr.calendar.config | 設定行事曆 |
+| hr.calendar.sync | 觸發同步 |
+
+### 3.6 系統管理
+
+| 權限代碼 | 說明 |
+|----------|------|
+| admin.settings | 管理系統設定 |
+| admin.audit | 檢視稽核日誌 |
+| admin.session | 管理使用者工作階段 |
+| admin.alerts | 管理安全警報 |
+| facility.manage | 管理設施/欄位 |
+| notification.send | 發送系統通知 |
 
 ---
 
-## 5. Permission Checking
+## 4. 預設角色權限
 
-### 5.1 Handler-Level Checks
+### 4.1 admin（系統管理員）
+完整系統存取權限 - 所有權限
 
-Permissions are validated in handlers using middleware:
+### 4.2 iacuc_staff（執行秘書）
+```
+protocol.read, protocol.create, protocol.update, protocol.submit,
+protocol.review, protocol.approve, review.comment, review.resolve,
+pig.read, pig.assign, user.read, notification.send
+```
+
+### 4.3 experiment_staff（試驗工作人員）
+```
+pig.read, pig.create, pig.update, pig.assign,
+observation.read, observation.create, observation.update,
+surgery.read, surgery.create, surgery.update,
+protocol.read（所屬計畫）
+```
+
+### 4.4 vet（獸醫師）
+```
+pig.read,
+observation.read, observation.update,
+surgery.read, surgery.update,
+vet.recommend, vet.mark_read
+```
+
+### 4.5 warehouse（倉庫管理員）
+```
+product.read, product.create, product.update,
+document.read, document.create, document.submit, document.approve,
+inventory.read, inventory.adjust,
+warehouse.manage, partner.manage,
+report.view, report.export
+```
+
+### 4.6 pi（計畫主持人）
+```
+protocol.read（本人計畫）, protocol.create, protocol.update, protocol.submit,
+pig.read（所屬計畫）, observation.read, surgery.read
+```
+
+### 4.7 client（委託人）
+```
+protocol.read（已關聯）,
+pig.read（所屬計畫）
+```
+
+---
+
+## 5. 權限繼承
+
+### 5.1 資源擁有權
+
+| 資源類型 | 擁有權判斷 |
+|----------|------------|
+| 計畫書 | PI = 擁有者，CLIENT = 協作者 |
+| 豬隻 | 透過 iacuc_no 關聯計畫 |
+| 觀察紀錄 | 繼承自豬隻 |
+| 請假申請 | user_id = 擁有者 |
+
+### 5.2 階層式權限
+
+某些權限隱含較低層級權限：
+
+```
+protocol.approve ⊃ protocol.review ⊃ protocol.read
+document.approve ⊃ document.submit ⊃ document.create ⊃ document.read
+hr.leave.approve.gm ⊃ hr.leave.approve.hr ⊃ hr.leave.approve.l2 ⊃ hr.leave.approve.l1
+```
+
+---
+
+## 6. 權限檢查實作
+
+### 6.1 中間件檢查
 
 ```rust
-// Example from handlers
-async fn create_pig(
-    State(state): State<AppState>,
-    claims: Claims,  // Contains user_id and roles
-    Json(payload): Json<CreatePigRequest>,
-) -> Result<Json<Pig>, ApiError> {
-    // Check permission
-    require_permission(&state.db, &claims.user_id, "pig.create").await?;
-    
-    // ... create logic
+// 在路由設定
+.route("/protocols", post(create_protocol))
+    .route_layer(middleware::from_fn(require_permission("protocol.create")))
+
+// 中間件函數
+async fn require_permission(permission: &str) -> impl Middleware {
+    // 從 JWT 取得使用者權限
+    // 檢查使用者是否具備該權限
+    // 若無，回傳 403 Forbidden
 }
 ```
 
-### 5.2 Permission Inheritance
+### 6.2 服務層檢查
 
-- Users inherit all permissions from all assigned roles
-- Multiple roles stack (union of permissions)
-- No explicit deny mechanism
+```rust
+// 對於複雜的擁有權檢查
+async fn update_protocol(user: &User, protocol_id: Uuid, data: UpdateProtocol) {
+    let protocol = get_protocol(protocol_id).await?;
+    
+    // 檢查擁有權或管理員權限
+    if protocol.pi_user_id != user.id && !user.has_permission("protocol.approve") {
+        return Err(Error::Forbidden);
+    }
+    
+    // 繼續更新...
+}
+```
 
-### 5.3 Special Access Rules
+### 6.3 前端檢查
 
-| Rule | Description |
-|------|-------------|
-| **Own Data** | Users can always view their own leave/attendance |
-| **Protocol Owner** | PI can edit own protocols before submission |
-| **Assigned Reviewer** | Reviewers can comment on assigned protocols |
-| **Co-Editor** | Co-editors have edit access to assigned protocols |
+```typescript
+// 於元件中
+const { user } = useAuth();
 
----
+const canApprove = user.permissions.includes('protocol.approve');
 
-## 6. Internal vs External Users
-
-| Aspect | Internal (`is_internal=true`) | External |
-|--------|-------------------------------|----------|
-| HR Access | Full attendance, leave, overtime | None |
-| Dashboard | Full widgets including HR | Limited widgets |
-| Roles | Can have internal-only roles | Limited to pi, client |
-
----
-
-## 7. Leave Approval Chain
-
-| Leave Days | Approval Required |
-|------------|-------------------|
-| ≤1 day | L1 (Direct Manager) |
-| 2-3 days | L1 + L2 (Dept Head) |
-| >3 days | L1 + L2 + HR |
-| Special leave types | L1 + L2 + HR + GM |
+return (
+  <Button disabled={!canApprove} onClick={handleApprove}>
+    核准
+  </Button>
+);
+```
 
 ---
 
-*Next: [Audit & Logging](./07_AUDIT_LOGGING.md)*
+## 7. 特殊情境
+
+### 7.1 自我審批限制
+
+使用者不可審批自己的請求：
+- 請假申請
+- 加班申請
+- 計畫書審查
+
+### 7.2 跨計畫存取
+
+- PI 只能檢視自己的計畫
+- CLIENT 只能檢視已被關聯的計畫
+- iacuc_staff 可檢視所有計畫
+- admin 可執行所有操作
+
+### 7.3 內部員工專屬功能
+
+僅限 `is_internal = true` 的使用者：
+- 出勤打卡
+- 請假申請
+- 加班申請
+- 行事曆同步
+
+---
+
+## 8. 最佳實踐
+
+### 8.1 最小權限原則
+
+僅授予使用者完成工作所需的最少權限。
+
+### 8.2 職責分離
+
+關鍵操作應由不同使用者執行：
+- 建立者 ≠ 審核者
+- 請求者 ≠ 核准者
+
+### 8.3 定期審查
+
+建議每季審查使用者角色指派。
+
+### 8.4 稽核追蹤
+
+所有權限變更均記錄於稽核日誌：
+- 角色指派/移除
+- 權限新增/移除
+- 敏感操作
+
+---
+
+*下一章：[出勤模組](./08_ATTENDANCE_MODULE.md)*

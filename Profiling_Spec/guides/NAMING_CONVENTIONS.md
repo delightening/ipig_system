@@ -1,217 +1,217 @@
-# Naming Conventions
+# 命名慣例
 
-> **Version**: 2.0  
-> **Last Updated**: 2026-01-18  
-> **Audience**: All Developers
-
----
-
-## 1. General Principles
-
-| Principle | Description |
-|-----------|-------------|
-| **Clarity** | Names should be self-documenting |
-| **Consistency** | Follow established patterns |
-| **Brevity** | Short but meaningful |
-| **English** | Technical names in English, UI in Chinese |
+> **版本**：2.0  
+> **最後更新**：2026-01-18  
+> **對象**：全體開發人員
 
 ---
 
-## 2. Backend (Rust)
+## 1. 通用原則
 
-### 2.1 Files
+| 原則 | 說明 |
+|------|------|
+| **清晰** | 名稱應具自我說明性 |
+| **一致** | 遵循既定模式 |
+| **簡潔** | 簡短但有意義 |
+| **語言** | 技術名稱用英文，UI 用中文 |
 
-| Type | Convention | Example |
-|------|------------|---------|
-| Module | snake_case | `pig.rs`, `google_calendar.rs` |
-| Handler files | singular | `handlers/pig.rs` |
-| Service files | singular | `services/pig.rs` |
-| Model files | singular | `models/pig.rs` |
+---
 
-### 2.2 Code
+## 2. 後端（Rust）
 
-| Type | Convention | Example |
-|------|------------|---------|
+### 2.1 檔案
+
+| 類型 | 慣例 | 範例 |
+|------|------|------|
+| 模組 | snake_case | `pig.rs`, `google_calendar.rs` |
+| 處理器檔案 | 單數 | `handlers/pig.rs` |
+| 服務檔案 | 單數 | `services/pig.rs` |
+| 模型檔案 | 單數 | `models/pig.rs` |
+
+### 2.2 程式碼
+
+| 類型 | 慣例 | 範例 |
+|------|------|------|
 | Struct | PascalCase | `PigObservation`, `LeaveRequest` |
 | Enum | PascalCase | `PigStatus`, `LeaveType` |
-| Enum Variant | PascalCase | `InExperiment`, `Approved` |
-| Function | snake_case | `create_pig`, `get_leave_balance` |
-| Variable | snake_case | `user_id`, `event_date` |
-| Constant | SCREAMING_SNAKE | `MAX_LOGIN_ATTEMPTS` |
-| Module | snake_case | `mod pig_surgery;` |
+| Enum 變體 | PascalCase | `InExperiment`, `Approved` |
+| 函數 | snake_case | `create_pig`, `get_leave_balance` |
+| 變數 | snake_case | `user_id`, `event_date` |
+| 常數 | SCREAMING_SNAKE | `MAX_LOGIN_ATTEMPTS` |
+| 模組 | snake_case | `mod pig_surgery;` |
 
-### 2.3 API Handlers
+### 2.3 API 處理器
 
-| Pattern | Example |
-|---------|---------|
-| List | `list_pigs`, `list_leaves` |
-| Get | `get_pig`, `get_leave` |
-| Create | `create_pig`, `create_leave` |
-| Update | `update_pig`, `update_leave` |
-| Delete | `delete_pig`, `delete_leave` |
-| Action | `submit_leave`, `approve_leave` |
+| 模式 | 範例 |
+|------|------|
+| 列表 | `list_pigs`, `list_leaves` |
+| 取得 | `get_pig`, `get_leave` |
+| 建立 | `create_pig`, `create_leave` |
+| 更新 | `update_pig`, `update_leave` |
+| 刪除 | `delete_pig`, `delete_leave` |
+| 動作 | `submit_leave`, `approve_leave` |
 
 ---
 
-## 3. Database (PostgreSQL)
+## 3. 資料庫（PostgreSQL）
 
-### 3.1 Tables
+### 3.1 資料表
 
-| Type | Convention | Example |
-|------|------------|---------|
-| Table | snake_case, plural | `pigs`, `users`, `leave_requests` |
-| Junction table | both_entities | `user_roles`, `role_permissions` |
-| History table | entity_history | `protocol_status_history` |
+| 類型 | 慣例 | 範例 |
+|------|------|------|
+| 資料表 | snake_case，複數 | `pigs`, `users`, `leave_requests` |
+| 關聯表 | 兩實體名稱 | `user_roles`, `role_permissions` |
+| 歷程表 | entity_history | `protocol_status_history` |
 
-### 3.2 Columns
+### 3.2 欄位
 
-| Type | Convention | Example |
-|------|------------|---------|
-| Primary key | `id` | `id UUID PRIMARY KEY` |
-| Foreign key | `entity_id` | `user_id`, `pig_id` |
-| Boolean | `is_*` or `has_*` | `is_active`, `has_attachments` |
-| Timestamp | `*_at` | `created_at`, `approved_at` |
-| Date | `*_date` | `entry_date`, `work_date` |
-| Status | `status` | `status VARCHAR(20)` |
+| 類型 | 慣例 | 範例 |
+|------|------|------|
+| 主鍵 | `id` | `id UUID PRIMARY KEY` |
+| 外鍵 | `entity_id` | `user_id`, `pig_id` |
+| 布林 | `is_*` 或 `has_*` | `is_active`, `has_attachments` |
+| 時間戳記 | `*_at` | `created_at`, `approved_at` |
+| 日期 | `*_date` | `entry_date`, `work_date` |
+| 狀態 | `status` | `status VARCHAR(20)` |
 
-### 3.3 Enums
+### 3.3 列舉
 
-| Type | Convention | Example |
-|------|------------|---------|
-| Enum type | snake_case | `pig_status`, `leave_type` |
-| Enum values | lowercase | `unassigned`, `in_experiment` |
+| 類型 | 慣例 | 範例 |
+|------|------|------|
+| 列舉類型 | snake_case | `pig_status`, `leave_type` |
+| 列舉值 | 小寫 | `unassigned`, `in_experiment` |
 
-### 3.4 Indexes
+### 3.4 索引
 
-| Pattern | Example |
-|---------|---------|
-| Primary | `idx_{table}_{columns}` |
-| Foreign key | `idx_{table}_{fk}` |
-| Composite | `idx_{table}_{col1}_{col2}` |
+| 模式 | 範例 |
+|------|------|
+| 主要 | `idx_{table}_{columns}` |
+| 外鍵 | `idx_{table}_{fk}` |
+| 複合 | `idx_{table}_{col1}_{col2}` |
 
-Examples:
+範例：
 - `idx_pigs_ear_tag`
 - `idx_pigs_status`
 - `idx_attendance_user_date`
 
 ---
 
-## 4. Frontend (TypeScript/React)
+## 4. 前端（TypeScript/React）
 
-### 4.1 Files
+### 4.1 檔案
 
-| Type | Convention | Example |
-|------|------------|---------|
-| Component | PascalCase | `PigDetail.tsx`, `LeaveForm.tsx` |
-| Page | PascalCase + Page | `DashboardPage.tsx`, `PigsPage.tsx` |
+| 類型 | 慣例 | 範例 |
+|------|------|------|
+| 元件 | PascalCase | `PigDetail.tsx`, `LeaveForm.tsx` |
+| 頁面 | PascalCase + Page | `DashboardPage.tsx`, `PigsPage.tsx` |
 | Hook | camelCase | `useAuth.ts`, `usePigs.ts` |
 | Store | camelCase | `authStore.ts` |
-| Type | camelCase | `types/hr.ts` |
-| Utility | camelCase | `utils/format.ts` |
+| 型別 | camelCase | `types/hr.ts` |
+| 工具 | camelCase | `utils/format.ts` |
 
-### 4.2 Components
+### 4.2 元件
 
-| Type | Convention | Example |
-|------|------------|---------|
-| Component | PascalCase | `PigCard`, `LeaveRequestForm` |
-| Props interface | ComponentNameProps | `PigCardProps` |
+| 類型 | 慣例 | 範例 |
+|------|------|------|
+| 元件 | PascalCase | `PigCard`, `LeaveRequestForm` |
+| Props 介面 | ComponentNameProps | `PigCardProps` |
 | Children | ReactNode | `children: ReactNode` |
 
-### 4.3 Functions/Variables
+### 4.3 函數/變數
 
-| Type | Convention | Example |
-|------|------------|---------|
-| Function | camelCase | `handleSubmit`, `formatDate` |
-| Variable | camelCase | `isLoading`, `userData` |
-| Constant | SCREAMING_SNAKE | `API_BASE_URL` |
+| 類型 | 慣例 | 範例 |
+|------|------|------|
+| 函數 | camelCase | `handleSubmit`, `formatDate` |
+| 變數 | camelCase | `isLoading`, `userData` |
+| 常數 | SCREAMING_SNAKE | `API_BASE_URL` |
 | State | camelCase | `[pigs, setPigs]` |
 
-### 4.4 Types/Interfaces
+### 4.4 型別/介面
 
-| Type | Convention | Example |
-|------|------------|---------|
-| Interface | PascalCase | `User`, `Pig`, `LeaveRequest` |
-| Enum | PascalCase | `PigStatus`, `LeaveType` |
-| Type alias | PascalCase | `CreatePigRequest` |
-
----
-
-## 5. API Routes
-
-### 5.1 URL Patterns
-
-| Pattern | Example |
-|---------|---------|
-| Resource list | `GET /pigs` |
-| Resource detail | `GET /pigs/:id` |
-| Resource create | `POST /pigs` |
-| Resource update | `PUT /pigs/:id` |
-| Resource delete | `DELETE /pigs/:id` |
-| Nested resource | `GET /pigs/:id/observations` |
-| Action | `POST /pigs/:id/observations/copy` |
-| Status change | `POST /leaves/:id/approve` |
-
-### 5.2 Naming
-
-| Pattern | Example |
-|---------|---------|
-| Plural nouns | `/pigs`, `/users`, `/documents` |
-| Kebab-case for multi-word | `/pig-sources`, `/leave-requests` |
-| Action verbs at end | `/leaves/:id/approve` |
-| Query params for filters | `?status=approved&user_id=...` |
+| 類型 | 慣例 | 範例 |
+|------|------|------|
+| 介面 | PascalCase | `User`, `Pig`, `LeaveRequest` |
+| 列舉 | PascalCase | `PigStatus`, `LeaveType` |
+| 型別別名 | PascalCase | `CreatePigRequest` |
 
 ---
 
-## 6. CSS/Styling
+## 5. API 路由
+
+### 5.1 URL 模式
+
+| 模式 | 範例 |
+|------|------|
+| 資源列表 | `GET /pigs` |
+| 資源詳情 | `GET /pigs/:id` |
+| 資源建立 | `POST /pigs` |
+| 資源更新 | `PUT /pigs/:id` |
+| 資源刪除 | `DELETE /pigs/:id` |
+| 巢狀資源 | `GET /pigs/:id/observations` |
+| 動作 | `POST /pigs/:id/observations/copy` |
+| 狀態變更 | `POST /leaves/:id/approve` |
+
+### 5.2 命名
+
+| 模式 | 範例 |
+|------|------|
+| 複數名詞 | `/pigs`, `/users`, `/documents` |
+| 多字詞用 kebab-case | `/pig-sources`, `/leave-requests` |
+| 動作動詞放結尾 | `/leaves/:id/approve` |
+| 查詢參數用於篩選 | `?status=approved&user_id=...` |
+
+---
+
+## 6. CSS/樣式
 
 ### 6.1 Tailwind Classes
 
-Follow Tailwind conventions:
-- Utility-first approach
-- Component composition
-- Consistent spacing scale
+遵循 Tailwind 慣例：
+- 工具優先方法
+- 元件組合
+- 一致的間距比例
 
-### 6.2 Custom Classes
+### 6.2 自訂類別
 
-| Type | Convention | Example |
-|------|------------|---------|
-| Component class | kebab-case | `.pig-card`, `.leave-form` |
-| Modifier | BEM-style | `.pig-card--active` |
-| State | `is-*` | `.is-loading`, `.is-error` |
+| 類型 | 慣例 | 範例 |
+|------|------|------|
+| 元件類別 | kebab-case | `.pig-card`, `.leave-form` |
+| 修飾器 | BEM 風格 | `.pig-card--active` |
+| 狀態 | `is-*` | `.is-loading`, `.is-error` |
 
 ---
 
 ## 7. Git
 
-### 7.1 Branch Names
+### 7.1 分支名稱
 
-| Type | Convention | Example |
-|------|------------|---------|
-| Feature | `feature/description` | `feature/leave-approval` |
-| Bugfix | `fix/description` | `fix/pig-status-update` |
-| Hotfix | `hotfix/description` | `hotfix/login-timeout` |
+| 類型 | 慣例 | 範例 |
+|------|------|------|
+| 功能 | `feature/description` | `feature/leave-approval` |
+| 錯誤修正 | `fix/description` | `fix/pig-status-update` |
+| 緊急修正 | `hotfix/description` | `hotfix/login-timeout` |
 
-### 7.2 Commit Messages
+### 7.2 提交訊息
 
-| Type | Example |
-|------|---------|
-| Feature | `feat: add leave approval workflow` |
-| Fix | `fix: correct pig status transition` |
-| Docs | `docs: update API specification` |
-| Refactor | `refactor: extract pig service functions` |
-| Style | `style: format with rustfmt` |
+| 類型 | 範例 |
+|------|------|
+| 功能 | `feat: 新增請假核准流程` |
+| 修正 | `fix: 修正豬隻狀態轉換` |
+| 文件 | `docs: 更新 API 規格` |
+| 重構 | `refactor: 提取豬隻服務函數` |
+| 樣式 | `style: 使用 rustfmt 格式化` |
 
 ---
 
-## 8. Environment Variables
+## 8. 環境變數
 
-| Convention | Example |
-|------------|---------|
+| 慣例 | 範例 |
+|------|------|
 | SCREAMING_SNAKE | `DATABASE_URL` |
-| Prefix by service | `POSTGRES_*`, `SMTP_*` |
-| Boolean as string | `ENABLE_DEBUG=true` |
+| 依服務加前綴 | `POSTGRES_*`, `SMTP_*` |
+| 布林值用字串 | `ENABLE_DEBUG=true` |
 
-Examples:
+範例：
 - `DATABASE_URL`
 - `JWT_SECRET`
 - `SMTP_HOST`
@@ -219,4 +219,4 @@ Examples:
 
 ---
 
-*Next: [Version History](./12_VERSION_HISTORY.md)*
+*下一章：[版本歷程](../project/VERSION_HISTORY.md)*

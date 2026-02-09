@@ -428,6 +428,84 @@
 
 ## 10. 更新紀錄
 
+**待處理問題（狀態歷程顯示優化 - 2026-02-09 19:19 回報）：**
+
+> [!WARNING]
+> 以下問題待修正
+
+1. 🔶 **「創建」活動類型顯示錯誤**
+   - **問題**：創建計畫時，狀態歷程顯示「狀態變更 測試 PI」而非「創建」
+   - **原因**：`record_status_change` 函數中，`Draft` 狀態落入 `_ => StatusChanged` 分支
+   - **修正方案**：在創建計畫時使用 `ProtocolActivityType::Created` 記錄活動
+
+2. 🔶 **狀態變更至「審查中」時未顯示審查委員**
+   - **問題**：「已重新送審 → 審查中」的狀態變更，未記錄指定的審查委員名單
+   - **原因**：`change_status` 函數未將審查委員資訊寫入活動歷程的 `target_entity_name` 或 `extra_data`
+   - **修正方案**：在狀態變為 `UnderReview` 時，將審查委員名單記錄至 `target_entity_name` 欄位
+
+---
+
+**最新更新（審查人員列表顯示修復 - 2026-02-09）：**
+
+1. ✅ **審查人員列表查詢修復**
+   - 修正 `list_review_assignments` 權限檢查，新增 `SYSTEM_ADMIN` 和 `admin` 角色
+   - 修正 SQL 查詢，明確列出所有欄位並確保與 Rust 結構體順序一致
+   - 使用 `COALESCE` 處理 `display_name` 可能為 NULL 的情況
+   - 優化獸醫審查指派查詢，統一欄位格式
+   - 添加調試日誌記錄查詢結果數量
+
+---
+
+**最新更新（編譯錯誤修復與權限優化 - 2026-02-09 19:19）：**
+
+1. ✅ **編譯錯誤修復**
+   - 移除 `protocol.rs` 中重複定義的 `get_protocol_activities` 函數（第 813-822 行）
+   - 保留原始正確的定義（第 266-275 行，返回 `ProtocolActivityResponse`）
+   - 修復 `E0428`（重複定義）和 `E0425`（未找到 `UserActivityLog` 類型）錯誤
+
+2. ✅ **審查委員權限放寬強化**
+   - 移除 `list_protocols` 中的 `!is_reviewer_only` 限制，有 `view_all` 權限的角色（包含審查委員）可查看所有計畫
+   - `list_review_assignments` 新增 `SYSTEM_ADMIN` 與 `admin` 角色至權限檢查
+
+3. ✅ **審查人員列表 SQL 查詢優化**
+   - 明確列出所有欄位避免 `SELECT ra.*` 問題
+   - 優化名稱顯示：使用 `COALESCE(u_rev.display_name, u_rev.email)` 確保有值顯示
+   - 獸醫審查指派查詢：統一使用 `vra.` 前綴、`'VET_REVIEW'::text` 類型轉換
+   - 新增 tracing info 日誌記錄查詢結果數量
+
+**審查委員權限與強制意見（2026-02-09）：**
+
+1. ✅ **審查委員權限放寬**
+   - 純審查委員 (REVIEWER) 現可查看所有已提交的 AUP 計畫書
+   - 審查委員可在多種審查狀態下發表意見：`SUBMITTED`、`PRE_REVIEW`、`VET_REVIEW`、`UNDER_REVIEW`、`APPROVED`、`APPROVED_WITH_CONDITIONS`
+   - 前端 `canAddComment` 邏輯更新，放寬原本僅限 `UNDER_REVIEW` 的限制
+
+2. ✅ **審查委員強制發表意見檢查**
+   - 後端 `change_status` 新增驗證邏輯：狀態變更至 `APPROVED` 或 `APPROVED_WITH_CONDITIONS` 時，檢查所有 `is_primary_reviewer=true` 的審查委員是否都已發表意見
+   - 若有審查委員尚未發表意見，系統會返回錯誤訊息並列出姓名
+   - 前端審查委員列表新增「意見狀態」欄位，顯示「已發表」/「待發表」/「選填」狀態 Badge
+
+**最新更新（AUP 審查流程多輪往返功能 - 2026-02-09）：**
+
+1. ✅ **行政預審與獸醫審查多輪往返功能**
+   - 新增 `PRE_REVIEW_REVISION_REQUIRED` 狀態（行政預審補件）
+   - 新增 `VET_REVISION_REQUIRED` 狀態（獸醫要求修訂）
+   - 支援無限次數的審查往返迴圈
+
+2. ✅ **資料庫遷移**
+   - `015_review_revision_states.sql`：擴展 `protocol_status` enum
+   - 建立 `review_round_history` 表追蹤審查輪次歷史
+
+3. ✅ **後端狀態機更新**
+   - `models/protocol.rs`：新增兩個狀態到 `ProtocolStatus` enum
+   - `services/protocol.rs`：更新 `update()` 允許在新修訂狀態下編輯
+   - `services/protocol.rs`：新增完整狀態轉移驗證邏輯
+
+4. ✅ **前端對應更新**
+   - `api.ts`：新增狀態類型與中文名稱對應
+   - `ProtocolDetailPage.tsx`：更新狀態顏色、轉換規則、附件管理權限
+   - `zh-TW.json` / `en.json`：新增翻譯
+
 **最新更新（系統稽核與歷程優化 - 2026-02-09）：**
 
 1. ✅ **AUP 狀態歷程 (Status History) 顯示修復與優化**

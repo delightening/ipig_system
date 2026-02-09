@@ -1,106 +1,106 @@
-# Version History
+# 版本歷程紀錄
 
-> **Last Updated**: 2026-01-18
+> **最後更新**：2026-01-18
 
 ---
 
-## Document Versions
+## 文件版本
 
-### Profiling_Spec v2.0 (2026-01-18)
+### Profiling_Spec v2.0（2026-01-18）
 
-**Complete Rewrite**
+**完整重寫**
 
-All specification documents have been rewritten to reflect the actual codebase implementation:
+所有規格文件均已重新撰寫，以反映實際程式碼庫的實作情況：
 
-| Document | Version | Status |
+| 文件 | 版本 | 狀態 |
 |----------|---------|--------|
-| 00_INDEX.md | 2.0 | ✅ Updated |
-| 01_ARCHITECTURE_OVERVIEW.md | 1.0 | ✅ Created (original) |
-| 02_CORE_DOMAIN_MODEL.md | 2.0 | ✅ Created |
-| 03_MODULES_AND_BOUNDARIES.md | 2.0 | ✅ Created |
-| 04_DATABASE_SCHEMA.md | 2.0 | ✅ Created |
-| 05_API_SPECIFICATION.md | 2.0 | ✅ Created |
-| 06_PERMISSIONS_RBAC.md | 2.0 | ✅ Created |
-| 07_AUDIT_LOGGING.md | 1.0 | ✅ Created (original) |
-| 08_ATTENDANCE_MODULE.md | 1.0 | ✅ Created (original) |
-| 09_EXTENSIBILITY.md | 1.0 | ✅ Created (original) |
-| 10_UI_UX_GUIDELINES.md | 2.0 | ✅ Created |
-| 11_NAMING_CONVENTIONS.md | 2.0 | ✅ Created |
-| 12_VERSION_HISTORY.md | 2.0 | ✅ Updated |
+| 00_INDEX.md | 2.0 | ✅ 已更新 |
+| 01_ARCHITECTURE_OVERVIEW.md | 1.0 | ✅ 新增（原始版本）|
+| 02_CORE_DOMAIN_MODEL.md | 2.0 | ✅ 新增 |
+| 03_MODULES_AND_BOUNDARIES.md | 2.0 | ✅ 新增 |
+| 04_DATABASE_SCHEMA.md | 2.0 | ✅ 新增 |
+| 05_API_SPECIFICATION.md | 2.0 | ✅ 新增 |
+| 06_PERMISSIONS_RBAC.md | 2.0 | ✅ 新增 |
+| 07_AUDIT_LOGGING.md | 1.0 | ✅ 新增（原始版本）|
+| 08_ATTENDANCE_MODULE.md | 1.0 | ✅ 新增（原始版本）|
+| 09_EXTENSIBILITY.md | 1.0 | ✅ 新增（原始版本）|
+| 10_UI_UX_GUIDELINES.md | 2.0 | ✅ 新增 |
+| 11_NAMING_CONVENTIONS.md | 2.0 | ✅ 新增 |
+| 12_VERSION_HISTORY.md | 2.0 | ✅ 已更新 |
 
-**Key Changes**:
-- Updated index with accurate system overview and technology stack
-- Created comprehensive Core Domain Model with all entities and enums
-- Created Modules and Boundaries with detailed module breakdown
-- Created complete Database Schema based on 10 migrations
-- Created full API Specification covering 250+ endpoints
-- Created Permissions & RBAC with all system roles and permissions
-- Created UI/UX Guidelines for frontend development
-- Created Naming Conventions for all code layers
-
----
-
-### Profiling_Spec v1.0 (2026-01-17)
-
-**Initial Release**
-
-Created initial specification documentation framework:
-- 00_INDEX.md - Index
-- 01_ARCHITECTURE_OVERVIEW.md - System architecture
-- 07_AUDIT_LOGGING.md - GLP-compliant audit logging
-- 08_ATTENDANCE_MODULE.md - HR attendance module
-- 09_EXTENSIBILITY.md - Extensibility design
-- 12_VERSION_HISTORY.md - Version tracking
+**主要變更**：
+- 更新索引，反映正確的系統概覽與技術堆疊
+- 建立完整的核心領域模型，包含所有實體與列舉型別
+- 建立模組與邊界文件，詳細描述各模組分工
+- 建立完整的資料庫 Schema，基於 10 個遷移腳本
+- 建立完整的 API 規格，涵蓋超過 250 個端點
+- 建立權限與 RBAC 文件，包含所有系統角色與權限
+- 建立前端開發用 UI/UX 指南
+- 建立各程式碼層級的命名慣例
 
 ---
 
-## Database Migration History
+### Profiling_Spec v1.0（2026-01-17）
+
+**初始發布**
+
+建立初版規格文件框架：
+- 00_INDEX.md - 索引
+- 01_ARCHITECTURE_OVERVIEW.md - 系統架構
+- 07_AUDIT_LOGGING.md - GLP 合規稽核紀錄
+- 08_ATTENDANCE_MODULE.md - 人資考勤模組
+- 09_EXTENSIBILITY.md - 擴展性設計
+- 12_VERSION_HISTORY.md - 版本追蹤
+
+---
+
+## 資料庫遷移歷程
 
 ### 2026-01-18
 
-| Migration | Description |
+| 遷移腳本 | 說明 |
 |-----------|-------------|
-| 010_add_deleted_at_column.sql | Added deleted_at column for pig soft delete |
+| 010_add_deleted_at_column.sql | 新增 deleted_at 欄位用於豬隻軟刪除 |
 
 ### 2026-01-17
 
-| Migration | Description |
+| 遷移腳本 | 說明 |
 |-----------|-------------|
-| 001_aup_system.sql | Core schema: users, roles, ERP, protocols, pigs, notifications |
-| 002_erp_base_data.sql | SKU categories, product categories seed data |
-| 003_seed_accounts.sql | Initial admin account and roles |
-| 004_hr_system.sql | Attendance, overtime, leave management |
-| 005_calendar_sync.sql | Google Calendar integration |
-| 006_audit_system.sql | GLP-compliant audit logging with partitioned tables |
-| 007_seed_data.sql | Reference data (pig sources, permissions) |
-| 008_reset_admin.sql | Admin password reset utility |
-| 009_add_roles_is_active.sql | Added is_active flag to roles table |
+| 001_aup_system.sql | 核心 Schema：使用者、角色、ERP、計畫書、豬隻、通知 |
+| 002_erp_base_data.sql | SKU 類別、產品類別種子資料 |
+| 003_seed_accounts.sql | 初始管理員帳號與角色 |
+| 004_hr_system.sql | 考勤、加班、請假管理 |
+| 005_calendar_sync.sql | Google 日曆整合 |
+| 006_audit_system.sql | GLP 合規稽核紀錄（含分區表） |
+| 007_seed_data.sql | 參考資料（豬隻來源、權限） |
+| 008_reset_admin.sql | 管理員密碼重設工具 |
+| 009_add_roles_is_active.sql | 角色表新增 is_active 旗標 |
 
 ---
 
-## Change Log Format
+## 變更紀錄格式
 
-When updating documents, add entries in this format:
+更新文件時，請依以下格式新增紀錄：
 
 ```markdown
-### Document Name vX.Y (YYYY-MM-DD)
+### 文件名稱 vX.Y（YYYY-MM-DD）
 
-**Summary of Changes**
+**變更摘要**
 
-- Added: New section on XYZ
-- Changed: Updated ABC to reflect new requirements
-- Fixed: Corrected typo in DEF section
-- Removed: Deprecated GHI section
+- 新增：XYZ 章節
+- 變更：ABC 更新以反映新需求
+- 修正：DEF 章節錯字
+- 移除：GHI 過時章節
 
-**Breaking Changes** (if any)
+**破壞性變更**（如有）
 
-- API endpoint `/old/path` renamed to `/new/path`
+- API 端點 `/old/path` 更名為 `/new/path`
 
-**Migration Notes** (if any)
+**遷移注意事項**（如有）
 
-- Run migration script `XXX.sql` before deploying
+- 部署前請執行遷移腳本 `XXX.sql`
 ```
 
 ---
 
-*This document is automatically updated when specification changes are made.*
+*本文件會在規格變更時自動更新。*

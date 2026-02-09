@@ -4,11 +4,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
   ProtocolResponse,
   ProtocolVersion,
-  ProtocolStatusHistory,
   ReviewCommentResponse,
   ReviewAssignmentResponse,
   ProtocolAttachment,
-  UserActivityLog,
+  ProtocolActivity,
   ProtocolStatus,
   ChangeStatusRequest,
   CreateCommentRequest,
@@ -88,7 +87,9 @@ const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' |
   DRAFT: 'secondary',
   SUBMITTED: 'default',
   PRE_REVIEW: 'default',
+  PRE_REVIEW_REVISION_REQUIRED: 'destructive',
   VET_REVIEW: 'warning',
+  VET_REVISION_REQUIRED: 'destructive',
   UNDER_REVIEW: 'warning',
   REVISION_REQUIRED: 'destructive',
   RESUBMITTED: 'default',
@@ -105,8 +106,10 @@ const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' |
 const allowedTransitions: Record<ProtocolStatus, ProtocolStatus[]> = {
   DRAFT: ['SUBMITTED'],
   SUBMITTED: ['PRE_REVIEW', 'VET_REVIEW'],
-  PRE_REVIEW: ['VET_REVIEW', 'REVISION_REQUIRED'],
-  VET_REVIEW: ['UNDER_REVIEW', 'REVISION_REQUIRED'],
+  PRE_REVIEW: ['VET_REVIEW', 'PRE_REVIEW_REVISION_REQUIRED'],
+  PRE_REVIEW_REVISION_REQUIRED: ['PRE_REVIEW'], // PI 補件後回到行政預審
+  VET_REVIEW: ['UNDER_REVIEW', 'VET_REVISION_REQUIRED'],
+  VET_REVISION_REQUIRED: ['VET_REVIEW'], // PI 修改後回到獸醫審查
   UNDER_REVIEW: ['REVISION_REQUIRED', 'APPROVED', 'APPROVED_WITH_CONDITIONS', 'REJECTED', 'DEFERRED'],
   REVISION_REQUIRED: ['RESUBMITTED'],
   RESUBMITTED: ['UNDER_REVIEW'],
@@ -562,11 +565,13 @@ export function ProtocolDetailPage() {
     return allowedTransitions[protocol.status] || []
   }
 
-  // Reviewers can only add comments in UNDER_REVIEW status
+  // 審查委員可以在所有已提交審查的狀態發表意見
   const isReviewer = user?.roles?.some(r => ['REVIEWER', 'VET'].includes(r))
   const isVet = user?.roles?.includes('VET')
   const isIACUCOrAdmin = user?.roles?.some(r => ['IACUC_CHAIR', 'IACUC_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
-  const canAddComment = isIACUCOrAdmin || (isReviewer && (protocol?.status === 'UNDER_REVIEW' || (isVet && protocol?.status === 'VET_REVIEW')))
+  // 審查委員可發表意見的狀態：已提交後的所有審查相關狀態
+  const reviewableStatuses = ['SUBMITTED', 'PRE_REVIEW', 'VET_REVIEW', 'UNDER_REVIEW', 'APPROVED', 'APPROVED_WITH_CONDITIONS']
+  const canAddComment = isIACUCOrAdmin || (isReviewer && reviewableStatuses.includes(protocol?.status || ''))
 
   // PI, co-editor, and IACUC_STAFF can reply to review comments
   const canReply = user?.roles?.some(r => ['PI', 'EXPERIMENT_STAFF', 'IACUC_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
@@ -575,7 +580,10 @@ export function ProtocolDetailPage() {
   const canEditProtocol = user?.roles?.some(r => ['PI', 'EXPERIMENT_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
 
   const canAssignReviewer = user?.roles?.some(r => ['IACUC_STAFF', 'IACUC_CHAIR', 'SYSTEM_ADMIN', 'admin'].includes(r))
-  const canManageAttachments = protocol?.status === 'DRAFT' || protocol?.status === 'REVISION_REQUIRED'
+  const canManageAttachments = protocol?.status === 'DRAFT'
+    || protocol?.status === 'REVISION_REQUIRED'
+    || protocol?.status === 'PRE_REVIEW_REVISION_REQUIRED'
+    || protocol?.status === 'VET_REVISION_REQUIRED'
 
   // Reviewer anonymization logic
   // PI/Client can only see "Reviewer A/B/C", IACUC staff and other reviewers see real names
@@ -938,71 +946,51 @@ export function ProtocolDetailPage() {
                 <div className="relative">
                   <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200" />
                   <ul className="space-y-4">
-                    {activities.map((log: UserActivityLog) => (
-                      <li key={log.id} className="relative pl-10">
+                    {activities.map((activity: ProtocolActivity) => (
+                      <li key={activity.id} className="relative pl-10">
                         <div className="absolute left-2 w-4 h-4 rounded-full bg-blue-600 border-2 border-white mt-1.5" />
                         <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 shadow-sm">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                               <Badge variant="outline" className="text-[10px] uppercase font-bold py-0 h-5">
-                                {(() => {
-                                  switch (log.event_type) {
-                                    case 'PROTOCOL_UPDATE': return t('common.save');
-                                    case 'PROTOCOL_SUBMIT': return t('protocols.detail.submit');
-                                    case 'PROTOCOL_STATUS_CHANGE': return t('protocols.detail.changeStatus');
-                                    case 'COMMENT_REPLY': return t('protocols.detail.actions.reply');
-                                    default: return log.event_type;
-                                  }
-                                })()}
+                                {activity.activity_type_display || activity.activity_type}
                               </Badge>
-                              <span className="font-semibold text-slate-900">{log.actor_display_name}</span>
+                              <span className="font-semibold text-slate-900">{activity.actor_name}</span>
                             </div>
                             <span className="text-xs text-muted-foreground flex items-center gap-1">
                               <Clock className="h-3 w-3" />
-                              {formatDateTime(log.created_at)}
+                              {formatDateTime(activity.created_at)}
                             </span>
                           </div>
 
-                          {log.event_type === 'PROTOCOL_UPDATE' && (
-                            <p className="text-sm text-slate-600 italic">
-                              {t('protocols.detail.sections.contentTitle')} - {t('common.saved')}
-                            </p>
-                          )}
-
-                          {log.event_type === 'PROTOCOL_SUBMIT' && (
-                            <p className="text-sm text-slate-600">
-                              {t('protocols.detail.submitSuccess')}
-                            </p>
-                          )}
-
-                          {log.event_type === 'PROTOCOL_STATUS_CHANGE' && (
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2 text-sm">
-                                {log.before_data?.status && (
-                                  <>
-                                    <Badge variant={statusColors[log.before_data.status as ProtocolStatus] || 'outline'}>
-                                      {t(`protocols.status.${log.before_data.status}`)}
-                                    </Badge>
-                                    <span className="text-slate-400">→</span>
-                                  </>
-                                )}
-                                <Badge variant={statusColors[log.after_data?.status as ProtocolStatus] || 'outline'}>
-                                  {t(`protocols.status.${log.after_data?.status}`)}
-                                </Badge>
-                              </div>
-                              {log.after_data?.remark && (
-                                <div className="bg-white p-2 rounded border border-slate-200 text-sm text-slate-600 mt-2">
-                                  <span className="font-medium text-xs text-slate-400 block mb-1">{t('protocols.detail.dialogs.status.remark')}:</span>
-                                  {log.after_data.remark}
-                                </div>
-                              )}
+                          {/* 狀態變更顯示 */}
+                          {activity.from_value && activity.to_value && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Badge variant={statusColors[activity.from_value as ProtocolStatus] || 'outline'}>
+                                {t(`protocols.status.${activity.from_value}`)}
+                              </Badge>
+                              <span className="text-slate-400">→</span>
+                              <Badge variant={statusColors[activity.to_value as ProtocolStatus] || 'outline'}>
+                                {t(`protocols.status.${activity.to_value}`)}
+                              </Badge>
                             </div>
                           )}
 
-                          {log.event_type === 'COMMENT_REPLY' && (
-                            <p className="text-sm text-slate-600">
-                              {t('protocols.detail.dialogs.reply.success')}
+                          {/* 目標實體資訊 */}
+                          {activity.target_entity_name && (
+                            <p className="text-sm text-slate-600 mt-1">
+                              {activity.target_entity_name}
                             </p>
+                          )}
+
+                          {/* 備註 */}
+                          {activity.remark && (
+                            <div className="bg-white p-2 rounded border border-slate-200 text-sm text-slate-600 mt-2">
+                              <span className="font-medium text-xs text-slate-400 block mb-1">
+                                {t('protocols.detail.dialogs.status.remark')}:
+                              </span>
+                              {activity.remark}
+                            </div>
                           )}
                         </div>
                       </li>
@@ -1166,29 +1154,54 @@ export function ProtocolDetailPage() {
                       <TableHead>{t('protocols.detail.tables.reviewer')}</TableHead>
                       <TableHead>{t('protocols.detail.tables.assignedTime')}</TableHead>
                       <TableHead>{t('protocols.detail.tables.assignedBy')}</TableHead>
+                      <TableHead>{t('protocols.detail.tables.commentStatus') || '意見狀態'}</TableHead>
                       <TableHead>{t('protocols.detail.tables.completedTime')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {reviewers.map((reviewer) => (
-                      <TableRow key={reviewer.id}>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{reviewer.reviewer_name || '-'}</p>
-                            <p className="text-sm text-muted-foreground">{reviewer.reviewer_email}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>{formatDateTime(reviewer.assigned_at)}</TableCell>
-                        <TableCell>{reviewer.assigned_by_name || '-'}</TableCell>
-                        <TableCell>
-                          {reviewer.completed_at ? (
-                            <Badge variant="success">{formatDateTime(reviewer.completed_at)}</Badge>
-                          ) : (
-                            <Badge variant="secondary">{t('protocols.detail.tables.reviewing')}</Badge>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {reviewers.map((reviewer) => {
+                      // 檢查該審查委員是否已發表意見
+                      const hasComment = comments?.some(
+                        c => c.reviewer_id === reviewer.reviewer_id && !c.parent_comment_id
+                      ) || false
+
+                      return (
+                        <TableRow key={reviewer.id}>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{reviewer.reviewer_name || '-'}</p>
+                              <p className="text-sm text-muted-foreground">{reviewer.reviewer_email}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>{formatDateTime(reviewer.assigned_at)}</TableCell>
+                          <TableCell>{reviewer.assigned_by_name || '-'}</TableCell>
+                          <TableCell>
+                            {hasComment ? (
+                              <Badge variant="success" className="flex items-center gap-1 w-fit">
+                                <CheckCircle className="h-3 w-3" />
+                                {t('protocols.detail.tables.commented') || '已發表'}
+                              </Badge>
+                            ) : reviewer.is_primary_reviewer ? (
+                              <Badge variant="destructive" className="flex items-center gap-1 w-fit">
+                                <AlertTriangle className="h-3 w-3" />
+                                {t('protocols.detail.tables.pendingComment') || '待發表'}
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="w-fit">
+                                {t('protocols.detail.tables.optional') || '選填'}
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {reviewer.completed_at ? (
+                              <Badge variant="success">{formatDateTime(reviewer.completed_at)}</Badge>
+                            ) : (
+                              <Badge variant="secondary">{t('protocols.detail.tables.reviewing')}</Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
                   </TableBody>
                 </Table>
               ) : (

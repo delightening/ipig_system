@@ -12,14 +12,15 @@ use crate::{
     models::{
         AssignReviewerRequest, AssignCoEditorRequest, ChangeStatusRequest, CreateCommentRequest, CreateProtocolRequest,
         CoEditorAssignmentResponse,
-        Protocol, ProtocolListItem, ProtocolQuery, ProtocolResponse, ProtocolStatusHistory,
+        Protocol, ProtocolListItem, ProtocolQuery, ProtocolResponse, ProtocolActivityResponse,
         ProtocolVersion, ReplyCommentRequest, ReviewAssignment, ReviewAssignmentResponse, ReviewComment, ReviewCommentResponse,
-        UpdateProtocolRequest, UserProtocol, SaveDraftRequest, SubmitReplyRequest, UserActivityLog,
+        UpdateProtocolRequest, UserProtocol, SaveDraftRequest, SubmitReplyRequest,
     },
     require_permission,
     services::{ProtocolService, PdfService},
     AppError, AppState, Result,
 };
+
 
 /// 建立專案
 pub async fn create_protocol(
@@ -51,7 +52,8 @@ pub async fn list_protocols(
         && (current_user.roles.contains(&"REVIEWER".to_string()) 
             || current_user.roles.contains(&"VET".to_string()));
     
-    let mut protocols = if has_view_all && !is_reviewer_only {
+    let mut protocols = if has_view_all {
+        // 有查看所有計畫權限的角色（包含審查委員）可以看到所有計畫
         ProtocolService::list(&state.db, &query).await?
     } else {
         // 只能查看自己的專案
@@ -261,16 +263,16 @@ pub async fn get_protocol_versions(
     Ok(Json(versions))
 }
 
-/// 列出專案狀態變更歷史
-pub async fn get_protocol_status_history(
+/// 列出專案活動歷程
+pub async fn get_protocol_activities(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
-) -> Result<Json<Vec<ProtocolStatusHistory>>> {
+) -> Result<Json<Vec<ProtocolActivityResponse>>> {
     require_permission!(current_user, "aup.protocol.view_own");
     
-    let history = ProtocolService::get_status_history(&state.db, id).await?;
-    Ok(Json(history))
+    let activities = ProtocolService::get_activities(&state.db, id).await?;
+    Ok(Json(activities))
 }
 
 /// 指派審查委員
@@ -335,7 +337,7 @@ pub async fn list_review_assignments(
 
     // 檢查當前使用者是否有查看所有專案的權限 (管理員、預審員、主席等)
     let has_view_all = current_user.has_permission("aup.protocol.view_all")
-        || current_user.roles.iter().any(|r| ["IACUC_CHAIR", "IACUC_STAFF"].contains(&r.as_str()));
+        || current_user.roles.iter().any(|r| ["IACUC_CHAIR", "IACUC_STAFF", "SYSTEM_ADMIN", "admin"].contains(&r.as_str()));
 
     if !has_view_all {
         // 檢查是否為已指派的審查委員
@@ -379,10 +381,17 @@ pub async fn list_review_assignments(
     let assignments: Vec<ReviewAssignmentResponse> = sqlx::query_as(
         r#"
         SELECT 
-            ra.*,
-            u_rev.display_name as reviewer_name,
+            ra.id,
+            ra.protocol_id,
+            ra.reviewer_id,
+            COALESCE(u_rev.display_name, u_rev.email) as reviewer_name,
             u_rev.email as reviewer_email,
-            u_as.display_name as assigned_by_name
+            ra.assigned_by,
+            COALESCE(u_as.display_name, u_as.email) as assigned_by_name,
+            ra.assigned_at,
+            ra.completed_at,
+            ra.is_primary_reviewer,
+            ra.review_stage
         FROM review_assignments ra
         JOIN users u_rev ON ra.reviewer_id = u_rev.id
         JOIN users u_as ON ra.assigned_by = u_as.id
@@ -397,17 +406,17 @@ pub async fn list_review_assignments(
     let vet_assignments: Vec<ReviewAssignmentResponse> = sqlx::query_as(
         r#"
         SELECT 
-            id,
-            protocol_id,
-            vet_id as reviewer_id,
-            u_vet.display_name as reviewer_name,
+            vra.id,
+            vra.protocol_id,
+            vra.vet_id as reviewer_id,
+            COALESCE(u_vet.display_name, u_vet.email) as reviewer_name,
             u_vet.email as reviewer_email,
-            COALESCE(assigned_by, id) as assigned_by,
-            COALESCE(u_as.display_name, 'System') as assigned_by_name,
-            assigned_at,
-            completed_at,
+            COALESCE(vra.assigned_by, vra.id) as assigned_by,
+            COALESCE(u_as.display_name, u_as.email, 'System') as assigned_by_name,
+            vra.assigned_at,
+            vra.completed_at,
             true as is_primary_reviewer,
-            'VET_REVIEW' as review_stage
+            'VET_REVIEW'::text as review_stage
         FROM vet_review_assignments vra
         JOIN users u_vet ON vra.vet_id = u_vet.id
         LEFT JOIN users u_as ON vra.assigned_by = u_as.id
@@ -418,8 +427,20 @@ pub async fn list_review_assignments(
     .fetch_all(&state.db)
     .await?;
     
+    // 調試日誌：記錄查詢結果
+    let review_count = assignments.len();
+    let vet_count = vet_assignments.len();
+    
     let mut all_assignments = assignments;
     all_assignments.extend(vet_assignments);
+    
+    tracing::info!(
+        "[list_review_assignments] protocol_id: {}, found {} review assignments and {} vet assignments, total: {}",
+        protocol_id,
+        review_count,
+        vet_count,
+        all_assignments.len()
+    );
     
     Ok(Json(all_assignments))
 }
@@ -808,14 +829,3 @@ pub async fn export_protocol_pdf(
     ))
 }
 
-/// 取得計畫書活動歷程
-pub async fn get_protocol_activities(
-    State(state): State<AppState>,
-    Extension(current_user): Extension<CurrentUser>,
-    Path(id): Path<Uuid>,
-) -> Result<Json<Vec<UserActivityLog>>> {
-    require_permission!(current_user, "aup.protocol.view_own");
-    
-    let activities = ProtocolService::get_activities(&state.db, id).await?;
-    Ok(Json(activities))
-}

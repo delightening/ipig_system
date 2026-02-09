@@ -557,7 +557,9 @@ export type ProtocolStatus =
   | 'DRAFT'
   | 'SUBMITTED'
   | 'PRE_REVIEW'
+  | 'PRE_REVIEW_REVISION_REQUIRED'
   | 'VET_REVIEW'
+  | 'VET_REVISION_REQUIRED'
   | 'UNDER_REVIEW'
   | 'REVISION_REQUIRED'
   | 'RESUBMITTED'
@@ -573,7 +575,9 @@ export const protocolStatusNames: Record<ProtocolStatus, string> = {
   DRAFT: '草稿',
   SUBMITTED: '已提交',
   PRE_REVIEW: '行政預審',
+  PRE_REVIEW_REVISION_REQUIRED: '行政預審補件',
   VET_REVIEW: '獸醫審查',
+  VET_REVISION_REQUIRED: '獸醫要求修訂',
   UNDER_REVIEW: '審查中',
   REVISION_REQUIRED: '需修訂',
   RESUBMITTED: '已重送',
@@ -1306,7 +1310,64 @@ export interface AmendmentReviewAssignment {
   reviewer_email?: string
 }
 
-export const getProtocolActivities = async (id: string) => {
-  const response = await api.get<UserActivityLog[]>(`/protocols/${id}/activities`)
+// ============================================
+// Protocol Activity Types (新增)
+// ============================================
+
+export type ProtocolActivityType =
+  // 生命週期
+  | 'CREATED'
+  | 'UPDATED'
+  | 'SUBMITTED'
+  | 'RESUBMITTED'
+  | 'APPROVED'
+  | 'APPROVED_WITH_CONDITIONS'
+  | 'CLOSED'
+  | 'REJECTED'
+  | 'SUSPENDED'
+  | 'DELETED'
+  // 審查流程
+  | 'STATUS_CHANGED'
+  | 'REVIEWER_ASSIGNED'
+  | 'VET_ASSIGNED'
+  | 'COEDITOR_ASSIGNED'
+  | 'COEDITOR_REMOVED'
+  // 審查意見
+  | 'COMMENT_ADDED'
+  | 'COMMENT_REPLIED'
+  | 'COMMENT_RESOLVED'
+  // 附件
+  | 'ATTACHMENT_UPLOADED'
+  | 'ATTACHMENT_DELETED'
+  // 版本
+  | 'VERSION_CREATED'
+  | 'VERSION_RECOVERED'
+  // 修正案
+  | 'AMENDMENT_CREATED'
+  | 'AMENDMENT_SUBMITTED'
+  // 動物管理
+  | 'PIG_ASSIGNED'
+  | 'PIG_UNASSIGNED'
+
+export interface ProtocolActivity {
+  id: string
+  protocol_id: string
+  activity_type: ProtocolActivityType
+  activity_type_display: string
+  actor_id: string
+  actor_name: string
+  actor_email: string
+  from_value?: string
+  to_value?: string
+  target_entity_type?: string
+  target_entity_id?: string
+  target_entity_name?: string
+  remark?: string
+  extra_data?: Record<string, unknown>
+  created_at: string
+}
+
+export const getProtocolActivities = async (id: string): Promise<ProtocolActivity[]> => {
+  const response = await api.get<ProtocolActivity[]>(`/protocols/${id}/activities`)
   return response.data
 }

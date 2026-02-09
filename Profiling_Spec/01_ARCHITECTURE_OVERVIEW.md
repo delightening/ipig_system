@@ -1,290 +1,289 @@
-# Architecture Overview
+# 系統架構概覽
 
-> **Version**: 1.0  
-> **Last Updated**: 2026-01-17  
-> **Audience**: All team members
-
----
-
-## 1. System Purpose
-
-iPig (豬博士動物科技系統) is an integrated experimental animal management platform designed to:
-
-1. **Manage IACUC Protocols** - Submit, review, and approve Animal Use Protocols (AUP)
-2. **Track Experimental Animals** - Full lifecycle management from entry to completion
-3. **Handle Inventory** - Procurement, stock management, and cost tracking
-4. **Manage Personnel** - Attendance, leave, and time-off for internal staff
+> **版本**：1.0  
+> **最後更新**：2026-01-17  
+> **對象**：全體團隊成員
 
 ---
 
-## 2. Architecture Diagram
+## 1. 系統目的
+
+iPig（豬博士動物科技系統）是一套整合型實驗動物管理平台，設計目的為：
+
+1. **管理 IACUC 計畫書** - 動物使用計畫書 (AUP) 提交、審查與核准
+2. **追蹤實驗動物** - 從進場到完成的完整生命週期管理
+3. **處理庫存** - 採購、庫存管理與成本追蹤
+4. **管理人事** - 內部員工的出勤、請假與補休
+
+---
+
+## 2. 架構圖
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                          iPig Unified Portal                                 │
+│                          iPig 統一入口                                        │
 │                                                                             │
 │  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────────────┐  │
-│  │   Login/Auth    │ ── │  Role-based     │ ── │   Module Router         │  │
-│  │   (JWT)         │    │  Access Control │    │                         │  │
+│  │   登入/認證     │ ── │  角色權限控制    │ ── │   模組路由              │  │
+│  │   (JWT)         │    │                  │    │                         │  │
 │  └─────────────────┘    └─────────────────┘    └─────────────────────────┘  │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────────────┐  │
-│  │  AUP Review      │  │  iPig ERP        │  │  Animal Management       │  │
-│  │  System          │  │  (Inventory)     │  │  System                  │  │
+│  │  AUP 審查系統    │  │  iPig ERP        │  │  動物管理系統            │  │
+│  │                  │  │  (進銷存)        │  │                          │  │
 │  │                  │  │                  │  │                          │  │
-│  │  • Protocol      │  │  • Procurement   │  │  • My Projects           │  │
-│  │    Drafting      │  │  • Stock Mgmt    │  │  • Animal Records        │  │
-│  │  • Review Flow   │  │  • Cost Track    │  │  • Health Monitoring     │  │
-│  │  • Approval      │  │                  │  │  • Medical Records       │  │
+│  │  • 計畫書撰寫    │  │  • 採購作業      │  │  • 我的計劃              │  │
+│  │  • 審查流程      │  │  • 庫存管理      │  │  • 動物紀錄              │  │
+│  │  • 核准作業      │  │  • 成本追蹤      │  │  • 健康監測              │  │
+│  │                  │  │                  │  │  • 醫療紀錄              │  │
 │  └────────┬─────────┘  └────────┬─────────┘  └────────────┬─────────────┘  │
 │           │                     │                         │                │
 │  ┌────────┴─────────────────────┴─────────────────────────┴─────────────┐  │
-│  │                      HR / Personnel System                            │  │
+│  │                      人事管理系統                                      │  │
 │  │                                                                       │  │
-│  │  • Attendance Tracking    • Leave Management    • Overtime/Comp Time │  │
-│  │  • Google Calendar Sync   • Balance Reports                          │  │
+│  │  • 出勤追蹤    • 請假管理    • 加班/補休                               │  │
+│  │  • Google 行事曆同步   • 餘額報表                                      │  │
 │  └───────────────────────────────────────────────────────────────────────┘  │
 │                                                                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│                           Shared Data Layer                                 │
+│                           共用資料層                                         │
 │                                                                             │
 │  ┌─────────┐ ┌─────────┐ ┌──────────┐ ┌─────────────┐ ┌─────────────────┐  │
-│  │ users   │ │ animals │ │protocols │ │  products   │ │  audit_logs     │  │
-│  │         │ │ (pigs)  │ │          │ │             │ │                 │  │
+│  │ 使用者  │ │ 動物    │ │ 計畫書   │ │  產品       │ │  稽核紀錄       │  │
+│  │ users   │ │ (pigs)  │ │protocols │ │  products   │ │  audit_logs     │  │
 │  └─────────┘ └─────────┘ └──────────┘ └─────────────┘ └─────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. Technology Stack
+## 3. 技術堆疊
 
-### 3.1 Frontend
+### 3.1 前端
 
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| React | 18.x | UI Framework |
-| TypeScript | 5.x | Type safety |
-| Vite | 5.x | Build tool |
-| React Router | 6.x | Client-side routing |
-| TailwindCSS | 3.x | Utility-first CSS |
-| shadcn/ui | - | Component library |
-| Zustand | 4.x | State management |
-| React Query | 5.x | Server state |
+| 技術 | 版本 | 用途 |
+|------|------|------|
+| React | 18.x | UI 框架 |
+| TypeScript | 5.x | 型別安全 |
+| Vite | 5.x | 建置工具 |
+| React Router | 6.x | 客戶端路由 |
+| TailwindCSS | 3.x | 工具優先 CSS |
+| shadcn/ui | - | 元件庫 |
+| Zustand | 4.x | 狀態管理 |
+| React Query | 5.x | 伺服器狀態 |
 
-### 3.2 Backend
+### 3.2 後端
 
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| Rust | 1.75+ | Language |
-| Axum | 0.7.x | Web framework |
-| SQLx | 0.7.x | Database driver (async) |
-| Tokio | 1.x | Async runtime |
-| Serde | 1.x | Serialization |
-| Argon2 | 0.5.x | Password hashing |
-| jsonwebtoken | 9.x | JWT handling |
-| lettre | 0.11.x | Email sending |
+| 技術 | 版本 | 用途 |
+|------|------|------|
+| Rust | 1.75+ | 程式語言 |
+| Axum | 0.7.x | 網頁框架 |
+| SQLx | 0.7.x | 資料庫驅動（非同步）|
+| Tokio | 1.x | 非同步執行時 |
+| Serde | 1.x | 序列化 |
+| Argon2 | 0.5.x | 密碼雜湊 |
+| jsonwebtoken | 9.x | JWT 處理 |
+| lettre | 0.11.x | 郵件發送 |
 
-### 3.3 Database
+### 3.3 資料庫
 
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| PostgreSQL | 15.x | Primary database |
-| Table partitioning | - | Audit log performance |
-| JSONB | - | Flexible data storage |
+| 技術 | 版本 | 用途 |
+|------|------|------|
+| PostgreSQL | 15.x | 主要資料庫 |
+| 資料表分區 | - | 稽核日誌效能 |
+| JSONB | - | 彈性資料儲存 |
 
-### 3.4 Infrastructure
+### 3.4 基礎設施
 
-| Technology | Purpose |
-|------------|---------|
-| Docker | Containerization |
-| Docker Compose | Local development orchestration |
-| Nginx | Reverse proxy (production) |
-| Gmail SMTP | Email delivery |
+| 技術 | 用途 |
+|------|------|
+| Docker | 容器化 |
+| Docker Compose | 本地開發編排 |
+| Nginx | 反向代理（生產環境）|
+| Gmail SMTP | 郵件發送 |
 
 ---
 
-## 4. System Layers
+## 4. 系統層級
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                      Presentation Layer                          │
-│  React SPA • Pages • Components • Hooks • Stores                │
+│                      展示層                                       │
+│  React SPA • 頁面 • 元件 • Hooks • Stores                       │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼ HTTP/REST
 ┌─────────────────────────────────────────────────────────────────┐
-│                        API Layer                                 │
-│  Axum Router • Handlers • Middleware (Auth, Logging)            │
+│                        API 層                                     │
+│  Axum 路由 • 處理器 • 中間件（認證、日誌）                         │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      Service Layer                               │
-│  Business Logic • Validation • Orchestration                    │
+│                      服務層                                       │
+│  商業邏輯 • 驗證 • 協調                                          │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                        Data Layer                                │
-│  SQLx Queries • Models • Migrations                             │
+│                        資料層                                     │
+│  SQLx 查詢 • 模型 • 遷移                                         │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                   PostgreSQL Database                            │
-│  Tables • Views • Functions • Triggers                          │
+│                   PostgreSQL 資料庫                               │
+│  資料表 • 視圖 • 函數 • 觸發器                                   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 5. Authentication & Authorization
+## 5. 認證與授權
 
-### 5.1 Authentication Flow
+### 5.1 認證流程
 
 ```
-User                    Frontend                  Backend                 Database
+使用者                  前端                     後端                   資料庫
   │                        │                         │                       │
-  │──── Login ────────────►│                         │                       │
+  │──── 登入 ────────────►│                         │                       │
   │                        │──── POST /auth/login ──►│                       │
-  │                        │                         │──── Verify ──────────►│
-  │                        │                         │◄──── User + Roles ────│
-  │                        │◄──── JWT Tokens ────────│                       │
-  │◄─── Store Tokens ──────│                         │                       │
+  │                        │                         │──── 驗證 ────────────►│
+  │                        │                         │◄──── 使用者 + 角色 ───│
+  │                        │◄──── JWT Token ────────│                       │
+  │◄─── 儲存 Token ────────│                         │                       │
   │                        │                         │                       │
-  │──── API Request ──────►│                         │                       │
+  │──── API 請求 ─────────►│                         │                       │
   │                        │──── + Bearer Token ────►│                       │
-  │                        │                         │──── Validate JWT ────►│
+  │                        │                         │──── 驗證 JWT ────────►│
   │                        │                         │◄──── Claims ──────────│
-  │                        │◄──── Response ──────────│                       │
-  │◄─── Data ──────────────│                         │                       │
+  │                        │◄──── 回應 ──────────────│                       │
+  │◄─── 資料 ──────────────│                         │                       │
 ```
 
-### 5.2 Token Structure
+### 5.2 Token 結構
 
-| Token Type | Lifetime | Storage | Purpose |
-|------------|----------|---------|---------|
-| Access Token | 15 minutes | Memory | API authentication |
-| Refresh Token | 7 days | HttpOnly Cookie | Token renewal |
+| Token 類型 | 有效期限 | 儲存位置 | 用途 |
+|------------|----------|----------|------|
+| Access Token | 15 分鐘 | 記憶體 | API 認證 |
+| Refresh Token | 7 天 | HttpOnly Cookie | Token 更新 |
 
-### 5.3 Authorization Model
+### 5.3 授權模型
 
-- **Role-Based Access Control (RBAC)**
-- Users can have multiple roles
-- Roles contain multiple permissions
-- Permissions are checked at API handler level
+- **角色權限控制 (RBAC)**
+- 使用者可擁有多個角色
+- 角色包含多個權限
+- 權限在 API 處理器層級檢查
 
 ---
 
-## 6. Deployment Architecture
+## 6. 部署架構
 
-### 6.1 Development Environment
+### 6.1 開發環境
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                    Docker Compose                             │
 │                                                              │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │  Frontend   │  │   Backend   │  │    PostgreSQL       │  │
+│  │  前端       │  │   後端      │  │    PostgreSQL       │  │
 │  │  (Vite Dev) │  │   (Cargo)   │  │                     │  │
-│  │  :5173      │  │   :8080     │  │   :5432 (internal)  │
-│  │             │  │             │  │   :5433 (host)      │  │
+│  │  :5173      │  │   :8080     │  │   :5432 (內部)      │  │
+│  │             │  │             │  │   :5433 (主機)      │  │
 │  └─────────────┘  └─────────────┘  └─────────────────────┘  │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### 6.2 Production Environment
+### 6.2 生產環境
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                       Server                                  │
+│                       伺服器                                   │
 │                                                              │
 │  ┌─────────────────────────────────────────────────────────┐ │
 │  │                     Nginx                                │ │
-│  │  :80 (HTTP → HTTPS redirect)                            │ │
+│  │  :80 (HTTP → HTTPS 重導向)                               │ │
 │  │  :443 (HTTPS)                                           │ │
 │  └────────────────────────┬────────────────────────────────┘ │
 │                           │                                  │
 │           ┌───────────────┴───────────────┐                 │
 │           ▼                               ▼                 │
 │  ┌─────────────────┐           ┌─────────────────┐         │
-│  │  Static Files   │           │    API Proxy    │         │
+│  │  靜態檔案       │           │    API 代理     │         │
 │  │  (React Build)  │           │    /api → :8080 │         │
 │  └─────────────────┘           └────────┬────────┘         │
 │                                         │                   │
 │                                         ▼                   │
 │                              ┌─────────────────┐            │
-│                              │    Backend      │            │
-│                              │    Container    │            │
+│                              │    後端容器     │            │
 │                              │    :8080        │            │
 │                              └────────┬────────┘            │
 │                                       │                     │
 │                                       ▼                     │
 │                              ┌─────────────────┐            │
 │                              │   PostgreSQL    │            │
-│                              │   Container     │            │
+│                              │   容器          │            │
 │                              └─────────────────┘            │
 └──────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 7. Key Design Decisions
+## 7. 關鍵設計決策
 
-### 7.1 Why Rust for Backend?
+### 7.1 為何選用 Rust 作為後端？
 
-- **Performance**: Low latency for API responses
-- **Memory Safety**: Prevents common security vulnerabilities
-- **Type System**: Catches errors at compile time
-- **Async Support**: Handles concurrent requests efficiently
+- **效能**：API 回應低延遲
+- **記憶體安全**：防止常見安全漏洞
+- **型別系統**：編譯時期捕捉錯誤
+- **非同步支援**：有效處理並發請求
 
-### 7.2 Why PostgreSQL?
+### 7.2 為何選用 PostgreSQL？
 
-- **JSONB Support**: Flexible schema for varying data structures
-- **Table Partitioning**: Efficient audit log storage
-- **Advanced Features**: Window functions, CTEs, triggers
-- **Reliability**: ACID compliance, mature ecosystem
+- **JSONB 支援**：彈性結構化資料
+- **資料表分區**：有效儲存稽核日誌
+- **進階功能**：視窗函數、CTE、觸發器
+- **可靠性**：ACID 規範、成熟生態系
 
-### 7.3 Why JWT?
+### 7.3 為何選用 JWT？
 
-- **Stateless**: No session storage required
-- **Scalable**: Easy horizontal scaling
-- **Standard**: Well-understood, library support
-- **Flexible**: Can include custom claims
-
----
-
-## 8. Cross-Cutting Concerns
-
-### 8.1 Logging
-
-- **Request Logging**: All API requests logged with timing
-- **Activity Logging**: User actions tracked for audit
-- **Error Logging**: Structured error capture
-
-### 8.2 Security
-
-- **HTTPS Only**: All production traffic encrypted
-- **CORS**: Restricted to allowed origins
-- **Rate Limiting**: Prevent abuse (planned)
-- **Input Validation**: Server-side validation on all inputs
-
-### 8.3 Monitoring (Planned)
-
-- Health check endpoints
-- Performance metrics
-- Error tracking
+- **無狀態**：不需工作階段儲存
+- **可擴展**：易於水平擴展
+- **標準化**：廣泛理解、函式庫支援
+- **彈性**：可包含自訂 claims
 
 ---
 
-## 9. Related Documents
+## 8. 橫切關注點
 
-- [Core Domain Model](./02_CORE_DOMAIN_MODEL.md) - Entity details
-- [Database Schema](./04_DATABASE_SCHEMA.md) - Table definitions
-- [API Specification](./05_API_SPECIFICATION.md) - Endpoint reference
+### 8.1 日誌記錄
+
+- **請求日誌**：所有 API 請求含計時記錄
+- **活動日誌**：使用者操作追蹤用於稽核
+- **錯誤日誌**：結構化錯誤捕捉
+
+### 8.2 安全性
+
+- **僅 HTTPS**：所有生產流量加密
+- **CORS**：限制允許的來源
+- **速率限制**：防止濫用（規劃中）
+- **輸入驗證**：所有輸入伺服器端驗證
+
+### 8.3 監控（規劃中）
+
+- 健康檢查端點
+- 效能指標
+- 錯誤追蹤
 
 ---
 
-*Next: [Core Domain Model](./02_CORE_DOMAIN_MODEL.md)*
+## 9. 相關文件
+
+- [核心領域模型](./02_CORE_DOMAIN_MODEL.md) - 實體詳情
+- [資料庫綱要](./04_DATABASE_SCHEMA.md) - 資料表定義
+- [API 規格](./05_API_SPECIFICATION.md) - 端點參考
+
+---
+
+*下一章：[核心領域模型](./02_CORE_DOMAIN_MODEL.md)*
