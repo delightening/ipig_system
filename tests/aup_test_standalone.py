@@ -9,7 +9,7 @@ API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api")
 
 # 測試帳號設定 (對齊 setup_test_users.py)
 USERS = {
-    "IACUC_STAFF": {"email": "monkey20531@gmail.com", "password": "12345678"},
+    "IACUC_STAFF": {"email": "staff_test@example.com", "password": "password123"},
     "REVIEWER1": {"email": "rev1_test@example.com", "password": "password123"},
     "REVIEWER2": {"email": "rev2_test@example.com", "password": "password123"},
     "REVIEWER3": {"email": "rev3_test@example.com", "password": "password123"},
@@ -87,13 +87,46 @@ def run_flow():
         "working_content": {
             "basic": {
                 "study_title": "AUP 14步測試計畫 (自動化測試)",
+                "project_code": "PROJ-2024-001",
                 "project_type": "Research",
                 "is_glp": False,
                 "apply_study_number": f"AUP-{int(time.time() * 1000) % 1000000}",
-                "registration_authorities": [],
-                "pi_user_id": t.user_ids["PI"]
+                "registration_authorities": ["TFDA", "EPA"],
+                "pi_user_id": t.user_ids["PI"],
+                "revision_note": "Initial submission for automated testing"
             },
-            "animals": [{"species": "Pig", "count": 10, "strain": "L6", "sex": "MIXED", "age": "8 weeks"}]
+            "institutes": [
+                {
+                    "name": "中央農業研究中心",
+                    "location": "新北市新店區實驗林場"
+                },
+                {
+                    "name": "附屬獸醫臨床醫院",
+                    "location": "台北市大安區臨床部"
+                }
+            ],
+            "animals": [{"species": "Pig", "count": 10, "strain": "L6", "sex": "MIXED", "age": "8 weeks"}],
+            "materials": [
+                {
+                    "name": "Isoflurane (異氟醚)",
+                    "source": "Sigma-Aldrich",
+                    "composition": "99.9% Purity",
+                    "cas_no": "26675-46-7"
+                }
+            ],
+            "references": [
+                {
+                    "title": "Experimental Surgery in Pigs: A Comprehensive Guide",
+                    "author": "John Doe et al.",
+                    "journal": "Laboratory Animal Science",
+                    "year": "2023"
+                }
+            ],
+            "surgery": {
+                "procedure_name": "腹腔臟器微創手術模擬",
+                "anesthesia": "Isoflurane 2-3% inhalation",
+                "post_op_care": "每日兩次給予 Buprenorphine 止痛，持續三天。"
+            }
         },
         "start_date": "2026-04-01",
         "end_date": "2027-04-01",

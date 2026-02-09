@@ -28,7 +28,14 @@ pub async fn create_protocol(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<CreateProtocolRequest>,
 ) -> Result<Json<Protocol>> {
-    require_permission!(current_user, "aup.protocol.create");
+    // 檢查是否有建立權限 (PI 角色或 aup.protocol.create 權限)
+    let can_create = current_user.has_permission("aup.protocol.create") 
+        || current_user.roles.contains(&"PI".to_string())
+        || current_user.roles.contains(&"SYSTEM_ADMIN".to_string());
+    
+    if !can_create {
+        return Err(AppError::Forbidden("Permission denied: requires aup.protocol.create or PI role".to_string()));
+    }
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let protocol = ProtocolService::create(&state.db, &req, current_user.id).await?;
