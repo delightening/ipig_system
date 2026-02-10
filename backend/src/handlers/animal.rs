@@ -302,11 +302,11 @@ pub async fn batch_assign_pigs(
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "PIG_BATCH_ASSIGN",
         Some("pig"), None,
-        Some(&format!("批次分配 {} 隻至 {}", pigs.len(), req.iacuc_no.as_deref().unwrap_or("未知計畫"))),
+        Some(&format!("批次分配 {} 隻至 {}", pigs.len(), &req.iacuc_no)),
         None,
         Some(serde_json::json!({
             "count": pigs.len(),
-            "iacuc_no": req.iacuc_no,
+            "iacuc_no": &req.iacuc_no,
         })),
         None, None,
     ).await {
@@ -1110,6 +1110,18 @@ pub async fn export_pig_medical_data(
         current_user.id,
     ).await?;
 
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "MEDICAL_EXPORT",
+        Some("pig"), Some(pig_id),
+        Some(&format!("匯出醫療資料 (pig: {})", pig_id)),
+        None,
+        Some(serde_json::json!({ "format": format!("{:?}", req.format), "export_type": format!("{:?}", req.export_type) })),
+        None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (MEDICAL_EXPORT): {}", e);
+    }
+
     match req.format {
         crate::models::ExportFormat::Pdf => {
             let pdf_bytes = PdfService::generate_medical_pdf(&data)?;
@@ -1322,6 +1334,22 @@ pub async fn import_basic_data(
     )
     .await?;
 
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "PIG_IMPORT",
+        Some("pig"), None,
+        Some(&format!("匯入豬基礎資料: {} (成功: {}, 失敗: {})", file_name, result.success_count, result.error_count)),
+        None,
+        Some(serde_json::json!({
+            "file_name": file_name,
+            "success_count": result.success_count,
+            "error_count": result.error_count,
+        })),
+        None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (PIG_IMPORT): {}", e);
+    }
+
     Ok(Json(result))
 }
 
@@ -1372,6 +1400,22 @@ pub async fn import_weight_data(
     )
     .await?;
 
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "WEIGHT_IMPORT",
+        Some("pig_weight"), None,
+        Some(&format!("匯入體重資料: {} (成功: {}, 失敗: {})", file_name, result.success_count, result.error_count)),
+        None,
+        Some(serde_json::json!({
+            "file_name": file_name,
+            "success_count": result.success_count,
+            "error_count": result.error_count,
+        })),
+        None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (WEIGHT_IMPORT): {}", e);
+    }
+
     Ok(Json(result))
 }
 
@@ -1400,6 +1444,17 @@ pub async fn upsert_pig_pathology_report(
     require_permission!(current_user, "animal.pathology.upload");
     
     let report = AnimalService::upsert_pathology_report(&state.db, pig_id, current_user.id).await?;
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "PATHOLOGY_UPSERT",
+        Some("pig_pathology"), Some(pig_id),
+        Some(&format!("病理報告 (pig: {})", pig_id)),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (PATHOLOGY_UPSERT): {}", e);
+    }
+
     Ok(Json(report))
 }
 
