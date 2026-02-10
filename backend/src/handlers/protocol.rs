@@ -573,8 +573,16 @@ pub async fn list_review_comments(
     Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<ProtocolIdQuery>,
 ) -> Result<Json<Vec<ReviewCommentResponse>>> {
-    let protocol_version_id = query.protocol_version_id
-        .ok_or_else(|| AppError::Validation("protocol_version_id is required".to_string()))?;
+    let protocol_id = if let Some(pid) = query.protocol_id {
+        pid
+    } else if let Some(pvid) = query.protocol_version_id {
+        sqlx::query_scalar("SELECT protocol_id FROM protocol_versions WHERE id = $1")
+            .bind(pvid)
+            .fetch_one(&state.db)
+            .await?
+    } else {
+        return Err(AppError::Validation("protocol_id or protocol_version_id is required".to_string()));
+    };
 
     // 比照版本列表放寬讀取權限
     let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string())
@@ -585,13 +593,6 @@ pub async fn list_review_comments(
         || current_user.roles.contains(&"SYSTEM_ADMIN".to_string());
 
     if !has_view_all {
-        let (protocol_id,): (Uuid,) = sqlx::query_as(
-            "SELECT protocol_id FROM protocol_versions WHERE id = $1"
-        )
-        .bind(protocol_version_id)
-        .fetch_one(&state.db)
-        .await?;
-
         let is_authorized: (bool,) = sqlx::query_as(
             r#"
             SELECT EXISTS(
@@ -616,7 +617,7 @@ pub async fn list_review_comments(
         }
     }
     
-    let comments = ProtocolService::get_comments(&state.db, protocol_version_id).await?;
+    let comments = ProtocolService::get_comments(&state.db, protocol_id).await?;
     Ok(Json(comments))
 }
 

@@ -52,6 +52,14 @@ class AUPTester:
                     return u["id"]
         return None
 
+    def get_status(self):
+        if not self.protocol_id: return "N/A"
+        try:
+            resp = requests.get(f"{API_BASE_URL}/protocols/{self.protocol_id}", headers=self.get_headers("IACUC_STAFF"))
+            return resp.json().get("status", "Unknown")
+        except:
+            return "Error"
+
     def _req(self, method, url, **kwargs):
         resp = requests.request(method, url, **kwargs)
         if resp.status_code >= 400:
@@ -60,7 +68,8 @@ class AUPTester:
                 "url": url,
                 "status": resp.status_code,
                 "payload": kwargs.get("json"),
-                "response": resp.text
+                "response": resp.text,
+                "current_protocol_status": self.get_status()
             }
             try:
                 error_data["response_json"] = resp.json()
@@ -72,8 +81,10 @@ class AUPTester:
                 json.dump(error_data, f, indent=2, ensure_ascii=False)
             
             print(f"\n[API ERROR] {method} {url} - Status: {resp.status_code}")
+            print(f"Current AUP Status: {error_data['current_protocol_status']}")
             print(f"Details saved to last_error.json")
             
+        print(f"  [{method}] {url.split('/')[-1]} -> {resp.status_code} (Status: {self.get_status()})")
         resp.raise_for_status()
         return resp
 
@@ -83,20 +94,97 @@ def run_flow():
 
     # 1. PI Creating Protocol
     print("\n[Step 1] PI Creating Protocol...")
-    payload = {
-        "title": f"AUP完整流程測試_{int(time.time())}",
-        "working_content": {
-            "basic": {
-                "study_title": "AUP 14步大滿貫測試計畫",
-                "project_code": "FULL-TEST-001",
-                "project_type": "Research",
-                "is_glp": False,
-                "apply_study_number": f"AUP-{int(time.time() * 1000) % 1000000}",
-                "registration_authorities": [],
-                "pi_user_id": t.user_ids["PI"]
+    full_content = {
+        "basic": {
+            "study_title": "AUP 完整流程極致驗證計畫 (Section 1-8)",
+            "project_code": "FULL-TEST-2026",
+            "project_type": "Research",
+            "project_category": "Medicine",
+            "is_glp": True,
+            "apply_study_number": f"AUP-{int(time.time() * 1000) % 1000000}",
+            "registration_authorities": ["FDA"],
+            "pi_user_id": t.user_ids["PI"],
+            "pi": {
+                "name": "Test PI",
+                "phone": "0912-345-678",
+                "email": "pi_test@example.com",
+                "address": "台北市南港區研究院路"
             },
-            "animals": [{"species": "Pig", "count": 5, "strain": "L6", "sex": "MIXED", "age": "8 weeks"}],
+            "sponsor": {
+                "name": "生命科學研究基金會",
+                "contact_person": "王大同",
+                "contact_phone": "02-2789-0000",
+                "contact_email": "sponsor@example.com"
+            },
+            "facility": {"id": "FAC-001", "title": "第一動物實驗中心"},
+            "housing_location": "B1 無菌室"
         },
+        "purpose": {
+            "significance": "本研究旨在驗證 AUP 系統的穩定型與功能完整性。",
+            "replacement": {
+                "rationale": "目前無電腦模擬可替代。",
+                "alt_search": {
+                    "platforms": ["PubMed"],
+                    "keywords": "AUP System, Lifecycle",
+                    "conclusion": "尚無相關系統自動化測試之文獻。"
+                }
+            },
+            "reduction": {"design": "使用統計學 Power Analysis 算出最小樣本數。"},
+            "duplicate": {"experiment": False}
+        },
+        "items": {
+            "use_test_item": True,
+            "test_items": [{
+                "name": "驗證劑-A", "form": "液態", "purpose": "標記",
+                "storage_conditions": "4度C", "is_sterile": True
+            }]
+        },
+        "design": {
+            "procedures": "1. 每日觀察 2. 每週秤重 3. 最後進行麻醉與採樣。",
+            "anesthesia": {
+                "is_under_anesthesia": True,
+                "anesthesia_type": "survival_surgery"
+            },
+            "pain": {
+                "category": "C",
+                "management_plan": "使用止痛藥緩解其不適感。"
+            },
+            "endpoints": {
+                "experimental_endpoint": "計畫結束之動物處置方法。",
+                "humane_endpoint": "若動物體重下降超過 20% 則進行安樂死。"
+            }
+        },
+        "guidelines": {
+            "content": "遵守實驗動物照顧及使用指引規範。",
+            "references": [{"citation": "Guide for the Care and Use of Laboratory Animals", "url": "https://example.com"}]
+        },
+        "surgery": {
+            "surgery_type": "無菌存活手術",
+            "preop_preparation": "禁食 12 小時，皮膚除毛。",
+            "surgery_description": "依照 SOP 進行腹腔切開。",
+            "monitoring": "心跳、血氧、呼吸頻率。",
+            "postop_care": "提供保溫設備與安靜環境。",
+            "drugs": [{"drug_name": "抗生素", "dose": "10mg/kg", "route": "IM", "frequency": "QD", "purpose": "預防感染"}]
+        },
+        "animals": {
+            "total_animals": 5,
+            "animals": [{
+                "species": "Pig", "strain": "L6", "sex": "MIXED", 
+                "number": 5, "age_min": "8", "age_max": "10", "age_unlimited": False,
+                "weight_min": "20", "weight_max": "30", "weight_unlimited": False,
+                "housing_location": "B1-02"
+            }]
+        },
+        "personnel": [{
+            "name": "Test PI", "position": "教授", "years_experience": "15",
+            "roles": ["計畫主持人", "實驗操作"],
+            "trainings": ["動物實驗倫理培訓", "外科手術培訓"]
+        }]
+    }
+
+    payload = {
+        "title": f"AUP完整流程測試_{int(time.time())} +Final",
+        "working_content": full_content,
         "start_date": "2026-05-01",
         "end_date": "2027-04-01",
         "pi_user_id": t.user_ids["PI"]
@@ -143,7 +231,7 @@ def run_flow():
     # Update title +1
     t._req("PUT", f"{API_BASE_URL}/protocols/{t.protocol_id}", json={
         "title": payload["title"] + " +1",
-        "working_content": payload["working_content"]
+        "working_content": full_content
     }, headers=t.get_headers("PI"))
     
     # Resubmit
@@ -174,10 +262,12 @@ def run_flow():
     # STAFF 退回 PI 修訂標題 +M
     t._req("POST", f"{API_BASE_URL}/protocols/{t.protocol_id}/status", json={"to_status": "VET_REVISION_REQUIRED", "remark": "醫療意見修訂"}, headers=t.get_headers("IACUC_STAFF"))
     
+    # Update title +M
     t._req("PUT", f"{API_BASE_URL}/protocols/{t.protocol_id}", json={
-        "title": payload["title"] + " +1 +M",
-        "working_content": payload["working_content"]
+        "title": payload["title"] + " +M",
+        "working_content": full_content
     }, headers=t.get_headers("PI"))
+    
     t._req("POST", f"{API_BASE_URL}/protocols/{t.protocol_id}/submit", headers=t.get_headers("PI"))
     print("  - PI resubmitted with +M")
 
@@ -249,7 +339,7 @@ def run_flow():
 
     # 14. Chair Approve
     print("\n[Step 14] 主委最終核定")
-    # 確保狀態回到 UNDER_REVIEW 或適當狀態供 Chair 核定 (依系統邏輯可能需要 Staff 先處理)
+    # 此時狀態是 RESUBMITTED (from Step 13), 轉為 UNDER_REVIEW
     t._req("POST", f"{API_BASE_URL}/protocols/{t.protocol_id}/status", json={
         "to_status": "UNDER_REVIEW",
         "reviewer_ids": reviewers
