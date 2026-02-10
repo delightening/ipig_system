@@ -1,0 +1,17 @@
+﻿cargo :     Finished `dev` profile [unoptimized + debuginfo] target(s) in 
+0.76s
+位於 線路:1 字元:1
++ cargo run --bin erp-backend 2>&1 | Out-File -FilePath startup_final.l ..
+.
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (    Finished `d...get(s) in  
+   0.76s:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+     Running `target\debug\erp-backend.exe`
+[2m2026-02-10T13:31:39.452115Z[0m [32m INFO[0m [2merp_backend[0m[2m:[0m Initializing database connection pool...
+  URL: postgres://postgres:***@localhost:543
+  Max connections: 10
+  Retry attempts: 5
+  Retry delay: 5s
+[2m2026-02-10T13:31:39.454913Z[0m [32m INFO[0m [2merp_backend[0m[2m:[0m [Database Connection] Attempt 1/5: Connecting to database...

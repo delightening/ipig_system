@@ -165,6 +165,8 @@ export function AdminAuditPage() {
                 return 'destructive'
             case 'high':
                 return 'destructive'
+            case 'warning':
+                return 'default'
             case 'medium':
                 return 'default'
             default:
@@ -429,9 +431,23 @@ export function AdminAuditPage() {
                                                 {event.ip_address || '-'}
                                             </TableCell>
                                             <TableCell>
-                                                {(event.is_unusual_time || event.is_unusual_location || event.is_new_device) && (
-                                                    <Badge variant="secondary">異常</Badge>
-                                                )}
+                                                <div className="flex flex-wrap gap-1">
+                                                    {event.is_unusual_time && (
+                                                        <Badge variant="secondary" className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200">時間異常</Badge>
+                                                    )}
+                                                    {event.is_unusual_location && (
+                                                        <Badge variant="secondary" className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200">IP 異常</Badge>
+                                                    )}
+                                                    {event.is_new_device && (
+                                                        <Badge variant="secondary" className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200">新裝置</Badge>
+                                                    )}
+                                                    {event.is_mass_login && (
+                                                        <Badge variant="secondary" className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200">同時大量登入</Badge>
+                                                    )}
+                                                    {!(event.is_unusual_time || event.is_unusual_location || event.is_new_device || event.is_mass_login) && (
+                                                        <span className="text-muted-foreground">-</span>
+                                                    )}
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))
@@ -529,6 +545,7 @@ export function AdminAuditPage() {
                                         <TableHead>類型</TableHead>
                                         <TableHead>嚴重程度</TableHead>
                                         <TableHead>標題</TableHead>
+                                        <TableHead>描述</TableHead>
                                         <TableHead>狀態</TableHead>
                                         <TableHead>操作</TableHead>
                                     </TableRow>
@@ -536,13 +553,13 @@ export function AdminAuditPage() {
                                 <TableBody>
                                     {loadingAlerts ? (
                                         <TableRow>
-                                            <TableCell colSpan={6} className="text-center py-8">
+                                            <TableCell colSpan={7} className="text-center py-8">
                                                 載入中...
                                             </TableCell>
                                         </TableRow>
                                     ) : alerts?.data?.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                                                 沒有安全警報
                                             </TableCell>
                                         </TableRow>
@@ -561,6 +578,17 @@ export function AdminAuditPage() {
                                                     </Badge>
                                                 </TableCell>
                                                 <TableCell>{alert.title}</TableCell>
+                                                <TableCell className="text-sm text-muted-foreground max-w-[300px] truncate" title={alert.description || ''}>
+                                                    {alert.alert_type === 'global_mass_login' && alert.context_data ? (
+                                                        <span>
+                                                            {alert.description}
+                                                            {typeof alert.context_data === 'object' && 'account_count' in alert.context_data ?
+                                                                ` (數量: ${alert.context_data.account_count})` : ''}
+                                                        </span>
+                                                    ) : (
+                                                        alert.description || '-'
+                                                    )}
+                                                </TableCell>
                                                 <TableCell>
                                                     <Badge
                                                         variant={alert.status === 'resolved' ? 'secondary' : 'default'}

@@ -11,13 +11,13 @@ API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api")
 # 測試帳號設定 (根據 setup_test_users.py 與使用者提供)
 USERS = {
     "IACUC_STAFF": {"email": "monkey20531@gmail.com", "password": "12345678"},
-    "REVIEWER1": {"email": "rev1_test@example.com", "password": "password123"},
-    "REVIEWER2": {"email": "rev2_test@example.com", "password": "password123"},
-    "REVIEWER3": {"email": "rev3_test@example.com", "password": "password123"},
-    "IACUC_CHAIR": {"email": "chair_test@example.com", "password": "password123"},
-    "PI": {"email": "pi_test@example.com", "password": "password123"},
-    "VET": {"email": "museum1925@gmail.com", "password": "12345678"}, # 扮演 Vet
-    "REV_OTHER": {"email": "vet_test@example.com", "password": "password123"}, # 模擬外部委員
+    "REVIEWER1": {"email": "REVIEWER1@ipig.local", "password": "12345678"},
+    "REVIEWER2": {"email": "REVIEWER2@ipig.local", "password": "12345678"},
+    "REVIEWER3": {"email": "REVIEWER3@ipig.local", "password": "12345678"},
+    "IACUC_CHAIR": {"email": "CHAIR@ipig.local", "password": "12345678"},
+    "PI": {"email": "PI@ipig.local", "password": "12345678"},
+    "VET": {"email": "vet@ipig.local", "password": "12345678"},
+    "REV_OTHER": {"email": "client@ipig.local", "password": "12345678"},
 }
 
 class AUPTester:
@@ -42,6 +42,7 @@ class AUPTester:
                 print(f"  - {role} logged in.")
             else:
                 print(f"  - Failed to login {role}: {resp.status_code} {resp.text}")
+                resp.raise_for_status()
 
     def get_headers(self, role):
         return {"Authorization": f"Bearer {self.tokens[role]}"}
@@ -55,6 +56,8 @@ class AUPTester:
             if "json" in kwargs:
                 import json
                 print(f"Payload: {json.dumps(kwargs['json'], indent=2, ensure_ascii=False)}")
+        else:
+            print(f"  - {method} {url.split('/api/')[-1]} Success ({resp.status_code})")
         resp.raise_for_status()
         return resp
 
@@ -128,13 +131,39 @@ def test_aup_14_steps_flow(t):
                 "registration_authorities": [],
                 "pi_user_id": t.user_ids["PI"]
             },
-            "animals": [{"species": "Pig", "count": 10, "strain": "L6", "sex": "Mixed", "age": "8 weeks"}]
+            "animals": [{"species": "Pig", "count": 10, "strain": "L6", "sex": "Mixed", "age": "8 weeks"}],
+            "sections": {
+                "section1": {
+                    "pi_info": {"name": "Test PI", "phone": "123456", "email": "PI@ipig.local"},
+                    "personnel": [],
+                    "funding": {"source": "National Science Council"},
+                    "study_type": {"is_research": True}
+                },
+                "section2": {"justification": "Test justification"},
+                "section3": {
+                    "species_info": [{"species": "Pig", "strain": "L6", "source": "Internal", "is_emergency": False}],
+                    "housing_management": {"is_caged": True},
+                    "acclimatization": {"days": 7}
+                },
+                "section4": {
+                    "study_design": "Test study design",
+                    "procedures": [],
+                    "blood_collection": {"is_required": False},
+                    "surgery": {"is_required": False}
+                },
+                "section5": {
+                    "evaluation_period": "End of study",
+                    "disposal_method": "Cremation",
+                    "euthanasia": {"method": "CO2", "dosage": "N/A"}
+                }
+            }
         },
         "start_date": "2026-04-01",
         "end_date": "2027-04-01"
     }
     resp = t._req("POST", f"{API_BASE_URL}/protocols", json=payload, headers=t.get_headers("PI"))
     t.protocol_id = resp.json()["id"]
+    print(f"  - Protocol created: {t.protocol_id}")
     
     print("  - [Rule] Assigning Co-editor (Staff Role)...")
     t._req("POST", f"{API_BASE_URL}/protocols/{t.protocol_id}/co-editors", json={
@@ -271,7 +300,7 @@ def test_aup_14_steps_flow(t):
     # ---------------------------------------------------------
     print("\n[Step 13] Resolving comments and resubmitting...")
     # PI 修正並提交
-    requests.post(f"{API_BASE_URL}/protocols/{t.protocol_id}/submit", headers=t.get_headers("PI")).raise_for_status()
+    t._req("POST", f"{API_BASE_URL}/protocols/{t.protocol_id}/submit", headers=t.get_headers("PI"))
     # 委員解決意見
     for i, role in enumerate(["REVIEWER1", "REVIEWER2", "REVIEWER3"]):
         t.resolve_comment(role, t.rev_comments[i])

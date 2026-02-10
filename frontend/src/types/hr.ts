@@ -40,6 +40,7 @@ export interface LoginEventWithUser {
     is_unusual_time: boolean;
     is_unusual_location: boolean;
     is_new_device: boolean;
+    is_mass_login: boolean;
     failure_reason: string | null;
     created_at: string;
 }
@@ -67,6 +68,7 @@ export interface SecurityAlert {
     title: string;
     description: string | null;
     user_id: string | null;
+    context_data: Record<string, unknown> | null;
     status: string;
     resolved_by: string | null;
     resolved_at: string | null;

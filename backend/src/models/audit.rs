@@ -84,6 +84,7 @@ pub struct LoginEvent {
     pub is_unusual_time: bool,
     pub is_unusual_location: bool,
     pub is_new_device: bool,
+    pub is_mass_login: bool,
     pub device_fingerprint: Option<String>,
     pub failure_reason: Option<String>,
     pub created_at: DateTime<Utc>,

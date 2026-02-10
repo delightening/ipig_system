@@ -18,22 +18,26 @@ impl LoginTracker {
         ip: Option<&str>,
         user_agent: Option<&str>,
     ) -> Result<()> {
-        let device_info = parse_user_agent(user_agent);
-        let is_unusual_time = check_unusual_time();
-        let is_new_device = check_new_device(pool, user_id, user_agent).await;
-        let is_unusual_location = check_unusual_location(pool, user_id, ip).await;
+        let ua = parse_user_agent(user_agent); // Keep this line, as `ua` is used later
+        let (is_unusual_time, is_unusual_location, is_new_device, is_mass_login) = tokio::join!(
+            async { check_unusual_time() },
+            async { check_unusual_location(pool, user_id, ip).await },
+            async { check_new_device(pool, user_id, user_agent).await },
+            async { check_mass_login(pool, user_id).await }
+        );
         
+        // 插入登入成功日誌
         sqlx::query(
             r#"
             INSERT INTO login_events (
-                id, user_id, email, event_type,
-                ip_address, user_agent,
-                device_type, browser, os,
-                is_unusual_time, is_unusual_location, is_new_device,
+                id, user_id, email, event_type, 
+                ip_address, user_agent, device_type, browser, os,
+                is_unusual_time, is_unusual_location, is_new_device, is_mass_login,
                 created_at
             ) VALUES (
                 $1, $2, $3, 'login_success',
-                $4::INET, $5, $6, $7, $8, $9, $10, $11, NOW()
+                $4, $5, $6, $7, $8,
+                $9, $10, $11, $12, NOW()
             )
             "#,
         )
@@ -42,26 +46,32 @@ impl LoginTracker {
         .bind(email)
         .bind(ip)
         .bind(user_agent)
-        .bind(&device_info.device_type)
-        .bind(&device_info.browser)
-        .bind(&device_info.os)
+        .bind(&ua.device_type) // Use ua.device_type
+        .bind(&ua.browser)     // Use ua.browser
+        .bind(&ua.os)          // Use ua.os
         .bind(is_unusual_time)
         .bind(is_unusual_location)
         .bind(is_new_device)
+        .bind(is_mass_login)
         .execute(pool)
         .await?;
         
-        // 如果有異常，建立警報
-        if is_unusual_time || is_unusual_location || is_new_device {
+        // 如果有異常，建立個人警報
+        if is_unusual_time || is_unusual_location || is_new_device || is_mass_login {
             Self::create_login_alert(
                 pool,
                 user_id,
+                email,
                 is_unusual_time,
                 is_unusual_location,
                 is_new_device,
+                is_mass_login,
             )
             .await?;
         }
+
+        // 檢查全域多帳號大量登入 (疑似腳本)
+        check_global_mass_login(pool).await?;
         
         Ok(())
     }
@@ -158,11 +168,11 @@ impl LoginTracker {
                 r#"
                 INSERT INTO security_alerts (
                     id, alert_type, severity, title, description,
-                    metadata, detected_at, status
+                    context_data, created_at, updated_at, status
                 ) VALUES (
-                    $1, 'brute_force', 'high',
+                    $1, 'brute_force', 'critical',
                     '偵測到可能的暴力破解攻擊',
-                    $2, $3, NOW(), 'open'
+                    $2, $3, NOW(), NOW(), 'open'
                 )
                 "#,
             )
@@ -187,9 +197,11 @@ impl LoginTracker {
     async fn create_login_alert(
         pool: &PgPool,
         user_id: Uuid,
+        email: &str,
         unusual_time: bool,
         unusual_location: bool,
         new_device: bool,
+        mass_login: bool,
     ) -> Result<()> {
         let mut reasons = Vec::new();
         if unusual_time {
@@ -201,21 +213,27 @@ impl LoginTracker {
         if new_device {
             reasons.push("使用新裝置");
         }
+        if mass_login {
+            reasons.push("同時大量登入");
+        }
+        
+        let title = format!("偵測到異常登入 ({})", email);
+        let description = format!("帳號 {} 的登入觸發異常偵測：{}", email, reasons.join("、"));
         
         sqlx::query(
             r#"
             INSERT INTO security_alerts (
                 id, alert_type, severity, title, description,
-                user_id, detected_at, status
+                user_id, created_at, updated_at, status
             ) VALUES (
-                $1, 'unusual_login', 'medium',
-                '偵測到異常登入',
-                $2, $3, NOW(), 'open'
+                $1, 'unusual_login', 'warning',
+                $2, $3, $4, NOW(), NOW(), 'open'
             )
             "#,
         )
         .bind(Uuid::new_v4())
-        .bind(reasons.join("、"))
+        .bind(&title)
+        .bind(&description)
         .bind(user_id)
         .execute(pool)
         .await?;
@@ -346,4 +364,89 @@ async fn check_unusual_location(pool: &PgPool, user_id: Uuid, ip: Option<&str>) 
     .unwrap_or((0,));
     
     count == 0
+}
+
+async fn check_mass_login(pool: &PgPool, user_id: Uuid) -> bool {
+    // 檢查過去 15 分鐘內成功登入次數
+    let (count,): (i64,) = sqlx::query_as(
+        r#"
+        SELECT COUNT(*) FROM login_events
+        WHERE user_id = $1
+          AND event_type = 'login_success'
+          AND created_at > NOW() - INTERVAL '15 minutes'
+        "#,
+    )
+    .bind(user_id)
+    .fetch_one(pool)
+    .await
+    .unwrap_or((0,));
+
+    // 如果連同本次（尚未寫入前的查詢）已有 4 次以上，則本次標記為大量登入
+    count >= 4
+}
+
+async fn check_global_mass_login(pool: &PgPool) -> Result<()> {
+    // 檢查過去 5 分鐘內，成功登入的不同帳號數量
+    let (count,): (i64,) = sqlx::query_as(
+        r#"
+        SELECT COUNT(DISTINCT user_id) FROM login_events
+        WHERE event_type = 'login_success'
+          AND created_at > NOW() - INTERVAL '5 minutes'
+        "#,
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap_or((0,));
+
+    // 如果 5 分鐘內超過 10 個不同帳號登入，觸發全域警報
+    if count >= 10 {
+        create_global_mass_login_alert(pool, count).await?;
+    }
+
+    Ok(())
+}
+
+async fn create_global_mass_login_alert(pool: &PgPool, account_count: i64) -> Result<()> {
+    // 檢查是否最近 10 分鐘內已經發過相同的全域警報 (避免洗版)
+    let (recent_alert_count,): (i64,) = sqlx::query_as(
+        r#"
+        SELECT COUNT(*) FROM security_alerts
+        WHERE alert_type = 'global_mass_login'
+          AND created_at > NOW() - INTERVAL '10 minutes'
+          AND status = 'open'
+        "#,
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap_or((0,));
+
+    if recent_alert_count > 0 {
+        return Ok(());
+    }
+
+    sqlx::query(
+        r#"
+        INSERT INTO security_alerts (
+            id, alert_type, severity, title, description,
+            context_data, created_at, updated_at, status
+        ) VALUES (
+            $1, 'global_mass_login', 'critical',
+            '偵測到疑似腳本之多帳號大量登入',
+            $2, $3, NOW(), NOW(), 'open'
+        )
+        "#,
+    )
+    .bind(Uuid::new_v4())
+    .bind(format!(
+        "系統偵測到全域在過去 5 分鐘內有 {} 個不同帳號成功登入，疑似為自動化腳本行為。",
+        account_count
+    ))
+    .bind(serde_json::json!({
+        "account_count": account_count,
+        "time_window_minutes": 5
+    }))
+    .execute(pool)
+    .await?;
+
+    Ok(())
 }
