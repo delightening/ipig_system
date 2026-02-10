@@ -286,13 +286,13 @@ impl AuditService {
                 le.id, le.user_id, le.email, u.display_name as user_name,
                 le.event_type, le.ip_address::TEXT, le.user_agent,
                 le.device_type, le.browser, le.os,
-                le.is_unusual_time, le.is_unusual_location, le.is_new_device,
+                le.is_unusual_time, le.is_unusual_location, le.is_new_device, le.is_mass_login,
                 le.failure_reason, le.created_at
             FROM login_events le
             LEFT JOIN users u ON le.user_id = u.id
             WHERE ($1::uuid IS NULL OR le.user_id = $1)
               AND ($2::text IS NULL OR le.event_type = $2)
-              AND ($3::bool IS NULL OR (le.is_unusual_time OR le.is_unusual_location OR le.is_new_device) = $3)
+              AND ($3::bool IS NULL OR (le.is_unusual_time OR le.is_unusual_location OR le.is_new_device OR le.is_mass_login) = $3)
               AND ($4::date IS NULL OR le.created_at::date >= $4)
               AND ($5::date IS NULL OR le.created_at::date <= $5)
             ORDER BY le.created_at DESC
