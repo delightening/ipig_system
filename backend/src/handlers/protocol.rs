@@ -14,7 +14,7 @@ use crate::{
         CoEditorAssignmentResponse,
         Protocol, ProtocolListItem, ProtocolQuery, ProtocolResponse, ProtocolActivityResponse,
         ProtocolVersion, ReplyCommentRequest, ReviewAssignment, ReviewAssignmentResponse, ReviewComment, ReviewCommentResponse,
-        UpdateProtocolRequest, UserProtocol, SaveDraftRequest, SubmitReplyRequest,
+        UpdateProtocolRequest, UserProtocol, SaveDraftRequest, SubmitReplyRequest, SaveVetReviewFormRequest,
     },
     require_permission,
     services::{ProtocolService, PdfService},
@@ -971,3 +971,45 @@ pub async fn export_protocol_pdf(
     ))
 }
 
+/// 儲存獸醫審查表
+pub async fn save_vet_review_form(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Json(req): Json<SaveVetReviewFormRequest>,
+) -> Result<Json<()>> {
+    // 檢查是否為獸醫身份或具有審查權限
+    let is_vet = current_user.roles.contains(&"VET".to_string()) || current_user.roles.contains(&"SYSTEM_ADMIN".to_string());
+    
+    if !is_vet {
+        // 額外檢查是否為該計畫被指派的獸醫
+        let is_assigned: (bool,) = sqlx::query_as(
+            "SELECT EXISTS(SELECT 1 FROM vet_review_assignments WHERE protocol_id = $1 AND vet_id = $2)"
+        )
+        .bind(req.protocol_id)
+        .bind(current_user.id)
+        .fetch_one(&state.db)
+        .await
+        .unwrap_or((false,));
+
+        if !is_assigned.0 {
+            return Err(AppError::Forbidden("Permission denied: You are not assigned as a vet for this protocol".to_string()));
+        }
+    }
+
+    ProtocolService::save_vet_review_form(&state.db, req.protocol_id, current_user.id, &req.review_form).await?;
+    
+    // 記錄活動
+    let _ = ProtocolService::record_activity(
+        &state.db,
+        req.protocol_id,
+        crate::models::ProtocolActivityType::StatusChanged, // 暫用狀態變更或新增類型
+        current_user.id,
+        None,
+        None,
+        Some(("VET_REVIEW_FORM", req.protocol_id, "獸醫審查表")),
+        Some("填寫獸醫核選表".to_string()),
+        Some(req.review_form.clone()),
+    ).await;
+
+    Ok(Json(()))
+}

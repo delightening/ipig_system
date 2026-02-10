@@ -95,6 +95,8 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/reviews/comments/draft", post(handlers::save_reply_draft))
         .route("/reviews/comments/:id/draft", get(handlers::get_reply_draft))
         .route("/reviews/comments/submit-draft", post(handlers::submit_reply_from_draft))
+        // Vet Review Form
+        .route("/reviews/vet-form", post(handlers::save_vet_review_form))
         // Co-Editor Assignment
         .route("/protocols/:id/co-editors", get(handlers::list_co_editors).post(handlers::assign_co_editor))
         .route("/protocols/:id/co-editors/:user_id", delete(handlers::remove_co_editor))

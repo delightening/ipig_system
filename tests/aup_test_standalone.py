@@ -246,17 +246,17 @@ def run_flow():
     vet_id = t.user_ids["VET"]
     t._req("POST", f"{API_BASE_URL}/protocols/{t.protocol_id}/status", json={"to_status": "VET_REVIEW", "vet_id": vet_id}, headers=t.get_headers("IACUC_STAFF"))
     
-    v_id = t._req("GET", f"{API_BASE_URL}/protocols/{t.protocol_id}/versions", headers=t.get_headers("VET")).json()[0]["id"]
     vet_comment = t._req("POST", f"{API_BASE_URL}/reviews/comments", json={
         "protocol_version_id": v_id,
-        "content": "Medical"
+        "content": "Medical assessment: The drug dosage seems high."
     }, headers=t.get_headers("VET")).json()
     vc_id = vet_comment["id"]
     
-    # PI Replying !!!
+    # PI Replying
+    print("  - PI Replying to Vet...")
     t._req("POST", f"{API_BASE_URL}/reviews/comments/reply", json={
         "parent_comment_id": vc_id,
-        "content": "!!!"
+        "content": "We have reduced the dosage in accordance with the GLP guidelines."
     }, headers=t.get_headers("PI"))
     
     # STAFF 退回 PI 修訂標題 +M
@@ -307,16 +307,21 @@ def run_flow():
     oc_id = other_comment["id"]
 
     # 11. PI Reply All !!!
-    print("\n[Step 11] PI 回覆所有審查委員 (!!!)")
-    for role, cid in rev_cids:
+    print("\n[Step 11] PI 回覆所有審查委員 (具有意義的內容)")
+    replies = [
+        "We have clarified the surgical procedure in Section 6.",
+        "The animal housing conditions have been updated to meet the new standards.",
+        "We have added more details about the post-operative monitoring plan."
+    ]
+    for i, (role, cid) in enumerate(rev_cids):
         t._req("POST", f"{API_BASE_URL}/reviews/comments/reply", json={
             "parent_comment_id": cid,
-            "content": "!!!"
+            "content": replies[i]
         }, headers=t.get_headers("PI"))
     
     t._req("POST", f"{API_BASE_URL}/reviews/comments/reply", json={
         "parent_comment_id": oc_id,
-        "content": "!!!"
+        "content": "Thank you for the suggestion. We have included the requested reference."
     }, headers=t.get_headers("PI"))
 
     # 12. Staff set Revision Required
