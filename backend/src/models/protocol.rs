@@ -302,10 +302,10 @@ pub struct ReviewComment {
     /// 草稿最後更新時間
     pub draft_updated_at: Option<DateTime<Utc>>,
     /// 直接關聯的計畫 ID（用於預審階段）
-    #[sqlx(default)]
+    #[sqlx(rename = "protocol_id")]
     pub protocol_id: Option<Uuid>,
     /// 審查階段（PRE_REVIEW, VET_REVIEW, UNDER_REVIEW）
-    #[sqlx(default)]
+    #[sqlx(default, rename = "review_stage")]
     pub review_stage: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -355,6 +355,24 @@ pub struct VetReviewAssignment {
     pub completed_at: Option<DateTime<Utc>>,
     pub decision: Option<String>,
     pub decision_remark: Option<String>,
+    pub review_form: Option<serde_json::Value>,
+}
+
+/// 獸醫審查查檢項
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VetReviewItem {
+    pub item_name: String,
+    pub compliance: String, // V, X, -
+    pub comment: Option<String>,
+    pub pi_reply: Option<String>,
+}
+
+/// 獸醫審查表
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VetReviewForm {
+    pub items: Vec<VetReviewItem>,
+    pub vet_signature: Option<String>,
+    pub signed_at: Option<DateTime<Utc>>,
 }
 
 /// 系統設定
@@ -440,6 +458,13 @@ pub struct SubmitReplyRequest {
     pub comment_id: Uuid,
 }
 
+/// 儲存獸醫審查表請求
+#[derive(Debug, Deserialize)]
+pub struct SaveVetReviewFormRequest {
+    pub protocol_id: Uuid,
+    pub review_form: serde_json::Value,
+}
+
 
 #[derive(Debug, Deserialize)]
 pub struct ProtocolQuery {
@@ -453,12 +478,12 @@ pub struct ProtocolQuery {
 /// 計畫書回應（含關聯資訊）
 #[derive(Debug, Serialize)]
 pub struct ProtocolResponse {
-    #[serde(flatten)]
     pub protocol: Protocol,
     pub pi_name: Option<String>,
     pub pi_email: Option<String>,
     pub pi_organization: Option<String>,
     pub status_display: String,
+    pub vet_review: Option<VetReviewAssignment>,
 }
 
 /// 計畫列表項目
@@ -492,6 +517,8 @@ pub struct ReviewCommentResponse {
     pub resolved_by: Option<Uuid>,
     pub resolved_at: Option<DateTime<Utc>>,
     pub parent_comment_id: Option<Uuid>,
+    #[sqlx(rename = "protocol_id")]
+    pub protocol_id: Option<Uuid>,
     pub replied_by: Option<Uuid>,
     #[sqlx(default)]
     pub replied_by_name: Option<String>,

@@ -82,6 +82,10 @@ import { useAuthStore } from '@/stores/auth'
 import { ProtocolContentView } from '@/components/protocol/ProtocolContentView'
 import { AmendmentsTab } from '@/components/protocol/AmendmentsTab'
 import { ProtocolComparisonDialog } from '@/components/protocols/ProtocolComparisonDialog'
+import { ReviewCommentsReport } from '@/components/protocol/ReviewCommentsReport'
+import VetReviewForm from '@/components/protocol/VetReviewForm'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
 
 const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'> = {
   DRAFT: 'secondary',
@@ -149,13 +153,15 @@ export function ProtocolDetailPage() {
 
   // Comparison state
   const [comparisonOpen, setComparisonOpen] = useState(false)
+  const [isExportingComments, setIsExportingComments] = useState(false)
+  const reportRef = useRef<HTMLDivElement>(null)
   const [versionA, setVersionA] = useState<ProtocolVersion | null>(null)
   const [versionB, setVersionB] = useState<ProtocolVersion | null>(null)
   const [compareMode, setCompareMode] = useState(false)
   const [selectedCompareIds, setSelectedCompareIds] = useState<string[]>([])
 
   // Fetch protocol details
-  const { data: protocol, isLoading } = useQuery({
+  const { data: protocolResponse, isLoading } = useQuery({
     queryKey: ['protocol', id],
     queryFn: async () => {
       const response = await api.get<ProtocolResponse>(`/protocols/${id}`)
@@ -163,6 +169,19 @@ export function ProtocolDetailPage() {
     },
     enabled: !!id,
   })
+
+  const {
+    protocol,
+    pi_name,
+    pi_email,
+    pi_organization,
+    vet_review,
+  } = (protocolResponse as any) || {}
+
+  const isVetReviewer = useMemo(() => {
+    if (!user || !vet_review) return false
+    return vet_review.vet_id === user.id
+  }, [user, vet_review])
 
   // Fetch version list
   const { data: versions } = useQuery({
@@ -531,6 +550,7 @@ export function ProtocolDetailPage() {
     })
   }
 
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -616,8 +636,13 @@ export function ProtocolDetailPage() {
 
   // Get anonymized reviewer display name
   const getReviewerDisplayName = (comment: ReviewCommentResponse) => {
+    // 如果是計畫主持人 (PI) 的回覆，直接顯示其名稱 (不匿名)
+    if (comment.parent_comment_id && (comment.replied_by === protocol.pi_id || comment.replied_by_name)) {
+      return comment.replied_by_name || pi_name || t('common.user')
+    }
+
     if (!shouldAnonymizeReviewers) {
-      return comment.reviewer_name || comment.reviewer_email
+      return comment.reviewer_name || comment.reviewer_email || comment.replied_by_name || comment.replied_by_email
     }
     return reviewerAnonymousMap.get(comment.reviewer_id) || t('protocols.detail.actions.reviewer')
   }
@@ -1014,12 +1039,46 @@ export function ProtocolDetailPage() {
                 <CardTitle>{t('protocols.detail.sections.commentsTitle')}</CardTitle>
                 <CardDescription>{t('protocols.detail.sections.commentsDesc')}</CardDescription>
               </div>
-              {canAddComment && protocol.status !== 'DRAFT' && (
-                <Button onClick={() => setShowCommentDialog(true)}>
-                  <MessageSquare className="mr-2 h-4 w-4" />
-                  {t('protocols.detail.dialogs.comment.title')}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    if (!reportRef.current || isExportingComments) return
+                    try {
+                      setIsExportingComments(true)
+                      const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true })
+                      const imgData = canvas.toDataURL('image/png')
+                      const pdf = new jsPDF('p', 'mm', 'a4')
+                      const imgWidth = 210
+                      const imgHeight = (canvas.height * imgWidth) / canvas.width
+                      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight)
+                      pdf.save(`審查意見回覆表_${protocol.protocol_no || id}.pdf`)
+                      toast({
+                        title: t('common.exportSuccess'),
+                        variant: 'default',
+                      })
+                    } catch (error) {
+                      console.error('PDF export error:', error)
+                      toast({
+                        title: t('common.exportFailed'),
+                        variant: 'destructive',
+                      })
+                    } finally {
+                      setIsExportingComments(false)
+                    }
+                  }}
+                  disabled={isExportingComments || commentsLoading}
+                >
+                  {isExportingComments ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                  匯出回覆表 (PDF)
                 </Button>
-              )}
+                {canAddComment && protocol.status !== 'DRAFT' && (
+                  <Button onClick={() => setShowCommentDialog(true)}>
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    {t('protocols.detail.dialogs.comment.title')}
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               {commentsLoading ? (
@@ -1096,7 +1155,9 @@ export function ProtocolDetailPage() {
                             <div key={reply.id} className="ml-auto max-w-[85%] p-4 rounded-lg border bg-slate-50 border-slate-200">
                               <div className="flex items-center gap-2 justify-end">
                                 <div className="text-right">
-                                  <p className="font-medium text-sm">{reply.replied_by_name || reply.reviewer_name || reply.reviewer_email}</p>
+                                  <p className="font-medium text-sm">
+                                    {getReviewerDisplayName(reply)}
+                                  </p>
                                   <p className="text-xs text-muted-foreground">{formatDateTime(reply.created_at)}</p>
                                 </div>
                                 <div className="h-6 w-6 rounded-full bg-green-100 flex items-center justify-center">
@@ -1140,7 +1201,27 @@ export function ProtocolDetailPage() {
                 </Button>
               )}
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6">
+              {/* 獸醫填寫區塊 */}
+              {isVetReviewer && (protocol.status === 'VET_REVIEW' || protocol.status === 'VET_REVISION_REQUIRED' || protocol.status === 'UNDER_REVIEW') && (
+                <div className="mb-8">
+                  <div className="flex items-center gap-2 mb-4 text-primary font-semibold border-l-4 border-primary pl-3">
+                    <ClipboardList className="h-5 w-5" />
+                    <span>{t('protocols.detail.sections.vetFormFill', '獸醫師線上審查填寫')}</span>
+                  </div>
+                  <VetReviewForm
+                    protocolId={id!}
+                    initialData={vet_review?.review_form}
+                    isEditable={protocol.status === 'VET_REVIEW' || protocol.status === 'VET_REVISION_REQUIRED'}
+                  />
+                  <div className="mt-4 p-4 bg-amber-50 border border-amber-100 rounded-lg flex gap-3 text-amber-800 text-sm">
+                    <AlertTriangle className="h-5 w-5 shrink-0" />
+                    <p>提示：此表格內容將會自動同步至「審查報告 (PDF)」中。請確保在計畫核准前完成填寫。</p>
+                  </div>
+                </div>
+              )}
+
+              {/* 審查委員列表 */}
               {reviewersLoading ? (
                 <div className="flex justify-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -1781,6 +1862,16 @@ export function ProtocolDetailPage() {
           />
         )
       }
+      {/* 隱藏的 PDF 渲染區域 */}
+      <div className="fixed -left-[9999px] top-0">
+        <div ref={reportRef}>
+          <ReviewCommentsReport
+            protocol={protocol}
+            comments={comments || []}
+            vet_review={vet_review}
+          />
+        </div>
+      </div>
     </div >
   )
 }

@@ -238,12 +238,21 @@ impl ProtocolService {
 
         let (pi_name, pi_email, pi_organization) = pi_info.unwrap_or_default();
 
+        // 獲取獸醫審查指派
+        let vet_review = sqlx::query_as::<_, crate::models::VetReviewAssignment>(
+            "SELECT * FROM vet_review_assignments WHERE protocol_id = $1"
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?;
+
         Ok(ProtocolResponse {
             status_display: protocol.status.display_name().to_string(),
             protocol,
             pi_name: Some(pi_name),
             pi_email: Some(pi_email),
             pi_organization,
+            vet_review,
         })
     }
 
@@ -1120,7 +1129,7 @@ impl ProtocolService {
         };
 
         // 驗證指定的使用者是獸醫師
-        let is_vet: (bool,) = sqlx::query_as(
+        let _is_vet: (bool,) = sqlx::query_as(
             r#"
             SELECT EXISTS(
                 SELECT 1 FROM user_roles ur
@@ -1182,7 +1191,7 @@ impl ProtocolService {
         }
 
         // 驗證用戶存在且是 EXPERIMENT_STAFF 角色
-        let user_has_role: (bool,) = sqlx::query_as(
+        let _user_has_role: (bool,) = sqlx::query_as(
             r#"
             SELECT EXISTS(
                 SELECT 1 FROM user_roles ur
@@ -1334,7 +1343,7 @@ impl ProtocolService {
         let comments = sqlx::query_as::<_, ReviewCommentResponse>(
             r#"
             SELECT 
-                c.id, c.protocol_version_id, c.reviewer_id,
+                c.id, c.protocol_version_id, c.protocol_id, c.reviewer_id,
                 u.display_name as reviewer_name, u.email as reviewer_email,
                 c.content, c.is_resolved, c.resolved_by, c.resolved_at, 
                 c.parent_comment_id, c.replied_by,
@@ -1347,7 +1356,8 @@ impl ProtocolService {
             LEFT JOIN users u ON c.reviewer_id = u.id
             LEFT JOIN users ru ON c.replied_by = ru.id
             LEFT JOIN users du ON c.drafted_by = du.id
-            WHERE c.protocol_id = $1
+            WHERE c.protocol_id = $1 
+               OR c.protocol_version_id IN (SELECT id FROM protocol_versions WHERE protocol_id = $1)
             ORDER BY 
                 COALESCE(c.parent_comment_id, c.id) ASC,
                 c.created_at ASC
@@ -1381,19 +1391,28 @@ impl ProtocolService {
         let (protocol_version_id,) = parent_comment
             .ok_or_else(|| AppError::NotFound("Parent comment not found".to_string()))?;
 
+        // 嘗試獲取 protocol_id
+        let target_protocol_id: Uuid = sqlx::query_scalar(
+            "SELECT protocol_id FROM review_comments WHERE id = $1"
+        )
+        .bind(req.parent_comment_id)
+        .fetch_one(pool)
+        .await?;
+
         // 插入回覆
         let comment = sqlx::query_as::<_, ReviewComment>(
             r#"
             INSERT INTO review_comments (
-                id, protocol_version_id, reviewer_id, content, 
+                id, protocol_version_id, protocol_id, reviewer_id, content, 
                 parent_comment_id, replied_by, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
             RETURNING *
             "#
         )
         .bind(Uuid::new_v4())
         .bind(protocol_version_id)
+        .bind(target_protocol_id)
         .bind(replied_by)
         .bind(&req.content)
         .bind(req.parent_comment_id)
@@ -1526,19 +1545,28 @@ impl ProtocolService {
         let content = draft_content
             .ok_or_else(|| AppError::BadRequest("No draft content to submit".to_string()))?;
 
+        // 取得 protocol_id
+        let target_protocol_id: Uuid = sqlx::query_scalar(
+            "SELECT protocol_id FROM review_comments WHERE id = $1"
+        )
+        .bind(comment_id)
+        .fetch_one(pool)
+        .await?;
+
         // 建立正式回覆
         let reply = sqlx::query_as::<_, ReviewComment>(
             r#"
             INSERT INTO review_comments (
-                id, protocol_version_id, reviewer_id, content, 
+                id, protocol_version_id, protocol_id, reviewer_id, content, 
                 parent_comment_id, replied_by, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
             RETURNING *
             "#
         )
         .bind(Uuid::new_v4())
         .bind(protocol_version_id)
+        .bind(target_protocol_id)
         .bind(submitted_by)
         .bind(&content)
         .bind(comment_id)
@@ -1693,7 +1721,33 @@ impl ProtocolService {
             .await?
         };
 
-        Ok(protocols)
+    Ok(protocols)
+    }
+
+    /// 儲存獸醫審查表
+    pub async fn save_vet_review_form(
+        pool: &sqlx::PgPool,
+        protocol_id: uuid::Uuid,
+        vet_id: uuid::Uuid,
+        review_form: &serde_json::Value,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO vet_review_assignments (id, protocol_id, vet_id, assigned_at, review_form)
+            VALUES ($1, $2, $3, NOW(), $4)
+            ON CONFLICT (protocol_id) DO UPDATE SET
+                review_form = $4,
+                completed_at = NOW()
+            "#
+        )
+        .bind(uuid::Uuid::new_v4())
+        .bind(protocol_id)
+        .bind(vet_id)
+        .bind(review_form)
+        .execute(pool)
+        .await?;
+
+        Ok(())
     }
 }
 
