@@ -856,12 +856,7 @@ export function MainLayout() {
           <div className="flex items-center space-x-4">
             {/* 顯示目前日期 */}
             <span className="text-sm text-muted-foreground">
-              {new Date().toLocaleDateString(i18n.language, {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
+              {new Date().toLocaleDateString(i18n.language)}
             </span>
 
             {/* 通知鈴鐺圖示與計數 */}

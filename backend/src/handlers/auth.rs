@@ -37,32 +37,54 @@ pub async fn login(
     let response = match AuthService::login(&state.db, &state.config, &req).await {
         Ok(resp) => {
             // 登入成功：記錄事件和建立 session
-            let _ = LoginTracker::log_success(
-                &state.db,
-                resp.user.id,
-                &req.email,
-                Some(&ip),
-                user_agent.as_deref(),
-            ).await;
+            let db = state.db.clone();
+            let user_id = resp.user.id;
+            let email = req.email.clone();
+            let ip_clone = ip.clone();
+            let ua_clone = user_agent.clone();
             
-            let _ = SessionManager::create_session(
-                &state.db,
-                resp.user.id,
-                Some(&ip),
-                user_agent.as_deref(),
-            ).await;
+            tokio::spawn(async move {
+                if let Err(e) = LoginTracker::log_success(
+                    &db,
+                    user_id,
+                    &email,
+                    Some(&ip_clone),
+                    ua_clone.as_deref(),
+                ).await {
+                    tracing::error!("Failed to log login success for {}: {}", email, e);
+                }
+                
+                if let Err(e) = SessionManager::create_session(
+                    &db,
+                    user_id,
+                    Some(&ip_clone),
+                    ua_clone.as_deref(),
+                ).await {
+                    tracing::error!("Failed to create session for {}: {}", email, e);
+                }
+            });
             
             resp
         }
         Err(e) => {
             // 登入失敗：記錄失敗事件（會自動檢測暴力破解）
-            let _ = LoginTracker::log_failure(
-                &state.db,
-                &req.email,
-                Some(&ip),
-                user_agent.as_deref(),
-                &e.to_string(),
-            ).await;
+            let db = state.db.clone();
+            let email = req.email.clone();
+            let ip_clone = ip.clone();
+            let ua_clone = user_agent.clone();
+            let err_msg = e.to_string();
+            
+            tokio::spawn(async move {
+                if let Err(log_err) = LoginTracker::log_failure(
+                    &db,
+                    &email,
+                    Some(&ip_clone),
+                    ua_clone.as_deref(),
+                    &err_msg,
+                ).await {
+                    tracing::error!("Failed to log login failure for {}: {}", email, log_err);
+                }
+            });
             
             return Err(e);
         }

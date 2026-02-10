@@ -388,7 +388,7 @@ pub async fn remove_co_editor(
 ) -> Result<Json<()>> {
     require_permission!(current_user, "aup.review.assign");
     
-    ProtocolService::remove_co_editor(&state.db, protocol_id, user_id).await?;
+    ProtocolService::remove_co_editor(&state.db, protocol_id, user_id, current_user.id).await?;
     Ok(Json(()))
 }
 

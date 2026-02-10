@@ -36,7 +36,7 @@ impl LoginTracker {
                 created_at
             ) VALUES (
                 $1, $2, $3, 'login_success',
-                $4, $5, $6, $7, $8,
+                $4::INET, $5, $6, $7, $8,
                 $9, $10, $11, $12, NOW()
             )
             "#,
@@ -310,8 +310,8 @@ fn parse_user_agent(ua: Option<&str>) -> DeviceInfo {
 fn check_unusual_time() -> bool {
     // 台灣時區 UTC+8
     let taiwan_hour = (Utc::now().hour() + 8) % 24;
-    // 非工作時間：晚上 10 點到早上 6 點（台灣時間）
-    taiwan_hour >= 22 || taiwan_hour < 6
+    // 非工作時間：晚上 6 點到早上 8 點（台灣時間）
+    taiwan_hour >= 18 || taiwan_hour < 8
 }
 
 

@@ -280,18 +280,20 @@ export function AdminAuditPage() {
 
                 {/* Activities Tab */}
                 <TabsContent value="activities" className="space-y-4">
-                    <div className="flex gap-4">
+                    <div className="flex flex-wrap items-center gap-4">
                         <Input
                             type="date"
                             value={dateFrom}
                             onChange={(e) => setDateFrom(e.target.value)}
                             placeholder="開始日期"
+                            className="max-w-[150px]"
                         />
                         <Input
                             type="date"
                             value={dateTo}
                             onChange={(e) => setDateTo(e.target.value)}
                             placeholder="結束日期"
+                            className="max-w-[150px]"
                         />
                         <Input
                             placeholder="搜尋..."
@@ -358,16 +360,18 @@ export function AdminAuditPage() {
 
                 {/* Logins Tab */}
                 <TabsContent value="logins" className="space-y-4">
-                    <div className="flex gap-4">
+                    <div className="flex flex-wrap items-center gap-4">
                         <Input
                             type="date"
                             value={dateFrom}
                             onChange={(e) => setDateFrom(e.target.value)}
+                            className="max-w-[150px]"
                         />
                         <Input
                             type="date"
                             value={dateTo}
                             onChange={(e) => setDateTo(e.target.value)}
+                            className="max-w-[150px]"
                         />
                         <Select defaultValue="all">
                             <SelectTrigger className="w-[180px]">

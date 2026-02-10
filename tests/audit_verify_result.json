@@ -1,0 +1,127 @@
+{
+  "total": 24,
+  "passed": 24,
+  "failed": 0,
+  "details": [
+    {
+      "name": "Dashboard API 回傳 200",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Dashboard 包含所有必要欄位",
+      "passed": true,
+      "detail": "8/8 欄位齊全"
+    },
+    {
+      "name": "今日登入數 > 0",
+      "passed": true,
+      "detail": "total_logins_today=26"
+    },
+    {
+      "name": "活躍 sessions >= 1",
+      "passed": true,
+      "detail": "active_sessions=117"
+    },
+    {
+      "name": "Activities API 回傳 200",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "回傳 PaginatedResponse 格式",
+      "passed": true,
+      "detail": "格式正確"
+    },
+    {
+      "name": "有活動紀錄",
+      "passed": true,
+      "detail": "共 2 筆"
+    },
+    {
+      "name": "活動紀錄包含必要欄位",
+      "passed": true,
+      "detail": "欄位: ['id', 'actor_user_id', 'actor_email', 'actor_display_name', 'actor_roles', 'session_id', 'event_category', 'event_type', 'event_severity', 'entity_type', 'entity_id', 'entity_display_name', 'before_data', 'after_data', 'changed_fields', 'ip_address', 'user_agent', 'request_path', 'request_method', 'response_status', 'is_suspicious', 'suspicious_reason', 'created_at', 'partition_date']"
+    },
+    {
+      "name": "包含 PROTOCOL_* 事件",
+      "passed": true,
+      "detail": "共 1 筆 Protocol 事件"
+    },
+    {
+      "name": "Logins API 回傳 200",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "有登入事件",
+      "passed": true,
+      "detail": "共 50 筆"
+    },
+    {
+      "name": "登入事件包含必要欄位",
+      "passed": true,
+      "detail": "欄位: ['id', 'user_id', 'email', 'user_name', 'event_type', 'ip_address', 'user_agent', 'device_type', 'browser', 'os', 'is_unusual_time', 'is_unusual_location', 'is_new_device', 'failure_reason', 'created_at']"
+    },
+    {
+      "name": "包含 login_success 事件",
+      "passed": true,
+      "detail": "共 26 筆"
+    },
+    {
+      "name": "Sessions API 回傳 200",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "有活躍 Session",
+      "passed": true,
+      "detail": "共 48 個活躍"
+    },
+    {
+      "name": "Session 包含必要欄位",
+      "passed": true,
+      "detail": "欄位: ['id', 'user_id', 'user_email', 'user_name', 'started_at', 'ended_at', 'last_activity_at', 'ip_address', 'user_agent', 'page_view_count', 'action_count', 'is_active', 'ended_reason']"
+    },
+    {
+      "name": "Alerts API 回傳 200",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "警報包含必要欄位",
+      "passed": true,
+      "detail": "欄位: ['id', 'alert_type', 'severity', 'title', 'description', 'user_id', 'activity_log_id', 'login_event_id', 'context_data', 'status', 'resolved_by', 'resolved_at', 'resolution_notes', 'created_at', 'updated_at']"
+    },
+    {
+      "name": "取得 Protocol Activities API 回傳 200",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "有活動紀錄",
+      "passed": true,
+      "detail": "共 38 筆"
+    },
+    {
+      "name": "包含 CREATED 活動",
+      "passed": true,
+      "detail": "找到"
+    },
+    {
+      "name": "包含 SUBMITTED 活動",
+      "passed": true,
+      "detail": "找到"
+    },
+    {
+      "name": "包含 STATUS_CHANGED 活動",
+      "passed": true,
+      "detail": "找到"
+    },
+    {
+      "name": "APPROVED 應有 APPROVED 活動",
+      "passed": true,
+      "detail": ""
+    }
+  ]
+}
