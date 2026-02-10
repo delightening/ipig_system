@@ -183,16 +183,14 @@ export function ProtocolDetailPage() {
 
   // Fetch review comments
   const { data: comments, isLoading: commentsLoading } = useQuery({
-    queryKey: ['protocol-comments', id, versions?.[0]?.id],
+    queryKey: ['protocol-comments', id],
     queryFn: async () => {
-      if (!versions || versions.length === 0) return []
-      const latestVersionId = versions[0].id
       const response = await api.get<ReviewCommentResponse[]>(`/reviews/comments`, {
-        params: { protocol_version_id: latestVersionId }
+        params: { protocol_id: id }
       })
       return response.data
     },
-    enabled: !!id && !!versions && versions.length > 0 && activeTab === 'comments',
+    enabled: !!id && activeTab === 'comments',
   })
 
   // Fetch review assignments
@@ -1747,11 +1745,12 @@ export function ProtocolDetailPage() {
               {selectedVersion && t('protocols.detail.dialogs.version.submitted', { time: formatDateTime(selectedVersion.submitted_at) })}
             </DialogDescription>
           </DialogHeader>
-          <div className="overflow-auto max-h-[60vh]">
+          <div className="overflow-auto max-h-[60vh] py-4">
             {selectedVersion?.content_snapshot ? (
-              <pre className="bg-slate-50 p-4 rounded-lg text-sm">
-                {JSON.stringify(selectedVersion.content_snapshot, null, 2)}
-              </pre>
+              <ProtocolContentView
+                workingContent={selectedVersion.content_snapshot}
+                protocolTitle={protocol?.title || ''}
+              />
             ) : (
               <p className="text-center text-muted-foreground py-8">{t('protocols.detail.dialogs.version.noContent')}</p>
             )}

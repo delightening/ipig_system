@@ -461,10 +461,13 @@ impl ProtocolService {
 
         // 驗證 UNDER_REVIEW 狀態必須提供 2-3 位審查委員
         if req.to_status == ProtocolStatus::UnderReview {
-            // 檢查上一個狀態是否是 VET_REVIEW（從預審或重送進入）
-            if protocol.status != ProtocolStatus::VetReview && protocol.status != ProtocolStatus::Resubmitted {
+            // 檢查上一個狀態（從預審、獸醫審查或提交/重送進入）
+            if protocol.status != ProtocolStatus::VetReview 
+                && protocol.status != ProtocolStatus::Resubmitted
+                && protocol.status != ProtocolStatus::PreReview
+                && protocol.status != ProtocolStatus::Submitted {
                 return Err(AppError::BusinessRule(
-                    "必須從獸醫審查或重送狀態進入正式審查".to_string()
+                    "必須從提交、預審、獸醫審查或重送狀態進入正式審查".to_string()
                 ));
             }
             
@@ -1327,7 +1330,7 @@ impl ProtocolService {
     }
 
     /// 取得審查意見（含回覆）
-    pub async fn get_comments(pool: &PgPool, protocol_version_id: Uuid) -> Result<Vec<ReviewCommentResponse>> {
+    pub async fn get_comments(pool: &PgPool, protocol_id: Uuid) -> Result<Vec<ReviewCommentResponse>> {
         let comments = sqlx::query_as::<_, ReviewCommentResponse>(
             r#"
             SELECT 
@@ -1344,13 +1347,13 @@ impl ProtocolService {
             LEFT JOIN users u ON c.reviewer_id = u.id
             LEFT JOIN users ru ON c.replied_by = ru.id
             LEFT JOIN users du ON c.drafted_by = du.id
-            WHERE c.protocol_version_id = $1
+            WHERE c.protocol_id = $1
             ORDER BY 
                 COALESCE(c.parent_comment_id, c.id) ASC,
                 c.created_at ASC
             "#
         )
-        .bind(protocol_version_id)
+        .bind(protocol_id)
         .fetch_all(pool)
         .await?;
 
