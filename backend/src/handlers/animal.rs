@@ -23,7 +23,7 @@ use crate::{
         DeleteRequest,  // GLP: 刪除請求含原因
     },
     require_permission,
-    services::{AnimalService, PdfService},
+    services::{AnimalService, AuditService, PdfService},
     AppError, AppState, Result,
 };
 use axum::extract::Multipart;
@@ -219,6 +219,22 @@ pub async fn create_pig(
     }
     
     let pig = AnimalService::create(&state.db, &req, current_user.id).await?;
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "PIG_CREATE",
+        Some("pig"), Some(pig.id), Some(&pig.ear_tag),
+        None,
+        Some(serde_json::json!({
+            "ear_tag": pig.ear_tag,
+            "breed": format!("{:?}", req.breed),
+            "gender": format!("{:?}", req.gender),
+        })),
+        None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (PIG_CREATE): {}", e);
+    }
+
     Ok(Json(pig))
 }
 
@@ -233,6 +249,16 @@ pub async fn update_pig(
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let pig = AnimalService::update(&state.db, id, &req).await?;
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "PIG_UPDATE",
+        Some("pig"), Some(id), Some(&pig.ear_tag),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (PIG_UPDATE): {}", e);
+    }
+
     Ok(Json(pig))
 }
 
@@ -247,6 +273,18 @@ pub async fn delete_pig(
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     AnimalService::delete_with_reason(&state.db, id, &req.reason, current_user.id).await?;
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "PIG_DELETE",
+        Some("pig"), Some(id), Some(&format!("豬隻 {} (原因: {})", id, req.reason)),
+        None,
+        Some(serde_json::json!({ "reason": req.reason })),
+        None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (PIG_DELETE): {}", e);
+    }
+
     Ok(Json(serde_json::json!({ "message": "Pig deleted successfully" })))
 }
 
@@ -259,6 +297,22 @@ pub async fn batch_assign_pigs(
     require_permission!(current_user, "animal.info.assign");
     
     let pigs = AnimalService::batch_assign(&state.db, &req).await?;
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "PIG_BATCH_ASSIGN",
+        Some("pig"), None,
+        Some(&format!("批次分配 {} 隻至 {}", pigs.len(), req.iacuc_no.as_deref().unwrap_or("未知計畫"))),
+        None,
+        Some(serde_json::json!({
+            "count": pigs.len(),
+            "iacuc_no": req.iacuc_no,
+        })),
+        None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (PIG_BATCH_ASSIGN): {}", e);
+    }
+
     Ok(Json(pigs))
 }
 
@@ -271,6 +325,19 @@ pub async fn batch_start_experiment(
     require_permission!(current_user, "animal.info.edit");
     
     let pigs = AnimalService::batch_start_experiment(&state.db, &req).await?;
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "PIG_BATCH_EXPERIMENT",
+        Some("pig"), None,
+        Some(&format!("批次開始實驗 {} 隻", pigs.len())),
+        None,
+        Some(serde_json::json!({ "count": pigs.len() })),
+        None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (PIG_BATCH_EXPERIMENT): {}", e);
+    }
+
     Ok(Json(pigs))
 }
 
@@ -362,7 +429,22 @@ pub async fn create_pig_observation(
             );
         }
     }
-    
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "OBSERVATION_CREATE",
+        Some("pig_observation"), Some(pig_id),
+        Some(&format!("觀察紀錄 #{} (pig: {})", observation.id, pig_id)),
+        None,
+        Some(serde_json::json!({
+            "observation_id": observation.id,
+            "is_emergency": req.is_emergency,
+        })),
+        None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (OBSERVATION_CREATE): {}", e);
+    }
+
     Ok(Json(observation))
 }
 
@@ -376,6 +458,17 @@ pub async fn update_pig_observation(
     require_permission!(current_user, "animal.record.edit");
     
     let observation = AnimalService::update_observation(&state.db, id, &req, current_user.id).await?;
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "OBSERVATION_UPDATE",
+        Some("pig_observation"), None,
+        Some(&format!("觀察紀錄 #{}", id)),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (OBSERVATION_UPDATE): {}", e);
+    }
+
     Ok(Json(observation))
 }
 
@@ -390,6 +483,19 @@ pub async fn delete_pig_observation(
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     AnimalService::soft_delete_observation_with_reason(&state.db, id, &req.reason, current_user.id).await?;
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "OBSERVATION_DELETE",
+        Some("pig_observation"), None,
+        Some(&format!("觀察紀錄 #{} (原因: {})", id, req.reason)),
+        None,
+        Some(serde_json::json!({ "reason": req.reason })),
+        None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (OBSERVATION_DELETE): {}", e);
+    }
+
     Ok(Json(serde_json::json!({ "message": "Observation deleted successfully" })))
 }
 
@@ -473,6 +579,17 @@ pub async fn create_pig_surgery(
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let surgery = AnimalService::create_surgery(&state.db, pig_id, &req, current_user.id).await?;
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "SURGERY_CREATE",
+        Some("pig_surgery"), Some(pig_id),
+        Some(&format!("手術紀錄 #{} (pig: {})", surgery.id, pig_id)),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (SURGERY_CREATE): {}", e);
+    }
+
     Ok(Json(surgery))
 }
 
@@ -486,6 +603,17 @@ pub async fn update_pig_surgery(
     require_permission!(current_user, "animal.record.edit");
     
     let surgery = AnimalService::update_surgery(&state.db, id, &req, current_user.id).await?;
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "SURGERY_UPDATE",
+        Some("pig_surgery"), None,
+        Some(&format!("手術紀錄 #{}", id)),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (SURGERY_UPDATE): {}", e);
+    }
+
     Ok(Json(surgery))
 }
 
@@ -500,6 +628,19 @@ pub async fn delete_pig_surgery(
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     AnimalService::soft_delete_surgery_with_reason(&state.db, id, &req.reason, current_user.id).await?;
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "SURGERY_DELETE",
+        Some("pig_surgery"), None,
+        Some(&format!("手術紀錄 #{} (原因: {})", id, req.reason)),
+        None,
+        Some(serde_json::json!({ "reason": req.reason })),
+        None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (SURGERY_DELETE): {}", e);
+    }
+
     Ok(Json(serde_json::json!({ "message": "Surgery deleted successfully" })))
 }
 
@@ -562,6 +703,17 @@ pub async fn create_pig_weight(
     require_permission!(current_user, "animal.record.create");
     
     let weight = AnimalService::create_weight(&state.db, pig_id, &req, current_user.id).await?;
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "WEIGHT_CREATE",
+        Some("pig_weight"), Some(pig_id),
+        Some(&format!("體重紀錄 (pig: {})", pig_id)),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (WEIGHT_CREATE): {}", e);
+    }
+
     Ok(Json(weight))
 }
 
@@ -575,6 +727,17 @@ pub async fn update_pig_weight(
     require_permission!(current_user, "animal.record.edit");
     
     let weight = AnimalService::update_weight(&state.db, id, &req).await?;
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "WEIGHT_UPDATE",
+        Some("pig_weight"), None,
+        Some(&format!("體重紀錄 #{}", id)),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (WEIGHT_UPDATE): {}", e);
+    }
+
     Ok(Json(weight))
 }
 
@@ -589,6 +752,19 @@ pub async fn delete_pig_weight(
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     AnimalService::soft_delete_weight_with_reason(&state.db, id, &req.reason, current_user.id).await?;
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "WEIGHT_DELETE",
+        Some("pig_weight"), None,
+        Some(&format!("體重紀錄 #{} (原因: {})", id, req.reason)),
+        None,
+        Some(serde_json::json!({ "reason": req.reason })),
+        None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (WEIGHT_DELETE): {}", e);
+    }
+
     Ok(Json(serde_json::json!({ "message": "Weight record deleted successfully" })))
 }
 
@@ -616,6 +792,17 @@ pub async fn create_pig_vaccination(
     require_permission!(current_user, "animal.record.create");
     
     let vaccination = AnimalService::create_vaccination(&state.db, pig_id, &req, current_user.id).await?;
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "VACCINATION_CREATE",
+        Some("pig_vaccination"), Some(pig_id),
+        Some(&format!("疑苗紀錄 (pig: {})", pig_id)),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (VACCINATION_CREATE): {}", e);
+    }
+
     Ok(Json(vaccination))
 }
 
@@ -629,6 +816,17 @@ pub async fn update_pig_vaccination(
     require_permission!(current_user, "animal.record.edit");
     
     let vaccination = AnimalService::update_vaccination(&state.db, id, &req).await?;
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "VACCINATION_UPDATE",
+        Some("pig_vaccination"), None,
+        Some(&format!("疑苗紀錄 #{}", id)),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (VACCINATION_UPDATE): {}", e);
+    }
+
     Ok(Json(vaccination))
 }
 
@@ -643,6 +841,19 @@ pub async fn delete_pig_vaccination(
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     AnimalService::soft_delete_vaccination_with_reason(&state.db, id, &req.reason, current_user.id).await?;
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "VACCINATION_DELETE",
+        Some("pig_vaccination"), None,
+        Some(&format!("疑苗紀錄 #{} (原因: {})", id, req.reason)),
+        None,
+        Some(serde_json::json!({ "reason": req.reason })),
+        None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (VACCINATION_DELETE): {}", e);
+    }
+
     Ok(Json(serde_json::json!({ "message": "Vaccination record deleted successfully" })))
 }
 
@@ -670,6 +881,17 @@ pub async fn upsert_pig_sacrifice(
     require_permission!(current_user, "animal.record.create");
     
     let sacrifice = AnimalService::upsert_sacrifice(&state.db, pig_id, &req, current_user.id).await?;
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "SACRIFICE_UPSERT",
+        Some("pig_sacrifice"), Some(pig_id),
+        Some(&format!("犧牲/安樂死紀錄 (pig: {})", pig_id)),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (SACRIFICE_UPSERT): {}", e);
+    }
+
     Ok(Json(sacrifice))
 }
 
@@ -703,7 +925,19 @@ pub async fn add_observation_vet_recommendation(
             Some(&state.config),
         ).await;
     }
-    
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "VET_RECOMMENDATION_ADD",
+        Some("vet_recommendation"), None,
+        Some(&format!("觀察紀錄 #{} 獸醫建議", id)),
+        None,
+        Some(serde_json::json!({ "record_type": "observation", "record_id": id, "is_urgent": req.is_urgent })),
+        None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (VET_RECOMMENDATION_ADD): {}", e);
+    }
+
     Ok(Json(recommendation))
 }
 
@@ -733,11 +967,21 @@ pub async fn add_surgery_vet_recommendation(
             Some(&state.config),
         ).await;
     }
-    
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "VET_RECOMMENDATION_ADD",
+        Some("vet_recommendation"), None,
+        Some(&format!("手術紀錄 #{} 獸醫建議", id)),
+        None,
+        Some(serde_json::json!({ "record_type": "surgery", "record_id": id, "is_urgent": req.is_urgent })),
+        None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (VET_RECOMMENDATION_ADD): {}", e);
+    }
+
     Ok(Json(recommendation))
 }
-
-/// 為觀察記錄新增獸醫建議（帶附件）
 pub async fn add_observation_vet_recommendation_with_attachments(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -764,11 +1008,21 @@ pub async fn add_observation_vet_recommendation_with_attachments(
             Some(&state.config),
         ).await;
     }
-    
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "VET_RECOMMENDATION_ADD",
+        Some("vet_recommendation"), None,
+        Some(&format!("觀察紀錄 #{} 獸醫建議 (含附件)", id)),
+        None,
+        Some(serde_json::json!({ "record_type": "observation", "record_id": id, "is_urgent": req.is_urgent, "has_attachments": true })),
+        None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (VET_RECOMMENDATION_ADD): {}", e);
+    }
+
     Ok(Json(recommendation))
 }
-
-/// 為手術記錄新增獸醫建議（帶附件）
 pub async fn add_surgery_vet_recommendation_with_attachments(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -795,11 +1049,21 @@ pub async fn add_surgery_vet_recommendation_with_attachments(
             Some(&state.config),
         ).await;
     }
-    
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "VET_RECOMMENDATION_ADD",
+        Some("vet_recommendation"), None,
+        Some(&format!("手術紀錄 #{} 獸醫建議 (含附件)", id)),
+        None,
+        Some(serde_json::json!({ "record_type": "surgery", "record_id": id, "is_urgent": req.is_urgent, "has_attachments": true })),
+        None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (VET_RECOMMENDATION_ADD): {}", e);
+    }
+
     Ok(Json(recommendation))
 }
-
-/// 取得觀察記錄的所有獸醫建議
 pub async fn get_observation_vet_recommendations(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,

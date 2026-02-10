@@ -106,20 +106,18 @@ impl ProtocolService {
         .execute(pool)
         .await?;
 
-        // 記錄活動日誌
-        let _ = AuditService::log_activity(
+        // 記錄活動紀錄
+        Self::record_activity(
             pool,
+            protocol.id,
+            ProtocolActivityType::Created,
             created_by,
-            "AUP",
-            "PROTOCOL_CREATE",
-            Some("protocol"),
-            Some(protocol.id),
-            Some(&protocol.title),
             None,
-            Some(serde_json::to_value(&protocol).unwrap_or_default()),
+            Some(protocol.status.as_str().to_string()),
             None,
             None,
-        ).await;
+            None,
+        ).await?;
 
         Ok(protocol)
     }
@@ -299,20 +297,18 @@ impl ProtocolService {
         .fetch_one(pool)
         .await?;
 
-        // 記錄活動日誌（儲存草稿）
-        let _ = AuditService::log_activity(
+        // 記錄專屬活動紀錄（record_activity 現在也會自動同步到 AuditService）
+        Self::record_activity(
             pool,
+            id,
+            ProtocolActivityType::Updated,
             updated_by,
-            "AUP",
-            "PROTOCOL_UPDATE",
-            Some("protocol"),
-            Some(protocol.id),
-            Some(&protocol.title),
-            None,
-            Some(serde_json::to_value(&updated).unwrap_or_default()),
             None,
             None,
-        ).await;
+            None,
+            None,
+            None,
+        ).await?;
 
         Ok(updated)
     }
@@ -427,7 +423,7 @@ impl ProtocolService {
         Self::record_status_change(pool, id, Some(protocol.status), new_status, submitted_by, None).await?;
 
         // 記錄活動日誌（送出審查）
-        let _ = AuditService::log_activity(
+        if let Err(e) = AuditService::log_activity(
             pool,
             submitted_by,
             "AUP",
@@ -439,7 +435,9 @@ impl ProtocolService {
             None,
             None,
             None,
-        ).await;
+        ).await {
+            tracing::error!("寫入 user_activity_logs 失敗 (PROTOCOL_SUBMIT): {}", e);
+        }
 
         Ok(updated)
     }
@@ -753,7 +751,7 @@ impl ProtocolService {
         }
 
         // 記錄活動日誌（狀態變更）
-        let _ = AuditService::log_activity(
+        if let Err(e) = AuditService::log_activity(
             pool,
             changed_by,
             "AUP",
@@ -765,7 +763,9 @@ impl ProtocolService {
             Some(serde_json::json!({ "status": req.to_status, "remark": req.remark })),
             None,
             None,
-        ).await;
+        ).await {
+            tracing::error!("寫入 user_activity_logs 失敗 (PROTOCOL_STATUS_CHANGE): {}", e);
+        }
 
         Ok(updated)
     }
@@ -965,6 +965,50 @@ impl ProtocolService {
         .fetch_one(pool)
         .await?;
 
+        // 取得計畫標題用於全域審計日誌
+        let protocol_title: String = sqlx::query_scalar(
+            "SELECT title FROM protocols WHERE id = $1"
+        )
+        .bind(protocol_id)
+        .fetch_optional(pool)
+        .await?
+        .unwrap_or_else(|| "Unknown Protocol".to_string());
+
+        // 同步記錄到全域審計日誌
+        let event_type = match activity_type {
+            ProtocolActivityType::Created => "PROTOCOL_CREATE",
+            ProtocolActivityType::Updated => "PROTOCOL_UPDATE",
+            ProtocolActivityType::Submitted => "PROTOCOL_SUBMIT",
+            ProtocolActivityType::Resubmitted => "PROTOCOL_RESUBMIT",
+            ProtocolActivityType::Approved => "PROTOCOL_APPROVE",
+            ProtocolActivityType::ApprovedWithConditions => "PROTOCOL_APPROVE_CONDITIONAL",
+            ProtocolActivityType::Rejected => "PROTOCOL_REJECT",
+            ProtocolActivityType::CommentAdded => "PROTOCOL_COMMENT",
+            ProtocolActivityType::CommentReplied => "PROTOCOL_COMMENT_REPLY",
+            ProtocolActivityType::ReviewerAssigned => "PROTOCOL_REVIEWER_ASSIGN",
+            ProtocolActivityType::VetAssigned => "PROTOCOL_VET_ASSIGN",
+            ProtocolActivityType::StatusChanged => "PROTOCOL_STATUS_CHANGE",
+            ProtocolActivityType::CoeditorAssigned => "PROTOCOL_COEDITOR_ASSIGN",
+            ProtocolActivityType::CoeditorRemoved => "PROTOCOL_COEDITOR_REMOVE",
+            _ => "PROTOCOL_ACTION",
+        };
+
+        if let Err(e) = AuditService::log_activity(
+            pool,
+            actor_id,
+            "AUP",
+            event_type,
+            Some("protocol"),
+            Some(protocol_id),
+            Some(&protocol_title),
+            None,
+            None,
+            None,
+            None,
+        ).await {
+            tracing::error!("寫入 user_activity_logs 失敗 ({}): {}", event_type, e);
+        }
+
         Ok(activity)
     }
 
@@ -1051,6 +1095,18 @@ impl ProtocolService {
         .fetch_one(pool)
         .await?;
 
+        Self::record_activity(
+            pool,
+            req.protocol_id,
+            ProtocolActivityType::ReviewerAssigned,
+            assigned_by,
+            None,
+            None,
+            Some(("user", req.reviewer_id, "Reviewer")),
+            Some(format!("Assigned reviewer {}", req.reviewer_id)),
+            None,
+        ).await?;
+
         Ok(assignment)
     }
 
@@ -1078,6 +1134,18 @@ impl ProtocolService {
         .bind(assigned_by)
         .fetch_one(pool)
         .await?;
+
+        Self::record_activity(
+            pool,
+            protocol_id,
+            ProtocolActivityType::ReviewerAssigned,
+            assigned_by,
+            None,
+            None,
+            Some(("user", reviewer_id, "Primary Reviewer")),
+            Some(format!("Assigned primary reviewer {}", reviewer_id)),
+            None,
+        ).await?;
 
         Ok(assignment)
     }
@@ -1169,6 +1237,18 @@ impl ProtocolService {
         .execute(pool)
         .await?;
 
+        Self::record_activity(
+            pool,
+            protocol_id,
+            ProtocolActivityType::VetAssigned,
+            assigned_by,
+            None,
+            None,
+            Some(("user", vet_user_id, "Vet")),
+            Some(format!("Assigned vet reviewer {}", vet_user_id)),
+            None,
+        ).await?;
+
         Ok(())
     }
 
@@ -1229,6 +1309,18 @@ impl ProtocolService {
         .fetch_one(pool)
         .await?;
 
+        Self::record_activity(
+            pool,
+            req.protocol_id,
+            ProtocolActivityType::CoeditorAssigned,
+            assigned_by,
+            None,
+            None,
+            Some(("user", req.user_id, "Co-editor")),
+            Some(format!("Assigned co-editor {}", req.user_id)),
+            None,
+        ).await?;
+
         Ok(assignment)
     }
 
@@ -1267,6 +1359,7 @@ impl ProtocolService {
         pool: &PgPool,
         protocol_id: Uuid,
         user_id: Uuid,
+        removed_by: Uuid,
     ) -> Result<()> {
         // 驗證該用戶確實是此協議的 co-editor
         let is_co_editor: (bool,) = sqlx::query_as(
@@ -1299,6 +1392,18 @@ impl ProtocolService {
         .bind(user_id)
         .execute(pool)
         .await?;
+
+        Self::record_activity(
+            pool,
+            protocol_id,
+            ProtocolActivityType::CoeditorRemoved,
+            removed_by,
+            None,
+            None,
+            Some(("user", user_id, "Co-editor")),
+            Some(format!("Removed co-editor {}", user_id)),
+            None,
+        ).await?;
 
         Ok(())
     }
@@ -1334,6 +1439,18 @@ impl ProtocolService {
         .bind(&req.content)
         .fetch_one(pool)
         .await?;
+
+        Self::record_activity(
+            pool,
+            protocol_id,
+            ProtocolActivityType::CommentAdded,
+            reviewer_id,
+            None,
+            None,
+            Some(("comment", comment.id, &comment.content)),
+            None,
+            None,
+        ).await?;
 
         Ok(comment)
     }
@@ -1420,29 +1537,18 @@ impl ProtocolService {
         .fetch_one(pool)
         .await?;
 
-        // 記錄活動日誌（回覆意見）
-        // 嘗試獲取 protocol_id
-        let protocol_id: Option<Uuid> = sqlx::query_scalar(
-            "SELECT protocol_id FROM review_comments WHERE id = $1"
-        )
-        .bind(req.parent_comment_id)
-        .fetch_optional(pool)
-        .await
-        .unwrap_or(None);
-
-        let _ = AuditService::log_activity(
+        // 記錄活動日誌
+        Self::record_activity(
             pool,
+            target_protocol_id,
+            ProtocolActivityType::CommentReplied,
             replied_by,
-            "AUP",
-            "COMMENT_REPLY",
-            Some("protocol"),
-            protocol_id,
             None,
             None,
-            Some(serde_json::json!({ "comment_id": comment.id, "parent_id": req.parent_comment_id })),
+            Some(("comment", req.parent_comment_id, "Comment Reply")),
+            Some(format!("Reply: {}", if req.content.len() > 50 { format!("{}...", &req.content[..47]) } else { req.content.clone() })),
             None,
-            None,
-        ).await;
+        ).await?;
 
         Ok(comment)
     }
