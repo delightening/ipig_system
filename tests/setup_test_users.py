@@ -13,6 +13,7 @@ USERS = [
     {"email": "rev2_test@example.com", "password": "password123", "name": "Reviewer 2"},
     {"email": "rev3_test@example.com", "password": "password123", "name": "Reviewer 3"},
     {"email": "chair_test@example.com", "password": "password123", "name": "IACUC Chair"},
+    {"email": "rev_other_test@example.com", "password": "password123", "name": "Reviewer Other"},
 ]
 
 def create_users():
