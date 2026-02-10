@@ -16,6 +16,7 @@ USER_ROLES = {
     "rev2_test@example.com": "REVIEWER",
     "rev3_test@example.com": "REVIEWER",
     "chair_test@example.com": "IACUC_CHAIR",
+    "rev_other_test@example.com": "REVIEWER",
 }
 
 def assign_roles():
