@@ -27,6 +27,10 @@
     - ⚠️ 已知問題：`user_activity_logs` 為空 — `AuditService::log_activity` 被 `let _ =` 靜默吞掉錯誤
     - [x] 驗證腳本：`tests/audit_verify.py`
     - [x] 修復 `let _ = AuditService::log_activity(...)` 為 `if let Err(e)` + `tracing::error!`（3 處）
+- [x] 整合實驗動物管理活動紀錄至安全審計 (2026-02-11)
+    - [x] 在 `handlers/animal.rs` 中為 23 個寫入操作添加 `AuditService::log_activity()` 呼叫
+    - [x] 涵蓋：豬隻 CRUD、觀察/手術/體重/疫苗/犧牲紀錄、獸醫建議、匯入匯出、病理報告
+    - [x] 統一使用 `ANIMAL` 事件類別，各操作有獨立 event_type（如 PIG_CREATE、OBSERVATION_DELETE）
 
 ---
-*最後更新: 2026-02-11 01:25*
+*最後更新: 2026-02-11 01:45*
