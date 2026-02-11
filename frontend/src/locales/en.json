@@ -72,7 +72,7 @@
         "entryDate": "Entry Date",
         "position": "Position",
         "positionPlaceholder": "e.g. Researcher, Professor",
-        "yearsExperience": "Years of Experience",
+        "yearsExperience": "Years of Experience before entry",
         "trainings": "Trainings/Qualifications",
         "saveChanges": "Save All Changes",
         "trainingTitle": "Training & Certificates",
@@ -1106,6 +1106,14 @@
                     "E": "E. Laboratory Animal Regulations and Management",
                     "F": "F. Other"
                 }
+            },
+            "trainings": {
+                "A": "A. IACUC Member Training",
+                "B": "B. IACUC Educational Workshop",
+                "C": "C. Radiation Safety Training",
+                "D": "D. Laboratory Animal Technical Workshop",
+                "E": "E. Laboratory Animal Regulations and Management",
+                "F": "F. Other"
             }
         },
         "attachments": {
