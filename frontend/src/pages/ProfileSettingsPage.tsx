@@ -359,7 +359,7 @@ export function ProfileSettingsPage() {
                                                             htmlFor={`training-${code}`}
                                                             className="text-sm font-bold leading-none cursor-pointer text-slate-700"
                                                         >
-                                                            {t(`aup.personnel.addDialog.trainings.${code}`)}
+                                                            {t(`aup.personnel.trainings.${code}`)}
                                                         </label>
                                                     </div>
 
