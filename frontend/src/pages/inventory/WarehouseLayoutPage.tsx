@@ -104,7 +104,7 @@ export function WarehouseLayoutPage() {
     const [editingInventory, setEditingInventory] = useState<Record<string, string>>({})
 
     // 檢查是否有庫存編輯權限
-    const canEditInventory = hasPermission('erp.storage_location.inventory.edit')
+    const canEditInventory = hasPermission('erp.storage.inventory.edit')
 
     // 取得倉庫列表
     const { data: warehouses, isLoading: loadingWarehouses } = useQuery({

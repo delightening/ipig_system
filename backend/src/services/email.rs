@@ -1141,6 +1141,15 @@ IACUC NO.：{iacuc_no}
         plain_body: &str,
         html_body: &str,
     ) -> anyhow::Result<()> {
+        // 檢查收件人 email 是否為空或無效，若無效則跳過寄信
+        if to_email.is_empty() || !to_email.contains('@') {
+            tracing::warn!(
+                "Skipping email '{}' - invalid recipient address: '{}'",
+                subject, to_email
+            );
+            return Ok(());
+        }
+
         let from = format!("{} <{}>", config.smtp_from_name, config.smtp_from_email);
 
         let email = Message::builder()
