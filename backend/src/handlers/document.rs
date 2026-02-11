@@ -22,9 +22,8 @@ pub async fn create_document(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<CreateDocumentRequest>,
 ) -> Result<Json<DocumentWithLines>> {
-    // 根據文件類型動態設定權限
-    let permission = format!("{}.create", req.doc_type.prefix().to_lowercase());
-    require_permission!(current_user, &permission);
+    // 統一使用 erp.document.create 權限（所有單據類型共用）
+    require_permission!(current_user, "erp.document.create");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let document = DocumentService::create(&state.db, &req, current_user.id).await?;

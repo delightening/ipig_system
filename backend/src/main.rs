@@ -171,6 +171,12 @@ async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ("animal.euthanasia.arbitrate", "安樂死仲裁", "animal", "可進行安樂死爭議仲裁"),
         // Dashboard
         ("dashboard.view", "查看儀表板", "dashboard", "可查看系統儀表板"),
+        // 儲位管理（migration 僅定義 view/edit，補齊 create/delete）
+        ("erp.storage.create", "建立儲位", "erp", "可建立儲位"),
+        ("erp.storage.delete", "刪除儲位", "erp", "可刪除儲位"),
+        // 單據取消與刪除
+        ("erp.document.cancel", "取消單據", "erp", "可取消單據"),
+        ("erp.document.delete", "刪除單據", "erp", "可刪除單據"),
     ];
     
     for (code, name, module, description) in required_permissions {
@@ -206,9 +212,13 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "erp.product.view", "erp.product.create", "erp.product.edit",
             // 夥伴管理
             "erp.partner.view", "erp.partner.create", "erp.partner.edit",
+            // 儲位管理（完整 CRUD）
+            "erp.storage.view", "erp.storage.create", "erp.storage.edit", "erp.storage.delete",
+            "erp.storage.inventory.view", "erp.storage.inventory.edit",
             // 單據管理
             "erp.document.view", "erp.document.create", "erp.document.edit", 
             "erp.document.submit", "erp.document.approve",
+            "erp.document.cancel", "erp.document.delete",
             // 採購
             "erp.purchase.create", "erp.purchase.approve",
             "erp.grn.create", "erp.pr.create",
@@ -218,6 +228,8 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "erp.stocktake.create",
             // 報表
             "erp.report.view", "erp.report.export", "erp.report.download",
+            // 庫存查看
+            "erp.inventory.view",
             // Dashboard
             "dashboard.view",
         ]),
@@ -385,10 +397,13 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "animal.euthanasia.execute",
             // 匯出（含病歷）
             "animal.export.medical", "animal.export.observation", "animal.export.surgery", "animal.export.experiment",
-            // ERP 查詢（僅讀取）+ 請購單建立
+            // ERP 查詢（僅讀取）+ 請購單建立 + 單據建立
             "erp.warehouse.view", "erp.product.view", "erp.partner.view",
-            "erp.stock.view",
+            "erp.stock.view", "erp.inventory.view",
             "erp.pr.create",  // 可建立請購單
+            // 單據管理（可建立銷售單等）
+            "erp.document.view", "erp.document.create", "erp.document.edit",
+            "erp.document.submit",
             // HR 權限（內部員工基本權限）
             "hr.attendance.view", "hr.attendance.clock",
             "hr.leave.view", "hr.leave.create",
@@ -408,8 +423,18 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "hr.leave.view", "hr.leave.view_all", "hr.leave.create", "hr.leave.approve", "hr.leave.manage",
             "hr.balance.view", "hr.balance.manage",
             "hr.calendar.config", "hr.calendar.view", "hr.calendar.sync", "hr.calendar.conflicts",
+            // ERP 倉庫管理權限
+            "erp.warehouse.view", "erp.warehouse.create", "erp.warehouse.edit",
+            "erp.product.view", "erp.product.create", "erp.product.edit",
+            "erp.partner.view", "erp.partner.create", "erp.partner.edit",
+            // 儲位管理
+            "erp.storage.view", "erp.storage.create", "erp.storage.edit", "erp.storage.delete",
+            "erp.storage.inventory.view", "erp.storage.inventory.edit",
+            // 單據管理
+            "erp.document.view", "erp.document.create", "erp.document.edit",
+            "erp.document.submit",
             // 庫存報表 Audit 權限
-            "erp.stock.view", "erp.report.view",
+            "erp.stock.view", "erp.inventory.view", "erp.report.view",
             // 管理階級 Audit 權限（全部 5 個）
             "audit.logs.view", "audit.logs.export", "audit.timeline.view", "audit.alerts.view", "audit.alerts.manage",
             // Dashboard 權限

@@ -22,7 +22,7 @@ pub async fn create_storage_location(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<CreateStorageLocationRequest>,
 ) -> Result<Json<StorageLocation>> {
-    require_permission!(current_user, "erp.storage_location.create");
+    require_permission!(current_user, "erp.storage.create");
     req.validate()
         .map_err(|e| AppError::Validation(e.to_string()))?;
 
@@ -36,7 +36,7 @@ pub async fn list_storage_locations(
     Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<StorageLocationQuery>,
 ) -> Result<Json<Vec<StorageLocationWithWarehouse>>> {
-    require_permission!(current_user, "erp.storage_location.view");
+    require_permission!(current_user, "erp.storage.view");
 
     let locations = StorageLocationService::list(&state.db, &query).await?;
     Ok(Json(locations))
@@ -48,7 +48,7 @@ pub async fn get_storage_location(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<StorageLocationWithWarehouse>> {
-    require_permission!(current_user, "erp.storage_location.view");
+    require_permission!(current_user, "erp.storage.view");
 
     let location = StorageLocationService::get_by_id(&state.db, id).await?;
     Ok(Json(location))
@@ -61,7 +61,7 @@ pub async fn update_storage_location(
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateStorageLocationRequest>,
 ) -> Result<Json<StorageLocation>> {
-    require_permission!(current_user, "erp.storage_location.edit");
+    require_permission!(current_user, "erp.storage.edit");
     req.validate()
         .map_err(|e| AppError::Validation(e.to_string()))?;
 
@@ -76,7 +76,7 @@ pub async fn update_warehouse_layout(
     Path(warehouse_id): Path<Uuid>,
     Json(req): Json<UpdateStorageLayoutRequest>,
 ) -> Result<Json<Vec<StorageLocation>>> {
-    require_permission!(current_user, "erp.storage_location.edit");
+    require_permission!(current_user, "erp.storage.edit");
 
     let locations = StorageLocationService::update_layout(&state.db, warehouse_id, &req).await?;
     Ok(Json(locations))
@@ -88,7 +88,7 @@ pub async fn delete_storage_location(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
-    require_permission!(current_user, "erp.storage_location.delete");
+    require_permission!(current_user, "erp.storage.delete");
 
     StorageLocationService::delete(&state.db, id).await?;
     Ok(Json(
@@ -102,7 +102,7 @@ pub async fn generate_storage_location_code(
     Extension(current_user): Extension<CurrentUser>,
     Path(warehouse_id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
-    require_permission!(current_user, "erp.storage_location.create");
+    require_permission!(current_user, "erp.storage.create");
 
     let code = StorageLocationService::generate_code(&state.db, warehouse_id).await?;
     Ok(Json(serde_json::json!({ "code": code })))
@@ -114,7 +114,7 @@ pub async fn get_storage_location_inventory(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<crate::models::StorageLocationInventoryItem>>> {
-    require_permission!(current_user, "erp.storage_location.view");
+    require_permission!(current_user, "erp.storage.view");
 
     let items = StorageLocationService::get_inventory(&state.db, id).await?;
     Ok(Json(items))
@@ -128,7 +128,7 @@ pub async fn update_storage_location_inventory_item(
     Json(req): Json<crate::models::UpdateStorageLocationInventoryItemRequest>,
 ) -> Result<Json<crate::models::StorageLocationInventoryItem>> {
     // 特定權限：僅管理員可直接修改庫存
-    require_permission!(current_user, "erp.storage_location.inventory.edit");
+    require_permission!(current_user, "erp.storage.inventory.edit");
     // Note: validation for rust_decimal::Decimal is done in the service layer
 
     let item = StorageLocationService::update_inventory_item(&state.db, item_id, &req).await?;
@@ -142,7 +142,7 @@ pub async fn create_storage_location_inventory_item(
     Path(storage_location_id): Path<Uuid>,
     Json(req): Json<crate::models::CreateStorageLocationInventoryItemRequest>,
 ) -> Result<Json<crate::models::StorageLocationInventoryItem>> {
-    require_permission!(current_user, "erp.storage_location.inventory.edit");
+    require_permission!(current_user, "erp.storage.inventory.edit");
     req.validate()
         .map_err(|e| AppError::Validation(e.to_string()))?;
 
@@ -157,7 +157,7 @@ pub async fn transfer_storage_location_inventory(
     Path(item_id): Path<Uuid>,
     Json(req): Json<crate::models::TransferStorageLocationInventoryRequest>,
 ) -> Result<Json<crate::models::StorageLocationInventoryItem>> {
-    require_permission!(current_user, "erp.storage_location.inventory.edit");
+    require_permission!(current_user, "erp.storage.inventory.edit");
     req.validate()
         .map_err(|e| AppError::Validation(e.to_string()))?;
 

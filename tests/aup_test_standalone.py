@@ -1,23 +1,32 @@
 import os
+import sys
 import requests
 import time
 from dotenv import load_dotenv
+
+# 修正 Windows 終端機的 Unicode 編碼問題 (cp950 -> utf-8)
+sys.stdout.reconfigure(encoding="utf-8")
+sys.stderr.reconfigure(encoding="utf-8")
 
 load_dotenv()
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api")
 
-# 測試帳號設定 (對齊 setup_test_users.py)
-USERS = {
-    "IACUC_STAFF": {"email": "staff_test@example.com", "password": "password123"},
-    "REVIEWER1": {"email": "rev1_test@example.com", "password": "password123"},
-    "REVIEWER2": {"email": "rev2_test@example.com", "password": "password123"},
-    "REVIEWER3": {"email": "rev3_test@example.com", "password": "password123"},
-    "IACUC_CHAIR": {"email": "chair_test@example.com", "password": "password123"},
-    "PI": {"email": "pi_test@example.com", "password": "password123"},
-    "VET": {"email": "vet_test@example.com", "password": "password123"},
-    "REV_OTHER": {"email": "rev_other_test@example.com", "password": "password123"},
+# 管理員帳號（用於建立測試用戶）
+ADMIN_CREDENTIALS = {"email": "admin@ipig.local", "password": "admin123"}
+
+# 測試帳號設定：角色代碼用來對應系統中的 role code
+TEST_USERS = {
+    "IACUC_STAFF": {"email": "staff_test@example.com", "password": "password123", "display_name": "IACUC Staff (Test)", "role_codes": ["IACUC_STAFF"]},
+    "REVIEWER1":   {"email": "rev1_test@example.com",   "password": "password123", "display_name": "Reviewer 1 (Test)",  "role_codes": ["REVIEWER"]},
+    "REVIEWER2":   {"email": "rev2_test@example.com",   "password": "password123", "display_name": "Reviewer 2 (Test)",  "role_codes": ["REVIEWER"]},
+    "REVIEWER3":   {"email": "rev3_test@example.com",   "password": "password123", "display_name": "Reviewer 3 (Test)",  "role_codes": ["REVIEWER"]},
+    "IACUC_CHAIR": {"email": "chair_test@example.com",  "password": "password123", "display_name": "IACUC Chair (Test)", "role_codes": ["REVIEWER", "IACUC_CHAIR"]},
+    "PI":          {"email": "pi_test@example.com",     "password": "password123", "display_name": "Test PI",            "role_codes": ["PI"]},
+    "VET":         {"email": "vet_test@example.com",    "password": "password123", "display_name": "Test Vet",           "role_codes": ["VET"]},
+    "REV_OTHER":   {"email": "rev_other_test@example.com", "password": "password123", "display_name": "Reviewer Other (Test)", "role_codes": ["REVIEWER"]},
 }
+
 
 class AUPTester:
     def __init__(self):
@@ -26,24 +35,109 @@ class AUPTester:
         self.protocol_id = None
         self.version_id = None
 
+    # ========================================
+    # 前置作業：建立測試帳號
+    # ========================================
+    def setup_test_users(self):
+        """透過 Admin API 建立所有測試帳號（若已存在則跳過）"""
+        print("\n" + "=" * 60)
+        print("[Setup] 建立測試帳號...")
+        print("=" * 60)
+
+        # 1. 以管理員登入
+        print("  [1/3] 登入管理員帳號...")
+        resp = requests.post(f"{API_BASE_URL}/auth/login", json=ADMIN_CREDENTIALS)
+        if resp.status_code != 200:
+            print(f"  ✗ 管理員登入失敗: {resp.status_code} {resp.text}")
+            print(f"    請確認管理員帳號 {ADMIN_CREDENTIALS['email']} 是否存在")
+            return False
+        admin_token = resp.json()["access_token"]
+        admin_headers = {"Authorization": f"Bearer {admin_token}"}
+        print(f"  ✓ 管理員登入成功")
+
+        # 2. 取得所有角色的 ID 對應表
+        print("  [2/3] 讀取角色清單...")
+        resp = requests.get(f"{API_BASE_URL}/roles", headers=admin_headers)
+        if resp.status_code != 200:
+            print(f"  ✗ 無法取得角色清單: {resp.status_code}")
+            return False
+        roles = resp.json()
+        role_map = {}  # code -> id
+        for r in roles:
+            role_map[r["code"]] = r["id"]
+        print(f"  ✓ 取得 {len(role_map)} 個角色: {list(role_map.keys())}")
+
+        # 3. 逐一建立測試帳號
+        print("  [3/3] 建立/確認測試帳號...")
+        created = 0
+        skipped = 0
+        for role_label, user_info in TEST_USERS.items():
+            # 先嘗試登入，若成功代表帳號已存在
+            login_resp = requests.post(f"{API_BASE_URL}/auth/login", json={
+                "email": user_info["email"],
+                "password": user_info["password"]
+            })
+            if login_resp.status_code == 200:
+                print(f"    ✓ {role_label:12s} ({user_info['email']}) — 已存在，跳過")
+                skipped += 1
+                continue
+
+            # 帳號不存在，透過 API 建立
+            role_ids = []
+            for rc in user_info["role_codes"]:
+                if rc in role_map:
+                    role_ids.append(role_map[rc])
+                else:
+                    print(f"    ⚠ 角色 {rc} 在系統中不存在，略過")
+
+            payload = {
+                "email": user_info["email"],
+                "password": user_info["password"],
+                "display_name": user_info["display_name"],
+                "role_ids": role_ids,
+            }
+            create_resp = requests.post(f"{API_BASE_URL}/users", json=payload, headers=admin_headers)
+            if create_resp.status_code in (200, 201):
+                print(f"    ✓ {role_label:12s} ({user_info['email']}) — 建立成功")
+                created += 1
+            else:
+                print(f"    ✗ {role_label:12s} ({user_info['email']}) — 建立失敗: {create_resp.status_code} {create_resp.text}")
+
+        print(f"\n  [結果] 新建 {created} 個 / 已存在 {skipped} 個 / 共 {len(TEST_USERS)} 個")
+        return True
+
+    # ========================================
+    # 登入所有測試帳號
+    # ========================================
     def login_all(self):
-        print("\n[Auth] Logging in all users...")
-        for role, credentials in USERS.items():
-            resp = requests.post(f"{API_BASE_URL}/auth/login", json=credentials)
+        print("\n" + "=" * 60)
+        print("[Auth] 登入所有測試帳號...")
+        print("=" * 60)
+        success = 0
+        for role, user_info in TEST_USERS.items():
+            resp = requests.post(f"{API_BASE_URL}/auth/login", json={
+                "email": user_info["email"],
+                "password": user_info["password"]
+            })
             if resp.status_code == 200:
                 data = resp.json()
                 self.tokens[role] = data["access_token"]
                 self.user_ids[role] = data["user"]["id"]
-                print(f"  - {role} logged in.")
+                print(f"  ✓ {role:12s} 登入成功 (ID: {data['user']['id'][:8]}...)")
+                success += 1
             else:
-                print(f"  - Failed to login {role}: {resp.status_code} {resp.text}")
+                print(f"  ✗ {role:12s} 登入失敗: {resp.status_code} {resp.text}")
+
+        print(f"\n  [結果] {success}/{len(TEST_USERS)} 帳號登入成功")
+        if success < len(TEST_USERS):
+            raise RuntimeError(f"部分帳號登入失敗 ({success}/{len(TEST_USERS)})，無法繼續測試")
 
     def get_headers(self, role):
         return {"Authorization": f"Bearer {self.tokens[role]}"}
 
     def find_user_by_role(self, role_code):
         print(f"  [Search] Finding user with role: {role_code}...")
-        resp = requests.get(f"{API_BASE_URL}/admin/users", headers=self.get_headers("IACUC_STAFF"))
+        resp = requests.get(f"{API_BASE_URL}/users", headers=self.get_headers("IACUC_STAFF"))
         if resp.status_code == 200:
             users = resp.json()
             for u in users:
@@ -90,10 +184,18 @@ class AUPTester:
 
 def run_flow():
     t = AUPTester()
+
+    # Step 0: 建立測試帳號
+    if not t.setup_test_users():
+        raise RuntimeError("測試帳號建立失敗，無法繼續")
+
+    # 登入所有帳號
     t.login_all()
 
     # 1. PI Creating Protocol
-    print("\n[Step 1] PI Creating Protocol...")
+    print("\n" + "=" * 60)
+    print("[Step 1] PI 建立計畫書...")
+    print("=" * 60)
     full_content = {
         "basic": {
             "study_title": "AUP 完整流程極致驗證計畫 (Section 1-8)",
@@ -355,8 +457,10 @@ def run_flow():
         "remark": "審核通過證明寄發。"
     }, headers=t.get_headers("IACUC_CHAIR"))
     
-    print(f"\n[SUCCESS] AUP 完整 14 步流程完成! Protocol ID: {t.protocol_id}")
-    print("狀態已變更為: APPROVED")
+    print(f"\n{'=' * 60}")
+    print(f"[SUCCESS] AUP 完整 14 步流程完成! Protocol ID: {t.protocol_id}")
+    print(f"狀態已變更為: APPROVED")
+    print(f"{'=' * 60}")
 
 
 if __name__ == "__main__":
