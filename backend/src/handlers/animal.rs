@@ -12,7 +12,7 @@ use sqlx::PgPool;
 use crate::{
     middleware::CurrentUser,
     models::{
-        BatchAssignRequest, BatchStartExperimentRequest, CreateObservationRequest,
+        BatchAssignRequest, CreateObservationRequest,
         CreatePigRequest, CreatePigSourceRequest, CreateSacrificeRequest, CreateSurgeryRequest,
         CreateVaccinationRequest, CreateVetRecommendationRequest, CreateWeightRequest, Pig,
         PigListItem, PigObservation, PigQuery, PigSacrifice, PigSource, PigSurgery,
@@ -35,7 +35,7 @@ use axum::extract::Multipart;
 /// 從觀察紀錄 ID 取得豬隻資訊（用於發送通知）
 async fn get_pig_info_from_observation(
     pool: &PgPool,
-    observation_id: i32,
+    observation_id: Uuid,
 ) -> std::result::Result<Option<(Uuid, String, Option<Uuid>)>, sqlx::Error> {
     sqlx::query_as::<_, (Uuid, String, Option<Uuid>)>(
         r#"
@@ -54,7 +54,7 @@ async fn get_pig_info_from_observation(
 /// 從手術紀錄 ID 取得豬隻資訊（用於發送通知）
 async fn get_pig_info_from_surgery(
     pool: &PgPool,
-    surgery_id: i32,
+    surgery_id: Uuid,
 ) -> std::result::Result<Option<(Uuid, String, Option<Uuid>)>, sqlx::Error> {
     sqlx::query_as::<_, (Uuid, String, Option<Uuid>)>(
         r#"
@@ -90,7 +90,7 @@ pub async fn create_pig_source(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<CreatePigSourceRequest>,
 ) -> Result<Json<PigSource>> {
-    require_permission!(current_user, "admin.user.create"); // 需要使用者建立權限
+    require_permission!(current_user, "animal.animal.create");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let source = AnimalService::create_source(&state.db, &req).await?;
@@ -104,7 +104,7 @@ pub async fn update_pig_source(
     Path(id): Path<Uuid>,
     Json(req): Json<UpdatePigSourceRequest>,
 ) -> Result<Json<PigSource>> {
-    require_permission!(current_user, "admin.user.edit");
+    require_permission!(current_user, "animal.animal.edit");
     
     let source = AnimalService::update_source(&state.db, id, &req).await?;
     Ok(Json(source))
@@ -116,7 +116,7 @@ pub async fn delete_pig_source(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
-    require_permission!(current_user, "admin.user.delete");
+    require_permission!(current_user, "animal.animal.delete");
     
     AnimalService::delete_source(&state.db, id).await?;
     Ok(Json(serde_json::json!({ "message": "Pig source deleted successfully" })))
@@ -316,30 +316,7 @@ pub async fn batch_assign_pigs(
     Ok(Json(pigs))
 }
 
-/// 批次開始實驗
-pub async fn batch_start_experiment(
-    State(state): State<AppState>,
-    Extension(current_user): Extension<CurrentUser>,
-    Json(req): Json<BatchStartExperimentRequest>,
-) -> Result<Json<Vec<Pig>>> {
-    require_permission!(current_user, "animal.info.edit");
-    
-    let pigs = AnimalService::batch_start_experiment(&state.db, &req).await?;
 
-    // 記錄活動紀錄
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ANIMAL", "PIG_BATCH_EXPERIMENT",
-        Some("pig"), None,
-        Some(&format!("批次開始實驗 {} 隻", pigs.len())),
-        None,
-        Some(serde_json::json!({ "count": pigs.len() })),
-        None, None,
-    ).await {
-        tracing::error!("寫入 user_activity_logs 失敗 (PIG_BATCH_EXPERIMENT): {}", e);
-    }
-
-    Ok(Json(pigs))
-}
 
 /// 標記豬為獸醫已讀
 pub async fn mark_pig_vet_read(
@@ -381,7 +358,7 @@ pub async fn list_pig_observations_with_recommendations(
 pub async fn get_pig_observation(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
-    Path(id): Path<i32>,
+    Path(id): Path<Uuid>,
 ) -> Result<Json<PigObservation>> {
     let observation = AnimalService::get_observation_by_id(&state.db, id).await?;
     Ok(Json(observation))
@@ -452,7 +429,7 @@ pub async fn create_pig_observation(
 pub async fn update_pig_observation(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(id): Path<i32>,
+    Path(id): Path<Uuid>,
     Json(req): Json<UpdateObservationRequest>,
 ) -> Result<Json<PigObservation>> {
     require_permission!(current_user, "animal.record.edit");
@@ -476,7 +453,7 @@ pub async fn update_pig_observation(
 pub async fn delete_pig_observation(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(id): Path<i32>,
+    Path(id): Path<Uuid>,
     Json(req): Json<DeleteRequest>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.record.delete");
@@ -516,7 +493,7 @@ pub async fn copy_pig_observation(
 pub async fn mark_observation_vet_read(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(id): Path<i32>,
+    Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.vet.read");
     
@@ -528,7 +505,7 @@ pub async fn mark_observation_vet_read(
 pub async fn get_observation_versions(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
-    Path(id): Path<i32>,
+    Path(id): Path<Uuid>,
 ) -> Result<Json<VersionHistoryResponse>> {
     let versions = AnimalService::get_record_versions(&state.db, "observation", id).await?;
     Ok(Json(versions))
@@ -562,7 +539,7 @@ pub async fn list_pig_surgeries_with_recommendations(
 pub async fn get_pig_surgery(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
-    Path(id): Path<i32>,
+    Path(id): Path<Uuid>,
 ) -> Result<Json<PigSurgery>> {
     let surgery = AnimalService::get_surgery_by_id(&state.db, id).await?;
     Ok(Json(surgery))
@@ -597,7 +574,7 @@ pub async fn create_pig_surgery(
 pub async fn update_pig_surgery(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(id): Path<i32>,
+    Path(id): Path<Uuid>,
     Json(req): Json<UpdateSurgeryRequest>,
 ) -> Result<Json<PigSurgery>> {
     require_permission!(current_user, "animal.record.edit");
@@ -621,7 +598,7 @@ pub async fn update_pig_surgery(
 pub async fn delete_pig_surgery(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(id): Path<i32>,
+    Path(id): Path<Uuid>,
     Json(req): Json<DeleteRequest>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.record.delete");
@@ -661,7 +638,7 @@ pub async fn copy_pig_surgery(
 pub async fn mark_surgery_vet_read(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(id): Path<i32>,
+    Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.vet.read");
     
@@ -673,7 +650,7 @@ pub async fn mark_surgery_vet_read(
 pub async fn get_surgery_versions(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
-    Path(id): Path<i32>,
+    Path(id): Path<Uuid>,
 ) -> Result<Json<VersionHistoryResponse>> {
     let versions = AnimalService::get_record_versions(&state.db, "surgery", id).await?;
     Ok(Json(versions))
@@ -721,7 +698,7 @@ pub async fn create_pig_weight(
 pub async fn update_pig_weight(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(id): Path<i32>,
+    Path(id): Path<Uuid>,
     Json(req): Json<UpdateWeightRequest>,
 ) -> Result<Json<PigWeight>> {
     require_permission!(current_user, "animal.record.edit");
@@ -745,7 +722,7 @@ pub async fn update_pig_weight(
 pub async fn delete_pig_weight(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(id): Path<i32>,
+    Path(id): Path<Uuid>,
     Json(req): Json<DeleteRequest>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.record.delete");
@@ -810,7 +787,7 @@ pub async fn create_pig_vaccination(
 pub async fn update_pig_vaccination(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(id): Path<i32>,
+    Path(id): Path<Uuid>,
     Json(req): Json<UpdateVaccinationRequest>,
 ) -> Result<Json<PigVaccination>> {
     require_permission!(current_user, "animal.record.edit");
@@ -834,7 +811,7 @@ pub async fn update_pig_vaccination(
 pub async fn delete_pig_vaccination(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(id): Path<i32>,
+    Path(id): Path<Uuid>,
     Json(req): Json<DeleteRequest>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.record.delete");
@@ -903,7 +880,7 @@ pub async fn upsert_pig_sacrifice(
 pub async fn add_observation_vet_recommendation(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(id): Path<i32>,
+    Path(id): Path<Uuid>,
     Json(req): Json<CreateVetRecommendationRequest>,
 ) -> Result<Json<VetRecommendation>> {
     require_permission!(current_user, "animal.vet.recommend");
@@ -945,7 +922,7 @@ pub async fn add_observation_vet_recommendation(
 pub async fn add_surgery_vet_recommendation(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(id): Path<i32>,
+    Path(id): Path<Uuid>,
     Json(req): Json<CreateVetRecommendationRequest>,
 ) -> Result<Json<VetRecommendation>> {
     require_permission!(current_user, "animal.vet.recommend");
@@ -985,7 +962,7 @@ pub async fn add_surgery_vet_recommendation(
 pub async fn add_observation_vet_recommendation_with_attachments(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(id): Path<i32>,
+    Path(id): Path<Uuid>,
     Json(req): Json<CreateVetRecommendationWithAttachmentsRequest>,
 ) -> Result<Json<VetRecommendation>> {
     require_permission!(current_user, "animal.vet.recommend");
@@ -1026,7 +1003,7 @@ pub async fn add_observation_vet_recommendation_with_attachments(
 pub async fn add_surgery_vet_recommendation_with_attachments(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(id): Path<i32>,
+    Path(id): Path<Uuid>,
     Json(req): Json<CreateVetRecommendationWithAttachmentsRequest>,
 ) -> Result<Json<VetRecommendation>> {
     require_permission!(current_user, "animal.vet.recommend");
@@ -1067,7 +1044,7 @@ pub async fn add_surgery_vet_recommendation_with_attachments(
 pub async fn get_observation_vet_recommendations(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
-    Path(id): Path<i32>,
+    Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<VetRecommendation>>> {
     let recommendations = AnimalService::get_vet_recommendations(&state.db, VetRecordType::Observation, id).await?;
     Ok(Json(recommendations))
@@ -1077,7 +1054,7 @@ pub async fn get_observation_vet_recommendations(
 pub async fn get_surgery_vet_recommendations(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
-    Path(id): Path<i32>,
+    Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<VetRecommendation>>> {
     let recommendations = AnimalService::get_vet_recommendations(&state.db, VetRecordType::Surgery, id).await?;
     Ok(Json(recommendations))

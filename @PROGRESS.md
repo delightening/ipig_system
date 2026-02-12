@@ -39,5 +39,11 @@
 - [x] 建立動物管理系統完整測試 (`tests/test_animal_full.py`) — 20 隻豬、9 階段紀錄驗證
 - [x] 建立統一執行入口 (`tests/run_all_tests.py`) — 支援 --aup/--erp/--animal 選擇執行
 
+## 整合測試 Bug 修復 (2026-02-12)
+- [x] 修復 AUP 後端 reply_comment 中文 UTF-8 字元切割導致 panic (`services/protocol.rs`)
+- [x] 修復 Animal 測試使用不存在的 `deceased` status（應為 `completed`）(`tests/test_animal_full.py`)
+- [x] 修復 AUP 測試 `get_status()` 讀取錯誤的 JSON 路徑 (`tests/test_aup_full.py`)
+- [x] 全部測試通過：✅ AUP 14/14 ・ ✅ ERP 9/9 ・ ✅ Animal 21/21
+
 ---
-*最後更新: 2026-02-11 19:55*
+*最後更新: 2026-02-12 17:50*

@@ -10,22 +10,16 @@ use validator::Validate;
 #[serde(rename_all = "snake_case")]
 pub enum PigStatus {
     Unassigned,
-    Assigned,
     InExperiment,
     Completed,
-    Transferred,
-    Deceased,
 }
 
 impl PigStatus {
     pub fn display_name(&self) -> &'static str {
         match self {
             PigStatus::Unassigned => "未分配",
-            PigStatus::Assigned => "已分配",
             PigStatus::InExperiment => "實驗中",
-            PigStatus::Completed => "實驗完畢",
-            PigStatus::Transferred => "已轉讓",
-            PigStatus::Deceased => "已死亡",
+            PigStatus::Completed => "實驗完成",
         }
     }
 }
@@ -184,7 +178,7 @@ pub struct Pig {
 /// 觀察試驗紀錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct PigObservation {
-    pub id: i32,
+    pub id: Uuid,
     pub pig_id: Uuid,
     pub event_date: NaiveDate,
     pub record_type: RecordType,
@@ -217,7 +211,7 @@ pub struct PigObservation {
 /// 手術紀錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct PigSurgery {
-    pub id: i32,
+    pub id: Uuid,
     pub pig_id: Uuid,
     pub is_first_experiment: bool,
     pub surgery_date: NaiveDate,
@@ -243,7 +237,7 @@ pub struct PigSurgery {
 /// 體重紀錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct PigWeight {
-    pub id: i32,
+    pub id: Uuid,
     pub pig_id: Uuid,
     pub measure_date: NaiveDate,
     pub weight: rust_decimal::Decimal,
@@ -254,7 +248,7 @@ pub struct PigWeight {
 /// 體重紀錄回應（含建立者名稱）
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct PigWeightResponse {
-    pub id: i32,
+    pub id: Uuid,
     pub pig_id: Uuid,
     pub measure_date: NaiveDate,
     pub weight: rust_decimal::Decimal,
@@ -267,7 +261,7 @@ pub struct PigWeightResponse {
 /// 疫苗/驅蟲紀錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct PigVaccination {
-    pub id: i32,
+    pub id: Uuid,
     pub pig_id: Uuid,
     pub administered_date: NaiveDate,
     pub vaccine: Option<String>,
@@ -279,7 +273,7 @@ pub struct PigVaccination {
 /// 犧牲/採樣紀錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct PigSacrifice {
-    pub id: i32,
+    pub id: Uuid,
     pub pig_id: Uuid,
     pub sacrifice_date: Option<NaiveDate>,
     pub zoletil_dose: Option<String>,
@@ -298,7 +292,7 @@ pub struct PigSacrifice {
 /// 病理組織報告
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct PigPathologyReport {
-    pub id: i32,
+    pub id: Uuid,
     pub pig_id: Uuid,
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
@@ -317,9 +311,9 @@ pub enum VetRecordType {
 /// 獸醫師建議
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct VetRecommendation {
-    pub id: i32,
+    pub id: Uuid,
     pub record_type: VetRecordType,
-    pub record_id: i32,
+    pub record_id: Uuid,
     pub content: String,
     pub attachments: Option<serde_json::Value>, // 附件（含圖片）
     #[sqlx(default)]
@@ -413,11 +407,6 @@ pub struct PigQuery {
 pub struct BatchAssignRequest {
     pub pig_ids: Vec<Uuid>,
     pub iacuc_no: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct BatchStartExperimentRequest {
-    pub pig_ids: Vec<Uuid>,
 }
 
 #[derive(Debug, Deserialize, Validate)]
@@ -629,9 +618,9 @@ pub struct PigExportRecord {
 /// 紀錄版本歷史
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct RecordVersion {
-    pub id: i32,
+    pub id: Uuid,
     pub record_type: String,
-    pub record_id: i32,
+    pub record_id: Uuid,
     pub version_no: i32,
     pub snapshot: serde_json::Value,
     pub diff_summary: Option<String>,
@@ -714,7 +703,7 @@ pub struct UpdateVaccinationRequest {
 /// 複製紀錄請求
 #[derive(Debug, Deserialize)]
 pub struct CopyRecordRequest {
-    pub source_id: i32,
+    pub source_id: Uuid,
 }
 
 /// 獸醫師建議請求（含附件）
@@ -784,7 +773,7 @@ pub struct WeightImportRow {
 /// 觀察紀錄列表項目（含獸醫師建議數量）
 #[derive(Debug, Serialize, FromRow)]
 pub struct ObservationListItem {
-    pub id: i32,
+    pub id: Uuid,
     pub pig_id: Uuid,
     pub event_date: NaiveDate,
     pub record_type: RecordType,
@@ -800,7 +789,7 @@ pub struct ObservationListItem {
 /// 手術紀錄列表項目
 #[derive(Debug, Serialize, FromRow)]
 pub struct SurgeryListItem {
-    pub id: i32,
+    pub id: Uuid,
     pub pig_id: Uuid,
     pub is_first_experiment: bool,
     pub surgery_date: NaiveDate,
@@ -827,7 +816,7 @@ pub struct VersionDiff {
 #[derive(Debug, Serialize)]
 pub struct VersionHistoryResponse {
     pub record_type: String,
-    pub record_id: i32,
+    pub record_id: Uuid,
     pub versions: Vec<VersionDiff>,
 }
 
@@ -881,7 +870,7 @@ pub struct ElectronicSignature {
 pub struct RecordAnnotation {
     pub id: Uuid,
     pub record_type: String,
-    pub record_id: i32,
+    pub record_id: Uuid,
     pub annotation_type: String,
     pub content: String,
     pub created_by: Uuid,

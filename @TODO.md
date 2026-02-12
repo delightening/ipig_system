@@ -12,6 +12,11 @@
 - [x] 動物管理系統完整測試 (`tests/test_animal_full.py`)
 - [x] 統一執行入口 (`tests/run_all_tests.py`)
 
+## 整合測試 Bug 修復 (已完成)
+- [x] 修復後端 `reply_comment` UTF-8 中文字元切割 panic
+- [x] 修復 Animal 測試 `deceased` → `completed` status
+- [x] 修復 AUP 測試 `get_status()` JSON 路徑錯誤
+
 ## 下一步優化建議 (預計)
 - [ ] 實作稽核日誌匯出 CSV/PDF 功能
 - [ ] 增加敏感資料（如密碼修改、權限變更）的二級審計
@@ -19,4 +24,4 @@
 - [ ] 計畫詳情頁面「活動紀錄」標籤性能優化 (若紀錄過多時的分頁處理)
 
 ---
-*最後更新: 2026-02-11 19:55*
+*最後更新: 2026-02-12 17:50*

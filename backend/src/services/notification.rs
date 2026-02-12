@@ -415,7 +415,7 @@ impl NotificationService {
     pub async fn notify_emergency_medication(
         &self,
         pig_id: Uuid,
-        observation_id: i32,
+        observation_id: Uuid,
         ear_tag: &str,
         iacuc_no: Option<&str>,
         operator_name: &str,

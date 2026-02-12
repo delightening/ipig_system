@@ -51,7 +51,11 @@ def run_aup_test() -> bool:
             return "N/A"
         try:
             resp = t._req("GET", f"{API_BASE_URL}/protocols/{protocol_id}", role="IACUC_STAFF")
-            return resp.json().get("status", "Unknown")
+            data = resp.json()
+            # API 回傳 ProtocolResponse: {"protocol": {"status": ...}, "status_display": ...}
+            if "protocol" in data:
+                return data["protocol"].get("status", "Unknown")
+            return data.get("status", "Unknown")
         except Exception:
             return "Error"
 
