@@ -29,6 +29,7 @@ def main():
     parser.add_argument("--aup", action="store_true", help="只執行 AUP 測試")
     parser.add_argument("--erp", action="store_true", help="只執行 ERP 測試")
     parser.add_argument("--animal", action="store_true", help="只執行動物管理測試")
+    parser.add_argument("--cleanup", action="store_true", help="測試結束後清理測試資料（保留審計記錄）")
     args = parser.parse_args()
 
     # 如果沒指定任何 flag，就全部跑
@@ -128,6 +129,14 @@ def main():
         print(f"\n⚠️ 以下測試失敗: {', '.join(failed)}")
 
     print("═" * 60)
+
+    # ========================================
+    # 測試後清理
+    # ========================================
+    if args.cleanup:
+        from test_base import BaseApiTester
+        BaseApiTester.cleanup_test_data()
+
     sys.exit(0 if all_passed else 1)
 
 
