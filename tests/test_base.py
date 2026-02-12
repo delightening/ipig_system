@@ -204,3 +204,84 @@ class BaseApiTester:
         else:
             print(f"\n⚠️ {self.test_name} — 有 {failed} 項失敗！")
         return failed == 0
+
+    # ========================================
+    # 測試資料清理
+    # ========================================
+
+    @staticmethod
+    def cleanup_test_data() -> bool:
+        """
+        執行測試資料清理：刪除業務記錄，保留安全審計資料。
+
+        自動偵測 Docker / 本機環境並執行 cleanup_test_data.sql。
+        """
+        import subprocess
+
+        # 找 SQL 腳本路徑
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        sql_file = os.path.join(project_root, "backend", "cleanup_test_data.sql")
+        if not os.path.exists(sql_file):
+            print(f"  ✗ 找不到清理腳本: {sql_file}")
+            return False
+
+        print(f"\n{'=' * 60}")
+        print(f"[Cleanup] 清理測試資料（保留審計記錄）...")
+        print(f"{'=' * 60}")
+
+        # 嘗試 Docker 模式
+        try:
+            result = subprocess.run(
+                ["docker", "ps", "--filter", "name=ipig-db", "--format", "{{.Names}}"],
+                capture_output=True, text=True, timeout=5
+            )
+            if "ipig-db" in result.stdout:
+                print("  → 使用 Docker 模式")
+                # 複製 SQL 到容器
+                subprocess.run(
+                    ["docker", "cp", sql_file, "ipig-db:/tmp/cleanup_test_data.sql"],
+                    check=True, timeout=10
+                )
+                # 執行 SQL
+                proc = subprocess.run(
+                    ["docker", "exec", "ipig-db", "psql", "-U", "postgres", "-d", "ipig_db",
+                     "-f", "/tmp/cleanup_test_data.sql"],
+                    capture_output=True, text=True, timeout=30
+                )
+                # 清理暫存
+                subprocess.run(
+                    ["docker", "exec", "ipig-db", "rm", "-f", "/tmp/cleanup_test_data.sql"],
+                    timeout=5
+                )
+                if proc.returncode == 0:
+                    print("  ✓ 測試資料清理完成")
+                    # 輸出 NOTICE 訊息
+                    for line in proc.stderr.splitlines():
+                        if "NOTICE" in line:
+                            msg = line.split("NOTICE:")[1].strip() if "NOTICE:" in line else line
+                            print(f"    {msg}")
+                    return True
+                else:
+                    print(f"  ✗ 清理失敗: {proc.stderr}")
+                    return False
+        except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.CalledProcessError):
+            pass
+
+        # 本機 psql 模式
+        try:
+            print("  → 使用本機 psql 模式")
+            db_url = os.getenv("DATABASE_URL", "postgres://postgres:ipig_password_123@localhost:5432/ipig_db")
+            db_url = db_url.replace("@db:", "@localhost:")
+            proc = subprocess.run(
+                ["psql", db_url, "-f", sql_file],
+                capture_output=True, text=True, timeout=30
+            )
+            if proc.returncode == 0:
+                print("  ✓ 測試資料清理完成")
+                return True
+            else:
+                print(f"  ✗ 清理失敗: {proc.stderr}")
+                return False
+        except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+            print(f"  ✗ 無法執行 psql: {e}")
+            return False

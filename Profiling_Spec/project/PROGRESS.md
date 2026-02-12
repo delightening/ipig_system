@@ -1,7 +1,7 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **評估日期：** 2026-02-09  
-> **規格版本：** v1.3  
+> **評估日期：** 2026-02-12  
+> **規格版本：** v1.4  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
 ---
@@ -444,6 +444,67 @@
    - **問題**：「已重新送審 → 審查中」的狀態變更，未記錄指定的審查委員名單
    - **原因**：`change_status` 函數未將審查委員資訊寫入活動歷程的 `target_entity_name` 或 `extra_data`
    - **修正方案**：在狀態變為 `UnderReview` 時，將審查委員名單記錄至 `target_entity_name` 欄位
+
+---
+
+**最新更新（測試資料清理功能 - 2026-02-12）：**
+
+1. ✅ **測試資料清理腳本**
+   - 建立 `backend/cleanup_test_data.sql`：按 FK 依賴順序三階段刪除業務資料（子表 → 主表 → 使用者），完整保留安全審計資料
+   - 建立 `cleanup_test_data.ps1`：PowerShell 互動式工具，含雙重確認、Docker/本機自動偵測、清理前後統計
+   - `test_base.py` 新增 `cleanup_test_data()` 靜態方法
+   - `run_all_tests.py` 新增 `--cleanup` 旗標：測試完畢後自動清理
+
+---
+
+**最新更新（整合測試 Bug 修復 - 2026-02-12）：**
+
+1. ✅ **修復後端 reply_comment 中文 UTF-8 字元切割導致 panic** (`services/protocol.rs`)
+2. ✅ **修復 Animal 測試使用不存在的 `deceased` status（應為 `completed`）** (`tests/test_animal_full.py`)
+3. ✅ **修復 AUP 測試 `get_status()` 讀取錯誤的 JSON 路徑** (`tests/test_aup_full.py`)
+4. ✅ **全部測試通過**：✅ AUP 14/14 ・ ✅ ERP 9/9 ・ ✅ Animal 21/21
+
+---
+
+**最新更新（整合測試腳本開發 - 2026-02-11）：**
+
+1. ✅ **建立共用基底模組** (`tests/test_base.py`)
+2. ✅ **建立 AUP 完整 14 步審查流程測試** (`tests/test_aup_full.py`)
+3. ✅ **建立 ERP 完整倉庫管理測試** (`tests/test_erp_full.py`) — 3 倉庫 × 7 貨架、50 產品、進出貨調撥
+4. ✅ **建立動物管理系統完整測試** (`tests/test_animal_full.py`) — 20 隻豬、9 階段紀錄驗證
+5. ✅ **建立統一執行入口** (`tests/run_all_tests.py`) — 支援 --aup/--erp/--animal 選擇執行
+
+---
+
+**最新更新（系統安全與審計強化 - 2026-02-11）：**
+
+1. ✅ **修復登入事件、活動紀錄、安全警報收錄問題**
+   - 修復登入成功紀錄失效問題 (SQL INET 類型轉換與異步處理優化)
+   - 補全 AUP 計劃書編輯、評論、指派與各階段審核活動紀錄 (同步至全域活動紀錄 `user_activity_logs`)
+   - 優化非上班時間登入警報判定 (調整為 18:00-08:00 並確保記錄完整)
+2. ✅ **驗證安全審計功能**
+   - API 端點驗證 24/24 全部通過（Dashboard、Activities、Logins、Sessions、Alerts、Protocol Activities）
+   - Protocol Activities 完整性：38 筆活動、11 種活動類型（CREATED → APPROVED 全覆蓋）
+   - 修復 `let _ = AuditService::log_activity(...)` 為 `if let Err(e)` + `tracing::error!`（3 處）
+3. ✅ **整合實驗動物管理活動紀錄至安全審計**
+   - 在 `handlers/animal.rs` 中為 23 個寫入操作添加 `AuditService::log_activity()` 呼叫
+   - 涵蓋：豬隻 CRUD、觀察/手術/體重/疫苗/犧牲紀錄、獸醫建議、匯入匯出、病理報告
+   - 統一使用 `ANIMAL` 事件類別，各操作有獨立 event_type
+
+---
+
+**最新更新（AUP 流程自動化測試與 UI/UX 修正 - 2026-02-11）：**
+
+1. ✅ **AUP 流程自動化測試**
+   - 建立 14 步完整流程測試規範 (`aup_workflow_spec.md`)
+   - 更新自動化測試腳本 (`aup_test_standalone.py`)
+   - 完成 14 步完整生命週期驗證 (End-to-End)
+2. ✅ **UI/UX 修正**
+   - 修正計畫詳情頁面審查人員列表的翻譯顯示問題 (pendingComment)
+   - 實作跨版本評論統計：解決改版後委員狀態重置為「待發表」的問題
+   - 優化版本紀錄查看模式：將 JSON 顯示改為正式計畫書預覽格式
+   - 實作獸醫師審查表 (Vet Review Form)：整合線上 12 項查檢與 PDF 報表動態同步
+   - 修復 `src/models/protocol.rs` 編譯錯誤：解決 `ProtocolResponse` 定義不完整問題
 
 ---
 
