@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-02-12
+> **最後更新：** 2026-02-13
 
 ## 🚧 進行中與近期事項
 
@@ -32,6 +32,7 @@
 
 - [ ] 疼痛評估紀錄時間軸檢視
 - [ ] 獸醫師建議通知機制進階設定
+- [ ] 血液檢查組合後台管理元件 (`BloodTestPanelManager.tsx`)
 
 ---
 
@@ -82,6 +83,12 @@
 - [x] 動物管理系統完整測試 (`tests/test_animal_full.py`)
 - [x] 統一執行入口 (`tests/run_all_tests.py`)
 
+### 血液檢查組合功能 (2026-02-13)
+- [x] `026_blood_test_panels.sql` migration（14 組 + 64 筆關聯）
+- [x] 後端 Panel CRUD API（6 個端點）
+- [x] 前端 `BloodTestTab.tsx` Toggle 按鈕列 UI
+- [x] `test_blood_panel.py` 整合測試 28/28 通過
+
 ### 整合測試 Bug 修復 (2026-02-12)
 - [x] 修復後端 `reply_comment` UTF-8 中文字元切割 panic
 - [x] 修復 Animal 測試 `deceased` → `completed` status
@@ -112,7 +119,8 @@
 
 | 日期 | 內容 |
 |------|------|
-| 2026-02-09 | 實作「計畫書管理」頁面表格排序功能，支援多欄位客戶端排序，並修復 statusColors 狀態缺失的 Lint 錯誤。 |
+| 2026-02-13 | 實作血液檢查組合 (Panel) 快速勾選功能：DB migration、後端 CRUD API、前端 Toggle UI、整合測試 28/28 通過 |
+| 2026-02-12 | 測試資料清理腳本、整合測試 Bug 修復 |
 | 2026-02-09 | 修復審查人員列表顯示問題：修正權限檢查（新增 SYSTEM_ADMIN/admin 角色）、SQL 查詢欄位順序、NULL 值處理（COALESCE）。 |
 | 2026-02-09 | 修復 AUP 狀態歷程顯示問題，並移除後端無效引用。 |
 | 2026-02-09 | 同步 AUP 手術計畫書標籤 (6.1-6.10) 之編號、星號標註與英文翻譯。 |

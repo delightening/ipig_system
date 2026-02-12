@@ -173,6 +173,9 @@ pub struct Pig {
     pub updated_at: DateTime<Utc>,
     pub animal_id: Option<Uuid>,  // 動物 ID
     pub breed_other: Option<String>,  // 其他品種說明
+    pub experiment_assigned_by: Option<Uuid>,  // 分配至實驗的操作者
+    #[sqlx(default)]
+    pub experiment_assigned_by_name: Option<String>,  // 分配者名稱（JOIN 查詢時填入）
 }
 
 /// 觀察試驗紀錄
@@ -297,6 +300,82 @@ pub struct PigPathologyReport {
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+/// 血液檢查項目模板
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct BloodTestTemplate {
+    pub id: Uuid,
+    pub code: String,
+    pub name: String,
+    pub default_unit: Option<String>,
+    pub reference_range: Option<String>,
+    pub default_price: Option<rust_decimal::Decimal>,
+    pub sort_order: i32,
+    pub is_active: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// 血液檢查主表
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct PigBloodTest {
+    pub id: Uuid,
+    pub pig_id: Uuid,
+    pub test_date: NaiveDate,
+    pub lab_name: Option<String>,
+    pub status: String,
+    pub remark: Option<String>,
+    pub vet_read: bool,
+    pub vet_read_at: Option<DateTime<Utc>>,
+    pub is_deleted: bool,
+    pub deleted_at: Option<DateTime<Utc>>,
+    pub deleted_by: Option<Uuid>,
+    pub delete_reason: Option<String>,
+    pub created_by: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// 血液檢查項目明細
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct PigBloodTestItem {
+    pub id: Uuid,
+    pub blood_test_id: Uuid,
+    pub template_id: Option<Uuid>,
+    pub item_name: String,
+    pub result_value: Option<String>,
+    pub result_unit: Option<String>,
+    pub reference_range: Option<String>,
+    pub is_abnormal: bool,
+    pub remark: Option<String>,
+    pub sort_order: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+/// 血液檢查詳情（含明細項目）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PigBloodTestWithItems {
+    #[serde(flatten)]
+    pub blood_test: PigBloodTest,
+    pub items: Vec<PigBloodTestItem>,
+    pub created_by_name: Option<String>,
+}
+
+/// 血液檢查列表項目
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct BloodTestListItem {
+    pub id: Uuid,
+    pub pig_id: Uuid,
+    pub test_date: NaiveDate,
+    pub lab_name: Option<String>,
+    pub status: String,
+    pub remark: Option<String>,
+    pub vet_read: bool,
+    pub item_count: Option<i64>,
+    pub abnormal_count: Option<i64>,
+    pub created_by_name: Option<String>,
+    pub created_at: DateTime<Utc>,
 }
 
 /// 獸醫師紀錄類型（對應資料庫 vet_record_type enum）
@@ -698,6 +777,120 @@ pub struct UpdateVaccinationRequest {
     pub administered_date: Option<NaiveDate>,
     pub vaccine: Option<String>,
     pub deworming_dose: Option<String>,
+}
+
+/// 建立血液檢查請求
+#[derive(Debug, Deserialize, Validate)]
+pub struct CreateBloodTestRequest {
+    pub test_date: NaiveDate,
+    pub lab_name: Option<String>,
+    pub remark: Option<String>,
+    #[serde(default)]
+    pub items: Vec<CreateBloodTestItemInput>,
+}
+
+/// 血液檢查項目輸入
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct CreateBloodTestItemInput {
+    pub template_id: Option<Uuid>,
+    pub item_name: String,
+    pub result_value: Option<String>,
+    pub result_unit: Option<String>,
+    pub reference_range: Option<String>,
+    #[serde(default)]
+    pub is_abnormal: bool,
+    pub remark: Option<String>,
+    #[serde(default)]
+    pub sort_order: i32,
+}
+
+/// 更新血液檢查請求
+#[derive(Debug, Deserialize, Validate)]
+pub struct UpdateBloodTestRequest {
+    pub test_date: Option<NaiveDate>,
+    pub lab_name: Option<String>,
+    pub status: Option<String>,
+    pub remark: Option<String>,
+    pub items: Option<Vec<CreateBloodTestItemInput>>,
+}
+
+/// 建立血液檢查項目模板請求
+#[derive(Debug, Deserialize, Validate)]
+pub struct CreateBloodTestTemplateRequest {
+    #[validate(length(min = 1, max = 20, message = "代碼為必填，最多 20 字"))]
+    pub code: String,
+    #[validate(length(min = 1, max = 200, message = "名稱為必填，最多 200 字"))]
+    pub name: String,
+    pub default_unit: Option<String>,
+    pub reference_range: Option<String>,
+    pub default_price: Option<rust_decimal::Decimal>,
+    #[serde(default)]
+    pub sort_order: i32,
+}
+
+/// 更新血液檢查項目模板請求
+#[derive(Debug, Deserialize)]
+pub struct UpdateBloodTestTemplateRequest {
+    pub name: Option<String>,
+    pub default_unit: Option<String>,
+    pub reference_range: Option<String>,
+    pub default_price: Option<rust_decimal::Decimal>,
+    pub sort_order: Option<i32>,
+    pub is_active: Option<bool>,
+}
+
+// ============================================
+// 血液檢查組合 (Panel)
+// ============================================
+
+/// 血液檢查組合主表
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct BloodTestPanel {
+    pub id: Uuid,
+    pub key: String,
+    pub name: String,
+    pub icon: Option<String>,
+    pub sort_order: i32,
+    pub is_active: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// 組合含模板項目（API 回應用）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BloodTestPanelWithItems {
+    #[serde(flatten)]
+    pub panel: BloodTestPanel,
+    pub items: Vec<BloodTestTemplate>,
+}
+
+/// 建立組合請求
+#[derive(Debug, Deserialize, Validate)]
+pub struct CreateBloodTestPanelRequest {
+    #[validate(length(min = 1, max = 30, message = "Key 為必填，最多 30 字"))]
+    pub key: String,
+    #[validate(length(min = 1, max = 100, message = "名稱為必填，最多 100 字"))]
+    pub name: String,
+    pub icon: Option<String>,
+    #[serde(default)]
+    pub sort_order: i32,
+    #[serde(default)]
+    pub template_ids: Vec<Uuid>,
+}
+
+/// 更新組合請求
+#[derive(Debug, Deserialize)]
+pub struct UpdateBloodTestPanelRequest {
+    pub name: Option<String>,
+    pub icon: Option<String>,
+    pub sort_order: Option<i32>,
+    pub is_active: Option<bool>,
+}
+
+/// 更新組合項目請求
+#[derive(Debug, Deserialize)]
+pub struct UpdateBloodTestPanelItemsRequest {
+    pub template_ids: Vec<Uuid>,
 }
 
 /// 複製紀錄請求

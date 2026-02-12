@@ -16,6 +16,7 @@ import api, {
   recordTypeNames,
   RecordType,
   PigStatus,
+  ProtocolListItem,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -23,6 +24,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { FileUpload, FileInfo } from '@/components/ui/file-upload'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -63,6 +71,7 @@ import {
   Stethoscope,
   AlertTriangle,
   AlertOctagon,
+  Droplets,
 } from 'lucide-react'
 
 import { AnimalTimelineView } from '@/components/pig/AnimalTimelineView'
@@ -77,6 +86,7 @@ import { VetRecommendationDialog } from '@/components/pig/VetRecommendationDialo
 import { DeleteReasonDialog } from '@/components/ui/delete-reason-dialog'
 import { EmergencyMedicationDialog } from '@/components/pig/EmergencyMedicationDialog'
 import { EuthanasiaOrderDialog } from '@/components/pig/EuthanasiaOrderDialog'
+import { BloodTestTab } from '@/components/pig/BloodTestTab'
 import { useAuthStore } from '@/stores/auth'
 import { useUIPreferences } from '@/stores/uiPreferences'
 
@@ -94,7 +104,7 @@ const getPenLocationDisplay = (pig: { status: PigStatus; pen_location?: string |
   return pig.pen_location || '-'
 }
 
-type TabType = 'timeline' | 'observations' | 'surgeries' | 'weights' | 'vaccinations' | 'sacrifice' | 'info' | 'pathology'
+type TabType = 'timeline' | 'observations' | 'surgeries' | 'weights' | 'vaccinations' | 'sacrifice' | 'info' | 'pathology' | 'blood_tests'
 
 export function PigDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -118,6 +128,7 @@ export function PigDetailPage() {
   const [showSacrificeDialog, setShowSacrificeDialog] = useState(false)
   const [showEmergencyMedicationDialog, setShowEmergencyMedicationDialog] = useState(false)
   const [showEuthanasiaOrderDialog, setShowEuthanasiaOrderDialog] = useState(false)
+  const [showTrialSelect, setShowTrialSelect] = useState(false)
 
   // Edit states
   const [editingObservation, setEditingObservation] = useState<PigObservation | null>(null)
@@ -158,6 +169,41 @@ export function PigDetailPage() {
     staleTime: 0, // Always consider data stale for real-time updates
     refetchOnWindowFocus: true,
     refetchOnMount: true,
+  })
+
+  // 取得已核准的試驗列表（用於「未分配」狀態下拉式選單）
+  const { data: approvedProtocols } = useQuery({
+    queryKey: ['approved-protocols'],
+    queryFn: async () => {
+      const res = await api.get<ProtocolListItem[]>('/protocols?status=APPROVED')
+      // 同時取得附條件核准的試驗
+      const res2 = await api.get<ProtocolListItem[]>('/protocols?status=APPROVED_WITH_CONDITIONS')
+      return [...res.data, ...res2.data].filter(p => p.iacuc_no)
+    },
+    enabled: pig?.status === 'unassigned',
+  })
+
+  // 分配動物到試驗的 mutation
+  const assignTrialMutation = useMutation({
+    mutationFn: async (iacucNo: string) => {
+      return api.put(`/pigs/${pigId}`, {
+        iacuc_no: iacucNo,
+        status: 'in_experiment',
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pig', pigId] })
+      queryClient.invalidateQueries({ queryKey: ['pigs'] })
+      toast({ title: '成功', description: '動物已成功分配到試驗' })
+      setShowTrialSelect(false)
+    },
+    onError: (error: any) => {
+      toast({
+        title: '錯誤',
+        description: error?.response?.data?.error?.message || '分配失敗',
+        variant: 'destructive',
+      })
+    },
   })
 
   const { data: observations, error: observationsError } = useQuery({
@@ -451,6 +497,7 @@ export function PigDetailPage() {
     { id: 'weights' as const, label: '體重紀錄', icon: Scale },
     { id: 'vaccinations' as const, label: '疫苗/驅蟲紀錄', icon: Syringe },
     { id: 'sacrifice' as const, label: '犧牲/採樣紀錄', icon: Heart },
+    { id: 'blood_tests' as const, label: '血液檢查', icon: Droplets },
     { id: 'info' as const, label: '動物資料', icon: FileText },
     { id: 'pathology' as const, label: '病理組織報告', icon: FileText },
   ]
@@ -520,6 +567,21 @@ export function PigDetailPage() {
                 <span className="text-sm text-slate-500">IACUC NO.</span>
                 <p className="font-medium">{pig.iacuc_no || '未分配'}</p>
               </div>
+              {pig.status !== 'unassigned' && (pig.experiment_assigned_by_name || pig.experiment_date) && (
+                <div>
+                  <span className="text-sm text-slate-500">實驗分配</span>
+                  <p className="font-medium text-sm">
+                    {pig.experiment_assigned_by_name && (
+                      <span>{pig.experiment_assigned_by_name}</span>
+                    )}
+                    {pig.experiment_date && (
+                      <span className="text-slate-400 ml-1">
+                        ({new Date(pig.experiment_date).toLocaleDateString('zh-TW')})
+                      </span>
+                    )}
+                  </p>
+                </div>
+              )}
               <div>
                 <span className="text-sm text-slate-500">最近體重</span>
                 <p className="font-medium">
@@ -540,9 +602,55 @@ export function PigDetailPage() {
               <div>
                 <span className="text-sm text-slate-500">動物狀態</span>
                 <p className="mt-1">
-                  <Badge className={`${statusColors[pig.status]} text-white`}>
-                    {allPigStatusNames[pig.status]}
-                  </Badge>
+                  {pig.status === 'unassigned' && !showTrialSelect ? (
+                    <Badge
+                      className={`${statusColors[pig.status]} text-white cursor-pointer hover:bg-gray-600 transition-colors`}
+                      onClick={() => setShowTrialSelect(true)}
+                      title="點擊分配試驗"
+                    >
+                      {allPigStatusNames[pig.status]} ▾
+                    </Badge>
+                  ) : pig.status === 'unassigned' && showTrialSelect ? (
+                    <div className="flex flex-col gap-1">
+                      <Select
+                        onValueChange={(value) => {
+                          if (value === '__cancel__') {
+                            setShowTrialSelect(false)
+                          } else {
+                            assignTrialMutation.mutate(value)
+                          }
+                        }}
+                        disabled={assignTrialMutation.isPending}
+                      >
+                        <SelectTrigger className="w-[220px] h-8 text-xs">
+                          <SelectValue placeholder="選擇試驗..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {approvedProtocols && approvedProtocols.length > 0 ? (
+                            approvedProtocols.map((protocol) => (
+                              <SelectItem key={protocol.id} value={protocol.iacuc_no!}>
+                                {protocol.iacuc_no} - {protocol.title}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="__none__" disabled>
+                              目前無進行中的試驗
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <button
+                        className="text-xs text-slate-400 hover:text-slate-600 text-left"
+                        onClick={() => setShowTrialSelect(false)}
+                      >
+                        取消
+                      </button>
+                    </div>
+                  ) : (
+                    <Badge className={`${statusColors[pig.status]} text-white`}>
+                      {allPigStatusNames[pig.status]}
+                    </Badge>
+                  )}
                 </p>
               </div>
               <div>
@@ -1311,6 +1419,11 @@ export function PigDetailPage() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* 血液檢查 Tab */}
+        {activeTab === 'blood_tests' && (
+          <BloodTestTab pigId={pigId} />
         )}
 
         {/* 病理組織報告 Tab */}

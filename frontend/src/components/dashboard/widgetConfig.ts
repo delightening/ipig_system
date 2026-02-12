@@ -96,30 +96,32 @@ export const widgetOptionsConfig: Record<string, WidgetOptionDefinition[]> = {
 // 預設的 Dashboard 佈局配置
 // x: 起始列 (0-11), y: 起始行, w: 寬度(列數), h: 高度(行數)
 export const DEFAULT_DASHBOARD_LAYOUT: WidgetLayoutItem[] = [
-    // 第一行: 今日日曆(4列) + 請假餘額(2列) + 我的計畫(3列) + 獸醫師評論(3列)
+    // 第一行: 今日日曆(4列) + 獸醫師評論(3列) + 正在用藥動物(2列)
     { i: 'calendar_widget', x: 0, y: 0, w: 4, h: 3, visible: true, minW: 2, minH: 2 },
-    { i: 'leave_balance', x: 4, y: 0, w: 2, h: 2, visible: true, minW: 2, minH: 2 },
-    { i: 'my_projects', x: 6, y: 0, w: 3, h: 2, visible: true, minW: 2, minH: 2 },
-    { i: 'vet_comments', x: 9, y: 0, w: 3, h: 2, visible: true, minW: 2, minH: 2 },
+    { i: 'vet_comments', x: 4, y: 0, w: 3, h: 3, visible: true, minW: 2, minH: 2 },
+    { i: 'animals_on_medication', x: 7, y: 0, w: 2, h: 6, visible: true, minW: 2, minH: 2 },
 
-    // 第二行: 正在用藥動物 + 最近單據
-    { i: 'animals_on_medication', x: 4, y: 2, w: 2, h: 2, visible: true, minW: 2, minH: 2 },
-    { i: 'recent_documents', x: 6, y: 2, w: 6, h: 3, visible: true, minW: 2, minH: 2 },
+    // 第二行: 我的計畫(4列) + 請假餘額(3列)
+    { i: 'my_projects', x: 0, y: 3, w: 4, h: 3, visible: true, minW: 2, minH: 2 },
+    { i: 'leave_balance', x: 4, y: 3, w: 3, h: 3, visible: true, minW: 2, minH: 2 },
 
-    // 第三行: ERP 小 widgets (低庫存, 待處理, 今日入庫, 今日出庫)
-    { i: 'low_stock_alert', x: 0, y: 3, w: 2, h: 2, visible: true, minW: 2, minH: 2 },
-    { i: 'pending_documents', x: 2, y: 3, w: 2, h: 2, visible: true, minW: 2, minH: 2 },
-    { i: 'today_inbound', x: 4, y: 4, w: 2, h: 2, visible: true, minW: 2, minH: 2 },
-    { i: 'today_outbound', x: 0, y: 5, w: 2, h: 2, visible: true, minW: 2, minH: 2 },
+    // 第三行: 低庫存警示(2列) + 今日入庫(2列) + 最近單據(5列)
+    { i: 'low_stock_alert', x: 0, y: 6, w: 2, h: 2, visible: true, minW: 2, minH: 2 },
+    { i: 'today_inbound', x: 2, y: 6, w: 2, h: 2, visible: true, minW: 2, minH: 2 },
+    { i: 'recent_documents', x: 4, y: 6, w: 5, h: 4, visible: true, minW: 2, minH: 2 },
 
-    // 第四行: 近7天趨勢
-    { i: 'weekly_trend', x: 0, y: 7, w: 6, h: 3, visible: true, minW: 2, minH: 2, options: { days: 7 } },
+    // 第四行: 今日出庫(2列) + 待處理單據(2列)
+    { i: 'today_outbound', x: 0, y: 8, w: 2, h: 2, visible: true, minW: 2, minH: 2 },
+    { i: 'pending_documents', x: 2, y: 8, w: 2, h: 2, visible: true, minW: 2, minH: 2 },
 
-    // 第五行: 日曆事件 + 工作人員出勤表
-    { i: 'google_calendar_events', x: 0, y: 10, w: 4, h: 3, visible: true, minW: 2, minH: 2 },
-    { i: 'staff_attendance', x: 4, y: 10, w: 8, h: 3, visible: true, minW: 2, minH: 2 },
+    // 第五行: 近7天趨勢(4列) + 員工出勤表(5列)
+    { i: 'weekly_trend', x: 0, y: 10, w: 4, h: 3, visible: true, minW: 2, minH: 2, options: { days: 7 } },
+    { i: 'staff_attendance', x: 4, y: 10, w: 5, h: 3, visible: true, minW: 2, minH: 2 },
 
-    // 即將到期假期
+    // 第六行: Google 日曆事件(9列)
+    { i: 'google_calendar_events', x: 0, y: 13, w: 9, h: 5, visible: true, minW: 2, minH: 2 },
+
+    // 即將到期假期 (預設隱藏)
     { i: 'upcoming_leaves', x: 4, y: 7, w: 2, h: 2, visible: false, minW: 2, minH: 2 },
 ]
 

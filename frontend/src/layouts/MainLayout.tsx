@@ -606,11 +606,9 @@ export function MainLayout() {
           return false
         }
         if (item.permission === 'erp') {
-          // 獸醫師不應該看到 ERP 相關功能
-          if (user?.roles?.includes('VET') && !hasRole('admin')) {
-            return false
-          }
-          const hasErpAccess = hasRole('admin') || user?.roles?.includes('EXPERIMENT_STAFF')
+          // 檢查使用者是否擁有任何 erp.* 權限（涵蓋 WAREHOUSE_MANAGER、PURCHASING、ADMIN_STAFF 等角色）
+          const hasErpAccess = hasRole('admin') ||
+            user?.permissions?.some(p => p.startsWith('erp.'))
           return hasErpAccess
         }
         if (item.permission && !hasPermission(item.permission) && !hasRole(item.permission)) {

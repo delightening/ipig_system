@@ -866,6 +866,8 @@ export interface Pig {
   pre_experiment_code?: string
   iacuc_no?: string
   experiment_date?: string
+  experiment_assigned_by?: string
+  experiment_assigned_by_name?: string
   remark?: string
   deletion_reason?: string
   vet_last_viewed_at?: string
@@ -1006,6 +1008,199 @@ export interface VetRecommendation {
   created_at: string
 }
 
+// ============================================
+// 血液檢查 Types
+// ============================================
+
+export type BloodTestStatus = 'pending' | 'completed' | 'reviewed'
+
+export const bloodTestStatusNames: Record<BloodTestStatus, string> = {
+  pending: '待審閱',
+  completed: '已完成',
+  reviewed: '已審閱',
+}
+
+export interface BloodTestTemplate {
+  id: string
+  code: string
+  name: string
+  default_unit?: string
+  reference_range?: string
+  default_price?: number
+  sort_order: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface BloodTestListItem {
+  id: string
+  pig_id: string
+  test_date: string
+  lab_name?: string
+  status: BloodTestStatus
+  remark?: string
+  vet_read: boolean
+  created_at: string
+  created_by_name?: string
+  item_count: number
+  abnormal_count: number
+}
+
+export interface PigBloodTestItem {
+  id: string
+  blood_test_id: string
+  template_id?: string
+  item_name: string
+  result_value?: string
+  result_unit?: string
+  reference_range?: string
+  is_abnormal: boolean
+  remark?: string
+  sort_order: number
+  created_at: string
+}
+
+export interface PigBloodTestWithItems {
+  blood_test: {
+    id: string
+    pig_id: string
+    test_date: string
+    lab_name?: string
+    status: BloodTestStatus
+    remark?: string
+    vet_read: boolean
+    is_deleted: boolean
+    created_by?: string
+    created_at: string
+    updated_at: string
+  }
+  items: PigBloodTestItem[]
+  created_by_name?: string
+}
+
+export interface BloodTestItemInput {
+  template_id?: string
+  item_name: string
+  result_value?: string
+  result_unit?: string
+  reference_range?: string
+  is_abnormal: boolean
+  remark?: string
+  sort_order: number
+}
+
+export interface CreateBloodTestRequest {
+  test_date: string
+  lab_name?: string
+  remark?: string
+  items: BloodTestItemInput[]
+}
+
+export interface UpdateBloodTestRequest {
+  test_date?: string
+  lab_name?: string
+  status?: BloodTestStatus
+  remark?: string
+  items?: BloodTestItemInput[]
+}
+
+export interface CreateBloodTestTemplateRequest {
+  code: string
+  name: string
+  default_unit?: string
+  reference_range?: string
+  default_price?: number
+  sort_order: number
+}
+
+export interface UpdateBloodTestTemplateRequest {
+  name?: string
+  default_unit?: string
+  reference_range?: string
+  default_price?: number
+  sort_order?: number
+  is_active?: boolean
+}
+
+// 血液檢查 API 函數
+export const bloodTestApi = {
+  listByPig: (pigId: string) =>
+    api.get<BloodTestListItem[]>(`/pigs/${pigId}/blood-tests`),
+  getById: (id: string) =>
+    api.get<PigBloodTestWithItems>(`/blood-tests/${id}`),
+  create: (pigId: string, data: CreateBloodTestRequest) =>
+    api.post<PigBloodTestWithItems>(`/pigs/${pigId}/blood-tests`, data),
+  update: (id: string, data: UpdateBloodTestRequest) =>
+    api.put<PigBloodTestWithItems>(`/blood-tests/${id}`, data),
+  delete: (id: string, reason: string) =>
+    api.delete(`/blood-tests/${id}`, { data: { reason } }),
+}
+
+// 血液檢查項目模板 API 函數
+export const bloodTestTemplateApi = {
+  list: () =>
+    api.get<BloodTestTemplate[]>('/blood-test-templates'),
+  listAll: () =>
+    api.get<BloodTestTemplate[]>('/blood-test-templates/all'),
+  create: (data: CreateBloodTestTemplateRequest) =>
+    api.post<BloodTestTemplate>('/blood-test-templates', data),
+  update: (id: string, data: UpdateBloodTestTemplateRequest) =>
+    api.put<BloodTestTemplate>(`/blood-test-templates/${id}`, data),
+  delete: (id: string) =>
+    api.delete(`/blood-test-templates/${id}`),
+}
+
+// ============================================
+// 血液檢查組合 (Panel)
+// ============================================
+
+export interface BloodTestPanel {
+  id: string
+  key: string
+  name: string
+  icon?: string
+  sort_order: number
+  is_active: boolean
+  items: BloodTestTemplate[]
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateBloodTestPanelRequest {
+  key: string
+  name: string
+  icon?: string
+  sort_order?: number
+  template_ids?: string[]
+}
+
+export interface UpdateBloodTestPanelRequest {
+  name?: string
+  icon?: string
+  sort_order?: number
+  is_active?: boolean
+}
+
+export interface UpdateBloodTestPanelItemsRequest {
+  template_ids: string[]
+}
+
+// 血液檢查組合 API 函數
+export const bloodTestPanelApi = {
+  list: () =>
+    api.get<BloodTestPanel[]>('/blood-test-panels'),
+  listAll: () =>
+    api.get<BloodTestPanel[]>('/blood-test-panels/all'),
+  create: (data: CreateBloodTestPanelRequest) =>
+    api.post<BloodTestPanel>('/blood-test-panels', data),
+  update: (id: string, data: UpdateBloodTestPanelRequest) =>
+    api.put<BloodTestPanel>(`/blood-test-panels/${id}`, data),
+  updateItems: (id: string, data: UpdateBloodTestPanelItemsRequest) =>
+    api.put<BloodTestPanel>(`/blood-test-panels/${id}/items`, data),
+  delete: (id: string) =>
+    api.delete(`/blood-test-panels/${id}`),
+}
 
 // Pig API Request Types
 export interface CreatePigRequest {

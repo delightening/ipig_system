@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -39,6 +39,7 @@ import {
   Settings2,
   Lock,
   Unlock,
+  Save,
 } from 'lucide-react'
 // react-grid-layout v2.x - using legacy API for backwards compatibility
 import { Responsive, WidthProvider, LayoutItem, Layout } from 'react-grid-layout/legacy'
@@ -147,6 +148,8 @@ export function DashboardPage() {
   const [showSettingsDialog, setShowSettingsDialog] = useState(false)
   const [isEditMode, setIsEditMode] = useState(false)
   const [tempLayout, setTempLayout] = useState<WidgetLayoutItem[]>([])
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [pendingLayout, setPendingLayout] = useState<WidgetLayoutItem[] | null>(null)
 
   const currentLocale = i18n.language === 'zh-TW' ? zhTW : enUS
 
@@ -166,7 +169,10 @@ export function DashboardPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-preferences', 'dashboard_widgets'] })
-      toast({ title: t('common.success'), description: t('dashboard.settings.saveSuccess') })
+    },
+    onError: (error) => {
+      console.error('儲存佈局失敗:', error)
+      toast({ title: '錯誤', description: '儲存佈局失敗', variant: 'destructive' })
     },
   })
 
@@ -195,8 +201,8 @@ export function DashboardPage() {
     return availableWidgets.filter((w) => w.visible !== false)
   }, [availableWidgets])
 
-  // 處理佈局變更
-  const handleLayoutChange = (newLayout: LayoutItem[]) => {
+  // 處理佈局變更（先暫存，不立即儲存）
+  const handleLayoutChange = useCallback((newLayout: LayoutItem[]) => {
     if (!isEditMode) return
 
     // 合併新佈局和現有的自訂屬性
@@ -214,7 +220,27 @@ export function DashboardPage() {
       return item
     })
 
-    saveLayoutMutation.mutate(updatedLayout)
+    setPendingLayout(updatedLayout)
+    setHasUnsavedChanges(true)
+  }, [isEditMode, currentLayout])
+
+  // 儲存佈局並退出編輯模式
+  const handleSaveLayout = () => {
+    if (pendingLayout && hasUnsavedChanges) {
+      saveLayoutMutation.mutate(pendingLayout, {
+        onSuccess: () => {
+          setIsEditMode(false)
+          setHasUnsavedChanges(false)
+          setPendingLayout(null)
+          toast({ title: '成功', description: '佈局已儲存' })
+        },
+      })
+    } else {
+      // 沒有變更，直接退出編輯模式
+      setIsEditMode(false)
+      setHasUnsavedChanges(false)
+      setPendingLayout(null)
+    }
   }
 
   // 開啟設定對話框
@@ -227,6 +253,21 @@ export function DashboardPage() {
   const handleSaveSettings = () => {
     saveLayoutMutation.mutate(tempLayout)
     setShowSettingsDialog(false)
+  }
+
+  // 重設為預設佈局
+  const handleResetLayout = async () => {
+    try {
+      await api.delete('/me/preferences/dashboard_widgets')
+      queryClient.invalidateQueries({ queryKey: ['user-preferences', 'dashboard_widgets'] })
+      setShowSettingsDialog(false)
+      setIsEditMode(false)
+      setHasUnsavedChanges(false)
+      setPendingLayout(null)
+      toast({ title: '成功', description: '佈局已重設為預設值' })
+    } catch {
+      toast({ title: '錯誤', description: '重設失敗', variant: 'destructive' })
+    }
   }
 
   // 切換 Widget 顯示狀態
@@ -599,8 +640,11 @@ export function DashboardPage() {
         <div className="flex gap-2">
           {isEditMode ? (
             <>
-              <Button variant="outline" size="sm" onClick={() => setIsEditMode(false)}>
-                <Lock className="h-4 w-4 mr-1" />
+              <Button size="sm" onClick={handleSaveLayout} disabled={saveLayoutMutation.isPending}>
+                {saveLayoutMutation.isPending && (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                )}
+                <Save className="h-4 w-4 mr-1" />
                 {t('dashboard.editMode.lock')}
               </Button>
             </>
@@ -609,6 +653,9 @@ export function DashboardPage() {
               <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)}>
                 <Unlock className="h-4 w-4 mr-1" />
                 {t('dashboard.editMode.unlock')}
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleResetLayout}>
+                重設佈局
               </Button>
               <Button variant="outline" size="sm" onClick={openSettings}>
                 <Settings2 className="h-4 w-4 mr-1" />
@@ -633,7 +680,8 @@ export function DashboardPage() {
         breakpoints={BREAKPOINTS}
         cols={COLS}
         rowHeight={GRID_ROW_HEIGHT}
-        onLayoutChange={(currentLayout) => handleLayoutChange([...currentLayout] as LayoutItem[])}
+        onDragStop={(layout) => handleLayoutChange([...layout] as LayoutItem[])}
+        onResizeStop={(layout) => handleLayoutChange([...layout] as LayoutItem[])}
         isDraggable={isEditMode}
         isResizable={isEditMode}
         margin={[16, 16]}
@@ -725,16 +773,21 @@ export function DashboardPage() {
               )
             })}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSettingsDialog(false)}>
-              {t('common.cancel')}
+          <DialogFooter className="flex justify-between sm:justify-between">
+            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={handleResetLayout}>
+              重設為預設佈局
             </Button>
-            <Button onClick={handleSaveSettings} disabled={saveLayoutMutation.isPending}>
-              {saveLayoutMutation.isPending && (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              )}
-              {t('common.save')}
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowSettingsDialog(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button onClick={handleSaveSettings} disabled={saveLayoutMutation.isPending}>
+                {saveLayoutMutation.isPending && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
+                {t('common.save')}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
