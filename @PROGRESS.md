@@ -32,5 +32,12 @@
     - [x] 涵蓋：豬隻 CRUD、觀察/手術/體重/疫苗/犧牲紀錄、獸醫建議、匯入匯出、病理報告
     - [x] 統一使用 `ANIMAL` 事件類別，各操作有獨立 event_type（如 PIG_CREATE、OBSERVATION_DELETE）
 
+## 整合測試腳本開發 (2026-02-11)
+- [x] 建立共用基底模組 (`tests/test_base.py`)
+- [x] 建立 AUP 完整 14 步審查流程測試 (`tests/test_aup_full.py`)
+- [x] 建立 ERP 完整倉庫管理測試 (`tests/test_erp_full.py`) — 3 倉庫 × 7 貨架、50 產品、進出貨調撥
+- [x] 建立動物管理系統完整測試 (`tests/test_animal_full.py`) — 20 隻豬、9 階段紀錄驗證
+- [x] 建立統一執行入口 (`tests/run_all_tests.py`) — 支援 --aup/--erp/--animal 選擇執行
+
 ---
-*最後更新: 2026-02-11 01:45*
+*最後更新: 2026-02-11 19:55*

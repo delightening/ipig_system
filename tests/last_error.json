@@ -1,37 +1,14 @@
 {
+  "test": "ERP 完整流程測試",
   "method": "POST",
-  "url": "http://localhost:8000/api/protocols",
-  "status": 403,
-  "payload": {
-    "title": "AUP測試_1770657331",
-    "working_content": {
-      "basic": {
-        "study_title": "AUP 14步測試計畫 (自動化測試)",
-        "project_type": "Research",
-        "is_glp": false,
-        "apply_study_number": "AUP-331657",
-        "registration_authorities": [],
-        "pi_user_id": "e751945a-fe07-4e8a-8aad-36f7eab2d178"
-      },
-      "animals": [
-        {
-          "species": "Pig",
-          "count": 10,
-          "strain": "L6",
-          "sex": "MIXED",
-          "age": "8 weeks"
-        }
-      ]
-    },
-    "start_date": "2026-04-01",
-    "end_date": "2027-04-01",
-    "pi_user_id": "e751945a-fe07-4e8a-8aad-36f7eab2d178"
-  },
-  "response": "{\"error\":{\"code\":403,\"message\":\"Permission denied: requires aup.protocol.create or PI role\"}}",
+  "url": "http://localhost:8000/api/documents/e8b6351a-ca4b-4ccc-93f3-6cba91bb66fc/submit",
+  "status": 500,
+  "payload": null,
+  "response": "{\"error\":{\"code\":500,\"message\":\"Database error: error returned from database: column \\\"requires_manager_approval\\\" of relation \\\"documents\\\" does not exist\"}}",
   "response_json": {
     "error": {
-      "code": 403,
-      "message": "Permission denied: requires aup.protocol.create or PI role"
+      "code": 500,
+      "message": "Database error: error returned from database: column \"requires_manager_approval\" of relation \"documents\" does not exist"
     }
   }
 }
