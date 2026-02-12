@@ -358,7 +358,7 @@ def run_animal_test() -> bool:
     # 犧牲的 3 隻設為 deceased
     for pid in sacrifice_pigs:
         t._req("PUT", f"{API_BASE_URL}/pigs/{pid}", role=STAFF,
-                json={"status": "deceased"})
+                json={"status": "completed"})
 
     # 驗證
     updated_resp = t._req("GET", f"{API_BASE_URL}/pigs/{pig_ids[0]}", role=STAFF)

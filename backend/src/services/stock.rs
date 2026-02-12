@@ -218,7 +218,7 @@ impl StockService {
                 id, storage_location_id, product_id, on_hand_qty, batch_no, expiry_date, updated_at
             )
             VALUES ($1, $2, $3, $4, $5, $6, NOW())
-            ON CONFLICT (storage_location_id, product_id, COALESCE(batch_no, ''), COALESCE(expiry_date, '1970-01-01'::date))
+            ON CONFLICT (storage_location_id, product_id, COALESCE(batch_no, ''), COALESCE(expiry_date, '1900-01-01'::date))
             DO UPDATE SET 
                 on_hand_qty = storage_location_inventory.on_hand_qty + EXCLUDED.on_hand_qty,
                 updated_at = NOW()

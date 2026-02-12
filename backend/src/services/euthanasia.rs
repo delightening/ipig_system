@@ -383,13 +383,13 @@ impl EuthanasiaService {
         .fetch_one(pool)
         .await?;
 
-        // 更新豬隻狀態為 Deceased
+        // 更新豬隻狀態為 Completed（已犧牲）
         sqlx::query!(
             r#"
             UPDATE pigs SET status = $1, updated_at = NOW()
             WHERE id = $2
             "#,
-            PigStatus::Deceased as PigStatus,
+            PigStatus::Completed as PigStatus,
             order.pig_id
         )
         .execute(pool)

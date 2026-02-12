@@ -800,26 +800,23 @@ export interface UserSimple {
 // 實驗動物管理 Types
 // ============================================
 
-export type PigStatus = 'unassigned' | 'assigned' | 'in_experiment' | 'completed' | 'transferred' | 'deceased'
+export type PigStatus = 'unassigned' | 'in_experiment' | 'completed'
 export type PigBreed = 'minipig' | 'white' | 'lyd' | 'other'
 export type PigGender = 'male' | 'female'
 export type RecordType = 'abnormal' | 'experiment' | 'observation'
 
-// Status names for dropdown selection (excludes 'assigned' which is deprecated)
-export const pigStatusNames: Partial<Record<PigStatus, string>> = {
+// 狀態名稱映射
+export const pigStatusNames: Record<PigStatus, string> = {
   unassigned: '未分配',
   in_experiment: '實驗中',
-  completed: '實驗完畢',
+  completed: '實驗完成',
 }
 
-// All status names for display purposes (includes deprecated 'assigned')
+// 全部狀態名稱（與 pigStatusNames 相同，保留向後相容性）
 export const allPigStatusNames: Record<PigStatus, string> = {
   unassigned: '未分配',
-  assigned: '已分配',
   in_experiment: '實驗中',
-  completed: '實驗完畢',
-  transferred: '已轉讓',
-  deceased: '已死亡',
+  completed: '實驗完成',
 }
 
 export const pigBreedNames: Record<PigBreed, string> = {

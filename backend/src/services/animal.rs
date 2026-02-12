@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use crate::{
     models::{
-        BatchAssignRequest, BatchStartExperimentRequest, CreateObservationRequest, CreatePigRequest,
+        BatchAssignRequest, CreateObservationRequest, CreatePigRequest,
         CreatePigSourceRequest, CreateSacrificeRequest, CreateSurgeryRequest,
         CreateVaccinationRequest, CreateVetRecommendationRequest, CreateWeightRequest, Pig,
         PigListItem, PigObservation, PigQuery, PigSacrifice, PigSource, PigStatus, PigSurgery,
@@ -546,34 +546,7 @@ impl AnimalService {
         Ok(updated_pigs)
     }
 
-    /// 批次進入實驗
-    pub async fn batch_start_experiment(pool: &PgPool, req: &BatchStartExperimentRequest) -> Result<Vec<Pig>> {
-        let mut updated_pigs = Vec::new();
 
-        for pig_id in &req.pig_ids {
-            let pig = sqlx::query_as::<_, Pig>(
-                r#"
-                UPDATE pigs SET
-                    status = $2,
-                    experiment_date = CURRENT_DATE,
-                    updated_at = NOW()
-                WHERE id = $1 AND status = $3
-                RETURNING *
-                "#
-            )
-            .bind(pig_id)
-            .bind(PigStatus::InExperiment)
-            .bind(PigStatus::Assigned)
-            .fetch_optional(pool)
-            .await?;
-
-            if let Some(p) = pig {
-                updated_pigs.push(p);
-            }
-        }
-
-        Ok(updated_pigs)
-    }
 
     // ============================================
     // 觀察試驗紀錄
@@ -613,7 +586,7 @@ impl AnimalService {
     }
 
     /// 取得單一觀察紀錄
-    pub async fn get_observation_by_id(pool: &PgPool, id: i32) -> Result<PigObservation> {
+    pub async fn get_observation_by_id(pool: &PgPool, id: Uuid) -> Result<PigObservation> {
         let observation = sqlx::query_as::<_, PigObservation>(
             "SELECT * FROM pig_observations WHERE id = $1"
         )
@@ -673,7 +646,7 @@ impl AnimalService {
     /// 更新觀察紀錄
     pub async fn update_observation(
         pool: &PgPool,
-        id: i32,
+        id: Uuid,
         req: &UpdateObservationRequest,
         updated_by: Uuid,
     ) -> Result<PigObservation> {
@@ -717,7 +690,7 @@ impl AnimalService {
     }
 
     /// 刪除觀察紀錄
-    pub async fn soft_delete_observation(pool: &PgPool, id: i32) -> Result<()> {
+    pub async fn soft_delete_observation(pool: &PgPool, id: Uuid) -> Result<()> {
         sqlx::query(
             "DELETE FROM pig_observations WHERE id = $1"
         )
@@ -729,7 +702,7 @@ impl AnimalService {
     }
 
     /// 軟刪除觀察紀錄（含刪除原因）- GLP 合規
-    pub async fn soft_delete_observation_with_reason(pool: &PgPool, id: i32, reason: &str, deleted_by: Uuid) -> Result<()> {
+    pub async fn soft_delete_observation_with_reason(pool: &PgPool, id: Uuid, reason: &str, deleted_by: Uuid) -> Result<()> {
         // 記錄到 change_reasons 表
         sqlx::query(
             r#"
@@ -766,7 +739,7 @@ impl AnimalService {
     pub async fn copy_observation(
         pool: &PgPool,
         pig_id: Uuid,
-        source_id: i32,
+        source_id: Uuid,
         created_by: Uuid,
     ) -> Result<PigObservation> {
         let source = Self::get_observation_by_id(pool, source_id).await?;
@@ -799,7 +772,7 @@ impl AnimalService {
     }
 
     /// 標記觀察紀錄獸醫師已讀
-    pub async fn mark_observation_vet_read(pool: &PgPool, id: i32, vet_user_id: Uuid) -> Result<()> {
+    pub async fn mark_observation_vet_read(pool: &PgPool, id: Uuid, vet_user_id: Uuid) -> Result<()> {
         // 更新紀錄本身
         sqlx::query(
             "UPDATE pig_observations SET vet_read = true, vet_read_at = NOW(), updated_at = NOW() WHERE id = $1"
@@ -862,7 +835,7 @@ impl AnimalService {
     }
 
     /// 取得單一手術紀錄
-    pub async fn get_surgery_by_id(pool: &PgPool, id: i32) -> Result<PigSurgery> {
+    pub async fn get_surgery_by_id(pool: &PgPool, id: Uuid) -> Result<PigSurgery> {
         let surgery = sqlx::query_as::<_, PigSurgery>(
             "SELECT * FROM pig_surgeries WHERE id = $1"
         )
@@ -918,7 +891,7 @@ impl AnimalService {
     /// 更新手術紀錄
     pub async fn update_surgery(
         pool: &PgPool,
-        id: i32,
+        id: Uuid,
         req: &UpdateSurgeryRequest,
         updated_by: Uuid,
     ) -> Result<PigSurgery> {
@@ -972,7 +945,7 @@ impl AnimalService {
     }
 
     /// 刪除手術紀錄
-    pub async fn soft_delete_surgery(pool: &PgPool, id: i32) -> Result<()> {
+    pub async fn soft_delete_surgery(pool: &PgPool, id: Uuid) -> Result<()> {
         sqlx::query(
             "DELETE FROM pig_surgeries WHERE id = $1"
         )
@@ -984,7 +957,7 @@ impl AnimalService {
     }
 
     /// 軟刪除手術紀錄（含刪除原因）- GLP 合規
-    pub async fn soft_delete_surgery_with_reason(pool: &PgPool, id: i32, reason: &str, deleted_by: Uuid) -> Result<()> {
+    pub async fn soft_delete_surgery_with_reason(pool: &PgPool, id: Uuid, reason: &str, deleted_by: Uuid) -> Result<()> {
         sqlx::query(
             r#"
             INSERT INTO change_reasons (entity_type, entity_id, change_type, reason, changed_by)
@@ -1019,7 +992,7 @@ impl AnimalService {
     pub async fn copy_surgery(
         pool: &PgPool,
         pig_id: Uuid,
-        source_id: i32,
+        source_id: Uuid,
         created_by: Uuid,
     ) -> Result<PigSurgery> {
         let source = Self::get_surgery_by_id(pool, source_id).await?;
@@ -1058,7 +1031,7 @@ impl AnimalService {
     }
 
     /// 標記手術紀錄獸醫師已讀
-    pub async fn mark_surgery_vet_read(pool: &PgPool, id: i32, vet_user_id: Uuid) -> Result<()> {
+    pub async fn mark_surgery_vet_read(pool: &PgPool, id: Uuid, vet_user_id: Uuid) -> Result<()> {
         // 更新紀錄本身
         sqlx::query(
             "UPDATE pig_surgeries SET vet_read = true, vet_read_at = NOW(), updated_at = NOW() WHERE id = $1"
@@ -1145,7 +1118,7 @@ impl AnimalService {
     /// 更新體重紀錄
     pub async fn update_weight(
         pool: &PgPool,
-        id: i32,
+        id: Uuid,
         req: &UpdateWeightRequest,
     ) -> Result<PigWeight> {
         let weight = sqlx::query_as::<_, PigWeight>(
@@ -1167,7 +1140,7 @@ impl AnimalService {
     }
 
     /// 刪除體重紀錄
-    pub async fn soft_delete_weight(pool: &PgPool, id: i32) -> Result<()> {
+    pub async fn soft_delete_weight(pool: &PgPool, id: Uuid) -> Result<()> {
         sqlx::query("DELETE FROM pig_weights WHERE id = $1")
             .bind(id)
             .execute(pool)
@@ -1177,7 +1150,7 @@ impl AnimalService {
     }
 
     /// 軟刪除體重紀錄（含刪除原因）- GLP 合規
-    pub async fn soft_delete_weight_with_reason(pool: &PgPool, id: i32, reason: &str, deleted_by: Uuid) -> Result<()> {
+    pub async fn soft_delete_weight_with_reason(pool: &PgPool, id: Uuid, reason: &str, deleted_by: Uuid) -> Result<()> {
         sqlx::query(
             r#"
             INSERT INTO change_reasons (entity_type, entity_id, change_type, reason, changed_by)
@@ -1251,7 +1224,7 @@ impl AnimalService {
     /// 更新疫苗紀錄
     pub async fn update_vaccination(
         pool: &PgPool,
-        id: i32,
+        id: Uuid,
         req: &UpdateVaccinationRequest,
     ) -> Result<PigVaccination> {
         let vaccination = sqlx::query_as::<_, PigVaccination>(
@@ -1275,7 +1248,7 @@ impl AnimalService {
     }
 
     /// 刪除疫苗紀錄
-    pub async fn soft_delete_vaccination(pool: &PgPool, id: i32) -> Result<()> {
+    pub async fn soft_delete_vaccination(pool: &PgPool, id: Uuid) -> Result<()> {
         sqlx::query("DELETE FROM pig_vaccinations WHERE id = $1")
             .bind(id)
             .execute(pool)
@@ -1285,7 +1258,7 @@ impl AnimalService {
     }
 
     /// 軟刪除疫苗紀錄（含刪除原因）- GLP 合規
-    pub async fn soft_delete_vaccination_with_reason(pool: &PgPool, id: i32, reason: &str, deleted_by: Uuid) -> Result<()> {
+    pub async fn soft_delete_vaccination_with_reason(pool: &PgPool, id: Uuid, reason: &str, deleted_by: Uuid) -> Result<()> {
         sqlx::query(
             r#"
             INSERT INTO change_reasons (entity_type, entity_id, change_type, reason, changed_by)
@@ -1406,7 +1379,7 @@ impl AnimalService {
     pub async fn add_vet_recommendation(
         pool: &PgPool,
         record_type: VetRecordType,
-        record_id: i32,
+        record_id: Uuid,
         req: &CreateVetRecommendationRequest,
         created_by: Uuid,
     ) -> Result<VetRecommendation> {
@@ -1432,7 +1405,7 @@ impl AnimalService {
     pub async fn add_vet_recommendation_with_attachments(
         pool: &PgPool,
         record_type: VetRecordType,
-        record_id: i32,
+        record_id: Uuid,
         req: &CreateVetRecommendationWithAttachmentsRequest,
         created_by: Uuid,
     ) -> Result<VetRecommendation> {
@@ -1459,7 +1432,7 @@ impl AnimalService {
     pub async fn get_vet_recommendations(
         pool: &PgPool,
         record_type: VetRecordType,
-        record_id: i32,
+        record_id: Uuid,
     ) -> Result<Vec<VetRecommendation>> {
         let recommendations = sqlx::query_as::<_, VetRecommendation>(
             "SELECT * FROM vet_recommendations WHERE record_type = $1 AND record_id = $2 ORDER BY created_at DESC"
@@ -1480,7 +1453,7 @@ impl AnimalService {
     async fn save_record_version<T: serde::Serialize>(
         pool: &PgPool,
         record_type: &str,
-        record_id: i32,
+        record_id: Uuid,
         snapshot: &T,
         changed_by: Uuid,
     ) -> Result<()> {
@@ -1517,7 +1490,7 @@ impl AnimalService {
     pub async fn get_record_versions(
         pool: &PgPool,
         record_type: &str,
-        record_id: i32,
+        record_id: Uuid,
     ) -> Result<VersionHistoryResponse> {
         let versions = sqlx::query_as::<_, RecordVersion>(
             "SELECT * FROM record_versions WHERE record_type = $1 AND record_id = $2 ORDER BY version_no DESC"

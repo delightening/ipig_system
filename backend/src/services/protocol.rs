@@ -1546,7 +1546,7 @@ impl ProtocolService {
             None,
             None,
             Some(("comment", req.parent_comment_id, "Comment Reply")),
-            Some(format!("Reply: {}", if req.content.len() > 50 { format!("{}...", &req.content[..47]) } else { req.content.clone() })),
+            Some(format!("Reply: {}", if req.content.chars().count() > 50 { format!("{}...", req.content.chars().take(47).collect::<String>()) } else { req.content.clone() })),
             None,
         ).await?;
 

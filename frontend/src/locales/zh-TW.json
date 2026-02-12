@@ -1402,10 +1402,7 @@
       "all": "所有豬隻",
       "unassigned": "未分配",
       "in_experiment": "實驗中",
-      "completed": "實驗完成",
-      "assigned": "已分配",
-      "transferred": "已轉讓",
-      "deceased": "已死亡"
+      "completed": "實驗完成"
     },
     "breedLabels": {
       "minipig": "迷你豬",

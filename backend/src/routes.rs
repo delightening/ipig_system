@@ -109,7 +109,6 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/pigs", get(handlers::list_pigs).post(handlers::create_pig))
         .route("/pigs/by-pen", get(handlers::list_pigs_by_pen))
         .route("/pigs/batch/assign", post(handlers::batch_assign_pigs))
-        .route("/pigs/batch/start-experiment", post(handlers::batch_start_experiment))
         .route("/pigs/vet-comments", get(handlers::get_vet_comments))
         .route("/pigs/:id", get(handlers::get_pig).put(handlers::update_pig).delete(handlers::delete_pig))
         .route("/pigs/:id/vet-read", post(handlers::mark_pig_vet_read))

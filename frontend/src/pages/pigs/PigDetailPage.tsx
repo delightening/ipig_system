@@ -82,11 +82,8 @@ import { useUIPreferences } from '@/stores/uiPreferences'
 
 const statusColors: Record<PigStatus, string> = {
   unassigned: 'bg-gray-500',
-  assigned: 'bg-blue-500',
   in_experiment: 'bg-orange-500',
   completed: 'bg-green-500',
-  transferred: 'bg-purple-500',
-  deceased: 'bg-red-500',
 }
 
 // 輔助函數：判斷欄位顯示文字
@@ -169,7 +166,7 @@ export function PigDetailPage() {
       const res = await api.get<PigObservation[]>(`/pigs/${pigId}/observations`)
       return res.data
     },
-    enabled: activeTab === 'observations',
+    enabled: activeTab === 'observations' || activeTab === 'timeline',
     staleTime: 0,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
@@ -194,7 +191,7 @@ export function PigDetailPage() {
       const res = await api.get<PigSurgery[]>(`/pigs/${pigId}/surgeries`)
       return res.data
     },
-    enabled: activeTab === 'surgeries',
+    enabled: activeTab === 'surgeries' || activeTab === 'timeline',
     staleTime: 0,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
@@ -206,7 +203,7 @@ export function PigDetailPage() {
       const res = await api.get<PigWeight[]>(`/pigs/${pigId}/weights`)
       return res.data
     },
-    enabled: activeTab === 'weights',
+    enabled: activeTab === 'weights' || activeTab === 'timeline',
     staleTime: 0,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
@@ -473,7 +470,7 @@ export function PigDetailPage() {
       </div>
 
       {/* Emergency Actions - Only for VET role and active pigs */}
-      {['assigned', 'in_experiment'].includes(pig.status) && (
+      {pig.status === 'in_experiment' && (
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -586,6 +583,8 @@ export function PigDetailPage() {
           <AnimalTimelineView
             observations={observations || []}
             surgeries={surgeries || []}
+            pigWeights={weights || []}
+            pig={pig}
             onView={(type, id) => {
               if (type === 'observation') setExpandedObservation(expandedObservation === id ? null : id)
               else setExpandedSurgery(expandedSurgery === id ? null : id)

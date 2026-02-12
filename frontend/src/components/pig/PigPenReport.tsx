@@ -13,7 +13,7 @@ export const PigPenReport: React.FC<PigPenReportProps> = ({ data, onClose }) => 
     const pigsByPen = new Map(data.map(item => [item.pen_location, item.pigs]))
 
     const getStatusCircle = (pigs: PigListItemExtended[]) => {
-        const isAssigned = pigs.some(p => p.status === 'assigned' || p.status === 'in_experiment')
+        const isAssigned = pigs.some(p => p.status === 'in_experiment')
         return (
             <div className={`w-3.5 h-3.5 rounded-full border border-black ${pigs.length === 0 ? '' : isAssigned ? 'bg-black' : 'bg-white'}`} />
         )

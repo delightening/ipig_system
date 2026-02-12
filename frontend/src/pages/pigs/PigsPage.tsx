@@ -68,11 +68,8 @@ import { PigPenReport } from '../../components/pig/PigPenReport'
 
 const statusColors: Record<PigStatus, string> = {
   unassigned: 'bg-gray-100 text-gray-800',
-  assigned: 'bg-blue-100 text-blue-800',
   in_experiment: 'bg-orange-100 text-orange-800',
   completed: 'bg-green-100 text-green-800',
-  transferred: 'bg-purple-100 text-purple-800',
-  deceased: 'bg-red-100 text-red-800',
 }
 
 const getPenLocationDisplay = (pig: { status: PigStatus; pen_location?: string | null }, t: any) => {

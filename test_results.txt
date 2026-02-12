@@ -1,0 +1,714 @@
+﻿
+╔══════════════════════════════════════════════════════════╗
+║            iPig System — 整合測試套件                  ║
+║                                                          ║
+║   1. AUP 完整審查流程測試                               ║
+║   2. ERP 完整倉庫管理測試                               ║
+║   3. 動物管理系統完整測試                                ║
+╚══════════════════════════════════════════════════════════╝
+
+
+████████████████████████████████████████████████████████████
+█  [1/3] AUP 完整審查流程測試
+████████████████████████████████████████████████████████████
+.venv\Scripts\python.exe : Traceback (most recent call last):
+位於 線路:1 字元:1
++ .venv\Scripts\python.exe tests/run_all_tests.py 2>&1 | Out-File -Enco ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call las 
+   t)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\System Coding\ipig_system\.venv\lib\site-packages\urllib3\connecti
+onpool.py", line 787, in urlopen
+    response = self._make_request(
+  File "C:\System Coding\ipig_system\.venv\lib\site-packages\urllib3\connecti
+onpool.py", line 534, in _make_request
+    response = conn.getresponse()
+  File "C:\System Coding\ipig_system\.venv\lib\site-packages\urllib3\connecti
+on.py", line 571, in getresponse
+    httplib_response = super().getresponse()
+  File "C:\Users\admin\AppData\Roaming\uv\python\cpython-3.10-windows-x86_64-
+none\lib\http\client.py", line 1375, in getresponse
+    response.begin()
+  File "C:\Users\admin\AppData\Roaming\uv\python\cpython-3.10-windows-x86_64-
+none\lib\http\client.py", line 318, in begin
+    version, status, reason = self._read_status()
+  File "C:\Users\admin\AppData\Roaming\uv\python\cpython-3.10-windows-x86_64-
+none\lib\http\client.py", line 287, in _read_status
+    raise RemoteDisconnected("Remote end closed connection without"
+http.client.RemoteDisconnected: Remote end closed connection without response
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\System Coding\ipig_system\.venv\lib\site-packages\requests\adapter
+s.py", line 644, in send
+    resp = conn.urlopen(
+  File "C:\System Coding\ipig_system\.venv\lib\site-packages\urllib3\connecti
+onpool.py", line 841, in urlopen
+    retries = retries.increment(
+  File "C:\System Coding\ipig_system\.venv\lib\site-packages\urllib3\util\ret
+ry.py", line 490, in increment
+    raise reraise(type(error), error, _stacktrace)
+  File "C:\System Coding\ipig_system\.venv\lib\site-packages\urllib3\util\uti
+l.py", line 38, in reraise
+    raise value.with_traceback(tb)
+  File "C:\System Coding\ipig_system\.venv\lib\site-packages\urllib3\connecti
+onpool.py", line 787, in urlopen
+    response = self._make_request(
+  File "C:\System Coding\ipig_system\.venv\lib\site-packages\urllib3\connecti
+onpool.py", line 534, in _make_request
+    response = conn.getresponse()
+  File "C:\System Coding\ipig_system\.venv\lib\site-packages\urllib3\connecti
+on.py", line 571, in getresponse
+    httplib_response = super().getresponse()
+  File "C:\Users\admin\AppData\Roaming\uv\python\cpython-3.10-windows-x86_64-
+none\lib\http\client.py", line 1375, in getresponse
+    response.begin()
+  File "C:\Users\admin\AppData\Roaming\uv\python\cpython-3.10-windows-x86_64-
+none\lib\http\client.py", line 318, in begin
+    version, status, reason = self._read_status()
+  File "C:\Users\admin\AppData\Roaming\uv\python\cpython-3.10-windows-x86_64-
+none\lib\http\client.py", line 287, in _read_status
+    raise RemoteDisconnected("Remote end closed connection without"
+urllib3.exceptions.ProtocolError: ('Connection aborted.', RemoteDisconnected(
+'Remote end closed connection without response'))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\System Coding\ipig_system\tests\run_all_tests.py", line 61, in mai
+n
+    results["AUP"] = run_aup_test()
+  File "C:\System Coding\ipig_system\tests\test_aup_full.py", line 184, in ru
+n_aup_test
+    t._req("POST", f"{API_BASE_URL}/reviews/comments/reply", role="PI",
+  File "C:\System Coding\ipig_system\tests\test_base.py", line 145, in _req
+    resp = requests.request(method, url, **kwargs)
+  File "C:\System Coding\ipig_system\.venv\lib\site-packages\requests\api.py"
+, line 59, in request
+    return session.request(method=method, url=url, **kwargs)
+  File "C:\System Coding\ipig_system\.venv\lib\site-packages\requests\session
+s.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+  File "C:\System Coding\ipig_system\.venv\lib\site-packages\requests\session
+s.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+  File "C:\System Coding\ipig_system\.venv\lib\site-packages\requests\adapter
+s.py", line 659, in send
+    raise ConnectionError(err, request=request)
+requests.exceptions.ConnectionError: ('Connection aborted.', RemoteDisconnect
+ed('Remote end closed connection without response'))
+
+============================================================
+[Setup] 建立測試帳號...
+============================================================
+  ✓ 管理員登入成功
+  ✓ 取得 11 個角色: ['ADMIN_STAFF', 'CLIENT', 'EXPERIMENT_STAFF', 'IACUC_CHAIR', 'IACUC_STAFF', 'PI', 'PURCHASING', 'REVIEWER', 'VET', 'WAREHOUSE_MANAGER', 'admin']
+    ✓ IACUC_STAFF          (staff_int_test@example.com) — 已存在
+    ✓ REVIEWER1            (rev1_int_test@example.com) — 已存在
+    ✓ REVIEWER2            (rev2_int_test@example.com) — 已存在
+    ✓ REVIEWER3            (rev3_int_test@example.com) — 已存在
+    ✓ IACUC_CHAIR          (chair_int_test@example.com) — 已存在
+    ✓ PI                   (pi_int_test@example.com) — 已存在
+    ✓ VET                  (vet_int_test@example.com) — 已存在
+    ✓ REV_OTHER            (revother_int_test@example.com) — 已存在
+
+  [結果] 新建 0 / 已存在 8 / 共 8
+
+============================================================
+[Auth] 登入所有測試帳號...
+============================================================
+  ✓ IACUC_STAFF          登入成功 (ID: 9f01cbdd...)
+  ✓ REVIEWER1            登入成功 (ID: 32b83de1...)
+  ✓ REVIEWER2            登入成功 (ID: 33b61637...)
+  ✓ REVIEWER3            登入成功 (ID: 5a648f6d...)
+  ✓ IACUC_CHAIR          登入成功 (ID: 547aacbc...)
+  ✓ PI                   登入成功 (ID: 6b29a70e...)
+  ✓ VET                  登入成功 (ID: 91d2f9d0...)
+  ✓ REV_OTHER            登入成功 (ID: f093778e...)
+
+  ✓ 8/8 帳號全部登入成功
+
+============================================================
+[Step 1] PI 建立計畫書並提交
+============================================================
+  ✓ [POST  ] /localhost:8000/api/protocols -> 200
+  ✅ 建立計畫書 — ID: 56785e8d...
+  ✓ [POST  ] /protocols/56785e8d-8bff-4c46-8999-0a324030b636/co-editors -> 200
+  ✓ [POST  ] /protocols/56785e8d-8bff-4c46-8999-0a324030b636/submit -> 200
+  ✓ [GET   ] /api/protocols/56785e8d-8bff-4c46-8999-0a324030b636 -> 200
+  ❌ PI 提交計畫書 — status=Unknown
+
+============================================================
+[Step 2] STAFF 行政預審 + 留言
+============================================================
+  ✓ [POST  ] /protocols/56785e8d-8bff-4c46-8999-0a324030b636/status -> 200
+  ✓ [GET   ] /protocols/56785e8d-8bff-4c46-8999-0a324030b636/versions -> 200
+  ✓ [POST  ] /api/reviews/comments -> 200
+  ✅ Staff 預審留言
+
+============================================================
+[Step 3] PI 回覆預審意見
+============================================================
+
+[ERROR] AUP 測試例外: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+  ⏱ AUP 測試耗時: 1.0 秒
+
+████████████████████████████████████████████████████████████
+█  [2/3] ERP 完整倉庫管理測試
+████████████████████████████████████████████████████████████
+
+============================================================
+[Setup] 建立測試帳號...
+============================================================
+  ✓ 管理員登入成功
+  ✓ 取得 11 個角色: ['ADMIN_STAFF', 'CLIENT', 'EXPERIMENT_STAFF', 'IACUC_CHAIR', 'IACUC_STAFF', 'PI', 'PURCHASING', 'REVIEWER', 'VET', 'WAREHOUSE_MANAGER', 'admin']
+    ✓ WAREHOUSE_MANAGER    (wm_int_test@example.com) — 已存在
+    ✓ ADMIN_STAFF          (as_int_test@example.com) — 已存在
+
+  [結果] 新建 0 / 已存在 2 / 共 2
+
+============================================================
+[Auth] 登入所有測試帳號...
+============================================================
+  ✓ WAREHOUSE_MANAGER    登入成功 (ID: 4eb0965c...)
+  ✓ ADMIN_STAFF          登入成功 (ID: cb93553e...)
+
+  ✓ 2/2 帳號全部登入成功
+
+============================================================
+[Step 1] Phase 1 — 建立倉庫 (3 個)
+============================================================
+  ✓ [POST  ] /localhost:8000/api/warehouses -> 200
+  → 倉庫 '原物料倉' -> ID: 8f42ee99...
+  ✓ [POST  ] /localhost:8000/api/warehouses -> 200
+  → 倉庫 '成品倉' -> ID: 1f3a4c2a...
+  ✓ [POST  ] /localhost:8000/api/warehouses -> 200
+  → 倉庫 '冷藏倉' -> ID: 40ea217c...
+  ✅ 建立 3 個倉庫
+
+============================================================
+[Step 2] Phase 1 — 建立貨架 (每倉庫 7 個 = 共 21 個)
+============================================================
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✅ 建立 21 個貨架
+
+============================================================
+[Step 3] Phase 1 — 建立 50 個產品
+============================================================
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✅ 建立 50 個產品
+
+============================================================
+[Step 4] Phase 1 — 建立供應商
+============================================================
+  ✓ [POST  ] /localhost:8000/api/partners -> 200
+  ✓ [POST  ] /localhost:8000/api/partners -> 200
+  ✅ 建立 2 個供應商
+
+============================================================
+[Step 5] Phase 2 — 採購入庫 (PO → GRN)
+============================================================
+  ✓ [POST  ] /localhost:8000/api/documents -> 200
+  → PO #1 -> 17 個品項
+  ✓ [POST  ] /documents/7b31d5cc-f270-46d6-8760-63862b00503e/submit -> 200
+  ✓ [POST  ] /documents/7b31d5cc-f270-46d6-8760-63862b00503e/approve -> 200
+  ✓ [POST  ] /localhost:8000/api/documents -> 200
+  ✓ [POST  ] /documents/ef528989-62a3-48b5-8850-047562d12742/submit -> 200
+  ✓ [POST  ] /documents/ef528989-62a3-48b5-8850-047562d12742/approve -> 200
+  → GRN #1 -> 入庫 17 個品項到 7 個貨架
+  ✓ [POST  ] /localhost:8000/api/documents -> 200
+  → PO #2 -> 17 個品項
+  ✓ [POST  ] /documents/31a47642-9218-442c-a123-9d5ad3becf74/submit -> 200
+  ✓ [POST  ] /documents/31a47642-9218-442c-a123-9d5ad3becf74/approve -> 200
+  ✓ [POST  ] /localhost:8000/api/documents -> 200
+  ✓ [POST  ] /documents/07a6bd09-6cb0-4020-9d3e-095049c5bb8f/submit -> 200
+  ✓ [POST  ] /documents/07a6bd09-6cb0-4020-9d3e-095049c5bb8f/approve -> 200
+  → GRN #2 -> 入庫 17 個品項到 7 個貨架
+  ✓ [POST  ] /localhost:8000/api/documents -> 200
+  → PO #3 -> 16 個品項
+  ✓ [POST  ] /documents/089f4840-46e6-4306-a03a-c4c84355e9b1/submit -> 200
+  ✓ [POST  ] /documents/089f4840-46e6-4306-a03a-c4c84355e9b1/approve -> 200
+  ✓ [POST  ] /localhost:8000/api/documents -> 200
+  ✓ [POST  ] /documents/c7e48460-df40-4c24-b0ad-daf59a73dce4/submit -> 200
+  ✓ [POST  ] /documents/c7e48460-df40-4c24-b0ad-daf59a73dce4/approve -> 200
+  → GRN #3 -> 入庫 16 個品項到 7 個貨架
+  ✅ 採購入庫完成 — 3 張 PO + 3 張 GRN，共 50 個品項
+
+============================================================
+[Step 6] Phase 3 — 銷售出庫 (SO → DO)
+============================================================
+  ✓ [POST  ] /localhost:8000/api/documents -> 200
+  ✓ [POST  ] /documents/24d43080-46b6-4df5-8544-56aa32e468ff/submit -> 200
+  ✓ [POST  ] /documents/24d43080-46b6-4df5-8544-56aa32e468ff/approve -> 200
+  ✓ [POST  ] /localhost:8000/api/documents -> 200
+  ✓ [POST  ] /documents/fba4729b-33b9-46be-99e5-5f76b985a31b/submit -> 200
+  ✓ [POST  ] /documents/fba4729b-33b9-46be-99e5-5f76b985a31b/approve -> 200
+  ✅ 銷售出庫完成 — 5 個品項出庫
+
+============================================================
+[Step 7] Phase 4 — 倉庫間調撥 (TR)
+============================================================
+  ✓ [POST  ] /localhost:8000/api/documents -> 200
+  ✓ [POST  ] /documents/99286621-cf4e-46da-ae40-ffd448bc0836/submit -> 200
+  ✓ [POST  ] /documents/99286621-cf4e-46da-ae40-ffd448bc0836/approve -> 200
+  ✅ 調撥作業完成 — 3 個品項從倉庫1調至倉庫2
+
+============================================================
+[Step 8] Phase 5 — 庫存驗證
+============================================================
+  ✓ [GET   ] /api/inventory/on-hand -> 200
+  ✅ 查詢在手庫存 — 106 筆庫存記錄
+  ✓ [GET   ] /api/inventory/ledger -> 200
+  ✅ 查詢庫存帳簿 — 122 筆帳簿記錄
+
+============================================================
+[完成] ERP 完整流程測試完成！
+  倉庫: 3 | 貨架: 21 | 產品: 50
+  PO: 3 | GRN: 3 | SO: 1 | DO: 1 | TR: 1
+============================================================
+
+============================================================
+[ERP 完整流程測試] 測試結果彙總
+============================================================
+  ✅ 建立 3 個倉庫
+  ✅ 建立 21 個貨架
+  ✅ 建立 50 個產品
+  ✅ 建立 2 個供應商
+  ✅ 採購入庫完成
+  ✅ 銷售出庫完成
+  ✅ 調撥作業完成
+  ✅ 查詢在手庫存
+  ✅ 查詢庫存帳簿
+
+  總計: 9 項 ✅ 9 / ❌ 0
+
+🎉 ERP 完整流程測試 — 所有測試通過！
+  ⏱ ERP 測試耗時: 1.2 秒
+
+████████████████████████████████████████████████████████████
+█  [3/3] 動物管理系統完整測試
+████████████████████████████████████████████████████████████
+
+============================================================
+[Setup] 建立測試帳號...
+============================================================
+  ✓ 管理員登入成功
+  ✓ 取得 11 個角色: ['ADMIN_STAFF', 'CLIENT', 'EXPERIMENT_STAFF', 'IACUC_CHAIR', 'IACUC_STAFF', 'PI', 'PURCHASING', 'REVIEWER', 'VET', 'WAREHOUSE_MANAGER', 'admin']
+    ✓ VET                  (vet_animal_int@example.com) — 已存在
+    ✓ EXPERIMENT_STAFF     (exp_animal_int@example.com) — 已存在
+
+  [結果] 新建 0 / 已存在 2 / 共 2
+
+============================================================
+[Auth] 登入所有測試帳號...
+============================================================
+  ✓ VET                  登入成功 (ID: bdbef81e...)
+  ✓ EXPERIMENT_STAFF     登入成功 (ID: d58ddf43...)
+
+  ✓ 2/2 帳號全部登入成功
+
+============================================================
+[Step 1] Phase 1 — 建立豬源
+============================================================
+  ✓ [POST  ] /localhost:8000/api/pig-sources -> 200
+  ✅ 建立豬源 — ID: 7277e713...
+
+============================================================
+[Step 2] Phase 1 — 建立 20 隻豬
+============================================================
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  → 已建立 5/20 隻豬
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  → 已建立 10/20 隻豬
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  → 已建立 15/20 隻豬
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  → 已建立 20/20 隻豬
+  ✅ 建立 20 隻豬
+
+============================================================
+[Step 3] Phase 1 — 驗證創建記錄
+============================================================
+  ✓ [GET   ] /api/pigs/f731c176-dcd8-4c93-9af3-72717185eaac -> 200
+  ✓ [GET   ] /api/pigs/8364f602-f384-4721-a476-349cca23ec8c -> 200
+  ✓ [GET   ] /api/pigs/e09b8d2e-511a-4a7b-a9d2-2f807badd4bc -> 200
+  ✓ [GET   ] /api/pigs/8d285a6b-2f03-4b8b-a2db-b87158d0cf16 -> 200
+  ✓ [GET   ] /api/pigs/8753c359-4ba2-44a7-8fea-500e9decb206 -> 200
+  ✓ [GET   ] /api/pigs/00d0339c-7476-4780-aa9b-b6536f9e45b8 -> 200
+  ✓ [GET   ] /api/pigs/dcf561b0-3c3e-4d1e-8392-b4d6f5e693c0 -> 200
+  ✓ [GET   ] /api/pigs/4414afe8-cd04-4083-9a28-ad5896620392 -> 200
+  ✓ [GET   ] /api/pigs/a43d5f8e-fac9-4e1e-8b8c-632765d2a141 -> 200
+  ✓ [GET   ] /api/pigs/5c1aed66-2d0c-4f83-b6bd-18480f2c184a -> 200
+  ✓ [GET   ] /api/pigs/da765d45-3c92-4670-b879-661ad3aed89b -> 200
+  ✓ [GET   ] /api/pigs/d8bfc0b1-6f81-40cd-8d63-fcb7065b44f7 -> 200
+  ✓ [GET   ] /api/pigs/4cef32b0-aa90-458e-a5ce-c499b5bfe68e -> 200
+  ✓ [GET   ] /api/pigs/095085e9-5213-4811-bfdd-ade533bef71e -> 200
+  ✓ [GET   ] /api/pigs/82584ed0-e901-4849-8a96-36901f7e4611 -> 200
+  ✓ [GET   ] /api/pigs/ff749588-578a-496e-9dc5-30e03b1b34af -> 200
+  ✓ [GET   ] /api/pigs/eeec9e5b-754c-47b8-b1ee-ddef46126e70 -> 200
+  ✓ [GET   ] /api/pigs/4b55bc9a-5c63-4208-b278-0c08b3944e26 -> 200
+  ✓ [GET   ] /api/pigs/a2a25951-69ae-4807-bf8d-f98cfd0fb6c3 -> 200
+  ✓ [GET   ] /api/pigs/5534ca89-5e60-44c6-9967-bfa46abaaa49 -> 200
+  ✅ 驗證創建記錄 — 20/20 筆正確
+
+============================================================
+[Step 4] Phase 2 — 體重紀錄（全部 20 隻，各 2~3 筆）
+============================================================
+  ✓ [POST  ] /pigs/f731c176-dcd8-4c93-9af3-72717185eaac/weights -> 200
+  ✓ [POST  ] /pigs/f731c176-dcd8-4c93-9af3-72717185eaac/weights -> 200
+  ✓ [POST  ] /pigs/8364f602-f384-4721-a476-349cca23ec8c/weights -> 200
+  ✓ [POST  ] /pigs/8364f602-f384-4721-a476-349cca23ec8c/weights -> 200
+  ✓ [POST  ] /pigs/e09b8d2e-511a-4a7b-a9d2-2f807badd4bc/weights -> 200
+  ✓ [POST  ] /pigs/e09b8d2e-511a-4a7b-a9d2-2f807badd4bc/weights -> 200
+  ✓ [POST  ] /pigs/8d285a6b-2f03-4b8b-a2db-b87158d0cf16/weights -> 200
+  ✓ [POST  ] /pigs/8d285a6b-2f03-4b8b-a2db-b87158d0cf16/weights -> 200
+  ✓ [POST  ] /pigs/8753c359-4ba2-44a7-8fea-500e9decb206/weights -> 200
+  ✓ [POST  ] /pigs/8753c359-4ba2-44a7-8fea-500e9decb206/weights -> 200
+  ✓ [POST  ] /pigs/00d0339c-7476-4780-aa9b-b6536f9e45b8/weights -> 200
+  ✓ [POST  ] /pigs/00d0339c-7476-4780-aa9b-b6536f9e45b8/weights -> 200
+  ✓ [POST  ] /pigs/dcf561b0-3c3e-4d1e-8392-b4d6f5e693c0/weights -> 200
+  ✓ [POST  ] /pigs/dcf561b0-3c3e-4d1e-8392-b4d6f5e693c0/weights -> 200
+  ✓ [POST  ] /pigs/4414afe8-cd04-4083-9a28-ad5896620392/weights -> 200
+  ✓ [POST  ] /pigs/4414afe8-cd04-4083-9a28-ad5896620392/weights -> 200
+  ✓ [POST  ] /pigs/a43d5f8e-fac9-4e1e-8b8c-632765d2a141/weights -> 200
+  ✓ [POST  ] /pigs/a43d5f8e-fac9-4e1e-8b8c-632765d2a141/weights -> 200
+  ✓ [POST  ] /pigs/5c1aed66-2d0c-4f83-b6bd-18480f2c184a/weights -> 200
+  ✓ [POST  ] /pigs/5c1aed66-2d0c-4f83-b6bd-18480f2c184a/weights -> 200
+  ✓ [POST  ] /pigs/da765d45-3c92-4670-b879-661ad3aed89b/weights -> 200
+  ✓ [POST  ] /pigs/da765d45-3c92-4670-b879-661ad3aed89b/weights -> 200
+  ✓ [POST  ] /pigs/da765d45-3c92-4670-b879-661ad3aed89b/weights -> 200
+  ✓ [POST  ] /pigs/d8bfc0b1-6f81-40cd-8d63-fcb7065b44f7/weights -> 200
+  ✓ [POST  ] /pigs/d8bfc0b1-6f81-40cd-8d63-fcb7065b44f7/weights -> 200
+  ✓ [POST  ] /pigs/d8bfc0b1-6f81-40cd-8d63-fcb7065b44f7/weights -> 200
+  ✓ [POST  ] /pigs/4cef32b0-aa90-458e-a5ce-c499b5bfe68e/weights -> 200
+  ✓ [POST  ] /pigs/4cef32b0-aa90-458e-a5ce-c499b5bfe68e/weights -> 200
+  ✓ [POST  ] /pigs/4cef32b0-aa90-458e-a5ce-c499b5bfe68e/weights -> 200
+  ✓ [POST  ] /pigs/095085e9-5213-4811-bfdd-ade533bef71e/weights -> 200
+  ✓ [POST  ] /pigs/095085e9-5213-4811-bfdd-ade533bef71e/weights -> 200
+  ✓ [POST  ] /pigs/095085e9-5213-4811-bfdd-ade533bef71e/weights -> 200
+  ✓ [POST  ] /pigs/82584ed0-e901-4849-8a96-36901f7e4611/weights -> 200
+  ✓ [POST  ] /pigs/82584ed0-e901-4849-8a96-36901f7e4611/weights -> 200
+  ✓ [POST  ] /pigs/82584ed0-e901-4849-8a96-36901f7e4611/weights -> 200
+  ✓ [POST  ] /pigs/ff749588-578a-496e-9dc5-30e03b1b34af/weights -> 200
+  ✓ [POST  ] /pigs/ff749588-578a-496e-9dc5-30e03b1b34af/weights -> 200
+  ✓ [POST  ] /pigs/ff749588-578a-496e-9dc5-30e03b1b34af/weights -> 200
+  ✓ [POST  ] /pigs/eeec9e5b-754c-47b8-b1ee-ddef46126e70/weights -> 200
+  ✓ [POST  ] /pigs/eeec9e5b-754c-47b8-b1ee-ddef46126e70/weights -> 200
+  ✓ [POST  ] /pigs/eeec9e5b-754c-47b8-b1ee-ddef46126e70/weights -> 200
+  ✓ [POST  ] /pigs/4b55bc9a-5c63-4208-b278-0c08b3944e26/weights -> 200
+  ✓ [POST  ] /pigs/4b55bc9a-5c63-4208-b278-0c08b3944e26/weights -> 200
+  ✓ [POST  ] /pigs/4b55bc9a-5c63-4208-b278-0c08b3944e26/weights -> 200
+  ✓ [POST  ] /pigs/a2a25951-69ae-4807-bf8d-f98cfd0fb6c3/weights -> 200
+  ✓ [POST  ] /pigs/a2a25951-69ae-4807-bf8d-f98cfd0fb6c3/weights -> 200
+  ✓ [POST  ] /pigs/a2a25951-69ae-4807-bf8d-f98cfd0fb6c3/weights -> 200
+  ✓ [POST  ] /pigs/5534ca89-5e60-44c6-9967-bfa46abaaa49/weights -> 200
+  ✓ [POST  ] /pigs/5534ca89-5e60-44c6-9967-bfa46abaaa49/weights -> 200
+  ✓ [POST  ] /pigs/5534ca89-5e60-44c6-9967-bfa46abaaa49/weights -> 200
+  ✅ 記錄體重 — 共 50 筆體重紀錄
+  ✓ [GET   ] /pigs/f731c176-dcd8-4c93-9af3-72717185eaac/weights -> 200
+  ✓ [GET   ] /pigs/8364f602-f384-4721-a476-349cca23ec8c/weights -> 200
+  ✓ [GET   ] /pigs/e09b8d2e-511a-4a7b-a9d2-2f807badd4bc/weights -> 200
+  ✓ [GET   ] /pigs/8d285a6b-2f03-4b8b-a2db-b87158d0cf16/weights -> 200
+  ✓ [GET   ] /pigs/8753c359-4ba2-44a7-8fea-500e9decb206/weights -> 200
+  ✓ [GET   ] /pigs/00d0339c-7476-4780-aa9b-b6536f9e45b8/weights -> 200
+  ✓ [GET   ] /pigs/dcf561b0-3c3e-4d1e-8392-b4d6f5e693c0/weights -> 200
+  ✓ [GET   ] /pigs/4414afe8-cd04-4083-9a28-ad5896620392/weights -> 200
+  ✓ [GET   ] /pigs/a43d5f8e-fac9-4e1e-8b8c-632765d2a141/weights -> 200
+  ✓ [GET   ] /pigs/5c1aed66-2d0c-4f83-b6bd-18480f2c184a/weights -> 200
+  ✓ [GET   ] /pigs/da765d45-3c92-4670-b879-661ad3aed89b/weights -> 200
+  ✓ [GET   ] /pigs/d8bfc0b1-6f81-40cd-8d63-fcb7065b44f7/weights -> 200
+  ✓ [GET   ] /pigs/4cef32b0-aa90-458e-a5ce-c499b5bfe68e/weights -> 200
+  ✓ [GET   ] /pigs/095085e9-5213-4811-bfdd-ade533bef71e/weights -> 200
+  ✓ [GET   ] /pigs/82584ed0-e901-4849-8a96-36901f7e4611/weights -> 200
+  ✓ [GET   ] /pigs/ff749588-578a-496e-9dc5-30e03b1b34af/weights -> 200
+  ✓ [GET   ] /pigs/eeec9e5b-754c-47b8-b1ee-ddef46126e70/weights -> 200
+  ✓ [GET   ] /pigs/4b55bc9a-5c63-4208-b278-0c08b3944e26/weights -> 200
+  ✓ [GET   ] /pigs/a2a25951-69ae-4807-bf8d-f98cfd0fb6c3/weights -> 200
+  ✓ [GET   ] /pigs/5534ca89-5e60-44c6-9967-bfa46abaaa49/weights -> 200
+  ✅ 驗證體重紀錄可見 — 20/20 隻有體重
+  ✓ [GET   ] /localhost:8000/api/pigs -> 200
+  ✅ 列表顯示最新體重 — 20 隻可見最新體重
+
+============================================================
+[Step 5] Phase 3 — 觀察試驗紀錄（全部 20 隻）
+============================================================
+  ✓ [POST  ] /pigs/f731c176-dcd8-4c93-9af3-72717185eaac/observations -> 200
+  ✓ [POST  ] /pigs/8364f602-f384-4721-a476-349cca23ec8c/observations -> 200
+  ✓ [POST  ] /pigs/e09b8d2e-511a-4a7b-a9d2-2f807badd4bc/observations -> 200
+  ✓ [POST  ] /pigs/8d285a6b-2f03-4b8b-a2db-b87158d0cf16/observations -> 200
+  ✓ [POST  ] /pigs/8753c359-4ba2-44a7-8fea-500e9decb206/observations -> 200
+  ✓ [POST  ] /pigs/00d0339c-7476-4780-aa9b-b6536f9e45b8/observations -> 200
+  ✓ [POST  ] /pigs/dcf561b0-3c3e-4d1e-8392-b4d6f5e693c0/observations -> 200
+  ✓ [POST  ] /pigs/4414afe8-cd04-4083-9a28-ad5896620392/observations -> 200
+  ✓ [POST  ] /pigs/a43d5f8e-fac9-4e1e-8b8c-632765d2a141/observations -> 200
+  ✓ [POST  ] /pigs/5c1aed66-2d0c-4f83-b6bd-18480f2c184a/observations -> 200
+  → 已建立 10/20 隻的觀察紀錄
+  ✓ [POST  ] /pigs/da765d45-3c92-4670-b879-661ad3aed89b/observations -> 200
+  ✓ [POST  ] /pigs/da765d45-3c92-4670-b879-661ad3aed89b/observations -> 200
+  ✓ [POST  ] /pigs/d8bfc0b1-6f81-40cd-8d63-fcb7065b44f7/observations -> 200
+Traceback (most recent call last):
+  File "C:\System Coding\ipig_system\tests\run_all_tests.py", line 99, in mai
+n
+    results["Animal"] = run_animal_test()
+  File "C:\System Coding\ipig_system\tests\test_animal_full.py", line 360, in
+ run_animal_test
+    t._req("PUT", f"{API_BASE_URL}/pigs/{pid}", role=STAFF,
+  File "C:\System Coding\ipig_system\tests\test_base.py", line 167, in _req
+    resp.raise_for_status()
+  File "C:\System Coding\ipig_system\.venv\lib\site-packages\requests\models.
+py", line 1026, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 422 Client Error: Unprocessable Entity for url
+: http://localhost:8000/api/pigs/ff749588-578a-496e-9dc5-30e03b1b34af
+  ✓ [POST  ] /pigs/d8bfc0b1-6f81-40cd-8d63-fcb7065b44f7/observations -> 200
+  ✓ [POST  ] /pigs/4cef32b0-aa90-458e-a5ce-c499b5bfe68e/observations -> 200
+  ✓ [POST  ] /pigs/4cef32b0-aa90-458e-a5ce-c499b5bfe68e/observations -> 200
+  ✓ [POST  ] /pigs/095085e9-5213-4811-bfdd-ade533bef71e/observations -> 200
+  ✓ [POST  ] /pigs/095085e9-5213-4811-bfdd-ade533bef71e/observations -> 200
+  ✓ [POST  ] /pigs/82584ed0-e901-4849-8a96-36901f7e4611/observations -> 200
+  ✓ [POST  ] /pigs/82584ed0-e901-4849-8a96-36901f7e4611/observations -> 200
+  ✓ [POST  ] /pigs/ff749588-578a-496e-9dc5-30e03b1b34af/observations -> 200
+  ✓ [POST  ] /pigs/ff749588-578a-496e-9dc5-30e03b1b34af/observations -> 200
+  ✓ [POST  ] /pigs/eeec9e5b-754c-47b8-b1ee-ddef46126e70/observations -> 200
+  ✓ [POST  ] /pigs/eeec9e5b-754c-47b8-b1ee-ddef46126e70/observations -> 200
+  ✓ [POST  ] /pigs/4b55bc9a-5c63-4208-b278-0c08b3944e26/observations -> 200
+  ✓ [POST  ] /pigs/4b55bc9a-5c63-4208-b278-0c08b3944e26/observations -> 200
+  ✓ [POST  ] /pigs/a2a25951-69ae-4807-bf8d-f98cfd0fb6c3/observations -> 200
+  ✓ [POST  ] /pigs/a2a25951-69ae-4807-bf8d-f98cfd0fb6c3/observations -> 200
+  ✓ [POST  ] /pigs/5534ca89-5e60-44c6-9967-bfa46abaaa49/observations -> 200
+  ✓ [POST  ] /pigs/5534ca89-5e60-44c6-9967-bfa46abaaa49/observations -> 200
+  → 已建立 20/20 隻的觀察紀錄
+  ✅ 建立觀察紀錄 — 共 30 筆觀察紀錄
+  ✓ [GET   ] /pigs/f731c176-dcd8-4c93-9af3-72717185eaac/observations -> 200
+  ✓ [GET   ] /pigs/8364f602-f384-4721-a476-349cca23ec8c/observations -> 200
+  ✓ [GET   ] /pigs/e09b8d2e-511a-4a7b-a9d2-2f807badd4bc/observations -> 200
+  ✓ [GET   ] /pigs/8d285a6b-2f03-4b8b-a2db-b87158d0cf16/observations -> 200
+  ✓ [GET   ] /pigs/8753c359-4ba2-44a7-8fea-500e9decb206/observations -> 200
+  ✓ [GET   ] /pigs/00d0339c-7476-4780-aa9b-b6536f9e45b8/observations -> 200
+  ✓ [GET   ] /pigs/dcf561b0-3c3e-4d1e-8392-b4d6f5e693c0/observations -> 200
+  ✓ [GET   ] /pigs/4414afe8-cd04-4083-9a28-ad5896620392/observations -> 200
+  ✓ [GET   ] /pigs/a43d5f8e-fac9-4e1e-8b8c-632765d2a141/observations -> 200
+  ✓ [GET   ] /pigs/5c1aed66-2d0c-4f83-b6bd-18480f2c184a/observations -> 200
+  ✓ [GET   ] /pigs/da765d45-3c92-4670-b879-661ad3aed89b/observations -> 200
+  ✓ [GET   ] /pigs/d8bfc0b1-6f81-40cd-8d63-fcb7065b44f7/observations -> 200
+  ✓ [GET   ] /pigs/4cef32b0-aa90-458e-a5ce-c499b5bfe68e/observations -> 200
+  ✓ [GET   ] /pigs/095085e9-5213-4811-bfdd-ade533bef71e/observations -> 200
+  ✓ [GET   ] /pigs/82584ed0-e901-4849-8a96-36901f7e4611/observations -> 200
+  ✓ [GET   ] /pigs/ff749588-578a-496e-9dc5-30e03b1b34af/observations -> 200
+  ✓ [GET   ] /pigs/eeec9e5b-754c-47b8-b1ee-ddef46126e70/observations -> 200
+  ✓ [GET   ] /pigs/4b55bc9a-5c63-4208-b278-0c08b3944e26/observations -> 200
+  ✓ [GET   ] /pigs/a2a25951-69ae-4807-bf8d-f98cfd0fb6c3/observations -> 200
+  ✓ [GET   ] /pigs/5534ca89-5e60-44c6-9967-bfa46abaaa49/observations -> 200
+  ✅ 驗證觀察紀錄 — 20/20 隻有觀察紀錄
+
+============================================================
+[Step 6] Phase 4 — 手術紀錄 + 術後觀察（豬 #1~#5）
+============================================================
+  ✓ [POST  ] /pigs/f731c176-dcd8-4c93-9af3-72717185eaac/surgeries -> 200
+  → 豬 #1 手術 (腹腔) -> ID: 60ea8aec-a540-4f29-b651-1e2d407439dd
+  ✓ [POST  ] /pigs/8364f602-f384-4721-a476-349cca23ec8c/surgeries -> 200
+  → 豬 #2 手術 (胸腔) -> ID: 74db4fb9-f36b-44c5-99e5-13ec89bbcb0a
+  ✓ [POST  ] /pigs/e09b8d2e-511a-4a7b-a9d2-2f807badd4bc/surgeries -> 200
+  → 豬 #3 手術 (頸部) -> ID: 7ebb4d90-e225-4e12-bf2d-638761757693
+  ✓ [POST  ] /pigs/8d285a6b-2f03-4b8b-a2db-b87158d0cf16/surgeries -> 200
+  → 豬 #4 手術 (背部) -> ID: 671c0cc3-61a7-4893-813a-409eecde9da1
+  ✓ [POST  ] /pigs/8753c359-4ba2-44a7-8fea-500e9decb206/surgeries -> 200
+  → 豬 #5 手術 (四肢) -> ID: 77ab2e04-4019-43f6-a64e-699e7c1ffbef
+  ✅ 建立手術紀錄 — 5 隻豬各 1 筆手術紀錄
+  → 建立術後觀察紀錄...
+  ✓ [POST  ] /pigs/f731c176-dcd8-4c93-9af3-72717185eaac/observations -> 200
+  ✓ [POST  ] /pigs/f731c176-dcd8-4c93-9af3-72717185eaac/observations -> 200
+  ✓ [POST  ] /pigs/f731c176-dcd8-4c93-9af3-72717185eaac/observations -> 200
+  ✓ [POST  ] /pigs/8364f602-f384-4721-a476-349cca23ec8c/observations -> 200
+  ✓ [POST  ] /pigs/8364f602-f384-4721-a476-349cca23ec8c/observations -> 200
+  ✓ [POST  ] /pigs/8364f602-f384-4721-a476-349cca23ec8c/observations -> 200
+  ✓ [POST  ] /pigs/e09b8d2e-511a-4a7b-a9d2-2f807badd4bc/observations -> 200
+  ✓ [POST  ] /pigs/e09b8d2e-511a-4a7b-a9d2-2f807badd4bc/observations -> 200
+  ✓ [POST  ] /pigs/e09b8d2e-511a-4a7b-a9d2-2f807badd4bc/observations -> 200
+  ✓ [POST  ] /pigs/8d285a6b-2f03-4b8b-a2db-b87158d0cf16/observations -> 200
+  ✓ [POST  ] /pigs/8d285a6b-2f03-4b8b-a2db-b87158d0cf16/observations -> 200
+  ✓ [POST  ] /pigs/8d285a6b-2f03-4b8b-a2db-b87158d0cf16/observations -> 200
+  ✓ [POST  ] /pigs/8753c359-4ba2-44a7-8fea-500e9decb206/observations -> 200
+  ✓ [POST  ] /pigs/8753c359-4ba2-44a7-8fea-500e9decb206/observations -> 200
+  ✓ [POST  ] /pigs/8753c359-4ba2-44a7-8fea-500e9decb206/observations -> 200
+  ✅ 術後觀察紀錄 — 5 隻豬各 3 筆術後觀察
+  ✓ [GET   ] /pigs/f731c176-dcd8-4c93-9af3-72717185eaac/surgeries -> 200
+  ✓ [GET   ] /pigs/8364f602-f384-4721-a476-349cca23ec8c/surgeries -> 200
+  ✓ [GET   ] /pigs/e09b8d2e-511a-4a7b-a9d2-2f807badd4bc/surgeries -> 200
+  ✓ [GET   ] /pigs/8d285a6b-2f03-4b8b-a2db-b87158d0cf16/surgeries -> 200
+  ✓ [GET   ] /pigs/8753c359-4ba2-44a7-8fea-500e9decb206/surgeries -> 200
+  ✅ 驗證手術紀錄 — 5/5 隻有手術紀錄
+
+============================================================
+[Step 7] Phase 5 — 疫苗/驅蟲紀錄（全部 20 隻）
+============================================================
+  ✓ [POST  ] /pigs/f731c176-dcd8-4c93-9af3-72717185eaac/vaccinations -> 200
+  ✓ [POST  ] /pigs/8364f602-f384-4721-a476-349cca23ec8c/vaccinations -> 200
+  ✓ [POST  ] /pigs/e09b8d2e-511a-4a7b-a9d2-2f807badd4bc/vaccinations -> 200
+  ✓ [POST  ] /pigs/8d285a6b-2f03-4b8b-a2db-b87158d0cf16/vaccinations -> 200
+  ✓ [POST  ] /pigs/8753c359-4ba2-44a7-8fea-500e9decb206/vaccinations -> 200
+  ✓ [POST  ] /pigs/00d0339c-7476-4780-aa9b-b6536f9e45b8/vaccinations -> 200
+  ✓ [POST  ] /pigs/dcf561b0-3c3e-4d1e-8392-b4d6f5e693c0/vaccinations -> 200
+  ✓ [POST  ] /pigs/4414afe8-cd04-4083-9a28-ad5896620392/vaccinations -> 200
+  ✓ [POST  ] /pigs/a43d5f8e-fac9-4e1e-8b8c-632765d2a141/vaccinations -> 200
+  ✓ [POST  ] /pigs/5c1aed66-2d0c-4f83-b6bd-18480f2c184a/vaccinations -> 200
+  ✓ [POST  ] /pigs/da765d45-3c92-4670-b879-661ad3aed89b/vaccinations -> 200
+  ✓ [POST  ] /pigs/d8bfc0b1-6f81-40cd-8d63-fcb7065b44f7/vaccinations -> 200
+  ✓ [POST  ] /pigs/4cef32b0-aa90-458e-a5ce-c499b5bfe68e/vaccinations -> 200
+  ✓ [POST  ] /pigs/095085e9-5213-4811-bfdd-ade533bef71e/vaccinations -> 200
+  ✓ [POST  ] /pigs/82584ed0-e901-4849-8a96-36901f7e4611/vaccinations -> 200
+  ✓ [POST  ] /pigs/ff749588-578a-496e-9dc5-30e03b1b34af/vaccinations -> 200
+  ✓ [POST  ] /pigs/eeec9e5b-754c-47b8-b1ee-ddef46126e70/vaccinations -> 200
+  ✓ [POST  ] /pigs/4b55bc9a-5c63-4208-b278-0c08b3944e26/vaccinations -> 200
+  ✓ [POST  ] /pigs/a2a25951-69ae-4807-bf8d-f98cfd0fb6c3/vaccinations -> 200
+  ✓ [POST  ] /pigs/5534ca89-5e60-44c6-9967-bfa46abaaa49/vaccinations -> 200
+  ✅ 建立疫苗/驅蟲紀錄 — 共 20 筆
+  ✓ [GET   ] /pigs/f731c176-dcd8-4c93-9af3-72717185eaac/vaccinations -> 200
+  ✓ [GET   ] /pigs/8364f602-f384-4721-a476-349cca23ec8c/vaccinations -> 200
+  ✓ [GET   ] /pigs/e09b8d2e-511a-4a7b-a9d2-2f807badd4bc/vaccinations -> 200
+  ✓ [GET   ] /pigs/8d285a6b-2f03-4b8b-a2db-b87158d0cf16/vaccinations -> 200
+  ✓ [GET   ] /pigs/8753c359-4ba2-44a7-8fea-500e9decb206/vaccinations -> 200
+  ✓ [GET   ] /pigs/00d0339c-7476-4780-aa9b-b6536f9e45b8/vaccinations -> 200
+  ✓ [GET   ] /pigs/dcf561b0-3c3e-4d1e-8392-b4d6f5e693c0/vaccinations -> 200
+  ✓ [GET   ] /pigs/4414afe8-cd04-4083-9a28-ad5896620392/vaccinations -> 200
+  ✓ [GET   ] /pigs/a43d5f8e-fac9-4e1e-8b8c-632765d2a141/vaccinations -> 200
+  ✓ [GET   ] /pigs/5c1aed66-2d0c-4f83-b6bd-18480f2c184a/vaccinations -> 200
+  ✓ [GET   ] /pigs/da765d45-3c92-4670-b879-661ad3aed89b/vaccinations -> 200
+  ✓ [GET   ] /pigs/d8bfc0b1-6f81-40cd-8d63-fcb7065b44f7/vaccinations -> 200
+  ✓ [GET   ] /pigs/4cef32b0-aa90-458e-a5ce-c499b5bfe68e/vaccinations -> 200
+  ✓ [GET   ] /pigs/095085e9-5213-4811-bfdd-ade533bef71e/vaccinations -> 200
+  ✓ [GET   ] /pigs/82584ed0-e901-4849-8a96-36901f7e4611/vaccinations -> 200
+  ✓ [GET   ] /pigs/ff749588-578a-496e-9dc5-30e03b1b34af/vaccinations -> 200
+  ✓ [GET   ] /pigs/eeec9e5b-754c-47b8-b1ee-ddef46126e70/vaccinations -> 200
+  ✓ [GET   ] /pigs/4b55bc9a-5c63-4208-b278-0c08b3944e26/vaccinations -> 200
+  ✓ [GET   ] /pigs/a2a25951-69ae-4807-bf8d-f98cfd0fb6c3/vaccinations -> 200
+  ✓ [GET   ] /pigs/5534ca89-5e60-44c6-9967-bfa46abaaa49/vaccinations -> 200
+  ✅ 驗證疫苗紀錄 — 20/20 隻有疫苗紀錄
+
+============================================================
+[Step 8] Phase 6 — 犧牲/採樣紀錄（豬 #16~#18）
+============================================================
+  ✓ [POST  ] /pigs/ff749588-578a-496e-9dc5-30e03b1b34af/sacrifice -> 200
+  → 豬 #16 犧牲/採樣紀錄已建立
+  ✓ [POST  ] /pigs/eeec9e5b-754c-47b8-b1ee-ddef46126e70/sacrifice -> 200
+  → 豬 #17 犧牲/採樣紀錄已建立
+  ✓ [POST  ] /pigs/4b55bc9a-5c63-4208-b278-0c08b3944e26/sacrifice -> 200
+  → 豬 #18 犧牲/採樣紀錄已建立
+  ✅ 建立犧牲/採樣紀錄 — 3 隻豬
+  ✓ [GET   ] /pigs/ff749588-578a-496e-9dc5-30e03b1b34af/sacrifice -> 200
+  ✓ [GET   ] /pigs/eeec9e5b-754c-47b8-b1ee-ddef46126e70/sacrifice -> 200
+  ✓ [GET   ] /pigs/4b55bc9a-5c63-4208-b278-0c08b3944e26/sacrifice -> 200
+  ✅ 驗證犧牲紀錄 — 3/3 筆確認
+
+============================================================
+[Step 9] Phase 7 — 動物資料更新
+============================================================
+  ✓ [PUT   ] /api/pigs/f731c176-dcd8-4c93-9af3-72717185eaac -> 200
+  ✓ [PUT   ] /api/pigs/8364f602-f384-4721-a476-349cca23ec8c -> 200
+  ✓ [PUT   ] /api/pigs/e09b8d2e-511a-4a7b-a9d2-2f807badd4bc -> 200
+  ✓ [PUT   ] /api/pigs/8d285a6b-2f03-4b8b-a2db-b87158d0cf16 -> 200
+  ✓ [PUT   ] /api/pigs/8753c359-4ba2-44a7-8fea-500e9decb206 -> 200
+  ✗ [PUT   ] /api/pigs/ff749588-578a-496e-9dc5-30e03b1b34af -> 422
+
+[ERROR] 動物管理測試例外: 422 Client Error: Unprocessable Entity for url: http://localhost:8000/api/pigs/ff749588-578a-496e-9dc5-30e03b1b34af
+  ⏱ 動物管理測試耗時: 1.7 秒
+
+════════════════════════════════════════════════════════════
+  整合測試最終報告
+════════════════════════════════════════════════════════════
+  ❌  AUP
+  ✅  ERP
+  ❌  Animal
+
+  ⏱ 總耗時: 3.9 秒
+
+⚠️ 以下測試失敗: AUP, Animal
+════════════════════════════════════════════════════════════

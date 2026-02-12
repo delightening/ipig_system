@@ -1,14 +1,10 @@
 {
-  "test": "ERP 完整流程測試",
-  "method": "POST",
-  "url": "http://localhost:8000/api/documents/e8b6351a-ca4b-4ccc-93f3-6cba91bb66fc/submit",
-  "status": 500,
-  "payload": null,
-  "response": "{\"error\":{\"code\":500,\"message\":\"Database error: error returned from database: column \\\"requires_manager_approval\\\" of relation \\\"documents\\\" does not exist\"}}",
-  "response_json": {
-    "error": {
-      "code": 500,
-      "message": "Database error: error returned from database: column \"requires_manager_approval\" of relation \"documents\" does not exist"
-    }
-  }
+  "test": "動物管理系統完整測試",
+  "method": "PUT",
+  "url": "http://localhost:8000/api/pigs/ff749588-578a-496e-9dc5-30e03b1b34af",
+  "status": 422,
+  "payload": {
+    "status": "deceased"
+  },
+  "response": "Failed to deserialize the JSON body into the target type: status: unknown variant `deceased`, expected one of `unassigned`, `in_experiment`, `completed` at line 1 column 21"
 }
