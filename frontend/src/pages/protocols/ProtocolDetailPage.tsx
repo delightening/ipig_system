@@ -176,7 +176,13 @@ export function ProtocolDetailPage() {
     pi_email,
     pi_organization,
     vet_review,
-  } = (protocolResponse as any) || {}
+  } = (protocolResponse as any as {
+    protocol?: ProtocolResponse
+    pi_name?: string
+    pi_email?: string
+    pi_organization?: string
+    vet_review?: any
+  }) || {}
 
   const isVetReviewer = useMemo(() => {
     if (!user || !vet_review) return false
@@ -637,7 +643,7 @@ export function ProtocolDetailPage() {
   // Get anonymized reviewer display name
   const getReviewerDisplayName = (comment: ReviewCommentResponse) => {
     // 如果是計畫主持人 (PI) 的回覆，直接顯示其名稱 (不匿名)
-    if (comment.parent_comment_id && (comment.replied_by === protocol.pi_id || comment.replied_by_name)) {
+    if (comment.parent_comment_id && (comment.replied_by === protocol?.pi_user_id || comment.replied_by_name)) {
       return comment.replied_by_name || pi_name || t('common.user')
     }
 

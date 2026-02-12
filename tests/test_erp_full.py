@@ -290,6 +290,27 @@ def run_erp_test() -> bool:
     has_ledger = len(ledger) > 0
     t.record("查詢庫存帳簿", has_ledger, f"{len(ledger)} 筆帳簿記錄")
 
+    # 驗證每個貨架的庫存內容
+    t.step("Phase 5 — 貨架庫存驗證 (storage-locations/:id/inventory)")
+    shelves_with_stock = 0
+    total_items_in_shelves = 0
+    for wi, storage_id in storage_ids:
+        inv_r = t._req("GET", f"{API_BASE_URL}/storage-locations/{storage_id}/inventory", role=WM)
+        items = inv_r.json()
+        if len(items) > 0:
+            shelves_with_stock += 1
+            total_items_in_shelves += len(items)
+            # 確認每個品項都有必要欄位
+            for item in items:
+                assert "product_name" in item, f"缺少 product_name: {item}"
+                assert "on_hand_qty" in item, f"缺少 on_hand_qty: {item}"
+            t.sub_step(f"貨架 {storage_id[:8]}... → {len(items)} 個品項")
+    t.record(
+        "貨架庫存驗證",
+        shelves_with_stock > 0,
+        f"{shelves_with_stock}/21 個貨架有庫存，共 {total_items_in_shelves} 個品項",
+    )
+
     # ========================================
     # 彙總
     # ========================================

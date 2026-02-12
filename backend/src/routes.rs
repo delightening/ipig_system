@@ -136,6 +136,18 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/pigs/:id/sacrifice", get(handlers::get_pig_sacrifice).post(handlers::upsert_pig_sacrifice))
         // Pig Records - Pathology
         .route("/pigs/:id/pathology", get(handlers::get_pig_pathology_report).post(handlers::upsert_pig_pathology_report))
+        // Pig Records - Blood Tests (血液檢查)
+        .route("/pigs/:id/blood-tests", get(handlers::list_pig_blood_tests).post(handlers::create_pig_blood_test))
+        .route("/blood-tests/:id", get(handlers::get_pig_blood_test).put(handlers::update_pig_blood_test).delete(handlers::delete_pig_blood_test))
+        // Blood Test Templates (項目模板管理)
+        .route("/blood-test-templates", get(handlers::list_blood_test_templates).post(handlers::create_blood_test_template))
+        .route("/blood-test-templates/all", get(handlers::list_all_blood_test_templates))
+        .route("/blood-test-templates/:id", put(handlers::update_blood_test_template).delete(handlers::delete_blood_test_template))
+        // Blood Test Panels (檢驗組合管理)
+        .route("/blood-test-panels", get(handlers::list_blood_test_panels).post(handlers::create_blood_test_panel))
+        .route("/blood-test-panels/all", get(handlers::list_all_blood_test_panels))
+        .route("/blood-test-panels/:id", put(handlers::update_blood_test_panel).delete(handlers::delete_blood_test_panel))
+        .route("/blood-test-panels/:id/items", put(handlers::update_blood_test_panel_items))
         // Vet Recommendations
         .route("/observations/:id/recommendations", get(handlers::get_observation_vet_recommendations).post(handlers::add_observation_vet_recommendation))
         .route("/observations/:id/recommendations/with-attachments", post(handlers::add_observation_vet_recommendation_with_attachments))

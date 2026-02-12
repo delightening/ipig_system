@@ -543,43 +543,7 @@ async fn seed_dev_users(pool: &sqlx::PgPool) -> Result<()> {
             email: "smen1971@gmail.com",
             display_name: "意萍",
             roles: &["EXPERIMENT_STAFF", "WAREHOUSE_MANAGER", "PURCHASING", "ADMIN_STAFF"],
-        },
-        // === 測試使用者帳號 ===
-        DevUser {
-            email: "vet@ipig.local",
-            display_name: "測試獸醫",
-            roles: &["VET"],
-        },
-        DevUser {
-            email: "PI@ipig.local",
-            display_name: "測試 PI",
-            roles: &["PI"],
-        },
-        DevUser {
-            email: "client@ipig.local",
-            display_name: "測試委託人",
-            roles: &["CLIENT"],
-        },
-        DevUser {
-            email: "REVIEWER1@ipig.local",
-            display_name: "審查委員 1",
-            roles: &["REVIEWER"],
-        },
-        DevUser {
-            email: "REVIEWER2@ipig.local",
-            display_name: "審查委員 2",
-            roles: &["REVIEWER"],
-        },
-        DevUser {
-            email: "REVIEWER3@ipig.local",
-            display_name: "審查委員 3",
-            roles: &["REVIEWER"],
-        },
-        DevUser {
-            email: "CHAIR@ipig.local",
-            display_name: "IACUC 主席",
-            roles: &["REVIEWER", "IACUC_CHAIR"],
-        },
+        },        
     ];
     
     for dev_user in &dev_users {

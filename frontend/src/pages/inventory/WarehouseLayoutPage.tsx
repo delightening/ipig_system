@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import api, {
@@ -46,6 +46,14 @@ import {
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
+
+// 庫存單位對照表
+const UOM_MAP: Record<string, string> = {
+    'EA': '個', 'TB': '錠', 'CP': '膠囊', 'BT': '瓶', 'BX': '盒',
+    'PK': '包', 'RL': '卷', 'SET': '組', 'ML': 'mL', 'L': 'L',
+    'G': 'g', 'KG': 'kg', 'pcs': '個',
+}
+const formatUom = (uom: string) => UOM_MAP[uom] || uom
 
 // 定義 react-grid-layout 的 LayoutItem 型別
 interface GridLayoutItem {
@@ -114,6 +122,14 @@ export function WarehouseLayoutPage() {
             return res.data.filter(w => w.is_active)
         },
     })
+
+    // 倉庫載入後，預設選擇 WH001 或第一個倉庫
+    useEffect(() => {
+        if (warehouses && warehouses.length > 0 && !selectedWarehouseId) {
+            const wh001 = warehouses.find(w => w.code === 'WH001')
+            setSelectedWarehouseId(wh001 ? wh001.id : warehouses[0].id)
+        }
+    }, [warehouses])
 
     // 取得儲位列表
     const { data: locations, isLoading: loadingLocations } = useQuery({
@@ -310,8 +326,10 @@ export function WarehouseLayoutPage() {
             i: loc.id,
             x: loc.col_index,
             y: loc.row_index,
-            w: loc.width,
-            h: loc.height,
+            w: loc.width || 2,
+            h: loc.height || 2,
+            minW: 2,
+            minH: 2,
         }))
     }, [locations])
 
@@ -507,7 +525,7 @@ export function WarehouseLayoutPage() {
 
             {/* Create/Edit Dialog */}
             <Dialog open={showDialog} onOpenChange={setShowDialog}>
-                <DialogContent>
+                <DialogContent className="w-[66vw] max-w-none max-h-[75vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>{editingLocation ? '編輯儲位' : '新增儲位'}</DialogTitle>
                         <DialogDescription>
@@ -631,10 +649,10 @@ export function WarehouseLayoutPage() {
                                                                             [item.id]: e.target.value
                                                                         })}
                                                                     />
-                                                                    <span className="text-xs text-muted-foreground">{item.base_uom}</span>
+                                                                    <span className="text-xs text-muted-foreground">{formatUom(item.base_uom)}</span>
                                                                 </div>
                                                             ) : (
-                                                                <>{parseFloat(item.on_hand_qty).toLocaleString()} {item.base_uom}</>
+                                                                <>{parseFloat(item.on_hand_qty).toLocaleString()} {formatUom(item.base_uom)}</>
                                                             )}
                                                         </td>
                                                         <td className="p-2 text-muted-foreground">{item.batch_no || '-'}</td>

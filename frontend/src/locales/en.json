@@ -41,6 +41,7 @@
         "deleteTitle": "Confirm Delete",
         "closeTitle": "Confirm Close",
         "closeDescription": "Are you sure you want to close this project? This action cannot be undone.",
+        "close": "Close",
         "fileUpload": {
             "placeholder": "Drag and drop files here, or click to select files",
             "uploading": "Uploading...",
@@ -116,7 +117,7 @@
     "dashboard": {
         "title": "Dashboard",
         "editMode": {
-            "lock": "Lock Layout",
+            "lock": "Save Layout",
             "unlock": "Edit Layout",
             "hint": "Drag widgets to move, drag corner to resize. Click 'Lock Layout' when finished."
         },

@@ -21,6 +21,13 @@ use crate::{
         UpdateVaccinationRequest, CopyRecordRequest, VersionHistoryResponse,
         CreateVetRecommendationWithAttachmentsRequest, ExportRequest, PigImportBatch, ObservationListItem, SurgeryListItem, ImportResult,
         DeleteRequest,  // GLP: 刪除請求含原因
+        // 血液檢查相關
+        BloodTestTemplate, BloodTestListItem, PigBloodTestWithItems,
+        CreateBloodTestRequest, UpdateBloodTestRequest,
+        CreateBloodTestTemplateRequest, UpdateBloodTestTemplateRequest,
+        // 血液檢查組合
+        BloodTestPanelWithItems,
+        CreateBloodTestPanelRequest, UpdateBloodTestPanelRequest, UpdateBloodTestPanelItemsRequest,
     },
     require_permission,
     services::{AnimalService, AuditService, PdfService},
@@ -248,7 +255,7 @@ pub async fn update_pig(
     require_permission!(current_user, "animal.animal.edit");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
-    let pig = AnimalService::update(&state.db, id, &req).await?;
+    let pig = AnimalService::update(&state.db, id, &req, current_user.id).await?;
 
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
@@ -296,7 +303,7 @@ pub async fn batch_assign_pigs(
 ) -> Result<Json<Vec<Pig>>> {
     require_permission!(current_user, "animal.info.assign");
     
-    let pigs = AnimalService::batch_assign(&state.db, &req).await?;
+    let pigs = AnimalService::batch_assign(&state.db, &req, current_user.id).await?;
 
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
@@ -1491,3 +1498,243 @@ pub async fn get_vet_comments(
     Ok(Json(serde_json::json!({ "data": data })))
 }
 
+// ============================================
+// 血液檢查管理
+// ============================================
+
+/// 列出豬的所有血液檢查紀錄
+pub async fn list_pig_blood_tests(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+    Path(pig_id): Path<Uuid>,
+) -> Result<Json<Vec<BloodTestListItem>>> {
+    let tests = AnimalService::list_blood_tests(&state.db, pig_id).await?;
+    Ok(Json(tests))
+}
+
+/// 取得單筆血液檢查（含明細）
+pub async fn get_pig_blood_test(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<PigBloodTestWithItems>> {
+    let test = AnimalService::get_blood_test_by_id(&state.db, id).await?;
+    Ok(Json(test))
+}
+
+/// 建立血液檢查
+pub async fn create_pig_blood_test(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(pig_id): Path<Uuid>,
+    Json(req): Json<CreateBloodTestRequest>,
+) -> Result<Json<PigBloodTestWithItems>> {
+    require_permission!(current_user, "animal.record.create");
+    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+
+    let test = AnimalService::create_blood_test(&state.db, pig_id, &req, current_user.id).await?;
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "BLOOD_TEST_CREATE",
+        Some("pig_blood_test"), Some(pig_id),
+        Some(&format!("血液檢查紀錄 (pig: {})", pig_id)),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (BLOOD_TEST_CREATE): {}", e);
+    }
+
+    Ok(Json(test))
+}
+
+/// 更新血液檢查
+pub async fn update_pig_blood_test(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+    Json(req): Json<UpdateBloodTestRequest>,
+) -> Result<Json<PigBloodTestWithItems>> {
+    require_permission!(current_user, "animal.record.edit");
+    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+
+    let test = AnimalService::update_blood_test(&state.db, id, &req).await?;
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "BLOOD_TEST_UPDATE",
+        Some("pig_blood_test"), None,
+        Some(&format!("血液檢查紀錄 #{}", id)),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (BLOOD_TEST_UPDATE): {}", e);
+    }
+
+    Ok(Json(test))
+}
+
+/// 刪除血液檢查（軟刪除 + 刪除原因）
+pub async fn delete_pig_blood_test(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+    Json(req): Json<DeleteRequest>,
+) -> Result<Json<serde_json::Value>> {
+    require_permission!(current_user, "animal.record.delete");
+    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+
+    AnimalService::soft_delete_blood_test(&state.db, id, &req.reason, current_user.id).await?;
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "BLOOD_TEST_DELETE",
+        Some("pig_blood_test"), None,
+        Some(&format!("血液檢查紀錄 #{} (原因: {})", id, req.reason)),
+        None,
+        Some(serde_json::json!({ "reason": req.reason })),
+        None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (BLOOD_TEST_DELETE): {}", e);
+    }
+
+    Ok(Json(serde_json::json!({ "message": "Blood test record deleted successfully" })))
+}
+
+// ============================================
+// 血液檢查項目模板管理
+// ============================================
+
+/// 列出啟用中的血液檢查項目模板
+pub async fn list_blood_test_templates(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+) -> Result<Json<Vec<BloodTestTemplate>>> {
+    let templates = AnimalService::list_blood_test_templates(&state.db).await?;
+    Ok(Json(templates))
+}
+
+/// 列出所有模板（含停用）- 管理用
+pub async fn list_all_blood_test_templates(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+) -> Result<Json<Vec<BloodTestTemplate>>> {
+    let templates = AnimalService::list_all_blood_test_templates(&state.db).await?;
+    Ok(Json(templates))
+}
+
+/// 建立血液檢查項目模板
+pub async fn create_blood_test_template(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Json(req): Json<CreateBloodTestTemplateRequest>,
+) -> Result<Json<BloodTestTemplate>> {
+    require_permission!(current_user, "animal.record.create");
+    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+
+    let template = AnimalService::create_blood_test_template(&state.db, &req).await?;
+
+    Ok(Json(template))
+}
+
+/// 更新血液檢查項目模板
+pub async fn update_blood_test_template(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+    Json(req): Json<UpdateBloodTestTemplateRequest>,
+) -> Result<Json<BloodTestTemplate>> {
+    require_permission!(current_user, "animal.record.edit");
+
+    let template = AnimalService::update_blood_test_template(&state.db, id, &req).await?;
+
+    Ok(Json(template))
+}
+
+/// 刪除血液檢查項目模板（停用）
+pub async fn delete_blood_test_template(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<serde_json::Value>> {
+    require_permission!(current_user, "animal.record.delete");
+
+    AnimalService::delete_blood_test_template(&state.db, id).await?;
+
+    Ok(Json(serde_json::json!({ "message": "Template deactivated successfully" })))
+}
+
+// ============================================
+// 血液檢查組合 (Panel) 管理
+// ============================================
+
+/// 列出啟用中的血液檢查組合（含項目）
+pub async fn list_blood_test_panels(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+) -> Result<Json<Vec<BloodTestPanelWithItems>>> {
+    let panels = AnimalService::list_blood_test_panels(&state.db).await?;
+    Ok(Json(panels))
+}
+
+/// 列出所有組合（含停用）- 管理用
+pub async fn list_all_blood_test_panels(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+) -> Result<Json<Vec<BloodTestPanelWithItems>>> {
+    let panels = AnimalService::list_all_blood_test_panels(&state.db).await?;
+    Ok(Json(panels))
+}
+
+/// 建立血液檢查組合
+pub async fn create_blood_test_panel(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Json(req): Json<CreateBloodTestPanelRequest>,
+) -> Result<Json<BloodTestPanelWithItems>> {
+    require_permission!(current_user, "animal.record.create");
+    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+
+    let panel = AnimalService::create_blood_test_panel(&state.db, &req).await?;
+
+    Ok(Json(panel))
+}
+
+/// 更新血液檢查組合
+pub async fn update_blood_test_panel(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+    Json(req): Json<UpdateBloodTestPanelRequest>,
+) -> Result<Json<BloodTestPanelWithItems>> {
+    require_permission!(current_user, "animal.record.edit");
+
+    let panel = AnimalService::update_blood_test_panel(&state.db, id, &req).await?;
+
+    Ok(Json(panel))
+}
+
+/// 更新組合內的項目
+pub async fn update_blood_test_panel_items(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+    Json(req): Json<UpdateBloodTestPanelItemsRequest>,
+) -> Result<Json<BloodTestPanelWithItems>> {
+    require_permission!(current_user, "animal.record.edit");
+
+    let panel = AnimalService::update_blood_test_panel_items(&state.db, id, &req).await?;
+
+    Ok(Json(panel))
+}
+
+/// 刪除血液檢查組合（停用）
+pub async fn delete_blood_test_panel(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<serde_json::Value>> {
+    require_permission!(current_user, "animal.record.delete");
+
+    AnimalService::delete_blood_test_panel(&state.db, id).await?;
+
+    Ok(Json(serde_json::json!({ "message": "Panel deactivated successfully" })))
+}

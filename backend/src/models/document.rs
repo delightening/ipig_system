@@ -86,6 +86,9 @@ pub struct Document {
     pub receipt_status: Option<String>,
     /// 盤點範圍設定（循環盤點用）
     pub stocktake_scope: Option<serde_json::Value>,
+    /// IACUC 計畫編號（專案費用歸屬）
+    #[sqlx(default)]
+    pub iacuc_no: Option<String>,
     // 主管簽核相關欄位 (報廢金額超過門檻時使用)
     #[sqlx(default)]
     pub requires_manager_approval: Option<bool>,
@@ -130,6 +133,8 @@ pub struct CreateDocumentRequest {
     pub remark: Option<String>,
     /// 盤點範圍設定（僅盤點單使用）
     pub stocktake_scope: Option<serde_json::Value>,
+    /// IACUC 計畫編號（專案費用歸屬）
+    pub iacuc_no: Option<String>,
     /// 單據明細（盤點單可選，會根據範圍自動生成）
     #[serde(default)]
     pub lines: Vec<DocumentLineInput>,
@@ -170,6 +175,7 @@ pub struct DocumentQuery {
     pub date_from: Option<NaiveDate>,
     pub date_to: Option<NaiveDate>,
     pub keyword: Option<String>,
+    pub iacuc_no: Option<String>,
 }
 
 /// 單據詳情（含明細）
@@ -220,6 +226,8 @@ pub struct DocumentListItem {
     pub approved_at: Option<DateTime<Utc>>,
     pub line_count: i64,
     pub total_amount: Option<Decimal>,
+    #[sqlx(default)]
+    pub iacuc_no: Option<String>,
 }
 
 /// 採購單入庫狀態
