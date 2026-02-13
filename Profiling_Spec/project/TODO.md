@@ -4,10 +4,8 @@
 
 ## 🚧 進行中與近期事項
 
-### AUP 審查系統
-- [ ] UUID 遷移完整測試 - 執行資料庫遷移並進行端對端測試 (進行中)
-- [ ] Amendment 前端頁面開發 (進行中)
-- [ ] **狀態歷程「創建」活動類型修正** - 創建計畫時應使用 `ProtocolActivityType::Created` 而非 `StatusChanged` (`backend/src/services/protocol.rs`)
+### 優先事項
+- [ ] **計畫變更（Amendment）整合測試撰寫** - 前端頁面已完成，需撰寫整合測試驗證完整流程
 - [ ] **狀態變更至「審查中」顯示審查委員** - 狀態變為 `UNDER_REVIEW` 時，將指定審查委員名單記錄至活動歷程的 `target_entity_name` 或 `extra_data` (`backend/src/services/protocol.rs`)
 
 ### 系統管理與報表
@@ -19,12 +17,7 @@
 ## 📋 AUP 系統優化建議 (2026-02-06)
 
 ### AUP 表單與內容優化
-- [ ] 11. 5. 參考文獻格式參考農業部提供之格式
-- [ ] 20. 審查流程調整：先獸醫審查，再委員審查（目前缺少獸醫審查節點）
-
-### 系統功能擴充
-- [ ] 19. 執秘審查加入審查意見回覆功能
-- [ ] 22. 計畫變更（Amendment）功能測試與驗證
+- [ ] 參考文獻格式參考農業部提供之格式
 
 ---
 
@@ -32,7 +25,7 @@
 
 - [ ] 疼痛評估紀錄時間軸檢視
 - [ ] 獸醫師建議通知機制進階設定
-- [ ] 血液檢查組合後台管理元件 (`BloodTestPanelManager.tsx`)
+- [ ] 血液檢查組合後台管理元件 (`BloodTestPanelManager.tsx`) - 管理 Panel 組合的 CRUD 頁面（後端 API 已完成，前端管理頁面尚未建立）
 
 ---
 
@@ -64,54 +57,61 @@
 - [ ] 庫位管理（Bin Location）
 - [ ] 與會計/ERP API 對接
 
-### 使用者體驗
-- [ ] 行動端適配
-
 ---
 
 ## ✅ 已完成項目紀錄 (最近)
 
-### 稽核與安全 (2026-02-11)
+### 2026-02-13
+- [x] 新增「血液檢查項目管理」前端頁面（ERP 基礎資料模組）
+  - 前端 `BloodTestTemplatesPage.tsx` CRUD 頁面（64 個模板，啟用/停用管理）
+  - 已加入 ERP 基礎資料 tab（`ErpPage.tsx`）
+- [x] 血液檢查組合 (Panel) 快速勾選功能
+  - `026_blood_test_panels.sql` migration（14 組 + 64 筆關聯）
+  - 後端 Panel CRUD API（6 個端點）
+  - 前端 `BloodTestTab.tsx` Toggle 按鈕列 UI
+  - `test_blood_panel.py` 整合測試 28/28 通過
+- [x] ERP 站內通知系統整合
+- [x] 血液檢查移除審核步驟（自動標記 completed）
+- [x] 資料庫 migration 整合（008-029 合併）
+- [x] HR 測試修復
+- [x] 修復 API 404 錯誤（路由註冊問題）
+- [x] 修復後端容器重啟問題
+- [x] **狀態歷程「創建」活動類型修正** - `protocol.rs` 建立計畫時已使用 `ProtocolActivityType::Created`，`record_status_change` 中 `Draft => Created` 映射正確
+- [x] **審查流程調整：先獸醫審查，再委員審查** - `VET_REVIEW` 狀態完整實作（狀態驗證、自動指派獸醫、獸醫審查表）
+- [x] **執秘審查加入審查意見回覆功能** - `IACUC_STAFF` 已有 `aup.review.reply` 權限，`reply_review_comment` handler 完整實作含草稿回覆流程
+- [x] **Amendment 前端頁面開發** - `AmendmentsTab.tsx`（建立/提交/列表）+ `MyAmendmentsPage.tsx`（篩選/列表）
+
+### 2026-02-12
+- [x] 修復後端 `reply_comment` UTF-8 中文字元切割 panic
+- [x] 修復 Animal 測試 `deceased` → `completed` status
+- [x] 修復 AUP 測試 `get_status()` JSON 路徑錯誤
+- [x] 動物狀態簡化（6 種 → 3 種：Unassigned / InExperiment / Completed）
+- [x] 動物時間軸增強（建立日期、體重紀錄、犧牲標記）
+- [x] 動物記錄 ID 從 UUID 遷移至 SERIAL INTEGER
+
+### 2026-02-11
 - [x] 修復登入成功紀錄失效問題 (SQL INET)
 - [x] 補全 AUP 計畫書編輯、評論、指派與核准活動紀錄
 - [x] 優化非上班時間登入警報判斷點 (18:00-08:00)
 - [x] 整合實驗動物管理活動紀錄（23 個寫入操作）至安全審計系統
+- [x] AUP 完整流程測試 (`tests/test_aup_full.py`) 14/14
+- [x] ERP 完整流程測試 (`tests/test_erp_full.py`) 9/9
+- [x] 動物管理系統完整測試 (`tests/test_animal_full.py`) 21/21
+- [x] 修復角色權限（WAREHOUSE_MANAGER / ADMIN_STAFF / EXPERIMENT_STAFF）
+- [x] 修復空 Email 地址發送問題
 
-### 整合測試腳本 (2026-02-11)
-- [x] AUP 完整流程測試 (`tests/test_aup_full.py`)
-- [x] ERP 完整流程測試 (`tests/test_erp_full.py`)
-- [x] 動物管理系統完整測試 (`tests/test_animal_full.py`)
-- [x] 統一執行入口 (`tests/run_all_tests.py`)
-
-### 血液檢查組合功能 (2026-02-13)
-- [x] `026_blood_test_panels.sql` migration（14 組 + 64 筆關聯）
-- [x] 後端 Panel CRUD API（6 個端點）
-- [x] 前端 `BloodTestTab.tsx` Toggle 按鈕列 UI
-- [x] `test_blood_panel.py` 整合測試 28/28 通過
-
-### 整合測試 Bug 修復 (2026-02-12)
-- [x] 修復後端 `reply_comment` UTF-8 中文字元切割 panic
-- [x] 修復 Animal 測試 `deceased` → `completed` status
-- [x] 修復 AUP 測試 `get_status()` JSON 路徑錯誤
-
-### 其他 (2026-02-09 ~ 2026-02-10)
-- [x] 實作「多帳號腳本登入偵測」與全域 Critical 警報 (2026-02-10)
-- [x] 新增「同時大量登入」偵測機制與 UI 標籤 (2026-02-10)
-- [x] 安全警報偵測與顯示修復 - 修正資料庫欄位不一致與嚴重視次序等級問題 (2026-02-10)
-- [x] 計畫書管理表格排序功能 - 實作 IACUC No.、標題、主持人、單位、狀態、執行期間與建立日期之排序 (2026-02-09)
-- [x] 修復審查人員列表無法顯示的問題 - 權限檢查、SQL 查詢欄位順序、NULL 值處理 (2026-02-09)
-- [x] AUP 狀態歷程 (Status History) 顯示修復與優化 (2026-02-09)
-- [x] 修復 PI 無法刪除草稿權限問題與補齊稽核日誌 (2026-02-09)
-
-- [x] AUP 計畫書第 6 節「手術計畫書」標籤編號與翻譯同步 (2026-02-09)
-- [x] AUP 計畫書 Placeholder 翻譯標準化與多語言同步 (2026-02-09)
-- [x] 統一 `preopPreparation` 與 `preop_Preparation` 描述為 `preop_Preparation` (2026-02-09)
-- [x] AUP 計畫書歷程紀錄功能增強 (2026-02-08)
-- [x] 動物列表「現在體重」排序功能實作 (2026-02-08)
-- [x] 計畫書版本比較邏輯強化 - 支援 nested comparison (2026-02-03)
-- [x] Login As (身分切換) 功能實作 (2026-02-03)
-- [x] Dashboard widget 錯誤處理優化 (2026-02-03)
-- [x] AUP 計畫書內容完整國際化 (2026-02-03)
+### 2026-02-09 ~ 2026-02-10
+- [x] 實作「多帳號腳本登入偵測」與全域 Critical 警報
+- [x] 新增「同時大量登入」偵測機制與 UI 標籤
+- [x] 安全警報偵測與顯示修復
+- [x] 計畫書管理表格排序功能
+- [x] 修復審查人員列表無法顯示的問題
+- [x] AUP 狀態歷程顯示修復與優化
+- [x] 修復 PI 無法刪除草稿權限問題
+- [x] AUP 手術計畫書標籤翻譯同步
+- [x] AUP Placeholder 翻譯標準化
+- [x] 審查委員強制發表意見檢查
+- [x] AUP 審查流程多輪往返功能（PRE_REVIEW_REVISION_REQUIRED / VET_REVISION_REQUIRED）
 
 ---
 
@@ -119,13 +119,12 @@
 
 | 日期 | 內容 |
 |------|------|
-| 2026-02-13 | 實作血液檢查組合 (Panel) 快速勾選功能：DB migration、後端 CRUD API、前端 Toggle UI、整合測試 28/28 通過 |
-| 2026-02-12 | 測試資料清理腳本、整合測試 Bug 修復 |
-| 2026-02-09 | 修復審查人員列表顯示問題：修正權限檢查（新增 SYSTEM_ADMIN/admin 角色）、SQL 查詢欄位順序、NULL 值處理（COALESCE）。 |
-| 2026-02-09 | 修復 AUP 狀態歷程顯示問題，並移除後端無效引用。 |
-| 2026-02-09 | 同步 AUP 手術計畫書標籤 (6.1-6.10) 之編號、星號標註與英文翻譯。 |
-| 2026-02-09 | AUP 計畫書 Placeholder 翻譯標準化，統一使用 `placeholders.*` 路徑並同步 `en.json` 與 `zh-TW.json` 結構。 |
-| 2026-02-08 | 實作 AUP 計畫書詳情歷程紀錄增強功能，並整理進度文件。 |
-| 2026-02-08 | 整理進度文件，納入 v2.0 展望與規劃，統一日期格式為 YYYY-MM-DD。 |
-| 2026-02-03 | Login As 功能、計畫書版本比較強化、Dashboard 錯誤處理優化 |
-| 2026-02-02 | 新增今日未完成事項：UUID 遷移測試、Emergency Medication UI、Euthanasia Workflow |
+| 2026-02-13 | 調查並標記已完成項目：狀態歷程 Created 修正、獸醫審查流程、執秘回覆功能、Amendment 前端；新增 Amendment 測試為優先事項 |
+| 2026-02-13 | 血液檢查項目管理頁面、Panel 快速勾選、ERP 通知整合、移除血液檢查審核、migration 合併、HR 測試修復、API 404 修復、容器重啟修復 |
+| 2026-02-12 | 整合測試 Bug 修復、動物狀態簡化、時間軸增強、動物記錄 ID 遷移 |
+| 2026-02-11 | 安全審計強化、整合測試腳本建立、角色權限修復、空 Email 修復 |
+| 2026-02-10 | 多帳號/大量登入偵測、安全警報修復 |
+| 2026-02-09 | 審查人員列表修復、狀態歷程修復、審查委員強制意見、多輪往返功能、翻譯標準化 |
+| 2026-02-08 | AUP 歷程紀錄增強、動物列表體重排序 |
+| 2026-02-03 | Login As 功能、版本比較強化、Dashboard 錯誤處理、AUP 國際化 |
+| 2026-02-02 | UUID 遷移、Amendment 後端、安樂死工作流程 UI |

@@ -2672,8 +2672,8 @@ impl AnimalService {
         // 建立主表
         let blood_test = sqlx::query_as::<_, PigBloodTest>(
             r#"
-            INSERT INTO pig_blood_tests (pig_id, test_date, lab_name, remark, created_by, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+            INSERT INTO pig_blood_tests (pig_id, test_date, lab_name, remark, status, created_by, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, 'completed', $5, NOW(), NOW())
             RETURNING *
             "#
         )
@@ -2733,8 +2733,7 @@ impl AnimalService {
             UPDATE pig_blood_tests SET
                 test_date = COALESCE($2, test_date),
                 lab_name = COALESCE($3, lab_name),
-                status = COALESCE($4, status),
-                remark = COALESCE($5, remark),
+                remark = COALESCE($4, remark),
                 updated_at = NOW()
             WHERE id = $1 AND is_deleted = false
             RETURNING *
@@ -2743,7 +2742,6 @@ impl AnimalService {
         .bind(id)
         .bind(req.test_date)
         .bind(&req.lab_name)
-        .bind(&req.status)
         .bind(&req.remark)
         .fetch_optional(pool)
         .await?

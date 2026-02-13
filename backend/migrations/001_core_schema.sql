@@ -28,6 +28,9 @@ CREATE TYPE protocol_status AS ENUM (
     'DRAFT',
     'SUBMITTED',
     'PRE_REVIEW',
+    'PRE_REVIEW_REVISION_REQUIRED',
+    'VET_REVIEW',
+    'VET_REVISION_REQUIRED',
     'UNDER_REVIEW',
     'REVISION_REQUIRED',
     'RESUBMITTED',
@@ -41,15 +44,52 @@ CREATE TYPE protocol_status AS ENUM (
 );
 
 -- 動物管理相關類型
-CREATE TYPE pig_status AS ENUM ('unassigned', 'assigned', 'in_experiment', 'completed', 'transferred', 'deceased');
+CREATE TYPE pig_status AS ENUM ('unassigned', 'in_experiment', 'completed');
 CREATE TYPE pig_breed AS ENUM ('miniature', 'white', 'LYD', 'other');
 CREATE TYPE pig_gender AS ENUM ('male', 'female');
 CREATE TYPE record_type AS ENUM ('abnormal', 'experiment', 'observation');
-CREATE TYPE pig_record_type AS ENUM ('observation', 'surgery', 'sacrifice', 'pathology');
+CREATE TYPE pig_record_type AS ENUM ('observation', 'surgery', 'sacrifice', 'pathology', 'blood_test');
 CREATE TYPE pig_file_type AS ENUM ('photo', 'attachment', 'report');
 CREATE TYPE vet_record_type AS ENUM ('observation', 'surgery');
 CREATE TYPE care_record_mode AS ENUM ('legacy', 'pain_assessment');
-CREATE TYPE version_record_type AS ENUM ('observation', 'surgery', 'weight', 'vaccination', 'sacrifice', 'pathology');
+CREATE TYPE version_record_type AS ENUM ('observation', 'surgery', 'weight', 'vaccination', 'sacrifice', 'pathology', 'blood_test');
+
+-- Protocol 活動類型
+CREATE TYPE protocol_activity_type AS ENUM (
+    -- 生命週期
+    'CREATED',
+    'UPDATED',
+    'SUBMITTED',
+    'RESUBMITTED',
+    'APPROVED',
+    'APPROVED_WITH_CONDITIONS',
+    'CLOSED',
+    'REJECTED',
+    'SUSPENDED',
+    'DELETED',
+    -- 審查流程
+    'STATUS_CHANGED',
+    'REVIEWER_ASSIGNED',
+    'VET_ASSIGNED',
+    'COEDITOR_ASSIGNED',
+    'COEDITOR_REMOVED',
+    -- 審查意見
+    'COMMENT_ADDED',
+    'COMMENT_REPLIED',
+    'COMMENT_RESOLVED',
+    -- 附件
+    'ATTACHMENT_UPLOADED',
+    'ATTACHMENT_DELETED',
+    -- 版本
+    'VERSION_CREATED',
+    'VERSION_RECOVERED',
+    -- 修正案
+    'AMENDMENT_CREATED',
+    'AMENDMENT_SUBMITTED',
+    -- 動物管理
+    'PIG_ASSIGNED',
+    'PIG_UNASSIGNED'
+);
 
 -- 通知與報表類型
 CREATE TYPE notification_type AS ENUM (
@@ -57,6 +97,11 @@ CREATE TYPE notification_type AS ENUM (
     'expiry_warning',
     'document_approval',
     'protocol_status',
+    'protocol_submitted',
+    'review_assignment',
+    'review_comment',
+    'leave_approval',
+    'overtime_approval',
     'vet_recommendation',
     'system_alert',
     'monthly_report'
@@ -82,8 +127,7 @@ CREATE TYPE leave_type AS ENUM (
     'MATERNITY',
     'PATERNITY',
     'MENSTRUAL',
-    'OFFICIAL',
-    'UNPAID'
+    'OFFICIAL'
 );
 CREATE TYPE leave_status AS ENUM (
     'DRAFT',
@@ -343,7 +387,7 @@ INSERT INTO roles (id, code, name, description, is_internal, is_system, created_
     (gen_random_uuid(), 'PI', '計畫主持人', '提交計畫、管理自己的計畫與動物', false, true, NOW(), NOW()),
     (gen_random_uuid(), 'VET', '獸醫師', '審查計畫、動物健康管理、提供建議', true, true, NOW(), NOW()),
     (gen_random_uuid(), 'REVIEWER', '審查委員', 'IACUC 計畫審查', true, true, NOW(), NOW()),
-    (gen_random_uuid(), 'CHAIR', 'IACUC 主席', '主導審查決策', true, true, NOW(), NOW()),
+    (gen_random_uuid(), 'IACUC_CHAIR', 'IACUC 主席', '主導審查決策', true, true, NOW(), NOW()),
     (gen_random_uuid(), 'IACUC_STAFF', '執行秘書', '行政流程管理、管理所有計劃進度', true, true, NOW(), NOW()),
     (gen_random_uuid(), 'EXPERIMENT_STAFF', '試驗工作人員', '執行實驗操作、記錄數據', true, true, NOW(), NOW()),
     (gen_random_uuid(), 'CLIENT', '委託人', '查看委託計畫與動物紀錄', false, true, NOW(), NOW())

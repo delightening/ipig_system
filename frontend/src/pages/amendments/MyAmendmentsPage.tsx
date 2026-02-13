@@ -48,7 +48,7 @@ export function MyAmendmentsPage() {
     const { data: amendments, isLoading } = useQuery({
         queryKey: ['my-amendments'],
         queryFn: async () => {
-            const response = await api.get<AmendmentListItem[]>('/amendments/my')
+            const response = await api.get<AmendmentListItem[]>('/amendments')
             return response.data
         },
     })

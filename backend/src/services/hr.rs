@@ -1359,7 +1359,6 @@ impl HrService {
                     "PATERNITY" => "陪產假",
                     "MENSTRUAL" => "生理假",
                     "OFFICIAL" => "公假",
-                    "UNPAID" => "無薪假",
                     _ => "請假",
                 };
                 let is_all_day = start_time.is_none() && end_time.is_none();
@@ -1416,7 +1415,6 @@ impl HrService {
                     "PATERNITY" => "陪產假",
                     "MENSTRUAL" => "生理假",
                     "OFFICIAL" => "公假",
-                    "UNPAID" => "無薪假",
                     _ => "請假",
                 };
                 let is_all_day = start_time.is_none() && end_time.is_none();

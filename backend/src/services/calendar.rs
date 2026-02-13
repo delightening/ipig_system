@@ -236,7 +236,6 @@ impl CalendarService {
                 "PATERNITY" => "陪產假",
                 "MENSTRUAL" => "生理假",
                 "OFFICIAL" => "公假",
-                "UNPAID" => "無薪假",
                 _ => "請假",
             };
             
@@ -339,7 +338,6 @@ impl CalendarService {
                     "PATERNITY" => "陪產假",
                     "MENSTRUAL" => "生理假",
                     "OFFICIAL" => "公假",
-                    "UNPAID" => "無薪假",
                     _ => "請假",
                 };
                 

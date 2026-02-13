@@ -226,7 +226,9 @@ def run_blood_panel_test() -> bool:
     bt_resp = t._req("POST", f"{API_BASE_URL}/pigs/{test_pig_id}/blood-tests",
                      role=STAFF, json=blood_test_payload)
     bt_data = bt_resp.json()
-    bt_id = bt_data["id"]
+    # 回應結構: {blood_test: {id, ...}, items: [...], created_by_name: ...}
+    bt_inner = bt_data.get("blood_test", bt_data)
+    bt_id = bt_inner["id"]
     bt_items_count = len(bt_data.get("items", []))
     expected_items = len(cbc_panel["items"]) + len(liver_panel["items"])
     t.record("建立血液檢查（含 Panel 項目）",

@@ -1,24 +1,20 @@
 {
-  "test": "血液檢查組合 (Panel) 測試",
+  "test": "HR 人員管理系統完整測試",
   "method": "POST",
-  "url": "http://localhost:8000/api/pigs",
-  "status": 400,
+  "url": "http://localhost:8000/api/hr/balances/annual-entitlements",
+  "status": 500,
   "payload": {
-    "ear_tag": "BT-2629",
-    "breed": "minipig",
-    "gender": "female",
-    "birth_date": "2025-08-17",
-    "entry_date": "2026-02-13",
-    "entry_weight": 25.0,
-    "pen_location": "A-01",
-    "source_id": "4bcf75e1-118e-46a8-9b3a-2f161e259373",
-    "remark": "Panel 測試用豬隻"
+    "user_id": "df502b6f-6dfb-40da-9840-6e7b5383fa2c",
+    "entitlement_year": 2026,
+    "entitled_days": 14.0,
+    "calculation_basis": "seniority",
+    "notes": "整合測試建立的特休額度 - 年資 5 年"
   },
-  "response": "{\"error\":{\"code\":400,\"message\":\"耳標: 耳號必須為三位數\"}}",
+  "response": "{\"error\":{\"code\":500,\"message\":\"Database error: error returned from database: duplicate key value violates unique constraint \\\"annual_leave_entitlements_user_id_entitlement_year_key\\\"\"}}",
   "response_json": {
     "error": {
-      "code": 400,
-      "message": "耳標: 耳號必須為三位數"
+      "code": 500,
+      "message": "Database error: error returned from database: duplicate key value violates unique constraint \"annual_leave_entitlements_user_id_entitlement_year_key\""
     }
   }
 }

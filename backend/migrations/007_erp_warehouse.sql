@@ -176,6 +176,16 @@ CREATE TABLE documents (
     receipt_status VARCHAR(20),
     stocktake_scope JSONB,
     remark TEXT,
+    -- IACUC 編號（原 024）
+    iacuc_no VARCHAR(20),
+    -- 報廢簽核（原 018）
+    requires_manager_approval BOOLEAN DEFAULT FALSE,
+    scrap_total_amount DECIMAL,
+    manager_approval_status VARCHAR(20),
+    manager_approved_by UUID REFERENCES users(id),
+    manager_approved_at TIMESTAMPTZ,
+    manager_reject_reason TEXT,
+    -- 建立者與時間
     created_by UUID NOT NULL REFERENCES users(id),
     approved_by UUID REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -192,66 +202,10 @@ CREATE INDEX idx_documents_warehouse_id ON documents(warehouse_id);
 CREATE INDEX idx_documents_partner_id ON documents(partner_id);
 CREATE INDEX idx_documents_created_by ON documents(created_by);
 CREATE INDEX idx_documents_source_doc_id ON documents(source_doc_id);
-
--- 單據明細表
-CREATE TABLE document_lines (
-    id UUID PRIMARY KEY,
-    document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
-    line_no INTEGER NOT NULL,
-    product_id UUID NOT NULL REFERENCES products(id),
-    qty NUMERIC(18, 4) NOT NULL,
-    uom VARCHAR(20) NOT NULL,
-    unit_price NUMERIC(18, 4),
-    batch_no VARCHAR(50),
-    expiry_date DATE,
-    remark TEXT,
-    UNIQUE (document_id, line_no)
-);
-
-CREATE INDEX idx_document_lines_document_id ON document_lines(document_id);
-CREATE INDEX idx_document_lines_product_id ON document_lines(product_id);
+CREATE INDEX IF NOT EXISTS idx_documents_iacuc_no ON documents(iacuc_no);
 
 -- ============================================
--- 7. 庫存流水表
--- ============================================
-
-CREATE TABLE stock_ledger (
-    id UUID PRIMARY KEY,
-    warehouse_id UUID NOT NULL REFERENCES warehouses(id),
-    product_id UUID NOT NULL REFERENCES products(id),
-    trx_date TIMESTAMPTZ NOT NULL,
-    doc_type doc_type NOT NULL,
-    doc_id UUID NOT NULL REFERENCES documents(id),
-    doc_no VARCHAR(50) NOT NULL,
-    line_id UUID REFERENCES document_lines(id),
-    direction stock_direction NOT NULL,
-    qty_base NUMERIC(18, 4) NOT NULL,
-    unit_cost NUMERIC(18, 4),
-    batch_no VARCHAR(50),
-    expiry_date DATE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_stock_ledger_warehouse_product ON stock_ledger(warehouse_id, product_id);
-CREATE INDEX idx_stock_ledger_trx_date ON stock_ledger(trx_date);
-CREATE INDEX idx_stock_ledger_doc_id ON stock_ledger(doc_id);
-CREATE INDEX idx_stock_ledger_product_id ON stock_ledger(product_id);
-
--- ============================================
--- 8. 庫存快照表
--- ============================================
-
-CREATE TABLE inventory_snapshots (
-    warehouse_id UUID NOT NULL REFERENCES warehouses(id),
-    product_id UUID NOT NULL REFERENCES products(id),
-    on_hand_qty_base NUMERIC(18, 4) NOT NULL DEFAULT 0,
-    avg_cost NUMERIC(18, 4),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (warehouse_id, product_id)
-);
-
--- ============================================
--- 9. 儲位管理
+-- 7. 儲位管理（須在 document_lines 之前建立，因為 document_lines 引用 storage_locations）
 -- ============================================
 
 CREATE TABLE storage_locations (
@@ -294,6 +248,70 @@ ON storage_location_inventory (storage_location_id, product_id, COALESCE(batch_n
 
 CREATE INDEX idx_storage_location_inventory_location ON storage_location_inventory(storage_location_id);
 CREATE INDEX idx_storage_location_inventory_product ON storage_location_inventory(product_id);
+
+-- ============================================
+-- 8. 單據明細表
+-- ============================================
+
+-- 單據明細表
+CREATE TABLE document_lines (
+    id UUID PRIMARY KEY,
+    document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    line_no INTEGER NOT NULL,
+    product_id UUID NOT NULL REFERENCES products(id),
+    qty NUMERIC(18, 4) NOT NULL,
+    uom VARCHAR(20) NOT NULL,
+    unit_price NUMERIC(18, 4),
+    batch_no VARCHAR(50),
+    expiry_date DATE,
+    remark TEXT,
+    -- 儲位指定（原 008）
+    storage_location_id UUID REFERENCES storage_locations(id),
+    UNIQUE (document_id, line_no)
+);
+
+CREATE INDEX idx_document_lines_document_id ON document_lines(document_id);
+CREATE INDEX idx_document_lines_product_id ON document_lines(product_id);
+CREATE INDEX IF NOT EXISTS idx_document_lines_storage_location ON document_lines(storage_location_id);
+
+-- ============================================
+-- 9. 庫存流水表
+-- ============================================
+
+CREATE TABLE stock_ledger (
+    id UUID PRIMARY KEY,
+    warehouse_id UUID NOT NULL REFERENCES warehouses(id),
+    product_id UUID NOT NULL REFERENCES products(id),
+    trx_date TIMESTAMPTZ NOT NULL,
+    doc_type doc_type NOT NULL,
+    doc_id UUID NOT NULL REFERENCES documents(id),
+    doc_no VARCHAR(50) NOT NULL,
+    line_id UUID REFERENCES document_lines(id),
+    direction stock_direction NOT NULL,
+    qty_base NUMERIC(18, 4) NOT NULL,
+    unit_cost NUMERIC(18, 4),
+    batch_no VARCHAR(50),
+    expiry_date DATE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_stock_ledger_warehouse_product ON stock_ledger(warehouse_id, product_id);
+CREATE INDEX idx_stock_ledger_trx_date ON stock_ledger(trx_date);
+CREATE INDEX idx_stock_ledger_doc_id ON stock_ledger(doc_id);
+CREATE INDEX idx_stock_ledger_product_id ON stock_ledger(product_id);
+
+-- ============================================
+-- 10. 庫存快照表
+-- ============================================
+
+CREATE TABLE inventory_snapshots (
+    warehouse_id UUID NOT NULL REFERENCES warehouses(id),
+    product_id UUID NOT NULL REFERENCES products(id),
+    on_hand_qty_base NUMERIC(18, 4) NOT NULL DEFAULT 0,
+    avg_cost NUMERIC(18, 4),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (warehouse_id, product_id)
+);
 
 -- ============================================
 -- 10. 視圖 (Views)

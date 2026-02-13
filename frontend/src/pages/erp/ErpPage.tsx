@@ -16,6 +16,7 @@ import {
     Settings2,
     Box,
     Users,
+    Droplets,
 } from 'lucide-react'
 
 // 定義 ERP 子模組
@@ -182,6 +183,12 @@ const erpModules: ErpModule[] = [
                 href: '/partners',
                 icon: <Users className="h-4 w-4" />,
                 description: '管理供應商與客戶',
+            },
+            {
+                title: '血液檢查項目',
+                href: '/blood-test-templates',
+                icon: <Droplets className="h-4 w-4" />,
+                description: '管理血液檢查項目模板',
             },
         ],
     },

@@ -103,14 +103,39 @@ CREATE TABLE overtime_records (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
-    CONSTRAINT chk_overtime_type CHECK (overtime_type IN ('weekday', 'weekend', 'holiday')),
-    CONSTRAINT chk_overtime_status CHECK (status IN ('draft', 'pending', 'approved', 'rejected'))
+    CONSTRAINT chk_overtime_type CHECK (overtime_type IN ('A', 'B', 'C', 'D')),
+    CONSTRAINT chk_overtime_status CHECK (status IN ('draft', 'pending', 'pending_admin_staff', 'pending_admin', 'approved', 'rejected'))
 );
 
 CREATE INDEX idx_overtime_user ON overtime_records(user_id, overtime_date DESC);
 CREATE INDEX idx_overtime_status ON overtime_records(status);
 CREATE INDEX idx_overtime_expires ON overtime_records(comp_time_expires_at) 
     WHERE status = 'approved' AND comp_time_used_hours < comp_time_hours;
+
+-- ============================================
+-- 2b. 加班審核紀錄表
+-- ============================================
+
+CREATE TABLE overtime_approvals (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    overtime_record_id UUID NOT NULL REFERENCES overtime_records(id) ON DELETE CASCADE,
+    
+    -- 審核者
+    approver_id UUID NOT NULL REFERENCES users(id),
+    approval_level VARCHAR(20) NOT NULL,
+    
+    -- 動作
+    action VARCHAR(20) NOT NULL,
+    comments TEXT,
+    
+    -- 時間
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    CONSTRAINT chk_overtime_approval_action CHECK (action IN ('APPROVE', 'REJECT'))
+);
+
+CREATE INDEX idx_overtime_approval_record ON overtime_approvals(overtime_record_id, created_at);
+CREATE INDEX idx_overtime_approval_approver ON overtime_approvals(approver_id, created_at DESC);
 
 -- ============================================
 -- 3. 年假額度表
@@ -304,21 +329,107 @@ CREATE INDEX idx_usage_annual ON leave_balance_usage(annual_leave_entitlement_id
 CREATE INDEX idx_usage_comp ON leave_balance_usage(comp_time_balance_id);
 
 -- ============================================
--- 8. 行事曆同步設定表
+-- 8. Google Calendar 同步系統
 -- ============================================
 
-CREATE TABLE calendar_sync_settings (
+-- 8a. Google Calendar 設定表（系統級，僅一行）
+CREATE TABLE google_calendar_config (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE UNIQUE,
-    google_calendar_enabled BOOLEAN DEFAULT false,
-    google_calendar_id VARCHAR(255),
-    google_refresh_token TEXT,
-    sync_leave_requests BOOLEAN DEFAULT true,
-    sync_overtime BOOLEAN DEFAULT true,
+    calendar_id VARCHAR(255) NOT NULL DEFAULT '',
+    calendar_name VARCHAR(255),
+    calendar_description TEXT,
+    auth_method VARCHAR(50) NOT NULL DEFAULT 'shared_account',
+    auth_email VARCHAR(255),
+    is_configured BOOLEAN NOT NULL DEFAULT false,
+    sync_enabled BOOLEAN NOT NULL DEFAULT false,
+    sync_schedule_morning TIME,
+    sync_schedule_evening TIME,
+    sync_timezone VARCHAR(50),
+    sync_approved_leaves BOOLEAN NOT NULL DEFAULT true,
+    sync_overtime BOOLEAN NOT NULL DEFAULT false,
+    event_title_template VARCHAR(255),
+    event_color_id VARCHAR(20),
     last_sync_at TIMESTAMPTZ,
+    last_sync_status VARCHAR(50),
+    last_sync_error TEXT,
+    last_sync_events_pushed INTEGER,
+    last_sync_events_pulled INTEGER,
+    last_sync_conflicts INTEGER,
+    last_sync_duration_ms INTEGER,
+    next_sync_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- 確保只有一行設定（用於 ON CONFLICT ((true))）
+CREATE UNIQUE INDEX idx_google_calendar_config_singleton ON google_calendar_config ((true));
+
+-- 8b. Calendar 事件同步狀態表
+CREATE TABLE calendar_event_sync (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    leave_request_id UUID NOT NULL REFERENCES leave_requests(id) ON DELETE CASCADE,
+    google_event_id VARCHAR(255),
+    google_event_etag VARCHAR(255),
+    google_event_link TEXT,
+    sync_version INTEGER NOT NULL DEFAULT 0,
+    local_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    google_updated_at TIMESTAMPTZ,
+    last_synced_data JSONB,
+    sync_status VARCHAR(50) NOT NULL DEFAULT 'pending_create',
+    last_error TEXT,
+    error_count INTEGER NOT NULL DEFAULT 0,
+    last_error_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_calendar_event_sync_status ON calendar_event_sync(sync_status);
+CREATE INDEX idx_calendar_event_sync_leave ON calendar_event_sync(leave_request_id);
+
+-- 8c. Calendar 同步衝突表
+CREATE TABLE calendar_sync_conflicts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    calendar_event_sync_id UUID REFERENCES calendar_event_sync(id) ON DELETE SET NULL,
+    leave_request_id UUID REFERENCES leave_requests(id) ON DELETE SET NULL,
+    conflict_type VARCHAR(50) NOT NULL,
+    ipig_data JSONB NOT NULL DEFAULT '{}',
+    google_data JSONB,
+    difference_summary TEXT,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending',
+    resolved_by UUID REFERENCES users(id),
+    resolved_at TIMESTAMPTZ,
+    resolution_notes TEXT,
+    requires_new_approval BOOLEAN NOT NULL DEFAULT false,
+    new_approval_request_id UUID REFERENCES leave_requests(id),
+    detected_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_calendar_sync_conflicts_status ON calendar_sync_conflicts(status);
+
+-- 8d. Calendar 同步歷史表
+CREATE TABLE calendar_sync_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_type VARCHAR(50) NOT NULL DEFAULT 'manual',
+    triggered_by UUID REFERENCES users(id),
+    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMPTZ,
+    duration_ms INTEGER,
+    status VARCHAR(50) NOT NULL DEFAULT 'running',
+    events_created INTEGER NOT NULL DEFAULT 0,
+    events_updated INTEGER NOT NULL DEFAULT 0,
+    events_deleted INTEGER NOT NULL DEFAULT 0,
+    events_checked INTEGER NOT NULL DEFAULT 0,
+    conflicts_detected INTEGER NOT NULL DEFAULT 0,
+    errors_count INTEGER NOT NULL DEFAULT 0,
+    error_messages JSONB,
+    progress_percentage INTEGER NOT NULL DEFAULT 0,
+    current_operation VARCHAR(255),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_calendar_sync_history_status ON calendar_sync_history(status);
+CREATE INDEX idx_calendar_sync_history_started ON calendar_sync_history(started_at DESC);
 
 -- ============================================
 -- 9. 輔助函式

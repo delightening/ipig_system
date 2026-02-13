@@ -20,7 +20,7 @@ use crate::{
         PaginatedResponse, RejectLeaveRequest, RejectOvertimeRequest, UpdateLeaveRequest,
         UpdateOvertimeRequest,
     },
-    services::HrService,
+    services::{HrService, NotificationService},
     AppState, Result,
 };
 
@@ -190,6 +190,23 @@ pub async fn submit_overtime(
     Path(id): Path<Uuid>,
 ) -> Result<Json<OvertimeWithUser>> {
     let record = HrService::submit_overtime(&state.db, id, &current_user).await?;
+
+    // 非同步發送通知給審核者
+    let db = state.db.clone();
+    let applicant_name = record.user_name.clone();
+    let overtime_date = record.overtime_date.to_string();
+    let hours: f64 = record.hours.try_into().unwrap_or(0.0);
+    let overtime_id = record.id;
+    tokio::spawn(async move {
+        let svc = NotificationService::new(db);
+        let _ = svc.notify_overtime_submitted(
+            overtime_id,
+            &applicant_name,
+            &overtime_date,
+            hours,
+        ).await;
+    });
+
     Ok(Json(record))
 }
 
@@ -338,6 +355,25 @@ pub async fn submit_leave(
     Path(id): Path<Uuid>,
 ) -> Result<Json<LeaveRequest>> {
     let record = HrService::submit_leave(&state.db, id, &current_user).await?;
+
+    // 非同步發送通知給審核者
+    let db = state.db.clone();
+    let leave_id = record.id;
+    let leave_type = record.leave_type.clone();
+    let start_date = record.start_date.to_string();
+    let end_date = record.end_date.to_string();
+    let applicant_name = current_user.email.clone();
+    tokio::spawn(async move {
+        let svc = NotificationService::new(db);
+        let _ = svc.notify_leave_submitted(
+            leave_id,
+            &applicant_name,
+            &leave_type,
+            &start_date,
+            &end_date,
+        ).await;
+    });
+
     Ok(Json(record))
 }
 
@@ -364,30 +400,31 @@ pub async fn approve_leave(
     match current_status.as_str() {
         "PENDING_L1" => {
             // Level 1: Department Manager approval
-            // Check if current user is the department manager of the applicant
-            let is_dept_manager: Option<(bool,)> = sqlx::query_as(
-                r#"
-                SELECT EXISTS(
-                    SELECT 1 FROM users u
-                    JOIN departments d ON u.department_id = d.id
-                    WHERE u.id = $1 AND d.manager_id = $2
+            // Admin 和 ADMIN_STAFF 可直接核准 L1，不需查 departments
+            if !is_admin_staff && !is_admin {
+                // 非管理角色：嘗試查詢是否為部門主管
+                let is_dept_manager = match sqlx::query_as::<_, (bool,)>(
+                    r#"
+                    SELECT EXISTS(
+                        SELECT 1 FROM users u
+                        JOIN departments d ON u.department_id = d.id
+                        WHERE u.id = $1 AND d.manager_id = $2
+                    )
+                    "#
                 )
-                "#
-            )
-            .bind(applicant_id)
-            .bind(current_user.id)
-            .fetch_optional(&state.db)
-            .await?;
-            
-            // Allow department manager, admin staff, or admin to approve L1
-            let can_approve = is_dept_manager.map(|r| r.0).unwrap_or(false) 
-                || is_admin_staff 
-                || is_admin;
-            
-            if !can_approve {
-                return Err(crate::error::AppError::Forbidden(
-                    "此階段需要部門主管、行政或負責人審核".to_string()
-                ));
+                .bind(applicant_id)
+                .bind(current_user.id)
+                .fetch_optional(&state.db)
+                .await {
+                    Ok(Some((true,))) => true,
+                    _ => false, // 查詢失敗(表不存在)或無結果，視為非部門主管
+                };
+                
+                if !is_dept_manager {
+                    return Err(crate::error::AppError::Forbidden(
+                        "此階段需要部門主管、行政或負責人審核".to_string()
+                    ));
+                }
             }
         },
         "PENDING_HR" => {
@@ -446,7 +483,7 @@ pub async fn reject_leave(
         if let Some((status, applicant_id)) = current {
             if status == "PENDING_L1" {
                 // Check if current user is department manager
-                let is_dept_manager: Option<(bool,)> = sqlx::query_as(
+                let is_dept_manager = match sqlx::query_as::<_, (bool,)>(
                     r#"
                     SELECT EXISTS(
                         SELECT 1 FROM users u
@@ -458,9 +495,12 @@ pub async fn reject_leave(
                 .bind(applicant_id)
                 .bind(current_user.id)
                 .fetch_optional(&state.db)
-                .await?;
+                .await {
+                    Ok(Some((true,))) => true,
+                    _ => false, // 查詢失敗(表不存在)或無結果，視為非部門主管
+                };
                 
-                if !is_dept_manager.map(|r| r.0).unwrap_or(false) {
+                if !is_dept_manager {
                     return Err(crate::error::AppError::Forbidden("僅部門主管、行政或負責人可駁回請假申請".to_string()));
                 }
             } else {

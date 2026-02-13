@@ -59,6 +59,13 @@ CREATE TABLE pigs (
     is_deleted BOOLEAN NOT NULL DEFAULT false,
     deleted_at TIMESTAMPTZ,
     deleted_by UUID REFERENCES users(id),
+    -- 額外動物欄位（原 010）
+    animal_no VARCHAR(50),
+    deletion_reason TEXT,
+    animal_id UUID,
+    breed_other VARCHAR(100),
+    -- 實驗分配者（原 023）
+    experiment_assigned_by UUID REFERENCES users(id),
     -- GLP 合規欄位
     lab_animal_id VARCHAR(50),
     glp_study_no VARCHAR(50),
@@ -102,6 +109,17 @@ CREATE TABLE pig_observations (
     remark TEXT,
     vet_read BOOLEAN NOT NULL DEFAULT false,
     vet_read_at TIMESTAMPTZ,
+    -- 軟刪除（原 020）
+    deleted_at TIMESTAMPTZ,
+    deletion_reason TEXT,
+    deleted_by UUID REFERENCES users(id),
+    -- 緊急給藥（原 020）
+    is_emergency BOOLEAN DEFAULT false,
+    emergency_status VARCHAR(20),
+    emergency_reason TEXT,
+    reviewed_by UUID REFERENCES users(id),
+    reviewed_at TIMESTAMPTZ,
+    -- 建立者與時間
     created_by UUID REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -133,6 +151,11 @@ CREATE TABLE pig_surgeries (
     no_medication_needed BOOLEAN NOT NULL DEFAULT false,
     vet_read BOOLEAN NOT NULL DEFAULT false,
     vet_read_at TIMESTAMPTZ,
+    -- 軟刪除（原 020）
+    deleted_at TIMESTAMPTZ,
+    deletion_reason TEXT,
+    deleted_by UUID REFERENCES users(id),
+    -- 建立者與時間
     created_by UUID REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -150,6 +173,11 @@ CREATE TABLE pig_weights (
     pig_id UUID NOT NULL REFERENCES pigs(id) ON DELETE CASCADE,
     measure_date DATE NOT NULL,
     weight NUMERIC(5, 1) NOT NULL,
+    -- 軟刪除（原 020）
+    deleted_at TIMESTAMPTZ,
+    deletion_reason TEXT,
+    deleted_by UUID REFERENCES users(id),
+    -- 建立者與時間
     created_by UUID REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -167,6 +195,11 @@ CREATE TABLE pig_vaccinations (
     administered_date DATE NOT NULL,
     vaccine VARCHAR(100),
     deworming_dose VARCHAR(100),
+    -- 軟刪除（原 020）
+    deleted_at TIMESTAMPTZ,
+    deletion_reason TEXT,
+    deleted_by UUID REFERENCES users(id),
+    -- 建立者與時間
     created_by UUID REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -236,6 +269,10 @@ CREATE TABLE vet_recommendations (
     record_id UUID NOT NULL,
     content TEXT NOT NULL,
     urgency VARCHAR(20) DEFAULT 'normal',
+    -- 新增欄位（原 020）
+    is_urgent BOOLEAN NOT NULL DEFAULT false,
+    attachments JSONB,
+    -- 建立者與時間
     created_by UUID REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_urgency CHECK (urgency IN ('normal', 'urgent', 'critical'))
@@ -275,6 +312,7 @@ CREATE TABLE record_versions (
     record_id UUID NOT NULL,
     version_no INTEGER NOT NULL,
     snapshot JSONB NOT NULL,
+    diff_summary TEXT,
     changed_by UUID REFERENCES users(id),
     changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -361,6 +399,65 @@ CREATE TABLE euthanasia_appeals (
 CREATE INDEX idx_euthanasia_orders_pig_id ON euthanasia_orders(pig_id);
 CREATE INDEX idx_euthanasia_orders_status ON euthanasia_orders(status);
 CREATE INDEX idx_euthanasia_appeals_order ON euthanasia_appeals(order_id);
+
+-- ============================================
+-- 16. 豬隻匯入批次表（原 009）
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS pig_import_batches (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    import_type import_type NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    total_rows INTEGER NOT NULL DEFAULT 0,
+    success_count INTEGER NOT NULL DEFAULT 0,
+    error_count INTEGER NOT NULL DEFAULT 0,
+    status import_status NOT NULL DEFAULT 'pending',
+    error_details JSONB,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_pig_import_batches_status ON pig_import_batches(status);
+CREATE INDEX IF NOT EXISTS idx_pig_import_batches_created_by ON pig_import_batches(created_by);
+CREATE INDEX IF NOT EXISTS idx_pig_import_batches_created_at ON pig_import_batches(created_at DESC);
+
+-- ============================================
+-- 17. 變更原因記錄表（原 019）
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS change_reasons (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    entity_type VARCHAR(50) NOT NULL,
+    entity_id TEXT NOT NULL,
+    change_type VARCHAR(20) NOT NULL,
+    reason TEXT NOT NULL,
+    old_values JSONB,
+    new_values JSONB,
+    changed_fields TEXT[],
+    changed_by UUID REFERENCES users(id),
+    changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_change_reasons_entity ON change_reasons(entity_type, entity_id);
+
+-- ============================================
+-- 18. 觀察/手術獸醫已讀記錄表（原 019）
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS observation_vet_reads (
+    observation_id UUID NOT NULL,
+    vet_user_id UUID NOT NULL REFERENCES users(id),
+    read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (observation_id, vet_user_id)
+);
+
+CREATE TABLE IF NOT EXISTS surgery_vet_reads (
+    surgery_id UUID NOT NULL,
+    vet_user_id UUID NOT NULL REFERENCES users(id),
+    read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (surgery_id, vet_user_id)
+);
 
 -- ============================================
 -- 完成

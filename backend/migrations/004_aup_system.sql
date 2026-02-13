@@ -98,6 +98,9 @@ CREATE TABLE review_assignments (
     assigned_by UUID NOT NULL REFERENCES users(id),
     assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     completed_at TIMESTAMPTZ,
+    -- 審查增強（原 011）
+    is_primary_reviewer BOOLEAN NOT NULL DEFAULT false,
+    review_stage VARCHAR(20) DEFAULT 'UNDER_REVIEW',
     UNIQUE (protocol_id, reviewer_id)
 );
 
@@ -110,18 +113,42 @@ CREATE INDEX idx_review_assignments_reviewer_id ON review_assignments(reviewer_i
 
 CREATE TABLE review_comments (
     id UUID PRIMARY KEY,
-    protocol_version_id UUID NOT NULL REFERENCES protocol_versions(id) ON DELETE CASCADE,
+    -- 允許 protocol_version_id 為 NULL（原 011）
+    protocol_version_id UUID REFERENCES protocol_versions(id) ON DELETE CASCADE,
+    -- 直接關聯 protocol_id（原 011）
+    protocol_id UUID REFERENCES protocols(id),
     reviewer_id UUID NOT NULL REFERENCES users(id),
     content TEXT NOT NULL,
     is_resolved BOOLEAN NOT NULL DEFAULT false,
     resolved_by UUID REFERENCES users(id),
     resolved_at TIMESTAMPTZ,
+    -- 審查階段（原 011）
+    review_stage VARCHAR(20),
+    -- 回覆功能（原 012）
+    parent_comment_id UUID REFERENCES review_comments(id) ON DELETE CASCADE,
+    replied_by UUID REFERENCES users(id),
+    -- 草稿功能（原 012）
+    draft_content TEXT,
+    drafted_by UUID REFERENCES users(id),
+    draft_updated_at TIMESTAMPTZ,
+    -- 時間戳
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    -- 約束（原 011+015）
+    CONSTRAINT chk_review_stage CHECK (review_stage IS NULL OR review_stage IN (
+        'PRE_REVIEW', 'PRE_REVIEW_REVISION_REQUIRED',
+        'VET_REVIEW', 'VET_REVISION_REQUIRED',
+        'UNDER_REVIEW'
+    )),
+    CONSTRAINT chk_protocol_reference CHECK (protocol_version_id IS NOT NULL OR protocol_id IS NOT NULL)
 );
 
 CREATE INDEX idx_review_comments_protocol_version_id ON review_comments(protocol_version_id);
 CREATE INDEX idx_review_comments_reviewer_id ON review_comments(reviewer_id);
+CREATE INDEX idx_review_comments_protocol_id ON review_comments(protocol_id);
+CREATE INDEX idx_review_comments_review_stage ON review_comments(review_stage);
+CREATE INDEX idx_review_comments_parent ON review_comments(parent_comment_id);
+CREATE INDEX idx_review_comments_drafted_by ON review_comments(drafted_by);
 
 -- ============================================
 -- 7. 計畫附件表

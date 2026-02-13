@@ -496,12 +496,24 @@ export function MainLayout() {
           navigate(`/protocols/${notification.related_entity_id}`) // 計畫書詳細頁
           break
         case 'document':
-          navigate(`/documents/${notification.related_entity_id}`) // iPig ERP 單據頁
+          navigate(`/erp/documents/${notification.related_entity_id}`) // iPig ERP 單據頁
           break
         case 'pig':
           navigate(`/pigs/${notification.related_entity_id}`) // 動物詳細頁
           break
+        case 'amendment':
+          navigate(`/protocols/amendments/${notification.related_entity_id}`) // 修正案頁
+          break
+        case 'leave_request':
+          navigate(`/hr/leaves`) // 請假管理頁
+          break
+        case 'overtime':
+          navigate(`/hr/overtime`) // 加班管理頁
+          break
       }
+    } else if (notification.related_entity_type === 'report') {
+      // 月度報表通知 — 無 entity id，直接開通知中心
+      navigate('/notifications')
     }
   }
 

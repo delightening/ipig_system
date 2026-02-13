@@ -12,7 +12,7 @@ use crate::{
         UpdateDocumentRequest,
     },
     require_permission,
-    services::DocumentService,
+    services::{DocumentService, NotificationService},
     AppError, AppState, Result,
 };
 
@@ -77,6 +77,20 @@ pub async fn submit_document(
     require_permission!(current_user, "erp.document.submit");
     
     let document = DocumentService::submit(&state.db, id).await?;
+
+    // 非同步通知 WAREHOUSE_MANAGER
+    let db = state.db.clone();
+    let doc_id = document.document.id;
+    let doc_no = document.document.doc_no.clone();
+    let doc_type = document.document.doc_type.prefix().to_string();
+    let creator_name = document.created_by_name.clone();
+    tokio::spawn(async move {
+        let svc = NotificationService::new(db);
+        let _ = svc.notify_document_submitted(
+            doc_id, &doc_no, &doc_type, &creator_name,
+        ).await;
+    });
+
     Ok(Json(document))
 }
 
@@ -94,6 +108,20 @@ pub async fn approve_document(
     }
     
     let document = DocumentService::approve(&state.db, id, current_user.id).await?;
+
+    // 非同步通知建立者（已核准）
+    let db = state.db.clone();
+    let doc_id = document.document.id;
+    let doc_no = document.document.doc_no.clone();
+    let doc_type = document.document.doc_type.prefix().to_string();
+    let creator_id = document.document.created_by;
+    tokio::spawn(async move {
+        let svc = NotificationService::new(db);
+        let _ = svc.notify_document_decided(
+            doc_id, &doc_no, &doc_type, true, creator_id,
+        ).await;
+    });
+
     Ok(Json(document))
 }
 
@@ -111,6 +139,20 @@ pub async fn cancel_document(
     }
     
     let document = DocumentService::cancel(&state.db, id).await?;
+
+    // 非同步通知建立者（已駁回）
+    let db = state.db.clone();
+    let doc_id = document.document.id;
+    let doc_no = document.document.doc_no.clone();
+    let doc_type = document.document.doc_type.prefix().to_string();
+    let creator_id = document.document.created_by;
+    tokio::spawn(async move {
+        let svc = NotificationService::new(db);
+        let _ = svc.notify_document_decided(
+            doc_id, &doc_no, &doc_type, false, creator_id,
+        ).await;
+    });
+
     Ok(Json(document))
 }
 

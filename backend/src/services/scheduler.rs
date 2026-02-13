@@ -172,6 +172,21 @@ impl SchedulerService {
         info!("[Scheduler] ✓ Job 'euthanasia_timeout' registered");
         job_count += 1;
 
+        // 每月 1 號 06:00 產出上月進銷貨+血液檢查報表
+        let db_clone = db.clone();
+        let job = Job::new_async("0 0 6 1 * *", move |_uuid, _l| {
+            let db = db_clone.clone();
+            Box::pin(async move {
+                info!("Running monthly report generation...");
+                if let Err(e) = Self::generate_monthly_report(&db).await {
+                    error!("Monthly report generation failed: {}", e);
+                }
+            })
+        })?;
+        sched.add(job).await?;
+        info!("[Scheduler] ✓ Job 'monthly_report' registered");
+        job_count += 1;
+
         // 啟動排程器
         sched.start().await?;
         info!("[Scheduler] ✓ All {} jobs registered and scheduler started successfully", job_count);
@@ -402,5 +417,133 @@ impl SchedulerService {
     /// 手動觸發效期檢查（供 API 使用）
     pub async fn trigger_expiry_check(db: &PgPool, config: &Config) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Self::check_expiry(db, config).await
+    }
+
+    /// 產出每月進銷貨+血液檢查報表
+    async fn generate_monthly_report(db: &PgPool) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        use chrono::{Datelike, NaiveDate, Utc};
+
+        let now = Utc::now().naive_utc().date();
+        // 上月的第一天和最後一天
+        let year = if now.month() == 1 { now.year() - 1 } else { now.year() };
+        let month = if now.month() == 1 { 12 } else { now.month() - 1 };
+        let first_day = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
+        let last_day = if now.month() == 1 {
+            NaiveDate::from_ymd_opt(now.year(), 1, 1).unwrap().pred_opt().unwrap()
+        } else {
+            NaiveDate::from_ymd_opt(now.year(), now.month(), 1).unwrap().pred_opt().unwrap()
+        };
+
+        info!("[Monthly Report] 統計期間：{} ~ {}", first_day, last_day);
+
+        // 1. 採購彙總
+        let purchase_summary: Option<(i64, Option<rust_decimal::Decimal>)> = sqlx::query_as(
+            r#"
+            SELECT COUNT(*) as cnt,
+                   SUM(dl.qty * COALESCE(dl.unit_price, 0)) as total_amount
+            FROM documents d
+            JOIN document_lines dl ON d.id = dl.document_id
+            WHERE d.doc_type = 'PO'
+              AND d.status = 'approved'
+              AND d.doc_date BETWEEN $1 AND $2
+            "#,
+        )
+        .bind(first_day)
+        .bind(last_day)
+        .fetch_optional(db)
+        .await?;
+
+        let (po_count, po_amount) = purchase_summary.unwrap_or((0, None));
+
+        // 2. 銷售彙總
+        let sales_summary: Option<(i64, Option<rust_decimal::Decimal>)> = sqlx::query_as(
+            r#"
+            SELECT COUNT(*) as cnt,
+                   SUM(dl.qty * COALESCE(dl.unit_price, 0)) as total_amount
+            FROM documents d
+            JOIN document_lines dl ON d.id = dl.document_id
+            WHERE d.doc_type = 'SO'
+              AND d.status = 'approved'
+              AND d.doc_date BETWEEN $1 AND $2
+            "#,
+        )
+        .bind(first_day)
+        .bind(last_day)
+        .fetch_optional(db)
+        .await?;
+
+        let (so_count, so_amount) = sales_summary.unwrap_or((0, None));
+
+        // 3. 各計畫血液檢查項目統計
+        let blood_test_stats: Vec<(Option<String>, String, i64)> = sqlx::query_as(
+            r#"
+            SELECT p.iacuc_no, bti.item_name, COUNT(*) as cnt
+            FROM pig_blood_test_items bti
+            JOIN pig_blood_tests bt ON bti.blood_test_id = bt.id
+            JOIN pigs pg ON bt.pig_id = pg.id
+            LEFT JOIN protocols p ON pg.protocol_id = p.id
+            WHERE bt.test_date BETWEEN $1 AND $2
+            GROUP BY p.iacuc_no, bti.item_name
+            ORDER BY p.iacuc_no, cnt DESC
+            "#,
+        )
+        .bind(first_day)
+        .bind(last_day)
+        .fetch_all(db)
+        .await
+        .unwrap_or_default();
+
+        // 4. 構建報表內容
+        let month_str = format!("{}年{}月", year, month);
+        let mut content = format!(
+            "{}月度報表\n\n=== 進銷貨彙總 ===\n採購單（已核准）：{} 筆，金額 ${}\n銷售單（已核准）：{} 筆，金額 ${}\n",
+            month_str,
+            po_count,
+            po_amount.map(|a| a.to_string()).unwrap_or("0".to_string()),
+            so_count,
+            so_amount.map(|a| a.to_string()).unwrap_or("0".to_string()),
+        );
+
+        if !blood_test_stats.is_empty() {
+            content.push_str("\n=== 血液檢查統計 ===\n");
+            for (iacuc_no, item_name, cnt) in &blood_test_stats {
+                content.push_str(&format!(
+                    "計畫 {}：{} × {} 次\n",
+                    iacuc_no.as_deref().unwrap_or("-"),
+                    item_name,
+                    cnt,
+                ));
+            }
+        }
+
+        // 5. 通知相關使用者
+        let service = NotificationService::new(db.clone());
+        let mut recipients = service.get_users_by_role("WAREHOUSE_MANAGER").await?;
+        let admins = service.get_users_by_role("SYSTEM_ADMIN").await?;
+        recipients.extend(admins);
+        recipients.sort_by_key(|(id, _, _)| *id);
+        recipients.dedup_by_key(|(id, _, _)| *id);
+
+        let title = format!("[iPig] {}月度進銷貨+血液檢查報表", month_str);
+        let mut count = 0;
+        for (user_id, _email, _name) in &recipients {
+            let _ = service
+                .create_notification(crate::models::CreateNotificationRequest {
+                    user_id: *user_id,
+                    notification_type: crate::models::NotificationType::MonthlyReport,
+                    title: title.clone(),
+                    content: Some(content.clone()),
+                    related_entity_type: Some("report".to_string()),
+                    related_entity_id: None,
+                })
+                .await;
+            count += 1;
+        }
+
+        info!(
+            "[Monthly Report] {}報表已產出並發送給 {} 位使用者（PO: {}, SO: {}, 血檢項: {}）",
+            month_str, count, po_count, so_count, blood_test_stats.len()
+        );
+        Ok(())
     }
 }
