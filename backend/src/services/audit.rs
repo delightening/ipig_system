@@ -54,9 +54,11 @@ impl AuditService {
                     SELECT 
                         al.id, al.actor_user_id, u.email as actor_email, u.display_name as actor_name,
                         al.action, al.entity_type, al.entity_id,
+                        eu.email as entity_email, eu.display_name as entity_name,
                         al.before_data, al.after_data, al.ip_address, al.user_agent, al.created_at
                     FROM audit_logs al
                     INNER JOIN users u ON al.actor_user_id = u.id
+                    LEFT JOIN users eu ON al.entity_type = 'user' AND al.entity_id = eu.id
                     WHERE al.entity_type = $1 AND al.action = $2
                     ORDER BY al.created_at DESC
                     LIMIT 200
@@ -72,9 +74,11 @@ impl AuditService {
                     SELECT 
                         al.id, al.actor_user_id, u.email as actor_email, u.display_name as actor_name,
                         al.action, al.entity_type, al.entity_id,
+                        eu.email as entity_email, eu.display_name as entity_name,
                         al.before_data, al.after_data, al.ip_address, al.user_agent, al.created_at
                     FROM audit_logs al
                     INNER JOIN users u ON al.actor_user_id = u.id
+                    LEFT JOIN users eu ON al.entity_type = 'user' AND al.entity_id = eu.id
                     WHERE al.entity_type = $1
                     ORDER BY al.created_at DESC
                     LIMIT 200
@@ -90,9 +94,11 @@ impl AuditService {
                 SELECT 
                     al.id, al.actor_user_id, u.email as actor_email, u.display_name as actor_name,
                     al.action, al.entity_type, al.entity_id,
+                    eu.email as entity_email, eu.display_name as entity_name,
                     al.before_data, al.after_data, al.ip_address, al.user_agent, al.created_at
                 FROM audit_logs al
                 INNER JOIN users u ON al.actor_user_id = u.id
+                LEFT JOIN users eu ON al.entity_type = 'user' AND al.entity_id = eu.id
                 WHERE al.action = $1
                 ORDER BY al.created_at DESC
                 LIMIT 200
@@ -107,9 +113,11 @@ impl AuditService {
                 SELECT 
                     al.id, al.actor_user_id, u.email as actor_email, u.display_name as actor_name,
                     al.action, al.entity_type, al.entity_id,
+                    eu.email as entity_email, eu.display_name as entity_name,
                     al.before_data, al.after_data, al.ip_address, al.user_agent, al.created_at
                 FROM audit_logs al
                 INNER JOIN users u ON al.actor_user_id = u.id
+                LEFT JOIN users eu ON al.entity_type = 'user' AND al.entity_id = eu.id
                 ORDER BY al.created_at DESC
                 LIMIT 200
                 "#
@@ -132,9 +140,11 @@ impl AuditService {
             SELECT 
                 al.id, al.actor_user_id, u.email as actor_email, u.display_name as actor_name,
                 al.action, al.entity_type, al.entity_id,
+                eu.email as entity_email, eu.display_name as entity_name,
                 al.before_data, al.after_data, al.ip_address, al.user_agent, al.created_at
             FROM audit_logs al
             INNER JOIN users u ON al.actor_user_id = u.id
+            LEFT JOIN users eu ON al.entity_type = 'user' AND al.entity_id = eu.id
             WHERE al.entity_type = $1 AND al.entity_id = $2
             ORDER BY al.created_at DESC
             "#
@@ -162,7 +172,7 @@ impl AuditService {
         user_agent: Option<&str>,
     ) -> Result<Uuid> {
         let result: (Uuid,) = sqlx::query_as(
-            "SELECT log_activity($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"
+            "SELECT log_activity($1, $2, $3, $4, $5, $6, $7, $8, $9::inet, $10)"
         )
         .bind(actor_user_id)
         .bind(event_category)

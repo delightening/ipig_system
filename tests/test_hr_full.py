@@ -120,68 +120,82 @@ def run_hr_test() -> bool:
              f"回傳成功")
 
     # ========================================
-    # Phase 3: 加班申請全流程
+    # Phase 3: 加班申請全流程（四種類型）
     # ========================================
-    t.step("Phase 3 — 加班申請（核准流程）")
+    t.step("Phase 3 — 四種加班類型核准流程 (A/B/C/D)")
 
-    # 3.1 STAFF 建立加班申請
-    overtime_date = str(date.today() - timedelta(days=2))
-    resp = t._req("POST", f"{API_BASE_URL}/hr/overtime",
-                   role=STAFF, json={
-                       "overtime_date": overtime_date,
-                       "start_time": "18:00:00",
-                       "end_time": "21:00:00",
-                       "overtime_type": "A",
-                       "reason": "整合測試 - 趕專案進度",
-                   })
-    ot_data = resp.json()
-    ot_id_approve = ot_data["id"]
-    t.record("建立加班申請 (核准用)",
-             ot_data.get("status") == "draft",
-             f"ID: {ot_id_approve[:8]}... status=draft")
+    # 定義四種加班類型的預期值
+    overtime_types = {
+        "A": {"name": "平日加班", "multiplier": 1.0, "comp_time": 0.0},
+        "B": {"name": "假日加班", "multiplier": 1.33, "comp_time": 0.0},
+        "C": {"name": "國定假日加班", "multiplier": 1.66, "comp_time": 8.0},
+        "D": {"name": "天災加班", "multiplier": 2.0, "comp_time": 8.0},
+    }
 
-    # 3.2 查詢加班紀錄
+    ot_ids = {}
+    for ot_type, expected in overtime_types.items():
+        # 3.x.1 建立加班申請
+        ot_date = str(date.today() - timedelta(days=2 + ord(ot_type) - ord("A")))
+        resp = t._req("POST", f"{API_BASE_URL}/hr/overtime",
+                       role=STAFF, json={
+                           "overtime_date": ot_date,
+                           "start_time": "18:00:00",
+                           "end_time": "21:00:00",
+                           "overtime_type": ot_type,
+                           "reason": f"整合測試 - {expected['name']}",
+                       })
+        ot_data = resp.json()
+        ot_ids[ot_type] = ot_data["id"]
+
+        # 驗證 comp_time_hours
+        actual_comp = float(ot_data.get("comp_time_hours", 0))
+        t.record(f"建立加班 type={ot_type} ({expected['name']})",
+                 abs(actual_comp - expected["comp_time"]) < 0.1,
+                 f"comp_time={actual_comp} (預期 {expected['comp_time']})")
+
+        # 3.x.2 提交
+        t._req("POST", f"{API_BASE_URL}/hr/overtime/{ot_ids[ot_type]}/submit", role=STAFF)
+
+        # 3.x.3 ADMIN_STAFF 第一級核准
+        resp = t._req("POST", f"{API_BASE_URL}/hr/overtime/{ot_ids[ot_type]}/approve",
+                       role=ADMIN_STAFF)
+        status1 = resp.json().get("status", "")
+
+        # 3.x.4 如果需要 ADMIN 第二級核准
+        if "pending" in status1:
+            resp = t._req("POST", f"{API_BASE_URL}/hr/overtime/{ot_ids[ot_type]}/approve",
+                           role=ADMIN)
+            final_status = resp.json().get("status", "")
+        else:
+            final_status = status1
+
+        t.record(f"核准加班 type={ot_type}",
+                 final_status == "approved",
+                 f"status={final_status}")
+
+    # 3.5 查詢加班紀錄
     resp = t._req("GET", f"{API_BASE_URL}/hr/overtime", role=STAFF)
     ot_list = resp.json()
     ot_items = ot_list.get("items", ot_list.get("data", []))
     t.record("查詢加班紀錄",
-             len(ot_items) >= 1,
-             f"共 {len(ot_items)} 筆加班記錄")
+             len(ot_items) >= 4,
+             f"共 {len(ot_items)} 筆加班記錄（含 4 種類型）")
 
-    # 3.3 提交加班申請
-    resp = t._req("POST", f"{API_BASE_URL}/hr/overtime/{ot_id_approve}/submit",
-                   role=STAFF)
-    submit_data = resp.json()
-    submit_status = submit_data.get("status", "")
-    t.record("提交加班申請",
-             "pending" in submit_status,
-             f"status={submit_status}")
+    # 3.6 驗證補休：核准後 C/D 應產生補休餘額
+    resp = t._req("GET", f"{API_BASE_URL}/hr/balances/comp-time", role=STAFF)
+    comp_balances = resp.json()
+    # 篩選出 original_hours == 8.0 的補休紀錄（C/D 各產生一筆 8 小時補休）
+    eight_hour_comp = [
+        b for b in comp_balances
+        if abs(float(b.get("original_hours", 0)) - 8.0) < 0.1
+    ]
+    t.record("C/D 類型產生補休餘額",
+             len(eight_hour_comp) >= 2,
+             f"找到 {len(eight_hour_comp)} 筆 8 小時補休（C/D 各一筆）")
 
-    # 3.4 ADMIN_STAFF 核准加班（第一級）
-    resp = t._req("POST", f"{API_BASE_URL}/hr/overtime/{ot_id_approve}/approve",
-                   role=ADMIN_STAFF)
-    approve1_data = resp.json()
-    approve1_status = approve1_data.get("status", "")
-    t.record("行政核准加班（第一級）",
-             True,
-             f"status={approve1_status}")
-
-    # 3.5 如果需要 ADMIN 核准（第二級），繼續核准
-    if "pending" in approve1_status:
-        resp = t._req("POST", f"{API_BASE_URL}/hr/overtime/{ot_id_approve}/approve",
-                       role=ADMIN)
-        approve2_data = resp.json()
-        t.record("管理員核准加班（第二級）",
-                 approve2_data.get("status") == "approved",
-                 f"status={approve2_data.get('status')}")
-    else:
-        t.record("加班核准完成",
-                 approve1_status == "approved",
-                 f"status={approve1_status}")
-
-    # 3.6 駁回流程：建立→提交→駁回
+    # 3.7 駁回流程：建立→提交→駁回
     t.step("Phase 3 — 加班申請（駁回流程）")
-    overtime_date2 = str(date.today() - timedelta(days=5))
+    overtime_date2 = str(date.today() - timedelta(days=10))
     resp = t._req("POST", f"{API_BASE_URL}/hr/overtime",
                    role=STAFF, json={
                        "overtime_date": overtime_date2,
@@ -205,12 +219,12 @@ def run_hr_test() -> bool:
              reject_data.get("status") == "rejected",
              f"status={reject_data.get('status')}")
 
-    # 3.7 查看加班詳情
-    resp = t._req("GET", f"{API_BASE_URL}/hr/overtime/{ot_id_approve}",
+    # 3.8 查看加班詳情（以 type A 為例）
+    resp = t._req("GET", f"{API_BASE_URL}/hr/overtime/{ot_ids['A']}",
                    role=STAFF)
     detail = resp.json()
     t.record("查看加班詳情",
-             detail.get("id") == ot_id_approve,
+             detail.get("id") == ot_ids["A"],
              f"hours={detail.get('hours')}, type={detail.get('overtime_type')}")
 
     # ========================================
@@ -460,8 +474,8 @@ def run_hr_test() -> bool:
     # ========================================
     print(f"\n{'=' * 60}")
     print(f"[完成] HR 人員管理系統完整測試完成！")
-    print(f"  打卡: 上班+下班 | 加班: 核准+駁回")
-    print(f"  請假: 事假(核准)+病假(駁回)+事假(取消)+特休(核准)")
+    print(f"  打卡: 上班+下班 | 加班: A/B/C/D 四種核准+駁回")
+    print(f"  補休: C/D 各 8 小時 | A/B 無補休")
     print(f"  特休額度: 14天 | 餘額彙總: 確認")
     print(f"{'=' * 60}")
 

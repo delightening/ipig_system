@@ -1,0 +1,8 @@
+ERP Test Fix Results
+==================================================
+test_erp_permissions: 12/12 PASS
+test_erp_full: 16/16 PASS
+==================================================
+Fixes applied:
+1. test_erp_permissions.py: Added product line to SO creation (was empty lines=[])
+2. document.rs: Added iacuc_no to INSERT SQL in DocumentService::create

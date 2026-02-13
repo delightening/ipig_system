@@ -12,6 +12,7 @@
 - Phase 7: 動物資料更新
 - Phase 8: 病理組織報告（3 隻豬）
 - Phase 9: 紀錄時間軸驗證
+- Phase 10: 獸醫建議（觀察 + 手術）
 
 用法：
     cd d:\\Coding\\ipig_system
@@ -162,6 +163,7 @@ def run_animal_test() -> bool:
     # ========================================
     t.step("Phase 3 — 觀察試驗紀錄（全部 20 隻）")
     obs_count = 0
+    obs_ids = []  # 保存觀察紀錄 ID 以便 Phase 10 使用
     record_types = ["abnormal", "experiment", "observation"]
     observation_contents = [
         "動物精神良好，食慾正常，無異常行為。",
@@ -192,7 +194,9 @@ def run_animal_test() -> bool:
                 "treatments": treatment,
                 "remark": f"整合測試觀察 #{i+1}-{o+1}",
             }
-            t._req("POST", f"{API_BASE_URL}/pigs/{pid}/observations", role=STAFF, json=payload)
+            obs_resp = t._req("POST", f"{API_BASE_URL}/pigs/{pid}/observations", role=STAFF, json=payload)
+            obs_data = obs_resp.json()
+            obs_ids.append({"id": obs_data["id"], "pig_index": i})
             obs_count += 1
 
         if (i + 1) % 10 == 0:
@@ -432,6 +436,87 @@ def run_animal_test() -> bool:
     t.record("一般豬時間軸完整", normal_timeline_ok == 10, f"{normal_timeline_ok}/10 隻完整")
 
     # ========================================
+    # Phase 10: 獸醫建議（觀察紀錄 + 手術紀錄）
+    # ========================================
+    t.step("Phase 10 — 獸醫建議（觀察紀錄 + 手術紀錄）")
+
+    # 獸醫對觀察紀錄的建議內容
+    vet_obs_comments = [
+        ("建議調整飲食配方，增加蛋白質攝取量以改善體重增長。", False),
+        ("發現輕微皮膚搔癢，建議觀察 3 日，若持續請通知獸醫。", False),
+        ("體溫偏高（39.2°C），建議每 4 小時監測一次，必要時給予退燒藥。", True),
+        ("糞便樣本顯示輕度寄生蟲感染，建議進行驅蟲療程。", True),
+        ("動物精神狀態良好，建議維持目前照護計畫。", False),
+        ("建議增加環境豐富化措施，減少刻板行為。", False),
+        ("傷口恢復進度正常，建議持續換藥並保持乾燥。", False),
+        ("食慾下降，需排除消化道問題，建議安排血液檢查。", True),
+    ]
+
+    # 對前 8 隻豬的觀察紀錄添加獸醫建議
+    vet_obs_count = 0
+    vet_obs_rec_ids = []
+    for i in range(min(8, len(obs_ids))):
+        obs_info = obs_ids[i]
+        comment_content, is_urgent = vet_obs_comments[i]
+        resp = t._req("POST", f"{API_BASE_URL}/observations/{obs_info['id']}/recommendations",
+                      role=VET, json={"content": comment_content, "is_urgent": is_urgent})
+        rec_data = resp.json()
+        vet_obs_rec_ids.append(rec_data["id"])
+        vet_obs_count += 1
+    t.record("觀察紀錄獸醫建議", vet_obs_count == min(8, len(obs_ids)),
+             f"共 {vet_obs_count} 筆（含 {sum(1 for _, u in vet_obs_comments[:vet_obs_count] if u)} 筆緊急）")
+
+    # 獸醫對手術紀錄的建議內容
+    vet_surgery_comments = [
+        ("術後傷口癒合良好，建議第 7 日拆線。", False),
+        ("術後呼吸音偏粗，建議密切監測呼吸狀態。", True),
+        ("麻醉恢復時間較預期長，建議下次手術調降 Zoletil 劑量。", False),
+        ("手術部位有輕微腫脹，建議冰敷並觀察 48 小時。", False),
+        ("術後恢復順利，可逐步恢復正常飲食。", False),
+    ]
+
+    # 對 5 隻手術豬的手術紀錄添加獸醫建議
+    vet_surg_count = 0
+    vet_surg_rec_ids = []
+    for i, sid in enumerate(surgery_ids):
+        comment_content, is_urgent = vet_surgery_comments[i]
+        resp = t._req("POST", f"{API_BASE_URL}/surgeries/{sid}/recommendations",
+                      role=VET, json={"content": comment_content, "is_urgent": is_urgent})
+        rec_data = resp.json()
+        vet_surg_rec_ids.append(rec_data["id"])
+        vet_surg_count += 1
+    t.record("手術紀錄獸醫建議", vet_surg_count == len(surgery_ids),
+             f"共 {vet_surg_count} 筆（含 {sum(1 for _, u in vet_surgery_comments[:vet_surg_count] if u)} 筆緊急）")
+
+    # 驗證：GET /observations/:id/recommendations
+    obs_rec_verify = 0
+    for i in range(min(8, len(obs_ids))):
+        resp = t._req("GET", f"{API_BASE_URL}/observations/{obs_ids[i]['id']}/recommendations", role=VET)
+        recs = resp.json()
+        if len(recs) >= 1:
+            obs_rec_verify += 1
+    t.record("驗證觀察獸醫建議", obs_rec_verify == min(8, len(obs_ids)),
+             f"{obs_rec_verify}/{min(8, len(obs_ids))} 筆可查詢")
+
+    # 驗證：GET /surgeries/:id/recommendations
+    surg_rec_verify = 0
+    for sid in surgery_ids:
+        resp = t._req("GET", f"{API_BASE_URL}/surgeries/{sid}/recommendations", role=VET)
+        recs = resp.json()
+        if len(recs) >= 1:
+            surg_rec_verify += 1
+    t.record("驗證手術獸醫建議", surg_rec_verify == len(surgery_ids),
+             f"{surg_rec_verify}/{len(surgery_ids)} 筆可查詢")
+
+    # 驗證：儀表板 GET /pigs/vet-comments
+    vet_comments_resp = t._req("GET", f"{API_BASE_URL}/pigs/vet-comments?per_page=20", role=VET)
+    vet_comments_data = vet_comments_resp.json().get("data", [])
+    t.record("儀表板獸醫建議 API", len(vet_comments_data) >= vet_obs_count,
+             f"回傳 {len(vet_comments_data)} 筆（預期至少 {vet_obs_count} 筆觀察建議）")
+
+    total_vet_comments = vet_obs_count + vet_surg_count
+
+    # ========================================
     # 彙總
     # ========================================
     print(f"\n{'=' * 60}")
@@ -439,6 +524,7 @@ def run_animal_test() -> bool:
     print(f"  豬隻: {len(pig_ids)} | 體重: {weight_count} 筆")
     print(f"  觀察: {obs_count} 筆 | 手術: {len(surgery_ids)} 筆")
     print(f"  疫苗: {vac_count} 筆 | 犧牲: {len(sacrifice_pigs)} 筆")
+    print(f"  獸醫建議: {total_vet_comments} 筆（觀察 {vet_obs_count} + 手術 {vet_surg_count}）")
     print(f"{'=' * 60}")
     return t.print_summary()
 

@@ -740,6 +740,7 @@ impl ProtocolService {
                     partner_type: PartnerType::Customer,
                     code: Some(iacuc_no.clone()),
                     supplier_category: None,
+                    customer_category: None,
                     name: iacuc_no.clone(),
                     tax_id: None,
                     phone: None,
@@ -1078,7 +1079,7 @@ impl ProtocolService {
             _ => ProtocolActivityType::StatusChanged,
         };
 
-        let _ = Self::record_activity(
+        if let Err(e) = Self::record_activity(
             pool,
             protocol_id,
             activity_type,
@@ -1088,7 +1089,9 @@ impl ProtocolService {
             None,
             remark,
             None,
-        ).await?;
+        ).await {
+            tracing::warn!("記錄活動失敗: {e}");
+        }
 
         Ok(())
     }

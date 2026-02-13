@@ -37,88 +37,89 @@ CREATE INDEX idx_blood_test_templates_is_active ON blood_test_templates(is_activ
 -- 2. 模板 Seed 資料（豬博士動物科技生化檢驗項目表）
 -- ============================================
 
-INSERT INTO blood_test_templates (code, name, default_unit, sort_order) VALUES
+INSERT INTO blood_test_templates (code, name, default_unit, default_price, sort_order) VALUES
 -- 肝 (Liver)
-('T-BIL',  'T. Bilirubin (總膽紅素)',      'mg/dL',  101),
-('D-BIL',  'D. Bilirubin (直接膽紅素)',     'mg/dL',  102),
-('AST',    'AST (GOT)',                     'U/L',    103),
-('ALT',    'ALT (GPT)',                     'U/L',    104),
-('ALP',    'ALP (鹼性磷酸酶)',              'U/L',    105),
-('GGT',    'γ-GT',                          'U/L',    106),
-('TP',     'Total Protein (總蛋白)',        'g/dL',   107),
-('ALB',    'ALB (白蛋白)',                  'g/dL',   108),
-('GLO',    'GLO (球蛋白)',                  'g/dL',   109),
-('AG',     'A/G (白球比)',                  NULL,     110),
--- 主脂 (Lipids)
-('CHO',    'CHO (膽固醇)',                  'mg/dL',  201),
-('TG',     'TG (三酸甘油酯)',              'mg/dL',  202),
-('HDL',    'HDL',                           'mg/dL',  203),
-('LDL',    'LDL',                           'mg/dL',  204),
+('T-BIL',  'T. Bilirubin (總膽紅素)',      'mg/dL',   50,   101),
+('D-BIL',  'D. Bilirubin (直接膽紅素)',     'mg/dL',   50,   102),
+('AST',    'AST (GOT)',                     'U/L',     50,   103),
+('ALT',    'ALT (GPT)',                     'U/L',     50,   104),
+('ALP',    'ALP (鹼性磷酸酶)',              'U/L',     50,   105),
+('GGT',    'γ-GT',                          'U/L',    120,   106),
+('TP',     'Total Protein (總蛋白)',        'g/dL',    50,   107),
+('ALB',    'ALB (白蛋白)',                  'g/dL',    50,   108),
+('GLO',    'GLO (球蛋白)',                  'g/dL',    50,   109),
+('AG',     'A/G (白球比)',                  NULL,       0,   110),
+-- 血脂 (Lipids)
+('CHO',    'CHO (膽固醇)',                  'mg/dL',   50,   201),
+('TG',     'TG (三酸甘油酯)',              'mg/dL',   50,   202),
+('HDL',    'HDL',                           'mg/dL',  200,   203),
+('LDL',    'LDL',                           'mg/dL',  200,   204),
 -- 心臟 (Heart)
-('CK',     'CK (肌酸激酶)',                'U/L',    301),
-('LDH',    'LDH (乳酸脫氫酶)',             'U/L',    302),
-('HSCRP',  'hs-CRP (高敏C反應蛋白)',       'mg/L',   303),
-('CKMB',   'CK-MB',                        'U/L',    304),
--- 腎臟/胰 (Pancreas)
-('AMY',    'Amylase (澱粉酶)',             'U/L',    401),
-('LPS',    'Lipase (脂肪酶)',              'U/L',    402),
+('CK',     'CK (肌酸激酶)',                'U/L',    140,   301),
+('LDH',    'LDH (乳酸脫氫酶)',             'U/L',    150,   302),
+('HSCRP',  'hs-CRP (高敏C反應蛋白)',       'mg/L',   400,   303),
+('CKMB',   'CK-MB',                        'U/L',    250,   304),
+-- 胰臟 (Pancreas)
+('AMY',    'Amylase (澱粉酶)',             'U/L',    175,   401),
+('LPS',    'Lipase (脂肪酶)',              'U/L',    375,   402),
 -- 醣/胰 (Sugar/Pancreas)
-('GLU',    'Glucose (血糖)',               'mg/dL',  501),
-('HBA1C',  'HbA1c (糖化血色素)',           '%',      502),
-('INS',    'Insulin (胰島素)',             'μU/mL',  503),
-('CPEP',   'C-Peptide (C-胜肽)',           'ng/mL',  504),
+('GLU',    'Glucose (血糖)',               'mg/dL',   50,   501),
+('HBA1C',  'HbA1c (糖化血色素)',           '%',      390,   502),
+('INS',    'Insulin (胰島素)',             'μU/mL',  330,   503),
+('CPEP',   'C-Peptide (C-胜肽)',           'ng/mL',  360,   504),
 -- 腎 (Kidney)
-('BUN',    'BUN (血尿素氮)',               'mg/dL',  601),
-('CRE',    'CRE (肌酐酸)',                 'mg/dL',  602),
-('UA',     'UA (尿酸)',                    'mg/dL',  603),
+('BUN',    'BUN (血尿素氮)',               'mg/dL',   50,   601),
+('CRE',    'CRE (肌酐酸)',                 'mg/dL',   50,   602),
+('UA',     'UA (尿酸)',                    'mg/dL',   50,   603),
 -- 泌尿 (Urinary)
-('UREA',   'Urea Nitrogen (尿素氮)',       'mg/dL',  701),
-('UTP',    'UTP (尿蛋白定量)',             'mg/day', 702),
-('MALB',   'Microalbumin (微白蛋白)',      'mg/L',   703),
-('URINE',  'Urine routine (尿液常規)',     NULL,     704),
+('UREA',   'Urea Nitrogen (尿素氮)',       'mg/dL',   50,   701),
+('UTP',    'UTP (尿蛋白定量)',             'mg/day', 150,   702),
+('MALB',   'Microalbumin (微白蛋白)',      'mg/L',   400,   703),
+('URINE',  'Urine routine (尿液常規)',     NULL,     150,   704),
 -- 血液/凝血 (Coagulation)
-('PT',     'PT (凝血酶原時間)',            'sec',    801),
-('APTT',   'APTT (活化部分凝血時間)',      'sec',    802),
-('FIB',    'Fibrinogen (纖維蛋白原)',      'mg/dL',  803),
-('DDIM',   'D-Dimer (D-二聚體)',           'μg/mL',  804),
-('ESR',    'ESR (紅血球沉降速率)',         'mm/hr',  805),
+('PT',     'PT (凝血酶原時間)',            'sec',    315,   801),
+('APTT',   'APTT (活化部分凝血時間)',      'sec',    390,   802),
+('FIB',    'Fibrinogen (纖維蛋白原)',      'mg/dL',  400,   803),
+('DDIM',   'D-Dimer (D-二聚體)',           'μg/mL',  400,   804),
+('ESR',    'ESR (紅血球沉降速率)',         'mm/hr',  225,   805),
 -- 電解質 (Electrolytes)
-('NA',     'Na+ (鈉)',                     'mEq/L',  901),
-('K',      'K+ (鉀)',                      'mEq/L',  902),
-('CL',     'Cl- (氯)',                     'mEq/L',  903),
-('CA',     'Ca2+ (鈣)',                    'mg/dL',  904),
-('MG',     'Mg2+ (鎂)',                    'mg/dL',  905),
-('PHOS',   'P (磷)',                       'mg/dL',  906),
+('NA',     'Na+ (鈉)',                     'mEq/L',   75,   901),
+('K',      'K+ (鉀)',                      'mEq/L',   75,   902),
+('CL',     'Cl- (氯)',                     'mEq/L',   75,   903),
+('CA',     'Ca2+ (鈣)',                    'mg/dL',   75,   904),
+('MG',     'Mg2+ (鎂)',                    'mg/dL',  125,   905),
+('PHOS',   'P (磷)',                       'mg/dL',   75,   906),
 -- 荷爾蒙 (Hormones)
-('PRL',    'Prolactine (泌乳素)',          'ng/mL',  1001),
-('TESTO',  'Testosterone (睪固酮)',        'ng/dL',  1002),
-('FSH',    'FSH (濾泡刺激素)',             'mIU/mL', 1003),
-('LH',     'LH (黃體生成素)',              'mIU/mL', 1004),
-('PROG',   'Progesterone (黃體素)',        'ng/mL',  1005),
-('E2',     'E2 (雌二醇)',                  'pg/mL',  1006),
-('AE3',    'αE3',                          NULL,     1007),
+('PRL',    'Prolactine (泌乳素)',          'ng/mL',  360,  1001),
+('TESTO',  'Testosterone (睪固酮)',        'ng/dL',  330,  1002),
+('FSH',    'FSH (濾泡刺激素)',             'mIU/mL', 300,  1003),
+('LH',     'LH (黃體生成素)',              'mIU/mL', 300,  1004),
+('PROG',   'Progesterone (黃體素)',        'ng/mL',  330,  1005),
+('E2',     'E2 (雌二醇)',                  'pg/mL',  330,  1006),
+('AE3',    'uE3',                          NULL,     690,  1007),
 -- 其他 (Others)
-('LAC',    'Lactate (乳酸)',               'mmol/L', 1101),
-('CTX',    'CTx (骨膠原交聯)',             'ng/mL',  1102),
-('HBANAL', 'Hb analysis (血色素分析)',     NULL,     1103),
+('LAC',    'Lactate (乳酸)',               'mmol/L', 500,  1101),
+('CTX',    'CTx (骨膠原交聯)',             'ng/mL',  940,  1102),
+('HBANAL', 'Hb analysis (血色素分析)',     NULL,     400,  1103),
 -- 感染 (Infection)
-('AFB',    '抗酸菌',                       NULL,     1201),
-('IGRA',   'IGRA (干擾素測試)',            NULL,     1202),
-('CULT',   '沿革 & 鑑定',                  NULL,     1203),
+('AFB',    '抗酸菌',                       NULL,       0,  1201),
+('IGRA',   'IGRA (干擾素測試)',            NULL,    4320,  1202),
+('CULT',   '培養 & 鑑定',                  NULL,     980,  1203),
 -- CBC 基礎
-('WBC',    'WBC (白血球計數)',             '10³/μL', 2),
-('RBC',    'RBC (紅血球計數)',             '10⁶/μL', 3),
-('HGB',    'HGB (血紅素)',                 'g/dL',   4),
-('HCT',    'HCT (血容比)',                 '%',      5),
-('PLT',    'PLT (血小板計數)',             '10³/μL', 6),
+('WBC',    'WBC (白血球計數)',             '10³/μL',   0,     2),
+('RBC',    'RBC (紅血球計數)',             '10⁶/μL',   0,     3),
+('HGB',    'HGB (血紅素)',                 'g/dL',     0,     4),
+('HCT',    'HCT (血容比)',                 '%',        0,     5),
+('PLT',    'PLT (血小板計數)',             '10³/μL',   0,     6),
 -- 採血管 (Blood Collection Tubes)
-('EDTA',   'EDTA 採血管',                  '支',     1301),
-('HEP',    'Heparin 採血管',               '支',     1302),
-('SST',    'SST 採血管',                   '支',     1303),
-('SCIT',   'Sodium Citrate 採血管',        '支',     1304)
+('EDTA',   'EDTA 採血管',                  '支',       0,  1301),
+('HEP',    'Heparin 採血管',               '支',       0,  1302),
+('SST',    'SST 採血管',                   '支',       0,  1303),
+('SCIT',   'Sodium Citrate 採血管',        '支',       0,  1304)
 ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
   default_unit = EXCLUDED.default_unit,
+  default_price = EXCLUDED.default_price,
   sort_order = EXCLUDED.sort_order;
 
 -- ============================================
@@ -177,7 +178,7 @@ CREATE TABLE IF NOT EXISTS blood_test_panels (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     key VARCHAR(30) NOT NULL UNIQUE,
     name VARCHAR(100) NOT NULL,
-    icon VARCHAR(10) DEFAULT '📋',
+    icon VARCHAR(100) DEFAULT '📋',
     sort_order INTEGER NOT NULL DEFAULT 0,
     is_active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -206,19 +207,18 @@ CREATE INDEX IF NOT EXISTS idx_blood_test_panel_items_panel ON blood_test_panel_
 
 INSERT INTO blood_test_panels (key, name, icon, sort_order) VALUES
 ('TUBE',     '採血管',        '🧪', 1),
-('CBC',      'CBC 血球計數',  '🩸', 2),
-('LIVER',    '肝功能',        '🫁', 3),
-('LIPID',    '血脂',          '💧', 4),
-('HEART',    '心臟',          '❤️', 5),
-('PANCREAS', '胰臟',          '🔬', 6),
-('SUGAR',    '血糖/胰',       '🍬', 7),
-('KIDNEY',   '腎功能',        '🫘', 8),
-('URINARY',  '泌尿',          '🚿', 9),
-('COAG',     '凝血',          '🔴', 10),
-('ELECTRO',  '電解質',        '⚡', 11),
-('HORMONE',  '荷爾蒙',        '💉', 12),
-('INFECT',   '感染',          '🦠', 13),
-('OTHER',    '其他',          '📋', 14)
+('CBC',      'CBC',  '🩸', 2),
+('LIVER',    '肝臟',        '/icons/liver.svg', 3),
+('LIPID',    '血脂',          '🥩', 4),
+('HEART',    '心臟',          '🫀', 5),
+('SUGAR',    '胰臟與血糖',       '🍬', 6),
+('KIDNEY',   '腎臟',        '/icons/renal.svg', 7),
+('URINARY',  '泌尿',          '🚽', 8),
+('COAG',     '凝血',          '🩸', 9),
+('ELECTRO',  '電解質',        '⚡', 10),
+('HORMONE',  '荷爾蒙',        '💉', 11),
+('INFECT',   '感染',          '🦠', 12),
+('OTHER',    '其他',          '📋', 13)
 ON CONFLICT (key) DO UPDATE SET
     name = EXCLUDED.name,
     icon = EXCLUDED.icon,
@@ -245,10 +245,8 @@ WHERE (p.key, t.code) IN (
     ('LIPID', 'CHO'), ('LIPID', 'TG'), ('LIPID', 'HDL'), ('LIPID', 'LDL'),
     -- 心臟
     ('HEART', 'CK'), ('HEART', 'LDH'), ('HEART', 'HSCRP'), ('HEART', 'CKMB'),
-    -- 胰臟
-    ('PANCREAS', 'AMY'), ('PANCREAS', 'LPS'),
-    -- 血糖/胰
-    ('SUGAR', 'GLU'), ('SUGAR', 'HBA1C'), ('SUGAR', 'INS'), ('SUGAR', 'CPEP'),
+    -- 胰臟與血糖
+    ('PANCREAS', 'AMY'), ('PANCREAS', 'LPS'), ('SUGAR', 'GLU'), ('SUGAR', 'HBA1C'), ('SUGAR', 'INS'), ('SUGAR', 'CPEP'),
     -- 腎功能
     ('KIDNEY', 'BUN'), ('KIDNEY', 'CRE'), ('KIDNEY', 'UA'),
     -- 泌尿

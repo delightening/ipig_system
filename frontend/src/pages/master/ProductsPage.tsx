@@ -49,42 +49,52 @@ import {
   Tags,
   ClipboardCopy,
 } from 'lucide-react'
-import { formatNumber, cn } from '@/lib/utils'
+import { formatNumber, cn, UOM_MAP } from '@/lib/utils'
 
 // 品類定義
 const CATEGORIES = [
-  { code: 'DRG', name: '藥品', subcategories: [
-    { code: 'ABX', name: '抗生素' },
-    { code: 'ANL', name: '止痛藥' },
-    { code: 'VIT', name: '維生素' },
-    { code: 'OTH', name: '其他藥品' },
-  ]},
-  { code: 'MED', name: '醫材', subcategories: [
-    { code: 'SYR', name: '注射器材' },
-    { code: 'BND', name: '敷料繃帶' },
-    { code: 'GLV', name: '手套' },
-    { code: 'OTH', name: '其他醫材' },
-  ]},
-  { code: 'CON', name: '耗材', subcategories: [
-    { code: 'GLV', name: '手套' },
-    { code: 'GAU', name: '紗布敷料' },
-    { code: 'CLN', name: '清潔消毒' },
-    { code: 'TAG', name: '標示耗材' },
-    { code: 'LAB', name: '實驗耗材' },
-    { code: 'OTH', name: '其他耗材' },
-  ]},
-  { code: 'CHM', name: '化學品', subcategories: [
-    { code: 'RGT', name: '試劑' },
-    { code: 'SOL', name: '溶劑' },
-    { code: 'STD', name: '標準品' },
-    { code: 'OTH', name: '其他化學品' },
-  ]},
-  { code: 'EQP', name: '設備', subcategories: [
-    { code: 'INS', name: '儀器' },
-    { code: 'TOL', name: '工具' },
-    { code: 'PRT', name: '零件' },
-    { code: 'OTH', name: '其他設備' },
-  ]},
+  {
+    code: 'DRG', name: '藥品', subcategories: [
+      { code: 'ABX', name: '抗生素' },
+      { code: 'ANL', name: '止痛藥' },
+      { code: 'VIT', name: '維生素' },
+      { code: 'OTH', name: '其他藥品' },
+    ]
+  },
+  {
+    code: 'MED', name: '醫材', subcategories: [
+      { code: 'SYR', name: '注射器材' },
+      { code: 'BND', name: '敷料繃帶' },
+      { code: 'GLV', name: '手套' },
+      { code: 'OTH', name: '其他醫材' },
+    ]
+  },
+  {
+    code: 'CON', name: '耗材', subcategories: [
+      { code: 'GLV', name: '手套' },
+      { code: 'GAU', name: '紗布敷料' },
+      { code: 'CLN', name: '清潔消毒' },
+      { code: 'TAG', name: '標示耗材' },
+      { code: 'LAB', name: '實驗耗材' },
+      { code: 'OTH', name: '其他耗材' },
+    ]
+  },
+  {
+    code: 'CHM', name: '化學品', subcategories: [
+      { code: 'RGT', name: '試劑' },
+      { code: 'SOL', name: '溶劑' },
+      { code: 'STD', name: '標準品' },
+      { code: 'OTH', name: '其他化學品' },
+    ]
+  },
+  {
+    code: 'EQP', name: '設備', subcategories: [
+      { code: 'INS', name: '儀器' },
+      { code: 'TOL', name: '工具' },
+      { code: 'PRT', name: '零件' },
+      { code: 'OTH', name: '其他設備' },
+    ]
+  },
 ]
 
 // 產品狀態
@@ -102,22 +112,7 @@ const BOOLEAN_OPTIONS = [
   { value: 'false', label: '否' },
 ]
 
-// 庫存單位
-const UOM_MAP: Record<string, string> = {
-  'EA': '個',
-  'TB': '錠',
-  'CP': '膠囊',
-  'BT': '瓶',
-  'BX': '盒',
-  'PK': '包',
-  'RL': '卷',
-  'SET': '組',
-  'ML': 'mL',
-  'L': 'L',
-  'G': 'g',
-  'KG': 'kg',
-  'pcs': '個',
-}
+
 
 interface ExtendedProduct extends Product {
   category_name?: string
@@ -869,7 +864,7 @@ export function ProductsPage() {
                 if (!targetProduct) return
                 const status = statusAction === 'activate' ? 'active'
                   : statusAction === 'deactivate' ? 'inactive'
-                  : 'discontinued'
+                    : 'discontinued'
                 statusMutation.mutate({ id: targetProduct.id, status })
               }}
               disabled={statusMutation.isPending}

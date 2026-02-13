@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import api, { PurchaseLinesReport } from '@/lib/api'
-import { formatNumber, formatDate } from '@/lib/utils'
+import { formatNumber, formatDate, formatUom } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -51,7 +51,7 @@ export function PurchaseLinesReportPage() {
       r.product_sku,
       r.product_name,
       r.qty,
-      r.uom,
+      formatUom(r.uom),
       r.unit_price || '',
       r.line_total || '',
       r.created_by_name,
@@ -129,7 +129,7 @@ export function PurchaseLinesReportPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    {formatNumber(row.qty, 0)} {row.uom}
+                    {formatNumber(row.qty, 0)} {formatUom(row.uom)}
                   </TableCell>
                   <TableCell className="text-right">
                     {row.unit_price ? `$${formatNumber(row.unit_price, 2)}` : '-'}

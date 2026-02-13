@@ -69,6 +69,7 @@ pub struct SalesLinesReport {
     pub status: String,
     pub partner_code: Option<String>,
     pub partner_name: Option<String>,
+    pub customer_category: Option<String>,
     pub warehouse_name: Option<String>,
     pub product_sku: String,
     pub product_name: String,
@@ -80,7 +81,7 @@ pub struct SalesLinesReport {
     pub approved_by_name: Option<String>,
 }
 
-/// ????梯”?
+/// ????梯”?/// 成本摘要報表
 #[derive(Debug, FromRow, serde::Serialize)]
 pub struct CostSummaryReport {
     pub warehouse_id: Uuid,
@@ -95,7 +96,21 @@ pub struct CostSummaryReport {
     pub total_value: Option<Decimal>,
 }
 
-/// ?梯”?亥岷?
+/// 血液檢查費用報表
+#[derive(Debug, FromRow, serde::Serialize)]
+pub struct BloodTestCostReport {
+    pub iacuc_no: Option<String>,
+    pub ear_tag: String,
+    pub pig_id: Uuid,
+    pub test_date: NaiveDate,
+    pub lab_name: Option<String>,
+    pub item_count: i64,
+    pub total_cost: Option<Decimal>,
+    pub created_by_name: Option<String>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// 報表查詢參數
 #[derive(Debug, serde::Deserialize)]
 pub struct ReportQuery {
     pub warehouse_id: Option<Uuid>,
@@ -104,6 +119,9 @@ pub struct ReportQuery {
     pub date_from: Option<NaiveDate>,
     pub date_to: Option<NaiveDate>,
     pub category_id: Option<Uuid>,
+    pub iacuc_no: Option<String>,
+    pub lab_name: Option<String>,
+    pub customer_category: Option<String>,
 }
 
 impl ReportService {
@@ -245,9 +263,9 @@ impl ReportService {
         Ok(results)
     }
 
-    /// ?瑕?敦?梯”
-    pub async fn sales_lines(pool: &PgPool, _query: &ReportQuery) -> Result<Vec<SalesLinesReport>> {
-        let results = sqlx::query_as::<_, SalesLinesReport>(
+    /// 銷售明細報表
+    pub async fn sales_lines(pool: &PgPool, query: &ReportQuery) -> Result<Vec<SalesLinesReport>> {
+        let mut sql = String::from(
             r#"
             SELECT 
                 d.doc_date,
@@ -255,13 +273,20 @@ impl ReportService {
                 d.status::text as status,
                 pa.code as partner_code,
                 pa.name as partner_name,
+                pa.customer_category::text as customer_category,
                 w.name as warehouse_name,
                 p.sku as product_sku,
                 p.name as product_name,
                 dl.qty,
                 dl.uom,
-                dl.unit_price,
-                dl.qty * COALESCE(dl.unit_price, 0) as line_total,
+                COALESCE(dl.unit_price,
+                    (SELECT AVG(sl.unit_cost) FROM stock_ledger sl
+                     WHERE sl.product_id = dl.product_id AND sl.unit_cost IS NOT NULL)
+                ) as unit_price,
+                dl.qty * COALESCE(dl.unit_price,
+                    (SELECT AVG(sl.unit_cost) FROM stock_ledger sl
+                     WHERE sl.product_id = dl.product_id AND sl.unit_cost IS NOT NULL),
+                    0) as line_total,
                 u1.display_name as created_by_name,
                 u2.display_name as approved_by_name
             FROM documents d
@@ -272,13 +297,44 @@ impl ReportService {
             INNER JOIN users u1 ON d.created_by = u1.id
             LEFT JOIN users u2 ON d.approved_by = u2.id
             WHERE d.doc_type IN ('SO', 'DO')
-            ORDER BY d.doc_date DESC, d.doc_no, dl.line_no
-            LIMIT 1000
             "#
-        )
-        .fetch_all(pool)
-        .await?;
+        );
 
+        let mut param_idx = 1;
+        if query.partner_id.is_some() {
+            sql.push_str(&format!(" AND d.partner_id = ${}", param_idx));
+            param_idx += 1;
+        }
+        if query.customer_category.is_some() {
+            sql.push_str(&format!(" AND pa.customer_category::text = ${}", param_idx));
+            param_idx += 1;
+        }
+        if query.date_from.is_some() {
+            sql.push_str(&format!(" AND d.doc_date >= ${}", param_idx));
+            param_idx += 1;
+        }
+        if query.date_to.is_some() {
+            sql.push_str(&format!(" AND d.doc_date <= ${}", param_idx));
+            // param_idx += 1;
+        }
+
+        sql.push_str(" ORDER BY d.doc_date DESC, d.doc_no, dl.line_no LIMIT 1000");
+
+        let mut query_builder = sqlx::query_as::<_, SalesLinesReport>(&sql);
+        if let Some(pid) = query.partner_id {
+            query_builder = query_builder.bind(pid);
+        }
+        if let Some(ref cc) = query.customer_category {
+            query_builder = query_builder.bind(cc);
+        }
+        if let Some(df) = query.date_from {
+            query_builder = query_builder.bind(df);
+        }
+        if let Some(dt) = query.date_to {
+            query_builder = query_builder.bind(dt);
+        }
+
+        let results = query_builder.fetch_all(pool).await?;
         Ok(results)
     }
 
@@ -325,6 +381,72 @@ impl ReportService {
 
         Ok(results)
     }
+
+    /// 血液檢查費用報表（以專案、日期區間、實驗室篩選）
+    pub async fn blood_test_cost(pool: &PgPool, query: &ReportQuery) -> Result<Vec<BloodTestCostReport>> {
+        let mut sql = String::from(
+            r#"
+            SELECT 
+                pig.iacuc_no,
+                pig.ear_tag,
+                bt.pig_id,
+                bt.test_date,
+                bt.lab_name,
+                COUNT(bti.id) as item_count,
+                SUM(COALESCE(tmpl.default_price, 0)) as total_cost,
+                u.display_name as created_by_name,
+                bt.created_at
+            FROM pig_blood_tests bt
+            INNER JOIN pigs pig ON bt.pig_id = pig.id
+            LEFT JOIN pig_blood_test_items bti ON bt.id = bti.blood_test_id
+            LEFT JOIN blood_test_templates tmpl ON bti.template_id = tmpl.id
+            LEFT JOIN users u ON bt.created_by = u.id
+            WHERE bt.is_deleted = false
+            "#
+        );
+
+        let mut param_idx = 1;
+        if query.iacuc_no.is_some() {
+            sql.push_str(&format!(" AND pig.iacuc_no = ${}", param_idx));
+            param_idx += 1;
+        }
+        if query.date_from.is_some() {
+            sql.push_str(&format!(" AND bt.test_date >= ${}", param_idx));
+            param_idx += 1;
+        }
+        if query.date_to.is_some() {
+            sql.push_str(&format!(" AND bt.test_date <= ${}", param_idx));
+            param_idx += 1;
+        }
+        if query.lab_name.is_some() {
+            sql.push_str(&format!(" AND bt.lab_name ILIKE ${}", param_idx));
+            // param_idx += 1; // 最後一個參數不需要遞增
+        }
+
+        sql.push_str(
+            r#"
+            GROUP BY pig.iacuc_no, pig.ear_tag, bt.pig_id, bt.test_date, bt.lab_name, u.display_name, bt.created_at
+            ORDER BY bt.test_date DESC, pig.iacuc_no, pig.ear_tag
+            LIMIT 1000
+            "#
+        );
+
+        let mut query_builder = sqlx::query_as::<_, BloodTestCostReport>(&sql);
+
+        if let Some(ref iacuc_no) = query.iacuc_no {
+            query_builder = query_builder.bind(iacuc_no);
+        }
+        if let Some(date_from) = query.date_from {
+            query_builder = query_builder.bind(date_from);
+        }
+        if let Some(date_to) = query.date_to {
+            query_builder = query_builder.bind(date_to);
+        }
+        if let Some(ref lab_name) = query.lab_name {
+            query_builder = query_builder.bind(format!("%{}%", lab_name));
+        }
+
+        let results = query_builder.fetch_all(pool).await?;
+        Ok(results)
+    }
 }
-
-

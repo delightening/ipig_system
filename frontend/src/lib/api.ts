@@ -212,6 +212,7 @@ export interface Partner {
   partner_type: 'supplier' | 'customer'
   code: string
   name: string
+  customer_category?: 'internal' | 'external' | 'research' | 'other'
   tax_id?: string
   phone?: string
   email?: string
@@ -403,6 +404,7 @@ export interface SalesLinesReport {
   status: string
   partner_code?: string
   partner_name?: string
+  customer_category?: string
   warehouse_name?: string
   product_sku: string
   product_name: string
@@ -425,6 +427,18 @@ export interface CostSummaryReport {
   qty_on_hand: string
   avg_cost?: string
   total_value?: string
+}
+
+export interface BloodTestCostReport {
+  iacuc_no: string | null
+  ear_tag: string
+  pig_id: string
+  test_date: string
+  lab_name: string | null
+  item_count: number
+  total_cost: string | null
+  created_by_name: string | null
+  created_at: string
 }
 
 export interface AuditLogWithActor {
@@ -1099,6 +1113,7 @@ export interface CreateBloodTestTemplateRequest {
   reference_range?: string
   default_price?: number
   sort_order: number
+  panel_id?: string
 }
 
 export interface UpdateBloodTestTemplateRequest {
@@ -1108,6 +1123,7 @@ export interface UpdateBloodTestTemplateRequest {
   default_price?: number
   sort_order?: number
   is_active?: boolean
+  panel_id?: string
 }
 
 // 血液檢查 API 函數

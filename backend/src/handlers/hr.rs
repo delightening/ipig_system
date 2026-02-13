@@ -120,8 +120,8 @@ pub async fn list_overtime(
         let has_view_all = current_user.has_permission("hr.overtime.view_all");
         
         if is_admin || has_view_all {
-            // 不限制 user_id，顯示所有員工的加班紀錄
-            query.user_id = None;
+            // 如果前端有傳入 user_id（申請人篩選），保留它進行篩選
+            // 否則 user_id 為 None，顯示所有員工的加班紀錄
         } else {
             // 沒有權限，只能看自己的
             query.user_id = Some(current_user.id);
@@ -212,12 +212,15 @@ pub async fn submit_overtime(
     let overtime_id = record.id;
     tokio::spawn(async move {
         let svc = NotificationService::new(db);
-        let _ = svc.notify_overtime_submitted(
+        if let Err(e) = svc.notify_overtime_submitted(
             overtime_id,
             &applicant_name,
             &overtime_date,
             hours,
-        ).await;
+        ).await {
+            tracing::warn!("發送加班申請通知失敗: {e}");
+        }
+
     });
 
     Ok(Json(record))
@@ -391,13 +394,16 @@ pub async fn submit_leave(
     let applicant_name = current_user.email.clone();
     tokio::spawn(async move {
         let svc = NotificationService::new(db);
-        let _ = svc.notify_leave_submitted(
+        if let Err(e) = svc.notify_leave_submitted(
             leave_id,
             &applicant_name,
             &leave_type,
             &start_date,
             &end_date,
-        ).await;
+        ).await {
+            tracing::warn!("發送請假申請通知失敗: {e}");
+        }
+
     });
 
     Ok(Json(record))

@@ -46,14 +46,9 @@ import {
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
+import { formatUom } from '@/lib/utils'
 
-// 庫存單位對照表
-const UOM_MAP: Record<string, string> = {
-    'EA': '個', 'TB': '錠', 'CP': '膠囊', 'BT': '瓶', 'BX': '盒',
-    'PK': '包', 'RL': '卷', 'SET': '組', 'ML': 'mL', 'L': 'L',
-    'G': 'g', 'KG': 'kg', 'pcs': '個',
-}
-const formatUom = (uom: string) => UOM_MAP[uom] || uom
+
 
 // 定義 react-grid-layout 的 LayoutItem 型別
 interface GridLayoutItem {

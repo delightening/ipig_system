@@ -274,7 +274,7 @@ export function AmendmentsTab({ protocolId, protocolStatus }: AmendmentsTabProps
                                             htmlFor={`change-item-${option.value}`}
                                             className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                                         >
-                                            {option.label}
+                                            {t(`amendments.changeItemLabels.${option.value}`, { defaultValue: option.label })}
                                         </label>
                                     </div>
                                 ))}

@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/table'
 import { toast } from '@/components/ui/use-toast'
 import { ArrowLeft, Send, CheckCircle, XCircle, Loader2 } from 'lucide-react'
-import { formatDate, formatNumber, formatCurrency } from '@/lib/utils'
+import { formatDate, formatNumber, formatCurrency, formatUom } from '@/lib/utils'
 
 const docTypeNames: Record<string, string> = {
   PO: '採購單',
@@ -292,7 +292,7 @@ export function DocumentDetailPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right">{formatNumber(line.qty, 0)}</TableCell>
-                  <TableCell>{line.uom}</TableCell>
+                  <TableCell>{formatUom(line.uom)}</TableCell>
                   <TableCell className="text-right">
                     {line.unit_price ? formatCurrency(line.unit_price) : '-'}
                   </TableCell>

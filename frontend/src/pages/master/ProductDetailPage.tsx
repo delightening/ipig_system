@@ -27,7 +27,7 @@ import {
   FileText,
   History,
 } from 'lucide-react'
-import { formatDateTime, formatNumber } from '@/lib/utils'
+import { formatDateTime, formatNumber, UOM_MAP } from '@/lib/utils'
 
 // 品類定義
 const CATEGORIES: Record<string, string> = {
@@ -58,21 +58,7 @@ const STORAGE_CONDITIONS: Record<string, string> = {
   'DY': '乾燥',
 }
 
-const UOM_MAP: Record<string, string> = {
-  'EA': '個/支',
-  'TB': '錠',
-  'CP': '顆/膠囊',
-  'BT': '瓶',
-  'BX': '盒',
-  'PK': '包',
-  'RL': '卷',
-  'SET': '組',
-  'ML': '毫升',
-  'L': '公升',
-  'G': '公克',
-  'KG': '公斤',
-  'pcs': '個',
-}
+
 
 interface ExtendedProduct extends Product {
   category_code?: string
@@ -303,11 +289,10 @@ export function ProductDetailPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab.id
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
-              }`}
+                }`}
             >
               {tab.icon}
               {tab.label}
@@ -501,7 +486,7 @@ export function ProductDetailPage() {
               onClick={() => {
                 const status = statusAction === 'activate' ? 'active'
                   : statusAction === 'deactivate' ? 'inactive'
-                  : 'discontinued'
+                    : 'discontinued'
                 statusMutation.mutate(status)
               }}
               disabled={statusMutation.isPending}

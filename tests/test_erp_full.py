@@ -224,7 +224,8 @@ def run_erp_test() -> bool:
                        "doc_type": "SO",
                        "doc_date": today,
                        "warehouse_id": warehouse_ids[0],
-                       "remark": "整合測試銷售單",
+                       "iacuc_no": "PIG-11401",
+                       "remark": "整合測試銷售單 (IACUC 歸屬)",
                        "lines": so_lines,
                    })
     so_id = resp.json()["id"]
@@ -237,13 +238,20 @@ def run_erp_test() -> bool:
                        "doc_type": "DO",
                        "doc_date": today,
                        "warehouse_id": warehouse_ids[0],
-                       "remark": "整合測試出庫單",
+                       "iacuc_no": "PIG-11401",
+                       "remark": "整合測試出庫單 (IACUC 歸屬)",
                        "lines": so_lines,
                    })
     do_id = resp.json()["id"]
     t._req("POST", f"{API_BASE_URL}/documents/{do_id}/submit", role=WM)
     t._req("POST", f"{API_BASE_URL}/documents/{do_id}/approve", role=WM)
-    t.record("銷售出庫完成", True, "5 個品項出庫")
+    t.record("銷售出庫完成 (含 IACUC)", True, "5 個品項出庫，歸屬 IACUC PIG-11401")
+
+    # 驗證以 IACUC 篩選查詢單據
+    iacuc_resp = t._req("GET", f"{API_BASE_URL}/documents?iacuc_no=PIG-11401", role=WM)
+    iacuc_docs = iacuc_resp.json()
+    iacuc_found = any(d.get("iacuc_no") == "PIG-11401" for d in iacuc_docs)
+    t.record("IACUC 篩選查詢", iacuc_found, f"篩選 PIG-11401 → {len(iacuc_docs)} 筆單據")
 
     # ========================================
     # Phase 4: 調撥作業

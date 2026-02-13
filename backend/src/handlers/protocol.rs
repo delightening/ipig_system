@@ -267,7 +267,7 @@ pub async fn change_protocol_status(
     let config = state.config.clone();
     tokio::spawn(async move {
         let svc = NotificationService::new(db);
-        let _ = svc.notify_protocol_review_progress(
+        if let Err(e) = svc.notify_protocol_review_progress(
             protocol_id,
             &protocol_no,
             &protocol_title,
@@ -275,7 +275,10 @@ pub async fn change_protocol_status(
             operator_id,
             reason.as_deref(),
             Some(&config),
-        ).await;
+        ).await {
+            tracing::warn!("發送計畫審查進度通知失敗: {e}");
+        }
+
     });
 
     Ok(Json(protocol))
@@ -611,12 +614,15 @@ pub async fn create_review_comment(
 
         if let Some((protocol_id, protocol_no, _title)) = protocol_info {
             let svc = NotificationService::new(db);
-            let _ = svc.notify_review_comment_created(
+            if let Err(e) = svc.notify_review_comment_created(
                 protocol_id,
                 &protocol_no,
                 &commenter_name,
                 &comment_content,
-            ).await;
+            ).await {
+                tracing::warn!("發送審查意見通知失敗: {e}");
+            }
+
         }
     });
 
@@ -1055,7 +1061,7 @@ pub async fn save_vet_review_form(
     ProtocolService::save_vet_review_form(&state.db, req.protocol_id, current_user.id, &req.review_form).await?;
     
     // 記錄活動
-    let _ = ProtocolService::record_activity(
+    if let Err(e) = ProtocolService::record_activity(
         &state.db,
         req.protocol_id,
         crate::models::ProtocolActivityType::StatusChanged, // 暫用狀態變更或新增類型
@@ -1065,7 +1071,10 @@ pub async fn save_vet_review_form(
         Some(("VET_REVIEW_FORM", req.protocol_id, "獸醫審查表")),
         Some("填寫獸醫核選表".to_string()),
         Some(req.review_form.clone()),
-    ).await;
+    ).await {
+        tracing::warn!("記錄活動失敗: {e}");
+    }
+
 
     Ok(Json(()))
 }

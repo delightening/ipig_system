@@ -1,27 +1,18 @@
 {
-  "test": "動物管理系統完整測試",
+  "test": "AUP 完整流程測試",
   "method": "POST",
-  "url": "http://localhost:8000/api/pigs",
-  "status": 409,
+  "url": "http://localhost:8000/api/amendments/16927c0c-5894-439d-98df-64bb0284d00d/classify",
+  "status": 403,
   "payload": {
-    "ear_tag": "001",
-    "breed": "minipig",
-    "breed_other": null,
-    "gender": "male",
-    "birth_date": "2025-08-17",
-    "entry_date": "2026-01-14",
-    "entry_weight": 18.0,
-    "pen_location": "A-01",
-    "remark": "整合測試豬隻 #1",
-    "source_id": "ae9f4725-2f9d-457c-9656-5e771f2cf4b1",
-    "force_create": true
+    "amendment_type": "MINOR",
+    "remark": "小變更，行政核准"
   },
-  "response": "{\"error\":{\"blocking\":true,\"code\":409,\"message\":\"耳號 001 已存在同出生日期的存活動物，無法重複建立\"}}",
+  "response": "{\"error\":{\"blocking\":true,\"code\":403,\"message\":\"Permission denied: requires amendment.classify\"}}",
   "response_json": {
     "error": {
       "blocking": true,
-      "code": 409,
-      "message": "耳號 001 已存在同出生日期的存活動物，無法重複建立"
+      "code": 403,
+      "message": "Permission denied: requires amendment.classify"
     }
   }
 }

@@ -1,0 +1,1356 @@
+﻿
+????????????????????????????????????????????????????????????
+??           iPig System ???游?皜祈岫憟辣                  ??
+??                                                         ??
+??  1. AUP 摰撖拇瘚?皜祈岫                               ??
+??  2. ERP 摰?澈蝞∠?皜祈岫嚗?梯”撽?嚗?                 ??
+??  3. ?蝞∠?蝟餌絞摰皜祈岫                                ??
+??  4. 銵瘨脫炎?亦????湔葫閰?                               ??
+??  5. HR 鈭箏蝞∠?蝟餌絞摰皜祈岫                             ??
+????????????????????????????????????????????????????????????
+
+
+????????????????????????????????????????????????????????????
+?? [1/5] AUP 摰撖拇瘚?皜祈岫
+????????????????????????????????????????????????????????????
+
+============================================================
+[Setup] 撱箇?皜祈岫撣唾?...
+============================================================
+  ??蝞∠??∠?交???
+  ???? 11 ???? ['ADMIN_STAFF', 'CLIENT', 'EXPERIMENT_STAFF', 'IACUC_CHAIR', 'IACUC_STAFF', 'PI', 'PURCHASING', 'REVIEWER', 'VET', 'WAREHOUSE_MANAGER', 'admin']
+    ??IACUC_STAFF          (staff_int_test@example.com) ??撌脣???
+    ??REVIEWER1            (rev1_int_test@example.com) ??撌脣???
+    ??REVIEWER2            (rev2_int_test@example.com) ??撌脣???
+    ??REVIEWER3            (rev3_int_test@example.com) ??撌脣???
+    ??IACUC_CHAIR          (chair_int_test@example.com) ??撌脣???
+    ??PI                   (pi_int_test@example.com) ??撌脣???
+    ??VET                  (vet_int_test@example.com) ??撌脣???
+    ??REV_OTHER            (revother_int_test@example.com) ??撌脣???
+
+  [蝯?] ?啣遣 0 / 撌脣???8 / ??8
+
+============================================================
+[Auth] ?餃??葫閰血董??..
+============================================================
+  ??IACUC_STAFF          ?餃?? (ID: 0deb1f95...)
+  ??REVIEWER1            ?餃?? (ID: a00b5676...)
+  ??REVIEWER2            ?餃?? (ID: 2b16fc7e...)
+  ??REVIEWER3            ?餃?? (ID: 2f93710e...)
+  ??IACUC_CHAIR          ?餃?? (ID: 8c5e4614...)
+  ??PI                   ?餃?? (ID: 22ad663a...)
+  ??VET                  ?餃?? (ID: abda13b4...)
+  ??REV_OTHER            ?餃?? (ID: 908e10d0...)
+
+  ??8/8 撣唾??券?餃??
+
+============================================================
+[Step 1] PI 撱箇?閮?訾蒂?漱
+============================================================
+  ??[POST  ] /localhost:8000/api/protocols -> 200
+  ??撱箇?閮????ID: 9e7e0c39...
+  ??[POST  ] /protocols/9e7e0c39-bec0-498e-9c61-fdcefaa11ee6/co-editors -> 200
+  ??[POST  ] /protocols/9e7e0c39-bec0-498e-9c61-fdcefaa11ee6/submit -> 200
+  ??[GET   ] /api/protocols/9e7e0c39-bec0-498e-9c61-fdcefaa11ee6 -> 200
+  ??PI ?漱閮????status=SUBMITTED
+
+============================================================
+[Step 2] STAFF 銵?祟 + ??
+============================================================
+  ??[POST  ] /protocols/9e7e0c39-bec0-498e-9c61-fdcefaa11ee6/status -> 200
+  ??[GET   ] /protocols/9e7e0c39-bec0-498e-9c61-fdcefaa11ee6/versions -> 200
+  ??[POST  ] /api/reviews/comments -> 200
+  ??Staff ?祟??
+
+============================================================
+[Step 3] PI ???祟??
+============================================================
+  ??[POST  ] /reviews/comments/reply -> 200
+  ??PI ???祟??
+
+============================================================
+[Step 4] Staff 閬?靽株? ??PI 靽格??
+============================================================
+  ??[POST  ] /protocols/9e7e0c39-bec0-498e-9c61-fdcefaa11ee6/status -> 200
+  ??[PUT   ] /api/protocols/9e7e0c39-bec0-498e-9c61-fdcefaa11ee6 -> 200
+  ??[POST  ] /protocols/9e7e0c39-bec0-498e-9c61-fdcefaa11ee6/submit -> 200
+  ??[GET   ] /api/protocols/9e7e0c39-bec0-498e-9c61-fdcefaa11ee6 -> 200
+  ??PI 靽株?敺?????status=RESUBMITTED
+
+============================================================
+[Step 5] ?怎?撖拇 (VET)
+============================================================
+  ??[POST  ] /protocols/9e7e0c39-bec0-498e-9c61-fdcefaa11ee6/status -> 200
+  ??[POST  ] /comments/616344d9-d8c7-42a6-8869-8c3847573f1d/resolve -> 200
+  ??[POST  ] /protocols/9e7e0c39-bec0-498e-9c61-fdcefaa11ee6/status -> 200
+  ??[POST  ] /api/reviews/comments -> 200
+  ??[POST  ] /reviews/comments/reply -> 200
+  ??[POST  ] /protocols/9e7e0c39-bec0-498e-9c61-fdcefaa11ee6/status -> 200
+  ??[PUT   ] /api/protocols/9e7e0c39-bec0-498e-9c61-fdcefaa11ee6 -> 200
+  ??[POST  ] /protocols/9e7e0c39-bec0-498e-9c61-fdcefaa11ee6/submit -> 200
+  ???怎?撖拇摰?
+
+============================================================
+[Step 6] 閫?捱 VET 撖拇??
+============================================================
+  ??[POST  ] /comments/d5f52b3a-be4c-43f6-a921-54475769dbed/resolve -> 200
+  ??VET ??撌脰圾瘙?
+
+============================================================
+[Step 7] ?晷憪?脣?怎?撖拇
+============================================================
+  ??[POST  ] /protocols/9e7e0c39-bec0-498e-9c61-fdcefaa11ee6/status -> 200
+  ??[GET   ] /api/protocols/9e7e0c39-bec0-498e-9c61-fdcefaa11ee6 -> 200
+  ???脣?怎?撖拇 ??status=UNDER_REVIEW
+
+============================================================
+[Step 8] 3 ???∠銵典祟?交?閬?
+============================================================
+  ??[GET   ] /protocols/9e7e0c39-bec0-498e-9c61-fdcefaa11ee6/versions -> 200
+  ??[POST  ] /api/reviews/comments -> 200
+  ??[POST  ] /api/reviews/comments -> 200
+  ??[POST  ] /api/reviews/comments -> 200
+  ??3 ???∠?閮
+
+============================================================
+[Step 9] ??摰???(REV_OTHER) ?潸”??
+============================================================
+  ??[POST  ] /api/reviews/comments -> 200
+  ????摰??∠?閮
+
+============================================================
+[Step 10] PI ????祟?亙???
+============================================================
+  ??[POST  ] /reviews/comments/reply -> 200
+  ??[POST  ] /reviews/comments/reply -> 200
+  ??[POST  ] /reviews/comments/reply -> 200
+  ??[POST  ] /reviews/comments/reply -> 200
+  ??PI ?????閬?
+
+============================================================
+[Step 11] Staff 閬?靽格迤閮??
+============================================================
+  ??[POST  ] /protocols/9e7e0c39-bec0-498e-9c61-fdcefaa11ee6/status -> 200
+  ??Staff 閬?靽格迤
+
+============================================================
+[Step 12] 閫?捱??祟?交?閬蒂??漱
+============================================================
+  ??[POST  ] /comments/e08fb24a-c5c7-488a-8e72-e71cb9e16faa/resolve -> 200
+  ??[POST  ] /comments/6767dd3a-ba0c-49e8-aff0-050c966d4abb/resolve -> 200
+  ??[POST  ] /comments/0658152f-90be-4a1c-8042-116eb13011fa/resolve -> 200
+  ??[POST  ] /comments/4f111a5c-a579-4c36-a1a7-cde29d944774/resolve -> 200
+  ??[PUT   ] /api/protocols/9e7e0c39-bec0-498e-9c61-fdcefaa11ee6 -> 200
+  ??[POST  ] /protocols/9e7e0c39-bec0-498e-9c61-fdcefaa11ee6/submit -> 200
+  ????閫?捱銝阡??唳?鈭?
+
+============================================================
+[Step 13] 銝餃??蝯摰?
+============================================================
+  ??[POST  ] /protocols/9e7e0c39-bec0-498e-9c61-fdcefaa11ee6/status -> 200
+  ??[POST  ] /protocols/9e7e0c39-bec0-498e-9c61-fdcefaa11ee6/status -> 200
+  ??[GET   ] /api/protocols/9e7e0c39-bec0-498e-9c61-fdcefaa11ee6 -> 200
+  ??銝餃??詨??? ??status=APPROVED
+
+============================================================
+[摰?] AUP 摰 14 甇交?蝔???Protocol ID: 9e7e0c39-bec0-498e-9c61-fdcefaa11ee6
+============================================================
+
+============================================================
+[AUP 摰瘚?皜祈岫] 皜祈岫蝯?敶蜇
+============================================================
+  ??撱箇?閮??
+  ??PI ?漱閮??
+  ??Staff ?祟??
+  ??PI ???祟??
+  ??PI 靽株?敺???
+  ???怎?撖拇摰?
+  ??VET ??撌脰圾瘙?
+  ???脣?怎?撖拇
+  ??3 ???∠?閮
+  ????摰??∠?閮
+  ??PI ?????閬?
+  ??Staff 閬?靽格迤
+  ????閫?捱銝阡??唳?鈭?
+  ??銝餃??詨???
+
+  蝮質?: 14 ????14 / ??0
+
+?? AUP 摰瘚?皜祈岫 ????葫閰阡?嚗?
+  ??AUP 皜祈岫??: 1.0 蝘?
+
+????????????????????????????????????????????????????????????
+?? [2/5] ERP 摰?澈蝞∠?皜祈岫嚗?梯”撽?嚗?
+????????????????????????????????????????????????????????????
+
+============================================================
+[Setup] 撱箇?皜祈岫撣唾?...
+============================================================
+  ??蝞∠??∠?交???
+  ???? 11 ???? ['ADMIN_STAFF', 'CLIENT', 'EXPERIMENT_STAFF', 'IACUC_CHAIR', 'IACUC_STAFF', 'PI', 'PURCHASING', 'REVIEWER', 'VET', 'WAREHOUSE_MANAGER', 'admin']
+    ??WAREHOUSE_MANAGER    (wm_int_test@example.com) ??撌脣???
+    ??ADMIN_STAFF          (as_int_test@example.com) ??撌脣???
+
+  [蝯?] ?啣遣 0 / 撌脣???2 / ??2
+
+============================================================
+[Auth] ?餃??葫閰血董??..
+============================================================
+  ??WAREHOUSE_MANAGER    ?餃?? (ID: 03018829...)
+  ??ADMIN_STAFF          ?餃?? (ID: 4cc733b4...)
+
+  ??2/2 撣唾??券?餃??
+
+============================================================
+[Step 1] Phase 1 ??撱箇??澈 (3 ??
+============================================================
+  ??[POST  ] /localhost:8000/api/warehouses -> 200
+  ???澈 '??? -> ID: 154a539c...
+  ??[POST  ] /localhost:8000/api/warehouses -> 200
+  ???澈 '???? -> ID: 4d769b9a...
+  ??[POST  ] /localhost:8000/api/warehouses -> 200
+  ???澈 '?瑁??? -> ID: 28e610c6...
+  ??撱箇? 3 ?澈
+
+============================================================
+[Step 2] Phase 1 ??撱箇?鞎冽 (瘥澈 7 ??= ??21 ??
+============================================================
+  ??[POST  ] /localhost:8000/api/storage-locations -> 200
+  ??[POST  ] /localhost:8000/api/storage-locations -> 200
+  ??[POST  ] /localhost:8000/api/storage-locations -> 200
+  ??[POST  ] /localhost:8000/api/storage-locations -> 200
+  ??[POST  ] /localhost:8000/api/storage-locations -> 200
+  ??[POST  ] /localhost:8000/api/storage-locations -> 200
+  ??[POST  ] /localhost:8000/api/storage-locations -> 200
+  ??[POST  ] /localhost:8000/api/storage-locations -> 200
+  ??[POST  ] /localhost:8000/api/storage-locations -> 200
+  ??[POST  ] /localhost:8000/api/storage-locations -> 200
+  ??[POST  ] /localhost:8000/api/storage-locations -> 200
+  ??[POST  ] /localhost:8000/api/storage-locations -> 200
+  ??[POST  ] /localhost:8000/api/storage-locations -> 200
+  ??[POST  ] /localhost:8000/api/storage-locations -> 200
+  ??[POST  ] /localhost:8000/api/storage-locations -> 200
+  ??[POST  ] /localhost:8000/api/storage-locations -> 200
+  ??[POST  ] /localhost:8000/api/storage-locations -> 200
+  ??[POST  ] /localhost:8000/api/storage-locations -> 200
+  ??[POST  ] /localhost:8000/api/storage-locations -> 200
+  ??[POST  ] /localhost:8000/api/storage-locations -> 200
+  ??[POST  ] /localhost:8000/api/storage-locations -> 200
+  ??撱箇? 21 ?疏??
+
+============================================================
+[Step 3] Phase 1 ??撱箇? 50 ???
+============================================================
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??[POST  ] /localhost:8000/api/products -> 200
+  ??撱箇? 50 ???
+
+============================================================
+[Step 4] Phase 1 ??撱箇?靘???
+============================================================
+  ??[POST  ] /localhost:8000/api/partners -> 200
+  ??[POST  ] /localhost:8000/api/partners -> 200
+  ??撱箇? 2 ????
+
+============================================================
+[Step 5] Phase 2 ???∟頃?亙澈 (PO ??GRN)
+============================================================
+  ??[POST  ] /localhost:8000/api/documents -> 200
+  ??PO #1 -> 17 ????
+  ??[POST  ] /documents/ed3800e9-3ffe-4693-8f49-2bdfca84d956/submit -> 200
+  ??[POST  ] /documents/ed3800e9-3ffe-4693-8f49-2bdfca84d956/approve -> 200
+  ??[POST  ] /localhost:8000/api/documents -> 200
+  ??[POST  ] /documents/a2d3df84-b220-43a0-9dde-afdf0d4ea0fe/submit -> 200
+  ??[POST  ] /documents/a2d3df84-b220-43a0-9dde-afdf0d4ea0fe/approve -> 200
+  ??GRN #1 -> ?亙澈 17 ??? 7 ?疏??
+  ??[POST  ] /localhost:8000/api/documents -> 200
+  ??PO #2 -> 17 ????
+  ??[POST  ] /documents/1a56e452-bc39-4bee-81c7-746642f3066a/submit -> 200
+  ??[POST  ] /documents/1a56e452-bc39-4bee-81c7-746642f3066a/approve -> 200
+  ??[POST  ] /localhost:8000/api/documents -> 200
+  ??[POST  ] /documents/672a5897-6cec-46b0-9a11-52e4ca97d4b7/submit -> 200
+  ??[POST  ] /documents/672a5897-6cec-46b0-9a11-52e4ca97d4b7/approve -> 200
+  ??GRN #2 -> ?亙澈 17 ??? 7 ?疏??
+  ??[POST  ] /localhost:8000/api/documents -> 200
+  ??PO #3 -> 16 ????
+  ??[POST  ] /documents/78d445dd-9fdb-4450-b37b-ad796b73239f/submit -> 200
+  ??[POST  ] /documents/78d445dd-9fdb-4450-b37b-ad796b73239f/approve -> 200
+  ??[POST  ] /localhost:8000/api/documents -> 200
+  ??[POST  ] /documents/e1154fe3-a50c-4712-b536-2df07498e39a/submit -> 200
+  ??[POST  ] /documents/e1154fe3-a50c-4712-b536-2df07498e39a/approve -> 200
+  ??GRN #3 -> ?亙澈 16 ??? 7 ?疏??
+  ???∟頃?亙澈摰? ??3 撘?PO + 3 撘?GRN嚗 50 ????
+
+============================================================
+[Step 6] Phase 3 ???瑕?箏澈 (SO ??DO)
+============================================================
+  ??[POST  ] /localhost:8000/api/documents -> 200
+  ??[POST  ] /documents/c1471717-dbec-4790-80b4-8491831ca9ce/submit -> 200
+  ??[POST  ] /documents/c1471717-dbec-4790-80b4-8491831ca9ce/approve -> 200
+  ??[POST  ] /localhost:8000/api/documents -> 200
+  ??[POST  ] /documents/a389f831-b6d0-472c-9cfd-e32d4e613df8/submit -> 200
+  ??[POST  ] /documents/a389f831-b6d0-472c-9cfd-e32d4e613df8/approve -> 200
+  ???瑕?箏澈摰? ??5 ???摨?
+
+============================================================
+[Step 7] Phase 4 ???澈?矽??(TR)
+============================================================
+  ??[POST  ] /localhost:8000/api/documents -> 200
+  ??[POST  ] /documents/429d551f-07e1-4a01-8a49-4837e4e86531/submit -> 200
+  ??[POST  ] /documents/429d551f-07e1-4a01-8a49-4837e4e86531/approve -> 200
+  ??隤踵雿平摰? ??3 ?????澈1隤輯?澈2
+
+============================================================
+[Step 8] Phase 5 ??摨怠?撽?
+============================================================
+  ??[GET   ] /api/inventory/on-hand -> 200
+  ???亥岷?冽?摨怠? ??106 蝑澈摮???
+  ??[GET   ] /api/inventory/ledger -> 200
+  ???亥岷摨怠?撣喟倏 ??122 蝑董蝪輯???
+
+============================================================
+[Step 9] Phase 5 ??鞎冽摨怠?撽? (storage-locations/:id/inventory)
+============================================================
+  ??[GET   ] /storage-locations/dbf9ee47-8f52-4644-ada3-9b6b4eed1f89/inventory -> 200
+  ??鞎冽 dbf9ee47... ??3 ????
+  ??[GET   ] /storage-locations/f22b3551-8f9f-4408-9067-10f3ed8913c5/inventory -> 200
+  ??鞎冽 f22b3551... ??3 ????
+  ??[GET   ] /storage-locations/8db75a69-fbfb-453c-860e-69e2958f7ae2/inventory -> 200
+  ??鞎冽 8db75a69... ??3 ????
+  ??[GET   ] /storage-locations/a24125af-5be6-4dcf-995c-ab7be45b7ed6/inventory -> 200
+  ??鞎冽 a24125af... ??2 ????
+  ??[GET   ] /storage-locations/42ce1029-256b-4c0e-9ea4-b754a40741e6/inventory -> 200
+  ??鞎冽 42ce1029... ??2 ????
+  ??[GET   ] /storage-locations/0c005a0d-17a4-44c1-beea-c3478a06533f/inventory -> 200
+  ??鞎冽 0c005a0d... ??2 ????
+  ??[GET   ] /storage-locations/a61c15ef-fc1a-400f-87b8-d7aa7d4059fc/inventory -> 200
+  ??鞎冽 a61c15ef... ??2 ????
+  ??[GET   ] /storage-locations/bb7314b2-0a6d-4419-8ddc-47521b8d6c78/inventory -> 200
+  ??鞎冽 bb7314b2... ??3 ????
+  ??[GET   ] /storage-locations/f5b80302-ddca-410f-9d39-f23ae8f4c668/inventory -> 200
+  ??鞎冽 f5b80302... ??3 ????
+  ??[GET   ] /storage-locations/61647dd7-a8e1-4640-9c72-2913f364e771/inventory -> 200
+  ??鞎冽 61647dd7... ??3 ????
+  ??[GET   ] /storage-locations/2557f3c4-77e8-4f6f-b0a1-18d2013f3d0d/inventory -> 200
+  ??鞎冽 2557f3c4... ??2 ????
+  ??[GET   ] /storage-locations/102c4faa-d930-4ee6-845b-2203c6056e1d/inventory -> 200
+  ??鞎冽 102c4faa... ??2 ????
+  ??[GET   ] /storage-locations/f6c8b646-30f7-4935-9fa6-5d8c1fe990bc/inventory -> 200
+  ??鞎冽 f6c8b646... ??2 ????
+  ??[GET   ] /storage-locations/9e24fc6d-debe-4194-abe4-78568ee823ce/inventory -> 200
+  ??鞎冽 9e24fc6d... ??2 ????
+  ??[GET   ] /storage-locations/b53bfc04-9b3b-47c8-933d-eef13e54e258/inventory -> 200
+  ??鞎冽 b53bfc04... ??3 ????
+  ??[GET   ] /storage-locations/afcc4c66-f067-47e0-845c-439e42202b56/inventory -> 200
+  ??鞎冽 afcc4c66... ??3 ????
+  ??[GET   ] /storage-locations/9333f5d7-65ff-42bb-a4ae-9f2679a2a4d1/inventory -> 200
+  ??鞎冽 9333f5d7... ??2 ????
+  ??[GET   ] /storage-locations/f81a3097-4f0d-4052-ae4b-5961ef2c922f/inventory -> 200
+  ??鞎冽 f81a3097... ??2 ????
+  ??[GET   ] /storage-locations/9dce218f-8ebe-450c-9079-ced3056caf55/inventory -> 200
+  ??鞎冽 9dce218f... ??2 ????
+  ??[GET   ] /storage-locations/9f568a40-3443-4294-8127-73cf42ad7ff4/inventory -> 200
+  ??鞎冽 9f568a40... ??2 ????
+  ??[GET   ] /storage-locations/c1cf2b1b-e78f-458b-af37-befd9ab3db58/inventory -> 200
+  ??鞎冽 c1cf2b1b... ??2 ????
+  ??鞎冽摨怠?撽? ??21/21 ?疏?嗆?摨怠?嚗 50 ????
+
+============================================================
+[Step 10] Phase 6 ???梯”?Ｙ?撽?
+============================================================
+  ??[GET   ] /api/reports/stock-on-hand -> 200
+  ??摨怠??梯” (stock-on-hand) ??? 106 蝑???
+  ??[GET   ] /api/reports/stock-ledger -> 200
+  ??撣喟倏?梯” (stock-ledger) ??? 122 蝑???
+  ??[GET   ] /api/reports/purchase-lines -> 200
+  ???∟頃?敦?梯” (purchase-lines) ??? 300 蝑???
+  ??[GET   ] /api/reports/sales-lines -> 200
+  ???瑕?敦?梯” (sales-lines) ??? 20 蝑???
+  ??[GET   ] /api/reports/cost-summary -> 200
+  ???敶蜇?梯” (cost-summary) ????? JSON
+
+============================================================
+[摰?] ERP 摰瘚?皜祈岫摰?嚗?
+  ?澈: 3 | 鞎冽: 21 | ?Ｗ?: 50
+  PO: 3 | GRN: 3 | SO: 1 | DO: 1 | TR: 1
+  ?梯”: 5 蝔?(stock-on-hand, stock-ledger, purchase-lines, sales-lines, cost-summary)
+============================================================
+
+============================================================
+[ERP 摰瘚?皜祈岫] 皜祈岫蝯?敶蜇
+============================================================
+  ??撱箇? 3 ?澈
+  ??撱箇? 21 ?疏??
+  ??撱箇? 50 ???
+  ??撱箇? 2 ????
+  ???∟頃?亙澈摰?
+  ???瑕?箏澈摰?
+  ??隤踵雿平摰?
+  ???亥岷?冽?摨怠?
+  ???亥岷摨怠?撣喟倏
+  ??鞎冽摨怠?撽?
+  ??摨怠??梯” (stock-on-hand)
+  ??撣喟倏?梯” (stock-ledger)
+  ???∟頃?敦?梯” (purchase-lines)
+  ???瑕?敦?梯” (sales-lines)
+  ???敶蜇?梯” (cost-summary)
+
+  蝮質?: 15 ????15 / ??0
+
+?? ERP 摰瘚?皜祈岫 ????葫閰阡?嚗?
+  ??ERP 皜祈岫??: 0.8 蝘?
+
+????????????????????????????????????????????????????????????
+?? [3/5] ?蝞∠?蝟餌絞摰皜祈岫
+????????????????????????????????????????????????????????????
+
+============================================================
+[Setup] 撱箇?皜祈岫撣唾?...
+============================================================
+  ??蝞∠??∠?交???
+  ???? 11 ???? ['ADMIN_STAFF', 'CLIENT', 'EXPERIMENT_STAFF', 'IACUC_CHAIR', 'IACUC_STAFF', 'PI', 'PURCHASING', 'REVIEWER', 'VET', 'WAREHOUSE_MANAGER', 'admin']
+    ??VET                  (vet_animal_int@example.com) ??撌脣???
+    ??EXPERIMENT_STAFF     (exp_animal_int@example.com) ??撌脣???
+
+  [蝯?] ?啣遣 0 / 撌脣???2 / ??2
+
+============================================================
+[Auth] ?餃??葫閰血董??..
+============================================================
+  ??VET                  ?餃?? (ID: b4acad89...)
+  ??EXPERIMENT_STAFF     ?餃?? (ID: 9bd49352...)
+
+  ??2/2 撣唾??券?餃??
+
+============================================================
+[Step 1] Phase 1 ??撱箇?鞊祆?
+============================================================
+  ??[POST  ] /localhost:8000/api/pig-sources -> 200
+  ??撱箇?鞊祆? ??ID: aaabf3bb...
+
+============================================================
+[Step 2] Phase 1 ??撱箇? 20 ?餉惇
+============================================================
+  ??[GET   ] /localhost:8000/api/pigs?keyword=001 -> 200
+  ??[GET   ] /localhost:8000/api/pigs?keyword=002 -> 200
+  ??[GET   ] /localhost:8000/api/pigs?keyword=003 -> 200
+  ??[GET   ] /localhost:8000/api/pigs?keyword=004 -> 200
+  ??[GET   ] /localhost:8000/api/pigs?keyword=005 -> 200
+  ??撌脣遣蝡?5/20 ?餉惇嚗??Ｘ?鞈?嚗?
+  ??[GET   ] /localhost:8000/api/pigs?keyword=006 -> 200
+  ??[GET   ] /localhost:8000/api/pigs?keyword=007 -> 200
+  ??[GET   ] /localhost:8000/api/pigs?keyword=008 -> 200
+  ??[GET   ] /localhost:8000/api/pigs?keyword=009 -> 200
+  ??[GET   ] /localhost:8000/api/pigs?keyword=010 -> 200
+  ??撌脣遣蝡?10/20 ?餉惇嚗??Ｘ?鞈?嚗?
+  ??[GET   ] /localhost:8000/api/pigs?keyword=011 -> 200
+  ??[GET   ] /localhost:8000/api/pigs?keyword=012 -> 200
+  ??[GET   ] /localhost:8000/api/pigs?keyword=013 -> 200
+  ??[GET   ] /localhost:8000/api/pigs?keyword=014 -> 200
+  ??[GET   ] /localhost:8000/api/pigs?keyword=015 -> 200
+  ??撌脣遣蝡?15/20 ?餉惇嚗??Ｘ?鞈?嚗?
+  ??[GET   ] /localhost:8000/api/pigs?keyword=016 -> 200
+  ??[GET   ] /localhost:8000/api/pigs?keyword=017 -> 200
+  ??[GET   ] /localhost:8000/api/pigs?keyword=018 -> 200
+  ??[GET   ] /localhost:8000/api/pigs?keyword=019 -> 200
+  ??[GET   ] /localhost:8000/api/pigs?keyword=020 -> 200
+  ??撌脣遣蝡?20/20 ?餉惇嚗??Ｘ?鞈?嚗?
+  ??撱箇? 20 ?餉惇
+
+============================================================
+[Step 3] Phase 1 ??撽??萄遣閮?
+============================================================
+  ??[GET   ] /api/pigs/644f52ec-e95d-4331-98f0-9dde9d78fa7b -> 200
+  ??[GET   ] /api/pigs/7edcdd4d-6cda-4526-b227-4318d525151d -> 200
+  ??[GET   ] /api/pigs/7a9b4bba-0024-43d1-a274-fa7d913f8652 -> 200
+  ??[GET   ] /api/pigs/ccc65522-d875-40ce-a23a-359d0ce0f48e -> 200
+  ??[GET   ] /api/pigs/c6ddcaa9-cae0-4795-94f5-ac1fc44fc3cc -> 200
+  ??[GET   ] /api/pigs/80a70977-f36e-48b8-9b07-a466e9963706 -> 200
+  ??[GET   ] /api/pigs/322294f5-5613-4c1f-b8d3-211bc5277d03 -> 200
+  ??[GET   ] /api/pigs/dc6a8ad0-063c-48e2-875b-13fb7c27fb4b -> 200
+  ??[GET   ] /api/pigs/5af5b20b-26f7-4644-9786-71618ddcf75b -> 200
+  ??[GET   ] /api/pigs/191f693a-068f-4e8e-8803-9b003305d1f2 -> 200
+  ??[GET   ] /api/pigs/ba961610-1475-4cee-82df-9dc0c1942bb6 -> 200
+  ??[GET   ] /api/pigs/6f3a7b7f-18f6-4b65-8f7d-4933dc6da96d -> 200
+  ??[GET   ] /api/pigs/4c535c6d-513b-4003-ae21-30ba80442afc -> 200
+  ??[GET   ] /api/pigs/4ffc0384-c58f-4057-ad30-ec6c5630ea0c -> 200
+  ??[GET   ] /api/pigs/93ed9ea5-b9f8-415f-b33e-e049c0b13a18 -> 200
+  ??[GET   ] /api/pigs/cc5f4025-23cc-456f-bf05-3349af2bbbf5 -> 200
+  ??[GET   ] /api/pigs/6d921ea0-0a1d-453b-98cb-7311683efe4d -> 200
+  ??[GET   ] /api/pigs/940e3a57-f142-4cd0-9f1f-4cc846cb1590 -> 200
+  ??[GET   ] /api/pigs/595c1c6a-48ec-4d33-95f9-23e6c1c1cdd0 -> 200
+  ??[GET   ] /api/pigs/4c950355-7f21-43d8-a29d-72ac514a2050 -> 200
+  ??撽??萄遣閮? ??20/20 蝑迤蝣?
+
+============================================================
+[Step 4] Phase 2 ??擃?蝝???券 20 ?鳴???2~3 蝑?
+============================================================
+  ??[POST  ] /pigs/644f52ec-e95d-4331-98f0-9dde9d78fa7b/weights -> 200
+  ??[POST  ] /pigs/644f52ec-e95d-4331-98f0-9dde9d78fa7b/weights -> 200
+  ??[POST  ] /pigs/7edcdd4d-6cda-4526-b227-4318d525151d/weights -> 200
+  ??[POST  ] /pigs/7edcdd4d-6cda-4526-b227-4318d525151d/weights -> 200
+  ??[POST  ] /pigs/7a9b4bba-0024-43d1-a274-fa7d913f8652/weights -> 200
+  ??[POST  ] /pigs/7a9b4bba-0024-43d1-a274-fa7d913f8652/weights -> 200
+  ??[POST  ] /pigs/ccc65522-d875-40ce-a23a-359d0ce0f48e/weights -> 200
+  ??[POST  ] /pigs/ccc65522-d875-40ce-a23a-359d0ce0f48e/weights -> 200
+  ??[POST  ] /pigs/c6ddcaa9-cae0-4795-94f5-ac1fc44fc3cc/weights -> 200
+  ??[POST  ] /pigs/c6ddcaa9-cae0-4795-94f5-ac1fc44fc3cc/weights -> 200
+  ??[POST  ] /pigs/80a70977-f36e-48b8-9b07-a466e9963706/weights -> 200
+  ??[POST  ] /pigs/80a70977-f36e-48b8-9b07-a466e9963706/weights -> 200
+  ??[POST  ] /pigs/322294f5-5613-4c1f-b8d3-211bc5277d03/weights -> 200
+  ??[POST  ] /pigs/322294f5-5613-4c1f-b8d3-211bc5277d03/weights -> 200
+  ??[POST  ] /pigs/dc6a8ad0-063c-48e2-875b-13fb7c27fb4b/weights -> 200
+  ??[POST  ] /pigs/dc6a8ad0-063c-48e2-875b-13fb7c27fb4b/weights -> 200
+  ??[POST  ] /pigs/5af5b20b-26f7-4644-9786-71618ddcf75b/weights -> 200
+  ??[POST  ] /pigs/5af5b20b-26f7-4644-9786-71618ddcf75b/weights -> 200
+  ??[POST  ] /pigs/191f693a-068f-4e8e-8803-9b003305d1f2/weights -> 200
+  ??[POST  ] /pigs/191f693a-068f-4e8e-8803-9b003305d1f2/weights -> 200
+  ??[POST  ] /pigs/ba961610-1475-4cee-82df-9dc0c1942bb6/weights -> 200
+  ??[POST  ] /pigs/ba961610-1475-4cee-82df-9dc0c1942bb6/weights -> 200
+  ??[POST  ] /pigs/ba961610-1475-4cee-82df-9dc0c1942bb6/weights -> 200
+  ??[POST  ] /pigs/6f3a7b7f-18f6-4b65-8f7d-4933dc6da96d/weights -> 200
+  ??[POST  ] /pigs/6f3a7b7f-18f6-4b65-8f7d-4933dc6da96d/weights -> 200
+  ??[POST  ] /pigs/6f3a7b7f-18f6-4b65-8f7d-4933dc6da96d/weights -> 200
+  ??[POST  ] /pigs/4c535c6d-513b-4003-ae21-30ba80442afc/weights -> 200
+  ??[POST  ] /pigs/4c535c6d-513b-4003-ae21-30ba80442afc/weights -> 200
+  ??[POST  ] /pigs/4c535c6d-513b-4003-ae21-30ba80442afc/weights -> 200
+  ??[POST  ] /pigs/4ffc0384-c58f-4057-ad30-ec6c5630ea0c/weights -> 200
+  ??[POST  ] /pigs/4ffc0384-c58f-4057-ad30-ec6c5630ea0c/weights -> 200
+  ??[POST  ] /pigs/4ffc0384-c58f-4057-ad30-ec6c5630ea0c/weights -> 200
+  ??[POST  ] /pigs/93ed9ea5-b9f8-415f-b33e-e049c0b13a18/weights -> 200
+  ??[POST  ] /pigs/93ed9ea5-b9f8-415f-b33e-e049c0b13a18/weights -> 200
+  ??[POST  ] /pigs/93ed9ea5-b9f8-415f-b33e-e049c0b13a18/weights -> 200
+  ??[POST  ] /pigs/cc5f4025-23cc-456f-bf05-3349af2bbbf5/weights -> 200
+  ??[POST  ] /pigs/cc5f4025-23cc-456f-bf05-3349af2bbbf5/weights -> 200
+  ??[POST  ] /pigs/cc5f4025-23cc-456f-bf05-3349af2bbbf5/weights -> 200
+  ??[POST  ] /pigs/6d921ea0-0a1d-453b-98cb-7311683efe4d/weights -> 200
+  ??[POST  ] /pigs/6d921ea0-0a1d-453b-98cb-7311683efe4d/weights -> 200
+  ??[POST  ] /pigs/6d921ea0-0a1d-453b-98cb-7311683efe4d/weights -> 200
+  ??[POST  ] /pigs/940e3a57-f142-4cd0-9f1f-4cc846cb1590/weights -> 200
+  ??[POST  ] /pigs/940e3a57-f142-4cd0-9f1f-4cc846cb1590/weights -> 200
+  ??[POST  ] /pigs/940e3a57-f142-4cd0-9f1f-4cc846cb1590/weights -> 200
+  ??[POST  ] /pigs/595c1c6a-48ec-4d33-95f9-23e6c1c1cdd0/weights -> 200
+  ??[POST  ] /pigs/595c1c6a-48ec-4d33-95f9-23e6c1c1cdd0/weights -> 200
+  ??[POST  ] /pigs/595c1c6a-48ec-4d33-95f9-23e6c1c1cdd0/weights -> 200
+  ??[POST  ] /pigs/4c950355-7f21-43d8-a29d-72ac514a2050/weights -> 200
+  ??[POST  ] /pigs/4c950355-7f21-43d8-a29d-72ac514a2050/weights -> 200
+  ??[POST  ] /pigs/4c950355-7f21-43d8-a29d-72ac514a2050/weights -> 200
+  ??閮?擃? ????50 蝑?????
+  ??[GET   ] /pigs/644f52ec-e95d-4331-98f0-9dde9d78fa7b/weights -> 200
+  ??[GET   ] /pigs/7edcdd4d-6cda-4526-b227-4318d525151d/weights -> 200
+  ??[GET   ] /pigs/7a9b4bba-0024-43d1-a274-fa7d913f8652/weights -> 200
+  ??[GET   ] /pigs/ccc65522-d875-40ce-a23a-359d0ce0f48e/weights -> 200
+  ??[GET   ] /pigs/c6ddcaa9-cae0-4795-94f5-ac1fc44fc3cc/weights -> 200
+  ??[GET   ] /pigs/80a70977-f36e-48b8-9b07-a466e9963706/weights -> 200
+  ??[GET   ] /pigs/322294f5-5613-4c1f-b8d3-211bc5277d03/weights -> 200
+  ??[GET   ] /pigs/dc6a8ad0-063c-48e2-875b-13fb7c27fb4b/weights -> 200
+  ??[GET   ] /pigs/5af5b20b-26f7-4644-9786-71618ddcf75b/weights -> 200
+  ??[GET   ] /pigs/191f693a-068f-4e8e-8803-9b003305d1f2/weights -> 200
+  ??[GET   ] /pigs/ba961610-1475-4cee-82df-9dc0c1942bb6/weights -> 200
+  ??[GET   ] /pigs/6f3a7b7f-18f6-4b65-8f7d-4933dc6da96d/weights -> 200
+  ??[GET   ] /pigs/4c535c6d-513b-4003-ae21-30ba80442afc/weights -> 200
+  ??[GET   ] /pigs/4ffc0384-c58f-4057-ad30-ec6c5630ea0c/weights -> 200
+  ??[GET   ] /pigs/93ed9ea5-b9f8-415f-b33e-e049c0b13a18/weights -> 200
+  ??[GET   ] /pigs/cc5f4025-23cc-456f-bf05-3349af2bbbf5/weights -> 200
+  ??[GET   ] /pigs/6d921ea0-0a1d-453b-98cb-7311683efe4d/weights -> 200
+  ??[GET   ] /pigs/940e3a57-f142-4cd0-9f1f-4cc846cb1590/weights -> 200
+  ??[GET   ] /pigs/595c1c6a-48ec-4d33-95f9-23e6c1c1cdd0/weights -> 200
+  ??[GET   ] /pigs/4c950355-7f21-43d8-a29d-72ac514a2050/weights -> 200
+  ??撽?擃?蝝?閬???20/20 ?餅?擃?
+  ??[GET   ] /localhost:8000/api/pigs -> 200
+  ???”憿舐內??圈?????20 ?餃閬??圈???
+
+============================================================
+[Step 5] Phase 3 ??閫撖岫撽????券 20 ?鳴?
+============================================================
+  ??[POST  ] /pigs/644f52ec-e95d-4331-98f0-9dde9d78fa7b/observations -> 200
+  ??[POST  ] /pigs/7edcdd4d-6cda-4526-b227-4318d525151d/observations -> 200
+  ??[POST  ] /pigs/7a9b4bba-0024-43d1-a274-fa7d913f8652/observations -> 200
+  ??[POST  ] /pigs/ccc65522-d875-40ce-a23a-359d0ce0f48e/observations -> 200
+  ??[POST  ] /pigs/c6ddcaa9-cae0-4795-94f5-ac1fc44fc3cc/observations -> 200
+  ??[POST  ] /pigs/80a70977-f36e-48b8-9b07-a466e9963706/observations -> 200
+  ??[POST  ] /pigs/322294f5-5613-4c1f-b8d3-211bc5277d03/observations -> 200
+  ??[POST  ] /pigs/dc6a8ad0-063c-48e2-875b-13fb7c27fb4b/observations -> 200
+  ??[POST  ] /pigs/5af5b20b-26f7-4644-9786-71618ddcf75b/observations -> 200
+  ??[POST  ] /pigs/191f693a-068f-4e8e-8803-9b003305d1f2/observations -> 200
+  ??撌脣遣蝡?10/20 ?餌?閫撖???
+  ??[POST  ] /pigs/ba961610-1475-4cee-82df-9dc0c1942bb6/observations -> 200
+  ??[POST  ] /pigs/ba961610-1475-4cee-82df-9dc0c1942bb6/observations -> 200
+  ??[POST  ] /pigs/6f3a7b7f-18f6-4b65-8f7d-4933dc6da96d/observations -> 200
+  ??[POST  ] /pigs/6f3a7b7f-18f6-4b65-8f7d-4933dc6da96d/observations -> 200
+  ??[POST  ] /pigs/4c535c6d-513b-4003-ae21-30ba80442afc/observations -> 200
+  ??[POST  ] /pigs/4c535c6d-513b-4003-ae21-30ba80442afc/observations -> 200
+  ??[POST  ] /pigs/4ffc0384-c58f-4057-ad30-ec6c5630ea0c/observations -> 200
+  ??[POST  ] /pigs/4ffc0384-c58f-4057-ad30-ec6c5630ea0c/observations -> 200
+  ??[POST  ] /pigs/93ed9ea5-b9f8-415f-b33e-e049c0b13a18/observations -> 200
+  ??[POST  ] /pigs/93ed9ea5-b9f8-415f-b33e-e049c0b13a18/observations -> 200
+  ??[POST  ] /pigs/cc5f4025-23cc-456f-bf05-3349af2bbbf5/observations -> 200
+  ??[POST  ] /pigs/cc5f4025-23cc-456f-bf05-3349af2bbbf5/observations -> 200
+  ??[POST  ] /pigs/6d921ea0-0a1d-453b-98cb-7311683efe4d/observations -> 200
+  ??[POST  ] /pigs/6d921ea0-0a1d-453b-98cb-7311683efe4d/observations -> 200
+  ??[POST  ] /pigs/940e3a57-f142-4cd0-9f1f-4cc846cb1590/observations -> 200
+  ??[POST  ] /pigs/940e3a57-f142-4cd0-9f1f-4cc846cb1590/observations -> 200
+  ??[POST  ] /pigs/595c1c6a-48ec-4d33-95f9-23e6c1c1cdd0/observations -> 200
+  ??[POST  ] /pigs/595c1c6a-48ec-4d33-95f9-23e6c1c1cdd0/observations -> 200
+  ??[POST  ] /pigs/4c950355-7f21-43d8-a29d-72ac514a2050/observations -> 200
+  ??[POST  ] /pigs/4c950355-7f21-43d8-a29d-72ac514a2050/observations -> 200
+  ??撌脣遣蝡?20/20 ?餌?閫撖???
+  ??撱箇?閫撖???????30 蝑?撖???
+  ??[GET   ] /pigs/644f52ec-e95d-4331-98f0-9dde9d78fa7b/observations -> 200
+  ??[GET   ] /pigs/7edcdd4d-6cda-4526-b227-4318d525151d/observations -> 200
+  ??[GET   ] /pigs/7a9b4bba-0024-43d1-a274-fa7d913f8652/observations -> 200
+  ??[GET   ] /pigs/ccc65522-d875-40ce-a23a-359d0ce0f48e/observations -> 200
+  ??[GET   ] /pigs/c6ddcaa9-cae0-4795-94f5-ac1fc44fc3cc/observations -> 200
+  ??[GET   ] /pigs/80a70977-f36e-48b8-9b07-a466e9963706/observations -> 200
+  ??[GET   ] /pigs/322294f5-5613-4c1f-b8d3-211bc5277d03/observations -> 200
+  ??[GET   ] /pigs/dc6a8ad0-063c-48e2-875b-13fb7c27fb4b/observations -> 200
+  ??[GET   ] /pigs/5af5b20b-26f7-4644-9786-71618ddcf75b/observations -> 200
+  ??[GET   ] /pigs/191f693a-068f-4e8e-8803-9b003305d1f2/observations -> 200
+  ??[GET   ] /pigs/ba961610-1475-4cee-82df-9dc0c1942bb6/observations -> 200
+  ??[GET   ] /pigs/6f3a7b7f-18f6-4b65-8f7d-4933dc6da96d/observations -> 200
+  ??[GET   ] /pigs/4c535c6d-513b-4003-ae21-30ba80442afc/observations -> 200
+  ??[GET   ] /pigs/4ffc0384-c58f-4057-ad30-ec6c5630ea0c/observations -> 200
+  ??[GET   ] /pigs/93ed9ea5-b9f8-415f-b33e-e049c0b13a18/observations -> 200
+  ??[GET   ] /pigs/cc5f4025-23cc-456f-bf05-3349af2bbbf5/observations -> 200
+  ??[GET   ] /pigs/6d921ea0-0a1d-453b-98cb-7311683efe4d/observations -> 200
+  ??[GET   ] /pigs/940e3a57-f142-4cd0-9f1f-4cc846cb1590/observations -> 200
+  ??[GET   ] /pigs/595c1c6a-48ec-4d33-95f9-23e6c1c1cdd0/observations -> 200
+  ??[GET   ] /pigs/4c950355-7f21-43d8-a29d-72ac514a2050/observations -> 200
+  ??撽?閫撖?????20/20 ?餅?閫撖???
+
+============================================================
+[Step 6] Phase 4 ????蝝??+ 銵?閫撖?鞊?#1~#5嚗?
+============================================================
+  ??[POST  ] /pigs/644f52ec-e95d-4331-98f0-9dde9d78fa7b/surgeries -> 200
+  ??鞊?#1 ?? (?寡?) -> ID: ce4b2b13-2298-4d3f-8010-cf31e53500af
+  ??[POST  ] /pigs/7edcdd4d-6cda-4526-b227-4318d525151d/surgeries -> 200
+  ??鞊?#2 ?? (?貉?) -> ID: 0c7e0f50-3d5a-434b-b8f0-2430aa733a7a
+  ??[POST  ] /pigs/7a9b4bba-0024-43d1-a274-fa7d913f8652/surgeries -> 200
+  ??鞊?#3 ?? (?賊) -> ID: c225bb47-82d0-4966-ba42-6a4f990f1f57
+  ??[POST  ] /pigs/ccc65522-d875-40ce-a23a-359d0ce0f48e/surgeries -> 200
+  ??鞊?#4 ?? (?) -> ID: f058486c-445f-4b83-a045-fc51fd5c9088
+  ??[POST  ] /pigs/c6ddcaa9-cae0-4795-94f5-ac1fc44fc3cc/surgeries -> 200
+  ??鞊?#5 ?? (?) -> ID: 02fc6d4c-5fcc-4485-aa70-d75e428ef47a
+  ??撱箇???蝝????5 ?餉惇??1 蝑?銵???
+  ??撱箇?銵?閫撖???..
+  ??[POST  ] /pigs/644f52ec-e95d-4331-98f0-9dde9d78fa7b/observations -> 200
+  ??[POST  ] /pigs/644f52ec-e95d-4331-98f0-9dde9d78fa7b/observations -> 200
+  ??[POST  ] /pigs/644f52ec-e95d-4331-98f0-9dde9d78fa7b/observations -> 200
+  ??[POST  ] /pigs/7edcdd4d-6cda-4526-b227-4318d525151d/observations -> 200
+  ??[POST  ] /pigs/7edcdd4d-6cda-4526-b227-4318d525151d/observations -> 200
+  ??[POST  ] /pigs/7edcdd4d-6cda-4526-b227-4318d525151d/observations -> 200
+  ??[POST  ] /pigs/7a9b4bba-0024-43d1-a274-fa7d913f8652/observations -> 200
+  ??[POST  ] /pigs/7a9b4bba-0024-43d1-a274-fa7d913f8652/observations -> 200
+  ??[POST  ] /pigs/7a9b4bba-0024-43d1-a274-fa7d913f8652/observations -> 200
+  ??[POST  ] /pigs/ccc65522-d875-40ce-a23a-359d0ce0f48e/observations -> 200
+  ??[POST  ] /pigs/ccc65522-d875-40ce-a23a-359d0ce0f48e/observations -> 200
+  ??[POST  ] /pigs/ccc65522-d875-40ce-a23a-359d0ce0f48e/observations -> 200
+  ??[POST  ] /pigs/c6ddcaa9-cae0-4795-94f5-ac1fc44fc3cc/observations -> 200
+  ??[POST  ] /pigs/c6ddcaa9-cae0-4795-94f5-ac1fc44fc3cc/observations -> 200
+  ??[POST  ] /pigs/c6ddcaa9-cae0-4795-94f5-ac1fc44fc3cc/observations -> 200
+  ??銵?閫撖?????5 ?餉惇??3 蝑?敺?撖?
+  ??[GET   ] /pigs/644f52ec-e95d-4331-98f0-9dde9d78fa7b/surgeries -> 200
+  ??[GET   ] /pigs/7edcdd4d-6cda-4526-b227-4318d525151d/surgeries -> 200
+  ??[GET   ] /pigs/7a9b4bba-0024-43d1-a274-fa7d913f8652/surgeries -> 200
+  ??[GET   ] /pigs/ccc65522-d875-40ce-a23a-359d0ce0f48e/surgeries -> 200
+  ??[GET   ] /pigs/c6ddcaa9-cae0-4795-94f5-ac1fc44fc3cc/surgeries -> 200
+  ??撽???蝝????5/5 ?餅???蝝??
+
+============================================================
+[Step 7] Phase 5 ???怨?/撽蝝???券 20 ?鳴?
+============================================================
+  ??[POST  ] /pigs/644f52ec-e95d-4331-98f0-9dde9d78fa7b/vaccinations -> 200
+  ??[POST  ] /pigs/7edcdd4d-6cda-4526-b227-4318d525151d/vaccinations -> 200
+  ??[POST  ] /pigs/7a9b4bba-0024-43d1-a274-fa7d913f8652/vaccinations -> 200
+  ??[POST  ] /pigs/ccc65522-d875-40ce-a23a-359d0ce0f48e/vaccinations -> 200
+  ??[POST  ] /pigs/c6ddcaa9-cae0-4795-94f5-ac1fc44fc3cc/vaccinations -> 200
+  ??[POST  ] /pigs/80a70977-f36e-48b8-9b07-a466e9963706/vaccinations -> 200
+  ??[POST  ] /pigs/322294f5-5613-4c1f-b8d3-211bc5277d03/vaccinations -> 200
+  ??[POST  ] /pigs/dc6a8ad0-063c-48e2-875b-13fb7c27fb4b/vaccinations -> 200
+  ??[POST  ] /pigs/5af5b20b-26f7-4644-9786-71618ddcf75b/vaccinations -> 200
+  ??[POST  ] /pigs/191f693a-068f-4e8e-8803-9b003305d1f2/vaccinations -> 200
+  ??[POST  ] /pigs/ba961610-1475-4cee-82df-9dc0c1942bb6/vaccinations -> 200
+  ??[POST  ] /pigs/6f3a7b7f-18f6-4b65-8f7d-4933dc6da96d/vaccinations -> 200
+  ??[POST  ] /pigs/4c535c6d-513b-4003-ae21-30ba80442afc/vaccinations -> 200
+  ??[POST  ] /pigs/4ffc0384-c58f-4057-ad30-ec6c5630ea0c/vaccinations -> 200
+  ??[POST  ] /pigs/93ed9ea5-b9f8-415f-b33e-e049c0b13a18/vaccinations -> 200
+  ??[POST  ] /pigs/cc5f4025-23cc-456f-bf05-3349af2bbbf5/vaccinations -> 200
+  ??[POST  ] /pigs/6d921ea0-0a1d-453b-98cb-7311683efe4d/vaccinations -> 200
+  ??[POST  ] /pigs/940e3a57-f142-4cd0-9f1f-4cc846cb1590/vaccinations -> 200
+  ??[POST  ] /pigs/595c1c6a-48ec-4d33-95f9-23e6c1c1cdd0/vaccinations -> 200
+  ??[POST  ] /pigs/4c950355-7f21-43d8-a29d-72ac514a2050/vaccinations -> 200
+  ??撱箇??怨?/撽蝝??????20 蝑?
+  ??[GET   ] /pigs/644f52ec-e95d-4331-98f0-9dde9d78fa7b/vaccinations -> 200
+  ??[GET   ] /pigs/7edcdd4d-6cda-4526-b227-4318d525151d/vaccinations -> 200
+  ??[GET   ] /pigs/7a9b4bba-0024-43d1-a274-fa7d913f8652/vaccinations -> 200
+  ??[GET   ] /pigs/ccc65522-d875-40ce-a23a-359d0ce0f48e/vaccinations -> 200
+  ??[GET   ] /pigs/c6ddcaa9-cae0-4795-94f5-ac1fc44fc3cc/vaccinations -> 200
+  ??[GET   ] /pigs/80a70977-f36e-48b8-9b07-a466e9963706/vaccinations -> 200
+  ??[GET   ] /pigs/322294f5-5613-4c1f-b8d3-211bc5277d03/vaccinations -> 200
+  ??[GET   ] /pigs/dc6a8ad0-063c-48e2-875b-13fb7c27fb4b/vaccinations -> 200
+  ??[GET   ] /pigs/5af5b20b-26f7-4644-9786-71618ddcf75b/vaccinations -> 200
+  ??[GET   ] /pigs/191f693a-068f-4e8e-8803-9b003305d1f2/vaccinations -> 200
+  ??[GET   ] /pigs/ba961610-1475-4cee-82df-9dc0c1942bb6/vaccinations -> 200
+  ??[GET   ] /pigs/6f3a7b7f-18f6-4b65-8f7d-4933dc6da96d/vaccinations -> 200
+  ??[GET   ] /pigs/4c535c6d-513b-4003-ae21-30ba80442afc/vaccinations -> 200
+  ??[GET   ] /pigs/4ffc0384-c58f-4057-ad30-ec6c5630ea0c/vaccinations -> 200
+  ??[GET   ] /pigs/93ed9ea5-b9f8-415f-b33e-e049c0b13a18/vaccinations -> 200
+  ??[GET   ] /pigs/cc5f4025-23cc-456f-bf05-3349af2bbbf5/vaccinations -> 200
+  ??[GET   ] /pigs/6d921ea0-0a1d-453b-98cb-7311683efe4d/vaccinations -> 200
+  ??[GET   ] /pigs/940e3a57-f142-4cd0-9f1f-4cc846cb1590/vaccinations -> 200
+  ??[GET   ] /pigs/595c1c6a-48ec-4d33-95f9-23e6c1c1cdd0/vaccinations -> 200
+  ??[GET   ] /pigs/4c950355-7f21-43d8-a29d-72ac514a2050/vaccinations -> 200
+  ??撽??怨?蝝????20/20 ?餅??怨?蝝??
+
+============================================================
+[Step 8] Phase 6 ???抒/?⊥見蝝??鞊?#16~#18嚗?
+============================================================
+  ??[POST  ] /pigs/cc5f4025-23cc-456f-bf05-3349af2bbbf5/sacrifice -> 200
+  ??鞊?#16 ?抒/?⊥見蝝?歇撱箇?
+  ??[POST  ] /pigs/6d921ea0-0a1d-453b-98cb-7311683efe4d/sacrifice -> 200
+  ??鞊?#17 ?抒/?⊥見蝝?歇撱箇?
+  ??[POST  ] /pigs/940e3a57-f142-4cd0-9f1f-4cc846cb1590/sacrifice -> 200
+  ??鞊?#18 ?抒/?⊥見蝝?歇撱箇?
+  ??撱箇??抒/?⊥見蝝????3 ?餉惇
+  ??[GET   ] /pigs/cc5f4025-23cc-456f-bf05-3349af2bbbf5/sacrifice -> 200
+  ??[GET   ] /pigs/6d921ea0-0a1d-453b-98cb-7311683efe4d/sacrifice -> 200
+  ??[GET   ] /pigs/940e3a57-f142-4cd0-9f1f-4cc846cb1590/sacrifice -> 200
+  ??撽??抒蝝????3/3 蝑Ⅱ隤?
+
+============================================================
+[Step 9] Phase 7 ???鞈??湔
+============================================================
+  ??[PUT   ] /api/pigs/644f52ec-e95d-4331-98f0-9dde9d78fa7b -> 200
+  ??[PUT   ] /api/pigs/7edcdd4d-6cda-4526-b227-4318d525151d -> 200
+  ??[PUT   ] /api/pigs/7a9b4bba-0024-43d1-a274-fa7d913f8652 -> 200
+  ??[PUT   ] /api/pigs/ccc65522-d875-40ce-a23a-359d0ce0f48e -> 200
+  ??[PUT   ] /api/pigs/c6ddcaa9-cae0-4795-94f5-ac1fc44fc3cc -> 200
+  ??[PUT   ] /api/pigs/cc5f4025-23cc-456f-bf05-3349af2bbbf5 -> 200
+  ??[PUT   ] /api/pigs/6d921ea0-0a1d-453b-98cb-7311683efe4d -> 200
+  ??[PUT   ] /api/pigs/940e3a57-f142-4cd0-9f1f-4cc846cb1590 -> 200
+  ??[GET   ] /api/pigs/644f52ec-e95d-4331-98f0-9dde9d78fa7b -> 200
+  ??撽??鞈??湔 ??status=in_experiment, iacuc_no=IACUC-INT-2026-001
+
+============================================================
+[Step 10] Phase 8 ????蝯??勗?嚗惇 #16~#18嚗?
+============================================================
+  ??[POST  ] /pigs/cc5f4025-23cc-456f-bf05-3349af2bbbf5/pathology -> 200
+  ??鞊?#16 ???勗?撌脣遣蝡?
+  ??[POST  ] /pigs/6d921ea0-0a1d-453b-98cb-7311683efe4d/pathology -> 200
+  ??鞊?#17 ???勗?撌脣遣蝡?
+  ??[POST  ] /pigs/940e3a57-f142-4cd0-9f1f-4cc846cb1590/pathology -> 200
+  ??鞊?#18 ???勗?撌脣遣蝡?
+  ??撱箇????勗? ??3 ?餉惇
+  ??[GET   ] /pigs/cc5f4025-23cc-456f-bf05-3349af2bbbf5/pathology -> 200
+  ??[GET   ] /pigs/6d921ea0-0a1d-453b-98cb-7311683efe4d/pathology -> 200
+  ??[GET   ] /pigs/940e3a57-f142-4cd0-9f1f-4cc846cb1590/pathology -> 200
+  ??撽????勗? ??3/3 蝑?
+
+============================================================
+[Step 11] Phase 9 ??蝝???遘摰?折?霅?
+============================================================
+  ??[GET   ] /pigs/644f52ec-e95d-4331-98f0-9dde9d78fa7b/weights -> 200
+  ??[GET   ] /pigs/644f52ec-e95d-4331-98f0-9dde9d78fa7b/observations -> 200
+  ??[GET   ] /pigs/644f52ec-e95d-4331-98f0-9dde9d78fa7b/surgeries -> 200
+  ??[GET   ] /pigs/644f52ec-e95d-4331-98f0-9dde9d78fa7b/vaccinations -> 200
+  ??[GET   ] /pigs/7edcdd4d-6cda-4526-b227-4318d525151d/weights -> 200
+  ??[GET   ] /pigs/7edcdd4d-6cda-4526-b227-4318d525151d/observations -> 200
+  ??[GET   ] /pigs/7edcdd4d-6cda-4526-b227-4318d525151d/surgeries -> 200
+  ??[GET   ] /pigs/7edcdd4d-6cda-4526-b227-4318d525151d/vaccinations -> 200
+  ??[GET   ] /pigs/7a9b4bba-0024-43d1-a274-fa7d913f8652/weights -> 200
+  ??[GET   ] /pigs/7a9b4bba-0024-43d1-a274-fa7d913f8652/observations -> 200
+  ??[GET   ] /pigs/7a9b4bba-0024-43d1-a274-fa7d913f8652/surgeries -> 200
+  ??[GET   ] /pigs/7a9b4bba-0024-43d1-a274-fa7d913f8652/vaccinations -> 200
+  ??[GET   ] /pigs/ccc65522-d875-40ce-a23a-359d0ce0f48e/weights -> 200
+  ??[GET   ] /pigs/ccc65522-d875-40ce-a23a-359d0ce0f48e/observations -> 200
+  ??[GET   ] /pigs/ccc65522-d875-40ce-a23a-359d0ce0f48e/surgeries -> 200
+  ??[GET   ] /pigs/ccc65522-d875-40ce-a23a-359d0ce0f48e/vaccinations -> 200
+  ??[GET   ] /pigs/c6ddcaa9-cae0-4795-94f5-ac1fc44fc3cc/weights -> 200
+  ??[GET   ] /pigs/c6ddcaa9-cae0-4795-94f5-ac1fc44fc3cc/observations -> 200
+  ??[GET   ] /pigs/c6ddcaa9-cae0-4795-94f5-ac1fc44fc3cc/surgeries -> 200
+  ??[GET   ] /pigs/c6ddcaa9-cae0-4795-94f5-ac1fc44fc3cc/vaccinations -> 200
+  ????鞊祆??遘摰 ??5/5 ?餃???
+  ??[GET   ] /pigs/cc5f4025-23cc-456f-bf05-3349af2bbbf5/weights -> 200
+  ??[GET   ] /pigs/cc5f4025-23cc-456f-bf05-3349af2bbbf5/observations -> 200
+  ??[GET   ] /pigs/cc5f4025-23cc-456f-bf05-3349af2bbbf5/vaccinations -> 200
+  ??[GET   ] /pigs/cc5f4025-23cc-456f-bf05-3349af2bbbf5/sacrifice -> 200
+  ??[GET   ] /pigs/6d921ea0-0a1d-453b-98cb-7311683efe4d/weights -> 200
+  ??[GET   ] /pigs/6d921ea0-0a1d-453b-98cb-7311683efe4d/observations -> 200
+  ??[GET   ] /pigs/6d921ea0-0a1d-453b-98cb-7311683efe4d/vaccinations -> 200
+  ??[GET   ] /pigs/6d921ea0-0a1d-453b-98cb-7311683efe4d/sacrifice -> 200
+  ??[GET   ] /pigs/940e3a57-f142-4cd0-9f1f-4cc846cb1590/weights -> 200
+  ??[GET   ] /pigs/940e3a57-f142-4cd0-9f1f-4cc846cb1590/observations -> 200
+  ??[GET   ] /pigs/940e3a57-f142-4cd0-9f1f-4cc846cb1590/vaccinations -> 200
+  ??[GET   ] /pigs/940e3a57-f142-4cd0-9f1f-4cc846cb1590/sacrifice -> 200
+  ???抒鞊祆??遘摰 ??3/3 ?餃???
+  ??[GET   ] /pigs/80a70977-f36e-48b8-9b07-a466e9963706/weights -> 200
+  ??[GET   ] /pigs/80a70977-f36e-48b8-9b07-a466e9963706/observations -> 200
+  ??[GET   ] /pigs/80a70977-f36e-48b8-9b07-a466e9963706/vaccinations -> 200
+  ??[GET   ] /pigs/322294f5-5613-4c1f-b8d3-211bc5277d03/weights -> 200
+  ??[GET   ] /pigs/322294f5-5613-4c1f-b8d3-211bc5277d03/observations -> 200
+  ??[GET   ] /pigs/322294f5-5613-4c1f-b8d3-211bc5277d03/vaccinations -> 200
+  ??[GET   ] /pigs/dc6a8ad0-063c-48e2-875b-13fb7c27fb4b/weights -> 200
+  ??[GET   ] /pigs/dc6a8ad0-063c-48e2-875b-13fb7c27fb4b/observations -> 200
+  ??[GET   ] /pigs/dc6a8ad0-063c-48e2-875b-13fb7c27fb4b/vaccinations -> 200
+  ??[GET   ] /pigs/5af5b20b-26f7-4644-9786-71618ddcf75b/weights -> 200
+  ??[GET   ] /pigs/5af5b20b-26f7-4644-9786-71618ddcf75b/observations -> 200
+  ??[GET   ] /pigs/5af5b20b-26f7-4644-9786-71618ddcf75b/vaccinations -> 200
+  ??[GET   ] /pigs/191f693a-068f-4e8e-8803-9b003305d1f2/weights -> 200
+  ??[GET   ] /pigs/191f693a-068f-4e8e-8803-9b003305d1f2/observations -> 200
+  ??[GET   ] /pigs/191f693a-068f-4e8e-8803-9b003305d1f2/vaccinations -> 200
+  ??[GET   ] /pigs/ba961610-1475-4cee-82df-9dc0c1942bb6/weights -> 200
+  ??[GET   ] /pigs/ba961610-1475-4cee-82df-9dc0c1942bb6/observations -> 200
+  ??[GET   ] /pigs/ba961610-1475-4cee-82df-9dc0c1942bb6/vaccinations -> 200
+  ??[GET   ] /pigs/6f3a7b7f-18f6-4b65-8f7d-4933dc6da96d/weights -> 200
+  ??[GET   ] /pigs/6f3a7b7f-18f6-4b65-8f7d-4933dc6da96d/observations -> 200
+  ??[GET   ] /pigs/6f3a7b7f-18f6-4b65-8f7d-4933dc6da96d/vaccinations -> 200
+  ??[GET   ] /pigs/4c535c6d-513b-4003-ae21-30ba80442afc/weights -> 200
+  ??[GET   ] /pigs/4c535c6d-513b-4003-ae21-30ba80442afc/observations -> 200
+  ??[GET   ] /pigs/4c535c6d-513b-4003-ae21-30ba80442afc/vaccinations -> 200
+  ??[GET   ] /pigs/4ffc0384-c58f-4057-ad30-ec6c5630ea0c/weights -> 200
+  ??[GET   ] /pigs/4ffc0384-c58f-4057-ad30-ec6c5630ea0c/observations -> 200
+  ??[GET   ] /pigs/4ffc0384-c58f-4057-ad30-ec6c5630ea0c/vaccinations -> 200
+  ??[GET   ] /pigs/93ed9ea5-b9f8-415f-b33e-e049c0b13a18/weights -> 200
+  ??[GET   ] /pigs/93ed9ea5-b9f8-415f-b33e-e049c0b13a18/observations -> 200
+  ??[GET   ] /pigs/93ed9ea5-b9f8-415f-b33e-e049c0b13a18/vaccinations -> 200
+  ??銝?祈惇??頠詨?????10/10 ?餃???
+
+============================================================
+[摰?] ?蝞∠?蝟餌絞摰皜祈岫摰?嚗?
+  鞊祇: 20 | 擃?: 50 蝑?
+  閫撖? 30 蝑?| ??: 5 蝑?
+  ?怨?: 20 蝑?| ?抒: 3 蝑?
+============================================================
+
+============================================================
+[?蝞∠?蝟餌絞摰皜祈岫] 皜祈岫蝯?敶蜇
+============================================================
+  ??撱箇?鞊祆?
+  ??撱箇? 20 ?餉惇
+  ??撽??萄遣閮?
+  ??閮?擃?
+  ??撽?擃?蝝?閬?
+  ???”憿舐內??圈???
+  ??撱箇?閫撖???
+  ??撽?閫撖???
+  ??撱箇???蝝??
+  ??銵?閫撖???
+  ??撽???蝝??
+  ??撱箇??怨?/撽蝝??
+  ??撽??怨?蝝??
+  ??撱箇??抒/?⊥見蝝??
+  ??撽??抒蝝??
+  ??撽??鞈??湔
+  ??撱箇????勗?
+  ??撽????勗?
+  ????鞊祆??遘摰
+  ???抒鞊祆??遘摰
+  ??銝?祈惇??頠詨???
+
+  蝮質?: 21 ????21 / ??0
+
+?? ?蝞∠?蝟餌絞摰皜祈岫 ????葫閰阡?嚗?
+  ???蝞∠?皜祈岫??: 1.0 蝘?
+
+????????????????????????????????????????????????????????????
+?? [4/5] 銵瘨脫炎?亦????湔葫閰?
+????????????????????????????????????????????????????????????
+
+============================================================
+[Setup] 撱箇?皜祈岫撣唾?...
+============================================================
+  ??蝞∠??∠?交???
+  ???? 11 ???? ['ADMIN_STAFF', 'CLIENT', 'EXPERIMENT_STAFF', 'IACUC_CHAIR', 'IACUC_STAFF', 'PI', 'PURCHASING', 'REVIEWER', 'VET', 'WAREHOUSE_MANAGER', 'admin']
+    ??ADMIN                (admin@ipig.local) ??撌脣???
+    ??VET                  (vet_blood_test@example.com) ??撌脣???
+    ??EXPERIMENT_STAFF     (exp_blood_test@example.com) ??撌脣???
+
+  [蝯?] ?啣遣 0 / 撌脣???3 / ??3
+
+============================================================
+[Auth] ?餃??葫閰血董??..
+============================================================
+  ??ADMIN                ?餃?? (ID: 193ae097...)
+  ??VET                  ?餃?? (ID: 0f6e5708...)
+  ??EXPERIMENT_STAFF     ?餃?? (ID: 781ce52b...)
+
+  ??3/3 撣唾??券?餃??
+
+============================================================
+[Step 1] Phase 1 ??Seed 鞈?撽?嚗芋??& Panel嚗?
+============================================================
+  ??[GET   ] /localhost:8000/api/blood-test-templates -> 200
+  ?????銝剜芋??????65 ?芋?選??? ??20嚗?
+  ??[GET   ] /api/blood-test-templates/all -> 200
+  ??????芋?選??怠??剁? ??? 65 / ?券 65
+  ??Seed 璅⊥??? (WBC/RBC/AST/BUN/GLU...) ???券摮
+  ??[GET   ] /localhost:8000/api/blood-test-panels -> 200
+  ?????銝?Panel ????14 ??Panel嚗?????10嚗?
+  ??Seed Panel ?敹?憿 ???券摮
+  ??CBC Panel ?? ??CBC ??5 ????
+  ??CBC ?: WBC, RBC, HGB, HCT, PLT
+  ??[GET   ] /api/blood-test-panels/all -> 200
+  ???????Panel嚗?嚗???? 14 / ?券 14
+
+============================================================
+[Step 2] Phase 2 ??璅⊥ CRUD ??
+============================================================
+  ??[POST  ] /localhost:8000/api/blood-test-templates -> 200
+  ??撱箇??唳芋????code=TEST541, ID: 54578a5d...
+  ??[PUT   ] /api/blood-test-templates/54578a5d-a10e-4044-9226-8312ac718a62 -> 200
+  ???湔璅⊥?迂/?桐?/?寞
+  ??[DELETE] /api/blood-test-templates/54578a5d-a10e-4044-9226-8312ac718a62 -> 200
+  ???璅⊥
+  ??[GET   ] /localhost:8000/api/blood-test-templates -> 200
+  ???璅⊥銝?曉??”
+  ??[GET   ] /api/blood-test-templates/all -> 200
+  ???璅⊥?典?典?銵典閬?
+  ??[PUT   ] /api/blood-test-templates/54578a5d-a10e-4044-9226-8312ac718a62 -> 200
+  ??[GET   ] /localhost:8000/api/blood-test-templates -> 200
+  ???Ｗ儔璅⊥敺?曉??”
+
+============================================================
+[Step 3] Phase 3 ??Panel CRUD + ?蝞∠?
+============================================================
+  ??[POST  ] /localhost:8000/api/blood-test-panels -> 200
+  ??撱箇??芾? Panel ??ID: 818739fb..., ??? 4
+  ??[PUT   ] /api/blood-test-panels/818739fb-7403-4fee-a9de-613f39e1d282 -> 200
+  ???湔 Panel ?迂/?內
+  ??[PUT   ] /blood-test-panels/818739fb-7403-4fee-a9de-613f39e1d282/items -> 200
+  ???踵? Panel ? ???? 5 / 撖阡? 5
+  ??[GET   ] /localhost:8000/api/blood-test-panels -> 200
+  ???”銝剖?曉?湔敺? Panel
+
+============================================================
+[Step 4] Phase 4 ??撱箇?皜祈岫鞊祇
+============================================================
+  ??[POST  ] /localhost:8000/api/pig-sources -> 200
+  ??[POST  ] /localhost:8000/api/pigs -> 200
+  ??撱箇?皜祈岫鞊祇 ??ID: b85e6430..., ear_tag=541
+
+============================================================
+[Step 5] Phase 5 ??撱箇?銵瘨脫炎?亦???(CBC + Liver)
+============================================================
+  ??[GET   ] /localhost:8000/api/blood-test-panels -> 200
+  ??[POST  ] /pigs/b85e6430-c1a7-4213-836c-b3ea5923901f/blood-tests -> 200
+  ??撱箇?銵瘨脫炎??(CBC+Liver) ??CBC(5) + Liver(10) = 15 ??
+
+============================================================
+[Step 6] Phase 6 ??撱箇?蝚砌?蝑?瘨脫炎??(Kidney)
+============================================================
+  ??[POST  ] /pigs/b85e6430-c1a7-4213-836c-b3ea5923901f/blood-tests -> 200
+  ??撱箇?蝚砌?蝑?瘨脫炎??(Kidney) ??Kidney 3 ??
+
+============================================================
+[Step 7] Phase 7 ???亥岷?底??霅?
+============================================================
+  ??[GET   ] /pigs/b85e6430-c1a7-4213-836c-b3ea5923901f/blood-tests -> 200
+  ??鞊祇銵瘨脫炎?亙?銵???撖阡? 2 蝑??? 2嚗?
+  ???”??item_count / abnormal_count ??item_count=15, abnormal_count=2
+  ??[GET   ] /api/blood-tests/47ae6358-8046-49d5-a78c-cd0a2d046a46 -> 200
+  ??銵瘨脫炎?亥底?????摰 ???? 15 / 撖阡? 15
+  ???啣虜?甇?Ⅱ璅? ???? 2 ?撣?/ 撖阡? 2 ??
+  ??detial ??created_by_name ??created_by_name=閰阡?撌乩?鈭箏 (銵瘨脫炎?交葫閰?
+
+============================================================
+[Step 8] Phase 8 ???湔銵瘨脫炎?亦???
+============================================================
+  ??[PUT   ] /api/blood-tests/47ae6358-8046-49d5-a78c-cd0a2d046a46 -> 200
+  ???湔銵瘨脫炎??lab_name
+  ???湔銵瘨脫炎??remark
+  ??[PUT   ] /api/blood-tests/47ae6358-8046-49d5-a78c-cd0a2d046a46 -> 200
+  ???湔銵瘨脫炎?仿??殷??踵???3 ?? ??撖阡? 3 ??
+  ??[PUT   ] /api/blood-tests/47ae6358-8046-49d5-a78c-cd0a2d046a46 -> 200
+  ??[GET   ] /api/blood-tests/47ae6358-8046-49d5-a78c-cd0a2d046a46 -> 200
+  ????銵瘨脫炎?仿??????? 15 / 撖阡? 15
+
+============================================================
+[Step 9] Phase 9 ??VET 霈??霅?
+============================================================
+  ??[GET   ] /api/blood-tests/47ae6358-8046-49d5-a78c-cd0a2d046a46 -> 200
+  ??VET ?舀??瑼Ｚ底??????? 15
+  ??VET ?舐??啁撣賊??格?閮????啣虜: 2 ??
+  ??VET ?舐???created_by_name ??created_by_name=閰阡?撌乩?鈭箏 (銵瘨脫炎?交葫閰?
+  ??[GET   ] /pigs/b85e6430-c1a7-4213-836c-b3ea5923901f/blood-tests -> 200
+  ??VET ?舀?惇?餉?瑼Ｗ?銵?????2 蝑?
+
+============================================================
+[Step 10] Phase 10 ??頠?方?瘨脫炎?伐?GLP ??嚗?
+============================================================
+  ??[DELETE] /api/blood-tests/e802c236-f5e3-4d7c-946c-00be24bd95e1 -> 200
+  ??頠?方?瘨脫炎??
+  ??[GET   ] /pigs/b85e6430-c1a7-4213-836c-b3ea5923901f/blood-tests -> 200
+  ???芷敺?銵其葉銝?????”??1 蝑?
+
+============================================================
+[Step 11] Phase 11 ??頝刻??脣???霅?
+============================================================
+  ??[GET   ] /localhost:8000/api/blood-test-panels -> 200
+  ??ADMIN ?舀 Panel ?” ????15 ??
+  ??[GET   ] /localhost:8000/api/blood-test-templates -> 200
+  ??ADMIN ?舀璅⊥?” ????66 ??
+  ??[GET   ] /pigs/b85e6430-c1a7-4213-836c-b3ea5923901f/blood-tests -> 200
+  ??ADMIN ?舀銵瘨脫炎?亙?銵?
+  ??[GET   ] /api/blood-tests/47ae6358-8046-49d5-a78c-cd0a2d046a46 -> 200
+  ??ADMIN ?舀銵瑼Ｚ底????15 ??
+  ??[GET   ] /localhost:8000/api/blood-test-panels -> 200
+  ??VET ?舀 Panel ?” ????15 ??
+  ??[GET   ] /localhost:8000/api/blood-test-templates -> 200
+  ??VET ?舀璅⊥?” ????66 ??
+  ??[GET   ] /pigs/b85e6430-c1a7-4213-836c-b3ea5923901f/blood-tests -> 200
+  ??VET ?舀銵瘨脫炎?亙?銵?
+  ??[GET   ] /api/blood-tests/47ae6358-8046-49d5-a78c-cd0a2d046a46 -> 200
+  ??VET ?舀銵瑼Ｚ底????15 ??
+  ??[GET   ] /localhost:8000/api/blood-test-panels -> 200
+  ??EXPERIMENT_STAFF ?舀 Panel ?” ????15 ??
+  ??[GET   ] /localhost:8000/api/blood-test-templates -> 200
+  ??EXPERIMENT_STAFF ?舀璅⊥?” ????66 ??
+  ??[GET   ] /pigs/b85e6430-c1a7-4213-836c-b3ea5923901f/blood-tests -> 200
+  ??EXPERIMENT_STAFF ?舀銵瘨脫炎?亙?銵?
+  ??[GET   ] /api/blood-tests/47ae6358-8046-49d5-a78c-cd0a2d046a46 -> 200
+  ??EXPERIMENT_STAFF ?舀銵瑼Ｚ底????15 ??
+
+============================================================
+[Step 12] Phase 12 ??Panel ??敺?
+============================================================
+  ??[DELETE] /api/blood-test-panels/818739fb-7403-4fee-a9de-613f39e1d282 -> 200
+  ????芾? Panel
+  ??[GET   ] /localhost:8000/api/blood-test-panels -> 200
+  ??? Panel 敺??典?銵券??
+  ??[GET   ] /api/blood-test-panels/all -> 200
+  ??? Panel ?典?典?銵典閬?
+  ??[PUT   ] /api/blood-test-panels/818739fb-7403-4fee-a9de-613f39e1d282 -> 200
+  ??[GET   ] /localhost:8000/api/blood-test-panels -> 200
+  ???Ｗ儔 Panel 敺??典?銵典閬?
+
+============================================================
+[Step 13] Phase 13 ?????亥?撽? (user_activity_logs)
+============================================================
+  ??[GET   ] /admin/audit/activities?category=ANIMAL&from=2026-02-13&to=2026-02-14 -> 200
+  ??ANIMAL 憿??雿隤?????590 蝑暑????
+  ???亥???BLOOD_TEST_CREATE 鈭辣 ??鈭辣憿?: BLOOD_TEST_CREATE, BLOOD_TEST_DELETE, BLOOD_TEST_UPDATE, PANEL_CREATE, PANEL_DELETE, PANEL_UPDATE, PATHOLOGY_UPSERT, PIG_CREATE, PIG_UPDATE, SACRIFICE_UPSERT, TEMPLATE_CREATE, TEMPLATE_DELETE, TEMPLATE_UPDATE, VACCINATION_CREATE
+  ??[GET   ] /admin/audit/activities?from=2026-02-13&to=2026-02-14&entity_type=blood_test_template -> 200
+  ???亥??怨?瑼Ｘ芋?踵?雿?????8 蝑芋?踵?雿???
+  ??[GET   ] /admin/audit/activities?from=2026-02-13&to=2026-02-14&entity_type=blood_test_panel -> 200
+  ???亥??怨?瑼Ｙ???雿?????10 蝑???雿???
+  ???亥??????閮???actor=閰阡?撌乩?鈭箏 (銵瘨脫炎?交葫閰? (exp_blood_test@example.com)
+  ???亥??撖阡?鞈? ??entity_type=blood_test_panel, entity_id=818739fb...
+  ??[GET   ] /admin/audit/activities?from=2026-02-13&to=2026-02-14 -> 200
+  ??隞?券???亥??賊? ???券: 590 蝑?ANIMAL: 590 蝑?
+
+============================================================
+[摰?] 銵瘨脫炎?亦頂蝯勗??湔葫閰血???
+  璅⊥: 65 ??| Panel: 14 ??
+  皜祈岫鞊祇: b85e6430...
+  銵瘨脫炎?? 2 蝑?(CBC+Liver / Kidney)
+  ?芾?璅⊥: 54578a5d... | ?芾? Panel: 818739fb...
+  ???亥?: 590 蝑?ANIMAL: 590 蝑?
+============================================================
+
+============================================================
+[銵瘨脫炎?亦頂蝯勗??湔葫閰因 皜祈岫蝯?敶蜇
+============================================================
+  ?????銝剜芋??
+  ??????芋?選??怠??剁?
+  ??Seed 璅⊥??? (WBC/RBC/AST/BUN/GLU...)
+  ?????銝?Panel
+  ??Seed Panel ?敹?憿
+  ??CBC Panel ??
+  ???????Panel嚗?嚗?
+  ??撱箇??唳芋??
+  ???湔璅⊥?迂/?桐?/?寞
+  ???璅⊥
+  ???璅⊥銝?曉??”
+  ???璅⊥?典?典?銵典閬?
+  ???Ｗ儔璅⊥敺?曉??”
+  ??撱箇??芾? Panel
+  ???湔 Panel ?迂/?內
+  ???踵? Panel ?
+  ???”銝剖?曉?湔敺? Panel
+  ??撱箇?皜祈岫鞊祇
+  ??撱箇?銵瘨脫炎??(CBC+Liver)
+  ??撱箇?蝚砌?蝑?瘨脫炎??(Kidney)
+  ??鞊祇銵瘨脫炎?亙?銵?
+  ???”??item_count / abnormal_count
+  ??銵瘨脫炎?亥底?????摰
+  ???啣虜?甇?Ⅱ璅?
+  ??detial ??created_by_name
+  ???湔銵瘨脫炎??lab_name
+  ???湔銵瘨脫炎??remark
+  ???湔銵瘨脫炎?仿??殷??踵???3 ??
+  ????銵瘨脫炎?仿???
+  ??VET ?舀??瑼Ｚ底??
+  ??VET ?舐??啁撣賊??格?閮?
+  ??VET ?舐???created_by_name
+  ??VET ?舀?惇?餉?瑼Ｗ?銵?
+  ??頠?方?瘨脫炎??
+  ???芷敺?銵其葉銝??
+  ??ADMIN ?舀 Panel ?”
+  ??ADMIN ?舀璅⊥?”
+  ??ADMIN ?舀銵瘨脫炎?亙?銵?
+  ??ADMIN ?舀銵瑼Ｚ底??
+  ??VET ?舀 Panel ?”
+  ??VET ?舀璅⊥?”
+  ??VET ?舀銵瘨脫炎?亙?銵?
+  ??VET ?舀銵瑼Ｚ底??
+  ??EXPERIMENT_STAFF ?舀 Panel ?”
+  ??EXPERIMENT_STAFF ?舀璅⊥?”
+  ??EXPERIMENT_STAFF ?舀銵瘨脫炎?亙?銵?
+  ??EXPERIMENT_STAFF ?舀銵瑼Ｚ底??
+  ????芾? Panel
+  ??? Panel 敺??典?銵券??
+  ??? Panel ?典?典?銵典閬?
+  ???Ｗ儔 Panel 敺??典?銵典閬?
+  ??ANIMAL 憿??雿隤?
+  ???亥???BLOOD_TEST_CREATE 鈭辣
+  ???亥??怨?瑼Ｘ芋?踵?雿?
+  ???亥??怨?瑼Ｙ???雿?
+  ???亥??????閮?
+  ???亥??撖阡?鞈?
+  ??隞?券???亥??賊?
+
+  蝮質?: 58 ????58 / ??0
+
+?? 銵瘨脫炎?亦頂蝯勗??湔葫閰?????葫閰阡?嚗?
+  ??銵瘨脫炎?交葫閰西?: 0.4 蝘?
+
+????????????????????????????????????????????????????????????
+?? [5/5] HR 鈭箏蝞∠?蝟餌絞摰皜祈岫
+????????????????????????????????????????????????????????????
+
+============================================================
+[Setup] 撱箇?皜祈岫撣唾?...
+============================================================
+  ??蝞∠??∠?交???
+  ???? 11 ???? ['ADMIN_STAFF', 'CLIENT', 'EXPERIMENT_STAFF', 'IACUC_CHAIR', 'IACUC_STAFF', 'PI', 'PURCHASING', 'REVIEWER', 'VET', 'WAREHOUSE_MANAGER', 'admin']
+    ??ADMIN                (admin@ipig.local) ??撌脣???
+    ??ADMIN_STAFF          (hr_admin_staff_test@example.com) ??撌脣???
+    ??EXPERIMENT_STAFF     (hr_exp_staff_test@example.com) ??撌脣???
+
+  [蝯?] ?啣遣 0 / 撌脣???3 / ??3
+
+============================================================
+[Auth] ?餃??葫閰血董??..
+============================================================
+  ??ADMIN                ?餃?? (ID: 193ae097...)
+  ??ADMIN_STAFF          ?餃?? (ID: 9b67e868...)
+  ??EXPERIMENT_STAFF     ?餃?? (ID: 61d3c7ae...)
+
+  ??3/3 撣唾??券?餃??
+
+============================================================
+[Step 1] Phase 1 ???銝
+============================================================
+  ???銝 ??撌脫??⊿? (隞予撌脩??銝)
+
+============================================================
+[Step 2] Phase 1 ???銝
+============================================================
+  ???銝 ??clock_out_time=2026-02-13T16:35:43.374293Z
+
+============================================================
+[Step 3] Phase 2 ???箏?亥岷
+============================================================
+  ??[GET   ] /api/hr/attendance -> 200
+  ???亥岷?芸楛?箏閮? ????1 蝑?方???
+  ??[GET   ] /hr/attendance/stats -> 200
+  ??蝞∠??⊥??斤絞閮??????
+
+============================================================
+[Step 4] Phase 3 ????唾?嚗??蝔?
+============================================================
+  ??[POST  ] /api/hr/overtime -> 201
+  ??撱箇???唾? (?詨??? ??ID: 77fbfc73... status=draft
+  ??[GET   ] /api/hr/overtime -> 200
+  ???亥岷?蝝??????3 蝑??剛???
+  ??[POST  ] /overtime/77fbfc73-e4a1-4677-9f59-e11b5afa5ab7/submit -> 200
+  ???漱??唾? ??status=pending_admin_staff
+  ??[POST  ] /overtime/77fbfc73-e4a1-4677-9f59-e11b5afa5ab7/approve -> 200
+  ??銵?詨??嚗洵銝蝝? ??status=pending_admin
+  ??[POST  ] /overtime/77fbfc73-e4a1-4677-9f59-e11b5afa5ab7/approve -> 200
+  ??蝞∠??⊥???哨?蝚砌?蝝? ??status=approved
+
+============================================================
+[Step 5] Phase 3 ????唾?嚗???蝔?
+============================================================
+  ??[POST  ] /api/hr/overtime -> 201
+  ??[POST  ] /overtime/3de56ebc-1025-4333-aad7-77bad1492613/submit -> 200
+  ??[POST  ] /overtime/3de56ebc-1025-4333-aad7-77bad1492613/reject -> 200
+  ???擏? ??status=rejected
+  ??[GET   ] /hr/overtime/77fbfc73-e4a1-4677-9f59-e11b5afa5ab7 -> 200
+  ???亦??閰單? ??hours=3.00, type=A
+
+============================================================
+[Step 6] Phase 4 ??隢??唾?嚗??????詨?嚗?
+============================================================
+  ??[POST  ] /api/hr/leaves -> 201
+  ??撱箇?鈭??唾? ??ID: c6af41ee... status=DRAFT
+  ??[POST  ] /leaves/c6af41ee-c753-426c-9447-49f852008c17/submit -> 200
+  ???漱鈭??唾? ??status=PENDING_L1
+  ??[POST  ] /leaves/c6af41ee-c753-426c-9447-49f852008c17/approve -> 200
+  ???詨?蝚?1 蝝???status=PENDING_HR
+  ??[POST  ] /leaves/c6af41ee-c753-426c-9447-49f852008c17/approve -> 200
+  ???詨?蝚?2 蝝???status=PENDING_GM
+  ??[POST  ] /leaves/c6af41ee-c753-426c-9447-49f852008c17/approve -> 200
+  ???詨?蝚?3 蝝???status=APPROVED
+  ??鈭??詨?摰? ??蝬? 3 蝝????status=APPROVED
+
+============================================================
+[Step 7] Phase 4 ??隢??唾?嚗?????擏?嚗?
+============================================================
+  ??[POST  ] /api/hr/leaves -> 201
+  ??[POST  ] /leaves/b38047de-1f81-4578-8feb-fcdfc64c0bac/submit -> 200
+  ??[POST  ] /leaves/b38047de-1f81-4578-8feb-fcdfc64c0bac/reject -> 200
+  ????擏? ??status=REJECTED
+
+============================================================
+[Step 8] Phase 4 ??隢??唾?嚗???????嚗?
+============================================================
+  ??[POST  ] /api/hr/leaves -> 201
+  ??[POST  ] /leaves/d93f665d-a910-43f5-9e88-ec3917f71de8/submit -> 200
+  ??[POST  ] /leaves/d93f665d-a910-43f5-9e88-ec3917f71de8/cancel -> 200
+  ??鈭??? ??status=CANCELLED
+  ??[GET   ] /api/hr/leaves -> 200
+  ???亥岷隢??” ????7 蝑?????
+  ??[GET   ] /hr/leaves/c6af41ee-c753-426c-9447-49f852008c17 -> 200
+  ???亦?隢?閰單? ??leave_type=PERSONAL, status=APPROVED
+
+============================================================
+[Step 9] Phase 5 ???嫣???摨血遣蝡?
+============================================================
+  ??撱箇??嫣?憿漲 ??撌脣??剁?500嚗?雿輻?Ｘ?憿漲
+
+============================================================
+[Step 10] Phase 5 ???亥岷?嫣?擗?
+============================================================
+  ??[GET   ] /hr/balances/annual -> 200
+  ???亥岷?嫣?擗? ????1 蝑隡?摨?
+  ???嫣?憿漲甇?Ⅱ ??entitled=14.0 used=0.0 remaining=14.0
+
+============================================================
+[Step 11] Phase 5 ??雿輻?嫣???
+============================================================
+  ??[POST  ] /api/hr/leaves -> 201
+  ??撱箇??嫣??隢???ID: f166fd60... days=2
+  ??[POST  ] /leaves/f166fd60-d02e-4450-93c0-477454878263/submit -> 200
+  ??[POST  ] /leaves/f166fd60-d02e-4450-93c0-477454878263/approve -> 200
+  ??[POST  ] /leaves/f166fd60-d02e-4450-93c0-477454878263/approve -> 200
+  ??[POST  ] /leaves/f166fd60-d02e-4450-93c0-477454878263/approve -> 200
+  ???嫣??????status=APPROVED
+
+============================================================
+[Step 12] Phase 6 ??擗?敶蜇
+============================================================
+  ??[GET   ] /hr/balances/summary -> 200
+  ???亦?擗??? ??annual_remaining=14.0 comp_remaining=0.0
+  ??[GET   ] /hr/balances/comp-time -> 200
+  ???亦?鋆?擗? ????2 蝑?隡?
+  ??[GET   ] /hr/balances/expired-compensation -> 200
+  ???亦????嫣??梯” ????0 蝑???鋆?
+  ??[GET   ] /hr/dashboard/calendar -> 200
+  ???亦??銵冽?交? ??today=2026-02-14
+
+============================================================
+[摰?] HR 鈭箏蝞∠?蝟餌絞摰皜祈岫摰?嚗?
+  ?: 銝+銝 | ?: ?詨?+擏?
+  隢?: 鈭?(?詨?)+??(擏?)+鈭?(??)+?嫣?(?詨?)
+  ?嫣?憿漲: 14憭?| 擗?敶蜇: 蝣箄?
+============================================================
+
+============================================================
+[HR 鈭箏蝞∠?蝟餌絞摰皜祈岫] 皜祈岫蝯?敶蜇
+============================================================
+  ???銝
+  ???銝
+  ???亥岷?芸楛?箏閮?
+  ??蝞∠??⊥??斤絞閮?
+  ??撱箇???唾? (?詨???
+  ???亥岷?蝝??
+  ???漱??唾?
+  ??銵?詨??嚗洵銝蝝?
+  ??蝞∠??⊥???哨?蝚砌?蝝?
+  ???擏?
+  ???亦??閰單?
+  ??撱箇?鈭??唾?
+  ???漱鈭??唾?
+  ??鈭??詨?摰?
+  ????擏?
+  ??鈭???
+  ???亥岷隢??”
+  ???亦?隢?閰單?
+  ??撱箇??嫣?憿漲
+  ???亥岷?嫣?擗?
+  ???嫣?憿漲甇?Ⅱ
+  ??撱箇??嫣??隢?
+  ???嫣????
+  ???亦?擗???
+  ???亦?鋆?擗?
+  ???亦????嫣??梯”
+  ???亦??銵冽?交?
+
+  蝮質?: 27 ????27 / ??0
+
+?? HR 鈭箏蝞∠?蝟餌絞摰皜祈岫 ????葫閰阡?嚗?
+  ??HR 皜祈岫??: 1.3 蝘?
+
+????????????????????????????????????????????????????????????
+  ?游?皜祈岫?蝯??
+????????????????????????????????????????????????????????????
+  ?? AUP
+  ?? ERP
+  ?? Animal
+  ?? Blood Panel
+  ?? HR
+
+  ??蝮質?: 4.5 蝘?
+
+?????? ?券皜祈岫??嚗?
+????????????????????????????????????????????????????????????

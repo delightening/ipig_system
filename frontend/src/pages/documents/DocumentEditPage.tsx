@@ -40,7 +40,7 @@ import {
   Search,
   AlertTriangle,
 } from 'lucide-react'
-import { formatNumber, formatQuantity, formatUnitPrice } from '@/lib/utils'
+import { formatNumber, formatQuantity, formatUnitPrice, formatUom } from '@/lib/utils'
 
 const docTypeNames: Record<DocType, string> = {
   PO: '採購單',
@@ -1304,7 +1304,7 @@ export function DocumentEditPage() {
                         />
                       </TableCell>
                       <TableCell>
-                        <span className="text-sm">{line.uom || '-'}</span>
+                        <span className="text-sm">{formatUom(line.uom) || '-'}</span>
                       </TableCell>
                       {['PO', 'GRN', 'DO'].includes(formData.doc_type) && (
                         <>
@@ -1437,7 +1437,7 @@ export function DocumentEditPage() {
                       <TableCell className="font-mono text-xs">{product.sku}</TableCell>
                       <TableCell className="font-medium">{product.name}</TableCell>
                       <TableCell>{product.spec || '-'}</TableCell>
-                      <TableCell>{product.base_uom}</TableCell>
+                      <TableCell>{formatUom(product.base_uom)}</TableCell>
                       <TableCell>
                         <Button size="sm" variant="outline">
                           選擇

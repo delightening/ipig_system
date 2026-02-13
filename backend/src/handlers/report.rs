@@ -6,8 +6,8 @@ use axum::{
 use crate::{
     middleware::CurrentUser,
     services::report::{
-        CostSummaryReport, PurchaseLinesReport, ReportQuery, ReportService, SalesLinesReport,
-        StockLedgerReport, StockOnHandReport,
+        BloodTestCostReport, CostSummaryReport, PurchaseLinesReport, ReportQuery, ReportService,
+        SalesLinesReport, StockLedgerReport, StockOnHandReport,
     },
     AppState, Result,
 };
@@ -59,5 +59,15 @@ pub async fn get_cost_summary_report(
     Query(query): Query<ReportQuery>,
 ) -> Result<Json<Vec<CostSummaryReport>>> {
     let report = ReportService::cost_summary(&state.db, &query).await?;
+    Ok(Json(report))
+}
+
+/// 取得血液檢查費用報表
+pub async fn get_blood_test_cost_report(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+    Query(query): Query<ReportQuery>,
+) -> Result<Json<Vec<BloodTestCostReport>>> {
+    let report = ReportService::blood_test_cost(&state.db, &query).await?;
     Ok(Json(report))
 }

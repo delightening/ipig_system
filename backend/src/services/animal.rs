@@ -478,7 +478,10 @@ impl AnimalService {
             weight: req.entry_weight,
         };
         // 忽略錯誤，避免影響豬隻建立
-        let _ = Self::create_weight(pool, pig.id, &weight_req, created_by).await;
+        if let Err(e) = Self::create_weight(pool, pig.id, &weight_req, created_by).await {
+            tracing::warn!("建立初始體重紀錄失敗: {e}");
+        }
+
 
         Ok(pig)
     }
@@ -2210,10 +2213,13 @@ impl AnimalService {
                     // 如果有計畫編號，更新它
                     if let Some(ref iacuc) = row.iacuc_no {
                         if !iacuc.is_empty() {
-                            let _ = Self::update(pool, pig.id, &UpdatePigRequest {
+                            if let Err(e) = Self::update(pool, pig.id, &UpdatePigRequest {
                                 iacuc_no: Some(iacuc.clone()),
                                 ..Default::default()
-                            }, created_by).await;
+                            }, created_by).await {
+                                tracing::warn!("更新豬隻資料失敗: {e}");
+                            }
+
                         }
                     }
                     success_count += 1;
@@ -2899,6 +2905,22 @@ impl AnimalService {
         .fetch_one(pool)
         .await?;
 
+        // 若有指定分類，寫入 panel_items 關聯
+        if let Some(panel_id) = req.panel_id {
+            sqlx::query(
+                r#"
+                INSERT INTO blood_test_panel_items (panel_id, template_id, sort_order)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (panel_id, template_id) DO NOTHING
+                "#
+            )
+            .bind(panel_id)
+            .bind(template.id)
+            .bind(req.sort_order)
+            .execute(pool)
+            .await?;
+        }
+
         Ok(template)
     }
 
@@ -2932,6 +2954,27 @@ impl AnimalService {
         .fetch_optional(pool)
         .await?
         .ok_or_else(|| AppError::NotFound("模板不存在".to_string()))?;
+
+        // 若有指定分類，先刪除該 template 的所有 panel 關聯，再寫入新關聯
+        if let Some(panel_id) = req.panel_id {
+            sqlx::query("DELETE FROM blood_test_panel_items WHERE template_id = $1")
+                .bind(id)
+                .execute(pool)
+                .await?;
+
+            sqlx::query(
+                r#"
+                INSERT INTO blood_test_panel_items (panel_id, template_id, sort_order)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (panel_id, template_id) DO NOTHING
+                "#
+            )
+            .bind(panel_id)
+            .bind(id)
+            .bind(template.sort_order)
+            .execute(pool)
+            .await?;
+        }
 
         Ok(template)
     }

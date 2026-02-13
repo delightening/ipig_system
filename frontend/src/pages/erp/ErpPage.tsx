@@ -158,6 +158,12 @@ const erpModules: ErpModule[] = [
                 icon: <BarChart3 className="h-4 w-4" />,
                 description: '成本分析與摘要',
             },
+            {
+                title: '血液檢查費用報表',
+                href: '/reports/blood-test-cost',
+                icon: <Droplets className="h-4 w-4" />,
+                description: '依專案與日期查詢血檢費用',
+            },
         ],
     },
     {

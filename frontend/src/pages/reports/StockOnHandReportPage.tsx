@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import api, { StockOnHandReport } from '@/lib/api'
-import { formatNumber } from '@/lib/utils'
+import { formatNumber, formatUom } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -31,7 +31,7 @@ export function StockOnHandReportPage() {
       r.product_sku,
       r.product_name,
       r.category_name || '',
-      r.base_uom,
+      formatUom(r.base_uom),
       r.qty_on_hand,
       r.avg_cost || '',
       r.total_value || '',
@@ -99,7 +99,7 @@ export function StockOnHandReportPage() {
                   <TableCell className="font-mono text-sm">{row.product_sku}</TableCell>
                   <TableCell>{row.product_name}</TableCell>
                   <TableCell>{row.category_name || '-'}</TableCell>
-                  <TableCell>{row.base_uom}</TableCell>
+                  <TableCell>{formatUom(row.base_uom)}</TableCell>
                   <TableCell className="text-right font-medium">
                     {formatNumber(row.qty_on_hand, 0)}
                   </TableCell>

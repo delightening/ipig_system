@@ -63,7 +63,12 @@ export function MyAmendmentsPage() {
     const getChangeItemLabels = (changeItems?: string[]) => {
         if (!changeItems || changeItems.length === 0) return '-'
         return changeItems
-            .map(item => t(`amendments.changeItemLabels.${item}`) || item)
+            .map(item => {
+                // 後端可能回傳小寫（如 animal_count），翻譯 key 為大寫（如 ANIMAL_COUNT）
+                const key = item.toUpperCase()
+                const translated = t(`amendments.changeItemLabels.${key}`, { defaultValue: '' })
+                return translated || item
+            })
             .join('、')
     }
 

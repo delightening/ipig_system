@@ -156,7 +156,7 @@ const navItemsConfig: NavItem[] = [
       { title: '使用者管理', href: '/admin/users', translate: false },
       { title: '角色權限', href: '/admin/roles', translate: false },
       { title: '系統設定', href: '/admin/settings', translate: false },
-      { title: '審計日誌', href: '/admin/audit-logs', translate: false },
+      { title: '操作日誌', href: '/admin/audit-logs', translate: false },
       { title: '安全審計', href: '/admin/audit', translate: false },
     ],
     permission: 'admin',

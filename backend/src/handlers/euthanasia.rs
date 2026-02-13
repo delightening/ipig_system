@@ -53,7 +53,7 @@ pub async fn create_order(
 
     if let Some(info) = pig_email_info {
         let deadline = order.deadline_at.format("%Y-%m-%d %H:%M").to_string();
-        let _ = crate::services::EmailService::send_euthanasia_order_email(
+        if let Err(e) = crate::services::EmailService::send_euthanasia_order_email(
             &state.config,
             &info.email,
             &info.display_name,
@@ -62,7 +62,10 @@ pub async fn create_order(
             &info.vet_name,
             &order.reason,
             &deadline,
-        ).await;
+        ).await {
+            tracing::warn!("發送安樂死通知郵件失敗: {e}");
+        }
+
     }
 
     Ok((StatusCode::CREATED, Json(order)))

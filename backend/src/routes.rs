@@ -77,6 +77,7 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/reports/purchase-lines", get(handlers::get_purchase_lines_report))
         .route("/reports/sales-lines", get(handlers::get_sales_lines_report))
         .route("/reports/cost-summary", get(handlers::get_cost_summary_report))
+        .route("/reports/blood-test-cost", get(handlers::get_blood_test_cost_report))
         // Protocols (AUP 審查系統)
         .route("/protocols", get(handlers::list_protocols).post(handlers::create_protocol))
         .route("/protocols/:id", get(handlers::get_protocol).put(handlers::update_protocol))

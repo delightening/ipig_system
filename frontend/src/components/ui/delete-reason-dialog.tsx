@@ -91,7 +91,7 @@ export function DeleteReasonDialog({
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                         <p className="text-sm text-amber-800">
                             <strong>GLP 合規提醒：</strong>
-                            刪除操作將被記錄於審計日誌中，包含刪除原因及操作者資訊。
+                            刪除操作將被記錄於操作日誌中，包含刪除原因及操作者資訊。
                         </p>
                     </div>
                 </div>
