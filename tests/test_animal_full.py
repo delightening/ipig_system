@@ -94,9 +94,19 @@ def run_animal_test() -> bool:
     t.step("Phase 1 — 建立 20 隻豬")
     pig_ids = []
     for i, config in enumerate(PIG_CONFIGS):
+        # 先搜尋是否已有同耳號的豬隻（支援重複執行測試）
+        search_resp = t._req("GET", f"{API_BASE_URL}/pigs?keyword={config['ear_tag']}", role=STAFF)
+        existing = [p for p in search_resp.json() if p.get("ear_tag") == config["ear_tag"]]
+        if existing:
+            pig_ids.append(existing[0]["id"])
+            if (i + 1) % 5 == 0:
+                t.sub_step(f"已建立 {i+1}/20 隻豬（部分為既有資料）")
+            continue
+
         payload = {
             **config,
             "source_id": source_id,
+            "force_create": True,  # 測試環境允許重複耳號（跳過警告）
         }
         resp = t._req("POST", f"{API_BASE_URL}/pigs", role=STAFF, json=payload)
         pig = resp.json()

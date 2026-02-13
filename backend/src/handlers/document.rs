@@ -12,7 +12,7 @@ use crate::{
         UpdateDocumentRequest,
     },
     require_permission,
-    services::{DocumentService, NotificationService},
+    services::{AuditService, DocumentService, NotificationService},
     AppError, AppState, Result,
 };
 
@@ -27,6 +27,21 @@ pub async fn create_document(
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let document = DocumentService::create(&state.db, &req, current_user.id).await?;
+
+    // 審計日誌
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ERP", "DOC_CREATE",
+        Some("document"), Some(document.document.id), Some(&document.document.doc_no),
+        None,
+        Some(serde_json::json!({
+            "doc_no": document.document.doc_no,
+            "doc_type": format!("{:?}", document.document.doc_type),
+        })),
+        None, None,
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (DOC_CREATE): {}", e);
+    }
+
     Ok(Json(document))
 }
 
@@ -65,6 +80,15 @@ pub async fn update_document(
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let document = DocumentService::update(&state.db, id, &req).await?;
+
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ERP", "DOC_UPDATE",
+        Some("document"), Some(id), Some(&document.document.doc_no),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (DOC_UPDATE): {}", e);
+    }
+
     Ok(Json(document))
 }
 
@@ -77,6 +101,16 @@ pub async fn submit_document(
     require_permission!(current_user, "erp.document.submit");
     
     let document = DocumentService::submit(&state.db, id).await?;
+
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ERP", "DOC_SUBMIT",
+        Some("document"), Some(id), Some(&document.document.doc_no),
+        None,
+        Some(serde_json::json!({ "status": "submitted" })),
+        None, None,
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (DOC_SUBMIT): {}", e);
+    }
 
     // 非同步通知 WAREHOUSE_MANAGER
     let db = state.db.clone();
@@ -109,6 +143,16 @@ pub async fn approve_document(
     
     let document = DocumentService::approve(&state.db, id, current_user.id).await?;
 
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ERP", "DOC_APPROVE",
+        Some("document"), Some(id), Some(&document.document.doc_no),
+        None,
+        Some(serde_json::json!({ "status": "approved" })),
+        None, None,
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (DOC_APPROVE): {}", e);
+    }
+
     // 非同步通知建立者（已核准）
     let db = state.db.clone();
     let doc_id = document.document.id;
@@ -140,6 +184,16 @@ pub async fn cancel_document(
     
     let document = DocumentService::cancel(&state.db, id).await?;
 
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ERP", "DOC_CANCEL",
+        Some("document"), Some(id), Some(&document.document.doc_no),
+        None,
+        Some(serde_json::json!({ "status": "cancelled" })),
+        None, None,
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (DOC_CANCEL): {}", e);
+    }
+
     // 非同步通知建立者（已駁回）
     let db = state.db.clone();
     let doc_id = document.document.id;
@@ -163,6 +217,14 @@ pub async fn delete_document(
     Path(id): Path<Uuid>,
 ) -> Result<Json<()>> {
     require_permission!(current_user, "erp.document.delete");
+
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ERP", "DOC_DELETE",
+        Some("document"), Some(id), None,
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (DOC_DELETE): {}", e);
+    }
     
     DocumentService::delete(&state.db, id).await?;
     Ok(Json(()))

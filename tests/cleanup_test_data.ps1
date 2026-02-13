@@ -1,4 +1,4 @@
-# ============================================
+﻿# ============================================
 # iPig System - 測試資料清理腳本
 #
 # 功能：刪除測試建立的業務記錄，保留安全審計資料
@@ -67,7 +67,7 @@ catch {
     $dockerAvailable = $false
 }
 
-$sqlFile = Join-Path $PSScriptRoot "backend\cleanup_test_data.sql"
+$sqlFile = Join-Path (Split-Path $PSScriptRoot -Parent) "backend\cleanup_test_data.sql"
 
 if (-not (Test-Path $sqlFile)) {
     Write-Host "[ERROR] 找不到 SQL 腳本: $sqlFile" -ForegroundColor Red

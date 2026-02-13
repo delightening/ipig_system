@@ -9,7 +9,7 @@ use crate::{
     middleware::CurrentUser,
     models::{CreateWarehouseRequest, UpdateWarehouseRequest, Warehouse, WarehouseQuery},
     require_permission,
-    services::WarehouseService,
+    services::{AuditService, WarehouseService},
     AppError, AppState, Result,
 };
 
@@ -23,6 +23,20 @@ pub async fn create_warehouse(
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let warehouse = WarehouseService::create(&state.db, &req).await?;
+
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ERP", "WAREHOUSE_CREATE",
+        Some("warehouse"), Some(warehouse.id), Some(&warehouse.name),
+        None,
+        Some(serde_json::json!({
+            "name": warehouse.name,
+            "code": warehouse.code,
+        })),
+        None, None,
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (WAREHOUSE_CREATE): {}", e);
+    }
+
     Ok(Json(warehouse))
 }
 
@@ -61,6 +75,15 @@ pub async fn update_warehouse(
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let warehouse = WarehouseService::update(&state.db, id, &req).await?;
+
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ERP", "WAREHOUSE_UPDATE",
+        Some("warehouse"), Some(id), Some(&warehouse.name),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (WAREHOUSE_UPDATE): {}", e);
+    }
+
     Ok(Json(warehouse))
 }
 
@@ -71,6 +94,14 @@ pub async fn delete_warehouse(
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "erp.warehouse.delete");
+
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ERP", "WAREHOUSE_DELETE",
+        Some("warehouse"), Some(id), None,
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (WAREHOUSE_DELETE): {}", e);
+    }
     
     WarehouseService::delete(&state.db, id).await?;
     Ok(Json(serde_json::json!({ "message": "Warehouse deleted successfully" })))

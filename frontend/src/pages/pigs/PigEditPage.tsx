@@ -35,7 +35,7 @@ export function PigEditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const pigId = parseInt(id!)
+  const pigId = id!
 
   const [formData, setFormData] = useState<UpdatePigRequest>({})
   const [hasChanges, setHasChanges] = useState(false)
@@ -191,7 +191,7 @@ export function PigEditPage() {
               <div className="space-y-2">
                 <Label>狀態 *</Label>
                 <Select
-                  value={formData.status}
+                  value={formData.status ?? ''}
                   onValueChange={(v) => handleChange('status', v as PigStatus)}
                 >
                   <SelectTrigger>
@@ -297,7 +297,7 @@ export function PigEditPage() {
 
               {/* IACUC NO. */}
               <div className="space-y-2">
-                <Label htmlFor="iacuc_no">
+                <Label>
                   IACUC NO.
                   {formData.status === 'in_experiment' && <span className="text-red-500 ml-1">*</span>}
                 </Label>

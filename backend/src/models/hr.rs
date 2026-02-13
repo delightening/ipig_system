@@ -132,6 +132,7 @@ pub struct OvertimeQuery {
     pub from: Option<NaiveDate>,
     pub to: Option<NaiveDate>,
     pub pending_approval: Option<bool>,
+    pub view_all: Option<bool>,
     pub page: Option<i64>,
     pub per_page: Option<i64>,
 }
@@ -284,6 +285,7 @@ pub struct LeaveQuery {
     pub from: Option<NaiveDate>,
     pub to: Option<NaiveDate>,
     pub pending_approval: Option<bool>,
+    pub view_all: Option<bool>,
     pub page: Option<i64>,
     pub per_page: Option<i64>,
 }

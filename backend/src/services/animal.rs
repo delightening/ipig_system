@@ -377,6 +377,44 @@ impl AnimalService {
             ));
         }
 
+        // 檢查耳號是否已存在（僅查未刪除且存活的動物，排除已犧牲 completed）
+        let existing_pigs: Vec<(Uuid, Option<chrono::NaiveDate>, String, Option<String>)> = sqlx::query_as(
+            r#"
+            SELECT id, birth_date, status::text, pen_location
+            FROM pigs
+            WHERE ear_tag = $1 AND deleted_at IS NULL AND status != 'completed'
+            "#
+        )
+        .bind(&formatted_ear_tag)
+        .fetch_all(pool)
+        .await?;
+
+        if !existing_pigs.is_empty() {
+            // 檢查是否有同出生日期的 → 完全阻擋
+            let same_birthday = existing_pigs.iter().any(|(_, bd, _, _)| *bd == req.birth_date);
+            if same_birthday {
+                return Err(AppError::Conflict(
+                    format!("耳號 {} 已存在同出生日期的存活動物，無法重複建立", formatted_ear_tag)
+                ));
+            }
+
+            // 不同出生日期，且未 force_create → 回傳警告
+            if !req.force_create {
+                let pigs_info: Vec<serde_json::Value> = existing_pigs.iter().map(|(id, bd, status, pen)| {
+                    serde_json::json!({
+                        "id": id,
+                        "birth_date": bd.map(|d| d.to_string()),
+                        "status": status,
+                        "pen_location": pen,
+                    })
+                }).collect();
+                return Err(AppError::DuplicateWarning {
+                    message: format!("耳號 {} 已存在其他存活動物，請確認是否繼續建立", formatted_ear_tag),
+                    existing_pigs: pigs_info,
+                });
+            }
+        }
+
         // 驗證欄位必須填寫並格式化
         let pen_location = match &req.pen_location {
             Some(s) if !s.trim().is_empty() => Some(Self::format_pen_location(s)),
@@ -2164,6 +2202,7 @@ impl AnimalService {
                 pen_location,
                 pre_experiment_code: row.pre_experiment_code.clone(),
                 remark: row.remark.clone(),
+                force_create: true, // 匯入流程已有自己的耳號檢查邏輯
             };
 
             match Self::create(pool, &create_req, created_by).await {

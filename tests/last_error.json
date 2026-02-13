@@ -1,20 +1,27 @@
 {
-  "test": "HR 人員管理系統完整測試",
+  "test": "動物管理系統完整測試",
   "method": "POST",
-  "url": "http://localhost:8000/api/hr/balances/annual-entitlements",
-  "status": 500,
+  "url": "http://localhost:8000/api/pigs",
+  "status": 409,
   "payload": {
-    "user_id": "df502b6f-6dfb-40da-9840-6e7b5383fa2c",
-    "entitlement_year": 2026,
-    "entitled_days": 14.0,
-    "calculation_basis": "seniority",
-    "notes": "整合測試建立的特休額度 - 年資 5 年"
+    "ear_tag": "001",
+    "breed": "minipig",
+    "breed_other": null,
+    "gender": "male",
+    "birth_date": "2025-08-17",
+    "entry_date": "2026-01-14",
+    "entry_weight": 18.0,
+    "pen_location": "A-01",
+    "remark": "整合測試豬隻 #1",
+    "source_id": "ae9f4725-2f9d-457c-9656-5e771f2cf4b1",
+    "force_create": true
   },
-  "response": "{\"error\":{\"code\":500,\"message\":\"Database error: error returned from database: duplicate key value violates unique constraint \\\"annual_leave_entitlements_user_id_entitlement_year_key\\\"\"}}",
+  "response": "{\"error\":{\"blocking\":true,\"code\":409,\"message\":\"耳號 001 已存在同出生日期的存活動物，無法重複建立\"}}",
   "response_json": {
     "error": {
-      "code": 500,
-      "message": "Database error: error returned from database: duplicate key value violates unique constraint \"annual_leave_entitlements_user_id_entitlement_year_key\""
+      "blocking": true,
+      "code": 409,
+      "message": "耳號 001 已存在同出生日期的存活動物，無法重複建立"
     }
   }
 }

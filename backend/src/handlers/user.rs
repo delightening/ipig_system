@@ -32,6 +32,22 @@ pub async fn create_user(
     
     let user = UserService::create(&state.db, &req).await?;
     let response = UserService::get_by_id(&state.db, user.id).await?;
+
+    // 記錄審計日誌
+    if let Err(e) = AuditService::log(
+        &state.db,
+        current_user.id,
+        AuditAction::Create,
+        "user",
+        user.id,
+        None,
+        Some(serde_json::json!({
+            "email": response.email,
+            "display_name": response.display_name,
+        })),
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (USER_CREATE): {}", e);
+    }
     
     // 非同步發送歡迎郵件，避免阻塞回應
     let config = state.config.clone();
@@ -91,6 +107,19 @@ pub async fn delete_user(
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "admin.user.delete");
+
+    // 先記錄審計日誌再刪除
+    if let Err(e) = AuditService::log(
+        &state.db,
+        current_user.id,
+        AuditAction::Delete,
+        "user",
+        id,
+        None,
+        Some(serde_json::json!({ "deleted_user_id": id })),
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (USER_DELETE): {}", e);
+    }
     
     UserService::delete(&state.db, id).await?;
     Ok(Json(serde_json::json!({ "message": "User deleted successfully" })))

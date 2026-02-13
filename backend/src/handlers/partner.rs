@@ -10,7 +10,7 @@ use crate::{
     middleware::CurrentUser,
     models::{CreatePartnerRequest, GenerateCodeResponse, Partner, PartnerQuery, SupplierCategory, UpdatePartnerRequest},
     require_permission,
-    services::PartnerService,
+    services::{AuditService, PartnerService},
     AppError, AppState, Result,
 };
 
@@ -24,6 +24,20 @@ pub async fn create_partner(
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let partner = PartnerService::create(&state.db, &req).await?;
+
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ERP", "PARTNER_CREATE",
+        Some("partner"), Some(partner.id), Some(&partner.name),
+        None,
+        Some(serde_json::json!({
+            "name": partner.name,
+            "partner_type": format!("{:?}", partner.partner_type),
+        })),
+        None, None,
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (PARTNER_CREATE): {}", e);
+    }
+
     Ok(Json(partner))
 }
 
@@ -62,6 +76,15 @@ pub async fn update_partner(
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let partner = PartnerService::update(&state.db, id, &req).await?;
+
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ERP", "PARTNER_UPDATE",
+        Some("partner"), Some(id), Some(&partner.name),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (PARTNER_UPDATE): {}", e);
+    }
+
     Ok(Json(partner))
 }
 
@@ -73,6 +96,14 @@ pub async fn delete_partner(
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "erp.partner.delete");
     
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ERP", "PARTNER_DELETE",
+        Some("partner"), Some(id), None,
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (PARTNER_DELETE): {}", e);
+    }
+
     PartnerService::delete(&state.db, id).await?;
     Ok(Json(serde_json::json!({ "message": "Partner deleted successfully" })))
 }

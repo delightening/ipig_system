@@ -11,9 +11,11 @@ import {
     Plus,
     Send,
     Trash2,
+    Users,
     XCircle,
 } from 'lucide-react'
 import api from '@/lib/api'
+import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -86,6 +88,16 @@ export function HrLeavePage() {
     const [activeTab, setActiveTab] = useState('my-leaves')
     const [showCreateDialog, setShowCreateDialog] = useState(false)
     const queryClient = useQueryClient()
+    const { hasRole } = useAuthStore()
+
+    // 角色判斷：admin 或 ADMIN_STAFF 可看所有紀錄
+    const canViewAll = hasRole('admin') || hasRole('ADMIN_STAFF')
+
+    // 全部紀錄篩選狀態
+    const [filterStatus, setFilterStatus] = useState<string>('all')
+    const [filterLeaveType, setFilterLeaveType] = useState<string>('all')
+    const [filterFrom, setFilterFrom] = useState('')
+    const [filterTo, setFilterTo] = useState('')
 
     // 新假單表單狀態
     const [leaveType, setLeaveType] = useState('')
@@ -138,6 +150,21 @@ export function HrLeavePage() {
             const res = await api.get<StaffInfo[]>('/hr/staff')
             return res.data
         },
+    })
+
+    // 所有員工的請假紀錄（admin/ADMIN_STAFF 專用）
+    const { data: allLeaves, isLoading: loadingAllLeaves } = useQuery({
+        queryKey: ['hr-all-leaves', filterStatus, filterLeaveType, filterFrom, filterTo],
+        queryFn: async () => {
+            const params = new URLSearchParams({ view_all: 'true' })
+            if (filterStatus !== 'all') params.append('status', filterStatus)
+            if (filterLeaveType !== 'all') params.append('leave_type', filterLeaveType)
+            if (filterFrom) params.append('from', filterFrom)
+            if (filterTo) params.append('to', filterTo)
+            const res = await api.get<PaginatedResponse<LeaveRequestWithUser>>(`/hr/leaves?${params.toString()}`)
+            return res.data
+        },
+        enabled: canViewAll && activeTab === 'all-records',
     })
 
     // 日期/天數處理函式
@@ -564,6 +591,12 @@ export function HrLeavePage() {
                             </Badge>
                         )}
                     </TabsTrigger>
+                    {canViewAll && (
+                        <TabsTrigger value="all-records" className="flex items-center gap-2">
+                            <Users className="h-4 w-4" />
+                            請假紀錄
+                        </TabsTrigger>
+                    )}
                 </TabsList>
 
                 {/* 我的請假 */}
@@ -727,6 +760,136 @@ export function HrLeavePage() {
                         </CardContent>
                     </Card>
                 </TabsContent>
+
+                {/* 所有員工請假紀錄（admin/ADMIN_STAFF） */}
+                {canViewAll && (
+                    <TabsContent value="all-records" className="space-y-4">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>全部請假紀錄</CardTitle>
+                                <CardDescription>查看所有員工的請假資料</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {/* 篩選列 */}
+                                <div className="flex flex-wrap gap-3 items-end">
+                                    <div className="grid gap-1">
+                                        <Label className="text-xs">狀態</Label>
+                                        <Select value={filterStatus} onValueChange={setFilterStatus}>
+                                            <SelectTrigger className="w-[140px]">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">全部狀態</SelectItem>
+                                                {Object.entries(LEAVE_STATUS_NAMES).map(([code, name]) => (
+                                                    <SelectItem key={code} value={code}>{name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="grid gap-1">
+                                        <Label className="text-xs">假別</Label>
+                                        <Select value={filterLeaveType} onValueChange={setFilterLeaveType}>
+                                            <SelectTrigger className="w-[140px]">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">全部假別</SelectItem>
+                                                {Object.entries(LEAVE_TYPE_NAMES).map(([code, name]) => (
+                                                    <SelectItem key={code} value={code}>{name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="grid gap-1">
+                                        <Label className="text-xs">起始日期</Label>
+                                        <Input
+                                            type="date"
+                                            value={filterFrom}
+                                            onChange={(e) => setFilterFrom(e.target.value)}
+                                            className="w-[160px]"
+                                        />
+                                    </div>
+                                    <div className="grid gap-1">
+                                        <Label className="text-xs">結束日期</Label>
+                                        <Input
+                                            type="date"
+                                            value={filterTo}
+                                            onChange={(e) => setFilterTo(e.target.value)}
+                                            className="w-[160px]"
+                                        />
+                                    </div>
+                                    {(filterStatus !== 'all' || filterLeaveType !== 'all' || filterFrom || filterTo) && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => {
+                                                setFilterStatus('all')
+                                                setFilterLeaveType('all')
+                                                setFilterFrom('')
+                                                setFilterTo('')
+                                            }}
+                                        >
+                                            清除篩選
+                                        </Button>
+                                    )}
+                                </div>
+
+                                {/* 表格 */}
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>申請人</TableHead>
+                                            <TableHead>假別</TableHead>
+                                            <TableHead>日期</TableHead>
+                                            <TableHead>天數</TableHead>
+                                            <TableHead>事由</TableHead>
+                                            <TableHead>狀態</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {loadingAllLeaves ? (
+                                            <TableRow>
+                                                <TableCell colSpan={6} className="text-center py-8">
+                                                    載入中...
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : allLeaves?.data?.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                                    沒有符合條件的請假紀錄
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            allLeaves?.data?.map((leave) => (
+                                                <TableRow key={leave.id}>
+                                                    <TableCell>
+                                                        <div>
+                                                            <div className="font-medium">{leave.user_name}</div>
+                                                            <div className="text-sm text-muted-foreground">{leave.user_email}</div>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>{LEAVE_TYPE_NAMES[leave.leave_type] || leave.leave_type}</TableCell>
+                                                    <TableCell className="whitespace-nowrap">
+                                                        {formatDate(leave.start_date)}
+                                                        {leave.start_date !== leave.end_date && ` ~ ${formatDate(leave.end_date)}`}
+                                                    </TableCell>
+                                                    <TableCell>{leave.total_days} 天</TableCell>
+                                                    <TableCell className="max-w-[200px] truncate">{leave.reason}</TableCell>
+                                                    <TableCell>{getStatusBadge(leave.status)}</TableCell>
+                                                </TableRow>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                                {allLeaves && allLeaves.total > 0 && (
+                                    <div className="text-sm text-muted-foreground">
+                                        共 {allLeaves.total} 筆紀錄
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                )}
             </Tabs>
         </div>
     )
