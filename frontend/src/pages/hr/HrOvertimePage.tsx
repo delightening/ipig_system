@@ -8,9 +8,11 @@ import {
     Plus,
     Send,
     Trash2,
+    Users,
     XCircle,
 } from 'lucide-react'
 import api from '@/lib/api'
+import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -623,10 +625,34 @@ function PendingApprovalsTabContent({
 export function HrOvertimePage() {
     const [activeTab, setActiveTab] = useState('my-overtime')
     const [showCreateDialog, setShowCreateDialog] = useState(false)
+    const { hasRole } = useAuthStore()
+
+    // 角色判斷：admin 或 ADMIN_STAFF 可看所有紀錄
+    const canViewAll = hasRole('admin') || hasRole('ADMIN_STAFF')
+
+    // 全部紀錄篩選狀態
+    const [filterStatus, setFilterStatus] = useState<string>('all')
+    const [filterOvertimeType, setFilterOvertimeType] = useState<string>('all')
+    const [filterFrom, setFilterFrom] = useState('')
+    const [filterTo, setFilterTo] = useState('')
 
     // Data fetching
     const { data: myOvertime, isLoading: loadingOvertime } = useMyOvertime()
     const { data: pendingOvertime, isLoading: loadingPending } = usePendingOvertime()
+
+    // 所有員工的加班紀錄（admin/ADMIN_STAFF 專用）
+    const { data: allOvertime, isLoading: loadingAllOvertime } = useQuery({
+        queryKey: ['hr-all-overtime', filterStatus, filterOvertimeType, filterFrom, filterTo],
+        queryFn: async () => {
+            const params = new URLSearchParams({ view_all: 'true' })
+            if (filterStatus !== 'all') params.append('status', filterStatus)
+            if (filterFrom) params.append('from', filterFrom)
+            if (filterTo) params.append('to', filterTo)
+            const res = await api.get<PaginatedResponse<OvertimeWithUser>>(`/hr/overtime?${params.toString()}`)
+            return res.data
+        },
+        enabled: canViewAll && activeTab === 'all-records',
+    })
 
     // Mutations
     const {
@@ -692,6 +718,12 @@ export function HrOvertimePage() {
                             </Badge>
                         )}
                     </TabsTrigger>
+                    {canViewAll && (
+                        <TabsTrigger value="all-records" className="flex items-center gap-2">
+                            <Users className="h-4 w-4" />
+                            加班紀錄
+                        </TabsTrigger>
+                    )}
                 </TabsList>
 
                 {/* My Overtime Tab */}
@@ -713,6 +745,143 @@ export function HrOvertimePage() {
                     isApproving={approveOvertime.isPending}
                     isRejecting={rejectOvertime.isPending}
                 />
+
+                {/* 所有員工加班紀錄（admin/ADMIN_STAFF） */}
+                {canViewAll && (
+                    <TabsContent value="all-records" className="space-y-4">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>全部加班紀錄</CardTitle>
+                                <CardDescription>查看所有員工的加班資料</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {/* 篩選列 */}
+                                <div className="flex flex-wrap gap-3 items-end">
+                                    <div className="grid gap-1">
+                                        <Label className="text-xs">狀態</Label>
+                                        <Select value={filterStatus} onValueChange={setFilterStatus}>
+                                            <SelectTrigger className="w-[140px]">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">全部狀態</SelectItem>
+                                                {Object.entries(OVERTIME_STATUS_NAMES).map(([code, name]) => (
+                                                    <SelectItem key={code} value={code}>{name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="grid gap-1">
+                                        <Label className="text-xs">加班類型</Label>
+                                        <Select value={filterOvertimeType} onValueChange={setFilterOvertimeType}>
+                                            <SelectTrigger className="w-[140px]">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">全部類型</SelectItem>
+                                                {Object.entries(OVERTIME_TYPE_NAMES).map(([code, name]) => (
+                                                    <SelectItem key={code} value={code}>{name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="grid gap-1">
+                                        <Label className="text-xs">起始日期</Label>
+                                        <Input
+                                            type="date"
+                                            value={filterFrom}
+                                            onChange={(e) => setFilterFrom(e.target.value)}
+                                            className="w-[160px]"
+                                        />
+                                    </div>
+                                    <div className="grid gap-1">
+                                        <Label className="text-xs">結束日期</Label>
+                                        <Input
+                                            type="date"
+                                            value={filterTo}
+                                            onChange={(e) => setFilterTo(e.target.value)}
+                                            className="w-[160px]"
+                                        />
+                                    </div>
+                                    {(filterStatus !== 'all' || filterOvertimeType !== 'all' || filterFrom || filterTo) && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => {
+                                                setFilterStatus('all')
+                                                setFilterOvertimeType('all')
+                                                setFilterFrom('')
+                                                setFilterTo('')
+                                            }}
+                                        >
+                                            清除篩選
+                                        </Button>
+                                    )}
+                                </div>
+
+                                {/* 表格 */}
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>申請人</TableHead>
+                                            <TableHead>日期</TableHead>
+                                            <TableHead>時間</TableHead>
+                                            <TableHead>類型</TableHead>
+                                            <TableHead>時數</TableHead>
+                                            <TableHead>補休</TableHead>
+                                            <TableHead>事由</TableHead>
+                                            <TableHead>狀態</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {loadingAllOvertime ? (
+                                            <TableRow>
+                                                <TableCell colSpan={8} className="text-center py-8">
+                                                    載入中...
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : allOvertime?.data?.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                                                    沒有符合條件的加班紀錄
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            allOvertime?.data
+                                                ?.filter((ot) => filterOvertimeType === 'all' || ot.overtime_type === filterOvertimeType)
+                                                .map((overtime) => (
+                                                    <TableRow key={overtime.id}>
+                                                        <TableCell>
+                                                            <div>
+                                                                <div className="font-medium">{overtime.user_name}</div>
+                                                                <div className="text-sm text-muted-foreground">{overtime.user_email}</div>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="whitespace-nowrap">
+                                                            {formatDate(overtime.overtime_date)}
+                                                        </TableCell>
+                                                        <TableCell className="whitespace-nowrap">
+                                                            {format(new Date(overtime.start_time), 'HH:mm')} ~ {format(new Date(overtime.end_time), 'HH:mm')}
+                                                        </TableCell>
+                                                        <TableCell>{OVERTIME_TYPE_NAMES[overtime.overtime_type] || overtime.overtime_type}</TableCell>
+                                                        <TableCell>{parseDecimal(overtime.hours).toFixed(1)}h</TableCell>
+                                                        <TableCell>{parseDecimal(overtime.comp_time_hours) > 0 ? `${parseDecimal(overtime.comp_time_hours).toFixed(1)}h` : '-'}</TableCell>
+                                                        <TableCell className="max-w-[200px] truncate">{overtime.reason}</TableCell>
+                                                        <TableCell>{getStatusBadge(overtime.status)}</TableCell>
+                                                    </TableRow>
+                                                ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                                {allOvertime && allOvertime.total > 0 && (
+                                    <div className="text-sm text-muted-foreground">
+                                        共 {allOvertime.total} 筆紀錄
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                )}
             </Tabs>
         </div>
     )

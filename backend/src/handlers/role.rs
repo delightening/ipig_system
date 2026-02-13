@@ -9,7 +9,7 @@ use crate::{
     middleware::CurrentUser,
     models::{CreateRoleRequest, Permission, PermissionQuery, RoleWithPermissions, UpdateRoleRequest},
     require_permission,
-    services::RoleService,
+    services::{AuditService, RoleService},
     AppError, AppState, Result,
 };
 
@@ -24,6 +24,17 @@ pub async fn create_role(
     
     let role = RoleService::create(&state.db, &req).await?;
     let response = RoleService::get_by_id(&state.db, role.id).await?;
+
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "SYSTEM", "ROLE_CREATE",
+        Some("role"), Some(role.id), Some(&role.name),
+        None,
+        Some(serde_json::json!({ "name": role.name })),
+        None, None,
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (ROLE_CREATE): {}", e);
+    }
+
     Ok(Json(response))
 }
 
@@ -61,6 +72,15 @@ pub async fn update_role(
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let role = RoleService::update(&state.db, id, &req).await?;
+
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "SYSTEM", "ROLE_UPDATE",
+        Some("role"), Some(id), Some(&role.name),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (ROLE_UPDATE): {}", e);
+    }
+
     Ok(Json(role))
 }
 
@@ -71,6 +91,14 @@ pub async fn delete_role(
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "dev.role.delete");
+
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "SYSTEM", "ROLE_DELETE",
+        Some("role"), Some(id), None,
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (ROLE_DELETE): {}", e);
+    }
     
     RoleService::delete(&state.db, id).await?;
     Ok(Json(serde_json::json!({ "message": "Role deleted successfully" })))

@@ -167,8 +167,9 @@ export function DashboardPage() {
     mutationFn: async (layout: WidgetLayoutItem[]) => {
       return api.put('/me/preferences/dashboard_widgets', { value: layout })
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-preferences', 'dashboard_widgets'] })
+    onSuccess: (_data, variables) => {
+      // 直接使用送出的資料更新 cache，避免 refetch 造成的 re-render 導致佈局重設
+      queryClient.setQueryData(['user-preferences', 'dashboard_widgets'], variables)
     },
     onError: (error) => {
       console.error('儲存佈局失敗:', error)
@@ -202,12 +203,16 @@ export function DashboardPage() {
   }, [availableWidgets])
 
   // 處理佈局變更（先暫存，不立即儲存）
-  const handleLayoutChange = useCallback((newLayout: LayoutItem[]) => {
+  // 使用 onLayoutChange 的 allLayouts 參數，始終以 lg breakpoint 為基準
+  const handleLayoutChange = useCallback((_currentLayout: Layout, allLayouts: Partial<Record<string, Layout>>) => {
     if (!isEditMode) return
 
-    // 合併新佈局和現有的自訂屬性
+    // 始終使用 lg breakpoint 的佈局作為基準，避免不同 breakpoint 的自動排版覆蓋使用者設定
+    const lgLayout = allLayouts.lg || _currentLayout
+
+    // 合併 lg 佈局的位置與現有的自訂屬性（visible, options 等）
     const updatedLayout = currentLayout.map(item => {
-      const layoutItem = newLayout.find(l => l.i === item.i)
+      const layoutItem = lgLayout.find(l => l.i === item.i)
       if (layoutItem) {
         return {
           ...item,
@@ -573,8 +578,8 @@ export function DashboardPage() {
     }
   }
 
-  // 轉換為 react-grid-layout 需要的格式
-  const baseLayout: LayoutItem[] = visibleWidgets.map(w => ({
+  // 轉換為 react-grid-layout 需要的格式（memoize 避免每次 render 產生新物件導致 grid 重設）
+  const baseLayout: LayoutItem[] = useMemo(() => visibleWidgets.map(w => ({
     i: w.i,
     x: w.x,
     y: w.y,
@@ -584,22 +589,22 @@ export function DashboardPage() {
     minH: w.minH,
     maxW: w.maxW,
     maxH: w.maxH,
-  }))
+  })), [visibleWidgets])
 
-  // 生成響應式佈局
-  const generateResponsiveLayouts = (base: LayoutItem[]) => {
+  // 生成響應式佈局（memoize 避免每次 render 都重新初始化 ResponsiveGridLayout）
+  const responsiveLayouts = useMemo(() => {
     // 大螢幕: 使用原始佈局
-    const lgLayout = base
+    const lgLayout = baseLayout
 
     // 中螢幕 (9列): 調整寬度
-    const mdLayout = base.map(item => ({
+    const mdLayout = baseLayout.map(item => ({
       ...item,
       w: Math.min(item.w, 9),
       x: Math.min(item.x, 9 - Math.min(item.w, 9)),
     }))
 
     // 小螢幕 (6列): 重新排列為較窄佈局
-    const smLayout = base.map((item, idx) => ({
+    const smLayout = baseLayout.map((item, idx) => ({
       ...item,
       x: (idx % 2) * 3,
       y: Math.floor(idx / 2) * 4,
@@ -608,7 +613,7 @@ export function DashboardPage() {
     }))
 
     // 超小螢幕 (4列): 2x2 網格
-    const xsLayout = base.map((item, idx) => ({
+    const xsLayout = baseLayout.map((item, idx) => ({
       ...item,
       x: (idx % 2) * 2,
       y: Math.floor(idx / 2) * 4,
@@ -617,7 +622,7 @@ export function DashboardPage() {
     }))
 
     // 最小螢幕 (2列): 單列佈局
-    const xxsLayout = base.map((item, idx) => ({
+    const xxsLayout = baseLayout.map((item, idx) => ({
       ...item,
       x: 0,
       y: idx * 4,
@@ -626,9 +631,7 @@ export function DashboardPage() {
     }))
 
     return { lg: lgLayout, md: mdLayout, sm: smLayout, xs: xsLayout, xxs: xxsLayout }
-  }
-
-  const responsiveLayouts = generateResponsiveLayouts(baseLayout)
+  }, [baseLayout])
 
   return (
     <div className="space-y-6">
@@ -680,8 +683,7 @@ export function DashboardPage() {
         breakpoints={BREAKPOINTS}
         cols={COLS}
         rowHeight={GRID_ROW_HEIGHT}
-        onDragStop={(layout) => handleLayoutChange([...layout] as LayoutItem[])}
-        onResizeStop={(layout) => handleLayoutChange([...layout] as LayoutItem[])}
+        onLayoutChange={handleLayoutChange}
         isDraggable={isEditMode}
         isResizable={isEditMode}
         margin={[16, 16]}

@@ -449,6 +449,9 @@ pub struct CreatePigRequest {
     pub pen_location: Option<String>,
     pub pre_experiment_code: Option<String>,
     pub remark: Option<String>,
+    /// 強制建立（跳過耳號重複警告，但同耳號同出生日期仍會阻擋）
+    #[serde(default)]
+    pub force_create: bool,
 }
 
 #[derive(Debug, Deserialize, Validate, Default)]

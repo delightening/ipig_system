@@ -40,8 +40,20 @@ import type {
     LoginEventWithUser,
     SecurityAlert,
     SessionWithUser,
-    UserActivityLog,
 } from '@/types/hr'
+
+interface AuditLog {
+    id: string
+    actor_user_id: string
+    actor_email: string
+    actor_name: string
+    action: string
+    entity_type: string
+    entity_id: string
+    before_data?: Record<string, unknown>
+    after_data?: Record<string, unknown>
+    created_at: string
+}
 
 interface PaginatedResponse<T> {
     data: T[]
@@ -78,15 +90,16 @@ export function AdminAuditPage() {
         },
     })
 
-    // Activity Logs
+    // Activity Logs (audit_logs - 使用者管理操作)
     const { data: activityLogs, isLoading: loadingActivities } = useQuery({
-        queryKey: ['audit-activities', dateFrom, dateTo],
+        queryKey: ['audit-user-activities', dateFrom, dateTo],
         queryFn: async () => {
             const params = new URLSearchParams()
-            if (dateFrom) params.set('from', dateFrom)
-            if (dateTo) params.set('to', dateTo)
-            const res = await api.get<PaginatedResponse<UserActivityLog>>(
-                `/admin/audit/activities?${params}`
+            if (dateFrom) params.set('start_date', dateFrom)
+            if (dateTo) params.set('end_date', dateTo)
+            params.set('entity_type', 'user')
+            const res = await api.get<PaginatedResponse<AuditLog>>(
+                `/audit-logs?${params}`
             )
             return res.data
         },
@@ -278,7 +291,7 @@ export function AdminAuditPage() {
                     </div>
                 </TabsContent>
 
-                {/* Activities Tab */}
+                {/* Activities Tab (使用者管理操作) */}
                 <TabsContent value="activities" className="space-y-4">
                     <div className="flex flex-wrap items-center gap-4">
                         <Input
@@ -295,60 +308,71 @@ export function AdminAuditPage() {
                             placeholder="結束日期"
                             className="max-w-[150px]"
                         />
-                        <Input
-                            placeholder="搜尋..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="max-w-sm"
-                        />
                     </div>
                     <Card>
                         <Table>
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>時間</TableHead>
-                                    <TableHead>使用者</TableHead>
-                                    <TableHead>類別</TableHead>
-                                    <TableHead>事件</TableHead>
-                                    <TableHead>實體</TableHead>
-                                    <TableHead>IP</TableHead>
-                                    <TableHead>可疑</TableHead>
+                                    <TableHead>操作者</TableHead>
+                                    <TableHead>操作</TableHead>
+                                    <TableHead>目標實體</TableHead>
+                                    <TableHead>實體 ID</TableHead>
+                                    <TableHead>變更內容</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {loadingActivities ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="text-center py-8">
+                                        <TableCell colSpan={6} className="text-center py-8">
                                             載入中...
                                         </TableCell>
                                     </TableRow>
-                                ) : activityLogs?.data?.length === 0 ? (
+                                ) : !activityLogs?.data || activityLogs.data.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                                            沒有活動記錄
+                                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                            沒有使用者管理活動記錄
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    activityLogs?.data?.map((log) => (
+                                    activityLogs.data.map((log) => (
                                         <TableRow key={log.id}>
                                             <TableCell className="whitespace-nowrap">
                                                 {formatDateTime(log.created_at)}
                                             </TableCell>
-                                            <TableCell>{log.actor_display_name || log.actor_email || '-'}</TableCell>
                                             <TableCell>
-                                                <Badge variant="outline">{log.event_category}</Badge>
-                                            </TableCell>
-                                            <TableCell>{log.event_type}</TableCell>
-                                            <TableCell>
-                                                {log.entity_type ? `${log.entity_type}` : '-'}
-                                            </TableCell>
-                                            <TableCell className="text-muted-foreground text-sm">
-                                                {log.ip_address || '-'}
+                                                <div>
+                                                    <div className="font-medium">{log.actor_name || '-'}</div>
+                                                    <div className="text-sm text-muted-foreground">{log.actor_email || ''}</div>
+                                                </div>
                                             </TableCell>
                                             <TableCell>
-                                                {log.is_suspicious && (
-                                                    <Badge variant="destructive">可疑</Badge>
-                                                )}
+                                                <Badge variant={{
+                                                    'CREATE': 'default',
+                                                    'UPDATE': 'default',
+                                                    'DELETE': 'destructive',
+                                                    'PASSWORD_RESET': 'secondary',
+                                                    'IMPERSONATE': 'secondary',
+                                                    'force_logout': 'destructive',
+                                                }[log.action] as 'default' | 'destructive' | 'secondary' || 'outline'}>
+                                                    {{
+                                                        'CREATE': '建立使用者',
+                                                        'UPDATE': '更新使用者',
+                                                        'DELETE': '刪除使用者',
+                                                        'PASSWORD_RESET': '重設密碼',
+                                                        'IMPERSONATE': '模擬登入',
+                                                        'force_logout': '強制登出',
+                                                    }[log.action] || log.action}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant="outline">{log.entity_type}</Badge>
+                                            </TableCell>
+                                            <TableCell className="font-mono text-xs text-muted-foreground">
+                                                {log.entity_id?.slice(0, 8)}...
+                                            </TableCell>
+                                            <TableCell className="text-sm max-w-[200px] truncate">
+                                                {log.after_data ? JSON.stringify(log.after_data).slice(0, 60) : '-'}
                                             </TableCell>
                                         </TableRow>
                                     ))

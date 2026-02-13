@@ -42,6 +42,8 @@
         "closeTitle": "Confirm Close",
         "closeDescription": "Are you sure you want to close this project? This action cannot be undone.",
         "close": "Close",
+        "impersonating": "Impersonating",
+        "backToAdmin": "Back to Admin",
         "fileUpload": {
             "placeholder": "Drag and drop files here, or click to select files",
             "uploading": "Uploading...",

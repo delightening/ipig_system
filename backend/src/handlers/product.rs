@@ -12,7 +12,7 @@ use crate::{
         ProductWithUom, UpdateProductRequest,
     },
     require_permission,
-    services::ProductService,
+    services::{AuditService, ProductService},
     AppError, AppState, Result,
 };
 
@@ -26,6 +26,20 @@ pub async fn create_product(
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let product = ProductService::create(&state.db, &req).await?;
+
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ERP", "PRODUCT_CREATE",
+        Some("product"), Some(product.product.id), Some(&product.product.name),
+        None,
+        Some(serde_json::json!({
+            "name": product.product.name,
+            "sku": product.product.sku,
+        })),
+        None, None,
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (PRODUCT_CREATE): {}", e);
+    }
+
     Ok(Json(product))
 }
 
@@ -64,6 +78,15 @@ pub async fn update_product(
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let product = ProductService::update(&state.db, id, &req).await?;
+
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ERP", "PRODUCT_UPDATE",
+        Some("product"), Some(id), Some(&product.product.name),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (PRODUCT_UPDATE): {}", e);
+    }
+
     Ok(Json(product))
 }
 
@@ -74,6 +97,14 @@ pub async fn delete_product(
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "erp.product.delete");
+
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ERP", "PRODUCT_DELETE",
+        Some("product"), Some(id), None,
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (PRODUCT_DELETE): {}", e);
+    }
     
     ProductService::delete(&state.db, id).await?;
     Ok(Json(serde_json::json!({ "message": "Product deleted successfully" })))
@@ -100,5 +131,14 @@ pub async fn create_category(
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     let category = ProductService::create_category(&state.db, &req).await?;
+
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ERP", "CATEGORY_CREATE",
+        Some("product_category"), Some(category.id), Some(&category.name),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (CATEGORY_CREATE): {}", e);
+    }
+
     Ok(Json(category))
 }

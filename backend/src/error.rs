@@ -28,6 +28,12 @@ pub enum AppError {
     #[error("Conflict: {0}")]
     Conflict(String),
 
+    #[error("Duplicate warning: {message}")]
+    DuplicateWarning {
+        message: String,
+        existing_pigs: Vec<serde_json::Value>,
+    },
+
     #[error("Business rule violation: {0}")]
     BusinessRule(String),
 
@@ -49,6 +55,20 @@ impl From<rust_xlsxwriter::XlsxError> for AppError {
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
+        // DuplicateWarning 需要特殊的 JSON 回應格式
+        if let AppError::DuplicateWarning { message, existing_pigs } = &self {
+            let body = Json(json!({
+                "error": {
+                    "message": message,
+                    "code": 409,
+                    "blocking": false,
+                    "warning_type": "duplicate_ear_tag",
+                    "existing_pigs": existing_pigs
+                }
+            }));
+            return (StatusCode::CONFLICT, body).into_response();
+        }
+
         let (status, error_message) = match &self {
             AppError::Unauthorized => (StatusCode::UNAUTHORIZED, self.to_string()),
             AppError::Forbidden(msg) => (StatusCode::FORBIDDEN, msg.clone()),
@@ -56,6 +76,7 @@ impl IntoResponse for AppError {
             AppError::Validation(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
             AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
             AppError::Conflict(msg) => (StatusCode::CONFLICT, msg.clone()),
+            AppError::DuplicateWarning { .. } => unreachable!(), // 已在前面 if let 處理
             AppError::BusinessRule(msg) => (StatusCode::UNPROCESSABLE_ENTITY, msg.clone()),
             AppError::Internal(msg) => {
                 tracing::error!("Internal error: {}", msg);
@@ -75,7 +96,8 @@ impl IntoResponse for AppError {
         let body = Json(json!({
             "error": {
                 "message": error_message,
-                "code": status.as_u16()
+                "code": status.as_u16(),
+                "blocking": true
             }
         }));
 

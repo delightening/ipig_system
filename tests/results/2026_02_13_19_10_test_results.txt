@@ -1,0 +1,1251 @@
+
+╔══════════════════════════════════════════════════════════╗
+║            iPig System — 整合測試套件                  ║
+║                                                          ║
+║   1. AUP 完整審查流程測試                               ║
+║   2. ERP 完整倉庫管理測試（含報表驗證）                  ║
+║   3. 動物管理系統完整測試                                ║
+║   4. 血液檢查組合完整測試                                ║
+║   5. HR 人員管理系統完整測試                             ║
+╚══════════════════════════════════════════════════════════╝
+
+
+████████████████████████████████████████████████████████████
+█  [1/5] AUP 完整審查流程測試
+████████████████████████████████████████████████████████████
+
+============================================================
+[Setup] 建立測試帳號...
+============================================================
+  ✓ 管理員登入成功
+  ✓ 取得 11 個角色: ['ADMIN_STAFF', 'CLIENT', 'EXPERIMENT_STAFF', 'IACUC_CHAIR', 'IACUC_STAFF', 'PI', 'PURCHASING', 'REVIEWER', 'VET', 'WAREHOUSE_MANAGER', 'admin']
+    ✓ IACUC_STAFF          (staff_int_test@example.com) — 已存在
+    ✓ REVIEWER1            (rev1_int_test@example.com) — 已存在
+    ✓ REVIEWER2            (rev2_int_test@example.com) — 已存在
+    ✓ REVIEWER3            (rev3_int_test@example.com) — 已存在
+    ✓ IACUC_CHAIR          (chair_int_test@example.com) — 已存在
+    ✓ PI                   (pi_int_test@example.com) — 已存在
+    ✓ VET                  (vet_int_test@example.com) — 已存在
+    ✓ REV_OTHER            (revother_int_test@example.com) — 已存在
+
+  [結果] 新建 0 / 已存在 8 / 共 8
+
+============================================================
+[Auth] 登入所有測試帳號...
+============================================================
+  ✓ IACUC_STAFF          登入成功 (ID: 8b0c4acf...)
+  ✓ REVIEWER1            登入成功 (ID: 11f79f12...)
+  ✓ REVIEWER2            登入成功 (ID: 5374fe79...)
+  ✓ REVIEWER3            登入成功 (ID: 29711d35...)
+  ✓ IACUC_CHAIR          登入成功 (ID: 12ccd288...)
+  ✓ PI                   登入成功 (ID: 210104f7...)
+  ✓ VET                  登入成功 (ID: 05fbca61...)
+  ✓ REV_OTHER            登入成功 (ID: d0959864...)
+
+  ✓ 8/8 帳號全部登入成功
+
+============================================================
+[Step 1] PI 建立計畫書並提交
+============================================================
+  ✓ [POST  ] /localhost:8000/api/protocols -> 200
+  ✅ 建立計畫書 — ID: 79b09135...
+  ✓ [POST  ] /protocols/79b09135-99e3-42e4-89cc-9b9dc1b4ac31/co-editors -> 200
+  ✓ [POST  ] /protocols/79b09135-99e3-42e4-89cc-9b9dc1b4ac31/submit -> 200
+  ✓ [GET   ] /api/protocols/79b09135-99e3-42e4-89cc-9b9dc1b4ac31 -> 200
+  ✅ PI 提交計畫書 — status=SUBMITTED
+
+============================================================
+[Step 2] STAFF 行政預審 + 留言
+============================================================
+  ✓ [POST  ] /protocols/79b09135-99e3-42e4-89cc-9b9dc1b4ac31/status -> 200
+  ✓ [GET   ] /protocols/79b09135-99e3-42e4-89cc-9b9dc1b4ac31/versions -> 200
+  ✓ [POST  ] /api/reviews/comments -> 200
+  ✅ Staff 預審留言
+
+============================================================
+[Step 3] PI 回覆預審意見
+============================================================
+  ✓ [POST  ] /reviews/comments/reply -> 200
+  ✅ PI 回覆預審意見
+
+============================================================
+[Step 4] Staff 要求修訂 → PI 修改重送
+============================================================
+  ✓ [POST  ] /protocols/79b09135-99e3-42e4-89cc-9b9dc1b4ac31/status -> 200
+  ✓ [PUT   ] /api/protocols/79b09135-99e3-42e4-89cc-9b9dc1b4ac31 -> 200
+  ✓ [POST  ] /protocols/79b09135-99e3-42e4-89cc-9b9dc1b4ac31/submit -> 200
+  ✓ [GET   ] /api/protocols/79b09135-99e3-42e4-89cc-9b9dc1b4ac31 -> 200
+  ✅ PI 修訂後重送 — status=RESUBMITTED
+
+============================================================
+[Step 5] 醫療審查 (VET)
+============================================================
+  ✓ [POST  ] /protocols/79b09135-99e3-42e4-89cc-9b9dc1b4ac31/status -> 200
+  ✓ [POST  ] /comments/47a55f00-fa3a-4efb-b730-58a3b592324f/resolve -> 200
+  ✓ [POST  ] /protocols/79b09135-99e3-42e4-89cc-9b9dc1b4ac31/status -> 200
+  ✓ [POST  ] /api/reviews/comments -> 200
+  ✓ [POST  ] /reviews/comments/reply -> 200
+  ✓ [POST  ] /protocols/79b09135-99e3-42e4-89cc-9b9dc1b4ac31/status -> 200
+  ✓ [PUT   ] /api/protocols/79b09135-99e3-42e4-89cc-9b9dc1b4ac31 -> 200
+  ✓ [POST  ] /protocols/79b09135-99e3-42e4-89cc-9b9dc1b4ac31/submit -> 200
+  ✅ 醫療審查完成
+
+============================================================
+[Step 6] 解決 VET 審查意見
+============================================================
+  ✓ [POST  ] /comments/20f212f5-56c3-4c6d-90d1-2217c112398b/resolve -> 200
+  ✅ VET 意見已解決
+
+============================================================
+[Step 7] 指派委員進入倫理審查
+============================================================
+  ✓ [POST  ] /protocols/79b09135-99e3-42e4-89cc-9b9dc1b4ac31/status -> 200
+  ✓ [GET   ] /api/protocols/79b09135-99e3-42e4-89cc-9b9dc1b4ac31 -> 200
+  ✅ 進入倫理審查 — status=UNDER_REVIEW
+
+============================================================
+[Step 8] 3 名委員發表審查意見
+============================================================
+  ✓ [GET   ] /protocols/79b09135-99e3-42e4-89cc-9b9dc1b4ac31/versions -> 200
+  ✓ [POST  ] /api/reviews/comments -> 200
+  ✓ [POST  ] /api/reviews/comments -> 200
+  ✓ [POST  ] /api/reviews/comments -> 200
+  ✅ 3 名委員留言
+
+============================================================
+[Step 9] 非指定委員 (REV_OTHER) 發表意見
+============================================================
+  ✓ [POST  ] /api/reviews/comments -> 200
+  ✅ 非指定委員留言
+
+============================================================
+[Step 10] PI 回覆所有審查委員
+============================================================
+  ✓ [POST  ] /reviews/comments/reply -> 200
+  ✓ [POST  ] /reviews/comments/reply -> 200
+  ✓ [POST  ] /reviews/comments/reply -> 200
+  ✓ [POST  ] /reviews/comments/reply -> 200
+  ✅ PI 回覆所有意見
+
+============================================================
+[Step 11] Staff 要求修正計畫書
+============================================================
+  ✓ [POST  ] /protocols/79b09135-99e3-42e4-89cc-9b9dc1b4ac31/status -> 200
+  ✅ Staff 要求修正
+
+============================================================
+[Step 12] 解決所有審查意見並重新提交
+============================================================
+  ✓ [POST  ] /comments/3aae34c6-0f00-4b85-91b4-5a64f545f473/resolve -> 200
+  ✓ [POST  ] /comments/aec535e0-df32-471f-ac5d-19db7f77be15/resolve -> 200
+  ✓ [POST  ] /comments/695ab4c2-3c63-4c60-b37c-532385d98326/resolve -> 200
+  ✓ [POST  ] /comments/13b1ea98-6f73-4573-8ab3-dc0e0a47e5c3/resolve -> 200
+  ✓ [PUT   ] /api/protocols/79b09135-99e3-42e4-89cc-9b9dc1b4ac31 -> 200
+  ✓ [POST  ] /protocols/79b09135-99e3-42e4-89cc-9b9dc1b4ac31/submit -> 200
+  ✅ 意見解決並重新提交
+
+============================================================
+[Step 13] 主委最終核定
+============================================================
+  ✓ [POST  ] /protocols/79b09135-99e3-42e4-89cc-9b9dc1b4ac31/status -> 200
+  ✓ [POST  ] /protocols/79b09135-99e3-42e4-89cc-9b9dc1b4ac31/status -> 200
+  ✓ [GET   ] /api/protocols/79b09135-99e3-42e4-89cc-9b9dc1b4ac31 -> 200
+  ✅ 主委核定通過 — status=APPROVED
+
+============================================================
+[完成] AUP 完整 14 步流程完成！Protocol ID: 79b09135-99e3-42e4-89cc-9b9dc1b4ac31
+============================================================
+
+============================================================
+[AUP 完整流程測試] 測試結果彙總
+============================================================
+  ✅ 建立計畫書
+  ✅ PI 提交計畫書
+  ✅ Staff 預審留言
+  ✅ PI 回覆預審意見
+  ✅ PI 修訂後重送
+  ✅ 醫療審查完成
+  ✅ VET 意見已解決
+  ✅ 進入倫理審查
+  ✅ 3 名委員留言
+  ✅ 非指定委員留言
+  ✅ PI 回覆所有意見
+  ✅ Staff 要求修正
+  ✅ 意見解決並重新提交
+  ✅ 主委核定通過
+
+  總計: 14 項 ✅ 14 / ❌ 0
+
+🎉 AUP 完整流程測試 — 所有測試通過！
+  ⏱ AUP 測試耗時: 0.7 秒
+
+████████████████████████████████████████████████████████████
+█  [2/5] ERP 完整倉庫管理測試（含報表驗證）
+████████████████████████████████████████████████████████████
+
+============================================================
+[Setup] 建立測試帳號...
+============================================================
+  ✓ 管理員登入成功
+  ✓ 取得 11 個角色: ['ADMIN_STAFF', 'CLIENT', 'EXPERIMENT_STAFF', 'IACUC_CHAIR', 'IACUC_STAFF', 'PI', 'PURCHASING', 'REVIEWER', 'VET', 'WAREHOUSE_MANAGER', 'admin']
+    ✓ WAREHOUSE_MANAGER    (wm_int_test@example.com) — 已存在
+    ✓ ADMIN_STAFF          (as_int_test@example.com) — 已存在
+
+  [結果] 新建 0 / 已存在 2 / 共 2
+
+============================================================
+[Auth] 登入所有測試帳號...
+============================================================
+  ✓ WAREHOUSE_MANAGER    登入成功 (ID: 9f64ec6c...)
+  ✓ ADMIN_STAFF          登入成功 (ID: af287e3f...)
+
+  ✓ 2/2 帳號全部登入成功
+
+============================================================
+[Step 1] Phase 1 — 建立倉庫 (3 個)
+============================================================
+  ✓ [POST  ] /localhost:8000/api/warehouses -> 200
+  → 倉庫 '原物料倉' -> ID: 57f9cda2...
+  ✓ [POST  ] /localhost:8000/api/warehouses -> 200
+  → 倉庫 '成品倉' -> ID: 582d02e8...
+  ✓ [POST  ] /localhost:8000/api/warehouses -> 200
+  → 倉庫 '冷藏倉' -> ID: 9c5fcda5...
+  ✅ 建立 3 個倉庫
+
+============================================================
+[Step 2] Phase 1 — 建立貨架 (每倉庫 7 個 = 共 21 個)
+============================================================
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✓ [POST  ] /localhost:8000/api/storage-locations -> 200
+  ✅ 建立 21 個貨架
+
+============================================================
+[Step 3] Phase 1 — 建立 50 個產品
+============================================================
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✓ [POST  ] /localhost:8000/api/products -> 200
+  ✅ 建立 50 個產品
+
+============================================================
+[Step 4] Phase 1 — 建立供應商
+============================================================
+  ✓ [POST  ] /localhost:8000/api/partners -> 200
+  ✓ [POST  ] /localhost:8000/api/partners -> 200
+  ✅ 建立 2 個供應商
+
+============================================================
+[Step 5] Phase 2 — 採購入庫 (PO → GRN)
+============================================================
+  ✓ [POST  ] /localhost:8000/api/documents -> 200
+  → PO #1 -> 17 個品項
+  ✓ [POST  ] /documents/c4166816-18e1-4773-9493-fc808261ab4e/submit -> 200
+  ✓ [POST  ] /documents/c4166816-18e1-4773-9493-fc808261ab4e/approve -> 200
+  ✓ [POST  ] /localhost:8000/api/documents -> 200
+  ✓ [POST  ] /documents/7aab987c-a0a0-42b7-bcb3-5e2a883327fc/submit -> 200
+  ✓ [POST  ] /documents/7aab987c-a0a0-42b7-bcb3-5e2a883327fc/approve -> 200
+  → GRN #1 -> 入庫 17 個品項到 7 個貨架
+  ✓ [POST  ] /localhost:8000/api/documents -> 200
+  → PO #2 -> 17 個品項
+  ✓ [POST  ] /documents/5a032074-50c0-4cc0-9aa1-384e43cfa199/submit -> 200
+  ✓ [POST  ] /documents/5a032074-50c0-4cc0-9aa1-384e43cfa199/approve -> 200
+  ✓ [POST  ] /localhost:8000/api/documents -> 200
+  ✓ [POST  ] /documents/1f4f4c3f-c96f-48dc-bece-40571f6c9c0d/submit -> 200
+  ✓ [POST  ] /documents/1f4f4c3f-c96f-48dc-bece-40571f6c9c0d/approve -> 200
+  → GRN #2 -> 入庫 17 個品項到 7 個貨架
+  ✓ [POST  ] /localhost:8000/api/documents -> 200
+  → PO #3 -> 16 個品項
+  ✓ [POST  ] /documents/76a1a6bc-819f-46f9-bf20-b32d989d8ca1/submit -> 200
+  ✓ [POST  ] /documents/76a1a6bc-819f-46f9-bf20-b32d989d8ca1/approve -> 200
+  ✓ [POST  ] /localhost:8000/api/documents -> 200
+  ✓ [POST  ] /documents/8f6eedaa-3272-4080-b52d-2ed87eb43970/submit -> 200
+  ✓ [POST  ] /documents/8f6eedaa-3272-4080-b52d-2ed87eb43970/approve -> 200
+  → GRN #3 -> 入庫 16 個品項到 7 個貨架
+  ✅ 採購入庫完成 — 3 張 PO + 3 張 GRN，共 50 個品項
+
+============================================================
+[Step 6] Phase 3 — 銷售出庫 (SO → DO)
+============================================================
+  ✓ [POST  ] /localhost:8000/api/documents -> 200
+  ✓ [POST  ] /documents/572e780d-3123-451e-b854-ef3d17edf962/submit -> 200
+  ✓ [POST  ] /documents/572e780d-3123-451e-b854-ef3d17edf962/approve -> 200
+  ✓ [POST  ] /localhost:8000/api/documents -> 200
+  ✓ [POST  ] /documents/cd74d723-9e26-48db-9e00-7ccd47ef9600/submit -> 200
+  ✓ [POST  ] /documents/cd74d723-9e26-48db-9e00-7ccd47ef9600/approve -> 200
+  ✅ 銷售出庫完成 — 5 個品項出庫
+
+============================================================
+[Step 7] Phase 4 — 倉庫間調撥 (TR)
+============================================================
+  ✓ [POST  ] /localhost:8000/api/documents -> 200
+  ✓ [POST  ] /documents/8cb9cb00-f170-4fac-828a-bcb8f1a6a0ec/submit -> 200
+  ✓ [POST  ] /documents/8cb9cb00-f170-4fac-828a-bcb8f1a6a0ec/approve -> 200
+  ✅ 調撥作業完成 — 3 個品項從倉庫1調至倉庫2
+
+============================================================
+[Step 8] Phase 5 — 庫存驗證
+============================================================
+  ✓ [GET   ] /api/inventory/on-hand -> 200
+  ✅ 查詢在手庫存 — 106 筆庫存記錄
+  ✓ [GET   ] /api/inventory/ledger -> 200
+  ✅ 查詢庫存帳簿 — 122 筆帳簿記錄
+
+============================================================
+[Step 9] Phase 5 — 貨架庫存驗證 (storage-locations/:id/inventory)
+============================================================
+  ✓ [GET   ] /storage-locations/4e4be338-a831-45b5-8a90-575fff6a9239/inventory -> 200
+  → 貨架 4e4be338... → 3 個品項
+  ✓ [GET   ] /storage-locations/df3087d0-df12-4557-bfb4-0576b2bdacba/inventory -> 200
+  → 貨架 df3087d0... → 3 個品項
+  ✓ [GET   ] /storage-locations/b028cbf4-df77-451f-b48e-d595da3e230f/inventory -> 200
+  → 貨架 b028cbf4... → 3 個品項
+  ✓ [GET   ] /storage-locations/84440482-8fa7-464e-bfd5-37e1fe7f7d0e/inventory -> 200
+  → 貨架 84440482... → 2 個品項
+  ✓ [GET   ] /storage-locations/9addb067-b596-41a1-bd02-5c16ecc225e9/inventory -> 200
+  → 貨架 9addb067... → 2 個品項
+  ✓ [GET   ] /storage-locations/e52be7b0-31cb-44b8-8dae-c86fb9fc6f1b/inventory -> 200
+  → 貨架 e52be7b0... → 2 個品項
+  ✓ [GET   ] /storage-locations/d0419acb-26d3-4344-b5bd-9ad250f43997/inventory -> 200
+  → 貨架 d0419acb... → 2 個品項
+  ✓ [GET   ] /storage-locations/fb429348-cf4c-4da7-b152-ce9b1bd072d7/inventory -> 200
+  → 貨架 fb429348... → 3 個品項
+  ✓ [GET   ] /storage-locations/fd0cb0d0-512c-4f07-886e-1e0b8e6fe5d6/inventory -> 200
+  → 貨架 fd0cb0d0... → 3 個品項
+  ✓ [GET   ] /storage-locations/0d26ff96-0301-4e14-8b33-464dbb5e9e99/inventory -> 200
+  → 貨架 0d26ff96... → 3 個品項
+  ✓ [GET   ] /storage-locations/4f022f5f-bb6c-4601-a7ef-50e67dd51289/inventory -> 200
+  → 貨架 4f022f5f... → 2 個品項
+  ✓ [GET   ] /storage-locations/bdb949e9-ce1e-4ef3-83d6-1132d9d8d605/inventory -> 200
+  → 貨架 bdb949e9... → 2 個品項
+  ✓ [GET   ] /storage-locations/7483057e-c0d7-4cc1-a852-228602fd89dd/inventory -> 200
+  → 貨架 7483057e... → 2 個品項
+  ✓ [GET   ] /storage-locations/81c5a423-8637-4891-b944-13a79cac9d9a/inventory -> 200
+  → 貨架 81c5a423... → 2 個品項
+  ✓ [GET   ] /storage-locations/3c0772c4-86b3-4c54-9050-1a5e58e532b2/inventory -> 200
+  → 貨架 3c0772c4... → 3 個品項
+  ✓ [GET   ] /storage-locations/13240658-e615-41cd-802b-3e3cdaff4ce6/inventory -> 200
+  → 貨架 13240658... → 3 個品項
+  ✓ [GET   ] /storage-locations/a4929cc5-1c10-412f-b688-3491a2351132/inventory -> 200
+  → 貨架 a4929cc5... → 2 個品項
+  ✓ [GET   ] /storage-locations/ac2c2d37-12a9-483c-99bd-2fa88039e7e2/inventory -> 200
+  → 貨架 ac2c2d37... → 2 個品項
+  ✓ [GET   ] /storage-locations/b05f0a75-7062-4e73-bf64-3a03a707a9d6/inventory -> 200
+  → 貨架 b05f0a75... → 2 個品項
+  ✓ [GET   ] /storage-locations/22a197e5-6caf-475e-8f29-c98fd574e1ba/inventory -> 200
+  → 貨架 22a197e5... → 2 個品項
+  ✓ [GET   ] /storage-locations/956db245-0149-40f5-b9d1-922cb1d016e8/inventory -> 200
+  → 貨架 956db245... → 2 個品項
+  ✅ 貨架庫存驗證 — 21/21 個貨架有庫存，共 50 個品項
+
+============================================================
+[Step 10] Phase 6 — 報表產生驗證
+============================================================
+  ✓ [GET   ] /api/reports/stock-on-hand -> 200
+  ✅ 庫存報表 (stock-on-hand) — 回傳 106 筆資料
+  ✓ [GET   ] /api/reports/stock-ledger -> 200
+  ✅ 帳簿報表 (stock-ledger) — 回傳 122 筆資料
+  ✓ [GET   ] /api/reports/purchase-lines -> 200
+  ✅ 採購明細報表 (purchase-lines) — 回傳 300 筆資料
+  ✓ [GET   ] /api/reports/sales-lines -> 200
+  ✅ 銷售明細報表 (sales-lines) — 回傳 20 筆資料
+  ✓ [GET   ] /api/reports/cost-summary -> 200
+  ✅ 成本彙總報表 (cost-summary) — 回傳有效 JSON
+
+============================================================
+[完成] ERP 完整流程測試完成！
+  倉庫: 3 | 貨架: 21 | 產品: 50
+  PO: 3 | GRN: 3 | SO: 1 | DO: 1 | TR: 1
+  報表: 5 種 (stock-on-hand, stock-ledger, purchase-lines, sales-lines, cost-summary)
+============================================================
+
+============================================================
+[ERP 完整流程測試] 測試結果彙總
+============================================================
+  ✅ 建立 3 個倉庫
+  ✅ 建立 21 個貨架
+  ✅ 建立 50 個產品
+  ✅ 建立 2 個供應商
+  ✅ 採購入庫完成
+  ✅ 銷售出庫完成
+  ✅ 調撥作業完成
+  ✅ 查詢在手庫存
+  ✅ 查詢庫存帳簿
+  ✅ 貨架庫存驗證
+  ✅ 庫存報表 (stock-on-hand)
+  ✅ 帳簿報表 (stock-ledger)
+  ✅ 採購明細報表 (purchase-lines)
+  ✅ 銷售明細報表 (sales-lines)
+  ✅ 成本彙總報表 (cost-summary)
+
+  總計: 15 項 ✅ 15 / ❌ 0
+
+🎉 ERP 完整流程測試 — 所有測試通過！
+  ⏱ ERP 測試耗時: 0.7 秒
+
+████████████████████████████████████████████████████████████
+█  [3/5] 動物管理系統完整測試
+████████████████████████████████████████████████████████████
+
+============================================================
+[Setup] 建立測試帳號...
+============================================================
+  ✓ 管理員登入成功
+  ✓ 取得 11 個角色: ['ADMIN_STAFF', 'CLIENT', 'EXPERIMENT_STAFF', 'IACUC_CHAIR', 'IACUC_STAFF', 'PI', 'PURCHASING', 'REVIEWER', 'VET', 'WAREHOUSE_MANAGER', 'admin']
+    ✓ VET                  (vet_animal_int@example.com) — 已存在
+    ✓ EXPERIMENT_STAFF     (exp_animal_int@example.com) — 已存在
+
+  [結果] 新建 0 / 已存在 2 / 共 2
+
+============================================================
+[Auth] 登入所有測試帳號...
+============================================================
+  ✓ VET                  登入成功 (ID: c614ebf3...)
+  ✓ EXPERIMENT_STAFF     登入成功 (ID: 7bf07687...)
+
+  ✓ 2/2 帳號全部登入成功
+
+============================================================
+[Step 1] Phase 1 — 建立豬源
+============================================================
+  ✓ [POST  ] /localhost:8000/api/pig-sources -> 200
+  ✅ 建立豬源 — ID: fab60b13...
+
+============================================================
+[Step 2] Phase 1 — 建立 20 隻豬
+============================================================
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  → 已建立 5/20 隻豬
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  → 已建立 10/20 隻豬
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  → 已建立 15/20 隻豬
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  → 已建立 20/20 隻豬
+  ✅ 建立 20 隻豬
+
+============================================================
+[Step 3] Phase 1 — 驗證創建記錄
+============================================================
+  ✓ [GET   ] /api/pigs/e9cea7de-cdfe-4c55-b0d9-5121550772c0 -> 200
+  ✓ [GET   ] /api/pigs/06925764-121b-4200-bea9-4eb230b7f11c -> 200
+  ✓ [GET   ] /api/pigs/947ec824-b636-4720-9d28-7de82f0383ad -> 200
+  ✓ [GET   ] /api/pigs/92978835-fb27-4990-b7d4-7fbe14a23331 -> 200
+  ✓ [GET   ] /api/pigs/bec4a99c-73c7-491d-9aad-b2cde01c8d87 -> 200
+  ✓ [GET   ] /api/pigs/55b02d6c-8cd0-4643-940e-6205f7716c2b -> 200
+  ✓ [GET   ] /api/pigs/86cfff7b-4362-436d-8dae-4cc372a97766 -> 200
+  ✓ [GET   ] /api/pigs/8f4a8bbf-82fc-499d-aa2d-a5e0c9aab1af -> 200
+  ✓ [GET   ] /api/pigs/2046a7a3-3f6f-49ee-9475-fe6fe7f5e49e -> 200
+  ✓ [GET   ] /api/pigs/27faa261-91d6-40fc-ba5d-edc51be124d0 -> 200
+  ✓ [GET   ] /api/pigs/3433d063-1bfd-4cd7-a784-7869de16f4d2 -> 200
+  ✓ [GET   ] /api/pigs/4cdf32fc-74f4-4071-a310-13ab6611c55c -> 200
+  ✓ [GET   ] /api/pigs/099781ae-420e-4c1b-830d-07f31ecc4d9b -> 200
+  ✓ [GET   ] /api/pigs/31952b39-5208-49b6-a620-493240c366b3 -> 200
+  ✓ [GET   ] /api/pigs/5435ac66-5d31-4468-b924-4a23110eaef5 -> 200
+  ✓ [GET   ] /api/pigs/5e5a20f8-cc13-438e-8864-088e27951efe -> 200
+  ✓ [GET   ] /api/pigs/7cda543b-7a29-4d17-a2ba-f1ddda0d3203 -> 200
+  ✓ [GET   ] /api/pigs/33c9d65b-3dfc-45ce-81ca-4070775d344f -> 200
+  ✓ [GET   ] /api/pigs/8f3bf3b7-9542-404a-ac27-f005b09f9918 -> 200
+  ✓ [GET   ] /api/pigs/859cab40-1f4b-4f74-abb1-ececb0ed03ee -> 200
+  ✅ 驗證創建記錄 — 20/20 筆正確
+
+============================================================
+[Step 4] Phase 2 — 體重紀錄（全部 20 隻，各 2~3 筆）
+============================================================
+  ✓ [POST  ] /pigs/e9cea7de-cdfe-4c55-b0d9-5121550772c0/weights -> 200
+  ✓ [POST  ] /pigs/e9cea7de-cdfe-4c55-b0d9-5121550772c0/weights -> 200
+  ✓ [POST  ] /pigs/06925764-121b-4200-bea9-4eb230b7f11c/weights -> 200
+  ✓ [POST  ] /pigs/06925764-121b-4200-bea9-4eb230b7f11c/weights -> 200
+  ✓ [POST  ] /pigs/947ec824-b636-4720-9d28-7de82f0383ad/weights -> 200
+  ✓ [POST  ] /pigs/947ec824-b636-4720-9d28-7de82f0383ad/weights -> 200
+  ✓ [POST  ] /pigs/92978835-fb27-4990-b7d4-7fbe14a23331/weights -> 200
+  ✓ [POST  ] /pigs/92978835-fb27-4990-b7d4-7fbe14a23331/weights -> 200
+  ✓ [POST  ] /pigs/bec4a99c-73c7-491d-9aad-b2cde01c8d87/weights -> 200
+  ✓ [POST  ] /pigs/bec4a99c-73c7-491d-9aad-b2cde01c8d87/weights -> 200
+  ✓ [POST  ] /pigs/55b02d6c-8cd0-4643-940e-6205f7716c2b/weights -> 200
+  ✓ [POST  ] /pigs/55b02d6c-8cd0-4643-940e-6205f7716c2b/weights -> 200
+  ✓ [POST  ] /pigs/86cfff7b-4362-436d-8dae-4cc372a97766/weights -> 200
+  ✓ [POST  ] /pigs/86cfff7b-4362-436d-8dae-4cc372a97766/weights -> 200
+  ✓ [POST  ] /pigs/8f4a8bbf-82fc-499d-aa2d-a5e0c9aab1af/weights -> 200
+  ✓ [POST  ] /pigs/8f4a8bbf-82fc-499d-aa2d-a5e0c9aab1af/weights -> 200
+  ✓ [POST  ] /pigs/2046a7a3-3f6f-49ee-9475-fe6fe7f5e49e/weights -> 200
+  ✓ [POST  ] /pigs/2046a7a3-3f6f-49ee-9475-fe6fe7f5e49e/weights -> 200
+  ✓ [POST  ] /pigs/27faa261-91d6-40fc-ba5d-edc51be124d0/weights -> 200
+  ✓ [POST  ] /pigs/27faa261-91d6-40fc-ba5d-edc51be124d0/weights -> 200
+  ✓ [POST  ] /pigs/3433d063-1bfd-4cd7-a784-7869de16f4d2/weights -> 200
+  ✓ [POST  ] /pigs/3433d063-1bfd-4cd7-a784-7869de16f4d2/weights -> 200
+  ✓ [POST  ] /pigs/3433d063-1bfd-4cd7-a784-7869de16f4d2/weights -> 200
+  ✓ [POST  ] /pigs/4cdf32fc-74f4-4071-a310-13ab6611c55c/weights -> 200
+  ✓ [POST  ] /pigs/4cdf32fc-74f4-4071-a310-13ab6611c55c/weights -> 200
+  ✓ [POST  ] /pigs/4cdf32fc-74f4-4071-a310-13ab6611c55c/weights -> 200
+  ✓ [POST  ] /pigs/099781ae-420e-4c1b-830d-07f31ecc4d9b/weights -> 200
+  ✓ [POST  ] /pigs/099781ae-420e-4c1b-830d-07f31ecc4d9b/weights -> 200
+  ✓ [POST  ] /pigs/099781ae-420e-4c1b-830d-07f31ecc4d9b/weights -> 200
+  ✓ [POST  ] /pigs/31952b39-5208-49b6-a620-493240c366b3/weights -> 200
+  ✓ [POST  ] /pigs/31952b39-5208-49b6-a620-493240c366b3/weights -> 200
+  ✓ [POST  ] /pigs/31952b39-5208-49b6-a620-493240c366b3/weights -> 200
+  ✓ [POST  ] /pigs/5435ac66-5d31-4468-b924-4a23110eaef5/weights -> 200
+  ✓ [POST  ] /pigs/5435ac66-5d31-4468-b924-4a23110eaef5/weights -> 200
+  ✓ [POST  ] /pigs/5435ac66-5d31-4468-b924-4a23110eaef5/weights -> 200
+  ✓ [POST  ] /pigs/5e5a20f8-cc13-438e-8864-088e27951efe/weights -> 200
+  ✓ [POST  ] /pigs/5e5a20f8-cc13-438e-8864-088e27951efe/weights -> 200
+  ✓ [POST  ] /pigs/5e5a20f8-cc13-438e-8864-088e27951efe/weights -> 200
+  ✓ [POST  ] /pigs/7cda543b-7a29-4d17-a2ba-f1ddda0d3203/weights -> 200
+  ✓ [POST  ] /pigs/7cda543b-7a29-4d17-a2ba-f1ddda0d3203/weights -> 200
+  ✓ [POST  ] /pigs/7cda543b-7a29-4d17-a2ba-f1ddda0d3203/weights -> 200
+  ✓ [POST  ] /pigs/33c9d65b-3dfc-45ce-81ca-4070775d344f/weights -> 200
+  ✓ [POST  ] /pigs/33c9d65b-3dfc-45ce-81ca-4070775d344f/weights -> 200
+  ✓ [POST  ] /pigs/33c9d65b-3dfc-45ce-81ca-4070775d344f/weights -> 200
+  ✓ [POST  ] /pigs/8f3bf3b7-9542-404a-ac27-f005b09f9918/weights -> 200
+  ✓ [POST  ] /pigs/8f3bf3b7-9542-404a-ac27-f005b09f9918/weights -> 200
+  ✓ [POST  ] /pigs/8f3bf3b7-9542-404a-ac27-f005b09f9918/weights -> 200
+  ✓ [POST  ] /pigs/859cab40-1f4b-4f74-abb1-ececb0ed03ee/weights -> 200
+  ✓ [POST  ] /pigs/859cab40-1f4b-4f74-abb1-ececb0ed03ee/weights -> 200
+  ✓ [POST  ] /pigs/859cab40-1f4b-4f74-abb1-ececb0ed03ee/weights -> 200
+  ✅ 記錄體重 — 共 50 筆體重紀錄
+  ✓ [GET   ] /pigs/e9cea7de-cdfe-4c55-b0d9-5121550772c0/weights -> 200
+  ✓ [GET   ] /pigs/06925764-121b-4200-bea9-4eb230b7f11c/weights -> 200
+  ✓ [GET   ] /pigs/947ec824-b636-4720-9d28-7de82f0383ad/weights -> 200
+  ✓ [GET   ] /pigs/92978835-fb27-4990-b7d4-7fbe14a23331/weights -> 200
+  ✓ [GET   ] /pigs/bec4a99c-73c7-491d-9aad-b2cde01c8d87/weights -> 200
+  ✓ [GET   ] /pigs/55b02d6c-8cd0-4643-940e-6205f7716c2b/weights -> 200
+  ✓ [GET   ] /pigs/86cfff7b-4362-436d-8dae-4cc372a97766/weights -> 200
+  ✓ [GET   ] /pigs/8f4a8bbf-82fc-499d-aa2d-a5e0c9aab1af/weights -> 200
+  ✓ [GET   ] /pigs/2046a7a3-3f6f-49ee-9475-fe6fe7f5e49e/weights -> 200
+  ✓ [GET   ] /pigs/27faa261-91d6-40fc-ba5d-edc51be124d0/weights -> 200
+  ✓ [GET   ] /pigs/3433d063-1bfd-4cd7-a784-7869de16f4d2/weights -> 200
+  ✓ [GET   ] /pigs/4cdf32fc-74f4-4071-a310-13ab6611c55c/weights -> 200
+  ✓ [GET   ] /pigs/099781ae-420e-4c1b-830d-07f31ecc4d9b/weights -> 200
+  ✓ [GET   ] /pigs/31952b39-5208-49b6-a620-493240c366b3/weights -> 200
+  ✓ [GET   ] /pigs/5435ac66-5d31-4468-b924-4a23110eaef5/weights -> 200
+  ✓ [GET   ] /pigs/5e5a20f8-cc13-438e-8864-088e27951efe/weights -> 200
+  ✓ [GET   ] /pigs/7cda543b-7a29-4d17-a2ba-f1ddda0d3203/weights -> 200
+  ✓ [GET   ] /pigs/33c9d65b-3dfc-45ce-81ca-4070775d344f/weights -> 200
+  ✓ [GET   ] /pigs/8f3bf3b7-9542-404a-ac27-f005b09f9918/weights -> 200
+  ✓ [GET   ] /pigs/859cab40-1f4b-4f74-abb1-ececb0ed03ee/weights -> 200
+  ✅ 驗證體重紀錄可見 — 20/20 隻有體重
+  ✓ [GET   ] /localhost:8000/api/pigs -> 200
+  ✅ 列表顯示最新體重 — 20 隻可見最新體重
+
+============================================================
+[Step 5] Phase 3 — 觀察試驗紀錄（全部 20 隻）
+============================================================
+  ✓ [POST  ] /pigs/e9cea7de-cdfe-4c55-b0d9-5121550772c0/observations -> 200
+  ✓ [POST  ] /pigs/06925764-121b-4200-bea9-4eb230b7f11c/observations -> 200
+  ✓ [POST  ] /pigs/947ec824-b636-4720-9d28-7de82f0383ad/observations -> 200
+  ✓ [POST  ] /pigs/92978835-fb27-4990-b7d4-7fbe14a23331/observations -> 200
+  ✓ [POST  ] /pigs/bec4a99c-73c7-491d-9aad-b2cde01c8d87/observations -> 200
+  ✓ [POST  ] /pigs/55b02d6c-8cd0-4643-940e-6205f7716c2b/observations -> 200
+  ✓ [POST  ] /pigs/86cfff7b-4362-436d-8dae-4cc372a97766/observations -> 200
+  ✓ [POST  ] /pigs/8f4a8bbf-82fc-499d-aa2d-a5e0c9aab1af/observations -> 200
+  ✓ [POST  ] /pigs/2046a7a3-3f6f-49ee-9475-fe6fe7f5e49e/observations -> 200
+  ✓ [POST  ] /pigs/27faa261-91d6-40fc-ba5d-edc51be124d0/observations -> 200
+  → 已建立 10/20 隻的觀察紀錄
+  ✓ [POST  ] /pigs/3433d063-1bfd-4cd7-a784-7869de16f4d2/observations -> 200
+  ✓ [POST  ] /pigs/3433d063-1bfd-4cd7-a784-7869de16f4d2/observations -> 200
+  ✓ [POST  ] /pigs/4cdf32fc-74f4-4071-a310-13ab6611c55c/observations -> 200
+  ✓ [POST  ] /pigs/4cdf32fc-74f4-4071-a310-13ab6611c55c/observations -> 200
+  ✓ [POST  ] /pigs/099781ae-420e-4c1b-830d-07f31ecc4d9b/observations -> 200
+  ✓ [POST  ] /pigs/099781ae-420e-4c1b-830d-07f31ecc4d9b/observations -> 200
+  ✓ [POST  ] /pigs/31952b39-5208-49b6-a620-493240c366b3/observations -> 200
+  ✓ [POST  ] /pigs/31952b39-5208-49b6-a620-493240c366b3/observations -> 200
+  ✓ [POST  ] /pigs/5435ac66-5d31-4468-b924-4a23110eaef5/observations -> 200
+  ✓ [POST  ] /pigs/5435ac66-5d31-4468-b924-4a23110eaef5/observations -> 200
+  ✓ [POST  ] /pigs/5e5a20f8-cc13-438e-8864-088e27951efe/observations -> 200
+  ✓ [POST  ] /pigs/5e5a20f8-cc13-438e-8864-088e27951efe/observations -> 200
+  ✓ [POST  ] /pigs/7cda543b-7a29-4d17-a2ba-f1ddda0d3203/observations -> 200
+  ✓ [POST  ] /pigs/7cda543b-7a29-4d17-a2ba-f1ddda0d3203/observations -> 200
+  ✓ [POST  ] /pigs/33c9d65b-3dfc-45ce-81ca-4070775d344f/observations -> 200
+  ✓ [POST  ] /pigs/33c9d65b-3dfc-45ce-81ca-4070775d344f/observations -> 200
+  ✓ [POST  ] /pigs/8f3bf3b7-9542-404a-ac27-f005b09f9918/observations -> 200
+  ✓ [POST  ] /pigs/8f3bf3b7-9542-404a-ac27-f005b09f9918/observations -> 200
+  ✓ [POST  ] /pigs/859cab40-1f4b-4f74-abb1-ececb0ed03ee/observations -> 200
+  ✓ [POST  ] /pigs/859cab40-1f4b-4f74-abb1-ececb0ed03ee/observations -> 200
+  → 已建立 20/20 隻的觀察紀錄
+  ✅ 建立觀察紀錄 — 共 30 筆觀察紀錄
+  ✓ [GET   ] /pigs/e9cea7de-cdfe-4c55-b0d9-5121550772c0/observations -> 200
+  ✓ [GET   ] /pigs/06925764-121b-4200-bea9-4eb230b7f11c/observations -> 200
+  ✓ [GET   ] /pigs/947ec824-b636-4720-9d28-7de82f0383ad/observations -> 200
+  ✓ [GET   ] /pigs/92978835-fb27-4990-b7d4-7fbe14a23331/observations -> 200
+  ✓ [GET   ] /pigs/bec4a99c-73c7-491d-9aad-b2cde01c8d87/observations -> 200
+  ✓ [GET   ] /pigs/55b02d6c-8cd0-4643-940e-6205f7716c2b/observations -> 200
+  ✓ [GET   ] /pigs/86cfff7b-4362-436d-8dae-4cc372a97766/observations -> 200
+  ✓ [GET   ] /pigs/8f4a8bbf-82fc-499d-aa2d-a5e0c9aab1af/observations -> 200
+  ✓ [GET   ] /pigs/2046a7a3-3f6f-49ee-9475-fe6fe7f5e49e/observations -> 200
+  ✓ [GET   ] /pigs/27faa261-91d6-40fc-ba5d-edc51be124d0/observations -> 200
+  ✓ [GET   ] /pigs/3433d063-1bfd-4cd7-a784-7869de16f4d2/observations -> 200
+  ✓ [GET   ] /pigs/4cdf32fc-74f4-4071-a310-13ab6611c55c/observations -> 200
+  ✓ [GET   ] /pigs/099781ae-420e-4c1b-830d-07f31ecc4d9b/observations -> 200
+  ✓ [GET   ] /pigs/31952b39-5208-49b6-a620-493240c366b3/observations -> 200
+  ✓ [GET   ] /pigs/5435ac66-5d31-4468-b924-4a23110eaef5/observations -> 200
+  ✓ [GET   ] /pigs/5e5a20f8-cc13-438e-8864-088e27951efe/observations -> 200
+  ✓ [GET   ] /pigs/7cda543b-7a29-4d17-a2ba-f1ddda0d3203/observations -> 200
+  ✓ [GET   ] /pigs/33c9d65b-3dfc-45ce-81ca-4070775d344f/observations -> 200
+  ✓ [GET   ] /pigs/8f3bf3b7-9542-404a-ac27-f005b09f9918/observations -> 200
+  ✓ [GET   ] /pigs/859cab40-1f4b-4f74-abb1-ececb0ed03ee/observations -> 200
+  ✅ 驗證觀察紀錄 — 20/20 隻有觀察紀錄
+
+============================================================
+[Step 6] Phase 4 — 手術紀錄 + 術後觀察（豬 #1~#5）
+============================================================
+  ✓ [POST  ] /pigs/e9cea7de-cdfe-4c55-b0d9-5121550772c0/surgeries -> 200
+  → 豬 #1 手術 (腹腔) -> ID: daa6def8-2023-4c67-b08c-9363f3e46c5d
+  ✓ [POST  ] /pigs/06925764-121b-4200-bea9-4eb230b7f11c/surgeries -> 200
+  → 豬 #2 手術 (胸腔) -> ID: 0bac0e9d-7ef2-4c13-8f02-eabf74d9949c
+  ✓ [POST  ] /pigs/947ec824-b636-4720-9d28-7de82f0383ad/surgeries -> 200
+  → 豬 #3 手術 (頸部) -> ID: 2d86c5f9-8534-45c7-a4a7-49c1e04f94e2
+  ✓ [POST  ] /pigs/92978835-fb27-4990-b7d4-7fbe14a23331/surgeries -> 200
+  → 豬 #4 手術 (背部) -> ID: 726805e7-d165-44b8-b3f1-e2d8989cd834
+  ✓ [POST  ] /pigs/bec4a99c-73c7-491d-9aad-b2cde01c8d87/surgeries -> 200
+  → 豬 #5 手術 (四肢) -> ID: 16c0f75e-cbe6-4ffa-bf71-a9d085bf39b6
+  ✅ 建立手術紀錄 — 5 隻豬各 1 筆手術紀錄
+  → 建立術後觀察紀錄...
+  ✓ [POST  ] /pigs/e9cea7de-cdfe-4c55-b0d9-5121550772c0/observations -> 200
+  ✓ [POST  ] /pigs/e9cea7de-cdfe-4c55-b0d9-5121550772c0/observations -> 200
+  ✓ [POST  ] /pigs/e9cea7de-cdfe-4c55-b0d9-5121550772c0/observations -> 200
+  ✓ [POST  ] /pigs/06925764-121b-4200-bea9-4eb230b7f11c/observations -> 200
+  ✓ [POST  ] /pigs/06925764-121b-4200-bea9-4eb230b7f11c/observations -> 200
+  ✓ [POST  ] /pigs/06925764-121b-4200-bea9-4eb230b7f11c/observations -> 200
+  ✓ [POST  ] /pigs/947ec824-b636-4720-9d28-7de82f0383ad/observations -> 200
+  ✓ [POST  ] /pigs/947ec824-b636-4720-9d28-7de82f0383ad/observations -> 200
+  ✓ [POST  ] /pigs/947ec824-b636-4720-9d28-7de82f0383ad/observations -> 200
+  ✓ [POST  ] /pigs/92978835-fb27-4990-b7d4-7fbe14a23331/observations -> 200
+  ✓ [POST  ] /pigs/92978835-fb27-4990-b7d4-7fbe14a23331/observations -> 200
+  ✓ [POST  ] /pigs/92978835-fb27-4990-b7d4-7fbe14a23331/observations -> 200
+  ✓ [POST  ] /pigs/bec4a99c-73c7-491d-9aad-b2cde01c8d87/observations -> 200
+  ✓ [POST  ] /pigs/bec4a99c-73c7-491d-9aad-b2cde01c8d87/observations -> 200
+  ✓ [POST  ] /pigs/bec4a99c-73c7-491d-9aad-b2cde01c8d87/observations -> 200
+  ✅ 術後觀察紀錄 — 5 隻豬各 3 筆術後觀察
+  ✓ [GET   ] /pigs/e9cea7de-cdfe-4c55-b0d9-5121550772c0/surgeries -> 200
+  ✓ [GET   ] /pigs/06925764-121b-4200-bea9-4eb230b7f11c/surgeries -> 200
+  ✓ [GET   ] /pigs/947ec824-b636-4720-9d28-7de82f0383ad/surgeries -> 200
+  ✓ [GET   ] /pigs/92978835-fb27-4990-b7d4-7fbe14a23331/surgeries -> 200
+  ✓ [GET   ] /pigs/bec4a99c-73c7-491d-9aad-b2cde01c8d87/surgeries -> 200
+  ✅ 驗證手術紀錄 — 5/5 隻有手術紀錄
+
+============================================================
+[Step 7] Phase 5 — 疫苗/驅蟲紀錄（全部 20 隻）
+============================================================
+  ✓ [POST  ] /pigs/e9cea7de-cdfe-4c55-b0d9-5121550772c0/vaccinations -> 200
+  ✓ [POST  ] /pigs/06925764-121b-4200-bea9-4eb230b7f11c/vaccinations -> 200
+  ✓ [POST  ] /pigs/947ec824-b636-4720-9d28-7de82f0383ad/vaccinations -> 200
+  ✓ [POST  ] /pigs/92978835-fb27-4990-b7d4-7fbe14a23331/vaccinations -> 200
+  ✓ [POST  ] /pigs/bec4a99c-73c7-491d-9aad-b2cde01c8d87/vaccinations -> 200
+  ✓ [POST  ] /pigs/55b02d6c-8cd0-4643-940e-6205f7716c2b/vaccinations -> 200
+  ✓ [POST  ] /pigs/86cfff7b-4362-436d-8dae-4cc372a97766/vaccinations -> 200
+  ✓ [POST  ] /pigs/8f4a8bbf-82fc-499d-aa2d-a5e0c9aab1af/vaccinations -> 200
+  ✓ [POST  ] /pigs/2046a7a3-3f6f-49ee-9475-fe6fe7f5e49e/vaccinations -> 200
+  ✓ [POST  ] /pigs/27faa261-91d6-40fc-ba5d-edc51be124d0/vaccinations -> 200
+  ✓ [POST  ] /pigs/3433d063-1bfd-4cd7-a784-7869de16f4d2/vaccinations -> 200
+  ✓ [POST  ] /pigs/4cdf32fc-74f4-4071-a310-13ab6611c55c/vaccinations -> 200
+  ✓ [POST  ] /pigs/099781ae-420e-4c1b-830d-07f31ecc4d9b/vaccinations -> 200
+  ✓ [POST  ] /pigs/31952b39-5208-49b6-a620-493240c366b3/vaccinations -> 200
+  ✓ [POST  ] /pigs/5435ac66-5d31-4468-b924-4a23110eaef5/vaccinations -> 200
+  ✓ [POST  ] /pigs/5e5a20f8-cc13-438e-8864-088e27951efe/vaccinations -> 200
+  ✓ [POST  ] /pigs/7cda543b-7a29-4d17-a2ba-f1ddda0d3203/vaccinations -> 200
+  ✓ [POST  ] /pigs/33c9d65b-3dfc-45ce-81ca-4070775d344f/vaccinations -> 200
+  ✓ [POST  ] /pigs/8f3bf3b7-9542-404a-ac27-f005b09f9918/vaccinations -> 200
+  ✓ [POST  ] /pigs/859cab40-1f4b-4f74-abb1-ececb0ed03ee/vaccinations -> 200
+  ✅ 建立疫苗/驅蟲紀錄 — 共 20 筆
+  ✓ [GET   ] /pigs/e9cea7de-cdfe-4c55-b0d9-5121550772c0/vaccinations -> 200
+  ✓ [GET   ] /pigs/06925764-121b-4200-bea9-4eb230b7f11c/vaccinations -> 200
+  ✓ [GET   ] /pigs/947ec824-b636-4720-9d28-7de82f0383ad/vaccinations -> 200
+  ✓ [GET   ] /pigs/92978835-fb27-4990-b7d4-7fbe14a23331/vaccinations -> 200
+  ✓ [GET   ] /pigs/bec4a99c-73c7-491d-9aad-b2cde01c8d87/vaccinations -> 200
+  ✓ [GET   ] /pigs/55b02d6c-8cd0-4643-940e-6205f7716c2b/vaccinations -> 200
+  ✓ [GET   ] /pigs/86cfff7b-4362-436d-8dae-4cc372a97766/vaccinations -> 200
+  ✓ [GET   ] /pigs/8f4a8bbf-82fc-499d-aa2d-a5e0c9aab1af/vaccinations -> 200
+  ✓ [GET   ] /pigs/2046a7a3-3f6f-49ee-9475-fe6fe7f5e49e/vaccinations -> 200
+  ✓ [GET   ] /pigs/27faa261-91d6-40fc-ba5d-edc51be124d0/vaccinations -> 200
+  ✓ [GET   ] /pigs/3433d063-1bfd-4cd7-a784-7869de16f4d2/vaccinations -> 200
+  ✓ [GET   ] /pigs/4cdf32fc-74f4-4071-a310-13ab6611c55c/vaccinations -> 200
+  ✓ [GET   ] /pigs/099781ae-420e-4c1b-830d-07f31ecc4d9b/vaccinations -> 200
+  ✓ [GET   ] /pigs/31952b39-5208-49b6-a620-493240c366b3/vaccinations -> 200
+  ✓ [GET   ] /pigs/5435ac66-5d31-4468-b924-4a23110eaef5/vaccinations -> 200
+  ✓ [GET   ] /pigs/5e5a20f8-cc13-438e-8864-088e27951efe/vaccinations -> 200
+  ✓ [GET   ] /pigs/7cda543b-7a29-4d17-a2ba-f1ddda0d3203/vaccinations -> 200
+  ✓ [GET   ] /pigs/33c9d65b-3dfc-45ce-81ca-4070775d344f/vaccinations -> 200
+  ✓ [GET   ] /pigs/8f3bf3b7-9542-404a-ac27-f005b09f9918/vaccinations -> 200
+  ✓ [GET   ] /pigs/859cab40-1f4b-4f74-abb1-ececb0ed03ee/vaccinations -> 200
+  ✅ 驗證疫苗紀錄 — 20/20 隻有疫苗紀錄
+
+============================================================
+[Step 8] Phase 6 — 犧牲/採樣紀錄（豬 #16~#18）
+============================================================
+  ✓ [POST  ] /pigs/5e5a20f8-cc13-438e-8864-088e27951efe/sacrifice -> 200
+  → 豬 #16 犧牲/採樣紀錄已建立
+  ✓ [POST  ] /pigs/7cda543b-7a29-4d17-a2ba-f1ddda0d3203/sacrifice -> 200
+  → 豬 #17 犧牲/採樣紀錄已建立
+  ✓ [POST  ] /pigs/33c9d65b-3dfc-45ce-81ca-4070775d344f/sacrifice -> 200
+  → 豬 #18 犧牲/採樣紀錄已建立
+  ✅ 建立犧牲/採樣紀錄 — 3 隻豬
+  ✓ [GET   ] /pigs/5e5a20f8-cc13-438e-8864-088e27951efe/sacrifice -> 200
+  ✓ [GET   ] /pigs/7cda543b-7a29-4d17-a2ba-f1ddda0d3203/sacrifice -> 200
+  ✓ [GET   ] /pigs/33c9d65b-3dfc-45ce-81ca-4070775d344f/sacrifice -> 200
+  ✅ 驗證犧牲紀錄 — 3/3 筆確認
+
+============================================================
+[Step 9] Phase 7 — 動物資料更新
+============================================================
+  ✓ [PUT   ] /api/pigs/e9cea7de-cdfe-4c55-b0d9-5121550772c0 -> 200
+  ✓ [PUT   ] /api/pigs/06925764-121b-4200-bea9-4eb230b7f11c -> 200
+  ✓ [PUT   ] /api/pigs/947ec824-b636-4720-9d28-7de82f0383ad -> 200
+  ✓ [PUT   ] /api/pigs/92978835-fb27-4990-b7d4-7fbe14a23331 -> 200
+  ✓ [PUT   ] /api/pigs/bec4a99c-73c7-491d-9aad-b2cde01c8d87 -> 200
+  ✓ [PUT   ] /api/pigs/5e5a20f8-cc13-438e-8864-088e27951efe -> 200
+  ✓ [PUT   ] /api/pigs/7cda543b-7a29-4d17-a2ba-f1ddda0d3203 -> 200
+  ✓ [PUT   ] /api/pigs/33c9d65b-3dfc-45ce-81ca-4070775d344f -> 200
+  ✓ [GET   ] /api/pigs/e9cea7de-cdfe-4c55-b0d9-5121550772c0 -> 200
+  ✅ 驗證動物資料更新 — status=in_experiment, iacuc_no=IACUC-INT-2026-001
+
+============================================================
+[Step 10] Phase 8 — 病理組織報告（豬 #16~#18）
+============================================================
+  ✓ [POST  ] /pigs/5e5a20f8-cc13-438e-8864-088e27951efe/pathology -> 200
+  → 豬 #16 病理報告已建立
+  ✓ [POST  ] /pigs/7cda543b-7a29-4d17-a2ba-f1ddda0d3203/pathology -> 200
+  → 豬 #17 病理報告已建立
+  ✓ [POST  ] /pigs/33c9d65b-3dfc-45ce-81ca-4070775d344f/pathology -> 200
+  → 豬 #18 病理報告已建立
+  ✅ 建立病理報告 — 3 隻豬
+  ✓ [GET   ] /pigs/5e5a20f8-cc13-438e-8864-088e27951efe/pathology -> 200
+  ✓ [GET   ] /pigs/7cda543b-7a29-4d17-a2ba-f1ddda0d3203/pathology -> 200
+  ✓ [GET   ] /pigs/33c9d65b-3dfc-45ce-81ca-4070775d344f/pathology -> 200
+  ✅ 驗證病理報告 — 3/3 筆
+
+============================================================
+[Step 11] Phase 9 — 紀錄時間軸完整性驗證
+============================================================
+  ✓ [GET   ] /pigs/e9cea7de-cdfe-4c55-b0d9-5121550772c0/weights -> 200
+  ✓ [GET   ] /pigs/e9cea7de-cdfe-4c55-b0d9-5121550772c0/observations -> 200
+  ✓ [GET   ] /pigs/e9cea7de-cdfe-4c55-b0d9-5121550772c0/surgeries -> 200
+  ✓ [GET   ] /pigs/e9cea7de-cdfe-4c55-b0d9-5121550772c0/vaccinations -> 200
+  ✓ [GET   ] /pigs/06925764-121b-4200-bea9-4eb230b7f11c/weights -> 200
+  ✓ [GET   ] /pigs/06925764-121b-4200-bea9-4eb230b7f11c/observations -> 200
+  ✓ [GET   ] /pigs/06925764-121b-4200-bea9-4eb230b7f11c/surgeries -> 200
+  ✓ [GET   ] /pigs/06925764-121b-4200-bea9-4eb230b7f11c/vaccinations -> 200
+  ✓ [GET   ] /pigs/947ec824-b636-4720-9d28-7de82f0383ad/weights -> 200
+  ✓ [GET   ] /pigs/947ec824-b636-4720-9d28-7de82f0383ad/observations -> 200
+  ✓ [GET   ] /pigs/947ec824-b636-4720-9d28-7de82f0383ad/surgeries -> 200
+  ✓ [GET   ] /pigs/947ec824-b636-4720-9d28-7de82f0383ad/vaccinations -> 200
+  ✓ [GET   ] /pigs/92978835-fb27-4990-b7d4-7fbe14a23331/weights -> 200
+  ✓ [GET   ] /pigs/92978835-fb27-4990-b7d4-7fbe14a23331/observations -> 200
+  ✓ [GET   ] /pigs/92978835-fb27-4990-b7d4-7fbe14a23331/surgeries -> 200
+  ✓ [GET   ] /pigs/92978835-fb27-4990-b7d4-7fbe14a23331/vaccinations -> 200
+  ✓ [GET   ] /pigs/bec4a99c-73c7-491d-9aad-b2cde01c8d87/weights -> 200
+  ✓ [GET   ] /pigs/bec4a99c-73c7-491d-9aad-b2cde01c8d87/observations -> 200
+  ✓ [GET   ] /pigs/bec4a99c-73c7-491d-9aad-b2cde01c8d87/surgeries -> 200
+  ✓ [GET   ] /pigs/bec4a99c-73c7-491d-9aad-b2cde01c8d87/vaccinations -> 200
+  ✅ 手術豬時間軸完整 — 5/5 隻完整
+  ✓ [GET   ] /pigs/5e5a20f8-cc13-438e-8864-088e27951efe/weights -> 200
+  ✓ [GET   ] /pigs/5e5a20f8-cc13-438e-8864-088e27951efe/observations -> 200
+  ✓ [GET   ] /pigs/5e5a20f8-cc13-438e-8864-088e27951efe/vaccinations -> 200
+  ✓ [GET   ] /pigs/5e5a20f8-cc13-438e-8864-088e27951efe/sacrifice -> 200
+  ✓ [GET   ] /pigs/7cda543b-7a29-4d17-a2ba-f1ddda0d3203/weights -> 200
+  ✓ [GET   ] /pigs/7cda543b-7a29-4d17-a2ba-f1ddda0d3203/observations -> 200
+  ✓ [GET   ] /pigs/7cda543b-7a29-4d17-a2ba-f1ddda0d3203/vaccinations -> 200
+  ✓ [GET   ] /pigs/7cda543b-7a29-4d17-a2ba-f1ddda0d3203/sacrifice -> 200
+  ✓ [GET   ] /pigs/33c9d65b-3dfc-45ce-81ca-4070775d344f/weights -> 200
+  ✓ [GET   ] /pigs/33c9d65b-3dfc-45ce-81ca-4070775d344f/observations -> 200
+  ✓ [GET   ] /pigs/33c9d65b-3dfc-45ce-81ca-4070775d344f/vaccinations -> 200
+  ✓ [GET   ] /pigs/33c9d65b-3dfc-45ce-81ca-4070775d344f/sacrifice -> 200
+  ✅ 犧牲豬時間軸完整 — 3/3 隻完整
+  ✓ [GET   ] /pigs/55b02d6c-8cd0-4643-940e-6205f7716c2b/weights -> 200
+  ✓ [GET   ] /pigs/55b02d6c-8cd0-4643-940e-6205f7716c2b/observations -> 200
+  ✓ [GET   ] /pigs/55b02d6c-8cd0-4643-940e-6205f7716c2b/vaccinations -> 200
+  ✓ [GET   ] /pigs/86cfff7b-4362-436d-8dae-4cc372a97766/weights -> 200
+  ✓ [GET   ] /pigs/86cfff7b-4362-436d-8dae-4cc372a97766/observations -> 200
+  ✓ [GET   ] /pigs/86cfff7b-4362-436d-8dae-4cc372a97766/vaccinations -> 200
+  ✓ [GET   ] /pigs/8f4a8bbf-82fc-499d-aa2d-a5e0c9aab1af/weights -> 200
+  ✓ [GET   ] /pigs/8f4a8bbf-82fc-499d-aa2d-a5e0c9aab1af/observations -> 200
+  ✓ [GET   ] /pigs/8f4a8bbf-82fc-499d-aa2d-a5e0c9aab1af/vaccinations -> 200
+  ✓ [GET   ] /pigs/2046a7a3-3f6f-49ee-9475-fe6fe7f5e49e/weights -> 200
+  ✓ [GET   ] /pigs/2046a7a3-3f6f-49ee-9475-fe6fe7f5e49e/observations -> 200
+  ✓ [GET   ] /pigs/2046a7a3-3f6f-49ee-9475-fe6fe7f5e49e/vaccinations -> 200
+  ✓ [GET   ] /pigs/27faa261-91d6-40fc-ba5d-edc51be124d0/weights -> 200
+  ✓ [GET   ] /pigs/27faa261-91d6-40fc-ba5d-edc51be124d0/observations -> 200
+  ✓ [GET   ] /pigs/27faa261-91d6-40fc-ba5d-edc51be124d0/vaccinations -> 200
+  ✓ [GET   ] /pigs/3433d063-1bfd-4cd7-a784-7869de16f4d2/weights -> 200
+  ✓ [GET   ] /pigs/3433d063-1bfd-4cd7-a784-7869de16f4d2/observations -> 200
+  ✓ [GET   ] /pigs/3433d063-1bfd-4cd7-a784-7869de16f4d2/vaccinations -> 200
+  ✓ [GET   ] /pigs/4cdf32fc-74f4-4071-a310-13ab6611c55c/weights -> 200
+  ✓ [GET   ] /pigs/4cdf32fc-74f4-4071-a310-13ab6611c55c/observations -> 200
+  ✓ [GET   ] /pigs/4cdf32fc-74f4-4071-a310-13ab6611c55c/vaccinations -> 200
+  ✓ [GET   ] /pigs/099781ae-420e-4c1b-830d-07f31ecc4d9b/weights -> 200
+  ✓ [GET   ] /pigs/099781ae-420e-4c1b-830d-07f31ecc4d9b/observations -> 200
+  ✓ [GET   ] /pigs/099781ae-420e-4c1b-830d-07f31ecc4d9b/vaccinations -> 200
+  ✓ [GET   ] /pigs/31952b39-5208-49b6-a620-493240c366b3/weights -> 200
+  ✓ [GET   ] /pigs/31952b39-5208-49b6-a620-493240c366b3/observations -> 200
+  ✓ [GET   ] /pigs/31952b39-5208-49b6-a620-493240c366b3/vaccinations -> 200
+  ✓ [GET   ] /pigs/5435ac66-5d31-4468-b924-4a23110eaef5/weights -> 200
+  ✓ [GET   ] /pigs/5435ac66-5d31-4468-b924-4a23110eaef5/observations -> 200
+  ✓ [GET   ] /pigs/5435ac66-5d31-4468-b924-4a23110eaef5/vaccinations -> 200
+  ✅ 一般豬時間軸完整 — 10/10 隻完整
+
+============================================================
+[完成] 動物管理系統完整測試完成！
+  豬隻: 20 | 體重: 50 筆
+  觀察: 30 筆 | 手術: 5 筆
+  疫苗: 20 筆 | 犧牲: 3 筆
+============================================================
+
+============================================================
+[動物管理系統完整測試] 測試結果彙總
+============================================================
+  ✅ 建立豬源
+  ✅ 建立 20 隻豬
+  ✅ 驗證創建記錄
+  ✅ 記錄體重
+  ✅ 驗證體重紀錄可見
+  ✅ 列表顯示最新體重
+  ✅ 建立觀察紀錄
+  ✅ 驗證觀察紀錄
+  ✅ 建立手術紀錄
+  ✅ 術後觀察紀錄
+  ✅ 驗證手術紀錄
+  ✅ 建立疫苗/驅蟲紀錄
+  ✅ 驗證疫苗紀錄
+  ✅ 建立犧牲/採樣紀錄
+  ✅ 驗證犧牲紀錄
+  ✅ 驗證動物資料更新
+  ✅ 建立病理報告
+  ✅ 驗證病理報告
+  ✅ 手術豬時間軸完整
+  ✅ 犧牲豬時間軸完整
+  ✅ 一般豬時間軸完整
+
+  總計: 21 項 ✅ 21 / ❌ 0
+
+🎉 動物管理系統完整測試 — 所有測試通過！
+  ⏱ 動物管理測試耗時: 0.9 秒
+
+████████████████████████████████████████████████████████████
+█  [4/5] 血液檢查組合完整測試
+████████████████████████████████████████████████████████████
+
+============================================================
+[Setup] 建立測試帳號...
+============================================================
+  ✓ 管理員登入成功
+  ✓ 取得 11 個角色: ['ADMIN_STAFF', 'CLIENT', 'EXPERIMENT_STAFF', 'IACUC_CHAIR', 'IACUC_STAFF', 'PI', 'PURCHASING', 'REVIEWER', 'VET', 'WAREHOUSE_MANAGER', 'admin']
+    ✓ ADMIN                (admin@ipig.local) — 已存在
+    ✓ VET                  (vet_panel_test@example.com) — 已存在
+    ✓ EXPERIMENT_STAFF     (exp_panel_test@example.com) — 已存在
+
+  [結果] 新建 0 / 已存在 3 / 共 3
+
+============================================================
+[Auth] 登入所有測試帳號...
+============================================================
+  ✓ ADMIN                登入成功 (ID: ada80737...)
+  ✓ VET                  登入成功 (ID: 66abea28...)
+  ✓ EXPERIMENT_STAFF     登入成功 (ID: 6aab22c5...)
+
+  ✓ 3/3 帳號全部登入成功
+
+============================================================
+[Step 1] Phase 1 — 列表預設 Panel（Seed 資料驗證）
+============================================================
+  ✓ [GET   ] /localhost:8000/api/blood-test-panels -> 200
+  ✅ 列出啟用中組合 — 共 15 個組合（預期 ≥ 10，含 seed 的 14 個）
+  ✅ Seed 組合存在 (CBC/Liver/Kidney)
+  ✅ CBC 組合包含項目 — CBC 有 5 個項目
+  → CBC 項目：WBC (白血球計數), RBC (紅血球計數), HGB (血紅素), HCT (血容比), PLT (血小板計數)
+  ✓ [GET   ] /api/blood-test-panels/all -> 200
+  ✅ 列出所有組合（含停用） — 啟用 15 / 全部 15
+
+============================================================
+[Step 2] Phase 2 — Panel CRUD 操作
+============================================================
+  ✓ [GET   ] /localhost:8000/api/blood-test-templates -> 200
+  → 取得 64 個模板
+  ✓ [POST  ] /localhost:8000/api/blood-test-panels -> 200
+  ✅ 建立自訂組合 — ID: 32a7739b... key=test_panel_81153
+  ✅ 新組合包含正確項目數 — 預期 4 / 實際 4
+  ✓ [PUT   ] /api/blood-test-panels/32a7739b-f020-45ef-b341-d6622b3351a1 -> 200
+  ✅ 更新組合名稱/圖示
+  ✓ [PUT   ] /blood-test-panels/32a7739b-f020-45ef-b341-d6622b3351a1/items -> 200
+  ✅ 更新組合項目 — 預期 5 / 實際 5
+  ✓ [GET   ] /localhost:8000/api/blood-test-panels -> 200
+  ✅ 列表中可找到更新後的組合
+
+============================================================
+[Step 3] Phase 3 — 使用 Panel 建立血液檢查紀錄
+============================================================
+  ✓ [POST  ] /localhost:8000/api/pig-sources -> 200
+  ✓ [POST  ] /localhost:8000/api/pigs -> 200
+  ✅ 建立測試豬隻 — ID: a25bed39... ear_tag=153
+  ✓ [POST  ] /pigs/a25bed39-9c40-4da2-873d-409dfdae9ea8/blood-tests -> 200
+  ✅ 建立血液檢查（含 Panel 項目） — CBC(5項) + Liver(10項) = 15 項
+
+============================================================
+[Step 4] Phase 4 — 驗證 ERP 端可見（admin 帳號）
+============================================================
+  ✓ [GET   ] /localhost:8000/api/blood-test-panels -> 200
+  ✅ ADMIN 可列出組合
+  ✓ [GET   ] /api/blood-test-panels/all -> 200
+  ✅ ADMIN 可列出所有組合
+  ✓ [GET   ] /pigs/a25bed39-9c40-4da2-873d-409dfdae9ea8/blood-tests -> 200
+  ✅ ADMIN 可查詢血液檢查列表 — 共 1 筆
+  ✓ [GET   ] /api/blood-tests/90b66d90-45f3-4acf-bf71-d8d3547003d5 -> 200
+  ✅ ADMIN 可查看血檢詳情 — 項目數：15
+
+============================================================
+[Step 5] Phase 5 — 驗證動物端可見（VET 帳號）
+============================================================
+  ✓ [GET   ] /localhost:8000/api/blood-test-panels -> 200
+  ✅ VET 可列出組合
+  ✓ [GET   ] /pigs/a25bed39-9c40-4da2-873d-409dfdae9ea8/blood-tests -> 200
+  ✅ VET 可查詢血液檢查列表
+  ✓ [GET   ] /api/blood-tests/90b66d90-45f3-4acf-bf71-d8d3547003d5 -> 200
+  ✅ VET 可查看血檢詳情
+  ✅ 異常項目正確標記 — 預期 2 個異常 / 實際 2 個
+
+============================================================
+[Step 6] Phase 6 — STAFF 使用 Kidney 組合建立第二筆血檢
+============================================================
+  ✓ [POST  ] /pigs/a25bed39-9c40-4da2-873d-409dfdae9ea8/blood-tests -> 200
+  ✅ 建立第二筆血液檢查 (Kidney) — Kidney 3 項
+  ✓ [GET   ] /pigs/a25bed39-9c40-4da2-873d-409dfdae9ea8/blood-tests -> 200
+  ✅ 豬隻共有 2 筆血液檢查 — 實際 2 筆
+
+============================================================
+[Step 7] Phase 7 — 停用與恢復自訂組合
+============================================================
+  ✓ [DELETE] /api/blood-test-panels/32a7739b-f020-45ef-b341-d6622b3351a1 -> 200
+  ✅ 停用自訂組合
+  ✓ [GET   ] /localhost:8000/api/blood-test-panels -> 200
+  ✅ 停用組合從啟用列表隱藏
+  ✓ [GET   ] /api/blood-test-panels/all -> 200
+  ✅ 停用組合在全部列表可見
+  ✓ [PUT   ] /api/blood-test-panels/32a7739b-f020-45ef-b341-d6622b3351a1 -> 200
+  ✓ [GET   ] /localhost:8000/api/blood-test-panels -> 200
+  ✅ 恢復組合後列表可見
+
+============================================================
+[Step 8] Phase 8 — 模板 API 驗證（各角色皆可讀取）
+============================================================
+  ✓ [GET   ] /localhost:8000/api/blood-test-templates -> 200
+  ✅ ADMIN 可讀取模板列表 — 共 64 個模板
+  ✓ [GET   ] /localhost:8000/api/blood-test-templates -> 200
+  ✅ VET 可讀取模板列表 — 共 64 個模板
+  ✓ [GET   ] /localhost:8000/api/blood-test-templates -> 200
+  ✅ EXPERIMENT_STAFF 可讀取模板列表 — 共 64 個模板
+
+============================================================
+[完成] 血液檢查組合 (Panel) 測試完成！
+  組合數: 15 | 測試建立組合 ID: 32a7739b...
+  血液檢查: 2 筆 (CBC+Liver / Kidney)
+  測試豬隻: a25bed39...
+============================================================
+
+============================================================
+[血液檢查組合 (Panel) 測試] 測試結果彙總
+============================================================
+  ✅ 列出啟用中組合
+  ✅ Seed 組合存在 (CBC/Liver/Kidney)
+  ✅ CBC 組合包含項目
+  ✅ 列出所有組合（含停用）
+  ✅ 建立自訂組合
+  ✅ 新組合包含正確項目數
+  ✅ 更新組合名稱/圖示
+  ✅ 更新組合項目
+  ✅ 列表中可找到更新後的組合
+  ✅ 建立測試豬隻
+  ✅ 建立血液檢查（含 Panel 項目）
+  ✅ ADMIN 可列出組合
+  ✅ ADMIN 可列出所有組合
+  ✅ ADMIN 可查詢血液檢查列表
+  ✅ ADMIN 可查看血檢詳情
+  ✅ VET 可列出組合
+  ✅ VET 可查詢血液檢查列表
+  ✅ VET 可查看血檢詳情
+  ✅ 異常項目正確標記
+  ✅ 建立第二筆血液檢查 (Kidney)
+  ✅ 豬隻共有 2 筆血液檢查
+  ✅ 停用自訂組合
+  ✅ 停用組合從啟用列表隱藏
+  ✅ 停用組合在全部列表可見
+  ✅ 恢復組合後列表可見
+  ✅ ADMIN 可讀取模板列表
+  ✅ VET 可讀取模板列表
+  ✅ EXPERIMENT_STAFF 可讀取模板列表
+
+  總計: 28 項 ✅ 28 / ❌ 0
+
+🎉 血液檢查組合 (Panel) 測試 — 所有測試通過！
+  ⏱ 血液檢查測試耗時: 0.3 秒
+
+████████████████████████████████████████████████████████████
+█  [5/5] HR 人員管理系統完整測試
+████████████████████████████████████████████████████████████
+
+============================================================
+[Setup] 建立測試帳號...
+============================================================
+  ✓ 管理員登入成功
+  ✓ 取得 11 個角色: ['ADMIN_STAFF', 'CLIENT', 'EXPERIMENT_STAFF', 'IACUC_CHAIR', 'IACUC_STAFF', 'PI', 'PURCHASING', 'REVIEWER', 'VET', 'WAREHOUSE_MANAGER', 'admin']
+    ✓ ADMIN                (admin@ipig.local) — 已存在
+    ✓ ADMIN_STAFF          (hr_admin_staff_test@example.com) — 已存在
+    ✓ EXPERIMENT_STAFF     (hr_exp_staff_test@example.com) — 已存在
+
+  [結果] 新建 0 / 已存在 3 / 共 3
+
+============================================================
+[Auth] 登入所有測試帳號...
+============================================================
+  ✓ ADMIN                登入成功 (ID: ada80737...)
+  ✓ ADMIN_STAFF          登入成功 (ID: d19e9897...)
+  ✓ EXPERIMENT_STAFF     登入成功 (ID: 885adefc...)
+
+  ✓ 3/3 帳號全部登入成功
+
+============================================================
+[Step 1] Phase 1 — 打卡上班
+============================================================
+  ✅ 打卡上班 — 已打卡過 (今天已經打卡上班)
+
+============================================================
+[Step 2] Phase 1 — 打卡下班
+============================================================
+  ✅ 打卡下班 — clock_out_time=2026-02-13T11:12:34.707593Z
+
+============================================================
+[Step 3] Phase 2 — 出勤查詢
+============================================================
+  ✓ [GET   ] /api/hr/attendance -> 200
+  ✅ 查詢自己出勤記錄 — 共 1 筆出勤記錄
+  ✓ [GET   ] /hr/attendance/stats -> 200
+  ✅ 管理員查看出勤統計 — 回傳成功
+
+============================================================
+[Step 4] Phase 3 — 加班申請（核准流程）
+============================================================
+  ✓ [POST  ] /api/hr/overtime -> 201
+  ✅ 建立加班申請 (核准用) — ID: 8f1b782b... status=draft
+  ✓ [GET   ] /api/hr/overtime -> 200
+  ✅ 查詢加班紀錄 — 共 3 筆加班記錄
+  ✓ [POST  ] /overtime/8f1b782b-25f4-40fd-80b5-4d54598e7b47/submit -> 200
+  ✅ 提交加班申請 — status=pending_admin_staff
+  ✓ [POST  ] /overtime/8f1b782b-25f4-40fd-80b5-4d54598e7b47/approve -> 200
+  ✅ 行政核准加班（第一級） — status=pending_admin
+  ✓ [POST  ] /overtime/8f1b782b-25f4-40fd-80b5-4d54598e7b47/approve -> 200
+  ✅ 管理員核准加班（第二級） — status=approved
+
+============================================================
+[Step 5] Phase 3 — 加班申請（駁回流程）
+============================================================
+  ✓ [POST  ] /api/hr/overtime -> 201
+  ✓ [POST  ] /overtime/62b9f506-d7e9-4cdd-9c84-27a4fe0ed29c/submit -> 200
+  ✓ [POST  ] /overtime/62b9f506-d7e9-4cdd-9c84-27a4fe0ed29c/reject -> 200
+  ✅ 加班駁回 — status=rejected
+  ✓ [GET   ] /hr/overtime/8f1b782b-25f4-40fd-80b5-4d54598e7b47 -> 200
+  ✅ 查看加班詳情 — hours=3.00, type=A
+
+============================================================
+[Step 6] Phase 4 — 請假申請（事假 → 核准）
+============================================================
+  ✓ [POST  ] /api/hr/leaves -> 201
+  ✅ 建立事假申請 — ID: c85208e1... status=DRAFT
+  ✓ [POST  ] /leaves/c85208e1-b360-47e7-a1fc-a29f378ff86b/submit -> 200
+  ✅ 提交事假申請 — status=PENDING_L1
+  ✓ [POST  ] /leaves/c85208e1-b360-47e7-a1fc-a29f378ff86b/approve -> 200
+  → 核准第 1 級 → status=PENDING_HR
+  ✓ [POST  ] /leaves/c85208e1-b360-47e7-a1fc-a29f378ff86b/approve -> 200
+  → 核准第 2 級 → status=PENDING_GM
+  ✓ [POST  ] /leaves/c85208e1-b360-47e7-a1fc-a29f378ff86b/approve -> 200
+  → 核准第 3 級 → status=APPROVED
+  ✅ 事假核准完成 — 經過 3 級核准 → status=APPROVED
+
+============================================================
+[Step 7] Phase 4 — 請假申請（病假 → 駁回）
+============================================================
+  ✓ [POST  ] /api/hr/leaves -> 201
+  ✓ [POST  ] /leaves/ee2f6134-83ff-4cc5-aa16-401eceaeaa3b/submit -> 200
+  ✓ [POST  ] /leaves/ee2f6134-83ff-4cc5-aa16-401eceaeaa3b/reject -> 200
+  ✅ 病假駁回 — status=REJECTED
+
+============================================================
+[Step 8] Phase 4 — 請假申請（事假 → 取消）
+============================================================
+  ✓ [POST  ] /api/hr/leaves -> 201
+  ✓ [POST  ] /leaves/fd837115-2b1a-4324-81ec-c1f9a384f483/submit -> 200
+  ✓ [POST  ] /leaves/fd837115-2b1a-4324-81ec-c1f9a384f483/cancel -> 200
+  ✅ 事假取消 — status=CANCELLED
+  ✓ [GET   ] /api/hr/leaves -> 200
+  ✅ 查詢請假列表 — 共 7 筆請假記錄
+  ✓ [GET   ] /hr/leaves/c85208e1-b360-47e7-a1fc-a29f378ff86b -> 200
+  ✅ 查看請假詳情 — leave_type=PERSONAL, status=APPROVED
+
+============================================================
+[Step 9] Phase 5 — 特休假額度建立
+============================================================
+  ✅ 建立特休額度 — 已存在（500），使用既有額度
+
+============================================================
+[Step 10] Phase 5 — 查詢特休餘額
+============================================================
+  ✓ [GET   ] /hr/balances/annual -> 200
+  ✅ 查詢特休餘額 — 共 1 筆特休額度
+  ✅ 特休額度正確 — entitled=14.0 used=0.0 remaining=14.0
+
+============================================================
+[Step 11] Phase 5 — 使用特休假
+============================================================
+  ✓ [POST  ] /api/hr/leaves -> 201
+  ✅ 建立特休假申請 — ID: bbb539be... days=2
+  ✓ [POST  ] /leaves/bbb539be-5d0a-40f0-ac94-78a9ae1f80f5/submit -> 200
+  ✓ [POST  ] /leaves/bbb539be-5d0a-40f0-ac94-78a9ae1f80f5/approve -> 200
+  ✓ [POST  ] /leaves/bbb539be-5d0a-40f0-ac94-78a9ae1f80f5/approve -> 200
+  ✓ [POST  ] /leaves/bbb539be-5d0a-40f0-ac94-78a9ae1f80f5/approve -> 200
+  ✅ 特休假核准 — status=APPROVED
+
+============================================================
+[Step 12] Phase 6 — 餘額彙總
+============================================================
+  ✓ [GET   ] /hr/balances/summary -> 200
+  ✅ 查看餘額摘要 — annual_remaining=14.0 comp_remaining=0.0
+  ✓ [GET   ] /hr/balances/comp-time -> 200
+  ✅ 查看補休餘額 — 共 2 筆補休
+  ✓ [GET   ] /hr/balances/expired-compensation -> 200
+  ✅ 查看過期特休報表 — 共 0 筆過期待補償
+  ✓ [GET   ] /hr/dashboard/calendar -> 200
+  ✅ 查看儀表板日曆 — today=2026-02-13
+
+============================================================
+[完成] HR 人員管理系統完整測試完成！
+  打卡: 上班+下班 | 加班: 核准+駁回
+  請假: 事假(核准)+病假(駁回)+事假(取消)+特休(核准)
+  特休額度: 14天 | 餘額彙總: 確認
+============================================================
+
+============================================================
+[HR 人員管理系統完整測試] 測試結果彙總
+============================================================
+  ✅ 打卡上班
+  ✅ 打卡下班
+  ✅ 查詢自己出勤記錄
+  ✅ 管理員查看出勤統計
+  ✅ 建立加班申請 (核准用)
+  ✅ 查詢加班紀錄
+  ✅ 提交加班申請
+  ✅ 行政核准加班（第一級）
+  ✅ 管理員核准加班（第二級）
+  ✅ 加班駁回
+  ✅ 查看加班詳情
+  ✅ 建立事假申請
+  ✅ 提交事假申請
+  ✅ 事假核准完成
+  ✅ 病假駁回
+  ✅ 事假取消
+  ✅ 查詢請假列表
+  ✅ 查看請假詳情
+  ✅ 建立特休額度
+  ✅ 查詢特休餘額
+  ✅ 特休額度正確
+  ✅ 建立特休假申請
+  ✅ 特休假核准
+  ✅ 查看餘額摘要
+  ✅ 查看補休餘額
+  ✅ 查看過期特休報表
+  ✅ 查看儀表板日曆
+
+  總計: 27 項 ✅ 27 / ❌ 0
+
+🎉 HR 人員管理系統完整測試 — 所有測試通過！
+  ⏱ HR 測試耗時: 1.3 秒
+
+════════════════════════════════════════════════════════════
+  整合測試最終報告
+════════════════════════════════════════════════════════════
+  ✅  AUP
+  ✅  ERP
+  ✅  Animal
+  ✅  Blood Panel
+  ✅  HR
+
+  ⏱ 總耗時: 4.0 秒
+
+🎉🎉🎉 全部測試通過！
+════════════════════════════════════════════════════════════

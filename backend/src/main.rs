@@ -177,6 +177,8 @@ async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         // 單據取消與刪除
         ("erp.document.cancel", "取消單據", "erp", "可取消單據"),
         ("erp.document.delete", "刪除單據", "erp", "可刪除單據"),
+        // HR 加班全部紀錄查看
+        ("hr.overtime.view_all", "查看所有加班紀錄", "hr", "可查看所有員工的加班紀錄"),
     ];
     
     for (code, name, module, description) in required_permissions {
@@ -417,9 +419,9 @@ async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
         // ADMIN_STAFF (行政) - 全部 HR 權限 + 庫存報表 Audit + 管理階級 Audit
         // ============================================
         ("ADMIN_STAFF", vec![
-            // HR 權限（全部 18 個）
+            // HR 權限（全部）
             "hr.attendance.view", "hr.attendance.view_all", "hr.attendance.clock", "hr.attendance.correct",
-            "hr.overtime.view", "hr.overtime.create", "hr.overtime.approve",
+            "hr.overtime.view", "hr.overtime.view_all", "hr.overtime.create", "hr.overtime.approve",
             "hr.leave.view", "hr.leave.view_all", "hr.leave.create", "hr.leave.approve", "hr.leave.manage",
             "hr.balance.view", "hr.balance.manage",
             "hr.calendar.config", "hr.calendar.view", "hr.calendar.sync", "hr.calendar.conflicts",

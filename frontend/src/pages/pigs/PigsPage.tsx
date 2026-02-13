@@ -52,6 +52,7 @@ import {
   Upload,
   Download,
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   Stethoscope,
   FileSpreadsheet,
@@ -167,6 +168,15 @@ export function PigsPage() {
   // Quick move state (空欄位快速移動)
   const [editingPenLocation, setEditingPenLocation] = useState<string | null>(null)
   const [editingEarTag, setEditingEarTag] = useState<string>('')
+
+  // 耳號重複警告對話框狀態
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false)
+  const [duplicateWarningData, setDuplicateWarningData] = useState<{
+    earTag: string
+    existingPigs: Array<{ id: string; birth_date: string | null; status: string; pen_location: string | null }>
+    source: 'create' | 'quickAdd'
+    pendingPayload: any
+  } | null>(null)
 
   // Quick add dialog state (快速新增動物對話框)
   const [showQuickAddDialog, setShowQuickAddDialog] = useState(false)
@@ -335,9 +345,24 @@ export function PigsPage() {
     },
     onError: (error: any) => {
       console.error('Create pig error:', error)
-      console.error('Error response:', error?.response?.data)
-      console.error('Error status:', error?.response?.status)
-      console.error('Request payload:', error?.config?.data)
+
+      // 攔截 409 耳號重複警告（可確認後強制建立）
+      if (error?.response?.status === 409) {
+        const errData = error.response.data?.error
+        if (errData?.warning_type === 'duplicate_ear_tag' && errData?.blocking === false) {
+          // 取得 payload（從 error.config.data 解析）
+          let payload: any = {}
+          try { payload = JSON.parse(error.config?.data || '{}') } catch { /* ignore */ }
+          setDuplicateWarningData({
+            earTag: payload.ear_tag || '',
+            existingPigs: errData.existing_pigs || [],
+            source: 'create',
+            pendingPayload: payload,
+          })
+          setShowDuplicateWarning(true)
+          return
+        }
+      }
 
       // 提取錯誤訊息
       let errorMessage = '新增失敗，請檢查輸入資料'
@@ -541,6 +566,24 @@ export function PigsPage() {
     },
     onError: (error: any) => {
       console.error('Quick add error:', error)
+
+      // 攔截 409 耳號重複警告（可確認後強制建立）
+      if (error?.response?.status === 409) {
+        const errData = error.response.data?.error
+        if (errData?.warning_type === 'duplicate_ear_tag' && errData?.blocking === false) {
+          let payload: any = {}
+          try { payload = JSON.parse(error.config?.data || '{}') } catch { /* ignore */ }
+          setDuplicateWarningData({
+            earTag: payload.ear_tag || quickAddPending?.earTag || '',
+            existingPigs: errData.existing_pigs || [],
+            source: 'quickAdd',
+            pendingPayload: payload,
+          })
+          setShowDuplicateWarning(true)
+          return
+        }
+      }
+
       const errorMessage = error?.response?.data?.error?.message
         || error?.response?.data?.message
         || error?.message
@@ -550,6 +593,29 @@ export function PigsPage() {
         description: errorMessage,
         variant: 'destructive',
       })
+    },
+  })
+
+  // 確認強制建立（耳號重複後使用者確認）
+  const forceCreateMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      return api.post('/pigs', { ...payload, force_create: true })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pigs'] })
+      queryClient.invalidateQueries({ queryKey: ['pigs-by-pen'] })
+      queryClient.invalidateQueries({ queryKey: ['pigs-count'] })
+      toast({ title: '成功', description: '動物已新增（已確認耳號重複）' })
+      setShowDuplicateWarning(false)
+      setDuplicateWarningData(null)
+      setShowAddDialog(false)
+      setShowQuickAddDialog(false)
+      setQuickAddPending(null)
+      resetNewPigForm()
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.error?.message || error?.message || '新增失敗'
+      toast({ title: '錯誤', description: errorMessage, variant: 'destructive' })
     },
   })
 
@@ -1670,6 +1736,60 @@ export function PigsPage() {
             >
               {quickAddMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               確認新增
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 耳號重複警告確認對話框 */}
+      <Dialog open={showDuplicateWarning} onOpenChange={(open) => {
+        if (!open) {
+          setShowDuplicateWarning(false)
+          setDuplicateWarningData(null)
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="h-5 w-5" />
+              耳號重複警告
+            </DialogTitle>
+            <DialogDescription>
+              耳號 <span className="font-semibold text-slate-900">{duplicateWarningData?.earTag}</span> 已存在以下存活動物：
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 my-2">
+            {duplicateWarningData?.existingPigs.map((pig, idx) => (
+              <div key={idx} className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
+                <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                <div>
+                  <div>出生日期: <span className="font-medium">{pig.birth_date || '未設定'}</span></div>
+                  <div>欄位: <span className="font-medium">{pig.pen_location || '-'}</span></div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-sm text-slate-600">
+            確定仍要以<span className="font-semibold">不同出生日期</span>建立新動物嗎？
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowDuplicateWarning(false)
+              setDuplicateWarningData(null)
+            }}>
+              取消
+            </Button>
+            <Button
+              onClick={() => {
+                if (duplicateWarningData?.pendingPayload) {
+                  forceCreateMutation.mutate(duplicateWarningData.pendingPayload)
+                }
+              }}
+              disabled={forceCreateMutation.isPending}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {forceCreateMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              確認建立
             </Button>
           </DialogFooter>
         </DialogContent>

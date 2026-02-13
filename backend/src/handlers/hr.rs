@@ -114,8 +114,21 @@ pub async fn list_overtime(
 ) -> Result<Json<PaginatedResponse<OvertimeWithUser>>> {
     let mut query = params;
     
+    // 如果是查「全部紀錄」（admin/ADMIN_STAFF 專用）
+    if query.view_all.unwrap_or(false) {
+        let is_admin = current_user.roles.contains(&"admin".to_string());
+        let has_view_all = current_user.has_permission("hr.overtime.view_all");
+        
+        if is_admin || has_view_all {
+            // 不限制 user_id，顯示所有員工的加班紀錄
+            query.user_id = None;
+        } else {
+            // 沒有權限，只能看自己的
+            query.user_id = Some(current_user.id);
+        }
+    }
     // 如果是查「待我審核」的加班申請
-    if query.pending_approval.unwrap_or(false) {
+    else if query.pending_approval.unwrap_or(false) {
         let is_admin = current_user.roles.contains(&"admin".to_string());
         let is_admin_staff = current_user.roles.contains(&"ADMIN_STAFF".to_string());
         
@@ -285,8 +298,21 @@ pub async fn list_leaves(
 ) -> Result<Json<PaginatedResponse<LeaveRequestWithUser>>> {
     let mut query = params;
     
+    // 如果是查「全部紀錄」（admin/ADMIN_STAFF 專用）
+    if query.view_all.unwrap_or(false) {
+        let is_admin = current_user.roles.contains(&"admin".to_string());
+        let has_view_all = current_user.has_permission("hr.leave.view_all");
+        
+        if is_admin || has_view_all {
+            // 不限制 user_id，顯示所有員工的請假紀錄
+            query.user_id = None;
+        } else {
+            // 沒有權限，只能看自己的
+            query.user_id = Some(current_user.id);
+        }
+    }
     // 如果是查待審核的請假
-    if query.pending_approval.unwrap_or(false) {
+    else if query.pending_approval.unwrap_or(false) {
         // 對於有審核權限的人，查看所有待審核狀態的請假
         // 不再使用 current_approver_id 過濾，因為目前沒有設定審批鏈
         query.user_id = None;
