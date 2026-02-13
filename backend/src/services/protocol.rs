@@ -654,8 +654,24 @@ impl ProtocolService {
         .fetch_one(pool)
         .await?;
 
-        // 記錄狀態變更
-        Self::record_status_change(pool, id, Some(protocol.status), req.to_status, changed_by, req.remark.clone()).await?;
+        // 記錄狀態變更（若進入 UNDER_REVIEW，remark 中包含審查委員姓名）
+        let status_remark = if req.to_status == ProtocolStatus::UnderReview {
+            if let Some(reviewer_ids) = &req.reviewer_ids {
+                let names: Vec<String> = sqlx::query_scalar(
+                    "SELECT COALESCE(display_name, email) FROM users WHERE id = ANY($1::uuid[])"
+                )
+                .bind(reviewer_ids)
+                .fetch_all(pool)
+                .await?;
+                let reviewer_list = names.join("、");
+                Some(format!("指派審查委員：{}", reviewer_list))
+            } else {
+                req.remark.clone()
+            }
+        } else {
+            req.remark.clone()
+        };
+        Self::record_status_change(pool, id, Some(protocol.status), req.to_status, changed_by, status_remark).await?;
 
         // 當狀態變為 UNDER_REVIEW 時，自動指派選定的審查委員（標記為正式審查委員）
         if req.to_status == ProtocolStatus::UnderReview {
@@ -668,6 +684,33 @@ impl ProtocolService {
                         changed_by,
                     ).await?;
                 }
+
+                // 記錄審查委員指派詳細資訊到活動歷程 extra_data
+                let reviewer_info: Vec<(Uuid, String)> = sqlx::query_as(
+                    "SELECT id, COALESCE(display_name, email) FROM users WHERE id = ANY($1::uuid[])"
+                )
+                .bind(reviewer_ids)
+                .fetch_all(pool)
+                .await?;
+
+                let extra = serde_json::json!({
+                    "reviewers": reviewer_info.iter().map(|(rid, name)| {
+                        serde_json::json!({"id": rid, "name": name})
+                    }).collect::<Vec<_>>()
+                });
+
+                let reviewer_names: Vec<&str> = reviewer_info.iter().map(|(_, n)| n.as_str()).collect();
+                Self::record_activity(
+                    pool,
+                    id,
+                    ProtocolActivityType::ReviewerAssigned,
+                    changed_by,
+                    None,
+                    Some(format!("指派 {} 位審查委員", reviewer_ids.len())),
+                    None,
+                    Some(format!("審查委員：{}", reviewer_names.join("、"))),
+                    Some(extra),
+                ).await?;
             }
         }
 

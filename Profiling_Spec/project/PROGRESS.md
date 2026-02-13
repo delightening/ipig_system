@@ -449,6 +449,9 @@
 
 ### 最新更新 (2026-02-13)
 
+- ✅ Amendment 整合測試（`test_amendment_full.py`，Minor/Major 兩條路線 14 步驟）
+- ✅ UNDER_REVIEW 狀態轉換記錄審查委員姓名（`protocol.rs` remark + extra_data）
+- ✅ 前端技術債基礎建設：Zod 驗證（`validation.ts`）、API 錯誤 Hook（`useApiError.ts`）、ErrorBoundary、Skeleton 骨架屏、LoadingOverlay、TypeScript 型別統一匯出（`types/index.ts`）
 - ✅ 血液檢查項目管理前端頁面（`BloodTestTemplatesPage.tsx`，64 個模板）
 - ✅ Blood Test Panel 快速勾選：DB migration + 後端 CRUD 6 端點 + 前端 Toggle UI + 測試 28/28 通過
 - ✅ ERP 站內通知系統整合
