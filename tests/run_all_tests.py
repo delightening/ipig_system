@@ -1,14 +1,16 @@
 """
 整合測試統一入口
 
-依序執行三大測試模組並輸出彙總報告。
+依序執行五大測試模組並輸出彙總報告。
 
 用法：
-    cd d:\\Coding\\ipig_system
+    cd c:\\System Coding\\ipig_system
     .venv\\Scripts\\python.exe tests/run_all_tests.py           # 全跑
     .venv\\Scripts\\python.exe tests/run_all_tests.py --aup     # 只跑 AUP
     .venv\\Scripts\\python.exe tests/run_all_tests.py --erp     # 只跑 ERP
     .venv\\Scripts\\python.exe tests/run_all_tests.py --animal  # 只跑動物管理
+    .venv\\Scripts\\python.exe tests/run_all_tests.py --blood   # 只跑血液檢查
+    .venv\\Scripts\\python.exe tests/run_all_tests.py --hr      # 只跑 HR 人員管理
 """
 
 import sys
@@ -29,11 +31,13 @@ def main():
     parser.add_argument("--aup", action="store_true", help="只執行 AUP 測試")
     parser.add_argument("--erp", action="store_true", help="只執行 ERP 測試")
     parser.add_argument("--animal", action="store_true", help="只執行動物管理測試")
+    parser.add_argument("--blood", action="store_true", help="只執行血液檢查測試")
+    parser.add_argument("--hr", action="store_true", help="只執行 HR 人員管理測試")
     parser.add_argument("--cleanup", action="store_true", help="測試結束後清理測試資料（保留審計記錄）")
     args = parser.parse_args()
 
     # 如果沒指定任何 flag，就全部跑
-    run_all = not (args.aup or args.erp or args.animal)
+    run_all = not (args.aup or args.erp or args.animal or args.blood or args.hr)
 
     results = {}
     total_start = time.time()
@@ -43,8 +47,10 @@ def main():
 ║            iPig System — 整合測試套件                  ║
 ║                                                          ║
 ║   1. AUP 完整審查流程測試                               ║
-║   2. ERP 完整倉庫管理測試                               ║
+║   2. ERP 完整倉庫管理測試（含報表驗證）                  ║
 ║   3. 動物管理系統完整測試                                ║
+║   4. 血液檢查組合完整測試                                ║
+║   5. HR 人員管理系統完整測試                             ║
 ╚══════════════════════════════════════════════════════════╝
 """
     print(banner)
@@ -54,7 +60,7 @@ def main():
     # ========================================
     if run_all or args.aup:
         print("\n" + "█" * 60)
-        print("█  [1/3] AUP 完整審查流程測試")
+        print("█  [1/5] AUP 完整審查流程測試")
         print("█" * 60)
         start = time.time()
         try:
@@ -73,7 +79,7 @@ def main():
     # ========================================
     if run_all or args.erp:
         print("\n" + "█" * 60)
-        print("█  [2/3] ERP 完整倉庫管理測試")
+        print("█  [2/5] ERP 完整倉庫管理測試（含報表驗證）")
         print("█" * 60)
         start = time.time()
         try:
@@ -92,7 +98,7 @@ def main():
     # ========================================
     if run_all or args.animal:
         print("\n" + "█" * 60)
-        print("█  [3/3] 動物管理系統完整測試")
+        print("█  [3/5] 動物管理系統完整測試")
         print("█" * 60)
         start = time.time()
         try:
@@ -105,6 +111,44 @@ def main():
             results["Animal"] = False
         elapsed = time.time() - start
         print(f"  ⏱ 動物管理測試耗時: {elapsed:.1f} 秒")
+
+    # ========================================
+    # 4. 血液檢查測試
+    # ========================================
+    if run_all or args.blood:
+        print("\n" + "█" * 60)
+        print("█  [4/5] 血液檢查組合完整測試")
+        print("█" * 60)
+        start = time.time()
+        try:
+            from test_blood_panel import run_blood_panel_test
+            results["Blood Panel"] = run_blood_panel_test()
+        except Exception as e:
+            print(f"\n[ERROR] 血液檢查測試例外: {e}")
+            import traceback
+            traceback.print_exc()
+            results["Blood Panel"] = False
+        elapsed = time.time() - start
+        print(f"  ⏱ 血液檢查測試耗時: {elapsed:.1f} 秒")
+
+    # ========================================
+    # 5. HR 人員管理測試
+    # ========================================
+    if run_all or args.hr:
+        print("\n" + "█" * 60)
+        print("█  [5/5] HR 人員管理系統完整測試")
+        print("█" * 60)
+        start = time.time()
+        try:
+            from test_hr_full import run_hr_test
+            results["HR"] = run_hr_test()
+        except Exception as e:
+            print(f"\n[ERROR] HR 測試例外: {e}")
+            import traceback
+            traceback.print_exc()
+            results["HR"] = False
+        elapsed = time.time() - start
+        print(f"  ⏱ HR 測試耗時: {elapsed:.1f} 秒")
 
     # ========================================
     # 彙總報告

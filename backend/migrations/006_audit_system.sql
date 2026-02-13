@@ -124,6 +124,7 @@ CREATE TABLE login_events (
     is_unusual_time BOOLEAN DEFAULT false,
     is_unusual_location BOOLEAN DEFAULT false,
     is_new_device BOOLEAN DEFAULT false,
+    is_mass_login BOOLEAN DEFAULT false,
     device_fingerprint VARCHAR(255),
     failure_reason VARCHAR(100),
     
@@ -136,7 +137,7 @@ CREATE INDEX idx_login_email ON login_events(email, created_at DESC);
 CREATE INDEX idx_login_ip ON login_events(ip_address, created_at DESC);
 CREATE INDEX idx_login_type ON login_events(event_type, created_at DESC);
 CREATE INDEX idx_login_unusual ON login_events(user_id) 
-    WHERE is_unusual_time OR is_unusual_location OR is_new_device;
+    WHERE is_unusual_time OR is_unusual_location OR is_new_device OR is_mass_login;
 CREATE INDEX idx_login_failure ON login_events(email, created_at DESC) 
     WHERE event_type = 'login_failure';
 

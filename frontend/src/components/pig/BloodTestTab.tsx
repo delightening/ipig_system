@@ -14,13 +14,11 @@ import {
     bloodTestApi,
     bloodTestTemplateApi,
     bloodTestPanelApi,
-    bloodTestStatusNames,
-    BloodTestStatus,
     BloodTestPanel,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -46,6 +44,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
+
 import { toast } from '@/components/ui/use-toast'
 import { DeleteReasonDialog } from '@/components/ui/delete-reason-dialog'
 import {
@@ -63,12 +62,7 @@ interface BloodTestTabProps {
     pigId: string
 }
 
-/** 狀態 badge 顏色 */
-const statusColors: Record<BloodTestStatus, string> = {
-    pending: 'bg-yellow-500',
-    completed: 'bg-blue-500',
-    reviewed: 'bg-green-500',
-}
+
 
 export function BloodTestTab({ pigId }: BloodTestTabProps) {
     const queryClient = useQueryClient()
@@ -83,7 +77,6 @@ export function BloodTestTab({ pigId }: BloodTestTabProps) {
         test_date: string
         lab_name: string
         remark: string
-        status?: BloodTestStatus
         items: BloodTestItemInput[]
     }>({
         test_date: new Date().toISOString().split('T')[0],
@@ -213,7 +206,6 @@ export function BloodTestTab({ pigId }: BloodTestTabProps) {
                 test_date: detail.blood_test.test_date,
                 lab_name: detail.blood_test.lab_name || '',
                 remark: detail.blood_test.remark || '',
-                status: detail.blood_test.status,
                 items: detail.items.map((item) => ({
                     template_id: item.template_id || undefined,
                     item_name: item.item_name,
@@ -359,7 +351,6 @@ export function BloodTestTab({ pigId }: BloodTestTabProps) {
                 data: {
                     test_date: formData.test_date,
                     lab_name: formData.lab_name || undefined,
-                    status: formData.status,
                     remark: formData.remark || undefined,
                     items: formData.items,
                 },
@@ -410,7 +401,6 @@ export function BloodTestTab({ pigId }: BloodTestTabProps) {
                             <TableRow>
                                 <TableHead>檢查日期</TableHead>
                                 <TableHead>檢驗機構</TableHead>
-                                <TableHead>狀態</TableHead>
                                 <TableHead className="text-center">項目數</TableHead>
                                 <TableHead className="text-center">異常項目</TableHead>
                                 <TableHead>建立者</TableHead>
@@ -422,11 +412,6 @@ export function BloodTestTab({ pigId }: BloodTestTabProps) {
                                 <TableRow key={test.id}>
                                     <TableCell className="font-medium">{test.test_date}</TableCell>
                                     <TableCell>{test.lab_name || '-'}</TableCell>
-                                    <TableCell>
-                                        <Badge className={statusColors[test.status]}>
-                                            {bloodTestStatusNames[test.status]}
-                                        </Badge>
-                                    </TableCell>
                                     <TableCell className="text-center">{test.item_count}</TableCell>
                                     <TableCell className="text-center">
                                         {test.abnormal_count > 0 ? (
@@ -512,24 +497,7 @@ export function BloodTestTab({ pigId }: BloodTestTabProps) {
                             </div>
                         </div>
 
-                        {editingId && (
-                            <div className="space-y-2">
-                                <Label>狀態</Label>
-                                <Select
-                                    value={formData.status}
-                                    onValueChange={(v) => setFormData((prev) => ({ ...prev, status: v as BloodTestStatus }))}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="pending">待審閱</SelectItem>
-                                        <SelectItem value="completed">已完成</SelectItem>
-                                        <SelectItem value="reviewed">已審閱</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        )}
+
 
                         <div className="space-y-2">
                             <Label>備註</Label>
@@ -554,8 +522,8 @@ export function BloodTestTab({ pigId }: BloodTestTabProps) {
                                                 variant={isActive ? 'default' : 'outline'}
                                                 size="sm"
                                                 className={`transition-all ${isActive
-                                                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
-                                                        : 'hover:bg-blue-50 hover:border-blue-300'
+                                                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
+                                                    : 'hover:bg-blue-50 hover:border-blue-300'
                                                     }`}
                                                 onClick={() => togglePanel(panel)}
                                             >
@@ -713,7 +681,7 @@ export function BloodTestTab({ pigId }: BloodTestTabProps) {
 
                     {viewDetail ? (
                         <div className="space-y-4">
-                            <div className="grid grid-cols-3 gap-4">
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <Label className="text-gray-500 text-sm">檢查日期</Label>
                                     <p className="font-medium">{viewDetail.blood_test.test_date}</p>
@@ -721,14 +689,6 @@ export function BloodTestTab({ pigId }: BloodTestTabProps) {
                                 <div>
                                     <Label className="text-gray-500 text-sm">檢驗機構</Label>
                                     <p className="font-medium">{viewDetail.blood_test.lab_name || '-'}</p>
-                                </div>
-                                <div>
-                                    <Label className="text-gray-500 text-sm">狀態</Label>
-                                    <p>
-                                        <Badge className={statusColors[viewDetail.blood_test.status]}>
-                                            {bloodTestStatusNames[viewDetail.blood_test.status]}
-                                        </Badge>
-                                    </p>
                                 </div>
                             </div>
                             {viewDetail.blood_test.remark && (

@@ -312,12 +312,57 @@ def run_erp_test() -> bool:
     )
 
     # ========================================
+    # Phase 6: 報表產生驗證
+    # ========================================
+    t.step("Phase 6 — 報表產生驗證")
+
+    # 6.1 庫存報表
+    report_resp = t._req("GET", f"{API_BASE_URL}/reports/stock-on-hand", role=WM)
+    stock_report = report_resp.json()
+    stock_items = stock_report if isinstance(stock_report, list) else stock_report.get("data", stock_report.get("items", []))
+    t.record("庫存報表 (stock-on-hand)",
+             len(stock_items) > 0 if isinstance(stock_items, list) else True,
+             f"回傳 {len(stock_items) if isinstance(stock_items, list) else '有效'} 筆資料")
+
+    # 6.2 帳簿報表
+    ledger_report_resp = t._req("GET", f"{API_BASE_URL}/reports/stock-ledger", role=WM)
+    ledger_report = ledger_report_resp.json()
+    ledger_items = ledger_report if isinstance(ledger_report, list) else ledger_report.get("data", ledger_report.get("items", []))
+    t.record("帳簿報表 (stock-ledger)",
+             len(ledger_items) > 0 if isinstance(ledger_items, list) else True,
+             f"回傳 {len(ledger_items) if isinstance(ledger_items, list) else '有效'} 筆資料")
+
+    # 6.3 採購明細報表
+    purchase_resp = t._req("GET", f"{API_BASE_URL}/reports/purchase-lines", role=WM)
+    purchase_report = purchase_resp.json()
+    purchase_items = purchase_report if isinstance(purchase_report, list) else purchase_report.get("data", purchase_report.get("items", []))
+    t.record("採購明細報表 (purchase-lines)",
+             len(purchase_items) > 0 if isinstance(purchase_items, list) else True,
+             f"回傳 {len(purchase_items) if isinstance(purchase_items, list) else '有效'} 筆資料")
+
+    # 6.4 銷售明細報表
+    sales_resp = t._req("GET", f"{API_BASE_URL}/reports/sales-lines", role=WM)
+    sales_report = sales_resp.json()
+    sales_items = sales_report if isinstance(sales_report, list) else sales_report.get("data", sales_report.get("items", []))
+    t.record("銷售明細報表 (sales-lines)",
+             len(sales_items) > 0 if isinstance(sales_items, list) else True,
+             f"回傳 {len(sales_items) if isinstance(sales_items, list) else '有效'} 筆資料")
+
+    # 6.5 成本彙總報表
+    cost_resp = t._req("GET", f"{API_BASE_URL}/reports/cost-summary", role=WM)
+    cost_report = cost_resp.json()
+    t.record("成本彙總報表 (cost-summary)",
+             cost_resp.status_code == 200,
+             f"回傳有效 JSON")
+
+    # ========================================
     # 彙總
     # ========================================
     print(f"\n{'=' * 60}")
     print(f"[完成] ERP 完整流程測試完成！")
     print(f"  倉庫: {len(warehouse_ids)} | 貨架: {len(storage_ids)} | 產品: {len(product_ids)}")
     print(f"  PO: {len(po_ids)} | GRN: {len(grn_ids)} | SO: 1 | DO: 1 | TR: 1")
+    print(f"  報表: 5 種 (stock-on-hand, stock-ledger, purchase-lines, sales-lines, cost-summary)")
     print(f"{'=' * 60}")
     return t.print_summary()
 

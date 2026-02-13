@@ -1008,17 +1008,7 @@ export interface VetRecommendation {
   created_at: string
 }
 
-// ============================================
-// 血液檢查 Types
-// ============================================
 
-export type BloodTestStatus = 'pending' | 'completed' | 'reviewed'
-
-export const bloodTestStatusNames: Record<BloodTestStatus, string> = {
-  pending: '待審閱',
-  completed: '已完成',
-  reviewed: '已審閱',
-}
 
 export interface BloodTestTemplate {
   id: string
@@ -1038,7 +1028,6 @@ export interface BloodTestListItem {
   pig_id: string
   test_date: string
   lab_name?: string
-  status: BloodTestStatus
   remark?: string
   vet_read: boolean
   created_at: string
@@ -1067,7 +1056,6 @@ export interface PigBloodTestWithItems {
     pig_id: string
     test_date: string
     lab_name?: string
-    status: BloodTestStatus
     remark?: string
     vet_read: boolean
     is_deleted: boolean
@@ -1100,7 +1088,6 @@ export interface CreateBloodTestRequest {
 export interface UpdateBloodTestRequest {
   test_date?: string
   lab_name?: string
-  status?: BloodTestStatus
   remark?: string
   items?: BloodTestItemInput[]
 }

@@ -356,7 +356,6 @@ pub struct PigBloodTestItem {
 /// 血液檢查詳情（含明細項目）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PigBloodTestWithItems {
-    #[serde(flatten)]
     pub blood_test: PigBloodTest,
     pub items: Vec<PigBloodTestItem>,
     pub created_by_name: Option<String>,
@@ -809,7 +808,6 @@ pub struct CreateBloodTestItemInput {
 pub struct UpdateBloodTestRequest {
     pub test_date: Option<NaiveDate>,
     pub lab_name: Option<String>,
-    pub status: Option<String>,
     pub remark: Option<String>,
     pub items: Option<Vec<CreateBloodTestItemInput>>,
 }

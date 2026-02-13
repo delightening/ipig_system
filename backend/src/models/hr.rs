@@ -175,7 +175,6 @@ pub enum LeaveType {
     Paternity,
     Menstrual,
     Official,
-    Unpaid,
 }
 
 impl LeaveType {
@@ -191,7 +190,6 @@ impl LeaveType {
             LeaveType::Paternity => "陪產假",
             LeaveType::Menstrual => "生理假",
             LeaveType::Official => "公假",
-            LeaveType::Unpaid => "無薪假",
         }
     }
 }

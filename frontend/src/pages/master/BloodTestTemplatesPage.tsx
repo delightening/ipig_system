@@ -1,0 +1,578 @@
+import { useState, useMemo } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+    bloodTestTemplateApi,
+    BloodTestTemplate,
+    CreateBloodTestTemplateRequest,
+    UpdateBloodTestTemplateRequest,
+} from '@/lib/api'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { toast } from '@/components/ui/use-toast'
+import {
+    Plus,
+    Search,
+    Edit,
+    Power,
+    PowerOff,
+    Loader2,
+    Droplets,
+    ArrowUpDown,
+    ArrowLeft,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { useNavigate } from 'react-router-dom'
+
+// 排序欄位型別
+type SortField = 'code' | 'name' | 'sort_order' | 'default_unit' | 'default_price'
+type SortOrder = 'asc' | 'desc'
+
+// 顯示篩選
+type ShowFilter = 'all' | 'active' | 'inactive'
+
+export function BloodTestTemplatesPage() {
+    const queryClient = useQueryClient()
+    const navigate = useNavigate()
+
+    // 狀態
+    const [search, setSearch] = useState('')
+    const [showFilter, setShowFilter] = useState<ShowFilter>('all')
+    const [sortField, setSortField] = useState<SortField>('sort_order')
+    const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
+    const [dialogOpen, setDialogOpen] = useState(false)
+    const [editingTemplate, setEditingTemplate] = useState<BloodTestTemplate | null>(null)
+    const [formData, setFormData] = useState<CreateBloodTestTemplateRequest>({
+        code: '',
+        name: '',
+        default_unit: '',
+        reference_range: '',
+        default_price: 0,
+        sort_order: 0,
+    })
+
+    // 查詢所有模板（含停用）
+    const { data: templates, isLoading } = useQuery({
+        queryKey: ['blood-test-templates-all'],
+        queryFn: async () => {
+            const response = await bloodTestTemplateApi.listAll()
+            return response.data
+        },
+    })
+
+    // 新增
+    const createMutation = useMutation({
+        mutationFn: (data: CreateBloodTestTemplateRequest) =>
+            bloodTestTemplateApi.create(data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['blood-test-templates'] })
+            queryClient.invalidateQueries({ queryKey: ['blood-test-templates-all'] })
+            toast({ title: '成功', description: '檢查項目已建立' })
+            setDialogOpen(false)
+            resetForm()
+        },
+        onError: (error: any) => {
+            toast({
+                title: '錯誤',
+                description: error?.response?.data?.error?.message || '建立失敗',
+                variant: 'destructive',
+            })
+        },
+    })
+
+    // 更新
+    const updateMutation = useMutation({
+        mutationFn: ({ id, data }: { id: string; data: UpdateBloodTestTemplateRequest }) =>
+            bloodTestTemplateApi.update(id, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['blood-test-templates'] })
+            queryClient.invalidateQueries({ queryKey: ['blood-test-templates-all'] })
+            toast({ title: '成功', description: '檢查項目已更新' })
+            setDialogOpen(false)
+            resetForm()
+        },
+        onError: (error: any) => {
+            toast({
+                title: '錯誤',
+                description: error?.response?.data?.error?.message || '更新失敗',
+                variant: 'destructive',
+            })
+        },
+    })
+
+    // 停用/恢復
+    const toggleMutation = useMutation({
+        mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) =>
+            is_active
+                ? bloodTestTemplateApi.update(id, { is_active: true })
+                : bloodTestTemplateApi.delete(id),
+        onSuccess: (_data, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['blood-test-templates'] })
+            queryClient.invalidateQueries({ queryKey: ['blood-test-templates-all'] })
+            toast({
+                title: '成功',
+                description: variables.is_active ? '項目已恢復啟用' : '項目已停用',
+            })
+        },
+        onError: (error: any) => {
+            toast({
+                title: '錯誤',
+                description: error?.response?.data?.error?.message || '操作失敗',
+                variant: 'destructive',
+            })
+        },
+    })
+
+    const resetForm = () => {
+        setFormData({
+            code: '',
+            name: '',
+            default_unit: '',
+            reference_range: '',
+            default_price: 0,
+            sort_order: 0,
+        })
+        setEditingTemplate(null)
+    }
+
+    const handleEdit = (template: BloodTestTemplate) => {
+        setEditingTemplate(template)
+        setFormData({
+            code: template.code,
+            name: template.name,
+            default_unit: template.default_unit || '',
+            reference_range: template.reference_range || '',
+            default_price: template.default_price || 0,
+            sort_order: template.sort_order,
+        })
+        setDialogOpen(true)
+    }
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault()
+        if (editingTemplate) {
+            const updateData: UpdateBloodTestTemplateRequest = {
+                name: formData.name,
+                default_unit: formData.default_unit || undefined,
+                reference_range: formData.reference_range || undefined,
+                default_price: formData.default_price || undefined,
+                sort_order: formData.sort_order,
+            }
+            updateMutation.mutate({ id: editingTemplate.id, data: updateData })
+        } else {
+            createMutation.mutate(formData)
+        }
+    }
+
+    const handleSort = (field: SortField) => {
+        if (sortField === field) {
+            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+        } else {
+            setSortField(field)
+            setSortOrder('asc')
+        }
+    }
+
+    // 篩選與排序
+    const filteredTemplates = useMemo(() => {
+        if (!templates) return []
+
+        let result = [...templates]
+
+        // 搜尋
+        if (search) {
+            const q = search.toLowerCase()
+            result = result.filter(
+                (t) =>
+                    t.code.toLowerCase().includes(q) ||
+                    t.name.toLowerCase().includes(q) ||
+                    (t.default_unit && t.default_unit.toLowerCase().includes(q))
+            )
+        }
+
+        // 啟用/停用篩選
+        if (showFilter === 'active') {
+            result = result.filter((t) => t.is_active)
+        } else if (showFilter === 'inactive') {
+            result = result.filter((t) => !t.is_active)
+        }
+
+        // 排序
+        result.sort((a, b) => {
+            let cmp = 0
+            switch (sortField) {
+                case 'code':
+                    cmp = a.code.localeCompare(b.code)
+                    break
+                case 'name':
+                    cmp = a.name.localeCompare(b.name)
+                    break
+                case 'sort_order':
+                    cmp = a.sort_order - b.sort_order
+                    break
+                case 'default_unit':
+                    cmp = (a.default_unit || '').localeCompare(b.default_unit || '')
+                    break
+                case 'default_price':
+                    cmp = (a.default_price || 0) - (b.default_price || 0)
+                    break
+            }
+            return sortOrder === 'asc' ? cmp : -cmp
+        })
+
+        return result
+    }, [templates, search, showFilter, sortField, sortOrder])
+
+    // 排序指示器
+    const SortIndicator = ({ field }: { field: SortField }) => (
+        <ArrowUpDown
+            className={cn(
+                'ml-1 h-3 w-3 inline-block cursor-pointer',
+                sortField === field ? 'text-blue-600' : 'text-slate-400'
+            )}
+        />
+    )
+
+    // 統計
+    const activeCount = templates?.filter((t) => t.is_active).length || 0
+    const totalCount = templates?.length || 0
+
+    return (
+        <div className="space-y-6">
+            {/* 標題列 */}
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => navigate('/erp?tab=master')}
+                    >
+                        <ArrowLeft className="h-5 w-5" />
+                    </Button>
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight">血液檢查項目管理</h1>
+                        <p className="text-muted-foreground">
+                            管理血液檢查項目模板（共 {totalCount} 個，啟用 {activeCount} 個）
+                        </p>
+                    </div>
+                </div>
+                <Button onClick={() => { resetForm(); setDialogOpen(true) }}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    新增項目
+                </Button>
+            </div>
+
+            {/* 搜尋與篩選列 */}
+            <div className="flex gap-4 items-center">
+                <div className="relative flex-1 max-w-sm">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        placeholder="搜尋代碼或名稱..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="pl-9"
+                    />
+                </div>
+                <div className="flex gap-1">
+                    {(['all', 'active', 'inactive'] as ShowFilter[]).map((f) => (
+                        <Button
+                            key={f}
+                            variant={showFilter === f ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setShowFilter(f)}
+                        >
+                            {f === 'all' ? '全部' : f === 'active' ? '啟用中' : '已停用'}
+                        </Button>
+                    ))}
+                </div>
+            </div>
+
+            {/* 表格 */}
+            <div className="rounded-md border">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead
+                                className="w-[120px] cursor-pointer"
+                                onClick={() => handleSort('code')}
+                            >
+                                代碼 <SortIndicator field="code" />
+                            </TableHead>
+                            <TableHead className="cursor-pointer" onClick={() => handleSort('name')}>
+                                名稱 <SortIndicator field="name" />
+                            </TableHead>
+                            <TableHead
+                                className="w-[100px] cursor-pointer"
+                                onClick={() => handleSort('default_unit')}
+                            >
+                                單位 <SortIndicator field="default_unit" />
+                            </TableHead>
+                            <TableHead className="w-[140px]">參考範圍</TableHead>
+                            <TableHead
+                                className="w-[100px] cursor-pointer text-right"
+                                onClick={() => handleSort('default_price')}
+                            >
+                                價格 <SortIndicator field="default_price" />
+                            </TableHead>
+                            <TableHead
+                                className="w-[80px] cursor-pointer text-center"
+                                onClick={() => handleSort('sort_order')}
+                            >
+                                排序 <SortIndicator field="sort_order" />
+                            </TableHead>
+                            <TableHead className="w-[80px] text-center">狀態</TableHead>
+                            <TableHead className="w-[120px] text-right">操作</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {isLoading ? (
+                            <TableRow>
+                                <TableCell colSpan={8} className="text-center py-8">
+                                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                                </TableCell>
+                            </TableRow>
+                        ) : filteredTemplates.length > 0 ? (
+                            filteredTemplates.map((template) => (
+                                <TableRow
+                                    key={template.id}
+                                    className={cn(!template.is_active && 'opacity-50')}
+                                >
+                                    <TableCell className="font-mono text-sm font-semibold">
+                                        {template.code}
+                                    </TableCell>
+                                    <TableCell className="font-medium">{template.name}</TableCell>
+                                    <TableCell className="text-slate-600">
+                                        {template.default_unit || '—'}
+                                    </TableCell>
+                                    <TableCell className="text-sm text-slate-500">
+                                        {template.reference_range || '—'}
+                                    </TableCell>
+                                    <TableCell className="text-right font-mono text-sm">
+                                        {template.default_price
+                                            ? `$${Number(template.default_price).toFixed(0)}`
+                                            : '—'}
+                                    </TableCell>
+                                    <TableCell className="text-center text-sm text-slate-500">
+                                        {template.sort_order}
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                        {template.is_active ? (
+                                            <Badge variant="success">啟用</Badge>
+                                        ) : (
+                                            <Badge variant="secondary">停用</Badge>
+                                        )}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <div className="flex items-center justify-end gap-1">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => handleEdit(template)}
+                                                title="編輯"
+                                            >
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() =>
+                                                    toggleMutation.mutate({
+                                                        id: template.id,
+                                                        is_active: !template.is_active,
+                                                    })
+                                                }
+                                                title={template.is_active ? '停用' : '恢復'}
+                                            >
+                                                {template.is_active ? (
+                                                    <PowerOff className="h-4 w-4 text-orange-500" />
+                                                ) : (
+                                                    <Power className="h-4 w-4 text-green-500" />
+                                                )}
+                                            </Button>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={8} className="text-center py-8">
+                                    <Droplets className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
+                                    <p className="text-muted-foreground">
+                                        {search ? '找不到符合的檢查項目' : '尚無檢查項目資料'}
+                                    </p>
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
+
+            {/* 新增/編輯對話框 */}
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {editingTemplate ? '編輯檢查項目' : '新增檢查項目'}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {editingTemplate
+                                ? `修改 ${editingTemplate.code} 的項目資料`
+                                : '建立新的血液檢查項目模板'}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleSubmit}>
+                        <div className="grid gap-4 py-4">
+                            {/* 代碼 */}
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="code" className="text-right">
+                                    代碼 <span className="text-red-500">*</span>
+                                </Label>
+                                <Input
+                                    id="code"
+                                    value={formData.code}
+                                    onChange={(e) =>
+                                        setFormData({ ...formData, code: e.target.value.toUpperCase() })
+                                    }
+                                    className="col-span-3 font-mono"
+                                    placeholder="如: WBC、RBC、AST"
+                                    required
+                                    disabled={!!editingTemplate}
+                                    maxLength={20}
+                                />
+                            </div>
+
+                            {/* 名稱 */}
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="name" className="text-right">
+                                    名稱 <span className="text-red-500">*</span>
+                                </Label>
+                                <Input
+                                    id="name"
+                                    value={formData.name}
+                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    className="col-span-3"
+                                    placeholder="如: WBC (白血球計數)"
+                                    required
+                                    maxLength={200}
+                                />
+                            </div>
+
+                            {/* 單位 */}
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="default_unit" className="text-right">
+                                    預設單位
+                                </Label>
+                                <Input
+                                    id="default_unit"
+                                    value={formData.default_unit}
+                                    onChange={(e) =>
+                                        setFormData({ ...formData, default_unit: e.target.value })
+                                    }
+                                    className="col-span-3"
+                                    placeholder="如: 10³/μL、mg/dL、U/L"
+                                    maxLength={50}
+                                />
+                            </div>
+
+                            {/* 參考範圍 */}
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="reference_range" className="text-right">
+                                    參考範圍
+                                </Label>
+                                <Input
+                                    id="reference_range"
+                                    value={formData.reference_range}
+                                    onChange={(e) =>
+                                        setFormData({ ...formData, reference_range: e.target.value })
+                                    }
+                                    className="col-span-3"
+                                    placeholder="如: 4.0-10.0"
+                                    maxLength={100}
+                                />
+                            </div>
+
+                            {/* 價格 */}
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="default_price" className="text-right">
+                                    預設價格
+                                </Label>
+                                <Input
+                                    id="default_price"
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    value={formData.default_price || ''}
+                                    onChange={(e) =>
+                                        setFormData({
+                                            ...formData,
+                                            default_price: e.target.value ? Number(e.target.value) : 0,
+                                        })
+                                    }
+                                    className="col-span-3"
+                                    placeholder="0"
+                                />
+                            </div>
+
+                            {/* 排序 */}
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="sort_order" className="text-right">
+                                    排序
+                                </Label>
+                                <Input
+                                    id="sort_order"
+                                    type="number"
+                                    min="0"
+                                    value={formData.sort_order}
+                                    onChange={(e) =>
+                                        setFormData({
+                                            ...formData,
+                                            sort_order: Number(e.target.value) || 0,
+                                        })
+                                    }
+                                    className="col-span-3"
+                                    placeholder="0"
+                                />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setDialogOpen(false)}
+                            >
+                                取消
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={createMutation.isPending || updateMutation.isPending}
+                            >
+                                {(createMutation.isPending || updateMutation.isPending) && (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                )}
+                                {editingTemplate ? '更新' : '建立'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+        </div>
+    )
+}

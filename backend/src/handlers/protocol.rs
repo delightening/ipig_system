@@ -17,7 +17,7 @@ use crate::{
         UpdateProtocolRequest, UserProtocol, SaveDraftRequest, SubmitReplyRequest, SaveVetReviewFormRequest,
     },
     require_permission,
-    services::{ProtocolService, PdfService},
+    services::{ProtocolService, PdfService, NotificationService},
     AppError, AppState, Result,
 };
 
@@ -255,6 +255,29 @@ pub async fn change_protocol_status(
     }
     
     let protocol = ProtocolService::change_status(&state.db, id, &req, current_user.id).await?;
+
+    // 非同步發送審查進度通知
+    let db = state.db.clone();
+    let protocol_id = protocol.id;
+    let protocol_no = protocol.protocol_no.clone();
+    let protocol_title = protocol.title.clone();
+    let new_status = protocol.status.as_str().to_lowercase();
+    let operator_id = current_user.id;
+    let reason = req.remark.clone();
+    let config = state.config.clone();
+    tokio::spawn(async move {
+        let svc = NotificationService::new(db);
+        let _ = svc.notify_protocol_review_progress(
+            protocol_id,
+            &protocol_no,
+            &protocol_title,
+            &new_status,
+            operator_id,
+            reason.as_deref(),
+            Some(&config),
+        ).await;
+    });
+
     Ok(Json(protocol))
 }
 
@@ -564,6 +587,39 @@ pub async fn create_review_comment(
     }
     
     let comment = ProtocolService::add_comment(&state.db, &req, current_user.id).await?;
+
+    // 非同步通知審查意見
+    let db = state.db.clone();
+    let protocol_version_id = req.protocol_version_id;
+    let commenter_name = current_user.email.clone();
+    let comment_content = req.content.clone();
+    tokio::spawn(async move {
+        // 先取得 protocol_id 和 protocol_no
+        let protocol_info: Option<(Uuid, String, String)> = sqlx::query_as(
+            r#"
+            SELECT p.id, p.protocol_no, p.title
+            FROM protocols p
+            JOIN protocol_versions pv ON p.id = pv.protocol_id
+            WHERE pv.id = $1
+            "#,
+        )
+        .bind(protocol_version_id)
+        .fetch_optional(&db)
+        .await
+        .ok()
+        .flatten();
+
+        if let Some((protocol_id, protocol_no, _title)) = protocol_info {
+            let svc = NotificationService::new(db);
+            let _ = svc.notify_review_comment_created(
+                protocol_id,
+                &protocol_no,
+                &commenter_name,
+                &comment_content,
+            ).await;
+        }
+    });
+
     Ok(Json(comment))
 }
 

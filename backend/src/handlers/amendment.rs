@@ -14,7 +14,7 @@ use crate::{
         UpdateAmendmentRequest, PendingCountResponse,
     },
     require_permission,
-    services::AmendmentService,
+    services::{AmendmentService, NotificationService},
     AppError, AppState, Result,
 };
 
@@ -182,6 +182,33 @@ pub async fn submit_amendment(
     }
 
     let amendment = AmendmentService::submit(&state.db, id, current_user.id).await?;
+
+    // 非同步通知 IACUC_STAFF
+    let db = state.db.clone();
+    let amendment_id = amendment.id;
+    let protocol_id = amendment.protocol_id;
+    let amendment_title = amendment.title.clone();
+    let operator_id = current_user.id;
+    let config = state.config.clone();
+    tokio::spawn(async move {
+        // 查 protocol_no
+        let protocol_no: Option<String> = sqlx::query_scalar(
+            "SELECT protocol_no FROM protocols WHERE id = $1"
+        )
+        .bind(protocol_id)
+        .fetch_optional(&db)
+        .await
+        .ok()
+        .flatten();
+        let protocol_no = protocol_no.unwrap_or_default();
+
+        let svc = NotificationService::new(db);
+        let _ = svc.notify_amendment_progress(
+            amendment_id, protocol_id, &protocol_no, &amendment_title,
+            "submitted", operator_id, None, Some(&config),
+        ).await;
+    });
+
     Ok(Json(amendment))
 }
 
@@ -217,6 +244,32 @@ pub async fn start_amendment_review(
     }
 
     let amendment = AmendmentService::start_review(&state.db, id, current_user.id).await?;
+
+    // 非同步通知審查委員
+    let db = state.db.clone();
+    let amendment_id = amendment.id;
+    let protocol_id = amendment.protocol_id;
+    let amendment_title = amendment.title.clone();
+    let operator_id = current_user.id;
+    let config = state.config.clone();
+    tokio::spawn(async move {
+        let protocol_no: Option<String> = sqlx::query_scalar(
+            "SELECT protocol_no FROM protocols WHERE id = $1"
+        )
+        .bind(protocol_id)
+        .fetch_optional(&db)
+        .await
+        .ok()
+        .flatten();
+        let protocol_no = protocol_no.unwrap_or_default();
+
+        let svc = NotificationService::new(db);
+        let _ = svc.notify_amendment_progress(
+            amendment_id, protocol_id, &protocol_no, &amendment_title,
+            "under_review", operator_id, None, Some(&config),
+        ).await;
+    });
+
     Ok(Json(amendment))
 }
 
@@ -285,6 +338,33 @@ pub async fn change_amendment_status(
         &req, 
         current_user.id
     ).await?;
+
+    // 非同步通知
+    let db = state.db.clone();
+    let amendment_id = amendment.id;
+    let protocol_id = amendment.protocol_id;
+    let amendment_title = amendment.title.clone();
+    let new_status = amendment.status.as_str().to_lowercase();
+    let operator_id = current_user.id;
+    let remark = req.remark.clone();
+    let config = state.config.clone();
+    tokio::spawn(async move {
+        let protocol_no: Option<String> = sqlx::query_scalar(
+            "SELECT protocol_no FROM protocols WHERE id = $1"
+        )
+        .bind(protocol_id)
+        .fetch_optional(&db)
+        .await
+        .ok()
+        .flatten();
+        let protocol_no = protocol_no.unwrap_or_default();
+
+        let svc = NotificationService::new(db);
+        let _ = svc.notify_amendment_progress(
+            amendment_id, protocol_id, &protocol_no, &amendment_title,
+            &new_status, operator_id, remark.as_deref(), Some(&config),
+        ).await;
+    });
 
     Ok(Json(amendment))
 }

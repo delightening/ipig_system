@@ -1000,4 +1000,687 @@ impl NotificationService {
 
         Ok(())
     }
+
+    // ========== 輔助方法 ==========
+
+    /// 取得計畫的 PI 和 Coeditor 使用者
+    pub async fn get_protocol_pi_and_coeditors(
+        &self,
+        protocol_id: Uuid,
+    ) -> Result<Vec<(Uuid, String, String)>, AppError> {
+        let users: Vec<(Uuid, String, String)> = sqlx::query_as(
+            r#"
+            SELECT DISTINCT u.id, u.email, u.display_name
+            FROM users u
+            JOIN user_protocols up ON u.id = up.user_id
+            WHERE up.protocol_id = $1
+              AND up.role_in_protocol IN ('PI', 'CO_EDITOR')
+              AND u.is_active = true
+            "#,
+        )
+        .bind(protocol_id)
+        .fetch_all(&self.db)
+        .await?;
+
+        Ok(users)
+    }
+
+    /// 取得被指派的審查委員
+    pub async fn get_assigned_reviewers(
+        &self,
+        protocol_id: Uuid,
+    ) -> Result<Vec<(Uuid, String, String)>, AppError> {
+        let users: Vec<(Uuid, String, String)> = sqlx::query_as(
+            r#"
+            SELECT DISTINCT u.id, u.email, u.display_name
+            FROM users u
+            JOIN review_assignments ra ON u.id = ra.reviewer_id
+            WHERE ra.protocol_id = $1
+              AND u.is_active = true
+            "#,
+        )
+        .bind(protocol_id)
+        .fetch_all(&self.db)
+        .await?;
+
+        Ok(users)
+    }
+
+    /// 依角色代碼取得使用者
+    pub async fn get_users_by_role(
+        &self,
+        role_code: &str,
+    ) -> Result<Vec<(Uuid, String, String)>, AppError> {
+        let users: Vec<(Uuid, String, String)> = sqlx::query_as(
+            r#"
+            SELECT DISTINCT u.id, u.email, u.display_name
+            FROM users u
+            JOIN user_roles ur ON u.id = ur.user_id
+            JOIN roles r ON ur.role_id = r.id
+            WHERE u.is_active = true AND r.code = $1
+            "#,
+        )
+        .bind(role_code)
+        .fetch_all(&self.db)
+        .await?;
+
+        Ok(users)
+    }
+
+    // ========== HR 通知 ==========
+
+    /// 通知請假申請已提交（給 ADMIN_STAFF + admin）
+    pub async fn notify_leave_submitted(
+        &self,
+        leave_id: Uuid,
+        applicant_name: &str,
+        leave_type: &str,
+        start_date: &str,
+        end_date: &str,
+    ) -> Result<i32, AppError> {
+        // 取得 ADMIN_STAFF 角色使用者
+        let mut recipients = self.get_users_by_role("ADMIN_STAFF").await?;
+        // 也取得 admin 角色使用者
+        let admins = self.get_users_by_role("SYSTEM_ADMIN").await?;
+        recipients.extend(admins);
+        // 去重
+        recipients.sort_by_key(|(id, _, _)| *id);
+        recipients.dedup_by_key(|(id, _, _)| *id);
+
+        let title = format!("[iPig] 新請假申請 - {}", applicant_name);
+        let content = format!(
+            "有新的請假申請待審核。\n\n申請人：{}\n假別：{}\n期間：{} ~ {}",
+            applicant_name, leave_type, start_date, end_date
+        );
+
+        let mut count = 0;
+        for (user_id, _email, _name) in &recipients {
+            let _ = self
+                .create_notification(CreateNotificationRequest {
+                    user_id: *user_id,
+                    notification_type: NotificationType::LeaveApproval,
+                    title: title.clone(),
+                    content: Some(content.clone()),
+                    related_entity_type: Some("leave_request".to_string()),
+                    related_entity_id: Some(leave_id),
+                })
+                .await;
+            count += 1;
+        }
+
+        tracing::info!("[Notification] 請假申請通知已發送給 {} 位審核者", count);
+        Ok(count)
+    }
+
+    /// 通知加班申請已提交（給 ADMIN_STAFF + admin）
+    pub async fn notify_overtime_submitted(
+        &self,
+        overtime_id: Uuid,
+        applicant_name: &str,
+        overtime_date: &str,
+        hours: f64,
+    ) -> Result<i32, AppError> {
+        let mut recipients = self.get_users_by_role("ADMIN_STAFF").await?;
+        let admins = self.get_users_by_role("SYSTEM_ADMIN").await?;
+        recipients.extend(admins);
+        recipients.sort_by_key(|(id, _, _)| *id);
+        recipients.dedup_by_key(|(id, _, _)| *id);
+
+        let title = format!("[iPig] 新加班申請 - {}", applicant_name);
+        let content = format!(
+            "有新的加班申請待審核。\n\n申請人：{}\n加班日期：{}\n加班時數：{} 小時",
+            applicant_name, overtime_date, hours
+        );
+
+        let mut count = 0;
+        for (user_id, _email, _name) in &recipients {
+            let _ = self
+                .create_notification(CreateNotificationRequest {
+                    user_id: *user_id,
+                    notification_type: NotificationType::OvertimeApproval,
+                    title: title.clone(),
+                    content: Some(content.clone()),
+                    related_entity_type: Some("overtime_record".to_string()),
+                    related_entity_id: Some(overtime_id),
+                })
+                .await;
+            count += 1;
+        }
+
+        tracing::info!("[Notification] 加班申請通知已發送給 {} 位審核者", count);
+        Ok(count)
+    }
+
+    // ========== AUP 審查流程通知 ==========
+
+    /// AUP 審查進度通知 — 依新狀態決定通知對象
+    /// 同時處理需要 Email 的重要節點
+    pub async fn notify_protocol_review_progress(
+        &self,
+        protocol_id: Uuid,
+        protocol_no: &str,
+        protocol_title: &str,
+        new_status: &str,
+        operator_id: Uuid,
+        reason: Option<&str>,
+        config: Option<&crate::config::Config>,
+    ) -> Result<i32, AppError> {
+        let mut count = 0;
+        let status_text = match new_status {
+            "pre_review" => "行政預審中",
+            "vet_review" => "獸醫審查中",
+            "pre_review_revision_required" => "行政退回修正",
+            "vet_revision_required" => "獸醫退回修正",
+            "under_review" => "委員審查中",
+            "revision_required" => "要求修正",
+            "resubmitted" => "已重新提交",
+            "approved" => "已核准",
+            "approved_with_conditions" => "有條件核准",
+            "rejected" => "已駁回",
+            _ => new_status,
+        };
+
+        let notification_title = format!("[iPig] 計畫狀態更新 - {}", protocol_no);
+        let content = format!(
+            "計畫狀態已更新。\n\n計畫編號：{}\n計畫名稱：{}\n新狀態：{}\n{}",
+            protocol_no,
+            protocol_title,
+            status_text,
+            reason.map(|r| format!("說明：{}", r)).unwrap_or_default()
+        );
+
+        // 判斷需求修正或最終決定 → 發 Email
+        let needs_email = matches!(
+            new_status,
+            "pre_review_revision_required"
+                | "vet_revision_required"
+                | "revision_required"
+                | "approved"
+                | "approved_with_conditions"
+                | "rejected"
+        );
+
+        match new_status {
+            // 進入獸醫審查 → 通知 VET
+            "vet_review" => {
+                let vets = self.get_users_by_role("VET").await?;
+                for (user_id, _email, _name) in &vets {
+                    let _ = self
+                        .create_notification(CreateNotificationRequest {
+                            user_id: *user_id,
+                            notification_type: NotificationType::ProtocolStatus,
+                            title: notification_title.clone(),
+                            content: Some(content.clone()),
+                            related_entity_type: Some("protocol".to_string()),
+                            related_entity_id: Some(protocol_id),
+                        })
+                        .await;
+                    count += 1;
+                }
+            }
+            // 退回修正 → 通知 PI + Coeditor（+ Email）
+            "pre_review_revision_required" | "vet_revision_required" | "revision_required" => {
+                let pi_coeditors = self.get_protocol_pi_and_coeditors(protocol_id).await?;
+                for (user_id, email, display_name) in &pi_coeditors {
+                    let _ = self
+                        .create_notification(CreateNotificationRequest {
+                            user_id: *user_id,
+                            notification_type: NotificationType::ProtocolStatus,
+                            title: notification_title.clone(),
+                            content: Some(content.clone()),
+                            related_entity_type: Some("protocol".to_string()),
+                            related_entity_id: Some(protocol_id),
+                        })
+                        .await;
+                    count += 1;
+
+                    // 寄 Email
+                    if needs_email {
+                        if let Some(cfg) = config {
+                            let _ = crate::services::EmailService::send_protocol_status_change_email(
+                                cfg,
+                                email,
+                                display_name,
+                                protocol_no,
+                                protocol_title,
+                                status_text,
+                                &chrono::Utc::now().to_rfc3339(),
+                                reason,
+                            )
+                            .await;
+                        }
+                    }
+                }
+            }
+            // 進入委員審查 → 通知 IACUC_STAFF + REVIEWER
+            "under_review" => {
+                let staff = self.get_users_by_role("IACUC_STAFF").await?;
+                let reviewers = self.get_assigned_reviewers(protocol_id).await?;
+                let mut all_recipients = staff;
+                all_recipients.extend(reviewers);
+                all_recipients.sort_by_key(|(id, _, _)| *id);
+                all_recipients.dedup_by_key(|(id, _, _)| *id);
+
+                for (user_id, _email, _name) in &all_recipients {
+                    let _ = self
+                        .create_notification(CreateNotificationRequest {
+                            user_id: *user_id,
+                            notification_type: NotificationType::ProtocolStatus,
+                            title: notification_title.clone(),
+                            content: Some(content.clone()),
+                            related_entity_type: Some("protocol".to_string()),
+                            related_entity_id: Some(protocol_id),
+                        })
+                        .await;
+                    count += 1;
+                }
+            }
+            // 重新提交 → 通知 IACUC_STAFF + 原審查委員
+            "resubmitted" => {
+                let staff = self.get_users_by_role("IACUC_STAFF").await?;
+                let reviewers = self.get_assigned_reviewers(protocol_id).await?;
+                let mut all_recipients = staff;
+                all_recipients.extend(reviewers);
+                all_recipients.sort_by_key(|(id, _, _)| *id);
+                all_recipients.dedup_by_key(|(id, _, _)| *id);
+
+                for (user_id, _email, _name) in &all_recipients {
+                    let _ = self
+                        .create_notification(CreateNotificationRequest {
+                            user_id: *user_id,
+                            notification_type: NotificationType::ProtocolStatus,
+                            title: notification_title.clone(),
+                            content: Some(content.clone()),
+                            related_entity_type: Some("protocol".to_string()),
+                            related_entity_id: Some(protocol_id),
+                        })
+                        .await;
+                    count += 1;
+                }
+            }
+            // 核准/駁回 → 通知 PI + Coeditor + IACUC_CHAIR（非操作者）
+            "approved" | "approved_with_conditions" | "rejected" => {
+                let pi_coeditors = self.get_protocol_pi_and_coeditors(protocol_id).await?;
+                let chairs = self.get_users_by_role("IACUC_CHAIR").await?;
+                let mut all_recipients = pi_coeditors;
+                all_recipients.extend(chairs);
+                all_recipients.sort_by_key(|(id, _, _)| *id);
+                all_recipients.dedup_by_key(|(id, _, _)| *id);
+
+                for (user_id, email, display_name) in &all_recipients {
+                    // 排除操作者本人
+                    if *user_id == operator_id {
+                        continue;
+                    }
+                    let _ = self
+                        .create_notification(CreateNotificationRequest {
+                            user_id: *user_id,
+                            notification_type: NotificationType::ProtocolStatus,
+                            title: notification_title.clone(),
+                            content: Some(content.clone()),
+                            related_entity_type: Some("protocol".to_string()),
+                            related_entity_id: Some(protocol_id),
+                        })
+                        .await;
+                    count += 1;
+
+                    // 寄 Email
+                    if needs_email {
+                        if let Some(cfg) = config {
+                            let _ = crate::services::EmailService::send_protocol_status_change_email(
+                                cfg,
+                                email,
+                                display_name,
+                                protocol_no,
+                                protocol_title,
+                                status_text,
+                                &chrono::Utc::now().to_rfc3339(),
+                                reason,
+                            )
+                            .await;
+                        }
+                    }
+                }
+            }
+            // 其他狀態 → 通知 PI
+            _ => {
+                let pi_coeditors = self.get_protocol_pi_and_coeditors(protocol_id).await?;
+                for (user_id, _email, _name) in &pi_coeditors {
+                    let _ = self
+                        .create_notification(CreateNotificationRequest {
+                            user_id: *user_id,
+                            notification_type: NotificationType::ProtocolStatus,
+                            title: notification_title.clone(),
+                            content: Some(content.clone()),
+                            related_entity_type: Some("protocol".to_string()),
+                            related_entity_id: Some(protocol_id),
+                        })
+                        .await;
+                    count += 1;
+                }
+            }
+        }
+
+        tracing::info!(
+            "[Notification] 計畫 {} 狀態變更為 {}，通知已發送給 {} 人",
+            protocol_no,
+            new_status,
+            count
+        );
+        Ok(count)
+    }
+
+    /// 審查意見通知 — 通知 PI + Coeditor + IACUC_STAFF
+    pub async fn notify_review_comment_created(
+        &self,
+        protocol_id: Uuid,
+        protocol_no: &str,
+        commenter_name: &str,
+        comment_excerpt: &str,
+    ) -> Result<i32, AppError> {
+        let pi_coeditors = self.get_protocol_pi_and_coeditors(protocol_id).await?;
+        let staff = self.get_users_by_role("IACUC_STAFF").await?;
+        let mut all_recipients = pi_coeditors;
+        all_recipients.extend(staff);
+        all_recipients.sort_by_key(|(id, _, _)| *id);
+        all_recipients.dedup_by_key(|(id, _, _)| *id);
+
+        let title = format!("[iPig] 新審查意見 - {}", protocol_no);
+        let excerpt = if comment_excerpt.chars().count() > 100 {
+            format!("{}...", comment_excerpt.chars().take(100).collect::<String>())
+        } else {
+            comment_excerpt.to_string()
+        };
+        let content = format!(
+            "計畫 {} 收到新的審查意見。\n\n審查委員：{}\n意見摘要：{}",
+            protocol_no, commenter_name, excerpt
+        );
+
+        let mut count = 0;
+        for (user_id, _email, _name) in &all_recipients {
+            let _ = self
+                .create_notification(CreateNotificationRequest {
+                    user_id: *user_id,
+                    notification_type: NotificationType::ReviewComment,
+                    title: title.clone(),
+                    content: Some(content.clone()),
+                    related_entity_type: Some("protocol".to_string()),
+                    related_entity_id: Some(protocol_id),
+                })
+                .await;
+            count += 1;
+        }
+
+        tracing::info!(
+            "[Notification] 審查意見通知已發送給 {} 人（計畫 {}）",
+            count,
+            protocol_no
+        );
+        Ok(count)
+    }
+
+    // ========== 修正案通知 ==========
+
+    /// 修正案進度通知
+    pub async fn notify_amendment_progress(
+        &self,
+        amendment_id: Uuid,
+        protocol_id: Uuid,
+        protocol_no: &str,
+        amendment_title: &str,
+        event: &str,
+        operator_id: Uuid,
+        reason: Option<&str>,
+        config: Option<&crate::config::Config>,
+    ) -> Result<i32, AppError> {
+        let mut count = 0;
+        let event_text = match event {
+            "submitted" => "修正案已提交",
+            "classified" | "under_review" => "修正案開始審查",
+            "decision_recorded" => "審查委員已記錄決定",
+            "revision_required" => "修正案需要修正",
+            "approved" => "修正案已核准",
+            "rejected" => "修正案已駁回",
+            _ => event,
+        };
+
+        let notification_title = format!("[iPig] {} - {}", event_text, protocol_no);
+        let content = format!(
+            "{}。\n\n計畫編號：{}\n修正案：{}\n{}",
+            event_text,
+            protocol_no,
+            amendment_title,
+            reason.map(|r| format!("說明：{}", r)).unwrap_or_default()
+        );
+
+        let needs_email = matches!(
+            event,
+            "revision_required" | "approved" | "rejected"
+        );
+
+        match event {
+            // 提交 → 通知 IACUC_STAFF
+            "submitted" => {
+                let staff = self.get_users_by_role("IACUC_STAFF").await?;
+                for (user_id, _email, _name) in &staff {
+                    let _ = self
+                        .create_notification(CreateNotificationRequest {
+                            user_id: *user_id,
+                            notification_type: NotificationType::ProtocolStatus,
+                            title: notification_title.clone(),
+                            content: Some(content.clone()),
+                            related_entity_type: Some("amendment".to_string()),
+                            related_entity_id: Some(amendment_id),
+                        })
+                        .await;
+                    count += 1;
+                }
+            }
+            // 開始審查 → 通知 REVIEWER
+            "classified" | "under_review" => {
+                // 取得修正案被指派的審查委員
+                let reviewers: Vec<(Uuid, String, String)> = sqlx::query_as(
+                    r#"
+                    SELECT DISTINCT u.id, u.email, u.display_name
+                    FROM users u
+                    JOIN amendment_review_assignments ara ON u.id = ara.reviewer_id
+                    WHERE ara.amendment_id = $1 AND u.is_active = true
+                    "#,
+                )
+                .bind(amendment_id)
+                .fetch_all(&self.db)
+                .await?;
+
+                for (user_id, _email, _name) in &reviewers {
+                    let _ = self
+                        .create_notification(CreateNotificationRequest {
+                            user_id: *user_id,
+                            notification_type: NotificationType::ReviewAssignment,
+                            title: notification_title.clone(),
+                            content: Some(content.clone()),
+                            related_entity_type: Some("amendment".to_string()),
+                            related_entity_id: Some(amendment_id),
+                        })
+                        .await;
+                    count += 1;
+                }
+            }
+            // 審查委員記錄決定 → 通知 IACUC_STAFF
+            "decision_recorded" => {
+                let staff = self.get_users_by_role("IACUC_STAFF").await?;
+                for (user_id, _email, _name) in &staff {
+                    let _ = self
+                        .create_notification(CreateNotificationRequest {
+                            user_id: *user_id,
+                            notification_type: NotificationType::ProtocolStatus,
+                            title: notification_title.clone(),
+                            content: Some(content.clone()),
+                            related_entity_type: Some("amendment".to_string()),
+                            related_entity_id: Some(amendment_id),
+                        })
+                        .await;
+                    count += 1;
+                }
+            }
+            // 要求修正 → 通知 PI + Coeditor（+ Email）
+            "revision_required" => {
+                let pi_coeditors = self.get_protocol_pi_and_coeditors(protocol_id).await?;
+                for (user_id, email, display_name) in &pi_coeditors {
+                    let _ = self
+                        .create_notification(CreateNotificationRequest {
+                            user_id: *user_id,
+                            notification_type: NotificationType::ProtocolStatus,
+                            title: notification_title.clone(),
+                            content: Some(content.clone()),
+                            related_entity_type: Some("amendment".to_string()),
+                            related_entity_id: Some(amendment_id),
+                        })
+                        .await;
+                    count += 1;
+
+                    if needs_email {
+                        if let Some(cfg) = config {
+                            let _ = crate::services::EmailService::send_protocol_status_change_email(
+                                cfg, email, display_name, protocol_no,
+                                amendment_title, event_text,
+                                &chrono::Utc::now().to_rfc3339(), reason,
+                            )
+                            .await;
+                        }
+                    }
+                }
+            }
+            // 核准/駁回 → 通知 PI + Coeditor + IACUC_CHAIR（非操作者）
+            "approved" | "rejected" => {
+                let pi_coeditors = self.get_protocol_pi_and_coeditors(protocol_id).await?;
+                let chairs = self.get_users_by_role("IACUC_CHAIR").await?;
+                let mut all_recipients = pi_coeditors;
+                all_recipients.extend(chairs);
+                all_recipients.sort_by_key(|(id, _, _)| *id);
+                all_recipients.dedup_by_key(|(id, _, _)| *id);
+
+                for (user_id, email, display_name) in &all_recipients {
+                    if *user_id == operator_id {
+                        continue;
+                    }
+                    let _ = self
+                        .create_notification(CreateNotificationRequest {
+                            user_id: *user_id,
+                            notification_type: NotificationType::ProtocolStatus,
+                            title: notification_title.clone(),
+                            content: Some(content.clone()),
+                            related_entity_type: Some("amendment".to_string()),
+                            related_entity_id: Some(amendment_id),
+                        })
+                        .await;
+                    count += 1;
+
+                    if needs_email {
+                        if let Some(cfg) = config {
+                            let _ = crate::services::EmailService::send_protocol_status_change_email(
+                                cfg, email, display_name, protocol_no,
+                                amendment_title, event_text,
+                                &chrono::Utc::now().to_rfc3339(), reason,
+                            )
+                            .await;
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        tracing::info!(
+            "[Notification] 修正案 {} 事件 {}，通知已發送給 {} 人",
+            amendment_id,
+            event,
+            count
+        );
+        Ok(count)
+    }
+
+    // ========== ERP 採購單通知 ==========
+
+    /// 通知採購單已提交（給 WAREHOUSE_MANAGER）
+    pub async fn notify_document_submitted(
+        &self,
+        document_id: Uuid,
+        document_no: &str,
+        doc_type: &str,
+        creator_name: &str,
+    ) -> Result<i32, AppError> {
+        let managers = self.get_users_by_role("WAREHOUSE_MANAGER").await?;
+
+        let type_text = match doc_type {
+            "PO" => "採購單",
+            "PR" => "採購退貨",
+            "SO" => "銷售單",
+            "DO" => "銷售出庫",
+            _ => doc_type,
+        };
+        let title = format!("[iPig] 新{}待審核 - {}", type_text, document_no);
+        let content = format!(
+            "有新的{}待審核。\n\n單據編號：{}\n建立者：{}",
+            type_text, document_no, creator_name
+        );
+
+        let mut count = 0;
+        for (user_id, _email, _name) in &managers {
+            let _ = self
+                .create_notification(CreateNotificationRequest {
+                    user_id: *user_id,
+                    notification_type: NotificationType::DocumentApproval,
+                    title: title.clone(),
+                    content: Some(content.clone()),
+                    related_entity_type: Some("document".to_string()),
+                    related_entity_id: Some(document_id),
+                })
+                .await;
+            count += 1;
+        }
+
+        tracing::info!("[Notification] {}提交通知已發送給 {} 位倉管", type_text, count);
+        Ok(count)
+    }
+
+    /// 通知採購單已審核/駁回（給建立者）
+    pub async fn notify_document_decided(
+        &self,
+        document_id: Uuid,
+        document_no: &str,
+        doc_type: &str,
+        is_approved: bool,
+        creator_id: Uuid,
+    ) -> Result<(), AppError> {
+        let type_text = match doc_type {
+            "PO" => "採購單",
+            "PR" => "採購退貨",
+            "SO" => "銷售單",
+            "DO" => "銷售出庫",
+            _ => doc_type,
+        };
+        let decision = if is_approved { "已核准" } else { "已駁回" };
+        let title = format!("[iPig] {}{} - {}", type_text, decision, document_no);
+        let content = format!(
+            "您的{}已{}。\n\n單據編號：{}",
+            type_text, decision, document_no
+        );
+
+        self.create_notification(CreateNotificationRequest {
+            user_id: creator_id,
+            notification_type: NotificationType::DocumentApproval,
+            title,
+            content: Some(content),
+            related_entity_type: Some("document".to_string()),
+            related_entity_id: Some(document_id),
+        })
+        .await?;
+
+        tracing::info!(
+            "[Notification] {}{} 通知已發送給建立者",
+            type_text,
+            decision
+        );
+        Ok(())
+    }
 }

@@ -211,7 +211,6 @@ export const LEAVE_TYPE_NAMES: Record<string, string> = {
     PATERNITY: '陪產假',
     MENSTRUAL: '生理假',
     OFFICIAL: '公假',
-    UNPAID: '無薪假',
 };
 
 export const LEAVE_STATUS_NAMES: Record<string, string> = {

@@ -157,13 +157,14 @@ pub async fn list_calendar_events(
     Extension(_current_user): Extension<CurrentUser>,
     Query(params): Query<CalendarEventsQuery>,
 ) -> Result<Json<Vec<CalendarEvent>>> {
-    // 取得 calendar config
-    let config = CalendarService::get_config(&state.db).await?;
+    // 取得 calendar config，未配置時回傳空陣列
+    let config = match CalendarService::get_config(&state.db).await {
+        Ok(c) => c,
+        Err(_) => return Ok(Json(vec![])),
+    };
     
     if !config.is_configured {
-        return Err(crate::error::AppError::Validation(
-            "Google Calendar 尚未連接".to_string(),
-        ));
+        return Ok(Json(vec![]));
     }
 
     // 從 Google Calendar 獲取事件
