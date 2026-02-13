@@ -5,8 +5,8 @@
 ## 🚧 進行中與近期事項
 
 ### 優先事項
-- [ ] **計畫變更（Amendment）整合測試撰寫** - 前端頁面已完成，需撰寫整合測試驗證完整流程
-- [ ] **狀態變更至「審查中」顯示審查委員** - 狀態變為 `UNDER_REVIEW` 時，將指定審查委員名單記錄至活動歷程的 `target_entity_name` 或 `extra_data` (`backend/src/services/protocol.rs`)
+- [x] **計畫變更（Amendment）整合測試撰寫** - `tests/test_amendment_full.py` 14 步驟（Minor/Major 兩條路線）
+- [x] **狀態變更至「審查中」顯示審查委員** - `protocol.rs` change_status 記錄審查委員姓名到 remark 與 extra_data
 
 ### 系統管理與報表
 - [🔶] PDF 報表生成 - 目前分頁邏輯不盡人意，規劃改為每個 Session 獨立分頁
@@ -31,10 +31,10 @@
 
 ## 📋 系統開發與維護 (技術債)
 
-- [ ] 表單驗證統一：使用 Zod schema 統一驗證
-- [ ] 錯誤處理統一：統一錯誤顯示與處理方式
-- [ ] Loading 狀態統一：骨架屏與 Loading 指示器
-- [ ] 前端 TypeScript 型別統一
+- [x] 表單驗證統一：建立 `validation.ts` Zod schema 統一驗證模組
+- [x] 錯誤處理統一：建立 `useApiError.ts` hook + `ErrorBoundary.tsx` 元件
+- [x] Loading 狀態統一：建立 `Skeleton.tsx` 骨架屏 + `LoadingOverlay.tsx`
+- [x] 前端 TypeScript 型別統一：建立 `types/common.ts` + `types/index.ts` 統一匯出
 
 ---
 
@@ -119,6 +119,7 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-02-13 | Amendment 整合測試、UNDER_REVIEW 審查委員記錄、前端技術債基礎建設（Zod 驗證、錯誤處理、骨架屏、型別統一） |
 | 2026-02-13 | 調查並標記已完成項目：狀態歷程 Created 修正、獸醫審查流程、執秘回覆功能、Amendment 前端；新增 Amendment 測試為優先事項 |
 | 2026-02-13 | 血液檢查項目管理頁面、Panel 快速勾選、ERP 通知整合、移除血液檢查審核、migration 合併、HR 測試修復、API 404 修復、容器重啟修復 |
 | 2026-02-12 | 整合測試 Bug 修復、動物狀態簡化、時間軸增強、動物記錄 ID 遷移 |
