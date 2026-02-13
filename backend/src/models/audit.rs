@@ -30,6 +30,8 @@ pub struct AuditLogWithActor {
     pub action: String,
     pub entity_type: String,
     pub entity_id: Uuid,
+    pub entity_email: Option<String>,
+    pub entity_name: Option<String>,
     pub before_data: Option<serde_json::Value>,
     pub after_data: Option<serde_json::Value>,
     pub ip_address: Option<String>,

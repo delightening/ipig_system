@@ -6,6 +6,7 @@ import {
   ShoppingCart,
   Truck,
   DollarSign,
+  Droplets,
 } from 'lucide-react'
 
 const reportCards = [
@@ -43,6 +44,13 @@ const reportCards = [
     href: '/reports/cost-summary',
     icon: DollarSign,
     color: 'text-emerald-500',
+  },
+  {
+    title: '血液檢查費用報表',
+    description: '依專案、日期與實驗室查詢血檢費用',
+    href: '/reports/blood-test-cost',
+    icon: Droplets,
+    color: 'text-red-500',
   },
 ]
 

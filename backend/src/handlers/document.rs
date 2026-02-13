@@ -120,9 +120,12 @@ pub async fn submit_document(
     let creator_name = document.created_by_name.clone();
     tokio::spawn(async move {
         let svc = NotificationService::new(db);
-        let _ = svc.notify_document_submitted(
+        if let Err(e) = svc.notify_document_submitted(
             doc_id, &doc_no, &doc_type, &creator_name,
-        ).await;
+        ).await {
+            tracing::warn!("發送單據提交通知失敗: {e}");
+        }
+
     });
 
     Ok(Json(document))
@@ -161,9 +164,12 @@ pub async fn approve_document(
     let creator_id = document.document.created_by;
     tokio::spawn(async move {
         let svc = NotificationService::new(db);
-        let _ = svc.notify_document_decided(
+        if let Err(e) = svc.notify_document_decided(
             doc_id, &doc_no, &doc_type, true, creator_id,
-        ).await;
+        ).await {
+            tracing::warn!("發送單據決定通知失敗: {e}");
+        }
+
     });
 
     Ok(Json(document))
@@ -202,9 +208,12 @@ pub async fn cancel_document(
     let creator_id = document.document.created_by;
     tokio::spawn(async move {
         let svc = NotificationService::new(db);
-        let _ = svc.notify_document_decided(
+        if let Err(e) = svc.notify_document_decided(
             doc_id, &doc_no, &doc_type, false, creator_id,
-        ).await;
+        ).await {
+            tracing::warn!("發送單據決定通知失敗: {e}");
+        }
+
     });
 
     Ok(Json(document))

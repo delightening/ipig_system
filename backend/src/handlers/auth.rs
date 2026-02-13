@@ -110,19 +110,25 @@ pub async fn logout(
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<serde_json::Value>> {
     // 記錄登出事件
-    let _ = LoginTracker::log_logout(
+    if let Err(e) = LoginTracker::log_logout(
         &state.db,
         current_user.id,
         &current_user.email,
         Some(&addr.ip().to_string()),
-    ).await;
+    ).await {
+        tracing::warn!("記錄登出事件失敗: {e}");
+    }
+
     
     // 結束所有 sessions
-    let _ = SessionManager::end_all_sessions(
+    if let Err(e) = SessionManager::end_all_sessions(
         &state.db,
         current_user.id,
         "logout",
-    ).await;
+    ).await {
+        tracing::warn!("結束所有 sessions 失敗: {e}");
+    }
+
     
     AuthService::logout(&state.db, current_user.id).await?;
     Ok(Json(serde_json::json!({ "message": "Logged out successfully" })))

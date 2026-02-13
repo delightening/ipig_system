@@ -144,6 +144,7 @@ CREATE TABLE partners (
     code VARCHAR(50) NOT NULL UNIQUE,
     name VARCHAR(200) NOT NULL,
     supplier_category supplier_category,
+    customer_category customer_category,
     tax_id VARCHAR(50),
     phone VARCHAR(50),
     email VARCHAR(255),
@@ -157,6 +158,7 @@ CREATE TABLE partners (
 CREATE INDEX idx_partners_code ON partners(code);
 CREATE INDEX idx_partners_partner_type ON partners(partner_type);
 CREATE INDEX idx_partners_is_active ON partners(is_active);
+CREATE INDEX idx_partners_customer_category ON partners(customer_category);
 
 -- ============================================
 -- 6. 單據表

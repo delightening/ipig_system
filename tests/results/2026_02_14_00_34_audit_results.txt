@@ -1,0 +1,18 @@
+﻿
+[Auth] ?餃 IACUC_STAFF...
+.venv\Scripts\python.exe : Traceback (most recent call last):
+位於 線路:1 字元:1
++ .venv\Scripts\python.exe tests/audit_verify.py 2>&1 | Out-File -Encod ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last): 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "D:\Coding\ipig_system\tests\audit_verify.py", line 300, in <module>
+    main()
+  File "D:\Coding\ipig_system\tests\audit_verify.py", line 275, in main
+    v.login()
+  File "D:\Coding\ipig_system\tests\audit_verify.py", line 31, in login
+    assert resp.status_code == 200, f"?餃憭望?: {resp.status_code}"
+           ^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ?餃憭望?: 400

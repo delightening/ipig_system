@@ -462,12 +462,14 @@ impl AmendmentService {
 
         // 有任何人要求修訂，狀態變為需修訂
         if stats.revision > 0 {
-            let _ = sqlx::query!(
+            if let Err(e) = sqlx::query!(
                 r#"UPDATE amendments SET status = 'REVISION_REQUIRED', updated_at = NOW() WHERE id = $1"#,
                 amendment_id
             )
             .execute(pool)
-            .await?;
+            .await {
+                tracing::warn!("更新修正案狀態失敗: {e}");
+            }
 
             Self::record_status_change(
                 pool,
@@ -481,12 +483,15 @@ impl AmendmentService {
         }
         // 有任何人否決
         else if stats.rejected > 0 {
-            let _ = sqlx::query!(
+            if let Err(e) = sqlx::query!(
                 r#"UPDATE amendments SET status = 'REJECTED', updated_at = NOW() WHERE id = $1"#,
                 amendment_id
             )
             .execute(pool)
-            .await?;
+            .await {
+                tracing::warn!("更新修正案狀態失敗: {e}");
+            }
+
 
             Self::record_status_change(
                 pool,
@@ -500,12 +505,15 @@ impl AmendmentService {
         }
         // 全部核准
         else if stats.approved == stats.total {
-            let _ = sqlx::query!(
+            if let Err(e) = sqlx::query!(
                 r#"UPDATE amendments SET status = 'APPROVED', updated_at = NOW() WHERE id = $1"#,
                 amendment_id
             )
             .execute(pool)
-            .await?;
+            .await {
+                tracing::warn!("更新修正案狀態失敗: {e}");
+            }
+
 
             Self::record_status_change(
                 pool,

@@ -203,10 +203,13 @@ pub async fn submit_amendment(
         let protocol_no = protocol_no.unwrap_or_default();
 
         let svc = NotificationService::new(db);
-        let _ = svc.notify_amendment_progress(
+        if let Err(e) = svc.notify_amendment_progress(
             amendment_id, protocol_id, &protocol_no, &amendment_title,
             "submitted", operator_id, None, Some(&config),
-        ).await;
+        ).await {
+            tracing::warn!("發送修正案進度通知失敗: {e}");
+        }
+
     });
 
     Ok(Json(amendment))
@@ -221,7 +224,7 @@ pub async fn classify_amendment(
     Json(req): Json<ClassifyAmendmentRequest>,
 ) -> Result<Json<Amendment>> {
     // 只有 IACUC_STAFF 可以分類
-    require_permission!(current_user, "amendment.classify");
+    require_permission!(current_user, "aup.amendment.classify");
 
     let amendment = AmendmentService::classify(&state.db, id, &req, current_user.id).await?;
     Ok(Json(amendment))
@@ -264,10 +267,13 @@ pub async fn start_amendment_review(
         let protocol_no = protocol_no.unwrap_or_default();
 
         let svc = NotificationService::new(db);
-        let _ = svc.notify_amendment_progress(
+        if let Err(e) = svc.notify_amendment_progress(
             amendment_id, protocol_id, &protocol_no, &amendment_title,
             "under_review", operator_id, None, Some(&config),
-        ).await;
+        ).await {
+            tracing::warn!("發送修正案進度通知失敗: {e}");
+        }
+
     });
 
     Ok(Json(amendment))
@@ -360,10 +366,13 @@ pub async fn change_amendment_status(
         let protocol_no = protocol_no.unwrap_or_default();
 
         let svc = NotificationService::new(db);
-        let _ = svc.notify_amendment_progress(
+        if let Err(e) = svc.notify_amendment_progress(
             amendment_id, protocol_id, &protocol_no, &amendment_title,
             &new_status, operator_id, remark.as_deref(), Some(&config),
-        ).await;
+        ).await {
+            tracing::warn!("發送修正案進度通知失敗: {e}");
+        }
+
     });
 
     Ok(Json(amendment))

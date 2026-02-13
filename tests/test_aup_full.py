@@ -1,10 +1,11 @@
 """
-完整 AUP 審查流程測試
+完整 AUP 審查流程 + 變更申請流程測試
 
 包括：
 - 建立 8 個測試角色（PI, VET, IACUC_STAFF, IACUC_CHAIR, REVIEWER×3, REV_OTHER）
 - 完整 14 步 AUP 審查流程
 - 每步驟驗證 protocol status
+- 變更申請流程（Minor + Major Amendment）
 
 用法：
     cd d:\\Coding\\ipig_system
@@ -324,10 +325,178 @@ def run_aup_test() -> bool:
     t.record("主委核定通過", status in ("approved", "APPROVED"), f"status={status}")
 
     # ========================================
+    # === 變更申請流程（Amendment） ===
+    # ========================================
+    print(f"\n{'=' * 60}")
+    print(f"[INFO] AUP 審查流程完成，開始執行變更申請流程測試...")
+    print(f"{'=' * 60}")
+
+    # ========================================
+    # Step 15: PI 建立 Minor Amendment
+    # ========================================
+    t.step("PI 建立 Minor Amendment")
+    minor_resp = t._req("POST", f"{API_BASE_URL}/amendments", role="PI", json={
+        "protocol_id": protocol_id,
+        "title": f"小變更測試_{ts}",
+        "description": "更改實驗人員聯絡方式",
+        "change_items": ["personnel_contact"],
+        "changes_content": {"personnel": {"contact_phone": "0912-111-111"}}
+    })
+    minor_amendment = minor_resp.json()
+    minor_id = minor_amendment["id"]
+    t.record("建立 Minor Amendment", True, f"ID: {minor_id[:8]}..., status={minor_amendment['status']}")
+
+    # ========================================
+    # Step 16: PI 提交 Minor Amendment
+    # ========================================
+    t.step("PI 提交 Minor Amendment")
+    submit_resp = t._req("POST", f"{API_BASE_URL}/amendments/{minor_id}/submit", role="PI")
+    minor_status = submit_resp.json()["status"]
+    t.record("提交 Minor Amendment", minor_status in ("SUBMITTED", "submitted"),
+             f"status={minor_status}")
+
+    # ========================================
+    # Step 17: IACUC_STAFF 分類為 Minor → 自動 ADMIN_APPROVED
+    # ========================================
+    t.step("IACUC_STAFF 分類為 Minor（自動行政核准）")
+    classify_resp = t._req("POST", f"{API_BASE_URL}/amendments/{minor_id}/classify",
+                            role="IACUC_STAFF", json={
+                                "amendment_type": "MINOR",
+                                "remark": "小變更，行政核准"
+                            })
+    minor_final_status = classify_resp.json()["status"]
+    t.record("Minor 分類 → ADMIN_APPROVED",
+             minor_final_status in ("ADMIN_APPROVED", "admin_approved"),
+             f"status={minor_final_status}")
+
+    # ========================================
+    # Step 18: PI 建立 Major Amendment
+    # ========================================
+    t.step("PI 建立 Major Amendment")
+    major_resp = t._req("POST", f"{API_BASE_URL}/amendments", role="PI", json={
+        "protocol_id": protocol_id,
+        "title": f"重大變更測試_{ts}",
+        "description": "增加實驗動物數量",
+        "change_items": ["animal_count", "design"],
+        "changes_content": {
+            "animals": {"total_animals": 10, "reason": "統計分析需要更多樣本"},
+            "design": {"procedures": "每日觀察 + 週體重測量"}
+        }
+    })
+    major_amendment = major_resp.json()
+    major_id = major_amendment["id"]
+    t.record("建立 Major Amendment", True, f"ID: {major_id[:8]}...")
+
+    # ========================================
+    # Step 19: PI 提交 → IACUC_STAFF 分類為 Major
+    # ========================================
+    t.step("PI 提交 → IACUC_STAFF 分類為 Major")
+    t._req("POST", f"{API_BASE_URL}/amendments/{major_id}/submit", role="PI")
+
+    classify_major_resp = t._req("POST", f"{API_BASE_URL}/amendments/{major_id}/classify",
+                                  role="IACUC_STAFF", json={
+                                      "amendment_type": "MAJOR",
+                                      "remark": "需要委員審查"
+                                  })
+    major_classified_status = classify_major_resp.json()["status"]
+    t.record("Major 分類 → CLASSIFIED",
+             major_classified_status in ("CLASSIFIED", "classified"),
+             f"status={major_classified_status}")
+
+    # ========================================
+    # Step 20: 審查委員自動指派 + 開始審查 + 全部核准
+    # ========================================
+    t.step("審查委員自動指派 → 開始審查 → 全部核准")
+
+    # 驗證審查委員自動指派
+    assignments_resp = t._req("GET", f"{API_BASE_URL}/amendments/{major_id}/assignments",
+                               role="IACUC_STAFF")
+    assignments = assignments_resp.json()
+    t.record("審查委員自動指派", len(assignments) >= 2,
+             f"共 {len(assignments)} 位審查委員")
+
+    # IACUC_STAFF 開始審查
+    review_resp = t._req("POST", f"{API_BASE_URL}/amendments/{major_id}/start-review",
+                          role="IACUC_STAFF")
+    review_status = review_resp.json()["status"]
+    t.record("開始審查 → UNDER_REVIEW",
+             review_status in ("UNDER_REVIEW", "under_review"),
+             f"status={review_status}")
+
+    # 審查委員記錄決定（全部核准）
+    reviewer_roles = []
+    for a in assignments:
+        reviewer_id = a["reviewer_id"]
+        for role_name, uid in t.user_ids.items():
+            if uid == reviewer_id:
+                reviewer_roles.append(role_name)
+                break
+
+    decision_count = 0
+    for role_name in reviewer_roles:
+        try:
+            t._req("POST", f"{API_BASE_URL}/amendments/{major_id}/decision",
+                    role=role_name, json={
+                        "decision": "APPROVE",
+                        "comment": f"同意變更 — by {role_name}"
+                    })
+            decision_count += 1
+        except Exception as e:
+            print(f"    ⚠ {role_name} 決定失敗: {e}")
+
+    t.record("審查委員全部核准", decision_count == len(reviewer_roles),
+             f"{decision_count}/{len(reviewer_roles)} 位")
+
+    # 驗證自動更新為 APPROVED
+    final_resp = t._req("GET", f"{API_BASE_URL}/amendments/{major_id}", role="IACUC_STAFF")
+    final_status = final_resp.json()["status"]
+    t.record("Major 自動更新 → APPROVED",
+             final_status in ("APPROVED", "approved"),
+             f"status={final_status}")
+
+    # ========================================
+    # Step 21: 驗證版本歷程 + 狀態歷程
+    # ========================================
+    t.step("驗證版本歷程與狀態歷程")
+
+    versions_resp = t._req("GET", f"{API_BASE_URL}/amendments/{major_id}/versions",
+                            role="IACUC_STAFF")
+    versions = versions_resp.json()
+    t.record("Major 版本歷程", len(versions) >= 1, f"共 {len(versions)} 個版本")
+
+    history_resp = t._req("GET", f"{API_BASE_URL}/amendments/{major_id}/history",
+                           role="IACUC_STAFF")
+    history = history_resp.json()
+    history_statuses = [h.get("to_status", "") for h in history]
+    t.record("狀態歷程完整", len(history) >= 4,
+             f"共 {len(history)} 筆: {' → '.join(history_statuses[::-1])}")
+
+    # ========================================
+    # Step 22: 驗證 Protocol amendments 列表 + 待處理數量
+    # ========================================
+    t.step("驗證 Protocol amendments 列表與待處理")
+
+    proto_amendments_resp = t._req("GET", f"{API_BASE_URL}/protocols/{protocol_id}/amendments",
+                                     role="IACUC_STAFF")
+    proto_amendments = proto_amendments_resp.json()
+    t.record("Protocol amendments 列表",
+             len(proto_amendments) >= 2,
+             f"共 {len(proto_amendments)} 個 amendment")
+
+    pending_resp = t._req("GET", f"{API_BASE_URL}/amendments/pending-count",
+                           role="IACUC_STAFF")
+    pending_data = pending_resp.json()
+    t.record("待處理數量 API", "count" in pending_data,
+             f"pending count = {pending_data.get('count', 'N/A')}")
+
+    # ========================================
     # 彙總
     # ========================================
     print(f"\n{'=' * 60}")
-    print(f"[完成] AUP 完整 14 步流程完成！Protocol ID: {protocol_id}")
+    print(f"[完成] AUP 審查 + 變更申請流程全部完成！")
+    print(f"  Protocol ID: {protocol_id}")
+    print(f"  Minor Amendment ID: {minor_id} (ADMIN_APPROVED)")
+    print(f"  Major Amendment ID: {major_id} (APPROVED)")
     print(f"{'=' * 60}")
     return t.print_summary()
 

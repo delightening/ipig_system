@@ -22,6 +22,16 @@ pub enum SupplierCategory {
     Equipment,   // 儀器
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[sqlx(type_name = "customer_category", rename_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
+pub enum CustomerCategory {
+    Internal,    // 內部單位
+    External,    // 外部客戶
+    Research,    // 研究計畫
+    Other,       // 其他
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Partner {
     pub id: Uuid,
@@ -29,6 +39,8 @@ pub struct Partner {
     pub code: String,
     pub name: String,
     pub supplier_category: Option<SupplierCategory>,
+    #[sqlx(default)]
+    pub customer_category: Option<CustomerCategory>,
     pub tax_id: Option<String>,
     pub phone: Option<String>,
     pub email: Option<String>,
@@ -44,6 +56,7 @@ pub struct CreatePartnerRequest {
     pub partner_type: PartnerType,
     pub code: Option<String>,  // 改為可選，如果為空則自動生成
     pub supplier_category: Option<SupplierCategory>,
+    pub customer_category: Option<CustomerCategory>,
     #[validate(length(min = 1, max = 200, message = "Name must be 1-200 characters"))]
     pub name: String,
     pub tax_id: Option<String>,

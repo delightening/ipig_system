@@ -257,7 +257,7 @@ impl CalendarService {
             match client.create_event(new_event).await {
                 Ok(created) => {
                     // 更新同步記錄
-                    let _ = sqlx::query(
+                    if let Err(e) = sqlx::query(
                         r#"
                         UPDATE calendar_event_sync
                         SET google_event_id = $1,
@@ -275,13 +275,16 @@ impl CalendarService {
                     .bind(&created.etag)
                     .bind(item.id)
                     .execute(pool)
-                    .await;
+                    .await {
+                        tracing::warn!("DB 操作失敗: {e}");
+                    }
+
                     events_created += 1;
                 }
                 Err(e) => {
                     let err_msg = format!("建立事件失敗 (leave_id={}): {}", item.leave_request_id, e);
                     error_messages.push(err_msg);
-                    let _ = sqlx::query(
+                    if let Err(e) = sqlx::query(
                         r#"
                         UPDATE calendar_event_sync
                         SET sync_status = 'error',
@@ -295,7 +298,10 @@ impl CalendarService {
                     .bind(e.to_string())
                     .bind(item.id)
                     .execute(pool)
-                    .await;
+                    .await {
+                        tracing::warn!("DB 操作失敗: {e}");
+                    }
+
                     errors_count += 1;
                 }
             }
@@ -358,7 +364,7 @@ impl CalendarService {
 
                 match client.update_event(google_event_id, update_event).await {
                     Ok(updated) => {
-                        let _ = sqlx::query(
+                        if let Err(e) = sqlx::query(
                             r#"
                             UPDATE calendar_event_sync
                             SET google_event_etag = $1,
@@ -372,13 +378,16 @@ impl CalendarService {
                         .bind(&updated.etag)
                         .bind(item.id)
                         .execute(pool)
-                        .await;
+                        .await {
+                            tracing::warn!("DB 操作失敗: {e}");
+                        }
+
                         events_updated += 1;
                     }
                     Err(e) => {
                         let err_msg = format!("更新事件失敗 (leave_id={}): {}", item.leave_request_id, e);
                         error_messages.push(err_msg);
-                        let _ = sqlx::query(
+                        if let Err(e) = sqlx::query(
                             r#"
                             UPDATE calendar_event_sync
                             SET sync_status = 'error',
@@ -392,7 +401,10 @@ impl CalendarService {
                         .bind(e.to_string())
                         .bind(item.id)
                         .execute(pool)
-                        .await;
+                        .await {
+                            tracing::warn!("DB 操作失敗: {e}");
+                        }
+
                         errors_count += 1;
                     }
                 }
@@ -417,7 +429,7 @@ impl CalendarService {
             if let Some(ref event_id) = google_event_id {
                 match client.delete_event(event_id).await {
                     Ok(_) => {
-                        let _ = sqlx::query(
+                        if let Err(e) = sqlx::query(
                             r#"
                             UPDATE calendar_event_sync
                             SET sync_status = 'deleted',
@@ -428,13 +440,16 @@ impl CalendarService {
                         )
                         .bind(sync_id)
                         .execute(pool)
-                        .await;
+                        .await {
+                            tracing::warn!("DB 操作失敗: {e}");
+                        }
+
                         events_deleted += 1;
                     }
                     Err(e) => {
                         let err_msg = format!("刪除事件失敗 (sync_id={}): {}", sync_id, e);
                         error_messages.push(err_msg);
-                        let _ = sqlx::query(
+                        if let Err(e) = sqlx::query(
                             r#"
                             UPDATE calendar_event_sync
                             SET sync_status = 'error',
@@ -448,7 +463,10 @@ impl CalendarService {
                         .bind(e.to_string())
                         .bind(sync_id)
                         .execute(pool)
-                        .await;
+                        .await {
+                            tracing::warn!("DB 操作失敗: {e}");
+                        }
+
                         errors_count += 1;
                     }
                 }

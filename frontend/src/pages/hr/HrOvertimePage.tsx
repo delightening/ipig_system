@@ -635,6 +635,17 @@ export function HrOvertimePage() {
     const [filterOvertimeType, setFilterOvertimeType] = useState<string>('all')
     const [filterFrom, setFilterFrom] = useState('')
     const [filterTo, setFilterTo] = useState('')
+    const [filterApplicant, setFilterApplicant] = useState<string>('all')
+
+    // 取得員工清單（供申請人篩選用）
+    const { data: staffList } = useQuery({
+        queryKey: ['hr-internal-users'],
+        queryFn: async () => {
+            const res = await api.get<{ id: string; display_name: string; email: string }[]>('/hr/internal-users')
+            return res.data
+        },
+        enabled: canViewAll,
+    })
 
     // Data fetching
     const { data: myOvertime, isLoading: loadingOvertime } = useMyOvertime()
@@ -642,12 +653,13 @@ export function HrOvertimePage() {
 
     // 所有員工的加班紀錄（admin/ADMIN_STAFF 專用）
     const { data: allOvertime, isLoading: loadingAllOvertime } = useQuery({
-        queryKey: ['hr-all-overtime', filterStatus, filterOvertimeType, filterFrom, filterTo],
+        queryKey: ['hr-all-overtime', filterStatus, filterOvertimeType, filterFrom, filterTo, filterApplicant],
         queryFn: async () => {
             const params = new URLSearchParams({ view_all: 'true' })
             if (filterStatus !== 'all') params.append('status', filterStatus)
             if (filterFrom) params.append('from', filterFrom)
             if (filterTo) params.append('to', filterTo)
+            if (filterApplicant !== 'all') params.append('user_id', filterApplicant)
             const res = await api.get<PaginatedResponse<OvertimeWithUser>>(`/hr/overtime?${params.toString()}`)
             return res.data
         },
@@ -758,6 +770,22 @@ export function HrOvertimePage() {
                                 {/* 篩選列 */}
                                 <div className="flex flex-wrap gap-3 items-end">
                                     <div className="grid gap-1">
+                                        <Label className="text-xs">申請人</Label>
+                                        <Select value={filterApplicant} onValueChange={setFilterApplicant}>
+                                            <SelectTrigger className="w-[180px]">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">全部人員</SelectItem>
+                                                {staffList?.map((staff) => (
+                                                    <SelectItem key={staff.id} value={staff.id}>
+                                                        {staff.display_name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="grid gap-1">
                                         <Label className="text-xs">狀態</Label>
                                         <Select value={filterStatus} onValueChange={setFilterStatus}>
                                             <SelectTrigger className="w-[140px]">
@@ -803,7 +831,7 @@ export function HrOvertimePage() {
                                             className="w-[160px]"
                                         />
                                     </div>
-                                    {(filterStatus !== 'all' || filterOvertimeType !== 'all' || filterFrom || filterTo) && (
+                                    {(filterStatus !== 'all' || filterOvertimeType !== 'all' || filterFrom || filterTo || filterApplicant !== 'all') && (
                                         <Button
                                             variant="ghost"
                                             size="sm"
@@ -812,6 +840,7 @@ export function HrOvertimePage() {
                                                 setFilterOvertimeType('all')
                                                 setFilterFrom('')
                                                 setFilterTo('')
+                                                setFilterApplicant('all')
                                             }}
                                         >
                                             清除篩選

@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Search, Loader2, Package, X } from 'lucide-react'
-import { formatNumber, formatCurrency, formatDate } from '@/lib/utils'
+import { formatNumber, formatCurrency, formatDate, formatUom } from '@/lib/utils'
 
 export function InventoryPage() {
   const [search, setSearch] = useState('')
@@ -133,7 +133,7 @@ export function InventoryPage() {
                   <TableCell className="text-right font-medium">
                     {formatNumber(item.qty_on_hand, 0)}
                   </TableCell>
-                  <TableCell>{item.base_uom}</TableCell>
+                  <TableCell>{formatUom(item.base_uom)}</TableCell>
                   <TableCell className="text-right">
                     {item.avg_cost ? formatCurrency(item.avg_cost) : '-'}
                   </TableCell>

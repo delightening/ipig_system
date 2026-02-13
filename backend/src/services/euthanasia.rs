@@ -63,7 +63,7 @@ impl EuthanasiaService {
 
         // 發送通知給 PI
         let notification_service = NotificationService::new(pool.clone());
-        let _ = notification_service
+        if let Err(e) = notification_service
             .notify_euthanasia_order(
                 order.id,
                 &pig.ear_tag,
@@ -71,7 +71,10 @@ impl EuthanasiaService {
                 &req.reason,
                 pi_user_id,
             )
-            .await;
+            .await {
+            tracing::warn!("發送安樂死通知失敗: {e}");
+        }
+
 
         Ok(order)
     }
@@ -183,9 +186,12 @@ impl EuthanasiaService {
 
         // 通知獸醫可以執行
         let notification_service = NotificationService::new(pool.clone());
-        let _ = notification_service
+        if let Err(e) = notification_service
             .notify_euthanasia_approved(order_id, order.vet_user_id)
-            .await;
+            .await {
+            tracing::warn!("發送安樂死通知失敗: {e}");
+        }
+
 
         Ok(updated)
     }
@@ -273,9 +279,12 @@ impl EuthanasiaService {
             .await?;
 
             let notification_service = NotificationService::new(pool.clone());
-            let _ = notification_service
+            if let Err(e) = notification_service
                 .notify_euthanasia_appeal(appeal.id, order_id, chair_id, &req.reason)
-                .await;
+                .await {
+                tracing::warn!("發送安樂死通知失敗: {e}");
+            }
+
         }
 
         Ok(appeal)
@@ -421,9 +430,12 @@ impl EuthanasiaService {
         // 通知獸醫可以執行
         let notification_service = NotificationService::new(pool.clone());
         for order in expired_pending {
-            let _ = notification_service
+            if let Err(e) = notification_service
                 .notify_euthanasia_timeout_approved(order.id, order.vet_user_id)
-                .await;
+                .await {
+                tracing::warn!("發送安樂死通知失敗: {e}");
+            }
+
         }
 
         // 處理 CHAIR 超時未裁決的暫緩申請
@@ -466,9 +478,12 @@ impl EuthanasiaService {
             .await?;
 
             // 通知獸醫
-            let _ = notification_service
+            if let Err(e) = notification_service
                 .notify_euthanasia_timeout_approved(appeal.order_id, appeal.vet_user_id)
-                .await;
+                .await {
+                tracing::warn!("發送安樂死通知失敗: {e}");
+            }
+
 
             count += 1;
         }

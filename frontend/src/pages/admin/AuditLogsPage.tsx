@@ -29,7 +29,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2, History, Search, Eye, FileJson } from 'lucide-react'
+import { Loader2, History, Search, Eye, FileJson, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { UserActivityLog } from '@/types/hr'
 
 interface PaginatedResponse<T> {
@@ -71,9 +71,9 @@ const eventTypeLabels: Record<string, { label: string; color: string }> = {
   ROLE_UPDATE: { label: '更新角色', color: 'bg-blue-500' },
   ROLE_DELETE: { label: '刪除角色', color: 'bg-red-500' },
   // 動物管理
-  PIG_CREATE: { label: '建立豬隻', color: 'bg-green-500' },
-  PIG_UPDATE: { label: '更新豬隻', color: 'bg-blue-500' },
-  PIG_DELETE: { label: '刪除豬隻', color: 'bg-red-500' },
+  PIG_CREATE: { label: '建立動物', color: 'bg-green-500' },
+  PIG_UPDATE: { label: '更新動物', color: 'bg-blue-500' },
+  PIG_DELETE: { label: '刪除動物', color: 'bg-red-500' },
   PIG_BATCH_ASSIGN: { label: '批次分配', color: 'bg-purple-500' },
   OBSERVATION_CREATE: { label: '建立觀察', color: 'bg-green-500' },
   OBSERVATION_UPDATE: { label: '更新觀察', color: 'bg-blue-500' },
@@ -87,6 +87,19 @@ const eventTypeLabels: Record<string, { label: string; color: string }> = {
   VACCINATION_CREATE: { label: '建立疫苗', color: 'bg-green-500' },
   VACCINATION_UPDATE: { label: '更新疫苗', color: 'bg-blue-500' },
   VACCINATION_DELETE: { label: '刪除疫苗', color: 'bg-red-500' },
+  SACRIFICE_UPSERT: { label: '犧牲/安樂死', color: 'bg-orange-600' },
+  PATHOLOGY_UPSERT: { label: '病理報告', color: 'bg-violet-500' },
+  VET_RECOMMENDATION_ADD: { label: '獸醫建議', color: 'bg-teal-500' },
+  MEDICAL_EXPORT: { label: '匯出醫療資料', color: 'bg-cyan-500' },
+  BLOOD_TEST_CREATE: { label: '建立血液檢查', color: 'bg-green-500' },
+  BLOOD_TEST_UPDATE: { label: '更新血液檢查', color: 'bg-blue-500' },
+  BLOOD_TEST_DELETE: { label: '刪除血液檢查', color: 'bg-red-500' },
+  TEMPLATE_CREATE: { label: '建立模板', color: 'bg-green-500' },
+  TEMPLATE_UPDATE: { label: '更新模板', color: 'bg-blue-500' },
+  TEMPLATE_DELETE: { label: '刪除模板', color: 'bg-red-500' },
+  PANEL_CREATE: { label: '建立組合', color: 'bg-green-500' },
+  PANEL_UPDATE: { label: '更新組合', color: 'bg-blue-500' },
+  PANEL_DELETE: { label: '刪除組合', color: 'bg-red-500' },
   // 計畫書
   PROTOCOL_CREATE: { label: '建立計畫書', color: 'bg-green-500' },
   PROTOCOL_UPDATE: { label: '更新計畫書', color: 'bg-blue-500' },
@@ -105,13 +118,63 @@ const entityTypeLabels: Record<string, string> = {
   product_category: '產品分類',
   warehouse: '倉庫',
   role: '角色',
-  pig: '豬隻',
+  pig: '動物',
   pig_observation: '觀察記錄',
   pig_surgery: '手術記錄',
   pig_weight: '體重記錄',
   pig_vaccination: '疫苗記錄',
   pig_sacrifice: '犧牲記錄',
+  pig_pathology: '病理報告',
+  pig_blood_test: '血液檢查',
+  blood_test_template: '血檢模板',
+  blood_test_panel: '血檢組合',
+  vet_recommendation: '獸醫建議',
   protocol: '計畫書',
+}
+
+// 事件類別 → 可選實體類型 配對
+const categoryEntityMap: Record<string, { value: string; label: string }[]> = {
+  all: [
+    { value: 'document', label: '單據' },
+    { value: 'product', label: '產品' },
+    { value: 'warehouse', label: '倉庫' },
+    { value: 'partner', label: '夥伴' },
+    { value: 'blood_test_template', label: '血檢模板' },
+    { value: 'blood_test_panel', label: '血檢組合' },
+    { value: 'pig', label: '動物' },
+    { value: 'pig_observation', label: '觀察記錄' },
+    { value: 'pig_surgery', label: '手術記錄' },
+    { value: 'pig_weight', label: '體重記錄' },
+    { value: 'pig_vaccination', label: '疫苗記錄' },
+    { value: 'pig_sacrifice', label: '犧牲記錄' },
+    { value: 'pig_pathology', label: '病理報告' },
+    { value: 'pig_blood_test', label: '血液檢查' },
+    { value: 'vet_recommendation', label: '獸醫建議' },
+    { value: 'protocol', label: '計畫書' },
+    { value: 'role', label: '角色' },
+  ],
+  ERP: [
+    { value: 'document', label: '單據' },
+    { value: 'product', label: '產品' },
+    { value: 'warehouse', label: '倉庫' },
+    { value: 'partner', label: '夥伴' },
+    { value: 'blood_test_template', label: '血檢模板' },
+    { value: 'blood_test_panel', label: '血檢組合' },
+  ],
+  AUP: [
+    { value: 'protocol', label: '計畫書' },
+  ],
+  ANIMAL: [
+    { value: 'pig', label: '動物' },
+    { value: 'pig_observation', label: '觀察記錄' },
+    { value: 'pig_surgery', label: '手術記錄' },
+    { value: 'pig_weight', label: '體重記錄' },
+    { value: 'pig_vaccination', label: '疫苗記錄' },
+    { value: 'pig_sacrifice', label: '犧牲記錄' },
+    { value: 'pig_pathology', label: '病理報告' },
+    { value: 'pig_blood_test', label: '血液檢查' },
+    { value: 'vet_recommendation', label: '獸醫建議' },
+  ],
 }
 
 export function AuditLogsPage() {
@@ -129,15 +192,22 @@ export function AuditLogsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [entityTypeFilter, setEntityTypeFilter] = useState<string>('all')
   const [selectedLog, setSelectedLog] = useState<UserActivityLog | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const perPage = 50
+
+  // 根據事件類別取得可選的實體類型
+  const availableEntityTypes = categoryEntityMap[categoryFilter] || categoryEntityMap.all
 
   const { data: activityLogs, isLoading } = useQuery({
-    queryKey: ['audit-logs-activities', dateFrom, dateTo, categoryFilter, entityTypeFilter],
+    queryKey: ['audit-logs-activities', dateFrom, dateTo, categoryFilter, entityTypeFilter, currentPage],
     queryFn: async () => {
       const params = new URLSearchParams()
       if (dateFrom) params.set('from', dateFrom)
       if (dateTo) params.set('to', dateTo)
-      if (categoryFilter !== 'all') params.set('category', categoryFilter)
+      if (categoryFilter !== 'all') params.set('event_category', categoryFilter)
       if (entityTypeFilter !== 'all') params.set('entity_type', entityTypeFilter)
+      params.set('page', String(currentPage))
+      params.set('per_page', String(perPage))
 
       const response = await api.get<PaginatedResponse<UserActivityLog>>(
         `/admin/audit/activities?${params.toString()}`
@@ -145,6 +215,30 @@ export function AuditLogsPage() {
       return response.data
     },
   })
+
+  // 切換事件類別時，若目前實體類型不在新類別的可選清單中，則重設
+  const handleCategoryChange = (val: string) => {
+    setCategoryFilter(val)
+    setCurrentPage(1)
+    const newAvailable = categoryEntityMap[val] || categoryEntityMap.all
+    if (entityTypeFilter !== 'all' && !newAvailable.some(e => e.value === entityTypeFilter)) {
+      setEntityTypeFilter('all')
+    }
+  }
+  const handleEntityTypeChange = (val: string) => {
+    setEntityTypeFilter(val)
+    setCurrentPage(1)
+  }
+  const handleDateFromChange = (val: string) => {
+    setDateFrom(val)
+    setCurrentPage(1)
+  }
+  const handleDateToChange = (val: string) => {
+    setDateTo(val)
+    setCurrentPage(1)
+  }
+
+  const totalPages = activityLogs ? Math.ceil(activityLogs.total / perPage) : 0
 
   const formatDateTime = (dateStr: string) => {
     return format(new Date(dateStr), 'yyyy/MM/dd HH:mm:ss', { locale: zhTW })
@@ -162,8 +256,8 @@ export function AuditLogsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">審計日誌</h1>
-        <p className="text-muted-foreground">追蹤系統操作記錄與變更歷史</p>
+        <h1 className="text-3xl font-bold tracking-tight">操作日誌</h1>
+        <p className="text-muted-foreground">追蹤所有使用者的操作記錄與變更歷史</p>
       </div>
 
       {/* 篩選條件 */}
@@ -180,7 +274,7 @@ export function AuditLogsPage() {
               <Label>事件類別</Label>
               <Select
                 value={categoryFilter}
-                onValueChange={setCategoryFilter}
+                onValueChange={handleCategoryChange}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="全部類別" />
@@ -190,7 +284,6 @@ export function AuditLogsPage() {
                   <SelectItem value="ERP">ERP</SelectItem>
                   <SelectItem value="AUP">計畫書</SelectItem>
                   <SelectItem value="ANIMAL">實驗動物</SelectItem>
-                  <SelectItem value="SYSTEM">系統</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -198,20 +291,16 @@ export function AuditLogsPage() {
               <Label>實體類型</Label>
               <Select
                 value={entityTypeFilter}
-                onValueChange={setEntityTypeFilter}
+                onValueChange={handleEntityTypeChange}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="全部類型" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全部類型</SelectItem>
-                  <SelectItem value="document">單據</SelectItem>
-                  <SelectItem value="product">產品</SelectItem>
-                  <SelectItem value="warehouse">倉庫</SelectItem>
-                  <SelectItem value="partner">夥伴</SelectItem>
-                  <SelectItem value="role">角色</SelectItem>
-                  <SelectItem value="pig">豬隻</SelectItem>
-                  <SelectItem value="protocol">計畫書</SelectItem>
+                  {availableEntityTypes.map((et) => (
+                    <SelectItem key={et.value} value={et.value}>{et.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -220,7 +309,7 @@ export function AuditLogsPage() {
               <Input
                 type="date"
                 value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
+                onChange={(e) => handleDateFromChange(e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -228,7 +317,7 @@ export function AuditLogsPage() {
               <Input
                 type="date"
                 value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
+                onChange={(e) => handleDateToChange(e.target.value)}
               />
             </div>
           </div>
@@ -297,12 +386,41 @@ export function AuditLogsPage() {
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8">
                   <History className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-muted-foreground">尚無審計日誌</p>
+                  <p className="text-muted-foreground">尚無操作日誌</p>
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
+
+        {/* 分頁控制列 */}
+        {activityLogs && totalPages > 0 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t">
+            <p className="text-sm text-muted-foreground">
+              共 {activityLogs.total} 筆，第 {currentPage} / {totalPages} 頁
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                上一頁
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              >
+                下一頁
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 詳情對話框 */}
@@ -311,7 +429,7 @@ export function AuditLogsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileJson className="h-5 w-5" />
-              審計日誌詳情
+              操作日誌詳情
             </DialogTitle>
           </DialogHeader>
           {selectedLog && (

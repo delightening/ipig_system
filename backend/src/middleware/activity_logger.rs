@@ -62,7 +62,7 @@ pub async fn activity_logger_middleware(
         // 異步記錄，不阻塞請求
         tokio::spawn(async move {
             let log_id = Uuid::new_v4();
-            let _ = sqlx::query(
+            if let Err(e) = sqlx::query(
                 r#"
                 INSERT INTO user_activity_logs (
                     id, partition_date, actor_user_id,
@@ -90,7 +90,10 @@ pub async fn activity_logger_middleware(
             .bind(duration_ms)
             .bind(is_suspicious)
             .execute(&pool)
-            .await;
+            .await {
+                tracing::warn!("DB 操作失敗: {e}");
+            }
+
         });
     }
     

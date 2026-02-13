@@ -71,3 +71,29 @@ export function formatUnitPrice(value: string | number): string {
   // Otherwise format to 2 decimal places
   return num.toFixed(2)
 }
+
+/**
+ * 庫存單位代碼對照表（英文代碼 → 中文顯示）
+ */
+export const UOM_MAP: Record<string, string> = {
+  'EA': '個',
+  'TB': '錠',
+  'CP': '膠囊',
+  'BT': '瓶',
+  'BX': '盒',
+  'PK': '包',
+  'RL': '卷',
+  'SET': '組',
+  'ML': 'mL',
+  'L': 'L',
+  'G': 'g',
+  'KG': 'kg',
+  'pcs': '個',
+}
+
+/**
+ * 將庫存單位代碼轉換為中文顯示
+ */
+export function formatUom(uom: string): string {
+  return UOM_MAP[uom] || uom
+}

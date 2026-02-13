@@ -105,10 +105,10 @@ impl PartnerService {
         let partner = sqlx::query_as::<_, Partner>(
             r#"
             INSERT INTO partners (
-                id, partner_type, code, name, supplier_category, tax_id, phone, email, address, 
+                id, partner_type, code, name, supplier_category, customer_category, tax_id, phone, email, address, 
                 payment_terms, is_active, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, NOW(), NOW())
             RETURNING *
             "#
         )
@@ -117,6 +117,7 @@ impl PartnerService {
         .bind(&code)
         .bind(&req.name)
         .bind(&req.supplier_category)
+        .bind(&req.customer_category)
         .bind(req.tax_id.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()))
         .bind(req.phone.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()))
         .bind(&email)

@@ -230,7 +230,10 @@ impl SchedulerService {
         let mut notification_count = 0;
         for (_user_id, email, name) in users {
             // 建立站內通知
-            let _ = service.send_low_stock_notifications().await;
+            if let Err(e) = service.send_low_stock_notifications().await {
+                tracing::warn!("發送庫存不足通知失敗: {e}");
+            }
+
             
             // 發送 Email
             if let Err(e) = EmailService::send_low_stock_alert_email(
@@ -288,7 +291,10 @@ impl SchedulerService {
         let mut notification_count = 0;
         for (_user_id, email, name) in users {
             // 建立站內通知
-            let _ = service.send_expiry_notifications().await;
+            if let Err(e) = service.send_expiry_notifications().await {
+                tracing::warn!("發送效期預警通知失敗: {e}");
+            }
+
             
             // 發送 Email
             if let Err(e) = EmailService::send_expiry_alert_email(
@@ -459,7 +465,10 @@ impl SchedulerService {
         let sales_summary: Option<(i64, Option<rust_decimal::Decimal>)> = sqlx::query_as(
             r#"
             SELECT COUNT(*) as cnt,
-                   SUM(dl.qty * COALESCE(dl.unit_price, 0)) as total_amount
+                   SUM(dl.qty * COALESCE(dl.unit_price,
+                       (SELECT AVG(sl.unit_cost) FROM stock_ledger sl
+                        WHERE sl.product_id = dl.product_id AND sl.unit_cost IS NOT NULL),
+                       0)) as total_amount
             FROM documents d
             JOIN document_lines dl ON d.id = dl.document_id
             WHERE d.doc_type = 'SO'
@@ -527,7 +536,7 @@ impl SchedulerService {
         let title = format!("[iPig] {}月度進銷貨+血液檢查報表", month_str);
         let mut count = 0;
         for (user_id, _email, _name) in &recipients {
-            let _ = service
+            if let Err(e) = service
                 .create_notification(crate::models::CreateNotificationRequest {
                     user_id: *user_id,
                     notification_type: crate::models::NotificationType::MonthlyReport,
@@ -536,7 +545,10 @@ impl SchedulerService {
                     related_entity_type: Some("report".to_string()),
                     related_entity_id: None,
                 })
-                .await;
+                .await {
+                tracing::warn!("create_notification 失敗: {e}");
+            }
+
             count += 1;
         }
 

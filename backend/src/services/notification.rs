@@ -206,7 +206,7 @@ impl NotificationService {
         );
 
         for (user_id, _email, _name) in staff_users {
-            let _ = self
+            if let Err(e) = self
                 .create_notification(CreateNotificationRequest {
                     user_id,
                     notification_type: NotificationType::ProtocolSubmitted,
@@ -215,7 +215,9 @@ impl NotificationService {
                     related_entity_type: Some("protocol".to_string()),
                     related_entity_id: Some(protocol_id),
                 })
-                .await;
+                .await {
+                tracing::warn!("建立通知失敗: {e}");
+            }
             count += 1;
         }
 
@@ -354,7 +356,7 @@ impl NotificationService {
         let mut count = 0;
         for (user_id, email, display_name) in &recipients {
             // 1. 永遠發送站內通知
-            let _ = self
+            if let Err(e) = self
                 .create_notification(CreateNotificationRequest {
                     user_id: *user_id,
                     notification_type: NotificationType::VetRecommendation,
@@ -363,13 +365,15 @@ impl NotificationService {
                     related_entity_type: Some("pig".to_string()),
                     related_entity_id: Some(pig_id),
                 })
-                .await;
+                .await {
+                tracing::warn!("建立通知失敗: {e}");
+            }
             count += 1;
 
             // 2. 緊急建議才發送 Email
             if is_urgent {
                 if let Some(cfg) = config {
-                    let _ = crate::services::EmailService::send_vet_recommendation_email(
+                    if let Err(e) = crate::services::EmailService::send_vet_recommendation_email(
                         cfg,
                         email,
                         display_name,
@@ -379,7 +383,9 @@ impl NotificationService {
                         recommendation_content,
                         true,  // is_urgent
                     )
-                    .await;
+                    .await {
+                        tracing::warn!("發送獸醫建議通知郵件失敗: {e}");
+                    }
                 }
             }
         }
@@ -470,7 +476,7 @@ impl NotificationService {
 
         let mut count = 0;
         for (user_id, _name) in recipients {
-            let _ = self
+            if let Err(e) = self
                 .create_notification(CreateNotificationRequest {
                     user_id,
                     notification_type: NotificationType::VetRecommendation, // 使用既有類型，或考慮新增 EmergencyMedication 類型
@@ -479,7 +485,9 @@ impl NotificationService {
                     related_entity_type: Some("pig".to_string()),
                     related_entity_id: Some(pig_id),
                 })
-                .await;
+                .await {
+                tracing::warn!("建立通知失敗: {e}");
+            }
             count += 1;
         }
 
@@ -799,7 +807,7 @@ impl NotificationService {
                 .collect::<Vec<_>>()
                 .join("\n");
 
-            let _ = self
+            if let Err(e) = self
                 .create_notification(CreateNotificationRequest {
                     user_id,
                     notification_type: NotificationType::LowStock,
@@ -808,7 +816,9 @@ impl NotificationService {
                     related_entity_type: None,
                     related_entity_id: None,
                 })
-                .await;
+                .await {
+                tracing::warn!("建立通知失敗: {e}");
+            }
             count += 1;
         }
 
@@ -869,7 +879,7 @@ impl NotificationService {
                 .collect::<Vec<_>>()
                 .join("\n");
 
-            let _ = self
+            if let Err(e) = self
                 .create_notification(CreateNotificationRequest {
                     user_id,
                     notification_type: NotificationType::ExpiryWarning,
@@ -878,7 +888,9 @@ impl NotificationService {
                     related_entity_type: None,
                     related_entity_id: None,
                 })
-                .await;
+                .await {
+                tracing::warn!("建立通知失敗: {e}");
+            }
             count += 1;
         }
 
@@ -1095,7 +1107,7 @@ impl NotificationService {
 
         let mut count = 0;
         for (user_id, _email, _name) in &recipients {
-            let _ = self
+            if let Err(e) = self
                 .create_notification(CreateNotificationRequest {
                     user_id: *user_id,
                     notification_type: NotificationType::LeaveApproval,
@@ -1104,7 +1116,9 @@ impl NotificationService {
                     related_entity_type: Some("leave_request".to_string()),
                     related_entity_id: Some(leave_id),
                 })
-                .await;
+                .await {
+                tracing::warn!("建立通知失敗: {e}");
+            }
             count += 1;
         }
 
@@ -1134,7 +1148,7 @@ impl NotificationService {
 
         let mut count = 0;
         for (user_id, _email, _name) in &recipients {
-            let _ = self
+            if let Err(e) = self
                 .create_notification(CreateNotificationRequest {
                     user_id: *user_id,
                     notification_type: NotificationType::OvertimeApproval,
@@ -1143,7 +1157,9 @@ impl NotificationService {
                     related_entity_type: Some("overtime_record".to_string()),
                     related_entity_id: Some(overtime_id),
                 })
-                .await;
+                .await {
+                tracing::warn!("建立通知失敗: {e}");
+            }
             count += 1;
         }
 
@@ -1205,7 +1221,7 @@ impl NotificationService {
             "vet_review" => {
                 let vets = self.get_users_by_role("VET").await?;
                 for (user_id, _email, _name) in &vets {
-                    let _ = self
+                    if let Err(e) = self
                         .create_notification(CreateNotificationRequest {
                             user_id: *user_id,
                             notification_type: NotificationType::ProtocolStatus,
@@ -1214,7 +1230,9 @@ impl NotificationService {
                             related_entity_type: Some("protocol".to_string()),
                             related_entity_id: Some(protocol_id),
                         })
-                        .await;
+                        .await {
+                        tracing::warn!("建立通知失敗: {e}");
+                    }
                     count += 1;
                 }
             }
@@ -1222,7 +1240,7 @@ impl NotificationService {
             "pre_review_revision_required" | "vet_revision_required" | "revision_required" => {
                 let pi_coeditors = self.get_protocol_pi_and_coeditors(protocol_id).await?;
                 for (user_id, email, display_name) in &pi_coeditors {
-                    let _ = self
+                    if let Err(e) = self
                         .create_notification(CreateNotificationRequest {
                             user_id: *user_id,
                             notification_type: NotificationType::ProtocolStatus,
@@ -1231,13 +1249,15 @@ impl NotificationService {
                             related_entity_type: Some("protocol".to_string()),
                             related_entity_id: Some(protocol_id),
                         })
-                        .await;
+                        .await {
+                        tracing::warn!("建立通知失敗: {e}");
+                    }
                     count += 1;
 
                     // 寄 Email
                     if needs_email {
                         if let Some(cfg) = config {
-                            let _ = crate::services::EmailService::send_protocol_status_change_email(
+                            if let Err(e) = crate::services::EmailService::send_protocol_status_change_email(
                                 cfg,
                                 email,
                                 display_name,
@@ -1247,7 +1267,9 @@ impl NotificationService {
                                 &chrono::Utc::now().to_rfc3339(),
                                 reason,
                             )
-                            .await;
+                            .await {
+                                tracing::warn!("發送計畫狀態變更郵件失敗: {e}");
+                            }
                         }
                     }
                 }
@@ -1262,7 +1284,7 @@ impl NotificationService {
                 all_recipients.dedup_by_key(|(id, _, _)| *id);
 
                 for (user_id, _email, _name) in &all_recipients {
-                    let _ = self
+                    if let Err(e) = self
                         .create_notification(CreateNotificationRequest {
                             user_id: *user_id,
                             notification_type: NotificationType::ProtocolStatus,
@@ -1271,7 +1293,9 @@ impl NotificationService {
                             related_entity_type: Some("protocol".to_string()),
                             related_entity_id: Some(protocol_id),
                         })
-                        .await;
+                        .await {
+                        tracing::warn!("建立通知失敗: {e}");
+                    }
                     count += 1;
                 }
             }
@@ -1285,7 +1309,7 @@ impl NotificationService {
                 all_recipients.dedup_by_key(|(id, _, _)| *id);
 
                 for (user_id, _email, _name) in &all_recipients {
-                    let _ = self
+                    if let Err(e) = self
                         .create_notification(CreateNotificationRequest {
                             user_id: *user_id,
                             notification_type: NotificationType::ProtocolStatus,
@@ -1294,7 +1318,9 @@ impl NotificationService {
                             related_entity_type: Some("protocol".to_string()),
                             related_entity_id: Some(protocol_id),
                         })
-                        .await;
+                        .await {
+                        tracing::warn!("建立通知失敗: {e}");
+                    }
                     count += 1;
                 }
             }
@@ -1312,7 +1338,7 @@ impl NotificationService {
                     if *user_id == operator_id {
                         continue;
                     }
-                    let _ = self
+                    if let Err(e) = self
                         .create_notification(CreateNotificationRequest {
                             user_id: *user_id,
                             notification_type: NotificationType::ProtocolStatus,
@@ -1321,13 +1347,15 @@ impl NotificationService {
                             related_entity_type: Some("protocol".to_string()),
                             related_entity_id: Some(protocol_id),
                         })
-                        .await;
+                        .await {
+                        tracing::warn!("建立通知失敗: {e}");
+                    }
                     count += 1;
 
                     // 寄 Email
                     if needs_email {
                         if let Some(cfg) = config {
-                            let _ = crate::services::EmailService::send_protocol_status_change_email(
+                            if let Err(e) = crate::services::EmailService::send_protocol_status_change_email(
                                 cfg,
                                 email,
                                 display_name,
@@ -1337,7 +1365,9 @@ impl NotificationService {
                                 &chrono::Utc::now().to_rfc3339(),
                                 reason,
                             )
-                            .await;
+                            .await {
+                                tracing::warn!("發送計畫狀態變更郵件失敗: {e}");
+                            }
                         }
                     }
                 }
@@ -1346,7 +1376,7 @@ impl NotificationService {
             _ => {
                 let pi_coeditors = self.get_protocol_pi_and_coeditors(protocol_id).await?;
                 for (user_id, _email, _name) in &pi_coeditors {
-                    let _ = self
+                    if let Err(e) = self
                         .create_notification(CreateNotificationRequest {
                             user_id: *user_id,
                             notification_type: NotificationType::ProtocolStatus,
@@ -1355,7 +1385,9 @@ impl NotificationService {
                             related_entity_type: Some("protocol".to_string()),
                             related_entity_id: Some(protocol_id),
                         })
-                        .await;
+                        .await {
+                        tracing::warn!("建立通知失敗: {e}");
+                    }
                     count += 1;
                 }
             }
@@ -1398,7 +1430,7 @@ impl NotificationService {
 
         let mut count = 0;
         for (user_id, _email, _name) in &all_recipients {
-            let _ = self
+            if let Err(e) = self
                 .create_notification(CreateNotificationRequest {
                     user_id: *user_id,
                     notification_type: NotificationType::ReviewComment,
@@ -1407,7 +1439,9 @@ impl NotificationService {
                     related_entity_type: Some("protocol".to_string()),
                     related_entity_id: Some(protocol_id),
                 })
-                .await;
+                .await {
+                tracing::warn!("建立通知失敗: {e}");
+            }
             count += 1;
         }
 
@@ -1463,7 +1497,7 @@ impl NotificationService {
             "submitted" => {
                 let staff = self.get_users_by_role("IACUC_STAFF").await?;
                 for (user_id, _email, _name) in &staff {
-                    let _ = self
+                    if let Err(e) = self
                         .create_notification(CreateNotificationRequest {
                             user_id: *user_id,
                             notification_type: NotificationType::ProtocolStatus,
@@ -1472,7 +1506,9 @@ impl NotificationService {
                             related_entity_type: Some("amendment".to_string()),
                             related_entity_id: Some(amendment_id),
                         })
-                        .await;
+                        .await {
+                        tracing::warn!("建立通知失敗: {e}");
+                    }
                     count += 1;
                 }
             }
@@ -1492,7 +1528,7 @@ impl NotificationService {
                 .await?;
 
                 for (user_id, _email, _name) in &reviewers {
-                    let _ = self
+                    if let Err(e) = self
                         .create_notification(CreateNotificationRequest {
                             user_id: *user_id,
                             notification_type: NotificationType::ReviewAssignment,
@@ -1501,7 +1537,9 @@ impl NotificationService {
                             related_entity_type: Some("amendment".to_string()),
                             related_entity_id: Some(amendment_id),
                         })
-                        .await;
+                        .await {
+                        tracing::warn!("建立通知失敗: {e}");
+                    }
                     count += 1;
                 }
             }
@@ -1509,7 +1547,7 @@ impl NotificationService {
             "decision_recorded" => {
                 let staff = self.get_users_by_role("IACUC_STAFF").await?;
                 for (user_id, _email, _name) in &staff {
-                    let _ = self
+                    if let Err(e) = self
                         .create_notification(CreateNotificationRequest {
                             user_id: *user_id,
                             notification_type: NotificationType::ProtocolStatus,
@@ -1518,7 +1556,9 @@ impl NotificationService {
                             related_entity_type: Some("amendment".to_string()),
                             related_entity_id: Some(amendment_id),
                         })
-                        .await;
+                        .await {
+                        tracing::warn!("建立通知失敗: {e}");
+                    }
                     count += 1;
                 }
             }
@@ -1526,7 +1566,7 @@ impl NotificationService {
             "revision_required" => {
                 let pi_coeditors = self.get_protocol_pi_and_coeditors(protocol_id).await?;
                 for (user_id, email, display_name) in &pi_coeditors {
-                    let _ = self
+                    if let Err(e) = self
                         .create_notification(CreateNotificationRequest {
                             user_id: *user_id,
                             notification_type: NotificationType::ProtocolStatus,
@@ -1535,17 +1575,21 @@ impl NotificationService {
                             related_entity_type: Some("amendment".to_string()),
                             related_entity_id: Some(amendment_id),
                         })
-                        .await;
+                        .await {
+                        tracing::warn!("建立通知失敗: {e}");
+                    }
                     count += 1;
 
                     if needs_email {
                         if let Some(cfg) = config {
-                            let _ = crate::services::EmailService::send_protocol_status_change_email(
+                            if let Err(e) = crate::services::EmailService::send_protocol_status_change_email(
                                 cfg, email, display_name, protocol_no,
                                 amendment_title, event_text,
                                 &chrono::Utc::now().to_rfc3339(), reason,
                             )
-                            .await;
+                            .await {
+                                tracing::warn!("發送計畫狀態變更郵件失敗: {e}");
+                            }
                         }
                     }
                 }
@@ -1563,7 +1607,7 @@ impl NotificationService {
                     if *user_id == operator_id {
                         continue;
                     }
-                    let _ = self
+                    if let Err(e) = self
                         .create_notification(CreateNotificationRequest {
                             user_id: *user_id,
                             notification_type: NotificationType::ProtocolStatus,
@@ -1572,17 +1616,21 @@ impl NotificationService {
                             related_entity_type: Some("amendment".to_string()),
                             related_entity_id: Some(amendment_id),
                         })
-                        .await;
+                        .await {
+                        tracing::warn!("建立通知失敗: {e}");
+                    }
                     count += 1;
 
                     if needs_email {
                         if let Some(cfg) = config {
-                            let _ = crate::services::EmailService::send_protocol_status_change_email(
+                            if let Err(e) = crate::services::EmailService::send_protocol_status_change_email(
                                 cfg, email, display_name, protocol_no,
                                 amendment_title, event_text,
                                 &chrono::Utc::now().to_rfc3339(), reason,
                             )
-                            .await;
+                            .await {
+                                tracing::warn!("發送計畫狀態變更郵件失敗: {e}");
+                            }
                         }
                     }
                 }
@@ -1626,7 +1674,7 @@ impl NotificationService {
 
         let mut count = 0;
         for (user_id, _email, _name) in &managers {
-            let _ = self
+            if let Err(e) = self
                 .create_notification(CreateNotificationRequest {
                     user_id: *user_id,
                     notification_type: NotificationType::DocumentApproval,
@@ -1635,7 +1683,9 @@ impl NotificationService {
                     related_entity_type: Some("document".to_string()),
                     related_entity_id: Some(document_id),
                 })
-                .await;
+                .await {
+                tracing::warn!("建立通知失敗: {e}");
+            }
             count += 1;
         }
 

@@ -396,14 +396,17 @@ pub async fn create_pig_observation(
             let emergency_reason = req.emergency_reason.as_deref().unwrap_or("未提供原因");
             
             // 異步發送通知，不阻塞主流程
-            let _ = notification_service.notify_emergency_medication(
+            if let Err(e) = notification_service.notify_emergency_medication(
                 pig_id,
                 observation.id,
                 &pig.ear_tag,
                 pig.iacuc_no.as_deref(),
                 &current_user.email,
                 emergency_reason,
-            ).await;
+            ).await {
+                tracing::warn!("發送緊急給藥通知失敗: {e}");
+            }
+
             
             tracing::warn!(
                 "[Emergency Medication] User {} recorded emergency medication for pig {} (observation {})",
@@ -414,11 +417,20 @@ pub async fn create_pig_observation(
         }
     }
 
+    // 取得豬隻資訊用於日誌顯示
+    let obs_display = match AnimalService::get_by_id(&state.db, pig_id).await {
+        Ok(pig) => {
+            let iacuc = pig.iacuc_no.as_deref().unwrap_or("未指派");
+            format!("[{}] {}", iacuc, pig.ear_tag)
+        }
+        _ => format!("觀察紀錄 #{} (pig: {})", observation.id, pig_id),
+    };
+
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "OBSERVATION_CREATE",
         Some("pig_observation"), Some(pig_id),
-        Some(&format!("觀察紀錄 #{} (pig: {})", observation.id, pig_id)),
+        Some(&obs_display),
         None,
         Some(serde_json::json!({
             "observation_id": observation.id,
@@ -564,11 +576,20 @@ pub async fn create_pig_surgery(
     
     let surgery = AnimalService::create_surgery(&state.db, pig_id, &req, current_user.id).await?;
 
+    // 取得豬隻資訊用於日誌顯示
+    let surg_display = match AnimalService::get_by_id(&state.db, pig_id).await {
+        Ok(pig) => {
+            let iacuc = pig.iacuc_no.as_deref().unwrap_or("未指派");
+            format!("[{}] {} - {}", iacuc, pig.ear_tag, req.surgery_site)
+        }
+        _ => format!("手術紀錄 #{} (pig: {})", surgery.id, pig_id),
+    };
+
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "SURGERY_CREATE",
         Some("pig_surgery"), Some(pig_id),
-        Some(&format!("手術紀錄 #{} (pig: {})", surgery.id, pig_id)),
+        Some(&surg_display),
         None, None, None, None,
     ).await {
         tracing::error!("寫入 user_activity_logs 失敗 (SURGERY_CREATE): {}", e);
@@ -688,11 +709,20 @@ pub async fn create_pig_weight(
     
     let weight = AnimalService::create_weight(&state.db, pig_id, &req, current_user.id).await?;
 
+    // 取得豬隻資訊用於日誌顯示
+    let weight_display = match AnimalService::get_by_id(&state.db, pig_id).await {
+        Ok(pig) => {
+            let iacuc = pig.iacuc_no.as_deref().unwrap_or("未指派");
+            format!("[{}] {} - {} kg", iacuc, pig.ear_tag, req.weight)
+        }
+        _ => format!("體重紀錄 (pig: {})", pig_id),
+    };
+
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "WEIGHT_CREATE",
         Some("pig_weight"), Some(pig_id),
-        Some(&format!("體重紀錄 (pig: {})", pig_id)),
+        Some(&weight_display),
         None, None, None, None,
     ).await {
         tracing::error!("寫入 user_activity_logs 失敗 (WEIGHT_CREATE): {}", e);
@@ -777,12 +807,27 @@ pub async fn create_pig_vaccination(
     
     let vaccination = AnimalService::create_vaccination(&state.db, pig_id, &req, current_user.id).await?;
 
+    // 取得豬隻資訊用於日誌顯示
+    let vac_display = match AnimalService::get_by_id(&state.db, pig_id).await {
+        Ok(pig) => {
+            let iacuc = pig.iacuc_no.as_deref().unwrap_or("未指派");
+            let vaccine_name = req.vaccine.as_deref().unwrap_or("未指定疫苗");
+            format!("[{}] {} - {}", iacuc, pig.ear_tag, vaccine_name)
+        }
+        _ => format!("疫苗紀錄 (pig: {})", pig_id),
+    };
+
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "VACCINATION_CREATE",
         Some("pig_vaccination"), Some(pig_id),
-        Some(&format!("疑苗紀錄 (pig: {})", pig_id)),
-        None, None, None, None,
+        Some(&vac_display),
+        None,
+        Some(serde_json::json!({
+            "vaccine": req.vaccine,
+            "deworming_dose": req.deworming_dose,
+        })),
+        None, None,
     ).await {
         tracing::error!("寫入 user_activity_logs 失敗 (VACCINATION_CREATE): {}", e);
     }
@@ -866,12 +911,33 @@ pub async fn upsert_pig_sacrifice(
     
     let sacrifice = AnimalService::upsert_sacrifice(&state.db, pig_id, &req, current_user.id).await?;
 
+    // 取得豬隻資訊用於日誌顯示
+    let method = {
+        let mut methods = Vec::new();
+        if req.method_electrocution { methods.push("電擊"); }
+        if req.method_bloodletting { methods.push("放血"); }
+        if let Some(ref other) = req.method_other { methods.push(other); }
+        if methods.is_empty() { "未指定方式".to_string() } else { methods.join("+") }
+    };
+    let sac_display = match AnimalService::get_by_id(&state.db, pig_id).await {
+        Ok(pig) => {
+            let iacuc = pig.iacuc_no.as_deref().unwrap_or("未指派");
+            format!("[{}] {} - {}", iacuc, pig.ear_tag, method)
+        }
+        _ => format!("犧牲/安樂死紀錄 (pig: {})", pig_id),
+    };
+
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "SACRIFICE_UPSERT",
         Some("pig_sacrifice"), Some(pig_id),
-        Some(&format!("犧牲/安樂死紀錄 (pig: {})", pig_id)),
-        None, None, None, None,
+        Some(&sac_display),
+        None,
+        Some(serde_json::json!({
+            "method": method,
+            "confirmed_sacrifice": req.confirmed_sacrifice,
+        })),
+        None, None,
     ).await {
         tracing::error!("寫入 user_activity_logs 失敗 (SACRIFICE_UPSERT): {}", e);
     }
@@ -899,7 +965,7 @@ pub async fn add_observation_vet_recommendation(
     if let Ok(Some((pig_id, ear_tag, protocol_id))) = get_pig_info_from_observation(&state.db, id).await {
         let notification_service = crate::services::NotificationService::new(state.db.clone());
         let record_type_str = "觀察紀錄";
-        let _ = notification_service.notify_vet_recommendation(
+        if let Err(e) = notification_service.notify_vet_recommendation(
             pig_id,
             &ear_tag,
             protocol_id,
@@ -907,7 +973,10 @@ pub async fn add_observation_vet_recommendation(
             &req.content,
             req.is_urgent,
             Some(&state.config),
-        ).await;
+        ).await {
+            tracing::warn!("發送獸醫建議通知失敗: {e}");
+        }
+
     }
 
     // 記錄活動紀錄
@@ -941,7 +1010,7 @@ pub async fn add_surgery_vet_recommendation(
     if let Ok(Some((pig_id, ear_tag, protocol_id))) = get_pig_info_from_surgery(&state.db, id).await {
         let notification_service = crate::services::NotificationService::new(state.db.clone());
         let record_type_str = "手術紀錄";
-        let _ = notification_service.notify_vet_recommendation(
+        if let Err(e) = notification_service.notify_vet_recommendation(
             pig_id,
             &ear_tag,
             protocol_id,
@@ -949,7 +1018,10 @@ pub async fn add_surgery_vet_recommendation(
             &req.content,
             req.is_urgent,
             Some(&state.config),
-        ).await;
+        ).await {
+            tracing::warn!("發送獸醫建議通知失敗: {e}");
+        }
+
     }
 
     // 記錄活動紀錄
@@ -982,7 +1054,7 @@ pub async fn add_observation_vet_recommendation_with_attachments(
     if let Ok(Some((pig_id, ear_tag, protocol_id))) = get_pig_info_from_observation(&state.db, id).await {
         let notification_service = crate::services::NotificationService::new(state.db.clone());
         let record_type_str = "觀察紀錄";
-        let _ = notification_service.notify_vet_recommendation(
+        if let Err(e) = notification_service.notify_vet_recommendation(
             pig_id,
             &ear_tag,
             protocol_id,
@@ -990,7 +1062,10 @@ pub async fn add_observation_vet_recommendation_with_attachments(
             &req.content,
             req.is_urgent,
             Some(&state.config),
-        ).await;
+        ).await {
+            tracing::warn!("發送獸醫建議通知失敗: {e}");
+        }
+
     }
 
     // 記錄活動紀錄
@@ -1023,7 +1098,7 @@ pub async fn add_surgery_vet_recommendation_with_attachments(
     if let Ok(Some((pig_id, ear_tag, protocol_id))) = get_pig_info_from_surgery(&state.db, id).await {
         let notification_service = crate::services::NotificationService::new(state.db.clone());
         let record_type_str = "手術紀錄";
-        let _ = notification_service.notify_vet_recommendation(
+        if let Err(e) = notification_service.notify_vet_recommendation(
             pig_id,
             &ear_tag,
             protocol_id,
@@ -1031,7 +1106,10 @@ pub async fn add_surgery_vet_recommendation_with_attachments(
             &req.content,
             req.is_urgent,
             Some(&state.config),
-        ).await;
+        ).await {
+            tracing::warn!("發送獸醫建議通知失敗: {e}");
+        }
+
     }
 
     // 記錄活動紀錄
@@ -1094,11 +1172,20 @@ pub async fn export_pig_medical_data(
         current_user.id,
     ).await?;
 
+    // 取得豬隻資訊用於日誌顯示
+    let export_display = match AnimalService::get_by_id(&state.db, pig_id).await {
+        Ok(pig) => {
+            let iacuc = pig.iacuc_no.as_deref().unwrap_or("未指派");
+            format!("[{}] {}", iacuc, pig.ear_tag)
+        }
+        _ => format!("匯出醫療資料 (pig: {})", pig_id),
+    };
+
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "MEDICAL_EXPORT",
         Some("pig"), Some(pig_id),
-        Some(&format!("匯出醫療資料 (pig: {})", pig_id)),
+        Some(&export_display),
         None,
         Some(serde_json::json!({ "format": format!("{:?}", req.format), "export_type": format!("{:?}", req.export_type) })),
         None, None,
@@ -1429,11 +1516,20 @@ pub async fn upsert_pig_pathology_report(
     
     let report = AnimalService::upsert_pathology_report(&state.db, pig_id, current_user.id).await?;
 
+    // 取得豬隻資訊用於日誌顯示
+    let path_display = match AnimalService::get_by_id(&state.db, pig_id).await {
+        Ok(pig) => {
+            let iacuc = pig.iacuc_no.as_deref().unwrap_or("未指派");
+            format!("[{}] {}", iacuc, pig.ear_tag)
+        }
+        _ => format!("病理報告 (pig: {})", pig_id),
+    };
+
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "PATHOLOGY_UPSERT",
         Some("pig_pathology"), Some(pig_id),
-        Some(&format!("病理報告 (pig: {})", pig_id)),
+        Some(&path_display),
         None, None, None, None,
     ).await {
         tracing::error!("寫入 user_activity_logs 失敗 (PATHOLOGY_UPSERT): {}", e);
@@ -1535,11 +1631,22 @@ pub async fn create_pig_blood_test(
 
     let test = AnimalService::create_blood_test(&state.db, pig_id, &req, current_user.id).await?;
 
+    // 取得豬隻資訊用於日誌顯示
+    let display_name = match sqlx::query_as::<_, (String, Option<String>)>(
+        "SELECT ear_tag, iacuc_no FROM pigs WHERE id = $1"
+    ).bind(pig_id).fetch_optional(&state.db).await {
+        Ok(Some((ear_tag, iacuc_no))) => {
+            let iacuc = iacuc_no.unwrap_or_else(|| "未指派".to_string());
+            format!("[{}] {}", iacuc, ear_tag)
+        }
+        _ => format!("血液檢查紀錄 (pig: {})", pig_id),
+    };
+
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "BLOOD_TEST_CREATE",
         Some("pig_blood_test"), Some(pig_id),
-        Some(&format!("血液檢查紀錄 (pig: {})", pig_id)),
+        Some(&display_name),
         None, None, None, None,
     ).await {
         tracing::error!("寫入 user_activity_logs 失敗 (BLOOD_TEST_CREATE): {}", e);
@@ -1560,11 +1667,23 @@ pub async fn update_pig_blood_test(
 
     let test = AnimalService::update_blood_test(&state.db, id, &req).await?;
 
+    // 取得豬隻資訊用於日誌顯示
+    let pig_id = test.blood_test.pig_id;
+    let display_name = match sqlx::query_as::<_, (String, Option<String>)>(
+        "SELECT ear_tag, iacuc_no FROM pigs WHERE id = $1"
+    ).bind(pig_id).fetch_optional(&state.db).await {
+        Ok(Some((ear_tag, iacuc_no))) => {
+            let iacuc = iacuc_no.unwrap_or_else(|| "未指派".to_string());
+            format!("[{}] {}", iacuc, ear_tag)
+        }
+        _ => format!("血液檢查紀錄 #{}", id),
+    };
+
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "BLOOD_TEST_UPDATE",
-        Some("pig_blood_test"), None,
-        Some(&format!("血液檢查紀錄 #{}", id)),
+        Some("pig_blood_test"), Some(pig_id),
+        Some(&display_name),
         None, None, None, None,
     ).await {
         tracing::error!("寫入 user_activity_logs 失敗 (BLOOD_TEST_UPDATE): {}", e);
@@ -1583,13 +1702,26 @@ pub async fn delete_pig_blood_test(
     require_permission!(current_user, "animal.record.delete");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
 
+    // 先取得豬隻資訊用於日誌顯示
+    let pig_info = sqlx::query_as::<_, (Uuid, String, Option<String>)>(
+        "SELECT p.id, p.ear_tag, p.iacuc_no FROM pigs p INNER JOIN pig_blood_tests bt ON bt.pig_id = p.id WHERE bt.id = $1"
+    ).bind(id).fetch_optional(&state.db).await;
+
     AnimalService::soft_delete_blood_test(&state.db, id, &req.reason, current_user.id).await?;
+
+    let (pig_id_opt, display_name) = match pig_info {
+        Ok(Some((pid, ear_tag, iacuc_no))) => {
+            let iacuc = iacuc_no.unwrap_or_else(|| "未指派".to_string());
+            (Some(pid), format!("[{}] {} (原因: {})", iacuc, ear_tag, req.reason))
+        }
+        _ => (None, format!("血液檢查紀錄 #{} (原因: {})", id, req.reason)),
+    };
 
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "BLOOD_TEST_DELETE",
-        Some("pig_blood_test"), None,
-        Some(&format!("血液檢查紀錄 #{} (原因: {})", id, req.reason)),
+        Some("pig_blood_test"), pig_id_opt,
+        Some(&display_name),
         None,
         Some(serde_json::json!({ "reason": req.reason })),
         None, None,
@@ -1633,6 +1765,16 @@ pub async fn create_blood_test_template(
 
     let template = AnimalService::create_blood_test_template(&state.db, &req).await?;
 
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "TEMPLATE_CREATE",
+        Some("blood_test_template"), Some(template.id),
+        Some(&format!("建立血檢模板: {}", req.name)),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (TEMPLATE_CREATE): {}", e);
+    }
+
     Ok(Json(template))
 }
 
@@ -1647,6 +1789,16 @@ pub async fn update_blood_test_template(
 
     let template = AnimalService::update_blood_test_template(&state.db, id, &req).await?;
 
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "TEMPLATE_UPDATE",
+        Some("blood_test_template"), Some(id),
+        Some(&format!("更新血檢模板: {}", template.name)),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (TEMPLATE_UPDATE): {}", e);
+    }
+
     Ok(Json(template))
 }
 
@@ -1659,6 +1811,20 @@ pub async fn delete_blood_test_template(
     require_permission!(current_user, "animal.record.delete");
 
     AnimalService::delete_blood_test_template(&state.db, id).await?;
+
+    // 取得模板名稱用於日誌顯示
+    let tmpl_name = sqlx::query_scalar::<_, String>("SELECT name FROM blood_test_templates WHERE id = $1")
+        .bind(id).fetch_optional(&state.db).await.ok().flatten().unwrap_or_else(|| id.to_string());
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "TEMPLATE_DELETE",
+        Some("blood_test_template"), Some(id),
+        Some(&format!("停用血檢模板: {}", tmpl_name)),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (TEMPLATE_DELETE): {}", e);
+    }
 
     Ok(Json(serde_json::json!({ "message": "Template deactivated successfully" })))
 }
@@ -1696,6 +1862,16 @@ pub async fn create_blood_test_panel(
 
     let panel = AnimalService::create_blood_test_panel(&state.db, &req).await?;
 
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "PANEL_CREATE",
+        Some("blood_test_panel"), Some(panel.panel.id),
+        Some(&format!("建立血檢組合: {}", req.name)),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (PANEL_CREATE): {}", e);
+    }
+
     Ok(Json(panel))
 }
 
@@ -1709,6 +1885,16 @@ pub async fn update_blood_test_panel(
     require_permission!(current_user, "animal.record.edit");
 
     let panel = AnimalService::update_blood_test_panel(&state.db, id, &req).await?;
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "PANEL_UPDATE",
+        Some("blood_test_panel"), Some(id),
+        Some(&format!("更新血檢組合: {}", panel.panel.name)),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (PANEL_UPDATE): {}", e);
+    }
 
     Ok(Json(panel))
 }
@@ -1724,6 +1910,16 @@ pub async fn update_blood_test_panel_items(
 
     let panel = AnimalService::update_blood_test_panel_items(&state.db, id, &req).await?;
 
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "PANEL_UPDATE",
+        Some("blood_test_panel"), Some(id),
+        Some(&format!("更新血檢組合項目: {}", panel.panel.name)),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (PANEL_UPDATE items): {}", e);
+    }
+
     Ok(Json(panel))
 }
 
@@ -1736,6 +1932,20 @@ pub async fn delete_blood_test_panel(
     require_permission!(current_user, "animal.record.delete");
 
     AnimalService::delete_blood_test_panel(&state.db, id).await?;
+
+    // 取得組合名稱用於日誌顯示
+    let panel_name = sqlx::query_scalar::<_, String>("SELECT name FROM blood_test_panels WHERE id = $1")
+        .bind(id).fetch_optional(&state.db).await.ok().flatten().unwrap_or_else(|| id.to_string());
+
+    // 記錄活動紀錄
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "PANEL_DELETE",
+        Some("blood_test_panel"), Some(id),
+        Some(&format!("停用血檢組合: {}", panel_name)),
+        None, None, None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (PANEL_DELETE): {}", e);
+    }
 
     Ok(Json(serde_json::json!({ "message": "Panel deactivated successfully" })))
 }

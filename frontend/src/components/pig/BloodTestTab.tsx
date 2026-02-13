@@ -46,6 +46,7 @@ import {
 } from '@/components/ui/select'
 
 import { toast } from '@/components/ui/use-toast'
+import { PanelIcon } from '@/components/ui/panel-icon'
 import { DeleteReasonDialog } from '@/components/ui/delete-reason-dialog'
 import {
     Loader2,
@@ -64,6 +65,9 @@ interface BloodTestTabProps {
 
 
 
+// 預設檢驗機構選項
+const LAB_OPTIONS = ['為恭醫院', '里仁動物醫院'] as const
+
 export function BloodTestTab({ pigId }: BloodTestTabProps) {
     const queryClient = useQueryClient()
     const [showFormDialog, setShowFormDialog] = useState(false)
@@ -71,6 +75,8 @@ export function BloodTestTab({ pigId }: BloodTestTabProps) {
     const [editingId, setEditingId] = useState<string | null>(null)
     const [viewingId, setViewingId] = useState<string | null>(null)
     const [deleteTarget, setDeleteTarget] = useState<{ id: string; date: string } | null>(null)
+    // 檢驗機構下拉選項狀態：'為恭醫院' | '里仁動物醫院' | '__other__'
+    const [labNameOption, setLabNameOption] = useState<string>('')
 
     // 表單資料
     const [formData, setFormData] = useState<{
@@ -188,6 +194,7 @@ export function BloodTestTab({ pigId }: BloodTestTabProps) {
             remark: '',
             items: [],
         })
+        setLabNameOption('')
     }
 
     /** 開啟新增表單 */
@@ -207,6 +214,7 @@ export function BloodTestTab({ pigId }: BloodTestTabProps) {
                 lab_name: detail.blood_test.lab_name || '',
                 remark: detail.blood_test.remark || '',
                 items: detail.items.map((item) => ({
+
                     template_id: item.template_id || undefined,
                     item_name: item.item_name,
                     result_value: item.result_value || '',
@@ -217,6 +225,15 @@ export function BloodTestTab({ pigId }: BloodTestTabProps) {
                     sort_order: item.sort_order,
                 })),
             })
+            // 判斷 lab_name 是否為預設選項
+            const loadedLabName = detail.blood_test.lab_name || ''
+            if (LAB_OPTIONS.includes(loadedLabName as typeof LAB_OPTIONS[number])) {
+                setLabNameOption(loadedLabName)
+            } else if (loadedLabName) {
+                setLabNameOption('__other__')
+            } else {
+                setLabNameOption('')
+            }
             setEditingId(id)
             setShowFormDialog(true)
         } catch {
@@ -489,11 +506,35 @@ export function BloodTestTab({ pigId }: BloodTestTabProps) {
                             </div>
                             <div className="space-y-2">
                                 <Label>檢驗機構</Label>
-                                <Input
-                                    value={formData.lab_name}
-                                    onChange={(e) => setFormData((prev) => ({ ...prev, lab_name: e.target.value }))}
-                                    placeholder="例：中央研究院"
-                                />
+                                <Select
+                                    value={labNameOption}
+                                    onValueChange={(val) => {
+                                        setLabNameOption(val)
+                                        if (val === '__other__') {
+                                            setFormData((prev) => ({ ...prev, lab_name: '' }))
+                                        } else {
+                                            setFormData((prev) => ({ ...prev, lab_name: val }))
+                                        }
+                                    }}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="請選擇檢驗機構" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {LAB_OPTIONS.map((lab) => (
+                                            <SelectItem key={lab} value={lab}>{lab}</SelectItem>
+                                        ))}
+                                        <SelectItem value="__other__">其他</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                {labNameOption === '__other__' && (
+                                    <Input
+                                        value={formData.lab_name}
+                                        onChange={(e) => setFormData((prev) => ({ ...prev, lab_name: e.target.value }))}
+                                        placeholder="請輸入檢驗機構名稱"
+                                        className="mt-2"
+                                    />
+                                )}
                             </div>
                         </div>
 
@@ -527,7 +568,7 @@ export function BloodTestTab({ pigId }: BloodTestTabProps) {
                                                     }`}
                                                 onClick={() => togglePanel(panel)}
                                             >
-                                                <span className="mr-1">{panel.icon || '📋'}</span>
+                                                <PanelIcon icon={panel.icon} className="mr-1" />
                                                 {panel.name}
                                                 {isActive && (
                                                     <span className="ml-1 text-xs">✓</span>

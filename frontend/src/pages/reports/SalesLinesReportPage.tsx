@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api, { SalesLinesReport } from '@/lib/api'
 import { formatNumber, formatDate } from '@/lib/utils'
@@ -11,13 +12,40 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Loader2, Download, ShoppingCart } from 'lucide-react'
 
+// 客戶分類對照表
+const CUSTOMER_CATEGORY_MAP: Record<string, string> = {
+  internal: '內部單位',
+  external: '外部客戶',
+  research: '研究計畫',
+  other: '其他',
+}
+
+// 格式化客戶分類
+const formatCustomerCategory = (cat?: string): string => {
+  if (!cat) return '-'
+  return CUSTOMER_CATEGORY_MAP[cat] || cat
+}
+
 export function SalesLinesReportPage() {
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
+
   const { data: report, isLoading } = useQuery<SalesLinesReport[]>({
-    queryKey: ['report-sales-lines'],
+    queryKey: ['report-sales-lines', categoryFilter],
     queryFn: async () => {
-      const response = await api.get<SalesLinesReport[]>('/reports/sales-lines')
+      let params = ''
+      if (categoryFilter && categoryFilter !== 'all') {
+        params += `customer_category=${encodeURIComponent(categoryFilter)}`
+      }
+      const response = await api.get<SalesLinesReport[]>(`/reports/sales-lines${params ? '?' + params : ''}`)
       return response.data
     },
   })
@@ -40,13 +68,14 @@ export function SalesLinesReportPage() {
   const exportToCSV = () => {
     if (!report) return
 
-    const headers = ['單據日期', '單據編號', '狀態', '客戶代碼', '客戶名稱', '倉庫', '產品代碼', '產品名稱', '數量', '單位', '單價', '金額', '建立者', '核准者']
+    const headers = ['單據日期', '單據編號', '狀態', '客戶代碼', '客戶名稱', '客戶分類', '倉庫', '產品代碼', '產品名稱', '數量', '單位', '單價', '金額', '建立者', '核准者']
     const rows = report.map(r => [
       r.doc_date,
       r.doc_no,
       r.status,
       r.partner_code || '',
       r.partner_name || '',
+      formatCustomerCategory(r.customer_category),
       r.warehouse_name || '',
       r.product_sku,
       r.product_name,
@@ -84,10 +113,24 @@ export function SalesLinesReportPage() {
           <h1 className="text-3xl font-bold tracking-tight">銷售明細報表</h1>
           <p className="text-muted-foreground">銷售單、銷售出庫明細</p>
         </div>
-        <Button onClick={exportToCSV} disabled={!report?.length}>
-          <Download className="mr-2 h-4 w-4" />
-          匯出 CSV
-        </Button>
+        <div className="flex items-center gap-3">
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="客戶分類" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部分類</SelectItem>
+              <SelectItem value="internal">內部單位</SelectItem>
+              <SelectItem value="external">外部客戶</SelectItem>
+              <SelectItem value="research">研究計畫</SelectItem>
+              <SelectItem value="other">其他</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={exportToCSV} disabled={!report?.length}>
+            <Download className="mr-2 h-4 w-4" />
+            匯出 CSV
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-md border">
@@ -98,6 +141,7 @@ export function SalesLinesReportPage() {
               <TableHead>單據編號</TableHead>
               <TableHead>狀態</TableHead>
               <TableHead>客戶</TableHead>
+              <TableHead>客戶分類</TableHead>
               <TableHead>倉庫</TableHead>
               <TableHead>產品</TableHead>
               <TableHead className="text-right">數量</TableHead>
@@ -121,6 +165,11 @@ export function SalesLinesReportPage() {
                       </div>
                     ) : '-'}
                   </TableCell>
+                  <TableCell>
+                    {row.customer_category ? (
+                      <Badge variant="outline">{formatCustomerCategory(row.customer_category)}</Badge>
+                    ) : '-'}
+                  </TableCell>
                   <TableCell>{row.warehouse_name || '-'}</TableCell>
                   <TableCell>
                     <div>
@@ -142,7 +191,7 @@ export function SalesLinesReportPage() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-8">
+                <TableCell colSpan={11} className="text-center py-8">
                   <ShoppingCart className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
                   <p className="text-muted-foreground">尚無銷售資料</p>
                 </TableCell>

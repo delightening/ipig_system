@@ -827,6 +827,8 @@ pub struct CreateBloodTestTemplateRequest {
     pub default_price: Option<rust_decimal::Decimal>,
     #[serde(default)]
     pub sort_order: i32,
+    /// 所屬分類（panel）ID
+    pub panel_id: Option<Uuid>,
 }
 
 /// 更新血液檢查項目模板請求
@@ -838,6 +840,8 @@ pub struct UpdateBloodTestTemplateRequest {
     pub default_price: Option<rust_decimal::Decimal>,
     pub sort_order: Option<i32>,
     pub is_active: Option<bool>,
+    /// 所屬分類（panel）ID
+    pub panel_id: Option<Uuid>,
 }
 
 // ============================================

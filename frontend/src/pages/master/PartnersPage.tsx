@@ -40,6 +40,7 @@ export function PartnersPage() {
   const [formData, setFormData] = useState({
     partner_type: 'supplier' as 'supplier' | 'customer',
     supplier_category: '' as '' | 'drug' | 'consumable' | 'feed' | 'equipment',
+    customer_category: '' as '' | 'internal' | 'external' | 'research' | 'other',
     code: '',
     name: '',
     tax_id: '',
@@ -52,6 +53,7 @@ export function PartnersPage() {
   interface PartnerSubmissionData {
     partner_type: 'supplier' | 'customer'
     supplier_category: 'drug' | 'consumable' | 'feed' | 'equipment' | null
+    customer_category: 'internal' | 'external' | 'research' | 'other' | null
     code: string | null
     name: string
     tax_id: string | null
@@ -64,6 +66,7 @@ export function PartnersPage() {
     setFormData({
       partner_type: 'supplier',
       supplier_category: '',
+      customer_category: '',
       code: '',
       name: '',
       tax_id: '',
@@ -100,7 +103,7 @@ export function PartnersPage() {
   }
 
   const handlePartnerTypeChange = (value: 'supplier' | 'customer') => {
-    setFormData(prev => ({ ...prev, partner_type: value, supplier_category: '', code: '' }))
+    setFormData(prev => ({ ...prev, partner_type: value, supplier_category: '', customer_category: '', code: '' }))
     if (value === 'customer') {
       generateCode('customer')
     }
@@ -174,6 +177,7 @@ export function PartnersPage() {
     setFormData({
       partner_type: partner.partner_type,
       supplier_category: (partner as any).supplier_category || '',
+      customer_category: partner.customer_category || '',
       code: partner.code,
       name: partner.name,
       tax_id: partner.tax_id || '',
@@ -222,6 +226,7 @@ export function PartnersPage() {
       ...formData,
       code: formData.code.trim() || null,
       supplier_category: formData.supplier_category || null,
+      customer_category: formData.customer_category || null,
       email: formData.email.trim() || null,
       phone: formData.phone.trim() || null,
       tax_id: formData.tax_id.trim() || null,
@@ -382,6 +387,28 @@ export function PartnersPage() {
                       <SelectItem value="consumable">耗材</SelectItem>
                       <SelectItem value="feed">飼料</SelectItem>
                       <SelectItem value="equipment">儀器</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {formData.partner_type === 'customer' && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">客戶分類</Label>
+                  <Select
+                    value={formData.customer_category}
+                    onValueChange={(value: 'internal' | 'external' | 'research' | 'other') =>
+                      setFormData(prev => ({ ...prev, customer_category: value }))
+                    }
+                    disabled={!!editingPartner}
+                  >
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="請選擇客戶分類" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="internal">內部單位</SelectItem>
+                      <SelectItem value="external">外部客戶</SelectItem>
+                      <SelectItem value="research">研究計畫</SelectItem>
+                      <SelectItem value="other">其他</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -48,9 +48,9 @@ impl DocumentService {
             r#"
             INSERT INTO documents (
                 id, doc_type, doc_no, status, warehouse_id, warehouse_from_id, warehouse_to_id,
-                partner_id, doc_date, remark, stocktake_scope, created_by, created_at, updated_at
+                partner_id, doc_date, remark, stocktake_scope, iacuc_no, created_by, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
             RETURNING *
             "#
         )
@@ -65,6 +65,7 @@ impl DocumentService {
         .bind(req.doc_date)
         .bind(&req.remark)
         .bind(&req.stocktake_scope.as_ref().map(|s| serde_json::to_value(s).unwrap_or(serde_json::Value::Null)))
+        .bind(&req.iacuc_no)
         .bind(created_by)
         .fetch_one(&mut *tx)
         .await?;
@@ -711,7 +712,11 @@ impl DocumentService {
                 u2.display_name as approved_by_name,
                 d.created_at, d.approved_at,
                 COUNT(dl.id) as line_count,
-                SUM(dl.qty * COALESCE(dl.unit_price, 0)) as total_amount
+                SUM(dl.qty * COALESCE(dl.unit_price,
+                    (SELECT AVG(sl.unit_cost) FROM stock_ledger sl
+                     WHERE sl.product_id = dl.product_id AND sl.unit_cost IS NOT NULL),
+                    0)) as total_amount,
+                d.iacuc_no
             FROM documents d
             LEFT JOIN warehouses w ON d.warehouse_id = w.id
             LEFT JOIN partners p ON d.partner_id = p.id
@@ -722,43 +727,33 @@ impl DocumentService {
             "#
         );
 
+        // 動態建構查詢條件
+        let mut param_count = 0;
+
         if query.doc_type.is_some() {
-            sql.push_str(" AND d.doc_type = $1");
+            param_count += 1;
+            sql.push_str(&format!(" AND d.doc_type = ${}", param_count));
         }
 
-        sql.push_str(" GROUP BY d.id, w.name, p.name, u1.display_name, u2.display_name ORDER BY d.created_at DESC");
+        if query.iacuc_no.is_some() {
+            param_count += 1;
+            sql.push_str(&format!(" AND d.iacuc_no = ${}", param_count));
+        }
 
-        // 簡化查詢（實際應用中應使用 query builder）
-        let documents = if let Some(doc_type) = query.doc_type {
-            sqlx::query_as::<_, DocumentListItem>(&sql)
-                .bind(doc_type)
-                .fetch_all(pool)
-                .await?
-        } else {
-            let simple_sql = r#"
-                SELECT 
-                    d.id, d.doc_type, d.doc_no, d.status,
-                    w.name as warehouse_name,
-                    p.name as partner_name,
-                    d.doc_date,
-                    u1.display_name as created_by_name,
-                    u2.display_name as approved_by_name,
-                    d.created_at, d.approved_at,
-                    COUNT(dl.id) as line_count,
-                    SUM(dl.qty * COALESCE(dl.unit_price, 0)) as total_amount
-                FROM documents d
-                LEFT JOIN warehouses w ON d.warehouse_id = w.id
-                LEFT JOIN partners p ON d.partner_id = p.id
-                LEFT JOIN users u1 ON d.created_by = u1.id
-                LEFT JOIN users u2 ON d.approved_by = u2.id
-                LEFT JOIN document_lines dl ON d.id = dl.document_id
-                GROUP BY d.id, w.name, p.name, u1.display_name, u2.display_name
-                ORDER BY d.created_at DESC
-            "#;
-            sqlx::query_as::<_, DocumentListItem>(simple_sql)
-                .fetch_all(pool)
-                .await?
-        };
+        sql.push_str(" GROUP BY d.id, w.name, p.name, u1.display_name, u2.display_name, d.iacuc_no ORDER BY d.created_at DESC");
+
+        // 動態綁定參數
+        let mut query_builder = sqlx::query_as::<_, DocumentListItem>(&sql);
+
+        if let Some(doc_type) = query.doc_type {
+            query_builder = query_builder.bind(doc_type);
+        }
+
+        if let Some(ref iacuc_no) = query.iacuc_no {
+            query_builder = query_builder.bind(iacuc_no);
+        }
+
+        let documents = query_builder.fetch_all(pool).await?;
 
         Ok(documents)
     }

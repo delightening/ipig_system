@@ -305,21 +305,70 @@ class ERPPermissionTester:
         return ok
 
     def test_experiment_staff_create_sales_order(self):
-        """測試 10: EXPERIMENT_STAFF 建立銷售單"""
+        """測試 10: EXPERIMENT_STAFF 建立銷售單 (含 IACUC 歸屬)"""
         role = "EXPERIMENT_STAFF"
-        test_name = "ES 建立銷售單"
+        test_name = "ES 建立銷售單(IACUC)"
         resp = requests.post(
             f"{API_BASE_URL}/documents",
             json={
                 "doc_type": "SO",
                 "doc_date": str(date.today()),
                 "warehouse_id": self.created_warehouse_id,
-                "lines": [],
+                "iacuc_no": "PIG-11401",
+                "remark": "EXPERIMENT_STAFF 權限測試 — 銷售單含 IACUC 歸屬",
+                "lines": [
+                    {
+                        "product_id": self.created_product_id,
+                        "qty": 1,
+                        "uom": "EA",
+                    }
+                ],
             },
             headers=self._headers(role),
         )
         ok = resp.status_code in (200, 201)
-        self._record(test_name, role, "POST /documents (SO)", "200/201", resp.status_code, ok)
+        if ok:
+            self.created_so_id = resp.json().get("id")
+            # 驗證回傳的 iacuc_no 正確
+            returned_iacuc = resp.json().get("iacuc_no")
+            if returned_iacuc != "PIG-11401":
+                print(f"     ⚠️ iacuc_no 回傳不符: 預期 PIG-11401, 實際 {returned_iacuc}")
+        self._record(test_name, role, "POST /documents (SO+IACUC)", "200/201", resp.status_code, ok)
+        return ok
+
+    def test_experiment_staff_submit_sales_order(self):
+        """測試 11: EXPERIMENT_STAFF 提交銷售單"""
+        role = "EXPERIMENT_STAFF"
+        test_name = "ES 提交銷售單"
+        if not getattr(self, "created_so_id", None):
+            self._record(test_name, role, "POST /documents/:id/submit", "200/201", "SKIP", False)
+            return False
+
+        resp = requests.post(
+            f"{API_BASE_URL}/documents/{self.created_so_id}/submit",
+            headers=self._headers(role),
+        )
+        ok = resp.status_code in (200, 201)
+        self._record(test_name, role, "POST /documents/:id/submit", "200/201", resp.status_code, ok)
+        return ok
+
+    def test_experiment_staff_query_by_iacuc(self):
+        """測試 12: EXPERIMENT_STAFF 依 IACUC 篩選查詢單據"""
+        role = "EXPERIMENT_STAFF"
+        test_name = "ES IACUC篩選查詢"
+        resp = requests.get(
+            f"{API_BASE_URL}/documents",
+            params={"iacuc_no": "PIG-11401"},
+            headers=self._headers(role),
+        )
+        ok = resp.status_code == 200
+        if ok:
+            docs = resp.json()
+            found = any(d.get("iacuc_no") == "PIG-11401" for d in docs)
+            if not found:
+                print(f"     ⚠️ IACUC 篩選結果中未找到 PIG-11401 的單據 (共 {len(docs)} 筆)")
+                ok = False
+        self._record(test_name, role, "GET /documents?iacuc_no=...", "200", resp.status_code, ok)
         return ok
 
     # ========================================
@@ -342,6 +391,8 @@ class ERPPermissionTester:
             ("8", self.test_admin_staff_create_storage_location),
             ("9", self.test_experiment_staff_view_inventory),
             ("10", self.test_experiment_staff_create_sales_order),
+            ("11", self.test_experiment_staff_submit_sales_order),
+            ("12", self.test_experiment_staff_query_by_iacuc),
         ]
 
         for num, test_fn in tests:

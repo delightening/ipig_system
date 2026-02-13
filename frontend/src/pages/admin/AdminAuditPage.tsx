@@ -6,6 +6,7 @@ import {
     Activity,
     AlertTriangle,
     Clock,
+    Eye,
     LogIn,
     LogOut,
     RefreshCw,
@@ -34,6 +35,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
 import type {
     AuditDashboardStats,
@@ -50,6 +58,8 @@ interface AuditLog {
     action: string
     entity_type: string
     entity_id: string
+    entity_email?: string
+    entity_name?: string
     before_data?: Record<string, unknown>
     after_data?: Record<string, unknown>
     created_at: string
@@ -66,6 +76,7 @@ interface PaginatedResponse<T> {
 export function AdminAuditPage() {
     const [activeTab, setActiveTab] = useState('dashboard')
     const [searchTerm, setSearchTerm] = useState('')
+    const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null)
 
     // Default date range: first day of current month to today
     const getDefaultDateFrom = () => {
@@ -158,6 +169,7 @@ export function AdminAuditPage() {
     const resolveAlertMutation = useMutation({
         mutationFn: async (alertId: string) => {
             return api.post(`/admin/audit/alerts/${alertId}/resolve`, {
+                resolution: 'resolved',
                 resolution_notes: '已確認並解決',
             })
         },
@@ -185,6 +197,52 @@ export function AdminAuditPage() {
             default:
                 return 'secondary'
         }
+    }
+
+    // 根據操作類型與資料產生簡短中文摘要
+    const getActionSummary = (log: AuditLog): string => {
+        const actionLabels: Record<string, string> = {
+            'CREATE': '建立使用者',
+            'UPDATE': '更新使用者資料',
+            'DELETE': '刪除使用者',
+            'PASSWORD_RESET': '重設密碼',
+            'IMPERSONATE': '模擬登入',
+            'force_logout': '強制登出 Session',
+        }
+
+        const base = actionLabels[log.action] || log.action
+
+        if (log.action === 'IMPERSONATE' && log.after_data) {
+            const data = log.after_data as Record<string, string>
+            const target = data.impersonated_email || data.impersonated_user_id?.slice(0, 8)
+            return target ? `${base} → ${target}` : base
+        }
+
+        if (log.action === 'UPDATE' && log.after_data) {
+            const keys = Object.keys(log.after_data)
+            const fieldLabels: Record<string, string> = {
+                display_name: '顯示名稱',
+                email: '信箱',
+                is_active: '啟用狀態',
+                roles: '角色',
+                phone: '電話',
+                organization: '組織',
+            }
+            const changed = keys.map(k => fieldLabels[k] || k).slice(0, 3)
+            return `${base}：${changed.join('、')}${keys.length > 3 ? ' 等' : ''}`
+        }
+
+        if (log.action === 'CREATE' && log.after_data) {
+            const data = log.after_data as Record<string, string>
+            if (data.email) return `${base}：${data.email}`
+        }
+
+        if (log.action === 'force_logout' && log.after_data) {
+            const data = log.after_data as Record<string, string>
+            if (data.reason) return `${base}：${data.reason}`
+        }
+
+        return base
     }
 
     return (
@@ -316,9 +374,9 @@ export function AdminAuditPage() {
                                     <TableHead>時間</TableHead>
                                     <TableHead>操作者</TableHead>
                                     <TableHead>操作</TableHead>
-                                    <TableHead>目標實體</TableHead>
-                                    <TableHead>實體 ID</TableHead>
-                                    <TableHead>變更內容</TableHead>
+                                    <TableHead>目標使用者</TableHead>
+                                    <TableHead>摘要</TableHead>
+                                    <TableHead className="w-[60px]">詳情</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -366,13 +424,27 @@ export function AdminAuditPage() {
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant="outline">{log.entity_type}</Badge>
+                                                {log.entity_name || log.entity_email ? (
+                                                    <div>
+                                                        <div className="font-medium">{log.entity_name || '-'}</div>
+                                                        <div className="text-xs text-muted-foreground">{log.entity_email || ''}</div>
+                                                    </div>
+                                                ) : (
+                                                    <span className="font-mono text-xs text-muted-foreground">{log.entity_id?.slice(0, 8)}...</span>
+                                                )}
                                             </TableCell>
-                                            <TableCell className="font-mono text-xs text-muted-foreground">
-                                                {log.entity_id?.slice(0, 8)}...
+                                            <TableCell className="text-sm max-w-[250px]">
+                                                <span className="text-muted-foreground">{getActionSummary(log)}</span>
                                             </TableCell>
-                                            <TableCell className="text-sm max-w-[200px] truncate">
-                                                {log.after_data ? JSON.stringify(log.after_data).slice(0, 60) : '-'}
+                                            <TableCell>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => setSelectedLog(log)}
+                                                    title="查看詳情"
+                                                >
+                                                    <Eye className="h-4 w-4" />
+                                                </Button>
                                             </TableCell>
                                         </TableRow>
                                     ))
@@ -645,6 +717,94 @@ export function AdminAuditPage() {
                     </Card>
                 </TabsContent>
             </Tabs>
+
+            {/* 活動記錄詳情 Dialog */}
+            <Dialog open={!!selectedLog} onOpenChange={() => setSelectedLog(null)}>
+                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Eye className="h-5 w-5" />
+                            活動記錄詳情
+                        </DialogTitle>
+                    </DialogHeader>
+                    {selectedLog && (
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label className="text-muted-foreground">操作時間</Label>
+                                    <p className="font-medium">{formatDateTime(selectedLog.created_at)}</p>
+                                </div>
+                                <div>
+                                    <Label className="text-muted-foreground">操作者</Label>
+                                    <p className="font-medium">{selectedLog.actor_name || '-'}</p>
+                                    <p className="text-sm text-muted-foreground">{selectedLog.actor_email || ''}</p>
+                                </div>
+                                <div>
+                                    <Label className="text-muted-foreground">操作類型</Label>
+                                    <div className="mt-1">
+                                        <Badge variant={{
+                                            'CREATE': 'default',
+                                            'UPDATE': 'default',
+                                            'DELETE': 'destructive',
+                                            'PASSWORD_RESET': 'secondary',
+                                            'IMPERSONATE': 'secondary',
+                                            'force_logout': 'destructive',
+                                        }[selectedLog.action] as 'default' | 'destructive' | 'secondary' || 'outline'}>
+                                            {{
+                                                'CREATE': '建立使用者',
+                                                'UPDATE': '更新使用者',
+                                                'DELETE': '刪除使用者',
+                                                'PASSWORD_RESET': '重設密碼',
+                                                'IMPERSONATE': '模擬登入',
+                                                'force_logout': '強制登出',
+                                            }[selectedLog.action] || selectedLog.action}
+                                        </Badge>
+                                    </div>
+                                </div>
+                                <div>
+                                    <Label className="text-muted-foreground">目標使用者</Label>
+                                    {selectedLog.entity_name || selectedLog.entity_email ? (
+                                        <div>
+                                            <p className="font-medium">{selectedLog.entity_name || '-'}</p>
+                                            <p className="text-sm text-muted-foreground">{selectedLog.entity_email || ''}</p>
+                                        </div>
+                                    ) : (
+                                        <p className="font-medium">
+                                            <Badge variant="outline">{selectedLog.entity_type}</Badge>
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="col-span-2">
+                                    <Label className="text-muted-foreground">實體 ID</Label>
+                                    <p className="font-mono text-sm">{selectedLog.entity_id || '-'}</p>
+                                </div>
+                            </div>
+
+                            {selectedLog.before_data && (
+                                <div>
+                                    <Label className="text-muted-foreground">變更前資料</Label>
+                                    <pre className="mt-1 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-md text-sm overflow-x-auto">
+                                        {JSON.stringify(selectedLog.before_data, null, 2)}
+                                    </pre>
+                                </div>
+                            )}
+
+                            {selectedLog.after_data && (
+                                <div>
+                                    <Label className="text-muted-foreground">變更後資料</Label>
+                                    <pre className="mt-1 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-md text-sm overflow-x-auto">
+                                        {JSON.stringify(selectedLog.after_data, null, 2)}
+                                    </pre>
+                                </div>
+                            )}
+
+                            {!selectedLog.before_data && !selectedLog.after_data && (
+                                <p className="text-muted-foreground text-center py-4">無變更資料</p>
+                            )}
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }
