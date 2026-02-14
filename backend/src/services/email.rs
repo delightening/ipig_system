@@ -69,9 +69,9 @@ impl EmailService {
                 <p class="greeting">親愛的 <strong>{display_name}</strong>，您好！</p>
                 <p>您的豬博士 iPig 系統帳號已開通。以下是您的登入資訊：</p>
                 
-                <div class="info-box">
-                    <p><span class="label">📧 帳號（Email）</span><br><span class="value">{to_email}</span></p>
-                    <p><span class="label">🔑 初始密碼</span><br><span class="value">{password}</span></p>
+                <div class="info-box" style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); padding: 24px; border-radius: 12px; margin: 24px 0; border-left: 4px solid #3b82f6;">
+                    <p style="margin: 8px 0; font-size: 15px;"><span style="color: #475569; font-size: 13px;">📧 帳號（Email）</span><br><span style="font-weight: 600; color: #1e293b; font-size: 16px;">{to_email}</span></p>
+                    <p style="margin: 8px 0; font-size: 15px;"><span style="color: #475569; font-size: 13px;">🔑 初始密碼</span><br><span style="font-weight: 600; color: #1e293b; font-size: 16px;">{password}</span></p>
                 </div>
                 
                 <div class="warning">
