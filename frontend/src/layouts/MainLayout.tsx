@@ -132,6 +132,7 @@ const navItemsConfig: NavItem[] = [
     translate: true,
     children: [
       { title: 'animalList', href: '/pigs', translate: true },
+      { title: '血檢分析', href: '/reports/blood-test-analysis', translate: false },
       { title: '來源管理', href: '/pig-sources', permission: 'pig.source.manage', translate: false },
     ],
   },
