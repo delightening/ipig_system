@@ -89,6 +89,56 @@ impl FileCategory {
 }
 
 impl FileService {
+    /// 驗證檔案 Magic Number（檔案簽名）是否與宣告的 MIME 類型一致
+    /// SEC-14：防止攻擊者偽裝 MIME 類型上傳惡意檔案
+    pub fn validate_magic_number(data: &[u8], declared_mime: &str) -> Result<(), AppError> {
+        // 檔案太小無法驗證時跳過（空檔或極小檔）
+        if data.len() < 4 {
+            return Ok(());
+        }
+
+        let is_valid = match declared_mime {
+            // PDF: %PDF (25 50 44 46)
+            "application/pdf" => data.starts_with(b"%PDF"),
+
+            // JPEG: FF D8 FF
+            "image/jpeg" => data.len() >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF,
+
+            // PNG: 89 50 4E 47 0D 0A 1A 0A
+            "image/png" => data.len() >= 4 && data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47,
+
+            // GIF: GIF87a 或 GIF89a
+            "image/gif" => data.len() >= 6 && (data.starts_with(b"GIF87a") || data.starts_with(b"GIF89a")),
+
+            // WebP: RIFF....WEBP
+            "image/webp" => data.len() >= 12 && data.starts_with(b"RIFF") && &data[8..12] == b"WEBP",
+
+            // DOCX/XLSX (ZIP PK header): 50 4B 03 04
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            | "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" => {
+                data.starts_with(&[0x50, 0x4B, 0x03, 0x04])
+            }
+
+            // DOC/XLS (OLE2): D0 CF 11 E0
+            "application/msword"
+            | "application/vnd.ms-excel" => {
+                data.starts_with(&[0xD0, 0xCF, 0x11, 0xE0])
+            }
+
+            // 其他未知格式，不驗證（允許通過）
+            _ => true,
+        };
+
+        if !is_valid {
+            return Err(AppError::Validation(format!(
+                "檔案內容與宣告的類型 '{}' 不符，可能為偽裝檔案",
+                declared_mime
+            )));
+        }
+
+        Ok(())
+    }
+
     /// 取得上傳目錄
     fn get_upload_dir() -> PathBuf {
         std::env::var("UPLOAD_DIR")
@@ -167,6 +217,9 @@ impl FileService {
                 category.max_file_size() / 1024 / 1024
             )));
         }
+
+        // SEC-14: 驗證 Magic Number（檔案簽名）
+        Self::validate_magic_number(data, mime_type)?;
 
         // 建立目錄結構
         let base_dir = Self::get_upload_dir();
@@ -401,5 +454,91 @@ mod tests {
         assert_eq!(FileCategory::ProtocolAttachment.max_file_size(), 50 * 1024 * 1024);
         assert_eq!(FileCategory::PigPhoto.max_file_size(), 10 * 1024 * 1024);
         assert_eq!(FileCategory::PathologyReport.max_file_size(), 30 * 1024 * 1024);
+    }
+
+    // ==========================================
+    // SEC-14: Magic Number 驗證測試
+    // ==========================================
+
+    #[test]
+    fn test_magic_number_pdf_valid() {
+        let data = b"%PDF-1.4 fake pdf content";
+        assert!(FileService::validate_magic_number(data, "application/pdf").is_ok());
+    }
+
+    #[test]
+    fn test_magic_number_pdf_invalid() {
+        let data = b"This is not a PDF file";
+        assert!(FileService::validate_magic_number(data, "application/pdf").is_err());
+    }
+
+    #[test]
+    fn test_magic_number_jpeg_valid() {
+        let data = &[0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10];
+        assert!(FileService::validate_magic_number(data, "image/jpeg").is_ok());
+    }
+
+    #[test]
+    fn test_magic_number_jpeg_invalid() {
+        let data = b"not a jpeg";
+        assert!(FileService::validate_magic_number(data, "image/jpeg").is_err());
+    }
+
+    #[test]
+    fn test_magic_number_png_valid() {
+        let data = &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+        assert!(FileService::validate_magic_number(data, "image/png").is_ok());
+    }
+
+    #[test]
+    fn test_magic_number_png_invalid() {
+        let data = b"not a png file";
+        assert!(FileService::validate_magic_number(data, "image/png").is_err());
+    }
+
+    #[test]
+    fn test_magic_number_gif_valid() {
+        assert!(FileService::validate_magic_number(b"GIF89a content", "image/gif").is_ok());
+        assert!(FileService::validate_magic_number(b"GIF87a content", "image/gif").is_ok());
+    }
+
+    #[test]
+    fn test_magic_number_gif_invalid() {
+        assert!(FileService::validate_magic_number(b"GIF86x nope", "image/gif").is_err());
+    }
+
+    #[test]
+    fn test_magic_number_webp_valid() {
+        let mut data = Vec::from(b"RIFF" as &[u8]);
+        data.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // size placeholder
+        data.extend_from_slice(b"WEBP");
+        assert!(FileService::validate_magic_number(&data, "image/webp").is_ok());
+    }
+
+    #[test]
+    fn test_magic_number_docx_valid() {
+        let data = &[0x50, 0x4B, 0x03, 0x04, 0x14, 0x00];
+        assert!(FileService::validate_magic_number(
+            data,
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ).is_ok());
+    }
+
+    #[test]
+    fn test_magic_number_doc_valid() {
+        let data = &[0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1];
+        assert!(FileService::validate_magic_number(data, "application/msword").is_ok());
+    }
+
+    #[test]
+    fn test_magic_number_unknown_mime_passes() {
+        // 未知 MIME 類型不驗證，直接通過
+        assert!(FileService::validate_magic_number(b"anything", "text/plain").is_ok());
+    }
+
+    #[test]
+    fn test_magic_number_small_file_passes() {
+        // 小於 4 bytes 的檔案跳過驗證
+        assert!(FileService::validate_magic_number(b"ab", "application/pdf").is_ok());
     }
 }

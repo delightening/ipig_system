@@ -518,6 +518,14 @@
 - ✅ 實驗動物管理 23 個寫入操作接入審計系統
 - ✅ 角色權限修復（WAREHOUSE_MANAGER / ADMIN_STAFF / EXPERIMENT_STAFF）
 
+### 2026-02-15
+
+- ✅ **P3 安全改善 SEC-14**：檔案上傳 Magic Number 驗證（`validate_magic_number` 函數，支援 7 種檔案格式，14 個測試通過）
+- ✅ **技術債清理 T2**：`services/document.rs`（984 行）拆分為 4 個子模組（crud/workflow/grn/stocktake）
+- ✅ **技術債清理 T3**：`models/animal.rs`（1250 行）拆分為 4 個子模組（enums/entities/requests/mod），12 個測試通過
+- ✅ `cargo check` 零錯誤、`cargo test animal::tests` 12/12 通過
+- ✅ **TODO 清單整理**：按 P1-P5 優先級重新排序，清理已完成項目，表格化呈現 24 項待辦
+
 ### 2026-02-14 (下午)
 
 - ✅ PDF 報表分頁優化：`generate_project_medical_pdf` 重構為每隻豬獨立分頁、封面摘要、共用 `render_pig_medical_data` helper
@@ -538,6 +546,13 @@
 - ✅ 審查委員強制意見、多輪往返功能、權限放寬
 - ✅ AUP 狀態歷程修復、PI 刪除草稿權限修復
 - ✅ 翻譯標準化（手術計畫標籤、Placeholder）
+
+### 2026-02-15
+
+- ✅ 後端 Service 重構：`amendment.rs`（803 行）拆分為 `crud.rs` + `workflow.rs` + `query.rs`
+- ✅ 後端 Service 重構：`pdf.rs`（732 行）拆分為 `context.rs` + `service.rs`
+- ✅ 單元測試擴充：為 `protocol.rs`、`hr.rs`、`facility.rs` 新增 20 個測試（79→87）
+- ✅ **前端重構 T6**：`ProtocolEditPage.tsx`（4240 行）拆分為 10 個 Section 元件 + 4 個工具模組，tsc --noEmit 零錯誤
 
 ### 2026-02-06 ~ 2026-02-08
 
