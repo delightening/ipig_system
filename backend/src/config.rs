@@ -19,6 +19,9 @@ pub struct Config {
     pub smtp_from_email: String,
     pub smtp_from_name: String,
     pub app_url: String,
+    // Cookie settings
+    pub cookie_secure: bool,
+    pub cookie_domain: Option<String>,
     // Development settings
     pub seed_dev_users: bool,
 }
@@ -69,6 +72,10 @@ impl Config {
                 .unwrap_or_else(|_| "ERP System".to_string()),
             app_url: std::env::var("APP_URL")
                 .unwrap_or_else(|_| "http://localhost".to_string()),
+            cookie_secure: std::env::var("COOKIE_SECURE")
+                .map(|v| v.to_lowercase() == "true" || v == "1")
+                .unwrap_or(false),
+            cookie_domain: std::env::var("COOKIE_DOMAIN").ok().filter(|s| !s.is_empty()),
             seed_dev_users: std::env::var("SEED_DEV_USERS")
                 .map(|v| v.to_lowercase() == "true" || v == "1")
                 .unwrap_or(false),

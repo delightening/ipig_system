@@ -5,19 +5,9 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // HttpOnly Cookie 自動隨請求傳送（SEC-02）
+  withCredentials: true,
 })
-
-// Request interceptor - add auth token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('access_token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-  },
-  (error) => Promise.reject(error)
-)
 
 // Response interceptor - handle errors and token refresh
 api.interceptors.response.use(
@@ -29,38 +19,17 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest?._retry) {
       originalRequest._retry = true
 
-      const refreshToken = localStorage.getItem('refresh_token')
-      if (refreshToken) {
-        try {
-          const response = await api.post('/auth/refresh', {
-            refresh_token: refreshToken,
-          })
+      try {
+        // refresh_token Cookie 自動傳送，不需手動附帶
+        await api.post('/auth/refresh')
 
-          const { access_token, refresh_token: newRefreshToken } = response.data
-          localStorage.setItem('access_token', access_token)
-          localStorage.setItem('refresh_token', newRefreshToken)
-
-          if (originalRequest) {
-            originalRequest.headers.Authorization = `Bearer ${access_token}`
-            return api(originalRequest)
-          }
-        } catch {
-          // Refresh failed, clear tokens and redirect to login (only once)
-          if (!sessionStorage.getItem('auth_redirecting')) {
-            sessionStorage.setItem('auth_redirecting', 'true')
-            localStorage.removeItem('access_token')
-            localStorage.removeItem('refresh_token')
-            // Redirect immediately without clearing flag (cleared on login page)
-            window.location.href = '/login'
-          }
+        if (originalRequest) {
+          return api(originalRequest)
         }
-      } else {
-        // No refresh token, redirect to login (only once)
+      } catch {
+        // Refresh failed, redirect to login (only once)
         if (!sessionStorage.getItem('auth_redirecting')) {
           sessionStorage.setItem('auth_redirecting', 'true')
-          localStorage.removeItem('access_token')
-          localStorage.removeItem('refresh_token')
-          // Redirect immediately without clearing flag (cleared on login page)
           window.location.href = '/login'
         }
       }

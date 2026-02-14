@@ -1,5 +1,7 @@
 use axum::{
     extract::{Path, Query, State},
+    http::{header, StatusCode},
+    response::Response,
     Extension, Json,
 };
 use uuid::Uuid;
@@ -12,6 +14,8 @@ use crate::{
     services::{AuthService, AuditService, UserService, EmailService},
     AppError, AppState, Result,
 };
+
+use super::auth::build_set_cookie;
 
 #[derive(Debug, serde::Deserialize)]
 pub struct UserQuery {
@@ -165,11 +169,12 @@ pub async fn reset_user_password(
 }
 
 /// 模擬登入使用者（管理員專用的測試功能）
+/// 回傳 Response 含 Set-Cookie headers
 pub async fn impersonate_user(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
-) -> Result<Json<crate::models::LoginResponse>> {
+) -> Result<Response> {
     // 檢查權限，必須是 Admin 角色
     if !current_user.roles.contains(&"admin".to_string()) && !current_user.roles.contains(&"SYSTEM_ADMIN".to_string()) {
         return Err(AppError::BusinessRule("Only admin can impersonate other users".to_string()));
@@ -198,5 +203,29 @@ pub async fn impersonate_user(
         })),
     ).await?;
     
-    Ok(Json(login_response))
+    // 回傳 JSON + Set-Cookie headers
+    let access_cookie = build_set_cookie(
+        "access_token",
+        &login_response.access_token,
+        login_response.expires_in,
+        &state.config,
+    );
+    let refresh_cookie = build_set_cookie(
+        "refresh_token",
+        &login_response.refresh_token,
+        7 * 24 * 3600,
+        &state.config,
+    );
+
+    let body = serde_json::to_string(&login_response).unwrap();
+    let response = Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::SET_COOKIE, access_cookie)
+        .header(header::SET_COOKIE, refresh_cookie)
+        .body(body.into())
+        .unwrap();
+
+    Ok(response)
 }
+

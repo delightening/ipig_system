@@ -1,6 +1,7 @@
 use axum::{
     extract::{ConnectInfo, State},
-    http::HeaderMap,
+    http::{header, HeaderMap, StatusCode},
+    response::Response,
     Extension, Json,
 };
 use std::net::SocketAddr;
@@ -8,15 +9,84 @@ use tracing;
 use validator::Validate;
 
 use crate::{
+    config::Config,
     middleware::{CurrentUser, extract_real_ip},
     models::{
         ChangeOwnPasswordRequest, ForgotPasswordRequest, LoginRequest, LoginResponse,
-        RefreshTokenRequest, ResetPasswordWithTokenRequest, UpdateUserRequest, User, UserResponse,
+        RefreshTokenRequest, ResetPasswordWithTokenRequest, UpdateUserRequest, UserResponse,
     },
     services::{AuthService, UserService, EmailService, LoginTracker, SessionManager},
     AppError, AppState, Result,
 };
 
+// ============================================
+// Cookie 輔助函式
+// ============================================
+
+/// 建構認證 Cookie 的 Set-Cookie header 值
+pub(crate) fn build_set_cookie(name: &str, value: &str, max_age_secs: i64, config: &Config) -> String {
+    let mut cookie = format!(
+        "{}={}; Path=/api; HttpOnly; SameSite=Lax; Max-Age={}",
+        name, value, max_age_secs
+    );
+    if config.cookie_secure {
+        cookie.push_str("; Secure");
+    }
+    if let Some(ref domain) = config.cookie_domain {
+        cookie.push_str(&format!("; Domain={}", domain));
+    }
+    cookie
+}
+
+/// 建構清除 Cookie 的 Set-Cookie header 值（Max-Age=0）
+pub(crate) fn build_clear_cookie(name: &str, config: &Config) -> String {
+    build_set_cookie(name, "", 0, config)
+}
+
+/// 從請求的 Cookie header 中提取指定名稱的 cookie 值
+fn extract_cookie_value(headers: &HeaderMap, name: &str) -> Option<String> {
+    headers
+        .get(header::COOKIE)?
+        .to_str()
+        .ok()?
+        .split(';')
+        .map(|s| s.trim())
+        .find(|s| s.starts_with(&format!("{}=", name)))
+        .map(|s| s[name.len() + 1..].to_string())
+}
+
+/// 將 LoginResponse 附加 Set-Cookie headers 回傳
+fn login_response_with_cookies(
+    response: &LoginResponse,
+    config: &Config,
+) -> Response {
+    let access_cookie = build_set_cookie(
+        "access_token",
+        &response.access_token,
+        response.expires_in,
+        config,
+    );
+    let refresh_cookie = build_set_cookie(
+        "refresh_token",
+        &response.refresh_token,
+        7 * 24 * 3600, // 7 天
+        config,
+    );
+
+    let body = serde_json::to_string(response).unwrap();
+
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::SET_COOKIE, access_cookie)
+        .header(header::SET_COOKIE, refresh_cookie)
+        .body(body.into())
+        .unwrap()
+}
+
+// ============================================
+// Auth Handlers
+// ============================================
 
 /// 登入
 pub async fn login(
@@ -24,7 +94,7 @@ pub async fn login(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Json(req): Json<LoginRequest>,
-) -> Result<Json<LoginResponse>> {
+) -> Result<Response> {
     // 從 proxy header 提取真實客戶端 IP
     let ip = extract_real_ip(&headers, &addr);
     let user_agent = headers
@@ -91,17 +161,26 @@ pub async fn login(
         }
     };
     
-    Ok(Json(response))
+    // 回傳 JSON + Set-Cookie headers
+    Ok(login_response_with_cookies(&response, &state.config))
 }
 
 
 /// 重新整理 Token
+/// 支援從 JSON body 或 Cookie 讀取 refresh_token
 pub async fn refresh_token(
     State(state): State<AppState>,
-    Json(req): Json<RefreshTokenRequest>,
-) -> Result<Json<LoginResponse>> {
-    let response = AuthService::refresh_token(&state.db, &state.config, &req.refresh_token).await?;
-    Ok(Json(response))
+    headers: HeaderMap,
+    body: Option<Json<RefreshTokenRequest>>,
+) -> Result<Response> {
+    // 優先從 JSON body 讀取，其次從 Cookie 讀取
+    let refresh_token_value = body
+        .map(|Json(req)| req.refresh_token)
+        .or_else(|| extract_cookie_value(&headers, "refresh_token"))
+        .ok_or_else(|| AppError::Validation("Missing refresh token".to_string()))?;
+
+    let response = AuthService::refresh_token(&state.db, &state.config, &refresh_token_value).await?;
+    Ok(login_response_with_cookies(&response, &state.config))
 }
 
 /// 登出
@@ -110,7 +189,7 @@ pub async fn logout(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Extension(current_user): Extension<CurrentUser>,
-) -> Result<Json<serde_json::Value>> {
+) -> Result<Response> {
     // 記錄登出事件
     if let Err(e) = LoginTracker::log_logout(
         &state.db,
@@ -133,7 +212,18 @@ pub async fn logout(
 
     
     AuthService::logout(&state.db, current_user.id).await?;
-    Ok(Json(serde_json::json!({ "message": "Logged out successfully" })))
+
+    // 清除所有認證 Cookie
+    let body = serde_json::json!({ "message": "Logged out successfully" });
+    let response = Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::SET_COOKIE, build_clear_cookie("access_token", &state.config))
+        .header(header::SET_COOKIE, build_clear_cookie("refresh_token", &state.config))
+        .body(serde_json::to_string(&body).unwrap().into())
+        .unwrap();
+
+    Ok(response)
 }
 
 
@@ -142,37 +232,8 @@ pub async fn me(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<UserResponse>> {
-    // 查詢當前使用者資訊
-    let user = sqlx::query_as::<_, User>(
-        "SELECT * FROM users WHERE id = $1"
-    )
-    .bind(current_user.id)
-    .fetch_optional(&state.db)
-    .await?
-    .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
-
-    let (roles, permissions) = AuthService::get_user_roles_permissions(&state.db, current_user.id).await?;
-    
-    Ok(Json(UserResponse {
-        id: user.id,
-        email: user.email,
-        display_name: user.display_name,
-        phone: user.phone,
-        organization: user.organization,
-        is_internal: user.is_internal,
-        is_active: user.is_active,
-        must_change_password: user.must_change_password,
-        theme_preference: user.theme_preference,
-        language_preference: user.language_preference,
-        last_login_at: user.last_login_at,
-        entry_date: user.entry_date,
-        position: user.position,
-        aup_roles: user.aup_roles,
-        years_experience: user.years_experience,
-        trainings: user.trainings.0,
-        roles,
-        permissions,
-    }))
+    let user = UserService::get_by_id(&state.db, current_user.id).await?;
+    Ok(Json(user))
 }
 
 /// 更新自己的資訊
@@ -181,14 +242,8 @@ pub async fn update_me(
     Extension(current_user): Extension<CurrentUser>,
     Json(mut req): Json<UpdateUserRequest>,
 ) -> Result<Json<UserResponse>> {
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
-    
-    // 限制使用者只能修改特定欄位
-    // 預防安全性問題，強制將不允許修改的欄位設為 None
+    // 一般使用者不能修改自己的 active/internal 狀態
     req.is_active = None;
-    req.is_internal = None;
-    req.role_ids = None;
-    
     let user = UserService::update(&state.db, current_user.id, current_user.id, &req).await?;
     Ok(Json(user))
 }
@@ -199,15 +254,12 @@ pub async fn change_own_password(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<ChangeOwnPasswordRequest>,
 ) -> Result<Json<serde_json::Value>> {
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
-    
     AuthService::change_own_password(
         &state.db,
         current_user.id,
         &req.current_password,
         &req.new_password,
     ).await?;
-    
     Ok(Json(serde_json::json!({ "message": "Password changed successfully" })))
 }
 
@@ -216,33 +268,34 @@ pub async fn forgot_password(
     State(state): State<AppState>,
     Json(req): Json<ForgotPasswordRequest>,
 ) -> Result<Json<serde_json::Value>> {
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
-    
-    // 產生重設 token
-    if let Some((user_id, token)) = AuthService::forgot_password(&state.db, &req.email).await? {
-        // 查詢使用者資訊
-        let user = sqlx::query_as::<_, User>(
-            "SELECT * FROM users WHERE id = $1"
-        )
-        .bind(user_id)
-        .fetch_one(&state.db)
-        .await?;
-
-        // 非同步發送重設密碼郵件
-        let config = state.config.clone();
-        let email = user.email.clone();
-        let display_name = user.display_name.clone();
-        tokio::spawn(async move {
-            if let Err(e) = EmailService::send_password_reset_email(&config, &email, &display_name, &token).await {
-                tracing::error!("Failed to send password reset email to {}: {}", email, e);
-            }
-        });
+    match AuthService::forgot_password(&state.db, &req.email).await? {
+        Some((user_id, token)) => {
+            // 非同步發送重設密碼郵件
+            let config = state.config.clone();
+            let email = req.email.clone();
+            
+            // 查詢使用者名稱
+            let user = UserService::get_by_id(&state.db, user_id).await?;
+            let display_name = user.display_name.clone();
+            
+            tokio::spawn(async move {
+                if let Err(e) = EmailService::send_password_reset_email(
+                    &config,
+                    &email,
+                    &display_name,
+                    &token,
+                ).await {
+                    tracing::error!("Failed to send password reset email to {}: {}", email, e);
+                }
+            });
+        }
+        None => {
+            tracing::info!("Password reset requested for non-existent email: {}", req.email);
+        }
     }
     
-    // 無論使用者是否存在，都返回相同訊息，避免洩露使用者資訊
-    Ok(Json(serde_json::json!({ 
-        "message": "If the email exists, a password reset link has been sent" 
-    })))
+    // 不管帳號存不存在都回覆相同訊息（防止帳號枚舉攻擊）
+    Ok(Json(serde_json::json!({ "message": "If the email exists, a reset link has been sent" })))
 }
 
 /// 使用 token 重設密碼
@@ -250,28 +303,26 @@ pub async fn reset_password_with_token(
     State(state): State<AppState>,
     Json(req): Json<ResetPasswordWithTokenRequest>,
 ) -> Result<Json<serde_json::Value>> {
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
-    
     AuthService::reset_password_with_token(&state.db, &req.token, &req.new_password).await?;
-    
-    Ok(Json(serde_json::json!({ "message": "Password reset successfully" })))
+    Ok(Json(serde_json::json!({ "message": "Password has been reset successfully" })))
 }
 
 /// Heartbeat - 更新使用者 session 的最後活動時間與 IP
 pub async fn heartbeat(
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<serde_json::Value>> {
-    let ip = addr.ip().to_string();
+    let ip = extract_real_ip(&headers, &addr);
     
-    if let Err(e) = SessionManager::update_activity_by_user(
+    if let Err(e) = SessionManager::update_activity(
         &state.db,
         current_user.id,
         Some(&ip),
     ).await {
-        tracing::warn!("Heartbeat 更新 session 失敗: {e}");
+        tracing::warn!("Failed to update session activity for user {}: {}", current_user.id, e);
     }
     
-    Ok(Json(serde_json::json!({ "ok": true })))
+    Ok(Json(serde_json::json!({ "status": "ok" })))
 }
