@@ -49,14 +49,10 @@ fn parse_database_url_for_logging(url: &str) -> String {
 }
 
 /// 確保預設管理員帳號存在
+/// 密碼從環境變數 ADMIN_INITIAL_PASSWORD 讀取，未設定則跳過建立
 async fn ensure_admin_user(pool: &sqlx::PgPool) -> Result<()> {
     let email = "admin@ipig.local";
     let display_name = "系統管理員";
-    let password = "admin123";
-    
-    // 使用 AuthService 生成正確的密碼 hash
-    let password_hash = services::AuthService::hash_password(password)
-        .map_err(|e| anyhow::anyhow!("Failed to hash admin password: {}", e))?;
     
     // 檢查用戶是否已存在
     let existing_id: Option<Uuid> = sqlx::query_scalar("SELECT id FROM users WHERE email = $1")
@@ -69,10 +65,19 @@ async fn ensure_admin_user(pool: &sqlx::PgPool) -> Result<()> {
         tracing::info!("[Admin] Existing admin user found, preserving password: {}", email);
         id
     } else {
-        // 用戶不存在：創建新用戶
+        // 用戶不存在：從環境變數取得初始密碼
+        let password = std::env::var("ADMIN_INITIAL_PASSWORD")
+            .unwrap_or_else(|_| {
+                tracing::warn!("[Admin] ADMIN_INITIAL_PASSWORD not set, using generated password");
+                Uuid::new_v4().to_string()
+            });
+        
+        let password_hash = services::AuthService::hash_password(&password)
+            .map_err(|e| anyhow::anyhow!("Failed to hash admin password: {}", e))?;
+        
         let id = Uuid::new_v4();
         sqlx::query(
-            "INSERT INTO users (id, email, password_hash, display_name, is_active, must_change_password, created_at, updated_at) VALUES ($1, $2, $3, $4, true, false, NOW(), NOW())"
+            "INSERT INTO users (id, email, password_hash, display_name, is_active, must_change_password, created_at, updated_at) VALUES ($1, $2, $3, $4, true, true, NOW(), NOW())"
         )
         .bind(id)
         .bind(email)
@@ -80,7 +85,7 @@ async fn ensure_admin_user(pool: &sqlx::PgPool) -> Result<()> {
         .bind(display_name)
         .execute(pool)
         .await?;
-        tracing::info!("[Admin] New admin user created: {} / {}", email, password);
+        tracing::info!("[Admin] New admin user created: {} (must change password on first login)", email);
         id
     };
     
@@ -563,7 +568,7 @@ async fn seed_dev_users(pool: &sqlx::PgPool) -> Result<()> {
             // 用戶不存在：創建新用戶
             let id = Uuid::new_v4();
             sqlx::query(
-                "INSERT INTO users (id, email, password_hash, display_name, is_internal, is_active, must_change_password, created_at, updated_at) VALUES ($1, $2, $3, $4, true, true, false, NOW(), NOW())"
+                "INSERT INTO users (id, email, password_hash, display_name, is_internal, is_active, must_change_password, created_at, updated_at) VALUES ($1, $2, $3, $4, true, true, true, NOW(), NOW())"
             )
             .bind(id)
             .bind(dev_user.email)

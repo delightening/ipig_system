@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { useAuthStore } from '@/stores/auth'
 import { RequirePermission } from '@/components/auth'
+import { useHeartbeat } from '@/hooks/useHeartbeat'
 
 // Layouts
 import { MainLayout } from '@/layouts/MainLayout'
@@ -82,6 +83,9 @@ import { PigSourcesPage } from '@/pages/pigs/PigSourcesPage'
 // Protected Route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
     const { isAuthenticated, user } = useAuthStore()
+
+    // 啟動 heartbeat 監聽使用者活動
+    useHeartbeat(isAuthenticated)
 
     if (!isAuthenticated) {
         return <Navigate to="/login" replace />

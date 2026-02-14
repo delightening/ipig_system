@@ -1,5 +1,5 @@
 # Build stage
-FROM rust:latest AS builder
+FROM rust:1.92 AS builder
 
 WORKDIR /app
 
@@ -32,6 +32,11 @@ RUN apt-get update && apt-get install -y \
 # Copy binary
 COPY --from=builder /app/target/release/erp-backend /app/erp-backend
 COPY --from=builder /app/migrations /app/migrations
+
+# 以非 root 用戶運行（SEC-08）
+RUN useradd -r -s /bin/false appuser && \
+    chown -R appuser:appuser /app
+USER appuser
 
 # Set environment
 ENV RUST_LOG=info

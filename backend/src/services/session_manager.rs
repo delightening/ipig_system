@@ -37,16 +37,42 @@ impl SessionManager {
     }
     
     /// 更新 Session 活動時間
-    pub async fn update_activity(pool: &PgPool, session_id: Uuid) -> Result<()> {
+    pub async fn update_activity(pool: &PgPool, session_id: Uuid, ip: Option<&str>) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE user_sessions
             SET last_activity_at = NOW(),
-                page_view_count = page_view_count + 1
+                page_view_count = page_view_count + 1,
+                ip_address = COALESCE($2::INET, ip_address)
             WHERE id = $1 AND is_active = true
             "#,
         )
         .bind(session_id)
+        .bind(ip)
+        .execute(pool)
+        .await?;
+        
+        Ok(())
+    }
+    
+    /// 透過 user_id 更新最近的 active session 活動時間與 IP
+    pub async fn update_activity_by_user(pool: &PgPool, user_id: Uuid, ip: Option<&str>) -> Result<()> {
+        sqlx::query(
+            r#"
+            UPDATE user_sessions
+            SET last_activity_at = NOW(),
+                page_view_count = page_view_count + 1,
+                ip_address = COALESCE($2::INET, ip_address)
+            WHERE id = (
+                SELECT id FROM user_sessions
+                WHERE user_id = $1 AND is_active = true
+                ORDER BY started_at DESC
+                LIMIT 1
+            )
+            "#,
+        )
+        .bind(user_id)
+        .bind(ip)
         .execute(pool)
         .await?;
         

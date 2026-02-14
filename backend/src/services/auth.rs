@@ -50,7 +50,7 @@ impl AuthService {
         let (roles, permissions) = Self::get_user_roles_permissions(pool, user.id).await?;
 
         // 生成 JWT
-        let (access_token, expires_in) = Self::generate_access_token(config, &user, &roles, &permissions)?;
+        let (access_token, expires_in) = Self::generate_access_token(config, &user, &roles, &permissions, None)?;
 
         // 生成 Refresh Token
         let refresh_token = Self::generate_refresh_token(pool, user.id, config).await?;
@@ -126,7 +126,7 @@ impl AuthService {
         let (roles, permissions) = Self::get_user_roles_permissions(pool, user.id).await?;
 
         // 生成新的 tokens
-        let (access_token, expires_in) = Self::generate_access_token(config, &user, &roles, &permissions)?;
+        let (access_token, expires_in) = Self::generate_access_token(config, &user, &roles, &permissions, None)?;
         let new_refresh_token = Self::generate_refresh_token(pool, user.id, config).await?;
 
         Ok(LoginResponse {
@@ -162,6 +162,7 @@ impl AuthService {
     pub async fn impersonate(
         pool: &PgPool,
         config: &Config,
+        admin_user_id: Uuid,
         target_user_id: Uuid,
     ) -> Result<LoginResponse> {
         // 查詢目標用戶
@@ -176,11 +177,19 @@ impl AuthService {
         // 獲取角色和權限
         let (roles, permissions) = Self::get_user_roles_permissions(pool, user.id).await?;
 
-        // 生成 JWT
-        let (access_token, expires_in) = Self::generate_access_token(config, &user, &roles, &permissions)?;
+        // 生成 JWT（包含 impersonated_by 資訊，有效期受限）
+        let (access_token, expires_in) = Self::generate_access_token(
+            config, &user, &roles, &permissions, Some(admin_user_id)
+        )?;
 
         // 生成 Refresh Token
         let refresh_token = Self::generate_refresh_token(pool, user.id, config).await?;
+
+        // 審計日誌：記錄模擬登入行為（SEC-11）
+        tracing::warn!(
+            "[Security] 模擬登入 - 管理員 {} 模擬登入為用戶 {} ({})",
+            admin_user_id, user.email, user.id
+        );
 
         Ok(LoginResponse {
             access_token,
@@ -258,10 +267,16 @@ impl AuthService {
         user: &User,
         roles: &[String],
         permissions: &[String],
+        impersonated_by: Option<Uuid>,
     ) -> Result<(String, i64)> {
         let now = Utc::now();
-        let expires_in = config.jwt_expiration_hours * 3600;
-        let exp = now + Duration::hours(config.jwt_expiration_hours);
+        // 模擬登入時限制有效期為 30 分鐘（SEC-11）
+        let expires_in = if impersonated_by.is_some() {
+            1800 // 30 分鐘
+        } else {
+            config.jwt_expiration_hours * 3600
+        };
+        let exp = now + Duration::seconds(expires_in);
 
         let claims = Claims {
             sub: user.id,
@@ -270,6 +285,7 @@ impl AuthService {
             permissions: permissions.to_vec(),
             exp: exp.timestamp(),
             iat: now.timestamp(),
+            impersonated_by,
         };
 
         let token = encode(
@@ -308,13 +324,30 @@ impl AuthService {
         Ok(token)
     }
 
-    /// Hash token for storage
+    /// Hash token for storage（使用 SHA-256 密碼學雜湊）
     fn hash_token(token: &str) -> String {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
-        let mut hasher = DefaultHasher::new();
-        token.hash(&mut hasher);
-        format!("{:x}", hasher.finish())
+        use sha2::{Sha256, Digest};
+        let mut hasher = Sha256::new();
+        hasher.update(token.as_bytes());
+        format!("{:x}", hasher.finalize())
+    }
+
+    /// 驗證密碼強度（SEC-10）
+    /// 至少 8 字元，需包含大寫、小寫字母與數字
+    pub fn validate_password_strength(password: &str) -> Result<()> {
+        if password.len() < 8 {
+            return Err(AppError::Validation("密碼長度至少需要 8 個字元".to_string()));
+        }
+        if !password.chars().any(|c| c.is_ascii_uppercase()) {
+            return Err(AppError::Validation("密碼需包含至少一個大寫英文字母".to_string()));
+        }
+        if !password.chars().any(|c| c.is_ascii_lowercase()) {
+            return Err(AppError::Validation("密碼需包含至少一個小寫英文字母".to_string()));
+        }
+        if !password.chars().any(|c| c.is_ascii_digit()) {
+            return Err(AppError::Validation("密碼需包含至少一個數字".to_string()));
+        }
+        Ok(())
     }
 
     /// Hash 密碼
@@ -358,6 +391,9 @@ impl AuthService {
         if !Self::verify_password(current_password, &user.password_hash)? {
             return Err(AppError::Validation("Current password is incorrect".to_string()));
         }
+
+        // 驗證新密碼強度
+        Self::validate_password_strength(new_password)?;
 
         // Hash 新密碼
         let new_password_hash = Self::hash_password(new_password)?;
@@ -420,6 +456,9 @@ impl AuthService {
         if !exists {
             return Err(AppError::NotFound("User not found".to_string()));
         }
+
+        // 驗證新密碼強度
+        Self::validate_password_strength(new_password)?;
 
         // Hash 新密碼
         let new_password_hash = Self::hash_password(new_password)?;
