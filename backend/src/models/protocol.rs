@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDate, Utc};
+﻿use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, Type};
 use uuid::Uuid;
@@ -571,4 +571,127 @@ pub struct CoEditorAssignmentResponse {
     pub user_email: String,
     #[sqlx(default)]
     pub granted_by_name: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_protocol_status_as_str() {
+        assert_eq!(ProtocolStatus::Draft.as_str(), "DRAFT");
+        assert_eq!(ProtocolStatus::Submitted.as_str(), "SUBMITTED");
+        assert_eq!(ProtocolStatus::PreReview.as_str(), "PRE_REVIEW");
+        assert_eq!(ProtocolStatus::VetReview.as_str(), "VET_REVIEW");
+        assert_eq!(ProtocolStatus::UnderReview.as_str(), "UNDER_REVIEW");
+        assert_eq!(ProtocolStatus::Approved.as_str(), "APPROVED");
+        assert_eq!(ProtocolStatus::ApprovedWithConditions.as_str(), "APPROVED_WITH_CONDITIONS");
+        assert_eq!(ProtocolStatus::Rejected.as_str(), "REJECTED");
+        assert_eq!(ProtocolStatus::Closed.as_str(), "CLOSED");
+        assert_eq!(ProtocolStatus::Deleted.as_str(), "DELETED");
+    }
+
+    #[test]
+    fn test_protocol_status_display_name() {
+        assert_eq!(ProtocolStatus::Draft.display_name(), "草稿");
+        assert_eq!(ProtocolStatus::Approved.display_name(), "已核准");
+        assert_eq!(ProtocolStatus::ApprovedWithConditions.display_name(), "附條件核准");
+        assert_eq!(ProtocolStatus::UnderReview.display_name(), "審查中");
+        assert_eq!(ProtocolStatus::Suspended.display_name(), "已暫停");
+    }
+
+    #[test]
+    fn test_protocol_status_all_variants_have_as_str() {
+        // 確認所有 16 個變體都有對應字串
+        let variants = vec![
+            ProtocolStatus::Draft, ProtocolStatus::Submitted,
+            ProtocolStatus::PreReview, ProtocolStatus::PreReviewRevisionRequired,
+            ProtocolStatus::VetReview, ProtocolStatus::VetRevisionRequired,
+            ProtocolStatus::UnderReview, ProtocolStatus::RevisionRequired,
+            ProtocolStatus::Resubmitted, ProtocolStatus::Approved,
+            ProtocolStatus::ApprovedWithConditions, ProtocolStatus::Deferred,
+            ProtocolStatus::Rejected, ProtocolStatus::Suspended,
+            ProtocolStatus::Closed, ProtocolStatus::Deleted,
+        ];
+        for v in &variants {
+            assert!(!v.as_str().is_empty());
+            assert!(!v.display_name().is_empty());
+        }
+        assert_eq!(variants.len(), 16);
+    }
+
+    #[test]
+    fn test_activity_type_as_str() {
+        assert_eq!(ProtocolActivityType::Created.as_str(), "CREATED");
+        assert_eq!(ProtocolActivityType::Submitted.as_str(), "SUBMITTED");
+        assert_eq!(ProtocolActivityType::ReviewerAssigned.as_str(), "REVIEWER_ASSIGNED");
+        assert_eq!(ProtocolActivityType::PigAssigned.as_str(), "PIG_ASSIGNED");
+        assert_eq!(ProtocolActivityType::AmendmentCreated.as_str(), "AMENDMENT_CREATED");
+    }
+
+    #[test]
+    fn test_activity_type_display_name() {
+        assert_eq!(ProtocolActivityType::Created.display_name(), "創建草稿");
+        assert_eq!(ProtocolActivityType::Submitted.display_name(), "送審");
+        assert_eq!(ProtocolActivityType::ReviewerAssigned.display_name(), "指派審查委員");
+        assert_eq!(ProtocolActivityType::PigAssigned.display_name(), "分配動物");
+    }
+
+    #[test]
+    fn test_activity_type_all_variants() {
+        // 確認所有 20 個變體都有對應字串
+        let variants = vec![
+            ProtocolActivityType::Created, ProtocolActivityType::Updated,
+            ProtocolActivityType::Submitted, ProtocolActivityType::Resubmitted,
+            ProtocolActivityType::Approved, ProtocolActivityType::ApprovedWithConditions,
+            ProtocolActivityType::Closed, ProtocolActivityType::Rejected,
+            ProtocolActivityType::Suspended, ProtocolActivityType::Deleted,
+            ProtocolActivityType::StatusChanged, ProtocolActivityType::ReviewerAssigned,
+            ProtocolActivityType::VetAssigned, ProtocolActivityType::CoeditorAssigned,
+            ProtocolActivityType::CoeditorRemoved, ProtocolActivityType::CommentAdded,
+            ProtocolActivityType::CommentReplied, ProtocolActivityType::CommentResolved,
+            ProtocolActivityType::AttachmentUploaded, ProtocolActivityType::AttachmentDeleted,
+            ProtocolActivityType::VersionCreated, ProtocolActivityType::VersionRecovered,
+            ProtocolActivityType::AmendmentCreated, ProtocolActivityType::AmendmentSubmitted,
+            ProtocolActivityType::PigAssigned, ProtocolActivityType::PigUnassigned,
+        ];
+        for v in &variants {
+            assert!(!v.as_str().is_empty());
+            assert!(!v.display_name().is_empty());
+        }
+        assert_eq!(variants.len(), 26);
+    }
+
+    #[test]
+    fn test_protocol_activity_response_from() {
+        use chrono::Utc;
+        let activity = ProtocolActivity {
+            id: Uuid::new_v4(),
+            protocol_id: Uuid::new_v4(),
+            activity_type: ProtocolActivityType::Created,
+            actor_id: Uuid::new_v4(),
+            actor_name: Some("測試用戶".to_string()),
+            actor_email: Some("test@example.com".to_string()),
+            from_value: None,
+            to_value: Some("DRAFT".to_string()),
+            target_entity_type: None,
+            target_entity_id: None,
+            target_entity_name: None,
+            remark: Some("建立計畫".to_string()),
+            extra_data: None,
+            created_at: Utc::now(),
+        };
+        let resp = ProtocolActivityResponse::from(activity);
+        assert_eq!(resp.activity_type_display, "創建草稿");
+        assert_eq!(resp.actor_name, "測試用戶");
+    }
+
+    #[test]
+    fn test_protocol_status_serde_roundtrip() {
+        let status = ProtocolStatus::ApprovedWithConditions;
+        let json = serde_json::to_string(&status).unwrap();
+        assert_eq!(json, "\"APPROVED_WITH_CONDITIONS\"");
+        let parsed: ProtocolStatus = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, status);
+    }
 }

@@ -1,4 +1,4 @@
-// HR 模組 Models
+﻿// HR 模組 Models
 // 包含：Attendance, Overtime, Leave, Balances
 
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
@@ -483,4 +483,84 @@ pub struct DashboardCalendarData {
     pub today_leaves: Vec<TodayLeaveInfo>,
     pub today_events: Vec<crate::models::calendar::CalendarEvent>,
     pub upcoming_leaves: Vec<TodayLeaveInfo>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_leave_type_display_name() {
+        assert_eq!(LeaveType::Annual.display_name(), "特休假");
+        assert_eq!(LeaveType::Personal.display_name(), "事假");
+        assert_eq!(LeaveType::Sick.display_name(), "病假");
+        assert_eq!(LeaveType::Compensatory.display_name(), "補休假");
+        assert_eq!(LeaveType::Marriage.display_name(), "婚假");
+        assert_eq!(LeaveType::Bereavement.display_name(), "喪假");
+        assert_eq!(LeaveType::Maternity.display_name(), "產假");
+        assert_eq!(LeaveType::Paternity.display_name(), "陪產假");
+        assert_eq!(LeaveType::Menstrual.display_name(), "生理假");
+        assert_eq!(LeaveType::Official.display_name(), "公假");
+    }
+
+    #[test]
+    fn test_leave_status_display_name() {
+        assert_eq!(LeaveStatus::Draft.display_name(), "草稿");
+        assert_eq!(LeaveStatus::PendingL1.display_name(), "待一級審核");
+        assert_eq!(LeaveStatus::PendingL2.display_name(), "待二級審核");
+        assert_eq!(LeaveStatus::PendingHr.display_name(), "待行政審核");
+        assert_eq!(LeaveStatus::PendingGm.display_name(), "待總經理核准");
+        assert_eq!(LeaveStatus::Approved.display_name(), "已核准");
+        assert_eq!(LeaveStatus::Rejected.display_name(), "已駁回");
+        assert_eq!(LeaveStatus::Cancelled.display_name(), "已取消");
+        assert_eq!(LeaveStatus::Revoked.display_name(), "已銷假");
+    }
+
+    #[test]
+    fn test_leave_type_serde_roundtrip() {
+        // serde 使用預設 PascalCase（無 serde rename_all）
+        let lt = LeaveType::Compensatory;
+        let json = serde_json::to_string(&lt).unwrap();
+        assert_eq!(json, "\"Compensatory\"");
+        let parsed: LeaveType = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, lt);
+    }
+
+    #[test]
+    fn test_leave_status_serde_roundtrip() {
+        let ls = LeaveStatus::PendingHr;
+        let json = serde_json::to_string(&ls).unwrap();
+        assert_eq!(json, "\"PendingHr\"");
+        let parsed: LeaveStatus = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, ls);
+    }
+
+    #[test]
+    fn test_leave_type_all_variants() {
+        let variants = vec![
+            LeaveType::Annual, LeaveType::Personal, LeaveType::Sick,
+            LeaveType::Compensatory, LeaveType::Marriage, LeaveType::Bereavement,
+            LeaveType::Maternity, LeaveType::Paternity, LeaveType::Menstrual,
+            LeaveType::Official,
+        ];
+        for v in &variants {
+            assert!(!v.display_name().is_empty());
+        }
+        assert_eq!(variants.len(), 10);
+    }
+
+    #[test]
+    fn test_leave_status_all_variants() {
+        let variants = vec![
+            LeaveStatus::Draft, LeaveStatus::PendingL1,
+            LeaveStatus::PendingL2, LeaveStatus::PendingHr,
+            LeaveStatus::PendingGm, LeaveStatus::Approved,
+            LeaveStatus::Rejected, LeaveStatus::Cancelled,
+            LeaveStatus::Revoked,
+        ];
+        for v in &variants {
+            assert!(!v.display_name().is_empty());
+        }
+        assert_eq!(variants.len(), 9);
+    }
 }

@@ -1,152 +1,136 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-02-14
-
-## 🚧 進行中與近期事項
-
-### 優先事項
-- [x] **計畫變更（Amendment）整合測試撰寫** - `tests/test_amendment_full.py` 14 步驟（Minor/Major 兩條路線）
-- [x] **狀態變更至「審查中」顯示審查委員** - `protocol.rs` change_status 記錄審查委員姓名到 remark 與 extra_data
-- [x] **記錄真實 IP 位址** - 安全審計日誌改從 `X-Forwarded-For` 標頭取得客戶端真實 IP
-- [x] **Docker 依賴升級** - Node.js v20→v22、Rust/Nginx 版本固定
-- [x] **Session 活動追蹤修正** - heartbeat 機制、`last_activity_at` 即時更新
-- [x] **移除預設管理員帳密** - 安全性強化
-
-### 系統管理與報表
-- [x] PDF 報表分頁優化 - 每隻豬獨立分頁、Session-per-page 觀察/手術、封面摘要
-- [ ] 行動端適配 (響應式設計)
+> **最後更新：** 2026-02-15
 
 ---
 
-## 📋 AUP 系統優化建議 (2026-02-06)
+## � P1 — 高優先（功能缺口 / 使用者直接需求）
 
-### AUP 表單與內容優化
-- [ ] 參考文獻格式參考農業部提供之格式
+| # | 項目 | 說明 | 範圍 |
+|---|------|------|------|
+| 1 | **資料分析模組** | 血液檢查結果統計、異常值警示、趨勢圖表、匯出 CSV/Excel | 前後端 |
+| 2 | **行動端適配（響應式設計）** | 現有頁面在手機/平板上可正常操作 | 前端 |
+| 3 | **稽核日誌匯出 CSV/PDF** | 管理員可將稽核紀錄匯出儲存 | 前後端 |
 
----
+### 資料分析模組細項
 
-## 📋 實驗動物管理優化
+- [ ] 血液檢查結果統計與趨勢分析（依動物、實驗、日期區間）
+- [ ] 血液數值異常標記與警示
+- [ ] 圖表視覺化（折線圖 / 盒鬚圖）
+- [ ] 資料匯出（CSV / Excel）
 
-- [ ] 疼痛評估紀錄時間軸檢視
-- [ ] 獸醫師建議通知機制進階設定
-- [x] 血液檢查組合後台管理頁面 (`BloodTestPanelsPage.tsx`) - Panel 組合的 CRUD + 管理包含的檢查項目
-- [ ] **資料分析模組** - 實驗動物管理子系統中的「資料分析」功能
-  - [ ] 血液檢查結果統計與趨勢分析（依動物、實驗、日期區間）
-  - [ ] 血液數值異常標記與警示
-  - [ ] 圖表視覺化（折線圖/盒鬚圖等）
-  - [ ] 資料匯出（CSV/Excel）
-  - 📌 **注意：** 血液檢查流程定位
-    - 動物管理系統：記錄哪隻動物做了什麼檢查（檢查項目與結果）
-    - ERP 系統：以專案與日期區間來區分血液檢查的費用（成本管理）✅ `BloodTestCostReportPage`
-    - 資料分析模組：對血液檢查結果進行後續分析與視覺化（本項目）
+> 📌 **血液檢查流程定位**
+> - 動物管理系統：記錄哪隻動物做了什麼檢查（檢查項目與結果）
+> - ERP 系統：以專案與日期區間管理血液檢查費用 ✅ `BloodTestCostReportPage`
+> - 資料分析模組：對血液檢查結果進行後續分析與視覺化（**本項目**）
 
 ---
 
-## 📋 系統開發與維護 (技術債)
+## � P2 — 中優先（安全強化 / 體驗優化）
 
-- [x] 表單驗證統一：建立 `validation.ts` Zod schema 統一驗證模組
-- [x] 錯誤處理統一：建立 `useApiError.ts` hook + `ErrorBoundary.tsx` 元件
-- [x] Loading 狀態統一：建立 `Skeleton.tsx` 骨架屏 + `LoadingOverlay.tsx`
-- [x] 前端 TypeScript 型別統一：建立 `types/common.ts` + `types/index.ts` 統一匯出
+| # | 項目 | 說明 | 範圍 |
+|---|------|------|------|
+| 4 | **敏感資料二級審計** | 密碼修改、權限變更等操作的加強稽核紀錄 | 後端 |
+| 5 | **安全警報即時推送** | Email / 站內通知即時推送安全警報 | 前後端 |
+| 6 | **活動紀錄分頁優化** | 計畫詳情頁面「活動紀錄」標籤，紀錄過多時的分頁處理 | 前端 |
+| 7 | **AUP 參考文獻格式** | 參考農業部提供之格式調整 | 前端 |
+| 8 | **疼痛評估紀錄時間軸** | 動物管理中的疼痛評估紀錄視覺化檢視 | 前端 |
+| 9 | **獸醫師建議通知進階設定** | 獸醫師建議通知機制的進階設定項 | 前後端 |
+| 10 | **豬隻→動物命名重構** | 將 `pig` 命名統一為 `animal`，提升擴充性 | 全端 |
+
+### 豬隻→動物命名重構（待決定）
+
+> 📋 **分析報告**：[implementation_plan.md](file:///C:/Users/jason/.gemini/antigravity/brain/c319adf4-3f08-4bca-9bf4-fbcf710d0f0a/implementation_plan.md)
+
+**影響範圍**：DB 10 表 + 6 enum、後端 30+ 路由 + 20+ struct、前端 4 pages + 14 components + 50+ API 呼叫、測試 2 檔
+
+**待決定事項**：
+- [ ] 是否一併改資料庫（表名/enum/欄位），還是只改程式碼層面？
+- [ ] `pig_breed` enum（miniature/white/LYD）是豬特有品種，是否改為通用設計？
+- [ ] 是否需保留 `/pigs` 路由向後相容？
+- [ ] 選擇方案：A 分層漸進（推薦）/ B 一次性全改 / C 只改前端
 
 ---
 
-## 📋 下一步優化建議 (預計)
+## 🔵 P3 — 低優先（資安 / 基礎設施）
 
-- [ ] 實作稽核日誌匯出 CSV/PDF 功能
-- [ ] 增加敏感資料（如密碼修改、權限變更）的二級審計
-- [ ] 優化安全警報的郵件/通知即時推送
-- [ ] 計畫詳情頁面「活動紀錄」標籤性能優化 (若紀錄過多時的分頁處理)
+| # | 項目 | 說明 | 範圍 |
+|---|------|------|------|
+| 10 | **SEC-15：Named Tunnel 遷移** | 從 Cloudflare Quick Tunnel 遷移至 Named Tunnel | DevOps |
 
 ---
 
-## 📋 v2.0 遠程規劃
+## � P4 — 中期品質提升（測試 / 文件 / CI）
 
-### iPig ERP 系統
-- [ ] 條碼掃描功能（行動裝置支援）
-- [ ] 進階成本法（FIFO）
-- [ ] 批號效期到期提醒進階設定
-- [ ] 作廢已核准單據：沖銷機制（Reversal Document）
-- [ ] 庫位管理（Bin Location）
-- [ ] 與會計/ERP API 對接
+| # | 項目 | 說明 | 範圍 |
+|---|------|------|------|
+| 11 | **Rust 測試覆蓋率擴充** | 87 個測試通過，protocol/hr/facility 已有測試覆蓋。需 test DB 做整合測試 | 後端 |
+| 12 | **前端 E2E 測試** | Playwright 自動化測試 | 前端 |
+| 13 | **OpenAPI 文件完善** | utoipa 補全 API 文件 | 後端 |
+| 14 | **CI/CD PostgreSQL service** | CI 中增加 PostgreSQL service container | DevOps |
+
+---
+
+## ⚪ P5 — 長期演進
+
+| # | 項目 | 說明 | 範圍 |
+|---|------|------|------|
+| 15 | **前端元件庫文件化** | Storybook 建置 | 前端 |
+| 16 | **資料庫備份自動化** | 排程備份 + 異地備份 | DevOps |
+| 17 | **效能監控（APM）整合** | 應用程式效能監控 | DevOps |
+| 18 | **前端超長頁面重構** | `ProtocolEditPage`已完成（4240→1830行），配合需求變更時機漸進式重構 | 前端 |
+
+---
+
+## � v2.0 遠程規劃（iPig ERP）
+
+| # | 項目 | 說明 |
+|---|------|------|
+| 19 | 條碼掃描功能 | 行動裝置支援 |
+| 20 | 進階成本法（FIFO） | 成本計算升級 |
+| 21 | 批號效期到期提醒進階設定 | 更細緻的提醒規則 |
+| 22 | 作廢已核准單據沖銷機制 | Reversal Document |
+| 23 | 庫位管理（Bin Location） | 倉儲精細化管理 |
+| 24 | 會計 / ERP API 對接 | 外部系統整合 |
 
 ---
 
 ## ✅ 已完成項目紀錄 (最近)
 
 ### 2026-02-14
-- [x] **安全性強化**
-  - 安全審計日誌記錄真實 IP 位址（`X-Forwarded-For` 標頭解析）
-  - 移除預設管理員帳號密碼
-  - 修復安全警報解決時的 422 錯誤
-- [x] **基礎設施升級**
-  - Docker 映像升級：Node.js v20→v22、Rust/Nginx 版本固定
-  - npm/Rust 套件 patch 更新
-  - Docker 容器重建與重新部署
-- [x] **Session 管理強化** - heartbeat 機制、`last_activity_at` 即時更新真實最後活動時間與 IP
-- [x] **ERP 功能增強**
-  - 客戶分類功能（`customer_category` 欄位、前端篩選與顯示）
-  - 銷售單金額改顯示成本（`stock_ledger` 平均成本）
-  - UOM 單位中文翻譯統一（`formatUom` 共用函式重構至 `lib/utils.ts`）
-  - ERP 權限測試修復（`EXPERIMENT_STAFF` 銷售單建立）
-- [x] **AUP / Amendment 修復**
-  - AUP Section 8 人員資料解析錯誤修正
-  - Amendment 列表管理員顯示問題修復
-  - Amendment 變更項目翻譯鍵大小寫修正
-- [x] **Email 修復** - 文字顏色過淡修正、破圖修正、系統網址更新
-- [x] **其他修復** - 建立帳號移除入職日期必填驗證
+- [x] **安全性強化** — 真實 IP 記錄、移除預設帳密、安全警報修復
+- [x] **基礎設施升級** — Docker Node.js v22、Rust/Nginx 版本固定
+- [x] **Session 管理強化** — heartbeat 機制、`last_activity_at` 即時更新
+- [x] **ERP 功能增強** — 客戶分類、銷售成本、UOM 統一
+- [x] **AUP / Amendment 修復** — Section 8 解析、翻譯鍵、管理員檢視
+- [x] **Email 修復** — 文字顏色、破圖、系統網址更新
+- [x] **帳號管理** — 移除入職日期必填驗證
+- [x] **PDF 報表分頁優化** — 每隻豬獨立分頁、封面摘要
+- [x] **血液檢查組合管理頁面** — `BloodTestPanelsPage.tsx` CRUD
+- [x] **技術債清理** — `document.rs`、`models/animal.rs` 拆分
+- [x] **SEC-14** — 檔案上傳 Magic Number 驗證（14 測試通過）
+- [x] **SEC-02** — Token 改存 HttpOnly Cookie
+- [x] **T6 前端重構** — `ProtocolEditPage.tsx` 拆分為 10 個 Section 元件 + 4 個工具模組，tsc --noEmit 零錯誤
 
 ### 2026-02-13
-- [x] 新增「血液檢查項目管理」前端頁面（ERP 基礎資料模組）
-  - 前端 `BloodTestTemplatesPage.tsx` CRUD 頁面（64 個模板，啟用/停用管理）
-  - 已加入 ERP 基礎資料 tab（`ErpPage.tsx`）
-- [x] 血液檢查組合 (Panel) 快速勾選功能
-  - `026_blood_test_panels.sql` migration（14 組 + 64 筆關聯）
-  - 後端 Panel CRUD API（6 個端點）
-  - 前端 `BloodTestTab.tsx` Toggle 按鈕列 UI
-  - `test_blood_panel.py` 整合測試 28/28 通過
-- [x] ERP 站內通知系統整合
-- [x] 血液檢查移除審核步驟（自動標記 completed）
-- [x] 資料庫 migration 整合（008-029 合併）
-- [x] HR 測試修復
-- [x] 修復 API 404 錯誤（路由註冊問題）
-- [x] 修復後端容器重啟問題
-- [x] **狀態歷程「創建」活動類型修正** - `protocol.rs` 建立計畫時已使用 `ProtocolActivityType::Created`，`record_status_change` 中 `Draft => Created` 映射正確
-- [x] **審查流程調整：先獸醫審查，再委員審查** - `VET_REVIEW` 狀態完整實作（狀態驗證、自動指派獸醫、獸醫審查表）
-- [x] **執秘審查加入審查意見回覆功能** - `IACUC_STAFF` 已有 `aup.review.reply` 權限，`reply_review_comment` handler 完整實作含草稿回覆流程
-- [x] **Amendment 前端頁面開發** - `AmendmentsTab.tsx`（建立/提交/列表）+ `MyAmendmentsPage.tsx`（篩選/列表）
+- [x] 血液檢查項目管理頁面、Panel 快速勾選、整合測試 28/28
+- [x] ERP 站內通知整合、血液檢查移除審核步驟
+- [x] 前端技術債基礎建設（Zod 驗證、錯誤處理、骨架屏、型別統一）
+- [x] Amendment 整合測試 14 步驟、審查委員記錄
+- [x] DB migration 整合（008-029 合併）、HR 測試修復
 
 ### 2026-02-12
-- [x] 修復後端 `reply_comment` UTF-8 中文字元切割 panic
-- [x] 修復 Animal 測試 `deceased` → `completed` status
-- [x] 修復 AUP 測試 `get_status()` JSON 路徑錯誤
-- [x] 動物狀態簡化（6 種 → 3 種：Unassigned / InExperiment / Completed）
-- [x] 動物時間軸增強（建立日期、體重紀錄、犧牲標記）
-- [x] 動物記錄 ID 從 UUID 遷移至 SERIAL INTEGER
+- [x] 修復 `reply_comment` UTF-8 panic、Animal/AUP 測試修復
+- [x] 動物狀態簡化（6→3）、時間軸增強、ID 遷移至 SERIAL
 
 ### 2026-02-11
-- [x] 修復登入成功紀錄失效問題 (SQL INET)
-- [x] 補全 AUP 計畫書編輯、評論、指派與核准活動紀錄
-- [x] 優化非上班時間登入警報判斷點 (18:00-08:00)
-- [x] 整合實驗動物管理活動紀錄（23 個寫入操作）至安全審計系統
-- [x] AUP 完整流程測試 (`tests/test_aup_full.py`) 14/14
-- [x] ERP 完整流程測試 (`tests/test_erp_full.py`) 9/9
-- [x] 動物管理系統完整測試 (`tests/test_animal_full.py`) 21/21
-- [x] 修復角色權限（WAREHOUSE_MANAGER / ADMIN_STAFF / EXPERIMENT_STAFF）
-- [x] 修復空 Email 地址發送問題
+- [x] 安全審計強化、整合測試腳本建立（AUP/ERP/Animal）
+- [x] 動物管理 23 個操作接入審計、角色權限修復
 
 ### 2026-02-09 ~ 2026-02-10
-- [x] 實作「多帳號腳本登入偵測」與全域 Critical 警報
-- [x] 新增「同時大量登入」偵測機制與 UI 標籤
-- [x] 安全警報偵測與顯示修復
-- [x] 計畫書管理表格排序功能
-- [x] 修復審查人員列表無法顯示的問題
-- [x] AUP 狀態歷程顯示修復與優化
-- [x] 修復 PI 無法刪除草稿權限問題
-- [x] AUP 手術計畫書標籤翻譯同步
-- [x] AUP Placeholder 翻譯標準化
-- [x] 審查委員強制發表意見檢查
-- [x] AUP 審查流程多輪往返功能（PRE_REVIEW_REVISION_REQUIRED / VET_REVISION_REQUIRED）
+- [x] 多帳號/大量登入偵測、安全警報修復
+- [x] AUP 審查流程多輪往返、審查委員強制意見
+- [x] 狀態歷程修復、PI 刪除草稿權限、翻譯標準化
 
 ---
 
@@ -154,15 +138,13 @@
 
 | 日期 | 內容 |
 |------|------|
-| 2026-02-14 | 安全性強化（真實 IP 記錄、移除預設帳密、安全警報修復）、Docker 升級（Node v22、Rust/Nginx 固定版本）、Session heartbeat、ERP 增強（客戶分類、銷售成本、UOM 統一）、AUP/Amendment/Email 多處修復 |
-| 2026-02-13 | 釐清血液檢查流程定位（動物記錄/ERP費用/資料分析），新增「資料分析模組」待辦 |
-| 2026-02-13 | Amendment 整合測試、UNDER_REVIEW 審查委員記錄、前端技術債基礎建設（Zod 驗證、錯誤處理、骨架屏、型別統一） |
-| 2026-02-13 | 調查並標記已完成項目：狀態歷程 Created 修正、獸醫審查流程、執秘回覆功能、Amendment 前端；新增 Amendment 測試為優先事項 |
-| 2026-02-13 | 血液檢查項目管理頁面、Panel 快速勾選、ERP 通知整合、移除血液檢查審核、migration 合併、HR 測試修復、API 404 修復、容器重啟修復 |
-| 2026-02-12 | 整合測試 Bug 修復、動物狀態簡化、時間軸增強、動物記錄 ID 遷移 |
-| 2026-02-11 | 安全審計強化、整合測試腳本建立、角色權限修復、空 Email 修復 |
+| 2026-02-15 | 重新整理 TODO 清單，按 P1-P5 優先級排序，移除已完成項目至歷史區 |
+| 2026-02-14 | 安全性強化、Docker 升級、Session heartbeat、ERP 增強、AUP/Amendment/Email 修復 |
+| 2026-02-13 | 血液檢查流程定位、資料分析模組待辦、Amendment 測試、前端技術債 |
+| 2026-02-12 | 整合測試 Bug 修復、動物狀態簡化、時間軸增強、ID 遷移 |
+| 2026-02-11 | 安全審計強化、整合測試腳本、角色權限修復 |
 | 2026-02-10 | 多帳號/大量登入偵測、安全警報修復 |
-| 2026-02-09 | 審查人員列表修復、狀態歷程修復、審查委員強制意見、多輪往返功能、翻譯標準化 |
+| 2026-02-09 | 審查委員強制意見、多輪往返功能、翻譯標準化 |
 | 2026-02-08 | AUP 歷程紀錄增強、動物列表體重排序 |
-| 2026-02-03 | Login As 功能、版本比較強化、Dashboard 錯誤處理、AUP 國際化 |
+| 2026-02-03 | Login As 功能、版本比較強化、Dashboard 錯誤處理 |
 | 2026-02-02 | UUID 遷移、Amendment 後端、安樂死工作流程 UI |
