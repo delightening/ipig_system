@@ -277,24 +277,6 @@ export function UsersPage() {
       return
     }
 
-    // 檢查是否包含「試驗工作人員」或「行政」角色
-    const selectedRoleCodes = roles
-      ?.filter(r => formData.role_ids.includes(r.id))
-      .map(r => r.code) || []
-
-    const needsEntryDate = selectedRoleCodes.some(code =>
-      code === 'EXPERIMENT_STAFF' || code === 'ADMIN_STAFF'
-    )
-
-    if (needsEntryDate && !formData.entry_date) {
-      toast({
-        title: '錯誤',
-        description: '「試驗工作人員」與「行政」角色必須填寫入職日期',
-        variant: 'destructive'
-      })
-      return
-    }
-
     // 處理空字串欄位，避免後端反序列化失敗 (422)
     const data = {
       ...formData,
