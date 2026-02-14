@@ -1,4 +1,4 @@
-mod auth;
+pub(crate) mod auth;
 mod user;
 mod role;
 mod warehouse;

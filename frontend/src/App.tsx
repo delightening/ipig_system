@@ -149,14 +149,11 @@ function AdminRoute({ children }: { children?: React.ReactNode }) {
 function App() {
     const { checkAuth, isAuthenticated, user, hasRole } = useAuthStore()
 
-    // Validate token on app initialization
+    // Validate auth on app initialization (Cookie 自動傳送，不需檢查 localStorage)
     useEffect(() => {
-        const token = localStorage.getItem('access_token')
-        if (token) {
-            checkAuth().catch(() => {
-                // Token validation failed, will be handled by checkAuth
-            })
-        }
+        checkAuth().catch(() => {
+            // Token validation failed, will be handled by checkAuth
+        })
     }, [checkAuth])
 
     // 判斷首頁導向

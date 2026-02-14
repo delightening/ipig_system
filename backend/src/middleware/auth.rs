@@ -59,18 +59,13 @@ pub async fn auth_middleware(
     mut request: Request,
     next: Next,
 ) -> Result<Response> {
-    let auth_header = request
-        .headers()
-        .get(header::AUTHORIZATION)
-        .and_then(|value| value.to_str().ok())
-        .ok_or(AppError::Unauthorized)?;
-
-    let token = auth_header
-        .strip_prefix("Bearer ")
+    // 嘗試從多個來源取得 token（優先順序：Cookie > Bearer Header）
+    let token = extract_token_from_cookie(&request)
+        .or_else(|| extract_token_from_bearer(&request))
         .ok_or(AppError::Unauthorized)?;
 
     let token_data = decode::<Claims>(
-        token,
+        &token,
         &DecodingKey::from_secret(state.config.jwt_secret.as_bytes()),
         &Validation::default(),
     )
@@ -87,6 +82,26 @@ pub async fn auth_middleware(
     request.extensions_mut().insert(current_user);
 
     Ok(next.run(request).await)
+}
+
+/// 從 Cookie header 提取 access_token
+fn extract_token_from_cookie(request: &Request) -> Option<String> {
+    let cookie_header = request.headers().get(header::COOKIE)?.to_str().ok()?;
+    cookie_header
+        .split(';')
+        .map(|s| s.trim())
+        .find(|s| s.starts_with("access_token="))
+        .map(|s| s.trim_start_matches("access_token=").to_string())
+}
+
+/// 從 Authorization: Bearer header 提取 token（向後相容）
+fn extract_token_from_bearer(request: &Request) -> Option<String> {
+    let auth_header = request
+        .headers()
+        .get(header::AUTHORIZATION)?
+        .to_str()
+        .ok()?;
+    auth_header.strip_prefix("Bearer ").map(|s| s.to_string())
 }
 
 /// 權限檢查巨集

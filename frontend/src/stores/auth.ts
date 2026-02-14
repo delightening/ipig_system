@@ -22,7 +22,8 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       isLoading: false,
-      isImpersonating: !!localStorage.getItem('admin_access_token'),
+      // 從 user 資料的 impersonated_by 欄位判斷是否為模擬登入
+      isImpersonating: false,
 
       login: async (email: string, password: string) => {
         set({ isLoading: true })
@@ -32,10 +33,8 @@ export const useAuthStore = create<AuthState>()(
             password,
           })
 
-          const { access_token, refresh_token, user } = response.data
-
-          localStorage.setItem('access_token', access_token)
-          localStorage.setItem('refresh_token', refresh_token)
+          // Cookie 由後端設定，前端不再需要手動儲存 token（SEC-02）
+          const { user } = response.data
 
           set({
             user,
@@ -51,14 +50,11 @@ export const useAuthStore = create<AuthState>()(
 
       logout: async () => {
         try {
+          // 後端會清除 HttpOnly Cookie
           await api.post('/auth/logout')
         } catch {
           // Ignore errors during logout
         } finally {
-          localStorage.removeItem('access_token')
-          localStorage.removeItem('refresh_token')
-          localStorage.removeItem('admin_access_token')
-          localStorage.removeItem('admin_refresh_token')
           set({
             user: null,
             isAuthenticated: false,
@@ -70,19 +66,9 @@ export const useAuthStore = create<AuthState>()(
       impersonate: async (userId: string) => {
         set({ isLoading: true })
         try {
-          // Save current admin tokens if not already impersonating
-          if (!get().isImpersonating) {
-            const adminToken = localStorage.getItem('access_token')
-            const adminRefresh = localStorage.getItem('refresh_token')
-            if (adminToken) localStorage.setItem('admin_access_token', adminToken)
-            if (adminRefresh) localStorage.setItem('admin_refresh_token', adminRefresh)
-          }
-
+          // 後端設定新的 HttpOnly Cookie（含模擬登入的 token）
           const response = await api.post<LoginResponse>(`/users/${userId}/impersonate`)
-          const { access_token, refresh_token, user } = response.data
-
-          localStorage.setItem('access_token', access_token)
-          localStorage.setItem('refresh_token', refresh_token)
+          const { user } = response.data
 
           set({
             user,
@@ -102,29 +88,15 @@ export const useAuthStore = create<AuthState>()(
       stopImpersonating: async () => {
         set({ isLoading: true })
         try {
-          const adminToken = localStorage.getItem('admin_access_token')
-          const adminRefresh = localStorage.getItem('admin_refresh_token')
-
-          if (adminToken && adminRefresh) {
-            localStorage.setItem('access_token', adminToken)
-            localStorage.setItem('refresh_token', adminRefresh)
-            localStorage.removeItem('admin_access_token')
-            localStorage.removeItem('admin_refresh_token')
-
-            // Fetch admin user data
-            const response = await api.get<User>('/me')
-            set({
-              user: response.data,
-              isAuthenticated: true,
-              isLoading: false,
-              isImpersonating: false,
-            })
-
-            window.location.href = '/'
-          } else {
-            // If no admin token found, just logout
-            get().logout()
-          }
+          // 登出模擬帳號，使用者需重新以管理員帳號登入
+          await api.post('/auth/logout')
+          set({
+            user: null,
+            isAuthenticated: false,
+            isImpersonating: false,
+            isLoading: false,
+          })
+          window.location.href = '/login'
         } catch (error) {
           console.error('Failed to stop impersonating:', error)
           get().logout()
@@ -132,21 +104,14 @@ export const useAuthStore = create<AuthState>()(
       },
 
       checkAuth: async () => {
-        const token = localStorage.getItem('access_token')
-        if (!token) {
-          set({ user: null, isAuthenticated: false })
-          return
-        }
-
         try {
+          // Cookie 自動傳送，直接呼叫 /me 即可驗證
           const response = await api.get<User>('/me')
           set({
             user: response.data,
             isAuthenticated: true,
           })
         } catch {
-          localStorage.removeItem('access_token')
-          localStorage.removeItem('refresh_token')
           set({
             user: null,
             isAuthenticated: false,
@@ -172,6 +137,7 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,
+        isImpersonating: state.isImpersonating,
       }),
     }
   )
