@@ -10,11 +10,11 @@ sys.stdout.reconfigure(encoding="utf-8")
 API = "http://localhost:8000/api"
 
 # Login as admin
-r = requests.post(f"{API}/auth/login", json={"email": "admin@ipig.local", "password": "admin123"})
+r = requests.post(f"{API}/auth/login", json={"email": "jason4617987@gmail.com", "password": "kfknxJH6AjSvJh6?"})
 if r.status_code != 200:
     print(f"Admin login failed: {r.status_code}")
     sys.exit(1)
-token = r.json()["access_token"]
+token = r.cookies.get("access_token")  # SEC-02
 h = {"Authorization": f"Bearer {token}"}
 
 print("=" * 70)

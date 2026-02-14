@@ -33,8 +33,8 @@ from test_base import BaseApiTester, API_BASE_URL
 # ============================================
 TEST_USERS = {
     "ADMIN": {
-        "email": "admin@ipig.local",
-        "password": "admin123",
+        "email": "jason4617987@gmail.com",
+        "password": "kfknxJH6AjSvJh6?",
         "display_name": "系統管理員",
         "role_codes": ["ADMIN"],
     },

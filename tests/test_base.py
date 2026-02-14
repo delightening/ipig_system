@@ -21,7 +21,7 @@ sys.stderr.reconfigure(encoding="utf-8")
 load_dotenv()
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api")
-ADMIN_CREDENTIALS = {"email": "admin@ipig.local", "password": "admin123"}
+ADMIN_CREDENTIALS = {"email": "jason4617987@gmail.com", "password": "kfknxJH6AjSvJh6?"}
 
 
 class BaseApiTester:
@@ -40,13 +40,30 @@ class BaseApiTester:
     # 前置作業
     # ========================================
 
+    @staticmethod
+    def _extract_cookie(response, cookie_name: str) -> str | None:
+        """從 Set-Cookie header 提取指定 cookie 值（SEC-02 適配）"""
+        for header_value in response.headers.get_all("Set-Cookie") if hasattr(response.headers, 'get_all') else response.headers.get("Set-Cookie", "").split(","):
+            for part in header_value.split(";"):
+                part = part.strip()
+                if part.startswith(f"{cookie_name}="):
+                    val = part.split("=", 1)[1]
+                    if val:  # 排除清除 cookie 的空值
+                        return val
+        # 也嘗試 requests 的 cookies jar
+        return response.cookies.get(cookie_name)
+
     def admin_login(self) -> bool:
         """以管理員身份登入"""
         resp = requests.post(f"{API_BASE_URL}/auth/login", json=ADMIN_CREDENTIALS)
         if resp.status_code != 200:
             print(f"  ✗ 管理員登入失敗: {resp.status_code} {resp.text}")
             return False
-        self.admin_token = resp.json()["access_token"]
+        # SEC-02：從 Set-Cookie header 提取 access_token
+        self.admin_token = self._extract_cookie(resp, "access_token")
+        if not self.admin_token:
+            print(f"  ✗ 管理員登入成功但無法取得 access_token cookie")
+            return False
         print(f"  ✓ 管理員登入成功")
         return True
 
@@ -119,7 +136,12 @@ class BaseApiTester:
             })
             if resp.status_code == 200:
                 data = resp.json()
-                self.tokens[role] = data["access_token"]
+                # SEC-02：從 Set-Cookie header 提取 access_token
+                token = self._extract_cookie(resp, "access_token")
+                if not token:
+                    print(f"  ✗ {role:20s} 登入成功但無法取得 access_token cookie")
+                    continue
+                self.tokens[role] = token
                 self.user_ids[role] = data["user"]["id"]
                 print(f"  ✓ {role:20s} 登入成功 (ID: {data['user']['id'][:8]}...)")
                 success += 1

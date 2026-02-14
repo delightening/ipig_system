@@ -1,0 +1,270 @@
+use sqlx::PgPool;
+use uuid::Uuid;
+
+use super::AnimalService;
+use crate::{
+    models::{CreateSurgeryRequest, PigSurgery, SurgeryListItem, UpdateSurgeryRequest},
+    AppError, Result,
+};
+
+impl AnimalService {
+
+    // ============================================
+    // 手術紀錄
+    // ============================================
+
+    /// 取得手術紀錄列表（排除已刪除）
+    pub async fn list_surgeries(pool: &PgPool, pig_id: Uuid) -> Result<Vec<PigSurgery>> {
+        let surgeries = sqlx::query_as::<_, PigSurgery>(
+            "SELECT * FROM pig_surgeries WHERE pig_id = $1 ORDER BY surgery_date DESC"
+        )
+        .bind(pig_id)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(surgeries)
+    }
+
+    /// 取得手術紀錄列表（含獸醫師建議數量）
+    pub async fn list_surgeries_with_recommendations(pool: &PgPool, pig_id: Uuid) -> Result<Vec<SurgeryListItem>> {
+        let surgeries = sqlx::query_as::<_, SurgeryListItem>(
+            r#"
+            SELECT 
+                s.id, s.pig_id, s.is_first_experiment, s.surgery_date, s.surgery_site,
+                s.no_medication_needed, s.vet_read, s.vet_read_at,
+                s.created_by, s.created_at,
+                (SELECT COUNT(*) FROM vet_recommendations vr WHERE vr.record_type = 'surgery' AND vr.record_id = s.id) as recommendation_count
+            FROM pig_surgeries s
+            WHERE s.pig_id = $1
+            ORDER BY s.surgery_date DESC
+            "#
+        )
+        .bind(pig_id)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(surgeries)
+    }
+
+    /// 取得單一手術紀錄
+    pub async fn get_surgery_by_id(pool: &PgPool, id: Uuid) -> Result<PigSurgery> {
+        let surgery = sqlx::query_as::<_, PigSurgery>(
+            "SELECT * FROM pig_surgeries WHERE id = $1"
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Surgery not found".to_string()))?;
+
+        Ok(surgery)
+    }
+
+    pub async fn create_surgery(
+        pool: &PgPool,
+        pig_id: Uuid,
+        req: &CreateSurgeryRequest,
+        created_by: Uuid,
+    ) -> Result<PigSurgery> {
+        let surgery = sqlx::query_as::<_, PigSurgery>(
+            r#"
+            INSERT INTO pig_surgeries (
+                pig_id, is_first_experiment, surgery_date, surgery_site,
+                induction_anesthesia, pre_surgery_medication, positioning,
+                anesthesia_maintenance, anesthesia_observation, vital_signs,
+                reflex_recovery, respiration_rate, post_surgery_medication,
+                remark, no_medication_needed, created_by, created_at, updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())
+            RETURNING *
+            "#
+        )
+        .bind(pig_id)
+        .bind(req.is_first_experiment)
+        .bind(req.surgery_date)
+        .bind(&req.surgery_site)
+        .bind(&req.induction_anesthesia)
+        .bind(&req.pre_surgery_medication)
+        .bind(&req.positioning)
+        .bind(&req.anesthesia_maintenance)
+        .bind(&req.anesthesia_observation)
+        .bind(&req.vital_signs)
+        .bind(&req.reflex_recovery)
+        .bind(req.respiration_rate)
+        .bind(&req.post_surgery_medication)
+        .bind(&req.remark)
+        .bind(req.no_medication_needed)
+        .bind(created_by)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(surgery)
+    }
+
+    /// 更新手術紀錄
+    pub async fn update_surgery(
+        pool: &PgPool,
+        id: Uuid,
+        req: &UpdateSurgeryRequest,
+        updated_by: Uuid,
+    ) -> Result<PigSurgery> {
+        // 先取得原始紀錄用於版本歷史
+        let original = Self::get_surgery_by_id(pool, id).await?;
+        
+        // 保存版本歷史
+        Self::save_record_version(pool, "surgery", id, &original, updated_by).await?;
+
+        let surgery = sqlx::query_as::<_, PigSurgery>(
+            r#"
+            UPDATE pig_surgeries SET
+                is_first_experiment = COALESCE($2, is_first_experiment),
+                surgery_date = COALESCE($3, surgery_date),
+                surgery_site = COALESCE($4, surgery_site),
+                induction_anesthesia = COALESCE($5, induction_anesthesia),
+                pre_surgery_medication = COALESCE($6, pre_surgery_medication),
+                positioning = COALESCE($7, positioning),
+                anesthesia_maintenance = COALESCE($8, anesthesia_maintenance),
+                anesthesia_observation = COALESCE($9, anesthesia_observation),
+                vital_signs = COALESCE($10, vital_signs),
+                reflex_recovery = COALESCE($11, reflex_recovery),
+                respiration_rate = COALESCE($12, respiration_rate),
+                post_surgery_medication = COALESCE($13, post_surgery_medication),
+                remark = COALESCE($14, remark),
+                no_medication_needed = COALESCE($15, no_medication_needed),
+                updated_at = NOW()
+            WHERE id = $1
+            RETURNING *
+            "#
+        )
+        .bind(id)
+        .bind(req.is_first_experiment)
+        .bind(req.surgery_date)
+        .bind(&req.surgery_site)
+        .bind(&req.induction_anesthesia)
+        .bind(&req.pre_surgery_medication)
+        .bind(&req.positioning)
+        .bind(&req.anesthesia_maintenance)
+        .bind(&req.anesthesia_observation)
+        .bind(&req.vital_signs)
+        .bind(&req.reflex_recovery)
+        .bind(req.respiration_rate)
+        .bind(&req.post_surgery_medication)
+        .bind(&req.remark)
+        .bind(req.no_medication_needed)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(surgery)
+    }
+
+    /// 刪除手術紀錄
+    pub async fn soft_delete_surgery(pool: &PgPool, id: Uuid) -> Result<()> {
+        sqlx::query(
+            "DELETE FROM pig_surgeries WHERE id = $1"
+        )
+        .bind(id)
+        .execute(pool)
+        .await?;
+
+        Ok(())
+    }
+
+    /// 軟刪除手術紀錄（含刪除原因）- GLP 合規
+    pub async fn soft_delete_surgery_with_reason(pool: &PgPool, id: Uuid, reason: &str, deleted_by: Uuid) -> Result<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO change_reasons (entity_type, entity_id, change_type, reason, changed_by)
+            VALUES ('surgery', $1::text, 'DELETE', $2, $3)
+            "#
+        )
+        .bind(id)
+        .bind(reason)
+        .bind(deleted_by)
+        .execute(pool)
+        .await?;
+
+        sqlx::query(
+            r#"
+            UPDATE pig_surgeries SET 
+                deleted_at = NOW(), 
+                deletion_reason = $2,
+                deleted_by = $3
+            WHERE id = $1 AND deleted_at IS NULL
+            "#
+        )
+        .bind(id)
+        .bind(reason)
+        .bind(deleted_by)
+        .execute(pool)
+        .await?;
+
+        Ok(())
+    }
+
+    /// 複製手術紀錄
+    pub async fn copy_surgery(
+        pool: &PgPool,
+        pig_id: Uuid,
+        source_id: Uuid,
+        created_by: Uuid,
+    ) -> Result<PigSurgery> {
+        let source = Self::get_surgery_by_id(pool, source_id).await?;
+
+        let surgery = sqlx::query_as::<_, PigSurgery>(
+            r#"
+            INSERT INTO pig_surgeries (
+                pig_id, is_first_experiment, surgery_date, surgery_site,
+                induction_anesthesia, pre_surgery_medication, positioning,
+                anesthesia_maintenance, anesthesia_observation, vital_signs,
+                reflex_recovery, respiration_rate, post_surgery_medication,
+                remark, no_medication_needed, created_by, created_at, updated_at
+            )
+            VALUES ($1, false, CURRENT_DATE, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+            RETURNING *
+            "#
+        )
+        .bind(pig_id)
+        .bind(&source.surgery_site)
+        .bind(&source.induction_anesthesia)
+        .bind(&source.pre_surgery_medication)
+        .bind(&source.positioning)
+        .bind(&source.anesthesia_maintenance)
+        .bind(&source.anesthesia_observation)
+        .bind(&source.vital_signs)
+        .bind(&source.reflex_recovery)
+        .bind(source.respiration_rate)
+        .bind(&source.post_surgery_medication)
+        .bind(&source.remark)
+        .bind(source.no_medication_needed)
+        .bind(created_by)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(surgery)
+    }
+
+    /// 標記手術紀錄獸醫師已讀
+    pub async fn mark_surgery_vet_read(pool: &PgPool, id: Uuid, vet_user_id: Uuid) -> Result<()> {
+        // 更新紀錄本身
+        sqlx::query(
+            "UPDATE pig_surgeries SET vet_read = true, vet_read_at = NOW(), updated_at = NOW() WHERE id = $1"
+        )
+        .bind(id)
+        .execute(pool)
+        .await?;
+
+        // 記錄已讀歷史
+        sqlx::query(
+            r#"
+            INSERT INTO surgery_vet_reads (surgery_id, vet_user_id, read_at)
+            VALUES ($1, $2, NOW())
+            ON CONFLICT (surgery_id, vet_user_id) DO UPDATE SET read_at = NOW()
+            "#
+        )
+        .bind(id)
+        .bind(vet_user_id)
+        .execute(pool)
+        .await?;
+
+        Ok(())
+    }
+}

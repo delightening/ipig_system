@@ -1,15 +1,19 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-02-13
+> **最後更新：** 2026-02-14
 
 ## 🚧 進行中與近期事項
 
 ### 優先事項
 - [x] **計畫變更（Amendment）整合測試撰寫** - `tests/test_amendment_full.py` 14 步驟（Minor/Major 兩條路線）
 - [x] **狀態變更至「審查中」顯示審查委員** - `protocol.rs` change_status 記錄審查委員姓名到 remark 與 extra_data
+- [x] **記錄真實 IP 位址** - 安全審計日誌改從 `X-Forwarded-For` 標頭取得客戶端真實 IP
+- [x] **Docker 依賴升級** - Node.js v20→v22、Rust/Nginx 版本固定
+- [x] **Session 活動追蹤修正** - heartbeat 機制、`last_activity_at` 即時更新
+- [x] **移除預設管理員帳密** - 安全性強化
 
 ### 系統管理與報表
-- [🔶] PDF 報表生成 - 目前分頁邏輯不盡人意，規劃改為每個 Session 獨立分頁
+- [x] PDF 報表分頁優化 - 每隻豬獨立分頁、Session-per-page 觀察/手術、封面摘要
 - [ ] 行動端適配 (響應式設計)
 
 ---
@@ -25,7 +29,7 @@
 
 - [ ] 疼痛評估紀錄時間軸檢視
 - [ ] 獸醫師建議通知機制進階設定
-- [ ] 血液檢查組合後台管理元件 (`BloodTestPanelManager.tsx`) - 管理 Panel 組合的 CRUD 頁面（後端 API 已完成，前端管理頁面尚未建立）
+- [x] 血液檢查組合後台管理頁面 (`BloodTestPanelsPage.tsx`) - Panel 組合的 CRUD + 管理包含的檢查項目
 - [ ] **資料分析模組** - 實驗動物管理子系統中的「資料分析」功能
   - [ ] 血液檢查結果統計與趨勢分析（依動物、實驗、日期區間）
   - [ ] 血液數值異常標記與警示
@@ -69,6 +73,28 @@
 ---
 
 ## ✅ 已完成項目紀錄 (最近)
+
+### 2026-02-14
+- [x] **安全性強化**
+  - 安全審計日誌記錄真實 IP 位址（`X-Forwarded-For` 標頭解析）
+  - 移除預設管理員帳號密碼
+  - 修復安全警報解決時的 422 錯誤
+- [x] **基礎設施升級**
+  - Docker 映像升級：Node.js v20→v22、Rust/Nginx 版本固定
+  - npm/Rust 套件 patch 更新
+  - Docker 容器重建與重新部署
+- [x] **Session 管理強化** - heartbeat 機制、`last_activity_at` 即時更新真實最後活動時間與 IP
+- [x] **ERP 功能增強**
+  - 客戶分類功能（`customer_category` 欄位、前端篩選與顯示）
+  - 銷售單金額改顯示成本（`stock_ledger` 平均成本）
+  - UOM 單位中文翻譯統一（`formatUom` 共用函式重構至 `lib/utils.ts`）
+  - ERP 權限測試修復（`EXPERIMENT_STAFF` 銷售單建立）
+- [x] **AUP / Amendment 修復**
+  - AUP Section 8 人員資料解析錯誤修正
+  - Amendment 列表管理員顯示問題修復
+  - Amendment 變更項目翻譯鍵大小寫修正
+- [x] **Email 修復** - 文字顏色過淡修正、破圖修正、系統網址更新
+- [x] **其他修復** - 建立帳號移除入職日期必填驗證
 
 ### 2026-02-13
 - [x] 新增「血液檢查項目管理」前端頁面（ERP 基礎資料模組）
@@ -128,6 +154,7 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-02-14 | 安全性強化（真實 IP 記錄、移除預設帳密、安全警報修復）、Docker 升級（Node v22、Rust/Nginx 固定版本）、Session heartbeat、ERP 增強（客戶分類、銷售成本、UOM 統一）、AUP/Amendment/Email 多處修復 |
 | 2026-02-13 | 釐清血液檢查流程定位（動物記錄/ERP費用/資料分析），新增「資料分析模組」待辦 |
 | 2026-02-13 | Amendment 整合測試、UNDER_REVIEW 審查委員記錄、前端技術債基礎建設（Zod 驗證、錯誤處理、骨架屏、型別統一） |
 | 2026-02-13 | 調查並標記已完成項目：狀態歷程 Created 修正、獸醫審查流程、執秘回覆功能、Amendment 前端；新增 Amendment 測試為優先事項 |

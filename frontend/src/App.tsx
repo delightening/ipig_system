@@ -26,6 +26,7 @@ import { ProductDetailPage } from '@/pages/master/ProductDetailPage'
 import { WarehousesPage } from '@/pages/master/WarehousesPage'
 import { PartnersPage } from '@/pages/master/PartnersPage'
 import { BloodTestTemplatesPage } from '@/pages/master/BloodTestTemplatesPage'
+import { BloodTestPanelsPage } from '@/pages/master/BloodTestPanelsPage'
 
 // Document Pages
 import { DocumentsPage } from '@/pages/documents/DocumentsPage'
@@ -211,6 +212,7 @@ function App() {
                         <Route path="/warehouses" element={<WarehousesPage />} />
                         <Route path="/partners" element={<PartnersPage />} />
                         <Route path="/blood-test-templates" element={<BloodTestTemplatesPage />} />
+                        <Route path="/blood-test-panels" element={<BloodTestPanelsPage />} />
 
                         {/* 單據管理 */}
                         <Route path="/documents" element={<DocumentsPage />} />
