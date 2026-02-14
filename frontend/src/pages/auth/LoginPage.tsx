@@ -35,7 +35,7 @@ export function LoginPage() {
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: 'admin@ipig.local',
+      email: '',
       password: '',
     },
   })
@@ -73,7 +73,7 @@ export function LoginPage() {
             <Input
               id="email"
               type="email"
-              placeholder="admin@ipig.local"
+              placeholder="請輸入電子郵件"
               {...register('email')}
               className={errors.email ? 'border-red-500' : ''}
             />
@@ -130,10 +130,7 @@ export function LoginPage() {
           </Link>
         </div>
 
-        <div className="mt-6 text-center text-sm text-muted-foreground">
-          <p>預設管理員帳號：admin@ipig.local</p>
-          <p>預設密碼：admin123</p>
-        </div>
+
       </CardContent>
     </Card>
   )
