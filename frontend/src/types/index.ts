@@ -7,9 +7,29 @@
  *   import type { User, Protocol, AttendanceWithUser } from '@/types'
  */
 
+// 純型別匯出
 export type * from './common'
 export type * from './protocol'
 export type * from './hr'
+export type * from './auth'
+export type * from './erp'
+export type * from './animal'
+export type * from './aup'
+export type * from './report'
+export type * from './audit'
+export type * from './notification'
+export type * from './amendment'
+export type * from './upload'
 
 // 常值匯出（非純型別，需要 runtime 值）
 export { LEAVE_TYPE_NAMES, LEAVE_STATUS_NAMES } from './hr'
+export {
+    pigStatusNames, allPigStatusNames, pigBreedNames, pigGenderNames, recordTypeNames,
+} from './animal'
+export { protocolStatusNames } from './aup'
+export { notificationTypeNames } from './notification'
+export {
+    amendmentStatusNames, amendmentStatusColors, amendmentTypeNames,
+    AMENDMENT_CHANGE_ITEM_OPTIONS,
+} from './amendment'
+export { storageLocationTypeNames } from './erp'

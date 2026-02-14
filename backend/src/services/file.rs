@@ -288,16 +288,118 @@ impl FileService {
 mod tests {
     use super::*;
 
+    // ==========================================
+    // generate_unique_filename 測試
+    // ==========================================
+
     #[test]
-    fn test_generate_unique_filename() {
+    fn test_generate_unique_filename_pdf() {
         let filename = FileService::generate_unique_filename("test.pdf", "application/pdf");
         assert!(filename.ends_with(".pdf"));
-        assert!(filename.len() > 20); // 確保有日期前綴和 UUID
+        assert!(filename.len() > 20); // 日期前綴 + UUID
     }
+
+    #[test]
+    fn test_generate_unique_filename_uses_original_extension() {
+        let filename = FileService::generate_unique_filename("photo.jpg", "image/jpeg");
+        assert!(filename.ends_with(".jpg"));
+    }
+
+    #[test]
+    fn test_generate_unique_filename_fallback_to_mime() {
+        // 原始檔名無副檔名，使用 MIME 類型推斷
+        let filename = FileService::generate_unique_filename("noext", "image/png");
+        assert!(filename.ends_with(".png"));
+    }
+
+    #[test]
+    fn test_generate_unique_filename_unknown_mime() {
+        // 未知 MIME 類型，fallback 為 .bin
+        let filename = FileService::generate_unique_filename("noext", "application/unknown");
+        assert!(filename.ends_with(".bin"));
+    }
+
+    #[test]
+    fn test_generate_unique_filename_uniqueness() {
+        let f1 = FileService::generate_unique_filename("a.pdf", "application/pdf");
+        let f2 = FileService::generate_unique_filename("a.pdf", "application/pdf");
+        assert_ne!(f1, f2, "每次呼叫應產生不同的檔名");
+    }
+
+    // ==========================================
+    // get_extension_from_mime 測試
+    // ==========================================
+
+    #[test]
+    fn test_extension_from_mime_known_types() {
+        assert_eq!(FileService::get_extension_from_mime("application/pdf"), Some("pdf"));
+        assert_eq!(FileService::get_extension_from_mime("image/jpeg"), Some("jpg"));
+        assert_eq!(FileService::get_extension_from_mime("image/png"), Some("png"));
+        assert_eq!(FileService::get_extension_from_mime("image/gif"), Some("gif"));
+        assert_eq!(FileService::get_extension_from_mime("image/webp"), Some("webp"));
+        assert_eq!(FileService::get_extension_from_mime("text/plain"), Some("txt"));
+        assert_eq!(FileService::get_extension_from_mime("application/msword"), Some("doc"));
+        assert_eq!(
+            FileService::get_extension_from_mime("application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+            Some("docx")
+        );
+    }
+
+    #[test]
+    fn test_extension_from_mime_unknown() {
+        assert_eq!(FileService::get_extension_from_mime("application/octet-stream"), None);
+    }
+
+    // ==========================================
+    // get_extension_from_filename 測試
+    // ==========================================
+
+    #[test]
+    fn test_extension_from_filename() {
+        assert_eq!(FileService::get_extension_from_filename("report.PDF"), Some("pdf".to_string()));
+        assert_eq!(FileService::get_extension_from_filename("no_extension"), None);
+        // Rust 的 Path::extension() 對 ".hidden" 回傳 None（視為檔名非副檔名）
+        assert_eq!(FileService::get_extension_from_filename(".hidden"), None);
+    }
+
+    // ==========================================
+    // guess_mime_type 測試
+    // ==========================================
+
+    #[test]
+    fn test_guess_mime_type() {
+        assert_eq!(FileService::guess_mime_type(Path::new("test.pdf")), "application/pdf");
+        assert_eq!(FileService::guess_mime_type(Path::new("photo.JPG")), "image/jpeg");
+        assert_eq!(FileService::guess_mime_type(Path::new("photo.jpeg")), "image/jpeg");
+        assert_eq!(FileService::guess_mime_type(Path::new("file.xyz")), "application/octet-stream");
+    }
+
+    // ==========================================
+    // FileCategory 測試
+    // ==========================================
 
     #[test]
     fn test_allowed_mime_types() {
         assert!(FileCategory::ProtocolAttachment.allowed_mime_types().contains(&"application/pdf"));
         assert!(FileCategory::PigPhoto.allowed_mime_types().contains(&"image/jpeg"));
+        assert!(FileCategory::PigPhoto.allowed_mime_types().contains(&"image/webp"));
+        // 豬隻照片不允許 PDF
+        assert!(!FileCategory::PigPhoto.allowed_mime_types().contains(&"application/pdf"));
+    }
+
+    #[test]
+    fn test_file_category_subdirectory() {
+        assert_eq!(FileCategory::ProtocolAttachment.subdirectory(), "protocols");
+        assert_eq!(FileCategory::PigPhoto.subdirectory(), "pigs");
+        assert_eq!(FileCategory::PathologyReport.subdirectory(), "pathology");
+        assert_eq!(FileCategory::VetRecommendation.subdirectory(), "vet-recommendations");
+        assert_eq!(FileCategory::LeaveAttachment.subdirectory(), "leave-attachments");
+    }
+
+    #[test]
+    fn test_file_category_max_size() {
+        assert_eq!(FileCategory::ProtocolAttachment.max_file_size(), 50 * 1024 * 1024);
+        assert_eq!(FileCategory::PigPhoto.max_file_size(), 10 * 1024 * 1024);
+        assert_eq!(FileCategory::PathologyReport.max_file_size(), 30 * 1024 * 1024);
     }
 }

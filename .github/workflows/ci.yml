@@ -1,0 +1,133 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  CARGO_TERM_COLOR: always
+  SQLX_OFFLINE: "true"
+
+jobs:
+  # =========================
+  # Rust 後端：編譯檢查
+  # =========================
+  backend-check:
+    name: "Backend: cargo check"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安裝 Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 快取 Cargo 依賴
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            backend/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('backend/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: cargo check
+        run: cargo check --release
+
+  # =========================
+  # Rust 後端：單元測試
+  # =========================
+  backend-test:
+    name: "Backend: cargo test"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安裝 Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 快取 Cargo 依賴
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            backend/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('backend/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: cargo test
+        run: cargo test --verbose
+
+  # =========================
+  # Rust 後端：Clippy 靜態分析
+  # =========================
+  backend-lint:
+    name: "Backend: clippy"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安裝 Rust toolchain + clippy
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: 快取 Cargo 依賴
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            backend/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('backend/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: cargo clippy
+        run: cargo clippy -- -D warnings 2>&1 || true
+        # 初期不阻擋 CI，僅產生警告報告
+
+  # =========================
+  # React 前端：TypeScript 檢查
+  # =========================
+  frontend-check:
+    name: "Frontend: tsc check"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 設定 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 安裝依賴
+        run: npm ci
+
+      - name: TypeScript 型別檢查
+        run: npx tsc --noEmit

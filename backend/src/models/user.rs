@@ -279,3 +279,83 @@ fn validate_password_strength(password: &str) -> Result<(), validator::Validatio
         Err(err)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ==========================================
+    // validate_password_strength validator 測試
+    // ==========================================
+
+    #[test]
+    fn test_password_strength_valid() {
+        assert!(validate_password_strength("Abcdef1!").is_ok());
+    }
+
+    #[test]
+    fn test_password_strength_no_uppercase() {
+        assert!(validate_password_strength("abcdef1!").is_err());
+    }
+
+    #[test]
+    fn test_password_strength_no_lowercase() {
+        assert!(validate_password_strength("ABCDEF1!").is_err());
+    }
+
+    #[test]
+    fn test_password_strength_no_digit() {
+        assert!(validate_password_strength("Abcdefgh").is_err());
+    }
+
+    // ==========================================
+    // ThemePreference 序列化測試
+    // ==========================================
+
+    #[test]
+    fn test_theme_preference_serde() {
+        let light = ThemePreference::Light;
+        let json = serde_json::to_string(&light).unwrap();
+        assert_eq!(json, "\"light\"");
+
+        let dark: ThemePreference = serde_json::from_str("\"dark\"").unwrap();
+        assert_eq!(dark, ThemePreference::Dark);
+
+        let system: ThemePreference = serde_json::from_str("\"system\"").unwrap();
+        assert_eq!(system, ThemePreference::System);
+    }
+
+    #[test]
+    fn test_theme_preference_default() {
+        assert_eq!(ThemePreference::default(), ThemePreference::Light);
+    }
+
+    // ==========================================
+    // LanguagePreference 序列化測試
+    // ==========================================
+
+    #[test]
+    fn test_language_preference_serde() {
+        let zh = LanguagePreference::ZhTW;
+        let json = serde_json::to_string(&zh).unwrap();
+        assert_eq!(json, "\"zh-TW\"");
+
+        let en: LanguagePreference = serde_json::from_str("\"en\"").unwrap();
+        assert_eq!(en, LanguagePreference::En);
+    }
+
+    #[test]
+    fn test_language_preference_default() {
+        assert_eq!(LanguagePreference::default(), LanguagePreference::ZhTW);
+    }
+
+    // ==========================================
+    // 常數測試
+    // ==========================================
+
+    #[test]
+    fn test_login_constants() {
+        assert_eq!(MAX_LOGIN_ATTEMPTS, 5);
+        assert_eq!(LOCK_DURATION_MINUTES, 15);
+    }
+}

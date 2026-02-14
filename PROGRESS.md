@@ -49,3 +49,33 @@
 - ✅ `protocol.rs`（1,081 行）→ 3 子模組（crud、review、export）
 - ✅ `hr.rs`（881 行）→ 5 子模組（attendance、overtime、leave、balance、dashboard）
 - ✅ 所有 `cargo check` 通過，零編譯錯誤
+
+## 2026-02-14 P1-2 前端 api.ts 型別拆分
+
+### 已完成
+- ✅ `api.ts`（1,538 行）→ ~150 行（僅保留 axios 配置 + API 函數 + re-export）
+- ✅ 建立 9 個型別檔：auth、erp、animal、aup、report、audit、notification、amendment、upload
+- ✅ 更新 `types/index.ts` 統一 re-export
+- ✅ 修正 `common.ts` 重複型別衝突（User、LoginResponse、UploadResponse、Role、UserTraining）
+- ✅ `npx tsc --noEmit` 通過，零錯誤
+
+## 2026-02-14 P2-5 Rust 單元測試
+
+### 已完成
+- ✅ 新增 48 個純函數單元測試（含既有共 54 個）
+- ✅ 覆蓋範圍：`auth.rs`（密碼/hash/token）、`file.rs`（MIME/副檔名/類別）、`models/user.rs`（enum serde）、`models/animal.rs`（enum/驗證器）、`models/mod.rs`（分頁計算）
+- ✅ `cargo test` 54 passed / 0 failed
+
+## 2026-02-14 P2-6 sqlx migrate 確認
+
+### 已完成
+- ✅ 確認數字前綴（001_~010_）為 sqlx 合法格式，無需轉換
+- ✅ `sqlx::migrate!` 巨集正常運作
+
+## 2026-02-14 P2-7 CI/CD Pipeline
+
+### 已完成
+- ✅ 建立 `.github/workflows/ci.yml`
+- ✅ 4 個 Jobs：backend-check、backend-test、backend-lint、frontend-check
+- ✅ 使用 Cargo / npm 快取加速
+- ✅ `SQLX_OFFLINE=true` 避免 CI 需要 PostgreSQL

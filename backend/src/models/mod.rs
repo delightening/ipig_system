@@ -78,3 +78,39 @@ impl<T> PaginatedResponse<T> {
 }
 
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_paginated_response_total_pages() {
+        let resp = PaginatedResponse::<i32>::new(vec![], 100, 1, 20);
+        assert_eq!(resp.total_pages, 5);
+    }
+
+    #[test]
+    fn test_paginated_response_partial_last_page() {
+        let resp = PaginatedResponse::<i32>::new(vec![], 101, 1, 20);
+        assert_eq!(resp.total_pages, 6, "101 筆 / 每頁 20 = 6 頁（最後一頁不滿）");
+    }
+
+    #[test]
+    fn test_paginated_response_single_item() {
+        let resp = PaginatedResponse::<i32>::new(vec![1], 1, 1, 20);
+        assert_eq!(resp.total_pages, 1);
+        assert_eq!(resp.total, 1);
+    }
+
+    #[test]
+    fn test_paginated_response_empty() {
+        let resp = PaginatedResponse::<i32>::new(vec![], 0, 1, 20);
+        assert_eq!(resp.total_pages, 0);
+    }
+
+    #[test]
+    fn test_default_pagination_values() {
+        assert_eq!(default_page(), 1);
+        assert_eq!(default_per_page(), 20);
+    }
+}
+
