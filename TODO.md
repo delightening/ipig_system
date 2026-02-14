@@ -1,0 +1,10 @@
+# TODO
+
+## \u8cc7\u5b89\u6539\u5584\u5f85\u8fa6
+
+### P2 - \u4e2d\u512a\u5148
+- [ ] SEC-02\uff1aToken \u5f9e localStorage \u6539\u5b58 HttpOnly Cookie\uff08\u9700\u524d\u5f8c\u7aef\u5927\u5e45\u8b8a\u66f4\uff09
+
+### P3 - \u4f4e\u512a\u5148
+- [ ] SEC-14\uff1a\u6a94\u6848\u4e0a\u50b3 Magic Number \u9a57\u8b49
+- [ ] SEC-15\uff1a\u9077\u79fb\u81f3 Cloudflare Named Tunnel

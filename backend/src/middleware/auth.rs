@@ -18,6 +18,9 @@ pub struct Claims {
     pub permissions: Vec<String>,
     pub exp: i64,
     pub iat: i64,
+    /// 模擬登入時記錄原始管理員 ID（SEC-11）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub impersonated_by: Option<Uuid>,
 }
 
 #[derive(Debug, Clone)]
@@ -27,6 +30,8 @@ pub struct CurrentUser {
     pub email: String,
     pub roles: Vec<String>,
     pub permissions: Vec<String>,
+    /// 若為模擬登入，記錄原始管理員 ID（SEC-11）
+    pub impersonated_by: Option<Uuid>,
 }
 
 impl CurrentUser {
@@ -75,6 +80,7 @@ pub async fn auth_middleware(
         email: token_data.claims.email,
         roles: token_data.claims.roles,
         permissions: token_data.claims.permissions,
+        impersonated_by: token_data.claims.impersonated_by,
     };
 
     request.extensions_mut().insert(current_user);

@@ -94,7 +94,18 @@ export function ProfileSettingsPage() {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
-        updateMutation.mutate(formData)
+        // 將空字串轉為 null，避免後端 NaiveDate 解析錯誤
+        const payload: UpdateUserRequest = {
+            ...formData,
+            entry_date: formData.entry_date || null,
+            position: formData.position || null,
+            trainings: formData.trainings?.map(t => ({
+                ...t,
+                received_date: t.received_date || undefined,
+                certificate_no: t.certificate_no || undefined,
+            })),
+        }
+        updateMutation.mutate(payload)
     }
 
     const toggleAupRole = (roleValue: string) => {

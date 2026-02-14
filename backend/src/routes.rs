@@ -5,6 +5,7 @@ use axum::{
 };
 
 use crate::{handlers, middleware::auth_middleware, AppState};
+use crate::middleware::rate_limiter::{auth_rate_limit_middleware, api_rate_limit_middleware};
 
 pub fn api_routes(state: AppState) -> Router {
     // Public routes (no auth required) - 移除公開註冊，改為私域註冊
@@ -13,12 +14,14 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/auth/refresh", post(handlers::refresh_token))
         .route("/auth/forgot-password", post(handlers::forgot_password))
         .route("/auth/reset-password", post(handlers::reset_password_with_token))
+        .route_layer(middleware::from_fn(auth_rate_limit_middleware))
         .with_state(state.clone());
 
     // Protected routes (auth required)
     let protected_routes = Router::new()
         // Auth
         .route("/auth/logout", post(handlers::logout))
+        .route("/auth/heartbeat", post(handlers::heartbeat))
         .route("/me", get(handlers::me).put(handlers::update_me))
         .route("/me/password", put(handlers::change_own_password))
         // User Preferences
@@ -311,4 +314,5 @@ pub fn api_routes(state: AppState) -> Router {
 
     Router::new()
         .nest("/api", public_routes.merge(protected_routes))
+        .route_layer(middleware::from_fn(api_rate_limit_middleware))
 }

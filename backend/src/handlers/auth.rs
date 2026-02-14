@@ -4,10 +4,11 @@ use axum::{
     Extension, Json,
 };
 use std::net::SocketAddr;
+use tracing;
 use validator::Validate;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{CurrentUser, extract_real_ip},
     models::{
         ChangeOwnPasswordRequest, ForgotPasswordRequest, LoginRequest, LoginResponse,
         RefreshTokenRequest, ResetPasswordWithTokenRequest, UpdateUserRequest, User, UserResponse,
@@ -24,8 +25,8 @@ pub async fn login(
     headers: HeaderMap,
     Json(req): Json<LoginRequest>,
 ) -> Result<Json<LoginResponse>> {
-    // 提取 IP 和 User-Agent
-    let ip = addr.ip().to_string();
+    // 從 proxy header 提取真實客戶端 IP
+    let ip = extract_real_ip(&headers, &addr);
     let user_agent = headers
         .get("user-agent")
         .and_then(|v| v.to_str().ok())
@@ -107,6 +108,7 @@ pub async fn refresh_token(
 pub async fn logout(
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<serde_json::Value>> {
     // 記錄登出事件
@@ -114,7 +116,7 @@ pub async fn logout(
         &state.db,
         current_user.id,
         &current_user.email,
-        Some(&addr.ip().to_string()),
+        Some(&extract_real_ip(&headers, &addr)),
     ).await {
         tracing::warn!("記錄登出事件失敗: {e}");
     }
@@ -253,4 +255,23 @@ pub async fn reset_password_with_token(
     AuthService::reset_password_with_token(&state.db, &req.token, &req.new_password).await?;
     
     Ok(Json(serde_json::json!({ "message": "Password reset successfully" })))
+}
+
+/// Heartbeat - 更新使用者 session 的最後活動時間與 IP
+pub async fn heartbeat(
+    State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    Extension(current_user): Extension<CurrentUser>,
+) -> Result<Json<serde_json::Value>> {
+    let ip = addr.ip().to_string();
+    
+    if let Err(e) = SessionManager::update_activity_by_user(
+        &state.db,
+        current_user.id,
+        Some(&ip),
+    ).await {
+        tracing::warn!("Heartbeat 更新 session 失敗: {e}");
+    }
+    
+    Ok(Json(serde_json::json!({ "ok": true })))
 }

@@ -181,7 +181,7 @@ pub async fn impersonate_user(
     }
     
     // 執行模擬登入
-    let login_response = AuthService::impersonate(&state.db, &state.config, id).await?;
+    let login_response = AuthService::impersonate(&state.db, &state.config, current_user.id, id).await?;
     
     // 記錄稽核日誌
     AuditService::log(

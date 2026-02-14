@@ -1,5 +1,5 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -16,7 +16,7 @@ COPY . .
 RUN npx vite build
 
 # Runtime stage
-FROM nginx:alpine
+FROM nginx:1.28-alpine
 
 # Copy nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf

@@ -48,7 +48,7 @@ impl Config {
             jwt_secret: std::env::var("JWT_SECRET")
                 .context("JWT_SECRET must be set")?,
             jwt_expiration_hours: std::env::var("JWT_EXPIRATION_HOURS")
-                .unwrap_or_else(|_| "24".to_string())
+                .unwrap_or_else(|_| "1".to_string())
                 .parse()
                 .context("JWT_EXPIRATION_HOURS must be a number")?,
             jwt_refresh_expiration_days: std::env::var("JWT_REFRESH_EXPIRATION_DAYS")
