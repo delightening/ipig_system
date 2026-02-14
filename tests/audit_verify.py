@@ -30,7 +30,8 @@ class AuditVerifier:
         resp = requests.post(f"{API_BASE_URL}/auth/login", json=STAFF_CREDS)
         assert resp.status_code == 200, f"登入失敗: {resp.status_code}"
         data = resp.json()
-        self.token = data["access_token"]
+        # SEC-02：從 cookies 提取 access_token
+        self.token = resp.cookies.get("access_token")
         self.user_id = data["user"]["id"]
         print(f"  ✓ 登入成功 (user_id: {self.user_id})")
 

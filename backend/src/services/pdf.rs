@@ -530,6 +530,29 @@ impl PdfService {
         );
         ctx.y_position -= SECTION_SPACING_MM * 2.0;
 
+        // 使用共用渲染方法
+        Self::render_pig_medical_data(&mut ctx, data);
+
+        // ========== 頁尾 ==========
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        ctx.current_layer.use_text(
+            &format!("生成日期: {} | 頁 {} ", today, ctx.page_number),
+            8.0,
+            Mm(MARGIN_MM),
+            Mm(MARGIN_MM),
+            &ctx.font
+        );
+
+        let pdf_bytes = ctx.doc.save_to_bytes()
+            .map_err(|e| AppError::Internal(format!("Failed to generate PDF: {}", e)))?;
+
+        Ok(pdf_bytes)
+    }
+
+
+    /// 共用：渲染豬隻完整病歷資料（基本資料、體重、疫苗、觀察、手術）
+    /// 用於單隻匯出與批次匯出，統一 session-per-page 分頁邏輯
+    fn render_pig_medical_data(ctx: &mut PdfContext, data: &serde_json::Value) {
         // ========== 1. 豬隻基本資料 ==========
         if let Some(pig) = data.get("pig") {
             ctx.render_section_header("1. 豬隻基本資料");
@@ -537,12 +560,12 @@ impl PdfService {
             let breed = pig.get("breed").and_then(|v| v.as_str()).unwrap_or("-");
             let gender = pig.get("gender").and_then(|v| v.as_str()).unwrap_or("-");
             let iacuc_no = pig.get("iacuc_no").and_then(|v| v.as_str()).unwrap_or("未分配");
-            
+
             ctx.render_label_value("耳號", ear_tag);
             ctx.render_label_value("計畫編號", iacuc_no);
             ctx.render_label_value("品種", breed);
             ctx.render_label_value("性別", if gender == "male" { "公" } else { "母" });
-            
+
             if let Some(entry_date) = pig.get("entry_date").and_then(|v| v.as_str()) {
                 ctx.render_label_value("進場日期", entry_date);
             }
@@ -591,12 +614,12 @@ impl PdfService {
                     let date = obs.get("event_date").and_then(|v| v.as_str()).unwrap_or("-");
                     let rtype = obs.get("record_type").and_then(|v| v.as_str()).unwrap_or("-");
                     let content = obs.get("content").and_then(|v| v.as_str()).unwrap_or("-");
-                    
+
                     ctx.render_subsection_header(&format!("觀察紀錄 - {}", date));
                     ctx.render_label_value("紀錄類型", rtype);
                     ctx.render_label_value("內容", "");
                     ctx.render_paragraph(content);
-                    
+
                     if let Some(treatments) = obs.get("treatments").and_then(|v| v.as_array()) {
                         if !treatments.is_empty() {
                             ctx.render_label_value("治療方式", "");
@@ -619,10 +642,10 @@ impl PdfService {
                     ctx.force_new_page();
                     let date = surg.get("surgery_date").and_then(|v| v.as_str()).unwrap_or("-");
                     let site = surg.get("surgery_site").and_then(|v| v.as_str()).unwrap_or("-");
-                    
+
                     ctx.render_subsection_header(&format!("手術紀錄 - {}", date));
                     ctx.render_label_value("手術部位", site);
-                    
+
                     if let Some(remark) = surg.get("remark").and_then(|v| v.as_str()) {
                         ctx.render_label_value("備註", "");
                         ctx.render_paragraph(remark);
@@ -630,21 +653,6 @@ impl PdfService {
                 }
             }
         }
-
-        // ========== 頁尾 ==========
-        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
-        ctx.current_layer.use_text(
-            &format!("生成日期: {} | 頁 {} ", today, ctx.page_number),
-            8.0,
-            Mm(MARGIN_MM),
-            Mm(MARGIN_MM),
-            &ctx.font
-        );
-
-        let pdf_bytes = ctx.doc.save_to_bytes()
-            .map_err(|e| AppError::Internal(format!("Failed to generate PDF: {}", e)))?;
-
-        Ok(pdf_bytes)
     }
 
     /// 生成計畫下所有豬隻病歷 PDF
@@ -667,7 +675,7 @@ impl PdfService {
         let initial_layer = doc.get_page(page1).get_layer(layer1);
         let mut ctx = PdfContext::new(doc, font, initial_layer);
 
-        // ========== 標題 ==========
+        // ========== 封面標題 ==========
         ctx.current_layer.use_text(
             &format!("計畫病歷匯出總表 - {}", iacuc_no),
             20.0,
@@ -675,33 +683,44 @@ impl PdfService {
             Mm(ctx.y_position),
             &ctx.font
         );
-        ctx.y_position -= SECTION_SPACING_MM * 3.0;
+        ctx.y_position -= SECTION_SPACING_MM * 2.0;
+
+        // 顯示匯出日期
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        ctx.render_label_value("匯出日期", &today);
 
         if let Some(pigs) = pigs_data.get("pigs").and_then(|v| v.as_array()) {
-            for (i, pig_data) in pigs.iter().enumerate() {
-                if i > 0 {
-                    ctx.add_new_page();
-                }
+            ctx.render_label_value("豬隻總數", &pigs.len().to_string());
+            ctx.add_section_spacing();
 
-                // 直接在目前 context 中渲染豬隻資料
-                // 為了簡單起見，我們重用一些邏輯
+            // 封面：豬隻清單摘要
+            ctx.render_subsection_header("豬隻清單");
+            for (i, pig_data) in pigs.iter().enumerate() {
                 if let Some(pig) = pig_data.get("pig") {
                     let ear_tag = pig.get("ear_tag").and_then(|v| v.as_str()).unwrap_or("-");
-                    ctx.render_section_header(&format!("豬隻耳號: {}", ear_tag));
-                    
-                    // 基本資料
                     let breed = pig.get("breed").and_then(|v| v.as_str()).unwrap_or("-");
                     let gender = pig.get("gender").and_then(|v| v.as_str()).unwrap_or("-");
-                    ctx.render_label_value("品種", breed);
-                    ctx.render_label_value("性別", if gender == "male" { "公" } else { "母" });
-                    ctx.add_section_spacing();
+                    let gender_label = if gender == "male" { "公" } else { "母" };
+                    ctx.render_label_value("", &format!("{}. {} ({}, {})", i + 1, ear_tag, breed, gender_label));
                 }
+            }
 
-                // 這裡可以繼續渲染其他詳細內容，或者只渲染摘要
-                // 為了符合 "session per page" 而且又是批次匯出，內容可能會非常多
-                // 這邊先實現基本結構
+            // 每隻豬隻獨立分頁渲染完整病歷
+            for pig_data in pigs.iter() {
+                ctx.add_new_page();
+                Self::render_pig_medical_data(&mut ctx, pig_data);
             }
         }
+
+        // ========== 頁尾 ==========
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        ctx.current_layer.use_text(
+            &format!("生成日期: {} | 頁 {} ", today, ctx.page_number),
+            8.0,
+            Mm(MARGIN_MM),
+            Mm(MARGIN_MM),
+            &ctx.font
+        );
 
         let pdf_bytes = ctx.doc.save_to_bytes()
             .map_err(|e| AppError::Internal(format!("Failed to generate PDF: {}", e)))?;

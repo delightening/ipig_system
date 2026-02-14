@@ -48,6 +48,7 @@ import {
     ArrowUpDown,
     ArrowLeft,
     FolderPlus,
+    Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PanelIcon } from '@/components/ui/panel-icon'
@@ -443,9 +444,9 @@ export function BloodTestTemplatesPage() {
                     </div>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setPanelDialogOpen(true)}>
-                        <FolderPlus className="mr-2 h-4 w-4" />
-                        新增分類
+                    <Button variant="outline" onClick={() => navigate('/blood-test-panels')}>
+                        <Settings className="mr-2 h-4 w-4" />
+                        管理分類
                     </Button>
                     <Button onClick={() => { resetForm(); setDialogOpen(true) }}>
                         <Plus className="mr-2 h-4 w-4" />

@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **評估日期：** 2026-02-13  
+> **評估日期：** 2026-02-14  
 > **規格版本：** v1.4  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -162,6 +162,7 @@
 | 產品詳情 | ✅ | ✅ | ✅ | ProductDetailPage |
 | SKU 生成 | ✅ | ✅ | ✅ | 互動式生成 |
 | 供應商/客戶管理 | ✅ | ✅ | ✅ | PartnersPage |
+| 客戶分類 | ✅ | ✅ | ✅ | customer_category 欄位 (2026-02-14) |
 | 產品類別 | ✅ | ✅ | ✅ | |
 
 ### 3.2 採購流程
@@ -456,13 +457,35 @@
 
 ### 待處理問題
 
-> [!WARNING]
-> 以下問題待修正
+✅ **全部已解決**（截至 2026-02-14）
 
-1. 🔶 **狀態變更至「審查中」時未顯示審查委員** - 需將審查委員名單記錄至 `target_entity_name` 欄位
-2. 🔶 **計畫變更（Amendment）整合測試** - 前端頁面已完成，需撰寫整合測試驗證完整流程
+1. ~~🔶 **狀態變更至「審查中」時未顯示審查委員**~~ → ✅ 已於 2026-02-13 修復，審查委員名單記錄至 remark + extra_data
+2. ~~🔶 **計畫變更（Amendment）整合測試**~~ → ✅ 已於 2026-02-13 完成，`test_amendment_full.py` 14 步驟
 
-### 最新更新 (2026-02-13)
+### 最新更新 (2026-02-14)
+
+- ✅ **安全性強化**
+  - 審計日誌記錄客戶端真實 IP（解析 `X-Forwarded-For` 標頭，不再顯示 Proxy/Docker 內部 IP）
+  - 移除系統預設管理員帳號密碼
+  - 修復安全警報解決時的 422 錯誤
+- ✅ **基礎設施升級**
+  - Docker 映像升級：Node.js v20→v22、Rust 與 Nginx 版本固定
+  - npm / Rust 套件 patch 更新
+  - Docker 容器重建與重新部署
+- ✅ **Session 管理強化** - 實作 heartbeat 機制，`last_activity_at` 即時反映使用者最近一次頁面活動與 IP
+- ✅ **ERP 功能增強**
+  - 客戶分類功能（`customer_category` 欄位、前後端 CRUD + 篩選/顯示）
+  - 銷售單金額顯示成本價（從 `stock_ledger` 取得平均成本）
+  - UOM 單位中文翻譯統一（重構 `formatUom` 至 `lib/utils.ts` 共用）
+  - ERP 權限測試修復（`EXPERIMENT_STAFF` 建立銷售單）
+- ✅ **AUP / Amendment 修復**
+  - AUP Section 8 人員資料解析錯誤修正
+  - Amendment 行变更項目翻譯鍵大小寫不一致修復
+  - Amendment 列表管理員無法檢視全部記錄修復
+- ✅ **Email 修復** - 文字顏色過淡修正、破圖修復、系統網址更新為 Cloudflare Tunnel 網址
+- ✅ **帳號管理** - 建立帳號移除入職日期必填驗證
+
+### 2026-02-13 以前
 
 - ✅ ERP 血液檢查費用報表完成（`BloodTestCostReportPage.tsx`），支援專案/日期/實驗室篩選、摘要統計、CSV 匯出
 - 📋 釐清血液檢查流程定位：動物管理記錄檢查 → ERP 管理費用 → 資料分析模組進行結果分析；新增「4.10 資料分析」規劃區塊
@@ -494,6 +517,20 @@
 - ✅ 整合測試腳本建立（AUP/ERP/Animal 三套 + 統一入口）
 - ✅ 實驗動物管理 23 個寫入操作接入審計系統
 - ✅ 角色權限修復（WAREHOUSE_MANAGER / ADMIN_STAFF / EXPERIMENT_STAFF）
+
+### 2026-02-14 (下午)
+
+- ✅ PDF 報表分頁優化：`generate_project_medical_pdf` 重構為每隻豬獨立分頁、封面摘要、共用 `render_pig_medical_data` helper
+- ✅ 血液檢查組合管理頁面 `BloodTestPanelsPage.tsx`：Panel CRUD + 管理包含項目（搜尋、篩選、排序）
+- ✅ 路由整合（`App.tsx`）與 `BloodTestTemplatesPage.tsx` 按鈕改為「管理分類」導向
+- ✅ 所有測試帳密統一更新（7 個測試檔案）
+- ✅ `test_blood_panel.py` 58 項全數通過
+
+### 2026-02-14 (上午)
+
+- ✅ 記錄真實 IP 位址、Docker 依賴升級、Session 活動追蹤修正
+- ✅ 移除預設管理員帳密、Email 破圖修正
+- ✅ 多帳號腳本登入偵測 + 同時大量登入偵測 + 安全警報修復
 
 ### 2026-02-09 ~ 2026-02-10
 

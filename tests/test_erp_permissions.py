@@ -24,7 +24,7 @@ load_dotenv()
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api")
 
 # 管理員帳號（用於建立測試用戶）
-ADMIN_CREDENTIALS = {"email": "admin@ipig.local", "password": "admin123"}
+ADMIN_CREDENTIALS = {"email": "jason4617987@gmail.com", "password": "kfknxJH6AjSvJh6?"}
 
 # 測試帳號設定
 TEST_USERS = {
@@ -72,7 +72,11 @@ class ERPPermissionTester:
         if resp.status_code != 200:
             print(f"  ✗ 管理員登入失敗: {resp.status_code} {resp.text}")
             return False
-        admin_token = resp.json()["access_token"]
+        # SEC-02：從 Set-Cookie header 提取 access_token
+        admin_token = resp.cookies.get("access_token")
+        if not admin_token:
+            print(f"  ✗ 管理員登入成功但無法取得 access_token cookie")
+            return False
         admin_headers = {"Authorization": f"Bearer {admin_token}"}
         print("  ✓ 管理員登入成功")
 
@@ -135,7 +139,7 @@ class ERPPermissionTester:
                 print(f"  ✗ {role_label} 登入失敗: {resp.status_code}")
                 return False
             data = resp.json()
-            self.tokens[role_label] = data["access_token"]
+            self.tokens[role_label] = resp.cookies.get("access_token")
             self.user_ids[role_label] = data.get("user", {}).get("id")
             print(f"  ✓ {role_label} 登入成功")
 
