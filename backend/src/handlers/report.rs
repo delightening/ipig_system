@@ -6,6 +6,7 @@ use axum::{
 use crate::{
     middleware::CurrentUser,
     services::report::{
+        BloodTestAnalysisQuery, BloodTestAnalysisRow,
         BloodTestCostReport, CostSummaryReport, PurchaseLinesReport, ReportQuery, ReportService,
         SalesLinesReport, StockLedgerReport, StockOnHandReport,
     },
@@ -69,5 +70,15 @@ pub async fn get_blood_test_cost_report(
     Query(query): Query<ReportQuery>,
 ) -> Result<Json<Vec<BloodTestCostReport>>> {
     let report = ReportService::blood_test_cost(&state.db, &query).await?;
+    Ok(Json(report))
+}
+
+/// 取得血液檢查結果分析資料
+pub async fn get_blood_test_analysis(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+    Query(query): Query<BloodTestAnalysisQuery>,
+) -> Result<Json<Vec<BloodTestAnalysisRow>>> {
+    let report = ReportService::blood_test_analysis(&state.db, &query).await?;
     Ok(Json(report))
 }

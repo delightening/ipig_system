@@ -9,11 +9,19 @@ const api = axios.create({
   withCredentials: true,
 })
 
+// 防重複登出鎖：避免多個並行 401 請求同時觸發 logout
+let isLoggingOut = false
+
 // Response interceptor - handle errors and token refresh
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as typeof error.config & { _retry?: boolean }
+
+    // 如果已經在登出流程中，直接拒絕所有 401，不再重試
+    if (isLoggingOut) {
+      return Promise.reject(error)
+    }
 
     // If 401 and not already retrying, try to refresh token
     if (error.response?.status === 401 && !originalRequest?._retry) {
@@ -27,10 +35,20 @@ api.interceptors.response.use(
           return api(originalRequest)
         }
       } catch {
-        // Refresh failed, redirect to login (only once)
-        if (!sessionStorage.getItem('auth_redirecting')) {
-          sessionStorage.setItem('auth_redirecting', 'true')
-          window.location.href = '/login'
+        // Refresh 也失敗 → 清除 auth 狀態，讓 React Router 自然導向 /login
+        // 使用鎖避免多個並行請求重複觸發
+        if (!isLoggingOut) {
+          isLoggingOut = true
+          try {
+            // 動態 import 避免循環依賴，使用 getState() 在非 React 上下文存取 store
+            const { useAuthStore } = await import('@/stores/auth')
+            const store = useAuthStore.getState()
+            // 只清 state，不再呼叫後端 logout（token 已失效）
+            store.clearAuth()
+          } finally {
+            // 延遲重置鎖，讓所有排隊的 401 都被靜默拒絕
+            setTimeout(() => { isLoggingOut = false }, 1000)
+          }
         }
       }
     }
@@ -96,7 +114,7 @@ import type {
   UpdateBloodTestRequest, BloodTestTemplate, CreateBloodTestTemplateRequest,
   UpdateBloodTestTemplateRequest, BloodTestPanel, CreateBloodTestPanelRequest,
   UpdateBloodTestPanelRequest, UpdateBloodTestPanelItemsRequest,
-  ProtocolActivity,
+  ProtocolActivity, BloodTestAnalysisRow,
 } from '@/types'
 
 // 血液檢查 API 函數
@@ -141,6 +159,12 @@ export const bloodTestPanelApi = {
     api.put<BloodTestPanel>(`/blood-test-panels/${id}/items`, data),
   delete: (id: string) =>
     api.delete(`/blood-test-panels/${id}`),
+}
+
+// 血液檢查結果分析 API 函數
+export const bloodTestAnalysisApi = {
+  query: (params: string) =>
+    api.get<BloodTestAnalysisRow[]>(`/reports/blood-test-analysis?${params}`),
 }
 
 // 計畫書活動紀錄 API

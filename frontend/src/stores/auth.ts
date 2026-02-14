@@ -8,6 +8,8 @@ interface AuthState {
   isLoading: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
+  /** 僅清除前端 auth 狀態（不呼叫後端），供 interceptor 在 token 失效時使用 */
+  clearAuth: () => void
   isImpersonating: boolean
   impersonate: (userId: string) => Promise<void>
   stopImpersonating: () => Promise<void>
@@ -61,6 +63,14 @@ export const useAuthStore = create<AuthState>()(
             isImpersonating: false,
           })
         }
+      },
+
+      clearAuth: () => {
+        set({
+          user: null,
+          isAuthenticated: false,
+          isImpersonating: false,
+        })
       },
 
       impersonate: async (userId: string) => {

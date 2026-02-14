@@ -7,6 +7,7 @@ import {
   Truck,
   DollarSign,
   Droplets,
+  Activity,
 } from 'lucide-react'
 
 const reportCards = [
@@ -51,6 +52,13 @@ const reportCards = [
     href: '/reports/blood-test-cost',
     icon: Droplets,
     color: 'text-red-500',
+  },
+  {
+    title: '血液檢查結果分析',
+    description: '血檢數據統計、趨勢分析、異常值偵測與圖表視覺化',
+    href: '/reports/blood-test-analysis',
+    icon: Activity,
+    color: 'text-indigo-500',
   },
 ]
 

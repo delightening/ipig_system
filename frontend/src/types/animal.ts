@@ -393,3 +393,18 @@ export interface BatchAssignPigsRequest {
 export interface BatchStartExperimentRequest {
     pig_ids: number[]
 }
+
+// 血液檢查分析原始列
+export interface BloodTestAnalysisRow {
+    pig_id: string
+    ear_tag: string
+    iacuc_no?: string
+    test_date: string
+    lab_name?: string
+    item_name: string
+    template_code?: string
+    result_value?: string
+    result_unit?: string
+    reference_range?: string
+    is_abnormal: boolean
+}
