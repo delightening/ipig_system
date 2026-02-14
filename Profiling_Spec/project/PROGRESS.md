@@ -310,7 +310,7 @@
 | AUP 計畫書 PDF 匯出 | ✅ | ✅ | ✅ | 全 9 節完整呈現 |
 | 豬隻病歷 PDF 匯出 | ✅ | ✅ | ✅ | 含觀察/手術紀錄 |
 
-### 4.10 資料分析（規劃中）
+### 4.10 資料分析
 
 > 📌 **血液檢查流程定位說明：**
 > - **動物管理系統**：記錄哪隻動物做了什麼檢查（檢查項目與結果數值）
@@ -319,10 +319,10 @@
 
 | 功能 | 後端 | 前端 | 狀態 | 備註 |
 |-----|:---:|:---:|:---:|------|
-| 血液檢查結果統計 | 🔴 | 🔴 | 🔴 | 依動物/實驗/日期區間分析 |
-| 異常值標記與警示 | 🔴 | 🔴 | 🔴 | 超出正常範圍自動標記 |
-| 趨勢圖表視覺化 | 🔴 | 🔴 | 🔴 | 折線圖/盒鬚圖等 |
-| 分析結果匯出 | 🔴 | 🔴 | 🔴 | CSV/Excel |
+| 血液檢查結果統計 | ✅ | ✅ | ✅ | BloodTestAnalysisPage 依動物/專案/日期區間分析 (2026-02-15) |
+| 異常值標記與警示 | ✅ | ✅ | ✅ | 異常值醒目標記 + 警示區塊 (2026-02-15) |
+| 趨勢圖表視覺化 | ✅ | ✅ | ✅ | Recharts 折線圖 + 自訂盒鬚圖 (2026-02-15) |
+| 分析結果匯出 | ✅ | ✅ | ✅ | CSV + Excel (xlsx) 匯出 (2026-02-15) |
 
 ---
 
@@ -520,6 +520,10 @@
 
 ### 2026-02-15
 
+- ✅ **P1 資料分析模組**：血液檢查結果分析頁面完整實作
+  - 後端 `GET /reports/blood-test-analysis` API（扁平化數據，支援專案/動物/項目/日期篩選）
+  - 前端 `BloodTestAnalysisPage.tsx`（篩選區、摘要統計、異常警示、折線圖、盒鬚圖、資料明細、CSV/Excel 匯出）
+  - 安裝 `recharts` + `xlsx` 依賴
 - ✅ **P3 安全改善 SEC-14**：檔案上傳 Magic Number 驗證（`validate_magic_number` 函數，支援 7 種檔案格式，14 個測試通過）
 - ✅ **技術債清理 T2**：`services/document.rs`（984 行）拆分為 4 個子模組（crud/workflow/grn/stocktake）
 - ✅ **技術債清理 T3**：`models/animal.rs`（1250 行）拆分為 4 個子模組（enums/entities/requests/mod），12 個測試通過
@@ -553,6 +557,7 @@
 - ✅ 後端 Service 重構：`pdf.rs`（732 行）拆分為 `context.rs` + `service.rs`
 - ✅ 單元測試擴充：為 `protocol.rs`、`hr.rs`、`facility.rs` 新增 20 個測試（79→87）
 - ✅ **前端重構 T6**：`ProtocolEditPage.tsx`（4240 行）拆分為 10 個 Section 元件 + 4 個工具模組，tsc --noEmit 零錯誤
+- ✅ **修復 Login 頁面 401 無限迴圈**：axios interceptor 移除 `window.location.href` 硬跳轉，改用 zustand `clearAuth()` 清除前端狀態 + `isLoggingOut` 鎖防重複觸發，讓 React Router 自然導向 `/login`
 
 ### 2026-02-06 ~ 2026-02-08
 

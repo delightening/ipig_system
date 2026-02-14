@@ -110,6 +110,32 @@ pub struct BloodTestCostReport {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
+/// 血液檢查分析原始列（供前端聚合與視覺化）
+#[derive(Debug, FromRow, serde::Serialize)]
+pub struct BloodTestAnalysisRow {
+    pub pig_id: Uuid,
+    pub ear_tag: String,
+    pub iacuc_no: Option<String>,
+    pub test_date: NaiveDate,
+    pub lab_name: Option<String>,
+    pub item_name: String,
+    pub template_code: Option<String>,
+    pub result_value: Option<String>,
+    pub result_unit: Option<String>,
+    pub reference_range: Option<String>,
+    pub is_abnormal: bool,
+}
+
+/// 血液檢查分析查詢參數
+#[derive(Debug, serde::Deserialize)]
+pub struct BloodTestAnalysisQuery {
+    pub iacuc_no: Option<String>,
+    pub pig_id: Option<Uuid>,
+    pub item_name: Option<String>,
+    pub date_from: Option<NaiveDate>,
+    pub date_to: Option<NaiveDate>,
+}
+
 /// 報表查詢參數
 #[derive(Debug, serde::Deserialize)]
 pub struct ReportQuery {
@@ -444,6 +470,76 @@ impl ReportService {
         }
         if let Some(ref lab_name) = query.lab_name {
             query_builder = query_builder.bind(format!("%{}%", lab_name));
+        }
+
+        let results = query_builder.fetch_all(pool).await?;
+        Ok(results)
+    }
+
+    /// 血液檢查結果分析（扁平化原始數據，供前端聚合）
+    pub async fn blood_test_analysis(pool: &PgPool, query: &BloodTestAnalysisQuery) -> Result<Vec<BloodTestAnalysisRow>> {
+        let mut sql = String::from(
+            r#"
+            SELECT 
+                pig.id as pig_id,
+                pig.ear_tag,
+                pig.iacuc_no,
+                bt.test_date,
+                bt.lab_name,
+                bti.item_name,
+                tmpl.code as template_code,
+                bti.result_value,
+                bti.result_unit,
+                bti.reference_range,
+                bti.is_abnormal
+            FROM pig_blood_test_items bti
+            INNER JOIN pig_blood_tests bt ON bti.blood_test_id = bt.id
+            INNER JOIN pigs pig ON bt.pig_id = pig.id
+            LEFT JOIN blood_test_templates tmpl ON bti.template_id = tmpl.id
+            WHERE bt.is_deleted = false AND pig.is_deleted = false
+            "#
+        );
+
+        let mut param_idx = 1;
+        if query.iacuc_no.is_some() {
+            sql.push_str(&format!(" AND pig.iacuc_no = ${}", param_idx));
+            param_idx += 1;
+        }
+        if query.pig_id.is_some() {
+            sql.push_str(&format!(" AND pig.id = ${}", param_idx));
+            param_idx += 1;
+        }
+        if query.item_name.is_some() {
+            sql.push_str(&format!(" AND bti.item_name = ${}", param_idx));
+            param_idx += 1;
+        }
+        if query.date_from.is_some() {
+            sql.push_str(&format!(" AND bt.test_date >= ${}", param_idx));
+            param_idx += 1;
+        }
+        if query.date_to.is_some() {
+            sql.push_str(&format!(" AND bt.test_date <= ${}", param_idx));
+            // param_idx += 1;
+        }
+
+        sql.push_str(" ORDER BY bt.test_date ASC, pig.ear_tag, bti.sort_order LIMIT 5000");
+
+        let mut query_builder = sqlx::query_as::<_, BloodTestAnalysisRow>(&sql);
+
+        if let Some(ref iacuc_no) = query.iacuc_no {
+            query_builder = query_builder.bind(iacuc_no);
+        }
+        if let Some(pig_id) = query.pig_id {
+            query_builder = query_builder.bind(pig_id);
+        }
+        if let Some(ref item_name) = query.item_name {
+            query_builder = query_builder.bind(item_name);
+        }
+        if let Some(date_from) = query.date_from {
+            query_builder = query_builder.bind(date_from);
+        }
+        if let Some(date_to) = query.date_to {
+            query_builder = query_builder.bind(date_to);
         }
 
         let results = query_builder.fetch_all(pool).await?;

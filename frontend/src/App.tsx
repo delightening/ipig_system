@@ -60,6 +60,7 @@ import { PurchaseLinesReportPage } from '@/pages/reports/PurchaseLinesReportPage
 import { SalesLinesReportPage } from '@/pages/reports/SalesLinesReportPage'
 import { CostSummaryReportPage } from '@/pages/reports/CostSummaryReportPage'
 import { BloodTestCostReportPage } from '@/pages/reports/BloodTestCostReportPage'
+import { BloodTestAnalysisPage } from '@/pages/reports/BloodTestAnalysisPage'
 
 // ERP Page
 import { ErpPage } from '@/pages/erp/ErpPage'
@@ -230,6 +231,7 @@ function App() {
                         <Route path="/reports/sales-lines" element={<SalesLinesReportPage />} />
                         <Route path="/reports/cost-summary" element={<CostSummaryReportPage />} />
                         <Route path="/reports/blood-test-cost" element={<BloodTestCostReportPage />} />
+                        <Route path="/reports/blood-test-analysis" element={<BloodTestAnalysisPage />} />
                     </Route>
 
                     {/* 系統管理 - 需要 admin 角色 */}
