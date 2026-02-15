@@ -76,6 +76,8 @@ import {
   ClipboardList,
   Reply,
   FileEdit,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { formatDate, formatDateTime, formatFileSize } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
@@ -135,6 +137,8 @@ export function ProtocolDetailPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [activeTab, setActiveTab] = useState<'content' | 'versions' | 'history' | 'comments' | 'reviewers' | 'coeditors' | 'attachments' | 'pigs' | 'amendments'>('content')
+  const [activityPage, setActivityPage] = useState(1)
+  const ACTIVITIES_PER_PAGE = 15
   const [showStatusDialog, setShowStatusDialog] = useState(false)
   const [showCommentDialog, setShowCommentDialog] = useState(false)
   const [showReplyDialog, setShowReplyDialog] = useState(false)
@@ -677,21 +681,21 @@ export function ProtocolDetailPage() {
   return (
     <div className="space-y-6" >
       {/* Header */}
-      < div className="flex items-center justify-between" >
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4" >
+        <div className="flex items-center gap-3 md:gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold">{protocol.title}</h1>
+            <div className="flex flex-wrap items-center gap-2 md:gap-3">
+              <h1 className="text-xl md:text-2xl font-bold">{protocol.title}</h1>
               <Badge variant={statusColors[protocol.status]} className="text-sm">
                 {t(`protocols.status.${protocol.status}`)}
               </Badge>
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 pl-11 md:pl-0">
           {protocol.status === 'DRAFT' && (
             <>
               <Button variant="outline" asChild>
@@ -960,81 +964,121 @@ export function ProtocolDetailPage() {
       }
 
       {
-        activeTab === 'history' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('protocols.detail.sections.historyTitle')}</CardTitle>
-              <CardDescription>{t('protocols.detail.sections.historyDesc')}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {activitiesLoading ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : activities && activities.length > 0 ? (
-                <div className="relative">
-                  <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200" />
-                  <ul className="space-y-4">
-                    {activities.map((activity: ProtocolActivity) => (
-                      <li key={activity.id} className="relative pl-10">
-                        <div className="absolute left-2 w-4 h-4 rounded-full bg-blue-600 border-2 border-white mt-1.5" />
-                        <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 shadow-sm">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-[10px] uppercase font-bold py-0 h-5">
-                                {activity.activity_type_display || activity.activity_type}
-                              </Badge>
-                              <span className="font-semibold text-slate-900">{activity.actor_name}</span>
-                            </div>
-                            <span className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {formatDateTime(activity.created_at)}
-                            </span>
-                          </div>
+        activeTab === 'history' && (() => {
+          const totalActivities = activities?.length || 0
+          const totalActivityPages = Math.ceil(totalActivities / ACTIVITIES_PER_PAGE)
+          const paginatedActivities = activities?.slice(
+            (activityPage - 1) * ACTIVITIES_PER_PAGE,
+            activityPage * ACTIVITIES_PER_PAGE
+          ) || []
 
-                          {/* 狀態變更顯示 */}
-                          {activity.from_value && activity.to_value && (
-                            <div className="flex items-center gap-2 text-sm">
-                              <Badge variant={statusColors[activity.from_value as ProtocolStatus] || 'outline'}>
-                                {t(`protocols.status.${activity.from_value}`)}
-                              </Badge>
-                              <span className="text-slate-400">→</span>
-                              <Badge variant={statusColors[activity.to_value as ProtocolStatus] || 'outline'}>
-                                {t(`protocols.status.${activity.to_value}`)}
-                              </Badge>
-                            </div>
-                          )}
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('protocols.detail.sections.historyTitle')}</CardTitle>
+                <CardDescription>{t('protocols.detail.sections.historyDesc')}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {activitiesLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : paginatedActivities.length > 0 ? (
+                  <>
+                    <div className="relative">
+                      <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200" />
+                      <ul className="space-y-4">
+                        {paginatedActivities.map((activity: ProtocolActivity) => (
+                          <li key={activity.id} className="relative pl-10">
+                            <div className="absolute left-2 w-4 h-4 rounded-full bg-blue-600 border-2 border-white mt-1.5" />
+                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 shadow-sm">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="text-[10px] uppercase font-bold py-0 h-5">
+                                    {activity.activity_type_display || activity.activity_type}
+                                  </Badge>
+                                  <span className="font-semibold text-slate-900">{activity.actor_name}</span>
+                                </div>
+                                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {formatDateTime(activity.created_at)}
+                                </span>
+                              </div>
 
-                          {/* 目標實體資訊 */}
-                          {activity.target_entity_name && (
-                            <p className="text-sm text-slate-600 mt-1">
-                              {activity.target_entity_name}
-                            </p>
-                          )}
+                              {/* 狀態變更顯示 */}
+                              {activity.from_value && activity.to_value && (
+                                <div className="flex items-center gap-2 text-sm">
+                                  <Badge variant={statusColors[activity.from_value as ProtocolStatus] || 'outline'}>
+                                    {t(`protocols.status.${activity.from_value}`)}
+                                  </Badge>
+                                  <span className="text-slate-400">→</span>
+                                  <Badge variant={statusColors[activity.to_value as ProtocolStatus] || 'outline'}>
+                                    {t(`protocols.status.${activity.to_value}`)}
+                                  </Badge>
+                                </div>
+                              )}
 
-                          {/* 備註 */}
-                          {activity.remark && (
-                            <div className="bg-white p-2 rounded border border-slate-200 text-sm text-slate-600 mt-2">
-                              <span className="font-medium text-xs text-slate-400 block mb-1">
-                                {t('protocols.detail.dialogs.status.remark')}:
-                              </span>
-                              {activity.remark}
+                              {/* 目標實體資訊 */}
+                              {activity.target_entity_name && (
+                                <p className="text-sm text-slate-600 mt-1">
+                                  {activity.target_entity_name}
+                                </p>
+                              )}
+
+                              {/* 備註 */}
+                              {activity.remark && (
+                                <div className="bg-white p-2 rounded border border-slate-200 text-sm text-slate-600 mt-2">
+                                  <span className="font-medium text-xs text-slate-400 block mb-1">
+                                    {t('protocols.detail.dialogs.status.remark')}:
+                                  </span>
+                                  {activity.remark}
+                                </div>
+                              )}
                             </div>
-                          )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* 分頁控制列 */}
+                    {totalActivityPages > 1 && (
+                      <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                        <p className="text-sm text-muted-foreground">
+                          共 {totalActivities} 筆，第 {activityPage} / {totalActivityPages} 頁
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={activityPage <= 1}
+                            onClick={() => setActivityPage((p) => Math.max(1, p - 1))}
+                          >
+                            <ChevronLeft className="h-4 w-4 mr-1" />
+                            上一頁
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={activityPage >= totalActivityPages}
+                            onClick={() => setActivityPage((p) => Math.min(totalActivityPages, p + 1))}
+                          >
+                            下一頁
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
                         </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Clock className="h-12 w-12 mx-auto mb-2" />
-                  <p>{t('protocols.detail.tables.noHistory')}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Clock className="h-12 w-12 mx-auto mb-2" />
+                    <p>{t('protocols.detail.tables.noHistory')}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )
+        })()
       }
 
       {

@@ -55,6 +55,9 @@ pub use storage_location::StorageLocationService;
 pub use login_tracker::LoginTracker;
 pub use session_manager::SessionManager;
 
+pub mod geoip;
+pub use geoip::GeoIpService;
+
 
 
 mod balance_expiration;

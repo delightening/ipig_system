@@ -709,37 +709,37 @@ export function PigsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">{t('pigs.title')}</h1>
-          <p className="text-slate-500">{t('pigs.description')}</p>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900">{t('pigs.title')}</h1>
+          <p className="text-sm md:text-base text-slate-500">{t('pigs.description')}</p>
         </div>
-        <div className="grid grid-cols-3 gap-2">
-          <Button variant="outline" className="w-full gap-2 text-orange-600 border-orange-200 hover:bg-orange-50" onClick={() => setShowPrintReport(true)}>
-            <Download className="h-4 w-4" />
-            {t('pigs.generateReport')}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          <Button variant="outline" className="w-full gap-2 text-orange-600 border-orange-200 hover:bg-orange-50 text-xs md:text-sm" onClick={() => setShowPrintReport(true)}>
+            <Download className="h-4 w-4 shrink-0" />
+            <span className="truncate">{t('pigs.generateReport')}</span>
           </Button>
-          <Button variant="outline" className="w-full gap-2" onClick={() => setShowImportWeightDialog(true)}>
-            <Upload className="h-4 w-4" />
-            {t('pigs.importWeight')}
+          <Button variant="outline" className="w-full gap-2 text-xs md:text-sm" onClick={() => setShowImportWeightDialog(true)}>
+            <Upload className="h-4 w-4 shrink-0" />
+            <span className="truncate">{t('pigs.importWeight')}</span>
           </Button>
-          <Button variant="outline" className="w-full gap-2" onClick={() => setShowImportBasicDialog(true)}>
-            <Upload className="h-4 w-4" />
-            {t('pigs.importBasic')}
+          <Button variant="outline" className="w-full gap-2 text-xs md:text-sm" onClick={() => setShowImportBasicDialog(true)}>
+            <Upload className="h-4 w-4 shrink-0" />
+            <span className="truncate">{t('pigs.importBasic')}</span>
           </Button>
-          <Button variant="outline" className="w-full gap-2" onClick={() => setShowBatchExportDialog(true)}>
-            <FileSpreadsheet className="h-4 w-4" />
-            {t('pigs.batchExport')}
+          <Button variant="outline" className="w-full gap-2 text-xs md:text-sm" onClick={() => setShowBatchExportDialog(true)}>
+            <FileSpreadsheet className="h-4 w-4 shrink-0" />
+            <span className="truncate">{t('pigs.batchExport')}</span>
           </Button>
-          <Button onClick={() => setShowAddDialog(true)} className="col-span-2 w-full gap-2 bg-purple-600 hover:bg-purple-700">
-            <Plus className="h-4 w-4" />
+          <Button onClick={() => setShowAddDialog(true)} className="col-span-2 md:col-span-2 w-full gap-2 bg-purple-600 hover:bg-purple-700 text-xs md:text-sm">
+            <Plus className="h-4 w-4 shrink-0" />
             {t('pigs.addPig')}
           </Button>
         </div>
       </div>
 
       {/* Status Tabs */}
-      <div className="flex gap-2 border-b">
+      <div className="flex gap-2 border-b overflow-x-auto flex-nowrap">
         {[
           { value: 'pen', label: t('pigs.statusLabels.pen'), count: allPigs.length, icon: <LayoutGrid className="h-4 w-4" /> },
           { value: 'unassigned', label: t('pigs.statusLabels.unassigned'), count: statusCounts['unassigned'] || 0 },
@@ -761,7 +761,7 @@ export function PigsPage() {
                 setStatusFilter(tab.value)
                 setSearchParams(tab.value === 'pen' ? {} : { status: tab.value })
               }}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${statusFilter === tab.value
+              className={`px-3 md:px-4 py-2 text-xs md:text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap ${statusFilter === tab.value
                 ? 'border-purple-600 text-purple-600'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
                 }`}
@@ -775,8 +775,8 @@ export function PigsPage() {
       {/* Filters & Actions */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4 flex-1">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
+            <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 flex-1">
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
@@ -834,124 +834,126 @@ export function PigsPage() {
                 <p>{t('pigs.noPigsFound')}</p>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">
-                      <input
-                        type="checkbox"
-                        checked={selectedPigs.length === pigs.length && pigs.length > 0}
-                        onChange={toggleAllPigs}
-                        className="rounded border-slate-300"
-                      />
-                    </TableHead>
-
-                    <SortableHeader column="ear_tag" label={t('pigs.earTag')} />
-                    <SortableHeader column="pen_location" label={t('pigs.pen')} />
-                    <SortableHeader column="iacuc_no" label={t('pigs.iacucNo')} />
-                    <TableHead>{t('pigs.status')}</TableHead>
-                    <TableHead>{t('pigs.breed')}</TableHead>
-                    <TableHead>{t('pigs.gender')}</TableHead>
-                    <TableHead>{t('pigs.onMedicationShort')}</TableHead>
-                    <TableHead>{t('pigs.vetRecommendation')}</TableHead>
-                    <SortableHeader column="entry_date" label={t('pigs.entryDate')} />
-                    <SortableHeader column="latest_weight" label={t('pigs.currentWeight')} />
-                    <TableHead className="text-right">{t('pigs.actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedPigs.map((pig) => (
-                    <TableRow
-                      key={pig.id}
-                      className={pig.has_abnormal_record ? 'bg-yellow-50' : ''}
-                    >
-                      <TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">
                         <input
                           type="checkbox"
-                          checked={selectedPigs.includes(pig.id)}
-                          onChange={() => togglePigSelection(pig.id)}
+                          checked={selectedPigs.length === pigs.length && pigs.length > 0}
+                          onChange={toggleAllPigs}
                           className="rounded border-slate-300"
                         />
-                      </TableCell>
-                      <TableCell>
-                        <Link
-                          to={`/pigs/${pig.id}`}
-                          className="text-orange-600 hover:text-orange-700 font-medium"
-                          title={`系統號: ${pig.id}`}
-                        >
-                          {pig.ear_tag}
-                        </Link>
-                      </TableCell>
-                      <TableCell>{getPenLocationDisplay(pig, t)}</TableCell>
-                      <TableCell>
-                        {pig.iacuc_no || (
-                          <span className="text-slate-400">未分配</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={statusColors[pig.status]}>
-                          {t(`pigs.statusLabels.${pig.status}`)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{pig.breed === 'other' ? (pig.breed_other || t('pigs.breedLabels.other')) : t(`pigs.breedLabels.${pig.breed}`)}</TableCell>
-                      <TableCell>{t(`pigs.genderLabels.${pig.gender}`)}</TableCell>
-                      <TableCell>
-                        {pig.is_on_medication ? (
-                          <Badge variant="destructive" className="text-xs">{t('pigs.onMedication')}</Badge>
-                        ) : (
-                          <span className="text-slate-400">{t('pigs.notOnMedication')}</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {pig.vet_recommendation_date ? (
-                          <span className="text-sm text-slate-600">
-                            {new Date(pig.vet_recommendation_date).toLocaleDateString()}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span>{new Date(pig.entry_date).toLocaleDateString()}</span>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => setQuickEditPigId(pig.id)}
-                            title="快速編輯"
-                          >
-                            <Edit2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {pig.latest_weight ? (
-                          <span className="text-sm text-slate-700 font-medium" title={pig.latest_weight_date ? `量測日期: ${new Date(pig.latest_weight_date).toLocaleDateString()}` : undefined}>
-                            {pig.latest_weight} kg
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="icon" asChild title={t('common.view')}>
-                            <Link to={`/pigs/${pig.id}`}>
-                              <Eye className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                          <Button variant="ghost" size="icon" asChild title={t('common.edit')}>
-                            <Link to={`/pigs/${pig.id}/edit`}>
-                              <Edit2 className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                        </div>
-                      </TableCell>
+                      </TableHead>
+
+                      <SortableHeader column="ear_tag" label={t('pigs.earTag')} />
+                      <SortableHeader column="pen_location" label={t('pigs.pen')} />
+                      <SortableHeader column="iacuc_no" label={t('pigs.iacucNo')} />
+                      <TableHead>{t('pigs.status')}</TableHead>
+                      <TableHead>{t('pigs.breed')}</TableHead>
+                      <TableHead>{t('pigs.gender')}</TableHead>
+                      <TableHead>{t('pigs.onMedicationShort')}</TableHead>
+                      <TableHead>{t('pigs.vetRecommendation')}</TableHead>
+                      <SortableHeader column="entry_date" label={t('pigs.entryDate')} />
+                      <SortableHeader column="latest_weight" label={t('pigs.currentWeight')} />
+                      <TableHead className="text-right">{t('pigs.actions')}</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedPigs.map((pig) => (
+                      <TableRow
+                        key={pig.id}
+                        className={pig.has_abnormal_record ? 'bg-yellow-50' : ''}
+                      >
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            checked={selectedPigs.includes(pig.id)}
+                            onChange={() => togglePigSelection(pig.id)}
+                            className="rounded border-slate-300"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Link
+                            to={`/pigs/${pig.id}`}
+                            className="text-orange-600 hover:text-orange-700 font-medium"
+                            title={`系統號: ${pig.id}`}
+                          >
+                            {pig.ear_tag}
+                          </Link>
+                        </TableCell>
+                        <TableCell>{getPenLocationDisplay(pig, t)}</TableCell>
+                        <TableCell>
+                          {pig.iacuc_no || (
+                            <span className="text-slate-400">未分配</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={statusColors[pig.status]}>
+                            {t(`pigs.statusLabels.${pig.status}`)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{pig.breed === 'other' ? (pig.breed_other || t('pigs.breedLabels.other')) : t(`pigs.breedLabels.${pig.breed}`)}</TableCell>
+                        <TableCell>{t(`pigs.genderLabels.${pig.gender}`)}</TableCell>
+                        <TableCell>
+                          {pig.is_on_medication ? (
+                            <Badge variant="destructive" className="text-xs">{t('pigs.onMedication')}</Badge>
+                          ) : (
+                            <span className="text-slate-400">{t('pigs.notOnMedication')}</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {pig.vet_recommendation_date ? (
+                            <span className="text-sm text-slate-600">
+                              {new Date(pig.vet_recommendation_date).toLocaleDateString()}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span>{new Date(pig.entry_date).toLocaleDateString()}</span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => setQuickEditPigId(pig.id)}
+                              title="快速編輯"
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {pig.latest_weight ? (
+                            <span className="text-sm text-slate-700 font-medium" title={pig.latest_weight_date ? `量測日期: ${new Date(pig.latest_weight_date).toLocaleDateString()}` : undefined}>
+                              {pig.latest_weight} kg
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="icon" asChild title={t('common.view')}>
+                              <Link to={`/pigs/${pig.id}`}>
+                                <Eye className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button variant="ghost" size="icon" asChild title={t('common.edit')}>
+                              <Link to={`/pigs/${pig.id}/edit`}>
+                                <Edit2 className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>

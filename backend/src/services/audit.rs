@@ -259,6 +259,40 @@ impl AuditService {
         Ok(PaginatedResponse::new(data, total.0, page, per_page))
     }
 
+    /// 匯出使用者活動記錄（不分頁，上限 10000 筆）
+    pub async fn export_activities(
+        pool: &PgPool,
+        query: &ActivityLogQuery,
+    ) -> Result<Vec<UserActivityLog>> {
+        let data = sqlx::query_as::<_, UserActivityLog>(
+            r#"
+            SELECT * FROM user_activity_logs
+            WHERE ($1::uuid IS NULL OR actor_user_id = $1)
+              AND ($2::text IS NULL OR event_category = $2)
+              AND ($3::text IS NULL OR event_type = $3)
+              AND ($4::text IS NULL OR entity_type = $4)
+              AND ($5::uuid IS NULL OR entity_id = $5)
+              AND ($6::bool IS NULL OR is_suspicious = $6)
+              AND ($7::date IS NULL OR partition_date >= $7)
+              AND ($8::date IS NULL OR partition_date <= $8)
+            ORDER BY created_at DESC
+            LIMIT 10000
+            "#,
+        )
+        .bind(query.user_id)
+        .bind(&query.event_category)
+        .bind(&query.event_type)
+        .bind(&query.entity_type)
+        .bind(query.entity_id)
+        .bind(query.is_suspicious)
+        .bind(query.from)
+        .bind(query.to)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(data)
+    }
+
     // ============================================
     // Login Events
     // ============================================

@@ -636,11 +636,11 @@ export function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t('dashboard.title')}</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{t('dashboard.title')}</h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {isEditMode ? (
             <>
               <Button size="sm" onClick={handleSaveLayout} disabled={saveLayoutMutation.isPending}>

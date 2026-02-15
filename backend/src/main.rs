@@ -21,6 +21,7 @@ mod services;
 mod startup;
 
 use services::scheduler::SchedulerService;
+use services::GeoIpService;
 use startup::{
     create_database_pool_with_retry,
     ensure_admin_user, ensure_schema, seed_dev_users,
@@ -33,6 +34,7 @@ pub use error::{AppError, Result};
 pub struct AppState {
     pub db: sqlx::PgPool,
     pub config: Arc<config::Config>,
+    pub geoip: GeoIpService,
 }
 
 #[tokio::main]
@@ -132,9 +134,15 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // 建立應用程式狀態
+    // 初始化 GeoIP 服務
+    let geoip_path = std::env::var("GEOIP_DB_PATH")
+        .unwrap_or_else(|_| "/app/geoip/GeoLite2-City.mmdb".to_string());
+    let geoip = GeoIpService::new(&geoip_path);
+
     let state = AppState {
         db: pool,
         config: config.clone(),
+        geoip,
     };
 
     // 建立 CORS 層

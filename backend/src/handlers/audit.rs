@@ -79,6 +79,16 @@ pub async fn list_activity_logs(
     Ok(Json(result))
 }
 
+/// 匯出活動日誌（不分頁，供 CSV/PDF 匯出使用）
+pub async fn export_activity_logs(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+    Query(query): Query<ActivityLogQuery>,
+) -> Result<Json<Vec<UserActivityLog>>> {
+    let result = AuditService::export_activities(&state.db, &query).await?;
+    Ok(Json(result))
+}
+
 /// 取得使用者活動時間線
 pub async fn get_user_activity_timeline(
     State(state): State<AppState>,

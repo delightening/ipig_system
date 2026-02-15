@@ -198,6 +198,7 @@ pub fn api_routes(state: AppState) -> Router {
         // Admin Audit Trail (新增)
         // ============================================
         .route("/admin/audit/activities", get(handlers::list_activity_logs))
+        .route("/admin/audit/activities/export", get(handlers::export_activity_logs))
         .route("/admin/audit/activities/user/:user_id", get(handlers::get_user_activity_timeline))
         .route("/admin/audit/activities/entity/:entity_type/:entity_id", get(handlers::get_entity_history))
         .route("/admin/audit/logins", get(handlers::list_login_events))

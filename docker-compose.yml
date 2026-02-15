@@ -59,6 +59,9 @@ services:
 
       APP_URL: ${APP_URL:-http://localhost}
 
+      # GeoIP
+      GEOIP_DB_PATH: /app/geoip/GeoLite2-City.mmdb
+
       # Cookie 安全設定（SEC-02 HttpOnly Cookie）
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
@@ -76,6 +79,7 @@ services:
       - "${API_PORT:-8000}:8000"
     volumes:
       - ${UPLOAD_VOLUME:-./uploads}:/app/uploads
+      - ./geoip:/app/geoip:ro
     secrets:
       - google_service_account
     depends_on:
