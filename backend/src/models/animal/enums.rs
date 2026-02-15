@@ -3,30 +3,30 @@ use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, Type};
 use uuid::Uuid;
 
-/// 豬隻狀態
+/// 動物狀態
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
-#[sqlx(type_name = "pig_status", rename_all = "snake_case")]
+#[sqlx(type_name = "animal_status", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
-pub enum PigStatus {
+pub enum AnimalStatus {
     Unassigned,
     InExperiment,
     Completed,
 }
 
-impl PigStatus {
+impl AnimalStatus {
     pub fn display_name(&self) -> &'static str {
         match self {
-            PigStatus::Unassigned => "未分配",
-            PigStatus::InExperiment => "實驗中",
-            PigStatus::Completed => "實驗完成",
+            AnimalStatus::Unassigned => "未分配",
+            AnimalStatus::InExperiment => "實驗中",
+            AnimalStatus::Completed => "實驗完成",
         }
     }
 }
 
-/// 豬隻品種
+/// 動物品種
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum PigBreed {
+pub enum AnimalBreed {
     #[serde(rename = "minipig")]
     Minipig,  // 前端使用 'minipig'，資料庫存儲為 'miniature'
     White,
@@ -36,72 +36,72 @@ pub enum PigBreed {
 }
 
 // 手動實現 sqlx::Type 以處理資料庫 enum 值 'miniature' 到 Rust enum 'Minipig' 的映射
-impl sqlx::Type<sqlx::Postgres> for PigBreed {
+impl sqlx::Type<sqlx::Postgres> for AnimalBreed {
     fn type_info() -> sqlx::postgres::PgTypeInfo {
-        sqlx::postgres::PgTypeInfo::with_name("pig_breed")
+        sqlx::postgres::PgTypeInfo::with_name("animal_breed")
     }
 }
 
-impl<'r> sqlx::Decode<'r, sqlx::Postgres> for PigBreed {
+impl<'r> sqlx::Decode<'r, sqlx::Postgres> for AnimalBreed {
     fn decode(value: sqlx::postgres::PgValueRef<'r>) -> Result<Self, sqlx::error::BoxDynError> {
         let s: &str = sqlx::Decode::<sqlx::Postgres>::decode(value)?;
         match s {
-            "miniature" => Ok(PigBreed::Minipig),
-            "white" => Ok(PigBreed::White),
-            "LYD" => Ok(PigBreed::LYD),
-            "other" => Ok(PigBreed::Other),
-            _ => Err(format!("Invalid pig_breed value: {}", s).into()),
+            "miniature" => Ok(AnimalBreed::Minipig),
+            "white" => Ok(AnimalBreed::White),
+            "LYD" => Ok(AnimalBreed::LYD),
+            "other" => Ok(AnimalBreed::Other),
+            _ => Err(format!("Invalid animal_breed value: {}", s).into()),
         }
     }
 }
 
-impl<'q> sqlx::Encode<'q, sqlx::Postgres> for PigBreed {
+impl<'q> sqlx::Encode<'q, sqlx::Postgres> for AnimalBreed {
     fn encode_by_ref(&self, buf: &mut sqlx::postgres::PgArgumentBuffer) -> Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
         let s = match self {
-            PigBreed::Minipig => "miniature",
-            PigBreed::White => "white",
-            PigBreed::LYD => "LYD",
-            PigBreed::Other => "other",
+            AnimalBreed::Minipig => "miniature",
+            AnimalBreed::White => "white",
+            AnimalBreed::LYD => "LYD",
+            AnimalBreed::Other => "other",
         };
         <&str as sqlx::Encode<sqlx::Postgres>>::encode_by_ref(&s, buf)
     }
 
     fn size_hint(&self) -> usize {
         let s = match self {
-            PigBreed::Minipig => "miniature",
-            PigBreed::White => "white",
-            PigBreed::LYD => "LYD",
-            PigBreed::Other => "other",
+            AnimalBreed::Minipig => "miniature",
+            AnimalBreed::White => "white",
+            AnimalBreed::LYD => "LYD",
+            AnimalBreed::Other => "other",
         };
         <&str as sqlx::Encode<sqlx::Postgres>>::size_hint(&s)
     }
 }
 
-impl PigBreed {
+impl AnimalBreed {
     pub fn display_name(&self) -> &'static str {
         match self {
-            PigBreed::Minipig => "迷你豬",
-            PigBreed::White => "白豬",
-            PigBreed::LYD => "LYD",
-            PigBreed::Other => "其他",
+            AnimalBreed::Minipig => "迷你豬",
+            AnimalBreed::White => "白豬",
+            AnimalBreed::LYD => "LYD",
+            AnimalBreed::Other => "其他",
         }
     }
 }
 
-/// 豬隻性別
+/// 動物性別
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
-#[sqlx(type_name = "pig_gender", rename_all = "snake_case")]
+#[sqlx(type_name = "animal_gender", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
-pub enum PigGender {
+pub enum AnimalGender {
     Male,
     Female,
 }
 
-impl PigGender {
+impl AnimalGender {
     pub fn display_name(&self) -> &'static str {
         match self {
-            PigGender::Male => "公",
-            PigGender::Female => "母",
+            AnimalGender::Male => "公",
+            AnimalGender::Female => "母",
         }
     }
 }

@@ -1,4 +1,4 @@
-use axum::{
+﻿use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
@@ -36,22 +36,22 @@ pub async fn create_order(
 
     // 發送 Email 通知給 PI
     // 取得必要資訊
-    let pig_email_info = sqlx::query!(
+    let animal_email_info = sqlx::query!(
         r#"
         SELECT p.ear_tag, p.iacuc_no, u.email, u.display_name, vu.display_name as vet_name
-        FROM pigs p
+        FROM animals p
         JOIN users u ON u.id = $1
         JOIN users vu ON vu.id = $2
         WHERE p.id = $3
         "#,
         order.pi_user_id,
         order.vet_user_id,
-        order.pig_id
+        order.animal_id
     )
     .fetch_optional(&state.db)
     .await?;
 
-    if let Some(info) = pig_email_info {
+    if let Some(info) = animal_email_info {
         let deadline = order.deadline_at.format("%Y-%m-%d %H:%M").to_string();
         if let Err(e) = crate::services::EmailService::send_euthanasia_order_email(
             &state.config,

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
@@ -58,8 +58,8 @@ const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' |
   DELETED: 'destructive',
 }
 
-// 模擬豬隻資料（實際應從 API 取得）
-interface PigRecord {
+// 模擬動物資料（實際應從 API 取得）
+interface AnimalRecord {
   id: number
   earTag: string
   penLocation?: string | null
@@ -70,11 +70,11 @@ interface PigRecord {
 }
 
 // 輔助函數：判斷欄位顯示文字
-const getPenLocationDisplay = (pig: { status: string; penLocation?: string | null }) => {
-  if (pig.status === 'completed' && !pig.penLocation) {
+const getPenLocationDisplay = (animal: { status: string; penLocation?: string | null }) => {
+  if (animal.status === 'completed' && !animal.penLocation) {
     return '犧牲'
   }
-  return pig.penLocation || '-'
+  return animal.penLocation || '-'
 }
 
 export function MyProjectDetailPage() {
@@ -83,7 +83,7 @@ export function MyProjectDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  const [activeTab, setActiveTab] = useState<'application' | 'pigs'>('application')
+  const [activeTab, setActiveTab] = useState<'application' | 'animals'>('application')
   const [showCloseDialog, setShowCloseDialog] = useState(false)
 
   // 取得計畫詳情
@@ -122,8 +122,8 @@ export function MyProjectDetailPage() {
     },
   })
 
-  // TODO: 取得豬隻紀錄
-  const pigs: PigRecord[] = [] // 實際應從 /my-projects/{id}/pigs 取得
+  // TODO: 取得動物紀錄
+  const animals: AnimalRecord[] = [] // 實際應從 /my-projects/{id}/animals 取得
 
   if (isLoading) {
     return (
@@ -252,14 +252,14 @@ export function MyProjectDetailPage() {
             申請表
           </button>
           <button
-            onClick={() => setActiveTab('pigs')}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${activeTab === 'pigs'
+            onClick={() => setActiveTab('animals')}
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${activeTab === 'animals'
               ? 'border-blue-600 text-blue-600'
               : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
           >
             <FileText className="h-4 w-4" />
-            豬隻紀錄
+            動物紀錄
           </button>
         </nav>
       </div>
@@ -496,14 +496,14 @@ export function MyProjectDetailPage() {
         </div>
       )}
 
-      {activeTab === 'pigs' && (
+      {activeTab === 'animals' && (
         <Card>
           <CardHeader>
-            <CardTitle>豬隻紀錄</CardTitle>
-            <CardDescription>此計劃下所有已分配豬隻清單</CardDescription>
+            <CardTitle>動物紀錄</CardTitle>
+            <CardDescription>此計劃下所有已分配動物清單</CardDescription>
           </CardHeader>
           <CardContent>
-            {pigs.length > 0 ? (
+            {animals.length > 0 ? (
               <>
                 <div className="flex gap-2 mb-4">
                   <Button variant="outline" size="sm">
@@ -525,7 +525,7 @@ export function MyProjectDetailPage() {
                       <TableHead>系統號</TableHead>
                       <TableHead>耳號</TableHead>
                       <TableHead>欄位</TableHead>
-                      <TableHead>豬隻狀態</TableHead>
+                      <TableHead>動物狀態</TableHead>
                       <TableHead>品種</TableHead>
                       <TableHead>性別</TableHead>
                       <TableHead>進場日期</TableHead>
@@ -533,17 +533,17 @@ export function MyProjectDetailPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {pigs.map((pig) => (
-                      <TableRow key={pig.id}>
-                        <TableCell>{pig.id}</TableCell>
-                        <TableCell className="text-orange-600 font-medium">{pig.earTag}</TableCell>
-                        <TableCell>{getPenLocationDisplay(pig)}</TableCell>
+                    {animals.map((animal) => (
+                      <TableRow key={animal.id}>
+                        <TableCell>{animal.id}</TableCell>
+                        <TableCell className="text-orange-600 font-medium">{animal.earTag}</TableCell>
+                        <TableCell>{getPenLocationDisplay(animal)}</TableCell>
                         <TableCell>
-                          <Badge variant="warning">{pig.status}</Badge>
+                          <Badge variant="warning">{animal.status}</Badge>
                         </TableCell>
-                        <TableCell>{pig.breed}</TableCell>
-                        <TableCell>{pig.gender}</TableCell>
-                        <TableCell>{formatDate(pig.entryDate)}</TableCell>
+                        <TableCell>{animal.breed}</TableCell>
+                        <TableCell>{animal.gender}</TableCell>
+                        <TableCell>{formatDate(animal.entryDate)}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="sm">
                             檢視
@@ -557,9 +557,9 @@ export function MyProjectDetailPage() {
             ) : (
               <div className="text-center py-12">
                 <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-semibold mb-2">尚無豬隻紀錄</h3>
+                <h3 className="text-lg font-semibold mb-2">尚無動物紀錄</h3>
                 <p className="text-muted-foreground">
-                  此計劃目前尚未分配豬隻
+                  此計劃目前尚未分配動物
                 </p>
               </div>
             )}

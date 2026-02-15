@@ -41,14 +41,14 @@ pub(crate) fn validate_pen_location(pen_location: &String) -> Result<(), validat
 }
 
 #[derive(Debug, Deserialize, Validate)]
-pub struct CreatePigRequest {
+pub struct CreateAnimalRequest {
     #[validate(length(min = 1, max = 10, message = "Ear tag must be 1-10 characters"))]
     #[validate(custom(function = "validate_ear_tag", message = "耳號必須為三位數"))]
     pub ear_tag: String,
-    pub breed: PigBreed,
+    pub breed: AnimalBreed,
     pub breed_other: Option<String>,
     pub source_id: Option<Uuid>,
-    pub gender: PigGender,
+    pub gender: AnimalGender,
     pub birth_date: Option<NaiveDate>,
     pub entry_date: NaiveDate,
     pub entry_weight: rust_decimal::Decimal,
@@ -63,7 +63,7 @@ pub struct CreatePigRequest {
 }
 
 #[derive(Debug, Deserialize, Validate, Default)]
-pub struct UpdatePigRequest {
+pub struct UpdateAnimalRequest {
     // 以下欄位於建立後不可更改，已從更新請求中移除：
     // - ear_tag (耳號)
     // - breed (品種)
@@ -74,7 +74,7 @@ pub struct UpdatePigRequest {
     // - entry_weight (進場體重)
     // - pre_experiment_code (實驗前代號)
     
-    pub status: Option<PigStatus>,
+    pub status: Option<AnimalStatus>,
     pub pen_location: Option<String>,
     pub iacuc_no: Option<String>,
     pub experiment_date: Option<NaiveDate>,
@@ -82,10 +82,10 @@ pub struct UpdatePigRequest {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct PigQuery {
-    pub status: Option<PigStatus>,
-    pub breed: Option<PigBreed>,
-    pub gender: Option<PigGender>,
+pub struct AnimalQuery {
+    pub status: Option<AnimalStatus>,
+    pub breed: Option<AnimalBreed>,
+    pub gender: Option<AnimalGender>,
     pub iacuc_no: Option<String>,
     pub pen_location: Option<String>,
     pub keyword: Option<String>,
@@ -94,7 +94,7 @@ pub struct PigQuery {
 
 #[derive(Debug, Deserialize)]
 pub struct BatchAssignRequest {
-    pub pig_ids: Vec<Uuid>,
+    pub animal_ids: Vec<Uuid>,
     pub iacuc_no: String,
 }
 
@@ -180,7 +180,7 @@ pub struct CreateVetRecommendationRequest {
 }
 
 #[derive(Debug, Deserialize, Validate)]
-pub struct CreatePigSourceRequest {
+pub struct CreateAnimalSourceRequest {
     #[validate(length(min = 1, max = 20, message = "Code must be 1-20 characters"))]
     pub code: String,
     #[validate(length(min = 1, max = 100, message = "Name must be 1-100 characters"))]
@@ -191,7 +191,7 @@ pub struct CreatePigSourceRequest {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct UpdatePigSourceRequest {
+pub struct UpdateAnimalSourceRequest {
     pub name: Option<String>,
     pub address: Option<String>,
     pub contact: Option<String>,
@@ -200,16 +200,16 @@ pub struct UpdatePigSourceRequest {
     pub sort_order: Option<i32>,
 }
 
-/// 豬隻列表項目（含來源名稱）
+/// 動物列表項目（含來源名稱）
 #[derive(Debug, Serialize, FromRow)]
-pub struct PigListItem {
+pub struct AnimalListItem {
     pub id: Uuid,
     pub animal_no: Option<String>,  // 動物編號（由使用者命名）
     pub ear_tag: String,
-    pub status: PigStatus,
-    pub breed: PigBreed,
+    pub status: AnimalStatus,
+    pub breed: AnimalBreed,
     pub breed_other: Option<String>,
-    pub gender: PigGender,
+    pub gender: AnimalGender,
     pub pen_location: Option<String>,
     pub iacuc_no: Option<String>,
     pub entry_date: NaiveDate,
@@ -228,11 +228,11 @@ pub struct PigListItem {
     pub latest_weight_date: Option<NaiveDate>,
 }
 
-/// 依欄位分組的豬隻
+/// 依欄位分組的動物
 #[derive(Debug, Serialize)]
-pub struct PigsByPen {
+pub struct AnimalsByPen {
     pub pen_location: String,
-    pub pigs: Vec<PigListItem>,
+    pub animals: Vec<AnimalListItem>,
 }
 
 // ============================================
@@ -253,8 +253,8 @@ pub enum ImportStatus {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[sqlx(type_name = "import_type", rename_all = "snake_case")]
 pub enum ImportType {
-    PigBasic,
-    PigWeight,
+    AnimalBasic,
+    AnimalWeight,
 }
 
 /// 匯出格式
@@ -277,7 +277,7 @@ pub enum ExportType {
 
 /// 匯入批次記錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct PigImportBatch {
+pub struct AnimalImportBatch {
     pub id: Uuid,
     pub import_type: ImportType,
     pub file_name: String,
@@ -293,9 +293,9 @@ pub struct PigImportBatch {
 
 /// 匯出記錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct PigExportRecord {
+pub struct AnimalExportRecord {
     pub id: Uuid,
-    pub pig_id: Option<Uuid>,
+    pub animal_id: Option<Uuid>,
     pub iacuc_no: Option<String>,
     pub export_type: ExportType,
     pub export_format: ExportFormat,
@@ -525,15 +525,15 @@ pub struct CreateVetRecommendationWithAttachmentsRequest {
 /// 匯出請求
 #[derive(Debug, Deserialize)]
 pub struct ExportRequest {
-    pub pig_id: Option<Uuid>,
+    pub animal_id: Option<Uuid>,
     pub iacuc_no: Option<String>,
     pub export_type: ExportType,
     pub format: ExportFormat,
 }
 
-/// 豬隻匯入行資料
+/// 動物匯入行資料
 #[derive(Debug, Deserialize)]
-pub struct PigImportRow {
+pub struct AnimalImportRow {
     #[serde(alias = "\u{feff}Number", alias = "Number", alias = "耳號*", alias = "耳號")]
     pub ear_tag: String,
     #[serde(alias = "Species", alias = "Species (minipig/white)", alias = "品種*", alias = "品種")]
@@ -580,7 +580,7 @@ pub struct WeightImportRow {
 #[derive(Debug, Serialize, FromRow)]
 pub struct ObservationListItem {
     pub id: Uuid,
-    pub pig_id: Uuid,
+    pub animal_id: Uuid,
     pub event_date: NaiveDate,
     pub record_type: RecordType,
     pub content: String,
@@ -596,7 +596,7 @@ pub struct ObservationListItem {
 #[derive(Debug, Serialize, FromRow)]
 pub struct SurgeryListItem {
     pub id: Uuid,
-    pub pig_id: Uuid,
+    pub animal_id: Uuid,
     pub is_first_experiment: bool,
     pub surgery_date: NaiveDate,
     pub surgery_site: String,
@@ -700,11 +700,11 @@ pub struct SignRequest {
     pub signature_type: String, // APPROVE, CONFIRM, WITNESS
 }
 
-/// 帶變更原因的更新豬隻請求
+/// 帶變更原因的更新動物請求
 #[derive(Debug, Deserialize, Validate)]
-pub struct UpdatePigWithReasonRequest {
+pub struct UpdateAnimalWithReasonRequest {
     #[serde(flatten)]
-    pub data: UpdatePigRequest,
+    pub data: UpdateAnimalRequest,
     #[validate(length(min = 1, message = "變更原因為必填"))]
     pub change_reason: String,
 }

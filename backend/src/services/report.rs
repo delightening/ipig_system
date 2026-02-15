@@ -1,4 +1,4 @@
-use chrono::NaiveDate;
+﻿use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
@@ -101,7 +101,7 @@ pub struct CostSummaryReport {
 pub struct BloodTestCostReport {
     pub iacuc_no: Option<String>,
     pub ear_tag: String,
-    pub pig_id: Uuid,
+    pub animal_id: Uuid,
     pub test_date: NaiveDate,
     pub lab_name: Option<String>,
     pub item_count: i64,
@@ -113,7 +113,7 @@ pub struct BloodTestCostReport {
 /// 血液檢查分析原始列（供前端聚合與視覺化）
 #[derive(Debug, FromRow, serde::Serialize)]
 pub struct BloodTestAnalysisRow {
-    pub pig_id: Uuid,
+    pub animal_id: Uuid,
     pub ear_tag: String,
     pub iacuc_no: Option<String>,
     pub test_date: NaiveDate,
@@ -130,7 +130,7 @@ pub struct BloodTestAnalysisRow {
 #[derive(Debug, serde::Deserialize)]
 pub struct BloodTestAnalysisQuery {
     pub iacuc_no: Option<String>,
-    pub pig_id: Option<Uuid>,
+    pub animal_id: Option<Uuid>,
     pub item_name: Option<String>,
     pub date_from: Option<NaiveDate>,
     pub date_to: Option<NaiveDate>,
@@ -413,18 +413,18 @@ impl ReportService {
         let mut sql = String::from(
             r#"
             SELECT 
-                pig.iacuc_no,
-                pig.ear_tag,
-                bt.pig_id,
+                a.iacuc_no,
+                a.ear_tag,
+                bt.animal_id,
                 bt.test_date,
                 bt.lab_name,
                 COUNT(bti.id) as item_count,
                 SUM(COALESCE(tmpl.default_price, 0)) as total_cost,
                 u.display_name as created_by_name,
                 bt.created_at
-            FROM pig_blood_tests bt
-            INNER JOIN pigs pig ON bt.pig_id = pig.id
-            LEFT JOIN pig_blood_test_items bti ON bt.id = bti.blood_test_id
+            FROM animal_blood_tests bt
+            INNER JOIN animals a ON bt.animal_id = a.id
+            LEFT JOIN animal_blood_test_items bti ON bt.id = bti.blood_test_id
             LEFT JOIN blood_test_templates tmpl ON bti.template_id = tmpl.id
             LEFT JOIN users u ON bt.created_by = u.id
             WHERE bt.is_deleted = false
@@ -433,7 +433,7 @@ impl ReportService {
 
         let mut param_idx = 1;
         if query.iacuc_no.is_some() {
-            sql.push_str(&format!(" AND pig.iacuc_no = ${}", param_idx));
+            sql.push_str(&format!(" AND a.iacuc_no = ${}", param_idx));
             param_idx += 1;
         }
         if query.date_from.is_some() {
@@ -451,8 +451,8 @@ impl ReportService {
 
         sql.push_str(
             r#"
-            GROUP BY pig.iacuc_no, pig.ear_tag, bt.pig_id, bt.test_date, bt.lab_name, u.display_name, bt.created_at
-            ORDER BY bt.test_date DESC, pig.iacuc_no, pig.ear_tag
+            GROUP BY a.iacuc_no, a.ear_tag, bt.animal_id, bt.test_date, bt.lab_name, u.display_name, bt.created_at
+            ORDER BY bt.test_date DESC, a.iacuc_no, a.ear_tag
             LIMIT 1000
             "#
         );
@@ -481,9 +481,9 @@ impl ReportService {
         let mut sql = String::from(
             r#"
             SELECT 
-                pig.id as pig_id,
-                pig.ear_tag,
-                pig.iacuc_no,
+                a.id as animal_id,
+                a.ear_tag,
+                a.iacuc_no,
                 bt.test_date,
                 bt.lab_name,
                 bti.item_name,
@@ -492,21 +492,21 @@ impl ReportService {
                 bti.result_unit,
                 bti.reference_range,
                 bti.is_abnormal
-            FROM pig_blood_test_items bti
-            INNER JOIN pig_blood_tests bt ON bti.blood_test_id = bt.id
-            INNER JOIN pigs pig ON bt.pig_id = pig.id
+            FROM animal_blood_test_items bti
+            INNER JOIN animal_blood_tests bt ON bti.blood_test_id = bt.id
+            INNER JOIN animals a ON bt.animal_id = a.id
             LEFT JOIN blood_test_templates tmpl ON bti.template_id = tmpl.id
-            WHERE bt.is_deleted = false AND pig.is_deleted = false
+            WHERE bt.is_deleted = false AND a.is_deleted = false
             "#
         );
 
         let mut param_idx = 1;
         if query.iacuc_no.is_some() {
-            sql.push_str(&format!(" AND pig.iacuc_no = ${}", param_idx));
+            sql.push_str(&format!(" AND a.iacuc_no = ${}", param_idx));
             param_idx += 1;
         }
-        if query.pig_id.is_some() {
-            sql.push_str(&format!(" AND pig.id = ${}", param_idx));
+        if query.animal_id.is_some() {
+            sql.push_str(&format!(" AND a.id = ${}", param_idx));
             param_idx += 1;
         }
         if query.item_name.is_some() {
@@ -522,15 +522,15 @@ impl ReportService {
             // param_idx += 1;
         }
 
-        sql.push_str(" ORDER BY bt.test_date ASC, pig.ear_tag, bti.sort_order LIMIT 5000");
+        sql.push_str(" ORDER BY bt.test_date ASC, a.ear_tag, bti.sort_order LIMIT 5000");
 
         let mut query_builder = sqlx::query_as::<_, BloodTestAnalysisRow>(&sql);
 
         if let Some(ref iacuc_no) = query.iacuc_no {
             query_builder = query_builder.bind(iacuc_no);
         }
-        if let Some(pig_id) = query.pig_id {
-            query_builder = query_builder.bind(pig_id);
+        if let Some(animal_id) = query.animal_id {
+            query_builder = query_builder.bind(animal_id);
         }
         if let Some(ref item_name) = query.item_name {
             query_builder = query_builder.bind(item_name);

@@ -1,4 +1,4 @@
-// 體重 + 疫苗記錄管理 Handlers
+﻿// 體重 + 疫苗記錄管理 Handlers
 
 use axum::{
     extract::{Path, State},
@@ -10,8 +10,8 @@ use validator::Validate;
 use crate::{
     middleware::CurrentUser,
     models::{
-        CreateVaccinationRequest, CreateWeightRequest, DeleteRequest, PigVaccination, PigWeight,
-        PigWeightResponse, UpdateVaccinationRequest, UpdateWeightRequest,
+        CreateVaccinationRequest, CreateWeightRequest, DeleteRequest, AnimalVaccination, AnimalWeight,
+        AnimalWeightResponse, UpdateVaccinationRequest, UpdateWeightRequest,
     },
     require_permission,
     services::{AnimalService, AuditService},
@@ -22,40 +22,40 @@ use crate::{
 // 體重記錄管理
 // ============================================
 
-/// 列出豬的所有體重記錄
-pub async fn list_pig_weights(
+/// 列出動物的所有體重記錄
+pub async fn list_animal_weights(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
-    Path(pig_id): Path<Uuid>,
-) -> Result<Json<Vec<PigWeightResponse>>> {
-    let weights = AnimalService::list_weights(&state.db, pig_id).await?;
+    Path(animal_id): Path<Uuid>,
+) -> Result<Json<Vec<AnimalWeightResponse>>> {
+    let weights = AnimalService::list_weights(&state.db, animal_id).await?;
     Ok(Json(weights))
 }
 
 /// 建立體重記錄
-pub async fn create_pig_weight(
+pub async fn create_animal_weight(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(pig_id): Path<Uuid>,
+    Path(animal_id): Path<Uuid>,
     Json(req): Json<CreateWeightRequest>,
-) -> Result<Json<PigWeight>> {
+) -> Result<Json<AnimalWeight>> {
     require_permission!(current_user, "animal.record.create");
     
-    let weight = AnimalService::create_weight(&state.db, pig_id, &req, current_user.id).await?;
+    let weight = AnimalService::create_weight(&state.db, animal_id, &req, current_user.id).await?;
 
-    // 取得豬隻資訊用於日誌顯示
-    let weight_display = match AnimalService::get_by_id(&state.db, pig_id).await {
-        Ok(pig) => {
-            let iacuc = pig.iacuc_no.as_deref().unwrap_or("未指派");
-            format!("[{}] {} - {} kg", iacuc, pig.ear_tag, req.weight)
+    // 取得動物資訊用於日誌顯示
+    let weight_display = match AnimalService::get_by_id(&state.db, animal_id).await {
+        Ok(animal) => {
+            let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
+            format!("[{}] {} - {} kg", iacuc, animal.ear_tag, req.weight)
         }
-        _ => format!("體重紀錄 (pig: {})", pig_id),
+        _ => format!("體重紀錄 (animal: {})", animal_id),
     };
 
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "WEIGHT_CREATE",
-        Some("pig_weight"), Some(pig_id),
+        Some("animal_weight"), Some(animal_id),
         Some(&weight_display),
         None, None, None, None,
     ).await {
@@ -66,12 +66,12 @@ pub async fn create_pig_weight(
 }
 
 /// 更新體重記錄
-pub async fn update_pig_weight(
+pub async fn update_animal_weight(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateWeightRequest>,
-) -> Result<Json<PigWeight>> {
+) -> Result<Json<AnimalWeight>> {
     require_permission!(current_user, "animal.record.edit");
     
     let weight = AnimalService::update_weight(&state.db, id, &req).await?;
@@ -79,7 +79,7 @@ pub async fn update_pig_weight(
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "WEIGHT_UPDATE",
-        Some("pig_weight"), None,
+        Some("animal_weight"), None,
         Some(&format!("體重紀錄 #{}", id)),
         None, None, None, None,
     ).await {
@@ -90,7 +90,7 @@ pub async fn update_pig_weight(
 }
 
 /// 刪除體重記錄（軟刪除 + 刪除原因）- GLP 合規
-pub async fn delete_pig_weight(
+pub async fn delete_animal_weight(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
@@ -104,7 +104,7 @@ pub async fn delete_pig_weight(
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "WEIGHT_DELETE",
-        Some("pig_weight"), None,
+        Some("animal_weight"), None,
         Some(&format!("體重紀錄 #{} (原因: {})", id, req.reason)),
         None,
         Some(serde_json::json!({ "reason": req.reason })),
@@ -120,41 +120,41 @@ pub async fn delete_pig_weight(
 // 疫苗接種記錄管理
 // ============================================
 
-/// 列出豬的所有疫苗接種記錄
-pub async fn list_pig_vaccinations(
+/// 列出動物的所有疫苗接種記錄
+pub async fn list_animal_vaccinations(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
-    Path(pig_id): Path<Uuid>,
-) -> Result<Json<Vec<PigVaccination>>> {
-    let vaccinations = AnimalService::list_vaccinations(&state.db, pig_id).await?;
+    Path(animal_id): Path<Uuid>,
+) -> Result<Json<Vec<AnimalVaccination>>> {
+    let vaccinations = AnimalService::list_vaccinations(&state.db, animal_id).await?;
     Ok(Json(vaccinations))
 }
 
 /// 建立疫苗接種記錄
-pub async fn create_pig_vaccination(
+pub async fn create_animal_vaccination(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(pig_id): Path<Uuid>,
+    Path(animal_id): Path<Uuid>,
     Json(req): Json<CreateVaccinationRequest>,
-) -> Result<Json<PigVaccination>> {
+) -> Result<Json<AnimalVaccination>> {
     require_permission!(current_user, "animal.record.create");
     
-    let vaccination = AnimalService::create_vaccination(&state.db, pig_id, &req, current_user.id).await?;
+    let vaccination = AnimalService::create_vaccination(&state.db, animal_id, &req, current_user.id).await?;
 
-    // 取得豬隻資訊用於日誌顯示
-    let vac_display = match AnimalService::get_by_id(&state.db, pig_id).await {
-        Ok(pig) => {
-            let iacuc = pig.iacuc_no.as_deref().unwrap_or("未指派");
+    // 取得動物資訊用於日誌顯示
+    let vac_display = match AnimalService::get_by_id(&state.db, animal_id).await {
+        Ok(animal) => {
+            let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
             let vaccine_name = req.vaccine.as_deref().unwrap_or("未指定疫苗");
-            format!("[{}] {} - {}", iacuc, pig.ear_tag, vaccine_name)
+            format!("[{}] {} - {}", iacuc, animal.ear_tag, vaccine_name)
         }
-        _ => format!("疫苗紀錄 (pig: {})", pig_id),
+        _ => format!("疫苗紀錄 (animal: {})", animal_id),
     };
 
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "VACCINATION_CREATE",
-        Some("pig_vaccination"), Some(pig_id),
+        Some("animal_vaccination"), Some(animal_id),
         Some(&vac_display),
         None,
         Some(serde_json::json!({
@@ -170,12 +170,12 @@ pub async fn create_pig_vaccination(
 }
 
 /// 更新疫苗接種記錄
-pub async fn update_pig_vaccination(
+pub async fn update_animal_vaccination(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateVaccinationRequest>,
-) -> Result<Json<PigVaccination>> {
+) -> Result<Json<AnimalVaccination>> {
     require_permission!(current_user, "animal.record.edit");
     
     let vaccination = AnimalService::update_vaccination(&state.db, id, &req).await?;
@@ -183,7 +183,7 @@ pub async fn update_pig_vaccination(
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "VACCINATION_UPDATE",
-        Some("pig_vaccination"), None,
+        Some("animal_vaccination"), None,
         Some(&format!("疑苗紀錄 #{}", id)),
         None, None, None, None,
     ).await {
@@ -194,7 +194,7 @@ pub async fn update_pig_vaccination(
 }
 
 /// 刪除疫苗接種記錄（軟刪除 + 刪除原因）- GLP 合規
-pub async fn delete_pig_vaccination(
+pub async fn delete_animal_vaccination(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
@@ -208,7 +208,7 @@ pub async fn delete_pig_vaccination(
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "VACCINATION_DELETE",
-        Some("pig_vaccination"), None,
+        Some("animal_vaccination"), None,
         Some(&format!("疑苗紀錄 #{} (原因: {})", id, req.reason)),
         None,
         Some(serde_json::json!({ "reason": req.reason })),

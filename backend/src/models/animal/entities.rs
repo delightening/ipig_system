@@ -5,9 +5,9 @@ use uuid::Uuid;
 
 use super::enums::*;
 
-/// 豬隻來源
+/// 動物來源
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct PigSource {
+pub struct AnimalSource {
     pub id: Uuid,
     pub code: String,
     pub name: String,
@@ -20,16 +20,16 @@ pub struct PigSource {
     pub updated_at: DateTime<Utc>,
 }
 
-/// 豬隻主表
+/// 動物主表
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct Pig {
+pub struct Animal {
     pub id: Uuid,
     pub animal_no: Option<String>,  // 動物編號（由使用者命名）
     pub ear_tag: String,
-    pub status: PigStatus,
-    pub breed: PigBreed,
+    pub status: AnimalStatus,
+    pub breed: AnimalBreed,
     pub source_id: Option<Uuid>,
-    pub gender: PigGender,
+    pub gender: AnimalGender,
     pub birth_date: Option<NaiveDate>,
     pub entry_date: NaiveDate,
     pub entry_weight: Option<rust_decimal::Decimal>,
@@ -58,9 +58,9 @@ pub struct Pig {
 
 /// 觀察試驗紀錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct PigObservation {
+pub struct AnimalObservation {
     pub id: Uuid,
-    pub pig_id: Uuid,
+    pub animal_id: Uuid,
     pub event_date: NaiveDate,
     pub record_type: RecordType,
     pub equipment_used: Option<serde_json::Value>,
@@ -91,9 +91,9 @@ pub struct PigObservation {
 
 /// 手術紀錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct PigSurgery {
+pub struct AnimalSurgery {
     pub id: Uuid,
-    pub pig_id: Uuid,
+    pub animal_id: Uuid,
     pub is_first_experiment: bool,
     pub surgery_date: NaiveDate,
     pub surgery_site: String,
@@ -117,9 +117,9 @@ pub struct PigSurgery {
 
 /// 體重紀錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct PigWeight {
+pub struct AnimalWeight {
     pub id: Uuid,
-    pub pig_id: Uuid,
+    pub animal_id: Uuid,
     pub measure_date: NaiveDate,
     pub weight: rust_decimal::Decimal,
     pub created_by: Option<Uuid>,
@@ -128,9 +128,9 @@ pub struct PigWeight {
 
 /// 體重紀錄回應（含建立者名稱）
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct PigWeightResponse {
+pub struct AnimalWeightResponse {
     pub id: Uuid,
-    pub pig_id: Uuid,
+    pub animal_id: Uuid,
     pub measure_date: NaiveDate,
     pub weight: rust_decimal::Decimal,
     pub created_by: Option<Uuid>,
@@ -141,9 +141,9 @@ pub struct PigWeightResponse {
 
 /// 疫苗/驅蟲紀錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct PigVaccination {
+pub struct AnimalVaccination {
     pub id: Uuid,
-    pub pig_id: Uuid,
+    pub animal_id: Uuid,
     pub administered_date: NaiveDate,
     pub vaccine: Option<String>,
     pub deworming_dose: Option<String>,
@@ -153,9 +153,9 @@ pub struct PigVaccination {
 
 /// 犧牲/採樣紀錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct PigSacrifice {
+pub struct AnimalSacrifice {
     pub id: Uuid,
-    pub pig_id: Uuid,
+    pub animal_id: Uuid,
     pub sacrifice_date: Option<NaiveDate>,
     pub zoletil_dose: Option<String>,
     pub method_electrocution: bool,
@@ -172,9 +172,9 @@ pub struct PigSacrifice {
 
 /// 病理組織報告
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct PigPathologyReport {
+pub struct AnimalPathologyReport {
     pub id: Uuid,
-    pub pig_id: Uuid,
+    pub animal_id: Uuid,
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -197,9 +197,9 @@ pub struct BloodTestTemplate {
 
 /// 血液檢查主表
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct PigBloodTest {
+pub struct AnimalBloodTest {
     pub id: Uuid,
-    pub pig_id: Uuid,
+    pub animal_id: Uuid,
     pub test_date: NaiveDate,
     pub lab_name: Option<String>,
     pub status: String,
@@ -217,7 +217,7 @@ pub struct PigBloodTest {
 
 /// 血液檢查項目明細
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct PigBloodTestItem {
+pub struct AnimalBloodTestItem {
     pub id: Uuid,
     pub blood_test_id: Uuid,
     pub template_id: Option<Uuid>,
@@ -233,9 +233,9 @@ pub struct PigBloodTestItem {
 
 /// 血液檢查詳情（含明細項目）
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PigBloodTestWithItems {
-    pub blood_test: PigBloodTest,
-    pub items: Vec<PigBloodTestItem>,
+pub struct AnimalBloodTestWithItems {
+    pub blood_test: AnimalBloodTest,
+    pub items: Vec<AnimalBloodTestItem>,
     pub created_by_name: Option<String>,
 }
 
@@ -243,7 +243,7 @@ pub struct PigBloodTestWithItems {
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct BloodTestListItem {
     pub id: Uuid,
-    pub pig_id: Uuid,
+    pub animal_id: Uuid,
     pub test_date: NaiveDate,
     pub lab_name: Option<String>,
     pub status: String,

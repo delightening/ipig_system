@@ -1,4 +1,4 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
+﻿import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 
 const api = axios.create({
   baseURL: '/api',
@@ -154,7 +154,7 @@ export {
   storageLocationTypeNames,
 } from '@/types/erp'
 export {
-  pigStatusNames, allPigStatusNames, pigBreedNames, pigGenderNames, recordTypeNames,
+  animalStatusNames, allAnimalStatusNames, animalBreedNames, animalGenderNames, recordTypeNames,
 } from '@/types/animal'
 export {
   protocolStatusNames,
@@ -172,7 +172,7 @@ export {
 // ============================================
 
 import type {
-  BloodTestListItem, PigBloodTestWithItems, CreateBloodTestRequest,
+  BloodTestListItem, AnimalBloodTestWithItems, CreateBloodTestRequest,
   UpdateBloodTestRequest, BloodTestTemplate, CreateBloodTestTemplateRequest,
   UpdateBloodTestTemplateRequest, BloodTestPanel, CreateBloodTestPanelRequest,
   UpdateBloodTestPanelRequest, UpdateBloodTestPanelItemsRequest,
@@ -181,14 +181,14 @@ import type {
 
 // 血液檢查 API 函數
 export const bloodTestApi = {
-  listByPig: (pigId: string) =>
-    api.get<BloodTestListItem[]>(`/pigs/${pigId}/blood-tests`),
+  listByAnimal: (animalId: string) =>
+    api.get<BloodTestListItem[]>(`/animals/${animalId}/blood-tests`),
   getById: (id: string) =>
-    api.get<PigBloodTestWithItems>(`/blood-tests/${id}`),
-  create: (pigId: string, data: CreateBloodTestRequest) =>
-    api.post<PigBloodTestWithItems>(`/pigs/${pigId}/blood-tests`, data),
+    api.get<AnimalBloodTestWithItems>(`/blood-tests/${id}`),
+  create: (animalId: string, data: CreateBloodTestRequest) =>
+    api.post<AnimalBloodTestWithItems>(`/animals/${animalId}/blood-tests`, data),
   update: (id: string, data: UpdateBloodTestRequest) =>
-    api.put<PigBloodTestWithItems>(`/blood-tests/${id}`, data),
+    api.put<AnimalBloodTestWithItems>(`/blood-tests/${id}`, data),
   delete: (id: string, reason: string) =>
     api.delete(`/blood-tests/${id}`, { data: { reason } }),
 }

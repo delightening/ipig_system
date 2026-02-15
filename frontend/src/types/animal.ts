@@ -1,35 +1,35 @@
-/**
+﻿/**
  * 實驗動物管理型別
  */
 
 // 基本列舉
-export type PigStatus = 'unassigned' | 'in_experiment' | 'completed'
-export type PigBreed = 'minipig' | 'white' | 'lyd' | 'other'
-export type PigGender = 'male' | 'female'
+export type AnimalStatus = 'unassigned' | 'in_experiment' | 'completed'
+export type AnimalBreed = 'minipig' | 'white' | 'lyd' | 'other'
+export type AnimalGender = 'male' | 'female'
 export type RecordType = 'abnormal' | 'experiment' | 'observation'
 
 // 狀態名稱映射
-export const pigStatusNames: Record<PigStatus, string> = {
+export const animalStatusNames: Record<AnimalStatus, string> = {
     unassigned: '未分配',
     in_experiment: '實驗中',
     completed: '實驗完成',
 }
 
 // 全部狀態名稱（保留向後相容性）
-export const allPigStatusNames: Record<PigStatus, string> = {
+export const allAnimalStatusNames: Record<AnimalStatus, string> = {
     unassigned: '未分配',
     in_experiment: '實驗中',
     completed: '實驗完成',
 }
 
-export const pigBreedNames: Record<PigBreed, string> = {
+export const animalBreedNames: Record<AnimalBreed, string> = {
     minipig: '迷你豬',
     white: '白豬',
     lyd: 'LYD',
     other: '其他',
 }
 
-export const pigGenderNames: Record<PigGender, string> = {
+export const animalGenderNames: Record<AnimalGender, string> = {
     male: '公',
     female: '母',
 }
@@ -40,8 +40,8 @@ export const recordTypeNames: Record<RecordType, string> = {
     observation: '觀察紀錄',
 }
 
-// 豬源
-export interface PigSource {
+// 動物來源
+export interface AnimalSource {
     id: string
     code: string
     name: string
@@ -52,18 +52,18 @@ export interface PigSource {
     sort_order: number
 }
 
-// 豬隻
-export interface Pig {
+// 動物
+export interface Animal {
     id: string
     animal_no?: string
     animal_id?: string
     ear_tag: string
-    status: PigStatus
-    breed: PigBreed
+    status: AnimalStatus
+    breed: AnimalBreed
     breed_other?: string
     source_id?: string
     source_name?: string
-    gender: PigGender
+    gender: AnimalGender
     birth_date?: string
     entry_date: string
     entry_weight?: number
@@ -81,7 +81,7 @@ export interface Pig {
     updated_at: string
 }
 
-export interface PigListItem extends Pig {
+export interface AnimalListItem extends Animal {
     latest_weight?: number
     latest_weight_date?: string
     breed_other?: string
@@ -92,9 +92,9 @@ export interface PigListItem extends Pig {
 }
 
 // 觀察記錄
-export interface PigObservation {
+export interface AnimalObservation {
     id: number
-    pig_id: string
+    animal_id: string
     event_date: string
     record_type: RecordType
     equipment_used?: string[]
@@ -117,9 +117,9 @@ export interface PigObservation {
 }
 
 // 手術記錄
-export interface PigSurgery {
+export interface AnimalSurgery {
     id: number
-    pig_id: string
+    animal_id: string
     is_first_experiment: boolean
     surgery_date: string
     surgery_site: string
@@ -149,9 +149,9 @@ export interface PigSurgery {
 }
 
 // 體重記錄
-export interface PigWeight {
+export interface AnimalWeight {
     id: number
-    pig_id: string
+    animal_id: string
     measure_date: string
     weight: number
     created_by?: string
@@ -160,9 +160,9 @@ export interface PigWeight {
 }
 
 // 疫苗記錄
-export interface PigVaccination {
+export interface AnimalVaccination {
     id: number
-    pig_id: string
+    animal_id: string
     administered_date: string
     vaccine?: string
     deworming_dose?: string
@@ -172,9 +172,9 @@ export interface PigVaccination {
 }
 
 // 犧牲記錄
-export interface PigSacrifice {
+export interface AnimalSacrifice {
     id: number
-    pig_id: string
+    animal_id: string
     sacrifice_date?: string
     zoletil_dose?: string
     method_electrocution: boolean
@@ -191,9 +191,9 @@ export interface PigSacrifice {
 }
 
 // 病理報告
-export interface PigPathologyReport {
+export interface AnimalPathologyReport {
     id: number
-    pig_id: string
+    animal_id: string
     attachments?: {
         id: string
         file_name: string
@@ -236,7 +236,7 @@ export interface BloodTestTemplate {
 
 export interface BloodTestListItem {
     id: string
-    pig_id: string
+    animal_id: string
     test_date: string
     lab_name?: string
     remark?: string
@@ -247,7 +247,7 @@ export interface BloodTestListItem {
     abnormal_count: number
 }
 
-export interface PigBloodTestItem {
+export interface AnimalBloodTestItem {
     id: string
     blood_test_id: string
     template_id?: string
@@ -261,10 +261,10 @@ export interface PigBloodTestItem {
     created_at: string
 }
 
-export interface PigBloodTestWithItems {
+export interface AnimalBloodTestWithItems {
     blood_test: {
         id: string
-        pig_id: string
+        animal_id: string
         test_date: string
         lab_name?: string
         remark?: string
@@ -274,7 +274,7 @@ export interface PigBloodTestWithItems {
         created_at: string
         updated_at: string
     }
-    items: PigBloodTestItem[]
+    items: AnimalBloodTestItem[]
     created_by_name?: string
 }
 
@@ -355,11 +355,11 @@ export interface UpdateBloodTestPanelItemsRequest {
     template_ids: string[]
 }
 
-// 豬隻請求型別
-export interface CreatePigRequest {
+// 動物請求型別
+export interface CreateAnimalRequest {
     ear_tag: string
-    breed: PigBreed
-    gender: PigGender
+    breed: AnimalBreed
+    gender: AnimalGender
     source_id?: string
     birth_date?: string
     entry_date: string
@@ -369,11 +369,11 @@ export interface CreatePigRequest {
     remark?: string
 }
 
-export interface UpdatePigRequest {
+export interface UpdateAnimalRequest {
     ear_tag?: string
-    status?: PigStatus
-    breed?: PigBreed
-    gender?: PigGender
+    status?: AnimalStatus
+    breed?: AnimalBreed
+    gender?: AnimalGender
     source_id?: string
     birth_date?: string
     entry_date?: string
@@ -385,18 +385,18 @@ export interface UpdatePigRequest {
     remark?: string
 }
 
-export interface BatchAssignPigsRequest {
-    pig_ids: number[]
+export interface BatchAssignAnimalsRequest {
+    animal_ids: number[]
     iacuc_no: string
 }
 
 export interface BatchStartExperimentRequest {
-    pig_ids: number[]
+    animal_ids: number[]
 }
 
 // 血液檢查分析原始列
 export interface BloodTestAnalysisRow {
-    pig_id: string
+    animal_id: string
     ear_tag: string
     iacuc_no?: string
     test_date: string

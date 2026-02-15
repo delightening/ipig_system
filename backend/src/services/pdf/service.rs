@@ -412,11 +412,11 @@ impl PdfService {
         Ok(pdf_bytes)
     }
 
-    /// 生成豬隻病歷 PDF
+    /// 生成動物病歷 PDF
     pub fn generate_medical_pdf(data: &serde_json::Value) -> Result<Vec<u8>> {
         // 建立 PDF 文件
         let (doc, page1, layer1) = PdfDocument::new(
-            "豬隻病歷紀錄",
+            "動物病歷紀錄",
             Mm(PAGE_WIDTH_MM),
             Mm(PAGE_HEIGHT_MM),
             "第1頁"
@@ -434,7 +434,7 @@ impl PdfService {
 
         // ========== 標題 ==========
         ctx.current_layer.use_text(
-            "豬隻病歷紀錄總表",
+            "動物病歷紀錄總表",
             20.0,
             Mm(PAGE_WIDTH_MM / 2.0 - 40.0),
             Mm(ctx.y_position),
@@ -443,7 +443,7 @@ impl PdfService {
         ctx.y_position -= SECTION_SPACING_MM * 2.0;
 
         // 使用共用渲染方法
-        Self::render_pig_medical_data(&mut ctx, data);
+        Self::render_animal_medical_data(&mut ctx, data);
 
         // ========== 頁尾 ==========
         let today = chrono::Local::now().format("%Y-%m-%d").to_string();
@@ -462,29 +462,29 @@ impl PdfService {
     }
 
 
-    /// 共用：渲染豬隻完整病歷資料（基本資料、體重、疫苗、觀察、手術）
+    /// 共用：渲染動物完整病歷資料（基本資料、體重、疫苗、觀察、手術）
     /// 用於單隻匯出與批次匯出，統一 session-per-page 分頁邏輯
-    fn render_pig_medical_data(ctx: &mut PdfContext, data: &serde_json::Value) {
-        // ========== 1. 豬隻基本資料 ==========
-        if let Some(pig) = data.get("pig") {
-            ctx.render_section_header("1. 豬隻基本資料");
-            let ear_tag = pig.get("ear_tag").and_then(|v| v.as_str()).unwrap_or("-");
-            let breed = pig.get("breed").and_then(|v| v.as_str()).unwrap_or("-");
-            let gender = pig.get("gender").and_then(|v| v.as_str()).unwrap_or("-");
-            let iacuc_no = pig.get("iacuc_no").and_then(|v| v.as_str()).unwrap_or("未分配");
+    fn render_animal_medical_data(ctx: &mut PdfContext, data: &serde_json::Value) {
+        // ========== 1. 動物基本資料 ==========
+        if let Some(animal) = data.get("animal") {
+            ctx.render_section_header("1. 動物基本資料");
+            let ear_tag = animal.get("ear_tag").and_then(|v| v.as_str()).unwrap_or("-");
+            let breed = animal.get("breed").and_then(|v| v.as_str()).unwrap_or("-");
+            let gender = animal.get("gender").and_then(|v| v.as_str()).unwrap_or("-");
+            let iacuc_no = animal.get("iacuc_no").and_then(|v| v.as_str()).unwrap_or("未分配");
 
             ctx.render_label_value("耳號", ear_tag);
             ctx.render_label_value("計畫編號", iacuc_no);
             ctx.render_label_value("品種", breed);
             ctx.render_label_value("性別", if gender == "male" { "公" } else { "母" });
 
-            if let Some(entry_date) = pig.get("entry_date").and_then(|v| v.as_str()) {
+            if let Some(entry_date) = animal.get("entry_date").and_then(|v| v.as_str()) {
                 ctx.render_label_value("進場日期", entry_date);
             }
-            if let Some(birth_date) = pig.get("birth_date").and_then(|v| v.as_str()) {
+            if let Some(birth_date) = animal.get("birth_date").and_then(|v| v.as_str()) {
                 ctx.render_label_value("出生日期", birth_date);
             }
-            if let Some(loc) = pig.get("pen_location").and_then(|v| v.as_str()) {
+            if let Some(loc) = animal.get("pen_location").and_then(|v| v.as_str()) {
                 ctx.render_label_value("欄位編號", loc);
             }
             ctx.add_section_spacing();
@@ -567,8 +567,8 @@ impl PdfService {
         }
     }
 
-    /// 生成計畫下所有豬隻病歷 PDF
-    pub fn generate_project_medical_pdf(iacuc_no: &str, pigs_data: &serde_json::Value) -> Result<Vec<u8>> {
+    /// 生成計畫下所有動物病歷 PDF
+    pub fn generate_project_medical_pdf(iacuc_no: &str, animals_data: &serde_json::Value) -> Result<Vec<u8>> {
         // 建立 PDF 文件
         let (doc, page1, layer1) = PdfDocument::new(
             format!("計畫病歷匯出 - {}", iacuc_no),
@@ -601,26 +601,26 @@ impl PdfService {
         let today = chrono::Local::now().format("%Y-%m-%d").to_string();
         ctx.render_label_value("匯出日期", &today);
 
-        if let Some(pigs) = pigs_data.get("pigs").and_then(|v| v.as_array()) {
-            ctx.render_label_value("豬隻總數", &pigs.len().to_string());
+        if let Some(animals) = animals_data.get("animals").and_then(|v| v.as_array()) {
+            ctx.render_label_value("動物總數", &animals.len().to_string());
             ctx.add_section_spacing();
 
-            // 封面：豬隻清單摘要
-            ctx.render_subsection_header("豬隻清單");
-            for (i, pig_data) in pigs.iter().enumerate() {
-                if let Some(pig) = pig_data.get("pig") {
-                    let ear_tag = pig.get("ear_tag").and_then(|v| v.as_str()).unwrap_or("-");
-                    let breed = pig.get("breed").and_then(|v| v.as_str()).unwrap_or("-");
-                    let gender = pig.get("gender").and_then(|v| v.as_str()).unwrap_or("-");
+            // 封面：動物清單摘要
+            ctx.render_subsection_header("動物清單");
+            for (i, animal_data) in animals.iter().enumerate() {
+                if let Some(animal) = animal_data.get("animal") {
+                    let ear_tag = animal.get("ear_tag").and_then(|v| v.as_str()).unwrap_or("-");
+                    let breed = animal.get("breed").and_then(|v| v.as_str()).unwrap_or("-");
+                    let gender = animal.get("gender").and_then(|v| v.as_str()).unwrap_or("-");
                     let gender_label = if gender == "male" { "公" } else { "母" };
                     ctx.render_label_value("", &format!("{}. {} ({}, {})", i + 1, ear_tag, breed, gender_label));
                 }
             }
 
-            // 每隻豬隻獨立分頁渲染完整病歷
-            for pig_data in pigs.iter() {
+            // 每隻動物獨立分頁渲染完整病歷
+            for animal_data in animals.iter() {
                 ctx.add_new_page();
-                Self::render_pig_medical_data(&mut ctx, pig_data);
+                Self::render_animal_medical_data(&mut ctx, animal_data);
             }
         }
 

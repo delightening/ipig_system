@@ -1,21 +1,21 @@
-use sqlx::PgPool;
+﻿use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::AnimalService;
 use crate::{
-    models::{CreatePigSourceRequest, PigSource, UpdatePigSourceRequest},
+    models::{CreateAnimalSourceRequest, AnimalSource, UpdateAnimalSourceRequest},
     Result,
 };
 
 impl AnimalService {
     // ============================================
-    // 豬隻來源管理
+    // 動物來源管理
     // ============================================
 
-    /// 取得豬隻來源列表
-    pub async fn list_sources(pool: &PgPool) -> Result<Vec<PigSource>> {
-        let sources = sqlx::query_as::<_, PigSource>(
-            "SELECT * FROM pig_sources WHERE is_active = true ORDER BY sort_order"
+    /// 取得動物來源列表
+    pub async fn list_sources(pool: &PgPool) -> Result<Vec<AnimalSource>> {
+        let sources = sqlx::query_as::<_, AnimalSource>(
+            "SELECT * FROM animal_sources WHERE is_active = true ORDER BY sort_order"
         )
         .fetch_all(pool)
         .await?;
@@ -23,11 +23,11 @@ impl AnimalService {
         Ok(sources)
     }
 
-    /// 建立豬隻來源
-    pub async fn create_source(pool: &PgPool, req: &CreatePigSourceRequest) -> Result<PigSource> {
-        let source = sqlx::query_as::<_, PigSource>(
+    /// 建立動物來源
+    pub async fn create_source(pool: &PgPool, req: &CreateAnimalSourceRequest) -> Result<AnimalSource> {
+        let source = sqlx::query_as::<_, AnimalSource>(
             r#"
-            INSERT INTO pig_sources (id, code, name, address, contact, phone, is_active, sort_order, created_at, updated_at)
+            INSERT INTO animal_sources (id, code, name, address, contact, phone, is_active, sort_order, created_at, updated_at)
             VALUES ($1, $2, $3, $4, $5, $6, true, 0, NOW(), NOW())
             RETURNING *
             "#
@@ -44,11 +44,11 @@ impl AnimalService {
         Ok(source)
     }
 
-    /// 更新豬隻來源
-    pub async fn update_source(pool: &PgPool, id: Uuid, req: &UpdatePigSourceRequest) -> Result<PigSource> {
-        let source = sqlx::query_as::<_, PigSource>(
+    /// 更新動物來源
+    pub async fn update_source(pool: &PgPool, id: Uuid, req: &UpdateAnimalSourceRequest) -> Result<AnimalSource> {
+        let source = sqlx::query_as::<_, AnimalSource>(
             r#"
-            UPDATE pig_sources SET
+            UPDATE animal_sources SET
                 name = COALESCE($2, name),
                 address = COALESCE($3, address),
                 contact = COALESCE($4, contact),
@@ -73,9 +73,9 @@ impl AnimalService {
         Ok(source)
     }
 
-    /// 刪除（停用）豬隻來源
+    /// 刪除（停用）動物來源
     pub async fn delete_source(pool: &PgPool, id: Uuid) -> Result<()> {
-        sqlx::query("UPDATE pig_sources SET is_active = false, updated_at = NOW() WHERE id = $1")
+        sqlx::query("UPDATE animal_sources SET is_active = false, updated_at = NOW() WHERE id = $1")
             .bind(id)
             .execute(pool)
             .await?;

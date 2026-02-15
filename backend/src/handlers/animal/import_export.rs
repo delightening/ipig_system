@@ -1,4 +1,4 @@
-// 匯入匯出 Handlers
+﻿// 匯入匯出 Handlers
 
 use axum::{
     body::Body,
@@ -11,38 +11,38 @@ use uuid::Uuid;
 
 use crate::{
     middleware::CurrentUser,
-    models::{ExportRequest, ImportResult, PigImportBatch},
+    models::{ExportRequest, ImportResult, AnimalImportBatch},
     require_permission,
     services::{AnimalService, AuditService, PdfService},
     AppError, AppState, Result,
 };
 use axum::extract::Multipart;
 
-/// 匯出豬的醫療資料
-pub async fn export_pig_medical_data(
+/// 匯出動物的醫療資料
+pub async fn export_animal_medical_data(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(pig_id): Path<Uuid>,
+    Path(animal_id): Path<Uuid>,
     Json(req): Json<ExportRequest>,
 ) -> Result<Response> {
     require_permission!(current_user, "animal.export.medical");
     
-    let data = AnimalService::get_pig_medical_data(&state.db, pig_id).await?;
+    let data = AnimalService::get_animal_medical_data(&state.db, animal_id).await?;
     let _record = AnimalService::create_export_record(
-        &state.db, Some(pig_id), None, req.export_type, req.format, None, current_user.id,
+        &state.db, Some(animal_id), None, req.export_type, req.format, None, current_user.id,
     ).await?;
 
-    let export_display = match AnimalService::get_by_id(&state.db, pig_id).await {
-        Ok(pig) => {
-            let iacuc = pig.iacuc_no.as_deref().unwrap_or("未指派");
-            format!("[{}] {}", iacuc, pig.ear_tag)
+    let export_display = match AnimalService::get_by_id(&state.db, animal_id).await {
+        Ok(animal) => {
+            let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
+            format!("[{}] {}", iacuc, animal.ear_tag)
         }
-        _ => format!("匯出醫療資料 (pig: {})", pig_id),
+        _ => format!("匯出醫療資料 (animal: {})", animal_id),
     };
 
     if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ANIMAL", "MEDICAL_EXPORT",
-        Some("pig"), Some(pig_id), Some(&export_display), None,
+        &state.db, current_user.id, "ANIMAL", "EXPORT_MEDICAL",
+        Some("animal"), Some(animal_id), Some(&export_display), None,
         Some(serde_json::json!({ "format": format!("{:?}", req.format), "export_type": format!("{:?}", req.export_type) })),
         None, None,
     ).await {
@@ -52,7 +52,7 @@ pub async fn export_pig_medical_data(
     match req.format {
         crate::models::ExportFormat::Pdf => {
             let pdf_bytes = PdfService::generate_medical_pdf(&data)?;
-            let filename = format!("medical_record_{}.pdf", pig_id);
+            let filename = format!("medical_record_{}.pdf", animal_id);
             Ok(Response::builder()
                 .status(StatusCode::OK)
                 .header(header::CONTENT_TYPE, "application/pdf")
@@ -113,13 +113,13 @@ pub async fn export_project_medical_data(
 pub async fn list_import_batches(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-) -> Result<Json<Vec<PigImportBatch>>> {
+) -> Result<Json<Vec<AnimalImportBatch>>> {
     require_permission!(current_user, "animal.animal.import");
     let batches = AnimalService::list_import_batches(&state.db, 50).await?;
     Ok(Json(batches))
 }
 
-/// 下載豬基礎資料匯入範本
+/// 下載動物基礎資料匯入範本
 pub async fn download_basic_import_template(
     Extension(current_user): Extension<CurrentUser>,
     Query(params): Query<std::collections::HashMap<String, String>>,
@@ -127,9 +127,9 @@ pub async fn download_basic_import_template(
     require_permission!(current_user, "animal.animal.import");
     let format = params.get("format").map(|s| s.as_str()).unwrap_or("xlsx");
     let (data, filename, content_type) = if format == "csv" {
-        (AnimalService::generate_basic_import_template_csv()?, "pig_basic_import_template.csv", "text/csv; charset=utf-8")
+        (AnimalService::generate_basic_import_template_csv()?, "animal_basic_import_template.csv", "text/csv; charset=utf-8")
     } else {
-        (AnimalService::generate_basic_import_template()?, "pig_basic_import_template.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        (AnimalService::generate_basic_import_template()?, "animal_basic_import_template.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     };
     Ok(Response::builder()
         .status(StatusCode::OK)
@@ -139,7 +139,7 @@ pub async fn download_basic_import_template(
         .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))?)
 }
 
-/// 下載豬體重匯入範本
+/// 下載動物體重匯入範本
 pub async fn download_weight_import_template(
     Extension(current_user): Extension<CurrentUser>,
     Query(params): Query<std::collections::HashMap<String, String>>,
@@ -147,9 +147,9 @@ pub async fn download_weight_import_template(
     require_permission!(current_user, "animal.animal.import");
     let format = params.get("format").map(|s| s.as_str()).unwrap_or("xlsx");
     let (data, filename, content_type) = if format == "csv" {
-        (AnimalService::generate_weight_import_template_csv()?, "pig_weight_import_template.csv", "text/csv; charset=utf-8")
+        (AnimalService::generate_weight_import_template_csv()?, "animal_weight_import_template.csv", "text/csv; charset=utf-8")
     } else {
-        (AnimalService::generate_weight_import_template()?, "pig_weight_import_template.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        (AnimalService::generate_weight_import_template()?, "animal_weight_import_template.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     };
     Ok(Response::builder()
         .status(StatusCode::OK)
@@ -159,7 +159,7 @@ pub async fn download_weight_import_template(
         .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))?)
 }
 
-/// 匯入豬基礎資料
+/// 匯入動物基礎資料
 pub async fn import_basic_data(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -169,18 +169,18 @@ pub async fn import_basic_data(
     let (file_data, file_name) = parse_import_file(&mut multipart).await?;
     let result = AnimalService::import_basic_data(&state.db, &file_data, &file_name, current_user.id).await?;
     if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ANIMAL", "PIG_IMPORT",
-        Some("pig"), None,
-        Some(&format!("匯入豬基礎資料: {} (成功: {}, 失敗: {})", file_name, result.success_count, result.error_count)),
+        &state.db, current_user.id, "ANIMAL", "ANIMAL_IMPORT",
+        Some("animal"), None,
+        Some(&format!("匯入動物基礎資料: {} (成功: {}, 失敗: {})", file_name, result.success_count, result.error_count)),
         None, Some(serde_json::json!({"file_name": file_name, "success_count": result.success_count, "error_count": result.error_count})),
         None, None,
     ).await {
-        tracing::error!("寫入 user_activity_logs 失敗 (PIG_IMPORT): {}", e);
+        tracing::error!("寫入 user_activity_logs 失敗 (ANIMAL_IMPORT): {}", e);
     }
     Ok(Json(result))
 }
 
-/// 匯入豬體重資料
+/// 匯入動物體重資料
 pub async fn import_weight_data(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -191,7 +191,7 @@ pub async fn import_weight_data(
     let result = AnimalService::import_weight_data(&state.db, &file_data, &file_name, current_user.id).await?;
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "WEIGHT_IMPORT",
-        Some("pig_weight"), None,
+        Some("animal_weight"), None,
         Some(&format!("匯入體重資料: {} (成功: {}, 失敗: {})", file_name, result.success_count, result.error_count)),
         None, Some(serde_json::json!({"file_name": file_name, "success_count": result.success_count, "error_count": result.error_count})),
         None, None,

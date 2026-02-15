@@ -1,10 +1,10 @@
-use sqlx::PgPool;
+﻿use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::AnimalService;
 use crate::{
     models::{
-        BloodTestTemplate, BloodTestListItem, PigBloodTest, PigBloodTestItem, PigBloodTestWithItems,
+        BloodTestTemplate, BloodTestListItem, AnimalBloodTest, AnimalBloodTestItem, AnimalBloodTestWithItems,
         CreateBloodTestRequest, UpdateBloodTestRequest,
         CreateBloodTestTemplateRequest, UpdateBloodTestTemplateRequest,
         BloodTestPanel, BloodTestPanelWithItems,
@@ -20,25 +20,25 @@ impl AnimalService {
     // ============================================
 
     /// 列出血液檢查紀錄
-    pub async fn list_blood_tests(pool: &PgPool, pig_id: Uuid) -> Result<Vec<BloodTestListItem>> {
+    pub async fn list_blood_tests(pool: &PgPool, animal_id: Uuid) -> Result<Vec<BloodTestListItem>> {
         let tests = sqlx::query_as::<_, BloodTestListItem>(
             r#"
             SELECT 
-                bt.id, bt.pig_id, bt.test_date, bt.lab_name, bt.status,
+                bt.id, bt.animal_id, bt.test_date, bt.lab_name, bt.status,
                 bt.remark, bt.vet_read, bt.created_at,
                 u.display_name as created_by_name,
                 COUNT(bti.id) as item_count,
                 COUNT(CASE WHEN bti.is_abnormal THEN 1 END) as abnormal_count
-            FROM pig_blood_tests bt
-            LEFT JOIN pig_blood_test_items bti ON bti.blood_test_id = bt.id
+            FROM animal_blood_tests bt
+            LEFT JOIN animal_blood_test_items bti ON bti.blood_test_id = bt.id
             LEFT JOIN users u ON u.id = bt.created_by
-            WHERE bt.pig_id = $1 AND bt.is_deleted = false
-            GROUP BY bt.id, bt.pig_id, bt.test_date, bt.lab_name, bt.status,
+            WHERE bt.animal_id = $1 AND bt.is_deleted = false
+            GROUP BY bt.id, bt.animal_id, bt.test_date, bt.lab_name, bt.status,
                      bt.remark, bt.vet_read, bt.created_at, u.display_name
             ORDER BY bt.test_date DESC, bt.created_at DESC
             "#
         )
-        .bind(pig_id)
+        .bind(animal_id)
         .fetch_all(pool)
         .await?;
 
@@ -46,17 +46,17 @@ impl AnimalService {
     }
 
     /// 取得單筆血液檢查（含明細項目）
-    pub async fn get_blood_test_by_id(pool: &PgPool, id: Uuid) -> Result<PigBloodTestWithItems> {
-        let blood_test = sqlx::query_as::<_, PigBloodTest>(
-            "SELECT * FROM pig_blood_tests WHERE id = $1 AND is_deleted = false"
+    pub async fn get_blood_test_by_id(pool: &PgPool, id: Uuid) -> Result<AnimalBloodTestWithItems> {
+        let blood_test = sqlx::query_as::<_, AnimalBloodTest>(
+            "SELECT * FROM animal_blood_tests WHERE id = $1 AND is_deleted = false"
         )
         .bind(id)
         .fetch_optional(pool)
         .await?
         .ok_or_else(|| AppError::NotFound("血液檢查紀錄不存在".to_string()))?;
 
-        let items = sqlx::query_as::<_, PigBloodTestItem>(
-            "SELECT * FROM pig_blood_test_items WHERE blood_test_id = $1 ORDER BY sort_order, created_at"
+        let items = sqlx::query_as::<_, AnimalBloodTestItem>(
+            "SELECT * FROM animal_blood_test_items WHERE blood_test_id = $1 ORDER BY sort_order, created_at"
         )
         .bind(id)
         .fetch_all(pool)
@@ -71,7 +71,7 @@ impl AnimalService {
             None
         };
 
-        Ok(PigBloodTestWithItems {
+        Ok(AnimalBloodTestWithItems {
             blood_test,
             items,
             created_by_name,
@@ -81,19 +81,19 @@ impl AnimalService {
     /// 建立血液檢查
     pub async fn create_blood_test(
         pool: &PgPool,
-        pig_id: Uuid,
+        animal_id: Uuid,
         req: &CreateBloodTestRequest,
         created_by: Uuid,
-    ) -> Result<PigBloodTestWithItems> {
+    ) -> Result<AnimalBloodTestWithItems> {
         // 建立主表
-        let blood_test = sqlx::query_as::<_, PigBloodTest>(
+        let blood_test = sqlx::query_as::<_, AnimalBloodTest>(
             r#"
-            INSERT INTO pig_blood_tests (pig_id, test_date, lab_name, remark, status, created_by, created_at, updated_at)
+            INSERT INTO animal_blood_tests (animal_id, test_date, lab_name, remark, status, created_by, created_at, updated_at)
             VALUES ($1, $2, $3, $4, 'completed', $5, NOW(), NOW())
             RETURNING *
             "#
         )
-        .bind(pig_id)
+        .bind(animal_id)
         .bind(req.test_date)
         .bind(&req.lab_name)
         .bind(&req.remark)
@@ -104,9 +104,9 @@ impl AnimalService {
         // 建立明細項目
         let mut items = Vec::new();
         for item_input in &req.items {
-            let item = sqlx::query_as::<_, PigBloodTestItem>(
+            let item = sqlx::query_as::<_, AnimalBloodTestItem>(
                 r#"
-                INSERT INTO pig_blood_test_items 
+                INSERT INTO animal_blood_test_items 
                     (blood_test_id, template_id, item_name, result_value, result_unit, reference_range, is_abnormal, remark, sort_order, created_at)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
                 RETURNING *
@@ -131,7 +131,7 @@ impl AnimalService {
             .fetch_optional(pool)
             .await?;
 
-        Ok(PigBloodTestWithItems {
+        Ok(AnimalBloodTestWithItems {
             blood_test,
             items,
             created_by_name,
@@ -143,10 +143,10 @@ impl AnimalService {
         pool: &PgPool,
         id: Uuid,
         req: &UpdateBloodTestRequest,
-    ) -> Result<PigBloodTestWithItems> {
-        let _blood_test = sqlx::query_as::<_, PigBloodTest>(
+    ) -> Result<AnimalBloodTestWithItems> {
+        let _blood_test = sqlx::query_as::<_, AnimalBloodTest>(
             r#"
-            UPDATE pig_blood_tests SET
+            UPDATE animal_blood_tests SET
                 test_date = COALESCE($2, test_date),
                 lab_name = COALESCE($3, lab_name),
                 remark = COALESCE($4, remark),
@@ -166,7 +166,7 @@ impl AnimalService {
         // 如果提供了 items，覆蓋更新
         if let Some(ref new_items) = req.items {
             // 刪除舊項目
-            sqlx::query("DELETE FROM pig_blood_test_items WHERE blood_test_id = $1")
+            sqlx::query("DELETE FROM animal_blood_test_items WHERE blood_test_id = $1")
                 .bind(id)
                 .execute(pool)
                 .await?;
@@ -175,7 +175,7 @@ impl AnimalService {
             for item_input in new_items {
                 sqlx::query(
                     r#"
-                    INSERT INTO pig_blood_test_items 
+                    INSERT INTO animal_blood_test_items 
                         (blood_test_id, template_id, item_name, result_value, result_unit, reference_range, is_abnormal, remark, sort_order, created_at)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
                     "#
@@ -207,7 +207,7 @@ impl AnimalService {
     ) -> Result<()> {
         let result = sqlx::query(
             r#"
-            UPDATE pig_blood_tests SET
+            UPDATE animal_blood_tests SET
                 is_deleted = true,
                 deleted_at = NOW(),
                 deleted_by = $2,

@@ -1,4 +1,4 @@
-use sqlx::PgPool;
+﻿use sqlx::PgPool;
 use uuid::Uuid;
 use calamine::{Reader, Xlsx, Xls, open_workbook_from_rs, Data};
 use std::io::Cursor;
@@ -6,9 +6,9 @@ use std::io::Cursor;
 use super::AnimalService;
 use crate::{
     models::{
-        ImportResult, ImportErrorDetail, PigImportRow, WeightImportRow,
-        PigBreed, PigGender, ImportType,
-        PigSource, CreatePigRequest, UpdatePigRequest, CreateWeightRequest,
+        ImportResult, ImportErrorDetail, AnimalImportRow, WeightImportRow,
+        AnimalBreed, AnimalGender, ImportType,
+        AnimalSource, CreateAnimalRequest, UpdateAnimalRequest, CreateWeightRequest,
     },
     AppError, Result,
 };
@@ -19,7 +19,7 @@ impl AnimalService {
     // 模板生成功能
     // ============================================
 
-    /// 生成豬隻基本資料匯入模板
+    /// 生成動物基本資料匯入模板
     pub fn generate_basic_import_template() -> Result<Vec<u8>> {
         use rust_xlsxwriter::{Format, FormatAlign, Workbook};
 
@@ -81,7 +81,7 @@ impl AnimalService {
         Ok(buffer)
     }
 
-    /// 生成豬隻體重匯入模板
+    /// 生成動物體重匯入模板
     pub fn generate_weight_import_template() -> Result<Vec<u8>> {
         use rust_xlsxwriter::{Format, FormatAlign, Workbook};
 
@@ -125,7 +125,7 @@ impl AnimalService {
         Ok(buffer)
     }
 
-    /// 生成豬隻基本資料匯入 CSV 模板
+    /// 生成動物基本資料匯入 CSV 模板
     pub fn generate_basic_import_template_csv() -> Result<Vec<u8>> {
         // 優先讀取專案根目錄下的 file imput.csv
         // 在 Docker 或 生產環境中可能需要調整路徑，此處先嘗試相對路徑
@@ -171,7 +171,7 @@ impl AnimalService {
         })
     }
 
-    /// 生成豬隻體重匯入 CSV 模板
+    /// 生成動物體重匯入 CSV 模板
     pub fn generate_weight_import_template_csv() -> Result<Vec<u8>> {
         let mut wtr = csv::Writer::from_writer(vec![]);
         
@@ -199,7 +199,7 @@ impl AnimalService {
     // 檔案匯入處理
     // ============================================
 
-    /// 匯入豬隻基本資料
+    /// 匯入動物基本資料
     pub async fn import_basic_data(
         pool: &PgPool,
         file_data: &[u8],
@@ -230,7 +230,7 @@ impl AnimalService {
         // 建立匯入批次記錄
         let batch = Self::create_import_batch(
             pool,
-            ImportType::PigBasic,
+            ImportType::AnimalBasic,
             file_name,
             rows.len() as i32,
             created_by,
@@ -270,23 +270,23 @@ impl AnimalService {
 
             // 驗證品種（保存原始值用於 breed_other）
             let (breed, raw_breed_other) = match row.breed.to_lowercase().as_str() {
-                "minipig" | "miniature" | "mini" | "m" | "迷你豬" | "迷你" => (PigBreed::Minipig, None),
-                "white" | "w" | "白豬" | "大白豬" => (PigBreed::White, None),
+                "minipig" | "miniature" | "mini" | "m" | "迷你豬" | "迷你" => (AnimalBreed::Minipig, None),
+                "white" | "w" | "白豬" | "大白豬" => (AnimalBreed::White, None),
                 _ => {
                     // 非標準品種，將原始值保存到 breed_other
                     let trimmed = row.breed.trim().to_string();
                     if trimmed.is_empty() {
-                        (PigBreed::Other, None)
+                        (AnimalBreed::Other, None)
                     } else {
-                        (PigBreed::Other, Some(trimmed))
+                        (AnimalBreed::Other, Some(trimmed))
                     }
                 }
             };
 
             // 驗證性別
             let gender = match row.gender.to_lowercase().as_str() {
-                "male" | "m" | "公" | "公豬" => PigGender::Male,
-                "female" | "f" | "母" | "母豬" => PigGender::Female,
+                "male" | "m" | "公" | "公豬" => AnimalGender::Male,
+                "female" | "f" | "母" | "母豬" => AnimalGender::Female,
                 _ => {
                     errors.push(ImportErrorDetail {
                         row: row_number,
@@ -355,8 +355,8 @@ impl AnimalService {
             // 查找來源 ID（如果有提供 source_code）
             let source_id = if let Some(ref code) = row.source_code {
                 if !code.is_empty() {
-                    let source = sqlx::query_as::<_, PigSource>(
-                        "SELECT * FROM pig_sources WHERE code = $1 AND is_active = true"
+                    let source = sqlx::query_as::<_, AnimalSource>(
+                        "SELECT * FROM animal_sources WHERE code = $1 AND is_active = true"
                     )
                     .bind(code)
                     .fetch_optional(pool)
@@ -376,9 +376,9 @@ impl AnimalService {
                 row.ear_tag.clone()
             };
 
-            // 檢查耳號是否已存在（僅檢查未刪除的豬隻）
+            // 檢查耳號是否已存在（僅檢查未刪除的動物）
             let existing = sqlx::query_scalar::<_, Uuid>(
-                "SELECT id FROM pigs WHERE ear_tag = $1 AND deleted_at IS NULL"
+                "SELECT id FROM animals WHERE ear_tag = $1 AND deleted_at IS NULL"
             )
             .bind(&formatted_ear_tag)
             .fetch_optional(pool)
@@ -417,7 +417,7 @@ impl AnimalService {
 
             // 處理品種其他（當 breed 為 Other 時使用）
             // 優先使用從 CSV 欄位解析出的非標準品種值，若沒有則使用明確的 breed_other 欄位
-            let breed_other = if matches!(breed, PigBreed::Other) {
+            let breed_other = if matches!(breed, AnimalBreed::Other) {
                 raw_breed_other.or_else(|| {
                     row.breed_other.clone().and_then(|s| {
                         let trimmed = s.trim().to_string();
@@ -432,8 +432,8 @@ impl AnimalService {
                 None
             };
 
-            // 建立豬隻資料
-            let create_req = CreatePigRequest {
+            // 建立動物資料
+            let create_req = CreateAnimalRequest {
                 ear_tag: formatted_ear_tag.clone(),
                 breed,
                 breed_other,
@@ -449,15 +449,15 @@ impl AnimalService {
             };
 
             match Self::create(pool, &create_req, created_by).await {
-                Ok(pig) => {
+                Ok(animal) => {
                     // 如果有計畫編號，更新它
                     if let Some(ref iacuc) = row.iacuc_no {
                         if !iacuc.is_empty() {
-                            if let Err(e) = Self::update(pool, pig.id, &UpdatePigRequest {
+                            if let Err(e) = Self::update(pool, animal.id, &UpdateAnimalRequest {
                                 iacuc_no: Some(iacuc.clone()),
                                 ..Default::default()
                             }, created_by).await {
-                                tracing::warn!("更新豬隻資料失敗: {e}");
+                                tracing::warn!("更新動物資料失敗: {e}");
                             }
 
                         }
@@ -531,7 +531,7 @@ impl AnimalService {
         // 建立匯入批次記錄
         let batch = Self::create_import_batch(
             pool,
-            ImportType::PigWeight,
+            ImportType::AnimalWeight,
             file_name,
             rows.len() as i32,
             created_by,
@@ -591,21 +591,21 @@ impl AnimalService {
                 row.ear_tag.clone()
             };
 
-            // 查找豬隻（僅查找未刪除的豬隻）
-            let pig = sqlx::query_scalar::<_, Uuid>(
-                "SELECT id FROM pigs WHERE ear_tag = $1 AND deleted_at IS NULL"
+            // 查找動物（僅查找未刪除的動物）
+            let animal_id_result = sqlx::query_scalar::<_, Uuid>(
+                "SELECT id FROM animals WHERE ear_tag = $1 AND deleted_at IS NULL"
             )
             .bind(&formatted_ear_tag)
             .fetch_optional(pool)
             .await?;
 
-            let pig_id = match pig {
+            let animal_id = match animal_id_result {
                 Some(id) => id,
                 None => {
                     errors.push(ImportErrorDetail {
                         row: row_number,
                         ear_tag: Some(row.ear_tag.clone()),
-                        error: "找不到對應的豬隻".to_string(),
+                        error: "找不到對應的動物".to_string(),
                     });
                     error_count += 1;
                     continue;
@@ -621,7 +621,7 @@ impl AnimalService {
                 weight: weight_decimal,
             };
 
-            match Self::create_weight(pool, pig_id, &create_req, created_by).await {
+            match Self::create_weight(pool, animal_id, &create_req, created_by).await {
                 Ok(_) => {
                     success_count += 1;
                 }
@@ -662,7 +662,7 @@ impl AnimalService {
     }
 
     /// 解析 Excel 檔案（基本資料）
-    fn parse_excel_file(file_data: &[u8]) -> Result<Vec<PigImportRow>> {
+    fn parse_excel_file(file_data: &[u8]) -> Result<Vec<AnimalImportRow>> {
         let range = {
             let cursor = Cursor::new(file_data);
             if let Ok(mut wb) = open_workbook_from_rs::<Xlsx<_>, _>(cursor) {
@@ -728,7 +728,7 @@ impl AnimalService {
                 continue;
             }
 
-            rows.push(PigImportRow {
+            rows.push(AnimalImportRow {
                 ear_tag,
                 breed,
                 breed_other,
@@ -750,7 +750,7 @@ impl AnimalService {
     }
 
     /// 解析 CSV 檔案（基本資料）
-    fn parse_csv_file(file_data: &[u8]) -> Result<Vec<PigImportRow>> {
+    fn parse_csv_file(file_data: &[u8]) -> Result<Vec<AnimalImportRow>> {
         let content = String::from_utf8_lossy(file_data);
         let mut reader = csv::ReaderBuilder::new()
             .trim(csv::Trim::All)
@@ -759,7 +759,7 @@ impl AnimalService {
         let mut rows = Vec::new();
 
         let mut row_idx = 1;
-        for result in reader.deserialize::<PigImportRow>() {
+        for result in reader.deserialize::<AnimalImportRow>() {
             row_idx += 1;
             match result {
                 Ok(row) => {

@@ -33,7 +33,6 @@ const MODULE_CONFIG: Record<string, { name: string; order: number }> = {
   amendment: { name: '動物使用計畫', order: 1 },
 
   // 動物管理（含物種管理、動物來源、緊急給藥等）
-  pig: { name: '動物管理', order: 2 },
   animal: { name: '動物管理', order: 2 },
   species: { name: '動物管理', order: 2 },
   record: { name: '動物管理', order: 2 },
@@ -97,16 +96,12 @@ const CATEGORY_NAMES: Record<string, Record<string, string>> = {
     attachment: '附件',
     version: '版本',
   },
-  pig: {
-    pig: '動物',
+  animal: {
+    animal: '動物',
     record: '紀錄',
     vet: '獸醫',
     export: '匯出',
     pathology: '病理',
-    source: '來源',
-  },
-  animal: {
-    record: '紀錄',
     source: '來源',
   },
   erp: {
@@ -417,7 +412,7 @@ function getPermissionCategory(code: string): string {
   // For simple module.action permissions (2 parts), use module as category
   // e.g., species.create -> category 'species' (same as module)
   // For complex module.entity.action permissions (3+ parts), use entity as category
-  // e.g., pig.record.create -> category 'record'
+  // e.g., animal.record.create -> category 'record'
   let category: string
   if (parts.length === 2) {
     category = parts[0]

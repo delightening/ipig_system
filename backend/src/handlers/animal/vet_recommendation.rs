@@ -1,4 +1,4 @@
-// 獸醫建議管理 Handlers
+﻿// 獸醫建議管理 Handlers
 
 use axum::{
     extract::{Path, State},
@@ -18,7 +18,7 @@ use crate::{
     AppError, AppState, Result,
 };
 
-use super::{get_pig_info_from_observation, get_pig_info_from_surgery};
+use super::{get_animal_info_from_observation, get_animal_info_from_surgery};
 
 /// 為觀察記錄新增獸醫建議
 pub async fn add_observation_vet_recommendation(
@@ -33,11 +33,11 @@ pub async fn add_observation_vet_recommendation(
     let recommendation = AnimalService::add_vet_recommendation(&state.db, VetRecordType::Observation, id, &req, current_user.id).await?;
     
     // 發送通知給 PI/Coeditor
-    if let Ok(Some((pig_id, ear_tag, protocol_id))) = get_pig_info_from_observation(&state.db, id).await {
+    if let Ok(Some((animal_id, ear_tag, protocol_id))) = get_animal_info_from_observation(&state.db, id).await {
         let notification_service = crate::services::NotificationService::new(state.db.clone());
         let record_type_str = "觀察紀錄";
         if let Err(e) = notification_service.notify_vet_recommendation(
-            pig_id,
+            animal_id,
             &ear_tag,
             protocol_id,
             record_type_str,
@@ -78,11 +78,11 @@ pub async fn add_surgery_vet_recommendation(
     let recommendation = AnimalService::add_vet_recommendation(&state.db, VetRecordType::Surgery, id, &req, current_user.id).await?;
     
     // 發送通知給 PI/Coeditor
-    if let Ok(Some((pig_id, ear_tag, protocol_id))) = get_pig_info_from_surgery(&state.db, id).await {
+    if let Ok(Some((animal_id, ear_tag, protocol_id))) = get_animal_info_from_surgery(&state.db, id).await {
         let notification_service = crate::services::NotificationService::new(state.db.clone());
         let record_type_str = "手術紀錄";
         if let Err(e) = notification_service.notify_vet_recommendation(
-            pig_id,
+            animal_id,
             &ear_tag,
             protocol_id,
             record_type_str,
@@ -123,11 +123,11 @@ pub async fn add_observation_vet_recommendation_with_attachments(
     let recommendation = AnimalService::add_vet_recommendation_with_attachments(&state.db, VetRecordType::Observation, id, &req, current_user.id).await?;
     
     // 發送通知給 PI/Coeditor
-    if let Ok(Some((pig_id, ear_tag, protocol_id))) = get_pig_info_from_observation(&state.db, id).await {
+    if let Ok(Some((animal_id, ear_tag, protocol_id))) = get_animal_info_from_observation(&state.db, id).await {
         let notification_service = crate::services::NotificationService::new(state.db.clone());
         let record_type_str = "觀察紀錄";
         if let Err(e) = notification_service.notify_vet_recommendation(
-            pig_id,
+            animal_id,
             &ear_tag,
             protocol_id,
             record_type_str,
@@ -168,11 +168,11 @@ pub async fn add_surgery_vet_recommendation_with_attachments(
     let recommendation = AnimalService::add_vet_recommendation_with_attachments(&state.db, VetRecordType::Surgery, id, &req, current_user.id).await?;
     
     // 發送通知給 PI/Coeditor
-    if let Ok(Some((pig_id, ear_tag, protocol_id))) = get_pig_info_from_surgery(&state.db, id).await {
+    if let Ok(Some((animal_id, ear_tag, protocol_id))) = get_animal_info_from_surgery(&state.db, id).await {
         let notification_service = crate::services::NotificationService::new(state.db.clone());
         let record_type_str = "手術紀錄";
         if let Err(e) = notification_service.notify_vet_recommendation(
-            pig_id,
+            animal_id,
             &ear_tag,
             protocol_id,
             record_type_str,

@@ -15,7 +15,7 @@ impl EmailService {
             return Ok(());
         }
         let smtp_host = config.smtp_host.as_ref().unwrap();
-        let pigs_url = format!("{}/pigs", config.app_url);
+        let animals_url = format!("{}/animals", config.app_url);
         let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 
         let (header_bg, header_icon, urgency_note) = if is_urgent {
@@ -52,7 +52,7 @@ impl EmailService {
         <div class="content">
             <p>親愛的 <strong>{display_name}</strong>，您好！</p>
             {urgency_note}
-            <p>獸醫師已對以下豬隻新增照護建議，請查閱並執行。</p>
+            <p>獸醫師已對以下動物新增照護建議，請查閱並執行。</p>
             <div class="info-box">
                 <p><strong>耳號：</strong> {ear_tag}</p>
                 <p><strong>IACUC NO.：</strong> {iacuc_no}</p>
@@ -62,7 +62,7 @@ impl EmailService {
                 <p><strong>建議內容：</strong></p>
                 <p>{recommendation_content}</p>
             </div>
-            <center><a href="{pigs_url}" class="button">登入系統查看</a></center>
+            <center><a href="{animals_url}" class="button">登入系統查看</a></center>
         </div>
         <div class="footer">
             <p>此信件由系統自動發送，請勿直接回覆。</p>
@@ -75,7 +75,7 @@ impl EmailService {
             urgency_note = urgency_note, display_name = display_name,
             ear_tag = ear_tag, iacuc_no = iacuc_no.unwrap_or("-"),
             record_type = record_type, recommendation_content = recommendation_content,
-            pigs_url = pigs_url, logo_url = logo_url,
+            animals_url = animals_url, logo_url = logo_url,
         );
 
         let urgency_prefix = if is_urgent { "[緊急] " } else { "" };
@@ -86,9 +86,9 @@ impl EmailService {
 
 親愛的 {display_name}，您好！
 
-{plain_urgency}獸醫師已對以下豬隻新增照護建議，請查閱並執行。
+{plain_urgency}獸醫師已對以下動物新增照護建議，請查閱並執行。
 
-【豬隻資訊】
+【動物資訊】
 耳號：{ear_tag}
 IACUC NO.：{iacuc_no}
 紀錄類型：{record_type}
@@ -96,14 +96,14 @@ IACUC NO.：{iacuc_no}
 【建議內容】
 {recommendation_content}
 
-請登入系統查看：{pigs_url}
+請登入系統查看：{animals_url}
 
 此信件由系統自動發送，請勿直接回覆。
 © 2026 豬博士動物科技有限公司"#,
             display_name = display_name, plain_urgency = plain_urgency,
             ear_tag = ear_tag, iacuc_no = iacuc_no.unwrap_or("-"),
             record_type = record_type, recommendation_content = recommendation_content,
-            pigs_url = pigs_url,
+            animals_url = animals_url,
         );
 
         Self::send_email(config, smtp_host, to_email, display_name,
@@ -268,7 +268,7 @@ IACUC NO.：{iacuc_no}
             return Ok(());
         }
         let smtp_host = config.smtp_host.as_ref().unwrap();
-        let pigs_url = format!("{}/pigs", config.app_url);
+        let animals_url = format!("{}/animals", config.app_url);
         let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 
         let html_body = format!(
@@ -299,7 +299,7 @@ IACUC NO.：{iacuc_no}
         </div>
         <div class="content">
             <p>親愛的 <strong>{display_name}</strong>，您好！</p>
-            <p class="urgent">您的計畫下的豬隻已被獸醫師開立安樂死單，請儘速處理。</p>
+            <p class="urgent">您的計畫下的動物已被獸醫師開立安樂死單，請儘速處理。</p>
             <div class="info-box">
                 <p><strong>耳號：</strong> {ear_tag}</p>
                 <p><strong>IACUC NO.：</strong> {iacuc_no}</p>
@@ -311,8 +311,8 @@ IACUC NO.：{iacuc_no}
                 <p>系統將於 <strong>24 小時</strong>後自動解鎖執行權限。若您未在期限內回應，獸醫師將可直接執行安樂死。</p>
             </div>
             <center>
-                <a href="{pigs_url}" class="button">同意執行</a>
-                <a href="{pigs_url}" class="button-secondary">申請暫緩</a>
+                <a href="{animals_url}" class="button">同意執行</a>
+                <a href="{animals_url}" class="button-secondary">申請暫緩</a>
             </center>
             <p style="color: #64748b; font-size: 12px; margin-top: 20px;">
                 請登入系統選擇「同意執行」或「申請暫緩」。如有疑問，請聯繫獸醫師或 IACUC 辦公室。
@@ -328,7 +328,7 @@ IACUC NO.：{iacuc_no}
             display_name = display_name, ear_tag = ear_tag,
             iacuc_no = iacuc_no.unwrap_or("-"), vet_name = vet_name,
             reason = reason, deadline = deadline,
-            pigs_url = pigs_url, logo_url = logo_url,
+            animals_url = animals_url, logo_url = logo_url,
         );
 
         let plain_body = format!(
@@ -336,9 +336,9 @@ IACUC NO.：{iacuc_no}
 
 親愛的 {display_name}，您好！
 
-您的計畫下的豬隻已被獸醫師開立安樂死單，請儘速處理。
+您的計畫下的動物已被獸醫師開立安樂死單，請儘速處理。
 
-【豬隻資訊】
+【動物資訊】
 耳號：{ear_tag}
 IACUC NO.：{iacuc_no}
 開單獸醫：{vet_name}
@@ -347,17 +347,17 @@ IACUC NO.：{iacuc_no}
 ⏰ 執行期限：{deadline}
 系統將於 24 小時後自動解鎖執行權限。
 
-請登入系統處理：{pigs_url}
+請登入系統處理：{animals_url}
 
 此信件由系統自動發送，請勿直接回覆。
 © 2026 豬博士動物科技有限公司"#,
             display_name = display_name, ear_tag = ear_tag,
             iacuc_no = iacuc_no.unwrap_or("-"), vet_name = vet_name,
-            reason = reason, deadline = deadline, pigs_url = pigs_url,
+            reason = reason, deadline = deadline, animals_url = animals_url,
         );
 
         Self::send_email(config, smtp_host, to_email, display_name,
-            &format!("[緊急] 豬隻 #{} 安樂死執行通知", ear_tag),
+            &format!("[緊急] 動物 #{} 安樂死執行通知", ear_tag),
             &plain_body, &html_body).await?;
 
         tracing::info!("Euthanasia order email sent to {}", to_email);

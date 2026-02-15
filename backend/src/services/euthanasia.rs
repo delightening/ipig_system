@@ -1,4 +1,4 @@
-use chrono::{Duration, Utc};
+﻿use chrono::{Duration, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -7,7 +7,7 @@ use crate::{
     models::{
         ChairDecisionRequest, CreateEuthanasiaAppealRequest, CreateEuthanasiaOrderRequest,
         EuthanasiaAppeal, EuthanasiaOrder, EuthanasiaOrderResponse,
-        EuthanasiaOrderStatus, PigStatus,
+        EuthanasiaOrderStatus, AnimalStatus,
     },
     services::NotificationService,
 };
@@ -21,22 +21,22 @@ impl EuthanasiaService {
         req: &CreateEuthanasiaOrderRequest,
         vet_user_id: Uuid,
     ) -> Result<EuthanasiaOrder, AppError> {
-        // 查詢豬隻的關聯 PI
-        let pig = sqlx::query!(
+        // 查詢動物的關聯 PI
+        let animal_record = sqlx::query!(
             r#"
             SELECT p.id, p.ear_tag, p.iacuc_no, pr.pi_user_id as "pi_user_id?"
-            FROM pigs p
+            FROM animals p
             LEFT JOIN protocols pr ON p.iacuc_no = pr.iacuc_no
             WHERE p.id = $1 AND p.is_deleted = false
             "#,
-            req.pig_id
+            req.animal_id
         )
         .fetch_optional(pool)
         .await?
-        .ok_or_else(|| AppError::NotFound("找不到指定的豬隻".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("找不到指定的動物".to_string()))?;
 
-        let pi_user_id = pig.pi_user_id.filter(|u| !u.is_nil()).ok_or_else(|| {
-            AppError::BadRequest("該豬隻尚未關聯至任何計畫，無法開立安樂死單".to_string())
+        let pi_user_id = animal_record.pi_user_id.filter(|u| !u.is_nil()).ok_or_else(|| {
+            AppError::BadRequest("該動物尚未關聯至任何計畫，無法開立安樂死單".to_string())
         })?;
 
         // 設定 24 小時後過期
@@ -45,14 +45,14 @@ impl EuthanasiaService {
         let order = sqlx::query_as!(
             EuthanasiaOrder,
             r#"
-            INSERT INTO euthanasia_orders (pig_id, vet_user_id, pi_user_id, reason, deadline_at)
+            INSERT INTO euthanasia_orders (animal_id, vet_user_id, pi_user_id, reason, deadline_at)
             VALUES ($1, $2, $3, $4, $5)
-            RETURNING id, pig_id, vet_user_id, pi_user_id, reason,
+            RETURNING id, animal_id, vet_user_id, pi_user_id, reason,
                       status as "status: EuthanasiaOrderStatus",
                       deadline_at, pi_responded_at, executed_at, executed_by,
                       created_at, updated_at
             "#,
-            req.pig_id,
+            req.animal_id,
             vet_user_id,
             pi_user_id,
             req.reason,
@@ -66,8 +66,8 @@ impl EuthanasiaService {
         if let Err(e) = notification_service
             .notify_euthanasia_order(
                 order.id,
-                &pig.ear_tag,
-                pig.iacuc_no.as_deref(),
+                &animal_record.ear_tag,
+                animal_record.iacuc_no.as_deref(),
                 &req.reason,
                 pi_user_id,
             )
@@ -88,16 +88,16 @@ impl EuthanasiaService {
             EuthanasiaOrderResponse,
             r#"
             SELECT 
-                eo.id, eo.pig_id, eo.vet_user_id, eo.pi_user_id, eo.reason,
+                eo.id, eo.animal_id, eo.vet_user_id, eo.pi_user_id, eo.reason,
                 eo.status as "status: EuthanasiaOrderStatus",
                 eo.deadline_at, eo.pi_responded_at, eo.executed_at, eo.executed_by,
                 eo.created_at, eo.updated_at,
-                p.ear_tag as pig_ear_tag,
-                p.iacuc_no as pig_iacuc_no,
+                p.ear_tag as animal_ear_tag,
+                p.iacuc_no as animal_iacuc_no,
                 uv.display_name as vet_name,
                 up.display_name as pi_name
             FROM euthanasia_orders eo
-            JOIN pigs p ON eo.pig_id = p.id
+            JOIN animals p ON eo.animal_id = p.id
             JOIN users uv ON eo.vet_user_id = uv.id
             JOIN users up ON eo.pi_user_id = up.id
             WHERE eo.id = $1
@@ -120,16 +120,16 @@ impl EuthanasiaService {
             EuthanasiaOrderResponse,
             r#"
             SELECT 
-                eo.id, eo.pig_id, eo.vet_user_id, eo.pi_user_id, eo.reason,
+                eo.id, eo.animal_id, eo.vet_user_id, eo.pi_user_id, eo.reason,
                 eo.status as "status: EuthanasiaOrderStatus",
                 eo.deadline_at, eo.pi_responded_at, eo.executed_at, eo.executed_by,
                 eo.created_at, eo.updated_at,
-                p.ear_tag as pig_ear_tag,
-                p.iacuc_no as pig_iacuc_no,
+                p.ear_tag as animal_ear_tag,
+                p.iacuc_no as animal_iacuc_no,
                 uv.display_name as vet_name,
                 up.display_name as pi_name
             FROM euthanasia_orders eo
-            JOIN pigs p ON eo.pig_id = p.id
+            JOIN animals p ON eo.animal_id = p.id
             JOIN users uv ON eo.vet_user_id = uv.id
             JOIN users up ON eo.pi_user_id = up.id
             WHERE eo.pi_user_id = $1 AND eo.status = 'pending_pi'
@@ -153,7 +153,7 @@ impl EuthanasiaService {
         let order = sqlx::query_as!(
             EuthanasiaOrder,
             r#"
-            SELECT id, pig_id, vet_user_id, pi_user_id, reason,
+            SELECT id, animal_id, vet_user_id, pi_user_id, reason,
                    status as "status: EuthanasiaOrderStatus",
                    deadline_at, pi_responded_at, executed_at, executed_by,
                    created_at, updated_at
@@ -174,7 +174,7 @@ impl EuthanasiaService {
             UPDATE euthanasia_orders
             SET status = 'approved', pi_responded_at = NOW(), updated_at = NOW()
             WHERE id = $1
-            RETURNING id, pig_id, vet_user_id, pi_user_id, reason,
+            RETURNING id, animal_id, vet_user_id, pi_user_id, reason,
                       status as "status: EuthanasiaOrderStatus",
                       deadline_at, pi_responded_at, executed_at, executed_by,
                       created_at, updated_at
@@ -361,7 +361,7 @@ impl EuthanasiaService {
         let order = sqlx::query_as!(
             EuthanasiaOrder,
             r#"
-            SELECT id, pig_id, vet_user_id, pi_user_id, reason,
+            SELECT id, animal_id, vet_user_id, pi_user_id, reason,
                    status as "status: EuthanasiaOrderStatus",
                    deadline_at, pi_responded_at, executed_at, executed_by,
                    created_at, updated_at
@@ -381,7 +381,7 @@ impl EuthanasiaService {
             UPDATE euthanasia_orders
             SET status = 'executed', executed_at = NOW(), executed_by = $1, updated_at = NOW()
             WHERE id = $2
-            RETURNING id, pig_id, vet_user_id, pi_user_id, reason,
+            RETURNING id, animal_id, vet_user_id, pi_user_id, reason,
                       status as "status: EuthanasiaOrderStatus",
                       deadline_at, pi_responded_at, executed_at, executed_by,
                       created_at, updated_at
@@ -392,14 +392,14 @@ impl EuthanasiaService {
         .fetch_one(pool)
         .await?;
 
-        // 更新豬隻狀態為 Completed（已犧牲）
+        // 更新動物狀態為 Completed（已犧牲）
         sqlx::query!(
             r#"
-            UPDATE pigs SET status = $1, updated_at = NOW()
+            UPDATE animals SET status = $1, updated_at = NOW()
             WHERE id = $2
             "#,
-            PigStatus::Completed as PigStatus,
-            order.pig_id
+            AnimalStatus::Completed as AnimalStatus,
+            order.animal_id
         )
         .execute(pool)
         .await?;

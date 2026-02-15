@@ -1,12 +1,12 @@
-use sqlx::PgPool;
+﻿use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::AnimalService;
 use crate::{
     models::{
         CreateSacrificeRequest, CreateVaccinationRequest, CreateVetRecommendationRequest,
-        CreateVetRecommendationWithAttachmentsRequest, Pig, PigExportRecord, PigImportBatch,
-        PigSacrifice, PigVaccination, RecordVersion, UpdateVaccinationRequest, VersionDiff,
+        CreateVetRecommendationWithAttachmentsRequest, Animal, AnimalExportRecord, AnimalImportBatch,
+        AnimalSacrifice, AnimalVaccination, RecordVersion, UpdateVaccinationRequest, VersionDiff,
         VersionHistoryResponse, VetRecommendation, VetRecordType,
         ExportType, ExportFormat, ImportType, ImportStatus,
     }, Result,
@@ -19,11 +19,11 @@ impl AnimalService {
     // ============================================
 
     /// 取得疫苗紀錄列表（排除已刪除）
-    pub async fn list_vaccinations(pool: &PgPool, pig_id: Uuid) -> Result<Vec<PigVaccination>> {
-        let vaccinations = sqlx::query_as::<_, PigVaccination>(
-            "SELECT * FROM pig_vaccinations WHERE pig_id = $1 ORDER BY administered_date DESC"
+    pub async fn list_vaccinations(pool: &PgPool, animal_id: Uuid) -> Result<Vec<AnimalVaccination>> {
+        let vaccinations = sqlx::query_as::<_, AnimalVaccination>(
+            "SELECT * FROM animal_vaccinations WHERE animal_id = $1 ORDER BY administered_date DESC"
         )
-        .bind(pig_id)
+        .bind(animal_id)
         .fetch_all(pool)
         .await?;
 
@@ -32,18 +32,18 @@ impl AnimalService {
 
     pub async fn create_vaccination(
         pool: &PgPool,
-        pig_id: Uuid,
+        animal_id: Uuid,
         req: &CreateVaccinationRequest,
         created_by: Uuid,
-    ) -> Result<PigVaccination> {
-        let vaccination = sqlx::query_as::<_, PigVaccination>(
+    ) -> Result<AnimalVaccination> {
+        let vaccination = sqlx::query_as::<_, AnimalVaccination>(
             r#"
-            INSERT INTO pig_vaccinations (pig_id, administered_date, vaccine, deworming_dose, created_by, created_at)
+            INSERT INTO animal_vaccinations (animal_id, administered_date, vaccine, deworming_dose, created_by, created_at)
             VALUES ($1, $2, $3, $4, $5, NOW())
             RETURNING *
             "#
         )
-        .bind(pig_id)
+        .bind(animal_id)
         .bind(req.administered_date)
         .bind(&req.vaccine)
         .bind(&req.deworming_dose)
@@ -59,10 +59,10 @@ impl AnimalService {
         pool: &PgPool,
         id: Uuid,
         req: &UpdateVaccinationRequest,
-    ) -> Result<PigVaccination> {
-        let vaccination = sqlx::query_as::<_, PigVaccination>(
+    ) -> Result<AnimalVaccination> {
+        let vaccination = sqlx::query_as::<_, AnimalVaccination>(
             r#"
-            UPDATE pig_vaccinations SET
+            UPDATE animal_vaccinations SET
                 administered_date = COALESCE($2, administered_date),
                 vaccine = COALESCE($3, vaccine),
                 deworming_dose = COALESCE($4, deworming_dose)
@@ -82,7 +82,7 @@ impl AnimalService {
 
     /// 刪除疫苗紀錄
     pub async fn soft_delete_vaccination(pool: &PgPool, id: Uuid) -> Result<()> {
-        sqlx::query("DELETE FROM pig_vaccinations WHERE id = $1")
+        sqlx::query("DELETE FROM animal_vaccinations WHERE id = $1")
             .bind(id)
             .execute(pool)
             .await?;
@@ -106,7 +106,7 @@ impl AnimalService {
 
         sqlx::query(
             r#"
-            UPDATE pig_vaccinations SET 
+            UPDATE animal_vaccinations SET 
                 deleted_at = NOW(), 
                 deletion_reason = $2,
                 deleted_by = $3
@@ -126,11 +126,11 @@ impl AnimalService {
     // 犧牲/採樣紀錄
     // ============================================
 
-    pub async fn get_sacrifice(pool: &PgPool, pig_id: Uuid) -> Result<Option<PigSacrifice>> {
-        let sacrifice = sqlx::query_as::<_, PigSacrifice>(
-            "SELECT * FROM pig_sacrifices WHERE pig_id = $1"
+    pub async fn get_sacrifice(pool: &PgPool, animal_id: Uuid) -> Result<Option<AnimalSacrifice>> {
+        let sacrifice = sqlx::query_as::<_, AnimalSacrifice>(
+            "SELECT * FROM animal_sacrifices WHERE animal_id = $1"
         )
-        .bind(pig_id)
+        .bind(animal_id)
         .fetch_optional(pool)
         .await?;
 
@@ -139,19 +139,19 @@ impl AnimalService {
 
     pub async fn upsert_sacrifice(
         pool: &PgPool,
-        pig_id: Uuid,
+        animal_id: Uuid,
         req: &CreateSacrificeRequest,
         created_by: Uuid,
-    ) -> Result<PigSacrifice> {
-        let sacrifice = sqlx::query_as::<_, PigSacrifice>(
+    ) -> Result<AnimalSacrifice> {
+        let sacrifice = sqlx::query_as::<_, AnimalSacrifice>(
             r#"
-            INSERT INTO pig_sacrifices (
-                pig_id, sacrifice_date, zoletil_dose, method_electrocution,
+            INSERT INTO animal_sacrifices (
+                animal_id, sacrifice_date, zoletil_dose, method_electrocution,
                 method_bloodletting, method_other, sampling, sampling_other,
                 blood_volume_ml, confirmed_sacrifice, created_by, created_at, updated_at
             )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
-            ON CONFLICT (pig_id) DO UPDATE SET
+            ON CONFLICT (animal_id) DO UPDATE SET
                 sacrifice_date = EXCLUDED.sacrifice_date,
                 zoletil_dose = EXCLUDED.zoletil_dose,
                 method_electrocution = EXCLUDED.method_electrocution,
@@ -165,7 +165,7 @@ impl AnimalService {
             RETURNING *
             "#
         )
-        .bind(pig_id)
+        .bind(animal_id)
         .bind(req.sacrifice_date)
         .bind(&req.zoletil_dose)
         .bind(req.method_electrocution)
@@ -192,16 +192,16 @@ impl AnimalService {
     // ============================================
 
     /// 標記獸醫師已讀
-    pub async fn mark_vet_read(pool: &PgPool, pig_id: Uuid) -> Result<()> {
+    pub async fn mark_vet_read(pool: &PgPool, animal_id: Uuid) -> Result<()> {
         sqlx::query(
             r#"
-            UPDATE pigs SET
+            UPDATE animals SET
                 vet_last_viewed_at = NOW(),
                 updated_at = NOW()
             WHERE id = $1
             "#
         )
-        .bind(pig_id)
+        .bind(animal_id)
         .execute(pool)
         .await?;
 
@@ -362,10 +362,10 @@ impl AnimalService {
         file_name: &str,
         total_rows: i32,
         created_by: Uuid,
-    ) -> Result<PigImportBatch> {
-        let batch = sqlx::query_as::<_, PigImportBatch>(
+    ) -> Result<AnimalImportBatch> {
+        let batch = sqlx::query_as::<_, AnimalImportBatch>(
             r#"
-            INSERT INTO pig_import_batches (id, import_type, file_name, total_rows, status, created_by, created_at)
+            INSERT INTO animal_import_batches (id, import_type, file_name, total_rows, status, created_by, created_at)
             VALUES ($1, $2, $3, $4, $5, $6, NOW())
             RETURNING *
             "#
@@ -389,16 +389,16 @@ impl AnimalService {
         success_count: i32,
         error_count: i32,
         error_details: Option<serde_json::Value>,
-    ) -> Result<PigImportBatch> {
+    ) -> Result<AnimalImportBatch> {
         let status = if error_count == 0 {
             ImportStatus::Completed
         } else {
             ImportStatus::Completed // 部分成功仍標記為完成
         };
 
-        let batch = sqlx::query_as::<_, PigImportBatch>(
+        let batch = sqlx::query_as::<_, AnimalImportBatch>(
             r#"
-            UPDATE pig_import_batches SET
+            UPDATE animal_import_batches SET
                 success_count = $2,
                 error_count = $3,
                 error_details = $4,
@@ -420,9 +420,9 @@ impl AnimalService {
     }
 
     /// 取得匯入批次列表
-    pub async fn list_import_batches(pool: &PgPool, limit: i32) -> Result<Vec<PigImportBatch>> {
-        let batches = sqlx::query_as::<_, PigImportBatch>(
-            "SELECT * FROM pig_import_batches ORDER BY created_at DESC LIMIT $1"
+    pub async fn list_import_batches(pool: &PgPool, limit: i32) -> Result<Vec<AnimalImportBatch>> {
+        let batches = sqlx::query_as::<_, AnimalImportBatch>(
+            "SELECT * FROM animal_import_batches ORDER BY created_at DESC LIMIT $1"
         )
         .bind(limit)
         .fetch_all(pool)
@@ -438,22 +438,22 @@ impl AnimalService {
     /// 建立匯出記錄
     pub async fn create_export_record(
         pool: &PgPool,
-        pig_id: Option<Uuid>,
+        animal_id: Option<Uuid>,
         iacuc_no: Option<&str>,
         export_type: ExportType,
         export_format: ExportFormat,
         file_path: Option<&str>,
         created_by: Uuid,
-    ) -> Result<PigExportRecord> {
-        let record = sqlx::query_as::<_, PigExportRecord>(
+    ) -> Result<AnimalExportRecord> {
+        let record = sqlx::query_as::<_, AnimalExportRecord>(
             r#"
-            INSERT INTO pig_export_records (id, pig_id, iacuc_no, export_type, export_format, file_path, created_by, created_at)
+            INSERT INTO animal_export_records (id, animal_id, iacuc_no, export_type, export_format, file_path, created_by, created_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
             RETURNING *
             "#
         )
         .bind(Uuid::new_v4())
-        .bind(pig_id)
+        .bind(animal_id)
         .bind(iacuc_no)
         .bind(export_type)
         .bind(export_format)
@@ -465,17 +465,17 @@ impl AnimalService {
         Ok(record)
     }
 
-    /// 取得豬隻完整病歷資料（用於匯出）
-    pub async fn get_pig_medical_data(pool: &PgPool, pig_id: Uuid) -> Result<serde_json::Value> {
-        let pig = Self::get_by_id(pool, pig_id).await?;
-        let observations = Self::list_observations(pool, pig_id).await?;
-        let surgeries = Self::list_surgeries(pool, pig_id).await?;
-        let weights = Self::list_weights(pool, pig_id).await?;
-        let vaccinations = Self::list_vaccinations(pool, pig_id).await?;
-        let sacrifice = Self::get_sacrifice(pool, pig_id).await?;
+    /// 取得動物完整病歷資料（用於匯出）
+    pub async fn get_animal_medical_data(pool: &PgPool, animal_id: Uuid) -> Result<serde_json::Value> {
+        let animal = Self::get_by_id(pool, animal_id).await?;
+        let observations = Self::list_observations(pool, animal_id).await?;
+        let surgeries = Self::list_surgeries(pool, animal_id).await?;
+        let weights = Self::list_weights(pool, animal_id).await?;
+        let vaccinations = Self::list_vaccinations(pool, animal_id).await?;
+        let sacrifice = Self::get_sacrifice(pool, animal_id).await?;
 
         let data = serde_json::json!({
-            "pig": pig,
+            "animal": animal,
             "observations": observations,
             "surgeries": surgeries,
             "weights": weights,
@@ -486,24 +486,24 @@ impl AnimalService {
         Ok(data)
     }
 
-    /// 取得計劃下所有豬隻病歷資料（用於匯出）
+    /// 取得計劃下所有動物病歷資料（用於匯出）
     pub async fn get_project_medical_data(pool: &PgPool, iacuc_no: &str) -> Result<serde_json::Value> {
-        let pigs = sqlx::query_as::<_, Pig>(
-            "SELECT * FROM pigs WHERE iacuc_no = $1 AND deleted_at IS NULL ORDER BY id"
+        let animals = sqlx::query_as::<_, Animal>(
+            "SELECT * FROM animals WHERE iacuc_no = $1 AND deleted_at IS NULL ORDER BY id"
         )
         .bind(iacuc_no)
         .fetch_all(pool)
         .await?;
 
-        let mut pig_data = Vec::new();
-        for pig in pigs {
-            let data = Self::get_pig_medical_data(pool, pig.id).await?;
-            pig_data.push(data);
+        let mut animal_data = Vec::new();
+        for animal in animals {
+            let data = Self::get_animal_medical_data(pool, animal.id).await?;
+            animal_data.push(data);
         }
 
         Ok(serde_json::json!({
             "iacuc_no": iacuc_no,
-            "pigs": pig_data,
+            "animals": animal_data,
         }))
     }
 
@@ -512,11 +512,11 @@ impl AnimalService {
     // ============================================
 
     /// 取得病理報告
-    pub async fn get_pathology_report(pool: &PgPool, pig_id: Uuid) -> Result<Option<crate::models::PigPathologyReport>> {
-        let report = sqlx::query_as::<_, crate::models::PigPathologyReport>(
-            "SELECT * FROM pig_pathology_reports WHERE pig_id = $1"
+    pub async fn get_pathology_report(pool: &PgPool, animal_id: Uuid) -> Result<Option<crate::models::AnimalPathologyReport>> {
+        let report = sqlx::query_as::<_, crate::models::AnimalPathologyReport>(
+            "SELECT * FROM animal_pathology_reports WHERE animal_id = $1"
         )
-        .bind(pig_id)
+        .bind(animal_id)
         .fetch_optional(pool)
         .await?;
 
@@ -526,18 +526,18 @@ impl AnimalService {
     /// 建立或更新病理報告
     pub async fn upsert_pathology_report(
         pool: &PgPool,
-        pig_id: Uuid,
+        animal_id: Uuid,
         created_by: Uuid,
-    ) -> Result<crate::models::PigPathologyReport> {
-        let report = sqlx::query_as::<_, crate::models::PigPathologyReport>(
+    ) -> Result<crate::models::AnimalPathologyReport> {
+        let report = sqlx::query_as::<_, crate::models::AnimalPathologyReport>(
             r#"
-            INSERT INTO pig_pathology_reports (pig_id, created_by, created_at, updated_at)
+            INSERT INTO animal_pathology_reports (animal_id, created_by, created_at, updated_at)
             VALUES ($1, $2, NOW(), NOW())
-            ON CONFLICT (pig_id) DO UPDATE SET updated_at = NOW()
+            ON CONFLICT (animal_id) DO UPDATE SET updated_at = NOW()
             RETURNING *
             "#
         )
-        .bind(pig_id)
+        .bind(animal_id)
         .bind(created_by)
         .fetch_one(pool)
         .await?;

@@ -1,11 +1,11 @@
-import { useQuery } from '@tanstack/react-query'
+﻿import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Pill, Loader2, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import api, { PigListItem } from '@/lib/api'
+import api, { AnimalListItem } from '@/lib/api'
 
 
 
@@ -17,7 +17,7 @@ export function AnimalsOnMedicationWidget() {
         queryKey: ['animals-on-medication'],
         queryFn: async () => {
             // 取得正在用藥的動物列表
-            const res = await api.get<PigListItem[]>('/pigs?is_on_medication=true&per_page=10')
+            const res = await api.get<AnimalListItem[]>('/animals?is_on_medication=true&per_page=10')
             return res.data
         },
     })
@@ -75,25 +75,25 @@ export function AnimalsOnMedicationWidget() {
             <CardContent>
                 {data && data.length > 0 ? (
                     <div className="space-y-2">
-                        {data.slice(0, 5).map((pig) => (
+                        {data.slice(0, 5).map((animal) => (
                             <div
-                                key={pig.id}
+                                key={animal.id}
                                 className="flex items-center justify-between p-2 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                                onClick={() => navigate(`/pigs/${pig.id}`)}
+                                onClick={() => navigate(`/animals/${animal.id}`)}
                             >
                                 <div className="flex items-center gap-3">
                                     <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
                                         <Pill className="h-4 w-4 text-red-600" />
                                     </div>
                                     <div>
-                                        <p className="text-sm font-medium">{pig.ear_tag}</p>
-                                        <p className="text-xs text-muted-foreground">{pig.pen_location || t('dashboard.widgets.animals.penFallback')}</p>
+                                        <p className="text-sm font-medium">{animal.ear_tag}</p>
+                                        <p className="text-xs text-muted-foreground">{animal.pen_location || t('dashboard.widgets.animals.penFallback')}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    {pig.last_medication_date && (
+                                    {animal.last_medication_date && (
                                         <span className="text-xs text-muted-foreground">
-                                            {new Date(pig.last_medication_date).toLocaleDateString(i18n.language)}
+                                            {new Date(animal.last_medication_date).toLocaleDateString(i18n.language)}
                                         </span>
                                     )}
                                     <ExternalLink className="h-4 w-4 text-muted-foreground" />
@@ -104,7 +104,7 @@ export function AnimalsOnMedicationWidget() {
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => navigate('/pigs?is_on_medication=true')}
+                                onClick={() => navigate('/animals?is_on_medication=true')}
                                 className="w-full text-xs"
                             >
                                 {t('dashboard.widgets.common.viewCount', { count: data.length })}

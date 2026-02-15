@@ -19,7 +19,7 @@ impl NotificationService {
         reason: &str,
         pi_user_id: Uuid,
     ) -> Result<(), AppError> {
-        let title = format!("[緊急] 豬隻 #{} 安樂死執行通知", ear_tag);
+        let title = format!("[緊急] 動物 #{} 安樂死執行通知", ear_tag);
         let content = format!(
             "獸醫已開立安樂死單。\n\n耳號：{}\nIACUC NO.：{}\n原因：{}\n\n執行時間：系統將於 24 小時後自動解鎖執行權限。\n\n請登入系統選擇「同意執行」或「申請暫緩」。",
             ear_tag,

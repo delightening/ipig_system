@@ -1,4 +1,4 @@
-// 專案 CRUD Handlers
+﻿// 專案 CRUD Handlers
 
 use axum::{
     extract::{Path, Query, State},
@@ -284,7 +284,7 @@ pub async fn get_protocol_animal_stats(
             COUNT(*) FILTER (WHERE status IN ('assigned', 'in_experiment')) as in_use_count,
             COUNT(*) FILTER (WHERE status = 'completed') as completed_count,
             COUNT(*) as total_count
-        FROM pigs WHERE iacuc_no = $1"#
+        FROM animals WHERE iacuc_no = $1"#
     ).bind(&iacuc_no).fetch_one(&state.db).await.unwrap_or((0, 0, 0));
     let approved_count: (Option<i64>,) = sqlx::query_as(
         r#"SELECT (working_content->>'animal_count')::bigint as approved_count FROM protocols WHERE id = $1"#

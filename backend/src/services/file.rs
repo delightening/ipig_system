@@ -24,8 +24,8 @@ pub struct UploadResult {
 pub enum FileCategory {
     /// AUP 計畫附件
     ProtocolAttachment,
-    /// 豬隻照片
-    PigPhoto,
+    /// 動物照片
+    AnimalPhoto,
     /// 病理報告
     PathologyReport,
     /// 獸醫師建議附件
@@ -39,7 +39,7 @@ impl FileCategory {
     pub fn subdirectory(&self) -> &'static str {
         match self {
             FileCategory::ProtocolAttachment => "protocols",
-            FileCategory::PigPhoto => "pigs",
+            FileCategory::AnimalPhoto => "animals",
             FileCategory::PathologyReport => "pathology",
             FileCategory::VetRecommendation => "vet-recommendations",
             FileCategory::LeaveAttachment => "leave-attachments",
@@ -60,7 +60,7 @@ impl FileCategory {
                 "image/gif",
                 "text/plain",
             ],
-            FileCategory::PigPhoto | FileCategory::VetRecommendation | FileCategory::LeaveAttachment => vec![
+            FileCategory::AnimalPhoto | FileCategory::VetRecommendation | FileCategory::LeaveAttachment => vec![
                 "image/jpeg",
                 "image/png",
                 "image/gif",
@@ -80,7 +80,7 @@ impl FileCategory {
     pub fn max_file_size(&self) -> usize {
         match self {
             FileCategory::ProtocolAttachment => 50 * 1024 * 1024, // 50 MB
-            FileCategory::PigPhoto => 10 * 1024 * 1024,           // 10 MB
+            FileCategory::AnimalPhoto => 10 * 1024 * 1024,           // 10 MB
             FileCategory::PathologyReport => 30 * 1024 * 1024,    // 30 MB
             FileCategory::VetRecommendation => 10 * 1024 * 1024,  // 10 MB
             FileCategory::LeaveAttachment => 10 * 1024 * 1024,    // 10 MB
@@ -434,16 +434,16 @@ mod tests {
     #[test]
     fn test_allowed_mime_types() {
         assert!(FileCategory::ProtocolAttachment.allowed_mime_types().contains(&"application/pdf"));
-        assert!(FileCategory::PigPhoto.allowed_mime_types().contains(&"image/jpeg"));
-        assert!(FileCategory::PigPhoto.allowed_mime_types().contains(&"image/webp"));
-        // 豬隻照片不允許 PDF
-        assert!(!FileCategory::PigPhoto.allowed_mime_types().contains(&"application/pdf"));
+        assert!(FileCategory::AnimalPhoto.allowed_mime_types().contains(&"image/jpeg"));
+        assert!(FileCategory::AnimalPhoto.allowed_mime_types().contains(&"image/webp"));
+        // 動物照片不允許 PDF
+        assert!(!FileCategory::AnimalPhoto.allowed_mime_types().contains(&"application/pdf"));
     }
 
     #[test]
     fn test_file_category_subdirectory() {
         assert_eq!(FileCategory::ProtocolAttachment.subdirectory(), "protocols");
-        assert_eq!(FileCategory::PigPhoto.subdirectory(), "pigs");
+        assert_eq!(FileCategory::AnimalPhoto.subdirectory(), "animals");
         assert_eq!(FileCategory::PathologyReport.subdirectory(), "pathology");
         assert_eq!(FileCategory::VetRecommendation.subdirectory(), "vet-recommendations");
         assert_eq!(FileCategory::LeaveAttachment.subdirectory(), "leave-attachments");
@@ -452,7 +452,7 @@ mod tests {
     #[test]
     fn test_file_category_max_size() {
         assert_eq!(FileCategory::ProtocolAttachment.max_file_size(), 50 * 1024 * 1024);
-        assert_eq!(FileCategory::PigPhoto.max_file_size(), 10 * 1024 * 1024);
+        assert_eq!(FileCategory::AnimalPhoto.max_file_size(), 10 * 1024 * 1024);
         assert_eq!(FileCategory::PathologyReport.max_file_size(), 30 * 1024 * 1024);
     }
 

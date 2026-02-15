@@ -1,6 +1,6 @@
 // 預警通知（低庫存 + 效期）
 
-use uuid::Uuid;
+
 
 use crate::{
     error::AppError,

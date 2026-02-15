@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+﻿import { useEffect } from 'react'
 import { Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { useAuthStore } from '@/stores/auth'
@@ -76,11 +76,11 @@ import { MyProjectsPage } from '@/pages/my-projects/MyProjectsPage'
 // Amendment Pages
 import { MyAmendmentsPage } from '@/pages/amendments/MyAmendmentsPage'
 
-// Pig Management Pages
-import { PigsPage } from '@/pages/pigs/PigsPage'
-import { PigDetailPage } from '@/pages/pigs/PigDetailPage'
-import { PigEditPage } from '@/pages/pigs/PigEditPage'
-import { PigSourcesPage } from '@/pages/pigs/PigSourcesPage'
+// Animal Management Pages
+import { AnimalsPage } from '@/pages/animals/AnimalsPage'
+import { AnimalDetailPage } from '@/pages/animals/AnimalDetailPage'
+import { AnimalEditPage } from '@/pages/animals/AnimalEditPage'
+import { AnimalSourcesPage } from '@/pages/animals/AnimalSourcesPage'
 
 // Protected Route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -290,10 +290,10 @@ function App() {
                     <Route path="/my-amendments" element={<MyAmendmentsPage />} />
 
                     {/* 實驗動物管理 */}
-                    <Route path="/pigs" element={<PigsPage />} />
-                    <Route path="/pigs/:id" element={<PigDetailPage />} />
-                    <Route path="/pigs/:id/edit" element={<PigEditPage />} />
-                    <Route path="/pig-sources" element={<PigSourcesPage />} />
+                    <Route path="/animals" element={<AnimalsPage />} />
+                    <Route path="/animals/:id" element={<AnimalDetailPage />} />
+                    <Route path="/animals/:id/edit" element={<AnimalEditPage />} />
+                    <Route path="/animal-sources" element={<AnimalSourcesPage />} />
 
                     {/* 個人設定 */}
                     <Route path="/profile/settings" element={<ProfileSettingsPage />} />

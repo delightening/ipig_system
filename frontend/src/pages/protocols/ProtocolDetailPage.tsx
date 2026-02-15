@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react'
+﻿import React, { useState, useRef, useMemo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
@@ -136,7 +136,7 @@ export function ProtocolDetailPage() {
   const { user } = useAuthStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const [activeTab, setActiveTab] = useState<'content' | 'versions' | 'history' | 'comments' | 'reviewers' | 'coeditors' | 'attachments' | 'pigs' | 'amendments'>('content')
+  const [activeTab, setActiveTab] = useState<'content' | 'versions' | 'history' | 'comments' | 'reviewers' | 'coeditors' | 'attachments' | 'animals' | 'amendments'>('content')
   const [activityPage, setActivityPage] = useState(1)
   const ACTIVITIES_PER_PAGE = 15
   const [showStatusDialog, setShowStatusDialog] = useState(false)
@@ -793,7 +793,7 @@ export function ProtocolDetailPage() {
         <nav className="flex gap-4 overflow-x-auto">
           {[
             { key: 'content', label: t('protocols.detail.tabs.content'), icon: FileText },
-            { key: 'pigs', label: t('protocols.detail.tabs.pigs'), icon: ClipboardList },
+            { key: 'animals', label: t('protocols.detail.tabs.animals'), icon: ClipboardList },
             { key: 'versions', label: t('protocols.detail.tabs.versions'), icon: History },
             { key: 'history', label: t('protocols.detail.tabs.history'), icon: Clock },
             { key: 'comments', label: t('protocols.detail.tabs.comments'), icon: MessageSquare },
@@ -1529,18 +1529,18 @@ export function ProtocolDetailPage() {
       }
 
       {
-        activeTab === 'pigs' && (
+        activeTab === 'animals' && (
           <Card>
             <CardHeader>
-              <CardTitle>{t('protocols.detail.tabs.pigs')}</CardTitle>
-              <CardDescription>{t('protocols.detail.sections.pigsDesc')}</CardDescription>
+              <CardTitle>{t('protocols.detail.tabs.animals')}</CardTitle>
+              <CardDescription>{t('protocols.detail.sections.animalsDesc')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="text-center py-12">
                 <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-semibold mb-2">{t('protocols.detail.tables.noPigs')}</h3>
+                <h3 className="text-lg font-semibold mb-2">{t('protocols.detail.tables.noAnimals')}</h3>
                 <p className="text-muted-foreground">
-                  {t('protocols.detail.tables.noPigsDesc')}
+                  {t('protocols.detail.tables.noAnimalsDesc')}
                 </p>
               </div>
             </CardContent>

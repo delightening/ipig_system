@@ -31,7 +31,7 @@ pub enum AppError {
     #[error("Duplicate warning: {message}")]
     DuplicateWarning {
         message: String,
-        existing_pigs: Vec<serde_json::Value>,
+        existing_animals: Vec<serde_json::Value>,
     },
 
     #[error("Business rule violation: {0}")]
@@ -56,14 +56,14 @@ impl From<rust_xlsxwriter::XlsxError> for AppError {
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         // DuplicateWarning 需要特殊的 JSON 回應格式
-        if let AppError::DuplicateWarning { message, existing_pigs } = &self {
+        if let AppError::DuplicateWarning { message, existing_animals } = &self {
             let body = Json(json!({
                 "error": {
                     "message": message,
                     "code": 409,
                     "blocking": false,
                     "warning_type": "duplicate_ear_tag",
-                    "existing_pigs": existing_pigs
+                    "existing_animals": existing_animals
                 }
             }));
             return (StatusCode::CONFLICT, body).into_response();

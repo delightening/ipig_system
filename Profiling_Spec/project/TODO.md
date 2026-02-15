@@ -19,7 +19,7 @@
 
 | # | 項目 | 說明 | 範圍 | 難度 |
 |---|------|------|------|------|
-| 1 | **豬隻→動物命名重構** | 將 `pig` 命名統一為 `animal`，提升擴充性 | 全端 | 🔴 高 |
+| ~~1~~ | ~~**豬隻→動物命名重構**~~ | ~~✅ 已完成（2026-02-15）~~ | ~~全端~~ | ~~🔴 高~~ |
 | 2 | **AUP 參考文獻格式** | 參考農業部提供之格式調整 | 前端 | 🟢 低 |
 | 3 | **疼痛評估紀錄時間軸** | 動物管理中的疼痛評估紀錄視覺化檢視 | 前端 | 🟡 中 |
 | 4 | **敏感資料二級審計** | 密碼修改、權限變更等操作的加強稽核紀錄 | 後端 | 🟡 中 |
@@ -29,17 +29,12 @@
 | 8 | **SEC-37：HSTS 標頭** | 正式環境 Nginx 加入 `Strict-Transport-Security` | Nginx | 🟢 低 |
 | 9 | **SEC-38：密碼歷史紀錄** | `password_history` 表，禁止重複使用最近 5 組密碼 | 後端 | 🟢 低 |
 
-### 📋 豬隻→動物命名重構（待決定）
+### ✅ 豬隻→動物命名重構（已完成 2026-02-15）
 
-> 📋 **分析報告**：[implementation_plan.md](file:///C:/Users/jason/.gemini/antigravity/brain/c319adf4-3f08-4bca-9bf4-fbcf710d0f0a/implementation_plan.md)
-
-**影響範圍**：DB 10 表 + 6 enum、後端 30+ 路由 + 20+ struct、前端 4 pages + 14 components + 50+ API 呼叫、測試 2 檔
-
-**待決定事項**：
-- [ ] 是否一併改資料庫（表名/enum/欄位），還是只改程式碼層面？
-- [ ] `pig_breed` enum（miniature/white/LYD）是豬特有品種，是否改為通用設計？
-- [ ] 是否需保留 `/pigs` 路由向後相容？
-- [ ] 選擇方案：A 分層漸進（推薦）/ B 一次性全改 / C 只改前端
+> 後端 19 檔案 + 前端 17 檔案 + 翻譯 2 檔案，共計 ~180 處修改。
+> 最終掃描追加修正：前端 7 檔案 + 後端 7 檔案（`alert.rs`、`numbering.rs`、`dashboard.rs` 等）。
+> `cargo build` 和 `tsc --noEmit` 均通過。
+> 詳見 [walkthrough.md](file:///C:/Users/jason/.gemini/antigravity/brain/3e3e3319-813e-4d08-ae96-aa939109dbd9/walkthrough.md)
 
 ---
 
