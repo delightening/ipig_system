@@ -4,36 +4,16 @@
 
 ---
 
-## � P1 — 高優先（功能缺口 / 使用者直接需求）
+## 🔴 P2 — 中優先（安全強化 / 體驗優化）
 
-| # | 項目 | 說明 | 範圍 |
-|---|------|------|------|
-| 1 | **資料分析模組** | 血液檢查結果統計、異常值警示、趨勢圖表、匯出 CSV/Excel | 前後端 |
-
-### 資料分析模組細項
-
-- [x] 血液檢查結果統計與趨勢分析（依動物、實驗、日期區間）
-- [x] 血液數值異常標記與警示
-- [x] 圖表視覺化（折線圖 / 盒鬚圖）
-- [x] 資料匯出（CSV / Excel）
-
-> 📌 **血液檢查流程定位**
-> - 動物管理系統：記錄哪隻動物做了什麼檢查（檢查項目與結果）
-> - ERP 系統：以專案與日期區間管理血液檢查費用 ✅ `BloodTestCostReportPage`
-> - 資料分析模組：對血液檢查結果進行後續分析與視覺化（**本項目**）
-
----
-
-## � P2 — 中優先（安全強化 / 體驗優化）
-
-| # | 項目 | 說明 | 範圍 |
-|---|------|------|------|
-| 4 | **敏感資料二級審計** | 密碼修改、權限變更等操作的加強稽核紀錄 | 後端 |
-| 5 | **安全警報即時推送** | Email / 站內通知即時推送安全警報 | 前後端 |
-| 7 | **AUP 參考文獻格式** | 參考農業部提供之格式調整 | 前端 |
-| 8 | **疼痛評估紀錄時間軸** | 動物管理中的疼痛評估紀錄視覺化檢視 | 前端 |
-| 9 | **獸醫師建議通知進階設定** | 獸醫師建議通知機制的進階設定項 | 前後端 |
-| 10 | **豬隻→動物命名重構** | 將 `pig` 命名統一為 `animal`，提升擴充性 | 全端 |
+| # | 項目 | 說明 | 範圍 | 難度 |
+|---|------|------|------|------|
+| 1 | **豬隻→動物命名重構** | 將 `pig` 命名統一為 `animal`，提升擴充性 | 全端 | 🔴 高 |
+| 2 | **AUP 參考文獻格式** | 參考農業部提供之格式調整 | 前端 | 🟢 低 |
+| 3 | **疼痛評估紀錄時間軸** | 動物管理中的疼痛評估紀錄視覺化檢視 | 前端 | 🟡 中 |
+| 4 | **敏感資料二級審計** | 密碼修改、權限變更等操作的加強稽核紀錄 | 後端 | 🟡 中 |
+| 5 | **安全警報即時推送** | Email / 站內通知即時推送安全警報（WebSocket/SSE） | 前後端 | 🔴 高 |
+| 6 | **獸醫師建議通知進階設定** | 獸醫師建議通知機制的進階設定項 | 前後端 | 🟡 中 |
 
 ### 豬隻→動物命名重構（待決定）
 
@@ -53,18 +33,18 @@
 
 | # | 項目 | 說明 | 範圍 |
 |---|------|------|------|
-| 10 | **SEC-15：Named Tunnel 遷移** | 從 Cloudflare Quick Tunnel 遷移至 Named Tunnel | DevOps |
+| 7 | **SEC-15：Named Tunnel 遷移** | 從 Cloudflare Quick Tunnel 遷移至 Named Tunnel | DevOps |
 
 ---
 
-## � P4 — 中期品質提升（測試 / 文件 / CI）
+## 🟣 P4 — 中期品質提升（測試 / 文件 / CI）
 
 | # | 項目 | 說明 | 範圍 |
 |---|------|------|------|
-| 11 | **Rust 測試覆蓋率擴充** | 87 個測試通過，protocol/hr/facility 已有測試覆蓋。需 test DB 做整合測試 | 後端 |
-| 12 | **前端 E2E 測試** | Playwright 自動化測試 | 前端 |
-| 13 | **OpenAPI 文件完善** | utoipa 補全 API 文件 | 後端 |
-| 14 | **CI/CD PostgreSQL service** | CI 中增加 PostgreSQL service container | DevOps |
+| 8 | **Rust 測試覆蓋率擴充** | 87 個測試通過，protocol/hr/facility 已有測試覆蓋。需 test DB 做整合測試 | 後端 |
+| 9 | **前端 E2E 測試** | Playwright 自動化測試 | 前端 |
+| 10 | **OpenAPI 文件完善** | utoipa 補全 API 文件 | 後端 |
+| 11 | **CI/CD PostgreSQL service** | CI 中增加 PostgreSQL service container | DevOps |
 
 ---
 
@@ -72,35 +52,36 @@
 
 | # | 項目 | 說明 | 範圍 |
 |---|------|------|------|
-| 15 | **前端元件庫文件化** | Storybook 建置 | 前端 |
-| 16 | **資料庫備份自動化** | 排程備份 + 異地備份 | DevOps |
-| 17 | **效能監控（APM）整合** | 應用程式效能監控 | DevOps |
-| 18 | **前端超長頁面重構** | `ProtocolEditPage`已完成（4240→1830行），配合需求變更時機漸進式重構 | 前端 |
+| 12 | **前端元件庫文件化** | Storybook 建置 | 前端 |
+| 13 | **資料庫備份自動化** | 排程備份 + 異地備份 | DevOps |
+| 14 | **效能監控（APM）整合** | 應用程式效能監控 | DevOps |
+| 15 | **前端超長頁面重構** | `ProtocolEditPage` 已完成（4240→1830行），配合需求變更時機漸進式重構 | 前端 |
 
 ---
 
-## v2.0 遠程規劃（iPig ERP）
+## 🚀 v2.0 遠程規劃（iPig ERP）
 
 | # | 項目 | 說明 |
 |---|------|------|
-| 19 | 條碼掃描功能 | 行動裝置支援 |
-| 20 | 進階成本法（FIFO） | 成本計算升級 |
-| 21 | 批號效期到期提醒進階設定 | 更細緻的提醒規則 |
-| 22 | 作廢已核准單據沖銷機制 | Reversal Document |
-| 23 | 庫位管理（Bin Location） | 倉儲精細化管理 |
-| 24 | 會計 / ERP API 對接 | 外部系統整合 |
+| 16 | 條碼掃描功能 | 行動裝置支援 |
+| 17 | 進階成本法（FIFO） | 成本計算升級 |
+| 18 | 批號效期到期提醒進階設定 | 更細緻的提醒規則 |
+| 19 | 作廢已核准單據沖銷機制 | Reversal Document |
+| 20 | 庫位管理（Bin Location） | 倉儲精細化管理 |
+| 21 | 會計 / ERP API 對接 | 外部系統整合 |
 
 ---
+---
 
-## ✅ 已完成項目紀錄 (最近)
+## ✅ 已完成項目紀錄
 
 ### 2026-02-15
-- [x] **行動端適配（響應式設計）** — `MainLayout` overlay sidebar + 漢堡選單、`PigsPage` / `DashboardPage` / `AuditLogsPage` / `ProtocolDetailPage` 表格/篩選/標題響應式、`index.css` 全域工具 class
-- [x] **稽核日誌匯出 CSV/PDF** — 後端新增 `/admin/audit/activities/export` API，前端 `AuditLogsPage.tsx` 加入 CSV（BOM + Blob 下載）及 PDF（可列印 HTML 表格）匯出按鈕
-- [x] **活動紀錄分頁優化** — `ProtocolDetailPage.tsx` 歷程 Tab 加入前端分頁（每頁 15 筆 + 上/下一頁控制列）
-- [x] **修復 Login 頁面 401 無限迴圈** — interceptor 移除硬跳轉，改用 zustand `clearAuth()` + `isLoggingOut` 鎖
-- [x] **修復 IP 異常偵測 bug** — `check_unusual_location` 的 SQL 比對缺少 `::INET` 轉型，導致每次都標記為新 IP
-- [x] **GeoIP 地理位置異常偵測** — 整合 MaxMind GeoLite2-City，`check_unusual_location` 改為國家層級比對，登入記錄寫入 `geo_country`/`geo_city`/`geo_timezone`
+- [x] **行動端適配（響應式設計）** — `MainLayout` overlay sidebar + 漢堡選單、高頻頁面表格/篩選/標題響應式、`index.css` 全域工具 class
+- [x] **稽核日誌匯出 CSV/PDF** — 後端 export API + 前端 CSV（BOM）及 PDF（可列印 HTML）匯出
+- [x] **活動紀錄分頁優化** — `ProtocolDetailPage.tsx` 歷程 Tab 前端分頁
+- [x] **修復 Login 頁面 401 無限迴圈** — interceptor 改用 zustand `clearAuth()` + `isLoggingOut` 鎖
+- [x] **修復 IP 異常偵測 bug** — SQL `::INET` 轉型修正
+- [x] **GeoIP 地理位置異常偵測** — MaxMind GeoLite2-City 國家層級比對
 
 ### 2026-02-14
 - [x] **安全性強化** — 真實 IP 記錄、移除預設帳密、安全警報修復
@@ -115,7 +96,7 @@
 - [x] **技術債清理** — `document.rs`、`models/animal.rs` 拆分
 - [x] **SEC-14** — 檔案上傳 Magic Number 驗證（14 測試通過）
 - [x] **SEC-02** — Token 改存 HttpOnly Cookie
-- [x] **T6 前端重構** — `ProtocolEditPage.tsx` 拆分為 10 個 Section 元件 + 4 個工具模組，tsc --noEmit 零錯誤
+- [x] **T6 前端重構** — `ProtocolEditPage.tsx` 拆分為 10 個 Section 元件 + 4 個工具模組
 
 ### 2026-02-13
 - [x] 血液檢查項目管理頁面、Panel 快速勾選、整合測試 28/28
@@ -137,15 +118,23 @@
 - [x] AUP 審查流程多輪往返、審查委員強制意見
 - [x] 狀態歷程修復、PI 刪除草稿權限、翻譯標準化
 
+### 更早
+- [x] 資料分析模組（血液檢查統計/異常標記/圖表/匯出）
+- [x] HR 特休管理系統、GLP 合規、PDF 匯出
+- [x] 協編者權限修正、審查意見回覆、Google Calendar 整合
+- [x] 資料匯入（Excel/CSV）、Bug 修復（豬隻計數、PigBreed enum、體重驗證）
+- [x] v1.0 MVP 完成、檔案上傳服務、通知偏好設定
+
 ---
 
 ## 變更紀錄
 
 | 日期 | 內容 |
 |------|------|
-| 2026-02-15 | 稽核日誌匯出 CSV/PDF、活動紀錄分頁優化、Login 401 迴圈修復、GeoIP 整合 |
-| 2026-02-14 | 安全性強化、Docker 升級、Session heartbeat、ERP 增強、AUP/Amendment/Email 修復 |
-| 2026-02-13 | 血液檢查流程定位、資料分析模組待辦、Amendment 測試、前端技術債 |
+| 2026-02-15 | Profiling_Spec 01-09 全部重寫（含新增 07_SECURITY_AUDIT.md）、README 更新 |
+| 2026-02-15 | 行動端適配完成、稽核匯出、活動紀錄分頁、GeoIP 整合、TODO 重新排序 |
+| 2026-02-14 | 安全性強化、Docker 升級、Session heartbeat、ERP 增強、AUP/Email 修復 |
+| 2026-02-13 | 血液檢查流程、資料分析模組、Amendment 測試、前端技術債 |
 | 2026-02-12 | 整合測試 Bug 修復、動物狀態簡化、時間軸增強、ID 遷移 |
 | 2026-02-11 | 安全審計強化、整合測試腳本、角色權限修復 |
 | 2026-02-10 | 多帳號/大量登入偵測、安全警報修復 |

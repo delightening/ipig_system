@@ -1,126 +1,74 @@
-# iPig 系統規格文件
+# iPig 系統技術規格文件
 
-> **版本**：2.0  
-> **最後更新**：2026-02-03  
-> **維護者**：開發團隊
-
----
-
-## 系統概述
-
-**豬博士 iPig 系統**（豬博士動物科技系統）是一套整合型實驗動物管理平台，包含四大子系統：
-
-| 子系統 | 說明 |
-|--------|------|
-| **AUP 審查系統** | IACUC 動物使用計畫書提交、審查、核准流程 |
-| **iPig ERP** | 進銷存管理、採購、庫存追蹤 |
-| **動物管理系統** | 豬隻生命週期管理、實驗紀錄、醫療紀錄 |
-| **人事管理系統** | 出勤、請假、加班、Google 行事曆同步 |
+> 豬博士動物科技系統 — 完整技術文件  
+> **最後更新**：2026-02-15
 
 ---
 
-## 文件導覽
+## 文件目錄
 
-### 核心規格
+### 核心規格（01-09）
+
+| # | 文件 | 說明 |
+|---|------|------|
+| 01 | [系統架構概覽](./01_ARCHITECTURE_OVERVIEW.md) | 技術堆疊、分層架構、部署 |
+| 02 | [核心領域模型](./02_CORE_DOMAIN_MODEL.md) | 實體關係、商業規則 |
+| 03 | [模組與邊界](./03_MODULES_AND_BOUNDARIES.md) | 模組定義、檔案路徑、API |
+| 04 | [資料庫綱要](./04_DATABASE_SCHEMA.md) | 資料表、ENUM、索引 |
+| 05 | [API 規格](./05_API_SPECIFICATION.md) | 完整 273 個端點 |
+| 06 | [權限與 RBAC](./06_PERMISSIONS_RBAC.md) | 84 權限、11 角色 |
+| 07 | [安全與稽核](./07_SECURITY_AUDIT.md) | 中間件、GeoIP、Session |
+| 08 | [出勤模組](./08_ATTENDANCE_MODULE.md) | 打卡、請假、加班、行事曆 |
+| 09 | [擴展性](./09_EXTENSIBILITY.md) | 已完成/未來擴展規劃 |
+
+### 子系統模組文件
 
 | 文件 | 說明 |
 |------|------|
-| [系統總覽](./01_SYSTEM_OVERVIEW.md) | 系統架構、技術堆疊、部署架構 |
-| [領域模型](./02_DOMAIN_MODEL.md) | 核心實體、關係、列舉 |
-| [模組邊界](./03_MODULES_AND_BOUNDARIES.md) | 模組拆分、有界上下文 |
-| [資料庫設計](./04_DATABASE_SCHEMA.md) | 資料表定義、遷移 |
-| [API 規格](./05_API_SPECIFICATION.md) | REST API 完整參考 |
-| [權限控制](./06_PERMISSIONS_RBAC.md) | 角色權限、RBAC |
-
-### 子系統模組
-
-| 文件 | 說明 |
-|------|------|
-| [AUP 審查系統](./modules/AUP_SYSTEM.md) | 計畫書管理、審查流程、狀態機 |
-| [進銷存系統](./modules/ERP_SYSTEM.md) | 產品、庫存、採購、銷售 |
-| [動物管理系統](./modules/ANIMAL_MANAGEMENT.md) | 豬隻管理、7 Tab 紀錄 |
-| [人事管理系統](./modules/HR_SYSTEM.md) | 請假、特休、補休 |
+| [動物管理系統](./modules/ANIMAL_MANAGEMENT.md) | 豬隻生命週期管理 |
+| [AUP 審查系統](./modules/AUP_SYSTEM.md) | IACUC 計畫書審查 |
+| [ERP 進銷存系統](./modules/ERP_SYSTEM.md) | 採購、庫存、銷售 |
+| [HR 人事系統](./modules/HR_SYSTEM.md) | 出勤、請假、加班 |
 | [通知系統](./modules/NOTIFICATION_SYSTEM.md) | Email、站內通知、排程 |
 
-### 開發指南
+### 指南
 
 | 文件 | 說明 |
 |------|------|
-| [UI/UX 指南](./guides/UI_UX_GUIDELINES.md) | 設計規範 |
-| [命名規範](./guides/NAMING_CONVENTIONS.md) | 命名標準 |
-| [稽核日誌](./guides/AUDIT_LOGGING.md) | GLP 合規稽核 |
-| [儲存設定](./guides/STORAGE_SETUP.md) | 檔案儲存配置 |
+| [稽核日誌](./guides/AUDIT_LOGGING.md) | GLP 合規稽核操作指南 |
+| [命名慣例](./guides/NAMING_CONVENTIONS.md) | 程式碼命名規範 |
+| [儲存設定](./guides/STORAGE_SETUP.md) | 檔案儲存設定 |
+| [UI/UX 指南](./guides/UI_UX_GUIDELINES.md) | 前端設計規範 |
 
-### 專案管理
+### 其他
 
 | 文件 | 說明 |
 |------|------|
-| [專案進度](./project/PROGRESS.md) | 開發進度追蹤 |
-| [待辦事項](./project/TODO.md) | 功能規劃清單 |
-| [版本歷程](./project/VERSION_HISTORY.md) | 文件變更紀錄 |
+| [資料庫 ERD](./database_erd.md) | 實體關係圖 |
 
 ---
 
-## 快速參考
-
-### 技術堆疊
+## 技術堆疊摘要
 
 | 層級 | 技術 |
 |------|------|
-| 前端 | React 18, TypeScript, Vite 5, TailwindCSS, shadcn/ui, Zustand, React Query |
-| 後端 | Rust 1.75+, Axum 0.7, SQLx 0.7, Tokio, Serde |
-| 資料庫 | PostgreSQL 15 |
-| 認證 | JWT (Access + Refresh tokens) |
-| 部署 | Docker, Docker Compose, Nginx |
-
-### 關鍵角色
-
-| 角色代碼 | 名稱 | 說明 |
-|----------|------|------|
-| `SYSTEM_ADMIN` | 系統管理員 | 全系統權限 |
-| `IACUC_STAFF` | 執行秘書 | 計畫管理、人事存取 |
-| `EXPERIMENT_STAFF` | 試驗工作人員 | 動物紀錄、實驗操作 |
-| `VET` | 獸醫師 | 動物健康、建議 |
-| `WAREHOUSE_MANAGER` | 倉庫管理員 | ERP 操作 |
-| `PI` | 計畫主持人 | 計畫提交 |
-| `CLIENT` | 委託人 | 檢視委託計畫 |
-
-### API 基礎路徑
-
-- **開發環境**：`http://localhost:8080/api`
-- **正式環境**：`https://ipig.example.com/api`
+| 前端 | React 18 + TypeScript + TailwindCSS + shadcn/ui |
+| 後端 | Rust + Axum 0.7 + SQLx 0.8 |
+| 資料庫 | PostgreSQL 16 |
+| 部署 | Docker Compose (4 services) |
 
 ---
 
-## 目錄結構
+## 系統統計
 
-```
-Profiling_Spec/
-├── README.md                # 本文件
-├── 01_SYSTEM_OVERVIEW.md    # 系統總覽
-├── 02_DOMAIN_MODEL.md       # 領域模型
-├── 03_MODULES_AND_BOUNDARIES.md
-├── 04_DATABASE_SCHEMA.md
-├── 05_API_SPECIFICATION.md
-├── 06_PERMISSIONS_RBAC.md
-├── modules/                 # 子系統規格
-│   ├── AUP_SYSTEM.md
-│   ├── ERP_SYSTEM.md
-│   ├── ANIMAL_MANAGEMENT.md
-│   ├── HR_SYSTEM.md
-│   └── NOTIFICATION_SYSTEM.md
-├── guides/                  # 開發指南
-│   ├── UI_UX_GUIDELINES.md
-│   ├── NAMING_CONVENTIONS.md
-│   ├── AUDIT_LOGGING.md
-│   └── STORAGE_SETUP.md
-├── project/                 # 專案管理
-│   ├── PROGRESS.md
-│   ├── TODO.md
-│   └── VERSION_HISTORY.md
-└── archive/                 # 歸檔文件
-```
-
----
-
-*最後更新：2026-02-03*
+| 指標 | 數值 |
+|------|------|
+| API 端點 | ~273 |
+| 資料庫表 | 65+ |
+| 權限 | 84 |
+| 角色 | 11 |
+| 遷移檔案 | 10 |
+| 前端頁面 | 62 |
+| 前端元件 | 62 |
+| 後端服務檔 | 74 |
+| 後端處理器 | 42 |

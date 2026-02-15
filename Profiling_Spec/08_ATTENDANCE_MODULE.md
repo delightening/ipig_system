@@ -1,7 +1,7 @@
 # 出勤模組規格
 
-> **版本**：1.0  
-> **最後更新**：2026-01-17  
+> **版本**：3.0  
+> **最後更新**：2026-02-15  
 > **對象**：人資團隊、開發人員
 
 ---
@@ -10,186 +10,166 @@
 
 出勤模組為內部員工提供完整的出勤與請假管理，包含：
 
-- **出勤打卡** - 上下班簽到簽退
-- **加班管理** - 加班紀錄與補休產生
-- **請假管理** - 請假申請與審核流程
-- **餘額追蹤** - 特休與補休餘額（含到期管理）
-- **Google 行事曆同步** - 與共用行事曆雙向同步
+- **出勤打卡**：上班/下班打卡、工時計算
+- **請假管理**：多種假別、多級審核流程
+- **加班管理**：加班申請、審核
+- **假期餘額**：特休/補休餘額、自動到期
+- **行事曆同步**：Google Calendar 雙向同步
 
 ---
 
-## 2. 範圍
+## 2. 出勤打卡
 
-| 涵蓋範圍 | 不涵蓋範圍 |
-|----------|------------|
-| 僅限內部員工（`is_internal = true`）| 外部承攬人員 |
-| 上下班打卡追蹤 | 生物辨識整合 |
-| 加班與補休產生 | 薪資計算 |
-| 請假申請與核准 | 複雜班表排程 |
-| 特休與補休管理 | 專案工時追蹤 |
-| Google 行事曆同步 | Microsoft/Outlook 同步 |
+### 2.1 打卡流程
 
----
+```
+員工上班 → POST /hr/attendance/clock-in → 建立 attendance_record
+          ↓
+員工下班 → POST /hr/attendance/clock-out → 更新 clock_out, 計算 work_hours
+          ↓
+如有異常 → PUT /hr/attendance/:id → 管理員修正打卡
+```
 
-## 3. 商業規則
+### 2.2 出勤 API
 
-### 3.1 補休
+| 端點 | 說明 |
+|------|------|
+| `GET /hr/attendance` | 出勤紀錄列表（支援日期範圍篩選）|
+| `POST /hr/attendance/clock-in` | 上班打卡 |
+| `POST /hr/attendance/clock-out` | 下班打卡 |
+| `GET /hr/attendance/stats` | 出勤統計（月統計、總工時）|
+| `PUT /hr/attendance/:id` | 修正打卡紀錄 |
+
+### 2.3 打卡規則
 
 | 規則 | 說明 |
 |------|------|
-| 產生方式 | 由核准的加班紀錄產生 |
-| 倍率 | 平日：1.0x，假日：1.33x，國定假日：1.66x 或 2.0x |
-| 有效期限 | 自加班日起 **1 年** |
-| 使用順序 | FIFO（最舊先過期優先使用）|
-| 最小單位 | 0.5 小時 |
+| 每日限一次上班打卡 | 重複打卡系統阻擋 |
+| 下班打卡需先有上班記錄 | 系統驗證 |
+| 工時自動計算 | clock_out - clock_in |
+| 管理員修正 | 需 `hr.attendance.correct` 權限 |
 
-### 3.2 特休
+---
+
+## 3. 請假管理
+
+### 3.1 假別
+
+| 假別 | 代碼 | 薪資 | 上限規則 |
+|------|------|------|----------|
+| 特休 | ANNUAL | 有薪 | 依勞基法年資計算 |
+| 事假 | PERSONAL | 無薪 | 年度 14 天 |
+| 病假 | SICK | 半薪 | 年度 30 天 |
+| 補休 | COMPENSATORY | 有薪 | 依加班時數 |
+| 婚假 | MARRIAGE | 有薪 | 8 天 |
+| 喪假 | BEREAVEMENT | 有薪 | 依親屬3-8天 |
+| 產假 | MATERNITY | 有薪 | 8 週 |
+| 陪產假 | PATERNITY | 有薪 | 7 天 |
+| 生理假 | MENSTRUAL | 依規定 | 每月 1 天 |
+| 公假 | OFFICIAL | 有薪 | 無上限 |
+
+### 3.2 請假審核流程
+
+```mermaid
+graph LR
+    D[DRAFT] --> S[送審]
+    S --> L1[PENDING_L1<br/>直屬主管]
+    L1 -->|核准| L2[PENDING_L2<br/>二級主管]
+    L1 -->|駁回| R[REJECTED]
+    L2 -->|核准| HR[PENDING_HR<br/>人資]
+    L2 -->|駁回| R
+    HR -->|核准| GM[PENDING_GM<br/>總經理]
+    HR -->|駁回| R
+    GM -->|核准| A[APPROVED]
+    GM -->|駁回| R
+    A --> C[CANCELLED<br/>本人撤銷]
+    A --> V[REVOKED<br/>管理員撤銷]
+```
+
+**審核層級自動判定**：
+- 天數 ≤ 1：L1 → HR
+- 天數 > 1 且 ≤ 3：L1 → L2 → HR
+- 天數 > 3：L1 → L2 → HR → GM
+
+### 3.3 請假 API
+
+| 端點 | 說明 |
+|------|------|
+| `GET /hr/leaves` | 請假列表 |
+| `POST /hr/leaves` | 新增請假 |
+| `GET /hr/leaves/:id` | 請假詳情 |
+| `PUT /hr/leaves/:id` | 更新請假 |
+| `DELETE /hr/leaves/:id` | 刪除草稿 |
+| `POST /hr/leaves/:id/submit` | 送審 |
+| `POST /hr/leaves/:id/approve` | 核准 |
+| `POST /hr/leaves/:id/reject` | 駁回 |
+| `POST /hr/leaves/:id/cancel` | 撤銷 |
+| `POST /hr/leaves/attachments` | 上傳附件 |
+
+---
+
+## 4. 加班管理
+
+### 4.1 加班流程
+
+```
+員工提交 → POST /hr/overtime → DRAFT
+         ↓
+送審      → POST /hr/overtime/:id/submit → PENDING
+         ↓
+審核      → POST /hr/overtime/:id/approve → APPROVED
+                                          → REJECTED
+```
+
+### 4.2 加班 API
+
+| 端點 | 說明 |
+|------|------|
+| `GET /hr/overtime` | 加班列表 |
+| `POST /hr/overtime` | 新增加班 |
+| `GET /hr/overtime/:id` | 加班詳情 |
+| `PUT /hr/overtime/:id` | 更新加班 |
+| `DELETE /hr/overtime/:id` | 刪除 |
+| `POST /hr/overtime/:id/submit` | 送審 |
+| `POST /hr/overtime/:id/approve` | 核准 |
+| `POST /hr/overtime/:id/reject` | 駁回 |
+
+### 4.3 加班轉補休
+
+核准的加班時數自動轉入 `COMPENSATORY` 假期餘額。
+
+---
+
+## 5. 假期餘額
+
+### 5.1 特休
 
 | 規則 | 說明 |
 |------|------|
 | 給假依據 | 依勞動基準法年資計算 |
-| 給假時間 | 每年初 |
-| 有效期限 | 自給假年度結束起 **2 年**（如：2025 年給假於 2027-12-31 到期）|
-| 遞延規則 | 未使用天數可於有效期內遞延至次年 |
-| 最小單位 | 0.5 天 |
+| 給假時間 | 每年初（系統管理員操作）|
+| 有效期限 | 自給假年度結束起 **2 年** |
+| 到期處理 | `balance_expiration.rs` 排程檢查 |
+| 到期補償 | 查詢 `GET /hr/balances/expired-compensation` |
 
-### 3.3 特休年資對照表
+### 5.2 補休
 
-| 服務年資 | 特休天數 |
-|----------|----------|
-| 6 個月 - 1 年 | 3 天（按比例）|
-| 1 - 2 年 | 7 天 |
-| 2 - 3 年 | 10 天 |
-| 3 - 5 年 | 14 天 |
-| 5 - 10 年 | 15 天 |
-| 10 年以上 | 15 + 每年加 1 天（最多 30 天）|
+| 規則 | 說明 |
+|------|------|
+| 來源 | 加班核准後自動累積 |
+| 有效期限 | 依勞基法規定 |
+| 使用順序 | 先到期先使用 |
 
-### 3.4 請假類型
+### 5.3 餘額 API
 
-| 類型 | 代碼 | 核准層級 | 需檢附文件 |
-|------|------|----------|------------|
-| 特休假 | ANNUAL | L1（≤3 天），L2（>3 天）| 否 |
-| 事假 | PERSONAL | L1（≤1 天），L2（>1 天）| 否 |
-| 病假 | SICK | L1（≤3 天），HR（>3 天）| 醫師證明（>3 天）|
-| 補休假 | COMPENSATORY | L1 | 否 |
-| 婚假 | MARRIAGE | L2 + HR | 結婚證明 |
-| 喪假 | BEREAVEMENT | L1 + HR | 死亡證明 |
-| 產假 | MATERNITY | L2 + HR + GM | 醫療證明 |
-| 陪產假 | PATERNITY | L2 + HR | 出生證明 |
-| 生理假 | MENSTRUAL | L1 | 否 |
-| 公假 | OFFICIAL | L2 | 公文 |
-| 無薪假 | UNPAID | L2 + HR + GM | 需說明原因 |
-
----
-
-## 4. 審核流程
-
-### 4.1 核准層級
-
-| 層級 | 角色 | 說明 |
-|------|------|------|
-| L1 | 直屬主管 | 第一級核准 |
-| L2 | 部門主管 | 第二級核准 |
-| HR | 執行秘書 | 行政核准 |
-| GM | 系統管理員 | 特殊案件最終核准 |
-
-### 4.2 流程圖
-
-```
-┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐
-│  DRAFT  │───►│PENDING  │───►│PENDING  │───►│PENDING  │───►│APPROVED │
-│  草稿   │    │  L1     │    │  L2     │    │  HR     │    │  已核准 │
-└─────────┘    └────┬────┘    └────┬────┘    └────┬────┘    └─────────┘
-     │              │              │              │
-     │              ▼              ▼              ▼
-     │         ┌─────────┐    ┌─────────┐    ┌─────────┐
-     │         │REJECTED │    │REJECTED │    │REJECTED │
-     │         │  駁回   │    │  駁回   │    │  駁回   │
-     │         └─────────┘    └─────────┘    └─────────┘
-     │
-     ▼
-┌─────────┐
-│CANCELLED│
-│  取消   │
-└─────────┘
-```
-
-### 4.3 特殊情境
-
-| 情境 | 處理方式 |
-|------|----------|
-| 緊急請假 | 請假期間/之後補提申請，標記為急件優先審核 |
-| 事後補請 | 請假日期後補提申請，需說明原因 |
-| 自我審核 | 主管不可核准自己的申請（向上呈請）|
-
----
-
-## 5. 資料庫綱要
-
-### 5.1 核心資料表
-
-#### attendance_records（出勤紀錄）
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| id | UUID | 主鍵 |
-| user_id | UUID | 員工 |
-| work_date | DATE | 工作日期 |
-| clock_in_time | TIMESTAMPTZ | 簽到時間 |
-| clock_out_time | TIMESTAMPTZ | 簽退時間 |
-| regular_hours | NUMERIC(5,2) | 正常工時 |
-| overtime_hours | NUMERIC(5,2) | 加班時數 |
-| status | VARCHAR(20) | normal, late, early_leave, absent, leave, holiday |
-
-#### overtime_records（加班紀錄）
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| id | UUID | 主鍵 |
-| user_id | UUID | 員工 |
-| overtime_date | DATE | 加班日期 |
-| start_time | TIMESTAMPTZ | 開始時間 |
-| end_time | TIMESTAMPTZ | 結束時間 |
-| hours | NUMERIC(5,2) | 加班時數 |
-| overtime_type | VARCHAR(20) | weekday, weekend, holiday |
-| multiplier | NUMERIC(3,2) | 補休倍率 |
-| comp_time_hours | NUMERIC(5,2) | 產生的補休時數 |
-| comp_time_expires_at | DATE | 到期日（1 年）|
-| status | VARCHAR(20) | draft, pending, approved, rejected |
-
-#### annual_leave_entitlements（特休額度）
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| id | UUID | 主鍵 |
-| user_id | UUID | 員工 |
-| entitlement_year | INTEGER | 年度（如 2025）|
-| entitled_days | NUMERIC(5,2) | 給假天數 |
-| used_days | NUMERIC(5,2) | 已使用天數 |
-| expires_at | DATE | 到期日（2 年）|
-| is_expired | BOOLEAN | 完全過期標記 |
-
-#### comp_time_balances（補休餘額）
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| id | UUID | 主鍵 |
-| user_id | UUID | 員工 |
-| overtime_record_id | UUID | 來源加班紀錄 |
-| original_hours | NUMERIC(5,2) | 取得時數 |
-| used_hours | NUMERIC(5,2) | 已使用時數 |
-| earned_date | DATE | 取得日期 |
-| expires_at | DATE | 到期日（1 年）|
-| is_expired | BOOLEAN | 完全過期標記 |
-
-#### leave_requests（請假申請）
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| id | UUID | 主鍵 |
-| user_id | UUID | 申請人 |
-| leave_type | leave_type ENUM | 請假類型 |
-| start_date | DATE | 開始日期 |
-| end_date | DATE | 結束日期 |
-| total_days | NUMERIC(5,2) | 總天數 |
-| reason | TEXT | 事由 |
-| status | leave_status ENUM | 目前狀態 |
-| current_approver_id | UUID | 下一位審核者 |
+| 端點 | 說明 |
+|------|------|
+| `GET /hr/balances/annual` | 特休餘額 |
+| `GET /hr/balances/comp-time` | 補休餘額 |
+| `GET /hr/balances/summary` | 餘額摘要 |
+| `POST /hr/balances/annual-entitlements` | 新增特休配額 |
+| `POST /hr/balances/:id/adjust` | 調整餘額 |
+| `GET /hr/balances/expired-compensation` | 過期補償查詢 |
 
 ---
 
@@ -197,203 +177,87 @@
 
 ### 6.1 架構
 
-- **方式**：共用行事曆搭配專屬 Gmail 帳號
-- **同步頻率**：每日兩次（台灣時間 8 AM、6 PM）
-- **方向**：主要為 iPig → Google，附帶衝突偵測
-- **可見性**：所有具有行事曆存取權限的員工可檢視事件
-
-### 6.2 事件格式
-
-```json
-{
-  "summary": "[請假] 王小明 - 特休",
-  "description": "iPig 請假編號: abc-123\n類型: 特休假\n狀態: 已核准",
-  "start": { "date": "2026-01-20" },
-  "end": { "date": "2026-01-21" },
-  "extendedProperties": {
-    "private": {
-      "ipig_leave_id": "abc-123",
-      "ipig_leave_type": "ANNUAL",
-      "ipig_sync_version": "3"
-    }
-  }
-}
+```
+iPig 系統                              Google Calendar
+┌──────────────┐                     ┌──────────────────┐
+│ calendar.rs  │ ◄── sync events ──► │ calendar/events  │
+│ settings     │                     │                  │
+│ sync_tokens  │ ◄── watch ────────► │ push notifications│
+│ conflicts    │                     │                  │
+└──────────────┘                     └──────────────────┘
+       │
+       ├── google_calendar.rs (17KB)
+       └── Google Service Account (Docker Secret)
 ```
 
-### 6.3 同步規則
+### 6.2 同步功能
 
-| iPig 事件 | Google 動作 |
-|-----------|-------------|
-| 請假核准 | 建立事件 |
-| 請假更新 | 更新事件 |
-| 請假取消/撤銷 | 刪除事件 |
+| 功能 | 說明 |
+|------|------|
+| 請假事件 | 核准的請假自動建立行事曆事件 |
+| 衝突偵測 | 偵測並報告同步衝突 |
+| 手動觸發 | `POST /hr/calendar/sync` |
+| 歷程紀錄 | 所有同步操作記錄 |
 
-### 6.4 衝突處理
+### 6.3 行事曆 API
 
-| Google 變更 | iPig 回應 |
-|-------------|-----------|
-| 事件刪除 | 標記待審（不刪除請假）|
-| 時間變更 | 標記待審 |
-| 標題變更 | 忽略（非關鍵）|
-
-衝突儲存於 `calendar_sync_conflicts`，需管理員解決：
-- **保留 iPig 版本**：重新推送至 Google
-- **接受 Google 變更**：更新 iPig（可能需重新核准）
-- **忽略**：標記已解決，不採取動作
+| 端點 | 說明 |
+|------|------|
+| `GET /hr/calendar/status` | 同步狀態 |
+| `GET/PUT /hr/calendar/config` | 設定管理 |
+| `POST /hr/calendar/connect` | 連接 Google Calendar |
+| `POST /hr/calendar/disconnect` | 中斷連接 |
+| `POST /hr/calendar/sync` | 觸發同步 |
+| `GET /hr/calendar/history` | 同步歷程 |
+| `GET /hr/calendar/pending` | 待同步項目 |
+| `GET /hr/calendar/conflicts` | 衝突列表 |
+| `POST /hr/calendar/conflicts/:id/resolve` | 解決衝突 |
+| `GET /hr/calendar/events` | 日曆事件列表 |
 
 ---
 
-## 7. API 端點
+## 7. HR 儀表板與人員
 
-### 7.1 出勤
-
-```
-GET    /api/hr/attendance              # 列表出勤紀錄
-POST   /api/hr/attendance/clock-in     # 簽到
-POST   /api/hr/attendance/clock-out    # 簽退
-PUT    /api/hr/attendance/:id          # 手動修正
-```
-
-### 7.2 加班
-
-```
-GET    /api/hr/overtime                # 列表加班紀錄
-POST   /api/hr/overtime                # 提交加班
-PUT    /api/hr/overtime/:id            # 更新加班
-DELETE /api/hr/overtime/:id            # 刪除（僅限草稿）
-POST   /api/hr/overtime/:id/submit     # 送審
-POST   /api/hr/overtime/:id/approve    # 核准
-POST   /api/hr/overtime/:id/reject     # 駁回
-```
-
-### 7.3 請假
-
-```
-GET    /api/hr/leaves                  # 列表請假申請
-POST   /api/hr/leaves                  # 建立申請
-GET    /api/hr/leaves/:id              # 取得詳情
-PUT    /api/hr/leaves/:id              # 更新（僅限草稿）
-DELETE /api/hr/leaves/:id              # 刪除（僅限草稿）
-POST   /api/hr/leaves/:id/submit       # 送審
-POST   /api/hr/leaves/:id/approve      # 核准
-POST   /api/hr/leaves/:id/reject       # 駁回
-POST   /api/hr/leaves/:id/cancel       # 取消（開始前）
-POST   /api/hr/leaves/:id/revoke       # 撤銷（開始後）
-```
-
-### 7.4 餘額
-
-```
-GET    /api/hr/balances/annual         # 特休餘額
-GET    /api/hr/balances/comp-time      # 補休餘額
-GET    /api/hr/balances/summary        # 綜合摘要
-```
-
-### 7.5 行事曆同步
-
-```
-GET    /api/hr/calendar/status         # 同步狀態
-POST   /api/hr/calendar/connect        # 設定行事曆
-POST   /api/hr/calendar/disconnect     # 移除設定
-POST   /api/hr/calendar/sync           # 手動觸發同步
-PUT    /api/hr/calendar/settings       # 更新設定
-GET    /api/hr/calendar/conflicts      # 列表衝突
-POST   /api/hr/calendar/conflicts/:id/resolve  # 解決衝突
-```
+| 端點 | 說明 |
+|------|------|
+| `GET /hr/dashboard/calendar` | 部門行事曆（誰在請假）|
+| `GET /hr/staff` | 內部員工列表（代理人下拉選單）|
+| `GET /hr/internal-users` | 內部使用者列表（餘額管理用）|
 
 ---
 
-## 8. UI 頁面
+## 8. 前端頁面
 
-### 8.1 導覽
-
-```
-👥 人員管理
-  ├── 出勤打卡
-  ├── 加班申請
-  ├── 請假申請
-  ├── 假期餘額
-  └── 行事曆設定 (管理員)
-```
-
-### 8.2 員工頁面
-
-| 頁面 | 說明 |
-|------|------|
-| 出勤 | 簽到簽退、週摘要 |
-| 加班 | 提交加班、檢視歷程 |
-| 請假 | 申請請假、檢視歷程 |
-| 餘額 | 檢視特休與補休 |
-
-### 8.3 管理員頁面
-
-| 頁面 | 說明 |
-|------|------|
-| 團隊行事曆 | 完整團隊請假行事曆 |
-| 餘額總覽 | 所有使用者餘額 |
-| 待核准項目 | 待核准申請列表 |
-| 同步狀態 | 行事曆同步監控 |
-| 衝突管理 | 解決同步衝突 |
+| 路由 | 頁面 | 說明 |
+|------|------|------|
+| `/hr/attendance` | HrAttendancePage | 打卡與出勤紀錄 |
+| `/hr/leaves` | HrLeavePage | 請假管理 |
+| `/hr/overtime` | HrOvertimePage | 加班管理 |
+| `/hr/annual-leave` | HrAnnualLeavePage | 特休管理（需 hr.balance.manage）|
+| `/hr/calendar` | CalendarSyncSettingsPage | 行事曆同步設定 |
 
 ---
 
 ## 9. 權限
 
-| 代碼 | 說明 |
-|------|------|
-| hr.attendance.view.own | 檢視個人出勤 |
-| hr.attendance.clock | 簽到簽退 |
-| hr.attendance.view.all | 檢視所有出勤 |
-| hr.attendance.correct | 修正紀錄 |
-| hr.overtime.view.own | 檢視個人加班 |
-| hr.overtime.create | 提交加班 |
-| hr.overtime.approve | 核准加班 |
-| hr.leave.view.own | 檢視個人請假 |
-| hr.leave.create | 申請請假 |
-| hr.leave.approve.l1 | L1 核准 |
-| hr.leave.approve.l2 | L2 核准 |
-| hr.leave.approve.hr | HR 核准 |
-| hr.leave.approve.gm | GM 核准 |
-| hr.balance.view.own | 檢視個人餘額 |
-| hr.balance.view.all | 檢視所有餘額 |
-| hr.balance.manage | 調整餘額 |
-| hr.calendar.config | 設定同步 |
-| hr.calendar.sync | 觸發同步 |
-| hr.calendar.conflicts | 解決衝突 |
-
----
-
-## 10. 通知
-
-| 事件 | 收件人 | 管道 |
-|------|--------|------|
-| 請假送審 | 審核者 | Email、站內 |
-| 請假核准 | 申請人 | Email、站內 |
-| 請假駁回 | 申請人 | Email、站內 |
-| 餘額即期（30 天）| 使用者 | Email |
-| 餘額即期（7 天）| 使用者 | Email、站內 |
-| 偵測到同步衝突 | HR 管理員 | 站內 |
-
----
-
-## 11. 背景工作
-
-| 工作 | 排程 | 說明 |
+| 權限 | 說明 | 角色 |
 |------|------|------|
-| 行事曆同步（AM）| 每日 08:00 | 推送/拉取變更 |
-| 行事曆同步（PM）| 每日 18:00 | 推送/拉取變更 |
-| 到期檢查 | 每日 00:00 | 標記已過期餘額 |
-| 到期提醒 | 每日 00:00 | 發送到期通知 |
-| 每日統計彙總 | 每日 01:00 | 計算彙總資料 |
+| hr.attendance.view | 查看自己出勤 | 所有內部員工 |
+| hr.attendance.view_all | 查看所有出勤 | ADMIN_STAFF |
+| hr.attendance.clock | 打卡 | 所有內部員工 |
+| hr.attendance.correct | 修正打卡 | ADMIN_STAFF |
+| hr.leave.view | 查看自己請假 | 所有內部員工 |
+| hr.leave.view_all | 查看所有請假 | ADMIN_STAFF |
+| hr.leave.create | 申請請假 | 所有內部員工 |
+| hr.leave.approve | 審核請假 | ADMIN_STAFF、主管 |
+| hr.leave.manage | 管理假別 | ADMIN_STAFF |
+| hr.overtime.view | 查看加班 | 所有內部員工 |
+| hr.overtime.create | 申請加班 | 所有內部員工 |
+| hr.overtime.approve | 審核加班 | ADMIN_STAFF |
+| hr.balance.view | 查看自己餘額 | 所有內部員工 |
+| hr.balance.view_all | 查看所有餘額 | ADMIN_STAFF |
+| hr.balance.manage | 管理餘額 | ADMIN_STAFF |
 
 ---
 
-## 12. 相關文件
-
-- [權限與 RBAC](./06_PERMISSIONS_RBAC.md) - 角色指派
-- [API 規格](./05_API_SPECIFICATION.md) - 完整端點詳情
-- [擴展性](./09_EXTENSIBILITY.md) - 未來擴展規劃
-
----
-
-*最後更新：2026-01-17*
+*下一章：[擴展性](./09_EXTENSIBILITY.md)*
