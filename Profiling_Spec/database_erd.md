@@ -1,67 +1,70 @@
-# iPig System 資料庫實體關係圖
+# 資料庫實體關係圖 (ERD)
 
-> **版本**: 2.0 | **更新日期**: 2026-01-19
+> **版本**：4.0  
+> **最後更新**：2026-02-16
 
 ---
 
-## 系統模組概覽
+## 1. 總覽
 
 ```mermaid
-flowchart TB
-    subgraph Core["🔐 核心模組"]
-        Users["Users 使用者"]
-        Roles["Roles 角色"]
-        Permissions["Permissions 權限"]
-    end
-    
-    subgraph ERP["📦 ERP 模組"]
-        Products["Products 產品"]
-        Partners["Partners 夥伴"]
-        Documents["Documents 單據"]
-        Stock["Stock 庫存"]
-    end
-    
-    subgraph Protocol["📋 實驗計畫模組"]
-        Protocols["Protocols 計畫"]
-        Reviews["Reviews 審查"]
-    end
-    
-    subgraph Animal["🐷 動物管理模組"]
-        Pigs["Pigs 豬隻"]
-        Records["Records 紀錄"]
-    end
-    
-    subgraph HR["👥 人資模組"]
-        Attendance["Attendance 出勤"]
-        Leave["Leave 請假"]
-        Overtime["Overtime 加班"]
-    end
-    
-    subgraph Audit["📊 稽核模組"]
-        Logs["Activity Logs 活動日誌"]
-        Sessions["Sessions 工作階段"]
-    end
-    
-    Core --> ERP
-    Core --> Protocol
-    Core --> Animal
-    Core --> HR
-    Core --> Audit
+erDiagram
+    %% ===== 核心架構 =====
+    users ||--o{ user_roles : has
+    roles ||--o{ user_roles : assigned
+    roles ||--o{ role_permissions : has
+    permissions ||--o{ role_permissions : granted
+    users ||--o{ user_preferences : has
+
+    %% ===== AUP 審查 =====
+    users ||--o{ protocols : "owns (PI)"
+    users ||--o{ user_protocols : participates
+    protocols ||--o{ user_protocols : has_members
+    protocols ||--o{ protocol_versions : versioned
+    protocols ||--o{ review_assignments : reviewed
+    protocols ||--o{ review_comments : has_comments
+    protocols ||--o{ protocol_activities : tracked
+    protocols ||--o{ amendments : amended
+
+    %% ===== 動物管理 =====
+    animal_sources ||--o{ animals : provides
+    animals ||--o{ animal_observations : has
+    animals ||--o{ animal_surgeries : undergoes
+    animals ||--o{ animal_weights : measured
+    animals ||--o{ animal_vaccinations : receives
+    animals ||--o{ animal_blood_tests : tested
+    animals ||--|| animal_sacrifices : "may have"
+    animals ||--|| animal_pathology_reports : "may have"
+    animals ||--o{ euthanasia_orders : "may have"
+    blood_test_templates ||--o{ animal_blood_test_items : used_in
+    blood_test_panels ||--o{ blood_test_panel_items : contains
+
+    %% ===== ERP =====
+    warehouses ||--o{ storage_locations : has
+    warehouses ||--o{ documents : stores
+    partners ||--o{ documents : transacts
+    products ||--o{ document_lines : referenced
+    documents ||--o{ document_lines : contains
+    documents ||--o{ stock_ledger : records
+
+    %% ===== HR =====
+    users ||--o{ attendance_records : has
+    users ||--o{ leave_requests : applies
+    users ||--o{ overtime_records : submits
+    users ||--o{ leave_balances : has
+
+    %% ===== 稽核 =====
+    users ||--o{ user_activity_logs : generates
+    users ||--o{ user_sessions : has
+    users ||--o{ login_events : triggers
 ```
 
 ---
 
-## 1. 核心認證模組 (Core Authentication)
+## 2. 核心架構 ERD
 
 ```mermaid
 erDiagram
-    users ||--o{ user_roles : "has"
-    users ||--o{ refresh_tokens : "owns"
-    users ||--o{ password_reset_tokens : "requests"
-    roles ||--o{ user_roles : "assigned to"
-    roles ||--o{ role_permissions : "has"
-    permissions ||--o{ role_permissions : "granted to"
-    
     users {
         UUID id PK
         VARCHAR email UK
@@ -69,127 +72,511 @@ erDiagram
         VARCHAR display_name
         VARCHAR phone
         VARCHAR organization
+        UUID department_id FK
+        UUID direct_manager_id FK
         BOOLEAN is_internal
         BOOLEAN is_active
         BOOLEAN must_change_password
         TIMESTAMPTZ last_login_at
         INTEGER login_attempts
         TIMESTAMPTZ locked_until
+        VARCHAR theme_preference
+        VARCHAR language_preference
+        DATE entry_date
+        VARCHAR position
+        JSONB trainings
+        TIMESTAMPTZ deleted_at
     }
-    
+
     roles {
         UUID id PK
         VARCHAR code UK
         VARCHAR name
-        TEXT description
-        BOOLEAN is_internal
         BOOLEAN is_system
-        BOOLEAN is_deleted
-        BOOLEAN is_active
+        BOOLEAN is_internal
     }
-    
+
     permissions {
         UUID id PK
         VARCHAR code UK
         VARCHAR name
         VARCHAR module
-        TEXT description
     }
-    
+
     user_roles {
-        UUID user_id PK,FK
-        UUID role_id PK,FK
+        UUID user_id FK
+        UUID role_id FK
         TIMESTAMPTZ assigned_at
         UUID assigned_by FK
     }
-    
+
     role_permissions {
-        UUID role_id PK,FK
-        UUID permission_id PK,FK
+        UUID role_id FK
+        UUID permission_id FK
     }
-    
+
+    user_preferences {
+        UUID id PK
+        UUID user_id FK
+        VARCHAR preference_key
+        JSONB preference_value
+    }
+
+    notifications {
+        UUID id PK
+        UUID user_id FK
+        notification_type type
+        VARCHAR title
+        TEXT message
+        JSONB data
+        BOOLEAN is_read
+    }
+
     refresh_tokens {
         UUID id PK
         UUID user_id FK
         VARCHAR token_hash
         TIMESTAMPTZ expires_at
-        TIMESTAMPTZ revoked_at
     }
-    
-    password_reset_tokens {
+
+    users ||--o{ user_roles : has
+    users ||--o{ user_preferences : has
+    roles ||--o{ user_roles : assigned
+    roles ||--o{ role_permissions : has
+    permissions ||--o{ role_permissions : granted
+    users ||--o{ notifications : receives
+    users ||--o{ refresh_tokens : has
+```
+
+---
+
+## 3. AUP 審查系統 ERD
+
+```mermaid
+erDiagram
+    protocols {
         UUID id PK
+        VARCHAR protocol_no UK
+        VARCHAR iacuc_no
+        VARCHAR title
+        protocol_status status
+        UUID pi_user_id FK
+        JSONB working_content
+        DATE start_date
+        DATE end_date
+        BOOLEAN is_deleted
+    }
+
+    protocol_versions {
+        UUID id PK
+        UUID protocol_id FK
+        INTEGER version_number
+        JSONB content
+        UUID created_by FK
+    }
+
+    user_protocols {
+        UUID id PK
+        UUID protocol_id FK
         UUID user_id FK
-        VARCHAR token_hash
-        TIMESTAMPTZ expires_at
-        TIMESTAMPTZ used_at
+        protocol_role role
+    }
+
+    review_assignments {
+        UUID id PK
+        UUID protocol_id FK
+        UUID reviewer_id FK
+        VARCHAR review_type
+        VARCHAR status
+        INTEGER comments_count
+        BOOLEAN is_locked
+    }
+
+    review_comments {
+        UUID id PK
+        UUID assignment_id FK
+        UUID protocol_id FK
+        UUID user_id FK
+        UUID parent_id FK
+        VARCHAR section
+        TEXT content
+        BOOLEAN is_resolved
+    }
+
+    review_comment_drafts {
+        UUID id PK
+        UUID assignment_id FK
+        UUID user_id FK
+        JSONB content
+    }
+
+    protocol_activities {
+        UUID id PK
+        UUID protocol_id FK
+        protocol_activity_type activity_type
+        UUID user_id FK
+        JSONB details
+    }
+
+    protocol_attachments {
+        UUID id PK
+        UUID protocol_id FK
+        VARCHAR filename
+        VARCHAR filepath
+        UUID uploaded_by FK
+    }
+
+    amendments {
+        UUID id PK
+        UUID protocol_id FK
+        VARCHAR amendment_no
+        amendment_type type
+        amendment_status status
+        JSONB content
+        JSONB previous_content
+        UUID submitted_by FK
+    }
+
+    amendment_versions {
+        UUID id PK
+        UUID amendment_id FK
+        INTEGER version_number
+        JSONB content
+    }
+
+    protocols ||--o{ protocol_versions : versioned
+    protocols ||--o{ user_protocols : has_members
+    protocols ||--o{ review_assignments : reviewed
+    protocols ||--o{ review_comments : commented
+    protocols ||--o{ protocol_activities : tracked
+    protocols ||--o{ protocol_attachments : has
+    protocols ||--o{ amendments : amended
+    review_assignments ||--o{ review_comments : has
+    review_comments ||--o{ review_comments : replies
+    amendments ||--o{ amendment_versions : versioned
+```
+
+---
+
+## 4. 動物管理 ERD
+
+```mermaid
+erDiagram
+    animal_sources ||--o{ animals : "provides"
+    animals ||--o{ animal_observations : "has"
+    animals ||--o{ animal_surgeries : "undergoes"
+    animals ||--o{ animal_weights : "measured"
+    animals ||--o{ animal_vaccinations : "receives"
+    animals ||--|| animal_sacrifices : "may have"
+    animals ||--|| animal_pathology_reports : "may have"
+    animal_observations ||--o{ animal_files : "attached"
+    animal_surgeries ||--o{ animal_files : "attached"
+    animal_observations ||--o{ vet_recommendations : "has"
+    animal_surgeries ||--o{ vet_recommendations : "has"
+    
+    animals {
+        SERIAL id PK
+        VARCHAR ear_tag
+        animal_status status
+        animal_breed breed
+        UUID source_id FK
+        animal_gender gender
+        DATE birth_date
+        DATE entry_date
+        NUMERIC entry_weight
+        VARCHAR pen_location
+        UUID pen_id FK
+        VARCHAR pre_experiment_code
+        VARCHAR iacuc_no
+        DATE experiment_date
+        BOOLEAN is_deleted
+        TIMESTAMPTZ deleted_at
+        UUID deleted_by FK
+    }
+
+    animal_sources {
+        UUID id PK
+        VARCHAR name
+        VARCHAR supplier_type
+        JSONB contact_info
+        BOOLEAN is_active
+    }
+
+    animal_observations {
+        SERIAL id PK
+        INTEGER animal_id FK
+        DATE event_date
+        record_type record_type
+        TEXT content
+        BOOLEAN no_medication_needed
+        BOOLEAN stop_medication
+        JSONB treatments
+        BOOLEAN vet_read
+        UUID created_by FK
+        UUID updated_by FK
+    }
+
+    animal_surgeries {
+        SERIAL id PK
+        INTEGER animal_id FK
+        BOOLEAN is_first_experiment
+        DATE surgery_date
+        VARCHAR surgery_site
+        JSONB induction_anesthesia
+        JSONB anesthesia_maintenance
+        JSONB vital_signs
+        BOOLEAN vet_read
+        UUID created_by FK
+    }
+
+    animal_weights {
+        SERIAL id PK
+        INTEGER animal_id FK
+        DATE weight_date
+        NUMERIC weight
+        VARCHAR weight_category
+        UUID created_by FK
+    }
+
+    animal_vaccinations {
+        SERIAL id PK
+        INTEGER animal_id FK
+        VARCHAR vaccine_name
+        DATE vaccination_date
+        VARCHAR vet_name
+        UUID created_by FK
+    }
+
+    animal_sacrifices {
+        SERIAL id PK
+        INTEGER animal_id FK
+        DATE sacrifice_date
+        VARCHAR method
+        VARCHAR executor
+        TEXT notes
+        UUID created_by FK
+    }
+
+    animal_pathology_reports {
+        SERIAL id PK
+        INTEGER animal_id FK
+        DATE report_date
+        JSONB findings
+        UUID created_by FK
+    }
+
+    animal_files {
+        UUID id PK
+        animal_file_type file_type
+        INTEGER animal_id FK
+        animal_record_type record_type
+        INTEGER record_id
+        VARCHAR filename
+        VARCHAR filepath
+        UUID uploaded_by FK
+    }
+
+    vet_recommendations {
+        UUID id PK
+        vet_record_type record_type
+        INTEGER record_id
+        TEXT recommendation
+        VARCHAR status
+        UUID created_by FK
+    }
+
+    animal_care_records {
+        SERIAL id PK
+        INTEGER animal_id FK
+        DATE record_date
+        care_record_mode mode
+        JSONB content
+        UUID created_by FK
     }
 ```
 
 ---
 
-## 2. ERP 庫存管理模組
+## 5. 血液檢查 ERD
 
 ```mermaid
 erDiagram
-    warehouses ||--o{ documents : "stores"
-    warehouses ||--o{ stock_ledger : "tracks"
-    warehouses ||--o{ inventory_snapshots : "snapshots"
-    products ||--o{ document_lines : "ordered in"
-    products ||--o{ stock_ledger : "tracked"
-    products ||--o{ inventory_snapshots : "counted"
-    partners ||--o{ documents : "involved in"
-    documents ||--o{ document_lines : "contains"
-    documents ||--o{ stock_ledger : "generates"
-    sku_categories ||--o{ sku_subcategories : "has"
-    sku_categories ||--o{ products : "categorizes"
-    users ||--o{ documents : "creates"
-    
-    warehouses {
+    animals ||--o{ animal_blood_tests : tested
+    animal_blood_tests ||--o{ animal_blood_test_items : contains
+    blood_test_templates ||--o{ animal_blood_test_items : used_in
+    blood_test_panels ||--o{ blood_test_panel_items : contains
+    blood_test_templates ||--o{ blood_test_panel_items : grouped
+
+    animal_blood_tests {
+        UUID id PK
+        INTEGER animal_id FK
+        DATE test_date
+        VARCHAR lab_name
+        VARCHAR lab_report_no
+        VARCHAR status
+        TEXT remark
+        BOOLEAN vet_read
+        BOOLEAN is_deleted
+        UUID created_by FK
+    }
+
+    animal_blood_test_items {
+        UUID id PK
+        UUID blood_test_id FK
+        UUID template_id FK
+        VARCHAR item_name
+        VARCHAR result_value
+        VARCHAR unit
+        VARCHAR reference_range
+        BOOLEAN is_abnormal
+        NUMERIC unit_price
+        TEXT remark
+        INTEGER sort_order
+    }
+
+    blood_test_templates {
         UUID id PK
         VARCHAR code UK
         VARCHAR name
-        TEXT address
-        BOOLEAN is_active
-    }
-    
-    sku_categories {
-        CHAR3 code PK
-        VARCHAR name
+        VARCHAR name_en
+        VARCHAR default_unit
+        VARCHAR reference_range
+        NUMERIC default_price
         INTEGER sort_order
         BOOLEAN is_active
     }
-    
-    sku_subcategories {
-        SERIAL id PK
-        CHAR3 category_code FK
-        CHAR3 code
+
+    blood_test_panels {
+        UUID id PK
+        VARCHAR key UK
         VARCHAR name
+        VARCHAR icon
+        INTEGER sort_order
+        BOOLEAN is_active
     }
-    
+
+    blood_test_panel_items {
+        UUID id PK
+        UUID panel_id FK
+        UUID template_id FK
+        INTEGER sort_order
+    }
+```
+
+---
+
+## 6. 安樂死管理 ERD
+
+```mermaid
+erDiagram
+    animals ||--o{ euthanasia_orders : "may have"
+    users ||--o{ euthanasia_orders : "requests"
+    users ||--o{ euthanasia_orders : "approves"
+
+    euthanasia_orders {
+        UUID id PK
+        INTEGER animal_id FK
+        euthanasia_order_status status
+        TEXT reason
+        UUID requested_by FK
+        UUID approved_by FK
+        TEXT pi_notes
+        TIMESTAMPTZ approved_at
+        TIMESTAMPTZ executed_at
+    }
+```
+
+---
+
+## 7. GLP 合規 ERD
+
+```mermaid
+erDiagram
+    electronic_signatures {
+        UUID id PK
+        VARCHAR record_type
+        INTEGER record_id
+        UUID signer_id FK
+        JSONB signature_data
+        TIMESTAMPTZ signed_at
+    }
+
+    record_annotations {
+        UUID id PK
+        VARCHAR record_type
+        INTEGER record_id
+        TEXT content
+        UUID created_by FK
+        TIMESTAMPTZ created_at
+    }
+
+    record_versions {
+        UUID id PK
+        version_record_type record_type
+        INTEGER record_id
+        INTEGER version_number
+        JSONB data
+        UUID created_by FK
+        TIMESTAMPTZ created_at
+    }
+```
+
+---
+
+## 8. ERP 進銷存 ERD
+
+```mermaid
+erDiagram
     products {
         UUID id PK
         VARCHAR sku UK
         VARCHAR name
-        TEXT spec
-        CHAR3 category_code FK
-        CHAR3 subcategory_code FK
+        CHAR category_code
+        CHAR subcategory_code
         VARCHAR base_uom
+        NUMERIC safety_stock
         BOOLEAN track_batch
         BOOLEAN track_expiry
-        NUMERIC safety_stock
-        VARCHAR status
-        BOOLEAN is_active
     }
-    
-    partners {
+
+    warehouses {
         UUID id PK
-        partner_type partner_type
         VARCHAR code UK
         VARCHAR name
-        supplier_category supplier_category
-        BOOLEAN is_active
+        VARCHAR address
+        JSONB layout
     }
-    
+
+    storage_locations {
+        UUID id PK
+        UUID warehouse_id FK
+        VARCHAR code
+        VARCHAR name
+        VARCHAR zone
+        INTEGER row_no
+        INTEGER col_no
+        INTEGER level_no
+    }
+
+    storage_location_inventory {
+        UUID id PK
+        UUID location_id FK
+        UUID product_id FK
+        NUMERIC quantity
+        VARCHAR batch_no
+        DATE expiry_date
+    }
+
+    partners {
+        UUID id PK
+        partner_type type
+        VARCHAR code UK
+        VARCHAR name
+        VARCHAR contact_name
+        VARCHAR contact_email
+        VARCHAR contact_phone
+    }
+
     documents {
         UUID id PK
         doc_type doc_type
@@ -198,277 +585,61 @@ erDiagram
         UUID warehouse_id FK
         UUID partner_id FK
         DATE doc_date
+        NUMERIC total_amount
         UUID created_by FK
-        UUID approved_by FK
     }
-    
+
     document_lines {
         UUID id PK
         UUID document_id FK
-        INTEGER line_no
         UUID product_id FK
-        NUMERIC qty
-        VARCHAR uom
+        NUMERIC quantity
         NUMERIC unit_price
+        NUMERIC total
+        VARCHAR batch_no
+        DATE expiry_date
     }
-    
+
     stock_ledger {
         UUID id PK
-        UUID warehouse_id FK
         UUID product_id FK
-        TIMESTAMPTZ trx_date
-        doc_type doc_type
-        UUID doc_id FK
+        UUID warehouse_id FK
+        UUID document_id FK
         stock_direction direction
-        NUMERIC qty_base
+        NUMERIC quantity
+        NUMERIC running_balance
     }
-    
-    inventory_snapshots {
-        UUID warehouse_id PK,FK
-        UUID product_id PK,FK
-        NUMERIC on_hand_qty_base
-    }
+
+    warehouses ||--o{ storage_locations : has
+    warehouses ||--o{ documents : stores
+    storage_locations ||--o{ storage_location_inventory : contains
+    partners ||--o{ documents : transacts
+    documents ||--o{ document_lines : contains
+    documents ||--o{ stock_ledger : records
+    products ||--o{ document_lines : referenced
+    products ||--o{ stock_ledger : tracked
 ```
 
 ---
 
-## 3. 實驗計畫模組 (Protocol)
+## 9. HR 人事管理 ERD
 
 ```mermaid
 erDiagram
-    users ||--o{ protocols : "owns as PI"
-    users ||--o{ user_protocols : "participates"
-    protocols ||--o{ user_protocols : "has members"
-    protocols ||--o{ protocol_versions : "has versions"
-    protocols ||--o{ protocol_status_history : "tracks status"
-    protocols ||--o{ review_assignments : "reviewed by"
-    protocol_versions ||--o{ review_comments : "receives"
-    users ||--o{ review_assignments : "assigned as reviewer"
-    users ||--o{ review_comments : "writes"
-    
-    protocols {
-        UUID id PK
-        VARCHAR protocol_no UK
-        VARCHAR iacuc_no UK
-        VARCHAR title
-        protocol_status status
-        UUID pi_user_id FK
-        JSONB working_content
-        DATE start_date
-        DATE end_date
-    }
-    
-    user_protocols {
-        UUID user_id PK,FK
-        UUID protocol_id PK,FK
-        protocol_role role_in_protocol
-    }
-    
-    protocol_versions {
-        UUID id PK
-        UUID protocol_id FK
-        INTEGER version_no
-        JSONB content_snapshot
-        TIMESTAMPTZ submitted_at
-    }
-    
-    protocol_status_history {
-        UUID id PK
-        UUID protocol_id FK
-        protocol_status from_status
-        protocol_status to_status
-        UUID changed_by FK
-        TEXT remark
-    }
-    
-    review_assignments {
-        UUID id PK
-        UUID protocol_id FK
-        UUID reviewer_id FK
-        UUID assigned_by FK
-    }
-    
-    review_comments {
-        UUID id PK
-        UUID protocol_version_id FK
-        UUID reviewer_id FK
-        TEXT content
-        BOOLEAN is_resolved
-    }
-```
+    users ||--o{ attendance_records : has
+    users ||--o{ leave_requests : applies
+    users ||--o{ overtime_records : submits
+    users ||--o{ leave_balances : has
 
----
-
-## 4. 動物管理模組 (Animal/Pig)
-
-```mermaid
-erDiagram
-    pig_sources ||--o{ pigs : "provides"
-    pigs ||--o{ pig_observations : "has"
-    pigs ||--o{ pig_surgeries : "undergoes"
-    pigs ||--o{ pig_weights : "measured"
-    pigs ||--o{ pig_vaccinations : "receives"
-    pigs ||--|| pig_sacrifices : "may have"
-    pigs ||--|| pig_pathology_reports : "may have"
-    pig_observations ||--o{ pig_record_attachments : "attached"
-    pig_surgeries ||--o{ pig_record_attachments : "attached"
-    pig_observations ||--o{ vet_recommendations : "has"
-    pig_surgeries ||--o{ vet_recommendations : "has"
-    
-    pig_sources {
-        UUID id PK
-        VARCHAR code UK
-        VARCHAR name
-        BOOLEAN is_active
-    }
-    
-    pigs {
-        SERIAL id PK
-        VARCHAR ear_tag
-        pig_status status
-        pig_breed breed
-        UUID source_id FK
-        pig_gender gender
-        DATE birth_date
-        DATE entry_date
-        NUMERIC entry_weight
-        VARCHAR pen_location
-        VARCHAR pre_experiment_code
-        VARCHAR iacuc_no
-        DATE experiment_date
-        BOOLEAN is_deleted
-        TIMESTAMPTZ deleted_at
-        UUID deleted_by FK
-    }
-    
-    pig_observations {
-        SERIAL id PK
-        INTEGER pig_id FK
-        DATE event_date
-        record_type record_type
-        TEXT content
-        BOOLEAN no_medication_needed
-        BOOLEAN stop_medication
-        JSONB treatments
-        BOOLEAN vet_read
-    }
-    
-    pig_surgeries {
-        SERIAL id PK
-        INTEGER pig_id FK
-        BOOLEAN is_first_experiment
-        DATE surgery_date
-        VARCHAR surgery_site
-        JSONB induction_anesthesia
-        JSONB anesthesia_maintenance
-        JSONB vital_signs
-        BOOLEAN vet_read
-    }
-    
-    pig_weights {
-        SERIAL id PK
-        INTEGER pig_id FK
-        DATE measure_date
-        NUMERIC weight
-    }
-    
-    pig_vaccinations {
-        SERIAL id PK
-        INTEGER pig_id FK
-        DATE administered_date
-        VARCHAR vaccine
-    }
-    
-    pig_sacrifices {
-        SERIAL id PK
-        INTEGER pig_id FK,UK
-        DATE sacrifice_date
-        BOOLEAN confirmed_sacrifice
-    }
-    
-    pig_pathology_reports {
-        SERIAL id PK
-        INTEGER pig_id FK,UK
-    }
-    
-    pig_record_attachments {
-        UUID id PK
-        pig_record_type record_type
-        INTEGER record_id
-        VARCHAR file_path
-    }
-    
-    vet_recommendations {
-        SERIAL id PK
-        vet_record_type record_type
-        INTEGER record_id
-        TEXT content
-    }
-```
-
----
-
-## 5. 人資管理模組 (HR)
-
-```mermaid
-erDiagram
-    users ||--o{ attendance_records : "has"
-    users ||--o{ overtime_records : "submits"
-    users ||--o{ annual_leave_entitlements : "entitled"
-    users ||--o{ comp_time_balances : "earns"
-    users ||--o{ leave_requests : "requests"
-    users ||--o{ leave_requests : "proxies for"
-    users ||--o{ leave_approvals : "approves"
-    overtime_records ||--o{ comp_time_balances : "generates"
-    leave_requests ||--o{ leave_approvals : "requires"
-    leave_requests ||--o{ calendar_event_sync : "syncs to"
-    
     attendance_records {
         UUID id PK
         UUID user_id FK
-        DATE work_date
-        TIMESTAMPTZ clock_in_time
-        TIMESTAMPTZ clock_out_time
-        NUMERIC regular_hours
-        NUMERIC overtime_hours
-        VARCHAR status
+        DATE date
+        TIMESTAMPTZ clock_in
+        TIMESTAMPTZ clock_out
+        NUMERIC work_hours
     }
-    
-    overtime_records {
-        UUID id PK
-        UUID user_id FK
-        DATE overtime_date
-        TIMESTAMPTZ start_time
-        TIMESTAMPTZ end_time
-        NUMERIC hours
-        VARCHAR overtime_type
-        NUMERIC multiplier
-        NUMERIC comp_time_hours
-        DATE comp_time_expires_at
-        VARCHAR status
-    }
-    
-    annual_leave_entitlements {
-        UUID id PK
-        UUID user_id FK
-        INTEGER entitlement_year
-        NUMERIC entitled_days
-        NUMERIC used_days
-        DATE expires_at
-        BOOLEAN is_expired
-    }
-    
-    comp_time_balances {
-        UUID id PK
-        UUID user_id FK
-        UUID overtime_record_id FK
-        NUMERIC original_hours
-        NUMERIC used_hours
-        DATE earned_date
-        DATE expires_at
-        BOOLEAN is_expired
-    }
-    
+
     leave_requests {
         UUID id PK
         UUID user_id FK
@@ -477,186 +648,170 @@ erDiagram
         DATE start_date
         DATE end_date
         NUMERIC total_days
-        TEXT reason
         leave_status status
         UUID current_approver_id FK
+        JSONB approval_history
     }
-    
-    leave_approvals {
-        UUID id PK
-        UUID leave_request_id FK
-        UUID approver_id FK
-        VARCHAR approval_level
-        VARCHAR action
-    }
-```
 
----
-
-## 6. 日曆同步與通知模組
-
-```mermaid
-erDiagram
-    leave_requests ||--|| calendar_event_sync : "syncs"
-    leave_requests ||--o{ calendar_sync_conflicts : "may have"
-    users ||--o{ notifications : "receives"
-    users ||--|| notification_settings : "configures"
-    
-    google_calendar_config {
-        UUID id PK
-        VARCHAR calendar_id
-        VARCHAR calendar_name
-        BOOLEAN is_configured
-        BOOLEAN sync_enabled
-        TIMESTAMPTZ last_sync_at
-        VARCHAR last_sync_status
-    }
-    
-    calendar_event_sync {
-        UUID id PK
-        UUID leave_request_id FK,UK
-        VARCHAR google_event_id
-        INTEGER sync_version
-        VARCHAR sync_status
-    }
-    
-    calendar_sync_conflicts {
-        UUID id PK
-        UUID leave_request_id FK
-        VARCHAR conflict_type
-        JSONB ipig_data
-        JSONB google_data
-        VARCHAR status
-    }
-    
-    calendar_sync_history {
-        UUID id PK
-        VARCHAR job_type
-        TIMESTAMPTZ started_at
-        VARCHAR status
-        INTEGER events_created
-    }
-    
-    notifications {
+    overtime_records {
         UUID id PK
         UUID user_id FK
-        notification_type type
-        VARCHAR title
-        TEXT content
-        BOOLEAN is_read
-        VARCHAR related_entity_type
-        UUID related_entity_id
+        DATE overtime_date
+        TIME start_time
+        TIME end_time
+        NUMERIC total_hours
+        VARCHAR compensation_type
+        VARCHAR status
     }
-    
-    notification_settings {
-        UUID user_id PK,FK
-        BOOLEAN email_low_stock
-        BOOLEAN email_expiry_warning
-        BOOLEAN email_document_approval
-        BOOLEAN email_protocol_status
-        INTEGER expiry_warning_days
-    }
-    
-    scheduled_reports {
+
+    leave_balances {
         UUID id PK
-        VARCHAR name
-        report_type report_type
-        schedule_type schedule_type
-        JSONB schedule_config
-        TEXT recipients
-        BOOLEAN is_active
+        UUID user_id FK
+        INTEGER year
+        leave_type leave_type
+        NUMERIC total_days
+        NUMERIC used_days
+        NUMERIC remaining_days
+    }
+
+    calendar_settings {
+        UUID id PK
+        UUID user_id FK
+        VARCHAR calendar_id
+        BOOLEAN auto_sync
+        JSONB sync_config
     }
 ```
 
 ---
 
-## 7. 稽核與安全模組
+## 10. 稽核系統 ERD
 
 ```mermaid
 erDiagram
-    users ||--o{ user_activity_logs : "generates"
-    users ||--o{ login_events : "triggers"
-    users ||--o{ user_sessions : "has"
-    users ||--o{ security_alerts : "may trigger"
-    
+    users ||--o{ user_activity_logs : generates
+    users ||--o{ user_sessions : has
+    users ||--o{ login_events : triggers
+    users ||--o{ security_alerts : about
+
     user_activity_logs {
         UUID id PK
-        UUID actor_user_id FK
-        VARCHAR actor_email
-        VARCHAR event_category
-        VARCHAR event_type
+        UUID user_id FK
+        VARCHAR action
         VARCHAR entity_type
-        UUID entity_id
-        JSONB before_data
-        JSONB after_data
-        TEXT changed_fields
+        VARCHAR entity_id
+        JSONB details
         INET ip_address
-        DATE partition_date
+        TEXT user_agent
+        UUID session_id FK
+        TIMESTAMPTZ created_at
     }
-    
+
+    user_sessions {
+        UUID id PK
+        UUID user_id FK
+        UUID token_jti
+        INET ip_address
+        TEXT user_agent
+        JSONB geoip
+        TIMESTAMPTZ last_activity_at
+        TIMESTAMPTZ expired_at
+        BOOLEAN is_active
+    }
+
     login_events {
         UUID id PK
         UUID user_id FK
         VARCHAR email
-        VARCHAR event_type
+        BOOLEAN success
         INET ip_address
-        BOOLEAN is_unusual_time
-        BOOLEAN is_unusual_location
-        BOOLEAN is_new_device
-        VARCHAR failure_reason
+        TEXT user_agent
+        JSONB geoip
+        TEXT failure_reason
+        TIMESTAMPTZ created_at
     }
-    
-    user_sessions {
-        UUID id PK
-        UUID user_id FK
-        TIMESTAMPTZ started_at
-        TIMESTAMPTZ ended_at
-        TIMESTAMPTZ last_activity_at
-        BOOLEAN is_active
-        VARCHAR ended_reason
-    }
-    
+
     security_alerts {
         UUID id PK
+        UUID user_id FK
         VARCHAR alert_type
         VARCHAR severity
-        VARCHAR title
-        UUID user_id FK
-        VARCHAR status
+        JSONB details
+        BOOLEAN is_resolved
+        UUID resolved_by FK
+        TIMESTAMPTZ resolved_at
     }
 ```
 
 ---
 
-## 資料類型列舉 (Enums)
+## 11. 設施管理 ERD
 
-| 類別 | 列舉名稱 | 值 |
-|------|----------|-----|
-| **夥伴** | `partner_type` | supplier, customer |
-| **夥伴** | `supplier_category` | drug, consumable, feed, equipment, other |
-| **單據** | `doc_type` | PO, GRN, PR, SO, DO, SR, TR, STK, ADJ, RTN |
-| **單據** | `doc_status` | draft, submitted, approved, cancelled |
-| **庫存** | `stock_direction` | in, out, transfer_in, transfer_out, adjust_in, adjust_out |
-| **計畫** | `protocol_role` | PI, CLIENT, CO_EDITOR |
-| **計畫** | `protocol_status` | DRAFT, SUBMITTED, PRE_REVIEW, UNDER_REVIEW, REVISION_REQUIRED, RESUBMITTED, APPROVED, APPROVED_WITH_CONDITIONS, DEFERRED, REJECTED, SUSPENDED, CLOSED, DELETED |
-| **動物** | `pig_status` | unassigned, assigned, in_experiment, completed, transferred, deceased |
-| **動物** | `pig_breed` | miniature, white, LYD, other |
-| **動物** | `pig_gender` | male, female |
-| **請假** | `leave_type` | ANNUAL, PERSONAL, SICK, COMPENSATORY, MARRIAGE, BEREAVEMENT, MATERNITY, PATERNITY, MENSTRUAL, OFFICIAL, UNPAID |
-| **請假** | `leave_status` | DRAFT, PENDING_L1, PENDING_L2, PENDING_HR, PENDING_GM, APPROVED, REJECTED, CANCELLED, REVOKED |
-| **通知** | `notification_type` | low_stock, expiry_warning, document_approval, protocol_status, vet_recommendation, system_alert, monthly_report |
+```mermaid
+erDiagram
+    species ||--o{ facilities : supports
+    facilities ||--o{ buildings : has
+    buildings ||--o{ zones : has
+    zones ||--o{ pens : has
+    pens ||--o{ animals : houses
+
+    species {
+        UUID id PK
+        VARCHAR name UK
+        VARCHAR code UK
+        TEXT description
+        BOOLEAN is_active
+    }
+
+    facilities {
+        UUID id PK
+        VARCHAR name
+        VARCHAR code UK
+        VARCHAR address
+        UUID species_id FK
+    }
+
+    buildings {
+        UUID id PK
+        UUID facility_id FK
+        VARCHAR name
+        VARCHAR code
+    }
+
+    zones {
+        UUID id PK
+        UUID building_id FK
+        VARCHAR name
+        VARCHAR code
+    }
+
+    pens {
+        UUID id PK
+        UUID zone_id FK
+        VARCHAR name
+        VARCHAR code
+        INTEGER capacity
+    }
+```
 
 ---
 
-## 統計摘要
+## 12. 資料表彙總
 
-| 模組 | 資料表數量 | 主要實體 |
-|------|-----------|----------|
-| 核心認證 | 7 | users, roles, permissions |
-| ERP 庫存 | 9 | products, partners, documents, stock |
-| 實驗計畫 | 6 | protocols, versions, reviews |
-| 動物管理 | 10 | pigs, observations, surgeries |
-| 人資管理 | 6 | attendance, leave, overtime |
-| 日曆通知 | 7 | calendar sync, notifications |
-| 稽核安全 | 4 | activity logs, sessions, alerts |
-| **總計** | **49** | |
+| 模組 | 資料表數量 | 主要表名 |
+|------|------------|----------|
+| 核心架構 | 8 | users, roles, permissions, notifications, attachments |
+| 動物管理 | 12 | animals, animal_observations, animal_surgeries, animal_weights, animal_vaccinations, animal_sacrifices, animal_pathology_reports, animal_files, animal_care_records |
+| 血液檢查 | 5 | animal_blood_tests, animal_blood_test_items, blood_test_templates, blood_test_panels, blood_test_panel_items |
+| 安樂死 | 1 | euthanasia_orders |
+| GLP 合規 | 3 | electronic_signatures, record_annotations, record_versions |
+| AUP 系統 | 10 | protocols, protocol_versions, user_protocols, review_assignments, review_comments, amendments |
+| ERP 系統 | 14 | products, warehouses, storage_locations, partners, documents, stock_ledger, skus |
+| HR 系統 | 8 | attendance_records, leave_requests, overtime_records, leave_balances, calendar_settings |
+| 稽核系統 | 4 | user_activity_logs, user_sessions, login_events, security_alerts |
+| 設施管理 | 5 | species, facilities, buildings, zones, pens |
+| **合計** | **~70** | |
+
+---
+
+*回上層：[README](./README.md)*

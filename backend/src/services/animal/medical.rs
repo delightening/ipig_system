@@ -179,11 +179,6 @@ impl AnimalService {
         .fetch_one(pool)
         .await?;
 
-        // Note: The database trigger will automatically handle pen_location removal and status update
-        // 注意：資料庫觸發器會自動處理欄位編號移除和狀態更新
-        // The trigger is set up in migration 023_add_pig_soft_delete_and_sacrifice_pen_removal.sql
-        // 觸發器在遷移 023_add_pig_soft_delete_and_sacrifice_pen_removal.sql 中設置
-
         Ok(sacrifice)
     }
 

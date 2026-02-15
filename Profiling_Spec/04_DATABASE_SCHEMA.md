@@ -1,7 +1,7 @@
 # 資料庫綱要
 
-> **版本**：3.0  
-> **最後更新**：2026-02-15  
+> **版本**：4.0  
+> **最後更新**：2026-02-16  
 > **對象**：資料庫管理員、開發人員
 
 ---
@@ -11,16 +11,16 @@
 iPig 資料庫執行於 **PostgreSQL 16**，由 10 個遷移檔案按模組組織：
 
 | 遷移 | 說明 | 主要資料表 |
-|------|------|-----------|
+|------|------|-----------| 
 | 001 | 核心架構 | users, roles, permissions, notifications, audit_logs, attachments |
 | 002 | 核心權限 | role_permissions 種子資料 |
-| 003 | 動物管理 | pigs, pig_observations, pig_surgeries, pig_weights, pig_vaccinations, pig_sources |
+| 003 | 動物管理 | animals, animal_observations, animal_surgeries, animal_weights, animal_vaccinations, animal_sources |
 | 004 | AUP 系統 | protocols, protocol_versions, user_protocols, review_assignments, review_comments |
 | 005 | 人事系統 | attendance_records, leave_requests, overtime_records, leave_balances, departments |
 | 006 | 稽核系統 | user_activity_logs (分割表), login_events, user_sessions, security_alerts |
 | 007 | ERP/倉庫 | products, warehouses, partners, documents, document_lines, stock_ledger, skus |
 | 008 | AUP 審查增強 | scheduled_reports, report_history, review_assignments_v2 |
-| 009 | 血液檢查 | blood_test_templates, pig_blood_tests, pig_blood_test_items, blood_test_panels |
+| 009 | 血液檢查 | blood_test_templates, animal_blood_tests, animal_blood_test_items, blood_test_panels |
 | 010 | 使用者偏好 | user_preferences |
 
 ---
@@ -57,19 +57,19 @@ CREATE TYPE protocol_activity_type AS ENUM (
     'ATTACHMENT_UPLOADED', 'ATTACHMENT_DELETED',
     'VERSION_CREATED', 'VERSION_RECOVERED',
     'AMENDMENT_CREATED', 'AMENDMENT_SUBMITTED',
-    'PIG_ASSIGNED', 'PIG_UNASSIGNED'
+    'ANIMAL_ASSIGNED', 'ANIMAL_UNASSIGNED'
 );
 ```
 
 ### 2.3 動物管理類型
 
 ```sql
-CREATE TYPE pig_status AS ENUM ('unassigned', 'in_experiment', 'completed');
-CREATE TYPE pig_breed AS ENUM ('miniature', 'white', 'LYD', 'other');
-CREATE TYPE pig_gender AS ENUM ('male', 'female');
+CREATE TYPE animal_status AS ENUM ('unassigned', 'in_experiment', 'completed');
+CREATE TYPE animal_breed AS ENUM ('miniature', 'white', 'LYD', 'other');
+CREATE TYPE animal_gender AS ENUM ('male', 'female');
 CREATE TYPE record_type AS ENUM ('abnormal', 'experiment', 'observation');
-CREATE TYPE pig_record_type AS ENUM ('observation', 'surgery', 'sacrifice', 'pathology', 'blood_test');
-CREATE TYPE pig_file_type AS ENUM ('photo', 'attachment', 'report');
+CREATE TYPE animal_record_type AS ENUM ('observation', 'surgery', 'sacrifice', 'pathology', 'blood_test');
+CREATE TYPE animal_file_type AS ENUM ('photo', 'attachment', 'report');
 CREATE TYPE vet_record_type AS ENUM ('observation', 'surgery');
 CREATE TYPE care_record_mode AS ENUM ('legacy', 'pain_assessment');
 CREATE TYPE version_record_type AS ENUM (
@@ -118,7 +118,7 @@ CREATE TYPE report_type AS ENUM (
     'stock_on_hand', 'stock_ledger', 'purchase_summary',
     'cost_summary', 'expiry_report', 'low_stock_report'
 );
-CREATE TYPE import_type AS ENUM ('pig_basic', 'pig_weight');
+CREATE TYPE import_type AS ENUM ('animal_basic', 'animal_weight');
 CREATE TYPE import_status AS ENUM ('pending', 'processing', 'completed', 'failed');
 CREATE TYPE export_type AS ENUM ('medical_summary', 'observation_records', 'surgery_records', 'experiment_records');
 CREATE TYPE export_format AS ENUM ('pdf', 'excel');
@@ -189,22 +189,22 @@ CREATE TABLE users (
 ### 4.1 核心資料表
 
 | 表名 | PK 類型 | 主要欄位 |
-|------|---------|---------|
-| pig_sources | UUID | name, supplier_type, contact_info |
-| pigs | SERIAL | ear_tag, status, breed, gender, source_id, pen_id, iacuc_no |
-| pig_observations | SERIAL | pig_id, event_date, record_type, content, treatments(JSONB) |
-| pig_surgeries | SERIAL | pig_id, surgery_date, surgery_site, anesthesia(JSONB), vital_signs(JSONB) |
-| pig_weights | SERIAL | pig_id, weight_date, weight, weight_category |
-| pig_vaccinations | SERIAL | pig_id, vaccine_name, vaccination_date, vet_name |
-| pig_sacrifices | SERIAL | pig_id, sacrifice_date, method, executor |
-| pig_pathology_reports | SERIAL | pig_id, report_date, findings(JSONB) |
-| pig_care_records | SERIAL | pig_id, record_date, mode, content(JSONB) |
-| pig_files | UUID | file_type, pig_id, record_type, record_id |
+|------|---------|---------| 
+| animal_sources | UUID | name, supplier_type, contact_info |
+| animals | SERIAL | ear_tag, status, breed, gender, source_id, pen_id, iacuc_no |
+| animal_observations | SERIAL | animal_id, event_date, record_type, content, treatments(JSONB) |
+| animal_surgeries | SERIAL | animal_id, surgery_date, surgery_site, anesthesia(JSONB), vital_signs(JSONB) |
+| animal_weights | SERIAL | animal_id, weight_date, weight, weight_category |
+| animal_vaccinations | SERIAL | animal_id, vaccine_name, vaccination_date, vet_name |
+| animal_sacrifices | SERIAL | animal_id, sacrifice_date, method, executor |
+| animal_pathology_reports | SERIAL | animal_id, report_date, findings(JSONB) |
+| animal_care_records | SERIAL | animal_id, record_date, mode, content(JSONB) |
+| animal_files | UUID | file_type, animal_id, record_type, record_id |
 | record_versions | UUID | record_type, record_id, version_number, data(JSONB) |
 | electronic_signatures | UUID | record_type, record_id, signer_id, signature_data(JSONB) |
 | record_annotations | UUID | record_type, record_id, content, created_by |
 | vet_recommendations | UUID | record_type, record_id, recommendation, status |
-| euthanasia_orders | UUID | pig_id, status, reason, requested_by |
+| euthanasia_orders | UUID | animal_id, status, reason, requested_by |
 | import_batches | UUID | import_type, status, total_rows |
 | export_requests | UUID | iacuc_no, export_type, format |
 
@@ -326,9 +326,9 @@ CREATE TABLE blood_test_templates (
     created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ
 );
 
-CREATE TABLE pig_blood_tests (
+CREATE TABLE animal_blood_tests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    pig_id INTEGER NOT NULL REFERENCES pigs(id),
+    animal_id INTEGER NOT NULL REFERENCES animals(id),
     test_date DATE NOT NULL,
     lab_name VARCHAR(200),
     lab_report_no VARCHAR(100),
@@ -340,9 +340,9 @@ CREATE TABLE pig_blood_tests (
     created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ
 );
 
-CREATE TABLE pig_blood_test_items (
+CREATE TABLE animal_blood_test_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    blood_test_id UUID NOT NULL REFERENCES pig_blood_tests(id) ON DELETE CASCADE,
+    blood_test_id UUID NOT NULL REFERENCES animal_blood_tests(id) ON DELETE CASCADE,
     template_id UUID REFERENCES blood_test_templates(id),
     item_name VARCHAR(200) NOT NULL,
     result_value VARCHAR(50),

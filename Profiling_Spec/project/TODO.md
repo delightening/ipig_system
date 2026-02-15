@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-02-15
+> **最後更新：** 2026-02-16
 
 此文件撰寫方式
 
@@ -33,6 +33,7 @@
 
 > 後端 19 檔案 + 前端 17 檔案 + 翻譯 2 檔案，共計 ~180 處修改。
 > 最終掃描追加修正：前端 7 檔案 + 後端 7 檔案（`alert.rs`、`numbering.rs`、`dashboard.rs` 等）。
+> 第二輪掃描追加修正：前端 2 檔案（`MyProjectDetailPage.tsx` Bug Fix、`en.json` 翻譯 key）+ 後端 6 檔案（中文註釋修正）。
 > `cargo build` 和 `tsc --noEmit` 均通過。
 > 詳見 [walkthrough.md](file:///C:/Users/jason/.gemini/antigravity/brain/3e3e3319-813e-4d08-ae96-aa939109dbd9/walkthrough.md)
 
@@ -106,6 +107,12 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-02-16 | 測試檔案 pig→animal 重構：`test_animal_full.py` 變數名、`test_blood_panel.py` bug 修正、`cleanup_test_data.ps1` SQL 更新、`audit_check_deep.py` entity_type 更新 |
+| 2026-02-16 | UI_UX_GUIDELINES.md 重寫（pig→animal）：Pig→PawPrint 圖示，版本升 3.0 |
+| 2026-02-16 | NAMING_CONVENTIONS.md 重寫（pig→animal）：全面更新命名範例，版本升 3.0 |
+| 2026-02-16 | AuditLogsPage.tsx 前端 pig→animal 修正：事件類型4個、實體類型7個、篩選器2處 |
+| 2026-02-16 | Profiling_Spec 全面重寫（pig→animal）：12 個文件、版本升 4.0 |
+| 2026-02-16 | 資料庫遷移重寫：pig → animal 在初始遷移中直接使用，刪除 012 rename 遷移，12→11 檔 |
 | 2026-02-15 | 重新整理 TODO 結構：移除已完成項目至 PROGRESS.md、統一編號、新增統計摘要 |
 | 2026-02-15 | 資安強化提案 SEC-31~42 規劃；SEC-20~28 共 9 項實作完成 |
 | 2026-02-15 | 通知路由可配置化完成；Profiling_Spec 01-09 全部重寫 |

@@ -1,7 +1,7 @@
 # UI/UX 設計指南
 
-> **版本**：2.0  
-> **最後更新**：2026-01-18  
+> **版本**：3.0  
+> **最後更新**：2026-02-16  
 > **對象**：設計師、前端開發人員
 
 ---
@@ -59,7 +59,7 @@
 📊 儀表板 (Dashboard)
 📋 動物使用計畫 (Protocols)
 🐷 動物管理 (Animal Management)
-   ├── 豬隻 (Pigs)
+   ├── 動物 (Animals)
    └── 我的計劃 (My Projects)
 📦 ERP
    ├── 單據管理 (Documents)
@@ -157,7 +157,7 @@
 
 | 類別 | 圖示 |
 |------|------|
-| 導覽 | Home, FileText, Pig, Package, Users, Settings |
+| 導覽 | Home, FileText, PawPrint, Package, Users, Settings |
 | 操作 | Plus, Edit, Trash, Eye, Download, Upload |
 | 狀態 | Check, X, Clock, AlertTriangle |
 | UI | ChevronDown, ChevronRight, Menu, Search |

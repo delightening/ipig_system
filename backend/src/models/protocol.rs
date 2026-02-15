@@ -135,8 +135,8 @@ pub enum ProtocolActivityType {
     AmendmentCreated,
     AmendmentSubmitted,
     // 動物管理
-    PigAssigned,
-    PigUnassigned,
+    AnimalAssigned,
+    AnimalUnassigned,
 }
 
 impl ProtocolActivityType {
@@ -166,8 +166,8 @@ impl ProtocolActivityType {
             ProtocolActivityType::VersionRecovered => "VERSION_RECOVERED",
             ProtocolActivityType::AmendmentCreated => "AMENDMENT_CREATED",
             ProtocolActivityType::AmendmentSubmitted => "AMENDMENT_SUBMITTED",
-            ProtocolActivityType::PigAssigned => "PIG_ASSIGNED",
-            ProtocolActivityType::PigUnassigned => "PIG_UNASSIGNED",
+            ProtocolActivityType::AnimalAssigned => "ANIMAL_ASSIGNED",
+            ProtocolActivityType::AnimalUnassigned => "ANIMAL_UNASSIGNED",
         }
     }
     
@@ -197,8 +197,8 @@ impl ProtocolActivityType {
             ProtocolActivityType::VersionRecovered => "回復至版本",
             ProtocolActivityType::AmendmentCreated => "建立修正案",
             ProtocolActivityType::AmendmentSubmitted => "送審修正案",
-            ProtocolActivityType::PigAssigned => "分配動物",
-            ProtocolActivityType::PigUnassigned => "移除動物",
+            ProtocolActivityType::AnimalAssigned => "分配動物",
+            ProtocolActivityType::AnimalUnassigned => "移除動物",
         }
     }
 }
@@ -625,7 +625,7 @@ mod tests {
         assert_eq!(ProtocolActivityType::Created.as_str(), "CREATED");
         assert_eq!(ProtocolActivityType::Submitted.as_str(), "SUBMITTED");
         assert_eq!(ProtocolActivityType::ReviewerAssigned.as_str(), "REVIEWER_ASSIGNED");
-        assert_eq!(ProtocolActivityType::PigAssigned.as_str(), "PIG_ASSIGNED");
+        assert_eq!(ProtocolActivityType::AnimalAssigned.as_str(), "ANIMAL_ASSIGNED");
         assert_eq!(ProtocolActivityType::AmendmentCreated.as_str(), "AMENDMENT_CREATED");
     }
 
@@ -634,7 +634,7 @@ mod tests {
         assert_eq!(ProtocolActivityType::Created.display_name(), "創建草稿");
         assert_eq!(ProtocolActivityType::Submitted.display_name(), "送審");
         assert_eq!(ProtocolActivityType::ReviewerAssigned.display_name(), "指派審查委員");
-        assert_eq!(ProtocolActivityType::PigAssigned.display_name(), "分配動物");
+        assert_eq!(ProtocolActivityType::AnimalAssigned.display_name(), "分配動物");
     }
 
     #[test]
@@ -653,7 +653,7 @@ mod tests {
             ProtocolActivityType::AttachmentUploaded, ProtocolActivityType::AttachmentDeleted,
             ProtocolActivityType::VersionCreated, ProtocolActivityType::VersionRecovered,
             ProtocolActivityType::AmendmentCreated, ProtocolActivityType::AmendmentSubmitted,
-            ProtocolActivityType::PigAssigned, ProtocolActivityType::PigUnassigned,
+            ProtocolActivityType::AnimalAssigned, ProtocolActivityType::AnimalUnassigned,
         ];
         for v in &variants {
             assert!(!v.as_str().is_empty());

@@ -139,7 +139,7 @@ print()
 print("=" * 70)
 print("5. 各 entity_type 活動日誌")
 print("=" * 70)
-for etype in ["user", "protocol", "pig", "blood_test", "blood_test_panel", "warehouse", "product", "document", "hr_leave", "hr_overtime"]:
+for etype in ["user", "protocol", "animal", "blood_test", "blood_test_panel", "warehouse", "product", "document", "hr_leave", "hr_overtime"]:
     r = requests.get(
         f"{API}/admin/audit/activities",
         params={"entity_type": etype, "per_page": 5},
