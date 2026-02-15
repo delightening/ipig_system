@@ -1,7 +1,7 @@
 # 核心領域模型
 
-> **版本**：2.0  
-> **最後更新**：2026-01-18  
+> **版本**：3.0  
+> **最後更新**：2026-02-15  
 > **對象**：開發人員
 
 ---
@@ -17,35 +17,45 @@
 ```mermaid
 erDiagram
     USERS ||--o{ USER_ROLES : has
-    ROLES ||--o{ USER_ROLES : assigned_to
+    ROLES ||--o{ USER_ROLES : assigned
     ROLES ||--o{ ROLE_PERMISSIONS : has
-    PERMISSIONS ||--o{ ROLE_PERMISSIONS : granted_to
-    
-    USERS ||--o{ PROTOCOLS : creates
+    PERMISSIONS ||--o{ ROLE_PERMISSIONS : granted
+
+    USERS ||--o{ PROTOCOLS : "owns (PI)"
     USERS ||--o{ USER_PROTOCOLS : participates
     PROTOCOLS ||--o{ USER_PROTOCOLS : has_members
-    PROTOCOLS ||--o{ PROTOCOL_VERSIONS : has_versions
-    PROTOCOLS ||--o{ PROTOCOL_STATUS_HISTORY : tracks_status
+    PROTOCOLS ||--o{ PROTOCOL_VERSIONS : versioned
+    PROTOCOLS ||--o{ REVIEW_ASSIGNMENTS : reviewed
+    PROTOCOLS ||--o{ AMENDMENTS : amended
     
+    PIG_SOURCES ||--o{ PIGS : provides
     PIGS ||--o{ PIG_OBSERVATIONS : has
-    PIGS ||--o{ PIG_SURGERIES : has
-    PIGS ||--o{ PIG_WEIGHTS : has
-    PIGS ||--o{ PIG_VACCINATIONS : has
-    PIGS ||--|| PIG_SACRIFICES : may_have
-    PIGS ||--|| PIG_PATHOLOGY_REPORTS : may_have
-    PIG_SOURCES ||--o{ PIGS : supplies
+    PIGS ||--o{ PIG_SURGERIES : undergoes
+    PIGS ||--o{ PIG_WEIGHTS : measured
+    PIGS ||--o{ PIG_VACCINATIONS : receives
+    PIGS ||--o{ PIG_BLOOD_TESTS : tested
+    PIGS ||--|| PIG_SACRIFICES : "may have"
+    PIGS ||--|| PIG_PATHOLOGY_REPORTS : "may have"
+    PIGS ||--o{ EUTHANASIA_ORDERS : "may have"
     
-    USERS ||--o{ ATTENDANCE_RECORDS : logs
-    USERS ||--o{ OVERTIME_RECORDS : submits
-    USERS ||--o{ LEAVE_REQUESTS : requests
-    OVERTIME_RECORDS ||--o{ COMP_TIME_BALANCES : generates
-    USERS ||--o{ ANNUAL_LEAVE_ENTITLEMENTS : receives
+    BLOOD_TEST_TEMPLATES ||--o{ PIG_BLOOD_TEST_ITEMS : used_in
+    BLOOD_TEST_PANELS ||--o{ BLOOD_TEST_PANEL_ITEMS : contains
+    BLOOD_TEST_TEMPLATES ||--o{ BLOOD_TEST_PANEL_ITEMS : grouped
     
     WAREHOUSES ||--o{ DOCUMENTS : stores
     PARTNERS ||--o{ DOCUMENTS : transacts
     DOCUMENTS ||--o{ DOCUMENT_LINES : contains
     PRODUCTS ||--o{ DOCUMENT_LINES : referenced_in
     DOCUMENTS ||--o{ STOCK_LEDGER : records
+    WAREHOUSES ||--o{ STORAGE_LOCATIONS : has
+    
+    USERS ||--o{ ATTENDANCE_RECORDS : has
+    USERS ||--o{ LEAVE_REQUESTS : applies
+    USERS ||--o{ OVERTIME_RECORDS : submits
+    
+    USERS ||--o{ USER_ACTIVITY_LOGS : generates
+    USERS ||--o{ USER_SESSIONS : has
+    USERS ||--o{ LOGIN_EVENTS : triggers
 ```
 
 ---
@@ -61,32 +71,18 @@ erDiagram
 | email | VARCHAR(255) | 唯一登入信箱 |
 | password_hash | VARCHAR(255) | Argon2 雜湊 |
 | display_name | VARCHAR(100) | 顯示名稱 |
-| phone | VARCHAR(20) | 選填 |
-| organization | VARCHAR(200) | 選填 |
-| is_internal | BOOLEAN | 內部員工標記 |
-| is_active | BOOLEAN | 帳號啟用 |
-| must_change_password | BOOLEAN | 強制變更密碼 |
-| theme_preference | VARCHAR(20) | light/dark/system |
-| language_preference | VARCHAR(10) | zh-TW/en |
+| phone | VARCHAR(20) | 聯絡電話 |
+| organization | VARCHAR(200) | 所屬機構 |
+| department_id | UUID | FK → departments |
+| direct_manager_id | UUID | FK → users（直屬主管）|
+| is_internal | BOOLEAN | 內部/外部使用者 |
+| is_active | BOOLEAN | 帳號狀態 |
+| must_change_password | BOOLEAN | 首次登入需變更密碼 |
+| last_login_at | TIMESTAMPTZ | 最後登入時間 |
+| login_attempts | INTEGER | 連續失敗次數 |
+| locked_until | TIMESTAMPTZ | 帳號鎖定截止時間 |
 
-**商業規則**：
-- 信箱必須全系統唯一
-- 密碼必須符合複雜度要求
-- 內部使用者（`is_internal=true`）可存取 HR 功能
-- 帳號可停用但不可刪除（保留稽核軌跡）
-
-#### 角色 (Role)
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| id | UUID | 主鍵 |
-| code | VARCHAR(50) | 唯一代碼 |
-| name | VARCHAR(100) | 顯示名稱 |
-| is_internal | BOOLEAN | 僅限內部使用者 |
-| is_system | BOOLEAN | 系統定義，不可刪除 |
-| is_deleted | BOOLEAN | 軟刪除標記 |
-| is_active | BOOLEAN | 啟用標記 |
-
-**系統角色**：
+**角色列舉**：
 - `admin` - 系統管理員
 - `iacuc_staff` - 執行秘書
 - `experiment_staff` - 試驗工作人員
@@ -94,6 +90,14 @@ erDiagram
 - `warehouse` - 倉庫管理員
 - `pi` - 計畫主持人
 - `client` - 委託人
+
+#### 使用者偏好設定 (User Preferences)
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | UUID | 主鍵 |
+| user_id | UUID | FK → users |
+| pref_key | VARCHAR(100) | 偏好鍵名 |
+| pref_value | TEXT | 偏好值 |
 
 ---
 
@@ -108,27 +112,26 @@ erDiagram
 | title | VARCHAR(500) | 計畫名稱 |
 | status | protocol_status | 目前狀態 |
 | pi_user_id | UUID | 計畫主持人 |
-| working_content | JSONB | 表單資料 |
-| start_date | DATE | 計畫開始日 |
+| working_content | JSONB | 計畫書表單內容（Section 1-8）|
+| start_date | DATE | 計畫起始日 |
 | end_date | DATE | 計畫結束日 |
 
-**狀態列舉 (protocol_status)**：
-```
-DRAFT → SUBMITTED → PRE_REVIEW → UNDER_REVIEW
-                                    ↓
-         ┌─────────────────────────────────────────────────┐
-         ↓                    ↓                 ↓          ↓
-REVISION_REQUIRED ← RESUBMITTED   APPROVED   REJECTED   DEFERRED
-         │                        (或 APPROVED_WITH_CONDITIONS)
-         └→ RESUBMITTED          
-                                    ↓
-                    SUSPENDED ←→ CLOSED ← DELETED
-```
+**計畫狀態列舉 (protocol_status)**：
+- `DRAFT` → `SUBMITTED` → `PRE_REVIEW` → `UNDER_REVIEW`
+- → `REVISION_REQUIRED` → `RESUBMITTED`
+- → `APPROVED` / `APPROVED_WITH_CONDITIONS`
+- → `DEFERRED` / `REJECTED`
+- → `SUSPENDED` / `CLOSED` / `DELETED`
 
-**計畫書角色 (protocol_role)**：
-- `PI` - 計畫主持人
-- `CLIENT` - 委託人（資助專案的客戶）
-- `CO_EDITOR` - 協編者（具編輯權限）
+#### 變更申請 (Amendment)
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | UUID | 主鍵 |
+| protocol_id | UUID | FK → protocols |
+| amendment_no | VARCHAR(50) | 變更編號 |
+| status | VARCHAR(30) | 變更狀態 |
+| change_type | VARCHAR(30) | 變更分類 |
+| content | JSONB | 變更內容 |
 
 ---
 
@@ -146,78 +149,115 @@ REVISION_REQUIRED ← RESUBMITTED   APPROVED   REJECTED   DEFERRED
 | birth_date | DATE | 出生日期 |
 | entry_date | DATE | 進場日期 |
 | entry_weight | NUMERIC(5,1) | 進場體重 (kg) |
-| pen_location | VARCHAR(10) | 目前欄位（如「A01」）|
-| pre_experiment_code | VARCHAR(20) | 試驗前編號 |
-| iacuc_no | VARCHAR(20) | 指派的 IACUC 計畫 |
-| experiment_date | DATE | 試驗開始日期 |
+| pen_location | VARCHAR(10) | 欄位位置 |
+| pen_id | UUID | FK → pens（設施欄位）|
+| iacuc_no | VARCHAR(50) | IACUC 計畫編號 |
+| experiment_date | DATE | 實驗開始日 |
+| pre_experiment_code | VARCHAR(20) | 術前代碼 |
 | is_deleted | BOOLEAN | 軟刪除標記 |
 
-**狀態列舉 (pig_status)**：
-```
-unassigned → assigned → in_experiment → completed
-                 ↓                          ↓
-            transferred              deceased
-```
+**豬隻狀態列舉 (pig_status)**：
+- `unassigned` - 未分配
+- `assigned` - 已分配至計畫
+- `in_experiment` - 實驗中
+- `completed` - 實驗完畢
+- `transferred` - 已轉移
+- `deceased` - 已死亡
 
-**品種列舉 (pig_breed)**：
-- `miniature` - 迷你豬
-- `white` - 白豬
-- `LYD` - 藍瑞斯×約克夏×杜洛克
-- `other` - 其他
+**品種列舉 (pig_breed)**：`miniature`、`white`、`LYD`、`other`
 
-#### 豬隻觀察紀錄 (Pig Observation)
+**性別列舉 (pig_gender)**：`male`、`female`
+
+#### 觀察試驗紀錄 (Pig Observation)
 | 欄位 | 類型 | 說明 |
 |------|------|------|
 | id | SERIAL | 主鍵 |
-| pig_id | INTEGER | 外鍵關聯 pigs |
+| pig_id | INTEGER | FK → pigs |
 | event_date | DATE | 事件日期 |
-| record_type | record_type | abnormal/experiment/observation |
-| content | TEXT | 觀察內容 |
+| record_type | record_type | 紀錄類型 |
+| content | TEXT | 內容 |
 | no_medication_needed | BOOLEAN | 無需用藥 |
-| stop_medication | BOOLEAN | 停藥標記 |
-| treatments | JSONB | 治療詳情 |
+| stop_medication | BOOLEAN | 停止用藥 |
+| treatments | JSONB | 治療方式 |
 | vet_read | BOOLEAN | 獸醫已閱讀 |
 
-**紀錄類型列舉 (record_type)**：
-- `abnormal` - 異常紀錄
-- `experiment` - 試驗紀錄
-- `observation` - 一般觀察
+**紀錄類型列舉 (record_type)**：`abnormal`、`experiment`、`observation`
 
-#### 豬隻手術紀錄 (Pig Surgery)
+#### 手術紀錄 (Pig Surgery)
 | 欄位 | 類型 | 說明 |
 |------|------|------|
 | id | SERIAL | 主鍵 |
-| pig_id | INTEGER | 外鍵關聯 pigs |
+| pig_id | INTEGER | FK → pigs |
 | is_first_experiment | BOOLEAN | 首次實驗標記 |
 | surgery_date | DATE | 手術日期 |
 | surgery_site | VARCHAR(200) | 手術部位 |
-| induction_anesthesia | JSONB | 誘導麻醉詳情 |
-| pre_surgery_medication | JSONB | 術前用藥 |
-| anesthesia_maintenance | JSONB | 維持麻醉詳情 |
-| vital_signs | JSONB | 生命徵象追蹤 |
-| post_surgery_medication | JSONB | 術後用藥 |
+| induction_anesthesia | JSONB | 誘導麻醉 |
+| anesthesia_maintenance | JSONB | 維持麻醉 |
+| vital_signs | JSONB | 生理數值（多筆時序資料）|
 | vet_read | BOOLEAN | 獸醫已閱讀 |
+
+#### 血液檢查 (Pig Blood Test)
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | UUID | 主鍵 |
+| pig_id | UUID | FK → pigs |
+| test_date | DATE | 檢查日期 |
+| lab_name | VARCHAR(200) | 檢驗機構 |
+| status | VARCHAR(20) | pending / completed |
+| remark | TEXT | 備註 |
+| vet_read | BOOLEAN | 獸醫已閱讀 |
+| is_deleted | BOOLEAN | 軟刪除 |
+
+#### 血液檢查項目模板 (Blood Test Template)
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | UUID | 主鍵 |
+| code | VARCHAR(20) | 唯一代碼（如 AST、ALT）|
+| name | VARCHAR(200) | 項目名稱 |
+| default_unit | VARCHAR(50) | 預設單位 |
+| reference_range | VARCHAR(100) | 參考範圍 |
+| default_price | NUMERIC(10,2) | 預設價格 |
+| sort_order | INTEGER | 排序 |
+| is_active | BOOLEAN | 啟用狀態 |
+
+#### 檢驗組合 (Blood Test Panel)
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | UUID | 主鍵 |
+| key | VARCHAR(30) | 組合代碼（LIVER、CBC...）|
+| name | VARCHAR(100) | 組合名稱 |
+| icon | VARCHAR(100) | 顯示圖示 |
 
 ---
 
-### 3.4 ERP（庫存與採購）
+### 3.4 安樂死管理 (Euthanasia)
+
+#### 安樂死申請單 (Euthanasia Order)
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | UUID | 主鍵 |
+| pig_id | INTEGER | FK → pigs |
+| status | VARCHAR(30) | 核准狀態 |
+| reason | TEXT | 申請原因 |
+| requested_by | UUID | 申請者 |
+| approved_by | UUID | 核准者 |
+
+---
+
+### 3.5 ERP 進銷存
 
 #### 產品 (Product)
 | 欄位 | 類型 | 說明 |
 |------|------|------|
 | id | UUID | 主鍵 |
-| sku | VARCHAR(50) | 庫存單位 |
+| sku | VARCHAR(50) | 唯一 SKU 編號 |
 | name | VARCHAR(200) | 產品名稱 |
-| spec | TEXT | 規格 |
-| category_code | CHAR(3) | SKU 類別 |
-| subcategory_code | CHAR(3) | SKU 子類別 |
+| category_code | CHAR(3) | SKU 大類 |
+| subcategory_code | CHAR(3) | SKU 小類 |
 | base_uom | VARCHAR(20) | 基本計量單位 |
+| safety_stock | NUMERIC | 安全庫存 |
 | track_batch | BOOLEAN | 追蹤批號 |
 | track_expiry | BOOLEAN | 追蹤效期 |
-| safety_stock | NUMERIC(18,4) | 安全庫存量 |
-| status | VARCHAR(20) | active/inactive/discontinued |
-
-**SKU 格式**：`[CAT][SUB]-[SEQUENCE]`（如 `DRG-ANT-001`）
 
 #### 單據 (Document)
 | 欄位 | 類型 | 說明 |
@@ -236,34 +276,30 @@ unassigned → assigned → in_experiment → completed
 - `PR` - Purchase Requisition（請購單）
 - `SO` - Sales Order（銷售單）
 - `DO` - Delivery Order（出貨單）
-- `SR` - Stock Return（退貨單）
+- `SR` - Sales Return（銷退單）
 - `TR` - Transfer（調撥單）
-- `STK` - Stocktake（盤點單）
+- `STK` - Stock Take（盤點單）
 - `ADJ` - Adjustment（調整單）
-- `RTN` - Return（退回單）
+- `RTN` - Return（退貨單）
 
----
-
-### 3.5 人事管理
-
-#### 出勤紀錄 (Attendance Record)
+#### 倉庫儲位 (Storage Location)
 | 欄位 | 類型 | 說明 |
 |------|------|------|
 | id | UUID | 主鍵 |
-| user_id | UUID | 員工 |
-| work_date | DATE | 工作日期 |
-| clock_in_time | TIMESTAMPTZ | 簽到時間 |
-| clock_out_time | TIMESTAMPTZ | 簽退時間 |
-| regular_hours | NUMERIC(5,2) | 正常工時 |
-| overtime_hours | NUMERIC(5,2) | 加班時數 |
-| status | VARCHAR(20) | normal/late/early_leave/absent/leave/holiday |
+| warehouse_id | UUID | FK → warehouses |
+| code | VARCHAR(50) | 儲位代碼 |
+| name | VARCHAR(200) | 儲位名稱 |
+
+---
+
+### 3.6 人事管理
 
 #### 請假申請 (Leave Request)
 | 欄位 | 類型 | 說明 |
 |------|------|------|
 | id | UUID | 主鍵 |
-| user_id | UUID | 申請人 |
-| proxy_user_id | UUID | 代理人（選填）|
+| user_id | UUID | 申請者 |
+| proxy_user_id | UUID | 代理人 |
 | leave_type | leave_type | 請假類型 |
 | start_date | DATE | 請假開始日 |
 | end_date | DATE | 請假結束日 |
@@ -272,51 +308,57 @@ unassigned → assigned → in_experiment → completed
 | current_approver_id | UUID | 下一位審核者 |
 
 **請假類型 (leave_type)**：
-- `ANNUAL` - 特休假
-- `PERSONAL` - 事假
-- `SICK` - 病假
-- `COMPENSATORY` - 補休假
-- `MARRIAGE` - 婚假
-- `BEREAVEMENT` - 喪假
-- `MATERNITY` - 產假
-- `PATERNITY` - 陪產假
-- `MENSTRUAL` - 生理假
-- `OFFICIAL` - 公假
-- `UNPAID` - 無薪假
+`ANNUAL`、`PERSONAL`、`SICK`、`COMPENSATORY`、`MARRIAGE`、`BEREAVEMENT`、`MATERNITY`、`PATERNITY`、`MENSTRUAL`、`OFFICIAL`、`UNPAID`
+
+**請假狀態 (leave_status)**：
+`DRAFT` → `PENDING_L1` → `PENDING_L2` → `PENDING_HR` → `PENDING_GM` → `APPROVED` / `REJECTED` / `CANCELLED` / `REVOKED`
 
 ---
 
-## 4. 跨實體關係
+### 3.7 電子簽章與標註 (GLP Compliance)
 
-### 4.1 計畫書 ↔ 豬隻
-- 豬隻透過 `iacuc_no` 指派至計畫書
-- 一個計畫書可有多隻豬
-- 一隻豬只能指派至一個活動計畫
+#### 電子簽章 (Electronic Signature)
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | UUID | 主鍵 |
+| record_type | VARCHAR | 紀錄類型（sacrifice, observation）|
+| record_id | INTEGER | 紀錄 ID |
+| signer_id | UUID | 簽署者 |
+| signature_data | JSONB | 簽章資料 |
 
-### 4.2 使用者 ↔ 角色 ↔ 權限
-- 使用者擁有多個角色（透過 `user_roles` 多對多）
-- 角色擁有多個權限（透過 `role_permissions` 多對多）
-- 權限檢查在處理器層級執行
-
-### 4.3 加班 ↔ 補休
-- 核准的加班產生補休時數
-- 補休自加班日起 1 年到期
-- 使用順序為 FIFO（最舊先過期）
-
-### 4.4 請假 ↔ 餘額
-- 特休來自 `annual_leave_entitlements`（2 年到期）
-- 補休來自 `comp_time_balances`（1 年到期）
-- 請假申請從各自餘額扣除
+#### 紀錄標註 (Record Annotation)
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | UUID | 主鍵 |
+| record_type | VARCHAR | 紀錄類型 |
+| record_id | INTEGER | 紀錄 ID |
+| content | TEXT | 標註內容 |
+| created_by | UUID | 建立者 |
 
 ---
 
-## 5. 稽核軌跡
+## 4. 共通模式
 
-所有實體透過以下方式維護稽核軌跡：
+### 4.1 軟刪除
+
+多數實體支援軟刪除：
+- `is_deleted` BOOLEAN
+- `deleted_at` TIMESTAMPTZ
+- `deleted_by` UUID（操作者）
+- `delete_reason` TEXT
+
+### 4.2 時間戳記與稽核
+
+所有實體具備：
 - `created_at` / `updated_at` 時間戳記
 - `created_by` / `updated_by` 使用者參照
 - `user_activity_logs` 詳細變更追蹤
-- `audit_logs` ERP 作業紀錄
+
+### 4.3 版本控制
+
+重要紀錄（觀察、手術、計畫書）具備：
+- `record_versions` 表儲存歷史快照
+- 版本號遞增，JSON 快照保留
 
 ---
 
