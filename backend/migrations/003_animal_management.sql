@@ -16,7 +16,7 @@
 -- 1. 動物來源表
 -- ============================================
 
-CREATE TABLE pig_sources (
+CREATE TABLE animal_sources (
     id UUID PRIMARY KEY,
     code VARCHAR(20) NOT NULL UNIQUE,
     name VARCHAR(100) NOT NULL,
@@ -30,7 +30,7 @@ CREATE TABLE pig_sources (
 );
 
 -- 插入預設動物來源
-INSERT INTO pig_sources (id, code, name, sort_order) VALUES
+INSERT INTO animal_sources (id, code, name, sort_order) VALUES
     (gen_random_uuid(), 'TAITUNG', '台東種畜繁殖場', 1),
     (gen_random_uuid(), 'QINGXIN', '青欣牧場', 2),
     (gen_random_uuid(), 'PIGMODEL', '豬博士畜牧場', 3),
@@ -41,13 +41,13 @@ ON CONFLICT (code) DO NOTHING;
 -- 2. 動物主表 (UUID 主鍵)
 -- ============================================
 
-CREATE TABLE pigs (
+CREATE TABLE animals (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     ear_tag VARCHAR(10) NOT NULL,
-    status pig_status NOT NULL DEFAULT 'unassigned',
-    breed pig_breed NOT NULL,
-    source_id UUID REFERENCES pig_sources(id),
-    gender pig_gender NOT NULL,
+    status animal_status NOT NULL DEFAULT 'unassigned',
+    breed animal_breed NOT NULL,
+    source_id UUID REFERENCES animal_sources(id),
+    gender animal_gender NOT NULL,
     birth_date DATE,
     entry_date DATE NOT NULL,
     entry_weight NUMERIC(5, 1),
@@ -83,20 +83,20 @@ CREATE TABLE pigs (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_pigs_ear_tag ON pigs(ear_tag);
-CREATE INDEX idx_pigs_status ON pigs(status);
-CREATE INDEX idx_pigs_iacuc_no ON pigs(iacuc_no);
-CREATE INDEX idx_pigs_pen_location ON pigs(pen_location);
-CREATE INDEX idx_pigs_is_deleted ON pigs(is_deleted);
-CREATE INDEX idx_pigs_glp_study_no ON pigs(glp_study_no);
+CREATE INDEX idx_animals_ear_tag ON animals(ear_tag);
+CREATE INDEX idx_animals_status ON animals(status);
+CREATE INDEX idx_animals_iacuc_no ON animals(iacuc_no);
+CREATE INDEX idx_animals_pen_location ON animals(pen_location);
+CREATE INDEX idx_animals_is_deleted ON animals(is_deleted);
+CREATE INDEX idx_animals_glp_study_no ON animals(glp_study_no);
 
 -- ============================================
 -- 3. 觀察試驗紀錄表
 -- ============================================
 
-CREATE TABLE pig_observations (
+CREATE TABLE animal_observations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    pig_id UUID NOT NULL REFERENCES pigs(id) ON DELETE CASCADE,
+    animal_id UUID NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
     event_date DATE NOT NULL,
     record_type record_type NOT NULL,
     equipment_used JSONB,
@@ -125,16 +125,16 @@ CREATE TABLE pig_observations (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_pig_observations_pig_id ON pig_observations(pig_id);
-CREATE INDEX idx_pig_observations_event_date ON pig_observations(event_date);
+CREATE INDEX idx_animal_observations_animal_id ON animal_observations(animal_id);
+CREATE INDEX idx_animal_observations_event_date ON animal_observations(event_date);
 
 -- ============================================
 -- 4. 手術紀錄表
 -- ============================================
 
-CREATE TABLE pig_surgeries (
+CREATE TABLE animal_surgeries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    pig_id UUID NOT NULL REFERENCES pigs(id) ON DELETE CASCADE,
+    animal_id UUID NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
     is_first_experiment BOOLEAN NOT NULL DEFAULT true,
     surgery_date DATE NOT NULL,
     surgery_site VARCHAR(200) NOT NULL,
@@ -161,16 +161,16 @@ CREATE TABLE pig_surgeries (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_pig_surgeries_pig_id ON pig_surgeries(pig_id);
-CREATE INDEX idx_pig_surgeries_surgery_date ON pig_surgeries(surgery_date);
+CREATE INDEX idx_animal_surgeries_animal_id ON animal_surgeries(animal_id);
+CREATE INDEX idx_animal_surgeries_surgery_date ON animal_surgeries(surgery_date);
 
 -- ============================================
 -- 5. 體重紀錄表
 -- ============================================
 
-CREATE TABLE pig_weights (
+CREATE TABLE animal_weights (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    pig_id UUID NOT NULL REFERENCES pigs(id) ON DELETE CASCADE,
+    animal_id UUID NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
     measure_date DATE NOT NULL,
     weight NUMERIC(5, 1) NOT NULL,
     -- 軟刪除（原 020）
@@ -182,16 +182,16 @@ CREATE TABLE pig_weights (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_pig_weights_pig_id ON pig_weights(pig_id);
-CREATE INDEX idx_pig_weights_measure_date ON pig_weights(measure_date);
+CREATE INDEX idx_animal_weights_animal_id ON animal_weights(animal_id);
+CREATE INDEX idx_animal_weights_measure_date ON animal_weights(measure_date);
 
 -- ============================================
 -- 6. 疫苗/驅蟲紀錄表
 -- ============================================
 
-CREATE TABLE pig_vaccinations (
+CREATE TABLE animal_vaccinations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    pig_id UUID NOT NULL REFERENCES pigs(id) ON DELETE CASCADE,
+    animal_id UUID NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
     administered_date DATE NOT NULL,
     vaccine VARCHAR(100),
     deworming_dose VARCHAR(100),
@@ -204,15 +204,15 @@ CREATE TABLE pig_vaccinations (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_pig_vaccinations_pig_id ON pig_vaccinations(pig_id);
+CREATE INDEX idx_animal_vaccinations_animal_id ON animal_vaccinations(animal_id);
 
 -- ============================================
 -- 7. 犧牲/採樣紀錄表
 -- ============================================
 
-CREATE TABLE pig_sacrifices (
+CREATE TABLE animal_sacrifices (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    pig_id UUID NOT NULL REFERENCES pigs(id) ON DELETE CASCADE UNIQUE,
+    animal_id UUID NOT NULL REFERENCES animals(id) ON DELETE CASCADE UNIQUE,
     sacrifice_date DATE,
     zoletil_dose VARCHAR(50),
     method_electrocution BOOLEAN NOT NULL DEFAULT false,
@@ -227,15 +227,15 @@ CREATE TABLE pig_sacrifices (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_pig_sacrifices_pig_id ON pig_sacrifices(pig_id);
+CREATE INDEX idx_animal_sacrifices_animal_id ON animal_sacrifices(animal_id);
 
 -- ============================================
 -- 8. 病理組織報告表
 -- ============================================
 
-CREATE TABLE pig_pathology_reports (
+CREATE TABLE animal_pathology_reports (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    pig_id UUID NOT NULL REFERENCES pigs(id) ON DELETE CASCADE UNIQUE,
+    animal_id UUID NOT NULL REFERENCES animals(id) ON DELETE CASCADE UNIQUE,
     created_by UUID REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -245,11 +245,11 @@ CREATE TABLE pig_pathology_reports (
 -- 9. 紀錄附件通用表
 -- ============================================
 
-CREATE TABLE pig_record_attachments (
+CREATE TABLE animal_record_attachments (
     id UUID PRIMARY KEY,
-    record_type pig_record_type NOT NULL,
+    record_type animal_record_type NOT NULL,
     record_id UUID NOT NULL,
-    file_type pig_file_type NOT NULL,
+    file_type animal_file_type NOT NULL,
     file_name VARCHAR(255) NOT NULL,
     file_path VARCHAR(500) NOT NULL,
     file_size INTEGER NOT NULL,
@@ -257,7 +257,7 @@ CREATE TABLE pig_record_attachments (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_pig_record_attachments_record ON pig_record_attachments(record_type, record_id);
+CREATE INDEX idx_animal_record_attachments_record ON animal_record_attachments(record_type, record_id);
 
 -- ============================================
 -- 10. 獸醫師建議表
@@ -370,7 +370,7 @@ CREATE INDEX idx_export_jobs_created_by ON export_jobs(created_by);
 
 CREATE TABLE euthanasia_orders (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    pig_id UUID NOT NULL REFERENCES pigs(id) ON DELETE CASCADE,
+    animal_id UUID NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
     vet_user_id UUID NOT NULL REFERENCES users(id),
     pi_user_id UUID NOT NULL REFERENCES users(id),
     status euthanasia_order_status NOT NULL DEFAULT 'pending_pi',
@@ -396,15 +396,15 @@ CREATE TABLE euthanasia_appeals (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_euthanasia_orders_pig_id ON euthanasia_orders(pig_id);
+CREATE INDEX idx_euthanasia_orders_animal_id ON euthanasia_orders(animal_id);
 CREATE INDEX idx_euthanasia_orders_status ON euthanasia_orders(status);
 CREATE INDEX idx_euthanasia_appeals_order ON euthanasia_appeals(order_id);
 
 -- ============================================
--- 16. 豬隻匯入批次表（原 009）
+-- 16. 動物匯入批次表（原 009）
 -- ============================================
 
-CREATE TABLE IF NOT EXISTS pig_import_batches (
+CREATE TABLE IF NOT EXISTS animal_import_batches (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     import_type import_type NOT NULL,
     file_name VARCHAR(255) NOT NULL,
@@ -418,9 +418,9 @@ CREATE TABLE IF NOT EXISTS pig_import_batches (
     completed_at TIMESTAMPTZ
 );
 
-CREATE INDEX IF NOT EXISTS idx_pig_import_batches_status ON pig_import_batches(status);
-CREATE INDEX IF NOT EXISTS idx_pig_import_batches_created_by ON pig_import_batches(created_by);
-CREATE INDEX IF NOT EXISTS idx_pig_import_batches_created_at ON pig_import_batches(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_animal_import_batches_status ON animal_import_batches(status);
+CREATE INDEX IF NOT EXISTS idx_animal_import_batches_created_by ON animal_import_batches(created_by);
+CREATE INDEX IF NOT EXISTS idx_animal_import_batches_created_at ON animal_import_batches(created_at DESC);
 
 -- ============================================
 -- 17. 變更原因記錄表（原 019）

@@ -242,7 +242,7 @@ def run_blood_panel_test() -> bool:
     source_resp = t._req("POST", f"{API_BASE_URL}/animal-sources", role=STAFF,
                           json={
                               "code": f"SRC-BT-{ts}",
-                              "name": "血液檢查測試豬源",
+                              "name": "血液檢查測試動物來源",
                           })
     source_id = source_resp.json()["id"]
 
@@ -255,10 +255,10 @@ def run_blood_panel_test() -> bool:
         "entry_weight": 25.0,
         "pen_location": "A-01",
         "source_id": source_id,
-        "remark": "血液檢查完整測試用豬隻",
+        "remark": "血液檢查完整測試用動物",
         "force_create": True,
     })
-    test_pig = animal_resp.json()
+    test_animal = animal_resp.json()
     test_animal_id = test_animal["id"]
     t.record("建立測試動物", True,
              f"ID: {test_animal_id[:8]}..., ear_tag={test_animal.get('ear_tag')}")
@@ -364,10 +364,10 @@ def run_blood_panel_test() -> bool:
     # ========================================
     t.step("Phase 7 — 查詢與詳情驗證")
 
-    # 7.1 列出豬隻的所有血液檢查
+    # 7.1 列出動物的所有血液檢查
     list_resp = t._req("GET", f"{API_BASE_URL}/animals/{test_animal_id}/blood-tests", role=STAFF)
     bt_list = list_resp.json()
-    t.record("豬隻血液檢查列表", len(bt_list) == 2,
+    t.record("動物血液檢查列表", len(bt_list) == 2,
              f"實際 {len(bt_list)} 筆（預期 2）")
 
     # 7.2 驗證列表結構（含 item_count/abnormal_count）
@@ -469,7 +469,7 @@ def run_blood_panel_test() -> bool:
     # 9.4 VET 可查看血液檢查列表
     vet_list = t._req("GET", f"{API_BASE_URL}/animals/{test_animal_id}/blood-tests",
                        role=VET).json()
-    t.record("VET 可查看豬隻血檢列表", len(vet_list) >= 1,
+    t.record("VET 可查看動物血檢列表", len(vet_list) >= 1,
              f"共 {len(vet_list)} 筆")
 
     # ========================================

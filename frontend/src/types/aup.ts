@@ -248,8 +248,8 @@ export type ProtocolActivityType =
     | 'AMENDMENT_CREATED'
     | 'AMENDMENT_SUBMITTED'
     // 動物管理
-    | 'PIG_ASSIGNED'
-    | 'PIG_UNASSIGNED'
+    | 'ANIMAL_ASSIGNED'
+    | 'ANIMAL_UNASSIGNED'
 
 export interface ProtocolActivity {
     id: string

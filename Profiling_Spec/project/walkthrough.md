@@ -35,8 +35,8 @@
 
 | 檔案 | 說明 | 約行數 |
 |------|------|--------|
-| [source.rs](file:///d:/Coding/ipig_system/backend/src/services/animal/source.rs) | 豬隻來源管理 | ~75 |
-| [core.rs](file:///d:/Coding/ipig_system/backend/src/services/animal/core.rs) | 豬隻 CRUD 與分配 | ~470 |
+| [source.rs](file:///d:/Coding/ipig_system/backend/src/services/animal/source.rs) | 動物來源管理 | ~75 |
+| [core.rs](file:///d:/Coding/ipig_system/backend/src/services/animal/core.rs) | 動物 CRUD 與分配 | ~470 |
 | [observation.rs](file:///d:/Coding/ipig_system/backend/src/services/animal/observation.rs) | 觀察試驗紀錄 | ~250 |
 | [surgery.rs](file:///d:/Coding/ipig_system/backend/src/services/animal/surgery.rs) | 手術紀錄 | ~260 |
 | [weight.rs](file:///d:/Coding/ipig_system/backend/src/services/animal/weight.rs) | 體重紀錄 | ~125 |

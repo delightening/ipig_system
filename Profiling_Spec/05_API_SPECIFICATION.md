@@ -1,7 +1,7 @@
 # API 規格
 
-> **版本**：3.0  
-> **最後更新**：2026-02-15  
+> **版本**：4.0  
+> **最後更新**：2026-02-16  
 > **對象**：開發人員、前端工程師
 
 ---
@@ -280,30 +280,30 @@
 
 ---
 
-## 19. 豬隻來源 API
+## 19. 動物來源 API
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
-| GET | `/pig-sources` | 來源列表 |
-| POST | `/pig-sources` | 建立來源 |
-| PUT | `/pig-sources/:id` | 更新來源 |
-| DELETE | `/pig-sources/:id` | 刪除來源 |
+| GET | `/animal-sources` | 來源列表 |
+| POST | `/animal-sources` | 建立來源 |
+| PUT | `/animal-sources/:id` | 更新來源 |
+| DELETE | `/animal-sources/:id` | 刪除來源 |
 
 ---
 
-## 20. 豬隻管理 API
+## 20. 動物管理 API
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
-| GET | `/pigs` | 豬隻列表 |
-| POST | `/pigs` | 建立豬隻 |
-| GET | `/pigs/by-pen` | 依欄位分組 |
-| POST | `/pigs/batch/assign` | 批次分配 |
-| GET | `/pigs/vet-comments` | 獸醫待閱 |
-| GET | `/pigs/:id` | 豬隻詳情 |
-| PUT | `/pigs/:id` | 更新豬隻 |
-| DELETE | `/pigs/:id` | 刪除豬隻 |
-| POST | `/pigs/:id/vet-read` | 標記已讀 |
+| GET | `/animals` | 動物列表 |
+| POST | `/animals` | 建立動物 |
+| GET | `/animals/by-pen` | 依欄位分組 |
+| POST | `/animals/batch/assign` | 批次分配 |
+| GET | `/animals/vet-comments` | 獸醫待閱 |
+| GET | `/animals/:id` | 動物詳情 |
+| PUT | `/animals/:id` | 更新動物 |
+| DELETE | `/animals/:id` | 刪除動物 |
+| POST | `/animals/:id/vet-read` | 標記已讀 |
 
 ---
 
@@ -311,10 +311,10 @@
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
-| GET | `/pigs/:id/observations` | 觀察列表 |
-| POST | `/pigs/:id/observations` | 新增觀察 |
-| GET | `/pigs/:id/observations/with-recommendations` | 含獸醫建議 |
-| POST | `/pigs/:id/observations/copy` | 複製紀錄 |
+| GET | `/animals/:id/observations` | 觀察列表 |
+| POST | `/animals/:id/observations` | 新增觀察 |
+| GET | `/animals/:id/observations/with-recommendations` | 含獸醫建議 |
+| POST | `/animals/:id/observations/copy` | 複製紀錄 |
 | GET | `/observations/:id` | 觀察詳情 |
 | PUT | `/observations/:id` | 更新觀察 |
 | DELETE | `/observations/:id` | 刪除觀察 |
@@ -327,10 +327,10 @@
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
-| GET | `/pigs/:id/surgeries` | 手術列表 |
-| POST | `/pigs/:id/surgeries` | 新增手術 |
-| GET | `/pigs/:id/surgeries/with-recommendations` | 含獸醫建議 |
-| POST | `/pigs/:id/surgeries/copy` | 複製紀錄 |
+| GET | `/animals/:id/surgeries` | 手術列表 |
+| POST | `/animals/:id/surgeries` | 新增手術 |
+| GET | `/animals/:id/surgeries/with-recommendations` | 含獸醫建議 |
+| POST | `/animals/:id/surgeries/copy` | 複製紀錄 |
 | GET | `/surgeries/:id` | 手術詳情 |
 | PUT | `/surgeries/:id` | 更新手術 |
 | DELETE | `/surgeries/:id` | 刪除手術 |
@@ -343,12 +343,12 @@
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
-| GET | `/pigs/:id/weights` | 體重紀錄 |
-| POST | `/pigs/:id/weights` | 新增體重 |
+| GET | `/animals/:id/weights` | 體重紀錄 |
+| POST | `/animals/:id/weights` | 新增體重 |
 | PUT | `/weights/:id` | 更新體重 |
 | DELETE | `/weights/:id` | 刪除體重 |
-| GET | `/pigs/:id/vaccinations` | 疫苗紀錄 |
-| POST | `/pigs/:id/vaccinations` | 新增疫苗 |
+| GET | `/animals/:id/vaccinations` | 疫苗紀錄 |
+| POST | `/animals/:id/vaccinations` | 新增疫苗 |
 | PUT | `/vaccinations/:id` | 更新疫苗 |
 | DELETE | `/vaccinations/:id` | 刪除疫苗 |
 
@@ -358,10 +358,10 @@
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
-| GET | `/pigs/:id/sacrifice` | 犧牲紀錄 |
-| POST | `/pigs/:id/sacrifice` | 新增/更新犧牲 |
-| GET | `/pigs/:id/pathology` | 病理報告 |
-| POST | `/pigs/:id/pathology` | 新增/更新病理 |
+| GET | `/animals/:id/sacrifice` | 犧牲紀錄 |
+| POST | `/animals/:id/sacrifice` | 新增/更新犧牲 |
+| GET | `/animals/:id/pathology` | 病理報告 |
+| POST | `/animals/:id/pathology` | 新增/更新病理 |
 
 ---
 
@@ -369,8 +369,8 @@
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
-| GET | `/pigs/:id/blood-tests` | 血檢列表 |
-| POST | `/pigs/:id/blood-tests` | 新增血檢 |
+| GET | `/animals/:id/blood-tests` | 血檢列表 |
+| POST | `/animals/:id/blood-tests` | 新增血檢 |
 | GET | `/blood-tests/:id` | 血檢詳情 |
 | PUT | `/blood-tests/:id` | 更新血檢 |
 | DELETE | `/blood-tests/:id` | 刪除血檢 |
@@ -405,13 +405,13 @@
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
-| POST | `/pigs/:id/export` | 匯出個別醫療資料 |
+| POST | `/animals/:id/export` | 匯出個別醫療資料 |
 | POST | `/projects/:iacuc_no/export` | 匯出計畫醫療資料 |
-| GET | `/pigs/import/batches` | 匯入批次列表 |
-| GET | `/pigs/import/template/basic` | 下載基本資料模板 |
-| GET | `/pigs/import/template/weight` | 下載體重模板 |
-| POST | `/pigs/import/basic` | 匯入基本資料 |
-| POST | `/pigs/import/weights` | 匯入體重資料 |
+| GET | `/animals/import/batches` | 匯入批次列表 |
+| GET | `/animals/import/template/basic` | 下載基本資料模板 |
+| GET | `/animals/import/template/weight` | 下載體重模板 |
+| POST | `/animals/import/basic` | 匯入基本資料 |
+| POST | `/animals/import/weights` | 匯入體重資料 |
 
 ---
 
@@ -602,9 +602,9 @@
 | 方法 | 路徑 | 說明 |
 |------|------|------|
 | POST | `/protocols/:id/attachments` | 計畫書附件 |
-| POST | `/pigs/:id/photos` | 豬隻照片 |
-| POST | `/pigs/:id/pathology/attachments` | 病理附件 |
-| POST | `/pigs/:id/sacrifice/photos` | 犧牲照片 |
+| POST | `/animals/:id/photos` | 動物照片 |
+| POST | `/animals/:id/pathology/attachments` | 病理附件 |
+| POST | `/animals/:id/sacrifice/photos` | 犧牲照片 |
 | POST | `/vet-recommendations/:record_type/:record_id/attachments` | 獸醫建議附件 |
 | GET | `/attachments` | 附件列表 |
 | GET | `/attachments/:id` | 下載附件 |
@@ -621,7 +621,7 @@
 | ERP (產品/SKU/倉庫/儲位/夥伴) | 30 |
 | 單據/庫存/報表 | 23 |
 | AUP (計畫/審查/變更) | 38 |
-| 動物管理 (豬隻/醫療) | 50 |
+| 動物管理 (動物/醫療) | 50 |
 | 安樂死/簽章 | 12 |
 | 通知/警報/排程 | 17 |
 | 稽核/管理 | 14 |

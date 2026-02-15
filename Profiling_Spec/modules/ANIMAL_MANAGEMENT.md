@@ -1,15 +1,15 @@
 # 動物管理系統規格
 
 > **模組**：實驗動物生命週期管理  
-> **最後更新**：2026-02-03
+> **最後更新**：2026-02-16
 
 ---
 
 ## 1. 系統目的
 
-管理豬隻從入場到實驗完畢的完整生命週期：
+管理動物從入場到實驗完畢的完整生命週期：
 
-- 豬隻基本資料管理
+- 動物基本資料管理
 - 實驗分配與狀態追蹤
 - 觀察/手術/體重/疫苗紀錄
 - 獸醫師建議與照護紀錄
@@ -25,12 +25,12 @@
 | IACUC_STAFF | 管理所有計劃進度 |
 | VET | 健康管理、提供建議 |
 | EXPERIMENT_STAFF | 實驗紀錄操作 |
-| PI | 檢視自己計劃的豬隻 |
+| PI | 檢視自己計劃的動物 |
 | CLIENT | 檢視委託計劃（唯讀） |
 
 ---
 
-## 3. 豬隻狀態流程
+## 3. 動物狀態流程
 
 ```
 未分配 ──(分配至計劃)──→ 已分配 ──(進入實驗)──→ 實驗中 ──(完成實驗)──→ 實驗完畢
@@ -47,12 +47,11 @@
 
 ## 4. 核心資料模型
 
-### 4.1 豬隻主檔 (pigs)
+### 4.1 動物主檔 (animals)
 
 | 欄位 | 類型 | 說明 |
 |------|------|------|
-| id | UUID | 主鍵 |
-| pig_no | SERIAL | 系統號（顯示用） |
+| id | SERIAL | 主鍵 |
 | ear_tag | VARCHAR(10) | 耳號（唯一） |
 | status | ENUM | 狀態 |
 | breed | ENUM | 品種 |
@@ -62,26 +61,26 @@
 | entry_weight | DECIMAL | 進場體重 |
 | pen_location | VARCHAR(10) | 欄位編號 |
 | iacuc_no | VARCHAR(20) | IACUC 計劃編號 |
-| source_id | UUID | FK → pig_sources.id |
+| source_id | UUID | FK → animal_sources.id |
 
-### 4.2 觀察試驗紀錄 (pig_observations)
+### 4.2 觀察試驗紀錄 (animal_observations)
 
 | 欄位 | 類型 | 說明 |
 |------|------|------|
-| id | UUID | 主鍵 |
-| pig_id | UUID | FK → pigs.id |
+| id | SERIAL | 主鍵 |
+| animal_id | INTEGER | FK → animals.id |
 | event_date | DATE | 事件日期 |
 | record_type | ENUM | 異常/試驗/觀察 |
 | content | TEXT | 內容 |
 | treatments | JSONB | 治療方式（多筆） |
 | vet_read | BOOLEAN | 獸醫師已讀 |
 
-### 4.3 手術紀錄 (pig_surgeries)
+### 4.3 手術紀錄 (animal_surgeries)
 
 | 欄位 | 類型 | 說明 |
 |------|------|------|
-| id | UUID | 主鍵 |
-| pig_id | UUID | FK → pigs.id |
+| id | SERIAL | 主鍵 |
+| animal_id | INTEGER | FK → animals.id |
 | surgery_date | DATE | 手術日期 |
 | surgery_site | VARCHAR | 手術部位 |
 | induction_anesthesia | JSONB | 誘導麻醉 |
@@ -89,7 +88,7 @@
 
 ---
 
-## 5. 豬隻詳情頁面 (7 Tab)
+## 5. 動物詳情頁面 (7 Tab)
 
 | Tab | 資料類型 | 說明 |
 |-----|----------|------|
@@ -98,47 +97,47 @@
 | 體重紀錄 | 多筆 | 體重測量歷程 |
 | 疫苗/驅蟲紀錄 | 多筆 | 疫苗接種與驅蟲 |
 | 犧牲/採樣紀錄 | 單筆 | 實驗結束處置 |
-| 豬隻資料 | 單筆 | 基本資料 |
+| 動物資料 | 單筆 | 基本資料 |
 | 病理組織報告 | 單筆+附件 | 病理報告 |
 
 ---
 
 ## 6. API 端點
 
-### 6.1 豬隻管理
+### 6.1 動物管理
 
 | 方法 | 端點 | 說明 |
 |------|------|------|
-| GET | `/pigs` | 豬隻列表 |
-| POST | `/pigs` | 新增豬隻 |
-| GET | `/pigs/{id}` | 豬隻詳情 |
-| PATCH | `/pigs/{id}` | 更新資料 |
-| GET | `/pigs/by-pen` | 依欄位分組 |
+| GET | `/animals` | 動物列表 |
+| POST | `/animals` | 新增動物 |
+| GET | `/animals/{id}` | 動物詳情 |
+| PUT | `/animals/{id}` | 更新資料 |
+| GET | `/animals/by-pen` | 依欄位分組 |
 
 ### 6.2 批次操作
 
 | 方法 | 端點 | 說明 |
 |------|------|------|
-| POST | `/pigs/import/basic` | 匯入基本資料 |
-| POST | `/pigs/import/weight` | 匯入體重 |
-| POST | `/pigs/batch/assign` | 批次分配 |
-| POST | `/pigs/batch/start-experiment` | 批次進入實驗 |
+| POST | `/animals/import/basic` | 匯入基本資料 |
+| POST | `/animals/import/weight` | 匯入體重 |
+| POST | `/animals/batch/assign` | 批次分配 |
+| POST | `/animals/batch/start-experiment` | 批次進入實驗 |
 
 ### 6.3 紀錄管理
 
 | 方法 | 端點 | 說明 |
 |------|------|------|
-| GET/POST | `/pigs/{id}/observations` | 觀察紀錄 |
-| GET/POST | `/pigs/{id}/surgeries` | 手術紀錄 |
-| GET/POST | `/pigs/{id}/weights` | 體重紀錄 |
-| GET/POST | `/pigs/{id}/vaccinations` | 疫苗紀錄 |
-| GET/POST | `/pigs/{id}/sacrifice` | 犧牲紀錄 |
+| GET/POST | `/animals/{id}/observations` | 觀察紀錄 |
+| GET/POST | `/animals/{id}/surgeries` | 手術紀錄 |
+| GET/POST | `/animals/{id}/weights` | 體重紀錄 |
+| GET/POST | `/animals/{id}/vaccinations` | 疫苗紀錄 |
+| GET/POST | `/animals/{id}/sacrifice` | 犧牲紀錄 |
 
 ### 6.4 獸醫師操作
 
 | 方法 | 端點 | 說明 |
 |------|------|------|
-| POST | `/pigs/{id}/vet-read` | 標記已讀 |
+| POST | `/animals/{id}/vet-read` | 標記已讀 |
 | POST | `/observations/{id}/recommendations` | 新增建議 |
 | POST | `/surgeries/{id}/recommendations` | 新增建議 |
 
@@ -162,10 +161,10 @@
 
 | 路由 | 頁面 |
 |------|------|
-| `/pigs` | 豬隻列表 |
-| `/pigs/{id}` | 豬隻詳情（7 Tab） |
-| `/pigs/{id}/edit` | 編輯豬隻 |
-| `/pig-sources` | 豬隻來源管理 |
+| `/animals` | 動物列表 |
+| `/animals/{id}` | 動物詳情（7 Tab） |
+| `/animals/{id}/edit` | 編輯動物 |
+| `/animal-sources` | 動物來源管理 |
 
 ---
 
@@ -176,12 +175,12 @@ PI/CLIENT 可透過「我的計劃」檢視自己的計劃：
 | Tab | 內容 |
 |-----|------|
 | 申請表 | AUP 計畫書內容（唯讀） |
-| 豬隻紀錄 | 該計劃下已分配豬隻清單 |
+| 動物紀錄 | 該計劃下已分配動物清單 |
 
 ---
 
 ## 10. 相關文件
 
-- [AUP 系統](./AUP_SYSTEM.md) - 計劃與豬隻的關聯
+- [AUP 系統](./AUP_SYSTEM.md) - 計劃與動物的關聯
 - [通知系統](./NOTIFICATION_SYSTEM.md) - 獸醫師建議通知
 - [稽核日誌](../guides/AUDIT_LOGGING.md) - GLP 合規紀錄

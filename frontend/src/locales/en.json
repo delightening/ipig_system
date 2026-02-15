@@ -842,7 +842,7 @@
             "drugAmountLabel": "Required Amount *",
             "authorizedPersonLabel": "Controlled Substances Manager *",
             "templates": {
-                "preop_preparation": "1. Fasting for at least 12 hours before surgery, water ad libitum.\n2. Pigs are sedated with Azeperonum (40 mg/mL) 3-5 mg/kg and Atropine (1 mg/mL) 0.03-0.05 mg/kg IM. Monitor respiratory rate closely.\n3. After 20-30 mins, induce anesthesia with Zoletil-50 4.4 mg/kg IM.\n4. After 5-10 mins, move pig to surgery table, perform endotracheal intubation in prone position, connect to gas anesthesia machine (Isoflurane 0.5-2% in 2-3 L/min O2). Monitor anesthesia depth.\n5. Pre-operative preparation: Move pig to table, prone intubation, clipping hairs, connect anesthesia machine.\n6. Pre-op IM antibiotics Cefazolin 15 mg/kg and analgesic Meloxicam 0.4 mg/kg.\nFollow SOP TU-03-09-00.",
+                "preop_preparation": "1. Fasting for at least 12 hours before surgery, water ad libitum.\n2. Animals are sedated with Azeperonum (40 mg/mL) 3-5 mg/kg and Atropine (1 mg/mL) 0.03-0.05 mg/kg IM. Monitor respiratory rate closely.\n3. After 20-30 mins, induce anesthesia with Zoletil-50 4.4 mg/kg IM.\n4. After 5-10 mins, move animal to surgery table, perform endotracheal intubation in prone position, connect to gas anesthesia machine (Isoflurane 0.5-2% in 2-3 L/min O2). Monitor anesthesia depth.\n5. Pre-operative preparation: Move animal to table, prone intubation, clipping hairs, connect anesthesia machine.\n6. Pre-op IM antibiotics Cefazolin 15 mg/kg and analgesic Meloxicam 0.4 mg/kg.\nFollow SOP TU-03-09-00.",
                 "surgery_description": "Please describe the surgical procedure in detail, including the surgical site, method, incision size, and suturing.",
                 "monitoring": "Adjust oxygen/nitrous oxide flow and anesthetic gas concentration based on anesthesia depth, respiration, and surgical needs. Maintain body temperature and monitor heart rate, respiration, and temperature using a physiological monitor.\nPerform according to 'TU-03-09-00 Standard Operating Procedure for Experimental Pig Surgery'."
             },
@@ -1256,14 +1256,14 @@
             ]
         }
     },
-    "pigs": {
+    "animals": {
         "title": "Animal List",
         "description": "Manage all experimental animals in the system",
         "generateReport": "Generate Pen Report",
         "importWeight": "Import Weights",
         "importBasic": "Import Basic Data",
         "batchExport": "Batch Export Records",
-        "addPig": "Add Animal",
+        "addAnimal": "Add Animal",
         "searchPlaceholder": "Search ear tag, pen, IACUC No...",
         "breedFilter": "Breed",
         "allBreeds": "All Breeds",
@@ -1281,7 +1281,7 @@
         "entryDate": "Entry Date",
         "currentWeight": "Current Weight",
         "actions": "Actions",
-        "noPigsFound": "No animals found matching criteria",
+        "noAnimalsFound": "No animals found matching criteria",
         "notAssigned": "Unassigned",
         "onMedication": "Yes",
         "notOnMedication": "No",

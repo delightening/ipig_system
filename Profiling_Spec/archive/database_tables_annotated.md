@@ -50,7 +50,7 @@
 
 ### 1.3 permissions (權限)
 
-> **用途**: 定義細粒度權限項目，如「查看豬隻」、「編輯實驗計畫」
+> **用途**: 定義細粒度權限項目，如「查看動物」、「編輯實驗計畫」
 
 | 欄位名稱 | 資料類型 | 約束 | 說明 | 業務邏輯註解 |
 |----------|----------|------|------|--------------|
@@ -272,17 +272,17 @@
 
 ## 4. 動物管理模組
 
-### 4.1 pigs (豬隻)
+### 4.1 animals (動物)
 
-> **用途**: 豬隻基本資料，每隻豬有唯一耳標
+> **用途**: 動物基本資料，每隻豬有唯一耳標
 
 | 欄位名稱 | 資料類型 | 約束 | 說明 | 業務邏輯註解 |
 |----------|----------|------|------|--------------|
 | id | SERIAL | PK | 主鍵 | 自動遞增 |
-| ear_tag | VARCHAR(10) | NOT NULL | 耳標 | 豬隻唯一識別碼，如 M001, F023 |
+| ear_tag | VARCHAR(10) | NOT NULL | 耳標 | 動物唯一識別碼，如 M001, F023 |
 | status | pig_status | DEFAULT 'unassigned' | 狀態 | 生命週期狀態 |
 | breed | pig_breed | NOT NULL | 品種 | miniature=迷你豬, white=白豬, LYD |
-| source_id | UUID | FK | 來源 ID | 豬隻供應商/來源農場 |
+| source_id | UUID | FK | 來源 ID | 動物供應商/來源農場 |
 | gender | pig_gender | NOT NULL | 性別 | male, female |
 | birth_date | DATE | | 出生日期 | |
 | entry_date | DATE | NOT NULL | 入場日期 | 進入設施的日期 |
@@ -293,14 +293,14 @@
 
 ---
 
-### 4.2 pig_observations (豬隻觀察紀錄)
+### 4.2 pig_observations (動物觀察紀錄)
 
 > **用途**: 每日健康觀察、異常紀錄、用藥處置
 
 | 欄位名稱 | 資料類型 | 約束 | 說明 | 業務邏輯註解 |
 |----------|----------|------|------|--------------|
 | id | SERIAL | PK | 主鍵 | |
-| pig_id | INTEGER | FK, NOT NULL | 豬隻 ID | |
+| pig_id | INTEGER | FK, NOT NULL | 動物 ID | |
 | event_date | DATE | NOT NULL | 事件日期 | 觀察日期 |
 | record_type | record_type | NOT NULL | 紀錄類型 | abnormal=異常, observation=一般觀察 |
 | content | TEXT | NOT NULL | 內容 | 觀察內容文字 |
@@ -311,14 +311,14 @@
 
 ---
 
-### 4.3 pig_surgeries (豬隻手術紀錄)
+### 4.3 pig_surgeries (動物手術紀錄)
 
 > **用途**: 實驗手術記錄，包含麻醉與生命徵象
 
 | 欄位名稱 | 資料類型 | 約束 | 說明 | 業務邏輯註解 |
 |----------|----------|------|------|--------------|
 | id | SERIAL | PK | 主鍵 | |
-| pig_id | INTEGER | FK, NOT NULL | 豬隻 ID | |
+| pig_id | INTEGER | FK, NOT NULL | 動物 ID | |
 | is_first_experiment | BOOLEAN | DEFAULT true | 首次實驗 | 是否為此豬首次手術 |
 | surgery_date | DATE | NOT NULL | 手術日期 | |
 | surgery_site | VARCHAR(200) | NOT NULL | 手術部位 | 如「左頸動脈」 |
@@ -462,7 +462,7 @@
 | OFFICIAL | 公假 | 因公外出 |
 | UNPAID | 無薪假 | 留職停薪 |
 
-### 7.3 豬隻狀態 (pig_status)
+### 7.3 動物狀態 (pig_status)
 
 | 代碼 | 中文 | 說明 |
 |------|------|------|

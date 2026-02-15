@@ -45,12 +45,12 @@ CREATE TYPE protocol_status AS ENUM (
 );
 
 -- 動物管理相關類型
-CREATE TYPE pig_status AS ENUM ('unassigned', 'in_experiment', 'completed');
-CREATE TYPE pig_breed AS ENUM ('miniature', 'white', 'LYD', 'other');
-CREATE TYPE pig_gender AS ENUM ('male', 'female');
+CREATE TYPE animal_status AS ENUM ('unassigned', 'in_experiment', 'completed');
+CREATE TYPE animal_breed AS ENUM ('miniature', 'white', 'LYD', 'other');
+CREATE TYPE animal_gender AS ENUM ('male', 'female');
 CREATE TYPE record_type AS ENUM ('abnormal', 'experiment', 'observation');
-CREATE TYPE pig_record_type AS ENUM ('observation', 'surgery', 'sacrifice', 'pathology', 'blood_test');
-CREATE TYPE pig_file_type AS ENUM ('photo', 'attachment', 'report');
+CREATE TYPE animal_record_type AS ENUM ('observation', 'surgery', 'sacrifice', 'pathology', 'blood_test');
+CREATE TYPE animal_file_type AS ENUM ('photo', 'attachment', 'report');
 CREATE TYPE vet_record_type AS ENUM ('observation', 'surgery');
 CREATE TYPE care_record_mode AS ENUM ('legacy', 'pain_assessment');
 CREATE TYPE version_record_type AS ENUM ('observation', 'surgery', 'weight', 'vaccination', 'sacrifice', 'pathology', 'blood_test');
@@ -88,8 +88,8 @@ CREATE TYPE protocol_activity_type AS ENUM (
     'AMENDMENT_CREATED',
     'AMENDMENT_SUBMITTED',
     -- 動物管理
-    'PIG_ASSIGNED',
-    'PIG_UNASSIGNED'
+    'ANIMAL_ASSIGNED',
+    'ANIMAL_UNASSIGNED'
 );
 
 -- 通知與報表類型
@@ -172,7 +172,7 @@ CREATE TYPE euthanasia_order_status AS ENUM (
 );
 
 -- 匯入匯出類型
-CREATE TYPE import_type AS ENUM ('pig_basic', 'pig_weight');
+CREATE TYPE import_type AS ENUM ('animal_basic', 'animal_weight');
 CREATE TYPE import_status AS ENUM ('pending', 'processing', 'completed', 'failed');
 CREATE TYPE export_type AS ENUM ('medical_summary', 'observation_records', 'surgery_records', 'experiment_records');
 CREATE TYPE export_format AS ENUM ('pdf', 'excel');

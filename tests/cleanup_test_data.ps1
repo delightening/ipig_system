@@ -82,7 +82,7 @@ if ($dockerAvailable) {
     Write-Host "[1/3] 清理前統計..." -ForegroundColor Yellow
     docker exec ipig-db psql -U postgres -d ipig_db -c "
         SELECT '使用者(非admin)' AS item, COUNT(*)::text AS count FROM users WHERE email != 'admin@ipig.local'
-        UNION ALL SELECT '動物', COUNT(*)::text FROM pigs
+        UNION ALL SELECT '動物', COUNT(*)::text FROM animals
         UNION ALL SELECT '計畫', COUNT(*)::text FROM protocols
         UNION ALL SELECT '倉庫', COUNT(*)::text FROM warehouses
         UNION ALL SELECT '單據', COUNT(*)::text FROM documents
@@ -116,12 +116,12 @@ if ($dockerAvailable) {
     Write-Host "[3/3] 驗證清理結果..." -ForegroundColor Yellow
     docker exec ipig-db psql -U postgres -d ipig_db -c "
         SELECT '使用者' AS item, COUNT(*)::text AS count FROM users
-        UNION ALL SELECT '動物', COUNT(*)::text FROM pigs
+        UNION ALL SELECT '動物', COUNT(*)::text FROM animals
         UNION ALL SELECT '計畫', COUNT(*)::text FROM protocols
         UNION ALL SELECT '倉庫', COUNT(*)::text FROM warehouses
         UNION ALL SELECT '單據', COUNT(*)::text FROM documents
         UNION ALL SELECT '角色(保留)', COUNT(*)::text FROM roles
-        UNION ALL SELECT '動物來源(保留)', COUNT(*)::text FROM pig_sources
+        UNION ALL SELECT '動物來源(保留)', COUNT(*)::text FROM animal_sources
         UNION ALL SELECT '稽核日誌(保留)', COUNT(*)::text FROM audit_logs
         UNION ALL SELECT '活動日誌(保留)', COUNT(*)::text FROM user_activity_logs
         UNION ALL SELECT '登入事件(保留)', COUNT(*)::text FROM login_events

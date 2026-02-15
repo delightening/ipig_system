@@ -1,7 +1,7 @@
 # 模組與邊界
 
-> **版本**：3.0  
-> **最後更新**：2026-02-15  
+> **版本**：4.0  
+> **最後更新**：2026-02-16  
 > **對象**：架構師、資深開發人員
 
 ---
@@ -15,7 +15,7 @@ iPig 系統組織成獨立的有界上下文：
 │                              iPig System                                    │
 │  ┌────────────────┐  ┌────────────────┐  ┌──────────────────────────────┐  │
 │  │  AUP 審查系統   │  │   iPig ERP     │  │  動物管理系統               │  │
-│  │  (計畫書)       │  │  (進銷存)      │  │  (豬隻)                     │  │
+│  │  (計畫書)       │  │  (進銷存)      │  │  (動物)                     │  │
 │  └────────┬────────┘  └────────┬───────┘  └────────────┬────────────────┘  │
 │           │                     │                        │                   │
 │  ┌────────┴────────┐  ┌────────┴───────┐  ┌────────────┴────────────────┐  │
@@ -161,7 +161,7 @@ iPig 系統組織成獨立的有界上下文：
 
 | 元件 | 檔案路徑 | 說明 |
 |------|----------|------|
-| 豬隻處理器 | `handlers/animal/pig.rs` (8KB) | 基本操作 |
+| 動物處理器 | `handlers/animal/animal.rs` (8KB) | 基本操作 |
 | 觀察紀錄處理器 | `handlers/animal/observation.rs` (8KB) | 觀察 CRUD |
 | 手術紀錄處理器 | `handlers/animal/surgery.rs` (6KB) | 手術 CRUD |
 | 體重疫苗處理器 | `handlers/animal/weight_vaccination.rs` (8KB) | 體重/疫苗 |
@@ -169,38 +169,38 @@ iPig 系統組織成獨立的有界上下文：
 | 犧牲病理處理器 | `handlers/animal/sacrifice_pathology.rs` (4KB) | 犧牲/病理 |
 | 匯入匯出處理器 | `handlers/animal/import_export.rs` (10KB) | Excel 匯入 |
 | 獸醫建議處理器 | `handlers/animal/vet_recommendation.rs` (9KB) | 獸醫建議 |
-| 來源管理處理器 | `handlers/animal/source.rs` (2KB) | 豬隻來源 |
+| 來源管理處理器 | `handlers/animal/source.rs` (2KB) | 動物來源 |
 | Dashboard 處理器 | `handlers/animal/dashboard.rs` (2KB) | 動物 Dashboard |
-| 核心服務 | `services/animal/core.rs` (18KB) | 豬隻核心邏輯 |
+| 核心服務 | `services/animal/core.rs` (18KB) | 動物核心邏輯 |
 | 醫療服務 | `services/animal/medical.rs` (18KB) | 醫療紀錄 |
 | 觀察服務 | `services/animal/observation.rs` (9KB) | 觀察紀錄 |
 | 手術服務 | `services/animal/surgery.rs` (9KB) | 手術紀錄 |
 | 血檢服務 | `services/animal/blood_test.rs` (20KB) | 血液檢查 |
 | 匯入匯出服務 | `services/animal/import_export.rs` (34KB) | Excel 處理 |
 
-**API 前綴**：`/api/pigs/*`、`/api/observations/*`、`/api/surgeries/*`、`/api/weights/*`、`/api/vaccinations/*`、`/api/blood-tests/*`、`/api/blood-test-templates/*`、`/api/blood-test-panels/*`
+**API 前綴**：`/api/animals/*`、`/api/observations/*`、`/api/surgeries/*`、`/api/weights/*`、`/api/vaccinations/*`、`/api/blood-tests/*`、`/api/blood-test-templates/*`、`/api/blood-test-panels/*`
 
 **主要端點**（共 42 個）：
-- `GET/POST /pigs` - 豬隻列表/建立
-- `GET/PUT/DELETE /pigs/:id` - 豬隻 CRUD
-- `GET /pigs/by-pen` - 依欄位分組
-- `POST /pigs/batch/assign` - 批次分配
-- `GET /pigs/vet-comments` - 獸醫待閱
-- `POST /pigs/:id/vet-read` - 標記已讀
-- `GET/POST /pigs/:id/observations` - 觀察紀錄
-- `POST /pigs/:id/observations/copy` - 複製紀錄
-- `GET/POST /pigs/:id/surgeries` - 手術紀錄
-- `GET/POST /pigs/:id/weights` - 體重紀錄
-- `GET/POST /pigs/:id/vaccinations` - 疫苗紀錄
-- `GET/POST /pigs/:id/sacrifice` - 犧牲紀錄
-- `GET/POST /pigs/:id/pathology` - 病理報告
-- `GET/POST /pigs/:id/blood-tests` - 血液檢查
+- `GET/POST /animals` - 動物列表/建立
+- `GET/PUT/DELETE /animals/:id` - 動物 CRUD
+- `GET /animals/by-pen` - 依欄位分組
+- `POST /animals/batch/assign` - 批次分配
+- `GET /animals/vet-comments` - 獸醫待閱
+- `POST /animals/:id/vet-read` - 標記已讀
+- `GET/POST /animals/:id/observations` - 觀察紀錄
+- `POST /animals/:id/observations/copy` - 複製紀錄
+- `GET/POST /animals/:id/surgeries` - 手術紀錄
+- `GET/POST /animals/:id/weights` - 體重紀錄
+- `GET/POST /animals/:id/vaccinations` - 疫苗紀錄
+- `GET/POST /animals/:id/sacrifice` - 犧牲紀錄
+- `GET/POST /animals/:id/pathology` - 病理報告
+- `GET/POST /animals/:id/blood-tests` - 血液檢查
 - `GET/PUT/DELETE /blood-tests/:id` - 血檢 CRUD
 - `GET/POST /blood-test-templates` - 模板管理
 - `GET/POST /blood-test-panels` - 組合管理
-- `POST /pigs/:id/export` - 醫療資料匯出
+- `POST /animals/:id/export` - 醫療資料匯出
 - `POST /projects/:iacuc_no/export` - 計畫醫療匯出
-- `GET/POST /pigs/import/*` - 批次匯入
+- `GET/POST /animals/import/*` - 批次匯入
 
 ---
 
@@ -391,9 +391,9 @@ iPig 系統組織成獨立的有界上下文：
 
 **支援的上傳類型**：
 - 計畫書附件 (`/protocols/:id/attachments`)
-- 豬隻照片 (`/pigs/:id/photos`)
-- 病理報告附件 (`/pigs/:id/pathology/attachments`)
-- 犧牲照片 (`/pigs/:id/sacrifice/photos`)
+- 動物照片 (`/animals/:id/photos`)
+- 病理報告附件 (`/animals/:id/pathology/attachments`)
+- 犧牲照片 (`/animals/:id/sacrifice/photos`)
 - 獸醫建議附件 (`/vet-recommendations/:record_type/:record_id/attachments`)
 - 請假附件 (`/hr/leaves/attachments`)
 
@@ -445,10 +445,10 @@ iPig 系統組織成獨立的有界上下文：
 /my-projects/:id                → 計劃詳情
 /my-amendments                  → 我的變更
 
-/pigs                           → 豬隻列表
-/pigs/:id                       → 豬隻詳情（多 Tab）
-/pigs/:id/edit                  → 編輯豬隻
-/pig-sources                    → 豬隻來源
+/animals                        → 動物列表
+/animals/:id                    → 動物詳情（多 Tab）
+/animals/:id/edit               → 編輯動物
+/animal-sources                 → 動物來源
 
 /hr/attendance                  → 出勤打卡
 /hr/leaves                      → 請假管理

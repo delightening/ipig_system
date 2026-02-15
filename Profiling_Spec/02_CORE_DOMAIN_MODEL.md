@@ -1,7 +1,7 @@
 # 核心領域模型
 
-> **版本**：3.0  
-> **最後更新**：2026-02-15  
+> **版本**：4.0  
+> **最後更新**：2026-02-16  
 > **對象**：開發人員
 
 ---
@@ -28,17 +28,17 @@ erDiagram
     PROTOCOLS ||--o{ REVIEW_ASSIGNMENTS : reviewed
     PROTOCOLS ||--o{ AMENDMENTS : amended
     
-    PIG_SOURCES ||--o{ PIGS : provides
-    PIGS ||--o{ PIG_OBSERVATIONS : has
-    PIGS ||--o{ PIG_SURGERIES : undergoes
-    PIGS ||--o{ PIG_WEIGHTS : measured
-    PIGS ||--o{ PIG_VACCINATIONS : receives
-    PIGS ||--o{ PIG_BLOOD_TESTS : tested
-    PIGS ||--|| PIG_SACRIFICES : "may have"
-    PIGS ||--|| PIG_PATHOLOGY_REPORTS : "may have"
-    PIGS ||--o{ EUTHANASIA_ORDERS : "may have"
+    ANIMAL_SOURCES ||--o{ ANIMALS : provides
+    ANIMALS ||--o{ ANIMAL_OBSERVATIONS : has
+    ANIMALS ||--o{ ANIMAL_SURGERIES : undergoes
+    ANIMALS ||--o{ ANIMAL_WEIGHTS : measured
+    ANIMALS ||--o{ ANIMAL_VACCINATIONS : receives
+    ANIMALS ||--o{ ANIMAL_BLOOD_TESTS : tested
+    ANIMALS ||--|| ANIMAL_SACRIFICES : "may have"
+    ANIMALS ||--|| ANIMAL_PATHOLOGY_REPORTS : "may have"
+    ANIMALS ||--o{ EUTHANASIA_ORDERS : "may have"
     
-    BLOOD_TEST_TEMPLATES ||--o{ PIG_BLOOD_TEST_ITEMS : used_in
+    BLOOD_TEST_TEMPLATES ||--o{ ANIMAL_BLOOD_TEST_ITEMS : used_in
     BLOOD_TEST_PANELS ||--o{ BLOOD_TEST_PANEL_ITEMS : contains
     BLOOD_TEST_TEMPLATES ||--o{ BLOOD_TEST_PANEL_ITEMS : grouped
     
@@ -135,17 +135,17 @@ erDiagram
 
 ---
 
-### 3.3 動物（豬隻）
+### 3.3 動物管理
 
-#### 豬隻 (Pig)
+#### 動物 (Animal)
 | 欄位 | 類型 | 說明 |
 |------|------|------|
 | id | SERIAL | 主鍵 |
 | ear_tag | VARCHAR(10) | 耳號識別碼 |
-| status | pig_status | 目前狀態 |
-| breed | pig_breed | 品種類型 |
+| status | animal_status | 目前狀態 |
+| breed | animal_breed | 品種類型 |
 | source_id | UUID | 來源/供應商 |
-| gender | pig_gender | male/female |
+| gender | animal_gender | male/female |
 | birth_date | DATE | 出生日期 |
 | entry_date | DATE | 進場日期 |
 | entry_weight | NUMERIC(5,1) | 進場體重 (kg) |
@@ -156,7 +156,7 @@ erDiagram
 | pre_experiment_code | VARCHAR(20) | 術前代碼 |
 | is_deleted | BOOLEAN | 軟刪除標記 |
 
-**豬隻狀態列舉 (pig_status)**：
+**動物狀態列舉 (animal_status)**：
 - `unassigned` - 未分配
 - `assigned` - 已分配至計畫
 - `in_experiment` - 實驗中
@@ -164,15 +164,15 @@ erDiagram
 - `transferred` - 已轉移
 - `deceased` - 已死亡
 
-**品種列舉 (pig_breed)**：`miniature`、`white`、`LYD`、`other`
+**品種列舉 (animal_breed)**：`miniature`、`white`、`LYD`、`other`
 
-**性別列舉 (pig_gender)**：`male`、`female`
+**性別列舉 (animal_gender)**：`male`、`female`
 
-#### 觀察試驗紀錄 (Pig Observation)
+#### 觀察試驗紀錄 (Animal Observation)
 | 欄位 | 類型 | 說明 |
 |------|------|------|
 | id | SERIAL | 主鍵 |
-| pig_id | INTEGER | FK → pigs |
+| animal_id | INTEGER | FK → animals |
 | event_date | DATE | 事件日期 |
 | record_type | record_type | 紀錄類型 |
 | content | TEXT | 內容 |
@@ -183,11 +183,11 @@ erDiagram
 
 **紀錄類型列舉 (record_type)**：`abnormal`、`experiment`、`observation`
 
-#### 手術紀錄 (Pig Surgery)
+#### 手術紀錄 (Animal Surgery)
 | 欄位 | 類型 | 說明 |
 |------|------|------|
 | id | SERIAL | 主鍵 |
-| pig_id | INTEGER | FK → pigs |
+| animal_id | INTEGER | FK → animals |
 | is_first_experiment | BOOLEAN | 首次實驗標記 |
 | surgery_date | DATE | 手術日期 |
 | surgery_site | VARCHAR(200) | 手術部位 |
@@ -196,11 +196,11 @@ erDiagram
 | vital_signs | JSONB | 生理數值（多筆時序資料）|
 | vet_read | BOOLEAN | 獸醫已閱讀 |
 
-#### 血液檢查 (Pig Blood Test)
+#### 血液檢查 (Animal Blood Test)
 | 欄位 | 類型 | 說明 |
 |------|------|------|
 | id | UUID | 主鍵 |
-| pig_id | UUID | FK → pigs |
+| animal_id | UUID | FK → animals |
 | test_date | DATE | 檢查日期 |
 | lab_name | VARCHAR(200) | 檢驗機構 |
 | status | VARCHAR(20) | pending / completed |
@@ -236,7 +236,7 @@ erDiagram
 | 欄位 | 類型 | 說明 |
 |------|------|------|
 | id | UUID | 主鍵 |
-| pig_id | INTEGER | FK → pigs |
+| animal_id | INTEGER | FK → animals |
 | status | VARCHAR(30) | 核准狀態 |
 | reason | TEXT | 申請原因 |
 | requested_by | UUID | 申請者 |

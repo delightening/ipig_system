@@ -867,6 +867,6 @@ AUP 狀態與 `protocols` 表狀態同步：
 - `protocol_attachments`：附件資料
 - `protocol_reviews`：審查意見
 - `users`：使用者資料（PI、SD、人員清單）
-- `pig_sources`：豬隻來源資料
+- `animal_sources`：動物來源資料
 
 詳細資料庫結構請參考主規格文件。

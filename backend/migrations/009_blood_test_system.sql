@@ -8,8 +8,6 @@
 -- - 檢驗組合表 + seed
 -- - 組合項目關聯表 + seed
 -- 
--- 注意：Enum 擴展（pig_record_type/version_record_type）已回併至 001
---       documents.iacuc_no 已回併至 007
 -- 編碼: UTF-8 (無 BOM)
 -- ============================================
 
@@ -126,9 +124,9 @@ ON CONFLICT (code) DO UPDATE SET
 -- 3. 血液檢查主表（status 預設 completed，無需審閱）
 -- ============================================
 
-CREATE TABLE pig_blood_tests (
+CREATE TABLE animal_blood_tests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    pig_id UUID NOT NULL REFERENCES pigs(id) ON DELETE CASCADE,
+    animal_id UUID NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
     test_date DATE NOT NULL,
     lab_name VARCHAR(200),
     status VARCHAR(20) NOT NULL DEFAULT 'completed',
@@ -145,17 +143,17 @@ CREATE TABLE pig_blood_tests (
     CONSTRAINT chk_blood_test_status CHECK (status IN ('pending', 'completed'))
 );
 
-CREATE INDEX idx_pig_blood_tests_pig_id ON pig_blood_tests(pig_id);
-CREATE INDEX idx_pig_blood_tests_test_date ON pig_blood_tests(test_date);
-CREATE INDEX idx_pig_blood_tests_is_deleted ON pig_blood_tests(is_deleted);
+CREATE INDEX idx_animal_blood_tests_animal_id ON animal_blood_tests(animal_id);
+CREATE INDEX idx_animal_blood_tests_test_date ON animal_blood_tests(test_date);
+CREATE INDEX idx_animal_blood_tests_is_deleted ON animal_blood_tests(is_deleted);
 
 -- ============================================
 -- 4. 血液檢查項目明細表
 -- ============================================
 
-CREATE TABLE pig_blood_test_items (
+CREATE TABLE animal_blood_test_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    blood_test_id UUID NOT NULL REFERENCES pig_blood_tests(id) ON DELETE CASCADE,
+    blood_test_id UUID NOT NULL REFERENCES animal_blood_tests(id) ON DELETE CASCADE,
     template_id UUID REFERENCES blood_test_templates(id),
     item_name VARCHAR(200) NOT NULL,
     result_value VARCHAR(100),
@@ -167,8 +165,8 @@ CREATE TABLE pig_blood_test_items (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_pig_blood_test_items_blood_test_id ON pig_blood_test_items(blood_test_id);
-CREATE INDEX idx_pig_blood_test_items_template_id ON pig_blood_test_items(template_id);
+CREATE INDEX idx_animal_blood_test_items_blood_test_id ON animal_blood_test_items(blood_test_id);
+CREATE INDEX idx_animal_blood_test_items_template_id ON animal_blood_test_items(template_id);
 
 -- ============================================
 -- 5. 檢驗組合主表

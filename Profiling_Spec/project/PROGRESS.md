@@ -12,7 +12,7 @@
 | 1 | [共用基礎架構](#1-共用基礎架構) | 認證授權、使用者管理、角色權限、Email、稽核 |
 | 2 | [AUP 提交與審查系統](#2-aup-提交與審查系統) | 計畫書管理、審查流程、附件、我的計劃 |
 | 3 | [iPig ERP (進銷存管理系統)](#3-ipig-erp-進銷存管理系統) | 基礎資料、採購、銷售、倉儲、報表 |
-| 4 | [實驗動物管理系統](#4-實驗動物管理系統) | 豬隻管理、紀錄、血液檢查、匯出、GLP |
+| 4 | [實驗動物管理系統](#4-實驗動物管理系統) | 動物管理、紀錄、血液檢查、匯出、GLP |
 | 5 | [通知系統](#5-通知系統) | Email 通知、站內通知、排程任務 |
 | 6 | [HR 人事管理系統](#6-hr-人事管理系統) | 特休、考勤、Google Calendar |
 | 7 | [資料庫 Schema 完成度](#7-資料庫-schema-完成度) | Migration 清單 |
@@ -154,7 +154,7 @@
 | 我的計劃列表 | ✅ | ✅ | ✅ | MyProjectsPage |
 | 計劃詳情 | ✅ | ✅ | ✅ | MyProjectDetailPage |
 | 申請表 Tab | ✅ | ✅ | ✅ | 完整顯示 |
-| 豬隻紀錄 Tab | ✅ | ✅ | ✅ | |
+| 動物紀錄 Tab | ✅ | ✅ | ✅ | |
 
 ---
 
@@ -262,7 +262,7 @@
 | 生理數值記錄 | ✅ | ✅ | ✅ | Repeater 多筆輸入 |
 | 獸醫師建議 | ✅ | ✅ | ✅ | VetRecommendationDialog |
 
-### 4.4 豬隻紀錄 - 其他紀錄
+### 4.4 動物紀錄 - 其他紀錄
 
 | 功能 | 後端 | 前端 | 狀態 | 備註 |
 |-----|:---:|:---:|:---:|------|
@@ -286,7 +286,7 @@
 
 | 功能 | 後端 | 前端 | 狀態 | 備註 |
 |-----|:---:|:---:|:---:|------|
-| 單一豬隻病歷匯出 | ✅ | ✅ | ✅ | ExportDialog |
+| 單一動物病歷匯出 | ✅ | ✅ | ✅ | ExportDialog |
 | 計劃病歷批次匯出 | ✅ | ✅ | ✅ | ExportDialog |
 | 觀察試驗紀錄匯出 | ✅ | ✅ | ✅ | |
 | 手術紀錄匯出 | ✅ | ✅ | ✅ | |
@@ -409,22 +409,19 @@
 
 | Migration | 內容 | 狀態 |
 |-----------|------|:---:|
-| 001_initial_schema.sql | ERP 基礎表、使用者權限 | ✅ |
-| 002_extend_schema.sql | AUP 系統、動物管理系統表 | ✅ |
-| 003_frontend_requirements.sql | 通知系統、排程報表、views | ✅ |
-| 004_pig_frontend_requirements.sql | 動物管理前端需求擴充 | ✅ |
-| 005_notification_types.sql | 通知類型擴展、日誌表、清理函數 | ✅ |
-| 006_attachments.sql | 附件管理表、索引 | ✅ |
-| 007_role_soft_delete_and_admin_consolidation.sql | 角色軟刪除、管理員合併 | ✅ |
-| 008_add_deleted_status.sql | 計劃書刪除狀態 | ✅ |
-| 009_hr_system.sql | HR 特休表、hire_date 欄位 | ✅ |
-| 010_glp_compliance.sql | 電子簽章、附註、變更原因表 | ✅ |
-| 013_rename_chair_role.sql | 重新命名 CHAIR 角色為 IACUC_CHAIR | ✅ |
-| 022_amendment_system.sql | 變更申請系統、review_comments 草稿欄位 | ✅ |
-| 024_blood_test.sql | 血液檢查系統（主表、明細、模板） | ✅ |
-| 025_seed_blood_templates.sql | 血液檢查模板 Seed 資料（64 項） | ✅ |
-| 026_blood_test_panels.sql | 檢驗組合 + 組合項目關聯 + Seed（14 組） | ✅ |
-| 011_notification_routing.sql | 通知路由規則表 + 21 筆預設種子資料 | ✅ |
+| 001_core_schema.sql | 自訂型別（enum）、使用者/角色/權限/通知/附件基礎表 | ✅ |
+| 002_core_permissions.sql | 權限定義 + 角色預設權限指派 | ✅ |
+| 003_animal_management.sql | 動物管理系統完整表（sources/animals/records/euthanasia） | ✅ |
+| 004_aup_system.sql | AUP 計畫書/審查/附件/變更申請 | ✅ |
+| 005_hr_system.sql | HR 考勤/特休/Google Calendar 整合 | ✅ |
+| 006_audit_system.sql | 稽核日誌（分區）/登入事件/安全警報 | ✅ |
+| 007_erp_warehouse.sql | ERP 倉庫/產品/單據/庫存 | ✅ |
+| 008_aup_review_enhancement.sql | 系統設定/獸醫審查/協議活動 | ✅ |
+| 009_blood_test_system.sql | 血液檢查模板/主表/明細/組合 | ✅ |
+| 010_user_preferences.sql | 使用者偏好設定 | ✅ |
+| 011_notification_routing.sql | 通知路由規則 + 21 筆預設種子資料 | ✅ |
+
+> 📌 **2026-02-16 重寫**：遷移已從 12 個整合為 11 個，`pig_*` 命名在初始遷移中直接使用 `animal_*`，刪除 `012_rename_pig_to_animal.sql`。
 
 ---
 
@@ -537,6 +534,46 @@
   - 測試 2 檔案更新（`test_animal_full.py`、`test_blood_panel.py`）
   - 前端 `npx tsc --noEmit` 編譯通過（0 錯誤）
 
+### 2026-02-16
+
+- ✅ **測試檔案 pig → animal 重構**：
+  - `test_animal_full.py`：`PIG_CONFIGS` → `ANIMAL_CONFIGS`、`pig`/`pig_data`/`pig0` → `animal`/`animal_data`/`animal0`、`pig_index` → `animal_index`、中文註解「豬」→「動物」
+  - `test_blood_panel.py`：修正 `test_pig` → `test_animal` bug（原始碼會導致 `NameError`）、註解更新
+  - `cleanup_test_data.ps1`：SQL 表名 `pigs` → `animals`、`pig_sources` → `animal_sources`
+  - `audit_check_deep.py`：entity_type `pig` → `animal`
+  - 4 個檔案路徑更新（`test_erp_permissions.py`、`test_amendment_full.py`、`test_hr_full.py`、`run_all_tests.py`）
+
+- ✅ **資料庫遷移重寫（pig → animal 消除）**：
+  - 重寫 `001_core_schema.sql`：5 個 enum 從 `pig_*` → `animal_*`，`import_type` 值更新，`protocol_activity_type` 中 `PIG_ASSIGNED`/`PIG_UNASSIGNED` → `ANIMAL_ASSIGNED`/`ANIMAL_UNASSIGNED`
+  - 重寫 `003_animal_management.sql`：全面使用 `animal_*` 表名/索引名/欄位名
+  - 重寫 `009_blood_test_system.sql`：`pig_blood_tests` → `animal_blood_tests`
+  - 刪除 `012_rename_pig_to_animal.sql`（不再需要）
+  - 遷移從 12 個整合為 11 個
+  - `cargo check` + `cargo test` 87 個測試全數通過
+- ✅ **Profiling_Spec 全面重寫（pig → animal 文件更新）**：
+  - 重寫 12 個文件：01-09、database_erd.md、README.md、modules/ANIMAL_MANAGEMENT.md
+  - 所有 pig_*/pigs/豬隻 用語替換為 animal_*/animals/動物
+  - API 路由 `/pigs` → `/animals`、表名 `pigs` → `animals`、ENUM `pig_*` → `animal_*`
+  - 版本升至 4.0，日期更新為 2026-02-16
+  - PROGRESS.md、walkthrough.md 殘留 pig 用語修復
+- ✅ **NAMING_CONVENTIONS.md 重寫（pig → animal）**：
+  - Rust 模組/處理器/服務/模型範例全面更新（`pig.rs` → `animal.rs`）
+  - 資料庫表名/欄位/索引/列舉範例更新（`pigs` → `animals`、`pig_id` → `animal_id`）
+  - React 元件/頁面/Hook/型別範例更新（`PigDetail` → `AnimalDetail`、`usePigs` → `useAnimals`）
+  - API 路由範例更新（`/pigs` → `/animals`、`/pig-sources` → `/animal-sources`）
+  - CSS 類別/Git 分支/提交訊息範例同步更新
+  - 版本升至 3.0
+- ✅ **UI_UX_GUIDELINES.md 重寫（pig → animal）**：
+  - Lucide 圖示 `Pig` → `PawPrint`
+  - 版本升至 3.0
+- ✅ **前端 AuditLogsPage pig→animal 修正**：
+  - `AuditLogsPage.tsx`：`PIG_CREATE`/`PIG_UPDATE`/`PIG_DELETE`/`PIG_BATCH_ASSIGN` → `ANIMAL_*` 事件類型
+  - `AuditLogsPage.tsx`：`pig_observation`/`pig_surgery`/`pig_weight` 等 7 個實體類型 → `animal_*`
+  - `AuditLogsPage.tsx`：`categoryEntityMap` 篩選器值同步更新（ALL + ANIMAL 兩處）
+  - 後端 `protocol.rs`：`PigAssigned`/`PigUnassigned` → `AnimalAssigned`/`AnimalUnassigned` enum 變體
+  - 前端 `aup.ts`：`ProtocolActivityType` 類型定義同步
+  - `tsc --noEmit` 編譯通過（exit code 0）
+
 ### 2026-02-15 (晚間)
 
 - ✅ **後端編譯修復（pig → animal 殘留清理）**：
@@ -562,7 +599,7 @@
 
 ### 2026-02-14 (下午)
 
-- ✅ PDF 報表分頁優化：`generate_project_medical_pdf` 重構為每隻豬獨立分頁、封面摘要、共用 `render_pig_medical_data` helper
+- ✅ PDF 報表分頁優化：`generate_project_medical_pdf` 重構為每隻動物獨立分頁、封面摘要、共用 `render_animal_medical_data` helper
 - ✅ 血液檢查組合管理頁面 `BloodTestPanelsPage.tsx`：Panel CRUD + 管理包含項目（搜尋、篩選、排序）
 - ✅ 路由整合（`App.tsx`）與 `BloodTestTemplatesPage.tsx` 按鈕改為「管理分類」導向
 - ✅ 所有測試帳密統一更新（7 個測試檔案）
@@ -610,6 +647,7 @@
   - 前端增強：`App.tsx` ProtectedRoute isInitialized loading、`auth.ts` isInitialized flag
 - ✅ **豬隻→動物命名全端重構**：後端 19 檔案（seed/permissions/handlers/services/file/middleware）、前端 17 檔案（翻譯 key/queryKey/entity type/local variable/comments）、翻譯 JSON 2 檔案，共計 ~180 處修改。`cargo build` 和 `tsc --noEmit` 均通過
 - ✅ **豬隻→動物最終掃描修正**：追加修正前端 7 檔案（`api.ts`、`BloodTestTab.tsx`、`QuickEditAnimalDialog.tsx`、`ImportDialog.tsx`、`VetCommentsWidget.tsx`、`AnimalEditPage.tsx`、`types/animal.ts`）+ 後端 7 檔案（`euthanasia.rs`、`import_export.rs`、`upload.rs`、`dashboard.rs`、`blood_test.rs`、`alert.rs`、`numbering.rs`）。`tsc --noEmit` exit code 0。前端 0 殘留、後端僅剩品牌 logo
+- ✅ **豬隻→動物第二輪掃描修正**：Bug Fix `MyProjectDetailPage.tsx`（`species === 'animal'` → `'pig'`、`white_animal` → `white_pig` DB 常數還原）、`en.json` 翻譯 key 6 處、後端 6 檔案中文註釋。前後端 grep 0 殘留確認
 
 ### 2026-02-06 ~ 2026-02-08
 
@@ -628,7 +666,7 @@
 
 - ✅ HR 特休管理系統、GLP 合規、PDF 匯出
 - ✅ 協編者權限修正、審查意見回覆、Google Calendar 整合
-- ✅ 資料匯入（Excel/CSV）、Bug 修復（豬隻計數、PigBreed enum、體重驗證）
+- ✅ 資料匯入（Excel/CSV）、Bug 修復（動物計數、PigBreed enum、體重驗證）
 - ✅ v1.0 MVP 完成、檔案上傳服務、通知偏好設定
 
 ---

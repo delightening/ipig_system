@@ -81,7 +81,7 @@ impl AnimalBreed {
     pub fn display_name(&self) -> &'static str {
         match self {
             AnimalBreed::Minipig => "迷你豬",
-            AnimalBreed::White => "白豬",
+            AnimalBreed::White => "白",
             AnimalBreed::LYD => "LYD",
             AnimalBreed::Other => "其他",
         }
