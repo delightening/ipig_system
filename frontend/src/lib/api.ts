@@ -1,4 +1,4 @@
-import axios, { AxiosError } from 'axios'
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 
 const api = axios.create({
   baseURL: '/api',
@@ -8,6 +8,47 @@ const api = axios.create({
   // HttpOnly Cookie 自動隨請求傳送（SEC-02）
   withCredentials: true,
 })
+
+// ============================================
+// SEC-24: CSRF Token 自動附加
+// ============================================
+
+/** 從 document.cookie 中讀取指定名稱的 cookie 值 */
+function getCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`))
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+// Request interceptor：自動將 csrf_token Cookie 值加到 X-CSRF-Token header
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  const method = (config.method || '').toUpperCase()
+  // 只有 POST/PUT/DELETE/PATCH 需要 CSRF token
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+    const csrfToken = getCookie('csrf_token')
+    if (csrfToken) {
+      config.headers.set('X-CSRF-Token', csrfToken)
+    }
+  }
+  return config
+})
+
+// ============================================
+// SEC-25: Refresh Token Queue（防競態）
+// ============================================
+
+let isRefreshing = false
+let refreshSubscribers: Array<(success: boolean) => void> = []
+
+/** 訂閱 refresh 結果 */
+function subscribeTokenRefresh(callback: (success: boolean) => void) {
+  refreshSubscribers.push(callback)
+}
+
+/** 通知所有等待中的請求 refresh 結果 */
+function onRefreshResolved(success: boolean) {
+  refreshSubscribers.forEach(cb => cb(success))
+  refreshSubscribers = []
+}
 
 // 防重複登出鎖：避免多個並行 401 請求同時觸發 logout
 let isLoggingOut = false
@@ -27,14 +68,35 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest?._retry) {
       originalRequest._retry = true
 
+      // SEC-25: 如果已經有 refresh 在進行中，等待其結果
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          subscribeTokenRefresh((success: boolean) => {
+            if (success && originalRequest) {
+              resolve(api(originalRequest))
+            } else {
+              reject(error)
+            }
+          })
+        })
+      }
+
+      isRefreshing = true
+
       try {
         // refresh_token Cookie 自動傳送，不需手動附帶
         await api.post('/auth/refresh')
+
+        isRefreshing = false
+        onRefreshResolved(true)
 
         if (originalRequest) {
           return api(originalRequest)
         }
       } catch {
+        isRefreshing = false
+        onRefreshResolved(false)
+
         // Refresh 也失敗 → 清除 auth 狀態，讓 React Router 自然導向 /login
         // 使用鎖避免多個並行請求重複觸發
         if (!isLoggingOut) {
@@ -172,3 +234,25 @@ export const getProtocolActivities = async (id: string): Promise<ProtocolActivit
   const response = await api.get<ProtocolActivity[]>(`/protocols/${id}/activities`)
   return response.data
 }
+
+// 通知路由管理 API
+import type {
+  NotificationRouting, CreateNotificationRoutingRequest,
+  UpdateNotificationRoutingRequest,
+} from '@/types/notification'
+
+export const notificationRoutingApi = {
+  list: () =>
+    api.get<NotificationRouting[]>('/admin/notification-routing'),
+  create: (data: CreateNotificationRoutingRequest) =>
+    api.post<NotificationRouting>('/admin/notification-routing', data),
+  update: (id: string, data: UpdateNotificationRoutingRequest) =>
+    api.put<NotificationRouting>(`/admin/notification-routing/${id}`, data),
+  delete: (id: string) =>
+    api.delete(`/admin/notification-routing/${id}`),
+}
+
+// 通知路由常數 re-export
+export {
+  eventTypeNames, channelNames,
+} from '@/types/notification'

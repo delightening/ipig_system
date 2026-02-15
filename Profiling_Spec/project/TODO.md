@@ -2,6 +2,17 @@
 
 > **最後更新：** 2026-02-15
 
+此文件撰寫方式
+
+做完的去更新 [PROGRESS.md](PROGRESS.md)
+還沒完成的放這裡
+
+---
+
+## ⛔ 禁止事項
+
+1. 密碼過期策略
+
 ---
 
 ## 🔴 P2 — 中優先（安全強化 / 體驗優化）
@@ -14,8 +25,11 @@
 | 4 | **敏感資料二級審計** | 密碼修改、權限變更等操作的加強稽核紀錄 | 後端 | 🟡 中 |
 | 5 | **安全警報即時推送** | Email / 站內通知即時推送安全警報（WebSocket/SSE） | 前後端 | 🔴 高 |
 | 6 | **獸醫師建議通知進階設定** | 獸醫師建議通知機制的進階設定項 | 前後端 | 🟡 中 |
+| 7 | **SEC-31：資料庫自動備份** | Docker `pg_dump` 排程，保留 30 天 + 異地備份 | DevOps | 🟢 低 |
+| 8 | **SEC-37：HSTS 標頭** | 正式環境 Nginx 加入 `Strict-Transport-Security` | Nginx | 🟢 低 |
+| 9 | **SEC-38：密碼歷史紀錄** | `password_history` 表，禁止重複使用最近 5 組密碼 | 後端 | 🟢 低 |
 
-### 豬隻→動物命名重構（待決定）
+### 📋 豬隻→動物命名重構（待決定）
 
 > 📋 **分析報告**：[implementation_plan.md](file:///C:/Users/jason/.gemini/antigravity/brain/c319adf4-3f08-4bca-9bf4-fbcf710d0f0a/implementation_plan.md)
 
@@ -33,7 +47,12 @@
 
 | # | 項目 | 說明 | 範圍 |
 |---|------|------|------|
-| 7 | **SEC-15：Named Tunnel 遷移** | 從 Cloudflare Quick Tunnel 遷移至 Named Tunnel | DevOps |
+| 10 | **SEC-15：Named Tunnel 遷移** | 從 Cloudflare Quick Tunnel 遷移至 Named Tunnel | DevOps |
+| 11 | **SEC-32：CORS Origin 動態化** | 從環境變數讀取 `ALLOWED_ORIGINS`，取代硬編碼（推遲）| 後端 |
+| 12 | **SEC-33：敏感操作二級認證** | 高危操作要求重新輸入密碼確認（推遲）| 前後端 |
+| 13 | **SEC-34：稽核日誌防篡改** | HMAC 雜湊鏈保護 audit_logs 不可竄改 | 後端 |
+| 14 | **SEC-35：上傳目錄隔離** | UUID 重命名 + Nginx 禁止直接存取 + API 代理下載 | 後端+Nginx |
+| 15 | **SEC-36：輸入長度限制與清理** | 全域 body size limit + 文字欄位 max length | 後端 |
 
 ---
 
@@ -41,10 +60,11 @@
 
 | # | 項目 | 說明 | 範圍 |
 |---|------|------|------|
-| 8 | **Rust 測試覆蓋率擴充** | 87 個測試通過，protocol/hr/facility 已有測試覆蓋。需 test DB 做整合測試 | 後端 |
-| 9 | **前端 E2E 測試** | Playwright 自動化測試 | 前端 |
-| 10 | **OpenAPI 文件完善** | utoipa 補全 API 文件 | 後端 |
-| 11 | **CI/CD PostgreSQL service** | CI 中增加 PostgreSQL service container | DevOps |
+| 16 | **Rust 測試覆蓋率擴充** | 87 個測試通過，protocol/hr/facility 已有覆蓋。需 test DB 做整合測試 | 後端 |
+| 17 | **前端 E2E 測試** | Playwright 自動化測試 | 前端 |
+| 18 | **OpenAPI 文件完善** | utoipa 補全 API 文件 | 後端 |
+| 19 | **CI/CD PostgreSQL service** | CI 中增加 PostgreSQL service container | DevOps |
+| 20 | **SEC-41：容器安全掃描** | CI 中加入 `trivy` 掃描 Docker image 漏洞 | DevOps |
 
 ---
 
@@ -52,10 +72,12 @@
 
 | # | 項目 | 說明 | 範圍 |
 |---|------|------|------|
-| 12 | **前端元件庫文件化** | Storybook 建置 | 前端 |
-| 13 | **資料庫備份自動化** | 排程備份 + 異地備份 | DevOps |
-| 14 | **效能監控（APM）整合** | 應用程式效能監控 | DevOps |
-| 15 | **前端超長頁面重構** | `ProtocolEditPage` 已完成（4240→1830行），配合需求變更時機漸進式重構 | 前端 |
+| 21 | **前端元件庫文件化** | Storybook 建置 | 前端 |
+| 22 | **效能監控（APM）整合** | 應用程式效能監控 | DevOps |
+| 23 | **前端超長頁面重構** | `ProtocolEditPage` 已完成（4240→1830 行），配合需求變更時機漸進式重構 | 前端 |
+| 24 | **SEC-39：Two-Factor Authentication** | TOTP 二階段驗證（Google Authenticator） | 前後端 |
+| 25 | **SEC-40：Web Application Firewall** | ModSecurity 或 Cloudflare WAF | DevOps |
+| 26 | **SEC-42：Secrets 管理集中化** | Docker Secrets / Vault 取代 `.env` 管理敏感設定 | DevOps |
 
 ---
 
@@ -63,67 +85,25 @@
 
 | # | 項目 | 說明 |
 |---|------|------|
-| 16 | 條碼掃描功能 | 行動裝置支援 |
-| 17 | 進階成本法（FIFO） | 成本計算升級 |
-| 18 | 批號效期到期提醒進階設定 | 更細緻的提醒規則 |
-| 19 | 作廢已核准單據沖銷機制 | Reversal Document |
-| 20 | 庫位管理（Bin Location） | 倉儲精細化管理 |
-| 21 | 會計 / ERP API 對接 | 外部系統整合 |
+| 27 | 條碼掃描功能 | 行動裝置支援 |
+| 28 | 進階成本法（FIFO） | 成本計算升級 |
+| 29 | 批號效期到期提醒進階設定 | 更細緻的提醒規則 |
+| 30 | 作廢已核准單據沖銷機制 | Reversal Document |
+| 31 | 庫位管理（Bin Location） | 倉儲精細化管理 |
+| 32 | 會計 / ERP API 對接 | 外部系統整合 |
 
 ---
----
 
-## ✅ 已完成項目紀錄
+## 📊 待辦統計
 
-### 2026-02-15
-- [x] **行動端適配（響應式設計）** — `MainLayout` overlay sidebar + 漢堡選單、高頻頁面表格/篩選/標題響應式、`index.css` 全域工具 class
-- [x] **稽核日誌匯出 CSV/PDF** — 後端 export API + 前端 CSV（BOM）及 PDF（可列印 HTML）匯出
-- [x] **活動紀錄分頁優化** — `ProtocolDetailPage.tsx` 歷程 Tab 前端分頁
-- [x] **修復 Login 頁面 401 無限迴圈** — interceptor 改用 zustand `clearAuth()` + `isLoggingOut` 鎖
-- [x] **修復 IP 異常偵測 bug** — SQL `::INET` 轉型修正
-- [x] **GeoIP 地理位置異常偵測** — MaxMind GeoLite2-City 國家層級比對
-
-### 2026-02-14
-- [x] **安全性強化** — 真實 IP 記錄、移除預設帳密、安全警報修復
-- [x] **基礎設施升級** — Docker Node.js v22、Rust/Nginx 版本固定
-- [x] **Session 管理強化** — heartbeat 機制、`last_activity_at` 即時更新
-- [x] **ERP 功能增強** — 客戶分類、銷售成本、UOM 統一
-- [x] **AUP / Amendment 修復** — Section 8 解析、翻譯鍵、管理員檢視
-- [x] **Email 修復** — 文字顏色、破圖、系統網址更新
-- [x] **帳號管理** — 移除入職日期必填驗證
-- [x] **PDF 報表分頁優化** — 每隻豬獨立分頁、封面摘要
-- [x] **血液檢查組合管理頁面** — `BloodTestPanelsPage.tsx` CRUD
-- [x] **技術債清理** — `document.rs`、`models/animal.rs` 拆分
-- [x] **SEC-14** — 檔案上傳 Magic Number 驗證（14 測試通過）
-- [x] **SEC-02** — Token 改存 HttpOnly Cookie
-- [x] **T6 前端重構** — `ProtocolEditPage.tsx` 拆分為 10 個 Section 元件 + 4 個工具模組
-
-### 2026-02-13
-- [x] 血液檢查項目管理頁面、Panel 快速勾選、整合測試 28/28
-- [x] ERP 站內通知整合、血液檢查移除審核步驟
-- [x] 前端技術債基礎建設（Zod 驗證、錯誤處理、骨架屏、型別統一）
-- [x] Amendment 整合測試 14 步驟、審查委員記錄
-- [x] DB migration 整合（008-029 合併）、HR 測試修復
-
-### 2026-02-12
-- [x] 修復 `reply_comment` UTF-8 panic、Animal/AUP 測試修復
-- [x] 動物狀態簡化（6→3）、時間軸增強、ID 遷移至 SERIAL
-
-### 2026-02-11
-- [x] 安全審計強化、整合測試腳本建立（AUP/ERP/Animal）
-- [x] 動物管理 23 個操作接入審計、角色權限修復
-
-### 2026-02-09 ~ 2026-02-10
-- [x] 多帳號/大量登入偵測、安全警報修復
-- [x] AUP 審查流程多輪往返、審查委員強制意見
-- [x] 狀態歷程修復、PI 刪除草稿權限、翻譯標準化
-
-### 更早
-- [x] 資料分析模組（血液檢查統計/異常標記/圖表/匯出）
-- [x] HR 特休管理系統、GLP 合規、PDF 匯出
-- [x] 協編者權限修正、審查意見回覆、Google Calendar 整合
-- [x] 資料匯入（Excel/CSV）、Bug 修復（豬隻計數、PigBreed enum、體重驗證）
-- [x] v1.0 MVP 完成、檔案上傳服務、通知偏好設定
+| 優先級 | 數量 | 佔比 |
+|--------|------|------|
+| 🔴 P2 中優先 | 9 | 28% |
+| 🔵 P3 低優先 | 6 | 19% |
+| 🟣 P4 品質提升 | 5 | 16% |
+| ⚪ P5 長期演進 | 6 | 19% |
+| 🚀 v2.0 遠程 | 6 | 19% |
+| **合計** | **32** | **100%** |
 
 ---
 
@@ -131,9 +111,11 @@
 
 | 日期 | 內容 |
 |------|------|
-| 2026-02-15 | Profiling_Spec 01-09 全部重寫（含新增 07_SECURITY_AUDIT.md）、README 更新 |
-| 2026-02-15 | 行動端適配完成、稽核匯出、活動紀錄分頁、GeoIP 整合、TODO 重新排序 |
-| 2026-02-14 | 安全性強化、Docker 升級、Session heartbeat、ERP 增強、AUP/Email 修復 |
+| 2026-02-15 | 重新整理 TODO 結構：移除已完成項目至 PROGRESS.md、統一編號、新增統計摘要 |
+| 2026-02-15 | 資安強化提案 SEC-31~42 規劃；SEC-20~28 共 9 項實作完成 |
+| 2026-02-15 | 通知路由可配置化完成；Profiling_Spec 01-09 全部重寫 |
+| 2026-02-15 | 行動端適配、稽核匯出、活動紀錄分頁、GeoIP 整合 |
+| 2026-02-14 | 安全性強化、Docker 升級、Session heartbeat、ERP 增強 |
 | 2026-02-13 | 血液檢查流程、資料分析模組、Amendment 測試、前端技術債 |
 | 2026-02-12 | 整合測試 Bug 修復、動物狀態簡化、時間軸增強、ID 遷移 |
 | 2026-02-11 | 安全審計強化、整合測試腳本、角色權限修復 |

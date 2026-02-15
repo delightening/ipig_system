@@ -70,3 +70,59 @@ export interface UpdateNotificationSettingsRequest {
     expiry_warning_days?: number
     low_stock_notify_immediately?: boolean
 }
+
+// ============================================
+// 通知路由規則
+// ============================================
+
+export interface NotificationRouting {
+    id: string
+    event_type: string
+    role_code: string
+    channel: string       // 'in_app' | 'email' | 'both'
+    is_active: boolean
+    description?: string
+    created_at: string
+    updated_at: string
+}
+
+export interface CreateNotificationRoutingRequest {
+    event_type: string
+    role_code: string
+    channel?: string
+    description?: string
+}
+
+export interface UpdateNotificationRoutingRequest {
+    channel?: string
+    is_active?: boolean
+    description?: string
+}
+
+/** 事件類型中文名稱對照 */
+export const eventTypeNames: Record<string, string> = {
+    protocol_submitted: '計畫提交',
+    protocol_vet_review: '獸醫審查',
+    protocol_under_review: '委員審查',
+    protocol_resubmitted: '重新提交',
+    protocol_approved: '計畫核准',
+    protocol_rejected: '計畫駁回',
+    review_comment_created: '新審查意見',
+    leave_submitted: '請假申請',
+    overtime_submitted: '加班申請',
+    document_submitted: '採購單提交',
+    low_stock_alert: '低庫存預警',
+    expiry_alert: '效期預警',
+    emergency_medication: '緊急給藥',
+    amendment_submitted: '修正案提交',
+    amendment_decision_recorded: '修正案審查決定',
+    amendment_approved: '修正案核准',
+    amendment_rejected: '修正案駁回',
+}
+
+/** 通道中文名稱對照 */
+export const channelNames: Record<string, string> = {
+    in_app: '站內通知',
+    email: 'Email',
+    both: '兩者',
+}

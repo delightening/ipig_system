@@ -10,193 +10,143 @@ use crate::{
 use super::NotificationService;
 
 impl NotificationService {
-    /// 修正案進度通知
+    /// 通知修正案提交（依 notification_routing 表判斷收件角色）
+    pub async fn notify_amendment_submitted(
+        &self,
+        amendment_id: Uuid,
+        protocol_no: &str,
+        amendment_title: &str,
+        _pi_name: &str,
+    ) -> Result<i32, AppError> {
+        // 從路由表動態取得收件者
+        let recipients = self.get_recipients_by_event("amendment_submitted").await?;
+
+        let title = format!("[iPig] 新修正案 - {} / {}", protocol_no, amendment_title);
+        let content = format!(
+            "有新的修正案提交，請進行審查。\n\n所屬計畫：{}\n修正案名稱：{}\n提交者：{}",
+            protocol_no, amendment_title, _pi_name
+        );
+
+        let mut count = 0;
+        for (user_id, _email, _name, _channel) in &recipients {
+            if let Err(e) = self
+                .create_notification(CreateNotificationRequest {
+                    user_id: *user_id,
+                    notification_type: NotificationType::ProtocolStatus,
+                    title: title.clone(),
+                    content: Some(content.clone()),
+                    related_entity_type: Some("amendment".to_string()),
+                    related_entity_id: Some(amendment_id),
+                })
+                .await {
+                tracing::warn!("建立通知失敗: {e}");
+            }
+            count += 1;
+        }
+
+        tracing::info!("[Notification] 修正案提交通知已發送給 {} 人", count);
+        Ok(count)
+    }
+
+    /// 修正案狀態變更通知 — 角色驅動走路由表，PI/Coeditor 維持程式碼邏輯
+    /// 函數名稱保留為 notify_amendment_progress 以維持與現有 caller 的相容性
     pub async fn notify_amendment_progress(
         &self,
         amendment_id: Uuid,
         protocol_id: Uuid,
         protocol_no: &str,
         amendment_title: &str,
-        event: &str,
+        new_status: &str,
         operator_id: Uuid,
         reason: Option<&str>,
-        config: Option<&crate::config::Config>,
+        _config: Option<&crate::config::Config>,
     ) -> Result<i32, AppError> {
-        let mut count = 0;
-        let event_text = match event {
-            "submitted" => "修正案已提交",
-            "classified" | "under_review" => "修正案開始審查",
-            "decision_recorded" => "審查委員已記錄決定",
-            "revision_required" => "修正案需要修正",
-            "approved" => "修正案已核准",
-            "rejected" => "修正案已駁回",
-            _ => event,
+        let status_text = match new_status {
+            "submitted" => "已提交",
+            "under_review" => "審查中",
+            "revision_required" => "要求修正",
+            "resubmitted" => "已重新提交",
+            "approved" => "已核准",
+            "rejected" => "已駁回",
+            "classified" => "已分類",
+            _ => new_status,
         };
 
-        let notification_title = format!("[iPig] {} - {}", event_text, protocol_no);
+        let title = format!("[iPig] 修正案更新 - {} / {}", protocol_no, amendment_title);
         let content = format!(
-            "{}。\n\n計畫編號：{}\n修正案：{}\n{}",
-            event_text,
+            "修正案狀態已更新。\n\n所屬計畫：{}\n修正案：{}\n新狀態：{}\n{}",
             protocol_no,
             amendment_title,
+            status_text,
             reason.map(|r| format!("說明：{}", r)).unwrap_or_default()
         );
 
-        let needs_email = matches!(
-            event,
+        let mut count = 0;
+
+        // 映射修正案狀態到路由表 event_type
+        let event_type = match new_status {
+            "submitted" => Some("amendment_submitted"),
+            "approved" => Some("amendment_approved"),
+            "rejected" => Some("amendment_rejected"),
+            _ => None,
+        };
+
+        // 角色驅動：從路由表取得收件者
+        if let Some(evt) = event_type {
+            let role_recipients = self.get_recipients_by_event(evt).await?;
+            for (user_id, _email, _name, _channel) in &role_recipients {
+                if *user_id == operator_id {
+                    continue;
+                }
+                if let Err(e) = self
+                    .create_notification(CreateNotificationRequest {
+                        user_id: *user_id,
+                        notification_type: NotificationType::ProtocolStatus,
+                        title: title.clone(),
+                        content: Some(content.clone()),
+                        related_entity_type: Some("amendment".to_string()),
+                        related_entity_id: Some(amendment_id),
+                    })
+                    .await {
+                    tracing::warn!("建立通知失敗: {e}");
+                }
+                count += 1;
+            }
+        }
+
+        // 判斷是否需要通知 PI/Coeditor（退回修正或最終決定）
+        let needs_pi_notification = matches!(
+            new_status,
             "revision_required" | "approved" | "rejected"
         );
 
-        match event {
-            // 提交 → 通知 IACUC_STAFF
-            "submitted" => {
-                let staff = self.get_users_by_role("IACUC_STAFF").await?;
-                for (user_id, _email, _name) in &staff {
-                    if let Err(e) = self
-                        .create_notification(CreateNotificationRequest {
-                            user_id: *user_id,
-                            notification_type: NotificationType::ProtocolStatus,
-                            title: notification_title.clone(),
-                            content: Some(content.clone()),
-                            related_entity_type: Some("amendment".to_string()),
-                            related_entity_id: Some(amendment_id),
-                        })
-                        .await {
-                        tracing::warn!("建立通知失敗: {e}");
-                    }
-                    count += 1;
+        // 實體驅動：通知 PI/Coeditor
+        if needs_pi_notification {
+            let pi_coeditors = self.get_protocol_pi_and_coeditors(protocol_id).await?;
+            for (user_id, _email, _display_name) in &pi_coeditors {
+                if *user_id == operator_id {
+                    continue;
                 }
-            }
-            // 開始審查 → 通知 REVIEWER
-            "classified" | "under_review" => {
-                // 取得修正案被指派的審查委員
-                let reviewers: Vec<(Uuid, String, String)> = sqlx::query_as(
-                    r#"
-                    SELECT DISTINCT u.id, u.email, u.display_name
-                    FROM users u
-                    JOIN amendment_review_assignments ara ON u.id = ara.reviewer_id
-                    WHERE ara.amendment_id = $1 AND u.is_active = true
-                    "#,
-                )
-                .bind(amendment_id)
-                .fetch_all(&self.db)
-                .await?;
-
-                for (user_id, _email, _name) in &reviewers {
-                    if let Err(e) = self
-                        .create_notification(CreateNotificationRequest {
-                            user_id: *user_id,
-                            notification_type: NotificationType::ReviewAssignment,
-                            title: notification_title.clone(),
-                            content: Some(content.clone()),
-                            related_entity_type: Some("amendment".to_string()),
-                            related_entity_id: Some(amendment_id),
-                        })
-                        .await {
-                        tracing::warn!("建立通知失敗: {e}");
-                    }
-                    count += 1;
+                if let Err(e) = self
+                    .create_notification(CreateNotificationRequest {
+                        user_id: *user_id,
+                        notification_type: NotificationType::ProtocolStatus,
+                        title: title.clone(),
+                        content: Some(content.clone()),
+                        related_entity_type: Some("amendment".to_string()),
+                        related_entity_id: Some(amendment_id),
+                    })
+                    .await {
+                    tracing::warn!("建立通知失敗: {e}");
                 }
+                count += 1;
             }
-            // 審查委員記錄決定 → 通知 IACUC_STAFF
-            "decision_recorded" => {
-                let staff = self.get_users_by_role("IACUC_STAFF").await?;
-                for (user_id, _email, _name) in &staff {
-                    if let Err(e) = self
-                        .create_notification(CreateNotificationRequest {
-                            user_id: *user_id,
-                            notification_type: NotificationType::ProtocolStatus,
-                            title: notification_title.clone(),
-                            content: Some(content.clone()),
-                            related_entity_type: Some("amendment".to_string()),
-                            related_entity_id: Some(amendment_id),
-                        })
-                        .await {
-                        tracing::warn!("建立通知失敗: {e}");
-                    }
-                    count += 1;
-                }
-            }
-            // 要求修正 → 通知 PI + Coeditor（+ Email）
-            "revision_required" => {
-                let pi_coeditors = self.get_protocol_pi_and_coeditors(protocol_id).await?;
-                for (user_id, email, display_name) in &pi_coeditors {
-                    if let Err(e) = self
-                        .create_notification(CreateNotificationRequest {
-                            user_id: *user_id,
-                            notification_type: NotificationType::ProtocolStatus,
-                            title: notification_title.clone(),
-                            content: Some(content.clone()),
-                            related_entity_type: Some("amendment".to_string()),
-                            related_entity_id: Some(amendment_id),
-                        })
-                        .await {
-                        tracing::warn!("建立通知失敗: {e}");
-                    }
-                    count += 1;
-
-                    if needs_email {
-                        if let Some(cfg) = config {
-                            if let Err(e) = crate::services::EmailService::send_protocol_status_change_email(
-                                cfg, email, display_name, protocol_no,
-                                amendment_title, event_text,
-                                &chrono::Utc::now().to_rfc3339(), reason,
-                            )
-                            .await {
-                                tracing::warn!("發送計畫狀態變更郵件失敗: {e}");
-                            }
-                        }
-                    }
-                }
-            }
-            // 核准/駁回 → 通知 PI + Coeditor + IACUC_CHAIR（非操作者）
-            "approved" | "rejected" => {
-                let pi_coeditors = self.get_protocol_pi_and_coeditors(protocol_id).await?;
-                let chairs = self.get_users_by_role("IACUC_CHAIR").await?;
-                let mut all_recipients = pi_coeditors;
-                all_recipients.extend(chairs);
-                all_recipients.sort_by_key(|(id, _, _)| *id);
-                all_recipients.dedup_by_key(|(id, _, _)| *id);
-
-                for (user_id, email, display_name) in &all_recipients {
-                    if *user_id == operator_id {
-                        continue;
-                    }
-                    if let Err(e) = self
-                        .create_notification(CreateNotificationRequest {
-                            user_id: *user_id,
-                            notification_type: NotificationType::ProtocolStatus,
-                            title: notification_title.clone(),
-                            content: Some(content.clone()),
-                            related_entity_type: Some("amendment".to_string()),
-                            related_entity_id: Some(amendment_id),
-                        })
-                        .await {
-                        tracing::warn!("建立通知失敗: {e}");
-                    }
-                    count += 1;
-
-                    if needs_email {
-                        if let Some(cfg) = config {
-                            if let Err(e) = crate::services::EmailService::send_protocol_status_change_email(
-                                cfg, email, display_name, protocol_no,
-                                amendment_title, event_text,
-                                &chrono::Utc::now().to_rfc3339(), reason,
-                            )
-                            .await {
-                                tracing::warn!("發送計畫狀態變更郵件失敗: {e}");
-                            }
-                        }
-                    }
-                }
-            }
-            _ => {}
         }
 
         tracing::info!(
-            "[Notification] 修正案 {} 事件 {}，通知已發送給 {} 人",
-            amendment_id,
-            event,
+            "[Notification] 修正案 {} 狀態變更為 {}，通知已發送給 {} 人",
+            amendment_title,
+            new_status,
             count
         );
         Ok(count)

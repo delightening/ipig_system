@@ -4,7 +4,7 @@ use axum::{
     Router,
 };
 
-use crate::{handlers, middleware::auth_middleware, AppState};
+use crate::{handlers, middleware::auth_middleware, middleware::csrf_middleware, AppState};
 use crate::middleware::rate_limiter::{auth_rate_limit_middleware, api_rate_limit_middleware};
 
 pub fn api_routes(state: AppState) -> Router {
@@ -208,6 +208,11 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/admin/audit/alerts/:id/resolve", post(handlers::resolve_security_alert))
         .route("/admin/audit/dashboard", get(handlers::get_audit_dashboard))
         // ============================================
+        // Admin Notification Routing (通知路由管理)
+        // ============================================
+        .route("/admin/notification-routing", get(handlers::list_notification_routing).post(handlers::create_notification_routing))
+        .route("/admin/notification-routing/:id", put(handlers::update_notification_routing).delete(handlers::delete_notification_routing))
+        // ============================================
         // HR Attendance (新增)
         // ============================================
         .route("/hr/attendance", get(handlers::list_attendance))
@@ -311,6 +316,7 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/amendments/:id/history", get(handlers::amendment::get_amendment_history))
         .route("/amendments/:id/assignments", get(handlers::amendment::get_amendment_assignments))
         .route("/protocols/:id/amendments", get(handlers::amendment::list_protocol_amendments))
+        .route_layer(middleware::from_fn(csrf_middleware))
         .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
         .with_state(state);
 

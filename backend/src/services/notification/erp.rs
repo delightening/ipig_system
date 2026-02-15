@@ -10,7 +10,7 @@ use crate::{
 use super::NotificationService;
 
 impl NotificationService {
-    /// 通知採購單已提交（給 WAREHOUSE_MANAGER）
+    /// 通知採購單已提交（依 notification_routing 表判斷收件角色）
     pub async fn notify_document_submitted(
         &self,
         document_id: Uuid,
@@ -18,7 +18,8 @@ impl NotificationService {
         doc_type: &str,
         creator_name: &str,
     ) -> Result<i32, AppError> {
-        let managers = self.get_users_by_role("WAREHOUSE_MANAGER").await?;
+        // 從路由表動態取得收件者
+        let recipients = self.get_recipients_by_event("document_submitted").await?;
 
         let type_text = match doc_type {
             "PO" => "採購單",
@@ -34,7 +35,7 @@ impl NotificationService {
         );
 
         let mut count = 0;
-        for (user_id, _email, _name) in &managers {
+        for (user_id, _email, _name, _channel) in &recipients {
             if let Err(e) = self
                 .create_notification(CreateNotificationRequest {
                     user_id: *user_id,
@@ -54,7 +55,7 @@ impl NotificationService {
         Ok(count)
     }
 
-    /// 通知採購單已審核/駁回（給建立者）
+    /// 通知採購單已審核/駁回（給建立者，非路由表管理）
     pub async fn notify_document_decided(
         &self,
         document_id: Uuid,

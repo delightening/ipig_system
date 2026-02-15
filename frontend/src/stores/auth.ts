@@ -6,6 +6,8 @@ interface AuthState {
   user: User | null
   isAuthenticated: boolean
   isLoading: boolean
+  /** 是否已完成初始驗證（防止 stale localStorage state，SEC-24） */
+  isInitialized: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
   /** 僅清除前端 auth 狀態（不呼叫後端），供 interceptor 在 token 失效時使用 */
@@ -24,6 +26,7 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       isLoading: false,
+      isInitialized: false,
       // 從 user 資料的 impersonated_by 欄位判斷是否為模擬登入
       isImpersonating: false,
 
@@ -120,11 +123,13 @@ export const useAuthStore = create<AuthState>()(
           set({
             user: response.data,
             isAuthenticated: true,
+            isInitialized: true,
           })
         } catch {
           set({
             user: null,
             isAuthenticated: false,
+            isInitialized: true,
           })
         }
       },

@@ -18,6 +18,9 @@ pub struct Claims {
     pub permissions: Vec<String>,
     pub exp: i64,
     pub iat: i64,
+    /// JWT 唯一識別碼，用於黑名單撤銷（SEC-23）
+    #[serde(default)]
+    pub jti: String,
     /// 模擬登入時記錄原始管理員 ID（SEC-11）
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub impersonated_by: Option<Uuid>,
@@ -31,6 +34,10 @@ pub struct CurrentUser {
     pub email: String,
     pub roles: Vec<String>,
     pub permissions: Vec<String>,
+    /// 當前 JWT 的 jti，供登出時加入黑名單（SEC-23）
+    pub jti: String,
+    /// JWT 過期時間戳，供黑名單清理用（SEC-23）
+    pub exp: i64,
     /// 若為模擬登入，記錄原始管理員 ID（SEC-11）
     pub impersonated_by: Option<Uuid>,
 }
@@ -71,11 +78,19 @@ pub async fn auth_middleware(
     )
     .map_err(|_| AppError::Unauthorized)?;
 
+    // SEC-23: 檢查 JWT 是否已被撤銷（黑名單）
+    if !token_data.claims.jti.is_empty() && state.jwt_blacklist.is_revoked(&token_data.claims.jti) {
+        tracing::warn!("[Auth] JWT jti={} 已被撤銷，拒絕存取", token_data.claims.jti);
+        return Err(AppError::Unauthorized);
+    }
+
     let current_user = CurrentUser {
         id: token_data.claims.sub,
         email: token_data.claims.email,
         roles: token_data.claims.roles,
         permissions: token_data.claims.permissions,
+        jti: token_data.claims.jti,
+        exp: token_data.claims.exp,
         impersonated_by: token_data.claims.impersonated_by,
     };
 

@@ -26,6 +26,7 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 import api from '@/lib/api'
+import { NotificationRoutingSection } from '@/components/admin/NotificationRoutingSection'
 
 // 通知設定型別
 interface NotificationSettings {
@@ -557,6 +558,9 @@ export function SettingsPage() {
           </div>
         )}
       </div>
+
+      {/* 通知路由管理（管理員專用） */}
+      <NotificationRoutingSection />
     </div>
   )
 }

@@ -71,24 +71,8 @@ impl NotificationService {
         Ok(PaginatedResponse::new(alerts, total.0, page, per_page))
     }
 
-    /// 發送低庫存通知（批次作業用）
+    /// 發送低庫存通知（批次作業用）— 依 notification_routing 表判斷收件角色
     pub async fn send_low_stock_notifications(&self) -> Result<i32, AppError> {
-        // 取得需要通知的使用者及其設定
-        let users_with_settings: Vec<(Uuid, bool)> = sqlx::query_as(
-            r#"
-            SELECT u.id, ns.email_low_stock
-            FROM users u
-            JOIN notification_settings ns ON u.id = ns.user_id
-            JOIN user_roles ur ON u.id = ur.user_id
-            JOIN roles r ON ur.role_id = r.id
-            WHERE u.is_active = true
-              AND r.code IN ('SYSTEM_ADMIN', 'WAREHOUSE_MANAGER')
-              AND ns.email_low_stock = true
-            "#,
-        )
-        .fetch_all(&self.db)
-        .await?;
-
         // 取得低庫存項目
         let alerts: Vec<LowStockAlert> = sqlx::query_as(
             r#"SELECT * FROM v_low_stock_alerts"#,
@@ -100,9 +84,25 @@ impl NotificationService {
             return Ok(0);
         }
 
+        // 從路由表動態取得收件者
+        let recipients = self.get_recipients_by_event("low_stock_alert").await?;
+
         let mut count = 0;
-        for (user_id, _) in users_with_settings {
-            // 建立通知
+        for (user_id, _email, _name, _channel) in &recipients {
+            // 檢查使用者個人 email 設定
+            let user_email_enabled: Option<(bool,)> = sqlx::query_as(
+                "SELECT email_low_stock FROM notification_settings WHERE user_id = $1",
+            )
+            .bind(user_id)
+            .fetch_optional(&self.db)
+            .await?;
+
+            if let Some((enabled,)) = user_email_enabled {
+                if !enabled {
+                    continue;
+                }
+            }
+
             let title = format!("低庫存預警：{} 項產品需要補貨", alerts.len());
             let content = alerts
                 .iter()
@@ -113,7 +113,7 @@ impl NotificationService {
 
             if let Err(e) = self
                 .create_notification(CreateNotificationRequest {
-                    user_id,
+                    user_id: *user_id,
                     notification_type: NotificationType::LowStock,
                     title,
                     content: Some(content),
@@ -129,24 +129,8 @@ impl NotificationService {
         Ok(count)
     }
 
-    /// 發送效期預警通知（批次作業用）
+    /// 發送效期預警通知（批次作業用）— 依 notification_routing 表判斷收件角色
     pub async fn send_expiry_notifications(&self) -> Result<i32, AppError> {
-        // 取得需要通知的使用者及其設定
-        let users_with_settings: Vec<(Uuid, i32)> = sqlx::query_as(
-            r#"
-            SELECT u.id, ns.expiry_warning_days
-            FROM users u
-            JOIN notification_settings ns ON u.id = ns.user_id
-            JOIN user_roles ur ON u.id = ur.user_id
-            JOIN roles r ON ur.role_id = r.id
-            WHERE u.is_active = true
-              AND r.code IN ('SYSTEM_ADMIN', 'WAREHOUSE_MANAGER')
-              AND ns.email_expiry_warning = true
-            "#,
-        )
-        .fetch_all(&self.db)
-        .await?;
-
         // 取得效期預警項目
         let alerts: Vec<ExpiryAlert> = sqlx::query_as(
             r#"SELECT * FROM v_expiry_alerts"#,
@@ -158,9 +142,25 @@ impl NotificationService {
             return Ok(0);
         }
 
+        // 從路由表動態取得收件者
+        let recipients = self.get_recipients_by_event("expiry_alert").await?;
+
         let mut count = 0;
-        for (user_id, _) in users_with_settings {
-            // 建立通知
+        for (user_id, _email, _name, _channel) in &recipients {
+            // 檢查使用者個人 email 設定
+            let user_email_enabled: Option<(bool,)> = sqlx::query_as(
+                "SELECT email_expiry_warning FROM notification_settings WHERE user_id = $1",
+            )
+            .bind(user_id)
+            .fetch_optional(&self.db)
+            .await?;
+
+            if let Some((enabled,)) = user_email_enabled {
+                if !enabled {
+                    continue;
+                }
+            }
+
             let expired_count = alerts.iter().filter(|a| a.expiry_status == "expired").count();
             let expiring_count = alerts.iter().filter(|a| a.expiry_status == "expiring_soon").count();
 
@@ -174,7 +174,7 @@ impl NotificationService {
                 .map(|a| {
                     format!(
                         "- {} ({}) 批號:{} 效期:{} ({}天)",
-                        a.product_name, a.sku, 
+                        a.product_name, a.sku,
                         a.batch_no.as_deref().unwrap_or("-"),
                         a.expiry_date,
                         a.days_until_expiry
@@ -185,7 +185,7 @@ impl NotificationService {
 
             if let Err(e) = self
                 .create_notification(CreateNotificationRequest {
-                    user_id,
+                    user_id: *user_id,
                     notification_type: NotificationType::ExpiryWarning,
                     title,
                     content: Some(content),

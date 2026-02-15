@@ -114,6 +114,7 @@ pub async fn login(
             let email = req.email.clone();
             let ip_clone = ip.clone();
             let ua_clone = user_agent.clone();
+            let max_sess = state.config.max_sessions_per_user;
             
             tokio::spawn(async move {
                 if let Err(e) = LoginTracker::log_success(
@@ -134,6 +135,38 @@ pub async fn login(
                     ua_clone.as_deref(),
                 ).await {
                     tracing::error!("Failed to create session for {}: {}", email, e);
+                }
+
+                // SEC-28: Session 併發限制，超過上限時自動結束最舊的 session
+                let max_sessions = max_sess;
+                match SessionManager::get_active_session_count(&db, user_id).await {
+                    Ok(count) if count > max_sessions => {
+                        let excess = count - max_sessions;
+                        tracing::info!(
+                            "[Session] 使用者 {} 有 {} 個活躍 session，超過上限 {}，將結束 {} 個最舊的 session",
+                            email, count, max_sessions, excess
+                        );
+                        // 結束最舊的多餘 session
+                        let _ = sqlx::query(
+                            r#"
+                            UPDATE user_sessions
+                            SET is_active = false,
+                                ended_at = NOW(),
+                                ended_reason = 'session_limit'
+                            WHERE id IN (
+                                SELECT id FROM user_sessions
+                                WHERE user_id = $1 AND is_active = true
+                                ORDER BY started_at ASC
+                                LIMIT $2
+                            )
+                            "#
+                        )
+                        .bind(user_id)
+                        .bind(excess)
+                        .execute(&db)
+                        .await;
+                    }
+                    _ => {}
                 }
             });
             
@@ -194,6 +227,11 @@ pub async fn logout(
     headers: HeaderMap,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Response> {
+    // SEC-23: 將當前 JWT 加入黑名單，使其立即失效
+    if !current_user.jti.is_empty() {
+        state.jwt_blacklist.revoke(&current_user.jti, current_user.exp);
+    }
+
     // 記錄登出事件
     if let Err(e) = LoginTracker::log_logout(
         &state.db,
