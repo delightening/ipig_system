@@ -109,6 +109,7 @@ pub async fn login(
         Ok(resp) => {
             // 登入成功：記錄事件和建立 session
             let db = state.db.clone();
+            let geoip = state.geoip.clone();
             let user_id = resp.user.id;
             let email = req.email.clone();
             let ip_clone = ip.clone();
@@ -121,6 +122,7 @@ pub async fn login(
                     &email,
                     Some(&ip_clone),
                     ua_clone.as_deref(),
+                    &geoip,
                 ).await {
                     tracing::error!("Failed to log login success for {}: {}", email, e);
                 }
@@ -140,6 +142,7 @@ pub async fn login(
         Err(e) => {
             // 登入失敗：記錄失敗事件（會自動檢測暴力破解）
             let db = state.db.clone();
+            let geoip = state.geoip.clone();
             let email = req.email.clone();
             let ip_clone = ip.clone();
             let ua_clone = user_agent.clone();
@@ -152,6 +155,7 @@ pub async fn login(
                     Some(&ip_clone),
                     ua_clone.as_deref(),
                     &err_msg,
+                    &geoip,
                 ).await {
                     tracing::error!("Failed to log login failure for {}: {}", email, log_err);
                 }

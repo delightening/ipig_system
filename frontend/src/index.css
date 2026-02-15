@@ -287,3 +287,40 @@
 .step-line {
   transition: background-color 0.3s ease;
 }
+
+/* ==================== */
+/* 響應式工具 (Responsive Utilities) */
+/* ==================== */
+
+/* 頁面標題：行動端縮小字體 */
+.page-title {
+  @apply text-xl font-bold tracking-tight;
+}
+@media (min-width: 768px) {
+  .page-title {
+    @apply text-2xl;
+  }
+}
+
+/* 表格容器：行動端可橫向捲動 */
+.table-responsive {
+  @apply overflow-x-auto -mx-3 md:mx-0;
+}
+
+/* 篩選列：行動端堆疊，桌面端並排 */
+.filter-row {
+  @apply flex flex-col gap-3;
+}
+@media (min-width: 768px) {
+  .filter-row {
+    @apply flex-row items-center gap-4;
+  }
+}
+
+/* 行動端隱藏 / 桌面端隱藏 */
+.hide-mobile {
+  @apply hidden md:block;
+}
+.hide-desktop {
+  @apply md:hidden;
+}

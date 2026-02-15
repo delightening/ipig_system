@@ -95,7 +95,7 @@
 |-----|:---:|:---:|:---:|------|
 | 稽核紀錄寫入 | ✅ | - | ✅ | 自動記錄 |
 | 稽核紀錄查詢 | ✅ | ✅ | ✅ | AuditLogsPage |
-| 安全警報系統 | ✅ | ✅ | ✅ | 自動偵測異常登入與暴力破解 (2026-02-10 修正) |
+| 安全警報系統 | ✅ | ✅ | ✅ | 自動偵測異常登入（GeoIP 國家層級）與暴力破解 (2026-02-15 GeoIP 升級) |
 | 篩選功能 | ✅ | ✅ | ✅ | |
 
 ---
@@ -558,6 +558,11 @@
 - ✅ 單元測試擴充：為 `protocol.rs`、`hr.rs`、`facility.rs` 新增 20 個測試（79→87）
 - ✅ **前端重構 T6**：`ProtocolEditPage.tsx`（4240 行）拆分為 10 個 Section 元件 + 4 個工具模組，tsc --noEmit 零錯誤
 - ✅ **修復 Login 頁面 401 無限迴圈**：axios interceptor 移除 `window.location.href` 硬跳轉，改用 zustand `clearAuth()` 清除前端狀態 + `isLoggingOut` 鎖防重複觸發，讓 React Router 自然導向 `/login`
+- ✅ **修復 IP 異常偵測 bug**：`check_unusual_location` SQL 比對缺少 `::INET` 轉型，導致每次都誤判為新 IP
+- ✅ **GeoIP 地理位置異常偵測**：整合 MaxMind GeoLite2-City（`maxminddb` crate），`check_unusual_location` 改為國家層級比對（30 天內未見過的國家才觸發），登入記錄寫入 `geo_country`/`geo_city`/`geo_timezone`，Docker volume 掛載 `.mmdb` 檔案
+- ✅ **稽核日誌匯出 CSV/PDF**：後端新增 `export_activities` API（`/admin/audit/activities/export`，LIMIT 10000），前端 `AuditLogsPage.tsx` 加入 CSV（BOM + Blob 下載）及 PDF（可列印 HTML 表格 + `window.print()`）匯出按鈕
+- ✅ **活動紀錄分頁優化**：`ProtocolDetailPage.tsx` 歷程 Tab 加入前端分頁（每頁 15 筆 + 上/下一頁控制列 + 總筆數顯示）
+- ✅ **行動端適配（響應式設計）**：`MainLayout.tsx` overlay sidebar + 漢堡選單 + 背景遮罩、`PigsPage` / `DashboardPage` / `AuditLogsPage` / `ProtocolDetailPage` 表格/篩選/標題響應式、`index.css` 全域工具 class（`.page-title`、`.table-responsive`、`.filter-row`）
 
 ### 2026-02-06 ~ 2026-02-08
 

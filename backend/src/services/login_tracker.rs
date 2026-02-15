@@ -6,6 +6,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::Result;
+use super::geoip::{GeoIpService, GeoInfo};
 
 pub struct LoginTracker;
 
@@ -17,27 +18,36 @@ impl LoginTracker {
         email: &str,
         ip: Option<&str>,
         user_agent: Option<&str>,
+        geoip: &GeoIpService,
     ) -> Result<()> {
-        let ua = parse_user_agent(user_agent); // Keep this line, as `ua` is used later
+        let ua = parse_user_agent(user_agent);
+        
+        // 查詢 IP 地理位置
+        let geo = ip
+            .and_then(|ip_str| geoip.lookup(ip_str))
+            .unwrap_or_default();
+        
         let (is_unusual_time, is_unusual_location, is_new_device, is_mass_login) = tokio::join!(
             async { check_unusual_time() },
-            async { check_unusual_location(pool, user_id, ip).await },
+            async { check_unusual_location(pool, user_id, ip, &geo).await },
             async { check_new_device(pool, user_id, user_agent).await },
             async { check_mass_login(pool, user_id).await }
         );
         
-        // 插入登入成功日誌
+        // 插入登入成功日誌（含地理位置資訊）
         sqlx::query(
             r#"
             INSERT INTO login_events (
                 id, user_id, email, event_type, 
                 ip_address, user_agent, device_type, browser, os,
+                geo_country, geo_city, geo_timezone,
                 is_unusual_time, is_unusual_location, is_new_device, is_mass_login,
                 created_at
             ) VALUES (
                 $1, $2, $3, 'login_success',
                 $4::INET, $5, $6, $7, $8,
-                $9, $10, $11, $12, NOW()
+                $9, $10, $11,
+                $12, $13, $14, $15, NOW()
             )
             "#,
         )
@@ -46,9 +56,12 @@ impl LoginTracker {
         .bind(email)
         .bind(ip)
         .bind(user_agent)
-        .bind(&ua.device_type) // Use ua.device_type
-        .bind(&ua.browser)     // Use ua.browser
-        .bind(&ua.os)          // Use ua.os
+        .bind(&ua.device_type)
+        .bind(&ua.browser)
+        .bind(&ua.os)
+        .bind(&geo.country)
+        .bind(&geo.city)
+        .bind(&geo.timezone)
         .bind(is_unusual_time)
         .bind(is_unusual_location)
         .bind(is_new_device)
@@ -66,6 +79,7 @@ impl LoginTracker {
                 is_unusual_location,
                 is_new_device,
                 is_mass_login,
+                &geo,
             )
             .await?;
         }
@@ -83,8 +97,14 @@ impl LoginTracker {
         ip: Option<&str>,
         user_agent: Option<&str>,
         reason: &str,
+        geoip: &GeoIpService,
     ) -> Result<()> {
         let device_info = parse_user_agent(user_agent);
+        
+        // 查詢 IP 地理位置
+        let geo = ip
+            .and_then(|ip_str| geoip.lookup(ip_str))
+            .unwrap_or_default();
         
         // 查找 user_id（如果 email 存在）
         let user_id: Option<Uuid> = sqlx::query_scalar("SELECT id FROM users WHERE email = $1")
@@ -98,11 +118,14 @@ impl LoginTracker {
                 id, user_id, email, event_type,
                 ip_address, user_agent,
                 device_type, browser, os,
+                geo_country, geo_city, geo_timezone,
                 failure_reason,
                 created_at
             ) VALUES (
                 $1, $2, $3, 'login_failure',
-                $4::INET, $5, $6, $7, $8, $9, NOW()
+                $4::INET, $5, $6, $7, $8,
+                $9, $10, $11,
+                $12, NOW()
             )
             "#,
         )
@@ -114,6 +137,9 @@ impl LoginTracker {
         .bind(&device_info.device_type)
         .bind(&device_info.browser)
         .bind(&device_info.os)
+        .bind(&geo.country)
+        .bind(&geo.city)
+        .bind(&geo.timezone)
         .bind(reason)
         .execute(pool)
         .await?;
@@ -202,19 +228,26 @@ impl LoginTracker {
         unusual_location: bool,
         new_device: bool,
         mass_login: bool,
+        geo: &GeoInfo,
     ) -> Result<()> {
         let mut reasons = Vec::new();
         if unusual_time {
-            reasons.push("非工作時間登入");
+            reasons.push("非工作時間登入".to_string());
         }
         if unusual_location {
-            reasons.push("來自新的 IP 位置");
+            // 如果有地理位置資訊，附加到原因中
+            let location_desc = match (&geo.country, &geo.city) {
+                (Some(country), Some(city)) => format!("來自新的地理位置（{} {}）", country, city),
+                (Some(country), None) => format!("來自新的地理位置（{}）", country),
+                _ => "來自新的 IP 位置".to_string(),
+            };
+            reasons.push(location_desc);
         }
         if new_device {
-            reasons.push("使用新裝置");
+            reasons.push("使用新裝置".to_string());
         }
         if mass_login {
-            reasons.push("同時大量登入");
+            reasons.push("同時大量登入".to_string());
         }
         
         let title = format!("偵測到異常登入 ({})", email);
@@ -340,19 +373,46 @@ async fn check_new_device(pool: &PgPool, user_id: Uuid, user_agent: Option<&str>
     count == 0
 }
 
-async fn check_unusual_location(pool: &PgPool, user_id: Uuid, ip: Option<&str>) -> bool {
+/// 檢查異常地理位置
+/// 使用國家層級比對：如果該使用者過去 30 天從未在此國家登入過，則標記為異常
+/// 如果 GeoIP 無法解析（無國家資訊），則退回使用 IP 完全比對
+async fn check_unusual_location(
+    pool: &PgPool,
+    user_id: Uuid,
+    ip: Option<&str>,
+    geo: &GeoInfo,
+) -> bool {
+    // 策略 1：如果有國家資訊，使用國家層級比對
+    if let Some(ref country) = geo.country {
+        let (count,): (i64,) = sqlx::query_as(
+            r#"
+            SELECT COUNT(*) FROM login_events
+            WHERE user_id = $1
+              AND geo_country = $2
+              AND event_type = 'login_success'
+              AND created_at > NOW() - INTERVAL '30 days'
+            "#,
+        )
+        .bind(user_id)
+        .bind(country)
+        .fetch_one(pool)
+        .await
+        .unwrap_or((0,));
+        
+        return count == 0;
+    }
+    
+    // 策略 2：退回 IP 完全比對（GeoIP 無法解析時的降級方案）
     let ip = match ip {
         Some(s) => s,
         None => return false,
     };
     
-    // 簡化版：檢查是否為新 IP（30 天內未見過）
-    // 完整版應該用 GeoIP 比對地理位置
     let (count,): (i64,) = sqlx::query_as(
         r#"
         SELECT COUNT(*) FROM login_events
         WHERE user_id = $1
-          AND ip_address = $2
+          AND ip_address = $2::INET
           AND event_type = 'login_success'
           AND created_at > NOW() - INTERVAL '30 days'
         "#,

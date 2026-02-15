@@ -326,7 +326,8 @@ export function MainLayout() {
   const queryClient = useQueryClient() // TanStack Query 快取管理器
   const { user, logout, hasRole, hasPermission, isImpersonating, stopImpersonating } = useAuthStore() // 從 Auth Store 取得用戶資訊、登出方法與權限檢查
   const { t, i18n } = useTranslation() // 引入翻譯函數和 i18n 實例
-  const [sidebarOpen, setSidebarOpen] = useState(true) // 控制側邊欄展開/縮小的狀態
+  const [sidebarOpen, setSidebarOpen] = useState(true) // 控制側邊欄展開/縮小的狀態（桌面端）
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false) // 行動端側邊欄顯示狀態
   const [expandedItems, setExpandedItems] = useState<string[]>([]) // 控制側邊欄摺疊選單展開項目的清單（預設全部收合）
 
   // 語言切換處理函數
@@ -660,11 +661,22 @@ export function MainLayout() {
 
   return (
     <div className="flex h-screen bg-slate-50">
+      {/* 行動端背景遮罩 */}
+      {mobileSidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
+
       {/* 側邊欄容器 */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex flex-col bg-slate-900 text-white transition-all duration-300 lg:relative overflow-hidden',
-          sidebarOpen ? 'w-64' : 'w-16' // 根據 sidebarOpen 狀態切換寬度 (64px 或 16px)
+          'fixed inset-y-0 left-0 z-50 flex flex-col bg-slate-900 text-white transition-all duration-300 overflow-hidden',
+          // 行動端：固定 w-64，透過 translate 控制顯隱
+          mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full',
+          'md:translate-x-0 md:relative', // 桌面端：永遠顯示，relative 定位
+          sidebarOpen ? 'w-64' : 'md:w-16 w-64' // 桌面端支援縮小；行動端永遠 w-64
         )}
       >
         {/* Logo 區域 */}
@@ -686,11 +698,18 @@ export function MainLayout() {
               <img src="/pigmodel-logo.png" alt="Logo" className="h-8 w-auto" />
             </button>
           )}
-          {sidebarOpen && ( // 展開狀態下顯示關閉按鈕 (適用於行動裝置)
+          {sidebarOpen && (
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+              onClick={() => {
+                // 行動端：關閉 overlay；桌面端：收合側邊欄
+                if (window.innerWidth < 768) {
+                  setMobileSidebarOpen(false)
+                } else {
+                  setSidebarOpen(!sidebarOpen)
+                }
+              }}
               className="text-slate-400 hover:text-white hover:bg-slate-800"
             >
               <X className="h-5 w-5" />
@@ -840,7 +859,8 @@ export function MainLayout() {
       {/* 主要內容區域 */}
       <main className={cn(
         "flex-1 overflow-y-auto transition-all duration-300 relative",
-        sidebarOpen ? 'ml-64 lg:ml-0' : 'ml-16 lg:ml-0' // 桌機版 (lg) 設為 ml-0 避免重複間距
+        'ml-0', // 行動端全寬（sidebar 是 overlay）
+        sidebarOpen ? 'md:ml-0' : 'md:ml-0' // 桌面端 relative sidebar 無需 margin
       )}>
         {/* 模擬登入提示 Banner */}
         {isImpersonating && (
@@ -863,10 +883,19 @@ export function MainLayout() {
           </div>
         )}
         {/* 頂部導覽列 */}
-        <header className="sticky top-0 z-40 flex h-16 items-center justify-end border-b bg-white px-4 shadow-sm">
-          <div className="flex items-center space-x-4">
-            {/* 顯示目前日期 */}
-            <span className="text-sm text-muted-foreground">
+        <header className="sticky top-0 z-40 flex h-14 md:h-16 items-center justify-between border-b bg-white px-3 md:px-4 shadow-sm">
+          {/* 行動端漢堡選單按鈕 */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={() => setMobileSidebarOpen(true)}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <div className="flex items-center space-x-2 md:space-x-4 ml-auto">
+            {/* 顯示目前日期（行動端隱藏） */}
+            <span className="text-sm text-muted-foreground hidden md:inline">
               {new Date().toLocaleDateString(i18n.language)}
             </span>
 
@@ -888,7 +917,7 @@ export function MainLayout() {
 
               {/* 通知下拉選單內容 */}
               {showNotificationDropdown && (
-                <div className="absolute right-0 top-12 w-96 bg-white rounded-lg shadow-xl border z-50 overflow-hidden">
+                <div className="absolute right-0 top-12 w-[calc(100vw-2rem)] md:w-96 max-w-sm bg-white rounded-lg shadow-xl border z-50 overflow-hidden">
                   {/* 選單標頭：標題與全部標為已讀按鈕 */}
                   <div className="flex items-center justify-between px-4 py-3 border-b bg-slate-50">
                     <h3 className="font-semibold text-slate-900">{t('common.notifications')}</h3>
@@ -973,7 +1002,7 @@ export function MainLayout() {
 
             {/* 語言切換選擇器 */}
             <Select value={i18n.language} onValueChange={handleLanguageChange}>
-              <SelectTrigger className="w-[120px] h-9">
+              <SelectTrigger className="w-[60px] md:w-[120px] h-9">
                 <Globe className="h-4 w-4 mr-2" />
                 <SelectValue />
               </SelectTrigger>
@@ -986,7 +1015,7 @@ export function MainLayout() {
         </header>
 
         {/* 頁面內容渲染區域 (React Router Outlet) */}
-        <div className="p-4">
+        <div className="p-3 md:p-4">
           <Outlet />
         </div>
       </main>

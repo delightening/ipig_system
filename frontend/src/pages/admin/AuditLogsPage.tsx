@@ -29,7 +29,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2, History, Search, Eye, FileJson, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Loader2, History, Search, Eye, FileJson, ChevronLeft, ChevronRight, Download, FileText } from 'lucide-react'
 import type { UserActivityLog } from '@/types/hr'
 
 interface PaginatedResponse<T> {
@@ -193,6 +193,7 @@ export function AuditLogsPage() {
   const [entityTypeFilter, setEntityTypeFilter] = useState<string>('all')
   const [selectedLog, setSelectedLog] = useState<UserActivityLog | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
+  const [isExporting, setIsExporting] = useState(false)
   const perPage = 50
 
   // 根據事件類別取得可選的實體類型
@@ -238,6 +239,125 @@ export function AuditLogsPage() {
     setCurrentPage(1)
   }
 
+  // === 匯出相關函數 ===
+
+  const buildExportParams = () => {
+    const params = new URLSearchParams()
+    if (dateFrom) params.set('from', dateFrom)
+    if (dateTo) params.set('to', dateTo)
+    if (categoryFilter !== 'all') params.set('event_category', categoryFilter)
+    if (entityTypeFilter !== 'all') params.set('entity_type', entityTypeFilter)
+    return params.toString()
+  }
+
+  const handleExportCSV = async () => {
+    setIsExporting(true)
+    try {
+      const response = await api.get<UserActivityLog[]>(
+        `/admin/audit/activities/export?${buildExportParams()}`
+      )
+      const logs = response.data
+
+      // 建立 CSV 內容（含 BOM 以確保 Excel 正確顯示中文）
+      const headers = ['時間', '操作者', '操作者信箱', '類別', '事件類型', '實體類型', '實體名稱', 'IP 位址', '可疑']
+      const csvRows = [headers.join(',')]
+      for (const log of logs) {
+        const evtLabel = eventTypeLabels[log.event_type]?.label || log.event_type
+        const catLabel = categoryLabels[log.event_category] || log.event_category
+        const row = [
+          formatDateTime(log.created_at),
+          `"${(log.actor_display_name || '').replace(/"/g, '""')}"`,
+          `"${(log.actor_email || '').replace(/"/g, '""')}"`,
+          catLabel,
+          evtLabel,
+          log.entity_type || '',
+          `"${(log.entity_display_name || '').replace(/"/g, '""')}"`,
+          log.ip_address || '',
+          log.is_suspicious ? '是' : '否',
+        ]
+        csvRows.push(row.join(','))
+      }
+
+      const bom = '\uFEFF'
+      const blob = new Blob([bom + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `操作日誌_${dateFrom}_${dateTo}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('匯出 CSV 失敗', err)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  const handleExportPDF = async () => {
+    setIsExporting(true)
+    try {
+      const response = await api.get<UserActivityLog[]>(
+        `/admin/audit/activities/export?${buildExportParams()}`
+      )
+      const logs = response.data
+
+      // 建立可列印的 HTML 頁面
+      const tableRows = logs.map(log => {
+        const evtLabel = eventTypeLabels[log.event_type]?.label || log.event_type
+        const catLabel = categoryLabels[log.event_category] || log.event_category
+        return `<tr>
+          <td>${formatDateTime(log.created_at)}</td>
+          <td>${log.actor_display_name || ''}</td>
+          <td>${catLabel}</td>
+          <td>${evtLabel}</td>
+          <td>${log.entity_type || ''}</td>
+          <td>${log.entity_display_name || ''}</td>
+          <td>${log.ip_address || ''}</td>
+        </tr>`
+      }).join('')
+
+      const html = `<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <title>操作日誌 ${dateFrom} ~ ${dateTo}</title>
+  <style>
+    body { font-family: 'Noto Sans TC', 'Microsoft JhengHei', sans-serif; font-size: 11px; margin: 20px; }
+    h1 { font-size: 18px; margin-bottom: 4px; }
+    p { color: #666; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ddd; padding: 4px 6px; text-align: left; }
+    th { background: #f5f5f5; font-weight: 600; }
+    tr:nth-child(even) { background: #fafafa; }
+    @media print { body { margin: 0; } }
+  </style>
+</head>
+<body>
+  <h1>操作日誌報表</h1>
+  <p>期間：${dateFrom} ～ ${dateTo}　｜　共 ${logs.length} 筆</p>
+  <table>
+    <thead>
+      <tr><th>時間</th><th>操作者</th><th>類別</th><th>事件</th><th>實體類型</th><th>實體名稱</th><th>IP</th></tr>
+    </thead>
+    <tbody>${tableRows}</tbody>
+  </table>
+</body>
+</html>`
+
+      const printWindow = window.open('', '_blank')
+      if (printWindow) {
+        printWindow.document.write(html)
+        printWindow.document.close()
+        // 延遲觸發列印，讓樣式載入完成
+        setTimeout(() => printWindow.print(), 300)
+      }
+    } catch (err) {
+      console.error('匯出 PDF 失敗', err)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   const totalPages = activityLogs ? Math.ceil(activityLogs.total / perPage) : 0
 
   const formatDateTime = (dateStr: string) => {
@@ -256,8 +376,8 @@ export function AuditLogsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">操作日誌</h1>
-        <p className="text-muted-foreground">追蹤所有使用者的操作記錄與變更歷史</p>
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">操作日誌</h1>
+        <p className="text-sm md:text-base text-muted-foreground">追蹤所有使用者的操作記錄與變更歷史</p>
       </div>
 
       {/* 篩選條件 */}
@@ -269,7 +389,7 @@ export function AuditLogsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label>事件類別</Label>
               <Select
@@ -324,8 +444,35 @@ export function AuditLogsPage() {
         </CardContent>
       </Card>
 
+      {/* 匯出按鈕列 */}
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={isExporting}
+          onClick={handleExportCSV}
+        >
+          {isExporting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
+          匯出 CSV
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={isExporting}
+          onClick={handleExportPDF}
+        >
+          {isExporting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <FileText className="h-4 w-4 mr-1" />}
+          匯出 PDF
+        </Button>
+        {activityLogs && (
+          <span className="text-sm text-muted-foreground ml-auto">
+            共 {activityLogs.total} 筆紀錄
+          </span>
+        )}
+      </div>
+
       {/* 日誌列表 */}
-      <div className="rounded-md border bg-white">
+      <div className="rounded-md border bg-white overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -395,7 +542,7 @@ export function AuditLogsPage() {
 
         {/* 分頁控制列 */}
         {activityLogs && totalPages > 0 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t">
+          <div className="flex flex-col md:flex-row items-center justify-between px-4 py-3 border-t gap-2">
             <p className="text-sm text-muted-foreground">
               共 {activityLogs.total} 筆，第 {currentPage} / {totalPages} 頁
             </p>
@@ -434,7 +581,7 @@ export function AuditLogsPage() {
           </DialogHeader>
           {selectedLog && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-muted-foreground">操作時間</Label>
                   <p className="font-medium">{formatDateTime(selectedLog.created_at)}</p>

@@ -35,6 +35,7 @@ COPY --from=builder /app/migrations /app/migrations
 
 # 以非 root 用戶運行（SEC-08）
 RUN useradd -r -s /bin/false appuser && \
+    mkdir -p /app/geoip && \
     chown -R appuser:appuser /app
 USER appuser
 
