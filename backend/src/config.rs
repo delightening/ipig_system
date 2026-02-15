@@ -10,7 +10,10 @@ pub struct Config {
     pub database_retry_delay_seconds: u64,
     pub jwt_secret: String,
     pub jwt_expiration_hours: i64,
+    pub jwt_expiration_seconds: i64,
     pub jwt_refresh_expiration_days: i64,
+    /// 每個使用者同時可擁有的最大活躍 Session 數量（SEC-28）
+    pub max_sessions_per_user: i64,
     // Email settings
     pub smtp_host: Option<String>,
     pub smtp_port: u16,
@@ -48,16 +51,43 @@ impl Config {
                 .unwrap_or_else(|_| "5".to_string())
                 .parse()
                 .context("DATABASE_RETRY_DELAY_SECONDS must be a number")?,
-            jwt_secret: std::env::var("JWT_SECRET")
-                .context("JWT_SECRET must be set")?,
+            jwt_secret: {
+                let secret = std::env::var("JWT_SECRET")
+                    .context("JWT_SECRET must be set")?;
+                // SEC-21: JWT Secret 最小長度驗證，防止使用弱金鑰
+                if secret.len() < 32 {
+                    anyhow::bail!(
+                        "JWT_SECRET 長度不足：目前 {} 字元，至少需要 32 字元。\n\
+                         建議使用 `openssl rand -base64 48` 產生安全金鑰。",
+                        secret.len()
+                    );
+                }
+                secret
+            },
             jwt_expiration_hours: std::env::var("JWT_EXPIRATION_HOURS")
-                .unwrap_or_else(|_| "1".to_string())
+                .unwrap_or_else(|_| "0".to_string())
                 .parse()
                 .context("JWT_EXPIRATION_HOURS must be a number")?,
+            // SEC-25: 優先使用分鐘級設定，預設 15 分鐘
+            jwt_expiration_seconds: {
+                if let Ok(mins) = std::env::var("JWT_EXPIRATION_MINUTES") {
+                    let m: i64 = mins.parse().context("JWT_EXPIRATION_MINUTES must be a number")?;
+                    m * 60
+                } else if let Ok(hrs) = std::env::var("JWT_EXPIRATION_HOURS") {
+                    let h: i64 = hrs.parse().unwrap_or(0);
+                    if h > 0 { h * 3600 } else { 900 } // 預設 15 分鐘
+                } else {
+                    900 // 15 分鐘
+                }
+            },
             jwt_refresh_expiration_days: std::env::var("JWT_REFRESH_EXPIRATION_DAYS")
                 .unwrap_or_else(|_| "7".to_string())
                 .parse()
                 .context("JWT_REFRESH_EXPIRATION_DAYS must be a number")?,
+            max_sessions_per_user: std::env::var("MAX_SESSIONS_PER_USER")
+                .unwrap_or_else(|_| "5".to_string())
+                .parse()
+                .context("MAX_SESSIONS_PER_USER must be a number")?,
             // Email settings
             smtp_host: std::env::var("SMTP_HOST").ok(),
             smtp_port: std::env::var("SMTP_PORT")

@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { useAuthStore } from '@/stores/auth'
 import { RequirePermission } from '@/components/auth'
@@ -84,10 +84,19 @@ import { PigSourcesPage } from '@/pages/pigs/PigSourcesPage'
 
 // Protected Route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-    const { isAuthenticated, user } = useAuthStore()
+    const { isAuthenticated, isInitialized, user } = useAuthStore()
 
     // 啟動 heartbeat 監聽使用者活動
     useHeartbeat(isAuthenticated)
+
+    // SEC-24: 等待初始驗證完成，防止 stale localStorage state
+    if (!isInitialized) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+        )
+    }
 
     if (!isAuthenticated) {
         return <Navigate to="/login" replace />
@@ -149,13 +158,23 @@ function AdminRoute({ children }: { children?: React.ReactNode }) {
 
 function App() {
     const { checkAuth, isAuthenticated, user, hasRole } = useAuthStore()
+    const location = useLocation()
+
+    // 公開路由不需要檢查認證狀態
+    const publicPaths = ['/login', '/forgot-password', '/reset-password']
+    const isPublicRoute = publicPaths.some(path => location.pathname.startsWith(path))
 
     // Validate auth on app initialization (Cookie 自動傳送，不需檢查 localStorage)
     useEffect(() => {
+        if (isPublicRoute) {
+            // 公開頁面不呼叫 /api/me，直接標記為已初始化
+            useAuthStore.setState({ isInitialized: true })
+            return
+        }
         checkAuth().catch(() => {
             // Token validation failed, will be handled by checkAuth
         })
-    }, [checkAuth])
+    }, [checkAuth, isPublicRoute])
 
     // 判斷首頁導向
     const getHomeRedirect = () => {

@@ -15,6 +15,7 @@ import {
     Users,
 } from 'lucide-react'
 import api from '@/lib/api'
+import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -38,9 +39,12 @@ import {
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
+    DialogFooter,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog'
+
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
 import type {
@@ -74,9 +78,11 @@ interface PaginatedResponse<T> {
 }
 
 export function AdminAuditPage() {
+    const { user: currentUser, logout } = useAuthStore()
     const [activeTab, setActiveTab] = useState('dashboard')
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null)
+    const [selectedAlert, setSelectedAlert] = useState<SecurityAlert | null>(null)
 
     // Default date range: first day of current month to today
     const getDefaultDateFrom = () => {
@@ -159,7 +165,14 @@ export function AdminAuditPage() {
                 reason: '管理員強制登出',
             })
         },
-        onSuccess: () => {
+        onSuccess: (_data, sessionId) => {
+            // 檢查被登出的 session 是否屬於當前使用者
+            const loggedOutSession = sessions?.data?.find(s => s.id === sessionId)
+            if (loggedOutSession && currentUser && loggedOutSession.user_id === currentUser.id) {
+                toast({ title: '已登出', description: '您的 Session 已被強制登出，即將返回登入頁面' })
+                logout()
+                return
+            }
             queryClient.invalidateQueries({ queryKey: ['audit-sessions'] })
             toast({ title: '成功', description: '已強制登出該 Session' })
         },
@@ -268,28 +281,28 @@ export function AdminAuditPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-5">
-                    <TabsTrigger value="dashboard" className="flex items-center gap-2">
-                        <Shield className="h-4 w-4" />
+                <TabsList className="flex w-full overflow-x-auto sm:grid sm:grid-cols-5">
+                    <TabsTrigger value="dashboard" className="flex items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm sm:gap-2">
+                        <Shield className="h-4 w-4 hidden sm:inline-block" />
                         總覽
                     </TabsTrigger>
-                    <TabsTrigger value="activities" className="flex items-center gap-2">
-                        <Activity className="h-4 w-4" />
+                    <TabsTrigger value="activities" className="flex items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm sm:gap-2">
+                        <Activity className="h-4 w-4 hidden sm:inline-block" />
                         活動記錄
                     </TabsTrigger>
-                    <TabsTrigger value="logins" className="flex items-center gap-2">
-                        <LogIn className="h-4 w-4" />
+                    <TabsTrigger value="logins" className="flex items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm sm:gap-2">
+                        <LogIn className="h-4 w-4 hidden sm:inline-block" />
                         登入事件
                     </TabsTrigger>
-                    <TabsTrigger value="sessions" className="flex items-center gap-2">
-                        <Users className="h-4 w-4" />
+                    <TabsTrigger value="sessions" className="flex items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm sm:gap-2">
+                        <Users className="h-4 w-4 hidden sm:inline-block" />
                         活躍 Sessions
                     </TabsTrigger>
-                    <TabsTrigger value="alerts" className="flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4" />
+                    <TabsTrigger value="alerts" className="flex items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm sm:gap-2">
+                        <AlertTriangle className="h-4 w-4 hidden sm:inline-block" />
                         安全警報
                         {dashboardStats && dashboardStats.open_alerts > 0 && (
-                            <Badge variant="destructive" className="ml-1">
+                            <Badge variant="destructive" className="ml-0.5 sm:ml-1 text-[10px] sm:text-xs px-1 sm:px-1.5">
                                 {dashboardStats.open_alerts}
                             </Badge>
                         )}
@@ -665,7 +678,11 @@ export function AdminAuditPage() {
                                         </TableRow>
                                     ) : (
                                         alerts?.data?.map((alert) => (
-                                            <TableRow key={alert.id}>
+                                            <TableRow
+                                                key={alert.id}
+                                                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                                                onClick={() => setSelectedAlert(alert)}
+                                            >
                                                 <TableCell className="whitespace-nowrap">
                                                     {formatDateTime(alert.created_at)}
                                                 </TableCell>
@@ -701,7 +718,10 @@ export function AdminAuditPage() {
                                                         <Button
                                                             variant="outline"
                                                             size="sm"
-                                                            onClick={() => resolveAlertMutation.mutate(alert.id)}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                resolveAlertMutation.mutate(alert.id)
+                                                            }}
                                                             disabled={resolveAlertMutation.isPending}
                                                         >
                                                             標記解決
@@ -800,6 +820,136 @@ export function AdminAuditPage() {
 
                             {!selectedLog.before_data && !selectedLog.after_data && (
                                 <p className="text-muted-foreground text-center py-4">無變更資料</p>
+                            )}
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* 安全警報詳情 Dialog */}
+            <Dialog open={!!selectedAlert} onOpenChange={() => setSelectedAlert(null)}>
+                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5" />
+                            安全警報詳情
+                        </DialogTitle>
+                        <DialogDescription>
+                            查看警報的完整資訊與上下文
+                        </DialogDescription>
+                    </DialogHeader>
+                    {selectedAlert && (
+                        <div className="space-y-4">
+                            {/* 基本資訊 */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label className="text-muted-foreground">警報時間</Label>
+                                    <p className="font-medium">{formatDateTime(selectedAlert.created_at)}</p>
+                                </div>
+                                <div>
+                                    <Label className="text-muted-foreground">警報類型</Label>
+                                    <div className="mt-1">
+                                        <Badge variant="outline">{selectedAlert.alert_type}</Badge>
+                                    </div>
+                                </div>
+                                <div>
+                                    <Label className="text-muted-foreground">嚴重程度</Label>
+                                    <div className="mt-1">
+                                        <Badge variant={getSeverityColor(selectedAlert.severity)}>
+                                            {selectedAlert.severity}
+                                        </Badge>
+                                    </div>
+                                </div>
+                                <div>
+                                    <Label className="text-muted-foreground">狀態</Label>
+                                    <div className="mt-1">
+                                        <Badge
+                                            variant={selectedAlert.status === 'resolved' ? 'secondary' : 'default'}
+                                        >
+                                            {selectedAlert.status === 'open' ? '待處理' : '已解決'}
+                                        </Badge>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <hr className="border-border" />
+
+                            {/* 標題與描述 */}
+                            <div>
+                                <Label className="text-muted-foreground">標題</Label>
+                                <p className="font-medium text-base">{selectedAlert.title}</p>
+                            </div>
+                            {selectedAlert.description && (
+                                <div>
+                                    <Label className="text-muted-foreground">描述</Label>
+                                    <p className="text-sm mt-1 whitespace-pre-wrap">{selectedAlert.description}</p>
+                                </div>
+                            )}
+
+                            {/* 相關使用者 */}
+                            {selectedAlert.user_id && (
+                                <div>
+                                    <Label className="text-muted-foreground">相關使用者 ID</Label>
+                                    <p className="font-mono text-sm">{selectedAlert.user_id}</p>
+                                </div>
+                            )}
+
+                            {/* Context Data */}
+                            {selectedAlert.context_data && Object.keys(selectedAlert.context_data).length > 0 && (
+                                <div>
+                                    <Label className="text-muted-foreground">詳細上下文資料</Label>
+                                    <pre className="mt-1 p-3 bg-muted/50 border rounded-md text-sm overflow-x-auto">
+                                        {JSON.stringify(selectedAlert.context_data, null, 2)}
+                                    </pre>
+                                </div>
+                            )}
+
+                            {/* 解決資訊 */}
+                            {selectedAlert.status === 'resolved' && (
+                                <>
+                                    <hr className="border-border" />
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {selectedAlert.resolved_at && (
+                                            <div>
+                                                <Label className="text-muted-foreground">解決時間</Label>
+                                                <p className="font-medium">{formatDateTime(selectedAlert.resolved_at)}</p>
+                                            </div>
+                                        )}
+                                        {selectedAlert.resolved_by && (
+                                            <div>
+                                                <Label className="text-muted-foreground">解決者</Label>
+                                                <p className="font-medium">{selectedAlert.resolved_by}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {selectedAlert.resolution_notes && (
+                                        <div>
+                                            <Label className="text-muted-foreground">解決備註</Label>
+                                            <p className="text-sm mt-1">{selectedAlert.resolution_notes}</p>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+
+                            {/* Dialog 內的操作按鈕 */}
+                            {selectedAlert.status !== 'resolved' && (
+                                <DialogFooter>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setSelectedAlert(null)}
+                                    >
+                                        關閉
+                                    </Button>
+                                    <Button
+                                        onClick={() => {
+                                            resolveAlertMutation.mutate(selectedAlert.id)
+                                            setSelectedAlert(null)
+                                        }}
+                                        disabled={resolveAlertMutation.isPending}
+                                    >
+                                        標記為已解決
+                                    </Button>
+                                </DialogFooter>
                             )}
                         </div>
                     )}

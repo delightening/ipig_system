@@ -10,7 +10,7 @@ use crate::{
 use super::NotificationService;
 
 impl NotificationService {
-    /// 通知計畫提交（給 IACUC_STAFF）
+    /// 通知計畫提交（依 notification_routing 表判斷收件角色）
     pub async fn notify_protocol_submitted(
         &self,
         protocol_id: Uuid,
@@ -18,18 +18,8 @@ impl NotificationService {
         title: &str,
         pi_name: &str,
     ) -> Result<i32, AppError> {
-        // 取得所有 IACUC_STAFF 使用者
-        let staff_users: Vec<(Uuid, String, String)> = sqlx::query_as(
-            r#"
-            SELECT u.id, u.email, u.display_name
-            FROM users u
-            JOIN user_roles ur ON u.id = ur.user_id
-            JOIN roles r ON ur.role_id = r.id
-            WHERE u.is_active = true AND r.code = 'IACUC_STAFF'
-            "#,
-        )
-        .fetch_all(&self.db)
-        .await?;
+        // 從路由表動態取得收件者
+        let recipients = self.get_recipients_by_event("protocol_submitted").await?;
 
         let mut count = 0;
         let notification_title = format!("[iPig] 新計畫提交 - {}", protocol_no);
@@ -38,7 +28,7 @@ impl NotificationService {
             protocol_no, title, pi_name
         );
 
-        for (user_id, _email, _name) in staff_users {
+        for (user_id, _email, _name, _channel) in recipients {
             if let Err(e) = self
                 .create_notification(CreateNotificationRequest {
                     user_id,
@@ -57,7 +47,7 @@ impl NotificationService {
         Ok(count)
     }
 
-    /// 通知計畫狀態變更
+    /// 通知計畫狀態變更（直接通知 PI，非路由表管理）
     pub async fn notify_protocol_status_change(
         &self,
         protocol_id: Uuid,
@@ -76,7 +66,7 @@ impl NotificationService {
             reason.map(|r| format!("變更原因：{}", r)).unwrap_or_default()
         );
 
-        // 通知 PI
+        // 通知 PI（直接傳入 user_id，非路由表管理）
         self.create_notification(CreateNotificationRequest {
             user_id: pi_user_id,
             notification_type: NotificationType::ProtocolStatus,
@@ -90,7 +80,7 @@ impl NotificationService {
         Ok(())
     }
 
-    /// 通知審查指派
+    /// 通知審查指派（直接通知審查委員，非路由表管理）
     pub async fn notify_review_assignment(
         &self,
         protocol_id: Uuid,
@@ -123,6 +113,8 @@ impl NotificationService {
     }
 
     /// AUP 審查進度通知 — 依新狀態決定通知對象
+    /// 「角色驅動」的部分走 notification_routing 表
+    /// 「實體相關」的部分（PI/Coeditor）維持程式碼邏輯
     /// 同時處理需要 Email 的重要節點
     pub async fn notify_protocol_review_progress(
         &self,
@@ -158,8 +150,41 @@ impl NotificationService {
             reason.map(|r| format!("說明：{}", r)).unwrap_or_default()
         );
 
-        // 判斷需求修正或最終決定 → 發 Email
-        let needs_email = matches!(
+        // 映射 protocol 狀態到路由表的 event_type
+        let event_type = match new_status {
+            "vet_review" => Some("protocol_vet_review"),
+            "under_review" => Some("protocol_under_review"),
+            "resubmitted" => Some("protocol_resubmitted"),
+            "approved" | "approved_with_conditions" => Some("protocol_approved"),
+            "rejected" => Some("protocol_rejected"),
+            _ => None,
+        };
+
+        // 角色驅動：從路由表取得收件者
+        if let Some(evt) = event_type {
+            let role_recipients = self.get_recipients_by_event(evt).await?;
+            for (user_id, _email, _name, _channel) in &role_recipients {
+                if *user_id == operator_id {
+                    continue;
+                }
+                if let Err(e) = self
+                    .create_notification(CreateNotificationRequest {
+                        user_id: *user_id,
+                        notification_type: NotificationType::ProtocolStatus,
+                        title: notification_title.clone(),
+                        content: Some(content.clone()),
+                        related_entity_type: Some("protocol".to_string()),
+                        related_entity_id: Some(protocol_id),
+                    })
+                    .await {
+                    tracing::warn!("建立通知失敗: {e}");
+                }
+                count += 1;
+            }
+        }
+
+        // 判斷需要通知 PI/Coeditor 的狀態（退回修正或最終決定）
+        let needs_pi_notification = matches!(
             new_status,
             "pre_review_revision_required"
                 | "vet_revision_required"
@@ -169,180 +194,70 @@ impl NotificationService {
                 | "rejected"
         );
 
-        match new_status {
-            // 進入獸醫審查 → 通知 VET
-            "vet_review" => {
-                let vets = self.get_users_by_role("VET").await?;
-                for (user_id, _email, _name) in &vets {
-                    if let Err(e) = self
-                        .create_notification(CreateNotificationRequest {
-                            user_id: *user_id,
-                            notification_type: NotificationType::ProtocolStatus,
-                            title: notification_title.clone(),
-                            content: Some(content.clone()),
-                            related_entity_type: Some("protocol".to_string()),
-                            related_entity_id: Some(protocol_id),
-                        })
-                        .await {
-                        tracing::warn!("建立通知失敗: {e}");
-                    }
-                    count += 1;
-                }
-            }
-            // 退回修正 → 通知 PI + Coeditor（+ Email）
-            "pre_review_revision_required" | "vet_revision_required" | "revision_required" => {
-                let pi_coeditors = self.get_protocol_pi_and_coeditors(protocol_id).await?;
-                for (user_id, email, display_name) in &pi_coeditors {
-                    if let Err(e) = self
-                        .create_notification(CreateNotificationRequest {
-                            user_id: *user_id,
-                            notification_type: NotificationType::ProtocolStatus,
-                            title: notification_title.clone(),
-                            content: Some(content.clone()),
-                            related_entity_type: Some("protocol".to_string()),
-                            related_entity_id: Some(protocol_id),
-                        })
-                        .await {
-                        tracing::warn!("建立通知失敗: {e}");
-                    }
-                    count += 1;
+        let needs_email = needs_pi_notification;
 
-                    // 寄 Email
-                    if needs_email {
-                        if let Some(cfg) = config {
-                            if let Err(e) = crate::services::EmailService::send_protocol_status_change_email(
-                                cfg,
-                                email,
-                                display_name,
-                                protocol_no,
-                                protocol_title,
-                                status_text,
-                                &chrono::Utc::now().to_rfc3339(),
-                                reason,
-                            )
-                            .await {
-                                tracing::warn!("發送計畫狀態變更郵件失敗: {e}");
-                            }
+        // 實體驅動：通知 PI/Coeditor
+        if needs_pi_notification {
+            let pi_coeditors = self.get_protocol_pi_and_coeditors(protocol_id).await?;
+            for (user_id, email, display_name) in &pi_coeditors {
+                if *user_id == operator_id {
+                    continue;
+                }
+                if let Err(e) = self
+                    .create_notification(CreateNotificationRequest {
+                        user_id: *user_id,
+                        notification_type: NotificationType::ProtocolStatus,
+                        title: notification_title.clone(),
+                        content: Some(content.clone()),
+                        related_entity_type: Some("protocol".to_string()),
+                        related_entity_id: Some(protocol_id),
+                    })
+                    .await {
+                    tracing::warn!("建立通知失敗: {e}");
+                }
+                count += 1;
+
+                // 寄 Email
+                if needs_email {
+                    if let Some(cfg) = config {
+                        if let Err(e) = crate::services::EmailService::send_protocol_status_change_email(
+                            cfg,
+                            email,
+                            display_name,
+                            protocol_no,
+                            protocol_title,
+                            status_text,
+                            &chrono::Utc::now().to_rfc3339(),
+                            reason,
+                        )
+                        .await {
+                            tracing::warn!("發送計畫狀態變更郵件失敗: {e}");
                         }
                     }
                 }
             }
-            // 進入委員審查 → 通知 IACUC_STAFF + REVIEWER
-            "under_review" => {
-                let staff = self.get_users_by_role("IACUC_STAFF").await?;
-                let reviewers = self.get_assigned_reviewers(protocol_id).await?;
-                let mut all_recipients = staff;
-                all_recipients.extend(reviewers);
-                all_recipients.sort_by_key(|(id, _, _)| *id);
-                all_recipients.dedup_by_key(|(id, _, _)| *id);
+        }
 
-                for (user_id, _email, _name) in &all_recipients {
-                    if let Err(e) = self
-                        .create_notification(CreateNotificationRequest {
-                            user_id: *user_id,
-                            notification_type: NotificationType::ProtocolStatus,
-                            title: notification_title.clone(),
-                            content: Some(content.clone()),
-                            related_entity_type: Some("protocol".to_string()),
-                            related_entity_id: Some(protocol_id),
-                        })
-                        .await {
-                        tracing::warn!("建立通知失敗: {e}");
-                    }
-                    count += 1;
+        // 進入委員審查或重新提交時，也需要通知已指派的審查委員（非路由表管理）
+        if matches!(new_status, "under_review" | "resubmitted") {
+            let reviewers = self.get_assigned_reviewers(protocol_id).await?;
+            for (user_id, _email, _name) in &reviewers {
+                if *user_id == operator_id {
+                    continue;
                 }
-            }
-            // 重新提交 → 通知 IACUC_STAFF + 原審查委員
-            "resubmitted" => {
-                let staff = self.get_users_by_role("IACUC_STAFF").await?;
-                let reviewers = self.get_assigned_reviewers(protocol_id).await?;
-                let mut all_recipients = staff;
-                all_recipients.extend(reviewers);
-                all_recipients.sort_by_key(|(id, _, _)| *id);
-                all_recipients.dedup_by_key(|(id, _, _)| *id);
-
-                for (user_id, _email, _name) in &all_recipients {
-                    if let Err(e) = self
-                        .create_notification(CreateNotificationRequest {
-                            user_id: *user_id,
-                            notification_type: NotificationType::ProtocolStatus,
-                            title: notification_title.clone(),
-                            content: Some(content.clone()),
-                            related_entity_type: Some("protocol".to_string()),
-                            related_entity_id: Some(protocol_id),
-                        })
-                        .await {
-                        tracing::warn!("建立通知失敗: {e}");
-                    }
-                    count += 1;
+                if let Err(e) = self
+                    .create_notification(CreateNotificationRequest {
+                        user_id: *user_id,
+                        notification_type: NotificationType::ProtocolStatus,
+                        title: notification_title.clone(),
+                        content: Some(content.clone()),
+                        related_entity_type: Some("protocol".to_string()),
+                        related_entity_id: Some(protocol_id),
+                    })
+                    .await {
+                    tracing::warn!("建立通知失敗: {e}");
                 }
-            }
-            // 核准/駁回 → 通知 PI + Coeditor + IACUC_CHAIR（非操作者）
-            "approved" | "approved_with_conditions" | "rejected" => {
-                let pi_coeditors = self.get_protocol_pi_and_coeditors(protocol_id).await?;
-                let chairs = self.get_users_by_role("IACUC_CHAIR").await?;
-                let mut all_recipients = pi_coeditors;
-                all_recipients.extend(chairs);
-                all_recipients.sort_by_key(|(id, _, _)| *id);
-                all_recipients.dedup_by_key(|(id, _, _)| *id);
-
-                for (user_id, email, display_name) in &all_recipients {
-                    // 排除操作者本人
-                    if *user_id == operator_id {
-                        continue;
-                    }
-                    if let Err(e) = self
-                        .create_notification(CreateNotificationRequest {
-                            user_id: *user_id,
-                            notification_type: NotificationType::ProtocolStatus,
-                            title: notification_title.clone(),
-                            content: Some(content.clone()),
-                            related_entity_type: Some("protocol".to_string()),
-                            related_entity_id: Some(protocol_id),
-                        })
-                        .await {
-                        tracing::warn!("建立通知失敗: {e}");
-                    }
-                    count += 1;
-
-                    // 寄 Email
-                    if needs_email {
-                        if let Some(cfg) = config {
-                            if let Err(e) = crate::services::EmailService::send_protocol_status_change_email(
-                                cfg,
-                                email,
-                                display_name,
-                                protocol_no,
-                                protocol_title,
-                                status_text,
-                                &chrono::Utc::now().to_rfc3339(),
-                                reason,
-                            )
-                            .await {
-                                tracing::warn!("發送計畫狀態變更郵件失敗: {e}");
-                            }
-                        }
-                    }
-                }
-            }
-            // 其他狀態 → 通知 PI
-            _ => {
-                let pi_coeditors = self.get_protocol_pi_and_coeditors(protocol_id).await?;
-                for (user_id, _email, _name) in &pi_coeditors {
-                    if let Err(e) = self
-                        .create_notification(CreateNotificationRequest {
-                            user_id: *user_id,
-                            notification_type: NotificationType::ProtocolStatus,
-                            title: notification_title.clone(),
-                            content: Some(content.clone()),
-                            related_entity_type: Some("protocol".to_string()),
-                            related_entity_id: Some(protocol_id),
-                        })
-                        .await {
-                        tracing::warn!("建立通知失敗: {e}");
-                    }
-                    count += 1;
-                }
+                count += 1;
             }
         }
 
@@ -355,7 +270,7 @@ impl NotificationService {
         Ok(count)
     }
 
-    /// 審查意見通知 — 通知 PI + Coeditor + IACUC_STAFF
+    /// 審查意見通知 — 角色驅動的部分走路由表，PI/Coeditor 維持程式碼邏輯
     pub async fn notify_review_comment_created(
         &self,
         protocol_id: Uuid,
@@ -363,12 +278,18 @@ impl NotificationService {
         commenter_name: &str,
         comment_excerpt: &str,
     ) -> Result<i32, AppError> {
+        // 實體相關：PI + Coeditor
         let pi_coeditors = self.get_protocol_pi_and_coeditors(protocol_id).await?;
-        let staff = self.get_users_by_role("IACUC_STAFF").await?;
-        let mut all_recipients = pi_coeditors;
-        all_recipients.extend(staff);
-        all_recipients.sort_by_key(|(id, _, _)| *id);
-        all_recipients.dedup_by_key(|(id, _, _)| *id);
+        // 角色驅動：從路由表取得其他收件者
+        let role_recipients = self.get_recipients_by_event("review_comment_created").await?;
+
+        // 合併並去重
+        let mut all_recipient_ids: Vec<Uuid> = pi_coeditors.iter().map(|(id, _, _)| *id).collect();
+        for (id, _, _, _) in &role_recipients {
+            if !all_recipient_ids.contains(id) {
+                all_recipient_ids.push(*id);
+            }
+        }
 
         let title = format!("[iPig] 新審查意見 - {}", protocol_no);
         let excerpt = if comment_excerpt.chars().count() > 100 {
@@ -382,7 +303,7 @@ impl NotificationService {
         );
 
         let mut count = 0;
-        for (user_id, _email, _name) in &all_recipients {
+        for user_id in &all_recipient_ids {
             if let Err(e) = self
                 .create_notification(CreateNotificationRequest {
                     user_id: *user_id,

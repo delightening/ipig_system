@@ -121,10 +121,19 @@ struct DevUser {
 
 /// 確保開發環境預設帳號存在（僅在 Docker 開發環境使用）
 pub async fn seed_dev_users(pool: &sqlx::PgPool) -> Result<()> {
-    let password = "12345678";
+    // SEC-26: 密碼從環境變數讀取，不再硬編碼弱密碼
+    let password = std::env::var("DEV_USER_PASSWORD")
+        .unwrap_or_else(|_| {
+            let generated = Uuid::new_v4().to_string();
+            tracing::warn!(
+                "[DevUser] DEV_USER_PASSWORD 未設定，使用隨機密碼: {}",
+                generated
+            );
+            generated
+        });
     
     // 使用 AuthService 生成正確的密碼 hash
-    let password_hash = services::AuthService::hash_password(password)
+    let password_hash = services::AuthService::hash_password(&password)
         .map_err(|e| anyhow::anyhow!("Failed to hash dev user password: {}", e))?;
     
     // 開發環境預設帳號列表

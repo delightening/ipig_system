@@ -53,6 +53,14 @@
 | 修改自己密碼 | ✅ | ✅ | ✅ | MainLayout 內對話框 |
 | 首次登入強制變更密碼 | ✅ | ✅ | ✅ | ForceChangePasswordPage |
 | 密碼強度檢查 | ✅ | ✅ | ✅ | 前端即時驗證 |
+| 帳號鎖定（暴力破解防護） | ✅ | ✅ | ✅ | 15 分鐘內 5 次失敗即封鎖 (SEC-20, 2026-02-15) |
+| JWT Secret 強度驗證 | ✅ | - | ✅ | 啟動時強制 ≥ 32 字元 (SEC-21, 2026-02-15) |
+| JWT 黑名單主動撤銷 | ✅ | - | ✅ | 記憶體黑名單 + auth middleware 整合 (SEC-23, 2026-02-15) |
+| JWT 有效期 15 分鐘 | ✅ | ✅ | ✅ | `jwt_expiration_seconds` 預設 900 秒 (SEC-25, 2026-02-15) |
+| CSRF 防護 | ✅ | ✅ | ✅ | Double Submit Cookie + `X-CSRF-Token` header (SEC-24, 2026-02-15) |
+| Session 併發限制 | ✅ | - | ✅ | 每用戶上限 5 個活躍 session (SEC-28, 2026-02-15) |
+| 安全回應標頭 | ✅ | ✅ | ✅ | API 層 + nginx CSP (SEC-27, 2026-02-15) |
+| 開發帳號安全防護 | ✅ | - | ✅ | 正式環境拒絕啟動 + 密碼改環境變數 (SEC-26, 2026-02-15) |
 | 角色切換 (Login As) | ✅ | ✅ | ✅ | 管理員可切換身分 |
 
 
@@ -354,6 +362,7 @@
 | Header 通知圖示 | - | ✅ | ✅ | MainLayout |
 | 通知下拉選單 | - | ✅ | ✅ | 含點擊導航 |
 | 通知設定 | ✅ | ✅ | ✅ | SettingsPage 整合 |
+| 通知路由管理 | ✅ | ✅ | ✅ | `notification_routing` 表、CRUD API、前端管理介面 (2026-02-15) |
 
 ### 5.3 排程任務
 
@@ -415,6 +424,7 @@
 | 024_blood_test.sql | 血液檢查系統（主表、明細、模板） | ✅ |
 | 025_seed_blood_templates.sql | 血液檢查模板 Seed 資料（64 項） | ✅ |
 | 026_blood_test_panels.sql | 檢驗組合 + 組合項目關聯 + Seed（14 組） | ✅ |
+| 011_notification_routing.sql | 通知路由規則表 + 21 筆預設種子資料 | ✅ |
 
 ---
 
@@ -564,6 +574,20 @@
 - ✅ **活動紀錄分頁優化**：`ProtocolDetailPage.tsx` 歷程 Tab 加入前端分頁（每頁 15 筆 + 上/下一頁控制列 + 總筆數顯示）
 - ✅ **行動端適配（響應式設計）**：`MainLayout.tsx` overlay sidebar + 漢堡選單 + 背景遮罩、`PigsPage` / `DashboardPage` / `AuditLogsPage` / `ProtocolDetailPage` 表格/篩選/標題響應式、`index.css` 全域工具 class（`.page-title`、`.table-responsive`、`.filter-row`）
 - ✅ **Profiling_Spec 文件完整重寫**：01-09 全部重寫（含新增 07_SECURITY_AUDIT.md），README 索引更新。API 規格 273 端點、RBAC 84 權限 × 11 角色完整對照
+- ✅ **通知路由可配置化**：`notification_routing` 資料表 + 後端 CRUD API（`/admin/notification-routing`）+ `get_recipients_by_event()` 動態查詢 + 6 個通知模組硬編碼遷移（hr/erp/alert/protocol/amendment）+ 前端管理介面（`NotificationRoutingSection.tsx`）
+- ✅ **SEC-20 帳號鎖定機制**：`AuthService::login()` 加入 15 分鐘內 5 次失敗登入即暫時封鎖，阻止暴力破解攻擊
+- ✅ **SEC-21 JWT Secret 強度驗證**：`Config::from_env()` 啟動時強制檢查金鑰長度 ≥ 32 字元，附建議產生指令
+- ✅ **SEC-22 啟動安全配置警告**：`main.rs` 啟動時檢查 `COOKIE_SECURE`/`SEED_DEV_USERS`，不安全配置醒目警告
+- ✅ **修復強制登出自己後未跳轉登入頁**：`AdminAuditPage.tsx` `forceLogoutMutation.onSuccess` 新增 user_id 比對，強制登出自己的 Session 時呼叫 `logout()` 跳轉登入頁
+- ✅ **安全審計手機端排版修正**：`AdminAuditPage.tsx` TabsList 從 `grid-cols-5` 改為 `flex overflow-x-auto sm:grid sm:grid-cols-5`，手機端隱藏圖示、縮小文字、Badge 響應式調整
+- ✅ **SEC-23~28 安全加強 9 項完整實作**：
+  - SEC-23 JWT 黑名單（`jwt_blacklist.rs` 記憶體 HashMap + 背景清理 + auth middleware 整合）
+  - SEC-24 CSRF 防護（`csrf.rs` Double Submit Cookie + 前端 `api.ts` request interceptor 自動附加）
+  - SEC-25 JWT 有效期縮短至 15 分鐘（`config.rs` `jwt_expiration_seconds` + 前端 refresh queue 防競態）
+  - SEC-26 正式環境禁止開發帳號（`main.rs` 啟動拒絕 + `seed.rs` 密碼改環境變數）
+  - SEC-27 安全回應標頭（`main.rs` API 層 + `nginx.conf` CSP）
+  - SEC-28 Session 併發限制（`handlers/auth.rs` 登入後自動裁減超額 session）
+  - 前端增強：`App.tsx` ProtectedRoute isInitialized loading、`auth.ts` isInitialized flag
 
 ### 2026-02-06 ~ 2026-02-08
 

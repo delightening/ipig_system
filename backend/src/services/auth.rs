@@ -23,6 +23,30 @@ impl AuthService {
         config: &Config,
         req: &LoginRequest,
     ) -> Result<LoginResponse> {
+        // SEC-20: 帳號鎖定檢查 - 15 分鐘內 5 次失敗即暫時封鎖
+        let (fail_count,): (i64,) = sqlx::query_as(
+            r#"
+            SELECT COUNT(*) FROM login_events
+            WHERE email = $1
+              AND event_type = 'login_failure'
+              AND created_at > NOW() - INTERVAL '15 minutes'
+            "#,
+        )
+        .bind(&req.email)
+        .fetch_one(pool)
+        .await
+        .unwrap_or((0,));
+
+        if fail_count >= 5 {
+            tracing::warn!(
+                "[Auth] 帳號 {} 因連續失敗 {} 次被暫時鎖定",
+                req.email, fail_count
+            );
+            return Err(AppError::Validation(
+                "帳號已暫時鎖定，請 15 分鐘後再試".to_string(),
+            ));
+        }
+
         // 查詢用戶
         let user = sqlx::query_as::<_, User>(
             "SELECT * FROM users WHERE email = $1 AND is_active = true"
@@ -271,10 +295,11 @@ impl AuthService {
     ) -> Result<(String, i64)> {
         let now = Utc::now();
         // 模擬登入時限制有效期為 30 分鐘（SEC-11）
+        // 否則使用 jwt_expiration_seconds（SEC-25，預設 15 分鐘）
         let expires_in = if impersonated_by.is_some() {
             1800 // 30 分鐘
         } else {
-            config.jwt_expiration_hours * 3600
+            config.jwt_expiration_seconds
         };
         let exp = now + Duration::seconds(expires_in);
 
@@ -285,6 +310,7 @@ impl AuthService {
             permissions: permissions.to_vec(),
             exp: exp.timestamp(),
             iat: now.timestamp(),
+            jti: Uuid::new_v4().to_string(),
             impersonated_by,
         };
 

@@ -232,3 +232,39 @@ pub struct UpdateScheduledReportRequest {
     pub recipients: Option<Vec<Uuid>>,
     pub is_active: Option<bool>,
 }
+
+// ============================================
+// 通知路由規則
+// ============================================
+
+/// 通知路由規則（事件→角色→通道的對應）
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct NotificationRouting {
+    pub id: Uuid,
+    pub event_type: String,
+    pub role_code: String,
+    pub channel: String,
+    pub is_active: bool,
+    pub description: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// 建立通知路由規則請求
+#[derive(Debug, Deserialize, Validate)]
+pub struct CreateNotificationRoutingRequest {
+    #[validate(length(min = 1, max = 80, message = "event_type 不可為空且最多 80 字元"))]
+    pub event_type: String,
+    #[validate(length(min = 1, max = 50, message = "role_code 不可為空且最多 50 字元"))]
+    pub role_code: String,
+    pub channel: Option<String>,
+    pub description: Option<String>,
+}
+
+/// 更新通知路由規則請求
+#[derive(Debug, Deserialize)]
+pub struct UpdateNotificationRoutingRequest {
+    pub channel: Option<String>,
+    pub is_active: Option<bool>,
+    pub description: Option<String>,
+}

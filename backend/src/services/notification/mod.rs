@@ -11,6 +11,7 @@ mod hr;
 mod amendment;
 mod erp;
 mod helpers;
+mod routing;
 
 use sqlx::PgPool;
 
