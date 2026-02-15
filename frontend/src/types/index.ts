@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 型別統一匯出入口
  *
  * 提供所有型別的集中匯出點。
@@ -24,7 +24,7 @@ export type * from './upload'
 // 常值匯出（非純型別，需要 runtime 值）
 export { LEAVE_TYPE_NAMES, LEAVE_STATUS_NAMES } from './hr'
 export {
-    pigStatusNames, allPigStatusNames, pigBreedNames, pigGenderNames, recordTypeNames,
+    animalStatusNames, allAnimalStatusNames, animalBreedNames, animalGenderNames, recordTypeNames,
 } from './animal'
 export { protocolStatusNames } from './aup'
 export { notificationTypeNames } from './notification'

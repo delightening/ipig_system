@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+﻿import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,8 +7,8 @@ import api from '@/lib/api'
 
 interface VetComment {
     id: string
-    pig_id: string
-    pig_num: string
+    animal_id: string
+    ear_tag: string
     author_name: string
     content: string
     created_at: string
@@ -21,7 +21,7 @@ export function VetCommentsWidget() {
     const { data, isLoading, error } = useQuery({
         queryKey: ['recent-vet-comments'],
         queryFn: async () => {
-            const res = await api.get<{ data: VetComment[] }>('/pigs/vet-comments?per_page=5')
+            const res = await api.get<{ data: VetComment[] }>('/animals/vet-comments?per_page=5')
             return res.data.data
         },
     })
@@ -76,7 +76,7 @@ export function VetCommentsWidget() {
                             <div
                                 key={comment.id}
                                 className="p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                                onClick={() => navigate(`/pigs/${comment.pig_id}`)}
+                                onClick={() => navigate(`/animals/${comment.animal_id}`)}
                             >
                                 <div className="flex items-start justify-between mb-2">
                                     <div className="flex items-center gap-2">
@@ -95,7 +95,7 @@ export function VetCommentsWidget() {
                                 </p>
                                 <div className="flex justify-end">
                                     <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full font-medium">
-                                        {t('dashboard.widgets.animals.earTag')}: {comment.pig_num}
+                                        {t('dashboard.widgets.animals.earTag')}: {comment.ear_tag}
                                     </span>
                                 </div>
                             </div>

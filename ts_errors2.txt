@@ -1,0 +1,110 @@
+﻿src/components/animal/AnimalTimelineView.tsx(55,5): error TS2339: Property 'animal' does not exist on type 'Props'.
+src/components/animal/AnimalTimelineView.tsx(108,13): error TS2304: Cannot find name 'pig'.
+src/components/animal/QuickEditAnimalDialog.tsx(59,7): error TS2304: Cannot find name 'pig'.
+src/components/animal/QuickEditAnimalDialog.tsx(120,13): error TS2304: Cannot find name 'pig'.
+src/components/animal/QuickEditAnimalDialog.tsx(128,33): error TS18048: 'animal' is possibly 'undefined'.
+src/components/animal/QuickEditAnimalDialog.tsx(128,96): error TS18048: 'animal' is possibly 'undefined'.
+src/components/animal/QuickEditAnimalDialog.tsx(132,33): error TS18048: 'animal' is possibly 'undefined'.
+src/components/animal/QuickEditAnimalDialog.tsx(136,33): error TS18048: 'animal' is possibly 'undefined'.
+src/components/animal/QuickEditAnimalDialog.tsx(136,61): error TS18048: 'animal' is possibly 'undefined'.
+src/components/animal/QuickEditAnimalDialog.tsx(136,108): error TS18048: 'animal' is possibly 'undefined'.
+src/components/animal/QuickEditAnimalDialog.tsx(140,51): error TS18048: 'animal' is possibly 'undefined'.
+src/components/animal/QuickEditAnimalDialog.tsx(145,28): error TS18048: 'animal' is possibly 'undefined'.
+src/components/animal/QuickEditAnimalDialog.tsx(145,57): error TS18048: 'animal' is possibly 'undefined'.
+src/components/animal/QuickEditAnimalDialog.tsx(153,37): error TS18048: 'animal' is possibly 'undefined'.
+src/components/dashboard/AnimalsOnMedicationWidget.tsx(94,38): error TS2304: Cannot find name 'pig'.
+src/components/dashboard/AnimalsOnMedicationWidget.tsx(96,55): error TS2304: Cannot find name 'pig'.
+src/pages/animals/AnimalDetailPage.tsx(183,14): error TS2304: Cannot find name 'pig'.
+src/pages/animals/AnimalDetailPage.tsx(481,8): error TS2304: Cannot find name 'pig'.
+src/pages/animals/AnimalDetailPage.tsx(520,8): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(548,68): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(552,67): error TS2345: Argument of type 'Animal | undefined' is not assignable to parameter of type '{ status: AnimalStatus; pen_location?: string | null | undefined; }'.
+  Type 'undefined' is not assignable to type '{ status: AnimalStatus; pen_location?: string | null | undefined; }'.
+src/pages/animals/AnimalDetailPage.tsx(556,45): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(556,73): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(556,120): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(563,20): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(563,49): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(568,45): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(570,16): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(570,51): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(570,89): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(574,22): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(575,30): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(577,22): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(579,36): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(590,23): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(591,28): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(600,51): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(600,63): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(605,20): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(607,50): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(611,45): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(613,23): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(650,55): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(651,45): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(658,63): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1347,39): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1357,47): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1361,68): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1365,56): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1369,64): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1373,47): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1377,47): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1381,65): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1386,22): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1386,51): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1391,47): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1395,47): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1400,22): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1400,56): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1405,69): error TS2345: Argument of type 'Animal | undefined' is not assignable to parameter of type '{ status: AnimalStatus; pen_location?: string | null | undefined; }'.
+  Type 'undefined' is not assignable to type '{ status: AnimalStatus; pen_location?: string | null | undefined; }'.
+src/pages/animals/AnimalDetailPage.tsx(1409,47): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1413,53): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1413,65): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1417,56): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1488,17): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1500,17): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1510,17): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1518,36): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1551,36): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1596,36): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1660,22): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1669,17): error TS2304: Cannot find name 'pig'.
+src/pages/animals/AnimalDetailPage.tsx(1715,17): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1723,17): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalDetailPage.tsx(1724,18): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalEditPage.tsx(93,7): error TS2304: Cannot find name 'pig'.
+src/pages/animals/AnimalEditPage.tsx(143,8): error TS2304: Cannot find name 'pig'.
+src/pages/animals/AnimalEditPage.tsx(168,43): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalEditPage.tsx(184,26): error TS2304: Cannot find name 'pig'.
+src/pages/animals/AnimalEditPage.tsx(214,26): error TS2304: Cannot find name 'pig'.
+src/pages/animals/AnimalEditPage.tsx(214,33): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalEditPage.tsx(214,61): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalEditPage.tsx(214,108): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalEditPage.tsx(224,26): error TS2304: Cannot find name 'pig'.
+src/pages/animals/AnimalEditPage.tsx(224,50): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalEditPage.tsx(234,26): error TS2304: Cannot find name 'pig'.
+src/pages/animals/AnimalEditPage.tsx(234,71): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalEditPage.tsx(257,26): error TS2304: Cannot find name 'pig'.
+src/pages/animals/AnimalEditPage.tsx(257,53): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalEditPage.tsx(257,53): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/pages/animals/AnimalEditPage.tsx(269,26): error TS2304: Cannot find name 'pig'.
+src/pages/animals/AnimalEditPage.tsx(269,53): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalEditPage.tsx(281,26): error TS2304: Cannot find name 'pig'.
+src/pages/animals/AnimalEditPage.tsx(281,61): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalEditPage.tsx(281,99): error TS18048: 'animal' is possibly 'undefined'.
+src/pages/animals/AnimalEditPage.tsx(292,26): error TS2304: Cannot find name 'pig'.
+src/pages/animals/AnimalsPage.tsx(672,16): error TS2304: Cannot find name 'animals'.
+src/pages/animals/AnimalsPage.tsx(893,45): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type 'Record<AnimalStatus, string>'.
+src/pages/my-projects/MyProjectDetailPage.tsx(74,41): error TS2304: Cannot find name 'pig'.
+src/pages/my-projects/MyProjectDetailPage.tsx(77,10): error TS2304: Cannot find name 'pig'.
+src/pages/my-projects/MyProjectDetailPage.tsx(539,77): error TS2304: Cannot find name 'pig'.
+src/pages/my-projects/MyProjectDetailPage.tsx(546,48): error TS2304: Cannot find name 'pig'.

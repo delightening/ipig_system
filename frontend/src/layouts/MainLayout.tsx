@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react' // 引入 React 核心 Hook：狀態、副作用、引用、效能優化
+﻿import { useState, useEffect, useRef, useMemo } from 'react' // 引入 React 核心 Hook：狀態、副作用、引用、效能優化
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom' // 引入路由組件與導覽 Hook
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query' // 引入資料獲取與變更管理工具
 import { useTranslation } from 'react-i18next' // 引入 i18n 翻譯 Hook
@@ -131,9 +131,9 @@ const navItemsConfig: NavItem[] = [
     icon: <Stethoscope className="h-5 w-5" />,
     translate: true,
     children: [
-      { title: 'animalList', href: '/pigs', translate: true },
+      { title: 'animalList', href: '/animals', translate: true },
       { title: '血檢分析', href: '/reports/blood-test-analysis', translate: false },
-      { title: '來源管理', href: '/pig-sources', permission: 'pig.source.manage', translate: false },
+      { title: '來源管理', href: '/animal-sources', permission: 'animal.source.manage', translate: false },
     ],
   },
   {
@@ -500,8 +500,8 @@ export function MainLayout() {
         case 'document':
           navigate(`/erp/documents/${notification.related_entity_id}`) // iPig ERP 單據頁
           break
-        case 'pig':
-          navigate(`/pigs/${notification.related_entity_id}`) // 動物詳細頁
+        case 'animal':
+          navigate(`/animals/${notification.related_entity_id}`) // 動物詳細頁
           break
         case 'amendment':
           navigate(`/protocols/amendments/${notification.related_entity_id}`) // 修正案頁

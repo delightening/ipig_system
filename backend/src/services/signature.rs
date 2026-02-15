@@ -1,4 +1,4 @@
-// 電子簽章服務 - GLP 合規
+﻿// 電子簽章服務 - GLP 合規
 // 用於犧牲記錄確認、計畫核准等需要簽章的操作
 
 use crate::{AppError, Result};
@@ -259,9 +259,9 @@ impl SignatureService {
         locked_by: Uuid,
     ) -> Result<()> {
         let table_name = match record_type {
-            "observation" => "pig_observations",
-            "surgery" => "pig_surgeries",
-            "sacrifice" => "pig_sacrifices",
+            "observation" => "animal_observations",
+            "surgery" => "animal_surgeries",
+            "sacrifice" => "animal_sacrifices",
             _ => return Err(AppError::Validation(format!("不支援的記錄類型: {}", record_type))),
         };
 
@@ -286,9 +286,9 @@ impl SignatureService {
         record_id: i32,
     ) -> Result<bool> {
         let table_name = match record_type {
-            "observation" => "pig_observations",
-            "surgery" => "pig_surgeries",
-            "sacrifice" => "pig_sacrifices",
+            "observation" => "animal_observations",
+            "surgery" => "animal_surgeries",
+            "sacrifice" => "animal_sacrifices",
             _ => return Err(AppError::Validation(format!("不支援的記錄類型: {}", record_type))),
         };
 

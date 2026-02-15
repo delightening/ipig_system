@@ -218,17 +218,17 @@
 
 ## 4. 實驗動物管理系統
 
-### 4.1 豬隻管理
+### 4.1 動物管理
 
 | 功能 | 後端 | 前端 | 狀態 | 備註 |
 |-----|:---:|:---:|:---:|------|
-| 豬隻列表 | ✅ | ✅ | ✅ | PigsPage |
+| 動物列表 | ✅ | ✅ | ✅ | AnimalsPage |
 | 依狀態篩選 | ✅ | ✅ | ✅ | Tab 切換 |
 | 依欄位分組檢視 | ✅ | ✅ | ✅ | 分組卡片視圖 |
 | 排序功能 | - | ✅ | ✅ | 支援耳號、進場日期、體重排序 |
-| 新增豬隻 | ✅ | ✅ | ✅ | |
-| 編輯豬隻 | ✅ | ✅ | ✅ | PigEditPage |
-| 豬隻詳情（7 Tab） | ✅ | ✅ | ✅ | PigDetailPage |
+| 新增動物 | ✅ | ✅ | ✅ | |
+| 編輯動物 | ✅ | ✅ | ✅ | AnimalEditPage |
+| 動物詳情（7 Tab） | ✅ | ✅ | ✅ | AnimalDetailPage |
 | 批次分配至計劃 | ✅ | ✅ | ✅ | |
 | 批次進入實驗 | ✅ | ✅ | ✅ | |
 | 匯入基本資料 | ✅ | ✅ | ✅ | ImportDialog，支援 Excel/CSV |
@@ -236,7 +236,7 @@
 | 下載匯入範本（Excel） | ✅ | ✅ | ✅ | 基本資料/體重範本 |
 | 下載匯入範本（CSV） | ✅ | ✅ | ✅ | 基本資料/體重 CSV 範本 |
 
-### 4.2 豬隻紀錄 - 觀察試驗紀錄
+### 4.2 動物紀錄 - 觀察試驗紀錄
 
 | 功能 | 後端 | 前端 | 狀態 | 備註 |
 |-----|:---:|:---:|:---:|------|
@@ -249,7 +249,7 @@
 | 獸醫師已讀標記 | ✅ | ✅ | ✅ | |
 | 獸醫師建議 | ✅ | ✅ | ✅ | VetRecommendationDialog |
 
-### 4.3 豬隻紀錄 - 手術紀錄
+### 4.3 動物紀錄 - 手術紀錄
 
 | 功能 | 後端 | 前端 | 狀態 | 備註 |
 |-----|:---:|:---:|:---:|------|
@@ -291,11 +291,11 @@
 | 觀察試驗紀錄匯出 | ✅ | ✅ | ✅ | |
 | 手術紀錄匯出 | ✅ | ✅ | ✅ | |
 
-### 4.7 豬隻來源管理
+### 4.7 動物來源管理
 
 | 功能 | 後端 | 前端 | 狀態 | 備註 |
 |-----|:---:|:---:|:---:|------|
-| 來源列表 | ✅ | ✅ | ✅ | PigSourcesPage |
+| 來源列表 | ✅ | ✅ | ✅ | AnimalSourcesPage |
 | 新增來源 | ✅ | ✅ | ✅ | |
 | 編輯來源 | ✅ | ✅ | ✅ | |
 | 刪除來源 | ✅ | ✅ | ✅ | |
@@ -316,7 +316,7 @@
 | 功能 | 後端 | 前端 | 狀態 | 備註 |
 |-----|:---:|:---:|:---:|------|
 | AUP 計畫書 PDF 匯出 | ✅ | ✅ | ✅ | 全 9 節完整呈現 |
-| 豬隻病歷 PDF 匯出 | ✅ | ✅ | ✅ | 含觀察/手術紀錄 |
+| 動物病歷 PDF 匯出 | ✅ | ✅ | ✅ | 含觀察/手術紀錄 |
 
 ### 4.10 資料分析
 
@@ -528,6 +528,26 @@
 - ✅ 實驗動物管理 23 個寫入操作接入審計系統
 - ✅ 角色權限修復（WAREHOUSE_MANAGER / ADMIN_STAFF / EXPERIMENT_STAFF）
 
+### 2026-02-15 (下午)
+
+- ✅ **P2 豬隻→動物命名全面重構**：
+  - DB migration `012_rename_pig_to_animal.sql`：6 個 enum、10 個表、18 個索引、所有 `pig_id`→`animal_id` 欄位重命名
+  - 後端 42+ Rust 檔案：models/handlers/services/routes 全面更新，路由 `/pigs`→`/animals`
+  - 前端 47+ TypeScript 檔案：types/pages/components 重命名與內容更新
+  - 測試 2 檔案更新（`test_animal_full.py`、`test_blood_panel.py`）
+  - 前端 `npx tsc --noEmit` 編譯通過（0 錯誤）
+
+### 2026-02-15 (晚間)
+
+- ✅ **後端編譯修復（pig → animal 殘留清理）**：
+  - 修正 `Pig` → `Animal` 匯入和型別引用（`animal_core.rs`、`core.rs`、`medical.rs`）
+  - `upload_pig_photo` → `upload_animal_photo`、`pig_breed` → `animal_breed` SQL 型別
+  - `pig_ear_tag`/`pig_iacuc_no` → `animal_ear_tag`/`animal_iacuc_no`（euthanasia model + service + 前端 2 檔）
+  - `pigEarTag` → `animalEarTag`（`VetRecommendationDialog` + `AnimalDetailPage`）
+  - Migration 012 修復（移除不存在的 `pig_export_records` 表）並成功套用
+  - 刪除全部 `.sqlx/` 快取、`cargo sqlx prepare` 重建 50 個快取檔案
+  - `cargo build --release` ✅ 通過
+
 ### 2026-02-15
 
 - ✅ **P1 資料分析模組**：血液檢查結果分析頁面完整實作
@@ -588,6 +608,8 @@
   - SEC-27 安全回應標頭（`main.rs` API 層 + `nginx.conf` CSP）
   - SEC-28 Session 併發限制（`handlers/auth.rs` 登入後自動裁減超額 session）
   - 前端增強：`App.tsx` ProtectedRoute isInitialized loading、`auth.ts` isInitialized flag
+- ✅ **豬隻→動物命名全端重構**：後端 19 檔案（seed/permissions/handlers/services/file/middleware）、前端 17 檔案（翻譯 key/queryKey/entity type/local variable/comments）、翻譯 JSON 2 檔案，共計 ~180 處修改。`cargo build` 和 `tsc --noEmit` 均通過
+- ✅ **豬隻→動物最終掃描修正**：追加修正前端 7 檔案（`api.ts`、`BloodTestTab.tsx`、`QuickEditAnimalDialog.tsx`、`ImportDialog.tsx`、`VetCommentsWidget.tsx`、`AnimalEditPage.tsx`、`types/animal.ts`）+ 後端 7 檔案（`euthanasia.rs`、`import_export.rs`、`upload.rs`、`dashboard.rs`、`blood_test.rs`、`alert.rs`、`numbering.rs`）。`tsc --noEmit` exit code 0。前端 0 殘留、後端僅剩品牌 logo
 
 ### 2026-02-06 ~ 2026-02-08
 

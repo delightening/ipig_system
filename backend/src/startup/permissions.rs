@@ -113,7 +113,7 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ]),
         
         // ============================================
-        // PI (計畫主持人) - 計畫管理、豬隻查看
+        // PI (計畫主持人) - 計畫管理、動物查看
         // ============================================
         ("PI", vec![
             // 計畫管理
@@ -127,7 +127,7 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             // 版本管理（含還原）
             "aup.version.view", "aup.version.restore",
             // 動物管理
-            "pig.pig.view_project",
+            "animal.animal.view_project",
             "animal.record.view",
             // 匯出
             "animal.export.medical", "animal.export.observation", "animal.export.surgery",
@@ -228,7 +228,7 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ]),
         
         // ============================================
-        // EXPERIMENT_STAFF (試驗工作人員) - Co-Editor 協助編輯、豬隻紀錄、ERP 查詢
+        // EXPERIMENT_STAFF (試驗工作人員) - Co-Editor 協助編輯、動物紀錄、ERP 查詢
         // ============================================
         ("EXPERIMENT_STAFF", vec![
             // 計畫管理（僅 Co-Editor 權限，不可獨立建立/提交/刪除計畫）
@@ -300,7 +300,7 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ]),
         
         // ============================================
-        // CLIENT (委託人) - 計畫/豬隻查看（僅自己相關）
+        // CLIENT (委託人) - 計畫/動物查看（僅自己相關）
         // ============================================
         ("CLIENT", vec![
             // 計畫查看
@@ -312,7 +312,7 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             // 版本管理
             "aup.version.view",
             // 動物查看
-            "pig.pig.view_project",
+            "animal.animal.view_project",
             "animal.record.view",
             // 匯出
             "animal.export.medical", "animal.export.observation", "animal.export.surgery",

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 use tokio_cron_scheduler::{Job, JobScheduler};
 use sqlx::PgPool;
 use tracing::{info, error};
@@ -487,9 +487,9 @@ impl SchedulerService {
         let blood_test_stats: Vec<(Option<String>, String, i64)> = sqlx::query_as(
             r#"
             SELECT p.iacuc_no, bti.item_name, COUNT(*) as cnt
-            FROM pig_blood_test_items bti
-            JOIN pig_blood_tests bt ON bti.blood_test_id = bt.id
-            JOIN pigs pg ON bt.pig_id = pg.id
+            FROM animal_blood_test_items bti
+            JOIN animal_blood_tests bt ON bti.blood_test_id = bt.id
+            JOIN animals pg ON bt.animal_id = pg.id
             LEFT JOIN protocols p ON pg.protocol_id = p.id
             WHERE bt.test_date BETWEEN $1 AND $2
             GROUP BY p.iacuc_no, bti.item_name

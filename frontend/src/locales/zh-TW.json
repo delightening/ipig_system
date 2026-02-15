@@ -310,7 +310,7 @@
       },
       "tabs": {
         "content": "計畫內容",
-        "pigs": "豬隻紀錄",
+        "animals": "動物紀錄",
         "versions": "版本記錄",
         "history": "狀態歷程",
         "comments": "審查意見",
@@ -334,8 +334,8 @@
         "coeditorsDesc": "指派的試驗工作人員（co-editor）列表",
         "attachmentsTitle": "附件",
         "attachmentsDesc": "計畫書相關文件與檔案",
-        "pigsTitle": "豬隻紀錄",
-        "pigsDesc": "此計畫下所有已分配豬隻清單"
+        "animalsTitle": "動物紀錄",
+        "animalsDesc": "此計畫下所有已分配動物清單"
       },
       "dialogs": {
         "status": {
@@ -423,8 +423,8 @@
         "upload": "上傳附件",
         "noAttachments": "尚無附件",
         "uploadFirst": "上傳第一個附件",
-        "noPigs": "尚無豬隻紀錄",
-        "noPigsDesc": "此計畫目前尚未分配豬隻"
+        "noAnimals": "尚無動物紀錄",
+        "noAnimalsDesc": "此計畫目前尚未分配動物"
       },
       "actions": {
         "reply": "回覆",
@@ -1371,15 +1371,15 @@
       "save": "儲存通知設定"
     }
   },
-  "pigs": {
+  "animals": {
     "title": "動物列表",
     "description": "管理系統中的所有實驗動物",
     "generateReport": "產生欄位狀態表",
     "importWeight": "匯入體重",
     "importBasic": "匯入基本資料",
     "batchExport": "批次匯出病歷",
-    "addPig": "新增動物",
-    "searchPlaceholder": "搜尋耳號、欄位、IACUC NO...",
+    "addAnimal": "新增動物",
+    "searchPlaceholder": "搜尋耳號、欄位、IACUC No...",
     "breedFilter": "品種",
     "allBreeds": "全部品種",
     "selectedCount": "已選擇 {{count}} 隻",
@@ -1387,7 +1387,7 @@
     "systemNo": "系統號",
     "earTag": "耳號",
     "pen": "欄位",
-    "iacucNo": "IACUC NO.",
+    "iacucNo": "IACUC No.",
     "status": "狀態",
     "breed": "品種",
     "gender": "性別",
@@ -1396,13 +1396,13 @@
     "entryDate": "進場日期",
     "currentWeight": "現在體重",
     "actions": "動作",
-    "noPigsFound": "沒有符合條件的豬隻",
+    "noAnimalsFound": "沒有符合條件的動物",
     "notAssigned": "未分配",
     "onMedication": "是",
     "notOnMedication": "否",
     "statusLabels": {
       "pen": "欄位",
-      "all": "所有豬隻",
+      "all": "所有動物",
       "unassigned": "未分配",
       "in_experiment": "實驗中",
       "completed": "實驗完成"

@@ -1,0 +1,3 @@
+﻿src/pages/animals/AnimalDetailPage.tsx(1508,9): error TS2322: Type '"single_animal"' is not assignable to type 'ExportType'.
+src/pages/animals/AnimalsPage.tsx(672,16): error TS2304: Cannot find name 'animals'.
+src/pages/animals/AnimalsPage.tsx(893,45): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type 'Record<AnimalStatus, string>'.

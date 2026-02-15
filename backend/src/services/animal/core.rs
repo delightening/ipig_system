@@ -1,22 +1,22 @@
-use sqlx::PgPool;
+﻿use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::AnimalService;
 use crate::{
     models::{
-        BatchAssignRequest, CreatePigRequest, CreateWeightRequest, Pig, PigListItem, PigQuery,
-        PigStatus, PigsByPen, UpdatePigRequest,
+        BatchAssignRequest, CreateAnimalRequest, CreateWeightRequest, Animal, AnimalListItem, AnimalQuery,
+        AnimalStatus, AnimalsByPen, UpdateAnimalRequest,
     },
     AppError, Result,
 };
 
 impl AnimalService {
     // ============================================
-    // 豬隻管理
+    // 動物管理
     // ============================================
 
-    /// 取得豬隻列表
-    pub async fn list(pool: &PgPool, query: &PigQuery) -> Result<Vec<PigListItem>> {
+    /// 取得動物列表
+    pub async fn list(pool: &PgPool, query: &AnimalQuery) -> Result<Vec<AnimalListItem>> {
         // Build query with proper parameterized queries
         let mut query_builder = sqlx::QueryBuilder::new(
             r#"
@@ -26,22 +26,22 @@ impl AnimalService {
                 p.vet_last_viewed_at, p.created_at,
                 -- Computed fields for frontend
                 EXISTS(
-                    SELECT 1 FROM pig_observations po 
-                    WHERE po.pig_id = p.id 
+                    SELECT 1 FROM animal_observations po 
+                    WHERE po.animal_id = p.id 
                     AND po.record_type = 'abnormal'::record_type
                 ) as has_abnormal_record,
                 -- 檢查是否正在用藥：
                 -- 只要觀察試驗紀錄或手術紀錄中有任何一筆 no_medication_needed = false，則為正在用藥
                 (
                     EXISTS(
-                        SELECT 1 FROM pig_observations po 
-                        WHERE po.pig_id = p.id 
+                        SELECT 1 FROM animal_observations po 
+                        WHERE po.animal_id = p.id 
                         AND po.no_medication_needed = false
                     )
                     OR
                     EXISTS(
-                        SELECT 1 FROM pig_surgeries ps 
-                        WHERE ps.pig_id = p.id 
+                        SELECT 1 FROM animal_surgeries ps 
+                        WHERE ps.animal_id = p.id 
                         AND ps.no_medication_needed = false
                     )
                 ) as is_on_medication,
@@ -49,29 +49,29 @@ impl AnimalService {
                     SELECT MAX(vr.created_at) 
                     FROM vet_recommendations vr
                     WHERE (vr.record_type = 'observation'::vet_record_type AND vr.record_id IN (
-                        SELECT id FROM pig_observations WHERE pig_id = p.id
+                        SELECT id FROM animal_observations WHERE animal_id = p.id
                     ))
                     OR (vr.record_type = 'surgery'::vet_record_type AND vr.record_id IN (
-                        SELECT id FROM pig_surgeries WHERE pig_id = p.id
+                        SELECT id FROM animal_surgeries WHERE animal_id = p.id
                     ))
                 ) as vet_recommendation_date,
                 -- 最新體重
                 (
                     SELECT pw.weight 
-                    FROM pig_weights pw 
-                    WHERE pw.pig_id = p.id 
+                    FROM animal_weights pw 
+                    WHERE pw.animal_id = p.id 
                     ORDER BY pw.measure_date DESC 
                     LIMIT 1
                 ) as latest_weight,
                 (
                     SELECT pw.measure_date 
-                    FROM pig_weights pw 
-                    WHERE pw.pig_id = p.id 
+                    FROM animal_weights pw 
+                    WHERE pw.animal_id = p.id 
                     ORDER BY pw.measure_date DESC 
                     LIMIT 1
                 ) as latest_weight_date
-            FROM pigs p
-            LEFT JOIN pig_sources s ON p.source_id = s.id
+            FROM animals p
+            LEFT JOIN animal_sources s ON p.source_id = s.id
             WHERE p.deleted_at IS NULL
             "#
         );
@@ -85,10 +85,10 @@ impl AnimalService {
         if let Some(breed) = &query.breed {
             // 轉換 breed enum 為資料庫期望的字串值
             let breed_str = match breed {
-                crate::models::PigBreed::Minipig => "miniature",
-                crate::models::PigBreed::White => "white",
-                crate::models::PigBreed::LYD => "LYD",
-                crate::models::PigBreed::Other => "other",
+                crate::models::AnimalBreed::Minipig => "miniature",
+                crate::models::AnimalBreed::White => "white",
+                crate::models::AnimalBreed::LYD => "LYD",
+                crate::models::AnimalBreed::Other => "other",
             };
             query_builder.push(" AND p.breed = ");
             query_builder.push_bind(breed_str);
@@ -111,14 +111,14 @@ impl AnimalService {
             query_builder.push(r#"
                 AND (
                     EXISTS(
-                        SELECT 1 FROM pig_observations po 
-                        WHERE po.pig_id = p.id 
+                        SELECT 1 FROM animal_observations po 
+                        WHERE po.animal_id = p.id 
                         AND po.no_medication_needed = false
                     )
                     OR
                     EXISTS(
-                        SELECT 1 FROM pig_surgeries ps 
-                        WHERE ps.pig_id = p.id 
+                        SELECT 1 FROM animal_surgeries ps 
+                        WHERE ps.animal_id = p.id 
                         AND ps.no_medication_needed = false
                     )
                 )
@@ -127,20 +127,20 @@ impl AnimalService {
 
         query_builder.push(" ORDER BY p.id DESC");
 
-        let mut pigs = query_builder
-            .build_query_as::<PigListItem>()
+        let mut animals = query_builder
+            .build_query_as::<AnimalListItem>()
             .fetch_all(pool)
             .await?;
 
         // 格式化所有耳號與欄位編號
-        for pig in &mut pigs {
-            pig.ear_tag = Self::format_ear_tag(&pig.ear_tag);
-            if let Some(pen) = &pig.pen_location {
-                pig.pen_location = Some(Self::format_pen_location(pen));
+        for animal in &mut animals {
+            animal.ear_tag = Self::format_ear_tag(&animal.ear_tag);
+            if let Some(pen) = &animal.pen_location {
+                animal.pen_location = Some(Self::format_pen_location(pen));
             }
         }
 
-        Ok(pigs)
+        Ok(animals)
     }
 
     /// 取得使用者關聯計畫的 IACUC 編號清單
@@ -161,16 +161,16 @@ impl AnimalService {
         Ok(iacuc_nos)
     }
 
-    /// 依欄位分組取得豬隻
-    pub async fn list_by_pen(pool: &PgPool) -> Result<Vec<PigsByPen>> {
-        let mut pigs = sqlx::query_as::<_, PigListItem>(
+    /// 依欄位分組取得動物
+    pub async fn list_by_pen(pool: &PgPool) -> Result<Vec<AnimalsByPen>> {
+        let mut animals = sqlx::query_as::<_, AnimalListItem>(
             r#"
             SELECT 
                 p.id, p.animal_no, p.ear_tag, p.status, p.breed, p.breed_other, p.gender, p.pen_location,
                 p.iacuc_no, p.entry_date, s.name as source_name,
                 p.vet_last_viewed_at, p.created_at
-            FROM pigs p
-            LEFT JOIN pig_sources s ON p.source_id = s.id
+            FROM animals p
+            LEFT JOIN animal_sources s ON p.source_id = s.id
             WHERE p.pen_location IS NOT NULL
             AND p.deleted_at IS NULL
             ORDER BY p.pen_location, p.id
@@ -180,58 +180,58 @@ impl AnimalService {
         .await?;
 
         // 格式化所有耳號與欄位編號
-        for pig in &mut pigs {
-            pig.ear_tag = Self::format_ear_tag(&pig.ear_tag);
-            if let Some(pen) = &pig.pen_location {
-                pig.pen_location = Some(Self::format_pen_location(pen));
+        for animal in &mut animals {
+            animal.ear_tag = Self::format_ear_tag(&animal.ear_tag);
+            if let Some(pen) = &animal.pen_location {
+                animal.pen_location = Some(Self::format_pen_location(pen));
             }
         }
 
         // 依欄位分組
-        let mut grouped: std::collections::HashMap<String, Vec<PigListItem>> = std::collections::HashMap::new();
-        for pig in pigs {
-            if let Some(pen) = &pig.pen_location {
-                grouped.entry(pen.clone()).or_default().push(pig);
+        let mut grouped: std::collections::HashMap<String, Vec<AnimalListItem>> = std::collections::HashMap::new();
+        for animal in animals {
+            if let Some(pen) = &animal.pen_location {
+                grouped.entry(pen.clone()).or_default().push(animal);
             }
         }
 
-        let result: Vec<PigsByPen> = grouped
+        let result: Vec<AnimalsByPen> = grouped
             .into_iter()
-            .map(|(pen, pigs)| PigsByPen {
+            .map(|(pen, animals)| AnimalsByPen {
                 pen_location: pen,
-                pigs,
+                animals,
             })
             .collect();
 
         Ok(result)
     }
 
-    /// 取得單一豬隻
-    pub async fn get_by_id(pool: &PgPool, id: Uuid) -> Result<Pig> {
-        let mut pig = sqlx::query_as::<_, Pig>(
+    /// 取得單一動物
+    pub async fn get_by_id(pool: &PgPool, id: Uuid) -> Result<Animal> {
+        let mut animal = sqlx::query_as::<_, Animal>(
             r#"
             SELECT p.*,
                 (SELECT u.display_name FROM users u WHERE u.id = p.experiment_assigned_by) AS experiment_assigned_by_name
-            FROM pigs p
+            FROM animals p
             WHERE p.id = $1 AND p.deleted_at IS NULL
             "#
         )
             .bind(id)
             .fetch_optional(pool)
             .await?
-            .ok_or_else(|| AppError::NotFound("Pig not found".to_string()))?;
+            .ok_or_else(|| AppError::NotFound("Animal not found".to_string()))?;
 
         // 格式化耳號與欄位編號
-        pig.ear_tag = Self::format_ear_tag(&pig.ear_tag);
-        if let Some(pen) = &pig.pen_location {
-            pig.pen_location = Some(Self::format_pen_location(pen));
+        animal.ear_tag = Self::format_ear_tag(&animal.ear_tag);
+        if let Some(pen) = &animal.pen_location {
+            animal.pen_location = Some(Self::format_pen_location(pen));
         }
 
-        Ok(pig)
+        Ok(animal)
     }
 
-    /// 建立豬隻
-    pub async fn create(pool: &PgPool, req: &CreatePigRequest, created_by: Uuid) -> Result<Pig> {
+    /// 建立動物
+    pub async fn create(pool: &PgPool, req: &CreateAnimalRequest, created_by: Uuid) -> Result<Animal> {
         // 格式化耳號：如果是數字則補零至三位數
         let formatted_ear_tag = if let Ok(num) = req.ear_tag.parse::<u32>() {
             format!("{:03}", num)
@@ -247,10 +247,10 @@ impl AnimalService {
         }
 
         // 檢查耳號是否已存在（僅查未刪除且存活的動物，排除已犧牲 completed）
-        let existing_pigs: Vec<(Uuid, Option<chrono::NaiveDate>, String, Option<String>)> = sqlx::query_as(
+        let existing_animals: Vec<(Uuid, Option<chrono::NaiveDate>, String, Option<String>)> = sqlx::query_as(
             r#"
             SELECT id, birth_date, status::text, pen_location
-            FROM pigs
+            FROM animals
             WHERE ear_tag = $1 AND deleted_at IS NULL AND status != 'completed'
             "#
         )
@@ -258,9 +258,9 @@ impl AnimalService {
         .fetch_all(pool)
         .await?;
 
-        if !existing_pigs.is_empty() {
+        if !existing_animals.is_empty() {
             // 檢查是否有同出生日期的 → 完全阻擋
-            let same_birthday = existing_pigs.iter().any(|(_, bd, _, _)| *bd == req.birth_date);
+            let same_birthday = existing_animals.iter().any(|(_, bd, _, _)| *bd == req.birth_date);
             if same_birthday {
                 return Err(AppError::Conflict(
                     format!("耳號 {} 已存在同出生日期的存活動物，無法重複建立", formatted_ear_tag)
@@ -269,7 +269,7 @@ impl AnimalService {
 
             // 不同出生日期，且未 force_create → 回傳警告
             if !req.force_create {
-                let pigs_info: Vec<serde_json::Value> = existing_pigs.iter().map(|(id, bd, status, pen)| {
+                let animals_info: Vec<serde_json::Value> = existing_animals.iter().map(|(id, bd, status, pen)| {
                     serde_json::json!({
                         "id": id,
                         "birth_date": bd.map(|d| d.to_string()),
@@ -279,7 +279,7 @@ impl AnimalService {
                 }).collect();
                 return Err(AppError::DuplicateWarning {
                     message: format!("耳號 {} 已存在其他存活動物，請確認是否繼續建立", formatted_ear_tag),
-                    existing_pigs: pigs_info,
+                    existing_animals: animals_info,
                 });
             }
         }
@@ -292,25 +292,25 @@ impl AnimalService {
 
         // 將 breed enum 轉換為資料庫期望的字串值
         let breed_str = match req.breed {
-            crate::models::PigBreed::Minipig => "miniature",
-            crate::models::PigBreed::White => "white",
-            crate::models::PigBreed::LYD => "LYD",
-            crate::models::PigBreed::Other => "other",
+            crate::models::AnimalBreed::Minipig => "miniature",
+            crate::models::AnimalBreed::White => "white",
+            crate::models::AnimalBreed::LYD => "LYD",
+            crate::models::AnimalBreed::Other => "other",
         };
         
-        let pig = sqlx::query_as::<_, Pig>(
+        let animal = sqlx::query_as::<_, Animal>(
             r#"
-            INSERT INTO pigs (
+            INSERT INTO animals (
                 ear_tag, status, breed, breed_other, source_id, gender, birth_date,
                 entry_date, entry_weight, pen_location, pre_experiment_code,
                 remark, created_by, created_at, updated_at
             )
-            VALUES ($1, $2, $3::pig_breed, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+            VALUES ($1, $2, $3::animal_breed, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
             RETURNING *
             "#
         )
         .bind(&formatted_ear_tag)
-        .bind(PigStatus::Unassigned)
+        .bind(AnimalStatus::Unassigned)
         .bind(breed_str)
         .bind(&req.breed_other)
         .bind(req.source_id)
@@ -346,17 +346,17 @@ impl AnimalService {
             measure_date: req.entry_date,
             weight: req.entry_weight,
         };
-        // 忽略錯誤，避免影響豬隻建立
-        if let Err(e) = Self::create_weight(pool, pig.id, &weight_req, created_by).await {
+        // 忽略錯誤，避免影響動物建立
+        if let Err(e) = Self::create_weight(pool, animal.id, &weight_req, created_by).await {
             tracing::warn!("建立初始體重紀錄失敗: {e}");
         }
 
 
-        Ok(pig)
+        Ok(animal)
     }
 
-    /// 更新豬隻
-    pub async fn update(pool: &PgPool, id: Uuid, req: &UpdatePigRequest, updated_by: Uuid) -> Result<Pig> {
+    /// 更新動物
+    pub async fn update(pool: &PgPool, id: Uuid, req: &UpdateAnimalRequest, updated_by: Uuid) -> Result<Animal> {
         // 以下欄位於建立後不可更改，不會在更新時修改：
         // - ear_tag (耳號)
         // - breed (品種)
@@ -368,11 +368,11 @@ impl AnimalService {
         // - pre_experiment_code (實驗前代號)
         
         // 當狀態設為 InExperiment 時，自動記錄分配者與分配日期
-        let is_assigning_to_experiment = req.status == Some(PigStatus::InExperiment);
+        let is_assigning_to_experiment = req.status == Some(AnimalStatus::InExperiment);
         
-        let pig = sqlx::query_as::<_, Pig>(
+        let animal = sqlx::query_as::<_, Animal>(
             r#"
-            UPDATE pigs SET
+            UPDATE animals SET
                 status = COALESCE($2, status),
                 pen_location = COALESCE($3, pen_location),
                 iacuc_no = COALESCE($4, iacuc_no),
@@ -396,12 +396,12 @@ impl AnimalService {
         .fetch_one(pool)
         .await?;
 
-        Ok(pig)
+        Ok(animal)
     }
 
-    /// 軟刪除豬隻
+    /// 軟刪除動物
     pub async fn delete(pool: &PgPool, id: Uuid) -> Result<()> {
-        sqlx::query("UPDATE pigs SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL")
+        sqlx::query("UPDATE animals SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL")
             .bind(id)
             .execute(pool)
             .await?;
@@ -409,13 +409,13 @@ impl AnimalService {
         Ok(())
     }
 
-    /// 軟刪除豬隻（含刪除原因）- GLP 合規
+    /// 軟刪除動物（含刪除原因）- GLP 合規
     pub async fn delete_with_reason(pool: &PgPool, id: Uuid, reason: &str, deleted_by: Uuid) -> Result<()> {
         // 記錄到 change_reasons 表
         sqlx::query(
             r#"
             INSERT INTO change_reasons (entity_type, entity_id, change_type, reason, changed_by)
-            VALUES ('pig', $1::text, 'DELETE', $2, $3)
+            VALUES ('animal', $1::text, 'DELETE', $2, $3)
             "#
         )
         .bind(id.to_string())
@@ -427,7 +427,7 @@ impl AnimalService {
         // 執行軟刪除
         sqlx::query(
             r#"
-            UPDATE pigs SET 
+            UPDATE animals SET 
                 deleted_at = NOW(), 
                 deletion_reason = $2,
                 deleted_by = $3,
@@ -444,15 +444,15 @@ impl AnimalService {
         Ok(())
     }
 
-    /// 批次分配豬隻至計劃
+    /// 批次分配動物至計劃
     /// 分配後直接進入實驗中狀態（跳過已分配狀態）
-    pub async fn batch_assign(pool: &PgPool, req: &BatchAssignRequest, assigned_by: Uuid) -> Result<Vec<Pig>> {
-        let mut updated_pigs = Vec::new();
+    pub async fn batch_assign(pool: &PgPool, req: &BatchAssignRequest, assigned_by: Uuid) -> Result<Vec<Animal>> {
+        let mut updated_animals = Vec::new();
 
-        for pig_id in &req.pig_ids {
-            let pig = sqlx::query_as::<_, Pig>(
+        for animal_id in &req.animal_ids {
+            let animal = sqlx::query_as::<_, Animal>(
                 r#"
-                UPDATE pigs SET
+                UPDATE animals SET
                     iacuc_no = $2,
                     status = $3,
                     experiment_date = CURRENT_DATE,
@@ -462,19 +462,19 @@ impl AnimalService {
                 RETURNING *
                 "#
             )
-            .bind(pig_id)
+            .bind(animal_id)
             .bind(&req.iacuc_no)
-            .bind(PigStatus::InExperiment)
-            .bind(PigStatus::Unassigned)
+            .bind(AnimalStatus::InExperiment)
+            .bind(AnimalStatus::Unassigned)
             .bind(assigned_by)
             .fetch_optional(pool)
             .await?;
 
-            if let Some(p) = pig {
-                updated_pigs.push(p);
+            if let Some(a) = animal {
+                updated_animals.push(a);
             }
         }
 
-        Ok(updated_pigs)
+        Ok(updated_animals)
     }
 }

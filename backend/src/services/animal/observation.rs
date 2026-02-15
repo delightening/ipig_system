@@ -1,10 +1,10 @@
-use sqlx::PgPool;
+﻿use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::AnimalService;
 use crate::{
     models::{
-        CreateObservationRequest, ObservationListItem, PigObservation, UpdateObservationRequest,
+        CreateObservationRequest, ObservationListItem, AnimalObservation, UpdateObservationRequest,
     },
     AppError, Result,
 };
@@ -15,11 +15,11 @@ impl AnimalService {
     // ============================================
 
     /// 取得觀察紀錄列表（排除已刪除）
-    pub async fn list_observations(pool: &PgPool, pig_id: Uuid) -> Result<Vec<PigObservation>> {
-        let observations = sqlx::query_as::<_, PigObservation>(
-            "SELECT * FROM pig_observations WHERE pig_id = $1 ORDER BY event_date DESC"
+    pub async fn list_observations(pool: &PgPool, animal_id: Uuid) -> Result<Vec<AnimalObservation>> {
+        let observations = sqlx::query_as::<_, AnimalObservation>(
+            "SELECT * FROM animal_observations WHERE animal_id = $1 ORDER BY event_date DESC"
         )
-        .bind(pig_id)
+        .bind(animal_id)
         .fetch_all(pool)
         .await?;
 
@@ -27,20 +27,20 @@ impl AnimalService {
     }
 
     /// 取得觀察紀錄列表（含獸醫師建議數量）
-    pub async fn list_observations_with_recommendations(pool: &PgPool, pig_id: Uuid) -> Result<Vec<ObservationListItem>> {
+    pub async fn list_observations_with_recommendations(pool: &PgPool, animal_id: Uuid) -> Result<Vec<ObservationListItem>> {
         let observations = sqlx::query_as::<_, ObservationListItem>(
             r#"
             SELECT 
-                o.id, o.pig_id, o.event_date, o.record_type, o.content,
+                o.id, o.animal_id, o.event_date, o.record_type, o.content,
                 o.no_medication_needed, o.vet_read, o.vet_read_at,
                 o.created_by, o.created_at,
                 (SELECT COUNT(*) FROM vet_recommendations vr WHERE vr.record_type = 'observation' AND vr.record_id = o.id) as recommendation_count
-            FROM pig_observations o
-            WHERE o.pig_id = $1
+            FROM animal_observations o
+            WHERE o.animal_id = $1
             ORDER BY o.event_date DESC
             "#
         )
-        .bind(pig_id)
+        .bind(animal_id)
         .fetch_all(pool)
         .await?;
 
@@ -48,9 +48,9 @@ impl AnimalService {
     }
 
     /// 取得單一觀察紀錄
-    pub async fn get_observation_by_id(pool: &PgPool, id: Uuid) -> Result<PigObservation> {
-        let observation = sqlx::query_as::<_, PigObservation>(
-            "SELECT * FROM pig_observations WHERE id = $1"
+    pub async fn get_observation_by_id(pool: &PgPool, id: Uuid) -> Result<AnimalObservation> {
+        let observation = sqlx::query_as::<_, AnimalObservation>(
+            "SELECT * FROM animal_observations WHERE id = $1"
         )
         .bind(id)
         .fetch_optional(pool)
@@ -62,10 +62,10 @@ impl AnimalService {
 
     pub async fn create_observation(
         pool: &PgPool,
-        pig_id: Uuid,
+        animal_id: Uuid,
         req: &CreateObservationRequest,
         created_by: Uuid,
-    ) -> Result<PigObservation> {
+    ) -> Result<AnimalObservation> {
         // 如果是緊急給藥，設定狀態為 pending_review
         let emergency_status = if req.is_emergency {
             Some("pending_review".to_string())
@@ -73,10 +73,10 @@ impl AnimalService {
             None
         };
 
-        let observation = sqlx::query_as::<_, PigObservation>(
+        let observation = sqlx::query_as::<_, AnimalObservation>(
             r#"
-            INSERT INTO pig_observations (
-                pig_id, event_date, record_type, equipment_used, anesthesia_start,
+            INSERT INTO animal_observations (
+                animal_id, event_date, record_type, equipment_used, anesthesia_start,
                 anesthesia_end, content, no_medication_needed, treatments, remark,
                 is_emergency, emergency_status, emergency_reason,
                 created_by, created_at, updated_at
@@ -85,7 +85,7 @@ impl AnimalService {
             RETURNING *
             "#
         )
-        .bind(pig_id)
+        .bind(animal_id)
         .bind(req.event_date)
         .bind(req.record_type)
         .bind(&req.equipment_used)
@@ -111,16 +111,16 @@ impl AnimalService {
         id: Uuid,
         req: &UpdateObservationRequest,
         updated_by: Uuid,
-    ) -> Result<PigObservation> {
+    ) -> Result<AnimalObservation> {
         // 先取得原始紀錄用於版本歷史
         let original = Self::get_observation_by_id(pool, id).await?;
         
         // 保存版本歷史
         Self::save_record_version(pool, "observation", id, &original, updated_by).await?;
 
-        let observation = sqlx::query_as::<_, PigObservation>(
+        let observation = sqlx::query_as::<_, AnimalObservation>(
             r#"
-            UPDATE pig_observations SET
+            UPDATE animal_observations SET
                 event_date = COALESCE($2, event_date),
                 record_type = COALESCE($3, record_type),
                 equipment_used = COALESCE($4, equipment_used),
@@ -154,7 +154,7 @@ impl AnimalService {
     /// 刪除觀察紀錄
     pub async fn soft_delete_observation(pool: &PgPool, id: Uuid) -> Result<()> {
         sqlx::query(
-            "DELETE FROM pig_observations WHERE id = $1"
+            "DELETE FROM animal_observations WHERE id = $1"
         )
         .bind(id)
         .execute(pool)
@@ -181,7 +181,7 @@ impl AnimalService {
         // 軟刪除（更新 deleted_at 而非硬刪除）
         sqlx::query(
             r#"
-            UPDATE pig_observations SET 
+            UPDATE animal_observations SET 
                 deleted_at = NOW(), 
                 deletion_reason = $2,
                 deleted_by = $3
@@ -200,16 +200,16 @@ impl AnimalService {
     /// 複製觀察紀錄
     pub async fn copy_observation(
         pool: &PgPool,
-        pig_id: Uuid,
+        animal_id: Uuid,
         source_id: Uuid,
         created_by: Uuid,
-    ) -> Result<PigObservation> {
+    ) -> Result<AnimalObservation> {
         let source = Self::get_observation_by_id(pool, source_id).await?;
 
-        let observation = sqlx::query_as::<_, PigObservation>(
+        let observation = sqlx::query_as::<_, AnimalObservation>(
             r#"
-            INSERT INTO pig_observations (
-                pig_id, event_date, record_type, equipment_used, anesthesia_start,
+            INSERT INTO animal_observations (
+                animal_id, event_date, record_type, equipment_used, anesthesia_start,
                 anesthesia_end, content, no_medication_needed, treatments, remark,
                 created_by, created_at, updated_at
             )
@@ -217,7 +217,7 @@ impl AnimalService {
             RETURNING *
             "#
         )
-        .bind(pig_id)
+        .bind(animal_id)
         .bind(source.record_type)
         .bind(&source.equipment_used)
         .bind(source.anesthesia_start)
@@ -237,7 +237,7 @@ impl AnimalService {
     pub async fn mark_observation_vet_read(pool: &PgPool, id: Uuid, vet_user_id: Uuid) -> Result<()> {
         // 更新紀錄本身
         sqlx::query(
-            "UPDATE pig_observations SET vet_read = true, vet_read_at = NOW(), updated_at = NOW() WHERE id = $1"
+            "UPDATE animal_observations SET vet_read = true, vet_read_at = NOW(), updated_at = NOW() WHERE id = $1"
         )
         .bind(id)
         .execute(pool)

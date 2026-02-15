@@ -32,11 +32,11 @@ impl ProtocolService {
         // 查詢該民國年的所有 PIG 編號（因為 PIG 編號可能曾經是 APIG 編號）
         // 格式：PIG-{ROC年}{3位數流水號}，例如：PIG-115001
         // 這些流水號不應再被用於新的 APIG 編號
-        let pig_prefix = format!("PIG-{}", roc_year);
-        let pig_nos: Vec<String> = sqlx::query_scalar(
+        let iacuc_prefix = format!("PIG-{}", roc_year);
+        let iacuc_nos: Vec<String> = sqlx::query_scalar(
             "SELECT iacuc_no FROM protocols WHERE iacuc_no LIKE $1 AND iacuc_no IS NOT NULL"
         )
-        .bind(format!("{}%", pig_prefix))
+        .bind(format!("{}%", iacuc_prefix))
         .fetch_all(pool)
         .await?;
 
@@ -54,11 +54,11 @@ impl ProtocolService {
             .collect();
 
         // 解析 PIG 編號的流水號（這些流水號曾經是 APIG 編號，不應重複使用）
-        let pig_seqs: Vec<i32> = pig_nos
+        let iacuc_seqs: Vec<i32> = iacuc_nos
             .iter()
             .filter_map(|no| {
-                if no.starts_with(&pig_prefix) {
-                    let seq_str = &no[pig_prefix.len()..];
+                if no.starts_with(&iacuc_prefix) {
+                    let seq_str = &no[iacuc_prefix.len()..];
                     seq_str.parse::<i32>().ok()
                 } else {
                     None
@@ -68,7 +68,7 @@ impl ProtocolService {
 
         // 合併所有已使用的流水號（包括當前的 APIG 和曾經是 APIG 的 PIG）
         let mut all_used_seqs: Vec<i32> = apig_seqs;
-        all_used_seqs.extend(pig_seqs);
+        all_used_seqs.extend(iacuc_seqs);
         
         // 找出最大值
         let max_seq = all_used_seqs.iter().max().copied();

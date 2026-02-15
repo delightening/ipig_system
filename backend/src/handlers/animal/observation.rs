@@ -1,4 +1,4 @@
-// 觀察記錄管理 Handlers
+﻿// 觀察記錄管理 Handlers
 
 use axum::{
     extract::{Path, State},
@@ -11,50 +11,50 @@ use crate::{
     middleware::CurrentUser,
     models::{
         CopyRecordRequest, CreateObservationRequest, DeleteRequest, ObservationListItem,
-        PigObservation, UpdateObservationRequest, VersionHistoryResponse,
+        AnimalObservation, UpdateObservationRequest, VersionHistoryResponse,
     },
     require_permission,
     services::{AnimalService, AuditService},
     AppError, AppState, Result,
 };
 
-/// 列出豬的所有觀察記錄
-pub async fn list_pig_observations(
+/// 列出動物的所有觀察記錄
+pub async fn list_animal_observations(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
-    Path(pig_id): Path<Uuid>,
-) -> Result<Json<Vec<PigObservation>>> {
-    let observations = AnimalService::list_observations(&state.db, pig_id).await?;
+    Path(animal_id): Path<Uuid>,
+) -> Result<Json<Vec<AnimalObservation>>> {
+    let observations = AnimalService::list_observations(&state.db, animal_id).await?;
     Ok(Json(observations))
 }
 
-/// 列出豬的觀察記錄（包含獸醫建議）
-pub async fn list_pig_observations_with_recommendations(
+/// 列出動物的觀察記錄（包含獸醫建議）
+pub async fn list_animal_observations_with_recommendations(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
-    Path(pig_id): Path<Uuid>,
+    Path(animal_id): Path<Uuid>,
 ) -> Result<Json<Vec<ObservationListItem>>> {
-    let observations = AnimalService::list_observations_with_recommendations(&state.db, pig_id).await?;
+    let observations = AnimalService::list_observations_with_recommendations(&state.db, animal_id).await?;
     Ok(Json(observations))
 }
 
 /// 取得單個觀察記錄
-pub async fn get_pig_observation(
+pub async fn get_animal_observation(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
-) -> Result<Json<PigObservation>> {
+) -> Result<Json<AnimalObservation>> {
     let observation = AnimalService::get_observation_by_id(&state.db, id).await?;
     Ok(Json(observation))
 }
 
 /// 建立觀察記錄
-pub async fn create_pig_observation(
+pub async fn create_animal_observation(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(pig_id): Path<Uuid>,
+    Path(animal_id): Path<Uuid>,
     Json(req): Json<CreateObservationRequest>,
-) -> Result<Json<PigObservation>> {
+) -> Result<Json<AnimalObservation>> {
     require_permission!(current_user, "animal.record.create");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
@@ -63,21 +63,20 @@ pub async fn create_pig_observation(
         require_permission!(current_user, "animal.record.emergency");
     }
     
-    let observation = AnimalService::create_observation(&state.db, pig_id, &req, current_user.id).await?;
+    let observation = AnimalService::create_observation(&state.db, animal_id, &req, current_user.id).await?;
     
-    // 如果是緊急給藥，發送通知給 VET 和 PI
     if req.is_emergency {
-        // 取得豬隻資訊
-        if let Ok(pig) = AnimalService::get_by_id(&state.db, pig_id).await {
+        // 取得動物資訊
+        if let Ok(animal) = AnimalService::get_by_id(&state.db, animal_id).await {
             let notification_service = crate::services::NotificationService::new(state.db.clone());
             let emergency_reason = req.emergency_reason.as_deref().unwrap_or("未提供原因");
             
             // 異步發送通知，不阻塞主流程
             if let Err(e) = notification_service.notify_emergency_medication(
-                pig_id,
+                animal_id,
                 observation.id,
-                &pig.ear_tag,
-                pig.iacuc_no.as_deref(),
+                &animal.ear_tag,
+                animal.iacuc_no.as_deref(),
                 &current_user.email,
                 emergency_reason,
             ).await {
@@ -86,27 +85,27 @@ pub async fn create_pig_observation(
 
             
             tracing::warn!(
-                "[Emergency Medication] User {} recorded emergency medication for pig {} (observation {})",
+                "[Emergency Medication] User {} recorded emergency medication for animal {} (observation {})",
                 current_user.email,
-                pig.ear_tag,
+                animal.ear_tag,
                 observation.id
             );
         }
     }
 
-    // 取得豬隻資訊用於日誌顯示
-    let obs_display = match AnimalService::get_by_id(&state.db, pig_id).await {
-        Ok(pig) => {
-            let iacuc = pig.iacuc_no.as_deref().unwrap_or("未指派");
-            format!("[{}] {}", iacuc, pig.ear_tag)
+    // 取得動物資訊用於日誌顯示
+    let obs_display = match AnimalService::get_by_id(&state.db, animal_id).await {
+        Ok(animal) => {
+            let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
+            format!("[{}] {}", iacuc, animal.ear_tag)
         }
-        _ => format!("觀察紀錄 #{} (pig: {})", observation.id, pig_id),
+        _ => format!("觀察紀錄 #{} (animal: {})", observation.id, animal_id),
     };
 
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "OBSERVATION_CREATE",
-        Some("pig_observation"), Some(pig_id),
+        Some("animal_observation"), Some(animal_id),
         Some(&obs_display),
         None,
         Some(serde_json::json!({
@@ -122,12 +121,12 @@ pub async fn create_pig_observation(
 }
 
 /// 更新觀察記錄
-pub async fn update_pig_observation(
+pub async fn update_animal_observation(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateObservationRequest>,
-) -> Result<Json<PigObservation>> {
+) -> Result<Json<AnimalObservation>> {
     require_permission!(current_user, "animal.record.edit");
     
     let observation = AnimalService::update_observation(&state.db, id, &req, current_user.id).await?;
@@ -135,7 +134,7 @@ pub async fn update_pig_observation(
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "OBSERVATION_UPDATE",
-        Some("pig_observation"), None,
+        Some("animal_observation"), None,
         Some(&format!("觀察紀錄 #{}", id)),
         None, None, None, None,
     ).await {
@@ -146,7 +145,7 @@ pub async fn update_pig_observation(
 }
 
 /// 刪除觀察記錄（軟刪除 + 刪除原因）- GLP 合規
-pub async fn delete_pig_observation(
+pub async fn delete_animal_observation(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
@@ -160,7 +159,7 @@ pub async fn delete_pig_observation(
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "OBSERVATION_DELETE",
-        Some("pig_observation"), None,
+        Some("animal_observation"), None,
         Some(&format!("觀察紀錄 #{} (原因: {})", id, req.reason)),
         None,
         Some(serde_json::json!({ "reason": req.reason })),
@@ -173,15 +172,15 @@ pub async fn delete_pig_observation(
 }
 
 /// 複製觀察記錄
-pub async fn copy_pig_observation(
+pub async fn copy_animal_observation(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(pig_id): Path<Uuid>,
+    Path(animal_id): Path<Uuid>,
     Json(req): Json<CopyRecordRequest>,
-) -> Result<Json<PigObservation>> {
+) -> Result<Json<AnimalObservation>> {
     require_permission!(current_user, "animal.record.copy");
     
-    let observation = AnimalService::copy_observation(&state.db, pig_id, req.source_id, current_user.id).await?;
+    let observation = AnimalService::copy_observation(&state.db, animal_id, req.source_id, current_user.id).await?;
     Ok(Json(observation))
 }
 

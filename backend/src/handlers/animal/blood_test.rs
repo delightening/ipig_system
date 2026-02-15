@@ -1,4 +1,4 @@
-// 血液檢查管理 Handlers（檢查紀錄 + 模板 + 組合）
+﻿// 血液檢查管理 Handlers（檢查紀錄 + 模板 + 組合）
 
 use axum::{
     extract::{Path, State},
@@ -12,7 +12,7 @@ use crate::{
     models::{
         BloodTestListItem, BloodTestPanelWithItems, BloodTestTemplate,
         CreateBloodTestPanelRequest, CreateBloodTestRequest, CreateBloodTestTemplateRequest,
-        DeleteRequest, PigBloodTestWithItems, UpdateBloodTestPanelItemsRequest,
+        DeleteRequest, AnimalBloodTestWithItems, UpdateBloodTestPanelItemsRequest,
         UpdateBloodTestPanelRequest, UpdateBloodTestRequest, UpdateBloodTestTemplateRequest,
     },
     require_permission,
@@ -24,51 +24,51 @@ use crate::{
 // 血液檢查紀錄
 // ============================================
 
-/// 列出豬的所有血液檢查紀錄
-pub async fn list_pig_blood_tests(
+/// 列出動物的所有血液檢查紀錄
+pub async fn list_animal_blood_tests(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
-    Path(pig_id): Path<Uuid>,
+    Path(animal_id): Path<Uuid>,
 ) -> Result<Json<Vec<BloodTestListItem>>> {
-    let tests = AnimalService::list_blood_tests(&state.db, pig_id).await?;
+    let tests = AnimalService::list_blood_tests(&state.db, animal_id).await?;
     Ok(Json(tests))
 }
 
 /// 取得單筆血液檢查（含明細）
-pub async fn get_pig_blood_test(
+pub async fn get_animal_blood_test(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
-) -> Result<Json<PigBloodTestWithItems>> {
+) -> Result<Json<AnimalBloodTestWithItems>> {
     let test = AnimalService::get_blood_test_by_id(&state.db, id).await?;
     Ok(Json(test))
 }
 
 /// 建立血液檢查
-pub async fn create_pig_blood_test(
+pub async fn create_animal_blood_test(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(pig_id): Path<Uuid>,
+    Path(animal_id): Path<Uuid>,
     Json(req): Json<CreateBloodTestRequest>,
-) -> Result<Json<PigBloodTestWithItems>> {
+) -> Result<Json<AnimalBloodTestWithItems>> {
     require_permission!(current_user, "animal.record.create");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
 
-    let test = AnimalService::create_blood_test(&state.db, pig_id, &req, current_user.id).await?;
+    let test = AnimalService::create_blood_test(&state.db, animal_id, &req, current_user.id).await?;
 
     let display_name = match sqlx::query_as::<_, (String, Option<String>)>(
-        "SELECT ear_tag, iacuc_no FROM pigs WHERE id = $1"
-    ).bind(pig_id).fetch_optional(&state.db).await {
+        "SELECT ear_tag, iacuc_no FROM animals WHERE id = $1"
+    ).bind(animal_id).fetch_optional(&state.db).await {
         Ok(Some((ear_tag, iacuc_no))) => {
             let iacuc = iacuc_no.unwrap_or_else(|| "未指派".to_string());
             format!("[{}] {}", iacuc, ear_tag)
         }
-        _ => format!("血液檢查紀錄 (pig: {})", pig_id),
+        _ => format!("血液檢查紀錄 (animal: {})", animal_id),
     };
 
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "BLOOD_TEST_CREATE",
-        Some("pig_blood_test"), Some(pig_id), Some(&display_name),
+        Some("animal_blood_test"), Some(animal_id), Some(&display_name),
         None, None, None, None,
     ).await {
         tracing::error!("寫入 user_activity_logs 失敗 (BLOOD_TEST_CREATE): {}", e);
@@ -78,21 +78,21 @@ pub async fn create_pig_blood_test(
 }
 
 /// 更新血液檢查
-pub async fn update_pig_blood_test(
+pub async fn update_animal_blood_test(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateBloodTestRequest>,
-) -> Result<Json<PigBloodTestWithItems>> {
+) -> Result<Json<AnimalBloodTestWithItems>> {
     require_permission!(current_user, "animal.record.edit");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
 
     let test = AnimalService::update_blood_test(&state.db, id, &req).await?;
 
-    let pig_id = test.blood_test.pig_id;
+    let animal_id = test.blood_test.animal_id;
     let display_name = match sqlx::query_as::<_, (String, Option<String>)>(
-        "SELECT ear_tag, iacuc_no FROM pigs WHERE id = $1"
-    ).bind(pig_id).fetch_optional(&state.db).await {
+        "SELECT ear_tag, iacuc_no FROM animals WHERE id = $1"
+    ).bind(animal_id).fetch_optional(&state.db).await {
         Ok(Some((ear_tag, iacuc_no))) => {
             let iacuc = iacuc_no.unwrap_or_else(|| "未指派".to_string());
             format!("[{}] {}", iacuc, ear_tag)
@@ -102,7 +102,7 @@ pub async fn update_pig_blood_test(
 
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "BLOOD_TEST_UPDATE",
-        Some("pig_blood_test"), Some(pig_id), Some(&display_name),
+        Some("animal_blood_test"), Some(animal_id), Some(&display_name),
         None, None, None, None,
     ).await {
         tracing::error!("寫入 user_activity_logs 失敗 (BLOOD_TEST_UPDATE): {}", e);
@@ -112,7 +112,7 @@ pub async fn update_pig_blood_test(
 }
 
 /// 刪除血液檢查（軟刪除 + 刪除原因）
-pub async fn delete_pig_blood_test(
+pub async fn delete_animal_blood_test(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
@@ -121,13 +121,13 @@ pub async fn delete_pig_blood_test(
     require_permission!(current_user, "animal.record.delete");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
 
-    let pig_info = sqlx::query_as::<_, (Uuid, String, Option<String>)>(
-        "SELECT p.id, p.ear_tag, p.iacuc_no FROM pigs p INNER JOIN pig_blood_tests bt ON bt.pig_id = p.id WHERE bt.id = $1"
+    let animal_info = sqlx::query_as::<_, (Uuid, String, Option<String>)>(
+        "SELECT p.id, p.ear_tag, p.iacuc_no FROM animals p INNER JOIN animal_blood_tests bt ON bt.animal_id = p.id WHERE bt.id = $1"
     ).bind(id).fetch_optional(&state.db).await;
 
     AnimalService::soft_delete_blood_test(&state.db, id, &req.reason, current_user.id).await?;
 
-    let (pid, display_name) = match pig_info {
+    let (pid, display_name) = match animal_info {
         Ok(Some((pid, ear_tag, iacuc_no))) => {
             let iacuc = iacuc_no.unwrap_or_else(|| "未指派".to_string());
             (Some(pid), format!("[{}] {} (原因: {})", iacuc, ear_tag, req.reason))
@@ -137,7 +137,7 @@ pub async fn delete_pig_blood_test(
 
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "BLOOD_TEST_DELETE",
-        Some("pig_blood_test"), pid, Some(&display_name),
+        Some("animal_blood_test"), pid, Some(&display_name),
         None, Some(serde_json::json!({ "reason": req.reason })), None, None,
     ).await {
         tracing::error!("寫入 user_activity_logs 失敗 (BLOOD_TEST_DELETE): {}", e);

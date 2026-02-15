@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE animals SET status = $1, updated_at = NOW()\n            WHERE id = $2\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "animal_status",
+            "kind": {
+              "Enum": [
+                "unassigned",
+                "in_experiment",
+                "completed"
+              ]
+            }
+          }
+        },
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b70dcc3a589c2e52470bbc47ca5c887b47444e90d576987119cc861559f9e6b1"
+}

@@ -1,4 +1,4 @@
-use axum::{
+﻿use axum::{
     body::Body,
     extract::{Multipart, Path, Query, State},
     http::{header, StatusCode},
@@ -116,11 +116,11 @@ pub async fn upload_protocol_attachment(
     Ok(Json(results))
 }
 
-/// 上傳豬隻照片
-pub async fn upload_pig_photo(
+/// 上傳動物照片
+pub async fn upload_animal_photo(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(pig_id): Path<Uuid>,
+    Path(animal_id): Path<Uuid>,
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
     require_permission!(current_user, "animal.animal.edit");
@@ -145,17 +145,17 @@ pub async fn upload_pig_photo(
         })?;
 
         let upload_result = FileService::upload(
-            FileCategory::PigPhoto,
+            FileCategory::AnimalPhoto,
             &file_name,
             &content_type,
             &data,
-            Some(&pig_id.to_string()),
+            Some(&animal_id.to_string()),
         ).await?;
 
         save_attachment(
             &state.db,
-            "pig",
-            &pig_id.to_string(),
+            "animal",
+            &animal_id.to_string(),
             &upload_result,
             current_user.id,
         ).await?;
@@ -174,7 +174,7 @@ pub async fn upload_pig_photo(
 pub async fn upload_pathology_report(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(pig_id): Path<Uuid>,
+    Path(animal_id): Path<Uuid>,
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
     require_permission!(current_user, "animal.animal.edit");
@@ -203,13 +203,13 @@ pub async fn upload_pathology_report(
             &file_name,
             &content_type,
             &data,
-            Some(&pig_id.to_string()),
+            Some(&animal_id.to_string()),
         ).await?;
 
         save_attachment(
             &state.db,
             "pathology",
-            &pig_id.to_string(),
+            &animal_id.to_string(),
             &upload_result,
             current_user.id,
         ).await?;
@@ -336,16 +336,16 @@ pub async fn upload_leave_attachment(
 pub async fn upload_sacrifice_photo(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(pig_id): Path<Uuid>,
+    Path(animal_id): Path<Uuid>,
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
     require_permission!(current_user, "animal.record.create");
 
     // 檢查犧牲記錄是否存在
     let sacrifice_exists: Option<i32> = sqlx::query_scalar(
-        "SELECT id FROM pig_sacrifices WHERE pig_id = $1"
+        "SELECT id FROM animal_sacrifices WHERE animal_id = $1"
     )
-    .bind(pig_id)
+    .bind(animal_id)
     .fetch_optional(&state.db)
     .await?;
 
@@ -373,15 +373,15 @@ pub async fn upload_sacrifice_photo(
         })?;
 
         let upload_result = FileService::upload(
-            FileCategory::PigPhoto,
+            FileCategory::AnimalPhoto,
             &file_name,
             &content_type,
             &data,
-            Some(&pig_id.to_string()),
+            Some(&animal_id.to_string()),
         ).await?;
 
-        // 儲存到 pig_record_attachments 表
-        save_pig_record_attachment(
+        // 儲存到 animal_record_attachments 表
+        save_animal_record_attachment(
             &state.db,
             "sacrifice",
             sacrifice_id,
@@ -399,8 +399,8 @@ pub async fn upload_sacrifice_photo(
     Ok(Json(results))
 }
 
-/// 儲存豬隻記錄附件到 pig_record_attachments 表
-async fn save_pig_record_attachment(
+/// 儲存動物記錄附件到 animal_record_attachments 表
+async fn save_animal_record_attachment(
     db: &PgPool,
     record_type: &str,
     record_id: i32,
@@ -409,8 +409,8 @@ async fn save_pig_record_attachment(
 ) -> Result<uuid::Uuid> {
     let id: (uuid::Uuid,) = sqlx::query_as(
         r#"
-        INSERT INTO pig_record_attachments (id, record_type, record_id, file_type, file_name, file_path, file_size, mime_type, created_at)
-        VALUES (gen_random_uuid(), $1::pig_record_type, $2, $3::pig_file_type, $4, $5, $6, $7, NOW())
+        INSERT INTO animal_record_attachments (id, record_type, record_id, file_type, file_name, file_path, file_size, mime_type, created_at)
+        VALUES (gen_random_uuid(), $1::animal_record_type, $2, $3::animal_file_type, $4, $5, $6, $7, NOW())
         RETURNING id
         "#,
     )

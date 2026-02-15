@@ -1,4 +1,4 @@
-use axum::{
+﻿use axum::{
     middleware,
     routing::{get, post, put, delete},
     Router,
@@ -107,43 +107,43 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/protocols/:id/co-editors/:user_id", delete(handlers::remove_co_editor))
         // My Projects
         .route("/my-projects", get(handlers::get_my_protocols))
-        // Pig Sources
-        .route("/pig-sources", get(handlers::list_pig_sources).post(handlers::create_pig_source))
-        .route("/pig-sources/:id", put(handlers::update_pig_source).delete(handlers::delete_pig_source))
-        // Pigs (實驗動物管理系統)
-        .route("/pigs", get(handlers::list_pigs).post(handlers::create_pig))
-        .route("/pigs/by-pen", get(handlers::list_pigs_by_pen))
-        .route("/pigs/batch/assign", post(handlers::batch_assign_pigs))
-        .route("/pigs/vet-comments", get(handlers::get_vet_comments))
-        .route("/pigs/:id", get(handlers::get_pig).put(handlers::update_pig).delete(handlers::delete_pig))
-        .route("/pigs/:id/vet-read", post(handlers::mark_pig_vet_read))
-        // Pig Records - Observations
-        .route("/pigs/:id/observations", get(handlers::list_pig_observations).post(handlers::create_pig_observation))
-        .route("/pigs/:id/observations/with-recommendations", get(handlers::list_pig_observations_with_recommendations))
-        .route("/pigs/:id/observations/copy", post(handlers::copy_pig_observation))
-        .route("/observations/:id", get(handlers::get_pig_observation).put(handlers::update_pig_observation).delete(handlers::delete_pig_observation))
+        // Animal Sources
+        .route("/animal-sources", get(handlers::list_animal_sources).post(handlers::create_animal_source))
+        .route("/animal-sources/:id", put(handlers::update_animal_source).delete(handlers::delete_animal_source))
+        // Animals (實驗動物管理系統)
+        .route("/animals", get(handlers::list_animals).post(handlers::create_animal))
+        .route("/animals/by-pen", get(handlers::list_animals_by_pen))
+        .route("/animals/batch/assign", post(handlers::batch_assign_animals))
+        .route("/animals/vet-comments", get(handlers::get_vet_comments))
+        .route("/animals/:id", get(handlers::get_animal).put(handlers::update_animal).delete(handlers::delete_animal))
+        .route("/animals/:id/vet-read", post(handlers::mark_animal_vet_read))
+        // Animal Records - Observations
+        .route("/animals/:id/observations", get(handlers::list_animal_observations).post(handlers::create_animal_observation))
+        .route("/animals/:id/observations/with-recommendations", get(handlers::list_animal_observations_with_recommendations))
+        .route("/animals/:id/observations/copy", post(handlers::copy_animal_observation))
+        .route("/observations/:id", get(handlers::get_animal_observation).put(handlers::update_animal_observation).delete(handlers::delete_animal_observation))
         .route("/observations/:id/vet-read", post(handlers::mark_observation_vet_read))
         .route("/observations/:id/versions", get(handlers::get_observation_versions))
-        // Pig Records - Surgeries
-        .route("/pigs/:id/surgeries", get(handlers::list_pig_surgeries).post(handlers::create_pig_surgery))
-        .route("/pigs/:id/surgeries/with-recommendations", get(handlers::list_pig_surgeries_with_recommendations))
-        .route("/pigs/:id/surgeries/copy", post(handlers::copy_pig_surgery))
-        .route("/surgeries/:id", get(handlers::get_pig_surgery).put(handlers::update_pig_surgery).delete(handlers::delete_pig_surgery))
+        // Animal Records - Surgeries
+        .route("/animals/:id/surgeries", get(handlers::list_animal_surgeries).post(handlers::create_animal_surgery))
+        .route("/animals/:id/surgeries/with-recommendations", get(handlers::list_animal_surgeries_with_recommendations))
+        .route("/animals/:id/surgeries/copy", post(handlers::copy_animal_surgery))
+        .route("/surgeries/:id", get(handlers::get_animal_surgery).put(handlers::update_animal_surgery).delete(handlers::delete_animal_surgery))
         .route("/surgeries/:id/vet-read", post(handlers::mark_surgery_vet_read))
         .route("/surgeries/:id/versions", get(handlers::get_surgery_versions))
-        // Pig Records - Weights
-        .route("/pigs/:id/weights", get(handlers::list_pig_weights).post(handlers::create_pig_weight))
-        .route("/weights/:id", put(handlers::update_pig_weight).delete(handlers::delete_pig_weight))
-        // Pig Records - Vaccinations
-        .route("/pigs/:id/vaccinations", get(handlers::list_pig_vaccinations).post(handlers::create_pig_vaccination))
-        .route("/vaccinations/:id", put(handlers::update_pig_vaccination).delete(handlers::delete_pig_vaccination))
-        // Pig Records - Sacrifice
-        .route("/pigs/:id/sacrifice", get(handlers::get_pig_sacrifice).post(handlers::upsert_pig_sacrifice))
-        // Pig Records - Pathology
-        .route("/pigs/:id/pathology", get(handlers::get_pig_pathology_report).post(handlers::upsert_pig_pathology_report))
-        // Pig Records - Blood Tests (血液檢查)
-        .route("/pigs/:id/blood-tests", get(handlers::list_pig_blood_tests).post(handlers::create_pig_blood_test))
-        .route("/blood-tests/:id", get(handlers::get_pig_blood_test).put(handlers::update_pig_blood_test).delete(handlers::delete_pig_blood_test))
+        // Animal Records - Weights
+        .route("/animals/:id/weights", get(handlers::list_animal_weights).post(handlers::create_animal_weight))
+        .route("/weights/:id", put(handlers::update_animal_weight).delete(handlers::delete_animal_weight))
+        // Animal Records - Vaccinations
+        .route("/animals/:id/vaccinations", get(handlers::list_animal_vaccinations).post(handlers::create_animal_vaccination))
+        .route("/vaccinations/:id", put(handlers::update_animal_vaccination).delete(handlers::delete_animal_vaccination))
+        // Animal Records - Sacrifice
+        .route("/animals/:id/sacrifice", get(handlers::get_animal_sacrifice).post(handlers::upsert_animal_sacrifice))
+        // Animal Records - Pathology
+        .route("/animals/:id/pathology", get(handlers::get_animal_pathology_report).post(handlers::upsert_animal_pathology_report))
+        // Animal Records - Blood Tests (血液檢查)
+        .route("/animals/:id/blood-tests", get(handlers::list_animal_blood_tests).post(handlers::create_animal_blood_test))
+        .route("/blood-tests/:id", get(handlers::get_animal_blood_test).put(handlers::update_animal_blood_test).delete(handlers::delete_animal_blood_test))
         // Blood Test Templates (項目模板管理)
         .route("/blood-test-templates", get(handlers::list_blood_test_templates).post(handlers::create_blood_test_template))
         .route("/blood-test-templates/all", get(handlers::list_all_blood_test_templates))
@@ -158,15 +158,15 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/observations/:id/recommendations/with-attachments", post(handlers::add_observation_vet_recommendation_with_attachments))
         .route("/surgeries/:id/recommendations", get(handlers::get_surgery_vet_recommendations).post(handlers::add_surgery_vet_recommendation))
         .route("/surgeries/:id/recommendations/with-attachments", post(handlers::add_surgery_vet_recommendation_with_attachments))
-        // Pig Export
-        .route("/pigs/:id/export", post(handlers::export_pig_medical_data))
+        // Animal Export
+        .route("/animals/:id/export", post(handlers::export_animal_medical_data))
         .route("/projects/:iacuc_no/export", post(handlers::export_project_medical_data))
         // Import Batches
-        .route("/pigs/import/batches", get(handlers::list_import_batches))
-        .route("/pigs/import/template/basic", get(handlers::download_basic_import_template))
-        .route("/pigs/import/template/weight", get(handlers::download_weight_import_template))
-        .route("/pigs/import/basic", post(handlers::import_basic_data))
-        .route("/pigs/import/weights", post(handlers::import_weight_data))
+        .route("/animals/import/batches", get(handlers::list_import_batches))
+        .route("/animals/import/template/basic", get(handlers::download_basic_import_template))
+        .route("/animals/import/template/weight", get(handlers::download_weight_import_template))
+        .route("/animals/import/basic", post(handlers::import_basic_data))
+        .route("/animals/import/weights", post(handlers::import_weight_data))
         // Notifications
         .route("/notifications", get(handlers::list_notifications))
         .route("/notifications/unread-count", get(handlers::get_unread_count))
@@ -188,9 +188,9 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/report-history/:id/download", get(handlers::download_report))
         // File Upload
         .route("/protocols/:id/attachments", post(handlers::upload_protocol_attachment))
-        .route("/pigs/:id/photos", post(handlers::upload_pig_photo))
-        .route("/pigs/:id/pathology/attachments", post(handlers::upload_pathology_report))
-        .route("/pigs/:id/sacrifice/photos", post(handlers::upload_sacrifice_photo))
+        .route("/animals/:id/photos", post(handlers::upload_animal_photo))
+        .route("/animals/:id/pathology/attachments", post(handlers::upload_pathology_report))
+        .route("/animals/:id/sacrifice/photos", post(handlers::upload_sacrifice_photo))
         .route("/vet-recommendations/:record_type/:record_id/attachments", post(handlers::upload_vet_recommendation_attachment))
         .route("/attachments", get(handlers::list_attachments))
         .route("/attachments/:id", get(handlers::download_attachment).delete(handlers::delete_attachment))

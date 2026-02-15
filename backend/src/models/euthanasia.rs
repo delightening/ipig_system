@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+﻿use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, Type};
 use uuid::Uuid;
@@ -34,7 +34,7 @@ impl EuthanasiaOrderStatus {
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct EuthanasiaOrder {
     pub id: Uuid,
-    pub pig_id: Uuid,
+    pub animal_id: Uuid,
     pub vet_user_id: Uuid,
     pub pi_user_id: Uuid,
     pub reason: String,
@@ -93,7 +93,7 @@ pub struct MeetingRequest {
 /// 建立安樂死單據請求
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreateEuthanasiaOrderRequest {
-    pub pig_id: Uuid,
+    pub animal_id: Uuid,
     #[validate(length(min = 1, message = "Reason is required"))]
     pub reason: String,
 }
@@ -134,7 +134,7 @@ pub struct CreateMeetingRequest {
 #[derive(Debug, Serialize, FromRow)]
 pub struct EuthanasiaOrderResponse {
     pub id: Uuid,
-    pub pig_id: Uuid,
+    pub animal_id: Uuid,
     pub vet_user_id: Uuid,
     pub pi_user_id: Uuid,
     pub reason: String,
@@ -147,9 +147,9 @@ pub struct EuthanasiaOrderResponse {
     pub updated_at: DateTime<Utc>,
     // 關聯資訊
     #[sqlx(default)]
-    pub pig_ear_tag: Option<String>,
+    pub animal_ear_tag: Option<String>,
     #[sqlx(default)]
-    pub pig_iacuc_no: Option<String>,
+    pub animal_iacuc_no: Option<String>,
     #[sqlx(default)]
     pub vet_name: Option<String>,
     #[sqlx(default)]

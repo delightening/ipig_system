@@ -1,4 +1,4 @@
-// 儀表板 API Handlers
+﻿// 儀表板 API Handlers
 
 use axum::{
     extract::{Query, State},
@@ -27,15 +27,15 @@ pub async fn get_vet_comments(
         r#"
         SELECT 
             vr.id,
-            p.id as pig_id,
+            p.id as animal_id,
             p.ear_tag,
             p.pen_location,
             vr.content,
             vr.created_at,
             u.display_name as created_by_name
         FROM vet_recommendations vr
-        INNER JOIN pig_observations po ON vr.record_type = 'observation'::vet_record_type AND vr.record_id = po.id
-        INNER JOIN pigs p ON po.pig_id = p.id
+        INNER JOIN animal_observations po ON vr.record_type = 'observation'::vet_record_type AND vr.record_id = po.id
+        INNER JOIN animals p ON po.animal_id = p.id
         INNER JOIN users u ON vr.created_by = u.id
         ORDER BY vr.created_at DESC
         LIMIT $1
@@ -47,12 +47,11 @@ pub async fn get_vet_comments(
     
     let data: Vec<serde_json::Value> = comments
         .into_iter()
-        .map(|(id, pig_id, ear_tag, pen_location, content, created_at, created_by_name)| {
+        .map(|(id, animal_id, ear_tag, pen_location, content, created_at, created_by_name)| {
             serde_json::json!({
                 "id": id.to_string(),
-                "pig_id": pig_id.to_string(),
-                "pig_ear_tag": ear_tag.clone(),
-                "pig_num": ear_tag,
+                "animal_id": animal_id.to_string(),
+                "ear_tag": ear_tag,
                 "pen_location": pen_location,
                 "content": content,
                 "created_at": created_at.to_rfc3339(),

@@ -38,7 +38,7 @@ export function ReviewCommentsReport({ protocol, comments, vet_review }: ReviewC
                 <tbody>
                     <tr>
                         <td className="border border-black p-2 font-bold w-32 bg-slate-50">申請編號</td>
-                        <td className="border border-black p-2">{protocol?.iacuc_no || basic?.apply_study_number || 'APIG-114025'}</td>
+                        <td className="border border-black p-2">{protocol?.iacuc_no || basic?.apply_study_number || '尚未指派'}</td>
                     </tr>
                     <tr>
                         <td className="border border-black p-2 font-bold bg-slate-50">研究名稱</td>
@@ -46,7 +46,7 @@ export function ReviewCommentsReport({ protocol, comments, vet_review }: ReviewC
                     </tr>
                     <tr>
                         <td className="border border-black p-2 font-bold bg-slate-50">計畫主持人</td>
-                        <td className="border border-black p-2">{basic?.pi?.name || '羅紹齊'}</td>
+                        <td className="border border-black p-2">{basic?.pi?.name || '未指定'}</td>
                     </tr>
                 </tbody>
             </table>

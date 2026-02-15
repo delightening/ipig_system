@@ -13,60 +13,60 @@ mod tests {
     use super::*;
 
     // ==========================================
-    // PigStatus 測試
+    // AnimalStatus 測試
     // ==========================================
 
     #[test]
-    fn test_pig_status_display_name() {
-        assert_eq!(PigStatus::Unassigned.display_name(), "未分配");
-        assert_eq!(PigStatus::InExperiment.display_name(), "實驗中");
-        assert_eq!(PigStatus::Completed.display_name(), "實驗完成");
+    fn test_animal_status_display_name() {
+        assert_eq!(AnimalStatus::Unassigned.display_name(), "未分配");
+        assert_eq!(AnimalStatus::InExperiment.display_name(), "實驗中");
+        assert_eq!(AnimalStatus::Completed.display_name(), "實驗完成");
     }
 
     #[test]
-    fn test_pig_status_serde() {
-        assert_eq!(serde_json::to_string(&PigStatus::InExperiment).unwrap(), "\"in_experiment\"");
-        let status: PigStatus = serde_json::from_str("\"completed\"").unwrap();
-        assert_eq!(status, PigStatus::Completed);
+    fn test_animal_status_serde() {
+        assert_eq!(serde_json::to_string(&AnimalStatus::InExperiment).unwrap(), "\"in_experiment\"");
+        let status: AnimalStatus = serde_json::from_str("\"completed\"").unwrap();
+        assert_eq!(status, AnimalStatus::Completed);
     }
 
     // ==========================================
-    // PigBreed 測試
+    // AnimalBreed 測試
     // ==========================================
 
     #[test]
-    fn test_pig_breed_display_name() {
-        assert_eq!(PigBreed::Minipig.display_name(), "迷你豬");
-        assert_eq!(PigBreed::White.display_name(), "白豬");
-        assert_eq!(PigBreed::LYD.display_name(), "LYD");
-        assert_eq!(PigBreed::Other.display_name(), "其他");
+    fn test_animal_breed_display_name() {
+        assert_eq!(AnimalBreed::Minipig.display_name(), "迷你豬");
+        assert_eq!(AnimalBreed::White.display_name(), "白豬");
+        assert_eq!(AnimalBreed::LYD.display_name(), "LYD");
+        assert_eq!(AnimalBreed::Other.display_name(), "其他");
     }
 
     #[test]
-    fn test_pig_breed_serde() {
+    fn test_animal_breed_serde() {
         // 前端使用 "minipig" 而非 "miniature"
-        assert_eq!(serde_json::to_string(&PigBreed::Minipig).unwrap(), "\"minipig\"");
-        assert_eq!(serde_json::to_string(&PigBreed::LYD).unwrap(), "\"lyd\"");
+        assert_eq!(serde_json::to_string(&AnimalBreed::Minipig).unwrap(), "\"minipig\"");
+        assert_eq!(serde_json::to_string(&AnimalBreed::LYD).unwrap(), "\"lyd\"");
 
-        let breed: PigBreed = serde_json::from_str("\"minipig\"").unwrap();
-        assert_eq!(breed, PigBreed::Minipig);
+        let breed: AnimalBreed = serde_json::from_str("\"minipig\"").unwrap();
+        assert_eq!(breed, AnimalBreed::Minipig);
     }
 
     // ==========================================
-    // PigGender 測試
+    // AnimalGender 測試
     // ==========================================
 
     #[test]
-    fn test_pig_gender_display_name() {
-        assert_eq!(PigGender::Male.display_name(), "公");
-        assert_eq!(PigGender::Female.display_name(), "母");
+    fn test_animal_gender_display_name() {
+        assert_eq!(AnimalGender::Male.display_name(), "公");
+        assert_eq!(AnimalGender::Female.display_name(), "母");
     }
 
     #[test]
-    fn test_pig_gender_serde() {
-        assert_eq!(serde_json::to_string(&PigGender::Male).unwrap(), "\"male\"");
-        let gender: PigGender = serde_json::from_str("\"female\"").unwrap();
-        assert_eq!(gender, PigGender::Female);
+    fn test_animal_gender_serde() {
+        assert_eq!(serde_json::to_string(&AnimalGender::Male).unwrap(), "\"male\"");
+        let gender: AnimalGender = serde_json::from_str("\"female\"").unwrap();
+        assert_eq!(gender, AnimalGender::Female);
     }
 
     // ==========================================

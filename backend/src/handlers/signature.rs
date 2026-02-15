@@ -1,4 +1,4 @@
-// 電子簽章 API Handlers - GLP 合規
+﻿// 電子簽章 API Handlers - GLP 合規
 
 use axum::{
     extract::{Path, State},
@@ -90,10 +90,10 @@ pub async fn sign_sacrifice_record(
         r#"
         SELECT CONCAT(
             'sacrifice_id:', id::text, 
-            ',pig_id:', pig_id::text, 
+            ',animal_id:', animal_id::text, 
             ',date:', COALESCE(sacrifice_date::text, ''),
             ',confirmed:', confirmed_sacrifice::text
-        ) FROM pig_sacrifices WHERE id = $1
+        ) FROM animal_sacrifices WHERE id = $1
         "#
     )
     .bind(sacrifice_id)
@@ -189,10 +189,10 @@ pub async fn sign_observation_record(
         r#"
         SELECT CONCAT(
             'observation_id:', id::text,
-            ',pig_id:', pig_id::text,
+            ',animal_id:', animal_id::text,
             ',date:', event_date::text,
             ',content:', content
-        ) FROM pig_observations WHERE id = $1
+        ) FROM animal_observations WHERE id = $1
         "#
     )
     .bind(observation_id)

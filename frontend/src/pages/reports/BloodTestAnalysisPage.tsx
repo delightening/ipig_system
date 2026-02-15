@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 血液檢查結果分析頁面
  * 提供血液檢查數據的統計、趨勢分析、異常標記與視覺化圖表
  */
@@ -164,7 +164,7 @@ export function BloodTestAnalysisPage() {
         },
     })
 
-    // 篩選耳號（前端篩選，因為 API 使用 pig_id 不方便使用者輸入）
+    // 篩選耳號（前端篩選，因為 API 使用 animal_id 不方便使用者輸入）
     const filteredData = useMemo(() => {
         if (!rawData) return []
         let data = rawData
@@ -195,8 +195,8 @@ export function BloodTestAnalysisPage() {
         if (filteredData.length === 0) return { totalItems: 0, abnormalCount: 0, abnormalRate: 0, animalCount: 0, testDates: 0 }
 
         const abnormal = filteredData.filter(r => r.is_abnormal)
-        const animals = new Set(filteredData.map(r => r.pig_id))
-        const dates = new Set(filteredData.map(r => `${r.pig_id}_${r.test_date}`))
+        const animals = new Set(filteredData.map(r => r.animal_id))
+        const dates = new Set(filteredData.map(r => `${r.animal_id}_${r.test_date}`))
 
         return {
             totalItems: filteredData.length,
@@ -392,7 +392,7 @@ export function BloodTestAnalysisPage() {
                             <Label htmlFor="iacuc_no">專案編號 (IACUC No.)</Label>
                             <Input
                                 id="iacuc_no"
-                                placeholder="例: IACUC-2024-001"
+                                placeholder="例: PIG-115001"
                                 value={iacucNo}
                                 onChange={(e) => setIacucNo(e.target.value)}
                             />

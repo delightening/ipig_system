@@ -1,4 +1,4 @@
-// 手術記錄管理 Handlers
+﻿// 手術記錄管理 Handlers
 
 use axum::{
     extract::{Path, State},
@@ -10,7 +10,7 @@ use validator::Validate;
 use crate::{
     middleware::CurrentUser,
     models::{
-        CopyRecordRequest, CreateSurgeryRequest, DeleteRequest, PigSurgery, SurgeryListItem,
+        CopyRecordRequest, CreateSurgeryRequest, DeleteRequest, AnimalSurgery, SurgeryListItem,
         UpdateSurgeryRequest, VersionHistoryResponse,
     },
     require_permission,
@@ -18,61 +18,61 @@ use crate::{
     AppError, AppState, Result,
 };
 
-/// 列出豬的所有手術記錄
-pub async fn list_pig_surgeries(
+/// 列出動物的所有手術記錄
+pub async fn list_animal_surgeries(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
-    Path(pig_id): Path<Uuid>,
-) -> Result<Json<Vec<PigSurgery>>> {
-    let surgeries = AnimalService::list_surgeries(&state.db, pig_id).await?;
+    Path(animal_id): Path<Uuid>,
+) -> Result<Json<Vec<AnimalSurgery>>> {
+    let surgeries = AnimalService::list_surgeries(&state.db, animal_id).await?;
     Ok(Json(surgeries))
 }
 
-/// 列出豬的手術記錄（包含獸醫建議）
-pub async fn list_pig_surgeries_with_recommendations(
+/// 列出動物的手術記錄（包含獸醫建議）
+pub async fn list_animal_surgeries_with_recommendations(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
-    Path(pig_id): Path<Uuid>,
+    Path(animal_id): Path<Uuid>,
 ) -> Result<Json<Vec<SurgeryListItem>>> {
-    let surgeries = AnimalService::list_surgeries_with_recommendations(&state.db, pig_id).await?;
+    let surgeries = AnimalService::list_surgeries_with_recommendations(&state.db, animal_id).await?;
     Ok(Json(surgeries))
 }
 
 /// 取得單個手術記錄
-pub async fn get_pig_surgery(
+pub async fn get_animal_surgery(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
-) -> Result<Json<PigSurgery>> {
+) -> Result<Json<AnimalSurgery>> {
     let surgery = AnimalService::get_surgery_by_id(&state.db, id).await?;
     Ok(Json(surgery))
 }
 
 /// 建立手術記錄
-pub async fn create_pig_surgery(
+pub async fn create_animal_surgery(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(pig_id): Path<Uuid>,
+    Path(animal_id): Path<Uuid>,
     Json(req): Json<CreateSurgeryRequest>,
-) -> Result<Json<PigSurgery>> {
+) -> Result<Json<AnimalSurgery>> {
     require_permission!(current_user, "animal.record.create");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
-    let surgery = AnimalService::create_surgery(&state.db, pig_id, &req, current_user.id).await?;
+    let surgery = AnimalService::create_surgery(&state.db, animal_id, &req, current_user.id).await?;
 
-    // 取得豬隻資訊用於日誌顯示
-    let surg_display = match AnimalService::get_by_id(&state.db, pig_id).await {
-        Ok(pig) => {
-            let iacuc = pig.iacuc_no.as_deref().unwrap_or("未指派");
-            format!("[{}] {} - {}", iacuc, pig.ear_tag, req.surgery_site)
+    // 取得動物資訊用於日誌顯示
+    let surg_display = match AnimalService::get_by_id(&state.db, animal_id).await {
+        Ok(animal) => {
+            let iacuc = animal.iacuc_no.as_deref().unwrap_or("未指派");
+            format!("[{}] {} - {}", iacuc, animal.ear_tag, req.surgery_site)
         }
-        _ => format!("手術紀錄 #{} (pig: {})", surgery.id, pig_id),
+        _ => format!("手術紀錄 #{} (animal: {})", surgery.id, animal_id),
     };
 
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "SURGERY_CREATE",
-        Some("pig_surgery"), Some(pig_id),
+        Some("animal_surgery"), Some(animal_id),
         Some(&surg_display),
         None, None, None, None,
     ).await {
@@ -83,12 +83,12 @@ pub async fn create_pig_surgery(
 }
 
 /// 更新手術記錄
-pub async fn update_pig_surgery(
+pub async fn update_animal_surgery(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateSurgeryRequest>,
-) -> Result<Json<PigSurgery>> {
+) -> Result<Json<AnimalSurgery>> {
     require_permission!(current_user, "animal.record.edit");
     
     let surgery = AnimalService::update_surgery(&state.db, id, &req, current_user.id).await?;
@@ -96,7 +96,7 @@ pub async fn update_pig_surgery(
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "SURGERY_UPDATE",
-        Some("pig_surgery"), None,
+        Some("animal_surgery"), None,
         Some(&format!("手術紀錄 #{}", id)),
         None, None, None, None,
     ).await {
@@ -107,7 +107,7 @@ pub async fn update_pig_surgery(
 }
 
 /// 刪除手術記錄（軟刪除 + 刪除原因）- GLP 合規
-pub async fn delete_pig_surgery(
+pub async fn delete_animal_surgery(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
@@ -121,7 +121,7 @@ pub async fn delete_pig_surgery(
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "SURGERY_DELETE",
-        Some("pig_surgery"), None,
+        Some("animal_surgery"), None,
         Some(&format!("手術紀錄 #{} (原因: {})", id, req.reason)),
         None,
         Some(serde_json::json!({ "reason": req.reason })),
@@ -134,15 +134,15 @@ pub async fn delete_pig_surgery(
 }
 
 /// 複製手術記錄
-pub async fn copy_pig_surgery(
+pub async fn copy_animal_surgery(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(pig_id): Path<Uuid>,
+    Path(animal_id): Path<Uuid>,
     Json(req): Json<CopyRecordRequest>,
-) -> Result<Json<PigSurgery>> {
+) -> Result<Json<AnimalSurgery>> {
     require_permission!(current_user, "animal.record.copy");
     
-    let surgery = AnimalService::copy_surgery(&state.db, pig_id, req.source_id, current_user.id).await?;
+    let surgery = AnimalService::copy_surgery(&state.db, animal_id, req.source_id, current_user.id).await?;
     Ok(Json(surgery))
 }
 

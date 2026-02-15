@@ -310,7 +310,7 @@
             },
             "tabs": {
                 "content": "Protocol Content",
-                "pigs": "Pig Records",
+                "animals": "Animal Records",
                 "versions": "Versions",
                 "history": "Status History",
                 "comments": "Review Comments",
@@ -334,8 +334,8 @@
                 "coeditorsDesc": "Assigned co-editors",
                 "attachmentsTitle": "Attachments",
                 "attachmentsDesc": "Related documents and files",
-                "pigsTitle": "Pig Records",
-                "pigsDesc": "List of all pigs assigned to this protocol"
+                "animalsTitle": "Animal Records",
+                "animalsDesc": "List of all animals assigned to this protocol"
             },
             "dialogs": {
                 "status": {
@@ -422,8 +422,8 @@
                 "upload": "Upload Attachment",
                 "noAttachments": "No attachments",
                 "uploadFirst": "Upload the first attachment",
-                "noPigs": "No pig records",
-                "noPigsDesc": "No pigs have been assigned to this protocol yet"
+                "noAnimals": "No animal records",
+                "noAnimalsDesc": "No animals have been assigned to this protocol yet"
             },
             "actions": {
                 "reply": "Reply",
@@ -1264,7 +1264,7 @@
         "importBasic": "Import Basic Data",
         "batchExport": "Batch Export Records",
         "addPig": "Add Animal",
-        "searchPlaceholder": "Search ear tag, pen, IACUC NO...",
+        "searchPlaceholder": "Search ear tag, pen, IACUC No...",
         "breedFilter": "Breed",
         "allBreeds": "All Breeds",
         "selectedCount": "{{count}} selected",
@@ -1272,7 +1272,7 @@
         "systemNo": "System ID",
         "earTag": "Ear Tag",
         "pen": "Pen",
-        "iacucNo": "IACUC NO.",
+        "iacucNo": "IACUC No.",
         "status": "Status",
         "breed": "Breed",
         "gender": "Gender",

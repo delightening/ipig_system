@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+﻿import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { formatDate } from '@/lib/utils'
@@ -20,7 +20,7 @@ import { Loader2, Download, Droplets, FlaskConical, DollarSign, Hash } from 'luc
 interface BloodTestCostReport {
     iacuc_no: string | null
     ear_tag: string
-    pig_id: string
+    animal_id: string
     test_date: string
     lab_name: string | null
     item_count: number
@@ -126,7 +126,7 @@ export function BloodTestCostReportPage() {
                             <Label htmlFor="iacuc_no">專案編號 (IACUC No.)</Label>
                             <Input
                                 id="iacuc_no"
-                                placeholder="例: IACUC-2024-001"
+                                placeholder="例: PIG-115001"
                                 value={iacucNo}
                                 onChange={(e) => setIacucNo(e.target.value)}
                             />

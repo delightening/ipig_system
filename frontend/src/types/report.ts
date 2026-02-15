@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 報表型別
  */
 
@@ -84,7 +84,7 @@ export interface CostSummaryReport {
 export interface BloodTestCostReport {
     iacuc_no: string | null
     ear_tag: string
-    pig_id: string
+    animal_id: string
     test_date: string
     lab_name: string | null
     item_count: number

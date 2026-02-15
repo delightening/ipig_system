@@ -66,14 +66,14 @@ pub async fn ensure_admin_user(pool: &sqlx::PgPool) -> Result<()> {
 
 /// 確保資料庫 schema 完整（用程式碼取代部分 migration）
 pub async fn ensure_schema(pool: &sqlx::PgPool) -> Result<()> {
-    // 確保 pigs 表有 breed_other 欄位（用於 breed = 'other' 時存放自訂品種名）
+    // 確保 animals 表有 breed_other 欄位（用於 breed = 'other' 時存放自訂品種名）
     sqlx::query(r#"
         DO $$ BEGIN
             IF NOT EXISTS (
                 SELECT 1 FROM information_schema.columns 
-                WHERE table_name = 'pigs' AND column_name = 'breed_other'
+                WHERE table_name = 'animals' AND column_name = 'breed_other'
             ) THEN
-                ALTER TABLE pigs ADD COLUMN breed_other VARCHAR(100);
+                ALTER TABLE animals ADD COLUMN breed_other VARCHAR(100);
             END IF;
         END $$;
     "#)

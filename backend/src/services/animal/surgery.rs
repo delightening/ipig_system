@@ -1,9 +1,9 @@
-use sqlx::PgPool;
+﻿use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::AnimalService;
 use crate::{
-    models::{CreateSurgeryRequest, PigSurgery, SurgeryListItem, UpdateSurgeryRequest},
+    models::{CreateSurgeryRequest, AnimalSurgery, SurgeryListItem, UpdateSurgeryRequest},
     AppError, Result,
 };
 
@@ -14,11 +14,11 @@ impl AnimalService {
     // ============================================
 
     /// 取得手術紀錄列表（排除已刪除）
-    pub async fn list_surgeries(pool: &PgPool, pig_id: Uuid) -> Result<Vec<PigSurgery>> {
-        let surgeries = sqlx::query_as::<_, PigSurgery>(
-            "SELECT * FROM pig_surgeries WHERE pig_id = $1 ORDER BY surgery_date DESC"
+    pub async fn list_surgeries(pool: &PgPool, animal_id: Uuid) -> Result<Vec<AnimalSurgery>> {
+        let surgeries = sqlx::query_as::<_, AnimalSurgery>(
+            "SELECT * FROM animal_surgeries WHERE animal_id = $1 ORDER BY surgery_date DESC"
         )
-        .bind(pig_id)
+        .bind(animal_id)
         .fetch_all(pool)
         .await?;
 
@@ -26,20 +26,20 @@ impl AnimalService {
     }
 
     /// 取得手術紀錄列表（含獸醫師建議數量）
-    pub async fn list_surgeries_with_recommendations(pool: &PgPool, pig_id: Uuid) -> Result<Vec<SurgeryListItem>> {
+    pub async fn list_surgeries_with_recommendations(pool: &PgPool, animal_id: Uuid) -> Result<Vec<SurgeryListItem>> {
         let surgeries = sqlx::query_as::<_, SurgeryListItem>(
             r#"
             SELECT 
-                s.id, s.pig_id, s.is_first_experiment, s.surgery_date, s.surgery_site,
+                s.id, s.animal_id, s.is_first_experiment, s.surgery_date, s.surgery_site,
                 s.no_medication_needed, s.vet_read, s.vet_read_at,
                 s.created_by, s.created_at,
                 (SELECT COUNT(*) FROM vet_recommendations vr WHERE vr.record_type = 'surgery' AND vr.record_id = s.id) as recommendation_count
-            FROM pig_surgeries s
-            WHERE s.pig_id = $1
+            FROM animal_surgeries s
+            WHERE s.animal_id = $1
             ORDER BY s.surgery_date DESC
             "#
         )
-        .bind(pig_id)
+        .bind(animal_id)
         .fetch_all(pool)
         .await?;
 
@@ -47,9 +47,9 @@ impl AnimalService {
     }
 
     /// 取得單一手術紀錄
-    pub async fn get_surgery_by_id(pool: &PgPool, id: Uuid) -> Result<PigSurgery> {
-        let surgery = sqlx::query_as::<_, PigSurgery>(
-            "SELECT * FROM pig_surgeries WHERE id = $1"
+    pub async fn get_surgery_by_id(pool: &PgPool, id: Uuid) -> Result<AnimalSurgery> {
+        let surgery = sqlx::query_as::<_, AnimalSurgery>(
+            "SELECT * FROM animal_surgeries WHERE id = $1"
         )
         .bind(id)
         .fetch_optional(pool)
@@ -61,14 +61,14 @@ impl AnimalService {
 
     pub async fn create_surgery(
         pool: &PgPool,
-        pig_id: Uuid,
+        animal_id: Uuid,
         req: &CreateSurgeryRequest,
         created_by: Uuid,
-    ) -> Result<PigSurgery> {
-        let surgery = sqlx::query_as::<_, PigSurgery>(
+    ) -> Result<AnimalSurgery> {
+        let surgery = sqlx::query_as::<_, AnimalSurgery>(
             r#"
-            INSERT INTO pig_surgeries (
-                pig_id, is_first_experiment, surgery_date, surgery_site,
+            INSERT INTO animal_surgeries (
+                animal_id, is_first_experiment, surgery_date, surgery_site,
                 induction_anesthesia, pre_surgery_medication, positioning,
                 anesthesia_maintenance, anesthesia_observation, vital_signs,
                 reflex_recovery, respiration_rate, post_surgery_medication,
@@ -78,7 +78,7 @@ impl AnimalService {
             RETURNING *
             "#
         )
-        .bind(pig_id)
+        .bind(animal_id)
         .bind(req.is_first_experiment)
         .bind(req.surgery_date)
         .bind(&req.surgery_site)
@@ -106,16 +106,16 @@ impl AnimalService {
         id: Uuid,
         req: &UpdateSurgeryRequest,
         updated_by: Uuid,
-    ) -> Result<PigSurgery> {
+    ) -> Result<AnimalSurgery> {
         // 先取得原始紀錄用於版本歷史
         let original = Self::get_surgery_by_id(pool, id).await?;
         
         // 保存版本歷史
         Self::save_record_version(pool, "surgery", id, &original, updated_by).await?;
 
-        let surgery = sqlx::query_as::<_, PigSurgery>(
+        let surgery = sqlx::query_as::<_, AnimalSurgery>(
             r#"
-            UPDATE pig_surgeries SET
+            UPDATE animal_surgeries SET
                 is_first_experiment = COALESCE($2, is_first_experiment),
                 surgery_date = COALESCE($3, surgery_date),
                 surgery_site = COALESCE($4, surgery_site),
@@ -159,7 +159,7 @@ impl AnimalService {
     /// 刪除手術紀錄
     pub async fn soft_delete_surgery(pool: &PgPool, id: Uuid) -> Result<()> {
         sqlx::query(
-            "DELETE FROM pig_surgeries WHERE id = $1"
+            "DELETE FROM animal_surgeries WHERE id = $1"
         )
         .bind(id)
         .execute(pool)
@@ -184,7 +184,7 @@ impl AnimalService {
 
         sqlx::query(
             r#"
-            UPDATE pig_surgeries SET 
+            UPDATE animal_surgeries SET 
                 deleted_at = NOW(), 
                 deletion_reason = $2,
                 deleted_by = $3
@@ -203,16 +203,16 @@ impl AnimalService {
     /// 複製手術紀錄
     pub async fn copy_surgery(
         pool: &PgPool,
-        pig_id: Uuid,
+        animal_id: Uuid,
         source_id: Uuid,
         created_by: Uuid,
-    ) -> Result<PigSurgery> {
+    ) -> Result<AnimalSurgery> {
         let source = Self::get_surgery_by_id(pool, source_id).await?;
 
-        let surgery = sqlx::query_as::<_, PigSurgery>(
+        let surgery = sqlx::query_as::<_, AnimalSurgery>(
             r#"
-            INSERT INTO pig_surgeries (
-                pig_id, is_first_experiment, surgery_date, surgery_site,
+            INSERT INTO animal_surgeries (
+                animal_id, is_first_experiment, surgery_date, surgery_site,
                 induction_anesthesia, pre_surgery_medication, positioning,
                 anesthesia_maintenance, anesthesia_observation, vital_signs,
                 reflex_recovery, respiration_rate, post_surgery_medication,
@@ -222,7 +222,7 @@ impl AnimalService {
             RETURNING *
             "#
         )
-        .bind(pig_id)
+        .bind(animal_id)
         .bind(&source.surgery_site)
         .bind(&source.induction_anesthesia)
         .bind(&source.pre_surgery_medication)
@@ -246,7 +246,7 @@ impl AnimalService {
     pub async fn mark_surgery_vet_read(pool: &PgPool, id: Uuid, vet_user_id: Uuid) -> Result<()> {
         // 更新紀錄本身
         sqlx::query(
-            "UPDATE pig_surgeries SET vet_read = true, vet_read_at = NOW(), updated_at = NOW() WHERE id = $1"
+            "UPDATE animal_surgeries SET vet_read = true, vet_read_at = NOW(), updated_at = NOW() WHERE id = $1"
         )
         .bind(id)
         .execute(pool)

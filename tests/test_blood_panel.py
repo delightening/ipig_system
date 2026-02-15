@@ -1,11 +1,11 @@
-"""
+﻿"""
 血液檢查系統完整測試（重新設計）
 
 包括：
 - Phase 1:  Seed 資料驗證 — 模板 & Panel 預設資料
 - Phase 2:  模板 CRUD — 建立、更新、停用/恢復模板
 - Phase 3:  Panel CRUD — 建立、更新項目、停用/恢復組合
-- Phase 4:  建立測試豬隻
+- Phase 4:  建立測試動物
 - Phase 5:  建立血液檢查紀錄 (CBC + Liver)
 - Phase 6:  建立第二筆血液檢查 (Kidney)
 - Phase 7:  查詢與詳情驗證
@@ -235,18 +235,18 @@ def run_blood_panel_test() -> bool:
              found is not None and found.get("name") == "測試組合 (已更新)")
 
     # ========================================
-    # Phase 4: 建立測試豬隻
+    # Phase 4: 建立測試動物
     # ========================================
-    t.step("Phase 4 — 建立測試豬隻")
+    t.step("Phase 4 — 建立測試動物")
 
-    source_resp = t._req("POST", f"{API_BASE_URL}/pig-sources", role=STAFF,
+    source_resp = t._req("POST", f"{API_BASE_URL}/animal-sources", role=STAFF,
                           json={
                               "code": f"SRC-BT-{ts}",
                               "name": "血液檢查測試豬源",
                           })
     source_id = source_resp.json()["id"]
 
-    pig_resp = t._req("POST", f"{API_BASE_URL}/pigs", role=STAFF, json={
+    animal_resp = t._req("POST", f"{API_BASE_URL}/animals", role=STAFF, json={
         "ear_tag": f"{ts % 1000:03d}",
         "breed": "minipig",
         "gender": "female",
@@ -258,10 +258,10 @@ def run_blood_panel_test() -> bool:
         "remark": "血液檢查完整測試用豬隻",
         "force_create": True,
     })
-    test_pig = pig_resp.json()
-    test_pig_id = test_pig["id"]
-    t.record("建立測試豬隻", True,
-             f"ID: {test_pig_id[:8]}..., ear_tag={test_pig.get('ear_tag')}")
+    test_pig = animal_resp.json()
+    test_animal_id = test_animal["id"]
+    t.record("建立測試動物", True,
+             f"ID: {test_animal_id[:8]}..., ear_tag={test_animal.get('ear_tag')}")
 
     # ========================================
     # Phase 5: 建立血液檢查（CBC + Liver）
@@ -309,7 +309,7 @@ def run_blood_panel_test() -> bool:
         "items": all_items,
     }
 
-    bt_resp = t._req("POST", f"{API_BASE_URL}/pigs/{test_pig_id}/blood-tests",
+    bt_resp = t._req("POST", f"{API_BASE_URL}/animals/{test_animal_id}/blood-tests",
                       role=STAFF, json=blood_test_payload)
     bt_data = bt_resp.json()
     bt_inner = bt_data.get("blood_test", bt_data)
@@ -342,7 +342,7 @@ def run_blood_panel_test() -> bool:
                 "sort_order": idx,
             })
 
-        bt2_resp = t._req("POST", f"{API_BASE_URL}/pigs/{test_pig_id}/blood-tests",
+        bt2_resp = t._req("POST", f"{API_BASE_URL}/animals/{test_animal_id}/blood-tests",
                            role=STAFF, json={
                                "test_date": str(date.today() - timedelta(days=1)),
                                "lab_name": "整合測試實驗室 B",
@@ -365,7 +365,7 @@ def run_blood_panel_test() -> bool:
     t.step("Phase 7 — 查詢與詳情驗證")
 
     # 7.1 列出豬隻的所有血液檢查
-    list_resp = t._req("GET", f"{API_BASE_URL}/pigs/{test_pig_id}/blood-tests", role=STAFF)
+    list_resp = t._req("GET", f"{API_BASE_URL}/animals/{test_animal_id}/blood-tests", role=STAFF)
     bt_list = list_resp.json()
     t.record("豬隻血液檢查列表", len(bt_list) == 2,
              f"實際 {len(bt_list)} 筆（預期 2）")
@@ -467,7 +467,7 @@ def run_blood_panel_test() -> bool:
              f"created_by_name={vet_detail.get('created_by_name')}")
 
     # 9.4 VET 可查看血液檢查列表
-    vet_list = t._req("GET", f"{API_BASE_URL}/pigs/{test_pig_id}/blood-tests",
+    vet_list = t._req("GET", f"{API_BASE_URL}/animals/{test_animal_id}/blood-tests",
                        role=VET).json()
     t.record("VET 可查看豬隻血檢列表", len(vet_list) >= 1,
              f"共 {len(vet_list)} 筆")
@@ -484,7 +484,7 @@ def run_blood_panel_test() -> bool:
         t.record("軟刪除血液檢查", del_resp.status_code == 200)
 
         # 10.2 驗證列表中不再出現
-        list_after_del = t._req("GET", f"{API_BASE_URL}/pigs/{test_pig_id}/blood-tests",
+        list_after_del = t._req("GET", f"{API_BASE_URL}/animals/{test_animal_id}/blood-tests",
                                  role=STAFF).json()
         is_hidden_bt = not any(b["id"] == bt2_id for b in list_after_del)
         t.record("刪除後列表中不出現", is_hidden_bt,
@@ -510,7 +510,7 @@ def run_blood_panel_test() -> bool:
                  f"共 {len(r.json())} 個")
 
         # 11.3 可查血液檢查列表
-        r = t._req("GET", f"{API_BASE_URL}/pigs/{test_pig_id}/blood-tests",
+        r = t._req("GET", f"{API_BASE_URL}/animals/{test_animal_id}/blood-tests",
                     role=role_name)
         t.record(f"{role_name} 可查血液檢查列表", len(r.json()) >= 1)
 
@@ -631,7 +631,7 @@ def run_blood_panel_test() -> bool:
     print(f"\n{'=' * 60}")
     print(f"[完成] 血液檢查系統完整測試完成！")
     print(f"  模板: {len(templates)} 個 | Panel: {panel_count} 個")
-    print(f"  測試豬隻: {test_pig_id[:8]}...")
+    print(f"  測試動物: {test_animal_id[:8]}...")
     print(f"  血液檢查: 2 筆 (CBC+Liver / Kidney)")
     print(f"  自訂模板: {new_tpl_id[:8]}... | 自訂 Panel: {new_panel_id[:8]}...")
     print(f"  操作日誌: {all_total} 筆（ANIMAL: {total_activities} 筆）")
