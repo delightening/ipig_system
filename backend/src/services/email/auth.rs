@@ -51,22 +51,22 @@ impl EmailService {
         <div class="container">
             <div class="header">
                 <div class="logo">
-                    <img src="{logo_url}" alt="iPig System" style="height: 64px; width: auto; margin-bottom: 12px;">
+                    <img src="{logo_url}" alt="iPig System" style="height: 64px; width: auto; margin-bottom: 12px; background: white; padding: 4px; border-radius: 8px;">
                 </div>
-                <h1>歡迎加入豬博士 iPig 系統</h1>
-                <p class="subtitle">您的帳號已成功開通</p>
+                <h1 style="margin: 0; font-size: 24px; font-weight: 600; color: #ffffff;">歡迎加入豬博士 iPig 系統</h1>
+                <p class="subtitle" style="margin-top: 8px; font-size: 14px; color: #e0e7ff;">您的帳號已成功開通</p>
             </div>
             <div class="content">
                 <p class="greeting">親愛的 <strong>{display_name}</strong>，您好！</p>
                 <p>您的豬博士 iPig 系統帳號已開通。以下是您的登入資訊：</p>
                 
-                <div class="info-box" style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); padding: 24px; border-radius: 12px; margin: 24px 0; border-left: 4px solid #3b82f6;">
-                    <p style="margin: 8px 0; font-size: 15px;"><span style="color: #475569; font-size: 13px;">📧 帳號（Email）</span><br><span style="font-weight: 600; color: #1e293b; font-size: 16px;">{to_email}</span></p>
-                    <p style="margin: 8px 0; font-size: 15px;"><span style="color: #475569; font-size: 13px;">🔑 初始密碼</span><br><span style="font-weight: 600; color: #1e293b; font-size: 16px;">{password}</span></p>
+                <div class="info-box" style="background-color: #ffffff; padding: 24px; border-radius: 12px; margin: 24px 0; border-left: 4px solid #3b82f6; border: 1px solid #cbd5e1; border-left: 4px solid #3b82f6;">
+                    <p style="margin: 8px 0; font-size: 15px;"><span style="color: #1e293b; font-size: 13px; font-weight: 500;">📧 帳號（Email）</span><br><span style="font-weight: 700; color: #0f172a; font-size: 16px;">{to_email}</span></p>
+                    <p style="margin: 8px 0; font-size: 15px;"><span style="color: #1e293b; font-size: 13px; font-weight: 500;">🔑 初始密碼</span><br><span style="font-weight: 700; color: #0f172a; font-size: 16px; background-color: #fef9c3; padding: 2px 8px; border-radius: 4px;">{password}</span></p>
                 </div>
                 
-                <div class="warning">
-                    <p>⚠️ 為確保帳號安全，請於首次登入後立即變更密碼。</p>
+                <div class="warning" style="background-color: #fef2f2; border-radius: 8px; padding: 16px; margin: 24px 0; border-left: 4px solid #ef4444;">
+                    <p style="margin: 0; color: #7f1d1d; font-size: 14px; font-weight: 500;">⚠️ 為確保帳號安全，請於首次登入後立即變更密碼。</p>
                 </div>
                 
                 <div class="button-container">
@@ -154,7 +154,7 @@ impl EmailService {
             <div style="text-align: center; margin-bottom: 15px;">
                 <img src="{logo_url}" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
             </div>
-            <h1>🔑 密碼重設通知</h1>
+            <h1 style="color: #ffffff;">🔑 密碼重設通知</h1>
         </div>
         <div class="content">
             <p>親愛的 <strong>{display_name}</strong>，您好！</p>
@@ -234,7 +234,7 @@ impl EmailService {
             <div style="text-align: center; margin-bottom: 15px;">
                 <img src="{logo_url}" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
             </div>
-            <h1>✅ 密碼變更成功</h1>
+            <h1 style="color: #ffffff;">✅ 密碼變更成功</h1>
         </div>
         <div class="content">
             <p>親愛的 <strong>{display_name}</strong>，您好！</p>

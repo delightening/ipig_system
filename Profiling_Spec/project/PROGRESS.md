@@ -536,6 +536,22 @@
 
 ### 2026-02-17
 
+- ✅ 🐷 **動物詳情頁新增「登記猝死」前端操作入口**：
+  - `AnimalDetailPage.tsx`：新增 `showSuddenDeathDialog` 狀態、`suddenDeathForm` 表單狀態、`createSuddenDeathMutation`
+  - Dialog 表單欄位：發現時間（datetime-local）、發現地點、可能原因、備註、需要病理檢查勾選
+  - 按鈕顯示條件：`in_experiment` 和 `completed` 狀態，與緊急給藥/安樂死按鈕同列
+  - 確認提示避免誤操作，提交後自動更新動物狀態
+  - `tsc --noEmit` 編譯通過
+
+- ✅ 🔒 **IACUC No. 變更保護與時間軸記錄**：
+  - 後端：`AnimalService::update` 禁止 `in_experiment` 動物更改 IACUC No.（回傳 BadRequest）
+  - 後端：偵測 IACUC No. 變更，回傳 `IacucChangeInfo`，`update_animal` handler 寫入 `IACUC_CHANGE` 審計事件（含 before/after data）
+  - 後端：新增 `GET /animals/:id/events` API，從 `user_activity_logs` 查詢 IACUC 變更事件
+  - 前端：`AnimalEditPage.tsx` 實驗中動物 IACUC 下拉禁用 + 提示文字
+  - 前端：`AnimalTimelineView.tsx` 新增 `iacuc_change` 時間軸項目（Edit2 圖示 + amber 配色）
+  - 前端：`AnimalDetailPage.tsx` 新增 events query + 傳遞 `iacucEvents` prop
+  - `cargo check` + `tsc --noEmit` 編譯通過
+
 - ✅ 📝 **Profiling_Spec v5.0 全面重寫**：
   - 重寫 01-09 主文件（11 個檔案）：架構概覽、核心領域模型、模組與邊界、資料庫綱要、API 規格、權限 RBAC、安全稽核、出勤模組、擴展性
   - 重寫 5 個模組文件：ANIMAL_MANAGEMENT、AUP_SYSTEM、ERP_SYSTEM、HR_SYSTEM、NOTIFICATION_SYSTEM
@@ -725,6 +741,16 @@
   - 重寫 `run_all_tests.py`：一次性初始化共享 Context + 傳遞 ctx + AUP→Amendment protocol_id 複用 + 新增 `--aup-integ`/`--no-shared` 參數
   - 資料量精簡：動物建立 20→5、AUP 動物 5→2、Amendment 複用 AUP 結果
   - 驗證：11 個 Python 檔案 `py_compile` 語法編譯通過、24 角色 import 測試通過
+
+- ✅ 🧪 **Animal + AUP Integration 測試修復（共 11 個 bug）**：
+  - **Animal（27/27 通過）**：Phase 7 犧牲動物 `PUT` 改為 `GET` 驗證狀態、新增 `euthanized` 為有效犧牲狀態
+  - **AUP Integration（41/41 通過）**：
+    - co-editor 角色從 PI 改為 IACUC_STAFF（需 `aup.review.assign` 權限）
+    - `approve_protocol()` 新增 `skip_pre_review` 參數避免重複 PRE_REVIEW
+    - ear_tag 格式改為三位數字（API 驗證規則）
+    - `vaccine_date` → `administered_date`（符合 API schema）
+    - 動物狀態機轉換：`unassigned → in_experiment(+iacuc_no) → completed` 兩步驟
+    - transfer 端點統一使用 EXP_STAFF 角色（`animal.record.create` 權限）
 
 - ✅ 📱 **手寫電子簽章 Phase 2–4 完成**：
   - **Phase 2（安樂死）**：後端 `sign_euthanasia_order` / `get_euthanasia_signature_status` handler + 路由；前端 `EuthanasiaPendingPanel.tsx` PI 同意流程整合手寫簽名

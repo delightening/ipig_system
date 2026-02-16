@@ -85,12 +85,30 @@ class SharedTestContext:
             tester.role_map = self._master_tester.role_map.copy()
 
         # 共享 CSRF cookie — 使用已儲存的 csrf_token 字串
-        # 注意：不從 cookie jar 取得，避免多帳號登入後累積多個同名 cookie 導致 CookieConflictError
+        # 注意：必須包含正確的 domain/path，否則 requests 不會將 cookie 發送到伺服器
         csrf_value = self._master_tester.csrf_token
         if csrf_value:
-            # 先清除舊的 csrf_token cookie，再設定新的
-            tester.session.cookies.set("csrf_token", None)
-            tester.session.cookies.set("csrf_token", csrf_value)
+            # 從 master session 中取得 csrf_token 的 domain 和 path
+            csrf_domain = ""
+            csrf_path = "/"
+            for c in self._master_tester.session.cookies:
+                if c.name == "csrf_token":
+                    csrf_domain = c.domain
+                    csrf_path = c.path
+                    break
+            # 清除子 tester cookie jar 中的舊 csrf_token
+            self._clear_cookie(tester.session, "csrf_token")
+            tester.session.cookies.set(
+                "csrf_token", csrf_value,
+                domain=csrf_domain, path=csrf_path
+            )
+
+    @staticmethod
+    def _clear_cookie(session, cookie_name: str):
+        """從 session cookie jar 中移除所有指定名稱的 cookie"""
+        remove_list = [c for c in session.cookies if c.name == cookie_name]
+        for c in remove_list:
+            session.cookies.clear(c.domain, c.path, c.name)
 
     def get_shared(self, key: str, default=None):
         """取得共用測試資料"""

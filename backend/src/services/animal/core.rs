@@ -10,11 +10,16 @@ use crate::{
     AppError, Result,
 };
 
+/// IACUC No. 變更資訊（供 handler 記錄審計日誌用）
+pub struct IacucChangeInfo {
+    pub old_iacuc_no: Option<String>,
+    pub new_iacuc_no: String,
+}
+
 impl AnimalService {
     // ============================================
     // 動物管理
     // ============================================
-
     /// 取得動物列表
     pub async fn list(pool: &PgPool, query: &AnimalQuery) -> Result<Vec<AnimalListItem>> {
         // Build query with proper parameterized queries
@@ -357,18 +362,22 @@ impl AnimalService {
     }
 
     /// 更新動物
-    pub async fn update(pool: &PgPool, id: Uuid, req: &UpdateAnimalRequest, updated_by: Uuid) -> Result<Animal> {
+    /// 回傳 (Animal, Option<IacucChangeInfo>)，第二個元素不為 None 時表示 IACUC No. 有變更
+    pub async fn update(pool: &PgPool, id: Uuid, req: &UpdateAnimalRequest, updated_by: Uuid) -> Result<(Animal, Option<IacucChangeInfo>)> {
+        // 查詢現有狀態與 IACUC No.（合併查詢以減少 I/O）
+        let current: (AnimalStatus, Option<String>) = sqlx::query_as(
+            "SELECT status as \"status: AnimalStatus\", iacuc_no FROM animals WHERE id = $1 AND deleted_at IS NULL"
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("動物不存在".to_string()))?;
+
+        let current_status = current.0;
+        let existing_iacuc = current.1;
+
         // 狀態轉換驗證
         if let Some(new_status) = req.status {
-            let current: (AnimalStatus,) = sqlx::query_as(
-                "SELECT status as \"status: AnimalStatus\" FROM animals WHERE id = $1 AND deleted_at IS NULL"
-            )
-            .bind(id)
-            .fetch_optional(pool)
-            .await?
-            .ok_or_else(|| AppError::NotFound("動物不存在".to_string()))?;
-
-            let current_status = current.0;
             if current_status != new_status && !current_status.can_transition_to(new_status) {
                 return Err(AppError::BadRequest(
                     format!("無法從「{}」轉換到「{}」", current_status.display_name(), new_status.display_name())
@@ -377,14 +386,7 @@ impl AnimalService {
 
             // 轉到 InExperiment 時必須有 iacuc_no
             if new_status == AnimalStatus::InExperiment && req.iacuc_no.is_none() {
-                // 檢查動物是否已有 iacuc_no（轉讓場景）
-                let has_iacuc: (Option<String>,) = sqlx::query_as(
-                    "SELECT iacuc_no FROM animals WHERE id = $1"
-                )
-                .bind(id)
-                .fetch_one(pool)
-                .await?;
-                if has_iacuc.0.is_none() {
+                if existing_iacuc.is_none() {
                     return Err(AppError::BadRequest(
                         "分配實驗需要指定 IACUC No.".to_string()
                     ));
@@ -396,6 +398,19 @@ impl AnimalService {
                 return Err(AppError::BadRequest(
                     "動物轉讓請使用轉讓 API".to_string()
                 ));
+            }
+        }
+
+        // 實驗中的動物不可更改 IACUC No.
+        if current_status == AnimalStatus::InExperiment {
+            if let Some(ref new_iacuc) = req.iacuc_no {
+                if let Some(ref old) = existing_iacuc {
+                    if old != new_iacuc {
+                        return Err(AppError::BadRequest(
+                            "實驗中的動物不可更改 IACUC No.".to_string()
+                        ));
+                    }
+                }
             }
         }
 
@@ -411,6 +426,24 @@ impl AnimalService {
         
         // 當狀態設為 InExperiment 時，自動記錄分配者與分配日期
         let is_assigning_to_experiment = req.status == Some(AnimalStatus::InExperiment);
+
+        // 偵測 IACUC No. 變更
+        let iacuc_change = if let Some(ref new_iacuc) = req.iacuc_no {
+            let changed = match &existing_iacuc {
+                Some(old) => old != new_iacuc,
+                None => true, // 從無到有也算變更
+            };
+            if changed {
+                Some(IacucChangeInfo {
+                    old_iacuc_no: existing_iacuc.clone(),
+                    new_iacuc_no: new_iacuc.clone(),
+                })
+            } else {
+                None
+            }
+        } else {
+            None
+        };
         
         let animal = sqlx::query_as::<_, Animal>(
             r#"
@@ -438,7 +471,7 @@ impl AnimalService {
         .fetch_one(pool)
         .await?;
 
-        Ok(animal)
+        Ok((animal, iacuc_change))
     }
 
     /// 軟刪除動物

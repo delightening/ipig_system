@@ -1,4 +1,4 @@
-﻿import { Animal, AnimalObservation, AnimalSurgery, AnimalSacrifice, AnimalSuddenDeath, AnimalWeight, AnimalTransfer, RecordType, recordTypeNames, transferStatusNames } from '@/lib/api'
+﻿import { Animal, AnimalObservation, AnimalSurgery, AnimalSacrifice, AnimalSuddenDeath, AnimalWeight, AnimalTransfer, AnimalEvent, RecordType, recordTypeNames, transferStatusNames } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,6 +28,7 @@ interface Props {
     sacrifice?: AnimalSacrifice
     suddenDeath?: AnimalSuddenDeath
     transfers?: AnimalTransfer[]
+    iacucEvents?: AnimalEvent[]
     animal?: Animal
     onView: (type: 'observation' | 'surgery', id: number) => void
     onEdit: (type: 'observation' | 'surgery', record: any) => void
@@ -37,7 +38,7 @@ interface Props {
     onDelete: (type: 'observation' | 'surgery', id: number) => void
 }
 
-type TimelineItemType = 'observation' | 'surgery' | 'weight' | 'created' | 'sacrificed' | 'completed' | 'euthanized' | 'sudden_death' | 'transferred'
+type TimelineItemType = 'observation' | 'surgery' | 'weight' | 'created' | 'sacrificed' | 'completed' | 'euthanized' | 'sudden_death' | 'transferred' | 'iacuc_change'
 
 interface TimelineItem {
     id: string
@@ -60,6 +61,7 @@ export function AnimalTimelineView({
     sacrifice,
     suddenDeath,
     transfers,
+    iacucEvents,
     animal,
     onView,
     onEdit,
@@ -211,6 +213,20 @@ export function AnimalTimelineView({
             raw: t,
             isInfoOnly: true,
         })),
+        // IACUC No. 變更事件
+        ...(iacucEvents || []).map(evt => ({
+            id: `iacuc-${evt.id}`,
+            originalId: 0,
+            type: 'iacuc_change' as const,
+            date: new Date(evt.created_at),
+            title: 'IACUC No. 變更',
+            content: `${evt.before_data?.iacuc_no || '（無）'} → ${evt.after_data?.iacuc_no || '（無）'}`,
+            actor: evt.actor_name || null,
+            vetRead: false,
+            isNoMed: false,
+            raw: evt,
+            isInfoOnly: true,
+        })),
     ].sort((a, b) => b.date.getTime() - a.date.getTime())
 
     // 取得時間軸項目的圖示
@@ -225,6 +241,7 @@ export function AnimalTimelineView({
             case 'euthanized': return <Skull className="h-5 w-5" />
             case 'sudden_death': return <Zap className="h-5 w-5" />
             case 'transferred': return <ArrowRightLeft className="h-5 w-5" />
+            case 'iacuc_change': return <Edit2 className="h-5 w-5" />
             default: return <ClipboardList className="h-5 w-5" />
         }
     }
@@ -241,6 +258,7 @@ export function AnimalTimelineView({
             case 'euthanized': return 'bg-red-100 dark:bg-red-900 text-red-600'
             case 'sudden_death': return 'bg-rose-100 dark:bg-rose-900 text-rose-600'
             case 'transferred': return 'bg-indigo-100 dark:bg-indigo-900 text-indigo-600'
+            case 'iacuc_change': return 'bg-amber-100 dark:bg-amber-900 text-amber-600'
             default: return 'bg-slate-100 dark:bg-slate-700 text-slate-500'
         }
     }
@@ -257,6 +275,7 @@ export function AnimalTimelineView({
             case 'euthanized': return 'text-red-600 bg-red-50'
             case 'sudden_death': return 'text-rose-600 bg-rose-50'
             case 'transferred': return 'text-indigo-600 bg-indigo-50'
+            case 'iacuc_change': return 'text-amber-600 bg-amber-50'
             default: return 'text-purple-600 bg-purple-50'
         }
     }

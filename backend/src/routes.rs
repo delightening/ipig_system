@@ -116,6 +116,7 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/animals/batch/assign", post(handlers::batch_assign_animals))
         .route("/animals/vet-comments", get(handlers::get_vet_comments))
         .route("/animals/:id", get(handlers::get_animal).put(handlers::update_animal).delete(handlers::delete_animal))
+        .route("/animals/:id/events", get(handlers::get_animal_events))
         .route("/animals/:id/vet-read", post(handlers::mark_animal_vet_read))
         // Animal Records - Observations
         .route("/animals/:id/observations", get(handlers::list_animal_observations).post(handlers::create_animal_observation))

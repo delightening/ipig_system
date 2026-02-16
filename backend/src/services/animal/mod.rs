@@ -20,6 +20,8 @@ mod surgery;
 mod transfer;
 mod weight;
 
+pub use core::IacucChangeInfo;
+
 pub struct AnimalService;
 
 impl AnimalService {

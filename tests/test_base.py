@@ -125,7 +125,7 @@ class BaseApiTester:
         for r in resp.json():
             self.role_map[r["code"]] = r["id"]
         # SEC-24：CSRF middleware 在 protected routes 回應時設定 csrf_token cookie
-        self.csrf_token = self.session.cookies.get("csrf_token")
+        self._refresh_csrf()
         print(f"  ✓ 取得 {len(self.role_map)} 個角色: {list(self.role_map.keys())}")
         return True
 

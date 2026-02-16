@@ -29,21 +29,14 @@ pub async fn list_animals(
     let has_view_project = current_user.has_permission("animal.animal.view_project");
     
     if !has_view_all && !has_view_project {
-        // 如果沒有查看權限，返回空列表
-        // 這裡不拋出錯誤，而是返回空列表，避免洩露權限資訊
         return Ok(Json(vec![]));
     }
     
-    // 如果只有 view_project 權限而沒有 view_all，則只能查看有 iacuc_no 的動物
-    // 即只能查看屬於專案的動物，不能查看沒有 iacuc_no 的動物
     let animals = AnimalService::list(&state.db, &query).await?;
     
-    // 如果只有 view_project 權限，則過濾出有 iacuc_no 的動物
-    // 即只返回屬於專案的動物，過濾掉沒有 iacuc_no 的動物
     let filtered_animals = if has_view_all {
         animals
     } else {
-        // 過濾出有 iacuc_no 的動物，只顯示屬於專案的動物
         animals.into_iter()
             .filter(|a| a.iacuc_no.is_some())
             .collect()
@@ -81,11 +74,9 @@ pub async fn create_animal(
 ) -> Result<Json<Animal>> {
     require_permission!(current_user, "animal.animal.create");
     
-    // 記錄建立動物的請求資訊，用於除錯
     tracing::debug!("Create animal request: ear_tag={}, breed={:?}, gender={:?}, entry_date={:?}, birth_date={:?}, entry_weight={:?}", 
         req.ear_tag, req.breed, req.gender, req.entry_date, req.birth_date, req.entry_weight);
     
-    // 驗證請求資料
     if let Err(validation_errors) = req.validate() {
         let error_messages: Vec<String> = validation_errors
             .field_errors()
@@ -112,7 +103,6 @@ pub async fn create_animal(
     
     let animal = AnimalService::create(&state.db, &req, current_user.id).await?;
 
-    // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "CREATE",
         Some("animal"), Some(animal.id), Some(&animal.ear_tag),
@@ -140,9 +130,27 @@ pub async fn update_animal(
     require_permission!(current_user, "animal.animal.edit");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
-    let animal = AnimalService::update(&state.db, id, &req, current_user.id).await?;
+    let (animal, iacuc_change) = AnimalService::update(&state.db, id, &req, current_user.id).await?;
 
-    // 記錄活動紀錄
+    // 記錄 IACUC No. 變更審計事件（含 before/after 資料供時間軸顯示）
+    if let Some(change) = &iacuc_change {
+        let before_data = serde_json::json!({
+            "iacuc_no": change.old_iacuc_no,
+        });
+        let after_data = serde_json::json!({
+            "iacuc_no": change.new_iacuc_no,
+        });
+        if let Err(e) = AuditService::log_activity(
+            &state.db, current_user.id, "ANIMAL", "IACUC_CHANGE",
+            Some("animal"), Some(id), Some(&animal.ear_tag),
+            Some(before_data), Some(after_data),
+            None, None,
+        ).await {
+            tracing::error!("寫入 user_activity_logs 失敗 (IACUC_CHANGE): {}", e);
+        }
+    }
+
+    // 記錄一般更新活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "UPDATE",
         Some("animal"), Some(id), Some(&animal.ear_tag),
@@ -166,7 +174,6 @@ pub async fn delete_animal(
     
     AnimalService::delete_with_reason(&state.db, id, &req.reason, current_user.id).await?;
 
-    // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "ANIMAL_DELETE",
         Some("animal"), Some(id), Some(&format!("動物 {} (原因: {})", id, req.reason)),
@@ -190,7 +197,6 @@ pub async fn batch_assign_animals(
     
     let animals = AnimalService::batch_assign(&state.db, &req, current_user.id).await?;
 
-    // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "ANIMAL_BATCH_ASSIGN",
         Some("animal"), None,
@@ -218,4 +224,56 @@ pub async fn mark_animal_vet_read(
     
     AnimalService::mark_vet_read(&state.db, id).await?;
     Ok(Json(serde_json::json!({ "message": "Marked as read" })))
+}
+
+/// 動物事件回傳結構
+#[derive(serde::Serialize)]
+pub struct AnimalEvent {
+    pub id: String,
+    pub event_type: String,
+    pub actor_name: Option<String>,
+    pub before_data: Option<serde_json::Value>,
+    pub after_data: Option<serde_json::Value>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// 取得動物的 IACUC 變更事件（用於時間軸顯示）
+pub async fn get_animal_events(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<Vec<AnimalEvent>>> {
+    let rows: Vec<(String, String, Option<String>, Option<serde_json::Value>, Option<serde_json::Value>, chrono::DateTime<chrono::Utc>)> = sqlx::query_as(
+        r#"
+        SELECT
+            id::text,
+            event_type,
+            actor_display_name,
+            before_data,
+            after_data,
+            created_at
+        FROM user_activity_logs
+        WHERE entity_type = 'animal'
+          AND entity_id = $1
+          AND event_type = 'IACUC_CHANGE'
+        ORDER BY created_at DESC
+        LIMIT 50
+        "#
+    )
+    .bind(id)
+    .fetch_all(&state.db)
+    .await?;
+
+    let events = rows.into_iter().map(|(eid, event_type, actor_name, before_data, after_data, created_at)| {
+        AnimalEvent {
+            id: eid,
+            event_type,
+            actor_name,
+            before_data,
+            after_data,
+            created_at,
+        }
+    }).collect();
+
+    Ok(Json(events))
 }

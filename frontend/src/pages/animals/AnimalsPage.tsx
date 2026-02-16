@@ -125,6 +125,10 @@ export function AnimalsPage() {
 
   // Check if user is PI or CLIENT
   const isPIOrClient = hasRole('PI') || hasRole('CLIENT')
+  const isAdmin = hasRole('admin')
+
+  // 終端狀態 tab（已安樂死、猝死、已轉讓）僅 admin 可見
+  const adminOnlyStatuses = ['euthanized', 'sudden_death', 'transferred']
 
   // Building tab state for grouped view
   const [groupedBuildingTab, setGroupedBuildingTab] = useState<'A' | 'B'>('A')
@@ -132,10 +136,11 @@ export function AnimalsPage() {
   // Filter state
   const [search, setSearch] = useState('')
   // PI/CLIENT can only see: in_experiment, completed
-  // Other users can see: pen, unassigned, in_experiment, completed
+  // Other non-admin users can see: pen, unassigned, in_experiment, completed
+  // Admin can see all tabs including euthanized, sudden_death, transferred
   const allowedStatuses = isPIOrClient
-    ? ['in_experiment', 'completed', 'euthanized', 'sudden_death', 'transferred']
-    : ['pen', 'unassigned', 'in_experiment', 'completed', 'euthanized', 'sudden_death', 'transferred', 'all']
+    ? ['in_experiment', 'completed', ...(isAdmin ? adminOnlyStatuses : [])]
+    : ['pen', 'unassigned', 'in_experiment', 'completed', ...(isAdmin ? adminOnlyStatuses : []), 'all']
   const urlStatus = searchParams.get('status')
   // Default: PI/CLIENT -> 'in_experiment', others -> 'pen'
   const defaultStatus = isPIOrClient ? 'in_experiment' : 'pen'
@@ -754,9 +759,13 @@ export function AnimalsPage() {
           { value: 'all', label: t('animals.statusLabels.all'), count: allAnimals.length },
         ]
           .filter(tab => {
-            // PI and CLIENT can only see: 實驗中, 實驗完成, 已安樂死, 猝死
+            // 已安樂死、猝死、已轉讓 僅 admin 可見
+            if (adminOnlyStatuses.includes(tab.value) && !isAdmin) {
+              return false
+            }
+            // PI and CLIENT can only see: 實驗中, 實驗完成
             if (isPIOrClient) {
-              return ['in_experiment', 'completed', 'euthanized', 'sudden_death', 'transferred'].includes(tab.value)
+              return ['in_experiment', 'completed'].includes(tab.value)
             }
             return true
           })

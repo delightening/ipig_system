@@ -489,3 +489,13 @@ export interface AssignTransferPlanRequest {
 export interface RejectTransferRequest {
     reason: string
 }
+
+// IACUC 變更事件（時間軸用）
+export interface AnimalEvent {
+    id: string
+    event_type: string
+    actor_name?: string
+    before_data?: { iacuc_no?: string }
+    after_data?: { iacuc_no?: string }
+    created_at: string
+}

@@ -127,7 +127,10 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-02-17 | 🔒 IACUC No. 變更保護：後端禁止實驗中動物更改 IACUC No. + IACUC_CHANGE 審計事件 + `GET /animals/:id/events` API；前端 AnimalEditPage 禁用下拉 + AnimalTimelineView IACUC 變更事件（amber 配色） |
+| 2026-02-17 | 🐷 動物詳情頁新增「登記猝死」按鈕 + Dialog 表單（發現時間/地點/原因/備註/病理檢查），`in_experiment` 和 `completed` 狀態下顯示 |
 | 2026-02-17 | 📝 Profiling_Spec v5.0 全面重寫：01-09 主文件、5 個模組文件、README、database_erd 全部更新。新增轉讓/猝死/手寫簽章/資料隔離/通知路由等功能文檔，更新統計數字（~293 端點、~73 資料表、8 migration） |
+| 2026-02-17 | 🧪 測試修復：Animal 27/27 + AUP Integration 41/41 全部通過。修正犧牲動物狀態驗證、co-editor 權限角色、approve_protocol 重複 PRE_REVIEW、ear_tag 格式、vaccine_date 欄位、動物狀態機轉換、transfer 權限統一 EXP_STAFF |
 | 2026-02-17 | 🗃️ 資料庫遷移整合：14 個 migration 合併為 8 個（血液/猝死/轉讓→003、AUP 審查→004、偏好→001、權限→002、通知+簽章→008），刪除 6 個舊檔 |
 | 2026-02-16 | 🐷 第三波前端轉讓 UI：TransferTab 元件（Stepper + 6 步表單）+ Timeline transferred 事件 + EditPage 防護 |
 | 2026-02-16 | 🐷 動物狀態生命週期重構（第二波後端完成）：transferred 狀態 + 轉讓 6 步 API（8 路由）+ DB migration 014 + Timeline 安樂死/猝死事件 |
