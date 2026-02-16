@@ -66,9 +66,11 @@ pub async fn auth_middleware(
     mut request: Request,
     next: Next,
 ) -> Result<Response> {
-    // 嘗試從多個來源取得 token（優先順序：Cookie > Bearer Header）
-    let token = extract_token_from_cookie(&request)
-        .or_else(|| extract_token_from_bearer(&request))
+    // 嘗試從多個來源取得 token（優先順序：Bearer Header > Cookie）
+    // Bearer 優先可避免 Cookie 殘留覆蓋正確的 Authorization header，
+    // 同時降低 Cookie 注入攻擊風險
+    let token = extract_token_from_bearer(&request)
+        .or_else(|| extract_token_from_cookie(&request))
         .ok_or(AppError::Unauthorized)?;
 
     let token_data = decode::<Claims>(

@@ -440,19 +440,20 @@ export function MainLayout() {
   })
 
   // 取得最近 10 筆通知的 API 查詢 (僅在選單開啟時觸發)
-  const { data: notificationsData } = useQuery({
+  const { data: notificationsData, isLoading: isLoadingNotifications } = useQuery({
     queryKey: ['notifications-recent'],
     queryFn: async () => {
       const res = await api.get<{ data: NotificationItem[] }>('/notifications?per_page=10')
       return res.data.data
     },
     enabled: showNotificationDropdown,
+    staleTime: 0, // 每次開啟下拉選單時都重新獲取最新通知
   })
 
   // 標記特定通知為已讀的變更操作
   const markReadMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      return api.post('/notifications/mark-read', { notification_ids: ids })
+      return api.post('/notifications/read', { notification_ids: ids })
     },
     onSuccess: () => {
       // 成功後刷新未讀數量與最近通知列表
@@ -464,7 +465,7 @@ export function MainLayout() {
   // 標記「全部」通知為已讀的變更操作
   const markAllReadMutation = useMutation({
     mutationFn: async () => {
-      return api.post('/notifications/mark-all-read')
+      return api.post('/notifications/read-all')
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
@@ -935,7 +936,13 @@ export function MainLayout() {
 
                   {/* 通知列表捲動區域 */}
                   <div className="max-h-[400px] overflow-y-auto">
-                    {notificationsData && notificationsData.length > 0 ? (
+                    {isLoadingNotifications ? (
+                      /* 載入中顯示旋轉圖示 */
+                      <div className="px-4 py-8 text-center text-slate-500">
+                        <Loader2 className="h-8 w-8 mx-auto mb-2 text-slate-300 animate-spin" />
+                        <p>{t('common.loading')}</p>
+                      </div>
+                    ) : notificationsData && notificationsData.length > 0 ? (
                       notificationsData.map((notification) => (
                         <div
                           key={notification.id}

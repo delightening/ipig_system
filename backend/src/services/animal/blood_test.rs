@@ -1,4 +1,5 @@
-﻿use sqlx::PgPool;
+﻿use chrono::{DateTime, Utc};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::AnimalService;
@@ -19,8 +20,8 @@ impl AnimalService {
     // 血液檢查管理
     // ============================================
 
-    /// 列出血液檢查紀錄
-    pub async fn list_blood_tests(pool: &PgPool, animal_id: Uuid) -> Result<Vec<BloodTestListItem>> {
+    /// 列出血液檢查紀錄（支援資料隔離）
+    pub async fn list_blood_tests(pool: &PgPool, animal_id: Uuid, after: Option<DateTime<Utc>>) -> Result<Vec<BloodTestListItem>> {
         let tests = sqlx::query_as::<_, BloodTestListItem>(
             r#"
             SELECT 
@@ -33,12 +34,14 @@ impl AnimalService {
             LEFT JOIN animal_blood_test_items bti ON bti.blood_test_id = bt.id
             LEFT JOIN users u ON u.id = bt.created_by
             WHERE bt.animal_id = $1 AND bt.is_deleted = false
+              AND ($2::timestamptz IS NULL OR bt.created_at > $2)
             GROUP BY bt.id, bt.animal_id, bt.test_date, bt.lab_name, bt.status,
                      bt.remark, bt.vet_read, bt.created_at, u.display_name
             ORDER BY bt.test_date DESC, bt.created_at DESC
             "#
         )
         .bind(animal_id)
+        .bind(after)
         .fetch_all(pool)
         .await?;
 

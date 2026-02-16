@@ -17,18 +17,18 @@ import sys
 import os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from test_base import BaseApiTester, API_BASE_URL
+from test_base import BaseApiTester, API_BASE_URL, TEST_USER_PASSWORD
 
 # 測試帳號設定
 AUP_TEST_USERS = {
-    "IACUC_STAFF": {"email": "staff_int_test@example.com", "password": "password123", "display_name": "IACUC Staff (整合測試)", "role_codes": ["IACUC_STAFF"]},
-    "REVIEWER1":   {"email": "rev1_int_test@example.com",  "password": "password123", "display_name": "Reviewer 1 (整合測試)", "role_codes": ["REVIEWER"]},
-    "REVIEWER2":   {"email": "rev2_int_test@example.com",  "password": "password123", "display_name": "Reviewer 2 (整合測試)", "role_codes": ["REVIEWER"]},
-    "REVIEWER3":   {"email": "rev3_int_test@example.com",  "password": "password123", "display_name": "Reviewer 3 (整合測試)", "role_codes": ["REVIEWER"]},
-    "IACUC_CHAIR": {"email": "chair_int_test@example.com", "password": "password123", "display_name": "IACUC Chair (整合測試)", "role_codes": ["REVIEWER", "IACUC_CHAIR"]},
-    "PI":          {"email": "pi_int_test@example.com",    "password": "password123", "display_name": "PI (整合測試)",         "role_codes": ["PI"]},
-    "VET":         {"email": "vet_int_test@example.com",   "password": "password123", "display_name": "VET (整合測試)",        "role_codes": ["VET"]},
-    "REV_OTHER":   {"email": "revother_int_test@example.com", "password": "password123", "display_name": "Reviewer Other (整合測試)", "role_codes": ["REVIEWER"]},
+    "IACUC_STAFF": {"email": "staff_int_test@example.com", "password": TEST_USER_PASSWORD, "display_name": "IACUC Staff (整合測試)", "role_codes": ["IACUC_STAFF"]},
+    "REVIEWER1":   {"email": "rev1_int_test@example.com",  "password": TEST_USER_PASSWORD, "display_name": "Reviewer 1 (整合測試)", "role_codes": ["REVIEWER"]},
+    "REVIEWER2":   {"email": "rev2_int_test@example.com",  "password": TEST_USER_PASSWORD, "display_name": "Reviewer 2 (整合測試)", "role_codes": ["REVIEWER"]},
+    "REVIEWER3":   {"email": "rev3_int_test@example.com",  "password": TEST_USER_PASSWORD, "display_name": "Reviewer 3 (整合測試)", "role_codes": ["REVIEWER"]},
+    "IACUC_CHAIR": {"email": "chair_int_test@example.com", "password": TEST_USER_PASSWORD, "display_name": "IACUC Chair (整合測試)", "role_codes": ["REVIEWER", "IACUC_CHAIR"]},
+    "PI":          {"email": "pi_int_test@example.com",    "password": TEST_USER_PASSWORD, "display_name": "PI (整合測試)",         "role_codes": ["PI"]},
+    "VET":         {"email": "vet_int_test@example.com",   "password": TEST_USER_PASSWORD, "display_name": "VET (整合測試)",        "role_codes": ["VET"]},
+    "REV_OTHER":   {"email": "revother_int_test@example.com", "password": TEST_USER_PASSWORD, "display_name": "Reviewer Other (整合測試)", "role_codes": ["REVIEWER"]},
 }
 
 
@@ -319,6 +319,15 @@ def run_aup_test() -> bool:
     t.step("主委最終核定")
     t._req("POST", f"{API_BASE_URL}/protocols/{protocol_id}/status", role="IACUC_STAFF",
            json={"to_status": "UNDER_REVIEW", "reviewer_ids": reviewers})
+
+    # 取得最新版本 ID，讓每位審查委員在此輪留言（後端要求所有委員需先發表意見）
+    final_version_id = t._req("GET", f"{API_BASE_URL}/protocols/{protocol_id}/versions",
+                                role="IACUC_STAFF").json()[0]["id"]
+    for i, role in enumerate(["REVIEWER1", "REVIEWER2", "REVIEWER3"]):
+        t._req("POST", f"{API_BASE_URL}/reviews/comments", role=role,
+               json={"protocol_version_id": final_version_id,
+                     "content": f"第二輪審查：同意通過 — by {role}"})
+
     t._req("POST", f"{API_BASE_URL}/protocols/{protocol_id}/status", role="IACUC_CHAIR",
            json={"to_status": "APPROVED", "remark": "審核通過，核發許可證。"})
     status = get_status()

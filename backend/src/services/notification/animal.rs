@@ -67,7 +67,7 @@ impl NotificationService {
         let urgency_prefix = if is_urgent { "🚨 [緊急] " } else { "" };
         let notification_title = format!("{}[iPig] 獸醫師建議 - 耳號 {}", urgency_prefix, ear_tag);
         let content = format!(
-            "獸醫師已對以下動物新增照護建議，請查閱並執行。\n\n耳號：{}\nIACUC NO.：{}\n紀錄類型：{}\n建議內容：{}",
+            "獸醫師已對以下動物新增照護建議，請查閱並執行。\n\n耳號：{}\nIACUC No.：{}\n紀錄類型：{}\n建議內容：{}",
             ear_tag,
             iacuc_no.as_deref().unwrap_or("-"),
             record_type,
@@ -172,7 +172,7 @@ impl NotificationService {
 
         let notification_title = format!("🚨 [緊急] 緊急給藥 - 耳號 {}", ear_tag);
         let content = format!(
-            "緊急給藥執行通知\n\n此紀錄需要補簽審核。\n\n耳號：{}\nIACUC NO.：{}\n執行者：{}\n緊急原因：{}\n\n請儘速審核此緊急給藥紀錄。",
+            "緊急給藥執行通知\n\n此紀錄需要補簽審核。\n\n耳號：{}\nIACUC No.：{}\n執行者：{}\n緊急原因：{}\n\n請儘速審核此緊急給藥紀錄。",
             ear_tag,
             iacuc_no.unwrap_or("-"),
             operator_name,

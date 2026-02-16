@@ -92,6 +92,20 @@ pub struct AnimalQuery {
     pub is_on_medication: Option<bool>,
 }
 
+/// 資料隔離：用於記錄列表查詢的可選時間過濾
+#[derive(Debug, Deserialize, Default)]
+pub struct RecordFilterQuery {
+    /// 僅回傳 created_at > after 的記錄（轉讓資料隔離）
+    pub after: Option<DateTime<Utc>>,
+}
+
+/// 資料隔離：回傳當前使用者的可見時間界線
+#[derive(Debug, Serialize)]
+pub struct DataBoundaryResponse {
+    /// 若為 Some，僅應顯示 created_at > boundary 的記錄；null 代表可見所有
+    pub boundary: Option<DateTime<Utc>>,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct BatchAssignRequest {
     pub animal_ids: Vec<Uuid>,
@@ -169,6 +183,44 @@ pub struct CreateSacrificeRequest {
     pub blood_volume_ml: Option<rust_decimal::Decimal>,
     #[serde(default)]
     pub confirmed_sacrifice: bool,
+}
+
+/// 猝死登記請求
+#[derive(Debug, Deserialize)]
+pub struct CreateSuddenDeathRequest {
+    pub discovered_at: DateTime<Utc>,
+    pub probable_cause: Option<String>,
+    pub location: Option<String>,
+    pub remark: Option<String>,
+    #[serde(default)]
+    pub requires_pathology: bool,
+}
+
+/// 發起轉讓請求
+#[derive(Debug, Deserialize)]
+pub struct CreateTransferRequest {
+    pub reason: String,
+    pub remark: Option<String>,
+}
+
+/// 獸醫評估轉讓請求
+#[derive(Debug, Deserialize)]
+pub struct VetEvaluateTransferRequest {
+    pub health_status: String,
+    pub is_fit_for_transfer: bool,
+    pub conditions: Option<String>,
+}
+
+/// 指定新計劃請求
+#[derive(Debug, Deserialize)]
+pub struct AssignTransferPlanRequest {
+    pub to_iacuc_no: String,
+}
+
+/// 拒絕轉讓請求
+#[derive(Debug, Deserialize)]
+pub struct RejectTransferRequest {
+    pub reason: String,
 }
 
 #[derive(Debug, Deserialize, Validate)]

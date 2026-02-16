@@ -1,7 +1,7 @@
 ﻿// 血液檢查管理 Handlers（檢查紀錄 + 模板 + 組合）
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Extension, Json,
 };
 use uuid::Uuid;
@@ -14,6 +14,7 @@ use crate::{
         CreateBloodTestPanelRequest, CreateBloodTestRequest, CreateBloodTestTemplateRequest,
         DeleteRequest, AnimalBloodTestWithItems, UpdateBloodTestPanelItemsRequest,
         UpdateBloodTestPanelRequest, UpdateBloodTestRequest, UpdateBloodTestTemplateRequest,
+        RecordFilterQuery,
     },
     require_permission,
     services::{AnimalService, AuditService},
@@ -29,8 +30,9 @@ pub async fn list_animal_blood_tests(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(animal_id): Path<Uuid>,
+    Query(filter): Query<RecordFilterQuery>,
 ) -> Result<Json<Vec<BloodTestListItem>>> {
-    let tests = AnimalService::list_blood_tests(&state.db, animal_id).await?;
+    let tests = AnimalService::list_blood_tests(&state.db, animal_id, filter.after).await?;
     Ok(Json(tests))
 }
 

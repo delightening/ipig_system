@@ -1,4 +1,5 @@
-﻿use sqlx::PgPool;
+﻿use chrono::{DateTime, Utc};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::AnimalService;
@@ -13,8 +14,8 @@ impl AnimalService {
     // 體重紀錄
     // ============================================
 
-    /// 取得體重紀錄列表（排除已刪除）
-    pub async fn list_weights(pool: &PgPool, animal_id: Uuid) -> Result<Vec<AnimalWeightResponse>> {
+    /// 取得體重紀錄列表（排除已刪除，支援資料隔離）
+    pub async fn list_weights(pool: &PgPool, animal_id: Uuid, after: Option<DateTime<Utc>>) -> Result<Vec<AnimalWeightResponse>> {
         let weights = sqlx::query_as::<_, AnimalWeightResponse>(
             r#"
             SELECT 
@@ -23,10 +24,12 @@ impl AnimalService {
             FROM animal_weights w
             LEFT JOIN users u ON w.created_by = u.id
             WHERE w.animal_id = $1 AND w.deleted_at IS NULL
+              AND ($2::timestamptz IS NULL OR w.created_at > $2)
             ORDER BY w.measure_date DESC
             "#
         )
         .bind(animal_id)
+        .bind(after)
         .fetch_all(pool)
         .await?;
 

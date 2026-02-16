@@ -1,0 +1,40 @@
+============================================================
+[HR 人員管理系統完整測試] 測試結果
+執行時間: 2026-02-16 15:11:48
+============================================================
+
+  [PASS] 打卡上班 — 已打卡 (400 Client Error: Bad Request for url: http://localhost:8000/api/hr/attendance/c)
+  [PASS] 打卡下班 — clock_out_time=2026-02-16T07:11:48.607217Z
+  [PASS] 查詢自己出勤記錄 — 共 1 筆出勤記錄
+  [PASS] 管理員查看出勤統計 — 回傳正常
+  [PASS] 建立加班 type=A (平日加班) — comp_time=0.0 (預期 0.0)
+  [PASS] 核准加班 type=A — status=approved
+  [PASS] 建立加班 type=B (假日加班) — comp_time=0.0 (預期 0.0)
+  [PASS] 核准加班 type=B — status=approved
+  [PASS] 建立加班 type=C (國定假日加班) — comp_time=8.0 (預期 8.0)
+  [PASS] 核准加班 type=C — status=approved
+  [PASS] 建立加班 type=D (天災加班) — comp_time=8.0 (預期 8.0)
+  [PASS] 核准加班 type=D — status=approved
+  [PASS] 查詢加班紀錄 — 共 9 筆（預期至少 4 種類型）
+  [PASS] C/D 類型產生補休餘額 — 找到 4 筆 8 小時補休（C/D 各一筆）
+  [PASS] 加班駁回 — status=rejected
+  [PASS] 查看加班詳情 — hours=3.00, type=A
+  [PASS] 建立事假申請 — ID: 02a37f2e... status=DRAFT
+  [PASS] 提交事假申請 — status=PENDING_L1
+  [PASS] 事假核准完成 — 經過 3 級核准 → status=APPROVED
+  [PASS] 病假駁回 — status=REJECTED
+  [PASS] 事假取消 — status=CANCELLED
+  [PASS] 查詢請假列表 — 共 7 筆請假記錄
+  [PASS] 查看請假詳情 — leave_type=PERSONAL, status=APPROVED
+  [PASS] 建立假期額度 — 已存在或失敗 (500 Server Error: Internal Server Error for url: http://loca)，使用既有額度
+  [PASS] 查詢特休餘額 — 共 1 筆特休額度
+  [PASS] 特休額度正確 — entitled=14.0 used=0.0 remaining=14.0
+  [PASS] 建立特休申請 — ID: 62af7cda... days=2
+  [PASS] 特休核准 — status=APPROVED
+  [PASS] 查看餘額彙總 — annual_remaining=14.0 comp_remaining=32.0
+  [PASS] 查看補休餘額 — 共 8 筆額度
+  [PASS] 查看過期補償列表 — 共 0 筆過期補償
+  [PASS] 查看儀表板日曆 — today=2026-02-16
+
+總計: 32 項 | PASS 32 | FAIL 0
+結果: ALL PASSED

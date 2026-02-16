@@ -1405,7 +1405,10 @@
       "all": "所有動物",
       "unassigned": "未分配",
       "in_experiment": "實驗中",
-      "completed": "實驗完成"
+      "completed": "實驗完成",
+      "euthanized": "已安樂死",
+      "sudden_death": "猝死",
+      "transferred": "已轉讓"
     },
     "breedLabels": {
       "minipig": "迷你豬",
@@ -1481,5 +1484,19 @@
     "noDataFiltered": "無符合條件的變更申請",
     "emptyHint": "您可以在已核准的計畫書中提出變更申請",
     "filterHint": "請嘗試選擇其他狀態篩選條件"
+  },
+  "signature": {
+    "handwriting": "手寫簽名",
+    "signHere": "請在此處簽名",
+    "clear": "清除",
+    "undo": "復原",
+    "confirmSign": "確認簽署",
+    "signed": "已簽署",
+    "signedBy": "由 {{name}} 簽署於 {{date}}",
+    "notSigned": "尚未簽署",
+    "signRequired": "需要簽名確認",
+    "signSuccess": "簽章完成",
+    "signFailed": "簽章失敗",
+    "resignBtn": "重新簽名"
   }
 }

@@ -25,7 +25,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { Loader2, Users, Plus, Pencil, Trash2, Shield, UserCheck, UserX, AlertTriangle, Key, ArrowUpDown, ArrowUp, ArrowDown, LogIn } from 'lucide-react'
+import { Loader2, Users, Plus, Pencil, Trash2, Shield, UserCheck, UserX, AlertTriangle, Key, ArrowUpDown, ArrowUp, ArrowDown, LogIn, ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface UserTrainingInput {
   code: string
@@ -88,6 +88,10 @@ export function UsersPage() {
   const [sortRole, setSortRole] = useState<'asc' | 'desc' | null>(null)
   const [sortStatus, setSortStatus] = useState<'asc' | 'desc' | null>(null)
 
+  // 分頁狀態
+  const perPage = 50
+  const [currentPage, setCurrentPage] = useState(1)
+
   // 獲取用戶列表
   const { data: users, isLoading } = useQuery({
     queryKey: ['users'],
@@ -128,6 +132,13 @@ export function UsersPage() {
 
     return sorted
   }, [users, sortRole, sortStatus])
+
+  // 分頁計算
+  const totalPages = Math.ceil(sortedUsers.length / perPage)
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * perPage
+    return sortedUsers.slice(start, start + perPage)
+  }, [sortedUsers, currentPage, perPage])
 
   // 獲取角色列表
   const { data: roles } = useQuery({
@@ -455,8 +466,8 @@ export function UsersPage() {
                   <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                 </TableCell>
               </TableRow>
-            ) : sortedUsers.length > 0 ? (
-              sortedUsers.map((user) => (
+            ) : paginatedUsers.length > 0 ? (
+              paginatedUsers.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{user.email}</TableCell>
                   <TableCell>{user.display_name}</TableCell>
@@ -557,6 +568,22 @@ export function UsersPage() {
             )}
           </TableBody>
         </Table>
+        {/* 分頁控制列 */}
+        {totalPages > 0 && (
+          <div className="flex flex-col md:flex-row items-center justify-between px-4 py-3 border-t gap-2">
+            <p className="text-sm text-muted-foreground">
+              共 {sortedUsers.length} 筆，第 {currentPage} / {totalPages} 頁
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))}>
+                <ChevronLeft className="h-4 w-4 mr-1" />上一頁
+              </Button>
+              <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}>
+                下一頁<ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 創建用戶對話框 */}

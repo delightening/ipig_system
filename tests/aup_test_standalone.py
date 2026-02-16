@@ -11,20 +11,24 @@ sys.stderr.reconfigure(encoding="utf-8")
 load_dotenv()
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api")
+TEST_USER_PASSWORD = os.getenv("TEST_USER_PASSWORD", "password123")
 
-# 管理員帳號（用於建立測試用戶）
-ADMIN_CREDENTIALS = {"email": "jason4617987@gmail.com", "password": "kfknxJH6AjSvJh6?"}
+# 管理員帳號（從環境變數讀取）
+ADMIN_CREDENTIALS = {
+    "email": os.getenv("TEST_ADMIN_EMAIL", ""),
+    "password": os.getenv("TEST_ADMIN_PASSWORD", ""),
+}
 
 # 測試帳號設定：角色代碼用來對應系統中的 role code
 TEST_USERS = {
-    "IACUC_STAFF": {"email": "staff_test@example.com", "password": "password123", "display_name": "IACUC Staff (Test)", "role_codes": ["IACUC_STAFF"]},
-    "REVIEWER1":   {"email": "rev1_test@example.com",   "password": "password123", "display_name": "Reviewer 1 (Test)",  "role_codes": ["REVIEWER"]},
-    "REVIEWER2":   {"email": "rev2_test@example.com",   "password": "password123", "display_name": "Reviewer 2 (Test)",  "role_codes": ["REVIEWER"]},
-    "REVIEWER3":   {"email": "rev3_test@example.com",   "password": "password123", "display_name": "Reviewer 3 (Test)",  "role_codes": ["REVIEWER"]},
-    "IACUC_CHAIR": {"email": "chair_test@example.com",  "password": "password123", "display_name": "IACUC Chair (Test)", "role_codes": ["REVIEWER", "IACUC_CHAIR"]},
-    "PI":          {"email": "pi_test@example.com",     "password": "password123", "display_name": "Test PI",            "role_codes": ["PI"]},
-    "VET":         {"email": "vet_test@example.com",    "password": "password123", "display_name": "Test Vet",           "role_codes": ["VET"]},
-    "REV_OTHER":   {"email": "rev_other_test@example.com", "password": "password123", "display_name": "Reviewer Other (Test)", "role_codes": ["REVIEWER"]},
+    "IACUC_STAFF": {"email": "staff_test@example.com", "password": TEST_USER_PASSWORD, "display_name": "IACUC Staff (Test)", "role_codes": ["IACUC_STAFF"]},
+    "REVIEWER1":   {"email": "rev1_test@example.com",   "password": TEST_USER_PASSWORD, "display_name": "Reviewer 1 (Test)",  "role_codes": ["REVIEWER"]},
+    "REVIEWER2":   {"email": "rev2_test@example.com",   "password": TEST_USER_PASSWORD, "display_name": "Reviewer 2 (Test)",  "role_codes": ["REVIEWER"]},
+    "REVIEWER3":   {"email": "rev3_test@example.com",   "password": TEST_USER_PASSWORD, "display_name": "Reviewer 3 (Test)",  "role_codes": ["REVIEWER"]},
+    "IACUC_CHAIR": {"email": "chair_test@example.com",  "password": TEST_USER_PASSWORD, "display_name": "IACUC Chair (Test)", "role_codes": ["REVIEWER", "IACUC_CHAIR"]},
+    "PI":          {"email": "pi_test@example.com",     "password": TEST_USER_PASSWORD, "display_name": "Test PI",            "role_codes": ["PI"]},
+    "VET":         {"email": "vet_test@example.com",    "password": TEST_USER_PASSWORD, "display_name": "Test Vet",           "role_codes": ["VET"]},
+    "REV_OTHER":   {"email": "rev_other_test@example.com", "password": TEST_USER_PASSWORD, "display_name": "Reviewer Other (Test)", "role_codes": ["REVIEWER"]},
 }
 
 

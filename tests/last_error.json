@@ -1,18 +1,21 @@
 {
-  "test": "AUP 完整流程測試",
+  "test": "HR 人員管理系統完整測試",
   "method": "POST",
-  "url": "http://localhost:8000/api/amendments/16927c0c-5894-439d-98df-64bb0284d00d/classify",
-  "status": 403,
+  "url": "http://localhost:8000/api/hr/balances/annual-entitlements",
+  "status": 500,
   "payload": {
-    "amendment_type": "MINOR",
-    "remark": "小變更，行政核准"
+    "user_id": "befc2fcd-1718-4aa4-aa38-b74b7bc69010",
+    "entitlement_year": 2026,
+    "entitled_days": 14.0,
+    "calculation_basis": "seniority",
+    "notes": "整合測試建立的特休額度 - 年資 5 年"
   },
-  "response": "{\"error\":{\"blocking\":true,\"code\":403,\"message\":\"Permission denied: requires amendment.classify\"}}",
+  "response": "{\"error\":{\"blocking\":true,\"code\":500,\"message\":\"Database error: error returned from database: duplicate key value violates unique constraint \\\"annual_leave_entitlements_user_id_entitlement_year_key\\\"\"}}",
   "response_json": {
     "error": {
       "blocking": true,
-      "code": 403,
-      "message": "Permission denied: requires amendment.classify"
+      "code": 500,
+      "message": "Database error: error returned from database: duplicate key value violates unique constraint \"annual_leave_entitlements_user_id_entitlement_year_key\""
     }
   }
 }

@@ -198,11 +198,13 @@ export function AnimalEditPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(animalStatusNames).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
+                    {Object.entries(animalStatusNames)
+                      .filter(([value]) => value !== 'transferred' && value !== 'sudden_death')
+                      .map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>

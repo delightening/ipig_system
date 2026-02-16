@@ -1,4 +1,5 @@
-﻿use sqlx::PgPool;
+﻿use chrono::{DateTime, Utc};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::AnimalService;
@@ -14,20 +15,21 @@ impl AnimalService {
     // 觀察試驗紀錄
     // ============================================
 
-    /// 取得觀察紀錄列表（排除已刪除）
-    pub async fn list_observations(pool: &PgPool, animal_id: Uuid) -> Result<Vec<AnimalObservation>> {
+    /// 取得觀察紀錄列表（排除已刪除，支援資料隔離）
+    pub async fn list_observations(pool: &PgPool, animal_id: Uuid, after: Option<DateTime<Utc>>) -> Result<Vec<AnimalObservation>> {
         let observations = sqlx::query_as::<_, AnimalObservation>(
-            "SELECT * FROM animal_observations WHERE animal_id = $1 ORDER BY event_date DESC"
+            "SELECT * FROM animal_observations WHERE animal_id = $1 AND ($2::timestamptz IS NULL OR created_at > $2) ORDER BY event_date DESC"
         )
         .bind(animal_id)
+        .bind(after)
         .fetch_all(pool)
         .await?;
 
         Ok(observations)
     }
 
-    /// 取得觀察紀錄列表（含獸醫師建議數量）
-    pub async fn list_observations_with_recommendations(pool: &PgPool, animal_id: Uuid) -> Result<Vec<ObservationListItem>> {
+    /// 取得觀察紀錄列表（含獸醫師建議數量，支援資料隔離）
+    pub async fn list_observations_with_recommendations(pool: &PgPool, animal_id: Uuid, after: Option<DateTime<Utc>>) -> Result<Vec<ObservationListItem>> {
         let observations = sqlx::query_as::<_, ObservationListItem>(
             r#"
             SELECT 
@@ -36,11 +38,12 @@ impl AnimalService {
                 o.created_by, o.created_at,
                 (SELECT COUNT(*) FROM vet_recommendations vr WHERE vr.record_type = 'observation' AND vr.record_id = o.id) as recommendation_count
             FROM animal_observations o
-            WHERE o.animal_id = $1
+            WHERE o.animal_id = $1 AND ($2::timestamptz IS NULL OR o.created_at > $2)
             ORDER BY o.event_date DESC
             "#
         )
         .bind(animal_id)
+        .bind(after)
         .fetch_all(pool)
         .await?;
 

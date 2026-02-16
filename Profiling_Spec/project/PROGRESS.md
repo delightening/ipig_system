@@ -104,6 +104,7 @@
 | 稽核紀錄寫入 | ✅ | - | ✅ | 自動記錄 |
 | 稽核紀錄查詢 | ✅ | ✅ | ✅ | AuditLogsPage |
 | 安全警報系統 | ✅ | ✅ | ✅ | 自動偵測異常登入（GeoIP 國家層級）與暴力破解 (2026-02-15 GeoIP 升級) |
+| 安全警報排序 | - | ✅ | ✅ | 支援按時間/類型/嚴重程度/狀態排序 (2026-02-16) |
 | 篩選功能 | ✅ | ✅ | ✅ | |
 
 ---
@@ -270,6 +271,8 @@
 | 疫苗/驅蟲紀錄 CRUD | ✅ | ✅ | ✅ | |
 | 犧牲/採樣紀錄 | ✅ | ✅ | ✅ | |
 | 病理組織報告 | ✅ | ✅ | ✅ | 含上傳功能 |
+| 安樂死/猝死狀態管理 | ✅ | ✅ | ✅ | 5 狀態 + 轉換驗證 + 猝死登記 API (2026-02-16) |
+| 轉讓流程 6 步 API | ✅ | ⚠️ | 🔄 | 後端 8 路由 + DB、前端 UI 待補 (2026-02-16) |
 
 ### 4.5 血液檢查
 
@@ -420,6 +423,8 @@
 | 009_blood_test_system.sql | 血液檢查模板/主表/明細/組合 | ✅ |
 | 010_user_preferences.sql | 使用者偏好設定 | ✅ |
 | 011_notification_routing.sql | 通知路由規則 + 21 筆預設種子資料 | ✅ |
+| 013_animal_lifecycle.sql | 動物生命週期（`animal_sudden_deaths` 表） | ✅ |
+| 014_animal_transfer.sql | 動物轉讓（`animal_transfers` + `transfer_vet_evaluations`） | ✅ |
 
 > 📌 **2026-02-16 重寫**：遷移已從 12 個整合為 11 個，`pig_*` 命名在初始遷移中直接使用 `animal_*`，刪除 `012_rename_pig_to_animal.sql`。
 
@@ -536,12 +541,49 @@
 
 ### 2026-02-16
 
+- ✅ **第三波前端轉讓 UI 完成**：
+  - 新增 `TransferTab.tsx`（Stepper 進度條 + 6 步角色表單 + 歷史紀錄）
+  - `animal.ts`：`AnimalTransferStatus` / `AnimalTransfer` / `TransferVetEvaluation` 型別 + 4 DTO
+  - `api.ts`：`transferApi` 9 端點 + `transferStatusNames` re-export
+  - `AnimalTimelineView.tsx`：`transferred` 事件（indigo 配色 / ArrowRightLeft 圖示）
+  - `AnimalDetailPage.tsx`：transfer Tab（completed/transferred 條件顯示）+ transfers 查詢
+  - `AnimalEditPage.tsx`：狀態下拉排除 `transferred` / `sudden_death`
+  - `tsc --noEmit` 編譯通過
+- ✅ **動物狀態生命週期重構（第二波後端完成）**：
+  - DB：`animal_status` enum 新增 `transferred`、migration 014（`animal_transfers` + `transfer_vet_evaluations`）
+  - 後端：`AnimalTransferStatus` 6 狀態 enum、轉讓 service 完整 6 步 + handler 7 端點 + 8 路由
+  - 前端：`transferred` 狀態擴充 + Timeline 安樂死/猝死事件 + 多語系
+  - `cargo check` + `tsc --noEmit` 編譯通過
+- ✅ **動物狀態生命週期重構（第一波完成）**：
+  - DB：`animal_status` enum 新增 `euthanized`/`sudden_death`、`animal_sudden_deaths` 表（migration 013）
+  - 後端：5 狀態 `can_transition_to()`/`is_terminal()`/`display_name()`、安樂死→自動設 `euthanized` + 建空犧牲紀錄、猝死 handler+service GET/POST、protocol stats 統計修正
+  - 前端：`AnimalStatus` 擴充、`AnimalsPage`/`AnimalDetailPage` 顏色和 Tab、`zh-TW.json`/`en.json` 多語系
+  - `cargo check` + `tsc --noEmit` 編譯通過
+- ✅ **安全警報排序功能**：`AdminAuditPage.tsx` 安全警報表格新增前端排序功能，支援按時間/類型/嚴重程度/狀態排序（`useMemo` + 自訂優先級映射 critical>warning>info、open>acknowledged>resolved）
+- ✅ **IACUC No. 大小寫修正**：前端 5 個檔案 6 處 + 後端 3 個檔案 7 處 `IACUC NO.` → `IACUC No.`（`AnimalDetailPage.tsx`、`EuthanasiaChairArbitrationPanel.tsx`、`EuthanasiaOrderDialog.tsx`、`EuthanasiaPendingPanel.tsx`、`ExportDialog.tsx`、`animal.rs`、`euthanasia.rs`、`alert.rs`）
+- ✅ **修復時間軸未顯示實驗完成事件**：`AnimalTimelineView.tsx` 新增犧牲紀錄（`sacrificed`）和實驗完成（`completed`）兩種事件類型到時間軸，`AnimalDetailPage.tsx` 犧牲資料查詢 enabled 條件擴展至 timeline Tab
+- ✅ **修復欄位表顯示錯誤**：`AnimalsPage.tsx` 中 `renderPenCell` 函式誤用外層作用域的 `animals`（全部動物列表），改為 `penAnimals`（該欄位的動物），修復每個欄位格子都重複渲染所有動物的問題
 - ✅ **測試檔案 pig → animal 重構**：
   - `test_animal_full.py`：`PIG_CONFIGS` → `ANIMAL_CONFIGS`、`pig`/`pig_data`/`pig0` → `animal`/`animal_data`/`animal0`、`pig_index` → `animal_index`、中文註解「豬」→「動物」
   - `test_blood_panel.py`：修正 `test_pig` → `test_animal` bug（原始碼會導致 `NameError`）、註解更新
   - `cleanup_test_data.ps1`：SQL 表名 `pigs` → `animals`、`pig_sources` → `animal_sources`
   - `audit_check_deep.py`：entity_type `pig` → `animal`
   - 4 個檔案路徑更新（`test_erp_permissions.py`、`test_amendment_full.py`、`test_hr_full.py`、`run_all_tests.py`）
+
+- ✅ **測試套件重寫**：
+  - 3 個編碼損壞測試從零重建：`test_hr_full.py`（6 階段 HR 流程）、`test_amendment_full.py`（14 步驟 Amendment 流程）、`test_erp_permissions.py`（WM/AS/ES 權限驗證）
+  - 所有 `.py` 檔案硬編碼帳密清除：`test_blood_panel.py`、`aup_test_standalone.py`、`audit_check_quick.py`、`audit_check_deep.py` 改用 `ADMIN_CREDENTIALS` / 環境變數
+  - `run_all_tests.py` 從 5 個模組擴充為 7 個（新增 `--amendment`、`--erp-perm`）
+  - `test_base.py` 新增 `save_results()` 自動儲存測試報告至 `tests/results/`
+  - 建立測試規格文件 `tests/spec/test_spec.md`（7 模組測試目標與驗證方式）
+  - 12 個 Python 檔案全部通過 `py_compile` 語法驗證
+
+- ✅ **測試帳密環境變數化**：
+  - `test_base.py` 新增 `TEST_USER_PASSWORD = os.getenv("TEST_USER_PASSWORD", "password123")` 共用常數
+  - 8 個 `test_*` 檔案：匯入 `TEST_USER_PASSWORD` 取代硬編碼密碼（共 34 處）
+  - 2 個獨立檔案（`aup_test_standalone.py`、`audit_verify.py`）：自行定義 `TEST_USER_PASSWORD` 環境變數
+  - `test_base.py` DB fallback：`ipig_password_123` → `postgres`（移除硬編碼資料庫密碼）
+  - 靜態驗證通過：`tests/` 中僅剩 `os.getenv` fallback 定義處包含 `password123`
 
 - ✅ **資料庫遷移重寫（pig → animal 消除）**：
   - 重寫 `001_core_schema.sql`：5 個 enum 從 `pig_*` → `animal_*`，`import_type` 值更新，`protocol_activity_type` 中 `PIG_ASSIGNED`/`PIG_UNASSIGNED` → `ANIMAL_ASSIGNED`/`ANIMAL_UNASSIGNED`
@@ -646,8 +688,12 @@
   - SEC-28 Session 併發限制（`handlers/auth.rs` 登入後自動裁減超額 session）
   - 前端增強：`App.tsx` ProtectedRoute isInitialized loading、`auth.ts` isInitialized flag
 - ✅ **豬隻→動物命名全端重構**：後端 19 檔案（seed/permissions/handlers/services/file/middleware）、前端 17 檔案（翻譯 key/queryKey/entity type/local variable/comments）、翻譯 JSON 2 檔案，共計 ~180 處修改。`cargo build` 和 `tsc --noEmit` 均通過
+- ✅ **分頁功能實作**：`AdminAuditPage.tsx` 4 個 Tab（活動記錄、登入事件、Sessions、安全警報）加入伺服器端分頁（`page`/`per_page=50`）；`UsersPage.tsx` 加入前端分頁（每頁 50 筆）；`AuditLogsPage.tsx` 已有分頁功能不需修改
 - ✅ **豬隻→動物最終掃描修正**：追加修正前端 7 檔案（`api.ts`、`BloodTestTab.tsx`、`QuickEditAnimalDialog.tsx`、`ImportDialog.tsx`、`VetCommentsWidget.tsx`、`AnimalEditPage.tsx`、`types/animal.ts`）+ 後端 7 檔案（`euthanasia.rs`、`import_export.rs`、`upload.rs`、`dashboard.rs`、`blood_test.rs`、`alert.rs`、`numbering.rs`）。`tsc --noEmit` exit code 0。前端 0 殘留、後端僅剩品牌 logo
 - ✅ **豬隻→動物第二輪掃描修正**：Bug Fix `MyProjectDetailPage.tsx`（`species === 'animal'` → `'pig'`、`white_animal` → `white_pig` DB 常數還原）、`en.json` 翻譯 key 6 處、後端 6 檔案中文註釋。前後端 grep 0 殘留確認
+- ✅ **測試套件 CSRF/Cookie 修正**：`test_base.py` 加入 CSRF Double Submit Cookie 支援、修正 session cookie 覆蓋 Bearer token 問題、`test_aup_full.py` 修正 Step 14 reviewer 意見邏輯、`test_hr_full.py` 改用統一請求方法。全部 7/7 模組測試通過（AUP, ERP, Animal, Blood Panel, HR, Amendment, ERP Permissions）
+- ✅ **SEC：auth_middleware Token 優先順序**：從 Cookie > Bearer 改為 **Bearer > Cookie**（`auth.rs`），降低 Cookie 注入攻擊風險，避免 session cookie 殘留覆蓋正確的 Authorization header。7/7 測試通過
+- ✅ **動物轉讓資料隔離**：後端 `GET /animals/:id/data-boundary` API + 5 個 service/handler 加入 `after` 時間過濾（觀察、手術、體重、疫苗、血檢）；前端 `AnimalDetailPage.tsx` 查詢 data-boundary 並自動傳入 `?after=` 參數。特權角色（ADMIN/VET/IACUC_STAFF/IACUC_CHAIR）可繞過隔離看全部資料。`cargo check` + `tsc --noEmit` 均通過
 
 ### 2026-02-06 ~ 2026-02-08
 
@@ -661,6 +707,20 @@
 - ✅ Login As 功能、AUP 資歷管理、版本比較改進
 - ✅ 使用者管理增強（學經歷欄位）、獸醫師通知增強
 - ✅ UUID 遷移、Amendment 後端系統、安樂死工作流程 UI
+
+### 2026-02-16（晚間）
+
+- ✅ 📱 **手寫電子簽章 Phase 1 完成**：
+  - 後端：DB migration 015（`handwriting_svg`、`stroke_data`、`signature_method` 欄位）、`SignatureService` 擴展（`sign_with_handwriting`）、handlers 修改
+  - 前端：`signature_pad` 套件安裝、`HandwrittenSignaturePad.tsx` 元件、`signatureApi` API 層、`SacrificeFormDialog.tsx` 整合手寫簽名區塊、zh-TW/en 多語系翻譯
+  - 驗證：`cargo check` + `tsc --noEmit` 編譯通過
+
+- ✅ 📱 **手寫電子簽章 Phase 2–4 完成**：
+  - **Phase 2（安樂死）**：後端 `sign_euthanasia_order` / `get_euthanasia_signature_status` handler + 路由；前端 `EuthanasiaPendingPanel.tsx` PI 同意流程整合手寫簽名
+  - **Phase 3（轉讓）**：後端 `sign_transfer_record` / `get_transfer_signature_status` handler + 路由；前端 `TransferTab.tsx` PI 同意 + 完成轉讓整合手寫簽名
+  - **Phase 4（計劃審查）**：後端 `sign_protocol_review` / `get_protocol_signature_status` handler + 路由；前端 `SectionSignature.tsx` 新增手寫簽名模式（與上傳並存）；`ProtocolWorkingContent` 型別擴展
+  - `api.ts` 新增 6 個 API 函式（`signEuthanasia`、`getEuthanasiaStatus`、`signTransfer`、`getTransferStatus`、`signProtocol`、`getProtocolStatus`）
+  - 驗證：`cargo check` + `tsc --noEmit` 編譯通過
 
 ### 2026-01-19 及更早
 

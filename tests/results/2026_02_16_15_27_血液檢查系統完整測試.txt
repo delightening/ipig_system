@@ -1,0 +1,66 @@
+============================================================
+[血液檢查系統完整測試] 測試結果
+執行時間: 2026-02-16 15:27:04
+============================================================
+
+  [PASS] 取得啟用中模板 — 共 67 個模板（預期 ≥ 20）
+  [PASS] 取得所有模板（含停用） — 啟用 67 / 全部 67
+  [PASS] Seed 模板包含關鍵項目 (WBC/RBC/AST/BUN/GLU...) — 全部存在
+  [PASS] 取得啟用中 Panel — 共 16 個 Panel（預期 ≥ 10）
+  [PASS] Seed Panel 包含必要類別 — 全部存在
+  [PASS] CBC Panel 包含項目 — CBC 有 5 個項目
+  [PASS] 取得所有 Panel（含停用） — 啟用 16 / 全部 16
+  [PASS] 建立新模板 — code=TEST26764, ID: 7d076f0d...
+  [PASS] 更新模板名稱/單位/價格
+  [PASS] 停用模板
+  [PASS] 停用模板不出現在啟用列表
+  [PASS] 停用模板在全部列表可見
+  [PASS] 恢復模板後出現在啟用列表
+  [PASS] 建立自訂 Panel — ID: 881a35bb..., 項目數: 4
+  [PASS] 更新 Panel 名稱/圖示
+  [PASS] 替換 Panel 項目 — 預期 5 / 實際 5
+  [PASS] 列表中可找到更新後的 Panel
+  [PASS] 建立測試動物 — ID: 70608657..., ear_tag=764
+  [PASS] 建立血液檢查 (CBC+Liver) — CBC(5) + Liver(10) = 15 項
+  [PASS] 建立第二筆血液檢查 (Kidney) — Kidney 3 項
+  [PASS] 動物血液檢查列表 — 實際 2 筆（預期 2）
+  [PASS] 列表含 item_count / abnormal_count — item_count=15, abnormal_count=2
+  [PASS] 血液檢查詳情 — 項目完整 — 預期 15 / 實際 15
+  [PASS] 異常項目正確標記 — 預期 2 個異常 / 實際 2 個
+  [PASS] detial 含 created_by_name — created_by_name=試驗工作人員 (血液檢查測試)
+  [PASS] 更新血液檢查 lab_name
+  [PASS] 更新血液檢查 remark
+  [PASS] 更新血液檢查項目（替換為 3 項） — 實際 3 項
+  [PASS] 還原血液檢查項目 — 預期 15 / 實際 15
+  [PASS] VET 可查看血檢詳情 — 項目數: 15
+  [PASS] VET 可看到異常項目標記 — 異常: 2 項
+  [PASS] VET 可看到 created_by_name — created_by_name=試驗工作人員 (血液檢查測試)
+  [PASS] VET 可查看動物血檢列表 — 共 2 筆
+  [PASS] 軟刪除血液檢查
+  [PASS] 刪除後列表中不出現 — 列表剩 1 筆
+  [PASS] ADMIN 可查 Panel 列表 — 共 17 個
+  [PASS] ADMIN 可查模板列表 — 共 68 個
+  [PASS] ADMIN 可查血液檢查列表
+  [PASS] ADMIN 可查血檢詳情 — 15 項
+  [PASS] VET 可查 Panel 列表 — 共 17 個
+  [PASS] VET 可查模板列表 — 共 68 個
+  [PASS] VET 可查血液檢查列表
+  [PASS] VET 可查血檢詳情 — 15 項
+  [PASS] EXPERIMENT_STAFF 可查 Panel 列表 — 共 17 個
+  [PASS] EXPERIMENT_STAFF 可查模板列表 — 共 68 個
+  [PASS] EXPERIMENT_STAFF 可查血液檢查列表
+  [PASS] EXPERIMENT_STAFF 可查血檢詳情 — 15 項
+  [PASS] 停用自訂 Panel
+  [PASS] 停用 Panel 從啟用列表隱藏
+  [PASS] 停用 Panel 在全部列表可見
+  [PASS] 恢復 Panel 後啟用列表可見
+  [PASS] ANIMAL 類別有操作日誌 — 共 1463 筆活動紀錄
+  [PASS] 日誌含 BLOOD_TEST_CREATE 事件 — 事件類型: BLOOD_TEST_CREATE, BLOOD_TEST_DELETE, BLOOD_TEST_UPDATE, CREATE, PANEL_CREATE, PANEL_DELETE, PANEL_UPDATE, PATHOLOGY_UPSERT, SACRIFICE_UPSERT, TEMPLATE_CREATE, TEMPLATE_DELETE, TEMPLATE_UPDATE, UPDATE, VACCINATION_CREATE, VET_RECOMMENDATION_ADD
+  [PASS] 日誌含血檢模板操作 — 共 16 筆模板操作紀錄
+  [PASS] 日誌含血檢組合操作 — 共 20 筆組合操作紀錄
+  [PASS] 日誌包含操作者資訊 — actor=試驗工作人員 (血液檢查測試) (exp_blood_test@example.com)
+  [PASS] 日誌包含實體資訊 — entity_type=blood_test_panel, entity_id=881a35bb...
+  [PASS] 今日全部操作日誌數量 — 全部: 1463 筆（ANIMAL: 1463 筆）
+
+總計: 58 項 | PASS 58 | FAIL 0
+結果: ALL PASSED

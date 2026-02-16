@@ -392,15 +392,32 @@ impl EuthanasiaService {
         .fetch_one(pool)
         .await?;
 
-        // 更新動物狀態為 Completed（已犧牲）
+        // 更新動物狀態為 Euthanized（安樂死）
         sqlx::query!(
             r#"
             UPDATE animals SET status = $1, updated_at = NOW()
             WHERE id = $2
             "#,
-            AnimalStatus::Completed as AnimalStatus,
+            AnimalStatus::Euthanized as AnimalStatus,
             order.animal_id
         )
+        .execute(pool)
+        .await?;
+
+        // 自動建立空犧牲紀錄供執行者填寫
+        sqlx::query(
+            r#"
+            INSERT INTO animal_sacrifices (
+                animal_id, sacrifice_date, zoletil_dose,
+                method_electrocution, method_bloodletting,
+                confirmed_sacrifice, created_by, created_at, updated_at
+            )
+            VALUES ($1, CURRENT_DATE, NULL, false, false, false, $2, NOW(), NOW())
+            ON CONFLICT (animal_id) DO NOTHING
+            "#
+        )
+        .bind(order.animal_id)
+        .bind(executor_id)
         .execute(pool)
         .await?;
 

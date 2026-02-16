@@ -1,10 +1,15 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 import {
     Activity,
     AlertTriangle,
+    ArrowDown,
+    ArrowUp,
+    ArrowUpDown,
+    ChevronLeft,
+    ChevronRight,
     Clock,
     Eye,
     LogIn,
@@ -77,12 +82,48 @@ interface PaginatedResponse<T> {
     total_pages: number
 }
 
+type AlertSortField = 'created_at' | 'alert_type' | 'severity' | 'status'
+type AlertSortOrder = 'asc' | 'desc'
+
+interface AlertSortConfig {
+    field: AlertSortField
+    order: AlertSortOrder
+}
+
+// 嚴重程度排序優先級（數值越小越嚴重）
+const severityOrder: Record<string, number> = {
+    critical: 0,
+    warning: 1,
+    info: 2,
+}
+
+// 狀態排序優先級（數值越小越優先）
+const statusOrder: Record<string, number> = {
+    open: 0,
+    acknowledged: 1,
+    investigating: 2,
+    resolved: 3,
+}
+
 export function AdminAuditPage() {
     const { user: currentUser, logout } = useAuthStore()
     const [activeTab, setActiveTab] = useState('dashboard')
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null)
     const [selectedAlert, setSelectedAlert] = useState<SecurityAlert | null>(null)
+
+    // 分頁狀態
+    const perPage = 50
+    const [activitiesPage, setActivitiesPage] = useState(1)
+    const [loginsPage, setLoginsPage] = useState(1)
+    const [sessionsPage, setSessionsPage] = useState(1)
+    const [alertsPage, setAlertsPage] = useState(1)
+
+    // 安全警報排序狀態
+    const [alertSortConfig, setAlertSortConfig] = useState<AlertSortConfig>({
+        field: 'created_at',
+        order: 'desc',
+    })
 
     // Default date range: first day of current month to today
     const getDefaultDateFrom = () => {
@@ -96,6 +137,18 @@ export function AdminAuditPage() {
 
     const [dateFrom, setDateFrom] = useState(getDefaultDateFrom)
     const [dateTo, setDateTo] = useState(getDefaultDateTo)
+
+    // 日期變更時重設分頁
+    const handleDateFromChange = (val: string) => {
+        setDateFrom(val)
+        setActivitiesPage(1)
+        setLoginsPage(1)
+    }
+    const handleDateToChange = (val: string) => {
+        setDateTo(val)
+        setActivitiesPage(1)
+        setLoginsPage(1)
+    }
     const queryClient = useQueryClient()
 
     // Dashboard Stats
@@ -109,12 +162,14 @@ export function AdminAuditPage() {
 
     // Activity Logs (audit_logs - 使用者管理操作)
     const { data: activityLogs, isLoading: loadingActivities } = useQuery({
-        queryKey: ['audit-user-activities', dateFrom, dateTo],
+        queryKey: ['audit-user-activities', dateFrom, dateTo, activitiesPage],
         queryFn: async () => {
             const params = new URLSearchParams()
             if (dateFrom) params.set('start_date', dateFrom)
             if (dateTo) params.set('end_date', dateTo)
             params.set('entity_type', 'user')
+            params.set('page', String(activitiesPage))
+            params.set('perPage', String(perPage))
             const res = await api.get<PaginatedResponse<AuditLog>>(
                 `/audit-logs?${params}`
             )
@@ -125,11 +180,13 @@ export function AdminAuditPage() {
 
     // Login Events
     const { data: loginEvents, isLoading: loadingLogins } = useQuery({
-        queryKey: ['audit-logins', dateFrom, dateTo],
+        queryKey: ['audit-logins', dateFrom, dateTo, loginsPage],
         queryFn: async () => {
             const params = new URLSearchParams()
             if (dateFrom) params.set('from', dateFrom)
             if (dateTo) params.set('to', dateTo)
+            params.set('page', String(loginsPage))
+            params.set('per_page', String(perPage))
             const res = await api.get<PaginatedResponse<LoginEventWithUser>>(
                 `/admin/audit/logins?${params}`
             )
@@ -140,9 +197,12 @@ export function AdminAuditPage() {
 
     // Sessions
     const { data: sessions, isLoading: loadingSessions } = useQuery({
-        queryKey: ['audit-sessions'],
+        queryKey: ['audit-sessions', sessionsPage],
         queryFn: async () => {
-            const res = await api.get<PaginatedResponse<SessionWithUser>>('/admin/audit/sessions')
+            const params = new URLSearchParams()
+            params.set('page', String(sessionsPage))
+            params.set('per_page', String(perPage))
+            const res = await api.get<PaginatedResponse<SessionWithUser>>(`/admin/audit/sessions?${params}`)
             return res.data
         },
         enabled: activeTab === 'sessions',
@@ -150,9 +210,12 @@ export function AdminAuditPage() {
 
     // Security Alerts
     const { data: alerts, isLoading: loadingAlerts } = useQuery({
-        queryKey: ['audit-alerts'],
+        queryKey: ['audit-alerts', alertsPage],
         queryFn: async () => {
-            const res = await api.get<PaginatedResponse<SecurityAlert>>('/admin/audit/alerts')
+            const params = new URLSearchParams()
+            params.set('page', String(alertsPage))
+            params.set('per_page', String(perPage))
+            const res = await api.get<PaginatedResponse<SecurityAlert>>(`/admin/audit/alerts?${params}`)
             return res.data
         },
         enabled: activeTab === 'alerts',
@@ -193,23 +256,67 @@ export function AdminAuditPage() {
         },
     })
 
-    const formatDateTime = (dateStr: string) => {
-        return format(new Date(dateStr), 'yyyy/MM/dd HH:mm', { locale: zhTW })
-    }
+    const formatDateTime = (dateStr: string) =>
+        format(new Date(dateStr), 'yyyy/MM/dd HH:mm', { locale: zhTW })
 
     const getSeverityColor = (severity: string) => {
         switch (severity) {
             case 'critical':
-                return 'destructive'
+                return 'destructive' as const
             case 'high':
-                return 'destructive'
+                return 'destructive' as const
             case 'warning':
-                return 'default'
+                return 'warning' as const
             case 'medium':
-                return 'default'
+                return 'default' as const
+            case 'info':
+                return 'default' as const
             default:
-                return 'secondary'
+                return 'secondary' as const
         }
+    }
+
+    // 安全警報排序邏輯
+    const sortedAlerts = useMemo(() => {
+        if (!alerts?.data) return []
+        const sorted = [...alerts.data]
+        sorted.sort((a, b) => {
+            let valA: number | string
+            let valB: number | string
+
+            if (alertSortConfig.field === 'severity') {
+                valA = severityOrder[a.severity] ?? 99
+                valB = severityOrder[b.severity] ?? 99
+            } else if (alertSortConfig.field === 'status') {
+                valA = statusOrder[a.status] ?? 99
+                valB = statusOrder[b.status] ?? 99
+            } else {
+                valA = a[alertSortConfig.field] || ''
+                valB = b[alertSortConfig.field] || ''
+            }
+
+            if (valA < valB) return alertSortConfig.order === 'asc' ? -1 : 1
+            if (valA > valB) return alertSortConfig.order === 'asc' ? 1 : -1
+            return 0
+        })
+        return sorted
+    }, [alerts?.data, alertSortConfig])
+
+    const handleAlertSort = (field: AlertSortField) => {
+        setAlertSortConfig(prev => ({
+            field,
+            order: prev.field === field && prev.order === 'asc' ? 'desc' : 'asc',
+        }))
+    }
+
+    const getAlertSortIcon = (field: AlertSortField) => {
+        if (alertSortConfig.field !== field)
+            return <ArrowUpDown className="ml-1 h-3 w-3" />
+        return alertSortConfig.order === 'asc' ? (
+            <ArrowUp className="ml-1 h-3 w-3 text-primary" />
+        ) : (
+            <ArrowDown className="ml-1 h-3 w-3 text-primary" />
+        )
     }
 
     // 根據操作類型與資料產生簡短中文摘要
@@ -368,14 +475,14 @@ export function AdminAuditPage() {
                         <Input
                             type="date"
                             value={dateFrom}
-                            onChange={(e) => setDateFrom(e.target.value)}
+                            onChange={(e) => handleDateFromChange(e.target.value)}
                             placeholder="開始日期"
                             className="max-w-[150px]"
                         />
                         <Input
                             type="date"
                             value={dateTo}
-                            onChange={(e) => setDateTo(e.target.value)}
+                            onChange={(e) => handleDateToChange(e.target.value)}
                             placeholder="結束日期"
                             className="max-w-[150px]"
                         />
@@ -464,6 +571,22 @@ export function AdminAuditPage() {
                                 )}
                             </TableBody>
                         </Table>
+                        {/* 活動記錄分頁 */}
+                        {activityLogs && activityLogs.total_pages > 0 && (
+                            <div className="flex flex-col md:flex-row items-center justify-between px-4 py-3 border-t gap-2">
+                                <p className="text-sm text-muted-foreground">
+                                    共 {activityLogs.total} 筆，第 {activitiesPage} / {activityLogs.total_pages} 頁
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <Button variant="outline" size="sm" disabled={activitiesPage <= 1} onClick={() => setActivitiesPage(p => Math.max(1, p - 1))}>
+                                        <ChevronLeft className="h-4 w-4 mr-1" />上一頁
+                                    </Button>
+                                    <Button variant="outline" size="sm" disabled={activitiesPage >= activityLogs.total_pages} onClick={() => setActivitiesPage(p => Math.min(activityLogs.total_pages, p + 1))}>
+                                        下一頁<ChevronRight className="h-4 w-4 ml-1" />
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
                     </Card>
                 </TabsContent>
 
@@ -473,13 +596,13 @@ export function AdminAuditPage() {
                         <Input
                             type="date"
                             value={dateFrom}
-                            onChange={(e) => setDateFrom(e.target.value)}
+                            onChange={(e) => handleDateFromChange(e.target.value)}
                             className="max-w-[150px]"
                         />
                         <Input
                             type="date"
                             value={dateTo}
-                            onChange={(e) => setDateTo(e.target.value)}
+                            onChange={(e) => handleDateToChange(e.target.value)}
                             className="max-w-[150px]"
                         />
                         <Select defaultValue="all">
@@ -567,6 +690,22 @@ export function AdminAuditPage() {
                                 )}
                             </TableBody>
                         </Table>
+                        {/* 登入事件分頁 */}
+                        {loginEvents && loginEvents.total_pages > 0 && (
+                            <div className="flex flex-col md:flex-row items-center justify-between px-4 py-3 border-t gap-2">
+                                <p className="text-sm text-muted-foreground">
+                                    共 {loginEvents.total} 筆，第 {loginsPage} / {loginEvents.total_pages} 頁
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <Button variant="outline" size="sm" disabled={loginsPage <= 1} onClick={() => setLoginsPage(p => Math.max(1, p - 1))}>
+                                        <ChevronLeft className="h-4 w-4 mr-1" />上一頁
+                                    </Button>
+                                    <Button variant="outline" size="sm" disabled={loginsPage >= loginEvents.total_pages} onClick={() => setLoginsPage(p => Math.min(loginEvents.total_pages, p + 1))}>
+                                        下一頁<ChevronRight className="h-4 w-4 ml-1" />
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
                     </Card>
                 </TabsContent>
 
@@ -639,6 +778,22 @@ export function AdminAuditPage() {
                                     )}
                                 </TableBody>
                             </Table>
+                            {/* Sessions 分頁 */}
+                            {sessions && sessions.total_pages > 0 && (
+                                <div className="flex flex-col md:flex-row items-center justify-between px-4 py-3 border-t gap-2">
+                                    <p className="text-sm text-muted-foreground">
+                                        共 {sessions.total} 筆，第 {sessionsPage} / {sessions.total_pages} 頁
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                        <Button variant="outline" size="sm" disabled={sessionsPage <= 1} onClick={() => setSessionsPage(p => Math.max(1, p - 1))}>
+                                            <ChevronLeft className="h-4 w-4 mr-1" />上一頁
+                                        </Button>
+                                        <Button variant="outline" size="sm" disabled={sessionsPage >= sessions.total_pages} onClick={() => setSessionsPage(p => Math.min(sessions.total_pages, p + 1))}>
+                                            下一頁<ChevronRight className="h-4 w-4 ml-1" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -654,12 +809,44 @@ export function AdminAuditPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>時間</TableHead>
-                                        <TableHead>類型</TableHead>
-                                        <TableHead>嚴重程度</TableHead>
+                                        <TableHead
+                                            className="cursor-pointer hover:bg-muted/50 transition-colors"
+                                            onClick={() => handleAlertSort('created_at')}
+                                        >
+                                            <div className="flex items-center">
+                                                時間
+                                                {getAlertSortIcon('created_at')}
+                                            </div>
+                                        </TableHead>
+                                        <TableHead
+                                            className="cursor-pointer hover:bg-muted/50 transition-colors"
+                                            onClick={() => handleAlertSort('alert_type')}
+                                        >
+                                            <div className="flex items-center">
+                                                類型
+                                                {getAlertSortIcon('alert_type')}
+                                            </div>
+                                        </TableHead>
+                                        <TableHead
+                                            className="cursor-pointer hover:bg-muted/50 transition-colors"
+                                            onClick={() => handleAlertSort('severity')}
+                                        >
+                                            <div className="flex items-center">
+                                                嚴重程度
+                                                {getAlertSortIcon('severity')}
+                                            </div>
+                                        </TableHead>
                                         <TableHead>標題</TableHead>
                                         <TableHead>描述</TableHead>
-                                        <TableHead>狀態</TableHead>
+                                        <TableHead
+                                            className="cursor-pointer hover:bg-muted/50 transition-colors"
+                                            onClick={() => handleAlertSort('status')}
+                                        >
+                                            <div className="flex items-center">
+                                                狀態
+                                                {getAlertSortIcon('status')}
+                                            </div>
+                                        </TableHead>
                                         <TableHead>操作</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -677,7 +864,7 @@ export function AdminAuditPage() {
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        alerts?.data?.map((alert) => (
+                                        sortedAlerts.map((alert) => (
                                             <TableRow
                                                 key={alert.id}
                                                 className="cursor-pointer hover:bg-muted/50 transition-colors"
@@ -733,6 +920,22 @@ export function AdminAuditPage() {
                                     )}
                                 </TableBody>
                             </Table>
+                            {/* 安全警報分頁 */}
+                            {alerts && alerts.total_pages > 0 && (
+                                <div className="flex flex-col md:flex-row items-center justify-between px-4 py-3 border-t gap-2">
+                                    <p className="text-sm text-muted-foreground">
+                                        共 {alerts.total} 筆，第 {alertsPage} / {alerts.total_pages} 頁
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                        <Button variant="outline" size="sm" disabled={alertsPage <= 1} onClick={() => setAlertsPage(p => Math.max(1, p - 1))}>
+                                            <ChevronLeft className="h-4 w-4 mr-1" />上一頁
+                                        </Button>
+                                        <Button variant="outline" size="sm" disabled={alertsPage >= alerts.total_pages} onClick={() => setAlertsPage(p => Math.min(alerts.total_pages, p + 1))}>
+                                            下一頁<ChevronRight className="h-4 w-4 ml-1" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </TabsContent>

@@ -4,7 +4,7 @@
  */
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import {
+import api, {
     BloodTestListItem,
     BloodTestTemplate,
     AnimalBloodTestWithItems,
@@ -61,6 +61,8 @@ import {
 
 interface BloodTestTabProps {
     animalId: string
+    /** 資料隔離 query string，例如 '?after=2024-01-01T00:00:00Z' */
+    afterParam?: string
 }
 
 
@@ -68,7 +70,7 @@ interface BloodTestTabProps {
 // 預設檢驗機構選項
 const LAB_OPTIONS = ['為恭醫院', '里仁動物醫院'] as const
 
-export function BloodTestTab({ animalId }: BloodTestTabProps) {
+export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
     const queryClient = useQueryClient()
     const [showFormDialog, setShowFormDialog] = useState(false)
     const [showDetailDialog, setShowDetailDialog] = useState(false)
@@ -93,9 +95,9 @@ export function BloodTestTab({ animalId }: BloodTestTabProps) {
 
     // 載入血液檢查列表
     const { data: bloodTests = [], isLoading } = useQuery({
-        queryKey: ['animal-blood-tests', animalId],
+        queryKey: ['animal-blood-tests', animalId, afterParam],
         queryFn: async () => {
-            const res = await bloodTestApi.listByAnimal(animalId)
+            const res = await api.get<BloodTestListItem[]>(`/animals/${animalId}/blood-tests${afterParam}`)
             return res.data
         },
     })

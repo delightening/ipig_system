@@ -1,0 +1,35 @@
+============================================================
+[AUP 完整流程測試] 測試結果
+執行時間: 2026-02-16 14:27:06
+============================================================
+
+  [PASS] 建立計畫書 — ID: e8405db2...
+  [PASS] PI 提交計畫書 — status=SUBMITTED
+  [PASS] Staff 預審留言
+  [PASS] PI 回覆預審意見
+  [PASS] PI 修訂後重送 — status=RESUBMITTED
+  [PASS] 醫療審查完成
+  [PASS] VET 意見已解決
+  [PASS] 進入倫理審查 — status=UNDER_REVIEW
+  [PASS] 3 名委員留言
+  [PASS] 非指定委員留言
+  [PASS] PI 回覆所有意見
+  [PASS] Staff 要求修正
+  [PASS] 意見解決並重新提交
+  [PASS] 主委核定通過 — status=APPROVED
+  [PASS] 建立 Minor Amendment — ID: 66936757..., status=DRAFT
+  [PASS] 提交 Minor Amendment — status=SUBMITTED
+  [PASS] Minor 分類 → ADMIN_APPROVED — status=ADMIN_APPROVED
+  [PASS] 建立 Major Amendment — ID: 5cdbf167...
+  [PASS] Major 分類 → CLASSIFIED — status=CLASSIFIED
+  [PASS] 審查委員自動指派 — 共 3 位審查委員
+  [PASS] 開始審查 → UNDER_REVIEW — status=UNDER_REVIEW
+  [PASS] 審查委員全部核准 — 3/3 位
+  [PASS] Major 自動更新 → APPROVED — status=APPROVED
+  [PASS] Major 版本歷程 — 共 1 個版本
+  [PASS] 狀態歷程完整 — 共 5 筆: DRAFT → SUBMITTED → CLASSIFIED → UNDER_REVIEW → APPROVED
+  [PASS] Protocol amendments 列表 — 共 2 個 amendment
+  [PASS] 待處理數量 API — pending count = 0
+
+總計: 27 項 | PASS 27 | FAIL 0
+結果: ALL PASSED

@@ -281,10 +281,10 @@ pub async fn get_protocol_animal_stats(
     };
     let stats: (i64, i64, i64) = sqlx::query_as(
         r#"SELECT
-            COUNT(*) FILTER (WHERE status IN ('assigned', 'in_experiment')) as in_use_count,
-            COUNT(*) FILTER (WHERE status = 'completed') as completed_count,
+            COUNT(*) FILTER (WHERE status = 'in_experiment') as in_use_count,
+            COUNT(*) FILTER (WHERE status IN ('completed', 'euthanized', 'sudden_death')) as completed_count,
             COUNT(*) as total_count
-        FROM animals WHERE iacuc_no = $1"#
+        FROM animals WHERE iacuc_no = $1 AND deleted_at IS NULL"#
     ).bind(&iacuc_no).fetch_one(&state.db).await.unwrap_or((0, 0, 0));
     let approved_count: (Option<i64>,) = sqlx::query_as(
         r#"SELECT (working_content->>'animal_count')::bigint as approved_count FROM protocols WHERE id = $1"#

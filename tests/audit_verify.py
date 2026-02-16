@@ -11,9 +11,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api")
+TEST_USER_PASSWORD = os.getenv("TEST_USER_PASSWORD", "password123")
 
 # 測試帳號
-STAFF_CREDS = {"email": "staff_test@example.com", "password": "password123"}
+STAFF_CREDS = {"email": "staff_test@example.com", "password": TEST_USER_PASSWORD}
 
 # 最近的 protocol_id（由 aup_test_standalone.py 產生）
 KNOWN_PROTOCOL_ID = None  # 會在測試中自動取得

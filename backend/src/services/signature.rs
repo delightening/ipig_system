@@ -4,6 +4,7 @@
 use crate::{AppError, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
 use sha2::{Sha256, Digest};
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
@@ -44,6 +45,9 @@ pub struct ElectronicSignature {
     pub invalidated_reason: Option<String>,
     pub invalidated_at: Option<DateTime<Utc>>,
     pub invalidated_by: Option<Uuid>,
+    pub handwriting_svg: Option<String>,
+    pub stroke_data: Option<JsonValue>,
+    pub signature_method: Option<String>,
 }
 
 /// 簽章請求
@@ -80,7 +84,7 @@ impl SignatureService {
         format!("{:x}", hasher.finalize())
     }
 
-    /// 建立電子簽章
+    /// 建立電子簽章（密碼驗證方式）
     pub async fn sign(
         pool: &PgPool,
         entity_type: &str,
@@ -92,12 +96,57 @@ impl SignatureService {
         ip_address: Option<&str>,
         user_agent: Option<&str>,
     ) -> Result<ElectronicSignature> {
+        Self::sign_internal(
+            pool, entity_type, entity_id, signer_id,
+            Some(password_hash), signature_type, content,
+            ip_address, user_agent,
+            None, None, "password",
+        ).await
+    }
+
+    /// 建立電子簽章（手寫簽名方式）
+    pub async fn sign_with_handwriting(
+        pool: &PgPool,
+        entity_type: &str,
+        entity_id: &str,
+        signer_id: Uuid,
+        signature_type: SignatureType,
+        content: &str,
+        ip_address: Option<&str>,
+        user_agent: Option<&str>,
+        handwriting_svg: &str,
+        stroke_data: Option<&JsonValue>,
+    ) -> Result<ElectronicSignature> {
+        Self::sign_internal(
+            pool, entity_type, entity_id, signer_id,
+            None, signature_type, content,
+            ip_address, user_agent,
+            Some(handwriting_svg), stroke_data, "handwriting",
+        ).await
+    }
+
+    /// 內部簽章建立邏輯（統一密碼 / 手寫兩種方式）
+    async fn sign_internal(
+        pool: &PgPool,
+        entity_type: &str,
+        entity_id: &str,
+        signer_id: Uuid,
+        password_hash: Option<&str>,
+        signature_type: SignatureType,
+        content: &str,
+        ip_address: Option<&str>,
+        user_agent: Option<&str>,
+        handwriting_svg: Option<&str>,
+        stroke_data: Option<&JsonValue>,
+        signature_method: &str,
+    ) -> Result<ElectronicSignature> {
         // 計算內容雜湊
         let content_hash = Self::compute_hash(content);
         
         // 建立簽章資料（簽章 = 使用者ID + 內容雜湊 + 時間戳記 的雜湊）
         let timestamp = Utc::now();
-        let signature_input = format!("{}:{}:{}:{}", signer_id, content_hash, timestamp.timestamp(), password_hash);
+        let hash_input = password_hash.unwrap_or("handwriting");
+        let signature_input = format!("{}:{}:{}:{}", signer_id, content_hash, timestamp.timestamp(), hash_input);
         let signature_data = Self::compute_hash(&signature_input);
         
         // 儲存到資料庫
@@ -105,9 +154,10 @@ impl SignatureService {
             r#"
             INSERT INTO electronic_signatures (
                 entity_type, entity_id, signer_id, signature_type,
-                content_hash, signature_data, ip_address, user_agent
+                content_hash, signature_data, ip_address, user_agent,
+                handwriting_svg, stroke_data, signature_method
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             RETURNING *
             "#
         )
@@ -119,6 +169,9 @@ impl SignatureService {
         .bind(&signature_data)
         .bind(ip_address)
         .bind(user_agent)
+        .bind(handwriting_svg)
+        .bind(stroke_data)
+        .bind(signature_method)
         .fetch_one(pool)
         .await?;
 

@@ -21,7 +21,11 @@ sys.stderr.reconfigure(encoding="utf-8")
 load_dotenv()
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api")
-ADMIN_CREDENTIALS = {"email": "jason4617987@gmail.com", "password": "kfknxJH6AjSvJh6?"}
+TEST_USER_PASSWORD = os.getenv("TEST_USER_PASSWORD", "password123")
+ADMIN_CREDENTIALS = {
+    "email": os.getenv("TEST_ADMIN_EMAIL", "admin@example.com"),
+    "password": os.getenv("TEST_ADMIN_PASSWORD", "changeme"),
+}
 
 
 class BaseApiTester:
@@ -32,9 +36,12 @@ class BaseApiTester:
         self.tokens = {}
         self.user_ids = {}
         self.admin_token = None
+        self.csrf_token = None
         self.role_map = {}  # code -> id
         self.results = []
         self.step_count = 0
+        # 使用 Session 自動管理 Cookie（含 CSRF token）
+        self.session = requests.Session()
 
     # ========================================
     # 前置作業
@@ -53,9 +60,29 @@ class BaseApiTester:
         # 也嘗試 requests 的 cookies jar
         return response.cookies.get(cookie_name)
 
+    @staticmethod
+    def _login_with_retry(credentials: dict, max_retries: int = 3):
+        """登入 API，遇到 429 自動等待重試（不經過 session，避免污染 cookie）"""
+        for attempt in range(max_retries):
+            resp = requests.post(f"{API_BASE_URL}/auth/login", json=credentials)
+            if resp.status_code != 429:
+                return resp
+            # 取得 Retry-After 秒數（預設 60 秒）
+            retry_after = int(resp.headers.get("Retry-After", "60"))
+            print(f"  ⏳ 速率限制觸發 (429)，等待 {retry_after} 秒後重試 ({attempt + 1}/{max_retries})...")
+            time.sleep(retry_after)
+        return resp  # 最後一次嘗試的回應
+
     def admin_login(self) -> bool:
-        """以管理員身份登入"""
-        resp = requests.post(f"{API_BASE_URL}/auth/login", json=ADMIN_CREDENTIALS)
+        """以管理員身份登入（含 429 自動重試 + CSRF token 取得）"""
+        # 用 session 登入以建立 cookie 基礎（/auth/login 免 CSRF 驗證）
+        for attempt in range(3):
+            resp = self.session.post(f"{API_BASE_URL}/auth/login", json=ADMIN_CREDENTIALS)
+            if resp.status_code != 429:
+                break
+            retry_after = int(resp.headers.get("Retry-After", "60"))
+            print(f"  ⏳ 速率限制觸發 (429)，等待 {retry_after} 秒後重試 ({attempt + 1}/3)...")
+            time.sleep(retry_after)
         if resp.status_code != 200:
             print(f"  ✗ 管理員登入失敗: {resp.status_code} {resp.text}")
             return False
@@ -68,21 +95,45 @@ class BaseApiTester:
         return True
 
     def admin_headers(self) -> dict:
-        return {"Authorization": f"Bearer {self.admin_token}"}
+        self._refresh_csrf()
+        h = {"Authorization": f"Bearer {self.admin_token}"}
+        if self.csrf_token:
+            h["X-CSRF-Token"] = self.csrf_token
+        return h
+
+    def _refresh_csrf(self):
+        """從 Session cookies 更新 CSRF token（每次回應後可能輪替）"""
+        new_csrf = self.session.cookies.get("csrf_token")
+        if new_csrf:
+            self.csrf_token = new_csrf
 
     def fetch_roles(self) -> bool:
         """取得系統角色 ID 對應表"""
-        resp = requests.get(f"{API_BASE_URL}/roles", headers=self.admin_headers())
+        resp = self.session.get(f"{API_BASE_URL}/roles", headers=self.admin_headers())
         if resp.status_code != 200:
             print(f"  ✗ 無法取得角色清單: {resp.status_code}")
             return False
         for r in resp.json():
             self.role_map[r["code"]] = r["id"]
+        # SEC-24：CSRF middleware 在 protected routes 回應時設定 csrf_token cookie
+        self.csrf_token = self.session.cookies.get("csrf_token")
         print(f"  ✓ 取得 {len(self.role_map)} 個角色: {list(self.role_map.keys())}")
         return True
 
+    def _save_login(self, role_label: str, resp) -> bool:
+        """從登入回應中保存 token 和 user_id，回傳是否成功"""
+        if resp.status_code != 200:
+            return False
+        data = resp.json()
+        token = self._extract_cookie(resp, "access_token")
+        if not token:
+            return False
+        self.tokens[role_label] = token
+        self.user_ids[role_label] = data["user"]["id"]
+        return True
+
     def setup_test_users(self, users_config: dict) -> bool:
-        """建立測試帳號（若已存在則跳過）"""
+        """建立測試帳號（若已存在則跳過），同時保存 token 供後續使用"""
         print(f"\n{'=' * 60}")
         print(f"[Setup] 建立測試帳號...")
         print(f"{'=' * 60}")
@@ -94,13 +145,14 @@ class BaseApiTester:
 
         created, skipped = 0, 0
         for role_label, user_info in users_config.items():
-            # 嘗試登入，成功代表帳號已存在
-            login_resp = requests.post(f"{API_BASE_URL}/auth/login", json={
+            # 嘗試登入，成功代表帳號已存在 → 同時保存 token（避免 login_all 重複登入）
+            login_resp = self._login_with_retry({
                 "email": user_info["email"],
                 "password": user_info["password"]
             })
-            if login_resp.status_code == 200:
-                print(f"    ✓ {role_label:20s} ({user_info['email']}) — 已存在")
+            if self._save_login(role_label, login_resp):
+                uid_short = self.user_ids[role_label][:8]
+                print(f"    ✓ {role_label:20s} ({user_info['email']}) — 已存在 (ID: {uid_short}...)")
                 skipped += 1
                 continue
 
@@ -112,9 +164,16 @@ class BaseApiTester:
                 "display_name": user_info["display_name"],
                 "role_ids": role_ids,
             }
-            create_resp = requests.post(f"{API_BASE_URL}/users", json=payload, headers=self.admin_headers())
+            create_resp = self.session.post(f"{API_BASE_URL}/users", json=payload, headers=self.admin_headers())
             if create_resp.status_code in (200, 201):
-                print(f"    ✓ {role_label:20s} ({user_info['email']}) — 建立成功")
+                # 新建帳號後立即登入保存 token
+                new_login = self._login_with_retry({
+                    "email": user_info["email"],
+                    "password": user_info["password"]
+                })
+                self._save_login(role_label, new_login)
+                uid_short = self.user_ids.get(role_label, "?")[:8] if role_label in self.user_ids else "?"
+                print(f"    ✓ {role_label:20s} ({user_info['email']}) — 建立成功 (ID: {uid_short}...)")
                 created += 1
             else:
                 print(f"    ✗ {role_label:20s} ({user_info['email']}) — 建立失敗: {create_resp.status_code}")
@@ -124,33 +183,32 @@ class BaseApiTester:
         return True
 
     def login_all(self, users_config: dict) -> bool:
-        """登入所有測試帳號"""
+        """登入所有測試帳號（跳過 setup_test_users 已登入的帳號）"""
         print(f"\n{'=' * 60}")
         print(f"[Auth] 登入所有測試帳號...")
         print(f"{'=' * 60}")
-        success = 0
+        success, reused = 0, 0
         for role, user_info in users_config.items():
-            resp = requests.post(f"{API_BASE_URL}/auth/login", json={
+            # 若 setup_test_users 已保存 token，直接沿用
+            if role in self.tokens and role in self.user_ids:
+                print(f"  ✓ {role:20s} 沿用已登入 token (ID: {self.user_ids[role][:8]}...)")
+                success += 1
+                reused += 1
+                continue
+
+            resp = self._login_with_retry({
                 "email": user_info["email"],
                 "password": user_info["password"]
             })
-            if resp.status_code == 200:
-                data = resp.json()
-                # SEC-02：從 Set-Cookie header 提取 access_token
-                token = self._extract_cookie(resp, "access_token")
-                if not token:
-                    print(f"  ✗ {role:20s} 登入成功但無法取得 access_token cookie")
-                    continue
-                self.tokens[role] = token
-                self.user_ids[role] = data["user"]["id"]
-                print(f"  ✓ {role:20s} 登入成功 (ID: {data['user']['id'][:8]}...)")
+            if self._save_login(role, resp):
+                print(f"  ✓ {role:20s} 登入成功 (ID: {self.user_ids[role][:8]}...)")
                 success += 1
             else:
                 print(f"  ✗ {role:20s} 登入失敗: {resp.status_code}")
         if success < len(users_config):
             print(f"\n  ✗ 部分帳號登入失敗 ({success}/{len(users_config)})")
             return False
-        print(f"\n  ✓ {success}/{len(users_config)} 帳號全部登入成功")
+        print(f"\n  ✓ {success}/{len(users_config)} 帳號全部就緒 (沿用 {reused} / 新登入 {success - reused})")
         return True
 
     # ========================================
@@ -158,13 +216,38 @@ class BaseApiTester:
     # ========================================
 
     def get_headers(self, role: str) -> dict:
-        return {"Authorization": f"Bearer {self.tokens[role]}"}
+        self._refresh_csrf()
+        h = {"Authorization": f"Bearer {self.tokens[role]}"}
+        if self.csrf_token:
+            h["X-CSRF-Token"] = self.csrf_token
+        return h
 
     def _req(self, method: str, url: str, role: str = None, **kwargs):
-        """統一 HTTP 請求，含錯誤記錄"""
+        """統一 HTTP 請求，含 CSRF token、錯誤記錄與 429 自動重試
+        
+        使用 session 發送以確保 csrf_token cookie 被傳送（CSRF Double Submit）。
+        但先清除 session 中的 access_token/refresh_token cookie，
+        避免後端 auth_middleware (Cookie > Bearer) 用 admin cookie 覆蓋 Bearer token。
+        """
         if role and "headers" not in kwargs:
             kwargs["headers"] = self.get_headers(role)
-        resp = requests.request(method, url, **kwargs)
+
+        # 清除 session 中的 auth cookie，只保留 csrf_token
+        for cookie_name in ("access_token", "refresh_token"):
+            self.session.cookies.pop(cookie_name, None)
+
+        # 429 自動重試（最多 3 次）
+        for attempt in range(3):
+            resp = self.session.request(method, url, **kwargs)
+            self._refresh_csrf()
+            # 清除回應中可能設定的 auth cookie（避免後續請求汙染）
+            for cookie_name in ("access_token", "refresh_token"):
+                self.session.cookies.pop(cookie_name, None)
+            if resp.status_code != 429:
+                break
+            retry_after = int(resp.headers.get("Retry-After", "60"))
+            print(f"  ⏳ API 速率限制 (429)，等待 {retry_after} 秒... ({attempt + 1}/3)")
+            time.sleep(retry_after)
 
         # 記錄錯誤
         if resp.status_code >= 400:
@@ -211,7 +294,7 @@ class BaseApiTester:
         print(f"  {icon} {name}" + (f" — {detail}" if detail else ""))
 
     def print_summary(self) -> bool:
-        """輸出測試結果彙總"""
+        """輸出測試結果彙總，並自動儲存至 tests/results/"""
         passed = sum(1 for r in self.results if r["success"])
         failed = len(self.results) - passed
         print(f"\n{'=' * 60}")
@@ -225,7 +308,52 @@ class BaseApiTester:
             print(f"\n🎉 {self.test_name} — 所有測試通過！")
         else:
             print(f"\n⚠️ {self.test_name} — 有 {failed} 項失敗！")
+
+        # 自動儲存測試結果
+        self.save_results()
         return failed == 0
+
+    def save_results(self):
+        """將測試結果儲存至 tests/results/YYYY_MM_DD_HH_MM_testname.txt"""
+        from datetime import datetime
+
+        results_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
+        os.makedirs(results_dir, exist_ok=True)
+
+        # 產生檔名：YYYY_MM_DD_HH_MM_testname.txt
+        now = datetime.now()
+        # 將測試名稱轉換為安全的檔名（移除特殊字元，空格轉底線）
+        safe_name = self.test_name.replace(" ", "_")
+        for ch in "/<>:\"|?*":
+            safe_name = safe_name.replace(ch, "")
+        filename = f"{now.strftime('%Y_%m_%d_%H_%M')}_{safe_name}.txt"
+        filepath = os.path.join(results_dir, filename)
+
+        passed = sum(1 for r in self.results if r["success"])
+        failed = len(self.results) - passed
+
+        lines = []
+        lines.append(f"{'=' * 60}")
+        lines.append(f"[{self.test_name}] 測試結果")
+        lines.append(f"執行時間: {now.strftime('%Y-%m-%d %H:%M:%S')}")
+        lines.append(f"{'=' * 60}")
+        lines.append("")
+        for r in self.results:
+            icon = "PASS" if r["success"] else "FAIL"
+            line = f"  [{icon}] {r['name']}"
+            if r.get("detail"):
+                line += f" — {r['detail']}"
+            lines.append(line)
+        lines.append("")
+        lines.append(f"總計: {len(self.results)} 項 | PASS {passed} | FAIL {failed}")
+        lines.append(f"結果: {'ALL PASSED' if failed == 0 else f'{failed} FAILED'}")
+
+        try:
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines) + "\n")
+            print(f"\n  📄 結果已儲存: {filepath}")
+        except Exception as e:
+            print(f"\n  ⚠️ 無法儲存結果: {e}")
 
     # ========================================
     # 測試資料清理
@@ -292,7 +420,7 @@ class BaseApiTester:
         # 本機 psql 模式
         try:
             print("  → 使用本機 psql 模式")
-            db_url = os.getenv("DATABASE_URL", "postgres://postgres:ipig_password_123@localhost:5432/ipig_db")
+            db_url = os.getenv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/ipig_db")
             db_url = db_url.replace("@db:", "@localhost:")
             proc = subprocess.run(
                 ["psql", db_url, "-f", sql_file],

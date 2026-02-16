@@ -2,14 +2,21 @@
 操作日誌深入驗證 - 不帶日期篩選查詢，確認是否有任何紀錄
 """
 import sys
+import os
 import json
 import requests
+from dotenv import load_dotenv
 
 sys.stdout.reconfigure(encoding="utf-8")
+load_dotenv()
 
-API = "http://localhost:8000/api"
+API = os.getenv("API_BASE_URL", "http://localhost:8000/api")
 
-r = requests.post(f"{API}/auth/login", json={"email": "jason4617987@gmail.com", "password": "kfknxJH6AjSvJh6?"})
+# Login as admin（從環境變數讀取帳密）
+r = requests.post(f"{API}/auth/login", json={
+    "email": os.getenv("TEST_ADMIN_EMAIL", ""),
+    "password": os.getenv("TEST_ADMIN_PASSWORD", ""),
+})
 if r.status_code != 200:
     print(f"Admin login failed: {r.status_code}")
     sys.exit(1)
