@@ -543,6 +543,12 @@
   - 確認提示避免誤操作，提交後自動更新動物狀態
   - `tsc --noEmit` 編譯通過
 
+- ✅ 🧹 **測試套件整合與清理**：
+  - 執行 `cleanup_test_data.ps1` 清理所有測試資料（保留審計記錄）
+  - 建立 `tests/_archive/` 歸檔 4 個過時腳本（`aup_test_standalone.py`、`audit_check_deep.py`、`audit_check_quick.py`、`debug_csrf.py`）
+  - `tests/README.md` 全面改寫：目錄結構、8 大測試模組詳細說明、共用基底架構（BaseApiTester/SharedTestContext/test_fixtures）、CLI 指令、清理方式、環境變數
+  - 驗證 `run_all_tests.py --help` 正常運作，8 個測試模組全部涵蓋
+
 - ✅ 🔒 **IACUC No. 變更保護與時間軸記錄**：
   - 後端：`AnimalService::update` 禁止 `in_experiment` 動物更改 IACUC No.（回傳 BadRequest）
   - 後端：偵測 IACUC No. 變更，回傳 `IacucChangeInfo`，`update_animal` handler 寫入 `IACUC_CHANGE` 審計事件（含 before/after data）
@@ -778,6 +784,21 @@
 4. **實驗動物管理系統** 完整 100%，所有功能均已實作，GLP 合規完成
 5. **通知系統** 完整 100%，排程任務、Email 通知、偏好設定均已完成
 6. **HR 人事管理系統** 完整 100%，特休管理、Google Calendar 整合已完成
+
+
+### 2026-02-17：修復 cleanup_test_data.sql 清理腳本
+
+**修復 3 處 bug：**
+1. `google_calendar_config` 用 `id` 引用 `users.id`（無 `user_id` 欄位）
+2. `system_settings` 用 `updated_by`（無 `created_by` 欄位）
+3. 89 個 FK 約束阻擋 `DELETE FROM users` → 用 `DISABLE TRIGGER ALL` 暫時停用
+
+**其他修正：**
+- 舊表名 `pigs`/`pig_*` → `animals`/`animal_*`
+- 新增 10+ 個遺漏的表（`animal_transfers`、`protocol_status_history`、`review_round_history` 等）
+- 保留 admin 帳號與角色、種子資料、審計日誌
+
+**驗證結果：** 使用者=1（admin）、動物/計畫/倉庫/單據=0、角色=11（保留）、admin 角色「系統管理員」完整
 
 ---
 

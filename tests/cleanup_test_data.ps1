@@ -11,7 +11,7 @@ Write-Host "  iPig System — 測試資料清理工具" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "此腳本將清除以下測試資料：" -ForegroundColor Yellow
-Write-Host "  • 測試帳號（保留 admin@ipig.local）" -ForegroundColor Yellow
+Write-Host "  • 測試帳號（保留所有擁有 admin 角色的帳號）" -ForegroundColor Yellow
 Write-Host "  • 動物紀錄（保留動物來源種子資料）" -ForegroundColor Yellow
 Write-Host "  • AUP 計畫、審查、修正案" -ForegroundColor Yellow
 Write-Host "  • ERP 倉庫、產品、單據、庫存" -ForegroundColor Yellow

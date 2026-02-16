@@ -127,6 +127,8 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-02-17 | 🔧 修復 `cleanup_test_data.sql`：3 處 bug（`google_calendar_config` 欄位名、`system_settings` 欄位名、89 個 FK 約束）+ 舊 `pigs`→`animals` 表名 + 10+ 個遺漏表，測試資料清理成功 |
+| 2026-02-17 | 🧹 測試套件整合與清理：執行 `cleanup_test_data.ps1` 清理測試資料、4 個過時腳本移入 `_archive/`（`aup_test_standalone.py`、`audit_check_deep.py`、`audit_check_quick.py`、`debug_csrf.py`）、`README.md` 全面改寫（3→8 模組完整說明） |
 | 2026-02-17 | 🔒 IACUC No. 變更保護：後端禁止實驗中動物更改 IACUC No. + IACUC_CHANGE 審計事件 + `GET /animals/:id/events` API；前端 AnimalEditPage 禁用下拉 + AnimalTimelineView IACUC 變更事件（amber 配色） |
 | 2026-02-17 | 🐷 動物詳情頁新增「登記猝死」按鈕 + Dialog 表單（發現時間/地點/原因/備註/病理檢查），`in_experiment` 和 `completed` 狀態下顯示 |
 | 2026-02-17 | 📝 Profiling_Spec v5.0 全面重寫：01-09 主文件、5 個模組文件、README、database_erd 全部更新。新增轉讓/猝死/手寫簽章/資料隔離/通知路由等功能文檔，更新統計數字（~293 端點、~73 資料表、8 migration） |
