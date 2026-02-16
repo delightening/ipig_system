@@ -1,21 +1,17 @@
 {
-  "test": "HR 人員管理系統完整測試",
+  "test": "AUP 全功能整合測試",
   "method": "POST",
-  "url": "http://localhost:8000/api/hr/balances/annual-entitlements",
-  "status": 500,
+  "url": "http://localhost:8000/api/protocols/144e9b32-b2e8-4184-a399-930b6e8cafa4/status",
+  "status": 422,
   "payload": {
-    "user_id": "befc2fcd-1718-4aa4-aa38-b74b7bc69010",
-    "entitlement_year": 2026,
-    "entitled_days": 14.0,
-    "calculation_basis": "seniority",
-    "notes": "整合測試建立的特休額度 - 年資 5 年"
+    "to_status": "PRE_REVIEW"
   },
-  "response": "{\"error\":{\"blocking\":true,\"code\":500,\"message\":\"Database error: error returned from database: duplicate key value violates unique constraint \\\"annual_leave_entitlements_user_id_entitlement_year_key\\\"\"}}",
+  "response": "{\"error\":{\"blocking\":true,\"code\":422,\"message\":\"進入行政預審前必須指派至少一位試驗工作人員 (Co-editor)\"}}",
   "response_json": {
     "error": {
       "blocking": true,
-      "code": 500,
-      "message": "Database error: error returned from database: duplicate key value violates unique constraint \"annual_leave_entitlements_user_id_entitlement_year_key\""
+      "code": 422,
+      "message": "進入行政預審前必須指派至少一位試驗工作人員 (Co-editor)"
     }
   }
 }

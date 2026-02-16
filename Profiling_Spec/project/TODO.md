@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-02-16（晚間）
+> **最後更新：** 2026-02-17（Profiling_Spec v5.0 重寫）
 
 此文件撰寫方式
 
@@ -80,7 +80,7 @@
 | 18 | **OpenAPI 文件完善** | utoipa 補全 API 文件 | 後端 |
 | 19 | **CI/CD PostgreSQL service** | CI 中增加 PostgreSQL service container | DevOps |
 | 20 | **SEC-41：容器安全掃描** | CI 中加入 `trivy` 掃描 Docker image 漏洞 | DevOps |
-| 21 | **整合測試登入優化** | `setup_test_users` 檢查帳號存在時改用 `GET /users` 而非逐一 login，減少 auth rate limit 衝擊；合併 setup + login_all 避免重複登入 | 測試 |
+| ~~21~~ | ~~**整合測試登入優化**~~ | ~~✅ 已完成（2026-02-16）SharedTestContext 共享 token + protocol_id 複用 + 動物數 20→5~~ | ~~測試~~ | ~~🟡 中~~ |
 
 ---
 
@@ -127,6 +127,8 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-02-17 | 📝 Profiling_Spec v5.0 全面重寫：01-09 主文件、5 個模組文件、README、database_erd 全部更新。新增轉讓/猝死/手寫簽章/資料隔離/通知路由等功能文檔，更新統計數字（~293 端點、~73 資料表、8 migration） |
+| 2026-02-17 | 🗃️ 資料庫遷移整合：14 個 migration 合併為 8 個（血液/猝死/轉讓→003、AUP 審查→004、偏好→001、權限→002、通知+簽章→008），刪除 6 個舊檔 |
 | 2026-02-16 | 🐷 第三波前端轉讓 UI：TransferTab 元件（Stepper + 6 步表單）+ Timeline transferred 事件 + EditPage 防護 |
 | 2026-02-16 | 🐷 動物狀態生命週期重構（第二波後端完成）：transferred 狀態 + 轉讓 6 步 API（8 路由）+ DB migration 014 + Timeline 安樂死/猝死事件 |
 | 2026-02-16 | 🐷 動物狀態生命週期重構（第一波完成）：新增 `euthanized`/`sudden_death` 狀態 + 狀態轉換驗證 + 猝死登記 API + 前端 Tab/顏色/多語系更新 |
@@ -136,6 +138,7 @@
 | 2026-02-16 | 修復時間軸未顯示實驗完成事件：`AnimalTimelineView.tsx` 加入犧牲紀錄與實驗完成項目，`AnimalDetailPage.tsx` 犧牲資料提前載入 |
 | 2026-02-16 | 修復欄位表顯示錯誤：`AnimalsPage.tsx` `renderPenCell` 誤用外層 `animals` 變數，改為 `penAnimals` |
 | 2026-02-16 | 分頁功能實作：`AdminAuditPage.tsx` 4 Tab 伺服器端分頁 + `UsersPage.tsx` 前端分頁（每頁 50 筆） |
+| 2026-02-16 | 測試套件整合重構：`test_fixtures.py`（24 角色統一帳號）+ `test_context.py`（SharedTestContext 共享 token）+ 8 個測試模組 ctx 注入 + `run_all_tests.py` 一次性登入 + protocol_id 複用 + 動物數 20→5 + AUP 動物 5→2 |
 | 2026-02-16 | 測試帳密環境變數化：10 個 `.py` 檔案 `password123` → `TEST_USER_PASSWORD` 環境變數、`test_base.py` DB fallback 修正 |
 | 2026-02-16 | 測試套件重寫：3 個損壞測試（HR/Amendment/ERP Permissions）重建、所有 `.py` 硬編碼帳密移除、`run_all_tests.py` 從 5→7 模組、建立 `test_spec.md` |
 | 2026-02-16 | 測試檔案 pig→animal 重構：`test_animal_full.py` 變數名、`test_blood_panel.py` bug 修正、`cleanup_test_data.ps1` SQL 更新、`audit_check_deep.py` entity_type 更新 |

@@ -1,7 +1,7 @@
 # 權限與 RBAC
 
-> **版本**：4.0  
-> **最後更新**：2026-02-16  
+> **版本**：5.0  
+> **最後更新**：2026-02-17  
 > **對象**：系統管理員、開發人員
 
 ---
@@ -149,6 +149,12 @@ graph TD
 | animal.emergency.stop | 緊急停止 | 可緊急停止實驗 |
 | animal.euthanasia.recommend | 安樂死建議 | 可建議安樂死 |
 | animal.euthanasia.approve | 安樂死核准 | 可批准安樂死 |
+| animal.transfer.initiate | 發起轉讓 | 可發起動物轉讓 |
+| animal.transfer.approve | 轉讓核准 | 可核准轉讓 |
+| animal.transfer.complete | 轉讓執行 | 可執行轉讓完成 |
+| animal.sudden_death.register | 猝死登記 | 可登記猝死 |
+
+> **資料隔離特權**：`admin`、`VET`、`IACUC_STAFF`、`IACUC_CHAIR` 可繞過轉讓資料隔離，查看動物完整歷史紀錄。
 
 ### 3.5 ERP 系統 (erp.*)
 

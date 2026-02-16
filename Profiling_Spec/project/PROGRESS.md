@@ -1,7 +1,7 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **評估日期：** 2026-02-14  
-> **規格版本：** v1.4  
+> **評估日期：** 2026-02-17  
+> **規格版本：** v5.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
 ## 📑 目錄
@@ -271,8 +271,8 @@
 | 疫苗/驅蟲紀錄 CRUD | ✅ | ✅ | ✅ | |
 | 犧牲/採樣紀錄 | ✅ | ✅ | ✅ | |
 | 病理組織報告 | ✅ | ✅ | ✅ | 含上傳功能 |
-| 安樂死/猝死狀態管理 | ✅ | ✅ | ✅ | 5 狀態 + 轉換驗證 + 猝死登記 API (2026-02-16) |
-| 轉讓流程 6 步 API | ✅ | ⚠️ | 🔄 | 後端 8 路由 + DB、前端 UI 待補 (2026-02-16) |
+| 安樂死/猝死狀態管理 | ✅ | ✅ | ✅ | 6 狀態 + 轉換驗證 + 猝死登記 API (2026-02-16) |
+| 轉讓流程 6 步 API | ✅ | ✅ | ✅ | 後端 8 路由 + DB + 前端 TransferTab + 資料隔離 (2026-02-16) |
 
 ### 4.5 血液檢查
 
@@ -412,21 +412,16 @@
 
 | Migration | 內容 | 狀態 |
 |-----------|------|:---:|
-| 001_core_schema.sql | 自訂型別（enum）、使用者/角色/權限/通知/附件基礎表 | ✅ |
-| 002_core_permissions.sql | 權限定義 + 角色預設權限指派 | ✅ |
-| 003_animal_management.sql | 動物管理系統完整表（sources/animals/records/euthanasia） | ✅ |
-| 004_aup_system.sql | AUP 計畫書/審查/附件/變更申請 | ✅ |
+| 001_core_schema.sql | 自訂型別（enum）、使用者/角色/權限/通知/附件基礎表、使用者偏好設定 | ✅ |
+| 002_core_permissions.sql | 權限定義 + 角色預設權限指派 + 動物擴展權限 | ✅ |
+| 003_animal_management.sql | 動物管理全系統（sources/animals/records/blood test/sudden death/transfer） | ✅ |
+| 004_aup_system.sql | AUP 計畫書/審查/附件/變更申請/系統設定/獸醫審查/活動歷程/往返歷史 | ✅ |
 | 005_hr_system.sql | HR 考勤/特休/Google Calendar 整合 | ✅ |
 | 006_audit_system.sql | 稽核日誌（分區）/登入事件/安全警報 | ✅ |
 | 007_erp_warehouse.sql | ERP 倉庫/產品/單據/庫存 | ✅ |
-| 008_aup_review_enhancement.sql | 系統設定/獸醫審查/協議活動 | ✅ |
-| 009_blood_test_system.sql | 血液檢查模板/主表/明細/組合 | ✅ |
-| 010_user_preferences.sql | 使用者偏好設定 | ✅ |
-| 011_notification_routing.sql | 通知路由規則 + 21 筆預設種子資料 | ✅ |
-| 013_animal_lifecycle.sql | 動物生命週期（`animal_sudden_deaths` 表） | ✅ |
-| 014_animal_transfer.sql | 動物轉讓（`animal_transfers` + `transfer_vet_evaluations`） | ✅ |
+| 008_supplementary.sql | 通知路由規則 + 電子簽章 + 記錄附註 | ✅ |
 
-> 📌 **2026-02-16 重寫**：遷移已從 12 個整合為 11 個，`pig_*` 命名在初始遷移中直接使用 `animal_*`，刪除 `012_rename_pig_to_animal.sql`。
+> 📌 **2026-02-17 整合**：遷移從 14 個整合為 8 個。消除增量修改（008 權限→002、008 AUP→004）、同領域合併（009 血液+013 猝死+014 轉讓→003）、消除微型檔案（010→001、011+015→008）。`cargo build` 通過。
 
 ---
 
@@ -538,6 +533,15 @@
   - 前端 47+ TypeScript 檔案：types/pages/components 重命名與內容更新
   - 測試 2 檔案更新（`test_animal_full.py`、`test_blood_panel.py`）
   - 前端 `npx tsc --noEmit` 編譯通過（0 錯誤）
+
+### 2026-02-17
+
+- ✅ 📝 **Profiling_Spec v5.0 全面重寫**：
+  - 重寫 01-09 主文件（11 個檔案）：架構概覽、核心領域模型、模組與邊界、資料庫綱要、API 規格、權限 RBAC、安全稽核、出勤模組、擴展性
+  - 重寫 5 個模組文件：ANIMAL_MANAGEMENT、AUP_SYSTEM、ERP_SYSTEM、HR_SYSTEM、NOTIFICATION_SYSTEM
+  - 更新 README.md、database_erd.md
+  - 新增內容：動物轉讓流程、6 種動物狀態、猝死登記、手寫電子簽章、4 場景、資料隔離機制、通知路由可配置化、migration 14→08 整合
+  - 更新統計：~293 API 端點、~73 資料表、8 migration
 
 ### 2026-02-16
 
@@ -672,7 +676,7 @@
 - ✅ **稽核日誌匯出 CSV/PDF**：後端新增 `export_activities` API（`/admin/audit/activities/export`，LIMIT 10000），前端 `AuditLogsPage.tsx` 加入 CSV（BOM + Blob 下載）及 PDF（可列印 HTML 表格 + `window.print()`）匯出按鈕
 - ✅ **活動紀錄分頁優化**：`ProtocolDetailPage.tsx` 歷程 Tab 加入前端分頁（每頁 15 筆 + 上/下一頁控制列 + 總筆數顯示）
 - ✅ **行動端適配（響應式設計）**：`MainLayout.tsx` overlay sidebar + 漢堡選單 + 背景遮罩、`PigsPage` / `DashboardPage` / `AuditLogsPage` / `ProtocolDetailPage` 表格/篩選/標題響應式、`index.css` 全域工具 class（`.page-title`、`.table-responsive`、`.filter-row`）
-- ✅ **Profiling_Spec 文件完整重寫**：01-09 全部重寫（含新增 07_SECURITY_AUDIT.md），README 索引更新。API 規格 273 端點、RBAC 84 權限 × 11 角色完整對照
+- ✅ **Profiling_Spec 文件完整重寫**：01-09 全部重寫（含新增 07_SECURITY_AUDIT.md），README 索引更新。API 規格 293 端點、RBAC 84 權限 × 11 角色完整對照
 - ✅ **通知路由可配置化**：`notification_routing` 資料表 + 後端 CRUD API（`/admin/notification-routing`）+ `get_recipients_by_event()` 動態查詢 + 6 個通知模組硬編碼遷移（hr/erp/alert/protocol/amendment）+ 前端管理介面（`NotificationRoutingSection.tsx`）
 - ✅ **SEC-20 帳號鎖定機制**：`AuthService::login()` 加入 15 分鐘內 5 次失敗登入即暫時封鎖，阻止暴力破解攻擊
 - ✅ **SEC-21 JWT Secret 強度驗證**：`Config::from_env()` 啟動時強制檢查金鑰長度 ≥ 32 字元，附建議產生指令
@@ -714,6 +718,13 @@
   - 後端：DB migration 015（`handwriting_svg`、`stroke_data`、`signature_method` 欄位）、`SignatureService` 擴展（`sign_with_handwriting`）、handlers 修改
   - 前端：`signature_pad` 套件安裝、`HandwrittenSignaturePad.tsx` 元件、`signatureApi` API 層、`SacrificeFormDialog.tsx` 整合手寫簽名區塊、zh-TW/en 多語系翻譯
   - 驗證：`cargo check` + `tsc --noEmit` 編譯通過
+
+- ✅ 🔧 **測試套件整合重構**：
+  - 新增 `test_fixtures.py`（24 角色統一帳號註冊表）+ `test_context.py`（SharedTestContext 共享 token/session）
+  - 修改 8 個測試模組接受 `ctx` 參數注入（`test_aup_full`、`test_amendment_full`、`test_animal_full`、`test_blood_panel`、`test_erp_full`、`test_erp_permissions`、`test_hr_full`、`test_aup_integration`）
+  - 重寫 `run_all_tests.py`：一次性初始化共享 Context + 傳遞 ctx + AUP→Amendment protocol_id 複用 + 新增 `--aup-integ`/`--no-shared` 參數
+  - 資料量精簡：動物建立 20→5、AUP 動物 5→2、Amendment 複用 AUP 結果
+  - 驗證：11 個 Python 檔案 `py_compile` 語法編譯通過、24 角色 import 測試通過
 
 - ✅ 📱 **手寫電子簽章 Phase 2–4 完成**：
   - **Phase 2（安樂死）**：後端 `sign_euthanasia_order` / `get_euthanasia_signature_status` handler + 路由；前端 `EuthanasiaPendingPanel.tsx` PI 同意流程整合手寫簽名

@@ -24,18 +24,11 @@ import sys
 import os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from test_base import BaseApiTester, API_BASE_URL, TEST_USER_PASSWORD
+from test_base import BaseApiTester, API_BASE_URL
+from test_fixtures import get_users_for_roles, AMENDMENT_ROLES
 
-# 測試帳號設定（沿用 AUP 測試帳號）
-AMENDMENT_TEST_USERS = {
-    "IACUC_STAFF": {"email": "staff_int_test@example.com", "password": TEST_USER_PASSWORD, "display_name": "IACUC Staff (整合測試)", "role_codes": ["IACUC_STAFF"]},
-    "REVIEWER1":   {"email": "rev1_int_test@example.com",  "password": TEST_USER_PASSWORD, "display_name": "Reviewer 1 (整合測試)", "role_codes": ["REVIEWER"]},
-    "REVIEWER2":   {"email": "rev2_int_test@example.com",  "password": TEST_USER_PASSWORD, "display_name": "Reviewer 2 (整合測試)", "role_codes": ["REVIEWER"]},
-    "REVIEWER3":   {"email": "rev3_int_test@example.com",  "password": TEST_USER_PASSWORD, "display_name": "Reviewer 3 (整合測試)", "role_codes": ["REVIEWER"]},
-    "IACUC_CHAIR": {"email": "chair_int_test@example.com", "password": TEST_USER_PASSWORD, "display_name": "IACUC Chair (整合測試)", "role_codes": ["REVIEWER", "IACUC_CHAIR"]},
-    "PI":          {"email": "pi_int_test@example.com",    "password": TEST_USER_PASSWORD, "display_name": "PI (整合測試)",         "role_codes": ["PI"]},
-    "VET":         {"email": "vet_int_test@example.com",   "password": TEST_USER_PASSWORD, "display_name": "VET (整合測試)",        "role_codes": ["VET"]},
-}
+# 測試帳號設定（從 test_fixtures 統一取得，與 AUP 共用）
+AMENDMENT_TEST_USERS = get_users_for_roles(AMENDMENT_ROLES)
 
 
 def create_approved_protocol(t) -> str:
@@ -123,28 +116,41 @@ def create_approved_protocol(t) -> str:
     return protocol_id
 
 
-def run_amendment_test() -> bool:
-    """執行完整 Amendment 測試，回傳是否全部通過"""
+def run_amendment_test(ctx=None, protocol_id=None) -> bool:
+    """執行完整 Amendment 測試，回傳是否全部通過
+
+    Args:
+        ctx: 共享 Context（有的話跳過登入）
+        protocol_id: 已核准的 AUP protocol_id（有的話跳過建立 AUP）
+    """
     t = BaseApiTester("Amendment 完整流程測試")
 
     # ========================================
-    # 前置作業：帳號建立＆登入
+    # 前置作業：帳號建立＆登入（有 ctx 時跳過）
     # ========================================
-    if not t.setup_test_users(AMENDMENT_TEST_USERS):
-        return False
-    if not t.login_all(AMENDMENT_TEST_USERS):
-        return False
+    if ctx:
+        ctx.inject_into(t, AMENDMENT_ROLES)
+        print(f"  ✓ 使用共享 Context，跳過登入（{len(AMENDMENT_ROLES)} 個角色）")
+    else:
+        if not t.setup_test_users(AMENDMENT_TEST_USERS):
+            return False
+        if not t.login_all(AMENDMENT_TEST_USERS):
+            return False
 
     # ========================================
     # Step 1: 建立已核准的 AUP 計畫書
     # ========================================
-    t.step("建立已核准的 AUP 計畫書")
-    try:
-        protocol_id = create_approved_protocol(t)
-        t.record("建立已核准計畫書", True, f"Protocol ID: {protocol_id[:8]}...")
-    except Exception as e:
-        t.record("建立已核准計畫書", False, str(e))
-        return t.print_summary()
+    if protocol_id:
+        t.step("使用外部已核准的 AUP 計畫書")
+        t.record("複用已核准計畫書", True, f"Protocol ID: {protocol_id[:8]}...（跳過重建）")
+    else:
+        t.step("建立已核准的 AUP 計畫書")
+        try:
+            protocol_id = create_approved_protocol(t)
+            t.record("建立已核准計畫書", True, f"Protocol ID: {protocol_id[:8]}...")
+        except Exception as e:
+            t.record("建立已核准計畫書", False, str(e))
+            return t.print_summary()
 
     # ========================================
     # Step 2: PI 建立 Amendment (Minor 路徑)

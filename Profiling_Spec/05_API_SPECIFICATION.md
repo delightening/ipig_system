@@ -1,7 +1,7 @@
 # API 規格
 
-> **版本**：4.0  
-> **最後更新**：2026-02-16  
+> **版本**：5.0  
+> **最後更新**：2026-02-17  
 > **對象**：開發人員、前端工程師
 
 ---
@@ -238,6 +238,7 @@
 | GET | `/protocols/:id/co-editors` | 共同編輯列表 |
 | POST | `/protocols/:id/co-editors` | 新增共同編輯 |
 | DELETE | `/protocols/:id/co-editors/:user_id` | 移除共同編輯 |
+| GET | `/protocols/:id/status-history` | 狀態歷程 |
 | GET | `/my-projects` | 我的計畫 |
 
 ---
@@ -299,11 +300,13 @@
 | POST | `/animals` | 建立動物 |
 | GET | `/animals/by-pen` | 依欄位分組 |
 | POST | `/animals/batch/assign` | 批次分配 |
+| POST | `/animals/batch/start-experiment` | 批次進入實驗 |
 | GET | `/animals/vet-comments` | 獸醫待閱 |
 | GET | `/animals/:id` | 動物詳情 |
 | PUT | `/animals/:id` | 更新動物 |
 | DELETE | `/animals/:id` | 刪除動物 |
 | POST | `/animals/:id/vet-read` | 標記已讀 |
+| GET | `/animals/:id/data-boundary` | 資料隔離邊界 |
 
 ---
 
@@ -365,7 +368,31 @@
 
 ---
 
-## 25. 血液檢查 API
+## 25. 猝死登記 API
+
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| POST | `/animals/:id/sudden-death` | 登記猝死 |
+| GET | `/animals/:id/sudden-death` | 查詢猝死紀錄 |
+
+---
+
+## 26. 動物轉讓 API
+
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| POST | `/animals/:id/transfers` | 發起轉讓 |
+| GET | `/animals/:id/transfers` | 轉讓紀錄列表 |
+| GET | `/transfers/:id` | 轉讓詳情 |
+| POST | `/transfers/:id/source-pi-confirm` | 來源 PI 確認 |
+| POST | `/transfers/:id/vet-evaluate` | 獸醫評估 |
+| POST | `/transfers/:id/target-pi-confirm` | 目標 PI 確認 |
+| POST | `/transfers/:id/iacuc-approve` | IACUC 核准 |
+| POST | `/transfers/:id/complete` | 執行完成 |
+
+---
+
+## 27. 血液檢查 API
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
@@ -388,7 +415,7 @@
 
 ---
 
-## 26. 獸醫建議 API
+## 28. 獸醫建議 API
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
@@ -401,7 +428,7 @@
 
 ---
 
-## 27. 動物匯入匯出 API
+## 29. 動物匯入匯出 API
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
@@ -415,19 +442,25 @@
 
 ---
 
-## 28. 電子簽章 API
+## 30. 電子簽章 API
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
-| POST | `/signatures/sacrifice/:id` | 簽署犧牲紀錄 |
-| GET | `/signatures/sacrifice/:id` | 取得簽章狀態 |
+| POST | `/signatures/sacrifice/:id` | 簽署犧牲紀錄（支援密碼/手寫）|
+| GET | `/signatures/sacrifice/:id` | 取得犧牲簽章狀態 |
 | POST | `/signatures/observation/:id` | 簽署觀察紀錄 |
+| POST | `/signatures/euthanasia/:id` | 簽署安樂死紀錄 |
+| GET | `/signatures/euthanasia/:id/status` | 安樂死簽章狀態 |
+| POST | `/signatures/transfer/:id` | 簽署轉讓紀錄 |
+| GET | `/signatures/transfer/:id/status` | 轉讓簽章狀態 |
+| POST | `/signatures/protocol/:id` | 簽署計畫審查 |
+| GET | `/signatures/protocol/:id/status` | 計畫簽章狀態 |
 | GET | `/annotations/:record_type/:record_id` | 取得紀錄標註 |
 | POST | `/annotations/:record_type/:record_id` | 新增紀錄標註 |
 
 ---
 
-## 29. 安樂死管理 API
+## 31. 安樂死管理 API
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
@@ -441,7 +474,7 @@
 
 ---
 
-## 30. 通知 API
+## 32. 通知 API
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
@@ -455,7 +488,18 @@
 
 ---
 
-## 31. 警報 API
+## 33. 通知路由管理 API
+
+| 方法 | 路徑 | 說明 | 權限 |
+|------|------|------|------|
+| GET | `/admin/notification-routing` | 路由列表 | admin |
+| POST | `/admin/notification-routing` | 建立路由 | admin |
+| PUT | `/admin/notification-routing/:id` | 更新路由 | admin |
+| DELETE | `/admin/notification-routing/:id` | 刪除路由 | admin |
+
+---
+
+## 34. 警報 API
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
@@ -464,7 +508,7 @@
 
 ---
 
-## 32. 管理員觸發 API
+## 35. 管理員觸發 API
 
 | 方法 | 路徑 | 說明 | 權限 |
 |------|------|------|------|
@@ -474,7 +518,7 @@
 
 ---
 
-## 33. 安全稽核 API
+## 36. 安全稽核 API
 
 | 方法 | 路徑 | 說明 | 權限 |
 |------|------|------|------|
@@ -492,7 +536,7 @@
 
 ---
 
-## 34. HR 出勤 API
+## 37. HR 出勤 API
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
@@ -504,7 +548,7 @@
 
 ---
 
-## 35. HR 加班 API
+## 38. HR 加班 API
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
@@ -519,7 +563,7 @@
 
 ---
 
-## 36. HR 請假 API
+## 39. HR 請假 API
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
@@ -536,7 +580,7 @@
 
 ---
 
-## 37. HR 假期餘額 API
+## 40. HR 假期餘額 API
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
@@ -549,7 +593,7 @@
 
 ---
 
-## 38. HR 儀表板 / 人員 API
+## 41. HR 儀表板 / 人員 API
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
@@ -559,7 +603,7 @@
 
 ---
 
-## 39. HR 行事曆同步 API
+## 42. HR 行事曆同步 API
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
@@ -578,7 +622,7 @@
 
 ---
 
-## 40. 設施管理 API
+## 43. 設施管理 API
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
@@ -597,7 +641,7 @@
 
 ---
 
-## 41. 檔案上傳 API
+## 44. 檔案上傳 API
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
@@ -622,13 +666,14 @@
 | 單據/庫存/報表 | 23 |
 | AUP (計畫/審查/變更) | 38 |
 | 動物管理 (動物/醫療) | 50 |
-| 安樂死/簽章 | 12 |
-| 通知/警報/排程 | 17 |
+| 猝死/轉讓 | 10 |
+| 安樂死/簽章 | 18 |
+| 通知/警報/排程/路由管理 | 21 |
 | 稽核/管理 | 14 |
 | HR (出勤/請假/加班/日曆) | 34 |
 | 設施管理 | 22 |
 | 檔案上傳 | 8 |
-| **合計** | **~273** |
+| **合計** | **~293** |
 
 ---
 

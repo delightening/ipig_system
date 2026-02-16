@@ -1,11 +1,12 @@
 -- ============================================
--- Migration 001a: Core Schema
+-- Migration 001: Core Schema
 -- 
 -- 包含：
 -- - 所有自訂類型 (Custom Types / ENUMs)
 -- - 用戶與權限相關表
 -- - 基礎資料表 (Master Data)
 -- - 觸發器與函式
+-- - 使用者偏好設定表
 -- 
 -- 編碼: UTF-8 (無 BOM)
 -- 預設密碼: admin123 (由後端 ensure_admin_user 函式在啟動時自動建立，此處 hash 僅供參考)
@@ -176,6 +177,16 @@ CREATE TYPE import_type AS ENUM ('animal_basic', 'animal_weight');
 CREATE TYPE import_status AS ENUM ('pending', 'processing', 'completed', 'failed');
 CREATE TYPE export_type AS ENUM ('medical_summary', 'observation_records', 'surgery_records', 'experiment_records');
 CREATE TYPE export_format AS ENUM ('pdf', 'excel');
+
+-- 動物轉讓狀態類型
+CREATE TYPE animal_transfer_status AS ENUM (
+    'pending',         -- 發起
+    'vet_evaluated',   -- 獸醫評估完成
+    'plan_assigned',   -- 新計劃已指定
+    'pi_approved',     -- 新 PI 同意
+    'completed',       -- 轉讓完成
+    'rejected'         -- 拒絕
+);
 
 -- ============================================
 -- 2. 用戶與權限相關表
@@ -404,6 +415,27 @@ ON CONFLICT (code) DO NOTHING;
 -- 這樣可以確保密碼 hash 使用與後端驗證一致的 Argon2 參數
 
 -- 原本的 SQL seed 已移除，由後端啟動時自動建立 admin 帳號並指派角色
+
+-- ============================================
+-- 9. 使用者偏好設定表（Key-Value 結構）
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS user_preferences (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    
+    -- Key-Value 結構
+    preference_key VARCHAR(100) NOT NULL,
+    preference_value JSONB NOT NULL DEFAULT '{}',
+    
+    -- 時間戳記
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    UNIQUE(user_id, preference_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_preferences_user_id ON user_preferences(user_id);
 
 -- ============================================
 -- 完成

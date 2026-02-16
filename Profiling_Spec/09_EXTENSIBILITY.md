@@ -1,7 +1,7 @@
 # 擴展性
 
-> **版本**：4.0  
-> **最後更新**：2026-02-16  
+> **版本**：5.0  
+> **最後更新**：2026-02-17  
 > **對象**：架構師、產品經理
 
 ---
@@ -57,12 +57,19 @@ iPig 系統從設計之初即考量擴展性，支援模組化新增功能、資
 - ✅ 獸醫建議系統
 - ✅ 疼痛評估（Pain Assessment）
 - ✅ **Pig → Animal 重新命名**（資料庫、API、前端全面重構）
+- ✅ **動物狀態生命週期重構**（新增 euthanized/sudden_death/transferred 狀態）
+- ✅ **動物轉讓流程**（6 步 API + Stepper UI + 資料隔離）
+- ✅ **猝死登記**（animal_sudden_deaths 表 + API）
+- ✅ **手寫電子簽章**（signature_pad + HandwrittenSignaturePad.tsx，4 場景）
+- ✅ **資料隔離機制**（data-boundary API + 特權角色繞過）
+- ✅ **資料庫遷移整合**（14 個合併為 8 個）
 
 ### 2.7 通知與排程
 - ✅ Email 通知（SMTP）
 - ✅ 站內通知系統
 - ✅ 排程報表
 - ✅ 通知路由（各模組獨立通知服務）
+- ✅ **通知路由可配置化**（notification_routing 表 + Admin UI）
 
 ### 2.8 設施管理
 - ✅ 多物種支援

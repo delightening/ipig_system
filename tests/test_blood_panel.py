@@ -26,41 +26,46 @@ import time
 from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from test_base import BaseApiTester, API_BASE_URL, ADMIN_CREDENTIALS, TEST_USER_PASSWORD
+from test_base import BaseApiTester, API_BASE_URL
+from test_fixtures import get_users_for_roles, BLOOD_PANEL_ROLES
 
 # ============================================
-# 測試帳號設定
+# 測試帳號設定（從 test_fixtures 統一取得）
 # ============================================
-TEST_USERS = {
-    "ADMIN": {
-        "email": ADMIN_CREDENTIALS["email"],
-        "password": ADMIN_CREDENTIALS["password"],
-        "display_name": "系統管理員",
-        "role_codes": ["ADMIN"],
-    },
-    "VET": {
-        "email": "vet_blood_test@example.com",
-        "password": TEST_USER_PASSWORD,
-        "display_name": "獸醫師 (血液檢查測試)",
-        "role_codes": ["VET"],
-    },
-    "EXPERIMENT_STAFF": {
-        "email": "exp_blood_test@example.com",
-        "password": TEST_USER_PASSWORD,
-        "display_name": "試驗工作人員 (血液檢查測試)",
-        "role_codes": ["EXPERIMENT_STAFF"],
-    },
+TEST_USERS = get_users_for_roles(BLOOD_PANEL_ROLES)
+
+# 角色別名對應（讓測試內部的 ADMIN/VET/STAFF 能對應到 fixtures 的 key）
+_ROLE_ALIASES = {
+    "ADMIN": "ADMIN_BLOOD",
+    "VET": "VET_BLOOD",
+    "EXPERIMENT_STAFF": "EXPERIMENT_STAFF_BLOOD",
 }
 
 
-def run_blood_panel_test() -> bool:
+def run_blood_panel_test(ctx=None) -> bool:
     """執行血液檢查系統完整測試"""
     t = BaseApiTester("血液檢查系統完整測試")
 
-    if not t.setup_test_users(TEST_USERS):
-        return False
-    if not t.login_all(TEST_USERS):
-        return False
+    if ctx:
+        ctx.inject_into(t, BLOOD_PANEL_ROLES)
+        # 建立角色別名映射
+        for alias, real in _ROLE_ALIASES.items():
+            if real in t.tokens:
+                t.tokens[alias] = t.tokens[real]
+            if real in t.user_ids:
+                t.user_ids[alias] = t.user_ids[real]
+        print(f"  ✓ 使用共享 Context，跳過登入")
+    else:
+        if not t.setup_test_users(TEST_USERS):
+            return False
+        if not t.login_all(TEST_USERS):
+            return False
+        # 獨立執行時建立別名
+        for alias, real in _ROLE_ALIASES.items():
+            if real in t.tokens:
+                t.tokens[alias] = t.tokens[real]
+            if real in t.user_ids:
+                t.user_ids[alias] = t.user_ids[real]
 
     STAFF = "EXPERIMENT_STAFF"
     VET = "VET"

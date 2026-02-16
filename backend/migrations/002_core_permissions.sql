@@ -467,5 +467,54 @@ WHERE r.code = 'ADMIN_STAFF' AND p.code IN (
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- ============================================
+-- 19. 動物管理擴展權限
+-- ============================================
+
+INSERT INTO permissions (id, code, name, module, description, created_at)
+VALUES
+    (gen_random_uuid(), 'animal.pathology.view', '查看病理報告', 'animal', '可查看動物病理報告', NOW()),
+    (gen_random_uuid(), 'animal.pathology.upload', '上傳病理報告', 'animal', '可上傳動物病理報告', NOW()),
+    (gen_random_uuid(), 'animal.info.assign', '分配動物資訊', 'animal', '可分配動物至計畫', NOW()),
+    (gen_random_uuid(), 'animal.info.edit', '編輯動物資訊', 'animal', '可編輯動物資訊', NOW()),
+    (gen_random_uuid(), 'animal.record.emergency', '緊急給藥', 'animal', '可執行緊急給藥', NOW()),
+    (gen_random_uuid(), 'animal.record.copy', '複製紀錄', 'animal', '可複製動物紀錄', NOW()),
+    (gen_random_uuid(), 'animal.vet.upload_attachment', '上傳獸醫附件', 'animal', '可上傳獸醫建議附件', NOW())
+ON CONFLICT (code) DO NOTHING;
+
+-- 分配擴展權限給 EXPERIMENT_STAFF 角色
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM roles r
+CROSS JOIN permissions p
+WHERE r.code = 'EXPERIMENT_STAFF'
+AND p.code IN (
+    'animal.pathology.view',
+    'animal.pathology.upload',
+    'animal.info.assign',
+    'animal.info.edit',
+    'animal.record.emergency',
+    'animal.record.copy',
+    'animal.vet.upload_attachment'
+)
+ON CONFLICT DO NOTHING;
+
+-- 分配擴展權限給 VET 角色
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM roles r
+CROSS JOIN permissions p
+WHERE r.code = 'VET'
+AND p.code IN (
+    'animal.pathology.view',
+    'animal.pathology.upload',
+    'animal.info.assign',
+    'animal.info.edit',
+    'animal.record.emergency',
+    'animal.record.copy',
+    'animal.vet.upload_attachment'
+)
+ON CONFLICT DO NOTHING;
+
+-- ============================================
 -- 完成
 -- ============================================

@@ -1,7 +1,7 @@
 # 安全與稽核
 
-> **版本**：2.0  
-> **最後更新**：2026-02-16  
+> **版本**：5.0  
+> **最後更新**：2026-02-17  
 > **對象**：系統管理員、安全人員、開發人員
 
 ---
@@ -262,9 +262,21 @@ CREATE TABLE user_sessions (
 
 ### 8.1 電子簽章
 
-- 犧牲紀錄簽章 (`/signatures/sacrifice/:id`)
-- 觀察紀錄簽章 (`/signatures/observation/:id`)
-- 簽章資料儲存於 `electronic_signatures` 表
+支援兩種簽章方式：
+
+| 方式 | 欄位 | 說明 |
+|------|------|------|
+| 密碼驗證 | `signature_data` (JSONB) | 傳統密碼確認簽署 |
+| 手寫簽名 | `handwriting_svg` + `stroke_data` | 觸控手寫簽名（`signature_pad`）|
+
+**簽章場景**：
+- 犧牲紀錄 (`/signatures/sacrifice/:id`)
+- 觀察紀錄 (`/signatures/observation/:id`)
+- 安樂死紀錄 (`/signatures/euthanasia/:id`)
+- 轉讓紀錄 (`/signatures/transfer/:id`)
+- 計畫審查 (`/signatures/protocol/:id`)
+
+簽章資料儲存於 `electronic_signatures` 表，簽章後紀錄自動鎖定。
 
 ### 8.2 紀錄標註
 
