@@ -22,39 +22,42 @@ import time
 from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from test_base import BaseApiTester, API_BASE_URL, ADMIN_CREDENTIALS, TEST_USER_PASSWORD
+from test_base import BaseApiTester, API_BASE_URL
+from test_fixtures import get_users_for_roles, HR_ROLES
 
-# 測試帳號設定
-HR_TEST_USERS = {
-    "ADMIN": {
-        "email": ADMIN_CREDENTIALS["email"],
-        "password": ADMIN_CREDENTIALS["password"],
-        "display_name": "系統管理員",
-        "role_codes": ["ADMIN"],
-    },
-    "ADMIN_STAFF": {
-        "email": "hr_admin_staff_test@example.com",
-        "password": TEST_USER_PASSWORD,
-        "display_name": "行政人員 (HR 測試)",
-        "role_codes": ["ADMIN_STAFF"],
-    },
-    "EXPERIMENT_STAFF": {
-        "email": "hr_exp_staff_test@example.com",
-        "password": TEST_USER_PASSWORD,
-        "display_name": "試驗工作人員 (HR 測試)",
-        "role_codes": ["EXPERIMENT_STAFF"],
-    },
+# 測試帳號設定（從 test_fixtures 統一取得）
+HR_TEST_USERS = get_users_for_roles(HR_ROLES)
+
+# 角色別名對應
+_ROLE_ALIASES = {
+    "ADMIN": "ADMIN_HR",
+    "ADMIN_STAFF": "ADMIN_STAFF_HR",
+    "EXPERIMENT_STAFF": "EXPERIMENT_STAFF_HR",
 }
 
 
-def run_hr_test() -> bool:
+def run_hr_test(ctx=None) -> bool:
     """執行完整 HR 人員管理測試，回傳是否全部通過"""
     t = BaseApiTester("HR 人員管理系統完整測試")
 
-    if not t.setup_test_users(HR_TEST_USERS):
-        return False
-    if not t.login_all(HR_TEST_USERS):
-        return False
+    if ctx:
+        ctx.inject_into(t, HR_ROLES)
+        for alias, real in _ROLE_ALIASES.items():
+            if real in t.tokens:
+                t.tokens[alias] = t.tokens[real]
+            if real in t.user_ids:
+                t.user_ids[alias] = t.user_ids[real]
+        print(f"  ✓ 使用共享 Context，跳過登入")
+    else:
+        if not t.setup_test_users(HR_TEST_USERS):
+            return False
+        if not t.login_all(HR_TEST_USERS):
+            return False
+        for alias, real in _ROLE_ALIASES.items():
+            if real in t.tokens:
+                t.tokens[alias] = t.tokens[real]
+            if real in t.user_ids:
+                t.user_ids[alias] = t.user_ids[real]
 
     ADMIN = "ADMIN"
     ADMIN_STAFF = "ADMIN_STAFF"

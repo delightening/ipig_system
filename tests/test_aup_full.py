@@ -17,32 +17,28 @@ import sys
 import os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from test_base import BaseApiTester, API_BASE_URL, TEST_USER_PASSWORD
+from test_base import BaseApiTester, API_BASE_URL
+from test_fixtures import get_users_for_roles, AUP_ROLES
 
-# 測試帳號設定
-AUP_TEST_USERS = {
-    "IACUC_STAFF": {"email": "staff_int_test@example.com", "password": TEST_USER_PASSWORD, "display_name": "IACUC Staff (整合測試)", "role_codes": ["IACUC_STAFF"]},
-    "REVIEWER1":   {"email": "rev1_int_test@example.com",  "password": TEST_USER_PASSWORD, "display_name": "Reviewer 1 (整合測試)", "role_codes": ["REVIEWER"]},
-    "REVIEWER2":   {"email": "rev2_int_test@example.com",  "password": TEST_USER_PASSWORD, "display_name": "Reviewer 2 (整合測試)", "role_codes": ["REVIEWER"]},
-    "REVIEWER3":   {"email": "rev3_int_test@example.com",  "password": TEST_USER_PASSWORD, "display_name": "Reviewer 3 (整合測試)", "role_codes": ["REVIEWER"]},
-    "IACUC_CHAIR": {"email": "chair_int_test@example.com", "password": TEST_USER_PASSWORD, "display_name": "IACUC Chair (整合測試)", "role_codes": ["REVIEWER", "IACUC_CHAIR"]},
-    "PI":          {"email": "pi_int_test@example.com",    "password": TEST_USER_PASSWORD, "display_name": "PI (整合測試)",         "role_codes": ["PI"]},
-    "VET":         {"email": "vet_int_test@example.com",   "password": TEST_USER_PASSWORD, "display_name": "VET (整合測試)",        "role_codes": ["VET"]},
-    "REV_OTHER":   {"email": "revother_int_test@example.com", "password": TEST_USER_PASSWORD, "display_name": "Reviewer Other (整合測試)", "role_codes": ["REVIEWER"]},
-}
+# 測試帳號設定（從 test_fixtures 統一取得）
+AUP_TEST_USERS = get_users_for_roles(AUP_ROLES)
 
 
-def run_aup_test() -> bool:
-    """執行完整 AUP 測試，回傳是否全部通過"""
+def run_aup_test(ctx=None):
+    """執行完整 AUP 測試，回傳 (success: bool, protocol_id: str|None)"""
     t = BaseApiTester("AUP 完整流程測試")
 
     # ========================================
-    # 前置作業
+    # 前置作業（有 ctx 時跳過登入）
     # ========================================
-    if not t.setup_test_users(AUP_TEST_USERS):
-        return False
-    if not t.login_all(AUP_TEST_USERS):
-        return False
+    if ctx:
+        ctx.inject_into(t, AUP_ROLES)
+        print(f"  ✓ 使用共享 Context，跳過登入（{len(AUP_ROLES)} 個角色）")
+    else:
+        if not t.setup_test_users(AUP_TEST_USERS):
+            return False, None
+        if not t.login_all(AUP_TEST_USERS):
+            return False, None
 
     protocol_id = None
     version_id = None
@@ -131,10 +127,10 @@ def run_aup_test() -> bool:
             "drugs": [{"drug_name": "抗生素", "dose": "10mg/kg", "route": "IM", "frequency": "QD", "purpose": "預防感染"}]
         },
         "animals": {
-            "total_animals": 5,
+            "total_animals": 2,
             "animals": [{
                 "species": "Pig", "strain": "L6", "sex": "MIXED",
-                "number": 5, "age_min": "8", "age_max": "10", "age_unlimited": False,
+                "number": 2, "age_min": "8", "age_max": "10", "age_unlimited": False,
                 "weight_min": "20", "weight_max": "30", "weight_unlimited": False,
                 "housing_location": "B1-02"
             }]
@@ -507,12 +503,14 @@ def run_aup_test() -> bool:
     print(f"  Minor Amendment ID: {minor_id} (ADMIN_APPROVED)")
     print(f"  Major Amendment ID: {major_id} (APPROVED)")
     print(f"{'=' * 60}")
-    return t.print_summary()
+    success = t.print_summary()
+    return success, protocol_id
 
 
 if __name__ == "__main__":
     try:
-        success = run_aup_test()
+        result = run_aup_test()
+        success = result[0] if isinstance(result, tuple) else result
         sys.exit(0 if success else 1)
     except Exception as e:
         print(f"\n[CRITICAL ERROR] AUP 測試失敗: {e}")

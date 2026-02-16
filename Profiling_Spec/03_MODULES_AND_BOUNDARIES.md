@@ -1,7 +1,7 @@
 # 模組與邊界
 
-> **版本**：4.0  
-> **最後更新**：2026-02-16  
+> **版本**：5.0  
+> **最後更新**：2026-02-17  
 > **對象**：架構師、資深開發人員
 
 ---
@@ -201,6 +201,16 @@ iPig 系統組織成獨立的有界上下文：
 - `POST /animals/:id/export` - 醫療資料匯出
 - `POST /projects/:iacuc_no/export` - 計畫醫療匯出
 - `GET/POST /animals/import/*` - 批次匯入
+- `POST /animals/:id/sudden-death` - 猝死登記
+- `GET /animals/:id/data-boundary` - 資料隔離邊界
+- `POST /animals/:id/transfers` - 發起轉讓
+- `GET /animals/:id/transfers` - 轉讓紀錄
+- `GET /transfers/:id` - 轉讓詳情
+- `POST /transfers/:id/source-pi-confirm` - 來源 PI 確認
+- `POST /transfers/:id/vet-evaluate` - 獸醫評估
+- `POST /transfers/:id/target-pi-confirm` - 目標 PI 確認
+- `POST /transfers/:id/iacuc-approve` - IACUC 核准
+- `POST /transfers/:id/complete` - 執行完成
 
 ---
 
@@ -240,9 +250,15 @@ iPig 系統組織成獨立的有界上下文：
 **API 前綴**：`/api/signatures/*`、`/api/annotations/*`
 
 **主要端點**：
-- `POST /signatures/sacrifice/:id` - 簽署犧牲紀錄
-- `GET /signatures/sacrifice/:id` - 簽章狀態
+- `POST /signatures/sacrifice/:id` - 簽署犧牲紀錄（密碼/手寫）
+- `GET /signatures/sacrifice/:id` - 犧牲簽章狀態
 - `POST /signatures/observation/:id` - 簽署觀察紀錄
+- `POST /signatures/euthanasia/:id` - 簽署安樂死紀錄
+- `GET /signatures/euthanasia/:id/status` - 安樂死簽章狀態
+- `POST /signatures/transfer/:id` - 簽署轉讓紀錄
+- `GET /signatures/transfer/:id/status` - 轉讓簽章狀態
+- `POST /signatures/protocol/:id` - 簽署計畫審查
+- `GET /signatures/protocol/:id/status` - 計畫簽章狀態
 - `GET /annotations/:record_type/:record_id` - 取得標註
 - `POST /annotations/:record_type/:record_id` - 新增標註
 
@@ -314,7 +330,10 @@ iPig 系統組織成獨立的有界上下文：
 | Email | `services/email/` (4 檔) | SMTP 發送 |
 | 排程器 | `services/scheduler.rs` (22KB) | Cron 排程 |
 
-**API 前綴**：`/api/notifications/*`、`/api/alerts/*`、`/api/scheduled-reports/*`
+**API 前綴**：`/api/notifications/*`、`/api/alerts/*`、`/api/scheduled-reports/*`、`/api/admin/notification-routing/*`
+
+**新增：通知路由管理**：
+- `GET/POST/PUT/DELETE /admin/notification-routing` - 路由 CRUD
 
 ---
 

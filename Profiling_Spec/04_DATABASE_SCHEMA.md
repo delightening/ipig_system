@@ -1,27 +1,27 @@
 # 資料庫綱要
 
-> **版本**：4.0  
-> **最後更新**：2026-02-16  
+> **版本**：5.0  
+> **最後更新**：2026-02-17  
 > **對象**：資料庫管理員、開發人員
 
 ---
 
 ## 1. 概覽
 
-iPig 資料庫執行於 **PostgreSQL 16**，由 10 個遷移檔案按模組組織：
+iPig 資料庫執行於 **PostgreSQL 16**，由 8 個遷移檔案按模組組織：
 
 | 遷移 | 說明 | 主要資料表 |
-|------|------|-----------| 
-| 001 | 核心架構 | users, roles, permissions, notifications, audit_logs, attachments |
-| 002 | 核心權限 | role_permissions 種子資料 |
-| 003 | 動物管理 | animals, animal_observations, animal_surgeries, animal_weights, animal_vaccinations, animal_sources |
-| 004 | AUP 系統 | protocols, protocol_versions, user_protocols, review_assignments, review_comments |
+|------|------|-----------|
+| 001 | 核心架構 | users, roles, permissions, notifications, audit_logs, attachments, user_preferences |
+| 002 | 核心權限 | role_permissions 種子資料 + 動物擴展權限 |
+| 003 | 動物管理 | animals, observations, surgeries, weights, vaccinations, blood_tests, sudden_deaths, transfers |
+| 004 | AUP 系統 | protocols, versions, assignments, comments, amendments, vet_review, activities, status_history |
 | 005 | 人事系統 | attendance_records, leave_requests, overtime_records, leave_balances, departments |
 | 006 | 稽核系統 | user_activity_logs (分割表), login_events, user_sessions, security_alerts |
 | 007 | ERP/倉庫 | products, warehouses, partners, documents, document_lines, stock_ledger, skus |
-| 008 | AUP 審查增強 | scheduled_reports, report_history, review_assignments_v2 |
-| 009 | 血液檢查 | blood_test_templates, animal_blood_tests, animal_blood_test_items, blood_test_panels |
-| 010 | 使用者偏好 | user_preferences |
+| 008 | 補充功能 | notification_routing, electronic_signatures 擴展, record_annotations |
+
+> 📌 **2026-02-17 整合**：遷移從 14 個整合為 8 個。消除增量修改（008 權限→002、008 AUP→004）、同領域合併（009 血液+013 猝死+014 轉讓→003）、消除微型檔案（010→001、011+015→008）。
 
 ---
 
@@ -64,7 +64,10 @@ CREATE TYPE protocol_activity_type AS ENUM (
 ### 2.3 動物管理類型
 
 ```sql
-CREATE TYPE animal_status AS ENUM ('unassigned', 'in_experiment', 'completed');
+CREATE TYPE animal_status AS ENUM (
+    'unassigned', 'in_experiment', 'completed',
+    'euthanized', 'sudden_death', 'transferred'
+);
 CREATE TYPE animal_breed AS ENUM ('miniature', 'white', 'LYD', 'other');
 CREATE TYPE animal_gender AS ENUM ('male', 'female');
 CREATE TYPE record_type AS ENUM ('abnormal', 'experiment', 'observation');
@@ -74,6 +77,10 @@ CREATE TYPE vet_record_type AS ENUM ('observation', 'surgery');
 CREATE TYPE care_record_mode AS ENUM ('legacy', 'pain_assessment');
 CREATE TYPE version_record_type AS ENUM (
     'observation', 'surgery', 'weight', 'vaccination', 'sacrifice', 'pathology', 'blood_test'
+);
+CREATE TYPE animal_transfer_status AS ENUM (
+    'pending_source_pi', 'pending_vet_evaluation', 'pending_target_pi',
+    'pending_iacuc_approval', 'approved', 'completed'
 );
 ```
 
@@ -169,7 +176,7 @@ CREATE TABLE users (
 | refresh_tokens | UUID | user_id, token_hash, expires_at | JWT 更新令牌 |
 | password_reset_tokens | UUID | user_id, token_hash, expires_at | 密碼重設令牌 |
 
-### 3.3 通知與附件
+### 3.3 通知、附件與偏好
 
 | 表名 | PK | 說明 |
 |------|-----|------|
@@ -177,6 +184,7 @@ CREATE TABLE users (
 | notification_settings | user_id | 每用戶通知偏好 |
 | attachments | UUID | 通用附件（category 分類）|
 | audit_logs | UUID | 簡易稽核日誌 |
+| user_preferences | UUID | 使用者偏好設定（key-value） |
 
 ### 3.4 預設角色
 
@@ -184,12 +192,21 @@ CREATE TABLE users (
 
 ---
 
-## 4. 動物管理 (Migration 003)
+## 4. 核心權限 (Migration 002)
 
-### 4.1 核心資料表
+Migration 002 包含：
+- 全部權限定義（`INSERT INTO permissions`）
+- 角色預設權限指派（`INSERT INTO role_permissions`）
+- **動物擴展權限**（`animal.transfer.initiate`、`animal.transfer.approve` 等）
+
+---
+
+## 5. 動物管理 (Migration 003)
+
+### 5.1 核心資料表
 
 | 表名 | PK 類型 | 主要欄位 |
-|------|---------|---------| 
+|------|---------|---------|
 | animal_sources | UUID | name, supplier_type, contact_info |
 | animals | SERIAL | ear_tag, status, breed, gender, source_id, pen_id, iacuc_no |
 | animal_observations | SERIAL | animal_id, event_date, record_type, content, treatments(JSONB) |
@@ -200,15 +217,48 @@ CREATE TABLE users (
 | animal_pathology_reports | SERIAL | animal_id, report_date, findings(JSONB) |
 | animal_care_records | SERIAL | animal_id, record_date, mode, content(JSONB) |
 | animal_files | UUID | file_type, animal_id, record_type, record_id |
-| record_versions | UUID | record_type, record_id, version_number, data(JSONB) |
-| electronic_signatures | UUID | record_type, record_id, signer_id, signature_data(JSONB) |
-| record_annotations | UUID | record_type, record_id, content, created_by |
-| vet_recommendations | UUID | record_type, record_id, recommendation, status |
-| euthanasia_orders | UUID | animal_id, status, reason, requested_by |
-| import_batches | UUID | import_type, status, total_rows |
-| export_requests | UUID | iacuc_no, export_type, format |
 
-### 4.2 設施管理
+### 5.2 GLP 合規資料表
+
+| 表名 | PK 類型 | 說明 |
+|------|---------|------|
+| record_versions | UUID | 紀錄版本控制（record_type, record_id, version_number, data JSONB） |
+| electronic_signatures | UUID | 電子簽章（record_type, record_id, signer_id, signature_data JSONB） |
+| record_annotations | UUID | 紀錄附註/更正（record_type, record_id, content, created_by） |
+| vet_recommendations | UUID | 獸醫建議（record_type, record_id, recommendation, status） |
+
+### 5.3 安樂死
+
+| 表名 | PK 類型 | 說明 |
+|------|---------|------|
+| euthanasia_orders | UUID | 安樂死申請（animal_id, status, reason, requested_by） |
+
+### 5.4 血液檢查
+
+| 表名 | PK 類型 | 說明 |
+|------|---------|------|
+| blood_test_templates | UUID | 檢驗模板（64 個預設）|
+| animal_blood_tests | UUID | 血液檢查主表（animal_id, test_date, lab_name） |
+| animal_blood_test_items | UUID | 血檢明細（blood_test_id, template_id, result_value） |
+| blood_test_panels | UUID | 檢驗組合（14 組預設）|
+| blood_test_panel_items | UUID | 組合項目（panel_id, template_id） |
+
+### 5.5 猝死與轉讓
+
+| 表名 | PK 類型 | 說明 |
+|------|---------|------|
+| animal_sudden_deaths | SERIAL | 猝死紀錄（animal_id UNIQUE, death_date, description, discovered_by） |
+| animal_transfers | SERIAL | 轉讓主表（animal_id, status, from/to_protocol_id, reason） |
+| transfer_vet_evaluations | SERIAL | 轉讓獸醫評估（transfer_id, health_status, is_fit_for_transfer） |
+
+### 5.6 匯入匯出
+
+| 表名 | PK 類型 | 說明 |
+|------|---------|------|
+| import_batches | UUID | 匯入批次 |
+| export_requests | UUID | 匯出請求 |
+
+### 5.7 設施管理
 
 | 表名 | PK | 說明 |
 |------|-----|------|
@@ -221,26 +271,43 @@ CREATE TABLE users (
 
 ---
 
-## 5. AUP 系統 (Migration 004 + 008)
+## 6. AUP 系統 (Migration 004)
 
-### 5.1 核心資料表
+### 6.1 核心資料表
 
 | 表名 | 說明 |
 |------|------|
 | protocols | 計畫書主表（working_content JSONB 存儲 Section 1-8 表單）|
 | protocol_versions | 計畫版本快照 |
 | user_protocols | 計畫成員（PI, CLIENT, CO_EDITOR）|
-| review_assignments | 審查指派（V2: 含 comments_count, is_locked）|
-| review_comments | 審查意見（含 parent_id 支援巢狀回覆）|
-| review_comment_drafts | 審查意見草稿 |
+| protocol_status_history | 狀態轉移歷程 |
 | protocol_activities | 計畫活動紀錄 |
 | protocol_attachments | 計畫附件 |
+
+### 6.2 審查資料表
+
+| 表名 | 說明 |
+|------|------|
+| review_assignments | 審查指派（含 comments_count, is_locked）|
+| review_comments | 審查意見（含 parent_id 支援巢狀回覆）|
+| review_comment_drafts | 審查意見草稿 |
+
+### 6.3 變更申請
+
+| 表名 | 說明 |
+|------|------|
 | amendments | 變更申請（含 content JSONB, previous_content JSONB）|
 | amendment_versions | 變更版本快照 |
 
+### 6.4 系統設定
+
+| 表名 | 說明 |
+|------|------|
+| system_settings | 系統組態設定（key-value）|
+
 ---
 
-## 6. 人事系統 (Migration 005)
+## 7. 人事系統 (Migration 005)
 
 | 表名 | 說明 |
 |------|------|
@@ -255,9 +322,9 @@ CREATE TABLE users (
 
 ---
 
-## 7. 稽核系統 (Migration 006)
+## 8. 稽核系統 (Migration 006)
 
-### 7.1 活動記錄（分割表）
+### 8.1 活動記錄（分割表）
 
 ```sql
 -- 主表（依日期分割）
@@ -277,7 +344,7 @@ CREATE TABLE user_activity_logs (
 
 自動維護分割表：每月建立一個新分割區、保留 6 個月，由 `partition_maintenance.rs` 排程管理。
 
-### 7.2 安全相關表
+### 8.2 安全相關表
 
 | 表名 | 說明 |
 |------|------|
@@ -287,9 +354,9 @@ CREATE TABLE user_activity_logs (
 
 ---
 
-## 8. ERP/倉庫 (Migration 007)
+## 9. ERP/倉庫 (Migration 007)
 
-### 8.1 核心資料表
+### 9.1 核心資料表
 
 | 表名 | 說明 |
 |------|------|
@@ -310,83 +377,25 @@ CREATE TABLE user_activity_logs (
 
 ---
 
-## 9. 血液檢查 (Migration 009)
+## 10. 補充功能 (Migration 008)
+
+| 表名 | 說明 |
+|------|------|
+| notification_routing | 通知路由規則（event_type, target_roles[], channels[], is_active）|
+
+### 10.1 電子簽章擴展
+
+在 `electronic_signatures` 表新增手寫簽章欄位：
 
 ```sql
-CREATE TABLE blood_test_templates (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    code VARCHAR(20) NOT NULL UNIQUE,
-    name VARCHAR(200) NOT NULL,
-    name_en VARCHAR(200),
-    default_unit VARCHAR(50),
-    reference_range VARCHAR(100),
-    default_price NUMERIC(10,2),
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    is_active BOOLEAN NOT NULL DEFAULT true,
-    created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ
-);
-
-CREATE TABLE animal_blood_tests (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    animal_id INTEGER NOT NULL REFERENCES animals(id),
-    test_date DATE NOT NULL,
-    lab_name VARCHAR(200),
-    lab_report_no VARCHAR(100),
-    status VARCHAR(20) NOT NULL DEFAULT 'pending',
-    remark TEXT,
-    vet_read BOOLEAN NOT NULL DEFAULT false,
-    is_deleted BOOLEAN NOT NULL DEFAULT false,
-    created_by UUID, updated_by UUID,
-    created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ
-);
-
-CREATE TABLE animal_blood_test_items (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    blood_test_id UUID NOT NULL REFERENCES animal_blood_tests(id) ON DELETE CASCADE,
-    template_id UUID REFERENCES blood_test_templates(id),
-    item_name VARCHAR(200) NOT NULL,
-    result_value VARCHAR(50),
-    unit VARCHAR(50),
-    reference_range VARCHAR(100),
-    is_abnormal BOOLEAN NOT NULL DEFAULT false,
-    unit_price NUMERIC(10,2),
-    remark TEXT,
-    sort_order INTEGER NOT NULL DEFAULT 0
-);
-
-CREATE TABLE blood_test_panels (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    key VARCHAR(30) NOT NULL UNIQUE,
-    name VARCHAR(100) NOT NULL,
-    icon VARCHAR(100),
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    is_active BOOLEAN NOT NULL DEFAULT true
-);
-
-CREATE TABLE blood_test_panel_items (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    panel_id UUID NOT NULL REFERENCES blood_test_panels(id) ON DELETE CASCADE,
-    template_id UUID NOT NULL REFERENCES blood_test_templates(id) ON DELETE CASCADE,
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    UNIQUE(panel_id, template_id)
-);
+ALTER TABLE electronic_signatures ADD COLUMN IF NOT EXISTS handwriting_svg TEXT;
+ALTER TABLE electronic_signatures ADD COLUMN IF NOT EXISTS stroke_data JSONB;
+ALTER TABLE electronic_signatures ADD COLUMN IF NOT EXISTS signature_method VARCHAR(20) DEFAULT 'password';
 ```
 
----
+### 10.2 通知路由預設種子
 
-## 10. 使用者偏好 (Migration 010)
-
-```sql
-CREATE TABLE user_preferences (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    preference_key VARCHAR(100) NOT NULL,
-    preference_value JSONB NOT NULL DEFAULT '{}',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(user_id, preference_key)
-);
-```
+系統內建 21 筆預設通知路由規則，涵蓋帳號、AUP 審查、動物管理、ERP 庫存、HR、安全警報、變更申請等事件類型。
 
 ---
 
@@ -394,16 +403,15 @@ CREATE TABLE user_preferences (
 
 | 模組 | 資料表數 | 索引數 | 觸發器 |
 |------|----------|--------|--------|
-| 核心架構 (001) | 8 | 8 | 1 |
+| 核心架構 (001) | 9 | 8 | 1 |
 | 權限種子 (002) | — | — | — |
-| 動物管理 (003) | 17+ | 15+ | 1 |
-| AUP 系統 (004+008) | 10+ | 10+ | — |
+| 動物管理 (003) | 25+ | 20+ | 1 |
+| AUP 系統 (004) | 12+ | 10+ | — |
 | 人事系統 (005) | 8 | 8+ | — |
 | 稽核系統 (006) | 4 | 5+ | — |
 | ERP/倉庫 (007) | 14+ | 12+ | — |
-| 血液檢查 (009) | 5 | 6 | — |
-| 使用者偏好 (010) | 1 | 1 | — |
-| **合計** | **65+** | **65+** | **2** |
+| 補充功能 (008) | 1+ | 1 | — |
+| **合計** | **73+** | **64+** | **2** |
 
 ---
 

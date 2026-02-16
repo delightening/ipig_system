@@ -1,7 +1,8 @@
 # 人事管理系統規格
 
 > **模組**：出勤、請假、補休管理  
-> **最後更新**：2026-02-03
+> **版本**：5.0  
+> **最後更新**：2026-02-17
 
 ---
 
@@ -9,13 +10,15 @@
 
 管理公司內部員工的人事相關作業：
 
-- 請假申請與審核
-- 特休假額度計算
+- 出勤打卡（上班/下班）
+- 請假申請與多級審核
+- 特休假額度計算（週年制）
 - 補休假累計與使用
 - 加班時數管理
 - Google 行事曆同步
+- 考勤統計報表
 
-> **適用範圍**：僅限內部員工（`is_internal = true`），不包含外部審查人員
+> **適用範圍**：僅限內部員工（`is_internal = true`），不包含外部審查人員。管理員帳號排除於考勤統計。
 
 ---
 
@@ -44,6 +47,8 @@ DRAFT → PENDING_L1 → PENDING_L2 → PENDING_HR → PENDING_GM → APPROVED
   ↓         ↓            ↓            ↓            ↓
 CANCELLED  REJECTED    REJECTED    REJECTED    REJECTED
 ```
+
+> **注意**：審核階段動態決定，依 `total_days` 及組織設定決定需幾級審核。
 
 | 狀態 | 說明 |
 |------|------|
@@ -74,6 +79,8 @@ CANCELLED  REJECTED    REJECTED    REJECTED    REJECTED
 
 **到期規則**：到職週年日 + 2 年到期
 
+**未休補償追蹤**：`compensation_status` 欄位追蹤是否已折算工資
+
 ---
 
 ## 5. 補休假計算規則
@@ -86,79 +93,91 @@ CANCELLED  REJECTED    REJECTED    REJECTED    REJECTED
 
 ## 6. API 端點
 
-### 6.1 請假申請
+### 6.1 出勤打卡
 
 | 方法 | 端點 | 說明 |
 |------|------|------|
-| POST | `/hr/leaves` | 建立請假申請 |
-| GET | `/hr/leaves` | 查詢列表 |
-| GET | `/hr/leaves/{id}` | 查詢單一申請 |
-| PUT | `/hr/leaves/{id}` | 更新申請 |
-| DELETE | `/hr/leaves/{id}` | 刪除申請 |
-| POST | `/hr/leaves/{id}/submit` | 送審 |
-| POST | `/hr/leaves/{id}/withdraw` | 撤回 |
-| POST | `/hr/leaves/{id}/cancel` | 取消 |
-| POST | `/hr/leaves/{id}/revoke` | 銷假 |
+| GET | `/hr/attendance` | 出勤紀錄查詢 |
+| POST | `/hr/attendance/clock-in` | 上班打卡 |
+| POST | `/hr/attendance/clock-out` | 下班打卡 |
+| GET | `/hr/attendance/stats` | 出勤統計 |
+| PUT | `/hr/attendance/:id` | 更正打卡 |
 
-### 6.2 請假審核
+### 6.2 請假管理
 
 | 方法 | 端點 | 說明 |
 |------|------|------|
-| GET | `/hr/leaves/pending` | 待審核列表 |
-| POST | `/hr/leaves/{id}/approve` | 核准 |
-| POST | `/hr/leaves/{id}/reject` | 駁回 |
+| GET | `/hr/leaves` | 請假列表 |
+| POST | `/hr/leaves` | 新增請假 |
+| GET | `/hr/leaves/:id` | 請假詳情 |
+| PUT | `/hr/leaves/:id` | 更新請假 |
+| DELETE | `/hr/leaves/:id` | 刪除草稿 |
+| POST | `/hr/leaves/:id/submit` | 送審 |
+| POST | `/hr/leaves/:id/approve` | 核准 |
+| POST | `/hr/leaves/:id/reject` | 駁回 |
+| POST | `/hr/leaves/:id/cancel` | 撤銷 |
 
-### 6.3 額度查詢
+### 6.3 加班管理
 
 | 方法 | 端點 | 說明 |
 |------|------|------|
-| GET | `/hr/leaves/balances` | 個人額度總覽 |
-| GET | `/hr/leaves/balances/annual` | 特休餘額 |
-| GET | `/hr/leaves/balances/compensatory` | 補休餘額 |
+| GET | `/hr/overtime` | 加班列表 |
+| POST | `/hr/overtime` | 新增加班 |
+| GET | `/hr/overtime/:id` | 加班詳情 |
+| PUT | `/hr/overtime/:id` | 更新加班 |
+| DELETE | `/hr/overtime/:id` | 刪除草稿 |
+| POST | `/hr/overtime/:id/submit` | 送審 |
+| POST | `/hr/overtime/:id/approve` | 核准 |
+| POST | `/hr/overtime/:id/reject` | 駁回 |
+
+### 6.4 特休餘額
+
+| 方法 | 端點 | 說明 |
+|------|------|------|
+| GET | `/hr/balances/annual` | 特休餘額 |
+| GET | `/hr/balances/comp-time` | 補休餘額 |
+| GET | `/hr/balances/summary` | 餘額摘要 |
+| POST | `/hr/balances/annual-entitlements` | 新增特休配額 |
+| POST | `/hr/balances/:id/adjust` | 調整餘額 |
+| GET | `/hr/balances/expired-compensation` | 過期未補休 |
+
+### 6.5 Google 行事曆
+
+| 方法 | 端點 | 說明 |
+|------|------|------|
+| GET | `/hr/calendar/status` | 同步狀態 |
+| GET | `/hr/calendar/config` | 取得設定 |
+| PUT | `/hr/calendar/config` | 更新設定 |
+| POST | `/hr/calendar/connect` | 連接日曆 |
+| POST | `/hr/calendar/disconnect` | 中斷連接 |
+| POST | `/hr/calendar/sync` | 觸發同步 |
+| GET | `/hr/calendar/history` | 同步歷程 |
+| GET | `/hr/calendar/events` | 日曆事件 |
+
+### 6.6 Dashboard
+
+| 方法 | 端點 | 說明 |
+|------|------|------|
+| GET | `/hr/dashboard/calendar` | 行事曆資料 |
+| GET | `/hr/staff` | 代理人選單 |
+| GET | `/hr/internal-users` | 內部使用者 |
 
 ---
 
-## 7. 核心資料模型
-
-### leave_requests 表
-
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| id | UUID | 主鍵 |
-| user_id | UUID | 申請人 |
-| leave_type | ENUM | 請假類別 |
-| status | ENUM | 狀態 |
-| start_date | DATE | 開始日期 |
-| end_date | DATE | 結束日期 |
-| hours | DECIMAL | 請假時數 |
-| reason | TEXT | 請假原因 |
-
-### annual_leave_balances 表
-
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| user_id | UUID | FK |
-| year | INTEGER | 年度 |
-| granted | DECIMAL | 應有天數 |
-| used | DECIMAL | 已使用 |
-| expires_at | DATE | 到期日 |
-
----
-
-## 8. 前端路由
+## 7. 前端路由
 
 | 路由 | 頁面 |
 |------|------|
-| `/hr/leaves` | 請假申請列表 |
-| `/hr/leaves/new` | 新增請假 |
-| `/hr/leaves/{id}` | 請假詳情 |
-| `/hr/leaves/pending` | 待審核列表 |
-| `/hr/leaves/balances` | 額度查詢 |
-| `/hr/leaves/calendar` | 請假行事曆 |
+| `/hr` | HR Dashboard（行事曆視圖） |
+| `/hr/leaves` | 請假管理 |
+| `/hr/overtime` | 加班管理 |
+| `/hr/balances` | 餘額查詢 |
+| `/settings` | 通知設定（含 Google Calendar 連接） |
 
 ---
 
-## 9. 相關文件
+## 8. 相關文件
 
 - [權限控制](../06_PERMISSIONS_RBAC.md) - HR 相關權限
 - [通知系統](./NOTIFICATION_SYSTEM.md) - 審核通知
+- [出勤模組](../08_ATTENDANCE_MODULE.md) - 出勤詳細規格

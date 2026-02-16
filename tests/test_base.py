@@ -103,7 +103,16 @@ class BaseApiTester:
 
     def _refresh_csrf(self):
         """從 Session cookies 更新 CSRF token（每次回應後可能輪替）"""
-        new_csrf = self.session.cookies.get("csrf_token")
+        try:
+            new_csrf = self.session.cookies.get("csrf_token")
+        except Exception:
+            # 多次登入後可能累積多個同名 csrf_token cookie，
+            # cookies.get() 會拋出 CookieConflictError
+            # 遍歷 cookie jar 取最後一個值
+            new_csrf = None
+            for cookie in self.session.cookies:
+                if cookie.name == "csrf_token" and cookie.value:
+                    new_csrf = cookie.value
         if new_csrf:
             self.csrf_token = new_csrf
 

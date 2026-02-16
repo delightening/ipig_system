@@ -21,23 +21,13 @@ import os
 from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from test_base import BaseApiTester, API_BASE_URL, TEST_USER_PASSWORD
+from test_base import BaseApiTester, API_BASE_URL
+from test_fixtures import get_users_for_roles, AUP_INTEGRATION_ROLES
 
 # ========================================
-# 測試帳號設定 — 10 個角色
+# 測試帳號設定（從 test_fixtures 統一取得）
 # ========================================
-USERS = {
-    "PI_A":        {"email": "pia_integ@example.com",    "password": TEST_USER_PASSWORD, "display_name": "PI-A (整合測試)",       "role_codes": ["PI"]},
-    "PI_B":        {"email": "pib_integ@example.com",    "password": TEST_USER_PASSWORD, "display_name": "PI-B (整合測試)",       "role_codes": ["PI"]},
-    "IACUC_STAFF": {"email": "staff_integ@example.com",  "password": TEST_USER_PASSWORD, "display_name": "IACUC Staff (整合測試)", "role_codes": ["IACUC_STAFF"]},
-    "IACUC_CHAIR": {"email": "chair_integ@example.com",  "password": TEST_USER_PASSWORD, "display_name": "IACUC Chair (整合測試)", "role_codes": ["REVIEWER", "IACUC_CHAIR"]},
-    "VET":         {"email": "vet_integ@example.com",    "password": TEST_USER_PASSWORD, "display_name": "VET (整合測試)",        "role_codes": ["VET"]},
-    "REVIEWER1":   {"email": "rev1_integ@example.com",   "password": TEST_USER_PASSWORD, "display_name": "Reviewer 1 (整合測試)", "role_codes": ["REVIEWER"]},
-    "REVIEWER2":   {"email": "rev2_integ@example.com",   "password": TEST_USER_PASSWORD, "display_name": "Reviewer 2 (整合測試)", "role_codes": ["REVIEWER"]},
-    "REVIEWER3":   {"email": "rev3_integ@example.com",   "password": TEST_USER_PASSWORD, "display_name": "Reviewer 3 (整合測試)", "role_codes": ["REVIEWER"]},
-    "EXP_STAFF":   {"email": "expstaff_integ@example.com","password": TEST_USER_PASSWORD, "display_name": "試驗人員 (整合測試)",    "role_codes": ["EXPERIMENT_STAFF"]},
-    "REV_OTHER":   {"email": "revother_integ@example.com","password": TEST_USER_PASSWORD, "display_name": "Other Rev (整合測試)",  "role_codes": ["REVIEWER"]},
-}
+USERS = get_users_for_roles(AUP_INTEGRATION_ROLES)
 
 
 # ========================================
@@ -182,15 +172,19 @@ def approve_protocol(t: BaseApiTester, protocol_id: str, pi_role: str, label: st
 # ========================================
 # 主測試函數
 # ========================================
-def run_aup_integration_test() -> bool:
+def run_aup_integration_test(ctx=None) -> bool:
     """執行 AUP 全功能整合測試"""
     t = BaseApiTester("AUP 全功能整合測試")
 
     # ---------- 前置作業 ----------
-    if not t.setup_test_users(USERS):
-        return False
-    if not t.login_all(USERS):
-        return False
+    if ctx:
+        ctx.inject_into(t, AUP_INTEGRATION_ROLES)
+        print(f"  ✓ 使用共享 Context，跳過登入（{len(AUP_INTEGRATION_ROLES)} 個角色）")
+    else:
+        if not t.setup_test_users(USERS):
+            return False
+        if not t.login_all(USERS):
+            return False
 
     ts = int(time.time())
 

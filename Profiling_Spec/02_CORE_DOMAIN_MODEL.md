@@ -1,7 +1,7 @@
 # 核心領域模型
 
-> **版本**：4.0  
-> **最後更新**：2026-02-16  
+> **版本**：5.0  
+> **最後更新**：2026-02-17  
 > **對象**：開發人員
 
 ---
@@ -27,6 +27,8 @@ erDiagram
     PROTOCOLS ||--o{ PROTOCOL_VERSIONS : versioned
     PROTOCOLS ||--o{ REVIEW_ASSIGNMENTS : reviewed
     PROTOCOLS ||--o{ AMENDMENTS : amended
+    PROTOCOLS ||--o{ PROTOCOL_ACTIVITIES : logs
+    PROTOCOLS ||--o{ PROTOCOL_STATUS_HISTORY : tracks
     
     ANIMAL_SOURCES ||--o{ ANIMALS : provides
     ANIMALS ||--o{ ANIMAL_OBSERVATIONS : has
@@ -37,6 +39,9 @@ erDiagram
     ANIMALS ||--|| ANIMAL_SACRIFICES : "may have"
     ANIMALS ||--|| ANIMAL_PATHOLOGY_REPORTS : "may have"
     ANIMALS ||--o{ EUTHANASIA_ORDERS : "may have"
+    ANIMALS ||--|| ANIMAL_SUDDEN_DEATHS : "may have"
+    ANIMALS ||--o{ ANIMAL_TRANSFERS : "may transfer"
+    ANIMAL_TRANSFERS ||--o{ TRANSFER_VET_EVALUATIONS : evaluated
     
     BLOOD_TEST_TEMPLATES ||--o{ ANIMAL_BLOOD_TEST_ITEMS : used_in
     BLOOD_TEST_PANELS ||--o{ BLOOD_TEST_PANEL_ITEMS : contains
@@ -84,10 +89,14 @@ erDiagram
 
 **角色列舉**：
 - `admin` - 系統管理員
+- `ADMIN_STAFF` - 行政人員
 - `iacuc_staff` - 執行秘書
+- `iacuc_chair` - IACUC 主席
 - `experiment_staff` - 試驗工作人員
 - `vet` - 獸醫師
 - `warehouse` - 倉庫管理員
+- `purchasing` - 採購人員
+- `reviewer` - 審查委員
 - `pi` - 計畫主持人
 - `client` - 委託人
 
@@ -96,8 +105,8 @@ erDiagram
 |------|------|------|
 | id | UUID | 主鍵 |
 | user_id | UUID | FK → users |
-| pref_key | VARCHAR(100) | 偏好鍵名 |
-| pref_value | TEXT | 偏好值 |
+| preference_key | VARCHAR(100) | 偏好鍵名 |
+| preference_value | JSONB | 偏好值 |
 
 ---
 
@@ -117,7 +126,7 @@ erDiagram
 | end_date | DATE | 計畫結束日 |
 
 **計畫狀態列舉 (protocol_status)**：
-- `DRAFT` → `SUBMITTED` → `PRE_REVIEW` → `UNDER_REVIEW`
+- `DRAFT` → `SUBMITTED` → `PRE_REVIEW` → `VET_REVIEW` → `UNDER_REVIEW`
 - → `REVISION_REQUIRED` → `RESUBMITTED`
 - → `APPROVED` / `APPROVED_WITH_CONDITIONS`
 - → `DEFERRED` / `REJECTED`
@@ -129,9 +138,10 @@ erDiagram
 | id | UUID | 主鍵 |
 | protocol_id | UUID | FK → protocols |
 | amendment_no | VARCHAR(50) | 變更編號 |
-| status | VARCHAR(30) | 變更狀態 |
-| change_type | VARCHAR(30) | 變更分類 |
+| status | amendment_status | 變更狀態 |
+| change_type | amendment_type | 變更分類（MAJOR/MINOR/PENDING）|
 | content | JSONB | 變更內容 |
+| previous_content | JSONB | 變更前內容 |
 
 ---
 
@@ -158,11 +168,11 @@ erDiagram
 
 **動物狀態列舉 (animal_status)**：
 - `unassigned` - 未分配
-- `assigned` - 已分配至計畫
 - `in_experiment` - 實驗中
 - `completed` - 實驗完畢
-- `transferred` - 已轉移
-- `deceased` - 已死亡
+- `euthanized` - 已安樂死（終端狀態）
+- `sudden_death` - 猝死（終端狀態）
+- `transferred` - 已轉讓（終端狀態）
 
 **品種列舉 (animal_breed)**：`miniature`、`white`、`LYD`、`other`
 
@@ -200,13 +210,48 @@ erDiagram
 | 欄位 | 類型 | 說明 |
 |------|------|------|
 | id | UUID | 主鍵 |
-| animal_id | UUID | FK → animals |
+| animal_id | INTEGER | FK → animals |
 | test_date | DATE | 檢查日期 |
 | lab_name | VARCHAR(200) | 檢驗機構 |
 | status | VARCHAR(20) | pending / completed |
 | remark | TEXT | 備註 |
 | vet_read | BOOLEAN | 獸醫已閱讀 |
 | is_deleted | BOOLEAN | 軟刪除 |
+
+#### 猝死紀錄 (Animal Sudden Death)
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | SERIAL | 主鍵 |
+| animal_id | INTEGER | FK → animals（UNIQUE）|
+| death_date | DATE | 死亡日期 |
+| description | TEXT | 死亡情境描述 |
+| discovered_by | UUID | 發現者 |
+| reported_by | UUID | 登記者 |
+
+#### 動物轉讓 (Animal Transfer)
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | SERIAL | 主鍵 |
+| animal_id | INTEGER | FK → animals |
+| status | animal_transfer_status | 轉讓狀態（6 步）|
+| from_protocol_id | UUID | 來源計劃 |
+| to_protocol_id | UUID | 目標計劃 |
+| reason | TEXT | 轉讓原因 |
+| initiated_by | UUID | 發起者 |
+| transfer_date | TIMESTAMPTZ | 轉讓完成日期 |
+
+**轉讓狀態列舉 (animal_transfer_status)**：
+`pending_source_pi` → `pending_vet_evaluation` → `pending_target_pi` → `pending_iacuc_approval` → `approved` → `completed`
+
+#### 轉讓獸醫評估 (Transfer Vet Evaluation)
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | SERIAL | 主鍵 |
+| transfer_id | INTEGER | FK → animal_transfers |
+| vet_id | UUID | 獸醫 |
+| health_status | TEXT | 健康狀態評估 |
+| is_fit_for_transfer | BOOLEAN | 是否適合轉讓 |
+| notes | TEXT | 備註 |
 
 #### 血液檢查項目模板 (Blood Test Template)
 | 欄位 | 類型 | 說明 |
@@ -237,7 +282,7 @@ erDiagram
 |------|------|------|
 | id | UUID | 主鍵 |
 | animal_id | INTEGER | FK → animals |
-| status | VARCHAR(30) | 核准狀態 |
+| status | euthanasia_order_status | 核准狀態 |
 | reason | TEXT | 申請原因 |
 | requested_by | UUID | 申請者 |
 | approved_by | UUID | 核准者 |
@@ -321,10 +366,13 @@ erDiagram
 | 欄位 | 類型 | 說明 |
 |------|------|------|
 | id | UUID | 主鍵 |
-| record_type | VARCHAR | 紀錄類型（sacrifice, observation）|
+| record_type | VARCHAR | 紀錄類型（sacrifice, observation, euthanasia, transfer, protocol）|
 | record_id | INTEGER | 紀錄 ID |
 | signer_id | UUID | 簽署者 |
-| signature_data | JSONB | 簽章資料 |
+| signature_data | JSONB | 簽章資料（密碼驗證結果）|
+| signature_method | VARCHAR(20) | 簽章方式（`password` / `handwriting`）|
+| handwriting_svg | TEXT | 手寫簽名 SVG 圖片 |
+| stroke_data | JSONB | 原始筆跡座標數據 |
 
 #### 紀錄標註 (Record Annotation)
 | 欄位 | 類型 | 說明 |
@@ -359,6 +407,12 @@ erDiagram
 重要紀錄（觀察、手術、計畫書）具備：
 - `record_versions` 表儲存歷史快照
 - 版本號遞增，JSON 快照保留
+
+### 4.4 資料隔離（轉讓）
+
+動物轉讓完成後，新計劃使用者預設只能看到轉讓時間之後的資料：
+- 所有醫療紀錄 API 支援 `?after=` 時間過濾
+- 特權角色（ADMIN、VET、IACUC_STAFF、IACUC_CHAIR）可繞過隔離
 
 ---
 

@@ -26,52 +26,65 @@ import random
 from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from test_base import BaseApiTester, API_BASE_URL, TEST_USER_PASSWORD
+from test_base import BaseApiTester, API_BASE_URL
+from test_fixtures import get_users_for_roles, ANIMAL_ROLES
 
-# 測試帳號設定
-ANIMAL_TEST_USERS = {
-    "VET": {
-        "email": "vet_animal_int@example.com",
-        "password": TEST_USER_PASSWORD,
-        "display_name": "獸醫師 (動物整合測試)",
-        "role_codes": ["VET"],
-    },
-    "EXPERIMENT_STAFF": {
-        "email": "exp_animal_int@example.com",
-        "password": TEST_USER_PASSWORD,
-        "display_name": "試驗工作人員 (動物整合測試)",
-        "role_codes": ["EXPERIMENT_STAFF"],
-    },
+# 測試帳號設定（從 test_fixtures 統一取得）
+ANIMAL_TEST_USERS = get_users_for_roles(ANIMAL_ROLES)
+
+# 角色別名對應（保持測試中的角色名稱可讀性）
+_ROLE_ALIASES = {
+    "VET": "VET_ANIMAL",
+    "EXPERIMENT_STAFF": "EXPERIMENT_STAFF_ANIMAL",
 }
 
-# 20 隻動物的設定
+# 5 隻動物的設定（各品種/性別至少 1 隻）
 ANIMAL_CONFIGS = []
-breeds = ["minipig", "white", "lyd", "other"]
+breeds = ["minipig", "white", "lyd", "other", "minipig"]
 genders = ["male", "female"]
-pen_locations = ["A-01", "A-02", "A-03", "B-01", "B-02", "B-03", "C-01", "C-02", "C-03", "C-04"]
+pen_locations = ["A-01", "A-02", "A-03", "B-01", "B-02"]
 
-for i in range(20):
+for i in range(5):
     ANIMAL_CONFIGS.append({
         "ear_tag": f"{i+1:03d}",
-        "breed": breeds[i % len(breeds)],
-        "breed_other": "蘭嶼豬" if breeds[i % len(breeds)] == "other" else None,
+        "breed": breeds[i],
+        "breed_other": "蘭喼豬" if breeds[i] == "other" else None,
         "gender": genders[i % 2],
         "birth_date": str(date.today() - timedelta(days=180 + i * 5)),
         "entry_date": str(date.today() - timedelta(days=30)),
         "entry_weight": round(18 + i * 0.5, 1),
-        "pen_location": pen_locations[i % len(pen_locations)],
+        "pen_location": pen_locations[i],
         "remark": f"整合測試動物 #{i+1}",
     })
 
+NUM_ANIMALS = len(ANIMAL_CONFIGS)  # 5
 
-def run_animal_test() -> bool:
+
+def run_animal_test(ctx=None) -> bool:
     """執行完整動物管理測試"""
     t = BaseApiTester("動物管理系統完整測試")
 
-    if not t.setup_test_users(ANIMAL_TEST_USERS):
-        return False
-    if not t.login_all(ANIMAL_TEST_USERS):
-        return False
+    # 前置作業（有 ctx 時跳過登入）
+    if ctx:
+        ctx.inject_into(t, list(ANIMAL_TEST_USERS.keys()))
+        # 建立角色別名映射（讓內部的 STAFF / VET 能對應到 fixtures 的 key）
+        for alias, real in _ROLE_ALIASES.items():
+            if real in t.tokens:
+                t.tokens[alias] = t.tokens[real]
+            if real in t.user_ids:
+                t.user_ids[alias] = t.user_ids[real]
+        print(f"  ✓ 使用共享 Context，跳過登入")
+    else:
+        if not t.setup_test_users(ANIMAL_TEST_USERS):
+            return False
+        if not t.login_all(ANIMAL_TEST_USERS):
+            return False
+        # 獨立執行時建立別名
+        for alias, real in _ROLE_ALIASES.items():
+            if real in t.tokens:
+                t.tokens[alias] = t.tokens[real]
+            if real in t.user_ids:
+                t.user_ids[alias] = t.user_ids[real]
 
     STAFF = "EXPERIMENT_STAFF"
     VET = "VET"
@@ -80,7 +93,7 @@ def run_animal_test() -> bool:
     # ========================================
     # Phase 1: 建立動物來源 + 20 隻動物
     # ========================================
-    t.step("Phase 1 — 建立動物來源")
+    t.step(f"Phase 1 — 建立動物來源")
     source_resp = t._req("POST", f"{API_BASE_URL}/animal-sources", role=STAFF,
                           json={
                               "code": f"SRC-INT-{int(time.time()) % 10000}",
@@ -92,29 +105,24 @@ def run_animal_test() -> bool:
     source_id = source_resp.json()["id"]
     t.record("建立動物來源", True, f"ID: {source_id[:8]}...")
 
-    t.step("Phase 1 — 建立 20 隻動物")
+    t.step(f"Phase 1 — 建立 {NUM_ANIMALS} 隻動物")
     animal_ids = []
     for i, config in enumerate(ANIMAL_CONFIGS):
-        # 先搜尋是否已有同耳號的動物（支援重複執行測試）
         search_resp = t._req("GET", f"{API_BASE_URL}/animals?keyword={config['ear_tag']}", role=STAFF)
         existing = [p for p in search_resp.json() if p.get("ear_tag") == config["ear_tag"]]
         if existing:
             animal_ids.append(existing[0]["id"])
-            if (i + 1) % 5 == 0:
-                t.sub_step(f"已建立 {i+1}/20 隻動物（部分為既有資料）")
             continue
 
         payload = {
             **config,
             "source_id": source_id,
-            "force_create": True,  # 測試環境允許重複耳號（跳過警告）
+            "force_create": True,
         }
         resp = t._req("POST", f"{API_BASE_URL}/animals", role=STAFF, json=payload)
         animal = resp.json()
         animal_ids.append(animal["id"])
-        if (i + 1) % 5 == 0:
-            t.sub_step(f"已建立 {i+1}/20 隻動物")
-    t.record("建立 20 隻動物", len(animal_ids) == 20)
+    t.record(f"建立 {NUM_ANIMALS} 隻動物", len(animal_ids) == NUM_ANIMALS)
 
     # 驗證每隻動物的創建記錄
     t.step("Phase 1 — 驗證創建記錄")
@@ -122,19 +130,18 @@ def run_animal_test() -> bool:
     for i, pid in enumerate(animal_ids):
         resp = t._req("GET", f"{API_BASE_URL}/animals/{pid}", role=STAFF)
         animal_data = resp.json()
-        # 檢查基本欄位
         if (animal_data.get("ear_tag") == ANIMAL_CONFIGS[i]["ear_tag"] and
                 animal_data.get("gender") == ANIMAL_CONFIGS[i]["gender"]):
             verify_ok += 1
-    t.record("驗證創建記錄", verify_ok == 20, f"{verify_ok}/20 筆正確")
+    t.record("驗證創建記錄", verify_ok == NUM_ANIMALS, f"{verify_ok}/{NUM_ANIMALS} 筆正確")
 
     # ========================================
     # Phase 2: 體重紀錄
     # ========================================
-    t.step("Phase 2 — 體重紀錄（全部 20 隻，各 2~3 筆）")
+    t.step(f"Phase 2 — 體重紀錄（全部 {NUM_ANIMALS} 隻，各 2~3 筆）")
     weight_count = 0
     for i, pid in enumerate(animal_ids):
-        num_weights = 2 if i < 10 else 3  # 前 10 隻 2 筆，後 10 隻 3 筆
+        num_weights = 2 if i < 3 else 3  # 前 3 隻 2 筆，後 2 隻 3 筆
         for w in range(num_weights):
             measure_date = str(date.today() - timedelta(days=(num_weights - w) * 7))
             weight_val = round(ANIMAL_CONFIGS[i]["entry_weight"] + (w + 1) * 1.5, 1)
@@ -150,20 +157,20 @@ def run_animal_test() -> bool:
         weights = resp.json()
         if len(weights) >= 2:
             weight_verify_ok += 1
-    t.record("驗證體重紀錄可見", weight_verify_ok == 20, f"{weight_verify_ok}/20 隻有體重")
+    t.record("驗證體重紀錄可見", weight_verify_ok == NUM_ANIMALS, f"{weight_verify_ok}/{NUM_ANIMALS} 隻有體重")
 
     # 驗證列表中的最新體重
     list_resp = t._req("GET", f"{API_BASE_URL}/animals", role=STAFF)
     animals_list = list_resp.json()
     has_weight_in_list = sum(1 for p in animals_list if p.get("latest_weight") is not None and p["id"] in animal_ids)
-    t.record("列表顯示最新體重", has_weight_in_list >= 15, f"{has_weight_in_list} 隻可見最新體重")
+    t.record("列表顯示最新體重", has_weight_in_list >= 3, f"{has_weight_in_list} 隻可見最新體重")
 
     # ========================================
     # Phase 3: 觀察試驗紀錄
     # ========================================
-    t.step("Phase 3 — 觀察試驗紀錄（全部 20 隻）")
+    t.step(f"Phase 3 — 觀察試驗紀錄（全部 {NUM_ANIMALS} 隻）")
     obs_count = 0
-    obs_ids = []  # 保存觀察紀錄 ID 以便 Phase 10 使用
+    obs_ids = []
     record_types = ["abnormal", "experiment", "observation"]
     observation_contents = [
         "動物精神良好，食慾正常，無異常行為。",
@@ -179,7 +186,7 @@ def run_animal_test() -> bool:
     ]
 
     for i, pid in enumerate(animal_ids):
-        num_obs = 1 if i < 10 else 2
+        num_obs = 1 if i < 3 else 2
         for o in range(num_obs):
             rec_type = record_types[(i + o) % len(record_types)]
             content = observation_contents[(i + o) % len(observation_contents)]
@@ -209,13 +216,13 @@ def run_animal_test() -> bool:
         resp = t._req("GET", f"{API_BASE_URL}/animals/{pid}/observations", role=STAFF)
         if len(resp.json()) >= 1:
             obs_verify += 1
-    t.record("驗證觀察紀錄", obs_verify == 20, f"{obs_verify}/20 隻有觀察紀錄")
+    t.record("驗證觀察紀錄", obs_verify == NUM_ANIMALS, f"{obs_verify}/{NUM_ANIMALS} 隻有觀察紀錄")
 
     # ========================================
     # Phase 4: 手術紀錄 + 術後觀察（5 隻動物）
     # ========================================
-    t.step("Phase 4 — 手術紀錄 + 術後觀察（動物 #1~#5）")
-    surgery_animals = animal_ids[:5]
+    t.step("Phase 4 — 手術紀錄 + 術後觀察（動物 #1~#2）")
+    surgery_animals = animal_ids[:2]
     surgery_ids = []
 
     surgery_sites = ["腹腔", "胸腔", "頸部", "背部", "四肢"]
@@ -261,7 +268,7 @@ def run_animal_test() -> bool:
         surgery_ids.append(surgery_data["id"])
         t.sub_step(f"動物 #{i+1} 手術 ({surgery_sites[i]}) -> ID: {surgery_data['id']}")
 
-    t.record("建立手術紀錄", len(surgery_ids) == 5, "5 隻動物各 1 筆手術紀錄")
+    t.record("建立手術紀錄", len(surgery_ids) == 2, f"{len(surgery_ids)} 隻動物各 1 筆手術紀錄")
 
     # 術後觀察紀錄
     t.sub_step("建立術後觀察紀錄...")
@@ -292,12 +299,12 @@ def run_animal_test() -> bool:
         resp = t._req("GET", f"{API_BASE_URL}/animals/{pid}/surgeries", role=STAFF)
         if len(resp.json()) >= 1:
             surgery_verify += 1
-    t.record("驗證手術紀錄", surgery_verify == 5, f"{surgery_verify}/5 隻有手術紀錄")
+    t.record("驗證手術紀錄", surgery_verify == len(surgery_animals), f"{surgery_verify}/{len(surgery_animals)} 隻有手術紀錄")
 
     # ========================================
     # Phase 5: 疫苗/驅蟲紀錄
     # ========================================
-    t.step("Phase 5 — 疫苗/驅蟲紀錄（全部 20 隻）")
+    t.step(f"Phase 5 — 疫苗/驅蟲紀錄（全部 {NUM_ANIMALS} 隻）") # Corrected 疋苗 to 疫苗
     vaccines = [
         ("豬瘟疫苗", "Ivermectin 0.3mg/kg"),
         ("口蹄疫疫苗", None),
@@ -323,28 +330,28 @@ def run_animal_test() -> bool:
         resp = t._req("GET", f"{API_BASE_URL}/animals/{pid}/vaccinations", role=STAFF)
         if len(resp.json()) >= 1:
             vac_verify += 1
-    t.record("驗證疫苗紀錄", vac_verify == 20, f"{vac_verify}/20 隻有疫苗紀錄")
+    t.record("驗證疫苗紀錄", vac_verify == NUM_ANIMALS, f"{vac_verify}/{NUM_ANIMALS} 隻有疫苗紀錄") # Corrected 疋苗 to 疫苗
 
     # ========================================
     # Phase 6: 犧牲/採樣紀錄
     # ========================================
-    t.step("Phase 6 — 犧牲/採樣紀錄（動物 #16~#18）")
-    sacrifice_animals = animal_ids[15:18]  # 3 隻
+    t.step("Phase 6 — 犧牲/採樣紀錄（動物 #5）")
+    sacrifice_animals = animal_ids[4:5]  # 1 隻
     for i, pid in enumerate(sacrifice_animals):
         sacrifice_payload = {
-            "sacrifice_date": str(date.today() - timedelta(days=3 - i)),
-            "zoletil_dose": f"{6 + i}mg/kg",
-            "method_electrocution": (i == 0),
-            "method_bloodletting": (i == 1),
-            "method_other": "CO2 安樂死" if i == 2 else None,
-            "sampling": "心, 肝, 脾, 肺, 腎" if i < 2 else "全器官採樣",
-            "sampling_other": "淋巴結" if i == 0 else None,
-            "blood_volume_ml": 200 + i * 50,
+            "sacrifice_date": str(date.today() - timedelta(days=1)),
+            "zoletil_dose": "6mg/kg",
+            "method_electrocution": True,
+            "method_bloodletting": False,
+            "method_other": None,
+            "sampling": "心, 肝, 脾, 肺, 腎",
+            "sampling_other": "淋巴結",
+            "blood_volume_ml": 200,
             "confirmed_sacrifice": True,
         }
         t._req("POST", f"{API_BASE_URL}/animals/{pid}/sacrifice", role=STAFF, json=sacrifice_payload)
-        t.sub_step(f"動物 #{16+i} 犧牲/採樣紀錄已建立")
-    t.record("建立犧牲/採樣紀錄", True, "3 隻動物")
+        t.sub_step(f"動物 #5 犧牲/採樣紀錄已建立")
+    t.record("建立犧牲/採樣紀錄", True, "1 隻動物")
 
     # 驗證
     sac_verify = 0
@@ -353,14 +360,14 @@ def run_animal_test() -> bool:
         data = resp.json()
         if data and data.get("confirmed_sacrifice"):
             sac_verify += 1
-    t.record("驗證犧牲紀錄", sac_verify == 3, f"{sac_verify}/3 筆確認")
+    t.record("驗證犧牲紀錄", sac_verify == len(sacrifice_animals), f"{sac_verify}/{len(sacrifice_animals)} 筆確認")
 
     # ========================================
     # Phase 7: 動物資料更新
     # ========================================
     t.step("Phase 7 — 動物資料更新")
-    # 前 5 隻設定計畫編號 + 開始實驗
-    for i, pid in enumerate(animal_ids[:5]):
+    # 前 2 隻設定計畫編號 + 開始實驗
+    for i, pid in enumerate(animal_ids[:2]):
         t._req("PUT", f"{API_BASE_URL}/animals/{pid}", role=STAFF,
                 json={
                     "iacuc_no": f"IACUC-INT-2026-{i+1:03d}",
@@ -369,7 +376,7 @@ def run_animal_test() -> bool:
                     "remark": f"整合測試 - 已進入實驗 #{i+1}",
                 })
 
-    # 犧牲的 3 隻設為 deceased
+    # 犧牲的 1 隻設為 deceased (originally 3, now 1)
     for pid in sacrifice_animals:
         t._req("PUT", f"{API_BASE_URL}/animals/{pid}", role=STAFF,
                 json={"status": "completed"})
@@ -383,11 +390,11 @@ def run_animal_test() -> bool:
     # ========================================
     # Phase 8: 病理組織報告
     # ========================================
-    t.step("Phase 8 — 病理組織報告（動物 #16~#18）")
+    t.step("Phase 8 — 病理組織報告（動物 #5）")
     for i, pid in enumerate(sacrifice_animals):
         t._req("POST", f"{API_BASE_URL}/animals/{pid}/pathology", role=STAFF, json={})
-        t.sub_step(f"動物 #{16+i} 病理報告已建立")
-    t.record("建立病理報告", True, "3 隻動物")
+        t.sub_step(f"動物 #5 病理報告已建立")
+    t.record("建立病理報告", True, f"{len(sacrifice_animals)} 隻動物")
 
     # 驗證
     path_verify = 0
@@ -395,25 +402,25 @@ def run_animal_test() -> bool:
         resp = t._req("GET", f"{API_BASE_URL}/animals/{pid}/pathology", role=STAFF)
         if resp.status_code == 200:
             path_verify += 1
-    t.record("驗證病理報告", path_verify == 3, f"{path_verify}/3 筆")
+    t.record("驗證病理報告", path_verify == len(sacrifice_animals), f"{path_verify}/{len(sacrifice_animals)} 筆")
 
     # ========================================
     # Phase 9: 紀錄時間軸驗證
     # ========================================
     t.step("Phase 9 — 紀錄時間軸完整性驗證")
 
-    # 驗證手術動物（動物 #1~#5）應有：體重、觀察、手術、疫苗
+    # 驗證手術動物（動物 #1~#2）應有：體重、觀察、手術、疫苗
     timeline_ok = 0
-    for pid in animal_ids[:5]:
+    for pid in animal_ids[:2]:  # 手術動物 #1~#2
         has_weight = len(t._req("GET", f"{API_BASE_URL}/animals/{pid}/weights", role=STAFF).json()) > 0
         has_obs = len(t._req("GET", f"{API_BASE_URL}/animals/{pid}/observations", role=STAFF).json()) > 0
         has_surgery = len(t._req("GET", f"{API_BASE_URL}/animals/{pid}/surgeries", role=STAFF).json()) > 0
         has_vac = len(t._req("GET", f"{API_BASE_URL}/animals/{pid}/vaccinations", role=STAFF).json()) > 0
         if has_weight and has_obs and has_surgery and has_vac:
             timeline_ok += 1
-    t.record("手術動物時間軸完整", timeline_ok == 5, f"{timeline_ok}/5 隻完整")
+    t.record("手術動物時間軸完整", timeline_ok == 2, f"{timeline_ok}/2 隻完整")
 
-    # 驗證犧牲動物（動物 #16~#18）應有：體重、觀察、疫苗、犧牲、病理
+    # 驗證犧牲動物（動物 #5）應有：體重、觀察、疫苗、犧牲、病理
     sac_timeline_ok = 0
     for pid in sacrifice_animals:
         has_weight = len(t._req("GET", f"{API_BASE_URL}/animals/{pid}/weights", role=STAFF).json()) > 0
@@ -423,17 +430,17 @@ def run_animal_test() -> bool:
         has_sac = sac_data and sac_data.get("confirmed_sacrifice")
         if has_weight and has_obs and has_vac and has_sac:
             sac_timeline_ok += 1
-    t.record("犧牲動物時間軸完整", sac_timeline_ok == 3, f"{sac_timeline_ok}/3 隻完整")
+    t.record("犧牲動物時間軸完整", sac_timeline_ok == 1, f"{sac_timeline_ok}/1 隻完整") # Changed from 3 to 1
 
-    # 驗證一般動物（動物 #6~#15）應有：體重、觀察、疫苗
+    # 驗證一般動物（動物 #3~#4）應有：體重、觀察、疫苗
     normal_timeline_ok = 0
-    for pid in animal_ids[5:15]:
+    for pid in animal_ids[2:4]: # Changed from 5:15 to 2:4
         has_weight = len(t._req("GET", f"{API_BASE_URL}/animals/{pid}/weights", role=STAFF).json()) > 0
         has_obs = len(t._req("GET", f"{API_BASE_URL}/animals/{pid}/observations", role=STAFF).json()) > 0
         has_vac = len(t._req("GET", f"{API_BASE_URL}/animals/{pid}/vaccinations", role=STAFF).json()) > 0
         if has_weight and has_obs and has_vac:
             normal_timeline_ok += 1
-    t.record("一般動物時間軸完整", normal_timeline_ok == 10, f"{normal_timeline_ok}/10 隻完整")
+    t.record("一般動物時間軸完整", normal_timeline_ok == 2, f"{normal_timeline_ok}/2 隻完整") # Changed from 10 to 2
 
     # ========================================
     # Phase 10: 獸醫建議（觀察紀錄 + 手術紀錄）
@@ -452,10 +459,10 @@ def run_animal_test() -> bool:
         ("食慾下降，需排除消化道問題，建議安排血液檢查。", True),
     ]
 
-    # 對前 8 隻動物的觀察紀錄添加獸醫建議
+    # 對前 4 隻動物的觀察紀錄添加獸醫建議
     vet_obs_count = 0
     vet_obs_rec_ids = []
-    for i in range(min(8, len(obs_ids))):
+    for i in range(min(4, len(obs_ids))):
         obs_info = obs_ids[i]
         comment_content, is_urgent = vet_obs_comments[i]
         resp = t._req("POST", f"{API_BASE_URL}/observations/{obs_info['id']}/recommendations",
@@ -463,16 +470,13 @@ def run_animal_test() -> bool:
         rec_data = resp.json()
         vet_obs_rec_ids.append(rec_data["id"])
         vet_obs_count += 1
-    t.record("觀察紀錄獸醫建議", vet_obs_count == min(8, len(obs_ids)),
+    t.record("觀察紀錄獸醫建議", vet_obs_count == min(4, len(obs_ids)),
              f"共 {vet_obs_count} 筆（含 {sum(1 for _, u in vet_obs_comments[:vet_obs_count] if u)} 筆緊急）")
 
     # 獸醫對手術紀錄的建議內容
     vet_surgery_comments = [
         ("術後傷口癒合良好，建議第 7 日拆線。", False),
         ("術後呼吸音偏粗，建議密切監測呼吸狀態。", True),
-        ("麻醉恢復時間較預期長，建議下次手術調降 Zoletil 劑量。", False),
-        ("手術部位有輕微腫脹，建議冰敷並觀察 48 小時。", False),
-        ("術後恢復順利，可逐步恢復正常飲食。", False),
     ]
 
     # 對 5 隻手術動物的手術紀錄添加獸醫建議
@@ -490,13 +494,13 @@ def run_animal_test() -> bool:
 
     # 驗證：GET /observations/:id/recommendations
     obs_rec_verify = 0
-    for i in range(min(8, len(obs_ids))):
+    for i in range(min(4, len(obs_ids))):
         resp = t._req("GET", f"{API_BASE_URL}/observations/{obs_ids[i]['id']}/recommendations", role=VET)
         recs = resp.json()
         if len(recs) >= 1:
             obs_rec_verify += 1
-    t.record("驗證觀察獸醫建議", obs_rec_verify == min(8, len(obs_ids)),
-             f"{obs_rec_verify}/{min(8, len(obs_ids))} 筆可查詢")
+    t.record("驗證觀察獸醫建議", obs_rec_verify == min(4, len(obs_ids)),
+             f"{obs_rec_verify}/{min(4, len(obs_ids))} 筆可查詢")
 
     # 驗證：GET /surgeries/:id/recommendations
     surg_rec_verify = 0

@@ -15,39 +15,42 @@ import os
 from datetime import date
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from test_base import BaseApiTester, API_BASE_URL, TEST_USER_PASSWORD
+from test_base import BaseApiTester, API_BASE_URL
+from test_fixtures import get_users_for_roles, ERP_PERM_ROLES
 
-# 測試帳號設定
-TEST_USERS = {
-    "WAREHOUSE_MANAGER": {
-        "email": "wm_perm_test@example.com",
-        "password": TEST_USER_PASSWORD,
-        "display_name": "倉庫管理員 (權限測試)",
-        "role_codes": ["WAREHOUSE_MANAGER"],
-    },
-    "ADMIN_STAFF": {
-        "email": "admin_perm_test@example.com",
-        "password": TEST_USER_PASSWORD,
-        "display_name": "行政人員 (權限測試)",
-        "role_codes": ["ADMIN_STAFF"],
-    },
-    "EXPERIMENT_STAFF": {
-        "email": "exp_perm_test@example.com",
-        "password": TEST_USER_PASSWORD,
-        "display_name": "試驗工作人員 (權限測試)",
-        "role_codes": ["EXPERIMENT_STAFF"],
-    },
+# 測試帳號設定（從 test_fixtures 統一取得）
+TEST_USERS = get_users_for_roles(ERP_PERM_ROLES)
+
+# 角色別名對應
+_ROLE_ALIASES = {
+    "WAREHOUSE_MANAGER": "WAREHOUSE_MANAGER_PERM",
+    "ADMIN_STAFF": "ADMIN_STAFF_PERM",
+    "EXPERIMENT_STAFF": "EXPERIMENT_STAFF_PERM",
 }
 
 
-def run_erp_permissions_test() -> bool:
+def run_erp_permissions_test(ctx=None) -> bool:
     """執行 ERP 權限測試，回傳是否全部通過"""
     t = BaseApiTester("ERP 倉庫管理權限測試")
 
-    if not t.setup_test_users(TEST_USERS):
-        return False
-    if not t.login_all(TEST_USERS):
-        return False
+    if ctx:
+        ctx.inject_into(t, ERP_PERM_ROLES)
+        for alias, real in _ROLE_ALIASES.items():
+            if real in t.tokens:
+                t.tokens[alias] = t.tokens[real]
+            if real in t.user_ids:
+                t.user_ids[alias] = t.user_ids[real]
+        print(f"  ✓ 使用共享 Context，跳過登入")
+    else:
+        if not t.setup_test_users(TEST_USERS):
+            return False
+        if not t.login_all(TEST_USERS):
+            return False
+        for alias, real in _ROLE_ALIASES.items():
+            if real in t.tokens:
+                t.tokens[alias] = t.tokens[real]
+            if real in t.user_ids:
+                t.user_ids[alias] = t.user_ids[real]
 
     WM = "WAREHOUSE_MANAGER"
     AS = "ADMIN_STAFF"

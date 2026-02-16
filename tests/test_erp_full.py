@@ -20,33 +20,40 @@ import os
 from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from test_base import BaseApiTester, API_BASE_URL, TEST_USER_PASSWORD
+from test_base import BaseApiTester, API_BASE_URL
+from test_fixtures import get_users_for_roles, ERP_ROLES
 
-# 測試帳號設定
-ERP_TEST_USERS = {
-    "WAREHOUSE_MANAGER": {
-        "email": "wm_int_test@example.com",
-        "password": TEST_USER_PASSWORD,
-        "display_name": "倉庫管理員 (整合測試)",
-        "role_codes": ["WAREHOUSE_MANAGER"],
-    },
-    "ADMIN_STAFF": {
-        "email": "as_int_test@example.com",
-        "password": TEST_USER_PASSWORD,
-        "display_name": "行政人員 (整合測試)",
-        "role_codes": ["ADMIN_STAFF"],
-    },
+# 測試帳號設定（從 test_fixtures 統一取得）
+ERP_TEST_USERS = get_users_for_roles(ERP_ROLES)
+
+# 角色別名對應
+_ROLE_ALIASES = {
+    "ADMIN_STAFF": "ADMIN_STAFF_ERP",
 }
 
 
-def run_erp_test() -> bool:
+def run_erp_test(ctx=None) -> bool:
     """執行完整 ERP 測試，回傳是否全部通過"""
     t = BaseApiTester("ERP 完整流程測試")
 
-    if not t.setup_test_users(ERP_TEST_USERS):
-        return False
-    if not t.login_all(ERP_TEST_USERS):
-        return False
+    if ctx:
+        ctx.inject_into(t, ERP_ROLES)
+        for alias, real in _ROLE_ALIASES.items():
+            if real in t.tokens:
+                t.tokens[alias] = t.tokens[real]
+            if real in t.user_ids:
+                t.user_ids[alias] = t.user_ids[real]
+        print(f"  ✓ 使用共享 Context，跳過登入")
+    else:
+        if not t.setup_test_users(ERP_TEST_USERS):
+            return False
+        if not t.login_all(ERP_TEST_USERS):
+            return False
+        for alias, real in _ROLE_ALIASES.items():
+            if real in t.tokens:
+                t.tokens[alias] = t.tokens[real]
+            if real in t.user_ids:
+                t.user_ids[alias] = t.user_ids[real]
 
     WM = "WAREHOUSE_MANAGER"
     today = str(date.today())

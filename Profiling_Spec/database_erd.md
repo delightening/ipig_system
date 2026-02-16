@@ -1,7 +1,7 @@
 # 資料庫實體關係圖 (ERD)
 
-> **版本**：4.0  
-> **最後更新**：2026-02-16
+> **版本**：5.0  
+> **最後更新**：2026-02-17
 
 ---
 
@@ -36,6 +36,9 @@ erDiagram
     animals ||--|| animal_sacrifices : "may have"
     animals ||--|| animal_pathology_reports : "may have"
     animals ||--o{ euthanasia_orders : "may have"
+    animals ||--|| animal_sudden_deaths : "may have"
+    animals ||--o{ animal_transfers : "may transfer"
+    animal_transfers ||--o{ transfer_vet_evaluations : evaluated
     blood_test_templates ||--o{ animal_blood_test_items : used_in
     blood_test_panels ||--o{ blood_test_panel_items : contains
 
@@ -269,6 +272,9 @@ erDiagram
     animals ||--o{ animal_vaccinations : "receives"
     animals ||--|| animal_sacrifices : "may have"
     animals ||--|| animal_pathology_reports : "may have"
+    animals ||--|| animal_sudden_deaths : "may have"
+    animals ||--o{ animal_transfers : "may transfer"
+    animal_transfers ||--o{ transfer_vet_evaluations : evaluated
     animal_observations ||--o{ animal_files : "attached"
     animal_surgeries ||--o{ animal_files : "attached"
     animal_observations ||--o{ vet_recommendations : "has"
@@ -393,6 +399,35 @@ erDiagram
         JSONB content
         UUID created_by FK
     }
+
+    animal_sudden_deaths {
+        SERIAL id PK
+        INTEGER animal_id FK "UNIQUE"
+        DATE death_date
+        TEXT description
+        UUID discovered_by FK
+        UUID reported_by FK
+    }
+
+    animal_transfers {
+        SERIAL id PK
+        INTEGER animal_id FK
+        animal_transfer_status status
+        UUID from_protocol_id FK
+        UUID to_protocol_id FK
+        TEXT reason
+        UUID initiated_by FK
+        TIMESTAMPTZ transfer_date
+    }
+
+    transfer_vet_evaluations {
+        SERIAL id PK
+        INTEGER transfer_id FK
+        UUID vet_id FK
+        TEXT health_status
+        BOOLEAN is_fit_for_transfer
+        TEXT notes
+    }
 ```
 
 ---
@@ -498,6 +533,9 @@ erDiagram
         INTEGER record_id
         UUID signer_id FK
         JSONB signature_data
+        VARCHAR signature_method
+        TEXT handwriting_svg
+        JSONB stroke_data
         TIMESTAMPTZ signed_at
     }
 
@@ -801,7 +839,7 @@ erDiagram
 | 模組 | 資料表數量 | 主要表名 |
 |------|------------|----------|
 | 核心架構 | 8 | users, roles, permissions, notifications, attachments |
-| 動物管理 | 12 | animals, animal_observations, animal_surgeries, animal_weights, animal_vaccinations, animal_sacrifices, animal_pathology_reports, animal_files, animal_care_records |
+| 動物管理 | 15 | animals, animal_observations, animal_surgeries, animal_weights, animal_vaccinations, animal_sacrifices, animal_pathology_reports, animal_files, animal_care_records, animal_sudden_deaths, animal_transfers, transfer_vet_evaluations |
 | 血液檢查 | 5 | animal_blood_tests, animal_blood_test_items, blood_test_templates, blood_test_panels, blood_test_panel_items |
 | 安樂死 | 1 | euthanasia_orders |
 | GLP 合規 | 3 | electronic_signatures, record_annotations, record_versions |
@@ -810,7 +848,7 @@ erDiagram
 | HR 系統 | 8 | attendance_records, leave_requests, overtime_records, leave_balances, calendar_settings |
 | 稽核系統 | 4 | user_activity_logs, user_sessions, login_events, security_alerts |
 | 設施管理 | 5 | species, facilities, buildings, zones, pens |
-| **合計** | **~70** | |
+| **合計** | **~73** | |
 
 ---
 

@@ -1,7 +1,8 @@
 # 進銷存系統規格 (iPig ERP)
 
 > **模組**：庫存、採購、銷售管理  
-> **最後更新**：2026-02-03
+> **版本**：5.0  
+> **最後更新**：2026-02-17
 
 ---
 
@@ -12,8 +13,10 @@ iPig ERP 負責管理系統中所有物資的進銷存作業：
 - 飼料、藥品、器材、耗材的採購與入庫
 - 庫存盤點與調撥
 - 成本追蹤與報表
+- **客戶分類管理**
+- **血液檢查費用追蹤報表**
 
-> **重要**：本系統**不管理豬隻**，豬隻屬於動物管理系統。
+> **重要**：本系統**不管理動物**，動物屬於動物管理系統。
 
 ---
 
@@ -23,7 +26,8 @@ iPig ERP 負責管理系統中所有物資的進銷存作業：
 |------|------|
 | SYSTEM_ADMIN | 全權管理 |
 | WAREHOUSE_MANAGER | 入庫/出庫/盤點/調撥/採購/報表 |
-| EXPERIMENT_STAFF | 唯讀查詢庫存現況 |
+| ADMIN_STAFF | 基礎操作（查詢、建立銷售單） |
+| EXPERIMENT_STAFF | 建立銷售單、唯讀查詢庫存 |
 
 > 僅限內部人員（`is_internal = true`）存取
 
@@ -57,10 +61,22 @@ iPig ERP 負責管理系統中所有物資的進銷存作業：
 | warehouse_id | UUID | FK → warehouses.id |
 | direction | ENUM | in / out / adjust |
 | qty | DECIMAL | 異動數量 |
+| unit_cost | DECIMAL | 單位成本 |
 | batch_no | VARCHAR(50) | 批號 |
 | expiry_date | DATE | 效期 |
 | doc_type | VARCHAR(20) | 來源單據類型 |
 | doc_no | VARCHAR(50) | 來源單據編號 |
+
+### 3.3 夥伴 (partners)
+
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | UUID | 主鍵 |
+| type | partner_type | 供應商/客戶 |
+| customer_category | customer_category | 客戶分類（internal/external/research/other） |
+| name | VARCHAR(200) | 名稱 |
+| contact_name | VARCHAR(100) | 聯絡人 |
+| tax_id | VARCHAR(20) | 統一編號 |
 
 ---
 
@@ -82,16 +98,6 @@ iPig ERP 負責管理系統中所有物資的進銷存作業：
 | CHM | 化學品 |
 | OTH | 其他 |
 
-### 4.2 子類別範例
-
-| 主類別 | 子類別代碼 | 名稱 |
-|--------|------------|------|
-| MED | ANE | 麻醉劑 |
-| MED | ANT | 抗生素 |
-| MED | VAC | 疫苗 |
-| MSP | SYR | 注射器材 |
-| CON | GLV | 手套 |
-
 ---
 
 ## 5. 單據類型
@@ -101,27 +107,43 @@ iPig ERP 負責管理系統中所有物資的進銷存作業：
 | PO | 採購單 | Purchase Order |
 | GRN | 採購入庫 | Goods Receipt Note |
 | PR | 採購退貨 | Purchase Return |
-| SO | 銷售單 | Sales Order |
+| SO | 銷售單 | Sales Order（成本價從 stock_ledger 平均成本取得） |
 | DO | 銷售出庫 | Delivery Order |
 | TR | 調撥單 | Transfer |
 | STK | 盤點單 | Stock Take |
 | ADJ | 調整單 | Adjustment |
+| RTN | 退貨單 | Return |
 
 ---
 
-## 6. API 端點
+## 6. 報表模組
 
-### 6.1 產品管理
+| 報表 | 頁面元件 | 說明 |
+|------|----------|------|
+| 庫存現況 | `StockOnHandReportPage` | 即時庫存 |
+| 庫存流水 | `StockLedgerReportPage` | 異動明細 |
+| 採購明細 | `PurchaseLinesReportPage` | 採購分析 |
+| 銷售明細 | `SalesLinesReportPage` | 銷售分析 |
+| 成本摘要 | `CostSummaryReportPage` | 成本統計 |
+| **血液檢查費用** | `BloodTestCostReportPage` | 專案+日期+實驗室篩選 |
+
+所有報表支援 CSV 匯出。
+
+---
+
+## 7. API 端點
+
+### 7.1 產品管理
 
 | 方法 | 端點 | 說明 |
 |------|------|------|
 | GET | `/products` | 產品列表 |
 | POST | `/products` | 新增產品（SKU 自動生成） |
-| GET | `/products/{id}` | 產品詳情 |
-| PUT | `/products/{id}` | 更新產品 |
-| PATCH | `/products/{id}/status` | 變更狀態 |
+| GET | `/products/:id` | 產品詳情 |
+| PUT | `/products/:id` | 更新產品 |
+| PATCH | `/products/:id/status` | 變更狀態 |
 
-### 6.2 庫存管理
+### 7.2 庫存管理
 
 | 方法 | 端點 | 說明 |
 |------|------|------|
@@ -129,19 +151,31 @@ iPig ERP 負責管理系統中所有物資的進銷存作業：
 | GET | `/inventory/expiring` | 即將到期品項 |
 | GET | `/stock-ledger` | 庫存流水 |
 
-### 6.3 單據管理
+### 7.3 單據管理
 
 | 方法 | 端點 | 說明 |
 |------|------|------|
 | GET | `/documents` | 單據列表 |
 | POST | `/documents` | 建立單據 |
-| GET | `/documents/{id}` | 單據詳情 |
-| POST | `/documents/{id}/submit` | 送審 |
-| POST | `/documents/{id}/approve` | 核准 |
+| GET | `/documents/:id` | 單據詳情 |
+| PUT | `/documents/:id` | 編輯單據 |
+| POST | `/documents/:id/submit` | 送審 |
+| POST | `/documents/:id/approve` | 核准 |
+
+### 7.4 報表
+
+| 方法 | 端點 | 說明 |
+|------|------|------|
+| GET | `/reports/stock-on-hand` | 庫存現況報表 |
+| GET | `/reports/stock-ledger` | 異動報表 |
+| GET | `/reports/purchase-lines` | 採購明細 |
+| GET | `/reports/sales-lines` | 銷售明細 |
+| GET | `/reports/cost-summary` | 成本分析 |
+| GET | `/reports/blood-test-cost` | 血檢成本報表 |
 
 ---
 
-## 7. GLP 合規要點
+## 8. GLP 合規要點
 
 | 要求 | 實作方式 |
 |------|----------|
@@ -152,21 +186,22 @@ iPig ERP 負責管理系統中所有物資的進銷存作業：
 
 ---
 
-## 8. 前端路由
+## 9. 前端路由
 
 | 路由 | 頁面 |
 |------|------|
 | `/products` | 產品列表 |
 | `/products/new` | 新增產品 |
-| `/products/{id}` | 產品詳情 |
+| `/products/:id` | 產品詳情 |
 | `/inventory` | 庫存現況 |
 | `/stock-ledger` | 庫存流水 |
 | `/documents` | 單據列表 |
+| `/warehouses` | 倉庫管理 |
+| `/partners` | 供應商/客戶管理 |
 
 ---
 
-## 9. 相關文件
+## 10. 相關文件
 
-- [產品模組詳細規格](../archive/product.md)
-- [SKU 編碼規則](../archive/skuSpec.md)
 - [通知系統](./NOTIFICATION_SYSTEM.md) - 低庫存/效期提醒
+- [動物管理](./ANIMAL_MANAGEMENT.md) - 血液檢查費用關聯

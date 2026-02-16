@@ -299,5 +299,106 @@ CREATE INDEX idx_report_history_type ON report_history(report_type);
 CREATE INDEX idx_report_history_generated_at ON report_history(generated_at);
 
 -- ============================================
+-- 14. 系統設定表
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS system_settings (
+    key VARCHAR(100) PRIMARY KEY,
+    value JSONB NOT NULL,
+    description TEXT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_by UUID REFERENCES users(id)
+);
+
+-- 預設獸醫師設定
+INSERT INTO system_settings (key, value, description) VALUES 
+('default_vet_reviewer', '{"user_id": null}', '預設獸醫審查員，VET_REVIEW 階段會自動指派此獸醫師')
+ON CONFLICT (key) DO NOTHING;
+
+-- ============================================
+-- 15. 獸醫審查指派表
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS vet_review_assignments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    protocol_id UUID NOT NULL REFERENCES protocols(id) ON DELETE CASCADE,
+    vet_id UUID NOT NULL REFERENCES users(id),
+    assigned_by UUID REFERENCES users(id),
+    assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMPTZ,
+    decision VARCHAR(20),
+    decision_remark TEXT,
+    -- 獸醫師審查表
+    review_form JSONB,
+    UNIQUE (protocol_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_vet_review_assignments_protocol ON vet_review_assignments(protocol_id);
+CREATE INDEX IF NOT EXISTS idx_vet_review_assignments_vet ON vet_review_assignments(vet_id);
+
+COMMENT ON COLUMN vet_review_assignments.review_form IS '獸醫師 12 項查檢表資料 (JSON 格式)';
+
+-- ============================================
+-- 16. Protocol 活動歷程表
+-- ============================================
+
+CREATE TABLE protocol_activities (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    protocol_id UUID NOT NULL REFERENCES protocols(id) ON DELETE CASCADE,
+    activity_type protocol_activity_type NOT NULL,
+    
+    -- 行為者
+    actor_id UUID NOT NULL REFERENCES users(id),
+    actor_name VARCHAR(100),
+    actor_email VARCHAR(255),
+    
+    -- 變更內容
+    from_value TEXT,
+    to_value TEXT,
+    target_entity_type VARCHAR(50),
+    target_entity_id UUID,
+    target_entity_name VARCHAR(255),
+    
+    -- 備註
+    remark TEXT,
+    
+    -- 額外資料
+    extra_data JSONB,
+    
+    -- 時間戳
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_protocol_activities_protocol_id ON protocol_activities(protocol_id, created_at DESC);
+CREATE INDEX idx_protocol_activities_actor_id ON protocol_activities(actor_id);
+CREATE INDEX idx_protocol_activities_type ON protocol_activities(activity_type, created_at DESC);
+
+COMMENT ON TABLE protocol_activities IS 'Protocol 專屬活動歷程表，記錄所有對計畫的操作行為';
+COMMENT ON COLUMN protocol_activities.activity_type IS '活動類型（見 protocol_activity_type ENUM）';
+COMMENT ON COLUMN protocol_activities.actor_id IS '執行操作的使用者 ID';
+COMMENT ON COLUMN protocol_activities.from_value IS '變更前的值（如狀態變更）';
+COMMENT ON COLUMN protocol_activities.to_value IS '變更後的值';
+COMMENT ON COLUMN protocol_activities.target_entity_type IS '目標實體類型（如 reviewer, attachment）';
+COMMENT ON COLUMN protocol_activities.extra_data IS '額外資料（JSON 格式）';
+
+-- ============================================
+-- 17. 審查往返歷史記錄表
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS review_round_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    protocol_id UUID NOT NULL REFERENCES protocols(id) ON DELETE CASCADE,
+    review_stage VARCHAR(30) NOT NULL,
+    round_number INTEGER NOT NULL DEFAULT 1,
+    action VARCHAR(30) NOT NULL,
+    actor_id UUID NOT NULL REFERENCES users(id),
+    remark TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_review_round_history_protocol ON review_round_history(protocol_id);
+CREATE INDEX IF NOT EXISTS idx_review_round_history_stage ON review_round_history(review_stage);
+
+-- ============================================
 -- 完成
 -- ============================================
