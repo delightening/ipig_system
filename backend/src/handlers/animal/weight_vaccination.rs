@@ -1,7 +1,7 @@
 ﻿// 體重 + 疫苗記錄管理 Handlers
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Extension, Json,
 };
 use uuid::Uuid;
@@ -11,7 +11,7 @@ use crate::{
     middleware::CurrentUser,
     models::{
         CreateVaccinationRequest, CreateWeightRequest, DeleteRequest, AnimalVaccination, AnimalWeight,
-        AnimalWeightResponse, UpdateVaccinationRequest, UpdateWeightRequest,
+        AnimalWeightResponse, UpdateVaccinationRequest, UpdateWeightRequest, RecordFilterQuery,
     },
     require_permission,
     services::{AnimalService, AuditService},
@@ -27,8 +27,9 @@ pub async fn list_animal_weights(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(animal_id): Path<Uuid>,
+    Query(filter): Query<RecordFilterQuery>,
 ) -> Result<Json<Vec<AnimalWeightResponse>>> {
-    let weights = AnimalService::list_weights(&state.db, animal_id).await?;
+    let weights = AnimalService::list_weights(&state.db, animal_id, filter.after).await?;
     Ok(Json(weights))
 }
 
@@ -125,8 +126,9 @@ pub async fn list_animal_vaccinations(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(animal_id): Path<Uuid>,
+    Query(filter): Query<RecordFilterQuery>,
 ) -> Result<Json<Vec<AnimalVaccination>>> {
-    let vaccinations = AnimalService::list_vaccinations(&state.db, animal_id).await?;
+    let vaccinations = AnimalService::list_vaccinations(&state.db, animal_id, filter.after).await?;
     Ok(Json(vaccinations))
 }
 

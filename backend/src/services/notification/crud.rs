@@ -28,7 +28,7 @@ impl NotificationService {
         // 建立基本查詢
         let mut sql = String::from(
             r#"
-            SELECT id, type, title, content, is_read, read_at, 
+            SELECT id, type::TEXT, title, content, is_read, read_at, 
                    related_entity_type, related_entity_id, created_at
             FROM notifications
             WHERE user_id = $1
@@ -157,7 +157,8 @@ impl NotificationService {
             INSERT INTO notifications (id, user_id, type, title, content, 
                                        related_entity_type, related_entity_id)
             VALUES (gen_random_uuid(), $1, $2::notification_type, $3, $4, $5, $6)
-            RETURNING *
+            RETURNING id, user_id, type::TEXT, title, content, is_read, read_at,
+                      related_entity_type, related_entity_id, created_at
             "#,
         )
         .bind(request.user_id)

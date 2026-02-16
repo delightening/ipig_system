@@ -1,7 +1,7 @@
 ﻿// 觀察記錄管理 Handlers
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Extension, Json,
 };
 use uuid::Uuid;
@@ -11,7 +11,7 @@ use crate::{
     middleware::CurrentUser,
     models::{
         CopyRecordRequest, CreateObservationRequest, DeleteRequest, ObservationListItem,
-        AnimalObservation, UpdateObservationRequest, VersionHistoryResponse,
+        AnimalObservation, UpdateObservationRequest, VersionHistoryResponse, RecordFilterQuery,
     },
     require_permission,
     services::{AnimalService, AuditService},
@@ -23,8 +23,9 @@ pub async fn list_animal_observations(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(animal_id): Path<Uuid>,
+    Query(filter): Query<RecordFilterQuery>,
 ) -> Result<Json<Vec<AnimalObservation>>> {
-    let observations = AnimalService::list_observations(&state.db, animal_id).await?;
+    let observations = AnimalService::list_observations(&state.db, animal_id, filter.after).await?;
     Ok(Json(observations))
 }
 
@@ -33,8 +34,9 @@ pub async fn list_animal_observations_with_recommendations(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(animal_id): Path<Uuid>,
+    Query(filter): Query<RecordFilterQuery>,
 ) -> Result<Json<Vec<ObservationListItem>>> {
-    let observations = AnimalService::list_observations_with_recommendations(&state.db, animal_id).await?;
+    let observations = AnimalService::list_observations_with_recommendations(&state.db, animal_id, filter.after).await?;
     Ok(Json(observations))
 }
 

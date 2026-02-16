@@ -11,6 +11,9 @@ pub enum AnimalStatus {
     Unassigned,
     InExperiment,
     Completed,
+    Euthanized,
+    SuddenDeath,
+    Transferred,
 }
 
 impl AnimalStatus {
@@ -18,7 +21,61 @@ impl AnimalStatus {
         match self {
             AnimalStatus::Unassigned => "未分配",
             AnimalStatus::InExperiment => "實驗中",
-            AnimalStatus::Completed => "實驗完成",
+            AnimalStatus::Completed => "存活完成",
+            AnimalStatus::Euthanized => "安樂死",
+            AnimalStatus::SuddenDeath => "猝死",
+            AnimalStatus::Transferred => "已轉讓",
+        }
+    }
+
+    /// 檢查狀態轉換是否合法
+    pub fn can_transition_to(&self, target: AnimalStatus) -> bool {
+        matches!(
+            (self, target),
+            // 未分配 → 實驗中 / 安樂死（犧牲紀錄）/ 猝死
+            (Self::Unassigned, Self::InExperiment)
+            | (Self::Unassigned, Self::Euthanized)
+            | (Self::Unassigned, Self::SuddenDeath)
+            // 實驗中 → 存活完成 / 安樂死（犧牲或安樂死申請）/ 猝死
+            | (Self::InExperiment, Self::Completed)
+            | (Self::InExperiment, Self::Euthanized)
+            | (Self::InExperiment, Self::SuddenDeath)
+            // 存活完成 → 已轉讓（透過 transfer API）/ 安樂死（犧牲紀錄）
+            | (Self::Completed, Self::Transferred)
+            | (Self::Completed, Self::Euthanized)
+            // 已轉讓 → 實驗中（轉讓完成後重新入組）
+            | (Self::Transferred, Self::InExperiment)
+        )
+    }
+
+    /// 是否為終態
+    pub fn is_terminal(&self) -> bool {
+        matches!(self, Self::Euthanized | Self::SuddenDeath)
+    }
+}
+
+/// 動物轉讓狀態
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[sqlx(type_name = "animal_transfer_status", rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
+pub enum AnimalTransferStatus {
+    Pending,
+    VetEvaluated,
+    PlanAssigned,
+    PiApproved,
+    Completed,
+    Rejected,
+}
+
+impl AnimalTransferStatus {
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            Self::Pending => "待審",
+            Self::VetEvaluated => "獸醫已評估",
+            Self::PlanAssigned => "已指定新計劃",
+            Self::PiApproved => "PI 已同意",
+            Self::Completed => "轉讓完成",
+            Self::Rejected => "已拒絕",
         }
     }
 }

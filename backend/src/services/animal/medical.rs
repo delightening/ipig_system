@@ -1,15 +1,16 @@
-﻿use sqlx::PgPool;
+﻿use chrono::{DateTime, Utc};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::AnimalService;
 use crate::{
     models::{
-        CreateSacrificeRequest, CreateVaccinationRequest, CreateVetRecommendationRequest,
+        CreateSacrificeRequest, CreateSuddenDeathRequest, CreateVaccinationRequest, CreateVetRecommendationRequest,
         CreateVetRecommendationWithAttachmentsRequest, Animal, AnimalExportRecord, AnimalImportBatch,
-        AnimalSacrifice, AnimalVaccination, RecordVersion, UpdateVaccinationRequest, VersionDiff,
+        AnimalSacrifice, AnimalSuddenDeath, AnimalVaccination, AnimalStatus, RecordVersion, UpdateVaccinationRequest, VersionDiff,
         VersionHistoryResponse, VetRecommendation, VetRecordType,
         ExportType, ExportFormat, ImportType, ImportStatus,
-    }, Result,
+    }, AppError, Result,
 };
 
 impl AnimalService {
@@ -18,12 +19,13 @@ impl AnimalService {
     // 疫苗/驅蟲紀錄
     // ============================================
 
-    /// 取得疫苗紀錄列表（排除已刪除）
-    pub async fn list_vaccinations(pool: &PgPool, animal_id: Uuid) -> Result<Vec<AnimalVaccination>> {
+    /// 取得疫苗紀錄列表（排除已刪除，支援資料隔離）
+    pub async fn list_vaccinations(pool: &PgPool, animal_id: Uuid, after: Option<DateTime<Utc>>) -> Result<Vec<AnimalVaccination>> {
         let vaccinations = sqlx::query_as::<_, AnimalVaccination>(
-            "SELECT * FROM animal_vaccinations WHERE animal_id = $1 ORDER BY administered_date DESC"
+            "SELECT * FROM animal_vaccinations WHERE animal_id = $1 AND ($2::timestamptz IS NULL OR created_at > $2) ORDER BY administered_date DESC"
         )
         .bind(animal_id)
+        .bind(after)
         .fetch_all(pool)
         .await?;
 
@@ -180,6 +182,68 @@ impl AnimalService {
         .await?;
 
         Ok(sacrifice)
+    }
+
+    // ============================================
+    // 猝死記錄
+    // ============================================
+
+    /// 取得動物的猝死記錄
+    pub async fn get_sudden_death(pool: &PgPool, animal_id: Uuid) -> Result<Option<AnimalSuddenDeath>> {
+        let record = sqlx::query_as::<_, AnimalSuddenDeath>(
+            "SELECT * FROM animal_sudden_deaths WHERE animal_id = $1"
+        )
+        .bind(animal_id)
+        .fetch_optional(pool)
+        .await?;
+
+        Ok(record)
+    }
+
+    /// 登記猝死
+    pub async fn create_sudden_death(
+        pool: &PgPool,
+        animal_id: Uuid,
+        req: &CreateSuddenDeathRequest,
+        created_by: Uuid,
+    ) -> Result<AnimalSuddenDeath> {
+        // 驗證動物狀態可轉換到 SuddenDeath
+        let animal = Self::get_by_id(pool, animal_id).await?;
+        if !animal.status.can_transition_to(AnimalStatus::SuddenDeath) {
+            return Err(AppError::BadRequest(
+                format!("無法將「{}」狀態的動物登記為猝死", animal.status.display_name())
+            ));
+        }
+
+        // 建立猝死記錄
+        let record = sqlx::query_as::<_, AnimalSuddenDeath>(
+            r#"
+            INSERT INTO animal_sudden_deaths (
+                animal_id, discovered_at, discovered_by, probable_cause,
+                iacuc_no, location, remark, requires_pathology, created_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+            RETURNING *
+            "#
+        )
+        .bind(animal_id)
+        .bind(req.discovered_at)
+        .bind(created_by)
+        .bind(&req.probable_cause)
+        .bind(&animal.iacuc_no)
+        .bind(&req.location)
+        .bind(&req.remark)
+        .bind(req.requires_pathology)
+        .fetch_one(pool)
+        .await?;
+
+        // 自動更新動物狀態為 sudden_death
+        sqlx::query("UPDATE animals SET status = 'sudden_death', updated_at = NOW() WHERE id = $1")
+            .bind(animal_id)
+            .execute(pool)
+            .await?;
+
+        Ok(record)
     }
 
     // ============================================
@@ -463,10 +527,10 @@ impl AnimalService {
     /// 取得動物完整病歷資料（用於匯出）
     pub async fn get_animal_medical_data(pool: &PgPool, animal_id: Uuid) -> Result<serde_json::Value> {
         let animal = Self::get_by_id(pool, animal_id).await?;
-        let observations = Self::list_observations(pool, animal_id).await?;
-        let surgeries = Self::list_surgeries(pool, animal_id).await?;
-        let weights = Self::list_weights(pool, animal_id).await?;
-        let vaccinations = Self::list_vaccinations(pool, animal_id).await?;
+        let observations = Self::list_observations(pool, animal_id, None).await?;
+        let surgeries = Self::list_surgeries(pool, animal_id, None).await?;
+        let weights = Self::list_weights(pool, animal_id, None).await?;
+        let vaccinations = Self::list_vaccinations(pool, animal_id, None).await?;
         let sacrifice = Self::get_sacrifice(pool, animal_id).await?;
 
         let data = serde_json::json!({

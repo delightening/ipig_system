@@ -1,4 +1,4 @@
-﻿import { Animal, AnimalObservation, AnimalSurgery, AnimalWeight, RecordType, recordTypeNames } from '@/lib/api'
+﻿import { Animal, AnimalObservation, AnimalSurgery, AnimalSacrifice, AnimalSuddenDeath, AnimalWeight, AnimalTransfer, RecordType, recordTypeNames, transferStatusNames } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,8 @@ import {
     Scale,
     Calendar,
     Skull,
+    Zap,
+    ArrowRightLeft,
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -23,6 +25,9 @@ interface Props {
     observations: AnimalObservation[]
     surgeries: AnimalSurgery[]
     animalWeights?: AnimalWeight[]
+    sacrifice?: AnimalSacrifice
+    suddenDeath?: AnimalSuddenDeath
+    transfers?: AnimalTransfer[]
     animal?: Animal
     onView: (type: 'observation' | 'surgery', id: number) => void
     onEdit: (type: 'observation' | 'surgery', record: any) => void
@@ -32,7 +37,7 @@ interface Props {
     onDelete: (type: 'observation' | 'surgery', id: number) => void
 }
 
-type TimelineItemType = 'observation' | 'surgery' | 'weight' | 'created' | 'sacrificed'
+type TimelineItemType = 'observation' | 'surgery' | 'weight' | 'created' | 'sacrificed' | 'completed' | 'euthanized' | 'sudden_death' | 'transferred'
 
 interface TimelineItem {
     id: string
@@ -52,6 +57,9 @@ export function AnimalTimelineView({
     observations,
     surgeries,
     animalWeights,
+    sacrifice,
+    suddenDeath,
+    transfers,
     animal,
     onView,
     onEdit,
@@ -118,6 +126,91 @@ export function AnimalTimelineView({
             raw: animal,
             isInfoOnly: true,
         }] : []),
+        // 犧牲/採樣紀錄
+        ...(sacrifice && sacrifice.sacrifice_date ? [{
+            id: 'sacrifice-record',
+            originalId: sacrifice.id,
+            type: 'sacrificed' as const,
+            date: new Date(sacrifice.sacrifice_date),
+            title: '犧牲/採樣',
+            content: [
+                sacrifice.method_electrocution ? '電擊' : null,
+                sacrifice.method_bloodletting ? '放血' : null,
+                sacrifice.method_other ? sacrifice.method_other : null,
+                sacrifice.blood_volume_ml ? `採血 ${sacrifice.blood_volume_ml} ml` : null,
+                sacrifice.sampling ? `採樣：${sacrifice.sampling}` : null,
+            ].filter(Boolean).join('、') || '已犧牲',
+            actor: sacrifice.created_by_name || null,
+            vetRead: false,
+            isNoMed: false,
+            raw: sacrifice,
+            isInfoOnly: true,
+        }] : []),
+        // 實驗完成事件（status = completed 但無犧牲紀錄時顯示）
+        ...(animal && animal.status === 'completed' && !(sacrifice && sacrifice.sacrifice_date) ? [{
+            id: 'experiment-completed',
+            originalId: 0,
+            type: 'completed' as const,
+            date: new Date(animal.updated_at),
+            title: '實驗完成',
+            content: `耳號 ${animal.ear_tag} 實驗已完成`,
+            actor: null as string | null,
+            vetRead: false,
+            isNoMed: false,
+            raw: animal,
+            isInfoOnly: true,
+        }] : []),
+        // 安樂死事件
+        ...(animal && animal.status === 'euthanized' ? [{
+            id: 'euthanized-event',
+            originalId: 0,
+            type: 'euthanized' as const,
+            date: new Date(sacrifice?.sacrifice_date || animal.updated_at),
+            title: '已安樂死',
+            content: [
+                sacrifice?.method_electrocution ? '電擊' : null,
+                sacrifice?.method_bloodletting ? '放血' : null,
+                sacrifice?.method_other ? sacrifice.method_other : null,
+                sacrifice?.blood_volume_ml ? `採血 ${sacrifice.blood_volume_ml} ml` : null,
+            ].filter(Boolean).join('、') || `耳號 ${animal.ear_tag} 已安樂死`,
+            actor: sacrifice?.created_by_name || null,
+            vetRead: false,
+            isNoMed: false,
+            raw: sacrifice || animal,
+            isInfoOnly: true,
+        }] : []),
+        // 猝死事件
+        ...(suddenDeath ? [{
+            id: 'sudden-death-event',
+            originalId: 0,
+            type: 'sudden_death' as const,
+            date: new Date(suddenDeath.discovered_at),
+            title: '猝死',
+            content: [
+                suddenDeath.probable_cause ? `可能原因：${suddenDeath.probable_cause}` : null,
+                suddenDeath.location ? `地點：${suddenDeath.location}` : null,
+                suddenDeath.requires_pathology ? '需要病理檢查' : null,
+            ].filter(Boolean).join('、') || '動物猝死',
+            actor: null as string | null,
+            vetRead: false,
+            isNoMed: false,
+            raw: suddenDeath,
+            isInfoOnly: true,
+        }] : []),
+        // 轉讓事件
+        ...(transfers || []).map(t => ({
+            id: `transfer-${t.id}`,
+            originalId: 0,
+            type: 'transferred' as const,
+            date: new Date(t.completed_at || t.created_at),
+            title: t.status === 'completed' ? '轉讓完成' : t.status === 'rejected' ? '轉讓拒絕' : '轉讓進行中',
+            content: `${t.from_iacuc_no} → ${t.to_iacuc_no || '待定'} (${transferStatusNames[t.status]})`,
+            actor: null as string | null,
+            vetRead: false,
+            isNoMed: false,
+            raw: t,
+            isInfoOnly: true,
+        })),
     ].sort((a, b) => b.date.getTime() - a.date.getTime())
 
     // 取得時間軸項目的圖示
@@ -128,6 +221,10 @@ export function AnimalTimelineView({
             case 'weight': return <Scale className="h-5 w-5" />
             case 'created': return <Calendar className="h-5 w-5" />
             case 'sacrificed': return <Skull className="h-5 w-5" />
+            case 'completed': return <CheckCircle2 className="h-5 w-5" />
+            case 'euthanized': return <Skull className="h-5 w-5" />
+            case 'sudden_death': return <Zap className="h-5 w-5" />
+            case 'transferred': return <ArrowRightLeft className="h-5 w-5" />
             default: return <ClipboardList className="h-5 w-5" />
         }
     }
@@ -140,6 +237,10 @@ export function AnimalTimelineView({
             case 'weight': return 'bg-blue-100 dark:bg-blue-900 text-blue-600'
             case 'created': return 'bg-green-100 dark:bg-green-900 text-green-600'
             case 'sacrificed': return 'bg-red-100 dark:bg-red-900 text-red-600'
+            case 'completed': return 'bg-emerald-100 dark:bg-emerald-900 text-emerald-600'
+            case 'euthanized': return 'bg-red-100 dark:bg-red-900 text-red-600'
+            case 'sudden_death': return 'bg-rose-100 dark:bg-rose-900 text-rose-600'
+            case 'transferred': return 'bg-indigo-100 dark:bg-indigo-900 text-indigo-600'
             default: return 'bg-slate-100 dark:bg-slate-700 text-slate-500'
         }
     }
@@ -152,6 +253,10 @@ export function AnimalTimelineView({
             case 'weight': return 'text-blue-600 bg-blue-50'
             case 'created': return 'text-green-600 bg-green-50'
             case 'sacrificed': return 'text-red-600 bg-red-50'
+            case 'completed': return 'text-emerald-600 bg-emerald-50'
+            case 'euthanized': return 'text-red-600 bg-red-50'
+            case 'sudden_death': return 'text-rose-600 bg-rose-50'
+            case 'transferred': return 'text-indigo-600 bg-indigo-50'
             default: return 'text-purple-600 bg-purple-50'
         }
     }

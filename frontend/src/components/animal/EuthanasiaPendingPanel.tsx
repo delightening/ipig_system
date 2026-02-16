@@ -1,6 +1,7 @@
 ﻿import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
+import { signatureApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -15,7 +16,9 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
-import { Loader2, AlertOctagon, CheckCircle2, Hand, Clock } from 'lucide-react'
+import { Loader2, AlertOctagon, CheckCircle2, Hand, Clock, PenLine } from 'lucide-react'
+import { HandwrittenSignaturePad, type SignatureData } from '@/components/ui/handwritten-signature-pad'
+import { useTranslation } from 'react-i18next'
 
 interface EuthanasiaOrder {
     id: string
@@ -51,10 +54,14 @@ function formatCountdown(deadline: string): string {
 }
 
 export function EuthanasiaPendingPanel() {
+    const { t } = useTranslation()
     const queryClient = useQueryClient()
     const [selectedOrder, setSelectedOrder] = useState<EuthanasiaOrder | null>(null)
     const [showAppealDialog, setShowAppealDialog] = useState(false)
     const [appealReason, setAppealReason] = useState('')
+    // 簽名相關狀態
+    const [signingOrderId, setSigningOrderId] = useState<string | null>(null)
+    const [signatureData, setSignatureData] = useState<SignatureData | null>(null)
 
     const { data: orders, isLoading } = useQuery<EuthanasiaOrder[]>({
         queryKey: ['euthanasia-pending'],
@@ -64,17 +71,26 @@ export function EuthanasiaPendingPanel() {
         },
     })
 
+    // 同意 + 簽章 mutation
     const approveMutation = useMutation({
-        mutationFn: async (orderId: string) => {
+        mutationFn: async ({ orderId, sigData }: { orderId: string; sigData: SignatureData }) => {
+            // 先建立簽章記錄
+            await signatureApi.signEuthanasia(orderId, {
+                handwriting_svg: sigData.svg,
+                stroke_data: sigData.strokeData,
+                signature_type: 'APPROVE',
+            })
+            // 再執行同意操作
             return api.post(`/euthanasia/orders/${orderId}/approve`)
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['euthanasia-pending'] })
             toast({
                 title: '已同意執行安樂死',
-                description: '獸醫師將收到通知並可執行操作。',
+                description: '簽章已記錄，獸醫師將收到通知並可執行操作。',
             })
-            setSelectedOrder(null)
+            setSigningOrderId(null)
+            setSignatureData(null)
         },
         onError: (error: any) => {
             toast({
@@ -138,55 +154,101 @@ export function EuthanasiaPendingPanel() {
                         {orders.map((order) => (
                             <div
                                 key={order.id}
-                                className="bg-white rounded-lg p-4 border border-red-200 flex items-center justify-between"
+                                className="bg-white rounded-lg p-4 border border-red-200"
                             >
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-3">
-                                        <span className="font-bold text-lg text-orange-600">
-                                            #{order.animal_ear_tag}
-                                        </span>
-                                        {order.animal_iacuc_no && (
-                                            <Badge variant="outline">{order.animal_iacuc_no}</Badge>
-                                        )}
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-3">
+                                            <span className="font-bold text-lg text-orange-600">
+                                                #{order.animal_ear_tag}
+                                            </span>
+                                            {order.animal_iacuc_no && (
+                                                <Badge variant="outline">{order.animal_iacuc_no}</Badge>
+                                            )}
+                                        </div>
+                                        <p className="text-sm text-gray-600">
+                                            開單獸醫：{order.vet_name}
+                                        </p>
+                                        <p className="text-sm text-gray-700 line-clamp-2">
+                                            原因：{order.reason}
+                                        </p>
+                                        <div className="flex items-center gap-2 text-sm text-red-600">
+                                            <Clock className="h-4 w-4" />
+                                            剩餘時間：{formatCountdown(order.deadline_at)}
+                                        </div>
                                     </div>
-                                    <p className="text-sm text-gray-600">
-                                        開單獸醫：{order.vet_name}
-                                    </p>
-                                    <p className="text-sm text-gray-700 line-clamp-2">
-                                        原因：{order.reason}
-                                    </p>
-                                    <div className="flex items-center gap-2 text-sm text-red-600">
-                                        <Clock className="h-4 w-4" />
-                                        剩餘時間：{formatCountdown(order.deadline_at)}
+                                    {signingOrderId !== order.id && (
+                                        <div className="flex flex-col gap-2">
+                                            <Button
+                                                size="sm"
+                                                className="bg-green-600 hover:bg-green-700"
+                                                onClick={() => {
+                                                    setSigningOrderId(order.id)
+                                                    setSignatureData(null)
+                                                }}
+                                                disabled={approveMutation.isPending}
+                                            >
+                                                <PenLine className="h-4 w-4 mr-1" />
+                                                同意執行
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="border-amber-500 text-amber-600 hover:bg-amber-50"
+                                                onClick={() => {
+                                                    setSelectedOrder(order)
+                                                    setShowAppealDialog(true)
+                                                }}
+                                            >
+                                                <Hand className="h-4 w-4 mr-1" />
+                                                申請暫緩
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* 手寫簽名區塊 */}
+                                {signingOrderId === order.id && (
+                                    <div className="space-y-3 pt-3 border-t border-red-100">
+                                        <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                            <PenLine className="h-4 w-4" />
+                                            {t('signature.handwriting', '手寫簽名')} — 確認同意執行安樂死
+                                        </div>
+                                        <HandwrittenSignaturePad
+                                            onSignatureChange={setSignatureData}
+                                            height={160}
+                                        />
+                                        <div className="flex gap-2 justify-end">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setSigningOrderId(null)
+                                                    setSignatureData(null)
+                                                }}
+                                            >
+                                                取消
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                className="bg-green-600 hover:bg-green-700"
+                                                onClick={() => {
+                                                    if (signatureData) {
+                                                        approveMutation.mutate({ orderId: order.id, sigData: signatureData })
+                                                    }
+                                                }}
+                                                disabled={!signatureData || approveMutation.isPending}
+                                            >
+                                                {approveMutation.isPending ? (
+                                                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                                ) : (
+                                                    <CheckCircle2 className="h-4 w-4 mr-1" />
+                                                )}
+                                                {t('signature.confirmSign', '確認簽署')}
+                                            </Button>
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <Button
-                                        size="sm"
-                                        className="bg-green-600 hover:bg-green-700"
-                                        onClick={() => {
-                                            if (confirm('確定同意執行安樂死？此操作不可逆。')) {
-                                                approveMutation.mutate(order.id)
-                                            }
-                                        }}
-                                        disabled={approveMutation.isPending}
-                                    >
-                                        <CheckCircle2 className="h-4 w-4 mr-1" />
-                                        同意執行
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="border-amber-500 text-amber-600 hover:bg-amber-50"
-                                        onClick={() => {
-                                            setSelectedOrder(order)
-                                            setShowAppealDialog(true)
-                                        }}
-                                    >
-                                        <Hand className="h-4 w-4 mr-1" />
-                                        申請暫緩
-                                    </Button>
-                                </div>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -205,7 +267,7 @@ export function EuthanasiaPendingPanel() {
                             {selectedOrder && (
                                 <>
                                     耳號：{selectedOrder.animal_ear_tag}
-                                    {selectedOrder.animal_iacuc_no && ` | IACUC NO.: ${selectedOrder.animal_iacuc_no}`}
+                                    {selectedOrder.animal_iacuc_no && ` | IACUC No.: ${selectedOrder.animal_iacuc_no}`}
                                 </>
                             )}
                         </DialogDescription>

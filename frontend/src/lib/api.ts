@@ -256,3 +256,101 @@ export const notificationRoutingApi = {
 export {
   eventTypeNames, channelNames,
 } from '@/types/notification'
+export {
+  transferStatusNames,
+} from '@/types/animal'
+
+// ============================================
+// 轉讓流程 API
+// ============================================
+
+import type {
+  AnimalTransfer, TransferVetEvaluation,
+  CreateTransferRequest, VetEvaluateTransferRequest,
+  AssignTransferPlanRequest, RejectTransferRequest,
+} from '@/types/animal'
+
+export const transferApi = {
+  getDataBoundary: (animalId: string) =>
+    api.get<{ boundary: string | null }>(`/animals/${animalId}/data-boundary`),
+  list: (animalId: string) =>
+    api.get<AnimalTransfer[]>(`/animals/${animalId}/transfers`),
+  get: (transferId: string) =>
+    api.get<AnimalTransfer>(`/transfers/${transferId}`),
+  initiate: (animalId: string, data: CreateTransferRequest) =>
+    api.post<AnimalTransfer>(`/animals/${animalId}/transfers`, data),
+  vetEvaluate: (transferId: string, data: VetEvaluateTransferRequest) =>
+    api.post<AnimalTransfer>(`/transfers/${transferId}/vet-evaluate`, data),
+  getVetEvaluation: (transferId: string) =>
+    api.get<TransferVetEvaluation | null>(`/transfers/${transferId}/vet-evaluation`),
+  assignPlan: (transferId: string, data: AssignTransferPlanRequest) =>
+    api.put<AnimalTransfer>(`/transfers/${transferId}/assign-plan`, data),
+  approve: (transferId: string) =>
+    api.post<AnimalTransfer>(`/transfers/${transferId}/approve`),
+  complete: (transferId: string) =>
+    api.post<AnimalTransfer>(`/transfers/${transferId}/complete`),
+  reject: (transferId: string, data: RejectTransferRequest) =>
+    api.post<AnimalTransfer>(`/transfers/${transferId}/reject`, data),
+}
+
+// ============================================
+// 電子簽章 API（手寫簽名 / 密碼驗證）
+// ============================================
+
+export interface SignRecordRequest {
+  password?: string
+  signature_type?: string
+  handwriting_svg?: string
+  stroke_data?: object[]
+}
+
+export interface SignRecordResponse {
+  signature_id: string
+  signed_at: string
+  is_locked: boolean
+}
+
+export interface SignatureInfo {
+  id: string
+  signature_type: string
+  signer_name: string | null
+  signed_at: string
+  signature_method: string | null
+  handwriting_svg: string | null
+}
+
+export interface SignatureStatusResponse {
+  is_signed: boolean
+  is_locked: boolean
+  signatures: SignatureInfo[]
+}
+
+export const signatureApi = {
+  // 犧牲紀錄簽章
+  signSacrifice: (sacrificeId: number, data: SignRecordRequest) =>
+    api.post<SignRecordResponse>(`/signatures/sacrifice/${sacrificeId}`, data),
+  getSacrificeStatus: (sacrificeId: number) =>
+    api.get<SignatureStatusResponse>(`/signatures/sacrifice/${sacrificeId}`),
+
+  // 觀察紀錄簽章
+  signObservation: (observationId: number, data: SignRecordRequest) =>
+    api.post<SignRecordResponse>(`/signatures/observation/${observationId}`, data),
+
+  // 安樂死單據簽章
+  signEuthanasia: (orderId: string, data: SignRecordRequest) =>
+    api.post<SignRecordResponse>(`/signatures/euthanasia/${orderId}`, data),
+  getEuthanasiaStatus: (orderId: string) =>
+    api.get<SignatureStatusResponse>(`/signatures/euthanasia/${orderId}`),
+
+  // 轉讓記錄簽章
+  signTransfer: (transferId: string, data: SignRecordRequest) =>
+    api.post<SignRecordResponse>(`/signatures/transfer/${transferId}`, data),
+  getTransferStatus: (transferId: string) =>
+    api.get<SignatureStatusResponse>(`/signatures/transfer/${transferId}`),
+
+  // 計劃審查簽章
+  signProtocol: (protocolId: string, data: SignRecordRequest) =>
+    api.post<SignRecordResponse>(`/signatures/protocol/${protocolId}`, data),
+  getProtocolStatus: (protocolId: string) =>
+    api.get<SignatureStatusResponse>(`/signatures/protocol/${protocolId}`),
+}

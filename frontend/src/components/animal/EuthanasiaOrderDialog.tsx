@@ -97,7 +97,7 @@ export function EuthanasiaOrderDialog({ open, onOpenChange, animalId, earTag, ia
                     </DialogTitle>
                     <DialogDescription>
                         <span className="font-medium">耳號：{earTag}</span>
-                        {iacucNo && <span className="ml-4">IACUC NO.: {iacucNo}</span>}
+                        {iacucNo && <span className="ml-4">IACUC No.: {iacucNo}</span>}
                     </DialogDescription>
                 </DialogHeader>
 

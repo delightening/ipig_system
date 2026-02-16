@@ -1,0 +1,24 @@
+============================================================
+[Amendment 完整流程測試] 測試結果
+執行時間: 2026-02-16 14:34:09
+============================================================
+
+  [PASS] 建立已核准計畫書 — Protocol ID: 5b9e99cb...
+  [PASS] 建立 Minor Amendment — ID: 7717007d..., status=DRAFT
+  [PASS] 提交 Minor Amendment — status=SUBMITTED
+  [PASS] Minor 分類 → ADMIN_APPROVED — status=ADMIN_APPROVED
+  [PASS] 建立 Major Amendment — ID: 7fca3dd3...
+  [PASS] Major 分類 → CLASSIFIED — status=CLASSIFIED
+  [PASS] 審查委員自動指派 — 共 3 位審查員
+  [PASS] 開始審查 → UNDER_REVIEW — status=UNDER_REVIEW
+  [PASS] 審查委員全部核准 — 3/3 通過
+  [PASS] 狀態更新 → APPROVED — status=APPROVED
+  [PASS] Major 版本歷程 — 共 1 個版本
+  [PASS] 狀態歷程正確 — 共 5 筆 DRAFT → SUBMITTED → CLASSIFIED → UNDER_REVIEW → APPROVED
+  [PASS] Protocol amendments 列表 — 共 2 個 amendment
+  [PASS] Amendment 列表查詢 — 共 6 筆
+  [PASS] 依狀態篩選（APPROVED） — 共 3 筆
+  [PASS] 待處理數量 API — pending count = 0
+
+總計: 16 項 | PASS 16 | FAIL 0
+結果: ALL PASSED

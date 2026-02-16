@@ -9,6 +9,8 @@ import api, {
   AnimalVaccination,
   AnimalSacrifice,
   AnimalPathologyReport,
+  AnimalSuddenDeath,
+  transferApi,
   animalStatusNames,
   allAnimalStatusNames,
   animalBreedNames,
@@ -72,6 +74,7 @@ import {
   AlertTriangle,
   AlertOctagon,
   Droplets,
+  ArrowRightLeft,
 } from 'lucide-react'
 
 import { AnimalTimelineView } from '@/components/animal/AnimalTimelineView'
@@ -87,6 +90,7 @@ import { DeleteReasonDialog } from '@/components/ui/delete-reason-dialog'
 import { EmergencyMedicationDialog } from '@/components/animal/EmergencyMedicationDialog'
 import { EuthanasiaOrderDialog } from '@/components/animal/EuthanasiaOrderDialog'
 import { BloodTestTab } from '@/components/animal/BloodTestTab'
+import { TransferTab } from '@/components/animal/TransferTab'
 import { useAuthStore } from '@/stores/auth'
 import { useUIPreferences } from '@/stores/uiPreferences'
 
@@ -94,6 +98,9 @@ const statusColors: Record<AnimalStatus, string> = {
   unassigned: 'bg-gray-500',
   in_experiment: 'bg-orange-500',
   completed: 'bg-green-500',
+  euthanized: 'bg-red-500',
+  sudden_death: 'bg-rose-600',
+  transferred: 'bg-indigo-500',
 }
 
 // 輔助函數：判斷欄位顯示文字
@@ -104,7 +111,7 @@ const getPenLocationDisplay = (animal: { status: AnimalStatus; pen_location?: st
   return animal.pen_location || '-'
 }
 
-type TabType = 'timeline' | 'observations' | 'surgeries' | 'weights' | 'vaccinations' | 'sacrifice' | 'info' | 'pathology' | 'blood_tests'
+type TabType = 'timeline' | 'observations' | 'surgeries' | 'weights' | 'vaccinations' | 'sacrifice' | 'info' | 'pathology' | 'blood_tests' | 'transfer'
 
 export function AnimalDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -171,6 +178,16 @@ export function AnimalDetailPage() {
     refetchOnMount: true,
   })
 
+  // 資料隔離界線查詢
+  const { data: dataBoundary } = useQuery({
+    queryKey: ['animal-data-boundary', animalId],
+    queryFn: async () => {
+      const res = await transferApi.getDataBoundary(animalId)
+      return res.data
+    },
+  })
+  const afterParam = dataBoundary?.boundary ? `?after=${encodeURIComponent(dataBoundary.boundary)}` : ''
+
   // 取得已核准的試驗列表（用於「未分配」狀態下拉式選單）
   const { data: approvedProtocols } = useQuery({
     queryKey: ['approved-protocols'],
@@ -207,9 +224,9 @@ export function AnimalDetailPage() {
   })
 
   const { data: observations, error: observationsError } = useQuery({
-    queryKey: ['animal-observations', animalId],
+    queryKey: ['animal-observations', animalId, afterParam],
     queryFn: async () => {
-      const res = await api.get<AnimalObservation[]>(`/animals/${animalId}/observations`)
+      const res = await api.get<AnimalObservation[]>(`/animals/${animalId}/observations${afterParam}`)
       return res.data
     },
     enabled: activeTab === 'observations' || activeTab === 'timeline',
@@ -232,9 +249,9 @@ export function AnimalDetailPage() {
   }, [observationsError])
 
   const { data: surgeries } = useQuery({
-    queryKey: ['animal-surgeries', animalId],
+    queryKey: ['animal-surgeries', animalId, afterParam],
     queryFn: async () => {
-      const res = await api.get<AnimalSurgery[]>(`/animals/${animalId}/surgeries`)
+      const res = await api.get<AnimalSurgery[]>(`/animals/${animalId}/surgeries${afterParam}`)
       return res.data
     },
     enabled: activeTab === 'surgeries' || activeTab === 'timeline',
@@ -244,9 +261,9 @@ export function AnimalDetailPage() {
   })
 
   const { data: weights } = useQuery({
-    queryKey: ['animal-weights', animalId],
+    queryKey: ['animal-weights', animalId, afterParam],
     queryFn: async () => {
-      const res = await api.get<AnimalWeight[]>(`/animals/${animalId}/weights`)
+      const res = await api.get<AnimalWeight[]>(`/animals/${animalId}/weights${afterParam}`)
       return res.data
     },
     enabled: activeTab === 'weights' || activeTab === 'timeline',
@@ -256,9 +273,9 @@ export function AnimalDetailPage() {
   })
 
   const { data: vaccinations } = useQuery({
-    queryKey: ['animal-vaccinations', animalId],
+    queryKey: ['animal-vaccinations', animalId, afterParam],
     queryFn: async () => {
-      const res = await api.get<AnimalVaccination[]>(`/animals/${animalId}/vaccinations`)
+      const res = await api.get<AnimalVaccination[]>(`/animals/${animalId}/vaccinations${afterParam}`)
       return res.data
     },
     enabled: activeTab === 'vaccinations',
@@ -273,7 +290,26 @@ export function AnimalDetailPage() {
       const res = await api.get<AnimalSacrifice>(`/animals/${animalId}/sacrifice`)
       return res.data
     },
-    enabled: activeTab === 'sacrifice',
+    enabled: activeTab === 'sacrifice' || activeTab === 'timeline',
+  })
+
+  // 猝死記錄
+  const { data: suddenDeath } = useQuery({
+    queryKey: ['animal-sudden-death', animalId],
+    queryFn: async () => {
+      const res = await api.get<AnimalSuddenDeath>(`/animals/${animalId}/sudden-death`)
+      return res.data
+    },
+    enabled: activeTab === 'timeline',
+  })
+
+  // 轉讓紀錄
+  const { data: transfers } = useQuery({
+    queryKey: ['animal-transfers', animalId],
+    queryFn: async () => {
+      const res = await transferApi.list(animalId)
+      return res.data
+    },
   })
 
   const { data: pathology } = useQuery({
@@ -500,6 +536,10 @@ export function AnimalDetailPage() {
     { id: 'blood_tests' as const, label: '血液檢查', icon: Droplets },
     { id: 'info' as const, label: '動物資料', icon: FileText },
     { id: 'pathology' as const, label: '病理組織報告', icon: FileText },
+    // 轉讓 Tab：僅在 completed / transferred 狀態顯示
+    ...((animal.status === 'completed' || animal.status === 'transferred')
+      ? [{ id: 'transfer' as const, label: '轉讓管理', icon: ArrowRightLeft }]
+      : []),
   ]
 
   return (
@@ -564,7 +604,7 @@ export function AnimalDetailPage() {
                 </p>
               </div>
               <div>
-                <span className="text-sm text-slate-500">IACUC NO.</span>
+                <span className="text-sm text-slate-500">IACUC No.</span>
                 <p className="font-medium">{animal.iacuc_no || '未分配'}</p>
               </div>
               {animal.status !== 'unassigned' && (animal.experiment_assigned_by_name || animal.experiment_date) && (
@@ -692,6 +732,9 @@ export function AnimalDetailPage() {
             observations={observations || []}
             surgeries={surgeries || []}
             animalWeights={weights || []}
+            sacrifice={sacrifice || undefined}
+            suddenDeath={suddenDeath || undefined}
+            transfers={transfers || []}
             animal={animal}
             onView={(type, id) => {
               if (type === 'observation') setExpandedObservation(expandedObservation === id ? null : id)
@@ -1391,7 +1434,7 @@ export function AnimalDetailPage() {
                   <p className="font-medium">{animal.pre_experiment_code || '-'}</p>
                 </div>
                 <div>
-                  <Label className="text-slate-500">IACUC NO.</Label>
+                  <Label className="text-slate-500">IACUC No.</Label>
                   <p className="font-medium">{animal.iacuc_no || '-'}</p>
                 </div>
                 <div>
@@ -1423,7 +1466,16 @@ export function AnimalDetailPage() {
 
         {/* 血液檢查 Tab */}
         {activeTab === 'blood_tests' && (
-          <BloodTestTab animalId={animalId} />
+          <BloodTestTab animalId={animalId} afterParam={afterParam} />
+        )}
+
+        {/* 轉讓管理 Tab */}
+        {activeTab === 'transfer' && (
+          <TransferTab
+            animalId={animalId}
+            animalStatus={animal.status}
+            earTag={animal.ear_tag}
+          />
         )}
 
         {/* 病理組織報告 Tab */}

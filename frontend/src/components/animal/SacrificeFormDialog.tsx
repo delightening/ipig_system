@@ -1,6 +1,8 @@
 ﻿import { useState, useEffect } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import api, { AnimalSacrifice } from '@/lib/api'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import api, { AnimalSacrifice, signatureApi } from '@/lib/api'
+import type { SignatureData } from '@/components/ui/handwritten-signature-pad'
+import { HandwrittenSignaturePad } from '@/components/ui/handwritten-signature-pad'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -15,7 +17,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
-import { Loader2 } from 'lucide-react'
+import { Loader2, PenLine, CheckCircle2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 // 採樣部位選項
 const SAMPLING_OPTIONS = [
@@ -66,8 +69,12 @@ interface Props {
 }
 
 export function SacrificeFormDialog({ open, onOpenChange, animalId, earTag, sacrifice }: Props) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const isEdit = !!sacrifice
+
+  // 手寫簽名資料
+  const [signatureData, setSignatureData] = useState<SignatureData | null>(null)
 
   const defaultFormData: SacrificeFormData = {
     sacrifice_date: new Date().toISOString().split('T')[0],
@@ -186,10 +193,40 @@ export function SacrificeFormDialog({ open, onOpenChange, animalId, earTag, sacr
     },
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     mutation.mutate(formData)
   }
+
+  // 簽章 mutation（儲存後觸發）
+  const signMutation = useMutation({
+    mutationFn: async (sigData: SignatureData) => {
+      if (!sacrifice?.id) return
+      return signatureApi.signSacrifice(sacrifice.id, {
+        handwriting_svg: sigData.svg,
+        stroke_data: sigData.strokeData,
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sacrifice-signature', sacrifice?.id] })
+      toast({ title: t('signature.signed', '已簽署'), description: t('signature.signSuccess', '簽章完成') })
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('common.error', '錯誤'),
+        description: error?.response?.data?.error?.message || t('signature.signFailed', '簽章失敗'),
+        variant: 'destructive',
+      })
+    },
+  })
+
+  // 查詢簽章狀態（僅編輯模式且有 sacrifice.id 時）
+  const { data: signatureStatus } = useQuery({
+    queryKey: ['sacrifice-signature', sacrifice?.id],
+    queryFn: () => signatureApi.getSacrificeStatus(sacrifice!.id),
+    enabled: isEdit && !!sacrifice?.id,
+    select: (res) => res.data,
+  })
 
   const hasOtherSampling = formData.sampling.includes('其他')
 
@@ -321,6 +358,73 @@ export function SacrificeFormDialog({ open, onOpenChange, animalId, earTag, sacr
               }
             />
           </div>
+
+          {/* 手寫簽名區塊 */}
+          {formData.confirmed_sacrifice && (
+            <div className="space-y-3 pt-2 border-t">
+              <div className="flex items-center gap-2">
+                <PenLine className="w-4 h-4 text-primary" />
+                <Label className="text-base font-medium">
+                  {t('signature.handwriting', '手寫簽名')}
+                </Label>
+                {signatureStatus?.is_signed && (
+                  <span className="signature-status-badge signature-status-signed">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    {t('signature.signed', '已簽署')}
+                  </span>
+                )}
+              </div>
+
+              {/* 已簽章：顯示預覽 */}
+              {signatureStatus?.is_signed && signatureStatus.signatures.length > 0 ? (
+                <div className="space-y-2">
+                  {signatureStatus.signatures.map((sig) => (
+                    <div key={sig.id} className="rounded-lg border bg-green-50/50 p-3">
+                      {sig.handwriting_svg && (
+                        <div
+                          className="signature-preview-image mb-2"
+                          style={{ height: '120px' }}
+                          dangerouslySetInnerHTML={{ __html: sig.handwriting_svg }}
+                        />
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        {t('signature.signedBy', '由 {{name}} 簽署於 {{date}}', {
+                          name: sig.signer_name || '—',
+                          date: new Date(sig.signed_at).toLocaleString('zh-TW'),
+                        })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                /* 未簽章：顯示手寫簽名元件 */
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    {t('signature.signRequired', '需要簽名確認')}
+                  </p>
+                  <HandwrittenSignaturePad
+                    onSignatureChange={setSignatureData}
+                    height={180}
+                    disabled={signatureStatus?.is_locked}
+                  />
+                  {/* 獨立簽章按鈕（僅編輯模式且有 sacrifice.id） */}
+                  {isEdit && sacrifice?.id && signatureData && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="bg-primary hover:bg-primary/90"
+                      disabled={signMutation.isPending}
+                      onClick={() => signMutation.mutate(signatureData)}
+                    >
+                      {signMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                      <CheckCircle2 className="w-4 h-4 mr-1" />
+                      {t('signature.confirmSign', '確認簽署')}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 上傳照片 */}
           <div className="space-y-2">

@@ -1292,9 +1292,9 @@
             "unassigned": "Unassigned",
             "in_experiment": "In Experiment",
             "completed": "Completed",
-            "assigned": "Assigned",
-            "transferred": "Transferred",
-            "deceased": "Deceased"
+            "euthanized": "Euthanized",
+            "sudden_death": "Sudden Death",
+            "transferred": "Transferred"
         },
         "breedLabels": {
             "minipig": "Mini Pig",
@@ -1369,5 +1369,19 @@
         "noDataFiltered": "No amendment requests match the selected status",
         "emptyHint": "You can submit an amendment request for an approved protocol",
         "filterHint": "Try selecting a different status filter"
+    },
+    "signature": {
+        "handwriting": "Handwritten Signature",
+        "signHere": "Sign here",
+        "clear": "Clear",
+        "undo": "Undo",
+        "confirmSign": "Confirm Sign",
+        "signed": "Signed",
+        "signedBy": "Signed by {{name}} at {{date}}",
+        "notSigned": "Not Signed",
+        "signRequired": "Signature required",
+        "signSuccess": "Signature completed",
+        "signFailed": "Signature failed",
+        "resignBtn": "Re-sign"
     }
 }

@@ -4,6 +4,7 @@ use axum::{
     extract::{Path, State},
     Extension, Json,
 };
+use sqlx;
 use uuid::Uuid;
 
 use crate::{
@@ -38,6 +39,20 @@ pub async fn upsert_animal_sacrifice(
     require_permission!(current_user, "animal.record.create");
     
     let sacrifice = AnimalService::upsert_sacrifice(&state.db, animal_id, &req, current_user.id).await?;
+
+    // 犧牲確認時自動將動物狀態設為 euthanized
+    if req.confirmed_sacrifice {
+        // 檢查動物當前狀態是否可轉換
+        let current_animal = AnimalService::get_by_id(&state.db, animal_id).await?;
+        if !current_animal.status.is_terminal() {
+            if current_animal.status.can_transition_to(crate::models::AnimalStatus::Euthanized) {
+                sqlx::query("UPDATE animals SET status = 'euthanized', updated_at = NOW() WHERE id = $1")
+                    .bind(animal_id)
+                    .execute(&state.db)
+                    .await?;
+            }
+        }
+    }
 
     // 取得動物資訊用於日誌顯示
     let method = {

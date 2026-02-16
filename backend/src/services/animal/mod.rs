@@ -17,6 +17,7 @@ mod medical;
 mod observation;
 mod source;
 mod surgery;
+mod transfer;
 mod weight;
 
 pub struct AnimalService;

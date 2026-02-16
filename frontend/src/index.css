@@ -24,15 +24,21 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 217.2 91.2% 59.8%;
     --radius: 0.5rem;
-    
+
     /* SKU Segment Colors */
-    --sku-name: 263 70% 50%;    /* 紫色 - 名稱 */
-    --sku-spec: 187 91% 43%;    /* 青色 - 規格 */
-    --sku-unit: 38 92% 50%;     /* 琥珀色 - 單位 */
-    --sku-date: 160 84% 39%;    /* 翠綠色 - 日期 */
-    --sku-seq: 239 84% 67%;     /* 靛藍色 - 序號 */
-    --sku-chk: 330 81% 60%;     /* 粉紅色 - 檢查碼 */
-    
+    --sku-name: 263 70% 50%;
+    /* 紫色 - 名稱 */
+    --sku-spec: 187 91% 43%;
+    /* 青色 - 規格 */
+    --sku-unit: 38 92% 50%;
+    /* 琥珀色 - 單位 */
+    --sku-date: 160 84% 39%;
+    /* 翠綠色 - 日期 */
+    --sku-seq: 239 84% 67%;
+    /* 靛藍色 - 序號 */
+    --sku-chk: 330 81% 60%;
+    /* 粉紅色 - 檢查碼 */
+
     /* Success color */
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
@@ -58,7 +64,7 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 224.3 76.3% 48%;
-    
+
     /* SKU Segment Colors (Dark) */
     --sku-name: 263 70% 65%;
     --sku-spec: 187 91% 55%;
@@ -66,7 +72,7 @@
     --sku-date: 160 84% 50%;
     --sku-seq: 239 84% 75%;
     --sku-chk: 330 81% 70%;
-    
+
     --success: 142 76% 46%;
     --success-foreground: 0 0% 100%;
   }
@@ -76,6 +82,7 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
@@ -105,6 +112,7 @@
   0% {
     transform: translateX(-100%);
   }
+
   100% {
     transform: translateX(100%);
   }
@@ -120,6 +128,7 @@
     opacity: 0;
     transform: translateY(8px);
   }
+
   100% {
     opacity: 1;
     transform: translateY(0);
@@ -130,30 +139,43 @@
   0% {
     background-color: hsl(var(--primary) / 0.3);
   }
+
   100% {
     background-color: transparent;
   }
 }
 
 @keyframes skeleton-pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.5;
   }
 }
 
 @keyframes success-bounce {
-  0% { transform: scale(0); }
-  50% { transform: scale(1.2); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(0);
+  }
+
+  50% {
+    transform: scale(1.2);
+  }
+
+  100% {
+    transform: scale(1);
+  }
 }
 
 @keyframes draw-check {
   0% {
     stroke-dashoffset: 48;
   }
+
   100% {
     stroke-dashoffset: 0;
   }
@@ -164,6 +186,7 @@
     opacity: 0;
     transform: translateX(20px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -175,6 +198,7 @@
     opacity: 1;
     transform: translateX(0);
   }
+
   to {
     opacity: 0;
     transform: translateX(-20px);
@@ -182,18 +206,32 @@
 }
 
 @keyframes blink-caret {
-  0%, 50% {
+
+  0%,
+  50% {
     border-right-color: currentColor;
   }
-  50.1%, 100% {
+
+  50.1%,
+  100% {
     border-right-color: transparent;
   }
 }
 
 @keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-4px); }
-  75% { transform: translateX(4px); }
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-4px);
+  }
+
+  75% {
+    transform: translateX(4px);
+  }
 }
 
 .animate-segment-fill {
@@ -296,6 +334,7 @@
 .page-title {
   @apply text-xl font-bold tracking-tight;
 }
+
 @media (min-width: 768px) {
   .page-title {
     @apply text-2xl;
@@ -311,6 +350,7 @@
 .filter-row {
   @apply flex flex-col gap-3;
 }
+
 @media (min-width: 768px) {
   .filter-row {
     @apply flex-row items-center gap-4;
@@ -321,6 +361,78 @@
 .hide-mobile {
   @apply hidden md:block;
 }
+
 .hide-desktop {
   @apply md:hidden;
+}
+
+/* ==================== */
+/* 手寫簽名元件 (Handwritten Signature Pad) */
+/* ==================== */
+
+.signature-pad-container {
+  @apply w-full;
+}
+
+.signature-canvas-wrapper {
+  @apply relative rounded-lg border-2 border-dashed border-gray-300 bg-gray-50/50 overflow-hidden;
+  transition: border-color 0.2s ease;
+  touch-action: none;
+  /* 阻止行動端滑動手勢 */
+}
+
+.signature-canvas-wrapper:hover {
+  @apply border-primary/50;
+}
+
+.signature-canvas {
+  @apply w-full h-full cursor-crosshair;
+  touch-action: none;
+}
+
+.signature-canvas-disabled {
+  @apply cursor-not-allowed opacity-60;
+}
+
+/* 簽名基線 */
+.signature-line {
+  @apply absolute left-4 right-4 border-b border-gray-300/60;
+  bottom: 30%;
+  pointer-events: none;
+}
+
+/* 空白狀態提示文字 */
+.signature-placeholder {
+  @apply absolute inset-0 flex items-center justify-center text-gray-400 text-sm pointer-events-none select-none;
+}
+
+/* 控制按鈕列 */
+.signature-controls {
+  @apply flex gap-2 mt-2 justify-end;
+}
+
+/* 已簽名預覽 */
+.signature-preview {
+  @apply w-full;
+}
+
+.signature-preview-image {
+  @apply rounded-lg border border-green-200 bg-green-50/30 p-2 flex items-center justify-center;
+}
+
+.signature-preview-image svg {
+  @apply max-w-full max-h-full;
+}
+
+/* 簽章狀態徽章 */
+.signature-status-badge {
+  @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium;
+}
+
+.signature-status-signed {
+  @apply bg-green-100 text-green-800;
+}
+
+.signature-status-unsigned {
+  @apply bg-amber-100 text-amber-800;
 }

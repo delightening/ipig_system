@@ -2,15 +2,21 @@
 快速操作日誌驗證腳本 - 查詢 admin/audit API 確認測試活動是否被正確記錄
 """
 import sys
+import os
 import json
 import requests
+from dotenv import load_dotenv
 
 sys.stdout.reconfigure(encoding="utf-8")
+load_dotenv()
 
-API = "http://localhost:8000/api"
+API = os.getenv("API_BASE_URL", "http://localhost:8000/api")
 
-# Login as admin
-r = requests.post(f"{API}/auth/login", json={"email": "jason4617987@gmail.com", "password": "kfknxJH6AjSvJh6?"})
+# Login as admin（從環境變數讀取帳密）
+r = requests.post(f"{API}/auth/login", json={
+    "email": os.getenv("TEST_ADMIN_EMAIL", ""),
+    "password": os.getenv("TEST_ADMIN_PASSWORD", ""),
+})
 if r.status_code != 200:
     print(f"Admin login failed: {r.status_code}")
     sys.exit(1)

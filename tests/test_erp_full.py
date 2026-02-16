@@ -20,19 +20,19 @@ import os
 from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from test_base import BaseApiTester, API_BASE_URL
+from test_base import BaseApiTester, API_BASE_URL, TEST_USER_PASSWORD
 
 # 測試帳號設定
 ERP_TEST_USERS = {
     "WAREHOUSE_MANAGER": {
         "email": "wm_int_test@example.com",
-        "password": "password123",
+        "password": TEST_USER_PASSWORD,
         "display_name": "倉庫管理員 (整合測試)",
         "role_codes": ["WAREHOUSE_MANAGER"],
     },
     "ADMIN_STAFF": {
         "email": "as_int_test@example.com",
-        "password": "password123",
+        "password": TEST_USER_PASSWORD,
         "display_name": "行政人員 (整合測試)",
         "role_codes": ["ADMIN_STAFF"],
     },

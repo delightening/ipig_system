@@ -265,7 +265,9 @@ export interface ProtocolWorkingContent {
         }>
     }>
     attachments: FileInfo[] // Section 9 - PDF附件
-    signature: FileInfo[] // Section 10 - 電子簽名
+    signature: FileInfo[] // Section 10 - 電子簽名（上傳模式）
+    handwriting_svg?: string // Section 10 - 手寫簽名 SVG
+    stroke_data?: object[] // Section 10 - 手寫筆跡資料
 }
 
 export interface ProtocolFormData {

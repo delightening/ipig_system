@@ -3,7 +3,7 @@
  */
 
 // 基本列舉
-export type AnimalStatus = 'unassigned' | 'in_experiment' | 'completed'
+export type AnimalStatus = 'unassigned' | 'in_experiment' | 'completed' | 'euthanized' | 'sudden_death' | 'transferred'
 export type AnimalBreed = 'minipig' | 'white' | 'lyd' | 'other'
 export type AnimalGender = 'male' | 'female'
 export type RecordType = 'abnormal' | 'experiment' | 'observation'
@@ -13,6 +13,9 @@ export const animalStatusNames: Record<AnimalStatus, string> = {
     unassigned: '未分配',
     in_experiment: '實驗中',
     completed: '實驗完成',
+    euthanized: '已安樂死',
+    sudden_death: '猝死',
+    transferred: '已轉讓',
 }
 
 // 全部狀態名稱（保留向後相容性）
@@ -20,6 +23,9 @@ export const allAnimalStatusNames: Record<AnimalStatus, string> = {
     unassigned: '未分配',
     in_experiment: '實驗中',
     completed: '實驗完成',
+    euthanized: '已安樂死',
+    sudden_death: '猝死',
+    transferred: '已轉讓',
 }
 
 export const animalBreedNames: Record<AnimalBreed, string> = {
@@ -205,6 +211,20 @@ export interface AnimalPathologyReport {
     created_by_name?: string
     created_at: string
     updated_at: string
+}
+
+// 猝死記錄
+export interface AnimalSuddenDeath {
+    id: string
+    animal_id: string
+    discovered_at: string
+    discovered_by: string
+    probable_cause?: string
+    iacuc_no?: string
+    location?: string
+    remark?: string
+    requires_pathology: boolean
+    created_at: string
 }
 
 // 獸醫建議
@@ -407,4 +427,65 @@ export interface BloodTestAnalysisRow {
     result_unit?: string
     reference_range?: string
     is_abnormal: boolean
+}
+
+// ============================================
+// 轉讓流程
+// ============================================
+
+export type AnimalTransferStatus = 'pending' | 'vet_evaluated' | 'plan_assigned' | 'pi_approved' | 'completed' | 'rejected'
+
+export const transferStatusNames: Record<AnimalTransferStatus, string> = {
+    pending: '待審',
+    vet_evaluated: '獸醫已評估',
+    plan_assigned: '已指定新計劃',
+    pi_approved: 'PI 已同意',
+    completed: '轉讓完成',
+    rejected: '已拒絕',
+}
+
+export interface AnimalTransfer {
+    id: string
+    animal_id: string
+    from_iacuc_no: string
+    to_iacuc_no?: string
+    status: AnimalTransferStatus
+    initiated_by: string
+    reason: string
+    remark?: string
+    rejected_by?: string
+    rejected_reason?: string
+    completed_at?: string
+    created_at: string
+    updated_at: string
+}
+
+export interface TransferVetEvaluation {
+    id: string
+    transfer_id: string
+    vet_id: string
+    health_status: string
+    is_fit_for_transfer: boolean
+    conditions?: string
+    evaluated_at: string
+}
+
+// 轉讓 DTO
+export interface CreateTransferRequest {
+    reason: string
+    remark?: string
+}
+
+export interface VetEvaluateTransferRequest {
+    health_status: string
+    is_fit_for_transfer: boolean
+    conditions?: string
+}
+
+export interface AssignTransferPlanRequest {
+    to_iacuc_no: string
+}
+
+export interface RejectTransferRequest {
+    reason: string
 }

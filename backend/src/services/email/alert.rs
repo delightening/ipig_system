@@ -55,7 +55,7 @@ impl EmailService {
             <p>獸醫師已對以下動物新增照護建議，請查閱並執行。</p>
             <div class="info-box">
                 <p><strong>耳號：</strong> {ear_tag}</p>
-                <p><strong>IACUC NO.：</strong> {iacuc_no}</p>
+                <p><strong>IACUC No.：</strong> {iacuc_no}</p>
                 <p><strong>紀錄類型：</strong> {record_type}</p>
             </div>
             <div class="recommendation">
@@ -90,7 +90,7 @@ impl EmailService {
 
 【動物資訊】
 耳號：{ear_tag}
-IACUC NO.：{iacuc_no}
+IACUC No.：{iacuc_no}
 紀錄類型：{record_type}
 
 【建議內容】
@@ -302,7 +302,7 @@ IACUC NO.：{iacuc_no}
             <p class="urgent">您的計畫下的動物已被獸醫師開立安樂死單，請儘速處理。</p>
             <div class="info-box">
                 <p><strong>耳號：</strong> {ear_tag}</p>
-                <p><strong>IACUC NO.：</strong> {iacuc_no}</p>
+                <p><strong>IACUC No.：</strong> {iacuc_no}</p>
                 <p><strong>開單獸醫：</strong> {vet_name}</p>
                 <p><strong>安樂死原因：</strong> {reason}</p>
             </div>
@@ -340,7 +340,7 @@ IACUC NO.：{iacuc_no}
 
 【動物資訊】
 耳號：{ear_tag}
-IACUC NO.：{iacuc_no}
+IACUC No.：{iacuc_no}
 開單獸醫：{vet_name}
 安樂死原因：{reason}
 

@@ -1,7 +1,7 @@
 ﻿// 手術記錄管理 Handlers
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Extension, Json,
 };
 use uuid::Uuid;
@@ -11,7 +11,7 @@ use crate::{
     middleware::CurrentUser,
     models::{
         CopyRecordRequest, CreateSurgeryRequest, DeleteRequest, AnimalSurgery, SurgeryListItem,
-        UpdateSurgeryRequest, VersionHistoryResponse,
+        UpdateSurgeryRequest, VersionHistoryResponse, RecordFilterQuery,
     },
     require_permission,
     services::{AnimalService, AuditService},
@@ -23,18 +23,19 @@ pub async fn list_animal_surgeries(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(animal_id): Path<Uuid>,
+    Query(filter): Query<RecordFilterQuery>,
 ) -> Result<Json<Vec<AnimalSurgery>>> {
-    let surgeries = AnimalService::list_surgeries(&state.db, animal_id).await?;
+    let surgeries = AnimalService::list_surgeries(&state.db, animal_id, filter.after).await?;
     Ok(Json(surgeries))
 }
-
 /// 列出動物的手術記錄（包含獸醫建議）
 pub async fn list_animal_surgeries_with_recommendations(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
     Path(animal_id): Path<Uuid>,
+    Query(filter): Query<RecordFilterQuery>,
 ) -> Result<Json<Vec<SurgeryListItem>>> {
-    let surgeries = AnimalService::list_surgeries_with_recommendations(&state.db, animal_id).await?;
+    let surgeries = AnimalService::list_surgeries_with_recommendations(&state.db, animal_id, filter.after).await?;
     Ok(Json(surgeries))
 }
 

@@ -159,7 +159,7 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
           {/* 計畫選擇（批次匯出時） */}
           {type === 'batch_project' && (
             <div className="space-y-2">
-              <Label>選擇計畫 (IACUC NO.) *</Label>
+              <Label>選擇計畫 (IACUC No.) *</Label>
               <Select value={selectedProject} onValueChange={setSelectedProject}>
                 <SelectTrigger>
                   <SelectValue placeholder="選擇要匯出的計畫" />

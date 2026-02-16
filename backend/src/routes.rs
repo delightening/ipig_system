@@ -139,6 +139,18 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/vaccinations/:id", put(handlers::update_animal_vaccination).delete(handlers::delete_animal_vaccination))
         // Animal Records - Sacrifice
         .route("/animals/:id/sacrifice", get(handlers::get_animal_sacrifice).post(handlers::upsert_animal_sacrifice))
+        // Animal Records - Sudden Death (猝死)
+        .route("/animals/:id/sudden-death", get(handlers::get_animal_sudden_death).post(handlers::create_animal_sudden_death))
+        // Animal Transfers (轉讓)
+        .route("/animals/:id/data-boundary", get(handlers::get_animal_data_boundary))
+        .route("/animals/:id/transfers", get(handlers::list_animal_transfers).post(handlers::initiate_transfer))
+        .route("/transfers/:id", get(handlers::get_transfer))
+        .route("/transfers/:id/vet-evaluate", post(handlers::vet_evaluate_transfer))
+        .route("/transfers/:id/vet-evaluation", get(handlers::get_transfer_vet_evaluation))
+        .route("/transfers/:id/assign-plan", put(handlers::assign_transfer_plan))
+        .route("/transfers/:id/approve", post(handlers::approve_transfer))
+        .route("/transfers/:id/complete", post(handlers::complete_transfer))
+        .route("/transfers/:id/reject", post(handlers::reject_transfer))
         // Animal Records - Pathology
         .route("/animals/:id/pathology", get(handlers::get_animal_pathology_report).post(handlers::upsert_animal_pathology_report))
         // Animal Records - Blood Tests (血液檢查)
@@ -290,6 +302,9 @@ pub fn api_routes(state: AppState) -> Router {
         // ============================================
         .route("/signatures/sacrifice/:id", post(handlers::sign_sacrifice_record).get(handlers::get_sacrifice_signature_status))
         .route("/signatures/observation/:id", post(handlers::sign_observation_record))
+        .route("/signatures/euthanasia/:id", post(handlers::sign_euthanasia_order).get(handlers::get_euthanasia_signature_status))
+        .route("/signatures/transfer/:id", post(handlers::sign_transfer_record).get(handlers::get_transfer_signature_status))
+        .route("/signatures/protocol/:id", post(handlers::sign_protocol_review).get(handlers::get_protocol_signature_status))
         .route("/annotations/:record_type/:record_id", get(handlers::get_record_annotations).post(handlers::add_record_annotation))
         // ============================================
         // Euthanasia Orders (安樂死管理)

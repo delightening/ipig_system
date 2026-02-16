@@ -170,6 +170,51 @@ pub struct AnimalSacrifice {
     pub updated_at: DateTime<Utc>,
 }
 
+/// 猝死記錄
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct AnimalSuddenDeath {
+    pub id: Uuid,
+    pub animal_id: Uuid,
+    pub discovered_at: DateTime<Utc>,
+    pub discovered_by: Uuid,
+    pub probable_cause: Option<String>,
+    pub iacuc_no: Option<String>,
+    pub location: Option<String>,
+    pub remark: Option<String>,
+    pub requires_pathology: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+/// 動物轉讓記錄
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct AnimalTransfer {
+    pub id: Uuid,
+    pub animal_id: Uuid,
+    pub from_iacuc_no: String,
+    pub to_iacuc_no: Option<String>,
+    pub status: super::AnimalTransferStatus,
+    pub initiated_by: Uuid,
+    pub reason: String,
+    pub remark: Option<String>,
+    pub rejected_by: Option<Uuid>,
+    pub rejected_reason: Option<String>,
+    pub completed_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// 轉讓獸醫評估記錄
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct TransferVetEvaluation {
+    pub id: Uuid,
+    pub transfer_id: Uuid,
+    pub vet_id: Uuid,
+    pub health_status: String,
+    pub is_fit_for_transfer: bool,
+    pub conditions: Option<String>,
+    pub evaluated_at: DateTime<Utc>,
+}
+
 /// 病理組織報告
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct AnimalPathologyReport {

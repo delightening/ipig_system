@@ -71,6 +71,9 @@ const statusColors: Record<AnimalStatus, string> = {
   unassigned: 'bg-gray-100 text-gray-800',
   in_experiment: 'bg-orange-100 text-orange-800',
   completed: 'bg-green-100 text-green-800',
+  euthanized: 'bg-red-100 text-red-800',
+  sudden_death: 'bg-rose-100 text-rose-800',
+  transferred: 'bg-indigo-100 text-indigo-800',
 }
 
 const getPenLocationDisplay = (animal: { status: AnimalStatus; pen_location?: string | null }, t: any) => {
@@ -131,8 +134,8 @@ export function AnimalsPage() {
   // PI/CLIENT can only see: in_experiment, completed
   // Other users can see: pen, unassigned, in_experiment, completed
   const allowedStatuses = isPIOrClient
-    ? ['in_experiment', 'completed']
-    : ['pen', 'unassigned', 'in_experiment', 'completed', 'all']
+    ? ['in_experiment', 'completed', 'euthanized', 'sudden_death', 'transferred']
+    : ['pen', 'unassigned', 'in_experiment', 'completed', 'euthanized', 'sudden_death', 'transferred', 'all']
   const urlStatus = searchParams.get('status')
   // Default: PI/CLIENT -> 'in_experiment', others -> 'pen'
   const defaultStatus = isPIOrClient ? 'in_experiment' : 'pen'
@@ -745,12 +748,15 @@ export function AnimalsPage() {
           { value: 'unassigned', label: t('animals.statusLabels.unassigned'), count: statusCounts['unassigned'] || 0 },
           { value: 'in_experiment', label: t('animals.statusLabels.in_experiment'), count: statusCounts['in_experiment'] || 0 },
           { value: 'completed', label: t('animals.statusLabels.completed'), count: statusCounts['completed'] || 0 },
+          { value: 'euthanized', label: t('animals.statusLabels.euthanized'), count: statusCounts['euthanized'] || 0 },
+          { value: 'sudden_death', label: t('animals.statusLabels.sudden_death'), count: statusCounts['sudden_death'] || 0 },
+          { value: 'transferred', label: t('animals.statusLabels.transferred'), count: statusCounts['transferred'] || 0 },
           { value: 'all', label: t('animals.statusLabels.all'), count: allAnimals.length },
         ]
           .filter(tab => {
-            // PI and CLIENT can only see: 實驗中, 實驗完成
+            // PI and CLIENT can only see: 實驗中, 實驗完成, 已安樂死, 猝死
             if (isPIOrClient) {
-              return ['in_experiment', 'completed'].includes(tab.value)
+              return ['in_experiment', 'completed', 'euthanized', 'sudden_death', 'transferred'].includes(tab.value)
             }
             return true
           })
@@ -1019,7 +1025,7 @@ export function AnimalsPage() {
                 const cellColors = penZoneColors[penLocation.charAt(0)] || colors
                 const isEditing = editingPenLocation === penLocation
 
-                if (animals.length === 0) {
+                if (penAnimals.length === 0) {
                   const handleSubmit = () => {
                     if (editingEarTag.trim()) {
                       quickMoveMutation.mutate({
@@ -1082,7 +1088,7 @@ export function AnimalsPage() {
                   )
                 }
 
-                return animals.map((animal, animalIdx) => (
+                return penAnimals.map((animal, animalIdx) => (
                   <div key={animal.id} className={`grid grid-cols-5 gap-1 px-3 py-2 items-center text-sm ${animalIdx > 0 ? 'border-t border-dashed border-slate-200' : ''}`}>
                     <div className={`font-semibold ${cellColors.text}`}>{animalIdx === 0 ? penLocation : ''}</div>
                     <div className={`font-medium ${cellColors.text} truncate`} title={animal.ear_tag}>{animal.ear_tag}</div>

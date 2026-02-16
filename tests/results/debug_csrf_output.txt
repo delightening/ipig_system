@@ -1,0 +1,21 @@
+﻿=== Admin Login ===
+  Status: 200
+  [after login] csrf_token = None
+
+=== GET /roles ===
+  Status: 200
+  [after GET /roles] csrf_token = 9f592256-3833-43ea-b360-6faf98ea18b7
+
+=== Create User 1 ===
+  Status: 409 - {"error":{"blocking":true,"code":409,"message":"Email already exists"}}
+  [after create user 1] csrf_token = a00e593d-743a-4149-afb9-c2b307a3be2c
+
+=== Create User 2 ===
+  Using csrf: a00e593d-743a-4149-afb9-c2b307a3be2c
+  Status: 409 - {"error":{"blocking":true,"code":409,"message":"Email already exists"}}
+  [after create user 2] csrf_token = df844352-013e-4dcc-ba6f-ad004b5aa96d
+
+=== Create User 3 ===
+  Using csrf: df844352-013e-4dcc-ba6f-ad004b5aa96d
+  Status: 409 - {"error":{"blocking":true,"code":409,"message":"Email already exists"}}
+  [after create user 3] csrf_token = aa9c7d90-1e8a-4de2-9cf1-56ca27d8e3f8

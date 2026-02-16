@@ -26,27 +26,27 @@ import time
 from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from test_base import BaseApiTester, API_BASE_URL
+from test_base import BaseApiTester, API_BASE_URL, ADMIN_CREDENTIALS, TEST_USER_PASSWORD
 
 # ============================================
 # 測試帳號設定
 # ============================================
 TEST_USERS = {
     "ADMIN": {
-        "email": "jason4617987@gmail.com",
-        "password": "kfknxJH6AjSvJh6?",
+        "email": ADMIN_CREDENTIALS["email"],
+        "password": ADMIN_CREDENTIALS["password"],
         "display_name": "系統管理員",
         "role_codes": ["ADMIN"],
     },
     "VET": {
         "email": "vet_blood_test@example.com",
-        "password": "password123",
+        "password": TEST_USER_PASSWORD,
         "display_name": "獸醫師 (血液檢查測試)",
         "role_codes": ["VET"],
     },
     "EXPERIMENT_STAFF": {
         "email": "exp_blood_test@example.com",
-        "password": "password123",
+        "password": TEST_USER_PASSWORD,
         "display_name": "試驗工作人員 (血液檢查測試)",
         "role_codes": ["EXPERIMENT_STAFF"],
     },

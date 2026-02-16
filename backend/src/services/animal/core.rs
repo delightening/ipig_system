@@ -246,12 +246,13 @@ impl AnimalService {
             ));
         }
 
-        // 檢查耳號是否已存在（僅查未刪除且存活的動物，排除已犧牲 completed）
+        // 檢查耳號是否已存在（僅查未刪除且存活的動物，排除終態：euthanized/sudden_death）
         let existing_animals: Vec<(Uuid, Option<chrono::NaiveDate>, String, Option<String>)> = sqlx::query_as(
             r#"
             SELECT id, birth_date, status::text, pen_location
             FROM animals
-            WHERE ear_tag = $1 AND deleted_at IS NULL AND status != 'completed'
+            WHERE ear_tag = $1 AND deleted_at IS NULL 
+            AND status NOT IN ('euthanized', 'sudden_death')
             "#
         )
         .bind(&formatted_ear_tag)
@@ -357,6 +358,47 @@ impl AnimalService {
 
     /// 更新動物
     pub async fn update(pool: &PgPool, id: Uuid, req: &UpdateAnimalRequest, updated_by: Uuid) -> Result<Animal> {
+        // 狀態轉換驗證
+        if let Some(new_status) = req.status {
+            let current: (AnimalStatus,) = sqlx::query_as(
+                "SELECT status as \"status: AnimalStatus\" FROM animals WHERE id = $1 AND deleted_at IS NULL"
+            )
+            .bind(id)
+            .fetch_optional(pool)
+            .await?
+            .ok_or_else(|| AppError::NotFound("動物不存在".to_string()))?;
+
+            let current_status = current.0;
+            if current_status != new_status && !current_status.can_transition_to(new_status) {
+                return Err(AppError::BadRequest(
+                    format!("無法從「{}」轉換到「{}」", current_status.display_name(), new_status.display_name())
+                ));
+            }
+
+            // 轉到 InExperiment 時必須有 iacuc_no
+            if new_status == AnimalStatus::InExperiment && req.iacuc_no.is_none() {
+                // 檢查動物是否已有 iacuc_no（轉讓場景）
+                let has_iacuc: (Option<String>,) = sqlx::query_as(
+                    "SELECT iacuc_no FROM animals WHERE id = $1"
+                )
+                .bind(id)
+                .fetch_one(pool)
+                .await?;
+                if has_iacuc.0.is_none() {
+                    return Err(AppError::BadRequest(
+                        "分配實驗需要指定 IACUC No.".to_string()
+                    ));
+                }
+            }
+
+            // 轉讓（completed → transferred）需透過 transfer API
+            if current_status == AnimalStatus::Completed && new_status == AnimalStatus::Transferred {
+                return Err(AppError::BadRequest(
+                    "動物轉讓請使用轉讓 API".to_string()
+                ));
+            }
+        }
+
         // 以下欄位於建立後不可更改，不會在更新時修改：
         // - ear_tag (耳號)
         // - breed (品種)

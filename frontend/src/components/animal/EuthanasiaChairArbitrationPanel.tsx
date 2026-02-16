@@ -227,7 +227,7 @@ export function EuthanasiaChairArbitrationPanel() {
                             {selectedAppeal && (
                                 <>
                                     耳號：{selectedAppeal.animal_ear_tag}
-                                    {selectedAppeal.animal_iacuc_no && ` | IACUC NO.: ${selectedAppeal.animal_iacuc_no}`}
+                                    {selectedAppeal.animal_iacuc_no && ` | IACUC No.: ${selectedAppeal.animal_iacuc_no}`}
                                 </>
                             )}
                         </DialogDescription>

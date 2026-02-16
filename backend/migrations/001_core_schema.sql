@@ -45,7 +45,7 @@ CREATE TYPE protocol_status AS ENUM (
 );
 
 -- 動物管理相關類型
-CREATE TYPE animal_status AS ENUM ('unassigned', 'in_experiment', 'completed');
+CREATE TYPE animal_status AS ENUM ('unassigned', 'in_experiment', 'completed', 'euthanized', 'sudden_death', 'transferred');
 CREATE TYPE animal_breed AS ENUM ('miniature', 'white', 'LYD', 'other');
 CREATE TYPE animal_gender AS ENUM ('male', 'female');
 CREATE TYPE record_type AS ENUM ('abnormal', 'experiment', 'observation');

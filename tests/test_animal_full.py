@@ -26,19 +26,19 @@ import random
 from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from test_base import BaseApiTester, API_BASE_URL
+from test_base import BaseApiTester, API_BASE_URL, TEST_USER_PASSWORD
 
 # 測試帳號設定
 ANIMAL_TEST_USERS = {
     "VET": {
         "email": "vet_animal_int@example.com",
-        "password": "password123",
+        "password": TEST_USER_PASSWORD,
         "display_name": "獸醫師 (動物整合測試)",
         "role_codes": ["VET"],
     },
     "EXPERIMENT_STAFF": {
         "email": "exp_animal_int@example.com",
-        "password": "password123",
+        "password": TEST_USER_PASSWORD,
         "display_name": "試驗工作人員 (動物整合測試)",
         "role_codes": ["EXPERIMENT_STAFF"],
     },

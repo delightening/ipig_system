@@ -11,6 +11,8 @@ mod vet_recommendation;
 mod import_export;
 mod blood_test;
 mod dashboard;
+mod sudden_death;
+mod transfer;
 
 pub use animal_core::*;
 pub use source::*;
@@ -22,6 +24,8 @@ pub use vet_recommendation::*;
 pub use import_export::*;
 pub use blood_test::*;
 pub use dashboard::*;
+pub use sudden_death::*;
+pub use transfer::*;
 
 // 通知用輔助函式（供 vet_recommendation 子模組使用）
 use sqlx::PgPool;

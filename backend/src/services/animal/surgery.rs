@@ -1,4 +1,5 @@
-﻿use sqlx::PgPool;
+﻿use chrono::{DateTime, Utc};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::AnimalService;
@@ -13,20 +14,21 @@ impl AnimalService {
     // 手術紀錄
     // ============================================
 
-    /// 取得手術紀錄列表（排除已刪除）
-    pub async fn list_surgeries(pool: &PgPool, animal_id: Uuid) -> Result<Vec<AnimalSurgery>> {
+    /// 取得手術紀錄列表（排除已刪除，支援資料隔離）
+    pub async fn list_surgeries(pool: &PgPool, animal_id: Uuid, after: Option<DateTime<Utc>>) -> Result<Vec<AnimalSurgery>> {
         let surgeries = sqlx::query_as::<_, AnimalSurgery>(
-            "SELECT * FROM animal_surgeries WHERE animal_id = $1 ORDER BY surgery_date DESC"
+            "SELECT * FROM animal_surgeries WHERE animal_id = $1 AND ($2::timestamptz IS NULL OR created_at > $2) ORDER BY surgery_date DESC"
         )
         .bind(animal_id)
+        .bind(after)
         .fetch_all(pool)
         .await?;
 
         Ok(surgeries)
     }
 
-    /// 取得手術紀錄列表（含獸醫師建議數量）
-    pub async fn list_surgeries_with_recommendations(pool: &PgPool, animal_id: Uuid) -> Result<Vec<SurgeryListItem>> {
+    /// 取得手術紀錄列表（含獸醫師建議數量，支援資料隔離）
+    pub async fn list_surgeries_with_recommendations(pool: &PgPool, animal_id: Uuid, after: Option<DateTime<Utc>>) -> Result<Vec<SurgeryListItem>> {
         let surgeries = sqlx::query_as::<_, SurgeryListItem>(
             r#"
             SELECT 
@@ -35,11 +37,12 @@ impl AnimalService {
                 s.created_by, s.created_at,
                 (SELECT COUNT(*) FROM vet_recommendations vr WHERE vr.record_type = 'surgery' AND vr.record_id = s.id) as recommendation_count
             FROM animal_surgeries s
-            WHERE s.animal_id = $1
+            WHERE s.animal_id = $1 AND ($2::timestamptz IS NULL OR s.created_at > $2)
             ORDER BY s.surgery_date DESC
             "#
         )
         .bind(animal_id)
+        .bind(after)
         .fetch_all(pool)
         .await?;
 
