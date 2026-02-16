@@ -87,7 +87,7 @@ impl RateLimiterState {
     }
 }
 
-/// 認證端點速率限制中間件（嚴格：每分鐘 10 次）
+/// 認證端點速率限制中間件（嚴格：每分鐘 30 次）
 pub async fn auth_rate_limit_middleware(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     request: Request<Body>,
@@ -98,7 +98,7 @@ pub async fn auth_rate_limit_middleware(
     static AUTH_LIMITER: OnceLock<RateLimiterState> = OnceLock::new();
     let limiter = AUTH_LIMITER.get_or_init(|| {
         RateLimiterState::new(RateLimiterConfig {
-            max_requests: 10,
+            max_requests: 30,
             window: Duration::from_secs(60),
         })
     });

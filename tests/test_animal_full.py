@@ -376,10 +376,13 @@ def run_animal_test(ctx=None) -> bool:
                     "remark": f"整合測試 - 已進入實驗 #{i+1}",
                 })
 
-    # 犧牲的 1 隻設為 deceased (originally 3, now 1)
+    # 犧牲的動物不再手動更新 — API 不允許更新已犧牲動物
+    # 只驗證犧牲後狀態是否正確
     for pid in sacrifice_animals:
-        t._req("PUT", f"{API_BASE_URL}/animals/{pid}", role=STAFF,
-                json={"status": "completed"})
+        sac_resp = t._req("GET", f"{API_BASE_URL}/animals/{pid}", role=STAFF)
+        sac_status = sac_resp.json().get("status", "?")
+        t.record("犧牲動物狀態", sac_status in ("completed", "deceased", "sacrificed", "euthanized"),
+                 f"status={sac_status}")
 
     # 驗證
     updated_resp = t._req("GET", f"{API_BASE_URL}/animals/{animal_ids[0]}", role=STAFF)

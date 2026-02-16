@@ -10,6 +10,7 @@ import api, {
   AnimalSacrifice,
   AnimalPathologyReport,
   AnimalSuddenDeath,
+  AnimalEvent,
   transferApi,
   animalStatusNames,
   allAnimalStatusNames,
@@ -23,7 +24,7 @@ import api, {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import { Input, Textarea } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { FileUpload, FileInfo } from '@/components/ui/file-upload'
 import {
@@ -75,6 +76,7 @@ import {
   AlertOctagon,
   Droplets,
   ArrowRightLeft,
+  Zap,
 } from 'lucide-react'
 
 import { AnimalTimelineView } from '@/components/animal/AnimalTimelineView'
@@ -135,6 +137,7 @@ export function AnimalDetailPage() {
   const [showSacrificeDialog, setShowSacrificeDialog] = useState(false)
   const [showEmergencyMedicationDialog, setShowEmergencyMedicationDialog] = useState(false)
   const [showEuthanasiaOrderDialog, setShowEuthanasiaOrderDialog] = useState(false)
+  const [showSuddenDeathDialog, setShowSuddenDeathDialog] = useState(false)
   const [showTrialSelect, setShowTrialSelect] = useState(false)
 
   // Edit states
@@ -159,6 +162,15 @@ export function AnimalDetailPage() {
   const [newWeight, setNewWeight] = useState({ measure_date: new Date().toISOString().split('T')[0], weight: '' })
   const [newVaccination, setNewVaccination] = useState({ administered_date: new Date().toISOString().split('T')[0], vaccine: '', deworming_dose: '' })
   const [pathologyFiles, setPathologyFiles] = useState<FileInfo[]>([])
+
+  // 猝死登記表單
+  const [suddenDeathForm, setSuddenDeathForm] = useState({
+    discovered_at: new Date().toISOString().slice(0, 16), // datetime-local 格式
+    probable_cause: '',
+    location: '',
+    remark: '',
+    requires_pathology: false,
+  })
 
   // Delete dialog states (GLP compliance)
   const [deleteObservationTarget, setDeleteObservationTarget] = useState<number | null>(null)
@@ -298,6 +310,16 @@ export function AnimalDetailPage() {
     queryKey: ['animal-sudden-death', animalId],
     queryFn: async () => {
       const res = await api.get<AnimalSuddenDeath>(`/animals/${animalId}/sudden-death`)
+      return res.data
+    },
+    enabled: activeTab === 'timeline',
+  })
+
+  // IACUC No. 變更事件（時間軸用）
+  const { data: iacucEvents } = useQuery({
+    queryKey: ['animal-iacuc-events', animalId],
+    queryFn: async () => {
+      const res = await api.get<AnimalEvent[]>(`/animals/${animalId}/events`)
       return res.data
     },
     enabled: activeTab === 'timeline',
@@ -469,6 +491,40 @@ export function AnimalDetailPage() {
     },
   })
 
+  // 猝死登記 mutation
+  const createSuddenDeathMutation = useMutation({
+    mutationFn: async (data: typeof suddenDeathForm) => {
+      return api.post(`/animals/${animalId}/sudden-death`, {
+        discovered_at: new Date(data.discovered_at).toISOString(),
+        probable_cause: data.probable_cause || undefined,
+        location: data.location || undefined,
+        remark: data.remark || undefined,
+        requires_pathology: data.requires_pathology,
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['animal', animalId] })
+      queryClient.invalidateQueries({ queryKey: ['animals'] })
+      queryClient.invalidateQueries({ queryKey: ['animal-sudden-death', animalId] })
+      toast({ title: '已登記', description: '猝死紀錄已登記，動物狀態已自動更新' })
+      setShowSuddenDeathDialog(false)
+      setSuddenDeathForm({
+        discovered_at: new Date().toISOString().slice(0, 16),
+        probable_cause: '',
+        location: '',
+        remark: '',
+        requires_pathology: false,
+      })
+    },
+    onError: (error: any) => {
+      toast({
+        title: '錯誤',
+        description: error?.response?.data?.error?.message || '猝死登記失敗',
+        variant: 'destructive',
+      })
+    },
+  })
+
   const handleShowVersionHistory = (type: 'observation' | 'surgery', id: number) => {
     setVersionHistoryType(type)
     setVersionHistoryRecordId(id)
@@ -557,23 +613,35 @@ export function AnimalDetailPage() {
       </div>
 
       {/* Emergency Actions - Only for VET role and active animals */}
-      {animal.status === 'in_experiment' && (
+      {(animal.status === 'in_experiment' || animal.status === 'completed') && (
         <div className="flex gap-2">
+          {animal.status === 'in_experiment' && (
+            <>
+              <Button
+                variant="outline"
+                className="border-amber-500 text-amber-600 hover:bg-amber-50"
+                onClick={() => setShowEmergencyMedicationDialog(true)}
+              >
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                緊急給藥
+              </Button>
+              <Button
+                variant="outline"
+                className="border-red-500 text-red-600 hover:bg-red-50"
+                onClick={() => setShowEuthanasiaOrderDialog(true)}
+              >
+                <AlertOctagon className="h-4 w-4 mr-2" />
+                開立安樂死單
+              </Button>
+            </>
+          )}
           <Button
             variant="outline"
-            className="border-amber-500 text-amber-600 hover:bg-amber-50"
-            onClick={() => setShowEmergencyMedicationDialog(true)}
+            className="border-rose-500 text-rose-600 hover:bg-rose-50"
+            onClick={() => setShowSuddenDeathDialog(true)}
           >
-            <AlertTriangle className="h-4 w-4 mr-2" />
-            緊急給藥
-          </Button>
-          <Button
-            variant="outline"
-            className="border-red-500 text-red-600 hover:bg-red-50"
-            onClick={() => setShowEuthanasiaOrderDialog(true)}
-          >
-            <AlertOctagon className="h-4 w-4 mr-2" />
-            開立安樂死單
+            <Zap className="h-4 w-4 mr-2" />
+            登記猝死
           </Button>
         </div>
       )}
@@ -735,6 +803,7 @@ export function AnimalDetailPage() {
             sacrifice={sacrifice || undefined}
             suddenDeath={suddenDeath || undefined}
             transfers={transfers || []}
+            iacucEvents={iacucEvents || []}
             animal={animal}
             onView={(type, id) => {
               if (type === 'observation') setExpandedObservation(expandedObservation === id ? null : id)
@@ -1775,6 +1844,90 @@ export function AnimalDetailPage() {
         earTag={animal.ear_tag}
         iacucNo={animal.iacuc_no}
       />
+
+      {/* 猝死登記 Dialog */}
+      <Dialog open={showSuddenDeathDialog} onOpenChange={setShowSuddenDeathDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-600">
+              <Zap className="h-5 w-5" />
+              登記猝死 — 耳號 {animal.ear_tag}
+            </DialogTitle>
+            <DialogDescription>
+              登記後動物狀態將自動更新為「猝死」，此操作不可復原。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="sd-discovered-at">發現時間 *</Label>
+              <Input
+                id="sd-discovered-at"
+                type="datetime-local"
+                value={suddenDeathForm.discovered_at}
+                onChange={(e) => setSuddenDeathForm(prev => ({ ...prev, discovered_at: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sd-location">發現地點</Label>
+              <Input
+                id="sd-location"
+                placeholder="如：A01 欄位"
+                value={suddenDeathForm.location}
+                onChange={(e) => setSuddenDeathForm(prev => ({ ...prev, location: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sd-probable-cause">可能原因</Label>
+              <Textarea
+                id="sd-probable-cause"
+                placeholder="描述可能的死因..."
+                value={suddenDeathForm.probable_cause}
+                onChange={(e) => setSuddenDeathForm(prev => ({ ...prev, probable_cause: e.target.value }))}
+                className="min-h-[80px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sd-remark">備註</Label>
+              <Textarea
+                id="sd-remark"
+                placeholder="其他備註..."
+                value={suddenDeathForm.remark}
+                onChange={(e) => setSuddenDeathForm(prev => ({ ...prev, remark: e.target.value }))}
+                className="min-h-[60px]"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                id="sd-requires-pathology"
+                type="checkbox"
+                checked={suddenDeathForm.requires_pathology}
+                onChange={(e) => setSuddenDeathForm(prev => ({ ...prev, requires_pathology: e.target.checked }))}
+                className="h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+              />
+              <Label htmlFor="sd-requires-pathology" className="text-sm font-normal cursor-pointer">
+                需要病理檢查
+              </Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSuddenDeathDialog(false)}>
+              取消
+            </Button>
+            <Button
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+              disabled={!suddenDeathForm.discovered_at || createSuddenDeathMutation.isPending}
+              onClick={() => {
+                if (confirm(`確定要將耳號 ${animal.ear_tag} 登記為猝死？此操作不可復原。`)) {
+                  createSuddenDeathMutation.mutate(suddenDeathForm)
+                }
+              }}
+            >
+              {createSuddenDeathMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              確認登記猝死
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

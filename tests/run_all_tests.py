@@ -3,8 +3,8 @@
 整合測試統一入口（共享 Context 版）
 
 依序執行測試模組並輸出總報告。
-批次執行時，所有帳號只登入一次，透過 SharedTestContext 共享 token。
-個別測試仍可獨立執行（各自登入）。
+批次執行時，每個測試執行前才初始化所需帳號（延遲登入），
+避免 JWT 15 分鐘有效期限問題。
 
 用法:
     cd d:\\Coding\\ipig_system
@@ -31,6 +31,21 @@ sys.stderr.reconfigure(encoding="utf-8")
 
 # 確保 tests 目錄在 sys.path 中
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+
+def _lazy_init(ctx, roles: list[str], label: str) -> bool:
+    """延遲初始化：只在需要時才登入對應角色的帳號。
+    
+    每個測試開始前呼叫，可避免 JWT 過期（15 分鐘有效期限）。
+    SharedTestContext.initialize() 內部已處理跳過已初始化角色的邏輯，
+    但由於 JWT 有效期限，這裡強制對所有角色重新取得 token。
+    """
+    print(f"\n  [Context] 初始化 {label} 所需角色（{len(roles)} 個）...")
+    # 強制重新登入：清除已初始化標記，確保取得新 JWT
+    for role in roles:
+        ctx._initialized_roles.discard(role)
+    
+    return ctx.initialize(roles)
 
 
 def main():
@@ -72,16 +87,12 @@ def main():
     total_start = time.time()
 
     # ========================================
-    # 建立共享 Context（批次執行時一次性登入）
+    # 建立共享 Context（延遲初始化 — 各測試開始前才登入）
     # ========================================
     ctx = None
-    use_shared = (run_all or (has_specific and not args.no_shared)) and not args.no_shared
+    use_shared = not args.no_shared
 
     if use_shared:
-        print("=" * 60)
-        print("[共享 Context] 一次性初始化所有帳號...")
-        print("=" * 60)
-        ctx_start = time.time()
         try:
             from test_context import SharedTestContext
             from test_fixtures import (
@@ -89,34 +100,8 @@ def main():
                 BLOOD_PANEL_ROLES, ERP_ROLES, ERP_PERM_ROLES,
                 HR_ROLES, AUP_INTEGRATION_ROLES
             )
-
             ctx = SharedTestContext()
-
-            # 收集需要初始化的角色
-            all_needed_roles = set()
-            if run_all or args.aup:
-                all_needed_roles.update(AUP_ROLES)
-            if run_all or args.amendment:
-                all_needed_roles.update(AMENDMENT_ROLES)
-            if run_all or args.animal:
-                all_needed_roles.update(ANIMAL_ROLES)
-            if run_all or args.blood:
-                all_needed_roles.update(BLOOD_PANEL_ROLES)
-            if run_all or args.erp:
-                all_needed_roles.update(ERP_ROLES)
-            if run_all or args.erp_perm:
-                all_needed_roles.update(ERP_PERM_ROLES)
-            if run_all or args.hr:
-                all_needed_roles.update(HR_ROLES)
-            if run_all or args.aup_integ:
-                all_needed_roles.update(AUP_INTEGRATION_ROLES)
-
-            if ctx.initialize(list(all_needed_roles)):
-                ctx.summary()
-                print(f"  共享 Context 初始化耗時: {time.time() - ctx_start:.1f} 秒\n")
-            else:
-                print("[WARNING] 共享 Context 初始化失敗，各測試將自行登入")
-                ctx = None
+            print("[共享 Context] 延遲初始化模式（各測試開始前登入）\n")
         except Exception as e:
             print(f"[WARNING] 共享 Context 建立失敗: {e}")
             import traceback
@@ -139,6 +124,8 @@ def main():
         print("=" * 60)
         start = time.time()
         try:
+            if ctx and not _lazy_init(ctx, AUP_ROLES, "AUP"):
+                ctx = None  # fallback
             from test_aup_full import run_aup_test
             result = run_aup_test(ctx=ctx)
             # run_aup_test 回傳 (success, protocol_id) tuple
@@ -164,6 +151,8 @@ def main():
         print("=" * 60)
         start = time.time()
         try:
+            if ctx and not _lazy_init(ctx, ERP_ROLES, "ERP"):
+                ctx = None
             from test_erp_full import run_erp_test
             results["ERP"] = run_erp_test(ctx=ctx)
         except Exception as e:
@@ -183,6 +172,8 @@ def main():
         print("=" * 60)
         start = time.time()
         try:
+            if ctx and not _lazy_init(ctx, ANIMAL_ROLES, "Animal"):
+                ctx = None
             from test_animal_full import run_animal_test
             results["Animal"] = run_animal_test(ctx=ctx)
         except Exception as e:
@@ -202,6 +193,8 @@ def main():
         print("=" * 60)
         start = time.time()
         try:
+            if ctx and not _lazy_init(ctx, BLOOD_PANEL_ROLES, "Blood Panel"):
+                ctx = None
             from test_blood_panel import run_blood_panel_test
             results["Blood Panel"] = run_blood_panel_test(ctx=ctx)
         except Exception as e:
@@ -221,6 +214,8 @@ def main():
         print("=" * 60)
         start = time.time()
         try:
+            if ctx and not _lazy_init(ctx, HR_ROLES, "HR"):
+                ctx = None
             from test_hr_full import run_hr_test
             results["HR"] = run_hr_test(ctx=ctx)
         except Exception as e:
@@ -240,6 +235,8 @@ def main():
         print("=" * 60)
         start = time.time()
         try:
+            if ctx and not _lazy_init(ctx, AMENDMENT_ROLES, "Amendment"):
+                ctx = None
             from test_amendment_full import run_amendment_test
             # 若 AUP 測試已取得 protocol_id，直接複用
             results["Amendment"] = run_amendment_test(
@@ -262,6 +259,8 @@ def main():
         print("=" * 60)
         start = time.time()
         try:
+            if ctx and not _lazy_init(ctx, ERP_PERM_ROLES, "ERP Permissions"):
+                ctx = None
             from test_erp_permissions import run_erp_permissions_test
             results["ERP Permissions"] = run_erp_permissions_test(ctx=ctx)
         except Exception as e:
@@ -281,6 +280,8 @@ def main():
         print("=" * 60)
         start = time.time()
         try:
+            if ctx and not _lazy_init(ctx, AUP_INTEGRATION_ROLES, "AUP Integration"):
+                ctx = None
             from test_aup_integration import run_aup_integration_test
             results["AUP Integration"] = run_aup_integration_test(ctx=ctx)
         except Exception as e:
@@ -307,7 +308,7 @@ def main():
 
     print(f"\n  總耗時: {total_elapsed:.1f} 秒")
     if ctx:
-        print(f"  (共享 Context 模式: 管理員登入 1 次, 帳號登入 {len(ctx.tokens)} 次)")
+        print(f"  (共享 Context 延遲初始化模式)")
     else:
         print("  (各自登入模式)")
 

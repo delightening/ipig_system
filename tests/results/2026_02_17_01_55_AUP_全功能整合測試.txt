@@ -1,0 +1,49 @@
+============================================================
+[AUP 全功能整合測試] 測試結果
+執行時間: 2026-02-17 01:55:53
+============================================================
+
+  [PASS] 建立案件 A — ID: 85fdd366...
+  [PASS] PI_A 提交案件 A
+  [PASS] 建立案件 B — ID: 2dd23f12...
+  [PASS] PI_B 提交案件 B
+  [PASS] [案件A] 審查通過 — status=APPROVED
+  [PASS] 取得案件 A IACUC No — iacuc_no=PIG-115018
+  [PASS] 案件 B 預審退件
+  [PASS] PI_B 修訂重送
+  [PASS] [案件B] 審查通過 — status=APPROVED
+  [PASS] 取得案件 B IACUC No — iacuc_no=PIG-115019
+  [PASS] Minor Amendment → ADMIN_APPROVED — status=ADMIN_APPROVED
+  [PASS] Major Amendment → APPROVED — status=APPROVED
+  [PASS] 建立動物來源 — ID: 73d9e0c1...
+  [PASS] 建立動物 — ID: e78a9f88..., IACUC No=PIG-115018
+  [PASS] 記錄體重 ×2
+  [PASS] 記錄觀察 ×1
+  [PASS] 記錄疫苗 ×1
+  [PASS] 轉讓前體重紀錄 — 3 筆
+  [PASS] 轉讓前觀察紀錄 — 1 筆
+  [PASS] 轉讓前疫苗紀錄 — 1 筆
+  [PASS] 發起轉讓 — transfer_id=401f0de6...
+  [PASS] 獸醫評估通過
+  [PASS] 指定新計劃 — to_iacuc_no=PIG-115019
+  [PASS] PI_A 同意轉讓
+  [PASS] 轉讓完成 — status=completed
+  [PASS] 動物 IACUC No 更新 — iacuc_no: PIG-115018 → PIG-115019
+  [PASS] 轉讓後新增紀錄 — 體重 ×1 + 觀察 ×1
+  [PASS] PI_B 有 data boundary — boundary=2026-02-16T17:55:52.834745Z
+  [PASS] IACUC_STAFF 無 boundary (特權) — boundary=None
+  [PASS] VET 無 boundary (特權) — boundary=None
+  [PASS] 體重-全部 (STAFF) — 全部 4 筆
+  [PASS] 體重-過濾後 (PI_B, after) — 過濾後 1 筆 (期望 1)
+  [PASS] 觀察-全部 (STAFF) — 全部 2 筆
+  [PASS] 觀察-過濾後 (PI_B, after) — 過濾後 1 筆 (期望 1)
+  [PASS] 疫苗-全部 (STAFF) — 全部 1 筆
+  [PASS] 疫苗-過濾後 (PI_B, after) — 過濾後 0 筆 (期望 0)
+  [PASS] 轉讓歷程可查 — 共 1 筆轉讓記錄
+  [PASS] 獸醫評估可查 — fit=True
+  [PASS] 案件 A amendment 數量 — 共 2 個 amendment
+  [PASS] STAFF 體重全部可見 (無 after) — 4 筆
+  [PASS] STAFF 觀察全部可見 (無 after) — 2 筆
+
+總計: 41 項 | PASS 41 | FAIL 0
+結果: ALL PASSED

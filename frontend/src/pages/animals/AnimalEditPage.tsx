@@ -303,22 +303,34 @@ export function AnimalEditPage() {
                   IACUC No.
                   {formData.status === 'in_experiment' && <span className="text-red-500 ml-1">*</span>}
                 </Label>
-                <Select
-                  value={formData.iacuc_no || ''}
-                  onValueChange={(v) => handleChange('iacuc_no', v === '' ? undefined : v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="選擇 IACUC No." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {approvedProtocols?.map((protocol) => (
-                      <SelectItem key={protocol.id} value={protocol.iacuc_no!}>
-                        {protocol.iacuc_no}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {animal?.status === 'in_experiment' ? (
+                  <>
+                    <Input
+                      value={animal?.iacuc_no || ''}
+                      disabled
+                      className="bg-slate-50"
+                    />
+                    <p className="text-xs text-amber-600">實驗中的動物無法更改 IACUC No.</p>
+                  </>
+                ) : (
+                  <Select
+                    value={formData.iacuc_no || ''}
+                    onValueChange={(v) => handleChange('iacuc_no', v === '' ? undefined : v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="選擇 IACUC No." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {approvedProtocols?.map((protocol) => (
+                        <SelectItem key={protocol.id} value={protocol.iacuc_no!}>
+                          {protocol.iacuc_no}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
+
 
               {/* 實驗日期 */}
               <div className="space-y-2">

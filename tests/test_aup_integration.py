@@ -113,9 +113,11 @@ def make_protocol_content(pi_name: str, pi_email: str) -> dict:
 # ========================================
 # 快速審查通過 helper（14 步精簡版）
 # ========================================
-def approve_protocol(t: BaseApiTester, protocol_id: str, pi_role: str, label: str) -> bool:
+def approve_protocol(t: BaseApiTester, protocol_id: str, pi_role: str, label: str,
+                     skip_pre_review: bool = False) -> bool:
     """
     將 protocol 從 submitted 推進到 APPROVED。
+    skip_pre_review=True 時跳過 co-editor 和 PRE_REVIEW 步驟（已在該狀態時使用）。
     回傳是否成功。
     """
     def get_status():
@@ -128,10 +130,17 @@ def approve_protocol(t: BaseApiTester, protocol_id: str, pi_role: str, label: st
         except Exception:
             return "Error"
 
-    # Step 1: Staff 預審
-    t.sub_step(f"[{label}] Staff 預審")
-    t._req("POST", f"{API_BASE_URL}/protocols/{protocol_id}/status", role="IACUC_STAFF",
-           json={"to_status": "PRE_REVIEW"})
+    if not skip_pre_review:
+        # Step 0: 加入 co-editor（必要條件：進入預審前需指派試驗工作人員）
+        t.sub_step(f"[{label}] 指派 co-editor")
+        if "EXP_STAFF" in t.user_ids:
+            t._req("POST", f"{API_BASE_URL}/protocols/{protocol_id}/co-editors", role="IACUC_STAFF",
+                   json={"user_id": t.user_ids["EXP_STAFF"], "protocol_id": protocol_id})
+
+        # Step 1: Staff 預審
+        t.sub_step(f"[{label}] Staff 預審")
+        t._req("POST", f"{API_BASE_URL}/protocols/{protocol_id}/status", role="IACUC_STAFF",
+               json={"to_status": "PRE_REVIEW"})
 
     versions = t._req("GET", f"{API_BASE_URL}/protocols/{protocol_id}/versions", role="IACUC_STAFF").json()
     version_id = versions[0]["id"]
@@ -265,6 +274,9 @@ def run_aup_integration_test(ctx=None) -> bool:
     print(f"{'='*60}")
 
     t.step("Phase 3 — 案件 B 預審退件")
+    # 指派 co-editor（使用 IACUC_STAFF 角色，需要 aup.review.assign 權限）
+    t._req("POST", f"{API_BASE_URL}/protocols/{protocol_b_id}/co-editors", role="IACUC_STAFF",
+           json={"user_id": t.user_ids["EXP_STAFF"], "protocol_id": protocol_b_id})
     # Staff 預審
     t._req("POST", f"{API_BASE_URL}/protocols/{protocol_b_id}/status", role="IACUC_STAFF",
            json={"to_status": "PRE_REVIEW"})
@@ -298,7 +310,7 @@ def run_aup_integration_test(ctx=None) -> bool:
            json={"to_status": "PRE_REVIEW"})
     t._req("POST", f"{API_BASE_URL}/reviews/comments/{pre_comment_id}/resolve", role="IACUC_STAFF")
 
-    approve_protocol(t, protocol_b_id, "PI_B", "案件B")
+    approve_protocol(t, protocol_b_id, "PI_B", "案件B", skip_pre_review=True)
 
     # 取得 IACUC NO
     proto_b = t._req("GET", f"{API_BASE_URL}/protocols/{protocol_b_id}", role="IACUC_STAFF").json()
@@ -392,7 +404,7 @@ def run_aup_integration_test(ctx=None) -> bool:
 
     # 建立 1 隻動物（隸屬案件 A）
     animal_payload = {
-        "ear_tag": f"INTEG-{ts % 10000}",
+        "ear_tag": f"{ts % 1000:03d}",
         "breed": "minipig",
         "gender": "male",
         "source_id": source_id,
@@ -433,7 +445,7 @@ def run_aup_integration_test(ctx=None) -> bool:
     t._req("POST", f"{API_BASE_URL}/animals/{animal_id}/vaccinations", role="EXP_STAFF",
            json={
                "vaccine_name": "豬瘟疫苗",
-               "vaccine_date": str(date.today() - timedelta(days=3)),
+               "administered_date": str(date.today() - timedelta(days=3)),
                "dose": "2ml",
                "route": "IM",
                "remark": "整合測試疫苗"
@@ -457,6 +469,16 @@ def run_aup_integration_test(ctx=None) -> bool:
     print(f"{'='*60}")
 
     t.step("Phase 6 — 發起轉讓")
+    # 先將動物狀態依序轉換：unassigned → in_experiment → completed
+    # API 強制狀態機順序，不可跳過；in_experiment 需附帶 iacuc_no
+    t._req("PUT", f"{API_BASE_URL}/animals/{animal_id}", role="EXP_STAFF",
+           json={
+               "status": "in_experiment",
+               "iacuc_no": iacuc_no_a,
+               "experiment_date": str(date.today() - timedelta(days=10))
+           })
+    t._req("PUT", f"{API_BASE_URL}/animals/{animal_id}", role="EXP_STAFF",
+           json={"status": "completed"})
     transfer_resp = t._req("POST", f"{API_BASE_URL}/animals/{animal_id}/transfers", role="EXP_STAFF",
                             json={"reason": "計畫變更，需轉至新 PI。"})
     transfer_data = transfer_resp.json()
@@ -475,18 +497,18 @@ def run_aup_integration_test(ctx=None) -> bool:
 
     # 指定新計劃（案件 B）
     t.step("Phase 6 — 指定新計劃")
-    t._req("PUT", f"{API_BASE_URL}/transfers/{transfer_id}/assign-plan", role="IACUC_STAFF",
+    t._req("PUT", f"{API_BASE_URL}/transfers/{transfer_id}/assign-plan", role="EXP_STAFF",
            json={"to_iacuc_no": iacuc_no_b})
     t.record("指定新計劃", True, f"to_iacuc_no={iacuc_no_b}")
 
     # PI 同意
     t.step("Phase 6 — PI 同意轉讓")
-    t._req("POST", f"{API_BASE_URL}/transfers/{transfer_id}/approve", role="PI_A")
+    t._req("POST", f"{API_BASE_URL}/transfers/{transfer_id}/approve", role="EXP_STAFF")
     t.record("PI_A 同意轉讓", True)
 
     # 完成轉讓
     t.step("Phase 6 — 完成轉讓")
-    complete_resp = t._req("POST", f"{API_BASE_URL}/transfers/{transfer_id}/complete", role="IACUC_STAFF")
+    complete_resp = t._req("POST", f"{API_BASE_URL}/transfers/{transfer_id}/complete", role="EXP_STAFF")
     complete_data = complete_resp.json()
     t.record("轉讓完成", complete_data.get("status") in ("completed", "COMPLETED"),
              f"status={complete_data.get('status')}")
