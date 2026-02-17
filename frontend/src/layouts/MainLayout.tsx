@@ -47,6 +47,9 @@ import { // 引入一系列 Lucide 圖示
   FileEdit,
   UserCircle,
   ArrowLeft,
+  AlertTriangle,
+  ShieldCheck,
+  Info,
 } from 'lucide-react'
 // 引入 dnd-kit 拖曳排序相關函式庫
 import {
@@ -353,6 +356,29 @@ export function MainLayout() {
 
   // 側邊欄編輯排序模式狀態
   const [isEditMode, setIsEditMode] = useState(false)
+
+  // 配置警告 Dialog 狀態
+  const [showConfigWarnings, setShowConfigWarnings] = useState(false)
+  const configWarningsSessionKey = 'ipig-config-warnings-dismissed'
+
+  // 管理員才呼叫配置警告 API
+  const { data: configWarningsData } = useQuery({
+    queryKey: ['admin-config-warnings'],
+    queryFn: async () => {
+      const res = await api.get<{ warnings: { level: string; title: string; detail: string | null }[]; warn_count: number }>('/admin/config-warnings')
+      return res.data
+    },
+    enabled: hasRole('admin') && !sessionStorage.getItem(configWarningsSessionKey),
+    staleTime: Infinity, // 只需要查詢一次
+    retry: false,
+  })
+
+  // 當取得到警告資料且有 warn_count > 0 時，顯示 Dialog
+  useEffect(() => {
+    if (configWarningsData && configWarningsData.warn_count > 0 && !sessionStorage.getItem(configWarningsSessionKey)) {
+      setShowConfigWarnings(true)
+    }
+  }, [configWarningsData])
 
   // dnd-kit sensors 配置
   const sensors = useSensors(
@@ -1095,6 +1121,63 @@ export function MainLayout() {
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               )}
               {t('password.submit')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 啟動配置警告 Dialog（僅管理員且有警告時顯示） */}
+      <Dialog open={showConfigWarnings} onOpenChange={(open) => { if (!open) { sessionStorage.setItem(configWarningsSessionKey, '1'); setShowConfigWarnings(false) } }}>
+        <DialogContent className="sm:max-w-lg" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="h-5 w-5" />
+              啟動配置警告
+            </DialogTitle>
+            <DialogDescription>
+              系統偵測到以下配置需要注意，請管理員確認。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {configWarningsData?.warnings.map((item, idx) => (
+              <div
+                key={idx}
+                className={`flex items-start gap-3 rounded-lg p-3 ${item.level === 'warn'
+                    ? 'bg-amber-50 border border-amber-200'
+                    : item.level === 'ok'
+                      ? 'bg-green-50 border border-green-200'
+                      : 'bg-blue-50 border border-blue-200'
+                  }`}
+              >
+                <div className="mt-0.5 shrink-0">
+                  {item.level === 'warn' && <AlertTriangle className="h-5 w-5 text-amber-500" />}
+                  {item.level === 'ok' && <ShieldCheck className="h-5 w-5 text-green-500" />}
+                  {item.level === 'info' && <Info className="h-5 w-5 text-blue-500" />}
+                </div>
+                <div className="min-w-0">
+                  <p className={`font-medium text-sm ${item.level === 'warn' ? 'text-amber-800' : item.level === 'ok' ? 'text-green-800' : 'text-blue-800'
+                    }`}>
+                    {item.title}
+                  </p>
+                  {item.detail && (
+                    <p className={`text-xs mt-1 ${item.level === 'warn' ? 'text-amber-600' : item.level === 'ok' ? 'text-green-600' : 'text-blue-600'
+                      }`}>
+                      {item.detail}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                sessionStorage.setItem(configWarningsSessionKey, '1')
+                setShowConfigWarnings(false)
+              }}
+              className="w-full"
+            >
+              確認
             </Button>
           </DialogFooter>
         </DialogContent>

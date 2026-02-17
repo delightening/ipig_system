@@ -567,6 +567,10 @@ pub fn api_routes(state: AppState) -> Router {
             get(handlers::download_attachment).delete(handlers::delete_attachment),
         )
         // ============================================
+        // Admin Config Warnings (啟動配置警告)
+        // ============================================
+        .route("/admin/config-warnings", get(handlers::get_config_warnings))
+        // ============================================
         // Admin Audit Trail (新增)
         // ============================================
         .route("/admin/audit/activities", get(handlers::list_activity_logs))

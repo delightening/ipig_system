@@ -128,6 +128,8 @@
 | 日期 | 內容 |
 |------|------|
 | 2026-02-17 | 🧪 CI 測試修復：`enums.rs` display_name 與測試同步（Completed→"實驗完成"、White→"白豬"）+ 移除 2 個未使用 import（`IacucChangeInfo` re-export、`use super::*`），87 測試全通過 |
+| 2026-02-17 | 🔔 啟動配置警告 Dialog：後端 `GET /admin/config-warnings` API + 前端 `MainLayout.tsx` Dialog，管理員登入後彈出三項配置狀態（⚠️/✅/ℹ️），按確認關閉，sessionStorage 防重複彈出 |
+| 2026-02-17 | 🔧 啟動配置匯總框改進：三項狀態（地理圍籬/ADMIN_INITIAL_PASSWORD/SEED_DEV_USERS）永遠顯示，設定正確顯示 ✅、有問題顯示 ⚠️、未啟用顯示 ℹ️ |
 | 2026-02-17 | 🔐 密碼更新不登出：後端 `change_own_password` 改為重新簽發 tokens + 回傳新 cookies、前端 `MainLayout.tsx` 移除 `logout()` 改用 `checkAuth()` |
 | 2026-02-17 | 🔒 打卡 IP 限制：`ALLOWED_CLOCK_IP_RANGES` 環境變數 + CIDR 白名單驗證 + IP 寫入 DB + 前端 403 友善提示 |
 | 2026-02-17 | 📍 GPS 定位打卡：Haversine 距離計算 + IP/GPS 擇一驗證 + 前端 Geolocation API + DB 記錄經緯度 + 辦公室座標 24.654053, 120.784923 |

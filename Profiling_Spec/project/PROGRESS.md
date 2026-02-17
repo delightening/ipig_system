@@ -537,6 +537,23 @@
 
 ### 2026-02-17
 
+- ✅ 🔔 **啟動配置警告 Dialog**：
+  - 後端新增 `GET /admin/config-warnings` API（`config_check.rs`），回傳三項配置檢查狀態 JSON
+  - 前端 `MainLayout.tsx` 新增 Dialog 元件，管理員登入後自動彈出
+  - 顯示三項狀態：⚠️ 地理圍籬警告 / ✅ 密碼設定正確 / ✅ 開發帳號正確（或 ℹ️ 未啟用）
+  - 使用 `sessionStorage` 防止同一 session 重複彈出
+  - 防止點擊外部或按 ESC 關閉（必須按確認按鈕）
+  - API 驗證通過：`warn_count: 1`（地理圍籬 ⚠️ + 其他兩項 ✅）
+
+- ✅ 🔧 **啟動配置匯總框改進**：
+  - `main.rs` 啟動配置完整性檢查改為永遠顯示三項狀態匯總框（不再僅有警告時才顯示）
+  - 設定正確：✅ 圖示、有問題：⚠️ 圖示、未啟用：ℹ️ 圖示
+  - 地理圍籬：IP/GPS 全未設定 → ⚠️、部分設定 → ⚠️（建議補齊）、全部設定 → ✅
+  - ADMIN_INITIAL_PASSWORD：未設定/過弱 → ⚠️、設定正確 → ✅
+  - SEED_DEV_USERS：啟用 + TEST_USER_PASSWORD 未設定 → ⚠️、啟用 + 密碼設定正確 → ✅、未啟用 → ℹ️ 提醒
+  - 有警告時使用 `tracing::warn!`，全通過時使用 `tracing::info!`
+  - `cargo check` 編譯通過，Docker 容器重建後日誌確認正確輸出
+
 - ✅ 🧪 **CI cargo test 修復**：
   - `enums.rs`：`AnimalStatus::Completed` display_name 從 `"存活完成"` 改回 `"實驗完成"`（與前端/測試一致）
   - `enums.rs`：`AnimalBreed::White` display_name 從 `"白"` 改回 `"白豬"`（與前端/測試一致）

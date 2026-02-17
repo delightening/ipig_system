@@ -1,0 +1,57 @@
+﻿ipig-api  | [2m2026-02-17T13:50:10.392394Z[0m [32m INFO[0m [2merp_backend::startup::database[0m[2m:[0m Initializing database connection pool...
+ipig-api  |   URL: postgres://postgres:***@db:5432
+ipig-api  |   Max connections: 10
+ipig-api  |   Retry attempts: 10
+ipig-api  |   Retry delay: 3s
+ipig-api  | [2m2026-02-17T13:50:10.392445Z[0m [32m INFO[0m [2merp_backend::startup::database[0m[2m:[0m [Database Connection] Attempt 1/10: Connecting to database...
+ipig-api  | [2m2026-02-17T13:50:10.400132Z[0m [32m INFO[0m [2merp_backend::startup::database[0m[2m:[0m [Database Connection] ??Successfully connected and verified (attempt 1/10)
+ipig-api  | [2m2026-02-17T13:50:10.400159Z[0m [32m INFO[0m [2merp_backend[0m[2m:[0m [Database] Running migrations...
+ipig-api  | [2m2026-02-17T13:50:10.406830Z[0m [32m INFO[0m [2msqlx::postgres::notice[0m[2m:[0m relation "_sqlx_migrations" already exists, skipping
+ipig-api  | [2m2026-02-17T13:50:10.410510Z[0m [32m INFO[0m [2merp_backend[0m[2m:[0m [Database] ??Migrations completed successfully
+ipig-api  | [2m2026-02-17T13:50:10.410541Z[0m [32m INFO[0m [2merp_backend[0m[2m:[0m [Database] ??Connection established and migrations completed
+ipig-api  | [2m2026-02-17T13:50:10.454322Z[0m [32m INFO[0m [2merp_backend::startup::seed[0m[2m:[0m [Schema] ??Schema integrity verified
+ipig-api  | [2m2026-02-17T13:50:10.458262Z[0m [32m INFO[0m [2merp_backend::startup::seed[0m[2m:[0m [Admin] Existing admin user found, preserving password: admin@ipig.local
+ipig-api  | [2m2026-02-17T13:50:10.470311Z[0m [32m INFO[0m [2merp_backend::startup::permissions[0m[2m:[0m [Permissions] ??Required permissions verified
+ipig-api  | [2m2026-02-17T13:50:10.482978Z[0m [32m INFO[0m [2merp_backend::startup::permissions[0m[2m:[0m [Permissions] ??All role permissions already configured
+ipig-api  | [2m2026-02-17T13:50:10.483025Z[0m [32m INFO[0m [2merp_backend[0m[2m:[0m [DevUser] SEED_DEV_USERS is enabled, seeding development users...
+ipig-api  | [2m2026-02-17T13:50:10.483047Z[0m [33m WARN[0m [2merp_backend::startup::seed[0m[2m:[0m [DevUser] DEV_USER_PASSWORD ?芾身摰?雿輻?冽?撖Ⅳ: f6c0b8be-998d-45a7-9686-7a0ec5f8af03
+ipig-api  | [2m2026-02-17T13:50:10.516540Z[0m [32m INFO[0m [2merp_backend::startup::seed[0m[2m:[0m [DevUser] Existing user found, preserving password: monkey20531@gmail.com
+ipig-api  | [2m2026-02-17T13:50:10.523166Z[0m [32m INFO[0m [2merp_backend::startup::seed[0m[2m:[0m [DevUser] Existing user found, preserving password: lisa82103031@gmail.com
+ipig-api  | [2m2026-02-17T13:50:10.526136Z[0m [32m INFO[0m [2merp_backend::startup::seed[0m[2m:[0m [DevUser] Existing user found, preserving password: museum1925@gmail.com
+ipig-api  | [2m2026-02-17T13:50:10.528603Z[0m [32m INFO[0m [2merp_backend::startup::seed[0m[2m:[0m [DevUser] Existing user found, preserving password: keytyne@gmail.com
+ipig-api  | [2m2026-02-17T13:50:10.532716Z[0m [32m INFO[0m [2merp_backend::startup::seed[0m[2m:[0m [DevUser] Existing user found, preserving password: raying80@gmail.com
+ipig-api  | [2m2026-02-17T13:50:10.535201Z[0m [32m INFO[0m [2merp_backend::startup::seed[0m[2m:[0m [DevUser] Existing user found, preserving password: smen1971@gmail.com
+ipig-api  | [2m2026-02-17T13:50:10.540823Z[0m [32m INFO[0m [2merp_backend::startup::seed[0m[2m:[0m [DevUser] ??6 dev users seeded successfully
+ipig-api  | [2m2026-02-17T13:50:10.540850Z[0m [33m WARN[0m [2merp_backend[0m[2m:[0m ??????????????????????????????????????????????????????????????
+ipig-api  | ?? ??  COOKIE_SECURE=false - Token 撠?? HTTP 銝剖??   ??ipig-api  | ??    甇???啣?隢身摰?COOKIE_SECURE=true 銝血???HTTPS       ??ipig-api  | ??????????????????????????????????????????????????????????????
+ipig-api  | [2m2026-02-17T13:50:10.540857Z[0m [33m WARN[0m [2merp_backend[0m[2m:[0m ??????????????????????????????????????????????????????????????
+ipig-api  | ?? ??  SEED_DEV_USERS=true - 撌脣??券??潭葫閰血董??           ??ipig-api  | ??    甇???啣?隢Ⅱ靽迨閮剖???false                          ??ipig-api  | ??????????????????????????????????????????????????????????????
+ipig-api  | [2m2026-02-17T13:50:10.540870Z[0m [33m WARN[0m [2merp_backend[0m[2m:[0m 
+ipig-api  | ??????????????????????????????????????????????????????????????
+ipig-api  | ?? ??  ???蔭瑼Ｘ嚗? ????  ??ipig-api  | ?????????????????????????????????????????????????????????????
+ipig-api  |   1. ??  ?啁??惇?芾身摰?ALLOWED_CLOCK_IP_RANGES / CLOCK_OFFICE_LATITUDE / CLOCK_OFFICE_LONGITUDE嚗?ipig-api  |      ?????蝵桃???賣???嚗???.env 閮剖?颲血摰?IP ??GPS 摨扳???ipig-api  |   2. ??ADMIN_INITIAL_PASSWORD 閮剖?甇?Ⅱ
+ipig-api  |   3. ??SEED_DEV_USERS 撌脣??剁?TEST_USER_PASSWORD 閮剖?甇?Ⅱ
+ipig-api  | ??????????????????????????????????????????????????????????????
+ipig-api  | [2m2026-02-17T13:50:10.541174Z[0m [32m INFO[0m [2mtokio_cron_scheduler::job_scheduler[0m[2m:[0m Uninited
+ipig-api  | [2m2026-02-17T13:50:10.541288Z[0m [32m INFO[0m [2mtokio_cron_scheduler::job_scheduler[0m[2m:[0m Job creator created
+ipig-api  | [2m2026-02-17T13:50:10.541314Z[0m [32m INFO[0m [2merp_backend::services::scheduler[0m[2m:[0m [Scheduler] ??Job 'low_stock_check' registered
+ipig-api  | [2m2026-02-17T13:50:10.541413Z[0m [32m INFO[0m [2mtokio_cron_scheduler::job_scheduler[0m[2m:[0m Job creator created
+ipig-api  | [2m2026-02-17T13:50:10.541435Z[0m [32m INFO[0m [2merp_backend::services::scheduler[0m[2m:[0m [Scheduler] ??Job 'expiry_check' registered
+ipig-api  | [2m2026-02-17T13:50:10.541532Z[0m [32m INFO[0m [2mtokio_cron_scheduler::job_scheduler[0m[2m:[0m Job creator created
+ipig-api  | [2m2026-02-17T13:50:10.541557Z[0m [32m INFO[0m [2merp_backend::services::scheduler[0m[2m:[0m [Scheduler] ??Job 'notification_cleanup' registered
+ipig-api  | [2m2026-02-17T13:50:10.541652Z[0m [32m INFO[0m [2mtokio_cron_scheduler::job_scheduler[0m[2m:[0m Job creator created
+ipig-api  | [2m2026-02-17T13:50:10.541675Z[0m [32m INFO[0m [2merp_backend::services::scheduler[0m[2m:[0m [Scheduler] ??Job 'balance_expiration' registered
+ipig-api  | [2m2026-02-17T13:50:10.541759Z[0m [32m INFO[0m [2mtokio_cron_scheduler::job_scheduler[0m[2m:[0m Job creator created
+ipig-api  | [2m2026-02-17T13:50:10.541781Z[0m [32m INFO[0m [2merp_backend::services::scheduler[0m[2m:[0m [Scheduler] ??Job 'calendar_sync_morning' registered
+ipig-api  | [2m2026-02-17T13:50:10.541873Z[0m [32m INFO[0m [2mtokio_cron_scheduler::job_scheduler[0m[2m:[0m Job creator created
+ipig-api  | [2m2026-02-17T13:50:10.541897Z[0m [32m INFO[0m [2merp_backend::services::scheduler[0m[2m:[0m [Scheduler] ??Job 'calendar_sync_evening' registered
+ipig-api  | [2m2026-02-17T13:50:10.541989Z[0m [32m INFO[0m [2mtokio_cron_scheduler::job_scheduler[0m[2m:[0m Job creator created
+ipig-api  | [2m2026-02-17T13:50:10.542013Z[0m [32m INFO[0m [2merp_backend::services::scheduler[0m[2m:[0m [Scheduler] ??Job 'partition_maintenance' registered
+ipig-api  | [2m2026-02-17T13:50:10.542119Z[0m [32m INFO[0m [2mtokio_cron_scheduler::job_scheduler[0m[2m:[0m Job creator created
+ipig-api  | [2m2026-02-17T13:50:10.542142Z[0m [32m INFO[0m [2merp_backend::services::scheduler[0m[2m:[0m [Scheduler] ??Job 'euthanasia_timeout' registered
+ipig-api  | [2m2026-02-17T13:50:10.542227Z[0m [32m INFO[0m [2mtokio_cron_scheduler::job_scheduler[0m[2m:[0m Job creator created
+ipig-api  | [2m2026-02-17T13:50:10.542260Z[0m [32m INFO[0m [2merp_backend::services::scheduler[0m[2m:[0m [Scheduler] ??Job 'monthly_report' registered
+ipig-api  | [2m2026-02-17T13:50:10.542283Z[0m [32m INFO[0m [2merp_backend::services::scheduler[0m[2m:[0m [Scheduler] ??All 9 jobs registered and scheduler started successfully
+ipig-api  | [2m2026-02-17T13:50:10.542289Z[0m [32m INFO[0m [2merp_backend[0m[2m:[0m Background scheduler started
+ipig-api  | [2m2026-02-17T13:50:10.768583Z[0m [32m INFO[0m [2merp_backend::services::geoip[0m[2m:[0m [GeoIP] ??撌脰???GeoLite2-City 鞈?摨? /app/geoip/GeoLite2-City.mmdb
+ipig-api  | [2m2026-02-17T13:50:10.774662Z[0m [32m INFO[0m [2merp_backend[0m[2m:[0m Server listening on 0.0.0.0:8000
