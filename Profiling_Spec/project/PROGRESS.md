@@ -561,6 +561,14 @@
   - 確認提示避免誤操作，提交後自動更新動物狀態
   - `tsc --noEmit` 編譯通過
 
+- ✅ 📄 **AUP 參考文獻格式（農業部表單）**：
+  - `protocol.ts`：`guidelines` 型別新增 `databases` 陣列（code/checked/keywords/note）
+  - `constants.ts`：預設初始化 A-L 共 12 個資料庫項目
+  - `SectionGuidelines.tsx`：重寫為 5.1 法源依據 + 5.2 資料庫搜尋紀錄（A-L 勾選 + 關鍵字/備註）+ 5.3 引用文獻列表
+  - `ProtocolContentView.tsx`：唯讀顯示已勾選資料庫及關鍵字/備註
+  - `zh-TW.json` / `en.json`：新增 databases A-L 翻譯、databasesTitle、keywordsLabel、noteLabel
+  - `tsc --noEmit` 編譯通過
+
 - ✅ 🧹 **測試套件整合與清理**：
   - 執行 `cleanup_test_data.ps1` 清理所有測試資料（保留審計記錄）
   - 建立 `tests/_archive/` 歸檔 4 個過時腳本（`aup_test_standalone.py`、`audit_check_deep.py`、`audit_check_quick.py`、`debug_csrf.py`）
