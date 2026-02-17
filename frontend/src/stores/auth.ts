@@ -101,15 +101,19 @@ export const useAuthStore = create<AuthState>()(
       stopImpersonating: async () => {
         set({ isLoading: true })
         try {
-          // 登出模擬帳號，使用者需重新以管理員帳號登入
-          await api.post('/auth/logout')
+          // 呼叫後端恢復管理員 session（後端會重新簽發管理員 token）
+          const response = await api.post<LoginResponse>('/auth/stop-impersonate')
+          const { user } = response.data
+
           set({
-            user: null,
-            isAuthenticated: false,
+            user,
+            isAuthenticated: true,
             isImpersonating: false,
             isLoading: false,
           })
-          window.location.href = '/login'
+
+          // 重新載入頁面以清除所有 query cache 和重置狀態
+          window.location.href = '/'
         } catch (error) {
           console.error('Failed to stop impersonating:', error)
           get().logout()

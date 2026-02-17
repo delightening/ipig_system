@@ -67,10 +67,29 @@ export function HrAttendancePage() {
         enabled: activeTab === 'history',
     })
 
+    // 取得 GPS 座標的工具函式
+    const getGpsPosition = (): Promise<{ latitude: number; longitude: number } | null> => {
+        return new Promise((resolve) => {
+            if (!navigator.geolocation) {
+                resolve(null)
+                return
+            }
+            navigator.geolocation.getCurrentPosition(
+                (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+                () => resolve(null), // 使用者拒絕或逾時 → 不帶 GPS
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+            )
+        })
+    }
+
     // 打卡上班
     const clockInMutation = useMutation({
         mutationFn: async () => {
-            return api.post<{ success: boolean; clock_in_time: string }>('/hr/attendance/clock-in', { source: 'web' })
+            const gps = await getGpsPosition()
+            return api.post<{ success: boolean; clock_in_time: string }>('/hr/attendance/clock-in', {
+                source: 'web',
+                ...(gps && { latitude: gps.latitude, longitude: gps.longitude }),
+            })
         },
         onSuccess: (res) => {
             const clockInTime = res.data.clock_in_time
@@ -86,9 +105,13 @@ export function HrAttendancePage() {
             })
         },
         onError: (error: any) => {
+            const status = error?.response?.status
+            const serverMsg = error?.response?.data?.error?.message
             toast({
                 title: '打卡失敗',
-                description: error?.response?.data?.error?.message || '請稍後再試',
+                description: status === 403
+                    ? (serverMsg || '請確認您已連接辦公室 WiFi 或允許定位權限')
+                    : (serverMsg || '請稍後再試'),
                 variant: 'destructive',
             })
         },
@@ -97,7 +120,11 @@ export function HrAttendancePage() {
     // 打卡下班
     const clockOutMutation = useMutation({
         mutationFn: async () => {
-            return api.post<{ success: boolean; clock_out_time: string }>('/hr/attendance/clock-out', { source: 'web' })
+            const gps = await getGpsPosition()
+            return api.post<{ success: boolean; clock_out_time: string }>('/hr/attendance/clock-out', {
+                source: 'web',
+                ...(gps && { latitude: gps.latitude, longitude: gps.longitude }),
+            })
         },
         onSuccess: (res) => {
             const clockOutTime = res.data.clock_out_time
@@ -114,13 +141,18 @@ export function HrAttendancePage() {
             })
         },
         onError: (error: any) => {
+            const status = error?.response?.status
+            const serverMsg = error?.response?.data?.error?.message
             toast({
                 title: '打卡失敗',
-                description: error?.response?.data?.error?.message || '請稍後再試',
+                description: status === 403
+                    ? (serverMsg || '請確認您已連接辦公室 WiFi 或允許定位權限')
+                    : (serverMsg || '請稍後再試'),
                 variant: 'destructive',
             })
         },
     })
+
 
     const formatTime = (dateStr: string | null) => {
         if (!dateStr) return '-'

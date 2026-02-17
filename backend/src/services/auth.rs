@@ -244,6 +244,62 @@ impl AuthService {
         })
     }
 
+    /// 停止模擬登入，恢復管理員身分
+    /// 查詢管理員帳號並簽發正常 token（不含 impersonated_by）
+    pub async fn impersonate_restore(
+        pool: &PgPool,
+        config: &Config,
+        admin_user_id: Uuid,
+    ) -> Result<LoginResponse> {
+        // 查詢管理員帳號
+        let user = sqlx::query_as::<_, User>(
+            "SELECT * FROM users WHERE id = $1 AND is_active = true"
+        )
+        .bind(admin_user_id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::Validation("Admin user not found or inactive".to_string()))?;
+
+        // 獲取管理員的角色和權限
+        let (roles, permissions) = Self::get_user_roles_permissions(pool, user.id).await?;
+
+        // 生成正常的 JWT（不含 impersonated_by，使用正常有效期）
+        let (access_token, expires_in) = Self::generate_access_token(
+            config, &user, &roles, &permissions, None
+        )?;
+
+        // 生成 Refresh Token
+        let refresh_token = Self::generate_refresh_token(pool, user.id, config).await?;
+
+        Ok(LoginResponse {
+            access_token,
+            refresh_token,
+            token_type: "Bearer".to_string(),
+            expires_in,
+            user: UserResponse {
+                id: user.id,
+                email: user.email,
+                display_name: user.display_name,
+                phone: user.phone,
+                organization: user.organization,
+                is_internal: user.is_internal,
+                is_active: user.is_active,
+                must_change_password: user.must_change_password,
+                theme_preference: user.theme_preference.clone(),
+                language_preference: user.language_preference.clone(),
+                last_login_at: user.last_login_at,
+                entry_date: user.entry_date,
+                position: user.position.clone(),
+                aup_roles: user.aup_roles.clone(),
+                years_experience: user.years_experience,
+                trainings: user.trainings.0.clone(),
+                roles,
+                permissions,
+            },
+            must_change_password: user.must_change_password,
+        })
+    }
+
     /// 登出（撤銷 refresh token）
     pub async fn logout(pool: &PgPool, user_id: Uuid) -> Result<()> {
         sqlx::query("UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL")

@@ -25,6 +25,11 @@ pub struct AttendanceRecord {
     pub clock_in_ip: Option<String>,
     pub clock_out_source: Option<String>,
     pub clock_out_ip: Option<String>,
+    /// GPS 定位座標
+    pub clock_in_latitude: Option<f64>,
+    pub clock_in_longitude: Option<f64>,
+    pub clock_out_latitude: Option<f64>,
+    pub clock_out_longitude: Option<f64>,
     pub remark: Option<String>,
     pub is_corrected: bool,
     pub corrected_by: Option<Uuid>,
@@ -63,11 +68,19 @@ pub struct AttendanceQuery {
 #[derive(Debug, Deserialize)]
 pub struct ClockInRequest {
     pub source: Option<String>,
+    /// GPS 緯度
+    pub latitude: Option<f64>,
+    /// GPS 經度
+    pub longitude: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ClockOutRequest {
     pub source: Option<String>,
+    /// GPS 緯度
+    pub latitude: Option<f64>,
+    /// GPS 經度
+    pub longitude: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]

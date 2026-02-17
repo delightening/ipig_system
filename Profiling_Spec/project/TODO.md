@@ -127,6 +127,8 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-02-17 | 🔒 打卡 IP 限制：`ALLOWED_CLOCK_IP_RANGES` 環境變數 + CIDR 白名單驗證 + IP 寫入 DB + 前端 403 友善提示 |
+| 2026-02-17 | 📍 GPS 定位打卡：Haversine 距離計算 + IP/GPS 擇一驗證 + 前端 Geolocation API + DB 記錄經緯度 + 辦公室座標 24.654053, 120.784923 |
 | 2026-02-17 | 🔧 修復 `cleanup_test_data.sql`：3 處 bug（`google_calendar_config` 欄位名、`system_settings` 欄位名、89 個 FK 約束）+ 舊 `pigs`→`animals` 表名 + 10+ 個遺漏表，測試資料清理成功 |
 | 2026-02-17 | 🧹 測試套件整合與清理：執行 `cleanup_test_data.ps1` 清理測試資料、4 個過時腳本移入 `_archive/`（`aup_test_standalone.py`、`audit_check_deep.py`、`audit_check_quick.py`、`debug_csrf.py`）、`README.md` 全面改寫（3→8 模組完整說明） |
 | 2026-02-17 | 🔒 IACUC No. 變更保護：後端禁止實驗中動物更改 IACUC No. + IACUC_CHANGE 審計事件 + `GET /animals/:id/events` API；前端 AnimalEditPage 禁用下拉 + AnimalTimelineView IACUC 變更事件（amber 配色） |

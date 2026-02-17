@@ -75,6 +75,13 @@ services:
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/google_service_account
       GOOGLE_CALENDAR_ID: ${GOOGLE_CALENDAR_ID:-primary}
 
+      # 打卡 IP 白名單（CIDR 格式，逗號分隔，空值=不限制）
+      ALLOWED_CLOCK_IP_RANGES: ${ALLOWED_CLOCK_IP_RANGES:-}
+
+      # 打卡 GPS 定位（經緯度 + 允許半徑，空值=不啟用 GPS 驗證）
+      CLOCK_OFFICE_LATITUDE: ${CLOCK_OFFICE_LATITUDE:-}
+      CLOCK_OFFICE_LONGITUDE: ${CLOCK_OFFICE_LONGITUDE:-}
+      CLOCK_GPS_RADIUS_METERS: ${CLOCK_GPS_RADIUS_METERS:-200}
     ports:
       - "${API_PORT:-8000}:8000"
     volumes:

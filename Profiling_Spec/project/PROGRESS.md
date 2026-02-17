@@ -396,6 +396,7 @@
 |-----|:---:|:---:|:---:|------|
 | 考勤統計報表 | ✅ | ✅ | ✅ | 排除管理員帳號 |
 | 請假餘額顯示 | ✅ | ✅ | ✅ | Dashboard Widget |
+| 打卡 IP 限制 | ✅ | ✅ | ✅ | CIDR 白名單 + 403 友善提示 (2026-02-17) |
 
 ### 6.3 Google Calendar 整合
 
@@ -535,6 +536,23 @@
   - 前端 `npx tsc --noEmit` 編譯通過（0 錯誤）
 
 ### 2026-02-17
+
+- ✅ 🔒 **打卡 IP 限制**：
+  - 後端：`Config` 新增 `ALLOWED_CLOCK_IP_RANGES`（CIDR 格式，如 `10.0.4.0/24,125.231.147.132`）
+  - 後端：`attendance handler` 加入 `extract_real_ip` + `validate_clock_ip` 白名單驗證，IP 寫入 DB
+  - 後端：`HrService::is_ip_in_ranges` CIDR 比對函式（支援 `/24` 網段 + 單一 IP）
+  - 前端：`HrAttendancePage.tsx` 403 狀態碼辨識 + 「請連接辦公室 WiFi」友善提示
+  - `docker-compose.yml` 新增 `ALLOWED_CLOCK_IP_RANGES` 環境變數
+
+- ✅ 📍 **GPS 定位打卡**：
+  - DB：`009_attendance_gps.sql` 新增 4 個欄位（`clock_in_latitude`/`clock_in_longitude`/`clock_out_latitude`/`clock_out_longitude`）
+  - 後端：`Config` 新增 `CLOCK_OFFICE_LATITUDE`/`CLOCK_OFFICE_LONGITUDE`/`CLOCK_GPS_RADIUS_METERS` 設定
+  - 後端：`attendance handler` 新增 Haversine 公式距離計算 + `validate_clock_location`（IP 或 GPS 任一通過）
+  - 後端：`ClockInRequest`/`ClockOutRequest` 新增 `latitude`/`longitude` 欄位，`AttendanceRecord` 新增 GPS 欄位
+  - 後端：`HrService::clock_in`/`clock_out` GPS 座標寫入 DB
+  - 前端：`HrAttendancePage.tsx` 使用 `navigator.geolocation.getCurrentPosition()` 取得座標後送出
+  - `.env` 設定辦公室座標（24.654053, 120.784923 苗栗後龍）
+  - `docker-compose.yml` 新增 GPS 環境變數傳遞
 
 - ✅ 🐷 **動物詳情頁新增「登記猝死」前端操作入口**：
   - `AnimalDetailPage.tsx`：新增 `showSuddenDeathDialog` 狀態、`suddenDeathForm` 表單狀態、`createSuddenDeathMutation`
