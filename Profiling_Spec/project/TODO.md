@@ -127,6 +127,8 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-02-17 | 🧪 CI 測試修復：`enums.rs` display_name 與測試同步（Completed→"實驗完成"、White→"白豬"）+ 移除 2 個未使用 import（`IacucChangeInfo` re-export、`use super::*`），87 測試全通過 |
+| 2026-02-17 | 🔐 密碼更新不登出：後端 `change_own_password` 改為重新簽發 tokens + 回傳新 cookies、前端 `MainLayout.tsx` 移除 `logout()` 改用 `checkAuth()` |
 | 2026-02-17 | 🔒 打卡 IP 限制：`ALLOWED_CLOCK_IP_RANGES` 環境變數 + CIDR 白名單驗證 + IP 寫入 DB + 前端 403 友善提示 |
 | 2026-02-17 | 📍 GPS 定位打卡：Haversine 距離計算 + IP/GPS 擇一驗證 + 前端 Geolocation API + DB 記錄經緯度 + 辦公室座標 24.654053, 120.784923 |
 | 2026-02-17 | 🔧 修復 `cleanup_test_data.sql`：3 處 bug（`google_calendar_config` 欄位名、`system_settings` 欄位名、89 個 FK 約束）+ 舊 `pigs`→`animals` 表名 + 10+ 個遺漏表，測試資料清理成功 |

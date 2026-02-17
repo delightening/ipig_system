@@ -1,0 +1,190 @@
+﻿cargo :    Compiling erp-backend v0.1.0 (D:\Coding\ipi
+g_system\backend)
+位於 線路:1 字元:27
++ $env:SQLX_OFFLINE="true"; cargo test 2>&1 | Out-File
+ -FilePath d:\Cod ...
++                           ~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (   Compi 
+   ling er...system\backend):String) [], RemoteExcep  
+  tion
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+    Finished `test` profile [unoptimized + debuginfo] 
+target(s) in 19.16s
+     Running unittests src\bin\auto_resolve_migrations
+.rs (target\debug\deps\auto_resolve_migrations-5b01785
+d6cd79bc0.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\check_duplicate_permiss
+ions.rs (target\debug\deps\check_duplicate_permissions
+-f0a9b74ea3845fa1.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\check_migration_table.r
+s (target\debug\deps\check_migration_table-f712bba981f
+223cb.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\check_permission_names.
+rs (target\debug\deps\check_permission_names-b1b1bfb5c
+4de2a33.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\clear_migrations.rs (ta
+rget\debug\deps\clear_migrations-0124f1fd9b5d937f.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\create_admin.rs (target
+\debug\deps\create_admin-925e614c4129442f.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\create_test_user.rs (ta
+rget\debug\deps\create_test_user-8850bcc7273e08d8.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\main.rs (target\debug\deps\
+erp_backend-50b5206e7246a466.exe)
+
+running 87 tests
+test models::animal::tests::test_animal_breed_display_name ... ok
+test models::animal::tests::test_animal_status_display_name ... ok
+test models::animal::tests::test_record_type_display_name ... ok
+test models::animal::tests::test_animal_gender_display_name ... ok
+test models::animal::tests::test_animal_breed_serde ... ok
+test models::animal::tests::test_animal_status_serde ... ok
+test models::animal::tests::test_validate_ear_tag_invalid ... ok
+test models::animal::tests::test_validate_ear_tag_numeric_formatting ... ok
+test models::animal::tests::test_validate_pen_location_valid ... ok
+test models::facility::tests::test_department_serde ... ok
+test models::animal::tests::test_validate_ear_tag_three_digits ... ok
+test models::facility::tests::test_create_pen_request ... ok
+test models::animal::tests::test_animal_gender_serde ... ok
+test models::animal::tests::test_validate_pen_location_empty ... ok
+test models::facility::tests::test_facility_serde ... ok
+test models::facility::tests::test_pen_query_defaults ... ok
+test models::facility::tests::test_species_serde ... ok
+test models::facility::tests::test_update_pen_optional_fields ... ok
+test models::hr::tests::test_leave_status_all_variants ... ok
+test models::hr::tests::test_leave_status_display_name ... ok
+test models::hr::tests::test_leave_status_serde_roundtrip ... ok
+test models::hr::tests::test_leave_type_all_variants ... ok
+test models::hr::tests::test_leave_type_display_name ... ok
+test models::hr::tests::test_leave_type_serde_roundtrip ... ok
+test models::protocol::tests::test_activity_type_all_variants ... ok
+test models::protocol::tests::test_activity_type_as_str ... ok
+test models::protocol::tests::test_activity_type_display_name ... ok
+test models::protocol::tests::test_protocol_activity_response_from ... ok
+test models::protocol::tests::test_protocol_status_all_variants_have_as_str ... ok
+test models::protocol::tests::test_protocol_status_as_str ... ok
+test models::protocol::tests::test_protocol_status_display_name ... ok
+test models::protocol::tests::test_protocol_status_serde_roundtrip ... ok
+test models::tests::test_default_pagination_values ... ok
+test models::tests::test_paginated_response_empty ... ok
+test models::tests::test_paginated_response_partial_last_page ... ok
+test models::tests::test_paginated_response_single_item ... ok
+test models::tests::test_paginated_response_total_pages ... ok
+test models::user::tests::test_language_preference_default ... ok
+test models::user::tests::test_language_preference_serde ... ok
+test models::user::tests::test_login_constants ... ok
+test models::user::tests::test_password_strength_no_digit ... ok
+test models::user::tests::test_password_strength_no_lowercase ... ok
+test models::user::tests::test_password_strength_no_uppercase ... ok
+test models::user::tests::test_password_strength_valid ... ok
+test models::user::tests::test_theme_preference_default ... ok
+test models::user::tests::test_theme_preference_serde ... ok
+test services::auth::tests::test_hash_token_different_inputs ... ok
+test services::auth::tests::test_hash_token_deterministic ... ok
+test services::auth::tests::test_hash_token_length ... ok
+test services::auth::tests::test_password_empty ... ok
+test services::auth::tests::test_password_exact_8_chars ... ok
+test services::auth::tests::test_password_no_digit ... ok
+test services::auth::tests::test_password_no_lowercase ... ok
+test services::auth::tests::test_password_no_uppercase ... ok
+test services::auth::tests::test_password_too_short ... ok
+test services::auth::tests::test_password_unicode ... ok
+test services::auth::tests::test_password_valid ... ok
+test services::auth::tests::test_password_with_special_chars ... ok
+test services::file::tests::test_extension_from_mime_known_types ... ok
+test services::file::tests::test_extension_from_mime_unknown ... ok
+test services::file::tests::test_allowed_mime_types ... ok
+test services::file::tests::test_extension_from_filename ... ok
+test services::file::tests::test_file_category_max_size ... ok
+test services::file::tests::test_file_category_subdirectory ... ok
+test services::file::tests::test_generate_unique_filename_pdf ... ok
+test services::file::tests::test_generate_unique_filename_fallback_to_mime ... ok
+test services::file::tests::test_generate_unique_filename_uniqueness ... ok
+test services::file::tests::test_generate_unique_filename_unknown_mime ... ok
+test services::file::tests::test_generate_unique_filename_uses_original_extension ... ok
+test services::file::tests::test_guess_mime_type ... ok
+test services::file::tests::test_magic_number_doc_valid ... ok
+test services::file::tests::test_magic_number_docx_valid ... ok
+test services::file::tests::test_magic_number_gif_invalid ... ok
+test services::file::tests::test_magic_number_gif_valid ... ok
+test services::file::tests::test_magic_number_jpeg_invalid ... ok
+test services::file::tests::test_magic_number_jpeg_valid ... ok
+test services::file::tests::test_magic_number_pdf_invalid ... ok
+test services::file::tests::test_magic_number_pdf_valid ... ok
+test services::file::tests::test_magic_number_png_invalid ... ok
+test services::file::tests::test_magic_number_png_valid ... ok
+test services::file::tests::test_magic_number_small_file_passes ... ok
+test services::file::tests::test_magic_number_unknown_mime_passes ... ok
+test services::file::tests::test_magic_number_webp_valid ... ok
+test services::partition_maintenance::tests::test_quarter_dates ... ok
+test services::auth::tests::test_hash_password_unique_salts ... ok
+test services::auth::tests::test_hash_and_verify_password ... ok
+test services::auth::tests::test_verify_wrong_password ... ok
+
+test result: ok. 87 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.91s
+
+     Running unittests src\bin\fix_migration.rs (targe
+t\debug\deps\fix_migration-df55867ce80bce38.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\hash_password.rs (targe
+t\debug\deps\hash_password-c67ea103e17b0d1a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\mark_migrations_applied
+.rs (target\debug\deps\mark_migrations_applied-02fdd62
+a60233588.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\resolve_migrations.rs (
+target\debug\deps\resolve_migrations-d1618554ca0f0d10.
+exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

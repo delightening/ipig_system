@@ -537,6 +537,19 @@
 
 ### 2026-02-17
 
+- ✅ 🧪 **CI cargo test 修復**：
+  - `enums.rs`：`AnimalStatus::Completed` display_name 從 `"存活完成"` 改回 `"實驗完成"`（與前端/測試一致）
+  - `enums.rs`：`AnimalBreed::White` display_name 從 `"白"` 改回 `"白豬"`（與前端/測試一致）
+  - `services/animal/mod.rs`：移除未使用的 `pub use core::IacucChangeInfo` re-export
+  - `services/partition_maintenance.rs`：移除測試中未使用的 `use super::*`
+  - 87 個測試全部通過，0 個編譯警告
+
+- ✅ 🔐 **密碼更新不登出**：
+  - 後端：`AuthService::change_own_password` 改為回傳 `LoginResponse`，密碼更新後重新簽發 access/refresh tokens（而非撤銷所有 tokens）
+  - 後端：`change_own_password` handler 改用 `login_response_with_cookies` 回傳新 cookies
+  - 前端：`MainLayout.tsx` 密碼更新成功後改呼叫 `checkAuth()` 取代 `logout()`
+  - `cargo check` 編譯通過
+
 - ✅ 🔒 **打卡 IP 限制**：
   - 後端：`Config` 新增 `ALLOWED_CLOCK_IP_RANGES`（CIDR 格式，如 `10.0.4.0/24,125.231.147.132`）
   - 後端：`attendance handler` 加入 `extract_real_ip` + `validate_clock_ip` 白名單驗證，IP 寫入 DB

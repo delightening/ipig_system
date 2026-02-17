@@ -21,7 +21,7 @@ impl AnimalStatus {
         match self {
             AnimalStatus::Unassigned => "未分配",
             AnimalStatus::InExperiment => "實驗中",
-            AnimalStatus::Completed => "存活完成",
+            AnimalStatus::Completed => "實驗完成",
             AnimalStatus::Euthanized => "安樂死",
             AnimalStatus::SuddenDeath => "猝死",
             AnimalStatus::Transferred => "已轉讓",
@@ -138,7 +138,7 @@ impl AnimalBreed {
     pub fn display_name(&self) -> &'static str {
         match self {
             AnimalBreed::Minipig => "迷你豬",
-            AnimalBreed::White => "白",
+            AnimalBreed::White => "白豬",
             AnimalBreed::LYD => "LYD",
             AnimalBreed::Other => "其他",
         }
