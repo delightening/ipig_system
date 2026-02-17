@@ -20,6 +20,47 @@ impl HrService {
     // Attendance
     // ============================================
 
+    /// 檢查 IP 是否在允許的 CIDR 範圍內
+    /// 支援格式：單一 IP（如 "10.0.4.1"）或 CIDR（如 "10.0.4.0/24"）
+    pub fn is_ip_in_ranges(ip: &str, ranges: &[String]) -> bool {
+        use std::net::{IpAddr, Ipv4Addr};
+
+        let client_ip: IpAddr = match ip.parse() {
+            Ok(addr) => addr,
+            Err(_) => return false,
+        };
+
+        for range in ranges {
+            if let Some((network_str, prefix_str)) = range.split_once('/') {
+                // CIDR 格式：如 "10.0.4.0/24"
+                if let (Ok(network_ip), Ok(prefix_len)) = (
+                    network_str.trim().parse::<Ipv4Addr>(),
+                    prefix_str.trim().parse::<u32>(),
+                ) {
+                    if prefix_len <= 32 {
+                        if let IpAddr::V4(client_v4) = client_ip {
+                            let mask = if prefix_len == 0 { 0u32 } else { !0u32 << (32 - prefix_len) };
+                            let network_bits = u32::from(network_ip) & mask;
+                            let client_bits = u32::from(client_v4) & mask;
+                            if network_bits == client_bits {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            } else {
+                // 單一 IP 格式：如 "125.231.147.132"
+                if let Ok(allowed_ip) = range.trim().parse::<IpAddr>() {
+                    if client_ip == allowed_ip {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        false
+    }
+
     pub async fn list_attendance(
         pool: &PgPool,
         query: &AttendanceQuery,
@@ -77,6 +118,8 @@ impl HrService {
         user_id: Uuid,
         source: Option<&str>,
         ip: Option<&str>,
+        latitude: Option<f64>,
+        longitude: Option<f64>,
     ) -> Result<AttendanceRecord> {
         // 使用台灣時區 (UTC+8) 的日期，而不是 UTC 日期
         // 這樣當使用者在凌晨打卡時，work_date 會是正確的本地日期
@@ -84,7 +127,14 @@ impl HrService {
         let today = Utc::now().with_timezone(&taipei_offset).date_naive();
 
         let existing: Option<AttendanceRecord> = sqlx::query_as(
-            "SELECT * FROM attendance_records WHERE user_id = $1 AND work_date = $2",
+            r#"SELECT id, user_id, work_date, clock_in_time, clock_out_time,
+                    regular_hours, overtime_hours, status, clock_in_source,
+                    clock_in_ip::TEXT, clock_out_source, clock_out_ip::TEXT,
+                    clock_in_latitude, clock_in_longitude,
+                    clock_out_latitude, clock_out_longitude,
+                    remark, is_corrected, corrected_by, corrected_at,
+                    correction_reason, created_at, updated_at
+               FROM attendance_records WHERE user_id = $1 AND work_date = $2"#,
         )
         .bind(user_id)
         .bind(today)
@@ -99,14 +149,22 @@ impl HrService {
 
         let record = sqlx::query_as::<_, AttendanceRecord>(
             r#"
-            INSERT INTO attendance_records (id, user_id, work_date, clock_in_time, clock_in_source, clock_in_ip, status)
-            VALUES ($1, $2, $3, NOW(), $4, $5::inet, 'normal')
+            INSERT INTO attendance_records (id, user_id, work_date, clock_in_time, clock_in_source, clock_in_ip, clock_in_latitude, clock_in_longitude, status)
+            VALUES ($1, $2, $3, NOW(), $4, $5::inet, $6, $7, 'normal')
             ON CONFLICT (user_id, work_date) DO UPDATE SET
                 clock_in_time = NOW(),
                 clock_in_source = $4,
                 clock_in_ip = $5::inet,
+                clock_in_latitude = $6,
+                clock_in_longitude = $7,
                 updated_at = NOW()
-            RETURNING *
+            RETURNING id, user_id, work_date, clock_in_time, clock_out_time,
+                    regular_hours, overtime_hours, status, clock_in_source,
+                    clock_in_ip::TEXT, clock_out_source, clock_out_ip::TEXT,
+                    clock_in_latitude, clock_in_longitude,
+                    clock_out_latitude, clock_out_longitude,
+                    remark, is_corrected, corrected_by, corrected_at,
+                    correction_reason, created_at, updated_at
             "#,
         )
         .bind(Uuid::new_v4())
@@ -114,6 +172,8 @@ impl HrService {
         .bind(today)
         .bind(source.unwrap_or("web"))
         .bind(ip)
+        .bind(latitude)
+        .bind(longitude)
         .fetch_one(pool)
         .await?;
 
@@ -125,6 +185,8 @@ impl HrService {
         user_id: Uuid,
         source: Option<&str>,
         ip: Option<&str>,
+        latitude: Option<f64>,
+        longitude: Option<f64>,
     ) -> Result<AttendanceRecord> {
         // 使用台灣時區 (UTC+8) 的日期，與 clock_in 保持一致
         let taipei_offset = chrono::FixedOffset::east_opt(8 * 3600).unwrap();
@@ -136,16 +198,26 @@ impl HrService {
             SET clock_out_time = NOW(),
                 clock_out_source = $3,
                 clock_out_ip = $4::inet,
+                clock_out_latitude = $5,
+                clock_out_longitude = $6,
                 regular_hours = EXTRACT(EPOCH FROM (NOW() - clock_in_time)) / 3600,
                 updated_at = NOW()
             WHERE user_id = $1 AND work_date = $2
-            RETURNING *
+            RETURNING id, user_id, work_date, clock_in_time, clock_out_time,
+                    regular_hours, overtime_hours, status, clock_in_source,
+                    clock_in_ip::TEXT, clock_out_source, clock_out_ip::TEXT,
+                    clock_in_latitude, clock_in_longitude,
+                    clock_out_latitude, clock_out_longitude,
+                    remark, is_corrected, corrected_by, corrected_at,
+                    correction_reason, created_at, updated_at
             "#,
         )
         .bind(user_id)
         .bind(today)
         .bind(source.unwrap_or("web"))
         .bind(ip)
+        .bind(latitude)
+        .bind(longitude)
         .fetch_one(pool)
         .await
         .map_err(|_| AppError::Validation("請先打卡上班".to_string()))?;

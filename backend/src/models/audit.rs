@@ -168,6 +168,7 @@ pub enum AuditAction {
     Assign,
     Unassign,
     Impersonate,
+    StopImpersonate,
 }
 
 impl AuditAction {
@@ -187,6 +188,7 @@ impl AuditAction {
             AuditAction::Assign => "ASSIGN",
             AuditAction::Unassign => "UNASSIGN",
             AuditAction::Impersonate => "IMPERSONATE",
+            AuditAction::StopImpersonate => "STOP_IMPERSONATE",
         }
     }
 }

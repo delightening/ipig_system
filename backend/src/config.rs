@@ -27,6 +27,14 @@ pub struct Config {
     pub cookie_domain: Option<String>,
     // Development settings
     pub seed_dev_users: bool,
+    /// 打卡允許的 IP 範圍（CIDR 格式，如 "192.168.1.0/24,10.0.0.1"）
+    /// 空陣列表示不限制
+    pub allowed_clock_ip_ranges: Vec<String>,
+    /// 辦公室 GPS 座標（None 表示不啟用 GPS 驗證）
+    pub clock_office_latitude: Option<f64>,
+    pub clock_office_longitude: Option<f64>,
+    /// GPS 打卡允許半徑（公尺），預設 200
+    pub clock_gps_radius_meters: f64,
 }
 
 impl Config {
@@ -109,6 +117,22 @@ impl Config {
             seed_dev_users: std::env::var("SEED_DEV_USERS")
                 .map(|v| v.to_lowercase() == "true" || v == "1")
                 .unwrap_or(false),
+            allowed_clock_ip_ranges: std::env::var("ALLOWED_CLOCK_IP_RANGES")
+                .unwrap_or_default()
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect(),
+            clock_office_latitude: std::env::var("CLOCK_OFFICE_LATITUDE")
+                .ok()
+                .and_then(|s| s.parse().ok()),
+            clock_office_longitude: std::env::var("CLOCK_OFFICE_LONGITUDE")
+                .ok()
+                .and_then(|s| s.parse().ok()),
+            clock_gps_radius_meters: std::env::var("CLOCK_GPS_RADIUS_METERS")
+                .unwrap_or_else(|_| "200".to_string())
+                .parse()
+                .unwrap_or(200.0),
         })
     }
 

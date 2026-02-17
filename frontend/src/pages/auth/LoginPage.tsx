@@ -71,6 +71,7 @@ export function LoginPage() {
             <Input
               id="email"
               type="email"
+              autoComplete="email"
               placeholder="請輸入電子郵件"
               {...register('email')}
               className={errors.email ? 'border-red-500' : ''}
@@ -85,6 +86,7 @@ export function LoginPage() {
               <Input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
                 placeholder="••••••••"
                 {...register('password')}
                 className={errors.password ? 'border-red-500' : ''}

@@ -368,3 +368,48 @@ pub async fn heartbeat(
     
     Ok(Json(serde_json::json!({ "status": "ok" })))
 }
+
+/// 停止模擬登入，恢復管理員 session
+/// 從 JWT 的 impersonated_by 欄位取得管理員 ID，重新簽發管理員的正常 token
+pub async fn stop_impersonate(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+) -> Result<Response> {
+    // 檢查是否為模擬登入狀態
+    let admin_id = current_user.impersonated_by.ok_or_else(|| {
+        AppError::BusinessRule("目前不在模擬登入狀態".to_string())
+    })?;
+
+    // SEC-23: 將當前模擬登入的 JWT 加入黑名單
+    if !current_user.jti.is_empty() {
+        state.jwt_blacklist.revoke(&current_user.jti, current_user.exp);
+    }
+
+    // 用管理員 ID 重新建立正常的 LoginResponse（不含 impersonated_by）
+    let login_response = AuthService::impersonate_restore(&state.db, &state.config, admin_id).await?;
+
+    // 記錄稽核日誌
+    use crate::services::AuditService;
+    use crate::models::AuditAction;
+    AuditService::log(
+        &state.db,
+        admin_id,
+        AuditAction::StopImpersonate,
+        "user",
+        current_user.id,
+        None,
+        Some(serde_json::json!({
+            "impersonated_user_id": current_user.id,
+            "admin_user_id": admin_id,
+            "reason": "Admin stopped impersonation",
+        })),
+    ).await?;
+
+    tracing::info!(
+        "[Security] 停止模擬登入 - 管理員 {} 恢復身分（原模擬用戶 {}）",
+        admin_id, current_user.id
+    );
+
+    // 回傳管理員的 token + Set-Cookie headers
+    Ok(login_response_with_cookies(&login_response, &state.config))
+}

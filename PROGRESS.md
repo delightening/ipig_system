@@ -1,5 +1,22 @@
 # 專案進度
 
+## 2026-02-17 修復「返回管理員」按鈕導致管理員登出
+
+### 問題
+管理員模擬登入其他使用者後，點擊「← 返回管理員」會導致管理員被登出。
+
+### 根因
+1. 前端 `stopImpersonating` 呼叫 `/auth/logout` 銷毀所有 token（邏輯錯誤）
+2. Nginx `proxy_buffer_size` 不足，JWT Set-Cookie header 過大導致 `upstream sent too big header` → 502
+
+### 已完成
+- ✅ 後端新增 `POST /auth/stop-impersonate` API（handler + service + route）
+- ✅ 後端新增 `AuthService::impersonate_restore` 方法（恢復管理員 token）
+- ✅ 後端新增 `AuditAction::StopImpersonate` 稽核動作
+- ✅ 前端 `stopImpersonating` 改呼叫新 API，恢復 session 後導向首頁
+- ✅ Nginx 加大 `proxy_buffer_size 16k` / `proxy_buffers 4 16k` 修復 502
+- ✅ Docker build 成功（api + web），容器重啟驗證通過
+
 ## 2026-02-14 資安分析與修復
 
 ### 已完成（11 項修復）
