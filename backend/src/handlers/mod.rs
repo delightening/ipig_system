@@ -19,6 +19,7 @@ mod facility;
 mod calendar;
 mod user_preferences;
 mod signature;
+mod config_check;
 pub mod euthanasia;
 pub mod amendment;
 pub mod storage_location;
@@ -44,4 +45,5 @@ pub use facility::*;
 pub use calendar::*;
 pub use user_preferences::*;
 pub use signature::*;
+pub use config_check::*;
 
