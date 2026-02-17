@@ -196,6 +196,12 @@ export interface ProtocolWorkingContent {
     }
     guidelines: { // Section 5
         content: string
+        databases: Array<{
+            code: string        // 'A' | 'B' | ... | 'L'
+            checked: boolean
+            keywords?: string   // A-E 資料庫有關鍵字欄位
+            note?: string       // K（同儕聯繫）、L（其他）有備註欄位
+        }>
         references: Array<{
             citation: string
             url?: string

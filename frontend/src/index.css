@@ -371,7 +371,7 @@
 /* ==================== */
 
 .signature-pad-container {
-  @apply w-full;
+  @apply w-full min-w-0 overflow-hidden;
 }
 
 .signature-canvas-wrapper {

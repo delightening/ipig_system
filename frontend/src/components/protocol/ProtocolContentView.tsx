@@ -470,7 +470,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
         <section className="mb-8 border-t pt-6 section-5" data-section={t('protocols.content.sections.guidelines')}>
           <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.guidelines')}</h2>
 
-          {(guidelines.content || (guidelines.references && guidelines.references.length > 0)) ? (
+          {(guidelines.content || (guidelines.databases && guidelines.databases.some((db: any) => db.checked)) || (guidelines.references && guidelines.references.length > 0)) ? (
             <>
               {guidelines.content && (
                 <div className="mb-4">
@@ -479,9 +479,31 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
                 </div>
               )}
 
+              {/* 資料庫搜尋紀錄 */}
+              {guidelines.databases && guidelines.databases.some((db: any) => db.checked) && (
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold mb-3">{t('aup.guidelines.databasesTitle')}</h3>
+                  <ul className="space-y-2">
+                    {guidelines.databases.filter((db: any) => db.checked).map((db: any) => (
+                      <li key={db.code} className="text-sm p-2 bg-slate-50 rounded">
+                        <span className="font-medium">{db.code}. {t(`aup.guidelines.databases.${db.code}`)}</span>
+                        {db.keywords && (
+                          <span className="ml-2 text-muted-foreground">
+                            — {t('aup.guidelines.keywordsLabel')}: {db.keywords}
+                          </span>
+                        )}
+                        {db.note && (
+                          <p className="mt-1 text-muted-foreground ml-4">{db.note}</p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               {guidelines.references && guidelines.references.length > 0 && (
                 <div className="mb-4">
-                  <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.references')}</h3>
+                  <h3 className="text-lg font-semibold mb-3">{t('aup.guidelines.referencesTitle')}</h3>
                   <ol className="list-decimal list-inside space-y-2">
                     {guidelines.references.map((ref: any, index: number) => (
                       <li key={index} className="text-sm">

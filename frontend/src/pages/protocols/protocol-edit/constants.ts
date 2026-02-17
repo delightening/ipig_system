@@ -98,7 +98,24 @@ export const defaultFormData: FormData = {
             },
             controlled_substances: { used: null, items: [] }
         },
-        guidelines: { content: '', references: [] },
+        guidelines: {
+            content: '',
+            databases: [
+                { code: 'A', checked: false, keywords: '' },
+                { code: 'B', checked: false, keywords: '' },
+                { code: 'C', checked: false, keywords: '' },
+                { code: 'D', checked: false, keywords: '' },
+                { code: 'E', checked: false, keywords: '' },
+                { code: 'F', checked: false },
+                { code: 'G', checked: false },
+                { code: 'H', checked: false },
+                { code: 'I', checked: false },
+                { code: 'J', checked: false },
+                { code: 'K', checked: false, note: '' },
+                { code: 'L', checked: false, note: '' },
+            ],
+            references: [],
+        },
         surgery: {
             surgery_type: '',
             preop_preparation: '',
