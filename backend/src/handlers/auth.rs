@@ -295,14 +295,16 @@ pub async fn change_own_password(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<ChangeOwnPasswordRequest>,
-) -> Result<Json<serde_json::Value>> {
-    AuthService::change_own_password(
+) -> Result<Response> {
+    let response = AuthService::change_own_password(
         &state.db,
+        &state.config,
         current_user.id,
         &req.current_password,
         &req.new_password,
     ).await?;
-    Ok(Json(serde_json::json!({ "message": "Password changed successfully" })))
+    // 回傳新 tokens 的 Set-Cookie headers，保持用戶登入狀態
+    Ok(login_response_with_cookies(&response, &state.config))
 }
 
 /// 忘記密碼 - 發送重設連結

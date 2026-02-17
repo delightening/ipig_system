@@ -541,11 +541,13 @@ export function MainLayout() {
     mutationFn: async (data: ChangeOwnPasswordRequest) => {
       return api.put('/me/password', data)
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({ title: t('common.success'), description: t('password.success') })
       setShowPasswordDialog(false)
       resetPasswordForm()
-      logout() // 改完密碼強制登出，要求使用者重新驗證
+      // 重新載入用戶資訊，後端已重新簽發 tokens（不需要重新登入）
+      const { checkAuth } = useAuthStore.getState()
+      await checkAuth()
     },
     onError: (error: any) => {
       toast({

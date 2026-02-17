@@ -454,12 +454,14 @@ impl AuthService {
     }
 
     /// 修改自己的密碼（需驗證舊密碼）
+    /// 密碼更新後重新簽發 tokens，讓用戶不需要重新登入
     pub async fn change_own_password(
         pool: &PgPool,
+        config: &Config,
         user_id: Uuid,
         current_password: &str,
         new_password: &str,
-    ) -> Result<()> {
+    ) -> Result<LoginResponse> {
         // 查詢用戶
         let user = sqlx::query_as::<_, User>(
             "SELECT * FROM users WHERE id = $1 AND is_active = true"
@@ -489,7 +491,7 @@ impl AuthService {
         .execute(pool)
         .await?;
 
-        // 撤銷所有 refresh tokens（安全措施）
+        // 撤銷舊的 refresh tokens 並重新簽發新 tokens（保持登入狀態）
         sqlx::query(
             "UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL"
         )
@@ -497,7 +499,40 @@ impl AuthService {
         .execute(pool)
         .await?;
 
-        Ok(())
+        // 獲取角色和權限
+        let (roles, permissions) = Self::get_user_roles_permissions(pool, user.id).await?;
+
+        // 重新簽發 tokens
+        let (access_token, expires_in) = Self::generate_access_token(config, &user, &roles, &permissions, None)?;
+        let refresh_token = Self::generate_refresh_token(pool, user.id, config).await?;
+
+        Ok(LoginResponse {
+            access_token,
+            refresh_token,
+            token_type: "Bearer".to_string(),
+            expires_in,
+            user: UserResponse {
+                id: user.id,
+                email: user.email,
+                display_name: user.display_name,
+                phone: user.phone,
+                organization: user.organization,
+                is_internal: user.is_internal,
+                is_active: user.is_active,
+                must_change_password: false,
+                theme_preference: user.theme_preference.clone(),
+                language_preference: user.language_preference.clone(),
+                last_login_at: user.last_login_at,
+                entry_date: user.entry_date,
+                position: user.position.clone(),
+                aup_roles: user.aup_roles.clone(),
+                years_experience: user.years_experience,
+                trainings: user.trainings.0.clone(),
+                roles,
+                permissions,
+            },
+            must_change_password: false,
+        })
     }
 
     /// 透過用戶 ID 驗證密碼（用於電子簽章等操作）
