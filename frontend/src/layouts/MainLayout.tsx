@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useMemo } from 'react' // 引入 React 核心 Hook：狀態、副作用、引用、效能優化
+﻿import { useState, useEffect, useRef, useMemo, Suspense } from 'react' // 引入 React 核心 Hook
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom' // 引入路由組件與導覽 Hook
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query' // 引入資料獲取與變更管理工具
 import { useTranslation } from 'react-i18next' // 引入 i18n 翻譯 Hook
@@ -312,6 +312,27 @@ function SortableNavItem({
         </>
       )}
     </li>
+  )
+}
+
+// ============================================
+// 延遲 Fallback：避免快速載入時 spinner 閃爍
+// 載入 < 300ms 時不顯示任何東西；超過才漸入 spinner
+// ============================================
+function DelayedFallback({ delay = 300 }: { delay?: number }) {
+  const [show, setShow] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShow(true), delay)
+    return () => clearTimeout(timer)
+  }, [delay])
+
+  if (!show) return null
+
+  return (
+    <div className="flex items-center justify-center min-h-[60vh] animate-in fade-in duration-200">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    </div>
   )
 }
 
@@ -1027,7 +1048,9 @@ export function MainLayout() {
 
         {/* 頁面內容渲染區域 (React Router Outlet) */}
         <div className="p-3 md:p-4">
-          <Outlet />
+          <Suspense fallback={<DelayedFallback />}>
+            <Outlet />
+          </Suspense>
         </div>
       </main>
 
