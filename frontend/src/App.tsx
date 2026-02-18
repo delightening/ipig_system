@@ -1,4 +1,4 @@
-﻿import { useEffect, lazy, Suspense } from 'react'
+﻿import { useEffect, lazy } from 'react'
 import { Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { useAuthStore } from '@/stores/auth'
@@ -275,134 +275,127 @@ function App() {
         return hasDashboardAccess ? "/dashboard" : "/my-projects"
     }
 
-    // 全域 loading fallback — 頁面元件 lazy load 時顯示
-    const pageFallback = (
-        <div className="flex items-center justify-center min-h-[60vh]">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
-    )
+
 
     return (
         <>
-            <Suspense fallback={pageFallback}>
-                <Routes>
-                    {/* Public Auth Routes */}
-                    <Route element={<AuthLayout />}>
-                        <Route path="/login" element={<LoginPage />} />
+            <Routes>
+                {/* Public Auth Routes */}
+                <Route element={<AuthLayout />}>
+                    <Route path="/login" element={<LoginPage />} />
+                </Route>
+
+                {/* Public Password Routes */}
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+                {/* Force Change Password Route */}
+                <Route
+                    path="/force-change-password"
+                    element={
+                        <ForcePasswordRoute>
+                            <ForceChangePasswordPage />
+                        </ForcePasswordRoute>
+                    }
+                />
+
+                {/* Protected Routes */}
+                <Route
+                    element={
+                        <ProtectedRoute>
+                            <MainLayout />
+                        </ProtectedRoute>
+                    }
+                >
+                    <Route path="/" element={<Navigate to={getHomeRedirect()} replace />} />
+
+                    {/* Dashboard 與 ERP 模組路由 */}
+                    <Route element={<DashboardRoute />}>
+                        <Route path="/dashboard" element={<DashboardPage />} />
+                        <Route path="/erp" element={<ErpPage />} />
+
+                        <Route path="/products" element={<ProductsPage />} />
+                        <Route path="/products/new" element={<CreateProductPage />} />
+                        <Route path="/products/:id" element={<ProductDetailPage />} />
+                        <Route path="/products/:id/edit" element={<CreateProductPage />} />
+                        <Route path="/warehouses" element={<WarehousesPage />} />
+                        <Route path="/partners" element={<PartnersPage />} />
+                        <Route path="/blood-test-templates" element={<BloodTestTemplatesPage />} />
+                        <Route path="/blood-test-panels" element={<BloodTestPanelsPage />} />
+
+                        {/* 單據管理 */}
+                        <Route path="/documents" element={<DocumentsPage />} />
+                        <Route path="/documents/new" element={<DocumentEditPage />} />
+                        <Route path="/documents/:id" element={<DocumentDetailPage />} />
+                        <Route path="/documents/:id/edit" element={<DocumentEditPage />} />
+
+                        {/* 庫存管理 */}
+                        <Route path="/inventory" element={<InventoryPage />} />
+                        <Route path="/inventory/ledger" element={<StockLedgerPage />} />
+                        <Route path="/inventory/layout" element={<WarehouseLayoutPage />} />
+
+                        {/* 報表中心 */}
+                        <Route path="/reports" element={<ReportsPage />} />
+                        <Route path="/reports/stock-on-hand" element={<StockOnHandReportPage />} />
+                        <Route path="/reports/stock-ledger" element={<StockLedgerReportPage />} />
+                        <Route path="/reports/purchase-lines" element={<PurchaseLinesReportPage />} />
+                        <Route path="/reports/sales-lines" element={<SalesLinesReportPage />} />
+                        <Route path="/reports/cost-summary" element={<CostSummaryReportPage />} />
+                        <Route path="/reports/blood-test-cost" element={<BloodTestCostReportPage />} />
+                        <Route path="/reports/blood-test-analysis" element={<BloodTestAnalysisPage />} />
                     </Route>
 
-                    {/* Public Password Routes */}
-                    <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-                    <Route path="/reset-password" element={<ResetPasswordPage />} />
-
-                    {/* Force Change Password Route */}
-                    <Route
-                        path="/force-change-password"
-                        element={
-                            <ForcePasswordRoute>
-                                <ForceChangePasswordPage />
-                            </ForcePasswordRoute>
-                        }
-                    />
-
-                    {/* Protected Routes */}
-                    <Route
-                        element={
-                            <ProtectedRoute>
-                                <MainLayout />
-                            </ProtectedRoute>
-                        }
-                    >
-                        <Route path="/" element={<Navigate to={getHomeRedirect()} replace />} />
-
-                        {/* Dashboard 與 ERP 模組路由 */}
-                        <Route element={<DashboardRoute />}>
-                            <Route path="/dashboard" element={<DashboardPage />} />
-                            <Route path="/erp" element={<ErpPage />} />
-
-                            <Route path="/products" element={<ProductsPage />} />
-                            <Route path="/products/new" element={<CreateProductPage />} />
-                            <Route path="/products/:id" element={<ProductDetailPage />} />
-                            <Route path="/products/:id/edit" element={<CreateProductPage />} />
-                            <Route path="/warehouses" element={<WarehousesPage />} />
-                            <Route path="/partners" element={<PartnersPage />} />
-                            <Route path="/blood-test-templates" element={<BloodTestTemplatesPage />} />
-                            <Route path="/blood-test-panels" element={<BloodTestPanelsPage />} />
-
-                            {/* 單據管理 */}
-                            <Route path="/documents" element={<DocumentsPage />} />
-                            <Route path="/documents/new" element={<DocumentEditPage />} />
-                            <Route path="/documents/:id" element={<DocumentDetailPage />} />
-                            <Route path="/documents/:id/edit" element={<DocumentEditPage />} />
-
-                            {/* 庫存管理 */}
-                            <Route path="/inventory" element={<InventoryPage />} />
-                            <Route path="/inventory/ledger" element={<StockLedgerPage />} />
-                            <Route path="/inventory/layout" element={<WarehouseLayoutPage />} />
-
-                            {/* 報表中心 */}
-                            <Route path="/reports" element={<ReportsPage />} />
-                            <Route path="/reports/stock-on-hand" element={<StockOnHandReportPage />} />
-                            <Route path="/reports/stock-ledger" element={<StockLedgerReportPage />} />
-                            <Route path="/reports/purchase-lines" element={<PurchaseLinesReportPage />} />
-                            <Route path="/reports/sales-lines" element={<SalesLinesReportPage />} />
-                            <Route path="/reports/cost-summary" element={<CostSummaryReportPage />} />
-                            <Route path="/reports/blood-test-cost" element={<BloodTestCostReportPage />} />
-                            <Route path="/reports/blood-test-analysis" element={<BloodTestAnalysisPage />} />
-                        </Route>
-
-                        {/* 系統管理 - 需要 admin 角色 */}
-                        <Route element={<AdminRoute />}>
-                            <Route path="/admin/users" element={<UsersPage />} />
-                            <Route path="/admin/roles" element={<RolesPage />} />
-                            <Route path="/admin/settings" element={<SettingsPage />} />
-                            <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
-                            <Route path="/admin/audit" element={<AdminAuditPage />} />
-                            <Route path="/admin/notification-routing" element={<NotificationRoutingPage />} />
-                            <Route path="/admin/treatment-drugs" element={<TreatmentDrugOptionsPage />} />
-                        </Route>
-
-                        {/* HR 人員管理 */}
-                        <Route path="/hr/attendance" element={<HrAttendancePage />} />
-                        <Route path="/hr/leaves" element={<HrLeavePage />} />
-                        <Route path="/hr/overtime" element={<HrOvertimePage />} />
-                        <Route path="/hr/annual-leave" element={
-                            <RequirePermission anyOf={[
-                                { permission: 'hr.balance.manage' },
-                                { role: 'admin' }
-                            ]}>
-                                <HrAnnualLeavePage />
-                            </RequirePermission>
-                        } />
-                        <Route path="/hr/calendar" element={<CalendarSyncSettingsPage />} />
-
-                        {/* AUP 計畫書管理 */}
-                        <Route path="/protocols" element={<ProtocolsPage />} />
-                        <Route path="/protocols/new" element={<ProtocolEditPage />} />
-                        <Route path="/protocols/:id" element={<ProtocolDetailPage />} />
-                        <Route path="/protocols/:id/edit" element={<ProtocolEditPage />} />
-
-                        {/* 我的計劃 */}
-                        <Route path="/my-projects" element={<MyProjectsPage />} />
-                        <Route path="/my-projects/:id" element={<ProtocolDetailPage />} />
-
-                        {/* 我的變更申請 */}
-                        <Route path="/my-amendments" element={<MyAmendmentsPage />} />
-
-                        {/* 實驗動物管理 */}
-                        <Route path="/animals" element={<AnimalsPage />} />
-                        <Route path="/animals/:id" element={<AnimalDetailPage />} />
-                        <Route path="/animals/:id/edit" element={<AnimalEditPage />} />
-                        <Route path="/animal-sources" element={<AnimalSourcesPage />} />
-
-                        {/* 個人設定 */}
-                        <Route path="/profile/settings" element={<ProfileSettingsPage />} />
+                    {/* 系統管理 - 需要 admin 角色 */}
+                    <Route element={<AdminRoute />}>
+                        <Route path="/admin/users" element={<UsersPage />} />
+                        <Route path="/admin/roles" element={<RolesPage />} />
+                        <Route path="/admin/settings" element={<SettingsPage />} />
+                        <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
+                        <Route path="/admin/audit" element={<AdminAuditPage />} />
+                        <Route path="/admin/notification-routing" element={<NotificationRoutingPage />} />
+                        <Route path="/admin/treatment-drugs" element={<TreatmentDrugOptionsPage />} />
                     </Route>
 
-                    {/* Catch all */}
-                    <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-            </Suspense>
+                    {/* HR 人員管理 */}
+                    <Route path="/hr/attendance" element={<HrAttendancePage />} />
+                    <Route path="/hr/leaves" element={<HrLeavePage />} />
+                    <Route path="/hr/overtime" element={<HrOvertimePage />} />
+                    <Route path="/hr/annual-leave" element={
+                        <RequirePermission anyOf={[
+                            { permission: 'hr.balance.manage' },
+                            { role: 'admin' }
+                        ]}>
+                            <HrAnnualLeavePage />
+                        </RequirePermission>
+                    } />
+                    <Route path="/hr/calendar" element={<CalendarSyncSettingsPage />} />
+
+                    {/* AUP 計畫書管理 */}
+                    <Route path="/protocols" element={<ProtocolsPage />} />
+                    <Route path="/protocols/new" element={<ProtocolEditPage />} />
+                    <Route path="/protocols/:id" element={<ProtocolDetailPage />} />
+                    <Route path="/protocols/:id/edit" element={<ProtocolEditPage />} />
+
+                    {/* 我的計劃 */}
+                    <Route path="/my-projects" element={<MyProjectsPage />} />
+                    <Route path="/my-projects/:id" element={<ProtocolDetailPage />} />
+
+                    {/* 我的變更申請 */}
+                    <Route path="/my-amendments" element={<MyAmendmentsPage />} />
+
+                    {/* 實驗動物管理 */}
+                    <Route path="/animals" element={<AnimalsPage />} />
+                    <Route path="/animals/:id" element={<AnimalDetailPage />} />
+                    <Route path="/animals/:id/edit" element={<AnimalEditPage />} />
+                    <Route path="/animal-sources" element={<AnimalSourcesPage />} />
+
+                    {/* 個人設定 */}
+                    <Route path="/profile/settings" element={<ProfileSettingsPage />} />
+                </Route>
+
+                {/* Catch all */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
             <Toaster />
         </>
     )
