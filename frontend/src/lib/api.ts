@@ -1,4 +1,5 @@
 ﻿import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
+import { useAuthStore } from '@/stores/auth'
 
 const api = axios.create({
   baseURL: '/api',
@@ -102,8 +103,7 @@ api.interceptors.response.use(
         if (!isLoggingOut) {
           isLoggingOut = true
           try {
-            // 動態 import 避免循環依賴，使用 getState() 在非 React 上下文存取 store
-            const { useAuthStore } = await import('@/stores/auth')
+            // 使用 getState() 在非 React 上下文存取 store
             const store = useAuthStore.getState()
             // 只清 state，不再呼叫後端 logout（token 已失效）
             store.clearAuth()
@@ -358,3 +358,34 @@ export const signatureApi = {
   getProtocolStatus: (protocolId: string) =>
     api.get<SignatureStatusResponse>(`/signatures/protocol/${protocolId}`),
 }
+
+// ============================================
+// 治療方式藥物選項 API
+// ============================================
+
+import type {
+  TreatmentDrugOption, CreateTreatmentDrugRequest,
+  UpdateTreatmentDrugRequest, ImportFromErpRequest,
+} from '@/types/treatment-drug'
+
+export const treatmentDrugApi = {
+  /** 列表（僅啟用項目，供一般使用者） */
+  list: () =>
+    api.get<TreatmentDrugOption[]>('/treatment-drugs'),
+  /** 管理員列表（含停用項目、篩選） */
+  adminList: (params?: { keyword?: string; category?: string; is_active?: boolean }) =>
+    api.get<TreatmentDrugOption[]>('/admin/treatment-drugs', { params }),
+  /** 建立 */
+  create: (data: CreateTreatmentDrugRequest) =>
+    api.post<TreatmentDrugOption>('/admin/treatment-drugs', data),
+  /** 更新 */
+  update: (id: string, data: UpdateTreatmentDrugRequest) =>
+    api.put<TreatmentDrugOption>(`/admin/treatment-drugs/${id}`, data),
+  /** 刪除（軟刪除） */
+  delete: (id: string) =>
+    api.delete(`/admin/treatment-drugs/${id}`),
+  /** 從 ERP 匯入 */
+  importFromErp: (data: ImportFromErpRequest) =>
+    api.post<TreatmentDrugOption[]>('/admin/treatment-drugs/import-erp', data),
+}
+

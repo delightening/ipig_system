@@ -916,4 +916,47 @@
 
 ---
 
+### 2026-02-18：治療方式藥物選單 + 後台管理（Phase 1）
+
+**後端新增檔案：**
+- `migrations/009_treatment_drug_options.sql`：`treatment_drug_options` 表 + 14 筆 seed data
+- `src/models/treatment_drug.rs`：資料模型
+- `src/services/treatment_drug.rs`：CRUD + ERP 匯入服務
+- `src/handlers/treatment_drug.rs`：HTTP handler（CurrentUser + require_permission!）
+
+**後端修改檔案：**
+- `src/routes.rs`：新增 `/treatment-drugs` + `/admin/treatment-drugs/*` 路由
+- `src/models/mod.rs`、`src/services/mod.rs`、`src/handlers/mod.rs`：模組註冊
+
+**前端新增檔案：**
+- `src/types/treatment-drug.ts`：型別定義 + 常數
+- `src/components/animal/DrugCombobox.tsx`：可搜尋藥物下拉選擇元件
+- `src/pages/admin/TreatmentDrugOptionsPage.tsx`：後台 CRUD 管理頁面
+
+**前端修改檔案：**
+- `src/lib/api.ts`：新增 `treatmentDrugApi`
+- `src/types/index.ts`：匯出 treatment-drug 型別
+- `src/App.tsx`：新增 `/admin/treatment-drugs` 路由
+- `src/layouts/MainLayout.tsx`：側邊欄「系統管理 > 藥物選單」
+
+**驗證：** `cargo build`（SQLX_OFFLINE=true）✅ · `npx tsc --noEmit` ✅
+
+---
+
+### 2026-02-19：前端 Bundle 優化
+
+**問題：** Vite build 主 JS chunk 達 3,267 KB（gzip 923 KB），遠超 500 KB 建議值；`auth.ts` 同時被靜態與動態 import 導致 code-splitting 失效。
+
+**修改檔案：**
+- `src/lib/api.ts`：`auth.ts` 動態 import → 靜態 import（消除 Vite 混合引入警告）
+- `src/App.tsx`：50 個頁面元件從靜態 import 改為 `React.lazy()` + `Suspense`（路由級 code-splitting）
+- `vite.config.ts`：新增 `manualChunks`（7 組 vendor chunk：react、data、radix、charts、office、calendar、i18n）
+
+**效果：**
+- 主 `index-*.js`：3,267 KB → **242 KB**（下降 92.6%）
+- 產出 50+ 個頁面 chunk + 7 個 vendor chunk
+- auth.ts 混合引入警告已消除
+
+---
+
 *本報告由系統自動產生，如有疑問請聯繫開發團隊。*

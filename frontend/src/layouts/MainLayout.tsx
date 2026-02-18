@@ -97,19 +97,19 @@ const navItemsConfig: NavItem[] = [
   {
     title: 'dashboard',
     href: '/dashboard',
-    icon: <LayoutDashboard className="h-5 w-5" />,
+    icon: <LayoutDashboard className="h-6 w-6" />,
     permission: 'dashboard.view',
     translate: true,
   },
   {
     title: 'myProjects',
     href: '/my-projects',
-    icon: <FolderOpen className="h-5 w-5" />,
+    icon: <FolderOpen className="h-6 w-6" />,
     translate: true,
   },
   {
     title: 'aupReview', // 這裡的 i18n key "nav.aupReview" 是 "AUP"
-    icon: <FileText className="h-5 w-5" />,
+    icon: <FileText className="h-6 w-6" />,
     translate: true,
     children: [
       { title: 'protocolManagement', href: '/protocols', translate: true },
@@ -119,7 +119,7 @@ const navItemsConfig: NavItem[] = [
   },
   {
     title: '人員管理',
-    icon: <Users className="h-5 w-5" />,
+    icon: <Users className="h-6 w-6" />,
     translate: false,
     children: [
       { title: '出勤打卡', href: '/hr/attendance', translate: false },
@@ -131,7 +131,7 @@ const navItemsConfig: NavItem[] = [
   },
   {
     title: 'animalManagement',
-    icon: <Stethoscope className="h-5 w-5" />,
+    icon: <Stethoscope className="h-6 w-6" />,
     translate: true,
     children: [
       { title: 'animalList', href: '/animals', translate: true },
@@ -141,7 +141,7 @@ const navItemsConfig: NavItem[] = [
   },
   {
     title: 'ERP',
-    icon: <Package className="h-5 w-5" />,
+    icon: <Package className="h-6 w-6" />,
     translate: false,
     permission: 'erp',
     children: [
@@ -154,7 +154,7 @@ const navItemsConfig: NavItem[] = [
   },
   {
     title: '系統管理',
-    icon: <Settings className="h-5 w-5" />,
+    icon: <Settings className="h-6 w-6" />,
     translate: false,
     children: [
       { title: '使用者管理', href: '/admin/users', translate: false },
@@ -163,6 +163,7 @@ const navItemsConfig: NavItem[] = [
       { title: '操作日誌', href: '/admin/audit-logs', translate: false },
       { title: '安全審計', href: '/admin/audit', translate: false },
       { title: '通知路由', href: '/admin/notification-routing', translate: false },
+      { title: '藥物選單', href: '/admin/treatment-drugs', translate: false },
     ],
     permission: 'admin',
   },
@@ -226,27 +227,21 @@ function SortableNavItem({
             to={item.href}
             title={!sidebarOpen ? translateTitle(item) : undefined}
             className={cn(
-              'flex flex-1 items-center rounded-lg px-3 py-2.5 transition-colors',
-              sidebarOpen ? 'space-x-3' : 'justify-center',
+              'flex flex-1 items-center rounded-lg py-2.5 transition-colors',
               isActive(item.href)
                 ? 'bg-blue-600 text-white'
                 : 'text-slate-300 hover:bg-slate-800 hover:text-white'
             )}
           >
-            <span className="shrink-0">{item.icon}</span>
+            <span className="w-12 flex items-center justify-center shrink-0">{item.icon}</span>
             {sidebarOpen && (
-              <span className="flex-1 flex items-center justify-between">
-                <span>{translateTitle(item)}</span>
+              <span className="flex-1 flex items-center justify-between min-w-0 pr-3">
+                <span className="truncate">{translateTitle(item)}</span>
                 {item.badge && item.badge > 0 && (
-                  <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium rounded-full bg-red-500 text-white">
+                  <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium rounded-full bg-red-500 text-white shrink-0">
                     {item.badge > 99 ? '99+' : item.badge}
                   </span>
                 )}
-              </span>
-            )}
-            {!sidebarOpen && item.badge && item.badge > 0 && (
-              <span className="absolute -top-1 -right-1 inline-flex items-center justify-center w-5 h-5 text-xs font-medium rounded-full bg-red-500 text-white">
-                {item.badge > 9 ? '9+' : item.badge}
               </span>
             )}
           </Link>
@@ -274,27 +269,23 @@ function SortableNavItem({
               }}
               title={!sidebarOpen ? translateTitle(item) : undefined}
               className={cn(
-                'flex flex-1 items-center rounded-lg px-3 py-2.5 transition-colors',
-                sidebarOpen ? 'justify-between' : 'justify-center',
+                'flex flex-1 items-center rounded-lg py-2.5 transition-colors',
                 (!sidebarOpen && isChildActive(item))
                   ? 'bg-blue-600 text-white'
                   : 'text-slate-300 hover:bg-slate-800 hover:text-white'
               )}
             >
-              <div className={cn(
-                'flex items-center',
-                sidebarOpen ? 'space-x-3' : ''
-              )}>
-                <span className="shrink-0">{item.icon}</span>
-                {sidebarOpen && <span>{translateTitle(item)}</span>}
-              </div>
+              <span className="w-12 flex items-center justify-center shrink-0">{item.icon}</span>
               {sidebarOpen && (
-                <ChevronDown
-                  className={cn(
-                    'h-4 w-4 transition-transform',
-                    expandedItems.includes(item.title) && 'rotate-180'
-                  )}
-                />
+                <span className="flex-1 flex items-center justify-between min-w-0 pr-3">
+                  <span className="truncate">{translateTitle(item)}</span>
+                  <ChevronDown
+                    className={cn(
+                      'h-4 w-4 shrink-0 transition-transform',
+                      expandedItems.includes(item.title) && 'rotate-180'
+                    )}
+                  />
+                </span>
               )}
             </button>
           </div>
@@ -702,53 +693,37 @@ export function MainLayout() {
       {/* 側邊欄容器 */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex flex-col bg-slate-900 text-white transition-all duration-300 overflow-hidden',
+          'fixed inset-y-0 left-0 z-50 flex flex-col bg-slate-900 text-white transition-[width,transform] duration-300 ease-in-out overflow-hidden',
           // 行動端：固定 w-64，透過 translate 控制顯隱
           mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full',
           'md:translate-x-0 md:relative', // 桌面端：永遠顯示，relative 定位
           sidebarOpen ? 'w-64' : 'md:w-16 w-64' // 桌面端支援縮小；行動端永遠 w-64
         )}
       >
-        {/* Logo 區域 */}
-        <div className={cn(
-          "flex h-16 items-center border-b border-slate-700",
-          sidebarOpen ? "justify-between px-4" : "justify-center px-2"
-        )}>
-          {sidebarOpen ? ( // 展開狀態：顯示完整 Logo 與文字
-            <Link to="/" className="flex items-center space-x-2">
-              <img src="/pigmodel-logo.png" alt="Logo" className="h-10 w-auto" />
-              <span className="text-xl font-bold">ipig system</span>
-            </Link>
-          ) : ( // 縮合狀態：僅顯示圖示，點擊可打開側邊欄
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="flex items-center justify-center hover:bg-slate-800 rounded-lg transition-colors"
-              title={t('nav.expandSidebar')}
-            >
-              <img src="/pigmodel-logo.png" alt="Logo" className="h-8 w-auto" />
-            </button>
-          )}
-          {sidebarOpen && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                // 行動端：關閉 overlay；桌面端：收合側邊欄
-                if (window.innerWidth < 768) {
-                  setMobileSidebarOpen(false)
-                } else {
-                  setSidebarOpen(!sidebarOpen)
-                }
-              }}
-              className="text-slate-400 hover:text-white hover:bg-slate-800"
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          )}
+        {/* Logo 區域 — icon 固定位置，文字條件渲染 */}
+        <div className="flex h-16 items-center border-b border-slate-700">
+          <button
+            onClick={() => {
+              if (window.innerWidth < 768) {
+                setMobileSidebarOpen(false)
+              } else {
+                setSidebarOpen(!sidebarOpen)
+              }
+            }}
+            className="flex items-center hover:opacity-80 transition-opacity"
+            title={sidebarOpen ? t('nav.collapseSidebar') : t('nav.expandSidebar')}
+          >
+            <span className="w-16 flex items-center justify-center shrink-0">
+              <img src="/pigmodel%20logo%20dark.png" alt="Logo" className="h-9 w-9 object-contain" />
+            </span>
+            {sidebarOpen && (
+              <span className="text-xl font-bold whitespace-nowrap">ipig system</span>
+            )}
+          </button>
         </div>
 
         {/* 導覽選單清單 */}
-        <nav className="flex-1 overflow-y-auto p-4">
+        <nav className="flex-1 overflow-y-auto py-4">
           {/* 編輯模式提示 */}
           {isEditMode && sidebarOpen && (
             <div className="mb-3 p-2 bg-blue-600/20 rounded-lg text-xs text-blue-300 text-center">

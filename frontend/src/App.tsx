@@ -1,87 +1,90 @@
-﻿import { useEffect } from 'react'
+﻿import { useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { useAuthStore } from '@/stores/auth'
 import { RequirePermission } from '@/components/auth'
 import { useHeartbeat } from '@/hooks/useHeartbeat'
 
-// Layouts
+// Layouts — 保持靜態 import（每個受保護路由都需要）
 import { MainLayout } from '@/layouts/MainLayout'
 import { AuthLayout } from '@/layouts/AuthLayout'
 
-// Auth Pages
-import { LoginPage } from '@/pages/auth/LoginPage'
-import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage'
-import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage'
-import { ForceChangePasswordPage } from '@/pages/auth/ForceChangePasswordPage'
+// ============================================
+// 路由層級 Code-Splitting：所有頁面元件以 React.lazy 動態載入
+// ============================================
 
-// Dashboard
-import { DashboardPage } from '@/pages/DashboardPage'
-import { ProfileSettingsPage } from '@/pages/ProfileSettingsPage'
+// Auth Pages
+const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then(m => ({ default: m.LoginPage })))
+const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })))
+const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })))
+const ForceChangePasswordPage = lazy(() => import('@/pages/auth/ForceChangePasswordPage').then(m => ({ default: m.ForceChangePasswordPage })))
+
+// Dashboard & Profile
+const DashboardPage = lazy(() => import('@/pages/DashboardPage').then(m => ({ default: m.DashboardPage })))
+const ProfileSettingsPage = lazy(() => import('@/pages/ProfileSettingsPage').then(m => ({ default: m.ProfileSettingsPage })))
 
 // Master Data Pages
-import { ProductsPage } from '@/pages/master/ProductsPage'
-import { CreateProductPage } from '@/pages/master/CreateProductPage'
-import { ProductDetailPage } from '@/pages/master/ProductDetailPage'
-import { WarehousesPage } from '@/pages/master/WarehousesPage'
-import { PartnersPage } from '@/pages/master/PartnersPage'
-import { BloodTestTemplatesPage } from '@/pages/master/BloodTestTemplatesPage'
-import { BloodTestPanelsPage } from '@/pages/master/BloodTestPanelsPage'
+const ProductsPage = lazy(() => import('@/pages/master/ProductsPage').then(m => ({ default: m.ProductsPage })))
+const CreateProductPage = lazy(() => import('@/pages/master/CreateProductPage').then(m => ({ default: m.CreateProductPage })))
+const ProductDetailPage = lazy(() => import('@/pages/master/ProductDetailPage').then(m => ({ default: m.ProductDetailPage })))
+const WarehousesPage = lazy(() => import('@/pages/master/WarehousesPage').then(m => ({ default: m.WarehousesPage })))
+const PartnersPage = lazy(() => import('@/pages/master/PartnersPage').then(m => ({ default: m.PartnersPage })))
+const BloodTestTemplatesPage = lazy(() => import('@/pages/master/BloodTestTemplatesPage').then(m => ({ default: m.BloodTestTemplatesPage })))
+const BloodTestPanelsPage = lazy(() => import('@/pages/master/BloodTestPanelsPage').then(m => ({ default: m.BloodTestPanelsPage })))
 
 // Document Pages
-import { DocumentsPage } from '@/pages/documents/DocumentsPage'
-import { DocumentDetailPage } from '@/pages/documents/DocumentDetailPage'
-import { DocumentEditPage } from '@/pages/documents/DocumentEditPage'
+const DocumentsPage = lazy(() => import('@/pages/documents/DocumentsPage').then(m => ({ default: m.DocumentsPage })))
+const DocumentDetailPage = lazy(() => import('@/pages/documents/DocumentDetailPage').then(m => ({ default: m.DocumentDetailPage })))
+const DocumentEditPage = lazy(() => import('@/pages/documents/DocumentEditPage').then(m => ({ default: m.DocumentEditPage })))
 
 // Inventory Pages
-import { InventoryPage } from '@/pages/inventory/InventoryPage'
-import { StockLedgerPage } from '@/pages/inventory/StockLedgerPage'
-import { WarehouseLayoutPage } from '@/pages/inventory/WarehouseLayoutPage'
+const InventoryPage = lazy(() => import('@/pages/inventory/InventoryPage').then(m => ({ default: m.InventoryPage })))
+const StockLedgerPage = lazy(() => import('@/pages/inventory/StockLedgerPage').then(m => ({ default: m.StockLedgerPage })))
+const WarehouseLayoutPage = lazy(() => import('@/pages/inventory/WarehouseLayoutPage').then(m => ({ default: m.WarehouseLayoutPage })))
 
 // Admin Pages
-import { UsersPage } from '@/pages/admin/UsersPage'
-import { RolesPage } from '@/pages/admin/RolesPage'
-import { SettingsPage } from '@/pages/admin/SettingsPage'
-import { AuditLogsPage } from '@/pages/admin/AuditLogsPage'
-import { AdminAuditPage } from '@/pages/admin/AdminAuditPage'
-import { NotificationRoutingPage } from '@/pages/admin/NotificationRoutingPage'
+const UsersPage = lazy(() => import('@/pages/admin/UsersPage').then(m => ({ default: m.UsersPage })))
+const RolesPage = lazy(() => import('@/pages/admin/RolesPage').then(m => ({ default: m.RolesPage })))
+const SettingsPage = lazy(() => import('@/pages/admin/SettingsPage').then(m => ({ default: m.SettingsPage })))
+const AuditLogsPage = lazy(() => import('@/pages/admin/AuditLogsPage').then(m => ({ default: m.AuditLogsPage })))
+const AdminAuditPage = lazy(() => import('@/pages/admin/AdminAuditPage').then(m => ({ default: m.AdminAuditPage })))
+const NotificationRoutingPage = lazy(() => import('@/pages/admin/NotificationRoutingPage').then(m => ({ default: m.NotificationRoutingPage })))
+const TreatmentDrugOptionsPage = lazy(() => import('@/pages/admin/TreatmentDrugOptionsPage').then(m => ({ default: m.TreatmentDrugOptionsPage })))
 
 // HR Pages
-import { HrAttendancePage } from '@/pages/hr/HrAttendancePage'
-import { HrLeavePage } from '@/pages/hr/HrLeavePage'
-import { HrOvertimePage } from '@/pages/hr/HrOvertimePage'
-import { HrAnnualLeavePage } from '@/pages/hr/HrAnnualLeavePage'
-import { CalendarSyncSettingsPage } from '@/pages/hr/CalendarSyncSettingsPage'
+const HrAttendancePage = lazy(() => import('@/pages/hr/HrAttendancePage').then(m => ({ default: m.HrAttendancePage })))
+const HrLeavePage = lazy(() => import('@/pages/hr/HrLeavePage').then(m => ({ default: m.HrLeavePage })))
+const HrOvertimePage = lazy(() => import('@/pages/hr/HrOvertimePage').then(m => ({ default: m.HrOvertimePage })))
+const HrAnnualLeavePage = lazy(() => import('@/pages/hr/HrAnnualLeavePage').then(m => ({ default: m.HrAnnualLeavePage })))
+const CalendarSyncSettingsPage = lazy(() => import('@/pages/hr/CalendarSyncSettingsPage').then(m => ({ default: m.CalendarSyncSettingsPage })))
 
 // Report Pages
-import { ReportsPage } from '@/pages/reports/ReportsPage'
-import { StockOnHandReportPage } from '@/pages/reports/StockOnHandReportPage'
-import { StockLedgerReportPage } from '@/pages/reports/StockLedgerReportPage'
-import { PurchaseLinesReportPage } from '@/pages/reports/PurchaseLinesReportPage'
-import { SalesLinesReportPage } from '@/pages/reports/SalesLinesReportPage'
-import { CostSummaryReportPage } from '@/pages/reports/CostSummaryReportPage'
-import { BloodTestCostReportPage } from '@/pages/reports/BloodTestCostReportPage'
-import { BloodTestAnalysisPage } from '@/pages/reports/BloodTestAnalysisPage'
+const ReportsPage = lazy(() => import('@/pages/reports/ReportsPage').then(m => ({ default: m.ReportsPage })))
+const StockOnHandReportPage = lazy(() => import('@/pages/reports/StockOnHandReportPage').then(m => ({ default: m.StockOnHandReportPage })))
+const StockLedgerReportPage = lazy(() => import('@/pages/reports/StockLedgerReportPage').then(m => ({ default: m.StockLedgerReportPage })))
+const PurchaseLinesReportPage = lazy(() => import('@/pages/reports/PurchaseLinesReportPage').then(m => ({ default: m.PurchaseLinesReportPage })))
+const SalesLinesReportPage = lazy(() => import('@/pages/reports/SalesLinesReportPage').then(m => ({ default: m.SalesLinesReportPage })))
+const CostSummaryReportPage = lazy(() => import('@/pages/reports/CostSummaryReportPage').then(m => ({ default: m.CostSummaryReportPage })))
+const BloodTestCostReportPage = lazy(() => import('@/pages/reports/BloodTestCostReportPage').then(m => ({ default: m.BloodTestCostReportPage })))
+const BloodTestAnalysisPage = lazy(() => import('@/pages/reports/BloodTestAnalysisPage').then(m => ({ default: m.BloodTestAnalysisPage })))
 
 // ERP Page
-import { ErpPage } from '@/pages/erp/ErpPage'
+const ErpPage = lazy(() => import('@/pages/erp/ErpPage').then(m => ({ default: m.ErpPage })))
 
 // AUP Protocol Pages
-import { ProtocolsPage } from '@/pages/protocols/ProtocolsPage'
-import { ProtocolDetailPage } from '@/pages/protocols/ProtocolDetailPage'
-import { ProtocolEditPage } from '@/pages/protocols/ProtocolEditPage'
+const ProtocolsPage = lazy(() => import('@/pages/protocols/ProtocolsPage').then(m => ({ default: m.ProtocolsPage })))
+const ProtocolDetailPage = lazy(() => import('@/pages/protocols/ProtocolDetailPage').then(m => ({ default: m.ProtocolDetailPage })))
+const ProtocolEditPage = lazy(() => import('@/pages/protocols/ProtocolEditPage').then(m => ({ default: m.ProtocolEditPage })))
 
-// My Projects Pages
-import { MyProjectsPage } from '@/pages/my-projects/MyProjectsPage'
-
-// Amendment Pages
-import { MyAmendmentsPage } from '@/pages/amendments/MyAmendmentsPage'
+// My Projects & Amendments
+const MyProjectsPage = lazy(() => import('@/pages/my-projects/MyProjectsPage').then(m => ({ default: m.MyProjectsPage })))
+const MyAmendmentsPage = lazy(() => import('@/pages/amendments/MyAmendmentsPage').then(m => ({ default: m.MyAmendmentsPage })))
 
 // Animal Management Pages
-import { AnimalsPage } from '@/pages/animals/AnimalsPage'
-import { AnimalDetailPage } from '@/pages/animals/AnimalDetailPage'
-import { AnimalEditPage } from '@/pages/animals/AnimalEditPage'
-import { AnimalSourcesPage } from '@/pages/animals/AnimalSourcesPage'
+const AnimalsPage = lazy(() => import('@/pages/animals/AnimalsPage').then(m => ({ default: m.AnimalsPage })))
+const AnimalDetailPage = lazy(() => import('@/pages/animals/AnimalDetailPage').then(m => ({ default: m.AnimalDetailPage })))
+const AnimalEditPage = lazy(() => import('@/pages/animals/AnimalEditPage').then(m => ({ default: m.AnimalEditPage })))
+const AnimalSourcesPage = lazy(() => import('@/pages/animals/AnimalSourcesPage').then(m => ({ default: m.AnimalSourcesPage })))
 
 // Protected Route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -186,124 +189,134 @@ function App() {
         return hasDashboardAccess ? "/dashboard" : "/my-projects"
     }
 
+    // 全域 loading fallback — 頁面元件 lazy load 時顯示
+    const pageFallback = (
+        <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+    )
+
     return (
         <>
-            <Routes>
-                {/* Public Auth Routes */}
-                <Route element={<AuthLayout />}>
-                    <Route path="/login" element={<LoginPage />} />
-                </Route>
-
-                {/* Public Password Routes */}
-                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-                <Route path="/reset-password" element={<ResetPasswordPage />} />
-
-                {/* Force Change Password Route */}
-                <Route
-                    path="/force-change-password"
-                    element={
-                        <ForcePasswordRoute>
-                            <ForceChangePasswordPage />
-                        </ForcePasswordRoute>
-                    }
-                />
-
-                {/* Protected Routes */}
-                <Route
-                    element={
-                        <ProtectedRoute>
-                            <MainLayout />
-                        </ProtectedRoute>
-                    }
-                >
-                    <Route path="/" element={<Navigate to={getHomeRedirect()} replace />} />
-
-                    {/* Dashboard 與 ERP 模組路由 */}
-                    <Route element={<DashboardRoute />}>
-                        <Route path="/dashboard" element={<DashboardPage />} />
-                        <Route path="/erp" element={<ErpPage />} />
-
-                        <Route path="/products" element={<ProductsPage />} />
-                        <Route path="/products/new" element={<CreateProductPage />} />
-                        <Route path="/products/:id" element={<ProductDetailPage />} />
-                        <Route path="/products/:id/edit" element={<CreateProductPage />} />
-                        <Route path="/warehouses" element={<WarehousesPage />} />
-                        <Route path="/partners" element={<PartnersPage />} />
-                        <Route path="/blood-test-templates" element={<BloodTestTemplatesPage />} />
-                        <Route path="/blood-test-panels" element={<BloodTestPanelsPage />} />
-
-                        {/* 單據管理 */}
-                        <Route path="/documents" element={<DocumentsPage />} />
-                        <Route path="/documents/new" element={<DocumentEditPage />} />
-                        <Route path="/documents/:id" element={<DocumentDetailPage />} />
-                        <Route path="/documents/:id/edit" element={<DocumentEditPage />} />
-
-                        {/* 庫存管理 */}
-                        <Route path="/inventory" element={<InventoryPage />} />
-                        <Route path="/inventory/ledger" element={<StockLedgerPage />} />
-                        <Route path="/inventory/layout" element={<WarehouseLayoutPage />} />
-
-                        {/* 報表中心 */}
-                        <Route path="/reports" element={<ReportsPage />} />
-                        <Route path="/reports/stock-on-hand" element={<StockOnHandReportPage />} />
-                        <Route path="/reports/stock-ledger" element={<StockLedgerReportPage />} />
-                        <Route path="/reports/purchase-lines" element={<PurchaseLinesReportPage />} />
-                        <Route path="/reports/sales-lines" element={<SalesLinesReportPage />} />
-                        <Route path="/reports/cost-summary" element={<CostSummaryReportPage />} />
-                        <Route path="/reports/blood-test-cost" element={<BloodTestCostReportPage />} />
-                        <Route path="/reports/blood-test-analysis" element={<BloodTestAnalysisPage />} />
+            <Suspense fallback={pageFallback}>
+                <Routes>
+                    {/* Public Auth Routes */}
+                    <Route element={<AuthLayout />}>
+                        <Route path="/login" element={<LoginPage />} />
                     </Route>
 
-                    {/* 系統管理 - 需要 admin 角色 */}
-                    <Route element={<AdminRoute />}>
-                        <Route path="/admin/users" element={<UsersPage />} />
-                        <Route path="/admin/roles" element={<RolesPage />} />
-                        <Route path="/admin/settings" element={<SettingsPage />} />
-                        <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
-                        <Route path="/admin/audit" element={<AdminAuditPage />} />
-                        <Route path="/admin/notification-routing" element={<NotificationRoutingPage />} />
+                    {/* Public Password Routes */}
+                    <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                    <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+                    {/* Force Change Password Route */}
+                    <Route
+                        path="/force-change-password"
+                        element={
+                            <ForcePasswordRoute>
+                                <ForceChangePasswordPage />
+                            </ForcePasswordRoute>
+                        }
+                    />
+
+                    {/* Protected Routes */}
+                    <Route
+                        element={
+                            <ProtectedRoute>
+                                <MainLayout />
+                            </ProtectedRoute>
+                        }
+                    >
+                        <Route path="/" element={<Navigate to={getHomeRedirect()} replace />} />
+
+                        {/* Dashboard 與 ERP 模組路由 */}
+                        <Route element={<DashboardRoute />}>
+                            <Route path="/dashboard" element={<DashboardPage />} />
+                            <Route path="/erp" element={<ErpPage />} />
+
+                            <Route path="/products" element={<ProductsPage />} />
+                            <Route path="/products/new" element={<CreateProductPage />} />
+                            <Route path="/products/:id" element={<ProductDetailPage />} />
+                            <Route path="/products/:id/edit" element={<CreateProductPage />} />
+                            <Route path="/warehouses" element={<WarehousesPage />} />
+                            <Route path="/partners" element={<PartnersPage />} />
+                            <Route path="/blood-test-templates" element={<BloodTestTemplatesPage />} />
+                            <Route path="/blood-test-panels" element={<BloodTestPanelsPage />} />
+
+                            {/* 單據管理 */}
+                            <Route path="/documents" element={<DocumentsPage />} />
+                            <Route path="/documents/new" element={<DocumentEditPage />} />
+                            <Route path="/documents/:id" element={<DocumentDetailPage />} />
+                            <Route path="/documents/:id/edit" element={<DocumentEditPage />} />
+
+                            {/* 庫存管理 */}
+                            <Route path="/inventory" element={<InventoryPage />} />
+                            <Route path="/inventory/ledger" element={<StockLedgerPage />} />
+                            <Route path="/inventory/layout" element={<WarehouseLayoutPage />} />
+
+                            {/* 報表中心 */}
+                            <Route path="/reports" element={<ReportsPage />} />
+                            <Route path="/reports/stock-on-hand" element={<StockOnHandReportPage />} />
+                            <Route path="/reports/stock-ledger" element={<StockLedgerReportPage />} />
+                            <Route path="/reports/purchase-lines" element={<PurchaseLinesReportPage />} />
+                            <Route path="/reports/sales-lines" element={<SalesLinesReportPage />} />
+                            <Route path="/reports/cost-summary" element={<CostSummaryReportPage />} />
+                            <Route path="/reports/blood-test-cost" element={<BloodTestCostReportPage />} />
+                            <Route path="/reports/blood-test-analysis" element={<BloodTestAnalysisPage />} />
+                        </Route>
+
+                        {/* 系統管理 - 需要 admin 角色 */}
+                        <Route element={<AdminRoute />}>
+                            <Route path="/admin/users" element={<UsersPage />} />
+                            <Route path="/admin/roles" element={<RolesPage />} />
+                            <Route path="/admin/settings" element={<SettingsPage />} />
+                            <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
+                            <Route path="/admin/audit" element={<AdminAuditPage />} />
+                            <Route path="/admin/notification-routing" element={<NotificationRoutingPage />} />
+                            <Route path="/admin/treatment-drugs" element={<TreatmentDrugOptionsPage />} />
+                        </Route>
+
+                        {/* HR 人員管理 */}
+                        <Route path="/hr/attendance" element={<HrAttendancePage />} />
+                        <Route path="/hr/leaves" element={<HrLeavePage />} />
+                        <Route path="/hr/overtime" element={<HrOvertimePage />} />
+                        <Route path="/hr/annual-leave" element={
+                            <RequirePermission anyOf={[
+                                { permission: 'hr.balance.manage' },
+                                { role: 'admin' }
+                            ]}>
+                                <HrAnnualLeavePage />
+                            </RequirePermission>
+                        } />
+                        <Route path="/hr/calendar" element={<CalendarSyncSettingsPage />} />
+
+                        {/* AUP 計畫書管理 */}
+                        <Route path="/protocols" element={<ProtocolsPage />} />
+                        <Route path="/protocols/new" element={<ProtocolEditPage />} />
+                        <Route path="/protocols/:id" element={<ProtocolDetailPage />} />
+                        <Route path="/protocols/:id/edit" element={<ProtocolEditPage />} />
+
+                        {/* 我的計劃 */}
+                        <Route path="/my-projects" element={<MyProjectsPage />} />
+                        <Route path="/my-projects/:id" element={<ProtocolDetailPage />} />
+
+                        {/* 我的變更申請 */}
+                        <Route path="/my-amendments" element={<MyAmendmentsPage />} />
+
+                        {/* 實驗動物管理 */}
+                        <Route path="/animals" element={<AnimalsPage />} />
+                        <Route path="/animals/:id" element={<AnimalDetailPage />} />
+                        <Route path="/animals/:id/edit" element={<AnimalEditPage />} />
+                        <Route path="/animal-sources" element={<AnimalSourcesPage />} />
+
+                        {/* 個人設定 */}
+                        <Route path="/profile/settings" element={<ProfileSettingsPage />} />
                     </Route>
 
-                    {/* HR 人員管理 */}
-                    <Route path="/hr/attendance" element={<HrAttendancePage />} />
-                    <Route path="/hr/leaves" element={<HrLeavePage />} />
-                    <Route path="/hr/overtime" element={<HrOvertimePage />} />
-                    <Route path="/hr/annual-leave" element={
-                        <RequirePermission anyOf={[
-                            { permission: 'hr.balance.manage' },
-                            { role: 'admin' }
-                        ]}>
-                            <HrAnnualLeavePage />
-                        </RequirePermission>
-                    } />
-                    <Route path="/hr/calendar" element={<CalendarSyncSettingsPage />} />
-
-                    {/* AUP 計畫書管理 */}
-                    <Route path="/protocols" element={<ProtocolsPage />} />
-                    <Route path="/protocols/new" element={<ProtocolEditPage />} />
-                    <Route path="/protocols/:id" element={<ProtocolDetailPage />} />
-                    <Route path="/protocols/:id/edit" element={<ProtocolEditPage />} />
-
-                    {/* 我的計劃 */}
-                    <Route path="/my-projects" element={<MyProjectsPage />} />
-                    <Route path="/my-projects/:id" element={<ProtocolDetailPage />} />
-
-                    {/* 我的變更申請 */}
-                    <Route path="/my-amendments" element={<MyAmendmentsPage />} />
-
-                    {/* 實驗動物管理 */}
-                    <Route path="/animals" element={<AnimalsPage />} />
-                    <Route path="/animals/:id" element={<AnimalDetailPage />} />
-                    <Route path="/animals/:id/edit" element={<AnimalEditPage />} />
-                    <Route path="/animal-sources" element={<AnimalSourcesPage />} />
-
-                    {/* 個人設定 */}
-                    <Route path="/profile/settings" element={<ProfileSettingsPage />} />
-                </Route>
-
-                {/* Catch all */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+                    {/* Catch all */}
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+            </Suspense>
             <Toaster />
         </>
     )

@@ -619,6 +619,27 @@ pub fn api_routes(state: AppState) -> Router {
                 .delete(handlers::delete_notification_routing),
         )
         // ============================================
+        // Treatment Drug Options (藥物選單管理)
+        // ============================================
+        .route(
+            "/treatment-drugs",
+            get(handlers::treatment_drug::list_treatment_drugs),
+        )
+        .route(
+            "/admin/treatment-drugs",
+            get(handlers::treatment_drug::admin_list_treatment_drugs)
+                .post(handlers::treatment_drug::create_treatment_drug),
+        )
+        .route(
+            "/admin/treatment-drugs/:id",
+            put(handlers::treatment_drug::update_treatment_drug)
+                .delete(handlers::treatment_drug::delete_treatment_drug),
+        )
+        .route(
+            "/admin/treatment-drugs/import-erp",
+            post(handlers::treatment_drug::import_treatment_drugs_from_erp),
+        )
+        // ============================================
         // HR Attendance (新增)
         // ============================================
         .route("/hr/attendance", get(handlers::list_attendance))
