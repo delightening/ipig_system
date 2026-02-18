@@ -694,10 +694,10 @@ export function MainLayout() {
       <aside
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex flex-col bg-slate-900 text-white transition-[width,transform] duration-300 ease-in-out overflow-hidden',
-          // 行動端：固定 w-64，透過 translate 控制顯隱
+          // 行動端：固定 w-52，透過 translate 控制顯隱
           mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full',
           'md:translate-x-0 md:relative', // 桌面端：永遠顯示，relative 定位
-          sidebarOpen ? 'w-64' : 'md:w-16 w-64' // 桌面端支援縮小；行動端永遠 w-64
+          sidebarOpen ? 'w-52' : 'md:w-16 w-52' // 桌面端支援縮小；行動端永遠 w-52
         )}
       >
         {/* Logo 區域 — icon 固定位置，文字條件渲染 */}
@@ -723,7 +723,7 @@ export function MainLayout() {
         </div>
 
         {/* 導覽選單清單 */}
-        <nav className="flex-1 overflow-y-auto px-2 py-4">
+        <nav className="flex-1 overflow-y-auto py-4">
           {/* 編輯模式提示 */}
           {isEditMode && sidebarOpen && (
             <div className="mb-3 p-2 bg-blue-600/20 rounded-lg text-xs text-blue-300 text-center">
@@ -798,41 +798,66 @@ export function MainLayout() {
           )}
         </nav>
 
-        {/* 底部操作選單 */}
-        <div className="border-t border-slate-700 px-2 py-2 space-y-1">
-          {/* 帳號設定 */}
-          <button
-            onClick={() => navigate('/profile/settings')}
-            title={!sidebarOpen ? t('profile.settings') : undefined}
-            className="flex w-full items-center rounded-lg py-2.5 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
-          >
-            <span className="w-12 flex items-center justify-center shrink-0">
-              <UserCircle className="h-6 w-6" />
-            </span>
-            {sidebarOpen && <span className="text-sm">{t('profile.settings')}</span>}
-          </button>
-          {/* 修改密碼 */}
-          <button
-            onClick={() => setShowPasswordDialog(true)}
-            title={!sidebarOpen ? t('common.changePassword') : undefined}
-            className="flex w-full items-center rounded-lg py-2.5 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
-          >
-            <span className="w-12 flex items-center justify-center shrink-0">
-              <Key className="h-6 w-6" />
-            </span>
-            {sidebarOpen && <span className="text-sm">{t('common.changePassword')}</span>}
-          </button>
-          {/* 登出 */}
-          <button
-            onClick={logout}
-            title={!sidebarOpen ? t('common.logout') : undefined}
-            className="flex w-full items-center rounded-lg py-2.5 text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
-          >
-            <span className="w-12 flex items-center justify-center shrink-0">
-              <LogOut className="h-6 w-6" />
-            </span>
-            {sidebarOpen && <span className="text-sm">{t('common.logout')}</span>}
-          </button>
+        {/* 底部使用者資訊及切換按鍵區域 */}
+        <div className="border-t border-slate-700 p-1.5">
+          {sidebarOpen ? ( // 展開狀態：顯示頭像、姓名、角色及操作按鈕
+            <div className="space-y-1.5 p-1.5">
+              <div className="flex items-center space-x-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 font-semibold text-sm">
+                  {user?.display_name?.[0] || user?.email?.[0] || 'U'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="truncate text-sm font-medium">{user?.display_name || user?.email}</p>
+                  {hasRole('admin') && (
+                    <p className="truncate text-xs text-slate-400">{user?.roles?.join(', ')}</p>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-0.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/profile/settings')}
+                  className="text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
+                >
+                  <UserCircle className="h-4 w-4 mr-1" />
+                  {t('profile.settings')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowPasswordDialog(true)}
+                  className="text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
+                >
+                  <Key className="h-4 w-4 mr-1" />
+                  {t('common.changePassword')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={logout}
+                  className="col-span-2 text-slate-400 hover:text-white hover:bg-slate-800 text-xs"
+                >
+                  <LogOut className="h-4 w-4 mr-1" />
+                  {t('common.logout')}
+                </Button>
+              </div>
+            </div>
+          ) : ( // 縮合狀態：僅顯示頭像與展開按鈕
+            <div className="flex flex-col items-center space-y-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 font-semibold text-sm">
+                {user?.display_name?.[0] || user?.email?.[0] || 'U'}
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSidebarOpen(true)}
+                className="text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            </div>
+          )}
         </div>
       </aside>
 

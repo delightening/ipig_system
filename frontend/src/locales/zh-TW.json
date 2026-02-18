@@ -59,7 +59,7 @@
     "today": "今天"
   },
   "profile": {
-    "settings": "個人帳號設定",
+    "settings": "帳號設定",
     "description": "管理您的個人資料、聯絡資訊與 AUP 相關人員資格",
     "updateSuccess": "個人資料已成功更新",
     "basicInfo": "基本資料",
