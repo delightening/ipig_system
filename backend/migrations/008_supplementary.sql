@@ -60,7 +60,15 @@ INSERT INTO notification_routing (event_type, role_code, channel, description) V
     ('amendment_submitted',              'IACUC_STAFF',       'in_app', '修正案提交 → 通知執行秘書'),
     ('amendment_decision_recorded',      'IACUC_STAFF',       'in_app', '修正案審查決定 → 通知執行秘書'),
     ('amendment_approved',               'IACUC_CHAIR',       'both',   '修正案核准 → 通知 IACUC 主席'),
-    ('amendment_rejected',               'IACUC_CHAIR',       'both',   '修正案駁回 → 通知 IACUC 主席')
+    ('amendment_rejected',               'IACUC_CHAIR',       'both',   '修正案駁回 → 通知 IACUC 主席'),
+    -- 審查流程完成通知
+    ('all_reviews_completed',            'IACUC_STAFF',       'in_app', '所有審查意見送出 → 通知執行秘書'),
+    ('all_comments_resolved',            'IACUC_CHAIR',       'in_app', '所有意見已解決 → 通知 IACUC 主席'),
+    -- 動物健康
+    ('animal_abnormal_record',           'VET',               'both',   '動物異常紀錄 → 通知獸醫師'),
+    ('animal_sudden_death',              'VET',               'both',   '動物猝死 → 通知獸醫師'),
+    -- ERP 採購通知
+    ('low_stock_alert',                  'PURCHASING',        'in_app', '低庫存預警 → 通知採購人員')
 ON CONFLICT (event_type, role_code) DO NOTHING;
 
 -- ============================================

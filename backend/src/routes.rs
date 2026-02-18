@@ -606,6 +606,14 @@ pub fn api_routes(state: AppState) -> Router {
             get(handlers::list_notification_routing).post(handlers::create_notification_routing),
         )
         .route(
+            "/admin/notification-routing/event-types",
+            get(handlers::list_available_event_types),
+        )
+        .route(
+            "/admin/notification-routing/roles",
+            get(handlers::list_available_roles),
+        )
+        .route(
             "/admin/notification-routing/:id",
             put(handlers::update_notification_routing)
                 .delete(handlers::delete_notification_routing),

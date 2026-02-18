@@ -99,6 +99,24 @@ export interface UpdateNotificationRoutingRequest {
     description?: string
 }
 
+/** 事件類型資訊 */
+export interface EventTypeInfo {
+    code: string
+    name: string
+}
+
+/** 事件類型分類 */
+export interface EventTypeCategory {
+    category: string
+    event_types: EventTypeInfo[]
+}
+
+/** 角色資訊 */
+export interface RoleInfo {
+    code: string
+    name: string
+}
+
 /** 事件類型中文名稱對照 */
 export const eventTypeNames: Record<string, string> = {
     protocol_submitted: '計畫提交',
@@ -108,12 +126,20 @@ export const eventTypeNames: Record<string, string> = {
     protocol_approved: '計畫核准',
     protocol_rejected: '計畫駁回',
     review_comment_created: '新審查意見',
+    all_reviews_completed: '所有審查意見送出',
+    all_comments_resolved: '所有意見已解決',
     leave_submitted: '請假申請',
     overtime_submitted: '加班申請',
+    leave_approved: '請假核准',
+    overtime_approved: '加班核准',
     document_submitted: '採購單提交',
     low_stock_alert: '低庫存預警',
     expiry_alert: '效期預警',
     emergency_medication: '緊急給藥',
+    animal_abnormal_record: '動物異常紀錄',
+    vet_recommendation_created: '獸醫師建議',
+    animal_sudden_death: '動物猝死',
+    euthanasia_order_created: '安樂死申請',
     amendment_submitted: '修正案提交',
     amendment_decision_recorded: '修正案審查決定',
     amendment_approved: '修正案核准',

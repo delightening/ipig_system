@@ -238,7 +238,7 @@ export const getProtocolActivities = async (id: string): Promise<ProtocolActivit
 // 通知路由管理 API
 import type {
   NotificationRouting, CreateNotificationRoutingRequest,
-  UpdateNotificationRoutingRequest,
+  UpdateNotificationRoutingRequest, EventTypeCategory, RoleInfo,
 } from '@/types/notification'
 
 export const notificationRoutingApi = {
@@ -250,6 +250,10 @@ export const notificationRoutingApi = {
     api.put<NotificationRouting>(`/admin/notification-routing/${id}`, data),
   delete: (id: string) =>
     api.delete(`/admin/notification-routing/${id}`),
+  getEventTypes: () =>
+    api.get<EventTypeCategory[]>('/admin/notification-routing/event-types'),
+  getRoles: () =>
+    api.get<RoleInfo[]>('/admin/notification-routing/roles'),
 }
 
 // 通知路由常數 re-export

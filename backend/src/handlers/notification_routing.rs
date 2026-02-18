@@ -59,3 +59,17 @@ pub async fn delete_notification_routing(
     service.delete_notification_routing(id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
+
+/// 取得所有可用事件類型（含分類）
+pub async fn list_available_event_types() -> Json<Vec<crate::models::EventTypeCategory>> {
+    Json(crate::services::NotificationService::list_available_event_types())
+}
+
+/// 取得所有可用角色
+pub async fn list_available_roles(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<crate::models::RoleInfo>>, AppError> {
+    let service = NotificationService::new(state.db.clone());
+    let roles = service.list_available_roles().await?;
+    Ok(Json(roles))
+}

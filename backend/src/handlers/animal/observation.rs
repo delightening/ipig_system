@@ -95,6 +95,34 @@ pub async fn create_animal_observation(
         }
     }
 
+    // 異常紀錄通知 → 通知 VET（依路由表 animal_abnormal_record）
+    if matches!(req.record_type, crate::models::RecordType::Abnormal) {
+        if let Ok(animal) = AnimalService::get_by_id(&state.db, animal_id).await {
+            let summary: String = if req.content.is_empty() {
+                "（未提供摘要）".to_string()
+            } else {
+                req.content.chars().take(100).collect()
+            };
+            let operator = current_user.email.clone();
+            let ear_tag = animal.ear_tag.clone();
+            let iacuc_no = animal.iacuc_no.clone();
+            let a_id = animal_id;
+            let db = state.db.clone();
+            tokio::spawn(async move {
+                let svc = crate::services::NotificationService::new(db);
+                if let Err(e) = svc.notify_abnormal_record(
+                    a_id,
+                    &ear_tag,
+                    iacuc_no.as_deref(),
+                    &summary,
+                    &operator,
+                ).await {
+                    tracing::warn!("發送異常紀錄通知失敗: {e}");
+                }
+            });
+        }
+    }
+
     // 取得動物資訊用於日誌顯示
     let obs_display = match AnimalService::get_by_id(&state.db, animal_id).await {
         Ok(animal) => {

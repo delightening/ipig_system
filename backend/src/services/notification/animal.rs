@@ -205,4 +205,53 @@ impl NotificationService {
 
         Ok(count)
     }
+
+    /// 通知動物異常紀錄
+    /// 依 notification_routing 表查詢 `animal_abnormal_record` 事件的收件者（通常為 VET）
+    pub async fn notify_abnormal_record(
+        &self,
+        animal_id: Uuid,
+        ear_tag: &str,
+        iacuc_no: Option<&str>,
+        record_summary: &str,
+        operator_name: &str,
+    ) -> Result<i32, AppError> {
+        let recipients = self.get_recipients_by_event("animal_abnormal_record").await?;
+        if recipients.is_empty() {
+            return Ok(0);
+        }
+
+        let title = format!("[iPig] 動物異常紀錄 - 耳號 {}", ear_tag);
+        let content = format!(
+            "有新的動物異常紀錄需要關注。\n\n耳號：{}\nIACUC No.：{}\n紀錄摘要：{}\n記錄者：{}",
+            ear_tag,
+            iacuc_no.unwrap_or("-"),
+            record_summary,
+            operator_name
+        );
+
+        let mut count = 0;
+        for (user_id, _email, _name, _channel) in &recipients {
+            if let Err(e) = self
+                .create_notification(CreateNotificationRequest {
+                    user_id: *user_id,
+                    notification_type: NotificationType::VetRecommendation,
+                    title: title.clone(),
+                    content: Some(content.clone()),
+                    related_entity_type: Some("animal".to_string()),
+                    related_entity_id: Some(animal_id),
+                })
+                .await
+            {
+                tracing::warn!("建立通知失敗: {e}");
+            }
+            count += 1;
+        }
+
+        tracing::info!(
+            "[Notification] 動物異常紀錄通知已發送給 {} 人（耳號 {}）",
+            count, ear_tag
+        );
+        Ok(count)
+    }
 }

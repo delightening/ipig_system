@@ -7,6 +7,7 @@ use crate::{
     models::{
         NotificationRouting, CreateNotificationRoutingRequest,
         UpdateNotificationRoutingRequest,
+        EventTypeCategory, EventTypeInfo, RoleInfo,
     },
 };
 
@@ -146,5 +147,77 @@ impl NotificationService {
 
         tracing::info!("[NotificationRouting] 刪除路由規則 {}", id);
         Ok(())
+    }
+
+    /// 取得所有可用的事件類型（含分類與中文名稱）
+    pub fn list_available_event_types() -> Vec<EventTypeCategory> {
+        vec![
+            EventTypeCategory {
+                category: "AUP 計畫審查".to_string(),
+                event_types: vec![
+                    EventTypeInfo { code: "protocol_submitted".to_string(), name: "計畫提交".to_string() },
+                    EventTypeInfo { code: "protocol_vet_review".to_string(), name: "獸醫審查".to_string() },
+                    EventTypeInfo { code: "protocol_under_review".to_string(), name: "委員審查".to_string() },
+                    EventTypeInfo { code: "protocol_resubmitted".to_string(), name: "重新提交".to_string() },
+                    EventTypeInfo { code: "protocol_approved".to_string(), name: "計畫核准".to_string() },
+                    EventTypeInfo { code: "protocol_rejected".to_string(), name: "計畫駁回".to_string() },
+                    EventTypeInfo { code: "review_comment_created".to_string(), name: "新審查意見".to_string() },
+                    EventTypeInfo { code: "all_reviews_completed".to_string(), name: "所有審查意見送出".to_string() },
+                    EventTypeInfo { code: "all_comments_resolved".to_string(), name: "所有意見已解決".to_string() },
+                ],
+            },
+            EventTypeCategory {
+                category: "修正案".to_string(),
+                event_types: vec![
+                    EventTypeInfo { code: "amendment_submitted".to_string(), name: "修正案提交".to_string() },
+                    EventTypeInfo { code: "amendment_decision_recorded".to_string(), name: "修正案審查決定".to_string() },
+                    EventTypeInfo { code: "amendment_approved".to_string(), name: "修正案核准".to_string() },
+                    EventTypeInfo { code: "amendment_rejected".to_string(), name: "修正案駁回".to_string() },
+                ],
+            },
+            EventTypeCategory {
+                category: "動物健康".to_string(),
+                event_types: vec![
+                    EventTypeInfo { code: "emergency_medication".to_string(), name: "緊急給藥".to_string() },
+                    EventTypeInfo { code: "animal_abnormal_record".to_string(), name: "動物異常紀錄".to_string() },
+                    EventTypeInfo { code: "vet_recommendation_created".to_string(), name: "獸醫師建議".to_string() },
+                    EventTypeInfo { code: "animal_sudden_death".to_string(), name: "動物猝死".to_string() },
+                    EventTypeInfo { code: "euthanasia_order_created".to_string(), name: "安樂死申請".to_string() },
+                ],
+            },
+            EventTypeCategory {
+                category: "ERP 進銷存".to_string(),
+                event_types: vec![
+                    EventTypeInfo { code: "document_submitted".to_string(), name: "採購單提交".to_string() },
+                    EventTypeInfo { code: "low_stock_alert".to_string(), name: "低庫存預警".to_string() },
+                    EventTypeInfo { code: "expiry_alert".to_string(), name: "效期預警".to_string() },
+                ],
+            },
+            EventTypeCategory {
+                category: "HR 人事".to_string(),
+                event_types: vec![
+                    EventTypeInfo { code: "leave_submitted".to_string(), name: "請假申請".to_string() },
+                    EventTypeInfo { code: "overtime_submitted".to_string(), name: "加班申請".to_string() },
+                    EventTypeInfo { code: "leave_approved".to_string(), name: "請假核准".to_string() },
+                    EventTypeInfo { code: "overtime_approved".to_string(), name: "加班核准".to_string() },
+                ],
+            },
+        ]
+    }
+
+    /// 取得所有可用角色列表
+    pub async fn list_available_roles(&self) -> Result<Vec<RoleInfo>, AppError> {
+        let roles: Vec<RoleInfo> = sqlx::query_as(
+            r#"
+            SELECT code, name
+            FROM roles
+            WHERE is_active = true AND is_deleted = false
+            ORDER BY code
+            "#,
+        )
+        .fetch_all(&self.db)
+        .await?;
+
+        Ok(roles)
     }
 }

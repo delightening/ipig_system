@@ -127,6 +127,33 @@ services:
     depends_on:
       - api
 
+  # =========================
+  # DB Backup (排程備份)
+  # =========================
+  db-backup:
+    build:
+      context: ./scripts/backup
+      dockerfile: Dockerfile.backup
+    container_name: ipig-db-backup
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-ipig_db}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGHOST: db
+      PGPORT: "5432"
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 2 * * *}
+      RSYNC_TARGET: ${RSYNC_TARGET:-}
+      BACKUP_ON_START: ${BACKUP_ON_START:-false}
+    volumes:
+      - db_backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
 # =========================
 # Secrets
 # =========================
@@ -139,3 +166,4 @@ secrets:
 # =========================
 volumes:
   postgres_data:
+  db_backups:
