@@ -40,6 +40,12 @@ CREATE TABLE attendance_records (
     clock_out_source VARCHAR(20),
     clock_out_ip INET,
     
+    -- GPS 定位（打卡座標）
+    clock_in_latitude  DOUBLE PRECISION,
+    clock_in_longitude DOUBLE PRECISION,
+    clock_out_latitude  DOUBLE PRECISION,
+    clock_out_longitude DOUBLE PRECISION,
+    
     -- 備註
     remark TEXT,
     

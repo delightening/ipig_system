@@ -124,10 +124,31 @@ pub async fn create_review_comment(
         let info: Option<(Uuid, String, String)> = sqlx::query_as(
             r#"SELECT p.id, p.protocol_no, p.title FROM protocols p JOIN protocol_versions pv ON p.id = pv.protocol_id WHERE pv.id = $1"#,
         ).bind(pvid).fetch_optional(&db).await.ok().flatten();
-        if let Some((pid, pno, _)) = info {
-            let svc = NotificationService::new(db);
+        if let Some((pid, pno, ptitle)) = info {
+            let svc = NotificationService::new(db.clone());
             if let Err(e) = svc.notify_review_comment_created(pid, &pno, &commenter, &content).await {
                 tracing::warn!("發送審查意見通知失敗: {e}");
+            }
+
+            // 檢查是否所有指定委員都已發表意見 → 觸發 all_reviews_completed
+            let all_commented: Option<(bool,)> = sqlx::query_as(
+                r#"
+                SELECT NOT EXISTS(
+                    SELECT 1 FROM review_assignments ra
+                    WHERE ra.protocol_id = $1
+                      AND NOT EXISTS(
+                          SELECT 1 FROM review_comments rc
+                          WHERE rc.protocol_id = ra.protocol_id
+                            AND rc.reviewer_id = ra.reviewer_id
+                            AND rc.parent_comment_id IS NULL
+                      )
+                )
+                "#
+            ).bind(pid).fetch_optional(&db).await.ok().flatten();
+            if let Some((true,)) = all_commented {
+                if let Err(e) = svc.notify_all_reviews_completed(pid, &pno, &ptitle).await {
+                    tracing::warn!("發送全員意見完成通知失敗: {e}");
+                }
             }
         }
     });
@@ -176,6 +197,39 @@ pub async fn resolve_review_comment(
     Path(id): Path<Uuid>,
 ) -> Result<Json<ReviewComment>> {
     let comment = ProtocolService::resolve_comment(&state.db, id, current_user.id).await?;
+
+    // 非同步檢查：是否所有意見都已解決 → 觸發 all_comments_resolved
+    let db = state.db.clone();
+    if let Some(protocol_id) = comment.protocol_id {
+    tokio::spawn(async move {
+        // 取得計畫資訊
+        let info: Option<(String, String)> = sqlx::query_as(
+            "SELECT protocol_no, title FROM protocols WHERE id = $1",
+        ).bind(protocol_id).fetch_optional(&db).await.ok().flatten();
+
+        if let Some((pno, ptitle)) = info {
+            // 檢查是否所有意見都已解決（僅檢查頂層意見，非回覆）
+            let all_resolved: Option<(bool,)> = sqlx::query_as(
+                r#"
+                SELECT NOT EXISTS(
+                    SELECT 1 FROM review_comments
+                    WHERE protocol_id = $1
+                      AND parent_comment_id IS NULL
+                      AND is_resolved = false
+                )
+                "#
+            ).bind(protocol_id).fetch_optional(&db).await.ok().flatten();
+
+            if let Some((true,)) = all_resolved {
+                let svc = NotificationService::new(db);
+                if let Err(e) = svc.notify_all_comments_resolved(protocol_id, &pno, &ptitle).await {
+                    tracing::warn!("發送全部意見已解決通知失敗: {e}");
+                }
+            }
+        }
+    });
+    }
+
     Ok(Json(comment))
 }
 

@@ -365,7 +365,7 @@
 | Header 通知圖示 | - | ✅ | ✅ | MainLayout |
 | 通知下拉選單 | - | ✅ | ✅ | 含點擊導航 |
 | 通知設定 | ✅ | ✅ | ✅ | SettingsPage 整合 |
-| 通知路由管理 | ✅ | ✅ | ✅ | `notification_routing` 表、CRUD API、前端管理介面 (2026-02-15) |
+| 通知路由管理 | ✅ | ✅ | ✅ | `notification_routing` 表、CRUD API、前端獨立管理頁面 `NotificationRoutingPage.tsx`（Table + 分類下拉 + 啟停 Switch） |
 
 ### 5.3 排程任務
 
@@ -422,7 +422,7 @@
 | 007_erp_warehouse.sql | ERP 倉庫/產品/單據/庫存 | ✅ |
 | 008_supplementary.sql | 通知路由規則 + 電子簽章 + 記錄附註 | ✅ |
 
-> 📌 **2026-02-17 整合**：遷移從 14 個整合為 8 個。消除增量修改（008 權限→002、008 AUP→004）、同領域合併（009 血液+013 猝死+014 轉讓→003）、消除微型檔案（010→001、011+015→008）。`cargo build` 通過。
+> 📌 **2026-02-18 整合**：遷移從 10 個整合為 8 個。009（GPS 欄位）併入 005 CREATE TABLE、010（通知 seed）已存在於 008。`cargo build` 通過。
 
 ---
 
@@ -830,6 +830,21 @@
 
 ---
 
+## 已完成待辦項目（從 TODO.md 移入）
+
+> 以下項目原列於 TODO.md，已完成後移入此處。
+
+| 原編號 | 項目 | 完成日期 | 摘要 |
+|--------|------|----------|------|
+| P2-1 | **豬隻→動物命名重構** | 2026-02-15 | 後端 42+ 檔案、前端 47+ 檔案、DB migration 全面 pig→animal 重命名 |
+| P2-1a | **動物狀態生命週期（第一波）** | 2026-02-16 | euthanized/sudden_death 狀態 + 狀態機 + 猝死登記 API |
+| P2-1b | **動物狀態生命週期（第二波）** | 2026-02-16 | transferred 狀態 + 轉讓 6 步 API（8 路由）+ 前端 TransferTab + 資料隔離 |
+| P2-2 | **AUP 參考文獻格式** | 2026-02-17 | A-L 資料庫勾選與關鍵字，符合農業部表單格式 |
+| P2-10 | **📱 行動裝置電子簽章** | 2026-02-16 | Phase 1–4 完成（犧牲紀錄/安樂死/轉讓/計劃審查手寫簽名） |
+| P4-21 | **整合測試登入優化** | 2026-02-16 | SharedTestContext 共享 token + protocol_id 複用 + 動物數 20→5 |
+
+---
+
 ## 10. 結論
 
 豬博士 iPig 系統整體完成度 **100%** ✅，所有子系統均已完成：
@@ -855,6 +870,49 @@
 - 保留 admin 帳號與角色、種子資料、審計日誌
 
 **驗證結果：** 使用者=1（admin）、動物/計畫/倉庫/單據=0、角色=11（保留）、admin 角色「系統管理員」完整
+
+---
+
+### 2026-02-17：通知路由進階設定
+
+**後端變更：**
+- `routing.rs` 新增 `list_available_event_types()`（5 大類 26 種事件）、`list_available_roles()`（DB 查詢）
+- `notification.rs` 新增 `EventTypeCategory`、`EventTypeInfo`、`RoleInfo` 三個 struct
+- `notification_routing.rs` 新增兩個 handler（event-types, roles）
+- `routes.rs` 新增兩條路由
+
+**DB Seed：**
+- `008_supplementary.sql` 新增 5 條預設路由：`all_reviews_completed`、`all_comments_resolved`、`animal_abnormal_record`、`animal_sudden_death`、`low_stock_alert`→PURCHASING
+
+**前端變更：**
+- `notification.ts` 新增 3 個介面 + 9 個新事件類型名稱
+- `api.ts` 新增 `getEventTypes()`、`getRoles()` API
+- `NotificationRoutingSection.tsx` 全面重寫：文字輸入→下拉選單、規則列表→分類卡片、新增分類圖示
+
+**驗證：** 後端 `cargo check` + 前端 `tsc --noEmit` 通過
+
+**通知觸發邏輯實作（2026-02-17 續）：**
+- `protocol.rs`：新增 `notify_all_reviews_completed()` + `notify_all_comments_resolved()`
+- `animal.rs`：新增 `notify_abnormal_record()`
+- `review.rs`：`create_review_comment` handler 非同步檢查全員意見完成 → 觸發通知
+- `review.rs`：`resolve_review_comment` handler 非同步檢查全部意見已解決 → 觸發通知（修復 `Option<Uuid>` protocol_id 型別）
+- `observation.rs`：異常觀察紀錄建立時觸發通知（修復 `general_appearance`/`clinical_signs` 欄位不存在問題，改用 `content`）
+- `010_notification_routing_seed.sql`：5 條新 seed data
+
+---
+
+### 2026-02-17：SEC-31 資料庫自動備份
+
+**新增檔案：**
+- `scripts/backup/pg_backup.sh`：pg_dump + gzip + 30 天清理 + rsync 異地備份
+- `scripts/backup/Dockerfile.backup`：postgres:16-alpine + dcron + rsync
+- `scripts/backup/entrypoint.sh`：環境變數注入 cron + 前景執行 crond
+- `scripts/backup/BACKUP.md`：備份指南（快速開始/手動備份/還原/rsync 設定）
+
+**修改檔案：**
+- `docker-compose.yml`：新增 `db-backup` 服務 + `db_backups` volume
+
+**環境變數：** `BACKUP_SCHEDULE`、`BACKUP_RETENTION_DAYS`、`RSYNC_TARGET`、`BACKUP_ON_START`
 
 ---
 

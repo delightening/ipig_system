@@ -1,0 +1,23 @@
+# ============================================
+# iPIG 資料庫備份容器
+# 基於 PostgreSQL 16 Alpine，內建 cron 排程
+# ============================================
+FROM postgres:16-alpine
+
+# 安裝 rsync（異地備份用）和 dcron（排程用）
+RUN apk add --no-cache dcron rsync openssh-client
+
+# 複製備份腳本
+COPY pg_backup.sh /usr/local/bin/pg_backup.sh
+RUN chmod +x /usr/local/bin/pg_backup.sh
+
+# 複製 entrypoint 腳本
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# 建立備份目錄
+RUN mkdir -p /backups
+
+VOLUME /backups
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

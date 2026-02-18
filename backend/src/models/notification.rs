@@ -268,3 +268,24 @@ pub struct UpdateNotificationRoutingRequest {
     pub is_active: Option<bool>,
     pub description: Option<String>,
 }
+
+/// 事件類型分類（含分類名稱與事件清單）
+#[derive(Debug, Clone, Serialize)]
+pub struct EventTypeCategory {
+    pub category: String,
+    pub event_types: Vec<EventTypeInfo>,
+}
+
+/// 事件類型資訊
+#[derive(Debug, Clone, Serialize)]
+pub struct EventTypeInfo {
+    pub code: String,
+    pub name: String,
+}
+
+/// 角色資訊（供通知路由下拉選單使用）
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct RoleInfo {
+    pub code: String,
+    pub name: String,
+}

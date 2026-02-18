@@ -326,4 +326,92 @@ impl NotificationService {
         );
         Ok(count)
     }
+
+    /// 通知所有審查意見已送出（所有指定委員都已發表意見）
+    /// 依 notification_routing 表查詢 `all_reviews_completed` 事件的收件者
+    pub async fn notify_all_reviews_completed(
+        &self,
+        protocol_id: Uuid,
+        protocol_no: &str,
+        protocol_title: &str,
+    ) -> Result<i32, AppError> {
+        let recipients = self.get_recipients_by_event("all_reviews_completed").await?;
+        if recipients.is_empty() {
+            return Ok(0);
+        }
+
+        let title = format!("[iPig] 所有審查意見已送出 - {}", protocol_no);
+        let content = format!(
+            "所有指定委員已完成意見提交，請進行後續處理。\n\n計畫編號：{}\n計畫名稱：{}",
+            protocol_no, protocol_title
+        );
+
+        let mut count = 0;
+        for (user_id, _email, _name, _channel) in &recipients {
+            if let Err(e) = self
+                .create_notification(CreateNotificationRequest {
+                    user_id: *user_id,
+                    notification_type: NotificationType::ProtocolStatus,
+                    title: title.clone(),
+                    content: Some(content.clone()),
+                    related_entity_type: Some("protocol".to_string()),
+                    related_entity_id: Some(protocol_id),
+                })
+                .await
+            {
+                tracing::warn!("建立通知失敗: {e}");
+            }
+            count += 1;
+        }
+
+        tracing::info!(
+            "[Notification] 所有審查意見已送出通知已發送給 {} 人（計畫 {}）",
+            count, protocol_no
+        );
+        Ok(count)
+    }
+
+    /// 通知所有審查意見已解決
+    /// 依 notification_routing 表查詢 `all_comments_resolved` 事件的收件者
+    pub async fn notify_all_comments_resolved(
+        &self,
+        protocol_id: Uuid,
+        protocol_no: &str,
+        protocol_title: &str,
+    ) -> Result<i32, AppError> {
+        let recipients = self.get_recipients_by_event("all_comments_resolved").await?;
+        if recipients.is_empty() {
+            return Ok(0);
+        }
+
+        let title = format!("[iPig] 所有審查意見已解決 - {}", protocol_no);
+        let content = format!(
+            "所有審查意見已被標記為解決，可進行最終審查決定。\n\n計畫編號：{}\n計畫名稱：{}",
+            protocol_no, protocol_title
+        );
+
+        let mut count = 0;
+        for (user_id, _email, _name, _channel) in &recipients {
+            if let Err(e) = self
+                .create_notification(CreateNotificationRequest {
+                    user_id: *user_id,
+                    notification_type: NotificationType::ProtocolStatus,
+                    title: title.clone(),
+                    content: Some(content.clone()),
+                    related_entity_type: Some("protocol".to_string()),
+                    related_entity_id: Some(protocol_id),
+                })
+                .await
+            {
+                tracing::warn!("建立通知失敗: {e}");
+            }
+            count += 1;
+        }
+
+        tracing::info!(
+            "[Notification] 所有意見已解決通知已發送給 {} 人（計畫 {}）",
+            count, protocol_no
+        );
+        Ok(count)
+    }
 }

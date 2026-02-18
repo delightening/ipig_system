@@ -44,6 +44,7 @@ import { RolesPage } from '@/pages/admin/RolesPage'
 import { SettingsPage } from '@/pages/admin/SettingsPage'
 import { AuditLogsPage } from '@/pages/admin/AuditLogsPage'
 import { AdminAuditPage } from '@/pages/admin/AdminAuditPage'
+import { NotificationRoutingPage } from '@/pages/admin/NotificationRoutingPage'
 
 // HR Pages
 import { HrAttendancePage } from '@/pages/hr/HrAttendancePage'
@@ -260,6 +261,7 @@ function App() {
                         <Route path="/admin/settings" element={<SettingsPage />} />
                         <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
                         <Route path="/admin/audit" element={<AdminAuditPage />} />
+                        <Route path="/admin/notification-routing" element={<NotificationRoutingPage />} />
                     </Route>
 
                     {/* HR 人員管理 */}

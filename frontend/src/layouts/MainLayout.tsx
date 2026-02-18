@@ -162,6 +162,7 @@ const navItemsConfig: NavItem[] = [
       { title: '系統設定', href: '/admin/settings', translate: false },
       { title: '操作日誌', href: '/admin/audit-logs', translate: false },
       { title: '安全審計', href: '/admin/audit', translate: false },
+      { title: '通知路由', href: '/admin/notification-routing', translate: false },
     ],
     permission: 'admin',
   },
@@ -1143,10 +1144,10 @@ export function MainLayout() {
               <div
                 key={idx}
                 className={`flex items-start gap-3 rounded-lg p-3 ${item.level === 'warn'
-                    ? 'bg-amber-50 border border-amber-200'
-                    : item.level === 'ok'
-                      ? 'bg-green-50 border border-green-200'
-                      : 'bg-blue-50 border border-blue-200'
+                  ? 'bg-amber-50 border border-amber-200'
+                  : item.level === 'ok'
+                    ? 'bg-green-50 border border-green-200'
+                    : 'bg-blue-50 border border-blue-200'
                   }`}
               >
                 <div className="mt-0.5 shrink-0">
