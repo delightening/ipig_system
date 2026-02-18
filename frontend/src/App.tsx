@@ -180,6 +180,92 @@ function App() {
         })
     }, [checkAuth, isPublicRoute])
 
+    // ============================================
+    // 閒置時預載：主頁面渲染完成後，背景預載所有路由 chunk
+    // ============================================
+    useEffect(() => {
+        if (!isAuthenticated) return
+
+        const prefetchBatch = (modules: Array<() => Promise<unknown>>) => {
+            modules.forEach(load => {
+                // 靜默預載，忽略錯誤（例如網路波動）
+                load().catch(() => { })
+            })
+        }
+
+        const scheduleIdle = (fn: () => void) => {
+            if ('requestIdleCallback' in window) {
+                requestIdleCallback(fn)
+            } else {
+                setTimeout(fn, 2000)
+            }
+        }
+
+        // 分批預載，優先級由高至低
+        scheduleIdle(() => {
+            // 第一批：高頻頁面
+            prefetchBatch([
+                () => import('@/pages/DashboardPage'),
+                () => import('@/pages/my-projects/MyProjectsPage'),
+                () => import('@/pages/animals/AnimalsPage'),
+                () => import('@/pages/protocols/ProtocolsPage'),
+                () => import('@/pages/animals/AnimalDetailPage'),
+                () => import('@/pages/protocols/ProtocolDetailPage'),
+            ])
+
+            scheduleIdle(() => {
+                // 第二批：次要頁面
+                prefetchBatch([
+                    () => import('@/pages/erp/ErpPage'),
+                    () => import('@/pages/protocols/ProtocolEditPage'),
+                    () => import('@/pages/animals/AnimalEditPage'),
+                    () => import('@/pages/hr/HrAttendancePage'),
+                    () => import('@/pages/hr/HrLeavePage'),
+                    () => import('@/pages/hr/HrOvertimePage'),
+                    () => import('@/pages/ProfileSettingsPage'),
+                    () => import('@/pages/documents/DocumentsPage'),
+                    () => import('@/pages/inventory/InventoryPage'),
+                ])
+
+                scheduleIdle(() => {
+                    // 第三批：低頻管理/報表頁面
+                    prefetchBatch([
+                        () => import('@/pages/admin/UsersPage'),
+                        () => import('@/pages/admin/RolesPage'),
+                        () => import('@/pages/admin/SettingsPage'),
+                        () => import('@/pages/admin/AuditLogsPage'),
+                        () => import('@/pages/admin/AdminAuditPage'),
+                        () => import('@/pages/admin/NotificationRoutingPage'),
+                        () => import('@/pages/admin/TreatmentDrugOptionsPage'),
+                        () => import('@/pages/reports/ReportsPage'),
+                        () => import('@/pages/reports/StockOnHandReportPage'),
+                        () => import('@/pages/reports/StockLedgerReportPage'),
+                        () => import('@/pages/reports/PurchaseLinesReportPage'),
+                        () => import('@/pages/reports/SalesLinesReportPage'),
+                        () => import('@/pages/reports/CostSummaryReportPage'),
+                        () => import('@/pages/reports/BloodTestCostReportPage'),
+                        () => import('@/pages/reports/BloodTestAnalysisPage'),
+                        () => import('@/pages/master/ProductsPage'),
+                        () => import('@/pages/master/WarehousesPage'),
+                        () => import('@/pages/master/PartnersPage'),
+                        () => import('@/pages/master/BloodTestTemplatesPage'),
+                        () => import('@/pages/master/BloodTestPanelsPage'),
+                        () => import('@/pages/documents/DocumentDetailPage'),
+                        () => import('@/pages/documents/DocumentEditPage'),
+                        () => import('@/pages/inventory/StockLedgerPage'),
+                        () => import('@/pages/inventory/WarehouseLayoutPage'),
+                        () => import('@/pages/hr/HrAnnualLeavePage'),
+                        () => import('@/pages/hr/CalendarSyncSettingsPage'),
+                        () => import('@/pages/amendments/MyAmendmentsPage'),
+                        () => import('@/pages/animals/AnimalSourcesPage'),
+                        () => import('@/pages/master/CreateProductPage'),
+                        () => import('@/pages/master/ProductDetailPage'),
+                    ])
+                })
+            })
+        })
+    }, [isAuthenticated])
+
     // 判斷首頁導向
     const getHomeRedirect = () => {
         const hasDashboardAccess = hasRole('admin') ||
