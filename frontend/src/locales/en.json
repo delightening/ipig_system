@@ -59,7 +59,7 @@
         "today": "Today"
     },
     "profile": {
-        "settings": "Profile Settings",
+        "settings": "Settings",
         "description": "Manage your profile, contact info and AUP personnel qualifications",
         "updateSuccess": "Profile updated successfully",
         "basicInfo": "Basic Information",
