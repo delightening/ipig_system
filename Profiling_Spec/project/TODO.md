@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-02-18
+> **最後更新：** 2026-02-19
 
 此文件撰寫方式
 
@@ -20,10 +20,12 @@
 
 | # | 項目 | 說明 | 範圍 | 難度 |
 |---|------|------|------|------|
-| 1 | **疼痛評估紀錄時間軸** | 後端 API + 前端視覺化 + 疼痛評估表數位化（DB schema 已就位） | 前後端 | 🟡 中 |
-| 2 | **敏感資料二級審計** | 密碼修改、權限變更等操作的加強稽核紀錄 | 後端 | 🟡 中 |
-| 3 | **安全警報即時推送** | Email / 站內通知即時推送安全警報（WebSocket/SSE） | 前後端 | 🔴 高 |
-| 4 | **SEC-37：HSTS 標頭** | 正式環境 Nginx 加入 `Strict-Transport-Security`（Cloudflare Tunnel 條件式注入） | Nginx | 🟢 低 |
+| 1 | **治療方式藥物選單 + 後台管理** | ✅ 後端 API + DB migration + 前端管理頁面已完成；⏳ 待改造 ObservationForm/SurgeryForm/EmergencyMedication/SacrificeForm 表單 | 前後端+DB | 🟡 中 |
+| 2 | **疼痛評估紀錄時間軸** | 後端 API + 前端視覺化 + 疼痛評估表數位化（DB schema 已就位） | 前後端 | 🟡 中 |
+| 3 | **敏感資料二級審計** | 密碼修改、權限變更等操作的加強稽核紀錄 | 後端 | 🟡 中 |
+| 4 | **安全警報即時推送** | Email / 站內通知即時推送安全警報（WebSocket/SSE） | 前後端 | 🔴 高 |
+| 5 | **SEC-37：HSTS 標頭** | 正式環境 Nginx 加入 `Strict-Transport-Security`（Cloudflare Tunnel 條件式注入） | Nginx | 🟢 低 |
+| 6 | **手機端 Dialog 滾動與縮放修復** | `DialogContent` 基礎元件改用 flexbox 置中 + 內建 `max-h/overflow-y-auto`；viewport 加入 `maximum-scale=1, user-scalable=no` 防 iOS 自動縮放；全域 CSS 手機端 Dialog 適配（觸控滾動、input 字體 ≥16px）；清理 20+ 處重複 scroll class （參考 [手機端架構.md](手機端架構.md)） | 前端 | 🟡 中 |
 
 
 ---
@@ -83,12 +85,12 @@
 
 | 優先級 | 數量 | 佔比 |
 |--------|------|------|
-| 🔴 P2 中優先 | 4 | 17% |
-| 🔵 P3 低優先 | 6 | 25% |
-| 🟣 P4 品質提升 | 5 | 21% |
-| ⚪ P5 長期演進 | 6 | 25% |
+| 🔴 P2 中優先 | 6 | 23% |
+| 🔵 P3 低優先 | 6 | 23% |
+| 🟣 P4 品質提升 | 5 | 19% |
+| ⚪ P5 長期演進 | 6 | 23% |
 | 🚀 v2.0 遠程 | 3 | 12% |
-| **合計** | **24** | **100%** |
+| **合計** | **26** | **100%** |
 
 ---
 
@@ -96,6 +98,8 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-02-19 | 📦 前端 Bundle 優化：React.lazy code-splitting（50 頁面）+ manualChunks（7 vendor chunks）+ auth.ts import 修正，主 chunk 3,267→242 KB（-92.6%） |
+| 2026-02-18 | 💊 治療方式藥物選單規劃：三方案比較（直接 ERP / 獨立表 / 混合），建議方案 C（`treatment_drug_options` 表 + ERP 匯入 + DrugCombobox），影響 ObservationForm / SurgeryForm / EmergencyMedication 三表單 |
 | 2026-02-18 | 🗃️ Migration 整合 10→8：GPS 4 欄位併入 005 CREATE TABLE + 010 seed 已存在於 008（刪除 009/010） |
 | 2026-02-18 | 🔔 通知路由管理頁面：新增 `NotificationRoutingPage.tsx`（Table + CRUD Dialog + 啟停 Switch）、`App.tsx` 路由註冊、`MainLayout.tsx` 側邊欄導航 |
 | 2026-02-17 | 🔔 進階通知觸發邏輯：AUP 全員意見完成/全部已解決/動物異常紀錄 → 非同步通知；修復 `observation.rs` 欄位引用、`review.rs` `Option<Uuid>` 型別、移除未使用變數 |

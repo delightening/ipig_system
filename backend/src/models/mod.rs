@@ -19,6 +19,7 @@ mod euthanasia;
 mod amendment;
 mod storage_location;
 pub mod user_preferences;
+mod treatment_drug;
 
 pub use user::*;
 pub use role::*;
@@ -38,6 +39,7 @@ pub use calendar::*;
 pub use euthanasia::*;
 pub use amendment::*;
 pub use storage_location::*;
+pub use treatment_drug::*;
 
 
 use serde::{Deserialize, Serialize};

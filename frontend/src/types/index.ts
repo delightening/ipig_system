@@ -20,6 +20,7 @@ export type * from './audit'
 export type * from './notification'
 export type * from './amendment'
 export type * from './upload'
+export type * from './treatment-drug'
 
 // 常值匯出（非純型別，需要 runtime 值）
 export { LEAVE_TYPE_NAMES, LEAVE_STATUS_NAMES } from './hr'
@@ -33,3 +34,4 @@ export {
     AMENDMENT_CHANGE_ITEM_OPTIONS,
 } from './amendment'
 export { storageLocationTypeNames } from './erp'
+export { DRUG_CATEGORIES, DOSAGE_UNITS } from './treatment-drug'

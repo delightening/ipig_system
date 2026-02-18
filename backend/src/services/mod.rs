@@ -28,6 +28,7 @@ mod signature;
 mod euthanasia;
 mod amendment;
 mod storage_location;
+mod treatment_drug;
 
 pub use auth::AuthService;
 pub use user::UserService;
@@ -52,6 +53,7 @@ pub use signature::{SignatureService, AnnotationService, SignatureType, Annotati
 pub use euthanasia::EuthanasiaService;
 pub use amendment::AmendmentService;
 pub use storage_location::StorageLocationService;
+pub use treatment_drug::TreatmentDrugService;
 pub use login_tracker::LoginTracker;
 pub use session_manager::SessionManager;
 

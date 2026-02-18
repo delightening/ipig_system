@@ -1,0 +1,13 @@
+﻿cargo :    Compiling erp-backend v0.1.0 (D:\Codin
+g\ipig_system\backend)
+位於 線路:1 字元:27
++ $env:SQLX_OFFLINE="true"; cargo build 2>&1 | Ou
+t-File -Encoding utf8  ...
++                           ~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (    
+   Compiling er...system\backend):String) [], R  
+  emoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+    Finished `dev` profile [unoptimized + debugin
+fo] target(s) in 36.77s
