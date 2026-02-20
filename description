@@ -1,0 +1,111 @@
+# iPig 豬博士動物科技系統 — Nest-based 模組化規格說明書
+
+> **版本**：5.0 (2026-02-17)
+> **狀態**：開發中 / 持續整合
+> **核心架構**：Rust (Axum) + React (Vite) + PostgreSQL
+
+---
+
+## 1. 系統總覽 (Project Overview)
+
+iPig 系統是一套專為實驗動物管理設計的**統一入口門戶 (Unified Portal)**。系統採模組化架構，將「計畫書審查 (AUP)」、「進銷存 (ERP)」、「動物醫療紀錄 (Animal Management)」與「人事行政 (HR)」整合於單一平台，並嚴格遵循 GLP (Good Laboratory Practice) 合規要求。
+
+---
+
+## 2. 核心模組架構 (Nest-based Modules)
+
+系統依功能邊界劃分為以下「巢狀模組」，每個模組包含獨立的處理層 (Handlers)、服務層 (Services) 與資料模型 (Models)。
+
+### 2.1 認證與安全模組 (Auth & Security Nest)
+- **Identity**: JWT + HttpOnly Cookie 認證機制，支援多端點登入。
+- **RBAC**: 精細的權限控制矩陣 (Role-Based Access Control)。
+- **Security**:
+  - `Login Tracker`: 偵測異常登入與帳號鎖定。
+  - `Rate Limiter`: 針對認證與 API 層級的流量限制。
+  - `GeoIP`: 結合 MaxMind 進行地理位置稽核。
+  - `Session Manager`: 即時工作階段監控與強制登出。
+
+### 2.2 AUP 計畫書審查模組 (Protocol & Review Nest)
+- **AUP Lifecycle**: 從草稿撰寫、自動儲存到多層級審查 (預審、獸醫審查、IACUC 審查)。
+- **Amendment**: 計畫核准後的變更申請流程，支援 MAJOR/MINOR 分類。
+- **Collaboration**: 共同編輯者 (Co-editors) 機制與草稿意見回覆。
+- **Compliance**: 版本控管、歷史快照、PDF 自動匯出。
+
+### 2.3 實驗動物管理模組 (Animal Management Nest)
+- **Life Cycle**: 動物進場、分配、實驗追蹤至安樂死、犧牲或轉讓。
+- **Medical Records**:
+  - `Observations`: 臨床觀察與治療紀錄。
+  - `Surgeries`: 手術過程、生理數值與麻醉紀錄。
+  - `Blood Tests`: 整合檢驗項目模板與組合 (Panels)。
+- **Data Isolation**: 動物轉讓後的資料隔離機制，確保不同計畫間的隱私。
+- **Sudden Death**: 異常死亡登記與流程處理。
+
+### 2.4 ERP 進銷存模組 (ERP & Inventory Nest)
+- **SKU System**: 結構化編碼規則 (大類+小類) 與條碼支援。
+- **Warehouse**: 支援多倉庫、多儲位 (Storage Locations) 管理。
+- **Documents**: 採購 (PO/GRN)、銷售 (SO/DO)、調撥 (TR)、盤點 (STK) 等完整單據流。
+- **Ledger**: 以「庫存流水」為核心的真實性追蹤。
+
+### 2.5 人事管理模組 (HR & Attendance Nest)
+- **Time Clock**: 支援 GPS 與 IP 地理圍籬的打卡系統。
+- **Leaves & Overtime**: 多級請假與加班審核流程。
+- **Calendar**: 與 Google Calendar 雙向同步。
+- **Balances**: 自動計算特休、補休餘額與到期提醒。
+
+### 2.6 GLP 合規模組 (Compliance & Signature Nest)
+- **Electronic Signatures**: 支援密碼驗證與手寫簽名 (Signature Pad)。
+- **Audit Trail**: `Activity Logger` 中間件自動記錄所有寫入操作。
+- **Annotations**: 紀錄鎖定後的修正與標註功能。
+
+---
+
+## 3. 技術堆疊 (Technical Stack)
+
+### 後端 (Backend - Rust Nest)
+- **Axum**: 高效能異步 Web 框架，採 Nesting Router 設計。
+- **SQLx**: 具備編譯期 SQL 驗證的異步資料庫驅動。
+- **Tower**: 提供 Rate Limiting, Trace, CORS 等中間件層。
+- **Tokio**: 工業級非同步 Runtime。
+
+### 前端 (Frontend - React Nest)
+- **React 18**: 組件化 UI 框架。
+- **TanStack**: 處理 Server State (Query) 與複雜表格 (Table)。
+- **Zustand**: 輕量化全域狀態管理。
+- **shadcn/ui**: 基於 Radix UI 的高度可自定義元件庫。
+
+---
+
+## 4. API 路由嵌套結構 (API Nesting Structure)
+
+API 採用 `/api` 為根路徑，向下嵌套各子模組：
+
+```rust
+// 路由設計範例 (Axum Style)
+Router::new()
+    .nest("/api", public_routes.merge(protected_routes))
+    .nest("/api/auth", auth_routes)
+    .nest("/api/protocols", protocol_routes)
+    .nest("/api/animals", animal_routes)
+    .nest("/api/hr", hr_routes)
+    .nest("/api/admin/audit", audit_routes)
+```
+
+---
+
+## 5. 最近進度 (Recent Progress)
+
+- **2026-02-17**: 完成 Impersonate (模擬登入) 安全增強，修正 Nginx 緩衝區導致的 502 錯誤。
+- **2026-02-14**: 進行大規模 Service/Handler 模組拆分，提升代碼可維護性。
+- **2026-02-14**: 全面遷移 Token 儲存至 HttpOnly Cookie，強化安全性 (SEC-02)。
+- **CI/CD**: 建立 GitHub Actions 流程，包含 Rust Check/Test 與 Frontend Lint。
+
+---
+
+## 6. 部署規範 (Deployment)
+
+- **Docker Compose**: 4 服務架構 (API, Web, DB, Web-Dev)。
+- **Nginx**: 作為反向代理處理 SSL 終止與緩衝優化。
+- **Volumes**: 包含 `/uploads` 與 `/geoip` 資料持久化。
+
+---
+*文件由 Jules 工程師生成於 2026-02-17*
