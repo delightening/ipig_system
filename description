@@ -101,7 +101,28 @@ Router::new()
 
 ---
 
-## 6. 部署規範 (Deployment)
+## 6. 未來改進與 TODO (Future Improvements)
+
+### 工程與架構 (Engineering)
+- [ ] **自動化整合測試**: 將 Python 整合測試腳本封裝至 Docker 並整合進 CI/CD 流程。
+- [ ] **全方位監控 (Observability)**: 導入 Prometheus 指標與 Grafana 儀表板，監控 API 延遲、資料庫連線池與系統負載。
+- [ ] **快取層優化**: 針對庫存現況 (On-hand) 與高頻讀取主檔引入 Redis 快取，降低資料庫負擔。
+- [ ] **資料庫索引稽核**: 針對 70+ 張資料表進行慢查詢分析，優化索引結構。
+- [ ] **API 文件自動化**: 持續完善 Utoipa 標記，並在 CI 流程自動產生與部署 OpenAPI 靜態站點。
+
+### 功能擴展 (Feature Extensions)
+- [ ] **多物種深度支援**: 完成從 `pig` 到 `animal` 的抽象化，支援依物種動態切換表單與驗證邏輯。
+- [ ] **AI 行為監測**: 結合歷史觀察紀錄，導入異常健康狀態偵測模型。
+- [ ] **外部系統對接**: 建立標準 API 接口，與企業端財務 ERP 或 LIMS 實驗室系統進行對接。
+- [ ] **國際化深化**: 完成後端錯誤訊息與 PDF 報表的全方位英文化。
+
+### 基礎設施 (Infrastructure)
+- [ ] **Staging 環境自動化**: 實作 Git-driven 的自動化測試與 Staging 環境部署流程。
+- [ ] **大數據處理**: 針對 Activity Logs 導入更進階的分區 (Partition) 或歸檔策略，確保長期效能。
+
+---
+
+## 7. 部署規範 (Deployment)
 
 - **Docker Compose**: 4 服務架構 (API, Web, DB, Web-Dev)。
 - **Nginx**: 作為反向代理處理 SSL 終止與緩衝優化。
