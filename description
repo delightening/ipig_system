@@ -40,23 +40,6 @@ iPig 系統是一套專為實驗動物管理設計的**統一入口門戶 (Unifi
 - **Data Isolation**: 動物轉讓後的資料隔離機制，確保不同計畫間的隱私。
 - **Sudden Death**: 異常死亡登記與流程處理。
 
-### 2.4 ERP 進銷存模組 (ERP & Inventory Nest)
-- **SKU System**: 結構化編碼規則 (大類+小類) 與條碼支援。
-- **Warehouse**: 支援多倉庫、多儲位 (Storage Locations) 管理。
-- **Documents**: 採購 (PO/GRN)、銷售 (SO/DO)、調撥 (TR)、盤點 (STK) 等完整單據流。
-- **Ledger**: 以「庫存流水」為核心的真實性追蹤。
-
-### 2.5 人事管理模組 (HR & Attendance Nest)
-- **Time Clock**: 支援 GPS 與 IP 地理圍籬的打卡系統。
-- **Leaves & Overtime**: 多級請假與加班審核流程。
-- **Calendar**: 與 Google Calendar 雙向同步。
-- **Balances**: 自動計算特休、補休餘額與到期提醒。
-
-### 2.6 GLP 合規模組 (Compliance & Signature Nest)
-- **Electronic Signatures**: 支援密碼驗證與手寫簽名 (Signature Pad)。
-- **Audit Trail**: `Activity Logger` 中間件自動記錄所有寫入操作。
-- **Annotations**: 紀錄鎖定後的修正與標註功能。
-
 ---
 
 ## 3. 技術堆疊 (Technical Stack)
@@ -101,24 +84,75 @@ Router::new()
 
 ---
 
-## 6. 未來改進與 TODO (Future Improvements)
+## 6. 詳細實作路線圖 (Detailed Implementation Roadmap)
 
-### 工程與架構 (Engineering)
-- [ ] **自動化整合測試**: 將 Python 整合測試腳本封裝至 Docker 並整合進 CI/CD 流程。
-- [ ] **全方位監控 (Observability)**: 導入 Prometheus 指標與 Grafana 儀表板，監控 API 延遲、資料庫連線池與系統負載。
-- [ ] **快取層優化**: 針對庫存現況 (On-hand) 與高頻讀取主檔引入 Redis 快取，降低資料庫負擔。
-- [ ] **資料庫索引稽核**: 針對 70+ 張資料表進行慢查詢分析，優化索引結構。
-- [ ] **API 文件自動化**: 持續完善 Utoipa 標記，並在 CI 流程自動產生與部署 OpenAPI 靜態站點。
+本路線圖分為三個階段，旨在從穩定性、效能到智能化全面提升系統。
 
-### 功能擴展 (Feature Extensions)
-- [ ] **多物種深度支援**: 完成從 `pig` 到 `animal` 的抽象化，支援依物種動態切換表單與驗證邏輯。
-- [ ] **AI 行為監測**: 結合歷史觀察紀錄，導入異常健康狀態偵測模型。
-- [ ] **外部系統對接**: 建立標準 API 接口，與企業端財務 ERP 或 LIMS 實驗室系統進行對接。
-- [ ] **國際化深化**: 完成後端錯誤訊息與 PDF 報表的全方位英文化。
+### 階段一：基礎設施與開發體驗強化 (Infrastructure & Stability)
+*專注於自動化測試、可觀測性與開發標準化。*
 
-### 基礎設施 (Infrastructure)
-- [ ] **Staging 環境自動化**: 實作 Git-driven 的自動化測試與 Staging 環境部署流程。
-- [ ] **大數據處理**: 針對 Activity Logs 導入更進階的分區 (Partition) 或歸檔策略，確保長期效能。
+1.  **自動化端到端 (E2E) 測試整合**
+    *   **技術路徑**: 使用 `docker-compose.test.yml` 建立隔離環境。
+    *   **細節**:
+        - 建立專用的測試容器 `ipig-test-runner`。
+        - 實作「Clean Database」模式，每次測試前自動執行 `sqlx migrate`。
+        - 整合 Python `pytest` 整合測試至 GitHub Actions，確保 PR 提交時自動驗證核心業務流 (AUP/動物管理)。
+2.  **全方位可觀測性 (Observability) 導入**
+    *   **技術路徑**: `axum-prometheus` + `tracing-opentelemetry`。
+    *   **細節**:
+        - 實作 `/metrics` 端點，收集 API 響應延遲 (Histogram) 與資料庫連線池狀態。
+        - 配置 `tower-http` 的 `TraceLayer`，將 Request ID 注入所有日誌，支援全鏈路追蹤 (Distributed Tracing)。
+        - 設置健康檢查端點 `/health`，動態回傳 DB, Redis 及外部 API (Google Calendar) 的連通狀態。
+3.  **API 文件自動化與版本化**
+    *   **技術路徑**: `utoipa` + `utoipa-swagger-ui`。
+    *   **細節**:
+        - 實作 API 版本控制架構 (如 `/api/v1/...`)，確保向後兼容。
+        - 自動產生 OpenAPI 3.0 規格書，並在 Staging 環境部署 Swagger UI。
+
+### 階段二：效能優化與高可用架構 (Performance & Scalability)
+*專注於資料處理能力與系統響應速度。*
+
+1.  **多層級快取機制 (Caching Strategies)**
+    *   **技術路徑**: `Redis` 作為緩存層。
+    *   **細節**:
+        - **Session Cache**: 將 JWT 黑名單與 Active Sessions 移至 Redis，提升驗證效率。
+        - **Data Cache**: 對於 ERP 主檔 (產品/倉庫) 與 AUP 靜態配置實作 TTL 快取。
+        - **Write-Behind**: 針對非即時性的 `user_activity_logs` 採用異步寫入模式。
+2.  **資料庫讀寫分離與優化**
+    *   **技術路徑**: `SQLx` 連線池管理與索引優化。
+    *   **細節**:
+        - 配置 Read-only 副本連線池，將大型報表查詢導向副本。
+        - 定期執行 `EXPLAIN ANALYZE` 稽核，針對 `stock_ledger` 與 `animal_events` 進行索引微調。
+        - 擴展 `user_activity_logs` 的 Partition 策略，從「季度」細化為「月度」。
+3.  **靜態資源與前端優化**
+    *   **技術路徑**: `Vite` 分包編譯 + `Nginx` 壓縮。
+    *   **細節**:
+        - 實作按需載入 (Lazy Loading) 路由組件，降低首屏載入時間 (FCP)。
+        - 啟用 Nginx `brotli` 壓縮與長期緩存策略 (Cache-Control)。
+
+### 階段三：智能化功能與生態擴展 (Intelligent Features & Ecosystem)
+*專注於業務價值提升與外部整合。*
+
+1.  **多物種動態表單系統**
+    *   **技術路徑**: JSON Schema 驅動的前端表單。
+    *   **細節**:
+        - 擴展 `species` 表，儲存各物種的生理參數閾值與驗證規則。
+        - 實作通用醫療紀錄組件，依 `species_id` 動態渲染欄位 (如：豬隻的耳號 vs. 囓齒類的標記)。
+2.  **AI 輔助健康監測 (AI-Driven Insights)**
+    *   **技術路徑**: `ONNX Runtime` 或 OpenAI API。
+    *   **細節**:
+        - 建立異常檢測模型，分析體重趨勢與臨床觀察描述，自動觸發「獸醫介入警報」。
+        - AUP 撰寫輔助：根據歷史核准案例，提供計畫書內容建議。
+3.  **外部系統生態對接 (Open API/Webhooks)**
+    *   **技術路徑**: 實作標準化 Webhook 機制。
+    *   **細節**:
+        - 當動物入庫或 AUP 核准時，自動推送通知至企業 ERP (SAP/Oracle)。
+        - 提供專屬 API Key 給第三方合作單位 (LIMS) 直接上傳血檢報告。
+4.  **行動端專屬優化 (Mobile-First Experience)**
+    *   **技術路徑**: PWA (Progressive Web App)。
+    *   **細節**:
+        - 支援離線快取關鍵資料 (如：當日打卡、觀察紀錄草稿)。
+        - 優化掃碼入庫 (Barcode/QR) 的相機呼叫效能。
 
 ---
 
