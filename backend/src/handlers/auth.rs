@@ -233,7 +233,7 @@ pub async fn logout(
 ) -> Result<Response> {
     // SEC-23: 將當前 JWT 加入黑名單，使其立即失效
     if !current_user.jti.is_empty() {
-        state.jwt_blacklist.revoke(&current_user.jti, current_user.exp);
+        state.jwt_blacklist.revoke(current_user.jti.clone(), current_user.exp, &state.db).await;
     }
 
     // 記錄登出事件
@@ -405,7 +405,7 @@ pub async fn stop_impersonate(
 
     // SEC-23: 將當前模擬登入的 JWT 加入黑名單
     if !current_user.jti.is_empty() {
-        state.jwt_blacklist.revoke(&current_user.jti, current_user.exp);
+        state.jwt_blacklist.revoke(current_user.jti.clone(), current_user.exp, &state.db).await;
     }
 
     // 用管理員 ID 重新建立正常的 LoginResponse（不含 impersonated_by）

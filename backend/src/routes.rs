@@ -926,7 +926,10 @@ pub fn api_routes(state: AppState) -> Router {
             "/protocols/:id/amendments",
             get(handlers::amendment::list_protocol_amendments),
         )
-        .route_layer(middleware::from_fn(csrf_middleware))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            csrf_middleware,
+        ))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             auth_middleware,

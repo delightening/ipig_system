@@ -386,7 +386,11 @@ impl AuthService {
         user_id: Uuid,
         config: &Config,
     ) -> Result<String> {
-        let token = Uuid::new_v4().to_string();
+        // SEC-34: 使用 CSPRNG 產生 256-bit 高熵 Refresh Token
+        use rand::RngCore;
+        let mut token_bytes = [0u8; 32];
+        rand::rngs::OsRng.fill_bytes(&mut token_bytes);
+        let token = token_bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>();
         let token_hash = Self::hash_token(&token);
         let expires_at = Utc::now() + Duration::days(config.jwt_refresh_expiration_days);
 

@@ -63,7 +63,10 @@ impl RateLimiterState {
     fn check_rate(&self, ip: &str) -> (bool, u32) {
         let mut records = match self.records.lock() {
             Ok(guard) => guard,
-            Err(_) => return (true, self.config.max_requests), // mutex 中毒時放行
+            Err(_) => {
+                tracing::error!("[RateLimiter] Mutex 中毒，啟用 fail-closed 策略");
+                return (false, 0); // SEC-33: mutex 中毒時拒絕請求
+            }
         };
 
         let now = Instant::now();

@@ -4,14 +4,17 @@
 // 1. 對每個回應設定 csrf_token Cookie（非 HttpOnly，讓前端可讀取）
 // 2. 對 POST/PUT/DELETE/PATCH 請求驗證 X-CSRF-Token header 與 Cookie 是否匹配
 // 3. GET/HEAD/OPTIONS 請求免驗證
+// 4. 依 COOKIE_SECURE 設定動態加入 Secure flag（SEC-29）
 
 use axum::{
     body::Body,
-    extract::Request,
+    extract::{Request, State},
     http::{header, Method, Response, StatusCode},
     middleware::Next,
 };
 use uuid::Uuid;
+
+use crate::AppState;
 
 /// 需要 CSRF 驗證的 HTTP 方法
 fn requires_csrf_check(method: &Method) -> bool {
@@ -39,13 +42,15 @@ fn extract_csrf_cookie(request: &Request) -> Option<String> {
         .map(|s| s.trim_start_matches("csrf_token=").to_string())
 }
 
-/// CSRF 防護中介層
+/// CSRF 防護中介層（接收 AppState 以讀取 cookie_secure 設定）
 pub async fn csrf_middleware(
+    State(state): State<AppState>,
     request: Request,
     next: Next,
 ) -> Result<Response<Body>, StatusCode> {
     let method = request.method().clone();
     let path = request.uri().path().to_string();
+    let cookie_secure = state.config.cookie_secure;
 
     // 只有需要 CSRF 的方法且非豁免路徑才檢查
     if requires_csrf_check(&method) && !is_exempt_path(&path) {
@@ -83,10 +88,18 @@ pub async fn csrf_middleware(
 
     if !has_csrf_cookie {
         let csrf_token = Uuid::new_v4().to_string();
-        let cookie_value = format!(
-            "csrf_token={}; Path=/; SameSite=Lax; Max-Age=86400",
-            csrf_token
-        );
+        // SEC-29: 依 COOKIE_SECURE 設定動態加入 Secure flag
+        let cookie_value = if cookie_secure {
+            format!(
+                "csrf_token={}; Path=/; SameSite=Lax; Max-Age=86400; Secure",
+                csrf_token
+            )
+        } else {
+            format!(
+                "csrf_token={}; Path=/; SameSite=Lax; Max-Age=86400",
+                csrf_token
+            )
+        };
         if let Ok(val) = cookie_value.parse() {
             response.headers_mut().append(header::SET_COOKIE, val);
         }
