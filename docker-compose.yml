@@ -48,6 +48,8 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION_HOURS: ${JWT_EXPIRATION_HOURS:-24}
       JWT_REFRESH_EXPIRATION_DAYS: ${JWT_REFRESH_EXPIRATION_DAYS:-7}
+      # SEC-32: 統一使用分鐘級設定
+      JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-15}
 
       # Email settings
       SMTP_HOST: ${SMTP_HOST:-}
@@ -63,12 +65,19 @@ services:
       GEOIP_DB_PATH: /app/geoip/GeoLite2-City.mmdb
 
       # Cookie 安全設定（SEC-02 HttpOnly Cookie）
-      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      # SEC-29: 預設 true，開發環境需手動設為 false
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
 
       # Uploads
       UPLOAD_DIR: ${UPLOAD_DIR:-/app/uploads}
-      SEED_DEV_USERS: ${SEED_DEV_USERS:-true}
+      # SEC-29: 預設 false，開發環境需手動設為 true
+      SEED_DEV_USERS: ${SEED_DEV_USERS:-false}
+
+      # SEC-30: IP Header 信任策略（反向代理後方設 true）
+      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-true}
+      # SEC-31: CORS 允許的 Origin（逗號分隔）
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8080}
 
       # Google Calendar service account
       # 你程式端用 Google SDK 或自寫讀檔都可以直接吃這個路徑

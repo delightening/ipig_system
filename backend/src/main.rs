@@ -285,8 +285,19 @@ async fn main() -> anyhow::Result<()> {
         .unwrap_or_else(|_| "/app/geoip/GeoLite2-City.mmdb".to_string());
     let geoip = GeoIpService::new(&geoip_path);
 
-    // 初始化 JWT 黑名單（SEC-23）
+    // 初始化 JWT 黑名單（SEC-23 + SEC-33）
     let jwt_blacklist = JwtBlacklist::new();
+    // SEC-33: 從 DB 載入尚未過期的黑名單項目
+    jwt_blacklist.load_from_db(&pool).await;
+    // 啟動背景清理任務（同時清理記憶體和 DB）
+    jwt_blacklist.clone().start_cleanup_task(pool.clone());
+
+    // SEC-30: 記錄 IP 信任策略
+    if config.trust_proxy_headers {
+        tracing::info!("[Security] TRUST_PROXY_HEADERS=true - 信任反向代理 header");
+    } else {
+        tracing::info!("[Security] TRUST_PROXY_HEADERS=false - 僅使用 socket IP（已忽略 proxy header）");
+    }
 
     let state = AppState {
         db: pool,
@@ -296,12 +307,14 @@ async fn main() -> anyhow::Result<()> {
         alert_broadcaster: handlers::sse::AlertBroadcaster::new(),
     };
 
-    // 建立 CORS 層
+    // SEC-31: CORS Origin 從環境變數動態讀取
+    let origins: Vec<HeaderValue> = config.cors_allowed_origins
+        .iter()
+        .filter_map(|o| o.parse::<HeaderValue>().ok())
+        .collect();
+    tracing::info!("[CORS] 允許的 Origin: {:?}", config.cors_allowed_origins);
     let cors = CorsLayer::new()
-        .allow_origin([
-            HeaderValue::from_static("http://localhost:8080"),
-            HeaderValue::from_static("http://10.0.4.34:8080"),
-        ])
+        .allow_origin(origins)
         .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS, Method::PATCH])
         .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION, header::HeaderName::from_static("x-csrf-token")])
         .allow_credentials(true);

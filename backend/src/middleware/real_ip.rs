@@ -1,16 +1,41 @@
-// 真實 IP 提取工具
-// 從 proxy header 中按優先順序提取客戶端真實 IP
-// 優先順序：CF-Connecting-IP > X-Real-IP > X-Forwarded-For > ConnectInfo
+// 真實 IP 提取中間件（SEC-30）
+//
+// 從已知的反向代理 header 中提取客戶端的真實 IP。
+// 新增 trust_proxy 參數：
+// - true: 信任 proxy header（適用於 Cloudflare Tunnel / nginx 後方部署）
+// - false: 直接使用 socket addr（適用於直接面向外網的部署）
 
 use axum::http::HeaderMap;
 use std::net::SocketAddr;
 
-/// 從 HTTP header 中提取真實客戶端 IP
-/// 
-/// 在反向代理（nginx、Cloudflare Tunnel）環境下，
-/// `ConnectInfo<SocketAddr>` 拿到的是 proxy 的 IP（如 Docker 內部 IP），
-/// 需要從 proxy 注入的 header 中提取真實 IP。
+/// 從 header 取值的輔助函式
+fn get_header_value(headers: &HeaderMap, name: &str) -> Option<String> {
+    headers
+        .get(name)
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// 提取真實 IP（支援 trust_proxy 設定）
+///
+/// - `trust_proxy = true`：依序檢查 CF-Connecting-IP、X-Real-IP、X-Forwarded-For
+/// - `trust_proxy = false`：僅使用 socket addr，忽略所有 proxy header（防偽造）
 pub fn extract_real_ip(headers: &HeaderMap, fallback: &SocketAddr) -> String {
+    extract_real_ip_with_trust(headers, fallback, true)
+}
+
+/// 提取真實 IP（含信任策略參數）
+pub fn extract_real_ip_with_trust(
+    headers: &HeaderMap,
+    fallback: &SocketAddr,
+    trust_proxy: bool,
+) -> String {
+    // SEC-30: 不信任 proxy header 時，直接使用 socket IP
+    if !trust_proxy {
+        return fallback.ip().to_string();
+    }
+
     // 1. Cloudflare Tunnel 注入的 header（最可信）
     if let Some(ip) = get_header_value(headers, "cf-connecting-ip") {
         return ip;
@@ -33,13 +58,4 @@ pub fn extract_real_ip(headers: &HeaderMap, fallback: &SocketAddr) -> String {
 
     // 4. Fallback：使用 socket 直連 IP
     fallback.ip().to_string()
-}
-
-/// 安全地取得 header 值
-fn get_header_value(headers: &HeaderMap, name: &str) -> Option<String> {
-    headers
-        .get(name)
-        .and_then(|v| v.to_str().ok())
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
 }

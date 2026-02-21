@@ -9,7 +9,6 @@ pub struct Config {
     pub database_retry_attempts: u32,
     pub database_retry_delay_seconds: u64,
     pub jwt_secret: String,
-    pub jwt_expiration_hours: i64,
     pub jwt_expiration_seconds: i64,
     pub jwt_refresh_expiration_days: i64,
     /// 每個使用者同時可擁有的最大活躍 Session 數量（SEC-28）
@@ -35,6 +34,12 @@ pub struct Config {
     pub clock_office_longitude: Option<f64>,
     /// GPS 打卡允許半徑（公尺），預設 200
     pub clock_gps_radius_meters: f64,
+    /// SEC-30: 是否信任反向代理 header（如 X-Forwarded-For, X-Real-Ip）
+    /// 設為 true 表示後端在反向代理/Cloudflare Tunnel 後方，可信任 proxy header
+    /// 設為 false 表示直接面向外網，僅使用 socket IP
+    pub trust_proxy_headers: bool,
+    /// SEC-31: CORS 允許的 Origin 清單
+    pub cors_allowed_origins: Vec<String>,
 }
 
 impl Config {
@@ -72,21 +77,14 @@ impl Config {
                 }
                 secret
             },
-            jwt_expiration_hours: std::env::var("JWT_EXPIRATION_HOURS")
-                .unwrap_or_else(|_| "0".to_string())
-                .parse()
-                .context("JWT_EXPIRATION_HOURS must be a number")?,
-            // SEC-25: 優先使用分鐘級設定，預設 15 分鐘
+            // SEC-32: 統一使用 JWT_EXPIRATION_MINUTES，預設 15 分鐘
+            // 已移除 JWT_EXPIRATION_HOURS 以避免混淆
             jwt_expiration_seconds: {
-                if let Ok(mins) = std::env::var("JWT_EXPIRATION_MINUTES") {
-                    let m: i64 = mins.parse().context("JWT_EXPIRATION_MINUTES must be a number")?;
-                    m * 60
-                } else if let Ok(hrs) = std::env::var("JWT_EXPIRATION_HOURS") {
-                    let h: i64 = hrs.parse().unwrap_or(0);
-                    if h > 0 { h * 3600 } else { 900 } // 預設 15 分鐘
-                } else {
-                    900 // 15 分鐘
-                }
+                let mins: i64 = std::env::var("JWT_EXPIRATION_MINUTES")
+                    .unwrap_or_else(|_| "15".to_string())
+                    .parse()
+                    .context("JWT_EXPIRATION_MINUTES must be a number")?;
+                mins * 60
             },
             jwt_refresh_expiration_days: std::env::var("JWT_REFRESH_EXPIRATION_DAYS")
                 .unwrap_or_else(|_| "7".to_string())
@@ -133,6 +131,17 @@ impl Config {
                 .unwrap_or_else(|_| "200".to_string())
                 .parse()
                 .unwrap_or(200.0),
+            // SEC-30: IP Header 信任策略
+            trust_proxy_headers: std::env::var("TRUST_PROXY_HEADERS")
+                .map(|v| v.to_lowercase() == "true" || v == "1")
+                .unwrap_or(true),
+            // SEC-31: CORS 允許的 Origin 清單
+            cors_allowed_origins: std::env::var("CORS_ALLOWED_ORIGINS")
+                .unwrap_or_else(|_| "http://localhost:8080".to_string())
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect(),
         })
     }
 

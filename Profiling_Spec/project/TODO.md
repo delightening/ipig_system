@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-02-21
+> **最後更新：** 2026-02-22
 
 此文件撰寫方式
 
@@ -35,7 +35,7 @@
 | # | 項目 | 說明 | 範圍 |
 |---|------|------|------|
 | 8 | **SEC-15：Named Tunnel 遷移** | 從 Cloudflare Quick Tunnel 遷移至 Named Tunnel | DevOps |
-| 9 | **SEC-32：CORS Origin 動態化** | 從環境變數讀取 `ALLOWED_ORIGINS`，取代硬編碼（推遲）| 後端 |
+| 9 | ~~**SEC-32：CORS Origin 動態化**~~ | ✅ 已完成（`config.rs` + `main.rs` 改為 `CORS_ALLOWED_ORIGINS` 環境變數） | 後端 |
 | 10 | **SEC-33：敏感操作二級認證** | 高危操作要求重新輸入密碼確認（推遲）| 前後端 |
 | 11 | **SEC-34：稽核日誌防篡改** | HMAC 雜湊鏈保護 audit_logs 不可竄改 | 後端 |
 | 12 | **SEC-35：上傳目錄隔離** | UUID 重命名 + Nginx 禁止直接存取 + API 代理下載 | 後端+Nginx |
@@ -98,6 +98,7 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-02-22 | 🔒 安全性全面強化（8 項修復）：SEC-29 CSRF Secure flag、SEC-30 IP 信任策略、SEC-33 JWT 黑名單 DB 持久化、SEC-31 CORS 動態化、Docker 預設值翻轉、SEC-34 Refresh Token CSPRNG、SEC-32 JWT 過期統一、Mutex fail-closed。87 測試全通過 |
 | 2026-02-21 | 📱 手機端 Dialog 滾動修復：`dialog.tsx` flexbox 置中 + 內建 max-h/overflow-y、14 處重複 scroll class 清理；`index.html` viewport maximum-scale=1；`index.css` 手機端適配 CSS |
 | 2026-02-21 | 💊 治療方式藥物選單改造：ObservationFormDialog、SurgeryFormDialog（4 處）、EmergencyMedicationDialog 的藥物 Input 改用 DrugCombobox（可搜尋、自動帶入劑量單位） |
 | 2026-02-21 | 🔒 Rust 安全強化六項完成：CI 新增 cargo audit / cargo deny / SQL injection guard / unsafe guard 4 個安全 job；deny.toml 供應鏈策略；Cargo.toml overflow-checks 啟用；clipy.toml + .cargo/config.toml unwrap_used warn；fuzz/ 目錄 + 2 個模糊測試目標 |

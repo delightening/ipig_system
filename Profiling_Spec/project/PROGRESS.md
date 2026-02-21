@@ -55,7 +55,7 @@
 | 密碼強度檢查 | ✅ | ✅ | ✅ | 前端即時驗證 |
 | 帳號鎖定（暴力破解防護） | ✅ | ✅ | ✅ | 15 分鐘內 5 次失敗即封鎖 (SEC-20, 2026-02-15) |
 | JWT Secret 強度驗證 | ✅ | - | ✅ | 啟動時強制 ≥ 32 字元 (SEC-21, 2026-02-15) |
-| JWT 黑名單主動撤銷 | ✅ | - | ✅ | 記憶體黑名單 + auth middleware 整合 (SEC-23, 2026-02-15) |
+| JWT 黑名單主動撤銷 | ✅ | - | ✅ | 記憶體 + DB 持久化（SEC-33, 2026-02-22 升級），重啟不遺失 |
 | JWT 有效期 15 分鐘 | ✅ | ✅ | ✅ | `jwt_expiration_seconds` 預設 900 秒 (SEC-25, 2026-02-15) |
 | CSRF 防護 | ✅ | ✅ | ✅ | Double Submit Cookie + `X-CSRF-Token` header (SEC-24, 2026-02-15) |
 | Session 併發限制 | ✅ | - | ✅ | 每用戶上限 5 個活躍 session (SEC-28, 2026-02-15) |
@@ -534,6 +534,19 @@
   - 前端 47+ TypeScript 檔案：types/pages/components 重命名與內容更新
   - 測試 2 檔案更新（`test_animal_full.py`、`test_blood_panel.py`）
   - 前端 `npx tsc --noEmit` 編譯通過（0 錯誤）
+
+### 2026-02-22
+
+- ✅ 🔒 **安全性全面強化（8 項修復）**：
+  - SEC-29 CSRF Cookie 加入 `Secure` flag（`csrf.rs` 依 `cookie_secure` 動態設定、`routes.rs` 改用 `from_fn_with_state`）
+  - SEC-30 IP Header 信任策略（`real_ip.rs` 新增 `extract_real_ip_with_trust`、`config.rs` 新增 `trust_proxy_headers`）
+  - SEC-33 JWT 黑名單 DB 持久化（`010_jwt_blacklist.sql` migration、`jwt_blacklist.rs` 記憶體+DB 雙層架構、`main.rs` 啟動載入+背景清理）
+  - SEC-31 CORS Origin 動態化（`config.rs` 新增 `cors_allowed_origins`、`main.rs` 從環境變數讀取）
+  - Docker 預設值翻轉（`COOKIE_SECURE` 預設 true、`SEED_DEV_USERS` 預設 false）
+  - SEC-34 Refresh Token CSPRNG（`services/auth.rs` 從 UUID v4 改為 OsRng 256-bit）
+  - SEC-32 JWT 過期統一（`jwt_expiration_hours` → `JWT_EXPIRATION_MINUTES`，預設 15 分鐘）
+  - Mutex 中毒 fail-closed（`jwt_blacklist.rs` + `rate_limiter.rs` 中毒時拒絕請求而非放行）
+  - `cargo build` 零錯誤零警告、`cargo test` 87 測試全通過
 
 ### 2026-02-21
 
