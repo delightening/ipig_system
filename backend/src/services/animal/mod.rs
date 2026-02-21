@@ -19,6 +19,7 @@ mod source;
 mod surgery;
 mod transfer;
 mod weight;
+pub mod care_record;
 
 pub struct AnimalService;
 

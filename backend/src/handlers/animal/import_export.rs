@@ -66,7 +66,7 @@ pub async fn export_animal_medical_data(
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(serde_json::to_vec(&serde_json::json!({
                     "data": data, "format": req.format, "export_type": req.export_type,
-                })).unwrap()))
+                })).expect("匯出 JSON 序列化不應失敗")))
                 .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))?)
         }
     }
@@ -103,7 +103,7 @@ pub async fn export_project_medical_data(
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(serde_json::to_vec(&serde_json::json!({
                     "data": data, "format": req.format, "export_type": req.export_type,
-                })).unwrap()))
+                })).expect("匯出 JSON 序列化不應失敗")))
                 .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))?)
         }
     }

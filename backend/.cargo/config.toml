@@ -1,0 +1,13 @@
+# Cargo 設定檔
+# 文件：https://doc.rust-lang.org/cargo/reference/config.html
+
+[build]
+# 預設使用的 Rust 版本已在 Cargo.toml 的 edition 欄位設定
+
+[target.'cfg(all())']
+# 啟用 clippy::unwrap_used 為 warn 級別
+# 這不會阻擋編譯，但會在每次 cargo clippy 時提示
+# Stage 1: warn（目前）→ Stage 2: 逐步修復 → Stage 3: deny
+rustflags = [
+    "-W", "clippy::unwrap_used",
+]

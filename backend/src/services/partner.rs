@@ -74,7 +74,7 @@ impl PartnerService {
         let code = if req.code.is_none() || req.code.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()).is_none() {
             Self::generate_code(pool, req.partner_type, req.supplier_category).await?
         } else {
-            req.code.as_ref().unwrap().trim().to_string()
+            req.code.as_ref().expect("code 由上方條件保證存在").trim().to_string()
         };
 
         // 檢查 code 是否已存在
@@ -98,7 +98,7 @@ impl PartnerService {
                 use std::sync::OnceLock;
                 static EMAIL_REGEX: OnceLock<regex::Regex> = OnceLock::new();
                 let re = EMAIL_REGEX.get_or_init(|| {
-                    regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap()
+                    regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").expect("Email 靜態正則表達式應有效")
                 });
 
                 if !re.is_match(e) {
@@ -247,7 +247,7 @@ impl PartnerService {
                 use std::sync::OnceLock;
                 static EMAIL_REGEX: OnceLock<regex::Regex> = OnceLock::new();
                 let re = EMAIL_REGEX.get_or_init(|| {
-                    regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap()
+                    regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").expect("Email 靜態正則表達式應有效")
                 });
 
                 if !re.is_match(e) {

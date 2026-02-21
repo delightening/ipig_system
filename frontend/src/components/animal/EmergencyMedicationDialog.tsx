@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
 import { Loader2, AlertTriangle } from 'lucide-react'
+import { DrugCombobox } from '@/components/animal/DrugCombobox'
 
 interface Props {
     open: boolean
@@ -32,6 +33,8 @@ export function EmergencyMedicationDialog({ open, onOpenChange, animalId, earTag
         drug: '',
         dosage: '',
         content: '',
+        drug_option_id: undefined as string | undefined,
+        dosage_unit: '',
     })
 
     // Countdown state for confirmation
@@ -47,6 +50,8 @@ export function EmergencyMedicationDialog({ open, onOpenChange, animalId, earTag
                 drug: '',
                 dosage: '',
                 content: '',
+                drug_option_id: undefined,
+                dosage_unit: '',
             })
             setCountdown(3)
             setIsConfirming(false)
@@ -161,27 +166,23 @@ export function EmergencyMedicationDialog({ open, onOpenChange, animalId, earTag
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="drug">使用藥品 *</Label>
-                                <Input
-                                    id="drug"
-                                    value={formData.drug}
-                                    onChange={(e) => setFormData({ ...formData, drug: e.target.value })}
-                                    placeholder="藥品名稱"
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="dosage">劑量 *</Label>
-                                <Input
-                                    id="dosage"
-                                    value={formData.dosage}
-                                    onChange={(e) => setFormData({ ...formData, dosage: e.target.value })}
-                                    placeholder="例如：5mg/kg"
-                                    required
-                                />
-                            </div>
+                        <div className="space-y-2">
+                            <Label>使用藥品 *</Label>
+                            <DrugCombobox
+                                value={{
+                                    drug_option_id: formData.drug_option_id,
+                                    drug_name: formData.drug,
+                                    dosage_value: formData.dosage,
+                                    dosage_unit: formData.dosage_unit,
+                                }}
+                                onChange={(sel) => setFormData({
+                                    ...formData,
+                                    drug: sel.drug_name,
+                                    dosage: sel.dosage_value,
+                                    drug_option_id: sel.drug_option_id,
+                                    dosage_unit: sel.dosage_unit,
+                                })}
+                            />
                         </div>
 
                         <div className="space-y-2">

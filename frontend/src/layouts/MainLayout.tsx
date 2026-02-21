@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next' // 引入 i18n 翻譯 Hook
 import { useAuthStore } from '@/stores/auth' // 引入權限管理 Store (Zustand)
 import { cn } from '@/lib/utils' // 引入 CSS 類名合併工具
 import api, { ChangeOwnPasswordRequest, NotificationItem } from '@/lib/api' // 引入 API 定義與類型
+import { useSecurityAlerts } from '@/hooks/useSecurityAlerts' // SSE 安全警報即時訂閱
 import { Button } from '@/components/ui/button' // 引入按鈕組件
 import { Input } from '@/components/ui/input' // 引入輸入框組件
 import { Label } from '@/components/ui/label' // 引入標籤組件
@@ -342,6 +343,7 @@ export function MainLayout() {
   const queryClient = useQueryClient() // TanStack Query 快取管理器
   const { user, logout, hasRole, hasPermission, isImpersonating, stopImpersonating } = useAuthStore() // 從 Auth Store 取得用戶資訊、登出方法與權限檢查
   const { t, i18n } = useTranslation() // 引入翻譯函數和 i18n 實例
+  useSecurityAlerts() // SSE 安全警報即時訂閱（僅管理員生效）
   const [sidebarOpen, setSidebarOpen] = useState(true) // 控制側邊欄展開/縮小的狀態（桌面端）
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false) // 行動端側邊欄顯示狀態
   const [expandedItems, setExpandedItems] = useState<string[]>([]) // 控制側邊欄摺疊選單展開項目的清單（預設全部收合）

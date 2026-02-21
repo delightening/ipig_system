@@ -133,12 +133,12 @@ impl GoogleCalendarClient {
 
         let time_min = start_date
             .and_hms_opt(0, 0, 0)
-            .unwrap()
+            .expect("00:00:00 是有效時間")
             .and_utc()
             .to_rfc3339();
         let time_max = end_date
             .and_hms_opt(23, 59, 59)
-            .unwrap()
+            .expect("23:59:59 是有效時間")
             .and_utc()
             .to_rfc3339();
 
@@ -364,13 +364,13 @@ impl GoogleCalendarClient {
             let start_dt = event
                 .start_date
                 .and_hms_opt(9, 0, 0)
-                .unwrap()
+                .expect("09:00:00 是有效時間")
                 .and_utc()
                 .to_rfc3339();
             let end_dt = event
                 .end_date
                 .and_hms_opt(18, 0, 0)
-                .unwrap()
+                .expect("18:00:00 是有效時間")
                 .and_utc()
                 .to_rfc3339();
             (

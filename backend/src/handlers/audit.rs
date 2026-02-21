@@ -145,6 +145,19 @@ pub async fn force_logout_session(
     )
     .await?;
 
+    // SEC: 敏感操作二級審計 — 強制登出
+    let db = state.db.clone();
+    let actor = current_user.id;
+    let reason = payload.reason.clone();
+    tokio::spawn(async move {
+        let _ = AuditService::log_activity(
+            &db, actor, "SECURITY", "FORCE_LOGOUT",
+            Some("session"), Some(session_id), None,
+            None, Some(serde_json::json!({ "session_id": session_id, "reason": reason })),
+            None, None,
+        ).await;
+    });
+
     Ok(Json(serde_json::json!({
         "success": true,
         "message": "已強制登出該 Session"

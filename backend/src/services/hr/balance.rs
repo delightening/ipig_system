@@ -118,11 +118,11 @@ impl HrService {
             NaiveDate::from_ymd_opt(payload.entitlement_year + 2, hire_date.month(), hire_date.day())
                 .unwrap_or_else(|| {
                     NaiveDate::from_ymd_opt(payload.entitlement_year + 2, hire_date.month(), 28)
-                        .unwrap_or_else(|| NaiveDate::from_ymd_opt(payload.entitlement_year + 2, 12, 31).unwrap())
+                        .unwrap_or_else(|| NaiveDate::from_ymd_opt(payload.entitlement_year + 2, 12, 31).expect("12/31 應為有效日期"))
                 })
         } else {
             NaiveDate::from_ymd_opt(payload.entitlement_year + 2, 12, 31)
-                .unwrap_or_else(|| NaiveDate::from_ymd_opt(payload.entitlement_year + 2, 12, 30).unwrap())
+                .unwrap_or_else(|| NaiveDate::from_ymd_opt(payload.entitlement_year + 2, 12, 30).expect("12/30 應為有效日期"))
         };
 
         let record = sqlx::query_as::<_, AnnualLeaveEntitlement>(

@@ -12,6 +12,83 @@ env:
 
 jobs:
   # =========================
+  # 🔒 安全漏洞掃描 (RustSec Advisory DB)
+  # =========================
+  security-audit:
+    name: "🔒 Security: cargo audit"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安裝 Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 快取 Cargo bin
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/
+          key: ${{ runner.os }}-cargo-audit-bin
+
+      - name: 安裝 cargo-audit
+        run: cargo install cargo-audit --locked 2>/dev/null || true
+
+      - name: 執行 cargo audit
+        working-directory: ./backend
+        run: cargo audit
+
+  # =========================
+  # 🛡️ 供應鏈檢查 (授權/漏洞/來源)
+  # =========================
+  cargo-deny:
+    name: "🛡️ Security: cargo deny"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 執行 cargo-deny
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: backend/Cargo.toml
+          command: check
+          arguments: --all-features
+
+  # =========================
+  # 🛑 SQL 注入守衛
+  # =========================
+  sql-injection-guard:
+    name: "🛑 Guard: SQL injection"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 檢查是否有 format! 拼接 SQL
+        working-directory: ./backend
+        run: |
+          if grep -rn --include="*.rs" -E 'format!\s*\(.*\b(SELECT|INSERT|UPDATE|DELETE|DROP|ALTER)\b' src/; then
+            echo "::error::發現潛在的 SQL 注入風險！請使用 sqlx 巨集參數綁定。"
+            exit 1
+          fi
+          echo "✅ 未發現 SQL 注入風險"
+
+  # =========================
+  # 🚫 Unsafe 守衛
+  # =========================
+  unsafe-guard:
+    name: "🚫 Guard: unsafe code"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 檢查是否有 unsafe 程式碼
+        working-directory: ./backend
+        run: |
+          if grep -rn --include="*.rs" -E '^\s*unsafe\s' src/; then
+            echo "::warning::發現 unsafe 程式碼，請確認是否必要並加上安全文件註解。"
+          else
+            echo "✅ 未發現 unsafe 程式碼"
+          fi
+
+  # =========================
   # Rust 後端：編譯檢查
   # =========================
   backend-check:
@@ -104,8 +181,9 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: cargo clippy
-        run: cargo clippy -- -D warnings 2>&1 || true
-        # 初期不阻擋 CI，僅產生警告報告
+        # -D warnings: 所有 clippy 警告視為錯誤
+        # -W clippy::unwrap_used: unwrap() 產生警告（不阻擋，漸進式修復）
+        run: cargo clippy --all-targets -- -D warnings -W clippy::unwrap_used
 
   # =========================
   # React 前端：TypeScript 檢查

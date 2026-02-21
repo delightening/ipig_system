@@ -128,7 +128,7 @@ impl TreatmentDrugService {
             return Err(AppError::NotFound(format!("找不到藥物選項 {}", id)));
         }
 
-        let existing = existing.unwrap();
+        let existing = existing.expect("existing 由上方 is_none 檢查保證存在");
 
         let result = sqlx::query_as::<_, TreatmentDrugOption>(
             r#"

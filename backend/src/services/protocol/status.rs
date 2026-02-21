@@ -425,7 +425,7 @@ impl ProtocolService {
         if (req.to_status == ProtocolStatus::Approved || req.to_status == ProtocolStatus::ApprovedWithConditions) 
             && new_iacuc_no.is_some() 
         {
-            let iacuc_no = new_iacuc_no.as_ref().unwrap();
+            let iacuc_no = new_iacuc_no.as_ref().expect("new_iacuc_no 由上方 is_some 保證存在");
             
             // 檢查是否已存在該客戶（客戶代碼 = IACUC No.）
             let existing_customer: Option<uuid::Uuid> = sqlx::query_scalar(
@@ -466,7 +466,7 @@ impl ProtocolService {
 
         // 當計劃結案時，自動停用對應的客戶
         if req.to_status == ProtocolStatus::Closed && protocol.iacuc_no.is_some() {
-            let iacuc_no = protocol.iacuc_no.as_ref().unwrap();
+            let iacuc_no = protocol.iacuc_no.as_ref().expect("iacuc_no 由上方 is_some 保證存在");
             
             // 查找對應的客戶（客戶代碼 = IACUC No.）
             let customer_id: Option<uuid::Uuid> = sqlx::query_scalar(

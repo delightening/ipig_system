@@ -4,6 +4,7 @@
     response::IntoResponse,
     Extension, Json,
 };
+use sqlx::FromRow;
 use uuid::Uuid;
 use validator::Validate;
 
@@ -16,6 +17,16 @@ use crate::{
     services::EuthanasiaService,
     AppState,
 };
+
+/// 輔助結構：安樂死 Email 通知所需資訊
+#[derive(FromRow)]
+struct EuthanasiaEmailInfo {
+    ear_tag: String,
+    iacuc_no: Option<String>,
+    email: String,
+    display_name: String,
+    vet_name: Option<String>,
+}
 
 /// 建立安樂死單據 (獸醫)
 /// POST /api/euthanasia/orders
@@ -36,7 +47,7 @@ pub async fn create_order(
 
     // 發送 Email 通知給 PI
     // 取得必要資訊
-    let animal_email_info = sqlx::query!(
+    let animal_email_info = sqlx::query_as::<_, EuthanasiaEmailInfo>(
         r#"
         SELECT p.ear_tag, p.iacuc_no, u.email, u.display_name, vu.display_name as vet_name
         FROM animals p
@@ -44,10 +55,10 @@ pub async fn create_order(
         JOIN users vu ON vu.id = $2
         WHERE p.id = $3
         "#,
-        order.pi_user_id,
-        order.vet_user_id,
-        order.animal_id
     )
+    .bind(order.pi_user_id)
+    .bind(order.vet_user_id)
+    .bind(order.animal_id)
     .fetch_optional(&state.db)
     .await?;
 
@@ -59,7 +70,7 @@ pub async fn create_order(
             &info.display_name,
             &info.ear_tag,
             info.iacuc_no.as_deref(),
-            &info.vet_name,
+            info.vet_name.as_deref().unwrap_or(""),
             &order.reason,
             &deadline,
         ).await {

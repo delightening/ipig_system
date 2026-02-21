@@ -44,7 +44,7 @@ impl WarehouseService {
         let code = if req.code.is_none() || req.code.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()).is_none() {
             Self::generate_code(pool).await?
         } else {
-            let provided_code = req.code.as_ref().unwrap().trim().to_string();
+            let provided_code = req.code.as_ref().expect("code 由上方條件保證存在").trim().to_string();
             
             // 檢查 code 是否已存在
             let exists: bool = sqlx::query_scalar(

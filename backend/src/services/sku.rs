@@ -129,9 +129,9 @@ impl SkuService {
             }
         };
 
-        let cat_code = captures.get(1).unwrap().as_str();
-        let sub_code = captures.get(2).unwrap().as_str();
-        let seq_str = captures.get(3).unwrap().as_str();
+        let cat_code = captures.get(1).expect("正則匹配成功時組 1 必存在").as_str();
+        let sub_code = captures.get(2).expect("正則匹配成功時組 2 必存在").as_str();
+        let seq_str = captures.get(3).expect("正則匹配成功時組 3 必存在").as_str();
         let sequence: i32 = seq_str.parse().unwrap_or(0);
 
         // 查詢類別
@@ -329,7 +329,7 @@ impl SkuService {
             .sum();
 
         let check = (10 - (sum % 10)) % 10;
-        char::from_digit(check, 10).unwrap_or('0')
+        char::from_digit(check, 10).expect("檢查碼 0-9 轉 char 不應失敗")
     }
 
     /// 獲取下一個序號（複雜版）

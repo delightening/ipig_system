@@ -1,16 +1,40 @@
 ﻿use chrono::{Duration, Utc};
-use sqlx::PgPool;
+use sqlx::{PgPool, FromRow};
 use uuid::Uuid;
 
 use crate::{
     error::AppError,
     models::{
         ChairDecisionRequest, CreateEuthanasiaAppealRequest, CreateEuthanasiaOrderRequest,
-        EuthanasiaAppeal, EuthanasiaOrder, EuthanasiaOrderResponse,
-        EuthanasiaOrderStatus, AnimalStatus,
+        EuthanasiaAppeal, EuthanasiaOrder, EuthanasiaOrderResponse, AnimalStatus,
     },
     services::NotificationService,
 };
+
+/// 輔助結構：查詢動物關聯 PI 資訊
+#[derive(FromRow)]
+struct AnimalPiRecord {
+    #[allow(dead_code)]
+    id: Uuid,
+    ear_tag: String,
+    iacuc_no: Option<String>,
+    pi_user_id: Option<Uuid>,
+}
+
+/// 輔助結構：超時安樂死單 RETURNING
+#[derive(FromRow)]
+struct ExpiredOrderRow {
+    id: Uuid,
+    vet_user_id: Uuid,
+}
+
+/// 輔助結構：超時暫緩申請
+#[derive(FromRow)]
+struct ExpiredAppealRow {
+    id: Uuid,
+    order_id: Uuid,
+    vet_user_id: Uuid,
+}
 
 pub struct EuthanasiaService;
 
@@ -22,15 +46,15 @@ impl EuthanasiaService {
         vet_user_id: Uuid,
     ) -> Result<EuthanasiaOrder, AppError> {
         // 查詢動物的關聯 PI
-        let animal_record = sqlx::query!(
+        let animal_record = sqlx::query_as::<_, AnimalPiRecord>(
             r#"
-            SELECT p.id, p.ear_tag, p.iacuc_no, pr.pi_user_id as "pi_user_id?"
+            SELECT p.id, p.ear_tag, p.iacuc_no, pr.pi_user_id
             FROM animals p
             LEFT JOIN protocols pr ON p.iacuc_no = pr.iacuc_no
             WHERE p.id = $1 AND p.is_deleted = false
             "#,
-            req.animal_id
         )
+        .bind(req.animal_id)
         .fetch_optional(pool)
         .await?
         .ok_or_else(|| AppError::NotFound("找不到指定的動物".to_string()))?;
@@ -42,8 +66,7 @@ impl EuthanasiaService {
         // 設定 24 小時後過期
         let deadline_at = Utc::now() + Duration::hours(24);
 
-        let order = sqlx::query_as!(
-            EuthanasiaOrder,
+        let order = sqlx::query_as::<_, EuthanasiaOrder>(
             r#"
             INSERT INTO euthanasia_orders (animal_id, vet_user_id, pi_user_id, reason, deadline_at)
             VALUES ($1, $2, $3, $4, $5)
@@ -52,12 +75,12 @@ impl EuthanasiaService {
                       deadline_at, pi_responded_at, executed_at, executed_by,
                       created_at, updated_at
             "#,
-            req.animal_id,
-            vet_user_id,
-            pi_user_id,
-            req.reason,
-            deadline_at
         )
+        .bind(req.animal_id)
+        .bind(vet_user_id)
+        .bind(pi_user_id)
+        .bind(&req.reason)
+        .bind(deadline_at)
         .fetch_one(pool)
         .await?;
 
@@ -75,7 +98,6 @@ impl EuthanasiaService {
             tracing::warn!("發送安樂死通知失敗: {e}");
         }
 
-
         Ok(order)
     }
 
@@ -84,8 +106,7 @@ impl EuthanasiaService {
         pool: &PgPool,
         id: Uuid,
     ) -> Result<EuthanasiaOrderResponse, AppError> {
-        let order = sqlx::query_as!(
-            EuthanasiaOrderResponse,
+        let order = sqlx::query_as::<_, EuthanasiaOrderResponse>(
             r#"
             SELECT 
                 eo.id, eo.animal_id, eo.vet_user_id, eo.pi_user_id, eo.reason,
@@ -102,8 +123,8 @@ impl EuthanasiaService {
             JOIN users up ON eo.pi_user_id = up.id
             WHERE eo.id = $1
             "#,
-            id
         )
+        .bind(id)
         .fetch_optional(pool)
         .await?
         .ok_or_else(|| AppError::NotFound("找不到安樂死單據".to_string()))?;
@@ -116,8 +137,7 @@ impl EuthanasiaService {
         pool: &PgPool,
         pi_user_id: Uuid,
     ) -> Result<Vec<EuthanasiaOrderResponse>, AppError> {
-        let orders = sqlx::query_as!(
-            EuthanasiaOrderResponse,
+        let orders = sqlx::query_as::<_, EuthanasiaOrderResponse>(
             r#"
             SELECT 
                 eo.id, eo.animal_id, eo.vet_user_id, eo.pi_user_id, eo.reason,
@@ -135,8 +155,8 @@ impl EuthanasiaService {
             WHERE eo.pi_user_id = $1 AND eo.status = 'pending_pi'
             ORDER BY eo.deadline_at ASC
             "#,
-            pi_user_id
         )
+        .bind(pi_user_id)
         .fetch_all(pool)
         .await?;
 
@@ -150,8 +170,7 @@ impl EuthanasiaService {
         pi_user_id: Uuid,
     ) -> Result<EuthanasiaOrder, AppError> {
         // 驗證權限
-        let order = sqlx::query_as!(
-            EuthanasiaOrder,
+        let order = sqlx::query_as::<_, EuthanasiaOrder>(
             r#"
             SELECT id, animal_id, vet_user_id, pi_user_id, reason,
                    status as "status: EuthanasiaOrderStatus",
@@ -160,16 +179,15 @@ impl EuthanasiaService {
             FROM euthanasia_orders
             WHERE id = $1 AND pi_user_id = $2 AND status = 'pending_pi'
             "#,
-            order_id,
-            pi_user_id
         )
+        .bind(order_id)
+        .bind(pi_user_id)
         .fetch_optional(pool)
         .await?
         .ok_or_else(|| AppError::NotFound("找不到待處理的安樂死單據".to_string()))?;
 
         // 更新狀態為已同意
-        let updated = sqlx::query_as!(
-            EuthanasiaOrder,
+        let updated = sqlx::query_as::<_, EuthanasiaOrder>(
             r#"
             UPDATE euthanasia_orders
             SET status = 'approved', pi_responded_at = NOW(), updated_at = NOW()
@@ -179,8 +197,8 @@ impl EuthanasiaService {
                       deadline_at, pi_responded_at, executed_at, executed_by,
                       created_at, updated_at
             "#,
-            order_id
         )
+        .bind(order_id)
         .fetch_one(pool)
         .await?;
 
@@ -191,7 +209,6 @@ impl EuthanasiaService {
             .await {
             tracing::warn!("發送安樂死通知失敗: {e}");
         }
-
 
         Ok(updated)
     }
@@ -204,20 +221,23 @@ impl EuthanasiaService {
         req: &CreateEuthanasiaAppealRequest,
     ) -> Result<EuthanasiaAppeal, AppError> {
         // 驗證權限
-        let _order = sqlx::query!(
+        let _exists: Option<(Uuid,)> = sqlx::query_as(
             r#"
             SELECT id FROM euthanasia_orders
             WHERE id = $1 AND pi_user_id = $2 AND status = 'pending_pi'
             "#,
-            order_id,
-            pi_user_id
         )
+        .bind(order_id)
+        .bind(pi_user_id)
         .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("找不到待處理的安樂死單據".to_string()))?;
+        .await?;
+
+        if _exists.is_none() {
+            return Err(AppError::NotFound("找不到待處理的安樂死單據".to_string()));
+        }
 
         // 查找 CHAIR 用戶
-        let chair = sqlx::query!(
+        let chair: Option<(Uuid,)> = sqlx::query_as(
             r#"
             SELECT u.id
             FROM users u
@@ -225,56 +245,55 @@ impl EuthanasiaService {
             JOIN roles r ON ur.role_id = r.id
             WHERE r.code = 'IACUC_CHAIR' AND u.is_active = true
             LIMIT 1
-            "#
+            "#,
         )
         .fetch_optional(pool)
         .await?;
 
-        let chair_user_id = chair.map(|c| c.id);
+        let chair_user_id = chair.map(|c| c.0);
         let chair_deadline = Utc::now() + Duration::hours(24);
 
         // 建立暫緩申請
-        let appeal = sqlx::query_as!(
-            EuthanasiaAppeal,
+        let appeal = sqlx::query_as::<_, EuthanasiaAppeal>(
             r#"
             INSERT INTO euthanasia_appeals (order_id, pi_user_id, reason, attachment_path, chair_user_id, chair_deadline_at)
             VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING id, order_id, pi_user_id, reason, attachment_path, chair_user_id,
                       chair_decision, chair_decided_at, chair_deadline_at, created_at
             "#,
-            order_id,
-            pi_user_id,
-            req.reason,
-            req.attachment_path,
-            chair_user_id,
-            chair_deadline
         )
+        .bind(order_id)
+        .bind(pi_user_id)
+        .bind(&req.reason)
+        .bind(&req.attachment_path)
+        .bind(chair_user_id)
+        .bind(chair_deadline)
         .fetch_one(pool)
         .await?;
 
         // 更新安樂死單據狀態
-        sqlx::query!(
+        sqlx::query(
             r#"
             UPDATE euthanasia_orders
             SET status = 'appealed', pi_responded_at = NOW(), updated_at = NOW()
             WHERE id = $1
             "#,
-            order_id
         )
+        .bind(order_id)
         .execute(pool)
         .await?;
 
         // 如果有 CHAIR，通知進行仲裁
         if let Some(chair_id) = chair_user_id {
             // 更新為 CHAIR 仲裁中
-            sqlx::query!(
+            sqlx::query(
                 r#"
                 UPDATE euthanasia_orders
                 SET status = 'chair_arbitration', updated_at = NOW()
                 WHERE id = $1
                 "#,
-                order_id
             )
+            .bind(order_id)
             .execute(pool)
             .await?;
 
@@ -284,7 +303,6 @@ impl EuthanasiaService {
                 .await {
                 tracing::warn!("發送安樂死通知失敗: {e}");
             }
-
         }
 
         Ok(appeal)
@@ -298,24 +316,22 @@ impl EuthanasiaService {
         req: &ChairDecisionRequest,
     ) -> Result<EuthanasiaAppeal, AppError> {
         // 驗證權限：必須是 CHAIR 且為該 appeal 的裁決者
-        let appeal = sqlx::query_as!(
-            EuthanasiaAppeal,
+        let _appeal = sqlx::query_as::<_, EuthanasiaAppeal>(
             r#"
             SELECT id, order_id, pi_user_id, reason, attachment_path, chair_user_id,
                    chair_decision, chair_decided_at, chair_deadline_at, created_at
             FROM euthanasia_appeals
             WHERE id = $1 AND chair_user_id = $2 AND chair_decision IS NULL
             "#,
-            appeal_id,
-            chair_user_id
         )
+        .bind(appeal_id)
+        .bind(chair_user_id)
         .fetch_optional(pool)
         .await?
         .ok_or_else(|| AppError::NotFound("找不到待裁決的暫緩申請".to_string()))?;
 
         // 更新裁決結果
-        let updated = sqlx::query_as!(
-            EuthanasiaAppeal,
+        let updated = sqlx::query_as::<_, EuthanasiaAppeal>(
             r#"
             UPDATE euthanasia_appeals
             SET chair_decision = $1, chair_decided_at = NOW()
@@ -323,9 +339,9 @@ impl EuthanasiaService {
             RETURNING id, order_id, pi_user_id, reason, attachment_path, chair_user_id,
                       chair_decision, chair_decided_at, chair_deadline_at, created_at
             "#,
-            req.decision,
-            appeal_id
         )
+        .bind(&req.decision)
+        .bind(appeal_id)
         .fetch_one(pool)
         .await?;
 
@@ -336,15 +352,15 @@ impl EuthanasiaService {
             "approved" // 駁回暫緩，可以執行安樂死
         };
 
-        sqlx::query!(
+        sqlx::query(
             r#"
             UPDATE euthanasia_orders
             SET status = ($1::TEXT)::euthanasia_order_status, updated_at = NOW()
             WHERE id = $2
             "#,
-            new_status,
-            appeal.order_id
         )
+        .bind(new_status)
+        .bind(updated.order_id)
         .execute(pool)
         .await?;
 
@@ -358,8 +374,7 @@ impl EuthanasiaService {
         executor_id: Uuid,
     ) -> Result<EuthanasiaOrder, AppError> {
         // 驗證單據狀態為可執行
-        let order = sqlx::query_as!(
-            EuthanasiaOrder,
+        let order = sqlx::query_as::<_, EuthanasiaOrder>(
             r#"
             SELECT id, animal_id, vet_user_id, pi_user_id, reason,
                    status as "status: EuthanasiaOrderStatus",
@@ -368,15 +383,14 @@ impl EuthanasiaService {
             FROM euthanasia_orders
             WHERE id = $1 AND status = 'approved'
             "#,
-            order_id
         )
+        .bind(order_id)
         .fetch_optional(pool)
         .await?
         .ok_or_else(|| AppError::NotFound("找不到可執行的安樂死單據".to_string()))?;
 
         // 更新安樂死單據為已執行
-        let updated = sqlx::query_as!(
-            EuthanasiaOrder,
+        let updated = sqlx::query_as::<_, EuthanasiaOrder>(
             r#"
             UPDATE euthanasia_orders
             SET status = 'executed', executed_at = NOW(), executed_by = $1, updated_at = NOW()
@@ -386,21 +400,21 @@ impl EuthanasiaService {
                       deadline_at, pi_responded_at, executed_at, executed_by,
                       created_at, updated_at
             "#,
-            executor_id,
-            order_id
         )
+        .bind(executor_id)
+        .bind(order_id)
         .fetch_one(pool)
         .await?;
 
         // 更新動物狀態為 Euthanized（安樂死）
-        sqlx::query!(
+        sqlx::query(
             r#"
             UPDATE animals SET status = $1, updated_at = NOW()
             WHERE id = $2
             "#,
-            AnimalStatus::Euthanized as AnimalStatus,
-            order.animal_id
         )
+        .bind(AnimalStatus::Euthanized as AnimalStatus)
+        .bind(order.animal_id)
         .execute(pool)
         .await?;
 
@@ -430,15 +444,15 @@ impl EuthanasiaService {
         let mut count = 0;
 
         // 處理 PI 超時未回應的單據
-        let expired_pending = sqlx::query!(
+        let expired_pending = sqlx::query_as::<_, ExpiredOrderRow>(
             r#"
             UPDATE euthanasia_orders
             SET status = 'approved', updated_at = NOW()
             WHERE status = 'pending_pi' AND deadline_at < $1
             RETURNING id, vet_user_id
             "#,
-            now
         )
+        .bind(now)
         .fetch_all(pool)
         .await?;
 
@@ -452,11 +466,10 @@ impl EuthanasiaService {
                 .await {
                 tracing::warn!("發送安樂死通知失敗: {e}");
             }
-
         }
 
         // 處理 CHAIR 超時未裁決的暫緩申請
-        let expired_appeals = sqlx::query!(
+        let expired_appeals = sqlx::query_as::<_, ExpiredAppealRow>(
             r#"
             SELECT ea.id, ea.order_id, eo.vet_user_id
             FROM euthanasia_appeals ea
@@ -465,32 +478,32 @@ impl EuthanasiaService {
               AND ea.chair_deadline_at < $1
               AND eo.status = 'chair_arbitration'
             "#,
-            now
         )
+        .bind(now)
         .fetch_all(pool)
         .await?;
 
         for appeal in expired_appeals {
             // 駁回暫緩，更新為可執行
-            sqlx::query!(
+            sqlx::query(
                 r#"
                 UPDATE euthanasia_appeals
                 SET chair_decision = 'timeout_rejected', chair_decided_at = NOW()
                 WHERE id = $1
                 "#,
-                appeal.id
             )
+            .bind(appeal.id)
             .execute(pool)
             .await?;
 
-            sqlx::query!(
+            sqlx::query(
                 r#"
                 UPDATE euthanasia_orders
                 SET status = 'approved', updated_at = NOW()
                 WHERE id = $1
                 "#,
-                appeal.order_id
             )
+            .bind(appeal.order_id)
             .execute(pool)
             .await?;
 
@@ -500,7 +513,6 @@ impl EuthanasiaService {
                 .await {
                 tracing::warn!("發送安樂死通知失敗: {e}");
             }
-
 
             count += 1;
         }

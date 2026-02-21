@@ -411,6 +411,15 @@ pub fn api_routes(state: AppState) -> Router {
             get(handlers::get_animal_pathology_report)
                 .post(handlers::upsert_animal_pathology_report),
         )
+        // Animal Records - Care Records (疼痛評估紀錄)
+        .route(
+            "/animals/:id/care-records",
+            get(handlers::list_care_records).post(handlers::create_care_record),
+        )
+        .route(
+            "/care-records/:id",
+            put(handlers::update_care_record).delete(handlers::delete_care_record),
+        )
         // Animal Records - Blood Tests (血液檢查)
         .route(
             "/animals/:id/blood-tests",
@@ -598,6 +607,8 @@ pub fn api_routes(state: AppState) -> Router {
             post(handlers::resolve_security_alert),
         )
         .route("/admin/audit/dashboard", get(handlers::get_audit_dashboard))
+        // SSE 安全警報即時推送
+        .route("/admin/audit/alerts/sse", get(handlers::sse::sse_security_alerts))
         // ============================================
         // Admin Notification Routing (通知路由管理)
         // ============================================

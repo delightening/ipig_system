@@ -14,7 +14,7 @@ impl EmailService {
             tracing::info!("Email disabled, skipping vet recommendation email to {}", to_email);
             return Ok(());
         }
-        let smtp_host = config.smtp_host.as_ref().unwrap();
+        let smtp_host = config.smtp_host.as_ref().expect("smtp_host 應由 is_email_enabled() 保證存在");
         let animals_url = format!("{}/animals", config.app_url);
         let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 
@@ -123,7 +123,7 @@ IACUC No.：{iacuc_no}
             tracing::info!("Email disabled, skipping low stock alert email to {}", to_email);
             return Ok(());
         }
-        let smtp_host = config.smtp_host.as_ref().unwrap();
+        let smtp_host = config.smtp_host.as_ref().expect("smtp_host 應由 is_email_enabled() 保證存在");
         let inventory_url = format!("{}/inventory", config.app_url);
         let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
         let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
@@ -189,7 +189,7 @@ IACUC No.：{iacuc_no}
             tracing::info!("Email disabled, skipping expiry alert email to {}", to_email);
             return Ok(());
         }
-        let smtp_host = config.smtp_host.as_ref().unwrap();
+        let smtp_host = config.smtp_host.as_ref().expect("smtp_host 應由 is_email_enabled() 保證存在");
         let inventory_url = format!("{}/inventory", config.app_url);
         let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
         let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
@@ -267,7 +267,7 @@ IACUC No.：{iacuc_no}
             tracing::info!("Email disabled, skipping euthanasia order email to {}", to_email);
             return Ok(());
         }
-        let smtp_host = config.smtp_host.as_ref().unwrap();
+        let smtp_host = config.smtp_host.as_ref().expect("smtp_host 應由 is_email_enabled() 保證存在");
         let animals_url = format!("{}/animals", config.app_url);
         let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 

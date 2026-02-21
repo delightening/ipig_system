@@ -326,7 +326,12 @@ export function AdminAuditPage() {
             'UPDATE': '更新使用者資料',
             'DELETE': '刪除使用者',
             'PASSWORD_RESET': '重設密碼',
+            'PASSWORD_CHANGE': '變更密碼',
             'IMPERSONATE': '模擬登入',
+            'STOP_IMPERSONATE': '停止模擬',
+            'STATUS_CHANGE': '狀態變更',
+            'ASSIGN': '指派角色',
+            'UNASSIGN': '移除角色',
             'force_logout': '強制登出 Session',
         }
 
@@ -529,8 +534,13 @@ export function AdminAuditPage() {
                                                     'CREATE': 'default',
                                                     'UPDATE': 'default',
                                                     'DELETE': 'destructive',
-                                                    'PASSWORD_RESET': 'secondary',
-                                                    'IMPERSONATE': 'secondary',
+                                                    'PASSWORD_RESET': 'destructive',
+                                                    'PASSWORD_CHANGE': 'destructive',
+                                                    'IMPERSONATE': 'destructive',
+                                                    'STOP_IMPERSONATE': 'secondary',
+                                                    'STATUS_CHANGE': 'destructive',
+                                                    'ASSIGN': 'destructive',
+                                                    'UNASSIGN': 'destructive',
                                                     'force_logout': 'destructive',
                                                 }[log.action] as 'default' | 'destructive' | 'secondary' || 'outline'}>
                                                     {{
@@ -538,7 +548,12 @@ export function AdminAuditPage() {
                                                         'UPDATE': '更新使用者',
                                                         'DELETE': '刪除使用者',
                                                         'PASSWORD_RESET': '重設密碼',
+                                                        'PASSWORD_CHANGE': '變更密碼',
                                                         'IMPERSONATE': '模擬登入',
+                                                        'STOP_IMPERSONATE': '停止模擬',
+                                                        'STATUS_CHANGE': '狀態變更',
+                                                        'ASSIGN': '角色指派',
+                                                        'UNASSIGN': '角色移除',
                                                         'force_logout': '強制登出',
                                                     }[log.action] || log.action}
                                                 </Badge>
@@ -943,7 +958,7 @@ export function AdminAuditPage() {
 
             {/* 活動記錄詳情 Dialog */}
             <Dialog open={!!selectedLog} onOpenChange={() => setSelectedLog(null)}>
-                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogContent className="max-w-2xl">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <Eye className="h-5 w-5" />
@@ -1031,7 +1046,7 @@ export function AdminAuditPage() {
 
             {/* 安全警報詳情 Dialog */}
             <Dialog open={!!selectedAlert} onOpenChange={() => setSelectedAlert(null)}>
-                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogContent className="max-w-2xl">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <AlertTriangle className="h-5 w-5" />

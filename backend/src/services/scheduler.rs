@@ -433,11 +433,11 @@ impl SchedulerService {
         // 上月的第一天和最後一天
         let year = if now.month() == 1 { now.year() - 1 } else { now.year() };
         let month = if now.month() == 1 { 12 } else { now.month() - 1 };
-        let first_day = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
+        let first_day = NaiveDate::from_ymd_opt(year, month, 1).expect("上月第一天應為有效日期");
         let last_day = if now.month() == 1 {
-            NaiveDate::from_ymd_opt(now.year(), 1, 1).unwrap().pred_opt().unwrap()
+            NaiveDate::from_ymd_opt(now.year(), 1, 1).expect("當年 1/1 應為有效日期").pred_opt().expect("1/1 前一天應存在")
         } else {
-            NaiveDate::from_ymd_opt(now.year(), now.month(), 1).unwrap().pred_opt().unwrap()
+            NaiveDate::from_ymd_opt(now.year(), now.month(), 1).expect("當月第一天應為有效日期").pred_opt().expect("當月第一天前一天應存在")
         };
 
         info!("[Monthly Report] 統計期間：{} ~ {}", first_day, last_day);
