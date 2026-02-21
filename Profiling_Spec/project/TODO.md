@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-02-19
+> **最後更新：** 2026-02-21
 
 此文件撰寫方式
 
@@ -20,12 +20,12 @@
 
 | # | 項目 | 說明 | 範圍 | 難度 |
 |---|------|------|------|------|
-| 1 | **治療方式藥物選單 + 後台管理** | ✅ 後端 API + DB migration + 前端管理頁面已完成；⏳ 待改造 ObservationForm/SurgeryForm/EmergencyMedication/SacrificeForm 表單 | 前後端+DB | 🟡 中 |
-| 2 | **疼痛評估紀錄時間軸** | 後端 API + 前端視覺化 + 疼痛評估表數位化（DB schema 已就位） | 前後端 | 🟡 中 |
-| 3 | **敏感資料二級審計** | 密碼修改、權限變更等操作的加強稽核紀錄 | 後端 | 🟡 中 |
-| 4 | **安全警報即時推送** | Email / 站內通知即時推送安全警報（WebSocket/SSE） | 前後端 | 🔴 高 |
-| 5 | **SEC-37：HSTS 標頭** | 正式環境 Nginx 加入 `Strict-Transport-Security`（Cloudflare Tunnel 條件式注入） | Nginx | 🟢 低 |
-| 6 | **手機端 Dialog 滾動與縮放修復** | `DialogContent` 基礎元件改用 flexbox 置中 + 內建 `max-h/overflow-y-auto`；viewport 加入 `maximum-scale=1, user-scalable=no` 防 iOS 自動縮放；全域 CSS 手機端 Dialog 適配（觸控滾動、input 字體 ≥16px）；清理 20+ 處重複 scroll class （參考 [手機端架構.md](手機端架構.md)） | 前端 | 🟡 中 |
+| 1 | ~~**治療方式藥物選單 + 後台管理**~~ | ✅ 已完成（後端 API + DB migration + 前端管理頁面 + ObservationForm/SurgeryForm/EmergencyMedication 表單 DrugCombobox 整合） | 前後端+DB | ✅ 完成 |
+| 2 | ~~**疼痛評估紀錄時間軸**~~ | ✅ 已完成（後端 CRUD API + 前端 PainAssessmentTab 含表單/列表/Recharts 折線圖） | 前後端 | ✅ 完成 |
+| 3 | ~~**敏感資料二級審計**~~ | ✅ 已完成（handlers 加入 log_activity + 前端 SECURITY 類別高亮） | 後端 | ✅ 完成 |
+| 4 | ~~**安全警報即時推送**~~ | ✅ 已完成（後端 AlertBroadcaster + SSE handler + 前端 EventSource hook + toast 通知） | 前後端 | ✅ 完成 |
+| 5 | ~~**SEC-37：HSTS 標頭**~~ | ✅ 已完成（nginx.conf 加入 Strict-Transport-Security） | Nginx | ✅ 完成 |
+| 6 | ~~**手機端 Dialog 滾動與縮放修復**~~ | ✅ 已完成（DialogContent flexbox 置中 + 內建 max-h/overflow-y-auto；viewport maximum-scale=1；全域 CSS 手機端適配；清理 14 處重複 scroll class） | 前端 | ✅ 完成 |
 
 
 ---
@@ -85,12 +85,12 @@
 
 | 優先級 | 數量 | 佔比 |
 |--------|------|------|
-| 🔴 P2 中優先 | 6 | 23% |
-| 🔵 P3 低優先 | 6 | 23% |
-| 🟣 P4 品質提升 | 5 | 19% |
-| ⚪ P5 長期演進 | 6 | 23% |
-| 🚀 v2.0 遠程 | 3 | 12% |
-| **合計** | **26** | **100%** |
+| 🔴 P2 中優先 | 4 | 22% |
+| 🔵 P3 低優先 | 6 | 33% |
+| 🟣 P4 品質提升 | 5 | 28% |
+| ⚪ P5 長期演進 | 6 | 33% |
+| 🚀 v2.0 遠程 | 3 | 17% |
+| **合計** | **24** | - |
 
 ---
 
@@ -98,7 +98,9 @@
 
 | 日期 | 內容 |
 |------|------|
-| 2026-02-19 | 📦 前端 Bundle 優化：React.lazy code-splitting（50 頁面）+ manualChunks（7 vendor chunks）+ auth.ts import 修正，主 chunk 3,267→242 KB（-92.6%） |
+| 2026-02-21 | 📱 手機端 Dialog 滾動修復：`dialog.tsx` flexbox 置中 + 內建 max-h/overflow-y、14 處重複 scroll class 清理；`index.html` viewport maximum-scale=1；`index.css` 手機端適配 CSS |
+| 2026-02-21 | 💊 治療方式藥物選單改造：ObservationFormDialog、SurgeryFormDialog（4 處）、EmergencyMedicationDialog 的藥物 Input 改用 DrugCombobox（可搜尋、自動帶入劑量單位） |
+| 2026-02-21 | 🔒 Rust 安全強化六項完成：CI 新增 cargo audit / cargo deny / SQL injection guard / unsafe guard 4 個安全 job；deny.toml 供應鏈策略；Cargo.toml overflow-checks 啟用；clipy.toml + .cargo/config.toml unwrap_used warn；fuzz/ 目錄 + 2 個模糊測試目標 |
 | 2026-02-18 | 💊 治療方式藥物選單規劃：三方案比較（直接 ERP / 獨立表 / 混合），建議方案 C（`treatment_drug_options` 表 + ERP 匯入 + DrugCombobox），影響 ObservationForm / SurgeryForm / EmergencyMedication 三表單 |
 | 2026-02-18 | 🗃️ Migration 整合 10→8：GPS 4 欄位併入 005 CREATE TABLE + 010 seed 已存在於 008（刪除 009/010） |
 | 2026-02-18 | 🔔 通知路由管理頁面：新增 `NotificationRoutingPage.tsx`（Table + CRUD Dialog + 啟停 Switch）、`App.tsx` 路由註冊、`MainLayout.tsx` 側邊欄導航 |

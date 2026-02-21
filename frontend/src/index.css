@@ -436,3 +436,32 @@
 .signature-status-unsigned {
   @apply bg-amber-100 text-amber-800;
 }
+
+/* ==================== */
+/* 手機端 Dialog 適配 (Mobile Dialog) */
+/* ==================== */
+
+/* 防止 iOS Safari 在 input focus 時自動縮放 */
+@media (max-width: 640px) {
+  .dialog-scroll-container input,
+  .dialog-scroll-container textarea,
+  .dialog-scroll-container select {
+    font-size: 16px !important;
+  }
+
+  /* Dialog 手機端減少 padding */
+  .dialog-scroll-container {
+    padding: 1rem;
+  }
+}
+
+/* Touch 裝置流暢捲動 */
+.dialog-scroll-container {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Dialog 開啟時禁止背景滾動 */
+body[data-scroll-locked] {
+  overflow: hidden !important;
+}

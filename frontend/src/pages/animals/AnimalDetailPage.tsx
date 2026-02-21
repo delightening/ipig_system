@@ -93,6 +93,7 @@ import { EmergencyMedicationDialog } from '@/components/animal/EmergencyMedicati
 import { EuthanasiaOrderDialog } from '@/components/animal/EuthanasiaOrderDialog'
 import { BloodTestTab } from '@/components/animal/BloodTestTab'
 import { TransferTab } from '@/components/animal/TransferTab'
+import { PainAssessmentTab } from '@/components/animal/PainAssessmentTab'
 import { useAuthStore } from '@/stores/auth'
 import { useUIPreferences } from '@/stores/uiPreferences'
 
@@ -113,7 +114,7 @@ const getPenLocationDisplay = (animal: { status: AnimalStatus; pen_location?: st
   return animal.pen_location || '-'
 }
 
-type TabType = 'timeline' | 'observations' | 'surgeries' | 'weights' | 'vaccinations' | 'sacrifice' | 'info' | 'pathology' | 'blood_tests' | 'transfer'
+type TabType = 'timeline' | 'observations' | 'surgeries' | 'weights' | 'vaccinations' | 'sacrifice' | 'info' | 'pathology' | 'blood_tests' | 'pain_assessment' | 'transfer'
 
 export function AnimalDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -590,6 +591,7 @@ export function AnimalDetailPage() {
     { id: 'vaccinations' as const, label: '疫苗/驅蟲紀錄', icon: Syringe },
     { id: 'sacrifice' as const, label: '犧牲/採樣紀錄', icon: Heart },
     { id: 'blood_tests' as const, label: '血液檢查', icon: Droplets },
+    { id: 'pain_assessment' as const, label: '疼痛評估', icon: Stethoscope },
     { id: 'info' as const, label: '動物資料', icon: FileText },
     { id: 'pathology' as const, label: '病理組織報告', icon: FileText },
     // 轉讓 Tab：僅在 completed / transferred 狀態顯示
@@ -1536,6 +1538,15 @@ export function AnimalDetailPage() {
         {/* 血液檢查 Tab */}
         {activeTab === 'blood_tests' && (
           <BloodTestTab animalId={animalId} afterParam={afterParam} />
+        )}
+
+        {/* 疼痛評估 Tab */}
+        {activeTab === 'pain_assessment' && (
+          <PainAssessmentTab
+            animalId={animalId}
+            observations={(observations || []).map(o => ({ id: o.id, observation_date: o.event_date }))}
+            surgeries={(surgeries || []).map(s => ({ id: s.id, surgery_date: s.surgery_date }))}
+          />
         )}
 
         {/* 轉讓管理 Tab */}

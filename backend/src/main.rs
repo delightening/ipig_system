@@ -39,6 +39,8 @@ pub struct AppState {
     pub geoip: GeoIpService,
     /// JWT 黑名單，用於主動撤銷已簽發的 token（SEC-23）
     pub jwt_blacklist: JwtBlacklist,
+    /// 安全警報即時推送廣播器
+    pub alert_broadcaster: handlers::sse::AlertBroadcaster,
 }
 
 #[tokio::main]
@@ -291,6 +293,7 @@ async fn main() -> anyhow::Result<()> {
         config: config.clone(),
         geoip,
         jwt_blacklist,
+        alert_broadcaster: handlers::sse::AlertBroadcaster::new(),
     };
 
     // 建立 CORS 層

@@ -92,7 +92,7 @@ fn validate_clock_location(
         if office_lat.is_some() {
             match (user_lat, user_lng) {
                 (Some(lat), Some(lng)) => {
-                    let dist = haversine_distance(lat, lng, office_lat.unwrap(), office_lng.unwrap());
+                    let dist = haversine_distance(lat, lng, office_lat.expect("office_lat 由上方 is_some 保證"), office_lng.expect("office_lng 由上方 is_some 保證"));
                     reasons.push(format!("GPS 距離 {:.0}m 超出允許範圍", dist));
                 }
                 _ => reasons.push("未提供 GPS 定位".to_string()),

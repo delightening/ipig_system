@@ -1,0 +1,83 @@
+# cargo-deny 設定檔
+# 文件：https://embarkstudios.github.io/cargo-deny/
+#
+# 此檔案定義供應鏈安全策略：
+# - advisories: 已知漏洞資料庫檢查
+# - licenses: 授權條款審查
+# - bans: 禁止特定 crate 或重複版本
+# - sources: 允許的 crate 來源
+
+[graph]
+targets = []
+all-features = true
+
+# ============================
+# 漏洞資料庫檢查
+# ============================
+[advisories]
+# 使用 RustSec Advisory Database
+# 發現已知漏洞時，CI 會失敗
+vulnerability = "deny"
+unmaintained = "warn"
+yanked = "warn"
+notice = "warn"
+# 如需暫時忽略特定漏洞，在此加入 RUSTSEC ID
+ignore = []
+
+# ============================
+# 授權條款審查
+# ============================
+[licenses]
+# 不允許未授權的 crate
+unlicensed = "deny"
+# 預設拒絕 copyleft 授權
+default = "deny"
+# 信心閾值
+confidence-threshold = 0.8
+
+# 允許的授權條款
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "Zlib",
+    "OpenSSL",
+    "BSL-1.0",
+    "CC0-1.0",
+    "MPL-2.0",
+]
+
+# 針對特定 crate 的授權例外
+[[licenses.clarify]]
+name = "ring"
+expression = "MIT AND ISC AND OpenSSL"
+license-files = [{ path = "LICENSE", hash = 0xbd0eed23 }]
+
+# ============================
+# Crate 禁止/限制規則
+# ============================
+[bans]
+# 允許多個版本的 crate（整理依賴時可改為 "deny"）
+multiple-versions = "warn"
+wildcards = "allow"
+highlight = "all"
+
+# 禁止的 crate（已知有安全問題的替代品）
+deny = [
+    # 使用 getrandom 取代
+    # { name = "rand_core", wrappers = ["rand"] },
+]
+
+# ============================
+# Crate 來源限制
+# ============================
+[sources]
+# 僅允許 crates.io
+unknown-registry = "deny"
+unknown-git = "warn"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

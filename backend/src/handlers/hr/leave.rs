@@ -37,7 +37,7 @@ pub async fn list_leaves(
     } else {
         if query.user_id.is_none() {
             query.user_id = Some(current_user.id);
-        } else if query.user_id.unwrap() != current_user.id
+        } else if query.user_id.expect("user_id 由上方 is_none 保證存在") != current_user.id
             && !current_user.has_permission("hr.leave.view_all")
         {
             query.user_id = Some(current_user.id);

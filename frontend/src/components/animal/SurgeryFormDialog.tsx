@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
 import { Loader2, ChevronDown, ChevronUp, FastForward } from 'lucide-react'
+import { DrugCombobox } from '@/components/animal/DrugCombobox'
 
 // 誘導麻醉藥物項目
 interface AnesthesiaDrug {
@@ -46,6 +47,8 @@ interface VitalSign {
 interface MedicationItem {
   name: string
   dose: string
+  drug_option_id?: string
+  dosage_unit?: string
 }
 
 // 表單狀態
@@ -362,7 +365,7 @@ export function SurgeryFormDialog({ open, onOpenChange, animalId, earTag, surger
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -466,19 +469,24 @@ export function SurgeryFormDialog({ open, onOpenChange, animalId, earTag, surger
                   onChange={(others) =>
                     setFormData({ ...formData, induction: { ...formData.induction, others } })
                   }
-                  defaultItem={() => ({ name: '', dose: '' })}
+                  defaultItem={() => ({ name: '', dose: '', drug_option_id: undefined, dosage_unit: '' })}
                   addLabel="新增藥劑"
                   renderItem={(item, _index, onChange) => (
                     <div className="grid grid-cols-2 gap-2">
-                      <Input
-                        placeholder="藥劑名稱"
-                        value={item.name}
-                        onChange={(e) => onChange({ ...item, name: e.target.value })}
-                      />
-                      <Input
-                        placeholder="劑量"
-                        value={item.dose}
-                        onChange={(e) => onChange({ ...item, dose: e.target.value })}
+                      <DrugCombobox
+                        value={{
+                          drug_option_id: item.drug_option_id,
+                          drug_name: item.name,
+                          dosage_value: item.dose,
+                          dosage_unit: item.dosage_unit || '',
+                        }}
+                        onChange={(sel) => onChange({
+                          ...item,
+                          name: sel.drug_name,
+                          dose: sel.dosage_value,
+                          drug_option_id: sel.drug_option_id,
+                          dosage_unit: sel.dosage_unit,
+                        })}
                       />
                     </div>
                   )}
@@ -494,19 +502,24 @@ export function SurgeryFormDialog({ open, onOpenChange, animalId, earTag, surger
               onChange={(medications) =>
                 setFormData({ ...formData, pre_surgery: { ...formData.pre_surgery, medications } })
               }
-              defaultItem={() => ({ name: '', dose: '' })}
+              defaultItem={() => ({ name: '', dose: '', drug_option_id: undefined, dosage_unit: '' })}
               addLabel="新增術前藥品"
               renderItem={(item, _index, onChange) => (
                 <div className="grid grid-cols-2 gap-2">
-                  <Input
-                    placeholder="藥品名稱"
-                    value={item.name}
-                    onChange={(e) => onChange({ ...item, name: e.target.value })}
-                  />
-                  <Input
-                    placeholder="劑量"
-                    value={item.dose}
-                    onChange={(e) => onChange({ ...item, dose: e.target.value })}
+                  <DrugCombobox
+                    value={{
+                      drug_option_id: item.drug_option_id,
+                      drug_name: item.name,
+                      dosage_value: item.dose,
+                      dosage_unit: item.dosage_unit || '',
+                    }}
+                    onChange={(sel) => onChange({
+                      ...item,
+                      name: sel.drug_name,
+                      dose: sel.dosage_value,
+                      drug_option_id: sel.drug_option_id,
+                      dosage_unit: sel.dosage_unit,
+                    })}
                   />
                 </div>
               )}
@@ -565,19 +578,24 @@ export function SurgeryFormDialog({ open, onOpenChange, animalId, earTag, surger
                   onChange={(others) =>
                     setFormData({ ...formData, maintenance: { ...formData.maintenance, others } })
                   }
-                  defaultItem={() => ({ name: '', dose: '' })}
+                  defaultItem={() => ({ name: '', dose: '', drug_option_id: undefined, dosage_unit: '' })}
                   addLabel="新增藥劑"
                   renderItem={(item, _index, onChange) => (
                     <div className="grid grid-cols-2 gap-2">
-                      <Input
-                        placeholder="藥劑名稱"
-                        value={item.name}
-                        onChange={(e) => onChange({ ...item, name: e.target.value })}
-                      />
-                      <Input
-                        placeholder="劑量"
-                        value={item.dose}
-                        onChange={(e) => onChange({ ...item, dose: e.target.value })}
+                      <DrugCombobox
+                        value={{
+                          drug_option_id: item.drug_option_id,
+                          drug_name: item.name,
+                          dosage_value: item.dose,
+                          dosage_unit: item.dosage_unit || '',
+                        }}
+                        onChange={(sel) => onChange({
+                          ...item,
+                          name: sel.drug_name,
+                          dose: sel.dosage_value,
+                          drug_option_id: sel.drug_option_id,
+                          dosage_unit: sel.dosage_unit,
+                        })}
                       />
                     </div>
                   )}
@@ -693,19 +711,24 @@ export function SurgeryFormDialog({ open, onOpenChange, animalId, earTag, surger
                 <Repeater<MedicationItem>
                   value={formData.post_medications}
                   onChange={(post_medications) => setFormData({ ...formData, post_medications })}
-                  defaultItem={() => ({ name: '', dose: '' })}
+                  defaultItem={() => ({ name: '', dose: '', drug_option_id: undefined, dosage_unit: '' })}
                   addLabel="新增術後藥品"
                   renderItem={(item, _index, onChange) => (
                     <div className="grid grid-cols-2 gap-2">
-                      <Input
-                        placeholder="藥品名稱"
-                        value={item.name}
-                        onChange={(e) => onChange({ ...item, name: e.target.value })}
-                      />
-                      <Input
-                        placeholder="劑量"
-                        value={item.dose}
-                        onChange={(e) => onChange({ ...item, dose: e.target.value })}
+                      <DrugCombobox
+                        value={{
+                          drug_option_id: item.drug_option_id,
+                          drug_name: item.name,
+                          dosage_value: item.dose,
+                          dosage_unit: item.dosage_unit || '',
+                        }}
+                        onChange={(sel) => onChange({
+                          ...item,
+                          name: sel.drug_name,
+                          dose: sel.dosage_value,
+                          drug_option_id: sel.drug_option_id,
+                          dosage_unit: sel.dosage_unit,
+                        })}
                       />
                     </div>
                   )}

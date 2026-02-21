@@ -6,6 +6,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::Result;
+use crate::handlers::sse::{AlertBroadcaster, AlertEvent};
 use super::geoip::{GeoIpService, GeoInfo};
 
 pub struct LoginTracker;
@@ -19,6 +20,7 @@ impl LoginTracker {
         ip: Option<&str>,
         user_agent: Option<&str>,
         geoip: &GeoIpService,
+        broadcaster: &AlertBroadcaster,
     ) -> Result<()> {
         let ua = parse_user_agent(user_agent);
         
@@ -80,12 +82,13 @@ impl LoginTracker {
                 is_new_device,
                 is_mass_login,
                 &geo,
+                broadcaster,
             )
             .await?;
         }
 
         // 檢查全域多帳號大量登入 (疑似腳本)
-        check_global_mass_login(pool).await?;
+        check_global_mass_login(pool, broadcaster).await?;
         
         Ok(())
     }
@@ -98,6 +101,7 @@ impl LoginTracker {
         user_agent: Option<&str>,
         reason: &str,
         geoip: &GeoIpService,
+        broadcaster: &AlertBroadcaster,
     ) -> Result<()> {
         let device_info = parse_user_agent(user_agent);
         
@@ -145,7 +149,7 @@ impl LoginTracker {
         .await?;
         
         // 檢查暴力破解
-        Self::check_brute_force(pool, email, ip).await?;
+        Self::check_brute_force(pool, email, ip, broadcaster).await?;
         
         Ok(())
     }
@@ -174,7 +178,7 @@ impl LoginTracker {
     }
     
     /// 檢查暴力破解攻擊
-    async fn check_brute_force(pool: &PgPool, email: &str, ip: Option<&str>) -> Result<()> {
+    async fn check_brute_force(pool: &PgPool, email: &str, ip: Option<&str>, broadcaster: &AlertBroadcaster) -> Result<()> {
         // 檢查過去 15 分鐘的失敗次數
         let (fail_count,): (i64,) = sqlx::query_as(
             r#"
@@ -214,6 +218,14 @@ impl LoginTracker {
             }))
             .execute(pool)
             .await?;
+
+            // SSE 即時推送
+            broadcaster.send(AlertEvent {
+                alert_type: "brute_force".to_string(),
+                severity: "critical".to_string(),
+                title: "偵測到可能的暴力破解攻擊".to_string(),
+                description: format!("Email {} 在過去 15 分鐘內有 {} 次失敗登入嘗試", email, fail_count),
+            });
         }
         
         Ok(())
@@ -229,6 +241,7 @@ impl LoginTracker {
         new_device: bool,
         mass_login: bool,
         geo: &GeoInfo,
+        broadcaster: &AlertBroadcaster,
     ) -> Result<()> {
         let mut reasons = Vec::new();
         if unusual_time {
@@ -270,6 +283,14 @@ impl LoginTracker {
         .bind(user_id)
         .execute(pool)
         .await?;
+
+        // SSE 即時推送
+        broadcaster.send(AlertEvent {
+            alert_type: "unusual_login".to_string(),
+            severity: "warning".to_string(),
+            title: title.clone(),
+            description: description.clone(),
+        });
         
         Ok(())
     }
@@ -445,7 +466,7 @@ async fn check_mass_login(pool: &PgPool, user_id: Uuid) -> bool {
     count >= 4
 }
 
-async fn check_global_mass_login(pool: &PgPool) -> Result<()> {
+async fn check_global_mass_login(pool: &PgPool, broadcaster: &AlertBroadcaster) -> Result<()> {
     // 檢查過去 5 分鐘內，成功登入的不同帳號數量
     let (count,): (i64,) = sqlx::query_as(
         r#"
@@ -460,13 +481,13 @@ async fn check_global_mass_login(pool: &PgPool) -> Result<()> {
 
     // 如果 5 分鐘內超過 10 個不同帳號登入，觸發全域警報
     if count >= 10 {
-        create_global_mass_login_alert(pool, count).await?;
+        create_global_mass_login_alert(pool, count, broadcaster).await?;
     }
 
     Ok(())
 }
 
-async fn create_global_mass_login_alert(pool: &PgPool, account_count: i64) -> Result<()> {
+async fn create_global_mass_login_alert(pool: &PgPool, account_count: i64, broadcaster: &AlertBroadcaster) -> Result<()> {
     // 檢查是否最近 10 分鐘內已經發過相同的全域警報 (避免洗版)
     let (recent_alert_count,): (i64,) = sqlx::query_as(
         r#"
@@ -507,6 +528,17 @@ async fn create_global_mass_login_alert(pool: &PgPool, account_count: i64) -> Re
     }))
     .execute(pool)
     .await?;
+
+    // SSE 即時推送
+    broadcaster.send(AlertEvent {
+        alert_type: "global_mass_login".to_string(),
+        severity: "critical".to_string(),
+        title: "偵測到疑似腳本之多帳號大量登入".to_string(),
+        description: format!(
+            "系統偵測到全域在過去 5 分鐘內有 {} 個不同帳號成功登入",
+            account_count
+        ),
+    });
 
     Ok(())
 }

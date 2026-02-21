@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
 import { Loader2, FastForward } from 'lucide-react'
+import { DrugCombobox } from '@/components/animal/DrugCombobox'
 
 // 使用儀器選項
 const EQUIPMENT_OPTIONS = [
@@ -40,6 +41,8 @@ interface TreatmentItem {
   drug: string
   dosage: string
   end_date?: string
+  drug_option_id?: string
+  dosage_unit?: string
 }
 
 // 表單狀態
@@ -231,7 +234,7 @@ export function ObservationFormDialog({ open, onOpenChange, animalId, earTag, ob
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -349,19 +352,24 @@ export function ObservationFormDialog({ open, onOpenChange, animalId, earTag, ob
               <Repeater<TreatmentItem>
                 value={formData.treatments}
                 onChange={(treatments) => setFormData({ ...formData, treatments })}
-                defaultItem={() => ({ drug: '', dosage: '', end_date: '' })}
+                defaultItem={() => ({ drug: '', dosage: '', end_date: '', drug_option_id: undefined, dosage_unit: '' })}
                 addLabel="新增用藥"
                 renderItem={(item, _index, onChange) => (
-                  <div className="grid grid-cols-3 gap-2">
-                    <Input
-                      placeholder="預計用藥/藥品名稱"
-                      value={item.drug}
-                      onChange={(e) => onChange({ ...item, drug: e.target.value })}
-                    />
-                    <Input
-                      placeholder="預計劑量"
-                      value={item.dosage}
-                      onChange={(e) => onChange({ ...item, dosage: e.target.value })}
+                  <div className="space-y-2">
+                    <DrugCombobox
+                      value={{
+                        drug_option_id: item.drug_option_id,
+                        drug_name: item.drug,
+                        dosage_value: item.dosage,
+                        dosage_unit: item.dosage_unit || '',
+                      }}
+                      onChange={(sel) => onChange({
+                        ...item,
+                        drug: sel.drug_name,
+                        dosage: sel.dosage_value,
+                        drug_option_id: sel.drug_option_id,
+                        dosage_unit: sel.dosage_unit,
+                      })}
                     />
                     <Input
                       type="date"

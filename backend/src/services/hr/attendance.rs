@@ -123,7 +123,7 @@ impl HrService {
     ) -> Result<AttendanceRecord> {
         // 使用台灣時區 (UTC+8) 的日期，而不是 UTC 日期
         // 這樣當使用者在凌晨打卡時，work_date 會是正確的本地日期
-        let taipei_offset = chrono::FixedOffset::east_opt(8 * 3600).unwrap();
+        let taipei_offset = chrono::FixedOffset::east_opt(8 * 3600).expect("UTC+8 是有效時區偏移");
         let today = Utc::now().with_timezone(&taipei_offset).date_naive();
 
         let existing: Option<AttendanceRecord> = sqlx::query_as(
@@ -189,7 +189,7 @@ impl HrService {
         longitude: Option<f64>,
     ) -> Result<AttendanceRecord> {
         // 使用台灣時區 (UTC+8) 的日期，與 clock_in 保持一致
-        let taipei_offset = chrono::FixedOffset::east_opt(8 * 3600).unwrap();
+        let taipei_offset = chrono::FixedOffset::east_opt(8 * 3600).expect("UTC+8 是有效時區偏移");
         let today = Utc::now().with_timezone(&taipei_offset).date_naive();
 
         let record = sqlx::query_as::<_, AttendanceRecord>(

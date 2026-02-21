@@ -67,10 +67,10 @@ export function RolesPage() {
       toast({ title: '成功', description: '角色已創建' })
     },
     onError: (error: any) => {
-      toast({ 
-        title: '錯誤', 
-        description: error.response?.data?.error?.message || '創建失敗', 
-        variant: 'destructive' 
+      toast({
+        title: '錯誤',
+        description: error.response?.data?.error?.message || '創建失敗',
+        variant: 'destructive'
       })
     },
   })
@@ -88,10 +88,10 @@ export function RolesPage() {
       toast({ title: '成功', description: '角色已更新' })
     },
     onError: (error: any) => {
-      toast({ 
-        title: '錯誤', 
-        description: error.response?.data?.error?.message || '更新失敗', 
-        variant: 'destructive' 
+      toast({
+        title: '錯誤',
+        description: error.response?.data?.error?.message || '更新失敗',
+        variant: 'destructive'
       })
     },
   })
@@ -109,10 +109,10 @@ export function RolesPage() {
       })
     },
     onError: (error: any) => {
-      toast({ 
-        title: '錯誤', 
-        description: error.response?.data?.error?.message || '刪除失敗', 
-        variant: 'destructive' 
+      toast({
+        title: '錯誤',
+        description: error.response?.data?.error?.message || '刪除失敗',
+        variant: 'destructive'
       })
     },
   })
@@ -240,7 +240,7 @@ export function RolesPage() {
 
       {/* 創建角色對話框 */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>新增角色</DialogTitle>
             <DialogDescription>創建新的系統角色並設定權限</DialogDescription>
@@ -292,7 +292,7 @@ export function RolesPage() {
 
       {/* 編輯角色對話框 */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>編輯角色</DialogTitle>
             <DialogDescription>修改角色 {selectedRole?.name} 的設定</DialogDescription>

@@ -1,14 +1,15 @@
 use axum::{
-    extract::{Path, Query, State},
-    http::{header, StatusCode},
+    extract::{ConnectInfo, Path, Query, State},
+    http::{header, HeaderMap, StatusCode},
     response::Response,
     Extension, Json,
 };
+use std::net::SocketAddr;
 use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    middleware::CurrentUser,
+    middleware::{CurrentUser, extract_real_ip},
     models::{AuditAction, CreateUserRequest, ResetPasswordRequest, UpdateUserRequest, UserResponse},
     require_permission,
     services::{AuthService, AuditService, UserService, EmailService},
@@ -93,14 +94,65 @@ pub async fn get_user(
 /// 更新使用者
 pub async fn update_user(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateUserRequest>,
 ) -> Result<Json<UserResponse>> {
     require_permission!(current_user, "admin.user.edit");
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
-    
+
+    // SEC: 偵測角色/帳號狀態變更，記錄審計
+    let before_user = UserService::get_by_id(&state.db, id).await.ok();
+
     let user = UserService::update(&state.db, id, current_user.id, &req).await?;
+
+    // 偵測角色或狀態變更，記錄二級審計
+    if let Some(ref before) = before_user {
+        let ip = extract_real_ip(&headers, &addr);
+        let ua = headers.get("user-agent").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
+        let roles_changed = before.roles != user.roles;
+        let status_changed = before.is_active != user.is_active;
+
+        if roles_changed {
+            let db = state.db.clone();
+            let actor = current_user.id;
+            let before_roles = before.roles.clone();
+            let after_roles = user.roles.clone();
+            let target_name = user.display_name.clone();
+            let ip_c = ip.clone();
+            let ua_c = ua.clone();
+            tokio::spawn(async move {
+                let _ = AuditService::log_activity(
+                    &db, actor, "SECURITY", "ROLE_CHANGE",
+                    Some("user"), Some(id), Some(&target_name),
+                    Some(serde_json::json!({ "roles": before_roles })),
+                    Some(serde_json::json!({ "roles": after_roles })),
+                    Some(&ip_c), ua_c.as_deref(),
+                ).await;
+            });
+        }
+        if status_changed {
+            let db = state.db.clone();
+            let actor = current_user.id;
+            let target_name = user.display_name.clone();
+            let ip_c = ip.clone();
+            let ua_c = ua.clone();
+            let was_active = before.is_active;
+            let now_active = user.is_active;
+            tokio::spawn(async move {
+                let _ = AuditService::log_activity(
+                    &db, actor, "SECURITY", "ACCOUNT_STATUS_CHANGE",
+                    Some("user"), Some(id), Some(&target_name),
+                    Some(serde_json::json!({ "is_active": was_active })),
+                    Some(serde_json::json!({ "is_active": now_active })),
+                    Some(&ip_c), ua_c.as_deref(),
+                ).await;
+            });
+        }
+    }
+
     Ok(Json(user))
 }
 
@@ -132,6 +184,8 @@ pub async fn delete_user(
 /// Admin 重設其他使用者密碼
 pub async fn reset_user_password(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
     Json(req): Json<ResetPasswordRequest>,
@@ -151,7 +205,7 @@ pub async fn reset_user_password(
     // 重設密碼
     AuthService::reset_user_password(&state.db, id, &req.new_password).await?;
     
-    // 記錄稽核日誌
+    // 原有稽核日誌
     AuditService::log(
         &state.db,
         current_user.id,
@@ -164,6 +218,20 @@ pub async fn reset_user_password(
             "reset_by": current_user.id,
         })),
     ).await?;
+
+    // SEC: 敏感操作二級審計 — 管理員重設密碼
+    let ip = extract_real_ip(&headers, &addr);
+    let ua = headers.get("user-agent").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
+    let db = state.db.clone();
+    let actor = current_user.id;
+    tokio::spawn(async move {
+        let _ = AuditService::log_activity(
+            &db, actor, "SECURITY", "PASSWORD_ADMIN_RESET",
+            Some("user"), Some(id), None,
+            None, Some(serde_json::json!({ "target_user_id": id })),
+            Some(&ip), ua.as_deref(),
+        ).await;
+    });
     
     Ok(Json(serde_json::json!({ "message": "Password reset successfully" })))
 }
@@ -172,6 +240,8 @@ pub async fn reset_user_password(
 /// 回傳 Response 含 Set-Cookie headers
 pub async fn impersonate_user(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Response> {
@@ -180,7 +250,7 @@ pub async fn impersonate_user(
         return Err(AppError::BusinessRule("Only admin can impersonate other users".to_string()));
     }
     
-    // 不允許模擬自己（雖然技術上可行，但沒意義）
+    // 不允許模擬自己
     if id == current_user.id {
         return Err(AppError::Validation("Cannot impersonate yourself".to_string()));
     }
@@ -188,7 +258,7 @@ pub async fn impersonate_user(
     // 執行模擬登入
     let login_response = AuthService::impersonate(&state.db, &state.config, current_user.id, id).await?;
     
-    // 記錄稽核日誌
+    // 原有稽核日誌
     AuditService::log(
         &state.db,
         current_user.id,
@@ -202,6 +272,21 @@ pub async fn impersonate_user(
             "reason": "Admin impersonation for testing",
         })),
     ).await?;
+
+    // SEC: 敏感操作二級審計 — 模擬登入
+    let ip = extract_real_ip(&headers, &addr);
+    let ua = headers.get("user-agent").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
+    let target_name = login_response.user.display_name.clone();
+    let db = state.db.clone();
+    let actor = current_user.id;
+    tokio::spawn(async move {
+        let _ = AuditService::log_activity(
+            &db, actor, "SECURITY", "IMPERSONATE_START",
+            Some("user"), Some(id), Some(&target_name),
+            None, Some(serde_json::json!({ "impersonated_user_id": id })),
+            Some(&ip), ua.as_deref(),
+        ).await;
+    });
     
     // 回傳 JSON + Set-Cookie headers
     let access_cookie = build_set_cookie(
@@ -217,14 +302,14 @@ pub async fn impersonate_user(
         &state.config,
     );
 
-    let body = serde_json::to_string(&login_response).unwrap();
+    let body = serde_json::to_string(&login_response).expect("LoginResponse 序列化不應失敗");
     let response = Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "application/json")
         .header(header::SET_COOKIE, access_cookie)
         .header(header::SET_COOKIE, refresh_cookie)
         .body(body.into())
-        .unwrap();
+        .expect("建構模擬登入 Response 不應失敗");
 
     Ok(response)
 }

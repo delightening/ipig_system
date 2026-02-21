@@ -520,7 +520,7 @@ export function WarehouseLayoutPage() {
 
             {/* Create/Edit Dialog */}
             <Dialog open={showDialog} onOpenChange={setShowDialog}>
-                <DialogContent className="w-[66vw] max-w-none max-h-[75vh] overflow-y-auto">
+                <DialogContent className="w-[66vw] max-w-none">
                     <DialogHeader>
                         <DialogTitle>{editingLocation ? '編輯儲位' : '新增儲位'}</DialogTitle>
                         <DialogDescription>

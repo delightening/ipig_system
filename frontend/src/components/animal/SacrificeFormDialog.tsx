@@ -232,7 +232,7 @@ export function SacrificeFormDialog({ open, onOpenChange, animalId, earTag, sacr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? '編輯犧牲/採樣紀錄' : '新增犧牲/採樣紀錄'}</DialogTitle>
           <DialogDescription>耳號：{earTag}</DialogDescription>

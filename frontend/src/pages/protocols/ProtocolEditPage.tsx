@@ -569,7 +569,7 @@ export function ProtocolEditPage() {
 
       {/* 新增人員對話框 */}
       <Dialog open={isAddPersonnelDialogOpen} onOpenChange={setIsAddPersonnelDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>{t('aup.personnel.addDialog.title')}</DialogTitle>
             <DialogDescription>{t('aup.personnel.addDialog.description')}</DialogDescription>

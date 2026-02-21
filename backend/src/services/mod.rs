@@ -42,6 +42,7 @@ pub use audit::AuditService;
 pub use sku::SkuService;
 pub use protocol::ProtocolService;
 pub use animal::AnimalService;
+pub use animal::care_record::{CareRecordService, CareRecord, CreateCareRecordRequest, UpdateCareRecordRequest};
 pub use email::EmailService;
 pub use notification::NotificationService;
 pub use file::{FileService, FileCategory, UploadResult};

@@ -107,7 +107,7 @@ export function QuickEditAnimalDialog({ open, onOpenChange, animalId }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>快速編輯動物資料</DialogTitle>
           <DialogDescription>編輯動物的基本資訊（僅可編輯標示為可編輯的欄位）</DialogDescription>

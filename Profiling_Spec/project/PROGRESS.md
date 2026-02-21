@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **評估日期：** 2026-02-17  
+> **評估日期：** 2026-02-21  
 > **規格版本：** v5.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -535,6 +535,23 @@
   - 測試 2 檔案更新（`test_animal_full.py`、`test_blood_panel.py`）
   - 前端 `npx tsc --noEmit` 編譯通過（0 錯誤）
 
+### 2026-02-21
+
+- ✅ 📱 **手機端 Dialog 滾動修復**：
+  - `dialog.tsx`：`DialogContent` 改為 flexbox 置中（`fixed inset-0 flex items-center justify-center`）+ 內部可滾動 div（`max-h-[100dvh] sm:max-h-[90vh] overflow-y-auto`）
+  - `index.html`：viewport 加入 `maximum-scale=1.0, user-scalable=no` 防 iOS 輸入框自動縮放
+  - `index.css`：新增手機端 Dialog 全域 CSS（input font-size ≥16px、觸控平滑滾動、overscroll-behavior、body scroll lock）
+  - 清理 14 處 DialogContent 的重複 `max-h/overflow-y` class（BloodTestTab ×2、ProtocolEditPage、WarehouseLayoutPage、DashboardPage、RolesPage ×2、AuditLogsPage、AdminAuditPage ×2、ObservationFormDialog、SurgeryFormDialog、SacrificeFormDialog、QuickEditAnimalDialog）
+  - `npm run build`（tsc + vite）編譯通過
+
+- ✅ 💊 **治療方式藥物選單改造**：
+  - `ObservationFormDialog.tsx`：治療方式 Repeater 的 drug/dosage Input 改為 DrugCombobox（可搜尋、自動帶入單位）
+  - `SurgeryFormDialog.tsx`：4 處「其他」Repeater（誘導、術前、維持、術後）全部改用 DrugCombobox
+  - `EmergencyMedicationDialog.tsx`：藥品+劑量 Input 改為單一 DrugCombobox 元件
+  - `SacrificeFormDialog.tsx`：保留簡單 Input（使用者決定）
+  - TreatmentItem / MedicationItem 型別擴充 `drug_option_id` + `dosage_unit` 欄位
+  - `npm run build`（tsc + vite）編譯通過（exit code 0）
+
 ### 2026-02-17
 
 - ✅ 🔔 **啟動配置警告 Dialog**：
@@ -956,6 +973,54 @@
 - 主 `index-*.js`：3,267 KB → **242 KB**（下降 92.6%）
 - 產出 50+ 個頁面 chunk + 7 個 vendor chunk
 - auth.ts 混合引入警告已消除
+
+---
+
+### 2026-02-21：Rust 安全強化（六項）
+
+**CI Pipeline 擴充：**
+- `ci.yml` 新增 4 個安全掃描 job：`security-audit`（cargo audit）、`cargo-deny`（供應鏈授權/漏洞）、`sql-injection-guard`（grep 防護 format! SQL）、`unsafe-guard`（unsafe 偵測）
+- 升級 `backend-lint` job：`-D warnings -W clippy::unwrap_used`（unwrap 產生警告，漸進式修復）
+
+**新增檔案：**
+- `backend/deny.toml`：供應鏈安全策略（漏洞 deny / 授權白名單 MIT+Apache+BSD / 來源限 crates.io）
+- `backend/clippy.toml`：Clippy 閾值設定（行數 200 / 參數 10 / 複雜度 30）
+- `backend/.cargo/config.toml`：rustflags 啟用 `clippy::unwrap_used` warn
+- `backend/fuzz/Cargo.toml` + 2 個 fuzz 目標：`fuzz_ear_tag.rs`（耳號解析）、`fuzz_sku_parse.rs`（SKU 編碼解析）
+
+**修改檔案：**
+- `backend/Cargo.toml`：新增 `[profile.release] overflow-checks = true`
+
+**審計結果：**
+- SQL 注入：✅ 全部使用 sqlx 巨集參數綁定，零手動拼接
+- unsafe：✅ 專案本身零 unsafe 程式碼
+- unwrap：✅ 61 處生產程式碼 unwrap() 已全部修復為 expect()（2026-02-22 完成）
+
+---
+
+### 2026-02-21：P2 四項安全與功能強化
+
+**1. SEC-37：HSTS 標頭**
+- `nginx.conf` 加入 `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
+
+**2. 敏感資料二級審計**
+- `handlers/auth.rs`、`handlers/user.rs`、`handlers/audit.rs` 加入 `log_activity` 記錄密碼變更/重設/Login As/角色變更/帳號啟停/強制登出
+- `AdminAuditPage.tsx` SECURITY 類別紅色 Badge 高亮
+
+**3. 疼痛評估紀錄時間軸**
+- 後端新增：`services/animal/care_record.rs`（Model + CRUD）、`handlers/animal/care_record.rs`（4 路由）
+- 前端新增：`PainAssessmentTab.tsx`（CRUD 表單 + Badge 嚴重度標記 + Recharts 五維度折線圖）
+- `AnimalDetailPage.tsx` 整合新 Tab
+
+**4. 安全警報即時推送（SSE）**
+- 後端新增：`handlers/sse.rs`（`AlertBroadcaster` + SSE handler）
+- `AppState` 加入 `alert_broadcaster` 欄位
+- `login_tracker.rs` 三處 alert 建立處加入 `broadcaster.send()`
+- `auth.rs` 登入成功/失敗事件傳遞 broadcaster
+- 前端新增：`hooks/useSecurityAlerts.ts`（EventSource + toast）
+- `MainLayout.tsx` 整合 hook
+
+**驗證：** `cargo check` ✅ · `npm run build` ✅
 
 ---
 

@@ -485,7 +485,7 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
                     resetForm()
                 }
             }}>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-w-4xl">
                     <DialogHeader>
                         <DialogTitle>
                             {editingId ? '編輯血液檢查' : '新增血液檢查'}
@@ -717,7 +717,7 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
                     setViewingId(null)
                 }
             }}>
-                <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                <DialogContent className="max-w-3xl">
                     <DialogHeader>
                         <DialogTitle>血液檢查詳情</DialogTitle>
                     </DialogHeader>

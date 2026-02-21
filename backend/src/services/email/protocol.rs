@@ -13,7 +13,7 @@ impl EmailService {
             tracing::info!("Email disabled, skipping protocol submitted email to {}", to_email);
             return Ok(());
         }
-        let smtp_host = config.smtp_host.as_ref().unwrap();
+        let smtp_host = config.smtp_host.as_ref().expect("smtp_host 應由 is_email_enabled() 保證存在");
         let protocol_url = format!("{}/protocols", config.app_url);
         let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 
@@ -103,7 +103,7 @@ impl EmailService {
             tracing::info!("Email disabled, skipping protocol status change email to {}", to_email);
             return Ok(());
         }
-        let smtp_host = config.smtp_host.as_ref().unwrap();
+        let smtp_host = config.smtp_host.as_ref().expect("smtp_host 應由 is_email_enabled() 保證存在");
         let protocol_url = format!("{}/my-projects", config.app_url);
         let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 
@@ -204,7 +204,7 @@ impl EmailService {
             tracing::info!("Email disabled, skipping review assignment email to {}", to_email);
             return Ok(());
         }
-        let smtp_host = config.smtp_host.as_ref().unwrap();
+        let smtp_host = config.smtp_host.as_ref().expect("smtp_host 應由 is_email_enabled() 保證存在");
         let protocol_url = format!("{}/protocols", config.app_url);
         let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 

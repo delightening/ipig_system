@@ -24,6 +24,7 @@ pub mod euthanasia;
 pub mod amendment;
 pub mod storage_location;
 pub mod treatment_drug;
+pub mod sse;
 
 pub use auth::*;
 pub use user::*;

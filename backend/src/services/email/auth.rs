@@ -12,7 +12,7 @@ impl EmailService {
             tracing::info!("Email disabled, skipping welcome email to {}", to_email);
             return Ok(());
         }
-        let smtp_host = config.smtp_host.as_ref().unwrap();
+        let smtp_host = config.smtp_host.as_ref().expect("smtp_host 應由 is_email_enabled() 保證存在");
         let login_url = format!("{}/login", config.app_url);
         let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 
@@ -128,7 +128,7 @@ impl EmailService {
             tracing::info!("Email disabled, skipping password reset email to {}", to_email);
             return Ok(());
         }
-        let smtp_host = config.smtp_host.as_ref().unwrap();
+        let smtp_host = config.smtp_host.as_ref().expect("smtp_host 應由 is_email_enabled() 保證存在");
         let reset_url = format!("{}/reset-password?token={}", config.app_url, reset_token);
         let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 
@@ -211,7 +211,7 @@ impl EmailService {
             tracing::info!("Email disabled, skipping password changed email to {}", to_email);
             return Ok(());
         }
-        let smtp_host = config.smtp_host.as_ref().unwrap();
+        let smtp_host = config.smtp_host.as_ref().expect("smtp_host 應由 is_email_enabled() 保證存在");
         let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 
         let html_body = format!(

@@ -15,7 +15,7 @@ use crate::{
         ChangeOwnPasswordRequest, ForgotPasswordRequest, LoginRequest, LoginResponse,
         RefreshTokenRequest, ResetPasswordWithTokenRequest, UpdateUserRequest, UserResponse,
     },
-    services::{AuthService, UserService, EmailService, LoginTracker, SessionManager},
+    services::{AuthService, AuditService, UserService, EmailService, LoginTracker, SessionManager},
     AppError, AppState, Result,
 };
 
@@ -73,7 +73,7 @@ fn login_response_with_cookies(
         config,
     );
 
-    let body = serde_json::to_string(response).unwrap();
+    let body = serde_json::to_string(response).expect("LoginResponse 序列化不應失敗");
 
     Response::builder()
         .status(StatusCode::OK)
@@ -81,7 +81,7 @@ fn login_response_with_cookies(
         .header(header::SET_COOKIE, access_cookie)
         .header(header::SET_COOKIE, refresh_cookie)
         .body(body.into())
-        .unwrap()
+        .expect("建構 HTTP Response 不應失敗")
 }
 
 // ============================================
@@ -110,6 +110,7 @@ pub async fn login(
             // 登入成功：記錄事件和建立 session
             let db = state.db.clone();
             let geoip = state.geoip.clone();
+            let broadcaster = state.alert_broadcaster.clone();
             let user_id = resp.user.id;
             let email = req.email.clone();
             let ip_clone = ip.clone();
@@ -124,6 +125,7 @@ pub async fn login(
                     Some(&ip_clone),
                     ua_clone.as_deref(),
                     &geoip,
+                    &broadcaster,
                 ).await {
                     tracing::error!("Failed to log login success for {}: {}", email, e);
                 }
@@ -176,6 +178,7 @@ pub async fn login(
             // 登入失敗：記錄失敗事件（會自動檢測暴力破解）
             let db = state.db.clone();
             let geoip = state.geoip.clone();
+            let broadcaster = state.alert_broadcaster.clone();
             let email = req.email.clone();
             let ip_clone = ip.clone();
             let ua_clone = user_agent.clone();
@@ -189,6 +192,7 @@ pub async fn login(
                     ua_clone.as_deref(),
                     &err_msg,
                     &geoip,
+                    &broadcaster,
                 ).await {
                     tracing::error!("Failed to log login failure for {}: {}", email, log_err);
                 }
@@ -262,8 +266,8 @@ pub async fn logout(
         .header(header::CONTENT_TYPE, "application/json")
         .header(header::SET_COOKIE, build_clear_cookie("access_token", &state.config))
         .header(header::SET_COOKIE, build_clear_cookie("refresh_token", &state.config))
-        .body(serde_json::to_string(&body).unwrap().into())
-        .unwrap();
+        .body(serde_json::to_string(&body).expect("登出 JSON 序列化不應失敗").into())
+        .expect("建構登出 Response 不應失敗");
 
     Ok(response)
 }
@@ -293,9 +297,12 @@ pub async fn update_me(
 /// 變更自己的密碼
 pub async fn change_own_password(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<ChangeOwnPasswordRequest>,
 ) -> Result<Response> {
+    let ip = extract_real_ip(&headers, &addr);
     let response = AuthService::change_own_password(
         &state.db,
         &state.config,
@@ -303,6 +310,20 @@ pub async fn change_own_password(
         &req.current_password,
         &req.new_password,
     ).await?;
+
+    // SEC: 敏感操作二級審計 — 密碼自行變更
+    let db = state.db.clone();
+    let user_id = current_user.id;
+    let ip_clone = ip.clone();
+    let ua = headers.get("user-agent").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
+    tokio::spawn(async move {
+        let _ = AuditService::log_activity(
+            &db, user_id, "SECURITY", "PASSWORD_SELF_CHANGE",
+            Some("user"), Some(user_id), None, None, None,
+            Some(&ip_clone), ua.as_deref(),
+        ).await;
+    });
+
     // 回傳新 tokens 的 Set-Cookie headers，保持用戶登入狀態
     Ok(login_response_with_cookies(&response, &state.config))
 }

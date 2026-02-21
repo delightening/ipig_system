@@ -125,8 +125,8 @@ pub async fn auth_rate_limit_middleware(
             .header("Retry-After", "60")
             .header("X-RateLimit-Limit", limiter.config.max_requests.to_string())
             .header("X-RateLimit-Remaining", "0")
-            .body(Body::from(serde_json::to_string(&body).unwrap()))
-            .unwrap();
+            .body(Body::from(serde_json::to_string(&body).expect("速率限制 JSON 序列化不應失敗")))
+            .expect("建構速率限制 Response 不應失敗");
 
         return Ok(response);
     }
@@ -134,7 +134,7 @@ pub async fn auth_rate_limit_middleware(
     let mut response = next.run(request).await;
     response.headers_mut().insert(
         "X-RateLimit-Remaining",
-        remaining.to_string().parse().unwrap(),
+        remaining.to_string().parse().expect("整數轉 HeaderValue 不應失敗"),
     );
     Ok(response)
 }
@@ -176,8 +176,8 @@ pub async fn api_rate_limit_middleware(
             .header("Retry-After", "60")
             .header("X-RateLimit-Limit", limiter.config.max_requests.to_string())
             .header("X-RateLimit-Remaining", "0")
-            .body(Body::from(serde_json::to_string(&body).unwrap()))
-            .unwrap();
+            .body(Body::from(serde_json::to_string(&body).expect("速率限制 JSON 序列化不應失敗")))
+            .expect("建構速率限制 Response 不應失敗");
 
         return Ok(response);
     }
@@ -185,7 +185,7 @@ pub async fn api_rate_limit_middleware(
     let mut response = next.run(request).await;
     response.headers_mut().insert(
         "X-RateLimit-Remaining",
-        remaining.to_string().parse().unwrap(),
+        remaining.to_string().parse().expect("整數轉 HeaderValue 不應失敗"),
     );
     Ok(response)
 }
