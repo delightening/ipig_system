@@ -1,6 +1,5 @@
 use sqlx::PgPool;
 use uuid::Uuid;
-use validator;
 
 use crate::{
     models::{CreatePartnerRequest, Partner, PartnerQuery, SupplierCategory, UpdatePartnerRequest},
@@ -95,7 +94,14 @@ impl PartnerService {
             .map(|e| e.trim())
             .filter(|e| !e.is_empty())
             .map(|e| {
-                if !validator::validate_email(e) {
+                // 使用靜態編譯的正則表達式驗證 Email 格式 (效能優化)
+                use std::sync::OnceLock;
+                static EMAIL_REGEX: OnceLock<regex::Regex> = OnceLock::new();
+                let re = EMAIL_REGEX.get_or_init(|| {
+                    regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap()
+                });
+
+                if !re.is_match(e) {
                     return Err(AppError::Validation("Invalid email format".to_string()));
                 }
                 Ok(e.to_string())
@@ -237,7 +243,14 @@ impl PartnerService {
             .map(|e| e.trim())
             .filter(|e| !e.is_empty())
             .map(|e| {
-                if !validator::validate_email(e) {
+                // 使用正則表達式驗證 Email 格式
+                use std::sync::OnceLock;
+                static EMAIL_REGEX: OnceLock<regex::Regex> = OnceLock::new();
+                let re = EMAIL_REGEX.get_or_init(|| {
+                    regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap()
+                });
+
+                if !re.is_match(e) {
                     return Err(AppError::Validation("Invalid email format".to_string()));
                 }
                 Ok(e.to_string())
