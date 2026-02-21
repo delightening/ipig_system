@@ -60,7 +60,7 @@ impl GeoIpService {
         let ip: IpAddr = clean_ip.parse().ok()?;
 
         // 查詢 GeoLite2-City 資料庫
-        let city_result: geoip2::City = reader.lookup(ip).ok()?;
+        let city_result: geoip2::City = reader.as_ref().lookup(ip).ok()?;
 
         let country = city_result
             .country
