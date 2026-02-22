@@ -47,9 +47,9 @@
 
 | # | 項目 | 說明 | 範圍 |
 |---|------|------|------|
-| 14 | **Rust 測試覆蓋率擴充** | 87 個測試通過，protocol/hr/facility 已有覆蓋。需 test DB 做整合測試 | 後端 |
+| 14 | **Rust 測試覆蓋率擴充** | 119 個測試通過（+32：real_ip/csrf/config）。需 test DB 做整合測試 | 後端 |
 | 15 | **前端 E2E 測試** | Playwright 自動化測試 | 前端 |
-| 16 | **OpenAPI 文件完善** | utoipa 補全 API 文件 | 後端 |
+| 16 | **OpenAPI 文件完善** | Phase 1 完成（Auth+Users+Roles 23 endpoint + SwaggerUI）。Phase 2A 完成（Facility+Warehouse 35 endpoint）。Phase 2B 完成（Protocol+Review 25 endpoint）。待擴展其餘模組 | 後端 |
 | 17 | **CI/CD PostgreSQL service** | CI 中增加 PostgreSQL service container | DevOps |
 | 18 | **SEC-41：容器安全掃描** | CI 中加入 `trivy` 掃描 Docker image 漏洞 | DevOps |
 
@@ -98,6 +98,8 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-02-23 | 📘 OpenAPI Phase 1（Auth+Users+Roles 23 endpoint + SwaggerUI /swagger-ui 掀載） |
+| 2026-02-23 | 🔒 SEC-34/35/36 安全強化 + 🧪 測試覆蓋率擴充（87→119, +32 tests）：real_ip.rs 9 / csrf.rs 15 / config.rs 7 測試新增；.env.example 完整範本 |
 | 2026-02-22 | 🔒 安全性全面強化（8 項修復）：SEC-29 CSRF Secure flag、SEC-30 IP 信任策略、SEC-33 JWT 黑名單 DB 持久化、SEC-31 CORS 動態化、Docker 預設值翻轉、SEC-34 Refresh Token CSPRNG、SEC-32 JWT 過期統一、Mutex fail-closed。87 測試全通過 |
 | 2026-02-21 | 📱 手機端 Dialog 滾動修復：`dialog.tsx` flexbox 置中 + 內建 max-h/overflow-y、14 處重複 scroll class 清理；`index.html` viewport maximum-scale=1；`index.css` 手機端適配 CSS |
 | 2026-02-21 | 💊 治療方式藥物選單改造：ObservationFormDialog、SurgeryFormDialog（4 處）、EmergencyMedicationDialog 的藥物 Input 改用 DrugCombobox（可搜尋、自動帶入劑量單位） |

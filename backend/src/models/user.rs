@@ -1,11 +1,12 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
+use utoipa::ToSchema;
 use uuid::Uuid;
 use validator::Validate;
 
 /// 主題偏好
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ThemePreference {
     Light,
@@ -20,7 +21,7 @@ impl Default for ThemePreference {
 }
 
 /// 語言偏好
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 pub enum LanguagePreference {
     #[serde(rename = "zh-TW")]
     ZhTW,
@@ -35,7 +36,7 @@ impl Default for LanguagePreference {
 }
 
 /// 使用者訓練/資格資料
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, ToSchema)]
 pub struct UserTraining {
     pub code: String,                    // A~F
     pub certificate_no: Option<String>,  // 證書編號
@@ -99,7 +100,7 @@ pub struct UserWithRoles {
     pub permissions: Vec<String>,
 }
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct CreateUserRequest {
     #[validate(email(message = "Invalid email format"))]
     #[validate(length(max = 254, message = "Email must be at most 254 characters"))]
@@ -129,7 +130,7 @@ fn default_is_internal() -> bool {
     true
 }
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct UpdateUserRequest {
     #[validate(email(message = "Invalid email format"))]
     #[validate(length(max = 254, message = "Email must be at most 254 characters"))]
@@ -149,7 +150,7 @@ pub struct UpdateUserRequest {
     pub role_ids: Option<Vec<Uuid>>,
 }
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct LoginRequest {
     #[validate(email(message = "Invalid email format"))]
     #[validate(length(max = 254, message = "Email must be at most 254 characters"))]
@@ -158,7 +159,7 @@ pub struct LoginRequest {
     pub password: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct LoginResponse {
     pub access_token: String,
     pub refresh_token: String,
@@ -168,7 +169,7 @@ pub struct LoginResponse {
     pub must_change_password: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct UserResponse {
     pub id: Uuid,
     pub email: String,
@@ -210,13 +211,13 @@ pub struct AccountLockStatus {
 pub const MAX_LOGIN_ATTEMPTS: i32 = 5;
 pub const LOCK_DURATION_MINUTES: i64 = 15;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct RefreshTokenRequest {
     pub refresh_token: String,
 }
 
 /// 修改自己的密碼請求
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct ChangeOwnPasswordRequest {
     #[validate(length(min = 1, max = 128, message = "Current password must be 1-128 characters"))]
     pub current_password: String,
@@ -226,21 +227,21 @@ pub struct ChangeOwnPasswordRequest {
 }
 
 /// Admin 重設他人密碼請求
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct ResetPasswordRequest {
     #[validate(length(min = 8, max = 128, message = "New password must be 8-128 characters"))]
     pub new_password: String,
 }
 
 /// 忘記密碼請求
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct ForgotPasswordRequest {
     #[validate(email(message = "Invalid email format"))]
     pub email: String,
 }
 
 /// 重設密碼請求（透過 token）
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct ResetPasswordWithTokenRequest {
     pub token: String,
     #[validate(length(min = 8, max = 128, message = "New password must be 8-128 characters"))]

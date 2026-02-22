@@ -560,6 +560,23 @@
   - `.env` 加入 `AUDIT_HMAC_KEY`
   - `cargo test` 87 tests 全通過（含 FileCategory max_size 30MB 斷言更新）
 
+- ✅ 🧪 **測試覆蓋率擴充（87→119, +32 tests）**：
+  - `real_ip.rs` 新增 9 個測試：trust_proxy true/false、CF-Connecting-IP > X-Real-IP > X-Forwarded-For 優先級、多 IP 逗號分隔、空 header 跳過、空白修剪、fallback
+  - `csrf.rs` 新增 15 個測試：requires_csrf_check（POST/PUT/DELETE/PATCH 需驗證、GET/HEAD/OPTIONS 免驗）、is_exempt_path（login/refresh/forgot/reset 豁免、一般路徑不豁免）、extract_csrf_cookie（存在/不存在/無 header/單一 cookie）
+  - `config.rs` 新增 7 個測試：is_email_enabled 有無 SMTP host、GPS 半徑預設值、JWT Secret 最小長度、HMAC key 預設 None、CORS origins、cookie_secure 預設 false
+  - `cargo test` 119 tests 全通過
+
+- ✅ 📘 **OpenAPI Phase 1：Auth + Users + Roles**：
+  - 新增 `openapi.rs`（23 handler paths + 18 ToSchema schemas）
+  - `main.rs` 掛載 SwaggerUI 於 `/swagger-ui`
+  - `models/user.rs` 13 struct/enum 加 ToSchema
+  - `models/role.rs` 5 struct 加 ToSchema
+  - `models/mod.rs` PaginationQuery/PaginatedResponse 加 ToSchema
+  - `error.rs` 新增 ErrorResponse/ErrorDetail（ToSchema）
+  - `handlers/auth.rs` 10 handler、`handlers/user.rs` 7 handler、`handlers/role.rs` 6 handler 加 `#[utoipa::path]`
+  - `handlers/mod.rs` user/role 改 `pub(crate)`
+  - `cargo test` 119 tests 全通過
+
 ### 2026-02-21
 
 - ✅ 📱 **手機端 Dialog 滾動修復**：
@@ -1046,6 +1063,24 @@
 - `MainLayout.tsx` 整合 hook
 
 **驗證：** `cargo check` ✅ · `npm run build` ✅
+
+---
+
+### OpenAPI 文件整合 — Phase 2（2026-02-23）
+
+**Phase 2A — Facility & Warehouse**
+- `models/facility.rs` 27 struct + `models/warehouse.rs` 4 struct → `ToSchema`
+- `handlers/facility.rs` 30 handler + `handlers/warehouse.rs` 5 handler → `#[utoipa::path]`
+
+**Phase 2B — Protocol & Review**
+- `models/protocol.rs` 31+ struct/enum → `ToSchema`
+- `handlers/protocol/crud.rs` 14 handler + `review.rs` 10 handler + `export.rs` 1 handler → `#[utoipa::path]`
+- `openapi.rs` 新增 paths / schemas / tags（計畫書管理、審查管理）
+- `handlers/mod.rs` + `protocol/mod.rs` → `pub(crate)`
+
+**累計 OpenAPI 文件化 endpoint：83**（Phase 1: 23 + Phase 2A: 35 + Phase 2B: 25）
+
+**驗證：** `cargo check` ✅
 
 ---
 

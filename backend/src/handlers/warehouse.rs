@@ -14,6 +14,7 @@ use crate::{
 };
 
 /// 建立倉庫
+#[utoipa::path(post, path = "/api/warehouses", request_body = CreateWarehouseRequest, responses((status = 200, description = "建立成功", body = Warehouse)), tag = "倉儲管理", security(("bearer" = [])))]
 pub async fn create_warehouse(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -41,6 +42,7 @@ pub async fn create_warehouse(
 }
 
 /// 列出所有倉庫
+#[utoipa::path(get, path = "/api/warehouses", responses((status = 200, description = "倉庫清單", body = Vec<Warehouse>)), tag = "倉儲管理", security(("bearer" = [])))]
 pub async fn list_warehouses(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -53,6 +55,7 @@ pub async fn list_warehouses(
 }
 
 /// 取得單個倉庫
+#[utoipa::path(get, path = "/api/warehouses/{id}", params(("id" = Uuid, Path, description = "倉庫 ID")), responses((status = 200, description = "倉庫資訊", body = Warehouse)), tag = "倉儲管理", security(("bearer" = [])))]
 pub async fn get_warehouse(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -65,6 +68,7 @@ pub async fn get_warehouse(
 }
 
 /// 更新倉庫
+#[utoipa::path(put, path = "/api/warehouses/{id}", params(("id" = Uuid, Path, description = "倉庫 ID")), request_body = UpdateWarehouseRequest, responses((status = 200, description = "更新成功", body = Warehouse)), tag = "倉儲管理", security(("bearer" = [])))]
 pub async fn update_warehouse(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -88,6 +92,7 @@ pub async fn update_warehouse(
 }
 
 /// 刪除倉庫
+#[utoipa::path(delete, path = "/api/warehouses/{id}", params(("id" = Uuid, Path, description = "倉庫 ID")), responses((status = 200, description = "刪除成功")), tag = "倉儲管理", security(("bearer" = [])))]
 pub async fn delete_warehouse(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

@@ -4,13 +4,14 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
+use utoipa::ToSchema;
 use uuid::Uuid;
 
 // ============================================
 // Species (物種)
 // ============================================
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct Species {
     pub id: Uuid,
     pub code: String,
@@ -24,7 +25,7 @@ pub struct Species {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateSpeciesRequest {
     pub code: String,
     pub name: String,
@@ -34,7 +35,7 @@ pub struct CreateSpeciesRequest {
     pub sort_order: Option<i32>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateSpeciesRequest {
     pub name: Option<String>,
     pub name_en: Option<String>,
@@ -48,7 +49,7 @@ pub struct UpdateSpeciesRequest {
 // Facility (設施)
 // ============================================
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct Facility {
     pub id: Uuid,
     pub code: String,
@@ -62,7 +63,7 @@ pub struct Facility {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateFacilityRequest {
     pub code: String,
     pub name: String,
@@ -72,7 +73,7 @@ pub struct CreateFacilityRequest {
     pub config: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateFacilityRequest {
     pub name: Option<String>,
     pub address: Option<String>,
@@ -86,7 +87,7 @@ pub struct UpdateFacilityRequest {
 // Building (棟舍)
 // ============================================
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct Building {
     pub id: Uuid,
     pub facility_id: Uuid,
@@ -100,7 +101,7 @@ pub struct Building {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize, FromRow)]
+#[derive(Debug, Serialize, FromRow, ToSchema)]
 pub struct BuildingWithFacility {
     pub id: Uuid,
     pub facility_id: Uuid,
@@ -114,7 +115,7 @@ pub struct BuildingWithFacility {
     pub sort_order: i32,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateBuildingRequest {
     pub facility_id: Uuid,
     pub code: String,
@@ -124,7 +125,7 @@ pub struct CreateBuildingRequest {
     pub sort_order: Option<i32>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateBuildingRequest {
     pub name: Option<String>,
     pub description: Option<String>,
@@ -137,7 +138,7 @@ pub struct UpdateBuildingRequest {
 // Zone (區域)
 // ============================================
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct Zone {
     pub id: Uuid,
     pub building_id: Uuid,
@@ -151,7 +152,7 @@ pub struct Zone {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize, FromRow)]
+#[derive(Debug, Serialize, FromRow, ToSchema)]
 pub struct ZoneWithBuilding {
     pub id: Uuid,
     pub building_id: Uuid,
@@ -167,7 +168,7 @@ pub struct ZoneWithBuilding {
     pub sort_order: i32,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateZoneRequest {
     pub building_id: Uuid,
     pub code: String,
@@ -177,7 +178,7 @@ pub struct CreateZoneRequest {
     pub sort_order: Option<i32>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateZoneRequest {
     pub name: Option<String>,
     pub color: Option<String>,
@@ -190,7 +191,7 @@ pub struct UpdateZoneRequest {
 // Pen (欄位)
 // ============================================
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct Pen {
     pub id: Uuid,
     pub zone_id: Uuid,
@@ -206,7 +207,7 @@ pub struct Pen {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize, FromRow)]
+#[derive(Debug, Serialize, FromRow, ToSchema)]
 pub struct PenDetails {
     pub id: Uuid,
     pub code: String,
@@ -226,7 +227,7 @@ pub struct PenDetails {
     pub facility_name: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreatePenRequest {
     pub zone_id: Uuid,
     pub code: String,
@@ -236,7 +237,7 @@ pub struct CreatePenRequest {
     pub col_index: Option<i32>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdatePenRequest {
     pub name: Option<String>,
     pub capacity: Option<i32>,
@@ -259,7 +260,7 @@ pub struct PenQuery {
 // Department (部門)
 // ============================================
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct Department {
     pub id: Uuid,
     pub code: String,
@@ -273,7 +274,7 @@ pub struct Department {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize, FromRow)]
+#[derive(Debug, Serialize, FromRow, ToSchema)]
 pub struct DepartmentWithManager {
     pub id: Uuid,
     pub code: String,
@@ -286,7 +287,7 @@ pub struct DepartmentWithManager {
     pub sort_order: i32,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateDepartmentRequest {
     pub code: String,
     pub name: String,
@@ -296,7 +297,7 @@ pub struct CreateDepartmentRequest {
     pub sort_order: Option<i32>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateDepartmentRequest {
     pub name: Option<String>,
     pub parent_id: Option<Uuid>,

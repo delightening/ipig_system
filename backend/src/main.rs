@@ -18,6 +18,7 @@ mod error;
 mod handlers;
 mod middleware;
 mod models;
+mod openapi;
 mod routes;
 mod services;
 mod startup;
@@ -346,7 +347,9 @@ async fn main() -> anyhow::Result<()> {
         .layer(nosniff)
         .layer(frame_deny)
         .layer(no_cache_api)
-        .layer(DefaultBodyLimit::max(30 * 1024 * 1024)); // SEC-36: 全域 30MB 請求大小限制
+        .layer(DefaultBodyLimit::max(30 * 1024 * 1024)) // SEC-36: 全域 30MB 請求大小限制
+        .merge(utoipa_swagger_ui::SwaggerUi::new("/swagger-ui")
+            .url("/api-docs/openapi.json", <openapi::ApiDoc as utoipa::OpenApi>::openapi()));
 
     // 啟動伺服器
     let addr = format!("{}:{}", config.host, config.port);

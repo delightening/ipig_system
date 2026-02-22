@@ -107,3 +107,117 @@ pub async fn csrf_middleware(
 
     Ok(response)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // === requires_csrf_check ===
+
+    #[test]
+    fn test_post_requires_csrf() {
+        assert!(requires_csrf_check(&Method::POST));
+    }
+
+    #[test]
+    fn test_put_requires_csrf() {
+        assert!(requires_csrf_check(&Method::PUT));
+    }
+
+    #[test]
+    fn test_delete_requires_csrf() {
+        assert!(requires_csrf_check(&Method::DELETE));
+    }
+
+    #[test]
+    fn test_patch_requires_csrf() {
+        assert!(requires_csrf_check(&Method::PATCH));
+    }
+
+    #[test]
+    fn test_get_no_csrf() {
+        assert!(!requires_csrf_check(&Method::GET));
+    }
+
+    #[test]
+    fn test_head_no_csrf() {
+        assert!(!requires_csrf_check(&Method::HEAD));
+    }
+
+    #[test]
+    fn test_options_no_csrf() {
+        assert!(!requires_csrf_check(&Method::OPTIONS));
+    }
+
+    // === is_exempt_path ===
+
+    #[test]
+    fn test_login_exempt() {
+        assert!(is_exempt_path("/api/auth/login"));
+    }
+
+    #[test]
+    fn test_refresh_exempt() {
+        assert!(is_exempt_path("/api/auth/refresh"));
+    }
+
+    #[test]
+    fn test_forgot_password_exempt() {
+        assert!(is_exempt_path("/api/auth/forgot-password"));
+    }
+
+    #[test]
+    fn test_reset_password_exempt() {
+        assert!(is_exempt_path("/api/auth/reset-password"));
+    }
+
+    #[test]
+    fn test_normal_path_not_exempt() {
+        assert!(!is_exempt_path("/api/users"));
+        assert!(!is_exempt_path("/api/protocols"));
+        assert!(!is_exempt_path("/api/animals"));
+    }
+
+    // === extract_csrf_cookie ===
+
+    #[test]
+    fn test_extract_csrf_present() {
+        let mut request = Request::builder()
+            .header(header::COOKIE, "session=abc; csrf_token=my-token-123; other=val")
+            .body(Body::empty())
+            .unwrap();
+        assert_eq!(
+            extract_csrf_cookie(&request),
+            Some("my-token-123".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_csrf_absent() {
+        let request = Request::builder()
+            .header(header::COOKIE, "session=abc; other=val")
+            .body(Body::empty())
+            .unwrap();
+        assert_eq!(extract_csrf_cookie(&request), None);
+    }
+
+    #[test]
+    fn test_extract_csrf_no_cookie_header() {
+        let request = Request::builder()
+            .body(Body::empty())
+            .unwrap();
+        assert_eq!(extract_csrf_cookie(&request), None);
+    }
+
+    #[test]
+    fn test_extract_csrf_only_cookie() {
+        let request = Request::builder()
+            .header(header::COOKIE, "csrf_token=solo-value")
+            .body(Body::empty())
+            .unwrap();
+        assert_eq!(
+            extract_csrf_cookie(&request),
+            Some("solo-value".to_string())
+        );
+    }
+}

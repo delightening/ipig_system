@@ -89,6 +89,17 @@ fn login_response_with_cookies(
 // ============================================
 
 /// 登入
+#[utoipa::path(
+    post,
+    path = "/api/auth/login",
+    request_body = LoginRequest,
+    responses(
+        (status = 200, description = "登入成功", body = LoginResponse),
+        (status = 401, description = "帳號或密碼錯誤", body = ErrorResponse),
+        (status = 423, description = "帳號已鎖定", body = ErrorResponse),
+    ),
+    tag = "認證"
+)]
 pub async fn login(
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
@@ -209,6 +220,16 @@ pub async fn login(
 
 /// 重新整理 Token
 /// 支援從 JSON body 或 Cookie 讀取 refresh_token
+#[utoipa::path(
+    post,
+    path = "/api/auth/refresh",
+    request_body = RefreshTokenRequest,
+    responses(
+        (status = 200, description = "Token 更新成功", body = LoginResponse),
+        (status = 401, description = "Refresh token 無效或過期", body = ErrorResponse),
+    ),
+    tag = "認證"
+)]
 pub async fn refresh_token(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -225,6 +246,16 @@ pub async fn refresh_token(
 }
 
 /// 登出
+#[utoipa::path(
+    post,
+    path = "/api/auth/logout",
+    responses(
+        (status = 200, description = "登出成功"),
+        (status = 401, description = "未認證", body = ErrorResponse),
+    ),
+    tag = "認證",
+    security(("bearer" = []))
+)]
 pub async fn logout(
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
@@ -274,6 +305,16 @@ pub async fn logout(
 
 
 /// 取得當前使用者資訊
+#[utoipa::path(
+    get,
+    path = "/api/me",
+    responses(
+        (status = 200, description = "目前使用者資訊", body = UserResponse),
+        (status = 401, description = "未認證", body = ErrorResponse),
+    ),
+    tag = "認證",
+    security(("bearer" = []))
+)]
 pub async fn me(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -283,6 +324,17 @@ pub async fn me(
 }
 
 /// 更新自己的資訊
+#[utoipa::path(
+    put,
+    path = "/api/me",
+    request_body = UpdateUserRequest,
+    responses(
+        (status = 200, description = "更新成功", body = UserResponse),
+        (status = 400, description = "驗證錯誤", body = ErrorResponse),
+    ),
+    tag = "認證",
+    security(("bearer" = []))
+)]
 pub async fn update_me(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -295,6 +347,17 @@ pub async fn update_me(
 }
 
 /// 變更自己的密碼
+#[utoipa::path(
+    put,
+    path = "/api/me/password",
+    request_body = ChangeOwnPasswordRequest,
+    responses(
+        (status = 200, description = "密碼變更成功"),
+        (status = 400, description = "密碼不符合要求", body = ErrorResponse),
+    ),
+    tag = "認證",
+    security(("bearer" = []))
+)]
 pub async fn change_own_password(
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
@@ -329,6 +392,15 @@ pub async fn change_own_password(
 }
 
 /// 忘記密碼 - 發送重設連結
+#[utoipa::path(
+    post,
+    path = "/api/auth/forgot-password",
+    request_body = ForgotPasswordRequest,
+    responses(
+        (status = 200, description = "若信箱存在則已寄出重設連結"),
+    ),
+    tag = "認證"
+)]
 pub async fn forgot_password(
     State(state): State<AppState>,
     Json(req): Json<ForgotPasswordRequest>,
@@ -364,6 +436,16 @@ pub async fn forgot_password(
 }
 
 /// 使用 token 重設密碼
+#[utoipa::path(
+    post,
+    path = "/api/auth/reset-password",
+    request_body = ResetPasswordWithTokenRequest,
+    responses(
+        (status = 200, description = "密碼重設成功"),
+        (status = 400, description = "Token 無效或已過期", body = ErrorResponse),
+    ),
+    tag = "認證"
+)]
 pub async fn reset_password_with_token(
     State(state): State<AppState>,
     Json(req): Json<ResetPasswordWithTokenRequest>,
@@ -373,6 +455,15 @@ pub async fn reset_password_with_token(
 }
 
 /// Heartbeat - 更新使用者 session 的最後活動時間與 IP
+#[utoipa::path(
+    post,
+    path = "/api/auth/heartbeat",
+    responses(
+        (status = 200, description = "心跳更新成功"),
+    ),
+    tag = "認證",
+    security(("bearer" = []))
+)]
 pub async fn heartbeat(
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
@@ -394,6 +485,16 @@ pub async fn heartbeat(
 
 /// 停止模擬登入，恢復管理員 session
 /// 從 JWT 的 impersonated_by 欄位取得管理員 ID，重新簽發管理員的正常 token
+#[utoipa::path(
+    post,
+    path = "/api/auth/stop-impersonate",
+    responses(
+        (status = 200, description = "恢復管理員 session"),
+        (status = 403, description = "非模擬登入狀態", body = ErrorResponse),
+    ),
+    tag = "認證",
+    security(("bearer" = []))
+)]
 pub async fn stop_impersonate(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

@@ -1,11 +1,12 @@
 ﻿use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, Type};
+use utoipa::ToSchema;
 use uuid::Uuid;
 use validator::Validate;
 
 /// 計畫狀態
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type, ToSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 #[sqlx(type_name = "protocol_status", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ProtocolStatus {
@@ -72,7 +73,7 @@ impl ProtocolStatus {
 }
 
 /// 計畫書主表
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct Protocol {
     pub id: Uuid,
     pub protocol_no: String,
@@ -89,7 +90,7 @@ pub struct Protocol {
 }
 
 /// 計畫版本快照
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct ProtocolVersion {
     pub id: Uuid,
     pub protocol_id: Uuid,
@@ -100,7 +101,7 @@ pub struct ProtocolVersion {
 }
 
 /// 計畫活動類型
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type, ToSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 #[sqlx(type_name = "protocol_activity_type", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ProtocolActivityType {
@@ -204,7 +205,7 @@ impl ProtocolActivityType {
 }
 
 /// 計畫活動歷程
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct ProtocolActivity {
     pub id: Uuid,
     pub protocol_id: Uuid,
@@ -223,7 +224,7 @@ pub struct ProtocolActivity {
 }
 
 /// 計畫活動歷程回應（用於 API）
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct ProtocolActivityResponse {
     pub id: Uuid,
     pub protocol_id: Uuid,
@@ -266,7 +267,7 @@ impl From<ProtocolActivity> for ProtocolActivityResponse {
 
 
 /// 審查人員指派
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct ReviewAssignment {
     pub id: Uuid,
     pub protocol_id: Uuid,
@@ -283,7 +284,7 @@ pub struct ReviewAssignment {
 }
 
 /// 審查意見
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct ReviewComment {
     pub id: Uuid,
     #[sqlx(default)]
@@ -312,7 +313,7 @@ pub struct ReviewComment {
 }
 
 /// 計畫附件
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct ProtocolAttachment {
     pub id: Uuid,
     pub protocol_version_id: Option<Uuid>,
@@ -326,7 +327,7 @@ pub struct ProtocolAttachment {
 }
 
 /// 計畫中的角色
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type, ToSchema)]
 #[sqlx(type_name = "protocol_role", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ProtocolRole {
     Pi,
@@ -335,7 +336,7 @@ pub enum ProtocolRole {
 }
 
 /// 使用者計畫關聯
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct UserProtocol {
     pub user_id: Uuid,
     pub protocol_id: Uuid,
@@ -345,7 +346,7 @@ pub struct UserProtocol {
 }
 
 /// 獸醫審查指派
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct VetReviewAssignment {
     pub id: Uuid,
     pub protocol_id: Uuid,
@@ -359,7 +360,7 @@ pub struct VetReviewAssignment {
 }
 
 /// 獸醫審查查檢項
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct VetReviewItem {
     pub item_name: String,
     pub compliance: String, // V, X, -
@@ -368,7 +369,7 @@ pub struct VetReviewItem {
 }
 
 /// 獸醫審查表
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct VetReviewForm {
     pub items: Vec<VetReviewItem>,
     pub vet_signature: Option<String>,
@@ -376,7 +377,7 @@ pub struct VetReviewForm {
 }
 
 /// 系統設定
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct SystemSetting {
     pub key: String,
     pub value: serde_json::Value,
@@ -389,7 +390,7 @@ pub struct SystemSetting {
 // Request/Response DTOs
 // ============================================
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct CreateProtocolRequest {
     #[validate(length(min = 1, max = 500, message = "Title must be 1-500 characters"))]
     pub title: String,
@@ -399,7 +400,7 @@ pub struct CreateProtocolRequest {
     pub end_date: Option<NaiveDate>,
 }
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct UpdateProtocolRequest {
     #[validate(length(min = 1, max = 500, message = "Title must be 1-500 characters"))]
     pub title: Option<String>,
@@ -408,7 +409,7 @@ pub struct UpdateProtocolRequest {
     pub end_date: Option<NaiveDate>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct ChangeStatusRequest {
     pub to_status: ProtocolStatus,
     pub remark: Option<String>,
@@ -418,26 +419,26 @@ pub struct ChangeStatusRequest {
     pub vet_id: Option<Uuid>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct AssignReviewerRequest {
     pub protocol_id: Uuid,
     pub reviewer_id: Uuid,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct AssignCoEditorRequest {
     pub protocol_id: Uuid,
     pub user_id: Uuid,
 }
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct CreateCommentRequest {
     pub protocol_version_id: Uuid,
     #[validate(length(min = 1, max = 10_000, message = "Content must be 1-10000 characters"))]
     pub content: String,
 }
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct ReplyCommentRequest {
     pub parent_comment_id: Uuid,
     #[validate(length(min = 1, max = 10_000, message = "Content must be 1-10000 characters"))]
@@ -445,7 +446,7 @@ pub struct ReplyCommentRequest {
 }
 
 /// 儲存草稿回覆請求
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct SaveDraftRequest {
     pub comment_id: Uuid,
     #[validate(length(min = 1, max = 10_000, message = "Draft content must be 1-10000 characters"))]
@@ -453,13 +454,13 @@ pub struct SaveDraftRequest {
 }
 
 /// 送出回覆請求（將草稿正式送出）
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct SubmitReplyRequest {
     pub comment_id: Uuid,
 }
 
 /// 儲存獸醫審查表請求
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct SaveVetReviewFormRequest {
     pub protocol_id: Uuid,
     pub review_form: serde_json::Value,
@@ -476,7 +477,7 @@ pub struct ProtocolQuery {
 }
 
 /// 計畫書回應（含關聯資訊）
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct ProtocolResponse {
     pub protocol: Protocol,
     pub pi_name: Option<String>,
@@ -487,7 +488,7 @@ pub struct ProtocolResponse {
 }
 
 /// 計畫列表項目
-#[derive(Debug, Serialize, FromRow)]
+#[derive(Debug, Serialize, FromRow, ToSchema)]
 pub struct ProtocolListItem {
     pub id: Uuid,
     pub protocol_no: String,
@@ -505,7 +506,7 @@ pub struct ProtocolListItem {
 }
 
 /// 審查意見回應（含審查者資訊）
-#[derive(Debug, Serialize, FromRow)]
+#[derive(Debug, Serialize, FromRow, ToSchema)]
 pub struct ReviewCommentResponse {
     pub id: Uuid,
     pub protocol_version_id: Uuid,
@@ -540,7 +541,7 @@ pub struct ReviewCommentResponse {
 }
 
 /// 審查指派回應（含審查者與指派者資訊）
-#[derive(Debug, Serialize, FromRow)]
+#[derive(Debug, Serialize, FromRow, ToSchema)]
 pub struct ReviewAssignmentResponse {
     pub id: Uuid,
     pub protocol_id: Uuid,
@@ -558,7 +559,7 @@ pub struct ReviewAssignmentResponse {
 }
 
 /// Co-Editor 指派回應（含用戶資訊）
-#[derive(Debug, Serialize, FromRow)]
+#[derive(Debug, Serialize, FromRow, ToSchema)]
 pub struct CoEditorAssignmentResponse {
     pub user_id: Uuid,
     pub protocol_id: Uuid,
