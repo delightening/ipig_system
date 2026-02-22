@@ -1,6 +1,6 @@
 use axum::{
     body::Body,
-    extract::ConnectInfo,
+    extract::{ConnectInfo, State},
     http::{Request, Response, StatusCode},
     middleware::Next,
 };
@@ -9,7 +9,8 @@ use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use crate::middleware::real_ip::extract_real_ip;
+use crate::middleware::real_ip::extract_real_ip_with_trust;
+use crate::AppState;
 
 /// 速率限制器配置
 #[derive(Clone)]
@@ -92,6 +93,7 @@ impl RateLimiterState {
 
 /// 認證端點速率限制中間件（嚴格：每分鐘 30 次）
 pub async fn auth_rate_limit_middleware(
+    State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     request: Request<Body>,
     next: Next,
@@ -106,7 +108,7 @@ pub async fn auth_rate_limit_middleware(
         })
     });
 
-    let ip = extract_real_ip(request.headers(), &addr);
+    let ip = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
     let (allowed, remaining) = limiter.check_rate(&ip);
 
     if !allowed {
@@ -144,6 +146,7 @@ pub async fn auth_rate_limit_middleware(
 
 /// 一般 API 速率限制中間件（寬鬆：每分鐘 120 次）
 pub async fn api_rate_limit_middleware(
+    State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     request: Request<Body>,
     next: Next,
@@ -157,7 +160,7 @@ pub async fn api_rate_limit_middleware(
         })
     });
 
-    let ip = extract_real_ip(request.headers(), &addr);
+    let ip = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
     let (allowed, remaining) = limiter.check_rate(&ip);
 
     if !allowed {

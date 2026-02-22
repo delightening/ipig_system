@@ -9,7 +9,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    middleware::{CurrentUser, extract_real_ip},
+    middleware::{CurrentUser, extract_real_ip_with_trust},
     models::{AuditAction, CreateUserRequest, ResetPasswordRequest, UpdateUserRequest, UserResponse},
     require_permission,
     services::{AuthService, AuditService, UserService, EmailService},
@@ -110,7 +110,7 @@ pub async fn update_user(
 
     // 偵測角色或狀態變更，記錄二級審計
     if let Some(ref before) = before_user {
-        let ip = extract_real_ip(&headers, &addr);
+        let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
         let ua = headers.get("user-agent").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
         let roles_changed = before.roles != user.roles;
         let status_changed = before.is_active != user.is_active;
@@ -220,7 +220,7 @@ pub async fn reset_user_password(
     ).await?;
 
     // SEC: 敏感操作二級審計 — 管理員重設密碼
-    let ip = extract_real_ip(&headers, &addr);
+    let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
     let ua = headers.get("user-agent").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
     let db = state.db.clone();
     let actor = current_user.id;
@@ -274,7 +274,7 @@ pub async fn impersonate_user(
     ).await?;
 
     // SEC: 敏感操作二級審計 — 模擬登入
-    let ip = extract_real_ip(&headers, &addr);
+    let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
     let ua = headers.get("user-agent").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
     let target_name = login_response.user.display_name.clone();
     let db = state.db.clone();

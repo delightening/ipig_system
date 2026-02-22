@@ -10,7 +10,7 @@ use validator::Validate;
 
 use crate::{
     config::Config,
-    middleware::{CurrentUser, extract_real_ip},
+    middleware::{CurrentUser, extract_real_ip_with_trust},
     models::{
         ChangeOwnPasswordRequest, ForgotPasswordRequest, LoginRequest, LoginResponse,
         RefreshTokenRequest, ResetPasswordWithTokenRequest, UpdateUserRequest, UserResponse,
@@ -96,7 +96,7 @@ pub async fn login(
     Json(req): Json<LoginRequest>,
 ) -> Result<Response> {
     // 從 proxy header 提取真實客戶端 IP
-    let ip = extract_real_ip(&headers, &addr);
+    let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
     let user_agent = headers
         .get("user-agent")
         .and_then(|v| v.to_str().ok())
@@ -241,7 +241,7 @@ pub async fn logout(
         &state.db,
         current_user.id,
         &current_user.email,
-        Some(&extract_real_ip(&headers, &addr)),
+        Some(&extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers)),
     ).await {
         tracing::warn!("記錄登出事件失敗: {e}");
     }
@@ -302,7 +302,7 @@ pub async fn change_own_password(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<ChangeOwnPasswordRequest>,
 ) -> Result<Response> {
-    let ip = extract_real_ip(&headers, &addr);
+    let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
     let response = AuthService::change_own_password(
         &state.db,
         &state.config,
@@ -379,7 +379,7 @@ pub async fn heartbeat(
     headers: HeaderMap,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<serde_json::Value>> {
-    let ip = extract_real_ip(&headers, &addr);
+    let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
     
     if let Err(e) = SessionManager::update_activity(
         &state.db,

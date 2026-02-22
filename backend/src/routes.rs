@@ -17,7 +17,7 @@ pub fn api_routes(state: AppState) -> Router {
             "/auth/reset-password",
             post(handlers::reset_password_with_token),
         )
-        .route_layer(middleware::from_fn(auth_rate_limit_middleware))
+        .route_layer(middleware::from_fn_with_state(state.clone(), auth_rate_limit_middleware))
         .with_state(state.clone());
 
     // Protected routes (auth required)
@@ -934,9 +934,9 @@ pub fn api_routes(state: AppState) -> Router {
             state.clone(),
             auth_middleware,
         ))
-        .with_state(state);
+        .with_state(state.clone());
 
     Router::new()
         .nest("/api", public_routes.merge(protected_routes))
-        .route_layer(middleware::from_fn(api_rate_limit_middleware))
+        .route_layer(middleware::from_fn_with_state(state, api_rate_limit_middleware))
 }
