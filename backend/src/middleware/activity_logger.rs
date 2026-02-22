@@ -8,7 +8,7 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use super::real_ip::extract_real_ip;
+use super::real_ip::extract_real_ip_with_trust;
 use chrono::Utc;
 use std::net::SocketAddr;
 use uuid::Uuid;
@@ -33,7 +33,7 @@ pub async fn activity_logger_middleware(
         .get("user-agent")
         .and_then(|v| v.to_str().ok())
         .map(|s| s.to_string());
-    let ip_address = extract_real_ip(request.headers(), &addr);
+    let ip_address = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
     
     // 從 extension 取得 user_id（如果有的話）
     let user_id = request

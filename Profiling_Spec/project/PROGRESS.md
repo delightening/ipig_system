@@ -547,6 +547,8 @@
   - SEC-32 JWT 過期統一（`jwt_expiration_hours` → `JWT_EXPIRATION_MINUTES`，預設 15 分鐘）
   - Mutex 中毒 fail-closed（`jwt_blacklist.rs` + `rate_limiter.rs` 中毒時拒絕請求而非放行）
   - `cargo build` 零錯誤零警告、`cargo test` 87 測試全通過
+  - trust_proxy_headers 全面整合：12 處 `extract_real_ip` 呼叫全部改為 `extract_real_ip_with_trust`（`auth.rs`×4、`user.rs`×3、`attendance.rs`×2、`activity_logger.rs`×1、`rate_limiter.rs`×2）；rate limiter 加入 `State<AppState>`、`routes.rs` 改用 `from_fn_with_state`
+  - 移除殘留 `JWT_EXPIRATION_HOURS`（`docker-compose.yml`、`backend/.env`）
 
 ### 2026-02-21
 

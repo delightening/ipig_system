@@ -8,5 +8,6 @@ pub mod csrf;
 
 pub use auth::*;
 pub use real_ip::extract_real_ip;
+pub use real_ip::extract_real_ip_with_trust;
 pub use jwt_blacklist::JwtBlacklist;
 pub use csrf::csrf_middleware;

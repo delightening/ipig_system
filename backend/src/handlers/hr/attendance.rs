@@ -9,7 +9,7 @@ use std::net::SocketAddr;
 use uuid::Uuid;
 
 use crate::{
-    middleware::{CurrentUser, extract_real_ip},
+    middleware::{CurrentUser, extract_real_ip_with_trust},
     models::{AttendanceCorrectionRequest, AttendanceQuery, AttendanceWithUser, ClockInRequest, ClockOutRequest, PaginatedResponse},
     services::HrService,
     AppState, Result,
@@ -127,7 +127,7 @@ pub async fn clock_in(
     headers: HeaderMap,
     Json(payload): Json<ClockInRequest>,
 ) -> Result<Json<serde_json::Value>> {
-    let ip = extract_real_ip(&headers, &addr);
+    let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
 
     // 驗證位置（IP 或 GPS 任一通過即可）
     validate_clock_location(
@@ -163,7 +163,7 @@ pub async fn clock_out(
     headers: HeaderMap,
     Json(payload): Json<ClockOutRequest>,
 ) -> Result<Json<serde_json::Value>> {
-    let ip = extract_real_ip(&headers, &addr);
+    let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
 
     // 驗證位置（IP 或 GPS 任一通過即可）
     validate_clock_location(
