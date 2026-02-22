@@ -1,0 +1,16 @@
+cargo test 2>&1 結果
+日期: 2026-02-23 02:55
+環境: Windows (本機)
+
+test result: ok. 87 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.63s
+
+SEC-36/35/34 變更後全部通過:
+- models::user::tests (6 tests) - 包含 password strength 驗證
+- models::protocol::tests (7 tests) - 包含 status/activity 測試
+- services::file::tests (17 tests) - 包含 max_file_size 30MB 斷言
+- services::auth::tests (11 tests)
+- models::animal::tests (12 tests)
+- models::facility::tests (7 tests)
+- models::hr::tests (6 tests)
+- models::tests (5 tests)
+- services::partition_maintenance::tests (1 test)

@@ -433,14 +433,14 @@ pub struct AssignCoEditorRequest {
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreateCommentRequest {
     pub protocol_version_id: Uuid,
-    #[validate(length(min = 1, message = "Content is required"))]
+    #[validate(length(min = 1, max = 10_000, message = "Content must be 1-10000 characters"))]
     pub content: String,
 }
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct ReplyCommentRequest {
     pub parent_comment_id: Uuid,
-    #[validate(length(min = 1, message = "Content is required"))]
+    #[validate(length(min = 1, max = 10_000, message = "Content must be 1-10000 characters"))]
     pub content: String,
 }
 
@@ -448,7 +448,7 @@ pub struct ReplyCommentRequest {
 #[derive(Debug, Deserialize, Validate)]
 pub struct SaveDraftRequest {
     pub comment_id: Uuid,
-    #[validate(length(min = 1, message = "Draft content is required"))]
+    #[validate(length(min = 1, max = 10_000, message = "Draft content must be 1-10000 characters"))]
     pub draft_content: String,
 }
 

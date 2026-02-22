@@ -180,14 +180,93 @@ impl AuditService {
         .bind(entity_type)
         .bind(entity_id)
         .bind(entity_display_name)
-        .bind(before_data)
-        .bind(after_data)
+        .bind(before_data.clone())
+        .bind(after_data.clone())
         .bind(ip_address)
         .bind(user_agent)
         .fetch_one(pool)
         .await?;
 
-        Ok(result.0)
+        let log_id = result.0;
+
+        // SEC-34: HMAC 雜湊鏈（有 key 時才啟用）
+        if let Ok(hmac_key) = std::env::var("AUDIT_HMAC_KEY") {
+            if hmac_key.len() >= 16 {
+                let _ = Self::compute_and_store_hmac(
+                    pool, log_id, &hmac_key,
+                    event_category, event_type,
+                    actor_user_id,
+                    &before_data, &after_data,
+                ).await;
+            }
+        }
+
+        Ok(log_id)
+    }
+
+    /// SEC-34: 計算 HMAC-SHA256 並更新日誌記錄
+    async fn compute_and_store_hmac(
+        pool: &PgPool,
+        log_id: Uuid,
+        hmac_key: &str,
+        event_category: &str,
+        event_type: &str,
+        actor_user_id: Uuid,
+        before_data: &Option<serde_json::Value>,
+        after_data: &Option<serde_json::Value>,
+    ) -> Result<()> {
+        use hmac::{Hmac, Mac};
+        use sha2::Sha256;
+
+        type HmacSha256 = Hmac<Sha256>;
+
+        // 取得前一筆日誌的 integrity_hash（若有）
+        let prev_hash: Option<String> = sqlx::query_scalar(
+            r#"
+            SELECT integrity_hash FROM user_activity_logs
+            WHERE created_at < (SELECT created_at FROM user_activity_logs WHERE id = $1)
+            ORDER BY created_at DESC
+            LIMIT 1
+            "#
+        )
+        .bind(log_id)
+        .fetch_optional(pool)
+        .await
+        .unwrap_or(None);
+
+        // 組合雜湊內容: prev_hash + event_category + event_type + actor_id + data
+        let mut message = String::new();
+        if let Some(ref ph) = prev_hash {
+            message.push_str(ph);
+        }
+        message.push_str(event_category);
+        message.push_str(event_type);
+        message.push_str(&actor_user_id.to_string());
+        if let Some(ref bd) = before_data {
+            message.push_str(&bd.to_string());
+        }
+        if let Some(ref ad) = after_data {
+            message.push_str(&ad.to_string());
+        }
+
+        // 計算 HMAC-SHA256
+        let mut mac = HmacSha256::new_from_slice(hmac_key.as_bytes())
+            .map_err(|e| crate::error::AppError::Internal(format!("HMAC key error: {}", e)))?;
+        mac.update(message.as_bytes());
+        let hash_bytes = mac.finalize().into_bytes();
+        let hash_result: String = hash_bytes.iter().map(|b| format!("{:02x}", b)).collect();
+
+        // 更新記錄
+        sqlx::query(
+            "UPDATE user_activity_logs SET integrity_hash = $1, previous_hash = $2 WHERE id = $3"
+        )
+        .bind(&hash_result)
+        .bind(prev_hash.as_deref())
+        .bind(log_id)
+        .execute(pool)
+        .await?;
+
+        Ok(())
     }
 
     // ============================================

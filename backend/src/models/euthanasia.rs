@@ -94,14 +94,14 @@ pub struct MeetingRequest {
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreateEuthanasiaOrderRequest {
     pub animal_id: Uuid,
-    #[validate(length(min = 1, message = "Reason is required"))]
+    #[validate(length(min = 1, max = 2_000, message = "Reason must be 1-2000 characters"))]
     pub reason: String,
 }
 
 /// 安樂死暫緩申請請求
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreateEuthanasiaAppealRequest {
-    #[validate(length(min = 1, message = "Reason is required"))]
+    #[validate(length(min = 1, max = 2_000, message = "Reason must be 1-2000 characters"))]
     pub reason: String,
     pub attachment_path: Option<String>,
 }
@@ -117,7 +117,7 @@ pub struct ChairDecisionRequest {
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreateReviewerDecisionRequest {
     pub protocol_version_id: Uuid,
-    #[validate(length(min = 1, message = "Decision is required"))]
+    #[validate(length(min = 1, max = 100, message = "Decision must be 1-100 characters"))]
     pub decision: String,  // 'approve', 'revision_required', 'reject'
     pub comment: Option<String>,
 }
@@ -126,7 +126,7 @@ pub struct CreateReviewerDecisionRequest {
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreateMeetingRequest {
     pub protocol_id: Uuid,
-    #[validate(length(min = 1, message = "Reason is required"))]
+    #[validate(length(min = 1, max = 2_000, message = "Reason must be 1-2000 characters"))]
     pub reason: String,
 }
 

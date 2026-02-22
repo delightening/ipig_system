@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use axum::{
+    extract::DefaultBodyLimit,
     http::{header, HeaderValue, Method},
 };
 use sqlx;
@@ -344,7 +345,8 @@ async fn main() -> anyhow::Result<()> {
         .layer(trace_layer)
         .layer(nosniff)
         .layer(frame_deny)
-        .layer(no_cache_api);
+        .layer(no_cache_api)
+        .layer(DefaultBodyLimit::max(30 * 1024 * 1024)); // SEC-36: 全域 30MB 請求大小限制
 
     // 啟動伺服器
     let addr = format!("{}:{}", config.host, config.port);
