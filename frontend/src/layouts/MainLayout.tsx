@@ -234,7 +234,7 @@ function SortableNavItem({
                 : 'text-slate-300 hover:bg-slate-800 hover:text-white'
             )}
           >
-            <span className="w-12 flex items-center justify-center shrink-0">{item.icon}</span>
+            <span className="w-16 flex items-center justify-center shrink-0">{item.icon}</span>
             {sidebarOpen && (
               <span className="flex-1 flex items-center justify-between min-w-0 pr-3">
                 <span className="truncate">{translateTitle(item)}</span>
@@ -276,7 +276,7 @@ function SortableNavItem({
                   : 'text-slate-300 hover:bg-slate-800 hover:text-white'
               )}
             >
-              <span className="w-12 flex items-center justify-center shrink-0">{item.icon}</span>
+              <span className="w-16 flex items-center justify-center shrink-0">{item.icon}</span>
               {sidebarOpen && (
                 <span className="flex-1 flex items-center justify-between min-w-0 pr-3">
                   <span className="truncate">{translateTitle(item)}</span>
