@@ -59,3 +59,90 @@ pub fn extract_real_ip_with_trust(
     // 4. Fallback：使用 socket 直連 IP
     fallback.ip().to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+
+    fn fallback() -> SocketAddr {
+        SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 100)), 12345)
+    }
+
+    // === trust_proxy = false ===
+
+    #[test]
+    fn test_no_trust_ignores_all_headers() {
+        let mut headers = HeaderMap::new();
+        headers.insert("cf-connecting-ip", "1.2.3.4".parse().unwrap());
+        headers.insert("x-real-ip", "5.6.7.8".parse().unwrap());
+        headers.insert("x-forwarded-for", "9.10.11.12".parse().unwrap());
+        assert_eq!(
+            extract_real_ip_with_trust(&headers, &fallback(), false),
+            "192.168.1.100"
+        );
+    }
+
+    // === trust_proxy = true: 優先級 ===
+
+    #[test]
+    fn test_cf_connecting_ip_highest_priority() {
+        let mut headers = HeaderMap::new();
+        headers.insert("cf-connecting-ip", "1.1.1.1".parse().unwrap());
+        headers.insert("x-real-ip", "2.2.2.2".parse().unwrap());
+        headers.insert("x-forwarded-for", "3.3.3.3".parse().unwrap());
+        assert_eq!(extract_real_ip_with_trust(&headers, &fallback(), true), "1.1.1.1");
+    }
+
+    #[test]
+    fn test_x_real_ip_second_priority() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-real-ip", "2.2.2.2".parse().unwrap());
+        headers.insert("x-forwarded-for", "3.3.3.3".parse().unwrap());
+        assert_eq!(extract_real_ip_with_trust(&headers, &fallback(), true), "2.2.2.2");
+    }
+
+    #[test]
+    fn test_x_forwarded_for_first_ip() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-forwarded-for", "10.0.0.1, 10.0.0.2, 10.0.0.3".parse().unwrap());
+        assert_eq!(extract_real_ip_with_trust(&headers, &fallback(), true), "10.0.0.1");
+    }
+
+    #[test]
+    fn test_x_forwarded_for_single() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-forwarded-for", "203.0.113.50".parse().unwrap());
+        assert_eq!(extract_real_ip_with_trust(&headers, &fallback(), true), "203.0.113.50");
+    }
+
+    #[test]
+    fn test_fallback_when_no_headers() {
+        let headers = HeaderMap::new();
+        assert_eq!(extract_real_ip_with_trust(&headers, &fallback(), true), "192.168.1.100");
+    }
+
+    #[test]
+    fn test_empty_header_skipped() {
+        let mut headers = HeaderMap::new();
+        headers.insert("cf-connecting-ip", "".parse().unwrap());
+        headers.insert("x-real-ip", "4.4.4.4".parse().unwrap());
+        assert_eq!(extract_real_ip_with_trust(&headers, &fallback(), true), "4.4.4.4");
+    }
+
+    // === extract_real_ip (預設 trust wrapper) ===
+
+    #[test]
+    fn test_default_trusts_proxy() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-real-ip", "8.8.8.8".parse().unwrap());
+        assert_eq!(extract_real_ip(&headers, &fallback()), "8.8.8.8");
+    }
+
+    #[test]
+    fn test_whitespace_trimmed() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-real-ip", "  7.7.7.7  ".parse().unwrap());
+        assert_eq!(extract_real_ip(&headers, &fallback()), "7.7.7.7");
+    }
+}

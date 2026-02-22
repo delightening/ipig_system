@@ -1,0 +1,22 @@
+cargo test 2>&1 結果
+日期: 2026-02-23 03:25
+環境: Windows (本機)
+
+test result: ok. 119 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.69s
+
+新增測試 (87 → 119, +32):
+- config::tests (7 tests) - is_email_enabled, GPS 半徑, JWT, HMAC key, CORS, cookie_secure
+- middleware::csrf::tests (15 tests) - requires_csrf_check(7), is_exempt_path(5), extract_csrf_cookie(4+通過的)
+- middleware::real_ip::tests (9 tests) - trust_proxy true/false, header 優先級, 空值處理, 空白修剪
+- services::file::tests (1 更新) - max_file_size 30MB 斷言
+
+原有測試模組 (87 tests):
+- models::animal::tests (12)
+- models::facility::tests (7)
+- models::hr::tests (6)
+- models::protocol::tests (7)
+- models::tests (5)
+- models::user::tests (9)
+- services::auth::tests (11)
+- services::file::tests (17)
+- services::partition_maintenance::tests (1)

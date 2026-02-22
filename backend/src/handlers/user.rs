@@ -24,6 +24,18 @@ pub struct UserQuery {
 }
 
 /// 建立使用者
+#[utoipa::path(
+    post,
+    path = "/api/users",
+    request_body = CreateUserRequest,
+    responses(
+        (status = 200, description = "建立成功", body = UserResponse),
+        (status = 400, description = "驗證錯誤", body = ErrorResponse),
+        (status = 409, description = "信箱已存在", body = ErrorResponse),
+    ),
+    tag = "使用者管理",
+    security(("bearer" = []))
+)]
 pub async fn create_user(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -68,6 +80,15 @@ pub async fn create_user(
 }
 
 /// 列出所有使用者
+#[utoipa::path(
+    get,
+    path = "/api/users",
+    responses(
+        (status = 200, description = "使用者清單", body = Vec<UserResponse>),
+    ),
+    tag = "使用者管理",
+    security(("bearer" = []))
+)]
 pub async fn list_users(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -80,6 +101,19 @@ pub async fn list_users(
 }
 
 /// 取得單個使用者
+#[utoipa::path(
+    get,
+    path = "/api/users/{id}",
+    params(
+        ("id" = Uuid, Path, description = "使用者 ID")
+    ),
+    responses(
+        (status = 200, description = "使用者資訊", body = UserResponse),
+        (status = 404, description = "使用者不存在", body = ErrorResponse),
+    ),
+    tag = "使用者管理",
+    security(("bearer" = []))
+)]
 pub async fn get_user(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -92,6 +126,21 @@ pub async fn get_user(
 }
 
 /// 更新使用者
+#[utoipa::path(
+    put,
+    path = "/api/users/{id}",
+    params(
+        ("id" = Uuid, Path, description = "使用者 ID")
+    ),
+    request_body = UpdateUserRequest,
+    responses(
+        (status = 200, description = "更新成功", body = UserResponse),
+        (status = 400, description = "驗證錯誤", body = ErrorResponse),
+        (status = 404, description = "使用者不存在", body = ErrorResponse),
+    ),
+    tag = "使用者管理",
+    security(("bearer" = []))
+)]
 pub async fn update_user(
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
@@ -157,6 +206,19 @@ pub async fn update_user(
 }
 
 /// 刪除使用者
+#[utoipa::path(
+    delete,
+    path = "/api/users/{id}",
+    params(
+        ("id" = Uuid, Path, description = "使用者 ID")
+    ),
+    responses(
+        (status = 200, description = "刪除成功"),
+        (status = 404, description = "使用者不存在", body = ErrorResponse),
+    ),
+    tag = "使用者管理",
+    security(("bearer" = []))
+)]
 pub async fn delete_user(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -182,6 +244,20 @@ pub async fn delete_user(
 }
 
 /// Admin 重設其他使用者密碼
+#[utoipa::path(
+    put,
+    path = "/api/users/{id}/password",
+    params(
+        ("id" = Uuid, Path, description = "使用者 ID")
+    ),
+    request_body = ResetPasswordRequest,
+    responses(
+        (status = 200, description = "密碼重設成功"),
+        (status = 403, description = "權限不足", body = ErrorResponse),
+    ),
+    tag = "使用者管理",
+    security(("bearer" = []))
+)]
 pub async fn reset_user_password(
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
@@ -238,6 +314,19 @@ pub async fn reset_user_password(
 
 /// 模擬登入使用者（管理員專用的測試功能）
 /// 回傳 Response 含 Set-Cookie headers
+#[utoipa::path(
+    post,
+    path = "/api/users/{id}/impersonate",
+    params(
+        ("id" = Uuid, Path, description = "要模擬的使用者 ID")
+    ),
+    responses(
+        (status = 200, description = "模擬登入成功"),
+        (status = 403, description = "僅限管理員", body = ErrorResponse),
+    ),
+    tag = "使用者管理",
+    security(("bearer" = []))
+)]
 pub async fn impersonate_user(
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,

@@ -153,3 +153,84 @@ impl Config {
         self.smtp_host.is_some()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 產生最小可用 Config（不依賴環境變數）
+    fn minimal_config() -> Config {
+        Config {
+            host: "0.0.0.0".to_string(),
+            port: 3000,
+            database_url: "postgres://test:test@localhost/test".to_string(),
+            database_max_connections: 10,
+            database_retry_attempts: 5,
+            database_retry_delay_seconds: 5,
+            jwt_secret: "a".repeat(32),
+            jwt_expiration_seconds: 900,
+            jwt_refresh_expiration_days: 7,
+            max_sessions_per_user: 5,
+            smtp_host: None,
+            smtp_port: 587,
+            smtp_username: None,
+            smtp_password: None,
+            smtp_from_email: "noreply@test.local".to_string(),
+            smtp_from_name: "Test".to_string(),
+            app_url: "http://localhost".to_string(),
+            cookie_secure: false,
+            cookie_domain: None,
+            seed_dev_users: false,
+            allowed_clock_ip_ranges: vec![],
+            clock_office_latitude: None,
+            clock_office_longitude: None,
+            clock_gps_radius_meters: 200.0,
+            trust_proxy_headers: true,
+            cors_allowed_origins: vec!["http://localhost:8080".to_string()],
+            audit_hmac_key: None,
+        }
+    }
+
+    #[test]
+    fn test_email_disabled_when_no_host() {
+        let config = minimal_config();
+        assert!(!config.is_email_enabled());
+    }
+
+    #[test]
+    fn test_email_enabled_when_host_set() {
+        let mut config = minimal_config();
+        config.smtp_host = Some("smtp.example.com".to_string());
+        assert!(config.is_email_enabled());
+    }
+
+    #[test]
+    fn test_default_gps_radius() {
+        let config = minimal_config();
+        assert_eq!(config.clock_gps_radius_meters, 200.0);
+    }
+
+    #[test]
+    fn test_jwt_secret_min_length() {
+        let config = minimal_config();
+        assert!(config.jwt_secret.len() >= 32);
+    }
+
+    #[test]
+    fn test_audit_hmac_key_none_by_default() {
+        let config = minimal_config();
+        assert!(config.audit_hmac_key.is_none());
+    }
+
+    #[test]
+    fn test_cors_origins_default() {
+        let config = minimal_config();
+        assert_eq!(config.cors_allowed_origins, vec!["http://localhost:8080"]);
+    }
+
+    #[test]
+    fn test_cookie_secure_default_false() {
+        let config = minimal_config();
+        assert!(!config.cookie_secure);
+    }
+}

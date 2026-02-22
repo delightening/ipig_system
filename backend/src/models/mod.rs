@@ -43,9 +43,10 @@ pub use treatment_drug::*;
 
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// Pagination query parameters
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct PaginationQuery {
     #[serde(default = "default_page")]
     pub page: i64,
@@ -57,7 +58,7 @@ fn default_page() -> i64 { 1 }
 fn default_per_page() -> i64 { 20 }
 
 /// Paginated response wrapper
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct PaginatedResponse<T> {
     pub data: Vec<T>,
     pub total: i64,

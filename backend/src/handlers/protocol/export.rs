@@ -16,6 +16,7 @@ use crate::{
 };
 
 /// 匯出計畫書 PDF
+#[utoipa::path(get, path = "/api/protocols/{id}/export-pdf", params(("id" = Uuid, Path, description = "專案 ID")), responses((status = 200, description = "PDF 檔案")), tag = "計畫書管理", security(("bearer" = [])))]
 pub async fn export_protocol_pdf(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

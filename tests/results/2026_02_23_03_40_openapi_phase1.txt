@@ -1,0 +1,21 @@
+cargo test 結果
+日期: 2026-02-23 03:40
+環境: Windows (本機)
+
+test result: ok. 119 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.66s
+
+OpenAPI Phase 1 整合完成後驗證：
+- cargo check: 零錯誤（2 個既有 warning：extract_real_ip unused）
+- cargo test: 119 tests 全通過
+
+新增/修改檔案:
+- [NEW] openapi.rs — OpenApi derive 入口（23 paths, 18 schemas）
+- [MOD] main.rs — 掛載 SwaggerUI
+- [MOD] models/user.rs — 13 struct/enum 加 ToSchema
+- [MOD] models/role.rs — 5 struct 加 ToSchema  
+- [MOD] models/mod.rs — PaginationQuery + PaginatedResponse 加 ToSchema
+- [MOD] error.rs — 新增 ErrorResponse + ErrorDetail (ToSchema)
+- [MOD] handlers/auth.rs — 10 handler 加 #[utoipa::path]
+- [MOD] handlers/user.rs — 7 handler 加 #[utoipa::path]
+- [MOD] handlers/role.rs — 6 handler 加 #[utoipa::path]
+- [MOD] handlers/mod.rs — user/role 改 pub(crate)

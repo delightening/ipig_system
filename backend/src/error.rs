@@ -5,8 +5,27 @@ use axum::{
 };
 use axum::extract::rejection::JsonRejection;
 use serde_json::json;
+use utoipa::ToSchema;
 
 pub type Result<T> = std::result::Result<T, AppError>;
+
+/// API 錯誤回應格式（供 Swagger 文件展示）
+#[derive(Debug, serde::Serialize, ToSchema)]
+pub struct ErrorResponse {
+    /// 錯誤資訊
+    pub error: ErrorDetail,
+}
+
+/// 錯誤詳細資訊
+#[derive(Debug, serde::Serialize, ToSchema)]
+pub struct ErrorDetail {
+    /// 錯誤訊息
+    pub message: String,
+    /// HTTP 狀態碼
+    pub code: u16,
+    /// 是否阻斷操作
+    pub blocking: bool,
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
