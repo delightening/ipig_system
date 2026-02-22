@@ -93,66 +93,30 @@ Router::new()
 
 1.  **自動化端到端 (E2E) 測試整合**
     *   **技術路徑**: 使用 `docker-compose.test.yml` 建立隔離環境。
-    *   **細節**:
-        - 建立專用的測試容器 `ipig-test-runner`。
-        - 實作「Clean Database」模式，每次測試前自動執行 `sqlx migrate`。
-        - 整合 Python `pytest` 整合測試至 GitHub Actions，確保 PR 提交時自動驗證核心業務流 (AUP/動物管理)。
 2.  **全方位可觀測性 (Observability) 導入**
     *   **技術路徑**: `axum-prometheus` + `tracing-opentelemetry`。
-    *   **細節**:
-        - 實作 `/metrics` 端點，收集 API 響應延遲 (Histogram) 與資料庫連線池狀態。
-        - 配置 `tower-http` 的 `TraceLayer`，將 Request ID 注入所有日誌，支援全鏈路追蹤 (Distributed Tracing)。
-        - 設置健康檢查端點 `/health`，動態回傳 DB, Redis 及外部 API (Google Calendar) 的連通狀態。
 3.  **API 文件自動化與版本化**
     *   **技術路徑**: `utoipa` + `utoipa-swagger-ui`。
-    *   **細節**:
-        - 實作 API 版本控制架構 (如 `/api/v1/...`)，確保向後兼容。
-        - 自動產生 OpenAPI 3.0 規格書，並在 Staging 環境部署 Swagger UI。
 
 ### 階段二：效能優化與高可用架構 (Performance & Scalability)
 *專注於資料處理能力與系統響應速度。*
 
 1.  **多層級快取機制 (Caching Strategies)**
     *   **技術路徑**: `Redis` 作為緩存層。
-    *   **細節**:
-        - **Session Cache**: 將 JWT 黑名單與 Active Sessions 移至 Redis，提升驗證效率。
-        - **Data Cache**: 對於 ERP 主檔 (產品/倉庫) 與 AUP 靜態配置實作 TTL 快取。
-        - **Write-Behind**: 針對非即時性的 `user_activity_logs` 採用異步寫入模式。
 2.  **資料庫讀寫分離與優化**
     *   **技術路徑**: `SQLx` 連線池管理與索引優化。
-    *   **細節**:
-        - 配置 Read-only 副本連線池，將大型報表查詢導向副本。
-        - 定期執行 `EXPLAIN ANALYZE` 稽核，針對 `stock_ledger` 與 `animal_events` 進行索引微調。
-        - 擴展 `user_activity_logs` 的 Partition 策略，從「季度」細化為「月度」。
 3.  **靜態資源與前端優化**
     *   **技術路徑**: `Vite` 分包編譯 + `Nginx` 壓縮。
-    *   **細節**:
-        - 實作按需載入 (Lazy Loading) 路由組件，降低首屏載入時間 (FCP)。
-        - 啟用 Nginx `brotli` 壓縮與長期緩存策略 (Cache-Control)。
 
 ### 階段三：智能化功能與生態擴展 (Intelligent Features & Ecosystem)
 *專注於業務價值提升與外部整合。*
 
 1.  **多物種動態表單系統**
     *   **技術路徑**: JSON Schema 驅動的前端表單。
-    *   **細節**:
-        - 擴展 `species` 表，儲存各物種的生理參數閾值與驗證規則。
-        - 實作通用醫療紀錄組件，依 `species_id` 動態渲染欄位 (如：豬隻的耳號 vs. 囓齒類的標記)。
 2.  **AI 輔助健康監測 (AI-Driven Insights)**
     *   **技術路徑**: `ONNX Runtime` 或 OpenAI API。
-    *   **細節**:
-        - 建立異常檢測模型，分析體重趨勢與臨床觀察描述，自動觸發「獸醫介入警報」。
-        - AUP 撰寫輔助：根據歷史核准案例，提供計畫書內容建議。
 3.  **外部系統生態對接 (Open API/Webhooks)**
     *   **技術路徑**: 實作標準化 Webhook 機制。
-    *   **細節**:
-        - 當動物入庫或 AUP 核准時，自動推送通知至企業 ERP (SAP/Oracle)。
-        - 提供專屬 API Key 給第三方合作單位 (LIMS) 直接上傳血檢報告。
-4.  **行動端專屬優化 (Mobile-First Experience)**
-    *   **技術路徑**: PWA (Progressive Web App)。
-    *   **細節**:
-        - 支援離線快取關鍵資料 (如：當日打卡、觀察紀錄草稿)。
-        - 優化掃碼入庫 (Barcode/QR) 的相機呼叫效能。
 
 ---
 
@@ -160,31 +124,43 @@ Router::new()
 
 針對「**100 隻豬、每日 1 張照片 + 1 筆文字紀錄**」的營運場景，評估一年的資源成長需求：
 
-### 7.1 儲存空間需求 (Storage Capacity)
-*   **照片紀錄 (Blob Storage)**:
-    *   根據 `FileService` 配置，動物照片上限為 10MB。實務平均每張照片採 2MB 計。
-    *   **日增量**: 100 隻 × 2MB = **200 MB/日**。
-    *   **年需求**: 365 天 × 200MB ≈ **73 GB/年**。 (若照片平均 5MB，則需約 **182 GB/年**)。
-*   **文字記錄 (Database Text)**:
-    *   每筆觀察/手術紀錄平均 2KB。
-    *   **日增量**: 100 筆 × 2KB = **200 KB/日**。
-    *   **年需求**: 365 天 × 200KB ≈ **73 MB/年** (對於儲存空間佔比極低)。
-*   **建議配置**: 初期硬體建議預留 **250GB - 500GB** 磁碟，或優先採用 S3 相容物件儲存以利無限擴展。
-
-### 7.2 資料庫效能評估 (Database & Indexing)
-*   **紀錄總數**: 一年累計新增 **36,500 筆** 醫療紀錄。
-*   **檢索資源**:
-    *   PostgreSQL 對於 10 萬筆以下的資料量，使用 B-Tree 索引對 `animal_id` 與 `event_date` 進行查詢，延遲可維持在 **1ms - 10ms**。
-    *   **索引大小**: 年增量約 **20-50 MB**，記憶體快取足以應付。
-*   **併發負載**: 每日 100 次上傳，即使集中於尖峰 1 小時內，平均 36 秒 1 筆請求，現有 Axum/Tokio 架構可輕鬆應對。
-
-### 7.3 流量需求 (Network Throughput)
-*   **上傳頻寬**: 集中尖峰時段每秒約 **0.5 - 2 Mbps**。
-*   **檢閱流量**: 當獸醫進行批次紀錄查閱時，讀取 100 張照片約需下載 200MB 資料，建議配置 **100Mbps** 以上的內部頻寬或啟用前端縮圖預覽機制以優化體驗。
+- **照片紀錄**: 約 **73 GB - 182 GB / 年**。
+- **文字記錄**: 約 **73 MB / 年**。
+- **建議配置**: 初期建議 **500GB SSD** 以上磁碟空間。
 
 ---
 
-## 8. 部署規範 (Deployment)
+## 8. 市場標準與正式投入使用里程碑 (Market Standards & Go-Live)
+
+為達到「可被審計、可交付」的專業標準，系統需在完成**階段一**後，達成以下關鍵節點即可正式投入使用：
+
+### 8.1 審計合規性 (Auditability - GLP Ready)
+- [ ] **電子簽章法規適配**: 確保所有醫療紀錄與 AUP 簽章流程符合 **21 CFR Part 11** 的不可否認性要求。
+- [ ] **不可變稽核軌跡**: 實作資料庫層級的觸發器 (Triggers)，確保 `user_activity_logs` 即使具備 DB Admin 權限也無法被無痕竄改。
+- [ ] **定期合規報告**: 自動產生季度安全審計報告，包含登入異常、權限變更與資料刪除追蹤。
+
+### 8.2 交付與可靠性 (Deliverability & Reliability)
+- [ ] **備援與災難復原 (DRP)**: 建立每日自動加密備份至異地 (S3/NAS) 的機制，並通過一次完整的還原測試。
+- [ ] **自動化環境配置**: 提供一鍵腳本 (Ansible/Terraform)，在 15 分鐘內完成生產環境的基礎設施搭建與安全加固。
+- [ ] **技術文檔體系**: 完成《使用者操作手冊》、《系統管理員手冊》與《API 整合指引》。
+
+### 8.3 安全防禦加固 (Security Hardening)
+- [ ] **滲透測試**: 通過基礎的 OWASP Top 10 漏洞掃描 (使用 ZAP 或同等級工具)。
+- [ ] **敏感資料加密**: 實作資料庫欄位加密 (Encryption at Rest)，針對使用者身分字號或敏感研究數據進行保護。
+
+---
+
+## 9. 未來展望 (Future Vision)
+
+iPig 的願景是超越管理工具，成為**實驗動物科學的數位中樞**。
+
+1.  **科研數據湖 (Research Data Lake)**: 整合多維度的實驗紀錄，利用大數據分析提供物種生理基準值的動態建模。
+2.  **物聯網自動化監控 (IoT Integration)**: 與智慧豬舍設備對接，自動採集環境濕溫度、自動餵飼數據與活動量監控。
+3.  **開放式協作生態**: 支援跨機構的聯合研究模式，透過安全授權與資料脫敏 (Anonymization) 技術，推動動物實驗的減量與優化。
+
+---
+
+## 10. 部署規範 (Deployment)
 
 - **Docker Compose**: 4 服務架構 (API, Web, DB, Web-Dev)。
 - **Nginx**: 作為反向代理處理 SSL 終止與緩衝優化。
