@@ -79,7 +79,7 @@ impl FileCategory {
     /// 取得最大檔案大小（bytes）
     pub fn max_file_size(&self) -> usize {
         match self {
-            FileCategory::ProtocolAttachment => 50 * 1024 * 1024, // 50 MB
+            FileCategory::ProtocolAttachment => 30 * 1024 * 1024, // 30 MB
             FileCategory::AnimalPhoto => 10 * 1024 * 1024,           // 10 MB
             FileCategory::PathologyReport => 30 * 1024 * 1024,    // 30 MB
             FileCategory::VetRecommendation => 10 * 1024 * 1024,  // 10 MB
@@ -202,6 +202,20 @@ impl FileService {
         data: &[u8],
         entity_id: Option<&str>,
     ) -> Result<UploadResult, AppError> {
+        // SEC-35: 檔名清理 — 防止路徑穿越攻擊
+        if original_filename.contains('/') || original_filename.contains('\\') || original_filename.contains("..") {
+            return Err(AppError::Validation(
+                "Filename contains invalid characters".to_string(),
+            ));
+        }
+        if let Some(id) = entity_id {
+            if id.contains('/') || id.contains('\\') || id.contains("..") {
+                return Err(AppError::Validation(
+                    "Entity ID contains invalid characters".to_string(),
+                ));
+            }
+        }
+
         // 驗證 MIME 類型
         if !category.allowed_mime_types().contains(&mime_type) {
             return Err(AppError::Validation(format!(
@@ -451,7 +465,7 @@ mod tests {
 
     #[test]
     fn test_file_category_max_size() {
-        assert_eq!(FileCategory::ProtocolAttachment.max_file_size(), 50 * 1024 * 1024);
+        assert_eq!(FileCategory::ProtocolAttachment.max_file_size(), 30 * 1024 * 1024);
         assert_eq!(FileCategory::AnimalPhoto.max_file_size(), 10 * 1024 * 1024);
         assert_eq!(FileCategory::PathologyReport.max_file_size(), 30 * 1024 * 1024);
     }

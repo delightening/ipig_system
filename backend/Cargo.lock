@@ -700,6 +700,7 @@ dependencies = [
  "csv",
  "dotenvy",
  "futures",
+ "hmac",
  "jsonwebtoken",
  "lettre",
  "maxminddb",

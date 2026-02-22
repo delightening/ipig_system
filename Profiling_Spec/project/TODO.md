@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-02-22
+> **最後更新：** 2026-02-23
 
 此文件撰寫方式
 
@@ -37,9 +37,9 @@
 | 8 | **SEC-15：Named Tunnel 遷移** | 從 Cloudflare Quick Tunnel 遷移至 Named Tunnel | DevOps |
 | 9 | ~~**SEC-32：CORS Origin 動態化**~~ | ✅ 已完成（`config.rs` + `main.rs` 改為 `CORS_ALLOWED_ORIGINS` 環境變數） | 後端 |
 | 10 | **SEC-33：敏感操作二級認證** | 高危操作要求重新輸入密碼確認（推遲）| 前後端 |
-| 11 | **SEC-34：稽核日誌防篡改** | HMAC 雜湊鏈保護 audit_logs 不可竄改 | 後端 |
-| 12 | **SEC-35：上傳目錄隔離** | UUID 重命名 + Nginx 禁止直接存取 + API 代理下載 | 後端+Nginx |
-| 13 | **SEC-36：輸入長度限制與清理** | 全域 body size limit + 文字欄位 max length | 後端 |
+| 11 | ~~**SEC-34：稽核日誌防篡改**~~ | ✅ 已完成（HMAC-SHA256 雜湊鏈、migration 011、audit.rs + .env.example） | 後端 |
+| 12 | ~~**SEC-35：上傳目錄隔離**~~ | ✅ 已完成（nginx deny /uploads + FileService 檔名清理路徑穿越防護） | 後端+Nginx |
+| 13 | ~~**SEC-36：輸入長度限制與清理**~~ | ✅ 已完成（nginx 30m + axum DefaultBodyLimit 30MB + user/protocol/euthanasia validate max） | 後端 |
 
 ---
 

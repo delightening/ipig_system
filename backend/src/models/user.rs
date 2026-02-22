@@ -102,10 +102,11 @@ pub struct UserWithRoles {
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreateUserRequest {
     #[validate(email(message = "Invalid email format"))]
+    #[validate(length(max = 254, message = "Email must be at most 254 characters"))]
     pub email: String,
-    #[validate(length(min = 6, message = "Password must be at least 6 characters"))]
+    #[validate(length(min = 6, max = 128, message = "Password must be 6-128 characters"))]
     pub password: String,
-    #[validate(length(min = 1, message = "Display name is required"))]
+    #[validate(length(min = 1, max = 100, message = "Display name must be 1-100 characters"))]
     pub display_name: String,
     pub phone: Option<String>,
     pub organization: Option<String>,
@@ -131,8 +132,9 @@ fn default_is_internal() -> bool {
 #[derive(Debug, Deserialize, Validate)]
 pub struct UpdateUserRequest {
     #[validate(email(message = "Invalid email format"))]
+    #[validate(length(max = 254, message = "Email must be at most 254 characters"))]
     pub email: Option<String>,
-    #[validate(length(min = 1, message = "Display name is required"))]
+    #[validate(length(min = 1, max = 100, message = "Display name must be 1-100 characters"))]
     pub display_name: Option<String>,
     pub phone: Option<String>,
     pub organization: Option<String>,
@@ -150,8 +152,9 @@ pub struct UpdateUserRequest {
 #[derive(Debug, Deserialize, Validate)]
 pub struct LoginRequest {
     #[validate(email(message = "Invalid email format"))]
+    #[validate(length(max = 254, message = "Email must be at most 254 characters"))]
     pub email: String,
-    #[validate(length(min = 1, message = "Password is required"))]
+    #[validate(length(min = 1, max = 128, message = "Password must be 1-128 characters"))]
     pub password: String,
 }
 
@@ -215,9 +218,9 @@ pub struct RefreshTokenRequest {
 /// 修改自己的密碼請求
 #[derive(Debug, Deserialize, Validate)]
 pub struct ChangeOwnPasswordRequest {
-    #[validate(length(min = 1, message = "Current password is required"))]
+    #[validate(length(min = 1, max = 128, message = "Current password must be 1-128 characters"))]
     pub current_password: String,
-    #[validate(length(min = 8, message = "New password must be at least 8 characters"))]
+    #[validate(length(min = 8, max = 128, message = "New password must be 8-128 characters"))]
     #[validate(custom(function = "validate_password_strength"))]
     pub new_password: String,
 }
@@ -225,7 +228,7 @@ pub struct ChangeOwnPasswordRequest {
 /// Admin 重設他人密碼請求
 #[derive(Debug, Deserialize, Validate)]
 pub struct ResetPasswordRequest {
-    #[validate(length(min = 8, message = "New password must be at least 8 characters"))]
+    #[validate(length(min = 8, max = 128, message = "New password must be 8-128 characters"))]
     pub new_password: String,
 }
 
@@ -240,7 +243,7 @@ pub struct ForgotPasswordRequest {
 #[derive(Debug, Deserialize, Validate)]
 pub struct ResetPasswordWithTokenRequest {
     pub token: String,
-    #[validate(length(min = 8, message = "New password must be at least 8 characters"))]
+    #[validate(length(min = 8, max = 128, message = "New password must be 8-128 characters"))]
     #[validate(custom(function = "validate_password_strength"))]
     pub new_password: String,
 }

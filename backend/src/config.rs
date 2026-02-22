@@ -40,6 +40,8 @@ pub struct Config {
     pub trust_proxy_headers: bool,
     /// SEC-31: CORS 允許的 Origin 清單
     pub cors_allowed_origins: Vec<String>,
+    /// SEC-34: 稽核日誌 HMAC-SHA256 密鑰
+    pub audit_hmac_key: Option<String>,
 }
 
 impl Config {
@@ -142,6 +144,8 @@ impl Config {
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
                 .collect(),
+            // SEC-34: 稽核日誌 HMAC 密鑰
+            audit_hmac_key: std::env::var("AUDIT_HMAC_KEY").ok().filter(|s| s.len() >= 16),
         })
     }
 

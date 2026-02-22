@@ -550,6 +550,16 @@
   - trust_proxy_headers 全面整合：12 處 `extract_real_ip` 呼叫全部改為 `extract_real_ip_with_trust`（`auth.rs`×4、`user.rs`×3、`attendance.rs`×2、`activity_logger.rs`×1、`rate_limiter.rs`×2）；rate limiter 加入 `State<AppState>`、`routes.rs` 改用 `from_fn_with_state`
   - 移除殘留 `JWT_EXPIRATION_HOURS`（`docker-compose.yml`、`backend/.env`）
 
+### 2026-02-23
+
+- ✅ 🔒 **安全強化（SEC-34/35/36）**：
+  - SEC-36 輸入長度限制：`nginx.conf` 加入 `client_max_body_size 30m`；`main.rs` 加入 `DefaultBodyLimit::max(30MB)`；`file.rs` ProtocolAttachment 50→30MB；`user.rs` 9 處 / `protocol.rs` 3 處 / `euthanasia.rs` 4 處加入 `validate(length(max=...))` 限制
+  - SEC-35 上傳目錄隔離：`nginx.conf` 加入 `location /uploads { deny all; }`；`file.rs` upload 函式加入檔名與 entity_id 路徑穿越檢查
+  - SEC-34 稽核日誌防篡改：`011_audit_integrity.sql` migration（`integrity_hash` + `previous_hash` 欄位）；`config.rs` 加入 `audit_hmac_key`；`audit.rs` 加入 HMAC-SHA256 雜湊鏈（graceful degradation）；`Cargo.toml` 加入 `hmac = "0.12"`
+  - `.env.example` 完整範本建立（含所有環境變數分類說明與密鑰產生指引）
+  - `.env` 加入 `AUDIT_HMAC_KEY`
+  - `cargo test` 87 tests 全通過（含 FileCategory max_size 30MB 斷言更新）
+
 ### 2026-02-21
 
 - ✅ 📱 **手機端 Dialog 滾動修復**：
