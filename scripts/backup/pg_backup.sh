@@ -27,6 +27,19 @@ else
     exit 1
 fi
 
+# GPG 加密（如設定 BACKUP_GPG_RECIPIENT）
+if [ -n "${BACKUP_GPG_RECIPIENT:-}" ]; then
+    echo "${LOG_PREFIX} 🔐 開始 GPG 加密..."
+    if gpg --batch --yes --recipient "${BACKUP_GPG_RECIPIENT}" \
+        --trust-model always --encrypt "${BACKUP_DIR}/${FILENAME}"; then
+        rm -f "${BACKUP_DIR}/${FILENAME}"  # 移除未加密版
+        FILENAME="${FILENAME}.gpg"
+        echo "${LOG_PREFIX} ✅ GPG 加密完成: ${FILENAME}"
+    else
+        echo "${LOG_PREFIX} ⚠️ GPG 加密失敗（未加密備份已保留）"
+    fi
+fi
+
 # 清理超過保留天數的舊備份
 DELETED=$(find "${BACKUP_DIR}" -name "ipig_db_*.sql.gz" -mtime +${RETENTION_DAYS} -print -delete | wc -l)
 if [ "${DELETED}" -gt 0 ]; then
@@ -40,6 +53,16 @@ if [ -n "${RSYNC_TARGET:-}" ]; then
         echo "${LOG_PREFIX} ✅ 異地備份完成"
     else
         echo "${LOG_PREFIX} ⚠️ 異地備份失敗（本地備份已保留）"
+    fi
+
+    # /uploads 目錄異地備份
+    if [ -d "/uploads" ]; then
+        echo "${LOG_PREFIX} 📤 開始 /uploads 異地備份..."
+        if rsync -az --timeout=120 /uploads/ "${RSYNC_TARGET}/uploads/"; then
+            echo "${LOG_PREFIX} ✅ /uploads 異地備份完成"
+        else
+            echo "${LOG_PREFIX} ⚠️ /uploads 異地備份失敗"
+        fi
     fi
 fi
 

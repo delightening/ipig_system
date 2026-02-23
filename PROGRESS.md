@@ -1,5 +1,29 @@
 # 專案進度
 
+## 2026-02-23 正式上線準備 — Beta 階段基礎建設
+
+### 已完成（5 項）
+
+#### 7.3 備份與災難復原
+- ✅ 備份 GPG 加密（`pg_backup.sh` + `Dockerfile.backup` 安裝 gnupg）
+- ✅ `/uploads` 目錄異地備份（整合至 rsync 流程）
+- ✅ GeoIP 自動更新腳本（`scripts/update_geoip.sh` + SHA256 驗證 + 舊版備份）
+
+#### 7.5 GLP 合規
+- ✅ 稽核紀錄不可刪改驗證（確認無 audit delete API，HMAC 完整性已實作）
+
+#### 7.7 使用者文件
+- ✅ 管理員部署/維運手冊 `DEPLOYMENT.md`（系統需求、部署、備份還原、監控、故障排除、安全維護）
+
+### 變更檔案
+- `scripts/backup/pg_backup.sh`（GPG 加密 + uploads rsync）
+- `scripts/backup/Dockerfile.backup`（安裝 gnupg）
+- `scripts/update_geoip.sh`（新增）
+- `docker-compose.yml`（新增 BACKUP_GPG_RECIPIENT + uploads volume）
+- `DEPLOYMENT.md`（新增）
+- `.env.example`（新增環境變數）
+- `description.md`（更新 §7 checklist 狀態）
+
 ## 2026-02-23 正式上線準備 — Alpha 階段基礎建設
 
 ### 已完成（5 項）

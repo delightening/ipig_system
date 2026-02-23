@@ -1,0 +1,239 @@
+# iPig 系統部署與維運手冊
+
+> 版本：1.0 | 更新日期：2026-02-23
+
+---
+
+## 1. 系統需求
+
+| 項目 | 最低需求 | 建議 |
+|------|----------|------|
+| OS | Linux (64-bit) | Ubuntu 22.04+ / Debian 12+ |
+| Docker | 24.0+ | 最新穩定版 |
+| Docker Compose | 2.20+ | 最新穩定版 |
+| 記憶體 | 2 GB | 4 GB+ |
+| 磁碟空間 | 50 GB | 250-500 GB（含照片儲存） |
+| 網路頻寬 | 10 Mbps | 100 Mbps+ |
+
+---
+
+## 2. 首次部署
+
+### 2.1 取得原始碼
+
+```bash
+git clone <repository-url> ipig_system
+cd ipig_system
+```
+
+### 2.2 設定環境變數
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+**必填項目：**
+
+| 變數 | 說明 | 範例 |
+|------|------|------|
+| `POSTGRES_PASSWORD` | 資料庫密碼 | 強密碼，≥16 字元 |
+| `JWT_SECRET` | JWT 簽名密鑰 | `openssl rand -base64 64` |
+| `ADMIN_INITIAL_PASSWORD` | 管理員初始密碼 | 強密碼，≥12 字元 |
+
+**安全相關（正式環境必須設定）：**
+
+| 變數 | 正式環境值 | 說明 |
+|------|-----------|------|
+| `COOKIE_SECURE` | `true` | 僅 HTTPS 傳送 Cookie |
+| `SEED_DEV_USERS` | `false` | 禁用開發帳號 |
+| `CORS_ALLOWED_ORIGINS` | 實際域名 | 如 `https://ipig.example.com` |
+
+### 2.3 啟動服務
+
+```bash
+# 正式環境（使用 Nginx 靜態服務）
+docker compose up -d db api web db-backup
+
+# 開發環境（使用 Vite 熱更新）
+docker compose up -d db api web-dev
+```
+
+### 2.4 驗證部署
+
+```bash
+# 檢查所有容器狀態
+docker compose ps
+
+# 健康檢查
+curl http://localhost:8080/api/health
+# 預期回應：{"status":"healthy","version":"0.1.0","checks":{"database":{"status":"up",...}}}
+
+# 查看 API 日誌
+docker compose logs api --tail 20
+```
+
+---
+
+## 3. 日常維運
+
+### 3.1 資料庫備份
+
+備份由 `db-backup` 容器自動執行（預設每日凌晨 2:00）。
+
+```bash
+# 查看備份日誌
+docker compose logs db-backup --tail 20
+
+# 手動觸發備份
+docker compose exec db-backup /usr/local/bin/pg_backup.sh
+
+# 列出備份檔案
+docker compose exec db-backup ls -lah /backups/
+```
+
+**GPG 加密備份（選配）：**
+
+```bash
+# 1. 匯入 GPG 公鑰到備份容器
+docker compose exec db-backup gpg --import /path/to/public.key
+
+# 2. 設定 .env 中的收件者
+BACKUP_GPG_RECIPIENT=backup@example.com
+
+# 3. 重建容器
+docker compose up -d db-backup
+```
+
+### 3.2 資料庫還原
+
+```bash
+# 從 gzip 備份還原
+gunzip -c backup.sql.gz | docker compose exec -T db psql -U postgres ipig_db
+
+# 從 GPG 加密備份還原
+gpg --decrypt backup.sql.gz.gpg | gunzip | docker compose exec -T db psql -U postgres ipig_db
+```
+
+### 3.3 GeoIP 資料庫更新
+
+```bash
+# 設定 MaxMind License Key
+export MAXMIND_LICENSE_KEY="your_license_key"
+
+# 執行更新
+bash scripts/update_geoip.sh
+
+# 重啟 API 載入新資料
+docker compose restart api
+```
+
+> MaxMind License Key 取得：https://www.maxmind.com/en/accounts/current/license-key
+
+### 3.4 依賴安全更新
+
+```bash
+# 後端 Rust 依賴更新
+cd backend && cargo update && cd ..
+
+# 前端 npm 依賴更新
+cd frontend && npm update && cd ..
+
+# 重建容器
+docker compose build api web
+docker compose up -d api web
+```
+
+---
+
+## 4. 監控
+
+### 4.1 健康檢查
+
+| 端點 | 方法 | 說明 |
+|------|------|------|
+| `/api/health` | GET | DB 連通性 + 延遲量測 |
+
+```bash
+# 可整合至 Uptime 監控（如 UptimeRobot）
+# 200 = healthy，503 = unhealthy
+curl -s http://localhost:8080/api/health | jq .
+```
+
+### 4.2 日誌
+
+```bash
+# 正式環境建議啟用 JSON 日誌格式
+RUST_LOG_FORMAT=json  # 在 .env 中設定
+
+# 查看 API 日誌（包含 Request ID）
+docker compose logs api --tail 50
+
+# 追蹤即時日誌
+docker compose logs -f api
+```
+
+### 4.3 Docker 健康檢查
+
+```bash
+# PostgreSQL 自帶 healthcheck（3 秒間隔）
+docker inspect --format='{{.State.Health.Status}}' ipig-db
+```
+
+---
+
+## 5. 故障排除
+
+### 常見問題
+
+| 問題 | 原因 | 解決方案 |
+|------|------|---------|
+| `502 Bad Gateway` | API 未啟動或 proxy buffer 不足 | `docker compose logs api` 查看錯誤 |
+| `health` 回傳 503 | DB 連線失敗 | `docker compose ps db` 確認資料庫運行中 |
+| JWT 相關錯誤 | JWT_SECRET 不一致 | 確認 `.env` 中 `JWT_SECRET` 未變更 |
+| 打卡 GPS 失敗 | 未設定辦公室座標 | 設定 `CLOCK_OFFICE_LATITUDE/LONGITUDE` |
+| 備份加密失敗 | GPG 公鑰未匯入 | 匯入公鑰至 db-backup 容器 |
+| GeoIP 更新失敗 | License Key 過期 | 更新 `MAXMIND_LICENSE_KEY` |
+
+### 緊急復原流程
+
+```bash
+# 1. 停止服務
+docker compose down
+
+# 2. 從備份還原資料庫
+gunzip -c /path/to/latest_backup.sql.gz | \
+  docker compose exec -T db psql -U postgres ipig_db
+
+# 3. 還原上傳檔案（如有異地備份）
+rsync -az user@nas:/backups/ipig/uploads/ ./uploads/
+
+# 4. 重啟服務
+docker compose up -d
+```
+
+---
+
+## 6. 安全性維護
+
+### 定期任務
+
+| 任務 | 頻率 | 指令 |
+|------|------|------|
+| 依賴漏洞掃描 | 每週 | CI 自動（cargo audit + npm audit） |
+| 容器映像掃描 | push 到 main | CI 自動（Trivy） |
+| GeoIP 更新 | 每月 | `bash scripts/update_geoip.sh` |
+| 密碼輪換 | 每季 | 修改 `.env` 中密碼/密鑰 |
+| 備份還原演練 | 每季 | 從備份還原至測試環境 |
+
+### 密碼/密鑰輪換
+
+```bash
+# 1. 更新 JWT_SECRET（會使所有現有 session 失效）
+JWT_SECRET=$(openssl rand -base64 64)
+
+# 2. 更新 .env 並重啟
+docker compose restart api
+
+# 3. 通知使用者重新登入
+```
