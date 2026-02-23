@@ -44,7 +44,8 @@ impl GeoIpService {
             Err(e) => {
                 tracing::error!(
                     "[GeoIP] 無法載入資料庫 {}: {}，將以降級模式運行",
-                    db_path, e
+                    db_path,
+                    e
                 );
                 Self { reader: None }
             }
@@ -60,33 +61,25 @@ impl GeoIpService {
         let ip: IpAddr = clean_ip.parse().ok()?;
 
         // 查詢 GeoLite2-City 資料庫
-        let city_result: geoip2::City = reader.as_ref().lookup(ip).ok()?;
+        let lookup_result = reader.as_ref().lookup(ip).ok()?;
+        let city_result: geoip2::City = lookup_result.decode().ok()?.unwrap_or_default();
 
+        // 優先使用簡體中文名稱，fallback 到英文
         let country = city_result
             .country
-            .as_ref()
-            .and_then(|c| c.names.as_ref())
-            .and_then(|names| {
-                // 優先使用中文名稱
-                names.get("zh-CN")
-                    .or_else(|| names.get("en"))
-                    .map(|s| s.to_string())
-            });
+            .names
+            .simplified_chinese
+            .or(city_result.country.names.english)
+            .map(|s| s.to_string());
 
         let city = city_result
             .city
-            .as_ref()
-            .and_then(|c| c.names.as_ref())
-            .and_then(|names| {
-                names.get("zh-CN")
-                    .or_else(|| names.get("en"))
-                    .map(|s| s.to_string())
-            });
+            .names
+            .simplified_chinese
+            .or(city_result.city.names.english)
+            .map(|s| s.to_string());
 
-        let timezone = city_result
-            .location
-            .as_ref()
-            .and_then(|l| l.time_zone.map(|tz| tz.to_string()));
+        let timezone = city_result.location.time_zone.map(|tz| tz.to_string());
 
         Some(GeoInfo {
             country,
