@@ -1,7 +1,7 @@
 # iPig 豬博士動物科技系統 — Nest-based 模組化規格說明書
 
-> **版本**：6.0 (2026-02-23)
-> **狀態**：開發中 / 持續整合
+> **版本**：7.0 (2026-02-23)
+> **狀態**：開發中 / 上線準備中
 > **核心架構**：Rust (Axum) + React (Vite) + PostgreSQL
 
 ---
@@ -237,70 +237,116 @@ API 採用 `/api` 為根路徑，所有路由透過中間件層級控制：
 
 ---
 
-## 7. 詳細實作路線圖 (Detailed Implementation Roadmap)
+## 7. 正式上線準備 Checklist (Production Readiness)
 
-本路線圖分為三個階段，旨在從穩定性、效能到智能化全面提升系統。
+本章節列出系統從「開發完成」邁向「正式上線 (General Availability, GA)」所需滿足的品質與合規標準。
 
-### 階段一：基礎設施與開發體驗強化 (Infrastructure & Stability)
-*專注於自動化測試、可觀測性與開發標準化。*
+### 7.1 測試覆蓋率 (Testing Coverage)
 
-1.  **自動化端到端 (E2E) 測試整合**
-    *   **技術路徑**: 使用 `docker-compose.test.yml` 建立隔離環境。
-    *   **細節**:
-        - 建立專用的測試容器 `ipig-test-runner`。
-        - 實作「Clean Database」模式，每次測試前自動執行 `sqlx migrate`。
-        - 整合 Python `pytest` 整合測試至 GitHub Actions，確保 PR 提交時自動驗證核心業務流 (AUP/動物管理)。
-2.  **全方位可觀測性 (Observability) 導入**
-    *   **技術路徑**: `axum-prometheus` + `tracing-opentelemetry`。
-    *   **細節**:
-        - 實作 `/metrics` 端點，收集 API 響應延遲 (Histogram) 與資料庫連線池狀態。
-        - 配置 `tower-http` 的 `TraceLayer`，將 Request ID 注入所有日誌，支援全鏈路追蹤 (Distributed Tracing)。
-        - 設置健康檢查端點 `/health`，動態回傳 DB, Redis 及外部 API (Google Calendar) 的連通狀態。
+| 項目 | 現況 | 上線目標 | 狀態 |
+|------|------|----------|------|
+| Rust 單元測試 | 119 個通過 | 核心業務邏輯覆蓋率 ≥ 80% | 🔶 |
+| Python 整合測試 | 8 模組 (137 檔) | 關鍵流程 100% 覆蓋 | 🔶 |
+| 前端元件測試 | 0 | 核心表單 snapshot/integration test | 🔴 |
+| 前端 E2E 測試 | 0 | Playwright 覆蓋登入/AUP/打卡等關鍵流程 | 🔴 |
+| E2E CI 自動化 | 無 | `docker-compose.test.yml` + GitHub Actions | 🔴 |
+| 權限越權測試 | 部分整合測試覆蓋 | 全角色 × 全模組越權存取測試 | 🔶 |
 
-### 階段二：效能優化與高可用架構 (Performance & Scalability)
-*專注於資料處理能力與系統響應速度。*
+### 7.2 可觀測性 (Observability)
 
-1.  **多層級快取機制 (Caching Strategies)**
-    *   **技術路徑**: `Redis` 作為緩存層。
-    *   **細節**:
-        - **Session Cache**: 將 JWT 黑名單與 Active Sessions 移至 Redis，提升驗證效率。
-        - **Data Cache**: 對於 ERP 主檔 (產品/倉庫) 與 AUP 靜態配置實作 TTL 快取。
-        - **Write-Behind**: 針對非即時性的 `user_activity_logs` 採用異步寫入模式。
-2.  **資料庫讀寫分離與優化**
-    *   **技術路徑**: `SQLx` 連線池管理與索引優化。
-    *   **細節**:
-        - 配置 Read-only 副本連線池，將大型報表查詢導向副本。
-        - 定期執行 `EXPLAIN ANALYZE` 稽核，針對 `stock_ledger` 與 `animal_events` 進行索引微調。
-        - 擴展 `user_activity_logs` 的 Partition 策略，從「季度」細化為「月度」。
-3.  **靜態資源與前端優化**
-    *   **技術路徑**: `Vite` 分包編譯 + `Nginx` 壓縮。
-    *   **細節**:
-        - 實作按需載入 (Lazy Loading) 路由組件，降低首屏載入時間 (FCP)。
-        - 啟用 Nginx `brotli` 壓縮與長期緩存策略 (Cache-Control)。
+| 項目 | 現況 | 上線目標 | 狀態 |
+|------|------|----------|------|
+| 健康檢查端點 `/health` | 無 | DB + 外部 API 連通性即時回報 | 🔴 |
+| 結構化日誌 (JSON) | `tracing` 文字格式 | JSON 格式 + Request ID 全鏈路追蹤 | 🔴 |
+| Metrics 端點 `/metrics` | 無 | Prometheus 格式 (API 延遲、DB Pool、錯誤率) | 🔴 |
+| 錯誤監控 (Sentry 等) | 無 | 前後端錯誤即時通知 + 堆疊追蹤 | 🔴 |
+| 啟動配置檢查 | ✅ 已實作 | — | ✅ |
 
-### 階段三：智能化功能與生態擴展 (Intelligent Features & Ecosystem)
-*專注於業務價值提升與外部整合。*
+### 7.3 備份與災難復原 (Backup & DR)
 
-1.  **多物種動態表單系統**
-    *   **技術路徑**: JSON Schema 驅動的前端表單。
-    *   **細節**:
-        - 擴展 `species` 表，儲存各物種的生理參數閾值與驗證規則。
-        - 實作通用醫療紀錄組件，依 `species_id` 動態渲染欄位 (如：豬隻的耳號 vs. 囓齒類的標記)。
-2.  **AI 輔助健康監測 (AI-Driven Insights)**
-    *   **技術路徑**: `ONNX Runtime` 或 OpenAI API。
-    *   **細節**:
-        - 建立異常檢測模型，分析體重趨勢與臨床觀察描述，自動觸發「獸醫介入警報」。
-        - AUP 撰寫輔助：根據歷史核准案例，提供計畫書內容建議。
-3.  **外部系統生態對接 (Open API/Webhooks)**
-    *   **技術路徑**: 實作標準化 Webhook 機制。
-    *   **細節**:
-        - 當動物入庫或 AUP 核准時，自動推送通知至企業 ERP (SAP/Oracle)。
-        - 提供專屬 API Key 給第三方合作單位 (LIMS) 直接上傳血檢報告。
-4.  **行動端專屬優化 (Mobile-First Experience)**
-    *   **技術路徑**: PWA (Progressive Web App)。
-    *   **細節**:
-        - 支援離線快取關鍵資料 (如：當日打卡、觀察紀錄草稿)。
-        - 優化掃碼入庫 (Barcode/QR) 的相機呼叫效能。
+| 項目 | 現況 | 上線目標 | 狀態 |
+|------|------|----------|------|
+| 資料庫自動備份 | ✅ pg_dump + cron + rsync | — | ✅ |
+| 備份加密 | 無 | GPG 或同等加密儲存 | 🔴 |
+| 復原演練 | 未執行 | 定期演練並記錄文件，RPO < 1h、RTO < 4h | 🔴 |
+| 上傳檔案備份 | 未納入 | `/uploads` 目錄同步至異地 | 🔴 |
+| GeoIP 資料更新 | 手動 | 定期自動更新 MaxMind `.mmdb` | 🔴 |
+
+### 7.4 安全性補強 (Security Hardening)
+
+| 項目 | 現況 | 上線目標 | 狀態 |
+|------|------|----------|------|
+| 滲透測試 (Pentest) | 未執行 | OWASP ZAP / Burp Suite 掃描 | 🔴 |
+| Rust 依賴掃描 (`cargo audit`) | ✅ CI 已整合 | — | ✅ |
+| npm 依賴掃描 (`npm audit`) | 未整合 CI | GitHub Actions 自動執行 | 🔴 |
+| 容器安全掃描 (Trivy) | 未實作 | CI 中掃描 Docker image | 🔴 |
+| 閒置 Session 自動登出 | JWT 15 分鐘過期 | 前端偵測閒置 + 自動跳出 | 🔶 |
+| Named Tunnel 遷移 | Quick Tunnel | Cloudflare Named Tunnel | 🔴 |
+
+### 7.5 GLP 合規文件 (Regulatory Compliance)
+
+| 項目 | 現況 | 上線目標 | 狀態 |
+|------|------|----------|------|
+| 系統驗證文件 (CSV) | 無 | IQ / OQ / PQ 驗證報告 | 🔴 |
+| 電子簽章合規 (21 CFR Part 11) | 功能已實作 | 法規合規審查文件 | 🔴 |
+| 稽核紀錄不可刪改 | ✅ HMAC 驗證 | 確認無任何 API 可刪除稽核紀錄 | 🔶 |
+| 資料保留政策 | 未定義 | 各類紀錄法定保留年限文件 | 🔴 |
+| 變更管理 SOP | 無 | 系統更新正式變更控制流程 | 🔴 |
+
+### 7.6 效能基準 (Performance Baseline)
+
+| 項目 | 現況 | 上線目標 | 狀態 |
+|------|------|----------|------|
+| API 回應時間 | 未量測 | P95 < 500ms（一般）、P95 < 2s（報表）| 🔴 |
+| 前端首屏載入 (FCP) | Lazy Loading 已實作 | FCP < 2s、LCP < 2.5s | 🔶 |
+| 壓力測試 | 未執行 | `k6` 或 `wrk` 壓力測試報告 | 🔴 |
+| Nginx Brotli 壓縮 | 未啟用 | 啟用 + 長期緩存策略 | 🔴 |
+| 前端 Bundle 大小 | 主 chunk 242KB ✅ | — | ✅ |
+
+### 7.7 使用者文件與教育訓練 (Documentation & Training)
+
+| 項目 | 現況 | 上線目標 | 狀態 |
+|------|------|----------|------|
+| API 文件 (OpenAPI/Swagger) | 83/293 端點 (28%) | ≥ 90% 端點文件化 | 🔶 |
+| 使用者操作手冊 | 無 | 各模組操作指南（含截圖） | 🔴 |
+| 管理員部署/維運手冊 | QUICK_START.md 基礎 | 完整部署、備份、復原、監控文件 | 🔴 |
+| 教育訓練素材 | 無 | 至少投影片 + demo 影片 | 🔴 |
+
+### 7.8 UX / 相容性 (User Experience)
+
+| 項目 | 現況 | 上線目標 | 狀態 |
+|------|------|----------|------|
+| 響應式設計 | ✅ 基本行動端適配 | — | ✅ |
+| 錯誤處理 UX | 部分實作 | 所有錯誤訊息友善化 + 操作指引 | 🔶 |
+| Loading 狀態 | Skeleton / LoadingOverlay | 確認所有非同步操作有回饋 | 🔶 |
+| 瀏覽器相容性 | 未測試 | Chrome、Edge、Safari 最新兩版 | 🔴 |
+
+---
+
+## 8. 上線策略 (Go-Live Strategy)
+
+| 階段 | 目標 | 需完成項目 | 預估時程 |
+|------|------|-----------|----------|
+| **Alpha 內測** | 核心團隊 3-5 人 | 健康檢查端點、備份復原演練、關鍵 Bug 修復 | 1-2 週 |
+| **Beta 試營運** | 單一部門 10-20 人 | 測試覆蓋率 ≥ 80%、可觀測性、安全掃描、操作手冊 | 4-6 週 |
+| **正式上線 (GA)** | 全機構上線 | 全部 Checklist 完成、GLP 合規文件、教育訓練 | 2-4 週 |
+
+---
+
+## 9. 長期演進路線圖 (Long-term Roadmap)
+
+### 階段一：效能優化與高可用 (Performance & HA)
+
+1.  **多層級快取 (Redis)**：JWT 黑名單/Session 移至 Redis、ERP 主檔 TTL 快取、活動日誌異步寫入。
+2.  **資料庫讀寫分離**：Read-only 副本連線池、`EXPLAIN ANALYZE` 索引微調、活動日誌月度分區。
+3.  **Nginx Brotli 壓縮**：前端靜態資源長期緩存策略。
+
+### 階段二：智能化功能與生態擴展 (Intelligent Features)
+
+1.  **多物種動態表單**：JSON Schema 驅動、`species` 表擴展生理參數閾值。
+2.  **AI 健康監測**：體重趨勢/臨床觀察異常檢測，自動觸發獸醫警報。
+3.  **外部系統對接 (Webhook/API)**：SAP/Oracle 推送、LIMS 血檢上傳 API Key。
+4.  **PWA 離線支援**：離線快取打卡/觀察草稿、掃碼入庫相機優化。
 
 ---
 
@@ -332,7 +378,7 @@ API 採用 `/api` 為根路徑，所有路由透過中間件層級控制：
 
 ---
 
-## 9. 部署規範 (Deployment)
+## 10. 部署規範 (Deployment)
 
 - **Docker Compose**: 5 服務架構：
   | 服務 | 容器名稱 | 說明 |
@@ -350,7 +396,7 @@ API 採用 `/api` 為根路徑，所有路由透過中間件層級控制：
 
 ---
 
-## 10. 代碼量概覽 (Codebase Metrics)
+## 11. 代碼量概覽 (Codebase Metrics)
 
 | 層級 | 項目 | 數量 |
 |------|------|------|
@@ -365,7 +411,8 @@ API 採用 `/api` 為根路徑，所有路由透過中間件層級控制：
 | 前端 Components | 元件數 | 67 (含 9 子目錄) |
 | 前端 Types | 型別檔 | 14 |
 | 整合測試 | Python 測試 | tests/ 目錄 (137 檔) |
-| 單元測試 | Rust 測試 | 54 個 passed |
+| 單元測試 | Rust 測試 | 119 個 passed |
+| OpenAPI 文件化 | Swagger 端點 | 83 / 293 (28%) |
 
 ---
 *文件更新於 2026-02-23*

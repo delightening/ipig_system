@@ -12,7 +12,7 @@ use crate::{AppError, AppState, Result};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
-    pub sub: Uuid,        // user_id
+    pub sub: Uuid, // user_id
     pub email: String,
     pub roles: Vec<String>,
     pub permissions: Vec<String>,
@@ -49,7 +49,11 @@ impl CurrentUser {
             return true;
         }
         // 檢查是否為管理員角色
-        if self.roles.iter().any(|r| r == "SYSTEM_ADMIN" || r == "admin" || r.to_lowercase() == "admin") {
+        if self
+            .roles
+            .iter()
+            .any(|r| r == "SYSTEM_ADMIN" || r == "admin" || r.to_lowercase() == "admin")
+        {
             return true;
         }
         false
@@ -82,7 +86,10 @@ pub async fn auth_middleware(
 
     // SEC-23: 檢查 JWT 是否已被撤銷（黑名單）
     if !token_data.claims.jti.is_empty() && state.jwt_blacklist.is_revoked(&token_data.claims.jti) {
-        tracing::warn!("[Auth] JWT jti={} 已被撤銷，拒絕存取", token_data.claims.jti);
+        tracing::warn!(
+            "[Auth] JWT jti={} 已被撤銷，拒絕存取",
+            token_data.claims.jti
+        );
         return Err(AppError::Unauthorized);
     }
 
@@ -126,7 +133,10 @@ fn extract_token_from_bearer(request: &Request) -> Option<String> {
 macro_rules! require_permission {
     ($user:expr, $permission:expr) => {
         if !$user.has_permission($permission) {
-            return Err(crate::AppError::Forbidden(format!("Permission denied: requires {}", $permission)));
+            return Err($crate::AppError::Forbidden(format!(
+                "Permission denied: requires {}",
+                $permission
+            )));
         }
     };
 }

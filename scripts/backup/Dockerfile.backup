@@ -7,13 +7,13 @@ FROM postgres:16-alpine
 # 安裝 rsync（異地備份用）和 dcron（排程用）
 RUN apk add --no-cache dcron rsync openssh-client
 
-# 複製備份腳本
+# 複製備份腳本（sed 去除 Windows CRLF 換行符）
 COPY pg_backup.sh /usr/local/bin/pg_backup.sh
-RUN chmod +x /usr/local/bin/pg_backup.sh
+RUN sed -i 's/\r$//' /usr/local/bin/pg_backup.sh && chmod +x /usr/local/bin/pg_backup.sh
 
 # 複製 entrypoint 腳本
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
 
 # 建立備份目錄
 RUN mkdir -p /backups

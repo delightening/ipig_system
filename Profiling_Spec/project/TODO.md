@@ -16,6 +16,40 @@
 
 ---
 
+## 🚨 P0 — 上線前必要（Production Readiness）
+
+| # | 項目 | 說明 | 範圍 | 依賴 |
+|---|------|------|------|------|
+| P0-1 | **健康檢查端點 `/health`** | 回傳 DB、外部 API (Google Calendar) 連通狀態，供 Docker/K8s 健康檢查使用 | 後端 | 無 |
+| P0-2 | **結構化日誌 (JSON 格式)** | `tracing-subscriber` 輸出 JSON + Request ID 全鏈路追蹤，便於 ELK/Loki 收集 | 後端 | 無 |
+| P0-3 | **備份復原演練** | 執行完整 pg_dump → restore 流程，記錄 RPO/RTO 指標，文件化復原 SOP | DevOps | 無 |
+| P0-4 | **上傳檔案備份** | `/uploads` 目錄納入 rsync 異地備份 | DevOps | 無 |
+| P0-5 | **npm 依賴掃描 CI** | GitHub Actions 加入 `npm audit`，PR 提交自動檢查 | DevOps | 無 |
+| P0-6 | **瀏覽器相容性測試** | Chrome、Edge、Safari 最新兩版功能驗證 | 前端 | 無 |
+| P0-7 | **錯誤處理 UX 統一** | 所有 API 錯誤回傳友善訊息 + 前端操作指引，消除原始錯誤碼外洩 | 前後端 | 無 |
+
+---
+
+## 🟡 P1 — 上線前強烈建議（Quality & Compliance）
+
+| # | 項目 | 說明 | 範圍 | 依賴 |
+|---|------|------|------|------|
+| P1-1 | **前端 E2E 測試 (Playwright)** | 覆蓋登入、AUP 審查、打卡、動物管理、ERP 單據等 5+ 關鍵流程 | 前端 | 無 |
+| P1-2 | **E2E CI 自動化** | `docker-compose.test.yml` + GitHub Actions 整合，PR 自動跑 E2E | DevOps | P1-1 |
+| P1-3 | **Metrics 端點 `/metrics`** | Prometheus 格式：API 延遲 Histogram、DB Pool 狀態、錯誤率 | 後端 | 無 |
+| P1-4 | **滲透測試 / 安全掃描** | OWASP ZAP 或 Burp Suite 掃描，修復 HIGH/CRITICAL 漏洞 | DevOps | 無 |
+| P1-5 | **壓力測試基準** | `k6` 或 `wrk`：P95 < 500ms（一般 API）、P95 < 2s（報表） | DevOps | 無 |
+| P1-6 | **GLP 系統驗證文件 (CSV)** | IQ（安裝確認）/ OQ（操作確認）/ PQ（性能確認）驗證報告 | 文件 | P1-5 |
+| P1-7 | **電子簽章合規審查** | 21 CFR Part 11 或等效法規合規審查文件（簽章 = 人 + 時間 + 意義） | 文件 | 無 |
+| P1-8 | **資料保留政策** | 定義各類紀錄（稽核/動物/醫療/AUP）的法定保留年限 | 文件 | 無 |
+| P1-9 | **使用者操作手冊** | 各模組操作指南（含截圖），至少涵蓋 AUP、動物管理、ERP | 文件 | 無 |
+| P1-10 | **管理員維運手冊** | 完整部署、備份、復原、監控、故障排除文件 | 文件 | P0-3 |
+| P1-11 | **備份加密** | GPG 或同等加密儲存，防止備份外洩 | DevOps | 無 |
+| P1-12 | **OpenAPI 文件完善 (≥90%)** | 目前 83/293 (28%)，擴展至 ≥ 260 端點文件化 | 後端 | 無 |
+| P1-13 | **Nginx Brotli 壓縮** | 啟用 brotli + 靜態資源長期緩存策略 (Cache-Control) | DevOps | 無 |
+
+---
+
 ## 🔴 P2 — 中優先（安全強化 / 體驗優化）
 
 | # | 項目 | 說明 | 範圍 | 難度 |
@@ -48,10 +82,10 @@
 | # | 項目 | 說明 | 範圍 |
 |---|------|------|------|
 | 14 | **Rust 測試覆蓋率擴充** | 119 個測試通過（+32：real_ip/csrf/config）。需 test DB 做整合測試 | 後端 |
-| 15 | **前端 E2E 測試** | Playwright 自動化測試 | 前端 |
-| 16 | **OpenAPI 文件完善** | Phase 1 完成（Auth+Users+Roles 23 endpoint + SwaggerUI）。Phase 2A 完成（Facility+Warehouse 35 endpoint）。Phase 2B 完成（Protocol+Review 25 endpoint）。待擴展其餘模組 | 後端 |
+| 15 | ~~**前端 E2E 測試**~~ | ⬆️ 升級至 P1-1 | 前端 |
+| 16 | ~~**OpenAPI 文件完善**~~ | ⬆️ 升級至 P1-12 | 後端 |
 | 17 | **CI/CD PostgreSQL service** | CI 中增加 PostgreSQL service container | DevOps |
-| 18 | **SEC-41：容器安全掃描** | CI 中加入 `trivy` 掃描 Docker image 漏洞 | DevOps |
+| 18 | ~~**SEC-41：容器安全掃描**~~ | ⬆️ 升級至 P1-4 整合安全掃描 | DevOps |
 
 ---
 
@@ -60,7 +94,7 @@
 | # | 項目 | 說明 | 範圍 |
 |---|------|------|------|
 | 19 | **前端元件庫文件化** | Storybook 建置 | 前端 |
-| 20 | **效能監控（APM）整合** | 應用程式效能監控 | DevOps |
+| 20 | ~~**效能監控（APM）整合**~~ | ⬆️ 升級至 P1-3 Metrics 端點 | DevOps |
 | 21 | **前端超長頁面重構** | `ProtocolEditPage` 已完成（4240→1830 行），配合需求變更時機漸進式重構 | 前端 |
 | 22 | **SEC-39：Two-Factor Authentication** | TOTP 二階段驗證（Google Authenticator） | 前後端 |
 | 23 | **SEC-40：Web Application Firewall** | ModSecurity 或 Cloudflare WAF | DevOps |
@@ -85,12 +119,14 @@
 
 | 優先級 | 數量 | 佔比 |
 |--------|------|------|
-| 🔴 P2 中優先 | 4 | 22% |
-| 🔵 P3 低優先 | 6 | 33% |
-| 🟣 P4 品質提升 | 5 | 28% |
-| ⚪ P5 長期演進 | 6 | 33% |
-| 🚀 v2.0 遠程 | 3 | 17% |
-| **合計** | **24** | - |
+| 🚨 P0 上線前必要 | 7 | 15% |
+| 🟡 P1 上線前建議 | 13 | 27% |
+| 🔴 P2 中優先 | 0 (全完成) | — |
+| 🔵 P3 低優先 | 2 | 4% |
+| 🟣 P4 品質提升 | 2 | 4% |
+| ⚪ P5 長期演進 | 4 | 8% |
+| 🚀 v2.0 遠程 | 6 | 13% |
+| **合計（未完成）** | **34** | — |
 
 ---
 

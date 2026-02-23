@@ -9,11 +9,14 @@ use std::net::SocketAddr;
 use uuid::Uuid;
 
 use crate::{
-    middleware::{CurrentUser, extract_real_ip_with_trust},
-    models::{AttendanceCorrectionRequest, AttendanceQuery, AttendanceWithUser, ClockInRequest, ClockOutRequest, PaginatedResponse},
+    error::AppError,
+    middleware::{extract_real_ip_with_trust, CurrentUser},
+    models::{
+        AttendanceCorrectionRequest, AttendanceQuery, AttendanceWithUser, ClockInRequest,
+        ClockOutRequest, PaginatedResponse,
+    },
     services::HrService,
     AppState, Result,
-    error::AppError,
 };
 
 /// 驗證打卡 IP 是否在允許範圍內，回傳是否通過
@@ -33,8 +36,8 @@ fn haversine_distance(lat1: f64, lng1: f64, lat2: f64, lng2: f64) -> f64 {
     let lat1_rad = lat1.to_radians();
     let lat2_rad = lat2.to_radians();
 
-    let a = (d_lat / 2.0).sin().powi(2)
-        + lat1_rad.cos() * lat2_rad.cos() * (d_lng / 2.0).sin().powi(2);
+    let a =
+        (d_lat / 2.0).sin().powi(2) + lat1_rad.cos() * lat2_rad.cos() * (d_lng / 2.0).sin().powi(2);
     let c = 2.0 * a.sqrt().asin();
     R * c
 }
@@ -64,7 +67,12 @@ fn check_clock_gps(
     let distance = haversine_distance(u_lat, u_lng, o_lat, o_lng);
     tracing::debug!(
         "GPS 距離計算：使用者 ({}, {}) → 辦公室 ({}, {}) = {:.0}m（允許 {:.0}m）",
-        u_lat, u_lng, o_lat, o_lng, distance, radius_meters
+        u_lat,
+        u_lng,
+        o_lat,
+        o_lng,
+        distance,
+        radius_meters
     );
     distance <= radius_meters
 }
@@ -89,19 +97,20 @@ fn validate_clock_location(
         if !allowed_ip_ranges.is_empty() {
             reasons.push(format!("IP ({}) 不在允許範圍", ip));
         }
-        if office_lat.is_some() {
+        if let (Some(o_lat), Some(o_lng)) = (office_lat, office_lng) {
             match (user_lat, user_lng) {
                 (Some(lat), Some(lng)) => {
-                    let dist = haversine_distance(lat, lng, office_lat.expect("office_lat 由上方 is_some 保證"), office_lng.expect("office_lng 由上方 is_some 保證"));
+                    let dist = haversine_distance(lat, lng, o_lat, o_lng);
                     reasons.push(format!("GPS 距離 {:.0}m 超出允許範圍", dist));
                 }
                 _ => reasons.push("未提供 GPS 定位".to_string()),
             }
         }
         tracing::warn!("打卡位置驗證失敗：{}", reasons.join("；"));
-        Err(AppError::Forbidden(
-            format!("打卡位置驗證失敗：{}。請確認您在辦公室範圍內或連接辦公室 WiFi。", reasons.join("；"))
-        ))
+        Err(AppError::Forbidden(format!(
+            "打卡位置驗證失敗：{}。請確認您在辦公室範圍內或連接辦公室 WiFi。",
+            reasons.join("；")
+        )))
     }
 }
 
@@ -147,7 +156,8 @@ pub async fn clock_in(
         Some(&ip),
         payload.latitude,
         payload.longitude,
-    ).await?;
+    )
+    .await?;
     Ok(Json(serde_json::json!({
         "success": true,
         "clock_in_time": record.clock_in_time,
@@ -183,7 +193,8 @@ pub async fn clock_out(
         Some(&ip),
         payload.latitude,
         payload.longitude,
-    ).await?;
+    )
+    .await?;
     Ok(Json(serde_json::json!({
         "success": true,
         "clock_out_time": record.clock_out_time,
