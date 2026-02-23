@@ -1,9 +1,10 @@
-[package]
+﻿[package]
 name = "erp-backend"
 version = "0.1.0"
 edition = "2021"
 default-run = "erp-backend"
-description = "?脤摮?ERP 蝟餌絞敺垢"
+description = "iPig ERP 後端服務"
+license = "MIT"
 
 [dependencies]
 # Web Framework
