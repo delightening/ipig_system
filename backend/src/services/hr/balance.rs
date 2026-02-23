@@ -7,9 +7,8 @@ use uuid::Uuid;
 use crate::{
     error::AppError,
     models::{
-        AdjustBalanceRequest, AnnualLeaveBalanceView, AnnualLeaveEntitlement,
-        BalanceSummary, CompTimeBalanceView, CreateAnnualLeaveRequest,
-        ExpiredLeaveReport,
+        AdjustBalanceRequest, AnnualLeaveBalanceView, AnnualLeaveEntitlement, BalanceSummary,
+        CompTimeBalanceView, CreateAnnualLeaveRequest, ExpiredLeaveReport,
     },
     Result,
 };
@@ -41,10 +40,18 @@ impl HrService {
         .fetch_all(pool)
         .await?;
 
-        let balances = rows.into_iter().map(|r| AnnualLeaveBalanceView {
-            entitlement_year: r.0, entitled_days: r.1, used_days: r.2,
-            remaining_days: r.3, expires_at: r.4, days_until_expiry: r.5, is_expired: r.6,
-        }).collect();
+        let balances = rows
+            .into_iter()
+            .map(|r| AnnualLeaveBalanceView {
+                entitlement_year: r.0,
+                entitled_days: r.1,
+                used_days: r.2,
+                remaining_days: r.3,
+                expires_at: r.4,
+                days_until_expiry: r.5,
+                is_expired: r.6,
+            })
+            .collect();
         Ok(balances)
     }
 
@@ -66,27 +73,43 @@ impl HrService {
         .fetch_all(pool)
         .await?;
 
-        let balances = rows.into_iter().map(|r| CompTimeBalanceView {
-            id: r.0, earned_date: r.1, original_hours: r.2, used_hours: r.3,
-            remaining_hours: r.4, expires_at: r.5, days_until_expiry: r.6,
-        }).collect();
+        let balances = rows
+            .into_iter()
+            .map(|r| CompTimeBalanceView {
+                id: r.0,
+                earned_date: r.1,
+                original_hours: r.2,
+                used_hours: r.3,
+                remaining_hours: r.4,
+                expires_at: r.5,
+                days_until_expiry: r.6,
+            })
+            .collect();
         Ok(balances)
     }
 
     pub async fn get_balance_summary(pool: &PgPool, user_id: Uuid) -> Result<BalanceSummary> {
         let user_name: (String,) = sqlx::query_as("SELECT display_name FROM users WHERE id = $1")
-            .bind(user_id).fetch_optional(pool).await?
+            .bind(user_id)
+            .fetch_optional(pool)
+            .await?
             .ok_or_else(|| AppError::NotFound(format!("User not found: {}", user_id)))?;
 
         let annual: (f64, f64) = sqlx::query_as(
             r#"SELECT COALESCE(SUM(entitled_days), 0)::float8, COALESCE(SUM(used_days), 0)::float8
             FROM annual_leave_entitlements WHERE user_id = $1 AND is_expired = false"#,
-        ).bind(user_id).fetch_one(pool).await?;
+        )
+        .bind(user_id)
+        .fetch_one(pool)
+        .await?;
 
         let comp: (f64, f64) = sqlx::query_as(
             r#"SELECT COALESCE(SUM(original_hours), 0)::float8, COALESCE(SUM(used_hours), 0)::float8
             FROM comp_time_balances WHERE user_id = $1 AND is_expired = false"#,
-        ).bind(user_id).fetch_one(pool).await?;
+        )
+        .bind(user_id)
+        .fetch_one(pool)
+        .await?;
 
         let expiring_annual: (f64,) = sqlx::query_as(
             r#"SELECT COALESCE(SUM(entitled_days - used_days), 0)::float8
@@ -101,28 +124,43 @@ impl HrService {
         ).bind(user_id).fetch_one(pool).await?;
 
         Ok(BalanceSummary {
-            user_id, user_name: user_name.0,
-            annual_leave_total: annual.0, annual_leave_used: annual.1,
+            user_id,
+            user_name: user_name.0,
+            annual_leave_total: annual.0,
+            annual_leave_used: annual.1,
             annual_leave_remaining: annual.0 - annual.1,
-            comp_time_total: comp.0, comp_time_used: comp.1,
+            comp_time_total: comp.0,
+            comp_time_used: comp.1,
             comp_time_remaining: comp.0 - comp.1,
-            expiring_soon_days: expiring_annual.0, expiring_soon_hours: expiring_comp.0,
+            expiring_soon_days: expiring_annual.0,
+            expiring_soon_hours: expiring_comp.0,
         })
     }
 
     pub async fn create_annual_leave_entitlement(
-        pool: &PgPool, creator_id: Uuid, payload: &CreateAnnualLeaveRequest,
+        pool: &PgPool,
+        creator_id: Uuid,
+        payload: &CreateAnnualLeaveRequest,
     ) -> Result<AnnualLeaveEntitlement> {
         let id = Uuid::new_v4();
         let expires_at = if let Some(hire_date) = payload.hire_date {
-            NaiveDate::from_ymd_opt(payload.entitlement_year + 2, hire_date.month(), hire_date.day())
-                .unwrap_or_else(|| {
-                    NaiveDate::from_ymd_opt(payload.entitlement_year + 2, hire_date.month(), 28)
-                        .unwrap_or_else(|| NaiveDate::from_ymd_opt(payload.entitlement_year + 2, 12, 31).expect("12/31 應為有效日期"))
-                })
+            NaiveDate::from_ymd_opt(
+                payload.entitlement_year + 2,
+                hire_date.month(),
+                hire_date.day(),
+            )
+            .unwrap_or_else(|| {
+                NaiveDate::from_ymd_opt(payload.entitlement_year + 2, hire_date.month(), 28)
+                    .unwrap_or_else(|| {
+                        NaiveDate::from_ymd_opt(payload.entitlement_year + 2, 12, 31)
+                            .expect("12/31 應為有效日期")
+                    })
+            })
         } else {
-            NaiveDate::from_ymd_opt(payload.entitlement_year + 2, 12, 31)
-                .unwrap_or_else(|| NaiveDate::from_ymd_opt(payload.entitlement_year + 2, 12, 30).expect("12/30 應為有效日期"))
+            NaiveDate::from_ymd_opt(payload.entitlement_year + 2, 12, 31).unwrap_or_else(|| {
+                NaiveDate::from_ymd_opt(payload.entitlement_year + 2, 12, 30)
+                    .expect("12/30 應為有效日期")
+            })
         };
 
         let record = sqlx::query_as::<_, AnnualLeaveEntitlement>(
@@ -138,7 +176,10 @@ impl HrService {
     }
 
     pub async fn adjust_annual_leave(
-        pool: &PgPool, id: Uuid, _adjuster_id: Uuid, payload: &AdjustBalanceRequest,
+        pool: &PgPool,
+        id: Uuid,
+        _adjuster_id: Uuid,
+        payload: &AdjustBalanceRequest,
     ) -> Result<AnnualLeaveEntitlement> {
         let record = sqlx::query_as::<_, AnnualLeaveEntitlement>(
             r#"UPDATE annual_leave_entitlements
@@ -149,7 +190,10 @@ impl HrService {
         Ok(record)
     }
 
-    pub async fn get_expired_leave_compensation_report(pool: &PgPool) -> Result<Vec<ExpiredLeaveReport>> {
+    pub async fn get_expired_leave_compensation_report(
+        pool: &PgPool,
+    ) -> Result<Vec<ExpiredLeaveReport>> {
+        #[allow(clippy::type_complexity)]
         let rows: Vec<(Uuid, String, String, i32, f64, f64, f64, NaiveDate)> = sqlx::query_as(
             r#"SELECT ale.user_id, u.display_name, u.email, ale.entitlement_year,
                 ale.entitled_days::float8, ale.used_days::float8,
@@ -158,22 +202,43 @@ impl HrService {
             WHERE (ale.is_expired = true OR ale.expires_at < CURRENT_DATE)
               AND (ale.entitled_days - ale.used_days) > 0 AND u.is_active = true
             ORDER BY ale.expires_at ASC, u.display_name"#,
-        ).fetch_all(pool).await?;
+        )
+        .fetch_all(pool)
+        .await?;
 
-        Ok(rows.into_iter().map(|r| ExpiredLeaveReport {
-            user_id: r.0, user_name: r.1, user_email: r.2, entitlement_year: r.3,
-            entitled_days: r.4, used_days: r.5, remaining_days: r.6, expires_at: r.7,
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(|r| ExpiredLeaveReport {
+                user_id: r.0,
+                user_name: r.1,
+                user_email: r.2,
+                entitlement_year: r.3,
+                entitled_days: r.4,
+                used_days: r.5,
+                remaining_days: r.6,
+                expires_at: r.7,
+            })
+            .collect())
     }
 
     pub async fn copy_previous_year_entitlement(
-        pool: &PgPool, user_id: Uuid, new_year: i32, creator_id: Uuid, hire_date: Option<NaiveDate>,
+        pool: &PgPool,
+        user_id: Uuid,
+        new_year: i32,
+        creator_id: Uuid,
+        hire_date: Option<NaiveDate>,
     ) -> Result<Option<AnnualLeaveEntitlement>> {
         let existing: Option<(Uuid,)> = sqlx::query_as(
-            "SELECT id FROM annual_leave_entitlements WHERE user_id = $1 AND entitlement_year = $2"
-        ).bind(user_id).bind(new_year).fetch_optional(pool).await?;
+            "SELECT id FROM annual_leave_entitlements WHERE user_id = $1 AND entitlement_year = $2",
+        )
+        .bind(user_id)
+        .bind(new_year)
+        .fetch_optional(pool)
+        .await?;
 
-        if existing.is_some() { return Ok(None); }
+        if existing.is_some() {
+            return Ok(None);
+        }
 
         let previous: Option<(f64, Option<String>)> = sqlx::query_as(
             r#"SELECT entitled_days::float8, notes FROM annual_leave_entitlements WHERE user_id = $1 AND entitlement_year = $2"#,
@@ -181,9 +246,16 @@ impl HrService {
 
         if let Some((entitled_days, notes)) = previous {
             let payload = CreateAnnualLeaveRequest {
-                user_id, entitlement_year: new_year, entitled_days, hire_date,
+                user_id,
+                entitlement_year: new_year,
+                entitled_days,
+                hire_date,
                 calculation_basis: Some("copied_from_previous".to_string()),
-                notes: Some(format!("沿用{}年度設定。{}", new_year - 1, notes.unwrap_or_default())),
+                notes: Some(format!(
+                    "沿用{}年度設定。{}",
+                    new_year - 1,
+                    notes.unwrap_or_default()
+                )),
             };
             let record = Self::create_annual_leave_entitlement(pool, creator_id, &payload).await?;
             Ok(Some(record))

@@ -139,7 +139,7 @@ impl AnimalService {
         let mut wtr = csv::Writer::from_writer(vec![]);
 
         // 寫入標題行
-        wtr.write_record(&[
+        wtr.write_record([
             "耳號*",
             "品種*",
             "性別*",
@@ -153,7 +153,7 @@ impl AnimalService {
         .map_err(|e| AppError::Internal(format!("CSV 寫入失敗: {}", e)))?;
 
         // 寫入範例行
-        wtr.write_record(&[
+        wtr.write_record([
             "001",
             "miniature",
             "male",
@@ -177,11 +177,11 @@ impl AnimalService {
         let mut wtr = csv::Writer::from_writer(vec![]);
 
         // 寫入標題行
-        wtr.write_record(&["耳號*", "測量日期*", "體重(kg)*"])
+        wtr.write_record(["耳號*", "測量日期*", "體重(kg)*"])
             .map_err(|e| AppError::Internal(format!("CSV 寫入失敗: {}", e)))?;
 
         // 寫入範例行
-        wtr.write_record(&["001", "2024-02-01", "25.5"])
+        wtr.write_record(["001", "2024-02-01", "25.5"])
             .map_err(|e| AppError::Internal(format!("CSV 寫入失敗: {}", e)))?;
 
         wtr.flush()

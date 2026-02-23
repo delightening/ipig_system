@@ -192,14 +192,13 @@ impl ProtocolService {
             .ok_or_else(|| AppError::NotFound("Protocol not found".to_string()))?;
 
         // 驗證 DELETED 狀態：僅允許草稿或需修訂狀態
-        if req.to_status == ProtocolStatus::Deleted {
-            if protocol.status != ProtocolStatus::Draft
-                && protocol.status != ProtocolStatus::RevisionRequired
-            {
-                return Err(AppError::BusinessRule(
-                    "Only draft or revision-required protocols can be deleted".to_string(),
-                ));
-            }
+        if req.to_status == ProtocolStatus::Deleted
+            && protocol.status != ProtocolStatus::Draft
+            && protocol.status != ProtocolStatus::RevisionRequired
+        {
+            return Err(AppError::BusinessRule(
+                "Only draft or revision-required protocols can be deleted".to_string(),
+            ));
         }
 
         // 驗證 UNDER_REVIEW 狀態必須提供 2-3 位審查委員
@@ -263,16 +262,15 @@ impl ProtocolService {
         }
 
         // 驗證 VET_REVIEW 狀態必須從 PRE_REVIEW、SUBMITTED、RESUBMITTED 或 VET_REVISION_REQUIRED 進入
-        if req.to_status == ProtocolStatus::VetReview {
-            if protocol.status != ProtocolStatus::PreReview
-                && protocol.status != ProtocolStatus::Submitted
-                && protocol.status != ProtocolStatus::Resubmitted
-                && protocol.status != ProtocolStatus::VetRevisionRequired
-            {
-                return Err(AppError::BusinessRule(
-                    "必須從行政預審、已送審、重送或獸醫修訂狀態進入獸醫審查".to_string(),
-                ));
-            }
+        if req.to_status == ProtocolStatus::VetReview
+            && protocol.status != ProtocolStatus::PreReview
+            && protocol.status != ProtocolStatus::Submitted
+            && protocol.status != ProtocolStatus::Resubmitted
+            && protocol.status != ProtocolStatus::VetRevisionRequired
+        {
+            return Err(AppError::BusinessRule(
+                "必須從行政預審、已送審、重送或獸醫修訂狀態進入獸醫審查".to_string(),
+            ));
         }
 
         // 驗證 VET_REVISION_REQUIRED 狀態必須從 VET_REVIEW 進入
@@ -340,7 +338,7 @@ impl ProtocolService {
                     WHERE id = ANY($1::uuid[])
                     "#,
                 )
-                .bind(&missing_reviewers.to_vec())
+                .bind(missing_reviewers.to_vec())
                 .fetch_all(pool)
                 .await?;
 
@@ -478,90 +476,91 @@ impl ProtocolService {
         // 當計劃通過時，自動依照 IACUC No. 自動填入客戶
         if (req.to_status == ProtocolStatus::Approved
             || req.to_status == ProtocolStatus::ApprovedWithConditions)
-            && new_iacuc_no.is_some()
         {
-            let iacuc_no = new_iacuc_no
-                .as_ref()
-                .expect("new_iacuc_no 由上方 is_some 保證存在");
+            if let Some(iacuc_no) = new_iacuc_no.as_ref() {
+                // 檢查是否已存在該客戶（客戶代碼 = IACUC No.）
+                let existing_customer: Option<uuid::Uuid> = sqlx::query_scalar(
+                    "SELECT id FROM partners WHERE partner_type = 'customer' AND code = $1",
+                )
+                .bind(iacuc_no)
+                .fetch_optional(pool)
+                .await?;
 
-            // 檢查是否已存在該客戶（客戶代碼 = IACUC No.）
-            let existing_customer: Option<uuid::Uuid> = sqlx::query_scalar(
-                "SELECT id FROM partners WHERE partner_type = 'customer' AND code = $1",
-            )
-            .bind(iacuc_no)
-            .fetch_optional(pool)
-            .await?;
+                // 如果不存在，則創建新客戶
+                if existing_customer.is_none() {
+                    let create_req = CreatePartnerRequest {
+                        partner_type: PartnerType::Customer,
+                        code: Some(iacuc_no.clone()),
+                        supplier_category: None,
+                        customer_category: None,
+                        name: iacuc_no.clone(),
+                        tax_id: None,
+                        phone: None,
+                        email: None,
+                        address: None,
+                        payment_terms: None,
+                    };
 
-            // 如果不存在，則創建新客戶
-            if existing_customer.is_none() {
-                let create_req = CreatePartnerRequest {
-                    partner_type: PartnerType::Customer,
-                    code: Some(iacuc_no.clone()),
-                    supplier_category: None,
-                    customer_category: None,
-                    name: iacuc_no.clone(),
-                    tax_id: None,
-                    phone: None,
-                    email: None,
-                    address: None,
-                    payment_terms: None,
-                };
-
-                // 驗證請求
-                if let Err(validation_errors) = create_req.validate() {
-                    tracing::warn!(
-                        "Failed to validate customer creation request for IACUC {}: {:?}",
-                        iacuc_no,
-                        validation_errors
-                    );
-                } else {
-                    // 創建客戶，忽略錯誤（例如代碼衝突），因為可能已經存在
-                    if let Err(e) = PartnerService::create(pool, &create_req).await {
-                        tracing::warn!("Failed to create customer for IACUC {}: {}", iacuc_no, e);
+                    // 驗證請求
+                    if let Err(validation_errors) = create_req.validate() {
+                        tracing::warn!(
+                            "Failed to validate customer creation request for IACUC {}: {:?}",
+                            iacuc_no,
+                            validation_errors
+                        );
                     } else {
-                        tracing::info!("Automatically created customer for IACUC: {}", iacuc_no);
+                        // 創建客戶，忽略錯誤（例如代碼衝突），因為可能已經存在
+                        if let Err(e) = PartnerService::create(pool, &create_req).await {
+                            tracing::warn!(
+                                "Failed to create customer for IACUC {}: {}",
+                                iacuc_no,
+                                e
+                            );
+                        } else {
+                            tracing::info!(
+                                "Automatically created customer for IACUC: {}",
+                                iacuc_no
+                            );
+                        }
                     }
                 }
             }
         }
 
         // 當計劃結案時，自動停用對應的客戶
-        if req.to_status == ProtocolStatus::Closed && protocol.iacuc_no.is_some() {
-            let iacuc_no = protocol
-                .iacuc_no
-                .as_ref()
-                .expect("iacuc_no 由上方 is_some 保證存在");
-
-            // 查找對應的客戶（客戶代碼 = IACUC No.）
-            let customer_id: Option<uuid::Uuid> = sqlx::query_scalar(
-                "SELECT id FROM partners WHERE partner_type = 'customer' AND code = $1",
-            )
-            .bind(iacuc_no)
-            .fetch_optional(pool)
-            .await?;
-
-            // 如果找到客戶，則停用該客戶
-            if let Some(customer_id) = customer_id {
-                let result = sqlx::query(
-                    "UPDATE partners SET is_active = false, updated_at = NOW() WHERE id = $1",
+        if req.to_status == ProtocolStatus::Closed {
+            if let Some(iacuc_no) = protocol.iacuc_no.as_ref() {
+                // 查找對應的客戶（客戶代碼 = IACUC No.）
+                let customer_id: Option<uuid::Uuid> = sqlx::query_scalar(
+                    "SELECT id FROM partners WHERE partner_type = 'customer' AND code = $1",
                 )
-                .bind(customer_id)
-                .execute(pool)
+                .bind(iacuc_no)
+                .fetch_optional(pool)
                 .await?;
 
-                if result.rows_affected() > 0 {
-                    tracing::info!(
-                        "Automatically deactivated customer for closed IACUC: {}",
-                        iacuc_no
-                    );
+                // 如果找到客戶，則停用該客戶
+                if let Some(customer_id) = customer_id {
+                    let result = sqlx::query(
+                        "UPDATE partners SET is_active = false, updated_at = NOW() WHERE id = $1",
+                    )
+                    .bind(customer_id)
+                    .execute(pool)
+                    .await?;
+
+                    if result.rows_affected() > 0 {
+                        tracing::info!(
+                            "Automatically deactivated customer for closed IACUC: {}",
+                            iacuc_no
+                        );
+                    } else {
+                        tracing::warn!(
+                            "Failed to deactivate customer for IACUC {}: customer not found",
+                            iacuc_no
+                        );
+                    }
                 } else {
-                    tracing::warn!(
-                        "Failed to deactivate customer for IACUC {}: customer not found",
-                        iacuc_no
-                    );
+                    tracing::warn!("No customer found for closed IACUC: {}", iacuc_no);
                 }
-            } else {
-                tracing::warn!("No customer found for closed IACUC: {}", iacuc_no);
             }
         }
 
