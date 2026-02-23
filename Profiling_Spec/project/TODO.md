@@ -134,6 +134,7 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-02-23 | 🔧 CI 前端修復：新增 `vite-env.d.ts`（解決 `import.meta.env` 型別錯誤）、`tsconfig.json` 加入 `vitest/globals` 型別、`npm install` 安裝缺少的 devDependencies（vitest 等 139 套件）；`tsc --noEmit` 0 錯誤、`vitest run` 2 tests 通過 |
 | 2026-02-23 | 📘 OpenAPI Phase 1（Auth+Users+Roles 23 endpoint + SwaggerUI /swagger-ui 掀載） |
 | 2026-02-23 | 🔒 SEC-34/35/36 安全強化 + 🧪 測試覆蓋率擴充（87→119, +32 tests）：real_ip.rs 9 / csrf.rs 15 / config.rs 7 測試新增；.env.example 完整範本 |
 | 2026-02-22 | 🔒 安全性全面強化（8 項修復）：SEC-29 CSRF Secure flag、SEC-30 IP 信任策略、SEC-33 JWT 黑名單 DB 持久化、SEC-31 CORS 動態化、Docker 預設值翻轉、SEC-34 Refresh Token CSPRNG、SEC-32 JWT 過期統一、Mutex fail-closed。87 測試全通過 |
