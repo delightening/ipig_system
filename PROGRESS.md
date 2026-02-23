@@ -1,5 +1,30 @@
 # 專案進度
 
+## 2026-02-23 正式上線準備 — Alpha 階段基礎建設
+
+### 已完成（5 項）
+
+#### 7.2 可觀測性
+- ✅ 新增 `GET /api/health` 健康檢查端點（DB 連通性 + 延遲量測，200/503 回應）
+- ✅ 條件式 JSON 結構化日誌（`RUST_LOG_FORMAT=json` 環境變數啟用，預設保持文字格式）
+- ✅ Request ID 全鏈路追蹤（`X-Request-Id` 自動產生與傳遞）
+
+#### 7.4 安全性補強
+- ✅ CI 新增 `npm audit` 掃描 job（`audit-level=high`）
+- ✅ CI 新增 Trivy 容器安全掃描 job（僅 push 至 main 觸發，掃描 backend + frontend 映像）
+
+#### 7.6 效能基準
+- ✅ Nginx gzip 壓縮策略強化（壓縮等級 6、啟用 Vary、最小 1024 bytes、新增 font/svg 類型）
+- ✅ Nginx 靜態資源快取區塊保留 `X-Content-Type-Options` 安全標頭
+
+### 變更檔案
+- `backend/src/handlers/health.rs`（新增）
+- `backend/src/handlers/mod.rs`
+- `backend/src/routes.rs`
+- `backend/src/main.rs`
+- `.github/workflows/ci.yml`
+- `frontend/nginx.conf`
+
 ## 2026-02-23 修復 Clippy Linting 錯誤
 
 ### 已完成

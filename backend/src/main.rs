@@ -6,6 +6,7 @@ use axum::{
 };
 use tower_http::{
     cors::CorsLayer,
+    request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
     set_header::SetResponseHeaderLayer,
     trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer},
 };
@@ -49,13 +50,23 @@ async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
 
     // 初始化 tracing 日誌
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "erp_backend=debug,tower_http=debug".into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+    // RUST_LOG_FORMAT=json 時使用 JSON 格式（適合搭配 ELK/Loki 等日誌系統）
+    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| "erp_backend=debug,tower_http=debug".into());
+    let use_json = std::env::var("RUST_LOG_FORMAT")
+        .map(|v| v.eq_ignore_ascii_case("json"))
+        .unwrap_or(false);
+    if use_json {
+        tracing_subscriber::registry()
+            .with(env_filter)
+            .with(tracing_subscriber::fmt::layer().json())
+            .init();
+    } else {
+        tracing_subscriber::registry()
+            .with(env_filter)
+            .with(tracing_subscriber::fmt::layer())
+            .init();
+    }
 
     // 載入設定
     let config = config::Config::from_env()?;
@@ -368,6 +379,8 @@ async fn main() -> anyhow::Result<()> {
         .layer(frame_deny)
         .layer(no_cache_api)
         .layer(DefaultBodyLimit::max(30 * 1024 * 1024)) // SEC-36: 全域 30MB 請求大小限制
+        .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
+        .layer(PropagateRequestIdLayer::x_request_id())
         .merge(utoipa_swagger_ui::SwaggerUi::new("/swagger-ui").url(
             "/api-docs/openapi.json",
             <openapi::ApiDoc as utoipa::OpenApi>::openapi(),

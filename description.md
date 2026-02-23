@@ -256,8 +256,8 @@ API 採用 `/api` 為根路徑，所有路由透過中間件層級控制：
 
 | 項目 | 現況 | 上線目標 | 狀態 |
 |------|------|----------|------|
-| 健康檢查端點 `/health` | 無 | DB + 外部 API 連通性即時回報 | 🔴 |
-| 結構化日誌 (JSON) | `tracing` 文字格式 | JSON 格式 + Request ID 全鏈路追蹤 | 🔴 |
+| 健康檢查端點 `/health` | ✅ 已實作 | DB 連通性 + 延遲量測 | ✅ |
+| 結構化日誌 (JSON) | ✅ 條件式 JSON | JSON 格式 + Request ID 全鏈路追蹤 | ✅ |
 | Metrics 端點 `/metrics` | 無 | Prometheus 格式 (API 延遲、DB Pool、錯誤率) | 🔴 |
 | 錯誤監控 (Sentry 等) | 無 | 前後端錯誤即時通知 + 堆疊追蹤 | 🔴 |
 | 啟動配置檢查 | ✅ 已實作 | — | ✅ |
@@ -278,8 +278,8 @@ API 採用 `/api` 為根路徑，所有路由透過中間件層級控制：
 |------|------|----------|------|
 | 滲透測試 (Pentest) | 未執行 | OWASP ZAP / Burp Suite 掃描 | 🔴 |
 | Rust 依賴掃描 (`cargo audit`) | ✅ CI 已整合 | — | ✅ |
-| npm 依賴掃描 (`npm audit`) | 未整合 CI | GitHub Actions 自動執行 | 🔴 |
-| 容器安全掃描 (Trivy) | 未實作 | CI 中掃描 Docker image | 🔴 |
+| npm 依賴掃描 (`npm audit`) | ✅ CI 已整合 | — | ✅ |
+| 容器安全掃描 (Trivy) | ✅ CI 已整合 | CI 中掃描 Docker image | ✅ |
 | 閒置 Session 自動登出 | JWT 15 分鐘過期 | 前端偵測閒置 + 自動跳出 | 🔶 |
 | Named Tunnel 遷移 | Quick Tunnel | Cloudflare Named Tunnel | 🔴 |
 
@@ -300,7 +300,7 @@ API 採用 `/api` 為根路徑，所有路由透過中間件層級控制：
 | API 回應時間 | 未量測 | P95 < 500ms（一般）、P95 < 2s（報表）| 🔴 |
 | 前端首屏載入 (FCP) | Lazy Loading 已實作 | FCP < 2s、LCP < 2.5s | 🔶 |
 | 壓力測試 | 未執行 | `k6` 或 `wrk` 壓力測試報告 | 🔴 |
-| Nginx Brotli 壓縮 | 未啟用 | 啟用 + 長期緩存策略 | 🔴 |
+| Nginx Brotli 壓縮 | ✅ gzip 強化 | 壓縮等級 6 + Vary + font/svg 類型 | ✅ |
 | 前端 Bundle 大小 | 主 chunk 242KB ✅ | — | ✅ |
 
 ### 7.7 使用者文件與教育訓練 (Documentation & Training)

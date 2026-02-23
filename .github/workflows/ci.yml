@@ -218,3 +218,61 @@ jobs:
 
       - name: TypeScript 型別檢查
         run: npx tsc --noEmit
+
+  # =========================
+  # 🔒 npm 依賴漏洞掃描
+  # =========================
+  npm-audit:
+    name: "🔒 Security: npm audit"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 設定 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 安裝依賴
+        run: npm ci
+
+      - name: npm audit (high/critical)
+        run: npm audit --audit-level=high
+
+  # =========================
+  # 🐳 容器安全掃描 (Trivy)
+  # =========================
+  trivy-scan:
+    name: "🐳 Security: Trivy container scan"
+    runs-on: ubuntu-latest
+    # 僅在 push 到 main 時觸發（build Docker image 耗時較長）
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t ipig-api:ci ./backend
+
+      - name: Trivy 掃描後端映像
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'ipig-api:ci'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+
+      - name: Build frontend image
+        run: docker build -t ipig-web:ci ./frontend
+
+      - name: Trivy 掃描前端映像
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'ipig-web:ci'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
