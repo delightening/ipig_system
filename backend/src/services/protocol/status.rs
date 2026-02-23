@@ -474,8 +474,8 @@ impl ProtocolService {
         }
 
         // 當計劃通過時，自動依照 IACUC No. 自動填入客戶
-        if (req.to_status == ProtocolStatus::Approved
-            || req.to_status == ProtocolStatus::ApprovedWithConditions)
+        if req.to_status == ProtocolStatus::Approved
+            || req.to_status == ProtocolStatus::ApprovedWithConditions
         {
             if let Some(iacuc_no) = new_iacuc_no.as_ref() {
                 // 檢查是否已存在該客戶（客戶代碼 = IACUC No.）
