@@ -219,6 +219,9 @@ jobs:
       - name: TypeScript 型別檢查
         run: npx tsc --noEmit
 
+      - name: 單元測試 (Vitest)
+        run: npx vitest run
+
   # =========================
   # 🔒 npm 依賴漏洞掃描
   # =========================
@@ -261,10 +264,10 @@ jobs:
       - name: Trivy 掃描後端映像
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'ipig-api:ci'
-          format: 'table'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '1'
+          image-ref: "ipig-api:ci"
+          format: "table"
+          severity: "CRITICAL,HIGH"
+          exit-code: "1"
 
       - name: Build frontend image
         run: docker build -t ipig-web:ci ./frontend
@@ -272,7 +275,7 @@ jobs:
       - name: Trivy 掃描前端映像
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'ipig-web:ci'
-          format: 'table'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '1'
+          image-ref: "ipig-web:ci"
+          format: "table"
+          severity: "CRITICAL,HIGH"
+          exit-code: "1"

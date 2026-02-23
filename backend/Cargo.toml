@@ -76,6 +76,10 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 base64 = "0.22"
 urlencoding = "2.1"
 
+# Prometheus Metrics
+metrics = "0.24"
+metrics-exporter-prometheus = { version = "0.16", default-features = false, features = ["http-listener"] }
+
 [dev-dependencies]
 tokio-test = "0.4"
 

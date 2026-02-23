@@ -42,6 +42,8 @@ pub struct AppState {
     pub jwt_blacklist: JwtBlacklist,
     /// 安全警報即時推送廣播器
     pub alert_broadcaster: handlers::sse::AlertBroadcaster,
+    /// Prometheus 指標輸出 handle
+    pub metrics_handle: Option<metrics_exporter_prometheus::PrometheusHandle>,
 }
 
 #[tokio::main]
@@ -320,12 +322,26 @@ async fn main() -> anyhow::Result<()> {
         );
     }
 
+    // 初始化 Prometheus 指標收集器
+    let metrics_handle =
+        match metrics_exporter_prometheus::PrometheusBuilder::new().install_recorder() {
+            Ok(handle) => {
+                tracing::info!("✅ Prometheus 指標收集器已啟動");
+                Some(handle)
+            }
+            Err(e) => {
+                tracing::warn!("⚠️ Prometheus 指標收集器初始化失敗: {}", e);
+                None
+            }
+        };
+
     let state = AppState {
         db: pool,
         config: config.clone(),
         geoip,
         jwt_blacklist,
         alert_broadcaster: handlers::sse::AlertBroadcaster::new(),
+        metrics_handle,
     };
 
     // SEC-31: CORS Origin 從環境變數動態讀取

@@ -9,6 +9,7 @@ pub mod euthanasia;
 pub(crate) mod facility;
 pub mod health;
 mod hr;
+pub mod metrics;
 mod notification;
 mod notification_routing;
 mod partner;
