@@ -46,7 +46,7 @@ async fn main() -> anyhow::Result<()> {
         let entry = entry?;
         let path = entry.path();
         if path.extension().and_then(|s| s.to_str()) == Some("sql") {
-            let file_name = path.file_name().unwrap().to_string_lossy().to_string();
+            let file_name = path.file_name().expect("migration path should have a file name").to_string_lossy().to_string();
             let content = fs::read_to_string(&path)?;
             migration_files.push((file_name, content, path));
         }

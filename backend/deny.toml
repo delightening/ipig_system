@@ -17,12 +17,13 @@ all-features = true
 [advisories]
 # 使用 RustSec Advisory Database
 # 發現已知漏洞時，CI 會失敗
-vulnerability = "deny"
-unmaintained = "warn"
-yanked = "warn"
-notice = "warn"
 # 如需暫時忽略特定漏洞，在此加入 RUSTSEC ID
-ignore = []
+ignore = [
+    # rsa 0.9.x 時序攻擊（sqlx-mysql 上游依賴，無修復版本）
+    "RUSTSEC-2023-0071",
+    # proc-macro-error 不維護（utoipa 上游依賴）
+    "RUSTSEC-2024-0370",
+]
 
 # ============================
 # 授權條款審查

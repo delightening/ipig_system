@@ -65,7 +65,7 @@ sha2 = "0.10"
 hmac = "0.12"
 
 # GeoIP
-maxminddb = "0.24"
+maxminddb = "0.27"
 
 # PDF generation
 printpdf = "0.7"
