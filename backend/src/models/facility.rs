@@ -321,7 +321,8 @@ mod tests {
             "config": null,
             "sort_order": 1
         }"#;
-        let req: CreateSpeciesRequest = serde_json::from_str(json).unwrap();
+        let req: CreateSpeciesRequest =
+            serde_json::from_str(json).expect("反序列化 CreateSpeciesRequest 失敗");
         assert_eq!(req.code, "PIG");
         assert_eq!(req.name, "豬");
         assert_eq!(req.name_en.as_deref(), Some("Pig"));
@@ -338,7 +339,8 @@ mod tests {
             "contact_person": "王小明",
             "config": null
         }"#;
-        let req: CreateFacilityRequest = serde_json::from_str(json).unwrap();
+        let req: CreateFacilityRequest =
+            serde_json::from_str(json).expect("反序列化 CreateFacilityRequest 失敗");
         assert_eq!(req.code, "FAC-001");
         assert_eq!(req.name, "動物試驗中心");
         assert_eq!(req.phone.as_deref(), Some("06-1234567"));
@@ -347,7 +349,7 @@ mod tests {
     #[test]
     fn test_pen_query_defaults() {
         let json = r#"{}"#;
-        let query: PenQuery = serde_json::from_str(json).unwrap();
+        let query: PenQuery = serde_json::from_str(json).expect("反序列化 PenQuery 失敗");
         assert!(query.zone_id.is_none());
         assert!(query.building_id.is_none());
         assert!(query.facility_id.is_none());
@@ -358,13 +360,17 @@ mod tests {
     #[test]
     fn test_create_pen_request() {
         let zone_id = Uuid::new_v4();
-        let json = format!(r#"{{
+        let json = format!(
+            r#"{{
             "zone_id": "{}",
             "code": "P-001",
             "name": "1號欄",
             "capacity": 10
-        }}"#, zone_id);
-        let req: CreatePenRequest = serde_json::from_str(&json).unwrap();
+        }}"#,
+            zone_id
+        );
+        let req: CreatePenRequest =
+            serde_json::from_str(&json).expect("反序列化 CreatePenRequest 失敗");
         assert_eq!(req.zone_id, zone_id);
         assert_eq!(req.code, "P-001");
         assert_eq!(req.capacity, Some(10));
@@ -380,7 +386,8 @@ mod tests {
             "config": null,
             "sort_order": 1
         }"#;
-        let req: CreateDepartmentRequest = serde_json::from_str(json).unwrap();
+        let req: CreateDepartmentRequest =
+            serde_json::from_str(json).expect("反序列化 CreateDepartmentRequest 失敗");
         assert_eq!(req.code, "DEPT-001");
         assert_eq!(req.name, "研發部");
         assert!(req.parent_id.is_none());
@@ -389,7 +396,8 @@ mod tests {
     #[test]
     fn test_update_pen_optional_fields() {
         let json = r#"{"capacity": 20}"#;
-        let req: UpdatePenRequest = serde_json::from_str(json).unwrap();
+        let req: UpdatePenRequest =
+            serde_json::from_str(json).expect("反序列化 UpdatePenRequest 失敗");
         assert_eq!(req.capacity, Some(20));
         assert!(req.name.is_none());
         assert!(req.status.is_none());

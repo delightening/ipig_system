@@ -242,8 +242,8 @@ impl LeaveStatus {
 pub struct LeaveRequest {
     pub id: Uuid,
     pub user_id: Uuid,
-    pub proxy_user_id: Option<Uuid>,  // 代理人
-    pub leave_type: String, // 用 String 避免 sqlx enum 問題
+    pub proxy_user_id: Option<Uuid>, // 代理人
+    pub leave_type: String,          // 用 String 避免 sqlx enum 問題
     pub start_date: NaiveDate,
     pub end_date: NaiveDate,
     pub start_time: Option<NaiveTime>,
@@ -312,11 +312,11 @@ pub struct CreateLeaveRequest {
     pub end_time: Option<NaiveTime>,
     pub total_days: f64,
     pub total_hours: Option<f64>,
-    pub reason: Option<String>,  // 特休假不用填理由
-    pub supporting_documents: Option<Vec<String>>,  // 附件圖片 URLs
+    pub reason: Option<String>,                    // 特休假不用填理由
+    pub supporting_documents: Option<Vec<String>>, // 附件圖片 URLs
     pub is_urgent: Option<bool>,
     pub is_retroactive: Option<bool>,
-    pub proxy_user_id: Option<Uuid>,  // 代理人
+    pub proxy_user_id: Option<Uuid>, // 代理人
 }
 
 #[derive(Debug, Deserialize)]
@@ -328,7 +328,7 @@ pub struct UpdateLeaveRequest {
     pub total_days: Option<f64>,
     pub total_hours: Option<f64>,
     pub reason: Option<String>,
-    pub proxy_user_id: Option<Uuid>,  // 代理人
+    pub proxy_user_id: Option<Uuid>, // 代理人
 }
 
 #[derive(Debug, Deserialize)]
@@ -409,7 +409,7 @@ pub struct AnnualLeaveBalanceView {
     pub remaining_days: f64,
     pub expires_at: NaiveDate,
     pub days_until_expiry: i32,
-    pub is_expired: bool,  // 是否已過期（待補償）
+    pub is_expired: bool, // 是否已過期（待補償）
 }
 
 #[derive(Debug, Serialize)]
@@ -449,7 +449,7 @@ pub struct CreateAnnualLeaveRequest {
     pub user_id: Uuid,
     pub entitlement_year: i32,
     pub entitled_days: f64,
-    pub hire_date: Option<NaiveDate>,  // 到職日，用於計算到期日（到職週年日 + 2年）
+    pub hire_date: Option<NaiveDate>, // 到職日，用於計算到期日（到職週年日 + 2年）
     pub calculation_basis: Option<String>,
     pub notes: Option<String>,
 }
@@ -469,7 +469,7 @@ pub struct ExpiredLeaveReport {
     pub entitlement_year: i32,
     pub entitled_days: f64,
     pub used_days: f64,
-    pub remaining_days: f64,  // 待補償天數
+    pub remaining_days: f64, // 待補償天數
     pub expires_at: NaiveDate,
 }
 
@@ -533,27 +533,33 @@ mod tests {
     fn test_leave_type_serde_roundtrip() {
         // serde 使用預設 PascalCase（無 serde rename_all）
         let lt = LeaveType::Compensatory;
-        let json = serde_json::to_string(&lt).unwrap();
+        let json = serde_json::to_string(&lt).expect("序列化 LeaveType 失敗");
         assert_eq!(json, "\"Compensatory\"");
-        let parsed: LeaveType = serde_json::from_str(&json).unwrap();
+        let parsed: LeaveType = serde_json::from_str(&json).expect("反序列化 LeaveType 失敗");
         assert_eq!(parsed, lt);
     }
 
     #[test]
     fn test_leave_status_serde_roundtrip() {
         let ls = LeaveStatus::PendingHr;
-        let json = serde_json::to_string(&ls).unwrap();
+        let json = serde_json::to_string(&ls).expect("序列化 LeaveStatus 失敗");
         assert_eq!(json, "\"PendingHr\"");
-        let parsed: LeaveStatus = serde_json::from_str(&json).unwrap();
+        let parsed: LeaveStatus = serde_json::from_str(&json).expect("反序列化 LeaveStatus 失敗");
         assert_eq!(parsed, ls);
     }
 
     #[test]
     fn test_leave_type_all_variants() {
         let variants = vec![
-            LeaveType::Annual, LeaveType::Personal, LeaveType::Sick,
-            LeaveType::Compensatory, LeaveType::Marriage, LeaveType::Bereavement,
-            LeaveType::Maternity, LeaveType::Paternity, LeaveType::Menstrual,
+            LeaveType::Annual,
+            LeaveType::Personal,
+            LeaveType::Sick,
+            LeaveType::Compensatory,
+            LeaveType::Marriage,
+            LeaveType::Bereavement,
+            LeaveType::Maternity,
+            LeaveType::Paternity,
+            LeaveType::Menstrual,
             LeaveType::Official,
         ];
         for v in &variants {
@@ -565,10 +571,14 @@ mod tests {
     #[test]
     fn test_leave_status_all_variants() {
         let variants = vec![
-            LeaveStatus::Draft, LeaveStatus::PendingL1,
-            LeaveStatus::PendingL2, LeaveStatus::PendingHr,
-            LeaveStatus::PendingGm, LeaveStatus::Approved,
-            LeaveStatus::Rejected, LeaveStatus::Cancelled,
+            LeaveStatus::Draft,
+            LeaveStatus::PendingL1,
+            LeaveStatus::PendingL2,
+            LeaveStatus::PendingHr,
+            LeaveStatus::PendingGm,
+            LeaveStatus::Approved,
+            LeaveStatus::Rejected,
+            LeaveStatus::Cancelled,
             LeaveStatus::Revoked,
         ];
         for v in &variants {

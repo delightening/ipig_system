@@ -6,10 +6,11 @@ use uuid::Uuid;
 use validator::Validate;
 
 /// 產品狀態
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, sqlx::Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, sqlx::Type, Default)]
 #[sqlx(type_name = "VARCHAR", rename_all = "lowercase")]
 pub enum ProductStatus {
     #[serde(rename = "active")]
+    #[default]
     Active,
     #[serde(rename = "inactive")]
     Inactive,
@@ -17,25 +18,19 @@ pub enum ProductStatus {
     Discontinued,
 }
 
-impl Default for ProductStatus {
-    fn default() -> Self {
-        ProductStatus::Active
-    }
-}
-
 /// 保存條件
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum StorageCondition {
     #[serde(rename = "RT")]
-    RoomTemperature,  // 常溫 15-25°C
+    RoomTemperature, // 常溫 15-25°C
     #[serde(rename = "RF")]
-    Refrigerated,     // 冷藏 2-8°C
+    Refrigerated, // 冷藏 2-8°C
     #[serde(rename = "FZ")]
-    Frozen,           // 冷凍 -20°C 以下
+    Frozen, // 冷凍 -20°C 以下
     #[serde(rename = "DK")]
-    Dark,             // 避光
+    Dark, // 避光
     #[serde(rename = "DY")]
-    Dry,              // 乾燥
+    Dry, // 乾燥
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]

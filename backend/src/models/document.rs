@@ -6,6 +6,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 /// 單據類型
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[sqlx(type_name = "doc_type", rename_all = "UPPERCASE")]
 #[serde(rename_all = "UPPERCASE")]
@@ -47,7 +48,10 @@ impl DocType {
 
     /// 是否影響庫存
     pub fn affects_stock(&self) -> bool {
-        matches!(self, DocType::GRN | DocType::PR | DocType::DO | DocType::TR | DocType::ADJ)
+        matches!(
+            self,
+            DocType::GRN | DocType::PR | DocType::DO | DocType::TR | DocType::ADJ
+        )
     }
 }
 
@@ -95,7 +99,7 @@ pub struct Document {
     #[sqlx(default)]
     pub scrap_total_amount: Option<Decimal>,
     #[sqlx(default)]
-    pub manager_approval_status: Option<String>,  // pending, approved, rejected
+    pub manager_approval_status: Option<String>, // pending, approved, rejected
     #[sqlx(default)]
     pub manager_approved_by: Option<Uuid>,
     #[sqlx(default)]

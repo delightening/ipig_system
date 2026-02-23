@@ -5,7 +5,7 @@ use crate::{AppError, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
@@ -13,9 +13,9 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum SignatureType {
-    Approve,    // 核准
-    Confirm,    // 確認
-    Witness,    // 見證
+    Approve, // 核准
+    Confirm, // 確認
+    Witness, // 見證
 }
 
 impl SignatureType {
@@ -85,26 +85,37 @@ impl SignatureService {
     }
 
     /// 建立電子簽章（密碼驗證方式）
+    #[allow(clippy::too_many_arguments)]
     pub async fn sign(
         pool: &PgPool,
         entity_type: &str,
         entity_id: &str,
         signer_id: Uuid,
-        password_hash: &str,  // 預先驗證過的密碼雜湊
+        password_hash: &str, // 預先驗證過的密碼雜湊
         signature_type: SignatureType,
         content: &str,
         ip_address: Option<&str>,
         user_agent: Option<&str>,
     ) -> Result<ElectronicSignature> {
         Self::sign_internal(
-            pool, entity_type, entity_id, signer_id,
-            Some(password_hash), signature_type, content,
-            ip_address, user_agent,
-            None, None, "password",
-        ).await
+            pool,
+            entity_type,
+            entity_id,
+            signer_id,
+            Some(password_hash),
+            signature_type,
+            content,
+            ip_address,
+            user_agent,
+            None,
+            None,
+            "password",
+        )
+        .await
     }
 
     /// 建立電子簽章（手寫簽名方式）
+    #[allow(clippy::too_many_arguments)]
     pub async fn sign_with_handwriting(
         pool: &PgPool,
         entity_type: &str,
@@ -118,14 +129,24 @@ impl SignatureService {
         stroke_data: Option<&JsonValue>,
     ) -> Result<ElectronicSignature> {
         Self::sign_internal(
-            pool, entity_type, entity_id, signer_id,
-            None, signature_type, content,
-            ip_address, user_agent,
-            Some(handwriting_svg), stroke_data, "handwriting",
-        ).await
+            pool,
+            entity_type,
+            entity_id,
+            signer_id,
+            None,
+            signature_type,
+            content,
+            ip_address,
+            user_agent,
+            Some(handwriting_svg),
+            stroke_data,
+            "handwriting",
+        )
+        .await
     }
 
     /// 內部簽章建立邏輯（統一密碼 / 手寫兩種方式）
+    #[allow(clippy::too_many_arguments)]
     async fn sign_internal(
         pool: &PgPool,
         entity_type: &str,
@@ -142,13 +163,19 @@ impl SignatureService {
     ) -> Result<ElectronicSignature> {
         // 計算內容雜湊
         let content_hash = Self::compute_hash(content);
-        
+
         // 建立簽章資料（簽章 = 使用者ID + 內容雜湊 + 時間戳記 的雜湊）
         let timestamp = Utc::now();
         let hash_input = password_hash.unwrap_or("handwriting");
-        let signature_input = format!("{}:{}:{}:{}", signer_id, content_hash, timestamp.timestamp(), hash_input);
+        let signature_input = format!(
+            "{}:{}:{}:{}",
+            signer_id,
+            content_hash,
+            timestamp.timestamp(),
+            hash_input
+        );
         let signature_data = Self::compute_hash(&signature_input);
-        
+
         // 儲存到資料庫
         let signature = sqlx::query_as::<_, ElectronicSignature>(
             r#"
@@ -159,7 +186,7 @@ impl SignatureService {
             )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             RETURNING *
-            "#
+            "#,
         )
         .bind(entity_type)
         .bind(entity_id)
@@ -189,7 +216,7 @@ impl SignatureService {
             SELECT * FROM electronic_signatures
             WHERE entity_type = $1 AND entity_id = $2 AND is_valid = true
             ORDER BY signed_at DESC
-            "#
+            "#,
         )
         .bind(entity_type)
         .bind(entity_id)
@@ -206,7 +233,7 @@ impl SignatureService {
         current_content: &str,
     ) -> Result<VerifyResult> {
         let signature = sqlx::query_as::<_, ElectronicSignature>(
-            "SELECT * FROM electronic_signatures WHERE id = $1"
+            "SELECT * FROM electronic_signatures WHERE id = $1",
         )
         .bind(signature_id)
         .fetch_optional(pool)
@@ -219,7 +246,9 @@ impl SignatureService {
                         is_valid: false,
                         signer_name: None,
                         signed_at: Some(sig.signed_at),
-                        failure_reason: Some(sig.invalidated_reason.unwrap_or("簽章已失效".to_string())),
+                        failure_reason: Some(
+                            sig.invalidated_reason.unwrap_or("簽章已失效".to_string()),
+                        ),
                     });
                 }
 
@@ -235,12 +264,11 @@ impl SignatureService {
                 }
 
                 // 取得簽章者名稱
-                let signer_name: Option<String> = sqlx::query_scalar(
-                    "SELECT display_name FROM users WHERE id = $1"
-                )
-                .bind(sig.signer_id)
-                .fetch_optional(pool)
-                .await?;
+                let signer_name: Option<String> =
+                    sqlx::query_scalar("SELECT display_name FROM users WHERE id = $1")
+                        .bind(sig.signer_id)
+                        .fetch_optional(pool)
+                        .await?;
 
                 Ok(VerifyResult {
                     is_valid: true,
@@ -273,7 +301,7 @@ impl SignatureService {
                 invalidated_at = NOW(),
                 invalidated_by = $3
             WHERE id = $1
-            "#
+            "#,
         )
         .bind(signature_id)
         .bind(reason)
@@ -285,16 +313,12 @@ impl SignatureService {
     }
 
     /// 檢查實體是否已簽章
-    pub async fn is_signed(
-        pool: &PgPool,
-        entity_type: &str,
-        entity_id: &str,
-    ) -> Result<bool> {
+    pub async fn is_signed(pool: &PgPool, entity_type: &str, entity_id: &str) -> Result<bool> {
         let count: i64 = sqlx::query_scalar(
             r#"
             SELECT COUNT(*) FROM electronic_signatures
             WHERE entity_type = $1 AND entity_id = $2 AND is_valid = true
-            "#
+            "#,
         )
         .bind(entity_type)
         .bind(entity_id)
@@ -307,7 +331,7 @@ impl SignatureService {
     /// 鎖定記錄（簽章後自動鎖定）
     pub async fn lock_record(
         pool: &PgPool,
-        record_type: &str,  // "observation", "surgery", "sacrifice"
+        record_type: &str, // "observation", "surgery", "sacrifice"
         record_id: i32,
         locked_by: Uuid,
     ) -> Result<()> {
@@ -315,7 +339,12 @@ impl SignatureService {
             "observation" => "animal_observations",
             "surgery" => "animal_surgeries",
             "sacrifice" => "animal_sacrifices",
-            _ => return Err(AppError::Validation(format!("不支援的記錄類型: {}", record_type))),
+            _ => {
+                return Err(AppError::Validation(format!(
+                    "不支援的記錄類型: {}",
+                    record_type
+                )))
+            }
         };
 
         let query = format!(
@@ -333,16 +362,17 @@ impl SignatureService {
     }
 
     /// 檢查記錄是否已鎖定
-    pub async fn is_locked(
-        pool: &PgPool,
-        record_type: &str,
-        record_id: i32,
-    ) -> Result<bool> {
+    pub async fn is_locked(pool: &PgPool, record_type: &str, record_id: i32) -> Result<bool> {
         let table_name = match record_type {
             "observation" => "animal_observations",
             "surgery" => "animal_surgeries",
             "sacrifice" => "animal_sacrifices",
-            _ => return Err(AppError::Validation(format!("不支援的記錄類型: {}", record_type))),
+            _ => {
+                return Err(AppError::Validation(format!(
+                    "不支援的記錄類型: {}",
+                    record_type
+                )))
+            }
         };
 
         let query = format!(
@@ -428,7 +458,7 @@ impl AnnotationService {
             )
             VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING *
-            "#
+            "#,
         )
         .bind(record_type)
         .bind(record_id)
@@ -453,7 +483,7 @@ impl AnnotationService {
             SELECT * FROM record_annotations
             WHERE record_type = $1 AND record_id = $2
             ORDER BY created_at DESC
-            "#
+            "#,
         )
         .bind(record_type)
         .bind(record_id)

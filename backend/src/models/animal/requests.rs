@@ -4,9 +4,8 @@ use sqlx::{FromRow, Type};
 use uuid::Uuid;
 use validator::Validate;
 
-use super::enums::*;
 use super::entities::*;
-
+use super::enums::*;
 
 // ============================================
 // Request/Response DTOs
@@ -20,7 +19,7 @@ pub(crate) fn validate_ear_tag(ear_tag: &str) -> Result<(), validator::Validatio
     } else {
         ear_tag.to_string()
     };
-    
+
     // 檢查是否為三位數字
     if formatted.len() == 3 && formatted.chars().all(|c| c.is_ascii_digit()) {
         Ok(())
@@ -30,7 +29,7 @@ pub(crate) fn validate_ear_tag(ear_tag: &str) -> Result<(), validator::Validatio
 }
 
 /// 驗證欄位必須填寫（當值存在時，不能為空字串）
-pub(crate) fn validate_pen_location(pen_location: &String) -> Result<(), validator::ValidationError> {
+pub(crate) fn validate_pen_location(pen_location: &str) -> Result<(), validator::ValidationError> {
     if pen_location.trim().is_empty() {
         let mut error = validator::ValidationError::new("pen_location_required");
         error.message = Some(std::borrow::Cow::Borrowed("欄位為必填"));
@@ -73,7 +72,6 @@ pub struct UpdateAnimalRequest {
     // - entry_date (進場日期)
     // - entry_weight (進場體重)
     // - pre_experiment_code (實驗前代號)
-    
     pub status: Option<AnimalStatus>,
     pub pen_location: Option<String>,
     pub iacuc_no: Option<String>,
@@ -228,7 +226,7 @@ pub struct CreateVetRecommendationRequest {
     #[validate(length(min = 1, message = "Content is required"))]
     pub content: String,
     #[serde(default)]
-    pub is_urgent: bool,  // 是否為緊急建議（影響通知管道）
+    pub is_urgent: bool, // 是否為緊急建議（影響通知管道）
 }
 
 #[derive(Debug, Deserialize, Validate)]
@@ -256,7 +254,7 @@ pub struct UpdateAnimalSourceRequest {
 #[derive(Debug, Serialize, FromRow)]
 pub struct AnimalListItem {
     pub id: Uuid,
-    pub animal_no: Option<String>,  // 動物編號（由使用者命名）
+    pub animal_no: Option<String>, // 動物編號（由使用者命名）
     pub ear_tag: String,
     pub status: AnimalStatus,
     pub breed: AnimalBreed,
@@ -404,7 +402,7 @@ pub struct UpdateObservationRequest {
     pub treatments: Option<serde_json::Value>,
     pub remark: Option<String>,
     // 緊急給藥審核 (VET/PI 可審核)
-    pub emergency_status: Option<String>,  // approved, rejected
+    pub emergency_status: Option<String>, // approved, rejected
 }
 
 /// 更新手術紀錄請求
@@ -571,7 +569,7 @@ pub struct CreateVetRecommendationWithAttachmentsRequest {
     pub content: String,
     pub attachments: Option<serde_json::Value>, // [{file_name, file_path, file_type}]
     #[serde(default)]
-    pub is_urgent: bool,  // 是否為緊急建議（影響通知管道）
+    pub is_urgent: bool,   // 是否為緊急建議（影響通知管道）
 }
 
 /// 匯出請求
@@ -586,13 +584,28 @@ pub struct ExportRequest {
 /// 動物匯入行資料
 #[derive(Debug, Deserialize)]
 pub struct AnimalImportRow {
-    #[serde(alias = "\u{feff}Number", alias = "Number", alias = "耳號*", alias = "耳號")]
+    #[serde(
+        alias = "\u{feff}Number",
+        alias = "Number",
+        alias = "耳號*",
+        alias = "耳號"
+    )]
     pub ear_tag: String,
-    #[serde(alias = "Species", alias = "Species (minipig/white)", alias = "品種*", alias = "品種")]
+    #[serde(
+        alias = "Species",
+        alias = "Species (minipig/white)",
+        alias = "品種*",
+        alias = "品種"
+    )]
     pub breed: String,
     #[serde(alias = "Breed Other", alias = "品種其他", alias = "其他品種", default)]
     pub breed_other: Option<String>,
-    #[serde(alias = "Sex", alias = "Sex (male/female)", alias = "性別*", alias = "性別")]
+    #[serde(
+        alias = "Sex",
+        alias = "Sex (male/female)",
+        alias = "性別*",
+        alias = "性別"
+    )]
     pub gender: String,
     #[serde(alias = "Source", alias = "來源代碼", default)]
     pub source_code: Option<String>,
@@ -600,7 +613,13 @@ pub struct AnimalImportRow {
     pub birth_date: Option<String>,
     #[serde(alias = "Import Date", alias = "進場日期*", alias = "進場日期")]
     pub entry_date: String,
-    #[serde(alias = "Weight", alias = "Weight ", alias = "進場體重", alias = "進場體重(kg)", default)]
+    #[serde(
+        alias = "Weight",
+        alias = "Weight ",
+        alias = "進場體重",
+        alias = "進場體重(kg)",
+        default
+    )]
     pub entry_weight: Option<String>,
     #[serde(alias = "欄位編號", alias = "欄位", default)]
     pub pen_location: Option<String>,
@@ -624,7 +643,12 @@ pub struct WeightImportRow {
     pub ear_tag: String,
     #[serde(alias = "Measure Date", alias = "測量日期*", alias = "測量日期")]
     pub measure_date: String,
-    #[serde(alias = "Weight", alias = "體重(kg)*", alias = "體重(kg)", alias = "體重")]
+    #[serde(
+        alias = "Weight",
+        alias = "體重(kg)*",
+        alias = "體重(kg)",
+        alias = "體重"
+    )]
     pub weight: String,
 }
 

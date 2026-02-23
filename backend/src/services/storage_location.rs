@@ -4,8 +4,7 @@ use uuid::Uuid;
 use crate::{
     models::{
         CreateStorageLocationRequest, StorageLocation, StorageLocationQuery,
-        StorageLocationWithWarehouse, UpdateStorageLayoutRequest,
-        UpdateStorageLocationRequest,
+        StorageLocationWithWarehouse, UpdateStorageLayoutRequest, UpdateStorageLocationRequest,
     },
     AppError, Result,
 };
@@ -101,8 +100,7 @@ impl StorageLocationService {
         if query.keyword.is_some() {
             sql.push_str(&format!(
                 " AND (sl.code ILIKE ${} OR sl.name ILIKE ${})",
-                param_idx,
-                param_idx
+                param_idx, param_idx
             ));
         }
 
@@ -322,12 +320,14 @@ impl StorageLocationService {
     ) -> Result<crate::models::StorageLocationInventoryItem> {
         // Validate non-negative quantity (since validator crate doesn't support rust_decimal)
         if req.on_hand_qty < rust_decimal::Decimal::ZERO {
-            return Err(AppError::Validation("on_hand_qty must be non-negative".to_string()));
+            return Err(AppError::Validation(
+                "on_hand_qty must be non-negative".to_string(),
+            ));
         }
 
         // 先取得項目資訊
         let storage_location_id: Option<Uuid> = sqlx::query_scalar(
-            "SELECT storage_location_id FROM storage_location_inventory WHERE id = $1"
+            "SELECT storage_location_id FROM storage_location_inventory WHERE id = $1",
         )
         .bind(item_id)
         .fetch_optional(pool)
@@ -344,7 +344,7 @@ impl StorageLocationService {
             WHERE id = $2
             "#,
         )
-        .bind(&req.on_hand_qty)
+        .bind(req.on_hand_qty)
         .bind(item_id)
         .execute(pool)
         .await?;
@@ -399,17 +399,20 @@ impl StorageLocationService {
     ) -> Result<crate::models::StorageLocationInventoryItem> {
         // 驗證數量
         if req.on_hand_qty < rust_decimal::Decimal::ZERO {
-            return Err(crate::AppError::Validation("Quantity must be non-negative".to_string()));
+            return Err(crate::AppError::Validation(
+                "Quantity must be non-negative".to_string(),
+            ));
         }
 
         // 驗證儲位存在
-        let _location = sqlx::query_scalar::<_, Uuid>(
-            "SELECT id FROM storage_locations WHERE id = $1"
-        )
-        .bind(storage_location_id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| crate::AppError::NotFound("Storage location not found".to_string()))?;
+        let _location =
+            sqlx::query_scalar::<_, Uuid>("SELECT id FROM storage_locations WHERE id = $1")
+                .bind(storage_location_id)
+                .fetch_optional(pool)
+                .await?
+                .ok_or_else(|| {
+                    crate::AppError::NotFound("Storage location not found".to_string())
+                })?;
 
         let item_id = Uuid::new_v4();
 
@@ -488,7 +491,9 @@ impl StorageLocationService {
     ) -> Result<crate::models::StorageLocationInventoryItem> {
         // 驗證數量
         if req.qty <= rust_decimal::Decimal::ZERO {
-            return Err(crate::AppError::Validation("Transfer quantity must be positive".to_string()));
+            return Err(crate::AppError::Validation(
+                "Transfer quantity must be positive".to_string(),
+            ));
         }
 
         // 取得來源庫存項目
@@ -537,7 +542,7 @@ impl StorageLocationService {
 
         if same_warehouse != Some(true) {
             return Err(crate::AppError::BusinessRule(
-                "Internal transfer must be within the same warehouse".to_string()
+                "Internal transfer must be within the same warehouse".to_string(),
             ));
         }
 

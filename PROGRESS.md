@@ -1,5 +1,19 @@
 # 專案進度
 
+## 2026-02-23 修復 Clippy Linting 錯誤
+
+### 已完成
+- ✅ `derivable_impls`：`user.rs`、`product.rs`、`storage_location.rs` 改用 `#[derive(Default)]`
+- ✅ `ptr_arg`：`requests.rs` `validate_pen_location` 改為 `&str`
+- ✅ `upper_case_acronyms`：`enums.rs` 加 `#[allow(clippy::upper_case_acronyms)]`
+- ✅ `useless_format`：`numbering.rs`、`import_export.rs` 移除無效 `format!()`
+- ✅ `get_first`：`import_export.rs` `.get(0)` → `.first()`
+- ✅ `iter_cloned_collect`：`status.rs` → `.to_vec()`
+- ✅ `unused_enumerate_index`：`import_export.rs` 移除未使用的 enumerate
+- ✅ `no_effect_replace`：`product.rs` 移除無效 `.replace("___", "___")`
+- ✅ `unwrap_used`：所有測試 `.unwrap()` → `.expect()` 並附描述訊息
+- ✅ 測試更新：`validate_pen_location` 測試配合 `&str` 簽名變更
+
 ## 2026-02-17 修復「返回管理員」按鈕導致管理員登出
 
 ### 問題

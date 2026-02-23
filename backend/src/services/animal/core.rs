@@ -4,8 +4,8 @@ use uuid::Uuid;
 use super::AnimalService;
 use crate::{
     models::{
-        BatchAssignRequest, CreateAnimalRequest, CreateWeightRequest, Animal, AnimalListItem, AnimalQuery,
-        AnimalStatus, AnimalsByPen, UpdateAnimalRequest,
+        Animal, AnimalListItem, AnimalQuery, AnimalStatus, AnimalsByPen, BatchAssignRequest,
+        CreateAnimalRequest, CreateWeightRequest, UpdateAnimalRequest,
     },
     AppError, Result,
 };
@@ -78,9 +78,8 @@ impl AnimalService {
             FROM animals p
             LEFT JOIN animal_sources s ON p.source_id = s.id
             WHERE p.deleted_at IS NULL
-            "#
+            "#,
         );
-
 
         // Add filters with proper parameterization
         if let Some(status) = &query.status {
@@ -113,7 +112,8 @@ impl AnimalService {
 
         // 過濾正在用藥的動物
         if let Some(true) = query.is_on_medication {
-            query_builder.push(r#"
+            query_builder.push(
+                r#"
                 AND (
                     EXISTS(
                         SELECT 1 FROM animal_observations po 
@@ -127,7 +127,8 @@ impl AnimalService {
                         AND ps.no_medication_needed = false
                     )
                 )
-            "#);
+            "#,
+            );
         }
 
         query_builder.push(" ORDER BY p.id DESC");
@@ -157,12 +158,12 @@ impl AnimalService {
             FROM protocols p
             INNER JOIN user_protocols up ON up.protocol_id = p.id
             WHERE up.user_id = $1 AND p.iacuc_no IS NOT NULL
-            "#
+            "#,
         )
         .bind(user_id)
         .fetch_all(pool)
         .await?;
-        
+
         Ok(iacuc_nos)
     }
 
@@ -193,7 +194,8 @@ impl AnimalService {
         }
 
         // 依欄位分組
-        let mut grouped: std::collections::HashMap<String, Vec<AnimalListItem>> = std::collections::HashMap::new();
+        let mut grouped: std::collections::HashMap<String, Vec<AnimalListItem>> =
+            std::collections::HashMap::new();
         for animal in animals {
             if let Some(pen) = &animal.pen_location {
                 grouped.entry(pen.clone()).or_default().push(animal);
@@ -236,7 +238,11 @@ impl AnimalService {
     }
 
     /// 建立動物
-    pub async fn create(pool: &PgPool, req: &CreateAnimalRequest, created_by: Uuid) -> Result<Animal> {
+    pub async fn create(
+        pool: &PgPool,
+        req: &CreateAnimalRequest,
+        created_by: Uuid,
+    ) -> Result<Animal> {
         // 格式化耳號：如果是數字則補零至三位數
         let formatted_ear_tag = if let Ok(num) = req.ear_tag.parse::<u32>() {
             format!("{:03}", num)
@@ -246,45 +252,53 @@ impl AnimalService {
 
         // 驗證耳號必須為三位數
         if !formatted_ear_tag.chars().all(|c| c.is_ascii_digit()) || formatted_ear_tag.len() != 3 {
-            return Err(AppError::Validation(
-                "耳號必須為三位數".to_string()
-            ));
+            return Err(AppError::Validation("耳號必須為三位數".to_string()));
         }
 
         // 檢查耳號是否已存在（僅查未刪除且存活的動物，排除終態：euthanized/sudden_death）
-        let existing_animals: Vec<(Uuid, Option<chrono::NaiveDate>, String, Option<String>)> = sqlx::query_as(
-            r#"
+        let existing_animals: Vec<(Uuid, Option<chrono::NaiveDate>, String, Option<String>)> =
+            sqlx::query_as(
+                r#"
             SELECT id, birth_date, status::text, pen_location
             FROM animals
             WHERE ear_tag = $1 AND deleted_at IS NULL 
             AND status NOT IN ('euthanized', 'sudden_death')
-            "#
-        )
-        .bind(&formatted_ear_tag)
-        .fetch_all(pool)
-        .await?;
+            "#,
+            )
+            .bind(&formatted_ear_tag)
+            .fetch_all(pool)
+            .await?;
 
         if !existing_animals.is_empty() {
             // 檢查是否有同出生日期的 → 完全阻擋
-            let same_birthday = existing_animals.iter().any(|(_, bd, _, _)| *bd == req.birth_date);
+            let same_birthday = existing_animals
+                .iter()
+                .any(|(_, bd, _, _)| *bd == req.birth_date);
             if same_birthday {
-                return Err(AppError::Conflict(
-                    format!("耳號 {} 已存在同出生日期的存活動物，無法重複建立", formatted_ear_tag)
-                ));
+                return Err(AppError::Conflict(format!(
+                    "耳號 {} 已存在同出生日期的存活動物，無法重複建立",
+                    formatted_ear_tag
+                )));
             }
 
             // 不同出生日期，且未 force_create → 回傳警告
             if !req.force_create {
-                let animals_info: Vec<serde_json::Value> = existing_animals.iter().map(|(id, bd, status, pen)| {
-                    serde_json::json!({
-                        "id": id,
-                        "birth_date": bd.map(|d| d.to_string()),
-                        "status": status,
-                        "pen_location": pen,
+                let animals_info: Vec<serde_json::Value> = existing_animals
+                    .iter()
+                    .map(|(id, bd, status, pen)| {
+                        serde_json::json!({
+                            "id": id,
+                            "birth_date": bd.map(|d| d.to_string()),
+                            "status": status,
+                            "pen_location": pen,
+                        })
                     })
-                }).collect();
+                    .collect();
                 return Err(AppError::DuplicateWarning {
-                    message: format!("耳號 {} 已存在其他存活動物，請確認是否繼續建立", formatted_ear_tag),
+                    message: format!(
+                        "耳號 {} 已存在其他存活動物，請確認是否繼續建立",
+                        formatted_ear_tag
+                    ),
                     existing_animals: animals_info,
                 });
             }
@@ -303,7 +317,7 @@ impl AnimalService {
             crate::models::AnimalBreed::LYD => "LYD",
             crate::models::AnimalBreed::Other => "other",
         };
-        
+
         let animal = sqlx::query_as::<_, Animal>(
             r#"
             INSERT INTO animals (
@@ -357,13 +371,17 @@ impl AnimalService {
             tracing::warn!("建立初始體重紀錄失敗: {e}");
         }
 
-
         Ok(animal)
     }
 
     /// 更新動物
     /// 回傳 (Animal, Option<IacucChangeInfo>)，第二個元素不為 None 時表示 IACUC No. 有變更
-    pub async fn update(pool: &PgPool, id: Uuid, req: &UpdateAnimalRequest, updated_by: Uuid) -> Result<(Animal, Option<IacucChangeInfo>)> {
+    pub async fn update(
+        pool: &PgPool,
+        id: Uuid,
+        req: &UpdateAnimalRequest,
+        updated_by: Uuid,
+    ) -> Result<(Animal, Option<IacucChangeInfo>)> {
         // 查詢現有狀態與 IACUC No.（合併查詢以減少 I/O）
         let current: (AnimalStatus, Option<String>) = sqlx::query_as(
             "SELECT status as \"status: AnimalStatus\", iacuc_no FROM animals WHERE id = $1 AND deleted_at IS NULL"
@@ -379,25 +397,27 @@ impl AnimalService {
         // 狀態轉換驗證
         if let Some(new_status) = req.status {
             if current_status != new_status && !current_status.can_transition_to(new_status) {
-                return Err(AppError::BadRequest(
-                    format!("無法從「{}」轉換到「{}」", current_status.display_name(), new_status.display_name())
-                ));
+                return Err(AppError::BadRequest(format!(
+                    "無法從「{}」轉換到「{}」",
+                    current_status.display_name(),
+                    new_status.display_name()
+                )));
             }
 
             // 轉到 InExperiment 時必須有 iacuc_no
-            if new_status == AnimalStatus::InExperiment && req.iacuc_no.is_none() {
-                if existing_iacuc.is_none() {
-                    return Err(AppError::BadRequest(
-                        "分配實驗需要指定 IACUC No.".to_string()
-                    ));
-                }
+            if new_status == AnimalStatus::InExperiment
+                && req.iacuc_no.is_none()
+                && existing_iacuc.is_none()
+            {
+                return Err(AppError::BadRequest(
+                    "分配實驗需要指定 IACUC No.".to_string(),
+                ));
             }
 
             // 轉讓（completed → transferred）需透過 transfer API
-            if current_status == AnimalStatus::Completed && new_status == AnimalStatus::Transferred {
-                return Err(AppError::BadRequest(
-                    "動物轉讓請使用轉讓 API".to_string()
-                ));
+            if current_status == AnimalStatus::Completed && new_status == AnimalStatus::Transferred
+            {
+                return Err(AppError::BadRequest("動物轉讓請使用轉讓 API".to_string()));
             }
         }
 
@@ -407,7 +427,7 @@ impl AnimalService {
                 if let Some(ref old) = existing_iacuc {
                     if old != new_iacuc {
                         return Err(AppError::BadRequest(
-                            "實驗中的動物不可更改 IACUC No.".to_string()
+                            "實驗中的動物不可更改 IACUC No.".to_string(),
                         ));
                     }
                 }
@@ -423,7 +443,7 @@ impl AnimalService {
         // - entry_date (進場日期)
         // - entry_weight (進場體重)
         // - pre_experiment_code (實驗前代號)
-        
+
         // 當狀態設為 InExperiment 時，自動記錄分配者與分配日期
         let is_assigning_to_experiment = req.status == Some(AnimalStatus::InExperiment);
 
@@ -444,7 +464,7 @@ impl AnimalService {
         } else {
             None
         };
-        
+
         let animal = sqlx::query_as::<_, Animal>(
             r#"
             UPDATE animals SET
@@ -485,13 +505,18 @@ impl AnimalService {
     }
 
     /// 軟刪除動物（含刪除原因）- GLP 合規
-    pub async fn delete_with_reason(pool: &PgPool, id: Uuid, reason: &str, deleted_by: Uuid) -> Result<()> {
+    pub async fn delete_with_reason(
+        pool: &PgPool,
+        id: Uuid,
+        reason: &str,
+        deleted_by: Uuid,
+    ) -> Result<()> {
         // 記錄到 change_reasons 表
         sqlx::query(
             r#"
             INSERT INTO change_reasons (entity_type, entity_id, change_type, reason, changed_by)
             VALUES ('animal', $1::text, 'DELETE', $2, $3)
-            "#
+            "#,
         )
         .bind(id.to_string())
         .bind(reason)
@@ -508,7 +533,7 @@ impl AnimalService {
                 deleted_by = $3,
                 updated_at = NOW() 
             WHERE id = $1 AND deleted_at IS NULL
-            "#
+            "#,
         )
         .bind(id)
         .bind(reason)
@@ -521,7 +546,11 @@ impl AnimalService {
 
     /// 批次分配動物至計劃
     /// 分配後直接進入實驗中狀態（跳過已分配狀態）
-    pub async fn batch_assign(pool: &PgPool, req: &BatchAssignRequest, assigned_by: Uuid) -> Result<Vec<Animal>> {
+    pub async fn batch_assign(
+        pool: &PgPool,
+        req: &BatchAssignRequest,
+        assigned_by: Uuid,
+    ) -> Result<Vec<Animal>> {
         let mut updated_animals = Vec::new();
 
         for animal_id in &req.animal_ids {
@@ -535,7 +564,7 @@ impl AnimalService {
                     updated_at = NOW()
                 WHERE id = $1 AND status = $4
                 RETURNING *
-                "#
+                "#,
             )
             .bind(animal_id)
             .bind(&req.iacuc_no)

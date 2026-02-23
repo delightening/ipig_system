@@ -8,20 +8,15 @@ use uuid::Uuid;
 use validator::Validate;
 
 /// 儲位類型
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, sqlx::Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, sqlx::Type, Default)]
 #[sqlx(type_name = "VARCHAR", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum LocationType {
-    Shelf,  // 貨架
-    Rack,   // 儲物架
-    Zone,   // 區域
-    Bin,    // 儲物格
-}
-
-impl Default for LocationType {
-    fn default() -> Self {
-        LocationType::Shelf
-    }
+    #[default]
+    Shelf, // 貨架
+    Rack, // 儲物架
+    Zone, // 區域
+    Bin,  // 儲物格
 }
 
 /// 儲位/貨架資料結構

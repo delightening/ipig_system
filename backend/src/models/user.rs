@@ -6,41 +6,31 @@ use uuid::Uuid;
 use validator::Validate;
 
 /// 主題偏好
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum ThemePreference {
+    #[default]
     Light,
     Dark,
     System,
 }
 
-impl Default for ThemePreference {
-    fn default() -> Self {
-        ThemePreference::Light
-    }
-}
-
 /// 語言偏好
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema, Default)]
 pub enum LanguagePreference {
     #[serde(rename = "zh-TW")]
+    #[default]
     ZhTW,
     #[serde(rename = "en")]
     En,
 }
 
-impl Default for LanguagePreference {
-    fn default() -> Self {
-        LanguagePreference::ZhTW
-    }
-}
-
 /// 使用者訓練/資格資料
 #[derive(Debug, Clone, Serialize, Deserialize, Default, ToSchema)]
 pub struct UserTraining {
-    pub code: String,                    // A~F
-    pub certificate_no: Option<String>,  // 證書編號
-    pub received_date: Option<String>,   // 取得時間
+    pub code: String,                   // A~F
+    pub certificate_no: Option<String>, // 證書編號
+    pub received_date: Option<String>,  // 取得時間
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -219,7 +209,11 @@ pub struct RefreshTokenRequest {
 /// 修改自己的密碼請求
 #[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct ChangeOwnPasswordRequest {
-    #[validate(length(min = 1, max = 128, message = "Current password must be 1-128 characters"))]
+    #[validate(length(
+        min = 1,
+        max = 128,
+        message = "Current password must be 1-128 characters"
+    ))]
     pub current_password: String,
     #[validate(length(min = 8, max = 128, message = "New password must be 8-128 characters"))]
     #[validate(custom(function = "validate_password_strength"))]
@@ -274,12 +268,13 @@ fn validate_password_strength(password: &str) -> Result<(), validator::Validatio
     let has_uppercase = password.chars().any(|c| c.is_uppercase());
     let has_lowercase = password.chars().any(|c| c.is_lowercase());
     let has_digit = password.chars().any(|c| c.is_ascii_digit());
-    
+
     if has_uppercase && has_lowercase && has_digit {
         Ok(())
     } else {
         let mut err = validator::ValidationError::new("password_strength");
-        err.message = Some("Password must contain uppercase, lowercase, and numeric characters".into());
+        err.message =
+            Some("Password must contain uppercase, lowercase, and numeric characters".into());
         Err(err)
     }
 }
@@ -319,13 +314,14 @@ mod tests {
     #[test]
     fn test_theme_preference_serde() {
         let light = ThemePreference::Light;
-        let json = serde_json::to_string(&light).unwrap();
+        let json = serde_json::to_string(&light).expect("序列化 Light 失敗");
         assert_eq!(json, "\"light\"");
 
-        let dark: ThemePreference = serde_json::from_str("\"dark\"").unwrap();
+        let dark: ThemePreference = serde_json::from_str("\"dark\"").expect("反序列化 dark 失敗");
         assert_eq!(dark, ThemePreference::Dark);
 
-        let system: ThemePreference = serde_json::from_str("\"system\"").unwrap();
+        let system: ThemePreference =
+            serde_json::from_str("\"system\"").expect("反序列化 system 失敗");
         assert_eq!(system, ThemePreference::System);
     }
 
@@ -341,10 +337,10 @@ mod tests {
     #[test]
     fn test_language_preference_serde() {
         let zh = LanguagePreference::ZhTW;
-        let json = serde_json::to_string(&zh).unwrap();
+        let json = serde_json::to_string(&zh).expect("序列化 ZhTW 失敗");
         assert_eq!(json, "\"zh-TW\"");
 
-        let en: LanguagePreference = serde_json::from_str("\"en\"").unwrap();
+        let en: LanguagePreference = serde_json::from_str("\"en\"").expect("反序列化 en 失敗");
         assert_eq!(en, LanguagePreference::En);
     }
 
