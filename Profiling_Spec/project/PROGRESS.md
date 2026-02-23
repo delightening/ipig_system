@@ -569,6 +569,12 @@
 
 ### 2026-02-23
 
+- ✅ 🔧 **CI 前端修復（tsc + vitest）**：
+  - 新增 `src/vite-env.d.ts`（`/// <reference types="vite/client" />`），解決 `import.meta.env` 型別錯誤
+  - `tsconfig.json` 加入 `"types": ["vitest/globals"]`，解決 vitest/globals 型別定義缺失
+  - 執行 `npm install` 安裝缺少的 139 個 devDependencies（含 vitest、jsdom、@testing-library 等）
+  - 驗證：`tsc --noEmit` exit code 0（0 錯誤）、`npx vitest run` 2 tests 全通過
+
 - ✅ 🔒 **安全強化（SEC-34/35/36）**：
   - SEC-36 輸入長度限制：`nginx.conf` 加入 `client_max_body_size 30m`；`main.rs` 加入 `DefaultBodyLimit::max(30MB)`；`file.rs` ProtocolAttachment 50→30MB；`user.rs` 9 處 / `protocol.rs` 3 處 / `euthanasia.rs` 4 處加入 `validate(length(max=...))` 限制
   - SEC-35 上傳目錄隔離：`nginx.conf` 加入 `location /uploads { deny all; }`；`file.rs` upload 函式加入檔名與 entity_id 路徑穿越檢查
