@@ -1,9 +1,8 @@
-﻿use printpdf::*;
-use crate::models::ProtocolResponse;
+﻿use crate::models::ProtocolResponse;
 use crate::{AppError, Result};
+use printpdf::*;
 
 use super::context::*;
-
 
 /// PDF 生成服務
 pub struct PdfService;
@@ -14,12 +13,14 @@ impl PdfService {
             "1_basic_research" | "basic_research" => "1. 基礎研究",
             "2_applied_research" | "applied_research" => "2. 應用研究",
             "3_pre_market_testing" | "pre_market_testing" => "3. 產品上市前測試",
-            "4_educational" | "educational" | "4_teaching_training" | "teaching_training" => "4. 教學訓練",
+            "4_educational" | "educational" | "4_teaching_training" | "teaching_training" => {
+                "4. 教學訓練"
+            }
             "5_biologics_manufacturing" | "biologics_manufacturing" => "5. 製造生物製劑",
             "6_other" | "other" => "6. 其他",
             _ => return key.to_string(),
         };
-        
+
         match other {
             Some(o) if !o.is_empty() => format!("{} ({})", label, o),
             _ => label.to_string(),
@@ -30,19 +31,27 @@ impl PdfService {
         let label = match key {
             "1_medical" | "medical" => "1. 醫學研究",
             "2_agricultural" | "agricultural" => "2. 農業研究",
-            "3_drugs_vaccines" | "drugs_vaccines" | "3_drug_herbal" | "drug_herbal" => "3. 藥物及疫苗",
+            "3_drugs_vaccines" | "drugs_vaccines" | "3_drug_herbal" | "drug_herbal" => {
+                "3. 藥物及疫苗"
+            }
             "4_supplements" | "supplements" | "4_health_food" | "health_food" => "4. 健康食品",
             "5_food" | "food" => "5. 食品",
-            "6_toxics_chemicals" | "toxics_chemicals" | "6_toxic_chemical" | "toxic_chemical" => "6. 毒、化學品",
-            "7_medical_materials" | "medical_materials" | "7_medical_device" | "medical_device" => "7. 醫療器材",
+            "6_toxics_chemicals" | "toxics_chemicals" | "6_toxic_chemical" | "toxic_chemical" => {
+                "6. 毒、化學品"
+            }
+            "7_medical_materials" | "medical_materials" | "7_medical_device" | "medical_device" => {
+                "7. 醫療器材"
+            }
             "8_pesticide" | "pesticide" => "8. 農藥",
             "9_animal_drugs_vaccines" | "animal_drugs_vaccines" => "9. 動物用藥及疫苗",
-            "10_animal_supplements_feed" | "animal_supplements_feed" => "10. 動物保健品、飼料添加物",
+            "10_animal_supplements_feed" | "animal_supplements_feed" => {
+                "10. 動物保健品、飼料添加物"
+            }
             "11_cosmetics" | "cosmetics" => "11. (含藥)化妝品",
             "12_other" | "other" => "12. 其他",
             _ => return key.to_string(),
         };
-        
+
         match other {
             Some(o) if !o.is_empty() => format!("{} ({})", label, o),
             _ => label.to_string(),
@@ -56,21 +65,22 @@ impl PdfService {
             "AUP 動物試驗計畫書",
             Mm(PAGE_WIDTH_MM),
             Mm(PAGE_HEIGHT_MM),
-            "第1頁"
+            "第1頁",
         );
 
         // 載入中文字型
         let font_path = std::path::Path::new("resources/fonts/NotoSansSC-Regular.ttf");
         if !font_path.exists() {
             return Err(AppError::Internal(
-                "Font file not found: resources/fonts/NotoSansSC-Regular.ttf".to_string()
+                "Font file not found: resources/fonts/NotoSansSC-Regular.ttf".to_string(),
             ));
         }
-        
+
         let font_bytes = std::fs::read(font_path)
             .map_err(|e| AppError::Internal(format!("Failed to read font file: {}", e)))?;
-        
-        let font = doc.add_external_font(&*font_bytes)
+
+        let font = doc
+            .add_external_font(&*font_bytes)
             .map_err(|e| AppError::Internal(format!("Failed to load font: {}", e)))?;
 
         let initial_layer = doc.get_page(page1).get_layer(layer1);
@@ -82,7 +92,7 @@ impl PdfService {
             24.0,
             Mm(PAGE_WIDTH_MM / 2.0 - 40.0),
             Mm(ctx.y_position),
-            &ctx.font
+            &ctx.font,
         );
         ctx.y_position -= 12.0;
 
@@ -92,32 +102,54 @@ impl PdfService {
             14.0,
             Mm(MARGIN_MM),
             Mm(ctx.y_position),
-            &ctx.font
+            &ctx.font,
         );
         ctx.y_position -= SECTION_SPACING_MM * 2.0;
 
         // ========== 第1節：研究資料 ==========
         ctx.force_new_page();
         ctx.render_section_header("1. 研究資料");
-        
+
         if let Some(ref content) = protocol.protocol.working_content {
             if let Some(basic) = content.get("basic") {
-                let is_glp = basic.get("is_glp").and_then(|v| v.as_bool()).unwrap_or(false);
-                ctx.render_label_value("GLP 屬性", if is_glp { "符合 GLP 規範" } else { "不符合 GLP 規範" });
+                let is_glp = basic
+                    .get("is_glp")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                ctx.render_label_value(
+                    "GLP 屬性",
+                    if is_glp {
+                        "符合 GLP 規範"
+                    } else {
+                        "不符合 GLP 規範"
+                    },
+                );
 
                 if let Some(project_type) = basic.get("project_type").and_then(|v| v.as_str()) {
                     let other = basic.get("project_type_other").and_then(|v| v.as_str());
-                    ctx.render_label_value("計畫類型", &Self::get_project_type_label(project_type, other));
+                    ctx.render_label_value(
+                        "計畫類型",
+                        &Self::get_project_type_label(project_type, other),
+                    );
                 }
-                if let Some(project_category) = basic.get("project_category").and_then(|v| v.as_str()) {
+                if let Some(project_category) =
+                    basic.get("project_category").and_then(|v| v.as_str())
+                {
                     let other = basic.get("project_category_other").and_then(|v| v.as_str());
-                    ctx.render_label_value("計畫種類", &Self::get_project_category_label(project_category, other));
+                    ctx.render_label_value(
+                        "計畫種類",
+                        &Self::get_project_category_label(project_category, other),
+                    );
                 }
-                if let (Some(start), Some(end)) = (protocol.protocol.start_date, protocol.protocol.end_date) {
+                if let (Some(start), Some(end)) =
+                    (protocol.protocol.start_date, protocol.protocol.end_date)
+                {
                     ctx.render_label_value("預計試驗時程", &format!("{} ~ {}", start, end));
                 }
 
-                if let Some(funding_sources) = basic.get("funding_sources").and_then(|v| v.as_array()) {
+                if let Some(funding_sources) =
+                    basic.get("funding_sources").and_then(|v| v.as_array())
+                {
                     let mut labels = Vec::new();
                     for source in funding_sources {
                         if let Some(s) = source.as_str() {
@@ -136,7 +168,8 @@ impl PdfService {
                     if !labels.is_empty() {
                         let mut value = labels.join(", ");
                         if funding_sources.iter().any(|s| s.as_str() == Some("other")) {
-                            if let Some(other) = basic.get("funding_other").and_then(|v| v.as_str()) {
+                            if let Some(other) = basic.get("funding_other").and_then(|v| v.as_str())
+                            {
                                 if !other.is_empty() {
                                     value = format!("{} ({})", value, other);
                                 }
@@ -150,29 +183,51 @@ impl PdfService {
                 if let Some(pi) = basic.get("pi") {
                     ctx.add_section_spacing();
                     ctx.render_subsection_header("計畫主持人");
-                    if let Some(name) = pi.get("name").and_then(|v| v.as_str()) { ctx.render_label_value("姓名", name); }
-                    if let Some(phone) = pi.get("phone").and_then(|v| v.as_str()) { ctx.render_label_value("電話", phone); }
-                    if let Some(email) = pi.get("email").and_then(|v| v.as_str()) { ctx.render_label_value("Email", email); }
-                    if let Some(address) = pi.get("address").and_then(|v| v.as_str()) { ctx.render_label_value("地址", address); }
+                    if let Some(name) = pi.get("name").and_then(|v| v.as_str()) {
+                        ctx.render_label_value("姓名", name);
+                    }
+                    if let Some(phone) = pi.get("phone").and_then(|v| v.as_str()) {
+                        ctx.render_label_value("電話", phone);
+                    }
+                    if let Some(email) = pi.get("email").and_then(|v| v.as_str()) {
+                        ctx.render_label_value("Email", email);
+                    }
+                    if let Some(address) = pi.get("address").and_then(|v| v.as_str()) {
+                        ctx.render_label_value("地址", address);
+                    }
                 }
 
                 // 委託單位
                 if let Some(sponsor) = basic.get("sponsor") {
                     ctx.add_section_spacing();
                     ctx.render_subsection_header("委託單位");
-                    if let Some(name) = sponsor.get("name").and_then(|v| v.as_str()) { ctx.render_label_value("單位名稱", name); }
-                    if let Some(contact_person) = sponsor.get("contact_person").and_then(|v| v.as_str()) { ctx.render_label_value("聯絡人", contact_person); }
-                    if let Some(phone) = sponsor.get("contact_phone").and_then(|v| v.as_str()) { ctx.render_label_value("聯絡電話", phone); }
-                    if let Some(email) = sponsor.get("contact_email").and_then(|v| v.as_str()) { ctx.render_label_value("聯絡 Email", email); }
+                    if let Some(name) = sponsor.get("name").and_then(|v| v.as_str()) {
+                        ctx.render_label_value("單位名稱", name);
+                    }
+                    if let Some(contact_person) =
+                        sponsor.get("contact_person").and_then(|v| v.as_str())
+                    {
+                        ctx.render_label_value("聯絡人", contact_person);
+                    }
+                    if let Some(phone) = sponsor.get("contact_phone").and_then(|v| v.as_str()) {
+                        ctx.render_label_value("聯絡電話", phone);
+                    }
+                    if let Some(email) = sponsor.get("contact_email").and_then(|v| v.as_str()) {
+                        ctx.render_label_value("聯絡 Email", email);
+                    }
                 }
 
                 // 試驗機構與設施
                 if let Some(facility) = basic.get("facility") {
                     ctx.add_section_spacing();
                     ctx.render_subsection_header("試驗機構與設施");
-                    if let Some(title) = facility.get("title").and_then(|v| v.as_str()) { ctx.render_label_value("機構名稱", title); }
+                    if let Some(title) = facility.get("title").and_then(|v| v.as_str()) {
+                        ctx.render_label_value("機構名稱", title);
+                    }
                 }
-                if let Some(loc) = basic.get("housing_location").and_then(|v| v.as_str()) { ctx.render_label_value("位置", loc); }
+                if let Some(loc) = basic.get("housing_location").and_then(|v| v.as_str()) {
+                    ctx.render_label_value("位置", loc);
+                }
             }
 
             ctx.add_section_spacing();
@@ -192,19 +247,39 @@ impl PdfService {
                     }
                     if let Some(alt_search) = replacement.get("alt_search") {
                         ctx.render_subsection_header("2.2.2 確曾非動物性替代方案");
-                        if let Some(platforms) = alt_search.get("platforms").and_then(|v| v.as_array()) {
-                            let platforms_str: Vec<&str> = platforms.iter().filter_map(|p| p.as_str()).collect();
-                            if !platforms_str.is_empty() { ctx.render_label_value("查詢平台", &platforms_str.join(", ")); }
+                        if let Some(platforms) =
+                            alt_search.get("platforms").and_then(|v| v.as_array())
+                        {
+                            let platforms_str: Vec<&str> =
+                                platforms.iter().filter_map(|p| p.as_str()).collect();
+                            if !platforms_str.is_empty() {
+                                ctx.render_label_value("查詢平台", &platforms_str.join(", "));
+                            }
                         }
-                        if let Some(keywords) = alt_search.get("keywords").and_then(|v| v.as_str()) { ctx.render_label_value("關鍵字", keywords); }
-                        if let Some(conclusion) = alt_search.get("conclusion").and_then(|v| v.as_str()) { ctx.render_paragraph(conclusion); }
+                        if let Some(keywords) = alt_search.get("keywords").and_then(|v| v.as_str())
+                        {
+                            ctx.render_label_value("關鍵字", keywords);
+                        }
+                        if let Some(conclusion) =
+                            alt_search.get("conclusion").and_then(|v| v.as_str())
+                        {
+                            ctx.render_paragraph(conclusion);
+                        }
                     }
                 }
                 if let Some(duplicate) = purpose.get("duplicate") {
                     ctx.render_subsection_header("2.2.3 是否為重複他人試驗");
-                    let is_dup = duplicate.get("experiment").and_then(|v| v.as_bool()).unwrap_or(false);
+                    let is_dup = duplicate
+                        .get("experiment")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false);
                     ctx.render_label_value("", if is_dup { "是" } else { "否" });
-                    if is_dup { if let Some(just) = duplicate.get("justification").and_then(|v| v.as_str()) { ctx.render_paragraph(just); } }
+                    if is_dup {
+                        if let Some(just) = duplicate.get("justification").and_then(|v| v.as_str())
+                        {
+                            ctx.render_paragraph(just);
+                        }
+                    }
                 }
                 if let Some(reduction) = purpose.get("reduction") {
                     if let Some(design) = reduction.get("design").and_then(|v| v.as_str()) {
@@ -217,26 +292,47 @@ impl PdfService {
 
             // ========== 第3節：試驗物質 ==========
             if let Some(items) = content.get("items") {
-                let use_test_item = items.get("use_test_item").and_then(|v| v.as_bool()).unwrap_or(false);
+                let use_test_item = items
+                    .get("use_test_item")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
                 ctx.force_new_page();
                 ctx.render_section_header("3. 試驗物質與對照物質");
                 if use_test_item {
                     if let Some(test_items) = items.get("test_items").and_then(|v| v.as_array()) {
                         for (i, item) in test_items.iter().enumerate() {
                             ctx.render_subsection_header(&format!("試驗物質 #{}", i + 1));
-                            if let Some(name) = item.get("name").and_then(|v| v.as_str()) { ctx.render_label_value("物質名稱", name); }
-                            if let Some(form) = item.get("form").and_then(|v| v.as_str()) { ctx.render_label_value("劑型", form); }
-                            if let Some(purpose) = item.get("purpose").and_then(|v| v.as_str()) { ctx.render_label_value("用途", purpose); }
-                            if let Some(storage) = item.get("storage_conditions").and_then(|v| v.as_str()) { ctx.render_label_value("儲存條件", storage); }
-                            let is_sterile = item.get("is_sterile").and_then(|v| v.as_bool()).unwrap_or(true);
+                            if let Some(name) = item.get("name").and_then(|v| v.as_str()) {
+                                ctx.render_label_value("物質名稱", name);
+                            }
+                            if let Some(form) = item.get("form").and_then(|v| v.as_str()) {
+                                ctx.render_label_value("劑型", form);
+                            }
+                            if let Some(purpose) = item.get("purpose").and_then(|v| v.as_str()) {
+                                ctx.render_label_value("用途", purpose);
+                            }
+                            if let Some(storage) =
+                                item.get("storage_conditions").and_then(|v| v.as_str())
+                            {
+                                ctx.render_label_value("儲存條件", storage);
+                            }
+                            let is_sterile = item
+                                .get("is_sterile")
+                                .and_then(|v| v.as_bool())
+                                .unwrap_or(true);
                             ctx.render_label_value("無菌", if is_sterile { "是" } else { "否" });
                         }
                     }
-                    if let Some(ctrl_items) = items.get("control_items").and_then(|v| v.as_array()) {
+                    if let Some(ctrl_items) = items.get("control_items").and_then(|v| v.as_array())
+                    {
                         for (i, item) in ctrl_items.iter().enumerate() {
                             ctx.render_subsection_header(&format!("對照物質 #{}", i + 1));
-                            if let Some(name) = item.get("name").and_then(|v| v.as_str()) { ctx.render_label_value("物質名稱", name); }
-                            if let Some(purpose) = item.get("purpose").and_then(|v| v.as_str()) { ctx.render_label_value("用途", purpose); }
+                            if let Some(name) = item.get("name").and_then(|v| v.as_str()) {
+                                ctx.render_label_value("物質名稱", name);
+                            }
+                            if let Some(purpose) = item.get("purpose").and_then(|v| v.as_str()) {
+                                ctx.render_label_value("用途", purpose);
+                            }
                         }
                     }
                 } else {
@@ -254,17 +350,41 @@ impl PdfService {
                     ctx.render_paragraph(procedures);
                 }
                 if let Some(anesthesia) = design.get("anesthesia") {
-                    let is_under = anesthesia.get("is_under_anesthesia").and_then(|v| v.as_bool()).unwrap_or(false);
-                    ctx.render_label_value("是否於麻醉下進行試驗", if is_under { "是" } else { "否" });
-                    if let Some(a_type) = anesthesia.get("anesthesia_type").and_then(|v| v.as_str()) { ctx.render_label_value("麻醉類型", a_type); }
+                    let is_under = anesthesia
+                        .get("is_under_anesthesia")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false);
+                    ctx.render_label_value(
+                        "是否於麻醉下進行試驗",
+                        if is_under { "是" } else { "否" },
+                    );
+                    if let Some(a_type) = anesthesia.get("anesthesia_type").and_then(|v| v.as_str())
+                    {
+                        ctx.render_label_value("麻醉類型", a_type);
+                    }
                 }
                 if let Some(pain) = design.get("pain") {
-                    if let Some(category) = pain.get("category").and_then(|v| v.as_str()) { ctx.render_label_value("疼痛類別", category); }
-                    if let Some(mgmt) = pain.get("management_plan").and_then(|v| v.as_str()) { ctx.render_subsection_header("疼痛管理方案"); ctx.render_paragraph(mgmt); }
+                    if let Some(category) = pain.get("category").and_then(|v| v.as_str()) {
+                        ctx.render_label_value("疼痛類別", category);
+                    }
+                    if let Some(mgmt) = pain.get("management_plan").and_then(|v| v.as_str()) {
+                        ctx.render_subsection_header("疼痛管理方案");
+                        ctx.render_paragraph(mgmt);
+                    }
                 }
                 if let Some(endpoints) = design.get("endpoints") {
-                    if let Some(exp_ep) = endpoints.get("experimental_endpoint").and_then(|v| v.as_str()) { ctx.render_subsection_header("試驗終點"); ctx.render_paragraph(exp_ep); }
-                    if let Some(hum_ep) = endpoints.get("humane_endpoint").and_then(|v| v.as_str()) { ctx.render_subsection_header("人道終點"); ctx.render_paragraph(hum_ep); }
+                    if let Some(exp_ep) = endpoints
+                        .get("experimental_endpoint")
+                        .and_then(|v| v.as_str())
+                    {
+                        ctx.render_subsection_header("試驗終點");
+                        ctx.render_paragraph(exp_ep);
+                    }
+                    if let Some(hum_ep) = endpoints.get("humane_endpoint").and_then(|v| v.as_str())
+                    {
+                        ctx.render_subsection_header("人道終點");
+                        ctx.render_paragraph(hum_ep);
+                    }
                 }
                 ctx.add_section_spacing();
             }
@@ -293,28 +413,67 @@ impl PdfService {
             // ========== 第6節：手術計畫書 ==========
             if let Some(surg) = content.get("surgery") {
                 let design_data = content.get("design");
-                let needs_surgery = design_data.and_then(|d| d.get("anesthesia")).and_then(|a| {
-                    let is_under = a.get("is_under_anesthesia").and_then(|v| v.as_bool()).unwrap_or(false);
-                    let a_type = a.get("anesthesia_type").and_then(|v| v.as_str()).unwrap_or("");
-                    if is_under && (a_type == "survival_surgery" || a_type == "non_survival_surgery") { Some(true) } else { None }
-                }).unwrap_or(false);
+                let needs_surgery = design_data
+                    .and_then(|d| d.get("anesthesia"))
+                    .and_then(|a| {
+                        let is_under = a
+                            .get("is_under_anesthesia")
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(false);
+                        let a_type = a
+                            .get("anesthesia_type")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("");
+                        if is_under
+                            && (a_type == "survival_surgery" || a_type == "non_survival_surgery")
+                        {
+                            Some(true)
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap_or(false);
                 ctx.force_new_page();
                 ctx.render_section_header("6. 手術計畫書");
                 if needs_surgery {
-                    if let Some(st) = surg.get("surgery_type").and_then(|v| v.as_str()) { ctx.render_label_value("手術類型", st); }
-                    if let Some(preop) = surg.get("preop_preparation").and_then(|v| v.as_str()) { ctx.render_subsection_header("術前準備"); ctx.render_paragraph(preop); }
-                    if let Some(desc) = surg.get("surgery_description").and_then(|v| v.as_str()) { ctx.render_subsection_header("手術描述"); ctx.render_paragraph(desc); }
-                    if let Some(mon) = surg.get("monitoring").and_then(|v| v.as_str()) { ctx.render_subsection_header("監控方式"); ctx.render_paragraph(mon); }
-                    if let Some(postop) = surg.get("postop_care").and_then(|v| v.as_str()) { ctx.render_subsection_header("術後照護"); ctx.render_paragraph(postop); }
+                    if let Some(st) = surg.get("surgery_type").and_then(|v| v.as_str()) {
+                        ctx.render_label_value("手術類型", st);
+                    }
+                    if let Some(preop) = surg.get("preop_preparation").and_then(|v| v.as_str()) {
+                        ctx.render_subsection_header("術前準備");
+                        ctx.render_paragraph(preop);
+                    }
+                    if let Some(desc) = surg.get("surgery_description").and_then(|v| v.as_str()) {
+                        ctx.render_subsection_header("手術描述");
+                        ctx.render_paragraph(desc);
+                    }
+                    if let Some(mon) = surg.get("monitoring").and_then(|v| v.as_str()) {
+                        ctx.render_subsection_header("監控方式");
+                        ctx.render_paragraph(mon);
+                    }
+                    if let Some(postop) = surg.get("postop_care").and_then(|v| v.as_str()) {
+                        ctx.render_subsection_header("術後照護");
+                        ctx.render_paragraph(postop);
+                    }
                     if let Some(drugs) = surg.get("drugs").and_then(|v| v.as_array()) {
                         if !drugs.is_empty() {
                             ctx.render_subsection_header("用藥計畫");
                             for drug in drugs.iter() {
-                                let dn = drug.get("drug_name").and_then(|v| v.as_str()).unwrap_or("-");
+                                let dn = drug
+                                    .get("drug_name")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("-");
                                 let dose = drug.get("dose").and_then(|v| v.as_str()).unwrap_or("-");
-                                let route = drug.get("route").and_then(|v| v.as_str()).unwrap_or("-");
-                                let freq = drug.get("frequency").and_then(|v| v.as_str()).unwrap_or("-");
-                                ctx.render_label_value("", &format!("{}: 劑量{}, 途徑{}, 頻率{}", dn, dose, route, freq));
+                                let route =
+                                    drug.get("route").and_then(|v| v.as_str()).unwrap_or("-");
+                                let freq = drug
+                                    .get("frequency")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("-");
+                                ctx.render_label_value(
+                                    "",
+                                    &format!("{}: 劑量{}, 途徑{}, 頻率{}", dn, dose, route, freq),
+                                );
                             }
                         }
                     }
@@ -331,28 +490,60 @@ impl PdfService {
                 if let Some(animal_list) = animals.get("animals").and_then(|v| v.as_array()) {
                     for (i, animal) in animal_list.iter().enumerate() {
                         ctx.render_subsection_header(&format!("動物群組 #{}", i + 1));
-                        if let Some(sp) = animal.get("species").and_then(|v| v.as_str()) { ctx.render_label_value("物種", sp); }
-                        if let Some(st) = animal.get("strain").and_then(|v| v.as_str()) { ctx.render_label_value("品系", st); }
-                        if let Some(sx) = animal.get("sex").and_then(|v| v.as_str()) { ctx.render_label_value("性別", sx); }
-                        if let Some(num) = animal.get("number").and_then(|v| v.as_i64()) { ctx.render_label_value("數量", &num.to_string()); }
-                        let age_unlim = animal.get("age_unlimited").and_then(|v| v.as_bool()).unwrap_or(false);
-                        if age_unlim { ctx.render_label_value("月齡範圍", "不限"); }
-                        else {
-                            let amin = animal.get("age_min").and_then(|v| v.as_str()).unwrap_or("不限");
-                            let amax = animal.get("age_max").and_then(|v| v.as_str()).unwrap_or("不限");
+                        if let Some(sp) = animal.get("species").and_then(|v| v.as_str()) {
+                            ctx.render_label_value("物種", sp);
+                        }
+                        if let Some(st) = animal.get("strain").and_then(|v| v.as_str()) {
+                            ctx.render_label_value("品系", st);
+                        }
+                        if let Some(sx) = animal.get("sex").and_then(|v| v.as_str()) {
+                            ctx.render_label_value("性別", sx);
+                        }
+                        if let Some(num) = animal.get("number").and_then(|v| v.as_i64()) {
+                            ctx.render_label_value("數量", &num.to_string());
+                        }
+                        let age_unlim = animal
+                            .get("age_unlimited")
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(false);
+                        if age_unlim {
+                            ctx.render_label_value("月齡範圍", "不限");
+                        } else {
+                            let amin = animal
+                                .get("age_min")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("不限");
+                            let amax = animal
+                                .get("age_max")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("不限");
                             ctx.render_label_value("月齡範圍", &format!("{} ~ {}", amin, amax));
                         }
-                        let wt_unlim = animal.get("weight_unlimited").and_then(|v| v.as_bool()).unwrap_or(false);
-                        if wt_unlim { ctx.render_label_value("體重範圍", "不限"); }
-                        else {
-                            let wmin = animal.get("weight_min").and_then(|v| v.as_str()).unwrap_or("不限");
-                            let wmax = animal.get("weight_max").and_then(|v| v.as_str()).unwrap_or("不限");
+                        let wt_unlim = animal
+                            .get("weight_unlimited")
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(false);
+                        if wt_unlim {
+                            ctx.render_label_value("體重範圍", "不限");
+                        } else {
+                            let wmin = animal
+                                .get("weight_min")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("不限");
+                            let wmax = animal
+                                .get("weight_max")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("不限");
                             ctx.render_label_value("體重範圍", &format!("{}kg ~ {}kg", wmin, wmax));
                         }
-                        if let Some(loc) = animal.get("housing_location").and_then(|v| v.as_str()) { ctx.render_label_value("飼養位置", loc); }
+                        if let Some(loc) = animal.get("housing_location").and_then(|v| v.as_str()) {
+                            ctx.render_label_value("飼養位置", loc);
+                        }
                     }
                 }
-                if let Some(total) = animals.get("total_animals").and_then(|v| v.as_i64()) { ctx.render_label_value("總動物數", &total.to_string()); }
+                if let Some(total) = animals.get("total_animals").and_then(|v| v.as_i64()) {
+                    ctx.render_label_value("總動物數", &total.to_string());
+                }
                 ctx.add_section_spacing();
             }
 
@@ -363,16 +554,28 @@ impl PdfService {
                     ctx.render_section_header("8. 試驗人員資料");
                     for (i, person) in personnel.iter().enumerate() {
                         ctx.render_subsection_header(&format!("人員 #{}", i + 1));
-                        if let Some(name) = person.get("name").and_then(|v| v.as_str()) { ctx.render_label_value("姓名", name); }
-                        if let Some(pos) = person.get("position").and_then(|v| v.as_str()) { ctx.render_label_value("職位", pos); }
-                        if let Some(yrs) = person.get("years_experience").and_then(|v| v.as_i64()) { ctx.render_label_value("參與動物試驗年數", &format!("{} 年", yrs)); }
+                        if let Some(name) = person.get("name").and_then(|v| v.as_str()) {
+                            ctx.render_label_value("姓名", name);
+                        }
+                        if let Some(pos) = person.get("position").and_then(|v| v.as_str()) {
+                            ctx.render_label_value("職位", pos);
+                        }
+                        if let Some(yrs) = person.get("years_experience").and_then(|v| v.as_i64()) {
+                            ctx.render_label_value("參與動物試驗年數", &format!("{} 年", yrs));
+                        }
                         if let Some(roles) = person.get("roles").and_then(|v| v.as_array()) {
                             let rs: Vec<&str> = roles.iter().filter_map(|r| r.as_str()).collect();
-                            if !rs.is_empty() { ctx.render_label_value("工作內容", &rs.join(", ")); }
+                            if !rs.is_empty() {
+                                ctx.render_label_value("工作內容", &rs.join(", "));
+                            }
                         }
-                        if let Some(trainings) = person.get("trainings").and_then(|v| v.as_array()) {
-                            let ts: Vec<&str> = trainings.iter().filter_map(|t| t.as_str()).collect();
-                            if !ts.is_empty() { ctx.render_label_value("訓練/資格", &ts.join(", ")); }
+                        if let Some(trainings) = person.get("trainings").and_then(|v| v.as_array())
+                        {
+                            let ts: Vec<&str> =
+                                trainings.iter().filter_map(|t| t.as_str()).collect();
+                            if !ts.is_empty() {
+                                ctx.render_label_value("訓練/資格", &ts.join(", "));
+                            }
                         }
                     }
                     ctx.add_section_spacing();
@@ -398,15 +601,17 @@ impl PdfService {
         let footer_y = MARGIN_MM;
         let today = chrono::Local::now().format("%Y-%m-%d").to_string();
         ctx.current_layer.use_text(
-            &format!("生成日期: {} | 頁 {} ", today, ctx.page_number),
+            format!("生成日期: {} | 頁 {} ", today, ctx.page_number),
             8.0,
             Mm(MARGIN_MM),
             Mm(footer_y),
-            &ctx.font
+            &ctx.font,
         );
 
         // 輸出 PDF 為 bytes
-        let pdf_bytes = ctx.doc.save_to_bytes()
+        let pdf_bytes = ctx
+            .doc
+            .save_to_bytes()
             .map_err(|e| AppError::Internal(format!("Failed to generate PDF: {}", e)))?;
 
         Ok(pdf_bytes)
@@ -419,14 +624,15 @@ impl PdfService {
             "動物病歷紀錄",
             Mm(PAGE_WIDTH_MM),
             Mm(PAGE_HEIGHT_MM),
-            "第1頁"
+            "第1頁",
         );
 
         // 載入中文字型
         let font_path = std::path::Path::new("resources/fonts/NotoSansSC-Regular.ttf");
         let font_bytes = std::fs::read(font_path)
             .map_err(|e| AppError::Internal(format!("Failed to read font file: {}", e)))?;
-        let font = doc.add_external_font(&*font_bytes)
+        let font = doc
+            .add_external_font(&*font_bytes)
             .map_err(|e| AppError::Internal(format!("Failed to load font: {}", e)))?;
 
         let initial_layer = doc.get_page(page1).get_layer(layer1);
@@ -438,7 +644,7 @@ impl PdfService {
             20.0,
             Mm(PAGE_WIDTH_MM / 2.0 - 40.0),
             Mm(ctx.y_position),
-            &ctx.font
+            &ctx.font,
         );
         ctx.y_position -= SECTION_SPACING_MM * 2.0;
 
@@ -448,19 +654,20 @@ impl PdfService {
         // ========== 頁尾 ==========
         let today = chrono::Local::now().format("%Y-%m-%d").to_string();
         ctx.current_layer.use_text(
-            &format!("生成日期: {} | 頁 {} ", today, ctx.page_number),
+            format!("生成日期: {} | 頁 {} ", today, ctx.page_number),
             8.0,
             Mm(MARGIN_MM),
             Mm(MARGIN_MM),
-            &ctx.font
+            &ctx.font,
         );
 
-        let pdf_bytes = ctx.doc.save_to_bytes()
+        let pdf_bytes = ctx
+            .doc
+            .save_to_bytes()
             .map_err(|e| AppError::Internal(format!("Failed to generate PDF: {}", e)))?;
 
         Ok(pdf_bytes)
     }
-
 
     /// 共用：渲染動物完整病歷資料（基本資料、體重、疫苗、觀察、手術）
     /// 用於單隻匯出與批次匯出，統一 session-per-page 分頁邏輯
@@ -468,10 +675,16 @@ impl PdfService {
         // ========== 1. 動物基本資料 ==========
         if let Some(animal) = data.get("animal") {
             ctx.render_section_header("1. 動物基本資料");
-            let ear_tag = animal.get("ear_tag").and_then(|v| v.as_str()).unwrap_or("-");
+            let ear_tag = animal
+                .get("ear_tag")
+                .and_then(|v| v.as_str())
+                .unwrap_or("-");
             let breed = animal.get("breed").and_then(|v| v.as_str()).unwrap_or("-");
             let gender = animal.get("gender").and_then(|v| v.as_str()).unwrap_or("-");
-            let iacuc_no = animal.get("iacuc_no").and_then(|v| v.as_str()).unwrap_or("未分配");
+            let iacuc_no = animal
+                .get("iacuc_no")
+                .and_then(|v| v.as_str())
+                .unwrap_or("未分配");
 
             ctx.render_label_value("耳號", ear_tag);
             ctx.render_label_value("計畫編號", iacuc_no);
@@ -495,8 +708,14 @@ impl PdfService {
             if !weights.is_empty() {
                 ctx.render_section_header("2. 體重紀錄");
                 for w in weights {
-                    let date = w.get("measure_date").and_then(|v| v.as_str()).unwrap_or("-");
-                    let weight = w.get("weight").map(|v| v.to_string()).unwrap_or("-".to_string());
+                    let date = w
+                        .get("measure_date")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("-");
+                    let weight = w
+                        .get("weight")
+                        .map(|v| v.to_string())
+                        .unwrap_or("-".to_string());
                     ctx.render_label_value(&format!("日期: {}", date), &format!("{} kg", weight));
                 }
                 ctx.add_section_spacing();
@@ -508,10 +727,19 @@ impl PdfService {
             if !vaccinations.is_empty() {
                 ctx.render_section_header("3. 疫苗/驅蟲紀錄");
                 for v in vaccinations {
-                    let date = v.get("administered_date").and_then(|v| v.as_str()).unwrap_or("-");
+                    let date = v
+                        .get("administered_date")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("-");
                     let vaccine = v.get("vaccine").and_then(|v| v.as_str()).unwrap_or("-");
-                    let dose = v.get("deworming_dose").and_then(|v| v.as_str()).unwrap_or("-");
-                    ctx.render_label_value(&format!("日期: {}", date), &format!("項目: {}, 劑量: {}", vaccine, dose));
+                    let dose = v
+                        .get("deworming_dose")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("-");
+                    ctx.render_label_value(
+                        &format!("日期: {}", date),
+                        &format!("項目: {}, 劑量: {}", vaccine, dose),
+                    );
                 }
                 ctx.add_section_spacing();
             }
@@ -523,8 +751,14 @@ impl PdfService {
                 ctx.render_section_header("4. 觀察試驗紀錄");
                 for obs in observations {
                     ctx.force_new_page();
-                    let date = obs.get("event_date").and_then(|v| v.as_str()).unwrap_or("-");
-                    let rtype = obs.get("record_type").and_then(|v| v.as_str()).unwrap_or("-");
+                    let date = obs
+                        .get("event_date")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("-");
+                    let rtype = obs
+                        .get("record_type")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("-");
                     let content = obs.get("content").and_then(|v| v.as_str()).unwrap_or("-");
 
                     ctx.render_subsection_header(&format!("觀察紀錄 - {}", date));
@@ -552,8 +786,14 @@ impl PdfService {
                 ctx.render_section_header("5. 手術紀錄");
                 for surg in surgeries {
                     ctx.force_new_page();
-                    let date = surg.get("surgery_date").and_then(|v| v.as_str()).unwrap_or("-");
-                    let site = surg.get("surgery_site").and_then(|v| v.as_str()).unwrap_or("-");
+                    let date = surg
+                        .get("surgery_date")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("-");
+                    let site = surg
+                        .get("surgery_site")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("-");
 
                     ctx.render_subsection_header(&format!("手術紀錄 - {}", date));
                     ctx.render_label_value("手術部位", site);
@@ -568,20 +808,24 @@ impl PdfService {
     }
 
     /// 生成計畫下所有動物病歷 PDF
-    pub fn generate_project_medical_pdf(iacuc_no: &str, animals_data: &serde_json::Value) -> Result<Vec<u8>> {
+    pub fn generate_project_medical_pdf(
+        iacuc_no: &str,
+        animals_data: &serde_json::Value,
+    ) -> Result<Vec<u8>> {
         // 建立 PDF 文件
         let (doc, page1, layer1) = PdfDocument::new(
             format!("計畫病歷匯出 - {}", iacuc_no),
             Mm(PAGE_WIDTH_MM),
             Mm(PAGE_HEIGHT_MM),
-            "第1頁"
+            "第1頁",
         );
 
         // 載入中文字型
         let font_path = std::path::Path::new("resources/fonts/NotoSansSC-Regular.ttf");
         let font_bytes = std::fs::read(font_path)
             .map_err(|e| AppError::Internal(format!("Failed to read font file: {}", e)))?;
-        let font = doc.add_external_font(&*font_bytes)
+        let font = doc
+            .add_external_font(&*font_bytes)
             .map_err(|e| AppError::Internal(format!("Failed to load font: {}", e)))?;
 
         let initial_layer = doc.get_page(page1).get_layer(layer1);
@@ -589,11 +833,11 @@ impl PdfService {
 
         // ========== 封面標題 ==========
         ctx.current_layer.use_text(
-            &format!("計畫病歷匯出總表 - {}", iacuc_no),
+            format!("計畫病歷匯出總表 - {}", iacuc_no),
             20.0,
             Mm(MARGIN_MM),
             Mm(ctx.y_position),
-            &ctx.font
+            &ctx.font,
         );
         ctx.y_position -= SECTION_SPACING_MM * 2.0;
 
@@ -609,11 +853,17 @@ impl PdfService {
             ctx.render_subsection_header("動物清單");
             for (i, animal_data) in animals.iter().enumerate() {
                 if let Some(animal) = animal_data.get("animal") {
-                    let ear_tag = animal.get("ear_tag").and_then(|v| v.as_str()).unwrap_or("-");
+                    let ear_tag = animal
+                        .get("ear_tag")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("-");
                     let breed = animal.get("breed").and_then(|v| v.as_str()).unwrap_or("-");
                     let gender = animal.get("gender").and_then(|v| v.as_str()).unwrap_or("-");
                     let gender_label = if gender == "male" { "公" } else { "母" };
-                    ctx.render_label_value("", &format!("{}. {} ({}, {})", i + 1, ear_tag, breed, gender_label));
+                    ctx.render_label_value(
+                        "",
+                        &format!("{}. {} ({}, {})", i + 1, ear_tag, breed, gender_label),
+                    );
                 }
             }
 
@@ -627,18 +877,18 @@ impl PdfService {
         // ========== 頁尾 ==========
         let today = chrono::Local::now().format("%Y-%m-%d").to_string();
         ctx.current_layer.use_text(
-            &format!("生成日期: {} | 頁 {} ", today, ctx.page_number),
+            format!("生成日期: {} | 頁 {} ", today, ctx.page_number),
             8.0,
             Mm(MARGIN_MM),
             Mm(MARGIN_MM),
-            &ctx.font
+            &ctx.font,
         );
 
-        let pdf_bytes = ctx.doc.save_to_bytes()
+        let pdf_bytes = ctx
+            .doc
+            .save_to_bytes()
             .map_err(|e| AppError::Internal(format!("Failed to generate PDF: {}", e)))?;
 
         Ok(pdf_bytes)
     }
 }
-
-

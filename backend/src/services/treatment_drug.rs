@@ -103,7 +103,7 @@ impl TreatmentDrugService {
         .bind(&request.default_dosage_unit)
         .bind(&request.available_units)
         .bind(&request.default_dosage_value)
-        .bind(&request.erp_product_id)
+        .bind(request.erp_product_id)
         .bind(&request.category)
         .bind(request.sort_order)
         .bind(created_by)
