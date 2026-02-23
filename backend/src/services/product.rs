@@ -15,35 +15,41 @@ impl ProductService {
     /// 建立產品（SKU 自動生成）
     pub async fn create(pool: &PgPool, req: &CreateProductRequest) -> Result<ProductWithUom> {
         // 使用預設分類碼（如未提供）
-        let category_code = req.category_code.clone().filter(|s| !s.is_empty()).unwrap_or_else(|| "GEN".to_string());
-        let subcategory_code = req.subcategory_code.clone().filter(|s| !s.is_empty()).unwrap_or_else(|| "OTH".to_string());
-        
+        let category_code = req
+            .category_code
+            .clone()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "GEN".to_string());
+        let subcategory_code = req
+            .subcategory_code
+            .clone()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "OTH".to_string());
+
         // 生成 SKU
         let sequence = Self::get_next_sequence(pool, &category_code, &subcategory_code).await?;
         let sku = format!("{}-{}-{:03}", category_code, subcategory_code, sequence);
 
         // 檢查 SKU 是否已存在（以防併發）
-        let exists: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM products WHERE sku = $1)"
-        )
-        .bind(&sku)
-        .fetch_one(pool)
-        .await?;
+        let exists: bool =
+            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM products WHERE sku = $1)")
+                .bind(&sku)
+                .fetch_one(pool)
+                .await?;
 
         if exists {
             return Err(AppError::Conflict("SKU already exists".to_string()));
         }
 
         // 查詢類別名稱
-        let category_name: Option<String> = sqlx::query_scalar(
-            "SELECT name FROM sku_categories WHERE code = $1"
-        )
-        .bind(&category_code)
-        .fetch_optional(pool)
-        .await?;
+        let category_name: Option<String> =
+            sqlx::query_scalar("SELECT name FROM sku_categories WHERE code = $1")
+                .bind(&category_code)
+                .fetch_optional(pool)
+                .await?;
 
         let subcategory_name: Option<String> = sqlx::query_scalar(
-            "SELECT name FROM sku_subcategories WHERE category_code = $1 AND code = $2"
+            "SELECT name FROM sku_subcategories WHERE category_code = $1 AND code = $2",
         )
         .bind(&category_code)
         .bind(&subcategory_code)
@@ -96,7 +102,7 @@ impl ProductService {
                 INSERT INTO product_uom_conversions (id, product_id, uom, factor_to_base)
                 VALUES ($1, $2, $3, $4)
                 RETURNING *
-                "#
+                "#,
             )
             .bind(Uuid::new_v4())
             .bind(product.id)
@@ -107,20 +113,29 @@ impl ProductService {
             uom_conversions.push(uom);
         }
 
-        Ok(ProductWithUom { product, uom_conversions, category_name, subcategory_name })
+        Ok(ProductWithUom {
+            product,
+            uom_conversions,
+            category_name,
+            subcategory_name,
+        })
     }
 
     /// 取得下一個 SKU 流水號
-    async fn get_next_sequence(pool: &PgPool, category_code: &str, subcategory_code: &str) -> Result<i32> {
+    async fn get_next_sequence(
+        pool: &PgPool,
+        category_code: &str,
+        subcategory_code: &str,
+    ) -> Result<i32> {
         let pattern = format!("{}-{}-___", category_code, subcategory_code);
         let max_seq: Option<i32> = sqlx::query_scalar(
             r#"
             SELECT MAX(CAST(SUBSTRING(sku FROM '\d{3}$') AS INTEGER))
             FROM products
             WHERE sku LIKE $1
-            "#
+            "#,
         )
-        .bind(&pattern.replace("___", "___"))
+        .bind(&pattern)
         .fetch_optional(pool)
         .await?
         .flatten();
@@ -135,7 +150,10 @@ impl ProductService {
         let mut param_idx = 1;
 
         if query.keyword.is_some() {
-            sql.push_str(&format!(" AND (sku ILIKE ${0} OR name ILIKE ${0})", param_idx));
+            sql.push_str(&format!(
+                " AND (sku ILIKE ${0} OR name ILIKE ${0})",
+                param_idx
+            ));
             param_idx += 1;
         }
         if query.category_id.is_some() {
@@ -179,7 +197,7 @@ impl ProductService {
                 .await?
             } else {
                 sqlx::query_as::<_, Product>(
-                    "SELECT * FROM products WHERE (sku ILIKE $1 OR name ILIKE $1) ORDER BY sku"
+                    "SELECT * FROM products WHERE (sku ILIKE $1 OR name ILIKE $1) ORDER BY sku",
                 )
                 .bind(&pattern)
                 .fetch_all(pool)
@@ -188,7 +206,7 @@ impl ProductService {
         } else if let Some(category_id) = query.category_id {
             if let Some(is_active) = query.is_active {
                 sqlx::query_as::<_, Product>(
-                    "SELECT * FROM products WHERE category_id = $1 AND is_active = $2 ORDER BY sku"
+                    "SELECT * FROM products WHERE category_id = $1 AND is_active = $2 ORDER BY sku",
                 )
                 .bind(category_id)
                 .bind(is_active)
@@ -196,19 +214,17 @@ impl ProductService {
                 .await?
             } else {
                 sqlx::query_as::<_, Product>(
-                    "SELECT * FROM products WHERE category_id = $1 ORDER BY sku"
+                    "SELECT * FROM products WHERE category_id = $1 ORDER BY sku",
                 )
                 .bind(category_id)
                 .fetch_all(pool)
                 .await?
             }
         } else if let Some(is_active) = query.is_active {
-            sqlx::query_as::<_, Product>(
-                "SELECT * FROM products WHERE is_active = $1 ORDER BY sku"
-            )
-            .bind(is_active)
-            .fetch_all(pool)
-            .await?
+            sqlx::query_as::<_, Product>("SELECT * FROM products WHERE is_active = $1 ORDER BY sku")
+                .bind(is_active)
+                .fetch_all(pool)
+                .await?
         } else {
             sqlx::query_as::<_, Product>("SELECT * FROM products ORDER BY sku")
                 .fetch_all(pool)
@@ -220,16 +236,14 @@ impl ProductService {
 
     /// 取得單一產品
     pub async fn get_by_id(pool: &PgPool, id: Uuid) -> Result<ProductWithUom> {
-        let product = sqlx::query_as::<_, Product>(
-            "SELECT * FROM products WHERE id = $1"
-        )
-        .bind(id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Product not found".to_string()))?;
+        let product = sqlx::query_as::<_, Product>("SELECT * FROM products WHERE id = $1")
+            .bind(id)
+            .fetch_optional(pool)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Product not found".to_string()))?;
 
         let uom_conversions = sqlx::query_as::<_, ProductUomConversion>(
-            "SELECT * FROM product_uom_conversions WHERE product_id = $1 ORDER BY uom"
+            "SELECT * FROM product_uom_conversions WHERE product_id = $1 ORDER BY uom",
         )
         .bind(id)
         .fetch_all(pool)
@@ -245,21 +259,34 @@ impl ProductService {
             None
         };
 
-        let subcategory_name: Option<String> = if let (Some(ref cat_code), Some(ref sub_code)) = (&product.category_code, &product.subcategory_code) {
-            sqlx::query_scalar("SELECT name FROM sku_subcategories WHERE category_code = $1 AND code = $2")
-                .bind(cat_code)
-                .bind(sub_code)
-                .fetch_optional(pool)
-                .await?
+        let subcategory_name: Option<String> = if let (Some(ref cat_code), Some(ref sub_code)) =
+            (&product.category_code, &product.subcategory_code)
+        {
+            sqlx::query_scalar(
+                "SELECT name FROM sku_subcategories WHERE category_code = $1 AND code = $2",
+            )
+            .bind(cat_code)
+            .bind(sub_code)
+            .fetch_optional(pool)
+            .await?
         } else {
             None
         };
 
-        Ok(ProductWithUom { product, uom_conversions, category_name, subcategory_name })
+        Ok(ProductWithUom {
+            product,
+            uom_conversions,
+            category_name,
+            subcategory_name,
+        })
     }
 
     /// 更新產品
-    pub async fn update(pool: &PgPool, id: Uuid, req: &UpdateProductRequest) -> Result<ProductWithUom> {
+    pub async fn update(
+        pool: &PgPool,
+        id: Uuid,
+        req: &UpdateProductRequest,
+    ) -> Result<ProductWithUom> {
         let _product = sqlx::query_as::<_, Product>(
             r#"
             UPDATE products SET
@@ -287,7 +314,7 @@ impl ProductService {
                 updated_at = NOW()
             WHERE id = $22
             RETURNING *
-            "#
+            "#,
         )
         .bind(&req.name)
         .bind(&req.spec)
@@ -342,12 +369,11 @@ impl ProductService {
 
     /// 刪除產品（軟刪除）
     pub async fn delete(pool: &PgPool, id: Uuid) -> Result<()> {
-        let result = sqlx::query(
-            "UPDATE products SET is_active = false, updated_at = NOW() WHERE id = $1"
-        )
-        .bind(id)
-        .execute(pool)
-        .await?;
+        let result =
+            sqlx::query("UPDATE products SET is_active = false, updated_at = NOW() WHERE id = $1")
+                .bind(id)
+                .execute(pool)
+                .await?;
 
         if result.rows_affected() == 0 {
             return Err(AppError::NotFound("Product not found".to_string()));
@@ -358,23 +384,25 @@ impl ProductService {
 
     /// 取得產品類別列表
     pub async fn list_categories(pool: &PgPool) -> Result<Vec<ProductCategory>> {
-        let categories = sqlx::query_as::<_, ProductCategory>(
-            "SELECT * FROM product_categories ORDER BY code"
-        )
-        .fetch_all(pool)
-        .await?;
+        let categories =
+            sqlx::query_as::<_, ProductCategory>("SELECT * FROM product_categories ORDER BY code")
+                .fetch_all(pool)
+                .await?;
 
         Ok(categories)
     }
 
     /// 建立產品類別
-    pub async fn create_category(pool: &PgPool, req: &CreateCategoryRequest) -> Result<ProductCategory> {
+    pub async fn create_category(
+        pool: &PgPool,
+        req: &CreateCategoryRequest,
+    ) -> Result<ProductCategory> {
         let category = sqlx::query_as::<_, ProductCategory>(
             r#"
             INSERT INTO product_categories (id, code, name, parent_id, is_active, created_at)
             VALUES ($1, $2, $3, $4, true, NOW())
             RETURNING *
-            "#
+            "#,
         )
         .bind(Uuid::new_v4())
         .bind(&req.code)

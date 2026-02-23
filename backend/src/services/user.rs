@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use crate::{
     models::{AuditAction, CreateUserRequest, UpdateUserRequest, User, UserResponse},
-    services::{AuthService, AuditService},
+    services::{AuditService, AuthService},
     AppError, Result,
 };
 
@@ -13,12 +13,11 @@ impl UserService {
     /// 建立用戶（私域註冊 - 只有管理員可以建立）
     pub async fn create(pool: &PgPool, req: &CreateUserRequest) -> Result<User> {
         // 檢查 email 是否已存在
-        let exists: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)"
-        )
-        .bind(&req.email)
-        .fetch_one(pool)
-        .await?;
+        let exists: bool =
+            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)")
+                .bind(&req.email)
+                .fetch_one(pool)
+                .await?;
 
         if exists {
             return Err(AppError::Conflict("Email already exists".to_string()));
@@ -37,7 +36,7 @@ impl UserService {
             )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, true, true, NOW(), NOW())
             RETURNING *
-            "#
+            "#,
         )
         .bind(Uuid::new_v4())
         .bind(&req.email)
@@ -45,7 +44,7 @@ impl UserService {
         .bind(&req.display_name)
         .bind(&req.phone)
         .bind(&req.organization)
-        .bind(&req.entry_date)
+        .bind(req.entry_date)
         .bind(&req.position)
         .bind(&req.aup_roles)
         .bind(req.years_experience)
@@ -56,11 +55,13 @@ impl UserService {
 
         // 指派角色
         for role_id in &req.role_ids {
-            sqlx::query("INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING")
-                .bind(user.id)
-                .bind(role_id)
-                .execute(pool)
-                .await?;
+            sqlx::query(
+                "INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+            )
+            .bind(user.id)
+            .bind(role_id)
+            .execute(pool)
+            .await?;
         }
 
         Ok(user)
@@ -75,7 +76,7 @@ impl UserService {
                 SELECT * FROM users 
                 WHERE email ILIKE $1 OR display_name ILIKE $1
                 ORDER BY created_at DESC
-                "#
+                "#,
             )
             .bind(&pattern)
             .fetch_all(pool)
@@ -88,7 +89,8 @@ impl UserService {
 
         let mut result = Vec::new();
         for user in users {
-            let (roles, permissions) = AuthService::get_user_roles_permissions(pool, user.id).await?;
+            let (roles, permissions) =
+                AuthService::get_user_roles_permissions(pool, user.id).await?;
             result.push(UserResponse {
                 id: user.id,
                 email: user.email,
@@ -147,7 +149,12 @@ impl UserService {
     }
 
     /// 更新用戶
-    pub async fn update(pool: &PgPool, id: Uuid, actor_user_id: Uuid, req: &UpdateUserRequest) -> Result<UserResponse> {
+    pub async fn update(
+        pool: &PgPool,
+        id: Uuid,
+        actor_user_id: Uuid,
+        req: &UpdateUserRequest,
+    ) -> Result<UserResponse> {
         // 檢查用戶是否存在
         let before_user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
             .bind(id)
@@ -158,7 +165,7 @@ impl UserService {
         // 如果要更新 email，檢查是否已被使用
         if let Some(ref new_email) = req.email {
             let exists: bool = sqlx::query_scalar(
-                "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1 AND id != $2)"
+                "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1 AND id != $2)",
             )
             .bind(new_email)
             .bind(id)
@@ -171,7 +178,7 @@ impl UserService {
         }
 
         // 更新用戶
-        let trainings_json = req.trainings.as_ref().map(|t| sqlx::types::Json(t));
+        let trainings_json = req.trainings.as_ref().map(sqlx::types::Json);
         let updated_user = sqlx::query_as::<_, User>(
             r#"
             UPDATE users SET
@@ -189,17 +196,17 @@ impl UserService {
                 updated_at = NOW()
             WHERE id = $12
             RETURNING *
-            "#
+            "#,
         )
         .bind(&req.email)
         .bind(&req.display_name)
         .bind(&req.phone)
         .bind(&req.organization)
-        .bind(&req.entry_date)
+        .bind(req.entry_date)
         .bind(&req.position)
         .bind(&req.aup_roles)
         .bind(req.years_experience)
-        .bind(&trainings_json)
+        .bind(trainings_json)
         .bind(req.is_internal)
         .bind(req.is_active)
         .bind(id)
@@ -215,7 +222,8 @@ impl UserService {
             id,
             Some(serde_json::to_value(&before_user).unwrap_or(serde_json::Value::Null)),
             Some(serde_json::to_value(&updated_user).unwrap_or(serde_json::Value::Null)),
-        ).await?;
+        )
+        .await?;
 
         // 如果要更新角色
         if let Some(ref role_ids) = req.role_ids {
@@ -235,7 +243,8 @@ impl UserService {
             }
         }
 
-        let (roles, permissions) = AuthService::get_user_roles_permissions(pool, updated_user.id).await?;
+        let (roles, permissions) =
+            AuthService::get_user_roles_permissions(pool, updated_user.id).await?;
 
         Ok(UserResponse {
             id: updated_user.id,

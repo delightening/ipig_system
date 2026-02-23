@@ -5,9 +5,9 @@ use chrono::{Timelike, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::Result;
+use super::geoip::{GeoInfo, GeoIpService};
 use crate::handlers::sse::{AlertBroadcaster, AlertEvent};
-use super::geoip::{GeoIpService, GeoInfo};
+use crate::Result;
 
 pub struct LoginTracker;
 
@@ -23,19 +23,19 @@ impl LoginTracker {
         broadcaster: &AlertBroadcaster,
     ) -> Result<()> {
         let ua = parse_user_agent(user_agent);
-        
+
         // 查詢 IP 地理位置
         let geo = ip
             .and_then(|ip_str| geoip.lookup(ip_str))
             .unwrap_or_default();
-        
+
         let (is_unusual_time, is_unusual_location, is_new_device, is_mass_login) = tokio::join!(
             async { check_unusual_time() },
             async { check_unusual_location(pool, user_id, ip, &geo).await },
             async { check_new_device(pool, user_id, user_agent).await },
             async { check_mass_login(pool, user_id).await }
         );
-        
+
         // 插入登入成功日誌（含地理位置資訊）
         sqlx::query(
             r#"
@@ -70,7 +70,7 @@ impl LoginTracker {
         .bind(is_mass_login)
         .execute(pool)
         .await?;
-        
+
         // 如果有異常，建立個人警報
         if is_unusual_time || is_unusual_location || is_new_device || is_mass_login {
             Self::create_login_alert(
@@ -89,10 +89,10 @@ impl LoginTracker {
 
         // 檢查全域多帳號大量登入 (疑似腳本)
         check_global_mass_login(pool, broadcaster).await?;
-        
+
         Ok(())
     }
-    
+
     /// 記錄失敗登入
     pub async fn log_failure(
         pool: &PgPool,
@@ -104,18 +104,18 @@ impl LoginTracker {
         broadcaster: &AlertBroadcaster,
     ) -> Result<()> {
         let device_info = parse_user_agent(user_agent);
-        
+
         // 查詢 IP 地理位置
         let geo = ip
             .and_then(|ip_str| geoip.lookup(ip_str))
             .unwrap_or_default();
-        
+
         // 查找 user_id（如果 email 存在）
         let user_id: Option<Uuid> = sqlx::query_scalar("SELECT id FROM users WHERE email = $1")
             .bind(email)
             .fetch_optional(pool)
             .await?;
-        
+
         sqlx::query(
             r#"
             INSERT INTO login_events (
@@ -147,13 +147,13 @@ impl LoginTracker {
         .bind(reason)
         .execute(pool)
         .await?;
-        
+
         // 檢查暴力破解
         Self::check_brute_force(pool, email, ip, broadcaster).await?;
-        
+
         Ok(())
     }
-    
+
     /// 記錄登出
     pub async fn log_logout(
         pool: &PgPool,
@@ -173,12 +173,17 @@ impl LoginTracker {
         .bind(ip)
         .execute(pool)
         .await?;
-        
+
         Ok(())
     }
-    
+
     /// 檢查暴力破解攻擊
-    async fn check_brute_force(pool: &PgPool, email: &str, ip: Option<&str>, broadcaster: &AlertBroadcaster) -> Result<()> {
+    async fn check_brute_force(
+        pool: &PgPool,
+        email: &str,
+        ip: Option<&str>,
+        broadcaster: &AlertBroadcaster,
+    ) -> Result<()> {
         // 檢查過去 15 分鐘的失敗次數
         let (fail_count,): (i64,) = sqlx::query_as(
             r#"
@@ -191,7 +196,7 @@ impl LoginTracker {
         .bind(email)
         .fetch_one(pool)
         .await?;
-        
+
         if fail_count >= 5 {
             // 建立暴力破解警報
             sqlx::query(
@@ -224,14 +229,18 @@ impl LoginTracker {
                 alert_type: "brute_force".to_string(),
                 severity: "critical".to_string(),
                 title: "偵測到可能的暴力破解攻擊".to_string(),
-                description: format!("Email {} 在過去 15 分鐘內有 {} 次失敗登入嘗試", email, fail_count),
+                description: format!(
+                    "Email {} 在過去 15 分鐘內有 {} 次失敗登入嘗試",
+                    email, fail_count
+                ),
             });
         }
-        
+
         Ok(())
     }
-    
+
     /// 建立登入異常警報
+    #[allow(clippy::too_many_arguments)]
     async fn create_login_alert(
         pool: &PgPool,
         user_id: Uuid,
@@ -262,10 +271,10 @@ impl LoginTracker {
         if mass_login {
             reasons.push("同時大量登入".to_string());
         }
-        
+
         let title = format!("偵測到異常登入 ({})", email);
         let description = format!("帳號 {} 的登入觸發異常偵測：{}", email, reasons.join("、"));
-        
+
         sqlx::query(
             r#"
             INSERT INTO security_alerts (
@@ -291,7 +300,7 @@ impl LoginTracker {
             title: title.clone(),
             description: description.clone(),
         });
-        
+
         Ok(())
     }
 }
@@ -317,7 +326,7 @@ fn parse_user_agent(ua: Option<&str>) -> DeviceInfo {
             }
         }
     };
-    
+
     // 簡單解析 (可以用更完整的 library 如 woothee)
     let device_type = if ua.contains("Mobile") || ua.contains("Android") {
         Some("mobile".to_string())
@@ -326,7 +335,7 @@ fn parse_user_agent(ua: Option<&str>) -> DeviceInfo {
     } else {
         Some("desktop".to_string())
     };
-    
+
     let browser = if ua.contains("Chrome") && !ua.contains("Edge") {
         Some("Chrome".to_string())
     } else if ua.contains("Firefox") {
@@ -338,7 +347,7 @@ fn parse_user_agent(ua: Option<&str>) -> DeviceInfo {
     } else {
         None
     };
-    
+
     let os = if ua.contains("Windows") {
         Some("Windows".to_string())
     } else if ua.contains("Mac OS") {
@@ -352,7 +361,7 @@ fn parse_user_agent(ua: Option<&str>) -> DeviceInfo {
     } else {
         None
     };
-    
+
     DeviceInfo {
         device_type,
         browser,
@@ -360,21 +369,19 @@ fn parse_user_agent(ua: Option<&str>) -> DeviceInfo {
     }
 }
 
-
 fn check_unusual_time() -> bool {
     // 台灣時區 UTC+8
     let taiwan_hour = (Utc::now().hour() + 8) % 24;
     // 非工作時間：晚上 6 點到早上 8 點（台灣時間）
-    taiwan_hour >= 18 || taiwan_hour < 8
+    !(8..18).contains(&taiwan_hour)
 }
-
 
 async fn check_new_device(pool: &PgPool, user_id: Uuid, user_agent: Option<&str>) -> bool {
     let ua = match user_agent {
         Some(s) => s,
         None => return false,
     };
-    
+
     // 檢查過去 30 天是否用過這個 user agent
     let (count,): (i64,) = sqlx::query_as(
         r#"
@@ -390,7 +397,7 @@ async fn check_new_device(pool: &PgPool, user_id: Uuid, user_agent: Option<&str>
     .fetch_one(pool)
     .await
     .unwrap_or((0,));
-    
+
     count == 0
 }
 
@@ -419,16 +426,16 @@ async fn check_unusual_location(
         .fetch_one(pool)
         .await
         .unwrap_or((0,));
-        
+
         return count == 0;
     }
-    
+
     // 策略 2：退回 IP 完全比對（GeoIP 無法解析時的降級方案）
     let ip = match ip {
         Some(s) => s,
         None => return false,
     };
-    
+
     let (count,): (i64,) = sqlx::query_as(
         r#"
         SELECT COUNT(*) FROM login_events
@@ -443,7 +450,7 @@ async fn check_unusual_location(
     .fetch_one(pool)
     .await
     .unwrap_or((0,));
-    
+
     count == 0
 }
 
@@ -487,7 +494,11 @@ async fn check_global_mass_login(pool: &PgPool, broadcaster: &AlertBroadcaster) 
     Ok(())
 }
 
-async fn create_global_mass_login_alert(pool: &PgPool, account_count: i64, broadcaster: &AlertBroadcaster) -> Result<()> {
+async fn create_global_mass_login_alert(
+    pool: &PgPool,
+    account_count: i64,
+    broadcaster: &AlertBroadcaster,
+) -> Result<()> {
     // 檢查是否最近 10 分鐘內已經發過相同的全域警報 (避免洗版)
     let (recent_alert_count,): (i64,) = sqlx::query_as(
         r#"

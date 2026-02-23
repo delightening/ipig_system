@@ -49,7 +49,7 @@ impl ProtocolStatus {
             ProtocolStatus::Deleted => "DELETED",
         }
     }
-    
+
     pub fn display_name(&self) -> &'static str {
         match self {
             ProtocolStatus::Draft => "草稿",
@@ -103,7 +103,10 @@ pub struct ProtocolVersion {
 /// 計畫活動類型
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type, ToSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-#[sqlx(type_name = "protocol_activity_type", rename_all = "SCREAMING_SNAKE_CASE")]
+#[sqlx(
+    type_name = "protocol_activity_type",
+    rename_all = "SCREAMING_SNAKE_CASE"
+)]
 pub enum ProtocolActivityType {
     // 生命週期
     Created,
@@ -171,7 +174,7 @@ impl ProtocolActivityType {
             ProtocolActivityType::AnimalUnassigned => "ANIMAL_UNASSIGNED",
         }
     }
-    
+
     pub fn display_name(&self) -> &'static str {
         match self {
             ProtocolActivityType::Created => "創建草稿",
@@ -264,7 +267,6 @@ impl From<ProtocolActivity> for ProtocolActivityResponse {
         }
     }
 }
-
 
 /// 審查人員指派
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
@@ -449,7 +451,11 @@ pub struct ReplyCommentRequest {
 #[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct SaveDraftRequest {
     pub comment_id: Uuid,
-    #[validate(length(min = 1, max = 10_000, message = "Draft content must be 1-10000 characters"))]
+    #[validate(length(
+        min = 1,
+        max = 10_000,
+        message = "Draft content must be 1-10000 characters"
+    ))]
     pub draft_content: String,
 }
 
@@ -465,7 +471,6 @@ pub struct SaveVetReviewFormRequest {
     pub protocol_id: Uuid,
     pub review_form: serde_json::Value,
 }
-
 
 #[derive(Debug, Deserialize)]
 pub struct ProtocolQuery {
@@ -586,7 +591,10 @@ mod tests {
         assert_eq!(ProtocolStatus::VetReview.as_str(), "VET_REVIEW");
         assert_eq!(ProtocolStatus::UnderReview.as_str(), "UNDER_REVIEW");
         assert_eq!(ProtocolStatus::Approved.as_str(), "APPROVED");
-        assert_eq!(ProtocolStatus::ApprovedWithConditions.as_str(), "APPROVED_WITH_CONDITIONS");
+        assert_eq!(
+            ProtocolStatus::ApprovedWithConditions.as_str(),
+            "APPROVED_WITH_CONDITIONS"
+        );
         assert_eq!(ProtocolStatus::Rejected.as_str(), "REJECTED");
         assert_eq!(ProtocolStatus::Closed.as_str(), "CLOSED");
         assert_eq!(ProtocolStatus::Deleted.as_str(), "DELETED");
@@ -596,7 +604,10 @@ mod tests {
     fn test_protocol_status_display_name() {
         assert_eq!(ProtocolStatus::Draft.display_name(), "草稿");
         assert_eq!(ProtocolStatus::Approved.display_name(), "已核准");
-        assert_eq!(ProtocolStatus::ApprovedWithConditions.display_name(), "附條件核准");
+        assert_eq!(
+            ProtocolStatus::ApprovedWithConditions.display_name(),
+            "附條件核准"
+        );
         assert_eq!(ProtocolStatus::UnderReview.display_name(), "審查中");
         assert_eq!(ProtocolStatus::Suspended.display_name(), "已暫停");
     }
@@ -605,14 +616,22 @@ mod tests {
     fn test_protocol_status_all_variants_have_as_str() {
         // 確認所有 16 個變體都有對應字串
         let variants = vec![
-            ProtocolStatus::Draft, ProtocolStatus::Submitted,
-            ProtocolStatus::PreReview, ProtocolStatus::PreReviewRevisionRequired,
-            ProtocolStatus::VetReview, ProtocolStatus::VetRevisionRequired,
-            ProtocolStatus::UnderReview, ProtocolStatus::RevisionRequired,
-            ProtocolStatus::Resubmitted, ProtocolStatus::Approved,
-            ProtocolStatus::ApprovedWithConditions, ProtocolStatus::Deferred,
-            ProtocolStatus::Rejected, ProtocolStatus::Suspended,
-            ProtocolStatus::Closed, ProtocolStatus::Deleted,
+            ProtocolStatus::Draft,
+            ProtocolStatus::Submitted,
+            ProtocolStatus::PreReview,
+            ProtocolStatus::PreReviewRevisionRequired,
+            ProtocolStatus::VetReview,
+            ProtocolStatus::VetRevisionRequired,
+            ProtocolStatus::UnderReview,
+            ProtocolStatus::RevisionRequired,
+            ProtocolStatus::Resubmitted,
+            ProtocolStatus::Approved,
+            ProtocolStatus::ApprovedWithConditions,
+            ProtocolStatus::Deferred,
+            ProtocolStatus::Rejected,
+            ProtocolStatus::Suspended,
+            ProtocolStatus::Closed,
+            ProtocolStatus::Deleted,
         ];
         for v in &variants {
             assert!(!v.as_str().is_empty());
@@ -625,36 +644,64 @@ mod tests {
     fn test_activity_type_as_str() {
         assert_eq!(ProtocolActivityType::Created.as_str(), "CREATED");
         assert_eq!(ProtocolActivityType::Submitted.as_str(), "SUBMITTED");
-        assert_eq!(ProtocolActivityType::ReviewerAssigned.as_str(), "REVIEWER_ASSIGNED");
-        assert_eq!(ProtocolActivityType::AnimalAssigned.as_str(), "ANIMAL_ASSIGNED");
-        assert_eq!(ProtocolActivityType::AmendmentCreated.as_str(), "AMENDMENT_CREATED");
+        assert_eq!(
+            ProtocolActivityType::ReviewerAssigned.as_str(),
+            "REVIEWER_ASSIGNED"
+        );
+        assert_eq!(
+            ProtocolActivityType::AnimalAssigned.as_str(),
+            "ANIMAL_ASSIGNED"
+        );
+        assert_eq!(
+            ProtocolActivityType::AmendmentCreated.as_str(),
+            "AMENDMENT_CREATED"
+        );
     }
 
     #[test]
     fn test_activity_type_display_name() {
         assert_eq!(ProtocolActivityType::Created.display_name(), "創建草稿");
         assert_eq!(ProtocolActivityType::Submitted.display_name(), "送審");
-        assert_eq!(ProtocolActivityType::ReviewerAssigned.display_name(), "指派審查委員");
-        assert_eq!(ProtocolActivityType::AnimalAssigned.display_name(), "分配動物");
+        assert_eq!(
+            ProtocolActivityType::ReviewerAssigned.display_name(),
+            "指派審查委員"
+        );
+        assert_eq!(
+            ProtocolActivityType::AnimalAssigned.display_name(),
+            "分配動物"
+        );
     }
 
     #[test]
     fn test_activity_type_all_variants() {
         // 確認所有 20 個變體都有對應字串
         let variants = vec![
-            ProtocolActivityType::Created, ProtocolActivityType::Updated,
-            ProtocolActivityType::Submitted, ProtocolActivityType::Resubmitted,
-            ProtocolActivityType::Approved, ProtocolActivityType::ApprovedWithConditions,
-            ProtocolActivityType::Closed, ProtocolActivityType::Rejected,
-            ProtocolActivityType::Suspended, ProtocolActivityType::Deleted,
-            ProtocolActivityType::StatusChanged, ProtocolActivityType::ReviewerAssigned,
-            ProtocolActivityType::VetAssigned, ProtocolActivityType::CoeditorAssigned,
-            ProtocolActivityType::CoeditorRemoved, ProtocolActivityType::CommentAdded,
-            ProtocolActivityType::CommentReplied, ProtocolActivityType::CommentResolved,
-            ProtocolActivityType::AttachmentUploaded, ProtocolActivityType::AttachmentDeleted,
-            ProtocolActivityType::VersionCreated, ProtocolActivityType::VersionRecovered,
-            ProtocolActivityType::AmendmentCreated, ProtocolActivityType::AmendmentSubmitted,
-            ProtocolActivityType::AnimalAssigned, ProtocolActivityType::AnimalUnassigned,
+            ProtocolActivityType::Created,
+            ProtocolActivityType::Updated,
+            ProtocolActivityType::Submitted,
+            ProtocolActivityType::Resubmitted,
+            ProtocolActivityType::Approved,
+            ProtocolActivityType::ApprovedWithConditions,
+            ProtocolActivityType::Closed,
+            ProtocolActivityType::Rejected,
+            ProtocolActivityType::Suspended,
+            ProtocolActivityType::Deleted,
+            ProtocolActivityType::StatusChanged,
+            ProtocolActivityType::ReviewerAssigned,
+            ProtocolActivityType::VetAssigned,
+            ProtocolActivityType::CoeditorAssigned,
+            ProtocolActivityType::CoeditorRemoved,
+            ProtocolActivityType::CommentAdded,
+            ProtocolActivityType::CommentReplied,
+            ProtocolActivityType::CommentResolved,
+            ProtocolActivityType::AttachmentUploaded,
+            ProtocolActivityType::AttachmentDeleted,
+            ProtocolActivityType::VersionCreated,
+            ProtocolActivityType::VersionRecovered,
+            ProtocolActivityType::AmendmentCreated,
+            ProtocolActivityType::AmendmentSubmitted,
+            ProtocolActivityType::AnimalAssigned,
+            ProtocolActivityType::AnimalUnassigned,
         ];
         for v in &variants {
             assert!(!v.as_str().is_empty());
@@ -690,9 +737,10 @@ mod tests {
     #[test]
     fn test_protocol_status_serde_roundtrip() {
         let status = ProtocolStatus::ApprovedWithConditions;
-        let json = serde_json::to_string(&status).unwrap();
+        let json = serde_json::to_string(&status).expect("序列化 ProtocolStatus 失敗");
         assert_eq!(json, "\"APPROVED_WITH_CONDITIONS\"");
-        let parsed: ProtocolStatus = serde_json::from_str(&json).unwrap();
+        let parsed: ProtocolStatus =
+            serde_json::from_str(&json).expect("反序列化 ProtocolStatus 失敗");
         assert_eq!(parsed, status);
     }
 }

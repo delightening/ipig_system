@@ -1,5 +1,5 @@
-use sqlx::PgPool;
 use chrono::Utc;
+use sqlx::PgPool;
 
 use super::ProtocolService;
 use crate::{AppError, Result};
@@ -9,7 +9,7 @@ impl ProtocolService {
     /// 格式：APIG-{ROC}{03}
     /// {ROC} 為民國年（西元年 - 1911）
     /// {03} 為流水號（3位數，補零）
-    /// 
+    ///
     /// 注意：需要避免重複使用已經轉換為 PIG 的編號
     /// 例如：如果 APIG-115001 已經變成 PIG-115001，則流水號 001 不應再被使用
     pub(super) async fn generate_apig_no(pool: &PgPool) -> Result<String> {
@@ -18,12 +18,12 @@ impl ProtocolService {
         let year = now.year();
         // 民國年 = 西元年 - 1911
         let roc_year = year - 1911;
-        
+
         // 查詢該民國年的所有 APIG 編號
         // 格式：APIG-{ROC年}{3位數流水號}，例如：APIG-114001, APIG-115001
         let apig_prefix = format!("APIG-{}", roc_year);
         let apig_nos: Vec<String> = sqlx::query_scalar(
-            "SELECT iacuc_no FROM protocols WHERE iacuc_no LIKE $1 AND iacuc_no IS NOT NULL"
+            "SELECT iacuc_no FROM protocols WHERE iacuc_no LIKE $1 AND iacuc_no IS NOT NULL",
         )
         .bind(format!("{}%", apig_prefix))
         .fetch_all(pool)
@@ -34,7 +34,7 @@ impl ProtocolService {
         // 這些流水號不應再被用於新的 APIG 編號
         let iacuc_prefix = format!("PIG-{}", roc_year);
         let iacuc_nos: Vec<String> = sqlx::query_scalar(
-            "SELECT iacuc_no FROM protocols WHERE iacuc_no LIKE $1 AND iacuc_no IS NOT NULL"
+            "SELECT iacuc_no FROM protocols WHERE iacuc_no LIKE $1 AND iacuc_no IS NOT NULL",
         )
         .bind(format!("{}%", iacuc_prefix))
         .fetch_all(pool)
@@ -69,17 +69,17 @@ impl ProtocolService {
         // 合併所有已使用的流水號（包括當前的 APIG 和曾經是 APIG 的 PIG）
         let mut all_used_seqs: Vec<i32> = apig_seqs;
         all_used_seqs.extend(iacuc_seqs);
-        
+
         // 找出最大值
         let max_seq = all_used_seqs.iter().max().copied();
 
         // 下一個流水號（從1開始，如果沒有現有編號）
         let seq = max_seq.map(|s| s + 1).unwrap_or(1);
-        
+
         // 確保流水號不超過999
         if seq > 999 {
             return Err(AppError::Internal(
-                format!("APIG 編號流水號已達上限（999），無法生成新編號")
+                "APIG 編號流水號已達上限（999），無法生成新編號".to_string(),
             ));
         }
 
@@ -96,12 +96,12 @@ impl ProtocolService {
         let year = now.year();
         // 民國年 = 西元年 - 1911
         let roc_year = year - 1911;
-        
+
         // 查詢該民國年的所有 IACUC 編號
         // 格式：PIG-{ROC年}{3位數流水號}，例如：PIG-114017, PIG-115001
         let prefix = format!("PIG-{}", roc_year);
         let iacuc_nos: Vec<String> = sqlx::query_scalar(
-            "SELECT iacuc_no FROM protocols WHERE iacuc_no LIKE $1 AND iacuc_no IS NOT NULL"
+            "SELECT iacuc_no FROM protocols WHERE iacuc_no LIKE $1 AND iacuc_no IS NOT NULL",
         )
         .bind(format!("{}%", prefix))
         .fetch_all(pool)
@@ -125,11 +125,11 @@ impl ProtocolService {
 
         // 下一個流水號（從1開始，如果沒有現有編號）
         let seq = max_seq.map(|s| s + 1).unwrap_or(1);
-        
+
         // 確保流水號不超過999
         if seq > 999 {
             return Err(AppError::Internal(
-                format!("IACUC 編號流水號已達上限（999），無法生成新編號")
+                "IACUC 編號流水號已達上限（999），無法生成新編號".to_string(),
             ));
         }
 

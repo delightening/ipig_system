@@ -80,10 +80,7 @@ pub struct CareRecordService;
 impl CareRecordService {
     /// 列出某動物的照護紀錄
     /// 透過 record_id (observation/surgery) 關聯到 animal
-    pub async fn list_by_animal(
-        pool: &PgPool,
-        animal_id: Uuid,
-    ) -> Result<Vec<CareRecord>> {
+    pub async fn list_by_animal(pool: &PgPool, animal_id: Uuid) -> Result<Vec<CareRecord>> {
         let records = sqlx::query_as::<_, CareRecord>(
             r#"
             SELECT c.*
@@ -108,10 +105,7 @@ impl CareRecordService {
     }
 
     /// 建立照護紀錄
-    pub async fn create(
-        pool: &PgPool,
-        req: &CreateCareRecordRequest,
-    ) -> Result<CareRecord> {
+    pub async fn create(pool: &PgPool, req: &CreateCareRecordRequest) -> Result<CareRecord> {
         let record = sqlx::query_as::<_, CareRecord>(
             r#"
             INSERT INTO care_medication_records
@@ -121,9 +115,9 @@ impl CareRecordService {
             RETURNING *
             "#,
         )
-        .bind(&req.record_type)
+        .bind(req.record_type)
         .bind(req.record_id)
-        .bind(&req.record_mode)
+        .bind(req.record_mode)
         .bind(req.post_op_days)
         .bind(&req.time_period)
         .bind(&req.spirit)

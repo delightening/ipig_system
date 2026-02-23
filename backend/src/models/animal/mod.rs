@@ -1,11 +1,11 @@
 // 動物管理模型 - 拆分為 enums、entities、requests 三個子模組
-pub mod enums;
 pub mod entities;
+pub mod enums;
 pub mod requests;
 
 // Re-export 所有公開型別以維持相容性
-pub use enums::*;
 pub use entities::*;
+pub use enums::*;
 pub use requests::*;
 
 #[cfg(test)]
@@ -25,8 +25,12 @@ mod tests {
 
     #[test]
     fn test_animal_status_serde() {
-        assert_eq!(serde_json::to_string(&AnimalStatus::InExperiment).unwrap(), "\"in_experiment\"");
-        let status: AnimalStatus = serde_json::from_str("\"completed\"").unwrap();
+        assert_eq!(
+            serde_json::to_string(&AnimalStatus::InExperiment).expect("序列化 InExperiment 失敗"),
+            "\"in_experiment\""
+        );
+        let status: AnimalStatus =
+            serde_json::from_str("\"completed\"").expect("反序列化 completed 失敗");
         assert_eq!(status, AnimalStatus::Completed);
     }
 
@@ -45,10 +49,17 @@ mod tests {
     #[test]
     fn test_animal_breed_serde() {
         // 前端使用 "minipig" 而非 "miniature"
-        assert_eq!(serde_json::to_string(&AnimalBreed::Minipig).unwrap(), "\"minipig\"");
-        assert_eq!(serde_json::to_string(&AnimalBreed::LYD).unwrap(), "\"lyd\"");
+        assert_eq!(
+            serde_json::to_string(&AnimalBreed::Minipig).expect("序列化 Minipig 失敗"),
+            "\"minipig\""
+        );
+        assert_eq!(
+            serde_json::to_string(&AnimalBreed::LYD).expect("序列化 LYD 失敗"),
+            "\"lyd\""
+        );
 
-        let breed: AnimalBreed = serde_json::from_str("\"minipig\"").unwrap();
+        let breed: AnimalBreed =
+            serde_json::from_str("\"minipig\"").expect("反序列化 minipig 失敗");
         assert_eq!(breed, AnimalBreed::Minipig);
     }
 
@@ -64,8 +75,12 @@ mod tests {
 
     #[test]
     fn test_animal_gender_serde() {
-        assert_eq!(serde_json::to_string(&AnimalGender::Male).unwrap(), "\"male\"");
-        let gender: AnimalGender = serde_json::from_str("\"female\"").unwrap();
+        assert_eq!(
+            serde_json::to_string(&AnimalGender::Male).expect("序列化 Male 失敗"),
+            "\"male\""
+        );
+        let gender: AnimalGender =
+            serde_json::from_str("\"female\"").expect("反序列化 female 失敗");
         assert_eq!(gender, AnimalGender::Female);
     }
 
@@ -100,7 +115,7 @@ mod tests {
     #[test]
     fn test_validate_ear_tag_invalid() {
         assert!(validate_ear_tag("1234").is_err()); // 超過三位
-        assert!(validate_ear_tag("abc").is_err());  // 非數字
+        assert!(validate_ear_tag("abc").is_err()); // 非數字
     }
 
     // ==========================================
@@ -109,12 +124,12 @@ mod tests {
 
     #[test]
     fn test_validate_pen_location_valid() {
-        assert!(validate_pen_location(&"A-01".to_string()).is_ok());
+        assert!(validate_pen_location("A-01").is_ok());
     }
 
     #[test]
     fn test_validate_pen_location_empty() {
-        assert!(validate_pen_location(&"".to_string()).is_err());
-        assert!(validate_pen_location(&"   ".to_string()).is_err()); // 空白也不行
+        assert!(validate_pen_location("").is_err());
+        assert!(validate_pen_location("   ").is_err()); // 空白也不行
     }
 }

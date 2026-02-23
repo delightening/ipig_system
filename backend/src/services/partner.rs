@@ -15,18 +15,20 @@ impl PartnerService {
     pub async fn generate_code(
         pool: &PgPool,
         partner_type: crate::models::PartnerType,
-        category: Option<SupplierCategory>
+        category: Option<SupplierCategory>,
     ) -> Result<String> {
         let prefix = match partner_type {
-            crate::models::PartnerType::Supplier => {
-                match category {
-                    Some(SupplierCategory::Drug) => "藥",
-                    Some(SupplierCategory::Consumable) => "耗",
-                    Some(SupplierCategory::Feed) => "飼",
-                    Some(SupplierCategory::Equipment) => "儀",
-                    None => return Err(AppError::Validation("Supplier category is required for generating supplier code".to_string())),
+            crate::models::PartnerType::Supplier => match category {
+                Some(SupplierCategory::Drug) => "藥",
+                Some(SupplierCategory::Consumable) => "耗",
+                Some(SupplierCategory::Feed) => "飼",
+                Some(SupplierCategory::Equipment) => "儀",
+                None => {
+                    return Err(AppError::Validation(
+                        "Supplier category is required for generating supplier code".to_string(),
+                    ))
                 }
-            }
+            },
             crate::models::PartnerType::Customer => "客",
         };
 
@@ -71,26 +73,33 @@ impl PartnerService {
     /// 建立夥伴（供應商/客戶）
     pub async fn create(pool: &PgPool, req: &CreatePartnerRequest) -> Result<Partner> {
         // 如果 code 為空，則自動根據類型生成
-        let code = if req.code.is_none() || req.code.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()).is_none() {
-            Self::generate_code(pool, req.partner_type, req.supplier_category).await?
-        } else {
-            req.code.as_ref().expect("code 由上方條件保證存在").trim().to_string()
+        let code = match req
+            .code
+            .as_ref()
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+        {
+            Some(provided) => provided.to_string(),
+            None => Self::generate_code(pool, req.partner_type, req.supplier_category).await?,
         };
 
         // 檢查 code 是否已存在
-        let exists: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM partners WHERE code = $1)"
-        )
-        .bind(&code)
-        .fetch_one(pool)
-        .await?;
+        let exists: bool =
+            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM partners WHERE code = $1)")
+                .bind(&code)
+                .fetch_one(pool)
+                .await?;
 
         if exists {
-            return Err(AppError::Conflict("Partner code already exists".to_string()));
+            return Err(AppError::Conflict(
+                "Partner code already exists".to_string(),
+            ));
         }
 
         // 將空字串轉換為 None，並驗證 email 格式（如果提供）
-        let email = req.email.as_ref()
+        let email = req
+            .email
+            .as_ref()
             .map(|e| e.trim())
             .filter(|e| !e.is_empty())
             .map(|e| {
@@ -98,7 +107,8 @@ impl PartnerService {
                 use std::sync::OnceLock;
                 static EMAIL_REGEX: OnceLock<regex::Regex> = OnceLock::new();
                 let re = EMAIL_REGEX.get_or_init(|| {
-                    regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").expect("Email 靜態正則表達式應有效")
+                    regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+                        .expect("Email 靜態正則表達式應有效")
                 });
 
                 if !re.is_match(e) {
@@ -119,11 +129,11 @@ impl PartnerService {
             "#
         )
         .bind(Uuid::new_v4())
-        .bind(&req.partner_type)
+        .bind(req.partner_type)
         .bind(&code)
         .bind(&req.name)
-        .bind(&req.supplier_category)
-        .bind(&req.customer_category)
+        .bind(req.supplier_category)
+        .bind(req.customer_category)
         .bind(req.tax_id.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()))
         .bind(req.phone.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()))
         .bind(&email)
@@ -148,7 +158,7 @@ impl PartnerService {
                           AND partner_type = $2 
                           AND is_active = $3 
                         ORDER BY code
-                        "#
+                        "#,
                     )
                     .bind(&pattern)
                     .bind(partner_type)
@@ -162,7 +172,7 @@ impl PartnerService {
                         WHERE (code ILIKE $1 OR name ILIKE $1) 
                           AND partner_type = $2 
                         ORDER BY code
-                        "#
+                        "#,
                     )
                     .bind(&pattern)
                     .bind(partner_type)
@@ -176,7 +186,7 @@ impl PartnerService {
                     WHERE (code ILIKE $1 OR name ILIKE $1) 
                       AND is_active = $2 
                     ORDER BY code
-                    "#
+                    "#,
                 )
                 .bind(&pattern)
                 .bind(is_active)
@@ -184,7 +194,7 @@ impl PartnerService {
                 .await?
             } else {
                 sqlx::query_as::<_, Partner>(
-                    "SELECT * FROM partners WHERE (code ILIKE $1 OR name ILIKE $1) ORDER BY code"
+                    "SELECT * FROM partners WHERE (code ILIKE $1 OR name ILIKE $1) ORDER BY code",
                 )
                 .bind(&pattern)
                 .fetch_all(pool)
@@ -201,7 +211,7 @@ impl PartnerService {
                 .await?
             } else {
                 sqlx::query_as::<_, Partner>(
-                    "SELECT * FROM partners WHERE partner_type = $1 ORDER BY code"
+                    "SELECT * FROM partners WHERE partner_type = $1 ORDER BY code",
                 )
                 .bind(partner_type)
                 .fetch_all(pool)
@@ -209,7 +219,7 @@ impl PartnerService {
             }
         } else if let Some(is_active) = query.is_active {
             sqlx::query_as::<_, Partner>(
-                "SELECT * FROM partners WHERE is_active = $1 ORDER BY code"
+                "SELECT * FROM partners WHERE is_active = $1 ORDER BY code",
             )
             .bind(is_active)
             .fetch_all(pool)
@@ -225,13 +235,11 @@ impl PartnerService {
 
     /// 取得單一夥伴
     pub async fn get_by_id(pool: &PgPool, id: Uuid) -> Result<Partner> {
-        let partner = sqlx::query_as::<_, Partner>(
-            "SELECT * FROM partners WHERE id = $1"
-        )
-        .bind(id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Partner not found".to_string()))?;
+        let partner = sqlx::query_as::<_, Partner>("SELECT * FROM partners WHERE id = $1")
+            .bind(id)
+            .fetch_optional(pool)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Partner not found".to_string()))?;
 
         Ok(partner)
     }
@@ -239,7 +247,9 @@ impl PartnerService {
     /// 更新夥伴
     pub async fn update(pool: &PgPool, id: Uuid, req: &UpdatePartnerRequest) -> Result<Partner> {
         // 處理 email：將空字串轉換為 None，並驗證格式（如果提供）
-        let email = req.email.as_ref()
+        let email = req
+            .email
+            .as_ref()
             .map(|e| e.trim())
             .filter(|e| !e.is_empty())
             .map(|e| {
@@ -247,7 +257,8 @@ impl PartnerService {
                 use std::sync::OnceLock;
                 static EMAIL_REGEX: OnceLock<regex::Regex> = OnceLock::new();
                 let re = EMAIL_REGEX.get_or_init(|| {
-                    regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").expect("Email 靜態正則表達式應有效")
+                    regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+                        .expect("Email 靜態正則表達式應有效")
                 });
 
                 if !re.is_match(e) {
@@ -270,14 +281,34 @@ impl PartnerService {
                 updated_at = NOW()
             WHERE id = $8
             RETURNING *
-            "#
+            "#,
         )
         .bind(req.name.as_ref())
-        .bind(req.tax_id.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()))
-        .bind(req.phone.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()))
+        .bind(
+            req.tax_id
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty()),
+        )
+        .bind(
+            req.phone
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty()),
+        )
         .bind(&email)
-        .bind(req.address.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()))
-        .bind(req.payment_terms.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()))
+        .bind(
+            req.address
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty()),
+        )
+        .bind(
+            req.payment_terms
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty()),
+        )
         .bind(req.is_active)
         .bind(id)
         .fetch_optional(pool)
@@ -289,12 +320,11 @@ impl PartnerService {
 
     /// 刪除夥伴（軟刪除）
     pub async fn delete(pool: &PgPool, id: Uuid) -> Result<()> {
-        let result = sqlx::query(
-            "UPDATE partners SET is_active = false, updated_at = NOW() WHERE id = $1"
-        )
-        .bind(id)
-        .execute(pool)
-        .await?;
+        let result =
+            sqlx::query("UPDATE partners SET is_active = false, updated_at = NOW() WHERE id = $1")
+                .bind(id)
+                .execute(pool)
+                .await?;
 
         if result.rows_affected() == 0 {
             return Err(AppError::NotFound("Partner not found".to_string()));

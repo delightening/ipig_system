@@ -1,14 +1,14 @@
+use serde_json::Value;
 use sqlx::PgPool;
 use uuid::Uuid;
-use serde_json::Value;
 
 use super::ProtocolService;
 use crate::{
     models::{
-        ChangeStatusRequest, CreatePartnerRequest, PartnerType,
-        Protocol, ProtocolActivityType, ProtocolStatus,
+        ChangeStatusRequest, CreatePartnerRequest, PartnerType, Protocol, ProtocolActivityType,
+        ProtocolStatus,
     },
-    services::{PartnerService, AuditService},
+    services::{AuditService, PartnerService},
     AppError, Result,
 };
 use validator::Validate;
@@ -16,33 +16,57 @@ use validator::Validate;
 impl ProtocolService {
     /// 驗證計畫內容
     fn validate_protocol_content(content: &Option<Value>) -> Result<()> {
-        let content = content.as_ref().ok_or_else(|| AppError::Validation("Protocol content is empty".to_string()))?;
-        
+        let content = content
+            .as_ref()
+            .ok_or_else(|| AppError::Validation("Protocol content is empty".to_string()))?;
+
         // 驗證基本資料
-        let basic = content.get("basic").ok_or_else(|| AppError::Validation("Missing 'basic' section".to_string()))?;
-        
+        let basic = content
+            .get("basic")
+            .ok_or_else(|| AppError::Validation("Missing 'basic' section".to_string()))?;
+
         // 驗證標題 (AUP 2.2)
-        if basic.get("study_title").and_then(|v| v.as_str()).unwrap_or("").trim().is_empty() {
-             return Err(AppError::Validation("Study title is required".to_string())); 
+        if basic
+            .get("study_title")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim()
+            .is_empty()
+        {
+            return Err(AppError::Validation("Study title is required".to_string()));
         }
 
         // 驗證 GLP (AUP 2.1)
-        let is_glp = basic.get("is_glp").and_then(|v| v.as_bool()).unwrap_or(false);
-        if is_glp {
-             let authorities = basic.get("registration_authorities").and_then(|v| v.as_array());
-             if authorities.map(|a| a.is_empty()).unwrap_or(true) {
-                 return Err(AppError::Validation("Registration authorities required for GLP study".to_string()));
-             }
+        let is_glp = basic
+            .get("is_glp")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        if is_glp
+            && basic
+                .get("registration_authorities")
+                .and_then(|v| v.as_array())
+                .map(|a| a.is_empty())
+                .unwrap_or(true)
+        {
+            return Err(AppError::Validation(
+                "Registration authorities required for GLP study".to_string(),
+            ));
         }
 
         // 驗證計畫類型 (AUP 2.7)
-        if basic.get("project_type").and_then(|v| v.as_str()).unwrap_or("").trim().is_empty() {
-             return Err(AppError::Validation("Project type is required".to_string()));
+        if basic
+            .get("project_type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim()
+            .is_empty()
+        {
+            return Err(AppError::Validation("Project type is required".to_string()));
         }
 
         // 驗證動物總數 (AUP 8.1)
         if let Some(_animals_section) = content.get("animals") {
-             // 這裡可以做更多檢查
+            // 這裡可以做更多檢查
         }
 
         Ok(())
@@ -50,23 +74,22 @@ impl ProtocolService {
 
     /// 提交計畫
     pub async fn submit(pool: &PgPool, id: Uuid, submitted_by: Uuid) -> Result<Protocol> {
-        let protocol = sqlx::query_as::<_, Protocol>(
-            "SELECT * FROM protocols WHERE id = $1"
-        )
-        .bind(id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Protocol not found".to_string()))?;
+        let protocol = sqlx::query_as::<_, Protocol>("SELECT * FROM protocols WHERE id = $1")
+            .bind(id)
+            .fetch_optional(pool)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Protocol not found".to_string()))?;
 
         // 檢查狀態轉移是否合法
-        if protocol.status != ProtocolStatus::Draft 
+        if protocol.status != ProtocolStatus::Draft
             && protocol.status != ProtocolStatus::RevisionRequired
             && protocol.status != ProtocolStatus::PreReviewRevisionRequired
             && protocol.status != ProtocolStatus::VetRevisionRequired
         {
-            return Err(AppError::BusinessRule(
-                format!("Cannot submit protocol in {} status", protocol.status.as_str())
-            ));
+            return Err(AppError::BusinessRule(format!(
+                "Cannot submit protocol in {} status",
+                protocol.status.as_str()
+            )));
         }
 
         // 驗證內容
@@ -97,10 +120,12 @@ impl ProtocolService {
         // 如果狀態變為 Submitted，生成 APIG 編號（在計劃被提交審查與核准前）
         let new_iacuc_no = if new_status == ProtocolStatus::Submitted {
             // 如果還沒有 APIG 編號，則生成
-            let needs_apig = protocol.iacuc_no.as_ref()
+            let needs_apig = protocol
+                .iacuc_no
+                .as_ref()
                 .map(|no| !no.starts_with("APIG-"))
                 .unwrap_or(true);
-            
+
             if needs_apig {
                 Some(Self::generate_apig_no(pool).await?)
             } else {
@@ -121,7 +146,15 @@ impl ProtocolService {
         .await?;
 
         // 記錄狀態變更
-        Self::record_status_change(pool, id, Some(protocol.status), new_status, submitted_by, None).await?;
+        Self::record_status_change(
+            pool,
+            id,
+            Some(protocol.status),
+            new_status,
+            submitted_by,
+            None,
+        )
+        .await?;
 
         // 記錄活動日誌（送出審查）
         if let Err(e) = AuditService::log_activity(
@@ -136,7 +169,9 @@ impl ProtocolService {
             None,
             None,
             None,
-        ).await {
+        )
+        .await
+        {
             tracing::error!("寫入 user_activity_logs 失敗 (PROTOCOL_SUBMIT): {}", e);
         }
 
@@ -150,19 +185,19 @@ impl ProtocolService {
         req: &ChangeStatusRequest,
         changed_by: Uuid,
     ) -> Result<Protocol> {
-        let protocol = sqlx::query_as::<_, Protocol>(
-            "SELECT * FROM protocols WHERE id = $1"
-        )
-        .bind(id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Protocol not found".to_string()))?;
+        let protocol = sqlx::query_as::<_, Protocol>("SELECT * FROM protocols WHERE id = $1")
+            .bind(id)
+            .fetch_optional(pool)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Protocol not found".to_string()))?;
 
         // 驗證 DELETED 狀態：僅允許草稿或需修訂狀態
         if req.to_status == ProtocolStatus::Deleted {
-            if protocol.status != ProtocolStatus::Draft && protocol.status != ProtocolStatus::RevisionRequired {
+            if protocol.status != ProtocolStatus::Draft
+                && protocol.status != ProtocolStatus::RevisionRequired
+            {
                 return Err(AppError::BusinessRule(
-                    "Only draft or revision-required protocols can be deleted".to_string()
+                    "Only draft or revision-required protocols can be deleted".to_string(),
                 ));
             }
         }
@@ -170,18 +205,21 @@ impl ProtocolService {
         // 驗證 UNDER_REVIEW 狀態必須提供 2-3 位審查委員
         if req.to_status == ProtocolStatus::UnderReview {
             // 檢查上一個狀態（從預審、獸醫審查或提交/重送進入）
-            if protocol.status != ProtocolStatus::VetReview 
+            if protocol.status != ProtocolStatus::VetReview
                 && protocol.status != ProtocolStatus::Resubmitted
                 && protocol.status != ProtocolStatus::PreReview
-                && protocol.status != ProtocolStatus::Submitted {
+                && protocol.status != ProtocolStatus::Submitted
+            {
                 return Err(AppError::BusinessRule(
-                    "必須從提交、預審、獸醫審查或重送狀態進入正式審查".to_string()
+                    "必須從提交、預審、獸醫審查或重送狀態進入正式審查".to_string(),
                 ));
             }
-            
-            let reviewer_ids = req.reviewer_ids.as_ref()
+
+            let reviewer_ids = req
+                .reviewer_ids
+                .as_ref()
                 .ok_or_else(|| AppError::Validation("必須選擇審查委員".to_string()))?;
-            
+
             if reviewer_ids.len() < 2 || reviewer_ids.len() > 3 {
                 return Err(AppError::Validation("必須選擇 2-3 位審查委員".to_string()));
             }
@@ -189,11 +227,12 @@ impl ProtocolService {
 
         // 驗證 PRE_REVIEW 狀態必須從 SUBMITTED、RESUBMITTED 或 PRE_REVIEW_REVISION_REQUIRED 進入
         if req.to_status == ProtocolStatus::PreReview {
-            if protocol.status != ProtocolStatus::Submitted 
+            if protocol.status != ProtocolStatus::Submitted
                 && protocol.status != ProtocolStatus::Resubmitted
-                && protocol.status != ProtocolStatus::PreReviewRevisionRequired {
+                && protocol.status != ProtocolStatus::PreReviewRevisionRequired
+            {
                 return Err(AppError::BusinessRule(
-                    "必須從已送審或行政補件狀態進入行政預審".to_string()
+                    "必須從已送審或行政補件狀態進入行政預審".to_string(),
                 ));
             }
 
@@ -208,48 +247,51 @@ impl ProtocolService {
 
                 if co_editor_count == 0 {
                     return Err(AppError::BusinessRule(
-                        "進入行政預審前必須指派至少一位試驗工作人員 (Co-editor)".to_string()
+                        "進入行政預審前必須指派至少一位試驗工作人員 (Co-editor)".to_string(),
                     ));
                 }
             }
         }
 
         // 驗證 PRE_REVIEW_REVISION_REQUIRED 狀態必須從 PRE_REVIEW 進入
-        if req.to_status == ProtocolStatus::PreReviewRevisionRequired {
-            if protocol.status != ProtocolStatus::PreReview {
-                return Err(AppError::BusinessRule(
-                    "只能從行政預審狀態要求補件".to_string()
-                ));
-            }
+        if req.to_status == ProtocolStatus::PreReviewRevisionRequired
+            && protocol.status != ProtocolStatus::PreReview
+        {
+            return Err(AppError::BusinessRule(
+                "只能從行政預審狀態要求補件".to_string(),
+            ));
         }
 
         // 驗證 VET_REVIEW 狀態必須從 PRE_REVIEW、SUBMITTED、RESUBMITTED 或 VET_REVISION_REQUIRED 進入
         if req.to_status == ProtocolStatus::VetReview {
-            if protocol.status != ProtocolStatus::PreReview 
+            if protocol.status != ProtocolStatus::PreReview
                 && protocol.status != ProtocolStatus::Submitted
                 && protocol.status != ProtocolStatus::Resubmitted
-                && protocol.status != ProtocolStatus::VetRevisionRequired {
+                && protocol.status != ProtocolStatus::VetRevisionRequired
+            {
                 return Err(AppError::BusinessRule(
-                    "必須從行政預審、已送審、重送或獸醫修訂狀態進入獸醫審查".to_string()
+                    "必須從行政預審、已送審、重送或獸醫修訂狀態進入獸醫審查".to_string(),
                 ));
             }
         }
 
         // 驗證 VET_REVISION_REQUIRED 狀態必須從 VET_REVIEW 進入
-        if req.to_status == ProtocolStatus::VetRevisionRequired {
-            if protocol.status != ProtocolStatus::VetReview {
-                return Err(AppError::BusinessRule(
-                    "只能從獸醫審查狀態要求修訂".to_string()
-                ));
-            }
+        if req.to_status == ProtocolStatus::VetRevisionRequired
+            && protocol.status != ProtocolStatus::VetReview
+        {
+            return Err(AppError::BusinessRule(
+                "只能從獸醫審查狀態要求修訂".to_string(),
+            ));
         }
 
         // 驗證 APPROVED / APPROVED_WITH_CONDITIONS 狀態：所有被指派的審查委員必須發表過意見
-        if req.to_status == ProtocolStatus::Approved || req.to_status == ProtocolStatus::ApprovedWithConditions {
+        if req.to_status == ProtocolStatus::Approved
+            || req.to_status == ProtocolStatus::ApprovedWithConditions
+        {
             // 檢查是否從 UNDER_REVIEW 狀態進入
             if protocol.status != ProtocolStatus::UnderReview {
                 return Err(AppError::BusinessRule(
-                    "必須從正式審查狀態進入核准".to_string()
+                    "必須從正式審查狀態進入核准".to_string(),
                 ));
             }
 
@@ -258,7 +300,7 @@ impl ProtocolService {
                 r#"
                 SELECT reviewer_id FROM review_assignments 
                 WHERE protocol_id = $1 AND is_primary_reviewer = true
-                "#
+                "#,
             )
             .bind(id)
             .fetch_all(pool)
@@ -266,7 +308,7 @@ impl ProtocolService {
 
             if assigned_reviewers.is_empty() {
                 return Err(AppError::BusinessRule(
-                    "尚未指派審查委員，無法核准".to_string()
+                    "尚未指派審查委員，無法核准".to_string(),
                 ));
             }
 
@@ -278,14 +320,15 @@ impl ProtocolService {
                     SELECT id FROM protocol_versions WHERE protocol_id = $1
                 ))
                 AND parent_comment_id IS NULL
-                "#
+                "#,
             )
             .bind(id)
             .fetch_all(pool)
             .await?;
 
             // 找出尚未發表意見的審查委員
-            let missing_reviewers: Vec<&Uuid> = assigned_reviewers.iter()
+            let missing_reviewers: Vec<&Uuid> = assigned_reviewers
+                .iter()
                 .filter(|r| !reviewers_with_comments.contains(r))
                 .collect();
 
@@ -295,15 +338,16 @@ impl ProtocolService {
                     r#"
                     SELECT COALESCE(display_name, email) FROM users 
                     WHERE id = ANY($1::uuid[])
-                    "#
+                    "#,
                 )
-                .bind(&missing_reviewers.iter().cloned().collect::<Vec<_>>())
+                .bind(&missing_reviewers.to_vec())
                 .fetch_all(pool)
                 .await?;
 
-                return Err(AppError::BusinessRule(
-                    format!("以下審查委員尚未發表意見，無法核准：{}", missing_names.join("、"))
-                ));
+                return Err(AppError::BusinessRule(format!(
+                    "以下審查委員尚未發表意見，無法核准：{}",
+                    missing_names.join("、")
+                )));
             }
         }
 
@@ -312,10 +356,12 @@ impl ProtocolService {
         // 2. 在計劃被核准時（Approved 狀態），生成 PIG-{ROC}{03}
         let new_iacuc_no = if req.to_status == ProtocolStatus::Submitted {
             // 如果還沒有 APIG 編號，則生成
-            let needs_apig = protocol.iacuc_no.as_ref()
+            let needs_apig = protocol
+                .iacuc_no
+                .as_ref()
                 .map(|no| !no.starts_with("APIG-"))
                 .unwrap_or(true);
-            
+
             if needs_apig {
                 Some(Self::generate_apig_no(pool).await?)
             } else {
@@ -323,16 +369,20 @@ impl ProtocolService {
             }
         } else if req.to_status == ProtocolStatus::PreReview {
             // 如果狀態變為 PreReview 但還沒有 APIG 編號，則生成（備用邏輯）
-            let needs_apig = protocol.iacuc_no.as_ref()
+            let needs_apig = protocol
+                .iacuc_no
+                .as_ref()
                 .map(|no| !no.starts_with("APIG-"))
                 .unwrap_or(true);
-            
+
             if needs_apig {
                 Some(Self::generate_apig_no(pool).await?)
             } else {
                 protocol.iacuc_no.clone()
             }
-        } else if req.to_status == ProtocolStatus::Approved || req.to_status == ProtocolStatus::ApprovedWithConditions {
+        } else if req.to_status == ProtocolStatus::Approved
+            || req.to_status == ProtocolStatus::ApprovedWithConditions
+        {
             // 核准時生成 IACUC 編號（PIG-{ROC}{03}）
             Some(Self::generate_iacuc_no(pool).await?)
         } else {
@@ -347,7 +397,7 @@ impl ProtocolService {
                 updated_at = NOW() 
             WHERE id = $1 
             RETURNING *
-            "#
+            "#,
         )
         .bind(id)
         .bind(req.to_status)
@@ -359,7 +409,7 @@ impl ProtocolService {
         let status_remark = if req.to_status == ProtocolStatus::UnderReview {
             if let Some(reviewer_ids) = &req.reviewer_ids {
                 let names: Vec<String> = sqlx::query_scalar(
-                    "SELECT COALESCE(display_name, email) FROM users WHERE id = ANY($1::uuid[])"
+                    "SELECT COALESCE(display_name, email) FROM users WHERE id = ANY($1::uuid[])",
                 )
                 .bind(reviewer_ids)
                 .fetch_all(pool)
@@ -372,18 +422,21 @@ impl ProtocolService {
         } else {
             req.remark.clone()
         };
-        Self::record_status_change(pool, id, Some(protocol.status), req.to_status, changed_by, status_remark).await?;
+        Self::record_status_change(
+            pool,
+            id,
+            Some(protocol.status),
+            req.to_status,
+            changed_by,
+            status_remark,
+        )
+        .await?;
 
         // 當狀態變為 UNDER_REVIEW 時，自動指派選定的審查委員（標記為正式審查委員）
         if req.to_status == ProtocolStatus::UnderReview {
             if let Some(reviewer_ids) = &req.reviewer_ids {
                 for reviewer_id in reviewer_ids {
-                    Self::assign_primary_reviewer(
-                        pool,
-                        id,
-                        *reviewer_id,
-                        changed_by,
-                    ).await?;
+                    Self::assign_primary_reviewer(pool, id, *reviewer_id, changed_by).await?;
                 }
 
                 // 記錄審查委員指派詳細資訊到活動歷程 extra_data
@@ -400,7 +453,8 @@ impl ProtocolService {
                     }).collect::<Vec<_>>()
                 });
 
-                let reviewer_names: Vec<&str> = reviewer_info.iter().map(|(_, n)| n.as_str()).collect();
+                let reviewer_names: Vec<&str> =
+                    reviewer_info.iter().map(|(_, n)| n.as_str()).collect();
                 Self::record_activity(
                     pool,
                     id,
@@ -411,7 +465,8 @@ impl ProtocolService {
                     None,
                     Some(format!("審查委員：{}", reviewer_names.join("、"))),
                     Some(extra),
-                ).await?;
+                )
+                .await?;
             }
         }
 
@@ -420,16 +475,18 @@ impl ProtocolService {
             Self::assign_vet_reviewer(pool, id, req.vet_id, changed_by).await?;
         }
 
-
         // 當計劃通過時，自動依照 IACUC No. 自動填入客戶
-        if (req.to_status == ProtocolStatus::Approved || req.to_status == ProtocolStatus::ApprovedWithConditions) 
-            && new_iacuc_no.is_some() 
+        if (req.to_status == ProtocolStatus::Approved
+            || req.to_status == ProtocolStatus::ApprovedWithConditions)
+            && new_iacuc_no.is_some()
         {
-            let iacuc_no = new_iacuc_no.as_ref().expect("new_iacuc_no 由上方 is_some 保證存在");
-            
+            let iacuc_no = new_iacuc_no
+                .as_ref()
+                .expect("new_iacuc_no 由上方 is_some 保證存在");
+
             // 檢查是否已存在該客戶（客戶代碼 = IACUC No.）
             let existing_customer: Option<uuid::Uuid> = sqlx::query_scalar(
-                "SELECT id FROM partners WHERE partner_type = 'customer' AND code = $1"
+                "SELECT id FROM partners WHERE partner_type = 'customer' AND code = $1",
             )
             .bind(iacuc_no)
             .fetch_optional(pool)
@@ -449,10 +506,14 @@ impl ProtocolService {
                     address: None,
                     payment_terms: None,
                 };
-                
+
                 // 驗證請求
                 if let Err(validation_errors) = create_req.validate() {
-                    tracing::warn!("Failed to validate customer creation request for IACUC {}: {:?}", iacuc_no, validation_errors);
+                    tracing::warn!(
+                        "Failed to validate customer creation request for IACUC {}: {:?}",
+                        iacuc_no,
+                        validation_errors
+                    );
                 } else {
                     // 創建客戶，忽略錯誤（例如代碼衝突），因為可能已經存在
                     if let Err(e) = PartnerService::create(pool, &create_req).await {
@@ -466,11 +527,14 @@ impl ProtocolService {
 
         // 當計劃結案時，自動停用對應的客戶
         if req.to_status == ProtocolStatus::Closed && protocol.iacuc_no.is_some() {
-            let iacuc_no = protocol.iacuc_no.as_ref().expect("iacuc_no 由上方 is_some 保證存在");
-            
+            let iacuc_no = protocol
+                .iacuc_no
+                .as_ref()
+                .expect("iacuc_no 由上方 is_some 保證存在");
+
             // 查找對應的客戶（客戶代碼 = IACUC No.）
             let customer_id: Option<uuid::Uuid> = sqlx::query_scalar(
-                "SELECT id FROM partners WHERE partner_type = 'customer' AND code = $1"
+                "SELECT id FROM partners WHERE partner_type = 'customer' AND code = $1",
             )
             .bind(iacuc_no)
             .fetch_optional(pool)
@@ -479,16 +543,22 @@ impl ProtocolService {
             // 如果找到客戶，則停用該客戶
             if let Some(customer_id) = customer_id {
                 let result = sqlx::query(
-                    "UPDATE partners SET is_active = false, updated_at = NOW() WHERE id = $1"
+                    "UPDATE partners SET is_active = false, updated_at = NOW() WHERE id = $1",
                 )
                 .bind(customer_id)
                 .execute(pool)
                 .await?;
 
                 if result.rows_affected() > 0 {
-                    tracing::info!("Automatically deactivated customer for closed IACUC: {}", iacuc_no);
+                    tracing::info!(
+                        "Automatically deactivated customer for closed IACUC: {}",
+                        iacuc_no
+                    );
                 } else {
-                    tracing::warn!("Failed to deactivate customer for IACUC {}: customer not found", iacuc_no);
+                    tracing::warn!(
+                        "Failed to deactivate customer for IACUC {}: customer not found",
+                        iacuc_no
+                    );
                 }
             } else {
                 tracing::warn!("No customer found for closed IACUC: {}", iacuc_no);
@@ -508,8 +578,13 @@ impl ProtocolService {
             Some(serde_json::json!({ "status": req.to_status, "remark": req.remark })),
             None,
             None,
-        ).await {
-            tracing::error!("寫入 user_activity_logs 失敗 (PROTOCOL_STATUS_CHANGE): {}", e);
+        )
+        .await
+        {
+            tracing::error!(
+                "寫入 user_activity_logs 失敗 (PROTOCOL_STATUS_CHANGE): {}",
+                e
+            );
         }
 
         Ok(updated)

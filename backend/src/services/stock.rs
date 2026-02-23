@@ -24,9 +24,10 @@ impl StockService {
             match document.doc_type {
                 DocType::GRN => {
                     // 採購入庫：增加庫存
-                    let warehouse_id = document.warehouse_id
-                        .ok_or_else(|| AppError::BusinessRule("Warehouse is required for GRN".to_string()))?;
-                    
+                    let warehouse_id = document.warehouse_id.ok_or_else(|| {
+                        AppError::BusinessRule("Warehouse is required for GRN".to_string())
+                    })?;
+
                     Self::create_ledger_entry(
                         tx,
                         warehouse_id,
@@ -36,7 +37,8 @@ impl StockService {
                         StockDirection::In,
                         line.qty,
                         line.unit_price,
-                    ).await?;
+                    )
+                    .await?;
 
                     // 如果有指定儲位，同時更新儲位庫存
                     if let Some(storage_location_id) = line.storage_location_id {
@@ -47,17 +49,20 @@ impl StockService {
                             line.qty,
                             line.batch_no.clone(),
                             line.expiry_date,
-                        ).await?;
+                        )
+                        .await?;
                     }
                 }
                 DocType::PR => {
                     // 採購退貨：減少庫存
-                    let warehouse_id = document.warehouse_id
-                        .ok_or_else(|| AppError::BusinessRule("Warehouse is required for PR".to_string()))?;
-                    
+                    let warehouse_id = document.warehouse_id.ok_or_else(|| {
+                        AppError::BusinessRule("Warehouse is required for PR".to_string())
+                    })?;
+
                     // 檢查庫存
-                    Self::check_stock_available(tx, warehouse_id, line.product_id, line.qty).await?;
-                    
+                    Self::check_stock_available(tx, warehouse_id, line.product_id, line.qty)
+                        .await?;
+
                     Self::create_ledger_entry(
                         tx,
                         warehouse_id,
@@ -67,16 +72,19 @@ impl StockService {
                         StockDirection::Out,
                         line.qty,
                         line.unit_price,
-                    ).await?;
+                    )
+                    .await?;
                 }
                 DocType::DO => {
                     // 銷售出庫：減少庫存
-                    let warehouse_id = document.warehouse_id
-                        .ok_or_else(|| AppError::BusinessRule("Warehouse is required for DO".to_string()))?;
-                    
+                    let warehouse_id = document.warehouse_id.ok_or_else(|| {
+                        AppError::BusinessRule("Warehouse is required for DO".to_string())
+                    })?;
+
                     // 檢查庫存
-                    Self::check_stock_available(tx, warehouse_id, line.product_id, line.qty).await?;
-                    
+                    Self::check_stock_available(tx, warehouse_id, line.product_id, line.qty)
+                        .await?;
+
                     Self::create_ledger_entry(
                         tx,
                         warehouse_id,
@@ -86,18 +94,26 @@ impl StockService {
                         StockDirection::Out,
                         line.qty,
                         line.unit_price,
-                    ).await?;
+                    )
+                    .await?;
                 }
                 DocType::TR => {
                     // 調撥：從來源倉減少，目標倉增加
-                    let from_warehouse = document.warehouse_from_id
-                        .ok_or_else(|| AppError::BusinessRule("Source warehouse is required for transfer".to_string()))?;
-                    let to_warehouse = document.warehouse_to_id
-                        .ok_or_else(|| AppError::BusinessRule("Target warehouse is required for transfer".to_string()))?;
-                    
+                    let from_warehouse = document.warehouse_from_id.ok_or_else(|| {
+                        AppError::BusinessRule(
+                            "Source warehouse is required for transfer".to_string(),
+                        )
+                    })?;
+                    let to_warehouse = document.warehouse_to_id.ok_or_else(|| {
+                        AppError::BusinessRule(
+                            "Target warehouse is required for transfer".to_string(),
+                        )
+                    })?;
+
                     // 檢查來源倉庫存
-                    Self::check_stock_available(tx, from_warehouse, line.product_id, line.qty).await?;
-                    
+                    Self::check_stock_available(tx, from_warehouse, line.product_id, line.qty)
+                        .await?;
+
                     // 從來源倉扣減
                     Self::create_ledger_entry(
                         tx,
@@ -108,8 +124,9 @@ impl StockService {
                         StockDirection::TransferOut,
                         line.qty,
                         None,
-                    ).await?;
-                    
+                    )
+                    .await?;
+
                     // 增加到目標倉
                     Self::create_ledger_entry(
                         tx,
@@ -120,13 +137,15 @@ impl StockService {
                         StockDirection::TransferIn,
                         line.qty,
                         None,
-                    ).await?;
+                    )
+                    .await?;
                 }
                 DocType::ADJ => {
                     // 調整：正數增加，負數減少
-                    let warehouse_id = document.warehouse_id
-                        .ok_or_else(|| AppError::BusinessRule("Warehouse is required for adjustment".to_string()))?;
-                    
+                    let warehouse_id = document.warehouse_id.ok_or_else(|| {
+                        AppError::BusinessRule("Warehouse is required for adjustment".to_string())
+                    })?;
+
                     if line.qty > Decimal::ZERO {
                         Self::create_ledger_entry(
                             tx,
@@ -137,11 +156,13 @@ impl StockService {
                             StockDirection::AdjustIn,
                             line.qty,
                             line.unit_price,
-                        ).await?;
+                        )
+                        .await?;
                     } else {
                         // 檢查庫存
-                        Self::check_stock_available(tx, warehouse_id, line.product_id, -line.qty).await?;
-                        
+                        Self::check_stock_available(tx, warehouse_id, line.product_id, -line.qty)
+                            .await?;
+
                         Self::create_ledger_entry(
                             tx,
                             warehouse_id,
@@ -151,7 +172,8 @@ impl StockService {
                             StockDirection::AdjustOut,
                             -line.qty,
                             line.unit_price,
-                        ).await?;
+                        )
+                        .await?;
                     }
                 }
                 _ => {
@@ -181,13 +203,13 @@ impl StockService {
                 line_id, direction, qty_base, unit_cost, batch_no, expiry_date, created_at
             )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
-            "#
+            "#,
         )
         .bind(Uuid::new_v4())
         .bind(warehouse_id)
         .bind(product_id)
         .bind(Utc::now())
-        .bind(&document.doc_type)
+        .bind(document.doc_type)
         .bind(document.id)
         .bind(&document.doc_no)
         .bind(line.id)
@@ -244,7 +266,7 @@ impl StockService {
                 ),
                 updated_at = NOW()
             WHERE id = $1
-            "#
+            "#,
         )
         .bind(storage_location_id)
         .execute(&mut **tx)
@@ -270,7 +292,7 @@ impl StockService {
             ), 0) as qty
             FROM stock_ledger
             WHERE warehouse_id = $1 AND product_id = $2
-            "#
+            "#,
         )
         .bind(warehouse_id)
         .bind(product_id)
@@ -278,12 +300,11 @@ impl StockService {
         .await?;
 
         if on_hand < required_qty {
-            let product_name: String = sqlx::query_scalar(
-                "SELECT name FROM products WHERE id = $1"
-            )
-            .bind(product_id)
-            .fetch_one(&mut **tx)
-            .await?;
+            let product_name: String =
+                sqlx::query_scalar("SELECT name FROM products WHERE id = $1")
+                    .bind(product_id)
+                    .fetch_one(&mut **tx)
+                    .await?;
 
             return Err(AppError::BusinessRule(format!(
                 "Insufficient stock for product '{}'. Available: {}, Required: {}",
@@ -295,7 +316,10 @@ impl StockService {
     }
 
     /// 查詢庫存現況
-    pub async fn get_on_hand(pool: &PgPool, query: &InventoryQuery) -> Result<Vec<InventoryOnHand>> {
+    pub async fn get_on_hand(
+        pool: &PgPool,
+        query: &InventoryQuery,
+    ) -> Result<Vec<InventoryOnHand>> {
         let mut sql = String::from(
             r#"
             SELECT 
@@ -320,7 +344,7 @@ impl StockService {
             CROSS JOIN products p
             LEFT JOIN stock_ledger sl ON w.id = sl.warehouse_id AND p.id = sl.product_id
             WHERE w.is_active = true AND p.is_active = true
-            "#
+            "#,
         );
 
         if query.warehouse_id.is_some() {
@@ -389,7 +413,10 @@ impl StockService {
     }
 
     /// 查詢庫存流水
-    pub async fn get_ledger(pool: &PgPool, query: &StockLedgerQuery) -> Result<Vec<StockLedgerDetail>> {
+    pub async fn get_ledger(
+        pool: &PgPool,
+        query: &StockLedgerQuery,
+    ) -> Result<Vec<StockLedgerDetail>> {
         let mut sql = String::from(
             r#"
             SELECT 
@@ -413,7 +440,7 @@ impl StockService {
             INNER JOIN warehouses w ON sl.warehouse_id = w.id
             INNER JOIN products p ON sl.product_id = p.id
             WHERE 1=1
-            "#
+            "#,
         );
 
         let mut param_count = 0;
@@ -525,7 +552,7 @@ impl StockService {
 
         let result: Vec<LowStockAlert> = alerts
             .into_iter()
-            .filter_map(|inv| {
+            .map(|inv| {
                 let safety_stock = inv.safety_stock;
                 let reorder_point = inv.reorder_point;
                 let stock_status = if inv.qty_on_hand <= rust_decimal::Decimal::ZERO {
@@ -539,7 +566,7 @@ impl StockService {
                 } else {
                     "ok".to_string()
                 };
-                Some(LowStockAlert {
+                LowStockAlert {
                     warehouse_id: inv.warehouse_id,
                     warehouse_name: inv.warehouse_name,
                     product_id: inv.product_id,
@@ -550,7 +577,7 @@ impl StockService {
                     safety_stock,
                     reorder_point,
                     stock_status,
-                })
+                }
             })
             .collect();
 

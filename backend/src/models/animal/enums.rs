@@ -81,11 +81,12 @@ impl AnimalTransferStatus {
 }
 
 /// 動物品種
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AnimalBreed {
     #[serde(rename = "minipig")]
-    Minipig,  // 前端使用 'minipig'，資料庫存儲為 'miniature'
+    Minipig, // 前端使用 'minipig'，資料庫存儲為 'miniature'
     White,
     #[serde(rename = "lyd")]
     LYD,
@@ -113,7 +114,10 @@ impl<'r> sqlx::Decode<'r, sqlx::Postgres> for AnimalBreed {
 }
 
 impl<'q> sqlx::Encode<'q, sqlx::Postgres> for AnimalBreed {
-    fn encode_by_ref(&self, buf: &mut sqlx::postgres::PgArgumentBuffer) -> Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
+    fn encode_by_ref(
+        &self,
+        buf: &mut sqlx::postgres::PgArgumentBuffer,
+    ) -> Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
         let s = match self {
             AnimalBreed::Minipig => "miniature",
             AnimalBreed::White => "white",
@@ -201,7 +205,7 @@ pub struct VetRecommendation {
     pub content: String,
     pub attachments: Option<serde_json::Value>, // 附件（含圖片）
     #[sqlx(default)]
-    pub is_urgent: bool,  // 是否為緊急建議
+    pub is_urgent: bool,    // 是否為緊急建議
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
 }

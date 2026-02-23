@@ -5,9 +5,8 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::models::{
-    TreatmentDrugOption, CreateTreatmentDrugRequest, 
-    UpdateTreatmentDrugRequest, TreatmentDrugQuery,
-    ImportFromErpRequest,
+    CreateTreatmentDrugRequest, ImportFromErpRequest, TreatmentDrugOption, TreatmentDrugQuery,
+    UpdateTreatmentDrugRequest,
 };
 
 pub struct TreatmentDrugService {
@@ -20,15 +19,19 @@ impl TreatmentDrugService {
     }
 
     /// 列表查詢（支援 keyword / category / is_active 篩選）
-    pub async fn list(&self, query: TreatmentDrugQuery) -> Result<Vec<TreatmentDrugOption>, AppError> {
-        let mut sql = String::from(
-            "SELECT * FROM treatment_drug_options WHERE 1=1"
-        );
+    pub async fn list(
+        &self,
+        query: TreatmentDrugQuery,
+    ) -> Result<Vec<TreatmentDrugOption>, AppError> {
+        let mut sql = String::from("SELECT * FROM treatment_drug_options WHERE 1=1");
         let mut args: Vec<String> = Vec::new();
         let mut param_idx = 1;
 
         if let Some(ref keyword) = query.keyword {
-            sql.push_str(&format!(" AND (name ILIKE ${0} OR display_name ILIKE ${0})", param_idx));
+            sql.push_str(&format!(
+                " AND (name ILIKE ${0} OR display_name ILIKE ${0})",
+                param_idx
+            ));
             args.push(format!("%{}%", keyword));
             param_idx += 1;
         }
@@ -60,7 +63,9 @@ impl TreatmentDrugService {
             q = q.bind(is_active);
         }
 
-        let results = q.fetch_all(&self.db).await
+        let results = q
+            .fetch_all(&self.db)
+            .await
             .map_err(|e| AppError::Internal(format!("查詢藥物選項失敗: {}", e)))?;
 
         Ok(results)
@@ -69,7 +74,7 @@ impl TreatmentDrugService {
     /// 列表查詢（僅啟用項目，供一般使用者）
     pub async fn list_active(&self) -> Result<Vec<TreatmentDrugOption>, AppError> {
         let results = sqlx::query_as::<_, TreatmentDrugOption>(
-            "SELECT * FROM treatment_drug_options WHERE is_active = true ORDER BY sort_order, name"
+            "SELECT * FROM treatment_drug_options WHERE is_active = true ORDER BY sort_order, name",
         )
         .fetch_all(&self.db)
         .await
@@ -117,18 +122,17 @@ impl TreatmentDrugService {
     ) -> Result<TreatmentDrugOption, AppError> {
         // 先確認存在
         let existing = sqlx::query_as::<_, TreatmentDrugOption>(
-            "SELECT * FROM treatment_drug_options WHERE id = $1"
+            "SELECT * FROM treatment_drug_options WHERE id = $1",
         )
         .bind(id)
         .fetch_optional(&self.db)
         .await
         .map_err(|e| AppError::Internal(format!("查詢藥物選項失敗: {}", e)))?;
 
-        if existing.is_none() {
-            return Err(AppError::NotFound(format!("找不到藥物選項 {}", id)));
-        }
-
-        let existing = existing.expect("existing 由上方 is_none 檢查保證存在");
+        let existing = match existing {
+            Some(e) => e,
+            None => return Err(AppError::NotFound(format!("找不到藥物選項 {}", id))),
+        };
 
         let result = sqlx::query_as::<_, TreatmentDrugOption>(
             r#"
@@ -152,7 +156,11 @@ impl TreatmentDrugService {
         .bind(request.display_name.or(existing.display_name))
         .bind(request.default_dosage_unit.or(existing.default_dosage_unit))
         .bind(request.available_units.or(existing.available_units))
-        .bind(request.default_dosage_value.or(existing.default_dosage_value))
+        .bind(
+            request
+                .default_dosage_value
+                .or(existing.default_dosage_value),
+        )
         .bind(request.erp_product_id.or(existing.erp_product_id))
         .bind(request.category.or(existing.category))
         .bind(request.sort_order.unwrap_or(existing.sort_order))
@@ -167,7 +175,7 @@ impl TreatmentDrugService {
     /// 刪除藥物選項（軟刪除）
     pub async fn delete(&self, id: Uuid) -> Result<(), AppError> {
         let rows = sqlx::query(
-            "UPDATE treatment_drug_options SET is_active = false, updated_at = NOW() WHERE id = $1"
+            "UPDATE treatment_drug_options SET is_active = false, updated_at = NOW() WHERE id = $1",
         )
         .bind(id)
         .execute(&self.db)
@@ -192,7 +200,7 @@ impl TreatmentDrugService {
         for product_id in &request.product_ids {
             // 檢查是否已匯入
             let existing = sqlx::query_as::<_, TreatmentDrugOption>(
-                "SELECT * FROM treatment_drug_options WHERE erp_product_id = $1"
+                "SELECT * FROM treatment_drug_options WHERE erp_product_id = $1",
             )
             .bind(product_id)
             .fetch_optional(&self.db)
@@ -205,7 +213,7 @@ impl TreatmentDrugService {
 
             // 取得 ERP 產品資料
             let product = sqlx::query_as::<_, (String, String, Option<String>)>(
-                "SELECT name, base_uom, spec FROM products WHERE id = $1 AND is_active = true"
+                "SELECT name, base_uom, spec FROM products WHERE id = $1 AND is_active = true",
             )
             .bind(product_id)
             .fetch_optional(&self.db)
@@ -215,7 +223,7 @@ impl TreatmentDrugService {
             if let Some((name, base_uom, _spec)) = product {
                 // 取得產品的所有 UOM
                 let uom_conversions = sqlx::query_as::<_, (String,)>(
-                    "SELECT uom FROM product_uom_conversions WHERE product_id = $1"
+                    "SELECT uom FROM product_uom_conversions WHERE product_id = $1",
                 )
                 .bind(product_id)
                 .fetch_all(&self.db)

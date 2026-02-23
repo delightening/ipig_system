@@ -1,20 +1,19 @@
-﻿use sqlx::PgPool;
-use uuid::Uuid;
-use calamine::{Reader, Xlsx, Xls, open_workbook_from_rs, Data};
+﻿use calamine::{open_workbook_from_rs, Data, Reader, Xls, Xlsx};
+use sqlx::PgPool;
 use std::io::Cursor;
+use uuid::Uuid;
 
 use super::AnimalService;
 use crate::{
     models::{
-        ImportResult, ImportErrorDetail, AnimalImportRow, WeightImportRow,
-        AnimalBreed, AnimalGender, ImportType,
-        AnimalSource, CreateAnimalRequest, UpdateAnimalRequest, CreateWeightRequest,
+        AnimalBreed, AnimalGender, AnimalImportRow, AnimalSource, CreateAnimalRequest,
+        CreateWeightRequest, ImportErrorDetail, ImportResult, ImportType, UpdateAnimalRequest,
+        WeightImportRow,
     },
     AppError, Result,
 };
 
 impl AnimalService {
-
     // ============================================
     // 模板生成功能
     // ============================================
@@ -24,7 +23,7 @@ impl AnimalService {
         use rust_xlsxwriter::{Format, FormatAlign, Workbook};
 
         let mut workbook = Workbook::new();
-        
+
         // 創建格式
         let header_format = Format::new()
             .set_bold()
@@ -32,13 +31,11 @@ impl AnimalService {
             .set_font_color("#FFFFFF")
             .set_align(FormatAlign::Center);
 
-        let example_format = Format::new()
-            .set_font_color("#808080")
-            .set_italic();
+        let example_format = Format::new().set_font_color("#808080").set_italic();
 
         // 創建工作表
         let worksheet = workbook.add_worksheet();
-        
+
         // 設置欄位寬度
         worksheet.set_column_width(0, 15.0)?; // 耳號
         worksheet.set_column_width(1, 12.0)?; // 品種
@@ -86,7 +83,7 @@ impl AnimalService {
         use rust_xlsxwriter::{Format, FormatAlign, Workbook};
 
         let mut workbook = Workbook::new();
-        
+
         // 創建格式
         let header_format = Format::new()
             .set_bold()
@@ -94,13 +91,11 @@ impl AnimalService {
             .set_font_color("#FFFFFF")
             .set_align(FormatAlign::Center);
 
-        let example_format = Format::new()
-            .set_font_color("#808080")
-            .set_italic();
+        let example_format = Format::new().set_font_color("#808080").set_italic();
 
         // 創建工作表
         let worksheet = workbook.add_worksheet();
-        
+
         // 設置欄位寬度
         worksheet.set_column_width(0, 15.0)?; // 耳號
         worksheet.set_column_width(1, 15.0)?; // 測量日期
@@ -129,7 +124,11 @@ impl AnimalService {
     pub fn generate_basic_import_template_csv() -> Result<Vec<u8>> {
         // 優先讀取專案根目錄下的 file imput.csv
         // 在 Docker 或 生產環境中可能需要調整路徑，此處先嘗試相對路徑
-        let paths = ["file imput.csv", "../file imput.csv", "./backend/file imput.csv"];
+        let paths = [
+            "file imput.csv",
+            "../file imput.csv",
+            "./backend/file imput.csv",
+        ];
         for path in paths {
             if let Ok(data) = std::fs::read(path) {
                 return Ok(data);
@@ -138,7 +137,7 @@ impl AnimalService {
 
         // 如果找不到檔案，則生成預設模板
         let mut wtr = csv::Writer::from_writer(vec![]);
-        
+
         // 寫入標題行
         wtr.write_record(&[
             "耳號*",
@@ -150,8 +149,9 @@ impl AnimalService {
             "欄位編號",
             "實驗前代號",
             "備註",
-        ]).map_err(|e| AppError::Internal(format!("CSV 寫入失敗: {}", e)))?;
-        
+        ])
+        .map_err(|e| AppError::Internal(format!("CSV 寫入失敗: {}", e)))?;
+
         // 寫入範例行
         wtr.write_record(&[
             "001",
@@ -163,36 +163,31 @@ impl AnimalService {
             "A-01",
             "PRE-001",
             "",
-        ]).map_err(|e| AppError::Internal(format!("CSV 寫入失敗: {}", e)))?;
-        
-        wtr.flush().map_err(|e| AppError::Internal(format!("CSV flush 失敗: {}", e)))?;
-        wtr.into_inner().map_err(|e| {
-            AppError::Internal(format!("CSV 生成失敗: {}", e))
-        })
+        ])
+        .map_err(|e| AppError::Internal(format!("CSV 寫入失敗: {}", e)))?;
+
+        wtr.flush()
+            .map_err(|e| AppError::Internal(format!("CSV flush 失敗: {}", e)))?;
+        wtr.into_inner()
+            .map_err(|e| AppError::Internal(format!("CSV 生成失敗: {}", e)))
     }
 
     /// 生成動物體重匯入 CSV 模板
     pub fn generate_weight_import_template_csv() -> Result<Vec<u8>> {
         let mut wtr = csv::Writer::from_writer(vec![]);
-        
+
         // 寫入標題行
-        wtr.write_record(&[
-            "耳號*",
-            "測量日期*",
-            "體重(kg)*",
-        ]).map_err(|e| AppError::Internal(format!("CSV 寫入失敗: {}", e)))?;
-        
+        wtr.write_record(&["耳號*", "測量日期*", "體重(kg)*"])
+            .map_err(|e| AppError::Internal(format!("CSV 寫入失敗: {}", e)))?;
+
         // 寫入範例行
-        wtr.write_record(&[
-            "001",
-            "2024-02-01",
-            "25.5",
-        ]).map_err(|e| AppError::Internal(format!("CSV 寫入失敗: {}", e)))?;
-        
-        wtr.flush().map_err(|e| AppError::Internal(format!("CSV flush 失敗: {}", e)))?;
-        wtr.into_inner().map_err(|e| {
-            AppError::Internal(format!("CSV 生成失敗: {}", e))
-        })
+        wtr.write_record(&["001", "2024-02-01", "25.5"])
+            .map_err(|e| AppError::Internal(format!("CSV 寫入失敗: {}", e)))?;
+
+        wtr.flush()
+            .map_err(|e| AppError::Internal(format!("CSV flush 失敗: {}", e)))?;
+        wtr.into_inner()
+            .map_err(|e| AppError::Internal(format!("CSV 生成失敗: {}", e)))
     }
 
     // ============================================
@@ -270,7 +265,9 @@ impl AnimalService {
 
             // 驗證品種（保存原始值用於 breed_other）
             let (breed, raw_breed_other) = match row.breed.to_lowercase().as_str() {
-                "minipig" | "miniature" | "mini" | "m" | "迷你豬" | "迷你" => (AnimalBreed::Minipig, None),
+                "minipig" | "miniature" | "mini" | "m" | "迷你豬" | "迷你" => {
+                    (AnimalBreed::Minipig, None)
+                }
                 "white" | "w" | "白豬" | "大白豬" => (AnimalBreed::White, None),
                 _ => {
                     // 非標準品種，將原始值保存到 breed_other
@@ -291,7 +288,10 @@ impl AnimalService {
                     errors.push(ImportErrorDetail {
                         row: row_number,
                         ear_tag: Some(row.ear_tag.clone()),
-                        error: format!("無效的性別值: {}，必須是 male/female 或 m/f (或公/母)", row.gender),
+                        error: format!(
+                            "無效的性別值: {}，必須是 male/female 或 m/f (或公/母)",
+                            row.gender
+                        ),
                     });
                     error_count += 1;
                     continue;
@@ -306,7 +306,10 @@ impl AnimalService {
                     errors.push(ImportErrorDetail {
                         row: row_number,
                         ear_tag: Some(row.ear_tag.clone()),
-                        error: format!("無效的進場日期格式: {}，必須是 YYYY-MM-DD 或 YYYY/MM/DD 格式", row.entry_date),
+                        error: format!(
+                            "無效的進場日期格式: {}，必須是 YYYY-MM-DD 或 YYYY/MM/DD 格式",
+                            row.entry_date
+                        ),
                     });
                     error_count += 1;
                     continue;
@@ -325,7 +328,10 @@ impl AnimalService {
                             errors.push(ImportErrorDetail {
                                 row: row_number,
                                 ear_tag: Some(row.ear_tag.clone()),
-                                error: format!("無效的出生日期格式: {}，必須是 YYYY-MM-DD 或 YYYY/MM/DD 格式", bd),
+                                error: format!(
+                                    "無效的出生日期格式: {}，必須是 YYYY-MM-DD 或 YYYY/MM/DD 格式",
+                                    bd
+                                ),
                             });
                             error_count += 1;
                             continue;
@@ -338,7 +344,11 @@ impl AnimalService {
 
             // 解析進場體重（必填）
             let entry_weight = match row.entry_weight.as_ref().and_then(|w| {
-                w.replace("kg", "").replace("公斤", "").trim().parse::<f64>().ok()
+                w.replace("kg", "")
+                    .replace("公斤", "")
+                    .trim()
+                    .parse::<f64>()
+                    .ok()
             }) {
                 Some(w) if w > 0.0 => rust_decimal::Decimal::from_f64_retain(w).unwrap_or_default(),
                 _ => {
@@ -356,7 +366,7 @@ impl AnimalService {
             let source_id = if let Some(ref code) = row.source_code {
                 if !code.is_empty() {
                     let source = sqlx::query_as::<_, AnimalSource>(
-                        "SELECT * FROM animal_sources WHERE code = $1 AND is_active = true"
+                        "SELECT * FROM animal_sources WHERE code = $1 AND is_active = true",
                     )
                     .bind(code)
                     .fetch_optional(pool)
@@ -378,7 +388,7 @@ impl AnimalService {
 
             // 檢查耳號是否已存在（僅檢查未刪除的動物）
             let existing = sqlx::query_scalar::<_, Uuid>(
-                "SELECT id FROM animals WHERE ear_tag = $1 AND deleted_at IS NULL"
+                "SELECT id FROM animals WHERE ear_tag = $1 AND deleted_at IS NULL",
             )
             .bind(&formatted_ear_tag)
             .fetch_optional(pool)
@@ -395,17 +405,20 @@ impl AnimalService {
             }
 
             // 處理欄位位置並格式化
-            let pen_location = row.pen_location.clone().or_else(|| {
-                match (&row.field_region, &row.field_number) {
+            let pen_location = row
+                .pen_location
+                .clone()
+                .or_else(|| match (&row.field_region, &row.field_number) {
                     (Some(r), Some(n)) => Some(format!("{}{}", r, n)),
                     (Some(r), None) => Some(r.clone()),
                     (None, Some(n)) => Some(n.clone()),
                     (None, None) => None,
-                }
-            }).map(|s| Self::format_pen_location(&s));
+                })
+                .map(|s| Self::format_pen_location(&s));
 
             // 驗證欄位位置（必填）
-            if pen_location.is_none() || pen_location.as_ref().map(|s| s.is_empty()).unwrap_or(true) {
+            if pen_location.is_none() || pen_location.as_ref().map(|s| s.is_empty()).unwrap_or(true)
+            {
                 errors.push(ImportErrorDetail {
                     row: row_number,
                     ear_tag: Some(row.ear_tag.clone()),
@@ -453,13 +466,19 @@ impl AnimalService {
                     // 如果有計畫編號，更新它
                     if let Some(ref iacuc) = row.iacuc_no {
                         if !iacuc.is_empty() {
-                            if let Err(e) = Self::update(pool, animal.id, &UpdateAnimalRequest {
-                                iacuc_no: Some(iacuc.clone()),
-                                ..Default::default()
-                            }, created_by).await {
+                            if let Err(e) = Self::update(
+                                pool,
+                                animal.id,
+                                &UpdateAnimalRequest {
+                                    iacuc_no: Some(iacuc.clone()),
+                                    ..Default::default()
+                                },
+                                created_by,
+                            )
+                            .await
+                            {
                                 tracing::warn!("更新動物資料失敗: {e}");
                             }
-
                         }
                     }
                     success_count += 1;
@@ -559,21 +578,31 @@ impl AnimalService {
 
             // 驗證測量日期
             let measure_date_str = row.measure_date.replace("/", "-");
-            let measure_date = match chrono::NaiveDate::parse_from_str(&measure_date_str, "%Y-%m-%d") {
-                Ok(date) => date,
-                Err(_) => {
-                    errors.push(ImportErrorDetail {
-                        row: row_number,
-                        ear_tag: Some(row.ear_tag.clone()),
-                        error: format!("無效的測量日期格式: {}，必須是 YYYY-MM-DD 或 YYYY/MM/DD 格式", row.measure_date),
-                    });
-                    error_count += 1;
-                    continue;
-                }
-            };
+            let measure_date =
+                match chrono::NaiveDate::parse_from_str(&measure_date_str, "%Y-%m-%d") {
+                    Ok(date) => date,
+                    Err(_) => {
+                        errors.push(ImportErrorDetail {
+                            row: row_number,
+                            ear_tag: Some(row.ear_tag.clone()),
+                            error: format!(
+                                "無效的測量日期格式: {}，必須是 YYYY-MM-DD 或 YYYY/MM/DD 格式",
+                                row.measure_date
+                            ),
+                        });
+                        error_count += 1;
+                        continue;
+                    }
+                };
 
             // 驗證體重
-            let weight_val = row.weight.replace("kg", "").replace("公斤", "").trim().parse::<f64>().unwrap_or(0.0);
+            let weight_val = row
+                .weight
+                .replace("kg", "")
+                .replace("公斤", "")
+                .trim()
+                .parse::<f64>()
+                .unwrap_or(0.0);
             if weight_val <= 0.0 {
                 errors.push(ImportErrorDetail {
                     row: row_number,
@@ -593,7 +622,7 @@ impl AnimalService {
 
             // 查找動物（僅查找未刪除的動物）
             let animal_id_result = sqlx::query_scalar::<_, Uuid>(
-                "SELECT id FROM animals WHERE ear_tag = $1 AND deleted_at IS NULL"
+                "SELECT id FROM animals WHERE ear_tag = $1 AND deleted_at IS NULL",
             )
             .bind(&formatted_ear_tag)
             .fetch_optional(pool)
@@ -613,8 +642,8 @@ impl AnimalService {
             };
 
             // 建立體重紀錄
-            let weight_decimal = rust_decimal::Decimal::from_f64_retain(weight_val)
-                .unwrap_or_default();
+            let weight_decimal =
+                rust_decimal::Decimal::from_f64_retain(weight_val).unwrap_or_default();
 
             let create_req = CreateWeightRequest {
                 measure_date,
@@ -663,23 +692,29 @@ impl AnimalService {
 
     /// 解析 Excel 檔案（基本資料）
     fn parse_excel_file(file_data: &[u8]) -> Result<Vec<AnimalImportRow>> {
-        let range = {
-            let cursor = Cursor::new(file_data);
-            if let Ok(mut wb) = open_workbook_from_rs::<Xlsx<_>, _>(cursor) {
-                let sheet_name = wb.sheet_names().first().cloned()
-                    .ok_or_else(|| AppError::Validation("Excel 檔案中沒有工作表".to_string()))?;
-                wb.worksheet_range(&sheet_name)
-                    .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
-            } else {
+        let range =
+            {
                 let cursor = Cursor::new(file_data);
-                let mut wb = open_workbook_from_rs::<Xls<_>, _>(cursor)
-                    .map_err(|_e| AppError::Validation(format!("無法讀取 Excel 檔案，請確認檔案格式為 .xlsx 或 .xls")))?;
-                let sheet_name = wb.sheet_names().first().cloned()
-                    .ok_or_else(|| AppError::Validation("Excel 檔案中沒有工作表".to_string()))?;
-                wb.worksheet_range(&sheet_name)
-                    .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
-            }
-        };
+                if let Ok(mut wb) = open_workbook_from_rs::<Xlsx<_>, _>(cursor) {
+                    let sheet_name = wb.sheet_names().first().cloned().ok_or_else(|| {
+                        AppError::Validation("Excel 檔案中沒有工作表".to_string())
+                    })?;
+                    wb.worksheet_range(&sheet_name)
+                        .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
+                } else {
+                    let cursor = Cursor::new(file_data);
+                    let mut wb = open_workbook_from_rs::<Xls<_>, _>(cursor).map_err(|_e| {
+                        AppError::Validation(
+                            "無法讀取 Excel 檔案，請確認檔案格式為 .xlsx 或 .xls".to_string(),
+                        )
+                    })?;
+                    let sheet_name = wb.sheet_names().first().cloned().ok_or_else(|| {
+                        AppError::Validation("Excel 檔案中沒有工作表".to_string())
+                    })?;
+                    wb.worksheet_range(&sheet_name)
+                        .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
+                }
+            };
 
         let mut rows = Vec::new();
         let mut iter = range.rows();
@@ -687,44 +722,64 @@ impl AnimalService {
         // 跳過標題行
         iter.next();
 
-        for (_row_idx, row) in iter.enumerate() {
+        for row in iter {
             if row.len() < 4 {
                 continue; // 跳過資料不足的行
             }
 
-            let ear_tag = Self::get_cell_string(row.get(0));
+            let ear_tag = Self::get_cell_string(row.first());
             let breed = Self::get_cell_string(row.get(1));
             let gender = Self::get_cell_string(row.get(2));
             let birth_date = {
                 let s = Self::get_cell_string(row.get(3));
-                if s.is_empty() { None } else { Some(s) }
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
             };
             let entry_date = Self::get_cell_string(row.get(4));
-            let entry_weight = row.get(5)
-                .and_then(|c| match c {
-                    Data::Float(f) => Some(*f),
-                    Data::Int(i) => Some(*i as f64),
-                    _ => None,
-                });
+            let entry_weight = row.get(5).and_then(|c| match c {
+                Data::Float(f) => Some(*f),
+                Data::Int(i) => Some(*i as f64),
+                _ => None,
+            });
             let pen_location = {
                 let s = Self::get_cell_string(row.get(6));
-                if s.is_empty() { None } else { Some(s) }
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
             };
             let pre_experiment_code = {
                 let s = Self::get_cell_string(row.get(7));
-                if s.is_empty() { None } else { Some(s) }
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
             };
             let remark = {
                 let s = Self::get_cell_string(row.get(8));
-                if s.is_empty() { None } else { Some(s) }
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
             };
             let breed_other = {
                 let s = Self::get_cell_string(row.get(9));
-                if s.is_empty() { None } else { Some(s) }
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
             };
 
             // 如果必填欄位為空，跳過這行
-            if ear_tag.is_empty() || breed.is_empty() || gender.is_empty() || entry_date.is_empty() {
+            if ear_tag.is_empty() || breed.is_empty() || gender.is_empty() || entry_date.is_empty()
+            {
                 continue;
             }
 
@@ -768,7 +823,10 @@ impl AnimalService {
                     }
                 }
                 Err(e) => {
-                    return Err(AppError::Validation(format!("基本資料 CSV 第 {} 行解析錯誤: {}", row_idx, e)));
+                    return Err(AppError::Validation(format!(
+                        "基本資料 CSV 第 {} 行解析錯誤: {}",
+                        row_idx, e
+                    )));
                 }
             }
         }
@@ -778,23 +836,29 @@ impl AnimalService {
 
     /// 解析 Excel 檔案（體重資料）
     fn parse_weight_excel_file(file_data: &[u8]) -> Result<Vec<WeightImportRow>> {
-        let range = {
-            let cursor = Cursor::new(file_data);
-            if let Ok(mut wb) = open_workbook_from_rs::<Xlsx<_>, _>(cursor) {
-                let sheet_name = wb.sheet_names().first().cloned()
-                    .ok_or_else(|| AppError::Validation("Excel 檔案中沒有工作表".to_string()))?;
-                wb.worksheet_range(&sheet_name)
-                    .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
-            } else {
+        let range =
+            {
                 let cursor = Cursor::new(file_data);
-                let mut wb = open_workbook_from_rs::<Xls<_>, _>(cursor)
-                    .map_err(|_e| AppError::Validation(format!("無法讀取 Excel 檔案，請確認檔案格式為 .xlsx 或 .xls")))?;
-                let sheet_name = wb.sheet_names().first().cloned()
-                    .ok_or_else(|| AppError::Validation("Excel 檔案中沒有工作表".to_string()))?;
-                wb.worksheet_range(&sheet_name)
-                    .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
-            }
-        };
+                if let Ok(mut wb) = open_workbook_from_rs::<Xlsx<_>, _>(cursor) {
+                    let sheet_name = wb.sheet_names().first().cloned().ok_or_else(|| {
+                        AppError::Validation("Excel 檔案中沒有工作表".to_string())
+                    })?;
+                    wb.worksheet_range(&sheet_name)
+                        .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
+                } else {
+                    let cursor = Cursor::new(file_data);
+                    let mut wb = open_workbook_from_rs::<Xls<_>, _>(cursor).map_err(|_e| {
+                        AppError::Validation(
+                            "無法讀取 Excel 檔案，請確認檔案格式為 .xlsx 或 .xls".to_string(),
+                        )
+                    })?;
+                    let sheet_name = wb.sheet_names().first().cloned().ok_or_else(|| {
+                        AppError::Validation("Excel 檔案中沒有工作表".to_string())
+                    })?;
+                    wb.worksheet_range(&sheet_name)
+                        .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
+                }
+            };
 
         let mut rows = Vec::new();
         let mut iter = range.rows();
@@ -807,9 +871,10 @@ impl AnimalService {
                 continue;
             }
 
-            let ear_tag = Self::get_cell_string(row.get(0)).trim().to_string();
+            let ear_tag = Self::get_cell_string(row.first()).trim().to_string();
             let measure_date = Self::get_cell_string(row.get(1)).trim().to_string();
-            let weight = row.get(2)
+            let weight = row
+                .get(2)
                 .and_then(|c| match c {
                     Data::Float(f) => Some(*f),
                     Data::Int(i) => Some(*i as f64),
@@ -850,7 +915,10 @@ impl AnimalService {
                     }
                 }
                 Err(e) => {
-                    return Err(AppError::Validation(format!("體重資料 CSV 第 {} 行解析錯誤: {}", row_idx, e)));
+                    return Err(AppError::Validation(format!(
+                        "體重資料 CSV 第 {} 行解析錯誤: {}",
+                        row_idx, e
+                    )));
                 }
             }
         }
@@ -871,7 +939,9 @@ impl AnimalService {
                     let days = f as i64;
                     // Excel 基準日期 1899-12-30
                     if let Some(base_date) = chrono::NaiveDate::from_ymd_opt(1899, 12, 30) {
-                        if let Some(date) = base_date.checked_add_signed(chrono::Duration::days(days)) {
+                        if let Some(date) =
+                            base_date.checked_add_signed(chrono::Duration::days(days))
+                        {
                             return date.format("%Y-%m-%d").to_string();
                         }
                     }

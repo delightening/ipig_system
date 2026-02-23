@@ -29,14 +29,17 @@ impl DocumentService {
         let lines_to_create = if req.doc_type == DocType::STK {
             // 盤點單可以根據範圍自動生成，也可以手動提供
             if req.lines.is_empty() {
-                Self::generate_stocktake_lines(&mut tx, req.warehouse_id, &req.stocktake_scope).await?
+                Self::generate_stocktake_lines(&mut tx, req.warehouse_id, &req.stocktake_scope)
+                    .await?
             } else {
                 req.lines.clone()
             }
         } else {
             // 其他單據必須提供明細
             if req.lines.is_empty() {
-                return Err(AppError::Validation("At least one line is required".to_string()));
+                return Err(AppError::Validation(
+                    "At least one line is required".to_string(),
+                ));
             }
             req.lines.clone()
         };
@@ -53,7 +56,7 @@ impl DocumentService {
             "#
         )
         .bind(Uuid::new_v4())
-        .bind(&req.doc_type)
+        .bind(req.doc_type)
         .bind(&doc_no)
         .bind(DocStatus::Draft)
         .bind(req.warehouse_id)
@@ -62,7 +65,7 @@ impl DocumentService {
         .bind(req.partner_id)
         .bind(req.doc_date)
         .bind(&req.remark)
-        .bind(&req.stocktake_scope.as_ref().map(|s| serde_json::to_value(s).unwrap_or(serde_json::Value::Null)))
+        .bind(req.stocktake_scope.as_ref().map(|s| serde_json::to_value(s).unwrap_or(serde_json::Value::Null)))
         .bind(&req.iacuc_no)
         .bind(created_by)
         .fetch_one(&mut *tx)
@@ -79,7 +82,7 @@ impl DocumentService {
                 )
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                 RETURNING *
-                "#
+                "#,
             )
             .bind(Uuid::new_v4())
             .bind(document.id)
@@ -108,16 +111,16 @@ impl DocumentService {
         id: Uuid,
         req: &UpdateDocumentRequest,
     ) -> Result<DocumentWithLines> {
-        let existing = sqlx::query_as::<_, Document>(
-            "SELECT * FROM documents WHERE id = $1"
-        )
-        .bind(id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
+        let existing = sqlx::query_as::<_, Document>("SELECT * FROM documents WHERE id = $1")
+            .bind(id)
+            .fetch_optional(pool)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
 
         if existing.status != DocStatus::Draft {
-            return Err(AppError::BusinessRule("Only draft documents can be updated".to_string()));
+            return Err(AppError::BusinessRule(
+                "Only draft documents can be updated".to_string(),
+            ));
         }
 
         let mut tx = pool.begin().await?;
@@ -134,7 +137,7 @@ impl DocumentService {
                 remark = COALESCE($6, remark),
                 updated_at = NOW()
             WHERE id = $7
-            "#
+            "#,
         )
         .bind(req.warehouse_id)
         .bind(req.warehouse_from_id)
@@ -159,9 +162,12 @@ impl DocumentService {
             for (idx, line) in lines.iter().enumerate() {
                 // 驗證必填欄位
                 if line.uom.is_empty() {
-                    return Err(AppError::Validation(format!("Line {}: UOM is required", idx + 1)));
+                    return Err(AppError::Validation(format!(
+                        "Line {}: UOM is required",
+                        idx + 1
+                    )));
                 }
-                
+
                 sqlx::query(
                     r#"
                     INSERT INTO document_lines (
@@ -169,7 +175,7 @@ impl DocumentService {
                         batch_no, expiry_date, remark, storage_location_id
                     )
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-                    "#
+                    "#,
                 )
                 .bind(Uuid::new_v4())
                 .bind(id)
@@ -194,17 +200,17 @@ impl DocumentService {
 
     /// 刪除單據（僅限草稿狀態）
     pub async fn delete(pool: &PgPool, id: Uuid) -> Result<()> {
-        let document = sqlx::query_as::<_, Document>(
-            "SELECT * FROM documents WHERE id = $1"
-        )
-        .bind(id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
+        let document = sqlx::query_as::<_, Document>("SELECT * FROM documents WHERE id = $1")
+            .bind(id)
+            .fetch_optional(pool)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
 
         // 只允許刪除草稿狀態的單據
         if document.status != DocStatus::Draft {
-            return Err(AppError::BusinessRule("Only draft documents can be deleted".to_string()));
+            return Err(AppError::BusinessRule(
+                "Only draft documents can be deleted".to_string(),
+            ));
         }
 
         let mut tx = pool.begin().await?;
@@ -251,7 +257,7 @@ impl DocumentService {
             LEFT JOIN users u2 ON d.approved_by = u2.id
             LEFT JOIN document_lines dl ON d.id = dl.document_id
             WHERE 1=1
-            "#
+            "#,
         );
 
         // 動態建構查詢條件
@@ -287,13 +293,11 @@ impl DocumentService {
 
     /// 取得單一單據
     pub async fn get_by_id(pool: &PgPool, id: Uuid) -> Result<DocumentWithLines> {
-        let document = sqlx::query_as::<_, Document>(
-            "SELECT * FROM documents WHERE id = $1"
-        )
-        .bind(id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
+        let document = sqlx::query_as::<_, Document>("SELECT * FROM documents WHERE id = $1")
+            .bind(id)
+            .fetch_optional(pool)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
 
         let lines = sqlx::query_as::<_, DocumentLineWithProduct>(
             r#"
@@ -306,7 +310,7 @@ impl DocumentService {
             INNER JOIN products p ON dl.product_id = p.id
             WHERE dl.document_id = $1
             ORDER BY dl.line_no
-            "#
+            "#,
         )
         .bind(id)
         .fetch_all(pool)
@@ -349,11 +353,12 @@ impl DocumentService {
             None
         };
 
-        let created_by_name: String = sqlx::query_scalar("SELECT display_name FROM users WHERE id = $1")
-            .bind(document.created_by)
-            .fetch_optional(pool)
-            .await?
-            .unwrap_or_else(|| "Unknown User".to_string());
+        let created_by_name: String =
+            sqlx::query_scalar("SELECT display_name FROM users WHERE id = $1")
+                .bind(document.created_by)
+                .fetch_optional(pool)
+                .await?
+                .unwrap_or_else(|| "Unknown User".to_string());
 
         let approved_by_name: Option<String> = if let Some(uid) = document.approved_by {
             sqlx::query_scalar("SELECT display_name FROM users WHERE id = $1")
@@ -378,7 +383,10 @@ impl DocumentService {
 
     /// 產生單據編號
     /// 格式：{PREFIX}-YYMMDD-{02} (例如：SO-260115-01)
-    pub(crate) async fn generate_doc_no(tx: &mut sqlx::Transaction<'_, sqlx::Postgres>, doc_type: DocType) -> Result<String> {
+    pub(crate) async fn generate_doc_no(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        doc_type: DocType,
+    ) -> Result<String> {
         // 統一使用 YYMMDD 格式
         let today = Utc::now();
         let year = today.format("%y").to_string(); // 2-digit year
@@ -390,7 +398,7 @@ impl DocumentService {
 
         // 取得當天最後一個序號（查詢格式：{PREFIX}-YYMMDD-XX）
         let last_no: Option<String> = sqlx::query_scalar(
-            "SELECT doc_no FROM documents WHERE doc_no LIKE $1 ORDER BY doc_no DESC LIMIT 1"
+            "SELECT doc_no FROM documents WHERE doc_no LIKE $1 ORDER BY doc_no DESC LIMIT 1",
         )
         .bind(format!("{}%", prefix))
         .fetch_optional(&mut **tx)

@@ -6,8 +6,8 @@ use uuid::Uuid;
 use crate::{
     models::{
         ActivityLogQuery, AuditAction, AuditDashboardStats, AuditLog, AuditLogQuery,
-        AuditLogWithActor, LoginEventQuery, LoginEventWithUser, PaginatedResponse,
-        SecurityAlert, SecurityAlertQuery, SessionQuery, SessionWithUser, UserActivityLog,
+        AuditLogWithActor, LoginEventQuery, LoginEventWithUser, PaginatedResponse, SecurityAlert,
+        SecurityAlertQuery, SessionQuery, SessionWithUser, UserActivityLog,
     },
     Result,
 };
@@ -102,7 +102,7 @@ impl AuditService {
                 WHERE al.action = $1
                 ORDER BY al.created_at DESC
                 LIMIT 200
-                "#
+                "#,
             )
             .bind(action)
             .fetch_all(pool)
@@ -120,7 +120,7 @@ impl AuditService {
                 LEFT JOIN users eu ON al.entity_type = 'user' AND al.entity_id = eu.id
                 ORDER BY al.created_at DESC
                 LIMIT 200
-                "#
+                "#,
             )
             .fetch_all(pool)
             .await?
@@ -147,7 +147,7 @@ impl AuditService {
             LEFT JOIN users eu ON al.entity_type = 'user' AND al.entity_id = eu.id
             WHERE al.entity_type = $1 AND al.entity_id = $2
             ORDER BY al.created_at DESC
-            "#
+            "#,
         )
         .bind(entity_type)
         .bind(entity_id)
@@ -158,6 +158,7 @@ impl AuditService {
     }
 
     /// 記錄詳細活動日誌
+    #[allow(clippy::too_many_arguments)]
     pub async fn log_activity(
         pool: &PgPool,
         actor_user_id: Uuid,
@@ -171,21 +172,20 @@ impl AuditService {
         ip_address: Option<&str>,
         user_agent: Option<&str>,
     ) -> Result<Uuid> {
-        let result: (Uuid,) = sqlx::query_as(
-            "SELECT log_activity($1, $2, $3, $4, $5, $6, $7, $8, $9::inet, $10)"
-        )
-        .bind(actor_user_id)
-        .bind(event_category)
-        .bind(event_type)
-        .bind(entity_type)
-        .bind(entity_id)
-        .bind(entity_display_name)
-        .bind(before_data.clone())
-        .bind(after_data.clone())
-        .bind(ip_address)
-        .bind(user_agent)
-        .fetch_one(pool)
-        .await?;
+        let result: (Uuid,) =
+            sqlx::query_as("SELECT log_activity($1, $2, $3, $4, $5, $6, $7, $8, $9::inet, $10)")
+                .bind(actor_user_id)
+                .bind(event_category)
+                .bind(event_type)
+                .bind(entity_type)
+                .bind(entity_id)
+                .bind(entity_display_name)
+                .bind(before_data.clone())
+                .bind(after_data.clone())
+                .bind(ip_address)
+                .bind(user_agent)
+                .fetch_one(pool)
+                .await?;
 
         let log_id = result.0;
 
@@ -193,11 +193,16 @@ impl AuditService {
         if let Ok(hmac_key) = std::env::var("AUDIT_HMAC_KEY") {
             if hmac_key.len() >= 16 {
                 let _ = Self::compute_and_store_hmac(
-                    pool, log_id, &hmac_key,
-                    event_category, event_type,
+                    pool,
+                    log_id,
+                    &hmac_key,
+                    event_category,
+                    event_type,
                     actor_user_id,
-                    &before_data, &after_data,
-                ).await;
+                    &before_data,
+                    &after_data,
+                )
+                .await;
             }
         }
 
@@ -205,6 +210,7 @@ impl AuditService {
     }
 
     /// SEC-34: 計算 HMAC-SHA256 並更新日誌記錄
+    #[allow(clippy::too_many_arguments)]
     async fn compute_and_store_hmac(
         pool: &PgPool,
         log_id: Uuid,
@@ -227,7 +233,7 @@ impl AuditService {
             WHERE created_at < (SELECT created_at FROM user_activity_logs WHERE id = $1)
             ORDER BY created_at DESC
             LIMIT 1
-            "#
+            "#,
         )
         .bind(log_id)
         .fetch_optional(pool)
@@ -258,7 +264,7 @@ impl AuditService {
 
         // 更新記錄
         sqlx::query(
-            "UPDATE user_activity_logs SET integrity_hash = $1, previous_hash = $2 WHERE id = $3"
+            "UPDATE user_activity_logs SET integrity_hash = $1, previous_hash = $2 WHERE id = $3",
         )
         .bind(&hash_result)
         .bind(prev_hash.as_deref())
@@ -586,16 +592,12 @@ impl AuditService {
     }
 
     /// 取得指定安全警報
-    pub async fn get_security_alert(
-        pool: &PgPool,
-        id: Uuid,
-    ) -> Result<SecurityAlert> {
-        let alert = sqlx::query_as::<_, SecurityAlert>(
-            "SELECT * FROM security_alerts WHERE id = $1",
-        )
-        .bind(id)
-        .fetch_one(pool)
-        .await?;
+    pub async fn get_security_alert(pool: &PgPool, id: Uuid) -> Result<SecurityAlert> {
+        let alert =
+            sqlx::query_as::<_, SecurityAlert>("SELECT * FROM security_alerts WHERE id = $1")
+                .bind(id)
+                .fetch_one(pool)
+                .await?;
 
         Ok(alert)
     }
