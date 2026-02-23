@@ -21,6 +21,7 @@ fn get_header_value(headers: &HeaderMap, name: &str) -> Option<String> {
 ///
 /// - `trust_proxy = true`：依序檢查 CF-Connecting-IP、X-Real-IP、X-Forwarded-For
 /// - `trust_proxy = false`：僅使用 socket addr，忽略所有 proxy header（防偽造）
+#[allow(dead_code)]
 pub fn extract_real_ip(headers: &HeaderMap, fallback: &SocketAddr) -> String {
     extract_real_ip_with_trust(headers, fallback, true)
 }
@@ -91,7 +92,10 @@ mod tests {
         headers.insert("cf-connecting-ip", "1.1.1.1".parse().unwrap());
         headers.insert("x-real-ip", "2.2.2.2".parse().unwrap());
         headers.insert("x-forwarded-for", "3.3.3.3".parse().unwrap());
-        assert_eq!(extract_real_ip_with_trust(&headers, &fallback(), true), "1.1.1.1");
+        assert_eq!(
+            extract_real_ip_with_trust(&headers, &fallback(), true),
+            "1.1.1.1"
+        );
     }
 
     #[test]
@@ -99,27 +103,42 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert("x-real-ip", "2.2.2.2".parse().unwrap());
         headers.insert("x-forwarded-for", "3.3.3.3".parse().unwrap());
-        assert_eq!(extract_real_ip_with_trust(&headers, &fallback(), true), "2.2.2.2");
+        assert_eq!(
+            extract_real_ip_with_trust(&headers, &fallback(), true),
+            "2.2.2.2"
+        );
     }
 
     #[test]
     fn test_x_forwarded_for_first_ip() {
         let mut headers = HeaderMap::new();
-        headers.insert("x-forwarded-for", "10.0.0.1, 10.0.0.2, 10.0.0.3".parse().unwrap());
-        assert_eq!(extract_real_ip_with_trust(&headers, &fallback(), true), "10.0.0.1");
+        headers.insert(
+            "x-forwarded-for",
+            "10.0.0.1, 10.0.0.2, 10.0.0.3".parse().unwrap(),
+        );
+        assert_eq!(
+            extract_real_ip_with_trust(&headers, &fallback(), true),
+            "10.0.0.1"
+        );
     }
 
     #[test]
     fn test_x_forwarded_for_single() {
         let mut headers = HeaderMap::new();
         headers.insert("x-forwarded-for", "203.0.113.50".parse().unwrap());
-        assert_eq!(extract_real_ip_with_trust(&headers, &fallback(), true), "203.0.113.50");
+        assert_eq!(
+            extract_real_ip_with_trust(&headers, &fallback(), true),
+            "203.0.113.50"
+        );
     }
 
     #[test]
     fn test_fallback_when_no_headers() {
         let headers = HeaderMap::new();
-        assert_eq!(extract_real_ip_with_trust(&headers, &fallback(), true), "192.168.1.100");
+        assert_eq!(
+            extract_real_ip_with_trust(&headers, &fallback(), true),
+            "192.168.1.100"
+        );
     }
 
     #[test]
@@ -127,7 +146,10 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert("cf-connecting-ip", "".parse().unwrap());
         headers.insert("x-real-ip", "4.4.4.4".parse().unwrap());
-        assert_eq!(extract_real_ip_with_trust(&headers, &fallback(), true), "4.4.4.4");
+        assert_eq!(
+            extract_real_ip_with_trust(&headers, &fallback(), true),
+            "4.4.4.4"
+        );
     }
 
     // === extract_real_ip (預設 trust wrapper) ===

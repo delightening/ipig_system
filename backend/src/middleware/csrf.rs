@@ -18,7 +18,10 @@ use crate::AppState;
 
 /// 需要 CSRF 驗證的 HTTP 方法
 fn requires_csrf_check(method: &Method) -> bool {
-    matches!(method, &Method::POST | &Method::PUT | &Method::DELETE | &Method::PATCH)
+    matches!(
+        method,
+        &Method::POST | &Method::PUT | &Method::DELETE | &Method::PATCH
+    )
 }
 
 /// 不需要 CSRF 驗證的路徑（公開端點）
@@ -29,7 +32,7 @@ fn is_exempt_path(path: &str) -> bool {
         "/api/auth/forgot-password",
         "/api/auth/reset-password",
     ];
-    exempt_paths.iter().any(|p| path == *p)
+    exempt_paths.contains(&path)
 }
 
 /// 從 Cookie header 提取 csrf_token 值
@@ -66,11 +69,7 @@ pub async fn csrf_middleware(
                 // 驗證通過
             }
             _ => {
-                tracing::warn!(
-                    "[CSRF] 驗證失敗 - Method: {}, Path: {}",
-                    method,
-                    path
-                );
+                tracing::warn!("[CSRF] 驗證失敗 - Method: {}, Path: {}", method, path);
                 return Err(StatusCode::FORBIDDEN);
             }
         }
@@ -84,7 +83,11 @@ pub async fn csrf_middleware(
         .headers()
         .get_all(header::SET_COOKIE)
         .iter()
-        .any(|v| v.to_str().map(|s| s.starts_with("csrf_token=")).unwrap_or(false));
+        .any(|v| {
+            v.to_str()
+                .map(|s| s.starts_with("csrf_token="))
+                .unwrap_or(false)
+        });
 
     if !has_csrf_cookie {
         let csrf_token = Uuid::new_v4().to_string();
@@ -182,10 +185,13 @@ mod tests {
 
     #[test]
     fn test_extract_csrf_present() {
-        let mut request = Request::builder()
-            .header(header::COOKIE, "session=abc; csrf_token=my-token-123; other=val")
+        let request = Request::builder()
+            .header(
+                header::COOKIE,
+                "session=abc; csrf_token=my-token-123; other=val",
+            )
             .body(Body::empty())
-            .unwrap();
+            .expect("建構測試 Request 不應失敗");
         assert_eq!(
             extract_csrf_cookie(&request),
             Some("my-token-123".to_string())
@@ -197,7 +203,7 @@ mod tests {
         let request = Request::builder()
             .header(header::COOKIE, "session=abc; other=val")
             .body(Body::empty())
-            .unwrap();
+            .expect("建構測試 Request 不應失敗");
         assert_eq!(extract_csrf_cookie(&request), None);
     }
 
@@ -205,7 +211,7 @@ mod tests {
     fn test_extract_csrf_no_cookie_header() {
         let request = Request::builder()
             .body(Body::empty())
-            .unwrap();
+            .expect("建構測試 Request 不應失敗");
         assert_eq!(extract_csrf_cookie(&request), None);
     }
 
@@ -214,7 +220,7 @@ mod tests {
         let request = Request::builder()
             .header(header::COOKIE, "csrf_token=solo-value")
             .body(Body::empty())
-            .unwrap();
+            .expect("建構測試 Request 不應失敗");
         assert_eq!(
             extract_csrf_cookie(&request),
             Some("solo-value".to_string())

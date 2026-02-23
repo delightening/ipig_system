@@ -4,12 +4,11 @@ use axum::{
     extract::{Path, State},
     Extension, Json,
 };
-use sqlx;
 use uuid::Uuid;
 
 use crate::{
     middleware::CurrentUser,
-    models::{CreateSacrificeRequest, AnimalSacrifice},
+    models::{AnimalSacrifice, CreateSacrificeRequest},
     require_permission,
     services::{AnimalService, AuditService},
     AppState, Result,
@@ -37,30 +36,45 @@ pub async fn upsert_animal_sacrifice(
     Json(req): Json<CreateSacrificeRequest>,
 ) -> Result<Json<AnimalSacrifice>> {
     require_permission!(current_user, "animal.record.create");
-    
-    let sacrifice = AnimalService::upsert_sacrifice(&state.db, animal_id, &req, current_user.id).await?;
+
+    let sacrifice =
+        AnimalService::upsert_sacrifice(&state.db, animal_id, &req, current_user.id).await?;
 
     // 犧牲確認時自動將動物狀態設為 euthanized
     if req.confirmed_sacrifice {
         // 檢查動物當前狀態是否可轉換
         let current_animal = AnimalService::get_by_id(&state.db, animal_id).await?;
-        if !current_animal.status.is_terminal() {
-            if current_animal.status.can_transition_to(crate::models::AnimalStatus::Euthanized) {
-                sqlx::query("UPDATE animals SET status = 'euthanized', updated_at = NOW() WHERE id = $1")
-                    .bind(animal_id)
-                    .execute(&state.db)
-                    .await?;
-            }
+        if !current_animal.status.is_terminal()
+            && current_animal
+                .status
+                .can_transition_to(crate::models::AnimalStatus::Euthanized)
+        {
+            sqlx::query(
+                "UPDATE animals SET status = 'euthanized', updated_at = NOW() WHERE id = $1",
+            )
+            .bind(animal_id)
+            .execute(&state.db)
+            .await?;
         }
     }
 
     // 取得動物資訊用於日誌顯示
     let method = {
         let mut methods = Vec::new();
-        if req.method_electrocution { methods.push("電擊"); }
-        if req.method_bloodletting { methods.push("放血"); }
-        if let Some(ref other) = req.method_other { methods.push(other); }
-        if methods.is_empty() { "未指定方式".to_string() } else { methods.join("+") }
+        if req.method_electrocution {
+            methods.push("電擊");
+        }
+        if req.method_bloodletting {
+            methods.push("放血");
+        }
+        if let Some(ref other) = req.method_other {
+            methods.push(other);
+        }
+        if methods.is_empty() {
+            "未指定方式".to_string()
+        } else {
+            methods.join("+")
+        }
     };
     let sac_display = match AnimalService::get_by_id(&state.db, animal_id).await {
         Ok(animal) => {
@@ -72,16 +86,23 @@ pub async fn upsert_animal_sacrifice(
 
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ANIMAL", "SACRIFICE_UPSERT",
-        Some("animal_sacrifice"), Some(animal_id),
+        &state.db,
+        current_user.id,
+        "ANIMAL",
+        "SACRIFICE_UPSERT",
+        Some("animal_sacrifice"),
+        Some(animal_id),
         Some(&sac_display),
         None,
         Some(serde_json::json!({
             "method": method,
             "confirmed_sacrifice": req.confirmed_sacrifice,
         })),
-        None, None,
-    ).await {
+        None,
+        None,
+    )
+    .await
+    {
         tracing::error!("寫入 user_activity_logs 失敗 (SACRIFICE_UPSERT): {}", e);
     }
 
@@ -99,7 +120,7 @@ pub async fn get_animal_pathology_report(
     Path(animal_id): Path<Uuid>,
 ) -> Result<Json<Option<crate::models::AnimalPathologyReport>>> {
     require_permission!(current_user, "animal.pathology.view");
-    
+
     let report = AnimalService::get_pathology_report(&state.db, animal_id).await?;
     Ok(Json(report))
 }
@@ -111,8 +132,9 @@ pub async fn upsert_animal_pathology_report(
     Path(animal_id): Path<Uuid>,
 ) -> Result<Json<crate::models::AnimalPathologyReport>> {
     require_permission!(current_user, "animal.pathology.upload");
-    
-    let report = AnimalService::upsert_pathology_report(&state.db, animal_id, current_user.id).await?;
+
+    let report =
+        AnimalService::upsert_pathology_report(&state.db, animal_id, current_user.id).await?;
 
     // 取得動物資訊用於日誌顯示
     let path_display = match AnimalService::get_by_id(&state.db, animal_id).await {
@@ -125,11 +147,20 @@ pub async fn upsert_animal_pathology_report(
 
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ANIMAL", "PATHOLOGY_UPSERT",
-        Some("animal_pathology"), Some(animal_id),
+        &state.db,
+        current_user.id,
+        "ANIMAL",
+        "PATHOLOGY_UPSERT",
+        Some("animal_pathology"),
+        Some(animal_id),
         Some(&path_display),
-        None, None, None, None,
-    ).await {
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    {
         tracing::error!("寫入 user_activity_logs 失敗 (PATHOLOGY_UPSERT): {}", e);
     }
 

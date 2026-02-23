@@ -10,8 +10,8 @@ use validator::Validate;
 use crate::{
     middleware::CurrentUser,
     models::{
-        BatchAssignRequest, CreateAnimalRequest, DeleteRequest, Animal, AnimalListItem, AnimalQuery,
-        AnimalsByPen, UpdateAnimalRequest,
+        Animal, AnimalListItem, AnimalQuery, AnimalsByPen, BatchAssignRequest, CreateAnimalRequest,
+        DeleteRequest, UpdateAnimalRequest,
     },
     require_permission,
     services::{AnimalService, AuditService},
@@ -27,21 +27,22 @@ pub async fn list_animals(
     // 檢查權限
     let has_view_all = current_user.has_permission("animal.animal.view_all");
     let has_view_project = current_user.has_permission("animal.animal.view_project");
-    
+
     if !has_view_all && !has_view_project {
         return Ok(Json(vec![]));
     }
-    
+
     let animals = AnimalService::list(&state.db, &query).await?;
-    
+
     let filtered_animals = if has_view_all {
         animals
     } else {
-        animals.into_iter()
+        animals
+            .into_iter()
             .filter(|a| a.iacuc_no.is_some())
             .collect()
     };
-    
+
     Ok(Json(filtered_animals))
 }
 
@@ -51,7 +52,7 @@ pub async fn list_animals_by_pen(
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<AnimalsByPen>>> {
     require_permission!(current_user, "animal.animal.view_all");
-    
+
     let animals = AnimalService::list_by_pen(&state.db).await?;
     Ok(Json(animals))
 }
@@ -73,24 +74,24 @@ pub async fn create_animal(
     Json(req): Json<CreateAnimalRequest>,
 ) -> Result<Json<Animal>> {
     require_permission!(current_user, "animal.animal.create");
-    
+
     tracing::debug!("Create animal request: ear_tag={}, breed={:?}, gender={:?}, entry_date={:?}, birth_date={:?}, entry_weight={:?}", 
         req.ear_tag, req.breed, req.gender, req.entry_date, req.birth_date, req.entry_weight);
-    
+
     if let Err(validation_errors) = req.validate() {
         let error_messages: Vec<String> = validation_errors
             .field_errors()
             .iter()
             .flat_map(|(field, errors)| {
                 errors.iter().map(move |e| {
-                    let field_name = match field.as_ref() {
+                    let field_name = match *field {
                         "ear_tag" => "耳標",
                         "breed" => "品種",
                         "gender" => "性別",
                         "entry_date" => "入場日期",
                         "birth_date" => "出生日期",
                         "entry_weight" => "入場體重",
-                        _ => field.as_ref(),
+                        _ => field,
                     };
                     format!("{}: {}", field_name, e.message.as_ref().unwrap_or(&e.code))
                 })
@@ -100,20 +101,28 @@ pub async fn create_animal(
         tracing::warn!("Validation failed: {}", error_msg);
         return Err(AppError::Validation(error_msg));
     }
-    
+
     let animal = AnimalService::create(&state.db, &req, current_user.id).await?;
 
     if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ANIMAL", "CREATE",
-        Some("animal"), Some(animal.id), Some(&animal.ear_tag),
+        &state.db,
+        current_user.id,
+        "ANIMAL",
+        "CREATE",
+        Some("animal"),
+        Some(animal.id),
+        Some(&animal.ear_tag),
         None,
         Some(serde_json::json!({
             "ear_tag": animal.ear_tag,
             "breed": format!("{:?}", req.breed),
             "gender": format!("{:?}", req.gender),
         })),
-        None, None,
-    ).await {
+        None,
+        None,
+    )
+    .await
+    {
         tracing::error!("寫入 user_activity_logs 失敗 (ANIMAL_CREATE): {}", e);
     }
 
@@ -128,9 +137,11 @@ pub async fn update_animal(
     Json(req): Json<UpdateAnimalRequest>,
 ) -> Result<Json<Animal>> {
     require_permission!(current_user, "animal.animal.edit");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
-    
-    let (animal, iacuc_change) = AnimalService::update(&state.db, id, &req, current_user.id).await?;
+    req.validate()
+        .map_err(|e| AppError::Validation(e.to_string()))?;
+
+    let (animal, iacuc_change) =
+        AnimalService::update(&state.db, id, &req, current_user.id).await?;
 
     // 記錄 IACUC No. 變更審計事件（含 before/after 資料供時間軸顯示）
     if let Some(change) = &iacuc_change {
@@ -141,21 +152,40 @@ pub async fn update_animal(
             "iacuc_no": change.new_iacuc_no,
         });
         if let Err(e) = AuditService::log_activity(
-            &state.db, current_user.id, "ANIMAL", "IACUC_CHANGE",
-            Some("animal"), Some(id), Some(&animal.ear_tag),
-            Some(before_data), Some(after_data),
-            None, None,
-        ).await {
+            &state.db,
+            current_user.id,
+            "ANIMAL",
+            "IACUC_CHANGE",
+            Some("animal"),
+            Some(id),
+            Some(&animal.ear_tag),
+            Some(before_data),
+            Some(after_data),
+            None,
+            None,
+        )
+        .await
+        {
             tracing::error!("寫入 user_activity_logs 失敗 (IACUC_CHANGE): {}", e);
         }
     }
 
     // 記錄一般更新活動紀錄
     if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ANIMAL", "UPDATE",
-        Some("animal"), Some(id), Some(&animal.ear_tag),
-        None, None, None, None,
-    ).await {
+        &state.db,
+        current_user.id,
+        "ANIMAL",
+        "UPDATE",
+        Some("animal"),
+        Some(id),
+        Some(&animal.ear_tag),
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    {
         tracing::error!("寫入 user_activity_logs 失敗 (ANIMAL_UPDATE): {}", e);
     }
 
@@ -170,21 +200,32 @@ pub async fn delete_animal(
     Json(req): Json<DeleteRequest>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.animal.edit");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
-    
+    req.validate()
+        .map_err(|e| AppError::Validation(e.to_string()))?;
+
     AnimalService::delete_with_reason(&state.db, id, &req.reason, current_user.id).await?;
 
     if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ANIMAL", "ANIMAL_DELETE",
-        Some("animal"), Some(id), Some(&format!("動物 {} (原因: {})", id, req.reason)),
+        &state.db,
+        current_user.id,
+        "ANIMAL",
+        "ANIMAL_DELETE",
+        Some("animal"),
+        Some(id),
+        Some(&format!("動物 {} (原因: {})", id, req.reason)),
         None,
         Some(serde_json::json!({ "reason": req.reason })),
-        None, None,
-    ).await {
+        None,
+        None,
+    )
+    .await
+    {
         tracing::error!("寫入 user_activity_logs 失敗 (ANIMAL_DELETE): {}", e);
     }
 
-    Ok(Json(serde_json::json!({ "message": "Animal deleted successfully" })))
+    Ok(Json(
+        serde_json::json!({ "message": "Animal deleted successfully" }),
+    ))
 }
 
 /// 批次分配動物的耳標
@@ -194,20 +235,31 @@ pub async fn batch_assign_animals(
     Json(req): Json<BatchAssignRequest>,
 ) -> Result<Json<Vec<Animal>>> {
     require_permission!(current_user, "animal.info.assign");
-    
+
     let animals = AnimalService::batch_assign(&state.db, &req, current_user.id).await?;
 
     if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ANIMAL", "ANIMAL_BATCH_ASSIGN",
-        Some("animal"), None,
-        Some(&format!("批次分配 {} 隻至 {}", animals.len(), &req.iacuc_no)),
+        &state.db,
+        current_user.id,
+        "ANIMAL",
+        "ANIMAL_BATCH_ASSIGN",
+        Some("animal"),
+        None,
+        Some(&format!(
+            "批次分配 {} 隻至 {}",
+            animals.len(),
+            &req.iacuc_no
+        )),
         None,
         Some(serde_json::json!({
             "count": animals.len(),
             "iacuc_no": &req.iacuc_no,
         })),
-        None, None,
-    ).await {
+        None,
+        None,
+    )
+    .await
+    {
         tracing::error!("寫入 user_activity_logs 失敗 (ANIMAL_BATCH_ASSIGN): {}", e);
     }
 
@@ -221,7 +273,7 @@ pub async fn mark_animal_vet_read(
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.vet.read");
-    
+
     AnimalService::mark_vet_read(&state.db, id).await?;
     Ok(Json(serde_json::json!({ "message": "Marked as read" })))
 }
@@ -243,7 +295,15 @@ pub async fn get_animal_events(
     Extension(_current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<AnimalEvent>>> {
-    let rows: Vec<(String, String, Option<String>, Option<serde_json::Value>, Option<serde_json::Value>, chrono::DateTime<chrono::Utc>)> = sqlx::query_as(
+    type EventRow = (
+        String,
+        String,
+        Option<String>,
+        Option<serde_json::Value>,
+        Option<serde_json::Value>,
+        chrono::DateTime<chrono::Utc>,
+    );
+    let rows: Vec<EventRow> = sqlx::query_as(
         r#"
         SELECT
             id::text,
@@ -258,22 +318,25 @@ pub async fn get_animal_events(
           AND event_type = 'IACUC_CHANGE'
         ORDER BY created_at DESC
         LIMIT 50
-        "#
+        "#,
     )
     .bind(id)
     .fetch_all(&state.db)
     .await?;
 
-    let events = rows.into_iter().map(|(eid, event_type, actor_name, before_data, after_data, created_at)| {
-        AnimalEvent {
-            id: eid,
-            event_type,
-            actor_name,
-            before_data,
-            after_data,
-            created_at,
-        }
-    }).collect();
+    let events = rows
+        .into_iter()
+        .map(
+            |(eid, event_type, actor_name, before_data, after_data, created_at)| AnimalEvent {
+                id: eid,
+                event_type,
+                actor_name,
+                before_data,
+                after_data,
+                created_at,
+            },
+        )
+        .collect();
 
     Ok(Json(events))
 }

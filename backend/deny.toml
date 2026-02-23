@@ -29,10 +29,7 @@ ignore = [
 # 授權條款審查
 # ============================
 [licenses]
-# 不允許未授權的 crate
-unlicensed = "deny"
-# 預設拒絕 copyleft 授權
-default = "deny"
+# 新版 cargo-deny 預設拒絕所有未列在 allow 中的授權（deny by default）
 # 信心閾值
 confidence-threshold = 0.8
 

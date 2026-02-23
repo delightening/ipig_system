@@ -30,7 +30,7 @@ impl JwtBlacklist {
     pub async fn load_from_db(&self, pool: &PgPool) {
         let now = Utc::now();
         match sqlx::query_as::<_, (String, chrono::DateTime<Utc>)>(
-            "SELECT jti, expires_at FROM jwt_blacklist WHERE expires_at > $1"
+            "SELECT jti, expires_at FROM jwt_blacklist WHERE expires_at > $1",
         )
         .bind(now)
         .fetch_all(pool)
@@ -48,7 +48,10 @@ impl JwtBlacklist {
                 }
             }
             Err(e) => {
-                tracing::warn!("[JwtBlacklist] 載入 DB 黑名單失敗（首次啟動或尚未 migrate）: {}", e);
+                tracing::warn!(
+                    "[JwtBlacklist] 載入 DB 黑名單失敗（首次啟動或尚未 migrate）: {}",
+                    e
+                );
             }
         }
     }
@@ -61,8 +64,7 @@ impl JwtBlacklist {
         }
 
         // 寫入 DB（非阻塞，失敗時僅記錄告警）
-        let expires_at = chrono::DateTime::from_timestamp(exp, 0)
-            .unwrap_or_else(|| Utc::now());
+        let expires_at = chrono::DateTime::from_timestamp(exp, 0).unwrap_or_else(Utc::now);
         if let Err(e) = sqlx::query(
             "INSERT INTO jwt_blacklist (jti, expires_at) VALUES ($1, $2) ON CONFLICT (jti) DO NOTHING"
         )
@@ -104,7 +106,7 @@ impl JwtBlacklist {
 
         // 記憶體 miss，查 DB
         match sqlx::query_as::<_, (String,)>(
-            "SELECT jti FROM jwt_blacklist WHERE jti = $1 AND expires_at > NOW()"
+            "SELECT jti FROM jwt_blacklist WHERE jti = $1 AND expires_at > NOW()",
         )
         .bind(jti)
         .fetch_optional(pool)

@@ -4,7 +4,6 @@ use axum::{
     extract::DefaultBodyLimit,
     http::{header, HeaderValue, Method},
 };
-use sqlx;
 use tower_http::{
     cors::CorsLayer,
     set_header::SetResponseHeaderLayer,
@@ -23,13 +22,12 @@ mod routes;
 mod services;
 mod startup;
 
+use middleware::JwtBlacklist;
 use services::scheduler::SchedulerService;
 use services::GeoIpService;
-use middleware::JwtBlacklist;
 use startup::{
-    create_database_pool_with_retry,
-    ensure_admin_user, ensure_schema, seed_dev_users,
-    ensure_required_permissions, ensure_all_role_permissions,
+    create_database_pool_with_retry, ensure_admin_user, ensure_all_role_permissions,
+    ensure_required_permissions, ensure_schema, seed_dev_users,
 };
 
 pub use error::{AppError, Result};
@@ -165,8 +163,8 @@ async fn main() -> anyhow::Result<()> {
 
         // 1) 地理圍籬設定
         let has_ip = !config.allowed_clock_ip_ranges.is_empty();
-        let has_gps = config.clock_office_latitude.is_some()
-            && config.clock_office_longitude.is_some();
+        let has_gps =
+            config.clock_office_latitude.is_some() && config.clock_office_longitude.is_some();
         if !has_ip && !has_gps {
             warn_count += 1;
             items.push(
@@ -177,13 +175,15 @@ async fn main() -> anyhow::Result<()> {
             warn_count += 1;
             items.push(
                 "⚠️  打卡 IP 白名單未設定（ALLOWED_CLOCK_IP_RANGES）\n     \
-                 → 僅依賴 GPS 驗證，建議同時設定 IP 範圍以提高安全性。".to_string()
+                 → 僅依賴 GPS 驗證，建議同時設定 IP 範圍以提高安全性。"
+                    .to_string(),
             );
         } else if !has_gps {
             warn_count += 1;
             items.push(
                 "⚠️  打卡 GPS 座標未設定（CLOCK_OFFICE_LATITUDE / CLOCK_OFFICE_LONGITUDE）\n     \
-                 → 僅依賴 IP 驗證，建議同時設定 GPS 座標以支援行動裝置。".to_string()
+                 → 僅依賴 IP 驗證，建議同時設定 GPS 座標以支援行動裝置。"
+                    .to_string(),
             );
         } else {
             items.push("✅ 地理圍籬設定正確（IP + GPS）".to_string());
@@ -195,14 +195,16 @@ async fn main() -> anyhow::Result<()> {
                 warn_count += 1;
                 items.push(
                     "⚠️  ADMIN_INITIAL_PASSWORD 未設定\n     \
-                     → 管理員帳號將使用隨機產生的密碼，建議在 .env 中明確設定。".to_string()
+                     → 管理員帳號將使用隨機產生的密碼，建議在 .env 中明確設定。"
+                        .to_string(),
                 );
             }
             Ok(pwd) if pwd == "ChangeMe123!" || pwd.len() < 8 => {
                 warn_count += 1;
                 items.push(
                     "⚠️  ADMIN_INITIAL_PASSWORD 使用預設值或過於簡短\n     \
-                     → 請在 .env 中設定一組高強度密碼。".to_string()
+                     → 請在 .env 中設定一組高強度密碼。"
+                        .to_string(),
                 );
             }
             _ => {
@@ -217,14 +219,16 @@ async fn main() -> anyhow::Result<()> {
                     warn_count += 1;
                     items.push(
                         "⚠️  SEED_DEV_USERS=true 但 TEST_USER_PASSWORD 未設定\n     \
-                         → 開發測試帳號將沒有可用密碼，請在 .env 中設定。".to_string()
+                         → 開發測試帳號將沒有可用密碼，請在 .env 中設定。"
+                            .to_string(),
                     );
                 }
                 Ok(pwd) if pwd.len() < 8 => {
                     warn_count += 1;
                     items.push(
                         "⚠️  TEST_USER_PASSWORD 長度不足 8 字元\n     \
-                         → 請設定一組較安全的測試密碼。".to_string()
+                         → 請設定一組較安全的測試密碼。"
+                            .to_string(),
                     );
                 }
                 _ => {
@@ -256,7 +260,8 @@ async fn main() -> anyhow::Result<()> {
                    ╠════════════════════════════════════════════════════════════╣\n\
                    {}\n\
                    ╚════════════════════════════════════════════════════════════╝",
-                header, numbered
+                header,
+                numbered
             );
         } else {
             tracing::info!(
@@ -265,7 +270,8 @@ async fn main() -> anyhow::Result<()> {
                    ╠════════════════════════════════════════════════════════════╣\n\
                    {}\n\
                    ╚════════════════════════════════════════════════════════════╝",
-                header, numbered
+                header,
+                numbered
             );
         }
     }
@@ -298,7 +304,9 @@ async fn main() -> anyhow::Result<()> {
     if config.trust_proxy_headers {
         tracing::info!("[Security] TRUST_PROXY_HEADERS=true - 信任反向代理 header");
     } else {
-        tracing::info!("[Security] TRUST_PROXY_HEADERS=false - 僅使用 socket IP（已忽略 proxy header）");
+        tracing::info!(
+            "[Security] TRUST_PROXY_HEADERS=false - 僅使用 socket IP（已忽略 proxy header）"
+        );
     }
 
     let state = AppState {
@@ -310,15 +318,27 @@ async fn main() -> anyhow::Result<()> {
     };
 
     // SEC-31: CORS Origin 從環境變數動態讀取
-    let origins: Vec<HeaderValue> = config.cors_allowed_origins
+    let origins: Vec<HeaderValue> = config
+        .cors_allowed_origins
         .iter()
         .filter_map(|o| o.parse::<HeaderValue>().ok())
         .collect();
     tracing::info!("[CORS] 允許的 Origin: {:?}", config.cors_allowed_origins);
     let cors = CorsLayer::new()
         .allow_origin(origins)
-        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS, Method::PATCH])
-        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION, header::HeaderName::from_static("x-csrf-token")])
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::DELETE,
+            Method::OPTIONS,
+            Method::PATCH,
+        ])
+        .allow_headers([
+            header::CONTENT_TYPE,
+            header::AUTHORIZATION,
+            header::HeaderName::from_static("x-csrf-token"),
+        ])
         .allow_credentials(true);
 
     // 建立 Trace 層
@@ -348,15 +368,21 @@ async fn main() -> anyhow::Result<()> {
         .layer(frame_deny)
         .layer(no_cache_api)
         .layer(DefaultBodyLimit::max(30 * 1024 * 1024)) // SEC-36: 全域 30MB 請求大小限制
-        .merge(utoipa_swagger_ui::SwaggerUi::new("/swagger-ui")
-            .url("/api-docs/openapi.json", <openapi::ApiDoc as utoipa::OpenApi>::openapi()));
+        .merge(utoipa_swagger_ui::SwaggerUi::new("/swagger-ui").url(
+            "/api-docs/openapi.json",
+            <openapi::ApiDoc as utoipa::OpenApi>::openapi(),
+        ));
 
     // 啟動伺服器
     let addr = format!("{}:{}", config.host, config.port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!("Server listening on {}", addr);
 
-    axum::serve(listener, app.into_make_service_with_connect_info::<std::net::SocketAddr>()).await?;
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await?;
 
     Ok(())
 }

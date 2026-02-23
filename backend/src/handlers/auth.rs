@@ -5,17 +5,18 @@ use axum::{
     Extension, Json,
 };
 use std::net::SocketAddr;
-use tracing;
 use validator::Validate;
 
 use crate::{
     config::Config,
-    middleware::{CurrentUser, extract_real_ip_with_trust},
+    middleware::{extract_real_ip_with_trust, CurrentUser},
     models::{
         ChangeOwnPasswordRequest, ForgotPasswordRequest, LoginRequest, LoginResponse,
         RefreshTokenRequest, ResetPasswordWithTokenRequest, UpdateUserRequest, UserResponse,
     },
-    services::{AuthService, AuditService, UserService, EmailService, LoginTracker, SessionManager},
+    services::{
+        AuditService, AuthService, EmailService, LoginTracker, SessionManager, UserService,
+    },
     AppError, AppState, Result,
 };
 
@@ -24,7 +25,12 @@ use crate::{
 // ============================================
 
 /// 建構認證 Cookie 的 Set-Cookie header 值
-pub(crate) fn build_set_cookie(name: &str, value: &str, max_age_secs: i64, config: &Config) -> String {
+pub(crate) fn build_set_cookie(
+    name: &str,
+    value: &str,
+    max_age_secs: i64,
+    config: &Config,
+) -> String {
     let mut cookie = format!(
         "{}={}; Path=/api; HttpOnly; SameSite=Lax; Max-Age={}",
         name, value, max_age_secs
@@ -56,10 +62,7 @@ fn extract_cookie_value(headers: &HeaderMap, name: &str) -> Option<String> {
 }
 
 /// 將 LoginResponse 附加 Set-Cookie headers 回傳
-fn login_response_with_cookies(
-    response: &LoginResponse,
-    config: &Config,
-) -> Response {
+fn login_response_with_cookies(response: &LoginResponse, config: &Config) -> Response {
     let access_cookie = build_set_cookie(
         "access_token",
         &response.access_token,
@@ -113,8 +116,9 @@ pub async fn login(
         .and_then(|v| v.to_str().ok())
         .map(|s| s.to_string());
 
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
-    
+    req.validate()
+        .map_err(|e| AppError::Validation(e.to_string()))?;
+
     // 嘗試登入
     let response = match AuthService::login(&state.db, &state.config, &req).await {
         Ok(resp) => {
@@ -127,7 +131,7 @@ pub async fn login(
             let ip_clone = ip.clone();
             let ua_clone = user_agent.clone();
             let max_sess = state.config.max_sessions_per_user;
-            
+
             tokio::spawn(async move {
                 if let Err(e) = LoginTracker::log_success(
                     &db,
@@ -137,16 +141,20 @@ pub async fn login(
                     ua_clone.as_deref(),
                     &geoip,
                     &broadcaster,
-                ).await {
+                )
+                .await
+                {
                     tracing::error!("Failed to log login success for {}: {}", email, e);
                 }
-                
+
                 if let Err(e) = SessionManager::create_session(
                     &db,
                     user_id,
                     Some(&ip_clone),
                     ua_clone.as_deref(),
-                ).await {
+                )
+                .await
+                {
                     tracing::error!("Failed to create session for {}: {}", email, e);
                 }
 
@@ -172,7 +180,7 @@ pub async fn login(
                                 ORDER BY started_at ASC
                                 LIMIT $2
                             )
-                            "#
+                            "#,
                         )
                         .bind(user_id)
                         .bind(excess)
@@ -182,7 +190,7 @@ pub async fn login(
                     _ => {}
                 }
             });
-            
+
             resp
         }
         Err(e) => {
@@ -194,7 +202,7 @@ pub async fn login(
             let ip_clone = ip.clone();
             let ua_clone = user_agent.clone();
             let err_msg = e.to_string();
-            
+
             tokio::spawn(async move {
                 if let Err(log_err) = LoginTracker::log_failure(
                     &db,
@@ -204,19 +212,20 @@ pub async fn login(
                     &err_msg,
                     &geoip,
                     &broadcaster,
-                ).await {
+                )
+                .await
+                {
                     tracing::error!("Failed to log login failure for {}: {}", email, log_err);
                 }
             });
-            
+
             return Err(e);
         }
     };
-    
+
     // 回傳 JSON + Set-Cookie headers
     Ok(login_response_with_cookies(&response, &state.config))
 }
-
 
 /// 重新整理 Token
 /// 支援從 JSON body 或 Cookie 讀取 refresh_token
@@ -241,7 +250,8 @@ pub async fn refresh_token(
         .or_else(|| extract_cookie_value(&headers, "refresh_token"))
         .ok_or_else(|| AppError::Validation("Missing refresh token".to_string()))?;
 
-    let response = AuthService::refresh_token(&state.db, &state.config, &refresh_token_value).await?;
+    let response =
+        AuthService::refresh_token(&state.db, &state.config, &refresh_token_value).await?;
     Ok(login_response_with_cookies(&response, &state.config))
 }
 
@@ -264,7 +274,10 @@ pub async fn logout(
 ) -> Result<Response> {
     // SEC-23: 將當前 JWT 加入黑名單，使其立即失效
     if !current_user.jti.is_empty() {
-        state.jwt_blacklist.revoke(current_user.jti.clone(), current_user.exp, &state.db).await;
+        state
+            .jwt_blacklist
+            .revoke(current_user.jti.clone(), current_user.exp, &state.db)
+            .await;
     }
 
     // 記錄登出事件
@@ -272,22 +285,22 @@ pub async fn logout(
         &state.db,
         current_user.id,
         &current_user.email,
-        Some(&extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers)),
-    ).await {
+        Some(&extract_real_ip_with_trust(
+            &headers,
+            &addr,
+            state.config.trust_proxy_headers,
+        )),
+    )
+    .await
+    {
         tracing::warn!("記錄登出事件失敗: {e}");
     }
 
-    
     // 結束所有 sessions
-    if let Err(e) = SessionManager::end_all_sessions(
-        &state.db,
-        current_user.id,
-        "logout",
-    ).await {
+    if let Err(e) = SessionManager::end_all_sessions(&state.db, current_user.id, "logout").await {
         tracing::warn!("結束所有 sessions 失敗: {e}");
     }
 
-    
     AuthService::logout(&state.db, current_user.id).await?;
 
     // 清除所有認證 Cookie
@@ -295,14 +308,23 @@ pub async fn logout(
     let response = Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "application/json")
-        .header(header::SET_COOKIE, build_clear_cookie("access_token", &state.config))
-        .header(header::SET_COOKIE, build_clear_cookie("refresh_token", &state.config))
-        .body(serde_json::to_string(&body).expect("登出 JSON 序列化不應失敗").into())
+        .header(
+            header::SET_COOKIE,
+            build_clear_cookie("access_token", &state.config),
+        )
+        .header(
+            header::SET_COOKIE,
+            build_clear_cookie("refresh_token", &state.config),
+        )
+        .body(
+            serde_json::to_string(&body)
+                .expect("登出 JSON 序列化不應失敗")
+                .into(),
+        )
         .expect("建構登出 Response 不應失敗");
 
     Ok(response)
 }
-
 
 /// 取得當前使用者資訊
 #[utoipa::path(
@@ -372,19 +394,32 @@ pub async fn change_own_password(
         current_user.id,
         &req.current_password,
         &req.new_password,
-    ).await?;
+    )
+    .await?;
 
     // SEC: 敏感操作二級審計 — 密碼自行變更
     let db = state.db.clone();
     let user_id = current_user.id;
     let ip_clone = ip.clone();
-    let ua = headers.get("user-agent").and_then(|v| v.to_str().ok()).map(|s| s.to_string());
+    let ua = headers
+        .get("user-agent")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
     tokio::spawn(async move {
         let _ = AuditService::log_activity(
-            &db, user_id, "SECURITY", "PASSWORD_SELF_CHANGE",
-            Some("user"), Some(user_id), None, None, None,
-            Some(&ip_clone), ua.as_deref(),
-        ).await;
+            &db,
+            user_id,
+            "SECURITY",
+            "PASSWORD_SELF_CHANGE",
+            Some("user"),
+            Some(user_id),
+            None,
+            None,
+            None,
+            Some(&ip_clone),
+            ua.as_deref(),
+        )
+        .await;
     });
 
     // 回傳新 tokens 的 Set-Cookie headers，保持用戶登入狀態
@@ -410,29 +445,32 @@ pub async fn forgot_password(
             // 非同步發送重設密碼郵件
             let config = state.config.clone();
             let email = req.email.clone();
-            
+
             // 查詢使用者名稱
             let user = UserService::get_by_id(&state.db, user_id).await?;
             let display_name = user.display_name.clone();
-            
+
             tokio::spawn(async move {
-                if let Err(e) = EmailService::send_password_reset_email(
-                    &config,
-                    &email,
-                    &display_name,
-                    &token,
-                ).await {
+                if let Err(e) =
+                    EmailService::send_password_reset_email(&config, &email, &display_name, &token)
+                        .await
+                {
                     tracing::error!("Failed to send password reset email to {}: {}", email, e);
                 }
             });
         }
         None => {
-            tracing::info!("Password reset requested for non-existent email: {}", req.email);
+            tracing::info!(
+                "Password reset requested for non-existent email: {}",
+                req.email
+            );
         }
     }
-    
+
     // 不管帳號存不存在都回覆相同訊息（防止帳號枚舉攻擊）
-    Ok(Json(serde_json::json!({ "message": "If the email exists, a reset link has been sent" })))
+    Ok(Json(
+        serde_json::json!({ "message": "If the email exists, a reset link has been sent" }),
+    ))
 }
 
 /// 使用 token 重設密碼
@@ -451,7 +489,9 @@ pub async fn reset_password_with_token(
     Json(req): Json<ResetPasswordWithTokenRequest>,
 ) -> Result<Json<serde_json::Value>> {
     AuthService::reset_password_with_token(&state.db, &req.token, &req.new_password).await?;
-    Ok(Json(serde_json::json!({ "message": "Password has been reset successfully" })))
+    Ok(Json(
+        serde_json::json!({ "message": "Password has been reset successfully" }),
+    ))
 }
 
 /// Heartbeat - 更新使用者 session 的最後活動時間與 IP
@@ -471,15 +511,15 @@ pub async fn heartbeat(
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<serde_json::Value>> {
     let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
-    
-    if let Err(e) = SessionManager::update_activity(
-        &state.db,
-        current_user.id,
-        Some(&ip),
-    ).await {
-        tracing::warn!("Failed to update session activity for user {}: {}", current_user.id, e);
+
+    if let Err(e) = SessionManager::update_activity(&state.db, current_user.id, Some(&ip)).await {
+        tracing::warn!(
+            "Failed to update session activity for user {}: {}",
+            current_user.id,
+            e
+        );
     }
-    
+
     Ok(Json(serde_json::json!({ "status": "ok" })))
 }
 
@@ -500,21 +540,25 @@ pub async fn stop_impersonate(
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Response> {
     // 檢查是否為模擬登入狀態
-    let admin_id = current_user.impersonated_by.ok_or_else(|| {
-        AppError::BusinessRule("目前不在模擬登入狀態".to_string())
-    })?;
+    let admin_id = current_user
+        .impersonated_by
+        .ok_or_else(|| AppError::BusinessRule("目前不在模擬登入狀態".to_string()))?;
 
     // SEC-23: 將當前模擬登入的 JWT 加入黑名單
     if !current_user.jti.is_empty() {
-        state.jwt_blacklist.revoke(current_user.jti.clone(), current_user.exp, &state.db).await;
+        state
+            .jwt_blacklist
+            .revoke(current_user.jti.clone(), current_user.exp, &state.db)
+            .await;
     }
 
     // 用管理員 ID 重新建立正常的 LoginResponse（不含 impersonated_by）
-    let login_response = AuthService::impersonate_restore(&state.db, &state.config, admin_id).await?;
+    let login_response =
+        AuthService::impersonate_restore(&state.db, &state.config, admin_id).await?;
 
     // 記錄稽核日誌
-    use crate::services::AuditService;
     use crate::models::AuditAction;
+    use crate::services::AuditService;
     AuditService::log(
         &state.db,
         admin_id,
@@ -527,11 +571,13 @@ pub async fn stop_impersonate(
             "admin_user_id": admin_id,
             "reason": "Admin stopped impersonation",
         })),
-    ).await?;
+    )
+    .await?;
 
     tracing::info!(
         "[Security] 停止模擬登入 - 管理員 {} 恢復身分（原模擬用戶 {}）",
-        admin_id, current_user.id
+        admin_id,
+        current_user.id
     );
 
     // 回傳管理員的 token + Set-Cookie headers
