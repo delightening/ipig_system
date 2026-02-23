@@ -18,10 +18,7 @@ all-features = true
 # 使用 RustSec Advisory Database
 # 發現已知漏洞時，CI 會失敗
 # 如需暫時忽略特定漏洞，在此加入 RUSTSEC ID
-ignore = [
-    # rsa 0.9.x 時序攻擊（sqlx-mysql 上游依賴，無修復版本）
-    "RUSTSEC-2023-0071",
-]
+ignore = []
 
 # ============================
 # 授權條款審查
@@ -41,20 +38,11 @@ allow = [
     "0BSD",
     "ISC",
     "Unicode-3.0",
-    "Unicode-DFS-2016",
     "Zlib",
-    "OpenSSL",
     "BSL-1.0",
-    "CC0-1.0",
-    "MPL-2.0",
     "CDLA-Permissive-2.0",
 ]
 
-# 針對特定 crate 的授權例外
-[[licenses.clarify]]
-name = "ring"
-expression = "MIT AND ISC AND OpenSSL"
-license-files = [{ path = "LICENSE", hash = 0xbd0eed23 }]
 
 # ============================
 # Crate 禁止/限制規則

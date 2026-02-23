@@ -17,7 +17,10 @@ pub fn api_routes(state: AppState) -> Router {
             "/auth/reset-password",
             post(handlers::reset_password_with_token),
         )
-        .route_layer(middleware::from_fn_with_state(state.clone(), auth_rate_limit_middleware))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_rate_limit_middleware,
+        ))
         .with_state(state.clone());
 
     // Protected routes (auth required)
@@ -608,7 +611,10 @@ pub fn api_routes(state: AppState) -> Router {
         )
         .route("/admin/audit/dashboard", get(handlers::get_audit_dashboard))
         // SSE 安全警報即時推送
-        .route("/admin/audit/alerts/sse", get(handlers::sse::sse_security_alerts))
+        .route(
+            "/admin/audit/alerts/sse",
+            get(handlers::sse::sse_security_alerts),
+        )
         // ============================================
         // Admin Notification Routing (通知路由管理)
         // ============================================
@@ -936,7 +942,17 @@ pub fn api_routes(state: AppState) -> Router {
         ))
         .with_state(state.clone());
 
-    Router::new()
-        .nest("/api", public_routes.merge(protected_routes))
-        .route_layer(middleware::from_fn_with_state(state, api_rate_limit_middleware))
+    // 健康檢查路由（不受 Rate Limiter 影響，確保監控系統可探測）
+    let health_route = Router::new()
+        .route("/api/health", get(handlers::health::health_check))
+        .with_state(state.clone());
+
+    health_route.merge(
+        Router::new()
+            .nest("/api", public_routes.merge(protected_routes))
+            .route_layer(middleware::from_fn_with_state(
+                state,
+                api_rate_limit_middleware,
+            )),
+    )
 }
