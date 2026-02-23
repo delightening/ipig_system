@@ -156,8 +156,11 @@ services:
       BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 2 * * *}
       RSYNC_TARGET: ${RSYNC_TARGET:-}
       BACKUP_ON_START: ${BACKUP_ON_START:-false}
+      # GPG 加密備份（設定收件者 Key ID 或 email，留空則不加密）
+      BACKUP_GPG_RECIPIENT: ${BACKUP_GPG_RECIPIENT:-}
     volumes:
       - db_backups:/backups
+      - ${UPLOAD_VOLUME:-./uploads}:/uploads:ro
     depends_on:
       db:
         condition: service_healthy
