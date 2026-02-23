@@ -942,9 +942,10 @@ pub fn api_routes(state: AppState) -> Router {
         ))
         .with_state(state.clone());
 
-    // 健康檢查路由（不受 Rate Limiter 影響，確保監控系統可探測）
+    // 健康檢查 + 指標路由（不受 Rate Limiter 影響，確保監控系統可探測）
     let health_route = Router::new()
         .route("/api/health", get(handlers::health::health_check))
+        .route("/metrics", get(handlers::metrics::metrics_handler))
         .with_state(state.clone());
 
     health_route.merge(

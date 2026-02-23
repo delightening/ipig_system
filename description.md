@@ -247,9 +247,9 @@ API 採用 `/api` 為根路徑，所有路由透過中間件層級控制：
 |------|------|----------|------|
 | Rust 單元測試 | 119 個通過 | 核心業務邏輯覆蓋率 ≥ 80% | 🔶 |
 | Python 整合測試 | 8 模組 (137 檔) | 關鍵流程 100% 覆蓋 | 🔶 |
-| 前端元件測試 | 0 | 核心表單 snapshot/integration test | 🔴 |
-| 前端 E2E 測試 | 0 | Playwright 覆蓋登入/AUP/打卡等關鍵流程 | 🔴 |
-| E2E CI 自動化 | 無 | `docker-compose.test.yml` + GitHub Actions | 🔴 |
+| 前端元件測試 | ✅ Vitest 已初始化 | 核心表單 snapshot/integration test | 🔶 |
+| 前端 E2E 測試 | ✅ Playwright 已初始化 | Playwright 覆蓋登入/AUP/打卡等關鍵流程 | 🔶 |
+| E2E CI 自動化 | ✅ CI 已整合 Vitest | `docker-compose.test.yml` + GitHub Actions | 🔶 |
 | 權限越權測試 | 部分整合測試覆蓋 | 全角色 × 全模組越權存取測試 | 🔶 |
 
 ### 7.2 可觀測性 (Observability)
@@ -258,7 +258,7 @@ API 採用 `/api` 為根路徑，所有路由透過中間件層級控制：
 |------|------|----------|------|
 | 健康檢查端點 `/health` | ✅ 已實作 | DB 連通性 + 延遲量測 | ✅ |
 | 結構化日誌 (JSON) | ✅ 條件式 JSON | JSON 格式 + Request ID 全鏈路追蹤 | ✅ |
-| Metrics 端點 `/metrics` | 無 | Prometheus 格式 (API 延遲、DB Pool、錯誤率) | 🔴 |
+| Metrics 端點 `/metrics` | ✅ Prometheus 已實作 | HTTP 指標 + DB Pool 狀態 | ✅ |
 | 錯誤監控 (Sentry 等) | 無 | 前後端錯誤即時通知 + 堆疊追蹤 | 🔴 |
 | 啟動配置檢查 | ✅ 已實作 | — | ✅ |
 
@@ -268,7 +268,7 @@ API 採用 `/api` 為根路徑，所有路由透過中間件層級控制：
 |------|------|----------|------|
 | 資料庫自動備份 | ✅ pg_dump + cron + rsync | — | ✅ |
 | 備份加密 | ✅ GPG 加密 | 透過 BACKUP_GPG_RECIPIENT 啟用 | ✅ |
-| 復原演練 | 未執行 | 定期演練並記錄文件，RPO < 1h、RTO < 4h | 🔴 |
+| 復原演練 | ✅ DR_RUNBOOK.md | RPO < 1h、RTO < 4h、演練記錄表 | ✅ |
 | 上傳檔案備份 | ✅ rsync 已整合 | db-backup 容器自動同步 /uploads | ✅ |
 | GeoIP 資料更新 | ✅ 更新腳本 | scripts/update_geoip.sh + SHA256 驗證 | ✅ |
 

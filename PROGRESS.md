@@ -1,5 +1,35 @@
 # 專案進度
 
+## 2026-02-23 正式上線準備 — 第三批基礎建設
+
+### 已完成（4 項）
+
+#### 7.2 可觀測性
+- ✅ Prometheus `/metrics` 端點（HTTP 指標 + DB Pool 狀態）
+
+#### 7.1 測試覆蓋率
+- ✅ 前端 Vitest 測試框架初始化（vitest.config.ts + smoke test + CI 整合）
+- ✅ Playwright E2E 框架初始化（3 瀏覽器 + 登入流程範例測試）
+
+#### 7.3 備份與災難復原
+- ✅ 災難復原手冊 `DR_RUNBOOK.md`（RPO/RTO 目標 + 多情境 SOP + 演練記錄表）
+
+### 變更檔案
+- `backend/Cargo.toml`（新增 metrics 依賴）
+- `backend/src/handlers/metrics.rs`（新增）
+- `backend/src/handlers/mod.rs`
+- `backend/src/routes.rs`
+- `backend/src/main.rs`（PrometheusBuilder 初始化）
+- `frontend/package.json`（新增 vitest/playwright 依賴與腳本）
+- `frontend/vitest.config.ts`（新增）
+- `frontend/src/__tests__/setup.ts`（新增）
+- `frontend/src/__tests__/smoke.test.ts`（新增）
+- `frontend/playwright.config.ts`（新增）
+- `frontend/e2e/login.spec.ts`（新增）
+- `.github/workflows/ci.yml`（新增 Vitest CI step）
+- `DR_RUNBOOK.md`（新增）
+- `description.md`（更新 §7 checklist）
+
 ## 2026-02-23 正式上線準備 — Beta 階段基礎建設
 
 ### 已完成（5 項）
