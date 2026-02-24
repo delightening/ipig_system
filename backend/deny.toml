@@ -18,7 +18,10 @@ all-features = true
 # 使用 RustSec Advisory Database
 # 發現已知漏洞時，CI 會失敗
 # 如需暫時忽略特定漏洞，在此加入 RUSTSEC ID
-ignore = []
+ignore = [
+    # proc-macro-error 不維護（utoipa 上游依賴，無替代方案）
+    "RUSTSEC-2024-0370",
+]
 
 # ============================
 # 授權條款審查
