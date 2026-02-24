@@ -259,27 +259,29 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build backend image
-        run: docker build --progress=plain -t ipig-api:ci ./backend
+        run: docker build --no-cache --progress=plain -t ipig-api:ci ./backend
 
       - name: Trivy 掃描後端映像
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.28.0
         with:
           image-ref: "ipig-api:ci"
           format: "table"
           severity: "CRITICAL,HIGH"
           exit-code: "1"
           ignore-unfixed: true
-          trivyignores: .trivyignore
+          trivyignore: .trivyignore
+          vuln-type: "os,library"
 
       - name: Build frontend image
-        run: docker build --progress=plain -t ipig-web:ci ./frontend
+        run: docker build --no-cache --progress=plain -t ipig-web:ci ./frontend
 
       - name: Trivy 掃描前端映像
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.28.0
         with:
           image-ref: "ipig-web:ci"
           format: "table"
           severity: "CRITICAL,HIGH"
           exit-code: "1"
           ignore-unfixed: true
-          trivyignores: .trivyignore
+          trivyignore: .trivyignore
+          vuln-type: "os,library"
