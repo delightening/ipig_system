@@ -75,11 +75,13 @@ export interface ProtocolListItem {
     apply_study_number?: string
 }
 
-export interface ProtocolResponse extends Protocol {
+export interface ProtocolResponse {
+    protocol: Protocol
     pi_name?: string
     pi_email?: string
     pi_organization?: string
     status_display: string
+    vet_review?: any // 獸醫審查指派資訊
 }
 
 export interface ProtocolVersion {

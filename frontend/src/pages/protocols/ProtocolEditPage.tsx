@@ -83,7 +83,7 @@ export function ProtocolEditPage() {
   // 檢查是否為執行秘書角色（IACUC_STAFF）
   const isIACUCStaff = user?.roles?.some(r => ['IACUC_STAFF', 'SYSTEM_ADMIN'].includes(r))
 
-  const { data: protocol, isLoading } = useQuery({
+  const { data: protocolResponse, isLoading } = useQuery({
     queryKey: ['protocol', id],
     queryFn: async () => {
       const response = await api.get<ProtocolResponse>(`/protocols/${id}`)
@@ -91,6 +91,8 @@ export function ProtocolEditPage() {
     },
     enabled: !isNew,
   })
+
+  const protocol = protocolResponse?.protocol
 
   const { data: staffMembers = [] } = useQuery({
     queryKey: ['staff'],
@@ -142,17 +144,16 @@ export function ProtocolEditPage() {
 
   useEffect(() => {
     if (protocol) {
-      setFormData(() => {
+      setFormData((prev) => {
         // 使用遞歸合併確保新欄位被保留
-        const mergedWorkingContent = protocol.working_content
-          ? deepMerge(defaultFormData.working_content, protocol.working_content)
-          : defaultFormData.working_content
+        const serverContent = protocol.working_content || {}
+        const mergedWorkingContent = deepMerge(defaultFormData.working_content, serverContent)
 
         // 如果機構名稱或位置為空，使用預設值
         if (mergedWorkingContent.basic) {
           if (!mergedWorkingContent.basic.facility?.title || !mergedWorkingContent.basic.facility.title.trim()) {
             mergedWorkingContent.basic.facility = {
-              ...mergedWorkingContent.basic.facility,
+              ...(mergedWorkingContent.basic.facility || {}),
               title: t('aup.defaults.facilityName')
             }
           }
@@ -183,21 +184,21 @@ export function ProtocolEditPage() {
         }
 
         // 確保人道終點有預設內容
-        if (mergedWorkingContent.design && mergedWorkingContent.design.endpoints) {
+        if (mergedWorkingContent.design?.endpoints) {
           if (!mergedWorkingContent.design.endpoints.humane_endpoint || !mergedWorkingContent.design.endpoints.humane_endpoint.trim()) {
             mergedWorkingContent.design.endpoints.humane_endpoint = t('aup.defaults.humaneEndpoint')
           }
         }
 
         // 確保動物屍體處理方法有預設內容
-        if (mergedWorkingContent.design && mergedWorkingContent.design.carcass_disposal) {
+        if (mergedWorkingContent.design?.carcass_disposal) {
           if (!mergedWorkingContent.design.carcass_disposal.method || !mergedWorkingContent.design.carcass_disposal.method.trim()) {
             mergedWorkingContent.design.carcass_disposal.method = t('aup.defaults.carcassDisposal')
           }
         }
 
         // 確保 hazards.materials 中的 photos 字段存在
-        if (mergedWorkingContent.design && mergedWorkingContent.design.hazards && mergedWorkingContent.design.hazards.materials) {
+        if (mergedWorkingContent.design?.hazards?.materials) {
           mergedWorkingContent.design.hazards.materials = mergedWorkingContent.design.hazards.materials.map((item: any) => ({
             ...item,
             photos: item.photos || []
@@ -205,7 +206,7 @@ export function ProtocolEditPage() {
         }
 
         // 確保 controlled_substances.items 中的 photos 字段存在
-        if (mergedWorkingContent.design && mergedWorkingContent.design.controlled_substances && mergedWorkingContent.design.controlled_substances.items) {
+        if (mergedWorkingContent.design?.controlled_substances?.items) {
           mergedWorkingContent.design.controlled_substances.items = mergedWorkingContent.design.controlled_substances.items.map((item: any) => ({
             ...item,
             photos: item.photos || []
@@ -224,102 +225,32 @@ export function ProtocolEditPage() {
           }))
         }
 
-        // 確保 attachments 格式正確，轉換為 FileInfo 格式
+        // 確保 attachments 格式正確
         if (mergedWorkingContent.attachments) {
           mergedWorkingContent.attachments = (mergedWorkingContent.attachments as any[]).map((att: any) => {
-            if (att.id && att.file_name && att.file_path !== undefined) {
+            if (att.id && att.file_name) {
               return {
                 id: att.id,
                 file_name: att.file_name,
-                file_path: att.file_path,
+                file_path: att.file_path || '',
                 file_size: att.file_size || 0,
                 file_type: att.file_type || att.mime_type || 'application/pdf',
                 created_at: att.created_at
-              } as FileInfo
-            }
-            if (att.name && att.type) {
-              return {
-                id: `legacy-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                file_name: att.name,
-                file_path: '',
-                file_size: 0,
-                file_type: att.type
-              } as FileInfo
+              }
             }
             return att
-          }).filter(Boolean)
-        } else {
-          mergedWorkingContent.attachments = []
-        }
-
-        // 根據 4.1.1 的選擇自動處理手術計劃書
-        if (mergedWorkingContent.design && mergedWorkingContent.design.anesthesia && mergedWorkingContent.surgery) {
-          const anesthesiaType = mergedWorkingContent.design.anesthesia.anesthesia_type
-          const needsSurgeryPlan = mergedWorkingContent.design.anesthesia.is_under_anesthesia === true &&
-            (anesthesiaType === 'survival_surgery' || anesthesiaType === 'non_survival_surgery')
-
-          if (needsSurgeryPlan) {
-            if (anesthesiaType === 'survival_surgery') {
-              mergedWorkingContent.surgery.surgery_type = 'survival'
-            } else if (anesthesiaType === 'non_survival_surgery') {
-              mergedWorkingContent.surgery.surgery_type = 'non_survival'
-            }
-            if (!mergedWorkingContent.surgery.preop_preparation || mergedWorkingContent.surgery.preop_preparation.trim() === '') {
-              mergedWorkingContent.surgery.preop_preparation = t('aup.defaults.preop_Preparation')
-            }
-            if (!mergedWorkingContent.surgery.surgery_description || mergedWorkingContent.surgery.surgery_description.trim() === '') {
-              mergedWorkingContent.surgery.surgery_description = t('aup.defaults.surgeryDescription')
-            }
-            if (!mergedWorkingContent.surgery.monitoring || mergedWorkingContent.surgery.monitoring.trim() === '') {
-              mergedWorkingContent.surgery.monitoring = t('aup.defaults.monitoring')
-            }
-          } else {
-            if (!mergedWorkingContent.surgery.surgery_type || mergedWorkingContent.surgery.surgery_type.trim() === '') {
-              mergedWorkingContent.surgery.surgery_type = t('aup.defaults.omitted')
-            }
-            if (!mergedWorkingContent.surgery.preop_preparation || mergedWorkingContent.surgery.preop_preparation.trim() === '') {
-              mergedWorkingContent.surgery.preop_preparation = t('aup.defaults.omitted')
-            }
-            if (!mergedWorkingContent.surgery.surgery_description || mergedWorkingContent.surgery.surgery_description.trim() === '') {
-              mergedWorkingContent.surgery.surgery_description = t('aup.defaults.omitted')
-            }
-            if (!mergedWorkingContent.surgery.monitoring || mergedWorkingContent.surgery.monitoring.trim() === '') {
-              mergedWorkingContent.surgery.monitoring = t('aup.defaults.omitted')
-            }
-            if (!mergedWorkingContent.surgery.postop_expected_impact || mergedWorkingContent.surgery.postop_expected_impact.trim() === '') {
-              mergedWorkingContent.surgery.postop_expected_impact = t('aup.defaults.omitted')
-            }
-            if (!mergedWorkingContent.surgery.postop_care || mergedWorkingContent.surgery.postop_care.trim() === '') {
-              mergedWorkingContent.surgery.postop_care = t('aup.defaults.postopCareTemplate')
-            }
-            if (!mergedWorkingContent.surgery.expected_end_point || mergedWorkingContent.surgery.expected_end_point.trim() === '') {
-              mergedWorkingContent.surgery.expected_end_point = t('aup.defaults.omitted')
-            }
-            if (!mergedWorkingContent.surgery.drugs || mergedWorkingContent.surgery.drugs.length === 0) {
-              mergedWorkingContent.surgery.drugs = []
-            }
-            if (!mergedWorkingContent.surgery.drugs || mergedWorkingContent.surgery.drugs.length === 0) {
-              const drugDefaults = t('aup.defaults.drugDefaults', { returnObjects: true }) as any[]
-              mergedWorkingContent.surgery.drugs = drugDefaults.map(d => ({
-                drug_name: d.name,
-                dose: d.dose,
-                route: d.route,
-                frequency: d.frequency,
-                purpose: d.purpose
-              }))
-            }
-          }
+          })
         }
 
         return {
-          title: protocol.title,
-          start_date: protocol.start_date || '',
-          end_date: protocol.end_date || '',
+          title: protocol.title || prev.title,
+          start_date: protocol.start_date || prev.start_date || '',
+          end_date: protocol.end_date || prev.end_date || '',
           working_content: mergedWorkingContent as FormData['working_content'],
         }
       })
     }
-  }, [protocol])
+  }, [protocol, t])
 
   const createMutation = useMutation({
     mutationFn: async (data: CreateProtocolRequest) => api.post('/protocols', data),

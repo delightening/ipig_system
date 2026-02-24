@@ -146,7 +146,7 @@ export function MyProjectDetailPage() {
     )
   }
 
-  const workingContent = protocol.working_content as any
+  const workingContent = protocol.protocol.working_content as any
 
   return (
     <div className="space-y-6">
@@ -158,13 +158,13 @@ export function MyProjectDetailPage() {
           </Button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold">{protocol.title}</h1>
-              <Badge variant={statusColors[protocol.status]} className="text-sm">
-                {t(`protocols.status.${protocol.status}`)}
+              <h1 className="text-2xl font-bold">{protocol.protocol.title}</h1>
+              <Badge variant={statusColors[protocol.protocol.status]} className="text-sm">
+                {t(`protocols.status.${protocol.protocol.status}`)}
               </Badge>
             </div>
             <p className="text-muted-foreground mt-1">
-              {protocol.iacuc_no ? `IACUC No.: ${protocol.iacuc_no}` : 'IACUC No.: 尚未核發'}
+              {protocol.protocol.iacuc_no ? `IACUC No.: ${protocol.protocol.iacuc_no}` : 'IACUC No.: 尚未核發'}
             </p>
           </div>
         </div>
@@ -173,7 +173,7 @@ export function MyProjectDetailPage() {
             <Download className="mr-2 h-4 w-4" />
             下載 PDF
           </Button>
-          {(protocol.status === 'APPROVED' || protocol.status === 'APPROVED_WITH_CONDITIONS') && (
+          {(protocol.protocol.status === 'APPROVED' || protocol.protocol.status === 'APPROVED_WITH_CONDITIONS') && (
             <Button
               variant="outline"
               onClick={() => setShowCloseDialog(true)}
@@ -190,12 +190,12 @@ export function MyProjectDetailPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <FileText className="h-4 w-4 text-blue-500" />
-              {protocol.iacuc_no?.startsWith('APIG-') ? 'APIG 編號' : 'IACUC 編號'}
+              {protocol.protocol.iacuc_no?.startsWith('APIG-') ? 'APIG 編號' : 'IACUC 編號'}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xl font-bold text-orange-600">
-              {protocol.iacuc_no || '尚未核發'}
+              {protocol.protocol.iacuc_no || '尚未核發'}
             </p>
           </CardContent>
         </Card>
@@ -230,8 +230,8 @@ export function MyProjectDetailPage() {
           </CardHeader>
           <CardContent>
             <p className="text-lg font-semibold">
-              {protocol.start_date && protocol.end_date
-                ? `${formatDate(protocol.start_date)} ~ ${formatDate(protocol.end_date)}`
+              {protocol.protocol.start_date && protocol.protocol.end_date
+                ? `${formatDate(protocol.protocol.start_date)} ~ ${formatDate(protocol.protocol.end_date)}`
                 : '尚未設定'}
             </p>
           </CardContent>
