@@ -66,6 +66,7 @@ import { ExportDialog } from '@/components/animal/ExportDialog'
 import { ImportDialog } from '@/components/animal/ImportDialog'
 import { QuickEditAnimalDialog } from '@/components/animal/QuickEditAnimalDialog'
 import { AnimalPenReport } from '../../components/animal/AnimalPenReport'
+import { DatePicker } from '@/components/ui/date-picker'
 
 const statusColors: Record<AnimalStatus, string> = {
   unassigned: 'bg-gray-100 text-gray-800',
@@ -1492,21 +1493,17 @@ export function AnimalsPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="entry_date">進場日期 *</Label>
-              <Input
-                id="entry_date"
-                type="date"
+              <Label>{t('animals.entryDate')} *</Label>
+              <DatePicker
                 value={newAnimal.entry_date}
-                onChange={(e) => setNewAnimal({ ...newAnimal, entry_date: e.target.value })}
+                onChange={(value) => setNewAnimal({ ...newAnimal, entry_date: value })}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="birth_date">出生日期 *</Label>
-              <Input
-                id="birth_date"
-                type="date"
+              <Label>{t('animals.birthDate')} *</Label>
+              <DatePicker
                 value={newAnimal.birth_date}
-                onChange={(e) => setNewAnimal({ ...newAnimal, birth_date: e.target.value })}
+                onChange={(value) => setNewAnimal({ ...newAnimal, birth_date: value })}
               />
             </div>
             <div className="space-y-2">
@@ -1696,21 +1693,17 @@ export function AnimalsPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="quick_entry_date">進場日期 *</Label>
-              <Input
-                id="quick_entry_date"
-                type="date"
+              <Label>{t('animals.entryDate')} *</Label>
+              <DatePicker
                 value={quickAddForm.entry_date}
-                onChange={(e) => setQuickAddForm({ ...quickAddForm, entry_date: e.target.value })}
+                onChange={(value) => setQuickAddForm({ ...quickAddForm, entry_date: value })}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="quick_birth_date">出生日期 *</Label>
-              <Input
-                id="quick_birth_date"
-                type="date"
+              <Label>{t('animals.birthDate')} *</Label>
+              <DatePicker
                 value={quickAddForm.birth_date}
-                onChange={(e) => setQuickAddForm({ ...quickAddForm, birth_date: e.target.value })}
+                onChange={(value) => setQuickAddForm({ ...quickAddForm, birth_date: value })}
               />
             </div>
             <div className="space-y-2">

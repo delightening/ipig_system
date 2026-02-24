@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/components/ui/use-toast'
+import { DatePicker } from '@/components/ui/date-picker'
 import {
     User as UserIcon,
     GraduationCap,
@@ -268,11 +269,9 @@ export function ProfileSettingsPage() {
                                         <Label htmlFor="entry_date" className="flex items-center gap-2">
                                             <History className="h-4 w-4 text-slate-400" /> {t('profile.entryDate')}
                                         </Label>
-                                        <Input
-                                            id="entry_date"
-                                            type="date"
+                                        <DatePicker
                                             value={formData.entry_date || ''}
-                                            onChange={e => setFormData({ ...formData, entry_date: e.target.value })}
+                                            onChange={val => setFormData({ ...formData, entry_date: val })}
                                         />
                                     </div>
                                     <div className="space-y-2">
@@ -415,12 +414,9 @@ export function ProfileSettingsPage() {
                                                         />
                                                     </div>
                                                     <div className="md:col-span-5">
-                                                        <Input
-                                                            type="date"
+                                                        <DatePicker
                                                             value={training.received_date || ''}
-                                                            onChange={(e) => updateTrainingDetail(training.code, 'received_date', e.target.value)}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                            className="bg-white"
+                                                            onChange={(val) => updateTrainingDetail(training.code, 'received_date', val)}
                                                         />
                                                     </div>
                                                 </div>

@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/use-toast'
+import { DatePicker } from '@/components/ui/date-picker'
 import type { AttendanceWithUser } from '@/types/hr'
 
 interface PaginatedResponse<T> {
@@ -298,16 +299,14 @@ export function HrAttendancePage() {
                 {/* 出勤記錄 */}
                 <TabsContent value="history" className="space-y-4">
                     <div className="flex gap-4">
-                        <Input
-                            type="date"
+                        <DatePicker
                             value={dateFrom}
-                            onChange={(e) => setDateFrom(e.target.value)}
+                            onChange={setDateFrom}
                             placeholder="開始日期"
                         />
-                        <Input
-                            type="date"
+                        <DatePicker
                             value={dateTo}
-                            onChange={(e) => setDateTo(e.target.value)}
+                            onChange={setDateTo}
                             placeholder="結束日期"
                         />
                         <Button

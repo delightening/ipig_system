@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, Calendar } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@radix-ui/react-popover"
+import { Input } from "@/components/ui/input"
 
 interface DatePickerProps {
     value: string // ISO date string (YYYY-MM-DD)
@@ -13,6 +14,7 @@ interface DatePickerProps {
     placeholder?: string
     required?: boolean
     className?: string
+    disabled?: boolean
 }
 
 export function DatePicker({
@@ -21,16 +23,12 @@ export function DatePicker({
     placeholder,
     required,
     className,
+    disabled,
 }: DatePickerProps) {
     const { t, i18n } = useTranslation()
     const [open, setOpen] = React.useState(false)
-    const [viewDate, setViewDate] = React.useState(() => {
-        if (value) {
-            const parsed = parse(value, 'yyyy-MM-dd', new Date())
-            return isValid(parsed) ? parsed : new Date()
-        }
-        return new Date()
-    })
+    const [inputValue, setInputValue] = React.useState("")
+    const [viewDate, setViewDate] = React.useState(new Date())
 
     // Get the correct locale based on i18n language
     const locale = i18n.language === 'zh-TW' ? zhTW : enUS
@@ -42,12 +40,50 @@ export function DatePicker({
         return isValid(parsed) ? parsed : null
     }, [value])
 
-    // Update viewDate when selectedDate changes
+    // Update internal state when external value changes
     React.useEffect(() => {
-        if (selectedDate) {
-            setViewDate(selectedDate)
+        if (value) {
+            const parsed = parse(value, 'yyyy-MM-dd', new Date())
+            if (isValid(parsed)) {
+                setInputValue(format(parsed, 'yyyy-MM-dd'))
+                setViewDate(parsed)
+            }
+        } else {
+            setInputValue("")
         }
-    }, [selectedDate])
+    }, [value])
+
+    // Handle manual input
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value
+        setInputValue(val)
+
+        // Try various formats
+        const formats = ['yyyy-MM-dd', 'yyyy/MM/dd', 'yyyyMMdd', 'yyyy.MM.dd']
+        let parsedDate: Date | null = null
+
+        for (const fmt of formats) {
+            const parsed = parse(val, fmt, new Date())
+            if (isValid(parsed) && val.length >= 8) {
+                // Ensure the year is reasonable (e.g. 4 digits)
+                const year = parsed.getFullYear()
+                if (year > 1000 && year < 3000) {
+                    parsedDate = parsed
+                    break
+                }
+            }
+        }
+
+        if (parsedDate) {
+            const isoString = format(parsedDate, 'yyyy-MM-dd')
+            if (isoString !== value) {
+                onChange(isoString)
+                setViewDate(parsedDate)
+            }
+        } else if (val === "") {
+            onChange("")
+        }
+    }
 
     // Get calendar days for the current month view
     const calendarDays = React.useMemo(() => {
@@ -69,18 +105,23 @@ export function DatePicker({
     }, [locale])
 
     const handleDateSelect = (date: Date) => {
-        onChange(format(date, 'yyyy-MM-dd'))
+        const isoString = format(date, 'yyyy-MM-dd')
+        onChange(isoString)
+        setInputValue(isoString)
         setOpen(false)
     }
 
     const handleClear = () => {
         onChange('')
+        setInputValue('')
         setOpen(false)
     }
 
     const handleToday = () => {
         const today = new Date()
-        onChange(format(today, 'yyyy-MM-dd'))
+        const isoString = format(today, 'yyyy-MM-dd')
+        onChange(isoString)
+        setInputValue(isoString)
         setViewDate(today)
         setOpen(false)
     }
@@ -93,31 +134,31 @@ export function DatePicker({
         setViewDate(prev => addMonths(prev, 1))
     }
 
-    // Format display value
-    const displayValue = selectedDate
-        ? format(selectedDate, 'yyyy/MM/dd', { locale })
-        : ''
-
     return (
         <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <button
-                    type="button"
-                    className={cn(
-                        "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                        "disabled:cursor-not-allowed disabled:opacity-50",
-                        "items-center justify-between text-left",
-                        !displayValue && "text-muted-foreground",
-                        className
-                    )}
-                >
-                    <span>{displayValue || placeholder || t('datePicker.placeholder', 'Select date')}</span>
-                    <Calendar className="h-4 w-4 opacity-50" />
-                </button>
-            </PopoverTrigger>
+            <div className={cn("relative flex items-center", className)}>
+                <Input
+                    type="text"
+                    value={inputValue}
+                    onChange={handleInputChange}
+                    placeholder={placeholder || t('datePicker.placeholder', 'Select date')}
+                    required={required}
+                    disabled={disabled}
+                    className="pr-10" // Space for the calendar icon
+                    onFocus={() => setOpen(true)}
+                />
+                <PopoverTrigger asChild>
+                    <button
+                        type="button"
+                        disabled={disabled}
+                        className="absolute right-3 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                    >
+                        <Calendar className="h-4 w-4" />
+                    </button>
+                </PopoverTrigger>
+            </div>
             <PopoverContent
-                className="w-auto p-0 bg-white rounded-md border shadow-lg z-50"
+                className="w-auto p-0 bg-white rounded-md border shadow-lg z-[100]"
                 align="start"
                 sideOffset={4}
             >
