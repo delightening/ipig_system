@@ -25,7 +25,6 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from '@/components/ui/use-toast'
-import { DatePicker } from '@/components/ui/date-picker'
 import {
   ArrowLeft,
   Loader2,
@@ -335,12 +334,12 @@ export function AnimalEditPage() {
               </div>
 
 
-              {/* 實驗日期 */}
               <div className="space-y-2">
                 <Label>實驗日期</Label>
-                <DatePicker
+                <Input
+                  type="date"
                   value={formData.experiment_date?.split('T')[0] || ''}
-                  onChange={(val) => handleChange('experiment_date', val)}
+                  onChange={(e) => handleChange('experiment_date', e.target.value)}
                 />
               </div>
 

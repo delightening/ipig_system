@@ -1,5 +1,26 @@
 # 專案進度
 
+## 2026-02-24 解決資料庫轉型歧義 (Ambiguous Cast)
+
+### 已完成
+
+- ✅ **精確轉型策略**：
+  - 建立 `013_fix_cast_ambiguity.sql` 遷移檔。
+  - 將 012 建立的 `IMPLICIT` CAST 降級為 `ASSIGNMENT` CAST。
+  - 解決「operator is not unique: record_type = record_type」導致頁面報錯的問題。
+- ✅ **後端代碼優化**：
+  - 修正 `core.rs`、`observation.rs`、`surgery.rs` 中的 SQL 查詢。
+  - 明確指定表別名與顯式型別轉換。
+
+### 變更檔案
+
+- `backend/migrations/013_fix_cast_ambiguity.sql` (新增)
+- `backend/src/services/animal/core.rs`
+- `backend/src/services/animal/observation.rs`
+- `backend/src/services/animal/surgery.rs`
+- `PROGRESS.md`
+- `TODO.md`
+
 ## 2026-02-24 修復 Trivy 容器安全掃描失敗 (進階修復)
 
 ### 已完成

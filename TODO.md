@@ -2,11 +2,12 @@
 
 ## 優先級：高 (P0)
 
-### [ ] 資料庫轉型修復 (In Progress)
+### [x] 資料庫轉型修復 (Completed)
 
 - [x] 調查 `version_record_type = text` 運算子錯誤
 - [x] 建立 `012_fix_enum_casts.sql` 遷移檔
-- [ ] 執行遷移並驗證
+- [x] 解決轉型歧義並修正代碼 (Migration 013)
+- [x] 執行遷移並驗證
 
 ## 優先級：中 (P1)
 

@@ -10,7 +10,6 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/components/ui/use-toast'
-import { DatePicker } from '@/components/ui/date-picker'
 import {
     User as UserIcon,
     GraduationCap,
@@ -269,9 +268,11 @@ export function ProfileSettingsPage() {
                                         <Label htmlFor="entry_date" className="flex items-center gap-2">
                                             <History className="h-4 w-4 text-slate-400" /> {t('profile.entryDate')}
                                         </Label>
-                                        <DatePicker
+                                        <Input
+                                            id="entry_date"
+                                            type="date"
                                             value={formData.entry_date || ''}
-                                            onChange={val => setFormData({ ...formData, entry_date: val })}
+                                            onChange={e => setFormData({ ...formData, entry_date: e.target.value })}
                                         />
                                     </div>
                                     <div className="space-y-2">
@@ -414,9 +415,10 @@ export function ProfileSettingsPage() {
                                                         />
                                                     </div>
                                                     <div className="md:col-span-5">
-                                                        <DatePicker
+                                                        <Input
+                                                            type="date"
                                                             value={training.received_date || ''}
-                                                            onChange={(val) => updateTrainingDetail(training.code, 'received_date', val)}
+                                                            onChange={(e) => updateTrainingDetail(training.code, 'received_date', e.target.value)}
                                                         />
                                                     </div>
                                                 </div>

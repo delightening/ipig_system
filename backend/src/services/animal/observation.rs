@@ -5,7 +5,7 @@ use uuid::Uuid;
 use super::AnimalService;
 use crate::{
     models::{
-        CreateObservationRequest, ObservationListItem, AnimalObservation, UpdateObservationRequest,
+        AnimalObservation, CreateObservationRequest, ObservationListItem, UpdateObservationRequest,
     },
     AppError, Result,
 };
@@ -16,7 +16,11 @@ impl AnimalService {
     // ============================================
 
     /// 取得觀察紀錄列表（排除已刪除，支援資料隔離）
-    pub async fn list_observations(pool: &PgPool, animal_id: Uuid, after: Option<DateTime<Utc>>) -> Result<Vec<AnimalObservation>> {
+    pub async fn list_observations(
+        pool: &PgPool,
+        animal_id: Uuid,
+        after: Option<DateTime<Utc>>,
+    ) -> Result<Vec<AnimalObservation>> {
         let observations = sqlx::query_as::<_, AnimalObservation>(
             "SELECT * FROM animal_observations WHERE animal_id = $1 AND ($2::timestamptz IS NULL OR created_at > $2) ORDER BY event_date DESC"
         )
@@ -29,14 +33,18 @@ impl AnimalService {
     }
 
     /// 取得觀察紀錄列表（含獸醫師建議數量，支援資料隔離）
-    pub async fn list_observations_with_recommendations(pool: &PgPool, animal_id: Uuid, after: Option<DateTime<Utc>>) -> Result<Vec<ObservationListItem>> {
+    pub async fn list_observations_with_recommendations(
+        pool: &PgPool,
+        animal_id: Uuid,
+        after: Option<DateTime<Utc>>,
+    ) -> Result<Vec<ObservationListItem>> {
         let observations = sqlx::query_as::<_, ObservationListItem>(
             r#"
             SELECT 
                 o.id, o.animal_id, o.event_date, o.record_type, o.content,
                 o.no_medication_needed, o.vet_read, o.vet_read_at,
                 o.created_by, o.created_at,
-                (SELECT COUNT(*) FROM vet_recommendations vr WHERE vr.record_type = 'observation' AND vr.record_id = o.id) as recommendation_count
+                (SELECT COUNT(*) FROM vet_recommendations vr WHERE vr.record_type = 'observation'::vet_record_type AND vr.record_id = o.id) as recommendation_count
             FROM animal_observations o
             WHERE o.animal_id = $1 AND ($2::timestamptz IS NULL OR o.created_at > $2)
             ORDER BY o.event_date DESC
@@ -53,7 +61,7 @@ impl AnimalService {
     /// 取得單一觀察紀錄
     pub async fn get_observation_by_id(pool: &PgPool, id: Uuid) -> Result<AnimalObservation> {
         let observation = sqlx::query_as::<_, AnimalObservation>(
-            "SELECT * FROM animal_observations WHERE id = $1"
+            "SELECT * FROM animal_observations WHERE id = $1",
         )
         .bind(id)
         .fetch_optional(pool)
@@ -86,7 +94,7 @@ impl AnimalService {
             )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
             RETURNING *
-            "#
+            "#,
         )
         .bind(animal_id)
         .bind(req.event_date)
@@ -117,7 +125,7 @@ impl AnimalService {
     ) -> Result<AnimalObservation> {
         // 先取得原始紀錄用於版本歷史
         let original = Self::get_observation_by_id(pool, id).await?;
-        
+
         // 保存版本歷史
         Self::save_record_version(pool, "observation", id, &original, updated_by).await?;
 
@@ -136,7 +144,7 @@ impl AnimalService {
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
-            "#
+            "#,
         )
         .bind(id)
         .bind(req.event_date)
@@ -156,24 +164,27 @@ impl AnimalService {
 
     /// 刪除觀察紀錄
     pub async fn soft_delete_observation(pool: &PgPool, id: Uuid) -> Result<()> {
-        sqlx::query(
-            "DELETE FROM animal_observations WHERE id = $1"
-        )
-        .bind(id)
-        .execute(pool)
-        .await?;
+        sqlx::query("DELETE FROM animal_observations WHERE id = $1")
+            .bind(id)
+            .execute(pool)
+            .await?;
 
         Ok(())
     }
 
     /// 軟刪除觀察紀錄（含刪除原因）- GLP 合規
-    pub async fn soft_delete_observation_with_reason(pool: &PgPool, id: Uuid, reason: &str, deleted_by: Uuid) -> Result<()> {
+    pub async fn soft_delete_observation_with_reason(
+        pool: &PgPool,
+        id: Uuid,
+        reason: &str,
+        deleted_by: Uuid,
+    ) -> Result<()> {
         // 記錄到 change_reasons 表
         sqlx::query(
             r#"
             INSERT INTO change_reasons (entity_type, entity_id, change_type, reason, changed_by)
             VALUES ('observation', $1::text, 'DELETE', $2, $3)
-            "#
+            "#,
         )
         .bind(id)
         .bind(reason)
@@ -189,7 +200,7 @@ impl AnimalService {
                 deletion_reason = $2,
                 deleted_by = $3
             WHERE id = $1 AND deleted_at IS NULL
-            "#
+            "#,
         )
         .bind(id)
         .bind(reason)
@@ -218,7 +229,7 @@ impl AnimalService {
             )
             VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
             RETURNING *
-            "#
+            "#,
         )
         .bind(animal_id)
         .bind(source.record_type)
@@ -237,7 +248,11 @@ impl AnimalService {
     }
 
     /// 標記觀察紀錄獸醫師已讀
-    pub async fn mark_observation_vet_read(pool: &PgPool, id: Uuid, vet_user_id: Uuid) -> Result<()> {
+    pub async fn mark_observation_vet_read(
+        pool: &PgPool,
+        id: Uuid,
+        vet_user_id: Uuid,
+    ) -> Result<()> {
         // 更新紀錄本身
         sqlx::query(
             "UPDATE animal_observations SET vet_read = true, vet_read_at = NOW(), updated_at = NOW() WHERE id = $1"
@@ -252,7 +267,7 @@ impl AnimalService {
             INSERT INTO observation_vet_reads (observation_id, vet_user_id, read_at)
             VALUES ($1, $2, NOW())
             ON CONFLICT (observation_id, vet_user_id) DO UPDATE SET read_at = NOW()
-            "#
+            "#,
         )
         .bind(id)
         .bind(vet_user_id)

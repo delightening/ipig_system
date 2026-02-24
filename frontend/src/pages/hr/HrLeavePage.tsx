@@ -48,7 +48,6 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
-import { DatePicker } from '@/components/ui/date-picker'
 import {
     BalanceSummary,
     LeaveRequestWithUser,
@@ -410,16 +409,18 @@ export function HrLeavePage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="grid gap-2">
                                     <Label>開始日期 *</Label>
-                                    <DatePicker
+                                    <Input
+                                        type="date"
                                         value={startDate}
-                                        onChange={handleStartDateChange}
+                                        onChange={(e) => handleStartDateChange(e.target.value)}
                                     />
                                 </div>
                                 <div className="grid gap-2">
                                     <Label>結束日期 *</Label>
-                                    <DatePicker
+                                    <Input
+                                        type="date"
                                         value={endDate}
-                                        onChange={handleEndDateChange}
+                                        onChange={(e) => handleEndDateChange(e.target.value)}
                                     />
                                 </div>
                             </div>
@@ -801,17 +802,19 @@ export function HrLeavePage() {
                                     </div>
                                     <div className="grid gap-1">
                                         <Label className="text-xs">起始日期</Label>
-                                        <DatePicker
+                                        <Input
+                                            type="date"
                                             value={filterFrom}
-                                            onChange={setFilterFrom}
+                                            onChange={(e) => setFilterFrom(e.target.value)}
                                             className="w-[160px]"
                                         />
                                     </div>
                                     <div className="grid gap-1">
                                         <Label className="text-xs">結束日期</Label>
-                                        <DatePicker
+                                        <Input
+                                            type="date"
                                             value={filterTo}
-                                            onChange={setFilterTo}
+                                            onChange={(e) => setFilterTo(e.target.value)}
                                             className="w-[160px]"
                                         />
                                     </div>
