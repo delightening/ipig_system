@@ -180,13 +180,7 @@ export function ProtocolDetailPage() {
     pi_email,
     pi_organization,
     vet_review,
-  } = (protocolResponse as any as {
-    protocol?: ProtocolResponse
-    pi_name?: string
-    pi_email?: string
-    pi_organization?: string
-    vet_review?: any
-  }) || {}
+  } = protocolResponse || {}
 
   const isVetReviewer = useMemo(() => {
     if (!user || !vet_review) return false
@@ -756,8 +750,8 @@ export function ProtocolDetailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-lg font-semibold">{protocol.pi_name || '-'}</p>
-            <p className="text-sm text-muted-foreground">{protocol.pi_email}</p>
+            <p className="text-lg font-semibold">{pi_name || '-'}</p>
+            <p className="text-sm text-muted-foreground">{pi_email}</p>
           </CardContent>
         </Card>
         <Card>
@@ -768,7 +762,7 @@ export function ProtocolDetailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-lg font-semibold">{protocol.pi_organization || '-'}</p>
+            <p className="text-lg font-semibold">{pi_organization || '-'}</p>
           </CardContent>
         </Card>
         <Card>
