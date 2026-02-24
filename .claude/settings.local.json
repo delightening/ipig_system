@@ -1,7 +1,22 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm audit:*)"
+      "Bash(npm audit:*)",
+      "Bash(git -C \"d:\\\\Coding\\\\ipig_system\" ls-files \".github/workflows\")",
+      "Bash(powershell:*)",
+      "Bash(git -C \"d:\\\\Coding\\\\ipig_system\" ls-tree:*)",
+      "Bash(dir:*)",
+      "Bash(node --version:*)",
+      "Bash(npm --version:*)",
+      "Bash(npx:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm install:*)",
+      "Bash(npm info:*)",
+      "Bash(npm ls:*)",
+      "Bash(node -e:*)",
+      "Bash(cargo deny check:*)",
+      "Bash(cargo update:*)"
     ]
   }
 }

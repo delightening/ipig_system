@@ -42,7 +42,7 @@ import {
     Legend,
     ResponsiveContainer,
 } from 'recharts'
-import * as XLSX from 'xlsx'
+// Excel 導出使用零依賴的 HTML table 方式（相容 Excel / LibreOffice / Google Sheets）
 
 // 圖表顏色調色盤
 const CHART_COLORS = [
@@ -319,34 +319,34 @@ export function BloodTestAnalysisPage() {
     const exportToExcel = useCallback(() => {
         if (!filteredData.length) return
 
-        const wsData = [
-            ['專案編號', '耳號', '檢查日期', '實驗室', '項目名稱', '項目代碼', '結果值', '單位', '參考範圍', '是否異常'],
-            ...filteredData.map(r => [
-                r.iacuc_no || '',
-                r.ear_tag,
-                r.test_date,
-                r.lab_name || '',
-                r.item_name,
-                r.template_code || '',
-                r.result_value || '',
-                r.result_unit || '',
-                r.reference_range || '',
-                r.is_abnormal ? '是' : '否',
-            ]),
-        ]
+        const headers = ['專案編號', '耳號', '檢查日期', '實驗室', '項目名稱', '項目代碼', '結果值', '單位', '參考範圍', '是否異常']
+        const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
-        const wb = XLSX.utils.book_new()
-        const ws = XLSX.utils.aoa_to_sheet(wsData)
+        const headerRow = headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')
+        const dataRows = filteredData.map(r => {
+            const cells = [
+                r.iacuc_no || '', r.ear_tag, r.test_date, r.lab_name || '',
+                r.item_name, r.template_code || '', r.result_value || '',
+                r.result_unit || '', r.reference_range || '', r.is_abnormal ? '是' : '否',
+            ]
+            return `<tr>${cells.map(c => `<td>${escapeHtml(String(c))}</td>`).join('')}</tr>`
+        }).join('')
 
-        // 設定欄位寬度
-        ws['!cols'] = [
-            { wch: 18 }, { wch: 10 }, { wch: 12 }, { wch: 15 },
-            { wch: 20 }, { wch: 10 }, { wch: 12 }, { wch: 8 },
-            { wch: 15 }, { wch: 8 },
-        ]
+        const html = [
+            '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">',
+            '<head><meta charset="utf-8"></head>',
+            '<body><table border="1">',
+            `<tr>${headerRow}</tr>`,
+            dataRows,
+            '</table></body></html>',
+        ].join('')
 
-        XLSX.utils.book_append_sheet(wb, ws, '血液檢查分析')
-        XLSX.writeFile(wb, `blood_test_analysis_${new Date().toISOString().split('T')[0]}.xlsx`)
+        const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel' })
+        const link = document.createElement('a')
+        link.href = URL.createObjectURL(blob)
+        link.download = `blood_test_analysis_${new Date().toISOString().split('T')[0]}.xls`
+        link.click()
+        URL.revokeObjectURL(link.href)
     }, [filteredData])
 
     // 切換選中項目
