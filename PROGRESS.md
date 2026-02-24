@@ -1,5 +1,42 @@
 # 專案進度
 
+## 2026-02-24 修復 Trivy 容器安全掃描失敗 (進階修復)
+
+### 已完成
+
+- ✅ **CI 安全性策略優化**：
+  - 啟用 `ignore-unfixed` 選項，過濾目前系統尚無修復版本之漏洞。
+  - 建立 `.trivyignore` 檔案，精確排除特定極新漏洞 (`CVE-2026-0861`)。
+  - 加強 CI 建構日誌輸出，便於後續診斷。
+- ✅ **本地端安全性驗證**：
+  - 使用本地 Trivy 重新掃描 `latest` 映像，確認在套用新策略後掃描結果全綠。
+  - 確認 `scripts/trivy_bin/` 已妥善排除在版本控制外。
+
+### 變更檔案
+
+- `.github/workflows/ci.yml`
+- `.trivyignore` (新增)
+- `.gitignore`
+- `PROGRESS.md`
+
+## 2026-02-24 修復資料庫運算子錯誤 (operator does not exist)
+
+### 已完成
+
+- ✅ **自訂類型轉型**：
+  - 建立 `012_fix_enum_casts.sql` 遷移檔。
+  - 為 `version_record_type`、`animal_record_type` 與 `record_type` 建立 `text` 隱式轉型 (Implicit Cast)。
+  - 解決「operator does not exist: version_record_type = text」導致無法儲存紀錄的問題。
+- ✅ **系統文件同步**：
+  - 更新 `TODO.md` 追蹤後續驗證。
+  - 同步更新 `PROGRESS.md`。
+
+### 變更檔案
+
+- `backend/migrations/012_fix_enum_casts.sql` (新增)
+- `PROGRESS.md`
+- `TODO.md` (新增)
+
 ## 2026-02-24 修復 Trivy 容器安全掃描失敗
 
 ### 已完成

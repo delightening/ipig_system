@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
   Animal,
@@ -24,6 +25,7 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from '@/components/ui/use-toast'
+import { DatePicker } from '@/components/ui/date-picker'
 import {
   ArrowLeft,
   Loader2,
@@ -35,6 +37,7 @@ export function AnimalEditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { t } = useTranslation()
   const animalId = id!
 
   const [formData, setFormData] = useState<UpdateAnimalRequest>({})
@@ -334,12 +337,10 @@ export function AnimalEditPage() {
 
               {/* 實驗日期 */}
               <div className="space-y-2">
-                <Label htmlFor="experiment_date">實驗日期</Label>
-                <Input
-                  id="experiment_date"
-                  type="date"
+                <Label>實驗日期</Label>
+                <DatePicker
                   value={formData.experiment_date?.split('T')[0] || ''}
-                  onChange={(e) => handleChange('experiment_date', e.target.value)}
+                  onChange={(val) => handleChange('experiment_date', val)}
                 />
               </div>
 

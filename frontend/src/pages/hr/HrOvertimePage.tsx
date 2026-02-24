@@ -45,6 +45,7 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
+import { DatePicker } from '@/components/ui/date-picker'
 import type { OvertimeWithUser } from '@/types/hr'
 
 // ============================================
@@ -296,10 +297,9 @@ function CreateOvertimeDialog({
                 <div className="grid gap-4 py-4">
                     <div className="grid gap-2">
                         <Label>加班日期 *</Label>
-                        <Input
-                            type="date"
+                        <DatePicker
                             value={overtimeDate}
-                            onChange={(e) => setOvertimeDate(e.target.value)}
+                            onChange={setOvertimeDate}
                         />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -815,19 +815,17 @@ export function HrOvertimePage() {
                                     </div>
                                     <div className="grid gap-1">
                                         <Label className="text-xs">起始日期</Label>
-                                        <Input
-                                            type="date"
+                                        <DatePicker
                                             value={filterFrom}
-                                            onChange={(e) => setFilterFrom(e.target.value)}
+                                            onChange={setFilterFrom}
                                             className="w-[160px]"
                                         />
                                     </div>
                                     <div className="grid gap-1">
                                         <Label className="text-xs">結束日期</Label>
-                                        <Input
-                                            type="date"
+                                        <DatePicker
                                             value={filterTo}
-                                            onChange={(e) => setFilterTo(e.target.value)}
+                                            onChange={setFilterTo}
                                             className="w-[160px]"
                                         />
                                     </div>
