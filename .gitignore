@@ -5,6 +5,7 @@
 **/.env
 **/.env.*
 **/dist
+scripts/trivy_bin/
 **/build
 **/.next
 
