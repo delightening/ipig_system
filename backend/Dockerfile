@@ -19,24 +19,36 @@ ENV SQLX_OFFLINE=true
 RUN cargo build --release
 
 # Runtime stage
-FROM debian:bookworm-slim
+FROM debian:bookworm-slim AS runtime
 
 WORKDIR /app
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
+# Install runtime dependencies and security upgrades
+RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     ca-certificates \
     libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy binary
-COPY --from=builder /app/target/release/erp-backend /app/erp-backend
-COPY --from=builder /app/migrations /app/migrations
-
-# 以非 root 用戶運行（SEC-08）
+# Create appuser (since distroless doesn't have useradd, we do it here if we use debian-slim)
 RUN useradd -r -s /bin/false appuser && \
     mkdir -p /app/geoip && \
     chown -R appuser:appuser /app
+
+# Copy binary and migrations
+COPY --from=builder /app/target/release/erp-backend /app/erp-backend
+COPY --from=builder /app/migrations /app/migrations
+
+# Using distroless for final stage to minimize vulnerabilities
+FROM gcr.io/distroless/cc-debian12
+
+WORKDIR /app
+
+# Copy from runtime stage (which has correctly set up files)
+COPY --from=runtime /etc/passwd /etc/passwd
+COPY --from=runtime /etc/group /etc/group
+COPY --from=runtime /app /app
+COPY --from=runtime /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
 USER appuser
 
 # Set environment
