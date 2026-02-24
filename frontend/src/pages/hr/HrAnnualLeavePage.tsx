@@ -44,7 +44,6 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
-import { DatePicker } from '@/components/ui/date-picker'
 import {
     AnnualLeaveBalanceView,
     ExpiredLeaveReport,
@@ -504,9 +503,10 @@ export function HrAnnualLeavePage() {
                         {/* 到職日 */}
                         <div className="space-y-2">
                             <Label>到職日（用於計算到期日）</Label>
-                            <DatePicker
+                            <Input
+                                type="date"
                                 value={formHireDate}
-                                onChange={setFormHireDate}
+                                onChange={(e) => setFormHireDate(e.target.value)}
                             />
                             <p className="text-xs text-muted-foreground">
                                 到期日 = 授予年度 + 2年的到職週年日。若不填寫，到期日為授予年度 + 2年的12月31日。

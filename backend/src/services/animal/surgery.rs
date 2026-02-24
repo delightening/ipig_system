@@ -4,18 +4,21 @@ use uuid::Uuid;
 
 use super::AnimalService;
 use crate::{
-    models::{CreateSurgeryRequest, AnimalSurgery, SurgeryListItem, UpdateSurgeryRequest},
+    models::{AnimalSurgery, CreateSurgeryRequest, SurgeryListItem, UpdateSurgeryRequest},
     AppError, Result,
 };
 
 impl AnimalService {
-
     // ============================================
     // 手術紀錄
     // ============================================
 
     /// 取得手術紀錄列表（排除已刪除，支援資料隔離）
-    pub async fn list_surgeries(pool: &PgPool, animal_id: Uuid, after: Option<DateTime<Utc>>) -> Result<Vec<AnimalSurgery>> {
+    pub async fn list_surgeries(
+        pool: &PgPool,
+        animal_id: Uuid,
+        after: Option<DateTime<Utc>>,
+    ) -> Result<Vec<AnimalSurgery>> {
         let surgeries = sqlx::query_as::<_, AnimalSurgery>(
             "SELECT * FROM animal_surgeries WHERE animal_id = $1 AND ($2::timestamptz IS NULL OR created_at > $2) ORDER BY surgery_date DESC"
         )
@@ -28,14 +31,18 @@ impl AnimalService {
     }
 
     /// 取得手術紀錄列表（含獸醫師建議數量，支援資料隔離）
-    pub async fn list_surgeries_with_recommendations(pool: &PgPool, animal_id: Uuid, after: Option<DateTime<Utc>>) -> Result<Vec<SurgeryListItem>> {
+    pub async fn list_surgeries_with_recommendations(
+        pool: &PgPool,
+        animal_id: Uuid,
+        after: Option<DateTime<Utc>>,
+    ) -> Result<Vec<SurgeryListItem>> {
         let surgeries = sqlx::query_as::<_, SurgeryListItem>(
             r#"
             SELECT 
                 s.id, s.animal_id, s.is_first_experiment, s.surgery_date, s.surgery_site,
                 s.no_medication_needed, s.vet_read, s.vet_read_at,
                 s.created_by, s.created_at,
-                (SELECT COUNT(*) FROM vet_recommendations vr WHERE vr.record_type = 'surgery' AND vr.record_id = s.id) as recommendation_count
+                (SELECT COUNT(*) FROM vet_recommendations vr WHERE vr.record_type = 'surgery'::vet_record_type AND vr.record_id = s.id) as recommendation_count
             FROM animal_surgeries s
             WHERE s.animal_id = $1 AND ($2::timestamptz IS NULL OR s.created_at > $2)
             ORDER BY s.surgery_date DESC
@@ -51,13 +58,12 @@ impl AnimalService {
 
     /// 取得單一手術紀錄
     pub async fn get_surgery_by_id(pool: &PgPool, id: Uuid) -> Result<AnimalSurgery> {
-        let surgery = sqlx::query_as::<_, AnimalSurgery>(
-            "SELECT * FROM animal_surgeries WHERE id = $1"
-        )
-        .bind(id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Surgery not found".to_string()))?;
+        let surgery =
+            sqlx::query_as::<_, AnimalSurgery>("SELECT * FROM animal_surgeries WHERE id = $1")
+                .bind(id)
+                .fetch_optional(pool)
+                .await?
+                .ok_or_else(|| AppError::NotFound("Surgery not found".to_string()))?;
 
         Ok(surgery)
     }
@@ -112,7 +118,7 @@ impl AnimalService {
     ) -> Result<AnimalSurgery> {
         // 先取得原始紀錄用於版本歷史
         let original = Self::get_surgery_by_id(pool, id).await?;
-        
+
         // 保存版本歷史
         Self::save_record_version(pool, "surgery", id, &original, updated_by).await?;
 
@@ -136,7 +142,7 @@ impl AnimalService {
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
-            "#
+            "#,
         )
         .bind(id)
         .bind(req.is_first_experiment)
@@ -161,23 +167,26 @@ impl AnimalService {
 
     /// 刪除手術紀錄
     pub async fn soft_delete_surgery(pool: &PgPool, id: Uuid) -> Result<()> {
-        sqlx::query(
-            "DELETE FROM animal_surgeries WHERE id = $1"
-        )
-        .bind(id)
-        .execute(pool)
-        .await?;
+        sqlx::query("DELETE FROM animal_surgeries WHERE id = $1")
+            .bind(id)
+            .execute(pool)
+            .await?;
 
         Ok(())
     }
 
     /// 軟刪除手術紀錄（含刪除原因）- GLP 合規
-    pub async fn soft_delete_surgery_with_reason(pool: &PgPool, id: Uuid, reason: &str, deleted_by: Uuid) -> Result<()> {
+    pub async fn soft_delete_surgery_with_reason(
+        pool: &PgPool,
+        id: Uuid,
+        reason: &str,
+        deleted_by: Uuid,
+    ) -> Result<()> {
         sqlx::query(
             r#"
             INSERT INTO change_reasons (entity_type, entity_id, change_type, reason, changed_by)
             VALUES ('surgery', $1::text, 'DELETE', $2, $3)
-            "#
+            "#,
         )
         .bind(id)
         .bind(reason)
@@ -192,7 +201,7 @@ impl AnimalService {
                 deletion_reason = $2,
                 deleted_by = $3
             WHERE id = $1 AND deleted_at IS NULL
-            "#
+            "#,
         )
         .bind(id)
         .bind(reason)
@@ -261,7 +270,7 @@ impl AnimalService {
             INSERT INTO surgery_vet_reads (surgery_id, vet_user_id, read_at)
             VALUES ($1, $2, NOW())
             ON CONFLICT (surgery_id, vet_user_id) DO UPDATE SET read_at = NOW()
-            "#
+            "#,
         )
         .bind(id)
         .bind(vet_user_id)

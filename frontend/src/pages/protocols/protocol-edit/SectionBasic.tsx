@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
-import { DatePicker } from '@/components/ui/date-picker'
 import { useAuthStore } from '@/stores/auth'
 import type { SectionProps } from './types'
 
@@ -60,15 +59,17 @@ export function SectionBasic({ formData, updateWorkingContent, setFormData, t, i
           <div className="space-y-2">
             <Label>{t('aup.basic.expectedPeriod')} *</Label>
             <div className="flex gap-2 items-center">
-              <DatePicker
-                value={formData.start_date}
-                onChange={(value) => setFormData(prev => ({ ...prev, start_date: value }))}
+              <Input
+                type="date"
+                value={formData.start_date || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
                 required
               />
               <span className="self-center">{t('aup.basic.to')}</span>
-              <DatePicker
-                value={formData.end_date}
-                onChange={(value) => setFormData(prev => ({ ...prev, end_date: value }))}
+              <Input
+                type="date"
+                value={formData.end_date || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
                 required
               />
             </div>
