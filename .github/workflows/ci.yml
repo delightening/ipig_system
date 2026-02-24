@@ -262,7 +262,7 @@ jobs:
         run: docker build --no-cache --progress=plain -t ipig-api:ci ./backend
 
       - name: Trivy 掃描後端映像
-        uses: aquasecurity/trivy-action@v0.28.0
+        uses: aquasecurity/trivy-action@0.34.1
         with:
           image-ref: "ipig-api:ci"
           format: "table"
@@ -276,7 +276,7 @@ jobs:
         run: docker build --no-cache --progress=plain -t ipig-web:ci ./frontend
 
       - name: Trivy 掃描前端映像
-        uses: aquasecurity/trivy-action@v0.28.0
+        uses: aquasecurity/trivy-action@0.34.1
         with:
           image-ref: "ipig-web:ci"
           format: "table"
