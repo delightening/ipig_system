@@ -1,6 +1,7 @@
-﻿use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, Type};
+use utoipa::ToSchema;
 use uuid::Uuid;
 use validator::Validate;
 
@@ -39,7 +40,7 @@ pub(crate) fn validate_pen_location(pen_location: &str) -> Result<(), validator:
     }
 }
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct CreateAnimalRequest {
     #[validate(length(min = 1, max = 10, message = "Ear tag must be 1-10 characters"))]
     #[validate(custom(function = "validate_ear_tag", message = "耳號必須為三位數"))]
@@ -61,7 +62,7 @@ pub struct CreateAnimalRequest {
     pub force_create: bool,
 }
 
-#[derive(Debug, Deserialize, Validate, Default)]
+#[derive(Debug, Deserialize, Validate, Default, ToSchema)]
 pub struct UpdateAnimalRequest {
     // 以下欄位於建立後不可更改，已從更新請求中移除：
     // - ear_tag (耳號)
@@ -79,7 +80,7 @@ pub struct UpdateAnimalRequest {
     pub remark: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct AnimalQuery {
     pub status: Option<AnimalStatus>,
     pub breed: Option<AnimalBreed>,
@@ -104,7 +105,7 @@ pub struct DataBoundaryResponse {
     pub boundary: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct BatchAssignRequest {
     pub animal_ids: Vec<Uuid>,
     pub iacuc_no: String,
@@ -251,7 +252,7 @@ pub struct UpdateAnimalSourceRequest {
 }
 
 /// 動物列表項目（含來源名稱）
-#[derive(Debug, Serialize, FromRow)]
+#[derive(Debug, Serialize, FromRow, ToSchema)]
 pub struct AnimalListItem {
     pub id: Uuid,
     pub animal_no: Option<String>, // 動物編號（由使用者命名）
@@ -279,7 +280,7 @@ pub struct AnimalListItem {
 }
 
 /// 依欄位分組的動物
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct AnimalsByPen {
     pub pen_location: String,
     pub animals: Vec<AnimalListItem>,
@@ -707,7 +708,7 @@ pub struct VersionHistoryResponse {
 // ============================================
 
 /// 刪除請求（含刪除原因）- GLP 合規要求
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct DeleteRequest {
     #[validate(length(min = 1, message = "刪除原因為必填"))]
     pub reason: String,

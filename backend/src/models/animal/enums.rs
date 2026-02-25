@@ -1,10 +1,11 @@
-﻿use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, Type};
+use utoipa::ToSchema;
 use uuid::Uuid;
 
 /// 動物狀態
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type, ToSchema)]
 #[sqlx(type_name = "animal_status", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum AnimalStatus {
@@ -82,7 +83,7 @@ impl AnimalTransferStatus {
 
 /// 動物品種
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AnimalBreed {
     #[serde(rename = "minipig")]
@@ -150,7 +151,7 @@ impl AnimalBreed {
 }
 
 /// 動物性別
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type, ToSchema)]
 #[sqlx(type_name = "animal_gender", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum AnimalGender {

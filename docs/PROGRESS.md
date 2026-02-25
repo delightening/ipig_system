@@ -55,6 +55,10 @@
 
 ## 9. 最新變更動態
 
+### 2026-02-25 電子簽章合規審查 (P1-7) 與 OpenAPI 完善 (P1-12)
+- ✅ **P1-7 電子簽章合規審查**：新增 `docs/ELECTRONIC_SIGNATURE_COMPLIANCE.md`，對照 21 CFR Part 11 子章 B/C，審查犧牲／觀察／安樂死／轉讓／計畫書簽章與附註實作，結論為技術面已符合核心要求，建議補齊書面政策與訓練紀錄。
+- ✅ **P1-12 OpenAPI 文件完善**：後端新增電子簽章 10 paths + 2 附註 paths、動物管理 9 paths，以及對應 Request/Response Schema（SignRecordRequest/Response、SignatureStatusResponse、Annotation、Animal、AnimalListItem、AnimalQuery 等），Swagger UI 已涵蓋認證、使用者、角色、設施、倉儲、計畫書、審查、電子簽章、動物管理。
+
 ### 2026-02-25 CI `sqlx-cli` 安裝修正
 - ✅ **強制覆蓋**：在 `ci.yml` 的 `cargo install sqlx-cli` 步驟增加 `--force` 參數，解決 GitHub Actions 快取恢復後的二進位檔衝突問題。
 
