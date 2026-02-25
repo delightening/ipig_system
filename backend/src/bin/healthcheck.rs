@@ -14,7 +14,7 @@ fn main() -> ExitCode {
     let addr = format!("127.0.0.1:{}", port);
 
     let stream = match TcpStream::connect_timeout(
-        &addr.parse().unwrap_or_else(|_| "127.0.0.1:8000".parse().unwrap()),
+        &addr.parse().unwrap_or_else(|_| "127.0.0.1:8000".parse().expect("valid fallback address")),
         Duration::from_secs(3),
     ) {
         Ok(s) => s,

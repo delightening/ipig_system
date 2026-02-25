@@ -1,4 +1,7 @@
-// 動物管理模型 - 拆分為 enums、entities、requests 三個子模組
+/// # 動物管理模型
+/// 
+/// 此模組定義了實驗動物管理系統的核心資料結構，包含列舉 (Enums)、實體 (Entities) 與請求物件 (Requests)。
+/// 採用拆分模組的設計以提升維護性。
 pub mod entities;
 pub mod enums;
 pub mod requests;

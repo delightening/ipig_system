@@ -1,0 +1,14 @@
+# cloudflared-config.yml
+# SEC-15: Named Tunnel Configuration Example
+# 
+# 1. Login: cloudflared tunnel login
+# 2. Create tunnel: cloudflared tunnel create ipig-system
+# 3. Use the ID and credentials JSON here
+
+tunnel: <TUNNEL_ID>
+credentials-file: /etc/cloudflared/<TUNNEL_ID>.json
+
+ingress:
+  - hostname: ipig.yourdomain.com
+    service: http://ipig-web:8080
+  - service: http_status:404
