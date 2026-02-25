@@ -252,10 +252,10 @@ export function UsersPage() {
     toast({ title: '成功', description: '用戶已刪除' })
   }
 
-  // 重設密碼
+  // 重設密碼（SEC-33：需帶 X-Reauth-Token）
   const resetPasswordMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: ResetPasswordRequest }) => {
-      await api.put(`/users/${id}/password`, data)
+    mutationFn: async ({ id, data, reauthToken }: { id: string; data: ResetPasswordRequest; reauthToken: string }) => {
+      await api.put(`/users/${id}/password`, data, { headers: { 'X-Reauth-Token': reauthToken } })
     },
     onSuccess: () => {
       toast({ title: '成功', description: '密碼已重設' })
@@ -263,6 +263,7 @@ export function UsersPage() {
       setUserToResetPassword(null)
       setNewPassword('')
       setConfirmNewPassword('')
+      setReauthPassword('')
     },
     onError: (error: any) => {
       toast({ title: '錯誤', description: error.response?.data?.error?.message || '重設密碼失敗', variant: 'destructive' })
