@@ -1,11 +1,13 @@
 use axum::{
     extract::{Path, Query, State},
+    http::HeaderMap,
     Extension, Json,
 };
 use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
+    handlers::user::require_reauth_token,
     middleware::CurrentUser,
     models::{CreateRoleRequest, Permission, PermissionQuery, RoleWithPermissions, UpdateRoleRequest},
     require_permission,
@@ -140,6 +142,7 @@ pub async fn update_role(
     ),
     responses(
         (status = 200, description = "刪除成功"),
+        (status = 403, description = "需帶 X-Reauth-Token 重新確認密碼", body = ErrorResponse),
         (status = 404, description = "角色不存在", body = ErrorResponse),
     ),
     tag = "角色權限",
@@ -148,9 +151,11 @@ pub async fn update_role(
 pub async fn delete_role(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
+    headers: HeaderMap,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "dev.role.delete");
+    require_reauth_token(&headers, &state, &current_user)?;
 
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "SYSTEM", "ROLE_DELETE",

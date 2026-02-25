@@ -205,6 +205,20 @@ pub async fn update_user(
     Ok(Json(user))
 }
 
+/// SEC-33：敏感操作需帶 X-Reauth-Token（先 POST /auth/confirm-password 取得）
+/// 供 user 與 role 等敏感 handler 共用
+pub(crate) fn require_reauth_token(
+    headers: &HeaderMap,
+    state: &AppState,
+    current_user: &CurrentUser,
+) -> Result<()> {
+    let token = headers
+        .get("x-reauth-token")
+        .and_then(|v| v.to_str().ok())
+        .ok_or_else(|| AppError::Forbidden("敏感操作請先重新輸入密碼確認".to_string()))?;
+    AuthService::verify_reauth_token(&state.config, token, current_user.id)
+}
+
 /// 刪除使用者
 #[utoipa::path(
     delete,
@@ -214,6 +228,7 @@ pub async fn update_user(
     ),
     responses(
         (status = 200, description = "刪除成功"),
+        (status = 403, description = "需帶 X-Reauth-Token 重新確認密碼", body = ErrorResponse),
         (status = 404, description = "使用者不存在", body = ErrorResponse),
     ),
     tag = "使用者管理",
@@ -222,9 +237,11 @@ pub async fn update_user(
 pub async fn delete_user(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
+    headers: HeaderMap,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "admin.user.delete");
+    require_reauth_token(&headers, &state, &current_user)?;
 
     // 先記錄審計日誌再刪除
     if let Err(e) = AuditService::log(
@@ -270,6 +287,7 @@ pub async fn reset_user_password(
     if !current_user.roles.contains(&"admin".to_string()) {
         return Err(AppError::BusinessRule("Only admin can reset other user's password".to_string()));
     }
+    require_reauth_token(&headers, &state, &current_user)?;
     
     // 不允許重設自己的密碼，應使用 /me/password
     if id == current_user.id {
@@ -338,6 +356,7 @@ pub async fn impersonate_user(
     if !current_user.roles.contains(&"admin".to_string()) && !current_user.roles.contains(&"SYSTEM_ADMIN".to_string()) {
         return Err(AppError::BusinessRule("Only admin can impersonate other users".to_string()));
     }
+    require_reauth_token(&headers, &state, &current_user)?;
     
     // 不允許模擬自己
     if id == current_user.id {

@@ -1,4 +1,4 @@
-﻿use axum::{
+use axum::{
     middleware,
     routing::{delete, get, post, put},
     Router,
@@ -27,6 +27,7 @@ pub fn api_routes(state: AppState) -> Router {
     let protected_routes = Router::new()
         // Auth
         .route("/auth/logout", post(handlers::logout))
+        .route("/auth/confirm-password", post(handlers::confirm_password))
         .route("/auth/stop-impersonate", post(handlers::stop_impersonate))
         .route("/auth/heartbeat", post(handlers::heartbeat))
         .route("/me", get(handlers::me).put(handlers::update_me))

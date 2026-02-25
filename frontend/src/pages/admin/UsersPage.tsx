@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api, { User, Role, ResetPasswordRequest } from '@/lib/api'
+import api, { confirmPassword, User, Role, ResetPasswordRequest } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -25,6 +25,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
+import { ConfirmPasswordModal } from '@/components/auth/ConfirmPasswordModal'
 import { Loader2, Users, Plus, Pencil, Trash2, Shield, UserCheck, UserX, AlertTriangle, Key, ArrowUpDown, ArrowUp, ArrowDown, LogIn, ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface UserTrainingInput {
@@ -66,12 +67,16 @@ export function UsersPage() {
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showRolesDialog, setShowRolesDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showReauthForDelete, setShowReauthForDelete] = useState(false)
   const [showResetPasswordDialog, setShowResetPasswordDialog] = useState(false)
+  const [showReauthForImpersonate, setShowReauthForImpersonate] = useState(false)
+  const [userToImpersonate, setUserToImpersonate] = useState<User | null>(null)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
   const [userToResetPassword, setUserToResetPassword] = useState<User | null>(null)
   const [newPassword, setNewPassword] = useState('')
   const [confirmNewPassword, setConfirmNewPassword] = useState('')
+  const [reauthPassword, setReauthPassword] = useState('')
   const [formData, setFormData] = useState<CreateUserData>({
     email: '',
     password: '',
@@ -240,19 +245,12 @@ export function UsersPage() {
     },
   })
 
-  // 刪除用戶
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await api.delete(`/users/${id}`)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] })
-      toast({ title: '成功', description: '用戶已刪除' })
-    },
-    onError: (error: any) => {
-      toast({ title: '錯誤', description: error.response?.data?.error?.message || '刪除失敗', variant: 'destructive' })
-    },
-  })
+  // 刪除用戶（SEC-33：需先取得 reauth token，在 ConfirmPasswordModal onSubmit 內呼叫）
+  const deleteUserWithReauth = async (id: string, reauthToken: string) => {
+    await api.delete(`/users/${id}`, { headers: { 'X-Reauth-Token': reauthToken } })
+    queryClient.invalidateQueries({ queryKey: ['users'] })
+    toast({ title: '成功', description: '用戶已刪除' })
+  }
 
   // 重設密碼
   const resetPasswordMutation = useMutation({

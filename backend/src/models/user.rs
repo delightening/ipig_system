@@ -220,6 +220,13 @@ pub struct ChangeOwnPasswordRequest {
     pub new_password: String,
 }
 
+/// SEC-33：敏感操作二級認證 — 確認密碼請求
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+pub struct ConfirmPasswordRequest {
+    #[validate(length(min = 1, message = "請輸入密碼"))]
+    pub password: String,
+}
+
 /// Admin 重設他人密碼請求
 #[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct ResetPasswordRequest {

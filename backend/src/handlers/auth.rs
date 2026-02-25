@@ -11,8 +11,9 @@ use crate::{
     config::Config,
     middleware::{extract_real_ip_with_trust, CurrentUser},
     models::{
-        ChangeOwnPasswordRequest, ForgotPasswordRequest, LoginRequest, LoginResponse,
-        RefreshTokenRequest, ResetPasswordWithTokenRequest, UpdateUserRequest, UserResponse,
+        ChangeOwnPasswordRequest, ConfirmPasswordRequest, ForgotPasswordRequest, LoginRequest,
+        LoginResponse, RefreshTokenRequest, ResetPasswordWithTokenRequest, UpdateUserRequest,
+        UserResponse,
     },
     services::{
         AuditService, AuthService, EmailService, LoginTracker, SessionManager, UserService,
@@ -492,6 +493,33 @@ pub async fn reset_password_with_token(
     Ok(Json(
         serde_json::json!({ "message": "Password has been reset successfully" }),
     ))
+}
+
+/// SEC-33：敏感操作二級認證 — 以密碼換取短期 reauth token
+#[utoipa::path(
+    post,
+    path = "/api/auth/confirm-password",
+    request_body = ConfirmPasswordRequest,
+    responses(
+        (status = 200, description = "驗證成功，回傳 reauth_token 供後續敏感操作使用"),
+        (status = 401, description = "密碼錯誤", body = ErrorResponse),
+    ),
+    tag = "認證",
+    security(("bearer" = []))
+)]
+pub async fn confirm_password(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Json(req): Json<ConfirmPasswordRequest>,
+) -> Result<Json<serde_json::Value>> {
+    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    AuthService::verify_password_by_id(&state.db, current_user.id, &req.password).await?;
+    let (reauth_token, expires_in) =
+        AuthService::generate_reauth_token(&state.config, current_user.id)?;
+    Ok(Json(serde_json::json!({
+        "reauth_token": reauth_token,
+        "expires_in": expires_in
+    })))
 }
 
 /// Heartbeat - 更新使用者 session 的最後活動時間與 IP
