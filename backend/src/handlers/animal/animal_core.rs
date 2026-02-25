@@ -1,4 +1,4 @@
-﻿// 動物管理 Handlers
+// 動物管理 Handlers
 
 use axum::{
     extract::{Path, Query, State},
@@ -381,7 +381,7 @@ pub async fn mark_animal_vet_read(
 }
 
 /// 動物事件回傳結構
-#[derive(serde::Serialize)]
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
 pub struct AnimalEvent {
     pub id: String,
     pub event_type: String,

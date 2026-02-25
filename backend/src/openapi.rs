@@ -1,4 +1,4 @@
-//! OpenAPI 文件入口 — Phase 1+2A：Auth + Users + Roles + Facility + Warehouse
+//! OpenAPI 文件入口 — Phase 1+2A+2B：Auth、Users、Roles、Facility、Warehouse、Protocol、電子簽章、動物管理
 //!
 //! 使用 utoipa 產生 Swagger/OpenAPI 3.0 規格。
 //! 掛載 SwaggerUI 後可在 `/swagger-ui` 瀏覽互動式 API 文件。
@@ -103,6 +103,28 @@ use utoipa::OpenApi;
         crate::handlers::protocol::review::save_reply_draft,
         crate::handlers::protocol::review::get_reply_draft,
         crate::handlers::protocol::review::submit_reply_from_draft,
+        // === 電子簽章 (GLP) ===
+        crate::handlers::sign_sacrifice_record,
+        crate::handlers::get_sacrifice_signature_status,
+        crate::handlers::sign_observation_record,
+        crate::handlers::sign_euthanasia_order,
+        crate::handlers::get_euthanasia_signature_status,
+        crate::handlers::sign_transfer_record,
+        crate::handlers::get_transfer_signature_status,
+        crate::handlers::sign_protocol_review,
+        crate::handlers::get_protocol_signature_status,
+        crate::handlers::add_record_annotation,
+        crate::handlers::get_record_annotations,
+        // === 動物管理 ===
+        crate::handlers::list_animals,
+        crate::handlers::list_animals_by_pen,
+        crate::handlers::get_animal,
+        crate::handlers::create_animal,
+        crate::handlers::update_animal,
+        crate::handlers::delete_animal,
+        crate::handlers::batch_assign_animals,
+        crate::handlers::mark_animal_vet_read,
+        crate::handlers::get_animal_events,
     ),
     components(
         schemas(
@@ -186,6 +208,26 @@ use utoipa::OpenApi;
             crate::models::ReviewCommentResponse,
             crate::models::ReviewAssignmentResponse,
             crate::models::CoEditorAssignmentResponse,
+            // 電子簽章（經 handlers 再匯出）
+            crate::handlers::SignRecordRequest,
+            crate::handlers::SignRecordResponse,
+            crate::handlers::CreateAnnotationRequest,
+            crate::handlers::AnnotationResponse,
+            crate::handlers::SignatureStatusResponse,
+            crate::handlers::SignatureInfo,
+            // 動物管理
+            crate::models::Animal,
+            crate::models::AnimalListItem,
+            crate::models::AnimalQuery,
+            crate::models::CreateAnimalRequest,
+            crate::models::UpdateAnimalRequest,
+            crate::models::AnimalsByPen,
+            crate::models::BatchAssignRequest,
+            crate::models::DeleteRequest,
+            crate::models::AnimalStatus,
+            crate::models::AnimalBreed,
+            crate::models::AnimalGender,
+            crate::handlers::AnimalEvent,
         )
     ),
     modifiers(),
@@ -197,6 +239,8 @@ use utoipa::OpenApi;
         (name = "倉儲管理", description = "倉庫 CRUD"),
         (name = "計畫書管理", description = "專案 CRUD、狀態變更、版本、活動歷程、Co-Editor"),
         (name = "審查管理", description = "審查委員指派、審查意見、草稿、獸醫審查表"),
+        (name = "電子簽章", description = "犧牲／觀察／安樂死／轉讓／計畫書簽章與附註 (GLP)"),
+        (name = "動物管理", description = "動物 CRUD、依欄位查詢、批次分配、獸醫已讀、事件歷程"),
     ),
     security(
         ("bearer" = [])

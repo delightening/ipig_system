@@ -1,12 +1,13 @@
-﻿use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
+use utoipa::ToSchema;
 use uuid::Uuid;
 
 use super::enums::*;
 
 /// 動物來源
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct AnimalSource {
     pub id: Uuid,
     pub code: String,
@@ -21,7 +22,7 @@ pub struct AnimalSource {
 }
 
 /// 動物主表
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct Animal {
     pub id: Uuid,
     pub animal_no: Option<String>,  // 動物編號（由使用者命名）

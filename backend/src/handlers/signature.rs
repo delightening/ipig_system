@@ -1,4 +1,4 @@
-﻿// 電子簽章 API Handlers - GLP 合規
+// 電子簽章 API Handlers - GLP 合規
 
 use axum::{
     extract::{Path, State},
@@ -6,6 +6,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use utoipa::ToSchema;
 use validator::Validate;
 
 use crate::{
@@ -20,7 +21,7 @@ use serde_json::Value as JsonValue;
 // Request/Response DTOs
 // ============================================
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct SignRecordRequest {
     /// 密碼（密碼驗證模式用）
     pub password: Option<String>,
@@ -31,14 +32,14 @@ pub struct SignRecordRequest {
     pub stroke_data: Option<JsonValue>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct SignRecordResponse {
     pub signature_id: Uuid,
     pub signed_at: String,
     pub is_locked: bool,
 }
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct CreateAnnotationRequest {
     #[validate(length(min = 1, message = "內容為必填"))]
     pub content: String,
@@ -46,7 +47,7 @@ pub struct CreateAnnotationRequest {
     pub password: Option<String>, // CORRECTION 類型需要密碼
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct AnnotationResponse {
     pub id: Uuid,
     pub annotation_type: String,
@@ -56,14 +57,14 @@ pub struct AnnotationResponse {
     pub has_signature: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct SignatureStatusResponse {
     pub is_signed: bool,
     pub is_locked: bool,
     pub signatures: Vec<SignatureInfo>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct SignatureInfo {
     pub id: Uuid,
     pub signature_type: String,
@@ -78,6 +79,20 @@ pub struct SignatureInfo {
 // ============================================
 
 /// 為犧牲記錄簽章
+#[utoipa::path(
+    post,
+    path = "/api/signatures/sacrifice/{id}",
+    request_body = SignRecordRequest,
+    responses(
+        (status = 200, description = "簽章成功", body = SignRecordResponse),
+        (status = 400, description = "請提供密碼或手寫簽名"),
+        (status = 401, description = "未授權或密碼錯誤"),
+        (status = 404, description = "找不到犧牲記錄")
+    ),
+    params(("id" = i32, Path, description = "犧牲記錄 ID")),
+    tag = "電子簽章",
+    security(("bearer" = []))
+)]
 pub async fn sign_sacrifice_record(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -161,6 +176,17 @@ pub async fn sign_sacrifice_record(
 }
 
 /// 取得犧牲記錄簽章狀態
+#[utoipa::path(
+    get,
+    path = "/api/signatures/sacrifice/{id}",
+    responses(
+        (status = 200, description = "簽章狀態", body = SignatureStatusResponse),
+        (status = 404, description = "找不到記錄")
+    ),
+    params(("id" = i32, Path, description = "犧牲記錄 ID")),
+    tag = "電子簽章",
+    security(("bearer" = []))
+)]
 pub async fn get_sacrifice_signature_status(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -202,6 +228,20 @@ pub async fn get_sacrifice_signature_status(
 // ============================================
 
 /// 為觀察記錄簽章
+#[utoipa::path(
+    post,
+    path = "/api/signatures/observation/{id}",
+    request_body = SignRecordRequest,
+    responses(
+        (status = 200, description = "簽章成功", body = SignRecordResponse),
+        (status = 400, description = "請提供密碼或手寫簽名"),
+        (status = 401, description = "未授權或密碼錯誤"),
+        (status = 404, description = "找不到觀察記錄")
+    ),
+    params(("id" = i32, Path, description = "觀察記錄 ID")),
+    tag = "電子簽章",
+    security(("bearer" = []))
+)]
 pub async fn sign_observation_record(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -280,6 +320,20 @@ pub async fn sign_observation_record(
 // ============================================
 
 /// 為安樂死單據簽章（PI 同意 / 獸醫執行）
+#[utoipa::path(
+    post,
+    path = "/api/signatures/euthanasia/{id}",
+    request_body = SignRecordRequest,
+    responses(
+        (status = 200, description = "簽章成功", body = SignRecordResponse),
+        (status = 400, description = "請提供密碼或手寫簽名"),
+        (status = 401, description = "未授權或密碼錯誤"),
+        (status = 404, description = "找不到安樂死單據")
+    ),
+    params(("id" = Uuid, Path, description = "安樂死單據 ID")),
+    tag = "電子簽章",
+    security(("bearer" = []))
+)]
 pub async fn sign_euthanasia_order(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -357,6 +411,17 @@ pub async fn sign_euthanasia_order(
 }
 
 /// 取得安樂死單據簽章狀態
+#[utoipa::path(
+    get,
+    path = "/api/signatures/euthanasia/{id}",
+    responses(
+        (status = 200, description = "簽章狀態", body = SignatureStatusResponse),
+        (status = 404, description = "找不到記錄")
+    ),
+    params(("id" = Uuid, Path, description = "安樂死單據 ID")),
+    tag = "電子簽章",
+    security(("bearer" = []))
+)]
 pub async fn get_euthanasia_signature_status(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -397,6 +462,20 @@ pub async fn get_euthanasia_signature_status(
 // ============================================
 
 /// 為轉讓記錄簽章（PI 同意 / 完成轉讓）
+#[utoipa::path(
+    post,
+    path = "/api/signatures/transfer/{id}",
+    request_body = SignRecordRequest,
+    responses(
+        (status = 200, description = "簽章成功", body = SignRecordResponse),
+        (status = 400, description = "請提供密碼或手寫簽名"),
+        (status = 401, description = "未授權或密碼錯誤"),
+        (status = 404, description = "找不到轉讓記錄")
+    ),
+    params(("id" = Uuid, Path, description = "轉讓記錄 ID")),
+    tag = "電子簽章",
+    security(("bearer" = []))
+)]
 pub async fn sign_transfer_record(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -474,6 +553,17 @@ pub async fn sign_transfer_record(
 }
 
 /// 取得轉讓記錄簽章狀態
+#[utoipa::path(
+    get,
+    path = "/api/signatures/transfer/{id}",
+    responses(
+        (status = 200, description = "簽章狀態", body = SignatureStatusResponse),
+        (status = 404, description = "找不到記錄")
+    ),
+    params(("id" = Uuid, Path, description = "轉讓記錄 ID")),
+    tag = "電子簽章",
+    security(("bearer" = []))
+)]
 pub async fn get_transfer_signature_status(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -514,6 +604,20 @@ pub async fn get_transfer_signature_status(
 // ============================================
 
 /// 為計劃審查簽章（IACUC 委員核准）
+#[utoipa::path(
+    post,
+    path = "/api/signatures/protocol/{id}",
+    request_body = SignRecordRequest,
+    responses(
+        (status = 200, description = "簽章成功", body = SignRecordResponse),
+        (status = 400, description = "請提供密碼或手寫簽名"),
+        (status = 401, description = "未授權或密碼錯誤"),
+        (status = 404, description = "找不到計劃書")
+    ),
+    params(("id" = Uuid, Path, description = "計劃書 ID")),
+    tag = "電子簽章",
+    security(("bearer" = []))
+)]
 pub async fn sign_protocol_review(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -590,6 +694,17 @@ pub async fn sign_protocol_review(
 }
 
 /// 取得計劃審查簽章狀態
+#[utoipa::path(
+    get,
+    path = "/api/signatures/protocol/{id}",
+    responses(
+        (status = 200, description = "簽章狀態", body = SignatureStatusResponse),
+        (status = 404, description = "找不到記錄")
+    ),
+    params(("id" = Uuid, Path, description = "計劃書 ID")),
+    tag = "電子簽章",
+    security(("bearer" = []))
+)]
 pub async fn get_protocol_signature_status(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -630,6 +745,22 @@ pub async fn get_protocol_signature_status(
 // ============================================
 
 /// 新增附註到已鎖定的記錄
+#[utoipa::path(
+    post,
+    path = "/api/annotations/{record_type}/{record_id}",
+    request_body = CreateAnnotationRequest,
+    responses(
+        (status = 200, description = "附註建立成功", body = AnnotationResponse),
+        (status = 400, description = "只能對已鎖定的記錄新增附註或驗證失敗"),
+        (status = 401, description = "未授權或密碼錯誤")
+    ),
+    params(
+        ("record_type" = String, Path, description = "紀錄類型 (sacrifice, observation 等)"),
+        ("record_id" = i32, Path, description = "紀錄 ID")
+    ),
+    tag = "電子簽章",
+    security(("bearer" = []))
+)]
 pub async fn add_record_annotation(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -697,6 +828,19 @@ pub async fn add_record_annotation(
 }
 
 /// 取得記錄的所有附註
+#[utoipa::path(
+    get,
+    path = "/api/annotations/{record_type}/{record_id}",
+    responses(
+        (status = 200, description = "附註清單", body = [AnnotationResponse])
+    ),
+    params(
+        ("record_type" = String, Path, description = "紀錄類型"),
+        ("record_id" = i32, Path, description = "紀錄 ID")
+    ),
+    tag = "電子簽章",
+    security(("bearer" = []))
+)]
 pub async fn get_record_annotations(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
