@@ -30,7 +30,7 @@ services:
     container_name: ipig-api-test
     environment:
       HOST: 0.0.0.0
-      PORT: 8000
+      PORT: 8080
       DATABASE_URL: postgres://postgres:password@db-test:5432/ipig_db_test
       JWT_SECRET: ci_test_secret_key_fixed
       JWT_EXPIRATION_MINUTES: 60
