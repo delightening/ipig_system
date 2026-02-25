@@ -19,6 +19,16 @@ use crate::{
 };
 
 /// 列出所有動物
+#[utoipa::path(
+    get,
+    path = "/api/animals",
+    responses(
+        (status = 200, description = "成功獲取動物列表", body = [AnimalListItem]),
+        (status = 401, description = "未授權")
+    ),
+    tag = "動物管理",
+    security(("bearer" = []))
+)]
 pub async fn list_animals(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -47,6 +57,16 @@ pub async fn list_animals(
 }
 
 /// 按欄位列出所有動物
+#[utoipa::path(
+    get,
+    path = "/api/animals/by-pen",
+    responses(
+        (status = 200, description = "成功獲取按欄位分類的動物列表", body = [AnimalsByPen]),
+        (status = 401, description = "未授權")
+    ),
+    tag = "動物管理",
+    security(("bearer" = []))
+)]
 pub async fn list_animals_by_pen(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -58,6 +78,20 @@ pub async fn list_animals_by_pen(
 }
 
 /// 取得單個動物的詳細資訊
+#[utoipa::path(
+    get,
+    path = "/api/animals/{id}",
+    responses(
+        (status = 200, description = "成功獲取動物詳情", body = Animal),
+        (status = 404, description = "找不到動物"),
+        (status = 401, description = "未授權")
+    ),
+    params(
+        ("id" = Uuid, Path, description = "動物 ID")
+    ),
+    tag = "動物管理",
+    security(("bearer" = []))
+)]
 pub async fn get_animal(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -68,6 +102,18 @@ pub async fn get_animal(
 }
 
 /// 建立新動物
+#[utoipa::path(
+    post,
+    path = "/api/animals",
+    request_body = CreateAnimalRequest,
+    responses(
+        (status = 201, description = "建立成功", body = Animal),
+        (status = 400, description = "輸入資料驗證失敗"),
+        (status = 401, description = "未授權")
+    ),
+    tag = "動物管理",
+    security(("bearer" = []))
+)]
 pub async fn create_animal(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -130,6 +176,22 @@ pub async fn create_animal(
 }
 
 /// 更新動物資訊
+#[utoipa::path(
+    put,
+    path = "/api/animals/{id}",
+    request_body = UpdateAnimalRequest,
+    responses(
+        (status = 200, description = "更新成功", body = Animal),
+        (status = 404, description = "找不到動物"),
+        (status = 400, description = "輸入資料驗證失敗"),
+        (status = 401, description = "未授權")
+    ),
+    params(
+        ("id" = Uuid, Path, description = "動物 ID")
+    ),
+    tag = "動物管理",
+    security(("bearer" = []))
+)]
 pub async fn update_animal(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -193,6 +255,21 @@ pub async fn update_animal(
 }
 
 /// 刪除動物（軟刪除 + 刪除原因）- GLP 合規
+#[utoipa::path(
+    delete,
+    path = "/api/animals/{id}",
+    request_body = DeleteRequest,
+    responses(
+        (status = 200, description = "刪除成功"),
+        (status = 404, description = "找不到動物"),
+        (status = 401, description = "未授權")
+    ),
+    params(
+        ("id" = Uuid, Path, description = "動物 ID")
+    ),
+    tag = "動物管理",
+    security(("bearer" = []))
+)]
 pub async fn delete_animal(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -229,6 +306,17 @@ pub async fn delete_animal(
 }
 
 /// 批次分配動物的耳標
+#[utoipa::path(
+    post,
+    path = "/api/animals/batch/assign",
+    request_body = BatchAssignRequest,
+    responses(
+        (status = 200, description = "批次分配成功", body = [Animal]),
+        (status = 401, description = "未授權")
+    ),
+    tag = "動物管理",
+    security(("bearer" = []))
+)]
 pub async fn batch_assign_animals(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -267,6 +355,20 @@ pub async fn batch_assign_animals(
 }
 
 /// 標記動物為獸醫已讀
+#[utoipa::path(
+    post,
+    path = "/api/animals/{id}/vet-read",
+    responses(
+        (status = 200, description = "標記成功"),
+        (status = 404, description = "找不到動物"),
+        (status = 401, description = "未授權")
+    ),
+    params(
+        ("id" = Uuid, Path, description = "動物 ID")
+    ),
+    tag = "動物管理",
+    security(("bearer" = []))
+)]
 pub async fn mark_animal_vet_read(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -290,6 +392,20 @@ pub struct AnimalEvent {
 }
 
 /// 取得動物的 IACUC 變更事件（用於時間軸顯示）
+#[utoipa::path(
+    get,
+    path = "/api/animals/{id}/events",
+    responses(
+        (status = 200, description = "成功獲取事件列表", body = [AnimalEvent]),
+        (status = 404, description = "找不到動物"),
+        (status = 401, description = "未授權")
+    ),
+    params(
+        ("id" = Uuid, Path, description = "動物 ID")
+    ),
+    tag = "動物管理",
+    security(("bearer" = []))
+)]
 pub async fn get_animal_events(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
