@@ -364,8 +364,12 @@ export function UsersPage() {
     }))
   }
 
-  const handleResetPassword = () => {
+  const handleResetPassword = async () => {
     if (!userToResetPassword) return
+    if (!reauthPassword) {
+      toast({ title: '錯誤', description: '請輸入您的登入密碼以確認身份', variant: 'destructive' })
+      return
+    }
     if (!newPassword || !confirmNewPassword) {
       toast({ title: '錯誤', description: '請填寫所有欄位', variant: 'destructive' })
       return
@@ -378,16 +382,23 @@ export function UsersPage() {
       toast({ title: '錯誤', description: '兩次輸入的密碼不一致', variant: 'destructive' })
       return
     }
-    resetPasswordMutation.mutate({
-      id: userToResetPassword.id,
-      data: { new_password: newPassword },
-    })
+    try {
+      const { reauth_token } = await confirmPassword(reauthPassword)
+      resetPasswordMutation.mutate({
+        id: userToResetPassword.id,
+        data: { new_password: newPassword },
+        reauthToken: reauth_token,
+      })
+    } catch {
+      toast({ title: '錯誤', description: '密碼錯誤，請重新輸入您的登入密碼', variant: 'destructive' })
+    }
   }
 
   const openResetPasswordDialog = (user: User) => {
     setUserToResetPassword(user)
     setNewPassword('')
     setConfirmNewPassword('')
+    setReauthPassword('')
     setShowResetPasswordDialog(true)
   }
 
@@ -492,12 +503,15 @@ export function UsersPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      {/* 模擬登入（管理員專用） */}
+                      {/* 模擬登入（管理員專用，SEC-33 需重新輸入密碼） */}
                       {user.id !== currentUser?.id && (
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => impersonate(user.id)}
+                          onClick={() => {
+                            setUserToImpersonate(user)
+                            setShowReauthForImpersonate(true)
+                          }}
                           title="模擬登入 (Login As)"
                         >
                           <LogIn className="h-4 w-4 text-blue-500" />
@@ -836,20 +850,48 @@ export function UsersPage() {
             <Button
               variant="destructive"
               onClick={() => {
-                if (userToDelete) {
-                  deleteMutation.mutate(userToDelete.id)
-                  setShowDeleteDialog(false)
-                  setUserToDelete(null)
-                }
+                if (userToDelete) setShowReauthForDelete(true)
               }}
-              disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               確認刪除
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* SEC-33：刪除使用者前重新輸入密碼 */}
+      <ConfirmPasswordModal
+        open={showReauthForDelete}
+        onOpenChange={(open) => {
+          setShowReauthForDelete(open)
+          if (!open) setUserToDelete(null)
+        }}
+        title="確認刪除使用者"
+        description={userToDelete ? `確定要刪除使用者「${userToDelete.display_name}」？此操作無法復原，請輸入您的登入密碼以確認。` : ''}
+        onSubmit={async (password) => {
+          const { reauth_token } = await confirmPassword(password)
+          if (!userToDelete) return
+          await deleteUserWithReauth(userToDelete.id, reauth_token)
+          setShowDeleteDialog(false)
+          setUserToDelete(null)
+        }}
+      />
+
+      {/* SEC-33：模擬登入前重新輸入密碼 */}
+      <ConfirmPasswordModal
+        open={showReauthForImpersonate}
+        onOpenChange={(open) => {
+          setShowReauthForImpersonate(open)
+          if (!open) setUserToImpersonate(null)
+        }}
+        title="模擬登入確認"
+        description={userToImpersonate ? `確定要以「${userToImpersonate.display_name}」的身分登入？請輸入您的登入密碼以確認。` : ''}
+        onSubmit={async (password) => {
+          const { reauth_token } = await confirmPassword(password)
+          if (!userToImpersonate) return
+          await impersonate(userToImpersonate.id, reauth_token)
+        }}
+      />
 
       {/* 重設密碼對話框 */}
       <Dialog open={showResetPasswordDialog} onOpenChange={(open) => {
@@ -858,6 +900,7 @@ export function UsersPage() {
           setUserToResetPassword(null)
           setNewPassword('')
           setConfirmNewPassword('')
+          setReauthPassword('')
         }
       }}>
         <DialogContent>
@@ -875,6 +918,16 @@ export function UsersPage() {
               <p className="text-sm text-orange-800">
                 重設密碼後，該使用者需要使用新密碼重新登入。建議通知該使用者密碼已變更。
               </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="reset-reauth-password">您的登入密碼（確認身份）</Label>
+              <Input
+                id="reset-reauth-password"
+                type="password"
+                value={reauthPassword}
+                onChange={(e) => setReauthPassword(e.target.value)}
+                placeholder="請輸入您的密碼以確認此操作"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="reset-new-password">新密碼</Label>
@@ -905,6 +958,7 @@ export function UsersPage() {
                 setUserToResetPassword(null)
                 setNewPassword('')
                 setConfirmNewPassword('')
+                setReauthPassword('')
               }}
               disabled={resetPasswordMutation.isPending}
             >

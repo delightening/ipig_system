@@ -55,6 +55,10 @@
 
 ## 9. 最新變更動態
 
+### 2026-02-25 SEC-33 敏感操作二級認證 (P3-7)
+- ✅ **後端**：新增 `POST /auth/confirm-password`，以密碼換取短期 reauth JWT（5 分鐘）；`delete_user`、`reset_user_password`、`impersonate_user`、`delete_role` 四個敏感操作需帶 `X-Reauth-Token` header，否則回傳 403。
+- ✅ **前端**：新增 `ConfirmPasswordModal` 與 `confirmPassword()` API；使用者管理（刪除使用者、重設他人密碼、模擬登入）與角色管理（刪除角色）執行前皆需重新輸入登入密碼以取得 reauth token 後再送出請求。
+
 ### 2026-02-25 電子簽章合規審查 (P1-7) 與 OpenAPI 完善 (P1-12)
 - ✅ **P1-7 電子簽章合規審查**：新增 `docs/ELECTRONIC_SIGNATURE_COMPLIANCE.md`，對照 21 CFR Part 11 子章 B/C，審查犧牲／觀察／安樂死／轉讓／計畫書簽章與附註實作，結論為技術面已符合核心要求，建議補齊書面政策與訓練紀錄。
 - ✅ **P1-12 OpenAPI 文件完善**：後端新增電子簽章 10 paths + 2 附註 paths、動物管理 9 paths，以及對應 Request/Response Schema（SignRecordRequest/Response、SignatureStatusResponse、Annotation、Animal、AnimalListItem、AnimalQuery 等），Swagger UI 已涵蓋認證、使用者、角色、設施、倉儲、計畫書、審查、電子簽章、動物管理。

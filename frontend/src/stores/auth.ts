@@ -13,7 +13,8 @@ interface AuthState {
   /** 僅清除前端 auth 狀態（不呼叫後端），供 interceptor 在 token 失效時使用 */
   clearAuth: () => void
   isImpersonating: boolean
-  impersonate: (userId: string) => Promise<void>
+  /** SEC-33：reauthToken 由呼叫端先透過 POST /auth/confirm-password 取得後傳入 */
+  impersonate: (userId: string, reauthToken?: string) => Promise<void>
   stopImpersonating: () => Promise<void>
   checkAuth: () => Promise<void>
   hasPermission: (permission: string) => boolean
@@ -76,11 +77,11 @@ export const useAuthStore = create<AuthState>()(
         })
       },
 
-      impersonate: async (userId: string) => {
+      impersonate: async (userId: string, reauthToken?: string) => {
         set({ isLoading: true })
         try {
-          // 後端設定新的 HttpOnly Cookie（含模擬登入的 token）
-          const response = await api.post<LoginResponse>(`/users/${userId}/impersonate`)
+          const config = reauthToken ? { headers: { 'X-Reauth-Token': reauthToken } } : undefined
+          const response = await api.post<LoginResponse>(`/users/${userId}/impersonate`, {}, config)
           const { user } = response.data
 
           set({

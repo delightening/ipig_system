@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api, { Role, Permission } from '@/lib/api'
+import api, { confirmPassword, Role, Permission } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
+import { ConfirmPasswordModal } from '@/components/auth/ConfirmPasswordModal'
 import { Loader2, Shield, Plus, Pencil, Trash2 } from 'lucide-react'
 import { PermissionTree } from '@/components/admin/PermissionTree'
 
@@ -29,6 +30,8 @@ export function RolesPage() {
   const { toast } = useToast()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
+  const [showReauthForDeleteRole, setShowReauthForDeleteRole] = useState(false)
+  const [roleToDelete, setRoleToDelete] = useState<Role | null>(null)
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
   const [formData, setFormData] = useState<CreateRoleData>({
     code: '',
@@ -96,26 +99,15 @@ export function RolesPage() {
     },
   })
 
-  // 刪除角色
-  const deleteMutation = useMutation({
-    mutationFn: async ({ id }: { id: string; is_system: boolean }) => {
-      await api.delete(`/roles/${id}`)
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['roles'] })
-      toast({
-        title: '成功',
-        description: variables.is_system ? '系統角色已停用' : '角色已刪除',
-      })
-    },
-    onError: (error: any) => {
-      toast({
-        title: '錯誤',
-        description: error.response?.data?.error?.message || '刪除失敗',
-        variant: 'destructive'
-      })
-    },
-  })
+  // 刪除角色（SEC-33：需帶 X-Reauth-Token，在 ConfirmPasswordModal 內取得後呼叫）
+  const deleteRoleWithReauth = async (id: string, reauthToken: string, is_system: boolean) => {
+    await api.delete(`/roles/${id}`, { headers: { 'X-Reauth-Token': reauthToken } })
+    queryClient.invalidateQueries({ queryKey: ['roles'] })
+    toast({
+      title: '成功',
+      description: is_system ? '系統角色已停用' : '角色已刪除',
+    })
+  }
 
   const resetForm = () => {
     setFormData({ code: '', name: '', permission_ids: [] })
@@ -203,12 +195,8 @@ export function RolesPage() {
                     variant="ghost"
                     size="icon"
                     onClick={() => {
-                      const message = role.is_system
-                        ? '確定要停用此系統角色嗎？'
-                        : '確定要刪除此角色嗎？'
-                      if (confirm(message)) {
-                        deleteMutation.mutate({ id: role.id, is_system: role.is_system })
-                      }
+                      setRoleToDelete(role)
+                      setShowReauthForDeleteRole(true)
                     }}
                   >
                     <Trash2 className="h-4 w-4 text-red-500" />
@@ -329,6 +317,23 @@ export function RolesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* SEC-33：刪除角色前重新輸入密碼 */}
+      <ConfirmPasswordModal
+        open={showReauthForDeleteRole}
+        onOpenChange={(open) => {
+          setShowReauthForDeleteRole(open)
+          if (!open) setRoleToDelete(null)
+        }}
+        title={roleToDelete?.is_system ? '確認停用系統角色' : '確認刪除角色'}
+        description={roleToDelete ? `確定要${roleToDelete.is_system ? '停用' : '刪除'}角色「${roleToDelete.name}」？請輸入您的登入密碼以確認。` : ''}
+        onSubmit={async (password) => {
+          const { reauth_token } = await confirmPassword(password)
+          if (!roleToDelete) return
+          await deleteRoleWithReauth(roleToDelete.id, reauth_token, roleToDelete.is_system)
+          setRoleToDelete(null)
+        }}
+      />
     </div>
   )
 }
