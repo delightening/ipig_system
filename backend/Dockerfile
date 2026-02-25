@@ -16,7 +16,7 @@ COPY migrations ./migrations
 COPY .sqlx ./.sqlx
 
 ENV SQLX_OFFLINE=true
-RUN cargo build --release
+RUN cargo build --release --bin erp-backend --bin healthcheck
 
 # Runtime stage
 FROM debian:bookworm-slim AS runtime
@@ -29,13 +29,14 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Create appuser (since distroless doesn't have useradd, we do it here if we use debian-slim)
+# Create appuser (since distroless doesn't have useradd, we do it here)
 RUN useradd -r -s /bin/false appuser && \
     mkdir -p /app/geoip && \
     chown -R appuser:appuser /app
 
-# Copy binary and migrations
+# Copy binaries and migrations
 COPY --from=builder /app/target/release/erp-backend /app/erp-backend
+COPY --from=builder /app/target/release/healthcheck /app/healthcheck
 COPY --from=builder /app/migrations /app/migrations
 
 # Using distroless for final stage to minimize vulnerabilities
@@ -54,6 +55,10 @@ USER appuser
 # Set environment
 ENV RUST_LOG=info
 
-EXPOSE 3000
+EXPOSE 8000
+
+# Health check using compiled binary (distroless has no shell)
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=5 \
+  CMD ["/app/healthcheck"]
 
 CMD ["./erp-backend"]

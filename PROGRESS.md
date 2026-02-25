@@ -1,5 +1,52 @@
 # 專案進度
 
+## 2026-02-24 容器自動更新機制 (GHCR + Watchtower)
+
+### 已完成
+
+- ✅ **CI/CD Pipeline**：
+  - 建立 `.github/workflows/cd.yml` CD 工作流程。
+  - CI 通過後自動建構 API 和 Web 映像並推送至 GHCR。
+  - 映像標籤：commit SHA + `latest`，支援 Docker layer caching。
+- ✅ **Watchtower 自動更新**：
+  - 建立 `docker-compose.prod.yml` 正式環境覆寫檔。
+  - Watchtower 每 30 秒輪詢 GHCR，自動拉取並重啟 api/web 容器。
+  - db 和 db-backup 明確排除自動更新（label enable=false）。
+  - Email 通知整合現有 SMTP 設定。
+- ✅ **健康檢查**：
+  - 後端新增 `healthcheck` Rust 二進位（適用 distroless 容器）。
+  - 前端 Dockerfile 加入 HEALTHCHECK（wget）。
+  - docker-compose.yml 加入 web 服務健康檢查。
+- ✅ **Frontend Dockerfile 重構**：
+  - 改為 multi-stage build（Node.js 建構 + Nginx 服務）。
+  - 新增 `.dockerignore` 排除 node_modules。
+- ✅ **部署腳本**：
+  - `scripts/deploy/setup-server.sh`：一鍵設定正式環境（GHCR 登入、Watchtower token）。
+  - `scripts/deploy/healthcheck.sh`：部署後健康驗證。
+  - `scripts/deploy/rollback.sh`：回滾至指定 commit SHA。
+- ✅ **文件更新**：
+  - `DEPLOYMENT.md` 新增 §7 容器自動更新章節。
+  - `.env.example` 新增 GHCR/Watchtower 環境變數。
+  - 修正後端 Dockerfile `EXPOSE 3000` → `EXPOSE 8000`。
+
+### 變更檔案
+
+- `.github/workflows/cd.yml`（新增）
+- `docker-compose.prod.yml`（新增）
+- `backend/src/bin/healthcheck.rs`（新增）
+- `scripts/deploy/setup-server.sh`（新增）
+- `scripts/deploy/healthcheck.sh`（新增）
+- `scripts/deploy/rollback.sh`（新增）
+- `frontend/.dockerignore`（新增）
+- `frontend/Dockerfile`
+- `backend/Dockerfile`
+- `backend/Cargo.toml`
+- `docker-compose.yml`
+- `.env.example`
+- `DEPLOYMENT.md`
+- `TODO.md`
+- `PROGRESS.md`
+
 ## 2026-02-24 解決資料庫轉型歧義 (Ambiguous Cast)
 
 ### 已完成
