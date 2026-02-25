@@ -14,14 +14,16 @@ COPY . .
 RUN npm run build
 
 # ============================================
-# Stage 2: Serve with nginx
+# Stage 2: Serve with nginx (Brotli 支援)
 # ============================================
-FROM nginx:1.27-alpine
+FROM georgjung/nginx-brotli:alpine
 
 # Security upgrade
 RUN apk update && apk upgrade && rm -rf /var/cache/apk/*
 
-# Copy nginx config
+# 主配置：載入 Brotli 模組並 include conf.d
+COPY nginx-main.conf /etc/nginx/nginx.conf
+# Server block（含 brotli on / brotli_static 等）
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy build output from builder stage
