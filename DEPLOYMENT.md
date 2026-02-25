@@ -237,3 +237,76 @@ docker compose restart api
 
 # 3. 通知使用者重新登入
 ```
+
+---
+
+## 7. 容器自動更新（GHCR + Watchtower）
+
+### 7.1 架構概覽
+
+```
+Push to main → CI 通過 → CD 建構映像 → 推送至 GHCR
+  → Watchtower 偵測新映像（30 秒輪詢）→ 拉取 + 重啟 api/web → 健康檢查 → Email 通知
+```
+
+- **CI/CD 分離**：CI（`.github/workflows/ci.yml`）負責檢查，CD（`.github/workflows/cd.yml`）負責建構並推送映像
+- **映像來源**：GitHub Container Registry（`ghcr.io/<owner>/ipig-api`、`ghcr.io/<owner>/ipig-web`）
+- **自動更新**：Watchtower 僅監控標記 `watchtower.enable=true` 的容器（api、web）
+- **DB 安全**：db 和 db-backup 明確排除自動更新
+
+### 7.2 首次設定
+
+```bash
+# 執行一鍵設定腳本
+bash scripts/deploy/setup-server.sh
+```
+
+腳本會自動：
+1. 登入 GHCR（需 GitHub PAT，scope: `read:packages`）
+2. 將 `GHCR_OWNER`、`IMAGE_TAG` 寫入 `.env`
+3. 產生 Watchtower API token
+4. 拉取映像並啟動服務
+
+### 7.3 正式環境啟動
+
+```bash
+# 正式環境（使用 GHCR 映像 + Watchtower）
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build
+
+# 開發環境（不變，使用本地建構）
+docker compose up -d db api web-dev
+```
+
+### 7.4 手動觸發更新
+
+```bash
+# 透過 Watchtower HTTP API
+curl -H "Authorization: Bearer $WATCHTOWER_API_TOKEN" http://localhost:8090/v1/update
+```
+
+### 7.5 回滾
+
+```bash
+# 回滾至特定 commit SHA
+bash scripts/deploy/rollback.sh <commit-sha>
+
+# 回滾後恢復自動更新
+export IMAGE_TAG=latest
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d watchtower
+```
+
+### 7.6 健康檢查
+
+```bash
+# 手動執行健康檢查
+bash scripts/deploy/healthcheck.sh
+
+# API 健康端點
+curl http://localhost:8000/api/health
+```
+
+### 7.7 注意事項
+
+- **資料庫遷移**：SQLx 遷移在 API 啟動時自動執行。回滾 API 版本不會自動還原遷移，破壞性遷移需手動撰寫補償 SQL。
+- **短暫停機**：單一 API 實例重啟約 5-10 秒。如需零停機，可考慮擴展為多副本。
+- **Watchtower 通知**：使用現有 SMTP 設定發送部署通知。設定 `.env` 中的 `DEPLOY_NOTIFY_EMAIL`。

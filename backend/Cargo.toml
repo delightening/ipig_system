@@ -87,6 +87,10 @@ tokio-test = "0.4"
 name = "create_admin"
 path = "src/bin/create_admin.rs"
 
+[[bin]]
+name = "healthcheck"
+path = "src/bin/healthcheck.rs"
+
 # 安全強化：Release 模式下也檢查整數溢位
 [profile.release]
 overflow-checks = true

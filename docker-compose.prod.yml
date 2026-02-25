@@ -1,0 +1,72 @@
+# ============================================
+# Production override: GHCR images + Watchtower auto-update
+# ============================================
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build
+#
+# Required env vars in .env:
+#   GHCR_OWNER  - GitHub username or org
+#   IMAGE_TAG   - Image tag (default: latest)
+#
+# Prerequisites:
+#   docker login ghcr.io -u <GHCR_OWNER> --password-stdin < token.txt
+# ============================================
+
+services:
+  # Override api to use GHCR image
+  api:
+    image: ghcr.io/${GHCR_OWNER}/ipig-api:${IMAGE_TAG:-latest}
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  # Override web to use GHCR image
+  web:
+    image: ghcr.io/${GHCR_OWNER}/ipig-web:${IMAGE_TAG:-latest}
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  # Explicitly exclude db from auto-update
+  db:
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+
+  # Explicitly exclude db-backup from auto-update
+  db-backup:
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+
+  # =========================
+  # Watchtower: auto-update containers
+  # =========================
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: ipig-watchtower
+    environment:
+      # Only update containers with the enable label
+      WATCHTOWER_LABEL_ENABLE: "true"
+      # Check for updates every 30 seconds
+      WATCHTOWER_POLL_INTERVAL: 30
+      # Clean up old images after update
+      WATCHTOWER_CLEANUP: "true"
+      # Rolling restart (one container at a time)
+      WATCHTOWER_ROLLING_RESTART: "true"
+      # HTTP API for manual trigger (curl -H "Authorization: Bearer $TOKEN" localhost:8090/v1/update)
+      WATCHTOWER_HTTP_API_TOKEN: ${WATCHTOWER_API_TOKEN:-}
+      WATCHTOWER_HTTP_API_UPDATE: "true"
+      WATCHTOWER_HTTP_API_METRICS: "true"
+      # Notification via email (uses existing SMTP)
+      WATCHTOWER_NOTIFICATIONS: "email"
+      WATCHTOWER_NOTIFICATION_EMAIL_FROM: ${SMTP_FROM_EMAIL:-noreply@erp.local}
+      WATCHTOWER_NOTIFICATION_EMAIL_TO: ${DEPLOY_NOTIFY_EMAIL:-}
+      WATCHTOWER_NOTIFICATION_EMAIL_SERVER: ${SMTP_HOST:-}
+      WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PORT: ${SMTP_PORT:-587}
+      WATCHTOWER_NOTIFICATION_EMAIL_SERVER_USER: ${SMTP_USERNAME:-}
+      WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PASSWORD: ${SMTP_PASSWORD:-}
+      WATCHTOWER_NOTIFICATION_EMAIL_DELAY: 2
+    ports:
+      - "127.0.0.1:8090:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # GHCR auth config (created by docker login ghcr.io)
+      - ${HOME}/.docker/config.json:/config.json:ro
+    restart: unless-stopped
