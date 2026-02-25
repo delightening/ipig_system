@@ -44,7 +44,7 @@
 | **可觀測性** | /health ✅, /metrics ✅, Grafana Dashboard ✅ | 健康檢查 + Prometheus + Grafana | ✅ |
 | **備份 / DR** | GPG 加密備份 ✅, DR Runbook ✅ | 復原 SOP + 上傳檔案備份 + 加密 | ✅ |
 | **安全性** | Named Tunnel 腳立 ✅, 容器掃描 ✅ | Pentest + 具名隧道遷移 | ✅ |
-| **GLP 合規** | 電子簽章 ✅, GLP 驗證文件 v1.0 ✅ | CSV 驗證文件 + 資料保留政策 | ✅ |
+| **GLP 合規** | 電子簽章 ✅, GLP 驗證文件 v1.0 ✅, 資料保留政策 ✅ | CSV 驗證文件 + 資料保留政策 | ✅ |
 | **效能基準** | k6 基準建立 (P95: 1.76~2.3s) ✅ | 壓力測試 + Brotli 驗證 | ✅ |
 | **文件** | 使用者手冊 v1.0 ✅, 核心模組註解 ✅ | Swagger ≥90%、完整操作手冊 | 🔶 |
 | **UX / 相容性** | 錯誤處理 UX 統一 ✅, 跨瀏覽器基礎驗證 ✅ | 瀏覽器相容性測試 + 錯誤 UX 統一 | ✅ |
@@ -54,6 +54,13 @@
 ---
 
 ## 9. 最新變更動態
+
+### 2026-02-25 CI `sqlx-cli` 安裝修正
+- ✅ **強制覆蓋**：在 `ci.yml` 的 `cargo install sqlx-cli` 步驟增加 `--force` 參數，解決 GitHub Actions 快取恢復後的二進位檔衝突問題。
+
+### 2026-02-25 資料保留政策定義 (P1-8)
+- ✅ **政策文檔產出**：建立 `DATA_RETENTION_POLICY.md`，定義 AUP、醫療紀錄、稽核日誌、ERP 與 HR 資料之法定保留年限。
+- ✅ **合規基準**：參考 GLP、21 CFR Part 11 與台灣勞基法制定。
 
 ### 2026-02-25 Trivy 安全掃描優化
 - ✅ **CI 參數統一**：將 `ci.yml` 中的 Trivy 掃描參數統一為 `vulnerability-type`。

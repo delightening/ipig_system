@@ -176,7 +176,7 @@ jobs:
             ${{ runner.os }}-cargo-test-
 
       - name: 安裝 sqlx-cli
-        run: cargo install sqlx-cli --no-default-features --features postgres
+        run: cargo install sqlx-cli --no-default-features --features postgres --force
 
       - name: 執行資料庫遷移
         run: sqlx migrate run

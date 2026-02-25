@@ -27,8 +27,8 @@
 |---|------|------|------|------|----------|------|
 | P1-1 | **前端 E2E 測試 (Playwright)** | 7 spec / 34 tests，含 429 重試 + race condition 修正，連續 3 次 0 failures | 前端 | 無 | 🧠 Claude | [x] |
 | P1-2 | **E2E CI 自動化** | `docker-compose.test.yml` + GitHub Actions 整合 | DevOps | P1-1 | ⚡ Flash | [x] |
-| P1-7 | **電子簽章合規審查** | 21 CFR Part 11 或等效法規合規審查 | 文件 | 無 | 🧠 Claude | [ ] |
-| P1-8 | **資料保留政策** | 定義各類紀錄的法定保留年限 | 文件 | 無 | 🧠 Claude | [ ] |
+| P1-7 | **電子簽章合規審查** | 21 CFR Part 11 或等效法規合規審查 | 文件 | 無 | 🧠 Claude | [/] |
+| P1-8 | **資料保留政策** | 定義各類紀錄的法定保留年限 | 文件 | 無 | 🧠 Claude | [x] |
 | P1-12 | **OpenAPI 文件完善 (≥90%)** | 擴展其餘端點的 Schema 與 Path 定義 | 後端 | 無 | 🧠 Claude | [ ] |
 
 ---
@@ -53,7 +53,7 @@
 | # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
 |---|------|------|------|----------|------|
 | 13 | **前端元件庫文件化** | Storybook 建置 | 前端 | ⚡ Flash | [ ] |
-| 14 | **前端超長頁面重構** | 漸進式重構巨型組件 (如 `ProtocolEditPage`) | 前端 | 🧠 Claude | [/] |
+| 14 | **前端超長頁面重構** | 漸進式重構巨型組件 (如 `ProtocolEditPage`) | 前端 | 🧠 Claude | [] |
 | 15 | **SEC-39：Two-Factor Authentication** | TOTP 二階段驗證 (Google Authenticator) | 前後端 | 🧠 Claude | [ ] |
 | 16 | **SEC-40：Web Application Firewall** | ModSecurity 或 Cloudflare WAF | DevOps | ⚡ Flash | [ ] |
 
@@ -77,6 +77,8 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-02-25 | 🧠 Claude：修正 CI `sqlx-cli` 安裝錯誤，增加 `--force` 以應對快取衝突。 |
+| 2026-02-25 | 🧠 Claude：完成 P1-8 資料保留政策 (Data Retention Policy) 定義。 |
 | 2026-02-25 | 🧠 Claude：修正 CI Trivy 掃描參數一致性並清理 `.trivyignore` 無效編號。 |
 | 2026-02-25 | ⚡ Flash：完成 P1-5 後端壓力測試基準建立 (k6)，已遷移至 PROGRESS.md。 |
 | 2026-02-25 | 🧠 Claude：P1-1 E2E 穩定化 — 429 rate limit 重試、React state race condition fallback、連續 3 次 0 failures。 |
