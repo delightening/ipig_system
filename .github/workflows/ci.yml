@@ -134,9 +134,28 @@ jobs:
   backend-test:
     name: "Backend: cargo test"
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: ipig_db_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     defaults:
       run:
         working-directory: ./backend
+    env:
+      DATABASE_URL: postgres://postgres:password@localhost:5432/ipig_db_test
+      SQLX_OFFLINE: "false"
+
     steps:
       - uses: actions/checkout@v4
 
@@ -152,9 +171,15 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             backend/target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('backend/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('backend/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-
+            ${{ runner.os }}-cargo-test-
+
+      - name: 安裝 sqlx-cli
+        run: cargo install sqlx-cli --no-default-features --features postgres
+
+      - name: 執行資料庫遷移
+        run: sqlx migrate run
 
       - name: cargo test
         run: cargo test --verbose
@@ -297,4 +322,63 @@ jobs:
           exit-code: "1"
           ignore-unfixed: true
           trivyignores: .trivyignore
-          vuln-type: "os,library"
+          vulnerability-type: "os,library"
+
+  # =========================
+  # 🧪 E2E 整合測試 (Playwright)
+  # =========================
+  e2e-test:
+    name: "🧪 E2E: Playwright"
+    runs-on: ubuntu-latest
+    # 確保基本檢查通過後再跑耗時的 E2E
+    needs: [backend-test, frontend-check]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 設定專案環境變數
+        run: cp .env.example .env
+
+      - name: 啟動 Docker 測試環境
+        run: |
+          docker compose -f docker-compose.test.yml build --progress=plain
+          docker compose -f docker-compose.test.yml up -d
+
+      - name: 等待服務就緒 (Healthcheck)
+        run: |
+          # 等待前端 (nginx:8080) 啟動
+          timeout 60s sh -c 'until curl -s http://localhost:8080 > /dev/null; do sleep 2; done'
+          # 等待 API (8000) 啟動
+          timeout 60s sh -c 'until curl -s http://localhost:8000/api/health > /dev/null; do sleep 2; done'
+          echo "✅ 所有服務已就緒"
+
+      - name: 設定 Node.js (執行測試)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 安裝 Playwright 依賴
+        working-directory: ./frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps
+
+      - name: 執行 Playwright E2E 測試
+        working-directory: ./frontend
+        env:
+          # CI 內部 localhost:8080 即為 web 容器映射出的端口
+          PLAYWRIGHT_TEST_BASE_URL: http://localhost:8080
+        run: npm run test:e2e
+
+      - name: 上傳測試報告 (失敗時)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 30
+
+      - name: 停止 Docker 環境
+        if: always()
+        run: docker compose -f docker-compose.test.yml down

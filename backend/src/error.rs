@@ -102,9 +102,21 @@ impl IntoResponse for AppError {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string())
             }
             AppError::Database(e) => {
-                let msg = format!("Database error: {}", e);
-                tracing::error!("{}", msg);
-                (StatusCode::INTERNAL_SERVER_ERROR, msg)
+                tracing::error!("Database error: {}", e);
+                let user_msg = match e {
+                    sqlx::Error::Database(ref db_err) => {
+                        match db_err.code().as_deref() {
+                            Some("23505") => "資料重複，請檢查輸入欄位是否已存在相同資料".to_string(),
+                            Some("23503") => "關聯資料不存在，請確認參照的資料是否正確".to_string(),
+                            Some("23502") => "必填欄位不可為空".to_string(),
+                            Some("23514") => "資料不符合欄位限制條件".to_string(),
+                            _ => "資料庫操作失敗，請稍後再試".to_string(),
+                        }
+                    }
+                    sqlx::Error::RowNotFound => "查無相關資料".to_string(),
+                    _ => "資料庫操作失敗，請稍後再試".to_string(),
+                };
+                (StatusCode::INTERNAL_SERVER_ERROR, user_msg)
             }
             AppError::Anyhow(e) => {
                 tracing::error!("Unexpected error: {:?}", e);
@@ -127,21 +139,21 @@ impl IntoResponse for AppError {
 // 處理 JSON 反序列化錯誤
 impl From<JsonRejection> for AppError {
     fn from(rejection: JsonRejection) -> Self {
+        tracing::warn!("JSON rejection: {}", rejection);
         let error_message = match rejection {
-            JsonRejection::JsonDataError(err) => {
-                format!("JSON 資料格式錯誤: {}", err)
+            JsonRejection::JsonDataError(_) => {
+                "請求資料格式錯誤，請確認欄位格式是否正確".to_string()
             }
-            JsonRejection::JsonSyntaxError(err) => {
-                format!("JSON 語法錯誤: {}", err)
+            JsonRejection::JsonSyntaxError(_) => {
+                "請求內容格式有誤，請確認 JSON 語法是否正確".to_string()
             }
             JsonRejection::MissingJsonContentType(_) => {
                 "缺少 Content-Type: application/json 標頭".to_string()
             }
             _ => {
-                format!("JSON 解析錯誤: {}", rejection)
+                "請求解析失敗，請確認資料格式".to_string()
             }
         };
-        tracing::warn!("JSON rejection: {}", error_message);
         AppError::Validation(error_message)
     }
 }

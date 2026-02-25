@@ -1,0 +1,56 @@
+services:
+  # =========================
+  # CI Test Database
+  # =========================
+  db-test:
+    image: postgres:16-alpine
+    container_name: ipig-db-test
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ipig_db_test
+      POSTGRES_INITDB_ARGS: "--locale=C"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d ipig_db_test" ]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    # CI 環境不需要永久儲存
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  # =========================
+  # CI Test Backend API
+  # =========================
+  api-test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ipig-api-test
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8000
+      DATABASE_URL: postgres://postgres:password@db-test:5432/ipig_db_test
+      JWT_SECRET: ci_test_secret_key_fixed
+      JWT_EXPIRATION_MINUTES: 60
+      SEED_DEV_USERS: "true" # 重要：CI 測試需要預設帳號
+      COOKIE_SECURE: "false" # CI 中通常不使用 HTTPS
+      CORS_ALLOWED_ORIGINS: "*"
+    depends_on:
+      db-test:
+        condition: service_healthy
+
+  # =========================
+  # CI Test Frontend (Static Host)
+  # =========================
+  web-test:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ipig-web-test
+    environment:
+      # 前端編譯時會注入此變數，但在生產環境 Dockerfile 中可能需透過 Nginx 或環境變數替換
+      VITE_API_URL: http://api-test:8000
+    depends_on:
+      - api-test

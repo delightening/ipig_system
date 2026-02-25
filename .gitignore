@@ -20,3 +20,8 @@ scripts/trivy_bin/
 
 # app secrets files (optional)
 secrets/
+
+# Playwright
+**/e2e/.auth/
+**/test-results/
+**/playwright-report/
