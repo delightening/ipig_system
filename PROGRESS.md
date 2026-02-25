@@ -55,6 +55,10 @@
 
 ## 9. 最新變更動態
 
+### 2026-02-25 Trivy 安全掃描優化
+- ✅ **CI 參數統一**：將 `ci.yml` 中的 Trivy 掃描參數統一為 `vulnerability-type`。
+- ✅ **過濾名單清理**：移除 `.trivyignore` 中無效的 `CVE-2026-0861` 編號。
+
 ### 2026-02-25 E2E CI 自動化 (P1-2)
 - ✅ **GitHub Actions 整合**：新增 `e2e-test` 作業，自動執行 Playwright 測試。
 - ✅ **測試環境容器化**：建立 `docker-compose.test.yml` 供 CI 使用。
