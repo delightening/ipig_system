@@ -1,6 +1,24 @@
 # 程式碼拆分完成報告
 
-## 概述
+---
+
+## 根目錄整理（2026-02-25）
+
+為減少根目錄雜亂，進行以下調整並已更新所有引用：
+
+| 變更 | 說明 |
+|------|------|
+| **docs/** | 新增 `docs/`，將 `DATA_RETENTION_POLICY.md`、`DEPLOYMENT.md`、`DR_RUNBOOK.md`、`GLP_VALIDATION.md`、`PROGRESS.md`、`QUICK_START.md`、`TODO.md`、`USER_GUIDE.md` 移入。`README.md`、`CLAUDE.md` 保留於根目錄。 |
+| **deploy/** | 新增 `deploy/`，將 `cloudflared-config.yml`、`grafana_dashboard.json` 移入，供隧道與監控使用。 |
+| **scripts/** | 將根目錄的 `start.ps1`、`start_tunnel.ps1`、`start_named_tunnel.ps1` 移入 `scripts/`。`start_named_tunnel.ps1` 改為以專案根目錄為工作目錄，設定檔路徑為 `deploy/cloudflared-config.yml`。 |
+| **連結** | `README.md` 內文件導覽改為 `docs/QUICK_START.md` 等；`docs/` 內互相引用維持檔名，對 `README` 改為 `../README.md`。 |
+| **.gitignore** | 新增 `last_error.json`，避免執行期產物被提交。 |
+
+啟動隧道請從專案根目錄執行：`.\scripts\start_named_tunnel.ps1`（或指定 `-ConfigPath deploy/cloudflared-config.yml`）。
+
+---
+
+## 概述（程式碼拆分）
 
 將三個超大檔案拆分為模組化結構，總計減少了約 **5,850 行**的單檔案負擔。`cargo check` 通過，0 errors。
 

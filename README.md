@@ -96,91 +96,40 @@
 | EXPERIMENT_STAFF | 試驗工作人員 | 執行實驗、記錄數據 |
 | CLIENT | 委託人 | 查看委託計畫與動物紀錄 |
 
+## 文件導覽
+
+| 文件 | 說明 |
+|------|------|
+| [QUICK_START.md](docs/QUICK_START.md) | 快速啟動（Docker / 本地開發） |
+| [USER_GUIDE.md](docs/USER_GUIDE.md) | 使用者操作手冊（登入、AUP、動物管理、ERP） |
+| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | 部署與維運手冊（系統需求、首次部署、備份、監控、故障排除、GHCR/Watchtower） |
+
 ## 快速開始
+
+本地或測試環境可依 [QUICK_START.md](docs/QUICK_START.md) 操作；**正式環境或伺服器首次部署**請依 [DEPLOYMENT.md](docs/DEPLOYMENT.md) 進行。
 
 ### 使用 Docker Compose（推薦）
 
-#### 1. 設定環境變數
-
-在項目根目錄創建 `.env` 文件，複製 `backend/env.sample` 並填入實際值：
-
 ```bash
-# 複製範例文件
-cp backend/env.sample .env
+# 1. 設定環境變數（專案根目錄）
+cp .env.example .env
+# 編輯 .env，至少設定 POSTGRES_PASSWORD、JWT_SECRET、ADMIN_INITIAL_PASSWORD
 
-# 編輯 .env 文件，填入必要的環境變數
-```
-
-**重要環境變數說明：**
-
-| 變數 | 說明 |
-|-----|------|
-| `POSTGRES_PASSWORD` | 資料庫密碼（請使用強密碼） |
-| `JWT_SECRET` | JWT 簽名密鑰（必須使用安全的隨機值） |
-| `SMTP_HOST` | SMTP 伺服器（可選，郵件通知用） |
-
-**生成安全的 JWT_SECRET（PowerShell）：**
-
-```powershell
-$jwt = [Convert]::ToBase64String((1..64 | ForEach-Object { Get-Random -Minimum 0 -Maximum 256 }))
-Write-Output $jwt
-```
-
-#### 2. 啟動服務
-
-```bash
-# 啟動所有服務
-docker-compose up -d
+# 2. 啟動服務
+docker compose up -d
 
 # 查看日誌
-docker-compose logs -f
-
-# 停止服務
-docker-compose down
+docker compose logs -f
 ```
 
-**服務入口：**
-| 服務 | 網址 |
-|-----|------|
-| 前端 | http://localhost:8080 |
-| API | http://localhost:3000 |
-| 資料庫 | localhost:5433 |
+**服務入口：** 前端 http://localhost:8080 | API http://localhost:8000 | 資料庫 localhost:5433
 
 ### 本地開發
 
-#### 後端
+後端：`cd backend` → `cp env.sample .env` → `sqlx database create` → `sqlx migrate run` → `cargo run`  
+前端：`cd frontend` → `npm install` → `npm run dev`
 
-```bash
-cd backend
-
-# 建立 .env 檔案
-cp env.sample .env
-# 編輯 .env 設定資料庫連線等
-
-# 安裝 SQLx CLI
-cargo install sqlx-cli
-
-# 建立資料庫
-sqlx database create
-
-# 執行 migrations
-sqlx migrate run
-
-# 啟動開發伺服器
-cargo run
-```
-
-#### 前端
-
-```bash
-cd frontend
-
-# 安裝相依套件
-npm install
-
-# 啟動開發伺服器
-npm run dev
-```
+詳見 [QUICK_START.md](docs/QUICK_START.md)。
 
 ## 預設帳號
 
@@ -255,6 +204,9 @@ ipig_system/
 │   └── package.json
 ├── _Spec.md                  # 系統規格書
 ├── docker-compose.yml        # Docker 編排
+├── deploy/                 # 部署用設定（cloudflared、Grafana dashboard）
+├── docs/                   # 說明文件（快速啟動、部署、使用者手冊等）
+├── scripts/                # 腳本（啟動、隧道、備份、k6 等）
 └── README.md
 ```
 
@@ -262,6 +214,9 @@ ipig_system/
 
 | 文件 | 說明 |
 |-----|------|
+| [QUICK_START.md](docs/QUICK_START.md) | 快速啟動指南 |
+| [USER_GUIDE.md](docs/USER_GUIDE.md) | 使用者操作手冊 |
+| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | 部署與維運手冊 |
 | [_Spec.md](_Spec.md) | 系統完整規格書 |
 | [ERPSpec.md](ERPSpec.md) | 進銷存系統詳細規格 |
 | [notificationSpec.md](notificationSpec.md) | 通知系統規格 |

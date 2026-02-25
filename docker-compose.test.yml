@@ -28,6 +28,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: ipig-api-test
+    ports:
+      - "8000:8080"   # host:container（API 在容器內聽 8080，CI 用 localhost:8000）
     environment:
       HOST: 0.0.0.0
       PORT: 8080
@@ -49,6 +51,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: ipig-web-test
+    ports:
+      - "8080:80"   # host:container（nginx 聽 80，CI/Playwright 用 localhost:8080）
     environment:
       # 前端編譯時會注入此變數，但在生產環境 Dockerfile 中可能需透過 Nginx 或環境變數替換
       VITE_API_URL: http://api-test:8000
