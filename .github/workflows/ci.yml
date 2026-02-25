@@ -341,15 +341,24 @@ jobs:
       - name: 啟動 Docker 測試環境
         run: |
           docker compose -f docker-compose.test.yml build --progress=plain
-          docker compose -f docker-compose.test.yml up -d
+          # 使用 --wait 等待所有服務 healthcheck 通過，避免 E2E 在服務未就緒時執行
+          docker compose -f docker-compose.test.yml up -d --wait --wait-timeout 300
 
-      - name: 等待服務就緒 (Healthcheck)
+      - name: 確認服務可連線 (備援檢查)
         run: |
-          # 等待前端 (nginx:8080) 啟動
-          timeout 60s sh -c 'until curl -s http://localhost:8080 > /dev/null; do sleep 2; done'
-          # 等待 API (8000) 啟動
-          timeout 60s sh -c 'until curl -s http://localhost:8000/api/health > /dev/null; do sleep 2; done'
-          echo "✅ 所有服務已就緒"
+          # 雙端點一併輪詢，總等待最多 120s，避免 port 映射延遲
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8080/ > /dev/null && curl -sf http://localhost:8000/api/health > /dev/null; then
+              echo "✅ 所有服務已就緒"
+              exit 0
+            fi
+            echo "等待服務... ($i/60)"
+            sleep 2
+          done
+          echo "❌ 服務未在時限內就緒"
+          docker compose -f docker-compose.test.yml ps -a
+          docker compose -f docker-compose.test.yml logs --tail=80
+          exit 1
 
       - name: 設定 Node.js (執行測試)
         uses: actions/setup-node@v4

@@ -3,16 +3,19 @@ use argon2::{
     Argon2,
 };
 use chrono::{Duration, Utc};
-use jsonwebtoken::{encode, EncodingKey, Header};
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
     config::Config,
-    middleware::Claims,
+    middleware::{Claims, ReauthClaims},
     models::{LoginRequest, LoginResponse, RefreshToken, User, UserResponse, PasswordResetToken},
     AppError, Result,
 };
+
+/// SEC-33：Reauth token 有效秒數（5 分鐘）
+const REAUTH_EXPIRES_SECS: i64 = 300;
 
 pub struct AuthService;
 
@@ -558,6 +561,45 @@ impl AuthService {
         }
 
         Ok(user)
+    }
+
+    /// SEC-33：產生敏感操作二級認證用短期 token（密碼驗證後呼叫）
+    pub fn generate_reauth_token(config: &Config, user_id: Uuid) -> Result<(String, i64)> {
+        let now = Utc::now();
+        let exp = now + Duration::seconds(REAUTH_EXPIRES_SECS);
+        let claims = ReauthClaims {
+            sub: user_id,
+            exp: exp.timestamp(),
+            iat: now.timestamp(),
+            purpose: "reauth".to_string(),
+        };
+        let token = encode(
+            &Header::default(),
+            &claims,
+            &EncodingKey::from_secret(config.jwt_secret.as_bytes()),
+        )
+        .map_err(|e| AppError::Internal(format!("Failed to create reauth token: {}", e)))?;
+        Ok((token, REAUTH_EXPIRES_SECS))
+    }
+
+    /// SEC-33：驗證 reauth token 是否有效且屬於當前使用者
+    pub fn verify_reauth_token(
+        config: &Config,
+        token: &str,
+        expected_user_id: Uuid,
+    ) -> Result<()> {
+        let mut validation = Validation::default();
+        validation.validate_exp = true;
+        let token_data = decode::<ReauthClaims>(
+            token,
+            &DecodingKey::from_secret(config.jwt_secret.as_bytes()),
+            &validation,
+        )
+        .map_err(|_| AppError::Forbidden("請重新輸入密碼以確認敏感操作".to_string()))?;
+        if token_data.claims.purpose != "reauth" || token_data.claims.sub != expected_user_id {
+            return Err(AppError::Forbidden("請重新輸入密碼以確認敏感操作".to_string()));
+        }
+        Ok(())
     }
 
     /// Admin 重設他人密碼（不需驗證舊密碼）

@@ -39,6 +39,12 @@ services:
       SEED_DEV_USERS: "true" # 重要：CI 測試需要預設帳號
       COOKIE_SECURE: "false" # CI 中通常不使用 HTTPS
       CORS_ALLOWED_ORIGINS: "*"
+    healthcheck:
+      test: ["CMD", "/app/healthcheck"]
+      interval: 5s
+      timeout: 5s
+      start_period: 45s
+      retries: 12
     depends_on:
       db-test:
         condition: service_healthy
@@ -56,5 +62,12 @@ services:
     environment:
       # 前端編譯時會注入此變數，但在生產環境 Dockerfile 中可能需透過 Nginx 或環境變數替換
       VITE_API_URL: http://api-test:8000
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      interval: 5s
+      timeout: 3s
+      start_period: 10s
+      retries: 6
     depends_on:
-      - api-test
+      api-test:
+        condition: service_healthy

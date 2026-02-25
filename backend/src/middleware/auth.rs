@@ -26,6 +26,16 @@ pub struct Claims {
     pub impersonated_by: Option<Uuid>,
 }
 
+/// SEC-33：敏感操作二級認證用 JWT claims（短期 reauth token）
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ReauthClaims {
+    pub sub: Uuid,
+    pub exp: i64,
+    pub iat: i64,
+    /// 固定為 "reauth" 以區別一般 access token
+    pub purpose: String,
+}
+
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct CurrentUser {

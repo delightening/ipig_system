@@ -1,4 +1,4 @@
-﻿import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore } from '@/stores/auth'
 
 const api = axios.create({
@@ -166,6 +166,15 @@ export {
   amendmentStatusNames, amendmentStatusColors, amendmentTypeNames,
   AMENDMENT_CHANGE_ITEM_OPTIONS,
 } from '@/types/amendment'
+
+// ============================================
+// SEC-33：敏感操作二級認證
+// ============================================
+/** 以密碼換取短期 reauth token，供敏感操作 API 帶入 X-Reauth-Token header */
+export async function confirmPassword(password: string): Promise<{ reauth_token: string; expires_in: number }> {
+  const { data } = await api.post<{ reauth_token: string; expires_in: number }>('/auth/confirm-password', { password })
+  return data
+}
 
 // ============================================
 // API 函數
