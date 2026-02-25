@@ -3,10 +3,10 @@
 # SEC-15: Persistent tunnel setup
 param(
     [string]$TunnelName = "ipig-system",
-    [string]$ConfigPath = "cloudflared-config.yml"
+    [string]$ConfigPath = "deploy/cloudflared-config.yml"
 )
 
-$projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$projectRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $projectRoot
 
 Write-Host "=====================================" -ForegroundColor Cyan
