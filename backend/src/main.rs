@@ -290,15 +290,18 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // 啟動背景排程服務
-    let scheduler_result = SchedulerService::start(pool.clone(), config.clone()).await;
-    match scheduler_result {
-        Ok(_scheduler) => {
+    // 注意：必須將 _scheduler 保留到 server 關閉，否則排程器會立即停止
+    // 在 async context 中 Drop JobScheduler 可能造成 panic
+    let _scheduler = match SchedulerService::start(pool.clone(), config.clone()).await {
+        Ok(sched) => {
             tracing::info!("Background scheduler started");
+            Some(sched)
         }
         Err(e) => {
             tracing::warn!("Failed to start scheduler (non-fatal): {}", e);
+            None
         }
-    }
+    };
 
     // 建立應用程式狀態
     // 初始化 GeoIP 服務
