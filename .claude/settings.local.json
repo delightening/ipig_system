@@ -16,7 +16,8 @@
       "Bash(npm ls:*)",
       "Bash(node -e:*)",
       "Bash(cargo deny check:*)",
-      "Bash(cargo update:*)"
+      "Bash(cargo update:*)",
+      "Bash(cargo check:*)"
     ]
   }
 }
