@@ -21,6 +21,8 @@ FROM georgjung/nginx-brotli:alpine
 # 注意：不執行 apk upgrade，因為升級 nginx 本身會與映像中預編譯的
 # brotli 動態模組（.so）產生 ABI 不相容，導致 nginx 無法載入模組而啟動失敗。
 # 如需安全更新，請改為拉取更新版本的基底映像（georgjung/nginx-brotli:alpine）。
+# 因未升級而產生的已知 CVE（如 libpng）見專案根目錄 .trivyignore 及註解說明。
+# 架構原則（方案 D）：本映像僅提供靜態資源，不解析使用者上傳之圖片；圖片處理由獨立可升級服務負責，見 docs/security.md。
 RUN apk update && rm -rf /var/cache/apk/*
 
 # 主配置：載入 Brotli 模組並 include conf.d
