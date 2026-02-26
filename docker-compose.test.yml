@@ -36,8 +36,11 @@ services:
       DATABASE_URL: postgres://postgres:password@db-test:5432/ipig_db_test
       JWT_SECRET: ci_test_secret_key_fixed
       JWT_EXPIRATION_MINUTES: 60
-      SEED_DEV_USERS: "true" # 重要：CI 測試需要預設帳號
-      COOKIE_SECURE: "false" # CI 中通常不使用 HTTPS
+      SEED_DEV_USERS: "true"                              # 重要：CI 測試需要預設帳號
+      DEV_USER_PASSWORD: "ci_test_dev_password_2024"        # E2E 測試需要已知密碼
+      ADMIN_INITIAL_PASSWORD: "ci_test_admin_password_2024" # E2E 測試管理員密碼
+      CI: "true"                                            # seed.rs 用此判斷是否跳過強制改密
+      COOKIE_SECURE: "false"                                # CI 中通常不使用 HTTPS
       CORS_ALLOWED_ORIGINS: "*"
     healthcheck:
       test: ["CMD", "/app/healthcheck"]

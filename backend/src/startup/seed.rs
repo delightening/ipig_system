@@ -36,12 +36,13 @@ pub async fn ensure_admin_user(pool: &sqlx::PgPool) -> Result<()> {
         
         let id = Uuid::new_v4();
         sqlx::query(
-            "INSERT INTO users (id, email, password_hash, display_name, is_active, must_change_password, created_at, updated_at) VALUES ($1, $2, $3, $4, true, true, NOW(), NOW())"
+            "INSERT INTO users (id, email, password_hash, display_name, is_active, must_change_password, created_at, updated_at) VALUES ($1, $2, $3, $4, true, $5, NOW(), NOW())"
         )
         .bind(id)
         .bind(email)
         .bind(&password_hash)
         .bind(display_name)
+        .bind(should_force_change_password())
         .execute(pool)
         .await?;
         tracing::info!("[Admin] New admin user created: {} (must change password on first login)", email);
@@ -110,6 +111,11 @@ pub async fn ensure_schema(pool: &sqlx::PgPool) -> Result<()> {
     
     tracing::info!("[Schema] ✓ Schema integrity verified");
     Ok(())
+}
+
+/// CI 環境不強制改密碼，讓 E2E 測試可直接進入 dashboard
+fn should_force_change_password() -> bool {
+    std::env::var("CI").is_err()
 }
 
 /// 開發環境預設帳號資料
@@ -185,12 +191,13 @@ pub async fn seed_dev_users(pool: &sqlx::PgPool) -> Result<()> {
             // 用戶不存在：創建新用戶
             let id = Uuid::new_v4();
             sqlx::query(
-                "INSERT INTO users (id, email, password_hash, display_name, is_internal, is_active, must_change_password, created_at, updated_at) VALUES ($1, $2, $3, $4, true, true, true, NOW(), NOW())"
+                "INSERT INTO users (id, email, password_hash, display_name, is_internal, is_active, must_change_password, created_at, updated_at) VALUES ($1, $2, $3, $4, true, true, $5, NOW(), NOW())"
             )
             .bind(id)
             .bind(dev_user.email)
             .bind(&password_hash)
             .bind(dev_user.display_name)
+            .bind(should_force_change_password())
             .execute(pool)
             .await?;
             tracing::info!("[DevUser] Created dev user: {} ({})", dev_user.display_name, dev_user.email);

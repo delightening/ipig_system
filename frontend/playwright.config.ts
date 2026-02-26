@@ -29,7 +29,9 @@ export default defineConfig({
     workers: process.env.CI ? 1 : undefined,
     timeout: 30_000,
 
-    reporter: process.env.CI ? 'github' : 'html',
+    reporter: process.env.CI
+        ? [['github'], ['html', { open: 'never' }]]
+        : 'html',
 
     use: {
         baseURL: process.env.E2E_BASE_URL || 'http://localhost:8080',
