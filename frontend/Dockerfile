@@ -25,15 +25,16 @@ RUN apk update && rm -rf /var/cache/apk/*
 
 # 主配置：載入 Brotli 模組並 include conf.d
 COPY nginx-main.conf /etc/nginx/nginx.conf
-# Server block（含 brotli on / brotli_static 等）
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Server block（含 brotli on / brotli_static 等）- 作為模板使用
+COPY nginx.conf /etc/nginx/conf.d/default.conf.template
 
 # Copy build output from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget -qO- http://localhost:80/ || exit 1
+  CMD wget -qO- http://127.0.0.1:80/ || exit 1
 
 EXPOSE 80
 
-CMD ["nginx", "-g", "daemon off;"]
+# 使用 envsubst 在運行時替換環境變數，然後啟動 nginx
+CMD ["/bin/sh", "-c", "envsubst '${API_BACKEND_URL}' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'"]

@@ -17,7 +17,11 @@
       "Bash(node -e:*)",
       "Bash(cargo deny check:*)",
       "Bash(cargo update:*)",
-      "Bash(cargo check:*)"
+      "Bash(cargo check:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker ps:*)",
+      "Bash(curl:*)"
     ]
   }
 }
