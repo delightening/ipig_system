@@ -18,8 +18,10 @@ RUN npm run build
 # ============================================
 FROM georgjung/nginx-brotli:alpine
 
-# Security upgrade
-RUN apk update && apk upgrade && rm -rf /var/cache/apk/*
+# 注意：不執行 apk upgrade，因為升級 nginx 本身會與映像中預編譯的
+# brotli 動態模組（.so）產生 ABI 不相容，導致 nginx 無法載入模組而啟動失敗。
+# 如需安全更新，請改為拉取更新版本的基底映像（georgjung/nginx-brotli:alpine）。
+RUN apk update && rm -rf /var/cache/apk/*
 
 # 主配置：載入 Brotli 模組並 include conf.d
 COPY nginx-main.conf /etc/nginx/nginx.conf
