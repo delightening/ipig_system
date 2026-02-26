@@ -103,6 +103,7 @@
 | [QUICK_START.md](docs/QUICK_START.md) | 快速啟動（Docker / 本地開發） |
 | [USER_GUIDE.md](docs/USER_GUIDE.md) | 使用者操作手冊（登入、AUP、動物管理、ERP） |
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | 部署與維運手冊（系統需求、首次部署、備份、監控、故障排除、GHCR/Watchtower） |
+| [security.md](docs/security.md) | 安全性紀錄（已評估之 CVE 與處置；如 CVE-2026-25646 已記錄於此，非漏修） |
 
 ## 快速開始
 

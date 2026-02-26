@@ -46,6 +46,7 @@
 
 | # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
 |---|------|------|------|----------|------|
+| 17 | **基礎映像與 CVE 週期檢查** | 每季或基礎映像大改時，檢查 [georgjung/nginx-brotli](https://hub.docker.com/r/georgjung/nginx-brotli/tags) 是否有新 tag；若有則升級 frontend Dockerfile 的 FROM，並從 `.trivyignore` 移除 CVE-2026-25646。詳見 `docs/security.md`。 | DevOps | ⚡ Flash | [ ] |
 
 ---
 
@@ -68,9 +69,9 @@
 | 🟡 P1 上線前建議 | 0 |
 | 🔴 P2 中優先 | 0 |
 | 🔵 P3 低優先 | 0 |
-| 🟣 P4 品質提升 | 0 |
+| 🟣 P4 品質提升 | 1 |
 | ⚪ P5 長期演進 | 3 |
-| **合計（未完成）** | **3** |
+| **合計（未完成）** | **4** |
 
 ---
 
