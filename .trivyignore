@@ -1,2 +1,8 @@
 # 此檔案用於忽略已確認且無法修復或不影響安全性的漏洞
 # 格式：CVE-ID (每行一個編號)
+
+# CVE-2026-25646: libpng 堆緩衝區溢位
+# 原因：升級 libpng 需要 apk upgrade，但會導致預編譯的 Brotli 模組 ABI 不相容
+# 風險：LOW（前端靜態資源服務，不處理用戶上傳的 PNG）
+# 長期解決方案：等待更新版本的 georgjung/nginx-brotli:alpine 基礎映像
+CVE-2026-25646
