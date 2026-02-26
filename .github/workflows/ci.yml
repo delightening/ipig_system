@@ -344,6 +344,18 @@ jobs:
           # 使用 --wait 等待所有服務 healthcheck 通過，避免 E2E 在服務未就緒時執行
           docker compose -f docker-compose.test.yml up -d --wait --wait-timeout 300
 
+      - name: 傾印容器日誌 (啟動失敗時偵錯)
+        if: failure()
+        run: |
+          echo "=== Container Status ==="
+          docker compose -f docker-compose.test.yml ps -a
+          echo ""
+          echo "=== API Container Logs (last 200 lines) ==="
+          docker compose -f docker-compose.test.yml logs api-test --tail=200
+          echo ""
+          echo "=== DB Container Logs (last 50 lines) ==="
+          docker compose -f docker-compose.test.yml logs db-test --tail=50
+
       - name: 確認服務可連線 (備援檢查)
         run: |
           # 雙端點一併輪詢，總等待最多 120s，避免 port 映射延遲
