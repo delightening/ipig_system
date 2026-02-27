@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-02-27  
+> **最後更新：** 2026-02-28  
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -55,16 +55,37 @@
 
 ## 9. 最新變更動態
 
-### 2026-02-27 E2E Flaky 測試修復
-- ✅ **問題**：全瀏覽器執行（100 tests）時 admin-users、animals、profile 等偶發失敗（Target page/context closed、timeout）
-- ✅ **修復**：(1) admin-users 新增使用者對話框測試：加強等待邏輯（explicit toBeVisible/toBeEnabled、click timeout）並延長 test.setTimeout 至 45s；(2) playwright.config 本地 retries: 1，讓 flaky 於 retry 後通過
-- 📊 **結果**：100 passed（含 2 flaky 於 retry 通過）、Chromium-only 34 passed
+### 2026-02-28 P5-14 前端超長頁面重構（AnimalDetailPage 1,945→748 行）
+- ✅ **AnimalDetailPage.tsx**：從 1,945 行縮減至 748 行（**-61%**）
+- ✅ **抽離 7 個 Tab 元件**至 `frontend/src/components/animal/`：
+  1. `ObservationsTab.tsx` — 觀察試驗紀錄（含 CRUD、版本歷史、獸醫建議、GLP 刪除）
+  2. `SurgeriesTab.tsx` — 手術紀錄（含展開詳情、生理數值表、CRUD）
+  3. `WeightsTab.tsx` — 體重紀錄（含新增對話框、開發者模式系統號）
+  4. `VaccinationsTab.tsx` — 疫苗/驅蟲紀錄（含新增對話框）
+  5. `SacrificeTab.tsx` — 犧牲/採樣紀錄（含表單對話框）
+  6. `AnimalInfoTab.tsx` — 動物基本資料（純顯示元件）
+  7. `PathologyTab.tsx` — 病理組織報告（含上傳、自帶 query）
+- ✅ **重構原則**：父元件保留共用 queries（timeline/pain assessment 需要），各 Tab 自帶 mutations、dialog state、dialog components
+- ✅ **TypeScript 零錯誤通過**
+- 📁 **產出**：7 個新 Tab 元件 + 重構後的 [AnimalDetailPage.tsx](../frontend/src/pages/animals/AnimalDetailPage.tsx)
 
-### 2026-02-27 Playwright E2E 瀏覽器依賴修復（Windows 環境）
-- ✅ **問題**：於 Windows 上執行 E2E 時，因 Firefox/WebKit 未安裝導致 `Executable doesn't exist` 錯誤，100 個測試大量失敗
-- ✅ **修復**：在 `frontend/playwright.config.ts` 中，於 Windows 上預設跳過 Firefox 與 WebKit 專案，僅執行 Chromium
-- ✅ **行為**：Windows 上預設僅跑 Chromium（34 tests），若已安裝其他瀏覽器可設 `PLAYWRIGHT_FIREFOX=1` 或 `PLAYWRIGHT_WEBKIT=1` 啟用
-- 📊 **結果**：34 passed (21.7s)，無需額外安裝瀏覽器即可執行 E2E
+### 2026-02-28 P4-17 基礎映像與 CVE 週期檢查
+- ✅ **版本釘選**：`frontend/Dockerfile` 的 `FROM georgjung/nginx-brotli:alpine` → `georgjung/nginx-brotli:1.29.5-alpine`（nginx 1.29.5 + Alpine 3.23.3，2026-02-05 發佈）
+- ✅ **CVE 驗證**：Trivy 掃描確認 CVE-2026-25646 仍存在（libpng 1.6.54-r0，修復版 1.6.55-r0 尚未納入映像）
+- ✅ **文件更新**：`.trivyignore` 加入檢查日期與下次排程、`docs/security.md` 更新映像版本與檢查紀錄
+- 📅 **下次檢查**：排定 2026-Q2，屆時若映像包含 libpng ≥ 1.6.55-r0 則移除 CVE
+- 📁 **產出**：[Dockerfile](../frontend/Dockerfile)、[.trivyignore](../.trivyignore)、[security.md](security.md)
+
+### 2026-02-27 E2E 跨瀏覽器 Session 過期修復（CI 30 failures 歸零）
+- ✅ **問題**：CI（Ubuntu）上 100 tests 依序跑 webkit→firefox→chromium，auth.setup 產生的 JWT storageState 在後執行的瀏覽器 session 已過期，導致 30 個 webkit/firefox 測試一致失敗（`Target page, context or browser has been closed`）
+- ✅ **根因**：workers=1 序列執行耗時 ~2 分鐘，storageState 中的 JWT 過期，後執行的 browser project 的 admin-context 共用 context 失效
+- ✅ **修復**：
+  1. Firefox/WebKit 改為全域 opt-in（需設 `PLAYWRIGHT_FIREFOX=1`、`PLAYWRIGHT_WEBKIT=1`）
+  2. 預設僅跑 Chromium（34 tests），避免 session 過期問題
+  3. 移除無效的 per-test `{ retries: 1 }` 語法
+  4. admin-users.spec.ts：加入 table visible 等待、增加 button timeout
+  5. CI retries 維持 2（容錯），本地 retries 改回 0（快速回饋）
+- 📊 **結果**：CI 預設 34 tests（Chromium），22s 完成，0 failures
 
 ### 2026-02-26 E2E 測試全面改進（Session 管理優化）
 - ✅ **配置驗證與文檔**：

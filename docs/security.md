@@ -11,14 +11,15 @@
 | 項目 | 說明 |
 |------|------|
 | CVE | CVE-2026-25646 |
-| 元件 | libpng（位於 frontend 映像之基礎映像） |
+| 元件 | libpng 1.6.54-r0（位於 frontend 映像之基礎映像，修復版 1.6.55-r0） |
 | 類型 | 堆緩衝區溢位 |
 | 目前處置 | 列入 `.trivyignore`，不修復 |
+| 最後檢查 | 2026-02-28 — 已升級至 `georgjung/nginx-brotli:1.29.5-alpine`（Alpine 3.23.3），CVE 仍存在 |
 
 ### 適用範圍
 
 - **映像**：frontend（`frontend/Dockerfile`）
-- **基礎映像**：`georgjung/nginx-brotli:alpine`
+- **基礎映像**：`georgjung/nginx-brotli:1.29.5-alpine`（Alpine 3.23.3, nginx 1.29.5）
 
 ### 採用 .trivyignore 之原因
 
@@ -97,4 +98,4 @@
 
 ---
 
-*最後更新：依本文件建立時之專案狀態。*
+*最後更新：2026-02-28 — 基礎映像版本釘選至 1.29.5-alpine，CVE-2026-25646 經 Trivy 掃描確認仍存在（libpng 1.6.54-r0 → 修復版 1.6.55-r0），下次檢查排定 2026-Q2。*

@@ -98,7 +98,7 @@ Worker 結束（關閉 context）
 1. **Auth Setup**（`auth-setup` project）
    - 以 `admin@ipig.local` 登入
    - 將 cookie 儲存至 `frontend/e2e/.auth/admin.json`
-   - **用途**：供 firefox/webkit projects 使用（它們使用 storageState 而非 shared context）
+   - **用途**：供 opt-in 的 firefox/webkit projects 使用（它們使用 storageState 而非 shared context）
 
 2. **Chromium 主測試**（`chromium` project）
    - 使用 `sharedAdminContext` fixture
@@ -117,8 +117,11 @@ Worker 結束（關閉 context）
 | auth-setup | 登入並存檔 | 獨立 project | 1 |
 | chromium | Worker 級共享 context | 所有測試共享同一 session | 2 |
 | chromium-login | 空 storage | 每測試獨立登入 | 3（最後） |
-| firefox | storageState: admin.json | 每測試新 context，相同 cookie | 2 |
-| webkit | storageState: user.json | 每測試新 context，相同 cookie | 2 |
+| firefox (opt-in) | storageState: admin.json | 每測試新 context，相同 cookie | 2 |
+| webkit (opt-in) | storageState: user.json | 每測試新 context，相同 cookie | 2 |
+
+> **跨瀏覽器 opt-in**：Firefox/WebKit 預設不啟用。需設 `PLAYWRIGHT_FIREFOX=1` / `PLAYWRIGHT_WEBKIT=1` 才會跑。
+> 原因：workers=1 序列執行 100 tests 需 ~2 分鐘，storageState JWT 容易過期導致大量失敗。
 
 **為什麼登入測試最後跑？**
 - 避免「第二次登入踢掉第一個 session」（儘管後端允許多 session）

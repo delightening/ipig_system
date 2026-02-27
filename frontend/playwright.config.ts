@@ -19,24 +19,23 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') })
  * 帳密與 URL：優先讀取環境變數；未設時從專案根目錄 .env 載入
  *   （E2E_BASE_URL、E2E_ADMIN_EMAIL、E2E_ADMIN_PASSWORD、ADMIN_INITIAL_PASSWORD）
  *
- * Firefox/WebKit：於 Windows 預設跳過；若已安裝可設 PLAYWRIGHT_FIREFOX=1、PLAYWRIGHT_WEBKIT=1 啟用
+ * 跨瀏覽器：預設僅跑 Chromium（避免 session 過期與瀏覽器未安裝問題）。
+ * 啟用 Firefox/WebKit：設定 PLAYWRIGHT_FIREFOX=1、PLAYWRIGHT_WEBKIT=1
  */
 const authDir = path.join(__dirname, 'e2e', '.auth')
 
 /**
- * 於 Windows 上若非明確啟用，則跳過 Firefox/WebKit
- * （避免瀏覽器未安裝時全部失敗；多數 Windows 開發環境預設只安裝 Chromium）
+ * Firefox/WebKit 預設為 opt-in（需明確設定環境變數才啟用）。
+ * 原因：(1) workers=1 序列執行 100 tests 耗時約 2 分鐘，storageState 中的 JWT
+ * 往往已接近過期，導致後執行的瀏覽器 session 失效；(2) Windows 可能未安裝。
  */
-const isWindows = process.platform === 'win32'
-const runFirefox =
-    process.env.PLAYWRIGHT_FIREFOX === '1' || !isWindows
-const runWebKit =
-    process.env.PLAYWRIGHT_WEBKIT === '1' || !isWindows
+const runFirefox = process.env.PLAYWRIGHT_FIREFOX === '1'
+const runWebKit = process.env.PLAYWRIGHT_WEBKIT === '1'
 
 export default defineConfig({
     testDir: './e2e',
     fullyParallel: false,
-    retries: process.env.CI ? 2 : 1,
+    retries: process.env.CI ? 2 : 0,
     workers: 1,
     timeout: 30_000,
 
