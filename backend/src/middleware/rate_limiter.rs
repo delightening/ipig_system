@@ -144,7 +144,7 @@ pub async fn auth_rate_limit_middleware(
     Ok(response)
 }
 
-/// 一般 API 速率限制中間件（寬鬆：每分鐘 120 次）
+/// 一般 API 速率限制中間件（每分鐘 600 次）
 pub async fn api_rate_limit_middleware(
     State(state): State<AppState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
@@ -155,7 +155,7 @@ pub async fn api_rate_limit_middleware(
     static API_LIMITER: OnceLock<RateLimiterState> = OnceLock::new();
     let limiter = API_LIMITER.get_or_init(|| {
         RateLimiterState::new(RateLimiterConfig {
-            max_requests: 120,
+            max_requests: 600,
             window: Duration::from_secs(60),
         })
     });

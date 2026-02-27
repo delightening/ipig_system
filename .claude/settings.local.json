@@ -24,7 +24,9 @@
       "Bash(curl:*)",
       "Bash(Start-Sleep -Seconds 10)",
       "Bash(tee:*)",
-      "Bash(python -c:*)"
+      "Bash(python -c:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

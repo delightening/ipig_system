@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { getAdminCredentials } from './auth-helpers'
 
 /**
  * 登入流程 E2E 測試
@@ -41,10 +42,11 @@ test.describe('登入流程', () => {
     })
 
     test('成功登入應導向 dashboard', { timeout: 60_000 }, async ({ page }) => {
-        const email = process.env.E2E_USER_EMAIL || process.env.E2E_ADMIN_EMAIL
-        const password = process.env.E2E_USER_PASSWORD || process.env.E2E_ADMIN_PASSWORD
+        const admin = getAdminCredentials()
+        const email = process.env.E2E_USER_EMAIL || admin.email
+        const password = process.env.E2E_USER_PASSWORD || admin.password
         expect(email, '請設定 E2E_USER_EMAIL 或 E2E_ADMIN_EMAIL').toBeTruthy()
-        expect(password, '請設定 E2E_USER_PASSWORD 或 E2E_ADMIN_PASSWORD').toBeTruthy()
+        expect(password, '請設定 E2E_USER_PASSWORD 或 ADMIN_INITIAL_PASSWORD').toBeTruthy()
 
         await page.goto('/login')
         await page.waitForLoadState('domcontentloaded')

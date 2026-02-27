@@ -90,6 +90,17 @@
   - Dashboard 測試套件 6/6 全部通過 ✅
   - 產出：[dashboard.spec.ts](../frontend/e2e/dashboard.spec.ts)（Line 31-45）
 
+### 2026-02-27 E2E 測試 100% 通過（P4-18 Rate Limiting / Session 穩定化）
+- ✅ **根本原因分析**：所有 `/api/*` 請求共用 120/min rate limit，React SPA 每次頁面載入觸發多個 API 呼叫（/api/me、資料列表等），34 個測試密集執行時輕易超限；`sharedAdminContext` 每次初始化都重新登入浪費配額。
+- ✅ **admin-context.ts 重構**：改用 auth.setup 儲存的 `admin.json` storageState 檔案，worker 初始化時直接載入 cookie + localStorage，無需重新登入（0 次額外 API 呼叫）。
+- ✅ **API rate limit 提升**：`rate_limiter.rs` API 端點 120→600/min，為密集測試提供充足配額。
+- ✅ **login.spec.ts credential fallback**：改用 `getAdminCredentials()` 統一 fallback 邏輯（支援 .env 的 `ADMIN_INITIAL_PASSWORD`）。
+- 📊 **成果**：34/34 測試連續 2 次全部通過，執行時間從 2.3 分鐘降至 **22 秒**。
+- 📁 **產出**：
+  - [admin-context.ts](../frontend/e2e/fixtures/admin-context.ts)（storageState 載入）
+  - [rate_limiter.rs](../backend/src/middleware/rate_limiter.rs)（API limit 600/min）
+  - [login.spec.ts](../frontend/e2e/login.spec.ts)（credential fallback）
+
 ### 2026-02-27 E2E 測試總結計畫實施（選項 1）
 - ✅ **Dashboard 修復交付**：原計畫主要目標已達成，Dashboard 6/6 通過。
 - ✅ **Rate Limiting 調查記錄**：已嘗試 JWT TTL 延長、auth rate limit 放寬、Cookie Path 與 context.cookies() 修復，仍存在 Session 過期導致大量重新登入 → 429 連鎖失敗問題。
