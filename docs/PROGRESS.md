@@ -55,6 +55,17 @@
 
 ## 9. 最新變更動態
 
+### 2026-02-27 E2E Flaky 測試修復
+- ✅ **問題**：全瀏覽器執行（100 tests）時 admin-users、animals、profile 等偶發失敗（Target page/context closed、timeout）
+- ✅ **修復**：(1) admin-users 新增使用者對話框測試：加強等待邏輯（explicit toBeVisible/toBeEnabled、click timeout）並延長 test.setTimeout 至 45s；(2) playwright.config 本地 retries: 1，讓 flaky 於 retry 後通過
+- 📊 **結果**：100 passed（含 2 flaky 於 retry 通過）、Chromium-only 34 passed
+
+### 2026-02-27 Playwright E2E 瀏覽器依賴修復（Windows 環境）
+- ✅ **問題**：於 Windows 上執行 E2E 時，因 Firefox/WebKit 未安裝導致 `Executable doesn't exist` 錯誤，100 個測試大量失敗
+- ✅ **修復**：在 `frontend/playwright.config.ts` 中，於 Windows 上預設跳過 Firefox 與 WebKit 專案，僅執行 Chromium
+- ✅ **行為**：Windows 上預設僅跑 Chromium（34 tests），若已安裝其他瀏覽器可設 `PLAYWRIGHT_FIREFOX=1` 或 `PLAYWRIGHT_WEBKIT=1` 啟用
+- 📊 **結果**：34 passed (21.7s)，無需額外安裝瀏覽器即可執行 E2E
+
 ### 2026-02-26 E2E 測試全面改進（Session 管理優化）
 - ✅ **配置驗證與文檔**：
   - 新增 `docs/e2e/README.md`（完整指南：架構說明、配置檢查清單、故障排除、維護手冊）
