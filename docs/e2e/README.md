@@ -502,6 +502,54 @@ if (loginResponse.status() === 429) {
 - 增加重試延遲
 - 檢查後端 rate limit 設定
 
+### 5. Session 過期導致大量登入與 429 連鎖失敗
+
+**症狀**：測試執行時頻繁出現 `Login rate limited (429) after N retries`，或 `ensureLoggedIn()` 觸發大量重新登入後 Fixture setup timeout (30s)
+
+**根因鏈**：
+```
+Session 過期（測試頻繁誤判）
+    ↓
+ensureLoggedIn() 觸發重新登入
+    ↓
+大量登入請求
+    ↓
+觸發後端 429 Rate Limiting
+    ↓
+Fixture setup timeout (30s)
+```
+
+**可能原因**：
+- `isSessionExpired()` 過於敏感，誤判 cookie 已過期
+- `context.cookies()` 在 worker 級 fixture 下讀取不穩定
+- JWT TTL 過短，測試執行期間 token 真的過期
+- 多個測試同時觸發 `ensureLoggedIn()` 導致登入請求集中
+
+**排查步驟**：
+
+1. **檢查 JWT TTL 是否足夠**
+   ```powershell
+   grep JWT_EXPIRATION_MINUTES .env
+   # 本機建議 >= 15，CI 建議 >= 60
+   ```
+
+2. **檢查後端日誌中的 401/429**
+   ```powershell
+   docker compose logs api | Select-String "401|429|JWT|expired" | Select -Last 30
+   ```
+
+3. **執行配置驗證**
+   ```powershell
+   cd frontend
+   npx tsx e2e/scripts/verify-config.ts
+   ```
+
+**緩解方法**：
+- 增加 JWT TTL（CI 環境建議 60 分鐘）
+- 確認後端 auth rate limit 已放寬（如 100/min）供 E2E 使用
+- 檢查 `admin-context.ts` 中 `isSessionExpired()` 與 `context.cookies()` 的 URL 參數設定
+- 若持續發生，需深入調查 shared context 的 cookie 持久化機制（見 `docs/TODO.md` P4 任務）
+
 ## 調試技巧
 
 ### 使用 Playwright Inspector
@@ -783,4 +831,4 @@ npx playwright show-report
 
 ---
 
-最後更新：2026-02-26
+最後更新：2026-02-27

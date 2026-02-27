@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-02-25  
+> **最後更新：** 2026-02-27  
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -89,6 +89,11 @@
   - 修復「語言切換應可運作」測試：改用 `header getByRole('combobox')` 選擇器（Radix UI Select.Trigger 標準 role）
   - Dashboard 測試套件 6/6 全部通過 ✅
   - 產出：[dashboard.spec.ts](../frontend/e2e/dashboard.spec.ts)（Line 31-45）
+
+### 2026-02-27 E2E 測試總結計畫實施（選項 1）
+- ✅ **Dashboard 修復交付**：原計畫主要目標已達成，Dashboard 6/6 通過。
+- ✅ **Rate Limiting 調查記錄**：已嘗試 JWT TTL 延長、auth rate limit 放寬、Cookie Path 與 context.cookies() 修復，仍存在 Session 過期導致大量重新登入 → 429 連鎖失敗問題。
+- ✅ **後續任務建立**：將 Rate Limiting / Session 穩定化建立為 P4 獨立待辦，詳見 `docs/TODO.md`。
 
 ### 2026-02-25 SEC-33 敏感操作二級認證 (P3-7)
 - ✅ **後端**：新增 `POST /auth/confirm-password`，以密碼換取短期 reauth JWT（5 分鐘）；`delete_user`、`reset_user_password`、`impersonate_user`、`delete_role` 四個敏感操作需帶 `X-Reauth-Token` header，否則回傳 403。
