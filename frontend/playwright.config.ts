@@ -18,13 +18,25 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') })
  *
  * 帳密與 URL：優先讀取環境變數；未設時從專案根目錄 .env 載入
  *   （E2E_BASE_URL、E2E_ADMIN_EMAIL、E2E_ADMIN_PASSWORD、ADMIN_INITIAL_PASSWORD）
+ *
+ * Firefox/WebKit：於 Windows 預設跳過；若已安裝可設 PLAYWRIGHT_FIREFOX=1、PLAYWRIGHT_WEBKIT=1 啟用
  */
 const authDir = path.join(__dirname, 'e2e', '.auth')
+
+/**
+ * 於 Windows 上若非明確啟用，則跳過 Firefox/WebKit
+ * （避免瀏覽器未安裝時全部失敗；多數 Windows 開發環境預設只安裝 Chromium）
+ */
+const isWindows = process.platform === 'win32'
+const runFirefox =
+    process.env.PLAYWRIGHT_FIREFOX === '1' || !isWindows
+const runWebKit =
+    process.env.PLAYWRIGHT_WEBKIT === '1' || !isWindows
 
 export default defineConfig({
     testDir: './e2e',
     fullyParallel: false,
-    retries: process.env.CI ? 2 : 0,
+    retries: process.env.CI ? 2 : 1,
     workers: 1,
     timeout: 30_000,
 
@@ -59,35 +71,43 @@ export default defineConfig({
             dependencies: ['chromium'],
             testMatch: /login\.spec\.ts/,
         },
-        {
-            name: 'firefox',
-            use: {
-                ...devices['Desktop Firefox'],
-                storageState: path.join(authDir, 'user.json'),
-            },
-            dependencies: ['auth-setup'],
-            testIgnore: [/auth\.setup\.ts/, /login\.spec\.ts/],
-        },
-        {
-            name: 'firefox-login',
-            use: { ...devices['Desktop Firefox'] },
-            dependencies: ['firefox'],
-            testMatch: /login\.spec\.ts/,
-        },
-        {
-            name: 'webkit',
-            use: {
-                ...devices['Desktop Safari'],
-                storageState: path.join(authDir, 'user.json'),
-            },
-            dependencies: ['auth-setup'],
-            testIgnore: [/auth\.setup\.ts/, /login\.spec\.ts/],
-        },
-        {
-            name: 'webkit-login',
-            use: { ...devices['Desktop Safari'] },
-            dependencies: ['webkit'],
-            testMatch: /login\.spec\.ts/,
-        },
+        ...(runFirefox
+            ? [
+                  {
+                      name: 'firefox',
+                      use: {
+                          ...devices['Desktop Firefox'],
+                          storageState: path.join(authDir, 'user.json'),
+                      },
+                      dependencies: ['auth-setup'],
+                      testIgnore: [/auth\.setup\.ts/, /login\.spec\.ts/],
+                  },
+                  {
+                      name: 'firefox-login',
+                      use: { ...devices['Desktop Firefox'] },
+                      dependencies: ['firefox'],
+                      testMatch: /login\.spec\.ts/,
+                  },
+              ]
+            : []),
+        ...(runWebKit
+            ? [
+                  {
+                      name: 'webkit',
+                      use: {
+                          ...devices['Desktop Safari'],
+                          storageState: path.join(authDir, 'user.json'),
+                      },
+                      dependencies: ['auth-setup'],
+                      testIgnore: [/auth\.setup\.ts/, /login\.spec\.ts/],
+                  },
+                  {
+                      name: 'webkit-login',
+                      use: { ...devices['Desktop Safari'] },
+                      dependencies: ['webkit'],
+                      testMatch: /login\.spec\.ts/,
+                  },
+              ]
+            : []),
     ],
 })
