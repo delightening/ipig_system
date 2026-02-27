@@ -27,8 +27,8 @@ async fn main() -> Result<()> {
 
     let email = "admin@ipig.local";
     let display_name = "System Admin";
-    let password = "admin123";
-    let password_hash = hash_password(password)?;
+    let password = std::env::var("ADMIN_INITIAL_PASSWORD").unwrap_or_else(|_| "admin123".to_string());
+    let password_hash = hash_password(&password)?;
 
     let existing_id: Option<Uuid> = sqlx::query_scalar("SELECT id FROM users WHERE email = $1")
         .bind(email)

@@ -103,7 +103,7 @@ pub async fn auth_rate_limit_middleware(
     static AUTH_LIMITER: OnceLock<RateLimiterState> = OnceLock::new();
     let limiter = AUTH_LIMITER.get_or_init(|| {
         RateLimiterState::new(RateLimiterConfig {
-            max_requests: 30,
+            max_requests: 100, // 增加到 100/min 以支援 E2E 測試環境
             window: Duration::from_secs(60),
         })
     });

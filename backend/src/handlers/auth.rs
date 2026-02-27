@@ -33,7 +33,7 @@ pub(crate) fn build_set_cookie(
     config: &Config,
 ) -> String {
     let mut cookie = format!(
-        "{}={}; Path=/api; HttpOnly; SameSite=Lax; Max-Age={}",
+        "{}={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}",
         name, value, max_age_secs
     );
     if config.cookie_secure {

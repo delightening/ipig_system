@@ -55,6 +55,41 @@
 
 ## 9. 最新變更動態
 
+### 2026-02-26 E2E 測試全面改進（Session 管理優化）
+- ✅ **配置驗證與文檔**：
+  - 新增 `docs/e2e/README.md`（完整指南：架構說明、配置檢查清單、故障排除、維護手冊）
+  - 新增 `frontend/e2e/scripts/verify-config.ts`（配置驗證腳本，檢查 JWT TTL、Cookie、環境變數）
+  - 更新 `docs/QUICK_START.md`（新增配置驗證步驟）
+
+- ✅ **診斷工具**：
+  - 新增 `frontend/e2e/helpers/diagnostics.ts`（E2E 診斷工具，自動記錄 session 狀態、檢查 access_token、提供故障排除建議）
+  - 新增 `scripts/analyze-e2e-logs.sh`（後端日誌分析腳本，自動檢查 401 錯誤、JWT 過期、Session 相關日誌）
+
+- ✅ **Session 管理優化**：
+  - 新增 `frontend/e2e/helpers/session-monitor.ts`（Session 監控工具，追蹤 session 存活時間、檢查是否接近過期）
+  - 優化 `frontend/e2e/fixtures/admin-context.ts`：
+    - 加入 `isSessionExpired()` 檢查 cookie 過期時間
+    - 加入 `tryRefreshToken()` 主動 refresh 機制
+    - 改進 `ensureLoggedIn()` 含重試邏輯（最多 3 次）
+    - Page fixture 在測試前主動檢查並 refresh token（剩餘 < 60s 時）
+
+- ✅ **測試穩定性改進**：
+  - 確認所有測試已移除 `networkidle` 依賴，改用明確的元素等待策略
+  - Session 自動重新登入機制驗證成功
+  - Session 監控正常追蹤並記錄狀態
+
+- 📊 **改進成果**：
+  - Session 管理更健壯，自動處理 token 過期情況
+  - 完整的診斷工具鏈，失敗時提供清晰的故障排除資訊
+  - 配置驗證腳本確保環境設定正確
+  - 文檔完整，涵蓋架構、配置、故障排除、維護指南
+
+- ✅ **Dashboard 測試選擇器修復**：
+  - 修復「通知鈴鐺應可見」測試：改用 `header button.relative` 選擇器，避免 strict mode violation（避免匹配到行動端漢堡按鈕）
+  - 修復「語言切換應可運作」測試：改用 `header getByRole('combobox')` 選擇器（Radix UI Select.Trigger 標準 role）
+  - Dashboard 測試套件 6/6 全部通過 ✅
+  - 產出：[dashboard.spec.ts](../frontend/e2e/dashboard.spec.ts)（Line 31-45）
+
 ### 2026-02-25 SEC-33 敏感操作二級認證 (P3-7)
 - ✅ **後端**：新增 `POST /auth/confirm-password`，以密碼換取短期 reauth JWT（5 分鐘）；`delete_user`、`reset_user_password`、`impersonate_user`、`delete_role` 四個敏感操作需帶 `X-Reauth-Token` header，否則回傳 403。
 - ✅ **前端**：新增 `ConfirmPasswordModal` 與 `confirmPassword()` API；使用者管理（刪除使用者、重設他人密碼、模擬登入）與角色管理（刪除角色）執行前皆需重新輸入登入密碼以取得 reauth token 後再送出請求。
