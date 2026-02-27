@@ -301,43 +301,46 @@ flowchart TD
 
 ---
 
-## 📝 當前狀態（2026-02-26 更新）
+## 📝 當前狀態（2026-02-27 更新）
 
 ### ✅ 已完成
 
-**Session 管理優化**：
-- Session 監控工具
-- 診斷工具
-- Admin context 優化
-- 配置驗證腳本
+**Session 管理優化（第一階段）**：
+- Session 監控工具、診斷工具
+- Admin context 優化、配置驗證腳本
 - 完整文檔
 
 **Dashboard 測試修復**：
 - ✅ 通知鈴鐺測試（`header button.relative`）
 - ✅ 語言切換測試（`getByRole('combobox')`）
 - ✅ Dashboard 測試套件 6/6 全部通過
-- ✅ 更新 `docs/PROGRESS.md`
 
-### 🚨 當前問題
+**Rate Limiting 調查與修復（第二階段）**：
+- ✅ 方案 A 已實施：認證端點 rate limit 30 → 100/min（`rate_limiter.rs:106`）
+- ✅ 方案 B 已實施：JWT TTL 15 → 60 分鐘（`.env`）
+- ✅ 修復 Cookie Path：`/api` → `/`（`auth.rs:36`）— 原先 cookie 只在 `/api` 路徑下有效
+- ✅ 修復 `context.cookies()` 讀取：添加 URL 參數（`admin-context.ts`）
+- ✅ 簡化 `ensureLoggedIn` 邏輯，移除冗餘的 dashboard 訪問檢查
 
-**Rate Limiting 導致 6 個測試失敗**：
-- `animals.spec.ts` (3 個)
-- `protocols.spec.ts` (3 個)
+### 🚨 殘餘問題
 
-**失敗原因**：Session 過期 → 重新登入 → 觸發 429 → Fixture timeout
+**Shared context session 持久化問題（深層）**：
+- 測試結果：22-24/34 通過（~70%）
+- 失敗測試集中在 `animals.spec.ts`（3個）和 `protocols.spec.ts`（2-3個）
+- 根本原因：`sharedAdminContext`（worker scope）在跨 spec file 時 cookies 丟失
+- Debug 日誌顯示：新 spec file 開始時 `Total cookies: 0`
+- 已嘗試修復 `context.cookies(baseURL)` 但問題仍在
+- **需進一步調查**：Playwright worker isolation、context 生命週期、nginx proxy 對 cookie 的影響
 
 ### 📅 下一步（按優先級）
 
-1. **解決 Rate Limiting 問題**（🚨 高優先級）
-   - 方案 A：調整後端 rate limit 配置（推薦）
-   - 方案 B：延長 JWT TTL（臨時方案）
-   - 方案 C：優化測試執行策略
+1. **調查 Shared Context Cookie 持久化問題**（🚨 高優先級）
+   - 檢查 Playwright worker 跨 spec file 的 context 行為
+   - 檢查 nginx reverse proxy 是否影響 cookie 傳遞
+   - 考慮改用 `storageState` 持久化方案
 
-2. **驗證修復效果**
-   - 執行完整測試套件（目標：34/34 通過）
-   - 連續 5 次穩定性測試
-
-3. **中期任務**
+2. **中期任務**（待上述問題解決後）
+   - 連續穩定性測試（5次）
    - CI 環境驗證
    - 跨瀏覽器測試（Firefox, WebKit）
 
@@ -357,11 +360,17 @@ flowchart TD
 
 ## 📋 修改的檔案
 
-1. **frontend/e2e/dashboard.spec.ts** - 修復 2 個測試選擇器
-   - Line 31-37: 通知鈴鐺測試
-   - Line 39-45: 語言切換測試
+### 第一階段（Dashboard 測試修復）
+1. **frontend/e2e/dashboard.spec.ts** - 修復 2 個測試選擇器（Line 31-45）
 
-2. **docs/PROGRESS.md** - 更新進度記錄
-   - 新增 "Dashboard 測試選擇器修復" 項目
+### 第二階段（Rate Limiting & Session 修復）
+2. **backend/src/handlers/auth.rs:36** - Cookie Path `/api` → `/`
+3. **backend/src/middleware/rate_limiter.rs:106** - Auth rate limit 30 → 100/min
+4. **.env** - JWT_EXPIRATION_MINUTES 15 → 60
+5. **frontend/e2e/fixtures/admin-context.ts** - cookies 讀取修復 + 邏輯簡化
 
-3. **plan.md** - 本文件，更新執行狀態和發現的問題
+### 文檔
+6. **docs/PROGRESS.md** - 更新進度記錄
+7. **docs/TODO.md** - 新增 P4-18 待辦項
+8. **docs/e2e/README.md** - 新增故障排除 §5
+9. **plan.md** - 本文件，更新執行狀態和發現的問題
