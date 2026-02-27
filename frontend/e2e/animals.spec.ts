@@ -1,18 +1,11 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures/admin-context'
+import { ensureAdminOnPage } from './auth-helpers'
 
-/**
- * 動物列表 E2E 測試
- *
- * 前置條件：已登入，具有動物管理存取權限
- */
 test.describe('動物列表', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('/animals')
-        await page.waitForLoadState('networkidle')
-        // 確認已登入
-        if (page.url().includes('/login')) {
-            test.skip()
-        }
+        await ensureAdminOnPage(page, '/animals')
+        await expect(page).toHaveURL(/\/animals/, { timeout: 12_000 })
+        await expect(page.locator('button').filter({ hasText: /Pen View|All Animals|欄舍|全部/ }).first()).toBeVisible({ timeout: 15_000 })
     })
 
     test('應顯示動物列表頁面', async ({ page }) => {
@@ -40,14 +33,10 @@ test.describe('動物列表', () => {
     })
 
     test('品種篩選應可運作', async ({ page }) => {
-        // 等待頁面完整載入
         await expect(page.locator('input[placeholder]').first()).toBeVisible({ timeout: 15_000 })
 
         const breedSelect = page.locator('[role="combobox"]').first()
-        if (await breedSelect.count() === 0) {
-            test.skip()
-            return
-        }
+        await expect(breedSelect, '動物列表應有品種篩選 combobox').toBeVisible({ timeout: 10_000 })
 
         await breedSelect.click()
         await expect(page.locator('[role="option"]').first()).toBeVisible({ timeout: 5_000 })
@@ -59,7 +48,7 @@ test.describe('動物列表', () => {
         await expect(allTab.first()).toBeVisible({ timeout: 15_000 })
 
         await allTab.first().click()
-        await page.waitForLoadState('networkidle')
+        await expect(page.locator('table').or(page.getByText(/沒有|無資料|no data|尚無|no animals/i))).toBeVisible({ timeout: 15_000 })
 
         const table = page.locator('table')
         const emptyState = page.getByText(/沒有|無資料|no data|尚無|no animals/i)
@@ -72,7 +61,7 @@ test.describe('動物列表', () => {
         await expect(penTab.first()).toBeVisible({ timeout: 15_000 })
 
         await penTab.first().click()
-        await page.waitForLoadState('networkidle')
+        await expect(page.locator('button').filter({ hasText: /棟|ACD|BEFG/ }).first()).toBeVisible({ timeout: 15_000 })
 
         // 欄舍視圖應顯示棟別 tab（A 棟 / B 棟）
         const buildingTab = page.locator('button').filter({ hasText: /棟|ACD|BEFG/ })

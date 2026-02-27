@@ -1,18 +1,14 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures/admin-context'
+import { ensureAdminOnPage } from './auth-helpers'
 
-/**
- * 計畫書（Protocol）列表 E2E 測試
- *
- * 前置條件：已登入
- */
 test.describe('計畫書列表', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('/protocols')
-        await page.waitForLoadState('networkidle')
-        // 確認未被導向 login（auth state 有效）
-        if (page.url().includes('/login')) {
-            test.skip()
-        }
+        await ensureAdminOnPage(page, '/protocols')
+        await expect(page).not.toHaveURL(/\/login/, { timeout: 8_000 })
+        await expect(
+            page.locator('a[href*="/protocols/new"]').or(page.locator('table')).first(),
+            '計畫書頁應載入（新增按鈕或表格）'
+        ).toBeVisible({ timeout: 15_000 })
     })
 
     test('應顯示計畫書列表頁面', async ({ page }) => {
@@ -37,15 +33,11 @@ test.describe('計畫書列表', () => {
         const table = page.locator('table')
         await expect(table).toBeVisible({ timeout: 15_000 })
 
-        // 點擊 header 排序
         const sortableHeader = table.locator('th button, th[class*="cursor"]').first()
-        if (await sortableHeader.count() === 0) {
-            test.skip()
-            return
-        }
+        await expect(sortableHeader, '計畫書表格應有可排序的欄位').toBeVisible({ timeout: 5_000 })
+
         await sortableHeader.click()
         await page.waitForTimeout(500)
-        // 頁面應保持穩定
         await expect(table).toBeVisible()
     })
 
@@ -61,14 +53,11 @@ test.describe('計畫書列表', () => {
     })
 
     test('計畫書連結應可點擊', async ({ page }) => {
+        await expect(page.locator('table').or(page.getByText(/尚無|沒有|no protocol/i)).first()).toBeVisible({ timeout: 5_000 })
         const protocolLink = page.locator('table a[href*="/protocols/"]').first()
-        // 等待 table 資料載入
-        await page.waitForTimeout(2000)
-        if (await protocolLink.count() === 0) {
-            test.skip()
+        if (!(await protocolLink.isVisible().catch(() => false))) {
             return
         }
-
         await protocolLink.click()
         await expect(page).toHaveURL(/\/protocols\/[a-f0-9-]+/, { timeout: 10_000 })
     })

@@ -16,7 +16,7 @@ COPY migrations ./migrations
 COPY .sqlx ./.sqlx
 
 ENV SQLX_OFFLINE=true
-RUN cargo build --release --bin erp-backend --bin healthcheck
+RUN cargo build --release --bin erp-backend --bin healthcheck --bin create_admin
 
 # Runtime stage
 FROM debian:bookworm-slim AS runtime
@@ -37,6 +37,7 @@ RUN useradd -r -s /bin/false appuser && \
 # Copy binaries and migrations
 COPY --from=builder /app/target/release/erp-backend /app/erp-backend
 COPY --from=builder /app/target/release/healthcheck /app/healthcheck
+COPY --from=builder /app/target/release/create_admin /app/create_admin
 COPY --from=builder /app/migrations /app/migrations
 
 # Using distroless for final stage to minimize vulnerabilities

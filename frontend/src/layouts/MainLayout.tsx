@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useMemo, Suspense } from 'react' // 引入 React 核心 Hook
+import { useState, useEffect, useRef, useMemo, Suspense } from 'react' // 引入 React 核心 Hook
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom' // 引入路由組件與導覽 Hook
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query' // 引入資料獲取與變更管理工具
 import { useTranslation } from 'react-i18next' // 引入 i18n 翻譯 Hook
@@ -1036,7 +1036,7 @@ export function MainLayout() {
 
             {/* 語言切換選擇器 */}
             <Select value={i18n.language} onValueChange={handleLanguageChange}>
-              <SelectTrigger className="w-[60px] md:w-[120px] h-9">
+              <SelectTrigger className="w-[60px] md:w-[120px] h-9" data-testid="language-selector">
                 <Globe className="h-4 w-4 mr-2" />
                 <SelectValue />
               </SelectTrigger>

@@ -21,7 +21,10 @@
       "Bash(docker compose:*)",
       "Bash(docker exec:*)",
       "Bash(docker ps:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(Start-Sleep -Seconds 10)",
+      "Bash(tee:*)",
+      "Bash(python -c:*)"
     ]
   }
 }

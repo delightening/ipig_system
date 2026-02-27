@@ -1,0 +1,249 @@
+[dotenv@17.3.1] injecting env (31) from ..\.env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[dotenv@17.3.1] injecting env (0) from ..\.env -- tip: ⚡️ secrets for agents: https://dotenvx.com/as2
+
+Running 34 tests using 1 worker
+
+[1A[2K[dotenv@17.3.1] injecting env (0) from ..\.env -- tip: 🛡️ auth for agents: https://vestauth.com
+
+[1A[2K[dotenv@17.3.1] injecting env (0) from ..\.env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+[1A[2K[1/34] [auth-setup] › e2e\auth.setup.ts:19:1 › authenticate as user
+[1A[2K[2/34] [auth-setup] › e2e\auth.setup.ts:39:1 › authenticate as admin
+[1A[2K[dotenv@17.3.1] injecting env (0) from ..\.env -- tip: ⚙️  write to custom object with { processEnv: myObject }
+
+[1A[2K[dotenv@17.3.1] injecting env (0) from ..\.env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+[1A[2K[3/34] [chromium] › e2e\admin-users.spec.ts:12:5 › 使用者管理（Admin） › 應能存取使用者管理頁面
+[1A[2K[chromium] › e2e\admin-users.spec.ts:12:5 › 使用者管理（Admin） › 應能存取使用者管理頁面
+[admin-context] Session 已過期，重新登入
+
+[1A[2K[SessionMonitor 16:13:44.946] Session 已建立
+
+[1A[2K[4/34] [chromium] › e2e\admin-users.spec.ts:17:5 › 使用者管理（Admin） › 應顯示使用者列表
+[1A[2K[5/34] [chromium] › e2e\admin-users.spec.ts:25:5 › 使用者管理（Admin） › 應有新增使用者按鈕
+[1A[2K[6/34] [chromium] › e2e\admin-users.spec.ts:31:5 › 使用者管理（Admin） › 新增使用者對話框應可開啟
+[1A[2K[7/34] [chromium] › e2e\admin-users.spec.ts:41:5 › 使用者管理（Admin） › 應顯示使用者分頁資訊
+[1A[2K[8/34] [chromium] › e2e\animals.spec.ts:11:5 › 動物列表 › 應顯示動物列表頁面
+[1A[2K[9/34] [chromium] › e2e\animals.spec.ts:16:5 › 動物列表 › 應有狀態篩選 Tab
+[1A[2K[10/34] [chromium] › e2e\animals.spec.ts:26:5 › 動物列表 › 搜尋應能過濾動物
+[1A[2K[11/34] [chromium] › e2e\animals.spec.ts:35:5 › 動物列表 › 品種篩選應可運作
+[1A[2K  1) [chromium] › e2e\animals.spec.ts:35:5 › 動物列表 › 品種篩選應可運作 ───────────────────────────────────────
+
+    Error: [2mexpect([22m[31mpage[39m[2m).[22mtoHaveURL[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Expected pattern: [32m/\/animals/[39m
+    Received string:  [31m"http://localhost:8080/login"[39m
+    Timeout: 12000ms
+
+    Call log:
+    [2m  - Expect "toHaveURL" with timeout 12000ms[22m
+    [2m    16 × unexpected value "http://localhost:8080/login"[22m
+
+
+       5 |     test.beforeEach(async ({ page }) => {
+       6 |         await ensureAdminOnPage(page, '/animals')
+    >  7 |         await expect(page).toHaveURL(/\/animals/, { timeout: 12_000 })
+         |                            ^
+       8 |         await expect(page.locator('button').filter({ hasText: /Pen View|All Animals|欄舍|全部/ }).first()).toBeVisible({ timeout: 15_000 })
+       9 |     })
+      10 |
+        at D:\Coding\ipig_system\frontend\e2e\animals.spec.ts:7:28
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\animals-動物列表-品種篩選應可運作-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[dotenv@17.3.1] injecting env (0) from ..\.env -- tip: ⚙️  suppress all logs with { quiet: true }
+
+[1A[2K[dotenv@17.3.1] injecting env (0) from ..\.env -- tip: ⚙️  write to custom object with { processEnv: myObject }
+
+[1A[2K[12/34] [chromium] › e2e\animals.spec.ts:45:5 › 動物列表 › 切換到 All Animals Tab 應顯示表格
+[1A[2K[chromium] › e2e\animals.spec.ts:45:5 › 動物列表 › 切換到 All Animals Tab 應顯示表格
+[admin-context] Session 已過期，重新登入
+
+[1A[2K  2) [chromium] › e2e\animals.spec.ts:45:5 › 動物列表 › 切換到 All Animals Tab 應顯示表格 ──────────────────────
+
+    [31mFixture "sharedAdminContext" timeout of 30000ms exceeded during setup.[39m
+
+       at fixtures\admin-context.ts:111
+
+      109 | }
+      110 |
+    > 111 | export const test = base.extend<{}, { sharedAdminContext: BrowserContext }>({
+          |                          ^
+      112 |     sharedAdminContext: [
+      113 |         async ({ browser }, use) => {
+      114 |             const baseURL = process.env.E2E_BASE_URL || 'http://localhost:8080'
+        at D:\Coding\ipig_system\frontend\e2e\fixtures\admin-context.ts:111:26
+
+    Error: page.waitForTimeout: Test ended.
+
+       at auth-helpers.ts:38
+
+      36 |             const waitMs = Math.min(retryAfter * 1000 + 2000, 65_000) // 最多等 65s
+      37 |             if (attempt < maxRetries) {
+    > 38 |                 await page.waitForTimeout(waitMs)
+         |                            ^
+      39 |                 continue
+      40 |             }
+      41 |             throw new Error(`Login rate limited (429) after ${maxRetries} retries`)
+        at performLogin (D:\Coding\ipig_system\frontend\e2e\auth-helpers.ts:38:28)
+        at ensureLoggedIn (D:\Coding\ipig_system\frontend\e2e\fixtures\admin-context.ts:80:21)
+        at Object.base.extend.sharedAdminContext.scope (D:\Coding\ipig_system\frontend\e2e\fixtures\admin-context.ts:119:13)
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\animals-動物列表-切換到-All-Animals-Tab-應顯示表格-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\animals-動物列表-切換到-All-Animals-Tab-應顯示表格-chromium\error-context.md
+
+
+[1A[2K[dotenv@17.3.1] injecting env (0) from ..\.env -- tip: 🤖 agentic secret storage: https://dotenvx.com/as2
+
+[1A[2K[dotenv@17.3.1] injecting env (0) from ..\.env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+
+[1A[2K[13/34] [chromium] › e2e\animals.spec.ts:58:5 › 動物列表 › 欄舍視圖 Tab 應可切換
+[1A[2K[chromium] › e2e\animals.spec.ts:58:5 › 動物列表 › 欄舍視圖 Tab 應可切換
+[admin-context] Session 已過期，重新登入
+
+[1A[2K  3) [chromium] › e2e\animals.spec.ts:58:5 › 動物列表 › 欄舍視圖 Tab 應可切換 ──────────────────────────────────
+
+    [31mFixture "sharedAdminContext" timeout of 30000ms exceeded during setup.[39m
+
+       at fixtures\admin-context.ts:111
+
+      109 | }
+      110 |
+    > 111 | export const test = base.extend<{}, { sharedAdminContext: BrowserContext }>({
+          |                          ^
+      112 |     sharedAdminContext: [
+      113 |         async ({ browser }, use) => {
+      114 |             const baseURL = process.env.E2E_BASE_URL || 'http://localhost:8080'
+        at D:\Coding\ipig_system\frontend\e2e\fixtures\admin-context.ts:111:26
+
+    Error: page.waitForTimeout: Test ended.
+
+       at auth-helpers.ts:38
+
+      36 |             const waitMs = Math.min(retryAfter * 1000 + 2000, 65_000) // 最多等 65s
+      37 |             if (attempt < maxRetries) {
+    > 38 |                 await page.waitForTimeout(waitMs)
+         |                            ^
+      39 |                 continue
+      40 |             }
+      41 |             throw new Error(`Login rate limited (429) after ${maxRetries} retries`)
+        at performLogin (D:\Coding\ipig_system\frontend\e2e\auth-helpers.ts:38:28)
+        at ensureLoggedIn (D:\Coding\ipig_system\frontend\e2e\fixtures\admin-context.ts:80:21)
+        at Object.base.extend.sharedAdminContext.scope (D:\Coding\ipig_system\frontend\e2e\fixtures\admin-context.ts:119:13)
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\animals-動物列表-欄舍視圖-Tab-應可切換-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\animals-動物列表-欄舍視圖-Tab-應可切換-chromium\error-context.md
+
+
+[1A[2K[dotenv@17.3.1] injecting env (0) from ..\.env -- tip: ⚡️ secrets for agents: https://dotenvx.com/as2
+
+[1A[2K[dotenv@17.3.1] injecting env (0) from ..\.env -- tip: ⚙️  write to custom object with { processEnv: myObject }
+
+[1A[2K[14/34] [chromium] › e2e\dashboard.spec.ts:9:5 › Dashboard › 已登入使用者應能看到 Dashboard
+[1A[2K[chromium] › e2e\dashboard.spec.ts:9:5 › Dashboard › 已登入使用者應能看到 Dashboard
+[admin-context] Session 已過期，重新登入
+
+[1A[2K[SessionMonitor 16:15:07.149] Session 已建立
+
+[1A[2K[15/34] [chromium] › e2e\dashboard.spec.ts:24:5 › Dashboard › 側邊欄導航應可見
+[1A[2K[16/34] [chromium] › e2e\dashboard.spec.ts:31:5 › Dashboard › 通知鈴鐺應可見
+[1A[2K[17/34] [chromium] › e2e\dashboard.spec.ts:39:5 › Dashboard › 語言切換應可運作
+[1A[2K[18/34] [chromium] › e2e\profile.spec.ts:12:5 › 個人資料設定 › 應顯示個人資料頁面
+[1A[2K[19/34] [chromium] › e2e\profile.spec.ts:18:5 › 個人資料設定 › 應顯示基本資料欄位
+[1A[2K[20/34] [chromium] › e2e\profile.spec.ts:29:5 › 個人資料設定 › 應有儲存按鈕
+[1A[2K[21/34] [chromium] › e2e\profile.spec.ts:35:5 › 個人資料設定 › 修改顯示名稱應可儲存
+[1A[2K[22/34] [chromium] › e2e\profile.spec.ts:59:5 › 變更密碼 › 應可從側邊欄開啟變更密碼對話框
+[1A[2K[23/34] [chromium] › e2e\protocols.spec.ts:14:5 › 計畫書列表 › 應顯示計畫書列表頁面
+[1A[2K[24/34] [chromium] › e2e\protocols.spec.ts:19:5 › 計畫書列表 › 應有新增計畫書按鈕
+[1A[2K[25/34] [chromium] › e2e\protocols.spec.ts:24:5 › 計畫書列表 › 應有狀態篩選
+[1A[2K[26/34] [chromium] › e2e\protocols.spec.ts:32:5 › 計畫書列表 › 表格排序應可運作
+[1A[2K[27/34] [chromium] › e2e\protocols.spec.ts:44:5 › 計畫書列表 › 搜尋應能過濾計畫書
+[1A[2K  4) [chromium] › e2e\protocols.spec.ts:44:5 › 計畫書列表 › 搜尋應能過濾計畫書 ───────────────────────────────────
+
+    Error: [2mexpect([22m[31mpage[39m[2m).not.[22mtoHaveURL[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Expected pattern: not [32m/\/login/[39m
+    Received string: [31m"http://localhost:8080[7m/login[27m"[39m
+    Timeout: 8000ms
+
+    Call log:
+    [2m  - Expect "not toHaveURL" with timeout 8000ms[22m
+    [2m    12 × unexpected value "http://localhost:8080/login"[22m
+
+
+       5 |     test.beforeEach(async ({ page }) => {
+       6 |         await ensureAdminOnPage(page, '/protocols')
+    >  7 |         await expect(page).not.toHaveURL(/\/login/, { timeout: 8_000 })
+         |                                ^
+       8 |         await expect(
+       9 |             page.locator('a[href*="/protocols/new"]').or(page.locator('table')).first(),
+      10 |             '計畫書頁應載入（新增按鈕或表格）'
+        at D:\Coding\ipig_system\frontend\e2e\protocols.spec.ts:7:32
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\protocols-計畫書列表-搜尋應能過濾計畫書-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[dotenv@17.3.1] injecting env (0) from ..\.env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+[1A[2K[dotenv@17.3.1] injecting env (0) from ..\.env -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+
+[1A[2K[28/34] [chromium] › e2e\protocols.spec.ts:55:5 › 計畫書列表 › 計畫書連結應可點擊
+[1A[2K[chromium] › e2e\protocols.spec.ts:55:5 › 計畫書列表 › 計畫書連結應可點擊
+[admin-context] Session 已過期，重新登入
+
+[1A[2K  5) [chromium] › e2e\protocols.spec.ts:55:5 › 計畫書列表 › 計畫書連結應可點擊 ───────────────────────────────────
+
+    [31mFixture "sharedAdminContext" timeout of 30000ms exceeded during setup.[39m
+
+       at fixtures\admin-context.ts:111
+
+      109 | }
+      110 |
+    > 111 | export const test = base.extend<{}, { sharedAdminContext: BrowserContext }>({
+          |                          ^
+      112 |     sharedAdminContext: [
+      113 |         async ({ browser }, use) => {
+      114 |             const baseURL = process.env.E2E_BASE_URL || 'http://localhost:8080'
+        at D:\Coding\ipig_system\frontend\e2e\fixtures\admin-context.ts:111:26
+
+    Error: page.waitForTimeout: Test ended.
+
+       at auth-helpers.ts:38
+
+      36 |             const waitMs = Math.min(retryAfter * 1000 + 2000, 65_000) // 最多等 65s
+      37 |             if (attempt < maxRetries) {
+    > 38 |                 await page.waitForTimeout(waitMs)
+         |                            ^
+      39 |                 continue
+      40 |             }
+      41 |             throw new Error(`Login rate limited (429) after ${maxRetries} retries`)
+        at performLogin (D:\Coding\ipig_system\frontend\e2e\auth-helpers.ts:38:28)
+        at ensureLoggedIn (D:\Coding\ipig_system\frontend\e2e\fixtures\admin-context.ts:80:21)
+        at Object.base.extend.sharedAdminContext.scope (D:\Coding\ipig_system\frontend\e2e\fixtures\admin-context.ts:119:13)
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\protocols-計畫書列表-計畫書連結應可點擊-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\protocols-計畫書列表-計畫書連結應可點擊-chromium\error-context.md
+
+
+[1A[2K  5 failed
+    [chromium] › e2e\animals.spec.ts:35:5 › 動物列表 › 品種篩選應可運作 ────────────────────────────────────────
+    [chromium] › e2e\animals.spec.ts:45:5 › 動物列表 › 切換到 All Animals Tab 應顯示表格 ───────────────────────
+    [chromium] › e2e\animals.spec.ts:58:5 › 動物列表 › 欄舍視圖 Tab 應可切換 ───────────────────────────────────
+    [chromium] › e2e\protocols.spec.ts:44:5 › 計畫書列表 › 搜尋應能過濾計畫書 ────────────────────────────────────
+    [chromium] › e2e\protocols.spec.ts:55:5 › 計畫書列表 › 計畫書連結應可點擊 ────────────────────────────────────
+  6 did not run
+  23 passed (2.3m)

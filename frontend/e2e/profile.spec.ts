@@ -1,19 +1,12 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures/admin-context'
+import { ensureAdminOnPage } from './auth-helpers'
 
-/**
- * 個人資料設定 E2E 測試
- *
- * 前置條件：已登入
- * 注意：頁面使用 i18n，文字可能為中文或英文
- */
 test.describe('個人資料設定', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('/profile/settings')
-        await page.waitForLoadState('networkidle')
-        // 確認未被導向 login
-        if (page.url().includes('/login')) {
-            test.skip()
-        }
+        await ensureAdminOnPage(page, '/profile/settings')
+        await expect(page).not.toHaveURL(/\/login/, { timeout: 8_000 })
+        // 個人資料頁載入後才有 disabled email 欄位（依賴 /me API）
+        await expect(page.locator('input[disabled]').first(), '應已登入且進入個人資料頁').toBeVisible({ timeout: 20_000 })
     })
 
     test('應顯示個人資料頁面', async ({ page }) => {
@@ -65,18 +58,12 @@ test.describe('個人資料設定', () => {
 test.describe('變更密碼', () => {
     test('應可從側邊欄開啟變更密碼對話框', async ({ page }) => {
         await page.goto('/dashboard')
-        await page.waitForLoadState('networkidle')
-        if (page.url().includes('/login')) {
-            test.skip()
-            return
-        }
+        await page.waitForLoadState('domcontentloaded')
+        await expect(page.locator('img[src*="pigmodel"]').first()).toBeVisible({ timeout: 15_000 })
+        await expect(page).not.toHaveURL(/\/login/, { timeout: 5_000 })
 
-        // 側邊欄底部的「Change Password / 變更密碼」
         const changePasswordBtn = page.getByText(/Change Password|變更密碼/).first()
-        if (await changePasswordBtn.count() === 0) {
-            test.skip()
-            return
-        }
+        await expect(changePasswordBtn, '側邊欄應有變更密碼按鈕').toBeVisible({ timeout: 10_000 })
 
         await changePasswordBtn.click()
 

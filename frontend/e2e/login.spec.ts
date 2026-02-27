@@ -40,36 +40,38 @@ test.describe('登入流程', () => {
         await expect(errorLocator).toBeVisible({ timeout: 10_000 })
     })
 
-    // 注意：此測試在 parallel 模式下可能因 session 衝突而不穩定。
-    // 登入成功已由 auth.setup.ts 驗證。單獨執行時通常 pass。
-    test('成功登入應導向 dashboard', async ({ page }) => {
-        const email = process.env.E2E_USER_EMAIL
-        const password = process.env.E2E_USER_PASSWORD
-        if (!email || !password) {
-            test.skip()
-            return
-        }
+    test('成功登入應導向 dashboard', { timeout: 60_000 }, async ({ page }) => {
+        const email = process.env.E2E_USER_EMAIL || process.env.E2E_ADMIN_EMAIL
+        const password = process.env.E2E_USER_PASSWORD || process.env.E2E_ADMIN_PASSWORD
+        expect(email, '請設定 E2E_USER_EMAIL 或 E2E_ADMIN_EMAIL').toBeTruthy()
+        expect(password, '請設定 E2E_USER_PASSWORD 或 E2E_ADMIN_PASSWORD').toBeTruthy()
 
         await page.goto('/login')
-        await page.waitForLoadState('networkidle')
+        await page.waitForLoadState('domcontentloaded')
+        await expect(page.locator('#email')).toBeVisible({ timeout: 10_000 })
 
-        await page.locator('#email').fill(email)
-        await page.locator('#password').fill(password)
+        let response: import('@playwright/test').APIResponse
+        const maxRetries = 3
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            await page.locator('#email').fill(email!)
+            await page.locator('#password').fill(password!)
 
-        // 同時等待 API 回應和按鈕點擊，避免 parallel 模式下 race condition
-        const [response] = await Promise.all([
-            page.waitForResponse(
-                (resp) => resp.url().includes('/api/auth/login') && resp.request().method() === 'POST',
-                { timeout: 15_000 },
-            ),
-            page.getByRole('button', { name: '登入' }).click(),
-        ])
-
-        // 若 API 回應非 200，可能是 session 衝突，跳過此測試
-        if (response.status() !== 200) {
-            test.skip()
-            return
+            const [resp] = await Promise.all([
+                page.waitForResponse(
+                    (r) => r.url().includes('/api/auth/login') && r.request().method() === 'POST',
+                    { timeout: 15_000 },
+                ),
+                page.getByRole('button', { name: '登入' }).click(),
+            ])
+            response = resp
+            if (resp.status() === 429 && attempt < maxRetries) {
+                const waitMs = Math.min((Number(resp.headers()['retry-after']) || 5) * 1000 + 1000, 10_000)
+                await page.waitForTimeout(waitMs)
+                continue
+            }
+            break
         }
+        expect(response!.status(), '登入 API 應回傳 200（429 時會重試）').toBe(200)
 
         // 等待前端 React 狀態更新完成跳轉
         // 若 race condition 導致未自動跳轉，手動導航（HttpOnly cookie 已設定）
