@@ -47,7 +47,7 @@
 | # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
 |---|------|------|------|----------|------|
 | 17 | **基礎映像與 CVE 週期檢查** | 每季或基礎映像大改時，檢查 [georgjung/nginx-brotli](https://hub.docker.com/r/georgjung/nginx-brotli/tags) 是否有新 tag；若有則升級 frontend Dockerfile 的 FROM，並從 `.trivyignore` 移除 CVE-2026-25646。詳見 `docs/security.md`。 | DevOps | ⚡ Flash | [ ] |
-| 18 | **E2E Rate Limiting / Session 穩定化** | 解決 shared context 下 Session 過期誤判導致大量重新登入，觸發後端 429 連鎖失敗。需調試 `isSessionExpired()`、`context.cookies()` 行為，或重構 session 管理架構。詳見 `docs/e2e/README.md` 故障排除 §5。 | 前端 | 🧠 Claude | [ ] |
+| 18 | **E2E Rate Limiting / Session 穩定化** | ~~解決 shared context 下 Session 過期誤判導致大量重新登入~~。已修復：admin-context 改用 auth.setup 儲存的 storageState 免重複登入；API rate limit 120→600/min；login.spec 加入 credential fallback。34/34 連續通過、22s 完成。 | 前端 | 🧠 Claude | [x] |
 
 ---
 
@@ -70,9 +70,9 @@
 | 🟡 P1 上線前建議 | 0 |
 | 🔴 P2 中優先 | 0 |
 | 🔵 P3 低優先 | 0 |
-| 🟣 P4 品質提升 | 2 |
+| 🟣 P4 品質提升 | 1 |
 | ⚪ P5 長期演進 | 3 |
-| **合計（未完成）** | **5** |
+| **合計（未完成）** | **4** |
 
 ---
 
@@ -80,6 +80,7 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-02-27 | 🧠 Claude：完成 P4-18 E2E Rate Limiting / Session 穩定化 — admin-context 改用 storageState 檔案免重複登入、API rate limit 120→600/min、login.spec credential fallback。34/34 連續通過、22s 完成。 |
 | 2026-02-27 | 🧠 Claude：E2E 測試總結計畫實施 — 新增 P4-18 Rate Limiting/Session 穩定化待辦；`docs/e2e/README.md` 故障排除 §5 補充 Session 過期導致 429 連鎖失敗說明。 |
 | 2026-02-25 | 🧠 Claude：完成 P3-7 SEC-33 敏感操作二級認證 — 後端 confirm-password + reauth token，前後端刪除使用者／重設密碼／模擬登入／刪除角色皆需重新輸入密碼確認。 |
 | 2026-02-25 | 🧠 Claude：完成 P1-7 電子簽章合規審查（21 CFR Part 11），新增 `docs/ELECTRONIC_SIGNATURE_COMPLIANCE.md`。 |
