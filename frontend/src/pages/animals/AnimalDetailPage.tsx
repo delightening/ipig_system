@@ -530,14 +530,14 @@ export function AnimalDetailPage() {
 
       {/* Tabs */}
       <div className="border-b">
-        <div className="flex space-x-1 overflow-x-auto">
+        <div className="flex flex-wrap gap-1">
           {tabs.map((tab) => {
             const Icon = tab.icon
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === tab.id
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
                   ? 'border-orange-500 text-orange-600'
                   : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                   }`}

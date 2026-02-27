@@ -1,4 +1,4 @@
-﻿use axum::{
+use axum::{
     body::Body,
     extract::{Multipart, Path, Query, State},
     http::{header, StatusCode},
@@ -265,6 +265,60 @@ pub async fn upload_vet_recommendation_attachment(
             &state.db,
             "vet_recommendation",
             &entity_id,
+            &upload_result,
+            current_user.id,
+        ).await?;
+
+        results.push(UploadResponse::from(upload_result));
+    }
+
+    if results.is_empty() {
+        return Err(AppError::Validation("No files uploaded".to_string()));
+    }
+
+    Ok(Json(results))
+}
+
+/// 上傳觀察紀錄附件（照片與文件）
+pub async fn upload_observation_attachment(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(observation_id): Path<Uuid>,
+    mut multipart: Multipart,
+) -> Result<Json<Vec<UploadResponse>>> {
+    require_permission!(current_user, "animal.record.create");
+
+    let mut results = Vec::new();
+
+    while let Some(field) = multipart.next_field().await.map_err(|e| {
+        AppError::Validation(format!("Failed to read multipart field: {}", e))
+    })? {
+        let file_name = field
+            .file_name()
+            .map(String::from)
+            .unwrap_or_else(|| "unnamed".to_string());
+
+        let content_type = field
+            .content_type()
+            .map(String::from)
+            .unwrap_or_else(|| "application/octet-stream".to_string());
+
+        let data = field.bytes().await.map_err(|e| {
+            AppError::Validation(format!("Failed to read file data: {}", e))
+        })?;
+
+        let upload_result = FileService::upload(
+            FileCategory::ObservationAttachment,
+            &file_name,
+            &content_type,
+            &data,
+            Some(&observation_id.to_string()),
+        ).await?;
+
+        save_attachment(
+            &state.db,
+            "observation",
+            &observation_id.to_string(),
             &upload_result,
             current_user.id,
         ).await?;

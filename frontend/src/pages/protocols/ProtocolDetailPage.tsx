@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useMemo } from 'react'
+import React, { useState, useRef, useMemo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
@@ -784,7 +784,7 @@ export function ProtocolDetailPage() {
 
       {/* Tabs */}
       < div className="border-b" >
-        <nav className="flex gap-4 overflow-x-auto">
+        <nav className="flex flex-wrap gap-4">
           {[
             { key: 'content', label: t('protocols.detail.tabs.content'), icon: FileText },
             { key: 'animals', label: t('protocols.detail.tabs.animals'), icon: ClipboardList },
@@ -805,7 +805,7 @@ export function ProtocolDetailPage() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key as typeof activeTab)}
-              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors whitespace-nowrap ${activeTab === tab.key
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${activeTab === tab.key
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}

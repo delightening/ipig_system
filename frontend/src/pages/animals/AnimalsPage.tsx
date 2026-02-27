@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -340,7 +340,6 @@ export function AnimalsPage() {
       }
       // 如果 source_id 是空字串或 'none'，不發送該欄位（後端會視為 None）
 
-      console.log('Sending payload:', payload)
       return api.post('/animals', payload)
     },
     onSuccess: () => {
@@ -747,7 +746,7 @@ export function AnimalsPage() {
       </div>
 
       {/* Status Tabs */}
-      <div className="flex gap-2 border-b overflow-x-auto flex-nowrap">
+      <div className="flex flex-wrap gap-2 border-b">
         {[
           { value: 'pen', label: t('animals.statusLabels.pen'), count: allAnimals.length, icon: <LayoutGrid className="h-4 w-4" /> },
           { value: 'unassigned', label: t('animals.statusLabels.unassigned'), count: statusCounts['unassigned'] || 0 },
@@ -776,7 +775,7 @@ export function AnimalsPage() {
                 setStatusFilter(tab.value)
                 setSearchParams(tab.value === 'pen' ? {} : { status: tab.value })
               }}
-              className={`px-3 md:px-4 py-2 text-xs md:text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap ${statusFilter === tab.value
+              className={`px-3 md:px-4 py-2 text-xs md:text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${statusFilter === tab.value
                 ? 'border-purple-600 text-purple-600'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
                 }`}

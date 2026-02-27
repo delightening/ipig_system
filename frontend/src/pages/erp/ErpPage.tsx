@@ -246,14 +246,14 @@ export function ErpPage() {
 
             {/* Tab 導覽列 */}
             <div className="border-b border-slate-200">
-                <nav className="-mb-px flex space-x-6 overflow-x-auto">
+                <nav className="-mb-px flex flex-wrap gap-x-6">
                     {/* 各模組 Tabs */}
                     {filteredModules.map((module) => (
                         <button
                             key={module.id}
                             onClick={() => handleTabChange(module.id)}
                             className={cn(
-                                'py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors',
+                                'py-3 px-1 border-b-2 font-medium text-sm transition-colors',
                                 currentTab === module.id
                                     ? 'border-blue-500 text-blue-600'
                                     : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'

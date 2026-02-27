@@ -574,6 +574,10 @@ pub fn api_routes(state: AppState) -> Router {
             "/vet-recommendations/:record_type/:record_id/attachments",
             post(handlers::upload_vet_recommendation_attachment),
         )
+        .route(
+            "/observations/:id/attachments",
+            post(handlers::upload_observation_attachment),
+        )
         .route("/attachments", get(handlers::list_attachments))
         .route(
             "/attachments/:id",

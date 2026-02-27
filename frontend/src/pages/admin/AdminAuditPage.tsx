@@ -393,24 +393,24 @@ export function AdminAuditPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="flex w-full overflow-x-auto sm:grid sm:grid-cols-5">
-                    <TabsTrigger value="dashboard" className="flex items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm sm:gap-2">
+                <TabsList className="flex flex-wrap w-full sm:grid sm:grid-cols-5">
+                    <TabsTrigger value="dashboard" className="flex items-center gap-1.5 text-xs sm:text-sm sm:gap-2">
                         <Shield className="h-4 w-4 hidden sm:inline-block" />
                         總覽
                     </TabsTrigger>
-                    <TabsTrigger value="activities" className="flex items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm sm:gap-2">
+                    <TabsTrigger value="activities" className="flex items-center gap-1.5 text-xs sm:text-sm sm:gap-2">
                         <Activity className="h-4 w-4 hidden sm:inline-block" />
                         活動記錄
                     </TabsTrigger>
-                    <TabsTrigger value="logins" className="flex items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm sm:gap-2">
+                    <TabsTrigger value="logins" className="flex items-center gap-1.5 text-xs sm:text-sm sm:gap-2">
                         <LogIn className="h-4 w-4 hidden sm:inline-block" />
                         登入事件
                     </TabsTrigger>
-                    <TabsTrigger value="sessions" className="flex items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm sm:gap-2">
+                    <TabsTrigger value="sessions" className="flex items-center gap-1.5 text-xs sm:text-sm sm:gap-2">
                         <Users className="h-4 w-4 hidden sm:inline-block" />
                         活躍 Sessions
                     </TabsTrigger>
-                    <TabsTrigger value="alerts" className="flex items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm sm:gap-2">
+                    <TabsTrigger value="alerts" className="flex items-center gap-1.5 text-xs sm:text-sm sm:gap-2">
                         <AlertTriangle className="h-4 w-4 hidden sm:inline-block" />
                         安全警報
                         {dashboardStats && dashboardStats.open_alerts > 0 && (
