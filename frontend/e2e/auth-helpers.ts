@@ -18,7 +18,9 @@ export async function performLogin(
 ) {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         await page.goto('/login')
-        await page.waitForLoadState('networkidle')
+        await page.waitForLoadState('domcontentloaded')
+        // 等待登入表單元素可見，確保頁面已載入
+        await expect(page.locator('#email')).toBeVisible({ timeout: 10_000 })
         await page.locator('#email').fill(email)
         await page.locator('#password').fill(password)
 
@@ -33,7 +35,15 @@ export async function performLogin(
 
         if (response.status() === 429) {
             const retryAfter = Number(response.headers()['retry-after']) || 60
-            const waitMs = Math.min(retryAfter * 1000 + 2000, 65_000) // 最多等 65s
+            // 增加隨機化，避免所有重試同時發生（jitter: ±20%）
+            const jitter = Math.random() * 0.4 - 0.2 // -0.2 到 +0.2
+            const waitMs = Math.min(
+                Math.floor((retryAfter * 1000 + 2000) * (1 + jitter)),
+                65_000
+            ) // 最多等 65s
+            console.log(
+                `[auth-helpers] Login rate limited (429), attempt ${attempt}/${maxRetries}, waiting ${Math.round(waitMs / 1000)}s`
+            )
             if (attempt < maxRetries) {
                 await page.waitForTimeout(waitMs)
                 continue
@@ -44,6 +54,9 @@ export async function performLogin(
         if (response.status() !== 200) {
             const body = await response.text()
             const hint = body.length > 0 ? ` Response: ${body.slice(0, 200)}` : ''
+            console.error(
+                `[auth-helpers] Login failed with status ${response.status()}, attempt ${attempt}/${maxRetries}${hint}`
+            )
             throw new Error(`Login API returned ${response.status()}.${hint}`)
         }
 
@@ -51,7 +64,9 @@ export async function performLogin(
             await expect(page).toHaveURL(/\/(dashboard|my-projects|force-change)/, {
                 timeout: 8_000,
             })
+            console.log(`[auth-helpers] Login successful, redirected to ${page.url()}`)
         } catch {
+            console.warn(`[auth-helpers] Expected redirect did not occur, navigating to /dashboard`)
             await page.goto('/dashboard')
             await expect(page).not.toHaveURL(/\/login/, { timeout: 10_000 })
         }

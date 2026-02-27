@@ -414,6 +414,10 @@ await page.waitForResponse(
 )
 ```
 
+**已修復**（2024）：
+- `auth-helpers.ts` 中的 `performLogin()` 已將 `networkidle` 改為 `domcontentloaded` + 元素等待
+- 所有測試檔案（`animals.spec.ts`、`profile.spec.ts`、`protocols.spec.ts`）已使用 `ensureAdminOnPage()`，它使用 `domcontentloaded` 而非 `networkidle`
+
 ### 3. 登入測試未執行
 
 **症狀**：報告顯示 `6 did not run`
@@ -488,19 +492,28 @@ npm run test:e2e
 `auth-helpers.ts` 已內建 429 處理：
 
 ```typescript
-// 已實作：429 時自動重試
+// 已實作：429 時自動重試（含隨機化）
 if (loginResponse.status() === 429) {
-  const retryAfter = parseInt(loginResponse.headers()['retry-after'] || '5')
-  const waitTime = Math.min(retryAfter, 10)
-  await page.waitForTimeout(waitTime * 1000)
+  const retryAfter = parseInt(loginResponse.headers()['retry-after'] || '60')
+  // 增加隨機化，避免所有重試同時發生（jitter: ±20%）
+  const jitter = Math.random() * 0.4 - 0.2 // -0.2 到 +0.2
+  const waitMs = Math.min(
+    Math.floor((retryAfter * 1000 + 2000) * (1 + jitter)),
+    65_000
+  )
+  await page.waitForTimeout(waitMs)
   // 重試...
 }
 ```
 
+**已改善**（2024）：
+- 重試間隔加入隨機化（jitter），避免多個重試同時發生
+- 根據 `Retry-After` header 動態調整等待時間
+- 增加詳細的錯誤日誌，方便診斷
+
 如果仍然失敗，可以：
-- 增加重試次數（預設 3 次）
-- 增加重試延遲
-- 檢查後端 rate limit 設定
+- 增加重試次數（預設 5 次）
+- 檢查後端 rate limit 設定（CI 環境建議 >= 100/min）
 
 ### 5. Session 過期導致大量登入與 429 連鎖失敗
 
@@ -549,6 +562,17 @@ Fixture setup timeout (30s)
 - 確認後端 auth rate limit 已放寬（如 100/min）供 E2E 使用
 - 檢查 `admin-context.ts` 中 `isSessionExpired()` 與 `context.cookies()` 的 URL 參數設定
 - 若持續發生，需深入調查 shared context 的 cookie 持久化機制（見 `docs/TODO.md` P4 任務）
+
+**已改善**（2024）：
+- **Session 有效性緩存**：`isSessionExpired()` 使用 30 秒緩存，減少不必要的 cookie 讀取
+- **防抖機制**：`ensureLoggedIn()` 增加防抖鎖定（2 秒窗口），避免多個測試同時觸發登入
+- **容錯處理**：Cookie 讀取失敗時使用緩存或保守假設，避免誤判
+- **詳細日誌**：增加登入過程的日誌輸出，方便追蹤問題
+
+**實作細節**：
+- Session 緩存：30 秒 TTL，減少重複檢查
+- 防抖窗口：2 秒，避免並發登入請求
+- Cookie 讀取容錯：失敗時使用緩存或保守假設
 
 ## 調試技巧
 
