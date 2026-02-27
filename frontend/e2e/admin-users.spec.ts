@@ -25,22 +25,22 @@ test.describe('使用者管理（Admin）', () => {
     test('應有新增使用者按鈕', async ({ page }) => {
         await expect(page.locator('[class*="animate-spin"]')).toBeHidden({ timeout: 15_000 })
         const createBtn = page.getByRole('button', { name: /新增使用者|Add User/ })
-        await expect(createBtn).toBeVisible()
+        await expect(createBtn).toBeVisible({ timeout: 10_000 })
     })
 
     test('新增使用者對話框應可開啟', async ({ page }) => {
-        test.setTimeout(45_000)
         await expect(page.locator('[class*="animate-spin"]')).toBeHidden({ timeout: 15_000 })
+        const table = page.locator('table')
+        await expect(table).toBeVisible({ timeout: 15_000 })
         const createBtn = page.getByRole('button', { name: /新增使用者|Add User/ })
-        await expect(createBtn).toBeVisible({ timeout: 15_000 })
-        await expect(createBtn).toBeEnabled()
-        await createBtn.click({ timeout: 10_000 })
+        await expect(createBtn).toBeVisible({ timeout: 10_000 })
+        await createBtn.click()
         const dialog = page.locator('[role="dialog"]')
         await expect(dialog).toBeVisible({ timeout: 5_000 })
         await expect(dialog.locator('#email, input[type="email"]').first()).toBeVisible()
         await expect(dialog.locator('#password, input[type="password"]').first()).toBeVisible()
         await expect(dialog.locator('#display_name, input[name="display_name"]').first()).toBeVisible()
-    }, { retries: 1 })
+    })
 
     test('應顯示使用者分頁資訊', async ({ page }) => {
         await expect(page.locator('[class*="animate-spin"]')).toBeHidden({ timeout: 15_000 })

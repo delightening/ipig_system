@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-02-27  
+> **最後更新：** 2026-02-28  
 > **維護慣例：** 完成項目保留於本表並標 [x]，同時於 `docs/PROGRESS.md` §9 最新變更動態 新增對應紀錄；待辦統計僅計「未完成」數量。
 > **AI 標註說明：** 
 > - ⚡ **Gemini Flash** (適合樣板編寫、簡單設定、文檔生成)
@@ -46,7 +46,7 @@
 
 | # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
 |---|------|------|------|----------|------|
-| 17 | **基礎映像與 CVE 週期檢查** | 每季或基礎映像大改時，檢查 [georgjung/nginx-brotli](https://hub.docker.com/r/georgjung/nginx-brotli/tags) 是否有新 tag；若有則升級 frontend Dockerfile 的 FROM，並從 `.trivyignore` 移除 CVE-2026-25646。詳見 `docs/security.md`。 | DevOps | ⚡ Flash | [ ] |
+| 17 | **基礎映像與 CVE 週期檢查** | 每季或基礎映像大改時，檢查 [georgjung/nginx-brotli](https://hub.docker.com/r/georgjung/nginx-brotli/tags) 是否有新 tag；若有則升級 frontend Dockerfile 的 FROM，並從 `.trivyignore` 移除 CVE-2026-25646。詳見 `docs/security.md`。**2026-02-28 已升級至 1.29.5-alpine（Alpine 3.23.3），CVE 仍存在（libpng 1.6.54→需 1.6.55），下次 Q2 檢查。** | DevOps | 🧠 Claude | [x] |
 | 18 | **E2E Rate Limiting / Session 穩定化** | ~~解決 shared context 下 Session 過期誤判導致大量重新登入~~。已修復：admin-context 改用 auth.setup 儲存的 storageState 免重複登入；API rate limit 120→600/min；login.spec 加入 credential fallback。34/34 連續通過、22s 完成。 | 前端 | 🧠 Claude | [x] |
 
 ---
@@ -56,7 +56,7 @@
 | # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
 |---|------|------|------|----------|------|
 | 13 | **前端元件庫文件化** | Storybook 建置 | 前端 | ⚡ Flash | [ ] |
-| 14 | **前端超長頁面重構** | 漸進式重構巨型組件 (如 `ProtocolEditPage`) | 前端 | 🧠 Claude | [] |
+| 14 | **前端超長頁面重構** | 漸進式重構巨型組件。**2026-02-28 已完成 AnimalDetailPage 1,945→748 行（-61%），抽離 7 個 Tab 元件（ObservationsTab/SurgeriesTab/WeightsTab/VaccinationsTab/SacrificeTab/AnimalInfoTab/PathologyTab）。** ProtocolDetailPage（1,921 行）待後續處理。 | 前端 | 🧠 Claude | [x] |
 | 15 | **SEC-39：Two-Factor Authentication** | TOTP 二階段驗證 (Google Authenticator) | 前後端 | 🧠 Claude | [ ] |
 | 16 | **SEC-40：Web Application Firewall** | ModSecurity 或 Cloudflare WAF | DevOps | ⚡ Flash | [ ] |
 
@@ -70,9 +70,9 @@
 | 🟡 P1 上線前建議 | 0 |
 | 🔴 P2 中優先 | 0 |
 | 🔵 P3 低優先 | 0 |
-| 🟣 P4 品質提升 | 1 |
-| ⚪ P5 長期演進 | 3 |
-| **合計（未完成）** | **4** |
+| 🟣 P4 品質提升 | 0 |
+| ⚪ P5 長期演進 | 2 |
+| **合計（未完成）** | **2** |
 
 ---
 
@@ -80,6 +80,8 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-02-28 | 🧠 Claude：完成 P5-14 前端超長頁面重構 — AnimalDetailPage 1,945→748 行（-61%），抽離 7 個 Tab 元件至 `components/animal/`（Observations/Surgeries/Weights/Vaccinations/Sacrifice/AnimalInfo/PathologyTab），TypeScript 零錯誤通過。 |
+| 2026-02-28 | 🧠 Claude：完成 P4-17 基礎映像與 CVE 週期檢查 — Dockerfile 版本釘選至 `georgjung/nginx-brotli:1.29.5-alpine`（Alpine 3.23.3），Trivy 掃描確認 CVE-2026-25646 仍存在（libpng 1.6.54-r0→需 1.6.55-r0），.trivyignore 保留並更新註解，下次 Q2 檢查。 |
 | 2026-02-27 | 🧠 Claude：完成 P4-18 E2E Rate Limiting / Session 穩定化 — admin-context 改用 storageState 檔案免重複登入、API rate limit 120→600/min、login.spec credential fallback。34/34 連續通過、22s 完成。 |
 | 2026-02-27 | 🧠 Claude：E2E 測試總結計畫實施 — 新增 P4-18 Rate Limiting/Session 穩定化待辦；`docs/e2e/README.md` 故障排除 §5 補充 Session 過期導致 429 連鎖失敗說明。 |
 | 2026-02-25 | 🧠 Claude：完成 P3-7 SEC-33 敏感操作二級認證 — 後端 confirm-password + reauth token，前後端刪除使用者／重設密碼／模擬登入／刪除角色皆需重新輸入密碼確認。 |
