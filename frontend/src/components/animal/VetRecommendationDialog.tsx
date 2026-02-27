@@ -24,6 +24,7 @@ import {
   FileText,
   Stethoscope,
   AlertTriangle,
+  Download,
 } from 'lucide-react'
 
 type RecordType = 'observation' | 'surgery'
@@ -61,6 +62,28 @@ export function VetRecommendationDialog({ open, onOpenChange, recordType, record
     enabled: open,
   })
 
+  const handleFileUpload = async (file: File): Promise<FileInfo> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const res = await api.post(
+      `/vet-recommendations/${recordType}/${recordId}/attachments`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    )
+    const uploaded = res.data[0]
+    return {
+      id: uploaded.id,
+      file_name: uploaded.file_name,
+      file_path: uploaded.file_path,
+      file_size: uploaded.file_size,
+    }
+  }
+
+  const handleDownloadAttachment = (attachmentId: string, fileName: string) => {
+    const baseUrl = api.defaults.baseURL || ''
+    window.open(`${baseUrl}/attachments/${attachmentId}`, '_blank')
+  }
+
   // Add recommendation mutation
   const addMutation = useMutation({
     mutationFn: async () => {
@@ -70,7 +93,6 @@ export function VetRecommendationDialog({ open, onOpenChange, recordType, record
       return api.post(endpoint, {
         content,
         is_urgent: isUrgent,
-        // TODO: Handle file upload
       })
     },
     onSuccess: () => {
@@ -193,6 +215,7 @@ export function VetRecommendationDialog({ open, onOpenChange, recordType, record
                   <FileUpload
                     value={attachments}
                     onChange={setAttachments}
+                    onUpload={handleFileUpload}
                     accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                     placeholder="拖曳檔案到此處，或點擊選擇"
                     maxSize={10}
@@ -267,11 +290,9 @@ export function VetRecommendationDialog({ open, onOpenChange, recordType, record
                             variant="outline"
                             size="sm"
                             className="text-xs"
-                            onClick={() => {
-                              // TODO: Download attachment
-                            }}
+                            onClick={() => handleDownloadAttachment(key, typeof value === 'string' ? value : key)}
                           >
-                            <FileText className="h-3 w-3 mr-1" />
+                            <Download className="h-3 w-3 mr-1" />
                             {typeof value === 'string' ? value : key}
                           </Button>
                         ))}

@@ -18,22 +18,71 @@ services:
     image: ghcr.io/${GHCR_OWNER}/ipig-api:${IMAGE_TAG:-latest}
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
 
   # Override web to use GHCR image
   web:
     image: ghcr.io/${GHCR_OWNER}/ipig-web:${IMAGE_TAG:-latest}
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+        reservations:
+          cpus: "0.25"
+          memory: 64M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # Explicitly exclude db from auto-update
+  # Database resource limits
   db:
     labels:
       - "com.centurylinklabs.watchtower.enable=false"
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
 
   # Explicitly exclude db-backup from auto-update
   db-backup:
     labels:
       - "com.centurylinklabs.watchtower.enable=false"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # =========================
   # Watchtower: auto-update containers
@@ -42,19 +91,13 @@ services:
     image: containrrr/watchtower:latest
     container_name: ipig-watchtower
     environment:
-      # Only update containers with the enable label
       WATCHTOWER_LABEL_ENABLE: "true"
-      # Check for updates every 30 seconds
       WATCHTOWER_POLL_INTERVAL: 30
-      # Clean up old images after update
       WATCHTOWER_CLEANUP: "true"
-      # Rolling restart (one container at a time)
       WATCHTOWER_ROLLING_RESTART: "true"
-      # HTTP API for manual trigger (curl -H "Authorization: Bearer $TOKEN" localhost:8090/v1/update)
       WATCHTOWER_HTTP_API_TOKEN: ${WATCHTOWER_API_TOKEN:-}
       WATCHTOWER_HTTP_API_UPDATE: "true"
       WATCHTOWER_HTTP_API_METRICS: "true"
-      # Notification via email (uses existing SMTP)
       WATCHTOWER_NOTIFICATIONS: "email"
       WATCHTOWER_NOTIFICATION_EMAIL_FROM: ${SMTP_FROM_EMAIL:-noreply@erp.local}
       WATCHTOWER_NOTIFICATION_EMAIL_TO: ${DEPLOY_NOTIFY_EMAIL:-}
@@ -64,9 +107,18 @@ services:
       WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PASSWORD: ${SMTP_PASSWORD:-}
       WATCHTOWER_NOTIFICATION_EMAIL_DELAY: 2
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8090:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      # GHCR auth config (created by docker login ghcr.io)
       - ${HOME}/.docker/config.json:/config.json:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
     restart: unless-stopped

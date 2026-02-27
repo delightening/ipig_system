@@ -1,0 +1,19 @@
+# Prometheus configuration for iPig System
+# Scrapes backend /metrics endpoint (Prometheus exposition format)
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "ipig-api"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:8000"]
+        labels:
+          service: "ipig-backend"
+          environment: "production"
+
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]

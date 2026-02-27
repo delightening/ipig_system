@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { AnimalObservation, RecordType } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -87,6 +87,7 @@ export function ObservationFormDialog({ open, onOpenChange, animalId, earTag, ob
   }
 
   const [formData, setFormData] = useState<ObservationFormData>(defaultFormData)
+  const pendingFilesRef = useRef<Map<string, File>>(new Map())
 
   // 將 ISO 8601 日期時間轉換為 datetime-local 格式 (YYYY-MM-DDTHH:mm)
   const isoToDateTimeLocal = (isoString: string | undefined): string => {
@@ -155,6 +156,45 @@ export function ObservationFormDialog({ open, onOpenChange, animalId, earTag, ob
     }
   }
 
+  const uploadFilesToObservation = async (observationId: string) => {
+    const files = Array.from(pendingFilesRef.current.values())
+    if (files.length === 0) return
+
+    const formData = new FormData()
+    for (const file of files) {
+      formData.append('file', file)
+    }
+    await api.post(`/observations/${observationId}/attachments`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  }
+
+  const handleFileSelect = useCallback((fileInfos: FileInfo[], setter: (files: FileInfo[]) => void) => {
+    setter(fileInfos)
+  }, [])
+
+  const handlePhotoUpload = async (file: File): Promise<FileInfo> => {
+    if (!isEdit) {
+      const id = `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      pendingFilesRef.current.set(id, file)
+      return {
+        id,
+        file_name: file.name,
+        file_path: '',
+        file_size: file.size,
+        file_type: file.type,
+        preview_url: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
+      }
+    }
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await api.post(`/observations/${observation!.id}/attachments`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    const uploaded = res.data[0]
+    return { id: uploaded.id, file_name: uploaded.file_name, file_path: uploaded.file_path, file_size: uploaded.file_size }
+  }
+
   const mutation = useMutation({
     mutationFn: async (data: ObservationFormData) => {
       const payload = {
@@ -167,7 +207,6 @@ export function ObservationFormDialog({ open, onOpenChange, animalId, earTag, ob
         no_medication_needed: data.no_medication_needed,
         treatments: data.treatments.length > 0 ? data.treatments : null,
         remark: data.remark || null,
-        // TODO: Handle file uploads
       }
 
       if (isEdit) {
@@ -175,7 +214,16 @@ export function ObservationFormDialog({ open, onOpenChange, animalId, earTag, ob
       }
       return api.post(`/animals/${animalId}/observations`, payload)
     },
-    onSuccess: () => {
+    onSuccess: async (response) => {
+      try {
+        if (!isEdit && pendingFilesRef.current.size > 0) {
+          const newId = response.data?.id
+          if (newId) await uploadFilesToObservation(newId)
+        }
+      } catch {
+        toast({ title: '警告', description: '紀錄已儲存，但部分檔案上傳失敗', variant: 'destructive' })
+      }
+      pendingFilesRef.current.clear()
       queryClient.invalidateQueries({ queryKey: ['animal-observations', animalId] })
       toast({ title: '成功', description: isEdit ? '觀察紀錄已更新' : '觀察紀錄已新增' })
       onOpenChange(false)
@@ -400,9 +448,10 @@ export function ObservationFormDialog({ open, onOpenChange, animalId, earTag, ob
             <FileUpload
               value={formData.photos}
               onChange={(photos) => setFormData({ ...formData, photos })}
-              accept="image/*"
+              onUpload={handlePhotoUpload}
+              accept="image/*,.pdf,.doc,.docx"
               placeholder="拖曳相片到此處，或點擊選擇相片"
-              maxSize={10}
+              maxSize={20}
               maxFiles={10}
             />
           </div>
@@ -413,7 +462,8 @@ export function ObservationFormDialog({ open, onOpenChange, animalId, earTag, ob
             <FileUpload
               value={formData.attachments}
               onChange={(attachments) => setFormData({ ...formData, attachments })}
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar"
+              onUpload={handlePhotoUpload}
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
               placeholder="拖曳附件到此處，或點擊選擇檔案"
               maxSize={20}
               maxFiles={10}

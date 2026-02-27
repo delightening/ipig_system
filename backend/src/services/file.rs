@@ -37,6 +37,8 @@ pub enum FileCategory {
     VetRecommendation,
     /// 請假附件
     LeaveAttachment,
+    /// 觀察紀錄附件
+    ObservationAttachment,
 }
 
 impl FileCategory {
@@ -48,6 +50,7 @@ impl FileCategory {
             FileCategory::PathologyReport => "pathology",
             FileCategory::VetRecommendation => "vet-recommendations",
             FileCategory::LeaveAttachment => "leave-attachments",
+            FileCategory::ObservationAttachment => "observations",
         }
     }
 
@@ -65,11 +68,20 @@ impl FileCategory {
                 "image/gif",
                 "text/plain",
             ],
-            FileCategory::AnimalPhoto | FileCategory::VetRecommendation | FileCategory::LeaveAttachment => vec![
+            FileCategory::AnimalPhoto | FileCategory::LeaveAttachment => vec![
                 "image/jpeg",
                 "image/png",
                 "image/gif",
                 "image/webp",
+            ],
+            FileCategory::VetRecommendation | FileCategory::ObservationAttachment => vec![
+                "image/jpeg",
+                "image/png",
+                "image/gif",
+                "image/webp",
+                "application/pdf",
+                "application/msword",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             ],
             FileCategory::PathologyReport => vec![
                 "application/pdf",
@@ -89,6 +101,7 @@ impl FileCategory {
             FileCategory::PathologyReport => 30 * 1024 * 1024,    // 30 MB
             FileCategory::VetRecommendation => 10 * 1024 * 1024,  // 10 MB
             FileCategory::LeaveAttachment => 10 * 1024 * 1024,    // 10 MB
+            FileCategory::ObservationAttachment => 20 * 1024 * 1024, // 20 MB
         }
     }
 }

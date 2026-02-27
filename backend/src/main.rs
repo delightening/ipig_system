@@ -13,38 +13,16 @@ use tower_http::{
 use tracing::Level;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-mod config;
-mod error;
-mod handlers;
-mod middleware;
-mod models;
-mod openapi;
-mod routes;
-mod services;
-mod startup;
-
-use middleware::JwtBlacklist;
-use services::scheduler::SchedulerService;
-use services::GeoIpService;
-use startup::{
+use erp_backend::config;
+use erp_backend::handlers;
+use erp_backend::middleware::JwtBlacklist;
+use erp_backend::services::scheduler::SchedulerService;
+use erp_backend::services::GeoIpService;
+use erp_backend::startup::{
     create_database_pool_with_retry, ensure_admin_user, ensure_all_role_permissions,
     ensure_required_permissions, ensure_schema, seed_dev_users,
 };
-
-pub use error::{AppError, Result};
-
-#[derive(Clone)]
-pub struct AppState {
-    pub db: sqlx::PgPool,
-    pub config: Arc<config::Config>,
-    pub geoip: GeoIpService,
-    /// JWT 黑名單，用於主動撤銷已簽發的 token（SEC-23）
-    pub jwt_blacklist: JwtBlacklist,
-    /// 安全警報即時推送廣播器
-    pub alert_broadcaster: handlers::sse::AlertBroadcaster,
-    /// Prometheus 指標輸出 handle
-    pub metrics_handle: Option<metrics_exporter_prometheus::PrometheusHandle>,
-}
+use erp_backend::AppState;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -391,7 +369,7 @@ async fn main() -> anyhow::Result<()> {
     );
 
     // 組裝 Router
-    let app = routes::api_routes(state)
+    let app = erp_backend::routes::api_routes(state)
         .layer(cors)
         .layer(trace_layer)
         .layer(nosniff)
@@ -402,7 +380,7 @@ async fn main() -> anyhow::Result<()> {
         .layer(PropagateRequestIdLayer::x_request_id())
         .merge(utoipa_swagger_ui::SwaggerUi::new("/swagger-ui").url(
             "/api-docs/openapi.json",
-            <openapi::ApiDoc as utoipa::OpenApi>::openapi(),
+            <erp_backend::openapi::ApiDoc as utoipa::OpenApi>::openapi(),
         ));
 
     // 啟動伺服器
