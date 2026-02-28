@@ -30,6 +30,7 @@ mod amendment;
 mod storage_location;
 mod treatment_drug;
 pub mod system_settings;
+pub mod retry;
 
 pub use auth::AuthService;
 pub use user::UserService;

@@ -14,6 +14,7 @@ import api, {
   AnimalSource,
   AnimalBreed,
 } from '@/lib/api'
+import type { PaginatedResponse } from '@/types/common'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -169,6 +170,10 @@ export function AnimalsPage() {
   const [quickEditAnimalId, setQuickEditAnimalId] = useState<string | null>(null)
   const [showPrintReport, setShowPrintReport] = useState(false)
 
+  // Pagination state
+  const [page, setPage] = useState(1)
+  const perPage = 50
+
   // Sorting state
   const [sortColumn, setSortColumn] = useState<string | null>(null)
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
@@ -215,33 +220,42 @@ export function AnimalsPage() {
     breed_other: '',
   })
 
-  // Query for all animals (for counting)
-  const { data: allAnimalsData } = useQuery({
+  // Reset page when filters change
+  useEffect(() => { setPage(1) }, [statusFilter, breedFilter, search])
+
+  // Query for all animals (for status tab counts)
+  const { data: allAnimalsResp } = useQuery({
     queryKey: ['animals-count'],
     queryFn: async () => {
-      const res = await api.get<AnimalListItem[]>(`/animals`)
+      const res = await api.get<PaginatedResponse<AnimalListItem>>(`/animals`)
       return res.data
     },
     staleTime: 0,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   })
+  const allAnimalsData = allAnimalsResp?.data
 
   // Queries
-  const { data: animalsData, isLoading } = useQuery({
-    queryKey: ['animals', statusFilter, breedFilter, search],
+  const { data: animalsResp, isLoading } = useQuery({
+    queryKey: ['animals', statusFilter, breedFilter, search, page],
     queryFn: async () => {
       const params = new URLSearchParams()
       if (statusFilter && statusFilter !== 'all' && statusFilter !== 'pen') params.append('status', statusFilter)
       if (breedFilter && breedFilter !== 'all') params.append('breed', breedFilter)
-      if (search) params.append('search', search)
-      const res = await api.get<AnimalListItem[]>(`/animals?${params}`)
+      if (search) params.append('keyword', search)
+      params.append('page', String(page))
+      params.append('per_page', String(perPage))
+      const res = await api.get<PaginatedResponse<AnimalListItem>>(`/animals?${params}`)
       return res.data
     },
-    staleTime: 0, // Always consider data stale for real-time updates
+    staleTime: 0,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   })
+  const animalsData = animalsResp?.data
+  const totalPages = animalsResp?.total_pages ?? 1
+  const totalAnimals = animalsResp?.total ?? 0
 
   const { data: sourcesData } = useQuery({
     queryKey: ['animal-sources'],
@@ -660,8 +674,8 @@ export function AnimalsPage() {
     }
   }
 
-  const animals = animalsData || []
-  const allAnimals = allAnimalsData || []
+  const animals = animalsData ?? []
+  const allAnimals = allAnimalsData ?? []
 
   // Sorting handler
   const handleSort = (column: string) => {
@@ -855,6 +869,7 @@ export function AnimalsPage() {
                       <TableHead className="w-12">
                         <input
                           type="checkbox"
+                          aria-label="全選動物"
                           checked={selectedAnimals.length === animals.length && animals.length > 0}
                           onChange={toggleAllAnimals}
                           className="rounded border-slate-300"
@@ -883,6 +898,7 @@ export function AnimalsPage() {
                         <TableCell>
                           <input
                             type="checkbox"
+                            aria-label={`選取動物 ${animal.ear_tag || animal.id}`}
                             checked={selectedAnimals.includes(animal.id)}
                             onChange={() => toggleAnimalSelection(animal.id)}
                             className="rounded border-slate-300"
@@ -967,6 +983,60 @@ export function AnimalsPage() {
                     ))}
                   </TableBody>
                 </Table>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-4">
+                <p className="text-sm text-muted-foreground">
+                  {t('common.showingOf', '顯示第 {{from}}–{{to}} 筆，共 {{total}} 筆', {
+                    from: (page - 1) * perPage + 1,
+                    to: Math.min(page * perPage, totalAnimals),
+                    total: totalAnimals,
+                  })}
+                </p>
+                <div className="flex gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                  >
+                    {t('common.previous', '上一頁')}
+                  </Button>
+                  {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                    let pageNum: number
+                    if (totalPages <= 7) {
+                      pageNum = i + 1
+                    } else if (page <= 4) {
+                      pageNum = i + 1
+                    } else if (page >= totalPages - 3) {
+                      pageNum = totalPages - 6 + i
+                    } else {
+                      pageNum = page - 3 + i
+                    }
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={pageNum === page ? 'default' : 'outline'}
+                        size="sm"
+                        className="min-w-[36px]"
+                        onClick={() => setPage(pageNum)}
+                      >
+                        {pageNum}
+                      </Button>
+                    )
+                  })}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  >
+                    {t('common.next', '下一頁')}
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>

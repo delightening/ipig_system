@@ -132,6 +132,8 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
                         <button
                           onClick={() => setExpandedId(expandedId === obs.id ? null : obs.id)}
                           className="p-1 hover:bg-slate-200 rounded"
+                          title="展開詳細資料"
+                          aria-label="展開詳細資料"
                         >
                           <ChevronDown
                             className={`h-4 w-4 transition-transform ${expandedId === obs.id ? 'rotate-180' : ''}`}

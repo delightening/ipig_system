@@ -122,15 +122,19 @@ api.interceptors.response.use(
     }
 
     // Non-401 errors: show global toast for server errors and network issues
-    if (error.response) {
-      const status = error.response.status
-      if (status >= 500) {
-        toast({ variant: 'destructive', title: '伺服器錯誤，請稍後再試' })
+    // Skip toast if the request opted-in to silent error handling
+    const silent = originalRequest?._silentError
+    if (!silent) {
+      if (error.response) {
+        const status = error.response.status
+        if (status >= 500) {
+          toast({ variant: 'destructive', title: '伺服器錯誤，請稍後再試' })
+        }
+      } else if (error.code === 'ECONNABORTED') {
+        toast({ variant: 'destructive', title: '請求逾時，請檢查網路連線' })
+      } else if (!error.response) {
+        toast({ variant: 'destructive', title: '無法連線至伺服器' })
       }
-    } else if (error.code === 'ECONNABORTED') {
-      toast({ variant: 'destructive', title: '請求逾時，請檢查網路連線' })
-    } else if (!error.response) {
-      toast({ variant: 'destructive', title: '無法連線至伺服器' })
     }
 
     return Promise.reject(error)

@@ -55,6 +55,23 @@
 
 ## 9. 最新變更動態
 
+### 2026-02-28 手寫簽名 Canvas 寬度無限擴張修復
+- ✅ **根因**：CSS Grid `grid-cols-[280px_1fr]` 中 `1fr` 等同 `minmax(auto, 1fr)`，canvas 的 intrinsic size 撐大 grid cell → ResizeObserver 重新量測 → canvas 再擴張，形成無限迴圈（container 寬度飆至 9870px）
+- ✅ **修復 4 個檔案**：
+  - `ProtocolEditPage.tsx`：`1fr` → `minmax(0,1fr)`，允許 grid 欄位縮小不受子元素 intrinsic size 影響
+  - `SectionSignature.tsx`：Card / CardContent 加上 `min-w-0`，手寫簽名容器加上 `min-w-0 max-w-full`
+  - `handwritten-signature-pad.tsx`：新增 `wrapperRef` 從 wrapper（非 container）量測寬度；canvas 改為絕對定位
+  - `index.css`：`.signature-canvas` 改為 `position: absolute; inset: 0`；wrapper 加上 `max-w-full`
+- ✅ **驗證結果**：Playwright 自動測試確認 container 寬度 686px、canvas 682px、grid 第二欄 736px，均在正常範圍
+- 📁 **產出**：4 個檔案修改
+
+### 2026-02-28 ProtocolEditPage Section 導航改用 URL Search Params
+- ✅ **方案 C 實作**：`activeSection` 從 `useState` 改為 `useSearchParams` 驅動，URL 反映當前 section（如 `?section=purpose`）
+- ✅ 瀏覽器上一頁/下一頁可切換 section，可書籤/分享特定 section 連結
+- ✅ 無效 `section` 參數自動 fallback 至 `basic`
+- ✅ 原有表單狀態管理、儲存、驗證邏輯不受影響
+- 📁 **產出**：`frontend/src/pages/protocols/ProtocolEditPage.tsx`（2 處修改）
+
 ### 2026-02-28 系統改善 14 項完成（安全性/效能/程式碼品質）
 
 **🔴 P0 安全性（3 項）：**
@@ -346,6 +363,27 @@
 ### 2026-02-25 P0-7 錯誤處理 UX 統一
 - ✅ **安全強化**：隱藏原始 DB 錯誤。
 - ✅ **前端錯誤導引**：優化 `getApiErrorMessage` 處理逾時與網路異常。
+
+### 2026-02-28 第二輪系統改善 15 項完成
+- ✅ **P0-R2-1 XSS 防護**：安裝 DOMPurify，建立 `sanitize.ts` 清理 SVG，所有 `dangerouslySetInnerHTML` 已包裹 `sanitizeSvg()`
+- ✅ **P0-R2-2 Rate Limiting 分級**：新增寫入端點 120/min + 檔案上傳 30/min 獨立限流，上傳路由抽出獨立 Router
+- ✅ **P1-R2-3 大型依賴動態導入**：`jsPDF`+`html2canvas` 改為 `import()` 動態載入，減少 ~360KB 初始 bundle
+- ✅ **P1-R2-4 動物列表分頁**：後端 `AnimalService::list` 支援 `page`/`per_page` + COUNT，前端分頁控制元件
+- ✅ **P1-R2-5 健康檢查深度擴充**：`/api/health` 擴充 DB 連線池狀態 + 磁碟 uploads 目錄檢查
+- ✅ **P1-R2-6 Alertmanager 告警**：`monitoring/` 新增 Prometheus + Alertmanager + Grafana 設定，4 條告警規則
+- ✅ **P1-R2-7 外部服務重試**：`services/retry.rs` 通用 `with_retry` 指數退避，已套用 SMTP 發送
+- ✅ **P1-R2-8 Query Key Factory**：`lib/queryKeys.ts` 統一 ~50 個 query key 定義
+- ✅ **P2-R2-9 表單驗證統一**：`lib/validations.ts` 提供 Partner/Warehouse/Animal 三組 Zod schema
+- ✅ **P2-R2-10 i18n 補齊**：zh-TW.json + en.json 新增 `validation` 區塊 18 個 key
+- ✅ **P2-R2-11 Zustand Selector**：auth store 新增 `useAuthUser`/`useAuthHasRole`/`useAuthActions` 等 selector hooks
+- ✅ **P2-R2-12 DB 維護自動化**：`018_db_maintenance.sql` pg_stat_statements + `maintenance_vacuum_analyze()` + 慢查詢 View + 排程
+- ✅ **P2-R2-13 Dependabot**：`.github/dependabot.yml` 涵蓋 Cargo/npm/Docker/GitHub Actions
+- ✅ **P2-R2-14 零停機遷移策略**：`docs/ZERO_DOWNTIME_MIGRATIONS.md` 完整規範
+- ✅ **P2-R2-15 架構圖**：`docs/ARCHITECTURE.md` 含部署/資料流/模組/認證流程 4 張 Mermaid 圖 + 技術堆疊表
+
+### 2026-02-28 附件 API 500 錯誤修正
+- ✅ **AttachmentsTab 查詢參數修正**：前端傳送 `protocol_id` 但後端期望 `entity_type` + `entity_id`，導致空字串綁定 UUID 欄位引發 PostgreSQL 型別錯誤。修正為 `entity_type=protocol&entity_id=<uuid>`。
+- ✅ **上傳路由修正**：附件上傳從錯誤的 `POST /attachments?protocol_id=...` 改為正確的 `POST /protocols/:id/attachments` 專用路由。
 
 ---
 

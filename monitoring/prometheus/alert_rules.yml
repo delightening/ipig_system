@@ -1,0 +1,63 @@
+groups:
+  - name: ipig_api_alerts
+    rules:
+      # 5xx 錯誤率 > 5% 持續 5 分鐘
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API 5xx 錯誤率過高 ({{ $value | humanizePercentage }})"
+          description: "過去 5 分鐘 5xx 回應比率超過 5%，請立即檢查後端服務。"
+
+      # P95 延遲 > 2 秒持續 5 分鐘
+      - alert: HighP95Latency
+        expr: |
+          histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))
+          > 2.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API P95 延遲超過 2 秒 ({{ $value | humanizeDuration }})"
+          description: "過去 5 分鐘 P95 回應時間超過 2 秒，可能需要調查效能問題。"
+
+  - name: ipig_infra_alerts
+    rules:
+      # DB 連線池使用率 > 80%
+      - alert: DbPoolSaturated
+        expr: |
+          (db_pool_active / db_pool_size) > 0.8
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "資料庫連線池使用率超過 80% ({{ $value | humanizePercentage }})"
+          description: "連線池快要飽和，active={{ $labels.active }}，size={{ $labels.size }}。考慮增加 max_connections 或優化查詢。"
+
+      # 健康檢查端點不健康
+      - alert: HealthCheckFailing
+        expr: up{job="ipig-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "iPig API 健康檢查失敗"
+          description: "API 服務已無回應超過 1 分鐘，可能已當機。"
+
+      # 磁碟空間 (Docker host) < 10% 剩餘
+      - alert: DiskSpaceLow
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "磁碟空間不足 (剩餘 {{ $value | humanizePercentage }})"
+          description: "根目錄磁碟空間即將耗盡，請清理空間或擴展儲存。"

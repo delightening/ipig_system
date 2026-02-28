@@ -1546,5 +1546,26 @@
     "timeoutDescription": "您的登入階段即將結束，請選擇續期或登出。",
     "logout": "登出",
     "extend": "繼續使用"
+  },
+  "validation": {
+    "required": "此欄位為必填",
+    "taxId": "統編必須為 8 碼數字",
+    "phone": "電話號碼必須為 9–10 碼數字",
+    "email": "Email 格式不正確",
+    "dateFormat": "日期格式必須為 YYYY-MM-DD",
+    "positiveNumber": "必須是大於 0 的數字",
+    "unknown": "驗證失敗",
+    "penRequired": "欄位為必填，請選擇欄位區和欄位編號",
+    "earTagRequired": "耳號為必填",
+    "entryDateRequired": "進場日期為必填",
+    "birthDateRequired": "出生日期為必填",
+    "preExperimentCodeRequired": "實驗前代號為必填",
+    "selectPartner": "請選擇供應商/客戶",
+    "selectWarehouse": "請選擇倉庫",
+    "transferWarehouseRequired": "調撥單需要選擇來源倉庫和目標倉庫",
+    "atLeastOneItem": "請至少新增一項產品明細",
+    "selectProduct": "請選擇產品",
+    "quantityPositive": "數量必須大於 0",
+    "unitRequired": "請輸入單位"
   }
 }

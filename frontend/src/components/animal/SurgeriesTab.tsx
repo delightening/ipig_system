@@ -126,8 +126,11 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
                     <TableRow key={surgery.id} className="cursor-pointer hover:bg-slate-50">
                       <TableCell>
                         <button
+                          type="button"
                           onClick={() => setExpandedId(expandedId === surgery.id ? null : surgery.id)}
                           className="p-1 hover:bg-slate-200 rounded"
+                          title="展開詳細資料"
+                          aria-label="展開詳細資料"
                         >
                           <ChevronDown
                             className={`h-4 w-4 transition-transform ${expandedId === surgery.id ? 'rotate-180' : ''}`}

@@ -7,75 +7,107 @@ use serde::Serialize;
 
 use crate::AppState;
 
-/// 健康檢查回應結構
 #[derive(Serialize)]
 pub struct HealthResponse {
-    /// 系統整體狀態：`"healthy"` 或 `"unhealthy"`
     pub status: &'static str,
-    /// 應用程式版本（取自 Cargo.toml）
     pub version: &'static str,
-    /// 各項子系統健康檢查結果
     pub checks: HealthChecks,
 }
 
-/// 各項子系統檢查結果
 #[derive(Serialize)]
 pub struct HealthChecks {
-    pub database: DatabaseCheck,
+    pub database: ComponentCheck,
+    pub db_pool: PoolCheck,
+    pub disk: DiskCheck,
 }
 
-/// 資料庫連通性檢查結果
 #[derive(Serialize)]
-pub struct DatabaseCheck {
-    /// `"up"` 或 `"down"`
+pub struct ComponentCheck {
     pub status: &'static str,
-    /// 查詢延遲（毫秒）
     pub latency_ms: u64,
 }
 
-/// 健康檢查 Handler
-///
-/// - DB 查詢成功 → 200 + `"healthy"`
-/// - DB 查詢失敗 → 503 + `"unhealthy"`
+#[derive(Serialize)]
+pub struct PoolCheck {
+    pub status: &'static str,
+    pub size: u32,
+    pub idle: u32,
+    pub active: u32,
+}
+
+#[derive(Serialize)]
+pub struct DiskCheck {
+    pub status: &'static str,
+    pub uploads_path_exists: bool,
+}
+
 pub async fn health_check(State(state): State<AppState>) -> (StatusCode, Json<HealthResponse>) {
     let start = std::time::Instant::now();
 
-    // 測試資料庫連通性
     let db_result = sqlx::query_scalar::<_, i32>("SELECT 1")
         .fetch_one(&state.db)
         .await;
-
     let latency_ms = start.elapsed().as_millis() as u64;
 
-    match db_result {
-        Ok(_) => (
-            StatusCode::OK,
-            Json(HealthResponse {
-                status: "healthy",
-                version: env!("CARGO_PKG_VERSION"),
-                checks: HealthChecks {
-                    database: DatabaseCheck {
-                        status: "up",
-                        latency_ms,
-                    },
-                },
-            }),
-        ),
-        Err(e) => {
-            tracing::warn!("健康檢查失敗：資料庫連線異常 - {}", e);
-            (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(HealthResponse {
-                    status: "unhealthy",
-                    version: env!("CARGO_PKG_VERSION"),
-                    checks: HealthChecks {
-                        database: DatabaseCheck {
-                            status: "down",
-                            latency_ms,
-                        },
-                    },
-                }),
-            )
+    let database = match &db_result {
+        Ok(_) => ComponentCheck {
+            status: "up",
+            latency_ms,
+        },
+        Err(_) => ComponentCheck {
+            status: "down",
+            latency_ms,
+        },
+    };
+
+    let pool_size = state.db.size();
+    let pool_idle = state.db.num_idle() as u32;
+    let pool_active = pool_size.saturating_sub(pool_idle);
+    let pool_healthy = pool_idle > 0 || pool_size < state.db.options().get_max_connections();
+    let db_pool = PoolCheck {
+        status: if pool_healthy { "healthy" } else { "saturated" },
+        size: pool_size,
+        idle: pool_idle,
+        active: pool_active,
+    };
+
+    let uploads_path = std::path::Path::new("./uploads");
+    let uploads_exists = uploads_path.exists() && uploads_path.is_dir();
+    let disk = DiskCheck {
+        status: if uploads_exists { "ok" } else { "missing" },
+        uploads_path_exists: uploads_exists,
+    };
+
+    let all_ok = db_result.is_ok() && pool_healthy && uploads_exists;
+
+    if !all_ok {
+        if db_result.is_err() {
+            tracing::warn!("健康檢查失敗：資料庫連線異常");
+        }
+        if !pool_healthy {
+            tracing::warn!("健康檢查警告：連線池飽和 (active={}, idle={}, size={})", pool_active, pool_idle, pool_size);
+        }
+        if !uploads_exists {
+            tracing::warn!("健康檢查警告：uploads 目錄不存在");
         }
     }
+
+    let status_code = if db_result.is_ok() {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    };
+
+    (
+        status_code,
+        Json(HealthResponse {
+            status: if all_ok { "healthy" } else { "degraded" },
+            version: env!("CARGO_PKG_VERSION"),
+            checks: HealthChecks {
+                database,
+                db_pool,
+                disk,
+            },
+        }),
+    )
 }

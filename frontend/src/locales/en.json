@@ -1431,5 +1431,26 @@
         "timeoutDescription": "Your session is about to expire. Please choose to extend or log out.",
         "logout": "Log Out",
         "extend": "Stay Logged In"
+    },
+    "validation": {
+        "required": "This field is required",
+        "taxId": "Tax ID must be 8 digits",
+        "phone": "Phone number must be 9–10 digits",
+        "email": "Invalid email format",
+        "dateFormat": "Date must be in YYYY-MM-DD format",
+        "positiveNumber": "Must be a positive number",
+        "unknown": "Validation failed",
+        "penRequired": "Pen location is required — please select zone and number",
+        "earTagRequired": "Ear tag is required",
+        "entryDateRequired": "Entry date is required",
+        "birthDateRequired": "Birth date is required",
+        "preExperimentCodeRequired": "Pre-experiment code is required",
+        "selectPartner": "Please select a partner",
+        "selectWarehouse": "Please select a warehouse",
+        "transferWarehouseRequired": "Transfer orders require both source and destination warehouses",
+        "atLeastOneItem": "Please add at least one line item",
+        "selectProduct": "Please select a product",
+        "quantityPositive": "Quantity must be greater than 0",
+        "unitRequired": "Please enter a unit"
     }
 }

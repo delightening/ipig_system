@@ -7,6 +7,7 @@ import SignaturePad from 'signature_pad'
 import { Button } from '@/components/ui/button'
 import { Eraser, Undo2, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { sanitizeSvg } from '@/lib/sanitize'
 
 // 簽名資料型別
 export interface SignatureData {
@@ -41,6 +42,7 @@ export function HandwrittenSignaturePad({
     const { t } = useTranslation()
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
+    const wrapperRef = useRef<HTMLDivElement>(null)
     const padRef = useRef<SignaturePad | null>(null)
     const [isEmpty, setIsEmpty] = useState(true)
     const [showPreview, setShowPreview] = useState(!!previewSvg)
@@ -78,15 +80,17 @@ export function HandwrittenSignaturePad({
 
     // 響應式調整 Canvas 大小
     useEffect(() => {
-        if (!containerRef.current || !canvasRef.current || showPreview) return
+        if (!wrapperRef.current || !canvasRef.current || showPreview) return
 
         const resizeCanvas = () => {
-            const container = containerRef.current
+            const wrapper = wrapperRef.current
             const canvas = canvasRef.current
-            if (!container || !canvas) return
+            if (!wrapper || !canvas) return
 
             const ratio = Math.max(window.devicePixelRatio || 1, 1)
-            const w = width || container.offsetWidth
+            const w = width || wrapper.clientWidth
+            if (w <= 0) return
+
             canvas.width = w * ratio
             canvas.height = height * ratio
             canvas.style.width = `${w}px`
@@ -97,7 +101,6 @@ export function HandwrittenSignaturePad({
                 ctx.scale(ratio, ratio)
             }
 
-            // 重新繪製已有內容
             if (padRef.current && !padRef.current.isEmpty()) {
                 const data = padRef.current.toData()
                 padRef.current.clear()
@@ -108,7 +111,7 @@ export function HandwrittenSignaturePad({
         resizeCanvas()
 
         const observer = new ResizeObserver(resizeCanvas)
-        observer.observe(containerRef.current)
+        observer.observe(wrapperRef.current)
 
         return () => observer.disconnect()
     }, [width, height, showPreview])
@@ -159,7 +162,7 @@ export function HandwrittenSignaturePad({
                 <div
                     className="signature-preview-image"
                     style={{ height: `${height}px` }}
-                    dangerouslySetInnerHTML={{ __html: previewSvg }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeSvg(previewSvg) }}
                 />
                 {!disabled && (
                     <Button
@@ -179,7 +182,7 @@ export function HandwrittenSignaturePad({
     return (
         <div ref={containerRef} className={`signature-pad-container ${className}`}>
             {/* Canvas 繪圖區 */}
-            <div className="signature-canvas-wrapper" style={{ height: `${height}px` }}>
+            <div ref={wrapperRef} className="signature-canvas-wrapper" style={{ height: `${height}px` }}>
                 <canvas
                     ref={canvasRef}
                     className={`signature-canvas ${disabled ? 'signature-canvas-disabled' : ''}`}

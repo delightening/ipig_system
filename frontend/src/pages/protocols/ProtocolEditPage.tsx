@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import api, {
@@ -69,7 +69,13 @@ export function ProtocolEditPage() {
   const { user } = useAuthStore()
   const isNew = !id
 
-  const [activeSection, setActiveSection] = useState('basic')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const validKeys = sectionKeys.map(s => s.key)
+  const sectionParam = searchParams.get('section')
+  const activeSection = sectionParam && validKeys.includes(sectionParam) ? sectionParam : 'basic'
+  const setActiveSection = (key: string) => {
+    setSearchParams({ section: key }, { replace: false })
+  }
   const [formData, setFormData] = useState<FormData>(defaultFormData)
   const [isAddPersonnelDialogOpen, setIsAddPersonnelDialogOpen] = useState(false)
   const [newPersonnel, setNewPersonnel] = useState({
@@ -480,7 +486,7 @@ export function ProtocolEditPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         <Card className="h-fit">
           <CardHeader>
             <CardTitle className="text-lg">{t('aup.sections')}</CardTitle>

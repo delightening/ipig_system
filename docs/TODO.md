@@ -109,6 +109,7 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-02-28 | 🧠 Claude：第二輪系統改善 15 項（P0-R2-1~2 安全 + P1-R2-3~8 效能/可靠性 + P2-R2-9~15 品質/維運）— DOMPurify XSS 防護/Rate Limiting 分級/jsPDF 動態導入/動物列表分頁/健康檢查深度擴充/Alertmanager 告警/SMTP 重試/Query Key Factory/Zod 表單驗證/i18n 補齊/Zustand Selector/DB 維護自動化/Dependabot/零停機遷移策略/架構圖。詳見 `docs/IMPROVEMENT_PLAN_R2.md` |
 | 2026-02-28 | 🧠 Claude：系統改善 14 項（P0-S1~S3 安全性 + P1-S4~S8 效能 + P2-S9~S14 品質）— Docker 網路隔離/DB 埠口/Secrets + N+1 修復/批次 INSERT/移除 .expect()/複合索引 + is_admin()/UserResponse 提取/TypeScript 嚴格化/API 錯誤統一/MainLayout 拆分/Memoization/cargo-chef。詳見 `docs/IMPROVEMENT_PLAN.md` |
 | 2026-02-28 | 🧠 Claude：完成最終 3 項 P5 待辦 — (1) P5-13 Storybook 15 個 Stories；(2) P5-15 TOTP 2FA 全端實作（後端 totp-rs + 4 API + 登入流程 + 備用碼，前端 QR Code + TOTP 驗證 + Profile 管理）；(3) P5-16 WAF OWASP ModSecurity CRS v4 overlay 部署 + 自訂排除規則 |
 | 2026-02-28 | 🧠 Claude：系統設定全端串接 — 後端新增 `GET/PUT /admin/system-settings` API + 10 項 DB seed；前端 SettingsPage 四大區塊（基本/庫存/郵件/安全）全部從 API 載入與儲存；通知路由管理 UI 改善（收合分類/Switch/角色名稱/ConfirmDialog/grid layout）|

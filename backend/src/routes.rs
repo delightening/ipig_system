@@ -4,7 +4,10 @@ use axum::{
     Router,
 };
 
-use crate::middleware::rate_limiter::{api_rate_limit_middleware, auth_rate_limit_middleware};
+use crate::middleware::rate_limiter::{
+    api_rate_limit_middleware, auth_rate_limit_middleware, upload_rate_limit_middleware,
+    write_rate_limit_middleware,
+};
 use crate::{handlers, middleware::auth_middleware, middleware::csrf_middleware, AppState};
 
 pub fn api_routes(state: AppState) -> Router {
@@ -510,11 +513,6 @@ pub fn api_routes(state: AppState) -> Router {
             "/animals/import/template/weight",
             get(handlers::download_weight_import_template),
         )
-        .route("/animals/import/basic", post(handlers::import_basic_data))
-        .route(
-            "/animals/import/weights",
-            post(handlers::import_weight_data),
-        )
         // Notifications
         .route("/notifications", get(handlers::list_notifications))
         .route(
@@ -560,28 +558,7 @@ pub fn api_routes(state: AppState) -> Router {
             "/report-history/:id/download",
             get(handlers::download_report),
         )
-        // File Upload
-        .route(
-            "/protocols/:id/attachments",
-            post(handlers::upload_protocol_attachment),
-        )
-        .route("/animals/:id/photos", post(handlers::upload_animal_photo))
-        .route(
-            "/animals/:id/pathology/attachments",
-            post(handlers::upload_pathology_report),
-        )
-        .route(
-            "/animals/:id/sacrifice/photos",
-            post(handlers::upload_sacrifice_photo),
-        )
-        .route(
-            "/vet-recommendations/:record_type/:record_id/attachments",
-            post(handlers::upload_vet_recommendation_attachment),
-        )
-        .route(
-            "/observations/:id/attachments",
-            post(handlers::upload_observation_attachment),
-        )
+        // Attachments (read/delete — no upload rate limit)
         .route("/attachments", get(handlers::list_attachments))
         .route(
             "/attachments/:id",
@@ -713,10 +690,6 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/hr/leaves/:id/approve", post(handlers::approve_leave))
         .route("/hr/leaves/:id/reject", post(handlers::reject_leave))
         .route("/hr/leaves/:id/cancel", post(handlers::cancel_leave))
-        .route(
-            "/hr/leaves/attachments",
-            post(handlers::upload_leave_attachment),
-        )
         // ============================================
         // HR Balances (新增)
         // ============================================
@@ -950,6 +923,59 @@ pub fn api_routes(state: AppState) -> Router {
         )
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
+            write_rate_limit_middleware,
+        ))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            csrf_middleware,
+        ))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ))
+        .with_state(state.clone());
+
+    // File upload routes — stricter 30/min rate limit
+    let upload_routes = Router::new()
+        .route(
+            "/protocols/:id/attachments",
+            post(handlers::upload_protocol_attachment),
+        )
+        .route("/animals/:id/photos", post(handlers::upload_animal_photo))
+        .route(
+            "/animals/:id/pathology/attachments",
+            post(handlers::upload_pathology_report),
+        )
+        .route(
+            "/animals/:id/sacrifice/photos",
+            post(handlers::upload_sacrifice_photo),
+        )
+        .route(
+            "/vet-recommendations/:record_type/:record_id/attachments",
+            post(handlers::upload_vet_recommendation_attachment),
+        )
+        .route(
+            "/observations/:id/attachments",
+            post(handlers::upload_observation_attachment),
+        )
+        .route(
+            "/hr/leaves/attachments",
+            post(handlers::upload_leave_attachment),
+        )
+        .route(
+            "/animals/import/basic",
+            post(handlers::import_basic_data),
+        )
+        .route(
+            "/animals/import/weights",
+            post(handlers::import_weight_data),
+        )
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            upload_rate_limit_middleware,
+        ))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
             csrf_middleware,
         ))
         .route_layer(middleware::from_fn_with_state(
@@ -966,7 +992,7 @@ pub fn api_routes(state: AppState) -> Router {
 
     health_route.merge(
         Router::new()
-            .nest("/api", public_routes.merge(protected_routes))
+            .nest("/api", public_routes.merge(protected_routes).merge(upload_routes))
             .route_layer(middleware::from_fn_with_state(
                 state,
                 api_rate_limit_middleware,

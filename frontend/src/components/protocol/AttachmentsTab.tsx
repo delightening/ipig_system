@@ -33,7 +33,7 @@ export function AttachmentsTab({ protocolId, canManageAttachments }: Attachments
     queryKey: ['protocol-attachments', protocolId],
     queryFn: async () => {
       const response = await api.get<ProtocolAttachment[]>('/attachments', {
-        params: { protocol_id: protocolId },
+        params: { entity_type: 'protocol', entity_id: protocolId },
       })
       return response.data
     },
@@ -44,7 +44,7 @@ export function AttachmentsTab({ protocolId, canManageAttachments }: Attachments
     mutationFn: async (file: File) => {
       const formData = new FormData()
       formData.append('file', file)
-      return api.post(`/attachments?protocol_id=${protocolId}`, formData, {
+      return api.post(`/protocols/${protocolId}/attachments`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
     },
@@ -120,6 +120,7 @@ export function AttachmentsTab({ protocolId, canManageAttachments }: Attachments
                 ref={fileInputRef}
                 onChange={handleFileUpload}
                 className="hidden"
+                aria-label={t('protocols.detail.sections.attachmentsTitle')}
               />
               <Button onClick={() => fileInputRef.current?.click()} disabled={uploadAttachmentMutation.isPending}>
                 {uploadAttachmentMutation.isPending ? (

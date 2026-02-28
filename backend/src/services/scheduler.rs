@@ -1,4 +1,4 @@
-﻿use std::sync::Arc;
+use std::sync::Arc;
 use tokio_cron_scheduler::{Job, JobScheduler};
 use sqlx::PgPool;
 use tracing::{info, error};
@@ -185,6 +185,24 @@ impl SchedulerService {
         })?;
         sched.add(job).await?;
         info!("[Scheduler] ✓ Job 'monthly_report' registered");
+        job_count += 1;
+
+        // 每天 03:30 執行 ANALYZE（更新統計資訊供查詢規劃器使用）
+        let db_clone = db.clone();
+        let job = Job::new_async("0 30 3 * * *", move |_uuid, _l| {
+            let db = db_clone.clone();
+            Box::pin(async move {
+                info!("Running scheduled ANALYZE on high-write tables...");
+                if let Err(e) = sqlx::query("SELECT maintenance_vacuum_analyze()")
+                    .execute(&db)
+                    .await
+                {
+                    error!("Scheduled ANALYZE failed: {}", e);
+                }
+            })
+        })?;
+        sched.add(job).await?;
+        info!("[Scheduler] ✓ Job 'db_maintenance_analyze' registered");
         job_count += 1;
 
         // 啟動排程器
