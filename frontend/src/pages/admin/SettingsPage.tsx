@@ -249,7 +249,7 @@ export function SettingsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="defaultWarehouse">預設倉庫</Label>
-                  <Select value={defaultWarehouseId} onValueChange={(v) => { setDefaultWarehouseId(v); markDirty() }}>
+                  <Select value={defaultWarehouseId || undefined} onValueChange={(v) => { setDefaultWarehouseId(v); markDirty() }}>
                     <SelectTrigger>
                       <SelectValue placeholder="選擇預設倉庫" />
                     </SelectTrigger>
@@ -258,7 +258,7 @@ export function SettingsPage() {
                         <SelectItem key={w.id} value={w.id}>{w.name} ({w.code})</SelectItem>
                       ))}
                       {warehouses.length === 0 && (
-                        <SelectItem value="" disabled>尚無可用倉庫</SelectItem>
+                        <SelectItem value="__none__" disabled>尚無可用倉庫</SelectItem>
                       )}
                     </SelectContent>
                   </Select>
