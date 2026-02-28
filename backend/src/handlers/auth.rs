@@ -12,8 +12,8 @@ use crate::{
     middleware::{extract_real_ip_with_trust, CurrentUser},
     models::{
         ChangeOwnPasswordRequest, ConfirmPasswordRequest, ForgotPasswordRequest, LoginRequest,
-        LoginResponse, RefreshTokenRequest, ResetPasswordWithTokenRequest, UpdateUserRequest,
-        UserResponse,
+        LoginResponse, RefreshTokenRequest, ResetPasswordWithTokenRequest,
+        TwoFactorRequiredResponse, UpdateUserRequest, UserResponse,
     },
     services::{
         AuditService, AuthService, EmailService, LoginTracker, SessionManager, UserService,
@@ -120,8 +120,42 @@ pub async fn login(
     req.validate()
         .map_err(|e| AppError::Validation(e.to_string()))?;
 
-    // 嘗試登入
-    let response = match AuthService::login(&state.db, &state.config, &req).await {
+    // Phase 1: 驗證帳密
+    let user = match AuthService::validate_credentials(&state.db, &req).await {
+        Ok(u) => u,
+        Err(e) => {
+            let db = state.db.clone();
+            let geoip = state.geoip.clone();
+            let broadcaster = state.alert_broadcaster.clone();
+            let email = req.email.clone();
+            let ip_clone = ip.clone();
+            let ua_clone = user_agent.clone();
+            let err_msg = e.to_string();
+            tokio::spawn(async move {
+                let _ = LoginTracker::log_failure(
+                    &db, &email, Some(&ip_clone), ua_clone.as_deref(), &err_msg, &geoip, &broadcaster,
+                ).await;
+            });
+            return Err(e);
+        }
+    };
+
+    // Phase 2: 2FA 檢查 — 若啟用，回傳 temp token 給前端進行第二步驗證
+    if user.totp_enabled {
+        let temp_token = AuthService::generate_2fa_temp_token(&state.config, user.id)?;
+        let body = serde_json::to_string(&TwoFactorRequiredResponse {
+            requires_2fa: true,
+            temp_token,
+        }).expect("2FA response serialize");
+        return Ok(Response::builder()
+            .status(StatusCode::OK)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(body.into())
+            .expect("build 2FA response"));
+    }
+
+    // Phase 3: 正常登入（無 2FA）
+    let response = match AuthService::issue_login_tokens(&state.db, &state.config, &user).await {
         Ok(resp) => {
             // 登入成功：記錄事件和建立 session
             let db = state.db.clone();
@@ -195,31 +229,6 @@ pub async fn login(
             resp
         }
         Err(e) => {
-            // 登入失敗：記錄失敗事件（會自動檢測暴力破解）
-            let db = state.db.clone();
-            let geoip = state.geoip.clone();
-            let broadcaster = state.alert_broadcaster.clone();
-            let email = req.email.clone();
-            let ip_clone = ip.clone();
-            let ua_clone = user_agent.clone();
-            let err_msg = e.to_string();
-
-            tokio::spawn(async move {
-                if let Err(log_err) = LoginTracker::log_failure(
-                    &db,
-                    &email,
-                    Some(&ip_clone),
-                    ua_clone.as_deref(),
-                    &err_msg,
-                    &geoip,
-                    &broadcaster,
-                )
-                .await
-                {
-                    tracing::error!("Failed to log login failure for {}: {}", email, log_err);
-                }
-            });
-
             return Err(e);
         }
     };

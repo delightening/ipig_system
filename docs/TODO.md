@@ -78,10 +78,10 @@
 
 | # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
 |---|------|------|------|----------|------|
-| 13 | **前端元件庫文件化** | Storybook 建置 | 前端 | ⚡ Flash | [ ] |
+| 13 | **前端元件庫文件化** | Storybook 10 建置，15 個 Stories（Button/Badge/Card/Checkbox/Input/Skeleton/Switch + Select/Dialog/Slider/Tabs/AlertDialog/FormField/LoadingOverlay/Textarea） | 前端 | ⚡ Flash | [x] |
 | 14 | **前端超長頁面重構** | 漸進式重構巨型組件。**AnimalDetailPage 1,945→748 行（-61%），抽離 7 個 Tab 元件。ProtocolDetailPage 1,929→647 行（-66%），抽離 6 個 Tab 元件（VersionsTab/HistoryTab/CommentsTab/ReviewersTab/CoEditorsTab/AttachmentsTab）。** | 前端 | 🧠 Claude | [x] |
-| 15 | **SEC-39：Two-Factor Authentication** | TOTP 二階段驗證 (Google Authenticator) | 前後端 | 🧠 Claude | [ ] |
-| 16 | **SEC-40：Web Application Firewall** | ModSecurity 或 Cloudflare WAF | DevOps | ⚡ Flash | [ ] |
+| 15 | **SEC-39：Two-Factor Authentication** | TOTP 2FA 全端實作：後端 `totp-rs` + DB migration + 4 個 API（setup/confirm/disable/verify）+ 登入流程 2FA 檢查 + 備用碼；前端 QR Code 設定 + TOTP 登入驗證 + Profile 頁 2FA 管理 | 前後端 | 🧠 Claude | [x] |
+| 16 | **SEC-40：Web Application Firewall** | `docker-compose.waf.yml` overlay 部署 OWASP ModSecurity CRS v4，含 iPig 自訂排除規則（JSON/密碼/上傳/富文本）+ WAF 文件 | DevOps | ⚡ Flash | [x] |
 | P5-43 | **ARIA 無障礙標籤** | 12 個檔案新增 23 個 `aria-label`（編輯/刪除/檢視/關閉/導航按鈕） | 前端 | 🧠 Claude | [x] |
 | P5-44 | **表單即時驗證回饋** | Input/Textarea 新增 `error` prop 紅框樣式，`FormField` 通用元件含 label + 錯誤訊息 | 前端 | 🧠 Claude | [x] |
 | P5-45 | **磁碟空間監控告警** | `scripts/monitor/check_disk_space.sh` 含 uploads 大小 + 磁碟使用率檢查 + Prometheus textfile 輸出 | DevOps | 🧠 Claude | [x] |
@@ -99,9 +99,9 @@
 | 🔴 P2 中優先 | 0 |
 | 🔵 P3 低優先 | 0 |
 | 🟣 P4 品質提升 | 0 |
-| ⚪ P5 長期演進 | 3 |
-| **合計（未完成）** | **3** |
-> 📌 剩餘 P5-13 Storybook + P5-15 2FA + P5-16 WAF
+| ⚪ P5 長期演進 | 0 |
+| **合計（未完成）** | **0** |
+> 🎉 **全部待辦項目已完成！**
 
 ---
 
@@ -109,6 +109,7 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-02-28 | 🧠 Claude：完成最終 3 項 P5 待辦 — (1) P5-13 Storybook 15 個 Stories；(2) P5-15 TOTP 2FA 全端實作（後端 totp-rs + 4 API + 登入流程 + 備用碼，前端 QR Code + TOTP 驗證 + Profile 管理）；(3) P5-16 WAF OWASP ModSecurity CRS v4 overlay 部署 + 自訂排除規則 |
 | 2026-02-28 | 🧠 Claude：系統設定全端串接 — 後端新增 `GET/PUT /admin/system-settings` API + 10 項 DB seed；前端 SettingsPage 四大區塊（基本/庫存/郵件/安全）全部從 API 載入與儲存；通知路由管理 UI 改善（收合分類/Switch/角色名稱/ConfirmDialog/grid layout）|
 | 2026-02-28 | 🧠 Claude：P5-14 ProtocolDetailPage 重構 1,929→647 行（-66%），抽離 VersionsTab/HistoryTab/CommentsTab/ReviewersTab/CoEditorsTab/AttachmentsTab 6 個元件至 `components/protocol/` |
 | 2026-02-28 | 🧠 Claude：JWT 預設過期時間從 15 分鐘調整為 360 分鐘（6 小時），更新後端 config / 前端 session fallback / .env / docker-compose 等 7 個檔案 |

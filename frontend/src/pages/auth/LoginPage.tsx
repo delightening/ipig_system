@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from '@/components/ui/use-toast'
-import { ClipboardList, Loader2, Eye, EyeOff } from 'lucide-react'
+import { Loader2, Eye, EyeOff, ShieldCheck, ArrowLeft } from 'lucide-react'
 
 const loginSchema = z.object({
   email: z.string().email('請輸入有效的電子郵件'),
@@ -20,11 +20,11 @@ type LoginForm = z.infer<typeof loginSchema>
 
 export function LoginPage() {
   const navigate = useNavigate()
-  const { login, isLoading } = useAuthStore()
+  const { login, verify2FA, isLoading } = useAuthStore()
   const [showPassword, setShowPassword] = useState(false)
-
-
-
+  const [twoFAState, setTwoFAState] = useState<{ tempToken: string } | null>(null)
+  const [totpCode, setTotpCode] = useState('')
+  const totpInputRef = useRef<HTMLInputElement>(null)
 
   const {
     register,
@@ -38,21 +38,93 @@ export function LoginPage() {
     },
   })
 
+  useEffect(() => {
+    if (twoFAState) totpInputRef.current?.focus()
+  }, [twoFAState])
+
   const onSubmit = async (data: LoginForm) => {
     try {
       await login(data.email, data.password)
-      toast({
-        title: '登入成功',
-        description: '歡迎回來！',
-      })
+      toast({ title: '登入成功', description: '歡迎回來！' })
       navigate('/dashboard')
     } catch (error: any) {
+      if (error?.is2FA) {
+        setTwoFAState({ tempToken: error.tempToken })
+        return
+      }
       toast({
         title: '登入失敗',
         description: error?.response?.data?.error?.message || '請檢查您的帳號密碼',
         variant: 'destructive',
       })
     }
+  }
+
+  const onVerify2FA = async () => {
+    if (!twoFAState || totpCode.length < 6) return
+    try {
+      await verify2FA(twoFAState.tempToken, totpCode)
+      toast({ title: '登入成功', description: '歡迎回來！' })
+      navigate('/dashboard')
+    } catch (error: any) {
+      toast({
+        title: '驗證失敗',
+        description: error?.response?.data?.error?.message || '驗證碼錯誤或已過期',
+        variant: 'destructive',
+      })
+      setTotpCode('')
+    }
+  }
+
+  if (twoFAState) {
+    return (
+      <Card className="w-full max-w-md animate-fade-in">
+        <CardHeader className="space-y-1 text-center">
+          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+            <ShieldCheck className="h-6 w-6 text-primary" />
+          </div>
+          <CardTitle className="text-xl font-bold">兩步驟驗證</CardTitle>
+          <CardDescription>請輸入驗證器 App 上的 6 位數驗證碼</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="totp">驗證碼</Label>
+            <Input
+              ref={totpInputRef}
+              id="totp"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="000000"
+              maxLength={8}
+              value={totpCode}
+              onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
+              onKeyDown={(e) => { if (e.key === 'Enter') onVerify2FA() }}
+              className="text-center text-2xl tracking-[0.5em] font-mono"
+            />
+            <p className="text-xs text-muted-foreground text-center">
+              也可使用備用碼（8 碼）登入
+            </p>
+          </div>
+          <Button
+            className="w-full"
+            disabled={isLoading || totpCode.length < 6}
+            onClick={onVerify2FA}
+          >
+            {isLoading ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />驗證中...</>
+            ) : '驗證'}
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full"
+            onClick={() => { setTwoFAState(null); setTotpCode('') }}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />返回登入
+          </Button>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (

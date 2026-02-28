@@ -20,6 +20,7 @@ export interface User {
     roles: string[]
     permissions: string[]
     must_change_password?: boolean
+    totp_enabled?: boolean
     // AUP 第 8 節人員資料
     entry_date?: string | null
     position?: string | null
@@ -42,6 +43,18 @@ export interface LoginResponse {
     token_type: string
     expires_in: number
     user: User
+}
+
+// 2FA 所需回應（密碼驗證通過，需要 TOTP 驗證）
+export interface TwoFactorRequiredResponse {
+    requires_2fa: true
+    temp_token: string
+}
+
+// 2FA 設定回應
+export interface TwoFactorSetupResponse {
+    otpauth_uri: string
+    backup_codes: string[]
 }
 
 // 角色

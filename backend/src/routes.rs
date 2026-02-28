@@ -17,6 +17,7 @@ pub fn api_routes(state: AppState) -> Router {
             "/auth/reset-password",
             post(handlers::reset_password_with_token),
         )
+        .route("/auth/2fa/verify", post(handlers::verify_2fa_login))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             auth_rate_limit_middleware,
@@ -28,6 +29,9 @@ pub fn api_routes(state: AppState) -> Router {
         // Auth
         .route("/auth/logout", post(handlers::logout))
         .route("/auth/confirm-password", post(handlers::confirm_password))
+        .route("/auth/2fa/setup", post(handlers::setup_2fa))
+        .route("/auth/2fa/confirm", post(handlers::confirm_2fa_setup))
+        .route("/auth/2fa/disable", post(handlers::disable_2fa))
         .route("/auth/stop-impersonate", post(handlers::stop_impersonate))
         .route("/auth/heartbeat", post(handlers::heartbeat))
         .route("/me", get(handlers::me).put(handlers::update_me))

@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/auth'
 import api, { User, UserTraining, UpdateUserRequest } from '@/lib/api'
+import { TwoFactorSetup } from '@/components/auth/TwoFactorSetup'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -39,7 +40,7 @@ const AUP_ROLE_OPTIONS = [
 
 export function ProfileSettingsPage() {
     const { t } = useTranslation()
-    const { user: currentUser, checkAuth } = useAuthStore()
+    const { user: currentUser, checkAuth, hasRole } = useAuthStore()
     const { toast } = useToast()
     const queryClient = useQueryClient()
 
@@ -437,6 +438,14 @@ export function ProfileSettingsPage() {
                                 </div>
                             </CardContent>
                         </Card>
+
+                        {/* 兩步驟驗證（僅管理員） */}
+                        {hasRole('admin') && (
+                            <TwoFactorSetup
+                                totpEnabled={currentUser?.totp_enabled ?? false}
+                                onStatusChange={() => checkAuth()}
+                            />
+                        )}
 
                         <Card className="border-none shadow-xl bg-gradient-to-br from-slate-900 to-slate-800 text-white overflow-hidden relative">
                             <div className="absolute top-0 right-0 p-8 opacity-10">
