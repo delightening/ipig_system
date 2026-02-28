@@ -62,7 +62,6 @@ const HrAnnualLeavePage = lazy(() => import('@/pages/hr/HrAnnualLeavePage').then
 const CalendarSyncSettingsPage = lazy(() => import('@/pages/hr/CalendarSyncSettingsPage').then(m => ({ default: m.CalendarSyncSettingsPage })))
 
 // Report Pages
-const ReportsPage = lazy(() => import('@/pages/reports/ReportsPage').then(m => ({ default: m.ReportsPage })))
 const StockOnHandReportPage = lazy(() => import('@/pages/reports/StockOnHandReportPage').then(m => ({ default: m.StockOnHandReportPage })))
 const StockLedgerReportPage = lazy(() => import('@/pages/reports/StockLedgerReportPage').then(m => ({ default: m.StockLedgerReportPage })))
 const PurchaseLinesReportPage = lazy(() => import('@/pages/reports/PurchaseLinesReportPage').then(m => ({ default: m.PurchaseLinesReportPage })))
@@ -247,7 +246,6 @@ function App() {
                         () => import('@/pages/admin/AdminAuditPage'),
                         () => import('@/pages/admin/NotificationRoutingPage'),
                         () => import('@/pages/admin/TreatmentDrugOptionsPage'),
-                        () => import('@/pages/reports/ReportsPage'),
                         () => import('@/pages/reports/StockOnHandReportPage'),
                         () => import('@/pages/reports/StockLedgerReportPage'),
                         () => import('@/pages/reports/PurchaseLinesReportPage'),
@@ -349,14 +347,13 @@ function App() {
                         <Route path="/inventory/layout" element={<WarehouseLayoutPage />} />
 
                         {/* 報表中心 */}
-                        <Route path="/reports" element={<ReportsPage />} />
-                        <Route path="/reports/stock-on-hand" element={<StockOnHandReportPage />} />
-                        <Route path="/reports/stock-ledger" element={<StockLedgerReportPage />} />
-                        <Route path="/reports/purchase-lines" element={<PurchaseLinesReportPage />} />
-                        <Route path="/reports/sales-lines" element={<SalesLinesReportPage />} />
-                        <Route path="/reports/cost-summary" element={<CostSummaryReportPage />} />
-                        <Route path="/reports/blood-test-cost" element={<BloodTestCostReportPage />} />
-                        <Route path="/reports/blood-test-analysis" element={<BloodTestAnalysisPage />} />
+                        <Route path="/stock-on-hand" element={<StockOnHandReportPage />} />
+                        <Route path="/stock-ledger" element={<StockLedgerReportPage />} />
+                        <Route path="/purchase-lines" element={<PurchaseLinesReportPage />} />
+                        <Route path="/sales-lines" element={<SalesLinesReportPage />} />
+                        <Route path="/cost-summary" element={<CostSummaryReportPage />} />
+                        <Route path="/blood-test-cost" element={<BloodTestCostReportPage />} />
+                        <Route path="/blood-test-analysis" element={<BloodTestAnalysisPage />} />
                     </Route>
 
                     {/* 系統管理 - 需要 admin 角色 */}

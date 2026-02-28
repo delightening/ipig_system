@@ -25,8 +25,9 @@ RUN apt-get update && apt-get install -y \
 COPY --from=planner /app/recipe.json recipe.json
 
 # Build dependencies only (this layer is cached when only source changes)
+# Filter cargo-chef/Cargo warnings: edition deprecation, unused manifest key (plugin)
 ENV SQLX_OFFLINE=true
-RUN cargo chef cook --release --recipe-path recipe.json
+RUN bash -c 'set -o pipefail; cargo chef cook --release --recipe-path recipe.json 2>&1 | (grep -vE "warning:.*(edition is set on|unused manifest key:)" || true)'
 
 # Now copy real source and build the application
 COPY Cargo.toml Cargo.lock ./

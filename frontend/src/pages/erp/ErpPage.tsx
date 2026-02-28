@@ -17,6 +17,7 @@ import {
     Box,
     Users,
     Droplets,
+    Activity,
 } from 'lucide-react'
 
 // 定義 ERP 子模組
@@ -130,39 +131,45 @@ const erpModules: ErpModule[] = [
         items: [
             {
                 title: '庫存現況報表',
-                href: '/reports/stock-on-hand',
+                href: '/stock-on-hand',
                 icon: <BarChart3 className="h-4 w-4" />,
                 description: '目前庫存狀況統計',
             },
             {
                 title: '庫存流水報表',
-                href: '/reports/stock-ledger',
+                href: '/stock-ledger',
                 icon: <FileText className="h-4 w-4" />,
                 description: '庫存異動明細報表',
             },
             {
                 title: '採購明細報表',
-                href: '/reports/purchase-lines',
+                href: '/purchase-lines',
                 icon: <Truck className="h-4 w-4" />,
                 description: '採購項目明細統計',
             },
             {
                 title: '銷售明細報表',
-                href: '/reports/sales-lines',
+                href: '/sales-lines',
                 icon: <ShoppingCart className="h-4 w-4" />,
                 description: '銷售項目明細統計',
             },
             {
                 title: '成本摘要報表',
-                href: '/reports/cost-summary',
+                href: '/cost-summary',
                 icon: <BarChart3 className="h-4 w-4" />,
                 description: '成本分析與摘要',
             },
             {
                 title: '血液檢查費用報表',
-                href: '/reports/blood-test-cost',
+                href: '/blood-test-cost',
                 icon: <Droplets className="h-4 w-4" />,
                 description: '依專案與日期查詢血檢費用',
+            },
+            {
+                title: '血液檢查結果分析',
+                href: '/blood-test-analysis',
+                icon: <Activity className="h-4 w-4" />,
+                description: '血檢數據統計、趨勢分析、異常值偵測',
             },
         ],
     },

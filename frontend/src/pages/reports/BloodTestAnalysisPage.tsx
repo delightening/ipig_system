@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 血液檢查結果分析頁面
  * 提供血液檢查數據的統計、趨勢分析、異常標記與視覺化圖表
  */
@@ -29,9 +29,7 @@ import {
     TrendingUp,
     BarChart3,
     FileSpreadsheet,
-    ArrowLeft,
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 import {
     LineChart,
     Line,
@@ -136,7 +134,6 @@ function calcBoxPlot(values: number[]): { min: number; q1: number; median: numbe
 // 主頁面元件
 // ============================================
 export function BloodTestAnalysisPage() {
-    const navigate = useNavigate()
 
     // 篩選狀態
     const [iacucNo, setIacucNo] = useState('')
@@ -360,14 +357,9 @@ export function BloodTestAnalysisPage() {
         <div className="space-y-6">
             {/* 標題列 */}
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => navigate('/reports')}>
-                        <ArrowLeft className="h-5 w-5" />
-                    </Button>
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">血液檢查結果分析</h1>
-                        <p className="text-muted-foreground">對血液檢查結果進行統計分析、趨勢追蹤與異常值偵測</p>
-                    </div>
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">血液檢查結果分析</h1>
+                    <p className="text-muted-foreground">對血液檢查結果進行統計分析、趨勢追蹤與異常值偵測</p>
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" onClick={exportToCSV} disabled={!filteredData.length}>
