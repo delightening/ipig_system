@@ -238,3 +238,33 @@ pub struct ChangeProductStatusRequest {
 pub struct ProductImageUploadResponse {
     pub image_url: String,
 }
+
+/// 產品匯入 CSV 列
+#[derive(Debug, Clone, Default)]
+pub struct ProductImportRow {
+    pub name: String,
+    pub spec: Option<String>,
+    pub category_code: Option<String>,
+    pub subcategory_code: Option<String>,
+    pub base_uom: String,
+    pub track_batch: bool,
+    pub track_expiry: bool,
+    pub safety_stock: Option<rust_decimal::Decimal>,
+    pub remark: Option<String>,
+}
+
+/// 產品匯入錯誤明細
+#[derive(Debug, Serialize)]
+pub struct ProductImportErrorDetail {
+    pub row: i32,
+    pub sku: Option<String>,
+    pub error: String,
+}
+
+/// 產品匯入結果
+#[derive(Debug, Serialize)]
+pub struct ProductImportResult {
+    pub success_count: i32,
+    pub error_count: i32,
+    pub errors: Vec<ProductImportErrorDetail>,
+}

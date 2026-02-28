@@ -1,4 +1,4 @@
-﻿use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -9,7 +9,7 @@ use crate::{
         AnimalSuddenDeath, AnimalVaccination, CreateSacrificeRequest, CreateSuddenDeathRequest,
         CreateVaccinationRequest, CreateVetRecommendationRequest,
         CreateVetRecommendationWithAttachmentsRequest, ExportFormat, ExportType, ImportStatus,
-        ImportType, RecordVersion, UpdateVaccinationRequest, VersionDiff, VersionHistoryResponse,
+        ImportType, UpdateVaccinationRequest, VersionDiff, VersionHistoryResponse,
         VetRecommendation, VetRecordType,
     },
     AppError, Result,
@@ -363,9 +363,9 @@ impl AnimalService {
         snapshot: &T,
         changed_by: Uuid,
     ) -> Result<()> {
-        // 取得當前最大版本號
+        // 取得當前最大版本號（migration 013 為 ASSIGNMENT cast，避免 text::version_record_type 遞迴，改為 record_type::text 比較）
         let max_version: Option<i32> = sqlx::query_scalar(
-            "SELECT MAX(version_no) FROM record_versions WHERE record_type = $1 AND record_id = $2",
+            "SELECT MAX(version_no) FROM record_versions WHERE record_type::text = $1 AND record_id = $2",
         )
         .bind(record_type)
         .bind(record_id)
@@ -378,7 +378,7 @@ impl AnimalService {
         sqlx::query(
             r#"
             INSERT INTO record_versions (record_type, record_id, version_no, snapshot, changed_by, changed_at)
-            VALUES ($1, $2, $3, $4, $5, NOW())
+            VALUES ($1::version_record_type, $2, $3, $4, $5, NOW())
             "#
         )
         .bind(record_type)
@@ -392,34 +392,56 @@ impl AnimalService {
         Ok(())
     }
 
-    /// 取得紀錄版本歷史
+    /// 取得紀錄版本歷史（含 changed_by_name，前端相容格式）
     pub async fn get_record_versions(
         pool: &PgPool,
         record_type: &str,
         record_id: Uuid,
     ) -> Result<VersionHistoryResponse> {
-        let versions = sqlx::query_as::<_, RecordVersion>(
-            "SELECT * FROM record_versions WHERE record_type = $1 AND record_id = $2 ORDER BY version_no DESC"
+        #[derive(sqlx::FromRow)]
+        struct Row {
+            id: Uuid,
+            version_no: i32,
+            snapshot: serde_json::Value,
+            diff_summary: Option<String>,
+            changed_by: Option<Uuid>,
+            changed_at: DateTime<Utc>,
+            changed_by_name: Option<String>,
+        }
+
+        let versions = sqlx::query_as::<_, Row>(
+            r#"
+            SELECT rv.id, rv.version_no, rv.snapshot, rv.diff_summary, rv.changed_by, rv.changed_at,
+                   u.display_name AS changed_by_name
+            FROM record_versions rv
+            LEFT JOIN users u ON rv.changed_by = u.id
+            WHERE rv.record_type::text = $1 AND rv.record_id = $2
+            ORDER BY rv.version_no DESC
+            "#
         )
         .bind(record_type)
         .bind(record_id)
         .fetch_all(pool)
         .await?;
 
+        let current_version = versions.first().map(|v| v.version_no).unwrap_or(1);
         let version_diffs: Vec<VersionDiff> = versions
             .into_iter()
             .map(|v| VersionDiff {
+                id: v.id,
                 version_no: v.version_no,
                 changed_at: v.changed_at,
                 changed_by: v.changed_by,
-                diff_summary: v.diff_summary,
                 snapshot: v.snapshot,
+                diff_summary: v.diff_summary,
+                changed_by_name: v.changed_by_name,
             })
             .collect();
 
         Ok(VersionHistoryResponse {
             record_type: record_type.to_string(),
             record_id,
+            current_version,
             versions: version_diffs,
         })
     }

@@ -21,6 +21,7 @@ pub struct CreateWarehouseRequest {
     pub code: Option<String>,
     #[validate(length(min = 1, max = 200, message = "Name must be 1-200 characters"))]
     pub name: String,
+    pub address: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Validate, ToSchema)]
@@ -37,4 +38,28 @@ pub struct WarehouseQuery {
     pub is_active: Option<bool>,
     pub page: Option<i64>,
     pub per_page: Option<i64>,
+}
+
+/// 倉庫匯入 CSV 列
+#[derive(Debug, Clone, Default)]
+pub struct WarehouseImportRow {
+    pub name: String,
+    pub code: Option<String>,
+    pub address: Option<String>,
+}
+
+/// 倉庫匯入錯誤明細
+#[derive(Debug, Serialize)]
+pub struct WarehouseImportErrorDetail {
+    pub row: i32,
+    pub code: Option<String>,
+    pub error: String,
+}
+
+/// 倉庫匯入結果
+#[derive(Debug, Serialize)]
+pub struct WarehouseImportResult {
+    pub success_count: i32,
+    pub error_count: i32,
+    pub errors: Vec<WarehouseImportErrorDetail>,
 }

@@ -91,3 +91,34 @@ pub struct PartnerQuery {
 pub struct GenerateCodeResponse {
     pub code: String,
 }
+
+/// 夥伴匯入 CSV 列
+#[derive(Debug, Clone, Default)]
+pub struct PartnerImportRow {
+    pub partner_type: String,
+    pub name: String,
+    pub supplier_category: Option<String>,
+    pub customer_category: Option<String>,
+    pub code: Option<String>,
+    pub tax_id: Option<String>,
+    pub phone: Option<String>,
+    pub email: Option<String>,
+    pub address: Option<String>,
+    pub payment_terms: Option<String>,
+}
+
+/// 夥伴匯入錯誤明細
+#[derive(Debug, Serialize)]
+pub struct PartnerImportErrorDetail {
+    pub row: i32,
+    pub code: Option<String>,
+    pub error: String,
+}
+
+/// 夥伴匯入結果
+#[derive(Debug, Serialize)]
+pub struct PartnerImportResult {
+    pub success_count: i32,
+    pub error_count: i32,
+    pub errors: Vec<PartnerImportErrorDetail>,
+}

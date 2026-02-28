@@ -26,10 +26,11 @@ import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
 import { logger } from '@/lib/logger'
 import { getApiErrorMessage } from '@/lib/validation'
-import { Plus, Search, Edit, Trash2, Loader2, Warehouse as WarehouseIcon } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Loader2, Warehouse as WarehouseIcon, Upload, Download } from 'lucide-react'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { WarehouseImportDialog } from '@/components/warehouse/WarehouseImportDialog'
 
 export function WarehousesPage() {
   const queryClient = useQueryClient()
@@ -37,6 +38,7 @@ export function WarehousesPage() {
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 400)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [showImportDialog, setShowImportDialog] = useState(false)
   const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null)
   const [formData, setFormData] = useState({
     name: '',
@@ -126,6 +128,30 @@ export function WarehousesPage() {
     }
   }
 
+  const handleExportCSV = () => {
+    if (!warehouses || warehouses.length === 0) {
+      toast({ title: '無資料可匯出', description: '請先新增倉庫', variant: 'destructive' })
+      return
+    }
+    const headers = ['代碼', '名稱', '地址', '狀態']
+    const rows = warehouses.map(w => [
+      w.code,
+      w.name,
+      w.address || '',
+      w.is_active ? '啟用' : '停用',
+    ])
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `warehouses_${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+    URL.revokeObjectURL(link.href)
+    toast({ title: '匯出成功', description: `已匯出 ${warehouses.length} 筆倉庫` })
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -133,10 +159,25 @@ export function WarehousesPage() {
           <h1 className="text-3xl font-bold tracking-tight">倉庫管理</h1>
           <p className="text-muted-foreground">管理系統中的倉庫資料</p>
         </div>
-        <Button onClick={() => { resetForm(); setDialogOpen(true) }}>
-          <Plus className="mr-2 h-4 w-4" />
-          新增倉庫
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
+            <Upload className="mr-2 h-4 w-4" />
+            匯入
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCSV}
+            disabled={!warehouses || warehouses.length === 0}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            匯出
+          </Button>
+          <Button onClick={() => { resetForm(); setDialogOpen(true) }}>
+            <Plus className="mr-2 h-4 w-4" />
+            新增倉庫
+          </Button>
+        </div>
       </div>
 
       <div className="flex gap-4">
@@ -249,6 +290,7 @@ export function WarehousesPage() {
         </DialogContent>
       </Dialog>
       <ConfirmDialog state={dialogState} />
+      <WarehouseImportDialog open={showImportDialog} onOpenChange={setShowImportDialog} />
     </div>
   )
 }

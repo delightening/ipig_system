@@ -1,9 +1,15 @@
 use std::sync::OnceLock;
+use calamine::{open_workbook_from_rs, Data, Reader, Xls, Xlsx};
 use sqlx::PgPool;
+use std::io::Cursor;
 use uuid::Uuid;
 
+use crate::models::{CustomerCategory, PartnerType, SupplierCategory};
 use crate::{
-    models::{CreatePartnerRequest, PaginationParams, Partner, PartnerQuery, SupplierCategory, UpdatePartnerRequest},
+    models::{
+        CreatePartnerRequest, PaginationParams, Partner, PartnerImportErrorDetail,
+        PartnerImportResult, PartnerImportRow, PartnerQuery, UpdatePartnerRequest,
+    },
     AppError, Result,
 };
 
@@ -330,5 +336,347 @@ impl PartnerService {
         }
 
         Ok(())
+    }
+
+    // ============================================
+    // 夥伴匯入
+    // ============================================
+
+    /// 匯入夥伴（CSV 或 Excel）
+    pub async fn import_partners(
+        pool: &PgPool,
+        file_data: &[u8],
+        file_name: &str,
+    ) -> Result<PartnerImportResult> {
+        let is_excel = file_name.ends_with(".xlsx") || file_name.ends_with(".xls");
+        let is_csv = file_name.ends_with(".csv");
+
+        if !is_excel && !is_csv {
+            return Err(AppError::Validation(
+                "不支援的檔案格式，請使用 Excel (.xlsx, .xls) 或 CSV 格式".to_string(),
+            ));
+        }
+
+        let rows = if is_excel {
+            Self::parse_partner_excel(file_data)?
+        } else {
+            Self::parse_partner_csv(file_data)?
+        };
+
+        if rows.is_empty() {
+            return Err(AppError::Validation("檔案中沒有資料".to_string()));
+        }
+
+        let mut success_count = 0;
+        let mut error_count = 0;
+        let mut errors = Vec::new();
+
+        for (index, row) in rows.iter().enumerate() {
+            let row_number = (index + 2) as i32;
+
+            if row.name.trim().is_empty() {
+                errors.push(PartnerImportErrorDetail {
+                    row: row_number,
+                    code: None,
+                    error: "名稱為必填欄位".to_string(),
+                });
+                error_count += 1;
+                continue;
+            }
+
+            let partner_type = match Self::parse_partner_type(&row.partner_type) {
+                Some(pt) => pt,
+                None => {
+                    errors.push(PartnerImportErrorDetail {
+                        row: row_number,
+                        code: None,
+                        error: format!("無效的類型: {}，必須是 supplier/customer 或 供應商/客戶", row.partner_type),
+                    });
+                    error_count += 1;
+                    continue;
+                }
+            };
+
+            let (supplier_category, customer_category) = if partner_type == PartnerType::Supplier {
+                let sc = row.supplier_category.as_deref().and_then(Self::parse_supplier_category);
+                if sc.is_none() {
+                    let has_value = row.supplier_category.as_ref().map(|s| !s.trim().is_empty()).unwrap_or(false);
+                    if has_value {
+                        errors.push(PartnerImportErrorDetail {
+                            row: row_number,
+                            code: None,
+                            error: format!("無效的供應商類別: {}，必須是 drug/consumable/feed/equipment", row.supplier_category.as_deref().unwrap_or("")),
+                        });
+                    } else {
+                        errors.push(PartnerImportErrorDetail {
+                            row: row_number,
+                            code: None,
+                            error: "供應商必須填寫供應商類別 (drug/consumable/feed/equipment)".to_string(),
+                        });
+                    }
+                    error_count += 1;
+                    continue;
+                }
+                (sc, None)
+            } else {
+                let cc = row.customer_category.as_deref().and_then(Self::parse_customer_category);
+                (None, cc)
+            };
+
+            let create_req = CreatePartnerRequest {
+                partner_type,
+                code: row.code.clone().filter(|s| !s.trim().is_empty()),
+                supplier_category,
+                customer_category,
+                name: row.name.trim().to_string(),
+                tax_id: row.tax_id.clone().filter(|s| !s.trim().is_empty()),
+                phone: row.phone.clone().filter(|s| !s.trim().is_empty()),
+                email: row.email.clone().filter(|s| !s.trim().is_empty()),
+                address: row.address.clone().filter(|s| !s.trim().is_empty()),
+                payment_terms: row.payment_terms.clone().filter(|s| !s.trim().is_empty()),
+            };
+
+            match Self::create(pool, &create_req).await {
+                Ok(_partner) => {
+                    success_count += 1;
+                }
+                Err(e) => {
+                    errors.push(PartnerImportErrorDetail {
+                        row: row_number,
+                        code: row.code.clone(),
+                        error: format!("建立失敗: {}", e),
+                    });
+                    error_count += 1;
+                }
+            }
+        }
+
+        Ok(PartnerImportResult {
+            success_count,
+            error_count,
+            errors,
+        })
+    }
+
+    fn parse_partner_type(s: &str) -> Option<PartnerType> {
+        match s.trim().to_lowercase().as_str() {
+            "supplier" | "供應商" | "s" => Some(PartnerType::Supplier),
+            "customer" | "客戶" | "c" => Some(PartnerType::Customer),
+            _ => None,
+        }
+    }
+
+    fn parse_supplier_category(s: &str) -> Option<SupplierCategory> {
+        match s.trim().to_lowercase().as_str() {
+            "drug" | "藥物" => Some(SupplierCategory::Drug),
+            "consumable" | "耗材" => Some(SupplierCategory::Consumable),
+            "feed" | "飼料" => Some(SupplierCategory::Feed),
+            "equipment" | "儀器" => Some(SupplierCategory::Equipment),
+            _ => None,
+        }
+    }
+
+    fn parse_customer_category(s: &str) -> Option<CustomerCategory> {
+        match s.trim().to_lowercase().as_str() {
+            "internal" | "內部" => Some(CustomerCategory::Internal),
+            "external" | "外部" => Some(CustomerCategory::External),
+            "research" | "研究" => Some(CustomerCategory::Research),
+            "other" | "其他" => Some(CustomerCategory::Other),
+            _ => None,
+        }
+    }
+
+    fn parse_partner_csv(file_data: &[u8]) -> Result<Vec<PartnerImportRow>> {
+        let content = String::from_utf8_lossy(file_data);
+        let mut reader = csv::ReaderBuilder::new()
+            .trim(csv::Trim::All)
+            .flexible(true)
+            .from_reader(content.as_bytes());
+
+        let mut rows = Vec::new();
+        for (i, result) in reader.records().enumerate() {
+            let record = result.map_err(|e| AppError::Validation(format!("CSV 解析錯誤第 {} 行: {}", i + 2, e)))?;
+            if record.len() < 2 {
+                continue;
+            }
+            let partner_type = record.get(0).unwrap_or("").to_string();
+            let name = record.get(1).unwrap_or("").to_string();
+            if name.trim().is_empty() {
+                continue;
+            }
+            let supplier_category = record.get(2).filter(|s| !s.trim().is_empty()).map(String::from);
+            let customer_category = record.get(3).filter(|s| !s.trim().is_empty()).map(String::from);
+            let code = record.get(4).filter(|s| !s.trim().is_empty()).map(String::from);
+            let tax_id = record.get(5).filter(|s| !s.trim().is_empty()).map(String::from);
+            let phone = record.get(6).filter(|s| !s.trim().is_empty()).map(String::from);
+            let email = record.get(7).filter(|s| !s.trim().is_empty()).map(String::from);
+            let address = record.get(8).filter(|s| !s.trim().is_empty()).map(String::from);
+            let payment_terms = record.get(9).filter(|s| !s.trim().is_empty()).map(String::from);
+
+            rows.push(PartnerImportRow {
+                partner_type,
+                name,
+                supplier_category,
+                customer_category,
+                code,
+                tax_id,
+                phone,
+                email,
+                address,
+                payment_terms,
+            });
+        }
+        Ok(rows)
+    }
+
+    fn parse_partner_excel(file_data: &[u8]) -> Result<Vec<PartnerImportRow>> {
+        let range = {
+            let cursor = Cursor::new(file_data);
+            if let Ok(mut wb) = open_workbook_from_rs::<Xlsx<_>, _>(cursor) {
+                let sheet_name = wb.sheet_names().first().cloned().ok_or_else(|| {
+                    AppError::Validation("Excel 檔案中沒有工作表".to_string())
+                })?;
+                wb.worksheet_range(&sheet_name)
+                    .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
+            } else {
+                let cursor = Cursor::new(file_data);
+                let mut wb = open_workbook_from_rs::<Xls<_>, _>(cursor).map_err(|_| {
+                    AppError::Validation("無法讀取 Excel 檔案，請使用 .xlsx 或 .xls 格式".to_string())
+                })?;
+                let sheet_name = wb.sheet_names().first().cloned().ok_or_else(|| {
+                    AppError::Validation("Excel 檔案中沒有工作表".to_string())
+                })?;
+                wb.worksheet_range(&sheet_name)
+                    .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
+            }
+        };
+
+        let mut rows = Vec::new();
+        let mut iter = range.rows();
+        iter.next();
+
+        for row in iter {
+            if row.len() < 2 {
+                continue;
+            }
+            let partner_type = Self::get_cell_string(row.get(0));
+            let name = Self::get_cell_string(row.get(1));
+            if name.trim().is_empty() {
+                continue;
+            }
+            let supplier_category = Self::opt_cell_string(row.get(2));
+            let customer_category = Self::opt_cell_string(row.get(3));
+            let code = Self::opt_cell_string(row.get(4));
+            let tax_id = Self::opt_cell_string(row.get(5));
+            let phone = Self::opt_cell_string(row.get(6));
+            let email = Self::opt_cell_string(row.get(7));
+            let address = Self::opt_cell_string(row.get(8));
+            let payment_terms = Self::opt_cell_string(row.get(9));
+
+            rows.push(PartnerImportRow {
+                partner_type,
+                name,
+                supplier_category,
+                customer_category,
+                code,
+                tax_id,
+                phone,
+                email,
+                address,
+                payment_terms,
+            });
+        }
+        Ok(rows)
+    }
+
+    fn get_cell_string(cell: Option<&Data>) -> String {
+        cell.map(|c| match c {
+            Data::String(s) => s.clone(),
+            Data::Float(f) => f.to_string(),
+            Data::Int(i) => i.to_string(),
+            Data::Bool(b) => b.to_string(),
+            Data::DateTime(dt) => format!("{:?}", dt),
+            _ => String::new(),
+        })
+        .unwrap_or_default()
+    }
+
+    fn opt_cell_string(cell: Option<&Data>) -> Option<String> {
+        cell.map(|c| {
+            let s = match c {
+                Data::String(s) => s.clone(),
+                Data::Float(f) => f.to_string(),
+                Data::Int(i) => i.to_string(),
+                Data::Bool(b) => b.to_string(),
+                Data::DateTime(dt) => format!("{:?}", dt),
+                _ => String::new(),
+            };
+            if s.trim().is_empty() {
+                None
+            } else {
+                Some(s)
+            }
+        })
+        .flatten()
+    }
+
+    /// 產生夥伴匯入模板
+    pub fn generate_import_template() -> Result<Vec<u8>> {
+        use rust_xlsxwriter::{Format, FormatAlign, Workbook};
+
+        let mut workbook = Workbook::new();
+        let header_format = Format::new()
+            .set_bold()
+            .set_background_color("#4472C4")
+            .set_font_color("#FFFFFF")
+            .set_align(FormatAlign::Center);
+
+        let worksheet = workbook.add_worksheet();
+        worksheet.set_column_width(0, 12.0)?;
+        worksheet.set_column_width(1, 25.0)?;
+        worksheet.set_column_width(2, 12.0)?;
+        worksheet.set_column_width(3, 12.0)?;
+        worksheet.set_column_width(4, 12.0)?;
+        worksheet.set_column_width(5, 12.0)?;
+        worksheet.set_column_width(6, 15.0)?;
+        worksheet.set_column_width(7, 25.0)?;
+        worksheet.set_column_width(8, 35.0)?;
+        worksheet.set_column_width(9, 20.0)?;
+
+        worksheet.write_string_with_format(0, 0, "類型*", &header_format)?;
+        worksheet.write_string_with_format(0, 1, "名稱*", &header_format)?;
+        worksheet.write_string_with_format(0, 2, "供應商類別", &header_format)?;
+        worksheet.write_string_with_format(0, 3, "客戶分類", &header_format)?;
+        worksheet.write_string_with_format(0, 4, "代碼", &header_format)?;
+        worksheet.write_string_with_format(0, 5, "統編", &header_format)?;
+        worksheet.write_string_with_format(0, 6, "電話", &header_format)?;
+        worksheet.write_string_with_format(0, 7, "Email", &header_format)?;
+        worksheet.write_string_with_format(0, 8, "地址", &header_format)?;
+        worksheet.write_string_with_format(0, 9, "付款條件", &header_format)?;
+
+        worksheet.write_string(1, 0, "supplier")?;
+        worksheet.write_string(1, 1, "範例供應商")?;
+        worksheet.write_string(1, 2, "drug")?;
+        worksheet.write_string(1, 3, "")?;
+        worksheet.write_string(1, 4, "")?;
+        worksheet.write_string(1, 5, "")?;
+        worksheet.write_string(1, 6, "")?;
+        worksheet.write_string(1, 7, "")?;
+        worksheet.write_string(1, 8, "")?;
+        worksheet.write_string(1, 9, "")?;
+
+        worksheet.write_string(2, 0, "customer")?;
+        worksheet.write_string(2, 1, "範例客戶")?;
+        worksheet.write_string(2, 2, "")?;
+        worksheet.write_string(2, 3, "internal")?;
+        worksheet.write_string(2, 4, "")?;
+        worksheet.write_string(2, 5, "")?;
+        worksheet.write_string(2, 6, "")?;
+        worksheet.write_string(2, 7, "")?;
+        worksheet.write_string(2, 8, "")?;
+        worksheet.write_string(2, 9, "")?;
+
+        worksheet.set_freeze_panes(1, 0)?;
+        Ok(workbook.save_to_buffer()?)
     }
 }

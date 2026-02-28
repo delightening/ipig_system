@@ -689,14 +689,18 @@ pub struct SurgeryListItem {
     pub recommendation_count: Option<i64>,
 }
 
-/// 版本歷史比對結果
+/// 版本歷史比對結果（前端相容：record_snapshot、created_at、changed_by_name）
 #[derive(Debug, Serialize)]
 pub struct VersionDiff {
+    pub id: Uuid,
     pub version_no: i32,
+    #[serde(rename = "created_at")]
     pub changed_at: DateTime<Utc>,
     pub changed_by: Option<Uuid>,
-    pub diff_summary: Option<String>,
+    #[serde(rename = "record_snapshot")]
     pub snapshot: serde_json::Value,
+    pub diff_summary: Option<String>,
+    pub changed_by_name: Option<String>,
 }
 
 /// 版本歷史查詢回應
@@ -704,6 +708,8 @@ pub struct VersionDiff {
 pub struct VersionHistoryResponse {
     pub record_type: String,
     pub record_id: Uuid,
+    /// 目前版本號（最新 version_no，若無則 1）
+    pub current_version: i32,
     pub versions: Vec<VersionDiff>,
 }
 

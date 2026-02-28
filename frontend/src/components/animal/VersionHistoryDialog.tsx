@@ -19,10 +19,10 @@ import {
 type RecordType = 'observation' | 'surgery'
 
 interface VersionItem {
-  id: number
+  id: string
   version_no: number
   record_snapshot: Record<string, unknown>
-  changed_by_name: string
+  changed_by_name?: string
   created_at: string
 }
 
@@ -35,7 +35,7 @@ interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   recordType: RecordType
-  recordId: number
+  recordId: string | number
 }
 
 const recordTypeNames: Record<RecordType, string> = {
@@ -47,9 +47,10 @@ export function VersionHistoryDialog({ open, onOpenChange, recordType, recordId 
   const { data, isLoading } = useQuery({
     queryKey: ['record-versions', recordType, recordId],
     queryFn: async () => {
+      const id = String(recordId)
       const endpoint = recordType === 'observation' 
-        ? `/observations/${recordId}/versions`
-        : `/surgeries/${recordId}/versions`
+        ? `/observations/${id}/versions`
+        : `/surgeries/${id}/versions`
       const res = await api.get<VersionHistoryResponse>(endpoint)
       return res.data
     },
@@ -120,7 +121,7 @@ export function VersionHistoryDialog({ open, onOpenChange, recordType, recordId 
                         </div>
                         <div className="flex items-center gap-1 text-sm text-slate-500">
                           <User className="h-4 w-4" />
-                          <span>{version.changed_by_name || '系統'}</span>
+                          <span>{version.changed_by_name ?? '系統'}</span>
                         </div>
                       </div>
 

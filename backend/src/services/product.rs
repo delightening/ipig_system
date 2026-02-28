@@ -1,10 +1,13 @@
+use calamine::{open_workbook_from_rs, Data, Reader, Xls, Xlsx};
 use sqlx::PgPool;
+use std::io::Cursor;
 use uuid::Uuid;
 
 use crate::{
     models::{
-        CreateCategoryRequest, CreateProductRequest, Product, ProductCategory, ProductQuery,
-        ProductUomConversion, ProductWithUom, UpdateProductRequest,
+        CreateCategoryRequest, CreateProductRequest, Product, ProductCategory, ProductImportErrorDetail,
+        ProductImportResult, ProductImportRow, ProductQuery, ProductUomConversion, ProductWithUom,
+        UpdateProductRequest,
     },
     AppError, Result,
 };
@@ -412,5 +415,322 @@ impl ProductService {
         .await?;
 
         Ok(category)
+    }
+
+    // ============================================
+    // 產品匯入
+    // ============================================
+
+    /// 匯入產品（CSV 或 Excel）
+    pub async fn import_products(
+        pool: &PgPool,
+        file_data: &[u8],
+        file_name: &str,
+    ) -> Result<ProductImportResult> {
+        let is_excel = file_name.ends_with(".xlsx") || file_name.ends_with(".xls");
+        let is_csv = file_name.ends_with(".csv");
+
+        if !is_excel && !is_csv {
+            return Err(AppError::Validation(
+                "不支援的檔案格式，請使用 Excel (.xlsx, .xls) 或 CSV 格式".to_string(),
+            ));
+        }
+
+        let rows = if is_excel {
+            Self::parse_product_excel(file_data)?
+        } else {
+            Self::parse_product_csv(file_data)?
+        };
+
+        if rows.is_empty() {
+            return Err(AppError::Validation("檔案中沒有資料".to_string()));
+        }
+
+        let mut success_count = 0;
+        let mut error_count = 0;
+        let mut errors = Vec::new();
+
+        for (index, row) in rows.iter().enumerate() {
+            let row_number = (index + 2) as i32;
+
+            if row.name.trim().is_empty() {
+                errors.push(ProductImportErrorDetail {
+                    row: row_number,
+                    sku: None,
+                    error: "名稱為必填欄位".to_string(),
+                });
+                error_count += 1;
+                continue;
+            }
+
+            if row.base_uom.trim().is_empty() {
+                errors.push(ProductImportErrorDetail {
+                    row: row_number,
+                    sku: None,
+                    error: "單位為必填欄位".to_string(),
+                });
+                error_count += 1;
+                continue;
+            }
+
+            let category_code = row
+                .category_code
+                .as_deref()
+                .filter(|s| !s.is_empty())
+                .unwrap_or("GEN")
+                .to_string();
+            let subcategory_code = row
+                .subcategory_code
+                .as_deref()
+                .filter(|s| !s.is_empty())
+                .unwrap_or("OTH")
+                .to_string();
+
+            let create_req = CreateProductRequest {
+                name: row.name.trim().to_string(),
+                spec: row.spec.clone().filter(|s| !s.trim().is_empty()),
+                category_code: Some(category_code),
+                subcategory_code: Some(subcategory_code),
+                base_uom: row.base_uom.trim().to_string(),
+                pack_unit: None,
+                pack_qty: None,
+                track_batch: row.track_batch,
+                track_expiry: row.track_expiry,
+                default_expiry_days: None,
+                safety_stock: row.safety_stock,
+                safety_stock_uom: None,
+                reorder_point: None,
+                reorder_point_uom: None,
+                barcode: None,
+                image_url: None,
+                license_no: None,
+                storage_condition: None,
+                tags: None,
+                remark: row.remark.clone(),
+                uom_conversions: vec![],
+            };
+
+            match Self::create(pool, &create_req).await {
+                Ok(_product) => {
+                    success_count += 1;
+                }
+                Err(e) => {
+                    errors.push(ProductImportErrorDetail {
+                        row: row_number,
+                        sku: None,
+                        error: format!("建立失敗: {}", e),
+                    });
+                    error_count += 1;
+                }
+            }
+        }
+
+        Ok(ProductImportResult {
+            success_count,
+            error_count,
+            errors,
+        })
+    }
+
+    fn parse_product_csv(file_data: &[u8]) -> Result<Vec<ProductImportRow>> {
+        let content = String::from_utf8_lossy(file_data);
+        let mut reader = csv::ReaderBuilder::new()
+            .trim(csv::Trim::All)
+            .flexible(true)
+            .from_reader(content.as_bytes());
+
+        let mut rows = Vec::new();
+        for (i, result) in reader.records().enumerate() {
+            let record = result.map_err(|e| AppError::Validation(format!("CSV 解析錯誤第 {} 行: {}", i + 2, e)))?;
+            if record.len() < 2 {
+                continue;
+            }
+            let name = record.get(0).unwrap_or("").to_string();
+            if name.trim().is_empty() {
+                continue;
+            }
+            let spec = record.get(1).filter(|s| !s.trim().is_empty()).map(String::from);
+            let category_code = record.get(2).filter(|s| !s.trim().is_empty()).map(String::from);
+            let subcategory_code = record.get(3).filter(|s| !s.trim().is_empty()).map(String::from);
+            let base_uom = record.get(4).unwrap_or("PCS").to_string();
+            let track_batch = Self::parse_bool(record.get(5).unwrap_or(""));
+            let track_expiry = Self::parse_bool(record.get(6).unwrap_or(""));
+            let safety_stock = record
+                .get(7)
+                .and_then(|s| s.trim().parse::<f64>().ok())
+                .and_then(|f| rust_decimal::Decimal::from_f64_retain(f));
+            let remark = record.get(8).filter(|s| !s.trim().is_empty()).map(String::from);
+
+            rows.push(ProductImportRow {
+                name,
+                spec,
+                category_code,
+                subcategory_code,
+                base_uom,
+                track_batch,
+                track_expiry,
+                safety_stock,
+                remark,
+            });
+        }
+        Ok(rows)
+    }
+
+    fn parse_product_excel(file_data: &[u8]) -> Result<Vec<ProductImportRow>> {
+        let range = {
+            let cursor = Cursor::new(file_data);
+            if let Ok(mut wb) = open_workbook_from_rs::<Xlsx<_>, _>(cursor) {
+                let sheet_name = wb.sheet_names().first().cloned().ok_or_else(|| {
+                    AppError::Validation("Excel 檔案中沒有工作表".to_string())
+                })?;
+                wb.worksheet_range(&sheet_name)
+                    .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
+            } else {
+                let cursor = Cursor::new(file_data);
+                let mut wb = open_workbook_from_rs::<Xls<_>, _>(cursor).map_err(|_| {
+                    AppError::Validation("無法讀取 Excel 檔案，請使用 .xlsx 或 .xls 格式".to_string())
+                })?;
+                let sheet_name = wb.sheet_names().first().cloned().ok_or_else(|| {
+                    AppError::Validation("Excel 檔案中沒有工作表".to_string())
+                })?;
+                wb.worksheet_range(&sheet_name)
+                    .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
+            }
+        };
+
+        let mut rows = Vec::new();
+        let mut iter = range.rows();
+        iter.next(); // 跳過標題
+
+        for row in iter {
+            if row.len() < 2 {
+                continue;
+            }
+            let name = Self::get_cell_string(row.first());
+            if name.trim().is_empty() {
+                continue;
+            }
+            let spec = {
+                let s = Self::get_cell_string(row.get(1));
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
+            };
+            let category_code = {
+                let s = Self::get_cell_string(row.get(2));
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
+            };
+            let subcategory_code = {
+                let s = Self::get_cell_string(row.get(3));
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
+            };
+            let base_uom = Self::get_cell_string(row.get(4));
+            let base_uom = if base_uom.is_empty() {
+                "PCS".to_string()
+            } else {
+                base_uom
+            };
+            let track_batch = Self::parse_bool(&Self::get_cell_string(row.get(5)));
+            let track_expiry = Self::parse_bool(&Self::get_cell_string(row.get(6)));
+            let safety_stock = row.get(7).and_then(|c| match c {
+                Data::Float(f) => rust_decimal::Decimal::from_f64_retain(*f),
+                Data::Int(i) => rust_decimal::Decimal::from_f64_retain(*i as f64),
+                _ => None,
+            });
+            let remark = {
+                let s = Self::get_cell_string(row.get(8));
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
+            };
+
+            rows.push(ProductImportRow {
+                name,
+                spec,
+                category_code,
+                subcategory_code,
+                base_uom,
+                track_batch,
+                track_expiry,
+                safety_stock,
+                remark,
+            });
+        }
+        Ok(rows)
+    }
+
+    fn get_cell_string(cell: Option<&Data>) -> String {
+        cell.map(|c| match c {
+            Data::String(s) => s.clone(),
+            Data::Float(f) => f.to_string(),
+            Data::Int(i) => i.to_string(),
+            Data::Bool(b) => b.to_string(),
+            Data::DateTime(dt) => format!("{:?}", dt),
+            _ => String::new(),
+        })
+        .unwrap_or_default()
+    }
+
+    fn parse_bool(s: &str) -> bool {
+        let s = s.trim().to_lowercase();
+        matches!(s.as_str(), "true" | "1" | "yes" | "是" | "y")
+    }
+
+    /// 產生產品匯入模板
+    pub fn generate_import_template() -> Result<Vec<u8>> {
+        use rust_xlsxwriter::{Format, FormatAlign, Workbook};
+
+        let mut workbook = Workbook::new();
+        let header_format = Format::new()
+            .set_bold()
+            .set_background_color("#4472C4")
+            .set_font_color("#FFFFFF")
+            .set_align(FormatAlign::Center);
+
+        let worksheet = workbook.add_worksheet();
+        worksheet.set_column_width(0, 25.0)?;
+        worksheet.set_column_width(1, 20.0)?;
+        worksheet.set_column_width(2, 12.0)?;
+        worksheet.set_column_width(3, 12.0)?;
+        worksheet.set_column_width(4, 10.0)?;
+        worksheet.set_column_width(5, 12.0)?;
+        worksheet.set_column_width(6, 12.0)?;
+        worksheet.set_column_width(7, 12.0)?;
+        worksheet.set_column_width(8, 30.0)?;
+
+        worksheet.write_string_with_format(0, 0, "名稱*", &header_format)?;
+        worksheet.write_string_with_format(0, 1, "規格", &header_format)?;
+        worksheet.write_string_with_format(0, 2, "品類代碼", &header_format)?;
+        worksheet.write_string_with_format(0, 3, "子類代碼", &header_format)?;
+        worksheet.write_string_with_format(0, 4, "單位*", &header_format)?;
+        worksheet.write_string_with_format(0, 5, "追蹤批號", &header_format)?;
+        worksheet.write_string_with_format(0, 6, "追蹤效期", &header_format)?;
+        worksheet.write_string_with_format(0, 7, "安全庫存", &header_format)?;
+        worksheet.write_string_with_format(0, 8, "備註", &header_format)?;
+
+        worksheet.write_string(1, 0, "範例產品")?;
+        worksheet.write_string(1, 1, "100ml/瓶")?;
+        worksheet.write_string(1, 2, "DRG")?;
+        worksheet.write_string(1, 3, "OTH")?;
+        worksheet.write_string(1, 4, "PCS")?;
+        worksheet.write_string(1, 5, "false")?;
+        worksheet.write_string(1, 6, "false")?;
+        worksheet.write_string(1, 7, "10")?;
+        worksheet.write_string(1, 8, "")?;
+
+        worksheet.set_freeze_panes(1, 0)?;
+        Ok(workbook.save_to_buffer()?)
     }
 }

@@ -55,6 +55,13 @@
 
 ## 9. 最新變更動態
 
+### 2026-03-01 複製後編輯觀察紀錄 500 錯誤修復
+
+- **問題**：複製觀察紀錄後編輯儲存時出現「資料庫操作失敗，請稍後再試」(500)
+- **根因**：migration 013 將 `version_record_type` enum 的 cast 改為 ASSIGNMENT，導致 (1) WHERE 比較 `record_type = $1` 時 `version_record_type = text` 無運算子；(2) cast 函數 `$1::text` / `$1::version_record_type` 遞迴呼叫造成 stack overflow
+- **修復**：(1) `save_record_version` / `get_record_versions` 改為 `record_type::text = $1` 比較；(2) 新增 migration 019 修正 `version_record_type_to_text`、`text_to_version_record_type` 為非遞迴實作；(3) `AnimalObservation` 補齊 `deleted_at`、`deletion_reason`、`deleted_by`、`version` 欄位
+- **驗證**：新增 `tests/test_reproduce_copy_edit_observation.py` 重現腳本，4 步驟全數通過
+
 ### 2026-02-28 第四輪改善計畫 R4 完成（20 項）
 
 **P0 安全性（4 項）：**
