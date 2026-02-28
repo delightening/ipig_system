@@ -35,6 +35,11 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ("erp.document.delete", "刪除單據", "erp", "可刪除單據"),
         // HR 加班全部紀錄查看
         ("hr.overtime.view_all", "查看所有加班紀錄", "hr", "可查看所有員工的加班紀錄"),
+        // 人員訓練紀錄 (GLP 合規)
+        ("training.view", "查看訓練紀錄", "training", "可查看人員訓練紀錄"),
+        ("training.manage", "管理訓練紀錄", "training", "可新增、編輯、刪除訓練紀錄"),
+        ("equipment.view", "查看設備", "equipment", "可查看設備與校準紀錄"),
+        ("equipment.manage", "管理設備", "equipment", "可新增、編輯、刪除設備與校準紀錄"),
     ];
     
     for (code, name, module, description) in required_permissions {
@@ -295,6 +300,9 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "erp.stock.view", "erp.inventory.view", "erp.report.view",
             // 管理階級 Audit 權限（全部 5 個）
             "audit.logs.view", "audit.logs.export", "audit.timeline.view", "audit.alerts.view", "audit.alerts.manage",
+            // 人員訓練紀錄 (GLP 合規)
+            "training.view", "training.manage",
+            "equipment.view", "equipment.manage",
             // Dashboard 權限
             "dashboard.view",
         ]),

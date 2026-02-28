@@ -97,6 +97,8 @@ const navItemsConfig: NavItem[] = [
       { title: '加班管理', href: '/hr/overtime', translate: false },
       { title: '特休額度管理', href: '/hr/annual-leave', permission: 'hr.balance.manage', translate: false },
       { title: '日曆', href: '/hr/calendar', translate: false },
+      { title: '人員訓練紀錄', href: '/admin/training-records', permission: 'training.view', translate: false },
+      { title: '設備與校準', href: '/admin/equipment', permission: 'equipment.view', translate: false },
     ],
   },
   {

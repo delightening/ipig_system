@@ -38,6 +38,8 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/auth/stop-impersonate", post(handlers::stop_impersonate))
         .route("/auth/heartbeat", post(handlers::heartbeat))
         .route("/me", get(handlers::me).put(handlers::update_me))
+        .route("/me/export", get(handlers::export_me))
+        .route("/me/account", delete(handlers::delete_me_account))
         .route("/me/password", put(handlers::change_own_password))
         // User Preferences
         .route("/me/preferences", get(handlers::get_all_preferences))
@@ -602,6 +604,10 @@ pub fn api_routes(state: AppState) -> Router {
         // ============================================
         // Admin Audit Trail (新增)
         // ============================================
+        .route(
+            "/admin/audit-logs/export",
+            get(handlers::export_audit_logs),
+        )
         .route("/admin/audit/activities", get(handlers::list_activity_logs))
         .route(
             "/admin/audit/activities/export",
@@ -768,9 +774,42 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/hr/calendar/pending", get(handlers::list_pending_syncs))
         .route("/hr/calendar/conflicts", get(handlers::list_conflicts))
         .route("/hr/calendar/conflicts/:id", get(handlers::get_conflict))
+        // ============================================
+        // Training Records (人員訓練紀錄, GLP 合規)
+        // ============================================
         .route(
-            "/hr/calendar/conflicts/:id/resolve",
-            post(handlers::resolve_conflict),
+            "/training-records",
+            get(handlers::list_training_records).post(handlers::create_training_record),
+        )
+        .route(
+            "/training-records/:id",
+            get(handlers::get_training_record)
+                .put(handlers::update_training_record)
+                .delete(handlers::delete_training_record),
+        )
+        .route("/hr/calendar/conflicts/:id/resolve", post(handlers::resolve_conflict))
+        // ============================================
+        // Equipment & Calibrations (設備校準, GLP 合規)
+        // ============================================
+        .route(
+            "/equipment",
+            get(handlers::list_equipment).post(handlers::create_equipment),
+        )
+        .route(
+            "/equipment/:id",
+            get(handlers::get_equipment)
+                .put(handlers::update_equipment)
+                .delete(handlers::delete_equipment),
+        )
+        .route(
+            "/equipment-calibrations",
+            get(handlers::list_calibrations).post(handlers::create_calibration),
+        )
+        .route(
+            "/equipment-calibrations/:id",
+            get(handlers::get_calibration)
+                .put(handlers::update_calibration)
+                .delete(handlers::delete_calibration),
         )
         .route("/hr/calendar/events", get(handlers::list_calendar_events))
         // ============================================
@@ -1014,12 +1053,16 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/metrics", get(handlers::metrics::metrics_handler))
         .with_state(state.clone());
 
-    health_route.merge(
-        Router::new()
-            .nest("/api", public_routes.merge(protected_routes).merge(upload_routes))
-            .route_layer(middleware::from_fn_with_state(
-                state,
-                api_rate_limit_middleware,
-            )),
-    )
+    // P1-M1: API 版本路徑 — 引入 /api/v1/ 前綴；/api 保留為 deprecated 向後相容
+    let api_v1 = public_routes.merge(protected_routes).merge(upload_routes);
+    health_route
+        .merge(
+            Router::new()
+                .nest("/api/v1", api_v1.clone())
+                .nest("/api", api_v1)
+                .route_layer(middleware::from_fn_with_state(
+                    state,
+                    api_rate_limit_middleware,
+                )),
+        )
 }

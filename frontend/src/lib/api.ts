@@ -3,7 +3,7 @@ import { useAuthStore } from '@/stores/auth'
 import { toast } from '@/components/ui/use-toast'
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: '/api/v1',
   headers: {
     'Content-Type': 'application/json',
   },

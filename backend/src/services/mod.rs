@@ -29,6 +29,8 @@ mod euthanasia;
 mod amendment;
 mod storage_location;
 mod treatment_drug;
+mod training;
+mod equipment;
 pub mod system_settings;
 pub mod retry;
 
@@ -57,6 +59,8 @@ pub use euthanasia::EuthanasiaService;
 pub use amendment::AmendmentService;
 pub use storage_location::StorageLocationService;
 pub use treatment_drug::TreatmentDrugService;
+pub use training::TrainingService;
+pub use equipment::EquipmentService;
 pub use system_settings::SystemSettingsService;
 pub use login_tracker::LoginTracker;
 pub use session_manager::SessionManager;

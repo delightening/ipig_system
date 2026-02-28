@@ -20,6 +20,8 @@ mod amendment;
 mod storage_location;
 pub mod user_preferences;
 mod treatment_drug;
+mod training;
+mod equipment;
 
 pub use user::*;
 pub use role::*;
@@ -40,6 +42,8 @@ pub use euthanasia::*;
 pub use amendment::*;
 pub use storage_location::*;
 pub use treatment_drug::*;
+pub use training::*;
+pub use equipment::*;
 
 
 use serde::{Deserialize, Serialize};

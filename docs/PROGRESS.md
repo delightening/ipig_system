@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-02-28 (v2)  
+> **最後更新：** 2026-03-01 (v3)  
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -54,6 +54,26 @@
 ---
 
 ## 9. 最新變更動態
+
+### 2026-03-01 P0–P2 改進計劃執行完成（P1-M0～P2-M2）
+
+- **P1-M3**：新增 `docs/OPERATIONS.md`（服務擁有者、on-call、升級流程、故障排除）
+- **P1-M4**：標記完成（`docs/CREDENTIAL_ROTATION.md` 已存在）
+- **P2-M5**：新增 `docs/SOC2_READINESS.md`（Trust Services Criteria 對照）
+- **P1-M0**：稽核日誌匯出 API `GET /admin/audit-logs/export?format=csv|json`，權限 `audit.logs.export`
+- **P2-M4**：稽核日誌 UI 新增「操作者」篩選
+- **P1-M1**：API 版本路徑 `/api/v1/`，前端 baseURL 更新
+- **P1-M2**：GDPR 資料主體權利 `GET /me/export`、`DELETE /me/account`（軟刪除 + 二級認證），隱私政策補充
+- **P1-M5**：Dependabot Phase 2 收尾（zod 4、zustand 5、date-fns 4 已升級，build/test 通過）
+- **P2-M2**：人員訓練紀錄模組（migration 020、`training_records` 表、CRUD API、`TrainingRecordsPage` 管理後台）
+- **P2-M3**：設備校準紀錄模組（migration 021、`equipment` 與 `equipment_calibrations` 表、CRUD API、`EquipmentPage` 雙 Tab 管理後台）
+
+### 2026-03-01 市場基準檢視與改進計劃
+
+- **產出**：`docs/IMPROVEMENT_PLAN_MARKET_REVIEW.md`
+- **檢視基準**：企業 ERP 系統、GLP 合規軟體、生產環境就緒檢查清單
+- **內容**：市場基準對照表（ERP 核心功能、技術基礎設施、安全合規、GLP、生產就緒）、改進計劃分級（P0–P3）、既有優勢摘要、執行建議
+- **重點項目**：P0 稽核日誌匯出 API、憑證輪換文件；P1 API 版本、GDPR、維運文件；P2 PWA、人員訓練紀錄、設備校準；P3 財務模組、QAU、原生 App、多租戶
 
 ### 2026-03-01 Dependabot PR 遷移計畫完成（Phase 1–3）
 
