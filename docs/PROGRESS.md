@@ -55,6 +55,14 @@
 
 ## 9. 最新變更動態
 
+### 2026-03-01 Dependabot PR 遷移計畫完成（Phase 1–3）
+
+- **Phase 1**：GitHub Actions（checkout v6、setup-node v6、cache v5、upload-artifact v7）、validator 0.20、axios、lucide-react、@types/dompurify
+- **Phase 2**：zod 4、@hookform/resolvers 5、zustand 5、date-fns 4；validation.ts / validations.ts 遷移
+- **Phase 3**：metrics-exporter-prometheus、thiserror 2、jsonwebtoken 10（rust_crypto）、tower 0.5、tokio-cron-scheduler 0.15
+- **產出**：`docs/DEPENDABOT_MIGRATION_PLAN.md`（總覽、遷移細節、相依關係圖）、`scripts/verify-deps.sh` / `.ps1`
+- **暫緩**：printpdf 0.9、utoipa 5、axum-extra 0.12、tailwind-merge 3（Phase 2.5 可選）
+
 ### 2026-03-01 複製後編輯觀察紀錄 500 錯誤修復
 
 - **問題**：複製觀察紀錄後編輯儲存時出現「資料庫操作失敗，請稍後再試」(500)
