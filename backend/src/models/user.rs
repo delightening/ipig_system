@@ -189,6 +189,32 @@ pub struct UserResponse {
     pub totp_enabled: bool,
 }
 
+impl UserResponse {
+    pub fn from_user(user: &User, roles: Vec<String>, permissions: Vec<String>) -> Self {
+        Self {
+            id: user.id,
+            email: user.email.clone(),
+            display_name: user.display_name.clone(),
+            phone: user.phone.clone(),
+            organization: user.organization.clone(),
+            is_internal: user.is_internal,
+            is_active: user.is_active,
+            must_change_password: user.must_change_password,
+            theme_preference: user.theme_preference.clone(),
+            language_preference: user.language_preference.clone(),
+            last_login_at: user.last_login_at,
+            entry_date: user.entry_date,
+            position: user.position.clone(),
+            aup_roles: user.aup_roles.clone(),
+            years_experience: user.years_experience,
+            trainings: user.trainings.0.clone(),
+            roles,
+            permissions,
+            totp_enabled: user.totp_enabled,
+        }
+    }
+}
+
 /// 使用者偏好設定請求
 #[derive(Debug, Deserialize, Validate)]
 pub struct UpdatePreferencesRequest {

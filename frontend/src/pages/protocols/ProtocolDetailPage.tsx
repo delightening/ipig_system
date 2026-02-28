@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
@@ -213,12 +213,12 @@ export function ProtocolDetailPage() {
     },
   })
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     const ok = await confirm({ title: '送出計畫書', description: t('protocols.detail.submitConfirm'), confirmLabel: '確認送出' })
     if (ok) submitMutation.mutate()
-  }
+  }, [confirm, t, submitMutation])
 
-  const handleChangeStatus = async () => {
+  const handleChangeStatus = useCallback(async () => {
     if (!newStatus) return
 
     if (newStatus === 'UNDER_REVIEW') {
@@ -256,7 +256,7 @@ export function ProtocolDetailPage() {
     } catch {
       // Errors handled in mutation callbacks
     }
-  }
+  }, [newStatus, selectedReviewerIds, selectedCoEditorId, id, assignCoEditorMutation, changeStatusMutation, statusRemark, t])
 
   const getAvailableTransitions = () => {
     if (!protocol) return []
@@ -279,6 +279,18 @@ export function ProtocolDetailPage() {
     ['IACUC_STAFF', 'IACUC_CHAIR', 'REVIEWER', 'VET', 'SYSTEM_ADMIN', 'admin'].includes(r)
   )
 
+  const tabItems = useMemo<{ key: TabKey; label: string; icon: typeof FileText }[]>(() => [
+    { key: 'content', label: t('protocols.detail.tabs.content'), icon: FileText },
+    { key: 'animals', label: t('protocols.detail.tabs.animals'), icon: ClipboardList },
+    { key: 'versions', label: t('protocols.detail.tabs.versions'), icon: History },
+    { key: 'history', label: t('protocols.detail.tabs.history'), icon: Clock },
+    { key: 'comments', label: t('protocols.detail.tabs.comments'), icon: MessageSquare },
+    { key: 'reviewers', label: t('protocols.detail.tabs.reviewers'), icon: Users },
+    { key: 'coeditors', label: t('protocols.detail.tabs.coeditors'), icon: UserPlus },
+    { key: 'attachments', label: t('protocols.detail.tabs.attachments'), icon: Paperclip },
+    { key: 'amendments', label: t('protocols.detail.tabs.amendments'), icon: FileEdit },
+  ], [t])
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -299,18 +311,6 @@ export function ProtocolDetailPage() {
       </div>
     )
   }
-
-  const tabItems: { key: TabKey; label: string; icon: typeof FileText }[] = [
-    { key: 'content', label: t('protocols.detail.tabs.content'), icon: FileText },
-    { key: 'animals', label: t('protocols.detail.tabs.animals'), icon: ClipboardList },
-    { key: 'versions', label: t('protocols.detail.tabs.versions'), icon: History },
-    { key: 'history', label: t('protocols.detail.tabs.history'), icon: Clock },
-    { key: 'comments', label: t('protocols.detail.tabs.comments'), icon: MessageSquare },
-    { key: 'reviewers', label: t('protocols.detail.tabs.reviewers'), icon: Users },
-    { key: 'coeditors', label: t('protocols.detail.tabs.coeditors'), icon: UserPlus },
-    { key: 'attachments', label: t('protocols.detail.tabs.attachments'), icon: Paperclip },
-    { key: 'amendments', label: t('protocols.detail.tabs.amendments'), icon: FileEdit },
-  ]
 
   return (
     <div className="space-y-6">

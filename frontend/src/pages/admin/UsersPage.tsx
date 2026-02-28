@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import axios from 'axios'
 import api, { confirmPassword, User, Role, ResetPasswordRequest } from '@/lib/api'
+import { getErrorMessage, ApiErrorPayload } from '@/types/error'
 import { useAuthStore } from '@/stores/auth'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -166,48 +168,44 @@ export function UsersPage() {
       resetForm()
       toast({ title: '成功', description: '用戶已創建' })
     },
-    onError: (error: any) => {
-      // 解析詳細的錯誤訊息
+    onError: (error: unknown) => {
       let errorMessage = '創建失敗'
       let detailMessage = ''
-      const backendMessage = error.response?.data?.error?.message
-      const statusCode = error.response?.status
-      const rawData = error.response?.data
 
-      if (backendMessage) {
-        // 翻譯常見的驗證錯誤訊息
-        if (backendMessage.includes('Password must be at least')) {
-          errorMessage = '密碼至少需要 6 個字元'
-        } else if (backendMessage.includes('Password must contain uppercase, lowercase, and numeric')) {
-          errorMessage = '密碼必須包含大寫字母、小寫字母和數字'
-        } else if (backendMessage.includes('Invalid email format')) {
-          errorMessage = 'Email 格式不正確'
-        } else if (backendMessage.includes('Display name is required')) {
-          errorMessage = '顯示名稱為必填欄位'
-        } else if (backendMessage.includes('Email already exists')) {
-          errorMessage = '此 Email 已被使用'
-        } else if (backendMessage.includes('Validation failed')) {
-          // 提取驗證失敗的詳細訊息
-          errorMessage = backendMessage.replace('Validation failed:', '驗證失敗:')
+      if (axios.isAxiosError(error)) {
+        const backendMessage = (error.response?.data as ApiErrorPayload | undefined)?.error?.message
+        const statusCode = error.response?.status
+        const rawData = error.response?.data
+
+        if (backendMessage) {
+          if (backendMessage.includes('Password must be at least')) {
+            errorMessage = '密碼至少需要 6 個字元'
+          } else if (backendMessage.includes('Password must contain uppercase, lowercase, and numeric')) {
+            errorMessage = '密碼必須包含大寫字母、小寫字母和數字'
+          } else if (backendMessage.includes('Invalid email format')) {
+            errorMessage = 'Email 格式不正確'
+          } else if (backendMessage.includes('Display name is required')) {
+            errorMessage = '顯示名稱為必填欄位'
+          } else if (backendMessage.includes('Email already exists')) {
+            errorMessage = '此 Email 已被使用'
+          } else if (backendMessage.includes('Validation failed')) {
+            errorMessage = backendMessage.replace('Validation failed:', '驗證失敗:')
+          } else {
+            errorMessage = backendMessage
+          }
+        } else if (typeof rawData === 'string' && statusCode === 422) {
+          errorMessage = '資料格式錯誤 (422)'
+          detailMessage = rawData
+        } else if (statusCode === 500) {
+          errorMessage = '伺服器內部錯誤，請稍後再試'
+        } else if (statusCode === 403) {
+          errorMessage = '權限不足'
         } else {
-          errorMessage = backendMessage
+          errorMessage = `請求失敗 (${statusCode || 'Unknown'})`
+          detailMessage = typeof rawData === 'object' ? JSON.stringify(rawData) : String(rawData)
         }
-      } else if (typeof rawData === 'string' && statusCode === 422) {
-        // 處理 Axum 預設的 422 錯誤（通常是 JSON 解析失敗）
-        errorMessage = '資料格式錯誤 (422)'
-        detailMessage = rawData
-      } else if (statusCode === 500) {
-        errorMessage = '伺服器內部錯誤，請稍後再試'
-      } else if (statusCode === 403) {
-        errorMessage = '權限不足'
-      } else if (rawData?.error?.message) {
-        errorMessage = rawData.error.message
-      } else if (rawData?.message) {
-        errorMessage = rawData.message
       } else {
-        // 最後備案：顯示狀態碼與原始訊息
-        errorMessage = `請求失敗 (${statusCode || 'Unknown'})`
-        detailMessage = typeof rawData === 'object' ? JSON.stringify(rawData) : String(rawData)
+        errorMessage = getErrorMessage(error)
       }
 
       toast({
@@ -240,8 +238,8 @@ export function UsersPage() {
       setSelectedUser(null)
       toast({ title: '成功', description: '用戶已更新' })
     },
-    onError: (error: any) => {
-      toast({ title: '錯誤', description: error.response?.data?.error?.message || '更新失敗', variant: 'destructive' })
+    onError: (error: unknown) => {
+      toast({ title: '錯誤', description: getErrorMessage(error) || '更新失敗', variant: 'destructive' })
     },
   })
 
@@ -265,8 +263,8 @@ export function UsersPage() {
       setConfirmNewPassword('')
       setReauthPassword('')
     },
-    onError: (error: any) => {
-      toast({ title: '錯誤', description: error.response?.data?.error?.message || '重設密碼失敗', variant: 'destructive' })
+    onError: (error: unknown) => {
+      toast({ title: '錯誤', description: getErrorMessage(error) || '重設密碼失敗', variant: 'destructive' })
     },
   })
 

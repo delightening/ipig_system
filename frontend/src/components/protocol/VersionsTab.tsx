@@ -31,7 +31,7 @@ interface VersionsTabProps {
   protocolTitle: string
 }
 
-export function VersionsTab({ protocolId, protocolTitle }: VersionsTabProps) {
+export const VersionsTab = React.memo(function VersionsTab({ protocolId, protocolTitle }: VersionsTabProps) {
   const { t } = useTranslation()
   const { data: versions } = useQuery({
     queryKey: ['protocol-versions', protocolId],
@@ -200,4 +200,4 @@ export function VersionsTab({ protocolId, protocolTitle }: VersionsTabProps) {
       )}
     </>
   )
-}
+})

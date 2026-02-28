@@ -55,6 +55,32 @@
 
 ## 9. 最新變更動態
 
+### 2026-02-28 系統改善 14 項完成（安全性/效能/程式碼品質）
+
+**🔴 P0 安全性（3 項）：**
+- ✅ **P0-S1 Docker 網路隔離**：定義 `frontend` / `backend` / `database` 三個自訂 bridge 網路，每個服務僅加入必要網路（web 容器無法直接存取 db）
+- ✅ **P0-S2 DB 埠口 localhost-only**：`docker-compose.yml` 資料庫 port 綁定改為 `127.0.0.1:5433:5432`，防止外部直連
+- ✅ **P0-S3 Docker Secrets**：`config.rs` 新增 `read_secret()` / `require_secret()` helper（優先讀 `*_FILE` 路徑，fallback 環境變數）；`docker-compose.prod.yml` 定義 4 個 secrets（jwt_secret / db_url / db_password / smtp_password）
+
+**🟡 P1 效能（5 項）：**
+- ✅ **P1-S4 RoleService N+1 修復**：`list()` 從 1+N 次查詢改為 2 次（roles + 批次 permissions via `ANY($1)`），記憶體分組
+- ✅ **P1-S5 UserService N+1 修復**：`list()` 從 1+2N 次查詢改為 3 次（users + 批次 roles + 批次 permissions via `ANY($1)`）
+- ✅ **P1-S6 迴圈 INSERT → UNNEST**：`role.rs` 建立/更新角色 + `user.rs` 建立/更新使用者的權限/角色指派改為 `SELECT $1, unnest($2::uuid[])`
+- ✅ **P1-S7 移除 .expect()**：`handlers/auth.rs` 6 處 + `handlers/two_factor.rs` 2 處改為 `map_err(AppError::Internal)`，`login_response_with_cookies` 回傳改為 `Result<Response>`
+- ✅ **P1-S8 複合索引**：`017_composite_indexes.sql` 新增 5 個 `CREATE INDEX CONCURRENTLY`（animals/protocols/notifications/audit_logs/attachments）
+
+**🔵 P2 程式碼品質（6 項）：**
+- ✅ **P2-S9 is_admin + UserResponse::from_user**：`CurrentUser::is_admin()` 方法 + `UserResponse::from_user(&User)` 消除 8 處重複建構 + 22 處 handler admin 檢查統一化
+- ✅ **P2-S10 TypeScript 嚴格化**：新增 `types/error.ts`（ApiErrorPayload + getErrorMessage），10 個檔案 18 處 `error: any` → `error: unknown`
+- ✅ **P2-S11 API 錯誤統一**：`lib/api.ts` interceptor 新增 500+/timeout/網路斷線全域 toast（使用 shadcn/ui toast）
+- ✅ **P2-S12 MainLayout 拆分**：1,192→~210 行，抽離 Sidebar（~420 行）/ NotificationDropdown（~195 行）/ PasswordChangeDialog（~130 行）
+- ✅ **P2-S13 Memoization**：`useMemo` 包裝 2 個 Detail 頁面的 tabs 陣列 + `React.memo` 包裝 7 個 Tab 元件 + `useCallback` 包裝事件處理器
+- ✅ **P2-S14 Dockerfile cargo-chef**：5-stage 建置（chef→planner→builder→runtime→distroless），依賴層獨立快取
+
+📁 **產出**：~25 個修改/新增檔案（後端 15 + 前端 10+ + Docker 3 + migration 1）
+
+---
+
 ### 2026-02-28 最終 3 項 P5 待辦全數完成（全部功能零缺口）
 
 **P5-13 前端元件庫文件化（Storybook 10）：**

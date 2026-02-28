@@ -53,17 +53,17 @@ pub struct CurrentUser {
 }
 
 impl CurrentUser {
+    pub fn is_admin(&self) -> bool {
+        self.roles
+            .iter()
+            .any(|r| r == "SYSTEM_ADMIN" || r == "admin")
+    }
+
     pub fn has_permission(&self, permission: &str) -> bool {
-        // 檢查是否有直接權限
         if self.permissions.contains(&permission.to_string()) {
             return true;
         }
-        // 檢查是否為管理員角色
-        if self
-            .roles
-            .iter()
-            .any(|r| r == "SYSTEM_ADMIN" || r == "admin" || r.to_lowercase() == "admin")
-        {
+        if self.is_admin() {
             return true;
         }
         false

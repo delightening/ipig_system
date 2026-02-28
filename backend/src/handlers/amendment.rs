@@ -40,8 +40,7 @@ pub async fn create_amendment(
     .fetch_one(&state.db)
     .await?;
 
-    if !is_pi && !current_user.roles.contains(&"admin".to_string()) 
-        && !current_user.roles.contains(&"SYSTEM_ADMIN".to_string()) {
+    if !is_pi && !current_user.is_admin() {
         return Err(AppError::Forbidden("Only PI can create amendments".into()));
     }
 
@@ -145,7 +144,7 @@ pub async fn update_amendment(
     .fetch_one(&state.db)
     .await?;
 
-    if !is_pi && !current_user.roles.contains(&"admin".to_string()) {
+    if !is_pi && !current_user.is_admin() {
         return Err(AppError::Forbidden("Only PI can update amendments".into()));
     }
 
@@ -177,7 +176,7 @@ pub async fn submit_amendment(
     .fetch_one(&state.db)
     .await?;
 
-    if !is_pi && !current_user.roles.contains(&"admin".to_string()) {
+    if !is_pi && !current_user.is_admin() {
         return Err(AppError::Forbidden("Only PI can submit amendments".into()));
     }
 
@@ -301,7 +300,7 @@ pub async fn record_amendment_decision(
     .fetch_one(&state.db)
     .await?;
 
-    if !is_reviewer && !current_user.roles.contains(&"admin".to_string()) {
+    if !is_reviewer && !current_user.is_admin() {
         return Err(AppError::Forbidden("Not authorized to record decision".into()));
     }
 

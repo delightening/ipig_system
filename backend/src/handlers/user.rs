@@ -287,7 +287,7 @@ pub async fn reset_user_password(
     Json(req): Json<ResetPasswordRequest>,
 ) -> Result<Json<serde_json::Value>> {
     // 檢查權限，必須是 Admin 角色
-    if !current_user.roles.contains(&"admin".to_string()) {
+    if !current_user.is_admin() {
         return Err(AppError::BusinessRule("Only admin can reset other user's password".to_string()));
     }
     require_reauth_token(&headers, &state, &current_user)?;
@@ -356,7 +356,7 @@ pub async fn impersonate_user(
     Path(id): Path<Uuid>,
 ) -> Result<Response> {
     // 檢查權限，必須是 Admin 角色
-    if !current_user.roles.contains(&"admin".to_string()) && !current_user.roles.contains(&"SYSTEM_ADMIN".to_string()) {
+    if !current_user.is_admin() {
         return Err(AppError::BusinessRule("Only admin can impersonate other users".to_string()));
     }
     require_reauth_token(&headers, &state, &current_user)?;

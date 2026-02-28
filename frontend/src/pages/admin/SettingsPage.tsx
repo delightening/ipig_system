@@ -28,6 +28,7 @@ import {
   EyeOff,
 } from 'lucide-react'
 import api from '@/lib/api'
+import { getErrorMessage } from '@/types/error'
 import { NotificationRoutingSection } from '@/components/admin/NotificationRoutingSection'
 import type { Warehouse } from '@/types/erp'
 
@@ -120,10 +121,10 @@ export function SettingsPage() {
       setSettingsDirty(false)
       toast({ title: '成功', description: '系統設定已儲存' })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '儲存失敗',
+        description: getErrorMessage(error) || '儲存失敗',
         variant: 'destructive',
       })
     },
@@ -172,10 +173,10 @@ export function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: ['notification-settings'] })
       toast({ title: '成功', description: '通知設定已儲存' })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '儲存失敗',
+        description: getErrorMessage(error) || '儲存失敗',
         variant: 'destructive',
       })
     },

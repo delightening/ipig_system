@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -5,6 +6,13 @@ use crate::{
     models::{CreateRoleRequest, Permission, PermissionQuery, Role, RoleWithPermissions, UpdateRoleRequest},
     AppError, Result,
 };
+
+#[derive(sqlx::FromRow)]
+struct RolePermissionRow {
+    role_id: Uuid,
+    #[sqlx(flatten)]
+    permission: Permission,
+}
 
 pub struct RoleService;
 
@@ -39,19 +47,20 @@ impl RoleService {
         .fetch_one(pool)
         .await?;
 
-        // 指派權限
-        for permission_id in &req.permission_ids {
-            sqlx::query("INSERT INTO role_permissions (role_id, permission_id) VALUES ($1, $2) ON CONFLICT DO NOTHING")
-                .bind(role.id)
-                .bind(permission_id)
-                .execute(pool)
-                .await?;
+        if !req.permission_ids.is_empty() {
+            sqlx::query(
+                "INSERT INTO role_permissions (role_id, permission_id) SELECT $1, unnest($2::uuid[]) ON CONFLICT DO NOTHING"
+            )
+            .bind(role.id)
+            .bind(&req.permission_ids)
+            .execute(pool)
+            .await?;
         }
 
         Ok(role)
     }
 
-    /// 取得角色列表（含權限）
+    /// 取得角色列表（含權限）— 2 次查詢取代 1+N
     pub async fn list(pool: &PgPool) -> Result<Vec<RoleWithPermissions>> {
         let roles = sqlx::query_as::<_, Role>(
             "SELECT * FROM roles WHERE is_active = true ORDER BY code"
@@ -59,33 +68,47 @@ impl RoleService {
         .fetch_all(pool)
         .await?;
 
-        let mut result = Vec::new();
-        for role in roles {
-            let permissions = sqlx::query_as::<_, Permission>(
+        let role_ids: Vec<Uuid> = roles.iter().map(|r| r.id).collect();
+
+        let mut perm_map: HashMap<Uuid, Vec<Permission>> = HashMap::new();
+        if !role_ids.is_empty() {
+            let rows = sqlx::query_as::<_, RolePermissionRow>(
                 r#"
-                SELECT p.* FROM permissions p
+                SELECT rp.role_id,
+                       p.id, p.code, p.name, p.module, p.description, p.created_at
+                FROM permissions p
                 INNER JOIN role_permissions rp ON p.id = rp.permission_id
-                WHERE rp.role_id = $1
+                WHERE rp.role_id = ANY($1)
                 ORDER BY p.code
                 "#
             )
-            .bind(role.id)
+            .bind(&role_ids)
             .fetch_all(pool)
             .await?;
 
-            result.push(RoleWithPermissions {
-                id: role.id,
-                code: role.code,
-                name: role.name,
-                description: role.description,
-                is_internal: role.is_internal,
-                is_system: role.is_system,
-                is_active: role.is_active,
-                permissions,
-                created_at: role.created_at,
-                updated_at: role.updated_at,
-            });
+            for row in rows {
+                perm_map.entry(row.role_id).or_default().push(row.permission);
+            }
         }
+
+        let result = roles
+            .into_iter()
+            .map(|role| {
+                let permissions = perm_map.remove(&role.id).unwrap_or_default();
+                RoleWithPermissions {
+                    id: role.id,
+                    code: role.code,
+                    name: role.name,
+                    description: role.description,
+                    is_internal: role.is_internal,
+                    is_system: role.is_system,
+                    is_active: role.is_active,
+                    permissions,
+                    created_at: role.created_at,
+                    updated_at: role.updated_at,
+                }
+            })
+            .collect();
 
         Ok(result)
     }
@@ -162,13 +185,14 @@ impl RoleService {
                 .execute(pool)
                 .await?;
 
-            // 指派新權限
-            for permission_id in permission_ids {
-                sqlx::query("INSERT INTO role_permissions (role_id, permission_id) VALUES ($1, $2)")
-                    .bind(id)
-                    .bind(permission_id)
-                    .execute(pool)
-                    .await?;
+            if !permission_ids.is_empty() {
+                sqlx::query(
+                    "INSERT INTO role_permissions (role_id, permission_id) SELECT $1, unnest($2::uuid[]) ON CONFLICT DO NOTHING"
+                )
+                .bind(id)
+                .bind(permission_ids)
+                .execute(pool)
+                .await?;
             }
         }
 

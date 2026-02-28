@@ -44,7 +44,7 @@ interface HistoryTabProps {
   protocolId: string
 }
 
-export function HistoryTab({ protocolId }: HistoryTabProps) {
+export const HistoryTab = React.memo(function HistoryTab({ protocolId }: HistoryTabProps) {
   const { t } = useTranslation()
   const [activityPage, setActivityPage] = useState(1)
   const ACTIVITIES_PER_PAGE = 15
@@ -182,4 +182,4 @@ export function HistoryTab({ protocolId }: HistoryTabProps) {
       </CardContent>
     </Card>
   )
-}
+})

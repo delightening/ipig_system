@@ -15,8 +15,10 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      # 對外給本機用，容器內仍是 5432
-      - "${POSTGRES_PORT:-5433}:5432"
+      # P0-S2: 僅綁定 localhost，防止外部直連 DB
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    networks:
+      - database
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-ipig_db}" ]
       interval: 3s
@@ -104,6 +106,9 @@ services:
       timeout: 3s
       retries: 3
       start_period: 15s
+    networks:
+      - backend
+      - database
     depends_on:
       db:
         condition: service_healthy
@@ -128,6 +133,9 @@ services:
       timeout: 3s
       retries: 3
       start_period: 5s
+    networks:
+      - frontend
+      - backend
     depends_on:
       - api
     restart: unless-stopped
@@ -148,6 +156,9 @@ services:
       - VITE_API_URL=http://api:8000
     command: >
       sh -c "npm install -g npm@latest && npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+    networks:
+      - frontend
+      - backend
     depends_on:
       - api
 
@@ -176,10 +187,23 @@ services:
     volumes:
       - db_backups:/backups
       - ${UPLOAD_VOLUME:-./uploads}:/uploads:ro
+    networks:
+      - database
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
+
+# =========================
+# Networks (P0-S1: 最小權限網路隔離)
+# =========================
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+  database:
+    driver: bridge
 
 # =========================
 # Secrets

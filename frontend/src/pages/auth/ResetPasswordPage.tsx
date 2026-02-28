@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import api from '@/lib/api'
+import { getErrorMessage } from '@/types/error'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -44,8 +45,8 @@ export function ResetPasswordPage() {
         description: '您可以使用新密碼登入了',
       })
     },
-    onError: (error: any) => {
-      const message = error?.response?.data?.error?.message || '密碼重設失敗'
+    onError: (error: unknown) => {
+      const message = getErrorMessage(error) || '密碼重設失敗'
       if (message.includes('expired') || message.includes('invalid')) {
         toast({
           title: '連結已失效',

@@ -555,8 +555,7 @@ pub async fn delete_attachment(
     .ok_or_else(|| AppError::NotFound("Attachment not found".to_string()))?;
 
     // 檢查權限，只有上傳者或管理員可以刪除
-    let is_admin = current_user.roles.contains(&"SYSTEM_ADMIN".to_string())
-        || current_user.roles.contains(&"admin".to_string());
+    let is_admin = current_user.is_admin();
     if attachment.uploaded_by != current_user.id && !is_admin {
         return Err(AppError::Forbidden("You can only delete your own attachments".to_string()));
     }

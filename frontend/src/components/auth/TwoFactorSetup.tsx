@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import api from '@/lib/api'
+import { getErrorMessage } from '@/types/error'
 import type { TwoFactorSetupResponse } from '@/types/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,10 +38,10 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
       setShowSetupDialog(true)
       setStep('qr')
       setVerifyCode('')
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: '啟用失敗',
-        description: error?.response?.data?.error?.message || '無法產生 2FA 設定',
+        description: getErrorMessage(error) || '無法產生 2FA 設定',
         variant: 'destructive',
       })
     } finally {
@@ -55,10 +56,10 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
       await api.post('/auth/2fa/confirm', { code: verifyCode })
       toast({ title: '2FA 已啟用', description: '您的帳號已受兩步驟驗證保護' })
       setStep('backup')
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: '驗證失敗',
-        description: error?.response?.data?.error?.message || '驗證碼錯誤，請重試',
+        description: getErrorMessage(error) || '驗證碼錯誤，請重試',
         variant: 'destructive',
       })
     } finally {
@@ -82,10 +83,10 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
       setDisablePassword('')
       setDisableCode('')
       onStatusChange()
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: '停用失敗',
-        description: error?.response?.data?.error?.message || '密碼或驗證碼錯誤',
+        description: getErrorMessage(error) || '密碼或驗證碼錯誤',
         variant: 'destructive',
       })
     } finally {

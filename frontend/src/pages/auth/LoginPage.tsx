@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAuthStore } from '@/stores/auth'
+import { getErrorMessage } from '@/types/error'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -47,14 +48,15 @@ export function LoginPage() {
       await login(data.email, data.password)
       toast({ title: '登入成功', description: '歡迎回來！' })
       navigate('/dashboard')
-    } catch (error: any) {
-      if (error?.is2FA) {
-        setTwoFAState({ tempToken: error.tempToken })
+    } catch (error: unknown) {
+      const err = error as { is2FA?: boolean; tempToken?: string }
+      if (err?.is2FA) {
+        setTwoFAState({ tempToken: err.tempToken! })
         return
       }
       toast({
         title: '登入失敗',
-        description: error?.response?.data?.error?.message || '請檢查您的帳號密碼',
+        description: getErrorMessage(error) || '請檢查您的帳號密碼',
         variant: 'destructive',
       })
     }
@@ -66,10 +68,10 @@ export function LoginPage() {
       await verify2FA(twoFAState.tempToken, totpCode)
       toast({ title: '登入成功', description: '歡迎回來！' })
       navigate('/dashboard')
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: '驗證失敗',
-        description: error?.response?.data?.error?.message || '驗證碼錯誤或已過期',
+        description: getErrorMessage(error) || '驗證碼錯誤或已過期',
         variant: 'destructive',
       })
       setTotpCode('')

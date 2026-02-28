@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import api from '@/lib/api'
+import { getErrorMessage } from '@/types/error'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -47,8 +48,8 @@ export function ForceChangePasswordPage() {
       await checkAuth()
       navigate('/dashboard')
     },
-    onError: (error: any) => {
-      const message = error?.response?.data?.error?.message || '密碼變更失敗'
+    onError: (error: unknown) => {
+      const message = getErrorMessage(error) || '密碼變更失敗'
       toast({
         title: '錯誤',
         description: message,

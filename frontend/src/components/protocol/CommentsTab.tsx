@@ -52,7 +52,7 @@ interface CommentsTabProps {
   shouldAnonymizeReviewers: boolean
 }
 
-export function CommentsTab({
+export const CommentsTab = React.memo(function CommentsTab({
   protocolId,
   protocol,
   piName,
@@ -428,4 +428,4 @@ export function CommentsTab({
       </div>
     </>
   )
-}
+})

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { confirmPassword, Role, Permission } from '@/lib/api'
+import { getErrorMessage } from '@/types/error'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -69,10 +70,10 @@ export function RolesPage() {
       resetForm()
       toast({ title: '成功', description: '角色已創建' })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error.response?.data?.error?.message || '創建失敗',
+        description: getErrorMessage(error) || '創建失敗',
         variant: 'destructive'
       })
     },
@@ -90,10 +91,10 @@ export function RolesPage() {
       setSelectedRole(null)
       toast({ title: '成功', description: '角色已更新' })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error.response?.data?.error?.message || '更新失敗',
+        description: getErrorMessage(error) || '更新失敗',
         variant: 'destructive'
       })
     },

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { AnimalSurgery } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -38,7 +38,7 @@ interface SurgeriesTabProps {
   surgeries: AnimalSurgery[] | undefined
 }
 
-export function SurgeriesTab({ animalId, earTag, afterParam, surgeries }: SurgeriesTabProps) {
+export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag, afterParam, surgeries }: SurgeriesTabProps) {
   const queryClient = useQueryClient()
 
   const [showAddDialog, setShowAddDialog] = useState(false)
@@ -345,4 +345,4 @@ export function SurgeriesTab({ animalId, earTag, afterParam, surgeries }: Surger
       />
     </>
   )
-}
+})
