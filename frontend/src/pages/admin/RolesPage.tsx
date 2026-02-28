@@ -202,9 +202,9 @@ export function RolesPage() {
         </div>
       </div>
 
-      {/* 角色列表（小螢幕 1 欄，依使用者選擇 2/3/4 欄） */}
+      {/* 角色列表（< 1280px 固定 1 欄，>= 1280px 依使用者選擇 2/3/4 欄） */}
       <div
-        className={`grid gap-4 grid-cols-1 sm:${
+        className={`grid gap-4 grid-cols-1 xl:${
           columnCount === 2 ? 'grid-cols-2' : columnCount === 3 ? 'grid-cols-3' : 'grid-cols-4'
         }`}
       >

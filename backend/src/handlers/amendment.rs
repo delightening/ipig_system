@@ -383,11 +383,11 @@ async fn check_protocol_access(
     }
     let is_related = sqlx::query_scalar!(
         r#"
-        SELECT EXISTS(
-            SELECT 1 FROM user_protocols
-            WHERE user_id = $1 AND protocol_id = $2
-        ) as "exists!"
-        "#,
+            SELECT EXISTS(
+                SELECT 1 FROM user_protocols 
+                WHERE user_id = $1 AND protocol_id = $2
+            ) as "exists!"
+            "#,
         current_user.id,
         protocol_id
     )
