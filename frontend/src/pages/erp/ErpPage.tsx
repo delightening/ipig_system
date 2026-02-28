@@ -201,8 +201,9 @@ const erpModules: ErpModule[] = [
 ]
 
 export function ErpPage() {
-    const { t } = useTranslation()
-    const navigate = useNavigate()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- i18n for future use
+  const { t } = useTranslation()
+  useNavigate() // router context
     const [searchParams, setSearchParams] = useSearchParams()
     const { hasRole, user, hasPermission } = useAuthStore()
 
@@ -217,6 +218,7 @@ export function ErpPage() {
 
         if (!hasErpAccess) return []
         return erpModules
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hasPermission stable
     }, [hasRole, user, hasPermission])
 
     // 如果沒有 tab 參數，自動導向第一個模組

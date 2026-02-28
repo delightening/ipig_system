@@ -33,6 +33,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { Plus, Search, Eye, Loader2, FileText, Calendar, X, Edit, Trash2 } from 'lucide-react'
 import { STALE_TIME } from '@/lib/query'
 import { formatDate, formatCurrency } from '@/lib/utils'
+import { getApiErrorMessage } from '@/lib/validation'
 
 const docTypeNames: Record<DocType, string> = {
   PO: '採購單',
@@ -93,10 +94,10 @@ export function DocumentsPage() {
       setDeleteDialogOpen(false)
       setDocumentToDelete(null)
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '刪除失敗',
+        description: getApiErrorMessage(error, '刪除失敗'),
         variant: 'destructive',
       })
     },

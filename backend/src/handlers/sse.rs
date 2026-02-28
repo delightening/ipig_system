@@ -31,6 +31,12 @@ pub struct AlertBroadcaster {
     sender: broadcast::Sender<AlertEvent>,
 }
 
+impl Default for AlertBroadcaster {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AlertBroadcaster {
     /// 建立新的 AlertBroadcaster（容量 64 條訊息）
     pub fn new() -> Self {

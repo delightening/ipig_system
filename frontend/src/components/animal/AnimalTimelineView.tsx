@@ -1,17 +1,13 @@
 import { Animal, AnimalObservation, AnimalSurgery, AnimalSacrifice, AnimalSuddenDeath, AnimalWeight, AnimalTransfer, AnimalEvent, RecordType, recordTypeNames, transferStatusNames } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
     ClipboardList,
     Scissors,
-    Stethoscope,
     CheckCircle2,
-    ChevronDown,
     Eye,
     Edit2,
-    Copy,
-    History,
     Trash2,
     Scale,
     Calendar,
@@ -19,7 +15,6 @@ import {
     Zap,
     ArrowRightLeft,
 } from 'lucide-react'
-import { useState } from 'react'
 
 interface Props {
     observations: AnimalObservation[]
@@ -65,12 +60,11 @@ export function AnimalTimelineView({
     animal,
     onView,
     onEdit,
-    onCopy,
-    onHistory,
-    onVet,
+    onCopy: _onCopy,
+    onHistory: _onHistory,
+    onVet: _onVet,
     onDelete,
 }: Props) {
-    const [expandedId, setExpandedId] = useState<string | null>(null)
 
     // 合併並排序紀錄
     const timelineItems: TimelineItem[] = [
@@ -290,7 +284,7 @@ export function AnimalTimelineView({
                     </CardContent>
                 </Card>
             ) : (
-                timelineItems.map((item, index) => (
+                timelineItems.map((item) => (
                     <div key={item.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                         {/* Dot */}
                         <div className={`flex items-center justify-center w-10 h-10 rounded-full border border-white ${getDotColor(item.type)} shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2`}>

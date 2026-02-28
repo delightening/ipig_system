@@ -10,7 +10,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -81,7 +80,7 @@ export function VetRecommendationDialog({ open, onOpenChange, recordType, record
     }
   }
 
-  const handleDownloadAttachment = (attachmentId: string, fileName: string) => {
+  const handleDownloadAttachment = (attachmentId: string, _fileName: string) => {
     const baseUrl = api.defaults.baseURL || ''
     window.open(`${baseUrl}/attachments/${attachmentId}`, '_blank')
   }

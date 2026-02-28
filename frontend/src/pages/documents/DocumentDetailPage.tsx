@@ -15,6 +15,7 @@ import {
 import { toast } from '@/components/ui/use-toast'
 import { ArrowLeft, Send, CheckCircle, XCircle, Loader2 } from 'lucide-react'
 import { formatDate, formatNumber, formatCurrency, formatUom } from '@/lib/utils'
+import { getApiErrorMessage } from '@/lib/validation'
 
 const docTypeNames: Record<string, string> = {
   PO: '採購單',
@@ -59,10 +60,10 @@ export function DocumentDetailPage() {
         window.location.reload()
       }, 500)
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '送審失敗',
+        description: getApiErrorMessage(error, '送審失敗'),
         variant: 'destructive',
       })
     },
@@ -74,10 +75,10 @@ export function DocumentDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['document', id] })
       toast({ title: '成功', description: '單據已核准' })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '核准失敗',
+        description: getApiErrorMessage(error, '核准失敗'),
         variant: 'destructive',
       })
     },
@@ -89,10 +90,10 @@ export function DocumentDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['document', id] })
       toast({ title: '成功', description: '單據已作廢' })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '作廢失敗',
+        description: getApiErrorMessage(error, '作廢失敗'),
         variant: 'destructive',
       })
     },

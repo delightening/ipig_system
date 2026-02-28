@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { FileUpload, FileInfo } from '@/components/ui/file-upload'
+import { FileInfo } from '@/components/ui/file-upload'
 import {
   Dialog,
   DialogContent,
@@ -110,12 +110,6 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
     },
   })
 
-  const handleFileChange = (fileInfos: FileInfo[]) => {
-    setFiles(fileInfos)
-    // 當檔案改變時，我們需要從 input 重新取得 File 物件
-    // 但由於 FileUpload 組件不直接提供 File 物件，我們需要另一種方式
-  }
-
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files
     if (selectedFiles && selectedFiles.length > 0) {
@@ -217,20 +211,20 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
               <Button
                 variant="outline"
                 size="sm"
-                asChild
                 className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                onClick={() => handleDownloadTemplate('csv')}
               >
-                {type === 'basic' ? (
-                  <a href="/file_imput.csv" download="file_imput.csv">
-                    <Download className="h-4 w-4 mr-1" />
-                    下載範本 (CSV)
-                  </a>
-                ) : (
-                  <a href="/weight_import.csv" download="weight_import.csv">
-                    <Download className="h-4 w-4 mr-1" />
-                    下載範本 (CSV)
-                  </a>
-                )}
+                <Download className="h-4 w-4 mr-1" />
+                下載範本 (CSV)
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                onClick={() => handleDownloadTemplate('xlsx')}
+              >
+                <Download className="h-4 w-4 mr-1" />
+                下載範本 (XLSX)
               </Button>
             </div>
           </div>

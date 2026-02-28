@@ -45,6 +45,7 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import type { OvertimeWithUser } from '@/types/hr'
 
 // ============================================
@@ -170,10 +171,10 @@ const useOvertimeMutations = () => {
             queryClient.invalidateQueries({ queryKey: ['hr-my-overtime'] })
             toast({ title: '成功', description: '已建立加班申請' })
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: '錯誤',
-                description: error?.response?.data?.error?.message || '建立失敗',
+                description: getApiErrorMessage(error, '建立失敗'),
                 variant: 'destructive',
             })
         },

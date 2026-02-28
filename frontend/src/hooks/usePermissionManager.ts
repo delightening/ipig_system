@@ -784,6 +784,40 @@ export function usePermissionManager(permissions: Permission[] | undefined) {
   }
 }
 
+// 模組顯示名稱 -> 排序用 order（取該名稱下最小 order）
+const MODULE_NAME_ORDER = (() => {
+  const map = new Map<string, number>()
+  for (const config of Object.values(MODULE_CONFIG)) {
+    const current = map.get(config.name)
+    if (current === undefined || config.order < current) {
+      map.set(config.name, config.order)
+    }
+  }
+  return map
+})()
+
+/**
+ * 將權限依模組分組並回傳摘要（模組名稱 + 數量）
+ * 用於角色卡片的模組摘要顯示
+ */
+export function groupPermissionsByModule(permissions: Permission[]): { moduleName: string; count: number }[] {
+  const counts = new Map<string, number>()
+  for (const perm of permissions) {
+    const moduleCode = getPermissionModule(perm)
+    const config = MODULE_CONFIG[moduleCode] || MODULE_CONFIG.other
+    const name = config.name
+    counts.set(name, (counts.get(name) || 0) + 1)
+  }
+  return Array.from(counts.entries())
+    .map(([moduleName, count]) => ({ moduleName, count }))
+    .sort((a, b) => {
+      const orderA = MODULE_NAME_ORDER.get(a.moduleName) ?? 99
+      const orderB = MODULE_NAME_ORDER.get(b.moduleName) ?? 99
+      if (orderA !== orderB) return orderA - orderB
+      return a.moduleName.localeCompare(b.moduleName)
+    })
+}
+
 
 
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { AnimalObservation, RecordType } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -141,6 +141,7 @@ export function ObservationFormDialog({ open, onOpenChange, animalId, earTag, ob
     } else {
       setFormData(defaultFormData)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [observation, open])
 
   const handleEquipmentChange = (value: string, checked: boolean) => {
@@ -169,10 +170,6 @@ export function ObservationFormDialog({ open, onOpenChange, animalId, earTag, ob
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   }
-
-  const handleFileSelect = useCallback((fileInfos: FileInfo[], setter: (files: FileInfo[]) => void) => {
-    setter(fileInfos)
-  }, [])
 
   const handlePhotoUpload = async (file: File): Promise<FileInfo> => {
     if (!isEdit) {
@@ -279,6 +276,7 @@ export function ObservationFormDialog({ open, onOpenChange, animalId, earTag, ob
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData])
 
   return (

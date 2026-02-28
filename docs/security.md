@@ -4,6 +4,39 @@
 
 ---
 
+## Rust 依賴漏洞（cargo audit）
+
+CI 已設定 `cargo audit --ignore` 排除下列項目，以下為評估結論。
+
+### RUSTSEC-2023-0071（rsa 0.9.10）
+
+| 項目 | 說明 |
+|------|------|
+| 漏洞 | Marvin Attack：透過時序側通道潛在的金鑰恢復 |
+| 依賴路徑 | sqlx-mysql（transitive）→ rsa |
+| 專案使用 | 本專案僅使用 sqlx 的 **postgres** feature，未使用 mysql |
+| 處置 | CI 以 `--ignore RUSTSEC-2023-0071` 排除；上游 sqlx 無修復版本 |
+| 風險 | 低 — mysql 驅動未被編譯進最終二進位檔 |
+
+### RUSTSEC-2024-0370（proc-macro-error）
+
+| 項目 | 說明 |
+|------|------|
+| 漏洞 | proc-macro-error 已不再維護 |
+| 依賴路徑 | utoipa → utoipa-gen → proc-macro-error |
+| 處置 | CI 以 `--ignore RUSTSEC-2024-0370` 排除；追蹤 utoipa 上游更新 |
+| 風險 | 低 — 僅在編譯期使用，不影響執行期 |
+
+### Yanked crates（js-sys, wasm-bindgen）
+
+| 項目 | 說明 |
+|------|------|
+| 說明 | 間接依賴的 js-sys、wasm-bindgen 曾被 yank |
+| 處置 | CI 執行 `cargo update` 以取得非 yanked 版本 |
+| 風險 | 低 — 更新後應可排除 |
+
+---
+
 ## CVE-2026-25646（libpng 堆緩衝區溢位）
 
 ### 摘要

@@ -30,11 +30,13 @@ export function GoogleCalendarEventsWidget() {
                     params: { start_date: startOfWeek, end_date: endOfWeek }
                 })
                 return res.data
-            } catch (err: any) {
-                const data = err.response?.data
-                const errorMsg = data?.message || data?.error?.message || (typeof data?.error === 'string' ? data.error : '')
+            } catch (err: unknown) {
+                const errObj = err as { response?: { data?: { message?: string; error?: string | { message?: string } }; status?: number } }
+                const data = errObj?.response?.data
+                const errorMsg = data?.message || (typeof data?.error === 'object' && data?.error?.message) || (typeof data?.error === 'string' ? data.error : '')
 
-                if (err.response?.status === 400 && errorMsg.includes('Google Calendar')) {
+                const errResp = errObj?.response
+                if (errResp?.status === 400 && errorMsg.includes('Google Calendar')) {
                     return null // Representing not connected
                 }
                 throw err

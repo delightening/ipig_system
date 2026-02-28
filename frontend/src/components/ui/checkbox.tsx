@@ -10,7 +10,8 @@ export interface CheckboxProps
 
 const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
   ({ className, label, id, onCheckedChange, ...props }, ref) => {
-    const inputId = id || `checkbox-${React.useId()}`
+    const generatedId = React.useId()
+    const inputId = id ?? `checkbox-${generatedId}`
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       onCheckedChange?.(e.target.checked)

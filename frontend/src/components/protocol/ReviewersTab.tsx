@@ -45,6 +45,7 @@ import {
   Users,
 } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils'
+import { getApiErrorMessage } from '@/lib/validation'
 import VetReviewForm from '@/components/protocol/VetReviewForm'
 import type { VetReviewAssignment } from '@/types/aup'
 
@@ -115,10 +116,10 @@ export function ReviewersTab({
       setShowAssignDialog(false)
       setSelectedReviewerId('')
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: t('common.error'),
-        description: error?.response?.data?.error?.message || t('protocols.detail.tables.assignFailed'),
+        description: getApiErrorMessage(error, t('protocols.detail.tables.assignFailed')),
         variant: 'destructive',
       })
     },

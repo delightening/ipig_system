@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import api, { SkuPreviewRequest, SkuPreviewResponse } from '@/lib/api'
+import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,11 +20,12 @@ import { StepIndicator, Step } from '@/components/product/StepIndicator'
 import { SkuPreviewBlock, SkuStatus, SkuPreviewResult, SkuPreviewError, MissingField } from '@/components/sku/SkuPreviewBlock'
 import {
   ArrowLeft, ArrowRight, Loader2, Check, Package,
-  Pill, Syringe, TestTube, FlaskConical, Settings,
+  Pill, Syringe, FlaskConical, Settings,
   ListPlus, FileText, LayoutGrid, Sparkles, Plus, X
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { logger } from '@/lib/logger'
+import { getApiErrorMessage } from '@/lib/validation'
 
 // 步驟定義
 const STEPS: Step[] = [
@@ -355,18 +356,18 @@ export function CreateProductPage() {
 
       setPreviewResult(result)
       setSkuStatus('S3')
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('SKU preview error:', error)
       setSkuStatus('S4')
       setPreviewError({
         code: 'E5',
-        message: error?.response?.data?.error?.message || error?.message || '預覽失敗，請稍後再試',
+        message: getApiErrorMessage(error, '預覽失敗，請稍後再試'),
         suggestion: '請確認網路連線正常，並檢查分類和單位是否已選擇',
       })
     } finally {
       setIsPreviewLoading(false)
     }
-  }, [canPreview, formData.category, formData.subcategory, formData.baseUnit, formData.name, formData.rawInput])
+  }, [canPreview, formData.category, formData.subcategory, formData.baseUnit, formData.name])
 
   // 當選擇沒有子分類的類別時，自動清空 subcategory
   useEffect(() => {
@@ -509,11 +510,11 @@ export function CreateProductPage() {
         description: `SKU: ${data.sku}`,
       })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       setSkuStatus('S3')
       toast({
         title: '建立失敗',
-        description: error?.response?.data?.error?.message || '建立產品時發生錯誤',
+        description: getApiErrorMessage(error, '建立產品時發生錯誤'),
         variant: 'destructive',
       })
     },

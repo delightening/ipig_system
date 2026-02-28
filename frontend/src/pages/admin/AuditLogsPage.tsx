@@ -335,7 +335,7 @@ export function AuditLogsPage() {
 </head>
 <body>
   <h1>操作日誌報表</h1>
-  <p>期間：${dateFrom} ～ ${dateTo}　｜　共 ${logs.length} 筆</p>
+  <p>期間：${dateFrom} - ${dateTo} | 共 ${logs.length} 筆</p>
   <table>
     <thead>
       <tr><th>時間</th><th>操作者</th><th>類別</th><th>事件</th><th>實體類型</th><th>實體名稱</th><th>IP</th></tr>

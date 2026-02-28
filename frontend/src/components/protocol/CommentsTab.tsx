@@ -1,15 +1,12 @@
 import React, { useMemo, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { AxiosError } from 'axios'
 import api, {
   ProtocolVersion,
   ReviewCommentResponse,
   CreateCommentRequest,
   ReplyCommentRequest,
-  ProtocolStatus,
   VetReviewAssignment,
 } from '@/lib/api'
-import type { ApiErrorPayload } from '@/types/error'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -36,6 +33,7 @@ import {
   User as UserIcon,
 } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils'
+import { getApiErrorMessage } from '@/lib/validation'
 import { useAuthStore } from '@/stores/auth'
 import { ReviewCommentsReport } from '@/components/protocol/ReviewCommentsReport'
 // jsPDF & html2canvas loaded lazily at PDF export time
@@ -103,10 +101,10 @@ export const CommentsTab = React.memo(function CommentsTab({
       setShowCommentDialog(false)
       setCommentContent('')
     },
-    onError: (error: AxiosError<ApiErrorPayload>) => {
+    onError: (error: unknown) => {
       toast({
         title: t('common.error'),
-        description: error?.response?.data?.error?.message || t('protocols.detail.dialogs.comment.failed'),
+        description: getApiErrorMessage(error, t('protocols.detail.dialogs.comment.failed')),
         variant: 'destructive',
       })
     },
@@ -123,10 +121,10 @@ export const CommentsTab = React.memo(function CommentsTab({
       setReplyContent('')
       setSelectedCommentForReply(null)
     },
-    onError: (error: AxiosError<ApiErrorPayload>) => {
+    onError: (error: unknown) => {
       toast({
         title: t('common.error'),
-        description: error?.response?.data?.error?.message || t('protocols.detail.dialogs.reply.failed'),
+        description: getApiErrorMessage(error, t('protocols.detail.dialogs.reply.failed')),
         variant: 'destructive',
       })
     },
@@ -140,10 +138,10 @@ export const CommentsTab = React.memo(function CommentsTab({
       toast({ title: t('common.success'), description: t('protocols.detail.actions.resolved') })
       queryClient.invalidateQueries({ queryKey: ['protocol-comments', protocolId] })
     },
-    onError: (error: AxiosError<ApiErrorPayload>) => {
+    onError: (error: unknown) => {
       toast({
         title: t('common.error'),
-        description: error?.response?.data?.error?.message || t('common.error'),
+        description: getApiErrorMessage(error, t('common.error')),
         variant: 'destructive',
       })
     },
@@ -166,6 +164,7 @@ export const CommentsTab = React.memo(function CommentsTab({
       map.set(reviewerId, t(`protocols.detail.actions.reviewer${letter}`))
     })
     return map
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [comments, protocolId])
 
   const getReviewerDisplayName = (comment: ReviewCommentResponse) => {

@@ -33,7 +33,7 @@ interface VaccinationsTabProps {
   vaccinations: AnimalVaccination[] | undefined
 }
 
-export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, earTag, afterParam, vaccinations }: VaccinationsTabProps) {
+export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, earTag, afterParam: _afterParam, vaccinations }: VaccinationsTabProps) {
   const queryClient = useQueryClient()
 
   const [showAddDialog, setShowAddDialog] = useState(false)

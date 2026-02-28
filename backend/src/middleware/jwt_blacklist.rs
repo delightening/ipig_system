@@ -19,6 +19,12 @@ pub struct JwtBlacklist {
     revoked: Arc<Mutex<HashMap<String, i64>>>,
 }
 
+impl Default for JwtBlacklist {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl JwtBlacklist {
     pub fn new() -> Self {
         Self {

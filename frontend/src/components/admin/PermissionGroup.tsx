@@ -9,7 +9,7 @@ interface PermissionGroupProps {
   moduleName: string
   categories: PermissionCategory[]
   selectedPermissionIds: string[]
-  onTogglePermission: (permId: string) => void
+  onTogglePermission?: (permId: string) => void
   onToggleCategory?: (category: string) => void
   onToggleSubCategory?: (category: string, subCategory: string) => void
   isExpanded: boolean
@@ -79,6 +79,8 @@ export function PermissionGroup({
     )
   }
 
+  const readOnly = !onTogglePermission
+
   // 渲染權限 badge
   const renderPermissionBadge = (perm: Permission) => {
     const isSelected = selectedPermissionIds.includes(perm.id)
@@ -87,10 +89,10 @@ export function PermissionGroup({
         key={perm.id}
         variant={isSelected ? 'default' : 'outline'}
         className={cn(
-          'cursor-pointer hover:bg-primary/10 transition-colors',
+          !readOnly && 'cursor-pointer hover:bg-primary/10 transition-colors',
           isSelected && 'bg-primary text-primary-foreground'
         )}
-        onClick={() => onTogglePermission(perm.id)}
+        {...(!readOnly && { onClick: () => onTogglePermission!(perm.id) })}
         title={perm.description || perm.code}
       >
         {isSelected && <Check className="h-3 w-3 mr-1" />}

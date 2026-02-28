@@ -13,10 +13,15 @@ async fn list_users_returns_paginated_result() {
     let res = app.auth_get("/api/users", &token).await;
     assert_eq!(res.status(), 200);
 
-    let body: serde_json::Value = res.json().await.unwrap();
+    let body: serde_json::Value = res.json().await.expect("Failed to parse JSON response");
     assert!(body["data"].is_array());
     // At least the admin user should exist
-    assert!(body["data"].as_array().unwrap().len() >= 1);
+    assert!(
+        !body["data"]
+            .as_array()
+            .expect("data should be array")
+            .is_empty()
+    );
 }
 
 #[tokio::test]
@@ -27,7 +32,7 @@ async fn create_user_and_fetch() {
 
     let ts = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
+        .expect("System time should be valid")
         .subsec_nanos();
 
     let new_user = serde_json::json!({
@@ -45,7 +50,10 @@ async fn create_user_and_fetch() {
         create_res.status()
     );
 
-    let created: serde_json::Value = create_res.json().await.unwrap();
+    let created: serde_json::Value = create_res
+        .json()
+        .await
+        .expect("Failed to parse create response");
     let user_id = created["id"].as_str().expect("User should have id");
 
     // Fetch individual user
@@ -54,7 +62,10 @@ async fn create_user_and_fetch() {
         .await;
     assert_eq!(get_res.status(), 200);
 
-    let fetched: serde_json::Value = get_res.json().await.unwrap();
+    let fetched: serde_json::Value = get_res
+        .json()
+        .await
+        .expect("Failed to parse user response");
     assert_eq!(fetched["display_name"], "Integration Test User");
 }
 
@@ -67,7 +78,7 @@ async fn list_roles_returns_array() {
     let res = app.auth_get("/api/roles", &token).await;
     assert_eq!(res.status(), 200);
 
-    let body: serde_json::Value = res.json().await.unwrap();
+    let body: serde_json::Value = res.json().await.expect("Failed to parse JSON response");
     assert!(body.is_array());
 }
 
@@ -80,7 +91,12 @@ async fn list_permissions_returns_array() {
     let res = app.auth_get("/api/permissions", &token).await;
     assert_eq!(res.status(), 200);
 
-    let body: serde_json::Value = res.json().await.unwrap();
+    let body: serde_json::Value = res.json().await.expect("Failed to parse JSON response");
     assert!(body.is_array());
-    assert!(!body.as_array().unwrap().is_empty());
+    assert!(
+        !body
+            .as_array()
+            .expect("permissions should be array")
+            .is_empty()
+    );
 }

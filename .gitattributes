@@ -9,6 +9,7 @@ docker-compose.yml text eol=lf
 *.json text eol=lf
 *.md text eol=lf
 *.sql text eol=lf
+backend/migrations/*.sql text eol=lf
 *.rs text eol=lf
 *.toml text eol=lf
 *.yml text eol=lf

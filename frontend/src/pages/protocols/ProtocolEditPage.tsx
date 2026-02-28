@@ -2,13 +2,11 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { AxiosError } from 'axios'
 import api, {
   ProtocolResponse,
   CreateProtocolRequest,
   UpdateProtocolRequest,
 } from '@/lib/api'
-import type { ApiErrorPayload } from '@/types/error'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -39,6 +37,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
+import { getApiErrorMessage } from '@/lib/validation'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
 import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
@@ -181,7 +180,7 @@ export function ProtocolEditPage() {
       setFormData((prev) => {
         // 使用遞歸合併確保新欄位被保留
         const serverContent = protocol.working_content || {}
-        const mergedWorkingContent = deepMerge(defaultFormData.working_content, serverContent)
+        const mergedWorkingContent = deepMerge(defaultFormData.working_content, serverContent) as ProtocolWorkingContent
 
         // 如果機構名稱或位置為空，使用預設值
         if (mergedWorkingContent.basic) {
@@ -296,10 +295,10 @@ export function ProtocolEditPage() {
       queryClient.invalidateQueries({ queryKey: ['protocols'] })
       navigate(`/protocols/${response.data.id}`)
     },
-    onError: (error: AxiosError<ApiErrorPayload>) => {
+    onError: (error: unknown) => {
       toast({
         title: t('common.error'),
-        description: error?.response?.data?.error?.message || t('aup.messages.createFailed'),
+        description: getApiErrorMessage(error, t('aup.messages.createFailed')),
         variant: 'destructive',
       })
     },
@@ -315,10 +314,10 @@ export function ProtocolEditPage() {
       queryClient.invalidateQueries({ queryKey: ['protocol', id] })
       queryClient.invalidateQueries({ queryKey: ['protocols'] })
     },
-    onError: (error: AxiosError<ApiErrorPayload>) => {
+    onError: (error: unknown) => {
       toast({
         title: t('common.error'),
-        description: error?.response?.data?.error?.message || t('aup.messages.saveFailed'),
+        description: getApiErrorMessage(error, t('aup.messages.saveFailed')),
         variant: 'destructive',
       })
     },
@@ -334,10 +333,10 @@ export function ProtocolEditPage() {
       queryClient.invalidateQueries({ queryKey: ['protocol', id] })
       navigate(`/protocols/${id}`)
     },
-    onError: (error: AxiosError<ApiErrorPayload>) => {
+    onError: (error: unknown) => {
       toast({
         title: t('common.error'),
-        description: error?.response?.data?.error?.message || t('aup.messages.submitFailed'),
+        description: getApiErrorMessage(error, t('aup.messages.submitFailed')),
         variant: 'destructive',
       })
     },
@@ -387,7 +386,7 @@ export function ProtocolEditPage() {
       }
       setIsDirty(false)
       return true
-    } catch (error) {
+    } catch {
       return false
     } finally {
       setIsSaving(false)

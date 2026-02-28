@@ -8,7 +8,6 @@ import { useAuthStore } from '@/stores/auth'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import {
   Table,
@@ -62,6 +61,7 @@ interface UpdateUserData {
 }
 
 export function UsersPage() {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- i18n context required for child components
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { toast } = useToast()
@@ -172,7 +172,7 @@ export function UsersPage() {
       toast({ title: '成功', description: '用戶已創建' })
     },
     onError: (error: unknown) => {
-      let errorMessage = '創建失敗'
+      let errorMessage: string
       let detailMessage = ''
 
       if (axios.isAxiosError(error)) {
@@ -208,7 +208,7 @@ export function UsersPage() {
           detailMessage = typeof rawData === 'object' ? JSON.stringify(rawData) : String(rawData)
         }
       } else {
-        errorMessage = getErrorMessage(error)
+        errorMessage = getErrorMessage(error) || '創建失敗'
       }
 
       toast({

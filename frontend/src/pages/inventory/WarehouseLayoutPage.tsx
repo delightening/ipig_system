@@ -94,7 +94,8 @@ const initialFormData: FormData = {
 }
 
 export function WarehouseLayoutPage() {
-    const { t } = useTranslation()
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- i18n for future use
+  const { t } = useTranslation()
     const queryClient = useQueryClient()
     const { hasPermission } = useAuthStore()
     const { dialogState, confirm } = useConfirmDialog()
@@ -127,6 +128,7 @@ export function WarehouseLayoutPage() {
             const wh001 = warehouses.find(w => w.code === 'WH001')
             setSelectedWarehouseId(wh001 ? wh001.id : warehouses[0].id)
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedWarehouseId init only
     }, [warehouses])
 
     // 取得儲位列表
@@ -597,6 +599,7 @@ export function WarehouseLayoutPage() {
                                         value={formData.color}
                                         onChange={(e) => setFormData({ ...formData, color: e.target.value })}
                                         className="h-10 w-14 rounded border cursor-pointer"
+                                        aria-label="儲位顏色"
                                     />
                                     <span className="text-sm text-muted-foreground">{formData.color}</span>
                                 </div>

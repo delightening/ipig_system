@@ -48,6 +48,7 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import {
     BalanceSummary,
     LeaveRequestWithUser,
@@ -61,14 +62,6 @@ interface PaginatedResponse<T> {
     page: number
     per_page: number
     total_pages: number
-}
-
-interface User {
-    id: string
-    email: string
-    display_name: string
-    is_active: boolean
-    roles?: string[]
 }
 
 // 工作人員簡易資訊（從 /hr/staff API 返回）
@@ -232,10 +225,10 @@ export function HrLeavePage() {
             resetForm()
             toast({ title: '成功', description: '已建立請假申請' })
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: '錯誤',
-                description: error?.response?.data?.error?.message || '建立失敗',
+                description: getApiErrorMessage(error, '建立失敗'),
                 variant: 'destructive',
             })
         },

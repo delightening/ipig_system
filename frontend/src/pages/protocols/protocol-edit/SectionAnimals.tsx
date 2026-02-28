@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import type { ProtocolAnimalItem } from '@/types/protocol'
 import type { SectionProps } from './types'
 
-export function SectionAnimals({ formData, updateWorkingContent, setFormData, t, isIACUCStaff }: SectionProps) {
+export function SectionAnimals({ formData, updateWorkingContent, setFormData: _setFormData, t, isIACUCStaff: _isIACUCStaff }: SectionProps) {
 
   return (
     <Card>

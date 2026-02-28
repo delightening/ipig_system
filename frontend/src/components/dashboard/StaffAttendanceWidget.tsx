@@ -28,7 +28,7 @@ export function StaffAttendanceWidget() {
                 user_name: item.user_name,
                 clock_in: item.clock_in_time,
                 clock_out: item.clock_out_time,
-                status: (item.status.toLowerCase() === 'normal' ? 'normal' : item.status.toLowerCase() === 'late' ? 'late' : 'absent') as any
+                status: (item.status.toLowerCase() === 'normal' ? 'normal' : item.status.toLowerCase() === 'late' ? 'late' : 'absent') as 'normal' | 'late' | 'absent'
             }))
         },
         staleTime: 30_000,

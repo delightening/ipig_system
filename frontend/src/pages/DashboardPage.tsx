@@ -2,7 +2,7 @@ import { useMemo, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { format, parseISO } from 'date-fns'
+import { format } from 'date-fns'
 import { zhTW, enUS } from 'date-fns/locale'
 import api, { LowStockAlert, DocumentListItem } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
@@ -38,7 +38,6 @@ import {
   Loader2,
   Calendar,
   Settings2,
-  Lock,
   Unlock,
   Save,
 } from 'lucide-react'
@@ -63,14 +62,12 @@ import {
   GoogleCalendarEventsWidget,
   WidgetLayoutItem,
   DEFAULT_DASHBOARD_LAYOUT,
-  GRID_COLS,
   GRID_ROW_HEIGHT,
   widgetNames,
   widgetDescriptions,
   widgetPermissions,
   widgetCategories,
   widgetCategoryNames,
-  widgetOptionsConfig,
 } from '@/components/dashboard'
 
 // 即將到期假期內容組件

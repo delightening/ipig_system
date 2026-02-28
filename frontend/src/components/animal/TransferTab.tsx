@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { transferApi, AnimalTransfer, TransferVetEvaluation, AnimalTransferStatus, transferStatusNames, signatureApi } from '@/lib/api'
+import { transferApi, AnimalTransfer, AnimalTransferStatus, transferStatusNames, signatureApi } from '@/lib/api'
 import type { ProtocolListItem } from '@/lib/api'
 import api from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'

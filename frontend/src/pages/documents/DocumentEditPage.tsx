@@ -39,6 +39,7 @@ import {
 } from 'lucide-react'
 import { STALE_TIME } from '@/lib/query'
 import { formatNumber, formatQuantity, formatUnitPrice, formatUom } from '@/lib/utils'
+import { getApiErrorMessage } from '@/lib/validation'
 import { DocumentFormHeader } from './components/DocumentFormHeader'
 
 const docTypeNames: Record<DocType, string> = {
@@ -261,7 +262,7 @@ export function DocumentEditPage() {
 
   // 批號選擇組件（內部組件）
   const BatchNumberSelect = React.memo(function BatchNumberSelect({
-    lineIndex,
+    lineIndex: _lineIndex,
     productId,
     warehouseId,
     batchNo,
@@ -460,10 +461,10 @@ export function DocumentEditPage() {
 
       return newCustomerResponse.data
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '創建客戶失敗',
+        description: getApiErrorMessage(error, '創建客戶失敗'),
         variant: 'destructive',
       })
     },
@@ -526,7 +527,8 @@ export function DocumentEditPage() {
         setTimeout(() => updateLineAmount(lineId), 0)
       })
     }
-  }, [formData.doc_type, formData.lines.length]) // 當類型或行數改變時初始化一次
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- formData.lines causes ref loops
+  }, [formData.doc_type, formData.lines.length])
 
   // Initialize refs when formData.lines changes (for new documents)
   useEffect(() => {
@@ -538,7 +540,8 @@ export function DocumentEditPage() {
         }
       })
     }
-  }, [formData.lines.length, isEdit]) // Only sync when length changes, not on every edit
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- formData.lines causes ref loops
+  }, [formData.lines.length, isEdit])
 
   // 監聽未儲存變更
   useEffect(() => {
@@ -608,7 +611,7 @@ export function DocumentEditPage() {
       }
 
       // 轉換資料格式以符合後端要求
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         doc_type: data.doc_type,
         doc_date: data.doc_date,
         warehouse_id: data.warehouse_id && data.warehouse_id.trim() !== '' ? data.warehouse_id : null,
@@ -640,8 +643,8 @@ export function DocumentEditPage() {
       // 根據單據類型跳轉到對應的列表頁面
       navigate(`/documents?type=${formData.doc_type}`)
     },
-    onError: (error: any) => {
-      const errorMessage = error?.message || error?.response?.data?.error?.message || '儲存失敗'
+    onError: (error: unknown) => {
+      const errorMessage = getApiErrorMessage(error, '儲存失敗')
       toast({
         title: '錯誤',
         description: errorMessage,
@@ -704,7 +707,7 @@ export function DocumentEditPage() {
 
       // 先儲存再送審
       // 轉換資料格式以符合後端要求
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         doc_type: mergedData.doc_type,
         doc_date: mergedData.doc_date,
         warehouse_id: mergedData.warehouse_id && mergedData.warehouse_id.trim() !== '' ? mergedData.warehouse_id : null,
@@ -745,8 +748,8 @@ export function DocumentEditPage() {
         window.location.reload()
       }, 500)
     },
-    onError: (error: any) => {
-      const errorMessage = error?.message || error?.response?.data?.error?.message || '送審失敗'
+    onError: (error: unknown) => {
+      const errorMessage = getApiErrorMessage(error, '送審失敗')
       toast({
         title: '錯誤',
         description: errorMessage,
@@ -831,7 +834,7 @@ export function DocumentEditPage() {
   }, [formData.doc_type])
 
   // 一般欄位 Blur 時，同步單行數據到 State (實現 PO 輸入後暫存)
-  const handleLineBlur = (lineId: string) => {
+  const handleLineBlur = (_lineId: string) => {
     // Don't fully refresh all lines to avoid jitter, just this one? 
     // Actually, updating `lines` array generally requires rewriting it.
     // We use collectAllLineValues() logic but tailored.
@@ -925,8 +928,8 @@ export function DocumentEditPage() {
         title: '成功',
         description: `已選擇客戶：${iacucNo}`,
       })
-    } catch (error) {
-      // 錯誤已在mutation中處理
+    } catch {
+      // 錯誤已在 mutation 中處理
     }
   }
 

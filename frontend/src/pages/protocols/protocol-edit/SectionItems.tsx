@@ -6,11 +6,11 @@ import { Input, Textarea } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { FileUpload, FileInfo } from '@/components/ui/file-upload'
+import { FileUpload } from '@/components/ui/file-upload'
 import { Plus } from 'lucide-react'
 import type { SectionProps } from './types'
 
-export function SectionItems({ formData, updateWorkingContent, setFormData, t, isIACUCStaff }: SectionProps) {
+export function SectionItems({ formData, updateWorkingContent, setFormData: _setFormData, t, isIACUCStaff: _isIACUCStaff }: SectionProps) {
 
   return (
     <Card>

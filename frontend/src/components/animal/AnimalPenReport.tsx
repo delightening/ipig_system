@@ -1,7 +1,7 @@
-﻿import React from 'react'
+import React from 'react'
 import { AnimalListItem } from '@/lib/api'
 
-interface AnimalListItemExtended extends AnimalListItem { }
+type AnimalListItemExtended = AnimalListItem
 
 interface AnimalPenReportProps {
     data: { pen_location: string; animals: AnimalListItemExtended[] }[]
@@ -47,7 +47,7 @@ export const AnimalPenReport: React.FC<AnimalPenReportProps> = ({ data, onClose 
 
                 {/* Header Info */}
                 <div className="flex justify-between items-center text-[10px] mb-2">
-                    <div className="flex items-center gap-1">文件編號 <input value={docId} onChange={e => setDocId(e.target.value)} className="border-none p-0 focus:ring-0 w-32 font-medium print:bg-transparent" /></div>
+                    <div className="flex items-center gap-1">文件編號 <input value={docId} onChange={e => setDocId(e.target.value)} className="border-none p-0 focus:ring-0 w-32 font-medium print:bg-transparent" aria-label="文件編號" /></div>
                     <div className="font-bold text-[12px]">豬博士動物科技股份有限公司</div>
                     <div>頁次/總頁數 1 of 1</div>
                 </div>

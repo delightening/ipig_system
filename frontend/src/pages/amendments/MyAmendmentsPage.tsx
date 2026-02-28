@@ -4,9 +4,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import api, {
     AmendmentListItem,
-    AmendmentStatus,
     amendmentStatusColors,
-    AMENDMENT_CHANGE_ITEM_OPTIONS,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'

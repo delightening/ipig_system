@@ -189,11 +189,11 @@ export const VersionsTab = React.memo(function VersionsTab({ protocolId, protoco
           onOpenChange={setComparisonOpen}
           versionA={{
             version_no: versionA.version_no,
-            content: versionA.content_snapshot as any
+            content: versionA.content_snapshot as unknown as import('@/types/protocol').ProtocolWorkingContent
           }}
           versionB={{
             version_no: versionB.version_no,
-            content: versionB.content_snapshot as any
+            content: versionB.content_snapshot as unknown as import('@/types/protocol').ProtocolWorkingContent
           }}
           protocolTitle={protocolTitle}
         />

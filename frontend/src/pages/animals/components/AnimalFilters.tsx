@@ -35,7 +35,7 @@ export function AnimalFilters({
   onBreedFilterChange,
   search,
   onSearchChange,
-  allowedStatuses,
+  allowedStatuses: _allowedStatuses, // intentionally unused
   adminOnlyStatuses,
   isPIOrClient,
   isAdmin,

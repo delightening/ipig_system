@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,7 @@ import { Check, X, Minus, Save, Loader2 } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { useToast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 
 interface VetReviewItem {
     item_name: string
@@ -57,7 +58,7 @@ const VetReviewForm: React.FC<VetReviewFormProps> = ({ protocolId, initialData, 
     })
 
     const saveMutation = useMutation({
-        mutationFn: (data: any) => api.post('/reviews/vet-form', data),
+        mutationFn: (data: Record<string, unknown>) => api.post('/reviews/vet-form', data),
         onSuccess: () => {
             toast({
                 title: t('common.success'),
@@ -65,11 +66,11 @@ const VetReviewForm: React.FC<VetReviewFormProps> = ({ protocolId, initialData, 
             })
             queryClient.invalidateQueries({ queryKey: ['protocol', protocolId] })
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 variant: 'destructive',
                 title: t('common.error'),
-                description: error.message || t('common.unknown_error')
+                description: getApiErrorMessage(error, t('common.unknown_error'))
             })
         }
     })

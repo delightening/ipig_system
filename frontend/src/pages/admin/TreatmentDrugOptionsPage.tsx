@@ -36,6 +36,7 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import { Plus, Search, Pencil, Trash2, Download, Loader2, Package, Check, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -81,7 +82,7 @@ export function TreatmentDrugOptionsPage() {
             if (keyword) params.keyword = keyword
             if (filterCategory !== 'all') params.category = filterCategory
             if (filterActive !== 'all') params.is_active = filterActive === 'active'
-            const res = await treatmentDrugApi.adminList(params as any)
+            const res = await treatmentDrugApi.adminList(params as Record<string, string | boolean | undefined>)
             return res.data
         },
     })
@@ -96,8 +97,8 @@ export function TreatmentDrugOptionsPage() {
             resetForm()
             toast({ title: '成功', description: '已新增藥物選項' })
         },
-        onError: (err: any) => {
-            toast({ title: '錯誤', description: err?.response?.data?.error?.message || '新增失敗', variant: 'destructive' })
+        onError: (err: unknown) => {
+            toast({ title: '錯誤', description: getApiErrorMessage(err, '新增失敗'), variant: 'destructive' })
         },
     })
 
@@ -112,8 +113,8 @@ export function TreatmentDrugOptionsPage() {
             setEditingDrug(null)
             toast({ title: '成功', description: '已更新藥物選項' })
         },
-        onError: (err: any) => {
-            toast({ title: '錯誤', description: err?.response?.data?.error?.message || '更新失敗', variant: 'destructive' })
+        onError: (err: unknown) => {
+            toast({ title: '錯誤', description: getApiErrorMessage(err, '更新失敗'), variant: 'destructive' })
         },
     })
 
@@ -537,10 +538,10 @@ function ErpImportDialog({
             setSelectedIds([])
             onOpenChange(false)
         },
-        onError: (err: any) => {
+        onError: (err: unknown) => {
             toast({
                 title: '匯入失敗',
-                description: err?.response?.data?.error?.message || '匯入失敗',
+                description: getApiErrorMessage(err, '匯入失敗'),
                 variant: 'destructive',
             })
         },

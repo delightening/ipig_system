@@ -50,6 +50,7 @@ import {
   ClipboardCopy,
 } from 'lucide-react'
 import { formatNumber, cn, UOM_MAP } from '@/lib/utils'
+import { getApiErrorMessage } from '@/lib/validation'
 
 // 品類定義
 const CATEGORIES = [
@@ -221,10 +222,10 @@ export function ProductsPage() {
       setStatusDialogOpen(false)
       setTargetProduct(null)
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '狀態更新失敗',
+        description: getApiErrorMessage(error, '狀態更新失敗'),
         variant: 'destructive',
       })
     },
@@ -241,10 +242,10 @@ export function ProductsPage() {
       setBatchStatusDialogOpen(false)
       setSelectedIds(new Set())
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '批次更新失敗',
+        description: getApiErrorMessage(error, '批次更新失敗'),
         variant: 'destructive',
       })
     },
@@ -370,6 +371,7 @@ export function ProductsPage() {
               <button
                 onClick={() => setSearch('')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="清除搜尋"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -537,6 +539,7 @@ export function ProductsPage() {
                   checked={products.length > 0 && selectedIds.size === products.length}
                   onChange={handleSelectAll}
                   className="h-4 w-4 rounded border-input"
+                  aria-label="全選產品"
                 />
               </TableHead>
               <TableHead
@@ -612,6 +615,7 @@ export function ProductsPage() {
                       checked={selectedIds.has(product.id)}
                       onChange={() => handleSelect(product.id)}
                       className="h-4 w-4 rounded border-input"
+                      aria-label={`選擇產品 ${product.sku}`}
                     />
                   </TableCell>
                   <TableCell>
@@ -627,6 +631,7 @@ export function ProductsPage() {
                         onClick={() => handleCopySku(product.sku)}
                         className="opacity-0 group-hover/sku:opacity-100 transition-opacity"
                         title="複製 SKU"
+                        aria-label="複製 SKU"
                       >
                         <ClipboardCopy className="h-3 w-3 text-muted-foreground hover:text-foreground" />
                       </button>
@@ -681,6 +686,7 @@ export function ProductsPage() {
                     <div className="relative inline-block">
                       <select
                         className="appearance-none bg-transparent border-0 cursor-pointer p-1 rounded hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring text-transparent w-8"
+                        aria-label={`產品 ${product.sku} 操作選單`}
                         onChange={(e) => {
                           const action = e.target.value
                           e.target.value = ''

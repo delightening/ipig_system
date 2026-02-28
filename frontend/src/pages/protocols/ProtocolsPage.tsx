@@ -25,6 +25,7 @@ import {
 import { Plus, Search, Eye, Edit, Loader2, FileText, X, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
@@ -87,8 +88,10 @@ export function ProtocolsPage() {
     const sorted = [...rawProtocols]
 
     sorted.sort((a, b) => {
-      let valA: any = a[sortConfig.field] || ''
-      let valB: any = b[sortConfig.field] || ''
+      let valA: string | number | undefined = (a as unknown as Record<string, unknown>)[sortConfig.field] as string | number | undefined
+      let valB: string | number | undefined = (b as unknown as Record<string, unknown>)[sortConfig.field] as string | number | undefined
+      valA = valA ?? ''
+      valB = valB ?? ''
 
       // Handle status sorting by translated name
       if (sortConfig.field === 'status') {
@@ -102,7 +105,8 @@ export function ProtocolsPage() {
     })
 
     return sorted
-  }, [rawProtocols, sortConfig, t])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawProtocols, sortConfig])
 
   const handleSort = (field: SortField) => {
     setSortConfig(prev => ({
@@ -151,10 +155,10 @@ export function ProtocolsPage() {
       toast({ title: t('common.success'), description: t('protocols.deleted') })
       queryClient.invalidateQueries({ queryKey: ['protocols'] })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: t('common.error'),
-        description: error?.response?.data?.error?.message || t('protocols.deleteFailed'),
+        description: getApiErrorMessage(error, t('protocols.deleteFailed')),
         variant: 'destructive'
       })
     },

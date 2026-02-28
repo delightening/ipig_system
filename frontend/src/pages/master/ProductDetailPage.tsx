@@ -28,6 +28,7 @@ import {
   History,
 } from 'lucide-react'
 import { formatDateTime, formatNumber, UOM_MAP } from '@/lib/utils'
+import { getApiErrorMessage } from '@/lib/validation'
 
 // 品類定義
 const CATEGORIES: Record<string, string> = {
@@ -106,10 +107,10 @@ export function ProductDetailPage() {
       toast({ title: '成功', description: '產品狀態已更新' })
       setStatusDialogOpen(false)
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '狀態更新失敗',
+        description: getApiErrorMessage(error, '狀態更新失敗'),
         variant: 'destructive',
       })
     },
@@ -244,6 +245,7 @@ export function ProductDetailPage() {
           <div className="relative">
             <select
               className="appearance-none bg-background border rounded-md px-3 py-2 pr-8 cursor-pointer hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+              aria-label="更多操作"
               onChange={(e) => {
                 const action = e.target.value
                 e.target.value = ''

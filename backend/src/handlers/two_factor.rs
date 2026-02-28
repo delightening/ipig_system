@@ -151,11 +151,11 @@ pub async fn verify_2fa_login(
     let body = serde_json::to_string(&response)
         .map_err(|e| AppError::Internal(format!("JSON 序列化失敗: {}", e)))?;
 
-    Ok(Response::builder()
+    Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "application/json")
         .header(header::SET_COOKIE, access_cookie)
         .header(header::SET_COOKIE, refresh_cookie)
         .body(body.into())
-        .map_err(|e| AppError::Internal(format!("Response 建構失敗: {}", e)))?)
+        .map_err(|e| AppError::Internal(format!("Response 建構失敗: {}", e)))
 }

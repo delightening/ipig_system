@@ -1,5 +1,4 @@
 import { formatDate } from '@/lib/utils'
-import { useTranslation } from 'react-i18next'
 import { useRef } from 'react'
 import type { Protocol, ReviewCommentResponse, VetReviewAssignment, VetReviewItem } from '@/types/aup'
 
@@ -10,15 +9,9 @@ interface ReviewCommentsReportProps {
 }
 
 export function ReviewCommentsReport({ protocol, comments, vet_review }: ReviewCommentsReportProps) {
-    const { t } = useTranslation()
     const reportRef = useRef<HTMLDivElement>(null)
 
     const basic = protocol?.working_content?.basic
-
-    // 分組審查意見
-    const staffComments = comments.filter(c => !c.parent_comment_id && c.reviewer_id === 'IACUC_STAFF_ID') // 需動態獲取
-    const vetComments = comments.filter(c => !c.parent_comment_id && c.reviewer_id === 'VET_ID')
-    const reviewerComments = comments.filter(c => !c.parent_comment_id && !['IACUC_STAFF_ID', 'VET_ID'].includes(c.reviewer_id))
 
     const getReplies = (commentId: string) => {
         return comments.filter(c => c.parent_comment_id === commentId)

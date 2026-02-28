@@ -58,19 +58,6 @@ interface User {
     is_internal: boolean
 }
 
-interface AnnualLeaveEntitlement {
-    id: string
-    user_id: string
-    entitlement_year: number
-    entitled_days: number
-    used_days: number
-    expires_at: string
-    calculation_basis: string | null
-    notes: string | null
-    is_expired: boolean
-    created_at: string
-}
-
 export function HrAnnualLeavePage() {
     const [activeTab, setActiveTab] = useState('entitlements')
     const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -86,7 +73,7 @@ export function HrAnnualLeavePage() {
     const [formNotes, setFormNotes] = useState('')
 
     // 取得所有內部員工（使用專用的 HR 端點）
-    const { data: usersData, isLoading: loadingUsers } = useQuery({
+    const { data: usersData } = useQuery({
         queryKey: ['internal-users-for-balance'],
         queryFn: async () => {
             // 使用專用的 HR 端點，有 hr.balance.manage 權限即可訪問

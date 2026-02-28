@@ -44,6 +44,7 @@ import {
 } from 'lucide-react'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { getApiErrorMessage } from '@/lib/validation'
 
 // ============================================
 // 型別定義
@@ -188,10 +189,10 @@ export function NotificationRoutingPage() {
             resetCreateForm()
             toast({ title: '成功', description: '通知路由規則已建立' })
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: '錯誤',
-                description: error.response?.data?.error?.message || '建立失敗',
+                description: getApiErrorMessage(error, '建立失敗'),
                 variant: 'destructive',
             })
         },
@@ -208,10 +209,10 @@ export function NotificationRoutingPage() {
             setSelectedRule(null)
             toast({ title: '成功', description: '通知路由規則已更新' })
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: '錯誤',
-                description: error.response?.data?.error?.message || '更新失敗',
+                description: getApiErrorMessage(error, '更新失敗'),
                 variant: 'destructive',
             })
         },
@@ -225,10 +226,10 @@ export function NotificationRoutingPage() {
             queryClient.invalidateQueries({ queryKey: ['notification-routing'] })
             toast({ title: '成功', description: '通知路由規則已刪除' })
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: '錯誤',
-                description: error.response?.data?.error?.message || '刪除失敗',
+                description: getApiErrorMessage(error, '刪除失敗'),
                 variant: 'destructive',
             })
         },
@@ -243,10 +244,10 @@ export function NotificationRoutingPage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['notification-routing'] })
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: '錯誤',
-                description: error.response?.data?.error?.message || '切換失敗',
+                description: getApiErrorMessage(error, '切換失敗'),
                 variant: 'destructive',
             })
         },

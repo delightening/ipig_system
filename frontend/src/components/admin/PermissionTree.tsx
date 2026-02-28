@@ -8,8 +8,10 @@ import { ChevronsDownUp, ChevronsUpDown } from 'lucide-react'
 interface PermissionTreeProps {
   permissions: Permission[] | undefined
   selectedPermissionIds: string[]
-  onTogglePermission: (permId: string) => void
+  onTogglePermission?: (permId: string) => void
   showSearch?: boolean
+  /** 唯讀模式：不顯示勾選與批量操作，僅展示權限結構 */
+  readOnly?: boolean
 }
 
 export function PermissionTree({
@@ -17,6 +19,7 @@ export function PermissionTree({
   selectedPermissionIds,
   onTogglePermission,
   showSearch = true,
+  readOnly = false,
 }: PermissionTreeProps) {
   const {
     groupedPermissions,
@@ -55,32 +58,34 @@ export function PermissionTree({
         />
       )}
 
-      {/* 批量操作按鈕 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={expandAllModules}
-            className="h-8 text-xs"
-          >
-            <ChevronsDownUp className="h-3 w-3 mr-1" />
-            展開全部
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={collapseAllModules}
-            className="h-8 text-xs"
-          >
-            <ChevronsUpDown className="h-3 w-3 mr-1" />
-            摺疊全部
-          </Button>
+      {/* 批量操作按鈕（唯讀模式不顯示） */}
+      {!readOnly && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={expandAllModules}
+              className="h-8 text-xs"
+            >
+              <ChevronsDownUp className="h-3 w-3 mr-1" />
+              展開全部
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={collapseAllModules}
+              className="h-8 text-xs"
+            >
+              <ChevronsUpDown className="h-3 w-3 mr-1" />
+              摺疊全部
+            </Button>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            共 {stats.total} 個權限，已選 {selectedPermissionIds.length} 個
+          </div>
         </div>
-        <div className="text-sm text-muted-foreground">
-          共 {stats.total} 個權限，已選 {selectedPermissionIds.length} 個
-        </div>
-      </div>
+      )}
 
       {/* 權限樹 */}
       <div className="space-y-2">
@@ -96,7 +101,7 @@ export function PermissionTree({
               moduleName={group.moduleName}
               categories={group.categories}
               selectedPermissionIds={selectedPermissionIds}
-              onTogglePermission={onTogglePermission}
+              onTogglePermission={readOnly ? undefined : onTogglePermission}
               onToggleCategory={(category) => toggleCategory(group.module, category)}
               onToggleSubCategory={(category, subCategory) => toggleSubCategory(group.module, category, subCategory)}
               isExpanded={isModuleExpanded(group.module)}

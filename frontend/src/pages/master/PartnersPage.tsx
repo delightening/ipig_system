@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import { Plus, Search, Edit, Trash2, Loader2, Users } from 'lucide-react'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -93,10 +94,10 @@ export function PartnersPage() {
       if (category) url += `&category=${category}`
       const response = await api.get<{ code: string }>(url)
       setFormData(prev => ({ ...prev, code: response.data.code }))
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: '生成代碼失敗',
-        description: error?.response?.data?.error?.message || error.message || '請重新整理頁面或聯繫管理員',
+        description: getApiErrorMessage(error, '請重新整理頁面或聯繫管理員'),
         variant: 'destructive',
       })
     } finally {
@@ -136,10 +137,10 @@ export function PartnersPage() {
       setDialogOpen(false)
       resetForm()
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '建立失敗',
+        description: getApiErrorMessage(error, '建立失敗'),
         variant: 'destructive',
       })
     },
@@ -154,10 +155,10 @@ export function PartnersPage() {
       setDialogOpen(false)
       resetForm()
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '更新失敗',
+        description: getApiErrorMessage(error, '更新失敗'),
         variant: 'destructive',
       })
     },
@@ -169,10 +170,10 @@ export function PartnersPage() {
       queryClient.invalidateQueries({ queryKey: ['partners'] })
       toast({ title: '成功', description: '夥伴已刪除' })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '刪除失敗',
+        description: getApiErrorMessage(error, '刪除失敗'),
         variant: 'destructive',
       })
     },
@@ -180,11 +181,13 @@ export function PartnersPage() {
 
 
 
+  const validSupplierCategories = ['', 'drug', 'consumable', 'feed', 'equipment'] as const
   const handleEdit = (partner: Partner) => {
     setEditingPartner(partner)
+    const rawSupplierCat = (partner as Partner & { supplier_category?: string }).supplier_category || ''
     setFormData({
       partner_type: partner.partner_type,
-      supplier_category: (partner as any).supplier_category || '',
+      supplier_category: validSupplierCategories.includes(rawSupplierCat as typeof validSupplierCategories[number]) ? rawSupplierCat as typeof validSupplierCategories[number] : '',
       customer_category: partner.customer_category || '',
       code: partner.code,
       name: partner.name,

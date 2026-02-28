@@ -2,7 +2,6 @@ import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
     AmendmentListItem,
-    AmendmentStatus,
     amendmentStatusNames,
     amendmentStatusColors,
     amendmentTypeNames,
@@ -32,6 +31,7 @@ import { Input, Textarea } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import { Loader2, Plus, FileEdit, Send, Eye } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils'
 import { Link } from 'react-router-dom'
@@ -73,10 +73,10 @@ export function AmendmentsTab({ protocolId, protocolStatus }: AmendmentsTabProps
             queryClient.invalidateQueries({ queryKey: ['protocol-amendments', protocolId] })
             resetForm()
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: t('common.error'),
-                description: error?.response?.data?.error?.message || t('protocols.amendments.createFailed'),
+                description: getApiErrorMessage(error, t('protocols.amendments.createFailed')),
                 variant: 'destructive',
             })
         },
@@ -91,10 +91,10 @@ export function AmendmentsTab({ protocolId, protocolStatus }: AmendmentsTabProps
             toast({ title: t('common.success'), description: t('protocols.amendments.submitSuccess') })
             queryClient.invalidateQueries({ queryKey: ['protocol-amendments', protocolId] })
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: t('common.error'),
-                description: error?.response?.data?.error?.message || t('protocols.amendments.submitFailed'),
+                description: getApiErrorMessage(error, t('protocols.amendments.submitFailed')),
                 variant: 'destructive',
             })
         },

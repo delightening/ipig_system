@@ -147,11 +147,11 @@ pub async fn login(
             requires_2fa: true,
             temp_token,
         }).map_err(|e| AppError::Internal(format!("JSON 序列化失敗: {}", e)))?;
-        return Ok(Response::builder()
+        return Response::builder()
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, "application/json")
             .body(body.into())
-            .map_err(|e| AppError::Internal(format!("Response 建構失敗: {}", e)))?);
+            .map_err(|e| AppError::Internal(format!("Response 建構失敗: {}", e)));
     }
 
     // Phase 3: 正常登入（無 2FA）
@@ -234,7 +234,7 @@ pub async fn login(
     };
 
     // 回傳 JSON + Set-Cookie headers
-    Ok(login_response_with_cookies(&response, &state.config)?)
+    login_response_with_cookies(&response, &state.config)
 }
 
 /// 重新整理 Token
@@ -262,7 +262,7 @@ pub async fn refresh_token(
 
     let response =
         AuthService::refresh_token(&state.db, &state.config, &refresh_token_value).await?;
-    Ok(login_response_with_cookies(&response, &state.config)?)
+    login_response_with_cookies(&response, &state.config)
 }
 
 /// 登出
@@ -433,7 +433,7 @@ pub async fn change_own_password(
     });
 
     // 回傳新 tokens 的 Set-Cookie headers，保持用戶登入狀態
-    Ok(login_response_with_cookies(&response, &state.config)?)
+    login_response_with_cookies(&response, &state.config)
 }
 
 /// 忘記密碼 - 發送重設連結
@@ -618,5 +618,5 @@ pub async fn stop_impersonate(
     );
 
     // 回傳管理員的 token + Set-Cookie headers
-    Ok(login_response_with_cookies(&login_response, &state.config)?)
+    login_response_with_cookies(&login_response, &state.config)
 }
