@@ -30,7 +30,7 @@ validator = { version = "0.19", features = ["derive"] }
 
 # OpenAPI
 utoipa = { version = "4", features = ["axum_extras", "uuid", "chrono"] }
-utoipa-swagger-ui = { version = "6", features = ["axum"] }
+utoipa-swagger-ui = { version = "9", features = ["axum"] }
 
 # Utilities
 uuid = { version = "1", features = ["v4", "serde"] }
