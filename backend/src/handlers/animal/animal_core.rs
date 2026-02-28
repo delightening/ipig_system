@@ -128,14 +128,14 @@ pub async fn create_animal(
             .iter()
             .flat_map(|(field, errors)| {
                 errors.iter().map(move |e| {
-                    let field_name = match *field {
+                    let field_name: &str = match field.as_ref() {
                         "ear_tag" => "耳標",
                         "breed" => "品種",
                         "gender" => "性別",
                         "entry_date" => "入場日期",
                         "birth_date" => "出生日期",
                         "entry_weight" => "入場體重",
-                        _ => field,
+                        _ => field.as_ref(),
                     };
                     format!("{}: {}", field_name, e.message.as_ref().unwrap_or(&e.code))
                 })
