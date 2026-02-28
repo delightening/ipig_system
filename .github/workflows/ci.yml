@@ -24,7 +24,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: 快取 Cargo bin
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cargo/bin/
           key: ${{ runner.os }}-cargo-audit-bin
@@ -113,7 +113,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: 快取 Cargo 依賴
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/bin/
@@ -163,7 +163,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: 快取 Cargo 依賴
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/bin/
@@ -202,7 +202,7 @@ jobs:
           components: clippy
 
       - name: 快取 Cargo 依賴
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/bin/
