@@ -1,7 +1,7 @@
 // 疼痛評估紀錄 Tab — 照護給藥觀察
 // 包含：新增表單、紀錄列表、趨勢折線圖
 
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -34,16 +34,8 @@ import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 import { Plus, Trash2, Edit2, Loader2, TrendingUp } from 'lucide-react'
-import {
-    LineChart,
-    Line,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    Legend,
-    ResponsiveContainer,
-} from 'recharts'
+
+const PainAssessmentChart = lazy(() => import('./PainAssessmentChart'))
 
 // 疼痛評估選項
 const spiritOptions = ['良好', '尚可', '不佳', '嗜睡', '興奮'] as const
@@ -281,23 +273,9 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
                         <CardTitle className="text-base">疼痛評估趨勢</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <ResponsiveContainer width="100%" height={240}>
-                            <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="name" fontSize={12} />
-                                <YAxis domain={[0, 4]} ticks={[0, 1, 2, 3, 4]} fontSize={12} />
-                                <Tooltip />
-                                <Legend />
-                                <Line type="monotone" dataKey="精神" stroke="#f59e0b" strokeWidth={2} connectNulls />
-                                <Line type="monotone" dataKey="食慾" stroke="#10b981" strokeWidth={2} connectNulls />
-                                <Line type="monotone" dataKey="站立" stroke="#6366f1" strokeWidth={2} connectNulls />
-                                <Line type="monotone" dataKey="行走" stroke="#8b5cf6" strokeWidth={2} connectNulls />
-                                <Line type="monotone" dataKey="行為" stroke="#ef4444" strokeWidth={2} connectNulls />
-                            </LineChart>
-                        </ResponsiveContainer>
-                        <p className="text-xs text-muted-foreground mt-2 text-center">
-                            0 = 極差、1 = 差、2 = 困難、3 = 尚可、4 = 良好/正常
-                        </p>
+                        <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
+                            <PainAssessmentChart data={chartData} />
+                        </Suspense>
                     </CardContent>
                 </Card>
             )}

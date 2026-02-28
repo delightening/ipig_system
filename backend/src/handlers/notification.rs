@@ -19,6 +19,30 @@ use crate::{
     AppState,
 };
 
+/// IDOR 防護：檢查排程報表擁有權（建立者或管理員可存取）
+async fn check_scheduled_report_access(
+    db: &sqlx::PgPool,
+    report_id: Uuid,
+    current_user: &CurrentUser,
+) -> Result<(), AppError> {
+    if current_user.is_admin() {
+        return Ok(());
+    }
+    let owner: Option<(Uuid,)> = sqlx::query_as(
+        "SELECT created_by FROM scheduled_reports WHERE id = $1"
+    )
+    .bind(report_id)
+    .fetch_optional(db)
+    .await
+    .map_err(|e| AppError::Internal(format!("DB error: {}", e)))?;
+
+    match owner {
+        Some((created_by,)) if created_by == current_user.id => Ok(()),
+        Some(_) => Err(AppError::Forbidden("無權存取此排程報表".into())),
+        None => Err(AppError::NotFound("找不到排程報表".into())),
+    }
+}
+
 /// 列出所有通知
 pub async fn list_notifications(
     State(state): State<AppState>,
@@ -145,9 +169,10 @@ pub async fn list_scheduled_reports(
 /// 取得單個排程報表
 pub async fn get_scheduled_report(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<ScheduledReport>, AppError> {
+    check_scheduled_report_access(&state.db, id, &current_user).await?;
     let service = NotificationService::new(state.db.clone());
     let report = service.get_scheduled_report(id).await?;
     Ok(Json(report))
@@ -169,10 +194,11 @@ pub async fn create_scheduled_report(
 /// 更新排程報表
 pub async fn update_scheduled_report(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
     Json(request): Json<UpdateScheduledReportRequest>,
 ) -> Result<Json<ScheduledReport>, AppError> {
+    check_scheduled_report_access(&state.db, id, &current_user).await?;
     let service = NotificationService::new(state.db.clone());
     let report = service.update_scheduled_report(id, request).await?;
     Ok(Json(report))
@@ -181,9 +207,10 @@ pub async fn update_scheduled_report(
 /// 刪除排程報表
 pub async fn delete_scheduled_report(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, AppError> {
+    check_scheduled_report_access(&state.db, id, &current_user).await?;
     let service = NotificationService::new(state.db.clone());
     service.delete_scheduled_report(id).await?;
     Ok(StatusCode::NO_CONTENT)

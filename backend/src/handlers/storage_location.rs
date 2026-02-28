@@ -13,7 +13,7 @@ use crate::{
     },
     require_permission,
     services::StorageLocationService,
-    AppError, AppState, Result,
+    AppState, Result,
 };
 
 /// 建立儲位

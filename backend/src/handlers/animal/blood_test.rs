@@ -18,7 +18,7 @@ use crate::{
     },
     require_permission,
     services::{AnimalService, AuditService},
-    AppError, AppState, Result,
+    AppState, Result,
 };
 
 // ============================================

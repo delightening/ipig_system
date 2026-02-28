@@ -12,7 +12,7 @@ use crate::{
     models::{CreateRoleRequest, Permission, PermissionQuery, RoleWithPermissions, UpdateRoleRequest},
     require_permission,
     services::{AuditService, RoleService},
-    AppError, AppState, Result,
+    AppState, Result,
 };
 
 /// 建立角色
