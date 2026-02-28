@@ -106,6 +106,7 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
             <div className="text-center py-12 text-slate-500">
               <Scissors className="h-12 w-12 mx-auto mb-4 text-slate-300" />
               <p>尚無手術紀錄</p>
+              <p className="text-sm mt-1">點擊上方按鈕新增</p>
             </div>
           ) : (
             <Table>

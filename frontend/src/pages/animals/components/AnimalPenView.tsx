@@ -113,7 +113,13 @@ export function AnimalPenView({
     return penAnimals.map((animal, animalIdx) => (
       <div key={animal.id} className={`grid grid-cols-5 gap-1 px-3 py-2 items-center text-sm ${animalIdx > 0 ? 'border-t border-dashed border-slate-200' : ''}`}>
         <div className={`font-semibold ${cellColors.text}`}>{animalIdx === 0 ? penLocation : ''}</div>
-        <div className={`font-medium ${cellColors.text} truncate`} title={animal.ear_tag}>{animal.ear_tag}</div>
+        <Link
+          to={`/animals/${animal.id}`}
+          className={`font-medium ${cellColors.text} truncate text-orange-600 hover:text-orange-700 hover:underline cursor-pointer`}
+          title={`點擊進入動物詳情 · ${animal.ear_tag}`}
+        >
+          {animal.ear_tag}
+        </Link>
         <div className="text-xs text-slate-500 truncate" title={animal.vet_last_viewed_at ? new Date(animal.vet_last_viewed_at).toLocaleString('zh-TW') : '-'}>
           {animal.vet_last_viewed_at ? new Date(animal.vet_last_viewed_at).toLocaleDateString('zh-TW') : '-'}
         </div>

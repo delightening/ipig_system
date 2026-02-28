@@ -533,21 +533,23 @@ export function AnimalDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Tabs */}
-      <div className="border-b">
-        <div className="flex flex-wrap gap-1">
+      {/* Tabs — 統一為體重紀錄格式：圖示 + 文字，無按鈕邊框 */}
+      <div className="border-b border-slate-200">
+        <div className="flex flex-wrap gap-x-6 gap-y-1">
           {tabs.map((tab) => {
             const Icon = tab.icon
+            const isActive = activeTab === tab.id
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
-                  ? 'border-orange-500 text-orange-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-                  }`}
+                className={`flex items-center gap-2 px-2 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                  isActive
+                    ? 'border-orange-500 text-orange-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4 shrink-0" />
                 {tab.label}
               </button>
             )

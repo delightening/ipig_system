@@ -139,8 +139,8 @@ export function AnimalListTable({
                     <TableCell>
                       <Link
                         to={`/animals/${animal.id}`}
-                        className="text-orange-600 hover:text-orange-700 font-medium"
-                        title={`系統號: ${animal.id}`}
+                        className="text-orange-600 hover:text-orange-700 hover:underline font-medium cursor-pointer block"
+                        title={`點擊進入動物詳情 · 系統號: ${animal.id}`}
                       >
                         {animal.ear_tag}
                       </Link>

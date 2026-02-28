@@ -1,11 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { Loader2 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
-import FullCalendar from '@fullcalendar/react'
-import dayGridPlugin from '@fullcalendar/daygrid'
-import timeGridPlugin from '@fullcalendar/timegrid'
-import interactionPlugin from '@fullcalendar/interaction'
 import {
     AlertTriangle,
     Calendar,
@@ -43,7 +40,13 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
+import { ErrorBoundary } from '@/components/ui/error-boundary'
 import type { CalendarSyncHistory, CalendarSyncStatus, ConflictWithDetails, CalendarEvent } from '@/types/hr'
+
+// 僅在日曆已連接時動態載入 FullCalendar，避免未設定時觸發 cssRules 等錯誤
+const CalendarView = lazy(() =>
+    import('./CalendarView').then((mod) => ({ default: mod.CalendarView })),
+)
 
 interface PaginatedResponse<T> {
     data: T[]
@@ -365,7 +368,12 @@ export function CalendarSyncSettingsPage() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            {!syncStatus?.is_configured ? (
+                            {loadingStatus ? (
+                                <div className="flex flex-col items-center justify-center py-12 gap-4">
+                                    <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+                                    <div className="text-sm text-muted-foreground">載入中...</div>
+                                </div>
+                            ) : !syncStatus?.is_configured ? (
                                 <div className="text-center py-8 space-y-4">
                                     <Calendar className="h-16 w-16 mx-auto text-muted-foreground" />
                                     <div>
@@ -382,36 +390,41 @@ export function CalendarSyncSettingsPage() {
                                     </div>
                                 </div>
                             ) : loadingEvents ? (
-                                <div className="text-center py-8">載入中...</div>
-                            ) : (
-                                <div className="calendar-wrapper">
-                                    <FullCalendar
-                                        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                                        initialView="dayGridMonth"
-                                        headerToolbar={{
-                                            left: 'prev,next today',
-                                            center: 'title',
-                                            right: 'dayGridMonth,timeGridWeek,timeGridDay',
-                                        }}
-                                        locale="zh-tw"
-                                        buttonText={{
-                                            today: '今天',
-                                            month: '月',
-                                            week: '週',
-                                            day: '日',
-                                        }}
-                                        events={fullCalendarEvents}
-                                        datesSet={handleDatesSet}
-                                        eventClick={(info) => {
-                                            const htmlLink = info.event.extendedProps.htmlLink
-                                            if (htmlLink) {
-                                                window.open(htmlLink, '_blank')
-                                            }
-                                        }}
-                                        height="auto"
-                                        dayMaxEvents={3}
-                                    />
+                                <div className="flex flex-col items-center justify-center py-12 gap-4">
+                                    <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+                                    <div className="text-sm text-muted-foreground">載入事件中...</div>
                                 </div>
+                            ) : (
+                                <ErrorBoundary
+                                    fallback={
+                                        <div className="flex flex-col items-center justify-center py-12 gap-4">
+                                            <AlertTriangle className="h-12 w-12 text-destructive" />
+                                            <div className="text-center space-y-2">
+                                                <div className="font-medium">日曆載入失敗</div>
+                                                <div className="text-sm text-muted-foreground max-w-md">
+                                                    可能是瀏覽器環境限制，請重新整理頁面或聯繫系統管理員
+                                                </div>
+                                            </div>
+                                            <Button variant="outline" onClick={() => window.location.reload()}>
+                                                重新整理
+                                            </Button>
+                                        </div>
+                                    }
+                                >
+                                    <Suspense
+                                        fallback={
+                                            <div className="flex flex-col items-center justify-center py-12 gap-4">
+                                                <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+                                                <div className="text-sm text-muted-foreground">載入日曆中...</div>
+                                            </div>
+                                        }
+                                    >
+                                        <CalendarView
+                                            events={fullCalendarEvents}
+                                            onDatesSet={handleDatesSet}
+                                        />
+                                    </Suspense>
+                                </ErrorBoundary>
                             )}
                         </CardContent>
                     </Card>
