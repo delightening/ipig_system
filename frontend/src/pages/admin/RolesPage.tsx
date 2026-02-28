@@ -15,13 +15,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { useToast } from '@/components/ui/use-toast'
 import { ConfirmPasswordModal } from '@/components/auth/ConfirmPasswordModal'
 import { Loader2, Shield, Plus, Pencil, Trash2, Eye } from 'lucide-react'
@@ -44,7 +37,6 @@ export function RolesPage() {
   const [showReauthForDeleteRole, setShowReauthForDeleteRole] = useState(false)
   const [roleToDelete, setRoleToDelete] = useState<Role | null>(null)
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
-  const [columnCount, setColumnCount] = useState<2 | 3 | 4>(3)
   const [formData, setFormData] = useState<CreateRoleData>({
     code: '',
     name: '',
@@ -179,22 +171,6 @@ export function RolesPage() {
           <p className="text-muted-foreground">管理系統角色與權限設定</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">欄位數</span>
-            <Select
-              value={String(columnCount)}
-              onValueChange={(v) => setColumnCount(Number(v) as 2 | 3 | 4)}
-            >
-              <SelectTrigger className="w-[72px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="2">2</SelectItem>
-                <SelectItem value="3">3</SelectItem>
-                <SelectItem value="4">4</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
           <Button onClick={() => setShowCreateDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
             新增角色
@@ -202,12 +178,8 @@ export function RolesPage() {
         </div>
       </div>
 
-      {/* 角色列表（< 1280px 固定 1 欄，>= 1280px 依使用者選擇 2/3/4 欄） */}
-      <div
-        className={`grid gap-4 grid-cols-1 xl:${
-          columnCount === 2 ? 'grid-cols-2' : columnCount === 3 ? 'grid-cols-3' : 'grid-cols-4'
-        }`}
-      >
+      {/* 角色列表：<640px 1 欄、<1280px 2 欄、<1920px 3 欄、≥1920px 4 欄 */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 min-[1920px]:grid-cols-4">
         {roles?.map((role) => (
           <Card key={role.id}>
             <CardHeader className="pb-3">

@@ -150,9 +150,11 @@ impl NotificationService {
     }
 
     /// 取得所有可用的事件類型（含分類與中文名稱）
+    /// 分組：AUP | Animal | ERP | HR
     pub fn list_available_event_types() -> Vec<EventTypeCategory> {
         vec![
             EventTypeCategory {
+                group: "AUP".to_string(),
                 category: "AUP 計畫審查".to_string(),
                 event_types: vec![
                     EventTypeInfo { code: "protocol_submitted".to_string(), name: "計畫提交".to_string() },
@@ -167,6 +169,7 @@ impl NotificationService {
                 ],
             },
             EventTypeCategory {
+                group: "AUP".to_string(),
                 category: "修正案".to_string(),
                 event_types: vec![
                     EventTypeInfo { code: "amendment_submitted".to_string(), name: "修正案提交".to_string() },
@@ -176,6 +179,7 @@ impl NotificationService {
                 ],
             },
             EventTypeCategory {
+                group: "Animal".to_string(),
                 category: "動物健康".to_string(),
                 event_types: vec![
                     EventTypeInfo { code: "emergency_medication".to_string(), name: "緊急給藥".to_string() },
@@ -186,6 +190,7 @@ impl NotificationService {
                 ],
             },
             EventTypeCategory {
+                group: "ERP".to_string(),
                 category: "ERP 進銷存".to_string(),
                 event_types: vec![
                     EventTypeInfo { code: "document_submitted".to_string(), name: "採購單提交".to_string() },
@@ -194,6 +199,7 @@ impl NotificationService {
                 ],
             },
             EventTypeCategory {
+                group: "HR".to_string(),
                 category: "HR 人事".to_string(),
                 event_types: vec![
                     EventTypeInfo { code: "leave_submitted".to_string(), name: "請假申請".to_string() },
