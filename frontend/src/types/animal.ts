@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 實驗動物管理型別
  */
 
@@ -404,6 +404,12 @@ export interface UpdateAnimalRequest {
     experiment_date?: string
     remark?: string
 }
+
+/** P2-R4-13: Timeline 可編輯的紀錄類型 */
+export type AnimalTimelineRecord = AnimalObservation | AnimalSurgery
+
+/** UpdateAnimalRequest 欄位值（依 key 而異） */
+export type UpdateAnimalRequestValue = UpdateAnimalRequest[keyof UpdateAnimalRequest]
 
 export interface BatchAssignAnimalsRequest {
     animal_ids: number[]

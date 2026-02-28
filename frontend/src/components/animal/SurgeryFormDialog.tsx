@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { AnimalSurgery } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -23,6 +23,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import { Loader2, ChevronDown, ChevronUp, FastForward } from 'lucide-react'
 import { DrugCombobox } from '@/components/animal/DrugCombobox'
 
@@ -227,9 +228,9 @@ export function SurgeryFormDialog({ open, onOpenChange, animalId, earTag, surger
           others: maintenance.others || [],
         },
         anesthesia_observation: surgery.anesthesia_observation || '',
-        vital_signs: (surgery.vital_signs || []).map((vs: any) => ({
+        vital_signs: (surgery.vital_signs || []).map((vs: { time?: string; breathing_method?: string; heart_rate?: number; respiration_rate?: number; temperature?: number; spo2?: number }) => ({
           time: vs.time || '',
-          breathing_method: vs.breathing_method || '',
+          breathing_method: (vs as { breathing_method?: string }).breathing_method || '',
           heart_rate: String(vs.heart_rate || ''),
           respiration_rate: String(vs.respiration_rate || ''),
           temperature: String(vs.temperature || ''),
@@ -309,10 +310,10 @@ export function SurgeryFormDialog({ open, onOpenChange, animalId, earTag, surger
       toast({ title: '成功', description: isEdit ? '手術紀錄已更新' : '手術紀錄已新增' })
       onOpenChange(false)
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '儲存失敗',
+        description: getApiErrorMessage(error, '儲存失敗'),
         variant: 'destructive',
       })
     },

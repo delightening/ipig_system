@@ -71,6 +71,7 @@
 
 **P2 品質與維運（9 項）：**
 - P2-R4-12 Protocol `any` 消除：ProtocolPerson、ProtocolAnimalItem、ProtocolSurgeryDrugItem 型別
+- P2-R4-13 Animal `any` 消除：25 處 onError→unknown、handleChange、payload、AnimalTimelineView、AnimalListTable 等
 - P2-R4-14 後端配置提取：constants.rs 集中管理 rate limit、file size、auth expiry、時區
 - P2-R4-15 Error Boundary：DashboardPage、ProtocolEditPage、AnimalDetailPage 頁面級
 - P2-R4-16 錯誤處理統一：後端 `req.validate()?`、前端 AnimalsPage `error: unknown`

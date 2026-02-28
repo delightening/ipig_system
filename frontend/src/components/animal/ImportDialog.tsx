@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import {
   Loader2,
   Upload,
@@ -100,10 +101,10 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
         })
       }
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '匯入失敗',
-        description: error?.response?.data?.error?.message || '發生未知錯誤',
+        description: getApiErrorMessage(error, '發生未知錯誤'),
         variant: 'destructive',
       })
     },
@@ -185,10 +186,10 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
         title: '下載成功',
         description: '範本檔案已開始下載',
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: '下載失敗',
-        description: error?.response?.data?.error?.message || '無法下載範本檔案',
+        description: getApiErrorMessage(error, '無法下載範本檔案'),
         variant: 'destructive',
       })
     }
@@ -236,8 +237,8 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
 
           {/* File Upload */}
           {!result && (
-            <div className="space-y-2">
-              <Label>選擇檔案</Label>
+            <label className="block space-y-2">
+              <span className="block text-sm font-medium leading-none">選擇檔案</span>
               <input
                 type="file"
                 accept=".xlsx,.xls,.csv"
@@ -258,7 +259,7 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
                   </p>
                 </div>
               )}
-            </div>
+            </label>
           )}
 
           {/* Import Result */}

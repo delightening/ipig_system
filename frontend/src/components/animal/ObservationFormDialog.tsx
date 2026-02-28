@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import { Loader2, FastForward } from 'lucide-react'
 import { DrugCombobox } from '@/components/animal/DrugCombobox'
 
@@ -228,10 +229,10 @@ export function ObservationFormDialog({ open, onOpenChange, animalId, earTag, ob
       toast({ title: '成功', description: isEdit ? '觀察紀錄已更新' : '觀察紀錄已新增' })
       onOpenChange(false)
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '儲存失敗',
+        description: getApiErrorMessage(error, '儲存失敗'),
         variant: 'destructive',
       })
     },

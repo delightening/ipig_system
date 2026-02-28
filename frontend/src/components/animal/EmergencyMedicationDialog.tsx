@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import { Loader2, AlertTriangle } from 'lucide-react'
 import { DrugCombobox } from '@/components/animal/DrugCombobox'
 
@@ -91,10 +92,10 @@ export function EmergencyMedicationDialog({ open, onOpenChange, animalId, earTag
             })
             onOpenChange(false)
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: '錯誤',
-                description: error?.response?.data?.error?.message || '儲存失敗',
+                description: getApiErrorMessage(error, '儲存失敗'),
                 variant: 'destructive',
             })
         },

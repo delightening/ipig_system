@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import {
   Loader2,
   MessageCircle,
@@ -104,10 +105,10 @@ export function VetRecommendationDialog({ open, onOpenChange, recordType, record
       setAttachments([])
       setIsUrgent(false)
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '新增失敗',
+        description: getApiErrorMessage(error, '新增失敗'),
         variant: 'destructive',
       })
     },

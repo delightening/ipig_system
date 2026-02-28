@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import { Loader2, Download, FileSpreadsheet, FileText } from 'lucide-react'
 
 // 匯出類型
@@ -113,10 +114,10 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
       toast({ title: '成功', description: '檔案匯出成功' })
       onOpenChange(false)
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '匯出失敗',
+        description: getApiErrorMessage(error, '匯出失敗'),
         variant: 'destructive',
       })
     },

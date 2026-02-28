@@ -15,6 +15,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import { Loader2, Gavel, CheckCircle2, XCircle, Clock, FileText } from 'lucide-react'
 
 interface EuthanasiaAppeal {
@@ -84,10 +85,10 @@ export function EuthanasiaChairArbitrationPanel() {
             setDecisionReason('')
             setSelectedAppeal(null)
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: '錯誤',
-                description: error?.response?.data?.error?.message || '操作失敗',
+                description: getApiErrorMessage(error, '操作失敗'),
                 variant: 'destructive',
             })
         },

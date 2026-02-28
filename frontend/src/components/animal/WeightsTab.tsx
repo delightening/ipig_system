@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import { Plus, Edit2, Trash2, Scale, Loader2 } from 'lucide-react'
 import { DeleteReasonDialog } from '@/components/ui/delete-reason-dialog'
 
@@ -58,10 +59,10 @@ export const WeightsTab = React.memo(function WeightsTab({
       setShowAddDialog(false)
       setNewWeight({ measure_date: new Date().toISOString().split('T')[0], weight: '' })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '新增失敗',
+        description: getApiErrorMessage(error, '新增失敗'),
         variant: 'destructive',
       })
     },
@@ -76,10 +77,10 @@ export const WeightsTab = React.memo(function WeightsTab({
       toast({ title: '成功', description: '體重紀錄已刪除' })
       setDeleteTarget(null)
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '刪除失敗',
+        description: getApiErrorMessage(error, '刪除失敗'),
         variant: 'destructive',
       })
     },

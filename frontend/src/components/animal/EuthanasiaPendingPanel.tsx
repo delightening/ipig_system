@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { signatureApi } from '@/lib/api'
@@ -16,6 +16,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import { Loader2, AlertOctagon, CheckCircle2, Hand, Clock, PenLine } from 'lucide-react'
 import { HandwrittenSignaturePad, type SignatureData } from '@/components/ui/handwritten-signature-pad'
 import { useTranslation } from 'react-i18next'
@@ -92,10 +93,10 @@ export function EuthanasiaPendingPanel() {
             setSigningOrderId(null)
             setSignatureData(null)
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: '錯誤',
-                description: error?.response?.data?.error?.message || '操作失敗',
+                description: getApiErrorMessage(error, '操作失敗'),
                 variant: 'destructive',
             })
         },
@@ -115,10 +116,10 @@ export function EuthanasiaPendingPanel() {
             setAppealReason('')
             setSelectedOrder(null)
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: '錯誤',
-                description: error?.response?.data?.error?.message || '操作失敗',
+                description: getApiErrorMessage(error, '操作失敗'),
                 variant: 'destructive',
             })
         },

@@ -11,8 +11,10 @@ import api, {
   animalBreedNames,
   animalGenderNames,
   UpdateAnimalRequest,
+  UpdateAnimalRequestValue,
   ProtocolListItem,
 } from '@/lib/api'
+import { getApiErrorMessage } from '@/lib/validation'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -106,16 +108,16 @@ export function AnimalEditPage() {
       toast({ title: '成功', description: '動物資料已更新' })
       navigate(`/animals/${animalId}`)
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '更新失敗',
+        description: getApiErrorMessage(error, '更新失敗'),
         variant: 'destructive',
       })
     },
   })
 
-  const handleChange = (field: keyof UpdateAnimalRequest, value: any) => {
+  const handleChange = (field: keyof UpdateAnimalRequest, value: UpdateAnimalRequestValue) => {
     setFormData((prev) => ({ ...prev, [field]: value || undefined }))
     setHasChanges(true)
   }

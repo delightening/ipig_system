@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dialog'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import {
   Plus,
   Edit2,
@@ -84,10 +85,10 @@ export function AnimalSourcesPage() {
       toast({ title: '成功', description: '動物來源已新增' })
       handleCloseDialog()
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '新增失敗',
+        description: getApiErrorMessage(error, '新增失敗'),
         variant: 'destructive',
       })
     },
@@ -103,10 +104,10 @@ export function AnimalSourcesPage() {
       toast({ title: '成功', description: '動物來源已更新' })
       handleCloseDialog()
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '更新失敗',
+        description: getApiErrorMessage(error, '更新失敗'),
         variant: 'destructive',
       })
     },
@@ -121,10 +122,10 @@ export function AnimalSourcesPage() {
       queryClient.invalidateQueries({ queryKey: ['animal-sources'] })
       toast({ title: '成功', description: '動物來源已刪除' })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '刪除失敗',
+        description: getApiErrorMessage(error, '刪除失敗'),
         variant: 'destructive',
       })
     },

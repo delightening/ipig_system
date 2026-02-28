@@ -31,7 +31,7 @@ interface Props {
     iacucEvents?: AnimalEvent[]
     animal?: Animal
     onView: (type: 'observation' | 'surgery', id: number) => void
-    onEdit: (type: 'observation' | 'surgery', record: any) => void
+    onEdit: (type: 'observation' | 'surgery', record: AnimalObservation | AnimalSurgery) => void
     onCopy: (type: 'observation' | 'surgery', id: number) => void
     onHistory: (type: 'observation' | 'surgery', id: number) => void
     onVet: (type: 'observation' | 'surgery', id: number) => void
@@ -50,7 +50,7 @@ interface TimelineItem {
     actor?: string | null
     vetRead?: boolean
     isNoMed?: boolean
-    raw?: any
+    raw?: unknown
     isInfoOnly?: boolean // 唯讀型項目（無操作按鈕）
 }
 
@@ -311,7 +311,7 @@ export function AnimalTimelineView({
                                 {/* 只有觀察和手術紀錄才有操作按鈕 */}
                                 {!item.isInfoOnly && (item.type === 'observation' || item.type === 'surgery') && (
                                     <div className="flex gap-1">
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(item.type as 'observation' | 'surgery', item.raw)} aria-label="編輯"><Edit2 className="h-3.5 w-3.5" /></Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => item.raw && (item.type === 'observation' || item.type === 'surgery') && onEdit(item.type, item.raw as AnimalObservation | AnimalSurgery)} aria-label="編輯"><Edit2 className="h-3.5 w-3.5" /></Button>
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onView(item.type as 'observation' | 'surgery', item.originalId)} aria-label="檢視"><Eye className="h-3.5 w-3.5" /></Button>
                                         <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => onDelete(item.type as 'observation' | 'surgery', item.originalId)} aria-label="刪除"><Trash2 className="h-3.5 w-3.5" /></Button>
                                     </div>

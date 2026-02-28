@@ -11,6 +11,7 @@ import api, {
   AnimalListItem,
   AnimalBreed,
   AnimalSource,
+  CreateAnimalRequest,
 } from '@/lib/api'
 import type { PaginatedResponse } from '@/types/common'
 import { getApiErrorMessage } from '@/lib/validation'
@@ -209,7 +210,7 @@ export function AnimalsPage() {
       earTag: (payload.ear_tag as string) || quickAddPending?.earTag || '',
       existingAnimals: errData.existing_animals || [],
       source,
-      pendingPayload: payload,
+      pendingPayload: payload as unknown as CreateAnimalRequest & { breed_other?: string },
     })
     setShowDuplicateWarning(true)
     return true
@@ -241,7 +242,7 @@ export function AnimalsPage() {
       let formattedEarTag = data.ear_tag.trim()
       if (/^\d+$/.test(formattedEarTag)) formattedEarTag = formattedEarTag.padStart(3, '0')
 
-      const payload: any = {
+      const payload: CreateAnimalRequest & { breed_other?: string } = {
         ear_tag: formattedEarTag,
         breed: data.breed,
         gender: data.gender,
@@ -313,8 +314,8 @@ export function AnimalsPage() {
 
       return { ...await api.put<Animal>(`/animals/${animal.id}`, { pen_location: targetPenLocation }), notFound: false }
     },
-    onSuccess: (data: any, variables) => {
-      if (data.notFound) {
+    onSuccess: (data: { notFound?: boolean; formattedEarTag?: string; targetPenLocation?: string }, variables: { earTag: string; targetPenLocation: string }) => {
+      if (data.notFound && data.formattedEarTag != null && data.targetPenLocation != null) {
         setQuickAddPending({ earTag: data.formattedEarTag, penLocation: data.targetPenLocation })
         setQuickAddForm({
           breed: 'minipig', breed_other: '', gender: 'male',
@@ -363,7 +364,7 @@ export function AnimalsPage() {
   })
 
   const forceCreateMutation = useMutation({
-    mutationFn: (payload: any) => api.post('/animals', { ...payload, force_create: true }),
+    mutationFn: (payload: CreateAnimalRequest & { breed_other?: string }) => api.post('/animals', { ...payload, force_create: true }),
     onSuccess: () => {
       invalidateAll()
       toast({ title: '成功', description: '動物已新增（已確認耳號重複）' })

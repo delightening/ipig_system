@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import { Plus, Trash2, Edit2, Loader2, TrendingUp } from 'lucide-react'
 import {
     LineChart,
@@ -129,10 +130,10 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
             setShowAddDialog(false)
             setForm(emptyForm)
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: '錯誤',
-                description: error?.response?.data?.error?.message || '新增失敗',
+                description: getApiErrorMessage(error, '新增失敗'),
                 variant: 'destructive',
             })
         },
@@ -157,10 +158,10 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
             setEditingRecord(null)
             setForm(emptyForm)
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: '錯誤',
-                description: error?.response?.data?.error?.message || '更新失敗',
+                description: getApiErrorMessage(error, '更新失敗'),
                 variant: 'destructive',
             })
         },
@@ -175,10 +176,10 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
             queryClient.invalidateQueries({ queryKey: ['animal-care-records', animalId] })
             toast({ title: '成功', description: '紀錄已刪除' })
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: '錯誤',
-                description: error?.response?.data?.error?.message || '刪除失敗',
+                description: getApiErrorMessage(error, '刪除失敗'),
                 variant: 'destructive',
             })
         },
