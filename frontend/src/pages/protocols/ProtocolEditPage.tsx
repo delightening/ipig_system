@@ -85,7 +85,7 @@ export function ProtocolEditPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
 
-  const blocker = useUnsavedChangesGuard(isDirty)
+  const { isBlocked, proceed, reset } = useUnsavedChangesGuard(isDirty)
 
   // 檢查是否為執行秘書角色（IACUC_STAFF）
   const { dialogState, confirm } = useConfirmDialog()
@@ -828,7 +828,7 @@ export function ProtocolEditPage() {
         </DialogContent>
       </Dialog>
       <ConfirmDialog state={dialogState} />
-      <UnsavedChangesDialog blocker={blocker} />
+      <UnsavedChangesDialog isBlocked={isBlocked} onProceed={proceed} onReset={reset} />
     </div>
   )
 }

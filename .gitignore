@@ -28,3 +28,6 @@ secrets/
 
 # Runtime / local artifacts
 last_error.json
+
+*storybook.log
+storybook-static

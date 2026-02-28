@@ -55,6 +55,37 @@
 
 ## 9. 最新變更動態
 
+### 2026-02-28 系統設定頁面全端串接 + 通知路由 UI 改善
+- ✅ **後端 System Settings API**：新增 `GET/PUT /api/admin/system-settings`（admin only），利用既有 `system_settings` 資料表
+  - `backend/src/handlers/system_settings.rs`：GET 回傳所有設定（SMTP password 遮罩為 `********`），PUT 批次更新
+  - `backend/src/services/system_settings.rs`：DB CRUD + `resolve_smtp_config()` 方法（DB-first + .env fallback）
+  - `backend/src/services/email/mod.rs`：新增 `send_email_smtp()` + `resolve_smtp()` 方法供 DB-first SMTP 解析
+- ✅ **DB Migration**：`015_system_settings_seed.sql` seed 10 項初始設定值（company_name / default_warehouse_id / cost_method / smtp_* / session_timeout_minutes）
+- ✅ **前端 SettingsPage 重構**（`frontend/src/pages/admin/SettingsPage.tsx`）：
+  - 四大設定區塊（基本/庫存/郵件/安全）全部從後端 API 載入當前值
+  - `handleSave` 呼叫 `PUT /admin/system-settings` 實際儲存
+  - 倉庫下拉從 `GET /warehouses` 動態載入
+  - SMTP 密碼欄位顯示遮罩值，點擊時清空供輸入新密碼
+  - Session 逾時選項新增 360/480 分鐘
+  - Loading / Error 狀態完整處理
+- ✅ **通知路由管理 UI 改善**（`frontend/src/components/admin/NotificationRoutingSection.tsx`）：
+  - 分類可收合/展開（Chevron 圖示），減少視覺壓力
+  - Switch 元件取代 ToggleLeft/ToggleRight 圖示
+  - 角色顯示中文名稱（不只 code）
+  - ConfirmDialog 取代原生 `window.confirm`
+  - 規則使用 grid layout 對齊
+  - 分類標題列顯示啟用/總數統計
+- 📁 **新增/修改檔案**：
+  - `backend/src/handlers/system_settings.rs`（new）
+  - `backend/src/services/system_settings.rs`（new）
+  - `backend/migrations/015_system_settings_seed.sql`（new）
+  - `backend/src/services/email/mod.rs`（modified）
+  - `backend/src/handlers/mod.rs`（modified）
+  - `backend/src/services/mod.rs`（modified）
+  - `backend/src/routes.rs`（modified）
+  - `frontend/src/pages/admin/SettingsPage.tsx`（rewritten）
+  - `frontend/src/components/admin/NotificationRoutingSection.tsx`（rewritten）
+
 ### 2026-02-28 P5-14 ProtocolDetailPage 重構（1,929→647 行，-66%）
 - ✅ **ProtocolDetailPage.tsx**：從 1,929 行縮減至 647 行
 - ✅ **抽離 6 個 Tab 元件**至 `frontend/src/components/protocol/`：

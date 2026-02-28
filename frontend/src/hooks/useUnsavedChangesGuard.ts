@@ -1,8 +1,14 @@
-import { useEffect } from 'react'
-import { useBlocker } from 'react-router-dom'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
-export function useUnsavedChangesGuard(isDirty: boolean) {
-  const blocker = useBlocker(isDirty)
+interface UnsavedChangesGuard {
+  isBlocked: boolean
+  proceed: () => void
+  reset: () => void
+}
+
+export function useUnsavedChangesGuard(isDirty: boolean): UnsavedChangesGuard {
+  const [isBlocked, setIsBlocked] = useState(false)
+  const pendingNavigationRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     if (!isDirty) return
@@ -14,5 +20,16 @@ export function useUnsavedChangesGuard(isDirty: boolean) {
     return () => window.removeEventListener('beforeunload', handler)
   }, [isDirty])
 
-  return blocker
+  const proceed = useCallback(() => {
+    setIsBlocked(false)
+    pendingNavigationRef.current?.()
+    pendingNavigationRef.current = null
+  }, [])
+
+  const reset = useCallback(() => {
+    setIsBlocked(false)
+    pendingNavigationRef.current = null
+  }, [])
+
+  return { isBlocked, proceed, reset }
 }

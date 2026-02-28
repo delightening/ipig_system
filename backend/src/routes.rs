@@ -584,6 +584,13 @@ pub fn api_routes(state: AppState) -> Router {
             get(handlers::download_attachment).delete(handlers::delete_attachment),
         )
         // ============================================
+        // Admin System Settings (系統設定管理)
+        // ============================================
+        .route(
+            "/admin/system-settings",
+            get(handlers::get_system_settings).put(handlers::update_system_settings),
+        )
+        // ============================================
         // Admin Config Warnings (啟動配置警告)
         // ============================================
         .route("/admin/config-warnings", get(handlers::get_config_warnings))
