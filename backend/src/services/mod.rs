@@ -1,4 +1,4 @@
-﻿#![allow(dead_code)]
+#![allow(dead_code)]
 
 mod auth;
 mod user;
@@ -29,6 +29,7 @@ mod euthanasia;
 mod amendment;
 mod storage_location;
 mod treatment_drug;
+pub mod system_settings;
 
 pub use auth::AuthService;
 pub use user::UserService;
@@ -55,6 +56,7 @@ pub use euthanasia::EuthanasiaService;
 pub use amendment::AmendmentService;
 pub use storage_location::StorageLocationService;
 pub use treatment_drug::TreatmentDrugService;
+pub use system_settings::SystemSettingsService;
 pub use login_tracker::LoginTracker;
 pub use session_manager::SessionManager;
 

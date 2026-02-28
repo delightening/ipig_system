@@ -1,13 +1,18 @@
 /**
- * 通知路由管理元件（進階版）
- * 使用下拉選單取代文字輸入，並以分類卡片分組顯示規則
+ * 通知路由管理元件（改良版）
+ * - 分類可收合/展開，減少視覺壓力
+ * - Switch 取代 Toggle icon
+ * - 角色顯示中文名稱
+ * - ConfirmDialog 取代 window.confirm
+ * - 整齊的 grid layout
  */
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import {
     Select,
     SelectContent,
@@ -18,21 +23,23 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import {
     Route,
     Plus,
     Trash2,
     Loader2,
     AlertCircle,
-    ToggleLeft,
-    ToggleRight,
     Shield,
     Stethoscope,
     Package,
     Users,
     FileText,
+    ChevronDown,
+    ChevronRight,
 } from 'lucide-react'
-import { notificationRoutingApi, eventTypeNames, channelNames } from '@/lib/api'
+import { notificationRoutingApi } from '@/lib/api'
 import type {
     NotificationRouting,
     CreateNotificationRoutingRequest,
@@ -41,7 +48,6 @@ import type {
     RoleInfo,
 } from '@/types/notification'
 
-/** 分類圖示對照 */
 const categoryIcons: Record<string, React.ReactNode> = {
     'AUP 計畫審查': <Shield className="h-4 w-4" />,
     '修正案': <FileText className="h-4 w-4" />,
@@ -50,14 +56,18 @@ const categoryIcons: Record<string, React.ReactNode> = {
     'HR 人事': <Users className="h-4 w-4" />,
 }
 
-/** 將事件類型依分類歸類 */
+interface CategorizedItem {
+    category: string
+    eventType: string
+    eventName: string
+    rules: NotificationRouting[]
+}
+
 function categorizeRules(
     rules: NotificationRouting[],
     categories: EventTypeCategory[]
-): { category: string; eventType: string; eventName: string; rules: NotificationRouting[] }[] {
-    const result: { category: string; eventType: string; eventName: string; rules: NotificationRouting[] }[] = []
-
-    // 建立 eventType → category 對照
+): CategorizedItem[] {
+    const result: CategorizedItem[] = []
     const eventCategoryMap = new Map<string, { category: string; name: string }>()
     for (const cat of categories) {
         for (const et of cat.event_types) {
@@ -65,14 +75,12 @@ function categorizeRules(
         }
     }
 
-    // 按事件類型分組
     const grouped = new Map<string, NotificationRouting[]>()
     for (const rule of rules) {
         if (!grouped.has(rule.event_type)) grouped.set(rule.event_type, [])
         grouped.get(rule.event_type)!.push(rule)
     }
 
-    // 按分類排序
     const categoryOrder = categories.map(c => c.category)
     const sortedEntries = [...grouped.entries()].sort((a, b) => {
         const catA = eventCategoryMap.get(a[0])?.category || '其他'
@@ -87,7 +95,7 @@ function categorizeRules(
         result.push({
             category: info?.category || '其他',
             eventType,
-            eventName: info?.name || eventTypeNames[eventType] || eventType,
+            eventName: info?.name || eventType,
             rules: eventRules,
         })
     }
@@ -97,14 +105,15 @@ function categorizeRules(
 
 export function NotificationRoutingSection() {
     const queryClient = useQueryClient()
+    const { dialogState, confirm } = useConfirmDialog()
     const [showAddForm, setShowAddForm] = useState(false)
+    const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
     const [newRule, setNewRule] = useState<CreateNotificationRoutingRequest>({
         event_type: '',
         role_code: '',
         channel: 'both',
     })
 
-    // 取得路由規則列表
     const { data: rules, isLoading, error } = useQuery({
         queryKey: ['notification-routing'],
         queryFn: async () => {
@@ -113,7 +122,6 @@ export function NotificationRoutingSection() {
         },
     })
 
-    // 取得事件類型分類
     const { data: eventCategories } = useQuery({
         queryKey: ['notification-routing-event-types'],
         queryFn: async () => {
@@ -122,7 +130,6 @@ export function NotificationRoutingSection() {
         },
     })
 
-    // 取得角色列表
     const { data: availableRoles } = useQuery({
         queryKey: ['notification-routing-roles'],
         queryFn: async () => {
@@ -131,7 +138,14 @@ export function NotificationRoutingSection() {
         },
     })
 
-    // 新增規則
+    const roleNameMap = useMemo(() => {
+        const map = new Map<string, string>()
+        for (const role of availableRoles || []) {
+            map.set(role.code, role.name)
+        }
+        return map
+    }, [availableRoles])
+
     const createMutation = useMutation({
         mutationFn: (data: CreateNotificationRoutingRequest) =>
             notificationRoutingApi.create(data),
@@ -150,13 +164,11 @@ export function NotificationRoutingSection() {
         },
     })
 
-    // 更新規則
     const updateMutation = useMutation({
         mutationFn: ({ id, data }: { id: string; data: UpdateNotificationRoutingRequest }) =>
             notificationRoutingApi.update(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['notification-routing'] })
-            toast({ title: '成功', description: '規則已更新' })
         },
         onError: (error: any) => {
             toast({
@@ -167,7 +179,6 @@ export function NotificationRoutingSection() {
         },
     })
 
-    // 刪除規則
     const deleteMutation = useMutation({
         mutationFn: (id: string) => notificationRoutingApi.delete(id),
         onSuccess: () => {
@@ -183,21 +194,28 @@ export function NotificationRoutingSection() {
         },
     })
 
-    // 按分類整理規則
     const categorizedRules = useMemo(
         () => categorizeRules(rules || [], eventCategories || []),
         [rules, eventCategories]
     )
 
-    // 按分類分組顯示
     const groupedByCategory = useMemo(() => {
-        const map = new Map<string, typeof categorizedRules>()
+        const map = new Map<string, CategorizedItem[]>()
         for (const item of categorizedRules) {
             if (!map.has(item.category)) map.set(item.category, [])
             map.get(item.category)!.push(item)
         }
         return map
     }, [categorizedRules])
+
+    const toggleCategory = (cat: string) => {
+        setCollapsedCategories(prev => {
+            const next = new Set(prev)
+            if (next.has(cat)) next.delete(cat)
+            else next.add(cat)
+            return next
+        })
+    }
 
     const handleToggleActive = (rule: NotificationRouting) => {
         updateMutation.mutate({
@@ -213,6 +231,17 @@ export function NotificationRoutingSection() {
         })
     }
 
+    const handleDelete = async (rule: NotificationRouting) => {
+        const roleName = roleNameMap.get(rule.role_code) || rule.role_code
+        const ok = await confirm({
+            title: '刪除路由規則',
+            description: `確定要刪除「${roleName}」的此條規則嗎？此操作無法復原。`,
+            variant: 'destructive',
+            confirmLabel: '刪除',
+        })
+        if (ok) deleteMutation.mutate(rule.id)
+    }
+
     const handleCreate = () => {
         if (!newRule.event_type || !newRule.role_code) {
             toast({
@@ -225,12 +254,22 @@ export function NotificationRoutingSection() {
         createMutation.mutate(newRule)
     }
 
+    const totalRules = rules?.length || 0
+    const activeRules = rules?.filter(r => r.is_active).length || 0
+
     return (
         <div className="border-t pt-6">
             <div className="flex items-center justify-between mb-4">
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight">通知路由管理</h2>
-                    <p className="text-muted-foreground">設定各類事件的通知收件角色與管道</p>
+                    <p className="text-muted-foreground">
+                        設定各類事件的通知收件角色與管道
+                        {totalRules > 0 && (
+                            <span className="ml-2 text-xs">
+                                （共 {totalRules} 條規則，{activeRules} 條啟用中）
+                            </span>
+                        )}
+                    </p>
                 </div>
                 <Button
                     variant="outline"
@@ -242,15 +281,14 @@ export function NotificationRoutingSection() {
                 </Button>
             </div>
 
-            {/* 新增表單（下拉選單版） */}
+            {/* 新增表單 */}
             {showAddForm && (
                 <Card className="mb-6 border-blue-200 bg-blue-50/30">
                     <CardHeader className="pb-3">
                         <CardTitle className="text-base">新增路由規則</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid gap-4 sm:grid-cols-4">
-                            {/* 事件類型下拉選單 */}
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                             <div className="space-y-1.5">
                                 <Label>事件類型</Label>
                                 <Select
@@ -278,7 +316,6 @@ export function NotificationRoutingSection() {
                                 </Select>
                             </div>
 
-                            {/* 角色下拉選單 */}
                             <div className="space-y-1.5">
                                 <Label>角色</Label>
                                 <Select
@@ -291,14 +328,13 @@ export function NotificationRoutingSection() {
                                     <SelectContent>
                                         {(availableRoles || []).map((role) => (
                                             <SelectItem key={role.code} value={role.code}>
-                                                {role.name} ({role.code})
+                                                {role.name}（{role.code}）
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                             </div>
 
-                            {/* 通道選擇 */}
                             <div className="space-y-1.5">
                                 <Label>通道</Label>
                                 <Select
@@ -316,7 +352,6 @@ export function NotificationRoutingSection() {
                                 </Select>
                             </div>
 
-                            {/* 操作按鈕 */}
                             <div className="flex items-end gap-2">
                                 <Button
                                     size="sm"
@@ -330,17 +365,12 @@ export function NotificationRoutingSection() {
                                     )}
                                     新增
                                 </Button>
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => setShowAddForm(false)}
-                                >
+                                <Button size="sm" variant="ghost" onClick={() => setShowAddForm(false)}>
                                     取消
                                 </Button>
                             </div>
                         </div>
 
-                        {/* 描述欄位 */}
                         <div className="mt-3">
                             <Label>說明（選填）</Label>
                             <Input
@@ -354,14 +384,12 @@ export function NotificationRoutingSection() {
                 </Card>
             )}
 
-            {/* 載入中 */}
             {isLoading && (
                 <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
             )}
 
-            {/* 錯誤 */}
             {error && (
                 <Card className="border-red-200 bg-red-50">
                     <CardContent className="flex items-center gap-3 py-6">
@@ -371,9 +399,8 @@ export function NotificationRoutingSection() {
                 </Card>
             )}
 
-            {/* 規則列表（按分類卡片分組） */}
             {!isLoading && !error && (
-                <div className="space-y-6">
+                <div className="space-y-4">
                     {groupedByCategory.size === 0 ? (
                         <Card>
                             <CardContent className="py-8 text-center text-muted-foreground">
@@ -381,59 +408,78 @@ export function NotificationRoutingSection() {
                             </CardContent>
                         </Card>
                     ) : (
-                        [...groupedByCategory.entries()].map(([category, items]) => (
-                            <div key={category}>
-                                {/* 分類標題 */}
-                                <div className="flex items-center gap-2 mb-3">
-                                    <span className="text-muted-foreground">
-                                        {categoryIcons[category] || <Route className="h-4 w-4" />}
-                                    </span>
-                                    <h3 className="text-lg font-semibold">{category}</h3>
-                                    <span className="text-xs text-muted-foreground">
-                                        ({items.reduce((sum, i) => sum + i.rules.length, 0)} 條規則)
-                                    </span>
-                                </div>
+                        [...groupedByCategory.entries()].map(([category, items]) => {
+                            const isCollapsed = collapsedCategories.has(category)
+                            const catRuleCount = items.reduce((sum, i) => sum + i.rules.length, 0)
+                            const catActiveCount = items.reduce(
+                                (sum, i) => sum + i.rules.filter(r => r.is_active).length, 0
+                            )
 
-                                {/* 事件卡片 */}
-                                <div className="space-y-3 ml-1">
-                                    {items.map((item) => (
-                                        <Card key={item.eventType}>
-                                            <CardHeader className="pb-3">
-                                                <CardTitle className="flex items-center gap-2 text-base">
-                                                    <Route className="h-4 w-4" />
-                                                    {item.eventName}
-                                                </CardTitle>
-                                                <CardDescription className="text-xs font-mono">
-                                                    {item.eventType}
-                                                </CardDescription>
-                                            </CardHeader>
-                                            <CardContent>
-                                                <div className="space-y-2">
-                                                    {item.rules.map((rule) => (
-                                                        <div
-                                                            key={rule.id}
-                                                            className={`flex items-center justify-between rounded-lg border px-4 py-2.5 transition-colors ${rule.is_active
-                                                                ? 'bg-white'
-                                                                : 'bg-muted/50 opacity-60'
+                            return (
+                                <Card key={category}>
+                                    {/* 分類標題列（可點擊收合） */}
+                                    <button
+                                        type="button"
+                                        className="flex items-center justify-between w-full px-6 py-4 text-left hover:bg-muted/30 transition-colors rounded-t-lg"
+                                        onClick={() => toggleCategory(category)}
+                                    >
+                                        <div className="flex items-center gap-2.5">
+                                            {isCollapsed ? (
+                                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                            ) : (
+                                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                            )}
+                                            <span className="text-muted-foreground">
+                                                {categoryIcons[category] || <Route className="h-4 w-4" />}
+                                            </span>
+                                            <span className="font-semibold">{category}</span>
+                                        </div>
+                                        <span className="text-xs text-muted-foreground tabular-nums">
+                                            {catActiveCount}/{catRuleCount} 啟用
+                                        </span>
+                                    </button>
+
+                                    {!isCollapsed && (
+                                        <CardContent className="pt-0 pb-4 space-y-4">
+                                            {items.map((item) => (
+                                                <div key={item.eventType}>
+                                                    {/* 事件標題 */}
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <span className="text-sm font-medium">{item.eventName}</span>
+                                                        <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">
+                                                            {item.eventType}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* 規則列表 */}
+                                                    <div className="space-y-1.5 ml-0.5">
+                                                        {item.rules.map((rule) => (
+                                                            <div
+                                                                key={rule.id}
+                                                                className={`grid grid-cols-[minmax(100px,1fr)_120px_44px_32px] items-center gap-3 rounded-lg border px-4 py-2.5 transition-colors ${
+                                                                    rule.is_active
+                                                                        ? 'bg-white'
+                                                                        : 'bg-muted/40 opacity-60'
                                                                 }`}
-                                                        >
-                                                            <div className="flex items-center gap-3">
-                                                                {/* 角色 badge */}
-                                                                <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
-                                                                    {rule.role_code}
-                                                                </span>
-                                                                {/* 說明 */}
-                                                                {rule.description && (
-                                                                    <span className="text-xs text-muted-foreground truncate max-w-[200px]">
-                                                                        {rule.description}
+                                                            >
+                                                                {/* 角色 + 說明 */}
+                                                                <div className="flex items-center gap-2 min-w-0">
+                                                                    <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10 shrink-0">
+                                                                        {roleNameMap.get(rule.role_code) || rule.role_code}
                                                                     </span>
-                                                                )}
+                                                                    {rule.description && (
+                                                                        <span className="text-xs text-muted-foreground truncate" title={rule.description}>
+                                                                            {rule.description}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+
                                                                 {/* 通道選擇 */}
                                                                 <Select
                                                                     value={rule.channel}
                                                                     onValueChange={(v) => handleChannelChange(rule, v)}
                                                                 >
-                                                                    <SelectTrigger className="w-[120px] h-8 text-xs">
+                                                                    <SelectTrigger className="h-8 text-xs">
                                                                         <SelectValue />
                                                                     </SelectTrigger>
                                                                     <SelectContent>
@@ -442,49 +488,37 @@ export function NotificationRoutingSection() {
                                                                         <SelectItem value="both">兩者</SelectItem>
                                                                     </SelectContent>
                                                                 </Select>
-                                                            </div>
 
-                                                            <div className="flex items-center gap-2">
-                                                                {/* 啟/停用 */}
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() => handleToggleActive(rule)}
-                                                                    className="h-8 px-2"
-                                                                    title={rule.is_active ? '停用' : '啟用'}
-                                                                >
-                                                                    {rule.is_active ? (
-                                                                        <ToggleRight className="h-5 w-5 text-green-600" />
-                                                                    ) : (
-                                                                        <ToggleLeft className="h-5 w-5 text-muted-foreground" />
-                                                                    )}
-                                                                </Button>
+                                                                {/* 啟用 Switch */}
+                                                                <Switch
+                                                                    checked={rule.is_active}
+                                                                    onCheckedChange={() => handleToggleActive(rule)}
+                                                                />
+
                                                                 {/* 刪除 */}
                                                                 <Button
                                                                     variant="ghost"
-                                                                    size="sm"
-                                                                    className="h-8 px-2 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                                                    onClick={() => {
-                                                                        if (confirm('確定要刪除此規則？')) {
-                                                                            deleteMutation.mutate(rule.id)
-                                                                        }
-                                                                    }}
+                                                                    size="icon"
+                                                                    className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                                    onClick={() => handleDelete(rule)}
                                                                 >
                                                                     <Trash2 className="h-4 w-4" />
                                                                 </Button>
                                                             </div>
-                                                        </div>
-                                                    ))}
+                                                        ))}
+                                                    </div>
                                                 </div>
-                                            </CardContent>
-                                        </Card>
-                                    ))}
-                                </div>
-                            </div>
-                        ))
+                                            ))}
+                                        </CardContent>
+                                    )}
+                                </Card>
+                            )
+                        })
                     )}
                 </div>
             )}
+
+            <ConfirmDialog state={dialogState} />
         </div>
     )
 }

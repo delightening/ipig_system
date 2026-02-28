@@ -1,4 +1,3 @@
-import type { Blocker } from 'react-router-dom'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,8 +9,14 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 
-export function UnsavedChangesDialog({ blocker }: { blocker: Blocker }) {
-  if (blocker.state !== 'blocked') return null
+interface UnsavedChangesDialogProps {
+  isBlocked: boolean
+  onProceed: () => void
+  onReset: () => void
+}
+
+export function UnsavedChangesDialog({ isBlocked, onProceed, onReset }: UnsavedChangesDialogProps) {
+  if (!isBlocked) return null
 
   return (
     <AlertDialog open>
@@ -23,11 +28,11 @@ export function UnsavedChangesDialog({ blocker }: { blocker: Blocker }) {
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => blocker.reset?.()}>
+          <AlertDialogCancel onClick={onReset}>
             繼續編輯
           </AlertDialogCancel>
           <AlertDialogAction
-            onClick={() => blocker.proceed?.()}
+            onClick={onProceed}
             className="bg-red-600 hover:bg-red-700"
           >
             離開

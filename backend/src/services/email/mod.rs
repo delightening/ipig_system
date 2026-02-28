@@ -12,11 +12,81 @@ use lettre::{
 };
 
 use crate::config::Config;
+use crate::services::system_settings::SmtpConfig;
 
 pub struct EmailService;
 
 impl EmailService {
-    /// 通用發送郵件方法
+    /// DB-first SMTP resolution: reads settings from DB, falls back to .env Config
+    pub async fn resolve_smtp(pool: &sqlx::PgPool, config: &Config) -> SmtpConfig {
+        let svc = crate::services::SystemSettingsService::new(pool.clone());
+        svc.resolve_smtp_config(config).await
+    }
+
+    /// 通用發送郵件方法（使用已解析的 SmtpConfig）
+    pub(crate) async fn send_email_smtp(
+        smtp: &SmtpConfig,
+        to_email: &str,
+        to_name: &str,
+        subject: &str,
+        plain_body: &str,
+        html_body: &str,
+    ) -> anyhow::Result<()> {
+        if to_email.is_empty() || !to_email.contains('@') {
+            tracing::warn!(
+                "Skipping email '{}' - invalid recipient address: '{}'",
+                subject, to_email
+            );
+            return Ok(());
+        }
+
+        let smtp_host = match &smtp.host {
+            Some(h) => h.as_str(),
+            None => {
+                tracing::info!("Email disabled (no SMTP host), skipping: {}", subject);
+                return Ok(());
+            }
+        };
+
+        let from = format!("{} <{}>", smtp.from_name, smtp.from_email);
+
+        let email = Message::builder()
+            .from(from.parse()?)
+            .to(format!("{} <{}>", to_name, to_email).parse()?)
+            .subject(subject)
+            .multipart(
+                lettre::message::MultiPart::alternative()
+                    .singlepart(
+                        lettre::message::SinglePart::builder()
+                            .header(ContentType::TEXT_PLAIN)
+                            .body(plain_body.to_string()),
+                    )
+                    .singlepart(
+                        lettre::message::SinglePart::builder()
+                            .header(ContentType::TEXT_HTML)
+                            .body(html_body.to_string()),
+                    ),
+            )?;
+
+        let mailer = if let (Some(username), Some(password)) =
+            (&smtp.username, &smtp.password)
+        {
+            let creds = Credentials::new(username.clone(), password.clone());
+            AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(smtp_host)?
+                .port(smtp.port)
+                .credentials(creds)
+                .build()
+        } else {
+            AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(smtp_host)?
+                .port(smtp.port)
+                .build()
+        };
+
+        mailer.send(email).await?;
+        Ok(())
+    }
+
+    /// Legacy: 通用發送郵件方法（直接使用 .env Config）
     pub(crate) async fn send_email(
         config: &Config,
         smtp_host: &str,
@@ -26,7 +96,6 @@ impl EmailService {
         plain_body: &str,
         html_body: &str,
     ) -> anyhow::Result<()> {
-        // 檢查收件人 email 是否為空或無效，若無效則跳過寄信
         if to_email.is_empty() || !to_email.contains('@') {
             tracing::warn!(
                 "Skipping email '{}' - invalid recipient address: '{}'",
@@ -55,7 +124,6 @@ impl EmailService {
                     ),
             )?;
 
-        // Gmail port 587 需要 STARTTLS
         let mailer = if let (Some(username), Some(password)) =
             (&config.smtp_username, &config.smtp_password)
         {

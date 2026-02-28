@@ -25,6 +25,7 @@ pub mod storage_location;
 pub mod treatment_drug;
 mod upload;
 pub(crate) mod user;
+mod system_settings;
 mod user_preferences;
 pub(crate) mod warehouse;
 
@@ -48,5 +49,6 @@ pub use sku::*;
 pub use stock::*;
 pub use upload::*;
 pub use user::*;
+pub use system_settings::*;
 pub use user_preferences::*;
 pub use warehouse::*;

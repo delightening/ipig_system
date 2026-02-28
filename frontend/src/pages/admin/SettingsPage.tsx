@@ -24,11 +24,13 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle2,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 import api from '@/lib/api'
 import { NotificationRoutingSection } from '@/components/admin/NotificationRoutingSection'
+import type { Warehouse } from '@/types/erp'
 
-// 通知設定型別
 interface NotificationSettings {
   user_id: string
   email_low_stock: boolean
@@ -51,50 +53,72 @@ interface UpdateNotificationSettingsRequest {
   low_stock_notify_immediately?: boolean
 }
 
+type SystemSettings = Record<string, string>
+
+const SMTP_MASK = '********'
+
 export function SettingsPage() {
   const queryClient = useQueryClient()
 
-  // 系統設定
-  const [companyName, setCompanyName] = useState('iPig System')
-  const [defaultWarehouse, setDefaultWarehouse] = useState('')
+  const [companyName, setCompanyName] = useState('')
+  const [defaultWarehouseId, setDefaultWarehouseId] = useState('')
   const [emailHost, setEmailHost] = useState('')
   const [emailPort, setEmailPort] = useState('587')
   const [emailUser, setEmailUser] = useState('')
-  const [sessionTimeout, setSessionTimeout] = useState('30')
+  const [emailPassword, setEmailPassword] = useState('')
+  const [emailFromEmail, setEmailFromEmail] = useState('')
+  const [emailFromName, setEmailFromName] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [passwordEdited, setPasswordEdited] = useState(false)
+  const [sessionTimeout, setSessionTimeout] = useState('360')
   const [costMethod, setCostMethod] = useState('weighted_average')
-
-  // 通知設定
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings | null>(null)
+  const [settingsDirty, setSettingsDirty] = useState(false)
 
-  // 取得通知設定
-  const { data: fetchedSettings, isLoading: isLoadingSettings, error: settingsError } = useQuery({
-    queryKey: ['notification-settings'],
+  // --- 系統設定 API ---
+  const { data: sysSettings, isLoading: isLoadingSys, error: sysError } = useQuery({
+    queryKey: ['system-settings'],
     queryFn: async () => {
-      const res = await api.get<NotificationSettings>('/notifications/settings')
+      const res = await api.get<SystemSettings>('/admin/system-settings')
       return res.data
     },
   })
 
-  // 當設定載入後更新本地狀態
-  useEffect(() => {
-    if (fetchedSettings) {
-      setNotificationSettings(fetchedSettings)
-    }
-  }, [fetchedSettings])
+  // 倉庫列表
+  const { data: warehousesData } = useQuery({
+    queryKey: ['warehouses-list'],
+    queryFn: async () => {
+      const res = await api.get<{ data: Warehouse[] } | Warehouse[]>('/warehouses')
+      return Array.isArray(res.data) ? res.data : res.data.data
+    },
+  })
+  const warehouses = warehousesData?.filter(w => w.is_active) ?? []
 
-  // 更新通知設定
-  const updateSettingsMutation = useMutation({
-    mutationFn: async (data: UpdateNotificationSettingsRequest) => {
-      const res = await api.put<NotificationSettings>('/notifications/settings', data)
+  useEffect(() => {
+    if (!sysSettings) return
+    setCompanyName(unwrap(sysSettings.company_name) || 'iPig System')
+    setDefaultWarehouseId(unwrap(sysSettings.default_warehouse_id) || '')
+    setCostMethod(unwrap(sysSettings.cost_method) || 'weighted_average')
+    setEmailHost(unwrap(sysSettings.smtp_host) || '')
+    setEmailPort(unwrap(sysSettings.smtp_port) || '587')
+    setEmailUser(unwrap(sysSettings.smtp_username) || '')
+    setEmailPassword(unwrap(sysSettings.smtp_password) || '')
+    setEmailFromEmail(unwrap(sysSettings.smtp_from_email) || '')
+    setEmailFromName(unwrap(sysSettings.smtp_from_name) || '')
+    setSessionTimeout(unwrap(sysSettings.session_timeout_minutes) || '360')
+    setPasswordEdited(false)
+    setSettingsDirty(false)
+  }, [sysSettings])
+
+  const saveSysMutation = useMutation({
+    mutationFn: async (data: Record<string, string>) => {
+      const res = await api.put<SystemSettings>('/admin/system-settings', data)
       return res.data
     },
-    onSuccess: (data) => {
-      setNotificationSettings(data)
-      queryClient.invalidateQueries({ queryKey: ['notification-settings'] })
-      toast({
-        title: '成功',
-        description: '設定已儲存',
-      })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['system-settings'] })
+      setSettingsDirty(false)
+      toast({ title: '成功', description: '系統設定已儲存' })
     },
     onError: (error: any) => {
       toast({
@@ -105,16 +129,60 @@ export function SettingsPage() {
     },
   })
 
-  const handleSave = () => {
-    toast({
-      title: '成功',
-      description: '設定已儲存',
-    })
+  const handleSaveSysSettings = () => {
+    const payload: Record<string, string> = {
+      company_name: companyName,
+      default_warehouse_id: defaultWarehouseId,
+      cost_method: costMethod,
+      smtp_host: emailHost,
+      smtp_port: emailPort,
+      smtp_username: emailUser,
+      smtp_from_email: emailFromEmail,
+      smtp_from_name: emailFromName,
+      session_timeout_minutes: sessionTimeout,
+    }
+    if (passwordEdited && emailPassword !== SMTP_MASK) {
+      payload.smtp_password = emailPassword
+    }
+    saveSysMutation.mutate(payload)
   }
+
+  const markDirty = () => { if (!settingsDirty) setSettingsDirty(true) }
+
+  // --- 通知設定 API ---
+  const { data: fetchedSettings, isLoading: isLoadingSettings, error: settingsError } = useQuery({
+    queryKey: ['notification-settings'],
+    queryFn: async () => {
+      const res = await api.get<NotificationSettings>('/notifications/settings')
+      return res.data
+    },
+  })
+
+  useEffect(() => {
+    if (fetchedSettings) setNotificationSettings(fetchedSettings)
+  }, [fetchedSettings])
+
+  const updateSettingsMutation = useMutation({
+    mutationFn: async (data: UpdateNotificationSettingsRequest) => {
+      const res = await api.put<NotificationSettings>('/notifications/settings', data)
+      return res.data
+    },
+    onSuccess: (data) => {
+      setNotificationSettings(data)
+      queryClient.invalidateQueries({ queryKey: ['notification-settings'] })
+      toast({ title: '成功', description: '通知設定已儲存' })
+    },
+    onError: (error: any) => {
+      toast({
+        title: '錯誤',
+        description: error?.response?.data?.error?.message || '儲存失敗',
+        variant: 'destructive',
+      })
+    },
+  })
 
   const handleSaveNotificationSettings = () => {
     if (!notificationSettings) return
-
     updateSettingsMutation.mutate({
       email_low_stock: notificationSettings.email_low_stock,
       email_expiry_warning: notificationSettings.email_expiry_warning,
@@ -131,10 +199,7 @@ export function SettingsPage() {
     value: NotificationSettings[K]
   ) => {
     if (!notificationSettings) return
-    setNotificationSettings({
-      ...notificationSettings,
-      [key]: value,
-    })
+    setNotificationSettings({ ...notificationSettings, [key]: value })
   }
 
   return (
@@ -144,148 +209,234 @@ export function SettingsPage() {
         <p className="text-muted-foreground">管理系統的全域設定參數</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* 基本設定 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building className="h-5 w-5" />
-              基本設定
-            </CardTitle>
-            <CardDescription>設定公司基本資訊</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="companyName">公司名稱</Label>
-              <Input
-                id="companyName"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                placeholder="輸入公司名稱"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="defaultWarehouse">預設倉庫</Label>
-              <Select value={defaultWarehouse} onValueChange={setDefaultWarehouse}>
-                <SelectTrigger>
-                  <SelectValue placeholder="選擇預設倉庫" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="main">主倉庫</SelectItem>
-                  <SelectItem value="secondary">副倉庫</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      {/* Loading / Error for system settings */}
+      {isLoadingSys && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      )}
+
+      {sysError && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="flex items-center gap-3 py-6">
+            <AlertCircle className="h-5 w-5 text-red-500" />
+            <span className="text-red-700">無法載入系統設定，請確認您有管理員權限</span>
           </CardContent>
         </Card>
+      )}
 
-        {/* 庫存設定 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Database className="h-5 w-5" />
-              庫存設定
-            </CardTitle>
-            <CardDescription>設定庫存計算方式</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="costMethod">成本計算方式</Label>
-              <Select value={costMethod} onValueChange={setCostMethod}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="weighted_average">加權平均法</SelectItem>
-                  <SelectItem value="moving_average">移動平均法</SelectItem>
-                  <SelectItem value="fifo" disabled>先進先出 (v0.2)</SelectItem>
-                  <SelectItem value="lifo" disabled>後進先出 (v0.2)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                目前版本支援加權平均法和移動平均法
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+      {!isLoadingSys && !sysError && (
+        <>
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* 基本設定 */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building className="h-5 w-5" />
+                  基本設定
+                </CardTitle>
+                <CardDescription>設定系統基本資訊</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="companyName">系統名稱</Label>
+                  <Input
+                    id="companyName"
+                    value={companyName}
+                    onChange={(e) => { setCompanyName(e.target.value); markDirty() }}
+                    placeholder="輸入系統名稱"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="defaultWarehouse">預設倉庫</Label>
+                  <Select value={defaultWarehouseId} onValueChange={(v) => { setDefaultWarehouseId(v); markDirty() }}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="選擇預設倉庫" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {warehouses.map(w => (
+                        <SelectItem key={w.id} value={w.id}>{w.name} ({w.code})</SelectItem>
+                      ))}
+                      {warehouses.length === 0 && (
+                        <SelectItem value="" disabled>尚無可用倉庫</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* 郵件設定 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5" />
-              郵件設定
-            </CardTitle>
-            <CardDescription>設定 SMTP 郵件伺服器</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="emailHost">SMTP 伺服器</Label>
-              <Input
-                id="emailHost"
-                value={emailHost}
-                onChange={(e) => setEmailHost(e.target.value)}
-                placeholder="smtp.example.com"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="emailPort">連接埠</Label>
-                <Input
-                  id="emailPort"
-                  value={emailPort}
-                  onChange={(e) => setEmailPort(e.target.value)}
-                  placeholder="587"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="emailUser">帳號</Label>
-                <Input
-                  id="emailUser"
-                  value={emailUser}
-                  onChange={(e) => setEmailUser(e.target.value)}
-                  placeholder="user@example.com"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            {/* 庫存設定 */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  庫存設定
+                </CardTitle>
+                <CardDescription>設定庫存計算方式</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="costMethod">成本計算方式</Label>
+                  <Select value={costMethod} onValueChange={(v) => { setCostMethod(v); markDirty() }}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weighted_average">加權平均法</SelectItem>
+                      <SelectItem value="moving_average">移動平均法</SelectItem>
+                      <SelectItem value="fifo" disabled>先進先出 (v0.2)</SelectItem>
+                      <SelectItem value="lifo" disabled>後進先出 (v0.2)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    目前版本支援加權平均法和移動平均法
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* 安全設定 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
-              安全設定
-            </CardTitle>
-            <CardDescription>設定系統安全相關參數</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="sessionTimeout">Session 逾時（分鐘）</Label>
-              <Select value={sessionTimeout} onValueChange={setSessionTimeout}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="15">15 分鐘</SelectItem>
-                  <SelectItem value="30">30 分鐘</SelectItem>
-                  <SelectItem value="60">60 分鐘</SelectItem>
-                  <SelectItem value="120">120 分鐘</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            {/* 郵件設定 */}
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="h-5 w-5" />
+                  郵件設定
+                </CardTitle>
+                <CardDescription>設定 SMTP 郵件伺服器，修改後即時生效</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="emailHost">SMTP 伺服器</Label>
+                    <Input
+                      id="emailHost"
+                      value={emailHost}
+                      onChange={(e) => { setEmailHost(e.target.value); markDirty() }}
+                      placeholder="smtp.example.com"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="emailPort">連接埠</Label>
+                    <Input
+                      id="emailPort"
+                      value={emailPort}
+                      onChange={(e) => { setEmailPort(e.target.value); markDirty() }}
+                      placeholder="587"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="emailUser">SMTP 帳號</Label>
+                    <Input
+                      id="emailUser"
+                      value={emailUser}
+                      onChange={(e) => { setEmailUser(e.target.value); markDirty() }}
+                      placeholder="user@example.com"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="emailPassword">SMTP 密碼</Label>
+                    <div className="relative">
+                      <Input
+                        id="emailPassword"
+                        type={showPassword ? 'text' : 'password'}
+                        value={emailPassword}
+                        onFocus={() => {
+                          if (!passwordEdited && emailPassword === SMTP_MASK) {
+                            setEmailPassword('')
+                            setPasswordEdited(true)
+                            markDirty()
+                          }
+                        }}
+                        onChange={(e) => {
+                          setEmailPassword(e.target.value)
+                          setPasswordEdited(true)
+                          markDirty()
+                        }}
+                        placeholder="輸入 SMTP 密碼"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="emailFromEmail">寄件人 Email</Label>
+                    <Input
+                      id="emailFromEmail"
+                      value={emailFromEmail}
+                      onChange={(e) => { setEmailFromEmail(e.target.value); markDirty() }}
+                      placeholder="noreply@example.com"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="emailFromName">寄件人名稱</Label>
+                    <Input
+                      id="emailFromName"
+                      value={emailFromName}
+                      onChange={(e) => { setEmailFromName(e.target.value); markDirty() }}
+                      placeholder="iPig System"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-      {/* 儲存系統設定按鈕 */}
-      <div className="flex justify-end">
-        <Button onClick={handleSave}>
-          <Save className="mr-2 h-4 w-4" />
-          儲存系統設定
-        </Button>
-      </div>
+            {/* 安全設定 */}
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5" />
+                  安全設定
+                </CardTitle>
+                <CardDescription>設定系統安全相關參數</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2 max-w-xs">
+                  <Label htmlFor="sessionTimeout">Session 逾時</Label>
+                  <Select value={sessionTimeout} onValueChange={(v) => { setSessionTimeout(v); markDirty() }}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="15">15 分鐘</SelectItem>
+                      <SelectItem value="30">30 分鐘</SelectItem>
+                      <SelectItem value="60">60 分鐘（1 小時）</SelectItem>
+                      <SelectItem value="120">120 分鐘（2 小時）</SelectItem>
+                      <SelectItem value="360">360 分鐘（6 小時）</SelectItem>
+                      <SelectItem value="480">480 分鐘（8 小時）</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    使用者閒置超過此時間後需重新登入（需重啟後端服務才生效）
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 儲存系統設定按鈕 */}
+          <div className="flex justify-end">
+            <Button
+              onClick={handleSaveSysSettings}
+              disabled={saveSysMutation.isPending || !settingsDirty}
+            >
+              {saveSysMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              儲存系統設定
+            </Button>
+          </div>
+        </>
+      )}
 
       {/* 通知偏好設定 */}
       <div className="border-t pt-6">
@@ -379,7 +530,6 @@ export function SettingsPage() {
                 {/* 單據相關 */}
                 <div className="space-y-4">
                   <h4 className="text-sm font-medium text-muted-foreground">單據審核</h4>
-
                   <div className="flex items-start space-x-3">
                     <Checkbox
                       id="email_document_approval"
@@ -402,7 +552,6 @@ export function SettingsPage() {
                 {/* AUP 計畫相關 */}
                 <div className="space-y-4">
                   <h4 className="text-sm font-medium text-muted-foreground">AUP</h4>
-
                   <div className="flex items-start space-x-3">
                     <Checkbox
                       id="email_protocol_status"
@@ -425,7 +574,6 @@ export function SettingsPage() {
                 {/* 報表相關 */}
                 <div className="space-y-4">
                   <h4 className="text-sm font-medium text-muted-foreground">報表</h4>
-
                   <div className="flex items-start space-x-3">
                     <Checkbox
                       id="email_monthly_report"
@@ -457,7 +605,6 @@ export function SettingsPage() {
                 <CardDescription>設定預警通知的觸發條件</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* 效期預警天數 */}
                 <div className="space-y-4">
                   <Slider
                     label="效期預警天數"
@@ -477,7 +624,6 @@ export function SettingsPage() {
                   </p>
                 </div>
 
-                {/* 預警說明 */}
                 <div className="rounded-lg bg-slate-50 p-4 space-y-3">
                   <h4 className="text-sm font-medium">通知時間說明</h4>
                   <ul className="text-xs text-muted-foreground space-y-2">
@@ -496,7 +642,6 @@ export function SettingsPage() {
                   </ul>
                 </div>
 
-                {/* 目前設定摘要 */}
                 <div className="rounded-lg border p-4">
                   <h4 className="text-sm font-medium mb-3">目前啟用的通知</h4>
                   <div className="flex flex-wrap gap-2">
@@ -541,7 +686,6 @@ export function SettingsPage() {
           </div>
         ) : null}
 
-        {/* 儲存通知設定按鈕 */}
         {notificationSettings && (
           <div className="flex justify-end mt-6">
             <Button
@@ -559,8 +703,16 @@ export function SettingsPage() {
         )}
       </div>
 
-      {/* 通知路由管理（管理員專用） */}
+      {/* 通知路由管理 */}
       <NotificationRoutingSection />
     </div>
   )
+}
+
+/** JSON value may come as `"hello"` (already a string) or as a raw string in JSONB */
+function unwrap(val: unknown): string {
+  if (val === null || val === undefined) return ''
+  if (typeof val === 'string') return val
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val)
+  return ''
 }
