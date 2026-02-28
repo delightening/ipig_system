@@ -18,13 +18,13 @@ jobs:
     name: "🔒 Security: cargo audit"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: 安裝 Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: 快取 Cargo bin
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cargo/bin/
           key: ${{ runner.os }}-cargo-audit-bin
@@ -52,7 +52,7 @@ jobs:
     name: "🛡️ Security: cargo deny"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: 執行 cargo-deny
         uses: EmbarkStudios/cargo-deny-action@v2
@@ -68,7 +68,7 @@ jobs:
     name: "🛑 Guard: SQL injection"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: 檢查是否有 format! 拼接 SQL
         working-directory: ./backend
@@ -86,7 +86,7 @@ jobs:
     name: "🚫 Guard: unsafe code"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: 檢查是否有 unsafe 程式碼
         working-directory: ./backend
@@ -107,13 +107,13 @@ jobs:
       run:
         working-directory: ./backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: 安裝 Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: 快取 Cargo 依賴
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/bin/
@@ -157,13 +157,13 @@ jobs:
       SQLX_OFFLINE: "false"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: 安裝 Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: 快取 Cargo 依賴
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/bin/
@@ -194,7 +194,7 @@ jobs:
       run:
         working-directory: ./backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: 安裝 Rust toolchain + clippy
         uses: dtolnay/rust-toolchain@stable
@@ -202,7 +202,7 @@ jobs:
           components: clippy
 
       - name: 快取 Cargo 依賴
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/bin/
@@ -229,10 +229,10 @@ jobs:
       run:
         working-directory: ./frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: 設定 Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: "npm"
@@ -257,10 +257,10 @@ jobs:
       run:
         working-directory: ./frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: 設定 Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: "npm"
@@ -282,7 +282,7 @@ jobs:
     # 僅在 push 到 main 時觸發（build Docker image 耗時較長）
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Build backend image
         run: docker build --no-cache --progress=plain -t ipig-api:ci ./backend
@@ -299,7 +299,7 @@ jobs:
           vuln-type: "os,library"
 
       - name: 設定 Node.js (用於前端編譯)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: "npm"
@@ -334,7 +334,7 @@ jobs:
     # 確保基本檢查通過後再跑耗時的 E2E
     needs: [backend-test, frontend-check]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: 設定專案環境變數
         run: cp .env.example .env
@@ -374,7 +374,7 @@ jobs:
           exit 1
 
       - name: 設定 Node.js (執行測試)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: "npm"
@@ -398,7 +398,7 @@ jobs:
 
       - name: 上傳測試報告 (失敗時)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: frontend/playwright-report/

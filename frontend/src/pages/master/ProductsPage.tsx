@@ -117,6 +117,8 @@ const BOOLEAN_OPTIONS = [
 
 
 interface ExtendedProduct extends Product {
+  category_code?: string
+  subcategory_code?: string
   category_name?: string
   subcategory_name?: string
   status?: 'active' | 'inactive' | 'discontinued'
@@ -559,8 +561,8 @@ export function ProductsPage() {
                 p.sku,
                 p.name,
                 p.spec || '',
-                (p as ExtendedProduct).category_code || '',
-                (p as ExtendedProduct).subcategory_code || '',
+                p.category_code || '',
+                p.subcategory_code || '',
                 UOM_MAP[p.base_uom] || p.base_uom,
                 p.safety_stock?.toString() ?? '',
                 p.track_batch ? '是' : '否',
