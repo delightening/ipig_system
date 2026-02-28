@@ -10,7 +10,7 @@ use crate::{
     models::{CreateWarehouseRequest, UpdateWarehouseRequest, Warehouse, WarehouseQuery},
     require_permission,
     services::{AuditService, WarehouseService},
-    AppError, AppState, Result,
+    AppState, Result,
 };
 
 /// 建立倉庫

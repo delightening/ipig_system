@@ -12,7 +12,7 @@ use crate::{
     models::{CreateAnimalSourceRequest, AnimalSource, UpdateAnimalSourceRequest},
     require_permission,
     services::AnimalService,
-    AppError, AppState, Result,
+    AppState, Result,
 };
 
 /// 列出所有動物來源

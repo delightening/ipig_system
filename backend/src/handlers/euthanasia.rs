@@ -87,9 +87,18 @@ pub async fn create_order(
 pub async fn get_order(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
-    Extension(_auth): Extension<CurrentUser>,
+    Extension(auth): Extension<CurrentUser>,
 ) -> Result<impl IntoResponse, AppError> {
     let order = EuthanasiaService::get_order_by_id(&state.db, id).await?;
+
+    // IDOR 防護：僅 PI、VET、CHAIR 或管理員可存取
+    if !auth.is_admin()
+        && !auth.has_permission("animal.euthanasia.arbitrate")
+        && order.pi_user_id != auth.id
+        && order.vet_user_id != auth.id
+    {
+        return Err(AppError::Forbidden("無權存取此安樂死單據".into()));
+    }
 
     Ok(Json(order))
 }

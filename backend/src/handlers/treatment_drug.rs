@@ -17,7 +17,7 @@ use crate::{
     },
     require_permission,
     services::TreatmentDrugService,
-    AppError, AppState, Result,
+    AppState, Result,
 };
 
 /// 列出啟用藥物選項（一般使用者，無需特別權限）

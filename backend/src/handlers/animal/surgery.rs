@@ -15,7 +15,7 @@ use crate::{
     },
     require_permission,
     services::{AnimalService, AuditService},
-    AppError, AppState, Result,
+    AppState, Result,
 };
 
 /// 列出動物的所有手術記錄

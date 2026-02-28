@@ -15,6 +15,115 @@ use crate::{
     services::{SignatureService, AnnotationService, AnnotationType, SignatureType, AuthService},
     AppError, AppState, Result,
 };
+
+// ============================================
+// IDOR 防護：記錄存取權限檢查
+// ============================================
+
+/// 檢查使用者是否有權存取安樂死單據（PI、VET、CHAIR 或管理員）
+async fn check_euthanasia_access(
+    db: &sqlx::PgPool,
+    order_id: Uuid,
+    current_user: &CurrentUser,
+) -> Result<()> {
+    if current_user.has_permission("animal.euthanasia.arbitrate") || current_user.is_admin() {
+        return Ok(());
+    }
+    let related: Option<(Uuid, Uuid)> = sqlx::query_as(
+        "SELECT pi_user_id, vet_user_id FROM euthanasia_orders WHERE id = $1"
+    )
+    .bind(order_id)
+    .fetch_optional(db)
+    .await?;
+
+    match related {
+        Some((pi_id, vet_id)) if pi_id == current_user.id || vet_id == current_user.id => Ok(()),
+        Some(_) => Err(AppError::Forbidden("無權存取此安樂死單據".into())),
+        None => Err(AppError::NotFound("找不到安樂死單據".into())),
+    }
+}
+
+/// 檢查使用者是否有權存取轉讓記錄（透過動物所屬計畫關聯）
+async fn check_transfer_access(
+    db: &sqlx::PgPool,
+    transfer_id: Uuid,
+    current_user: &CurrentUser,
+) -> Result<()> {
+    if current_user.has_permission("aup.protocol.view_all") || current_user.is_admin() {
+        return Ok(());
+    }
+    let has_access: Option<(i64,)> = sqlx::query_as(
+        r#"SELECT 1 FROM animal_transfers t
+           JOIN animals a ON t.animal_id = a.id
+           LEFT JOIN user_protocols up ON up.protocol_id = a.protocol_id
+           WHERE t.id = $1 AND up.user_id = $2"#
+    )
+    .bind(transfer_id)
+    .bind(current_user.id)
+    .fetch_optional(db)
+    .await?;
+
+    if has_access.is_some() {
+        Ok(())
+    } else {
+        Err(AppError::Forbidden("無權存取此轉讓記錄".into()))
+    }
+}
+
+/// 檢查使用者是否有權存取計畫書（PI、共同編輯者、審查委員或管理員）
+async fn check_protocol_access(
+    db: &sqlx::PgPool,
+    protocol_id: Uuid,
+    current_user: &CurrentUser,
+) -> Result<()> {
+    if current_user.has_permission("aup.protocol.view_all") || current_user.is_admin() {
+        return Ok(());
+    }
+    let has_access: Option<(i64,)> = sqlx::query_as(
+        r#"SELECT 1 FROM user_protocols
+           WHERE protocol_id = $1 AND user_id = $2"#
+    )
+    .bind(protocol_id)
+    .bind(current_user.id)
+    .fetch_optional(db)
+    .await?;
+
+    if has_access.is_some() {
+        Ok(())
+    } else {
+        Err(AppError::Forbidden("無權存取此計畫書".into()))
+    }
+}
+
+/// 檢查使用者是否有權存取犧牲/觀察記錄（透過動物所屬計畫關聯）
+async fn check_animal_record_access(
+    db: &sqlx::PgPool,
+    table: &str,
+    record_id: i32,
+    current_user: &CurrentUser,
+) -> Result<()> {
+    if current_user.has_permission("aup.protocol.view_all") || current_user.is_admin() {
+        return Ok(());
+    }
+    let query = format!(
+        r#"SELECT 1 FROM {} r
+           JOIN animals a ON r.animal_id = a.id
+           LEFT JOIN user_protocols up ON up.protocol_id = a.protocol_id
+           WHERE r.id = $1 AND up.user_id = $2"#,
+        table
+    );
+    let has_access: Option<(i64,)> = sqlx::query_as(&query)
+        .bind(record_id)
+        .bind(current_user.id)
+        .fetch_optional(db)
+        .await?;
+
+    if has_access.is_some() {
+        Ok(())
+    } else {
+        Err(AppError::Forbidden("無權存取此記錄".into()))
+    }
+}
 use serde_json::Value as JsonValue;
 
 // ============================================
@@ -100,6 +209,7 @@ pub async fn sign_sacrifice_record(
     Json(req): Json<SignRecordRequest>,
 ) -> Result<Json<SignRecordResponse>> {
     require_permission!(current_user, "animal.record.sacrifice");
+    check_animal_record_access(&state.db, "animal_sacrifices", sacrifice_id, &current_user).await?;
 
     // 驗證：密碼或手寫簽名擇一
     let has_password = req.password.as_ref().is_some_and(|p| !p.is_empty());
@@ -191,9 +301,11 @@ pub async fn sign_sacrifice_record(
 )]
 pub async fn get_sacrifice_signature_status(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(sacrifice_id): Path<i32>,
 ) -> Result<Json<SignatureStatusResponse>> {
+    require_permission!(current_user, "animal.record.view");
+    check_animal_record_access(&state.db, "animal_sacrifices", sacrifice_id, &current_user).await?;
     let is_signed = SignatureService::is_signed(&state.db, "sacrifice", &sacrifice_id.to_string()).await?;
     let is_locked = SignatureService::is_locked(&state.db, "sacrifice", sacrifice_id).await?;
     
@@ -251,6 +363,7 @@ pub async fn sign_observation_record(
     Json(req): Json<SignRecordRequest>,
 ) -> Result<Json<SignRecordResponse>> {
     require_permission!(current_user, "animal.record.view");
+    check_animal_record_access(&state.db, "animal_observations", observation_id, &current_user).await?;
 
     // 驗證：密碼或手寫簽名擇一
     let has_password = req.password.as_ref().is_some_and(|p| !p.is_empty());
@@ -344,6 +457,8 @@ pub async fn sign_euthanasia_order(
     Path(order_id): Path<Uuid>,
     Json(req): Json<SignRecordRequest>,
 ) -> Result<Json<SignRecordResponse>> {
+    check_euthanasia_access(&state.db, order_id, &current_user).await?;
+
     // 驗證：密碼或手寫簽名擇一
     let has_password = req.password.as_ref().is_some_and(|p| !p.is_empty());
     let has_handwriting = req.handwriting_svg.as_ref().is_some_and(|s| !s.is_empty());
@@ -430,9 +545,10 @@ pub async fn sign_euthanasia_order(
 )]
 pub async fn get_euthanasia_signature_status(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(order_id): Path<Uuid>,
 ) -> Result<Json<SignatureStatusResponse>> {
+    check_euthanasia_access(&state.db, order_id, &current_user).await?;
     let is_signed = SignatureService::is_signed(&state.db, "euthanasia", &order_id.to_string()).await?;
 
     let signatures = SignatureService::get_signatures(&state.db, "euthanasia", &order_id.to_string()).await?;
@@ -488,6 +604,9 @@ pub async fn sign_transfer_record(
     Path(transfer_id): Path<Uuid>,
     Json(req): Json<SignRecordRequest>,
 ) -> Result<Json<SignRecordResponse>> {
+    require_permission!(current_user, "animal.record.create");
+    check_transfer_access(&state.db, transfer_id, &current_user).await?;
+
     // 驗證：密碼或手寫簽名擇一
     let has_password = req.password.as_ref().is_some_and(|p| !p.is_empty());
     let has_handwriting = req.handwriting_svg.as_ref().is_some_and(|s| !s.is_empty());
@@ -574,9 +693,10 @@ pub async fn sign_transfer_record(
 )]
 pub async fn get_transfer_signature_status(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(transfer_id): Path<Uuid>,
 ) -> Result<Json<SignatureStatusResponse>> {
+    check_transfer_access(&state.db, transfer_id, &current_user).await?;
     let is_signed = SignatureService::is_signed(&state.db, "transfer", &transfer_id.to_string()).await?;
 
     let signatures = SignatureService::get_signatures(&state.db, "transfer", &transfer_id.to_string()).await?;
@@ -632,6 +752,8 @@ pub async fn sign_protocol_review(
     Path(protocol_id): Path<Uuid>,
     Json(req): Json<SignRecordRequest>,
 ) -> Result<Json<SignRecordResponse>> {
+    check_protocol_access(&state.db, protocol_id, &current_user).await?;
+
     // 驗證：密碼或手寫簽名擇一
     let has_password = req.password.as_ref().is_some_and(|p| !p.is_empty());
     let has_handwriting = req.handwriting_svg.as_ref().is_some_and(|s| !s.is_empty());
@@ -717,9 +839,10 @@ pub async fn sign_protocol_review(
 )]
 pub async fn get_protocol_signature_status(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(protocol_id): Path<Uuid>,
 ) -> Result<Json<SignatureStatusResponse>> {
+    check_protocol_access(&state.db, protocol_id, &current_user).await?;
     let is_signed = SignatureService::is_signed(&state.db, "protocol", &protocol_id.to_string()).await?;
 
     let signatures = SignatureService::get_signatures(&state.db, "protocol", &protocol_id.to_string()).await?;
@@ -853,9 +976,15 @@ pub async fn add_record_annotation(
 )]
 pub async fn get_record_annotations(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path((record_type, record_id)): Path<(String, i32)>,
 ) -> Result<Json<Vec<AnnotationResponse>>> {
+    // IDOR 防護：依記錄類型檢查存取權限
+    match record_type.as_str() {
+        "sacrifice" => check_animal_record_access(&state.db, "animal_sacrifices", record_id, &current_user).await?,
+        "observation" => check_animal_record_access(&state.db, "animal_observations", record_id, &current_user).await?,
+        _ => { require_permission!(current_user, "animal.record.view"); }
+    }
     let annotations = AnnotationService::get_by_record(&state.db, &record_type, record_id).await?;
 
     let mut responses = Vec::new();

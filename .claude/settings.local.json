@@ -26,7 +26,8 @@
       "Bash(tee:*)",
       "Bash(python -c:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git ls-files:*)"
     ]
   }
 }

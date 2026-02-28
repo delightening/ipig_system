@@ -15,7 +15,7 @@ use crate::{
     },
     require_permission,
     services::{AnimalService, AuditService},
-    AppError, AppState, Result,
+    AppState, Result,
 };
 
 use super::{get_animal_info_from_observation, get_animal_info_from_surgery};

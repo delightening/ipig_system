@@ -32,8 +32,6 @@ export default defineConfig({
           ],
           // 圖表
           'vendor-charts': ['recharts'],
-          // 辦公文件 (PDF)
-          'vendor-office': ['jspdf', 'html2canvas'],
           // 行事曆
           'vendor-calendar': [
             '@fullcalendar/core', '@fullcalendar/daygrid',
