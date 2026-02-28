@@ -44,7 +44,9 @@
 
 ## 五、Phase 3：Backend 遷移
 
-依序：metrics-exporter-prometheus → thiserror → jsonwebtoken → tower → tokio-cron-scheduler → printpdf → utoipa。每步 `cargo check && cargo test`。
+**已完成**：metrics-exporter-prometheus、thiserror、jsonwebtoken、tower、tokio-cron-scheduler。
+
+**暫緩**（需大量遷移）：printpdf 0.9（API 變更）、utoipa 5 + utoipa-swagger-ui 9（需 axum 0.8）。
 
 ---
 
