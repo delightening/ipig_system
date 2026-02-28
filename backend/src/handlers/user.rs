@@ -10,7 +10,7 @@ use validator::Validate;
 
 use crate::{
     middleware::{CurrentUser, extract_real_ip_with_trust},
-    models::{AuditAction, CreateUserRequest, ResetPasswordRequest, UpdateUserRequest, UserResponse},
+    models::{AuditAction, CreateUserRequest, PaginationParams, ResetPasswordRequest, UpdateUserRequest, UserResponse},
     require_permission,
     services::{AuthService, AuditService, UserService, EmailService},
     AppError, AppState, Result,
@@ -21,6 +21,8 @@ use super::auth::build_set_cookie;
 #[derive(Debug, serde::Deserialize)]
 pub struct UserQuery {
     pub keyword: Option<String>,
+    pub page: Option<i64>,
+    pub per_page: Option<i64>,
 }
 
 /// 建立使用者
@@ -96,7 +98,8 @@ pub async fn list_users(
 ) -> Result<Json<Vec<UserResponse>>> {
     require_permission!(current_user, "admin.user.view");
     
-    let users = UserService::list(&state.db, query.keyword.as_deref()).await?;
+    let pagination = PaginationParams { page: query.page, per_page: query.per_page };
+    let users = UserService::list(&state.db, query.keyword.as_deref(), &pagination).await?;
     Ok(Json(users))
 }
 

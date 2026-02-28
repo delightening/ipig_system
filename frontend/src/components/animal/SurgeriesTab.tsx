@@ -154,7 +154,7 @@ export function SurgeriesTab({ animalId, earTag, afterParam, surgeries }: Surger
                       <TableCell>{surgery.created_by_name || '-'}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => setExpandedId(surgery.id)} title="檢視詳情">
+                          <Button variant="ghost" size="icon" onClick={() => setExpandedId(surgery.id)} title="檢視詳情" aria-label="檢視詳情">
                             <Eye className="h-4 w-4" />
                           </Button>
                           <Button
@@ -209,6 +209,7 @@ export function SurgeriesTab({ animalId, earTag, afterParam, surgeries }: Surger
                             size="icon"
                             onClick={() => setDeleteTarget(surgery.id)}
                             title="刪除"
+                            aria-label="刪除"
                           >
                             <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>

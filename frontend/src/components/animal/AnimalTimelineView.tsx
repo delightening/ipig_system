@@ -1,4 +1,4 @@
-﻿import { Animal, AnimalObservation, AnimalSurgery, AnimalSacrifice, AnimalSuddenDeath, AnimalWeight, AnimalTransfer, AnimalEvent, RecordType, recordTypeNames, transferStatusNames } from '@/lib/api'
+import { Animal, AnimalObservation, AnimalSurgery, AnimalSacrifice, AnimalSuddenDeath, AnimalWeight, AnimalTransfer, AnimalEvent, RecordType, recordTypeNames, transferStatusNames } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -311,9 +311,9 @@ export function AnimalTimelineView({
                                 {/* 只有觀察和手術紀錄才有操作按鈕 */}
                                 {!item.isInfoOnly && (item.type === 'observation' || item.type === 'surgery') && (
                                     <div className="flex gap-1">
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(item.type as 'observation' | 'surgery', item.raw)}><Edit2 className="h-3.5 w-3.5" /></Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onView(item.type as 'observation' | 'surgery', item.originalId)}><Eye className="h-3.5 w-3.5" /></Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => onDelete(item.type as 'observation' | 'surgery', item.originalId)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(item.type as 'observation' | 'surgery', item.raw)} aria-label="編輯"><Edit2 className="h-3.5 w-3.5" /></Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onView(item.type as 'observation' | 'surgery', item.originalId)} aria-label="檢視"><Eye className="h-3.5 w-3.5" /></Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => onDelete(item.type as 'observation' | 'surgery', item.originalId)} aria-label="刪除"><Trash2 className="h-3.5 w-3.5" /></Button>
                                     </div>
                                 )}
                             </div>

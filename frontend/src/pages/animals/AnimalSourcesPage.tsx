@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { AnimalSource } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -33,6 +33,8 @@ import {
   User,
   MapPin,
 } from 'lucide-react'
+import { useConfirmDialog } from '@/hooks/useConfirmDialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 interface SourceFormData {
   code: string
@@ -56,6 +58,7 @@ const defaultFormData: SourceFormData = {
 
 export function AnimalSourcesPage() {
   const queryClient = useQueryClient()
+  const { dialogState, confirm } = useConfirmDialog()
 
   const [showDialog, setShowDialog] = useState(false)
   const [editingSource, setEditingSource] = useState<AnimalSource | null>(null)
@@ -165,8 +168,9 @@ export function AnimalSourcesPage() {
     }
   }
 
-  const handleDelete = (source: AnimalSource) => {
-    if (confirm(`確定要刪除來源「${source.name}」嗎？`)) {
+  const handleDelete = async (source: AnimalSource) => {
+    const ok = await confirm({ title: '刪除動物來源', description: `確定要刪除來源「${source.name}」嗎？`, variant: 'destructive', confirmLabel: '確認刪除' })
+    if (ok) {
       deleteMutation.mutate(source.id)
     }
   }
@@ -408,6 +412,7 @@ export function AnimalSourcesPage() {
           </form>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog state={dialogState} />
     </div>
   )
 }

@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-02-28  
+> **最後更新：** 2026-02-28 (v2)  
 > **維護慣例：** 完成項目保留於本表並標 [x]，同時於 `docs/PROGRESS.md` §9 最新變更動態 新增對應紀錄；待辦統計僅計「未完成」數量。
 > **AI 標註說明：** 
 > - ⚡ **Gemini Flash** (適合樣板編寫、簡單設定、文檔生成)
@@ -31,6 +31,26 @@
 | P1-7 | **電子簽章合規審查** | 21 CFR Part 11 或等效法規合規審查 | 文件 | 無 | 🧠 Claude | [x] |
 | P1-8 | **資料保留政策** | 定義各類紀錄的法定保留年限 | 文件 | 無 | 🧠 Claude | [x] |
 | P1-12 | **OpenAPI 文件完善 (≥90%)** | 擴展其餘端點的 Schema 與 Path 定義 | 後端 | 無 | 🧠 Claude | [x] |
+| P1-30 | **Graceful Shutdown** | `main.rs` 加入 `tokio::signal` + `with_graceful_shutdown()`，支援 SIGTERM/Ctrl+C | 後端 | 無 | 🧠 Claude | [x] |
+| P1-31 | **自訂 404 頁面** | `NotFoundPage` 元件取代 catch-all redirect，含「返回上一頁」與「回到首頁」按鈕 | 前端 | 無 | 🧠 Claude | [x] |
+| P1-32 | **Session 逾時預警** | `SessionTimeoutWarning` 元件 + auth store `sessionExpiresAt` 追蹤，到期前 60s 顯示倒數 Dialog | 前端 | 無 | 🧠 Claude | [x] |
+| P1-33 | **刪除記錄時清理檔案** | `FileService::delete_by_entity()` 方法，動物/觀察紀錄刪除時連帶清理 `attachments` 表與磁碟檔案 | 後端 | 無 | 🧠 Claude | [x] |
+| P1-34 | **Optimistic Locking** | `014_optimistic_locking.sql` 新增 `version` 欄位（animals/protocols/observations/surgeries），更新 SQL 含版本檢查 | 後端 | 無 | 🧠 Claude | [x] |
+| P1-35 | **原生 confirm() 統一為 Dialog** | `useConfirmDialog` hook + `ConfirmDialog` + `AlertDialog` 元件，9 個檔案 11 處 `confirm()` 全部替換 | 前端 | 無 | 🧠 Claude | [x] |
+
+---
+
+## 🔴 P2 — 中優先 (品質 / 合規 / UX)
+
+| # | 項目 | 說明 | 範圍 | 依賴 | 建議 AI | 狀態 |
+|---|------|------|------|------|----------|------|
+| P2-36 | **i18n 硬編碼中文補齊** | AnimalDetailPage Tab 標籤 + 404/Session 預警翻譯鍵加入 zh-TW.json 與 en.json | 前端 | 無 | 🧠 Claude | [x] |
+| P2-37 | **列表 API 分頁** | `PaginationParams` + `sql_suffix()` 方法，users/warehouses/partners 三個 handler 支援 `?page=&per_page=`（向後相容） | 後端 | 無 | 🧠 Claude | [x] |
+| P2-38 | **表單離開前確認** | `useUnsavedChangesGuard` hook（useBlocker + beforeunload）+ `UnsavedChangesDialog` 元件，已整合 ProtocolEditPage | 前端 | 無 | 🧠 Claude | [x] |
+| P2-39 | **隱私政策 / 服務條款頁面** | `PrivacyPolicyPage` + `TermsOfServicePage` 靜態頁面，公開路由 `/privacy` `/terms`，登入頁加連結 | 前端 | 無 | 🧠 Claude | [x] |
+| P2-40 | **Cookie 同意橫幅** | `CookieConsent` 元件，localStorage 記憶同意狀態，底部半透明橫幅 + 了解更多連結 | 前端 | 無 | 🧠 Claude | [x] |
+| P2-41 | **DB Migration Rollback 文件** | `docs/DB_ROLLBACK.md` 涵蓋 14 個 migration 的精確回滾 SQL（逆序）+ 建議回退流程 | 文件 | 無 | 🧠 Claude | [x] |
+| P2-42 | **`.env.example` 補齊** | 新增 HOST/PORT/DATABASE_MAX_CONNECTIONS/UPLOAD_DIR/GEOIP_DB_PATH 等 9 個缺漏變數 | DevOps | 無 | 🧠 Claude | [x] |
 
 ---
 
@@ -62,6 +82,11 @@
 | 14 | **前端超長頁面重構** | 漸進式重構巨型組件。**2026-02-28 已完成 AnimalDetailPage 1,945→748 行（-61%），抽離 7 個 Tab 元件（ObservationsTab/SurgeriesTab/WeightsTab/VaccinationsTab/SacrificeTab/AnimalInfoTab/PathologyTab）。** ProtocolDetailPage（1,921 行）待後續處理。 | 前端 | 🧠 Claude | [x] |
 | 15 | **SEC-39：Two-Factor Authentication** | TOTP 二階段驗證 (Google Authenticator) | 前後端 | 🧠 Claude | [ ] |
 | 16 | **SEC-40：Web Application Firewall** | ModSecurity 或 Cloudflare WAF | DevOps | ⚡ Flash | [ ] |
+| P5-43 | **ARIA 無障礙標籤** | 12 個檔案新增 23 個 `aria-label`（編輯/刪除/檢視/關閉/導航按鈕） | 前端 | 🧠 Claude | [x] |
+| P5-44 | **表單即時驗證回饋** | Input/Textarea 新增 `error` prop 紅框樣式，`FormField` 通用元件含 label + 錯誤訊息 | 前端 | 🧠 Claude | [x] |
+| P5-45 | **磁碟空間監控告警** | `scripts/monitor/check_disk_space.sh` 含 uploads 大小 + 磁碟使用率檢查 + Prometheus textfile 輸出 | DevOps | 🧠 Claude | [x] |
+| P5-46 | **LICENSE 檔案** | MIT License，2026 iPig System Contributors | 文件 | 🧠 Claude | [x] |
+| P5-47 | **index.html Meta Tags** | title「豬博士 iPig 系統」+ description + theme-color + favicon 更新 | 前端 | 🧠 Claude | [x] |
 
 ---
 
@@ -74,9 +99,9 @@
 | 🔴 P2 中優先 | 0 |
 | 🔵 P3 低優先 | 0 |
 | 🟣 P4 品質提升 | 0 |
-> 📌 2026-02-28 新增 P4-19/20/21 並已完成（Prometheus 部署、後端整合測試、效能報告）
 | ⚪ P5 長期演進 | 2 |
 | **合計（未完成）** | **2** |
+> 📌 2026-02-28 新增 18 項品質補強計畫並全數完成（P1-30~35 / P2-36~42 / P5-43~47）；剩餘 P5-13 Storybook + P5-15 2FA + P5-16 WAF
 
 ---
 
@@ -84,6 +109,8 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-02-28 | 🧠 Claude：JWT 預設過期時間從 15 分鐘調整為 360 分鐘（6 小時），更新後端 config / 前端 session fallback / .env / docker-compose 等 7 個檔案 |
+| 2026-02-28 | 🧠 Claude：完成 18 項品質補強計畫 — **高影響 6 項**：P1-30 Graceful Shutdown / P1-31 自訂 404 頁面 / P1-32 Session 逾時預警 / P1-33 刪除記錄清理檔案 / P1-34 Optimistic Locking / P1-35 confirm() 統一 Dialog。**中影響 7 項**：P2-36 i18n 補齊 / P2-37 API 分頁 / P2-38 表單離開確認 / P2-39 隱私政策 / P2-40 Cookie 同意 / P2-41 Rollback 文件 / P2-42 .env 補齊。**低影響 5 項**：P5-43 ARIA 標籤 / P5-44 驗證回饋 / P5-45 磁碟監控 / P5-46 LICENSE / P5-47 Meta Tags。|
 | 2026-02-28 | 🧠 Claude：完成交付前補強 3 項 — (1) P4-19 Prometheus + Grafana 部署（`docker-compose.monitoring.yml` + `deploy/prometheus.yml` + Grafana provisioning + 10-panel dashboard）；(2) P4-20 後端 API 整合測試（`lib.rs` 重構 + `TestApp` infra + 6 個測試檔 25+ test cases，`cargo check --tests` 通過）；(3) P4-21 效能基準報告（`docs/PERFORMANCE_BENCHMARK.md` 8 章節正式報告 + k6 腳本 setup() token sharing 優化）。|
 | 2026-02-28 | 🧠 Claude：解決 3 個市場交付阻擋項 — (1) 獸醫建議/觀察紀錄檔案上傳下載串接完成（後端新增 `ObservationAttachment` FileCategory + `/observations/:id/attachments` 路由，前端 VetRecommendationDialog 與 ObservationFormDialog 串接 multipart 上傳與下載）；(2) USER_GUIDE.md 從 26 行擴充至完整操作手冊（9 章節含 AUP/動物/ERP/HR/報表/系統管理/FAQ）；(3) docker-compose.prod.yml 補齊所有服務的 CPU/記憶體限制與 json-file 日誌輪轉。|
 | 2026-02-28 | 🧠 Claude：完成 P5-14 前端超長頁面重構 — AnimalDetailPage 1,945→748 行（-61%），抽離 7 個 Tab 元件至 `components/animal/`（Observations/Surgeries/Weights/Vaccinations/Sacrifice/AnimalInfo/PathologyTab），TypeScript 零錯誤通過。 |

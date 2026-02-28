@@ -282,6 +282,11 @@ pub async fn delete_animal(
 
     AnimalService::delete_with_reason(&state.db, id, &req.reason, current_user.id).await?;
 
+    // 清理相關附件檔案
+    if let Err(e) = crate::services::FileService::delete_by_entity(&state.db, "animal", &id).await {
+        tracing::warn!("清理動物附件失敗 (non-fatal): {}", e);
+    }
+
     if let Err(e) = AuditService::log_activity(
         &state.db,
         current_user.id,

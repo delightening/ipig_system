@@ -8,6 +8,8 @@ interface AuthState {
   isLoading: boolean
   /** 是否已完成初始驗證（防止 stale localStorage state，SEC-24） */
   isInitialized: boolean
+  /** Session 到期的 Unix 時間戳（ms），供逾時預警使用 */
+  sessionExpiresAt: number | null
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
   /** 僅清除前端 auth 狀態（不呼叫後端），供 interceptor 在 token 失效時使用 */
@@ -17,6 +19,7 @@ interface AuthState {
   impersonate: (userId: string, reauthToken?: string) => Promise<void>
   stopImpersonating: () => Promise<void>
   checkAuth: () => Promise<void>
+  refreshSession: () => Promise<boolean>
   hasPermission: (permission: string) => boolean
   hasRole: (role: string) => boolean
 }
@@ -28,7 +31,7 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: false,
       isInitialized: false,
-      // 從 user 資料的 impersonated_by 欄位判斷是否為模擬登入
+      sessionExpiresAt: null,
       isImpersonating: false,
 
       login: async (email: string, password: string) => {
@@ -39,14 +42,14 @@ export const useAuthStore = create<AuthState>()(
             password,
           })
 
-          // Cookie 由後端設定，前端不再需要手動儲存 token（SEC-02）
-          const { user } = response.data
+          const { user, expires_in } = response.data
 
           set({
             user,
             isAuthenticated: true,
             isLoading: false,
             isImpersonating: false,
+            sessionExpiresAt: Date.now() + expires_in * 1000,
           })
         } catch (error) {
           set({ isLoading: false })
@@ -56,7 +59,6 @@ export const useAuthStore = create<AuthState>()(
 
       logout: async () => {
         try {
-          // 後端會清除 HttpOnly Cookie
           await api.post('/auth/logout')
         } catch {
           // Ignore errors during logout
@@ -65,6 +67,7 @@ export const useAuthStore = create<AuthState>()(
             user: null,
             isAuthenticated: false,
             isImpersonating: false,
+            sessionExpiresAt: null,
           })
         }
       },
@@ -74,6 +77,7 @@ export const useAuthStore = create<AuthState>()(
           user: null,
           isAuthenticated: false,
           isImpersonating: false,
+          sessionExpiresAt: null,
         })
       },
 
@@ -123,19 +127,31 @@ export const useAuthStore = create<AuthState>()(
 
       checkAuth: async () => {
         try {
-          // Cookie 自動傳送，直接呼叫 /me 即可驗證
           const response = await api.get<User>('/me')
+          const currentExpiry = get().sessionExpiresAt
           set({
             user: response.data,
             isAuthenticated: true,
             isInitialized: true,
+            sessionExpiresAt: currentExpiry ?? Date.now() + 6 * 60 * 60 * 1000,
           })
         } catch {
           set({
             user: null,
             isAuthenticated: false,
             isInitialized: true,
+            sessionExpiresAt: null,
           })
+        }
+      },
+
+      refreshSession: async () => {
+        try {
+          await api.post('/auth/refresh')
+          set({ sessionExpiresAt: Date.now() + 6 * 60 * 60 * 1000 })
+          return true
+        } catch {
+          return false
         }
       },
 

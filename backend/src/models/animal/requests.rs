@@ -78,6 +78,8 @@ pub struct UpdateAnimalRequest {
     pub iacuc_no: Option<String>,
     pub experiment_date: Option<NaiveDate>,
     pub remark: Option<String>,
+    /// Optimistic locking: if provided, update only succeeds when DB version matches
+    pub version: Option<i32>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]

@@ -52,7 +52,7 @@ function check(
 console.log('\n🔍 開始 E2E 配置驗證...\n')
 
 // 1. JWT TTL
-const jwtMinutes = parseInt(process.env.JWT_EXPIRATION_MINUTES || '15', 10)
+const jwtMinutes = parseInt(process.env.JWT_EXPIRATION_MINUTES || '360', 10)
 check(
     'JWT TTL',
     jwtMinutes >= 5,

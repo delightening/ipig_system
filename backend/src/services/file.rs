@@ -340,6 +340,35 @@ impl FileService {
         Ok(())
     }
 
+    /// 刪除某 entity 的所有附件（檔案 + DB 記錄）
+    pub async fn delete_by_entity(
+        pool: &sqlx::PgPool,
+        entity_type: &str,
+        entity_id: &uuid::Uuid,
+    ) -> Result<(), AppError> {
+        let rows: Vec<(String,)> = sqlx::query_as(
+            "SELECT file_path FROM attachments WHERE entity_type = $1 AND entity_id = $2"
+        )
+        .bind(entity_type)
+        .bind(entity_id)
+        .fetch_all(pool)
+        .await
+        .map_err(|e: sqlx::Error| AppError::Database(e))?;
+
+        for (path,) in &rows {
+            let _ = Self::delete(path).await;
+        }
+
+        sqlx::query("DELETE FROM attachments WHERE entity_type = $1 AND entity_id = $2")
+            .bind(entity_type)
+            .bind(entity_id)
+            .execute(pool)
+            .await
+            .map_err(|e: sqlx::Error| AppError::Database(e))?;
+
+        Ok(())
+    }
+
     /// 推斷 MIME 類型
     fn guess_mime_type(path: &Path) -> String {
         let extension = path.extension()

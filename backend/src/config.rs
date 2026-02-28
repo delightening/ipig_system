@@ -79,11 +79,10 @@ impl Config {
                 }
                 secret
             },
-            // SEC-32: 統一使用 JWT_EXPIRATION_MINUTES，預設 15 分鐘
-            // 已移除 JWT_EXPIRATION_HOURS 以避免混淆
+            // SEC-32: 統一使用 JWT_EXPIRATION_MINUTES，預設 360 分鐘（6 小時）
             jwt_expiration_seconds: {
                 let mins: i64 = std::env::var("JWT_EXPIRATION_MINUTES")
-                    .unwrap_or_else(|_| "15".to_string())
+                    .unwrap_or_else(|_| "360".to_string())
                     .parse()
                     .context("JWT_EXPIRATION_MINUTES must be a number")?;
                 mins * 60
@@ -168,7 +167,7 @@ mod tests {
             database_retry_attempts: 5,
             database_retry_delay_seconds: 5,
             jwt_secret: "a".repeat(32),
-            jwt_expiration_seconds: 900,
+            jwt_expiration_seconds: 21600,
             jwt_refresh_expiration_days: 7,
             max_sessions_per_user: 5,
             smtp_host: None,

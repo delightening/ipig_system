@@ -2,7 +2,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
-    models::{CreatePartnerRequest, Partner, PartnerQuery, SupplierCategory, UpdatePartnerRequest},
+    models::{CreatePartnerRequest, PaginationParams, Partner, PartnerQuery, SupplierCategory, UpdatePartnerRequest},
     AppError, Result,
 };
 
@@ -147,85 +147,87 @@ impl PartnerService {
 
     /// 取得夥伴列表
     pub async fn list(pool: &PgPool, query: &PartnerQuery) -> Result<Vec<Partner>> {
+        let pagination = PaginationParams { page: query.page, per_page: query.per_page };
+        let suffix = pagination.sql_suffix();
+
         let partners = if let Some(ref kw) = query.keyword {
             let pattern = format!("%{}%", kw);
             if let Some(partner_type) = query.partner_type {
                 if let Some(is_active) = query.is_active {
-                    sqlx::query_as::<_, Partner>(
-                        r#"
-                        SELECT * FROM partners 
-                        WHERE (code ILIKE $1 OR name ILIKE $1) 
-                          AND partner_type = $2 
-                          AND is_active = $3 
-                        ORDER BY code
-                        "#,
-                    )
+                    let sql = format!(
+                        "SELECT * FROM partners WHERE (code ILIKE $1 OR name ILIKE $1) AND partner_type = $2 AND is_active = $3 ORDER BY code{}",
+                        suffix
+                    );
+                    sqlx::query_as::<_, Partner>(&sql)
+                        .bind(&pattern)
+                        .bind(partner_type)
+                        .bind(is_active)
+                        .fetch_all(pool)
+                        .await?
+                } else {
+                    let sql = format!(
+                        "SELECT * FROM partners WHERE (code ILIKE $1 OR name ILIKE $1) AND partner_type = $2 ORDER BY code{}",
+                        suffix
+                    );
+                    sqlx::query_as::<_, Partner>(&sql)
+                        .bind(&pattern)
+                        .bind(partner_type)
+                        .fetch_all(pool)
+                        .await?
+                }
+            } else if let Some(is_active) = query.is_active {
+                let sql = format!(
+                    "SELECT * FROM partners WHERE (code ILIKE $1 OR name ILIKE $1) AND is_active = $2 ORDER BY code{}",
+                    suffix
+                );
+                sqlx::query_as::<_, Partner>(&sql)
                     .bind(&pattern)
+                    .bind(is_active)
+                    .fetch_all(pool)
+                    .await?
+            } else {
+                let sql = format!(
+                    "SELECT * FROM partners WHERE (code ILIKE $1 OR name ILIKE $1) ORDER BY code{}",
+                    suffix
+                );
+                sqlx::query_as::<_, Partner>(&sql)
+                    .bind(&pattern)
+                    .fetch_all(pool)
+                    .await?
+            }
+        } else if let Some(partner_type) = query.partner_type {
+            if let Some(is_active) = query.is_active {
+                let sql = format!(
+                    "SELECT * FROM partners WHERE partner_type = $1 AND is_active = $2 ORDER BY code{}",
+                    suffix
+                );
+                sqlx::query_as::<_, Partner>(&sql)
                     .bind(partner_type)
                     .bind(is_active)
                     .fetch_all(pool)
                     .await?
-                } else {
-                    sqlx::query_as::<_, Partner>(
-                        r#"
-                        SELECT * FROM partners 
-                        WHERE (code ILIKE $1 OR name ILIKE $1) 
-                          AND partner_type = $2 
-                        ORDER BY code
-                        "#,
-                    )
-                    .bind(&pattern)
+            } else {
+                let sql = format!(
+                    "SELECT * FROM partners WHERE partner_type = $1 ORDER BY code{}",
+                    suffix
+                );
+                sqlx::query_as::<_, Partner>(&sql)
                     .bind(partner_type)
                     .fetch_all(pool)
                     .await?
-                }
-            } else if let Some(is_active) = query.is_active {
-                sqlx::query_as::<_, Partner>(
-                    r#"
-                    SELECT * FROM partners 
-                    WHERE (code ILIKE $1 OR name ILIKE $1) 
-                      AND is_active = $2 
-                    ORDER BY code
-                    "#,
-                )
-                .bind(&pattern)
-                .bind(is_active)
-                .fetch_all(pool)
-                .await?
-            } else {
-                sqlx::query_as::<_, Partner>(
-                    "SELECT * FROM partners WHERE (code ILIKE $1 OR name ILIKE $1) ORDER BY code",
-                )
-                .bind(&pattern)
-                .fetch_all(pool)
-                .await?
-            }
-        } else if let Some(partner_type) = query.partner_type {
-            if let Some(is_active) = query.is_active {
-                sqlx::query_as::<_, Partner>(
-                    "SELECT * FROM partners WHERE partner_type = $1 AND is_active = $2 ORDER BY code"
-                )
-                .bind(partner_type)
-                .bind(is_active)
-                .fetch_all(pool)
-                .await?
-            } else {
-                sqlx::query_as::<_, Partner>(
-                    "SELECT * FROM partners WHERE partner_type = $1 ORDER BY code",
-                )
-                .bind(partner_type)
-                .fetch_all(pool)
-                .await?
             }
         } else if let Some(is_active) = query.is_active {
-            sqlx::query_as::<_, Partner>(
-                "SELECT * FROM partners WHERE is_active = $1 ORDER BY code",
-            )
-            .bind(is_active)
-            .fetch_all(pool)
-            .await?
+            let sql = format!(
+                "SELECT * FROM partners WHERE is_active = $1 ORDER BY code{}",
+                suffix
+            );
+            sqlx::query_as::<_, Partner>(&sql)
+                .bind(is_active)
+                .fetch_all(pool)
+                .await?
         } else {
-            sqlx::query_as::<_, Partner>("SELECT * FROM partners ORDER BY code")
+            let sql = format!("SELECT * FROM partners ORDER BY code{}", suffix);
+            sqlx::query_as::<_, Partner>(&sql)
                 .fetch_all(pool)
                 .await?
         };

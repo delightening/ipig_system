@@ -43,6 +43,8 @@ import {
     Warehouse as WarehouseIcon,
     Trash2,
 } from 'lucide-react'
+import { useConfirmDialog } from '@/hooks/useConfirmDialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
@@ -95,6 +97,7 @@ export function WarehouseLayoutPage() {
     const { t } = useTranslation()
     const queryClient = useQueryClient()
     const { hasPermission } = useAuthStore()
+    const { dialogState, confirm } = useConfirmDialog()
 
     const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>('')
     const [isEditMode, setIsEditMode] = useState(false)
@@ -698,8 +701,9 @@ export function WarehouseLayoutPage() {
                                     <Button
                                         type="button"
                                         variant="destructive"
-                                        onClick={() => {
-                                            if (confirm('確定要刪除此儲位嗎？此操作無法復原。')) {
+                                        onClick={async () => {
+                                            const ok = await confirm({ title: '刪除儲位', description: '確定要刪除此儲位嗎？此操作無法復原。', variant: 'destructive', confirmLabel: '確認刪除' })
+                                            if (ok) {
                                                 deleteMutation.mutate(editingLocation.id)
                                                 setShowDialog(false)
                                                 resetForm()
@@ -734,6 +738,7 @@ export function WarehouseLayoutPage() {
                     </form>
                 </DialogContent>
             </Dialog>
+            <ConfirmDialog state={dialogState} />
         </div>
     )
 }

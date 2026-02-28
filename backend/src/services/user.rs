@@ -2,7 +2,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
-    models::{AuditAction, CreateUserRequest, UpdateUserRequest, User, UserResponse},
+    models::{AuditAction, CreateUserRequest, PaginationParams, UpdateUserRequest, User, UserResponse},
     services::{AuditService, AuthService},
     AppError, Result,
 };
@@ -68,21 +68,21 @@ impl UserService {
     }
 
     /// 取得用戶列表
-    pub async fn list(pool: &PgPool, keyword: Option<&str>) -> Result<Vec<UserResponse>> {
+    pub async fn list(pool: &PgPool, keyword: Option<&str>, pagination: &PaginationParams) -> Result<Vec<UserResponse>> {
+        let suffix = pagination.sql_suffix();
         let users = if let Some(kw) = keyword {
             let pattern = format!("%{}%", kw);
-            sqlx::query_as::<_, User>(
-                r#"
-                SELECT * FROM users 
-                WHERE email ILIKE $1 OR display_name ILIKE $1
-                ORDER BY created_at DESC
-                "#,
-            )
-            .bind(&pattern)
-            .fetch_all(pool)
-            .await?
+            let sql = format!(
+                "SELECT * FROM users WHERE email ILIKE $1 OR display_name ILIKE $1 ORDER BY created_at DESC{}",
+                suffix
+            );
+            sqlx::query_as::<_, User>(&sql)
+                .bind(&pattern)
+                .fetch_all(pool)
+                .await?
         } else {
-            sqlx::query_as::<_, User>("SELECT * FROM users ORDER BY created_at DESC")
+            let sql = format!("SELECT * FROM users ORDER BY created_at DESC{}", suffix);
+            sqlx::query_as::<_, User>(&sql)
                 .fetch_all(pool)
                 .await?
         };

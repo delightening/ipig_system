@@ -2,7 +2,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
-    models::{CreateWarehouseRequest, UpdateWarehouseRequest, Warehouse, WarehouseQuery},
+    models::{CreateWarehouseRequest, PaginationParams, UpdateWarehouseRequest, Warehouse, WarehouseQuery},
     AppError, Result,
 };
 
@@ -83,6 +83,9 @@ impl WarehouseService {
 
     /// 取得倉庫列表
     pub async fn list(pool: &PgPool, query: &WarehouseQuery) -> Result<Vec<Warehouse>> {
+        let pagination = PaginationParams { page: query.page, per_page: query.per_page };
+        let suffix = pagination.sql_suffix();
+
         let mut sql = String::from("SELECT * FROM warehouses WHERE 1=1");
 
         if query.keyword.is_some() {
@@ -92,6 +95,7 @@ impl WarehouseService {
             sql.push_str(" AND is_active = $2");
         }
         sql.push_str(" ORDER BY code");
+        sql.push_str(&suffix);
 
         let warehouses = if let Some(ref kw) = query.keyword {
             let pattern = format!("%{}%", kw);
@@ -108,14 +112,14 @@ impl WarehouseService {
                     .await?
             }
         } else if let Some(is_active) = query.is_active {
-            sqlx::query_as::<_, Warehouse>(
-                "SELECT * FROM warehouses WHERE is_active = $1 ORDER BY code",
-            )
-            .bind(is_active)
-            .fetch_all(pool)
-            .await?
+            let sql = format!("SELECT * FROM warehouses WHERE is_active = $1 ORDER BY code{}", suffix);
+            sqlx::query_as::<_, Warehouse>(&sql)
+                .bind(is_active)
+                .fetch_all(pool)
+                .await?
         } else {
-            sqlx::query_as::<_, Warehouse>("SELECT * FROM warehouses ORDER BY code")
+            let sql = format!("SELECT * FROM warehouses ORDER BY code{}", suffix);
+            sqlx::query_as::<_, Warehouse>(&sql)
                 .fetch_all(pool)
                 .await?
         };

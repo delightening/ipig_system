@@ -1,4 +1,4 @@
-﻿// 觀察記錄管理 Handlers
+// 觀察記錄管理 Handlers
 
 use axum::{
     extract::{Path, Query, State},
@@ -185,6 +185,10 @@ pub async fn delete_animal_observation(
     req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
     
     AnimalService::soft_delete_observation_with_reason(&state.db, id, &req.reason, current_user.id).await?;
+
+    if let Err(e) = crate::services::FileService::delete_by_entity(&state.db, "observation", &id).await {
+        tracing::warn!("清理觀察紀錄附件失敗 (non-fatal): {}", e);
+    }
 
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(

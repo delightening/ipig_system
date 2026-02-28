@@ -1,4 +1,4 @@
-﻿use sqlx::PgPool;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::AnimalService;
@@ -474,9 +474,11 @@ impl AnimalService {
                 experiment_date = CASE WHEN $7 AND experiment_date IS NULL THEN CURRENT_DATE ELSE COALESCE($5, experiment_date) END,
                 remark = COALESCE($6, remark),
                 experiment_assigned_by = CASE WHEN $7 THEN $8 ELSE experiment_assigned_by END,
+                version = version + 1,
                 updated_at = NOW()
             WHERE id = $1
             AND deleted_at IS NULL
+            AND ($9::INT IS NULL OR version = $9)
             RETURNING *
             "#
         )
@@ -488,8 +490,12 @@ impl AnimalService {
         .bind(&req.remark)
         .bind(is_assigning_to_experiment)
         .bind(updated_by)
-        .fetch_one(pool)
-        .await?;
+        .bind(req.version)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::Conflict(
+            "此記錄已被其他人修改，請重新載入後再試。".to_string()
+        ))?;
 
         Ok((animal, iacuc_change))
     }

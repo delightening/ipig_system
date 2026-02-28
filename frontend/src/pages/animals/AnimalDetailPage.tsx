@@ -66,6 +66,8 @@ import {
   History,
 } from 'lucide-react'
 
+import { useConfirmDialog } from '@/hooks/useConfirmDialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { AnimalTimelineView } from '@/components/animal/AnimalTimelineView'
 
 import { ExportDialog } from '@/components/animal/ExportDialog'
@@ -83,6 +85,7 @@ import { TransferTab } from '@/components/animal/TransferTab'
 import { PainAssessmentTab } from '@/components/animal/PainAssessmentTab'
 import { useAuthStore } from '@/stores/auth'
 import { useUIPreferences } from '@/stores/uiPreferences'
+import { useTranslation } from 'react-i18next'
 
 const statusColors: Record<AnimalStatus, string> = {
   unassigned: 'bg-gray-500',
@@ -104,6 +107,8 @@ export function AnimalDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { dialogState, confirm } = useConfirmDialog()
+  const { t } = useTranslation()
   const animalId = id!
 
   // Auth and UI preferences
@@ -331,28 +336,27 @@ export function AnimalDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
         <AlertCircle className="h-12 w-12 text-slate-400 mb-4" />
-        <p className="text-slate-500">找不到此動物</p>
+        <p className="text-slate-500">{t('animalDetail.notFound', '找不到此動物')}</p>
         <Button variant="outline" className="mt-4" onClick={() => navigate('/animals')}>
-          返回列表
+          {t('animalDetail.backToList', '返回列表')}
         </Button>
       </div>
     )
   }
 
   const tabs = [
-    { id: 'timeline' as const, label: '紀錄時間軸', icon: History },
-    { id: 'observations' as const, label: '觀察試驗紀錄', icon: ClipboardList },
-    { id: 'surgeries' as const, label: '手術紀錄', icon: Scissors },
-    { id: 'weights' as const, label: '體重紀錄', icon: Scale },
-    { id: 'vaccinations' as const, label: '疫苗/驅蟲紀錄', icon: Syringe },
-    { id: 'sacrifice' as const, label: '犧牲/採樣紀錄', icon: Heart },
-    { id: 'blood_tests' as const, label: '血液檢查', icon: Droplets },
-    { id: 'pain_assessment' as const, label: '疼痛評估', icon: Stethoscope },
-    { id: 'info' as const, label: '動物資料', icon: FileText },
-    { id: 'pathology' as const, label: '病理組織報告', icon: FileText },
-    // 轉讓 Tab：僅在 completed / transferred 狀態顯示
+    { id: 'timeline' as const, label: t('animalDetail.tabs.timeline', '紀錄時間軸'), icon: History },
+    { id: 'observations' as const, label: t('animalDetail.tabs.observations', '觀察試驗紀錄'), icon: ClipboardList },
+    { id: 'surgeries' as const, label: t('animalDetail.tabs.surgeries', '手術紀錄'), icon: Scissors },
+    { id: 'weights' as const, label: t('animalDetail.tabs.weights', '體重紀錄'), icon: Scale },
+    { id: 'vaccinations' as const, label: t('animalDetail.tabs.vaccinations', '疫苗/驅蟲紀錄'), icon: Syringe },
+    { id: 'sacrifice' as const, label: t('animalDetail.tabs.sacrifice', '犧牲/採樣紀錄'), icon: Heart },
+    { id: 'blood_tests' as const, label: t('animalDetail.tabs.bloodTests', '血液檢查'), icon: Droplets },
+    { id: 'pain_assessment' as const, label: t('animalDetail.tabs.painAssessment', '疼痛評估'), icon: Stethoscope },
+    { id: 'info' as const, label: t('animalDetail.tabs.info', '動物資料'), icon: FileText },
+    { id: 'pathology' as const, label: t('animalDetail.tabs.pathology', '病理組織報告'), icon: FileText },
     ...((animal.status === 'completed' || animal.status === 'transferred')
-      ? [{ id: 'transfer' as const, label: '轉讓管理', icon: ArrowRightLeft }]
+      ? [{ id: 'transfer' as const, label: t('animalDetail.tabs.transfer', '轉讓管理'), icon: ArrowRightLeft }]
       : []),
   ]
 
@@ -362,11 +366,11 @@ export function AnimalDetailPage() {
       <div className="flex items-center justify-between">
         <Link to="/animals" className="inline-flex items-center text-slate-600 hover:text-slate-900">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          回到動物列表
+          {t('animalDetail.backToAnimalList', '回到動物列表')}
         </Link>
         <Button variant="outline" onClick={() => setShowExportDialog(true)}>
           <Download className="h-4 w-4 mr-2" />
-          匯出病歷
+          {t('animalDetail.exportRecord', '匯出病歷')}
         </Button>
       </div>
 
@@ -738,8 +742,9 @@ export function AnimalDetailPage() {
             <Button
               className="bg-rose-600 hover:bg-rose-700 text-white"
               disabled={!suddenDeathForm.discovered_at || createSuddenDeathMutation.isPending}
-              onClick={() => {
-                if (confirm(`確定要將耳號 ${animal.ear_tag} 登記為猝死？此操作不可復原。`)) {
+              onClick={async () => {
+                const ok = await confirm({ title: '登記猝死', description: `確定要將耳號 ${animal.ear_tag} 登記為猝死？此操作不可復原。`, variant: 'destructive', confirmLabel: '確認登記' })
+                if (ok) {
                   createSuddenDeathMutation.mutate(suddenDeathForm)
                 }
               }}
@@ -750,6 +755,7 @@ export function AnimalDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog state={dialogState} />
     </div>
   )
 }

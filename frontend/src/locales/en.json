@@ -1400,5 +1400,36 @@
         "signSuccess": "Signature completed",
         "signFailed": "Signature failed",
         "resignBtn": "Re-sign"
+    },
+    "animalDetail": {
+        "notFound": "Animal not found",
+        "backToList": "Back to List",
+        "backToAnimalList": "Back to Animal List",
+        "exportRecord": "Export Medical Record",
+        "tabs": {
+            "timeline": "Record Timeline",
+            "observations": "Observation Records",
+            "surgeries": "Surgery Records",
+            "weights": "Weight Records",
+            "vaccinations": "Vaccination / Deworming Records",
+            "sacrifice": "Sacrifice / Sampling Records",
+            "bloodTests": "Blood Tests",
+            "painAssessment": "Pain Assessment",
+            "info": "Animal Info",
+            "pathology": "Pathology Report",
+            "transfer": "Transfer Management"
+        }
+    },
+    "notFound": {
+        "title": "Page Not Found",
+        "description": "The page you are looking for does not exist, has been removed, or the URL is incorrect.",
+        "goBack": "Go Back",
+        "goHome": "Go to Home"
+    },
+    "session": {
+        "timeoutTitle": "Session Expiring Soon",
+        "timeoutDescription": "Your session is about to expire. Please choose to extend or log out.",
+        "logout": "Log Out",
+        "extend": "Stay Logged In"
     }
 }

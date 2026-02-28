@@ -24,6 +24,8 @@ import {
 import { Plus, Search, Eye, Edit, Loader2, FileText, X, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { toast } from '@/components/ui/use-toast'
+import { useConfirmDialog } from '@/hooks/useConfirmDialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'> = {
   DRAFT: 'secondary',
@@ -55,6 +57,7 @@ interface SortConfig {
 export function ProtocolsPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const { dialogState, confirm } = useConfirmDialog()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [sortConfig, setSortConfig] = useState<SortConfig>({ field: 'created_at', order: 'desc' })
@@ -154,8 +157,9 @@ export function ProtocolsPage() {
     },
   })
 
-  const handleDelete = (protocolId: string, title: string) => {
-    if (confirm(t('protocols.deleteConfirm', { title }))) {
+  const handleDelete = async (protocolId: string, title: string) => {
+    const ok = await confirm({ title: '刪除計畫書', description: t('protocols.deleteConfirm', { title }), variant: 'destructive', confirmLabel: '確認刪除' })
+    if (ok) {
       deleteMutation.mutate(protocolId)
     }
   }
@@ -357,6 +361,7 @@ export function ProtocolsPage() {
           </TableBody>
         </Table>
       </div>
+    <ConfirmDialog state={dialogState} />
     </div>
   )
 }

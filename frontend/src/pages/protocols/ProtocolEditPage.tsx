@@ -36,6 +36,10 @@ import {
   Send,
   Loader2,
 } from 'lucide-react'
+import { useConfirmDialog } from '@/hooks/useConfirmDialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
+import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
 
 // 從拆分的模組匯入
 import { ProtocolFormData } from '@/types/protocol'
@@ -79,8 +83,12 @@ export function ProtocolEditPage() {
     training_certificates: [] as Array<{ training_code: string; certificate_no: string }>,
   })
   const [isSaving, setIsSaving] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
+
+  const blocker = useUnsavedChangesGuard(isDirty)
 
   // 檢查是否為執行秘書角色（IACUC_STAFF）
+  const { dialogState, confirm } = useConfirmDialog()
   const isIACUCStaff = user?.roles?.some(r => ['IACUC_STAFF', 'SYSTEM_ADMIN'].includes(r))
 
   const { data: protocolResponse, isLoading } = useQuery({
@@ -351,6 +359,7 @@ export function ProtocolEditPage() {
       } else {
         await updateMutation.mutateAsync(data)
       }
+      setIsDirty(false)
       return true
     } catch (error) {
       return false
@@ -364,12 +373,14 @@ export function ProtocolEditPage() {
     const isSaved = await handleSave(true)
     if (!isSaved) return
 
-    if (confirm(t('aup.messages.confirmSubmit'))) {
+    const ok = await confirm({ title: '送出計畫書', description: t('aup.messages.confirmSubmit'), confirmLabel: '確認送出' })
+    if (ok) {
       submitMutation.mutate()
     }
   }
 
   const updateWorkingContent = (section: keyof FormData['working_content'], path: string, value: any) => {
+    setIsDirty(true)
     setFormData((prev) => {
       const newContent = { ...prev.working_content }
       const sectionData = { ...(newContent[section] as any) }
@@ -438,7 +449,7 @@ export function ProtocolEditPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="返回">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -796,6 +807,7 @@ export function ProtocolEditPage() {
                 }
 
                 const newPersonnelList = [...(formData.working_content.personnel || []), newPersonnel]
+                setIsDirty(true)
                 setFormData((prev) => ({
                   ...prev,
                   working_content: {
@@ -815,6 +827,8 @@ export function ProtocolEditPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog state={dialogState} />
+      <UnsavedChangesDialog blocker={blocker} />
     </div>
   )
 }
