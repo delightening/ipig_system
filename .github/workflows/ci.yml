@@ -232,7 +232,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: 設定 Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: "npm"
@@ -260,7 +260,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: 設定 Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: "npm"
@@ -299,7 +299,7 @@ jobs:
           vuln-type: "os,library"
 
       - name: 設定 Node.js (用於前端編譯)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: "npm"
@@ -374,7 +374,7 @@ jobs:
           exit 1
 
       - name: 設定 Node.js (執行測試)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: "npm"
