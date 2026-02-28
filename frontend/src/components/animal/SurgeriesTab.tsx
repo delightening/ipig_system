@@ -14,6 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import {
   Plus,
   Eye,
@@ -61,10 +62,10 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
       toast({ title: '成功', description: '手術紀錄已刪除' })
       setDeleteTarget(null)
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '刪除失敗',
+        description: getApiErrorMessage(error, '刪除失敗'),
         variant: 'destructive',
       })
     },
@@ -78,10 +79,10 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
       queryClient.invalidateQueries({ queryKey: ['animal-surgeries', animalId] })
       toast({ title: '成功', description: '手術紀錄已複製，請編輯新紀錄' })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '複製失敗',
+        description: getApiErrorMessage(error, '複製失敗'),
         variant: 'destructive',
       })
     },

@@ -55,11 +55,11 @@ export function AnimalListTable({
   const sortedAnimals = useMemo(() => {
     if (!sortColumn) return animals
     return [...animals].sort((a, b) => {
-      let aVal: any = a[sortColumn as keyof typeof a] ?? ''
-      let bVal: any = b[sortColumn as keyof typeof b] ?? ''
+      let aVal: string | number = String((a as unknown as Record<string, unknown>)[sortColumn] ?? '')
+      let bVal: string | number = String((b as unknown as Record<string, unknown>)[sortColumn] ?? '')
       if (sortColumn === 'entry_date') {
-        aVal = aVal ? new Date(aVal).getTime() : 0
-        bVal = bVal ? new Date(bVal).getTime() : 0
+        aVal = aVal ? new Date(aVal as string).getTime() : 0
+        bVal = bVal ? new Date(bVal as string).getTime() : 0
       } else if (sortColumn === 'latest_weight') {
         aVal = aVal !== null && aVal !== undefined ? Number(aVal) : (sortDirection === 'asc' ? Infinity : -Infinity)
         bVal = bVal !== null && bVal !== undefined ? Number(bVal) : (sortDirection === 'asc' ? Infinity : -Infinity)

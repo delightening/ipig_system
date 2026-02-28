@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import type { AnimalBreed, AnimalSource } from '@/lib/api'
+import type { AnimalBreed, AnimalSource, CreateAnimalRequest } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -471,14 +471,14 @@ export interface DuplicateWarningData {
   earTag: string
   existingAnimals: Array<{ id: string; birth_date: string | null; status: string; pen_location: string | null }>
   source: 'create' | 'quickAdd'
-  pendingPayload: any
+  pendingPayload: CreateAnimalRequest & { breed_other?: string }
 }
 
 interface DuplicateWarningDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   data: DuplicateWarningData | null
-  onConfirm: (payload: any) => void
+  onConfirm: (payload: CreateAnimalRequest & { breed_other?: string }) => void
   isPending: boolean
 }
 

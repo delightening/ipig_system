@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import { Upload, Download, FileText, Loader2 } from 'lucide-react'
 
 interface PathologyTabProps {
@@ -58,10 +59,10 @@ export function PathologyTab({ animalId, earTag }: PathologyTabProps) {
       setShowUploadDialog(false)
       setFiles([])
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '上傳失敗',
+        description: getApiErrorMessage(error, '上傳失敗'),
         variant: 'destructive',
       })
     },

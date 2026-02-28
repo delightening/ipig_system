@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import { Plus, Edit2, Trash2, Syringe, Loader2 } from 'lucide-react'
 import { DeleteReasonDialog } from '@/components/ui/delete-reason-dialog'
 
@@ -49,10 +50,10 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
       setShowAddDialog(false)
       setNewVaccination({ administered_date: new Date().toISOString().split('T')[0], vaccine: '', deworming_dose: '' })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '新增失敗',
+        description: getApiErrorMessage(error, '新增失敗'),
         variant: 'destructive',
       })
     },
@@ -67,10 +68,10 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
       toast({ title: '成功', description: '疫苗紀錄已刪除' })
       setDeleteTarget(null)
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '刪除失敗',
+        description: getApiErrorMessage(error, '刪除失敗'),
         variant: 'destructive',
       })
     },

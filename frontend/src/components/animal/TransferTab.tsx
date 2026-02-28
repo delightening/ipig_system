@@ -12,6 +12,7 @@ import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import {
     ArrowRightLeft, CheckCircle2, XCircle, Clock, Stethoscope,
     FileCheck, UserCheck, Loader2, Plus, ChevronDown, ChevronUp,
@@ -172,7 +173,7 @@ export function TransferTab({ animalId, animalStatus, earTag }: Props) {
             setInitiateRemark('')
             invalidate()
         },
-        onError: (e: any) => toast({ title: '錯誤', description: e?.response?.data?.error?.message || '發起失敗', variant: 'destructive' }),
+        onError: (e: unknown) => toast({ title: '錯誤', description: getApiErrorMessage(e, '發起失敗'), variant: 'destructive' }),
     })
 
     const vetEvaluateMutation = useMutation({
@@ -187,7 +188,7 @@ export function TransferTab({ animalId, animalStatus, earTag }: Props) {
             setVetConditions('')
             invalidate()
         },
-        onError: (e: any) => toast({ title: '錯誤', description: e?.response?.data?.error?.message || '評估失敗', variant: 'destructive' }),
+        onError: (e: unknown) => toast({ title: '錯誤', description: getApiErrorMessage(e, '評估失敗'), variant: 'destructive' }),
     })
 
     const assignPlanMutation = useMutation({
@@ -197,7 +198,7 @@ export function TransferTab({ animalId, animalStatus, earTag }: Props) {
             setTargetIacuc('')
             invalidate()
         },
-        onError: (e: any) => toast({ title: '錯誤', description: e?.response?.data?.error?.message || '指定失敗', variant: 'destructive' }),
+        onError: (e: unknown) => toast({ title: '錯誤', description: getApiErrorMessage(e, '指定失敗'), variant: 'destructive' }),
     })
 
     const approveMutation = useMutation({
@@ -216,7 +217,7 @@ export function TransferTab({ animalId, animalStatus, earTag }: Props) {
             setApproveSignatureData(null)
             invalidate()
         },
-        onError: (e: any) => toast({ title: '錯誤', description: e?.response?.data?.error?.message || '同意失敗', variant: 'destructive' }),
+        onError: (e: unknown) => toast({ title: '錯誤', description: getApiErrorMessage(e, '同意失敗'), variant: 'destructive' }),
     })
 
     const completeMutation = useMutation({
@@ -235,7 +236,7 @@ export function TransferTab({ animalId, animalStatus, earTag }: Props) {
             setCompleteSignatureData(null)
             invalidate()
         },
-        onError: (e: any) => toast({ title: '錯誤', description: e?.response?.data?.error?.message || '完成失敗', variant: 'destructive' }),
+        onError: (e: unknown) => toast({ title: '錯誤', description: getApiErrorMessage(e, '完成失敗'), variant: 'destructive' }),
     })
 
     const rejectMutation = useMutation({
@@ -245,7 +246,7 @@ export function TransferTab({ animalId, animalStatus, earTag }: Props) {
             setRejectReason('')
             invalidate()
         },
-        onError: (e: any) => toast({ title: '錯誤', description: e?.response?.data?.error?.message || '拒絕失敗', variant: 'destructive' }),
+        onError: (e: unknown) => toast({ title: '錯誤', description: getApiErrorMessage(e, '拒絕失敗'), variant: 'destructive' }),
     })
 
     if (isLoading) {

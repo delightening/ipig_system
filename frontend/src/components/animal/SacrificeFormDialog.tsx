@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import { Loader2, PenLine, CheckCircle2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -185,10 +186,10 @@ export function SacrificeFormDialog({ open, onOpenChange, animalId, earTag, sacr
       toast({ title: '成功', description: isEdit ? '犧牲紀錄已更新' : '犧牲紀錄已建立' })
       onOpenChange(false)
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '儲存失敗',
+        description: getApiErrorMessage(error, '儲存失敗'),
         variant: 'destructive',
       })
     },
@@ -212,10 +213,10 @@ export function SacrificeFormDialog({ open, onOpenChange, animalId, earTag, sacr
       queryClient.invalidateQueries({ queryKey: ['sacrifice-signature', sacrifice?.id] })
       toast({ title: t('signature.signed', '已簽署'), description: t('signature.signSuccess', '簽章完成') })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: t('common.error', '錯誤'),
-        description: error?.response?.data?.error?.message || t('signature.signFailed', '簽章失敗'),
+        description: getApiErrorMessage(error, t('signature.signFailed', '簽章失敗')),
         variant: 'destructive',
       })
     },

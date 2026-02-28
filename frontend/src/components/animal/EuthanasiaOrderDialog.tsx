@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import { Loader2, AlertOctagon, Clock } from 'lucide-react'
 
 interface Props {
@@ -54,10 +55,10 @@ export function EuthanasiaOrderDialog({ open, onOpenChange, animalId, earTag, ia
             })
             onOpenChange(false)
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: '錯誤',
-                description: error?.response?.data?.error?.message || '開立失敗',
+                description: getApiErrorMessage(error, '開立失敗'),
                 variant: 'destructive',
             })
         },
@@ -130,7 +131,7 @@ export function EuthanasiaOrderDialog({ open, onOpenChange, animalId, earTag, ia
                         />
                     </div>
 
-                    <div className="flex items-start gap-2">
+                    <label className="flex items-start gap-2 cursor-pointer">
                         <input
                             type="checkbox"
                             id="confirm"
@@ -138,10 +139,10 @@ export function EuthanasiaOrderDialog({ open, onOpenChange, animalId, earTag, ia
                             onChange={(e) => setConfirmed(e.target.checked)}
                             className="h-4 w-4 mt-1 text-red-600 rounded"
                         />
-                        <Label htmlFor="confirm" className="text-sm text-gray-600">
+                        <span className="text-sm text-gray-600">
                             我已閱讀並理解上述注意事項，確認開立安樂死單據
-                        </Label>
-                    </div>
+                        </span>
+                    </label>
 
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

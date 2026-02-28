@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api, { Animal, UpdateAnimalRequest, animalBreedNames, animalGenderNames, ProtocolListItem } from '@/lib/api'
+import api, { Animal, UpdateAnimalRequest, UpdateAnimalRequestValue, animalBreedNames, animalGenderNames, ProtocolListItem } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import { Loader2 } from 'lucide-react'
 
 interface Props {
@@ -85,10 +86,10 @@ export function QuickEditAnimalDialog({ open, onOpenChange, animalId }: Props) {
       toast({ title: '成功', description: '動物資料已更新' })
       onOpenChange(false)
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '更新失敗',
+        description: getApiErrorMessage(error, '更新失敗'),
         variant: 'destructive',
       })
     },
@@ -99,7 +100,7 @@ export function QuickEditAnimalDialog({ open, onOpenChange, animalId }: Props) {
     updateMutation.mutate(formData)
   }
 
-  const handleChange = (field: keyof UpdateAnimalRequest, value: any) => {
+  const handleChange = (field: keyof UpdateAnimalRequest, value: UpdateAnimalRequestValue) => {
     setFormData((prev) => ({ ...prev, [field]: value || undefined }))
   }
 
