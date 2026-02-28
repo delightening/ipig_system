@@ -82,6 +82,7 @@ urlencoding = "2.1"
 # Prometheus Metrics
 metrics = "0.24"
 metrics-exporter-prometheus = { version = "0.16", default-features = false, features = ["http-listener"] }
+dashmap = "6.1.0"
 
 [dev-dependencies]
 tokio-test = "0.4"

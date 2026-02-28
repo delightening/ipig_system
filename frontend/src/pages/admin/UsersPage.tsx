@@ -29,6 +29,7 @@ import {
 import { useToast } from '@/components/ui/use-toast'
 import { ConfirmPasswordModal } from '@/components/auth/ConfirmPasswordModal'
 import { Loader2, Users, Plus, Pencil, Trash2, Shield, UserCheck, UserX, AlertTriangle, Key, ArrowUpDown, ArrowUp, ArrowDown, LogIn, ChevronLeft, ChevronRight } from 'lucide-react'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
 
 interface UserTrainingInput {
   code: string
@@ -106,6 +107,7 @@ export function UsersPage() {
       const response = await api.get<User[]>('/users')
       return response.data
     },
+    staleTime: 60_000,
   })
 
   // 排序後的用戶列表
@@ -154,6 +156,7 @@ export function UsersPage() {
       const response = await api.get<Role[]>('/roles')
       return response.data
     },
+    staleTime: 600_000,
   })
 
   // 創建用戶
@@ -470,8 +473,8 @@ export function UsersPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                <TableCell colSpan={5} className="p-0">
+                  <TableSkeleton rows={8} cols={5} />
                 </TableCell>
               </TableRow>
             ) : paginatedUsers.length > 0 ? (

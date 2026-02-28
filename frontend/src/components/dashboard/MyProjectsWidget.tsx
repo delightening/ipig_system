@@ -20,6 +20,7 @@ export function MyProjectsWidget() {
             const res = await api.get<ProtocolListItem[]>('/my-projects')
             return res.data
         },
+        staleTime: 60_000,
     })
 
     if (isLoading) {

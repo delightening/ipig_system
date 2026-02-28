@@ -86,6 +86,7 @@ function UpcomingLeavesContent() {
       const res = await api.get<BalanceSummaryData>('/hr/balances/summary')
       return res.data
     },
+    staleTime: 300_000,
   })
 
   if (isLoading) {
@@ -160,6 +161,7 @@ export function DashboardPage() {
       const res = await api.get<{ key: string; value: WidgetLayoutItem[] }>('/me/preferences/dashboard_widgets')
       return res.data.value
     },
+    staleTime: 1_800_000,
   })
 
   // 儲存 Widget 配置
@@ -300,6 +302,7 @@ export function DashboardPage() {
       const response = await api.get<LowStockAlert[]>('/inventory/low-stock')
       return response.data
     },
+    staleTime: 30_000,
   })
 
   const { data: recentDocuments, isLoading: loadingDocuments } = useQuery({
@@ -308,6 +311,7 @@ export function DashboardPage() {
       const response = await api.get<DocumentListItem[]>('/documents')
       return response.data.slice(0, 10)
     },
+    staleTime: 60_000,
   })
 
   const getStatusBadge = (status: string) => {

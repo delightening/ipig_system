@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { Partner } from '@/lib/api'
+import { useDebounce } from '@/hooks/useDebounce'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -32,11 +33,13 @@ import { toast } from '@/components/ui/use-toast'
 import { Plus, Search, Edit, Trash2, Loader2, Users } from 'lucide-react'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
 
 export function PartnersPage() {
   const queryClient = useQueryClient()
   const { dialogState, confirm } = useConfirmDialog()
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounce(search, 400)
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null)
@@ -113,14 +116,15 @@ export function PartnersPage() {
   }
 
   const { data: partners, isLoading } = useQuery({
-    queryKey: ['partners', search, typeFilter],
+    queryKey: ['partners', debouncedSearch, typeFilter],
     queryFn: async () => {
       let params = ''
-      if (search) params += `keyword=${encodeURIComponent(search)}&`
+      if (debouncedSearch) params += `keyword=${encodeURIComponent(debouncedSearch)}&`
       if (typeFilter && typeFilter !== 'all') params += `partner_type=${typeFilter}&`
       const response = await api.get<Partner[]>(`/partners?${params}`)
       return response.data
     },
+    staleTime: 60_000,
   })
 
   const createMutation = useMutation({
@@ -260,6 +264,7 @@ export function PartnersPage() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="搜尋夥伴..."
+            aria-label="搜尋夥伴"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -293,8 +298,8 @@ export function PartnersPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                <TableCell colSpan={7} className="p-0">
+                  <TableSkeleton rows={8} cols={5} />
                 </TableCell>
               </TableRow>
             ) : partners && partners.length > 0 ? (

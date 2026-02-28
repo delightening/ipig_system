@@ -4,9 +4,9 @@ use axum::{
     http::{Request, Response, StatusCode},
     middleware::Next,
 };
-use std::collections::HashMap;
+use dashmap::DashMap;
 use std::net::SocketAddr;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use crate::middleware::real_ip::extract_real_ip_with_trust;
@@ -21,71 +21,48 @@ pub struct RateLimiterConfig {
     pub window: Duration,
 }
 
-/// IP 請求記錄
-struct RequestRecord {
-    /// 時間窗口內的請求時間戳列表
-    timestamps: Vec<Instant>,
-}
-
 /// 共享的速率限制器狀態
 #[derive(Clone)]
 pub struct RateLimiterState {
-    records: Arc<Mutex<HashMap<String, RequestRecord>>>,
+    records: Arc<DashMap<String, Vec<Instant>>>,
     config: RateLimiterConfig,
 }
 
 impl RateLimiterState {
     pub fn new(config: RateLimiterConfig) -> Self {
-        let state = Self {
-            records: Arc::new(Mutex::new(HashMap::new())),
-            config,
-        };
+        let records = Arc::new(DashMap::new());
 
-        // 啟動背景清理任務（每 5 分鐘清除過期記錄）
-        let cleanup_records = state.records.clone();
-        let cleanup_window = state.config.window;
+        let cleanup_records = Arc::clone(&records);
+        let cleanup_window = config.window;
         tokio::spawn(async move {
             loop {
                 tokio::time::sleep(Duration::from_secs(300)).await;
-                if let Ok(mut records) = cleanup_records.lock() {
-                    let now = Instant::now();
-                    records.retain(|_ip, record| {
-                        record.timestamps.retain(|t| now.duration_since(*t) < cleanup_window);
-                        !record.timestamps.is_empty()
-                    });
-                }
+                let now = Instant::now();
+                cleanup_records.retain(|_ip, timestamps: &mut Vec<Instant>| {
+                    timestamps.retain(|t| now.duration_since(*t) < cleanup_window);
+                    !timestamps.is_empty()
+                });
             }
         });
 
-        state
+        Self { records, config }
     }
 
     /// 檢查 IP 是否超過速率限制，回傳 (是否允許, 剩餘配額)
     fn check_rate(&self, ip: &str) -> (bool, u32) {
-        let mut records = match self.records.lock() {
-            Ok(guard) => guard,
-            Err(_) => {
-                tracing::error!("[RateLimiter] Mutex 中毒，啟用 fail-closed 策略");
-                return (false, 0); // SEC-33: mutex 中毒時拒絕請求
-            }
-        };
-
         let now = Instant::now();
         let window = self.config.window;
 
-        let record = records.entry(ip.to_string()).or_insert_with(|| RequestRecord {
-            timestamps: Vec::new(),
-        });
+        let mut entry = self.records.entry(ip.to_string()).or_default();
+        let timestamps = entry.value_mut();
 
-        // 清除過期的時間戳
-        record.timestamps.retain(|t| now.duration_since(*t) < window);
+        timestamps.retain(|t| now.duration_since(*t) < window);
 
-        if record.timestamps.len() as u32 >= self.config.max_requests {
-            let remaining = 0;
-            (false, remaining)
+        if timestamps.len() as u32 >= self.config.max_requests {
+            (false, 0)
         } else {
-            record.timestamps.push(now);
-            let remaining = self.config.max_requests - record.timestamps.len() as u32;
+            timestamps.push(now);
+            let remaining = self.config.max_requests - timestamps.len() as u32;
             (true, remaining)
         }
     }

@@ -133,12 +133,12 @@ impl GoogleCalendarClient {
 
         let time_min = start_date
             .and_hms_opt(0, 0, 0)
-            .expect("00:00:00 是有效時間")
+            .ok_or_else(|| AppError::Internal("invalid time: 00:00:00".to_string()))?
             .and_utc()
             .to_rfc3339();
         let time_max = end_date
             .and_hms_opt(23, 59, 59)
-            .expect("23:59:59 是有效時間")
+            .ok_or_else(|| AppError::Internal("invalid time: 23:59:59".to_string()))?
             .and_utc()
             .to_rfc3339();
 
@@ -196,7 +196,7 @@ impl GoogleCalendarClient {
             urlencoding::encode(&self.calendar_id)
         );
 
-        let request_body = self.build_event_request(&event);
+        let request_body = self.build_event_request(&event)?;
 
         let response = self
             .http_client
@@ -239,7 +239,7 @@ impl GoogleCalendarClient {
             urlencoding::encode(event_id)
         );
 
-        let request_body = self.build_event_request(&event);
+        let request_body = self.build_event_request(&event)?;
 
         let response = self
             .http_client
@@ -342,7 +342,7 @@ impl GoogleCalendarClient {
     }
 
     /// 建立事件請求結構
-    fn build_event_request(&self, event: &NewCalendarEvent) -> CreateEventRequest {
+    fn build_event_request(&self, event: &NewCalendarEvent) -> Result<CreateEventRequest> {
         let (start, end) = if event.all_day {
             // 全天事件使用 date 格式
             // Google Calendar 的結束日期是排他的，所以要加一天
@@ -364,13 +364,13 @@ impl GoogleCalendarClient {
             let start_dt = event
                 .start_date
                 .and_hms_opt(9, 0, 0)
-                .expect("09:00:00 是有效時間")
+                .ok_or_else(|| AppError::Internal("invalid time: 09:00:00".to_string()))?
                 .and_utc()
                 .to_rfc3339();
             let end_dt = event
                 .end_date
                 .and_hms_opt(18, 0, 0)
-                .expect("18:00:00 是有效時間")
+                .ok_or_else(|| AppError::Internal("invalid time: 18:00:00".to_string()))?
                 .and_utc()
                 .to_rfc3339();
             (
@@ -387,13 +387,13 @@ impl GoogleCalendarClient {
             )
         };
 
-        CreateEventRequest {
+        Ok(CreateEventRequest {
             summary: event.summary.clone(),
             description: event.description.clone(),
             start,
             end,
             color_id: event.color_id.clone(),
-        }
+        })
     }
 
     /// 取得 OAuth2 Access Token (使用 Service Account)

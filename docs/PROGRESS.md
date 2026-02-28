@@ -381,6 +381,51 @@
 - ✅ **P2-R2-14 零停機遷移策略**：`docs/ZERO_DOWNTIME_MIGRATIONS.md` 完整規範
 - ✅ **P2-R2-15 架構圖**：`docs/ARCHITECTURE.md` 含部署/資料流/模組/認證流程 4 張 Mermaid 圖 + 技術堆疊表
 
+### 2026-02-28 第三輪改善：P2-R3-11 + P2-R3-14 完成
+- ✅ **P2-R3-11 Protocol `any` 型別消除**：6 個檔案消除 ~44 處 `: any`
+  - `ProtocolEditPage.tsx`：14 處 → 0（`AxiosError<ApiErrorPayload>` 取代 error any、`ProtocolWorkingContent` 子型別取代 item/person/staff any、`Record<string, unknown>` 取代動態 section 存取）
+  - `ProtocolContentView.tsx`：13 處 → 0（interface prop `any` → `ProtocolWorkingContent`、map callback `any` → 具體子型別 TestItem/ControlItem/SurgeryDrug/AnimalEntry 等）
+  - `CommentsTab.tsx`：4 處 → 0（`VetReviewAssignment` 取代 vetReview any、error handler 改用 `AxiosError`、Protocol prop 型別改用 `Protocol` interface）
+  - `AttachmentsTab.tsx`：2 處 → 0（error handler 改用 `AxiosError<ApiErrorPayload>`）
+  - `ReviewCommentsReport.tsx`：3 處 → 0（props 全面型別化為 `Protocol`/`ReviewCommentResponse[]`/`VetReviewAssignment`）
+  - `ReviewersTab.tsx`：1 處 → 0（vetReview prop 改用 `VetReviewAssignment`）
+  - 新增 `VetReviewItem`/`VetReviewFormData`/`VetReviewAssignment` 三個 interface 至 `types/aup.ts`
+- ✅ **P2-R3-14 Error Boundary 分層**：
+  - 新增 `components/ui/page-error-boundary.tsx`（class component + 錯誤重試 UI）
+  - `MainLayout.tsx` 於 `<Suspense>` 外層包裹 `<PageErrorBoundary>`，所有 lazy-loaded 頁面自動受保護
+- ✅ TypeScript `tsc --noEmit` 零錯誤通過
+
+### 2026-02-28 第三輪系統改善 20 項完成
+
+詳細計畫見 `docs/IMPROVEMENT_PLAN_R3.md`
+
+**🔴 P0 安全性（4 項）：**
+- ✅ **P0-R3-1 SQL 動態拼接修正**：4 個檔案（`treatment_drug.rs`, `report.rs`, `warehouse.rs`, `document/crud.rs`）的手動 `format!("${}", param_idx)` 參數索引全部改為 `sqlx::QueryBuilder` 的 `push_bind()` 自動綁定
+- ✅ **P0-R3-2 IDOR 漏洞修補**：HR `get_leave` 加入 owner/approver/view_all 三重檢查、`get_overtime` 加入 owner/view_all 檢查、`get_user` 允許查看自己的 profile 無需 admin 權限
+- ✅ **P0-R3-3 .expect() 清理**：handlers/ 14 處 + services/ 28 處共 42 個 `.expect()` 替換為 proper error propagation（`ok_or_else`/`map_err`/`anyhow`），消除 production panic 風險
+- ✅ **P0-R3-4 前端容器非 root**：Dockerfile 加入 `USER nginx`、nginx listen 改為 8080、`nginx-main.conf` 設定 pid/temp 路徑至 `/tmp/nginx/`、docker-compose 端口映射更新
+
+**🟡 P1 效能與可靠性（6 項）：**
+- ✅ **P1-R3-5 搜尋 debounce**：新增 `hooks/useDebounce.ts`，套用至 AnimalsPage/PartnersPage/WarehousesPage/ProtocolsPage（400ms 延遲）
+- ✅ **P1-R3-6 staleTime 調優**：23 個檔案 38 個 useQuery 依資料特性分級設定（即時 30s/列表 1min/計數 5min/參考 10min/設定 30min）
+- ✅ **P1-R3-7 AnimalsPage 拆分**：1898 行 → 495 行（-74%），抽離 AnimalFilters/AnimalListTable/AnimalPenView/AnimalAddDialog + constants.ts
+- ✅ **P1-R3-8 Rate Limiter DashMap**：`Arc<Mutex<HashMap>>` 改為 `DashMap`，消除 Mutex 競爭
+- ✅ **P1-R3-9 DB Pool Prometheus 指標**：`/metrics` 新增 `db_pool_connections_total/idle/active` 三個 gauge
+- ✅ **P1-R3-10 Skeleton Loading**：新增 `TableSkeleton` 元件，套用至 4 個列表頁取代 Loader2 spinner
+
+**🔵 P2 品質與維運（10 項）：**
+- ✅ **P2-R3-11 Protocol any 消除**：6 個檔案 ~44 處 `: any` 替換為具體型別（`ProtocolWorkingContent`/`VetReviewAssignment`/`AxiosError<ApiErrorPayload>` 等）
+- ✅ **P2-R3-12 審計日誌補齊**：HR leave approval/rejection 和 overtime approval 新增 `AuditService::log()` 呼叫；新增 `AuditAction::Reject` variant
+- ✅ **P2-R3-13 常數提取**：新增 `backend/src/constants.rs`（分頁/認證/Rate Limit/上傳/排程/Session/密碼 共 18 個常數）
+- ✅ **P2-R3-14 Error Boundary 分層**：新增 `PageErrorBoundary` 元件，包裹 MainLayout 的 Suspense
+- ✅ **P2-R3-15 SSL/TLS 範本**：新增 `docs/SSL_SETUP.md` + `frontend/nginx-ssl.conf.example`（TLS 1.2/1.3 + OCSP + HSTS）
+- ✅ **P2-R3-16 備份自動驗證**：新增 `scripts/backup/pg_backup.sh`（gzip 完整性 + pg_restore 驗證 + SHA256 校驗 + 30 天自動清理）
+- ✅ **P2-R3-17 日誌聚合**：新增 `docker-compose.logging.yml`（Loki + Promtail）+ `monitoring/promtail/config.yml`
+- ✅ **P2-R3-18 環境驗證**：新增 `scripts/validate-env.sh`（必填/選填變數分級檢查 + HMAC key 長度驗證）
+- ✅ **P2-R3-19 無障礙**：搜尋輸入框加入 `aria-label`（Animals/Partners/Warehouses/Protocols 4 頁）
+- ✅ **P2-R3-20 API 一致性**：`amendment.rs` 4 處硬編碼角色名稱陣列改為 `has_permission("aup.protocol.*")` 權限檢查
+- ✅ `cargo check` + `tsc --noEmit` 零錯誤通過
+
 ### 2026-02-28 附件 API 500 錯誤修正
 - ✅ **AttachmentsTab 查詢參數修正**：前端傳送 `protocol_id` 但後端期望 `entity_type` + `entity_id`，導致空字串綁定 UUID 欄位引發 PostgreSQL 型別錯誤。修正為 `entity_type=protocol&entity_id=<uuid>`。
 - ✅ **上傳路由修正**：附件上傳從錯誤的 `POST /attachments?protocol_id=...` 改為正確的 `POST /protocols/:id/attachments` 專用路由。

@@ -10,10 +10,11 @@ use uuid::Uuid;
 use crate::{
     middleware::CurrentUser,
     models::{
-        ApproveLeaveRequest, CancelLeaveRequest, CreateLeaveRequest, LeaveQuery, LeaveRequest,
-        LeaveRequestWithUser, PaginatedResponse, RejectLeaveRequest, UpdateLeaveRequest,
+        ApproveLeaveRequest, AuditAction, CancelLeaveRequest, CreateLeaveRequest, LeaveQuery,
+        LeaveRequest, LeaveRequestWithUser, PaginatedResponse, RejectLeaveRequest,
+        UpdateLeaveRequest,
     },
-    services::{HrService, NotificationService},
+    services::{AuditService, HrService, NotificationService},
     AppState, Result,
 };
 
@@ -168,6 +169,16 @@ pub async fn approve_leave(
     let record =
         HrService::approve_leave(&state.db, id, current_user.id, payload.comments.as_deref())
             .await?;
+    let _ = AuditService::log(
+        &state.db,
+        current_user.id,
+        AuditAction::Approve,
+        "leave_request",
+        id,
+        None,
+        Some(serde_json::json!({ "status": &record.status })),
+    )
+    .await;
     Ok(Json(record))
 }
 
@@ -208,6 +219,16 @@ pub async fn reject_leave(
         }
     }
     let record = HrService::reject_leave(&state.db, id, current_user.id, &payload.reason).await?;
+    let _ = AuditService::log(
+        &state.db,
+        current_user.id,
+        AuditAction::Reject,
+        "leave_request",
+        id,
+        None,
+        Some(serde_json::json!({ "reason": &payload.reason })),
+    )
+    .await;
     Ok(Json(record))
 }
 

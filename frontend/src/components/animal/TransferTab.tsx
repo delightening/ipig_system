@@ -120,6 +120,7 @@ export function TransferTab({ animalId, animalStatus, earTag }: Props) {
             const res = await transferApi.list(animalId)
             return res.data
         },
+        staleTime: 30_000,
     })
 
     // 查詢核准計劃（用於指定新計劃下拉）
@@ -131,6 +132,7 @@ export function TransferTab({ animalId, animalStatus, earTag }: Props) {
                 (p.status === 'APPROVED' || p.status === 'APPROVED_WITH_CONDITIONS') && p.iacuc_no
             )
         },
+        staleTime: 600_000,
     })
 
     // 進行中的轉讓

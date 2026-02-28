@@ -46,11 +46,12 @@ import {
 } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils'
 import VetReviewForm from '@/components/protocol/VetReviewForm'
+import type { VetReviewAssignment } from '@/types/aup'
 
 interface ReviewersTabProps {
   protocolId: string
   protocolStatus: ProtocolStatus
-  vetReview?: any
+  vetReview?: VetReviewAssignment
   isVetReviewer: boolean
   canAssignReviewer: boolean
 }

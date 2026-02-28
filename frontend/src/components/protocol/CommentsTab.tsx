@@ -1,12 +1,15 @@
 import React, { useMemo, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { AxiosError } from 'axios'
 import api, {
   ProtocolVersion,
   ReviewCommentResponse,
   CreateCommentRequest,
   ReplyCommentRequest,
   ProtocolStatus,
+  VetReviewAssignment,
 } from '@/lib/api'
+import type { ApiErrorPayload } from '@/types/error'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -36,16 +39,13 @@ import { useAuthStore } from '@/stores/auth'
 import { ReviewCommentsReport } from '@/components/protocol/ReviewCommentsReport'
 // jsPDF & html2canvas loaded lazily at PDF export time
 
+import type { Protocol } from '@/types/aup'
+
 interface CommentsTabProps {
   protocolId: string
-  protocol: {
-    status: ProtocolStatus
-    protocol_no?: string | null
-    pi_user_id?: string
-    title: string
-  }
+  protocol: Protocol
   piName?: string
-  vetReview?: any
+  vetReview?: VetReviewAssignment
   canAddComment: boolean
   canReply: boolean
   shouldAnonymizeReviewers: boolean
@@ -102,7 +102,7 @@ export const CommentsTab = React.memo(function CommentsTab({
       setShowCommentDialog(false)
       setCommentContent('')
     },
-    onError: (error: any) => {
+    onError: (error: AxiosError<ApiErrorPayload>) => {
       toast({
         title: t('common.error'),
         description: error?.response?.data?.error?.message || t('protocols.detail.dialogs.comment.failed'),
@@ -122,7 +122,7 @@ export const CommentsTab = React.memo(function CommentsTab({
       setReplyContent('')
       setSelectedCommentForReply(null)
     },
-    onError: (error: any) => {
+    onError: (error: AxiosError<ApiErrorPayload>) => {
       toast({
         title: t('common.error'),
         description: error?.response?.data?.error?.message || t('protocols.detail.dialogs.reply.failed'),
@@ -139,7 +139,7 @@ export const CommentsTab = React.memo(function CommentsTab({
       toast({ title: t('common.success'), description: t('protocols.detail.actions.resolved') })
       queryClient.invalidateQueries({ queryKey: ['protocol-comments', protocolId] })
     },
-    onError: (error: any) => {
+    onError: (error: AxiosError<ApiErrorPayload>) => {
       toast({
         title: t('common.error'),
         description: error?.response?.data?.error?.message || t('common.error'),
@@ -423,7 +423,7 @@ export const CommentsTab = React.memo(function CommentsTab({
       <div className="fixed -left-[9999px] top-0">
         <div ref={reportRef}>
           <ReviewCommentsReport
-            protocol={protocol as any}
+            protocol={protocol}
             comments={comments || []}
             vet_review={vetReview}
           />

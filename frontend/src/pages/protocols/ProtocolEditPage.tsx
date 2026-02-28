@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { AxiosError } from 'axios'
 import api, {
   ProtocolResponse,
   CreateProtocolRequest,
   UpdateProtocolRequest,
 } from '@/lib/api'
+import type { ApiErrorPayload } from '@/types/error'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -42,7 +44,7 @@ import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
 import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
 
 // 從拆分的模組匯入
-import { ProtocolFormData } from '@/types/protocol'
+import { ProtocolFormData, ProtocolWorkingContent } from '@/types/protocol'
 import { defaultFormData, sectionKeys } from './protocol-edit/constants'
 import { validateRequiredFields } from './protocol-edit/validation'
 import { deepMerge } from './protocol-edit/utils'
@@ -60,6 +62,35 @@ import { SectionAttachments } from './protocol-edit/SectionAttachments'
 import { SectionSignature } from './protocol-edit/SectionSignature'
 
 type FormData = ProtocolFormData
+
+type TestItem = ProtocolWorkingContent['items']['test_items'][number]
+type ControlItem = ProtocolWorkingContent['items']['control_items'][number]
+type HazardMaterial = ProtocolWorkingContent['design']['hazards']['materials'][number]
+type ControlledSubstanceItem = ProtocolWorkingContent['design']['controlled_substances']['items'][number]
+type PersonnelMember = ProtocolWorkingContent['personnel'][number]
+
+interface StaffMember {
+  id: string
+  display_name: string
+  email: string
+  phone?: string
+  organization?: string
+  entry_date?: string
+  position?: string
+  aup_roles?: string[]
+  years_experience?: number
+  trainings?: { code: string; certificate_no?: string; received_date?: string }[]
+}
+
+interface ServerAttachment {
+  id: string
+  file_name: string
+  file_path?: string
+  file_size?: number
+  file_type?: string
+  mime_type?: string
+  created_at?: string
+}
 
 export function ProtocolEditPage() {
   const { t } = useTranslation()
@@ -111,18 +142,7 @@ export function ProtocolEditPage() {
   const { data: staffMembers = [] } = useQuery({
     queryKey: ['staff'],
     queryFn: async () => {
-      const response = await api.get<{
-        id: string
-        display_name: string
-        email: string
-        phone?: string
-        organization?: string
-        entry_date?: string
-        position?: string
-        aup_roles?: string[]
-        years_experience?: number
-        trainings?: { code: string; certificate_no?: string; received_date?: string }[]
-      }[]>('/hr/staff')
+      const response = await api.get<StaffMember[]>('/hr/staff')
       return response.data
     },
   })
@@ -184,13 +204,13 @@ export function ProtocolEditPage() {
         // 確保 test_items 和 control_items 中的 photos 字段存在
         if (mergedWorkingContent.items) {
           if (mergedWorkingContent.items.test_items) {
-            mergedWorkingContent.items.test_items = mergedWorkingContent.items.test_items.map((item: any) => ({
+            mergedWorkingContent.items.test_items = mergedWorkingContent.items.test_items.map((item: TestItem) => ({
               ...item,
               photos: item.photos || []
             }))
           }
           if (mergedWorkingContent.items.control_items) {
-            mergedWorkingContent.items.control_items = mergedWorkingContent.items.control_items.map((item: any) => ({
+            mergedWorkingContent.items.control_items = mergedWorkingContent.items.control_items.map((item: ControlItem) => ({
               ...item,
               photos: item.photos || []
             }))
@@ -213,7 +233,7 @@ export function ProtocolEditPage() {
 
         // 確保 hazards.materials 中的 photos 字段存在
         if (mergedWorkingContent.design?.hazards?.materials) {
-          mergedWorkingContent.design.hazards.materials = mergedWorkingContent.design.hazards.materials.map((item: any) => ({
+          mergedWorkingContent.design.hazards.materials = mergedWorkingContent.design.hazards.materials.map((item: HazardMaterial) => ({
             ...item,
             photos: item.photos || []
           }))
@@ -221,7 +241,7 @@ export function ProtocolEditPage() {
 
         // 確保 controlled_substances.items 中的 photos 字段存在
         if (mergedWorkingContent.design?.controlled_substances?.items) {
-          mergedWorkingContent.design.controlled_substances.items = mergedWorkingContent.design.controlled_substances.items.map((item: any) => ({
+          mergedWorkingContent.design.controlled_substances.items = mergedWorkingContent.design.controlled_substances.items.map((item: ControlledSubstanceItem) => ({
             ...item,
             photos: item.photos || []
           }))
@@ -229,7 +249,7 @@ export function ProtocolEditPage() {
 
         // 確保 personnel 中的 training_certificates 字段存在
         if (mergedWorkingContent.personnel) {
-          mergedWorkingContent.personnel = mergedWorkingContent.personnel.map((person: any) => ({
+          mergedWorkingContent.personnel = mergedWorkingContent.personnel.map((person: PersonnelMember) => ({
             ...person,
             id: person.id || undefined,
             roles: person.roles || [],
@@ -241,18 +261,18 @@ export function ProtocolEditPage() {
 
         // 確保 attachments 格式正確
         if (mergedWorkingContent.attachments) {
-          mergedWorkingContent.attachments = (mergedWorkingContent.attachments as any[]).map((att: any) => {
+          mergedWorkingContent.attachments = (mergedWorkingContent.attachments as (FileInfo | ServerAttachment)[]).map((att) => {
             if (att.id && att.file_name) {
               return {
                 id: att.id,
                 file_name: att.file_name,
-                file_path: att.file_path || '',
-                file_size: att.file_size || 0,
-                file_type: att.file_type || att.mime_type || 'application/pdf',
-                created_at: att.created_at
-              }
+                file_path: ('file_path' in att ? att.file_path : '') || '',
+                file_size: ('file_size' in att ? att.file_size : 0) || 0,
+                file_type: ('file_type' in att ? att.file_type : undefined) || ('mime_type' in att ? att.mime_type : undefined) || 'application/pdf',
+                created_at: ('created_at' in att ? att.created_at : undefined)
+              } satisfies FileInfo
             }
-            return att
+            return att as FileInfo
           })
         }
 
@@ -276,7 +296,7 @@ export function ProtocolEditPage() {
       queryClient.invalidateQueries({ queryKey: ['protocols'] })
       navigate(`/protocols/${response.data.id}`)
     },
-    onError: (error: any) => {
+    onError: (error: AxiosError<ApiErrorPayload>) => {
       toast({
         title: t('common.error'),
         description: error?.response?.data?.error?.message || t('aup.messages.createFailed'),
@@ -295,7 +315,7 @@ export function ProtocolEditPage() {
       queryClient.invalidateQueries({ queryKey: ['protocol', id] })
       queryClient.invalidateQueries({ queryKey: ['protocols'] })
     },
-    onError: (error: any) => {
+    onError: (error: AxiosError<ApiErrorPayload>) => {
       toast({
         title: t('common.error'),
         description: error?.response?.data?.error?.message || t('aup.messages.saveFailed'),
@@ -314,7 +334,7 @@ export function ProtocolEditPage() {
       queryClient.invalidateQueries({ queryKey: ['protocol', id] })
       navigate(`/protocols/${id}`)
     },
-    onError: (error: any) => {
+    onError: (error: AxiosError<ApiErrorPayload>) => {
       toast({
         title: t('common.error'),
         description: error?.response?.data?.error?.message || t('aup.messages.submitFailed'),
@@ -385,25 +405,25 @@ export function ProtocolEditPage() {
     }
   }
 
-  const updateWorkingContent = (section: keyof FormData['working_content'], path: string, value: any) => {
+  const updateWorkingContent = (section: keyof FormData['working_content'], path: string, value: unknown) => {
     setIsDirty(true)
     setFormData((prev) => {
       const newContent = { ...prev.working_content }
-      const sectionData = { ...(newContent[section] as any) }
+      const sectionData: Record<string, unknown> = { ...(newContent[section] as Record<string, unknown>) }
       if (path.includes('.')) {
         const parts = path.split('.')
-        let current = sectionData
+        let current = sectionData as Record<string, unknown>
         for (let i = 0; i < parts.length - 1; i++) {
-          current[parts[i]] = { ...current[parts[i]] }
-          current = current[parts[i]]
+          current[parts[i]] = { ...(current[parts[i]] as Record<string, unknown>) }
+          current = current[parts[i]] as Record<string, unknown>
         }
         current[parts[parts.length - 1]] = value
       } else {
         sectionData[path] = value
       }
 
-      newContent[section] = sectionData
-      return { ...prev, working_content: newContent }
+      ;(newContent as Record<string, unknown>)[section] = sectionData
+      return { ...prev, working_content: newContent as FormData['working_content'] }
     })
   }
 
@@ -530,7 +550,7 @@ export function ProtocolEditPage() {
                   <div className="flex gap-2">
                     <Select
                       onValueChange={(value) => {
-                        const selectedStaff = staffMembers.find((s: any) => s.id === value)
+                        const selectedStaff = staffMembers.find((s) => s.id === value)
                         if (selectedStaff) {
                           let calculatedYears = selectedStaff.years_experience || 0
                           if (selectedStaff.entry_date) {
@@ -544,8 +564,8 @@ export function ProtocolEditPage() {
                             position: t('aup.personnel.defaults.researcher'),
                             years_experience: calculatedYears,
                             roles: ['b', 'c', 'd', 'f', 'g', 'h'],
-                            trainings: (selectedStaff.trainings || []).map((tr: any) => tr.code),
-                            training_certificates: (selectedStaff.trainings || []).map((tr: any) => ({
+                            trainings: (selectedStaff.trainings || []).map((tr) => tr.code),
+                            training_certificates: (selectedStaff.trainings || []).map((tr) => ({
                               training_code: tr.code,
                               certificate_no: tr.certificate_no || ''
                             }))
@@ -557,7 +577,7 @@ export function ProtocolEditPage() {
                         <SelectValue placeholder={t('aup.personnel.addDialog.placeholders.name')} />
                       </SelectTrigger>
                       <SelectContent>
-                        {staffMembers.map((staff: any) => (
+                        {staffMembers.map((staff) => (
                           <SelectItem key={staff.id} value={staff.id}>
                             {staff.display_name}
                           </SelectItem>

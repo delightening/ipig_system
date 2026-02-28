@@ -100,6 +100,7 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
             const res = await api.get<BloodTestListItem[]>(`/animals/${animalId}/blood-tests${afterParam}`)
             return res.data
         },
+        staleTime: 30_000,
     })
 
     // 載入模板列表
@@ -109,6 +110,7 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
             const res = await bloodTestTemplateApi.list()
             return res.data
         },
+        staleTime: 600_000,
     })
 
     // 載入組合列表
@@ -118,6 +120,7 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
             const res = await bloodTestPanelApi.list()
             return res.data
         },
+        staleTime: 600_000,
     })
 
     // 計算每個 panel 是否完全被選取（所有 items 都在 formData.items 中）
@@ -142,6 +145,7 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
             return res.data
         },
         enabled: !!viewingId,
+        staleTime: 30_000,
     })
 
     // 建立 mutation

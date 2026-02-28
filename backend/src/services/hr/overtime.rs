@@ -78,7 +78,7 @@ impl HrService {
     pub async fn get_overtime(
         pool: &PgPool,
         id: Uuid,
-        _current_user: &CurrentUser,
+        current_user: &CurrentUser,
     ) -> Result<OvertimeWithUser> {
         let record = sqlx::query_as::<_, OvertimeWithUser>(
             r#"
@@ -95,6 +95,12 @@ impl HrService {
         .bind(id)
         .fetch_one(pool)
         .await?;
+
+        let has_view_all = current_user.has_permission("hr.overtime.view_all");
+        let is_owner = record.user_id == current_user.id;
+        if !has_view_all && !is_owner {
+            return Err(AppError::Forbidden("無權存取此加班紀錄".into()));
+        }
 
         Ok(record)
     }

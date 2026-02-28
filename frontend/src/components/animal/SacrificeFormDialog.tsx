@@ -227,6 +227,7 @@ export function SacrificeFormDialog({ open, onOpenChange, animalId, earTag, sacr
     queryFn: () => signatureApi.getSacrificeStatus(sacrifice!.id),
     enabled: isEdit && !!sacrifice?.id,
     select: (res) => res.data,
+    staleTime: 30_000,
   })
 
   const hasOtherSampling = formData.sampling.includes('其他')

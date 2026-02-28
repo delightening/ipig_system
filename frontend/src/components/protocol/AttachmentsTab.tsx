@@ -1,6 +1,8 @@
 import React, { useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { AxiosError } from 'axios'
 import api, { ProtocolAttachment } from '@/lib/api'
+import type { ApiErrorPayload } from '@/types/error'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -52,7 +54,7 @@ export function AttachmentsTab({ protocolId, canManageAttachments }: Attachments
       toast({ title: t('common.success'), description: t('protocols.detail.tables.uploadSuccess') })
       queryClient.invalidateQueries({ queryKey: ['protocol-attachments', protocolId] })
     },
-    onError: (error: any) => {
+    onError: (error: AxiosError<ApiErrorPayload>) => {
       toast({
         title: t('common.error'),
         description: error?.response?.data?.error?.message || t('protocols.detail.tables.uploadFailed'),
@@ -69,7 +71,7 @@ export function AttachmentsTab({ protocolId, canManageAttachments }: Attachments
       toast({ title: t('common.success'), description: t('protocols.detail.actions.deleteSuccess') })
       queryClient.invalidateQueries({ queryKey: ['protocol-attachments', protocolId] })
     },
-    onError: (error: any) => {
+    onError: (error: AxiosError<ApiErrorPayload>) => {
       toast({
         title: t('common.error'),
         description: error?.response?.data?.error?.message || t('protocols.detail.actions.deleteFailed'),

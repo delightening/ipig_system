@@ -83,6 +83,7 @@ export function SettingsPage() {
       const res = await api.get<SystemSettings>('/admin/system-settings')
       return res.data
     },
+    staleTime: 1_800_000,
   })
 
   // 倉庫列表
@@ -92,6 +93,7 @@ export function SettingsPage() {
       const res = await api.get<{ data: Warehouse[] } | Warehouse[]>('/warehouses')
       return Array.isArray(res.data) ? res.data : res.data.data
     },
+    staleTime: 600_000,
   })
   const warehouses = warehousesData?.filter(w => w.is_active) ?? []
 
@@ -157,6 +159,7 @@ export function SettingsPage() {
       const res = await api.get<NotificationSettings>('/notifications/settings')
       return res.data
     },
+    staleTime: 1_800_000,
   })
 
   useEffect(() => {

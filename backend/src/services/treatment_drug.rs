@@ -23,47 +23,32 @@ impl TreatmentDrugService {
         &self,
         query: TreatmentDrugQuery,
     ) -> Result<Vec<TreatmentDrugOption>, AppError> {
-        let mut sql = String::from("SELECT * FROM treatment_drug_options WHERE 1=1");
-        let mut args: Vec<String> = Vec::new();
-        let mut param_idx = 1;
+        let mut qb =
+            sqlx::QueryBuilder::new("SELECT * FROM treatment_drug_options WHERE 1=1");
 
         if let Some(ref keyword) = query.keyword {
-            sql.push_str(&format!(
-                " AND (name ILIKE ${0} OR display_name ILIKE ${0})",
-                param_idx
-            ));
-            args.push(format!("%{}%", keyword));
-            param_idx += 1;
+            let pattern = format!("%{}%", keyword);
+            qb.push(" AND (name ILIKE ");
+            qb.push_bind(pattern.clone());
+            qb.push(" OR display_name ILIKE ");
+            qb.push_bind(pattern);
+            qb.push(")");
         }
 
         if let Some(ref category) = query.category {
-            sql.push_str(&format!(" AND category = ${}", param_idx));
-            args.push(category.clone());
-            param_idx += 1;
+            qb.push(" AND category = ");
+            qb.push_bind(category.clone());
         }
 
         if let Some(is_active) = query.is_active {
-            sql.push_str(&format!(" AND is_active = ${}", param_idx));
-            args.push(is_active.to_string());
-            // param_idx += 1;  // 最後一個不需要遞增
+            qb.push(" AND is_active = ");
+            qb.push_bind(is_active);
         }
 
-        sql.push_str(" ORDER BY sort_order, name");
+        qb.push(" ORDER BY sort_order, name");
 
-        // 使用 sqlx::query_as 動態綁定
-        let mut q = sqlx::query_as::<_, TreatmentDrugOption>(&sql);
-
-        if let Some(ref keyword) = query.keyword {
-            q = q.bind(format!("%{}%", keyword));
-        }
-        if let Some(ref category) = query.category {
-            q = q.bind(category);
-        }
-        if let Some(is_active) = query.is_active {
-            q = q.bind(is_active);
-        }
-
-        let results = q
+        let results = qb
+            .build_query_as::<TreatmentDrugOption>()
             .fetch_all(&self.db)
             .await
             .map_err(|e| AppError::Internal(format!("查詢藥物選項失敗: {}", e)))?;

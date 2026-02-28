@@ -1,18 +1,19 @@
 import { formatDate } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
 import { useRef } from 'react'
+import type { Protocol, ReviewCommentResponse, VetReviewAssignment, VetReviewItem } from '@/types/aup'
 
 interface ReviewCommentsReportProps {
-    protocol: any
-    comments: any[]
-    vet_review?: any
+    protocol: Protocol
+    comments: ReviewCommentResponse[]
+    vet_review?: VetReviewAssignment
 }
 
 export function ReviewCommentsReport({ protocol, comments, vet_review }: ReviewCommentsReportProps) {
     const { t } = useTranslation()
     const reportRef = useRef<HTMLDivElement>(null)
 
-    const basic = protocol?.working_content?.basic || {}
+    const basic = protocol?.working_content?.basic
 
     // 分組審查意見
     const staffComments = comments.filter(c => !c.parent_comment_id && c.reviewer_id === 'IACUC_STAFF_ID') // 需動態獲取
@@ -98,12 +99,12 @@ export function ReviewCommentsReport({ protocol, comments, vet_review }: ReviewC
                         </tr>
                     </thead>
                     <tbody className="text-center">
-                        {(protocol?.vet_review?.review_form?.items || [
+                        {(vet_review?.review_form?.items || [
                             "計畫基本資料", "簡述研究目的", "說明動物實驗必要性", "動物實驗試驗設計",
                             "實驗預期結束時機及人道終點", "實驗結束動物處置方式", "有無進行危害性物質實驗",
                             "動物麻醉用藥及方法合理性", "手術操作及術中動物觀察", "手術後照護及術後給藥方式",
                             "實驗動物資料", "動物實驗相關人員資料"
-                        ].map(item => ({ item_name: item, compliance: '', comment: '' }))).map((item: any, i: number) => (
+                        ].map(item => ({ item_name: item, compliance: '', comment: '' } as VetReviewItem))).map((item: VetReviewItem, i: number) => (
                             <tr key={i}>
                                 <td className="border border-black p-2 text-left">{item.item_name}</td>
                                 <td className="border border-black p-2">{item.compliance || ''}</td>
@@ -119,8 +120,8 @@ export function ReviewCommentsReport({ protocol, comments, vet_review }: ReviewC
                         <tr>
                             <td colSpan={4} className="border border-black p-2">
                                 <div className="flex justify-between">
-                                    <span>獸醫師簽名：{protocol?.vet_review?.decision_remark ? '(已簽章)' : '____________'}</span>
-                                    <span>日期：{protocol?.vet_review?.completed_at ? formatDate(protocol.vet_review.completed_at) : new Date().toLocaleDateString('zh-TW')}</span>
+                                    <span>獸醫師簽名：{vet_review?.review_form?.vet_signature ? '(已簽章)' : '____________'}</span>
+                                    <span>日期：{vet_review?.review_form?.signed_at ? formatDate(vet_review.review_form.signed_at) : new Date().toLocaleDateString('zh-TW')}</span>
                                 </div>
                             </td>
                         </tr>
