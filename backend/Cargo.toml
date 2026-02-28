@@ -18,7 +18,7 @@ tokio = { version = "1", features = ["full"] }
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "postgres", "uuid", "chrono", "rust_decimal", "json", "macros", "migrate"] }
 
 # Auth
-jsonwebtoken = "9"
+jsonwebtoken = { version = "10", default-features = false, features = ["rust_crypto", "use_pem"] }
 argon2 = "0.5"
 
 # Serialization
@@ -36,7 +36,7 @@ utoipa-swagger-ui = { version = "6", features = ["axum"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 rust_decimal = { version = "1", features = ["serde"] }
-thiserror = "1"
+thiserror = "2"
 anyhow = "1"
 dotenvy = "0.15"
 tracing = "0.1"
@@ -81,7 +81,7 @@ urlencoding = "2.1"
 
 # Prometheus Metrics
 metrics = "0.24"
-metrics-exporter-prometheus = { version = "0.16", default-features = false, features = ["http-listener"] }
+metrics-exporter-prometheus = { version = "0.18", default-features = false, features = ["http-listener"] }
 dashmap = "6.1.0"
 
 [dev-dependencies]
