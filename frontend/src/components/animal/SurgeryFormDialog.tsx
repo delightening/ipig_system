@@ -200,32 +200,42 @@ export function SurgeryFormDialog({ open, onOpenChange, animalId, earTag, surger
   // 編輯時填入資料
   useEffect(() => {
     if (surgery) {
-      const induction = surgery.induction_anesthesia as any || {}
-      const maintenance = surgery.anesthesia_maintenance as any || {}
-      const preSurgery = surgery.pre_surgery_medication as any || {}
-      const postSurgery = surgery.post_surgery_medication as any || {}
+      const induction = (surgery.induction_anesthesia as Record<string, unknown>) || {}
+      const maintenance = (surgery.anesthesia_maintenance as Record<string, unknown>) || {}
+      const preSurgery = (surgery.pre_surgery_medication as Record<string, unknown>) || {}
+      const postSurgery = (surgery.post_surgery_medication as Record<string, unknown>) || {}
+
+      const toMedicationItems = (val: unknown): MedicationItem[] => {
+        if (!Array.isArray(val)) return []
+        return val.filter((x): x is MedicationItem => x && typeof x === 'object' && 'name' in x && 'dose' in x).map(x => ({
+          name: String((x as { name?: unknown }).name ?? ''),
+          dose: String((x as { dose?: unknown }).dose ?? ''),
+          drug_option_id: (x as MedicationItem).drug_option_id,
+          dosage_unit: (x as MedicationItem).dosage_unit,
+        }))
+      }
 
       setFormData({
         is_first_experiment: surgery.is_first_experiment,
         surgery_date: surgery.surgery_date.split('T')[0],
         surgery_site: surgery.surgery_site,
         induction: {
-          atropine: { name: 'Atropine', dose: induction.atropine || '', enabled: !!induction.atropine },
-          stroless: { name: 'Stroless', dose: induction.stroless || '', enabled: !!induction.stroless },
-          zoletil50: { name: 'Zoletil-50', dose: induction.zoletil50 || '', enabled: !!induction.zoletil50 },
-          others: induction.others || [],
+          atropine: { name: 'Atropine', dose: String(induction.atropine ?? ''), enabled: !!induction.atropine },
+          stroless: { name: 'Stroless', dose: String(induction.stroless ?? ''), enabled: !!induction.stroless },
+          zoletil50: { name: 'Zoletil-50', dose: String(induction.zoletil50 ?? ''), enabled: !!induction.zoletil50 },
+          others: toMedicationItems(induction.others),
         },
         pre_surgery: {
-          medications: preSurgery.medications || [],
-          others: preSurgery.others || [],
+          medications: toMedicationItems(preSurgery.medications),
+          others: toMedicationItems(preSurgery.others),
         },
         positioning: surgery.positioning || '',
         positioning_others: [],
         maintenance: {
-          o2: { name: 'O2', dose: maintenance.o2 || '', enabled: !!maintenance.o2 },
-          n2o: { name: 'N2O', dose: maintenance.n2o || '', enabled: !!maintenance.n2o },
-          isoflurane: { name: 'Isoflurane', dose: maintenance.isoflurane || '', enabled: !!maintenance.isoflurane },
-          others: maintenance.others || [],
+          o2: { name: 'O2', dose: String(maintenance.o2 ?? ''), enabled: !!maintenance.o2 },
+          n2o: { name: 'N2O', dose: String(maintenance.n2o ?? ''), enabled: !!maintenance.n2o },
+          isoflurane: { name: 'Isoflurane', dose: String(maintenance.isoflurane ?? ''), enabled: !!maintenance.isoflurane },
+          others: toMedicationItems(maintenance.others),
         },
         anesthesia_observation: surgery.anesthesia_observation || '',
         vital_signs: (surgery.vital_signs || []).map((vs: { time?: string; breathing_method?: string; heart_rate?: number; respiration_rate?: number; temperature?: number; spo2?: number }) => ({
@@ -238,8 +248,8 @@ export function SurgeryFormDialog({ open, onOpenChange, animalId, earTag, surger
         })),
         reflex_recovery: surgery.reflex_recovery || '',
         respiration_rate_auto: surgery.respiration_rate ? String(surgery.respiration_rate) : '',
-        post_ointment: postSurgery.ointment || false,
-        post_medications: postSurgery.others || [],
+        post_ointment: !!postSurgery.ointment,
+        post_medications: toMedicationItems(postSurgery.others),
         remark: surgery.remark || '',
         no_medication_needed: surgery.no_medication_needed,
         photos: [],
@@ -248,28 +258,29 @@ export function SurgeryFormDialog({ open, onOpenChange, animalId, earTag, surger
     } else {
       setFormData(defaultFormData)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [surgery, open])
 
   const mutation = useMutation({
     mutationFn: async (data: SurgeryFormData) => {
       // 組裝 payload
-      const inductionAnesthesia: Record<string, any> = {}
+      const inductionAnesthesia: Record<string, unknown> = {}
       if (data.induction.atropine.enabled) inductionAnesthesia.atropine = data.induction.atropine.dose
       if (data.induction.stroless.enabled) inductionAnesthesia.stroless = data.induction.stroless.dose
       if (data.induction.zoletil50.enabled) inductionAnesthesia.zoletil50 = data.induction.zoletil50.dose
       if (data.induction.others.length > 0) inductionAnesthesia.others = data.induction.others
 
-      const anesthesiaMaintenance: Record<string, any> = {}
+      const anesthesiaMaintenance: Record<string, unknown> = {}
       if (data.maintenance.o2.enabled) anesthesiaMaintenance.o2 = data.maintenance.o2.dose
       if (data.maintenance.n2o.enabled) anesthesiaMaintenance.n2o = data.maintenance.n2o.dose
       if (data.maintenance.isoflurane.enabled) anesthesiaMaintenance.isoflurane = data.maintenance.isoflurane.dose
       if (data.maintenance.others.length > 0) anesthesiaMaintenance.others = data.maintenance.others
 
-      const preSurgeryMedication: Record<string, any> = {}
+      const preSurgeryMedication: Record<string, unknown> = {}
       if (data.pre_surgery.medications.length > 0) preSurgeryMedication.medications = data.pre_surgery.medications
       if (data.pre_surgery.others.length > 0) preSurgeryMedication.others = data.pre_surgery.others
 
-      const postSurgeryMedication: Record<string, any> = {}
+      const postSurgeryMedication: Record<string, unknown> = {}
       if (data.post_ointment) postSurgeryMedication.ointment = true
       if (data.post_medications.length > 0) postSurgeryMedication.others = data.post_medications
 
@@ -362,6 +373,7 @@ export function SurgeryFormDialog({ open, onOpenChange, animalId, earTag, surger
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData])
 
   return (

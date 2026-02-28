@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import type { ProtocolSurgeryDrugItem } from '@/types/protocol'
 import type { SectionProps } from './types'
 
-export function SectionSurgery({ formData, updateWorkingContent, setFormData, t, isIACUCStaff }: SectionProps) {
+export function SectionSurgery({ formData, updateWorkingContent, setFormData: _setFormData, t, isIACUCStaff: _isIACUCStaff }: SectionProps) {
 
   return (
     <Card>
@@ -48,7 +48,7 @@ export function SectionSurgery({ formData, updateWorkingContent, setFormData, t,
                   updateWorkingContent('surgery', 'expected_end_point', '')
 
                   // 6.10 Load default drugs
-                  const defaultDrugs = t('aup.defaults.drugDefaults', { returnObjects: true }) as any[]
+                  const defaultDrugs = t('aup.defaults.drugDefaults', { returnObjects: true }) as Array<{ name?: string; dose?: string; route?: string; frequency?: string; purpose?: string }>
                   if (Array.isArray(defaultDrugs)) {
                     const formattedDrugs = defaultDrugs.map(drug => ({
                       drug_name: drug.name,

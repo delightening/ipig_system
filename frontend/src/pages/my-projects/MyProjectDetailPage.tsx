@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
@@ -38,6 +38,8 @@ import {
   ClipboardList,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+import { getApiErrorMessage } from '@/lib/validation'
+import type { ProtocolWorkingContent, ProtocolAnimalItem } from '@/types/protocol'
 
 const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'> = {
   DRAFT: 'secondary',
@@ -113,10 +115,10 @@ export function MyProjectDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['my-projects'] })
       setShowCloseDialog(false)
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '結案失敗',
+        description: getApiErrorMessage(error, '結案失敗'),
         variant: 'destructive',
       })
     },
@@ -146,7 +148,7 @@ export function MyProjectDetailPage() {
     )
   }
 
-  const workingContent = protocol.protocol.working_content as any
+  const workingContent = protocol.protocol.working_content as unknown as ProtocolWorkingContent
 
   return (
     <div className="space-y-6">
@@ -345,24 +347,24 @@ export function MyProjectDetailPage() {
                   {workingContent?.items?.test_items?.length > 0 && (
                     <div>
                       <h4 className="font-medium mb-2">試驗物質</h4>
-                      {workingContent.items.test_items.map((item: any, index: number) => (
+                      {workingContent.items.test_items.map((item, index) => (
                         <div key={index} className="p-3 border rounded mb-2">
                           <dl className="grid gap-2 md:grid-cols-2 text-sm">
                             <div>
                               <dt className="text-muted-foreground">物質名稱</dt>
-                              <dd>{item.name || '-'}</dd>
+                              <dd>{String(item.name ?? '-')}</dd>
                             </div>
                             <div>
                               <dt className="text-muted-foreground">用途</dt>
-                              <dd>{item.purpose || '-'}</dd>
+                              <dd>{String(item.purpose ?? '-')}</dd>
                             </div>
                             <div>
                               <dt className="text-muted-foreground">劑型</dt>
-                              <dd>{item.form || '-'}</dd>
+                              <dd>{String(item.form ?? '-')}</dd>
                             </div>
                             <div>
                               <dt className="text-muted-foreground">保存環境</dt>
-                              <dd>{item.storage_conditions || '-'}</dd>
+                              <dd>{String(item.storage_conditions ?? '-')}</dd>
                             </div>
                           </dl>
                         </div>
@@ -372,16 +374,16 @@ export function MyProjectDetailPage() {
                   {workingContent?.items?.control_items?.length > 0 && (
                     <div>
                       <h4 className="font-medium mb-2">對照物質</h4>
-                      {workingContent.items.control_items.map((item: any, index: number) => (
+                      {workingContent.items.control_items.map((item, index) => (
                         <div key={index} className="p-3 border rounded mb-2">
                           <dl className="grid gap-2 md:grid-cols-2 text-sm">
                             <div>
                               <dt className="text-muted-foreground">對照名稱</dt>
-                              <dd>{item.name || '-'}</dd>
+                              <dd>{String(item.name ?? '-')}</dd>
                             </div>
                             <div>
                               <dt className="text-muted-foreground">目的</dt>
-                              <dd>{item.purpose || '-'}</dd>
+                              <dd>{String(item.purpose ?? '-')}</dd>
                             </div>
                           </dl>
                         </div>
@@ -403,14 +405,14 @@ export function MyProjectDetailPage() {
             <CardContent>
               {workingContent?.animals?.animals?.length > 0 ? (
                 <div className="space-y-3">
-                  {workingContent.animals.animals.map((animal: any, index: number) => (
+                  {workingContent.animals.animals.map((animal: ProtocolAnimalItem, index: number) => (
                     <div key={index} className="p-3 border rounded">
                       <h4 className="font-medium mb-2">動物群組 #{index + 1}</h4>
                       <dl className="grid gap-3 md:grid-cols-3 text-sm">
                         <div>
                           <dt className="text-muted-foreground">物種</dt>
                           <dd>
-                            {animal.species === 'pig' ? '豬' : animal.species === 'other' ? animal.species_other : '-'}
+                            {animal.species === 'pig' ? '豬' : animal.species === 'other' ? String(animal.species_other ?? '-') : '-'}
                           </dd>
                         </div>
                         <div>
@@ -418,7 +420,7 @@ export function MyProjectDetailPage() {
                           <dd>
                             {animal.strain === 'white_pig' ? '一般白豬' :
                               animal.strain === 'mini_pig' ? '迷你豬' :
-                                animal.strain_other || '-'}
+                                String(animal.strain_other ?? '-')}
                           </dd>
                         </div>
                         <div>
@@ -431,20 +433,20 @@ export function MyProjectDetailPage() {
                         </div>
                         <div>
                           <dt className="text-muted-foreground">數量</dt>
-                          <dd>{animal.number || '-'}</dd>
+                          <dd>{String(animal.number ?? '-')}</dd>
                         </div>
                         <div>
                           <dt className="text-muted-foreground">月齡範圍</dt>
                           <dd>
                             {animal.age_unlimited ? '不限' :
-                              `${animal.age_min || '-'} ~ ${animal.age_max || '-'} 月`}
+                              `${String(animal.age_min ?? '-')} ~ ${String(animal.age_max ?? '-')} 月`}
                           </dd>
                         </div>
                         <div>
                           <dt className="text-muted-foreground">體重範圍</dt>
                           <dd>
                             {animal.weight_unlimited ? '不限' :
-                              `${animal.weight_min || '-'} ~ ${animal.weight_max || '-'} kg`}
+                              `${String(animal.weight_min ?? '-')} ~ ${String(animal.weight_max ?? '-')} kg`}
                           </dd>
                         </div>
                       </dl>

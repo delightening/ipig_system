@@ -1,8 +1,6 @@
 import React, { useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { AxiosError } from 'axios'
 import api, { ProtocolAttachment } from '@/lib/api'
-import type { ApiErrorPayload } from '@/types/error'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,6 +15,7 @@ import {
 import { toast } from '@/components/ui/use-toast'
 import { Download, Loader2, Paperclip, Trash2, Upload } from 'lucide-react'
 import { formatDateTime, formatFileSize } from '@/lib/utils'
+import { getApiErrorMessage } from '@/lib/validation'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
@@ -54,10 +53,10 @@ export function AttachmentsTab({ protocolId, canManageAttachments }: Attachments
       toast({ title: t('common.success'), description: t('protocols.detail.tables.uploadSuccess') })
       queryClient.invalidateQueries({ queryKey: ['protocol-attachments', protocolId] })
     },
-    onError: (error: AxiosError<ApiErrorPayload>) => {
+    onError: (error: unknown) => {
       toast({
         title: t('common.error'),
-        description: error?.response?.data?.error?.message || t('protocols.detail.tables.uploadFailed'),
+        description: getApiErrorMessage(error, t('protocols.detail.tables.uploadFailed')),
         variant: 'destructive',
       })
     },
@@ -71,10 +70,10 @@ export function AttachmentsTab({ protocolId, canManageAttachments }: Attachments
       toast({ title: t('common.success'), description: t('protocols.detail.actions.deleteSuccess') })
       queryClient.invalidateQueries({ queryKey: ['protocol-attachments', protocolId] })
     },
-    onError: (error: AxiosError<ApiErrorPayload>) => {
+    onError: (error: unknown) => {
       toast({
         title: t('common.error'),
-        description: error?.response?.data?.error?.message || t('protocols.detail.actions.deleteFailed'),
+        description: getApiErrorMessage(error, t('protocols.detail.actions.deleteFailed')),
         variant: 'destructive',
       })
     },

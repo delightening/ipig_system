@@ -14,7 +14,6 @@ import {
   History,
   Clock,
   User,
-  ChevronRight,
 } from 'lucide-react'
 
 type RecordType = 'observation' | 'surgery'
@@ -22,7 +21,7 @@ type RecordType = 'observation' | 'surgery'
 interface VersionItem {
   id: number
   version_no: number
-  record_snapshot: Record<string, any>
+  record_snapshot: Record<string, unknown>
   changed_by_name: string
   created_at: string
 }
@@ -132,16 +131,16 @@ export function VersionHistoryDialog({ open, onOpenChange, recordType, recordId 
                             <>
                               <div>
                                 <span className="text-slate-500">紀錄性質：</span>
-                                <span className="ml-1">{version.record_snapshot.record_type || '-'}</span>
+                                <span className="ml-1">{String(version.record_snapshot.record_type ?? '-')}</span>
                               </div>
                               <div>
                                 <span className="text-slate-500">事件日期：</span>
-                                <span className="ml-1">{version.record_snapshot.event_date || '-'}</span>
+                                <span className="ml-1">{String(version.record_snapshot.event_date ?? '-')}</span>
                               </div>
                               <div className="col-span-2">
                                 <span className="text-slate-500">內容：</span>
                                 <span className="ml-1 line-clamp-2">
-                                  {version.record_snapshot.content || '-'}
+                                  {String(version.record_snapshot.content ?? '-')}
                                 </span>
                               </div>
                             </>
@@ -150,11 +149,11 @@ export function VersionHistoryDialog({ open, onOpenChange, recordType, recordId 
                             <>
                               <div>
                                 <span className="text-slate-500">手術日期：</span>
-                                <span className="ml-1">{version.record_snapshot.surgery_date || '-'}</span>
+                                <span className="ml-1">{String(version.record_snapshot.surgery_date ?? '-')}</span>
                               </div>
                               <div>
                                 <span className="text-slate-500">手術部位：</span>
-                                <span className="ml-1">{version.record_snapshot.surgery_site || '-'}</span>
+                                <span className="ml-1">{String(version.record_snapshot.surgery_site ?? '-')}</span>
                               </div>
                               <div>
                                 <span className="text-slate-500">首次實驗：</span>

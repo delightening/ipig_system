@@ -39,7 +39,7 @@ interface SurgeriesTabProps {
   surgeries: AnimalSurgery[] | undefined
 }
 
-export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag, afterParam, surgeries }: SurgeriesTabProps) {
+export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag, afterParam: _afterParam, surgeries }: SurgeriesTabProps) {
   const queryClient = useQueryClient()
 
   const [showAddDialog, setShowAddDialog] = useState(false)

@@ -43,7 +43,7 @@ interface ObservationsTabProps {
   observations: AnimalObservation[] | undefined
 }
 
-export const ObservationsTab = React.memo(function ObservationsTab({ animalId, earTag, afterParam, observations }: ObservationsTabProps) {
+export const ObservationsTab = React.memo(function ObservationsTab({ animalId, earTag, afterParam: _afterParam, observations }: ObservationsTabProps) {
   const queryClient = useQueryClient()
 
   const [showAddDialog, setShowAddDialog] = useState(false)

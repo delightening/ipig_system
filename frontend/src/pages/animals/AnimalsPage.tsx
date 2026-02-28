@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -9,7 +9,6 @@ import axios from 'axios'
 import api, {
   Animal,
   AnimalListItem,
-  AnimalBreed,
   AnimalSource,
   CreateAnimalRequest,
 } from '@/lib/api'
@@ -43,15 +42,19 @@ export function AnimalsPage() {
 
   const isPIOrClient = hasRole('PI') || hasRole('CLIENT')
   const isAdmin = hasRole('admin')
-  const adminOnlyStatuses = ['euthanized', 'sudden_death', 'transferred']
+  const adminOnlyStatuses = useMemo(() => ['euthanized', 'sudden_death', 'transferred'], [])
 
   // ─── Filter state ──────────────────────────────────────────────────────────
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 400)
 
-  const allowedStatuses = isPIOrClient
-    ? ['in_experiment', 'completed', ...(isAdmin ? adminOnlyStatuses : [])]
-    : ['pen', 'unassigned', 'in_experiment', 'completed', ...(isAdmin ? adminOnlyStatuses : []), 'all']
+  const allowedStatuses = useMemo(
+    () =>
+      isPIOrClient
+        ? ['in_experiment', 'completed', ...(isAdmin ? adminOnlyStatuses : [])]
+        : ['pen', 'unassigned', 'in_experiment', 'completed', ...(isAdmin ? adminOnlyStatuses : []), 'all'],
+    [isPIOrClient, isAdmin, adminOnlyStatuses]
+  )
   const urlStatus = searchParams.get('status')
   const defaultStatus = isPIOrClient ? 'in_experiment' : 'pen'
   const initialStatus = urlStatus && allowedStatuses.includes(urlStatus) ? urlStatus : defaultStatus

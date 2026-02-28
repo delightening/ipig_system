@@ -50,6 +50,7 @@ import {
   FileEdit,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+import { getApiErrorMessage } from '@/lib/validation'
 import { useAuthStore } from '@/stores/auth'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -167,10 +168,10 @@ export function ProtocolDetailPage() {
       toast({ title: t('common.success'), description: t('protocols.detail.submitSuccess') })
       queryClient.invalidateQueries({ queryKey: ['protocol', id] })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: t('common.error'),
-        description: error?.response?.data?.error?.message || t('protocols.detail.submitFailed'),
+        description: getApiErrorMessage(error, t('protocols.detail.submitFailed')),
         variant: 'destructive',
       })
     },
@@ -189,10 +190,10 @@ export function ProtocolDetailPage() {
       setSelectedReviewerIds([])
       setSelectedCoEditorId('')
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: t('common.error'),
-        description: error?.response?.data?.error?.message || t('protocols.detail.statusChangeFailed'),
+        description: getApiErrorMessage(error, t('protocols.detail.statusChangeFailed')),
         variant: 'destructive',
       })
     },
@@ -204,10 +205,10 @@ export function ProtocolDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['protocol', id] })
       queryClient.invalidateQueries({ queryKey: ['protocol-co-editors', id] })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: t('common.error'),
-        description: error?.response?.data?.error?.message || t('protocols.detail.tables.assignCoeditorFailed'),
+        description: getApiErrorMessage(error, t('protocols.detail.tables.assignCoeditorFailed')),
         variant: 'destructive',
       })
     },

@@ -25,6 +25,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
 import { logger } from '@/lib/logger'
+import { getApiErrorMessage } from '@/lib/validation'
 import { Plus, Search, Edit, Trash2, Loader2, Warehouse as WarehouseIcon } from 'lucide-react'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -59,11 +60,9 @@ export function WarehousesPage() {
       setDialogOpen(false)
       resetForm()
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       logger.error('Create warehouse error:', error)
-      const errorMessage = error?.response?.data?.error?.message || 
-                          error?.message || 
-                          '建立失敗'
+      const errorMessage = getApiErrorMessage(error, '建立失敗')
       toast({
         title: '錯誤',
         description: errorMessage,
@@ -81,10 +80,10 @@ export function WarehousesPage() {
       setDialogOpen(false)
       resetForm()
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '更新失敗',
+        description: getApiErrorMessage(error, '更新失敗'),
         variant: 'destructive',
       })
     },
@@ -96,10 +95,10 @@ export function WarehousesPage() {
       queryClient.invalidateQueries({ queryKey: ['warehouses'] })
       toast({ title: '成功', description: '倉庫已刪除' })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '刪除失敗',
+        description: getApiErrorMessage(error, '刪除失敗'),
         variant: 'destructive',
       })
     },

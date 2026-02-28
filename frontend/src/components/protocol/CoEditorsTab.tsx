@@ -35,6 +35,7 @@ import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
 import { Loader2, Trash2, UserPlus } from 'lucide-react'
 import { formatDateTime } from '@/lib/utils'
+import { getApiErrorMessage } from '@/lib/validation'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
@@ -84,10 +85,10 @@ export function CoEditorsTab({ protocolId, canAssignReviewer }: CoEditorsTabProp
       setShowCoEditorDialog(false)
       setSelectedCoEditorId('')
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: t('common.error'),
-        description: error?.response?.data?.error?.message || t('protocols.detail.tables.assignCoeditorFailed'),
+        description: getApiErrorMessage(error, t('protocols.detail.tables.assignCoeditorFailed')),
         variant: 'destructive',
       })
     },
@@ -101,10 +102,10 @@ export function CoEditorsTab({ protocolId, canAssignReviewer }: CoEditorsTabProp
       toast({ title: t('common.success'), description: t('protocols.detail.actions.removeCoeditorSuccess') })
       queryClient.invalidateQueries({ queryKey: ['protocol-co-editors', protocolId] })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: t('common.error'),
-        description: error?.response?.data?.error?.message || t('protocols.detail.actions.removeCoeditorFailed'),
+        description: getApiErrorMessage(error, t('protocols.detail.actions.removeCoeditorFailed')),
         variant: 'destructive',
       })
     },

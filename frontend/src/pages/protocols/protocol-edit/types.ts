@@ -5,7 +5,7 @@ import type { FormData } from './constants'
 
 export interface SectionProps {
     formData: FormData
-    updateWorkingContent: (section: keyof FormData['working_content'], path: string, value: any) => void
+    updateWorkingContent: (section: keyof FormData['working_content'], path: string, value: unknown) => void
     setFormData: React.Dispatch<React.SetStateAction<FormData>>
     t: TFunction
     isIACUCStaff?: boolean

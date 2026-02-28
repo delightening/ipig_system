@@ -142,7 +142,7 @@ function ForcePasswordRoute({ children }: { children: React.ReactNode }) {
 
 // Dashboard Route - 僅限具備權限或是審查/主席/獸醫角色的人員
 function DashboardRoute({ children }: { children?: React.ReactNode }) {
-    const { user, hasRole, hasPermission } = useAuthStore()
+    const { user, hasRole } = useAuthStore()
 
     const hasDashboardAccess = hasRole('admin') ||
         user?.roles.some(r => ['purchasing', 'approver', 'WAREHOUSE_MANAGER', 'EXPERIMENT_STAFF', 'REVIEWER', 'VET', 'IACUC_CHAIR'].includes(r)) ||

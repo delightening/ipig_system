@@ -23,7 +23,7 @@ impl AnimalService {
     fn push_animal_filters(qb: &mut sqlx::QueryBuilder<'_, sqlx::Postgres>, query: &AnimalQuery) {
         if let Some(status) = &query.status {
             qb.push(" AND p.status = ");
-            qb.push_bind(status.clone());
+            qb.push_bind(*status);
         }
         if let Some(breed) = &query.breed {
             let breed_str = match breed {

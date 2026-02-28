@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import type { ProtocolPerson } from '@/types/protocol'
 import type { PersonnelSectionProps } from './types'
 
-export function SectionPersonnel({ formData, updateWorkingContent, setFormData, t, isIACUCStaff, onAddPersonnel }: PersonnelSectionProps) {
+export function SectionPersonnel({ formData, updateWorkingContent: _updateWorkingContent, setFormData, t, isIACUCStaff: _isIACUCStaff, onAddPersonnel }: PersonnelSectionProps) {
 
   return (
     <Card>
@@ -107,7 +107,7 @@ export function SectionPersonnel({ formData, updateWorkingContent, setFormData, 
                           )}
                           {/* Show certificate number list for each selected training */}
                           {(person.trainings || []).filter((t: string) => t !== 'F').map((trainingCode: string) => {
-                            const certificates = (person.training_certificates || []).filter((cert: any) => cert.training_code === trainingCode)
+                            const certificates = (person.training_certificates || []).filter((cert: { training_code?: string }) => cert.training_code === trainingCode)
                             if (certificates.length === 0) return null
                             return (
                               <div key={trainingCode} className="space-y-1 pl-4 border-l-2 border-slate-200">

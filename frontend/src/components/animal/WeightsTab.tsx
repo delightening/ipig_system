@@ -37,7 +37,7 @@ interface WeightsTabProps {
 }
 
 export const WeightsTab = React.memo(function WeightsTab({
-  animalId, earTag, afterParam, weights,
+  animalId, earTag, afterParam: _afterParam, weights,
   hasAdminRole, developerMode, toggleDeveloperMode,
 }: WeightsTabProps) {
   const queryClient = useQueryClient()

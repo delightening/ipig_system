@@ -15,7 +15,6 @@ import {
     LogIn,
     LogOut,
     RefreshCw,
-    Search,
     Shield,
     Users,
 } from 'lucide-react'
@@ -41,16 +40,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog'
-
-import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
 import { AuditLogDetailDialog } from './components/AuditLogDetailDialog'
 import { AuditAlertDetailDialog } from './components/AuditAlertDetailDialog'
@@ -110,7 +99,6 @@ const statusOrder: Record<string, number> = {
 export function AdminAuditPage() {
     const { user: currentUser, logout } = useAuthStore()
     const [activeTab, setActiveTab] = useState('dashboard')
-    const [searchTerm, setSearchTerm] = useState('')
     const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null)
     const [selectedAlert, setSelectedAlert] = useState<SecurityAlert | null>(null)
 

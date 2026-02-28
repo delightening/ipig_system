@@ -13,7 +13,7 @@ async fn list_animals_returns_200() {
     let res = app.auth_get("/api/animals", &token).await;
     assert_eq!(res.status(), 200);
 
-    let body: serde_json::Value = res.json().await.unwrap();
+    let body: serde_json::Value = res.json().await.expect("Failed to parse JSON response");
     assert!(body["data"].is_array());
     assert!(body["total"].is_number());
 }
@@ -23,7 +23,12 @@ async fn list_animals_returns_200() {
 async fn list_animals_without_auth_returns_401() {
     let app = common::TestApp::spawn().await;
 
-    let res = app.client.get(app.url("/api/animals")).send().await.unwrap();
+    let res = app
+        .client
+        .get(app.url("/api/animals"))
+        .send()
+        .await
+        .expect("HTTP request failed");
     assert_eq!(res.status(), 401);
 }
 
@@ -56,7 +61,10 @@ async fn create_and_get_animal() {
         create_res.status()
     );
 
-    let created: serde_json::Value = create_res.json().await.unwrap();
+    let created: serde_json::Value = create_res
+        .json()
+        .await
+        .expect("Failed to parse create response");
     let animal_id = created["id"].as_str().expect("Created animal should have id");
 
     // Fetch the created animal
@@ -65,7 +73,10 @@ async fn create_and_get_animal() {
         .await;
     assert_eq!(get_res.status(), 200);
 
-    let fetched: serde_json::Value = get_res.json().await.unwrap();
+    let fetched: serde_json::Value = get_res
+        .json()
+        .await
+        .expect("Failed to parse animal response");
     assert_eq!(fetched["ear_tag"], ear_tag);
 }
 
@@ -106,6 +117,6 @@ fn rand_num() -> u32 {
     use std::time::SystemTime;
     let d = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap();
+        .expect("System time should be valid");
     d.subsec_nanos() % 900 + 100
 }

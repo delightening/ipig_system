@@ -5,7 +5,6 @@ import {
     bloodTestPanelApi,
     bloodTestTemplateApi,
     BloodTestPanel,
-    BloodTestTemplate,
     CreateBloodTestPanelRequest,
     UpdateBloodTestPanelRequest,
     UpdateBloodTestPanelItemsRequest,
@@ -43,6 +42,7 @@ import {
     Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { getApiErrorMessage } from '@/lib/validation'
 import { PanelIcon } from '@/components/ui/panel-icon'
 import { useNavigate } from 'react-router-dom'
 
@@ -102,8 +102,8 @@ export function BloodTestPanelsPage() {
             setDialogOpen(false)
             resetForm()
         },
-        onError: (error: any) => {
-            const msg = error?.response?.data?.error || '建立失敗'
+        onError: (error: unknown) => {
+            const msg = getApiErrorMessage(error, '建立失敗')
             toast({ title: '錯誤', description: msg, variant: 'destructive' })
         },
     })
@@ -120,8 +120,8 @@ export function BloodTestPanelsPage() {
             setDialogOpen(false)
             resetForm()
         },
-        onError: (error: any) => {
-            const msg = error?.response?.data?.error || '更新失敗'
+        onError: (error: unknown) => {
+            const msg = getApiErrorMessage(error, '更新失敗')
             toast({ title: '錯誤', description: msg, variant: 'destructive' })
         },
     })
@@ -138,8 +138,8 @@ export function BloodTestPanelsPage() {
                 description: variables.is_active ? '分類已恢復啟用' : '分類已停用',
             })
         },
-        onError: (error: any) => {
-            const msg = error?.response?.data?.error || '操作失敗'
+        onError: (error: unknown) => {
+            const msg = getApiErrorMessage(error, '操作失敗')
             toast({ title: '錯誤', description: msg, variant: 'destructive' })
         },
     })
@@ -156,8 +156,8 @@ export function BloodTestPanelsPage() {
             setItemsDialogOpen(false)
             setManagingPanel(null)
         },
-        onError: (error: any) => {
-            const msg = error?.response?.data?.error || '更新項目失敗'
+        onError: (error: unknown) => {
+            const msg = getApiErrorMessage(error, '更新項目失敗')
             toast({ title: '錯誤', description: msg, variant: 'destructive' })
         },
     })

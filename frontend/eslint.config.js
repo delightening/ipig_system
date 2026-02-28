@@ -8,7 +8,7 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import globals from 'globals'
 
-export default [{ ignores: ['dist', 'e2e', '*.config.ts'] }, {
+export default [{ ignores: ['dist', 'e2e', '*.config.ts', 'storybook-static'] }, {
   files: ['**/*.{ts,tsx}'],
   languageOptions: {
     parser: tsParser,
@@ -38,4 +38,8 @@ export default [{ ignores: ['dist', 'e2e', '*.config.ts'] }, {
     'no-redeclare': 'off',
     'no-useless-assignment': 'warn',
   },
+}, {
+  // shadcn/ui 元件同時 export 元件與 variants 函式，為常見模式
+  files: ['src/components/ui/badge.tsx', 'src/components/ui/button.tsx'],
+  rules: { 'react-refresh/only-export-components': 'off' },
 }, ...storybook.configs["flat/recommended"]];

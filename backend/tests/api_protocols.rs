@@ -13,7 +13,7 @@ async fn list_protocols_returns_200() {
     let res = app.auth_get("/api/protocols", &token).await;
     assert_eq!(res.status(), 200);
 
-    let body: serde_json::Value = res.json().await.unwrap();
+    let body: serde_json::Value = res.json().await.expect("Failed to parse JSON response");
     assert!(body["data"].is_array());
 }
 
@@ -44,7 +44,10 @@ async fn create_protocol_draft() {
         res.status()
     );
 
-    let created: serde_json::Value = res.json().await.unwrap();
+    let created: serde_json::Value = res
+        .json()
+        .await
+        .expect("Failed to parse create response");
     assert!(created["id"].is_string());
     assert_eq!(created["title"], "Integration Test Protocol");
 }
@@ -59,7 +62,7 @@ async fn list_protocols_without_auth_returns_401() {
         .get(app.url("/api/protocols"))
         .send()
         .await
-        .unwrap();
+        .expect("HTTP request failed");
 
     assert_eq!(res.status(), 401);
 }
@@ -68,6 +71,6 @@ fn rand_num() -> u32 {
     use std::time::SystemTime;
     let d = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap();
+        .expect("System time should be valid");
     d.subsec_nanos() % 10000
 }

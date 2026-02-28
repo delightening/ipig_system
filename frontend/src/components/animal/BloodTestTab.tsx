@@ -6,8 +6,6 @@ import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
     BloodTestListItem,
-    BloodTestTemplate,
-    AnimalBloodTestWithItems,
     BloodTestItemInput,
     CreateBloodTestRequest,
     UpdateBloodTestRequest,
@@ -678,6 +676,7 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
                                                             checked={item.is_abnormal}
                                                             onChange={(e) => updateItem(index, 'is_abnormal', e.target.checked)}
                                                             className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                                                            aria-label={`項目 ${index + 1} 異常`}
                                                         />
                                                     </TableCell>
                                                     <TableCell>

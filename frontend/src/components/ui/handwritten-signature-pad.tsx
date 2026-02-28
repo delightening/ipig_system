@@ -5,7 +5,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import SignaturePad from 'signature_pad'
 import { Button } from '@/components/ui/button'
-import { Eraser, Undo2, Check } from 'lucide-react'
+import { Eraser, Undo2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { sanitizeSvg } from '@/lib/sanitize'
 

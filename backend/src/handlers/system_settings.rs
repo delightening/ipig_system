@@ -27,7 +27,7 @@ pub async fn get_system_settings(
     let mut settings = service.get_all_settings().await?;
 
     if let Some(val) = settings.get("smtp_password") {
-        if val.as_str().map_or(false, |s| !s.is_empty()) {
+        if val.as_str().is_some_and(|s| !s.is_empty()) {
             settings.insert("smtp_password".into(), Value::String(SMTP_PASSWORD_MASK.into()));
         }
     }
@@ -60,7 +60,7 @@ pub async fn update_system_settings(
 
     let mut settings = service.get_all_settings().await?;
     if let Some(val) = settings.get("smtp_password") {
-        if val.as_str().map_or(false, |s| !s.is_empty()) {
+        if val.as_str().is_some_and(|s| !s.is_empty()) {
             settings.insert("smtp_password".into(), Value::String(SMTP_PASSWORD_MASK.into()));
         }
     }

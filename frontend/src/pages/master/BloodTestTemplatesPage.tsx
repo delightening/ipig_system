@@ -48,10 +48,10 @@ import {
     Droplets,
     ArrowUpDown,
     ArrowLeft,
-    FolderPlus,
     Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { getApiErrorMessage } from '@/lib/validation'
 import { PanelIcon } from '@/components/ui/panel-icon'
 import { useNavigate } from 'react-router-dom'
 
@@ -125,10 +125,10 @@ export function BloodTestTemplatesPage() {
             setDialogOpen(false)
             resetForm()
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: '錯誤',
-                description: error?.response?.data?.error?.message || '建立失敗',
+                description: getApiErrorMessage(error, '建立失敗'),
                 variant: 'destructive',
             })
         },
@@ -146,10 +146,10 @@ export function BloodTestTemplatesPage() {
             setDialogOpen(false)
             resetForm()
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: '錯誤',
-                description: error?.response?.data?.error?.message || '更新失敗',
+                description: getApiErrorMessage(error, '更新失敗'),
                 variant: 'destructive',
             })
         },
@@ -169,10 +169,10 @@ export function BloodTestTemplatesPage() {
                 description: variables.is_active ? '項目已恢復啟用' : '項目已停用',
             })
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: '錯誤',
-                description: error?.response?.data?.error?.message || '操作失敗',
+                description: getApiErrorMessage(error, '操作失敗'),
                 variant: 'destructive',
             })
         },
@@ -188,10 +188,10 @@ export function BloodTestTemplatesPage() {
             setPanelDialogOpen(false)
             setPanelFormData({ key: '', name: '', icon: '', sort_order: 0 })
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: '錯誤',
-                description: error?.response?.data?.error?.message || '建立分類失敗',
+                description: getApiErrorMessage(error, '建立分類失敗'),
                 variant: 'destructive',
             })
         },
@@ -350,6 +350,7 @@ export function BloodTestTemplatesPage() {
         }
 
         return { groupedData: [{ panel: null, items: sorted }], flatFiltered: sorted }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sortTemplates stable
     }, [templates, panels, search, showFilter, sortField, sortOrder, selectedPanel])
 
     // 排序指示器

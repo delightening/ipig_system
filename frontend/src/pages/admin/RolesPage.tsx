@@ -15,10 +15,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useToast } from '@/components/ui/use-toast'
 import { ConfirmPasswordModal } from '@/components/auth/ConfirmPasswordModal'
-import { Loader2, Shield, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Loader2, Shield, Plus, Pencil, Trash2, Eye } from 'lucide-react'
 import { PermissionTree } from '@/components/admin/PermissionTree'
+import { groupPermissionsByModule } from '@/hooks/usePermissionManager'
 
 interface CreateRoleData {
   code: string
@@ -31,9 +39,12 @@ export function RolesPage() {
   const { toast } = useToast()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
+  const [showDetailDialog, setShowDetailDialog] = useState(false)
+  const [roleForDetail, setRoleForDetail] = useState<Role | null>(null)
   const [showReauthForDeleteRole, setShowReauthForDeleteRole] = useState(false)
   const [roleToDelete, setRoleToDelete] = useState<Role | null>(null)
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
+  const [columnCount, setColumnCount] = useState<2 | 3 | 4>(3)
   const [formData, setFormData] = useState<CreateRoleData>({
     code: '',
     name: '',
@@ -162,19 +173,41 @@ export function RolesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">角色權限</h1>
           <p className="text-muted-foreground">管理系統角色與權限設定</p>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          新增角色
-        </Button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">欄位數</span>
+            <Select
+              value={String(columnCount)}
+              onValueChange={(v) => setColumnCount(Number(v) as 2 | 3 | 4)}
+            >
+              <SelectTrigger className="w-[72px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="2">2</SelectItem>
+                <SelectItem value="3">3</SelectItem>
+                <SelectItem value="4">4</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            新增角色
+          </Button>
+        </div>
       </div>
 
-      {/* 角色列表 */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {/* 角色列表（小螢幕 1 欄，依使用者選擇 2/3/4 欄） */}
+      <div
+        className={`grid gap-4 grid-cols-1 sm:${
+          columnCount === 2 ? 'grid-cols-2' : columnCount === 3 ? 'grid-cols-3' : 'grid-cols-4'
+        }`}
+      >
         {roles?.map((role) => (
           <Card key={role.id}>
             <CardHeader className="pb-3">
@@ -207,22 +240,30 @@ export function RolesPage() {
               </div>
               <p className="text-sm text-muted-foreground font-mono">{role.code}</p>
             </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-1">
-                {role.permissions.slice(0, 8).map((perm) => (
-                  <Badge key={perm.id} variant="outline" className="text-xs">
-                    {perm.name}
-                  </Badge>
-                ))}
-                {role.permissions.length > 8 && (
-                  <Badge variant="secondary" className="text-xs">
-                    +{role.permissions.length - 8} 更多
-                  </Badge>
-                )}
-                {role.permissions.length === 0 && (
-                  <span className="text-sm text-muted-foreground">無權限</span>
-                )}
-              </div>
+            <CardContent className="space-y-3">
+              {role.permissions.length === 0 ? (
+                <span className="text-sm text-muted-foreground">無權限</span>
+              ) : (
+                <>
+                  <div className="text-sm text-muted-foreground">
+                    {groupPermissionsByModule(role.permissions)
+                      .map(({ moduleName, count }) => `${moduleName} ${count} 項`)
+                      .join(' · ')}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      setRoleForDetail(role)
+                      setShowDetailDialog(true)
+                    }}
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    查看詳情 ({role.permissions.length} 個權限)
+                  </Button>
+                </>
+              )}
             </CardContent>
           </Card>
         ))}
@@ -317,6 +358,34 @@ export function RolesPage() {
               儲存
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 查看權限詳情對話框 */}
+      <Dialog
+        open={showDetailDialog}
+        onOpenChange={(open) => {
+          setShowDetailDialog(open)
+          if (!open) setRoleForDetail(null)
+        }}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              {roleForDetail?.name} — 權限詳情
+            </DialogTitle>
+            <DialogDescription>
+              共 {roleForDetail?.permissions.length ?? 0} 個權限（唯讀）
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto border rounded-md p-4 min-h-0">
+            <PermissionTree
+              permissions={permissions}
+              selectedPermissionIds={roleForDetail?.permissions.map((p) => p.id) ?? []}
+              showSearch={true}
+              readOnly={true}
+            />
+          </div>
         </DialogContent>
       </Dialog>
 

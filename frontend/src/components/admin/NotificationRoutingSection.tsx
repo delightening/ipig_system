@@ -23,6 +23,7 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import {
@@ -45,7 +46,6 @@ import type {
     CreateNotificationRoutingRequest,
     UpdateNotificationRoutingRequest,
     EventTypeCategory,
-    RoleInfo,
 } from '@/types/notification'
 
 const categoryIcons: Record<string, React.ReactNode> = {
@@ -155,10 +155,10 @@ export function NotificationRoutingSection() {
             setNewRule({ event_type: '', role_code: '', channel: 'both' })
             toast({ title: '成功', description: '已新增通知路由規則' })
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: '錯誤',
-                description: error?.response?.data?.error?.message || '新增失敗',
+                description: getApiErrorMessage(error, '新增失敗'),
                 variant: 'destructive',
             })
         },
@@ -170,10 +170,10 @@ export function NotificationRoutingSection() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['notification-routing'] })
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: '錯誤',
-                description: error?.response?.data?.error?.message || '更新失敗',
+                description: getApiErrorMessage(error, '更新失敗'),
                 variant: 'destructive',
             })
         },
@@ -185,10 +185,10 @@ export function NotificationRoutingSection() {
             queryClient.invalidateQueries({ queryKey: ['notification-routing'] })
             toast({ title: '成功', description: '規則已刪除' })
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: '錯誤',
-                description: error?.response?.data?.error?.message || '刪除失敗',
+                description: getApiErrorMessage(error, '刪除失敗'),
                 variant: 'destructive',
             })
         },

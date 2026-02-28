@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Link, useSearchParams, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { getErrorMessage } from '@/types/error'
@@ -12,7 +12,6 @@ import { Loader2, Lock, ArrowLeft, CheckCircle, AlertCircle, Eye, EyeOff, Shield
 
 export function ResetPasswordPage() {
   const [searchParams] = useSearchParams()
-  const navigate = useNavigate()
   const token = searchParams.get('token')
 
   const [newPassword, setNewPassword] = useState('')

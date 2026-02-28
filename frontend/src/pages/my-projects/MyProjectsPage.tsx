@@ -22,10 +22,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { Eye, Loader2, FileText, Calendar, Building, X } from 'lucide-react'
+import { Eye, Loader2, FileText, Calendar, X } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
-import { useAuthStore } from '@/stores/auth'
+import { getApiErrorMessage } from '@/lib/validation'
 import { useTranslation } from 'react-i18next'
+import { useConfirmDialog } from '@/hooks/useConfirmDialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'> = {
   DRAFT: 'secondary',
@@ -50,9 +52,8 @@ export function MyProjectsPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  const { user } = useAuthStore()
+  const { dialogState, confirm } = useConfirmDialog()
   const [closeDialogOpen, setCloseDialogOpen] = useState(false)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
 
   const { data: projects, isLoading } = useQuery({
@@ -80,10 +81,10 @@ export function MyProjectsPage() {
       setCloseDialogOpen(false)
       setSelectedProjectId(null)
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: t('common.error'),
-        description: error?.response?.data?.error?.message || t('common.error'),
+        description: getApiErrorMessage(error, t('common.error')),
         variant: 'destructive',
       })
     },
@@ -103,13 +104,12 @@ export function MyProjectsPage() {
         description: t('common.deleted'),
       })
       queryClient.invalidateQueries({ queryKey: ['my-projects'] })
-      setDeleteDialogOpen(false)
       setSelectedProjectId(null)
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: t('common.error'),
-        description: error?.response?.data?.error?.message || t('common.error'),
+        description: getApiErrorMessage(error, t('common.error')),
         variant: 'destructive',
       })
     },
@@ -120,20 +120,15 @@ export function MyProjectsPage() {
     setCloseDialogOpen(true)
   }
 
-  const handleDeleteClick = (projectId: string) => {
-    setSelectedProjectId(projectId)
-    setDeleteDialogOpen(true)
+  const handleDeleteClick = async (projectId: string) => {
+    const project = projects?.find(p => p.id === projectId)
+    const ok = await confirm({ title: t('protocols.deleteTitle'), description: t('protocols.deleteConfirm', { title: project?.title || '' }), variant: 'destructive', confirmLabel: t('common.delete') })
+    if (ok) deleteProtocolMutation.mutate(projectId)
   }
 
   const handleConfirmClose = () => {
     if (selectedProjectId) {
       closeProtocolMutation.mutate(selectedProjectId)
-    }
-  }
-
-  const handleConfirmDelete = () => {
-    if (selectedProjectId) {
-      deleteProtocolMutation.mutate(selectedProjectId)
     }
   }
 
@@ -370,6 +365,7 @@ export function MyProjectsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog state={dialogState} />
     </div>
   )
 }

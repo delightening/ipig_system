@@ -24,6 +24,8 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
+import { AxiosError } from 'axios'
 import type { AttendanceWithUser } from '@/types/hr'
 
 interface PaginatedResponse<T> {
@@ -104,14 +106,16 @@ export function HrAttendancePage() {
                 description: `上班打卡時間：${format(new Date(clockInTime), 'HH:mm:ss')}`,
             })
         },
-        onError: (error: any) => {
-            const status = error?.response?.status
-            const serverMsg = error?.response?.data?.error?.message
+        onError: (error: unknown) => {
+            let description: string
+            if (error instanceof AxiosError && error.response?.status === 403) {
+                description = (error.response?.data as { error?: { message?: string } })?.error?.message || '請確認您已連接辦公室 WiFi 或允許定位權限'
+            } else {
+                description = getApiErrorMessage(error, '請稍後再試')
+            }
             toast({
                 title: '打卡失敗',
-                description: status === 403
-                    ? (serverMsg || '請確認您已連接辦公室 WiFi 或允許定位權限')
-                    : (serverMsg || '請稍後再試'),
+                description,
                 variant: 'destructive',
             })
         },
@@ -140,14 +144,16 @@ export function HrAttendancePage() {
                 description: `下班打卡時間：${format(new Date(clockOutTime), 'HH:mm:ss')}`,
             })
         },
-        onError: (error: any) => {
-            const status = error?.response?.status
-            const serverMsg = error?.response?.data?.error?.message
+        onError: (error: unknown) => {
+            let description: string
+            if (error instanceof AxiosError && error.response?.status === 403) {
+                description = (error.response?.data as { error?: { message?: string } })?.error?.message || '請確認您已連接辦公室 WiFi 或允許定位權限'
+            } else {
+                description = getApiErrorMessage(error, '請稍後再試')
+            }
             toast({
                 title: '打卡失敗',
-                description: status === 403
-                    ? (serverMsg || '請確認您已連接辦公室 WiFi 或允許定位權限')
-                    : (serverMsg || '請稍後再試'),
+                description,
                 variant: 'destructive',
             })
         },

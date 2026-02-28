@@ -23,19 +23,20 @@ export function ProtocolComparisonDialog({
     onOpenChange,
     versionA,
     versionB,
-    protocolTitle,
+    protocolTitle: _protocolTitle,
 }: Props) {
     const { t } = useTranslation()
-    const [diffs, setDiffs] = useState<any[]>([])
+    const [diffs, setDiffs] = useState<Array<{ path: string; oldValue: unknown; newValue: unknown }>>([])
 
     useEffect(() => {
         if (versionA && versionB) {
             setDiffs(findDifferences(versionA.content, versionB.content))
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [versionA, versionB])
 
-    function findDifferences(obj1: any, obj2: any, path = ''): any[] {
-        const differences: any[] = []
+    function findDifferences(obj1: unknown, obj2: unknown, path = ''): Array<{ path: string; oldValue: unknown; newValue: unknown }> {
+        const differences: Array<{ path: string; oldValue: unknown; newValue: unknown }> = []
 
         if (obj1 === obj2) return differences
 
@@ -50,8 +51,8 @@ export function ProtocolComparisonDialog({
             return differences
         }
 
-        if (typeof obj1 === 'object') {
-            if (Array.isArray(obj1)) {
+        if (typeof obj1 === 'object' && obj1 !== null && typeof obj2 === 'object' && obj2 !== null) {
+            if (Array.isArray(obj1) && Array.isArray(obj2)) {
                 if (obj1.length !== obj2.length) {
                     differences.push({ path, oldValue: obj1, newValue: obj2 })
                 } else {
@@ -70,10 +71,12 @@ export function ProtocolComparisonDialog({
                 return differences
             }
 
-            const allKeys = new Set([...Object.keys(obj1), ...Object.keys(obj2)])
+            const o1 = obj1 as Record<string, unknown>
+            const o2 = obj2 as Record<string, unknown>
+            const allKeys = new Set([...Object.keys(o1), ...Object.keys(o2)])
             allKeys.forEach((key) => {
                 const currentPath = path ? `${path}.${key}` : key
-                differences.push(...findDifferences(obj1[key], obj2[key], currentPath))
+                differences.push(...findDifferences(o1[key], o2[key], currentPath))
             })
             return differences
         }
@@ -85,7 +88,7 @@ export function ProtocolComparisonDialog({
         return differences
     }
 
-    const formatValue = (val: any) => {
+    const formatValue = (val: unknown) => {
         if (val === null || val === undefined) return <span className="text-slate-400 italic">{t('protocols.detail.dialogs.version.noContent')}</span>
         if (typeof val === 'boolean') return val ? <Check className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-red-500" />
 
@@ -94,18 +97,21 @@ export function ProtocolComparisonDialog({
             // If it's an array of objects
             if (typeof val[0] === 'object' && val[0] !== null) {
                 // If it's FileInfo
-                const fileItems = val.filter(item => item.file_name)
+                const fileItems = val.filter((item: unknown) => typeof item === 'object' && item !== null && 'file_name' in item)
                 if (fileItems.length > 0) {
-                    return fileItems.map(f => f.file_name).join(', ')
+                    return fileItems.map((f: unknown) => (f as { file_name: string }).file_name).join(', ')
                 }
 
                 return (
                     <div className="space-y-1">
-                        {val.map((item, idx) => (
+                        {val.map((item: unknown, idx: number) => {
+                            const o = item as Record<string, unknown>
+                            return (
                             <div key={idx} className="text-xs border-l-2 border-slate-200 pl-2 py-0.5">
-                                {item.name || item.species || item.drug_name || item.agent_name || `項目 ${idx + 1}`}
+                                {String(o.name ?? o.species ?? o.drug_name ?? o.agent_name ?? `項目 ${idx + 1}`)}
                             </div>
-                        ))}
+                            )
+                        })}
                         <div className="text-[10px] text-slate-400 font-normal">共 {val.length} 筆項目</div>
                     </div>
                 )
@@ -114,9 +120,9 @@ export function ProtocolComparisonDialog({
             return val.join(', ')
         }
 
-        if (typeof val === 'object') {
+        if (typeof val === 'object' && val !== null) {
             // Handle FileInfo objects
-            if (val.file_name) return val.file_name
+            if ('file_name' in val && typeof (val as { file_name: unknown }).file_name === 'string') return (val as { file_name: string }).file_name
             // Handle date objects or simple key-value shells
             return <pre className="text-[10px] font-mono leading-tight">{JSON.stringify(val, null, 1)}</pre>
         }

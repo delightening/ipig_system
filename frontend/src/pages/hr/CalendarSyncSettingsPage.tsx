@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns'
+import { format, startOfMonth, endOfMonth } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
@@ -10,14 +10,12 @@ import {
     AlertTriangle,
     Calendar,
     CalendarDays,
-    Check,
     CheckCircle,
     Clock,
     Link2,
     RefreshCw,
     Settings,
     Unlink,
-    XCircle,
 } from 'lucide-react'
 import api from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
@@ -43,8 +41,8 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog'
-import { Switch } from '@/components/ui/switch'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import type { CalendarSyncHistory, CalendarSyncStatus, ConflictWithDetails, CalendarEvent } from '@/types/hr'
 
 interface PaginatedResponse<T> {
@@ -105,7 +103,7 @@ export function CalendarSyncSettingsPage() {
     })
 
     // 日曆事件
-    const { data: calendarEvents, isLoading: loadingEvents, refetch: refetchEvents } = useQuery({
+    const { data: calendarEvents, isLoading: loadingEvents } = useQuery({
         queryKey: ['calendar-events', calendarDateRange],
         queryFn: async () => {
             const startDate = format(calendarDateRange.start, 'yyyy-MM-dd')
@@ -150,10 +148,10 @@ export function CalendarSyncSettingsPage() {
             setAuthEmail('')
             toast({ title: '成功', description: '已連接 Google Calendar' })
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: '連接失敗',
-                description: error?.response?.data?.error?.message || '請檢查設定',
+                description: getApiErrorMessage(error, '請檢查設定'),
                 variant: 'destructive',
             })
         },

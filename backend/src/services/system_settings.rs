@@ -110,10 +110,6 @@ impl SystemSettingsService {
     }
 
     fn wrap_jsonb(value: Value) -> Value {
-        if value.is_string() || value.is_number() || value.is_boolean() || value.is_null() {
-            value
-        } else {
-            value
-        }
+        value
     }
 }

@@ -50,7 +50,12 @@ async fn reports_without_auth_return_401() {
     ];
 
     for endpoint in endpoints {
-        let res = app.client.get(app.url(endpoint)).send().await.unwrap();
+        let res = app
+            .client
+            .get(app.url(endpoint))
+            .send()
+            .await
+            .expect("HTTP request failed");
         assert_eq!(res.status(), 401, "Endpoint {} should require auth", endpoint);
     }
 }

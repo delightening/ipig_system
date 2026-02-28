@@ -7,7 +7,6 @@ import api, {
   AnimalSource,
   AnimalStatus,
   animalStatusNames,
-  allAnimalStatusNames,
   animalBreedNames,
   animalGenderNames,
   UpdateAnimalRequest,
@@ -38,12 +37,13 @@ export function AnimalEditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- i18n context
   const { t } = useTranslation()
   const animalId = id!
 
   const [formData, setFormData] = useState<UpdateAnimalRequest>({})
   const [hasChanges, setHasChanges] = useState(false)
-  const [entryWeightInput, setEntryWeightInput] = useState<string>('')
+  const [, setEntryWeightInput] = useState<string>('')
 
   // Query animal data
   const { data: animal, isLoading: animalLoading } = useQuery({

@@ -86,7 +86,9 @@ impl TestApp {
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("Failed to bind random port");
-        let addr: SocketAddr = listener.local_addr().unwrap();
+        let addr: SocketAddr = listener
+            .local_addr()
+            .expect("Failed to get listener address");
 
         tokio::spawn(async move {
             axum::serve(
@@ -94,14 +96,14 @@ impl TestApp {
                 app.into_make_service_with_connect_info::<SocketAddr>(),
             )
             .await
-            .unwrap();
+            .expect("Failed to start Axum server");
         });
 
         let client = Client::builder()
             .cookie_store(true)
             .redirect(reqwest::redirect::Policy::none())
             .build()
-            .unwrap();
+            .expect("Failed to build HTTP client");
 
         TestApp {
             address: format!("http://127.0.0.1:{}", addr.port()),

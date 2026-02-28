@@ -40,13 +40,6 @@ const SAMPLING_OPTIONS = [
   { value: '其他', label: '其他' },
 ]
 
-// 犧牲方式選項
-const SACRIFICE_METHOD_OPTIONS = [
-  { value: 'bloodletting', label: '放血' },
-  { value: 'electrocution', label: '電暈' },
-  { value: 'other', label: '其他' },
-]
-
 // 表單狀態
 interface SacrificeFormData {
   sacrifice_date: string
@@ -119,6 +112,7 @@ export function SacrificeFormDialog({ open, onOpenChange, animalId, earTag, sacr
     } else {
       setFormData(defaultFormData)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sacrifice, open])
 
   const handleSamplingChange = (value: string, checked: boolean) => {

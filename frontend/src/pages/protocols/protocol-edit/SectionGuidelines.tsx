@@ -13,7 +13,7 @@ import type { SectionProps } from './types'
 const DB_CODES_WITH_KEYWORDS = ['A', 'B', 'C', 'D', 'E']
 const DB_CODES_WITH_NOTE = ['K', 'L']
 
-export function SectionGuidelines({ formData, updateWorkingContent, setFormData, t, isIACUCStaff }: SectionProps) {
+export function SectionGuidelines({ formData, updateWorkingContent, setFormData: _setFormData, t, isIACUCStaff: _isIACUCStaff }: SectionProps) {
   // 確保 databases 資料存在（向下相容舊資料）
   const databases = formData.working_content.guidelines.databases || []
 

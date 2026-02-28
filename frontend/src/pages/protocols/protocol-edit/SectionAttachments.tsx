@@ -3,10 +3,10 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { FileUpload, FileInfo } from '@/components/ui/file-upload'
+import { FileUpload } from '@/components/ui/file-upload'
 import type { SectionProps } from './types'
 
-export function SectionAttachments({ formData, updateWorkingContent, setFormData, t, isIACUCStaff }: SectionProps) {
+export function SectionAttachments({ formData, updateWorkingContent: _updateWorkingContent, setFormData, t, isIACUCStaff: _isIACUCStaff }: SectionProps) {
 
   return (
     <Card>

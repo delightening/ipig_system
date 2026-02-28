@@ -32,7 +32,7 @@ async fn login_with_wrong_password_returns_401() {
         }))
         .send()
         .await
-        .unwrap();
+        .expect("HTTP request failed");
 
     assert_eq!(res.status(), 401);
 }
@@ -51,7 +51,7 @@ async fn login_with_invalid_email_format_returns_400() {
         }))
         .send()
         .await
-        .unwrap();
+        .expect("HTTP request failed");
 
     assert_eq!(res.status(), 400);
 }
@@ -67,7 +67,7 @@ async fn me_returns_current_user_info() {
     let res = app.auth_get("/api/me", &token).await;
     assert_eq!(res.status(), 200);
 
-    let body: serde_json::Value = res.json().await.unwrap();
+    let body: serde_json::Value = res.json().await.expect("Failed to parse JSON response");
     assert!(body["id"].is_string());
     assert!(body["email"].is_string());
     assert!(body["display_name"].is_string());
@@ -78,7 +78,12 @@ async fn me_returns_current_user_info() {
 async fn me_without_token_returns_401() {
     let app = common::TestApp::spawn().await;
 
-    let res = app.client.get(app.url("/api/me")).send().await.unwrap();
+    let res = app
+        .client
+        .get(app.url("/api/me"))
+        .send()
+        .await
+        .expect("HTTP request failed");
 
     assert_eq!(res.status(), 401);
 }
@@ -102,11 +107,16 @@ async fn refresh_with_valid_token_returns_new_tokens() {
         .json(&serde_json::json!({ "email": email, "password": password }))
         .send()
         .await
-        .unwrap();
+        .expect("HTTP request failed");
     assert_eq!(login_res.status(), 200);
 
-    let login_body: serde_json::Value = login_res.json().await.unwrap();
-    let refresh_token = login_body["refresh_token"].as_str().unwrap();
+    let login_body: serde_json::Value = login_res
+        .json()
+        .await
+        .expect("Failed to parse login response");
+    let refresh_token = login_body["refresh_token"]
+        .as_str()
+        .expect("refresh_token should be present in login response");
 
     // Use refresh_token to get new tokens
     let refresh_res = app
@@ -115,10 +125,13 @@ async fn refresh_with_valid_token_returns_new_tokens() {
         .json(&serde_json::json!({ "refresh_token": refresh_token }))
         .send()
         .await
-        .unwrap();
+        .expect("HTTP request failed");
 
     assert_eq!(refresh_res.status(), 200);
-    let refresh_body: serde_json::Value = refresh_res.json().await.unwrap();
+    let refresh_body: serde_json::Value = refresh_res
+        .json()
+        .await
+        .expect("Failed to parse refresh response");
     assert!(refresh_body["access_token"].is_string());
     assert!(refresh_body["refresh_token"].is_string());
 }

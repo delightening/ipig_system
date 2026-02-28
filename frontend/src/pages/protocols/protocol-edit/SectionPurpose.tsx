@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import type { SectionProps } from './types'
 
-export function SectionPurpose({ formData, updateWorkingContent, setFormData, t, isIACUCStaff }: SectionProps) {
+export function SectionPurpose({ formData, updateWorkingContent, setFormData: _setFormData, t, isIACUCStaff: _isIACUCStaff }: SectionProps) {
 
   return (
     <Card>
