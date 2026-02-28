@@ -193,7 +193,7 @@ export function HrAnnualLeavePage() {
     }
 
     return (
-        <div className="container mx-auto py-6 space-y-6">
+        <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold">特休額度管理</h1>
@@ -210,7 +210,7 @@ export function HrAnnualLeavePage() {
             {/* 統計卡片 */}
             <div className="grid gap-4 md:grid-cols-3">
                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium">內部員工數</CardTitle>
                         <Users className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
@@ -219,7 +219,7 @@ export function HrAnnualLeavePage() {
                     </CardContent>
                 </Card>
                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium">待補償記錄</CardTitle>
                         <AlertTriangle className="h-4 w-4 text-orange-500" />
                     </CardHeader>
@@ -230,7 +230,7 @@ export function HrAnnualLeavePage() {
                     </CardContent>
                 </Card>
                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium">待補償總天數</CardTitle>
                         <Calendar className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
@@ -244,15 +244,15 @@ export function HrAnnualLeavePage() {
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList>
-                    <TabsTrigger value="entitlements">
-                        <User className="h-4 w-4 mr-2" />
+                    <TabsTrigger value="entitlements" className="flex items-center gap-2">
+                        <User className="h-4 w-4" />
                         員工特休額度
                     </TabsTrigger>
-                    <TabsTrigger value="expired">
-                        <AlertTriangle className="h-4 w-4 mr-2" />
+                    <TabsTrigger value="expired" className="flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4" />
                         過期待補償
                         {expiredLeaves && expiredLeaves.length > 0 && (
-                            <Badge variant="destructive" className="ml-2">
+                            <Badge variant="destructive" className="ml-1">
                                 {expiredLeaves.length}
                             </Badge>
                         )}
@@ -281,7 +281,7 @@ export function HrAnnualLeavePage() {
                             </div>
 
                             {/* 員工列表 */}
-                            <div className="grid gap-2 md:grid-cols-3 max-h-48 overflow-y-auto">
+                            <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
                                 {filteredUsers?.map(user => (
                                     <Button
                                         key={user.id}
