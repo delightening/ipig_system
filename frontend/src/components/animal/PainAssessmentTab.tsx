@@ -104,6 +104,7 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
             const res = await api.get<CareRecord[]>(`/animals/${animalId}/care-records`)
             return res.data
         },
+        staleTime: 30_000,
     })
 
     // 新增紀錄

@@ -1,69 +1,48 @@
 #!/bin/bash
-# ============================================
-# iPIG 資料庫自動備份腳本
-# 功能：pg_dump + gzip + 30天清理 + rsync 異地備份
-# ============================================
-
 set -euo pipefail
 
 BACKUP_DIR="${BACKUP_DIR:-/backups}"
-RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-30}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-FILENAME="ipig_db_${TIMESTAMP}.sql.gz"
-LOG_PREFIX="[$(date '+%Y-%m-%d %H:%M:%S')]"
+BACKUP_FILE="${BACKUP_DIR}/ipig_${TIMESTAMP}.sql.gz"
+DB_HOST="${DB_HOST:-db}"
+DB_USER="${DB_USER:-postgres}"
+DB_NAME="${DB_NAME:-erp_db}"
+RETENTION_DAYS="${RETENTION_DAYS:-30}"
 
-# 確保備份目錄存在
-mkdir -p "${BACKUP_DIR}"
+mkdir -p "$BACKUP_DIR"
 
-echo "${LOG_PREFIX} 開始備份..."
+echo "[$(date -Iseconds)] Starting backup of ${DB_NAME}..."
 
-# 執行 pg_dump（PGPASSWORD 由環境變數提供）
-if pg_dump -h "${PGHOST:-db}" -p "${PGPORT:-5432}" -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-ipig_db}" \
-    --no-owner --no-privileges --clean --if-exists | gzip > "${BACKUP_DIR}/${FILENAME}"; then
-    SIZE=$(du -h "${BACKUP_DIR}/${FILENAME}" | cut -f1)
-    echo "${LOG_PREFIX} ✅ 備份完成: ${FILENAME} (${SIZE})"
-else
-    echo "${LOG_PREFIX} ❌ 備份失敗！"
-    exit 1
-fi
+# Create compressed backup
+PGPASSWORD="${DB_PASSWORD:-}" pg_dump \
+  -h "$DB_HOST" \
+  -U "$DB_USER" \
+  -Fc \
+  "$DB_NAME" > "${BACKUP_FILE%.gz}"
 
-# GPG 加密（如設定 BACKUP_GPG_RECIPIENT）
-if [ -n "${BACKUP_GPG_RECIPIENT:-}" ]; then
-    echo "${LOG_PREFIX} 🔐 開始 GPG 加密..."
-    if gpg --batch --yes --recipient "${BACKUP_GPG_RECIPIENT}" \
-        --trust-model always --encrypt "${BACKUP_DIR}/${FILENAME}"; then
-        rm -f "${BACKUP_DIR}/${FILENAME}"  # 移除未加密版
-        FILENAME="${FILENAME}.gpg"
-        echo "${LOG_PREFIX} ✅ GPG 加密完成: ${FILENAME}"
-    else
-        echo "${LOG_PREFIX} ⚠️ GPG 加密失敗（未加密備份已保留）"
-    fi
-fi
+gzip "${BACKUP_FILE%.gz}"
 
-# 清理超過保留天數的舊備份
-DELETED=$(find "${BACKUP_DIR}" -name "ipig_db_*.sql.gz" -mtime +${RETENTION_DAYS} -print -delete | wc -l)
-if [ "${DELETED}" -gt 0 ]; then
-    echo "${LOG_PREFIX} 🗑️ 已清理 ${DELETED} 個超過 ${RETENTION_DAYS} 天的備份"
-fi
+# Verify integrity
+echo "Verifying backup integrity..."
+gunzip -t "$BACKUP_FILE" || {
+  echo "ERROR: Backup file is corrupt: $BACKUP_FILE"
+  exit 1
+}
 
-# rsync 異地備份（如設定 RSYNC_TARGET）
-if [ -n "${RSYNC_TARGET:-}" ]; then
-    echo "${LOG_PREFIX} 📤 開始異地備份至 ${RSYNC_TARGET}..."
-    if rsync -az --timeout=60 "${BACKUP_DIR}/${FILENAME}" "${RSYNC_TARGET}/"; then
-        echo "${LOG_PREFIX} ✅ 異地備份完成"
-    else
-        echo "${LOG_PREFIX} ⚠️ 異地備份失敗（本地備份已保留）"
-    fi
+# Verify pg_restore can read the backup
+gunzip -c "$BACKUP_FILE" | pg_restore --list > /dev/null 2>&1 || {
+  echo "ERROR: pg_restore cannot read backup: $BACKUP_FILE"
+  exit 1
+}
 
-    # /uploads 目錄異地備份
-    if [ -d "/uploads" ]; then
-        echo "${LOG_PREFIX} 📤 開始 /uploads 異地備份..."
-        if rsync -az --timeout=120 /uploads/ "${RSYNC_TARGET}/uploads/"; then
-            echo "${LOG_PREFIX} ✅ /uploads 異地備份完成"
-        else
-            echo "${LOG_PREFIX} ⚠️ /uploads 異地備份失敗"
-        fi
-    fi
-fi
+# Generate SHA256 checksum
+sha256sum "$BACKUP_FILE" > "${BACKUP_FILE}.sha256"
+echo "Checksum: $(cat "${BACKUP_FILE}.sha256")"
 
-echo "${LOG_PREFIX} 備份流程結束"
+# Cleanup old backups
+DELETED=$(find "$BACKUP_DIR" -name "ipig_*.sql.gz" -mtime +${RETENTION_DAYS} -delete -print | wc -l)
+find "$BACKUP_DIR" -name "ipig_*.sha256" -mtime +${RETENTION_DAYS} -delete
+
+FILESIZE=$(du -h "$BACKUP_FILE" | cut -f1)
+echo "[$(date -Iseconds)] Backup complete: $BACKUP_FILE ($FILESIZE)"
+echo "  Retention: ${RETENTION_DAYS} days, cleaned up ${DELETED} old backups"

@@ -234,7 +234,7 @@ impl DocumentService {
 
     /// 取得單據列表
     pub async fn list(pool: &PgPool, query: &DocumentQuery) -> Result<Vec<DocumentListItem>> {
-        let mut sql = String::from(
+        let mut qb = sqlx::QueryBuilder::new(
             r#"
             SELECT 
                 d.id, d.doc_type, d.doc_no, d.status,
@@ -260,33 +260,19 @@ impl DocumentService {
             "#,
         );
 
-        // 動態建構查詢條件
-        let mut param_count = 0;
-
-        if query.doc_type.is_some() {
-            param_count += 1;
-            sql.push_str(&format!(" AND d.doc_type = ${}", param_count));
-        }
-
-        if query.iacuc_no.is_some() {
-            param_count += 1;
-            sql.push_str(&format!(" AND d.iacuc_no = ${}", param_count));
-        }
-
-        sql.push_str(" GROUP BY d.id, w.name, p.name, u1.display_name, u2.display_name, d.iacuc_no ORDER BY d.created_at DESC");
-
-        // 動態綁定參數
-        let mut query_builder = sqlx::query_as::<_, DocumentListItem>(&sql);
-
         if let Some(doc_type) = query.doc_type {
-            query_builder = query_builder.bind(doc_type);
+            qb.push(" AND d.doc_type = ");
+            qb.push_bind(doc_type);
         }
 
         if let Some(ref iacuc_no) = query.iacuc_no {
-            query_builder = query_builder.bind(iacuc_no);
+            qb.push(" AND d.iacuc_no = ");
+            qb.push_bind(iacuc_no.clone());
         }
 
-        let documents = query_builder.fetch_all(pool).await?;
+        qb.push(" GROUP BY d.id, w.name, p.name, u1.display_name, u2.display_name, d.iacuc_no ORDER BY d.created_at DESC");
+
+        let documents = qb.build_query_as::<DocumentListItem>().fetch_all(pool).await?;
 
         Ok(documents)
     }

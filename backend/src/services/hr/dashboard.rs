@@ -13,7 +13,8 @@ use super::HrService;
 
 impl HrService {
     pub async fn get_dashboard_calendar(pool: &PgPool) -> Result<DashboardCalendarData> {
-        let taiwan_tz = chrono::FixedOffset::east_opt(8 * 3600).expect("UTC+8 是有效時區偏移");
+        let taiwan_tz = chrono::FixedOffset::east_opt(8 * 3600)
+            .ok_or_else(|| crate::AppError::Internal("invalid timezone offset UTC+8".to_string()))?;
         let today = Utc::now().with_timezone(&taiwan_tz).date_naive();
         let upcoming_end = today + chrono::Duration::days(7);
 

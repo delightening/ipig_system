@@ -451,11 +451,18 @@ impl SchedulerService {
         // 上月的第一天和最後一天
         let year = if now.month() == 1 { now.year() - 1 } else { now.year() };
         let month = if now.month() == 1 { 12 } else { now.month() - 1 };
-        let first_day = NaiveDate::from_ymd_opt(year, month, 1).expect("上月第一天應為有效日期");
+        let first_day = NaiveDate::from_ymd_opt(year, month, 1)
+            .ok_or_else(|| format!("invalid date: {year}-{month}-01"))?;
         let last_day = if now.month() == 1 {
-            NaiveDate::from_ymd_opt(now.year(), 1, 1).expect("當年 1/1 應為有效日期").pred_opt().expect("1/1 前一天應存在")
+            NaiveDate::from_ymd_opt(now.year(), 1, 1)
+                .ok_or_else(|| format!("invalid date: {}-01-01", now.year()))?
+                .pred_opt()
+                .ok_or_else(|| "failed to get last day of previous year".to_string())?
         } else {
-            NaiveDate::from_ymd_opt(now.year(), now.month(), 1).expect("當月第一天應為有效日期").pred_opt().expect("當月第一天前一天應存在")
+            NaiveDate::from_ymd_opt(now.year(), now.month(), 1)
+                .ok_or_else(|| format!("invalid date: {}-{}-01", now.year(), now.month()))?
+                .pred_opt()
+                .ok_or_else(|| format!("failed to get last day of {}-{}", now.year(), now.month() - 1))?
         };
 
         info!("[Monthly Report] 統計期間：{} ~ {}", first_day, last_day);

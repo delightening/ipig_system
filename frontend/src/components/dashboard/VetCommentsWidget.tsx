@@ -1,4 +1,4 @@
-﻿import { useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,6 +24,7 @@ export function VetCommentsWidget() {
             const res = await api.get<{ data: VetComment[] }>('/animals/vet-comments?per_page=5')
             return res.data.data
         },
+        staleTime: 30_000,
     })
 
     if (isLoading) {

@@ -1,4 +1,4 @@
-﻿import { useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,10 +16,10 @@ export function AnimalsOnMedicationWidget() {
     const { data, isLoading, error } = useQuery({
         queryKey: ['animals-on-medication'],
         queryFn: async () => {
-            // 取得正在用藥的動物列表
             const res = await api.get<AnimalListItem[]>('/animals?is_on_medication=true&per_page=10')
             return res.data
         },
+        staleTime: 30_000,
     })
 
     if (isLoading) {

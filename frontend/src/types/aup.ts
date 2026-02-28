@@ -75,13 +75,31 @@ export interface ProtocolListItem {
     apply_study_number?: string
 }
 
+export interface VetReviewItem {
+    item_name: string
+    compliance: string
+    comment?: string
+    pi_reply?: string
+}
+
+export interface VetReviewFormData {
+    items: VetReviewItem[]
+    vet_signature?: string
+    signed_at?: string
+}
+
+export interface VetReviewAssignment {
+    vet_id: string
+    review_form?: VetReviewFormData
+}
+
 export interface ProtocolResponse {
     protocol: Protocol
     pi_name?: string
     pi_email?: string
     pi_organization?: string
     status_display: string
-    vet_review?: any // 獸醫審查指派資訊
+    vet_review?: VetReviewAssignment
 }
 
 export interface ProtocolVersion {

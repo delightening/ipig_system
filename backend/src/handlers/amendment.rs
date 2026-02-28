@@ -56,11 +56,7 @@ pub async fn list_amendments(
     Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<AmendmentQuery>,
 ) -> Result<Json<Vec<AmendmentListItem>>> {
-    // IACUC_STAFF, CHAIR, SYSTEM_ADMIN 可以查看所有變更申請
-    // 其他角色只能查看自己相關的
-    let is_staff = current_user.roles.iter().any(|r| 
-        ["admin", "SYSTEM_ADMIN", "IACUC_STAFF", "CHAIR"].contains(&r.as_str())
-    );
+    let is_staff = current_user.has_permission("aup.protocol.view_all");
 
     let amendments = if is_staff {
         AmendmentService::list(&state.db, &query).await?
@@ -92,10 +88,7 @@ pub async fn get_amendment(
 ) -> Result<Json<Amendment>> {
     let amendment = AmendmentService::get_by_id(&state.db, id).await?;
 
-    // 權限檢查
-    let is_staff = current_user.roles.iter().any(|r| 
-        ["admin", "SYSTEM_ADMIN", "IACUC_STAFF", "CHAIR", "REVIEWER", "VET"].contains(&r.as_str())
-    );
+    let is_staff = current_user.has_permission("aup.protocol.view_all");
 
     if !is_staff {
         // 檢查是否為相關人員
@@ -236,12 +229,7 @@ pub async fn start_amendment_review(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Amendment>> {
-    // 只有 IACUC_STAFF/CHAIR 可以開始審查
-    let is_authorized = current_user.roles.iter().any(|r| 
-        ["admin", "SYSTEM_ADMIN", "IACUC_STAFF", "CHAIR"].contains(&r.as_str())
-    );
-
-    if !is_authorized {
+    if !current_user.has_permission("aup.protocol.review") {
         return Err(AppError::Forbidden("Not authorized to start review".into()));
     }
 
@@ -329,11 +317,7 @@ pub async fn change_amendment_status(
     Json(req): Json<ChangeAmendmentStatusRequest>,
 ) -> Result<Json<Amendment>> {
     // 只有 IACUC_STAFF/CHAIR 可以直接變更狀態
-    let is_authorized = current_user.roles.iter().any(|r| 
-        ["admin", "SYSTEM_ADMIN", "IACUC_STAFF", "CHAIR"].contains(&r.as_str())
-    );
-
-    if !is_authorized {
+    if !current_user.has_permission("aup.protocol.change_status") {
         return Err(AppError::Forbidden("Not authorized to change status".into()));
     }
 

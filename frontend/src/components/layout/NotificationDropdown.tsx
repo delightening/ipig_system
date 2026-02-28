@@ -28,6 +28,7 @@ export function NotificationDropdown() {
       const res = await api.get<{ count: number }>('/notifications/unread-count')
       return res.data.count
     },
+    staleTime: 30_000,
     refetchInterval: 60000,
   })
 
@@ -38,7 +39,7 @@ export function NotificationDropdown() {
       return res.data.data
     },
     enabled: showDropdown,
-    staleTime: 0,
+    staleTime: 30_000,
   })
 
   const markReadMutation = useMutation({

@@ -86,43 +86,29 @@ impl WarehouseService {
         let pagination = PaginationParams { page: query.page, per_page: query.per_page };
         let suffix = pagination.sql_suffix();
 
-        let mut sql = String::from("SELECT * FROM warehouses WHERE 1=1");
+        let mut qb = sqlx::QueryBuilder::new("SELECT * FROM warehouses WHERE 1=1");
 
-        if query.keyword.is_some() {
-            sql.push_str(" AND (code ILIKE $1 OR name ILIKE $1)");
-        }
-        if query.is_active.is_some() {
-            sql.push_str(" AND is_active = $2");
-        }
-        sql.push_str(" ORDER BY code");
-        sql.push_str(&suffix);
-
-        let warehouses = if let Some(ref kw) = query.keyword {
+        if let Some(ref kw) = query.keyword {
             let pattern = format!("%{}%", kw);
-            if let Some(is_active) = query.is_active {
-                sqlx::query_as::<_, Warehouse>(&sql)
-                    .bind(&pattern)
-                    .bind(is_active)
-                    .fetch_all(pool)
-                    .await?
-            } else {
-                sqlx::query_as::<_, Warehouse>(&sql)
-                    .bind(&pattern)
-                    .fetch_all(pool)
-                    .await?
-            }
-        } else if let Some(is_active) = query.is_active {
-            let sql = format!("SELECT * FROM warehouses WHERE is_active = $1 ORDER BY code{}", suffix);
-            sqlx::query_as::<_, Warehouse>(&sql)
-                .bind(is_active)
-                .fetch_all(pool)
-                .await?
-        } else {
-            let sql = format!("SELECT * FROM warehouses ORDER BY code{}", suffix);
-            sqlx::query_as::<_, Warehouse>(&sql)
-                .fetch_all(pool)
-                .await?
-        };
+            qb.push(" AND (code ILIKE ");
+            qb.push_bind(pattern.clone());
+            qb.push(" OR name ILIKE ");
+            qb.push_bind(pattern);
+            qb.push(")");
+        }
+
+        if let Some(is_active) = query.is_active {
+            qb.push(" AND is_active = ");
+            qb.push_bind(is_active);
+        }
+
+        qb.push(" ORDER BY code");
+        qb.push(&suffix);
+
+        let warehouses = qb
+            .build_query_as::<Warehouse>()
+            .fetch_all(pool)
+            .await?;
 
         Ok(warehouses)
     }

@@ -122,7 +122,9 @@ pub async fn get_user(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<UserResponse>> {
-    require_permission!(current_user, "admin.user.view");
+    if current_user.id != id {
+        require_permission!(current_user, "admin.user.view");
+    }
     
     let user = UserService::get_by_id(&state.db, id).await?;
     Ok(Json(user))
@@ -413,14 +415,15 @@ pub async fn impersonate_user(
         &state.config,
     );
 
-    let body = serde_json::to_string(&login_response).expect("LoginResponse 序列化不應失敗");
+    let body = serde_json::to_string(&login_response)
+        .map_err(|e| AppError::Internal(format!("serialize error: {e}")))?;
     let response = Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "application/json")
         .header(header::SET_COOKIE, access_cookie)
         .header(header::SET_COOKIE, refresh_cookie)
         .body(body.into())
-        .expect("建構模擬登入 Response 不應失敗");
+        .map_err(|e| AppError::Internal(format!("response build error: {e}")))?;
 
     Ok(response)
 }

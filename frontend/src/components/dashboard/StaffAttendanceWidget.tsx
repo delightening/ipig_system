@@ -31,6 +31,7 @@ export function StaffAttendanceWidget() {
                 status: (item.status.toLowerCase() === 'normal' ? 'normal' : item.status.toLowerCase() === 'late' ? 'late' : 'absent') as any
             }))
         },
+        staleTime: 30_000,
     })
 
     const formatTime = (timeStr: string | null) => {

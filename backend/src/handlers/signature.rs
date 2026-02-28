@@ -134,7 +134,8 @@ pub async fn sign_sacrifice_record(
 
     // 依簽章方式建立簽章
     let signature = if has_handwriting {
-        let svg = req.handwriting_svg.as_deref().expect("has_handwriting 已確認存在");
+        let svg = req.handwriting_svg.as_deref()
+            .ok_or_else(|| AppError::Internal("missing handwriting SVG".into()))?;
         SignatureService::sign_with_handwriting(
             &state.db,
             "sacrifice",
@@ -148,7 +149,8 @@ pub async fn sign_sacrifice_record(
             req.stroke_data.as_ref(),
         ).await?
     } else {
-        let password = req.password.as_deref().expect("has_password 已確認存在");
+        let password = req.password.as_deref()
+            .ok_or_else(|| AppError::Internal("missing password".into()))?;
         let user = AuthService::verify_password_by_id(&state.db, current_user.id, password)
             .await
             .map_err(|_| AppError::Unauthorized)?;
@@ -275,7 +277,8 @@ pub async fn sign_observation_record(
 
     // 依簽章方式建立簽章
     let signature = if has_handwriting {
-        let svg = req.handwriting_svg.as_deref().expect("has_handwriting 已確認存在");
+        let svg = req.handwriting_svg.as_deref()
+            .ok_or_else(|| AppError::Internal("missing handwriting SVG".into()))?;
         SignatureService::sign_with_handwriting(
             &state.db,
             "observation",
@@ -289,7 +292,8 @@ pub async fn sign_observation_record(
             req.stroke_data.as_ref(),
         ).await?
     } else {
-        let password = req.password.as_deref().expect("has_password 已確認存在");
+        let password = req.password.as_deref()
+            .ok_or_else(|| AppError::Internal("missing password".into()))?;
         let user = AuthService::verify_password_by_id(&state.db, current_user.id, password)
             .await
             .map_err(|_| AppError::Unauthorized)?;
@@ -372,7 +376,8 @@ pub async fn sign_euthanasia_order(
     };
 
     let signature = if has_handwriting {
-        let svg = req.handwriting_svg.as_deref().expect("has_handwriting 已確認存在");
+        let svg = req.handwriting_svg.as_deref()
+            .ok_or_else(|| AppError::Internal("missing handwriting SVG".into()))?;
         SignatureService::sign_with_handwriting(
             &state.db,
             "euthanasia",
@@ -386,7 +391,8 @@ pub async fn sign_euthanasia_order(
             req.stroke_data.as_ref(),
         ).await?
     } else {
-        let password = req.password.as_deref().expect("has_password 已確認存在");
+        let password = req.password.as_deref()
+            .ok_or_else(|| AppError::Internal("missing password".into()))?;
         let user = AuthService::verify_password_by_id(&state.db, current_user.id, password)
             .await
             .map_err(|_| AppError::Unauthorized)?;
@@ -514,7 +520,8 @@ pub async fn sign_transfer_record(
     };
 
     let signature = if has_handwriting {
-        let svg = req.handwriting_svg.as_deref().expect("has_handwriting 已確認存在");
+        let svg = req.handwriting_svg.as_deref()
+            .ok_or_else(|| AppError::Internal("missing handwriting SVG".into()))?;
         SignatureService::sign_with_handwriting(
             &state.db,
             "transfer",
@@ -528,7 +535,8 @@ pub async fn sign_transfer_record(
             req.stroke_data.as_ref(),
         ).await?
     } else {
-        let password = req.password.as_deref().expect("has_password 已確認存在");
+        let password = req.password.as_deref()
+            .ok_or_else(|| AppError::Internal("missing password".into()))?;
         let user = AuthService::verify_password_by_id(&state.db, current_user.id, password)
             .await
             .map_err(|_| AppError::Unauthorized)?;
@@ -655,7 +663,8 @@ pub async fn sign_protocol_review(
     };
 
     let signature = if has_handwriting {
-        let svg = req.handwriting_svg.as_deref().expect("has_handwriting 已確認存在");
+        let svg = req.handwriting_svg.as_deref()
+            .ok_or_else(|| AppError::Internal("missing handwriting SVG".into()))?;
         SignatureService::sign_with_handwriting(
             &state.db,
             "protocol",
@@ -669,7 +678,8 @@ pub async fn sign_protocol_review(
             req.stroke_data.as_ref(),
         ).await?
     } else {
-        let password = req.password.as_deref().expect("has_password 已確認存在");
+        let password = req.password.as_deref()
+            .ok_or_else(|| AppError::Internal("missing password".into()))?;
         let user = AuthService::verify_password_by_id(&state.db, current_user.id, password)
             .await
             .map_err(|_| AppError::Unauthorized)?;

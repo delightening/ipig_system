@@ -71,6 +71,7 @@ export function AnimalSourcesPage() {
       const res = await api.get<AnimalSource[]>('/animal-sources')
       return res.data
     },
+    staleTime: 600_000,
   })
 
   // Create mutation

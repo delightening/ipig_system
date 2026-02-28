@@ -6,13 +6,23 @@ import { useRef, useState } from 'react'
 // jsPDF & html2canvas loaded lazily at PDF export time (~360KB savings)
 import api from '@/lib/api'
 import { useTranslation } from 'react-i18next'
+import type { ProtocolWorkingContent } from '@/types/protocol'
+import type { FileInfo } from '@/components/ui/file-upload'
+
+type TestItem = ProtocolWorkingContent['items']['test_items'][number]
+type ControlItem = ProtocolWorkingContent['items']['control_items'][number]
+type GuidelineDatabase = ProtocolWorkingContent['guidelines']['databases'][number]
+type GuidelineReference = ProtocolWorkingContent['guidelines']['references'][number]
+type SurgeryDrug = ProtocolWorkingContent['surgery']['drugs'][number]
+type AnimalEntry = ProtocolWorkingContent['animals']['animals'][number]
+type PersonnelMember = ProtocolWorkingContent['personnel'][number]
 
 interface ProtocolContentViewProps {
-  workingContent: any
+  workingContent: ProtocolWorkingContent
   protocolTitle: string
   startDate?: string
   endDate?: string
-  protocolId?: string  // For backend PDF export
+  protocolId?: string
   onExportPDF?: () => void
 }
 
@@ -404,7 +414,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
               {items.test_items && items.test_items.length > 0 && (
                 <div className="mb-4">
                   <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.testItems')}</h3>
-                  {items.test_items.map((item: any, index: number) => (
+                  {items.test_items.map((item: TestItem, index: number) => (
                     <div key={index} className="mb-4 p-4 border rounded bg-slate-50">
                       <h4 className="font-medium mb-2">{t('protocols.content.sections.testItems')} #{index + 1}</h4>
                       <div className="grid grid-cols-2 gap-3 text-sm">
@@ -444,7 +454,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
               {items.control_items && items.control_items.length > 0 && (
                 <div className="mb-4">
                   <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.controlItems')}</h3>
-                  {items.control_items.map((item: any, index: number) => (
+                  {items.control_items.map((item: ControlItem, index: number) => (
                     <div key={index} className="mb-4 p-4 border rounded bg-slate-50">
                       <h4 className="font-medium mb-2">{t('protocols.content.sections.controlItems')} #{index + 1}</h4>
                       <div className="grid grid-cols-2 gap-3 text-sm">
@@ -539,7 +549,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
         <section className="mb-8 border-t pt-6 section-5" data-section={t('protocols.content.sections.guidelines')}>
           <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.guidelines')}</h2>
 
-          {(guidelines.content || (guidelines.databases && guidelines.databases.some((db: any) => db.checked)) || (guidelines.references && guidelines.references.length > 0)) ? (
+          {(guidelines.content || (guidelines.databases && guidelines.databases.some((db: GuidelineDatabase) => db.checked)) || (guidelines.references && guidelines.references.length > 0)) ? (
             <>
               {guidelines.content && (
                 <div className="mb-4">
@@ -549,11 +559,11 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
               )}
 
               {/* 資料庫搜尋紀錄 */}
-              {guidelines.databases && guidelines.databases.some((db: any) => db.checked) && (
+              {guidelines.databases && guidelines.databases.some((db: GuidelineDatabase) => db.checked) && (
                 <div className="mb-4">
                   <h3 className="text-lg font-semibold mb-3">{t('aup.guidelines.databasesTitle')}</h3>
                   <ul className="space-y-2">
-                    {guidelines.databases.filter((db: any) => db.checked).map((db: any) => (
+                    {guidelines.databases.filter((db: GuidelineDatabase) => db.checked).map((db: GuidelineDatabase) => (
                       <li key={db.code} className="text-sm p-2 bg-slate-50 rounded">
                         <span className="font-medium">{db.code}. {t(`aup.guidelines.databases.${db.code}`)}</span>
                         {db.keywords && (
@@ -574,7 +584,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
                 <div className="mb-4">
                   <h3 className="text-lg font-semibold mb-3">{t('aup.guidelines.referencesTitle')}</h3>
                   <ol className="list-decimal list-inside space-y-2">
-                    {guidelines.references.map((ref: any, index: number) => (
+                    {guidelines.references.map((ref: GuidelineReference, index: number) => (
                       <li key={index} className="text-sm">
                         {ref.citation || '-'}
                         {ref.url && (
@@ -644,7 +654,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
                     <div className="mb-4">
                       <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.drugPlan')}</h3>
                       <div className="space-y-2">
-                        {surgery.drugs.map((drug: any, index: number) => (
+                        {surgery.drugs.map((drug: SurgeryDrug, index: number) => (
                           <div key={index} className="p-3 border rounded bg-slate-50">
                             <p className="text-sm font-medium">{drug.drug_name || '-'}</p>
                             <p className="text-xs text-muted-foreground">
@@ -669,7 +679,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
             <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.animals')}</h2>
 
             <div className="space-y-4">
-              {animals.animals.map((animal: any, index: number) => (
+              {animals.animals.map((animal: AnimalEntry, index: number) => (
                 <div key={index} className="p-4 border rounded bg-slate-50">
                   <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.animalGroup')} #{index + 1}</h3>
                   <div className="grid grid-cols-2 gap-4 text-sm">
@@ -728,7 +738,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
             <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.personnel')}</h2>
 
             <div className="space-y-4">
-              {personnel.map((person: any, index: number) => (
+              {personnel.map((person: PersonnelMember, index: number) => (
                 <div key={index} className="p-4 border rounded bg-slate-50">
                   <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.person')} #{index + 1}</h3>
                   <div className="grid grid-cols-2 gap-4 text-sm">
@@ -777,7 +787,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
             <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.attachments')}</h2>
 
             <div className="space-y-2">
-              {attachments.map((attachment: any, index: number) => (
+              {attachments.map((attachment: FileInfo, index: number) => (
                 <div key={index} className="p-3 border rounded">
                   <p className="text-sm">{index + 1}. {attachment.file_name || '-'}</p>
                 </div>
@@ -792,7 +802,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
             <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.signatures')}</h2>
 
             <div className="space-y-4">
-              {signature.map((sig: any, index: number) => (
+              {signature.map((sig: FileInfo, index: number) => (
                 <div key={index} className="p-4 border rounded">
                   {sig.preview_url ? (
                     <img src={sig.preview_url} alt={sig.file_name || `${t('protocols.content.sections.signatures')} ${index + 1}`} className="max-w-xs max-h-32 object-contain" />

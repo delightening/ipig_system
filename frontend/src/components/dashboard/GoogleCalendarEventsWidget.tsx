@@ -40,6 +40,7 @@ export function GoogleCalendarEventsWidget() {
                 throw err
             }
         },
+        staleTime: 60_000,
     })
 
     const formatTime = (dateStr: string) => {

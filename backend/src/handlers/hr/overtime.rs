@@ -9,8 +9,8 @@ use uuid::Uuid;
 
 use crate::{
     middleware::CurrentUser,
-    models::{CreateOvertimeRequest, OvertimeQuery, OvertimeWithUser, PaginatedResponse, RejectOvertimeRequest, UpdateOvertimeRequest},
-    services::{HrService, NotificationService},
+    models::{AuditAction, CreateOvertimeRequest, OvertimeQuery, OvertimeWithUser, PaginatedResponse, RejectOvertimeRequest, UpdateOvertimeRequest},
+    services::{AuditService, HrService, NotificationService},
     AppState, Result,
 };
 
@@ -132,6 +132,16 @@ pub async fn approve_overtime(
         _ => return Err(crate::error::AppError::Validation(format!("無法審核狀態為 {} 的加班申請", current.0))),
     };
     let record = HrService::approve_overtime(&state.db, id, current_user.id, approval_level).await?;
+    let _ = AuditService::log(
+        &state.db,
+        current_user.id,
+        AuditAction::Approve,
+        "overtime_record",
+        id,
+        None,
+        Some(serde_json::json!({ "approval_level": approval_level, "status": &record.status })),
+    )
+    .await;
     Ok(Json(record))
 }
 

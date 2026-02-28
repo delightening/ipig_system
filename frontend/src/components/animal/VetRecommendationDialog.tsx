@@ -60,6 +60,7 @@ export function VetRecommendationDialog({ open, onOpenChange, recordType, record
       return res.data
     },
     enabled: open,
+    staleTime: 30_000,
   })
 
   const handleFileUpload = async (file: File): Promise<FileInfo> => {

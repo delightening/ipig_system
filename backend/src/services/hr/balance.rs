@@ -143,24 +143,16 @@ impl HrService {
         payload: &CreateAnnualLeaveRequest,
     ) -> Result<AnnualLeaveEntitlement> {
         let id = Uuid::new_v4();
+        let yr = payload.entitlement_year + 2;
         let expires_at = if let Some(hire_date) = payload.hire_date {
-            NaiveDate::from_ymd_opt(
-                payload.entitlement_year + 2,
-                hire_date.month(),
-                hire_date.day(),
-            )
-            .unwrap_or_else(|| {
-                NaiveDate::from_ymd_opt(payload.entitlement_year + 2, hire_date.month(), 28)
-                    .unwrap_or_else(|| {
-                        NaiveDate::from_ymd_opt(payload.entitlement_year + 2, 12, 31)
-                            .expect("12/31 應為有效日期")
-                    })
-            })
+            NaiveDate::from_ymd_opt(yr, hire_date.month(), hire_date.day())
+                .or_else(|| NaiveDate::from_ymd_opt(yr, hire_date.month(), 28))
+                .or_else(|| NaiveDate::from_ymd_opt(yr, 12, 31))
+                .ok_or_else(|| AppError::Internal(format!("invalid expiry date for year {yr}")))?
         } else {
-            NaiveDate::from_ymd_opt(payload.entitlement_year + 2, 12, 31).unwrap_or_else(|| {
-                NaiveDate::from_ymd_opt(payload.entitlement_year + 2, 12, 30)
-                    .expect("12/30 應為有效日期")
-            })
+            NaiveDate::from_ymd_opt(yr, 12, 31)
+                .or_else(|| NaiveDate::from_ymd_opt(yr, 12, 30))
+                .ok_or_else(|| AppError::Internal(format!("invalid expiry date for year {yr}")))?
         };
 
         let record = sqlx::query_as::<_, AnnualLeaveEntitlement>(

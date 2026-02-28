@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -67,6 +67,7 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
       return res.data
     },
     enabled: type === 'batch_project' && open,
+    staleTime: 600_000,
   })
 
   const exportMutation = useMutation({

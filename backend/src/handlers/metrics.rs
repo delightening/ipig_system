@@ -15,10 +15,12 @@ use crate::AppState;
 ///
 /// 使用 `metrics-exporter-prometheus` 的 `PrometheusHandle` 渲染指標
 pub async fn metrics_handler(State(state): State<AppState>) -> impl IntoResponse {
-    // 更新 DB Pool gauge 指標
     let pool = &state.db;
-    metrics::gauge!("db_pool_connections_active").set(pool.size() as f64);
-    metrics::gauge!("db_pool_connections_idle").set(pool.num_idle() as f64);
+    let pool_size = pool.size() as f64;
+    let pool_idle = pool.num_idle() as f64;
+    metrics::gauge!("db_pool_connections_total").set(pool_size);
+    metrics::gauge!("db_pool_connections_idle").set(pool_idle);
+    metrics::gauge!("db_pool_connections_active").set(pool_size - pool_idle);
 
     // 從 PrometheusHandle 渲染指標
     let handle = state.metrics_handle.as_ref();

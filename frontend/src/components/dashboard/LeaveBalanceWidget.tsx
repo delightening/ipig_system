@@ -25,6 +25,7 @@ export function LeaveBalanceWidget() {
     const { t } = useTranslation()
     const { data, isLoading, error } = useQuery({
         queryKey: ['my-leave-balances'],
+        staleTime: 300_000,
         queryFn: async () => {
             const res = await api.get<BalanceSummary>('/hr/balances/summary')
             const summary = res.data

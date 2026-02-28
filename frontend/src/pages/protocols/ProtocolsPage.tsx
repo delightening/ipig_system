@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { ProtocolListItem, ProtocolStatus } from '@/lib/api'
+import { useDebounce } from '@/hooks/useDebounce'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -59,6 +60,7 @@ export function ProtocolsPage() {
   const queryClient = useQueryClient()
   const { dialogState, confirm } = useConfirmDialog()
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounce(search, 400)
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [sortConfig, setSortConfig] = useState<SortConfig>({ field: 'created_at', order: 'desc' })
 
@@ -68,14 +70,15 @@ export function ProtocolsPage() {
   }
 
   const { data: rawProtocols, isLoading } = useQuery({
-    queryKey: ['protocols', statusFilter, search],
+    queryKey: ['protocols', statusFilter, debouncedSearch],
     queryFn: async () => {
       let params = ''
       if (statusFilter && statusFilter !== 'all') params += `status=${statusFilter}&`
-      if (search) params += `keyword=${encodeURIComponent(search)}&`
+      if (debouncedSearch) params += `keyword=${encodeURIComponent(debouncedSearch)}&`
       const response = await api.get<ProtocolListItem[]>(`/protocols?${params}`)
       return response.data.filter(p => p.status !== 'DELETED')
     },
+    staleTime: 60_000,
   })
 
   // Sort logic
@@ -187,6 +190,7 @@ export function ProtocolsPage() {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder={t('protocols.searchPlaceholder')}
+              aria-label={t('protocols.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"

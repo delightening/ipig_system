@@ -31,10 +31,19 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf.template
 # Copy build output from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:80/ || exit 1
+# 非 root 運行：設定目錄權限給 nginx 使用者
+RUN chown -R nginx:nginx /usr/share/nginx/html \
+    /var/cache/nginx /var/log/nginx /etc/nginx/conf.d && \
+    touch /var/run/nginx.pid && \
+    chown nginx:nginx /var/run/nginx.pid && \
+    mkdir -p /tmp/nginx && chown nginx:nginx /tmp/nginx
 
-EXPOSE 80
+USER nginx
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:8080/ || exit 1
+
+EXPOSE 8080
 
 # 使用 envsubst 在運行時替換環境變數（如果配置被 volume mount 覆蓋則跳過），然後啟動 nginx
 # 使用 || true 確保即使 envsubst 失敗（例如因為 volume mount 是只讀的）也能繼續啟動

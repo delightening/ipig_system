@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { Warehouse } from '@/lib/api'
+import { useDebounce } from '@/hooks/useDebounce'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -25,11 +26,13 @@ import { toast } from '@/components/ui/use-toast'
 import { Plus, Search, Edit, Trash2, Loader2, Warehouse as WarehouseIcon } from 'lucide-react'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { TableSkeleton } from '@/components/ui/table-skeleton'
 
 export function WarehousesPage() {
   const queryClient = useQueryClient()
   const { dialogState, confirm } = useConfirmDialog()
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounce(search, 400)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null)
   const [formData, setFormData] = useState({
@@ -37,12 +40,13 @@ export function WarehousesPage() {
   })
 
   const { data: warehouses, isLoading } = useQuery({
-    queryKey: ['warehouses', search],
+    queryKey: ['warehouses', debouncedSearch],
     queryFn: async () => {
-      const params = search ? `?keyword=${encodeURIComponent(search)}` : ''
+      const params = debouncedSearch ? `?keyword=${encodeURIComponent(debouncedSearch)}` : ''
       const response = await api.get<Warehouse[]>(`/warehouses${params}`)
       return response.data
     },
+    staleTime: 600_000,
   })
 
   const createMutation = useMutation({
@@ -139,6 +143,7 @@ export function WarehousesPage() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="搜尋倉庫..."
+            aria-label="搜尋倉庫"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -159,8 +164,8 @@ export function WarehousesPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                <TableCell colSpan={4} className="p-0">
+                  <TableSkeleton rows={5} cols={4} />
                 </TableCell>
               </TableRow>
             ) : warehouses && warehouses.length > 0 ? (

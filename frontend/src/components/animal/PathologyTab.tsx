@@ -40,6 +40,7 @@ export function PathologyTab({ animalId, earTag }: PathologyTabProps) {
       const res = await api.get<AnimalPathologyReport>(`/animals/${animalId}/pathology`)
       return res.data
     },
+    staleTime: 30_000,
   })
 
   const uploadMutation = useMutation({

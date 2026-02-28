@@ -1,5 +1,6 @@
 import { useState, useEffect, Suspense } from 'react'
 import { Outlet } from 'react-router-dom'
+import { PageErrorBoundary } from '@/components/ui/page-error-boundary'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth'
@@ -151,9 +152,11 @@ export function MainLayout() {
         </header>
 
         <div className="p-3 md:p-4">
-          <Suspense fallback={<DelayedFallback />}>
-            <Outlet />
-          </Suspense>
+          <PageErrorBoundary>
+            <Suspense fallback={<DelayedFallback />}>
+              <Outlet />
+            </Suspense>
+          </PageErrorBoundary>
         </div>
       </main>
 

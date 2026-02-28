@@ -55,6 +55,7 @@ export function VersionHistoryDialog({ open, onOpenChange, recordType, recordId 
       return res.data
     },
     enabled: open,
+    staleTime: 600_000,
   })
 
   const formatDateTime = (dateStr: string) => {

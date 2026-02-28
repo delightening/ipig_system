@@ -139,7 +139,7 @@ export function AnimalDetailPage() {
       const res = await api.get<Animal>(`/animals/${animalId}`)
       return res.data
     },
-    staleTime: 0, // Always consider data stale for real-time updates
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   })
@@ -151,6 +151,7 @@ export function AnimalDetailPage() {
       const res = await transferApi.getDataBoundary(animalId)
       return res.data
     },
+    staleTime: 600_000,
   })
   const afterParam = dataBoundary?.boundary ? `?after=${encodeURIComponent(dataBoundary.boundary)}` : ''
 
@@ -159,11 +160,11 @@ export function AnimalDetailPage() {
     queryKey: ['approved-protocols'],
     queryFn: async () => {
       const res = await api.get<ProtocolListItem[]>('/protocols?status=APPROVED')
-      // 同時取得附條件核准的試驗
       const res2 = await api.get<ProtocolListItem[]>('/protocols?status=APPROVED_WITH_CONDITIONS')
       return [...res.data, ...res2.data].filter(p => p.iacuc_no)
     },
     enabled: animal?.status === 'unassigned',
+    staleTime: 600_000,
   })
 
   // 分配動物到試驗的 mutation
@@ -196,7 +197,7 @@ export function AnimalDetailPage() {
       return res.data
     },
     enabled: activeTab === 'observations' || activeTab === 'timeline',
-    staleTime: 0,
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   })
@@ -220,7 +221,7 @@ export function AnimalDetailPage() {
       return res.data
     },
     enabled: activeTab === 'surgeries' || activeTab === 'timeline',
-    staleTime: 0,
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   })
@@ -232,7 +233,7 @@ export function AnimalDetailPage() {
       return res.data
     },
     enabled: activeTab === 'weights' || activeTab === 'timeline',
-    staleTime: 0,
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   })
@@ -244,7 +245,7 @@ export function AnimalDetailPage() {
       return res.data
     },
     enabled: activeTab === 'vaccinations',
-    staleTime: 0,
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   })
@@ -256,6 +257,7 @@ export function AnimalDetailPage() {
       return res.data
     },
     enabled: activeTab === 'sacrifice' || activeTab === 'timeline',
+    staleTime: 30_000,
   })
 
   // 猝死記錄
@@ -266,6 +268,7 @@ export function AnimalDetailPage() {
       return res.data
     },
     enabled: activeTab === 'timeline',
+    staleTime: 30_000,
   })
 
   // IACUC No. 變更事件（時間軸用）
@@ -276,6 +279,7 @@ export function AnimalDetailPage() {
       return res.data
     },
     enabled: activeTab === 'timeline',
+    staleTime: 30_000,
   })
 
   // 轉讓紀錄
@@ -285,6 +289,7 @@ export function AnimalDetailPage() {
       const res = await transferApi.list(animalId)
       return res.data
     },
+    staleTime: 30_000,
   })
 
 

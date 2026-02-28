@@ -1,4 +1,4 @@
-﻿use chrono::NaiveDate;
+use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
@@ -7,7 +7,7 @@ use crate::Result;
 
 pub struct ReportService;
 
-/// 摨怠??暹??梯”?
+/// 庫存現況報表
 #[derive(Debug, FromRow, serde::Serialize)]
 pub struct StockOnHandReport {
     pub warehouse_id: Uuid,
@@ -25,7 +25,7 @@ pub struct StockOnHandReport {
     pub reorder_point: Option<Decimal>,
 }
 
-/// 摨怠?瘚偌?梯”?
+/// 庫存異動報表
 #[derive(Debug, FromRow, serde::Serialize)]
 pub struct StockLedgerReport {
     pub trx_date: chrono::DateTime<chrono::Utc>,
@@ -42,7 +42,7 @@ pub struct StockLedgerReport {
     pub expiry_date: Option<NaiveDate>,
 }
 
-/// ?∟頃?敦?梯”?
+/// 採購明細報表
 #[derive(Debug, FromRow, serde::Serialize)]
 pub struct PurchaseLinesReport {
     pub doc_date: NaiveDate,
@@ -61,7 +61,7 @@ pub struct PurchaseLinesReport {
     pub approved_by_name: Option<String>,
 }
 
-/// ?瑕?敦?梯”?
+/// 銷售明細報表
 #[derive(Debug, FromRow, serde::Serialize)]
 pub struct SalesLinesReport {
     pub doc_date: NaiveDate,
@@ -81,7 +81,7 @@ pub struct SalesLinesReport {
     pub approved_by_name: Option<String>,
 }
 
-/// ????梯”?/// 成本摘要報表
+/// 成本摘要報表
 #[derive(Debug, FromRow, serde::Serialize)]
 pub struct CostSummaryReport {
     pub warehouse_id: Uuid,
@@ -151,9 +151,9 @@ pub struct ReportQuery {
 }
 
 impl ReportService {
-    /// 摨怠??暹??梯”
+    /// 庫存現況報表
     pub async fn stock_on_hand(pool: &PgPool, query: &ReportQuery) -> Result<Vec<StockOnHandReport>> {
-        let mut sql = String::from(
+        let mut qb = sqlx::QueryBuilder::new(
             r#"
             WITH inventory AS (
                 SELECT 
@@ -186,43 +186,29 @@ impl ReportService {
             LEFT JOIN inventory i ON w.id = i.warehouse_id AND p.id = i.product_id
             LEFT JOIN product_categories pc ON p.category_id = pc.id
             WHERE w.is_active = true AND p.is_active = true
-            "#
+            "#,
         );
-        let mut param_idx = 1;
-        if query.warehouse_id.is_some() {
-            sql.push_str(&format!(" AND w.id = ${}", param_idx));
-            param_idx += 1;
-        }
-        if query.product_id.is_some() {
-            sql.push_str(&format!(" AND p.id = ${}", param_idx));
-            param_idx += 1;
-        }
-        if query.category_id.is_some() {
-            sql.push_str(&format!(" AND p.category_id = ${}", param_idx));
-        }
 
-        sql.push_str(" AND COALESCE(i.qty_on_hand, 0) != 0");
-        sql.push_str(" ORDER BY w.code, p.sku");
-
-        let mut query_builder = sqlx::query_as::<_, StockOnHandReport>(&sql);
-        
         if let Some(wid) = query.warehouse_id {
-            query_builder = query_builder.bind(wid);
+            qb.push(" AND w.id = ");
+            qb.push_bind(wid);
         }
         if let Some(pid) = query.product_id {
-            query_builder = query_builder.bind(pid);
+            qb.push(" AND p.id = ");
+            qb.push_bind(pid);
         }
         if let Some(cid) = query.category_id {
-            query_builder = query_builder.bind(cid);
+            qb.push(" AND p.category_id = ");
+            qb.push_bind(cid);
         }
 
-        // 蝪∪??閰ｇ?銝蝙?典???摰?
-        let results = query_builder.fetch_all(pool).await?;
+        qb.push(" AND COALESCE(i.qty_on_hand, 0) != 0 ORDER BY w.code, p.sku");
 
+        let results = qb.build_query_as::<StockOnHandReport>().fetch_all(pool).await?;
         Ok(results)
     }
 
-    /// 摨怠?瘚偌?梯”
+    /// 庫存異動報表
     pub async fn stock_ledger(pool: &PgPool, _query: &ReportQuery) -> Result<Vec<StockLedgerReport>> {
         let results = sqlx::query_as::<_, StockLedgerReport>(
             r#"
@@ -252,7 +238,7 @@ impl ReportService {
         Ok(results)
     }
 
-    /// ?∟頃?敦?梯”
+    /// 採購明細報表
     pub async fn purchase_lines(pool: &PgPool, _query: &ReportQuery) -> Result<Vec<PurchaseLinesReport>> {
         let results = sqlx::query_as::<_, PurchaseLinesReport>(
             r#"
@@ -291,7 +277,7 @@ impl ReportService {
 
     /// 銷售明細報表
     pub async fn sales_lines(pool: &PgPool, query: &ReportQuery) -> Result<Vec<SalesLinesReport>> {
-        let mut sql = String::from(
+        let mut qb = sqlx::QueryBuilder::new(
             r#"
             SELECT 
                 d.doc_date,
@@ -323,48 +309,33 @@ impl ReportService {
             INNER JOIN users u1 ON d.created_by = u1.id
             LEFT JOIN users u2 ON d.approved_by = u2.id
             WHERE d.doc_type IN ('SO', 'DO')
-            "#
+            "#,
         );
 
-        let mut param_idx = 1;
-        if query.partner_id.is_some() {
-            sql.push_str(&format!(" AND d.partner_id = ${}", param_idx));
-            param_idx += 1;
-        }
-        if query.customer_category.is_some() {
-            sql.push_str(&format!(" AND pa.customer_category::text = ${}", param_idx));
-            param_idx += 1;
-        }
-        if query.date_from.is_some() {
-            sql.push_str(&format!(" AND d.doc_date >= ${}", param_idx));
-            param_idx += 1;
-        }
-        if query.date_to.is_some() {
-            sql.push_str(&format!(" AND d.doc_date <= ${}", param_idx));
-            // param_idx += 1;
-        }
-
-        sql.push_str(" ORDER BY d.doc_date DESC, d.doc_no, dl.line_no LIMIT 1000");
-
-        let mut query_builder = sqlx::query_as::<_, SalesLinesReport>(&sql);
         if let Some(pid) = query.partner_id {
-            query_builder = query_builder.bind(pid);
+            qb.push(" AND d.partner_id = ");
+            qb.push_bind(pid);
         }
         if let Some(ref cc) = query.customer_category {
-            query_builder = query_builder.bind(cc);
+            qb.push(" AND pa.customer_category::text = ");
+            qb.push_bind(cc.clone());
         }
         if let Some(df) = query.date_from {
-            query_builder = query_builder.bind(df);
+            qb.push(" AND d.doc_date >= ");
+            qb.push_bind(df);
         }
         if let Some(dt) = query.date_to {
-            query_builder = query_builder.bind(dt);
+            qb.push(" AND d.doc_date <= ");
+            qb.push_bind(dt);
         }
 
-        let results = query_builder.fetch_all(pool).await?;
+        qb.push(" ORDER BY d.doc_date DESC, d.doc_no, dl.line_no LIMIT 1000");
+
+        let results = qb.build_query_as::<SalesLinesReport>().fetch_all(pool).await?;
         Ok(results)
     }
 
-    /// ????梯”
+    /// 成本摘要報表
     pub async fn cost_summary(pool: &PgPool, _query: &ReportQuery) -> Result<Vec<CostSummaryReport>> {
         let results = sqlx::query_as::<_, CostSummaryReport>(
             r#"
@@ -410,7 +381,7 @@ impl ReportService {
 
     /// 血液檢查費用報表（以專案、日期區間、實驗室篩選）
     pub async fn blood_test_cost(pool: &PgPool, query: &ReportQuery) -> Result<Vec<BloodTestCostReport>> {
-        let mut sql = String::from(
+        let mut qb = sqlx::QueryBuilder::new(
             r#"
             SELECT 
                 a.iacuc_no,
@@ -428,57 +399,41 @@ impl ReportService {
             LEFT JOIN blood_test_templates tmpl ON bti.template_id = tmpl.id
             LEFT JOIN users u ON bt.created_by = u.id
             WHERE bt.is_deleted = false
-            "#
+            "#,
         );
 
-        let mut param_idx = 1;
-        if query.iacuc_no.is_some() {
-            sql.push_str(&format!(" AND a.iacuc_no = ${}", param_idx));
-            param_idx += 1;
+        if let Some(ref iacuc_no) = query.iacuc_no {
+            qb.push(" AND a.iacuc_no = ");
+            qb.push_bind(iacuc_no.clone());
         }
-        if query.date_from.is_some() {
-            sql.push_str(&format!(" AND bt.test_date >= ${}", param_idx));
-            param_idx += 1;
+        if let Some(df) = query.date_from {
+            qb.push(" AND bt.test_date >= ");
+            qb.push_bind(df);
         }
-        if query.date_to.is_some() {
-            sql.push_str(&format!(" AND bt.test_date <= ${}", param_idx));
-            param_idx += 1;
+        if let Some(dt) = query.date_to {
+            qb.push(" AND bt.test_date <= ");
+            qb.push_bind(dt);
         }
-        if query.lab_name.is_some() {
-            sql.push_str(&format!(" AND bt.lab_name ILIKE ${}", param_idx));
-            // param_idx += 1; // 最後一個參數不需要遞增
+        if let Some(ref lab_name) = query.lab_name {
+            qb.push(" AND bt.lab_name ILIKE ");
+            qb.push_bind(format!("%{}%", lab_name));
         }
 
-        sql.push_str(
+        qb.push(
             r#"
             GROUP BY a.iacuc_no, a.ear_tag, bt.animal_id, bt.test_date, bt.lab_name, u.display_name, bt.created_at
             ORDER BY bt.test_date DESC, a.iacuc_no, a.ear_tag
             LIMIT 1000
-            "#
+            "#,
         );
 
-        let mut query_builder = sqlx::query_as::<_, BloodTestCostReport>(&sql);
-
-        if let Some(ref iacuc_no) = query.iacuc_no {
-            query_builder = query_builder.bind(iacuc_no);
-        }
-        if let Some(date_from) = query.date_from {
-            query_builder = query_builder.bind(date_from);
-        }
-        if let Some(date_to) = query.date_to {
-            query_builder = query_builder.bind(date_to);
-        }
-        if let Some(ref lab_name) = query.lab_name {
-            query_builder = query_builder.bind(format!("%{}%", lab_name));
-        }
-
-        let results = query_builder.fetch_all(pool).await?;
+        let results = qb.build_query_as::<BloodTestCostReport>().fetch_all(pool).await?;
         Ok(results)
     }
 
     /// 血液檢查結果分析（扁平化原始數據，供前端聚合）
     pub async fn blood_test_analysis(pool: &PgPool, query: &BloodTestAnalysisQuery) -> Result<Vec<BloodTestAnalysisRow>> {
-        let mut sql = String::from(
+        let mut qb = sqlx::QueryBuilder::new(
             r#"
             SELECT 
                 a.id as animal_id,
@@ -497,52 +452,33 @@ impl ReportService {
             INNER JOIN animals a ON bt.animal_id = a.id
             LEFT JOIN blood_test_templates tmpl ON bti.template_id = tmpl.id
             WHERE bt.is_deleted = false AND a.is_deleted = false
-            "#
+            "#,
         );
 
-        let mut param_idx = 1;
-        if query.iacuc_no.is_some() {
-            sql.push_str(&format!(" AND a.iacuc_no = ${}", param_idx));
-            param_idx += 1;
-        }
-        if query.animal_id.is_some() {
-            sql.push_str(&format!(" AND a.id = ${}", param_idx));
-            param_idx += 1;
-        }
-        if query.item_name.is_some() {
-            sql.push_str(&format!(" AND bti.item_name = ${}", param_idx));
-            param_idx += 1;
-        }
-        if query.date_from.is_some() {
-            sql.push_str(&format!(" AND bt.test_date >= ${}", param_idx));
-            param_idx += 1;
-        }
-        if query.date_to.is_some() {
-            sql.push_str(&format!(" AND bt.test_date <= ${}", param_idx));
-            // param_idx += 1;
-        }
-
-        sql.push_str(" ORDER BY bt.test_date ASC, a.ear_tag, bti.sort_order LIMIT 5000");
-
-        let mut query_builder = sqlx::query_as::<_, BloodTestAnalysisRow>(&sql);
-
         if let Some(ref iacuc_no) = query.iacuc_no {
-            query_builder = query_builder.bind(iacuc_no);
+            qb.push(" AND a.iacuc_no = ");
+            qb.push_bind(iacuc_no.clone());
         }
         if let Some(animal_id) = query.animal_id {
-            query_builder = query_builder.bind(animal_id);
+            qb.push(" AND a.id = ");
+            qb.push_bind(animal_id);
         }
         if let Some(ref item_name) = query.item_name {
-            query_builder = query_builder.bind(item_name);
+            qb.push(" AND bti.item_name = ");
+            qb.push_bind(item_name.clone());
         }
-        if let Some(date_from) = query.date_from {
-            query_builder = query_builder.bind(date_from);
+        if let Some(df) = query.date_from {
+            qb.push(" AND bt.test_date >= ");
+            qb.push_bind(df);
         }
-        if let Some(date_to) = query.date_to {
-            query_builder = query_builder.bind(date_to);
+        if let Some(dt) = query.date_to {
+            qb.push(" AND bt.test_date <= ");
+            qb.push_bind(dt);
         }
 
-        let results = query_builder.fetch_all(pool).await?;
+        qb.push(" ORDER BY bt.test_date ASC, a.ear_tag, bti.sort_order LIMIT 5000");
+
+        let results = qb.build_query_as::<BloodTestAnalysisRow>().fetch_all(pool).await?;
         Ok(results)
     }
 }

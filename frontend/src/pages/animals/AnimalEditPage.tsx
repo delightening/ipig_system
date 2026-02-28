@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -50,7 +50,7 @@ export function AnimalEditPage() {
       const res = await api.get<Animal>(`/animals/${animalId}`)
       return res.data
     },
-    staleTime: 0, // Always consider data stale for real-time updates
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   })
@@ -62,6 +62,7 @@ export function AnimalEditPage() {
       const res = await api.get<AnimalSource[]>('/animal-sources')
       return res.data
     },
+    staleTime: 600_000,
   })
 
   // Query approved protocols (for IACUC No. dropdown)

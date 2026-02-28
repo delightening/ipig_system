@@ -93,7 +93,7 @@ impl HrService {
     pub async fn get_leave(
         pool: &PgPool,
         id: Uuid,
-        _current_user: &CurrentUser,
+        current_user: &CurrentUser,
     ) -> Result<LeaveRequest> {
         let record = sqlx::query_as::<_, LeaveRequest>(
             r#"
@@ -110,6 +110,13 @@ impl HrService {
         .bind(id)
         .fetch_one(pool)
         .await?;
+
+        let has_view_all = current_user.has_permission("hr.leave.view_all");
+        let is_owner = record.user_id == current_user.id;
+        let is_approver = record.current_approver_id == Some(current_user.id);
+        if !has_view_all && !is_owner && !is_approver {
+            return Err(AppError::Forbidden("無權存取此請假紀錄".into()));
+        }
 
         Ok(record)
     }

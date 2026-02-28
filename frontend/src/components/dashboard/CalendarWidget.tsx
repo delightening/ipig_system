@@ -35,6 +35,7 @@ export function CalendarWidget() {
             const res = await api.get<CalendarData>('/hr/dashboard/calendar')
             return res.data
         },
+        staleTime: 30_000,
     })
 
     const formatTime = (timeStr?: string) => {

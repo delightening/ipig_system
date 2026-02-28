@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { Animal, UpdateAnimalRequest, animalBreedNames, animalGenderNames, ProtocolListItem } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -41,7 +41,7 @@ export function QuickEditAnimalDialog({ open, onOpenChange, animalId }: Props) {
       return res.data
     },
     enabled: open && !!animalId,
-    staleTime: 0,
+    staleTime: 30_000,
     refetchOnWindowFocus: false,
     refetchOnMount: true,
   })
@@ -63,7 +63,6 @@ export function QuickEditAnimalDialog({ open, onOpenChange, animalId }: Props) {
     queryKey: ['approved-protocols'],
     queryFn: async () => {
       const res = await api.get<ProtocolListItem[]>('/protocols')
-      // 過濾：已核准且未結案的計畫，且有 IACUC No.
       return res.data.filter(p => {
         if (p.status === 'CLOSED') return false
         if (!((p.status === 'APPROVED' || p.status === 'APPROVED_WITH_CONDITIONS') && p.iacuc_no)) return false
@@ -71,6 +70,7 @@ export function QuickEditAnimalDialog({ open, onOpenChange, animalId }: Props) {
       })
     },
     enabled: open,
+    staleTime: 600_000,
   })
 
   // Update mutation
