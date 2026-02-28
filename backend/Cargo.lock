@@ -788,7 +788,7 @@ dependencies = [
  "serial_test",
  "sha2",
  "sqlx",
- "thiserror 1.0.69",
+ "thiserror 2.0.18",
  "tokio",
  "tokio-cron-scheduler",
  "tokio-test",
