@@ -79,7 +79,7 @@
 | # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
 |---|------|------|------|----------|------|
 | 13 | **前端元件庫文件化** | Storybook 建置 | 前端 | ⚡ Flash | [ ] |
-| 14 | **前端超長頁面重構** | 漸進式重構巨型組件。**2026-02-28 已完成 AnimalDetailPage 1,945→748 行（-61%），抽離 7 個 Tab 元件（ObservationsTab/SurgeriesTab/WeightsTab/VaccinationsTab/SacrificeTab/AnimalInfoTab/PathologyTab）。** ProtocolDetailPage（1,921 行）待後續處理。 | 前端 | 🧠 Claude | [x] |
+| 14 | **前端超長頁面重構** | 漸進式重構巨型組件。**AnimalDetailPage 1,945→748 行（-61%），抽離 7 個 Tab 元件。ProtocolDetailPage 1,929→647 行（-66%），抽離 6 個 Tab 元件（VersionsTab/HistoryTab/CommentsTab/ReviewersTab/CoEditorsTab/AttachmentsTab）。** | 前端 | 🧠 Claude | [x] |
 | 15 | **SEC-39：Two-Factor Authentication** | TOTP 二階段驗證 (Google Authenticator) | 前後端 | 🧠 Claude | [ ] |
 | 16 | **SEC-40：Web Application Firewall** | ModSecurity 或 Cloudflare WAF | DevOps | ⚡ Flash | [ ] |
 | P5-43 | **ARIA 無障礙標籤** | 12 個檔案新增 23 個 `aria-label`（編輯/刪除/檢視/關閉/導航按鈕） | 前端 | 🧠 Claude | [x] |
@@ -99,9 +99,9 @@
 | 🔴 P2 中優先 | 0 |
 | 🔵 P3 低優先 | 0 |
 | 🟣 P4 品質提升 | 0 |
-| ⚪ P5 長期演進 | 2 |
-| **合計（未完成）** | **2** |
-> 📌 2026-02-28 新增 18 項品質補強計畫並全數完成（P1-30~35 / P2-36~42 / P5-43~47）；剩餘 P5-13 Storybook + P5-15 2FA + P5-16 WAF
+| ⚪ P5 長期演進 | 3 |
+| **合計（未完成）** | **3** |
+> 📌 剩餘 P5-13 Storybook + P5-15 2FA + P5-16 WAF
 
 ---
 
@@ -109,6 +109,7 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-02-28 | 🧠 Claude：P5-14 ProtocolDetailPage 重構 1,929→647 行（-66%），抽離 VersionsTab/HistoryTab/CommentsTab/ReviewersTab/CoEditorsTab/AttachmentsTab 6 個元件至 `components/protocol/` |
 | 2026-02-28 | 🧠 Claude：JWT 預設過期時間從 15 分鐘調整為 360 分鐘（6 小時），更新後端 config / 前端 session fallback / .env / docker-compose 等 7 個檔案 |
 | 2026-02-28 | 🧠 Claude：完成 18 項品質補強計畫 — **高影響 6 項**：P1-30 Graceful Shutdown / P1-31 自訂 404 頁面 / P1-32 Session 逾時預警 / P1-33 刪除記錄清理檔案 / P1-34 Optimistic Locking / P1-35 confirm() 統一 Dialog。**中影響 7 項**：P2-36 i18n 補齊 / P2-37 API 分頁 / P2-38 表單離開確認 / P2-39 隱私政策 / P2-40 Cookie 同意 / P2-41 Rollback 文件 / P2-42 .env 補齊。**低影響 5 項**：P5-43 ARIA 標籤 / P5-44 驗證回饋 / P5-45 磁碟監控 / P5-46 LICENSE / P5-47 Meta Tags。|
 | 2026-02-28 | 🧠 Claude：完成交付前補強 3 項 — (1) P4-19 Prometheus + Grafana 部署（`docker-compose.monitoring.yml` + `deploy/prometheus.yml` + Grafana provisioning + 10-panel dashboard）；(2) P4-20 後端 API 整合測試（`lib.rs` 重構 + `TestApp` infra + 6 個測試檔 25+ test cases，`cargo check --tests` 通過）；(3) P4-21 效能基準報告（`docs/PERFORMANCE_BENCHMARK.md` 8 章節正式報告 + k6 腳本 setup() token sharing 優化）。|
