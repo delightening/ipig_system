@@ -1,7 +1,7 @@
 # UI/UX 設計指南
 
-> **版本**：3.0  
-> **最後更新**：2026-02-16  
+> **版本**：7.0  
+> **最後更新**：2026-03-01  
 > **對象**：設計師、前端開發人員
 
 ---
@@ -15,7 +15,7 @@
 | **清晰** | 清楚的視覺層次，明確的操作 |
 | **效率** | 常見任務最少點擊次數 |
 | **一致** | 各模組統一的設計模式 |
-| **無障礙** | 支援中英文切換、明暗主題 |
+| **無障礙** | 支援中英文切換、ARIA 標籤、鍵盤導覽 |
 
 ### 1.2 技術堆疊
 
@@ -25,8 +25,10 @@
 | TailwindCSS | 工具優先樣式 |
 | shadcn/ui | 元件庫 |
 | Zustand | 狀態管理 |
-| React Query | 伺服器狀態 |
+| TanStack Query v5 | 伺服器狀態 |
+| TanStack Table v8 | 表格元件 |
 | React Router 6 | 客戶端路由 |
+| React Hook Form + Zod | 表單驗證 |
 
 ---
 
@@ -57,7 +59,7 @@
 
 ```
 📊 儀表板 (Dashboard)
-📋 動物使用計畫 (Protocols)
+📋 AUP 計畫書 (Protocols)
 🐷 動物管理 (Animal Management)
    ├── 動物 (Animals)
    └── 我的計劃 (My Projects)
@@ -72,7 +74,9 @@
 ⚙️ 系統管理 (Admin)
    ├── 使用者管理 (Users)
    ├── 角色管理 (Roles)
-   └── 稽核日誌 (Audit)
+   ├── 系統設定 (Settings)
+   ├── 稽核日誌 (Audit)
+   └── 安全審計 (Security)
 🏢 基礎資料 (Master Data)
    ├── 產品 (Products)
    ├── 夥伴 (Partners)
@@ -196,9 +200,10 @@
 
 ### 7.2 載入狀態
 
-- 內容使用骨架載入器
+- 內容使用骨架載入器（TableSkeleton、Skeleton）
 - 送出時按鈕顯示轉圈圖示
 - 長時間操作使用進度條
+- LoadingOverlay 用於全頁遮罩
 
 ---
 
@@ -258,4 +263,18 @@
 
 ---
 
+## 11. 錯誤處理與確認
+
+| 元件 | 用途 |
+|------|------|
+| PageErrorBoundary | 捕捉 lazy-loaded 頁面 render 錯誤 |
+| ConfirmDialog | 取代原生 `confirm()` 進行刪除等操作 |
+| AlertDialog | 單一按鈕提示 |
+| useUnsavedChangesGuard | 表單離開前確認 |
+| SessionTimeoutWarning | JWT 到期前 60s 倒數提示 |
+
+---
+
 *下一章：[命名慣例](./NAMING_CONVENTIONS.md)*
+
+*最後更新：2026-03-01*

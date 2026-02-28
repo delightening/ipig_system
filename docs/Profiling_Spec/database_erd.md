@@ -1,7 +1,7 @@
 # 資料庫實體關係圖 (ERD)
 
-> **版本**：5.0  
-> **最後更新**：2026-02-17
+> **版本**：7.0  
+> **最後更新**：2026-03-01
 
 ---
 
@@ -15,6 +15,7 @@ erDiagram
     roles ||--o{ role_permissions : has
     permissions ||--o{ role_permissions : granted
     users ||--o{ user_preferences : has
+    users ||--o{ refresh_tokens : has
 
     %% ===== AUP 審查 =====
     users ||--o{ protocols : "owns (PI)"
@@ -89,6 +90,9 @@ erDiagram
         VARCHAR position
         JSONB trainings
         TIMESTAMPTZ deleted_at
+        BOOLEAN totp_enabled
+        TEXT totp_secret_encrypted
+        TEXT[] totp_backup_codes
     }
 
     roles {
@@ -168,6 +172,7 @@ erDiagram
         DATE start_date
         DATE end_date
         BOOLEAN is_deleted
+        INTEGER version
     }
 
     protocol_versions {
@@ -275,13 +280,13 @@ erDiagram
     animals ||--|| animal_sudden_deaths : "may have"
     animals ||--o{ animal_transfers : "may transfer"
     animal_transfers ||--o{ transfer_vet_evaluations : evaluated
-    animal_observations ||--o{ animal_files : "attached"
-    animal_surgeries ||--o{ animal_files : "attached"
+    animal_observations ||--o{ animal_record_attachments : "attached"
+    animal_surgeries ||--o{ animal_record_attachments : "attached"
     animal_observations ||--o{ vet_recommendations : "has"
     animal_surgeries ||--o{ vet_recommendations : "has"
     
     animals {
-        SERIAL id PK
+        UUID id PK
         VARCHAR ear_tag
         animal_status status
         animal_breed breed
@@ -298,6 +303,7 @@ erDiagram
         BOOLEAN is_deleted
         TIMESTAMPTZ deleted_at
         UUID deleted_by FK
+        INTEGER version
     }
 
     animal_sources {
@@ -309,8 +315,8 @@ erDiagram
     }
 
     animal_observations {
-        SERIAL id PK
-        INTEGER animal_id FK
+        UUID id PK
+        UUID animal_id FK
         DATE event_date
         record_type record_type
         TEXT content
@@ -320,11 +326,12 @@ erDiagram
         BOOLEAN vet_read
         UUID created_by FK
         UUID updated_by FK
+        INTEGER version
     }
 
     animal_surgeries {
-        SERIAL id PK
-        INTEGER animal_id FK
+        UUID id PK
+        UUID animal_id FK
         BOOLEAN is_first_experiment
         DATE surgery_date
         VARCHAR surgery_site
@@ -333,20 +340,21 @@ erDiagram
         JSONB vital_signs
         BOOLEAN vet_read
         UUID created_by FK
+        INTEGER version
     }
 
     animal_weights {
-        SERIAL id PK
-        INTEGER animal_id FK
-        DATE weight_date
+        UUID id PK
+        UUID animal_id FK
+        DATE measure_date
         NUMERIC weight
         VARCHAR weight_category
         UUID created_by FK
     }
 
     animal_vaccinations {
-        SERIAL id PK
-        INTEGER animal_id FK
+        UUID id PK
+        UUID animal_id FK
         VARCHAR vaccine_name
         DATE vaccination_date
         VARCHAR vet_name
@@ -354,8 +362,8 @@ erDiagram
     }
 
     animal_sacrifices {
-        SERIAL id PK
-        INTEGER animal_id FK
+        UUID id PK
+        UUID animal_id FK
         DATE sacrifice_date
         VARCHAR method
         VARCHAR executor
@@ -364,36 +372,36 @@ erDiagram
     }
 
     animal_pathology_reports {
-        SERIAL id PK
-        INTEGER animal_id FK
+        UUID id PK
+        UUID animal_id FK
         DATE report_date
         JSONB findings
         UUID created_by FK
     }
 
-    animal_files {
+    animal_record_attachments {
         UUID id PK
-        animal_file_type file_type
-        INTEGER animal_id FK
         animal_record_type record_type
-        INTEGER record_id
-        VARCHAR filename
-        VARCHAR filepath
-        UUID uploaded_by FK
+        UUID record_id
+        animal_file_type file_type
+        VARCHAR file_name
+        VARCHAR file_path
+        INTEGER file_size
+        VARCHAR mime_type
     }
 
     vet_recommendations {
         UUID id PK
         vet_record_type record_type
-        INTEGER record_id
+        UUID record_id
         TEXT recommendation
         VARCHAR status
         UUID created_by FK
     }
 
     animal_care_records {
-        SERIAL id PK
-        INTEGER animal_id FK
+        UUID id PK
+        UUID animal_id FK
         DATE record_date
         care_record_mode mode
         JSONB content
@@ -401,8 +409,8 @@ erDiagram
     }
 
     animal_sudden_deaths {
-        SERIAL id PK
-        INTEGER animal_id FK "UNIQUE"
+        UUID id PK
+        UUID animal_id FK "UNIQUE"
         DATE death_date
         TEXT description
         UUID discovered_by FK
@@ -410,8 +418,8 @@ erDiagram
     }
 
     animal_transfers {
-        SERIAL id PK
-        INTEGER animal_id FK
+        UUID id PK
+        UUID animal_id FK
         animal_transfer_status status
         UUID from_protocol_id FK
         UUID to_protocol_id FK
@@ -421,8 +429,8 @@ erDiagram
     }
 
     transfer_vet_evaluations {
-        SERIAL id PK
-        INTEGER transfer_id FK
+        UUID id PK
+        UUID transfer_id FK
         UUID vet_id FK
         TEXT health_status
         BOOLEAN is_fit_for_transfer
@@ -444,7 +452,7 @@ erDiagram
 
     animal_blood_tests {
         UUID id PK
-        INTEGER animal_id FK
+        UUID animal_id FK
         DATE test_date
         VARCHAR lab_name
         VARCHAR lab_report_no
@@ -834,22 +842,60 @@ erDiagram
 
 ---
 
-## 12. 資料表彙總
+## 12. 系統設定與輔助表 ERD
+
+```mermaid
+erDiagram
+    system_settings {
+        VARCHAR key PK
+        JSONB value
+        TEXT description
+        TIMESTAMPTZ updated_at
+        UUID updated_by FK
+    }
+
+    jwt_blacklist {
+        VARCHAR jti PK
+        TIMESTAMPTZ expires_at
+        TIMESTAMPTZ revoked_at
+    }
+
+    treatment_drug_options {
+        UUID id PK
+        VARCHAR name
+        VARCHAR display_name
+        VARCHAR default_dosage_unit
+        TEXT[] available_units
+        VARCHAR category
+        INTEGER sort_order
+        BOOLEAN is_active
+        UUID erp_product_id FK
+    }
+
+    products ||--o{ treatment_drug_options : "optional"
+```
+
+---
+
+## 13. 資料表彙總
 
 | 模組 | 資料表數量 | 主要表名 |
 |------|------------|----------|
-| 核心架構 | 8 | users, roles, permissions, notifications, attachments |
-| 動物管理 | 15 | animals, animal_observations, animal_surgeries, animal_weights, animal_vaccinations, animal_sacrifices, animal_pathology_reports, animal_files, animal_care_records, animal_sudden_deaths, animal_transfers, transfer_vet_evaluations |
+| 核心架構 | 9 | users, roles, permissions, notifications, attachments, refresh_tokens, user_preferences |
+| 動物管理 | 15 | animals, animal_observations, animal_surgeries, animal_weights, animal_vaccinations, animal_sacrifices, animal_pathology_reports, animal_record_attachments, animal_care_records, animal_sudden_deaths, animal_transfers, transfer_vet_evaluations |
 | 血液檢查 | 5 | animal_blood_tests, animal_blood_test_items, blood_test_templates, blood_test_panels, blood_test_panel_items |
 | 安樂死 | 1 | euthanasia_orders |
 | GLP 合規 | 3 | electronic_signatures, record_annotations, record_versions |
-| AUP 系統 | 10 | protocols, protocol_versions, user_protocols, review_assignments, review_comments, amendments |
+| AUP 系統 | 12 | protocols, protocol_versions, user_protocols, review_assignments, review_comments, amendments, system_settings |
 | ERP 系統 | 14 | products, warehouses, storage_locations, partners, documents, stock_ledger, skus |
 | HR 系統 | 8 | attendance_records, leave_requests, overtime_records, leave_balances, calendar_settings |
 | 稽核系統 | 4 | user_activity_logs, user_sessions, login_events, security_alerts |
 | 設施管理 | 5 | species, facilities, buildings, zones, pens |
+| 輔助 | 3 | jwt_blacklist, treatment_drug_options, notification_routing |
 | **合計** | **~73** | |
 
 ---
 
 *回上層：[README](./README.md)*
+
+*最後更新：2026-03-01*

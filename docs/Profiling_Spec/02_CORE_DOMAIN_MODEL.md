@@ -1,7 +1,7 @@
 # 核心領域模型
 
-> **版本**：5.0  
-> **最後更新**：2026-02-17  
+> **版本**：7.0  
+> **最後更新**：2026-03-01  
 > **對象**：開發人員
 
 ---
@@ -86,6 +86,9 @@ erDiagram
 | last_login_at | TIMESTAMPTZ | 最後登入時間 |
 | login_attempts | INTEGER | 連續失敗次數 |
 | locked_until | TIMESTAMPTZ | 帳號鎖定截止時間 |
+| totp_enabled | BOOLEAN | 是否啟用 TOTP 2FA |
+| totp_secret_encrypted | TEXT | 加密的 TOTP secret |
+| totp_backup_codes | TEXT[] | 備用碼（10 組）|
 
 **角色列舉**：
 - `admin` - 系統管理員
@@ -407,8 +410,15 @@ erDiagram
 重要紀錄（觀察、手術、計畫書）具備：
 - `record_versions` 表儲存歷史快照
 - 版本號遞增，JSON 快照保留
+- `version` 欄位支援 Optimistic Locking（animals、protocols、observations、surgeries）
 
-### 4.4 資料隔離（轉讓）
+### 4.4 系統設定
+
+| 表名 | 說明 |
+|------|------|
+| system_settings | 系統組態（key-value 結構）：company_name、default_warehouse_id、cost_method、smtp_*、session_timeout_minutes 等 |
+
+### 4.5 資料隔離（轉讓）
 
 動物轉讓完成後，新計劃使用者預設只能看到轉讓時間之後的資料：
 - 所有醫療紀錄 API 支援 `?after=` 時間過濾
@@ -417,3 +427,5 @@ erDiagram
 ---
 
 *下一章：[模組與邊界](./03_MODULES_AND_BOUNDARIES.md)*
+
+*最後更新：2026-03-01*

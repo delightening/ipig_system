@@ -1,6 +1,7 @@
 # 快速啟動指南
 
-> 本指南適用於**本地或測試環境**。正式環境、備份還原、監控與維運請見 [DEPLOYMENT.md](DEPLOYMENT.md)。專案總覽與架構見 [README.md](../README.md)。
+> 本指南適用於**本地或測試環境**。正式環境、備份還原、監控與維運請見 [DEPLOYMENT.md](DEPLOYMENT.md)。專案總覽與架構見 [README.md](../README.md)。  
+> **JWT 預設過期**：6 小時（360 分鐘），可於 .env 設定 `JWT_EXPIRATION_MINUTES`。
 
 ## 方式 1: Docker Compose（推薦）
 

@@ -1,16 +1,16 @@
 # 資料庫綱要
 
-> **版本**：5.0  
-> **最後更新**：2026-02-17  
+> **版本**：7.0  
+> **最後更新**：2026-03-01  
 > **對象**：資料庫管理員、開發人員
 
 ---
 
 ## 1. 概覽
 
-iPig 資料庫執行於 **PostgreSQL 16**，由 8 個遷移檔案按模組組織：
+iPig 資料庫執行於 **PostgreSQL 16**，由 19 個遷移檔案按模組組織：
 
-| 遷移 | 說明 | 主要資料表 |
+| 遷移 | 說明 | 主要變更 |
 |------|------|-----------|
 | 001 | 核心架構 | users, roles, permissions, notifications, audit_logs, attachments, user_preferences |
 | 002 | 核心權限 | role_permissions 種子資料 + 動物擴展權限 |
@@ -19,9 +19,18 @@ iPig 資料庫執行於 **PostgreSQL 16**，由 8 個遷移檔案按模組組織
 | 005 | 人事系統 | attendance_records, leave_requests, overtime_records, leave_balances, departments |
 | 006 | 稽核系統 | user_activity_logs (分割表), login_events, user_sessions, security_alerts |
 | 007 | ERP/倉庫 | products, warehouses, partners, documents, document_lines, stock_ledger, skus |
-| 008 | 補充功能 | notification_routing, electronic_signatures 擴展, record_annotations |
-
-> 📌 **2026-02-17 整合**：遷移從 14 個整合為 8 個。消除增量修改（008 權限→002、008 AUP→004）、同領域合併（009 血液+013 猝死+014 轉讓→003）、消除微型檔案（010→001、011+015→008）。
+| 008 | 補充功能 | notification_routing, electronic_signatures, record_annotations |
+| 009 | 藥物選項 | treatment_drug_options 表 + seed |
+| 010 | JWT 黑名單 | jwt_blacklist 表（撤銷 Token）|
+| 011 | 稽核完整性 | audit_logs HMAC 驗證、partition maintenance |
+| 012 | Enum Cast 修正 | version_record_type、record_type 隱式轉型 |
+| 013 | Cast 歧義修正 | IMPLICIT → ASSIGNMENT cast |
+| 014 | Optimistic Locking | animals/protocols/observations/surgeries 新增 version 欄位 |
+| 015 | 系統設定 Seed | system_settings 10 項初始值 |
+| 016 | TOTP 2FA | users 表 totp_enabled、totp_secret_encrypted、totp_backup_codes |
+| 017 | 複合索引 | animals、protocols、notifications、audit_logs、attachments |
+| 018 | DB 維護 | pg_stat_statements、maintenance_vacuum_analyze、慢查詢 View |
+| 019 | Enum Cast 遞迴修正 | version_record_type_to_text、text_to_version_record_type 非遞迴實作 |
 
 ---
 
@@ -416,3 +425,5 @@ ALTER TABLE electronic_signatures ADD COLUMN IF NOT EXISTS signature_method VARC
 ---
 
 *下一章：[API 規格](./05_API_SPECIFICATION.md)*
+
+*最後更新：2026-03-01*

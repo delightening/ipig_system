@@ -1,5 +1,11 @@
 # 檔案儲存設定說明 (Storage Setup Guide)
 
+> **版本**：7.0  
+> **最後更新**：2026-03-01  
+> **對象**：系統管理員、DevOps
+
+---
+
 ## Docker 環境下的檔案儲存
 
 ### 基本設定
@@ -77,21 +83,27 @@ volumes:
 
 ### 檔案結構
 
-上傳的檔案會按照以下結構組織：
+上傳的檔案會按照以下結構組織（依 `FileCategory` 分類）：
 
 ```
 uploads/
-├── pigs/
-│   └── {pig_id}/
+├── animals/
+│   └── {animal_id}/
 │       └── {date}_{uuid}.{ext}
 ├── protocols/
 │   └── {protocol_id}/
 │       └── {date}_{uuid}.{ext}
 ├── pathology/
-│   └── {pig_id}/
+│   └── {animal_id}/
 │       └── {date}_{uuid}.{ext}
-└── vet-recommendations/
-    └── {record_type}_{record_id}/
+├── vet-recommendations/
+│   └── {record_type}_{record_id}/
+│       └── {date}_{uuid}.{ext}
+├── observations/
+│   └── {observation_id}/
+│       └── {date}_{uuid}.{ext}
+└── leave-attachments/
+    └── {leave_id}/
         └── {date}_{uuid}.{ext}
 ```
 
@@ -129,8 +141,8 @@ uploads/
    - 限制 NAS 的網路存取
 
 3. **檔案驗證：**
-   - 系統已經實作了檔案類型驗證
-   - 檔案大小限制已設定（照片 10MB，附件 20-50MB）
+   - 系統已實作檔案類型驗證（依 FileCategory）
+   - 檔案大小限制：動物照片 10MB、計畫書附件 20MB、獸醫建議/觀察紀錄 20MB、請假附件 50MB
 
 ### 故障排除
 
@@ -195,3 +207,8 @@ api:
 4. **效能監控：**
    - 監控上傳目錄的磁碟使用量
    - 設定告警當儲存空間不足時通知
+   - 可使用 `scripts/monitor/check_disk_space.sh` 產生 Prometheus textfile 指標
+
+---
+
+*最後更新：2026-03-01*

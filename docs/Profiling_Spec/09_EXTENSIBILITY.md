@@ -1,14 +1,14 @@
 # 擴展性
 
-> **版本**：5.0  
-> **最後更新**：2026-02-17  
+> **版本**：7.0  
+> **最後更新**：2026-03-01  
 > **對象**：架構師、產品經理
 
 ---
 
 ## 1. 概覽
 
-iPig 系統從設計之初即考量擴展性，支援模組化新增功能、資料表擴充及 API 延伸。
+iPig 系統從設計之初即考量擴展性，支援模組化新增功能、資料表擴充及 API 延伸。目前功能完整，上線準備中。
 
 ---
 
@@ -47,6 +47,11 @@ iPig 系統從設計之初即考量擴展性，支援模組化新增功能、資
 - ✅ 安全警報偵測
 - ✅ GeoIP 地理定位
 - ✅ 安全儀表板（前端）
+- ✅ TOTP 2FA 全端實作（setup/confirm/verify/disable）
+- ✅ 敏感操作二級認證（reauth token）
+- ✅ CSRF Token 中間件
+- ✅ WAF overlay（ModSecurity + OWASP CRS）
+- ✅ 稽核完整性 HMAC 驗證
 
 ### 2.6 動物管理進階
 - ✅ 血液檢查子系統（模板、組合、費用追蹤）
@@ -62,7 +67,8 @@ iPig 系統從設計之初即考量擴展性，支援模組化新增功能、資
 - ✅ **猝死登記**（animal_sudden_deaths 表 + API）
 - ✅ **手寫電子簽章**（signature_pad + HandwrittenSignaturePad.tsx，4 場景）
 - ✅ **資料隔離機制**（data-boundary API + 特權角色繞過）
-- ✅ **資料庫遷移整合**（14 個合併為 8 個）
+- ✅ **Optimistic Locking**（animals、protocols、observations、surgeries）
+- ✅ **系統設定 API**（GET/PUT /admin/system-settings，DB-first SMTP）
 
 ### 2.7 通知與排程
 - ✅ Email 通知（SMTP）
@@ -199,3 +205,5 @@ iPig 系統從設計之初即考量擴展性，支援模組化新增功能、資
 ---
 
 *上一章：[出勤模組](./08_ATTENDANCE_MODULE.md)*
+
+*最後更新：2026-03-01*
