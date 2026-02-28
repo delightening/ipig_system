@@ -1,5 +1,22 @@
 use anyhow::Context;
 
+/// Read a secret value: prefer `{key}_FILE` (Docker Secrets path), fallback to `{key}` env var.
+fn read_secret(key: &str) -> Option<String> {
+    let file_key = format!("{}_FILE", key);
+    if let Ok(path) = std::env::var(&file_key) {
+        match std::fs::read_to_string(&path) {
+            Ok(content) => return Some(content.trim().to_string()),
+            Err(e) => tracing::warn!("Failed to read secret file {}: {}", path, e),
+        }
+    }
+    std::env::var(key).ok()
+}
+
+/// Like `read_secret` but returns an error if neither source is available.
+fn require_secret(key: &str) -> anyhow::Result<String> {
+    read_secret(key).with_context(|| format!("{key} (or {key}_FILE) must be set"))
+}
+
 #[derive(Clone, Debug)]
 pub struct Config {
     pub host: String,
@@ -52,8 +69,7 @@ impl Config {
                 .unwrap_or_else(|_| "3000".to_string())
                 .parse()
                 .context("PORT must be a number")?,
-            database_url: std::env::var("DATABASE_URL")
-                .context("DATABASE_URL must be set")?,
+            database_url: require_secret("DATABASE_URL")?,
             database_max_connections: std::env::var("DATABASE_MAX_CONNECTIONS")
                 .unwrap_or_else(|_| "10".to_string())
                 .parse()
@@ -67,9 +83,7 @@ impl Config {
                 .parse()
                 .context("DATABASE_RETRY_DELAY_SECONDS must be a number")?,
             jwt_secret: {
-                let secret = std::env::var("JWT_SECRET")
-                    .context("JWT_SECRET must be set")?;
-                // SEC-21: JWT Secret 最小長度驗證，防止使用弱金鑰
+                let secret = require_secret("JWT_SECRET")?;
                 if secret.len() < 32 {
                     anyhow::bail!(
                         "JWT_SECRET 長度不足：目前 {} 字元，至少需要 32 字元。\n\
@@ -102,7 +116,7 @@ impl Config {
                 .parse()
                 .unwrap_or(587),
             smtp_username: std::env::var("SMTP_USERNAME").ok(),
-            smtp_password: std::env::var("SMTP_PASSWORD").ok(),
+            smtp_password: read_secret("SMTP_PASSWORD"),
             smtp_from_email: std::env::var("SMTP_FROM_EMAIL")
                 .unwrap_or_else(|_| "noreply@erp.local".to_string()),
             smtp_from_name: std::env::var("SMTP_FROM_NAME")
@@ -143,8 +157,7 @@ impl Config {
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
                 .collect(),
-            // SEC-34: 稽核日誌 HMAC 密鑰
-            audit_hmac_key: std::env::var("AUDIT_HMAC_KEY").ok().filter(|s| s.len() >= 16),
+            audit_hmac_key: read_secret("AUDIT_HMAC_KEY").filter(|s| s.len() >= 16),
         })
     }
 

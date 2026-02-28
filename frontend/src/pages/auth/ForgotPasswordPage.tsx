@@ -20,7 +20,7 @@ export function ForgotPasswordPage() {
     onSuccess: () => {
       setSubmitted(true)
     },
-    onError: (error: any) => {
+    onError: (_error: unknown) => {
       // 即使 email 不存在也顯示成功訊息，避免帳號列舉攻擊
       setSubmitted(true)
     },

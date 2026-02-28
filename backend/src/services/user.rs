@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -6,6 +7,18 @@ use crate::{
     services::{AuditService, AuthService},
     AppError, Result,
 };
+
+#[derive(sqlx::FromRow)]
+struct UserRoleRow {
+    user_id: Uuid,
+    code: String,
+}
+
+#[derive(sqlx::FromRow)]
+struct UserPermRow {
+    user_id: Uuid,
+    code: String,
+}
 
 pub struct UserService;
 
@@ -53,13 +66,12 @@ impl UserService {
         .fetch_one(pool)
         .await?;
 
-        // 指派角色
-        for role_id in &req.role_ids {
+        if !req.role_ids.is_empty() {
             sqlx::query(
-                "INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                "INSERT INTO user_roles (user_id, role_id) SELECT $1, unnest($2::uuid[]) ON CONFLICT DO NOTHING"
             )
             .bind(user.id)
-            .bind(role_id)
+            .bind(&req.role_ids)
             .execute(pool)
             .await?;
         }
@@ -87,32 +99,53 @@ impl UserService {
                 .await?
         };
 
-        let mut result = Vec::new();
-        for user in users {
-            let (roles, permissions) =
-                AuthService::get_user_roles_permissions(pool, user.id).await?;
-            result.push(UserResponse {
-                id: user.id,
-                email: user.email,
-                display_name: user.display_name,
-                phone: user.phone,
-                organization: user.organization,
-                is_internal: user.is_internal,
-                is_active: user.is_active,
-                must_change_password: user.must_change_password,
-                theme_preference: user.theme_preference,
-                language_preference: user.language_preference,
-                last_login_at: user.last_login_at,
-                entry_date: user.entry_date,
-                position: user.position,
-                aup_roles: user.aup_roles,
-                years_experience: user.years_experience,
-                trainings: user.trainings.0,
-                roles,
-                permissions,
-                totp_enabled: user.totp_enabled,
-            });
-        }
+        let user_ids: Vec<Uuid> = users.iter().map(|u| u.id).collect();
+
+        let (roles_map, perms_map) = if user_ids.is_empty() {
+            (HashMap::new(), HashMap::new())
+        } else {
+            let role_rows = sqlx::query_as::<_, UserRoleRow>(
+                r#"SELECT ur.user_id, r.code
+                   FROM user_roles ur
+                   INNER JOIN roles r ON ur.role_id = r.id
+                   WHERE ur.user_id = ANY($1)
+                   ORDER BY r.code"#
+            )
+            .bind(&user_ids)
+            .fetch_all(pool)
+            .await?;
+
+            let perm_rows = sqlx::query_as::<_, UserPermRow>(
+                r#"SELECT DISTINCT ur.user_id, p.code
+                   FROM user_roles ur
+                   INNER JOIN role_permissions rp ON ur.role_id = rp.role_id
+                   INNER JOIN permissions p ON rp.permission_id = p.id
+                   WHERE ur.user_id = ANY($1)
+                   ORDER BY p.code"#
+            )
+            .bind(&user_ids)
+            .fetch_all(pool)
+            .await?;
+
+            let mut rm: HashMap<Uuid, Vec<String>> = HashMap::new();
+            for row in role_rows {
+                rm.entry(row.user_id).or_default().push(row.code);
+            }
+            let mut pm: HashMap<Uuid, Vec<String>> = HashMap::new();
+            for row in perm_rows {
+                pm.entry(row.user_id).or_default().push(row.code);
+            }
+            (rm, pm)
+        };
+
+        let result = users
+            .iter()
+            .map(|user| {
+                let roles = roles_map.get(&user.id).cloned().unwrap_or_default();
+                let permissions = perms_map.get(&user.id).cloned().unwrap_or_default();
+                UserResponse::from_user(user, roles, permissions)
+            })
+            .collect();
 
         Ok(result)
     }
@@ -136,27 +169,7 @@ impl UserService {
 
         let (roles, permissions) = AuthService::get_user_roles_permissions(pool, user.id).await?;
 
-        Ok(UserResponse {
-            id: user.id,
-            email: user.email,
-            display_name: user.display_name,
-            phone: user.phone,
-            organization: user.organization,
-            is_internal: user.is_internal,
-            is_active: user.is_active,
-            must_change_password: user.must_change_password,
-            theme_preference: user.theme_preference,
-            language_preference: user.language_preference,
-            last_login_at: user.last_login_at,
-            entry_date: user.entry_date,
-            position: user.position,
-            aup_roles: user.aup_roles,
-            years_experience: user.years_experience,
-            trainings: user.trainings.0,
-            roles,
-            permissions,
-            totp_enabled: user.totp_enabled,
-        })
+        Ok(UserResponse::from_user(&user, roles, permissions))
     }
 
     /// 更新用戶
@@ -244,40 +257,21 @@ impl UserService {
                 .execute(pool)
                 .await?;
 
-            // 指派新角色
-            for role_id in role_ids {
-                sqlx::query("INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)")
-                    .bind(id)
-                    .bind(role_id)
-                    .execute(pool)
-                    .await?;
+            if !role_ids.is_empty() {
+                sqlx::query(
+                    "INSERT INTO user_roles (user_id, role_id) SELECT $1, unnest($2::uuid[]) ON CONFLICT DO NOTHING"
+                )
+                .bind(id)
+                .bind(role_ids)
+                .execute(pool)
+                .await?;
             }
         }
 
         let (roles, permissions) =
             AuthService::get_user_roles_permissions(pool, updated_user.id).await?;
 
-        Ok(UserResponse {
-            id: updated_user.id,
-            email: updated_user.email,
-            display_name: updated_user.display_name,
-            phone: updated_user.phone,
-            organization: updated_user.organization,
-            is_internal: updated_user.is_internal,
-            is_active: updated_user.is_active,
-            must_change_password: updated_user.must_change_password,
-            theme_preference: updated_user.theme_preference,
-            language_preference: updated_user.language_preference,
-            last_login_at: updated_user.last_login_at,
-            entry_date: updated_user.entry_date,
-            position: updated_user.position,
-            aup_roles: updated_user.aup_roles,
-            years_experience: updated_user.years_experience,
-            trainings: updated_user.trainings.0,
-            roles,
-            permissions,
-            totp_enabled: updated_user.totp_enabled,
-        })
+        Ok(UserResponse::from_user(&updated_user, roles, permissions))
     }
 
     /// 刪除用戶（硬刪除）

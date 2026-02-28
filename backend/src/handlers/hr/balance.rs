@@ -65,7 +65,7 @@ pub async fn create_annual_leave_entitlement(
     Extension(current_user): Extension<CurrentUser>,
     Json(payload): Json<CreateAnnualLeaveRequest>,
 ) -> Result<(StatusCode, Json<AnnualLeaveEntitlement>)> {
-    if !current_user.roles.contains(&"admin".to_string())
+    if !current_user.is_admin()
         && !current_user.roles.contains(&"ADMIN_STAFF".to_string())
         && !current_user.has_permission("hr.balance.manage")
     {
@@ -92,7 +92,7 @@ pub async fn get_expired_leave_compensation(
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<ExpiredLeaveReport>>> {
     if !current_user.has_permission("hr.balance.manage")
-        && !current_user.roles.contains(&"admin".to_string())
+        && !current_user.is_admin()
         && !current_user.roles.contains(&"IACUC_STAFF".to_string())
         && !current_user.roles.contains(&"ADMIN_STAFF".to_string())
     {

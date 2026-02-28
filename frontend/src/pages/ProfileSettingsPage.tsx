@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/auth'
 import api, { User, UserTraining, UpdateUserRequest } from '@/lib/api'
+import { getErrorMessage } from '@/types/error'
 import { TwoFactorSetup } from '@/components/auth/TwoFactorSetup'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -84,10 +85,10 @@ export function ProfileSettingsPage() {
             queryClient.invalidateQueries({ queryKey: ['users', 'me'] })
             checkAuth() // Refresh local store
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
             toast({
                 title: t('common.error'),
-                description: error.response?.data?.error?.message || t('common.error'),
+                description: getErrorMessage(error) || t('common.error'),
                 variant: 'destructive',
             })
         },

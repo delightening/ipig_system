@@ -18,6 +18,15 @@ services:
     image: ghcr.io/${GHCR_OWNER}/ipig-api:${IMAGE_TAG:-latest}
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
+    # P0-S3: 生產環境使用 Docker Secrets 取代環境變數中的明文機密
+    secrets:
+      - jwt_secret
+      - db_url
+      - smtp_password
+    environment:
+      JWT_SECRET_FILE: /run/secrets/jwt_secret
+      DATABASE_URL_FILE: /run/secrets/db_url
+      SMTP_PASSWORD_FILE: /run/secrets/smtp_password
     deploy:
       resources:
         limits:
@@ -53,6 +62,11 @@ services:
 
   # Database resource limits
   db:
+    # P0-S3: 使用 Docker Secrets 提供資料庫密碼
+    secrets:
+      - db_password
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
     labels:
       - "com.centurylinklabs.watchtower.enable=false"
     deploy:
@@ -122,3 +136,15 @@ services:
         max-size: "5m"
         max-file: "2"
     restart: unless-stopped
+
+# P0-S3: Docker Secrets for production
+# 建立方式: echo "your-secret" > secrets/jwt_secret.txt (每個檔案一行，不含換行)
+secrets:
+  jwt_secret:
+    file: ./secrets/jwt_secret.txt
+  db_url:
+    file: ./secrets/db_url.txt
+  db_password:
+    file: ./secrets/db_password.txt
+  smtp_password:
+    file: ./secrets/smtp_password.txt

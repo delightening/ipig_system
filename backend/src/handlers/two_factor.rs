@@ -18,16 +18,12 @@ use crate::{
     AppError, AppState, Result,
 };
 
-fn is_admin(current_user: &CurrentUser) -> bool {
-    current_user.roles.iter().any(|r| r == "admin" || r == "SYSTEM_ADMIN")
-}
-
 /// POST /api/auth/2fa/setup — 產生 TOTP secret（僅限管理員）
 pub async fn setup_2fa(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<TwoFactorSetupResponse>> {
-    if !is_admin(&current_user) {
+    if !current_user.is_admin() {
         return Err(AppError::Forbidden("僅管理員可啟用兩步驟驗證".into()));
     }
     let user = UserService::get_user_raw(&state.db, current_user.id).await?;
@@ -50,7 +46,7 @@ pub async fn confirm_2fa_setup(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<TwoFactorConfirmRequest>,
 ) -> Result<Json<serde_json::Value>> {
-    if !is_admin(&current_user) {
+    if !current_user.is_admin() {
         return Err(AppError::Forbidden("僅管理員可啟用兩步驟驗證".into()));
     }
     req.validate()
@@ -155,7 +151,8 @@ pub async fn verify_2fa_login(
         "refresh_token", &response.refresh_token, 7 * 24 * 3600, &state.config,
     );
 
-    let body = serde_json::to_string(&response).expect("LoginResponse serialize");
+    let body = serde_json::to_string(&response)
+        .map_err(|e| AppError::Internal(format!("JSON 序列化失敗: {}", e)))?;
 
     Ok(Response::builder()
         .status(StatusCode::OK)
@@ -163,5 +160,5 @@ pub async fn verify_2fa_login(
         .header(header::SET_COOKIE, access_cookie)
         .header(header::SET_COOKIE, refresh_cookie)
         .body(body.into())
-        .expect("build response"))
+        .map_err(|e| AppError::Internal(format!("Response 建構失敗: {}", e)))?)
 }

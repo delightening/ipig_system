@@ -14,16 +14,12 @@ use crate::{
 
 const SMTP_PASSWORD_MASK: &str = "********";
 
-fn is_admin(current_user: &CurrentUser) -> bool {
-    current_user.roles.iter().any(|r| r == "admin" || r == "SYSTEM_ADMIN")
-}
-
 /// GET /api/admin/system-settings
 pub async fn get_system_settings(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<HashMap<String, Value>>, AppError> {
-    if !is_admin(&current_user) {
+    if !current_user.is_admin() {
         return Err(AppError::Forbidden("僅管理員可存取系統設定".into()));
     }
 
@@ -45,7 +41,7 @@ pub async fn update_system_settings(
     Extension(current_user): Extension<CurrentUser>,
     Json(mut body): Json<HashMap<String, Value>>,
 ) -> Result<Json<HashMap<String, Value>>, AppError> {
-    if !is_admin(&current_user) {
+    if !current_user.is_admin() {
         return Err(AppError::Forbidden("僅管理員可修改系統設定".into()));
     }
 

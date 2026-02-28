@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { getErrorMessage } from '@/types/error'
 import api, {
   Animal,
   AnimalObservation,
@@ -179,10 +180,10 @@ export function AnimalDetailPage() {
       toast({ title: '成功', description: '動物已成功分配到試驗' })
       setShowTrialSelect(false)
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '分配失敗',
+        description: getErrorMessage(error) || '分配失敗',
         variant: 'destructive',
       })
     },
@@ -204,10 +205,9 @@ export function AnimalDetailPage() {
   useEffect(() => {
     if (observationsError) {
       console.error('Failed to load observations:', observationsError)
-      const error = observationsError as any
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || error?.message || '載入觀察紀錄失敗',
+        description: getErrorMessage(observationsError) || '載入觀察紀錄失敗',
         variant: 'destructive',
       })
     }
@@ -314,15 +314,34 @@ export function AnimalDetailPage() {
         requires_pathology: false,
       })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: '錯誤',
-        description: error?.response?.data?.error?.message || '猝死登記失敗',
+        description: getErrorMessage(error) || '猝死登記失敗',
         variant: 'destructive',
       })
     },
   })
 
+  const tabs = useMemo(() => [
+    { id: 'timeline' as const, label: t('animalDetail.tabs.timeline', '紀錄時間軸'), icon: History },
+    { id: 'observations' as const, label: t('animalDetail.tabs.observations', '觀察試驗紀錄'), icon: ClipboardList },
+    { id: 'surgeries' as const, label: t('animalDetail.tabs.surgeries', '手術紀錄'), icon: Scissors },
+    { id: 'weights' as const, label: t('animalDetail.tabs.weights', '體重紀錄'), icon: Scale },
+    { id: 'vaccinations' as const, label: t('animalDetail.tabs.vaccinations', '疫苗/驅蟲紀錄'), icon: Syringe },
+    { id: 'sacrifice' as const, label: t('animalDetail.tabs.sacrifice', '犧牲/採樣紀錄'), icon: Heart },
+    { id: 'blood_tests' as const, label: t('animalDetail.tabs.bloodTests', '血液檢查'), icon: Droplets },
+    { id: 'pain_assessment' as const, label: t('animalDetail.tabs.painAssessment', '疼痛評估'), icon: Stethoscope },
+    { id: 'info' as const, label: t('animalDetail.tabs.info', '動物資料'), icon: FileText },
+    { id: 'pathology' as const, label: t('animalDetail.tabs.pathology', '病理組織報告'), icon: FileText },
+    ...((animal?.status === 'completed' || animal?.status === 'transferred')
+      ? [{ id: 'transfer' as const, label: t('animalDetail.tabs.transfer', '轉讓管理'), icon: ArrowRightLeft }]
+      : []),
+  ], [t, animal?.status])
+
+  const handleTimelineAction = useCallback((type: string) => {
+    setActiveTab(type === 'observation' ? 'observations' : 'surgeries')
+  }, [])
 
   if (animalLoading) {
     return (
@@ -343,22 +362,6 @@ export function AnimalDetailPage() {
       </div>
     )
   }
-
-  const tabs = [
-    { id: 'timeline' as const, label: t('animalDetail.tabs.timeline', '紀錄時間軸'), icon: History },
-    { id: 'observations' as const, label: t('animalDetail.tabs.observations', '觀察試驗紀錄'), icon: ClipboardList },
-    { id: 'surgeries' as const, label: t('animalDetail.tabs.surgeries', '手術紀錄'), icon: Scissors },
-    { id: 'weights' as const, label: t('animalDetail.tabs.weights', '體重紀錄'), icon: Scale },
-    { id: 'vaccinations' as const, label: t('animalDetail.tabs.vaccinations', '疫苗/驅蟲紀錄'), icon: Syringe },
-    { id: 'sacrifice' as const, label: t('animalDetail.tabs.sacrifice', '犧牲/採樣紀錄'), icon: Heart },
-    { id: 'blood_tests' as const, label: t('animalDetail.tabs.bloodTests', '血液檢查'), icon: Droplets },
-    { id: 'pain_assessment' as const, label: t('animalDetail.tabs.painAssessment', '疼痛評估'), icon: Stethoscope },
-    { id: 'info' as const, label: t('animalDetail.tabs.info', '動物資料'), icon: FileText },
-    { id: 'pathology' as const, label: t('animalDetail.tabs.pathology', '病理組織報告'), icon: FileText },
-    ...((animal.status === 'completed' || animal.status === 'transferred')
-      ? [{ id: 'transfer' as const, label: t('animalDetail.tabs.transfer', '轉讓管理'), icon: ArrowRightLeft }]
-      : []),
-  ]
 
   return (
     <div className="space-y-6">
@@ -567,12 +570,12 @@ export function AnimalDetailPage() {
             transfers={transfers || []}
             iacucEvents={iacucEvents || []}
             animal={animal}
-            onView={(type) => setActiveTab(type === 'observation' ? 'observations' : 'surgeries')}
-            onEdit={(type) => setActiveTab(type === 'observation' ? 'observations' : 'surgeries')}
-            onCopy={(type) => setActiveTab(type === 'observation' ? 'observations' : 'surgeries')}
-            onHistory={(type) => setActiveTab(type === 'observation' ? 'observations' : 'surgeries')}
-            onVet={(type) => setActiveTab(type === 'observation' ? 'observations' : 'surgeries')}
-            onDelete={(type) => setActiveTab(type === 'observation' ? 'observations' : 'surgeries')}
+            onView={handleTimelineAction}
+            onEdit={handleTimelineAction}
+            onCopy={handleTimelineAction}
+            onHistory={handleTimelineAction}
+            onVet={handleTimelineAction}
+            onDelete={handleTimelineAction}
           />
         )}
 

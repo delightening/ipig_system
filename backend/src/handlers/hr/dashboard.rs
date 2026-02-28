@@ -19,7 +19,7 @@ pub async fn get_attendance_stats(
     Extension(current_user): Extension<CurrentUser>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Result<Json<serde_json::Value>> {
-    if !current_user.has_permission("hr.attendance.view_all") && !current_user.roles.contains(&"admin".to_string()) {
+    if !current_user.has_permission("hr.attendance.view_all") && !current_user.is_admin() {
         return Err(crate::error::AppError::Forbidden("無權查看出勤統計".to_string()));
     }
     let start_date = params.get("start_date").cloned();
@@ -123,7 +123,7 @@ pub async fn list_internal_users_for_balance(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<StaffInfo>>> {
-    if !current_user.roles.contains(&"admin".to_string())
+    if !current_user.is_admin()
         && !current_user.roles.contains(&"ADMIN_STAFF".to_string())
         && !current_user.has_permission("hr.balance.manage")
     {

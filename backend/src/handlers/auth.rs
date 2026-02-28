@@ -63,7 +63,7 @@ fn extract_cookie_value(headers: &HeaderMap, name: &str) -> Option<String> {
 }
 
 /// 將 LoginResponse 附加 Set-Cookie headers 回傳
-fn login_response_with_cookies(response: &LoginResponse, config: &Config) -> Response {
+fn login_response_with_cookies(response: &LoginResponse, config: &Config) -> Result<Response> {
     let access_cookie = build_set_cookie(
         "access_token",
         &response.access_token,
@@ -77,7 +77,8 @@ fn login_response_with_cookies(response: &LoginResponse, config: &Config) -> Res
         config,
     );
 
-    let body = serde_json::to_string(response).expect("LoginResponse 序列化不應失敗");
+    let body = serde_json::to_string(response)
+        .map_err(|e| AppError::Internal(format!("JSON 序列化失敗: {}", e)))?;
 
     Response::builder()
         .status(StatusCode::OK)
@@ -85,7 +86,7 @@ fn login_response_with_cookies(response: &LoginResponse, config: &Config) -> Res
         .header(header::SET_COOKIE, access_cookie)
         .header(header::SET_COOKIE, refresh_cookie)
         .body(body.into())
-        .expect("建構 HTTP Response 不應失敗")
+        .map_err(|e| AppError::Internal(format!("Response 建構失敗: {}", e)))
 }
 
 // ============================================
@@ -146,12 +147,12 @@ pub async fn login(
         let body = serde_json::to_string(&TwoFactorRequiredResponse {
             requires_2fa: true,
             temp_token,
-        }).expect("2FA response serialize");
+        }).map_err(|e| AppError::Internal(format!("JSON 序列化失敗: {}", e)))?;
         return Ok(Response::builder()
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, "application/json")
             .body(body.into())
-            .expect("build 2FA response"));
+            .map_err(|e| AppError::Internal(format!("Response 建構失敗: {}", e)))?);
     }
 
     // Phase 3: 正常登入（無 2FA）
@@ -234,7 +235,7 @@ pub async fn login(
     };
 
     // 回傳 JSON + Set-Cookie headers
-    Ok(login_response_with_cookies(&response, &state.config))
+    Ok(login_response_with_cookies(&response, &state.config)?)
 }
 
 /// 重新整理 Token
@@ -262,7 +263,7 @@ pub async fn refresh_token(
 
     let response =
         AuthService::refresh_token(&state.db, &state.config, &refresh_token_value).await?;
-    Ok(login_response_with_cookies(&response, &state.config))
+    Ok(login_response_with_cookies(&response, &state.config)?)
 }
 
 /// 登出
@@ -328,10 +329,10 @@ pub async fn logout(
         )
         .body(
             serde_json::to_string(&body)
-                .expect("登出 JSON 序列化不應失敗")
+                .map_err(|e| AppError::Internal(format!("JSON 序列化失敗: {}", e)))?
                 .into(),
         )
-        .expect("建構登出 Response 不應失敗");
+        .map_err(|e| AppError::Internal(format!("Response 建構失敗: {}", e)))?;
 
     Ok(response)
 }
@@ -433,7 +434,7 @@ pub async fn change_own_password(
     });
 
     // 回傳新 tokens 的 Set-Cookie headers，保持用戶登入狀態
-    Ok(login_response_with_cookies(&response, &state.config))
+    Ok(login_response_with_cookies(&response, &state.config)?)
 }
 
 /// 忘記密碼 - 發送重設連結
@@ -618,5 +619,5 @@ pub async fn stop_impersonate(
     );
 
     // 回傳管理員的 token + Set-Cookie headers
-    Ok(login_response_with_cookies(&login_response, &state.config))
+    Ok(login_response_with_cookies(&login_response, &state.config)?)
 }

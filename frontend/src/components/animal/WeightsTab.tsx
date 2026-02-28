@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { AnimalWeight } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -35,7 +35,7 @@ interface WeightsTabProps {
   toggleDeveloperMode: () => void
 }
 
-export function WeightsTab({
+export const WeightsTab = React.memo(function WeightsTab({
   animalId, earTag, afterParam, weights,
   hasAdminRole, developerMode, toggleDeveloperMode,
 }: WeightsTabProps) {
@@ -214,4 +214,4 @@ export function WeightsTab({
       />
     </>
   )
-}
+})

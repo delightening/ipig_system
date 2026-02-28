@@ -25,7 +25,7 @@ pub async fn list_leaves(
 ) -> Result<Json<PaginatedResponse<LeaveRequestWithUser>>> {
     let mut query = params;
     if query.view_all.unwrap_or(false) {
-        let is_admin = current_user.roles.contains(&"admin".to_string());
+        let is_admin = current_user.is_admin();
         let has_view_all = current_user.has_permission("hr.leave.view_all");
         if is_admin || has_view_all {
             query.user_id = None;
@@ -129,7 +129,7 @@ pub async fn approve_leave(
             .fetch_one(&state.db)
             .await?;
     let (current_status, applicant_id) = current;
-    let is_admin = current_user.roles.contains(&"admin".to_string());
+    let is_admin = current_user.is_admin();
     let is_admin_staff = current_user.roles.contains(&"ADMIN_STAFF".to_string());
     match current_status.as_str() {
         "PENDING_L1" => {
@@ -178,7 +178,7 @@ pub async fn reject_leave(
     Path(id): Path<Uuid>,
     Json(payload): Json<RejectLeaveRequest>,
 ) -> Result<Json<LeaveRequest>> {
-    let is_admin = current_user.roles.contains(&"admin".to_string());
+    let is_admin = current_user.is_admin();
     let is_admin_staff = current_user.roles.contains(&"ADMIN_STAFF".to_string());
     if !is_admin_staff && !is_admin {
         let current: Option<(String, Uuid)> =
