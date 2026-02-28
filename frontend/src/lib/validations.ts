@@ -83,6 +83,6 @@ export type AnimalFormData = z.infer<typeof animalFormSchema>
 // ─── Helper: extract first error message from ZodError ───
 
 export function getFirstZodError(error: z.ZodError): string {
-  const first = error.errors[0]
-  return first?.message ?? 'validation.unknown'
+  const first = error.issues[0]
+  return (first && 'message' in first ? String(first.message) : undefined) ?? 'validation.unknown'
 }

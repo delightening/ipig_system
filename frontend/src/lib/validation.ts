@@ -66,7 +66,7 @@ export type ChangePasswordFormData = z.infer<typeof changePasswordSchema>
 
 /** 合作夥伴（供應商/客戶）表單 */
 export const partnerSchema = z.object({
-    partner_type: z.enum(['supplier', 'customer'], { required_error: '請選擇類型' }),
+    partner_type: z.enum(['supplier', 'customer'], { message: '請選擇類型' }),
     name: requiredString('名稱'),
     code: optionalString,
     tax_id: optionalString,
