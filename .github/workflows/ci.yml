@@ -18,7 +18,7 @@ jobs:
     name: "🔒 Security: cargo audit"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: 安裝 Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -52,7 +52,7 @@ jobs:
     name: "🛡️ Security: cargo deny"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: 執行 cargo-deny
         uses: EmbarkStudios/cargo-deny-action@v2
@@ -68,7 +68,7 @@ jobs:
     name: "🛑 Guard: SQL injection"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: 檢查是否有 format! 拼接 SQL
         working-directory: ./backend
@@ -86,7 +86,7 @@ jobs:
     name: "🚫 Guard: unsafe code"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: 檢查是否有 unsafe 程式碼
         working-directory: ./backend
@@ -107,7 +107,7 @@ jobs:
       run:
         working-directory: ./backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: 安裝 Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -157,7 +157,7 @@ jobs:
       SQLX_OFFLINE: "false"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: 安裝 Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -194,7 +194,7 @@ jobs:
       run:
         working-directory: ./backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: 安裝 Rust toolchain + clippy
         uses: dtolnay/rust-toolchain@stable
@@ -229,7 +229,7 @@ jobs:
       run:
         working-directory: ./frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: 設定 Node.js
         uses: actions/setup-node@v4
@@ -257,7 +257,7 @@ jobs:
       run:
         working-directory: ./frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: 設定 Node.js
         uses: actions/setup-node@v4
@@ -282,7 +282,7 @@ jobs:
     # 僅在 push 到 main 時觸發（build Docker image 耗時較長）
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Build backend image
         run: docker build --no-cache --progress=plain -t ipig-api:ci ./backend
@@ -334,7 +334,7 @@ jobs:
     # 確保基本檢查通過後再跑耗時的 E2E
     needs: [backend-test, frontend-check]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: 設定專案環境變數
         run: cp .env.example .env
