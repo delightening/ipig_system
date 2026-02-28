@@ -55,6 +55,19 @@
 
 ## 9. 最新變更動態
 
+### 2026-02-28 P5-14 ProtocolDetailPage 重構（1,929→647 行，-66%）
+- ✅ **ProtocolDetailPage.tsx**：從 1,929 行縮減至 647 行
+- ✅ **抽離 6 個 Tab 元件**至 `frontend/src/components/protocol/`：
+  1. `VersionsTab.tsx`（203 行）— 版本列表 + 版本比較 + 版本檢視 Dialog
+  2. `HistoryTab.tsx`（185 行）— 活動歷史時間軸 + 分頁
+  3. `CommentsTab.tsx`（431 行）— 審查意見、回覆、PDF 匯出 + 匿名化邏輯
+  4. `ReviewersTab.tsx`（281 行）— 審查委員列表 + 獸醫審查表單 + 指派 Dialog
+  5. `CoEditorsTab.tsx`（245 行）— 協作者列表 + 新增/移除 Dialog
+  6. `AttachmentsTab.tsx`（215 行）— 附件上傳/下載/刪除
+- ✅ **重構原則**：父元件保留 Header、Info Cards、Tab 導航、Status 變更 Dialog；各 Tab 自帶 queries、mutations、dialog state
+- ✅ **TypeScript 零錯誤通過**
+- 📁 **產出**：6 個新 Tab 元件 + 重構後的 ProtocolDetailPage.tsx
+
 ### 2026-02-28 JWT 預設過期時間調整為 6 小時
 - ✅ **後端 config.rs**：`JWT_EXPIRATION_MINUTES` 預設值從 15 改為 360（6 小時），test default 900s→21600s
 - ✅ **前端 session fallback**：`auth.ts`、`api.ts` 中 `sessionExpiresAt` fallback 從 `15 * 60 * 1000` 改為 `6 * 60 * 60 * 1000`
@@ -131,19 +144,10 @@
 - ✅ **生產環境 Docker 強化**：`docker-compose.prod.yml` 所有服務新增 `deploy.resources.limits`（CPU/記憶體）與 `logging` json-file 日誌輪轉
 - 📁 **產出**：6 個檔案修改（3 後端 + 2 前端 + 1 Docker）
 
-### 2026-02-28 P5-14 前端超長頁面重構（AnimalDetailPage 1,945→748 行）
-- ✅ **AnimalDetailPage.tsx**：從 1,945 行縮減至 748 行（**-61%**）
-- ✅ **抽離 7 個 Tab 元件**至 `frontend/src/components/animal/`：
-  1. `ObservationsTab.tsx` — 觀察試驗紀錄（含 CRUD、版本歷史、獸醫建議、GLP 刪除）
-  2. `SurgeriesTab.tsx` — 手術紀錄（含展開詳情、生理數值表、CRUD）
-  3. `WeightsTab.tsx` — 體重紀錄（含新增對話框、開發者模式系統號）
-  4. `VaccinationsTab.tsx` — 疫苗/驅蟲紀錄（含新增對話框）
-  5. `SacrificeTab.tsx` — 犧牲/採樣紀錄（含表單對話框）
-  6. `AnimalInfoTab.tsx` — 動物基本資料（純顯示元件）
-  7. `PathologyTab.tsx` — 病理組織報告（含上傳、自帶 query）
-- ✅ **重構原則**：父元件保留共用 queries（timeline/pain assessment 需要），各 Tab 自帶 mutations、dialog state、dialog components
-- ✅ **TypeScript 零錯誤通過**
-- 📁 **產出**：7 個新 Tab 元件 + 重構後的 [AnimalDetailPage.tsx](../frontend/src/pages/animals/AnimalDetailPage.tsx)
+### 2026-02-28 P5-14 前端超長頁面重構（兩大頁面完成）
+- ✅ **AnimalDetailPage.tsx**：1,945→748 行（**-61%**），抽離 7 個 Tab 元件至 `components/animal/`
+- ✅ **ProtocolDetailPage.tsx**：1,929→647 行（**-66%**），抽離 6 個 Tab 元件至 `components/protocol/`
+- 📁 **產出**：13 個新 Tab 元件 + 2 個重構後的 Detail 頁面
 
 ### 2026-02-28 P4-17 基礎映像與 CVE 週期檢查
 - ✅ **版本釘選**：`frontend/Dockerfile` 的 `FROM georgjung/nginx-brotli:alpine` → `georgjung/nginx-brotli:1.29.5-alpine`（nginx 1.29.5 + Alpine 3.23.3，2026-02-05 發佈）
