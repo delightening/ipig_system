@@ -274,6 +274,20 @@ impl UserService {
         Ok(UserResponse::from_user(&updated_user, roles, permissions))
     }
 
+    /// GDPR：自帳號停用（軟刪除，is_active=false）
+    pub async fn deactivate_self(pool: &PgPool, id: Uuid) -> Result<()> {
+        let result = sqlx::query("UPDATE users SET is_active = false, updated_at = NOW() WHERE id = $1")
+            .bind(id)
+            .execute(pool)
+            .await?;
+
+        if result.rows_affected() == 0 {
+            return Err(AppError::NotFound("User not found".to_string()));
+        }
+
+        Ok(())
+    }
+
     /// 刪除用戶（硬刪除）
     pub async fn delete(pool: &PgPool, id: Uuid) -> Result<()> {
         // 先刪除用戶的角色關聯

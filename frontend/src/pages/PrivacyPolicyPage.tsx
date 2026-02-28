@@ -83,14 +83,15 @@ export function PrivacyPolicyPage() {
             </section>
 
             <section>
-              <h3 className="text-base font-semibold text-slate-900 mb-2">六、使用者權利</h3>
-              <p>依據個人資料保護法，您享有以下權利：</p>
+              <h3 className="text-base font-semibold text-slate-900 mb-2">六、使用者權利（資料主體權利）</h3>
+              <p>依據個人資料保護法及 GDPR 精神，您享有以下權利：</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
+                <li><strong>存取權與可攜權：</strong>可透過系統「帳號設定」或 API <code className="text-xs bg-slate-100 px-1 rounded">GET /api/v1/me/export</code> 匯出您的個人資料（含帳號、偏好設定、通知設定），取得 JSON 格式複本。</li>
                 <li>查詢或請求閱覽您的個人資料</li>
                 <li>請求製給個人資料複本</li>
                 <li>請求補充或更正個人資料</li>
                 <li>請求停止蒐集、處理或利用個人資料</li>
-                <li>請求刪除個人資料（需符合法規保存義務之例外）</li>
+                <li><strong>刪除權：</strong>可透過 API <code className="text-xs bg-slate-100 px-1 rounded">DELETE /api/v1/me/account</code> 申請停用帳號（需重新輸入密碼確認）。帳號將軟刪除並登出所有裝置，如需恢復請聯絡管理員。依法規保存義務之資料仍可能保留。</li>
               </ul>
             </section>
 

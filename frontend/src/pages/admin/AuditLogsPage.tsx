@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2, History, Search, Eye, FileJson, ChevronLeft, ChevronRight, Download, FileText } from 'lucide-react'
+import type { User } from '@/types/auth'
 import type { UserActivityLog } from '@/types/hr'
 import { logger } from '@/lib/logger'
 
@@ -192,6 +193,7 @@ export function AuditLogsPage() {
   const [dateTo, setDateTo] = useState(getDefaultDateTo)
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [entityTypeFilter, setEntityTypeFilter] = useState<string>('all')
+  const [userFilter, setUserFilter] = useState<string>('all')
   const [selectedLog, setSelectedLog] = useState<UserActivityLog | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [isExporting, setIsExporting] = useState(false)
@@ -200,14 +202,23 @@ export function AuditLogsPage() {
   // 根據事件類別取得可選的實體類型
   const availableEntityTypes = categoryEntityMap[categoryFilter] || categoryEntityMap.all
 
+  const { data: users = [] } = useQuery({
+    queryKey: ['users-list-audit'],
+    queryFn: async () => {
+      const response = await api.get<User[]>('/users?per_page=500')
+      return response.data
+    },
+  })
+
   const { data: activityLogs, isLoading } = useQuery({
-    queryKey: ['audit-logs-activities', dateFrom, dateTo, categoryFilter, entityTypeFilter, currentPage],
+    queryKey: ['audit-logs-activities', dateFrom, dateTo, categoryFilter, entityTypeFilter, userFilter, currentPage],
     queryFn: async () => {
       const params = new URLSearchParams()
       if (dateFrom) params.set('from', dateFrom)
       if (dateTo) params.set('to', dateTo)
       if (categoryFilter !== 'all') params.set('event_category', categoryFilter)
       if (entityTypeFilter !== 'all') params.set('entity_type', entityTypeFilter)
+      if (userFilter !== 'all') params.set('user_id', userFilter)
       params.set('page', String(currentPage))
       params.set('per_page', String(perPage))
 
@@ -231,6 +242,10 @@ export function AuditLogsPage() {
     setEntityTypeFilter(val)
     setCurrentPage(1)
   }
+  const handleUserChange = (val: string) => {
+    setUserFilter(val)
+    setCurrentPage(1)
+  }
   const handleDateFromChange = (val: string) => {
     setDateFrom(val)
     setCurrentPage(1)
@@ -248,6 +263,7 @@ export function AuditLogsPage() {
     if (dateTo) params.set('to', dateTo)
     if (categoryFilter !== 'all') params.set('event_category', categoryFilter)
     if (entityTypeFilter !== 'all') params.set('entity_type', entityTypeFilter)
+    if (userFilter !== 'all') params.set('user_id', userFilter)
     return params.toString()
   }
 
@@ -390,7 +406,26 @@ export function AuditLogsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="space-y-2">
+              <Label>操作者</Label>
+              <Select
+                value={userFilter}
+                onValueChange={handleUserChange}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="全部操作者" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部操作者</SelectItem>
+                  {users.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.display_name || u.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label>事件類別</Label>
               <Select

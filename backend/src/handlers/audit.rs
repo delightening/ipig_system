@@ -1,10 +1,14 @@
-﻿// 擴展的審計 Handlers
+// 擴展的審計 Handlers
 // 包含：ActivityLogs, LoginEvents, Sessions, SecurityAlerts, Dashboard
 
 use axum::{
+    body::Body,
     extract::{Path, Query, State},
+    http::{header, StatusCode},
+    response::Response,
     Extension, Json,
 };
+use chrono::Utc;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -16,8 +20,9 @@ use crate::{
         ResolveAlertRequest, SecurityAlert, SecurityAlertQuery, SessionQuery, SessionWithUser,
         UserActivityLog,
     },
+    require_permission,
     services::AuditService,
-    AppState, Result,
+    AppError, AppState, Result,
 };
 
 // ============================================
@@ -87,6 +92,114 @@ pub async fn export_activity_logs(
 ) -> Result<Json<Vec<UserActivityLog>>> {
     let result = AuditService::export_activities(&state.db, &query).await?;
     Ok(Json(result))
+}
+
+/// 稽核日誌匯出 API（P1-M0）：合規稽核與外部系統整合
+/// GET /admin/audit-logs/export?format=csv|json&from=&to=&user_id=&event_category=&entity_type=
+#[derive(Debug, Deserialize)]
+pub struct AuditLogExportParams {
+    pub format: Option<String>,
+    pub from: Option<String>,
+    pub to: Option<String>,
+    #[serde(rename = "user_id")]
+    pub user_id: Option<Uuid>,
+    #[serde(rename = "event_category")]
+    pub event_category: Option<String>,
+    #[serde(rename = "entity_type")]
+    pub entity_type: Option<String>,
+}
+
+pub async fn export_audit_logs(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Query(params): Query<AuditLogExportParams>,
+) -> Result<Response> {
+    require_permission!(current_user, "audit.logs.export");
+
+    let format = params.format.as_deref().unwrap_or("json");
+    let from = params.from.as_ref().and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
+    let to = params.to.as_ref().and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
+    let from_str = params.from.as_deref().unwrap_or("all");
+    let to_str = params.to.as_deref().unwrap_or("all");
+
+    let query = ActivityLogQuery {
+        user_id: params.user_id,
+        event_category: params.event_category.clone(),
+        event_type: None,
+        entity_type: params.entity_type.clone(),
+        entity_id: None,
+        is_suspicious: None,
+        from,
+        to,
+        page: None,
+        per_page: None,
+    };
+
+    let logs = AuditService::export_activities(&state.db, &query).await?;
+
+    let ext = if format == "csv" { "csv" } else { "json" };
+    let filename = format!("audit_logs_{}_{}.{}", from_str, to_str, ext);
+
+    match format {
+        "csv" => {
+            let mut wtr = csv::Writer::from_writer(Vec::new());
+            wtr.write_record([
+                "時間",
+                "操作者",
+                "操作者信箱",
+                "類別",
+                "事件類型",
+                "實體類型",
+                "實體名稱",
+                "IP 位址",
+                "可疑",
+            ])
+            .map_err(|e| AppError::Internal(format!("CSV write error: {}", e)))?;
+            for log in &logs {
+                let created_at = log.created_at.with_timezone(&Utc).format("%Y-%m-%d %H:%M:%S").to_string();
+                let actor = log.actor_display_name.as_deref().unwrap_or("");
+                let email = log.actor_email.as_deref().unwrap_or("");
+                let entity_name = log.entity_display_name.as_deref().unwrap_or("");
+                let suspicious = if log.is_suspicious { "Y" } else { "N" };
+                wtr.write_record([
+                    created_at.as_str(),
+                    actor,
+                    email,
+                    log.event_category.as_str(),
+                    log.event_type.as_str(),
+                    log.entity_type.as_deref().unwrap_or(""),
+                    entity_name,
+                    log.ip_address.as_deref().unwrap_or(""),
+                    suspicious,
+                ])
+                .map_err(|e| AppError::Internal(format!("CSV write error: {}", e)))?;
+            }
+            let csv_bytes = wtr.into_inner().map_err(|e| AppError::Internal(format!("CSV write error: {:?}", e)))?;
+            let bom = "\u{FEFF}";
+            let body = format!("{}{}", bom, String::from_utf8_lossy(&csv_bytes));
+            Ok(Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, "text/csv; charset=utf-8")
+                .header(
+                    header::CONTENT_DISPOSITION,
+                    format!("attachment; filename=\"{}\"", filename),
+                )
+                .body(Body::from(body))
+                .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))?)
+        }
+        "json" | _ => {
+            let json_bytes = serde_json::to_vec(&logs).map_err(|e| AppError::Internal(format!("JSON serialize error: {}", e)))?;
+            Ok(Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, "application/json; charset=utf-8")
+                .header(
+                    header::CONTENT_DISPOSITION,
+                    format!("attachment; filename=\"{}\"", filename),
+                )
+                .body(Body::from(json_bytes))
+                .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))?)
+        }
+    }
 }
 
 /// 取得使用者活動時間線
