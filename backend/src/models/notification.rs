@@ -269,9 +269,13 @@ pub struct UpdateNotificationRoutingRequest {
     pub description: Option<String>,
 }
 
-/// 事件類型分類（含分類名稱與事件清單）
+/// 事件類型分類（含主要分組、子分類名稱與事件清單）
+/// group: AUP | Animal | ERP | HR，供前端分頁/分區顯示
 #[derive(Debug, Clone, Serialize)]
 pub struct EventTypeCategory {
+    /// 主要分組：AUP | Animal | ERP | HR
+    pub group: String,
+    /// 子分類顯示名稱
     pub category: String,
     pub event_types: Vec<EventTypeInfo>,
 }

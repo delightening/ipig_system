@@ -41,7 +41,12 @@ import {
     Mail,
     MessageSquare,
     Radio,
+    FileCheck,
+    PawPrint,
+    Package,
+    Users,
 } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { getApiErrorMessage } from '@/lib/validation'
@@ -67,6 +72,7 @@ interface EventTypeInfo {
 }
 
 interface EventTypeCategory {
+    group: string
     category: string
     event_types: EventTypeInfo[]
 }
@@ -166,6 +172,29 @@ export function NotificationRoutingPage() {
         })
         return map
     }, [eventCategories])
+
+    // 建立事件類型 code → 分組 (AUP | Animal | ERP | HR) 的 map
+    const eventGroupMap = useMemo(() => {
+        const map: Record<string, string> = {}
+        eventCategories?.forEach((cat) => {
+            cat.event_types.forEach((et) => {
+                map[et.code] = cat.group
+            })
+        })
+        return map
+    }, [eventCategories])
+
+    // 依分組整理規則：AUP | Animal | ERP | HR
+    const rulesByGroup = useMemo(() => {
+        if (!rules) return { AUP: [], Animal: [], ERP: [], HR: [] }
+        const groups: Record<string, NotificationRouting[]> = { AUP: [], Animal: [], ERP: [], HR: [] }
+        rules.forEach((rule) => {
+            const group = eventGroupMap[rule.event_type] || 'AUP'
+            if (groups[group]) groups[group].push(rule)
+            else groups.AUP.push(rule) // 未知事件歸 AUP
+        })
+        return groups
+    }, [rules, eventGroupMap])
 
     // 建立角色 code → 名稱的 map
     const roleNameMap = useMemo(() => {
@@ -317,77 +346,105 @@ export function NotificationRoutingPage() {
                 </Button>
             </div>
 
-            {/* 規則列表 Table */}
-            <div className="rounded-md border">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className="w-[200px]">事件類型</TableHead>
-                            <TableHead className="w-[140px]">通知角色</TableHead>
-                            <TableHead className="w-[160px]">通知管道</TableHead>
-                            <TableHead className="w-[80px] text-center">啟用</TableHead>
-                            <TableHead>描述</TableHead>
-                            <TableHead className="w-[100px] text-right">操作</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {rules && rules.length > 0 ? (
-                            rules.map((rule) => (
-                                <TableRow key={rule.id} className={!rule.is_active ? 'opacity-50' : ''}>
-                                    <TableCell>
-                                        <div className="flex items-center gap-2">
-                                            <Bell className="h-4 w-4 text-blue-500 shrink-0" />
-                                            <div>
-                                                <div className="font-medium">
-                                                    {eventNameMap[rule.event_type] || rule.event_type}
-                                                </div>
-                                                <div className="text-xs text-muted-foreground font-mono">
-                                                    {rule.event_type}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline">
-                                            {roleNameMap[rule.role_code] || rule.role_code}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                        <ChannelBadge channel={rule.channel} />
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                        <Switch
-                                            checked={rule.is_active}
-                                            onCheckedChange={(checked) =>
-                                                toggleActiveMutation.mutate({ id: rule.id, is_active: checked })
-                                            }
-                                        />
-                                    </TableCell>
-                                    <TableCell className="text-sm text-muted-foreground">
-                                        {rule.description || '—'}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex justify-end gap-1">
-                                            <Button variant="ghost" size="icon" onClick={() => handleEdit(rule)} aria-label="編輯">
-                                                <Pencil className="h-4 w-4" />
-                                            </Button>
-                                            <Button variant="ghost" size="icon" onClick={() => handleDelete(rule)} aria-label="刪除">
-                                                <Trash2 className="h-4 w-4 text-red-500" />
-                                            </Button>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        ) : (
-                            <TableRow>
-                                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                                    尚無通知路由規則
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-            </div>
+            {/* 規則列表：依 AUP / Animal / ERP / HR 分組顯示 */}
+            <Tabs defaultValue="AUP" className="w-full">
+                <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
+                    <TabsTrigger value="AUP" className="flex items-center gap-2">
+                        <FileCheck className="h-4 w-4" />
+                        AUP
+                        <Badge variant="secondary" className="ml-1">{rulesByGroup.AUP.length}</Badge>
+                    </TabsTrigger>
+                    <TabsTrigger value="Animal" className="flex items-center gap-2">
+                        <PawPrint className="h-4 w-4" />
+                        Animal
+                        <Badge variant="secondary" className="ml-1">{rulesByGroup.Animal.length}</Badge>
+                    </TabsTrigger>
+                    <TabsTrigger value="ERP" className="flex items-center gap-2">
+                        <Package className="h-4 w-4" />
+                        ERP
+                        <Badge variant="secondary" className="ml-1">{rulesByGroup.ERP.length}</Badge>
+                    </TabsTrigger>
+                    <TabsTrigger value="HR" className="flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        HR
+                        <Badge variant="secondary" className="ml-1">{rulesByGroup.HR.length}</Badge>
+                    </TabsTrigger>
+                </TabsList>
+                {(['AUP', 'Animal', 'ERP', 'HR'] as const).map((groupKey) => (
+                    <TabsContent key={groupKey} value={groupKey} className="mt-4">
+                        <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="w-[200px]">事件類型</TableHead>
+                                        <TableHead className="w-[140px]">通知角色</TableHead>
+                                        <TableHead className="w-[160px]">通知管道</TableHead>
+                                        <TableHead className="w-[80px] text-center">啟用</TableHead>
+                                        <TableHead>描述</TableHead>
+                                        <TableHead className="w-[100px] text-right">操作</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {rulesByGroup[groupKey].length > 0 ? (
+                                        rulesByGroup[groupKey].map((rule) => (
+                                            <TableRow key={rule.id} className={!rule.is_active ? 'opacity-50' : ''}>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <Bell className="h-4 w-4 text-blue-500 shrink-0" />
+                                                        <div>
+                                                            <div className="font-medium">
+                                                                {eventNameMap[rule.event_type] || rule.event_type}
+                                                            </div>
+                                                            <div className="text-xs text-muted-foreground font-mono">
+                                                                {rule.event_type}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge variant="outline">
+                                                        {roleNameMap[rule.role_code] || rule.role_code}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <ChannelBadge channel={rule.channel} />
+                                                </TableCell>
+                                                <TableCell className="text-center">
+                                                    <Switch
+                                                        checked={rule.is_active}
+                                                        onCheckedChange={(checked) =>
+                                                            toggleActiveMutation.mutate({ id: rule.id, is_active: checked })
+                                                        }
+                                                    />
+                                                </TableCell>
+                                                <TableCell className="text-sm text-muted-foreground">
+                                                    {rule.description || '—'}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <div className="flex justify-end gap-1">
+                                                        <Button variant="ghost" size="icon" onClick={() => handleEdit(rule)} aria-label="編輯">
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button variant="ghost" size="icon" onClick={() => handleDelete(rule)} aria-label="刪除">
+                                                            <Trash2 className="h-4 w-4 text-red-500" />
+                                                        </Button>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                                                此分類尚無通知路由規則，可點擊「新增規則」建立
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </TabsContent>
+                ))}
+            </Tabs>
 
             {/* 新增規則 Dialog */}
             <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
@@ -399,7 +456,7 @@ export function NotificationRoutingPage() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
-                        {/* 事件類型（分類 grouped select） */}
+                        {/* 事件類型（依 AUP / Animal / ERP / HR 分組） */}
                         <div className="space-y-2">
                             <Label>事件類型 *</Label>
                             <Select
@@ -411,8 +468,10 @@ export function NotificationRoutingPage() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     {eventCategories?.map((cat) => (
-                                        <SelectGroup key={cat.category}>
-                                            <SelectLabel>{cat.category}</SelectLabel>
+                                        <SelectGroup key={`${cat.group}-${cat.category}`}>
+                                            <SelectLabel className="font-medium">
+                                                {cat.group} — {cat.category}
+                                            </SelectLabel>
                                             {cat.event_types.map((et) => (
                                                 <SelectItem key={et.code} value={et.code}>
                                                     {et.name}

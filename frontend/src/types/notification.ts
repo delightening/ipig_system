@@ -105,8 +105,9 @@ export interface EventTypeInfo {
     name: string
 }
 
-/** 事件類型分類 */
+/** 事件類型分類（含主要分組 AUP | Animal | ERP | HR） */
 export interface EventTypeCategory {
+    group: string
     category: string
     event_types: EventTypeInfo[]
 }
