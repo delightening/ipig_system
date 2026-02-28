@@ -32,10 +32,11 @@ import {
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
-import { Plus, Search, Edit, Trash2, Loader2, Users } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Loader2, Users, Upload, Download } from 'lucide-react'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { TableSkeleton } from '@/components/ui/table-skeleton'
+import { PartnerImportDialog } from '@/components/partner/PartnerImportDialog'
 
 export function PartnersPage() {
   const queryClient = useQueryClient()
@@ -44,6 +45,7 @@ export function PartnersPage() {
   const debouncedSearch = useDebounce(search, 400)
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [showImportDialog, setShowImportDialog] = useState(false)
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null)
   const [formData, setFormData] = useState({
     partner_type: 'supplier' as 'supplier' | 'customer',
@@ -250,6 +252,49 @@ export function PartnersPage() {
     }
   }
 
+  const formatPartnerType = (t: string) => (t === 'supplier' ? '供應商' : '客戶')
+  const formatSupplierCategory = (c?: string) => {
+    const map: Record<string, string> = { drug: '藥物', consumable: '耗材', feed: '飼料', equipment: '儀器' }
+    return c ? (map[c] || c) : ''
+  }
+  const formatCustomerCategory = (c?: string) => {
+    const map: Record<string, string> = { internal: '內部單位', external: '外部客戶', research: '研究計畫', other: '其他' }
+    return c ? (map[c] || c) : ''
+  }
+
+  const handleExportCSV = () => {
+    if (!partners || partners.length === 0) {
+      toast({ title: '無資料可匯出', description: '請先新增夥伴', variant: 'destructive' })
+      return
+    }
+    const headers = ['類型', '代碼', '名稱', '供應商類別', '客戶分類', '統編', '電話', 'Email', '地址', '狀態']
+    const rows = partners.map(p => {
+      const ext = p as Partner & { supplier_category?: string }
+      return [
+        formatPartnerType(p.partner_type),
+        p.code,
+        p.name,
+        formatSupplierCategory(ext.supplier_category),
+        formatCustomerCategory(p.customer_category),
+        p.tax_id || '',
+        p.phone || '',
+        p.email || '',
+        p.address || '',
+        p.is_active ? '啟用' : '停用',
+      ]
+    })
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `partners_${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+    URL.revokeObjectURL(link.href)
+    toast({ title: '匯出成功', description: `已匯出 ${partners.length} 筆夥伴` })
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -257,10 +302,25 @@ export function PartnersPage() {
           <h1 className="text-3xl font-bold tracking-tight">供應商/客戶管理</h1>
           <p className="text-muted-foreground">管理系統中的供應商與客戶資料</p>
         </div>
-        <Button onClick={() => { resetForm(); setDialogOpen(true) }}>
-          <Plus className="mr-2 h-4 w-4" />
-          新增夥伴
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
+            <Upload className="mr-2 h-4 w-4" />
+            匯入
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCSV}
+            disabled={!partners || partners.length === 0}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            匯出
+          </Button>
+          <Button onClick={() => { resetForm(); setDialogOpen(true) }}>
+            <Plus className="mr-2 h-4 w-4" />
+            新增夥伴
+          </Button>
+        </div>
       </div>
 
       <div className="flex gap-4">
@@ -512,6 +572,7 @@ export function PartnersPage() {
         </DialogContent>
       </Dialog>
       <ConfirmDialog state={dialogState} />
+      <PartnerImportDialog open={showImportDialog} onOpenChange={setShowImportDialog} />
     </div>
   )
 }

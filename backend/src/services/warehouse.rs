@@ -1,8 +1,13 @@
+use calamine::{open_workbook_from_rs, Data, Reader, Xls, Xlsx};
 use sqlx::PgPool;
+use std::io::Cursor;
 use uuid::Uuid;
 
 use crate::{
-    models::{CreateWarehouseRequest, PaginationParams, UpdateWarehouseRequest, Warehouse, WarehouseQuery},
+    models::{
+        CreateWarehouseRequest, PaginationParams, UpdateWarehouseRequest, Warehouse,
+        WarehouseImportErrorDetail, WarehouseImportResult, WarehouseImportRow, WarehouseQuery,
+    },
     AppError, Result,
 };
 
@@ -68,13 +73,14 @@ impl WarehouseService {
         let warehouse = sqlx::query_as::<_, Warehouse>(
             r#"
             INSERT INTO warehouses (id, code, name, address, is_active, created_at, updated_at)
-            VALUES ($1, $2, $3, NULL, true, NOW(), NOW())
+            VALUES ($1, $2, $3, $4, true, NOW(), NOW())
             RETURNING *
             "#,
         )
         .bind(Uuid::new_v4())
         .bind(&code)
         .bind(&req.name)
+        .bind(&req.address)
         .fetch_one(pool)
         .await?;
 
@@ -166,5 +172,208 @@ impl WarehouseService {
         }
 
         Ok(())
+    }
+
+    // ============================================
+    // 倉庫匯入
+    // ============================================
+
+    /// 匯入倉庫（CSV 或 Excel）
+    pub async fn import_warehouses(
+        pool: &PgPool,
+        file_data: &[u8],
+        file_name: &str,
+    ) -> Result<WarehouseImportResult> {
+        let is_excel = file_name.ends_with(".xlsx") || file_name.ends_with(".xls");
+        let is_csv = file_name.ends_with(".csv");
+
+        if !is_excel && !is_csv {
+            return Err(AppError::Validation(
+                "不支援的檔案格式，請使用 Excel (.xlsx, .xls) 或 CSV 格式".to_string(),
+            ));
+        }
+
+        let rows = if is_excel {
+            Self::parse_warehouse_excel(file_data)?
+        } else {
+            Self::parse_warehouse_csv(file_data)?
+        };
+
+        if rows.is_empty() {
+            return Err(AppError::Validation("檔案中沒有資料".to_string()));
+        }
+
+        let mut success_count = 0;
+        let mut error_count = 0;
+        let mut errors = Vec::new();
+
+        for (index, row) in rows.iter().enumerate() {
+            let row_number = (index + 2) as i32;
+
+            if row.name.trim().is_empty() {
+                errors.push(WarehouseImportErrorDetail {
+                    row: row_number,
+                    code: None,
+                    error: "名稱為必填欄位".to_string(),
+                });
+                error_count += 1;
+                continue;
+            }
+
+            let create_req = CreateWarehouseRequest {
+                code: row.code.clone().filter(|s| !s.trim().is_empty()),
+                name: row.name.trim().to_string(),
+                address: row.address.clone().filter(|s| !s.trim().is_empty()),
+            };
+
+            match Self::create(pool, &create_req).await {
+                Ok(_warehouse) => {
+                    success_count += 1;
+                }
+                Err(e) => {
+                    errors.push(WarehouseImportErrorDetail {
+                        row: row_number,
+                        code: row.code.clone(),
+                        error: format!("建立失敗: {}", e),
+                    });
+                    error_count += 1;
+                }
+            }
+        }
+
+        Ok(WarehouseImportResult {
+            success_count,
+            error_count,
+            errors,
+        })
+    }
+
+    fn parse_warehouse_csv(file_data: &[u8]) -> Result<Vec<WarehouseImportRow>> {
+        let content = String::from_utf8_lossy(file_data);
+        let mut reader = csv::ReaderBuilder::new()
+            .trim(csv::Trim::All)
+            .flexible(true)
+            .from_reader(content.as_bytes());
+
+        let mut rows = Vec::new();
+        for (i, result) in reader.records().enumerate() {
+            let record = result.map_err(|e| AppError::Validation(format!("CSV 解析錯誤第 {} 行: {}", i + 2, e)))?;
+            if record.len() < 1 {
+                continue;
+            }
+            let name = record.get(0).unwrap_or("").to_string();
+            if name.trim().is_empty() {
+                continue;
+            }
+            let code = record.get(1).filter(|s| !s.trim().is_empty()).map(String::from);
+            let address = record.get(2).filter(|s| !s.trim().is_empty()).map(String::from);
+
+            rows.push(WarehouseImportRow {
+                name,
+                code,
+                address,
+            });
+        }
+        Ok(rows)
+    }
+
+    fn parse_warehouse_excel(file_data: &[u8]) -> Result<Vec<WarehouseImportRow>> {
+        let range = {
+            let cursor = Cursor::new(file_data);
+            if let Ok(mut wb) = open_workbook_from_rs::<Xlsx<_>, _>(cursor) {
+                let sheet_name = wb.sheet_names().first().cloned().ok_or_else(|| {
+                    AppError::Validation("Excel 檔案中沒有工作表".to_string())
+                })?;
+                wb.worksheet_range(&sheet_name)
+                    .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
+            } else {
+                let cursor = Cursor::new(file_data);
+                let mut wb = open_workbook_from_rs::<Xls<_>, _>(cursor).map_err(|_| {
+                    AppError::Validation("無法讀取 Excel 檔案，請使用 .xlsx 或 .xls 格式".to_string())
+                })?;
+                let sheet_name = wb.sheet_names().first().cloned().ok_or_else(|| {
+                    AppError::Validation("Excel 檔案中沒有工作表".to_string())
+                })?;
+                wb.worksheet_range(&sheet_name)
+                    .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
+            }
+        };
+
+        let mut rows = Vec::new();
+        let mut iter = range.rows();
+        iter.next(); // 跳過標題
+
+        for row in iter {
+            if row.len() < 1 {
+                continue;
+            }
+            let name = Self::get_cell_string(row.first());
+            if name.trim().is_empty() {
+                continue;
+            }
+            let code = {
+                let s = Self::get_cell_string(row.get(1));
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
+            };
+            let address = {
+                let s = Self::get_cell_string(row.get(2));
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
+            };
+
+            rows.push(WarehouseImportRow {
+                name,
+                code,
+                address,
+            });
+        }
+        Ok(rows)
+    }
+
+    fn get_cell_string(cell: Option<&Data>) -> String {
+        cell.map(|c| match c {
+            Data::String(s) => s.clone(),
+            Data::Float(f) => f.to_string(),
+            Data::Int(i) => i.to_string(),
+            Data::Bool(b) => b.to_string(),
+            Data::DateTime(dt) => format!("{:?}", dt),
+            _ => String::new(),
+        })
+        .unwrap_or_default()
+    }
+
+    /// 產生倉庫匯入模板
+    pub fn generate_import_template() -> Result<Vec<u8>> {
+        use rust_xlsxwriter::{Format, FormatAlign, Workbook};
+
+        let mut workbook = Workbook::new();
+        let header_format = Format::new()
+            .set_bold()
+            .set_background_color("#4472C4")
+            .set_font_color("#FFFFFF")
+            .set_align(FormatAlign::Center);
+
+        let worksheet = workbook.add_worksheet();
+        worksheet.set_column_width(0, 25.0)?;
+        worksheet.set_column_width(1, 15.0)?;
+        worksheet.set_column_width(2, 40.0)?;
+
+        worksheet.write_string_with_format(0, 0, "名稱*", &header_format)?;
+        worksheet.write_string_with_format(0, 1, "代碼", &header_format)?;
+        worksheet.write_string_with_format(0, 2, "地址", &header_format)?;
+
+        worksheet.write_string(1, 0, "範例倉庫")?;
+        worksheet.write_string(1, 1, "WH001")?;
+        worksheet.write_string(1, 2, "")?;
+
+        worksheet.set_freeze_panes(1, 0)?;
+        Ok(workbook.save_to_buffer()?)
     }
 }

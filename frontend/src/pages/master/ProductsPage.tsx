@@ -51,6 +51,7 @@ import {
 } from 'lucide-react'
 import { formatNumber, cn, UOM_MAP } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
+import { ProductImportDialog } from '@/components/product/ProductImportDialog'
 
 // 品類定義
 const CATEGORIES = [
@@ -157,6 +158,7 @@ export function ProductsPage() {
   const [statusAction, setStatusAction] = useState<'activate' | 'deactivate' | 'discontinue'>('activate')
   const [targetProduct, setTargetProduct] = useState<ExtendedProduct | null>(null)
   const [batchStatusDialogOpen, setBatchStatusDialogOpen] = useState(false)
+  const [showImportDialog, setShowImportDialog] = useState(false)
 
   // 取得子類列表
   const subcategories = useMemo(() => {
@@ -331,6 +333,37 @@ export function ProductsPage() {
     )} />
   )
 
+  // 匯出 CSV
+  const handleExportCSV = () => {
+    if (products.length === 0) {
+      toast({ title: '無資料可匯出', description: '請先篩選或新增產品', variant: 'destructive' })
+      return
+    }
+    const headers = ['SKU', '名稱', '規格', '品類', '子類', '單位', '安全庫存', '追蹤批號', '追蹤效期', '狀態']
+    const rows = products.map(p => [
+      p.sku,
+      p.name,
+      p.spec || '',
+      p.category_code || '',
+      p.subcategory_code || '',
+      UOM_MAP[p.base_uom] || p.base_uom,
+      p.safety_stock?.toString() ?? '',
+      p.track_batch ? '是' : '否',
+      p.track_expiry ? '是' : '否',
+      p.is_active ? '啟用' : '停用',
+    ])
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `products_${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+    URL.revokeObjectURL(link.href)
+    toast({ title: '匯出成功', description: `已匯出 ${products.length} 筆產品` })
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -340,11 +373,16 @@ export function ProductsPage() {
           <p className="text-muted-foreground">管理系統中的產品/品項資料</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled>
+          <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
             <Upload className="mr-2 h-4 w-4" />
             匯入
           </Button>
-          <Button variant="outline" size="sm" disabled>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCSV}
+            disabled={products.length === 0}
+          >
             <Download className="mr-2 h-4 w-4" />
             匯出
           </Button>
@@ -510,7 +548,37 @@ export function ProductsPage() {
             <PowerOff className="mr-2 h-4 w-4" />
             批次停用
           </Button>
-          <Button variant="outline" size="sm" disabled>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const toExport = products.filter(p => selectedIds.has(p.id))
+              if (toExport.length === 0) return
+              const headers = ['SKU', '名稱', '規格', '品類', '子類', '單位', '安全庫存', '追蹤批號', '追蹤效期', '狀態']
+              const rows = toExport.map(p => [
+                p.sku,
+                p.name,
+                p.spec || '',
+                (p as ExtendedProduct).category_code || '',
+                (p as ExtendedProduct).subcategory_code || '',
+                UOM_MAP[p.base_uom] || p.base_uom,
+                p.safety_stock?.toString() ?? '',
+                p.track_batch ? '是' : '否',
+                p.track_expiry ? '是' : '否',
+                p.is_active ? '啟用' : '停用',
+              ])
+              const csvContent = [headers, ...rows]
+                .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+                .join('\n')
+              const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+              const link = document.createElement('a')
+              link.href = URL.createObjectURL(blob)
+              link.download = `products_selected_${new Date().toISOString().split('T')[0]}.csv`
+              link.click()
+              URL.revokeObjectURL(link.href)
+              toast({ title: '匯出成功', description: `已匯出 ${toExport.length} 筆產品` })
+            }}
+          >
             <Download className="mr-2 h-4 w-4" />
             批次匯出
           </Button>
@@ -914,6 +982,9 @@ export function ProductsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 產品匯入對話框 */}
+      <ProductImportDialog open={showImportDialog} onOpenChange={setShowImportDialog} />
     </div>
   )
 }

@@ -78,6 +78,14 @@ pub fn api_routes(state: AppState) -> Router {
             get(handlers::list_warehouses).post(handlers::create_warehouse),
         )
         .route(
+            "/warehouses/import",
+            post(handlers::import_warehouses),
+        )
+        .route(
+            "/warehouses/import/template",
+            get(handlers::download_warehouse_import_template),
+        )
+        .route(
             "/warehouses/:id",
             get(handlers::get_warehouse)
                 .put(handlers::update_warehouse)
@@ -122,6 +130,14 @@ pub fn api_routes(state: AppState) -> Router {
             get(handlers::list_products).post(handlers::create_product),
         )
         .route(
+            "/products/import",
+            post(handlers::import_products),
+        )
+        .route(
+            "/products/import/template",
+            get(handlers::download_product_import_template),
+        )
+        .route(
             "/products/:id",
             get(handlers::get_product)
                 .put(handlers::update_product)
@@ -148,6 +164,14 @@ pub fn api_routes(state: AppState) -> Router {
         .route(
             "/partners",
             get(handlers::list_partners).post(handlers::create_partner),
+        )
+        .route(
+            "/partners/import",
+            post(handlers::import_partners),
+        )
+        .route(
+            "/partners/import/template",
+            get(handlers::download_partner_import_template),
         )
         .route(
             "/partners/generate-code",

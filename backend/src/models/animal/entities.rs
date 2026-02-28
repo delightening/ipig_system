@@ -74,9 +74,13 @@ pub struct AnimalObservation {
     pub remark: Option<String>,
     pub vet_read: bool,
     pub vet_read_at: Option<DateTime<Utc>>,
-    pub created_by: Option<Uuid>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    // 軟刪除（SELECT/RETURNING 需對應，FromRow 不允許多餘欄位）
+    #[sqlx(default)]
+    pub deleted_at: Option<DateTime<Utc>>,
+    #[sqlx(default)]
+    pub deletion_reason: Option<String>,
+    #[sqlx(default)]
+    pub deleted_by: Option<Uuid>,
     // 緊急給藥相關欄位
     #[sqlx(default)]
     pub is_emergency: Option<bool>,
@@ -88,6 +92,12 @@ pub struct AnimalObservation {
     pub reviewed_by: Option<Uuid>,
     #[sqlx(default)]
     pub reviewed_at: Option<DateTime<Utc>>,
+    pub created_by: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    // Optimistic locking (migration 014)
+    #[sqlx(default)]
+    pub version: Option<i32>,
 }
 
 /// 手術紀錄

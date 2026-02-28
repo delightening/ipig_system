@@ -1,4 +1,4 @@
-﻿use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -20,7 +20,7 @@ impl AnimalService {
         after: Option<DateTime<Utc>>,
     ) -> Result<Vec<AnimalSurgery>> {
         let surgeries = sqlx::query_as::<_, AnimalSurgery>(
-            "SELECT * FROM animal_surgeries WHERE animal_id = $1 AND ($2::timestamptz IS NULL OR created_at > $2) ORDER BY surgery_date DESC"
+            "SELECT * FROM animal_surgeries WHERE animal_id = $1 AND deleted_at IS NULL AND ($2::timestamptz IS NULL OR created_at > $2) ORDER BY surgery_date DESC"
         )
         .bind(animal_id)
         .bind(after)
@@ -44,7 +44,7 @@ impl AnimalService {
                 s.created_by, s.created_at,
                 (SELECT COUNT(*) FROM vet_recommendations vr WHERE vr.record_type = 'surgery'::vet_record_type AND vr.record_id = s.id) as recommendation_count
             FROM animal_surgeries s
-            WHERE s.animal_id = $1 AND ($2::timestamptz IS NULL OR s.created_at > $2)
+            WHERE s.animal_id = $1 AND s.deleted_at IS NULL AND ($2::timestamptz IS NULL OR s.created_at > $2)
             ORDER BY s.surgery_date DESC
             "#
         )

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getErrorMessage } from '@/types/error'
 import { logger } from '@/lib/logger'
@@ -97,9 +97,18 @@ const getPenLocationDisplay = (animal: { status: AnimalStatus; pen_location?: st
 
 type TabType = 'timeline' | 'observations' | 'surgeries' | 'weights' | 'vaccinations' | 'sacrifice' | 'info' | 'pathology' | 'blood_tests' | 'pain_assessment' | 'transfer'
 
+const VALID_TABS: TabType[] = ['timeline', 'observations', 'surgeries', 'weights', 'vaccinations', 'sacrifice', 'info', 'pathology', 'blood_tests', 'pain_assessment', 'transfer']
+
+function parseTabFromUrl(tabParam: string | null, animalStatus?: AnimalStatus): TabType {
+  if (!tabParam || !VALID_TABS.includes(tabParam as TabType)) return 'timeline'
+  if (tabParam === 'transfer' && animalStatus !== 'completed' && animalStatus !== 'transferred') return 'timeline'
+  return tabParam as TabType
+}
+
 export function AnimalDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { dialogState, confirm } = useConfirmDialog()
   const { t } = useTranslation()
@@ -109,7 +118,8 @@ export function AnimalDetailPage() {
   const { hasRole } = useAuthStore()
   const { developerMode, toggleDeveloperMode } = useUIPreferences()
 
-  const [activeTab, setActiveTab] = useState<TabType>('timeline')
+  // tabs 定義在 animal 查詢之後，先建立 activeTab 的來源（需從 URL 解析，但 animal 尚未載入時用預設）
+  const tabParam = searchParams.get('tab')
 
   const [showExportDialog, setShowExportDialog] = useState(false)
   const [showEmergencyMedicationDialog, setShowEmergencyMedicationDialog] = useState(false)
@@ -136,6 +146,17 @@ export function AnimalDetailPage() {
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   })
+
+  // activeTab 由 URL ?tab= 決定，切換 tab 時更新 URL（timeline 為預設，不顯示 ?tab=）
+  const activeTab = parseTabFromUrl(tabParam, animal?.status)
+  const setActiveTab = useCallback((tab: TabType) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (tab === 'timeline') next.delete('tab')
+      else next.set('tab', tab)
+      return next
+    })
+  }, [setSearchParams])
 
   // 資料隔離界線查詢
   const { data: dataBoundary } = useQuery({
@@ -339,7 +360,7 @@ export function AnimalDetailPage() {
 
   const handleTimelineAction = useCallback((type: string) => {
     setActiveTab(type === 'observation' ? 'observations' : 'surgeries')
-  }, [])
+  }, [setActiveTab])
 
   if (animalLoading) {
     return (
