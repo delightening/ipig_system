@@ -59,6 +59,12 @@ pub struct User {
     pub aup_roles: Vec<String>,
     pub years_experience: i32,
     pub trainings: sqlx::types::Json<Vec<UserTraining>>,
+    // TOTP 2FA
+    pub totp_enabled: bool,
+    #[serde(skip_serializing)]
+    pub totp_secret_encrypted: Option<String>,
+    #[serde(skip_serializing)]
+    pub totp_backup_codes: Option<Vec<String>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -180,6 +186,7 @@ pub struct UserResponse {
     pub trainings: Vec<UserTraining>,
     pub roles: Vec<String>,
     pub permissions: Vec<String>,
+    pub totp_enabled: bool,
 }
 
 /// 使用者偏好設定請求
@@ -200,6 +207,48 @@ pub struct AccountLockStatus {
 /// 登入失敗常數
 pub const MAX_LOGIN_ATTEMPTS: i32 = 5;
 pub const LOCK_DURATION_MINUTES: i64 = 15;
+
+// ============================================
+// 2FA TOTP Models
+// ============================================
+
+/// 登入時若 2FA 啟用，回傳此結構要求前端輸入 TOTP
+#[derive(Debug, Serialize, ToSchema)]
+pub struct TwoFactorRequiredResponse {
+    pub requires_2fa: bool,
+    pub temp_token: String,
+}
+
+/// 2FA 登入驗證請求
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+pub struct TwoFactorLoginRequest {
+    pub temp_token: String,
+    #[validate(length(min = 6, max = 8, message = "驗證碼為 6~8 碼"))]
+    pub code: String,
+}
+
+/// 2FA 設定回應（含 otpauth URI 和備用碼）
+#[derive(Debug, Serialize, ToSchema)]
+pub struct TwoFactorSetupResponse {
+    pub otpauth_uri: String,
+    pub backup_codes: Vec<String>,
+}
+
+/// 2FA 確認啟用請求
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+pub struct TwoFactorConfirmRequest {
+    #[validate(length(equal = 6, message = "驗證碼必須為 6 碼"))]
+    pub code: String,
+}
+
+/// 2FA 停用請求
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+pub struct TwoFactorDisableRequest {
+    #[validate(length(min = 1, message = "請輸入密碼"))]
+    pub password: String,
+    #[validate(length(min = 6, max = 8, message = "驗證碼為 6~8 碼"))]
+    pub code: String,
+}
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct RefreshTokenRequest {

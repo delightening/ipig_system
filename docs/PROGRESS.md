@@ -49,11 +49,40 @@
 | **文件** | 使用者手冊 v2.0 ✅（9 章節完整操作手冊）, Swagger ≥90% ✅, 核心模組註解 ✅ | Swagger ≥90%、完整操作手冊 | ✅ |
 | **UX / 相容性** | 錯誤處理 UX 統一 ✅, 跨瀏覽器基礎驗證 ✅ | 瀏覽器相容性測試 + 錯誤 UX 統一 | ✅ |
 
-**上線準備度估算：99%+（核心功能完整、18 項品質補強全數完成，剩餘 Storybook/2FA/WAF 為長期演進）**
+**上線準備度估算：100%（核心功能完整、所有品質補強全數完成，Storybook + 2FA + WAF 長期演進項目亦已交付）**
 
 ---
 
 ## 9. 最新變更動態
+
+### 2026-02-28 最終 3 項 P5 待辦全數完成（全部功能零缺口）
+
+**P5-13 前端元件庫文件化（Storybook 10）：**
+- ✅ **15 個 Stories**：7 個既有（Button/Badge/Card/Checkbox/Input/Skeleton/Switch）+ 8 個新增（Select/Dialog/Slider/Tabs/AlertDialog/FormField/LoadingOverlay/Textarea）
+- ✅ 每個 Story 包含 Default + 多種 variant/use case（繁中標籤）
+- ✅ `npx storybook build` 成功編譯
+- 📁 **產出**：8 個新 `.stories.tsx` 檔案
+
+**P5-15 SEC-39 Two-Factor Authentication (TOTP)：**
+- ✅ **DB Migration**：`016_totp_2fa.sql` 新增 `totp_enabled`/`totp_secret_encrypted`/`totp_backup_codes` 三欄位
+- ✅ **後端依賴**：`totp-rs` v5（gen_secret + otpauth + qr features）
+- ✅ **後端 API 4 個端點**：
+  - `POST /auth/2fa/setup`（產生 TOTP secret + otpauth URI + 10 組備用碼）
+  - `POST /auth/2fa/confirm`（驗證第一次 code 正式啟用 2FA）
+  - `POST /auth/2fa/disable`（需密碼 + code 雙重驗證）
+  - `POST /auth/2fa/verify`（temp_token + TOTP code 完成 2FA 登入，支援備用碼）
+- ✅ **登入流程改造**：`AuthService::validate_credentials()` 分離密碼驗證；密碼通過後若 `totp_enabled=true` 回傳 `TwoFactorRequiredResponse` + temp JWT（5 分鐘）
+- ✅ **前端 Login 頁面**：密碼驗證後自動切換至 TOTP 輸入畫面（6 碼大字型 + 備用碼支援），支援返回
+- ✅ **前端 ProfileSettingsPage**：`TwoFactorSetup` 元件 — QR Code 掃描設定（qrcode.react）+ 備用碼顯示/複製 + 停用 Dialog
+- ✅ **前端 auth store**：新增 `verify2FA` action，login 偵測 `requires_2fa` 回應
+- 📁 **產出**：1 migration + 2 後端檔案 + 5 前端檔案修改/新增
+
+**P5-16 SEC-40 Web Application Firewall：**
+- ✅ **`docker-compose.waf.yml`**：OWASP ModSecurity CRS v4 nginx-alpine overlay，預設偵測模式
+- ✅ **iPig 自訂排除規則**：JSON Content-Type / 密碼欄位 / TOTP code / 富文本 / 檔案上傳 5 項排除
+- ✅ **WAF 文件**：`docs/WAF.md`（架構/啟用/保護範圍/排除規則/日誌分析/Paranoia Level/生產注意事項）
+- ✅ 啟用方式：`docker compose -f docker-compose.yml -f docker-compose.waf.yml up -d`
+- 📁 **產出**：1 overlay + 2 排除規則 conf + 1 文件
 
 ### 2026-02-28 系統設定頁面全端串接 + 通知路由 UI 改善
 - ✅ **後端 System Settings API**：新增 `GET/PUT /api/admin/system-settings`（admin only），利用既有 `system_settings` 資料表

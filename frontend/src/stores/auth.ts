@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import api, { User, LoginResponse } from '@/lib/api'
+import api, { User, LoginResponse, TwoFactorRequiredResponse } from '@/lib/api'
 
 interface AuthState {
   user: User | null
@@ -11,6 +11,7 @@ interface AuthState {
   /** Session 到期的 Unix 時間戳（ms），供逾時預警使用 */
   sessionExpiresAt: number | null
   login: (email: string, password: string) => Promise<void>
+  verify2FA: (tempToken: string, code: string) => Promise<void>
   logout: () => Promise<void>
   /** 僅清除前端 auth 狀態（不呼叫後端），供 interceptor 在 token 失效時使用 */
   clearAuth: () => void
@@ -37,13 +38,39 @@ export const useAuthStore = create<AuthState>()(
       login: async (email: string, password: string) => {
         set({ isLoading: true })
         try {
-          const response = await api.post<LoginResponse>('/auth/login', {
+          const response = await api.post<LoginResponse | TwoFactorRequiredResponse>('/auth/login', {
             email,
             password,
           })
 
-          const { user, expires_in } = response.data
+          if ('requires_2fa' in response.data && response.data.requires_2fa) {
+            set({ isLoading: false })
+            throw { is2FA: true, tempToken: (response.data as TwoFactorRequiredResponse).temp_token }
+          }
 
+          const { user, expires_in } = response.data as LoginResponse
+
+          set({
+            user,
+            isAuthenticated: true,
+            isLoading: false,
+            isImpersonating: false,
+            sessionExpiresAt: Date.now() + expires_in * 1000,
+          })
+        } catch (error) {
+          set({ isLoading: false })
+          throw error
+        }
+      },
+
+      verify2FA: async (tempToken: string, code: string) => {
+        set({ isLoading: true })
+        try {
+          const response = await api.post<LoginResponse>('/auth/2fa/verify', {
+            temp_token: tempToken,
+            code,
+          })
+          const { user, expires_in } = response.data
           set({
             user,
             isAuthenticated: true,

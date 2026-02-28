@@ -110,10 +110,20 @@ impl UserService {
                 trainings: user.trainings.0,
                 roles,
                 permissions,
+                totp_enabled: user.totp_enabled,
             });
         }
 
         Ok(result)
+    }
+
+    /// 取得原始 User（供內部邏輯使用，如 2FA）
+    pub async fn get_user_raw(pool: &PgPool, id: Uuid) -> Result<User> {
+        sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
+            .bind(id)
+            .fetch_optional(pool)
+            .await?
+            .ok_or_else(|| AppError::NotFound("User not found".to_string()))
     }
 
     /// 取得單一用戶
@@ -145,6 +155,7 @@ impl UserService {
             trainings: user.trainings.0,
             roles,
             permissions,
+            totp_enabled: user.totp_enabled,
         })
     }
 
@@ -265,6 +276,7 @@ impl UserService {
             trainings: updated_user.trainings.0,
             roles,
             permissions,
+            totp_enabled: updated_user.totp_enabled,
         })
     }
 
