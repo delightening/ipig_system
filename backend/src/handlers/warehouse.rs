@@ -21,7 +21,7 @@ pub async fn create_warehouse(
     Json(req): Json<CreateWarehouseRequest>,
 ) -> Result<Json<Warehouse>> {
     require_permission!(current_user, "erp.warehouse.create");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     
     let warehouse = WarehouseService::create(&state.db, &req).await?;
 
@@ -76,7 +76,7 @@ pub async fn update_warehouse(
     Json(req): Json<UpdateWarehouseRequest>,
 ) -> Result<Json<Warehouse>> {
     require_permission!(current_user, "erp.warehouse.edit");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     
     let warehouse = WarehouseService::update(&state.db, id, &req).await?;
 

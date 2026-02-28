@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { STALE_TIME } from '@/lib/query'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
     bloodTestTemplateApi,
@@ -95,6 +96,7 @@ export function BloodTestTemplatesPage() {
     // 查詢所有模板（含停用）
     const { data: templates, isLoading } = useQuery({
         queryKey: ['blood-test-templates-all'],
+        staleTime: STALE_TIME.REFERENCE,
         queryFn: async () => {
             const response = await bloodTestTemplateApi.listAll()
             return response.data
@@ -104,6 +106,7 @@ export function BloodTestTemplatesPage() {
     // 查詢所有分類（含停用）
     const { data: panels } = useQuery({
         queryKey: ['blood-test-panels-all'],
+        staleTime: STALE_TIME.REFERENCE,
         queryFn: async () => {
             const response = await bloodTestPanelApi.listAll()
             return response.data

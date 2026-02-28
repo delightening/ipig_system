@@ -1,4 +1,4 @@
-﻿// 動物來源管理 Handlers
+// 動物來源管理 Handlers
 
 use axum::{
     extract::{Path, State},
@@ -31,7 +31,7 @@ pub async fn create_animal_source(
     Json(req): Json<CreateAnimalSourceRequest>,
 ) -> Result<Json<AnimalSource>> {
     require_permission!(current_user, "animal.animal.create");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     
     let source = AnimalService::create_source(&state.db, &req).await?;
     Ok(Json(source))

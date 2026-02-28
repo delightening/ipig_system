@@ -31,16 +31,15 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
 import {
-  ArrowLeft,
-  Save,
-  Send,
   Plus,
   Trash2,
   Loader2,
   Search,
   AlertTriangle,
 } from 'lucide-react'
+import { STALE_TIME } from '@/lib/query'
 import { formatNumber, formatQuantity, formatUnitPrice, formatUom } from '@/lib/utils'
+import { DocumentFormHeader } from './components/DocumentFormHeader'
 
 const docTypeNames: Record<DocType, string> = {
   PO: '採購單',
@@ -167,6 +166,7 @@ export function DocumentEditPage() {
       return response.data
     },
     enabled: isEdit,
+    staleTime: STALE_TIME.LIST,
   })
 
   // 查詢產品列表
@@ -178,6 +178,7 @@ export function DocumentEditPage() {
       )
       return response.data
     },
+    staleTime: STALE_TIME.REFERENCE,
   })
 
   // 查詢倉庫列表
@@ -187,6 +188,7 @@ export function DocumentEditPage() {
       const response = await api.get<Warehouse[]>('/warehouses')
       return response.data
     },
+    staleTime: STALE_TIME.REFERENCE,
   })
 
   // 查詢供應商/客戶列表
@@ -196,6 +198,7 @@ export function DocumentEditPage() {
       const response = await api.get<Partner[]>('/partners')
       return response.data
     },
+    staleTime: STALE_TIME.REFERENCE,
   })
 
   // 查詢進行中的協議（用於銷售單客戶選擇）
@@ -233,6 +236,7 @@ export function DocumentEditPage() {
       })
     },
     enabled: formData.doc_type === 'SO' || formData.doc_type === 'DO', // 只在銷售單時查詢
+    staleTime: STALE_TIME.REFERENCE,
   })
 
   // 計算單行金額的函數
@@ -298,6 +302,7 @@ export function DocumentEditPage() {
         return response.data
       },
       enabled: !!productId && !!warehouseId && isSalesDoc, // 僅銷貨單據時查詢
+      staleTime: STALE_TIME.REALTIME,
       refetchOnMount: 'always', // 確保即時查詢
       refetchOnWindowFocus: false, // 避免過度查詢
     })
@@ -963,49 +968,16 @@ export function DocumentEditPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" onClick={handleBack}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              {isEdit ? '編輯單據' : '新增單據'}
-            </h1>
-            <p className="text-muted-foreground">
-              {isEdit
-                ? `編輯 ${docTypeNames[formData.doc_type]}`
-                : `建立新的${docTypeNames[formData.doc_type]}`}
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending || submitMutation.isPending}
-          >
-            {saveMutation.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="mr-2 h-4 w-4" />
-            )}
-            儲存草稿
-          </Button>
-          <Button
-            onClick={() => submitMutation.mutate()}
-            disabled={saveMutation.isPending || submitMutation.isPending || formData.lines.length === 0}
-          >
-            {submitMutation.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="mr-2 h-4 w-4" />
-            )}
-            儲存並送審
-          </Button>
-        </div>
-      </div>
+      <DocumentFormHeader
+        isEdit={isEdit}
+        docTypeName={docTypeNames[formData.doc_type]}
+        onBack={handleBack}
+        onSave={() => saveMutation.mutate()}
+        onSubmit={() => submitMutation.mutate()}
+        isSaving={saveMutation.isPending}
+        isSubmitting={submitMutation.isPending}
+        hasLines={formData.lines.length > 0}
+      />
 
       {/* 單據資訊 */}
       <div className="grid gap-6 md:grid-cols-2">

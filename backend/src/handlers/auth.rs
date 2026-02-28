@@ -118,8 +118,7 @@ pub async fn login(
         .and_then(|v| v.to_str().ok())
         .map(|s| s.to_string());
 
-    req.validate()
-        .map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
 
     // Phase 1: 驗證帳密
     let user = match AuthService::validate_credentials(&state.db, &req).await {
@@ -522,7 +521,7 @@ pub async fn confirm_password(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<ConfirmPasswordRequest>,
 ) -> Result<Json<serde_json::Value>> {
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     AuthService::verify_password_by_id(&state.db, current_user.id, &req.password).await?;
     let (reauth_token, expires_in) =
         AuthService::generate_reauth_token(&state.config, current_user.id)?;

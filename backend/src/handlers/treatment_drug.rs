@@ -48,7 +48,7 @@ pub async fn create_treatment_drug(
     Json(request): Json<CreateTreatmentDrugRequest>,
 ) -> Result<(StatusCode, Json<TreatmentDrugOption>)> {
     require_permission!(current_user, "admin.treatment_drug.create");
-    request.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    request.validate()?;
 
     let service = TreatmentDrugService::new(state.db.clone());
     let option = service.create(request, Some(current_user.id)).await?;

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth'
+import { STALE_TIME } from '@/lib/query'
 import { cn } from '@/lib/utils'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -317,6 +318,7 @@ export function Sidebar({
       const res = await api.get<{ key: string; value: string[] }>('/me/preferences/nav_order')
       return res.data.value
     },
+    staleTime: STALE_TIME.SETTINGS,
   })
 
   const saveNavOrderMutation = useMutation({
@@ -369,6 +371,7 @@ export function Sidebar({
       const res = await api.get<{ count: number }>('/amendments/pending-count')
       return res.data.count
     },
+    staleTime: STALE_TIME.LIST,
     refetchInterval: 60000,
   })
 

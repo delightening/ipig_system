@@ -49,8 +49,7 @@ pub async fn confirm_2fa_setup(
     if !current_user.is_admin() {
         return Err(AppError::Forbidden("僅管理員可啟用兩步驟驗證".into()));
     }
-    req.validate()
-        .map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
 
     AuthService::confirm_totp_setup(&state.db, current_user.id, &req.code).await?;
 
@@ -72,8 +71,7 @@ pub async fn disable_2fa(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<TwoFactorDisableRequest>,
 ) -> Result<Json<serde_json::Value>> {
-    req.validate()
-        .map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
 
     AuthService::verify_password_by_id(&state.db, current_user.id, &req.password).await?;
     AuthService::disable_totp(&state.db, current_user.id, &req.code).await?;
@@ -97,8 +95,7 @@ pub async fn verify_2fa_login(
     headers: HeaderMap,
     Json(req): Json<TwoFactorLoginRequest>,
 ) -> Result<Response> {
-    req.validate()
-        .map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
 
     let ip = extract_real_ip_with_trust(&headers, &addr, state.config.trust_proxy_headers);
     let user_agent = headers

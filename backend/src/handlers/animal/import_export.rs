@@ -271,7 +271,7 @@ async fn parse_import_file(multipart: &mut Multipart) -> Result<(Vec<u8>, String
         }
     }
     let file_data = file_data.ok_or_else(|| AppError::Validation("未找到檔案".to_string()))?;
-    if file_data.len() > 10 * 1024 * 1024 {
+    if file_data.len() > crate::constants::FILE_MAX_ANIMAL_PHOTO {
         return Err(AppError::Validation("檔案大小不能超過 10MB".to_string()));
     }
     Ok((file_data, file_name))

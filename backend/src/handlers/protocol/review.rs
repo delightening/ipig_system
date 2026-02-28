@@ -100,7 +100,7 @@ pub async fn create_review_comment(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<CreateCommentRequest>,
 ) -> Result<Json<ReviewComment>> {
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     let has_global_perm = current_user.permissions.contains(&"aup.review.comment".to_string())
         || current_user.roles.contains(&"IACUC_CHAIR".to_string())
         || current_user.roles.contains(&"IACUC_STAFF".to_string())
@@ -245,7 +245,7 @@ pub async fn reply_review_comment(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<ReplyCommentRequest>,
 ) -> Result<Json<ReviewComment>> {
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     if !current_user.has_permission("aup.review.reply") {
         let (protocol_id,): (Uuid,) = sqlx::query_as(
             "SELECT pv.protocol_id FROM review_comments rc JOIN protocol_versions pv ON rc.protocol_version_id = pv.id WHERE rc.id = $1"
@@ -271,7 +271,7 @@ pub async fn save_reply_draft(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<SaveDraftRequest>,
 ) -> Result<Json<ReviewComment>> {
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     if !current_user.has_permission("aup.review.reply") {
         let (protocol_id,): (Uuid,) = sqlx::query_as(
             "SELECT pv.protocol_id FROM review_comments rc JOIN protocol_versions pv ON rc.protocol_version_id = pv.id WHERE rc.id = $1"

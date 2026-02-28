@@ -1,5 +1,46 @@
 import { FileInfo } from '@/components/ui/file-upload'
 
+/** P2-R4-12: Section 8 人員 */
+export interface ProtocolPerson {
+    id?: number
+    name: string
+    position: string
+    roles: string[]
+    roles_other_text?: string
+    years_experience: number
+    trainings: string[]
+    trainings_other_text?: string
+    training_certificates: Array<{ training_code: string; certificate_no: string }>
+}
+
+/** Section 6 手術用藥 */
+export interface ProtocolSurgeryDrugItem {
+    drug_name: string
+    dose: string
+    route: string
+    frequency: string
+    purpose: string
+}
+
+/** Section 7 動物規格（表單用） */
+export interface ProtocolAnimalItem {
+    species: 'pig' | 'other' | ''
+    species_other?: string
+    source_id?: string
+    source_name?: string
+    strain?: 'white_pig' | 'mini_pig' | ''
+    strain_other?: string
+    sex: string
+    number: number
+    age_min?: number
+    age_max?: number
+    age_unlimited: boolean
+    weight_min?: number
+    weight_max?: number
+    weight_unlimited: boolean
+    housing_location: string
+}
+
 export interface ProtocolWorkingContent {
     basic: { // Section 1
         is_glp: boolean
@@ -227,49 +268,14 @@ export interface ProtocolWorkingContent {
         }
         postop_care_type?: 'orthopedic' | 'non_orthopedic' // 骨科手術或非骨科手術
         postop_care: string
-        drugs: Array<{
-            drug_name: string
-            dose: string
-            route: string
-            frequency: string
-            purpose: string
-        }>
+        drugs: ProtocolSurgeryDrugItem[]
         expected_end_point: string
     }
     animals: { // Section 7
-        animals: Array<{
-            species: 'pig' | 'other' | ''
-            species_other?: string
-            source_id?: string
-            source_name?: string
-            strain?: 'white_pig' | 'mini_pig' | ''
-            strain_other?: string
-            sex: string // 單一性別選擇
-            number: number
-            age_min?: number
-            age_max?: number
-            age_unlimited: boolean
-            weight_min?: number
-            weight_max?: number
-            weight_unlimited: boolean
-            housing_location: string
-        }>
+        animals: ProtocolAnimalItem[]
         total_animals: number
     }
-    personnel: Array<{ // Section 8
-        id?: number // 編號
-        name: string
-        position: string
-        roles: string[] // 工作內容：a, b, c, d, e, f, g, h, i
-        roles_other_text?: string // 如果選擇 i.其他，需要填寫說明
-        years_experience: number // 參與動物試驗年數
-        trainings: string[] // 訓練/資格：A, B, C, D, E, F
-        trainings_other_text?: string // 如果選擇 F.其他，需要填寫說明
-        training_certificates: Array<{ // 每個訓練的證書編號列表
-            training_code: string // A, B, C, D, E
-            certificate_no: string // 證書編號
-        }>
-    }>
+    personnel: ProtocolPerson[]
     attachments: FileInfo[] // Section 9 - PDF附件
     signature: FileInfo[] // Section 10 - 電子簽名（上傳模式）
     handwriting_svg?: string // Section 10 - 手寫簽名 SVG

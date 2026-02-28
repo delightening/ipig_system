@@ -4,6 +4,7 @@ use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::constants::TAIWAN_OFFSET_SECS;
 use crate::{
     models::{DashboardCalendarData, TodayLeaveInfo},
     Result,
@@ -13,7 +14,7 @@ use super::HrService;
 
 impl HrService {
     pub async fn get_dashboard_calendar(pool: &PgPool) -> Result<DashboardCalendarData> {
-        let taiwan_tz = chrono::FixedOffset::east_opt(8 * 3600)
+        let taiwan_tz = chrono::FixedOffset::east_opt(TAIWAN_OFFSET_SECS)
             .ok_or_else(|| crate::AppError::Internal("invalid timezone offset UTC+8".to_string()))?;
         let today = Utc::now().with_timezone(&taiwan_tz).date_naive();
         let upcoming_end = today + chrono::Duration::days(7);

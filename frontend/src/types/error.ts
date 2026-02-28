@@ -10,6 +10,7 @@ export interface ApiErrorPayload {
   }
 }
 
+/** P2-R4-16: API 錯誤型別，onError 等處請使用 unknown 以保持型別安全 */
 export type ApiError = AxiosError<ApiErrorPayload>
 
 export function getErrorMessage(error: unknown): string {

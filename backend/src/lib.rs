@@ -1,6 +1,7 @@
 pub mod config;
 pub mod constants;
 mod error;
+pub mod utils;
 pub mod handlers;
 pub mod middleware;
 pub mod models;

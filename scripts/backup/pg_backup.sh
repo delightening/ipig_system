@@ -39,8 +39,10 @@ gunzip -c "$BACKUP_FILE" | pg_restore --list > /dev/null 2>&1 || {
 sha256sum "$BACKUP_FILE" > "${BACKUP_FILE}.sha256"
 echo "Checksum: $(cat "${BACKUP_FILE}.sha256")"
 
-# Cleanup old backups
-DELETED=$(find "$BACKUP_DIR" -name "ipig_*.sql.gz" -mtime +${RETENTION_DAYS} -delete -print | wc -l)
+# Cleanup old backups（P1-R4-11：含 .sql.gz 與 .sql.gz.gpg）
+DELETED=0
+DELETED=$((DELETED + $(find "$BACKUP_DIR" -name "ipig_*.sql.gz" -mtime +${RETENTION_DAYS} -delete -print | wc -l)))
+DELETED=$((DELETED + $(find "$BACKUP_DIR" -name "ipig_*.sql.gz.gpg" -mtime +${RETENTION_DAYS} -delete -print | wc -l)))
 find "$BACKUP_DIR" -name "ipig_*.sha256" -mtime +${RETENTION_DAYS} -delete
 
 FILESIZE=$(du -h "$BACKUP_FILE" | cut -f1)

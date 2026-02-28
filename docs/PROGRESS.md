@@ -55,6 +55,30 @@
 
 ## 9. 最新變更動態
 
+### 2026-02-28 第四輪改善計畫 R4 完成（20 項）
+
+**P0 安全性（4 項）：**
+- P0-R4-1 IDOR 修補：`check_resource_access()` helper，amendment/document handler 加入所有權檢查
+- P0-R4-2 CSP：移除 nginx `style-src unsafe-inline`
+- P0-R4-3 console 清理：`lib/logger.ts` 封裝，生產環境靜默
+- P0-R4-4 `.expect()` 清理：partner.rs Regex、auth.rs 改用 `?`
+
+**P1 效能與可靠性（7 項）：**
+- P1-R4-5~8 元件拆分與 Skeleton（AnimalsPage、DocumentEditPage、AdminAuditPage、TableSkeleton）
+- P1-R4-9 Nginx：HTTP/2、rate limit、JSON log、worker_connections
+- P1-R4-10 還原腳本：`scripts/backup/pg_restore.sh`
+- P1-R4-11 備份腳本：GPG 清理邏輯、pg_restore --list 驗證
+
+**P2 品質與維運（9 項）：**
+- P2-R4-12 Protocol `any` 消除：ProtocolPerson、ProtocolAnimalItem、ProtocolSurgeryDrugItem 型別
+- P2-R4-14 後端配置提取：constants.rs 集中管理 rate limit、file size、auth expiry、時區
+- P2-R4-15 Error Boundary：DashboardPage、ProtocolEditPage、AnimalDetailPage 頁面級
+- P2-R4-16 錯誤處理統一：後端 `req.validate()?`、前端 AnimalsPage `error: unknown`
+- P2-R4-17 Prometheus：monitoring 埠號統一為 api:8000
+- P2-R4-18 .env.example：POSTGRES_PORT 修正、GRAFANA 變數補齊
+- P2-R4-19 staleTime：STALE_TIME 常數、10+ useQuery 調優
+- P2-R4-20 backend/.dockerignore：排除 target、.git 等
+
 ### 2026-02-28 手寫簽名 Canvas 寬度無限擴張修復
 - ✅ **根因**：CSS Grid `grid-cols-[280px_1fr]` 中 `1fr` 等同 `minmax(auto, 1fr)`，canvas 的 intrinsic size 撐大 grid cell → ResizeObserver 重新量測 → canvas 再擴張，形成無限迴圈（container 寬度飆至 9870px）
 - ✅ **修復 4 個檔案**：

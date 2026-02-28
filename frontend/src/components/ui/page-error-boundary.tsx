@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { logger } from '@/lib/logger'
 
 interface Props {
   children: ReactNode
@@ -23,7 +24,7 @@ export class PageErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('[PageErrorBoundary]', error, errorInfo)
+    logger.error('[PageErrorBoundary]', error, errorInfo)
   }
 
   render() {

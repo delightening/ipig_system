@@ -33,7 +33,7 @@ pub async fn create_role(
     Json(req): Json<CreateRoleRequest>,
 ) -> Result<Json<RoleWithPermissions>> {
     require_permission!(current_user, "dev.role.create");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     
     let role = RoleService::create(&state.db, &req).await?;
     let response = RoleService::get_by_id(&state.db, role.id).await?;
@@ -118,7 +118,7 @@ pub async fn update_role(
     Json(req): Json<UpdateRoleRequest>,
 ) -> Result<Json<RoleWithPermissions>> {
     require_permission!(current_user, "dev.role.edit");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     
     let role = RoleService::update(&state.db, id, &req).await?;
 

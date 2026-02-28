@@ -4,6 +4,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import type { ProtocolPerson } from '@/types/protocol'
 import type { PersonnelSectionProps } from './types'
 
 export function SectionPersonnel({ formData, updateWorkingContent, setFormData, t, isIACUCStaff, onAddPersonnel }: PersonnelSectionProps) {
@@ -42,7 +43,7 @@ export function SectionPersonnel({ formData, updateWorkingContent, setFormData, 
                   </tr>
                 </thead>
                 <tbody>
-                  {(formData.working_content.personnel || []).map((person: any, index: number) => (
+                  {(formData.working_content.personnel || []).map((person: ProtocolPerson, index: number) => (
                     <tr key={index} className="hover:bg-slate-50">
                       <td className="border p-2 w-8">
                         <div className="px-2 py-1 text-center font-medium">
@@ -111,7 +112,7 @@ export function SectionPersonnel({ formData, updateWorkingContent, setFormData, 
                             return (
                               <div key={trainingCode} className="space-y-1 pl-4 border-l-2 border-slate-200">
                                 <div className="text-xs font-semibold whitespace-nowrap truncate">{trainingCode}:</div>
-                                {certificates.map((cert: any, certIndex: number) => (
+                                {certificates.map((cert: { training_code: string; certificate_no: string }, certIndex: number) => (
                                   <div key={certIndex} className="text-xs text-muted-foreground whitespace-nowrap truncate">
                                     {cert.certificate_no || '-'}
                                   </div>

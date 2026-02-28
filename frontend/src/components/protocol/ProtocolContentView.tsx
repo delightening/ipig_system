@@ -1,5 +1,6 @@
 import { Label } from '@/components/ui/label'
 import { formatDate } from '@/lib/utils'
+import { logger } from '@/lib/logger'
 import { FileText, Download, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useRef, useState } from 'react'
@@ -70,7 +71,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
       window.URL.revokeObjectURL(url)
       return true
     } catch (error) {
-      console.warn('Backend PDF export failed, falling back to client-side:', error)
+      logger.warn('Backend PDF export failed, falling back to client-side:', error)
       return false
     }
   }
@@ -198,7 +199,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
         await exportFromClient()
       }
     } catch (error) {
-      console.error('PDF export error:', error)
+      logger.error('PDF export error:', error)
       alert(t('protocols.content.exportFailed'))
     } finally {
       setIsExporting(false)

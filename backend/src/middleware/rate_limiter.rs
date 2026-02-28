@@ -9,6 +9,10 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use crate::constants::{
+    AUTH_RATE_LIMIT_PER_MINUTE, API_RATE_LIMIT_PER_MINUTE, RATE_LIMIT_CLEANUP_INTERVAL_SECS,
+    RATE_LIMIT_WINDOW_SECS, UPLOAD_RATE_LIMIT_PER_MINUTE, WRITE_RATE_LIMIT_PER_MINUTE,
+};
 use crate::middleware::real_ip::extract_real_ip_with_trust;
 use crate::AppState;
 
@@ -36,7 +40,7 @@ impl RateLimiterState {
         let cleanup_window = config.window;
         tokio::spawn(async move {
             loop {
-                tokio::time::sleep(Duration::from_secs(300)).await;
+                tokio::time::sleep(Duration::from_secs(RATE_LIMIT_CLEANUP_INTERVAL_SECS)).await;
                 let now = Instant::now();
                 cleanup_records.retain(|_ip, timestamps: &mut Vec<Instant>| {
                     timestamps.retain(|t| now.duration_since(*t) < cleanup_window);
@@ -80,8 +84,8 @@ pub async fn auth_rate_limit_middleware(
     static AUTH_LIMITER: OnceLock<RateLimiterState> = OnceLock::new();
     let limiter = AUTH_LIMITER.get_or_init(|| {
         RateLimiterState::new(RateLimiterConfig {
-            max_requests: 100, // 增加到 100/min 以支援 E2E 測試環境
-            window: Duration::from_secs(60),
+            max_requests: AUTH_RATE_LIMIT_PER_MINUTE,
+            window: Duration::from_secs(RATE_LIMIT_WINDOW_SECS),
         })
     });
 
@@ -137,8 +141,8 @@ pub async fn api_rate_limit_middleware(
     static API_LIMITER: OnceLock<RateLimiterState> = OnceLock::new();
     let limiter = API_LIMITER.get_or_init(|| {
         RateLimiterState::new(RateLimiterConfig {
-            max_requests: 600,
-            window: Duration::from_secs(60),
+            max_requests: API_RATE_LIMIT_PER_MINUTE,
+            window: Duration::from_secs(RATE_LIMIT_WINDOW_SECS),
         })
     });
 
@@ -180,8 +184,8 @@ pub async fn write_rate_limit_middleware(
     static WRITE_LIMITER: OnceLock<RateLimiterState> = OnceLock::new();
     let limiter = WRITE_LIMITER.get_or_init(|| {
         RateLimiterState::new(RateLimiterConfig {
-            max_requests: 120,
-            window: Duration::from_secs(60),
+            max_requests: WRITE_RATE_LIMIT_PER_MINUTE,
+            window: Duration::from_secs(RATE_LIMIT_WINDOW_SECS),
         })
     });
 
@@ -216,8 +220,8 @@ pub async fn upload_rate_limit_middleware(
     static UPLOAD_LIMITER: OnceLock<RateLimiterState> = OnceLock::new();
     let limiter = UPLOAD_LIMITER.get_or_init(|| {
         RateLimiterState::new(RateLimiterConfig {
-            max_requests: 30,
-            window: Duration::from_secs(60),
+            max_requests: UPLOAD_RATE_LIMIT_PER_MINUTE,
+            window: Duration::from_secs(RATE_LIMIT_WINDOW_SECS),
         })
     });
 

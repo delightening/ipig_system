@@ -1,6 +1,7 @@
 import { useEffect, lazy } from 'react'
 import { Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
+import { PageErrorBoundary } from '@/components/ui/page-error-boundary'
 import { useAuthStore } from '@/stores/auth'
 import { RequirePermission } from '@/components/auth'
 import { useHeartbeat } from '@/hooks/useHeartbeat'
@@ -324,7 +325,7 @@ function App() {
 
                     {/* Dashboard 與 ERP 模組路由 */}
                     <Route element={<DashboardRoute />}>
-                        <Route path="/dashboard" element={<DashboardPage />} />
+                        <Route path="/dashboard" element={<PageErrorBoundary><DashboardPage /></PageErrorBoundary>} />
                         <Route path="/erp" element={<ErpPage />} />
 
                         <Route path="/products" element={<ProductsPage />} />
@@ -385,9 +386,9 @@ function App() {
 
                     {/* AUP 計畫書管理 */}
                     <Route path="/protocols" element={<ProtocolsPage />} />
-                    <Route path="/protocols/new" element={<ProtocolEditPage />} />
+                    <Route path="/protocols/new" element={<PageErrorBoundary><ProtocolEditPage /></PageErrorBoundary>} />
                     <Route path="/protocols/:id" element={<ProtocolDetailPage />} />
-                    <Route path="/protocols/:id/edit" element={<ProtocolEditPage />} />
+                    <Route path="/protocols/:id/edit" element={<PageErrorBoundary><ProtocolEditPage /></PageErrorBoundary>} />
 
                     {/* 我的計劃 */}
                     <Route path="/my-projects" element={<MyProjectsPage />} />
@@ -398,7 +399,7 @@ function App() {
 
                     {/* 實驗動物管理 */}
                     <Route path="/animals" element={<AnimalsPage />} />
-                    <Route path="/animals/:id" element={<AnimalDetailPage />} />
+                    <Route path="/animals/:id" element={<PageErrorBoundary><AnimalDetailPage /></PageErrorBoundary>} />
                     <Route path="/animals/:id/edit" element={<AnimalEditPage />} />
                     <Route path="/animal-sources" element={<AnimalSourcesPage />} />
 

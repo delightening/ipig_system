@@ -1,4 +1,4 @@
-﻿// 專案 CRUD Handlers
+// 專案 CRUD Handlers
 
 use axum::{
     extract::{Path, Query, State},
@@ -33,7 +33,7 @@ pub async fn create_protocol(
     if !can_create {
         return Err(AppError::Forbidden("Permission denied: requires aup.protocol.create or PI role".to_string()));
     }
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     let protocol = ProtocolService::create(&state.db, &req, current_user.id).await?;
     Ok(Json(protocol))
 }
@@ -117,7 +117,7 @@ pub async fn update_protocol(
     if !has_edit_permission && !is_authorized.0 {
         return Err(AppError::Forbidden("You don't have permission to edit this protocol".to_string()));
     }
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     let protocol = ProtocolService::update(&state.db, id, &req, current_user.id).await?;
     Ok(Json(protocol))
 }

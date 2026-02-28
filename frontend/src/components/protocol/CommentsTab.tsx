@@ -25,6 +25,7 @@ import {
 import { Textarea } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
+import { logger } from '@/lib/logger'
 import {
   CheckCircle,
   CheckCircle2,
@@ -202,7 +203,7 @@ export const CommentsTab = React.memo(function CommentsTab({
       pdf.save(`審查意見回覆表_${protocol.protocol_no || protocolId}.pdf`)
       toast({ title: t('common.exportSuccess'), variant: 'default' })
     } catch (error) {
-      console.error('PDF export error:', error)
+      logger.error('PDF export error:', error)
       toast({ title: t('common.exportFailed'), variant: 'destructive' })
     } finally {
       setIsExportingComments(false)

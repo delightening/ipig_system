@@ -23,8 +23,7 @@ pub async fn create_storage_location(
     Json(req): Json<CreateStorageLocationRequest>,
 ) -> Result<Json<StorageLocation>> {
     require_permission!(current_user, "erp.storage.create");
-    req.validate()
-        .map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
 
     let location = StorageLocationService::create(&state.db, &req).await?;
     Ok(Json(location))
@@ -62,8 +61,7 @@ pub async fn update_storage_location(
     Json(req): Json<UpdateStorageLocationRequest>,
 ) -> Result<Json<StorageLocation>> {
     require_permission!(current_user, "erp.storage.edit");
-    req.validate()
-        .map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
 
     let location = StorageLocationService::update(&state.db, id, &req).await?;
     Ok(Json(location))
@@ -143,8 +141,7 @@ pub async fn create_storage_location_inventory_item(
     Json(req): Json<crate::models::CreateStorageLocationInventoryItemRequest>,
 ) -> Result<Json<crate::models::StorageLocationInventoryItem>> {
     require_permission!(current_user, "erp.storage.inventory.edit");
-    req.validate()
-        .map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
 
     let item = StorageLocationService::create_inventory_item(&state.db, storage_location_id, &req).await?;
     Ok(Json(item))
@@ -158,8 +155,7 @@ pub async fn transfer_storage_location_inventory(
     Json(req): Json<crate::models::TransferStorageLocationInventoryRequest>,
 ) -> Result<Json<crate::models::StorageLocationInventoryItem>> {
     require_permission!(current_user, "erp.storage.inventory.edit");
-    req.validate()
-        .map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
 
     let item = StorageLocationService::transfer_inventory(&state.db, item_id, &req).await?;
     Ok(Json(item))

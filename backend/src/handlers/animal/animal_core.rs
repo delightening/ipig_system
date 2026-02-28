@@ -197,8 +197,7 @@ pub async fn update_animal(
     Json(req): Json<UpdateAnimalRequest>,
 ) -> Result<Json<Animal>> {
     require_permission!(current_user, "animal.animal.edit");
-    req.validate()
-        .map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
 
     let (animal, iacuc_change) =
         AnimalService::update(&state.db, id, &req, current_user.id).await?;
@@ -275,8 +274,7 @@ pub async fn delete_animal(
     Json(req): Json<DeleteRequest>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.animal.edit");
-    req.validate()
-        .map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
 
     AnimalService::delete_with_reason(&state.db, id, &req.reason, current_user.id).await?;
 

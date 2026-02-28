@@ -1,4 +1,4 @@
-﻿// 獸醫建議管理 Handlers
+// 獸醫建議管理 Handlers
 
 use axum::{
     extract::{Path, State},
@@ -28,7 +28,7 @@ pub async fn add_observation_vet_recommendation(
     Json(req): Json<CreateVetRecommendationRequest>,
 ) -> Result<Json<VetRecommendation>> {
     require_permission!(current_user, "animal.vet.recommend");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     
     let recommendation = AnimalService::add_vet_recommendation(&state.db, VetRecordType::Observation, id, &req, current_user.id).await?;
     
@@ -73,7 +73,7 @@ pub async fn add_surgery_vet_recommendation(
     Json(req): Json<CreateVetRecommendationRequest>,
 ) -> Result<Json<VetRecommendation>> {
     require_permission!(current_user, "animal.vet.recommend");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     
     let recommendation = AnimalService::add_vet_recommendation(&state.db, VetRecordType::Surgery, id, &req, current_user.id).await?;
     
@@ -118,7 +118,7 @@ pub async fn add_observation_vet_recommendation_with_attachments(
 ) -> Result<Json<VetRecommendation>> {
     require_permission!(current_user, "animal.vet.recommend");
     require_permission!(current_user, "animal.vet.upload_attachment");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     
     let recommendation = AnimalService::add_vet_recommendation_with_attachments(&state.db, VetRecordType::Observation, id, &req, current_user.id).await?;
     
@@ -163,7 +163,7 @@ pub async fn add_surgery_vet_recommendation_with_attachments(
 ) -> Result<Json<VetRecommendation>> {
     require_permission!(current_user, "animal.vet.recommend");
     require_permission!(current_user, "animal.vet.upload_attachment");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     
     let recommendation = AnimalService::add_vet_recommendation_with_attachments(&state.db, VetRecordType::Surgery, id, &req, current_user.id).await?;
     

@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
+import type { ProtocolAnimalItem } from '@/types/protocol'
 import type { SectionProps } from './types'
 
 export function SectionAnimals({ formData, updateWorkingContent, setFormData, t, isIACUCStaff }: SectionProps) {
@@ -48,7 +49,7 @@ export function SectionAnimals({ formData, updateWorkingContent, setFormData, t,
             </Button>
           </div>
           {/* Helper to update entire animals array */}
-          {(formData.working_content.animals.animals || []).map((animal: any, index: number) => (
+          {(formData.working_content.animals.animals || []).map((animal: ProtocolAnimalItem, index: number) => (
             <div key={index} className="grid gap-4 p-4 border rounded relative bg-slate-50 mb-4">
               <Button
                 variant="ghost"

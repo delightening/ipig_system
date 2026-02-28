@@ -52,6 +52,8 @@ import {
 
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
+import { AuditLogDetailDialog } from './components/AuditLogDetailDialog'
+import { AuditAlertDetailDialog } from './components/AuditAlertDetailDialog'
 import type {
     AuditDashboardStats,
     LoginEventWithUser,
@@ -956,223 +958,18 @@ export function AdminAuditPage() {
                 </TabsContent>
             </Tabs>
 
-            {/* 活動記錄詳情 Dialog */}
-            <Dialog open={!!selectedLog} onOpenChange={() => setSelectedLog(null)}>
-                <DialogContent className="max-w-2xl">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <Eye className="h-5 w-5" />
-                            活動記錄詳情
-                        </DialogTitle>
-                    </DialogHeader>
-                    {selectedLog && (
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <Label className="text-muted-foreground">操作時間</Label>
-                                    <p className="font-medium">{formatDateTime(selectedLog.created_at)}</p>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground">操作者</Label>
-                                    <p className="font-medium">{selectedLog.actor_name || '-'}</p>
-                                    <p className="text-sm text-muted-foreground">{selectedLog.actor_email || ''}</p>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground">操作類型</Label>
-                                    <div className="mt-1">
-                                        <Badge variant={{
-                                            'CREATE': 'default',
-                                            'UPDATE': 'default',
-                                            'DELETE': 'destructive',
-                                            'PASSWORD_RESET': 'secondary',
-                                            'IMPERSONATE': 'secondary',
-                                            'force_logout': 'destructive',
-                                        }[selectedLog.action] as 'default' | 'destructive' | 'secondary' || 'outline'}>
-                                            {{
-                                                'CREATE': '建立使用者',
-                                                'UPDATE': '更新使用者',
-                                                'DELETE': '刪除使用者',
-                                                'PASSWORD_RESET': '重設密碼',
-                                                'IMPERSONATE': '模擬登入',
-                                                'force_logout': '強制登出',
-                                            }[selectedLog.action] || selectedLog.action}
-                                        </Badge>
-                                    </div>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground">目標使用者</Label>
-                                    {selectedLog.entity_name || selectedLog.entity_email ? (
-                                        <div>
-                                            <p className="font-medium">{selectedLog.entity_name || '-'}</p>
-                                            <p className="text-sm text-muted-foreground">{selectedLog.entity_email || ''}</p>
-                                        </div>
-                                    ) : (
-                                        <p className="font-medium">
-                                            <Badge variant="outline">{selectedLog.entity_type}</Badge>
-                                        </p>
-                                    )}
-                                </div>
-                                <div className="col-span-2">
-                                    <Label className="text-muted-foreground">實體 ID</Label>
-                                    <p className="font-mono text-sm">{selectedLog.entity_id || '-'}</p>
-                                </div>
-                            </div>
-
-                            {selectedLog.before_data && (
-                                <div>
-                                    <Label className="text-muted-foreground">變更前資料</Label>
-                                    <pre className="mt-1 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-md text-sm overflow-x-auto">
-                                        {JSON.stringify(selectedLog.before_data, null, 2)}
-                                    </pre>
-                                </div>
-                            )}
-
-                            {selectedLog.after_data && (
-                                <div>
-                                    <Label className="text-muted-foreground">變更後資料</Label>
-                                    <pre className="mt-1 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-md text-sm overflow-x-auto">
-                                        {JSON.stringify(selectedLog.after_data, null, 2)}
-                                    </pre>
-                                </div>
-                            )}
-
-                            {!selectedLog.before_data && !selectedLog.after_data && (
-                                <p className="text-muted-foreground text-center py-4">無變更資料</p>
-                            )}
-                        </div>
-                    )}
-                </DialogContent>
-            </Dialog>
-
-            {/* 安全警報詳情 Dialog */}
-            <Dialog open={!!selectedAlert} onOpenChange={() => setSelectedAlert(null)}>
-                <DialogContent className="max-w-2xl">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <AlertTriangle className="h-5 w-5" />
-                            安全警報詳情
-                        </DialogTitle>
-                        <DialogDescription>
-                            查看警報的完整資訊與上下文
-                        </DialogDescription>
-                    </DialogHeader>
-                    {selectedAlert && (
-                        <div className="space-y-4">
-                            {/* 基本資訊 */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <Label className="text-muted-foreground">警報時間</Label>
-                                    <p className="font-medium">{formatDateTime(selectedAlert.created_at)}</p>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground">警報類型</Label>
-                                    <div className="mt-1">
-                                        <Badge variant="outline">{selectedAlert.alert_type}</Badge>
-                                    </div>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground">嚴重程度</Label>
-                                    <div className="mt-1">
-                                        <Badge variant={getSeverityColor(selectedAlert.severity)}>
-                                            {selectedAlert.severity}
-                                        </Badge>
-                                    </div>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground">狀態</Label>
-                                    <div className="mt-1">
-                                        <Badge
-                                            variant={selectedAlert.status === 'resolved' ? 'secondary' : 'default'}
-                                        >
-                                            {selectedAlert.status === 'open' ? '待處理' : '已解決'}
-                                        </Badge>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <hr className="border-border" />
-
-                            {/* 標題與描述 */}
-                            <div>
-                                <Label className="text-muted-foreground">標題</Label>
-                                <p className="font-medium text-base">{selectedAlert.title}</p>
-                            </div>
-                            {selectedAlert.description && (
-                                <div>
-                                    <Label className="text-muted-foreground">描述</Label>
-                                    <p className="text-sm mt-1 whitespace-pre-wrap">{selectedAlert.description}</p>
-                                </div>
-                            )}
-
-                            {/* 相關使用者 */}
-                            {selectedAlert.user_id && (
-                                <div>
-                                    <Label className="text-muted-foreground">相關使用者 ID</Label>
-                                    <p className="font-mono text-sm">{selectedAlert.user_id}</p>
-                                </div>
-                            )}
-
-                            {/* Context Data */}
-                            {selectedAlert.context_data && Object.keys(selectedAlert.context_data).length > 0 && (
-                                <div>
-                                    <Label className="text-muted-foreground">詳細上下文資料</Label>
-                                    <pre className="mt-1 p-3 bg-muted/50 border rounded-md text-sm overflow-x-auto">
-                                        {JSON.stringify(selectedAlert.context_data, null, 2)}
-                                    </pre>
-                                </div>
-                            )}
-
-                            {/* 解決資訊 */}
-                            {selectedAlert.status === 'resolved' && (
-                                <>
-                                    <hr className="border-border" />
-                                    <div className="grid grid-cols-2 gap-4">
-                                        {selectedAlert.resolved_at && (
-                                            <div>
-                                                <Label className="text-muted-foreground">解決時間</Label>
-                                                <p className="font-medium">{formatDateTime(selectedAlert.resolved_at)}</p>
-                                            </div>
-                                        )}
-                                        {selectedAlert.resolved_by && (
-                                            <div>
-                                                <Label className="text-muted-foreground">解決者</Label>
-                                                <p className="font-medium">{selectedAlert.resolved_by}</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                    {selectedAlert.resolution_notes && (
-                                        <div>
-                                            <Label className="text-muted-foreground">解決備註</Label>
-                                            <p className="text-sm mt-1">{selectedAlert.resolution_notes}</p>
-                                        </div>
-                                    )}
-                                </>
-                            )}
-
-                            {/* Dialog 內的操作按鈕 */}
-                            {selectedAlert.status !== 'resolved' && (
-                                <DialogFooter>
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => setSelectedAlert(null)}
-                                    >
-                                        關閉
-                                    </Button>
-                                    <Button
-                                        onClick={() => {
-                                            resolveAlertMutation.mutate(selectedAlert.id)
-                                            setSelectedAlert(null)
-                                        }}
-                                        disabled={resolveAlertMutation.isPending}
-                                    >
-                                        標記為已解決
-                                    </Button>
-                                </DialogFooter>
-                            )}
-                        </div>
-                    )}
-                </DialogContent>
-            </Dialog>
+            <AuditLogDetailDialog
+                log={selectedLog}
+                open={!!selectedLog}
+                onOpenChange={(open) => !open && setSelectedLog(null)}
+            />
+            <AuditAlertDetailDialog
+                alert={selectedAlert}
+                open={!!selectedAlert}
+                onOpenChange={(open) => !open && setSelectedAlert(null)}
+                onResolve={(alertId) => resolveAlertMutation.mutate(alertId)}
+                isResolving={resolveAlertMutation.isPending}
+            />
         </div>
     )
 }

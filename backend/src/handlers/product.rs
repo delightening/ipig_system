@@ -23,7 +23,7 @@ pub async fn create_product(
     Json(req): Json<CreateProductRequest>,
 ) -> Result<Json<ProductWithUom>> {
     require_permission!(current_user, "erp.product.create");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     
     let product = ProductService::create(&state.db, &req).await?;
 
@@ -75,7 +75,7 @@ pub async fn update_product(
     Json(req): Json<UpdateProductRequest>,
 ) -> Result<Json<ProductWithUom>> {
     require_permission!(current_user, "erp.product.edit");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     
     let product = ProductService::update(&state.db, id, &req).await?;
 
@@ -128,7 +128,7 @@ pub async fn create_category(
     Json(req): Json<CreateCategoryRequest>,
 ) -> Result<Json<ProductCategory>> {
     require_permission!(current_user, "erp.product.create");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     
     let category = ProductService::create_category(&state.db, &req).await?;
 

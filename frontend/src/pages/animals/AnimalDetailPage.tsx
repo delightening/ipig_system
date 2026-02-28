@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getErrorMessage } from '@/types/error'
+import { logger } from '@/lib/logger'
 import api, {
   Animal,
   AnimalObservation,
@@ -205,7 +206,7 @@ export function AnimalDetailPage() {
   // Handle observations error
   useEffect(() => {
     if (observationsError) {
-      console.error('Failed to load observations:', observationsError)
+      logger.error('Failed to load observations:', observationsError)
       toast({
         title: '錯誤',
         description: getErrorMessage(observationsError) || '載入觀察紀錄失敗',
