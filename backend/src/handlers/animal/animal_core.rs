@@ -11,7 +11,7 @@ use crate::{
     middleware::CurrentUser,
     models::{
         Animal, AnimalListItem, AnimalQuery, AnimalsByPen, BatchAssignRequest, CreateAnimalRequest,
-        DeleteRequest, UpdateAnimalRequest,
+        DeleteRequest, PaginatedResponse, UpdateAnimalRequest,
     },
     require_permission,
     services::{AnimalService, AuditService},
@@ -33,27 +33,25 @@ pub async fn list_animals(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<AnimalQuery>,
-) -> Result<Json<Vec<AnimalListItem>>> {
-    // 檢查權限
+) -> Result<Json<PaginatedResponse<AnimalListItem>>> {
     let has_view_all = current_user.has_permission("animal.animal.view_all");
     let has_view_project = current_user.has_permission("animal.animal.view_project");
 
     if !has_view_all && !has_view_project {
-        return Ok(Json(vec![]));
+        return Ok(Json(PaginatedResponse::new(vec![], 0, 1, query.per_page.unwrap_or(50))));
     }
 
-    let animals = AnimalService::list(&state.db, &query).await?;
+    let mut result = AnimalService::list(&state.db, &query).await?;
 
-    let filtered_animals = if has_view_all {
-        animals
-    } else {
-        animals
-            .into_iter()
-            .filter(|a| a.iacuc_no.is_some())
-            .collect()
-    };
+    if !has_view_all {
+        let before_len = result.data.len();
+        result.data.retain(|a| a.iacuc_no.is_some());
+        let removed = before_len - result.data.len();
+        result.total -= removed as i64;
+        result.total_pages = (result.total as f64 / result.per_page as f64).ceil() as i64;
+    }
 
-    Ok(Json(filtered_animals))
+    Ok(Json(result))
 }
 
 /// 按欄位列出所有動物

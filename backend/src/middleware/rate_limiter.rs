@@ -117,31 +117,36 @@ pub async fn auth_rate_limit_middleware(
             ip,
             limiter.config.max_requests
         );
-
-        let body = serde_json::json!({
-            "error": "Too Many Requests",
-            "message": "請求過於頻繁，請稍後再試",
-            "retry_after_seconds": 60
-        });
-
-        let response = Response::builder()
-            .status(StatusCode::TOO_MANY_REQUESTS)
-            .header("Content-Type", "application/json")
-            .header("Retry-After", "60")
-            .header("X-RateLimit-Limit", limiter.config.max_requests.to_string())
-            .header("X-RateLimit-Remaining", "0")
-            .body(Body::from(serde_json::to_string(&body).expect("速率限制 JSON 序列化不應失敗")))
-            .expect("建構速率限制 Response 不應失敗");
-
-        return Ok(response);
+        return Ok(rate_limit_response(limiter));
     }
 
     let mut response = next.run(request).await;
-    response.headers_mut().insert(
-        "X-RateLimit-Remaining",
-        remaining.to_string().parse().expect("整數轉 HeaderValue 不應失敗"),
-    );
+    if let Ok(val) = remaining.to_string().parse() {
+        response.headers_mut().insert("X-RateLimit-Remaining", val);
+    }
     Ok(response)
+}
+
+fn rate_limit_response(limiter: &RateLimiterState) -> Response<Body> {
+    let body = serde_json::json!({
+        "error": "Too Many Requests",
+        "message": "請求過於頻繁，請稍後再試",
+        "retry_after_seconds": 60
+    });
+
+    Response::builder()
+        .status(StatusCode::TOO_MANY_REQUESTS)
+        .header("Content-Type", "application/json")
+        .header("Retry-After", "60")
+        .header("X-RateLimit-Limit", limiter.config.max_requests.to_string())
+        .header("X-RateLimit-Remaining", "0")
+        .body(Body::from(serde_json::to_string(&body).unwrap_or_default()))
+        .unwrap_or_else(|_| {
+            Response::builder()
+                .status(StatusCode::TOO_MANY_REQUESTS)
+                .body(Body::empty())
+                .expect("empty body response should not fail")
+        })
 }
 
 /// 一般 API 速率限制中間件（每分鐘 600 次）
@@ -169,29 +174,91 @@ pub async fn api_rate_limit_middleware(
             ip,
             limiter.config.max_requests
         );
-
-        let body = serde_json::json!({
-            "error": "Too Many Requests",
-            "message": "請求過於頻繁，請稍後再試",
-            "retry_after_seconds": 60
-        });
-
-        let response = Response::builder()
-            .status(StatusCode::TOO_MANY_REQUESTS)
-            .header("Content-Type", "application/json")
-            .header("Retry-After", "60")
-            .header("X-RateLimit-Limit", limiter.config.max_requests.to_string())
-            .header("X-RateLimit-Remaining", "0")
-            .body(Body::from(serde_json::to_string(&body).expect("速率限制 JSON 序列化不應失敗")))
-            .expect("建構速率限制 Response 不應失敗");
-
-        return Ok(response);
+        return Ok(rate_limit_response(limiter));
     }
 
     let mut response = next.run(request).await;
-    response.headers_mut().insert(
-        "X-RateLimit-Remaining",
-        remaining.to_string().parse().expect("整數轉 HeaderValue 不應失敗"),
-    );
+    if let Ok(val) = remaining.to_string().parse() {
+        response.headers_mut().insert("X-RateLimit-Remaining", val);
+    }
+    Ok(response)
+}
+
+/// 寫入端點速率限制（POST/PUT/PATCH/DELETE：每分鐘 120 次）
+/// GET/HEAD/OPTIONS 直接放行
+pub async fn write_rate_limit_middleware(
+    State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    request: Request<Body>,
+    next: Next,
+) -> Result<Response<Body>, StatusCode> {
+    use axum::http::Method;
+    use std::sync::OnceLock;
+
+    let method = request.method().clone();
+    if matches!(method, Method::GET | Method::HEAD | Method::OPTIONS) {
+        return Ok(next.run(request).await);
+    }
+
+    static WRITE_LIMITER: OnceLock<RateLimiterState> = OnceLock::new();
+    let limiter = WRITE_LIMITER.get_or_init(|| {
+        RateLimiterState::new(RateLimiterConfig {
+            max_requests: 120,
+            window: Duration::from_secs(60),
+        })
+    });
+
+    let ip = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
+    let (allowed, remaining) = limiter.check_rate(&ip);
+
+    if !allowed {
+        tracing::warn!(
+            "[RateLimit] 寫入端點速率限制觸發 - IP: {}, method: {}, 限制: {}/min",
+            ip,
+            method,
+            limiter.config.max_requests
+        );
+        return Ok(rate_limit_response(limiter));
+    }
+
+    let mut response = next.run(request).await;
+    if let Ok(val) = remaining.to_string().parse() {
+        response.headers_mut().insert("X-RateLimit-Remaining", val);
+    }
+    Ok(response)
+}
+
+/// 檔案上傳端點速率限制（每分鐘 30 次）
+pub async fn upload_rate_limit_middleware(
+    State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    request: Request<Body>,
+    next: Next,
+) -> Result<Response<Body>, StatusCode> {
+    use std::sync::OnceLock;
+    static UPLOAD_LIMITER: OnceLock<RateLimiterState> = OnceLock::new();
+    let limiter = UPLOAD_LIMITER.get_or_init(|| {
+        RateLimiterState::new(RateLimiterConfig {
+            max_requests: 30,
+            window: Duration::from_secs(60),
+        })
+    });
+
+    let ip = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
+    let (allowed, remaining) = limiter.check_rate(&ip);
+
+    if !allowed {
+        tracing::warn!(
+            "[RateLimit] 檔案上傳速率限制觸發 - IP: {}, 限制: {}/min",
+            ip,
+            limiter.config.max_requests
+        );
+        return Ok(rate_limit_response(limiter));
+    }
+
+    let mut response = next.run(request).await;
+    if let Ok(val) = remaining.to_string().parse() {
+        response.headers_mut().insert("X-RateLimit-Remaining", val);
+    }
     Ok(response)
 }

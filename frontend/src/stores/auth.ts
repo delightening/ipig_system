@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { useShallow } from 'zustand/react/shallow'
 import api, { User, LoginResponse, TwoFactorRequiredResponse } from '@/lib/api'
 
 interface AuthState {
@@ -205,3 +206,26 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 )
+
+// ─── Optimised selectors ───
+// Components that only need a subset of the store should use these
+// to avoid re-rendering when unrelated state changes.
+
+export const useAuthUser = () => useAuthStore((s) => s.user)
+export const useAuthIsAuthenticated = () => useAuthStore((s) => s.isAuthenticated)
+export const useAuthIsInitialized = () => useAuthStore((s) => s.isInitialized)
+export const useAuthHasRole = () => useAuthStore((s) => s.hasRole)
+export const useAuthHasPermission = () => useAuthStore((s) => s.hasPermission)
+export const useAuthActions = () =>
+  useAuthStore(
+    useShallow((s) => ({
+      login: s.login,
+      logout: s.logout,
+      verify2FA: s.verify2FA,
+      checkAuth: s.checkAuth,
+      refreshSession: s.refreshSession,
+      impersonate: s.impersonate,
+      stopImpersonating: s.stopImpersonating,
+      clearAuth: s.clearAuth,
+    })),
+  )

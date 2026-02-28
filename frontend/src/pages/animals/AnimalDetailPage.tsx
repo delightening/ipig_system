@@ -729,6 +729,7 @@ export function AnimalDetailPage() {
               <input
                 id="sd-requires-pathology"
                 type="checkbox"
+                aria-label="需要病理檢查"
                 checked={suddenDeathForm.requires_pathology}
                 onChange={(e) => setSuddenDeathForm(prev => ({ ...prev, requires_pathology: e.target.checked }))}
                 className="h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"

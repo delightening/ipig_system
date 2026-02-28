@@ -375,10 +375,9 @@
 }
 
 .signature-canvas-wrapper {
-  @apply relative rounded-lg border-2 border-dashed border-gray-300 bg-gray-50/50 overflow-hidden;
+  @apply relative w-full max-w-full rounded-lg border-2 border-dashed border-gray-300 bg-gray-50/50 overflow-hidden;
   transition: border-color 0.2s ease;
   touch-action: none;
-  /* 阻止行動端滑動手勢 */
 }
 
 .signature-canvas-wrapper:hover {
@@ -386,7 +385,7 @@
 }
 
 .signature-canvas {
-  @apply w-full h-full cursor-crosshair;
+  @apply absolute inset-0 cursor-crosshair;
   touch-action: none;
 }
 

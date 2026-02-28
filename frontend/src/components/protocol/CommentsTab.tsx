@@ -34,8 +34,7 @@ import {
 import { formatDateTime } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
 import { ReviewCommentsReport } from '@/components/protocol/ReviewCommentsReport'
-import jsPDF from 'jspdf'
-import html2canvas from 'html2canvas'
+// jsPDF & html2canvas loaded lazily at PDF export time
 
 interface CommentsTabProps {
   protocolId: string
@@ -190,6 +189,10 @@ export const CommentsTab = React.memo(function CommentsTab({
     if (!reportRef.current || isExportingComments) return
     try {
       setIsExportingComments(true)
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ])
       const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true })
       const imgData = canvas.toDataURL('image/png')
       const pdf = new jsPDF('p', 'mm', 'a4')

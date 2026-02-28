@@ -91,6 +91,8 @@ pub struct AnimalQuery {
     pub pen_location: Option<String>,
     pub keyword: Option<String>,
     pub is_on_medication: Option<bool>,
+    pub page: Option<i64>,
+    pub per_page: Option<i64>,
 }
 
 /// 資料隔離：用於記錄列表查詢的可選時間過濾

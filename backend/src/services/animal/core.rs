@@ -5,7 +5,7 @@ use super::AnimalService;
 use crate::{
     models::{
         Animal, AnimalListItem, AnimalQuery, AnimalStatus, AnimalsByPen, BatchAssignRequest,
-        CreateAnimalRequest, CreateWeightRequest, UpdateAnimalRequest,
+        CreateAnimalRequest, CreateWeightRequest, PaginatedResponse, UpdateAnimalRequest,
     },
     AppError, Result,
 };
@@ -20,23 +20,82 @@ impl AnimalService {
     // ============================================
     // 動物管理
     // ============================================
-    /// 取得動物列表
-    pub async fn list(pool: &PgPool, query: &AnimalQuery) -> Result<Vec<AnimalListItem>> {
-        // Build query with proper parameterized queries
+    fn push_animal_filters(qb: &mut sqlx::QueryBuilder<'_, sqlx::Postgres>, query: &AnimalQuery) {
+        if let Some(status) = &query.status {
+            qb.push(" AND p.status = ");
+            qb.push_bind(status.clone());
+        }
+        if let Some(breed) = &query.breed {
+            let breed_str = match breed {
+                crate::models::AnimalBreed::Minipig => "miniature",
+                crate::models::AnimalBreed::White => "white",
+                crate::models::AnimalBreed::LYD => "LYD",
+                crate::models::AnimalBreed::Other => "other",
+            };
+            qb.push(" AND p.breed = ");
+            qb.push_bind(breed_str.to_string());
+        }
+        if let Some(iacuc_no) = &query.iacuc_no {
+            qb.push(" AND p.iacuc_no = ");
+            qb.push_bind(iacuc_no.clone());
+        }
+        if let Some(keyword) = &query.keyword {
+            let keyword_pattern = format!("%{}%", keyword);
+            qb.push(" AND (p.ear_tag ILIKE ");
+            qb.push_bind(keyword_pattern.clone());
+            qb.push(" OR p.pen_location ILIKE ");
+            qb.push_bind(keyword_pattern);
+            qb.push(")");
+        }
+        if let Some(true) = query.is_on_medication {
+            qb.push(
+                r#"
+                AND (
+                    EXISTS(
+                        SELECT 1 FROM animal_observations po 
+                        WHERE po.animal_id = p.id 
+                        AND po.no_medication_needed = false
+                    )
+                    OR
+                    EXISTS(
+                        SELECT 1 FROM animal_surgeries ps 
+                        WHERE ps.animal_id = p.id 
+                        AND ps.no_medication_needed = false
+                    )
+                )
+            "#,
+            );
+        }
+    }
+
+    /// 取得動物列表（支援分頁）
+    pub async fn list(pool: &PgPool, query: &AnimalQuery) -> Result<PaginatedResponse<AnimalListItem>> {
+        let paginated = query.page.is_some() || query.per_page.is_some();
+        let page = query.page.unwrap_or(1).max(1);
+        let per_page = query.per_page.unwrap_or(50).clamp(1, 200);
+
+        let total: i64 = if paginated {
+            let mut count_qb = sqlx::QueryBuilder::new(
+                "SELECT COUNT(*) FROM animals p WHERE p.deleted_at IS NULL",
+            );
+            Self::push_animal_filters(&mut count_qb, query);
+            let (cnt,): (i64,) = count_qb.build_query_as().fetch_one(pool).await?;
+            cnt
+        } else {
+            0 // will be set from vec len below
+        };
+
         let mut query_builder = sqlx::QueryBuilder::new(
             r#"
             SELECT 
                 p.id, p.animal_no, p.ear_tag, p.status, p.breed, p.breed_other, p.gender, p.pen_location,
                 p.iacuc_no, p.entry_date, s.name as source_name,
                 p.vet_last_viewed_at, p.created_at,
-                -- Computed fields for frontend
                 EXISTS(
                     SELECT 1 FROM animal_observations po 
                     WHERE po.animal_id = p.id 
                     AND po.record_type = 'abnormal'::record_type
                 ) as has_abnormal_record,
-                -- 檢查是否正在用藥：
-                -- 只要觀察試驗紀錄或手術紀錄中有任何一筆 no_medication_needed = false，則為正在用藥
                 (
                     EXISTS(
                         SELECT 1 FROM animal_observations po 
@@ -60,7 +119,6 @@ impl AnimalService {
                         SELECT id FROM animal_surgeries WHERE animal_id = p.id
                     ))
                 ) as vet_recommendation_date,
-                -- 最新體重
                 (
                     SELECT pw.weight 
                     FROM animal_weights pw 
@@ -81,64 +139,22 @@ impl AnimalService {
             "#,
         );
 
-        // Add filters with proper parameterization
-        if let Some(status) = &query.status {
-            query_builder.push(" AND p.status = ");
-            query_builder.push_bind(status);
-        }
-        if let Some(breed) = &query.breed {
-            // 轉換 breed enum 為資料庫期望的字串值
-            let breed_str = match breed {
-                crate::models::AnimalBreed::Minipig => "miniature",
-                crate::models::AnimalBreed::White => "white",
-                crate::models::AnimalBreed::LYD => "LYD",
-                crate::models::AnimalBreed::Other => "other",
-            };
-            query_builder.push(" AND p.breed = ");
-            query_builder.push_bind(breed_str);
-        }
-        if let Some(iacuc_no) = &query.iacuc_no {
-            query_builder.push(" AND p.iacuc_no = ");
-            query_builder.push_bind(iacuc_no);
-        }
-        if let Some(keyword) = &query.keyword {
-            let keyword_pattern = format!("%{}%", keyword);
-            query_builder.push(" AND (p.ear_tag ILIKE ");
-            query_builder.push_bind(keyword_pattern.clone());
-            query_builder.push(" OR p.pen_location ILIKE ");
-            query_builder.push_bind(keyword_pattern);
-            query_builder.push(")");
-        }
-
-        // 過濾正在用藥的動物
-        if let Some(true) = query.is_on_medication {
-            query_builder.push(
-                r#"
-                AND (
-                    EXISTS(
-                        SELECT 1 FROM animal_observations po 
-                        WHERE po.animal_id = p.id 
-                        AND po.no_medication_needed = false
-                    )
-                    OR
-                    EXISTS(
-                        SELECT 1 FROM animal_surgeries ps 
-                        WHERE ps.animal_id = p.id 
-                        AND ps.no_medication_needed = false
-                    )
-                )
-            "#,
-            );
-        }
-
+        Self::push_animal_filters(&mut query_builder, query);
         query_builder.push(" ORDER BY p.id DESC");
 
-        let mut animals = query_builder
+        if paginated {
+            let offset = (page - 1) * per_page;
+            query_builder.push(" LIMIT ");
+            query_builder.push_bind(per_page);
+            query_builder.push(" OFFSET ");
+            query_builder.push_bind(offset);
+        }
+
+        let mut animals: Vec<AnimalListItem> = query_builder
             .build_query_as::<AnimalListItem>()
             .fetch_all(pool)
             .await?;
 
-        // 格式化所有耳號與欄位編號
         for animal in &mut animals {
             animal.ear_tag = Self::format_ear_tag(&animal.ear_tag);
             if let Some(pen) = &animal.pen_location {
@@ -146,7 +162,8 @@ impl AnimalService {
             }
         }
 
-        Ok(animals)
+        let actual_total = if paginated { total } else { animals.len() as i64 };
+        Ok(PaginatedResponse::new(animals, actual_total, page, per_page))
     }
 
     /// 取得使用者關聯計畫的 IACUC 編號清單

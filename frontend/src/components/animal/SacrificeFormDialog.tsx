@@ -1,6 +1,7 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api, { AnimalSacrifice, signatureApi } from '@/lib/api'
+import { sanitizeSvg } from '@/lib/sanitize'
 import type { SignatureData } from '@/components/ui/handwritten-signature-pad'
 import { HandwrittenSignaturePad } from '@/components/ui/handwritten-signature-pad'
 import { Button } from '@/components/ui/button'
@@ -384,7 +385,7 @@ export function SacrificeFormDialog({ open, onOpenChange, animalId, earTag, sacr
                         <div
                           className="signature-preview-image mb-2"
                           style={{ height: '120px' }}
-                          dangerouslySetInnerHTML={{ __html: sig.handwriting_svg }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeSvg(sig.handwriting_svg) }}
                         />
                       )}
                       <p className="text-xs text-muted-foreground">

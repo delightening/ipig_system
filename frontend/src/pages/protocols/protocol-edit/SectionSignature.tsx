@@ -39,12 +39,12 @@ export function SectionSignature({ formData, setFormData, t }: SectionProps) {
   }
 
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader>
         <CardTitle>{t('aup.section10')}</CardTitle>
         <CardDescription>{t('aup.signature.subtitle')}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 min-w-0">
         {/* 簽名模式切換 */}
         <div className="flex gap-2">
           <Button
@@ -94,11 +94,12 @@ export function SectionSignature({ formData, setFormData, t }: SectionProps) {
 
         {/* 手寫簽名模式 */}
         {signMode === 'handwriting' && (
-          <div className="space-y-2">
+          <div className="space-y-2 min-w-0 max-w-full">
             <Label>{t('signature.handwriting', '手寫簽名')}</Label>
             <HandwrittenSignaturePad
               onSignatureChange={handleSignatureChange}
               height={200}
+              className="max-w-full"
             />
             {formData.working_content.handwriting_svg && (
               <p className="text-sm text-green-600">

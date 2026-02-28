@@ -3,8 +3,7 @@ import { formatDate } from '@/lib/utils'
 import { FileText, Download, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useRef, useState } from 'react'
-import jsPDF from 'jspdf'
-import html2canvas from 'html2canvas'
+// jsPDF & html2canvas loaded lazily at PDF export time (~360KB savings)
 import api from '@/lib/api'
 import { useTranslation } from 'react-i18next'
 
@@ -48,7 +47,8 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
 
     try {
       const response = await api.get(`/protocols/${protocolId}/export-pdf`, {
-        responseType: 'blob'
+        responseType: 'blob',
+        _silentError: true,
       })
 
       const blob = new Blob([response.data], { type: 'application/pdf' })
@@ -65,9 +65,14 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
     }
   }
 
-  // Client-side PDF export (fallback)
+  // Client-side PDF export (fallback) — section-aware page breaking
   const exportFromClient = async () => {
     if (!contentRef.current) return
+
+    const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+      import('html2canvas'),
+      import('jspdf'),
+    ])
 
     const canvas = await html2canvas(contentRef.current, {
       scale: 2,
@@ -76,32 +81,96 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
       backgroundColor: '#ffffff',
     })
 
-    const imgData = canvas.toDataURL('image/png')
     const pdf = new jsPDF('p', 'mm', 'a4')
-
     const pageWidth = pdf.internal.pageSize.getWidth()
     const pageHeight = pdf.internal.pageSize.getHeight()
     const margin = 10
+    const footerHeight = 8
+    const usableWidth = pageWidth - 2 * margin
+    const usableHeight = pageHeight - 2 * margin - footerHeight
 
-    const imgWidth = pageWidth - 2 * margin
-    const imgHeight = (canvas.height * imgWidth) / canvas.width
+    const pxPerMm = canvas.width / usableWidth
+    const maxSlicePx = usableHeight * pxPerMm
 
-    let heightLeft = imgHeight
-    let position = margin
-    let page = 0
+    // --- Build section-aware segments (in canvas px) ---
+    const containerRect = contentRef.current.getBoundingClientRect()
+    const domScale = canvas.width / containerRect.width
+    const sections = contentRef.current.querySelectorAll('section')
 
-    pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight)
-    heightLeft -= (pageHeight - 2 * margin)
+    type Segment = { startPx: number; endPx: number }
+    const segments: Segment[] = []
 
-    while (heightLeft > 0) {
-      position = -(pageHeight - 2 * margin) * (page + 1) + margin
-      pdf.addPage()
-      pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight)
-      heightLeft -= (pageHeight - 2 * margin)
-      page++
+    if (sections.length > 0) {
+      const firstY = Math.round(
+        (sections[0].getBoundingClientRect().top - containerRect.top) * domScale
+      )
+      if (firstY > 20) {
+        segments.push({ startPx: 0, endPx: firstY })
+      }
+      for (let i = 0; i < sections.length; i++) {
+        const top = Math.round(
+          (sections[i].getBoundingClientRect().top - containerRect.top) * domScale
+        )
+        const bottom =
+          i < sections.length - 1
+            ? Math.round(
+                (sections[i + 1].getBoundingClientRect().top - containerRect.top) * domScale
+              )
+            : canvas.height
+        if (bottom - top > 0) segments.push({ startPx: top, endPx: bottom })
+      }
+    } else {
+      segments.push({ startPx: 0, endPx: canvas.height })
     }
 
-    pdf.save(`${protocolTitle || t('protocols.content.title')}_${new Date().toISOString().split('T')[0]}.pdf`)
+    // --- Render each segment, one section per page (split if taller than a page) ---
+    let isFirstPage = true
+
+    const addSlice = (srcY: number, srcH: number) => {
+      if (srcH <= 0) return
+      if (!isFirstPage) pdf.addPage()
+      isFirstPage = false
+
+      const slice = document.createElement('canvas')
+      slice.width = canvas.width
+      slice.height = srcH
+      slice.getContext('2d')!.drawImage(
+        canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH
+      )
+      pdf.addImage(
+        slice.toDataURL('image/png'), 'PNG',
+        margin, margin, usableWidth, srcH / pxPerMm
+      )
+    }
+
+    for (const { startPx, endPx } of segments) {
+      const h = endPx - startPx
+      if (h <= maxSlicePx) {
+        addSlice(startPx, h)
+      } else {
+        let offset = startPx
+        while (offset < endPx) {
+          const sliceH = Math.min(maxSlicePx, endPx - offset)
+          addSlice(offset, sliceH)
+          offset += sliceH
+        }
+      }
+    }
+
+    // --- Page number footer on every page ---
+    const totalPdfPages = pdf.getNumberOfPages()
+    for (let i = 1; i <= totalPdfPages; i++) {
+      pdf.setPage(i)
+      pdf.setFontSize(8)
+      pdf.setTextColor(150, 150, 150)
+      pdf.text(`— ${i} / ${totalPdfPages} —`, pageWidth / 2, pageHeight - 5, {
+        align: 'center',
+      })
+    }
+
+    pdf.save(
+      `${protocolTitle || t('protocols.content.title')}_${new Date().toISOString().split('T')[0]}.pdf`
+    )
   }
 
   const handleExportPDF = async () => {
@@ -736,21 +805,34 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
           </section>
         )}
 
-        {/* Print Styles */}
+        {/* Print / PDF Styles */}
         <style>{`
           @media print {
             .protocol-pdf-view {
-              box-shadow: none;
-              padding: 20px;
+              box-shadow: none !important;
+              padding: 10mm !important;
+              max-width: none !important;
+            }
+            .protocol-pdf-view > section {
+              page-break-before: always;
+              break-before: page;
+            }
+            .protocol-pdf-view > section:first-of-type {
+              page-break-before: always;
             }
             .protocol-pdf-view section {
               page-break-inside: avoid;
+              break-inside: avoid;
             }
-            .protocol-pdf-view h2 {
+            .protocol-pdf-view h2,
+            .protocol-pdf-view h3 {
               page-break-after: avoid;
+              break-after: avoid;
             }
-            .protocol-pdf-view section:not(:last-child) {
-              page-break-after: auto;
+            .protocol-pdf-view .p-4.border.rounded,
+            .protocol-pdf-view .p-3.border.rounded {
+              page-break-inside: avoid;
+              break-inside: avoid;
             }
           }
         `}</style>

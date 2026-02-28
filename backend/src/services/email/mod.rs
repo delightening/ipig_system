@@ -82,7 +82,19 @@ impl EmailService {
                 .build()
         };
 
-        mailer.send(email).await?;
+        use crate::services::retry::{with_retry, RetryConfig};
+        with_retry(
+            &RetryConfig {
+                max_retries: 2,
+                ..RetryConfig::default()
+            },
+            "SMTP send",
+            || {
+                let mailer_ref = &mailer;
+                let email_clone = email.clone();
+                async move { mailer_ref.send(email_clone).await.map(|_| ()).map_err(|e| anyhow::anyhow!(e)) }
+            },
+        ).await?;
         Ok(())
     }
 
