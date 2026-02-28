@@ -1,7 +1,7 @@
 # 稽核與日誌規格
 
-> **版本**：1.0  
-> **最後更新**：2026-01-17  
+> **版本**：7.0  
+> **最後更新**：2026-03-01  
 > **對象**：資安團隊、開發人員、法規遵循人員
 
 ---
@@ -48,11 +48,11 @@
 | 類別 | 事件 | 範例 |
 |------|------|------|
 | **認證** | 登入成功/失敗、登出、密碼變更 | 使用者 alice@example.com 登入 |
-| **資料異動** | 所有實體的新增、更新、刪除 | 建立豬隻耳號=A001 |
+| **資料異動** | 所有實體的新增、更新、刪除 | 建立動物耳號=A001 |
 | **核准** | 需要授權的狀態變更 | 計畫書 P-2026-001 已核准 |
 | **匯出** | 資料匯出、下載 | 匯出豬隻醫療紀錄 |
 | **管理操作** | 使用者管理、角色變更 | 將 VET 角色指派給使用者 bob |
-| **敏感存取** | 敏感紀錄的檢視 | 檢視豬隻 A001 的病理報告 |
+| **敏感存取** | 敏感紀錄的檢視 | 檢視動物 A001 的病理報告 |
 
 ### 3.2 應該記錄（中優先）
 
@@ -89,7 +89,7 @@
 | actor_roles | JSONB | 操作時的角色代碼 |
 | session_id | UUID | 連結至使用者工作階段 |
 | event_category | VARCHAR(50) | auth, data, admin, export, navigation |
-| event_type | VARCHAR(100) | 具體事件（pig.create, protocol.approve）|
+| event_type | VARCHAR(100) | 具體事件（animal.create, protocol.approve）|
 | event_severity | VARCHAR(20) | info, warning, critical |
 | entity_type | VARCHAR(50) | 受影響實體的類型 |
 | entity_id | UUID | 受影響實體的 ID |
@@ -182,6 +182,9 @@
 | auth.token_refresh | info | Token 刷新 |
 | auth.password_change | info | 使用者變更密碼 |
 | auth.password_reset | info | 透過信件重設密碼 |
+| auth.2fa.setup | info | 啟用 TOTP 2FA |
+| auth.2fa.disable | info | 停用 TOTP 2FA |
+| auth.reauth | info | 敏感操作二級認證 |
 | auth.session_expired | info | 工作階段逾時 |
 
 ### 5.2 資料事件
@@ -193,7 +196,7 @@
 | {entity}.delete | warning | 實體刪除 |
 | {entity}.status_change | info | 狀態欄位變更 |
 
-其中 `{entity}` 為：pig, protocol, document, user, role 等。
+其中 `{entity}` 為：animal, protocol, document, user, role 等。
 
 ### 5.3 管理事件
 
@@ -209,7 +212,7 @@
 
 | 事件類型 | 嚴重度 | 觸發條件 |
 |----------|--------|----------|
-| export.pig_medical | info | 醫療紀錄匯出 |
+| export.animal_medical | info | 醫療紀錄匯出 |
 | export.audit_logs | info | 稽核日誌匯出 |
 | export.report | info | 報表產生 |
 
@@ -380,7 +383,7 @@ POST /api/admin/audit/activities/export
 | admin.audit.alerts.resolve | 解決警報 |
 | admin.audit.dashboard | 檢視稽核儀表板 |
 
-預設指派：SYSTEM_ADMIN、PROGRAM_ADMIN
+預設指派：admin、PROGRAM_ADMIN
 
 ---
 
@@ -414,6 +417,11 @@ tokio::spawn(async move {
 - 獨立登入事件表（高流量）
 - 每日彙總供儀表板使用
 
+### 11.4 稽核完整性 (Migration 011)
+
+- `user_activity_logs` 支援 HMAC 雜湊驗證，確保紀錄不可竄改
+- 詳見 [04_DATABASE_SCHEMA](../04_DATABASE_SCHEMA.md) 與 [DATA_RETENTION_POLICY](../../DATA_RETENTION_POLICY.md)
+
 ---
 
 ## 12. 相關文件
@@ -424,4 +432,4 @@ tokio::spawn(async move {
 
 ---
 
-*最後更新：2026-01-17*
+*最後更新：2026-03-01*

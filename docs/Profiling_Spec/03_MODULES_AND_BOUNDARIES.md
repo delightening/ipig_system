@@ -1,7 +1,7 @@
 # 模組與邊界
 
-> **版本**：5.0  
-> **最後更新**：2026-02-17  
+> **版本**：7.0  
+> **最後更新**：2026-03-01  
 > **對象**：架構師、資深開發人員
 
 ---
@@ -55,6 +55,11 @@ iPig 系統組織成獨立的有界上下文：
 - `POST /auth/refresh` - Token 刷新
 - `POST /auth/logout` - 使用者登出
 - `POST /auth/heartbeat` - 心跳回報
+- `POST /auth/2fa/setup` - TOTP 2FA 設定（產生 secret + QR）
+- `POST /auth/2fa/confirm` - 驗證第一次 code 啟用 2FA
+- `POST /auth/2fa/verify` - TOTP 驗證登入（支援備用碼）
+- `POST /auth/2fa/disable` - 停用 2FA（需密碼 + code）
+- `POST /auth/confirm-password` - 敏感操作二級認證（取得 reauth token）
 - `POST /auth/forgot-password` - 密碼重設請求
 - `POST /auth/reset-password` - 使用 Token 重設
 - `GET/PUT /me` - 個人資訊
@@ -337,6 +342,25 @@ iPig 系統組織成獨立的有界上下文：
 
 ---
 
+## 11a. 系統設定模組
+
+**目的**：管理員可設定的系統組態（DB-first，覆蓋 .env）。
+
+| 元件 | 檔案路徑 | 說明 |
+|------|----------|------|
+| 系統設定處理器 | `handlers/system_settings.rs` | GET/PUT 操作 |
+| 系統設定服務 | `services/system_settings.rs` | DB CRUD、SMTP 解析 |
+
+**API 前綴**：`/api/admin/system-settings`
+
+**主要端點**：
+- `GET /admin/system-settings` - 取得所有設定（SMTP 密碼遮罩）
+- `PUT /admin/system-settings` - 批次更新設定
+
+**設定項目**：company_name、default_warehouse_id、cost_method、smtp_*、session_timeout_minutes 等 10 項。
+
+---
+
 ## 12. 安全與稽核系統
 
 **目的**：GLP 合規稽核、異常偵測、工作階段管理。
@@ -414,6 +438,7 @@ iPig 系統組織成獨立的有界上下文：
 - 病理報告附件 (`/animals/:id/pathology/attachments`)
 - 犧牲照片 (`/animals/:id/sacrifice/photos`)
 - 獸醫建議附件 (`/vet-recommendations/:record_type/:record_id/attachments`)
+- 觀察紀錄附件 (`/observations/:id/attachments`)
 - 請假附件 (`/hr/leaves/attachments`)
 
 ---
@@ -485,3 +510,5 @@ iPig 系統組織成獨立的有界上下文：
 ---
 
 *下一章：[資料庫綱要](./04_DATABASE_SCHEMA.md)*
+
+*最後更新：2026-03-01*

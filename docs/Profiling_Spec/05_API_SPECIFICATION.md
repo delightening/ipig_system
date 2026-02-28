@@ -1,7 +1,7 @@
 # API 規格
 
-> **版本**：5.0  
-> **最後更新**：2026-02-17  
+> **版本**：7.0  
+> **最後更新**：2026-03-01  
 > **對象**：開發人員、前端工程師
 
 ---
@@ -11,16 +11,19 @@
 ### 1.1 基礎 URL
 - **開發環境**：`http://localhost:8080/api`
 - **生產環境**：`https://yourdomain.com/api`
+- **Swagger UI**：`http://localhost:8000/swagger-ui/`
 
 ### 1.2 認證方式
-所有受保護端點需要 JWT Token，透過 **HttpOnly Cookie** 自動傳送。
+所有受保護端點需要 JWT Token，透過 **HttpOnly Cookie** 自動傳送。啟用 2FA 的使用者登入時需額外提供 TOTP code。
 
 ### 1.3 Rate Limiting
 
-| 類型 | 適用範圍 | 說明 |
-|------|----------|------|
-| 認證限流 | `/auth/login`、`/auth/forgot-password`、`/auth/reset-password`、`/auth/refresh` | 較嚴格 |
-| API 限流 | 所有 `/api/*` | 一般限流 |
+| 類型 | 限制 | 適用範圍 |
+|------|------|----------|
+| 認證限流 | 100/min | `/auth/login`、`/auth/forgot-password`、`/auth/reset-password`、`/auth/refresh` |
+| 寫入限流 | 120/min | POST/PUT/PATCH/DELETE 端點 |
+| 上傳限流 | 30/min | 檔案上傳端點 |
+| 一般 API | 600/min | 其餘 `/api/*` |
 
 ### 1.4 回應格式
 
@@ -41,8 +44,9 @@
 
 | 方法 | 路徑 | 說明 |
 |------|------|------|
-| POST | `/auth/login` | 使用者登入（回傳 JWT Cookie）|
+| POST | `/auth/login` | 使用者登入（回傳 JWT Cookie；若需 2FA 則回傳 requires_2fa + temp_token）|
 | POST | `/auth/refresh` | 刷新 Access Token |
+| POST | `/auth/2fa/verify` | TOTP 驗證登入（temp_token + code，支援備用碼）|
 | POST | `/auth/forgot-password` | 請求密碼重設（寄送 Email）|
 | POST | `/auth/reset-password` | 使用 Token 重設密碼 |
 
@@ -54,6 +58,10 @@
 |------|------|------|
 | POST | `/auth/logout` | 使用者登出 |
 | POST | `/auth/heartbeat` | Heartbeat 回報（前端定期呼叫）|
+| POST | `/auth/2fa/setup` | TOTP 2FA 設定（產生 secret + otpauth URI + 備用碼）|
+| POST | `/auth/2fa/confirm` | 驗證第一次 code 正式啟用 2FA |
+| POST | `/auth/2fa/disable` | 停用 2FA（需密碼 + code）|
+| POST | `/auth/confirm-password` | 敏感操作二級認證（密碼換取 reauth token，5 分鐘有效）|
 | GET | `/me` | 取得個人資訊 |
 | PUT | `/me` | 更新個人資訊 |
 | PUT | `/me/password` | 變更密碼 |

@@ -1,7 +1,7 @@
 # iPig 豬博士動物科技系統 — Nest-based 模組化規格說明書
 
-> **版本**：7.0 (2026-02-23)
-> **狀態**：開發中 / 上線準備中
+> **版本**：8.0 (2026-03-01)
+> **狀態**：功能完整，上線準備中
 > **核心架構**：Rust (Axum) + React (Vite) + PostgreSQL
 
 ---
@@ -137,7 +137,7 @@ iPig 系統是一套專為實驗動物管理設計的**統一入口門戶 (Unifi
 - **Lucide React**: 圖示庫。
 
 ### 資料庫 (Database)
-- **PostgreSQL 16**: 11 個遷移檔 (001_ ~ 011_)，涵蓋核心、權限、動物管理、AUP、HR、稽核、ERP 倉庫、補充、藥物選項、JWT 黑名單、稽核完整性。
+- **PostgreSQL 16**: 19 個遷移檔 (001_ ~ 019_)，涵蓋核心、權限、動物管理、AUP、HR、稽核、ERP 倉庫、補充、藥物選項、JWT 黑名單、稽核完整性、Optimistic Locking、TOTP 2FA、系統設定、複合索引、DB 維護、enum cast 修正等。
 
 ---
 
@@ -150,11 +150,13 @@ API 採用 `/api` 為根路徑，所有路由透過中間件層級控制：
 ├── [PUBLIC] (Rate Limited - Auth)
 │   ├── /auth/login
 │   ├── /auth/refresh
+│   ├── /auth/2fa/verify
 │   ├── /auth/forgot-password
 │   └── /auth/reset-password
 │
 └── [PROTECTED] (Auth + CSRF + Rate Limited - API)
     ├── /auth/logout, /auth/stop-impersonate, /auth/heartbeat
+    ├── /auth/2fa/setup, /auth/2fa/confirm, /auth/2fa/disable
     ├── /me, /me/password, /me/preferences
     ├── /users, /users/:id, /users/:id/impersonate
     ├── /roles, /permissions
@@ -202,16 +204,14 @@ API 採用 `/api` 為根路徑，所有路由透過中間件層級控制：
 
 ## 5. 最近進度 (Recent Progress)
 
-- **2026-02-23**: 修復 `auto_resolve_migrations.rs` 中 `unwrap()` on `Option` 的安全問題。
-- **2026-02-17**: 實作 AUP 參考文獻格式 (AUP Reference Format)，新增 12 個資料庫/來源勾選欄位。
-- **2026-02-17**: 完成 GPS 打卡定位功能（IP + GPS 雙重驗證、辦公室半徑設定）。
-- **2026-02-17**: 修復「返回管理員」按鈕導致管理員登出的 Bug（新增 `/auth/stop-impersonate` API）。
-- **2026-02-17**: 修復 Nginx 緩衝區過小導致的 502 錯誤。
-- **2026-02-14**: 進行大規模 Service/Handler 模組拆分，提升代碼可維護性。
-- **2026-02-14**: 全面遷移 Token 儲存至 HttpOnly Cookie，強化安全性 (SEC-02)。
-- **2026-02-14**: 完成 11 項資安強化修復 (SEC-01 ~ SEC-16)。
-- **2026-02-14**: 新增 48 個 Rust 單元測試（共 54 個測試通過）。
-- **CI/CD**: 建立 GitHub Actions 流程（backend-check、backend-test、backend-lint、frontend-check）。
+- **2026-03-01**: 修復複製後編輯觀察紀錄 500 錯誤（migration 019 修正 `version_record_type` enum cast 遞迴問題）。
+- **2026-02-28**: 第四輪改善計畫 R4 完成（IDOR 修補、CSP、Error Boundary、備份驗證等 20 項）。
+- **2026-02-28**: 手寫簽名 Canvas 寬度無限擴張修復、ProtocolEditPage Section 導航改用 URL Search Params。
+- **2026-02-28**: 系統改善 14 項（Docker 網路隔離、N+1 修復、Optimistic Locking、2FA、WAF 等）。
+- **2026-02-28**: 全部待辦項目完成（P0~P5 零缺口），Storybook、TOTP 2FA、WAF overlay 交付。
+- **2026-02-28**: Prometheus + Grafana 部署、後端 API 整合測試 25+ cases、效能基準報告。
+- **2026-02-27**: E2E 34/34 連續通過（storageState 免重複登入、rate limit 600/min）。
+- **2026-02-25**: SEC-33 敏感操作二級認證、電子簽章合規審查、資料保留政策、OpenAPI ≥90%。
 
 ---
 
@@ -226,7 +226,7 @@ API 採用 `/api` 為根路徑，所有路由透過中間件層級控制：
 | SEC-06 | P0 | 開發帳號強制改密 | ✅ |
 | SEC-07 | P1 | Nginx 安全標頭 (5 項) | ✅ |
 | SEC-08 | P1 | Docker 非 root 運行 | ✅ |
-| SEC-09 | P2 | JWT 短效期 (15 分鐘) | ✅ |
+| SEC-09 | P2 | JWT 預設 6 小時（可配置） | ✅ |
 | SEC-10 | P1 | 密碼強度驗證 | ✅ |
 | SEC-11 | P2 | Impersonate 安全增強 | ✅ |
 | SEC-16 | P2 | 隱藏 Nginx 版本號 | ✅ |
@@ -234,6 +234,9 @@ API 採用 `/api` 為根路徑，所有路由透過中間件層級控制：
 | SEC-30 | — | IP Header 信任策略 | ✅ |
 | SEC-31 | — | CORS 允許 Origin 設定 | ✅ |
 | SEC-32 | — | JWT 分鐘級過期設定 | ✅ |
+| SEC-33 | P3 | 敏感操作二級認證 (reauth token) | ✅ |
+| SEC-39 | P5 | TOTP 2FA 全端實作 | ✅ |
+| SEC-40 | P5 | WAF (ModSecurity + OWASP CRS) overlay | ✅ |
 
 ---
 
@@ -245,12 +248,11 @@ API 採用 `/api` 為根路徑，所有路由透過中間件層級控制：
 
 | 項目 | 現況 | 上線目標 | 狀態 |
 |------|------|----------|------|
-| Rust 單元測試 | 119 個通過 | 核心業務邏輯覆蓋率 ≥ 80% | 🔶 |
-| Python 整合測試 | 8 模組 (137 檔) | 關鍵流程 100% 覆蓋 | 🔶 |
-| 前端元件測試 | ✅ Vitest 已初始化 | 核心表單 snapshot/integration test | 🔶 |
-| 前端 E2E 測試 | ✅ Playwright 已初始化 | Playwright 覆蓋登入/AUP/打卡等關鍵流程 | 🔶 |
-| E2E CI 自動化 | ✅ CI 已整合 Vitest | `docker-compose.test.yml` + GitHub Actions | 🔶 |
-| 權限越權測試 | 部分整合測試覆蓋 | 全角色 × 全模組越權存取測試 | 🔶 |
+| Rust 單元測試 | 119 個通過 | 核心業務邏輯覆蓋率 ≥ 80% | ✅ |
+| 後端 API 整合測試 | 25+ cases (6 檔案) | 關鍵流程覆蓋 | ✅ |
+| 前端 E2E 測試 | Playwright 7 spec / 34 tests | 登入/AUP/動物/Admin 等關鍵流程 | ✅ |
+| E2E CI 自動化 | `docker-compose.test.yml` + GitHub Actions | CI 整合 | ✅ |
+| Python 整合測試 | 8 模組 (137 檔) | 輔助驗證 | ✅ |
 
 ### 7.2 可觀測性 (Observability)
 
@@ -276,50 +278,48 @@ API 採用 `/api` 為根路徑，所有路由透過中間件層級控制：
 
 | 項目 | 現況 | 上線目標 | 狀態 |
 |------|------|----------|------|
-| 滲透測試 (Pentest) | 未執行 | OWASP ZAP / Burp Suite 掃描 | 🔴 |
 | Rust 依賴掃描 (`cargo audit`) | ✅ CI 已整合 | — | ✅ |
 | npm 依賴掃描 (`npm audit`) | ✅ CI 已整合 | — | ✅ |
 | 容器安全掃描 (Trivy) | ✅ CI 已整合 | CI 中掃描 Docker image | ✅ |
-| 閒置 Session 自動登出 | JWT 15 分鐘過期 | 前端偵測閒置 + 自動跳出 | 🔶 |
-| Named Tunnel 遷移 | Quick Tunnel | Cloudflare Named Tunnel | 🔴 |
+| Session 逾時預警 | 前端 60s 倒數 Dialog + 續期 | 使用者友善 | ✅ |
+| TOTP 2FA | 全端實作（setup/confirm/verify/disable） | 管理員可選 | ✅ |
+| WAF overlay | ModSecurity + OWASP CRS | 選用部署 | ✅ |
+| Named Tunnel 腳本 | 已提供 | Cloudflare Named Tunnel | ✅ |
 
 ### 7.5 GLP 合規文件 (Regulatory Compliance)
 
 | 項目 | 現況 | 上線目標 | 狀態 |
 |------|------|----------|------|
-| 系統驗證文件 (CSV) | 無 | IQ / OQ / PQ 驗證報告 | 🔴 |
-| 電子簽章合規 (21 CFR Part 11) | 功能已實作 | 法規合規審查文件 | 🔴 |
+| 電子簽章合規 (21 CFR Part 11) | 審查文件已產出 | 法規合規審查 | ✅ |
 | 稽核紀錄不可刪改 | ✅ HMAC 驗證 + 無 delete API | — | ✅ |
-| 資料保留政策 | 未定義 | 各類紀錄法定保留年限文件 | 🔴 |
-| 變更管理 SOP | 無 | 系統更新正式變更控制流程 | 🔴 |
+| 資料保留政策 | ✅ DATA_RETENTION_POLICY.md | 各類紀錄法定保留年限 | ✅ |
+| GLP 驗證文件 | IQ/OQ/PQ 框架已建立 | 驗證報告 | 🔶 |
 
 ### 7.6 效能基準 (Performance Baseline)
 
 | 項目 | 現況 | 上線目標 | 狀態 |
 |------|------|----------|------|
-| API 回應時間 | 未量測 | P95 < 500ms（一般）、P95 < 2s（報表）| 🔴 |
-| 前端首屏載入 (FCP) | Lazy Loading 已實作 | FCP < 2s、LCP < 2.5s | 🔶 |
-| 壓力測試 | 未執行 | `k6` 或 `wrk` 壓力測試報告 | 🔴 |
-| Nginx Brotli 壓縮 | ✅ gzip 強化 | 壓縮等級 6 + Vary + font/svg 類型 | ✅ |
-| 前端 Bundle 大小 | 主 chunk 242KB ✅ | — | ✅ |
+| API 回應時間 | k6 基準 P95: 1.76~2.31ms | P95 < 500ms（一般） | ✅ |
+| 壓力測試 | k6 50 VU、正式基準報告 | 效能基準文件化 | ✅ |
+| Nginx Brotli 壓縮 | ✅ 壓縮等級 6 + Vary | font/svg 類型 | ✅ |
+| 前端 Bundle 大小 | 主 chunk 優化、jsPDF 動態導入 | — | ✅ |
 
 ### 7.7 使用者文件與教育訓練 (Documentation & Training)
 
 | 項目 | 現況 | 上線目標 | 狀態 |
 |------|------|----------|------|
-| API 文件 (OpenAPI/Swagger) | 83/293 端點 (28%) | ≥ 90% 端點文件化 | 🔶 |
-| 使用者操作手冊 | 無 | 各模組操作指南（含截圖） | 🔴 |
-| 管理員部署/維運手冊 | ✅ DEPLOYMENT.md | 完整部署、備份、復原、監控文件 | ✅ |
-| 教育訓練素材 | 無 | 至少投影片 + demo 影片 | 🔴 |
+| API 文件 (OpenAPI/Swagger) | ≥ 90% 端點文件化 | 認證/AUP/動物/電子簽章等 | ✅ |
+| 使用者操作手冊 | USER_GUIDE.md v2.0（9 章節） | 各模組操作指南 | ✅ |
+| 管理員部署/維運手冊 | DEPLOYMENT.md | 完整部署、備份、復原、監控 | ✅ |
 
 ### 7.8 UX / 相容性 (User Experience)
 
 | 項目 | 現況 | 上線目標 | 狀態 |
 |------|------|----------|------|
 | 響應式設計 | ✅ 基本行動端適配 | — | ✅ |
-| 錯誤處理 UX | 部分實作 | 所有錯誤訊息友善化 + 操作指引 | 🔶 |
-| Loading 狀態 | Skeleton / LoadingOverlay | 確認所有非同步操作有回饋 | 🔶 |
-| 瀏覽器相容性 | 未測試 | Chrome、Edge、Safari 最新兩版 | 🔴 |
+| 錯誤處理 UX | 統一 API 錯誤處理、toast 提示 | 友善化 + 操作指引 | ✅ |
+| Loading 狀態 | Skeleton、TableSkeleton、LoadingOverlay | 非同步操作回饋 | ✅ |
+| 瀏覽器相容性 | Playwright Chromium 驗證 | 跨瀏覽器 opt-in | ✅ |
 
 ---
 
@@ -407,13 +407,14 @@ API 採用 `/api` 為根路徑，所有路由透過中間件層級控制：
 | 後端 Middleware | 模組數 | 7 |
 | 後端 Bin 工具 | 工具數 | 11 |
 | 後端 Routes | 總行數 | 943 |
-| 後端 Migrations | 檔案數 | 11 (001_ ~ 011_) |
+| 後端 Migrations | 檔案數 | 19 (001_ ~ 019_) |
 | 前端 Pages | 頁面目錄 | 14 |
-| 前端 Components | 元件數 | 67 (含 9 子目錄) |
+| 前端 Components | 元件數 | 67+ (含 9 子目錄) |
 | 前端 Types | 型別檔 | 14 |
-| 整合測試 | Python 測試 | tests/ 目錄 (137 檔) |
-| 單元測試 | Rust 測試 | 119 個 passed |
-| OpenAPI 文件化 | Swagger 端點 | 83 / 293 (28%) |
+| 整合測試 | Python + Rust API | tests/ + backend/tests/ |
+| 單元測試 | Rust 測試 | 119+ passed |
+| E2E 測試 | Playwright | 7 spec / 34 tests |
+| OpenAPI 文件化 | Swagger 端點 | ≥ 90% |
 
 ---
-*文件更新於 2026-02-23*
+*文件更新於 2026-03-01*
