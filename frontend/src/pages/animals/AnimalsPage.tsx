@@ -4,6 +4,8 @@ import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth'
 import { useDebounce } from '@/hooks/useDebounce'
+import { STALE_TIME } from '@/lib/query'
+import axios from 'axios'
 import api, {
   Animal,
   AnimalListItem,
@@ -11,6 +13,7 @@ import api, {
   AnimalSource,
 } from '@/lib/api'
 import type { PaginatedResponse } from '@/types/common'
+import { getApiErrorMessage } from '@/lib/validation'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/use-toast'
 import { Plus, Upload, Download, FileSpreadsheet } from 'lucide-react'
@@ -120,7 +123,7 @@ export function AnimalsPage() {
       const res = await api.get<PaginatedResponse<AnimalListItem>>(`/animals`)
       return res.data
     },
-    staleTime: 300_000,
+    staleTime: STALE_TIME.LIST,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   })
@@ -137,7 +140,7 @@ export function AnimalsPage() {
       const res = await api.get<PaginatedResponse<AnimalListItem>>(`/animals?${params}`)
       return res.data
     },
-    staleTime: 60_000,
+    staleTime: STALE_TIME.LIST,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   })
@@ -148,7 +151,7 @@ export function AnimalsPage() {
       const res = await api.get<AnimalSource[]>('/animal-sources')
       return res.data
     },
-    staleTime: 600_000,
+    staleTime: STALE_TIME.REFERENCE,
   })
 
   const { data: groupedData, isLoading: groupedLoading } = useQuery({
@@ -158,7 +161,7 @@ export function AnimalsPage() {
       return res.data
     },
     enabled: statusFilter === 'pen',
-    staleTime: 30_000,
+    staleTime: STALE_TIME.REALTIME,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   })
@@ -192,21 +195,18 @@ export function AnimalsPage() {
     })
   }
 
-  const extractErrorMessage = (error: any, fallback: string) => {
-    return error?.response?.data?.error?.message
-      || error?.response?.data?.message
-      || error?.message
-      || fallback
+  const extractErrorMessage = (error: unknown, fallback: string) => {
+    return getApiErrorMessage(error, fallback)
   }
 
-  const handleDuplicate409 = (error: any, source: 'create' | 'quickAdd') => {
-    if (error?.response?.status !== 409) return false
+  const handleDuplicate409 = (error: unknown, source: 'create' | 'quickAdd') => {
+    if (!axios.isAxiosError(error) || error.response?.status !== 409) return false
     const errData = error.response.data?.error
     if (errData?.warning_type !== 'duplicate_ear_tag' || errData?.blocking !== false) return false
-    let payload: any = {}
+    let payload: Record<string, unknown> = {}
     try { payload = JSON.parse(error.config?.data || '{}') } catch { /* ignore */ }
     setDuplicateWarningData({
-      earTag: payload.ear_tag || quickAddPending?.earTag || '',
+      earTag: (payload.ear_tag as string) || quickAddPending?.earTag || '',
       existingAnimals: errData.existing_animals || [],
       source,
       pendingPayload: payload,
@@ -269,14 +269,13 @@ export function AnimalsPage() {
       setShowAddDialog(false)
       resetNewAnimalForm()
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       if (handleDuplicate409(error, 'create')) return
 
       let errorMessage = '新增失敗，請檢查輸入資料'
-      if (error?.response?.status === 422) {
-        errorMessage = error?.response?.data?.error?.message
-          || error?.response?.data?.message
-          || '資料格式錯誤：請檢查所有欄位的格式是否正確'
+      if (axios.isAxiosError(error) && error.response?.status === 422) {
+        const data = error.response.data as { error?: { message?: string }; message?: string } | undefined
+        errorMessage = data?.error?.message || data?.message || '資料格式錯誤：請檢查所有欄位的格式是否正確'
       } else {
         errorMessage = extractErrorMessage(error, errorMessage)
       }
@@ -293,7 +292,7 @@ export function AnimalsPage() {
       setSelectedAnimals([])
       setAssignIacucNo('')
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({ title: '錯誤', description: extractErrorMessage(error, '批次分配失敗'), variant: 'destructive' })
     },
   })
@@ -329,7 +328,7 @@ export function AnimalsPage() {
       if (/^\d+$/.test(formattedEarTag)) formattedEarTag = formattedEarTag.padStart(3, '0')
       toast({ title: '成功', description: `動物 ${formattedEarTag} 已移動到 ${variables.targetPenLocation}` })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({ title: '錯誤', description: extractErrorMessage(error, '移動失敗'), variant: 'destructive' })
     },
   })
@@ -357,7 +356,7 @@ export function AnimalsPage() {
       setShowQuickAddDialog(false)
       setQuickAddPending(null)
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       if (handleDuplicate409(error, 'quickAdd')) return
       toast({ title: '錯誤', description: extractErrorMessage(error, '新增失敗'), variant: 'destructive' })
     },
@@ -375,7 +374,7 @@ export function AnimalsPage() {
       setQuickAddPending(null)
       resetNewAnimalForm()
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({ title: '錯誤', description: extractErrorMessage(error, '新增失敗'), variant: 'destructive' })
     },
   })

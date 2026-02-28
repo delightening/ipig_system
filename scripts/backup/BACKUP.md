@@ -48,12 +48,26 @@ docker compose exec db pg_dump -U postgres ipig_db | gzip > backup.sql.gz
 
 ## 還原
 
+### 自動化腳本（推薦）
+
 ```bash
-# 方法一：從容器 volume
-docker compose exec -T db psql -U postgres ipig_db < <(gunzip -c /backups/ipig_db_YYYYMMDD_HHMMSS.sql.gz)
+# 從備份容器執行（備份檔在 volume 內）
+docker compose exec db-backup /usr/local/bin/pg_restore.sh /backups/ipig_YYYYMMDD_HHMMSS.sql.gz
+
+# 從主機執行（需掛載備份目錄）
+./scripts/backup/pg_restore.sh /path/to/ipig_YYYYMMDD_HHMMSS.sql.gz
+```
+
+環境變數：`DB_HOST`、`DB_USER`、`DB_NAME`、`DB_PASSWORD`（同備份腳本）
+
+### 手動還原
+
+```bash
+# 方法一：從容器 volume（custom format 需用 pg_restore）
+gunzip -c /backups/ipig_YYYYMMDD_HHMMSS.sql.gz | docker compose exec -T db pg_restore -U postgres -d ipig_db --clean --if-exists --no-owner -
 
 # 方法二：從主機檔案
-gunzip -c backup.sql.gz | docker compose exec -T db psql -U postgres ipig_db
+gunzip -c backup.sql.gz | docker compose exec -T db pg_restore -U postgres -d ipig_db --clean --if-exists --no-owner -
 ```
 
 ## 異地備份（rsync 到 NAS）

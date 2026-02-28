@@ -1,4 +1,4 @@
-﻿// 手術記錄管理 Handlers
+// 手術記錄管理 Handlers
 
 use axum::{
     extract::{Path, Query, State},
@@ -57,7 +57,7 @@ pub async fn create_animal_surgery(
     Json(req): Json<CreateSurgeryRequest>,
 ) -> Result<Json<AnimalSurgery>> {
     require_permission!(current_user, "animal.record.create");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     
     let surgery = AnimalService::create_surgery(&state.db, animal_id, &req, current_user.id).await?;
 
@@ -115,7 +115,7 @@ pub async fn delete_animal_surgery(
     Json(req): Json<DeleteRequest>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.record.delete");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     
     AnimalService::soft_delete_surgery_with_reason(&state.db, id, &req.reason, current_user.id).await?;
 

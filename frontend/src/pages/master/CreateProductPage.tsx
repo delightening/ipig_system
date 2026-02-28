@@ -24,6 +24,7 @@ import {
   ListPlus, FileText, LayoutGrid, Sparkles, Plus, X
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { logger } from '@/lib/logger'
 
 // 步驟定義
 const STEPS: Step[] = [
@@ -355,7 +356,7 @@ export function CreateProductPage() {
       setPreviewResult(result)
       setSkuStatus('S3')
     } catch (error: any) {
-      console.error('SKU preview error:', error)
+      logger.error('SKU preview error:', error)
       setSkuStatus('S4')
       setPreviewError({
         code: 'E5',

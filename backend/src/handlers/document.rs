@@ -24,7 +24,7 @@ pub async fn create_document(
 ) -> Result<Json<DocumentWithLines>> {
     // 統一使用 erp.document.create 權限（所有單據類型共用）
     require_permission!(current_user, "erp.document.create");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     
     let document = DocumentService::create(&state.db, &req, current_user.id).await?;
 
@@ -57,6 +57,18 @@ pub async fn list_documents(
     Ok(Json(documents))
 }
 
+/// 檢查文件存取權限（IDOR 防護）：建立者、倉庫管理員或管理員可存取
+fn check_document_access(current_user: &CurrentUser, created_by: Uuid) -> Result<()> {
+    let is_creator = current_user.id == created_by;
+    let is_warehouse_manager = current_user.roles.contains(&"WAREHOUSE_MANAGER".to_string());
+    let is_admin = current_user.is_admin();
+    if is_creator || is_warehouse_manager || is_admin {
+        Ok(())
+    } else {
+        Err(AppError::Forbidden("無權存取此文件".into()))
+    }
+}
+
 /// 取得單個文件
 pub async fn get_document(
     State(state): State<AppState>,
@@ -64,8 +76,9 @@ pub async fn get_document(
     Path(id): Path<Uuid>,
 ) -> Result<Json<DocumentWithLines>> {
     require_permission!(current_user, "erp.document.view");
-    
+
     let document = DocumentService::get_by_id(&state.db, id).await?;
+    check_document_access(&current_user, document.document.created_by)?;
     Ok(Json(document))
 }
 
@@ -77,8 +90,10 @@ pub async fn update_document(
     Json(req): Json<UpdateDocumentRequest>,
 ) -> Result<Json<DocumentWithLines>> {
     require_permission!(current_user, "erp.document.edit");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
-    
+    req.validate()?;
+
+    let existing = DocumentService::get_by_id(&state.db, id).await?;
+    check_document_access(&current_user, existing.document.created_by)?;
     let document = DocumentService::update(&state.db, id, &req).await?;
 
     if let Err(e) = AuditService::log_activity(
@@ -99,7 +114,9 @@ pub async fn submit_document(
     Path(id): Path<Uuid>,
 ) -> Result<Json<DocumentWithLines>> {
     require_permission!(current_user, "erp.document.submit");
-    
+
+    let existing = DocumentService::get_by_id(&state.db, id).await?;
+    check_document_access(&current_user, existing.document.created_by)?;
     let document = DocumentService::submit(&state.db, id).await?;
 
     if let Err(e) = AuditService::log_activity(
@@ -227,6 +244,8 @@ pub async fn delete_document(
 ) -> Result<Json<()>> {
     require_permission!(current_user, "erp.document.delete");
 
+    let existing = DocumentService::get_by_id(&state.db, id).await?;
+    check_document_access(&current_user, existing.document.created_by)?;
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ERP", "DOC_DELETE",
         Some("document"), Some(id), None,

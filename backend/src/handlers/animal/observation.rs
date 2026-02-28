@@ -58,7 +58,7 @@ pub async fn create_animal_observation(
     Json(req): Json<CreateObservationRequest>,
 ) -> Result<Json<AnimalObservation>> {
     require_permission!(current_user, "animal.record.create");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     
     // 檢查是否為緊急給藥，需驗證是否有緊急給藥權限
     if req.is_emergency {
@@ -182,7 +182,7 @@ pub async fn delete_animal_observation(
     Json(req): Json<DeleteRequest>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.record.delete");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     
     AnimalService::soft_delete_observation_with_reason(&state.db, id, &req.reason, current_user.id).await?;
 

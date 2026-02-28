@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { Partner } from '@/lib/api'
 import { useDebounce } from '@/hooks/useDebounce'
+import { STALE_TIME } from '@/lib/query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -117,6 +118,7 @@ export function PartnersPage() {
 
   const { data: partners, isLoading } = useQuery({
     queryKey: ['partners', debouncedSearch, typeFilter],
+    staleTime: STALE_TIME.LIST,
     queryFn: async () => {
       let params = ''
       if (debouncedSearch) params += `keyword=${encodeURIComponent(debouncedSearch)}&`
@@ -124,7 +126,6 @@ export function PartnersPage() {
       const response = await api.get<Partner[]>(`/partners?${params}`)
       return response.data
     },
-    staleTime: 60_000,
   })
 
   const createMutation = useMutation({

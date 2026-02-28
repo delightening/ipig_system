@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useShallow } from 'zustand/react/shallow'
 import api, { User, LoginResponse, TwoFactorRequiredResponse } from '@/lib/api'
+import { logger } from '@/lib/logger'
 
 interface AuthState {
   user: User | null
@@ -148,7 +149,7 @@ export const useAuthStore = create<AuthState>()(
           // 重新載入頁面以清除所有 query cache 和重置狀態
           window.location.href = '/'
         } catch (error) {
-          console.error('Failed to stop impersonating:', error)
+          logger.error('Failed to stop impersonating:', error)
           get().logout()
         }
       },

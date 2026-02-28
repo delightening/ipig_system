@@ -28,6 +28,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { toast } from '@/components/ui/use-toast'
+import { logger } from '@/lib/logger'
 import { formatDate } from '@/lib/utils'
 import {
   TrendingUp,
@@ -174,7 +175,7 @@ export function DashboardPage() {
       queryClient.setQueryData(['user-preferences', 'dashboard_widgets'], variables)
     },
     onError: (error) => {
-      console.error('儲存佈局失敗:', error)
+      logger.error('儲存佈局失敗:', error)
       toast({ title: '錯誤', description: '儲存佈局失敗', variant: 'destructive' })
     },
   })

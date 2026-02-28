@@ -1,4 +1,4 @@
-﻿// 血液檢查管理 Handlers（檢查紀錄 + 模板 + 組合）
+// 血液檢查管理 Handlers（檢查紀錄 + 模板 + 組合）
 
 use axum::{
     extract::{Path, Query, State},
@@ -54,7 +54,7 @@ pub async fn create_animal_blood_test(
     Json(req): Json<CreateBloodTestRequest>,
 ) -> Result<Json<AnimalBloodTestWithItems>> {
     require_permission!(current_user, "animal.record.create");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
 
     let test = AnimalService::create_blood_test(&state.db, animal_id, &req, current_user.id).await?;
 
@@ -87,7 +87,7 @@ pub async fn update_animal_blood_test(
     Json(req): Json<UpdateBloodTestRequest>,
 ) -> Result<Json<AnimalBloodTestWithItems>> {
     require_permission!(current_user, "animal.record.edit");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
 
     let test = AnimalService::update_blood_test(&state.db, id, &req).await?;
 
@@ -121,7 +121,7 @@ pub async fn delete_animal_blood_test(
     Json(req): Json<DeleteRequest>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.record.delete");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
 
     let animal_info = sqlx::query_as::<_, (Uuid, String, Option<String>)>(
         "SELECT p.id, p.ear_tag, p.iacuc_no FROM animals p INNER JOIN animal_blood_tests bt ON bt.animal_id = p.id WHERE bt.id = $1"
@@ -177,7 +177,7 @@ pub async fn create_blood_test_template(
     Json(req): Json<CreateBloodTestTemplateRequest>,
 ) -> Result<Json<BloodTestTemplate>> {
     require_permission!(current_user, "animal.record.create");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     let template = AnimalService::create_blood_test_template(&state.db, &req).await?;
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "TEMPLATE_CREATE",
@@ -257,7 +257,7 @@ pub async fn create_blood_test_panel(
     Json(req): Json<CreateBloodTestPanelRequest>,
 ) -> Result<Json<BloodTestPanelWithItems>> {
     require_permission!(current_user, "animal.record.create");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     let panel = AnimalService::create_blood_test_panel(&state.db, &req).await?;
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "PANEL_CREATE",

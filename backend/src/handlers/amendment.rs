@@ -361,13 +361,54 @@ pub async fn change_amendment_status(
     Ok(Json(amendment))
 }
 
+/// 檢查使用者是否有權存取該修正案所屬的計畫（IDOR 防護）
+async fn check_amendment_access(
+    db: &sqlx::PgPool,
+    _amendment_id: Uuid,
+    protocol_id: Uuid,
+    current_user: &CurrentUser,
+) -> Result<()> {
+    check_protocol_access(db, protocol_id, current_user).await
+}
+
+/// 檢查使用者是否有權存取該計畫
+async fn check_protocol_access(
+    db: &sqlx::PgPool,
+    protocol_id: Uuid,
+    current_user: &CurrentUser,
+) -> Result<()> {
+    let is_staff = current_user.has_permission("aup.protocol.view_all");
+    if is_staff {
+        return Ok(());
+    }
+    let is_related = sqlx::query_scalar!(
+        r#"
+        SELECT EXISTS(
+            SELECT 1 FROM user_protocols
+            WHERE user_id = $1 AND protocol_id = $2
+        ) as "exists!"
+        "#,
+        current_user.id,
+        protocol_id
+    )
+    .fetch_one(db)
+    .await?;
+    if is_related {
+        Ok(())
+    } else {
+        Err(AppError::Forbidden("Not authorized to view this protocol".into()))
+    }
+}
+
 /// 取得版本列表
 /// GET /amendments/:id/versions
 pub async fn get_amendment_versions(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<AmendmentVersion>>> {
+    let amendment = AmendmentService::get_by_id(&state.db, id).await?;
+    check_amendment_access(&state.db, id, amendment.protocol_id, &current_user).await?;
     let versions = AmendmentService::get_versions(&state.db, id).await?;
     Ok(Json(versions))
 }
@@ -376,9 +417,11 @@ pub async fn get_amendment_versions(
 /// GET /amendments/:id/history
 pub async fn get_amendment_history(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<AmendmentStatusHistory>>> {
+    let amendment = AmendmentService::get_by_id(&state.db, id).await?;
+    check_amendment_access(&state.db, id, amendment.protocol_id, &current_user).await?;
     let history = AmendmentService::get_status_history(&state.db, id).await?;
     Ok(Json(history))
 }
@@ -387,9 +430,11 @@ pub async fn get_amendment_history(
 /// GET /amendments/:id/assignments
 pub async fn get_amendment_assignments(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<AmendmentReviewAssignmentResponse>>> {
+    let amendment = AmendmentService::get_by_id(&state.db, id).await?;
+    check_amendment_access(&state.db, id, amendment.protocol_id, &current_user).await?;
     let assignments = AmendmentService::get_review_assignments(&state.db, id).await?;
     Ok(Json(assignments))
 }
@@ -398,9 +443,10 @@ pub async fn get_amendment_assignments(
 /// GET /protocols/:id/amendments
 pub async fn list_protocol_amendments(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(protocol_id): Path<Uuid>,
 ) -> Result<Json<Vec<AmendmentListItem>>> {
+    check_protocol_access(&state.db, protocol_id, &current_user).await?;
     let amendments = AmendmentService::list_by_protocol(&state.db, protocol_id).await?;
     Ok(Json(amendments))
 }

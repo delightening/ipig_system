@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { Plus, Search, Eye, Loader2, FileText, Calendar, X, Edit, Trash2 } from 'lucide-react'
+import { STALE_TIME } from '@/lib/query'
 import { formatDate, formatCurrency } from '@/lib/utils'
 
 const docTypeNames: Record<DocType, string> = {
@@ -66,6 +67,7 @@ export function DocumentsPage() {
 
   const { data: documents, isLoading } = useQuery({
     queryKey: ['documents', typeFilter, statusFilter, search, dateFrom, dateTo],
+    staleTime: STALE_TIME.LIST,
     queryFn: async () => {
       let params = ''
       if (typeFilter) params += `doc_type=${typeFilter}&`

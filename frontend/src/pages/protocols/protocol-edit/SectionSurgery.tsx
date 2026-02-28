@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
+import type { ProtocolSurgeryDrugItem } from '@/types/protocol'
 import type { SectionProps } from './types'
 
 export function SectionSurgery({ formData, updateWorkingContent, setFormData, t, isIACUCStaff }: SectionProps) {
@@ -331,7 +332,7 @@ export function SectionSurgery({ formData, updateWorkingContent, setFormData, t,
                         </tr>
                       </thead>
                       <tbody>
-                        {(formData.working_content.surgery.drugs || []).map((drug: any, index: number) => (
+                        {(formData.working_content.surgery.drugs || []).map((drug: ProtocolSurgeryDrugItem, index: number) => (
                           <tr key={index} className="hover:bg-slate-50">
                             <td className="border p-2">
                               <Input

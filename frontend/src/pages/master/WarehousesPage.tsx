@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { Warehouse } from '@/lib/api'
 import { useDebounce } from '@/hooks/useDebounce'
+import { STALE_TIME } from '@/lib/query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -23,6 +24,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
+import { logger } from '@/lib/logger'
 import { Plus, Search, Edit, Trash2, Loader2, Warehouse as WarehouseIcon } from 'lucide-react'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -41,12 +43,12 @@ export function WarehousesPage() {
 
   const { data: warehouses, isLoading } = useQuery({
     queryKey: ['warehouses', debouncedSearch],
+    staleTime: STALE_TIME.LIST,
     queryFn: async () => {
       const params = debouncedSearch ? `?keyword=${encodeURIComponent(debouncedSearch)}` : ''
       const response = await api.get<Warehouse[]>(`/warehouses${params}`)
       return response.data
     },
-    staleTime: 600_000,
   })
 
   const createMutation = useMutation({
@@ -58,7 +60,7 @@ export function WarehousesPage() {
       resetForm()
     },
     onError: (error: any) => {
-      console.error('Create warehouse error:', error)
+      logger.error('Create warehouse error:', error)
       const errorMessage = error?.response?.data?.error?.message || 
                           error?.message || 
                           '建立失敗'

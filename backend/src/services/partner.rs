@@ -1,3 +1,4 @@
+use std::sync::OnceLock;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -7,6 +8,16 @@ use crate::{
 };
 
 pub struct PartnerService;
+
+/// 取得 Email 驗證用正則（靜態初始化，避免重複編譯）
+fn email_regex() -> Result<&'static regex::Regex> {
+    static EMAIL_REGEX: OnceLock<std::result::Result<regex::Regex, regex::Error>> = OnceLock::new();
+    let res = EMAIL_REGEX.get_or_init(|| {
+        regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+    });
+    res.as_ref()
+        .map_err(|e| AppError::Internal(format!("Email regex init: {}", e)))
+}
 
 impl PartnerService {
     /// 根據供應商類別生成代碼
@@ -103,14 +114,7 @@ impl PartnerService {
             .map(|e| e.trim())
             .filter(|e| !e.is_empty())
             .map(|e| {
-                // 使用靜態編譯的正則表達式驗證 Email 格式 (效能優化)
-                use std::sync::OnceLock;
-                static EMAIL_REGEX: OnceLock<regex::Regex> = OnceLock::new();
-                let re = EMAIL_REGEX.get_or_init(|| {
-                    regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
-                        .expect("Email 靜態正則表達式應有效")
-                });
-
+                let re = email_regex()?;
                 if !re.is_match(e) {
                     return Err(AppError::Validation("Invalid email format".to_string()));
                 }
@@ -255,14 +259,7 @@ impl PartnerService {
             .map(|e| e.trim())
             .filter(|e| !e.is_empty())
             .map(|e| {
-                // 使用正則表達式驗證 Email 格式
-                use std::sync::OnceLock;
-                static EMAIL_REGEX: OnceLock<regex::Regex> = OnceLock::new();
-                let re = EMAIL_REGEX.get_or_init(|| {
-                    regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
-                        .expect("Email 靜態正則表達式應有效")
-                });
-
+                let re = email_regex()?;
                 if !re.is_match(e) {
                     return Err(AppError::Validation("Invalid email format".to_string()));
                 }

@@ -10,16 +10,31 @@ pub const REFRESH_TOKEN_EXPIRY_DAYS: i64 = 30;
 pub const ACCOUNT_LOCKOUT_MAX_ATTEMPTS: i32 = 5;
 pub const ACCOUNT_LOCKOUT_DURATION_MINUTES: i64 = 30;
 
-/// Rate Limiting (requests per window)
-pub const AUTH_RATE_LIMIT_PER_MINUTE: u32 = 10;
-pub const API_RATE_LIMIT_PER_MINUTE: u32 = 300;
+/// Rate Limiting (requests per window) — P2-R4-14 集中管理
+pub const AUTH_RATE_LIMIT_PER_MINUTE: u32 = 100; // 100/min 以支援 E2E 測試
+pub const API_RATE_LIMIT_PER_MINUTE: u32 = 600;
 pub const WRITE_RATE_LIMIT_PER_MINUTE: u32 = 120;
 pub const UPLOAD_RATE_LIMIT_PER_MINUTE: u32 = 30;
 pub const RATE_LIMIT_WINDOW_SECS: u64 = 60;
 pub const RATE_LIMIT_CLEANUP_INTERVAL_SECS: u64 = 300;
 
-/// File Upload
-pub const MAX_UPLOAD_SIZE_BYTES: usize = 30 * 1024 * 1024; // 30MB
+/// File Upload — 各類別最大檔案大小 (bytes)
+pub const MAX_UPLOAD_SIZE_BYTES: usize = 30 * 1024 * 1024; // 30MB 全域
+pub const FILE_MAX_PROTOCOL_ATTACHMENT: usize = 30 * 1024 * 1024; // 30 MB
+pub const FILE_MAX_ANIMAL_PHOTO: usize = 10 * 1024 * 1024; // 10 MB
+pub const FILE_MAX_PATHOLOGY_REPORT: usize = 30 * 1024 * 1024; // 30 MB
+pub const FILE_MAX_VET_RECOMMENDATION: usize = 10 * 1024 * 1024; // 10 MB
+pub const FILE_MAX_LEAVE_ATTACHMENT: usize = 10 * 1024 * 1024; // 10 MB
+pub const FILE_MAX_OBSERVATION_ATTACHMENT: usize = 20 * 1024 * 1024; // 20 MB
+
+/// Auth 短期 token 過期秒數
+pub const TWO_FA_TEMP_EXPIRES_SECS: i64 = 300; // 5 分鐘
+pub const REAUTH_EXPIRES_SECS: i64 = 300; // 5 分鐘
+
+/// 預設時區（HR 打卡、報表等）
+pub const DEFAULT_TIMEZONE: &str = "Asia/Taipei";
+/// UTC+8 偏移秒數（台灣時區）
+pub const TAIWAN_OFFSET_SECS: i32 = 8 * 3600;
 
 /// Scheduler cron expressions
 pub const CRON_DAILY_3AM: &str = "0 0 3 * * *";

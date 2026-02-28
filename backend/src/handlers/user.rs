@@ -44,7 +44,7 @@ pub async fn create_user(
     Json(req): Json<CreateUserRequest>,
 ) -> Result<Json<UserResponse>> {
     require_permission!(current_user, "admin.user.create");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     
     // 保存原始密碼用於發送歡迎郵件
     let plain_password = req.password.clone();
@@ -155,7 +155,7 @@ pub async fn update_user(
     Json(req): Json<UpdateUserRequest>,
 ) -> Result<Json<UserResponse>> {
     require_permission!(current_user, "admin.user.edit");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
 
     // SEC: 偵測角色/帳號狀態變更，記錄審計
     let before_user = UserService::get_by_id(&state.db, id).await.ok();
@@ -299,7 +299,7 @@ pub async fn reset_user_password(
         return Err(AppError::Validation("Use /me/password to change your own password".to_string()));
     }
     
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     
     // 重設密碼
     AuthService::reset_user_password(&state.db, id, &req.new_password).await?;

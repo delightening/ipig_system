@@ -31,6 +31,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2, History, Search, Eye, FileJson, ChevronLeft, ChevronRight, Download, FileText } from 'lucide-react'
 import type { UserActivityLog } from '@/types/hr'
+import { logger } from '@/lib/logger'
 
 interface PaginatedResponse<T> {
   data: T[]
@@ -287,7 +288,7 @@ export function AuditLogsPage() {
       a.click()
       URL.revokeObjectURL(url)
     } catch (err) {
-      console.error('匯出 CSV 失敗', err)
+      logger.error('匯出 CSV 失敗', err)
     } finally {
       setIsExporting(false)
     }
@@ -352,7 +353,7 @@ export function AuditLogsPage() {
         setTimeout(() => printWindow.print(), 300)
       }
     } catch (err) {
-      console.error('匯出 PDF 失敗', err)
+      logger.error('匯出 PDF 失敗', err)
     } finally {
       setIsExporting(false)
     }

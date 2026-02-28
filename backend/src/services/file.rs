@@ -9,6 +9,10 @@ use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
 use chrono::Utc;
 
+use crate::constants::{
+    FILE_MAX_ANIMAL_PHOTO, FILE_MAX_LEAVE_ATTACHMENT, FILE_MAX_OBSERVATION_ATTACHMENT,
+    FILE_MAX_PATHOLOGY_REPORT, FILE_MAX_PROTOCOL_ATTACHMENT, FILE_MAX_VET_RECOMMENDATION,
+};
 use crate::error::AppError;
 
 /// 檔案服務 - 處理檔案上傳、下載與管理
@@ -96,12 +100,12 @@ impl FileCategory {
     /// 取得最大檔案大小（bytes）
     pub fn max_file_size(&self) -> usize {
         match self {
-            FileCategory::ProtocolAttachment => 30 * 1024 * 1024, // 30 MB
-            FileCategory::AnimalPhoto => 10 * 1024 * 1024,           // 10 MB
-            FileCategory::PathologyReport => 30 * 1024 * 1024,    // 30 MB
-            FileCategory::VetRecommendation => 10 * 1024 * 1024,  // 10 MB
-            FileCategory::LeaveAttachment => 10 * 1024 * 1024,    // 10 MB
-            FileCategory::ObservationAttachment => 20 * 1024 * 1024, // 20 MB
+            FileCategory::ProtocolAttachment => FILE_MAX_PROTOCOL_ATTACHMENT,
+            FileCategory::AnimalPhoto => FILE_MAX_ANIMAL_PHOTO,
+            FileCategory::PathologyReport => FILE_MAX_PATHOLOGY_REPORT,
+            FileCategory::VetRecommendation => FILE_MAX_VET_RECOMMENDATION,
+            FileCategory::LeaveAttachment => FILE_MAX_LEAVE_ATTACHMENT,
+            FileCategory::ObservationAttachment => FILE_MAX_OBSERVATION_ATTACHMENT,
         }
     }
 }

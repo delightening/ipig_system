@@ -9,16 +9,11 @@ use uuid::Uuid;
 
 use crate::{
     config::Config,
+    constants::{REAUTH_EXPIRES_SECS, TWO_FA_TEMP_EXPIRES_SECS},
     middleware::{Claims, ReauthClaims},
     models::{LoginRequest, LoginResponse, RefreshToken, User, UserResponse, PasswordResetToken},
     AppError, Result,
 };
-
-/// 2FA temp token 有效秒數（5 分鐘）
-const TWO_FA_TEMP_EXPIRES_SECS: i64 = 300;
-
-/// SEC-33：Reauth token 有效秒數（5 分鐘）
-const REAUTH_EXPIRES_SECS: i64 = 300;
 
 pub struct AuthService;
 

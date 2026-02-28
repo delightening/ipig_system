@@ -21,7 +21,7 @@ pub async fn create_partner(
     Json(req): Json<CreatePartnerRequest>,
 ) -> Result<Json<Partner>> {
     require_permission!(current_user, "erp.partner.create");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     
     let partner = PartnerService::create(&state.db, &req).await?;
 
@@ -73,7 +73,7 @@ pub async fn update_partner(
     Json(req): Json<UpdatePartnerRequest>,
 ) -> Result<Json<Partner>> {
     require_permission!(current_user, "erp.partner.edit");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     
     let partner = PartnerService::update(&state.db, id, &req).await?;
 

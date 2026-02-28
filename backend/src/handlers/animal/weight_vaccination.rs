@@ -1,4 +1,4 @@
-﻿// 體重 + 疫苗記錄管理 Handlers
+// 體重 + 疫苗記錄管理 Handlers
 
 use axum::{
     extract::{Path, Query, State},
@@ -98,7 +98,7 @@ pub async fn delete_animal_weight(
     Json(req): Json<DeleteRequest>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.record.delete");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     
     AnimalService::soft_delete_weight_with_reason(&state.db, id, &req.reason, current_user.id).await?;
 
@@ -203,7 +203,7 @@ pub async fn delete_animal_vaccination(
     Json(req): Json<DeleteRequest>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.record.delete");
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
     
     AnimalService::soft_delete_vaccination_with_reason(&state.db, id, &req.reason, current_user.id).await?;
 

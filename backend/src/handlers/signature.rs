@@ -777,7 +777,7 @@ pub async fn add_record_annotation(
     Path((record_type, record_id)): Path<(String, i32)>,
     Json(req): Json<CreateAnnotationRequest>,
 ) -> Result<Json<AnnotationResponse>> {
-    req.validate().map_err(|e| AppError::Validation(e.to_string()))?;
+    req.validate()?;
 
     // 檢查記錄是否已鎖定
     let is_locked = SignatureService::is_locked(&state.db, &record_type, record_id).await?;

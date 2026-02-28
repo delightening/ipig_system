@@ -10,6 +10,7 @@
 
 import { useCallback } from 'react'
 import { toast } from '@/components/ui/use-toast'
+import { logger } from '@/lib/logger'
 import { getApiErrorMessage } from '@/lib/validation'
 
 interface UseApiErrorOptions {
@@ -30,7 +31,7 @@ export function useApiError(options: UseApiErrorOptions = {}) {
             description: message,
             variant: 'destructive',
         })
-        console.error('[API Error]', error)
+        logger.error('[API Error]', error)
     }, [defaultTitle])
 
     /**

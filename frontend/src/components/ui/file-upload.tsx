@@ -1,5 +1,6 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { logger } from "@/lib/logger"
 import { Upload, X, FileText, Image, Loader2 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Button } from "./button"
@@ -93,7 +94,7 @@ const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
           onChange?.([...value, ...uploadedFiles])
         } catch (err) {
           setError(t('common.fileUpload.errorUploadFailed'))
-          console.error('Upload error:', err)
+          logger.error('Upload error:', err)
         } finally {
           setUploading(false)
         }
@@ -165,6 +166,8 @@ const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
             onChange={(e) => handleFiles(e.target.files)}
             className="hidden"
             disabled={disabled}
+            aria-label={placeholder || t('common.fileUpload.placeholder')}
+            title={placeholder || t('common.fileUpload.placeholder')}
           />
 
           {uploading ? (
