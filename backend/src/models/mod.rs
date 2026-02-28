@@ -1,4 +1,4 @@
-﻿#![allow(dead_code)]
+#![allow(dead_code)]
 
 mod user;
 mod role;
@@ -57,6 +57,28 @@ pub struct PaginationQuery {
 fn default_page() -> i64 { 1 }
 fn default_per_page() -> i64 { 20 }
 
+/// Optional pagination parameters — backward compatible.
+/// When both `page` and `per_page` are provided, LIMIT/OFFSET is applied.
+/// When absent, all records are returned.
+#[derive(Debug, Clone, Deserialize)]
+pub struct PaginationParams {
+    pub page: Option<i64>,
+    pub per_page: Option<i64>,
+}
+
+impl PaginationParams {
+    pub fn sql_suffix(&self) -> String {
+        match (self.page, self.per_page) {
+            (Some(page), Some(per_page)) => {
+                let per_page = per_page.clamp(1, 100);
+                let offset = (page.max(1) - 1) * per_page;
+                format!(" LIMIT {} OFFSET {}", per_page, offset)
+            }
+            _ => String::new(),
+        }
+    }
+}
+
 /// Paginated response wrapper
 #[derive(Debug, Serialize, ToSchema)]
 pub struct PaginatedResponse<T> {
@@ -114,6 +136,48 @@ mod tests {
     fn test_default_pagination_values() {
         assert_eq!(default_page(), 1);
         assert_eq!(default_per_page(), 20);
+    }
+
+    #[test]
+    fn test_pagination_params_no_params() {
+        let p = PaginationParams { page: None, per_page: None };
+        assert_eq!(p.sql_suffix(), "");
+    }
+
+    #[test]
+    fn test_pagination_params_partial_params() {
+        let p = PaginationParams { page: Some(2), per_page: None };
+        assert_eq!(p.sql_suffix(), "");
+    }
+
+    #[test]
+    fn test_pagination_params_basic() {
+        let p = PaginationParams { page: Some(1), per_page: Some(20) };
+        assert_eq!(p.sql_suffix(), " LIMIT 20 OFFSET 0");
+    }
+
+    #[test]
+    fn test_pagination_params_page_2() {
+        let p = PaginationParams { page: Some(2), per_page: Some(10) };
+        assert_eq!(p.sql_suffix(), " LIMIT 10 OFFSET 10");
+    }
+
+    #[test]
+    fn test_pagination_params_clamp_per_page() {
+        let p = PaginationParams { page: Some(1), per_page: Some(999) };
+        assert_eq!(p.sql_suffix(), " LIMIT 100 OFFSET 0", "per_page 上限為 100");
+
+        let p = PaginationParams { page: Some(1), per_page: Some(0) };
+        assert_eq!(p.sql_suffix(), " LIMIT 1 OFFSET 0", "per_page 下限為 1");
+    }
+
+    #[test]
+    fn test_pagination_params_page_floor() {
+        let p = PaginationParams { page: Some(0), per_page: Some(10) };
+        assert_eq!(p.sql_suffix(), " LIMIT 10 OFFSET 0", "page < 1 視為第 1 頁");
+
+        let p = PaginationParams { page: Some(-5), per_page: Some(10) };
+        assert_eq!(p.sql_suffix(), " LIMIT 10 OFFSET 0", "負數 page 視為第 1 頁");
     }
 }
 

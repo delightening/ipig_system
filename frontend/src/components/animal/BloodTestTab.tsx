@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 血液檢查分頁元件
  * 顯示在動物詳情頁 (AnimalDetailPage) 中
  */
@@ -685,7 +685,7 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
                                                         />
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => removeItem(index)}>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => removeItem(index)} aria-label="移除">
                                                             <X className="h-4 w-4" />
                                                         </Button>
                                                     </TableCell>

@@ -1515,5 +1515,36 @@
     "signSuccess": "簽章完成",
     "signFailed": "簽章失敗",
     "resignBtn": "重新簽名"
+  },
+  "animalDetail": {
+    "notFound": "找不到此動物",
+    "backToList": "返回列表",
+    "backToAnimalList": "回到動物列表",
+    "exportRecord": "匯出病歷",
+    "tabs": {
+      "timeline": "紀錄時間軸",
+      "observations": "觀察試驗紀錄",
+      "surgeries": "手術紀錄",
+      "weights": "體重紀錄",
+      "vaccinations": "疫苗/驅蟲紀錄",
+      "sacrifice": "犧牲/採樣紀錄",
+      "bloodTests": "血液檢查",
+      "painAssessment": "疼痛評估",
+      "info": "動物資料",
+      "pathology": "病理組織報告",
+      "transfer": "轉讓管理"
+    }
+  },
+  "notFound": {
+    "title": "找不到此頁面",
+    "description": "您要找的頁面不存在、已移除，或網址輸入錯誤。",
+    "goBack": "返回上一頁",
+    "goHome": "回到首頁"
+  },
+  "session": {
+    "timeoutTitle": "登入即將過期",
+    "timeoutDescription": "您的登入階段即將結束，請選擇續期或登出。",
+    "logout": "登出",
+    "extend": "繼續使用"
   }
 }

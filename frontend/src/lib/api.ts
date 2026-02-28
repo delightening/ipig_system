@@ -85,8 +85,13 @@ api.interceptors.response.use(
       isRefreshing = true
 
       try {
-        // refresh_token Cookie 自動傳送，不需手動附帶
         await api.post('/auth/refresh')
+
+        // Reset session expiry timer after successful refresh
+        try {
+          const { useAuthStore } = await import('@/stores/auth')
+          useAuthStore.getState().sessionExpiresAt = Date.now() + 6 * 60 * 60 * 1000
+        } catch { /* non-critical */ }
 
         isRefreshing = false
         onRefreshResolved(true)

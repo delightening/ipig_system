@@ -130,7 +130,11 @@ export function LoginPage() {
           </Link>
         </div>
 
-
+        <div className="text-center text-xs text-slate-400 mt-4">
+          <Link to="/privacy" className="hover:text-slate-600 hover:underline">隱私權政策</Link>
+          {' | '}
+          <Link to="/terms" className="hover:text-slate-600 hover:underline">服務條款</Link>
+        </div>
       </CardContent>
     </Card>
   )

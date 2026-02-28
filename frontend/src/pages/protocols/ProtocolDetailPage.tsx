@@ -81,6 +81,8 @@ import {
 } from 'lucide-react'
 import { formatDate, formatDateTime, formatFileSize } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
+import { useConfirmDialog } from '@/hooks/useConfirmDialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ProtocolContentView } from '@/components/protocol/ProtocolContentView'
 import { AmendmentsTab } from '@/components/protocol/AmendmentsTab'
 import { ProtocolComparisonDialog } from '@/components/protocols/ProtocolComparisonDialog'
@@ -134,6 +136,7 @@ export function ProtocolDetailPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { user } = useAuthStore()
+  const { dialogState, confirm } = useConfirmDialog()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [activeTab, setActiveTab] = useState<'content' | 'versions' | 'history' | 'comments' | 'reviewers' | 'coeditors' | 'attachments' | 'animals' | 'amendments'>('content')
@@ -485,8 +488,9 @@ export function ProtocolDetailPage() {
     },
   })
 
-  const handleSubmit = () => {
-    if (confirm(t('protocols.detail.submitConfirm'))) {
+  const handleSubmit = async () => {
+    const ok = await confirm({ title: '送出計畫書', description: t('protocols.detail.submitConfirm'), confirmLabel: '確認送出' })
+    if (ok) {
       submitMutation.mutate()
     }
   }
@@ -677,7 +681,7 @@ export function ProtocolDetailPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4" >
         <div className="flex items-center gap-3 md:gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="返回">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -1389,8 +1393,9 @@ export function ProtocolDetailPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => {
-                                if (confirm(t('protocols.detail.actions.removeCoeditorConfirm'))) {
+                              onClick={async () => {
+                                const ok = await confirm({ title: '移除協作者', description: t('protocols.detail.actions.removeCoeditorConfirm'), variant: 'destructive', confirmLabel: '確認移除' })
+                                if (ok) {
                                   removeCoEditorMutation.mutate(coEditor.user_id)
                                 }
                               }}
@@ -1490,8 +1495,9 @@ export function ProtocolDetailPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => {
-                                  if (confirm(t('protocols.detail.actions.deleteConfirm'))) {
+                                onClick={async () => {
+                                  const ok = await confirm({ title: '刪除附件', description: t('protocols.detail.actions.deleteConfirm'), variant: 'destructive', confirmLabel: '確認刪除' })
+                                  if (ok) {
                                     deleteAttachmentMutation.mutate(attachment.id)
                                   }
                                 }}
@@ -1916,6 +1922,7 @@ export function ProtocolDetailPage() {
           />
         </div>
       </div>
+      <ConfirmDialog state={dialogState} />
     </div >
   )
 }

@@ -1,9 +1,11 @@
-﻿import { useEffect, lazy } from 'react'
+import { useEffect, lazy } from 'react'
 import { Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { useAuthStore } from '@/stores/auth'
 import { RequirePermission } from '@/components/auth'
 import { useHeartbeat } from '@/hooks/useHeartbeat'
+import { SessionTimeoutWarning } from '@/components/SessionTimeoutWarning'
+import { CookieConsent } from '@/components/CookieConsent'
 
 // Layouts — 保持靜態 import（每個受保護路由都需要）
 import { MainLayout } from '@/layouts/MainLayout'
@@ -86,6 +88,13 @@ const AnimalDetailPage = lazy(() => import('@/pages/animals/AnimalDetailPage').t
 const AnimalEditPage = lazy(() => import('@/pages/animals/AnimalEditPage').then(m => ({ default: m.AnimalEditPage })))
 const AnimalSourcesPage = lazy(() => import('@/pages/animals/AnimalSourcesPage').then(m => ({ default: m.AnimalSourcesPage })))
 
+// Public Pages
+const PrivacyPolicyPage = lazy(() => import('@/pages/PrivacyPolicyPage').then(m => ({ default: m.PrivacyPolicyPage })))
+const TermsOfServicePage = lazy(() => import('@/pages/TermsOfServicePage').then(m => ({ default: m.TermsOfServicePage })))
+
+// 404
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })))
+
 // Protected Route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
     const { isAuthenticated, isInitialized, user } = useAuthStore()
@@ -165,7 +174,7 @@ function App() {
     const location = useLocation()
 
     // 公開路由不需要檢查認證狀態
-    const publicPaths = ['/login', '/forgot-password', '/reset-password']
+    const publicPaths = ['/login', '/forgot-password', '/reset-password', '/privacy', '/terms']
     const isPublicRoute = publicPaths.some(path => location.pathname.startsWith(path))
 
     // Validate auth on app initialization (Cookie 自動傳送，不需檢查 localStorage)
@@ -289,6 +298,10 @@ function App() {
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
 
+                {/* Public Static Pages */}
+                <Route path="/privacy" element={<PrivacyPolicyPage />} />
+                <Route path="/terms" element={<TermsOfServicePage />} />
+
                 {/* Force Change Password Route */}
                 <Route
                     path="/force-change-password"
@@ -393,10 +406,12 @@ function App() {
                     <Route path="/profile/settings" element={<ProfileSettingsPage />} />
                 </Route>
 
-                {/* Catch all */}
-                <Route path="*" element={<Navigate to="/" replace />} />
+                {/* 404 */}
+                <Route path="*" element={<NotFoundPage />} />
             </Routes>
             <Toaster />
+            <SessionTimeoutWarning />
+            <CookieConsent />
         </>
     )
 }

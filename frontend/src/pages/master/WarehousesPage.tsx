@@ -23,9 +23,12 @@ import {
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
 import { Plus, Search, Edit, Trash2, Loader2, Warehouse as WarehouseIcon } from 'lucide-react'
+import { useConfirmDialog } from '@/hooks/useConfirmDialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 export function WarehousesPage() {
   const queryClient = useQueryClient()
+  const { dialogState, confirm } = useConfirmDialog()
   const [search, setSearch] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null)
@@ -173,17 +176,19 @@ export function WarehousesPage() {
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(warehouse)}>
+                    <Button variant="ghost" size="icon" onClick={() => handleEdit(warehouse)} aria-label="編輯">
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => {
-                        if (confirm('確定要刪除此倉庫嗎？')) {
+                      onClick={async () => {
+                        const ok = await confirm({ title: '刪除倉庫', description: '確定要刪除此倉庫嗎？', variant: 'destructive', confirmLabel: '確認刪除' })
+                        if (ok) {
                           deleteMutation.mutate(warehouse.id)
                         }
                       }}
+                      aria-label="刪除"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -237,6 +242,7 @@ export function WarehousesPage() {
           </form>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog state={dialogState} />
     </div>
   )
 }

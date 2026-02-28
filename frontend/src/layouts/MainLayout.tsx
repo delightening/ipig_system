@@ -876,6 +876,7 @@ export function MainLayout() {
                 size="icon"
                 onClick={() => setSidebarOpen(true)}
                 className="text-slate-400 hover:text-white hover:bg-slate-800"
+                aria-label="展開側邊欄"
               >
                 <Menu className="h-5 w-5" />
               </Button>
@@ -918,6 +919,7 @@ export function MainLayout() {
             size="icon"
             className="md:hidden"
             onClick={() => setMobileSidebarOpen(true)}
+            aria-label="開啟選單"
           >
             <Menu className="h-5 w-5" />
           </Button>
@@ -934,6 +936,7 @@ export function MainLayout() {
                 size="icon"
                 className="relative"
                 onClick={() => setShowNotificationDropdown(!showNotificationDropdown)}
+                aria-label="通知"
               >
                 <Bell className="h-5 w-5" />
                 {unreadCount && unreadCount > 0 && ( // 若有未讀通知，顯示紅點計數

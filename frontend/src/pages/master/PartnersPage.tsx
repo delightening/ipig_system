@@ -30,9 +30,12 @@ import {
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
 import { Plus, Search, Edit, Trash2, Loader2, Users } from 'lucide-react'
+import { useConfirmDialog } from '@/hooks/useConfirmDialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 export function PartnersPage() {
   const queryClient = useQueryClient()
+  const { dialogState, confirm } = useConfirmDialog()
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -314,17 +317,19 @@ export function PartnersPage() {
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(partner)}>
+                    <Button variant="ghost" size="icon" onClick={() => handleEdit(partner)} aria-label="編輯">
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => {
-                        if (confirm('確定要刪除此夥伴嗎？')) {
+                      onClick={async () => {
+                        const ok = await confirm({ title: '刪除夥伴', description: '確定要刪除此夥伴嗎？', variant: 'destructive', confirmLabel: '確認刪除' })
+                        if (ok) {
                           deleteMutation.mutate(partner.id)
                         }
                       }}
+                      aria-label="刪除"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -497,6 +502,7 @@ export function PartnersPage() {
           </form>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog state={dialogState} />
     </div>
   )
 }

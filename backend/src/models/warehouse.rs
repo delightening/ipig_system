@@ -35,4 +35,6 @@ pub struct UpdateWarehouseRequest {
 pub struct WarehouseQuery {
     pub keyword: Option<String>,
     pub is_active: Option<bool>,
+    pub page: Option<i64>,
+    pub per_page: Option<i64>,
 }

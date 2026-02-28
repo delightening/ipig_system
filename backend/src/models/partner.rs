@@ -83,6 +83,8 @@ pub struct PartnerQuery {
     pub partner_type: Option<PartnerType>,
     pub keyword: Option<String>,
     pub is_active: Option<bool>,
+    pub page: Option<i64>,
+    pub per_page: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]

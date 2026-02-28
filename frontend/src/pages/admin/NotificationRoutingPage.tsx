@@ -42,6 +42,8 @@ import {
     MessageSquare,
     Radio,
 } from 'lucide-react'
+import { useConfirmDialog } from '@/hooks/useConfirmDialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 // ============================================
 // 型別定義
@@ -115,6 +117,7 @@ function ChannelBadge({ channel }: { channel: string }) {
 export function NotificationRoutingPage() {
     const queryClient = useQueryClient()
     const { toast } = useToast()
+    const { dialogState, confirm } = useConfirmDialog()
     const [showCreateDialog, setShowCreateDialog] = useState(false)
     const [showEditDialog, setShowEditDialog] = useState(false)
     const [selectedRule, setSelectedRule] = useState<NotificationRouting | null>(null)
@@ -278,10 +281,11 @@ export function NotificationRoutingPage() {
         updateMutation.mutate({ id: selectedRule.id, data: editForm })
     }
 
-    const handleDelete = (rule: NotificationRouting) => {
+    const handleDelete = async (rule: NotificationRouting) => {
         const eventName = eventNameMap[rule.event_type] || rule.event_type
         const roleName = roleNameMap[rule.role_code] || rule.role_code
-        if (confirm(`確定要刪除「${eventName} → ${roleName}」的路由規則嗎？`)) {
+        const ok = await confirm({ title: '刪除路由規則', description: `確定要刪除「${eventName} → ${roleName}」的路由規則嗎？`, variant: 'destructive', confirmLabel: '確認刪除' })
+        if (ok) {
             deleteMutation.mutate(rule.id)
         }
     }
@@ -363,10 +367,10 @@ export function NotificationRoutingPage() {
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex justify-end gap-1">
-                                            <Button variant="ghost" size="icon" onClick={() => handleEdit(rule)}>
+                                            <Button variant="ghost" size="icon" onClick={() => handleEdit(rule)} aria-label="編輯">
                                                 <Pencil className="h-4 w-4" />
                                             </Button>
-                                            <Button variant="ghost" size="icon" onClick={() => handleDelete(rule)}>
+                                            <Button variant="ghost" size="icon" onClick={() => handleDelete(rule)} aria-label="刪除">
                                                 <Trash2 className="h-4 w-4 text-red-500" />
                                             </Button>
                                         </div>
@@ -547,6 +551,7 @@ export function NotificationRoutingPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+            <ConfirmDialog state={dialogState} />
         </div>
     )
 }

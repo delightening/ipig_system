@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-02-28  
+> **最後更新：** 2026-02-28 (v2)  
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -49,11 +49,48 @@
 | **文件** | 使用者手冊 v2.0 ✅（9 章節完整操作手冊）, Swagger ≥90% ✅, 核心模組註解 ✅ | Swagger ≥90%、完整操作手冊 | ✅ |
 | **UX / 相容性** | 錯誤處理 UX 統一 ✅, 跨瀏覽器基礎驗證 ✅ | 瀏覽器相容性測試 + 錯誤 UX 統一 | ✅ |
 
-**上線準備度估算：約 98%（核心功能完整、文件到位、生產環境配置完善，剩餘為長期演進項目）**
+**上線準備度估算：99%+（核心功能完整、18 項品質補強全數完成，剩餘 Storybook/2FA/WAF 為長期演進）**
 
 ---
 
 ## 9. 最新變更動態
+
+### 2026-02-28 JWT 預設過期時間調整為 6 小時
+- ✅ **後端 config.rs**：`JWT_EXPIRATION_MINUTES` 預設值從 15 改為 360（6 小時），test default 900s→21600s
+- ✅ **前端 session fallback**：`auth.ts`、`api.ts` 中 `sessionExpiresAt` fallback 從 `15 * 60 * 1000` 改為 `6 * 60 * 60 * 1000`
+- ✅ **環境配置**：`.env`（60→360）、`.env.example`（15→360）、`docker-compose.yml`（預設 15→360）
+- ✅ **E2E 驗證腳本**：`verify-config.ts` fallback 從 '15' 改為 '360'
+- 📁 **產出**：7 個檔案更新
+
+### 2026-02-28 品質補強 18 項全數完成
+
+**高影響 6 項（P1-30~35）：**
+- ✅ **P1-30 Graceful Shutdown**：`main.rs` 加入 `shutdown_signal()` + `with_graceful_shutdown()`，支援 SIGTERM（Docker stop）與 Ctrl+C，確保進行中的請求完成後才關閉
+- ✅ **P1-31 自訂 404 頁面**：`NotFoundPage` 元件取代 catch-all redirect，含「返回上一頁」與「回到首頁」按鈕
+- ✅ **P1-32 Session 逾時預警**：auth store 新增 `sessionExpiresAt` 追蹤 JWT 到期時間，`SessionTimeoutWarning` 元件在到期前 60s 顯示倒數 Dialog，可續期或登出
+- ✅ **P1-33 刪除記錄清理檔案**：`FileService::delete_by_entity()` 方法查詢 `attachments` 表並刪除磁碟檔案 + DB 記錄，已整合動物與觀察紀錄刪除 handler
+- ✅ **P1-34 Optimistic Locking**：`014_optimistic_locking.sql` 為 animals/protocols/observations/surgeries 加入 `version` 欄位，animal update SQL 加入版本檢查（409 Conflict）
+- ✅ **P1-35 confirm() 統一 Dialog**：`useConfirmDialog` hook + `ConfirmDialog` + `AlertDialog` 元件，9 個檔案 11 處原生 `confirm()` 全部替換
+
+**中影響 7 項（P2-36~42）：**
+- ✅ **P2-36 i18n 補齊**：AnimalDetailPage 11 個 Tab 標籤 + 404 頁面 + Session 預警翻譯鍵加入 zh-TW.json 與 en.json
+- ✅ **P2-37 列表 API 分頁**：`PaginationParams` struct + `sql_suffix()` 方法（LIMIT/OFFSET，per_page 上限 100），users/warehouses/partners handler 支援 `?page=&per_page=`
+- ✅ **P2-38 表單離開確認**：`useUnsavedChangesGuard` hook（React Router useBlocker + beforeunload）+ `UnsavedChangesDialog`，已整合 ProtocolEditPage
+- ✅ **P2-39 隱私政策/服務條款**：`PrivacyPolicyPage` + `TermsOfServicePage` 公開路由，登入頁底部加連結
+- ✅ **P2-40 Cookie 同意橫幅**：`CookieConsent` 元件（localStorage 記憶 + 底部半透明 banner + 了解更多連結）
+- ✅ **P2-41 Rollback 文件**：`docs/DB_ROLLBACK.md` 涵蓋 14 個 migration 的精確回滾 SQL + 建議回退流程
+- ✅ **P2-42 .env.example 補齊**：新增 HOST/PORT/DATABASE_MAX_CONNECTIONS/MAX_SESSIONS_PER_USER/UPLOAD_DIR 等 9 個缺漏變數
+
+**低影響 5 項（P5-43~47）：**
+- ✅ **P5-43 ARIA 無障礙**：12 個檔案新增 23 個 `aria-label`（編輯/刪除/檢視/關閉/導航按鈕）
+- ✅ **P5-44 表單驗證回饋**：Input/Textarea 新增 `error` prop 紅框樣式，`FormField` 通用元件含 label + 錯誤訊息
+- ✅ **P5-45 磁碟空間監控**：`scripts/monitor/check_disk_space.sh` 含 uploads 大小 + 磁碟使用率 + Prometheus textfile 輸出
+- ✅ **P5-46 LICENSE**：MIT License 2026 正式文件
+- ✅ **P5-47 Meta Tags**：title「豬博士 iPig 系統」+ description + theme-color #f97316 + favicon.ico
+
+📁 **產出**：~30 個新增/修改檔案（後端 6 + 前端 20+ + 文件 3 + 腳本 1）
+
+---
 
 ### 2026-02-28 交付前補強 3 項（非阻擋）
 
