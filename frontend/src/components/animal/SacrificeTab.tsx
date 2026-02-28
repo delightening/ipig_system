@@ -19,22 +19,34 @@ export function SacrificeTab({ animalId, earTag, sacrifice }: SacrificeTabProps)
   return (
     <>
       <Card>
-        <CardHeader>
-          <CardTitle>犧牲/採樣紀錄</CardTitle>
-          <CardDescription>記錄實驗結束後的犧牲與採樣資訊</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>犧牲/採樣紀錄</CardTitle>
+            <CardDescription>記錄實驗結束後的犧牲與採樣資訊</CardDescription>
+          </div>
+          <Button
+            className="bg-purple-600 hover:bg-purple-700 text-white shrink-0"
+            onClick={() => setShowDialog(true)}
+          >
+            {sacrifice ? (
+              <>
+                <Edit2 className="h-4 w-4 mr-2" />
+                編輯
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4 mr-2" />
+                建立紀錄
+              </>
+            )}
+          </Button>
         </CardHeader>
         <CardContent>
           {!sacrifice ? (
             <div className="text-center py-12 text-slate-500">
               <Heart className="h-12 w-12 mx-auto mb-4 text-slate-300" />
               <p>尚無犧牲/採樣紀錄</p>
-              <Button
-                className="mt-4 bg-purple-600 hover:bg-purple-700 text-white"
-                onClick={() => setShowDialog(true)}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                建立紀錄
-              </Button>
+              <p className="text-sm mt-1">點擊上方按鈕新增</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -80,15 +92,6 @@ export function SacrificeTab({ animalId, earTag, sacrifice }: SacrificeTabProps)
                   <Label className="text-slate-500">血液採樣 (ml)</Label>
                   <p className="font-medium">{sacrifice.blood_volume_ml || '-'}</p>
                 </div>
-              </div>
-              <div className="flex justify-end">
-                <Button
-                  className="bg-purple-600 hover:bg-purple-700 text-white"
-                  onClick={() => setShowDialog(true)}
-                >
-                  <Edit2 className="h-4 w-4 mr-2" />
-                  編輯
-                </Button>
               </div>
             </div>
           )}

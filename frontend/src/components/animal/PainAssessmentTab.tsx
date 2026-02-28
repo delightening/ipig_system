@@ -5,7 +5,7 @@ import { useState, lazy, Suspense } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -250,38 +250,40 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
     }
 
     return (
-        <div className="space-y-4">
-            {/* 工具列 */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <Button onClick={() => { setForm(emptyForm); setEditingRecord(null); setShowAddDialog(true) }}>
-                        <Plus className="h-4 w-4 mr-1" />
-                        新增評估
-                    </Button>
+        <>
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle>疼痛評估紀錄</CardTitle>
+                    <CardDescription>記錄術後疼痛評估與照護觀察</CardDescription>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-sm text-muted-foreground mr-2">共 {records?.length ?? 0} 筆</span>
                     <Button variant="outline" onClick={() => setShowChart(!showChart)}>
                         <TrendingUp className="h-4 w-4 mr-1" />
                         {showChart ? '隱藏趨勢' : '顯示趨勢'}
                     </Button>
+                    <Button
+                        className="bg-purple-600 hover:bg-purple-700"
+                        onClick={() => { setForm(emptyForm); setEditingRecord(null); setShowAddDialog(true) }}
+                    >
+                        <Plus className="h-4 w-4 mr-1" />
+                        新增評估
+                    </Button>
                 </div>
-                <span className="text-sm text-muted-foreground">共 {records?.length ?? 0} 筆</span>
-            </div>
-
-            {/* 趨勢折線圖 */}
-            {showChart && chartData.length > 0 && (
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-base">疼痛評估趨勢</CardTitle>
-                    </CardHeader>
-                    <CardContent>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {/* 趨勢折線圖 */}
+                {showChart && chartData.length > 0 && (
+                    <div>
+                        <h4 className="text-base font-semibold mb-2">疼痛評估趨勢</h4>
                         <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
                             <PainAssessmentChart data={chartData} />
                         </Suspense>
-                    </CardContent>
-                </Card>
-            )}
+                    </div>
+                )}
 
-            {/* 紀錄列表 */}
-            <Card>
+                {/* 紀錄列表 */}
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -307,7 +309,8 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
                         ) : !records || records.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                                    尚無疼痛評估紀錄
+                                    <div>尚無疼痛評估紀錄</div>
+                                    <div className="text-sm mt-1">點擊上方按鈕新增</div>
                                 </TableCell>
                             </TableRow>
                         ) : (
@@ -353,7 +356,8 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
                         )}
                     </TableBody>
                 </Table>
-            </Card>
+            </CardContent>
+        </Card>
 
             {/* 新增/編輯對話框 */}
             <Dialog open={showAddDialog || !!editingRecord} onOpenChange={(open) => {
@@ -511,6 +515,6 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+        </>
     )
 }

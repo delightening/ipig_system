@@ -1,7 +1,7 @@
 import React from 'react'
 import { AnimalListItem } from '@/lib/api'
 
-type AnimalListItemExtended = AnimalListItem
+type AnimalListItemExtended = AnimalListItem 
 
 interface AnimalPenReportProps {
     data: { pen_location: string; animals: AnimalListItemExtended[] }[]

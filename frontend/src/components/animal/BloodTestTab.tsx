@@ -16,7 +16,7 @@ import api, {
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -389,34 +389,30 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
     const isPending = createMutation.isPending || updateMutation.isPending
 
     return (
-        <div className="space-y-4">
-            {/* 標題列 */}
-            <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-red-600" />
-                    血液檢查紀錄
-                </h3>
-                <Button className="bg-red-600 hover:bg-red-700" onClick={openCreateForm}>
+        <>
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle>血液檢查紀錄</CardTitle>
+                    <CardDescription>記錄實驗動物的血液檢查結果與檢驗數據</CardDescription>
+                </div>
+                <Button className="bg-red-600 hover:bg-red-700 shrink-0" onClick={openCreateForm}>
                     <Plus className="h-4 w-4 mr-2" />
                     新增血液檢查
                 </Button>
-            </div>
-
-            {/* 列表 */}
-            {isLoading ? (
-                <div className="flex justify-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-                </div>
-            ) : bloodTests.length === 0 ? (
-                <Card>
-                    <CardContent className="py-12 text-center text-gray-500">
-                        <FileText className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+            </CardHeader>
+            <CardContent>
+                {isLoading ? (
+                    <div className="flex justify-center py-8">
+                        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                    </div>
+                ) : bloodTests.length === 0 ? (
+                    <div className="text-center py-12 text-slate-500">
+                        <FileText className="h-12 w-12 mx-auto mb-3 text-slate-300" />
                         <p>尚無血液檢查紀錄</p>
                         <p className="text-sm mt-1">點擊上方按鈕新增</p>
-                    </CardContent>
-                </Card>
-            ) : (
-                <Card>
+                    </div>
+                ) : (
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -476,8 +472,9 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
                             ))}
                         </TableBody>
                     </Table>
-                </Card>
-            )}
+                )}
+            </CardContent>
+        </Card>
 
             {/* 新增/編輯 Dialog */}
             <Dialog open={showFormDialog} onOpenChange={(open) => {
@@ -809,6 +806,6 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
                     isPending={deleteMutation.isPending}
                 />
             )}
-        </div>
+        </>
     )
 }
