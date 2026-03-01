@@ -2,6 +2,20 @@
 
 ---
 
+## 權限合併：erp.inventory.view → erp.stock.view（2026-03-01）
+
+### 背景
+
+庫存管理中有兩個權限皆顯示「查看庫存」：`erp.inventory.view` 與 `erp.stock.view`。後端 API 僅檢查 `erp.stock.view`，`erp.inventory.view` 未被使用，造成混淆。
+
+### 實作內容
+
+1. **migration 004**：移除 `erp.inventory.view` 權限定義；EXPERIMENT_STAFF 改為 `erp.stock.view`；WAREHOUSE_MANAGER 移除 `erp.inventory.view`（已有 `erp.stock.view`）
+2. **permissions.rs**：從 startup 權限清單移除 `erp.inventory.view`；保留 `merge_inventory_view_into_stock_view` 以清理既有資料庫
+3. **既有資料庫**：修改 migration 004 後需執行 `cargo run --bin fix_migration_checksum` 更新 checksum，否則啟動會失敗
+
+---
+
 ## 登入 Cookie 過大導致無法登入（2026-03-01）
 
 ### 背景

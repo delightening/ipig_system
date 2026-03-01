@@ -88,7 +88,6 @@ INSERT INTO permissions (id, code, name, module, description, created_at) VALUES
     (gen_random_uuid(), 'erp.document.edit', '編輯單據', 'erp', '可編輯單據', NOW()),
     (gen_random_uuid(), 'erp.document.submit', '送審單據', 'erp', '可送審單據', NOW()),
     (gen_random_uuid(), 'erp.document.approve', '核准單據', 'erp', '可核准單據', NOW()),
-    (gen_random_uuid(), 'erp.inventory.view', '查看庫存', 'erp', '可查看庫存現況', NOW()),
     (gen_random_uuid(), 'erp.purchase.create', '建立採購單', 'erp', '可建立採購單', NOW()),
     (gen_random_uuid(), 'erp.purchase.approve', '核准採購單', 'erp', '可核准採購單', NOW()),
     (gen_random_uuid(), 'erp.grn.create', '建立進貨單', 'erp', '可建立進貨單', NOW()),
@@ -154,7 +153,7 @@ WHERE r.code = 'EXPERIMENT_STAFF' AND p.code IN (
     'animal.record.emergency','animal.record.copy','animal.vet.upload_attachment',
     'aup.protocol.view_own','aup.attachment.view','aup.attachment.download',
     'hr.attendance.view','hr.attendance.clock','hr.leave.view','hr.leave.create',
-    'hr.overtime.view','hr.overtime.create','hr.balance.view','erp.inventory.view','erp.product.view','notification.view'
+    'hr.overtime.view','hr.overtime.create','hr.balance.view','erp.stock.view','erp.product.view','notification.view'
 )
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
@@ -217,7 +216,7 @@ SELECT r.id, p.id FROM roles r, permissions p
 WHERE r.code = 'WAREHOUSE_MANAGER' AND p.code IN (
     'erp.warehouse.view','erp.warehouse.create','erp.warehouse.edit','erp.product.view','erp.product.create','erp.product.edit',
     'erp.partner.view','erp.partner.create','erp.partner.edit','erp.document.view','erp.document.create','erp.document.edit',
-    'erp.document.submit','erp.document.approve','erp.inventory.view','erp.purchase.create','erp.purchase.approve',
+    'erp.document.submit','erp.document.approve','erp.purchase.create','erp.purchase.approve',
     'erp.grn.create','erp.pr.create','erp.stock.in','erp.stock.out','erp.stock.view','erp.stock.adjust','erp.stock.transfer',
     'erp.stocktake.create','erp.report.view','erp.report.export','erp.report.download','erp.storage.view','erp.storage.edit',
     'erp.storage.inventory.view','erp.storage.inventory.edit','notification.view'

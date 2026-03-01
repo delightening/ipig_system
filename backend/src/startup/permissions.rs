@@ -110,8 +110,6 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "erp.stocktake.create",
             // 報表
             "erp.report.view", "erp.report.export", "erp.report.download",
-            // 庫存查看
-            "erp.inventory.view",
             // Dashboard
             "dashboard.view",
         ]),
@@ -281,7 +279,7 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "animal.export.medical", "animal.export.observation", "animal.export.surgery", "animal.export.experiment",
             // ERP 查詢（僅讀取）+ 請購單建立 + 單據建立
             "erp.warehouse.view", "erp.product.view", "erp.partner.view",
-            "erp.stock.view", "erp.inventory.view",
+            "erp.stock.view",
             "erp.pr.create",  // 可建立請購單
             // 單據管理（可建立銷售單等）
             "erp.document.view", "erp.document.create", "erp.document.edit",
@@ -318,7 +316,7 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "erp.document.view", "erp.document.create", "erp.document.edit",
             "erp.document.submit",
             // 庫存報表 Audit 權限
-            "erp.stock.view", "erp.inventory.view", "erp.report.view",
+            "erp.stock.view", "erp.report.view",
             // 管理階級 Audit 權限（全部 5 個）
             "audit.logs.view", "audit.logs.export", "audit.timeline.view", "audit.alerts.view", "audit.alerts.manage",
             // 人員訓練紀錄 (GLP 合規)
@@ -399,6 +397,35 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
     } else {
         tracing::info!("[Permissions] ✓ All role permissions already configured");
     }
-    
+
+    // 合併 erp.inventory.view 至 erp.stock.view（啟動時清理，不修改 migration）
+    merge_inventory_view_into_stock_view(pool).await?;
+
+    Ok(())
+}
+
+/// 移除 erp.inventory.view 並合併至 erp.stock.view
+/// 從 role_permissions 移除該權限，並從 permissions 表刪除
+async fn merge_inventory_view_into_stock_view(pool: &sqlx::PgPool) -> Result<()> {
+    let result = sqlx::query(r#"
+        DELETE FROM role_permissions
+        WHERE permission_id = (SELECT id FROM permissions WHERE code = 'erp.inventory.view')
+    "#)
+    .execute(pool)
+    .await?;
+
+    let deleted_rp = result.rows_affected();
+    if deleted_rp > 0 {
+        tracing::info!("[Permissions] ✓ Removed erp.inventory.view from {} role(s)", deleted_rp);
+    }
+
+    let result = sqlx::query(r#"DELETE FROM permissions WHERE code = 'erp.inventory.view'"#)
+        .execute(pool)
+        .await?;
+
+    if result.rows_affected() > 0 {
+        tracing::info!("[Permissions] ✓ Merged erp.inventory.view into erp.stock.view");
+    }
+
     Ok(())
 }
