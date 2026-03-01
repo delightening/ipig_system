@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useToggle } from '@/hooks/useToggle'
 import { useSettingsForm } from './hooks/useSettingsForm'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -28,8 +28,11 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
+  Download,
+  Upload,
 } from 'lucide-react'
 import api from '@/lib/api'
+import { useAuthStore } from '@/stores/auth'
 import { getErrorMessage } from '@/types/error'
 import { NotificationRoutingSection } from '@/components/admin/NotificationRoutingSection'
 import type { Warehouse } from '@/types/erp'
@@ -62,6 +65,7 @@ const SMTP_MASK = '********'
 
 export function SettingsPage() {
   const queryClient = useQueryClient()
+  const { hasPermission } = useAuthStore()
 
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings | null>(null)
   const [showPassword, togglePassword] = useToggle()
@@ -88,6 +92,83 @@ export function SettingsPage() {
   const warehouses = warehousesData?.filter(w => w.is_active) ?? []
 
   const settingsForm = useSettingsForm(sysSettings)
+
+  // 全庫 IDXF 匯出/匯入
+  const [exporting, setExporting] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [includeAudit, setIncludeAudit] = useState(false)
+  const [exportAsZip, setExportAsZip] = useState(false)
+  const canExport = hasPermission('admin.data.export')
+  const canImport = hasPermission('admin.data.import')
+  const handleFullExport = async () => {
+    if (!canExport) return
+    setExporting(true)
+    try {
+      const res = await api.get<Blob>('/admin/data-export', {
+        params: { include_audit: includeAudit, format: exportAsZip ? 'zip' : 'json' },
+        responseType: 'blob',
+      })
+      const blob = new Blob([res.data], {
+        type: exportAsZip ? 'application/zip' : 'application/json;charset=utf-8',
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const cd = res.headers['content-disposition']
+      const match = cd && typeof cd === 'string' && cd.match(/filename="?([^"]+)"?/)
+      a.download = match ? match[1] : `ipig_export_${new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '_')}.${exportAsZip ? 'zip' : 'json'}`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast({ title: '匯出成功', description: '全庫資料已下載' })
+    } catch (err) {
+      toast({
+        title: '匯出失敗',
+        description: getErrorMessage(err) || '請稍後再試',
+        variant: 'destructive',
+      })
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const handleFullImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!canImport || !e.target.files?.[0]) return
+    const file = e.target.files[0]
+    if (!file.name.endsWith('.json') && !file.name.endsWith('.zip')) {
+      toast({ title: '請選擇 .json 或 .zip 檔', variant: 'destructive' })
+      e.target.value = ''
+      return
+    }
+    setImporting(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await api.post<{
+        tables_processed: number
+        rows_inserted: number
+        rows_skipped: number
+        errors: string[]
+      }>('/admin/data-import', fd)
+      const d = res.data
+      const msg =
+        d.errors.length > 0
+          ? `${d.tables_processed} 表處理，${d.rows_inserted} 筆新增，${d.rows_skipped} 筆略過；${d.errors.length} 個錯誤`
+          : `${d.tables_processed} 表處理，${d.rows_inserted} 筆新增，${d.rows_skipped} 筆略過`
+      toast({ title: '匯入完成', description: msg })
+      queryClient.invalidateQueries()
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    } catch (err) {
+      toast({
+        title: '匯入失敗',
+        description: getErrorMessage(err) || '請稍後再試',
+        variant: 'destructive',
+      })
+    } finally {
+      setImporting(false)
+      e.target.value = ''
+    }
+  }
 
   const saveSysMutation = useMutation({
     mutationFn: async (data: Record<string, string>) => {
@@ -381,6 +462,89 @@ export function SettingsPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* 全庫匯出/匯入（僅具權限者可見） */}
+            {(canExport || canImport) && (
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Download className="h-5 w-5" />
+                    全庫資料匯出 / 匯入
+                  </CardTitle>
+                  <CardDescription>
+                    IDXF JSON 格式，含 AUP、動物、倉庫進銷存、使用者、訓練紀錄等，可在不同 migration 版本間讀取
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {canExport && (
+                    <>
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="includeAudit"
+                            checked={includeAudit}
+                            onCheckedChange={(v) => setIncludeAudit(!!v)}
+                          />
+                          <Label htmlFor="includeAudit" className="cursor-pointer text-sm">
+                            包含稽核大表（user_activity_logs、login_events）
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="exportAsZip"
+                            checked={exportAsZip}
+                            onCheckedChange={(v) => setExportAsZip(!!v)}
+                          />
+                          <Label htmlFor="exportAsZip" className="cursor-pointer text-sm">
+                            輸出為 Zip 分包（大表以 NDJSON 儲存，建議資料量大時使用）
+                          </Label>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={handleFullExport}
+                        disabled={exporting}
+                      >
+                        {exporting ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Download className="mr-2 h-4 w-4" />
+                        )}
+                        一鍵匯出全庫
+                      </Button>
+                    </>
+                  )}
+                  {canImport && (
+                    <div className="flex items-center gap-2 pt-2 border-t">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".json,.zip"
+                        className="hidden"
+                        aria-label="選擇 IDXF JSON 檔案"
+                        onChange={handleFullImport}
+                        disabled={importing}
+                      />
+                      <Button
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={importing}
+                      >
+                        {importing ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Upload className="mr-2 h-4 w-4" />
+                        )}
+                        上傳 IDXF 匯入
+                      </Button>
+                      <span className="text-xs text-muted-foreground">
+                        支援 JSON 或 Zip 分包，最大 100 MB
+                      </span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* 儲存系統設定按鈕 */}

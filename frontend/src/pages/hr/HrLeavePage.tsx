@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useDialogSet } from '@/hooks/useDialogSet'
+import { useTabState } from '@/hooks/useTabState'
+import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { useLeaveRequestForm } from './hooks/useLeaveRequestForm'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
@@ -80,7 +82,7 @@ const parseDecimal = (value: number | string | null | undefined): number => {
 }
 
 export function HrLeavePage() {
-    const [activeTab, setActiveTab] = useState('my-leaves')
+    const { activeTab, setActiveTab } = useTabState<'my-leaves' | 'pending' | 'all-records'>('my-leaves')
     const dialogs = useDialogSet(['create'] as const)
     const queryClient = useQueryClient()
     const { hasRole } = useAuthStore()
@@ -91,8 +93,8 @@ export function HrLeavePage() {
     // 全部紀錄篩選狀態
     const [filterStatus, setFilterStatus] = useState<string>('all')
     const [filterLeaveType, setFilterLeaveType] = useState<string>('all')
-    const [filterFrom, setFilterFrom] = useState('')
-    const [filterTo, setFilterTo] = useState('')
+    const { from: filterFrom, to: filterTo, setFrom: setFilterFrom, setTo: setFilterTo, reset: resetDateRange } =
+        useDateRangeFilter()
 
     // 新假單表單狀態
     const leaveForm = useLeaveRequestForm()
@@ -741,8 +743,7 @@ export function HrLeavePage() {
                                             onClick={() => {
                                                 setFilterStatus('all')
                                                 setFilterLeaveType('all')
-                                                setFilterFrom('')
-                                                setFilterTo('')
+                                                resetDateRange()
                                             }}
                                         >
                                             清除篩選

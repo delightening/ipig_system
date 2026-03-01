@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-03-01 (v3)  
+> **最後更新：** 2026-03-01 (v4)  
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -135,6 +135,35 @@
 > **白話版：** 這裡記錄每次更新做了什麼。按照日期從新到舊排列。  
 > 你會看到很多技術細節（例如「useState → Custom Hooks」），簡單說就是：**重構程式碼，讓它更好維護、更不容易出錯**。  
 > **P0 / P1 / P2 / P5** 是優先級：P0 最重要，P5 較次要。
+
+---
+
+### 2026-03-01 R6 第六輪改善計劃建立與執行
+
+> **白話版：** 針對專案進行下一輪評估後，在 `docs/TODO.md` 新增第六輪改善計劃並依序執行。
+
+**R6-6 一鍵全庫匯出/匯入（Phase 1–3）✅**
+- **Phase 1–2**：匯出/匯入 API、schema_version、前端按鈕
+- **Phase 3**：Column mapper 架構（`schema_mapping::transform_row`，跨版本匯入時套用）；Zip 分包匯出（`format=zip`，manifest + 每表一檔，>10k 行表用 NDJSON）；Zip 匯入支援；前端「輸出為 Zip 分包」選項、支援 .zip 上傳
+
+**R6-1 useState → hooks 擴展 ✅**
+- EquipmentPage：useTabState + useDialogSet（activeTab、4 個 Dialog 開關）
+- TrainingRecordsPage：useTabState + useDialogSet（activeTab、create/edit Dialog）
+
+**R6-2 useDateRangeFilter / useTabState ✅**
+- 新增 `src/hooks/useDateRangeFilter.ts`（支援 lazy 初始化、setRange、reset）
+- 新增 `src/hooks/useTabState.ts`（相容 Radix Tabs onValueChange）
+- 套用 useDateRangeFilter：HrLeavePage、HrOvertimePage、AdminAuditPage、AuditLogsPage、BloodTestCostReportPage、BloodTestAnalysisPage、AccountingReportPage
+- 套用 useTabState：HrLeavePage、HrOvertimePage、AdminAuditPage、BloodTestAnalysisPage、EquipmentPage、TrainingRecordsPage
+
+**R6-3 Skeleton DOM nesting 修正 ✅**
+- InlineSkeleton 由 `SkeletonPulse`（div）改為 `<span>`，消除 `<p>` 內 `<div>` 的 validateDOMNesting 警告
+
+**R6-4 財務模組 Phase 2–5 評估 ✅**
+- 產出 `docs/R6-4_FINANCE_PHASE2_5_ASSESSMENT.md`：Phase 2–5 工時與優先建議
+
+**R6-5 Dependabot Phase 2.5 依賴評估 ✅**
+- 產出 `docs/R6-5_DEPENDABOT_PHASE25_ASSESSMENT.md`：printpdf、utoipa、axum-extra、tailwind-merge 升級建議與相依關係
 
 ---
 

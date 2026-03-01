@@ -22,6 +22,7 @@ pub const RATE_LIMIT_CLEANUP_INTERVAL_SECS: u64 = 300;
 pub const MAX_UPLOAD_SIZE_BYTES: usize = 30 * 1024 * 1024; // 30MB 全域
 pub const FILE_MAX_PROTOCOL_ATTACHMENT: usize = 30 * 1024 * 1024; // 30 MB
 pub const FILE_MAX_ANIMAL_PHOTO: usize = 10 * 1024 * 1024; // 10 MB
+pub const FILE_MAX_DATA_IMPORT: usize = 100 * 1024 * 1024; // 100 MB（全庫 IDXF 匯入）
 pub const FILE_MAX_PATHOLOGY_REPORT: usize = 30 * 1024 * 1024; // 30 MB
 pub const FILE_MAX_VET_RECOMMENDATION: usize = 10 * 1024 * 1024; // 10 MB
 pub const FILE_MAX_LEAVE_ATTACHMENT: usize = 10 * 1024 * 1024; // 10 MB

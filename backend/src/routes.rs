@@ -638,6 +638,14 @@ pub fn api_routes(state: AppState) -> Router {
             "/admin/audit-logs/export",
             get(handlers::export_audit_logs),
         )
+        .route(
+            "/admin/data-export",
+            get(handlers::data_export::full_database_export),
+        )
+        .route(
+            "/admin/data-import",
+            post(handlers::data_export::full_database_import),
+        )
         .route("/admin/audit/activities", get(handlers::list_activity_logs))
         .route(
             "/admin/audit/activities/export",
