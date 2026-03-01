@@ -81,6 +81,9 @@ services:
       # SEC-31: CORS 允許的 Origin（逗號分隔）
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8080}
 
+      # 帳號鎖定：設為 true 可關閉 SEC-20 登入失敗鎖定（開發環境適用）
+      DISABLE_ACCOUNT_LOCKOUT: ${DISABLE_ACCOUNT_LOCKOUT:-false}
+
       # Google Calendar service account
       # 你程式端用 Google SDK 或自寫讀檔都可以直接吃這個路徑
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/google_service_account
