@@ -32,6 +32,7 @@ pub struct DataExportQuery {
     pub format: Option<String>,
 }
 
+
 /// 一鍵匯出全庫
 /// GET /admin/data-export?include_audit=false&format=json|zip
 pub async fn full_database_export(
@@ -88,6 +89,7 @@ pub async fn full_database_export(
 
 /// 匯入 IDXF JSON 或 Zip
 /// POST /admin/data-import (multipart, field: file)
+/// 遇重複則取代（ON CONFLICT DO UPDATE）
 pub async fn full_database_import(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

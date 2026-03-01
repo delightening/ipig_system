@@ -24,7 +24,8 @@ impl TrainingService {
     ) -> Result<PaginatedResponse<TrainingRecordWithUser>> {
         let has_view = current_user.has_permission("training.view");
         let has_manage = current_user.has_permission("training.manage");
-        if !has_view && !has_manage {
+        let has_manage_own = current_user.has_permission("training.manage_own");
+        if !has_view && !has_manage && !has_manage_own {
             return Err(AppError::Forbidden("無權查看訓練紀錄".into()));
         }
 
@@ -84,7 +85,8 @@ impl TrainingService {
         .ok_or_else(|| AppError::NotFound("訓練紀錄不存在".into()))?;
 
         let has_manage = current_user.has_permission("training.manage");
-        if !has_manage && record.user_id != current_user.id {
+        let has_manage_own = current_user.has_permission("training.manage_own");
+        if !has_manage && !has_manage_own && record.user_id != current_user.id {
             return Err(AppError::Forbidden("無權查看此訓練紀錄".into()));
         }
 
@@ -96,8 +98,13 @@ impl TrainingService {
         payload: &CreateTrainingRecordRequest,
         current_user: &CurrentUser,
     ) -> Result<TrainingRecord> {
-        if !current_user.has_permission("training.manage") {
+        let has_manage = current_user.has_permission("training.manage");
+        let has_manage_own = current_user.has_permission("training.manage_own");
+        if !has_manage && !has_manage_own {
             return Err(AppError::Forbidden("無權新增訓練紀錄".into()));
+        }
+        if has_manage_own && !has_manage && payload.user_id != current_user.id {
+            return Err(AppError::Forbidden("僅能新增自己的訓練紀錄".into()));
         }
         payload.validate()?;
 
@@ -125,10 +132,11 @@ impl TrainingService {
         payload: &UpdateTrainingRecordRequest,
         current_user: &CurrentUser,
     ) -> Result<TrainingRecord> {
-        if !current_user.has_permission("training.manage") {
+        let has_manage = current_user.has_permission("training.manage");
+        let has_manage_own = current_user.has_permission("training.manage_own");
+        if !has_manage && !has_manage_own {
             return Err(AppError::Forbidden("無權編輯訓練紀錄".into()));
         }
-        payload.validate()?;
 
         let existing = sqlx::query_as::<_, TrainingRecord>(
             "SELECT * FROM training_records WHERE id = $1",
@@ -137,6 +145,12 @@ impl TrainingService {
         .fetch_optional(pool)
         .await?
         .ok_or_else(|| AppError::NotFound("訓練紀錄不存在".into()))?;
+
+        if has_manage_own && !has_manage && existing.user_id != current_user.id {
+            return Err(AppError::Forbidden("僅能編輯自己的訓練紀錄".into()));
+        }
+
+        payload.validate()?;
 
         let course_name = payload
             .course_name
@@ -170,8 +184,22 @@ impl TrainingService {
         id: Uuid,
         current_user: &CurrentUser,
     ) -> Result<()> {
-        if !current_user.has_permission("training.manage") {
+        let has_manage = current_user.has_permission("training.manage");
+        let has_manage_own = current_user.has_permission("training.manage_own");
+        if !has_manage && !has_manage_own {
             return Err(AppError::Forbidden("無權刪除訓練紀錄".into()));
+        }
+
+        let existing = sqlx::query_as::<_, TrainingRecord>(
+            "SELECT * FROM training_records WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("訓練紀錄不存在".into()))?;
+
+        if has_manage_own && !has_manage && existing.user_id != current_user.id {
+            return Err(AppError::Forbidden("僅能刪除自己的訓練紀錄".into()));
         }
 
         let result = sqlx::query("DELETE FROM training_records WHERE id = $1")

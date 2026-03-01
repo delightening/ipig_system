@@ -23,6 +23,11 @@ function getCookie(name: string): string | null {
 
 // Request interceptor：自動將 csrf_token Cookie 值加到 X-CSRF-Token header
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  // FormData 上傳時移除 Content-Type，讓瀏覽器自動設定 multipart/form-data + boundary
+  if (config.data instanceof FormData) {
+    config.headers.delete('Content-Type')
+  }
+
   const method = (config.method || '').toUpperCase()
   // 只有 POST/PUT/DELETE/PATCH 需要 CSRF token
   if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {

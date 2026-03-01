@@ -138,6 +138,18 @@
 
 ---
 
+### 2026-03-01 權限稽核與訓練紀錄權限調整
+
+- ✅ **權限稽核報告**：新增 `docs/PERMISSION_AUDIT_2026-03-01.md`，掃描全專案頁面與權限
+- ✅ **EXPERIMENT_STAFF 訓練紀錄**：新增 `training.view`、`training.manage_own`，可管理**自己的**訓練紀錄
+- ✅ **ADMIN_STAFF 審批**：保有 `training.manage`，可審批/管理**所有人**紀錄
+- ✅ **設備維護**：確認 equipment.view / equipment.manage 僅 ADMIN_STAFF（特定人員）
+- ✅ **後端**：`TrainingService` 支援 `training.manage_own`（create/update/delete 僅限自己）
+- ✅ **前端**：TrainingRecordsPage 依 `canManageAll` 隱藏員工篩選、新增表單人員欄
+- 📁 **產出**：migration 012、permissions.rs、training.rs、TrainingRecordsPage、App.tsx、06_PERMISSIONS_RBAC.md
+
+---
+
 ### 2026-03-01 R6 第六輪改善計劃建立與執行
 
 > **白話版：** 針對專案進行下一輪評估後，在 `docs/TODO.md` 新增第六輪改善計劃並依序執行。
@@ -589,6 +601,12 @@
   - 分析 7 份歷次測試 JSON，選定 `k6_2026-02-25T12-13-34.json` 為基準數據
 
 - 📁 **產出**：12 個新建/修改檔案
+
+### 2026-03-01 PowerShell Migration 執行紀錄
+- ✅ **嘗試 1**：`cargo install sqlx-cli` 失敗（Windows 缺少 MSVC linker）
+- ✅ **嘗試 2**：Docker + psql 直接執行 migrations，因既有 DB 已有 schema 及 PowerShell 編碼問題而產生錯誤
+- ✅ **結論**：新 migrations（001~010）僅適用於全新安裝；既有環境維持現狀
+- 📁 **產出**：`docs/walkthrough.md` 新增 PowerShell Migration 執行紀錄與建議做法
 
 ### 2026-02-28 市場交付阻擋項修復（3 項）
 - ✅ **檔案上傳/下載功能串接**：

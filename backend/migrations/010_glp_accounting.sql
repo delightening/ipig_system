@@ -1,8 +1,8 @@
 -- ============================================
--- Migration 010: GLP & QAU (合併原 020, 021, 022)
+-- Migration 010: GLP、設備、會計、訓練權限
 -- ============================================
 
--- Training records (020)
+-- 10.1 人員訓練紀錄
 CREATE TABLE training_records (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -18,10 +18,16 @@ CREATE INDEX idx_training_records_expires ON training_records(expires_at) WHERE 
 
 INSERT INTO permissions (id, code, name, module, description, created_at) VALUES
     (gen_random_uuid(), 'training.view', '查看訓練紀錄', 'training', '可查看人員訓練紀錄', NOW()),
-    (gen_random_uuid(), 'training.manage', '管理訓練紀錄', 'training', '可新增、編輯、刪除訓練紀錄', NOW())
+    (gen_random_uuid(), 'training.manage', '管理訓練紀錄', 'training', '可新增、編輯、刪除訓練紀錄', NOW()),
+    (gen_random_uuid(), 'training.manage_own', '管理自己的訓練紀錄', 'training', '可新增、編輯、刪除自己的訓練紀錄', NOW())
 ON CONFLICT (code) DO NOTHING;
 
--- Equipment (021)
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r, permissions p
+WHERE r.code = 'EXPERIMENT_STAFF' AND p.code IN ('training.view', 'training.manage_own')
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+
+-- 10.2 設備與校準
 CREATE TABLE equipment (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(200) NOT NULL,
@@ -53,7 +59,7 @@ INSERT INTO permissions (id, code, name, module, description, created_at) VALUES
     (gen_random_uuid(), 'equipment.manage', '管理設備', 'equipment', '可新增、編輯、刪除設備與校準紀錄', NOW())
 ON CONFLICT (code) DO NOTHING;
 
--- QAU & Accounting (022)
+-- 10.3 QAU 品質保證
 INSERT INTO permissions (id, code, name, module, description, created_at) VALUES
     (gen_random_uuid(), 'qau.dashboard.view', '查看 QAU 儀表板', 'qau', 'GLP 品質保證：可查看研究狀態、審查進度、稽核摘要', NOW()),
     (gen_random_uuid(), 'qau.protocol.view', 'QAU 檢視計畫', 'qau', '唯讀檢視所有計畫書', NOW()),
@@ -74,6 +80,7 @@ WHERE r.code = 'QAU' AND p.code IN (
 )
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
+-- 10.4 會計
 CREATE TYPE account_type AS ENUM ('asset', 'liability', 'equity', 'revenue', 'expense');
 
 CREATE TABLE chart_of_accounts (

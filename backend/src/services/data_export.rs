@@ -46,7 +46,6 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
     "permissions",
     // 002 - 動物，無 FK
     "animal_sources",
-    "change_reasons",
     "blood_test_templates",
     "blood_test_panels",
     "blood_test_panel_items",
@@ -66,6 +65,7 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
     "notification_settings",
     "attachments",
     "audit_logs",
+    "change_reasons", // 依賴 users
     // 002 - 動物（依賴 users, animal_sources）
     "animals",
     "animal_observations",

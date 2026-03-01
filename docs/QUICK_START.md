@@ -58,6 +58,14 @@ sqlx migrate run
 cargo run
 ```
 
+**Windows 若出現 `link.exe not found`**：需先載入 MSVC 環境，再執行 cargo：
+```powershell
+. .\scripts\load-msvc-env.ps1
+cd backend
+cargo run
+```
+或使用 `.\scripts\build-backend.ps1` 一鍵編譯。詳見 [docs/WINDOWS_BUILD.md](WINDOWS_BUILD.md)。
+
 後端預設：http://localhost:3000（或依 .env 的 PORT）
 
 ### 啟動前端（終端機 2）

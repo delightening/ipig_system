@@ -11,10 +11,9 @@ use crate::constants::FILE_MAX_DATA_IMPORT;
 use crate::services::schema_mapping;
 use crate::{AppError, Result};
 
-/// 匯入模式
+/// 匯入模式：遇重複則取代（ON CONFLICT DO UPDATE）
 #[derive(Debug, Clone, Copy)]
 pub enum ImportMode {
-    /// 僅新增，遇到衝突略過（ON CONFLICT DO NOTHING）
     Append,
 }
 
@@ -141,6 +140,9 @@ async fn import_from_zip(pool: &PgPool, bytes: &[u8], _mode: ImportMode) -> Resu
                 schema_mapping::transform_row(source_version, &tbl.name, row);
             }
         }
+        if tbl.name == "change_reasons" {
+            sanitize_change_reasons(pool, &mut rows).await?;
+        }
         match import_table(pool, &tbl.name, rows).await {
             Ok((ins, skip)) => {
                 result.tables_processed += 1;
@@ -206,6 +208,9 @@ async fn import_from_json(pool: &PgPool, json_bytes: &[u8], _mode: ImportMode) -
                 schema_mapping::transform_row(source_version, &table_name, row);
             }
         }
+        if table_name == "change_reasons" {
+            sanitize_change_reasons(pool, &mut rows).await?;
+        }
         match import_table(pool, &table_name, rows).await {
             Ok((ins, skip)) => {
                 result.tables_processed += 1;
@@ -227,6 +232,45 @@ fn is_export_table(name: &str) -> bool {
         .any(|t| *t == name)
 }
 
+/// 匯入 change_reasons 前，將不存在的 changed_by 設為 null，避免 FK 違反
+async fn sanitize_change_reasons(pool: &PgPool, rows: &mut [serde_json::Value]) -> Result<()> {
+    if rows.is_empty() {
+        return Ok(());
+    }
+    let valid_user_ids: std::collections::HashSet<String> = sqlx::query_scalar::<_, String>("SELECT id::text FROM users")
+        .fetch_all(pool)
+        .await
+        .map_err(|e| AppError::Internal(format!("Fetch users for change_reasons sanitize: {}", e)))?
+        .into_iter()
+        .collect();
+
+    for row in rows.iter_mut() {
+        let obj = match row.as_object_mut() {
+            Some(o) => o,
+            None => continue,
+        };
+        if let Some(serde_json::Value::String(id)) = obj.get("changed_by") {
+            if !valid_user_ids.contains(id) {
+                obj.insert("changed_by".to_string(), serde_json::Value::Null);
+            }
+        }
+    }
+    Ok(())
+}
+
+/// 表名 -> ON CONFLICT 欄位（遇重複則取代）
+fn get_conflict_columns(table: &str) -> Option<&'static [&'static str]> {
+    let cols: &[&str] = match table {
+        "roles" | "permissions" | "animal_sources" | "blood_test_templates" | "product_categories"
+        | "sku_categories" | "sku_subcategories" | "warehouses" | "partners" => &["code"],
+        "blood_test_panels" => &["key"],
+        "users" => &["email"],
+        "notification_routing" => &["event_type", "role_code"],
+        _ => return None,
+    };
+    Some(cols)
+}
+
 async fn import_table(
     pool: &PgPool,
     table: &str,
@@ -236,23 +280,41 @@ async fn import_table(
         return Ok((0, 0));
     }
 
-    let pk_cols = get_primary_key_columns(pool, table).await?;
+    let conflict_cols: Vec<String> = match get_conflict_columns(table) {
+        Some(cols) => cols.iter().map(|s| (*s).to_string()).collect(),
+        None => get_primary_key_columns(pool, table).await?,
+    };
+
+    let all_cols = get_table_columns(pool, table).await?;
     let rows_json = serde_json::to_value(&rows).map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let sql = if pk_cols.is_empty() {
+    // json_populate_recordset 第二參數需為 json 型別（非 jsonb）
+    // 遇重複則取代（ON CONFLICT DO UPDATE SET）
+    let sql = if conflict_cols.is_empty() {
         format!(
-            r#"INSERT INTO "{}" SELECT * FROM json_populate_recordset(null::"{}", $1::jsonb)"#,
+            r#"INSERT INTO "{}" SELECT * FROM json_populate_recordset(null::"{}", $1::json)"#,
             table, table
         )
     } else {
-        let conflict_cols = pk_cols
+        let conflict_expr = conflict_cols
             .iter()
             .map(|c| format!(r#""{}""#, c))
             .collect::<Vec<_>>()
             .join(", ");
+        let conflict_set: std::collections::HashSet<_> = conflict_cols.iter().map(|s| s.as_str()).collect();
+        let update_set: Vec<String> = all_cols
+            .iter()
+            .filter(|c| !conflict_set.contains(c.as_str()))
+            .map(|c| format!(r#""{}" = EXCLUDED."{}""#, c, c))
+            .collect();
+        let update_clause = if update_set.is_empty() {
+            " DO NOTHING".to_string()
+        } else {
+            format!(" DO UPDATE SET {}", update_set.join(", "))
+        };
         format!(
-            r#"INSERT INTO "{}" SELECT * FROM json_populate_recordset(null::"{}", $1::jsonb) ON CONFLICT ({}) DO NOTHING"#,
-            table, table, conflict_cols
+            r#"INSERT INTO "{}" SELECT * FROM json_populate_recordset(null::"{}", $1::json) ON CONFLICT ({}){}"#,
+            table, table, conflict_expr, update_clause
         )
     };
 
@@ -265,6 +327,21 @@ async fn import_table(
     let total = rows.len() as u64;
     let skipped = total.saturating_sub(ins);
     Ok((ins, skipped))
+}
+
+async fn get_table_columns(pool: &PgPool, table: &str) -> Result<Vec<String>> {
+    let rows: Vec<(String,)> = sqlx::query_as(
+        r#"
+        SELECT column_name::text FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = $1
+        ORDER BY ordinal_position
+        "#,
+    )
+    .bind(table)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("Columns for {}: {}", table, e)))?;
+    Ok(rows.into_iter().map(|r| r.0).collect())
 }
 
 async fn get_primary_key_columns(pool: &PgPool, table: &str) -> Result<Vec<String>> {
