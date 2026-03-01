@@ -4,11 +4,71 @@
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
+---
+
+## 🎓 給高中生看的入門說明
+
+如果你是第一次看到這份文件，別擔心！下面是「用白話文解釋」這份進度表在說什麼。
+
+### 這份文件是什麼？
+
+這是一個叫做 **豬博士 iPig 系統** 的軟體專案進度表。這個系統是給**實驗室、研究機構**使用的，用來管理：
+- 實驗動物的資料（例如：豬的健康狀況、醫療紀錄）
+- 實驗計畫的審核流程
+- 進銷存（買東西、賣東西、庫存）
+- 人事、請假、考勤
+- 還有各種通知、報表等
+
+就像學校有教務系統（選課、成績）、學務系統（請假、獎懲）一樣，這個系統是把「實驗動物相關」的所有工作整合在一起。
+
+---
+
+### 常用術語解釋（高中生版）
+
+| 術語 | 白話解釋 |
+|------|----------|
+| **API** | 程式之間互相溝通的「介面」。例如：前端網頁要顯示動物列表，就要透過 API 跟後端說「給我資料」。 |
+| **後端** | 伺服器端的程式，負責存資料、算資料、控制權限。使用者看不到程式碼，只能透過網頁操作。 |
+| **前端 / UI** | 你在瀏覽器看到的畫面（按鈕、表格、表單），也就是「使用者介面」。 |
+| **資料庫** | 儲存所有資料的地方（像一個超大的 Excel）。 |
+| **AUP** | 動物使用計畫（Animal Use Protocol），就是「你要怎麼對動物做實驗」的計畫書，需要經過審核才能執行。 |
+| **ERP** | 企業資源規劃，這裡專指**進銷存**：進貨、銷貨、庫存管理。 |
+| **HR** | 人事管理（Human Resources），例如請假、加班、考勤。 |
+| **遷移 (Migration)** | 修改資料庫結構的腳本，例如新增欄位、新增資料表。 |
+| **E2E 測試** | 模擬真人操作瀏覽器，從點擊登入到完成某個流程，確認整個系統沒壞。 |
+| **CI/CD** | 程式一提交到 Git，就自動跑測試、檢查程式碼，確保品質。 |
+| **上線 (Production)** | 正式給真正的使用者使用的環境（不是測試機）。 |
+| **GLP** | 優良實驗室操作規範，國際上對實驗品質、紀錄保存的標準。 |
+| **2FA / 雙因素認證** | 登入時除了密碼，還要輸入手機 App 產生的一次性碼，更安全。 |
+| **WAF** | 網頁應用程式防火牆，用來擋惡意攻擊。 |
+| **Prometheus / Grafana** | 監控系統效能的工具，可以畫出流量、錯誤率等圖表。 |
+| **Storybook** | 前端元件展示工具，可單獨預覽按鈕、表單等元件，方便設計與測試。 |
+| **P0 / P1 / P2 / P5** | 優先級代號：P0 最高、必須先做；P5 較低、有餘力再做。 |
+
+---
+
+### 總體進度在說什麼？（一句話版）
+
+> 各子系統的**後端程式**、**資料庫**、**前端畫面**都已經做完，整體完成度 100%。  
+> 現在在做的是：**測試、監控、安全強化**，準備正式上線給使用者用。
+
+---
+
 ## 📑 目錄
 
 | # | 章節 | 說明 |
 |---|------|------|
 | - | [總體進度概覽](#-總體進度概覽) | 各子系統完成度摘要 |
+| - | [正式上線準備度](#-正式上線準備度-production-readiness) | 品質、測試、監控、安全等檢查結果 |
+| - | [最新變更動態](#9-最新變更動態) | 每次更新做了什麼（技術細節） |
+
+**閱讀建議：**
+- 想快速了解專案狀態 → 看「總體進度概覽」和「正式上線準備度」
+- 想了解最新改動 → 看「最新變更動態」（可只看日期和標題，不必逐行理解）
+- 想學專案用到的技術名詞 → 看開頭的「術語解釋」
+
+| # | 章節 | 說明 |
+|---|------|------|
 | 1 | [共用基礎架構](#1-共用基礎架構) | 認證授權、使用者管理、角色權限、Email、稽核 |
 | 2 | [AUP 提交與審查系統](#2-aup-提交與審查系統) | 計畫書管理、審查流程、附件、我的計劃 |
 | 3 | [iPig ERP (進銷存管理系統)](#3-ipig-erp-進銷存管理系統) | 基礎資料、採購、銷售、倉儲、報表 |
@@ -22,6 +82,8 @@
 ---
 
 ## 📊 總體進度概覽
+
+> **白話版：** 左邊是各個功能模組，右邊是「後端程式」「資料庫」「網頁畫面」各自的完成度。全部 100% 代表功能都開發完成了。
 
 | 子系統 | 後端 API | 資料庫 | 前端 UI | 整體進度 |
 |--------|----------|--------|---------|----------|
@@ -38,6 +100,8 @@
 
 ## 🎯 正式上線準備度 (Production Readiness)
 
+> **白話版：** 程式寫完不等於可以上線。上線前要確保：有足夠測試、能監控狀況、有備份還原、有安全防護、符合法規、有效能基準、有文件、使用體驗沒問題。下面就是各項檢查的結果。
+
 | 面向 | 現況 | 目標 | 狀態 |
 |------|------|------|------|
 | **測試覆蓋率** | Rust 119 unit tests ✅, API 整合測試 25+ cases ✅, CI/CD 整合 DB ✅, E2E 7 spec 34 tests ✅ | 核心邏輯 ≥ 80%、E2E 關鍵流程 100% | ✅ |
@@ -51,11 +115,33 @@
 
 **上線準備度估算：100%（核心功能完整、所有品質補強全數完成，Storybook + 2FA + WAF 長期演進項目亦已交付）**
 
+### 各面向白話說明
+
+| 面向 | 白話解釋 |
+|------|----------|
+| **測試覆蓋率** | 程式有被自動測試檢查到的比例。測試越多，改程式時越不容易出錯。 |
+| **可觀測性** | 系統出問題時，我們有沒有辦法「看得見」哪裡壞了（健康檢查、流量、錯誤率等圖表）。 |
+| **備份 / DR** | 資料有備份、有加密；萬一主機壞了，有還原流程（Disaster Recovery）。 |
+| **安全性** | 網路隔離、憑證保護、容器掃描等，降低被駭的風險。 |
+| **GLP 合規** | 符合實驗室規範：電子簽章、資料保留政策、驗證文件等。 |
+| **效能基準** | 用壓力測試（k6）測過，知道系統負載下回應時間大概多少，之後可對比是否變慢。 |
+| **文件** | 有操作手冊、API 說明、註解，方便維護與交接。 |
+| **UX / 相容性** | 錯誤訊息友善、不同瀏覽器都能正常使用。 |
+
 ---
 
 ## 9. 最新變更動態
 
+> **白話版：** 這裡記錄每次更新做了什麼。按照日期從新到舊排列。  
+> 你會看到很多技術細節（例如「useState → Custom Hooks」），簡單說就是：**重構程式碼，讓它更好維護、更不容易出錯**。  
+> **P0 / P1 / P2 / P5** 是優先級：P0 最重要，P5 較次要。
+
+---
+
 ### 2026-03-01 useState → Custom Hooks 重構 (P5-48)
+
+> **白話版：** React 的 `useState` 用來管理畫面上的狀態（例如：彈窗開/關、輸入值）。  
+> 把這些邏輯抽成「自訂 Hooks」（可重複使用的小工具），可以讓程式碼更整潔、更容易測試。
 
 依據 `docs/REFACTOR_PLAN_USESTATE_TO_HOOKS.md` 執行 Phase 1–2：
 
@@ -69,22 +155,37 @@
 - 新增 `useListFilters`：search、filters、page、perPage、sort
 - 遷移：PartnersPage（search + typeFilter）
 
-**待執行**：Phase 3（useSteps、useSelection）、Phase 4（feature 專用 hooks）
+**Phase 3 已完成（2026-03-01 續）**：useSteps、useSelection、TwoFactorSetup 用 useDialogSet
+- 新增 `useSteps`：wizard 步驟索引、next/prev/goTo
+- 遷移：CreateProductPage
+- 新增 `useSelection`：勾選 toggle/selectAll/clear/has/size
+- 遷移：ProductsPage、TreatmentDrugOptionsPage（ErpImportDialog）
+- TwoFactorSetup 用 useDialogSet 管理 setup/disable 兩 Dialog
+
+**Phase 4 已完成（2026-03-01）**：feature 專用 hooks
+- 新增 `useSettingsForm`：系統設定表單 + API 同步 + dirty 追蹤
+- 遷移：SettingsPage
+- 新增 `useLeaveRequestForm`：假單表單 + 日期/天數雙向計算 + 圖片上傳
+- 遷移：HrLeavePage（含 useDialogSet）
+- 新增 `useProductListState`：產品列表篩選/分頁/排序 + queryParams
+- 遷移：ProductsPage（含 useDialogSet 管理 status/batchStatus/import）
 
 ---
 
 ### 2026-03-01 iPig R5 改善計畫 Phase 3 執行（項目 7、8）
 
+> **白話版：** R5 是第五輪改善計畫。這次做的是「網頁效能監控」和「API 快取優化」。
+
 依據 `dazzling-twirling-kitten.md` 計劃執行：
 
 **項目 7：Web Vitals 監控 (P2) ✅**
-- 安裝 `web-vitals`，新增 `frontend/src/lib/webVitals.ts`：onCLS、onINP、onLCP、onFCP、onTTFB 五項指標
+- Web Vitals 是 Google 訂的「使用者體驗指標」（頁面載入速度、版面是否突然跳動等）。我們監控這五項：onCLS、onINP、onLCP、onFCP、onTTFB
 - `sendToAnalytics`：DEV 時 `console.debug`，production 時 `navigator.sendBeacon('/api/metrics/vitals', JSON.stringify(metric))`
 - `main.tsx` 呼叫 `reportWebVitals()`
 - 後端 `POST /api/metrics/vitals` handler（接收並紀錄 Web Vitals 指標，回傳 204）
 
 **項目 8：API 回應快取 ETag (P2) ✅**
-- 新增 `backend/src/middleware/etag.rs`：計算 response body SHA-256 作為 ETag，比對 If-None-Match，匹配則回傳 304 Not Modified
+- ETag 是「內容指紋」。伺服器給每份資料一個 ETag，瀏覽器下次請求時帶上這個值；若資料沒變，伺服器直接回 304（不必再傳一次完整內容），節省頻寬、加快速度
 - 排除 `/api/auth/*`、`/api/health`、`/api/metrics/*`
 - 套用 `Cache-Control: private, no-cache, must-revalidate`
 - 對 GET 路由套用 etag middleware
@@ -130,6 +231,8 @@
 - `npx vitest run` 全數通過（207 tests）
 
 ### 2026-03-01 財務 SOC2 QAU 三項規劃完成
+
+> **白話版：** 做了三件事：**(1) QAU 品質保證**：新增角色、權限、會計相關資料表與後台儀表板；**(2) SOC2 合規**：憑證輪換、SLA、災難還原演練；**(3) 財務模組**：會計科目、傳票、應付/應收等規劃。
 
 **一、QAU（品質保證檢視）**
 - `022_qau_accounting_plan.sql`（整合 022–024）：QAU 角色與權限、會計基礎（科目/傳票/分錄）、AP/AR 付款收款表
@@ -178,10 +281,78 @@
 
 ### 2026-03-01 複製後編輯觀察紀錄 500 錯誤修復
 
+> **白話版：** 使用者在「複製一筆觀察紀錄 → 再編輯儲存」時，系統噴出 500 錯誤。原因是資料庫型別轉換的 bug，已修正。
+
 - **問題**：複製觀察紀錄後編輯儲存時出現「資料庫操作失敗，請稍後再試」(500)
 - **根因**：migration 013 將 `version_record_type` enum 的 cast 改為 ASSIGNMENT，導致 (1) WHERE 比較 `record_type = $1` 時 `version_record_type = text` 無運算子；(2) cast 函數 `$1::text` / `$1::version_record_type` 遞迴呼叫造成 stack overflow
 - **修復**：(1) `save_record_version` / `get_record_versions` 改為 `record_type::text = $1` 比較；(2) 新增 migration 019 修正 `version_record_type_to_text`、`text_to_version_record_type` 為非遞迴實作；(3) `AnimalObservation` 補齊 `deleted_at`、`deletion_reason`、`deleted_by`、`version` 欄位
 - **驗證**：新增 `tests/test_reproduce_copy_edit_observation.py` 重現腳本，4 步驟全數通過
+
+### 2026-02-28 附件 API 500 錯誤修正
+- ✅ **AttachmentsTab 查詢參數修正**：前端傳送 `protocol_id` 但後端期望 `entity_type` + `entity_id`，導致空字串綁定 UUID 欄位引發 PostgreSQL 型別錯誤。修正為 `entity_type=protocol&entity_id=<uuid>`。
+- ✅ **上傳路由修正**：附件上傳從錯誤的 `POST /attachments?protocol_id=...` 改為正確的 `POST /protocols/:id/attachments` 專用路由。
+
+### 2026-02-28 第二輪系統改善 15 項完成
+- ✅ **P0-R2-1 XSS 防護**：安裝 DOMPurify，建立 `sanitize.ts` 清理 SVG，所有 `dangerouslySetInnerHTML` 已包裹 `sanitizeSvg()`
+- ✅ **P0-R2-2 Rate Limiting 分級**：新增寫入端點 120/min + 檔案上傳 30/min 獨立限流，上傳路由抽出獨立 Router
+- ✅ **P1-R2-3 大型依賴動態導入**：`jsPDF`+`html2canvas` 改為 `import()` 動態載入，減少 ~360KB 初始 bundle
+- ✅ **P1-R2-4 動物列表分頁**：後端 `AnimalService::list` 支援 `page`/`per_page` + COUNT，前端分頁控制元件
+- ✅ **P1-R2-5 健康檢查深度擴充**：`/api/health` 擴充 DB 連線池狀態 + 磁碟 uploads 目錄檢查
+- ✅ **P1-R2-6 Alertmanager 告警**：`monitoring/` 新增 Prometheus + Alertmanager + Grafana 設定，4 條告警規則
+- ✅ **P1-R2-7 外部服務重試**：`services/retry.rs` 通用 `with_retry` 指數退避，已套用 SMTP 發送
+- ✅ **P1-R2-8 Query Key Factory**：`lib/queryKeys.ts` 統一 ~50 個 query key 定義
+- ✅ **P2-R2-9 表單驗證統一**：`lib/validations.ts` 提供 Partner/Warehouse/Animal 三組 Zod schema
+- ✅ **P2-R2-10 i18n 補齊**：zh-TW.json + en.json 新增 `validation` 區塊 18 個 key
+- ✅ **P2-R2-11 Zustand Selector**：auth store 新增 `useAuthUser`/`useAuthHasRole`/`useAuthActions` 等 selector hooks
+- ✅ **P2-R2-12 DB 維護自動化**：`018_db_maintenance.sql` pg_stat_statements + `maintenance_vacuum_analyze()` + 慢查詢 View + 排程
+- ✅ **P2-R2-13 Dependabot**：`.github/dependabot.yml` 涵蓋 Cargo/npm/Docker/GitHub Actions
+- ✅ **P2-R2-14 零停機遷移策略**：`docs/ZERO_DOWNTIME_MIGRATIONS.md` 完整規範
+- ✅ **P2-R2-15 架構圖**：`docs/ARCHITECTURE.md` 含部署/資料流/模組/認證流程 4 張 Mermaid 圖 + 技術堆疊表
+
+### 2026-02-28 第三輪改善：P2-R3-11 + P2-R3-14 完成
+- ✅ **P2-R3-11 Protocol `any` 型別消除**：6 個檔案消除 ~44 處 `: any`
+  - `ProtocolEditPage.tsx`：14 處 → 0（`AxiosError<ApiErrorPayload>` 取代 error any、`ProtocolWorkingContent` 子型別取代 item/person/staff any、`Record<string, unknown>` 取代動態 section 存取）
+  - `ProtocolContentView.tsx`：13 處 → 0（interface prop `any` → `ProtocolWorkingContent`、map callback `any` → 具體子型別 TestItem/ControlItem/SurgeryDrug/AnimalEntry 等）
+  - `CommentsTab.tsx`：4 處 → 0（`VetReviewAssignment` 取代 vetReview any、error handler 改用 `AxiosError`、Protocol prop 型別改用 `Protocol` interface）
+  - `AttachmentsTab.tsx`：2 處 → 0（error handler 改用 `AxiosError<ApiErrorPayload>`）
+  - `ReviewCommentsReport.tsx`：3 處 → 0（props 全面型別化為 `Protocol`/`ReviewCommentResponse[]`/`VetReviewAssignment`）
+  - `ReviewersTab.tsx`：1 處 → 0（vetReview prop 改用 `VetReviewAssignment`）
+  - 新增 `VetReviewItem`/`VetReviewFormData`/`VetReviewAssignment` 三個 interface 至 `types/aup.ts`
+- ✅ **P2-R3-14 Error Boundary 分層**：
+  - 新增 `components/ui/page-error-boundary.tsx`（class component + 錯誤重試 UI）
+  - `MainLayout.tsx` 於 `<Suspense>` 外層包裹 `<PageErrorBoundary>`，所有 lazy-loaded 頁面自動受保護
+- ✅ TypeScript `tsc --noEmit` 零錯誤通過
+
+### 2026-02-28 第三輪系統改善 20 項完成
+
+詳細計畫見 `docs/IMPROVEMENT_PLAN_R3.md`
+
+**🔴 P0 安全性（4 項）：**
+- ✅ **P0-R3-1 SQL 動態拼接修正**：4 個檔案（`treatment_drug.rs`, `report.rs`, `warehouse.rs`, `document/crud.rs`）的手動 `format!("${}", param_idx)` 參數索引全部改為 `sqlx::QueryBuilder` 的 `push_bind()` 自動綁定
+- ✅ **P0-R3-2 IDOR 漏洞修補**：HR `get_leave` 加入 owner/approver/view_all 三重檢查、`get_overtime` 加入 owner/view_all 檢查、`get_user` 允許查看自己的 profile 無需 admin 權限
+- ✅ **P0-R3-3 .expect() 清理**：handlers/ 14 處 + services/ 28 處共 42 個 `.expect()` 替換為 proper error propagation（`ok_or_else`/`map_err`/`anyhow`），消除 production panic 風險
+- ✅ **P0-R3-4 前端容器非 root**：Dockerfile 加入 `USER nginx`、nginx listen 改為 8080、`nginx-main.conf` 設定 pid/temp 路徑至 `/tmp/nginx/`、docker-compose 端口映射更新
+
+**🟡 P1 效能與可靠性（6 項）：**
+- ✅ **P1-R3-5 搜尋 debounce**：新增 `hooks/useDebounce.ts`，套用至 AnimalsPage/PartnersPage/WarehousesPage/ProtocolsPage（400ms 延遲）
+- ✅ **P1-R3-6 staleTime 調優**：23 個檔案 38 個 useQuery 依資料特性分級設定（即時 30s/列表 1min/計數 5min/參考 10min/設定 30min）
+- ✅ **P1-R3-7 AnimalsPage 拆分**：1898 行 → 495 行（-74%），抽離 AnimalFilters/AnimalListTable/AnimalPenView/AnimalAddDialog + constants.ts
+- ✅ **P1-R3-8 Rate Limiter DashMap**：`Arc<Mutex<HashMap>>` 改為 `DashMap`，消除 Mutex 競爭
+- ✅ **P1-R3-9 DB Pool Prometheus 指標**：`/metrics` 新增 `db_pool_connections_total/idle/active` 三個 gauge
+- ✅ **P1-R3-10 Skeleton Loading**：新增 `TableSkeleton` 元件，套用至 4 個列表頁取代 Loader2 spinner
+
+**🔵 P2 品質與維運（10 項）：**
+- ✅ **P2-R3-11 Protocol any 消除**：6 個檔案 ~44 處 `: any` 替換為具體型別（`ProtocolWorkingContent`/`VetReviewAssignment`/`AxiosError<ApiErrorPayload>` 等）
+- ✅ **P2-R3-12 審計日誌補齊**：HR leave approval/rejection 和 overtime approval 新增 `AuditService::log()` 呼叫；新增 `AuditAction::Reject` variant
+- ✅ **P2-R3-13 常數提取**：新增 `backend/src/constants.rs`（分頁/認證/Rate Limit/上傳/排程/Session/密碼 共 18 個常數）
+- ✅ **P2-R3-14 Error Boundary 分層**：新增 `PageErrorBoundary` 元件，包裹 MainLayout 的 Suspense
+- ✅ **P2-R3-15 SSL/TLS 範本**：新增 `docs/SSL_SETUP.md` + `frontend/nginx-ssl.conf.example`（TLS 1.2/1.3 + OCSP + HSTS）
+- ✅ **P2-R3-16 備份自動驗證**：新增 `scripts/backup/pg_backup.sh`（gzip 完整性 + pg_restore 驗證 + SHA256 校驗 + 30 天自動清理）
+- ✅ **P2-R3-17 日誌聚合**：新增 `docker-compose.logging.yml`（Loki + Promtail）+ `monitoring/promtail/config.yml`
+- ✅ **P2-R3-18 環境驗證**：新增 `scripts/validate-env.sh`（必填/選填變數分級檢查 + HMAC key 長度驗證）
+- ✅ **P2-R3-19 無障礙**：搜尋輸入框加入 `aria-label`（Animals/Partners/Warehouses/Protocols 4 頁）
+- ✅ **P2-R3-20 API 一致性**：`amendment.rs` 4 處硬編碼角色名稱陣列改為 `has_permission("aup.protocol.*")` 權限檢查
+- ✅ `cargo check` + `tsc --noEmit` 零錯誤通過
 
 ### 2026-02-28 第四輪改善計畫 R4 完成（20 項）
 
@@ -423,6 +594,22 @@
   5. CI retries 維持 2（容錯），本地 retries 改回 0（快速回饋）
 - 📊 **結果**：CI 預設 34 tests（Chromium），22s 完成，0 failures
 
+### 2026-02-27 E2E 測試 100% 通過（P4-18 Rate Limiting / Session 穩定化）
+- ✅ **根本原因分析**：所有 `/api/*` 請求共用 120/min rate limit，React SPA 每次頁面載入觸發多個 API 呼叫（/api/me、資料列表等），34 個測試密集執行時輕易超限；`sharedAdminContext` 每次初始化都重新登入浪費配額。
+- ✅ **admin-context.ts 重構**：改用 auth.setup 儲存的 `admin.json` storageState 檔案，worker 初始化時直接載入 cookie + localStorage，無需重新登入（0 次額外 API 呼叫）。
+- ✅ **API rate limit 提升**：`rate_limiter.rs` API 端點 120→600/min，為密集測試提供充足配額。
+- ✅ **login.spec.ts credential fallback**：改用 `getAdminCredentials()` 統一 fallback 邏輯（支援 .env 的 `ADMIN_INITIAL_PASSWORD`）。
+- 📊 **成果**：34/34 測試連續 2 次全部通過，執行時間從 2.3 分鐘降至 **22 秒**。
+- 📁 **產出**：
+  - [admin-context.ts](../frontend/e2e/fixtures/admin-context.ts)（storageState 載入）
+  - [rate_limiter.rs](../backend/src/middleware/rate_limiter.rs)（API limit 600/min）
+  - [login.spec.ts](../frontend/e2e/login.spec.ts)（credential fallback）
+
+### 2026-02-27 E2E 測試總結計畫實施（選項 1）
+- ✅ **Dashboard 修復交付**：原計畫主要目標已達成，Dashboard 6/6 通過。
+- ✅ **Rate Limiting 調查記錄**：已嘗試 JWT TTL 延長、auth rate limit 放寬、Cookie Path 與 context.cookies() 修復，仍存在 Session 過期導致大量重新登入 → 429 連鎖失敗問題。
+- ✅ **後續任務建立**：將 Rate Limiting / Session 穩定化建立為 P4 獨立待辦，詳見 `docs/TODO.md`。
+
 ### 2026-02-26 E2E 測試全面改進（Session 管理優化）
 - ✅ **配置驗證與文檔**：
   - 新增 `docs/e2e/README.md`（完整指南：架構說明、配置檢查清單、故障排除、維護手冊）
@@ -457,22 +644,6 @@
   - 修復「語言切換應可運作」測試：改用 `header getByRole('combobox')` 選擇器（Radix UI Select.Trigger 標準 role）
   - Dashboard 測試套件 6/6 全部通過 ✅
   - 產出：[dashboard.spec.ts](../frontend/e2e/dashboard.spec.ts)（Line 31-45）
-
-### 2026-02-27 E2E 測試 100% 通過（P4-18 Rate Limiting / Session 穩定化）
-- ✅ **根本原因分析**：所有 `/api/*` 請求共用 120/min rate limit，React SPA 每次頁面載入觸發多個 API 呼叫（/api/me、資料列表等），34 個測試密集執行時輕易超限；`sharedAdminContext` 每次初始化都重新登入浪費配額。
-- ✅ **admin-context.ts 重構**：改用 auth.setup 儲存的 `admin.json` storageState 檔案，worker 初始化時直接載入 cookie + localStorage，無需重新登入（0 次額外 API 呼叫）。
-- ✅ **API rate limit 提升**：`rate_limiter.rs` API 端點 120→600/min，為密集測試提供充足配額。
-- ✅ **login.spec.ts credential fallback**：改用 `getAdminCredentials()` 統一 fallback 邏輯（支援 .env 的 `ADMIN_INITIAL_PASSWORD`）。
-- 📊 **成果**：34/34 測試連續 2 次全部通過，執行時間從 2.3 分鐘降至 **22 秒**。
-- 📁 **產出**：
-  - [admin-context.ts](../frontend/e2e/fixtures/admin-context.ts)（storageState 載入）
-  - [rate_limiter.rs](../backend/src/middleware/rate_limiter.rs)（API limit 600/min）
-  - [login.spec.ts](../frontend/e2e/login.spec.ts)（credential fallback）
-
-### 2026-02-27 E2E 測試總結計畫實施（選項 1）
-- ✅ **Dashboard 修復交付**：原計畫主要目標已達成，Dashboard 6/6 通過。
-- ✅ **Rate Limiting 調查記錄**：已嘗試 JWT TTL 延長、auth rate limit 放寬、Cookie Path 與 context.cookies() 修復，仍存在 Session 過期導致大量重新登入 → 429 連鎖失敗問題。
-- ✅ **後續任務建立**：將 Rate Limiting / Session 穩定化建立為 P4 獨立待辦，詳見 `docs/TODO.md`。
 
 ### 2026-02-25 SEC-33 敏感操作二級認證 (P3-7)
 - ✅ **後端**：新增 `POST /auth/confirm-password`，以密碼換取短期 reauth JWT（5 分鐘）；`delete_user`、`reset_user_password`、`impersonate_user`、`delete_role` 四個敏感操作需帶 `X-Reauth-Token` header，否則回傳 403。
@@ -516,72 +687,6 @@
 ### 2026-02-25 P0-7 錯誤處理 UX 統一
 - ✅ **安全強化**：隱藏原始 DB 錯誤。
 - ✅ **前端錯誤導引**：優化 `getApiErrorMessage` 處理逾時與網路異常。
-
-### 2026-02-28 第二輪系統改善 15 項完成
-- ✅ **P0-R2-1 XSS 防護**：安裝 DOMPurify，建立 `sanitize.ts` 清理 SVG，所有 `dangerouslySetInnerHTML` 已包裹 `sanitizeSvg()`
-- ✅ **P0-R2-2 Rate Limiting 分級**：新增寫入端點 120/min + 檔案上傳 30/min 獨立限流，上傳路由抽出獨立 Router
-- ✅ **P1-R2-3 大型依賴動態導入**：`jsPDF`+`html2canvas` 改為 `import()` 動態載入，減少 ~360KB 初始 bundle
-- ✅ **P1-R2-4 動物列表分頁**：後端 `AnimalService::list` 支援 `page`/`per_page` + COUNT，前端分頁控制元件
-- ✅ **P1-R2-5 健康檢查深度擴充**：`/api/health` 擴充 DB 連線池狀態 + 磁碟 uploads 目錄檢查
-- ✅ **P1-R2-6 Alertmanager 告警**：`monitoring/` 新增 Prometheus + Alertmanager + Grafana 設定，4 條告警規則
-- ✅ **P1-R2-7 外部服務重試**：`services/retry.rs` 通用 `with_retry` 指數退避，已套用 SMTP 發送
-- ✅ **P1-R2-8 Query Key Factory**：`lib/queryKeys.ts` 統一 ~50 個 query key 定義
-- ✅ **P2-R2-9 表單驗證統一**：`lib/validations.ts` 提供 Partner/Warehouse/Animal 三組 Zod schema
-- ✅ **P2-R2-10 i18n 補齊**：zh-TW.json + en.json 新增 `validation` 區塊 18 個 key
-- ✅ **P2-R2-11 Zustand Selector**：auth store 新增 `useAuthUser`/`useAuthHasRole`/`useAuthActions` 等 selector hooks
-- ✅ **P2-R2-12 DB 維護自動化**：`018_db_maintenance.sql` pg_stat_statements + `maintenance_vacuum_analyze()` + 慢查詢 View + 排程
-- ✅ **P2-R2-13 Dependabot**：`.github/dependabot.yml` 涵蓋 Cargo/npm/Docker/GitHub Actions
-- ✅ **P2-R2-14 零停機遷移策略**：`docs/ZERO_DOWNTIME_MIGRATIONS.md` 完整規範
-- ✅ **P2-R2-15 架構圖**：`docs/ARCHITECTURE.md` 含部署/資料流/模組/認證流程 4 張 Mermaid 圖 + 技術堆疊表
-
-### 2026-02-28 第三輪改善：P2-R3-11 + P2-R3-14 完成
-- ✅ **P2-R3-11 Protocol `any` 型別消除**：6 個檔案消除 ~44 處 `: any`
-  - `ProtocolEditPage.tsx`：14 處 → 0（`AxiosError<ApiErrorPayload>` 取代 error any、`ProtocolWorkingContent` 子型別取代 item/person/staff any、`Record<string, unknown>` 取代動態 section 存取）
-  - `ProtocolContentView.tsx`：13 處 → 0（interface prop `any` → `ProtocolWorkingContent`、map callback `any` → 具體子型別 TestItem/ControlItem/SurgeryDrug/AnimalEntry 等）
-  - `CommentsTab.tsx`：4 處 → 0（`VetReviewAssignment` 取代 vetReview any、error handler 改用 `AxiosError`、Protocol prop 型別改用 `Protocol` interface）
-  - `AttachmentsTab.tsx`：2 處 → 0（error handler 改用 `AxiosError<ApiErrorPayload>`）
-  - `ReviewCommentsReport.tsx`：3 處 → 0（props 全面型別化為 `Protocol`/`ReviewCommentResponse[]`/`VetReviewAssignment`）
-  - `ReviewersTab.tsx`：1 處 → 0（vetReview prop 改用 `VetReviewAssignment`）
-  - 新增 `VetReviewItem`/`VetReviewFormData`/`VetReviewAssignment` 三個 interface 至 `types/aup.ts`
-- ✅ **P2-R3-14 Error Boundary 分層**：
-  - 新增 `components/ui/page-error-boundary.tsx`（class component + 錯誤重試 UI）
-  - `MainLayout.tsx` 於 `<Suspense>` 外層包裹 `<PageErrorBoundary>`，所有 lazy-loaded 頁面自動受保護
-- ✅ TypeScript `tsc --noEmit` 零錯誤通過
-
-### 2026-02-28 第三輪系統改善 20 項完成
-
-詳細計畫見 `docs/IMPROVEMENT_PLAN_R3.md`
-
-**🔴 P0 安全性（4 項）：**
-- ✅ **P0-R3-1 SQL 動態拼接修正**：4 個檔案（`treatment_drug.rs`, `report.rs`, `warehouse.rs`, `document/crud.rs`）的手動 `format!("${}", param_idx)` 參數索引全部改為 `sqlx::QueryBuilder` 的 `push_bind()` 自動綁定
-- ✅ **P0-R3-2 IDOR 漏洞修補**：HR `get_leave` 加入 owner/approver/view_all 三重檢查、`get_overtime` 加入 owner/view_all 檢查、`get_user` 允許查看自己的 profile 無需 admin 權限
-- ✅ **P0-R3-3 .expect() 清理**：handlers/ 14 處 + services/ 28 處共 42 個 `.expect()` 替換為 proper error propagation（`ok_or_else`/`map_err`/`anyhow`），消除 production panic 風險
-- ✅ **P0-R3-4 前端容器非 root**：Dockerfile 加入 `USER nginx`、nginx listen 改為 8080、`nginx-main.conf` 設定 pid/temp 路徑至 `/tmp/nginx/`、docker-compose 端口映射更新
-
-**🟡 P1 效能與可靠性（6 項）：**
-- ✅ **P1-R3-5 搜尋 debounce**：新增 `hooks/useDebounce.ts`，套用至 AnimalsPage/PartnersPage/WarehousesPage/ProtocolsPage（400ms 延遲）
-- ✅ **P1-R3-6 staleTime 調優**：23 個檔案 38 個 useQuery 依資料特性分級設定（即時 30s/列表 1min/計數 5min/參考 10min/設定 30min）
-- ✅ **P1-R3-7 AnimalsPage 拆分**：1898 行 → 495 行（-74%），抽離 AnimalFilters/AnimalListTable/AnimalPenView/AnimalAddDialog + constants.ts
-- ✅ **P1-R3-8 Rate Limiter DashMap**：`Arc<Mutex<HashMap>>` 改為 `DashMap`，消除 Mutex 競爭
-- ✅ **P1-R3-9 DB Pool Prometheus 指標**：`/metrics` 新增 `db_pool_connections_total/idle/active` 三個 gauge
-- ✅ **P1-R3-10 Skeleton Loading**：新增 `TableSkeleton` 元件，套用至 4 個列表頁取代 Loader2 spinner
-
-**🔵 P2 品質與維運（10 項）：**
-- ✅ **P2-R3-11 Protocol any 消除**：6 個檔案 ~44 處 `: any` 替換為具體型別（`ProtocolWorkingContent`/`VetReviewAssignment`/`AxiosError<ApiErrorPayload>` 等）
-- ✅ **P2-R3-12 審計日誌補齊**：HR leave approval/rejection 和 overtime approval 新增 `AuditService::log()` 呼叫；新增 `AuditAction::Reject` variant
-- ✅ **P2-R3-13 常數提取**：新增 `backend/src/constants.rs`（分頁/認證/Rate Limit/上傳/排程/Session/密碼 共 18 個常數）
-- ✅ **P2-R3-14 Error Boundary 分層**：新增 `PageErrorBoundary` 元件，包裹 MainLayout 的 Suspense
-- ✅ **P2-R3-15 SSL/TLS 範本**：新增 `docs/SSL_SETUP.md` + `frontend/nginx-ssl.conf.example`（TLS 1.2/1.3 + OCSP + HSTS）
-- ✅ **P2-R3-16 備份自動驗證**：新增 `scripts/backup/pg_backup.sh`（gzip 完整性 + pg_restore 驗證 + SHA256 校驗 + 30 天自動清理）
-- ✅ **P2-R3-17 日誌聚合**：新增 `docker-compose.logging.yml`（Loki + Promtail）+ `monitoring/promtail/config.yml`
-- ✅ **P2-R3-18 環境驗證**：新增 `scripts/validate-env.sh`（必填/選填變數分級檢查 + HMAC key 長度驗證）
-- ✅ **P2-R3-19 無障礙**：搜尋輸入框加入 `aria-label`（Animals/Partners/Warehouses/Protocols 4 頁）
-- ✅ **P2-R3-20 API 一致性**：`amendment.rs` 4 處硬編碼角色名稱陣列改為 `has_permission("aup.protocol.*")` 權限檢查
-- ✅ `cargo check` + `tsc --noEmit` 零錯誤通過
-
-### 2026-02-28 附件 API 500 錯誤修正
-- ✅ **AttachmentsTab 查詢參數修正**：前端傳送 `protocol_id` 但後端期望 `entity_type` + `entity_id`，導致空字串綁定 UUID 欄位引發 PostgreSQL 型別錯誤。修正為 `entity_type=protocol&entity_id=<uuid>`。
-- ✅ **上傳路由修正**：附件上傳從錯誤的 `POST /attachments?protocol_id=...` 改為正確的 `POST /protocols/:id/attachments` 專用路由。
 
 ---
 

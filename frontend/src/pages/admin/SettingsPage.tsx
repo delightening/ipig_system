@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useToggle } from '@/hooks/useToggle'
+import { useSettingsForm } from './hooks/useSettingsForm'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -62,20 +63,8 @@ const SMTP_MASK = '********'
 export function SettingsPage() {
   const queryClient = useQueryClient()
 
-  const [companyName, setCompanyName] = useState('')
-  const [defaultWarehouseId, setDefaultWarehouseId] = useState('')
-  const [emailHost, setEmailHost] = useState('')
-  const [emailPort, setEmailPort] = useState('587')
-  const [emailUser, setEmailUser] = useState('')
-  const [emailPassword, setEmailPassword] = useState('')
-  const [emailFromEmail, setEmailFromEmail] = useState('')
-  const [emailFromName, setEmailFromName] = useState('')
-  const [showPassword, togglePassword] = useToggle()
-  const [passwordEdited, setPasswordEdited] = useState(false)
-  const [sessionTimeout, setSessionTimeout] = useState('360')
-  const [costMethod, setCostMethod] = useState('weighted_average')
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings | null>(null)
-  const [settingsDirty, setSettingsDirty] = useState(false)
+  const [showPassword, togglePassword] = useToggle()
 
   // --- 系統設定 API ---
   const { data: sysSettings, isLoading: isLoadingSys, error: sysError } = useQuery({
@@ -98,21 +87,7 @@ export function SettingsPage() {
   })
   const warehouses = warehousesData?.filter(w => w.is_active) ?? []
 
-  useEffect(() => {
-    if (!sysSettings) return
-    setCompanyName(unwrap(sysSettings.company_name) || 'iPig System')
-    setDefaultWarehouseId(unwrap(sysSettings.default_warehouse_id) || '')
-    setCostMethod(unwrap(sysSettings.cost_method) || 'weighted_average')
-    setEmailHost(unwrap(sysSettings.smtp_host) || '')
-    setEmailPort(unwrap(sysSettings.smtp_port) || '587')
-    setEmailUser(unwrap(sysSettings.smtp_username) || '')
-    setEmailPassword(unwrap(sysSettings.smtp_password) || '')
-    setEmailFromEmail(unwrap(sysSettings.smtp_from_email) || '')
-    setEmailFromName(unwrap(sysSettings.smtp_from_name) || '')
-    setSessionTimeout(unwrap(sysSettings.session_timeout_minutes) || '360')
-    setPasswordEdited(false)
-    setSettingsDirty(false)
-  }, [sysSettings])
+  const settingsForm = useSettingsForm(sysSettings)
 
   const saveSysMutation = useMutation({
     mutationFn: async (data: Record<string, string>) => {
@@ -121,7 +96,7 @@ export function SettingsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['system-settings'] })
-      setSettingsDirty(false)
+      settingsForm.clearDirty()
       toast({ title: '成功', description: '系統設定已儲存' })
     },
     onError: (error: unknown) => {
@@ -134,24 +109,8 @@ export function SettingsPage() {
   })
 
   const handleSaveSysSettings = () => {
-    const payload: Record<string, string> = {
-      company_name: companyName,
-      default_warehouse_id: defaultWarehouseId,
-      cost_method: costMethod,
-      smtp_host: emailHost,
-      smtp_port: emailPort,
-      smtp_username: emailUser,
-      smtp_from_email: emailFromEmail,
-      smtp_from_name: emailFromName,
-      session_timeout_minutes: sessionTimeout,
-    }
-    if (passwordEdited && emailPassword !== SMTP_MASK) {
-      payload.smtp_password = emailPassword
-    }
-    saveSysMutation.mutate(payload)
+    saveSysMutation.mutate(settingsForm.buildPayload(SMTP_MASK))
   }
-
-  const markDirty = () => { if (!settingsDirty) setSettingsDirty(true) }
 
   // --- 通知設定 API ---
   const { data: fetchedSettings, isLoading: isLoadingSettings, error: settingsError } = useQuery({
@@ -247,14 +206,14 @@ export function SettingsPage() {
                   <Label htmlFor="companyName">系統名稱</Label>
                   <Input
                     id="companyName"
-                    value={companyName}
-                    onChange={(e) => { setCompanyName(e.target.value); markDirty() }}
+                    value={settingsForm.form.companyName}
+                    onChange={(e) => settingsForm.updateField('companyName', e.target.value)}
                     placeholder="輸入系統名稱"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="defaultWarehouse">預設倉庫</Label>
-                  <Select value={defaultWarehouseId || undefined} onValueChange={(v) => { setDefaultWarehouseId(v); markDirty() }}>
+                  <Select value={settingsForm.form.defaultWarehouseId || undefined} onValueChange={(v) => settingsForm.updateField('defaultWarehouseId', v)}>
                     <SelectTrigger>
                       <SelectValue placeholder="選擇預設倉庫" />
                     </SelectTrigger>
@@ -283,7 +242,7 @@ export function SettingsPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="costMethod">成本計算方式</Label>
-                  <Select value={costMethod} onValueChange={(v) => { setCostMethod(v); markDirty() }}>
+                  <Select value={settingsForm.form.costMethod} onValueChange={(v) => settingsForm.updateField('costMethod', v)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -316,8 +275,8 @@ export function SettingsPage() {
                     <Label htmlFor="emailHost">SMTP 伺服器</Label>
                     <Input
                       id="emailHost"
-                      value={emailHost}
-                      onChange={(e) => { setEmailHost(e.target.value); markDirty() }}
+                      value={settingsForm.form.emailHost}
+                      onChange={(e) => settingsForm.updateField('emailHost', e.target.value)}
                       placeholder="smtp.example.com"
                     />
                   </div>
@@ -325,8 +284,8 @@ export function SettingsPage() {
                     <Label htmlFor="emailPort">連接埠</Label>
                     <Input
                       id="emailPort"
-                      value={emailPort}
-                      onChange={(e) => { setEmailPort(e.target.value); markDirty() }}
+                      value={settingsForm.form.emailPort}
+                      onChange={(e) => settingsForm.updateField('emailPort', e.target.value)}
                       placeholder="587"
                     />
                   </div>
@@ -334,8 +293,8 @@ export function SettingsPage() {
                     <Label htmlFor="emailUser">SMTP 帳號</Label>
                     <Input
                       id="emailUser"
-                      value={emailUser}
-                      onChange={(e) => { setEmailUser(e.target.value); markDirty() }}
+                      value={settingsForm.form.emailUser}
+                      onChange={(e) => settingsForm.updateField('emailUser', e.target.value)}
                       placeholder="user@example.com"
                     />
                   </div>
@@ -345,18 +304,16 @@ export function SettingsPage() {
                       <Input
                         id="emailPassword"
                         type={showPassword ? 'text' : 'password'}
-                        value={emailPassword}
+                        value={settingsForm.form.emailPassword}
                         onFocus={() => {
-                          if (!passwordEdited && emailPassword === SMTP_MASK) {
-                            setEmailPassword('')
-                            setPasswordEdited(true)
-                            markDirty()
+                          if (!settingsForm.passwordEdited && settingsForm.form.emailPassword === SMTP_MASK) {
+                            settingsForm.updateField('emailPassword', '')
+                            settingsForm.setPasswordEdited(true)
                           }
                         }}
                         onChange={(e) => {
-                          setEmailPassword(e.target.value)
-                          setPasswordEdited(true)
-                          markDirty()
+                          settingsForm.updateField('emailPassword', e.target.value)
+                          settingsForm.setPasswordEdited(true)
                         }}
                         placeholder="輸入 SMTP 密碼"
                       />
@@ -375,8 +332,8 @@ export function SettingsPage() {
                     <Label htmlFor="emailFromEmail">寄件人 Email</Label>
                     <Input
                       id="emailFromEmail"
-                      value={emailFromEmail}
-                      onChange={(e) => { setEmailFromEmail(e.target.value); markDirty() }}
+                      value={settingsForm.form.emailFromEmail}
+                      onChange={(e) => settingsForm.updateField('emailFromEmail', e.target.value)}
                       placeholder="noreply@example.com"
                     />
                   </div>
@@ -384,8 +341,8 @@ export function SettingsPage() {
                     <Label htmlFor="emailFromName">寄件人名稱</Label>
                     <Input
                       id="emailFromName"
-                      value={emailFromName}
-                      onChange={(e) => { setEmailFromName(e.target.value); markDirty() }}
+                      value={settingsForm.form.emailFromName}
+                      onChange={(e) => settingsForm.updateField('emailFromName', e.target.value)}
                       placeholder="iPig System"
                     />
                   </div>
@@ -405,7 +362,7 @@ export function SettingsPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-2 max-w-xs">
                   <Label htmlFor="sessionTimeout">Session 逾時</Label>
-                  <Select value={sessionTimeout} onValueChange={(v) => { setSessionTimeout(v); markDirty() }}>
+                  <Select value={settingsForm.form.sessionTimeout} onValueChange={(v) => settingsForm.updateField('sessionTimeout', v)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -430,7 +387,7 @@ export function SettingsPage() {
           <div className="flex justify-end">
             <Button
               onClick={handleSaveSysSettings}
-              disabled={saveSysMutation.isPending || !settingsDirty}
+              disabled={saveSysMutation.isPending || !settingsForm.dirty}
             >
               {saveSysMutation.isPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

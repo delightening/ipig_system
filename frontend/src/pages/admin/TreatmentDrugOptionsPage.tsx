@@ -9,6 +9,7 @@
 
 import { useState } from 'react'
 import { useDialogSet } from '@/hooks/useDialogSet'
+import { useSelection } from '@/hooks/useSelection'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { treatmentDrugApi } from '@/lib/api'
 import api from '@/lib/api'
@@ -196,8 +197,8 @@ export function TreatmentDrugOptionsPage() {
             {/* 頁面標題 */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800">藥物選單管理</h1>
-                    <p className="text-sm text-slate-500 mt-1">管理治療方式用藥的下拉選單選項</p>
+                    <h1 className="text-3xl font-bold tracking-tight">藥物選單管理</h1>
+                    <p className="text-muted-foreground">管理治療方式用藥的下拉選單選項</p>
                 </div>
                 <div className="flex gap-2">
                     <Button
@@ -506,7 +507,7 @@ function ErpImportDialog({
 }) {
     const queryClient = useQueryClient()
     const [searchText, setSearchText] = useState('')
-    const [selectedIds, setSelectedIds] = useState<string[]>([])
+    const selection = useSelection<string>()
     const [importCategory, setImportCategory] = useState('其他')
 
     // 搜尋 ERP 產品
@@ -524,7 +525,7 @@ function ErpImportDialog({
     const importMutation = useMutation({
         mutationFn: () =>
             treatmentDrugApi.importFromErp({
-                product_ids: selectedIds,
+                product_ids: Array.from(selection.selectedIds),
                 category: importCategory,
             }),
         onSuccess: (res) => {
@@ -534,7 +535,7 @@ function ErpImportDialog({
                 title: '匯入成功',
                 description: `已匯入 ${res.data.length} 個藥物選項`,
             })
-            setSelectedIds([])
+            selection.clear()
             onOpenChange(false)
         },
         onError: (err: unknown) => {
@@ -547,9 +548,7 @@ function ErpImportDialog({
     })
 
     const toggleSelect = (id: string) => {
-        setSelectedIds((prev) =>
-            prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-        )
+        selection.toggle(id)
     }
 
     return (
@@ -598,12 +597,12 @@ function ErpImportDialog({
                                         key={product.id}
                                         className={cn(
                                             'flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors',
-                                            selectedIds.includes(product.id) && 'bg-blue-50'
+                                            selection.has(product.id) && 'bg-blue-50'
                                         )}
                                     >
                                         <input
                                             type="checkbox"
-                                            checked={selectedIds.includes(product.id)}
+                                            checked={selection.has(product.id)}
                                             onChange={() => toggleSelect(product.id)}
                                             className="rounded border-slate-300"
                                         />
@@ -622,9 +621,9 @@ function ErpImportDialog({
                         )}
                     </div>
 
-                    {selectedIds.length > 0 && (
+                    {selection.size > 0 && (
                         <p className="text-sm text-blue-600">
-                            已選擇 {selectedIds.length} 個產品
+                            已選擇 {selection.size} 個產品
                         </p>
                     )}
                 </div>
@@ -634,10 +633,10 @@ function ErpImportDialog({
                     </Button>
                     <Button
                         onClick={() => importMutation.mutate()}
-                        disabled={selectedIds.length === 0 || importMutation.isPending}
+                        disabled={selection.size === 0 || importMutation.isPending}
                     >
                         {importMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                        匯入 ({selectedIds.length})
+                        匯入 ({selection.size})
                     </Button>
                 </DialogFooter>
             </DialogContent>

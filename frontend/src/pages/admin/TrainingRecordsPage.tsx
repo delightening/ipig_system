@@ -1,18 +1,22 @@
 /**
  * 人員訓練紀錄管理頁 — GLP 合規
  *
- * 功能：
- * - 列出訓練紀錄（依使用者、課程名稱篩選）
- * - 新增、編輯、刪除訓練紀錄
+ * 版面參考「特休額度管理」：
+ * - 統計卡片（人員數、訓練紀錄數、證照即將到期）
+ * - Tab 分頁（員工訓練紀錄、證照即將到期）
+ * - Card 內搜尋 + 員工標籤選擇
  */
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
@@ -38,8 +42,18 @@ import {
 } from '@/components/ui/table'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
-import { Plus, Pencil, Trash2, Loader2, GraduationCap } from 'lucide-react'
-import { format } from 'date-fns'
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Loader2,
+  GraduationCap,
+  Search,
+  User,
+  AlertTriangle,
+  RefreshCw,
+} from 'lucide-react'
+import { format, addDays, isBefore, isAfter } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 
 interface TrainingRecordWithUser {
@@ -68,12 +82,16 @@ interface User {
   display_name: string
 }
 
+const EXPIRING_DAYS = 30
+
 export function TrainingRecordsPage() {
   const queryClient = useQueryClient()
   const { hasPermission } = useAuthStore()
   const canManage = hasPermission('training.manage')
+  const [activeTab, setActiveTab] = useState('records')
+  const [selectedUserId, setSelectedUserId] = useState<string>('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [keyword, setKeyword] = useState('')
-  const [userFilter, setUserFilter] = useState<string>('')
   const [page, setPage] = useState(1)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
@@ -86,27 +104,53 @@ export function TrainingRecordsPage() {
     notes: '',
   })
 
+  // 人員列表（僅 staff，排除 admin；用於統計、員工標籤、新增表單）
   const { data: users = [] } = useQuery({
-    queryKey: ['users-for-training'],
+    queryKey: ['internal-users-for-training'],
     queryFn: async () => {
-      const res = await api.get<User[]>('/users', { params: { per_page: 500 } })
+      const res = await api.get<{ id: string; display_name: string; email: string }[]>(
+        '/hr/internal-users'
+      )
       return res.data
     },
-    enabled: showCreateDialog, // 僅在新增表單開啟時載入
   })
 
+  // 訓練紀錄（依選擇員工、課程關鍵字篩選）
   const { data, isLoading } = useQuery({
-    queryKey: ['training-records', keyword, userFilter || undefined, page],
+    queryKey: ['training-records', keyword, selectedUserId || undefined, page],
     queryFn: async () => {
       const params: Record<string, string | number> = { page, per_page: 20 }
       if (keyword) params.course_name = keyword
-      if (userFilter) params.user_id = userFilter
+      if (selectedUserId) params.user_id = selectedUserId
       const res = await api.get<PaginatedResponse<TrainingRecordWithUser>>('/training-records', {
         params,
       })
       return res.data
     },
   })
+
+  // 用於統計：取得全部紀錄（含證照即將到期數量）
+  const { data: allRecordsData } = useQuery({
+    queryKey: ['training-records-stats'],
+    queryFn: async () => {
+      const res = await api.get<PaginatedResponse<TrainingRecordWithUser>>('/training-records', {
+        params: { page: 1, per_page: 500 },
+      })
+      return res.data
+    },
+  })
+
+  const expiringSoonCount = useMemo(() => {
+    if (!allRecordsData?.data) return 0
+    const now = new Date()
+    const threshold = addDays(now, EXPIRING_DAYS)
+    return allRecordsData.data.filter(
+      (r) =>
+        r.expires_at &&
+        isBefore(new Date(r.expires_at), threshold) &&
+        isAfter(new Date(r.expires_at), now)
+    ).length
+  }, [allRecordsData])
 
   const createMutation = useMutation({
     mutationFn: (payload: typeof form) =>
@@ -220,13 +264,35 @@ export function TrainingRecordsPage() {
 
   const records = data?.data ?? []
   const totalPages = data?.total_pages ?? 1
+  const totalRecords = allRecordsData?.total ?? data?.total ?? 0
+
+  // 過濾員工列表（供標籤選擇）
+  const filteredUsers = users.filter(
+    (u) =>
+      (u.display_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (u.email || '').toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  // 證照即將到期列表（從 stats 資料篩選）
+  const expiringSoonRecords = useMemo(() => {
+    if (!allRecordsData?.data) return []
+    const now = new Date()
+    const threshold = addDays(now, EXPIRING_DAYS)
+    return allRecordsData.data
+      .filter(
+        (r) =>
+          r.expires_at &&
+          isBefore(new Date(r.expires_at), threshold) &&
+          isAfter(new Date(r.expires_at), now)
+      )
+      .sort((a, b) => (a.expires_at && b.expires_at ? new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime() : 0))
+  }, [allRecordsData])
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <GraduationCap className="h-7 w-7" />
+          <h1 className="text-3xl font-bold">
             人員訓練紀錄
           </h1>
           <p className="text-muted-foreground">GLP 合規：管理人員訓練與證照有效期限</p>
@@ -234,119 +300,239 @@ export function TrainingRecordsPage() {
         {canManage && (
           <Button onClick={() => { resetForm(); setShowCreateDialog(true) }}>
             <Plus className="h-4 w-4 mr-2" />
-            新增紀錄
+            新增訓練紀錄
           </Button>
         )}
       </div>
 
-      <div className="flex flex-wrap gap-4">
-        <div className="flex-1 min-w-[200px]">
-          <Input
-            placeholder="搜尋課程名稱..."
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            className="max-w-sm"
-          />
-        </div>
-        <Select
-          value={userFilter || '__all__'}
-          onValueChange={(v) => setUserFilter(v === '__all__' ? '' : v)}
-        >
-          <SelectTrigger className="w-[220px]">
-            <SelectValue placeholder="篩選操作者" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">全部人員</SelectItem>
-            {users.map((u) => (
-              <SelectItem key={u.id} value={u.id}>
-                {u.display_name || u.email}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      {/* 統計卡片（不含人員數：admin 不在訓練範圍，僅 staff） */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">訓練紀錄數</CardTitle>
+            <GraduationCap className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalRecords}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">證照即將到期</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-orange-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-500">{expiringSoonCount}</div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="rounded-md border">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : records.length === 0 ? (
-          <div className="py-12 text-center text-muted-foreground">尚無訓練紀錄</div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>人員</TableHead>
-                <TableHead>課程名稱</TableHead>
-                <TableHead>完成日期</TableHead>
-                <TableHead>有效期限</TableHead>
-                <TableHead>備註</TableHead>
-                <TableHead className="w-[100px]">操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {records.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell>
-                    <div className="font-medium">{r.user_name || r.user_email}</div>
-                    <div className="text-xs text-muted-foreground">{r.user_email}</div>
-                  </TableCell>
-                  <TableCell>{r.course_name}</TableCell>
-                  <TableCell>{format(new Date(r.completed_at), 'yyyy/MM/dd', { locale: zhTW })}</TableCell>
-                  <TableCell>
-                    {r.expires_at
-                      ? format(new Date(r.expires_at), 'yyyy/MM/dd', { locale: zhTW })
-                      : '—'}
-                  </TableCell>
-                  <TableCell className="max-w-[200px] truncate">{r.notes || '—'}</TableCell>
-                  <TableCell>
-                    {canManage && (
-                      <div className="flex gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(r)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="records" className="flex items-center gap-2">
+            <User className="h-4 w-4" />
+            員工訓練紀錄
+          </TabsTrigger>
+          <TabsTrigger value="expiring" className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            證照即將到期
+            {expiringSoonCount > 0 && (
+              <Badge variant="destructive" className="ml-1">
+                {expiringSoonCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        {/* 員工訓練紀錄 Tab */}
+        <TabsContent value="records" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>選擇員工查看訓練紀錄</CardTitle>
+              <CardDescription>
+                選擇員工以查看其訓練課程紀錄與證照有效期限
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* 搜尋框 */}
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="搜尋員工姓名或 Email..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+
+              {/* 課程名稱篩選 */}
+              <Input
+                placeholder="搜尋課程名稱..."
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                className="max-w-sm"
+              />
+
+              {/* 員工標籤 */}
+              <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
+                <Button
+                  variant={!selectedUserId ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSelectedUserId('')}
+                  className="justify-start"
+                >
+                  全部人員
+                </Button>
+                {filteredUsers.map((u) => (
+                  <Button
+                    key={u.id}
+                    variant={selectedUserId === u.id ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedUserId(u.id)}
+                    className="justify-start"
+                  >
+                    <User className="h-4 w-4 mr-2" />
+                    {u.display_name || u.email}
+                  </Button>
+                ))}
+              </div>
+
+              {/* 訓練紀錄表格 */}
+              <div className="mt-4">
+                {isLoading ? (
+                  <div className="flex justify-center py-8">
+                    <RefreshCw className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : records.length === 0 ? (
+                  <div className="py-12 text-center text-muted-foreground">尚無訓練紀錄</div>
+                ) : (
+                  <>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>人員</TableHead>
+                          <TableHead>課程名稱</TableHead>
+                          <TableHead>完成日期</TableHead>
+                          <TableHead>有效期限</TableHead>
+                          <TableHead>備註</TableHead>
+                          <TableHead className="w-[100px]">操作</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {records.map((r) => (
+                          <TableRow key={r.id}>
+                            <TableCell>
+                              <div className="font-medium">{r.user_name || r.user_email}</div>
+                              <div className="text-xs text-muted-foreground">{r.user_email}</div>
+                            </TableCell>
+                            <TableCell>{r.course_name}</TableCell>
+                            <TableCell>{format(new Date(r.completed_at), 'yyyy/MM/dd', { locale: zhTW })}</TableCell>
+                            <TableCell>
+                              {r.expires_at
+                                ? format(new Date(r.expires_at), 'yyyy/MM/dd', { locale: zhTW })
+                                : '—'}
+                            </TableCell>
+                            <TableCell className="max-w-[200px] truncate">{r.notes || '—'}</TableCell>
+                            <TableCell>
+                              {canManage && (
+                                <div className="flex gap-2">
+                                  <Button variant="ghost" size="icon" onClick={() => openEditDialog(r)}>
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleDelete(r)}
+                                    className="text-destructive hover:text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    {totalPages > 1 && (
+                      <div className="flex justify-center gap-2 mt-4">
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(r)}
-                          className="text-destructive hover:text-destructive"
+                          variant="outline"
+                          size="sm"
+                          disabled={page <= 1}
+                          onClick={() => setPage((p) => p - 1)}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          上一頁
+                        </Button>
+                        <span className="flex items-center px-4 text-sm text-muted-foreground">
+                          第 {page} / {totalPages} 頁
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={page >= totalPages}
+                          onClick={() => setPage((p) => p + 1)}
+                        >
+                          下一頁
                         </Button>
                       </div>
                     )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </div>
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {totalPages > 1 && (
-        <div className="flex justify-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            上一頁
-          </Button>
-          <span className="flex items-center px-4 text-sm text-muted-foreground">
-            第 {page} / {totalPages} 頁
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            下一頁
-          </Button>
-        </div>
-      )}
+        {/* 證照即將到期 Tab */}
+        <TabsContent value="expiring" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>證照即將到期</CardTitle>
+              <CardDescription>
+                列出 30 天內到期之證照，請盡快安排複訓或更新
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {expiringSoonRecords.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  目前無即將到期之證照
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>人員</TableHead>
+                      <TableHead>課程名稱</TableHead>
+                      <TableHead>完成日期</TableHead>
+                      <TableHead className="text-orange-500">到期日</TableHead>
+                      <TableHead>備註</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {expiringSoonRecords.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell>
+                          <div className="font-medium">{r.user_name || r.user_email}</div>
+                          <div className="text-xs text-muted-foreground">{r.user_email}</div>
+                        </TableCell>
+                        <TableCell>{r.course_name}</TableCell>
+                        <TableCell>{format(new Date(r.completed_at), 'yyyy/MM/dd', { locale: zhTW })}</TableCell>
+                        <TableCell className="font-bold text-orange-500">
+                          {r.expires_at
+                            ? format(new Date(r.expires_at), 'yyyy/MM/dd', { locale: zhTW })
+                            : '—'}
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate">{r.notes || '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* 新增 Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>

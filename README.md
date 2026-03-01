@@ -131,6 +131,7 @@
 | 文件 | 說明 |
 |------|------|
 | [QUICK_START.md](docs/QUICK_START.md) | 快速啟動（Docker / 本地開發 / E2E 測試） |
+| [COMPOSE.md](docs/COMPOSE.md) | Docker Compose 總覽（各 compose 檔用途、情境指令、依賴關係） |
 | [USER_GUIDE.md](docs/USER_GUIDE.md) | 使用者操作手冊（9 章節完整指南） |
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | 部署與維運手冊（系統需求、備份、監控、故障排除） |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | 架構文件（部署圖、資料流、模組、認證流程） |
@@ -144,6 +145,8 @@
 本地或測試環境可依 [QUICK_START.md](docs/QUICK_START.md) 操作；**正式環境或伺服器首次部署**請依 [DEPLOYMENT.md](docs/DEPLOYMENT.md) 進行。
 
 ### 使用 Docker Compose（推薦）
+
+各 compose 檔用途與生產／WAF／CI 組合指令詳見 [COMPOSE.md](docs/COMPOSE.md)。
 
 ```bash
 # 1. 設定環境變數（專案根目錄）
@@ -256,7 +259,9 @@ ipig_system/
 ├── docker-compose.yml        # 核心服務
 ├── docker-compose.prod.yml   # 生產環境覆蓋
 ├── docker-compose.waf.yml    # WAF 覆蓋（選用）
-├── docker-compose.monitoring.yml  # 監控堆疊（選用）
+├── docker-compose.logging.yml    # 日誌堆疊 Loki+Promtail（選用）
+├── docker-compose.monitoring.yml # 監控堆疊 Prometheus+Grafana（選用）
+├── docker-compose.test.yml   # CI 測試用（獨立 stack）
 └── README.md
 ```
 

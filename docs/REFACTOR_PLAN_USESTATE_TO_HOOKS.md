@@ -368,7 +368,11 @@ export function useListFilters<TFilters extends Record<string, string>>(
 - [x] 無新增 linter / TypeScript 錯誤
 - [x] 文件更新：`docs/PROGRESS.md` 紀錄完成項目
 
-**Phase 1–2 已完成**（2026-03-01）：useToggle、useDialogSet、useListFilters 實作並遷移 10+ 元件。  
+**Phase 1–2 已完成**（2026-03-01）：useToggle、useDialogSet、useListFilters 實作並遷移 10+ 元件。
+
+**Phase 3 已完成**（2026-03-01 續）：useSteps、useSelection 實作並遷移 CreateProductPage、ProductsPage、TreatmentDrugOptionsPage/ErpImportDialog；TwoFactorSetup 用 useDialogSet。
+
+**Phase 4 已完成**（2026-03-01）：useSettingsForm、useLeaveRequestForm、useProductListState 實作並遷移 SettingsPage、HrLeavePage、ProductsPage。  
 
 ---
 

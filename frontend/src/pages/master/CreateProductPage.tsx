@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useSteps } from '@/hooks/useSteps'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import api from '@/lib/api'
@@ -222,7 +223,7 @@ const initialFormData: ProductFormData = {
 
 export function CreateProductPage() {
   const navigate = useNavigate()
-  const [currentStep, setCurrentStep] = useState(0)
+  const { step: currentStep, setStep: setCurrentStep, prev } = useSteps(3)
   const [formData, setFormData] = useState<ProductFormData>(initialFormData)
   const [skuStatus, setSkuStatus] = useState<SkuStatus>('S0')
   const [previewResult, setPreviewResult] = useState<SkuPreviewResult | null>(null)
@@ -546,9 +547,7 @@ export function CreateProductPage() {
 
   // 上一步
   const handleBack = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1)
-    }
+    prev()
   }
 
   // 重新開始
