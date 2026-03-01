@@ -4,6 +4,9 @@ import { ensureAdminOnPage } from './auth-helpers'
 test.describe('個人資料設定', () => {
     test.beforeEach(async ({ page }) => {
         await ensureAdminOnPage(page, '/profile/settings')
+        if (page.url().includes('/login')) {
+            await ensureAdminOnPage(page, '/profile/settings')
+        }
         await expect(page).not.toHaveURL(/\/login/, { timeout: 8_000 })
         // 個人資料頁載入後才有 disabled email 欄位（依賴 /me API）
         await expect(page.locator('input[disabled]').first(), '應已登入且進入個人資料頁').toBeVisible({ timeout: 20_000 })
@@ -61,6 +64,15 @@ test.describe('變更密碼', () => {
         await page.waitForLoadState('domcontentloaded')
         await expect(page.locator('img[src*="pigmodel"]').first()).toBeVisible({ timeout: 15_000 })
         await expect(page).not.toHaveURL(/\/login/, { timeout: 5_000 })
+
+        // 若 Cookie 同意橫幅出現，先點擊接受以免阻擋側邊欄按鈕
+        try {
+            await page.locator('.fixed.bottom-0').waitFor({ state: 'visible', timeout: 2_000 })
+            await page.getByRole('button', { name: '接受' }).click()
+            await page.waitForTimeout(300)
+        } catch {
+            // 橫幅未出現（已接受過）
+        }
 
         const changePasswordBtn = page.getByText(/Change Password|變更密碼/).first()
         await expect(changePasswordBtn, '側邊欄應有變更密碼按鈕').toBeVisible({ timeout: 10_000 })

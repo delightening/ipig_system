@@ -128,6 +128,7 @@ export function NotificationDropdown() {
         className="relative"
         onClick={() => setShowDropdown(!showDropdown)}
         aria-label="通知"
+        data-testid="notification-bell"
       >
         <Bell className="h-5 w-5" />
         {unreadCount && unreadCount > 0 && (

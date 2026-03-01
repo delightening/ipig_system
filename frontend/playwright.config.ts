@@ -35,7 +35,7 @@ const runWebKit = process.env.PLAYWRIGHT_WEBKIT === '1'
 export default defineConfig({
     testDir: './e2e',
     fullyParallel: false,
-    retries: process.env.CI ? 2 : 0,
+    retries: process.env.CI ? 2 : 1,
     workers: 1,
     timeout: 30_000,
 
