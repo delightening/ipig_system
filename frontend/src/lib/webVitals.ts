@@ -13,7 +13,8 @@ function sendToAnalytics(metric: Metric): void {
     console.debug('[Web Vitals]', metric.name, metric.value, metric)
   } else {
     const body = JSON.stringify(metric)
-    navigator.sendBeacon('/api/metrics/vitals', body)
+    const blob = new Blob([body], { type: 'application/json' })
+    navigator.sendBeacon('/api/metrics/vitals', blob)
   }
 }
 
