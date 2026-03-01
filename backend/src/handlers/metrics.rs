@@ -1,15 +1,42 @@
-//! Prometheus 指標收集端點
+//! Prometheus 與 Web Vitals 指標收集端點
 //!
-//! GET /metrics（公開端點，無需認證，供 Prometheus scrape）
+//! - GET /metrics（公開端點，供 Prometheus scrape）
+//! - POST /api/metrics/vitals（前端 Web Vitals 上報，需認證）
 //!
-//! 提供以下指標：
-//! - `http_requests_total` — HTTP 請求計數（按路徑、方法、狀態碼）
-//! - `http_request_duration_seconds` — HTTP 請求延遲（直方圖）
-//! - `db_pool_connections` — 資料庫連線池狀態
+//! Prometheus 提供：
+//! - `http_requests_total` — HTTP 請求計數
+//! - `http_request_duration_seconds` — 請求延遲
+//! - `db_pool_connections` — 連線池狀態
 
-use axum::{extract::State, http::StatusCode, response::IntoResponse};
+use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use serde::Deserialize;
 
 use crate::AppState;
+
+/// Web Vitals 上報 payload（與 web-vitals 的 Metric 對應）
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+pub struct WebVitalsMetric {
+    pub id: String,
+    pub name: String,
+    pub value: f64,
+    pub rating: Option<String>,
+    pub delta: f64,
+    #[serde(rename = "navigationType")]
+    pub navigation_type: Option<String>,
+}
+
+/// POST /api/metrics/vitals — 接收前端 Web Vitals 指標
+///
+/// 開發環境可記錄至日誌；正式環境可轉送 APM 或儲存。
+pub async fn vitals_handler(Json(_metric): Json<WebVitalsMetric>) -> impl IntoResponse {
+    tracing::debug!(
+        name = %_metric.name,
+        value = %_metric.value,
+        "Web Vitals metric received"
+    );
+    StatusCode::NO_CONTENT
+}
 
 /// 回傳 Prometheus 格式的指標文字
 ///

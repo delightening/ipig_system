@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
 import api, {
     Warehouse,
     StorageLocationWithWarehouse,
@@ -94,8 +93,6 @@ const initialFormData: FormData = {
 }
 
 export function WarehouseLayoutPage() {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- i18n for future use
-  const { t } = useTranslation()
     const queryClient = useQueryClient()
     const { hasPermission } = useAuthStore()
     const { dialogState, confirm } = useConfirmDialog()

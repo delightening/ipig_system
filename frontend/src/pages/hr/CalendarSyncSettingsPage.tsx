@@ -74,7 +74,7 @@ export function CalendarSyncSettingsPage() {
         if (showConnectDialog && user?.email) {
             setAuthEmail(user.email)
         }
-    }, [showConnectDialog]) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [showConnectDialog, user?.email])
 
     // 同步狀態
     const { data: syncStatus, isLoading: loadingStatus } = useQuery({

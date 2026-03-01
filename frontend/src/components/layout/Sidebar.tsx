@@ -24,6 +24,7 @@ import {
   GripVertical,
   RotateCcw,
   UserCircle,
+  ClipboardCheck,
 } from 'lucide-react'
 import {
   DndContext,
@@ -55,6 +56,7 @@ interface NavItem {
 
 const DEFAULT_NAV_ORDER = [
   'dashboard',
+  'QAU 品質保證',
   'myProjects',
   'aupReview',
   'animalManagement',
@@ -70,6 +72,13 @@ const navItemsConfig: NavItem[] = [
     icon: <LayoutDashboard className="h-6 w-6" />,
     permission: 'dashboard.view',
     translate: true,
+  },
+  {
+    title: 'QAU 品質保證',
+    href: '/admin/qau',
+    icon: <ClipboardCheck className="h-6 w-6" />,
+    permission: 'qau.dashboard.view',
+    translate: false,
   },
   {
     title: 'myProjects',

@@ -14,17 +14,14 @@ route:
       receiver: "critical"
       repeat_interval: 1h
 
+# 預設：通知功能停用。啟用方式見 monitoring/README.md 或使用 alertmanager.example.yml
 receivers:
   - name: "default"
-    # 啟用後填入實際 webhook URL 或 email 設定
     # webhook_configs:
     #   - url: "http://api:3000/api/webhooks/alertmanager"
 
   - name: "critical"
-    # 啟用後填入實際通知方式
     # email_configs:
     #   - to: "admin@example.com"
     #     from: "alertmanager@ipig.system"
     #     smarthost: "smtp.example.com:587"
-    #     auth_username: "alertmanager@example.com"
-    #     auth_password: "${SMTP_PASSWORD}"

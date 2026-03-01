@@ -1,0 +1,173 @@
+import React from 'react'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Edit, Power, PowerOff, Loader2, Droplets, ArrowUpDown } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { PanelIcon } from '@/components/ui/panel-icon'
+import type { BloodTestTemplate, BloodTestPanel } from '@/lib/api'
+import type { SortField } from '../hooks/useBloodTestTemplates'
+
+interface BloodTestTemplateTableProps {
+  groupedData: { panel: BloodTestPanel | null; items: BloodTestTemplate[] }[]
+  flatFiltered: BloodTestTemplate[]
+  isLoading: boolean
+  search: string
+  sortField: SortField
+  onSort: (field: SortField) => void
+  onEdit: (template: BloodTestTemplate) => void
+  onToggle: (template: BloodTestTemplate) => void
+}
+
+export function BloodTestTemplateTable({
+  groupedData,
+  flatFiltered,
+  isLoading,
+  search,
+  sortField,
+  onSort,
+  onEdit,
+  onToggle,
+}: BloodTestTemplateTableProps) {
+  const SortIndicator = ({ field }: { field: SortField }) => (
+    <ArrowUpDown
+      className={cn(
+        'ml-1 h-3 w-3 inline-block cursor-pointer',
+        sortField === field ? 'text-blue-600' : 'text-slate-400'
+      )}
+    />
+  )
+
+  const renderTemplateRow = (template: BloodTestTemplate) => (
+    <TableRow key={template.id} className={cn(!template.is_active && 'opacity-50')}>
+      <TableCell className="font-mono text-sm font-semibold">{template.code}</TableCell>
+      <TableCell className="font-medium">{template.name}</TableCell>
+      <TableCell className="text-slate-600">{template.default_unit || '—'}</TableCell>
+      <TableCell className="text-sm text-slate-500">
+        {template.reference_range || '—'}
+      </TableCell>
+      <TableCell className="text-right font-mono text-sm">
+        {template.default_price ? `$${Number(template.default_price).toFixed(0)}` : '—'}
+      </TableCell>
+      <TableCell className="text-center">
+        {template.is_active ? (
+          <Badge variant="success">啟用</Badge>
+        ) : (
+          <Badge variant="secondary">停用</Badge>
+        )}
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onEdit(template)}
+            title="編輯"
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onToggle(template)}
+            title={template.is_active ? '停用' : '恢復'}
+          >
+            {template.is_active ? (
+              <PowerOff className="h-4 w-4 text-orange-500" />
+            ) : (
+              <Power className="h-4 w-4 text-green-500" />
+            )}
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  )
+
+  return (
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[120px] cursor-pointer" onClick={() => onSort('code')}>
+              代碼 <SortIndicator field="code" />
+            </TableHead>
+            <TableHead className="cursor-pointer" onClick={() => onSort('name')}>
+              名稱 <SortIndicator field="name" />
+            </TableHead>
+            <TableHead className="w-[100px] cursor-pointer" onClick={() => onSort('default_unit')}>
+              單位 <SortIndicator field="default_unit" />
+            </TableHead>
+            <TableHead className="w-[140px]">參考範圍</TableHead>
+            <TableHead
+              className="w-[100px] cursor-pointer text-right"
+              onClick={() => onSort('default_price')}
+            >
+              價格 <SortIndicator field="default_price" />
+            </TableHead>
+            <TableHead className="w-[80px] text-center">狀態</TableHead>
+            <TableHead className="w-[120px] text-right">操作</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {isLoading ? (
+            <TableRow>
+              <TableCell colSpan={7} className="text-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+              </TableCell>
+            </TableRow>
+          ) : flatFiltered.length > 0 ? (
+            groupedData.map((group, gi) => (
+              <React.Fragment key={`group-${gi}`}>
+                {groupedData.length > 1 && (
+                  <TableRow
+                    key={`group-header-${gi}`}
+                    className="bg-muted/50 hover:bg-muted/50"
+                  >
+                    <TableCell colSpan={7} className="py-2">
+                      <div className="flex items-center gap-2 font-semibold text-sm">
+                        {group.panel ? (
+                          <>
+                            <PanelIcon icon={group.panel.icon} className="text-base" />
+                            <span>{group.panel.name}</span>
+                            <Badge variant="outline" className="ml-1 text-xs">
+                              {group.items.length} 項
+                            </Badge>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-base">📦</span>
+                            <span>未分類</span>
+                            <Badge variant="outline" className="ml-1 text-xs">
+                              {group.items.length} 項
+                            </Badge>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {group.items.map(renderTemplateRow)}
+              </React.Fragment>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={7} className="text-center py-8">
+                <Droplets className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-muted-foreground">
+                  {search ? '找不到符合的檢查項目' : '尚無檢查項目資料'}
+                </p>
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}

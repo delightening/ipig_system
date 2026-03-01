@@ -17,10 +17,17 @@ services:
   alertmanager:
     image: prom/alertmanager:v0.27.0
     container_name: ipig-alertmanager
-    volumes:
-      - ./monitoring/alertmanager:/etc/alertmanager:ro
     command:
       - "--config.file=/etc/alertmanager/alertmanager.yml"
+    environment:
+      ALERTMANAGER_WEBHOOK_URL: ${ALERTMANAGER_WEBHOOK_URL:-}
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
+      ALERT_EMAIL_FROM: ${ALERT_EMAIL_FROM:-}
+      ALERT_SMTP_HOST: ${ALERT_SMTP_HOST:-}
+      ALERT_SMTP_USER: ${ALERT_SMTP_USER:-}
+      ALERT_SMTP_PASSWORD: ${ALERT_SMTP_PASSWORD:-}
+    volumes:
+      - ./monitoring/alertmanager:/etc/alertmanager:ro
     ports:
       - "127.0.0.1:9093:9093"
     networks:

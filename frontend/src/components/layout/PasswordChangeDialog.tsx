@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from '@/components/ui/use-toast'
-import { Key, Loader2 } from 'lucide-react'
+import { Key, Loader2, Eye, EyeOff } from 'lucide-react'
 
 interface PasswordChangeDialogProps {
   open: boolean
@@ -30,6 +30,9 @@ export function PasswordChangeDialog({ open, onOpenChange }: PasswordChangeDialo
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const resetForm = () => {
     setCurrentPassword('')
@@ -94,33 +97,72 @@ export function PasswordChangeDialog({ open, onOpenChange }: PasswordChangeDialo
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="current-password">{t('password.currentPassword')}</Label>
-            <Input
-              id="current-password"
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              placeholder={t('password.currentPassword')}
-            />
+            <div className="relative">
+              <Input
+                id="current-password"
+                type={showCurrentPassword ? 'text' : 'password'}
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder={t('password.currentPassword')}
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                aria-label={showCurrentPassword ? t('password.hidePassword') : t('password.showPassword')}
+              >
+                {showCurrentPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+              </Button>
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="new-password">{t('password.newPassword')}</Label>
-            <Input
-              id="new-password"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder={t('password.minLength')}
-            />
+            <div className="relative">
+              <Input
+                id="new-password"
+                type={showNewPassword ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder={t('password.minLength')}
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                aria-label={showNewPassword ? t('password.hidePassword') : t('password.showPassword')}
+              >
+                {showNewPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+              </Button>
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirm-password">{t('password.confirmPassword')}</Label>
-            <Input
-              id="confirm-password"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder={t('password.confirmPassword')}
-            />
+            <div className="relative">
+              <Input
+                id="confirm-password"
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder={t('password.confirmPassword')}
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                aria-label={showConfirmPassword ? t('password.hidePassword') : t('password.showPassword')}
+              >
+                {showConfirmPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+              </Button>
+            </div>
           </div>
         </div>
         <DialogFooter>

@@ -55,6 +55,7 @@ const NotificationRoutingPage = lazy(() => import('@/pages/admin/NotificationRou
 const TreatmentDrugOptionsPage = lazy(() => import('@/pages/admin/TreatmentDrugOptionsPage').then(m => ({ default: m.TreatmentDrugOptionsPage })))
 const TrainingRecordsPage = lazy(() => import('@/pages/admin/TrainingRecordsPage').then(m => ({ default: m.TrainingRecordsPage })))
 const EquipmentPage = lazy(() => import('@/pages/admin/EquipmentPage').then(m => ({ default: m.EquipmentPage })))
+const QAUDashboardPage = lazy(() => import('@/pages/admin/QAUDashboardPage').then(m => ({ default: m.QAUDashboardPage })))
 
 // HR Pages
 const HrAttendancePage = lazy(() => import('@/pages/hr/HrAttendancePage').then(m => ({ default: m.HrAttendancePage })))
@@ -71,6 +72,7 @@ const SalesLinesReportPage = lazy(() => import('@/pages/reports/SalesLinesReport
 const CostSummaryReportPage = lazy(() => import('@/pages/reports/CostSummaryReportPage').then(m => ({ default: m.CostSummaryReportPage })))
 const BloodTestCostReportPage = lazy(() => import('@/pages/reports/BloodTestCostReportPage').then(m => ({ default: m.BloodTestCostReportPage })))
 const BloodTestAnalysisPage = lazy(() => import('@/pages/reports/BloodTestAnalysisPage').then(m => ({ default: m.BloodTestAnalysisPage })))
+const AccountingReportPage = lazy(() => import('@/pages/reports/AccountingReportPage').then(m => ({ default: m.AccountingReportPage })))
 
 // ERP Page
 const ErpPage = lazy(() => import('@/pages/erp/ErpPage').then(m => ({ default: m.ErpPage })))
@@ -255,6 +257,7 @@ function App() {
                         () => import('@/pages/reports/CostSummaryReportPage'),
                         () => import('@/pages/reports/BloodTestCostReportPage'),
                         () => import('@/pages/reports/BloodTestAnalysisPage'),
+                        () => import('@/pages/reports/AccountingReportPage'),
                         () => import('@/pages/master/ProductsPage'),
                         () => import('@/pages/master/WarehousesPage'),
                         () => import('@/pages/master/PartnersPage'),
@@ -356,6 +359,7 @@ function App() {
                         <Route path="/cost-summary" element={<CostSummaryReportPage />} />
                         <Route path="/blood-test-cost" element={<BloodTestCostReportPage />} />
                         <Route path="/blood-test-analysis" element={<BloodTestAnalysisPage />} />
+                        <Route path="/accounting" element={<AccountingReportPage />} />
                     </Route>
 
                     {/* 系統管理 - 需要 admin 角色 */}
@@ -365,6 +369,11 @@ function App() {
                         <Route path="/admin/settings" element={<SettingsPage />} />
                         <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
                         <Route path="/admin/audit" element={<AdminAuditPage />} />
+                        <Route path="/admin/qau" element={
+                          <RequirePermission permission="qau.dashboard.view">
+                            <QAUDashboardPage />
+                          </RequirePermission>
+                        } />
                         <Route path="/admin/notification-routing" element={<NotificationRoutingPage />} />
                         <Route path="/admin/treatment-drugs" element={<TreatmentDrugOptionsPage />} />
                     </Route>

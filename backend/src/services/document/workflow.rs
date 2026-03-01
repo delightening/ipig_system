@@ -6,7 +6,7 @@ use crate::{
     models::{
         DocStatus, DocType, Document, DocumentLine, DocumentWithLines,
     },
-    services::StockService,
+    services::{AccountingService, StockService},
     AppError, Result,
 };
 
@@ -142,6 +142,12 @@ impl DocumentService {
         // 檢查庫存並寫入流水
         if document.doc_type.affects_stock() {
             StockService::process_document(&mut tx, &document, &lines).await?;
+        }
+
+        // 會計過帳（GRN/DO 產生傳票分錄）
+        if let Err(e) = AccountingService::post_document(&mut tx, &document, &lines, approved_by).await {
+            tracing::warn!("會計過帳跳過或失敗 (document {}): {}", document.id, e);
+            // 不阻擋核准，會計為附加功能
         }
 
         // 更新單據狀態

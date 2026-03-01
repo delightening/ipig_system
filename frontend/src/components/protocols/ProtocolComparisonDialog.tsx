@@ -10,6 +10,61 @@ import { ProtocolWorkingContent } from '@/types/protocol'
 import { Check, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+type DiffEntry = { path: string; oldValue: unknown; newValue: unknown }
+
+function findDifferences(obj1: unknown, obj2: unknown, path = ''): DiffEntry[] {
+    const differences: DiffEntry[] = []
+
+    if (obj1 === obj2) return differences
+
+    // If one is null/undefined/different type, treat as difference
+    if (
+        obj1 === null || obj1 === undefined ||
+        obj2 === null || obj2 === undefined ||
+        typeof obj1 !== typeof obj2 ||
+        (Array.isArray(obj1) !== Array.isArray(obj2))
+    ) {
+        differences.push({ path, oldValue: obj1, newValue: obj2 })
+        return differences
+    }
+
+    if (typeof obj1 === 'object' && obj1 !== null && typeof obj2 === 'object' && obj2 !== null) {
+        if (Array.isArray(obj1) && Array.isArray(obj2)) {
+            if (obj1.length !== obj2.length) {
+                differences.push({ path, oldValue: obj1, newValue: obj2 })
+            } else {
+                // Same length arrays, try to compare items if they are objects
+                const allPrimitives = obj1.every(x => typeof x !== 'object')
+                if (allPrimitives) {
+                    if (JSON.stringify(obj1) !== JSON.stringify(obj2)) {
+                        differences.push({ path, oldValue: obj1, newValue: obj2 })
+                    }
+                } else {
+                    obj1.forEach((item, idx) => {
+                        differences.push(...findDifferences(item, obj2[idx], `${path}.${idx}`))
+                    })
+                }
+            }
+            return differences
+        }
+
+        const o1 = obj1 as Record<string, unknown>
+        const o2 = obj2 as Record<string, unknown>
+        const allKeys = new Set([...Object.keys(o1), ...Object.keys(o2)])
+        allKeys.forEach((key) => {
+            const currentPath = path ? `${path}.${key}` : key
+            differences.push(...findDifferences(o1[key], o2[key], currentPath))
+        })
+        return differences
+    }
+
+    if (obj1 !== obj2) {
+        differences.push({ path, oldValue: obj1, newValue: obj2 })
+    }
+
+    return differences
+}
+
 interface Props {
     open: boolean
     onOpenChange: (open: boolean) => void
@@ -26,67 +81,13 @@ export function ProtocolComparisonDialog({
     protocolTitle: _protocolTitle,
 }: Props) {
     const { t } = useTranslation()
-    const [diffs, setDiffs] = useState<Array<{ path: string; oldValue: unknown; newValue: unknown }>>([])
+    const [diffs, setDiffs] = useState<DiffEntry[]>([])
 
     useEffect(() => {
         if (versionA && versionB) {
             setDiffs(findDifferences(versionA.content, versionB.content))
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [versionA, versionB])
-
-    function findDifferences(obj1: unknown, obj2: unknown, path = ''): Array<{ path: string; oldValue: unknown; newValue: unknown }> {
-        const differences: Array<{ path: string; oldValue: unknown; newValue: unknown }> = []
-
-        if (obj1 === obj2) return differences
-
-        // If one is null/undefined/different type, treat as difference
-        if (
-            obj1 === null || obj1 === undefined ||
-            obj2 === null || obj2 === undefined ||
-            typeof obj1 !== typeof obj2 ||
-            (Array.isArray(obj1) !== Array.isArray(obj2))
-        ) {
-            differences.push({ path, oldValue: obj1, newValue: obj2 })
-            return differences
-        }
-
-        if (typeof obj1 === 'object' && obj1 !== null && typeof obj2 === 'object' && obj2 !== null) {
-            if (Array.isArray(obj1) && Array.isArray(obj2)) {
-                if (obj1.length !== obj2.length) {
-                    differences.push({ path, oldValue: obj1, newValue: obj2 })
-                } else {
-                    // Same length arrays, try to compare items if they are objects
-                    const allPrimitives = obj1.every(x => typeof x !== 'object')
-                    if (allPrimitives) {
-                        if (JSON.stringify(obj1) !== JSON.stringify(obj2)) {
-                            differences.push({ path, oldValue: obj1, newValue: obj2 })
-                        }
-                    } else {
-                        obj1.forEach((item, idx) => {
-                            differences.push(...findDifferences(item, obj2[idx], `${path}.${idx}`))
-                        })
-                    }
-                }
-                return differences
-            }
-
-            const o1 = obj1 as Record<string, unknown>
-            const o2 = obj2 as Record<string, unknown>
-            const allKeys = new Set([...Object.keys(o1), ...Object.keys(o2)])
-            allKeys.forEach((key) => {
-                const currentPath = path ? `${path}.${key}` : key
-                differences.push(...findDifferences(o1[key], o2[key], currentPath))
-            })
-            return differences
-        }
-
-        if (obj1 !== obj2) {
-            differences.push({ path, oldValue: obj1, newValue: obj2 })
-        }
-
-        return differences
-    }
 
     const formatValue = (val: unknown) => {
         if (val === null || val === undefined) return <span className="text-slate-400 italic">{t('protocols.detail.dialogs.version.noContent')}</span>

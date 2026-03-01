@@ -4,6 +4,7 @@ use axum::{
     Router,
 };
 
+use crate::middleware::etag::etag_middleware;
 use crate::middleware::rate_limiter::{
     api_rate_limit_middleware, auth_rate_limit_middleware, upload_rate_limit_middleware,
     write_rate_limit_middleware,
@@ -233,6 +234,35 @@ pub fn api_routes(state: AppState) -> Router {
         .route(
             "/reports/blood-test-analysis",
             get(handlers::get_blood_test_analysis),
+        )
+        // Accounting / 會計
+        .route(
+            "/accounting/chart-of-accounts",
+            get(handlers::get_chart_of_accounts),
+        )
+        .route(
+            "/accounting/trial-balance",
+            get(handlers::get_trial_balance),
+        )
+        .route(
+            "/accounting/journal-entries",
+            get(handlers::get_journal_entries),
+        )
+        .route(
+            "/accounting/ap-aging",
+            get(handlers::get_ap_aging),
+        )
+        .route(
+            "/accounting/ar-aging",
+            get(handlers::get_ar_aging),
+        )
+        .route(
+            "/accounting/ap-payments",
+            post(handlers::create_ap_payment),
+        )
+        .route(
+            "/accounting/ar-receipts",
+            post(handlers::create_ar_receipt),
         )
         // Protocols (AUP 審查系統)
         .route(
@@ -633,6 +663,8 @@ pub fn api_routes(state: AppState) -> Router {
             post(handlers::resolve_security_alert),
         )
         .route("/admin/audit/dashboard", get(handlers::get_audit_dashboard))
+        // QAU Dashboard (GLP 品質保證唯讀檢視)
+        .route("/qau/dashboard", get(handlers::get_qau_dashboard))
         // SSE 安全警報即時推送
         .route(
             "/admin/audit/alerts/sse",
@@ -1051,6 +1083,7 @@ pub fn api_routes(state: AppState) -> Router {
     let health_route = Router::new()
         .route("/api/health", get(handlers::health::health_check))
         .route("/metrics", get(handlers::metrics::metrics_handler))
+        .route("/api/metrics/vitals", post(handlers::metrics::vitals_handler))
         .with_state(state.clone());
 
     // P1-M1: API 版本路徑 — 引入 /api/v1/ 前綴；/api 保留為 deprecated 向後相容
@@ -1060,6 +1093,7 @@ pub fn api_routes(state: AppState) -> Router {
             Router::new()
                 .nest("/api/v1", api_v1.clone())
                 .nest("/api", api_v1)
+                .route_layer(middleware::from_fn(etag_middleware))
                 .route_layer(middleware::from_fn_with_state(
                     state,
                     api_rate_limit_middleware,

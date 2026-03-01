@@ -38,7 +38,7 @@ import {
 } from '@/components/ui/table'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
-import { Plus, Search, Pencil, Trash2, Loader2, GraduationCap } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, GraduationCap } from 'lucide-react'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 
