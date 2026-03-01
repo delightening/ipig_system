@@ -1,4 +1,5 @@
-﻿import { useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
+import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { formatDate } from '@/lib/utils'
@@ -31,8 +32,7 @@ interface BloodTestCostReport {
 
 export function BloodTestCostReportPage() {
     const [iacucNo, setIacucNo] = useState('')
-    const [dateFrom, setDateFrom] = useState('')
-    const [dateTo, setDateTo] = useState('')
+    const { from: dateFrom, to: dateTo, setFrom: setDateFrom, setTo: setDateTo } = useDateRangeFilter()
     const [labName, setLabName] = useState('')
 
     // 建立查詢參數

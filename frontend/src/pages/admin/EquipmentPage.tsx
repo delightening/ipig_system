@@ -7,6 +7,8 @@
  */
 
 import { useState } from 'react'
+import { useTabState } from '@/hooks/useTabState'
+import { useDialogSet } from '@/hooks/useDialogSet'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -78,15 +80,14 @@ export function EquipmentPage() {
   const { hasPermission } = useAuthStore()
   const canManage = hasPermission('equipment.manage')
 
-  const [activeTab, setActiveTab] = useState('equipment')
+  const { activeTab, setActiveTab } = useTabState<'equipment' | 'calibrations'>('equipment')
+  const dialogs = useDialogSet(['equipCreate', 'equipEdit', 'calibCreate', 'calibEdit'] as const)
   const [equipKeyword, setEquipKeyword] = useState('')
   const [equipPage, setEquipPage] = useState(1)
   const [calibEquipmentFilter, setCalibEquipmentFilter] = useState<string>('')
   const [calibSearchKeyword, setCalibSearchKeyword] = useState('')
   const [calibPage, setCalibPage] = useState(1)
 
-  const [showEquipCreate, setShowEquipCreate] = useState(false)
-  const [showEquipEdit, setShowEquipEdit] = useState(false)
   const [editingEquip, setEditingEquip] = useState<Equipment | null>(null)
   const [equipForm, setEquipForm] = useState({
     name: '',
@@ -96,8 +97,6 @@ export function EquipmentPage() {
     notes: '',
   })
 
-  const [showCalibCreate, setShowCalibCreate] = useState(false)
-  const [showCalibEdit, setShowCalibEdit] = useState(false)
   const [editingCalib, setEditingCalib] = useState<CalibrationWithEquipment | null>(null)
   const [calibForm, setCalibForm] = useState({
     equipment_id: '',
@@ -174,7 +173,7 @@ export function EquipmentPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment'] })
       queryClient.invalidateQueries({ queryKey: ['equipment-all'] })
-      setShowEquipCreate(false)
+      dialogs.close('equipCreate')
       setEquipForm({ name: '', model: '', serial_number: '', location: '', notes: '' })
       toast({ title: '成功', description: '已新增設備' })
     },
@@ -189,7 +188,7 @@ export function EquipmentPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment'] })
       queryClient.invalidateQueries({ queryKey: ['equipment-all'] })
-      setShowEquipEdit(false)
+      dialogs.close('equipEdit')
       setEditingEquip(null)
       toast({ title: '成功', description: '已更新設備' })
     },
@@ -223,7 +222,7 @@ export function EquipmentPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment-calibrations'] })
       queryClient.invalidateQueries({ queryKey: ['equipment-calibrations-all'] })
-      setShowCalibCreate(false)
+      dialogs.close('calibCreate')
       setCalibForm({
         equipment_id: '',
         calibrated_at: format(new Date(), 'yyyy-MM-dd'),
@@ -244,7 +243,7 @@ export function EquipmentPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment-calibrations'] })
       queryClient.invalidateQueries({ queryKey: ['equipment-calibrations-all'] })
-      setShowCalibEdit(false)
+      dialogs.close('calibEdit')
       setEditingCalib(null)
       toast({ title: '成功', description: '已更新校正紀錄' })
     },
@@ -333,7 +332,7 @@ export function EquipmentPage() {
           <p className="text-muted-foreground">實驗室 GLP 合規：設備管理與校正紀錄追蹤</p>
         </div>
         {canManage && (
-          <Button onClick={() => setShowEquipCreate(true)}>
+          <Button onClick={() => dialogs.open('equipCreate')}>
             <Plus className="h-4 w-4 mr-2" />
             新增設備
           </Button>
@@ -441,7 +440,7 @@ export function EquipmentPage() {
                                   location: r.location || '',
                                   notes: r.notes || '',
                                 })
-                                setShowEquipEdit(true)
+                                dialogs.open('equipEdit')
                               }}
                             >
                               <Pencil className="h-4 w-4" />
@@ -506,7 +505,7 @@ export function EquipmentPage() {
                       result: '',
                       notes: '',
                     })
-                    setShowCalibCreate(true)
+                    dialogs.open('calibCreate')
                   }}
                   disabled={equipmentList.length === 0}
                 >
@@ -594,7 +593,7 @@ export function EquipmentPage() {
                                   result: r.result || '',
                                   notes: r.notes || '',
                                 })
-                                setShowCalibEdit(true)
+                                dialogs.open('calibEdit')
                               }}
                             >
                               <Pencil className="h-4 w-4" />
@@ -644,7 +643,7 @@ export function EquipmentPage() {
       </Tabs>
 
       {/* 新增設備 Dialog */}
-      <Dialog open={showEquipCreate} onOpenChange={setShowEquipCreate}>
+      <Dialog open={dialogs.isOpen('equipCreate')} onOpenChange={(open) => dialogs.setOpen('equipCreate')(open)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>新增設備</DialogTitle>
@@ -691,7 +690,7 @@ export function EquipmentPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEquipCreate(false)}>取消</Button>
+            <Button variant="outline" onClick={() => dialogs.close('equipCreate')}>取消</Button>
             <Button onClick={handleCreateEquip} disabled={createEquipMutation.isPending}>
               {createEquipMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               新增
@@ -701,7 +700,7 @@ export function EquipmentPage() {
       </Dialog>
 
       {/* 編輯設備 Dialog */}
-      <Dialog open={showEquipEdit} onOpenChange={(open) => { if (!open) setEditingEquip(null); setShowEquipEdit(open) }}>
+      <Dialog open={dialogs.isOpen('equipEdit')} onOpenChange={(open) => { if (!open) setEditingEquip(null); dialogs.setOpen('equipEdit')(open) }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>編輯設備</DialogTitle>
@@ -746,7 +745,7 @@ export function EquipmentPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEquipEdit(false)}>取消</Button>
+            <Button variant="outline" onClick={() => dialogs.close('equipEdit')}>取消</Button>
             <Button onClick={handleUpdateEquip} disabled={updateEquipMutation.isPending}>
               {updateEquipMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               儲存
@@ -756,7 +755,7 @@ export function EquipmentPage() {
       </Dialog>
 
       {/* 新增校正 Dialog */}
-      <Dialog open={showCalibCreate} onOpenChange={setShowCalibCreate}>
+      <Dialog open={dialogs.isOpen('calibCreate')} onOpenChange={(open) => dialogs.setOpen('calibCreate')(open)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>新增校正紀錄</DialogTitle>
@@ -816,7 +815,7 @@ export function EquipmentPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCalibCreate(false)}>取消</Button>
+            <Button variant="outline" onClick={() => dialogs.close('calibCreate')}>取消</Button>
             <Button onClick={handleCreateCalib} disabled={createCalibMutation.isPending}>
               {createCalibMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               新增
@@ -826,7 +825,7 @@ export function EquipmentPage() {
       </Dialog>
 
       {/* 編輯校正 Dialog */}
-      <Dialog open={showCalibEdit} onOpenChange={(open) => { if (!open) setEditingCalib(null); setShowCalibEdit(open) }}>
+      <Dialog open={dialogs.isOpen('calibEdit')} onOpenChange={(open) => { if (!open) setEditingCalib(null); dialogs.setOpen('calibEdit')(open) }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>編輯校正紀錄</DialogTitle>
@@ -867,7 +866,7 @@ export function EquipmentPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCalibEdit(false)}>取消</Button>
+            <Button variant="outline" onClick={() => dialogs.close('calibEdit')}>取消</Button>
             <Button onClick={handleUpdateCalib} disabled={updateCalibMutation.isPending}>
               {updateCalibMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               儲存
