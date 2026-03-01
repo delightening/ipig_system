@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useToggle } from '@/hooks/useToggle'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import api from '@/lib/api'
@@ -16,8 +17,8 @@ export function ResetPasswordPage() {
 
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [showPassword, togglePassword] = useToggle()
+  const [showConfirmPassword, toggleConfirmPassword] = useToggle()
   const [success, setSuccess] = useState(false)
 
   // 密碼強度檢查
@@ -198,7 +199,7 @@ export function ResetPasswordPage() {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={togglePassword}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -262,7 +263,7 @@ export function ResetPasswordPage() {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  onClick={toggleConfirmPassword}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
                 >
                   {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}

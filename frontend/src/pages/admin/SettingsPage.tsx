@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useToggle } from '@/hooks/useToggle'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -69,7 +70,7 @@ export function SettingsPage() {
   const [emailPassword, setEmailPassword] = useState('')
   const [emailFromEmail, setEmailFromEmail] = useState('')
   const [emailFromName, setEmailFromName] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
+  const [showPassword, togglePassword] = useToggle()
   const [passwordEdited, setPasswordEdited] = useState(false)
   const [sessionTimeout, setSessionTimeout] = useState('360')
   const [costMethod, setCostMethod] = useState('weighted_average')
@@ -364,7 +365,7 @@ export function SettingsPage() {
                         variant="ghost"
                         size="sm"
                         className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                        onClick={() => setShowPassword(!showPassword)}
+                        onClick={togglePassword}
                       >
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </Button>

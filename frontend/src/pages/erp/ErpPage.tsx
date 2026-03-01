@@ -17,7 +17,9 @@ import {
     Users,
     Droplets,
     Activity,
+    Wrench,
 } from 'lucide-react'
+import { EquipmentPage } from '@/pages/admin/EquipmentPage'
 
 // 定義 ERP 子模組
 interface ErpModule {
@@ -123,6 +125,13 @@ const erpModules: ErpModule[] = [
         ],
     },
     {
+        id: 'equipment',
+        title: '設備維護',
+        icon: <Wrench className="h-5 w-5" />,
+        description: '設備與校正紀錄管理',
+        items: [],
+    },
+    {
         id: 'reports',
         title: '報表中心',
         icon: <BarChart3 className="h-5 w-5" />,
@@ -226,8 +235,14 @@ export function ErpPage() {
             user?.roles.some(r => ['purchasing', 'approver', 'WAREHOUSE_MANAGER', 'EXPERIMENT_STAFF'].includes(r)) ||
             user?.permissions.some(p => p.startsWith('erp.'))
 
+        const hasEquipmentAccess = hasRole('admin') ||
+            user?.permissions?.some(p => p.startsWith('equipment.'))
+
         if (!hasErpAccess) return []
-        return erpModules
+        return erpModules.filter((m) => {
+            if (m.id === 'equipment') return hasEquipmentAccess
+            return true
+        })
     }, [hasRole, user])
 
     // 如果沒有 tab 參數，自動導向第一個模組
@@ -250,8 +265,8 @@ export function ErpPage() {
             {/* 頁面標題 */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">ERP 系統</h1>
-                    <p className="text-slate-500 mt-1">企業資源規劃與庫存管理</p>
+                    <h1 className="text-3xl font-bold tracking-tight">ERP 系統</h1>
+                    <p className="text-muted-foreground">企業資源規劃與庫存管理</p>
                 </div>
             </div>
 
@@ -281,6 +296,9 @@ export function ErpPage() {
 
             {/* Tab 內容區 */}
             {currentModule ? (
+                currentTab === 'equipment' ? (
+                    <EquipmentPage />
+                ) : (
                 // 模組的詳細內容
                 <div className="space-y-6">
                     {/* 模組描述 */}
@@ -322,6 +340,7 @@ export function ErpPage() {
                         ))}
                     </div>
                 </div>
+                )
             ) : (
                 // 未找到模組
                 <div className="text-center py-12">

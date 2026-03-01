@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useToggle } from '@/hooks/useToggle'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth'
@@ -30,9 +31,9 @@ export function PasswordChangeDialog({ open, onOpenChange }: PasswordChangeDialo
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
-  const [showNewPassword, setShowNewPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [showCurrentPassword, toggleCurrentPassword] = useToggle()
+  const [showNewPassword, toggleNewPassword] = useToggle()
+  const [showConfirmPassword, toggleConfirmPassword] = useToggle()
 
   const resetForm = () => {
     setCurrentPassword('')
@@ -111,7 +112,7 @@ export function PasswordChangeDialog({ open, onOpenChange }: PasswordChangeDialo
                 variant="ghost"
                 size="icon"
                 className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                onClick={toggleCurrentPassword}
                 aria-label={showCurrentPassword ? t('password.hidePassword') : t('password.showPassword')}
               >
                 {showCurrentPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
@@ -134,7 +135,7 @@ export function PasswordChangeDialog({ open, onOpenChange }: PasswordChangeDialo
                 variant="ghost"
                 size="icon"
                 className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                onClick={() => setShowNewPassword(!showNewPassword)}
+                onClick={toggleNewPassword}
                 aria-label={showNewPassword ? t('password.hidePassword') : t('password.showPassword')}
               >
                 {showNewPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
@@ -157,7 +158,7 @@ export function PasswordChangeDialog({ open, onOpenChange }: PasswordChangeDialo
                 variant="ghost"
                 size="icon"
                 className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                onClick={toggleConfirmPassword}
                 aria-label={showConfirmPassword ? t('password.hidePassword') : t('password.showPassword')}
               >
                 {showConfirmPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}

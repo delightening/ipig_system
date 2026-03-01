@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useToggle } from '@/hooks/useToggle'
 import { useNavigate, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -22,7 +23,7 @@ type LoginForm = z.infer<typeof loginSchema>
 export function LoginPage() {
   const navigate = useNavigate()
   const { login, verify2FA, isLoading } = useAuthStore()
-  const [showPassword, setShowPassword] = useState(false)
+  const [showPassword, togglePassword] = useToggle()
   const [twoFAState, setTwoFAState] = useState<{ tempToken: string } | null>(null)
   const [totpCode, setTotpCode] = useState('')
   const totpInputRef = useRef<HTMLInputElement>(null)
@@ -170,7 +171,7 @@ export function LoginPage() {
                 variant="ghost"
                 size="icon"
                 className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                onClick={() => setShowPassword(!showPassword)}
+                onClick={togglePassword}
               >
                 {showPassword ? (
                   <EyeOff className="h-4 w-4 text-muted-foreground" />

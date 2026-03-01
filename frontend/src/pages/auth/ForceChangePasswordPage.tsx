@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useToggle } from '@/hooks/useToggle'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import api from '@/lib/api'
@@ -18,9 +19,9 @@ export function ForceChangePasswordPage() {
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
-  const [showNewPassword, setShowNewPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [showCurrentPassword, toggleCurrentPassword] = useToggle()
+  const [showNewPassword, toggleNewPassword] = useToggle()
+  const [showConfirmPassword, toggleConfirmPassword] = useToggle()
 
   // 密碼強度檢查
   const passwordChecks = {
@@ -142,7 +143,7 @@ export function ForceChangePasswordPage() {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  onClick={toggleCurrentPassword}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
                 >
                   {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -167,7 +168,7 @@ export function ForceChangePasswordPage() {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  onClick={toggleNewPassword}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
                 >
                   {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -231,7 +232,7 @@ export function ForceChangePasswordPage() {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  onClick={toggleConfirmPassword}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
                 >
                   {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}

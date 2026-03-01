@@ -38,8 +38,8 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         // 人員訓練紀錄 (GLP 合規)
         ("training.view", "查看訓練紀錄", "training", "可查看人員訓練紀錄"),
         ("training.manage", "管理訓練紀錄", "training", "可新增、編輯、刪除訓練紀錄"),
-        ("equipment.view", "查看設備", "equipment", "可查看設備與校準紀錄"),
-        ("equipment.manage", "管理設備", "equipment", "可新增、編輯、刪除設備與校準紀錄"),
+        ("equipment.view", "查看設備", "equipment", "可查看設備與校正紀錄"),
+        ("equipment.manage", "管理設備", "equipment", "可新增、編輯、刪除設備與校正紀錄"),
         // QAU (GLP 品質保證單位) - 唯讀檢視
         ("qau.dashboard.view", "查看 QAU 儀表板", "qau", "GLP 品質保證：可查看研究狀態、審查進度、稽核摘要"),
         ("qau.protocol.view", "QAU 檢視計畫", "qau", "唯讀檢視所有計畫書"),

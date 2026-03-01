@@ -55,6 +55,41 @@
 
 ## 9. 最新變更動態
 
+### 2026-03-01 useState → Custom Hooks 重構 (P5-48)
+
+依據 `docs/REFACTOR_PLAN_USESTATE_TO_HOOKS.md` 執行 Phase 1–2：
+
+**Phase 1：低風險通用 Hooks ✅**
+- 新增 `useToggle`：布林切換（密碼可見、進階篩選）
+- 遷移：LoginPage、SettingsPage、ResetPasswordPage、ForceChangePasswordPage、PasswordChangeDialog、ProductsPage（showAdvancedFilters）
+- 新增 `useDialogSet`：多個 Dialog 開關集中管理
+- 遷移：TreatmentDrugOptionsPage、AmendmentsTab、ReviewersTab、HrAnnualLeavePage、PartnersPage
+
+**Phase 2：列表頁標準化 ✅**
+- 新增 `useListFilters`：search、filters、page、perPage、sort
+- 遷移：PartnersPage（search + typeFilter）
+
+**待執行**：Phase 3（useSteps、useSelection）、Phase 4（feature 專用 hooks）
+
+---
+
+### 2026-03-01 iPig R5 改善計畫 Phase 3 執行（項目 7、8）
+
+依據 `dazzling-twirling-kitten.md` 計劃執行：
+
+**項目 7：Web Vitals 監控 (P2) ✅**
+- 安裝 `web-vitals`，新增 `frontend/src/lib/webVitals.ts`：onCLS、onINP、onLCP、onFCP、onTTFB 五項指標
+- `sendToAnalytics`：DEV 時 `console.debug`，production 時 `navigator.sendBeacon('/api/metrics/vitals', JSON.stringify(metric))`
+- `main.tsx` 呼叫 `reportWebVitals()`
+- 後端 `POST /api/metrics/vitals` handler（接收並紀錄 Web Vitals 指標，回傳 204）
+
+**項目 8：API 回應快取 ETag (P2) ✅**
+- 新增 `backend/src/middleware/etag.rs`：計算 response body SHA-256 作為 ETag，比對 If-None-Match，匹配則回傳 304 Not Modified
+- 排除 `/api/auth/*`、`/api/health`、`/api/metrics/*`
+- 套用 `Cache-Control: private, no-cache, must-revalidate`
+- 對 GET 路由套用 etag middleware
+- 單元測試：`test_is_excluded_path`、`test_etag_format`；整合測試：`api_etag.rs`（ETag 生成、304 回應、POST 不受影響、排除路徑）
+
 ### 2026-03-01 iPig R5 改善計畫 Phase 2 執行（項目 3、4、5、6）
 
 依據 `dazzling-twirling-kitten.md` 計劃執行：

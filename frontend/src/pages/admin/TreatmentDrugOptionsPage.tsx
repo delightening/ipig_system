@@ -8,6 +8,7 @@
  */
 
 import { useState } from 'react'
+import { useDialogSet } from '@/hooks/useDialogSet'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { treatmentDrugApi } from '@/lib/api'
 import api from '@/lib/api'
@@ -59,9 +60,7 @@ export function TreatmentDrugOptionsPage() {
     const [filterActive, setFilterActive] = useState<string>('all')
 
     // Dialog 狀態
-    const [showCreateDialog, setShowCreateDialog] = useState(false)
-    const [showEditDialog, setShowEditDialog] = useState(false)
-    const [showImportDialog, setShowImportDialog] = useState(false)
+    const dialogs = useDialogSet(['create', 'edit', 'import'] as const)
     const [editingDrug, setEditingDrug] = useState<TreatmentDrugOption | null>(null)
 
     // 表單狀態
@@ -93,7 +92,7 @@ export function TreatmentDrugOptionsPage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['admin-treatment-drugs'] })
             queryClient.invalidateQueries({ queryKey: ['treatment-drugs'] })
-            setShowCreateDialog(false)
+            dialogs.close('create')
             resetForm()
             toast({ title: '成功', description: '已新增藥物選項' })
         },
@@ -109,7 +108,7 @@ export function TreatmentDrugOptionsPage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['admin-treatment-drugs'] })
             queryClient.invalidateQueries({ queryKey: ['treatment-drugs'] })
-            setShowEditDialog(false)
+            dialogs.close('edit')
             setEditingDrug(null)
             toast({ title: '成功', description: '已更新藥物選項' })
         },
@@ -149,7 +148,7 @@ export function TreatmentDrugOptionsPage() {
             category: drug.category || '',
             sort_order: drug.sort_order,
         })
-        setShowEditDialog(true)
+        dialogs.open('edit')
     }
 
     const handleCreate = () => {
@@ -203,11 +202,11 @@ export function TreatmentDrugOptionsPage() {
                 <div className="flex gap-2">
                     <Button
                         variant="outline"
-                        onClick={() => setShowImportDialog(true)}
+                        onClick={() => dialogs.open('import')}
                     >
                         <Download className="h-4 w-4 mr-2" /> 從 ERP 匯入
                     </Button>
-                    <Button onClick={() => { resetForm(); setShowCreateDialog(true) }}>
+                    <Button onClick={() => { resetForm(); dialogs.open('create') }}>
                         <Plus className="h-4 w-4 mr-2" /> 新增藥物
                     </Button>
                 </div>
@@ -343,8 +342,8 @@ export function TreatmentDrugOptionsPage() {
 
             {/* 新增 / 編輯 Dialog */}
             <DrugFormDialog
-                open={showCreateDialog}
-                onOpenChange={setShowCreateDialog}
+                open={dialogs.isOpen('create')}
+                onOpenChange={dialogs.setOpen('create')}
                 title="新增藥物選項"
                 form={form}
                 setForm={setForm}
@@ -353,8 +352,8 @@ export function TreatmentDrugOptionsPage() {
                 toggleUnit={toggleUnit}
             />
             <DrugFormDialog
-                open={showEditDialog}
-                onOpenChange={(open) => { setShowEditDialog(open); if (!open) setEditingDrug(null) }}
+                open={dialogs.isOpen('edit')}
+                onOpenChange={(open) => { dialogs.setOpen('edit')(open); if (!open) setEditingDrug(null) }}
                 title="編輯藥物選項"
                 form={form}
                 setForm={setForm}
@@ -365,8 +364,8 @@ export function TreatmentDrugOptionsPage() {
 
             {/* ERP 匯入 Dialog */}
             <ErpImportDialog
-                open={showImportDialog}
-                onOpenChange={setShowImportDialog}
+                open={dialogs.isOpen('import')}
+                onOpenChange={dialogs.setOpen('import')}
             />
         </div>
     )

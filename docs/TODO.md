@@ -87,6 +87,7 @@
 | P5-45 | **磁碟空間監控告警** | `scripts/monitor/check_disk_space.sh` 含 uploads 大小 + 磁碟使用率檢查 + Prometheus textfile 輸出 | DevOps | 🧠 Claude | [x] |
 | P5-46 | **LICENSE 檔案** | MIT License，2026 iPig System Contributors | 文件 | 🧠 Claude | [x] |
 | P5-47 | **index.html Meta Tags** | title「豬博士 iPig 系統」+ description + theme-color + favicon 更新 | 前端 | 🧠 Claude | [x] |
+| P5-48 | **useState → Custom Hooks 重構規劃** | 規劃文件 `docs/REFACTOR_PLAN_USESTATE_TO_HOOKS.md`，Phase 1–2 完成：useToggle / useDialogSet / useListFilters，遷移 10+ 元件 | 前端 | 🧠 Claude | [x] |
 
 ---
 

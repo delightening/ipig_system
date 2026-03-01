@@ -54,7 +54,6 @@ const AdminAuditPage = lazy(() => import('@/pages/admin/AdminAuditPage').then(m 
 const NotificationRoutingPage = lazy(() => import('@/pages/admin/NotificationRoutingPage').then(m => ({ default: m.NotificationRoutingPage })))
 const TreatmentDrugOptionsPage = lazy(() => import('@/pages/admin/TreatmentDrugOptionsPage').then(m => ({ default: m.TreatmentDrugOptionsPage })))
 const TrainingRecordsPage = lazy(() => import('@/pages/admin/TrainingRecordsPage').then(m => ({ default: m.TrainingRecordsPage })))
-const EquipmentPage = lazy(() => import('@/pages/admin/EquipmentPage').then(m => ({ default: m.EquipmentPage })))
 const QAUDashboardPage = lazy(() => import('@/pages/admin/QAUDashboardPage').then(m => ({ default: m.QAUDashboardPage })))
 
 // HR Pages
@@ -378,8 +377,8 @@ function App() {
                         <Route path="/admin/treatment-drugs" element={<TreatmentDrugOptionsPage />} />
                     </Route>
 
-                    {/* 人員訓練紀錄 - admin 或 training.view/manage 可存取 */}
-                    <Route path="/admin/training-records" element={
+                    {/* 人員訓練 - admin 或 training.view/manage 可存取 */}
+                    <Route path="/hr/training-records" element={
                         <RequirePermission anyOf={[
                             { role: 'admin' },
                             { permission: 'training.view' },
@@ -388,16 +387,8 @@ function App() {
                             <TrainingRecordsPage />
                         </RequirePermission>
                     } />
-                    {/* 設備與校準紀錄 - admin 或 equipment.view/manage 可存取 */}
-                    <Route path="/admin/equipment" element={
-                        <RequirePermission anyOf={[
-                            { role: 'admin' },
-                            { permission: 'equipment.view' },
-                            { permission: 'equipment.manage' }
-                        ]}>
-                            <EquipmentPage />
-                        </RequirePermission>
-                    } />
+                    {/* 設備維護已移至 ERP 系統，舊路徑導向 /erp?tab=equipment */}
+                    <Route path="/admin/equipment" element={<Navigate to="/erp?tab=equipment" replace />} />
 
                     {/* HR 人員管理 */}
                     <Route path="/hr/attendance" element={<HrAttendancePage />} />

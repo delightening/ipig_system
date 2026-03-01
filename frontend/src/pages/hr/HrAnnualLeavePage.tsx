@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useDialogSet } from '@/hooks/useDialogSet'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
@@ -60,7 +61,7 @@ interface User {
 
 export function HrAnnualLeavePage() {
     const [activeTab, setActiveTab] = useState('entitlements')
-    const [showCreateDialog, setShowCreateDialog] = useState(false)
+    const dialogs = useDialogSet(['create'] as const)
     const [selectedUserId, setSelectedUserId] = useState<string>('')
     const [searchQuery, setSearchQuery] = useState('')
     const queryClient = useQueryClient()
@@ -112,7 +113,7 @@ export function HrAnnualLeavePage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['user-annual-balances'] })
             queryClient.invalidateQueries({ queryKey: ['expired-leave-compensation'] })
-            setShowCreateDialog(false)
+            dialogs.close('create')
             resetForm()
             toast({
                 title: '建立成功',
@@ -201,7 +202,7 @@ export function HrAnnualLeavePage() {
                         管理員工特休假額度、查看過期待補償報表
                     </p>
                 </div>
-                <Button onClick={() => setShowCreateDialog(true)}>
+                <Button onClick={() => dialogs.open('create')}>
                     <Plus className="h-4 w-4 mr-2" />
                     新增特休額度
                 </Button>
@@ -428,7 +429,7 @@ export function HrAnnualLeavePage() {
             </Tabs>
 
             {/* 新增特休額度對話框 */}
-            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+            <Dialog open={dialogs.isOpen('create')} onOpenChange={dialogs.setOpen('create')}>
                 <DialogContent className="max-w-md">
                     <DialogHeader>
                         <DialogTitle>新增特休額度</DialogTitle>
@@ -511,7 +512,7 @@ export function HrAnnualLeavePage() {
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                        <Button variant="outline" onClick={() => dialogs.close('create')}>
                             取消
                         </Button>
                         <Button

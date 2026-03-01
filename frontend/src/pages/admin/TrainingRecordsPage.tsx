@@ -225,11 +225,11 @@ export function TrainingRecordsPage() {
     <div className="space-y-6 p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
             <GraduationCap className="h-7 w-7" />
             人員訓練紀錄
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">GLP 合規：管理人員訓練與證照有效期限</p>
+          <p className="text-muted-foreground">GLP 合規：管理人員訓練與證照有效期限</p>
         </div>
         {canManage && (
           <Button onClick={() => { resetForm(); setShowCreateDialog(true) }}>
@@ -248,12 +248,15 @@ export function TrainingRecordsPage() {
             className="max-w-sm"
           />
         </div>
-        <Select value={userFilter} onValueChange={setUserFilter}>
+        <Select
+          value={userFilter || '__all__'}
+          onValueChange={(v) => setUserFilter(v === '__all__' ? '' : v)}
+        >
           <SelectTrigger className="w-[220px]">
             <SelectValue placeholder="篩選操作者" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">全部人員</SelectItem>
+            <SelectItem value="__all__">全部人員</SelectItem>
             {users.map((u) => (
               <SelectItem key={u.id} value={u.id}>
                 {u.display_name || u.email}
