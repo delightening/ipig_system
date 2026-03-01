@@ -40,6 +40,11 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ("training.manage", "管理訓練紀錄", "training", "可新增、編輯、刪除訓練紀錄"),
         ("equipment.view", "查看設備", "equipment", "可查看設備與校準紀錄"),
         ("equipment.manage", "管理設備", "equipment", "可新增、編輯、刪除設備與校準紀錄"),
+        // QAU (GLP 品質保證單位) - 唯讀檢視
+        ("qau.dashboard.view", "查看 QAU 儀表板", "qau", "GLP 品質保證：可查看研究狀態、審查進度、稽核摘要"),
+        ("qau.protocol.view", "QAU 檢視計畫", "qau", "唯讀檢視所有計畫書"),
+        ("qau.audit.view", "QAU 檢視稽核", "qau", "唯讀檢視稽核日誌"),
+        ("qau.animal.view", "QAU 檢視動物", "qau", "唯讀檢視動物紀錄"),
     ];
     
     for (code, name, module, description) in required_permissions {
@@ -304,6 +309,16 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "training.view", "training.manage",
             "equipment.view", "equipment.manage",
             // Dashboard 權限
+            "dashboard.view",
+        ]),
+        
+        // ============================================
+        // QAU (品質保證單位) - GLP 唯讀檢視，獨立於研究執行
+        // ============================================
+        ("QAU", vec![
+            "qau.dashboard.view", "qau.protocol.view", "qau.audit.view", "qau.animal.view",
+            "aup.protocol.view_all", "aup.review.view", "aup.attachment.view", "aup.attachment.download",
+            "aup.version.view", "audit.logs.view", "animal.animal.view_all", "animal.record.view",
             "dashboard.view",
         ]),
         

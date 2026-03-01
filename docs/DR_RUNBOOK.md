@@ -163,6 +163,8 @@ docker rm -f dr-test-db
 |------|--------|---------|---------|---------|------|
 | _YYYY-MM-DD_ | _姓名_ | _YYYY-MM-DD_ | _X 分鐘_ | ✅/❌ | |
 
+**完整檢查表**：詳見 [DR_DRILL_CHECKLIST.md](DR_DRILL_CHECKLIST.md)，含步驟清單與紀錄範本。
+
 ---
 
 ## 5. 事後檢討範本

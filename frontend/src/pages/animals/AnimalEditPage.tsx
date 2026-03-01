@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
   Animal,
@@ -37,8 +36,6 @@ export function AnimalEditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- i18n context
-  const { t } = useTranslation()
   const animalId = id!
 
   const [formData, setFormData] = useState<UpdateAnimalRequest>({})

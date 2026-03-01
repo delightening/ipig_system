@@ -112,7 +112,7 @@ export function SacrificeFormDialog({ open, onOpenChange, animalId, earTag, sacr
     } else {
       setFormData(defaultFormData)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- init only when open/sacrifice changes
   }, [sacrifice, open])
 
   const handleSamplingChange = (value: string, checked: boolean) => {

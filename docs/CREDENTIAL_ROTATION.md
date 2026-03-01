@@ -103,7 +103,19 @@
 
 ---
 
-## 5. 輪換紀錄
+## 5. 半自動提醒機制
+
+每月輪換提醒由 `scripts/monitor/check_credential_rotation.sh` 提供：
+
+- **狀態檔**：`scripts/monitor/.credential_state/last_rotated_db`、`last_rotated_smtp` 記錄上次輪換日期
+- **輪換後**：執行 `./scripts/monitor/record_credential_rotation.sh db` 或 `smtp` 更新狀態
+- **Cron**：每月 1 日執行檢查腳本，若逾期則觸發告警（如寄信給維運）
+
+詳見腳本內註解。
+
+---
+
+## 6. 輪換紀錄
 
 建議於每次輪換後紀錄：
 
@@ -111,6 +123,7 @@
 - 執行人員
 - 輪換的憑證類型
 - 驗證結果（通過／失敗）
+- 執行 `record_credential_rotation.sh` 更新狀態檔
 
 ---
 

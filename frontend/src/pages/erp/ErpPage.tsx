@@ -1,6 +1,5 @@
 import { useMemo, useEffect } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth'
 import { cn } from '@/lib/utils'
 import {
@@ -171,6 +170,12 @@ const erpModules: ErpModule[] = [
                 icon: <Activity className="h-4 w-4" />,
                 description: '血檢數據統計、趨勢分析、異常值偵測',
             },
+            {
+                title: '會計報表',
+                href: '/accounting',
+                icon: <BarChart3 className="h-4 w-4" />,
+                description: '試算表、傳票、應付／應收帳款',
+            },
         ],
     },
     {
@@ -208,11 +213,9 @@ const erpModules: ErpModule[] = [
 ]
 
 export function ErpPage() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- i18n for future use
-  const { t } = useTranslation()
   useNavigate() // router context
     const [searchParams, setSearchParams] = useSearchParams()
-    const { hasRole, user, hasPermission } = useAuthStore()
+    const { hasRole, user } = useAuthStore()
 
     // 從 URL 取得當前 tab，預設為第一個模組 'purchasing'
     const currentTab = searchParams.get('tab') || 'purchasing'
@@ -225,8 +228,7 @@ export function ErpPage() {
 
         if (!hasErpAccess) return []
         return erpModules
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- hasPermission stable
-    }, [hasRole, user, hasPermission])
+    }, [hasRole, user])
 
     // 如果沒有 tab 參數，自動導向第一個模組
     useEffect(() => {

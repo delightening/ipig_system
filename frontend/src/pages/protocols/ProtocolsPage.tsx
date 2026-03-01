@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -66,9 +66,10 @@ export function ProtocolsPage() {
   const [sortConfig, setSortConfig] = useState<SortConfig>({ field: 'created_at', order: 'desc' })
 
   // Get status name from i18n
-  const getStatusName = (status: ProtocolStatus) => {
-    return t(`protocols.status.${status}`) || status
-  }
+  const getStatusName = useCallback(
+    (status: ProtocolStatus) => t(`protocols.status.${status}`) || status,
+    [t]
+  )
 
   const { data: rawProtocols, isLoading } = useQuery({
     queryKey: ['protocols', statusFilter, debouncedSearch],
@@ -105,8 +106,7 @@ export function ProtocolsPage() {
     })
 
     return sorted
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawProtocols, sortConfig])
+  }, [rawProtocols, sortConfig, getStatusName])
 
   const handleSort = (field: SortField) => {
     setSortConfig(prev => ({

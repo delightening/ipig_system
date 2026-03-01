@@ -8,6 +8,7 @@ import { getApiErrorMessage } from '@/lib/validation'
 import App from './App'
 import './index.css'
 import './lib/i18n' // Initialize i18n
+import { reportWebVitals } from './lib/webVitals'
 
 const queryClient = new QueryClient({
   /**
@@ -50,3 +51,5 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </React.StrictMode>,
 )
+
+reportWebVitals()

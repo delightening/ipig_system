@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { AnimalObservation, RecordType } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -141,7 +141,7 @@ export function ObservationFormDialog({ open, onOpenChange, animalId, earTag, ob
     } else {
       setFormData(defaultFormData)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- init only when open/observation changes
   }, [observation, open])
 
   const handleEquipmentChange = (value: string, checked: boolean) => {
@@ -245,7 +245,7 @@ export function ObservationFormDialog({ open, onOpenChange, animalId, earTag, ob
   }
 
   // 尋找下一個空白欄位
-  const jumpToNextEmptyField = () => {
+  const jumpToNextEmptyField = useCallback(() => {
     const fields = [
       { id: 'event_date', value: formData.event_date },
       { id: 'anesthesia_start', value: formData.anesthesia_start },
@@ -264,7 +264,7 @@ export function ObservationFormDialog({ open, onOpenChange, animalId, earTag, ob
       }
     }
     toast({ title: '完成', description: '所有主要欄位皆已填寫', duration: 2000 })
-  }
+  }, [formData])
 
   // 快捷鍵支援 (Alt + N)
   useEffect(() => {
@@ -276,8 +276,7 @@ export function ObservationFormDialog({ open, onOpenChange, animalId, earTag, ob
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData])
+  }, [jumpToNextEmptyField])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

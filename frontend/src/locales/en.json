@@ -1327,6 +1327,8 @@
     "password": {
         "title": "Change Password",
         "description": "Please enter your current and new password to complete the update",
+        "showPassword": "Show password",
+        "hidePassword": "Hide password",
         "currentPassword": "Current Password",
         "newPassword": "New Password",
         "confirmPassword": "Confirm New Password",

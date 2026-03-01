@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -32,21 +32,22 @@ import {
   QuickAddDialog,
   DuplicateWarningDialog,
 } from './components/AnimalAddDialog'
-import type { NewAnimalForm, QuickAddForm, DuplicateWarningData } from './components/AnimalAddDialog'
+import type { NewAnimalForm } from './components/AnimalAddDialog'
+import {
+  useAnimalFilters,
+  useAnimalDialogs,
+  useAnimalSelection,
+  useAnimalForms,
+} from './hooks/useAnimalsPageState'
 
 export function AnimalsPage() {
   const queryClient = useQueryClient()
-  const [searchParams, setSearchParams] = useSearchParams()
   const { hasRole } = useAuthStore()
   const { t } = useTranslation()
 
   const isPIOrClient = hasRole('PI') || hasRole('CLIENT')
   const isAdmin = hasRole('admin')
   const adminOnlyStatuses = useMemo(() => ['euthanized', 'sudden_death', 'transferred'], [])
-
-  // ─── Filter state ──────────────────────────────────────────────────────────
-  const [search, setSearch] = useState('')
-  const debouncedSearch = useDebounce(search, 400)
 
   const allowedStatuses = useMemo(
     () =>
@@ -55,70 +56,62 @@ export function AnimalsPage() {
         : ['pen', 'unassigned', 'in_experiment', 'completed', ...(isAdmin ? adminOnlyStatuses : []), 'all'],
     [isPIOrClient, isAdmin, adminOnlyStatuses]
   )
-  const urlStatus = searchParams.get('status')
   const defaultStatus = isPIOrClient ? 'in_experiment' : 'pen'
-  const initialStatus = urlStatus && allowedStatuses.includes(urlStatus) ? urlStatus : defaultStatus
-  const [statusFilter, setStatusFilter] = useState<string>(initialStatus)
-  const [breedFilter, setBreedFilter] = useState<string>('all')
 
-  useEffect(() => {
-    if (!allowedStatuses.includes(statusFilter)) {
-      setStatusFilter(defaultStatus)
-      setSearchParams({ status: defaultStatus })
-    }
-  }, [statusFilter, setSearchParams, allowedStatuses, defaultStatus])
+  const filters = useAnimalFilters({ allowedStatuses, defaultStatus })
+  const { search, setSearch, statusFilter, setStatusFilter, breedFilter, setBreedFilter, page, setPage, sortColumn, setSortColumn, sortDirection, setSortDirection, setSearchParams } = filters
+  const debouncedSearch = useDebounce(search, 400)
 
-  // ─── Dialog state ──────────────────────────────────────────────────────────
-  const [showAddDialog, setShowAddDialog] = useState(false)
-  const [showBatchAssignDialog, setShowBatchAssignDialog] = useState(false)
-  const [showBatchExportDialog, setShowBatchExportDialog] = useState(false)
-  const [showImportBasicDialog, setShowImportBasicDialog] = useState(false)
-  const [showImportWeightDialog, setShowImportWeightDialog] = useState(false)
-  const [selectedAnimals, setSelectedAnimals] = useState<string[]>([])
-  const [assignIacucNo, setAssignIacucNo] = useState('')
-  const [quickEditAnimalId, setQuickEditAnimalId] = useState<string | null>(null)
-  const [showPrintReport, setShowPrintReport] = useState(false)
+  const dialogs = useAnimalDialogs()
+  const selection = useAnimalSelection()
+  const forms = useAnimalForms()
+  const {
+    showAddDialog,
+    setShowAddDialog,
+    showBatchAssignDialog,
+    setShowBatchAssignDialog,
+    showBatchExportDialog,
+    setShowBatchExportDialog,
+    showImportBasicDialog,
+    setShowImportBasicDialog,
+    showImportWeightDialog,
+    setShowImportWeightDialog,
+    showPrintReport,
+    setShowPrintReport,
+    showDuplicateWarning,
+    setShowDuplicateWarning,
+    showQuickAddDialog,
+    setShowQuickAddDialog,
+    duplicateWarningData,
+    setDuplicateWarningData,
+  } = dialogs
+  const {
+    selectedAnimals,
+    setSelectedAnimals,
+    assignIacucNo,
+    setAssignIacucNo,
+    quickEditAnimalId,
+    setQuickEditAnimalId,
+  } = selection
+  const {
+    newAnimal,
+    setNewAnimal,
+    quickAddPending,
+    setQuickAddPending,
+    quickAddForm,
+    setQuickAddForm,
+    penBuilding,
+    setPenBuilding,
+    penZone,
+    setPenZone,
+    penNumber,
+    setPenNumber,
+    resetNewAnimalForm,
+  } = forms
 
-  // ─── Pagination / Sort ─────────────────────────────────────────────────────
-  const [page, setPage] = useState(1)
+  useEffect(() => { setPage(1) }, [statusFilter, breedFilter, debouncedSearch, setPage])
+
   const perPage = 50
-  const [sortColumn, setSortColumn] = useState<string | null>(null)
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
-
-  // ─── Duplicate warning ─────────────────────────────────────────────────────
-  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false)
-  const [duplicateWarningData, setDuplicateWarningData] = useState<DuplicateWarningData | null>(null)
-
-  // ─── Quick add (from pen view) ─────────────────────────────────────────────
-  const [showQuickAddDialog, setShowQuickAddDialog] = useState(false)
-  const [quickAddPending, setQuickAddPending] = useState<{ earTag: string; penLocation: string } | null>(null)
-  const [quickAddForm, setQuickAddForm] = useState<QuickAddForm>({
-    breed: 'minipig',
-    breed_other: '',
-    gender: 'male',
-    entry_date: new Date().toISOString().split('T')[0],
-    birth_date: '',
-    entry_weight: '',
-  })
-
-  // ─── New animal form ───────────────────────────────────────────────────────
-  const [penBuilding, setPenBuilding] = useState('')
-  const [penZone, setPenZone] = useState('')
-  const [penNumber, setPenNumber] = useState('')
-  const [newAnimal, setNewAnimal] = useState<NewAnimalForm>({
-    ear_tag: '',
-    breed: 'minipig',
-    gender: 'male',
-    source_id: '',
-    entry_date: new Date().toISOString().split('T')[0],
-    entry_weight: '',
-    birth_date: '',
-    pre_experiment_code: '',
-    remark: '',
-    breed_other: '',
-  })
-
-  useEffect(() => { setPage(1) }, [statusFilter, breedFilter, debouncedSearch])
 
   // ─── Queries ───────────────────────────────────────────────────────────────
   const { data: allAnimalsResp } = useQuery({
@@ -186,17 +179,6 @@ export function AnimalsPage() {
     queryClient.invalidateQueries({ queryKey: ['animals'] })
     queryClient.invalidateQueries({ queryKey: ['animals-by-pen'] })
     queryClient.invalidateQueries({ queryKey: ['animals-count'] })
-  }
-
-  const resetNewAnimalForm = () => {
-    setPenBuilding('')
-    setPenZone('')
-    setPenNumber('')
-    setNewAnimal({
-      ear_tag: '', breed: 'minipig', gender: 'male', source_id: '',
-      entry_date: new Date().toISOString().split('T')[0], entry_weight: '',
-      birth_date: '', pre_experiment_code: '', remark: '', breed_other: '',
-    })
   }
 
   const extractErrorMessage = (error: unknown, fallback: string) => {

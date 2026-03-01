@@ -75,7 +75,7 @@ export function HandwrittenSignaturePad({
         return () => {
             pad.off()
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- init only, refs/emitChange stable
     }, [disabled, showPreview])
 
     // 響應式調整 Canvas 大小

@@ -164,8 +164,7 @@ export const CommentsTab = React.memo(function CommentsTab({
       map.set(reviewerId, t(`protocols.detail.actions.reviewer${letter}`))
     })
     return map
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [comments, protocolId])
+  }, [comments, protocolId, t])
 
   const getReviewerDisplayName = (comment: ReviewCommentResponse) => {
     if (comment.parent_comment_id && (comment.replied_by === protocol.pi_user_id || comment.replied_by_name)) {

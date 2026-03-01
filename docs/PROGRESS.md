@@ -55,6 +55,64 @@
 
 ## 9. 最新變更動態
 
+### 2026-03-01 iPig R5 改善計畫 Phase 2 執行（項目 3、4、5、6）
+
+依據 `dazzling-twirling-kitten.md` 計劃執行：
+
+**項目 3：大型頁面元件拆分 (P1) ✅**
+- **3a DocumentEditPage**：311 行，拆出 `useDocumentForm`、`DocumentLineEditor`、`DocumentPreview`、`types.ts`
+- **3b UsersPage**：150 行，拆出 `useUserManagement`、`UserTable`、`UserFormDialogs`
+- **3c BloodTestTemplatesPage**：143 行，拆出 `useBloodTestTemplates`、`BloodTestTemplateTable`、`BloodTestTemplateFormDialog`、`BloodTestPanelFormDialog`
+- **3d SurgeryFormDialog**：108 行，拆出 `SurgeryBasicInfoSection`、`SurgeryProcedureSection`、`SurgeryAnesthesiaSection`、`useSurgeryForm`、`SurgeryFormComponents`
+
+**項目 4：useState → custom hooks (P1) ✅**
+- **AnimalsPage**：25 useState → 4 hooks（useAnimalFilters、useAnimalDialogs、useAnimalSelection、useAnimalForms），頁面 useState 數歸零
+
+**項目 5：Alertmanager Receiver 設定 (P1) ✅**
+- 新增 `monitoring/alertmanager/alertmanager.example.yml` 範本（含 `${ALERTMANAGER_WEBHOOK_URL}`、`${ALERT_EMAIL_*}`）
+- 自訂 Dockerfile + entrypoint.sh（sed 替換，busybox 相容），啟動時自動 envsubst
+- `docker-compose.monitoring.yml` 建置自訂映像、加入 ALERT_* 環境變數
+- `.env.example` 補齊 Alertmanager 通知變數說明
+
+**項目 6：Git Pre-commit Hooks (P1) ✅**
+- 專案根目錄 `package.json` 已有 husky、lint-staged
+- `.husky/pre-commit`：前端 lint-staged（ESLint + Prettier）、後端 `cargo fmt --check`
+
+### 2026-03-01 iPig R5 改善計畫 Phase 1 執行（項目 1–2）
+
+依據 `dazzling-twirling-kitten.md` 計劃執行：
+
+**項目 1：eslint-disable 清理 (P0) ✅**
+- 修正 3 處 ESLint 錯誤：utils.test.ts 常數表達式、EquipmentPage/TrainingRecordsPage 未使用 `Search` 匯入
+- 移除 4 處 eslint-disable：ProtocolsPage (useCallback getStatusName)、BloodTestTemplatesPage (useCallback sortTemplates)、ErpPage (移除未使用 hasPermission)、ObservationFormDialog + SurgeryFormDialog (useCallback jumpToNextEmptyField)
+- 保留並改善註釋 6 處：DocumentEditPage、ObservationFormDialog、SacrificeFormDialog、SurgeryFormDialog、handwritten-signature-pad、WarehouseLayoutPage 的 init-only / ref-loop 正當抑制
+- `npx eslint src/ --max-warnings 0` 通過
+
+**項目 2：前端單元測試擴充 (P0) ✅**
+- 新增 `useApiError.test.ts`（5 tests：handleError、withErrorHandling、成功/失敗流程）
+- 新增 `useHeartbeat.test.ts`（3 tests：未認證不發送、認證時初始 heartbeat、活動監聽）
+- 現有 lib/、hooks/ 測試：utils、queryKeys、sanitize、validation、validations、logger、useDebounce、useConfirmDialog、useUnsavedChangesGuard
+- `npx vitest run` 全數通過（207 tests）
+
+### 2026-03-01 財務 SOC2 QAU 三項規劃完成
+
+**一、QAU（品質保證檢視）**
+- `022_qau_accounting_plan.sql`（整合 022–024）：QAU 角色與權限、會計基礎（科目/傳票/分錄）、AP/AR 付款收款表
+- `GET /qau/dashboard`：handlers/qau.rs、services/qau.rs，計畫狀態、審查進度、稽核摘要、動物統計
+- `QAUDashboardPage.tsx`，路由 `/admin/qau`，側邊欄僅 QAU 可見
+
+**二、SOC2 缺口補齊**
+- 憑證輪換（半自動）：`check_credential_rotation.sh`（每月提醒）、`record_credential_rotation.sh`（紀錄輪換）；JWT 不輪換
+- `docs/SLA.md`：RTO/RPO、可用性目標
+- `docs/DR_DRILL_CHECKLIST.md`：DR 演練檢查表
+
+**三、財務模組（AP/AR/GL）**
+- **Phase 1**：會計基礎（migration 022 內）、`AccountingService::post_document`；GRN/DO 核准時自動過帳
+- **Phase 2（AP）**：`ap_payments`、`POST /accounting/ap-payments`、`GET /accounting/ap-aging`、前端「新增付款」
+- **Phase 3（AR）**：`ar_receipts`、`POST /accounting/ar-receipts`、`GET /accounting/ar-aging`、前端「新增收款」
+- **Phase 4（GL）**：`GET /accounting/trial-balance`、`/journal-entries`、`/chart-of-accounts`
+- **Phase 5（UI）**：`AccountingReportPage` 四 Tab、ERP 報表中心「會計報表」入口 `/accounting`
+
 ### 2026-03-01 P0–P2 改進計劃執行完成（P1-M0～P2-M2）
 
 - **P1-M3**：新增 `docs/OPERATIONS.md`（服務擁有者、on-call、升級流程、故障排除）

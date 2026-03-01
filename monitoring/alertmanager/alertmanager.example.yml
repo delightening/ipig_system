@@ -1,0 +1,48 @@
+# Alertmanager 設定範本 — 使用 envsubst 替換環境變數
+#
+# 用法（需先設定環境變數，見 .env.example）：
+#   source .env 2>/dev/null
+#   ./scripts/generate-alertmanager-config.sh
+#
+# 或手動：
+#   export ALERTMANAGER_WEBHOOK_URL="https://your-webhook-url"
+#   envsubst < monitoring/alertmanager/alertmanager.example.yml > monitoring/alertmanager/alertmanager.yml
+#
+# 注意：若變數為空，產生的 url 會為空字串，Alertmanager 可能無法啟動。
+# 未啟用通知時請保留原有 alertmanager.yml（註解版）。
+
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ["alertname", "severity"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: "default"
+
+  routes:
+    - match:
+        severity: critical
+      receiver: "critical"
+      repeat_interval: 1h
+
+receivers:
+  - name: "default"
+    # 留空則不發送；設定 ALERTMANAGER_WEBHOOK_URL 後執行 generate-alertmanager-config.sh
+    webhook_configs:
+      - url: "${ALERTMANAGER_WEBHOOK_URL}"
+        send_resolved: true
+
+  - name: "critical"
+    webhook_configs:
+      - url: "${ALERTMANAGER_WEBHOOK_URL}"
+        send_resolved: true
+    # 設定 ALERT_EMAIL_* 後啟用 email 通知
+    email_configs:
+      - to: "${ALERT_EMAIL_TO}"
+        from: "${ALERT_EMAIL_FROM}"
+        smarthost: "${ALERT_SMTP_HOST}"
+        auth_username: "${ALERT_SMTP_USER}"
+        auth_password: "${ALERT_SMTP_PASSWORD}"
+        require_tls: true

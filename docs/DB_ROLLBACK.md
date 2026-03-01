@@ -1,7 +1,40 @@
 # iPIG 資料庫 Rollback 參考手冊
 
-> **用途**：本文件記錄每一個 UP migration（001–014）的反向 SQL，供手動回退資料庫結構時參考。  
+> **用途**：本文件記錄 UP migration 的反向 SQL，供手動回退資料庫結構時參考。涵蓋 001–014、022。  
 > **SQLx 注意**：SQLx（Rust）不原生支援 DOWN migration，因此所有回退操作需透過手動執行 SQL 完成。
+
+---
+
+## Migration checksum 錯誤（「was previously applied but has been modified」）
+
+當 `sqlx migrate run` 出現此錯誤，通常是 migration 檔案的 **CRLF/LF 換行符** 在 Windows/Linux 間不一致。
+
+**解法（開發環境）：**
+
+```powershell
+cd backend
+cargo run --bin fix_migration_checksum
+sqlx migrate run
+```
+
+`fix_migration_checksum` 會將 `_sqlx_migrations` 中**所有已套用** migration 的 checksum 更新為當前檔案的 checksum。  
+為避免未來發生，`migrations/.gitattributes` 已設定 `*.sql text eol=lf`，請確保 Git 有正確 checkout。
+
+### 若出現 "relation X does not exist" 於後續 migration
+
+表示 `_sqlx_migrations` 紀錄的已套用 migrations 與實際 schema 不一致（例如 DB 曾被還原或手動清空）。  
+**開發環境**建議直接重設 DB 並從頭執行 migrations：
+
+```powershell
+# 取得 DATABASE_URL 中的資料庫名稱（例如 ipig_db）
+# 然後：
+psql -U postgres -c "DROP DATABASE IF EXISTS ipig_db;"
+psql -U postgres -c "CREATE DATABASE ipig_db;"
+cd backend
+sqlx migrate run
+```
+
+若使用 Docker 或其他連線方式，請依環境調整 `psql` 參數。
 
 ---
 
@@ -28,6 +61,30 @@
 6. 手動更新 SQLx 的 _sqlx_migrations 表（刪除對應的 migration 紀錄）：
    DELETE FROM _sqlx_migrations WHERE version >= <目標版本>;
 7. 重啟後端服務
+```
+
+---
+
+## Migration 022: QAU 與財務模組（整合）
+
+**原始操作**：QAU 角色權限、會計基礎（account_type、chart_of_accounts、journal_entries、journal_entry_lines）、AP/AR 付款收款表（ap_payments、ar_receipts）。
+
+```sql
+-- Rollback 022: 依建立順序逆序刪除
+DROP TABLE IF EXISTS ar_receipts;
+DROP TABLE IF EXISTS ap_payments;
+DROP SEQUENCE IF EXISTS ar_receipt_no_seq;
+DROP SEQUENCE IF EXISTS ap_payment_no_seq;
+DROP TABLE IF EXISTS journal_entry_lines;
+DROP TABLE IF EXISTS journal_entries;
+DROP SEQUENCE IF EXISTS journal_entry_no_seq;
+DROP TABLE IF EXISTS chart_of_accounts;
+DROP TYPE IF EXISTS account_type;
+
+DELETE FROM role_permissions WHERE role_id IN (SELECT id FROM roles WHERE code = 'QAU');
+DELETE FROM user_roles WHERE role_id IN (SELECT id FROM roles WHERE code = 'QAU');
+DELETE FROM roles WHERE code = 'QAU';
+DELETE FROM permissions WHERE code IN ('qau.dashboard.view', 'qau.protocol.view', 'qau.audit.view', 'qau.animal.view');
 ```
 
 ---

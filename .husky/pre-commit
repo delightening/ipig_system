@@ -1,0 +1,5 @@
+#!/bin/sh
+# 前端 lint-staged（從專案根目錄執行）
+npx lint-staged
+# 後端 cargo fmt check（如已安裝）
+(cd backend && cargo fmt --check 2>/dev/null) || true
