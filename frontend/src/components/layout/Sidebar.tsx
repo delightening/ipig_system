@@ -418,7 +418,8 @@ export function Sidebar({
         }
         if (item.permission === 'erp') {
           const hasErpAccess = hasRole('admin') ||
-            user?.permissions?.some(p => p.startsWith('erp.'))
+            user?.permissions?.some(p => p.startsWith('erp.')) ||
+            user?.permissions?.some(p => p.startsWith('equipment.'))
           return hasErpAccess
         }
         if (item.permission && !hasPermission(item.permission) && !hasRole(item.permission)) {

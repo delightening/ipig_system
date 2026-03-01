@@ -1,5 +1,5 @@
 -- ============================================
--- Migration 002: Animal Management (合併原 003)
+-- Migration 005: 動物管理
 -- ============================================
 
 CREATE TABLE animal_sources (

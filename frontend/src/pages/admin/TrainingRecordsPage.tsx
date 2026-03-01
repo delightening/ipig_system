@@ -88,8 +88,9 @@ const EXPIRING_DAYS = 30
 
 export function TrainingRecordsPage() {
   const queryClient = useQueryClient()
-  const { hasPermission } = useAuthStore()
-  const canManage = hasPermission('training.manage')
+  const { hasPermission, user } = useAuthStore()
+  const canManage = hasPermission('training.manage') || hasPermission('training.manage_own')
+  const canManageAll = hasPermission('training.manage') // 可管理所有人紀錄（admin_staff 審批用）
   const { activeTab, setActiveTab } = useTabState<'records' | 'stats'>('records')
   const dialogs = useDialogSet(['create', 'edit'] as const)
   const [selectedUserId, setSelectedUserId] = useState<string>('')
@@ -233,11 +234,12 @@ export function TrainingRecordsPage() {
   }
 
   const handleCreate = () => {
-    if (!form.user_id || !form.course_name.trim() || !form.completed_at) {
-      toast({ title: '錯誤', description: '請填寫必填欄位（人員、課程名稱、完成日期）', variant: 'destructive' })
+    const userId = canManageAll ? form.user_id : user?.id
+    if (!userId || !form.course_name.trim() || !form.completed_at) {
+      toast({ title: '錯誤', description: '請填寫必填欄位（課程名稱、完成日期）', variant: 'destructive' })
       return
     }
-    createMutation.mutate(form)
+    createMutation.mutate({ ...form, user_id: userId })
   }
 
   const handleUpdate = () => {
@@ -299,7 +301,11 @@ export function TrainingRecordsPage() {
           <p className="text-muted-foreground">GLP 合規：管理人員訓練與證照有效期限</p>
         </div>
         {canManage && (
-          <Button onClick={() => { resetForm(); dialogs.open('create') }}>
+          <Button onClick={() => {
+            resetForm()
+            if (!canManageAll && user?.id) setForm(f => ({ ...f, user_id: user.id }))
+            dialogs.open('create')
+          }}>
             <Plus className="h-4 w-4 mr-2" />
             新增訓練紀錄
           </Button>
@@ -349,22 +355,48 @@ export function TrainingRecordsPage() {
         <TabsContent value="records" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>選擇員工查看訓練紀錄</CardTitle>
+              <CardTitle>{canManageAll ? '選擇員工查看訓練紀錄' : '我的訓練紀錄'}</CardTitle>
               <CardDescription>
-                選擇員工以查看其訓練課程紀錄與證照有效期限
+                {canManageAll ? '選擇員工以查看其訓練課程紀錄與證照有效期限' : '查看與管理您的訓練課程紀錄與證照有效期限'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* 搜尋框 */}
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="搜尋員工姓名或 Email..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8"
-                />
-              </div>
+              {/* 僅管理全部者可篩選員工 */}
+              {canManageAll && (
+                <>
+                  <div className="relative">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="搜尋員工姓名或 Email..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-8"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
+                    <Button
+                      variant={!selectedUserId ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setSelectedUserId('')}
+                      className="justify-start"
+                    >
+                      全部人員
+                    </Button>
+                    {filteredUsers.map((u) => (
+                      <Button
+                        key={u.id}
+                        variant={selectedUserId === u.id ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setSelectedUserId(u.id)}
+                        className="justify-start"
+                      >
+                        <User className="h-4 w-4 mr-2" />
+                        {u.display_name || u.email}
+                      </Button>
+                    ))}
+                  </div>
+                </>
+              )}
 
               {/* 課程名稱篩選 */}
               <Input
@@ -373,30 +405,6 @@ export function TrainingRecordsPage() {
                 onChange={(e) => setKeyword(e.target.value)}
                 className="max-w-sm"
               />
-
-              {/* 員工標籤 */}
-              <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
-                <Button
-                  variant={!selectedUserId ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedUserId('')}
-                  className="justify-start"
-                >
-                  全部人員
-                </Button>
-                {filteredUsers.map((u) => (
-                  <Button
-                    key={u.id}
-                    variant={selectedUserId === u.id ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedUserId(u.id)}
-                    className="justify-start"
-                  >
-                    <User className="h-4 w-4 mr-2" />
-                    {u.display_name || u.email}
-                  </Button>
-                ))}
-              </div>
 
               {/* 訓練紀錄表格 */}
               <div className="mt-4">
@@ -543,21 +551,25 @@ export function TrainingRecordsPage() {
             <DialogDescription>填寫課程名稱、完成日期與有效期限（選填）</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div>
-              <Label>人員 *</Label>
-              <Select value={form.user_id} onValueChange={(v) => setForm({ ...form, user_id: v })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="選擇人員" />
-                </SelectTrigger>
-                <SelectContent>
-                  {users.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {u.display_name || u.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {canManageAll ? (
+              <div>
+                <Label>人員 *</Label>
+                <Select value={form.user_id} onValueChange={(v) => setForm({ ...form, user_id: v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="選擇人員" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {users.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.display_name || u.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">人員：{user?.display_name || user?.email}</div>
+            )}
             <div>
               <Label>課程名稱 *</Label>
               <Input

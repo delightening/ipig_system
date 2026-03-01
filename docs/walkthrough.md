@@ -1,4 +1,44 @@
-# reviewdog 設定與專案檢查報告
+# 專案 Walkthrough 紀錄
+
+---
+
+## PowerShell Migration 執行紀錄（2026-03-01）
+
+### 背景
+
+於 PowerShell 執行 `sqlx migrate run` 進行資料庫遷移。
+
+### 嘗試 1：sqlx-cli
+
+```powershell
+cargo install sqlx-cli --no-default-features --features postgres
+```
+
+**結果**：失敗。錯誤 `linker 'link.exe' not found`，需安裝 Visual Studio Build Tools（含 C++ 工作負載）或 MSVC 工具鏈。
+
+### 嘗試 2：Docker + psql 直接執行 SQL
+
+```powershell
+$env:DATABASE_URL = "postgres://postgres:ipig_password_123@localhost:543/ipig_db"
+Get-Content "backend\migrations\001_types.sql" -Raw | docker exec -i ipig-db psql -U postgres -d ipig_db
+```
+
+**結果**：
+1. **Schema 已存在**：資料庫已跑過舊 migrations，types/tables/indexes 多數已存在，產生大量 `already exists` 錯誤。
+2. **編碼問題**：PowerShell 預設編碼導致 migration 內中文（如權限描述）變成 `??????`，造成 INSERT 語法錯誤。
+3. **結論**：新 migrations（001~010）僅適用於**全新安裝**，既有環境請勿直接套用。詳見 `docs/MIGRATION_REFACTOR_2026-03-01.md`。
+
+### 建議做法
+
+| 情境 | 做法 |
+|------|------|
+| **全新安裝** | 1. 安裝 MSVC 工具鏈後 `cargo install sqlx-cli`<br>2. `$env:DATABASE_URL="postgres://postgres:ipig_password_123@localhost:543/ipig_db"`<br>3. `cd backend; sqlx migrate run` |
+| **既有 DB** | 維持現狀，或備份後 drop database 重建再執行 migrations |
+| **CI（Linux）** | GitHub Actions 已使用 `cargo install sqlx-cli`，無 MSVC 問題 |
+
+---
+
+## reviewdog 設定與專案檢查報告
 
 ## 1. 已完成項目
 

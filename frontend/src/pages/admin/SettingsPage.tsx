@@ -31,6 +31,13 @@ import {
   Download,
   Upload,
 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import api from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { getErrorMessage } from '@/types/error'
@@ -132,6 +139,9 @@ export function SettingsPage() {
   }
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [importErrorsOpen, setImportErrorsOpen] = useState(false)
+  const [lastImportErrors, setLastImportErrors] = useState<string[]>([])
+
   const handleFullImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!canImport || !e.target.files?.[0]) return
     const file = e.target.files[0]
@@ -156,6 +166,10 @@ export function SettingsPage() {
           ? `${d.tables_processed} 表處理，${d.rows_inserted} 筆新增，${d.rows_skipped} 筆略過；${d.errors.length} 個錯誤`
           : `${d.tables_processed} 表處理，${d.rows_inserted} 筆新增，${d.rows_skipped} 筆略過`
       toast({ title: '匯入完成', description: msg })
+      if (d.errors.length > 0) {
+        setLastImportErrors(d.errors)
+        setImportErrorsOpen(true)
+      }
       queryClient.invalidateQueries()
       if (fileInputRef.current) fileInputRef.current.value = ''
     } catch (err) {
@@ -516,16 +530,16 @@ export function SettingsPage() {
                   )}
                   {canImport && (
                     <div className="flex items-center gap-2 pt-2 border-t">
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept=".json,.zip"
-                        className="hidden"
-                        aria-label="選擇 IDXF JSON 檔案"
-                        onChange={handleFullImport}
-                        disabled={importing}
-                      />
-                      <Button
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept=".json,.zip"
+                          className="hidden"
+                          aria-label="選擇 IDXF JSON 檔案"
+                          onChange={handleFullImport}
+                          disabled={importing}
+                        />
+                        <Button
                         variant="outline"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={importing}
@@ -538,7 +552,7 @@ export function SettingsPage() {
                         上傳 IDXF 匯入
                       </Button>
                       <span className="text-xs text-muted-foreground">
-                        支援 JSON 或 Zip 分包，最大 100 MB
+                        遇重複則取代；支援 JSON 或 Zip，最大 100 MB
                       </span>
                     </div>
                   )}
@@ -831,6 +845,30 @@ export function SettingsPage() {
 
       {/* 通知路由管理 */}
       <NotificationRoutingSection />
+
+      {/* 匯入錯誤詳情 Dialog */}
+      <Dialog open={importErrorsOpen} onOpenChange={setImportErrorsOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertCircle className="h-5 w-5" />
+              匯入錯誤詳情
+            </DialogTitle>
+            <DialogDescription>
+              以下 {lastImportErrors.length} 個資料表匯入時發生錯誤，其餘表已成功匯入。請將錯誤訊息提供給開發人員以協助修正。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-y-auto flex-1 min-h-0 rounded border bg-muted/30 p-3 font-mono text-sm">
+            <ul className="space-y-1.5">
+              {lastImportErrors.map((err, i) => (
+                <li key={i} className="text-destructive/90 break-words">
+                  {i + 1}. {err}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

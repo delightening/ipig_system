@@ -31,6 +31,7 @@ graph TD
 | ADMIN_STAFF | 行政人員 | 行政事務、HR 管理 | 內部 |
 | WAREHOUSE_MANAGER | 倉庫管理員 | ERP 進銷存系統 | 內部 |
 | PURCHASING | 採購人員 | 採購作業 | 內部 |
+| EQUIPMENT_MAINTENANCE | 設備維護人員 | 設備維護、校準紀錄管理 | 內部 |
 | PROGRAM_ADMIN | 程式管理員 | 系統程式層級管理 | 內部 |
 | EXPERIMENT_STAFF | 試驗工作人員 | 實驗操作、數據記錄 | 內部 |
 | VET | 獸醫師 | 計畫審查、動物健康管理 | 內部 |
@@ -61,6 +62,10 @@ graph TD
     
     subgraph ERP 管理
         WH[WAREHOUSE_MANAGER<br/>進銷存]
+    end
+    
+    subgraph 設備維護
+        MNT[EQUIPMENT_MAINTENANCE<br/>設備與校準管理]
     end
     
     subgraph HR 管理
@@ -184,7 +189,21 @@ graph TD
 | erp.stocktake.create | 盤點 | 可盤點 |
 | erp.report.view/export/download | 報表 | 查看/匯出/下載 |
 | erp.storage.view/edit | 儲位 | 查看/編輯 |
-| erp.storage.inventory.view/edit | 儲位庫存 | 查看/編輯 |
+
+### 3.8 人員訓練 (training.*)
+
+| 權限代碼 | 名稱 | 說明 |
+|----------|------|------|
+| training.view | 查看訓練紀錄 | 可查看人員訓練紀錄 |
+| training.manage_own | 管理自己的訓練紀錄 | 可新增、編輯、刪除**自己的**訓練紀錄（EXPERIMENT_STAFF） |
+| training.manage | 管理訓練紀錄 | 可新增、編輯、刪除**所有人**的訓練紀錄（ADMIN_STAFF 審批用） |
+
+### 3.9 設備維護 (equipment.*)
+
+| 權限代碼 | 名稱 | 說明 |
+|----------|------|------|
+| equipment.view | 查看設備 | 可查看設備與校正紀錄 |
+| equipment.manage | 管理設備 | 可新增、編輯、刪除設備與校正紀錄（特定人員維護） |
 
 ### 3.6 HR 系統 (hr.*)
 
@@ -216,7 +235,14 @@ graph TD
 | audit.alerts.view | 查看安全警報 | 可查看安全警報 |
 | audit.alerts.manage | 管理安全警報 | 可處理安全警報 |
 
-### 3.8 通知/報表 (notification.*, report.*)
+### 3.8 設備維護 (equipment.*)
+
+| 權限代碼 | 名稱 | 說明 |
+|----------|------|------|
+| equipment.view | 查看設備 | 可查看設備與校準紀錄 |
+| equipment.manage | 管理設備 | 可新增、編輯、刪除設備與校準紀錄 |
+
+### 3.9 通知/報表 (notification.*, report.*)
 
 | 權限代碼 | 名稱 | 說明 |
 |----------|------|------|
@@ -230,18 +256,19 @@ graph TD
 
 ## 4. 角色預設權限摘要
 
-| 角色 | admin | aup | amendment | animal | erp | hr | audit | notification |
-|------|-------|-----|-----------|--------|-----|-----|-------|-------------|
-| **admin** | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 |
-| **ADMIN_STAFF** | user.view/create/edit | — | — | — | — | ✅ 全部 | — | view |
-| **WAREHOUSE_MANAGER** | — | — | — | — | ✅ 全部 | — | — | view |
-| **EXPERIMENT_STAFF** | — | view_own | — | ✅ 動物 CRUD + 匯出 | inventory.view, product.view | 個人 HR | — | view |
-| **VET** | — | view_all, review | read, review | view + vet功能 + 安樂死 | — | — | — | view |
-| **IACUC_STAFF** | user.view | view_all, change_status, assign | read | view_all | — | — | — | view |
-| **IACUC_CHAIR** | — | view_all, review, approve, change_status, assign | read, review | — | — | — | — | view |
-| **REVIEWER** | — | view_all, review, comment | read, review | — | — | — | — | view |
-| **PI** | — | view_own, create, edit, submit | create, submit, read | view_project | — | — | — | view |
-| **CLIENT** | — | view_own, attachment.view | — | view_project | — | — | — | view |
+| 角色 | admin | aup | amendment | animal | erp | equipment | hr | audit | notification |
+|------|-------|-----|-----------|--------|-----|-----------|-----|-------|-------------|
+| **admin** | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 |
+| **ADMIN_STAFF** | user.view/create/edit | — | — | — | — | view, manage | ✅ 全部（含 training 審批） | — | view |
+| **EQUIPMENT_MAINTENANCE** | — | — | — | — | — | view, manage | — | — | view |
+| **WAREHOUSE_MANAGER** | — | — | — | — | ✅ 全部 | — | — | — | view |
+| **EXPERIMENT_STAFF** | — | view_own | — | ✅ 動物 CRUD + 匯出 | inventory.view, product.view | — | 個人 HR + training 自己 | — | view |
+| **VET** | — | view_all, review | read, review | view + vet功能 + 安樂死 | — | — | — | — | view |
+| **IACUC_STAFF** | user.view | view_all, change_status, assign | read | view_all | — | — | — | — | view |
+| **IACUC_CHAIR** | — | view_all, review, approve, change_status, assign | read, review | — | — | — | — | — | view |
+| **REVIEWER** | — | view_all, review, comment | read, review | — | — | — | — | — | view |
+| **PI** | — | view_own, create, edit, submit | create, submit, read | view_project | — | — | — | — | view |
+| **CLIENT** | — | view_own, attachment.view | — | view_project | — | — | — | — | view |
 
 ---
 
@@ -251,8 +278,8 @@ graph TD
 
 具備以下任一條件可存取 Dashboard：
 - `admin` 角色
-- `EXPERIMENT_STAFF`、`REVIEWER`、`VET`、`IACUC_CHAIR` 角色
-- 任何 `erp.*` 權限
+- `EXPERIMENT_STAFF`、`REVIEWER`、`VET`、`IACUC_CHAIR`、`EQUIPMENT_MAINTENANCE` 角色
+- 任何 `erp.*` 或 `equipment.*` 權限
 
 否則導向 `/my-projects`
 

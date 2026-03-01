@@ -377,12 +377,13 @@ function App() {
                         <Route path="/admin/treatment-drugs" element={<TreatmentDrugOptionsPage />} />
                     </Route>
 
-                    {/* 人員訓練 - admin 或 training.view/manage 可存取 */}
+                    {/* 人員訓練 - admin 或 training.view/manage/manage_own 可存取 */}
                     <Route path="/hr/training-records" element={
                         <RequirePermission anyOf={[
                             { role: 'admin' },
                             { permission: 'training.view' },
-                            { permission: 'training.manage' }
+                            { permission: 'training.manage' },
+                            { permission: 'training.manage_own' }
                         ]}>
                             <TrainingRecordsPage />
                         </RequirePermission>

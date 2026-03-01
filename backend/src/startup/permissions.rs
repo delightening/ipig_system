@@ -38,6 +38,7 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         // 人員訓練紀錄 (GLP 合規)
         ("training.view", "查看訓練紀錄", "training", "可查看人員訓練紀錄"),
         ("training.manage", "管理訓練紀錄", "training", "可新增、編輯、刪除訓練紀錄"),
+        ("training.manage_own", "管理自己的訓練紀錄", "training", "可新增、編輯、刪除自己的訓練紀錄"),
         ("equipment.view", "查看設備", "equipment", "可查看設備與校正紀錄"),
         ("equipment.manage", "管理設備", "equipment", "可新增、編輯、刪除設備與校正紀錄"),
         // QAU (GLP 品質保證單位) - 唯讀檢視
@@ -290,6 +291,8 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "hr.leave.view", "hr.leave.create",
             "hr.overtime.view", "hr.overtime.create",
             "hr.balance.view",
+            // 人員訓練紀錄（僅管理自己的）
+            "training.view", "training.manage_own",
             // Dashboard 權限
             "dashboard.view",
         ]),
@@ -332,6 +335,15 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "qau.dashboard.view", "qau.protocol.view", "qau.audit.view", "qau.animal.view",
             "aup.protocol.view_all", "aup.review.view", "aup.attachment.view", "aup.attachment.download",
             "aup.version.view", "audit.logs.view", "animal.animal.view_all", "animal.record.view",
+            "dashboard.view",
+        ]),
+        
+        // ============================================
+        // EQUIPMENT_MAINTENANCE (設備維護人員) - 設備與校準紀錄管理
+        // ============================================
+        ("EQUIPMENT_MAINTENANCE", vec![
+            "equipment.view", "equipment.manage",
+            "training.view", "training.manage_own",
             "dashboard.view",
         ]),
         

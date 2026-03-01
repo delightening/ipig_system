@@ -1,7 +1,8 @@
 -- ============================================
--- Migration 007: Supplementary (合併原 008, 009, 010)
+-- Migration 009: 補充功能、修正、效能
 -- ============================================
 
+-- 9.1 通知路由
 CREATE TABLE notification_routing (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_type VARCHAR(80) NOT NULL,
@@ -26,6 +27,7 @@ INSERT INTO notification_routing (event_type, role_code, channel, description) V
 ('animal_abnormal_record','VET','both','動物異常紀錄'),('animal_sudden_death','VET','both','動物猝死'),('low_stock_alert','PURCHASING','in_app','低庫存預警')
 ON CONFLICT (event_type, role_code) DO NOTHING;
 
+-- 9.2 電子簽章
 CREATE TABLE electronic_signatures (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     entity_type VARCHAR(50) NOT NULL,
@@ -59,6 +61,7 @@ CREATE TABLE record_annotations (
 );
 CREATE INDEX idx_annot_record ON record_annotations (record_type, record_id);
 
+-- 9.3 治療藥物選項
 CREATE TABLE treatment_drug_options (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(200) NOT NULL,
@@ -90,3 +93,73 @@ CREATE TABLE jwt_blacklist (
     revoked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX idx_jwt_blacklist_expires ON jwt_blacklist(expires_at);
+
+-- 9.4 Enum cast 函式
+CREATE OR REPLACE FUNCTION version_record_type_to_text(version_record_type) RETURNS text AS $$
+    SELECT (SELECT enumlabel FROM pg_enum WHERE enumtypid = 'version_record_type'::regtype ORDER BY enumsortorder OFFSET (array_position(enum_range(NULL::version_record_type), $1) - 1) LIMIT 1);
+$$ LANGUAGE SQL STABLE;
+
+CREATE OR REPLACE FUNCTION text_to_version_record_type(text) RETURNS version_record_type AS $$
+    SELECT r.v FROM unnest(enum_range(NULL::version_record_type)) AS r(v) WHERE version_record_type_to_text(r.v) = $1 LIMIT 1;
+$$ LANGUAGE SQL STABLE;
+
+CREATE OR REPLACE FUNCTION animal_record_type_to_text(animal_record_type) RETURNS text AS $$
+    SELECT $1::text;
+$$ LANGUAGE SQL IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION record_type_to_text(record_type) RETURNS text AS $$
+    SELECT $1::text;
+$$ LANGUAGE SQL IMMUTABLE;
+
+DROP CAST IF EXISTS (version_record_type AS text);
+DROP CAST IF EXISTS (text AS version_record_type);
+DROP CAST IF EXISTS (animal_record_type AS text);
+DROP CAST IF EXISTS (record_type AS text);
+
+CREATE CAST (version_record_type AS text) WITH FUNCTION version_record_type_to_text(version_record_type) AS ASSIGNMENT;
+CREATE CAST (text AS version_record_type) WITH FUNCTION text_to_version_record_type(text) AS ASSIGNMENT;
+CREATE CAST (animal_record_type AS text) WITH FUNCTION animal_record_type_to_text(animal_record_type) AS ASSIGNMENT;
+CREATE CAST (record_type AS text) WITH FUNCTION record_type_to_text(record_type) AS ASSIGNMENT;
+
+-- 9.5 Optimistic locking
+ALTER TABLE animals ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE protocols ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE animal_observations ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE animal_surgeries ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
+
+-- 9.6 System settings seed
+INSERT INTO system_settings (key, value, description) VALUES
+('company_name', '"iPig System"', '公司/系統名稱'),
+('default_warehouse_id', '""', '預設倉庫 UUID'),
+('cost_method', '"weighted_average"', '成本計算方式'),
+('smtp_host', '""', 'SMTP 主機'),('smtp_port', '"587"', 'SMTP 埠'),('smtp_username', '""', 'SMTP 帳號'),('smtp_password', '""', 'SMTP 密碼'),
+('smtp_from_email', '"noreply@erp.local"', '寄件人 Email'),('smtp_from_name', '"iPig System"', '寄件人顯示名稱'),
+('session_timeout_minutes', '"360"', 'Session 逾時（分鐘）')
+ON CONFLICT (key) DO NOTHING;
+
+-- 9.7 TOTP 2FA
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret_encrypted TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_backup_codes TEXT[];
+
+-- 9.8 效能索引
+CREATE INDEX IF NOT EXISTS idx_animals_status_deleted_created ON animals(status, is_deleted, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_protocols_status_pi_created ON protocols(status, pi_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_read_created ON notifications(user_id, is_read, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_entity_created ON user_activity_logs(entity_type, entity_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_attachments_entity ON attachments(entity_type, entity_id);
+
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+
+CREATE OR REPLACE FUNCTION maintenance_vacuum_analyze() RETURNS void AS $$
+BEGIN
+    ANALYZE animals; ANALYZE animal_observations; ANALYZE animal_surgeries; ANALYZE animal_weights;
+    ANALYZE animal_vaccinations; ANALYZE vet_recommendations; ANALYZE notifications;
+    ANALYZE user_activity_logs; ANALYZE attachments; ANALYZE protocols; ANALYZE audit_logs;
+    RAISE NOTICE 'maintenance_vacuum_analyze completed at %', NOW();
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE VIEW slow_queries AS
+SELECT queryid, LEFT(query, 200) AS query_preview, calls, mean_exec_time AS avg_ms, total_exec_time AS total_ms, rows
+FROM pg_stat_statements WHERE mean_exec_time > 100 ORDER BY mean_exec_time DESC LIMIT 50;
