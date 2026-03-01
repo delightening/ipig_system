@@ -180,7 +180,7 @@ graph TD
 | erp.document.edit | 編輯單據 | 可編輯單據 |
 | erp.document.submit | 送審單據 | 可送審 |
 | erp.document.approve | 核准單據 | 可核准 |
-| erp.inventory.view | 查看庫存 | 庫存唯讀 |
+| erp.stock.view | 查看庫存 | 庫存唯讀（含現況、流水、低庫存警示） |
 | erp.purchase.create | 建立採購單 | 可建立 PO |
 | erp.purchase.approve | 核准採購單 | 可核准 PO |
 | erp.grn.create | 建立進貨單 | 可建立 GRN |
