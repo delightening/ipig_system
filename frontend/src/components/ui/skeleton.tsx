@@ -143,9 +143,13 @@ export function Skeleton(props: SkeletonProps) {
     }
 }
 
-/** 基礎行內骨架（適合在文字行間使用） */
+/** 基礎行內骨架（適合在文字行間使用，使用 span 避免在 p 內產生 block 元素） */
 export function InlineSkeleton({ className }: SkeletonBaseProps) {
-    return <SkeletonPulse className={cn('inline-block h-4 w-20', className)} />
+    return (
+        <span
+            className={cn('inline-block h-4 w-20 animate-pulse rounded-md bg-muted', className)}
+        />
+    )
 }
 
 export { SkeletonPulse }

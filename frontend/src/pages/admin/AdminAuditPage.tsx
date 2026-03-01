@@ -1,4 +1,6 @@
 import { useState, useMemo } from 'react'
+import { useTabState } from '@/hooks/useTabState'
+import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
@@ -98,7 +100,9 @@ const statusOrder: Record<string, number> = {
 
 export function AdminAuditPage() {
     const { user: currentUser, logout } = useAuthStore()
-    const [activeTab, setActiveTab] = useState('dashboard')
+    const { activeTab, setActiveTab } = useTabState<'dashboard' | 'activities' | 'logins' | 'sessions' | 'alerts'>(
+        'dashboard'
+    )
     const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null)
     const [selectedAlert, setSelectedAlert] = useState<SecurityAlert | null>(null)
 
@@ -125,8 +129,10 @@ export function AdminAuditPage() {
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     }
 
-    const [dateFrom, setDateFrom] = useState(getDefaultDateFrom)
-    const [dateTo, setDateTo] = useState(getDefaultDateTo)
+    const { from: dateFrom, to: dateTo, setFrom: setDateFrom, setTo: setDateTo } = useDateRangeFilter({
+        initialFrom: getDefaultDateFrom,
+        initialTo: getDefaultDateTo,
+    })
 
     // 日期變更時重設分頁
     const handleDateFromChange = (val: string) => {

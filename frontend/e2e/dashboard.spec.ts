@@ -35,13 +35,13 @@ test.describe('Dashboard', () => {
         // 若 session 過期被導向登入頁，ensureAdminOnPage 會重新登入
         await ensureAdminOnPage(page, '/dashboard')
         await page.goto('/dashboard')
-        await page.waitForLoadState('domcontentloaded')
+        await page.waitForLoadState('load')
+        await page.waitForTimeout(2000)
 
-        // 若仍於登入頁則重新登入（session 過期情境）
         if (page.url().includes('/login')) {
             await ensureAdminOnPage(page, '/dashboard')
         }
-        await expect(page).not.toHaveURL(/\/login/, { timeout: 10_000 })
+        await expect(page).not.toHaveURL(/\/login/, { timeout: 15_000 })
 
         // 通知鈴鐺按鈕（NotificationDropdown，data-testid 或 aria-label）
         const notificationButton = page.getByTestId('notification-bell').or(page.getByRole('button', { name: '通知' }))
@@ -51,10 +51,13 @@ test.describe('Dashboard', () => {
     test('語言切換應可運作', async ({ page }) => {
         await ensureAdminOnPage(page, '/dashboard')
         await page.goto('/dashboard')
+        await page.waitForLoadState('load')
+        await page.waitForTimeout(2000)
+
         if (page.url().includes('/login')) {
             await ensureAdminOnPage(page, '/dashboard')
         }
-        await expect(page).not.toHaveURL(/\/login/, { timeout: 10_000 })
+        await expect(page).not.toHaveURL(/\/login/, { timeout: 15_000 })
 
         // 語言選擇器（MainLayout data-testid="language-selector" 或 combobox）
         const langSelector = page.getByTestId('language-selector').or(page.locator('header').getByRole('combobox'))

@@ -27,7 +27,7 @@ export function UsersPage() {
             <Download className="h-4 w-4 mr-2" />
             匯出現在的使用者
           </Button>
-          <Button onClick={() => mgmt.setShowCreateDialog(true)}>
+          <Button data-testid="add-user-button" onClick={() => mgmt.setShowCreateDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
             新增使用者
           </Button>

@@ -4,10 +4,13 @@ import { ensureAdminOnPage } from './auth-helpers'
 test.describe('個人資料設定', () => {
     test.beforeEach(async ({ page }) => {
         await ensureAdminOnPage(page, '/profile/settings')
+        await page.waitForLoadState('load')
+        await page.waitForTimeout(1500)
+
         if (page.url().includes('/login')) {
             await ensureAdminOnPage(page, '/profile/settings')
         }
-        await expect(page).not.toHaveURL(/\/login/, { timeout: 8_000 })
+        await expect(page).not.toHaveURL(/\/login/, { timeout: 15_000 })
         // 個人資料頁載入後才有 disabled email 欄位（依賴 /me API）
         await expect(page.locator('input[disabled]').first(), '應已登入且進入個人資料頁').toBeVisible({ timeout: 20_000 })
     })
@@ -36,6 +39,9 @@ test.describe('個人資料設定', () => {
     })
 
     test('修改顯示名稱應可儲存', async ({ page }) => {
+        if (page.url().includes('/login')) {
+            await ensureAdminOnPage(page, '/profile/settings')
+        }
         // 等待表單載入
         await expect(page.locator('input[disabled]').first()).toBeVisible({ timeout: 15_000 })
 

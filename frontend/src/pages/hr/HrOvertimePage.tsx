@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useTabState } from '@/hooks/useTabState'
+import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
@@ -624,7 +626,7 @@ function PendingApprovalsTabContent({
 // ============================================
 
 export function HrOvertimePage() {
-    const [activeTab, setActiveTab] = useState('my-overtime')
+    const { activeTab, setActiveTab } = useTabState<'my-overtime' | 'pending' | 'all-records'>('my-overtime')
     const [showCreateDialog, setShowCreateDialog] = useState(false)
     const { hasRole } = useAuthStore()
 
@@ -634,8 +636,8 @@ export function HrOvertimePage() {
     // 全部紀錄篩選狀態
     const [filterStatus, setFilterStatus] = useState<string>('all')
     const [filterOvertimeType, setFilterOvertimeType] = useState<string>('all')
-    const [filterFrom, setFilterFrom] = useState('')
-    const [filterTo, setFilterTo] = useState('')
+    const { from: filterFrom, to: filterTo, setFrom: setFilterFrom, setTo: setFilterTo, reset: resetDateRange } =
+        useDateRangeFilter()
     const [filterApplicant, setFilterApplicant] = useState<string>('all')
 
     // 取得員工清單（供申請人篩選用）
@@ -839,8 +841,7 @@ export function HrOvertimePage() {
                                             onClick={() => {
                                                 setFilterStatus('all')
                                                 setFilterOvertimeType('all')
-                                                setFilterFrom('')
-                                                setFilterTo('')
+                                                resetDateRange()
                                                 setFilterApplicant('all')
                                             }}
                                         >

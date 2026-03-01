@@ -45,6 +45,9 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         ("qau.protocol.view", "QAU 檢視計畫", "qau", "唯讀檢視所有計畫書"),
         ("qau.audit.view", "QAU 檢視稽核", "qau", "唯讀檢視稽核日誌"),
         ("qau.animal.view", "QAU 檢視動物", "qau", "唯讀檢視動物紀錄"),
+        // 全庫 IDXF 匯出/匯入（一鍵輸出/匯入整個資料庫）
+        ("admin.data.export", "全庫資料匯出", "admin", "可一鍵匯出整個資料庫為 IDXF 格式"),
+        ("admin.data.import", "全庫資料匯入", "admin", "可上傳 IDXF JSON 匯入資料庫"),
     ];
     
     for (code, name, module, description) in required_permissions {
@@ -61,6 +64,16 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         .await?;
     }
     
+    // 將 admin.data.export / admin.data.import 指派給 admin 角色
+    sqlx::query(r#"
+        INSERT INTO role_permissions (role_id, permission_id)
+        SELECT r.id, p.id FROM roles r, permissions p
+        WHERE r.code = 'admin' AND p.code IN ('admin.data.export', 'admin.data.import')
+        ON CONFLICT (role_id, permission_id) DO NOTHING
+    "#)
+    .execute(pool)
+    .await?;
+
     tracing::info!("[Permissions] ✓ Required permissions verified");
     Ok(())
 }

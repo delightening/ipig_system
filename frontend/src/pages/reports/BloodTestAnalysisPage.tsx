@@ -3,6 +3,8 @@
  * 提供血液檢查數據的統計、趨勢分析、異常標記與視覺化圖表
  */
 import { useState, useMemo, useCallback } from 'react'
+import { useTabState } from '@/hooks/useTabState'
+import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { useQuery } from '@tanstack/react-query'
 import { bloodTestAnalysisApi } from '@/lib/api'
 import type { BloodTestAnalysisRow } from '@/types'
@@ -138,10 +140,9 @@ export function BloodTestAnalysisPage() {
     // 篩選狀態
     const [iacucNo, setIacucNo] = useState('')
     const [earTag, setEarTag] = useState('')
-    const [dateFrom, setDateFrom] = useState('')
-    const [dateTo, setDateTo] = useState('')
+    const { from: dateFrom, to: dateTo, setFrom: setDateFrom, setTo: setDateTo } = useDateRangeFilter()
     const [selectedItems, setSelectedItems] = useState<string[]>([])
-    const [activeTab, setActiveTab] = useState<'trend' | 'boxplot' | 'table'>('trend')
+    const { activeTab, setActiveTab } = useTabState<'trend' | 'boxplot' | 'table'>('trend')
 
     // 建立查詢參數
     const queryParams = useMemo(() => {
