@@ -297,11 +297,23 @@ impl AuthService {
         };
         let exp = now + Duration::seconds(expires_in);
 
+        // Cookie 限制：Set-Cookie 的 name+value 須 ≤ 4096 字元。Admin 擁有全部權限時
+        // JWT 會過大，導致瀏覽器忽略 cookie、登入失敗。Admin 的 has_permission 會直接
+        // 回傳 true，故可省略 permissions 以縮小 JWT。
+        let is_admin = roles
+            .iter()
+            .any(|r| r == "SYSTEM_ADMIN" || r == "admin");
+        let claims_permissions: Vec<String> = if is_admin {
+            vec![]
+        } else {
+            permissions.to_vec()
+        };
+
         let claims = Claims {
             sub: user.id,
             email: user.email.clone(),
             roles: roles.to_vec(),
-            permissions: permissions.to_vec(),
+            permissions: claims_permissions,
             exp: exp.timestamp(),
             iat: now.timestamp(),
             jti: Uuid::new_v4().to_string(),

@@ -139,8 +139,11 @@ export function SettingsPage() {
   }
 
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [importErrorsOpen, setImportErrorsOpen] = useState(false)
-  const [lastImportErrors, setLastImportErrors] = useState<string[]>([])
+  const [importResultOpen, setImportResultOpen] = useState(false)
+  const [lastImportResult, setLastImportResult] = useState<{
+    errors: string[]
+    skipped_details: { table: string; reason: string; count?: number }[]
+  } | null>(null)
 
   const handleFullImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!canImport || !e.target.files?.[0]) return
@@ -159,6 +162,7 @@ export function SettingsPage() {
         rows_inserted: number
         rows_skipped: number
         errors: string[]
+        skipped_details: { table: string; reason: string; count?: number }[]
       }>('/admin/data-import', fd)
       const d = res.data
       const msg =
@@ -166,9 +170,13 @@ export function SettingsPage() {
           ? `${d.tables_processed} 表處理，${d.rows_inserted} 筆新增，${d.rows_skipped} 筆略過；${d.errors.length} 個錯誤`
           : `${d.tables_processed} 表處理，${d.rows_inserted} 筆新增，${d.rows_skipped} 筆略過`
       toast({ title: '匯入完成', description: msg })
-      if (d.errors.length > 0) {
-        setLastImportErrors(d.errors)
-        setImportErrorsOpen(true)
+      const hasDetails = d.errors.length > 0 || (d.skipped_details?.length ?? 0) > 0
+      if (hasDetails) {
+        setLastImportResult({
+          errors: d.errors,
+          skipped_details: d.skipped_details ?? [],
+        })
+        setImportResultOpen(true)
       }
       queryClient.invalidateQueries()
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -846,26 +854,49 @@ export function SettingsPage() {
       {/* 通知路由管理 */}
       <NotificationRoutingSection />
 
-      {/* 匯入錯誤詳情 Dialog */}
-      <Dialog open={importErrorsOpen} onOpenChange={setImportErrorsOpen}>
+      {/* 匯入結果詳情 Dialog（錯誤與略過項目） */}
+      <Dialog open={importResultOpen} onOpenChange={setImportResultOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-amber-600">
               <AlertCircle className="h-5 w-5" />
-              匯入錯誤詳情
+              匯入結果詳情
             </DialogTitle>
             <DialogDescription>
-              以下 {lastImportErrors.length} 個資料表匯入時發生錯誤，其餘表已成功匯入。請將錯誤訊息提供給開發人員以協助修正。
+              {lastImportResult?.errors.length
+                ? `以下 ${lastImportResult.errors.length} 個資料表匯入時發生錯誤。`
+                : ''}
+              {lastImportResult?.skipped_details?.length
+                ? `略過項目：${lastImportResult.skipped_details.length} 項。`
+                : ''}
             </DialogDescription>
           </DialogHeader>
-          <div className="overflow-y-auto flex-1 min-h-0 rounded border bg-muted/30 p-3 font-mono text-sm">
-            <ul className="space-y-1.5">
-              {lastImportErrors.map((err, i) => (
-                <li key={i} className="text-destructive/90 break-words">
-                  {i + 1}. {err}
-                </li>
-              ))}
-            </ul>
+          <div className="overflow-y-auto flex-1 min-h-0 space-y-4">
+            {lastImportResult?.errors.length ? (
+              <div>
+                <h4 className="font-medium text-destructive mb-2">錯誤</h4>
+                <ul className="space-y-1.5 rounded border bg-muted/30 p-3 font-mono text-sm">
+                  {lastImportResult.errors.map((err, i) => (
+                    <li key={i} className="text-destructive/90 break-words">
+                      {i + 1}. {err}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {lastImportResult?.skipped_details?.length ? (
+              <div>
+                <h4 className="font-medium text-amber-600 mb-2">略過項目</h4>
+                <ul className="space-y-1.5 rounded border bg-muted/30 p-3 font-mono text-sm">
+                  {lastImportResult.skipped_details.map((s, i) => (
+                    <li key={i} className="break-words">
+                      <span className="font-medium">{s.table}</span>：{s.reason}
+                      {s.count != null ? `（${s.count} 筆）` : ''}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </div>
         </DialogContent>
       </Dialog>

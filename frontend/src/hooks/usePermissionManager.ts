@@ -39,11 +39,12 @@ const MODULE_CONFIG: Record<string, { name: string; order: number }> = {
   source: { name: '動物管理', order: 2 },
   '實驗動物管理': { name: '動物管理', order: 2 },
 
-  // 庫存管理（包含資料庫中的 ERP 和 erp）
+  // 庫存管理（包含資料庫中的 ERP、erp、設備）
   erp: { name: '庫存管理', order: 3 },
   ERP: { name: '庫存管理', order: 3 },
   storage: { name: '庫存管理', order: 3 },
   storage_location: { name: '庫存管理', order: 3 },
+  equipment: { name: '庫存管理', order: 3 },
 
   // HR（人事管理：出勤、請假、加班）
   hr: { name: '管理階級', order: 4 },
@@ -61,6 +62,12 @@ const MODULE_CONFIG: Record<string, { name: string; order: number }> = {
   // Audit（稽核：報表、稽核紀錄）
   audit: { name: '管理階級', order: 4 },
   report: { name: '管理階級', order: 4 },
+
+  // QAU（GLP 品質保證：檢視計畫、動物、稽核、儀表板）
+  qau: { name: '管理階級', order: 4 },
+
+  // Training（人員訓練紀錄，歸於 HR）
+  training: { name: '管理階級', order: 4 },
 
   // 系統管理（使用者、角色、權限）
   admin: { name: '管理階級', order: 4 },
@@ -103,6 +110,12 @@ const CATEGORY_NAMES: Record<string, Record<string, string>> = {
     export: '匯出',
     pathology: '病理',
     source: '來源',
+  },
+  equipment: {
+    equipment: '設備',
+  },
+  qau: {
+    QAU: 'QAU',
   },
   erp: {
     warehouse: '倉庫',
@@ -328,12 +341,13 @@ const CATEGORY_MERGE_MAP: Record<string, string> = {
   // 動物管理：匯入類別
   weight: '匯入', // 將體重匯入歸類到匯入
   info: '匯入', // 將基本資料匯入歸類到匯入
-  // HR 相關類別合併
+  // HR 相關類別合併（含 Training）
   leave: 'HR',
   attendance: 'HR',
   overtime: 'HR',
   balance: 'HR',
   hr: 'HR',
+  training: 'HR',
   // Facility 相關類別合併
   facility: 'Facility',
   building: 'Facility',
@@ -361,8 +375,10 @@ const CATEGORY_MERGE_MAP: Record<string, string> = {
 const SUB_CATEGORY_CONFIG: Record<string, string[]> = {
   // 管理階級 > Facility > [區域, 設施, 棟舍, 欄位]
   Facility: ['zone', 'facility', 'building', 'pen'],
-  // 管理階級 > HR > [出勤, 請假, 加班, 假期餘額, 人事]
-  HR: ['attendance', 'leave', 'overtime', 'balance', 'hr'],
+  // 管理階級 > HR > [出勤, 請假, 加班, 假期餘額, 人事, Training]
+  HR: ['attendance', 'leave', 'overtime', 'balance', 'hr', 'training'],
+  // 管理階級 > QAU > [檢視計畫、檢視動物、檢視稽核、查看QAU儀表板]
+  QAU: ['protocol', 'animal', 'audit', 'dashboard'],
 }
 
 // 子類別顯示名稱
@@ -378,6 +394,12 @@ const SUB_CATEGORY_NAMES: Record<string, string> = {
   overtime: '加班',
   balance: '假期餘額',
   hr: '人事',
+  training: 'Training',
+  // QAU
+  protocol: '檢視計畫',
+  animal: '檢視動物',
+  audit: '檢視稽核',
+  dashboard: '查看QAU儀表板',
   // 基於名稱的子群組
   '新增紀錄': '新增紀錄',
   '建立單據': '建立單據',
@@ -495,8 +517,11 @@ export function usePermissionManager(permissions: Permission[] | undefined) {
       const moduleName = moduleConfig.name
       const moduleOrder = moduleConfig.order
 
-      // 獲取合併後的類別
-      const rawCategory = getPermissionCategory(perm.code)
+      // 獲取合併後的類別（QAU 模組專用：全部歸於 QAU）
+      let rawCategory = getPermissionCategory(perm.code)
+      if (moduleCode === 'qau') {
+        rawCategory = 'QAU'
+      }
       const category = rawCategory === moduleCode ? moduleCode : rawCategory
 
       // 獲取原始子類別（未合併）
