@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-03-01 (v3)  
+> **最後更新：** 2026-03-01 (v4)  
 > **維護慣例：** 完成項目保留於本表並標 [x]，同時於 `docs/PROGRESS.md` §9 最新變更動態 新增對應紀錄；待辦統計僅計「未完成」數量。
 > **AI 標註說明：** 
 > - ⚡ **Gemini Flash** (適合樣板編寫、簡單設定、文檔生成)
@@ -119,6 +119,21 @@
 
 ---
 
+## 🟠 R6 — 第六輪改善計劃（2026-03）
+
+> 依據 `docs/PROGRESS.md` 專案評估產出。重點：前端可維護性、useState 重構延續、元件品質。
+
+| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
+|---|------|------|------|----------|------|
+| R6-1 | **useState → hooks 擴展** | AccountingReportPage、TransferTab、HrOvertimePage、EquipmentPage、AdminAuditPage 等高複雜頁面（各 7–15 處 useState），依據 `REFACTOR_PLAN_USESTATE_TO_HOOKS.md` 繼續 Phase 5 | 前端 | 🧠 Claude | [x] |
+| R6-2 | **useDateRangeFilter / useTabState** | 建立 `useDateRangeFilter`、`useTabState` 並套用至 HrLeavePage、AdminAuditPage、BloodTestCostReportPage、AuditLogsPage、AccountingReportPage | 前端 | 🧠 Claude | [x] |
+| R6-3 | **Skeleton DOM nesting 修正** | skeleton.stories.tsx「行內骨架」`<div>` 於 `<p>` 內造成 validateDOMNesting 警告，改為 `<span>` 或調整結構 | 前端 | ⚡ Flash | [x] |
+| R6-4 | **財務模組 Phase 2–5 評估** | AP/AR/GL 後續階段（ap_payments、ar_receipts、trial-balance 等）實作評估，依業務需求排程 | 全端 | 🧠 Claude | [x] |
+| R6-5 | **Dependabot Phase 2.5 依賴評估** | printpdf 0.9、utoipa 5、axum-extra 0.12、tailwind-merge 3 升級可行性評估，詳見 `DEPENDABOT_MIGRATION_PLAN.md` | 全端 | 🧠 Claude | [x] |
+| R6-6 | **資料庫輸出與歷史重新填寫** | 建立資料庫匯出 API、讓系統可讀取過去資料，並依歷史內容預填表單（手術複製、請假預填、Protocol 複製等），詳見 `docs/DATA_EXPORT_IMPORT_DESIGN.md` | 全端 | 🧠 Claude | [ ] |
+
+---
+
 ## 📊 待辦統計
 
 | 優先級 | 數量 (未完成) |
@@ -129,8 +144,8 @@
 | 🔵 P3 低優先 | 0 |
 | 🟣 P4 品質提升 | 0 |
 | ⚪ P5 長期演進 | 0 |
+| 🟠 R6 第六輪改善 | 0 |
 | **合計（未完成）** | **0** |
-> 🎉 **全部待辦項目已完成！**
 
 ---
 
@@ -138,6 +153,9 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-03-01 | 🧠 Claude：R6 第六輪改善全部完成 — R6-4 產出 `docs/R6-4_FINANCE_PHASE2_5_ASSESSMENT.md`；R6-5 產出 `docs/R6-5_DEPENDABOT_PHASE25_ASSESSMENT.md` |
+| 2026-03-01 | 🧠 Claude：R6 第六輪改善執行 — R6-1 EquipmentPage/TrainingRecordsPage；R6-2 useDateRangeFilter、useTabState 建立並套用 8 頁；R6-3 InlineSkeleton 改 span |
+| 2026-03-01 | 🧠 Claude：建立 R6 第六輪改善計劃 — R6-1 useState→hooks 擴展、R6-2 useDateRangeFilter/useTabState、R6-3 Skeleton DOM 修正、R6-4 財務模組評估、R6-5 Dependabot Phase 2.5 評估。依據專案評估產出 |
 | 2026-03-01 | 🧠 Claude：財務 SOC2 QAU 三項規劃完成 — QAU 角色/儀表板（022、GET /qau/dashboard、QAUDashboardPage）；SOC2 憑證輪換腳本、SLA.md、DR_DRILL_CHECKLIST；財務 AP/AR/GL（023–024、AccountingService、AccountingReportPage）。詳見 `docs/PROGRESS.md` §9 |
 | 2026-03-01 | 🧠 Claude：P0–P2 改進計劃全部完成 — P1-M0 稽核匯出 API、P1-M1 API 版本、P1-M2 GDPR、P1-M3 OPERATIONS.md、P1-M4 憑證輪換、P1-M5 Dependabot；P2-M2 人員訓練紀錄、P2-M3 設備校準、P2-M4 稽核 UI 使用者篩選、P2-M5 SOC2_READINESS.md。詳見 `docs/IMPROVEMENT_PLAN_MARKET_REVIEW.md` |
 | 2026-02-28 | 🧠 Claude：第三輪系統改善 20 項（P0-R3-1~4 安全 + P1-R3-5~10 效能 + P2-R3-11~20 品質/維運）— SQL QueryBuilder 統一/IDOR 修補/expect() 清理/非 root 容器/搜尋 debounce/staleTime 調優/AnimalsPage 拆分/DashMap Rate Limiter/DB Pool 指標/Skeleton Loading/Protocol any 消除/審計日誌/常數提取/Error Boundary/SSL 範本/備份驗證/Loki 日誌/環境驗證/無障礙/API 一致性。詳見 `docs/IMPROVEMENT_PLAN_R3.md` |

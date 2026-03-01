@@ -45,6 +45,7 @@ WORKDIR /app
 RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     ca-certificates \
     libssl3 \
+    libbz2-1.0 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -r -s /bin/false appuser && \
@@ -56,7 +57,7 @@ COPY --from=builder /app/target/release/healthcheck /app/healthcheck
 COPY --from=builder /app/target/release/create_admin /app/create_admin
 COPY --from=builder /app/migrations /app/migrations
 
-# Stage 5: Distroless — production image
+# Stage 5: Distroless — production image (libbz2 for zip crate bzip2 feature)
 FROM gcr.io/distroless/cc-debian12
 
 WORKDIR /app
@@ -65,6 +66,7 @@ COPY --from=runtime /etc/passwd /etc/passwd
 COPY --from=runtime /etc/group /etc/group
 COPY --from=runtime /app /app
 COPY --from=runtime /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=runtime /usr/lib/x86_64-linux-gnu/libbz2.so.1.0* /lib/x86_64-linux-gnu/
 
 USER appuser
 

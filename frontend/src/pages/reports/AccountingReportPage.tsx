@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { formatNumber } from '@/lib/utils'
@@ -358,8 +359,10 @@ function CreateArReceiptDialog({
 export function AccountingReportPage() {
   const today = new Date().toISOString().slice(0, 10)
   const [asOfDate, setAsOfDate] = useState(today)
-  const [dateFrom, setDateFrom] = useState(today.slice(0, 7) + '-01')
-  const [dateTo, setDateTo] = useState(today)
+  const { from: dateFrom, to: dateTo, setFrom: setDateFrom, setTo: setDateTo } = useDateRangeFilter({
+    initialFrom: today.slice(0, 7) + '-01',
+    initialTo: today,
+  })
 
   const { data: trialBalance, isLoading: tbLoading } = useQuery<TrialBalanceRow[]>({
     queryKey: ['accounting-trial-balance', asOfDate],

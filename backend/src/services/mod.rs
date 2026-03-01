@@ -77,5 +77,11 @@ pub use geoip::GeoIpService;
 mod balance_expiration;
 pub use balance_expiration::BalanceExpirationJob;
 
+mod data_export;
+mod data_import;
+mod schema_mapping;
+pub use data_export::{export_full_database, get_schema_version, ExportFormat, ExportParams};
+pub use data_import::{import_idxf, ImportMode, ImportResult};
+
 mod partition_maintenance;
 pub use partition_maintenance::PartitionMaintenanceJob;

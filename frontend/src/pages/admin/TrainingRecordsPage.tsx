@@ -8,6 +8,8 @@
  */
 
 import { useState, useMemo } from 'react'
+import { useTabState } from '@/hooks/useTabState'
+import { useDialogSet } from '@/hooks/useDialogSet'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
@@ -88,13 +90,12 @@ export function TrainingRecordsPage() {
   const queryClient = useQueryClient()
   const { hasPermission } = useAuthStore()
   const canManage = hasPermission('training.manage')
-  const [activeTab, setActiveTab] = useState('records')
+  const { activeTab, setActiveTab } = useTabState<'records' | 'stats'>('records')
+  const dialogs = useDialogSet(['create', 'edit'] as const)
   const [selectedUserId, setSelectedUserId] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState('')
   const [keyword, setKeyword] = useState('')
   const [page, setPage] = useState(1)
-  const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [showEditDialog, setShowEditDialog] = useState(false)
   const [editingRecord, setEditingRecord] = useState<TrainingRecordWithUser | null>(null)
   const [form, setForm] = useState({
     user_id: '',
@@ -163,7 +164,7 @@ export function TrainingRecordsPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['training-records'] })
-      setShowCreateDialog(false)
+      dialogs.close('create')
       resetForm()
       toast({ title: '成功', description: '已新增訓練紀錄' })
     },
@@ -181,7 +182,7 @@ export function TrainingRecordsPage() {
       api.put(`/training-records/${id}`, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['training-records'] })
-      setShowEditDialog(false)
+      dialogs.close('edit')
       setEditingRecord(null)
       toast({ title: '成功', description: '已更新訓練紀錄' })
     },
@@ -228,7 +229,7 @@ export function TrainingRecordsPage() {
       expires_at: record.expires_at || '',
       notes: record.notes || '',
     })
-    setShowEditDialog(true)
+    dialogs.open('edit')
   }
 
   const handleCreate = () => {
@@ -298,7 +299,7 @@ export function TrainingRecordsPage() {
           <p className="text-muted-foreground">GLP 合規：管理人員訓練與證照有效期限</p>
         </div>
         {canManage && (
-          <Button onClick={() => { resetForm(); setShowCreateDialog(true) }}>
+          <Button onClick={() => { resetForm(); dialogs.open('create') }}>
             <Plus className="h-4 w-4 mr-2" />
             新增訓練紀錄
           </Button>
@@ -535,7 +536,7 @@ export function TrainingRecordsPage() {
       </Tabs>
 
       {/* 新增 Dialog */}
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+      <Dialog open={dialogs.isOpen('create')} onOpenChange={(open) => dialogs.setOpen('create')(open)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>新增訓練紀錄</DialogTitle>
@@ -594,7 +595,7 @@ export function TrainingRecordsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+            <Button variant="outline" onClick={() => dialogs.close('create')}>
               取消
             </Button>
             <Button onClick={handleCreate} disabled={createMutation.isPending}>
@@ -606,7 +607,7 @@ export function TrainingRecordsPage() {
       </Dialog>
 
       {/* 編輯 Dialog */}
-      <Dialog open={showEditDialog} onOpenChange={(open) => { if (!open) setEditingRecord(null); setShowEditDialog(open) }}>
+      <Dialog open={dialogs.isOpen('edit')} onOpenChange={(open) => { if (!open) setEditingRecord(null); dialogs.setOpen('edit')(open) }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>編輯訓練紀錄</DialogTitle>
@@ -652,7 +653,7 @@ export function TrainingRecordsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+            <Button variant="outline" onClick={() => dialogs.close('edit')}>
               取消
             </Button>
             <Button onClick={handleUpdate} disabled={updateMutation.isPending}>

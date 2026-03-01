@@ -34,6 +34,18 @@ export async function performLogin(
             page.getByRole('button', { name: '登入' }).click(),
         ])
 
+        if (response.status() === 502 || response.status() === 503) {
+            const waitMs = 3000
+            console.log(
+                `[auth-helpers] Backend unavailable (${response.status()}), attempt ${attempt}/${maxRetries}, waiting ${waitMs / 1000}s`
+            )
+            if (attempt < maxRetries) {
+                await page.waitForTimeout(waitMs)
+                continue
+            }
+            throw new Error(`Login API returned ${response.status()} after ${maxRetries} retries`)
+        }
+
         if (response.status() === 429) {
             const retryAfter = Number(response.headers()['retry-after']) || 60
             // 增加隨機化，避免所有重試同時發生（jitter: ±20%）
@@ -86,24 +98,28 @@ export function getAdminCredentials() {
 /**
  * 先導向 path，若被導向 /login（session 過期）則重新登入後再導向 path。
  * 用於 beforeEach，讓同一 context 在 session 過期時能自動恢復。
+ * 會等待 SPA 載入並完成可能的重導向，再確認最終 URL 非 /login。
  */
 export async function ensureAdminOnPage(
     page: import('@playwright/test').Page,
     path: string,
 ): Promise<void> {
-    await page.goto(path)
-    await page.waitForLoadState('domcontentloaded')
-    for (let attempt = 0; attempt < 2; attempt++) {
-        if (page.url().includes('/login')) {
-            const { email, password } = getAdminCredentials()
-            if (password) {
-                await performLogin(page, email, password)
-                await page.waitForTimeout(800)
-                await page.goto(path)
-                await page.waitForLoadState('domcontentloaded')
-            }
-        } else {
-            break
+    const maxAttempts = 4
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        await page.goto(path)
+        await page.waitForLoadState('domcontentloaded')
+        await page.waitForLoadState('load')
+
+        // 等待 SPA 載入完成，可能非同步重導向至 /login（401）
+        await page.waitForTimeout(2000)
+        const url = page.url()
+        if (!url.includes('/login')) {
+            return
         }
+
+        const { email, password } = getAdminCredentials()
+        if (!password) break
+        await performLogin(page, email, password)
+        await page.waitForTimeout(1000)
     }
 }

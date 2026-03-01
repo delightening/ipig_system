@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
@@ -189,8 +190,10 @@ export function AuditLogsPage() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   }
 
-  const [dateFrom, setDateFrom] = useState(getDefaultDateFrom)
-  const [dateTo, setDateTo] = useState(getDefaultDateTo)
+  const { from: dateFrom, to: dateTo, setFrom: setDateFrom, setTo: setDateTo } = useDateRangeFilter({
+    initialFrom: getDefaultDateFrom,
+    initialTo: getDefaultDateTo,
+  })
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [entityTypeFilter, setEntityTypeFilter] = useState<string>('all')
   const [userFilter, setUserFilter] = useState<string>('all')
