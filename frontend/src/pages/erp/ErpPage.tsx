@@ -261,37 +261,29 @@ export function ErpPage() {
     const currentModule = filteredModules.find(m => m.id === currentTab)
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="space-y-6">
             {/* 頁面標題 */}
             <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">ERP 系統</h1>
-                    <p className="text-muted-foreground">企業資源規劃與庫存管理</p>
-                </div>
+                <h1 className="text-3xl font-bold tracking-tight">ERP 系統</h1>
             </div>
 
-            {/* Tab 導覽列 */}
-            <div className="border-b border-slate-200">
-                <nav className="-mb-px flex flex-wrap gap-x-6">
-                    {/* 各模組 Tabs */}
-                    {filteredModules.map((module) => (
-                        <button
-                            key={module.id}
-                            onClick={() => handleTabChange(module.id)}
-                            className={cn(
-                                'py-3 px-1 border-b-2 font-medium text-sm transition-colors',
-                                currentTab === module.id
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-                            )}
-                        >
-                            <div className="flex items-center space-x-2">
-                                {module.icon}
-                                <span>{module.title}</span>
-                            </div>
-                        </button>
-                    ))}
-                </nav>
+            {/* Tab 導覽列（參考動物列表 tags 樣式） */}
+            <div className="flex flex-wrap gap-2 border-b border-slate-200">
+                {filteredModules.map((module) => (
+                    <button
+                        key={module.id}
+                        onClick={() => handleTabChange(module.id)}
+                        className={cn(
+                            'px-3 md:px-4 py-2 border-b-2 font-medium text-xs md:text-sm transition-colors flex items-center gap-1.5',
+                            currentTab === module.id
+                                ? 'border-blue-500 text-blue-600 -mb-px'
+                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                        )}
+                    >
+                        {module.icon}
+                        <span>{module.title}</span>
+                    </button>
+                ))}
             </div>
 
             {/* Tab 內容區 */}
@@ -299,22 +291,8 @@ export function ErpPage() {
                 currentTab === 'equipment' ? (
                     <EquipmentPage />
                 ) : (
-                // 模組的詳細內容
                 <div className="space-y-6">
-                    {/* 模組描述 */}
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
-                        <div className="flex items-start space-x-4">
-                            <div className="p-3 bg-white rounded-xl shadow-sm text-blue-600">
-                                {currentModule.icon}
-                            </div>
-                            <div>
-                                <h2 className="text-xl font-semibold text-slate-900">{currentModule.title}</h2>
-                                <p className="text-slate-600 mt-1">{currentModule.description}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* 功能列表 */}
+                    {/* 功能列表（無說明欄位） */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {currentModule.items.map((item) => (
                             <Link
@@ -326,15 +304,12 @@ export function ErpPage() {
                                     <div className="p-2.5 bg-slate-100 rounded-lg text-slate-600 group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
                                         {item.icon}
                                     </div>
-                                    <div className="flex-1">
+                                    <div className="flex-1 min-w-0">
                                         <h3 className="font-medium text-slate-900 group-hover:text-blue-600 transition-colors">
                                             {item.title}
                                         </h3>
-                                        {item.description && (
-                                            <p className="text-sm text-slate-500 mt-1">{item.description}</p>
-                                        )}
                                     </div>
-                                    <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-blue-500 transition-colors" />
+                                    <ChevronRight className="h-5 w-5 shrink-0 text-slate-300 group-hover:text-blue-500 transition-colors" />
                                 </div>
                             </Link>
                         ))}

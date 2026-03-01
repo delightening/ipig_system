@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button'
-import { Plus } from 'lucide-react'
+import { Plus, Download } from 'lucide-react'
 import { useUserManagement } from './hooks/useUserManagement'
 import { UserTable } from './components/UserTable'
 import {
@@ -22,10 +22,16 @@ export function UsersPage() {
           <h1 className="text-3xl font-bold tracking-tight">使用者管理</h1>
           <p className="text-muted-foreground">管理系統使用者帳號與角色</p>
         </div>
-        <Button onClick={() => mgmt.setShowCreateDialog(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          新增使用者
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={mgmt.handleExportUsers} disabled={!mgmt.sortedUsers?.length || mgmt.isLoading}>
+            <Download className="h-4 w-4 mr-2" />
+            匯出現在的使用者
+          </Button>
+          <Button onClick={() => mgmt.setShowCreateDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            新增使用者
+          </Button>
+        </div>
       </div>
 
       <UserTable

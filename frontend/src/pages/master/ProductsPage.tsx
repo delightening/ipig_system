@@ -1,5 +1,8 @@
 import { useState, useMemo } from 'react'
 import { useToggle } from '@/hooks/useToggle'
+import { useSelection } from '@/hooks/useSelection'
+import { useProductListState } from './hooks/useProductListState'
+import { useDialogSet } from '@/hooks/useDialogSet'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { Product } from '@/lib/api'
@@ -139,65 +142,22 @@ export function ProductsPage() {
   const queryClient = useQueryClient()
 
   // 搜尋與篩選狀態
-  const [search, setSearch] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('all')
-  const [subcategoryFilter, setSubcategoryFilter] = useState('all')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [trackBatchFilter, setTrackBatchFilter] = useState('all')
-  const [trackExpiryFilter, setTrackExpiryFilter] = useState('all')
+  const listState = useProductListState(CATEGORIES)
   const [showAdvancedFilters, toggleAdvancedFilters] = useToggle()
 
-  // 分頁與排序
-  const [page, setPage] = useState(1)
-  const [perPage, setPerPage] = useState(20)
-  const [sortBy, setSortBy] = useState<string>('')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
-
   // 批次選擇
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const selection = useSelection<string>()
 
   // 對話框狀態
-  const [statusDialogOpen, setStatusDialogOpen] = useState(false)
+  const dialogs = useDialogSet(['status', 'batchStatus', 'import'] as const)
   const [statusAction, setStatusAction] = useState<'activate' | 'deactivate' | 'discontinue'>('activate')
   const [targetProduct, setTargetProduct] = useState<ExtendedProduct | null>(null)
-  const [batchStatusDialogOpen, setBatchStatusDialogOpen] = useState(false)
-  const [showImportDialog, setShowImportDialog] = useState(false)
-
-  // 取得子類列表
-  const subcategories = useMemo(() => {
-    const category = CATEGORIES.find(c => c.code === categoryFilter)
-    return category?.subcategories || []
-  }, [categoryFilter])
-
-  // 重置子類篩選當品類變更
-  const handleCategoryChange = (value: string) => {
-    setCategoryFilter(value)
-    setSubcategoryFilter('all')
-  }
-
-  // 建立查詢參數
-  const queryParams = useMemo(() => {
-    const params = new URLSearchParams()
-    if (search) params.append('keyword', search)
-    if (categoryFilter && categoryFilter !== 'all') params.append('category_code', categoryFilter)
-    if (subcategoryFilter && subcategoryFilter !== 'all') params.append('subcategory_code', subcategoryFilter)
-    if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter)
-    if (trackBatchFilter && trackBatchFilter !== 'all') params.append('track_batch', trackBatchFilter)
-    if (trackExpiryFilter && trackExpiryFilter !== 'all') params.append('track_expiry', trackExpiryFilter)
-    params.append('page', page.toString())
-    params.append('per_page', perPage.toString())
-    if (sortBy) {
-      params.append('sort_by', sortBy)
-      params.append('sort_order', sortOrder)
-    }
-    return params.toString()
-  }, [search, categoryFilter, subcategoryFilter, statusFilter, trackBatchFilter, trackExpiryFilter, page, perPage, sortBy, sortOrder])
 
   // 查詢產品列表
   const { data: response, isLoading, isFetching } = useQuery({
-    queryKey: ['products', queryParams],
+    queryKey: ['products', listState.queryParams],
     queryFn: async () => {
-      const res = await api.get<ExtendedProduct[] | PaginatedResponse<ExtendedProduct>>(`/products?${queryParams}`)
+      const res = await api.get<ExtendedProduct[] | PaginatedResponse<ExtendedProduct>>(`/products?${listState.queryParams}`)
       // 處理非分頁和分頁兩種回應格式
       if (Array.isArray(res.data)) {
         return {
@@ -224,7 +184,7 @@ export function ProductsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] })
       toast({ title: '成功', description: '產品狀態已更新' })
-      setStatusDialogOpen(false)
+      dialogs.close('status')
       setTargetProduct(null)
     },
     onError: (error: unknown) => {
@@ -243,9 +203,9 @@ export function ProductsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] })
-      toast({ title: '成功', description: `已更新 ${selectedIds.size} 個產品的狀態` })
-      setBatchStatusDialogOpen(false)
-      setSelectedIds(new Set())
+      toast({ title: '成功', description: `已更新 ${selection.size} 個產品的狀態` })
+      dialogs.close('batchStatus')
+      selection.clear()
     },
     onError: (error: unknown) => {
       toast({
@@ -256,35 +216,14 @@ export function ProductsPage() {
     },
   })
 
-  // 處理排序
-  const handleSort = (field: string) => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortBy(field)
-      setSortOrder('asc')
-    }
-    setPage(1)
-  }
-
   // 處理全選
   const handleSelectAll = () => {
-    if (selectedIds.size === products.length) {
-      setSelectedIds(new Set())
-    } else {
-      setSelectedIds(new Set(products.map(p => p.id)))
-    }
+    selection.selectAll(products.map(p => p.id))
   }
 
   // 處理單選
   const handleSelect = (id: string) => {
-    const newSelected = new Set(selectedIds)
-    if (newSelected.has(id)) {
-      newSelected.delete(id)
-    } else {
-      newSelected.add(id)
-    }
-    setSelectedIds(newSelected)
+    selection.toggle(id)
   }
 
   // 複製 SKU
@@ -293,25 +232,9 @@ export function ProductsPage() {
     toast({ title: '已複製', description: `SKU: ${sku}` })
   }
 
-  // 計算篩選數量
-  const activeFilterCount = [
-    categoryFilter !== 'all' ? categoryFilter : '',
-    subcategoryFilter !== 'all' ? subcategoryFilter : '',
-    statusFilter !== 'all' ? statusFilter : '',
-    trackBatchFilter !== 'all' ? trackBatchFilter : '',
-    trackExpiryFilter !== 'all' ? trackExpiryFilter : '',
-  ].filter(Boolean).length
 
   // 清除所有篩選
-  const clearAllFilters = () => {
-    setSearch('')
-    setCategoryFilter('all')
-    setSubcategoryFilter('all')
-    setStatusFilter('all')
-    setTrackBatchFilter('all')
-    setTrackExpiryFilter('all')
-    setPage(1)
-  }
+  const clearAllFilters = () => listState.resetFilters()
 
   // 取得狀態 Badge
   const getStatusBadge = (product: ExtendedProduct) => {
@@ -332,7 +255,7 @@ export function ProductsPage() {
   const SortIndicator = ({ field }: { field: string }) => (
     <ArrowUpDown className={cn(
       "ml-1 h-3 w-3 inline-block transition-colors",
-      sortBy === field ? "text-primary" : "text-muted-foreground/50"
+      listState.sortBy === field ? "text-primary" : "text-muted-foreground/50"
     )} />
   )
 
@@ -376,7 +299,7 @@ export function ProductsPage() {
           <p className="text-muted-foreground">管理系統中的產品/品項資料</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
+          <Button variant="outline" size="sm" onClick={() => dialogs.open('import')}>
             <Upload className="mr-2 h-4 w-4" />
             匯入
           </Button>
@@ -404,13 +327,13 @@ export function ProductsPage() {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="搜尋 SKU、名稱、規格、標籤..."
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+              value={listState.filters.search}
+              onChange={(e) => listState.setFilter('search', e.target.value)}
               className="pl-9 pr-9"
             />
-            {search && (
+            {listState.filters.search && (
               <button
-                onClick={() => setSearch('')}
+                onClick={() => listState.setFilter('search', '')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 aria-label="清除搜尋"
               >
@@ -420,7 +343,7 @@ export function ProductsPage() {
           </div>
 
           {/* 品類篩選 */}
-          <Select value={categoryFilter} onValueChange={handleCategoryChange}>
+          <Select value={listState.filters.categoryFilter} onValueChange={listState.handleCategoryChange}>
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="品類" />
             </SelectTrigger>
@@ -436,16 +359,16 @@ export function ProductsPage() {
 
           {/* 子類篩選 */}
           <Select
-            value={subcategoryFilter}
-            onValueChange={(v) => { setSubcategoryFilter(v); setPage(1) }}
-            disabled={categoryFilter === 'all'}
+            value={listState.filters.subcategoryFilter}
+            onValueChange={(v) => listState.setFilter('subcategoryFilter', v)}
+            disabled={listState.filters.categoryFilter === 'all'}
           >
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="子類" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">全部子類</SelectItem>
-              {subcategories.map(sub => (
+              {listState.subcategories.map(sub => (
                 <SelectItem key={sub.code} value={sub.code}>
                   {sub.name}
                 </SelectItem>
@@ -454,7 +377,7 @@ export function ProductsPage() {
           </Select>
 
           {/* 狀態篩選 */}
-          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1) }}>
+          <Select value={listState.filters.statusFilter} onValueChange={(v) => listState.setFilter('statusFilter', v)}>
             <SelectTrigger className="w-[120px]">
               <SelectValue placeholder="狀態" />
             </SelectTrigger>
@@ -476,15 +399,15 @@ export function ProductsPage() {
           >
             <Filter className="mr-2 h-4 w-4" />
             更多篩選
-            {activeFilterCount > 0 && (
+            {listState.activeFilterCount > 0 && (
               <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] text-primary-foreground flex items-center justify-center">
-                {activeFilterCount}
+                {listState.activeFilterCount}
               </span>
             )}
           </Button>
 
           {/* 清除篩選 */}
-          {(search || activeFilterCount > 0) && (
+          {(listState.filters.search || listState.activeFilterCount > 0) && (
             <Button variant="ghost" size="sm" onClick={clearAllFilters}>
               <X className="mr-1 h-4 w-4" />
               清除篩選
@@ -497,7 +420,7 @@ export function ProductsPage() {
           <div className="flex flex-wrap gap-3 p-4 bg-muted/50 rounded-lg border">
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground whitespace-nowrap">追蹤批號：</span>
-              <Select value={trackBatchFilter} onValueChange={(v) => { setTrackBatchFilter(v); setPage(1) }}>
+              <Select value={listState.filters.trackBatchFilter} onValueChange={(v) => listState.setFilter('trackBatchFilter', v)}>
                 <SelectTrigger className="w-[100px]">
                   <SelectValue placeholder="全部" />
                 </SelectTrigger>
@@ -513,7 +436,7 @@ export function ProductsPage() {
 
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground whitespace-nowrap">追蹤效期：</span>
-              <Select value={trackExpiryFilter} onValueChange={(v) => { setTrackExpiryFilter(v); setPage(1) }}>
+              <Select value={listState.filters.trackExpiryFilter} onValueChange={(v) => listState.setFilter('trackExpiryFilter', v)}>
                 <SelectTrigger className="w-[100px]">
                   <SelectValue placeholder="全部" />
                 </SelectTrigger>
@@ -531,12 +454,12 @@ export function ProductsPage() {
       </div>
 
       {/* Batch Actions Bar */}
-      {selectedIds.size > 0 && (
+      {selection.size > 0 && (
         <div className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/20 rounded-lg animate-fade-in">
           <div className="flex items-center gap-2">
             <Check className="h-4 w-4 text-primary" />
             <span className="text-sm font-medium">
-              已選擇 {selectedIds.size} 個產品
+              已選擇 {selection.size} 個產品
             </span>
           </div>
           <div className="flex-1" />
@@ -545,7 +468,7 @@ export function ProductsPage() {
             size="sm"
             onClick={() => {
               setStatusAction('deactivate')
-              setBatchStatusDialogOpen(true)
+              dialogs.open('batchStatus')
             }}
           >
             <PowerOff className="mr-2 h-4 w-4" />
@@ -555,7 +478,7 @@ export function ProductsPage() {
             variant="outline"
             size="sm"
             onClick={() => {
-              const toExport = products.filter(p => selectedIds.has(p.id))
+              const toExport = products.filter(p => selection.has(p.id))
               if (toExport.length === 0) return
               const headers = ['SKU', '名稱', '規格', '品類', '子類', '單位', '安全庫存', '追蹤批號', '追蹤效期', '狀態']
               const rows = toExport.map(p => [
@@ -592,7 +515,7 @@ export function ProductsPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setSelectedIds(new Set())}
+            onClick={() => selection.clear()}
           >
             取消選擇
           </Button>
@@ -607,7 +530,7 @@ export function ProductsPage() {
               <TableHead className="w-[40px]">
                 <input
                   type="checkbox"
-                  checked={products.length > 0 && selectedIds.size === products.length}
+                  checked={products.length > 0 && selection.size === products.length}
                   onChange={handleSelectAll}
                   className="h-4 w-4 rounded border-input"
                   aria-label="全選產品"
@@ -615,13 +538,13 @@ export function ProductsPage() {
               </TableHead>
               <TableHead
                 className="w-[180px] cursor-pointer select-none"
-                onClick={() => handleSort('sku')}
+                onClick={() => listState.handleSort('sku')}
               >
                 SKU <SortIndicator field="sku" />
               </TableHead>
               <TableHead
                 className="cursor-pointer select-none"
-                onClick={() => handleSort('name')}
+                onClick={() => listState.handleSort('name')}
               >
                 名稱 <SortIndicator field="name" />
               </TableHead>
@@ -629,7 +552,7 @@ export function ProductsPage() {
               <TableHead className="w-[60px]">單位</TableHead>
               <TableHead
                 className="w-[100px] text-right cursor-pointer select-none"
-                onClick={() => handleSort('safety_stock')}
+                onClick={() => listState.handleSort('safety_stock')}
               >
                 安全庫存 <SortIndicator field="safety_stock" />
               </TableHead>
@@ -637,7 +560,7 @@ export function ProductsPage() {
               <TableHead className="w-[60px] text-center">效期</TableHead>
               <TableHead
                 className="w-[80px] cursor-pointer select-none"
-                onClick={() => handleSort('status')}
+                onClick={() => listState.handleSort('status')}
               >
                 狀態 <SortIndicator field="status" />
               </TableHead>
@@ -657,9 +580,9 @@ export function ProductsPage() {
                 <TableCell colSpan={10} className="text-center py-12">
                   <Package className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
                   <p className="text-muted-foreground">
-                    {search || activeFilterCount > 0 ? '找不到符合條件的產品' : '尚無產品資料'}
+                    {listState.filters.search || listState.activeFilterCount > 0 ? '找不到符合條件的產品' : '尚無產品資料'}
                   </p>
-                  {!search && activeFilterCount === 0 && (
+                  {!listState.filters.search && listState.activeFilterCount === 0 && (
                     <Button
                       variant="outline"
                       className="mt-4"
@@ -677,13 +600,13 @@ export function ProductsPage() {
                   key={product.id}
                   className={cn(
                     "group",
-                    selectedIds.has(product.id) && "bg-primary/5"
+                    selection.has(product.id) && "bg-primary/5"
                   )}
                 >
                   <TableCell>
                     <input
                       type="checkbox"
-                      checked={selectedIds.has(product.id)}
+                      checked={selection.has(product.id)}
                       onChange={() => handleSelect(product.id)}
                       className="h-4 w-4 rounded border-input"
                       aria-label={`選擇產品 ${product.sku}`}
@@ -774,17 +697,17 @@ export function ProductsPage() {
                             case 'activate':
                               setTargetProduct(product)
                               setStatusAction('activate')
-                              setStatusDialogOpen(true)
+                              dialogs.open('status')
                               break
                             case 'deactivate':
                               setTargetProduct(product)
                               setStatusAction('deactivate')
-                              setStatusDialogOpen(true)
+                              dialogs.open('status')
                               break
                             case 'discontinue':
                               setTargetProduct(product)
                               setStatusAction('discontinue')
-                              setStatusDialogOpen(true)
+                              dialogs.open('status')
                               break
                           }
                         }}
@@ -816,15 +739,15 @@ export function ProductsPage() {
       {products.length > 0 && (
         <div className="flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
-            顯示 {(page - 1) * perPage + 1}-{Math.min(page * perPage, totalItems)} 共 {totalItems} 筆
+            顯示 {(listState.page - 1) * listState.perPage + 1}-{Math.min(listState.page * listState.perPage, totalItems)} 共 {totalItems} 筆
             {isFetching && !isLoading && (
               <Loader2 className="inline-block ml-2 h-3 w-3 animate-spin" />
             )}
           </div>
           <div className="flex items-center gap-2">
             <Select
-              value={perPage.toString()}
-              onValueChange={(v) => { setPerPage(parseInt(v)); setPage(1) }}
+              value={listState.perPage.toString()}
+              onValueChange={(v) => { listState.setPerPage(parseInt(v)); listState.setPage(1) }}
             >
               <SelectTrigger className="w-[100px]">
                 <SelectValue />
@@ -840,16 +763,16 @@ export function ProductsPage() {
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => setPage(1)}
-                disabled={page === 1}
+                onClick={() => listState.setPage(1)}
+                disabled={listState.page === 1}
               >
                 <ChevronsLeft className="h-4 w-4" />
               </Button>
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
+                onClick={() => listState.setPage(Math.max(1, listState.page - 1))}
+                disabled={listState.page === 1}
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -858,20 +781,20 @@ export function ProductsPage() {
                   let pageNum: number
                   if (totalPages <= 5) {
                     pageNum = i + 1
-                  } else if (page <= 3) {
+                  } else if (listState.page <= 3) {
                     pageNum = i + 1
-                  } else if (page >= totalPages - 2) {
+                  } else if (listState.page >= totalPages - 2) {
                     pageNum = totalPages - 4 + i
                   } else {
-                    pageNum = page - 2 + i
+                    pageNum = listState.page - 2 + i
                   }
                   return (
                     <Button
                       key={pageNum}
-                      variant={page === pageNum ? "default" : "ghost"}
+                      variant={listState.page === pageNum ? "default" : "ghost"}
                       size="sm"
                       className="w-8 h-8 p-0"
-                      onClick={() => setPage(pageNum)}
+                      onClick={() => listState.setPage(pageNum)}
                     >
                       {pageNum}
                     </Button>
@@ -881,16 +804,16 @@ export function ProductsPage() {
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
+                onClick={() => listState.setPage(Math.min(totalPages, listState.page + 1))}
+                disabled={listState.page === totalPages}
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => setPage(totalPages)}
-                disabled={page === totalPages}
+                onClick={() => listState.setPage(totalPages)}
+                disabled={listState.page === totalPages}
               >
                 <ChevronsRight className="h-4 w-4" />
               </Button>
@@ -900,7 +823,7 @@ export function ProductsPage() {
       )}
 
       {/* 狀態變更對話框 */}
-      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+      <Dialog open={dialogs.isOpen('status')} onOpenChange={dialogs.setOpen('status')}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -930,7 +853,7 @@ export function ProductsPage() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setStatusDialogOpen(false)}
+              onClick={() => dialogs.close('status')}
               disabled={statusMutation.isPending}
             >
               取消
@@ -954,18 +877,18 @@ export function ProductsPage() {
       </Dialog>
 
       {/* 批次狀態變更對話框 */}
-      <Dialog open={batchStatusDialogOpen} onOpenChange={setBatchStatusDialogOpen}>
+      <Dialog open={dialogs.isOpen('batchStatus')} onOpenChange={dialogs.setOpen('batchStatus')}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>批次停用產品</DialogTitle>
             <DialogDescription>
-              確定要停用選中的 {selectedIds.size} 個產品嗎？停用後將無法在新單據中選擇這些產品。
+              確定要停用選中的 {selection.size} 個產品嗎？停用後將無法在新單據中選擇這些產品。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setBatchStatusDialogOpen(false)}
+              onClick={() => dialogs.close('batchStatus')}
               disabled={batchStatusMutation.isPending}
             >
               取消
@@ -973,7 +896,7 @@ export function ProductsPage() {
             <Button
               onClick={() => {
                 batchStatusMutation.mutate({
-                  ids: Array.from(selectedIds),
+                  ids: Array.from(selection.selectedIds),
                   status: 'inactive',
                 })
               }}
@@ -987,7 +910,7 @@ export function ProductsPage() {
       </Dialog>
 
       {/* 產品匯入對話框 */}
-      <ProductImportDialog open={showImportDialog} onOpenChange={setShowImportDialog} />
+      <ProductImportDialog open={dialogs.isOpen('import')} onOpenChange={dialogs.setOpen('import')} />
     </div>
   )
 }

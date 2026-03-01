@@ -358,6 +358,36 @@ export function useUserManagement() {
     if (userToImpersonate) await impersonate(userToImpersonate.id, reauthToken)
   }
 
+  const handleExportUsers = () => {
+    if (!sortedUsers || sortedUsers.length === 0) {
+      toast({ title: '無資料可匯出', description: '目前沒有使用者', variant: 'destructive' })
+      return
+    }
+    const headers = ['Email', '名稱', '電話', '組織', '角色', '職稱', '到職日', '狀態', 'AUP角色', '年資']
+    const rows = sortedUsers.map((u) => [
+      u.email,
+      u.display_name,
+      u.phone || '',
+      u.organization || '',
+      (u.roles || []).join('; '),
+      u.position || '',
+      u.entry_date || '',
+      u.is_active ? '啟用' : '停用',
+      (u.aup_roles || []).join('; '),
+      String(u.years_experience ?? ''),
+    ])
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `users_${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+    URL.revokeObjectURL(link.href)
+    toast({ title: '匯出成功', description: `已匯出 ${sortedUsers.length} 位使用者` })
+  }
+
   return {
     currentUser,
     users: paginatedUsers,
@@ -415,5 +445,6 @@ export function useUserManagement() {
     toggleSortRole,
     toggleSortStatus,
     handleImpersonate,
+    handleExportUsers,
   }
 }

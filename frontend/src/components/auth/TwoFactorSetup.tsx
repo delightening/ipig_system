@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useDialogSet } from '@/hooks/useDialogSet'
 import { QRCodeSVG } from 'qrcode.react'
 import api from '@/lib/api'
 import { getErrorMessage } from '@/types/error'
@@ -21,8 +22,7 @@ interface Props {
 
 export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
   const [setupData, setSetupData] = useState<TwoFactorSetupResponse | null>(null)
-  const [showSetupDialog, setShowSetupDialog] = useState(false)
-  const [showDisableDialog, setShowDisableDialog] = useState(false)
+  const dialogs = useDialogSet(['setup', 'disable'] as const)
   const [verifyCode, setVerifyCode] = useState('')
   const [disablePassword, setDisablePassword] = useState('')
   const [disableCode, setDisableCode] = useState('')
@@ -35,7 +35,7 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
     try {
       const res = await api.post<TwoFactorSetupResponse>('/auth/2fa/setup')
       setSetupData(res.data)
-      setShowSetupDialog(true)
+      dialogs.open('setup')
       setStep('qr')
       setVerifyCode('')
     } catch (error: unknown) {
@@ -68,7 +68,7 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
   }
 
   const finishSetup = () => {
-    setShowSetupDialog(false)
+    dialogs.close('setup')
     setSetupData(null)
     onStatusChange()
   }
@@ -79,7 +79,7 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
     try {
       await api.post('/auth/2fa/disable', { password: disablePassword, code: disableCode })
       toast({ title: '2FA 已停用' })
-      setShowDisableDialog(false)
+      dialogs.close('disable')
       setDisablePassword('')
       setDisableCode('')
       onStatusChange()
@@ -125,7 +125,7 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowDisableDialog(true)}
+                onClick={() => dialogs.open('disable')}
               >
                 <ShieldOff className="mr-2 h-4 w-4" />停用 2FA
               </Button>
@@ -140,7 +140,7 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
       </Card>
 
       {/* Setup Dialog */}
-      <Dialog open={showSetupDialog} onOpenChange={(open) => { if (!open && step === 'backup') finishSetup(); else if (!open) setShowSetupDialog(false) }}>
+      <Dialog open={dialogs.isOpen('setup')} onOpenChange={(open) => { if (!open && step === 'backup') finishSetup(); else if (!open) dialogs.close('setup') }}>
         <DialogContent className="max-w-md">
           {step === 'qr' && setupData && (
             <>
@@ -173,7 +173,7 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
                 />
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setShowSetupDialog(false)}>取消</Button>
+                <Button variant="outline" onClick={() => dialogs.close('setup')}>取消</Button>
                 <Button onClick={confirmSetup} disabled={loading || verifyCode.length < 6}>
                   {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   確認啟用
@@ -211,7 +211,7 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
       </Dialog>
 
       {/* Disable Dialog */}
-      <Dialog open={showDisableDialog} onOpenChange={setShowDisableDialog}>
+      <Dialog open={dialogs.isOpen('disable')} onOpenChange={dialogs.setOpen('disable')}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>停用兩步驟驗證</DialogTitle>
@@ -244,7 +244,7 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDisableDialog(false)}>取消</Button>
+            <Button variant="outline" onClick={() => dialogs.close('disable')}>取消</Button>
             <Button
               variant="destructive"
               onClick={disableTwoFactor}

@@ -118,7 +118,7 @@ pub async fn list_staff_for_proxy(
     Ok(Json(result))
 }
 
-/// 內部員工列表（供特休管理用）
+/// 內部員工列表（排除 admin；供特休管理、人員訓練等使用）
 pub async fn list_internal_users_for_balance(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -126,6 +126,8 @@ pub async fn list_internal_users_for_balance(
     if !current_user.is_admin()
         && !current_user.roles.contains(&"ADMIN_STAFF".to_string())
         && !current_user.has_permission("hr.balance.manage")
+        && !current_user.has_permission("training.view")
+        && !current_user.has_permission("training.manage")
     {
         return Err(crate::error::AppError::Forbidden("無權查看員工列表".to_string()));
     }

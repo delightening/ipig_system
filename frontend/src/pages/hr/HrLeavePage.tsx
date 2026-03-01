@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useDialogSet } from '@/hooks/useDialogSet'
+import { useLeaveRequestForm } from './hooks/useLeaveRequestForm'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
@@ -79,7 +81,7 @@ const parseDecimal = (value: number | string | null | undefined): number => {
 
 export function HrLeavePage() {
     const [activeTab, setActiveTab] = useState('my-leaves')
-    const [showCreateDialog, setShowCreateDialog] = useState(false)
+    const dialogs = useDialogSet(['create'] as const)
     const queryClient = useQueryClient()
     const { hasRole } = useAuthStore()
 
@@ -93,17 +95,7 @@ export function HrLeavePage() {
     const [filterTo, setFilterTo] = useState('')
 
     // 新假單表單狀態
-    const [leaveType, setLeaveType] = useState('')
-    const [startDate, setStartDate] = useState('')
-    const [endDate, setEndDate] = useState('')
-    const [totalDays, setTotalDays] = useState('1')
-    const [reason, setReason] = useState('')
-    const [proxyUserId, setProxyUserId] = useState('')  // 代理人
-    const [supportingImages, setSupportingImages] = useState<string[]>([])  // 附件圖片 URLs
-    const [uploadingImage, setUploadingImage] = useState(false)
-
-    // 追蹤最後修改的欄位（用於決定計算方向）
-    const [lastChangedField, setLastChangedField] = useState<'startDate' | 'endDate' | 'totalDays' | null>(null)
+    const leaveForm = useLeaveRequestForm()
 
     // 我的餘額
     const { data: balanceSummary } = useQuery({
@@ -160,52 +152,6 @@ export function HrLeavePage() {
         enabled: canViewAll && activeTab === 'all-records',
     })
 
-    // 日期/天數處理函式
-    const handleStartDateChange = (value: string) => {
-        setStartDate(value)
-        setLastChangedField('startDate')
-    }
-
-    const handleEndDateChange = (value: string) => {
-        setEndDate(value)
-        setLastChangedField('endDate')
-    }
-
-    const handleTotalDaysChange = (value: string) => {
-        setTotalDays(value)
-        setLastChangedField('totalDays')
-    }
-
-    // 自動計算日期/天數（雙向計算）
-    useEffect(() => {
-        if (!lastChangedField) return
-
-        // 如果修改的是開始日期或結束日期 → 計算天數
-        if ((lastChangedField === 'startDate' || lastChangedField === 'endDate') && startDate && endDate) {
-            const start = new Date(startDate)
-            const end = new Date(endDate)
-            if (end >= start) {
-                const diffTime = end.getTime() - start.getTime()
-                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1
-                setTotalDays(String(diffDays))
-            }
-        }
-
-        // 如果修改的是天數 → 計算結束日期
-        if (lastChangedField === 'totalDays' && startDate && totalDays) {
-            const days = parseFloat(totalDays)
-            if (days >= 0.5) {
-                const start = new Date(startDate)
-                // 天數 - 1 是因為開始日期算第一天
-                const end = new Date(start.getTime() + (Math.ceil(days) - 1) * 24 * 60 * 60 * 1000)
-                const newEndDate = end.toISOString().split('T')[0]
-                if (newEndDate !== endDate) {
-                    setEndDate(newEndDate)
-                }
-            }
-        }
-    }, [startDate, endDate, totalDays, lastChangedField])
-
     // 建立請假
     const createLeaveMutation = useMutation({
         mutationFn: async (data: {
@@ -221,8 +167,8 @@ export function HrLeavePage() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['hr-my-leaves'] })
-            setShowCreateDialog(false)
-            resetForm()
+            dialogs.close('create')
+            leaveForm.resetForm()
             toast({ title: '成功', description: '已建立請假申請' })
         },
         onError: (error: unknown) => {
@@ -279,22 +225,12 @@ export function HrLeavePage() {
         },
     })
 
-    const resetForm = () => {
-        setLeaveType('')
-        setStartDate('')
-        setEndDate('')
-        setTotalDays('1')
-        setReason('')
-        setProxyUserId('')
-        setSupportingImages([])
-    }
-
     // 處理圖片上傳 (上傳至後端)
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files
         if (!files || files.length === 0) return
 
-        setUploadingImage(true)
+        leaveForm.setUploadingImage(true)
         try {
             const formData = new FormData()
             for (let i = 0; i < files.length; i++) {
@@ -305,43 +241,30 @@ export function HrLeavePage() {
             })
             // 使用 file_path 作為圖片 URL
             const newUrls = res.data.map(r => `/api/uploads/${r.file_path}`)
-            setSupportingImages(prev => [...prev, ...newUrls])
+            leaveForm.addSupportingImages(newUrls)
             toast({ title: '成功', description: '圖片已上傳' })
         } catch {
             toast({ title: '錯誤', description: '圖片上傳失敗', variant: 'destructive' })
         } finally {
-            setUploadingImage(false)
+            leaveForm.setUploadingImage(false)
             e.target.value = ''
         }
     }
 
-    // 移除已上傳的圖片
-    const removeImage = (index: number) => {
-        setSupportingImages(prev => prev.filter((_, i) => i !== index))
-    }
-
     // 檢查是否為特休假（不需要填寫理由）
-    const isAnnualLeave = leaveType === 'ANNUAL'
+    const isAnnualLeave = leaveForm.isAnnualLeave
 
     const handleCreateLeave = () => {
         // 特休假不需要填寫理由，其他假別需要
-        if (!leaveType || !startDate || !endDate) {
+        if (!leaveForm.form.leaveType || !leaveForm.form.startDate || !leaveForm.form.endDate) {
             toast({ title: '錯誤', description: '請填寫必填欄位', variant: 'destructive' })
             return
         }
-        if (!isAnnualLeave && !reason.trim()) {
+        if (!isAnnualLeave && !leaveForm.form.reason.trim()) {
             toast({ title: '錯誤', description: '請填寫請假事由', variant: 'destructive' })
             return
         }
-        createLeaveMutation.mutate({
-            leave_type: leaveType,
-            start_date: startDate,
-            end_date: endDate,
-            total_days: parseFloat(totalDays),
-            reason: reason.trim() || undefined,
-            supporting_documents: supportingImages.length > 0 ? supportingImages : undefined,
-            proxy_user_id: proxyUserId && proxyUserId !== '__none__' ? proxyUserId : undefined,
-        })
+        createLeaveMutation.mutate(leaveForm.buildSubmitPayload())
     }
 
     const getStatusBadge = (status: string) => {
@@ -371,7 +294,7 @@ export function HrLeavePage() {
                     <h1 className="text-3xl font-bold">請假管理</h1>
                     <p className="text-muted-foreground">申請請假與查看假期餘額</p>
                 </div>
-                <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                <Dialog open={dialogs.isOpen('create')} onOpenChange={dialogs.setOpen('create')}>
                     <DialogTrigger asChild>
                         <Button>
                             <Plus className="h-4 w-4 mr-2" />
@@ -386,7 +309,7 @@ export function HrLeavePage() {
                         <div className="grid gap-4 py-4">
                             <div className="grid gap-2">
                                 <Label>假別 *</Label>
-                                <Select value={leaveType} onValueChange={setLeaveType}>
+                                <Select value={leaveForm.form.leaveType} onValueChange={(v) => leaveForm.updateField('leaveType', v)}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="選擇假別" />
                                     </SelectTrigger>
@@ -404,16 +327,16 @@ export function HrLeavePage() {
                                     <Label>開始日期 *</Label>
                                     <Input
                                         type="date"
-                                        value={startDate}
-                                        onChange={(e) => handleStartDateChange(e.target.value)}
+                                        value={leaveForm.form.startDate}
+                                        onChange={(e) => leaveForm.handleStartDateChange(e.target.value)}
                                     />
                                 </div>
                                 <div className="grid gap-2">
                                     <Label>結束日期 *</Label>
                                     <Input
                                         type="date"
-                                        value={endDate}
-                                        onChange={(e) => handleEndDateChange(e.target.value)}
+                                        value={leaveForm.form.endDate}
+                                        onChange={(e) => leaveForm.handleEndDateChange(e.target.value)}
                                     />
                                 </div>
                             </div>
@@ -423,13 +346,13 @@ export function HrLeavePage() {
                                     type="number"
                                     step="0.5"
                                     min="0.5"
-                                    value={totalDays}
-                                    onChange={(e) => handleTotalDaysChange(e.target.value)}
+                                    value={leaveForm.form.totalDays}
+                                    onChange={(e) => leaveForm.handleTotalDaysChange(e.target.value)}
                                 />
                             </div>
                             <div className="grid gap-2">
                                 <Label>代理人 <span className="text-muted-foreground text-xs">(選填)</span></Label>
-                                <Select value={proxyUserId} onValueChange={setProxyUserId}>
+                                <Select value={leaveForm.form.proxyUserId} onValueChange={(v) => leaveForm.updateField('proxyUserId', v)}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="選擇代理人..." />
                                     </SelectTrigger>
@@ -450,8 +373,8 @@ export function HrLeavePage() {
                                 </Label>
                                 <Textarea
                                     placeholder={isAnnualLeave ? "選填，可不填寫..." : "請說明請假原因..."}
-                                    value={reason}
-                                    onChange={(e) => setReason(e.target.value)}
+                                    value={leaveForm.form.reason}
+                                    onChange={(e) => leaveForm.updateField('reason', e.target.value)}
                                     rows={3}
                                 />
                             </div>
@@ -460,7 +383,7 @@ export function HrLeavePage() {
                             <div className="grid gap-2">
                                 <Label>附件圖片 <span className="text-muted-foreground text-xs">(選填)</span></Label>
                                 <div className="flex flex-wrap gap-2">
-                                    {supportingImages.map((url, index) => (
+                                    {leaveForm.form.supportingImages.map((url, index) => (
                                         <div key={index} className="relative group">
                                             <img
                                                 src={url}
@@ -469,7 +392,7 @@ export function HrLeavePage() {
                                             />
                                             <button
                                                 type="button"
-                                                onClick={() => removeImage(index)}
+                                                onClick={() => leaveForm.removeSupportingImage(index)}
                                                 className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
                                             >
                                                 ×
@@ -483,9 +406,9 @@ export function HrLeavePage() {
                                             multiple
                                             className="hidden"
                                             onChange={handleImageUpload}
-                                            disabled={uploadingImage}
+                                            disabled={leaveForm.uploadingImage}
                                         />
-                                        {uploadingImage ? (
+                                        {leaveForm.uploadingImage ? (
                                             <Clock className="h-5 w-5 animate-spin text-muted-foreground" />
                                         ) : (
                                             <ImagePlus className="h-5 w-5 text-muted-foreground" />
@@ -498,7 +421,7 @@ export function HrLeavePage() {
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                            <Button variant="outline" onClick={() => dialogs.close('create')}>
                                 取消
                             </Button>
                             <Button
