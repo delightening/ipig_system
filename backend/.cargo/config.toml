@@ -1,6 +1,10 @@
 # Cargo 設定檔
 # 文件：https://doc.rust-lang.org/cargo/reference/config.html
 
+# 編譯時若無資料庫連線，使用 .sqlx 快取（不覆寫既有 SQLX_OFFLINE）
+[env]
+SQLX_OFFLINE = "true"
+
 [build]
 # 預設使用的 Rust 版本已在 Cargo.toml 的 edition 欄位設定
 

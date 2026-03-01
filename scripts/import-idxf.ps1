@@ -45,6 +45,13 @@ try {
     if ($res.errors.Count -gt 0) {
         Write-Host "錯誤: $($res.errors -join '; ')"
     }
+    if ($res.skipped_details -and $res.skipped_details.Count -gt 0) {
+        Write-Host "略過項目:"
+        foreach ($s in $res.skipped_details) {
+            $cnt = if ($s.count) { " ($($s.count) 筆)" } else { "" }
+            Write-Host "  - $($s.table): $($s.reason)$cnt"
+        }
+    }
 } catch {
     $err = $_.ErrorDetails.Message
     if ($err) {

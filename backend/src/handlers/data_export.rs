@@ -21,6 +21,7 @@ use crate::{
         export_full_database, import_idxf, AuditService, ExportFormat, ExportParams, ImportMode,
         ImportResult,
     },
+    startup::ensure_admin_user_after_import,
     AppError, AppState, Result,
 };
 
@@ -100,6 +101,9 @@ pub async fn full_database_import(
     let (file_data, _file_name) = parse_import_file(&mut multipart).await?;
     let result = import_idxf(&state.db, &file_data, ImportMode::Append).await?;
 
+    // 匯入後確保 admin 可登入（重設密碼為 ADMIN_INITIAL_PASSWORD）
+    let _ = ensure_admin_user_after_import(&state.db).await;
+
     let _ = AuditService::log_activity(
         &state.db,
         current_user.id,
@@ -116,7 +120,8 @@ pub async fn full_database_import(
             "tables_processed": result.tables_processed,
             "rows_inserted": result.rows_inserted,
             "rows_skipped": result.rows_skipped,
-            "errors": result.errors
+            "errors": result.errors,
+            "skipped_details": result.skipped_details
         })),
         None,
         None,

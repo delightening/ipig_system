@@ -48,9 +48,14 @@ export default defineConfig({
     port: 5173,
     host: '0.0.0.0', // Ensure it binds to all interfaces for Docker
     proxy: {
+      // SSE 長連線需優先匹配，避免被 /api 的預設 timeout 影響
+      '/api/admin/audit/alerts/sse': {
+        target: process.env.VITE_API_URL || 'http://localhost:8000',
+        changeOrigin: true,
+        timeout: 0, // 無限制，SSE 為長連線
+        proxyTimeout: 0,
+      },
       '/api': {
-        // In Docker, 'api' is the service name. Locally, it should be 'localhost'.
-        // We use an environment variable VITE_API_URL or fallback.
         target: process.env.VITE_API_URL || 'http://localhost:8000',
         changeOrigin: true,
       },

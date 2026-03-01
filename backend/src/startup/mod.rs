@@ -12,4 +12,4 @@ mod seed;
 
 pub use database::create_database_pool_with_retry;
 pub use permissions::{ensure_all_role_permissions, ensure_required_permissions};
-pub use seed::{ensure_admin_user, ensure_schema, seed_dev_users};
+pub use seed::{ensure_admin_user, ensure_admin_user_after_import, ensure_schema, seed_dev_users};
