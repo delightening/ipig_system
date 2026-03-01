@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useListFilters } from '@/hooks/useListFilters'
+import { useDialogSet } from '@/hooks/useDialogSet'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { Partner } from '@/lib/api'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -41,11 +43,9 @@ import { PartnerImportDialog } from '@/components/partner/PartnerImportDialog'
 export function PartnersPage() {
   const queryClient = useQueryClient()
   const { dialogState, confirm } = useConfirmDialog()
-  const [search, setSearch] = useState('')
-  const debouncedSearch = useDebounce(search, 400)
-  const [typeFilter, setTypeFilter] = useState<string>('all')
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [showImportDialog, setShowImportDialog] = useState(false)
+  const listFilters = useListFilters<{ type: string }>({ initialFilters: { type: 'all' } })
+  const debouncedSearch = useDebounce(listFilters.search, 400)
+  const dialogs = useDialogSet(['form', 'import'] as const)
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null)
   const [formData, setFormData] = useState({
     partner_type: 'supplier' as 'supplier' | 'customer',
@@ -120,12 +120,12 @@ export function PartnersPage() {
   }
 
   const { data: partners, isLoading } = useQuery({
-    queryKey: ['partners', debouncedSearch, typeFilter],
+    queryKey: ['partners', debouncedSearch, listFilters.filters.type],
     staleTime: STALE_TIME.LIST,
     queryFn: async () => {
       let params = ''
       if (debouncedSearch) params += `keyword=${encodeURIComponent(debouncedSearch)}&`
-      if (typeFilter && typeFilter !== 'all') params += `partner_type=${typeFilter}&`
+      if (listFilters.filters.type && listFilters.filters.type !== 'all') params += `partner_type=${listFilters.filters.type}&`
       const response = await api.get<Partner[]>(`/partners?${params}`)
       return response.data
     },
@@ -136,7 +136,7 @@ export function PartnersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['partners'] })
       toast({ title: '成功', description: '夥伴已建立' })
-      setDialogOpen(false)
+      dialogs.close('form')
       resetForm()
     },
     onError: (error: unknown) => {
@@ -154,7 +154,7 @@ export function PartnersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['partners'] })
       toast({ title: '成功', description: '夥伴已更新' })
-      setDialogOpen(false)
+      dialogs.close('form')
       resetForm()
     },
     onError: (error: unknown) => {
@@ -198,7 +198,7 @@ export function PartnersPage() {
       email: partner.email || '',
       address: partner.address || '',
     })
-    setDialogOpen(true)
+    dialogs.open('form')
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -303,7 +303,7 @@ export function PartnersPage() {
           <p className="text-muted-foreground">管理系統中的供應商與客戶資料</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
+          <Button variant="outline" size="sm" onClick={() => dialogs.open('import')}>
             <Upload className="mr-2 h-4 w-4" />
             匯入
           </Button>
@@ -316,7 +316,7 @@ export function PartnersPage() {
             <Download className="mr-2 h-4 w-4" />
             匯出
           </Button>
-          <Button onClick={() => { resetForm(); setDialogOpen(true) }}>
+          <Button onClick={() => { resetForm(); dialogs.open('form') }}>
             <Plus className="mr-2 h-4 w-4" />
             新增夥伴
           </Button>
@@ -329,12 +329,12 @@ export function PartnersPage() {
           <Input
             placeholder="搜尋夥伴..."
             aria-label="搜尋夥伴"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={listFilters.search}
+            onChange={(e) => listFilters.setSearch(e.target.value)}
             className="pl-9"
           />
         </div>
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
+        <Select value={listFilters.filters.type} onValueChange={(v) => listFilters.setFilter('type', v)}>
           <SelectTrigger className="w-40">
             <SelectValue placeholder="全部類型" />
           </SelectTrigger>
@@ -417,7 +417,7 @@ export function PartnersPage() {
         </Table>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogs.isOpen('form')} onOpenChange={dialogs.setOpen('form')}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingPartner ? '編輯夥伴' : '新增夥伴'}</DialogTitle>
@@ -558,7 +558,7 @@ export function PartnersPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => dialogs.close('form')}>
                 取消
               </Button>
               <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
@@ -572,7 +572,7 @@ export function PartnersPage() {
         </DialogContent>
       </Dialog>
       <ConfirmDialog state={dialogState} />
-      <PartnerImportDialog open={showImportDialog} onOpenChange={setShowImportDialog} />
+      <PartnerImportDialog open={dialogs.isOpen('import')} onOpenChange={dialogs.setOpen('import')} />
     </div>
   )
 }

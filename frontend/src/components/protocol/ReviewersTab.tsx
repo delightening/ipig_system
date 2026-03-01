@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useDialogSet } from '@/hooks/useDialogSet'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
   ReviewAssignmentResponse,
@@ -66,7 +67,7 @@ export function ReviewersTab({
 }: ReviewersTabProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [showAssignDialog, setShowAssignDialog] = useState(false)
+  const dialogs = useDialogSet(['assign'] as const)
   const [selectedReviewerId, setSelectedReviewerId] = useState('')
 
   const { data: reviewers, isLoading: reviewersLoading } = useQuery({
@@ -103,7 +104,7 @@ export function ReviewersTab({
           display_name: user.display_name || user.email,
         }))
     },
-    enabled: showAssignDialog,
+    enabled: dialogs.isOpen('assign'),
   })
 
   const assignReviewerMutation = useMutation({
@@ -113,7 +114,7 @@ export function ReviewersTab({
     onSuccess: () => {
       toast({ title: t('common.success'), description: t('protocols.detail.tables.assignSuccess') })
       queryClient.invalidateQueries({ queryKey: ['protocol-reviewers', protocolId] })
-      setShowAssignDialog(false)
+      dialogs.close('assign')
       setSelectedReviewerId('')
     },
     onError: (error: unknown) => {
@@ -142,7 +143,7 @@ export function ReviewersTab({
             <CardDescription>{t('protocols.detail.sections.reviewersDesc')}</CardDescription>
           </div>
           {canAssignReviewer && protocolStatus !== 'DRAFT' && protocolStatus !== 'CLOSED' && (
-            <Button onClick={() => setShowAssignDialog(true)}>
+            <Button onClick={() => dialogs.open('assign')}>
               <UserPlus className="mr-2 h-4 w-4" />
               {t('protocols.detail.dialogs.assign.title')}
             </Button>
@@ -232,7 +233,7 @@ export function ReviewersTab({
               <Users className="h-12 w-12 mx-auto mb-2" />
               <p>{t('protocols.detail.tables.noReviewers')}</p>
               {canAssignReviewer && protocolStatus !== 'DRAFT' && (
-                <Button variant="link" onClick={() => setShowAssignDialog(true)} className="mt-2">
+                <Button variant="link" onClick={() => dialogs.open('assign')} className="mt-2">
                   {t('protocols.detail.tables.assignFirst')}
                 </Button>
               )}
@@ -241,7 +242,7 @@ export function ReviewersTab({
         </CardContent>
       </Card>
 
-      <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
+      <Dialog open={dialogs.isOpen('assign')} onOpenChange={dialogs.setOpen('assign')}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('protocols.detail.dialogs.assign.title')}</DialogTitle>
@@ -265,7 +266,7 @@ export function ReviewersTab({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
+            <Button variant="outline" onClick={() => dialogs.close('assign')}>
               {t('common.cancel')}
             </Button>
             <Button

@@ -391,8 +391,8 @@ export function AnimalsPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-slate-900">{t('animals.title')}</h1>
-          <p className="text-sm md:text-base text-slate-500">{t('animals.description')}</p>
+          <h1 className="text-3xl font-bold tracking-tight">{t('animals.title')}</h1>
+          <p className="text-muted-foreground">{t('animals.description')}</p>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
           <Button variant="outline" className="w-full gap-2 text-orange-600 border-orange-200 hover:bg-orange-50 text-xs md:text-sm" onClick={() => setShowPrintReport(true)}>

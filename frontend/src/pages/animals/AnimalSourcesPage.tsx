@@ -21,7 +21,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 import {
@@ -179,11 +178,10 @@ export function AnimalSourcesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">動物來源管理</h1>
-          <p className="text-slate-500">管理動物的來源/供應商資訊</p>
+          <h1 className="text-3xl font-bold tracking-tight">動物來源管理</h1>
+          <p className="text-muted-foreground">管理動物的來源/供應商資訊</p>
         </div>
         <Button onClick={() => handleOpenDialog()} className="gap-2 bg-purple-600 hover:bg-purple-700">
           <Plus className="h-4 w-4" />
@@ -191,47 +189,29 @@ export function AnimalSourcesPage() {
         </Button>
       </div>
 
-      {/* Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5" />
-            來源列表
-          </CardTitle>
-          <CardDescription>
-            共 {sources?.length || 0} 個來源
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-            </div>
-          ) : !sources || sources.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">
-              <Building2 className="h-12 w-12 mx-auto mb-4 text-slate-300" />
-              <p>尚無來源資料</p>
-              <Button onClick={() => handleOpenDialog()} variant="outline" className="mt-4">
-                <Plus className="h-4 w-4 mr-2" />
-                新增第一個來源
-              </Button>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>排序</TableHead>
-                  <TableHead>代碼</TableHead>
-                  <TableHead>名稱</TableHead>
-                  <TableHead>地址</TableHead>
-                  <TableHead>聯絡人</TableHead>
-                  <TableHead>電話</TableHead>
-                  <TableHead>狀態</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sources.map((source) => (
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>排序</TableHead>
+              <TableHead>代碼</TableHead>
+              <TableHead>名稱</TableHead>
+              <TableHead>地址</TableHead>
+              <TableHead>聯絡人</TableHead>
+              <TableHead>電話</TableHead>
+              <TableHead>狀態</TableHead>
+              <TableHead className="text-right">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                </TableCell>
+              </TableRow>
+            ) : sources && sources.length > 0 ? (
+              sources.map((source) => (
                   <TableRow key={source.id}>
                     <TableCell>{source.sort_order}</TableCell>
                     <TableCell className="font-mono font-medium">{source.code}</TableCell>
@@ -285,12 +265,22 @@ export function AnimalSourcesPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center py-8">
+                  <Building2 className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-muted-foreground">尚無來源資料</p>
+                  <Button onClick={() => handleOpenDialog()} variant="outline" className="mt-4">
+                    <Plus className="h-4 w-4 mr-2" />
+                    新增第一個來源
+                  </Button>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
       {/* Add/Edit Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>

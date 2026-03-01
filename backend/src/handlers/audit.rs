@@ -77,9 +77,10 @@ pub async fn get_entity_history(
 /// 列出活動日誌
 pub async fn list_activity_logs(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<ActivityLogQuery>,
 ) -> Result<Json<PaginatedResponse<UserActivityLog>>> {
+    require_permission!(current_user, "audit.logs.view");
     let result = AuditService::list_activities(&state.db, &query).await?;
     Ok(Json(result))
 }
@@ -87,9 +88,10 @@ pub async fn list_activity_logs(
 /// 匯出活動日誌（不分頁，供 CSV/PDF 匯出使用）
 pub async fn export_activity_logs(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<ActivityLogQuery>,
 ) -> Result<Json<Vec<UserActivityLog>>> {
+    require_permission!(current_user, "audit.logs.export");
     let result = AuditService::export_activities(&state.db, &query).await?;
     Ok(Json(result))
 }

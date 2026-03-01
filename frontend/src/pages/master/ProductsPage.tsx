@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useToggle } from '@/hooks/useToggle'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { Product } from '@/lib/api'
@@ -144,7 +145,7 @@ export function ProductsPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [trackBatchFilter, setTrackBatchFilter] = useState('all')
   const [trackExpiryFilter, setTrackExpiryFilter] = useState('all')
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+  const [showAdvancedFilters, toggleAdvancedFilters] = useToggle()
 
   // 分頁與排序
   const [page, setPage] = useState(1)
@@ -470,7 +471,7 @@ export function ProductsPage() {
           <Button
             variant={showAdvancedFilters ? "secondary" : "outline"}
             size="sm"
-            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+            onClick={toggleAdvancedFilters}
             className="relative"
           >
             <Filter className="mr-2 h-4 w-4" />

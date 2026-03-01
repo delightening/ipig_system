@@ -315,7 +315,12 @@ impl AuditService {
 
         let data = sqlx::query_as::<_, UserActivityLog>(
             r#"
-            SELECT * FROM user_activity_logs
+            SELECT id, actor_user_id, actor_email, actor_display_name, actor_roles, session_id,
+                   event_category, event_type, event_severity, entity_type, entity_id, entity_display_name,
+                   before_data, after_data, changed_fields, ip_address::text as ip_address,
+                   user_agent, request_path, request_method, response_status,
+                   is_suspicious, suspicious_reason, created_at, partition_date
+            FROM user_activity_logs
             WHERE ($1::uuid IS NULL OR actor_user_id = $1)
               AND ($2::text IS NULL OR event_category = $2)
               AND ($3::text IS NULL OR event_type = $3)
@@ -351,7 +356,12 @@ impl AuditService {
     ) -> Result<Vec<UserActivityLog>> {
         let data = sqlx::query_as::<_, UserActivityLog>(
             r#"
-            SELECT * FROM user_activity_logs
+            SELECT id, actor_user_id, actor_email, actor_display_name, actor_roles, session_id,
+                   event_category, event_type, event_severity, entity_type, entity_id, entity_display_name,
+                   before_data, after_data, changed_fields, ip_address::text as ip_address,
+                   user_agent, request_path, request_method, response_status,
+                   is_suspicious, suspicious_reason, created_at, partition_date
+            FROM user_activity_logs
             WHERE ($1::uuid IS NULL OR actor_user_id = $1)
               AND ($2::text IS NULL OR event_category = $2)
               AND ($3::text IS NULL OR event_type = $3)

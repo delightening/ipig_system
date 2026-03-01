@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useDialogSet } from '@/hooks/useDialogSet'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
     AmendmentListItem,
@@ -48,7 +49,7 @@ export function AmendmentsTab({ protocolId, protocolStatus }: AmendmentsTabProps
     const queryClient = useQueryClient()
     const { user } = useAuthStore()
 
-    const [showCreateDialog, setShowCreateDialog] = useState(false)
+    const dialogs = useDialogSet(['create'] as const)
     const [amendmentTitle, setAmendmentTitle] = useState('')
     const [amendmentDescription, setAmendmentDescription] = useState('')
     const [selectedChangeItems, setSelectedChangeItems] = useState<string[]>([])
@@ -101,7 +102,7 @@ export function AmendmentsTab({ protocolId, protocolStatus }: AmendmentsTabProps
     })
 
     const resetForm = () => {
-        setShowCreateDialog(false)
+        dialogs.close('create')
         setAmendmentTitle('')
         setAmendmentDescription('')
         setSelectedChangeItems([])
@@ -151,7 +152,7 @@ export function AmendmentsTab({ protocolId, protocolStatus }: AmendmentsTabProps
                     <CardDescription>{t('protocols.amendments.description')}</CardDescription>
                 </div>
                 {canCreateAmendment && isPIorCoEditor && (
-                    <Button onClick={() => setShowCreateDialog(true)}>
+                    <Button onClick={() => dialogs.open('create')}>
                         <Plus className="mr-2 h-4 w-4" />
                         {t('protocols.amendments.create')}
                     </Button>
@@ -241,7 +242,7 @@ export function AmendmentsTab({ protocolId, protocolStatus }: AmendmentsTabProps
             </CardContent>
 
             {/* 建立變更申請對話框 */}
-            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+            <Dialog open={dialogs.isOpen('create')} onOpenChange={dialogs.setOpen('create')}>
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
                         <DialogTitle>{t('protocols.amendments.dialog.title')}</DialogTitle>
