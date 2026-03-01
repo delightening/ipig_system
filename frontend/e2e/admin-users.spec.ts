@@ -27,7 +27,7 @@ test.describe('使用者管理（Admin）', () => {
 
     test('應有新增使用者按鈕', async ({ page }) => {
         await expect(page.locator('[class*="animate-spin"]')).toBeHidden({ timeout: 15_000 })
-        const createBtn = page.getByRole('button', { name: /新增使用者|Add User/ })
+        const createBtn = page.getByTestId('add-user-button').or(page.getByRole('button', { name: /新增使用者|Add User/ }))
         await expect(createBtn).toBeVisible({ timeout: 10_000 })
     })
 
@@ -35,7 +35,7 @@ test.describe('使用者管理（Admin）', () => {
         await expect(page.locator('[class*="animate-spin"]')).toBeHidden({ timeout: 15_000 })
         const table = page.getByRole('table').filter({ hasText: /Email|名稱|Name|角色|Role/ }).first()
         await expect(table).toBeVisible({ timeout: 15_000 })
-        const createBtn = page.getByRole('button', { name: /新增使用者|Add User/ })
+        const createBtn = page.getByTestId('add-user-button').or(page.getByRole('button', { name: /新增使用者|Add User/ }))
         await expect(createBtn).toBeVisible({ timeout: 10_000 })
         await createBtn.click()
         const dialog = page.locator('[role="dialog"]')

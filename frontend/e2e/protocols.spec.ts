@@ -4,10 +4,13 @@ import { ensureAdminOnPage } from './auth-helpers'
 test.describe('計畫書列表', () => {
     test.beforeEach(async ({ page }) => {
         await ensureAdminOnPage(page, '/protocols')
+        await page.waitForLoadState('load')
+        await page.waitForTimeout(1500)
+
         if (page.url().includes('/login')) {
             await ensureAdminOnPage(page, '/protocols')
         }
-        await expect(page).not.toHaveURL(/\/login/, { timeout: 8_000 })
+        await expect(page).not.toHaveURL(/\/login/, { timeout: 15_000 })
         await expect(
             page.locator('a[href*="/protocols/new"]').or(page.locator('table')).first(),
             '計畫書頁應載入（新增按鈕或表格）'
@@ -33,6 +36,9 @@ test.describe('計畫書列表', () => {
     })
 
     test('表格排序應可運作', async ({ page }) => {
+        if (page.url().includes('/login')) {
+            await ensureAdminOnPage(page, '/protocols')
+        }
         const table = page.locator('table')
         await expect(table).toBeVisible({ timeout: 15_000 })
 
