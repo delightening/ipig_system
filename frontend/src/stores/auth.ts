@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useShallow } from 'zustand/react/shallow'
+import { AxiosError } from 'axios'
 import api, { User, LoginResponse, TwoFactorRequiredResponse } from '@/lib/api'
 import { logger } from '@/lib/logger'
 
@@ -164,12 +165,14 @@ export const useAuthStore = create<AuthState>()(
             isInitialized: true,
             sessionExpiresAt: currentExpiry ?? Date.now() + 6 * 60 * 60 * 1000,
           })
-        } catch {
+        } catch (err) {
+          // 僅在 401（未認證）時清除 auth；503/5xx/網路錯誤保留登入狀態，避免伺服器暫時不可用時誤登出
+          const is401 = err instanceof AxiosError && err.response?.status === 401
           set({
-            user: null,
-            isAuthenticated: false,
+            ...(is401
+              ? { user: null, isAuthenticated: false, sessionExpiresAt: null }
+              : {}),
             isInitialized: true,
-            sessionExpiresAt: null,
           })
         }
       },

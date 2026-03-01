@@ -2,6 +2,54 @@
 
 ---
 
+## Refresh 壓力測試與 MCP 建議（2026-03-01）
+
+### 背景
+
+使用者要求：在 browser 上重新整理頁面 5 次，觀察會出現的錯誤碼，並評估是否使用 MCP。
+
+### 實作內容
+
+1. **新增 `frontend/e2e/refresh-check.spec.ts`**：
+   - 以 admin 登入後連續 refresh 5 次
+   - 監聽 API 回應（非 2xx）與 Console 錯誤
+   - 輸出錯誤碼統計與依路徑分布
+
+2. **測試結果（2026-03-01 執行）**：
+   - **HTTP 503**: 15 次（Service Temporarily Unavailable）
+   - 範例路徑：`/api/v1/documents`
+   - 可能原因：後端暫時不可用、DB 連線池、或 dev 環境負載
+   - 與 checkAuth 503 誤登出修正無關（該修正已避免 503 觸發登出）
+
+3. **503 修正（2026-03-01）**：
+   - **後端**：`config.rs` 新增 `database_min_connections`（預設 5）、`database_acquire_timeout_seconds`（預設 30）；`database_max_connections` 預設 10→40；`database.rs` 連線池加入 `min_connections`、`acquire_timeout`；`error.rs` 對 `PoolTimedOut`、`PoolClosed` 回傳 503 + `Retry-After: 2`
+   - **前端**：`api.ts` 對 503 依 `Retry-After` 自動重試（最多 2 次）
+
+4. **MCP 建議**：
+   - **Playwright MCP**：適合在 Cursor 內互動式操作 browser（`browser_navigate`、`browser_snapshot`、`browser_click` 等）
+   - **設定方式**：Cursor Settings → MCP → Add new MCP Server → `npx @playwright/mcp` 或 `npx -y @playwright/mcp-server`
+   - **用途**：開發時手動驗證、除錯 UI、錄製操作；**自動化回歸測試**仍建議使用現有 Playwright E2E（`npx playwright test`），較穩定且可 CI 執行
+
+---
+
+## checkAuth 503 誤登出修正（2026-03-01）
+
+### 背景
+
+多重新整理幾次後被踢出登入，Console 顯示 `api/v1/me`、`api/metrics/vitals` 回傳 503 (Service Temporarily Unavailable)。
+
+### 原因
+
+非 JWT 問題。`checkAuth` 的 catch 將**所有**錯誤（含 503、5xx、網路錯誤）一律視為「未認證」並清除 auth 狀態，導致伺服器暫時不可用時使用者被誤登出。
+
+### 實作內容
+
+在 `frontend/src/stores/auth.ts` 的 `checkAuth` 中：
+- 僅當 `err.response?.status === 401` 時才清除 `user`、`isAuthenticated`、`sessionExpiresAt`
+- 503、5xx、網路錯誤時保留既有 auth 狀態，只設 `isInitialized: true`，讓使用者可稍後重試
+
+---
+
 ## 權限合併：erp.inventory.view → erp.stock.view（2026-03-01）
 
 ### 背景

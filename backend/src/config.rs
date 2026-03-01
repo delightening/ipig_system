@@ -23,6 +23,10 @@ pub struct Config {
     pub port: u16,
     pub database_url: String,
     pub database_max_connections: u32,
+    /// 連線池最小維持連線數（預熱，減少取得連線延遲）
+    pub database_min_connections: u32,
+    /// 從連線池取得連線的逾時秒數（逾時回傳 PoolTimedOut）
+    pub database_acquire_timeout_seconds: u64,
     pub database_retry_attempts: u32,
     pub database_retry_delay_seconds: u64,
     pub jwt_secret: String,
@@ -71,9 +75,17 @@ impl Config {
                 .context("PORT must be a number")?,
             database_url: require_secret("DATABASE_URL")?,
             database_max_connections: std::env::var("DATABASE_MAX_CONNECTIONS")
-                .unwrap_or_else(|_| "10".to_string())
+                .unwrap_or_else(|_| "40".to_string())
                 .parse()
                 .context("DATABASE_MAX_CONNECTIONS must be a number")?,
+            database_min_connections: std::env::var("DATABASE_MIN_CONNECTIONS")
+                .unwrap_or_else(|_| "5".to_string())
+                .parse()
+                .context("DATABASE_MIN_CONNECTIONS must be a number")?,
+            database_acquire_timeout_seconds: std::env::var("DATABASE_ACQUIRE_TIMEOUT_SECONDS")
+                .unwrap_or_else(|_| "30".to_string())
+                .parse()
+                .context("DATABASE_ACQUIRE_TIMEOUT_SECONDS must be a number")?,
             database_retry_attempts: std::env::var("DATABASE_RETRY_ATTEMPTS")
                 .unwrap_or_else(|_| "5".to_string())
                 .parse()
@@ -177,6 +189,8 @@ mod tests {
             port: 3000,
             database_url: "postgres://test:test@localhost/test".to_string(),
             database_max_connections: 10,
+            database_min_connections: 2,
+            database_acquire_timeout_seconds: 30,
             database_retry_attempts: 5,
             database_retry_delay_seconds: 5,
             jwt_secret: "a".repeat(32),

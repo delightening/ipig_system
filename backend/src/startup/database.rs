@@ -71,9 +71,11 @@ pub async fn create_database_pool_with_retry(
     let db_url_display = parse_database_url_for_logging(&config.database_url);
     
     tracing::info!(
-        "Initializing database connection pool...\n  URL: {}\n  Max connections: {}\n  Retry attempts: {}\n  Retry delay: {}s",
+        "Initializing database connection pool...\n  URL: {}\n  Max connections: {}\n  Min connections: {}\n  Acquire timeout: {}s\n  Retry attempts: {}\n  Retry delay: {}s",
         db_url_display,
         config.database_max_connections,
+        config.database_min_connections,
+        config.database_acquire_timeout_seconds,
         max_attempts,
         delay_seconds
     );
@@ -89,6 +91,8 @@ pub async fn create_database_pool_with_retry(
 
         match PgPoolOptions::new()
             .max_connections(config.database_max_connections)
+            .min_connections(config.database_min_connections)
+            .acquire_timeout(Duration::from_secs(config.database_acquire_timeout_seconds))
             .connect(&config.database_url)
             .await
         {
