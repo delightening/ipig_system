@@ -64,11 +64,22 @@ let isLoggingOut = false
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as typeof error.config & { _retry?: boolean }
+    const originalRequest = error.config as typeof error.config & { _retry?: boolean; _503RetryCount?: number }
 
     // 如果已經在登出流程中，直接拒絕所有 401，不再重試
     if (isLoggingOut) {
       return Promise.reject(error)
+    }
+
+    // 503 暫時性錯誤：依 Retry-After 重試（最多 2 次）
+    const max503Retries = 2
+    const retryCount = originalRequest?._503RetryCount ?? 0
+    if (error.response?.status === 503 && retryCount < max503Retries && originalRequest) {
+      const retryAfter = error.response?.headers?.['retry-after'] ?? error.response?.headers?.['Retry-After']
+      const delayMs = retryAfter ? Math.min(parseInt(String(retryAfter), 10) * 1000, 3000) : 1000
+      originalRequest._503RetryCount = retryCount + 1
+      await new Promise((r) => setTimeout(r, delayMs))
+      return api(originalRequest)
     }
 
     // If 401 and not already retrying, try to refresh token

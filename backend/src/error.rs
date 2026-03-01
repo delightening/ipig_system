@@ -1,5 +1,5 @@
 use axum::{
-    http::StatusCode,
+    http::{header, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
@@ -103,6 +103,22 @@ impl IntoResponse for AppError {
             }
             AppError::Database(e) => {
                 tracing::error!("Database error: {}", e);
+                // PoolTimedOut、PoolClosed 為暫時性資源不足，回傳 503 建議重試
+                if matches!(e, sqlx::Error::PoolTimedOut | sqlx::Error::PoolClosed) {
+                    let body = Json(json!({
+                        "error": {
+                            "message": "服務暫時忙碌，請稍後再試",
+                            "code": 503,
+                            "blocking": false
+                        }
+                    }));
+                    return (
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        [(header::RETRY_AFTER, "2")],
+                        body,
+                    )
+                        .into_response();
+                }
                 let user_msg = match e {
                     sqlx::Error::Database(ref db_err) => {
                         match db_err.code().as_deref() {
