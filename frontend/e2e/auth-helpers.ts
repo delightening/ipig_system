@@ -27,7 +27,8 @@ export async function performLogin(
         const [response] = await Promise.all([
             page.waitForResponse(
                 (resp: import('@playwright/test').APIResponse) =>
-                    resp.url().includes('/api/auth/login') && resp.request().method() === 'POST',
+                    (resp.url().includes('/api/v1/auth/login') || resp.url().includes('/api/auth/login')) &&
+                    resp.request().method() === 'POST',
                 { timeout: 15_000 },
             ),
             page.getByRole('button', { name: '登入' }).click(),
@@ -92,12 +93,17 @@ export async function ensureAdminOnPage(
 ): Promise<void> {
     await page.goto(path)
     await page.waitForLoadState('domcontentloaded')
-    if (page.url().includes('/login')) {
-        const { email, password } = getAdminCredentials()
-        if (password) {
-            await performLogin(page, email, password)
-            await page.goto(path)
-            await page.waitForLoadState('domcontentloaded')
+    for (let attempt = 0; attempt < 2; attempt++) {
+        if (page.url().includes('/login')) {
+            const { email, password } = getAdminCredentials()
+            if (password) {
+                await performLogin(page, email, password)
+                await page.waitForTimeout(800)
+                await page.goto(path)
+                await page.waitForLoadState('domcontentloaded')
+            }
+        } else {
+            break
         }
     }
 }

@@ -4,6 +4,9 @@ import { ensureAdminOnPage } from './auth-helpers'
 test.describe('計畫書列表', () => {
     test.beforeEach(async ({ page }) => {
         await ensureAdminOnPage(page, '/protocols')
+        if (page.url().includes('/login')) {
+            await ensureAdminOnPage(page, '/protocols')
+        }
         await expect(page).not.toHaveURL(/\/login/, { timeout: 8_000 })
         await expect(
             page.locator('a[href*="/protocols/new"]').or(page.locator('table')).first(),

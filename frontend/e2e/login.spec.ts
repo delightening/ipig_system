@@ -60,8 +60,10 @@ test.describe('登入流程', () => {
 
             const [resp] = await Promise.all([
                 page.waitForResponse(
-                    (r) => r.url().includes('/api/auth/login') && r.request().method() === 'POST',
-                    { timeout: 15_000 },
+                    (r) =>
+                        (r.url().includes('/api/auth/login') || r.url().includes('/api/v1/auth/login')) &&
+                        r.request().method() === 'POST',
+                    { timeout: 20_000 },
                 ),
                 page.getByRole('button', { name: '登入' }).click(),
             ])

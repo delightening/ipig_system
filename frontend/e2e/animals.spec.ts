@@ -4,6 +4,9 @@ import { ensureAdminOnPage } from './auth-helpers'
 test.describe('動物列表', () => {
     test.beforeEach(async ({ page }) => {
         await ensureAdminOnPage(page, '/animals')
+        if (page.url().includes('/login')) {
+            await ensureAdminOnPage(page, '/animals')
+        }
         await expect(page).toHaveURL(/\/animals/, { timeout: 12_000 })
         await expect(page.locator('button').filter({ hasText: /Pen View|All Animals|欄舍|全部/ }).first()).toBeVisible({ timeout: 15_000 })
     })

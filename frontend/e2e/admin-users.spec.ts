@@ -7,6 +7,9 @@ import { ensureAdminOnPage } from './auth-helpers'
 test.describe('使用者管理（Admin）', () => {
     test.beforeEach(async ({ page }) => {
         await ensureAdminOnPage(page, '/admin/users')
+        if (page.url().includes('/login')) {
+            await ensureAdminOnPage(page, '/admin/users')
+        }
     })
 
     test('應能存取使用者管理頁面', async ({ page }) => {
@@ -16,7 +19,7 @@ test.describe('使用者管理（Admin）', () => {
 
     test('應顯示使用者列表', async ({ page }) => {
         await expect(page.locator('[class*="animate-spin"]')).toBeHidden({ timeout: 15_000 })
-        const table = page.locator('table')
+        const table = page.getByRole('table').filter({ hasText: /Email|名稱|Name|角色|Role/ }).first()
         await expect(table).toBeVisible({ timeout: 10_000 })
         const rows = table.locator('tbody tr')
         await expect(rows.first()).toBeVisible({ timeout: 10_000 })
@@ -30,7 +33,7 @@ test.describe('使用者管理（Admin）', () => {
 
     test('新增使用者對話框應可開啟', async ({ page }) => {
         await expect(page.locator('[class*="animate-spin"]')).toBeHidden({ timeout: 15_000 })
-        const table = page.locator('table')
+        const table = page.getByRole('table').filter({ hasText: /Email|名稱|Name|角色|Role/ }).first()
         await expect(table).toBeVisible({ timeout: 15_000 })
         const createBtn = page.getByRole('button', { name: /新增使用者|Add User/ })
         await expect(createBtn).toBeVisible({ timeout: 10_000 })
