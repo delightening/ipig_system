@@ -77,6 +77,7 @@ INSERT INTO permissions (id, code, name, module, description, created_at) VALUES
     (gen_random_uuid(), 'erp.warehouse.view', '查看倉庫', 'erp', '可查看倉庫資料', NOW()),
     (gen_random_uuid(), 'erp.warehouse.create', '建立倉庫', 'erp', '可建立倉庫', NOW()),
     (gen_random_uuid(), 'erp.warehouse.edit', '編輯倉庫', 'erp', '可編輯倉庫', NOW()),
+    (gen_random_uuid(), 'erp.warehouse.delete', '刪除倉庫', 'erp', '可刪除倉庫', NOW()),
     (gen_random_uuid(), 'erp.product.view', '查看產品', 'erp', '可查看產品資料', NOW()),
     (gen_random_uuid(), 'erp.product.create', '建立產品', 'erp', '可建立產品', NOW()),
     (gen_random_uuid(), 'erp.product.edit', '編輯產品', 'erp', '可編輯產品', NOW()),
@@ -214,7 +215,7 @@ ON CONFLICT (role_id, permission_id) DO NOTHING;
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
 WHERE r.code = 'WAREHOUSE_MANAGER' AND p.code IN (
-    'erp.warehouse.view','erp.warehouse.create','erp.warehouse.edit','erp.product.view','erp.product.create','erp.product.edit',
+    'erp.warehouse.view','erp.warehouse.create','erp.warehouse.edit','erp.warehouse.delete','erp.product.view','erp.product.create','erp.product.edit',
     'erp.partner.view','erp.partner.create','erp.partner.edit','erp.document.view','erp.document.create','erp.document.edit',
     'erp.document.submit','erp.document.approve','erp.purchase.create','erp.purchase.approve',
     'erp.grn.create','erp.pr.create','erp.stock.in','erp.stock.out','erp.stock.view','erp.stock.adjust','erp.stock.transfer',

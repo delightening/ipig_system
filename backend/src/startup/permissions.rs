@@ -89,7 +89,7 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
         // ============================================
         ("WAREHOUSE_MANAGER", vec![
             // 倉庫管理
-            "erp.warehouse.view", "erp.warehouse.create", "erp.warehouse.edit",
+            "erp.warehouse.view", "erp.warehouse.create", "erp.warehouse.edit", "erp.warehouse.delete",
             // 產品管理
             "erp.product.view", "erp.product.create", "erp.product.edit",
             // 夥伴管理
@@ -306,7 +306,7 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "hr.balance.view", "hr.balance.manage",
             "hr.calendar.config", "hr.calendar.view", "hr.calendar.sync", "hr.calendar.conflicts",
             // ERP 倉庫管理權限
-            "erp.warehouse.view", "erp.warehouse.create", "erp.warehouse.edit",
+            "erp.warehouse.view", "erp.warehouse.create", "erp.warehouse.edit", "erp.warehouse.delete",
             "erp.product.view", "erp.product.create", "erp.product.edit",
             "erp.partner.view", "erp.partner.create", "erp.partner.edit",
             // 儲位管理
