@@ -188,27 +188,43 @@ impl NotificationService {
         Ok(result.rows_affected() as i64)
     }
 
-    /// 取得通知設定
+    /// 取得通知設定（若無則建立預設列，相容 migration 前建立的使用者）
     pub async fn get_settings(&self, user_id: Uuid) -> Result<NotificationSettings, AppError> {
-        let settings: NotificationSettings = sqlx::query_as(
+        let settings: Option<NotificationSettings> = sqlx::query_as(
             r#"
             SELECT * FROM notification_settings WHERE user_id = $1
             "#,
         )
         .bind(user_id)
-        .fetch_one(&self.db)
+        .fetch_optional(&self.db)
         .await?;
 
-        Ok(settings)
+        match settings {
+            Some(s) => Ok(s),
+            None => {
+                let created: NotificationSettings = sqlx::query_as(
+                    r#"
+                    INSERT INTO notification_settings (user_id)
+                    VALUES ($1)
+                    ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW()
+                    RETURNING *
+                    "#,
+                )
+                .bind(user_id)
+                .fetch_one(&self.db)
+                .await?;
+                Ok(created)
+            }
+        }
     }
 
-    /// 更新通知設定
+    /// 更新通知設定（若無列則先建立，相容 migration 前建立的使用者）
     pub async fn update_settings(
         &self,
         user_id: Uuid,
         request: UpdateNotificationSettingsRequest,
     ) -> Result<NotificationSettings, AppError> {
-        let settings: NotificationSettings = sqlx::query_as(
+        let settings: Option<NotificationSettings> = sqlx::query_as(
             r#"
             UPDATE notification_settings
             SET 
@@ -232,9 +248,47 @@ impl NotificationService {
         .bind(request.email_monthly_report)
         .bind(request.expiry_warning_days)
         .bind(request.low_stock_notify_immediately)
-        .fetch_one(&self.db)
+        .fetch_optional(&self.db)
         .await?;
 
-        Ok(settings)
+        match settings {
+            Some(s) => Ok(s),
+            None => {
+                sqlx::query(
+                    "INSERT INTO notification_settings (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
+                )
+                .bind(user_id)
+                .execute(&self.db)
+                .await?;
+                // 插入後再執行一次 UPDATE（此時列已存在）
+                let created: NotificationSettings = sqlx::query_as(
+                    r#"
+                    UPDATE notification_settings
+                    SET 
+                        email_low_stock = COALESCE($2, email_low_stock),
+                        email_expiry_warning = COALESCE($3, email_expiry_warning),
+                        email_document_approval = COALESCE($4, email_document_approval),
+                        email_protocol_status = COALESCE($5, email_protocol_status),
+                        email_monthly_report = COALESCE($6, email_monthly_report),
+                        expiry_warning_days = COALESCE($7, expiry_warning_days),
+                        low_stock_notify_immediately = COALESCE($8, low_stock_notify_immediately),
+                        updated_at = NOW()
+                    WHERE user_id = $1
+                    RETURNING *
+                    "#,
+                )
+                .bind(user_id)
+                .bind(request.email_low_stock)
+                .bind(request.email_expiry_warning)
+                .bind(request.email_document_approval)
+                .bind(request.email_protocol_status)
+                .bind(request.email_monthly_report)
+                .bind(request.expiry_warning_days)
+                .bind(request.low_stock_notify_immediately)
+                .fetch_one(&self.db)
+                .await?;
+                Ok(created)
+            }
+        }
     }
 }

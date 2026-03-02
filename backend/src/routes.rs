@@ -569,7 +569,7 @@ pub fn api_routes(state: AppState) -> Router {
             "/animals/import/template/weight",
             get(handlers::download_weight_import_template),
         )
-        // Notifications
+        // Notifications（/settings 須在 /:id 之前，避免 "settings" 被當成 UUID 解析）
         .route("/notifications", get(handlers::list_notifications))
         .route(
             "/notifications/unread-count",
@@ -577,11 +577,11 @@ pub fn api_routes(state: AppState) -> Router {
         )
         .route("/notifications/read", post(handlers::mark_as_read))
         .route("/notifications/read-all", post(handlers::mark_all_as_read))
-        .route("/notifications/:id", delete(handlers::delete_notification))
         .route(
             "/notifications/settings",
             get(handlers::get_notification_settings).put(handlers::update_notification_settings),
         )
+        .route("/notifications/:id", delete(handlers::delete_notification))
         // Alerts
         .route("/alerts/low-stock", get(handlers::list_low_stock_alerts))
         .route("/alerts/expiry", get(handlers::list_expiry_alerts))
