@@ -2,7 +2,7 @@
 
 > **模組**：實驗動物生命週期管理  
 > **版本**：7.0  
-> **最後更新**：2026-03-01
+> **最後更新**：2026-03-02
 
 ---
 
@@ -10,7 +10,7 @@
 
 管理動物從入場到實驗完畢（或轉讓/猝死）的完整生命週期：
 
-- 動物基本資料管理（CRUD、匯入匯出）
+- 動物基本資料管理（CRUD、匯入匯出、**不可變欄位修正申請**）
 - 實驗分配與狀態追蹤（6 種狀態 + 狀態轉換驗證）
 - 觀察/手術/體重/疫苗/犧牲/病理紀錄
 - 血液檢查子系統（模板、組合、費用追蹤、結果分析）
@@ -306,7 +306,18 @@ unassigned ──→ in_experiment ──→ completed ───┤──→ sud
 | POST | `/animals/:id/sudden-death` | 登記猝死 |
 | GET | `/animals/:id/sudden-death` | 查詢猝死紀錄 |
 
-### 10.6 動物轉讓
+### 10.6 動物欄位修正申請
+
+耳號、出生日期、性別、品種等不可變欄位，若 staff 輸入錯誤，可提交修正申請，經 admin 批准後套用。
+
+| 方法 | 端點 | 說明 | 權限 |
+|------|------|------|------|
+| POST | `/animals/:id/field-corrections` | 建立修正申請 | animal.animal.edit |
+| GET | `/animals/:id/field-corrections` | 查詢該動物申請列表 | animal.animal.edit |
+| GET | `/admin/animal-field-corrections/pending` | 列出待審申請 | admin |
+| POST | `/admin/animal-field-corrections/:id/review` | 批准/拒絕申請 | admin |
+
+### 10.7 動物轉讓
 
 | 方法 | 端點 | 說明 |
 |------|------|------|
@@ -319,7 +330,7 @@ unassigned ──→ in_experiment ──→ completed ───┤──→ sud
 | POST | `/transfers/:id/iacuc-approve` | IACUC 核准 |
 | POST | `/transfers/:id/complete` | 執行完成 |
 
-### 10.7 安樂死
+### 10.8 安樂死
 
 | 方法 | 端點 | 說明 |
 |------|------|------|
@@ -330,7 +341,7 @@ unassigned ──→ in_experiment ──→ completed ───┤──→ sud
 | POST | `/euthanasia/orders/:id/execute` | 執行 |
 | POST | `/euthanasia/appeals/:id/decide` | 申訴裁決 |
 
-### 10.8 匯出
+### 10.9 匯出
 
 | 方法 | 端點 | 說明 |
 |------|------|------|
@@ -359,7 +370,8 @@ unassigned ──→ in_experiment ──→ completed ───┤──→ sud
 |------|------|
 | `/animals` | 動物列表（含 Tab 篩選、分組視圖、排序） |
 | `/animals/:id` | 動物詳情（8 Tab） |
-| `/animals/:id/edit` | 編輯動物 |
+| `/animals/:id/edit` | 編輯動物（含「申請修正」按鈕） |
+| `/admin/animal-field-corrections` | 動物欄位修正審核（Admin 側欄） |
 | `/animal-sources` | 動物來源管理 |
 | `/blood-test-templates` | 血液檢查模板管理 |
 | `/blood-test-panels` | 血液檢查組合管理 |
