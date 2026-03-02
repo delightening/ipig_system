@@ -179,6 +179,10 @@ export function SettingsPage() {
         setImportResultOpen(true)
       }
       queryClient.invalidateQueries()
+      // 強制重新載入設定相關資料（匯入可能更新 system_settings、notification_settings 等）
+      await queryClient.refetchQueries({ queryKey: ['system-settings'] })
+      await queryClient.refetchQueries({ queryKey: ['notification-settings'] })
+      await queryClient.refetchQueries({ queryKey: ['warehouses-list'] })
       if (fileInputRef.current) fileInputRef.current.value = ''
     } catch (err) {
       toast({
@@ -403,7 +407,11 @@ export function SettingsPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="emailPassword">SMTP 密碼</Label>
-                    <div className="relative">
+                    <form
+                      onSubmit={(e) => e.preventDefault()}
+                      className="relative"
+                      autoComplete="off"
+                    >
                       <Input
                         id="emailPassword"
                         type={showPassword ? 'text' : 'password'}
@@ -419,6 +427,7 @@ export function SettingsPage() {
                           settingsForm.setPasswordEdited(true)
                         }}
                         placeholder="輸入 SMTP 密碼"
+                        autoComplete="off"
                       />
                       <Button
                         type="button"
@@ -429,7 +438,7 @@ export function SettingsPage() {
                       >
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </Button>
-                    </div>
+                    </form>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="emailFromEmail">寄件人 Email</Label>
