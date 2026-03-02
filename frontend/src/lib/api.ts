@@ -193,6 +193,7 @@ export {
 } from '@/types/erp'
 export {
   animalStatusNames, allAnimalStatusNames, animalBreedNames, animalGenderNames, recordTypeNames,
+  CORRECTABLE_FIELDS,
 } from '@/types/animal'
 export {
   protocolStatusNames,
@@ -342,6 +343,27 @@ export const transferApi = {
     api.post<AnimalTransfer>(`/transfers/${transferId}/complete`),
   reject: (transferId: string, data: RejectTransferRequest) =>
     api.post<AnimalTransfer>(`/transfers/${transferId}/reject`, data),
+}
+
+// ============================================
+// 動物欄位修正申請 API（耳號、出生日期、性別、品種需 admin 批准）
+// ============================================
+
+import type {
+  AnimalFieldCorrectionRequest,
+  CreateAnimalFieldCorrectionRequest,
+  ReviewAnimalFieldCorrectionRequest,
+} from '@/types/animal'
+
+export const animalFieldCorrectionApi = {
+  listByAnimal: (animalId: string) =>
+    api.get<AnimalFieldCorrectionRequest[]>(`/animals/${animalId}/field-corrections`),
+  create: (animalId: string, data: CreateAnimalFieldCorrectionRequest) =>
+    api.post<{ id: string }>(`/animals/${animalId}/field-corrections`, data),
+  listPending: () =>
+    api.get<AnimalFieldCorrectionRequest[]>('/admin/animal-field-corrections/pending'),
+  review: (requestId: string, data: ReviewAnimalFieldCorrectionRequest) =>
+    api.post<{ message: string }>(`/admin/animal-field-corrections/${requestId}/review`, data),
 }
 
 // ============================================

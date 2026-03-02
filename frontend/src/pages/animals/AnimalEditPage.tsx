@@ -30,7 +30,10 @@ import {
   Loader2,
   Save,
   AlertCircle,
+  FileEdit,
 } from 'lucide-react'
+import { RequestCorrectionDialog } from '@/components/animal/RequestCorrectionDialog'
+import { animalFieldCorrectionApi } from '@/lib/api'
 
 export function AnimalEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -41,6 +44,7 @@ export function AnimalEditPage() {
   const [formData, setFormData] = useState<UpdateAnimalRequest>({})
   const [hasChanges, setHasChanges] = useState(false)
   const [, setEntryWeightInput] = useState<string>('')
+  const [correctionDialogOpen, setCorrectionDialogOpen] = useState(false)
 
   // Query animal data
   const { data: animal, isLoading: animalLoading } = useQuery({
@@ -165,10 +169,32 @@ export function AnimalEditPage() {
       </div>
 
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">編輯動物資料</h1>
-        <p className="text-slate-500">耳號：{animal.ear_tag}</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">編輯動物資料</h1>
+          <p className="text-slate-500">耳號：{animal.ear_tag}</p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setCorrectionDialogOpen(true)}
+          className="text-amber-600 border-amber-200 hover:bg-amber-50"
+        >
+          <FileEdit className="h-4 w-4 mr-2" />
+          申請修正（耳號/出生日期/性別/品種）
+        </Button>
       </div>
+
+      <RequestCorrectionDialog
+        open={correctionDialogOpen}
+        onOpenChange={setCorrectionDialogOpen}
+        animal={animal}
+        onSubmit={async (data) => {
+          await animalFieldCorrectionApi.create(animalId, data)
+          queryClient.invalidateQueries({ queryKey: ['animal', animalId] })
+          toast({ title: '成功', description: '修正申請已提交，待管理員審核' })
+        }}
+      />
 
       <form onSubmit={handleSubmit}>
         <Card>

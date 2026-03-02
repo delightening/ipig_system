@@ -1,4 +1,4 @@
-﻿// 動物管理服務模組
+// 動物管理服務模組
 //
 // 將原 animal.rs 拆分為以下子模組：
 // - core: 動物 CRUD、列表、批次分配
@@ -12,6 +12,7 @@
 
 mod blood_test;
 mod core;
+pub(crate) mod field_correction;
 mod import_export;
 mod medical;
 mod observation;

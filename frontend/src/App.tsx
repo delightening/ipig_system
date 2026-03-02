@@ -50,6 +50,7 @@ const UsersPage = lazy(() => import('@/pages/admin/UsersPage').then(m => ({ defa
 const RolesPage = lazy(() => import('@/pages/admin/RolesPage').then(m => ({ default: m.RolesPage })))
 const SettingsPage = lazy(() => import('@/pages/admin/SettingsPage').then(m => ({ default: m.SettingsPage })))
 const AuditLogsPage = lazy(() => import('@/pages/admin/AuditLogsPage').then(m => ({ default: m.AuditLogsPage })))
+const AnimalFieldCorrectionsPage = lazy(() => import('@/pages/admin/AnimalFieldCorrectionsPage').then(m => ({ default: m.AnimalFieldCorrectionsPage })))
 const AdminAuditPage = lazy(() => import('@/pages/admin/AdminAuditPage').then(m => ({ default: m.AdminAuditPage })))
 const NotificationRoutingPage = lazy(() => import('@/pages/admin/NotificationRoutingPage').then(m => ({ default: m.NotificationRoutingPage })))
 const TreatmentDrugOptionsPage = lazy(() => import('@/pages/admin/TreatmentDrugOptionsPage').then(m => ({ default: m.TreatmentDrugOptionsPage })))
@@ -367,6 +368,7 @@ function App() {
                         <Route path="/admin/roles" element={<RolesPage />} />
                         <Route path="/admin/settings" element={<SettingsPage />} />
                         <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
+                        <Route path="/admin/animal-field-corrections" element={<AnimalFieldCorrectionsPage />} />
                         <Route path="/admin/audit" element={<AdminAuditPage />} />
                         <Route path="/admin/qau" element={
                           <RequirePermission permission="qau.dashboard.view">

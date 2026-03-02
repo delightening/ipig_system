@@ -365,6 +365,20 @@ pub fn api_routes(state: AppState) -> Router {
             "/animals/:id/vet-read",
             post(handlers::mark_animal_vet_read),
         )
+        // 動物欄位修正申請（耳號、出生日期、性別、品種需 admin 批准）
+        .route(
+            "/animals/:id/field-corrections",
+            get(handlers::list_animal_field_corrections)
+                .post(handlers::create_animal_field_correction_request),
+        )
+        .route(
+            "/admin/animal-field-corrections/pending",
+            get(handlers::list_pending_animal_field_corrections),
+        )
+        .route(
+            "/admin/animal-field-corrections/:id/review",
+            post(handlers::review_animal_field_correction),
+        )
         // Animal Records - Observations
         .route(
             "/animals/:id/observations",

@@ -411,6 +411,40 @@ export type AnimalTimelineRecord = AnimalObservation | AnimalSurgery
 /** UpdateAnimalRequest 欄位值（依 key 而異） */
 export type UpdateAnimalRequestValue = UpdateAnimalRequest[keyof UpdateAnimalRequest]
 
+/** 可申請修正的欄位 */
+export const CORRECTABLE_FIELDS = ['ear_tag', 'birth_date', 'gender', 'breed'] as const
+export type CorrectableField = (typeof CORRECTABLE_FIELDS)[number]
+
+/** 動物欄位修正申請 */
+export interface AnimalFieldCorrectionRequest {
+  id: string
+  animal_id: string
+  field_name: string
+  old_value: string | null
+  new_value: string
+  reason: string
+  status: 'pending' | 'approved' | 'rejected'
+  requested_by: string
+  requested_by_name: string | null
+  reviewed_by: string | null
+  reviewed_at: string | null
+  created_at: string
+  animal_ear_tag: string | null
+}
+
+/** 建立動物欄位修正申請 */
+export interface CreateAnimalFieldCorrectionRequest {
+  field_name: string
+  new_value: string
+  reason: string
+}
+
+/** 審核動物欄位修正申請 */
+export interface ReviewAnimalFieldCorrectionRequest {
+  approved: boolean
+  reject_reason?: string
+}
+
 export interface BatchAssignAnimalsRequest {
     animal_ids: number[]
     iacuc_no: string

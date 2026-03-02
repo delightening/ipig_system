@@ -142,6 +142,7 @@ const navItemsConfig: NavItem[] = [
       { title: '角色權限', href: '/admin/roles', translate: false },
       { title: '系統設定', href: '/admin/settings', translate: false },
       { title: '操作日誌', href: '/admin/audit-logs', translate: false },
+      { title: '動物欄位修正審核', href: '/admin/animal-field-corrections', translate: false },
       { title: '安全審計', href: '/admin/audit', translate: false },
       { title: '通知路由', href: '/admin/notification-routing', translate: false },
       { title: '藥物選單', href: '/admin/treatment-drugs', translate: false },
