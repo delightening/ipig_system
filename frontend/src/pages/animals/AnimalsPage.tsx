@@ -288,8 +288,8 @@ export function AnimalsPage() {
       let formattedEarTag = earTag.trim()
       if (/^\d+$/.test(formattedEarTag)) formattedEarTag = formattedEarTag.padStart(3, '0')
 
-      const searchRes = await api.get<AnimalListItem[]>(`/animals?keyword=${encodeURIComponent(formattedEarTag)}`)
-      const matchingAnimals = searchRes.data.filter(p => p.ear_tag === formattedEarTag)
+      const searchRes = await api.get<PaginatedResponse<AnimalListItem>>(`/animals?keyword=${encodeURIComponent(formattedEarTag)}`)
+      const matchingAnimals = (searchRes.data.data ?? []).filter(p => p.ear_tag === formattedEarTag)
 
       if (matchingAnimals.length === 0) return { notFound: true, formattedEarTag, targetPenLocation }
       if (matchingAnimals.length > 1) throw new Error(`找到多隻耳號為 "${formattedEarTag}" 的動物，請使用編輯功能手動移動`)
