@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-03-01 (v4)  
+> **最後更新：** 2026-03-02 (v5)  
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -77,7 +77,7 @@
 | 6 | [HR 人事管理系統](#6-hr-人事管理系統) | 特休、考勤、Google Calendar |
 | 7 | [資料庫 Schema 完成度](#7-資料庫-schema-完成度) | Migration 清單 |
 | 8 | [版本規劃](#8-版本規劃) | v1.0 / v1.1 里程碑 |
-| 9 | [最新變更動態](#9-最新變更動態) | 2026-02-25 壓力測試與上線準備 |
+| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-02 動物欄位修正申請 |
 
 ---
 
@@ -135,6 +135,15 @@
 > **白話版：** 這裡記錄每次更新做了什麼。按照日期從新到舊排列。  
 > 你會看到很多技術細節（例如「useState → Custom Hooks」），簡單說就是：**重構程式碼，讓它更好維護、更不容易出錯**。  
 > **P0 / P1 / P2 / P5** 是優先級：P0 最重要，P5 較次要。
+
+---
+
+### 2026-03-02 動物欄位修正申請（需 admin 批准）
+
+- ✅ **需求**：耳號、出生日期、性別、品種等欄位建立後不可直接修改；若 staff 輸入錯誤，可經 admin 批准後修正。
+- ✅ **後端**：Migration 011 新增 `animal_field_correction_requests` 表；`POST /animals/:id/field-corrections` 建立申請、`GET` 查詢該動物申請；`GET /admin/animal-field-corrections/pending` 列出待審、`POST /admin/animal-field-corrections/:id/review` 批准/拒絕。僅 admin 可審核。
+- ✅ **前端**：動物詳情/編輯頁「申請修正」按鈕與 `RequestCorrectionDialog`；Admin 側欄「動物欄位修正審核」頁面，可批准或拒絕並填寫拒絕原因。
+- 📁 **產出**：011_animal_field_correction_requests.sql、field_correction.rs (handlers/services)、AnimalFieldCorrectionsPage、RequestCorrectionDialog、App.tsx
 
 ---
 
@@ -734,12 +743,5 @@
 ### 2026-02-25 P0-7 錯誤處理 UX 統一
 - ✅ **安全強化**：隱藏原始 DB 錯誤。
 - ✅ **前端錯誤導引**：優化 `getApiErrorMessage` 處理逾時與網路異常。
-
-### 2026-03-02 動物欄位修正申請（需 admin 批准）
-- ✅ **需求**：耳號、出生日期、性別、品種等欄位建立後不可直接修改；若 staff 輸入錯誤，可經 admin 批准後修正。
-- ✅ **後端**：Migration 011 新增 `animal_field_correction_requests` 表；`POST /animals/:id/field-corrections` 建立申請、`GET` 查詢該動物申請；`GET /admin/animal-field-corrections/pending` 列出待審、`POST /admin/animal-field-corrections/:id/review` 批准/拒絕。僅 admin 可審核。
-- ✅ **前端**：動物詳情/編輯頁「申請修正」按鈕與 `RequestCorrectionDialog`；Admin 側欄「動物欄位修正審核」頁面，可批准或拒絕並填寫拒絕原因。
-
----
 
 (其餘詳細 1-8 章節內容已併入本檔案)
