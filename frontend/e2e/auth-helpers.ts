@@ -88,11 +88,67 @@ export async function performLogin(
     }
 }
 
-/** 從環境變數或 .env 取得 admin 帳密 */
+/**
+ * 從環境變數或 .env 取得 admin 帳密。
+ * 密碼順序：E2E_ADMIN_PASSWORD > E2eTest123! > ADMIN_INITIAL_PASSWORD
+ * 本機首次 E2E 完成 force-change 後，admin 密碼變為 E2eTest123!，
+ * 建議在 .env 設 E2E_ADMIN_PASSWORD=E2eTest123! 以便 login.spec 等通過。
+ */
 export function getAdminCredentials() {
     const email = process.env.E2E_ADMIN_EMAIL || 'admin@ipig.local'
-    const password = process.env.E2E_ADMIN_PASSWORD || process.env.ADMIN_INITIAL_PASSWORD
+    const password =
+        process.env.E2E_ADMIN_PASSWORD || process.env.ADMIN_INITIAL_PASSWORD || E2E_NEW_PASSWORD
     return { email, password }
+}
+
+/** E2E 變更密碼後使用的密碼（需與 current 不同且符合強度：≥8 字元、大小寫、數字、特殊字元） */
+export const E2E_NEW_PASSWORD = 'E2eTest123!'
+
+/**
+ * user setup 專用：取得 user 帳密。
+ * 若未設 E2E_USER_* 則回傳 admin 帳號，密碼為 E2E_ADMIN_PASSWORD || E2eTest123!
+ * （admin setup 先執行且完成 force-change 後，admin 密碼已變為 E2eTest123!）
+ */
+export function getCredentialsForUserSetup() {
+    const userEmail = process.env.E2E_USER_EMAIL
+    const userPassword = process.env.E2E_USER_PASSWORD
+    if (userEmail && userPassword) return { email: userEmail, password: userPassword }
+    const admin = getAdminCredentials()
+    // admin setup 已先完成 force-change，密碼應為 E2eTest123!
+    return {
+        email: admin.email,
+        password: process.env.E2E_ADMIN_PASSWORD || E2E_NEW_PASSWORD,
+    }
+}
+
+/**
+ * 完成強制變更密碼流程（本機環境 admin 首次登入時需要）。
+ * 使用 currentPassword 登入後若被導向 /force-change-password，填入表單並送出。
+ */
+export async function completeForceChangePassword(
+    page: import('@playwright/test').Page,
+    currentPassword: string,
+    newPassword: string = E2E_NEW_PASSWORD,
+): Promise<void> {
+    const url = page.url()
+    if (!url.includes('force-change')) return
+
+    await page.waitForLoadState('domcontentloaded')
+    const currentInput = page.locator('#currentPassword')
+    await expect(currentInput).toBeVisible({ timeout: 10_000 })
+    await currentInput.fill(currentPassword)
+
+    const newInput = page.locator('#newPassword')
+    await newInput.fill(newPassword)
+
+    const confirmInput = page.locator('#confirmPassword')
+    await confirmInput.fill(newPassword)
+
+    const submitBtn = page.getByRole('button', { name: /確認|Submit|變更/ })
+    await expect(submitBtn).toBeVisible()
+    await submitBtn.click()
+
+    await expect(page).toHaveURL(/\/(dashboard|my-projects|admin)/, { timeout: 15_000 })
 }
 
 /**
