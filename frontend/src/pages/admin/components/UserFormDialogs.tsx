@@ -11,7 +11,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Shield } from 'lucide-react'
-import { Loader2, Key, AlertTriangle } from 'lucide-react'
+import { Loader2, Key, AlertTriangle, Eye, EyeOff } from 'lucide-react'
+import { useToggle } from '@/hooks/useToggle'
 import { ConfirmPasswordModal } from '@/components/auth/ConfirmPasswordModal'
 import type { CreateUserData } from '../hooks/useUserManagement'
 import type { User, Role } from '@/lib/api'
@@ -405,6 +406,10 @@ export function UserResetPasswordDialog({
   onSubmit,
   onClose,
 }: UserResetPasswordDialogProps) {
+  const [showReauthPassword, toggleReauthPassword] = useToggle()
+  const [showNewPassword, toggleNewPassword] = useToggle()
+  const [showConfirmPassword, toggleConfirmPassword] = useToggle()
+
   return (
     <Dialog
       open={open}
@@ -433,33 +438,72 @@ export function UserResetPasswordDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="reset-reauth-password">您的登入密碼（確認身份）</Label>
-            <Input
-              id="reset-reauth-password"
-              type="password"
-              value={reauthPassword}
-              onChange={(e) => setReauthPassword(e.target.value)}
-              placeholder="請輸入您的密碼以確認此操作"
-            />
+            <div className="relative">
+              <Input
+                id="reset-reauth-password"
+                type={showReauthPassword ? 'text' : 'password'}
+                value={reauthPassword}
+                onChange={(e) => setReauthPassword(e.target.value)}
+                placeholder="請輸入您的密碼以確認此操作"
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                onClick={toggleReauthPassword}
+                aria-label={showReauthPassword ? '隱藏密碼' : '顯示密碼'}
+              >
+                {showReauthPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+              </Button>
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="reset-new-password">新密碼</Label>
-            <Input
-              id="reset-new-password"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="至少 6 個字元"
-            />
+            <div className="relative">
+              <Input
+                id="reset-new-password"
+                type={showNewPassword ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="至少 6 個字元"
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                onClick={toggleNewPassword}
+                aria-label={showNewPassword ? '隱藏密碼' : '顯示密碼'}
+              >
+                {showNewPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+              </Button>
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="reset-confirm-password">確認新密碼</Label>
-            <Input
-              id="reset-confirm-password"
-              type="password"
-              value={confirmNewPassword}
-              onChange={(e) => setConfirmNewPassword(e.target.value)}
-              placeholder="再次輸入新密碼"
-            />
+            <div className="relative">
+              <Input
+                id="reset-confirm-password"
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                placeholder="再次輸入新密碼"
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                onClick={toggleConfirmPassword}
+                aria-label={showConfirmPassword ? '隱藏密碼' : '顯示密碼'}
+              >
+                {showConfirmPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+              </Button>
+            </div>
           </div>
         </div>
         <DialogFooter>

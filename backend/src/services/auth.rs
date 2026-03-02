@@ -20,10 +20,19 @@ pub struct AuthService;
 impl AuthService {
     /// 驗證 email + 密碼（不產生 token，供 handler 決定是否走 2FA）
     pub async fn validate_credentials(pool: &PgPool, req: &LoginRequest) -> Result<User> {
-        // SEC-20: 帳號鎖定檢查 - 15 分鐘內 5 次失敗即暫時封鎖（可由 DISABLE_ACCOUNT_LOCKOUT=true 關閉）
+        // SEC-20: 帳號鎖定檢查（可由 DISABLE_ACCOUNT_LOCKOUT=true 關閉）
         let lockout_disabled = std::env::var("DISABLE_ACCOUNT_LOCKOUT")
             .map(|v| v.to_lowercase() == "true" || v == "1")
             .unwrap_or(false);
+
+        let max_attempts: i64 = std::env::var("ACCOUNT_LOCKOUT_MAX_ATTEMPTS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(5);
+        let duration_minutes: i64 = std::env::var("ACCOUNT_LOCKOUT_DURATION_MINUTES")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(15);
 
         if !lockout_disabled {
             let (fail_count,): (i64,) = sqlx::query_as(
@@ -31,21 +40,22 @@ impl AuthService {
                 SELECT COUNT(*) FROM login_events
                 WHERE email = $1
                   AND event_type = 'login_failure'
-                  AND created_at > NOW() - INTERVAL '15 minutes'
+                  AND created_at > NOW() - make_interval(mins => $2)
                 "#,
             )
             .bind(&req.email)
+            .bind(duration_minutes)
             .fetch_one(pool)
             .await
             .unwrap_or((0,));
 
-            if fail_count >= 5 {
+            if fail_count >= max_attempts {
                 tracing::warn!(
                     "[Auth] 帳號 {} 因連續失敗 {} 次被暫時鎖定",
                     req.email, fail_count
                 );
                 return Err(AppError::Validation(
-                    "帳號已暫時鎖定，請 15 分鐘後再試".to_string(),
+                    format!("帳號已暫時鎖定，請 {} 分鐘後再試", duration_minutes),
                 ));
             }
         }
