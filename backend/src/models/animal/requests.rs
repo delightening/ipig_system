@@ -831,3 +831,44 @@ pub struct UpdateVaccinationWithReasonRequest {
     #[validate(length(min = 1, message = "變更原因為必填"))]
     pub change_reason: String,
 }
+
+// ============================================
+// 動物欄位修正申請（需 admin 批准）
+// ============================================
+
+/// 可申請修正的欄位
+pub const CORRECTABLE_FIELDS: &[&str] = &["ear_tag", "birth_date", "gender", "breed"];
+
+/// 建立動物欄位修正申請
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+pub struct CreateAnimalFieldCorrectionRequest {
+    pub field_name: String,
+    pub new_value: String,
+    #[validate(length(min = 1, message = "修正原因為必填"))]
+    pub reason: String,
+}
+
+/// 審核動物欄位修正申請
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct ReviewAnimalFieldCorrectionRequest {
+    pub approved: bool,
+    pub reject_reason: Option<String>,
+}
+
+/// 動物欄位修正申請列表項目
+#[derive(Debug, Serialize, FromRow, ToSchema)]
+pub struct AnimalFieldCorrectionRequestListItem {
+    pub id: Uuid,
+    pub animal_id: Uuid,
+    pub field_name: String,
+    pub old_value: Option<String>,
+    pub new_value: String,
+    pub reason: String,
+    pub status: String,
+    pub requested_by: Uuid,
+    pub requested_by_name: Option<String>,
+    pub reviewed_by: Option<Uuid>,
+    pub reviewed_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub animal_ear_tag: Option<String>,
+}

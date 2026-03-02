@@ -1,7 +1,8 @@
-﻿// 動物管理 Handlers
+// 動物管理 Handlers
 // 拆分自原始 animal.rs
 
 mod animal_core;
+mod field_correction;
 mod source;
 mod observation;
 mod surgery;
@@ -16,6 +17,7 @@ mod transfer;
 pub mod care_record;
 
 pub use animal_core::*;
+pub use field_correction::*;
 pub use source::*;
 pub use observation::*;
 pub use surgery::*;

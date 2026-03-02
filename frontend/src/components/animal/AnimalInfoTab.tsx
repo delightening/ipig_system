@@ -1,9 +1,13 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Animal, allAnimalStatusNames, animalBreedNames, animalGenderNames, AnimalStatus } from '@/lib/api'
+import { useQueryClient } from '@tanstack/react-query'
+import { Animal, allAnimalStatusNames, animalBreedNames, animalGenderNames, AnimalStatus, animalFieldCorrectionApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { Edit2 } from 'lucide-react'
+import { toast } from '@/components/ui/use-toast'
+import { Edit2, FileEdit } from 'lucide-react'
+import { RequestCorrectionDialog } from './RequestCorrectionDialog'
 
 const getPenLocationDisplay = (animal: { status: AnimalStatus; pen_location?: string | null }) => {
   if (animal.status === 'completed' && !animal.pen_location) {
@@ -17,6 +21,9 @@ interface AnimalInfoTabProps {
 }
 
 export function AnimalInfoTab({ animal }: AnimalInfoTabProps) {
+  const [correctionDialogOpen, setCorrectionDialogOpen] = useState(false)
+  const queryClient = useQueryClient()
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -24,13 +31,34 @@ export function AnimalInfoTab({ animal }: AnimalInfoTabProps) {
           <CardTitle>動物資料</CardTitle>
           <CardDescription>動物基本資料</CardDescription>
         </div>
-        <Button className="bg-purple-600 hover:bg-purple-700 text-white" asChild>
-          <Link to={`/animals/${animal.id}/edit`}>
-            <Edit2 className="h-4 w-4 mr-2" />
-            編輯
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setCorrectionDialogOpen(true)}
+            className="text-amber-600 border-amber-200 hover:bg-amber-50"
+          >
+            <FileEdit className="h-4 w-4 mr-2" />
+            申請修正
+          </Button>
+          <Button className="bg-purple-600 hover:bg-purple-700 text-white" asChild>
+            <Link to={`/animals/${animal.id}/edit`}>
+              <Edit2 className="h-4 w-4 mr-2" />
+              編輯
+            </Link>
+          </Button>
+        </div>
       </CardHeader>
+
+      <RequestCorrectionDialog
+        open={correctionDialogOpen}
+        onOpenChange={setCorrectionDialogOpen}
+        animal={animal}
+        onSubmit={async (data) => {
+          await animalFieldCorrectionApi.create(animal.id, data)
+          queryClient.invalidateQueries({ queryKey: ['animal', animal.id] })
+          toast({ title: '成功', description: '修正申請已提交，待管理員審核' })
+        }}
+      />
       <CardContent>
         <div className="grid grid-cols-2 gap-x-8 gap-y-4">
           <div>
