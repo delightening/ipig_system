@@ -219,6 +219,7 @@ mod tests {
             trust_proxy_headers: true,
             cors_allowed_origins: vec!["http://localhost:8080".to_string()],
             audit_hmac_key: None,
+            disable_csrf_for_tests: false,
         }
     }
 
