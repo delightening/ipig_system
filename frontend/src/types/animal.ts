@@ -167,7 +167,7 @@ export interface AnimalWeight {
 
 // 疫苗記錄
 export interface AnimalVaccination {
-    id: number
+    id: string
     animal_id: string
     administered_date: string
     vaccine?: string

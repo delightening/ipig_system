@@ -78,20 +78,23 @@ pub struct UpdateCareRecordRequest {
 pub struct CareRecordService;
 
 impl CareRecordService {
-    /// 列出某動物的照護紀錄
+    /// 列出某動物的照護紀錄（排除已軟刪除）
     /// 透過 record_id (observation/surgery) 關聯到 animal
     pub async fn list_by_animal(pool: &PgPool, animal_id: Uuid) -> Result<Vec<CareRecord>> {
         let records = sqlx::query_as::<_, CareRecord>(
             r#"
-            SELECT c.*
+            SELECT c.id, c.record_type, c.record_id, c.record_mode, c.post_op_days,
+                   c.time_period, c.spirit, c.appetite, c.mobility_standing,
+                   c.mobility_walking, c.attitude_behavior, c.vet_read, c.created_at
             FROM care_medication_records c
-            WHERE (
+            WHERE c.deleted_at IS NULL
+              AND (
                 (c.record_type = 'observation' AND c.record_id IN (
-                    SELECT id FROM animal_observations WHERE animal_id = $1
+                    SELECT id FROM animal_observations WHERE animal_id = $1 AND deleted_at IS NULL
                 ))
                 OR
                 (c.record_type = 'surgery' AND c.record_id IN (
-                    SELECT id FROM animal_surgeries WHERE animal_id = $1
+                    SELECT id FROM animal_surgeries WHERE animal_id = $1 AND deleted_at IS NULL
                 ))
             )
             ORDER BY c.created_at DESC
@@ -165,12 +168,27 @@ impl CareRecordService {
         Ok(record)
     }
 
-    /// 刪除照護紀錄
-    pub async fn delete(pool: &PgPool, id: Uuid) -> Result<()> {
-        sqlx::query("DELETE FROM care_medication_records WHERE id = $1")
-            .bind(id)
-            .execute(pool)
-            .await?;
+    /// 軟刪除照護紀錄（含刪除原因）- GLP 合規
+    pub async fn soft_delete_with_reason(
+        pool: &PgPool,
+        id: Uuid,
+        reason: &str,
+        deleted_by: Uuid,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+            UPDATE care_medication_records SET
+                deleted_at = NOW(),
+                deletion_reason = $2,
+                deleted_by = $3
+            WHERE id = $1 AND deleted_at IS NULL
+            "#,
+        )
+        .bind(id)
+        .bind(reason)
+        .bind(deleted_by)
+        .execute(pool)
+        .await?;
 
         Ok(())
     }

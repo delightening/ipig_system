@@ -38,7 +38,7 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
 
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [newVaccination, setNewVaccination] = useState({ administered_date: new Date().toISOString().split('T')[0], vaccine: '', deworming_dose: '' })
-  const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
   const addMutation = useMutation({
     mutationFn: async (data: typeof newVaccination) => {
@@ -60,7 +60,7 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
   })
 
   const deleteMutation = useMutation({
-    mutationFn: async ({ id, reason }: { id: number; reason: string }) => {
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
       return api.delete(`/vaccinations/${id}`, { data: { reason } })
     },
     onSuccess: () => {

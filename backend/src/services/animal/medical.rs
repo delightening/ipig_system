@@ -27,7 +27,7 @@ impl AnimalService {
         after: Option<DateTime<Utc>>,
     ) -> Result<Vec<AnimalVaccination>> {
         let vaccinations = sqlx::query_as::<_, AnimalVaccination>(
-            "SELECT * FROM animal_vaccinations WHERE animal_id = $1 AND ($2::timestamptz IS NULL OR created_at > $2) ORDER BY administered_date DESC"
+            "SELECT id, animal_id, administered_date, vaccine, deworming_dose, created_by, created_at FROM animal_vaccinations WHERE animal_id = $1 AND deleted_at IS NULL AND ($2::timestamptz IS NULL OR created_at > $2) ORDER BY administered_date DESC"
         )
         .bind(animal_id)
         .bind(after)
