@@ -736,11 +736,11 @@
 - ✅ **前端錯誤導引**：優化 `getApiErrorMessage` 處理逾時與網路異常。
 
 ### 2026-03-03 疫苗紀錄刪除失效修復與刪除功能檢視
-- ✅ **根因**：`list_vaccinations` 未過濾 `deleted_at IS NULL`，導致軟刪除後紀錄仍顯示於列表。
-- ✅ **修正**：`backend/src/services/animal/medical.rs` 於 `list_vaccinations` 查詢加入 `deleted_at IS NULL`，並改用明確欄位避免 FromRow 衝突。
+- ✅ **根因**：`list_vaccinations` 未過濾 `deleted_at IS NULL`，導致軟刪除後紀錄仍顯示於列表（後端已正確軟刪除，但列表查詢未排除）。
+- ✅ **修正**：`backend/src/services/animal/medical.rs` 於 `list_vaccinations` 查詢加入 `AND deleted_at IS NULL`。
 - ✅ **前端型別**：`AnimalVaccination.id` 由 `number` 改為 `string`（UUID），`VaccinationsTab` 之 `deleteTarget` 同步修正。
-- ✅ **照護紀錄刪除**：Migration 012 新增 `care_medication_records` 軟刪除欄位；`delete_care_record` 改為軟刪除 + `DeleteRequest` + `AuditService::log_activity`；`PainAssessmentTab` 改用 `DeleteReasonDialog`。
-- ✅ **刪除功能檢視**：疫苗、體重、觀察、手術、血液檢查、動物均已為軟刪除 + 操作日誌；照護紀錄已補齊。
+- ✅ **照護紀錄刪除**：Migration 012 新增 `care_medication_records` 軟刪除欄位（deleted_at, deletion_reason, deleted_by）；`delete_care_record` 改為軟刪除 + `DeleteRequest` + `AuditService::log_activity`；`PainAssessmentTab` 改用 `DeleteReasonDialog`。
+- ✅ **刪除功能檢視**：疫苗、體重、觀察、手術、血液檢查、動物、照護紀錄均已為軟刪除 + 操作日誌（user_activity_logs）。
 
 ### 2026-03-02 動物欄位修正申請（需 admin 批准）
 - ✅ **需求**：耳號、出生日期、性別、品種等欄位建立後不可直接修改；若 staff 輸入錯誤，可經 admin 批准後修正。

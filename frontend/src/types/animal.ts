@@ -165,7 +165,7 @@ export interface AnimalWeight {
     created_at: string
 }
 
-// 疫苗記錄
+// 疫苗記錄（id 為 UUID 字串）
 export interface AnimalVaccination {
     id: string
     animal_id: string

@@ -12,8 +12,9 @@ use crate::{
     models::DeleteRequest,
     require_permission,
     services::{
-        AuditService, CareRecord, CareRecordService, CreateCareRecordRequest, UpdateCareRecordRequest,
+        CareRecord, CareRecordService, CreateCareRecordRequest, UpdateCareRecordRequest,
     },
+    services::AuditService,
     AppState, Result,
 };
 
@@ -58,10 +59,8 @@ pub async fn delete_care_record(
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.record.delete");
     req.validate()?;
-
     CareRecordService::soft_delete_with_reason(&state.db, id, &req.reason, current_user.id).await?;
 
-    // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
         &state.db,
         current_user.id,
@@ -80,5 +79,5 @@ pub async fn delete_care_record(
         tracing::error!("寫入 user_activity_logs 失敗 (CARE_RECORD_DELETE): {}", e);
     }
 
-    Ok(Json(serde_json::json!({ "message": "Care record deleted successfully" })))
+    Ok(Json(serde_json::json!({ "message": "Care record deleted" })))
 }
