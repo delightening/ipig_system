@@ -219,9 +219,16 @@ CREATE TABLE care_medication_records (
     mobility_walking VARCHAR(50),
     attitude_behavior VARCHAR(50),
     vet_read BOOLEAN NOT NULL DEFAULT false,
+    deleted_at TIMESTAMPTZ,
+    deletion_reason TEXT,
+    deleted_by UUID REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX idx_care_medication_records_record ON care_medication_records(record_type, record_id);
+CREATE INDEX idx_care_medication_records_deleted_at ON care_medication_records(deleted_at) WHERE deleted_at IS NULL;
+COMMENT ON COLUMN care_medication_records.deleted_at IS '軟刪除時間';
+COMMENT ON COLUMN care_medication_records.deletion_reason IS '刪除原因（GLP 合規）';
+COMMENT ON COLUMN care_medication_records.deleted_by IS '刪除操作者';
 
 CREATE TABLE record_versions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -390,7 +397,6 @@ CREATE TABLE animal_blood_tests (
     remark TEXT,
     vet_read BOOLEAN NOT NULL DEFAULT false,
     vet_read_at TIMESTAMPTZ,
-    is_deleted BOOLEAN NOT NULL DEFAULT false,
     deleted_at TIMESTAMPTZ,
     deleted_by UUID REFERENCES users(id),
     delete_reason TEXT,
@@ -401,7 +407,8 @@ CREATE TABLE animal_blood_tests (
 );
 CREATE INDEX idx_animal_blood_tests_animal_id ON animal_blood_tests(animal_id);
 CREATE INDEX idx_animal_blood_tests_test_date ON animal_blood_tests(test_date);
-CREATE INDEX idx_animal_blood_tests_is_deleted ON animal_blood_tests(is_deleted);
+CREATE INDEX idx_animal_blood_tests_deleted_at ON animal_blood_tests(deleted_at) WHERE deleted_at IS NULL;
+COMMENT ON COLUMN animal_blood_tests.deleted_at IS '軟刪除時間，NULL 表示未刪除';
 
 CREATE TABLE animal_blood_test_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -512,3 +519,29 @@ CREATE INDEX idx_transfers_from_iacuc ON animal_transfers(from_iacuc_no);
 CREATE INDEX idx_transfers_to_iacuc ON animal_transfers(to_iacuc_no);
 CREATE INDEX idx_transfers_status ON animal_transfers(status);
 CREATE INDEX idx_transfer_vet_eval ON transfer_vet_evaluations(transfer_id);
+
+-- 動物欄位修正申請（需 admin 批准）：耳號、出生日期、性別、品種等欄位建立後不可直接修改，
+-- 若 staff 輸入錯誤，可提交修正申請，經 admin 批准後套用。
+CREATE TABLE animal_field_correction_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    animal_id UUID NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
+    field_name VARCHAR(50) NOT NULL,
+    old_value TEXT,
+    new_value TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    requested_by UUID NOT NULL REFERENCES users(id),
+    reviewed_by UUID REFERENCES users(id),
+    reviewed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_field_name CHECK (field_name IN ('ear_tag', 'birth_date', 'gender', 'breed')),
+    CONSTRAINT chk_status CHECK (status IN ('pending', 'approved', 'rejected'))
+);
+CREATE INDEX idx_afcr_animal_id ON animal_field_correction_requests(animal_id);
+CREATE INDEX idx_afcr_status ON animal_field_correction_requests(status);
+CREATE INDEX idx_afcr_requested_by ON animal_field_correction_requests(requested_by);
+CREATE INDEX idx_afcr_created_at ON animal_field_correction_requests(created_at DESC);
+COMMENT ON TABLE animal_field_correction_requests IS '動物不可變欄位修正申請，需 admin 批准後套用';
+COMMENT ON COLUMN animal_field_correction_requests.field_name IS '欄位名稱：ear_tag, birth_date, gender, breed';
+COMMENT ON COLUMN animal_field_correction_requests.status IS 'pending=待審核, approved=已批准, rejected=已拒絕';
