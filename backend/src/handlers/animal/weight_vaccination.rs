@@ -186,7 +186,7 @@ pub async fn update_animal_vaccination(
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "VACCINATION_UPDATE",
         Some("animal_vaccination"), None,
-        Some(&format!("疑苗紀錄 #{}", id)),
+        Some(&format!("疫苗紀錄 #{}", id)),
         None, None, None, None,
     ).await {
         tracing::error!("寫入 user_activity_logs 失敗 (VACCINATION_UPDATE): {}", e);
@@ -211,7 +211,7 @@ pub async fn delete_animal_vaccination(
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "VACCINATION_DELETE",
         Some("animal_vaccination"), None,
-        Some(&format!("疑苗紀錄 #{} (原因: {})", id, req.reason)),
+        Some(&format!("疫苗紀錄 #{} (原因: {})", id, req.reason)),
         None,
         Some(serde_json::json!({ "reason": req.reason })),
         None, None,

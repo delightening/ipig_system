@@ -34,6 +34,7 @@ import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 import { Plus, Trash2, Edit2, Loader2, TrendingUp } from 'lucide-react'
+import { DeleteReasonDialog } from '@/components/ui/delete-reason-dialog'
 
 const PainAssessmentChart = lazy(() => import('./PainAssessmentChart'))
 
@@ -88,6 +89,7 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
     const [showAddDialog, setShowAddDialog] = useState(false)
     const [editingRecord, setEditingRecord] = useState<CareRecord | null>(null)
     const [showChart, setShowChart] = useState(false)
+    const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
     const [form, setForm] = useState(emptyForm)
 
     // 查詢紀錄
@@ -159,14 +161,15 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
         },
     })
 
-    // 刪除紀錄
+    // 刪除紀錄（軟刪除 + 刪除原因）
     const deleteMutation = useMutation({
-        mutationFn: async (id: string) => {
-            return api.delete(`/care-records/${id}`)
+        mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+            return api.delete(`/care-records/${id}`, { data: { reason } })
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['animal-care-records', animalId] })
             toast({ title: '成功', description: '紀錄已刪除' })
+            setDeleteTarget(null)
         },
         onError: (error: unknown) => {
             toast({
@@ -343,7 +346,7 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
                                                 variant="ghost"
                                                 size="icon"
                                                 className="text-destructive"
-                                                onClick={() => deleteMutation.mutate(r.id)}
+                                                onClick={() => setDeleteTarget(r.id)}
                                                 disabled={deleteMutation.isPending}
                                                 title="刪除"
                                             >
@@ -515,6 +518,15 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <DeleteReasonDialog
+                open={deleteTarget !== null}
+                onOpenChange={(open) => !open && setDeleteTarget(null)}
+                title="刪除疼痛評估紀錄"
+                description="此操作將標記紀錄為已刪除，資料將保留於系統中以符合 GLP 規範。"
+                onConfirm={(reason) => deleteTarget && deleteMutation.mutate({ id: deleteTarget, reason })}
+                isPending={deleteMutation.isPending}
+            />
         </>
     )
 }
