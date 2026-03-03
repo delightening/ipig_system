@@ -253,7 +253,8 @@ jobs:
         run: npx tsc --noEmit
 
       - name: 單元測試 (Vitest)
-        run: npx vitest run --project=unit
+        # 不指定 project，直接執行所有 test 檔（unit + storybook）；Playwright 已安裝
+        run: npx vitest run
 
   # =========================
   # 🔒 npm 依賴漏洞掃描

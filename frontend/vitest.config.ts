@@ -26,8 +26,9 @@ export default mergeConfig(viteConfig, defineConfig({
         globals: true,
         // 設定檔案
         setupFiles: ['./src/__tests__/setup.ts'],
-        // 排除 e2e 測試
-        exclude: ['e2e/**', 'node_modules/**']
+        // 明確包含單元測試，排除 e2e / story
+        include: ['src/**/*.test.{ts,tsx}'],
+        exclude: ['e2e/**', 'node_modules/**', '**/*.stories.{ts,tsx}']
       }
     }, {
       extends: true,
