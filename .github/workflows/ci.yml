@@ -327,6 +327,8 @@ jobs:
 
   # =========================
   # 🧪 E2E 整合測試 (Playwright)
+  # 流程參照：docs/e2e/FLOW.md
+  # 完整說明：docs/e2e/README.md
   # =========================
   e2e-test:
     name: "🧪 E2E: Playwright"
@@ -389,6 +391,7 @@ jobs:
       - name: 執行 Playwright E2E 測試
         working-directory: ./frontend
         env:
+          # 須與 docker-compose.test.yml ADMIN_INITIAL_PASSWORD 一致（見 docs/e2e/FLOW.md）
           E2E_BASE_URL: http://localhost:8080
           E2E_USER_EMAIL: admin@ipig.local
           E2E_USER_PASSWORD: ci_test_admin_password_2024

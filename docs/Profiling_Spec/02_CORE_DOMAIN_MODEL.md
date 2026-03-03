@@ -1,7 +1,7 @@
 # 核心領域模型
 
 > **版本**：7.0  
-> **最後更新**：2026-03-01  
+> **最後更新**：2026-03-02  
 > **對象**：開發人員
 
 ---
@@ -180,6 +180,22 @@ erDiagram
 **品種列舉 (animal_breed)**：`miniature`、`white`、`LYD`、`other`
 
 **性別列舉 (animal_gender)**：`male`、`female`
+
+> **不可變欄位**：耳號、出生日期、性別、品種建立後不可直接修改。若 staff 輸入錯誤，須經由「動物欄位修正申請」流程，由 admin 批准後套用。
+
+#### 動物欄位修正申請 (Animal Field Correction Request)
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| id | UUID | 主鍵 |
+| animal_id | UUID | FK → animals |
+| field_name | VARCHAR(50) | 欄位名稱：ear_tag、birth_date、gender、breed |
+| old_value | TEXT | 原值 |
+| new_value | TEXT | 欲修正為的新值 |
+| reason | TEXT | 修正原因 |
+| status | VARCHAR(20) | pending / approved / rejected |
+| requested_by | UUID | 申請者 |
+| reviewed_by | UUID | 審核者（admin）|
+| reviewed_at | TIMESTAMPTZ | 審核時間 |
 
 #### 觀察試驗紀錄 (Animal Observation)
 | 欄位 | 類型 | 說明 |
@@ -428,4 +444,4 @@ erDiagram
 
 *下一章：[模組與邊界](./03_MODULES_AND_BOUNDARIES.md)*
 
-*最後更新：2026-03-01*
+*最後更新：2026-03-02*

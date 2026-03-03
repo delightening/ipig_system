@@ -7,7 +7,10 @@ WORKDIR /app
 
 # Copy package files first for layer caching
 COPY package.json package-lock.json ./
-RUN npm ci --ignore-scripts
+# 提高 fetch 重試與超時，應付 ECONNRESET 等短暫網路問題
+RUN npm config set fetch-retries 5 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm ci --ignore-scripts
 
 # Copy source and build
 COPY . .

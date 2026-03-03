@@ -1,7 +1,7 @@
 # API 規格
 
 > **版本**：7.0  
-> **最後更新**：2026-03-01  
+> **最後更新**：2026-03-02  
 > **對象**：開發人員、前端工程師
 
 ---
@@ -315,6 +315,10 @@
 | DELETE | `/animals/:id` | 刪除動物 |
 | POST | `/animals/:id/vet-read` | 標記已讀 |
 | GET | `/animals/:id/data-boundary` | 資料隔離邊界 |
+| POST | `/animals/:id/field-corrections` | 建立欄位修正申請 |
+| GET | `/animals/:id/field-corrections` | 查詢該動物修正申請列表 |
+| GET | `/admin/animal-field-corrections/pending` | 待審修正申請列表（admin） |
+| POST | `/admin/animal-field-corrections/:id/review` | 批准/拒絕修正申請（admin） |
 
 ---
 

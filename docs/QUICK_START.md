@@ -108,6 +108,9 @@ Write-Output $jwt
 
 ## 本機跑 Playwright E2E
 
+> **流程參照**：詳見 [docs/e2e/FLOW.md](e2e/FLOW.md)（CI 與本機流程）、[docs/e2e/README.md](e2e/README.md)（完整指南）。  
+> 本機 admin 首次登入會強制變更密碼，auth setup 會自動完成此流程（變更為 `E2eTest123!`）。
+
 ### 前置條件
 
 1. **服務已啟動**：`docker compose up -d`，前端為 http://localhost:8080
