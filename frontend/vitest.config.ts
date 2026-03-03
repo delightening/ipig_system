@@ -18,6 +18,7 @@ export default mergeConfig(viteConfig, defineConfig({
     },
     projects: [{
       extends: true,
+      name: 'unit',
       test: {
         // 使用 jsdom 模擬瀏覽器環境
         environment: 'jsdom',

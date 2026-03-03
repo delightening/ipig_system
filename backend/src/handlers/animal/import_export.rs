@@ -68,7 +68,7 @@ pub async fn export_animal_medical_data(
                     format!("attachment; filename=\"{}\"", filename),
                 )
                 .body(Body::from(pdf_bytes))
-                .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))?)
+                .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))?)
         }
         _ => Ok(Response::builder()
             .status(StatusCode::OK)
@@ -79,7 +79,7 @@ pub async fn export_animal_medical_data(
                 }))
                 .map_err(|e| AppError::Internal(format!("serialize error: {e}")))?,
             ))
-            .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))?),
+            .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))?),
     }
 }
 
@@ -116,7 +116,7 @@ pub async fn export_project_medical_data(
                     format!("attachment; filename=\"{}\"", filename),
                 )
                 .body(Body::from(pdf_bytes))
-                .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))?)
+                .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))?)
         }
         _ => Ok(Response::builder()
             .status(StatusCode::OK)
@@ -127,7 +127,7 @@ pub async fn export_project_medical_data(
                 }))
                 .map_err(|e| AppError::Internal(format!("serialize error: {e}")))?,
             ))
-            .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))?),
+            .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))?),
     }
 }
 
@@ -169,7 +169,7 @@ pub async fn download_basic_import_template(
             format!("attachment; filename=\"{}\"", filename),
         )
         .body(Body::from(data))
-        .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))
+        .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))
 }
 
 /// 下載動物體重匯入範本
@@ -200,7 +200,7 @@ pub async fn download_weight_import_template(
             format!("attachment; filename=\"{}\"", filename),
         )
         .body(Body::from(data))
-        .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))
+        .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))
 }
 
 /// 匯入動物基礎資料

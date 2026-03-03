@@ -40,7 +40,8 @@ export function ConfirmPasswordModal({
     }
   }, [open])
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault()
     if (!password.trim()) {
       setError('請輸入密碼')
       return
@@ -64,7 +65,7 @@ export function ConfirmPasswordModal({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <form onSubmit={handleSubmit} className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="reauth-password">您的登入密碼</Label>
             <Input
@@ -74,27 +75,27 @@ export function ConfirmPasswordModal({
               onChange={(e) => setPassword(e.target.value)}
               placeholder="請輸入密碼以確認身份"
               disabled={isSubmitting}
-              onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
               autoFocus
             />
             {error && (
               <p className="text-sm text-destructive">{error}</p>
             )}
           </div>
-        </div>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isSubmitting}
-          >
-            取消
-          </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            確認
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isSubmitting}
+            >
+              取消
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              確認
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )

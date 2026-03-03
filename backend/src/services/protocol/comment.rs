@@ -149,7 +149,14 @@ impl ProtocolService {
             None,
             None,
             Some(("comment", req.parent_comment_id, "Comment Reply")),
-            Some(format!("Reply: {}", if req.content.chars().count() > 50 { format!("{}...", req.content.chars().take(47).collect::<String>()) } else { req.content.clone() })),
+            Some({
+                let reply_text: String = if req.content.chars().count() > 50 {
+                    format!("{}...", req.content.chars().take(47).collect::<String>())
+                } else {
+                    req.content.clone()
+                };
+                format!("Reply: {}", reply_text)
+            }),
             None,
         ).await?;
 

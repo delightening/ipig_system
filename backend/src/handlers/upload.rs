@@ -534,7 +534,7 @@ pub async fn download_attachment(
             format!("attachment; filename=\"{}\"", attachment.file_name),
         )
         .body(Body::from(data))
-        .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))?;
+        .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))?;
 
     Ok(response)
 }

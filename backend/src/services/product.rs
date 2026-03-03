@@ -558,7 +558,7 @@ impl ProductService {
             let safety_stock = record
                 .get(7)
                 .and_then(|s| s.trim().parse::<f64>().ok())
-                .and_then(|f| rust_decimal::Decimal::from_f64_retain(f));
+                .and_then(rust_decimal::Decimal::from_f64_retain);
             let remark = record.get(8).filter(|s| !s.trim().is_empty()).map(String::from);
 
             rows.push(ProductImportRow {

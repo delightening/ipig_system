@@ -106,7 +106,7 @@ fn login_response_with_cookies(response: &LoginResponse, config: &Config) -> Res
         .header(header::SET_COOKIE, access_cookie)
         .header(header::SET_COOKIE, refresh_cookie)
         .body(body.into())
-        .map_err(|e| AppError::Internal(format!("Response 建構失敗: {}", e)))
+        .map_err(|e| AppError::Internal(format!("Response 建構失敗: {e}")))
 }
 
 // ============================================
@@ -171,7 +171,7 @@ pub async fn login(
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, "application/json")
             .body(body.into())
-            .map_err(|e| AppError::Internal(format!("Response 建構失敗: {}", e)));
+            .map_err(|e| AppError::Internal(format!("Response 建構失敗: {e}")));
     }
 
     // Phase 3: 正常登入（無 2FA）
@@ -351,7 +351,7 @@ pub async fn logout(
                 .map_err(|e| AppError::Internal(format!("JSON 序列化失敗: {}", e)))?
                 .into(),
         )
-        .map_err(|e| AppError::Internal(format!("Response 建構失敗: {}", e)))?;
+        .map_err(|e| AppError::Internal(format!("Response 建構失敗: {e}")))?;
 
     Ok(response)
 }
@@ -509,7 +509,7 @@ pub async fn delete_me_account(
                 .map_err(|e| AppError::Internal(format!("JSON error: {}", e)))?
                 .into(),
         )
-        .map_err(|e| AppError::Internal(format!("Response build error: {}", e)))?;
+        .map_err(|e| AppError::Internal(format!("Response build error: {e}")))?;
     Ok(response)
 }
 
