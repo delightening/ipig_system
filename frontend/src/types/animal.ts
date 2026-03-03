@@ -289,7 +289,7 @@ export interface AnimalBloodTestWithItems {
         lab_name?: string
         remark?: string
         vet_read: boolean
-        is_deleted: boolean
+        deleted_at?: string | null
         created_by?: string
         created_at: string
         updated_at: string

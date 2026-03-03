@@ -398,7 +398,7 @@ impl ReportService {
             LEFT JOIN animal_blood_test_items bti ON bt.id = bti.blood_test_id
             LEFT JOIN blood_test_templates tmpl ON bti.template_id = tmpl.id
             LEFT JOIN users u ON bt.created_by = u.id
-            WHERE bt.is_deleted = false
+            WHERE bt.deleted_at IS NULL
             "#,
         );
 
@@ -451,7 +451,7 @@ impl ReportService {
             INNER JOIN animal_blood_tests bt ON bti.blood_test_id = bt.id
             INNER JOIN animals a ON bt.animal_id = a.id
             LEFT JOIN blood_test_templates tmpl ON bti.template_id = tmpl.id
-            WHERE bt.is_deleted = false AND a.is_deleted = false
+            WHERE bt.deleted_at IS NULL AND a.deleted_at IS NULL
             "#,
         );
 

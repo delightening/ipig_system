@@ -1,4 +1,4 @@
-﻿use chrono::{Duration, Utc};
+use chrono::{Duration, Utc};
 use sqlx::{PgPool, FromRow};
 use uuid::Uuid;
 
@@ -51,7 +51,7 @@ impl EuthanasiaService {
             SELECT p.id, p.ear_tag, p.iacuc_no, pr.pi_user_id
             FROM animals p
             LEFT JOIN protocols pr ON p.iacuc_no = pr.iacuc_no
-            WHERE p.id = $1 AND p.is_deleted = false
+            WHERE p.id = $1 AND p.deleted_at IS NULL
             "#,
         )
         .bind(req.animal_id)
