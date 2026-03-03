@@ -136,7 +136,12 @@ async fn filter_admin_content(
                     skipped += 1;
                     continue;
                 }
-                out.push(row.clone());
+                // 全庫匯入後不強制既有使用者變更密碼（保留來源密碼 hash）
+                let mut user_row = row.clone();
+                if let Some(o) = user_row.as_object_mut() {
+                    o.insert("must_change_password".to_string(), serde_json::Value::Bool(false));
+                }
+                out.push(user_row);
             }
         }
         "roles" => {

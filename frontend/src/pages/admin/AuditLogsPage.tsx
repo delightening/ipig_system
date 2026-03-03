@@ -384,6 +384,16 @@ export function AuditLogsPage() {
     return format(new Date(dateStr), 'yyyy/MM/dd HH:mm:ss', { locale: zhTW })
   }
 
+  const formatDateTimeDisplay = (dateStr: string) => {
+    const d = new Date(dateStr)
+    return (
+      <div className="block leading-tight">
+        <div>{format(d, 'yyyy/MM/dd', { locale: zhTW })}</div>
+        <div>{format(d, 'HH:mm:ss', { locale: zhTW })}</div>
+      </div>
+    )
+  }
+
   const getEventBadge = (eventType: string) => {
     const config = eventTypeLabels[eventType] || { label: eventType, color: 'bg-gray-500' }
     return (
@@ -534,8 +544,8 @@ export function AuditLogsPage() {
             ) : activityLogs?.data && activityLogs.data.length > 0 ? (
               activityLogs.data.map((log) => (
                 <TableRow key={log.id}>
-                  <TableCell className="text-sm whitespace-nowrap">
-                    {formatDateTime(log.created_at)}
+                  <TableCell className="text-sm">
+                    {formatDateTimeDisplay(log.created_at)}
                   </TableCell>
                   <TableCell>
                     <div>
@@ -623,7 +633,7 @@ export function AuditLogsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-muted-foreground">操作時間</Label>
-                  <p className="font-medium">{formatDateTime(selectedLog.created_at)}</p>
+                  <div className="font-medium">{formatDateTimeDisplay(selectedLog.created_at)}</div>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">操作者</Label>
