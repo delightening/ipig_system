@@ -170,6 +170,8 @@ jobs:
       SQLX_OFFLINE: "false"
       ADMIN_EMAIL: admin@ipig.local
       ADMIN_INITIAL_PASSWORD: ci_test_admin_password_2024
+      # 避免 login_with_wrong_password_returns_401 因平行測試累積 login_events 導致帳號鎖定（400）
+      DISABLE_ACCOUNT_LOCKOUT: "true"
 
     steps:
       - uses: actions/checkout@v6
@@ -197,7 +199,7 @@ jobs:
         run: sqlx migrate run
 
       - name: cargo test
-        run: cargo test --verbose
+        run: cargo test --verbose -- --test-threads=1
 
   # =========================
   # Rust 後端：Clippy 靜態分析

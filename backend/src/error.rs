@@ -32,6 +32,10 @@ pub enum AppError {
     #[error("Authentication required")]
     Unauthorized,
 
+    /// 登入失敗（帳號或密碼錯誤），回傳 401
+    #[error("{0}")]
+    InvalidCredentials(String),
+
     #[error("Permission denied: {0}")]
     Forbidden(String),
 
@@ -90,6 +94,7 @@ impl IntoResponse for AppError {
 
         let (status, error_message) = match &self {
             AppError::Unauthorized => (StatusCode::UNAUTHORIZED, self.to_string()),
+            AppError::InvalidCredentials(msg) => (StatusCode::UNAUTHORIZED, msg.clone()),
             AppError::Forbidden(msg) => (StatusCode::FORBIDDEN, msg.clone()),
             AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg.clone()),
             AppError::Validation(msg) => (StatusCode::BAD_REQUEST, msg.clone()),

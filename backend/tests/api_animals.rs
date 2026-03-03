@@ -118,5 +118,5 @@ fn rand_num() -> u32 {
     let d = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .expect("System time should be valid");
-    d.subsec_nanos() % 900 + 100
+    (d.as_nanos() % 900) as u32 + 100
 }

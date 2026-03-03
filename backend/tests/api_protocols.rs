@@ -14,7 +14,8 @@ async fn list_protocols_returns_200() {
     assert_eq!(res.status(), 200);
 
     let body: serde_json::Value = res.json().await.expect("Failed to parse JSON response");
-    assert!(body["data"].is_array());
+    // list_protocols 回傳 Vec<ProtocolListItem>，即直接陣列
+    assert!(body.is_array(), "Expected array, got: {:?}", body);
 }
 
 #[tokio::test]

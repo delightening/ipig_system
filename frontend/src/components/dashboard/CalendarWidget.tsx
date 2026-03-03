@@ -14,11 +14,12 @@ interface CalendarData {
         is_all_day: boolean
     }>
     today_events: Array<{
-        title: string
-        category: string
-        start_time: string
-        end_time: string
-        is_all_day: boolean
+        id: string
+        summary: string
+        start: string
+        end: string
+        all_day: boolean
+        location?: string
     }>
     upcoming_leaves: Array<{
         user_name: string
@@ -136,16 +137,18 @@ export function CalendarWidget() {
                     </h4>
                     <div className="space-y-1">
                         {data?.today_events && data.today_events.length > 0 ? (
-                            data.today_events.map((event, idx) => (
-                                <div key={idx} className="flex flex-col gap-0.5 p-1.5 bg-indigo-50/50 rounded-md border border-indigo-100/50">
+                            data.today_events.map((event) => (
+                                <div key={event.id} className="flex flex-col gap-0.5 p-1.5 bg-indigo-50/50 rounded-md border border-indigo-100/50">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm font-medium">{event.title}</span>
-                                        <Badge variant="secondary" className="h-4 px-1 text-[10px]">
-                                            {event.category}
-                                        </Badge>
+                                        <span className="text-sm font-medium">{event.summary}</span>
+                                        {event.location && (
+                                            <Badge variant="secondary" className="h-4 px-1 text-[10px]">
+                                                {event.location}
+                                            </Badge>
+                                        )}
                                     </div>
                                     <span className="text-[10px] text-indigo-600 font-medium">
-                                        {event.is_all_day ? t('dashboard.widgets.common.allDay') : `${formatTime(event.start_time)} - ${formatTime(event.end_time)}`}
+                                        {event.all_day ? t('dashboard.widgets.common.allDay') : `${formatTime(event.start)} - ${formatTime(event.end)}`}
                                     </span>
                                 </div>
                             ))

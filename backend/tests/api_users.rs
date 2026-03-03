@@ -14,13 +14,11 @@ async fn list_users_returns_paginated_result() {
     assert_eq!(res.status(), 200);
 
     let body: serde_json::Value = res.json().await.expect("Failed to parse JSON response");
-    assert!(body["data"].is_array());
+    // list_users 回傳 Vec<UserResponse>，即直接陣列
+    assert!(body.is_array(), "Expected array, got: {:?}", body);
     // At least the admin user should exist
     assert!(
-        !body["data"]
-            .as_array()
-            .expect("data should be array")
-            .is_empty()
+        !body.as_array().expect("body should be array").is_empty()
     );
 }
 
