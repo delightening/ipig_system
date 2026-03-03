@@ -163,3 +163,8 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE VIEW slow_queries AS
 SELECT queryid, LEFT(query, 200) AS query_preview, calls, mean_exec_time AS avg_ms, total_exec_time AS total_ms, rows
 FROM pg_stat_statements WHERE mean_exec_time > 100 ORDER BY mean_exec_time DESC LIMIT 50;
+
+-- 9.9 修正操作日誌中「疑苗紀錄」錯字為「疫苗紀錄」
+UPDATE user_activity_logs
+SET entity_display_name = REPLACE(entity_display_name, '疑苗紀錄', '疫苗紀錄')
+WHERE entity_display_name LIKE '%疑苗紀錄%';
