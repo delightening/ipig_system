@@ -199,10 +199,10 @@ async fn filter_admin_content(
                     .map(normalize_uuid);
                 let skip = user_id
                     .as_ref()
-                    .map_or(false, |u| excluded_user_ids.contains(u))
+                    .is_some_and(|u| excluded_user_ids.contains(u))
                     || role_id
                         .as_ref()
-                        .map_or(false, |r| excluded_role_ids.contains(r));
+                        .is_some_and(|r| excluded_role_ids.contains(r));
                 if skip {
                     skipped += 1;
                     continue;
@@ -225,7 +225,7 @@ async fn filter_admin_content(
                     .map(normalize_uuid);
                 if role_id
                     .as_ref()
-                    .map_or(false, |r| excluded_role_ids.contains(r))
+                    .is_some_and(|r| excluded_role_ids.contains(r))
                 {
                     skipped += 1;
                     continue;
@@ -652,7 +652,7 @@ async fn import_from_json(pool: &PgPool, json_bytes: &[u8], _mode: ImportMode) -
 }
 
 fn is_export_table(name: &str) -> bool {
-    EXPORT_TABLE_ORDER.iter().any(|t| *t == name)
+    EXPORT_TABLE_ORDER.contains(&name)
 }
 
 /// 匯入 change_reasons 前，將不存在的 changed_by 設為 null，避免 FK 違反
@@ -702,10 +702,12 @@ async fn import_table(
     // json_populate_recordset 第二參數需為 json 型別（非 jsonb）
     // 遇重複則取代（ON CONFLICT DO UPDATE SET）
     let sql = if conflict_cols.is_empty() {
-        format!(
-            r#"INSERT INTO "{}" SELECT * FROM json_populate_recordset(null::"{}", $1::json)"#,
-            table, table
-        )
+        let mut s = String::from("INSERT INTO \"");
+        s.push_str(table);
+        s.push_str("\" SELECT * FROM json_populate_recordset(null::\"");
+        s.push_str(table);
+        s.push_str("\", $1::json)");
+        s
     } else {
         let conflict_expr = conflict_cols
             .iter()
@@ -726,12 +728,17 @@ async fn import_table(
         let update_clause = if update_set.is_empty() {
             " DO NOTHING".to_string()
         } else {
-            format!(" DO UPDATE SET {}", update_set.join(", "))
+            [" DO UPDATE SET ", &update_set.join(", ")].concat()
         };
-        format!(
-            r#"INSERT INTO "{}" SELECT * FROM json_populate_recordset(null::"{}", $1::json) ON CONFLICT ({}){}"#,
-            table, table, conflict_expr, update_clause
-        )
+        let mut s = String::from("INSERT INTO \"");
+        s.push_str(table);
+        s.push_str("\" SELECT * FROM json_populate_recordset(null::\"");
+        s.push_str(table);
+        s.push_str("\", $1::json) ON CONFLICT (");
+        s.push_str(&conflict_expr);
+        s.push(')');
+        s.push_str(&update_clause);
+        s
     };
 
     let q = sqlx::query(&sql).bind(rows_json);

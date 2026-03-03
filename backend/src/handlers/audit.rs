@@ -187,9 +187,9 @@ pub async fn export_audit_logs(
                     format!("attachment; filename=\"{}\"", filename),
                 )
                 .body(Body::from(body))
-                .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))?)
+                .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))?)
         }
-        "json" | _ => {
+        "json" => {
             let json_bytes = serde_json::to_vec(&logs).map_err(|e| AppError::Internal(format!("JSON serialize error: {}", e)))?;
             Ok(Response::builder()
                 .status(StatusCode::OK)
@@ -199,7 +199,19 @@ pub async fn export_audit_logs(
                     format!("attachment; filename=\"{}\"", filename),
                 )
                 .body(Body::from(json_bytes))
-                .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))?)
+                .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))?)
+        }
+        _ => {
+            let json_bytes = serde_json::to_vec(&logs).map_err(|e| AppError::Internal(format!("JSON serialize error: {}", e)))?;
+            Ok(Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, "application/json; charset=utf-8")
+                .header(
+                    header::CONTENT_DISPOSITION,
+                    format!("attachment; filename=\"{}\"", filename),
+                )
+                .body(Body::from(json_bytes))
+                .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))?)
         }
     }
 }

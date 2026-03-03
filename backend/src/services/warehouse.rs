@@ -258,7 +258,7 @@ impl WarehouseService {
         let mut rows = Vec::new();
         for (i, result) in reader.records().enumerate() {
             let record = result.map_err(|e| AppError::Validation(format!("CSV 解析錯誤第 {} 行: {}", i + 2, e)))?;
-            if record.len() < 1 {
+            if record.is_empty() {
                 continue;
             }
             let name = record.get(0).unwrap_or("").to_string();
@@ -304,7 +304,7 @@ impl WarehouseService {
         iter.next(); // 跳過標題
 
         for row in iter {
-            if row.len() < 1 {
+            if row.is_empty() {
                 continue;
             }
             let name = Self::get_cell_string(row.first());

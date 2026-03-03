@@ -85,7 +85,7 @@ pub async fn full_database_export(
         )
         .header(header::CONTENT_LENGTH, bytes.len())
         .body(Body::from(bytes))
-        .map_err(|e| AppError::Internal(format!("Build response: {}", e)))
+        .map_err(|e| AppError::Internal(format!("Build response: {e}")))
 }
 
 /// 匯入 IDXF JSON 或 Zip

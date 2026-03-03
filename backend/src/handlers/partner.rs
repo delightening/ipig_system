@@ -200,7 +200,7 @@ pub async fn download_partner_import_template() -> Result<Response> {
     let data = PartnerService::generate_import_template()
         .map_err(|e| AppError::Internal(format!("產生模板失敗: {}", e)))?;
     let filename = "partner_import_template.xlsx";
-    Ok(Response::builder()
+    Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         .header(
@@ -208,7 +208,7 @@ pub async fn download_partner_import_template() -> Result<Response> {
             format!("attachment; filename=\"{}\"", filename),
         )
         .body(Body::from(data))
-        .map_err(|e| AppError::Internal(format!("Failed to build response: {}", e)))?)
+        .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))
 }
 
 async fn parse_partner_import_file(multipart: &mut Multipart) -> Result<(Vec<u8>, String)> {

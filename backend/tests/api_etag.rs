@@ -15,12 +15,12 @@ async fn get_returns_etag_header() {
     assert_eq!(res.status(), 200);
     let etag = res.headers().get("etag");
     assert!(etag.is_some(), "GET response should include ETag header");
-    let etag_val = etag.unwrap().to_str().unwrap();
+    let etag_val = etag.expect("etag is some").to_str().expect("etag is valid utf-8");
     assert!(etag_val.starts_with('"') && etag_val.ends_with('"'));
     assert!(
         res.headers()
             .get("cache-control")
-            .map(|v| v.to_str().unwrap().contains("private"))
+            .map(|v| v.to_str().expect("header value is valid utf-8").contains("private"))
             .unwrap_or(false),
         "Should include Cache-Control: private"
     );
@@ -39,7 +39,7 @@ async fn get_with_if_none_match_returns_304_when_match() {
         .get("etag")
         .expect("First GET should have ETag")
         .to_str()
-        .unwrap()
+        .expect("etag is valid utf-8")
         .to_string();
 
     let res2 = app
@@ -52,7 +52,7 @@ async fn get_with_if_none_match_returns_304_when_match() {
         .expect("Request failed");
 
     assert_eq!(res2.status(), 304);
-    let body = res2.text().await.unwrap();
+    let body = res2.text().await.expect("response body");
     assert!(body.is_empty(), "304 response should have empty body");
 }
 
@@ -86,7 +86,12 @@ async fn post_unaffected_no_etag() {
 async fn excluded_paths_no_etag() {
     let app = common::TestApp::spawn().await;
 
-    let res = app.client.get(app.url("/api/health")).send().await.unwrap();
+    let res = app
+        .client
+        .get(app.url("/api/health"))
+        .send()
+        .await
+        .expect("health request");
     assert_eq!(res.status(), 200);
     assert!(
         res.headers().get("etag").is_none(),

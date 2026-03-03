@@ -157,5 +157,5 @@ pub async fn verify_2fa_login(
         .header(header::SET_COOKIE, access_cookie)
         .header(header::SET_COOKIE, refresh_cookie)
         .body(body.into())
-        .map_err(|e| AppError::Internal(format!("Response 建構失敗: {}", e)))
+        .map_err(|e| AppError::Internal(format!("Response 建構失敗: {e}")))
 }

@@ -84,16 +84,18 @@ impl UserService {
         let suffix = pagination.sql_suffix();
         let users = if let Some(kw) = keyword {
             let pattern = format!("%{}%", kw);
-            let sql = format!(
-                "SELECT * FROM users WHERE email ILIKE $1 OR display_name ILIKE $1 ORDER BY created_at DESC{}",
-                suffix
-            );
+            let sql = [
+                "SELECT * FROM users WHERE email ILIKE $1 OR display_name ILIKE $1 ORDER BY created_at DESC",
+                suffix.as_str(),
+            ]
+            .concat();
             sqlx::query_as::<_, User>(&sql)
                 .bind(&pattern)
                 .fetch_all(pool)
                 .await?
         } else {
-            let sql = format!("SELECT * FROM users ORDER BY created_at DESC{}", suffix);
+            let sql =
+                ["SELECT * FROM users ORDER BY created_at DESC", suffix.as_str()].concat();
             sqlx::query_as::<_, User>(&sql)
                 .fetch_all(pool)
                 .await?

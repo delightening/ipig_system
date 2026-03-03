@@ -321,7 +321,7 @@ export function SettingsPage() {
                 <div className="space-y-2">
                   <Label htmlFor="defaultWarehouse">預設倉庫</Label>
                   <Select value={settingsForm.form.defaultWarehouseId || undefined} onValueChange={(v) => settingsForm.updateField('defaultWarehouseId', v)}>
-                    <SelectTrigger>
+                    <SelectTrigger id="defaultWarehouse">
                       <SelectValue placeholder="選擇預設倉庫" />
                     </SelectTrigger>
                     <SelectContent>
@@ -350,7 +350,7 @@ export function SettingsPage() {
                 <div className="space-y-2">
                   <Label htmlFor="costMethod">成本計算方式</Label>
                   <Select value={settingsForm.form.costMethod} onValueChange={(v) => settingsForm.updateField('costMethod', v)}>
-                    <SelectTrigger>
+                    <SelectTrigger id="costMethod">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -475,7 +475,7 @@ export function SettingsPage() {
                 <div className="space-y-2 max-w-xs">
                   <Label htmlFor="sessionTimeout">Session 逾時</Label>
                   <Select value={settingsForm.form.sessionTimeout} onValueChange={(v) => settingsForm.updateField('sessionTimeout', v)}>
-                    <SelectTrigger>
+                    <SelectTrigger id="sessionTimeout">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
