@@ -881,8 +881,9 @@ export function AdminAuditPage() {
                                                 className="cursor-pointer hover:bg-muted/50 transition-colors"
                                                 onClick={() => setSelectedAlert(alert)}
                                             >
-                                                <TableCell className="whitespace-nowrap">
-                                                    {formatDateTime(alert.created_at)}
+                                                <TableCell>
+                                                    <span className="block">{format(new Date(alert.created_at), 'yyyy/MM/dd', { locale: zhTW })}</span>
+                                                    <span className="block text-muted-foreground text-sm">{format(new Date(alert.created_at), 'HH:mm', { locale: zhTW })}</span>
                                                 </TableCell>
                                                 <TableCell>
                                                     <Badge variant="outline">{alert.alert_type}</Badge>

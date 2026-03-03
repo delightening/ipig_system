@@ -1,0 +1,31 @@
+# ============================================
+# 本機 CI 模擬用 overlay：使用不同 port 避免與正式/開發環境衝突
+# ============================================
+# Usage:
+#   docker compose -f docker-compose.test.yml -f docker-compose.test.ci-local.yml up -d
+#
+# Port 對照：
+#   正式/開發環境    本機 CI 模擬
+#   -------------------------------
+#   PostgreSQL 5432/5433  →  15432
+#   API        8000       →  18000
+#   Web        8080       →  18080
+#
+# E2E 測試需設定：
+#   E2E_BASE_URL=http://localhost:18080
+# ============================================
+
+services:
+  db-test:
+    ports:
+      - "15432:5432"
+
+  api-test:
+    ports:
+      - "18000:8080"
+    environment:
+      CORS_ALLOWED_ORIGINS: "http://localhost:18080"
+
+  web-test:
+    ports:
+      - "18080:80"
