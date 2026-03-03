@@ -299,11 +299,9 @@ jobs:
   # .trivyignore 內所列 CVE 均經評估，原因與風險見 docs/security.md（例如 CVE-2026-25646），非漏修。
   # =========================
   trivy-scan:
-    if: false  # 暫時停用
+    if: false  # 暫時停用（原條件：github.event_name == 'push' && github.ref == 'refs/heads/main'）
     name: "🐳 Security: Trivy container scan"
     runs-on: ubuntu-latest
-    # 僅在 push 到 main 時觸發（build Docker image 耗時較長）
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v6
 
