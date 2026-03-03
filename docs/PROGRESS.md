@@ -188,6 +188,20 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-03 E2E CI 環境模擬全通過
+- ✅ **根因**：admin-users 測試失敗因「啟動配置警告」對話框擋住頁面；auth 首次嘗試使用 `.env` 的錯誤 `ADMIN_INITIAL_PASSWORD`。
+- ✅ **修正**：`docker-compose.test.yml` 新增 `TEST_USER_PASSWORD`、`ALLOWED_CLOCK_IP_RANGES`、`CLOCK_OFFICE_LATITUDE/LONGITUDE` 抑制配置警告；`run-ci-e2e-tests.ps1` 設定 `ADMIN_INITIAL_PASSWORD`、清除 `.auth` 資料夾、修正 docker compose `--progress` 旗標。
+- ✅ **結果**：35 個 Playwright E2E 測試全數通過（約 1.8 分鐘）。
+
+---
+
+### 2026-03-03 本機複現 CI 環境與 Backend 測試全通過
+- ✅ **腳本**：新增 `scripts/run-ci-backend-tests.ps1`，以 Docker db-test + CI 環境變數複現 GitHub Actions 流程。
+- ✅ **CI 調整**：`DISABLE_ACCOUNT_LOCKOUT=true` 避免 `login_with_wrong_password_returns_401` 因帳號鎖定回傳 400；`--test-threads=1` 減少共用 DB 衝突；`--force-recreate` 確保乾淨測試 DB。
+- ✅ **權限**：補齊 `dev.role.*` 並指派給 admin（角色 API 需此權限）。
+- ✅ **測試修正**：`post_unaffected_no_etag` 補上 `code` 欄位；`list_protocols_returns_200` / `list_users_returns_paginated_result` 改為檢查直接陣列；TestApp 建立 `uploads` 目錄以通過 health 檢查。
+- ✅ **結果**：`cargo test` 全數通過（127 unit + 整合測試）。
+
 ### 2026-03-03 疫苗紀錄刪除失效修復與刪除功能檢視
 - ✅ **根因**：`list_vaccinations` 未過濾 `deleted_at IS NULL`，導致軟刪除後紀錄仍顯示於列表（後端已正確軟刪除，但列表查詢未排除）。
 - ✅ **修正**：`backend/src/services/animal/medical.rs` 於 `list_vaccinations` 查詢加入 `AND deleted_at IS NULL`。

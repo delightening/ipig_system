@@ -66,14 +66,14 @@ impl AuthService {
         .bind(&req.email)
         .fetch_optional(pool)
         .await?
-        .ok_or_else(|| AppError::Validation("Invalid email or password".to_string()))?;
+        .ok_or_else(|| AppError::InvalidCredentials("Invalid email or password".to_string()))?;
 
         let parsed_hash = PasswordHash::new(&user.password_hash)
             .map_err(|_| AppError::Internal("Invalid password hash".to_string()))?;
 
         Argon2::default()
             .verify_password(req.password.as_bytes(), &parsed_hash)
-            .map_err(|_| AppError::Validation("Invalid email or password".to_string()))?;
+            .map_err(|_| AppError::InvalidCredentials("Invalid email or password".to_string()))?;
 
         Ok(user)
     }

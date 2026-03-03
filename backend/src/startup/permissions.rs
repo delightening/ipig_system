@@ -49,6 +49,11 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         // 全庫 IDXF 匯出/匯入（一鍵輸出/匯入整個資料庫）
         ("admin.data.export", "全庫資料匯出", "admin", "可一鍵匯出整個資料庫為 IDXF 格式"),
         ("admin.data.import", "全庫資料匯入", "admin", "可上傳 IDXF JSON 匯入資料庫"),
+        // 角色 API（handlers 使用 dev.role.*，對應 admin.role.manage 細分）
+        ("dev.role.create", "建立角色", "dev", "API: 可建立角色"),
+        ("dev.role.view", "查看角色", "dev", "API: 可查看角色列表與詳情"),
+        ("dev.role.edit", "編輯角色", "dev", "API: 可編輯角色"),
+        ("dev.role.delete", "刪除角色", "dev", "API: 可刪除角色"),
     ];
     
     for (code, name, module, description) in required_permissions {
@@ -65,11 +70,14 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         .await?;
     }
     
-    // 將 admin.data.export / admin.data.import 指派給 admin 角色
+    // 將 admin.data.export / admin.data.import / dev.role.* 指派給 admin 角色
     sqlx::query(r#"
         INSERT INTO role_permissions (role_id, permission_id)
         SELECT r.id, p.id FROM roles r, permissions p
-        WHERE r.code = 'admin' AND p.code IN ('admin.data.export', 'admin.data.import')
+        WHERE r.code = 'admin' AND p.code IN (
+            'admin.data.export', 'admin.data.import',
+            'dev.role.create', 'dev.role.view', 'dev.role.edit', 'dev.role.delete'
+        )
         ON CONFLICT (role_id, permission_id) DO NOTHING
     "#)
     .execute(pool)

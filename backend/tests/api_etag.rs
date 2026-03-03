@@ -63,6 +63,7 @@ async fn post_unaffected_no_etag() {
     let token = app.login_as_admin().await;
 
     let body = serde_json::json!({
+        "code": "ETAG_TEST_ROLE",
         "name": "ETag Test Role",
         "description": "For ETag test"
     });

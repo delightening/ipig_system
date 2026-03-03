@@ -59,6 +59,12 @@ impl TestApp {
             );
         }
 
+        // 確保 uploads 目錄存在（health check 需要）
+        let uploads_dir = std::path::Path::new("./uploads");
+        if !uploads_dir.exists() {
+            std::fs::create_dir_all(uploads_dir).expect("Failed to create uploads dir");
+        }
+
         let config = erp_backend::config::Config::from_env()
             .expect("Failed to build Config from env");
         let config = Arc::new(config);
