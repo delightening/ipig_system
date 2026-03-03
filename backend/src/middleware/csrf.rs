@@ -55,8 +55,11 @@ pub async fn csrf_middleware(
     let path = request.uri().path().to_string();
     let cookie_secure = state.config.cookie_secure;
 
+    // 整合測試時可停用 CSRF（DISABLE_CSRF_FOR_TESTS=true）
+    let skip_csrf = state.config.disable_csrf_for_tests;
+
     // 只有需要 CSRF 的方法且非豁免路徑才檢查
-    if requires_csrf_check(&method) && !is_exempt_path(&path) {
+    if !skip_csrf && requires_csrf_check(&method) && !is_exempt_path(&path) {
         let cookie_token = extract_csrf_cookie(&request);
         let header_token = request
             .headers()

@@ -63,6 +63,8 @@ pub struct Config {
     pub cors_allowed_origins: Vec<String>,
     /// SEC-34: 稽核日誌 HMAC-SHA256 密鑰
     pub audit_hmac_key: Option<String>,
+    /// 整合測試用：停用 CSRF 檢查（僅在 TEST_DATABASE_URL/DATABASE_URL 且 DISABLE_CSRF_FOR_TESTS=true 時使用）
+    pub disable_csrf_for_tests: bool,
 }
 
 impl Config {
@@ -170,6 +172,9 @@ impl Config {
                 .filter(|s| !s.is_empty())
                 .collect(),
             audit_hmac_key: read_secret("AUDIT_HMAC_KEY").filter(|s| s.len() >= 16),
+            disable_csrf_for_tests: std::env::var("DISABLE_CSRF_FOR_TESTS")
+                .map(|v| v.to_lowercase() == "true" || v == "1")
+                .unwrap_or(false),
         })
     }
 

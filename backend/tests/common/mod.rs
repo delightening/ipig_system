@@ -51,6 +51,7 @@ impl TestApp {
         std::env::set_var("PORT", "0"); // will be overridden by listener
         std::env::set_var("COOKIE_SECURE", "false");
         std::env::set_var("SEED_DEV_USERS", "false");
+        std::env::set_var("DISABLE_CSRF_FOR_TESTS", "true");
         if std::env::var("JWT_SECRET").is_err() {
             std::env::set_var(
                 "JWT_SECRET",
