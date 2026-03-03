@@ -27,6 +27,7 @@ interface PasswordChangeDialogProps {
 
 export function PasswordChangeDialog({ open, onOpenChange }: PasswordChangeDialogProps) {
   const { t } = useTranslation()
+  const { user } = useAuthStore()
 
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -61,7 +62,8 @@ export function PasswordChangeDialog({ open, onOpenChange }: PasswordChangeDialo
     },
   })
 
-  const handleChangePassword = () => {
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
     if (!currentPassword || !newPassword || !confirmPassword) {
       toast({ title: t('common.error'), description: t('password.fillAllFields'), variant: 'destructive' })
       return
@@ -95,7 +97,18 @@ export function PasswordChangeDialog({ open, onOpenChange }: PasswordChangeDialo
             {t('password.description')}
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <form id="password-change-form" onSubmit={handleSubmit} className="space-y-4 py-4">
+          {/* 無障礙：密碼表單應包含 username 欄位 */}
+          <input
+            type="text"
+            name="username"
+            autoComplete="username"
+            value={user?.email ?? ''}
+            readOnly
+            tabIndex={-1}
+            className="absolute opacity-0 pointer-events-none h-0 w-0"
+            aria-hidden
+          />
           <div className="space-y-2">
             <Label htmlFor="current-password">{t('password.currentPassword')}</Label>
             <div className="relative">
@@ -106,6 +119,7 @@ export function PasswordChangeDialog({ open, onOpenChange }: PasswordChangeDialo
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder={t('password.currentPassword')}
                 className="pr-10"
+                autoComplete="current-password"
               />
               <Button
                 type="button"
@@ -129,6 +143,7 @@ export function PasswordChangeDialog({ open, onOpenChange }: PasswordChangeDialo
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder={t('password.minLength')}
                 className="pr-10"
+                autoComplete="new-password"
               />
               <Button
                 type="button"
@@ -152,6 +167,7 @@ export function PasswordChangeDialog({ open, onOpenChange }: PasswordChangeDialo
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder={t('password.confirmPassword')}
                 className="pr-10"
+                autoComplete="new-password"
               />
               <Button
                 type="button"
@@ -165,9 +181,10 @@ export function PasswordChangeDialog({ open, onOpenChange }: PasswordChangeDialo
               </Button>
             </div>
           </div>
-        </div>
+        </form>
         <DialogFooter>
           <Button
+            type="button"
             variant="outline"
             onClick={() => {
               onOpenChange(false)
@@ -178,7 +195,8 @@ export function PasswordChangeDialog({ open, onOpenChange }: PasswordChangeDialo
             {t('common.cancel')}
           </Button>
           <Button
-            onClick={handleChangePassword}
+            type="submit"
+            form="password-change-form"
             disabled={changePasswordMutation.isPending}
           >
             {changePasswordMutation.isPending && (

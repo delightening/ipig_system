@@ -125,6 +125,17 @@ export function ForceChangePasswordPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* 無障礙：密碼表單應包含 username 欄位，供輔助技術識別 */}
+            <input
+              type="text"
+              name="username"
+              autoComplete="username"
+              value={user?.email ?? ''}
+              readOnly
+              tabIndex={-1}
+              className="absolute opacity-0 pointer-events-none h-0 w-0"
+              aria-hidden
+            />
             <div className="space-y-2">
               <Label htmlFor="currentPassword" className="text-slate-300">
                 目前密碼
