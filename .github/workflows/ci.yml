@@ -1,9 +1,8 @@
 name: CI
 
 on:
-  # push 觸發已停用，僅保留 PR 時執行
-  # push:
-  #   branches: [main, develop]
+  push:
+    branches: [main, develop]
   pull_request:
     branches: [main, develop]
   workflow_dispatch:  # 可於 GitHub Actions 頁面手動觸發
@@ -13,16 +12,10 @@ env:
   SQLX_OFFLINE: "true"
 
 jobs:
-  # ============================================================
-  # 暫時僅執行 Backend cargo test 以節約 Action 資源
-  # 恢復其他 job 時，移除下方各 job 的 if: false
-  # ============================================================
-
   # =========================
   # 🔒 安全漏洞掃描 (RustSec Advisory DB)
   # =========================
   security-audit:
-    if: false  # 暫時停用
     name: "🔒 Security: cargo audit"
     runs-on: ubuntu-latest
     steps:
@@ -57,7 +50,6 @@ jobs:
   # 🛡️ 供應鏈檢查 (授權/漏洞/來源)
   # =========================
   cargo-deny:
-    if: false  # 暫時停用
     name: "🛡️ Security: cargo deny"
     runs-on: ubuntu-latest
     steps:
@@ -75,7 +67,6 @@ jobs:
   # 🛑 SQL 注入守衛
   # =========================
   sql-injection-guard:
-    if: false  # 暫時停用
     name: "🛑 Guard: SQL injection"
     runs-on: ubuntu-latest
     steps:
@@ -94,7 +85,6 @@ jobs:
   # 🚫 Unsafe 守衛
   # =========================
   unsafe-guard:
-    if: false  # 暫時停用
     name: "🚫 Guard: unsafe code"
     runs-on: ubuntu-latest
     steps:
@@ -113,7 +103,6 @@ jobs:
   # Rust 後端：編譯檢查
   # =========================
   backend-check:
-    if: false  # 暫時停用
     name: "Backend: cargo check"
     runs-on: ubuntu-latest
     defaults:
@@ -205,7 +194,6 @@ jobs:
   # Rust 後端：Clippy 靜態分析
   # =========================
   backend-lint:
-    if: false  # 暫時停用
     name: "Backend: clippy"
     runs-on: ubuntu-latest
     defaults:
@@ -241,7 +229,6 @@ jobs:
   # React 前端：TypeScript 檢查
   # =========================
   frontend-check:
-    if: false  # 暫時停用
     name: "Frontend: tsc check"
     runs-on: ubuntu-latest
     defaults:
@@ -274,7 +261,6 @@ jobs:
   # 🔒 npm 依賴漏洞掃描
   # =========================
   npm-audit:
-    if: false  # 暫時停用
     name: "🔒 Security: npm audit"
     runs-on: ubuntu-latest
     defaults:
@@ -301,7 +287,6 @@ jobs:
   # .trivyignore 內所列 CVE 均經評估，原因與風險見 docs/security.md（例如 CVE-2026-25646），非漏修。
   # =========================
   trivy-scan:
-    if: false  # 暫時停用（原條件：github.event_name == 'push' && github.ref == 'refs/heads/main'）
     name: "🐳 Security: Trivy container scan"
     runs-on: ubuntu-latest
     steps:
@@ -354,7 +339,6 @@ jobs:
   # 完整說明：docs/e2e/README.md
   # =========================
   e2e-test:
-    if: false  # 暫時停用
     name: "🧪 E2E: Playwright"
     runs-on: ubuntu-latest
     # 確保基本檢查通過後再跑耗時的 E2E
