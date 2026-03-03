@@ -42,8 +42,8 @@ async fn create_and_get_animal() {
 
     let create_body = serde_json::json!({
         "ear_tag": ear_tag,
-        "breed": "Landrace",
-        "gender": "Female",
+        "breed": "white",
+        "gender": "female",
         "entry_date": "2026-01-15",
         "entry_weight": 25.5,
         "pen_location": "A-01",
@@ -88,8 +88,8 @@ async fn create_animal_with_invalid_data_returns_400() {
 
     let bad_body = serde_json::json!({
         "ear_tag": "",
-        "breed": "Landrace",
-        "gender": "Female",
+        "breed": "white",
+        "gender": "female",
         "entry_date": "2026-01-15",
         "entry_weight": 25.5,
         "pen_location": "A-01"
