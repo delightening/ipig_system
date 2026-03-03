@@ -1,19 +1,26 @@
 # ============================================
 # 本機 CI 全域測試腳本
 # ============================================
-# 模擬 GitHub Actions CI 中所有項目（與 .github/workflows/ci.yml 對應）
-# 使用 docker-compose.test.ci-local.yml 以不同 port 避免與正式/開發環境衝突
+# 模擬 GitHub Actions CI，涵蓋以下項目：
 #
-# Port 對照（本機 CI 模擬）：
-#   PostgreSQL: 15432
-#   API:       18000
-#   Web:       18080
+# 【核心測試】
+#   - Backend: cargo test
+#   - Frontend: tsc check (+ Vitest)
+#   - E2E: Playwright
 #
-# 前置需求：
-#   - Rust (cargo, rustup)
-#   - Node.js 22
-#   - Docker
-#   - cargo-audit, cargo-deny, sqlx-cli, trivy（腳本會嘗試安裝）
+# 【安全與守衛】
+#   - Security: cargo audit
+#   - Security: cargo deny
+#   - Guard: SQL injection
+#   - Guard: unsafe code
+#   - Backend: clippy
+#   - Security: npm audit
+#   - Security: Trivy container scan
+#
+# Port 對照（docker-compose.test.ci-local.yml）：
+#   PostgreSQL: 15432 | API: 18000 | Web: 18080
+#
+# 前置需求：Rust、Node.js 22、Docker
 # ============================================
 
 param(
@@ -54,11 +61,11 @@ function Invoke-Step {
 
 # ----- 1. Security: cargo audit -----
 if (-not $SkipSecurity) {
-    Invoke-Step "Security: cargo audit" {
+    $null = Invoke-Step "Security: cargo audit" {
         Set-Location "$ProjectRoot\backend"
         cargo install cargo-audit --locked 2>$null
         cargo update 2>$null
-        cargo audit --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2024-0370
+        cargo audit --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2024-0370 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "cargo audit exited with $LASTEXITCODE" }
         Set-Location $ProjectRoot
     }
@@ -66,16 +73,16 @@ if (-not $SkipSecurity) {
 
 # ----- 2. Security: cargo deny -----
 if (-not $SkipSecurity) {
-    Invoke-Step "Security: cargo deny" {
+    $null = Invoke-Step "Security: cargo deny" {
         Set-Location $ProjectRoot
         cargo install cargo-deny --locked 2>$null
-        cargo deny --manifest-path backend/Cargo.toml check --all-features --log-level info
+        cargo deny --manifest-path backend/Cargo.toml check
         if ($LASTEXITCODE -ne 0) { throw "cargo deny exited with $LASTEXITCODE" }
     }
 }
 
 # ----- 3. Guard: SQL injection -----
-Invoke-Step "Guard: SQL injection" {
+$null = Invoke-Step "Guard: SQL injection" {
     Set-Location "$ProjectRoot\backend"
     $files = Get-ChildItem -Path src -Filter "*.rs" -Recurse
     foreach ($f in $files) {
@@ -87,7 +94,7 @@ Invoke-Step "Guard: SQL injection" {
 }
 
 # ----- 4. Guard: unsafe code -----
-Invoke-Step "Guard: unsafe code" {
+$null = Invoke-Step "Guard: unsafe code" {
     Set-Location "$ProjectRoot\backend"
     $files = Get-ChildItem -Path src -Filter "*.rs" -Recurse
     foreach ($f in $files) {
@@ -99,7 +106,7 @@ Invoke-Step "Guard: unsafe code" {
 
 # ----- 5. Backend: cargo check -----
 if (-not $SkipBackend) {
-    Invoke-Step "Backend: cargo check" {
+    $null = Invoke-Step "Backend: cargo check" {
         Set-Location "$ProjectRoot\backend"
         $env:SQLX_OFFLINE = "true"
         cargo check --release
@@ -140,7 +147,7 @@ if (-not $SkipBackend) {
 
 # ----- 7. Backend: clippy -----
 if (-not $SkipBackend) {
-    Invoke-Step "Backend: clippy" {
+    $null = Invoke-Step "Backend: clippy" {
         Set-Location "$ProjectRoot\backend"
         $env:SQLX_OFFLINE = "true"
         rustup component add clippy 2>$null
@@ -152,26 +159,28 @@ if (-not $SkipBackend) {
 
 # ----- 8. Frontend: tsc + vitest -----
 if (-not $SkipFrontend) {
-    Invoke-Step "Frontend: tsc check" {
+    $null = Invoke-Step "Frontend: tsc check" {
         Set-Location "$ProjectRoot\frontend"
         npm ci
         npx playwright install chromium --with-deps 2>$null
         npx tsc --noEmit
+        if ($LASTEXITCODE -ne 0) { throw "tsc exited with $LASTEXITCODE" }
         Set-Location $ProjectRoot
     }
-
-    Invoke-Step "Frontend: Vitest" {
+    $null = Invoke-Step "Frontend: Vitest" {
         Set-Location "$ProjectRoot\frontend"
         npx vitest run
+        if ($LASTEXITCODE -ne 0) { throw "vitest exited with $LASTEXITCODE" }
         Set-Location $ProjectRoot
     }
 }
 
 # ----- 9. Security: npm audit -----
 if (-not $SkipSecurity) {
-    Invoke-Step "Security: npm audit" {
+    $null = Invoke-Step "Security: npm audit" {
         Set-Location "$ProjectRoot\frontend"
         npm audit --audit-level=high
+        if ($LASTEXITCODE -ne 0) { throw "npm audit exited with $LASTEXITCODE" }
         Set-Location $ProjectRoot
     }
 }
@@ -182,7 +191,7 @@ if (-not $SkipTrivy) {
         docker build --no-cache --progress=plain -t ipig-api:ci "$ProjectRoot\backend"
         docker run --rm -v //var/run/docker.sock:/var/run/docker.sock -v "${ProjectRoot}/.trivyignore:/.trivyignore:ro" aquasec/trivy:latest image --exit-code 1 --ignore-unfixed --ignorefile /.trivyignore --severity CRITICAL,HIGH ipig-api:ci
     }
-    Invoke-Step "Trivy: backend image" $trivyBackend
+    $null = Invoke-Step "Trivy: backend image" $trivyBackend
 
     $trivyFrontend = {
         Set-Location "$ProjectRoot\frontend"
@@ -192,7 +201,7 @@ if (-not $SkipTrivy) {
         docker build --no-cache --progress=plain -t ipig-web:ci "$ProjectRoot\frontend"
         docker run --rm -v //var/run/docker.sock:/var/run/docker.sock -v "${ProjectRoot}/.trivyignore:/.trivyignore:ro" aquasec/trivy:latest image --exit-code 1 --ignore-unfixed --ignorefile /.trivyignore --severity CRITICAL,HIGH ipig-web:ci
     }
-    Invoke-Step "Trivy: frontend image" $trivyFrontend
+    $null = Invoke-Step "Trivy: frontend image" $trivyFrontend
 }
 
 # ----- 11. E2E: Playwright -----
@@ -224,6 +233,7 @@ if (-not $SkipE2E) {
         $env:E2E_ADMIN_EMAIL = "admin@ipig.local"
         $env:E2E_ADMIN_PASSWORD = "ci_test_admin_password_2024"
         npm run test:e2e
+        if ($LASTEXITCODE -ne 0) { throw "Playwright E2E exited with $LASTEXITCODE" }
         Set-Location $ProjectRoot
         Write-Ok "E2E: Playwright"
     } catch {
