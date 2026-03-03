@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-03-01 (v4)  
+> **最後更新：** 2026-03-02 (v5)  
 > **維護慣例：** 完成項目保留於本表並標 [x]，同時於 `docs/PROGRESS.md` §9 最新變更動態 新增對應紀錄；待辦統計僅計「未完成」數量。
 > **AI 標註說明：** 
 > - ⚡ **Gemini Flash** (適合樣板編寫、簡單設定、文檔生成)
@@ -144,8 +144,8 @@
 | 🔵 P3 低優先 | 0 |
 | 🟣 P4 品質提升 | 0 |
 | ⚪ P5 長期演進 | 0 |
-| 🟠 R6 第六輪改善 | 0 |
-| **合計（未完成）** | **0** |
+| 🟠 R6 第六輪改善 | 1 |
+| **合計（未完成）** | **1** |
 
 ---
 
@@ -153,6 +153,7 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-03-02 | 📄 文件同步：PROGRESS.md 更新至 v5（2026-03-02 動物欄位修正申請）；Profiling_Spec 規格同步；R6 待辦統計校正 |
 | 2026-03-01 | 🧠 Claude：R6 第六輪改善全部完成 — R6-4 產出 `docs/R6-4_FINANCE_PHASE2_5_ASSESSMENT.md`；R6-5 產出 `docs/R6-5_DEPENDABOT_PHASE25_ASSESSMENT.md` |
 | 2026-03-01 | 🧠 Claude：R6 第六輪改善執行 — R6-1 EquipmentPage/TrainingRecordsPage；R6-2 useDateRangeFilter、useTabState 建立並套用 8 頁；R6-3 InlineSkeleton 改 span |
 | 2026-03-01 | 🧠 Claude：建立 R6 第六輪改善計劃 — R6-1 useState→hooks 擴展、R6-2 useDateRangeFilter/useTabState、R6-3 Skeleton DOM 修正、R6-4 財務模組評估、R6-5 Dependabot Phase 2.5 評估。依據專案評估產出 |

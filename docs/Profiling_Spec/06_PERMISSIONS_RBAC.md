@@ -1,7 +1,7 @@
 # 權限與 RBAC
 
 > **版本**：7.0  
-> **最後更新**：2026-03-01  
+> **最後更新**：2026-03-02  
 > **對象**：系統管理員、開發人員
 
 ---
@@ -159,6 +159,7 @@ graph TD
 | animal.transfer.approve | 轉讓核准 | 可核准轉讓 |
 | animal.transfer.complete | 轉讓執行 | 可執行轉讓完成 |
 | animal.sudden_death.register | 猝死登記 | 可登記猝死 |
+| animal.animal.edit | 編輯動物 | 可建立動物欄位修正申請（耳號、出生日期、性別、品種；admin 批准後套用）|
 
 > **資料隔離特權**：`admin`、`VET`、`IACUC_STAFF`、`IACUC_CHAIR` 可繞過轉讓資料隔離，查看動物完整歷史紀錄。
 

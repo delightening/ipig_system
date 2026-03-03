@@ -63,6 +63,8 @@ WAF 預設為 **DetectionOnly**（僅記錄），改為阻擋請在 `docker-comp
 
 ### CI / E2E 測試
 
+> 流程參照：[docs/e2e/FLOW.md](e2e/FLOW.md)
+
 ```bash
 # 獨立 stack，不與主 compose 共用 network
 docker compose -f docker-compose.test.yml up -d

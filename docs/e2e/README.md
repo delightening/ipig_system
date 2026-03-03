@@ -6,10 +6,68 @@
 
 ## 📑 目錄
 
-1. [架構說明](#架構說明)
-2. [配置檢查清單](#配置檢查清單)
-3. [故障排除指南](#故障排除指南)
-4. [維護指南](#維護指南)
+1. [E2E 流程說明](#e2e-流程說明)
+2. [架構說明](#架構說明)
+3. [配置檢查清單](#配置檢查清單)
+4. [故障排除指南](#故障排除指南)
+5. [維護指南](#維護指南)
+
+---
+
+# E2E 流程說明
+
+> **CI 與本機差異**：GitHub Actions 使用 `docker-compose.test.yml`，API 設定 `CI=true` 時 admin 不需強制變更密碼；本機使用 `docker compose` 時 admin 首次登入會被導向 `/force-change-password`。Auth setup 會自動處理兩者差異。  
+> **流程參考**：`docs/e2e/FLOW.md`（CI 可參照）
+
+## Auth Setup 執行順序
+
+```
+1. authenticate as admin   → 登入 admin@ipig.local，完成 force-change（若需要），儲存 admin.json
+2. authenticate as user    → 登入（使用 E2E_USER_* 或 admin），完成 force-change（若需要），儲存 user.json
+```
+
+**為何 admin 先於 user？**  
+若兩者皆使用 admin 帳號，admin setup 完成 force-change 後密碼變為 `E2eTest123!`，user setup 須使用新密碼才能登入成功。
+
+## 密碼與 force-change
+
+| 環境 | admin 初始密碼 | 是否強制變更 | 變更後密碼 |
+|------|----------------|--------------|------------|
+| **CI** | `ci_test_admin_password_2024`（docker-compose.test.yml） | 否（`CI=true`） | — |
+| **本機 fresh** | `ADMIN_INITIAL_PASSWORD` | 是 | `E2eTest123!` |
+| **本機重跑** | 已變更為 `E2eTest123!` | 否 | — |
+
+**Admin 登入重試**：auth setup 先嘗試 `ADMIN_INITIAL_PASSWORD`，若回傳 400（密碼已變更），則改用 `E2E_ADMIN_PASSWORD` 或 `E2eTest123!`。
+
+## 關鍵程式與環境變數
+
+| 程式 | 說明 |
+|------|------|
+| `auth.setup.ts` | 執行 admin → user 兩階段登入，呼叫 `completeForceChangePassword()` |
+| `auth-helpers.ts` | `performLogin`、`completeForceChangePassword`、`getAdminCredentials`、`getCredentialsForUserSetup` |
+| `getCredentialsForUserSetup` | user setup 與 login.spec 使用，回傳 admin 時密碼為 `E2E_ADMIN_PASSWORD \|\| E2eTest123!` |
+
+**環境變數**（見 [配置檢查清單](#配置檢查清單)）：
+- `ADMIN_INITIAL_PASSWORD`：Docker seed 與本機 admin 初始密碼
+- `E2E_ADMIN_PASSWORD`：覆寫用，本機 force-change 後可設 `E2eTest123!`
+- `E2E_BASE_URL`：預設 `http://localhost:8080`
+- `E2E_USER_EMAIL`、`E2E_USER_PASSWORD`：user setup 專用（未設則 fallback admin）
+
+## CI 執行流程（GitHub Actions）
+
+```
+1. cp .env.example .env
+2. docker compose -f docker-compose.test.yml build
+3. docker compose -f docker-compose.test.yml up -d --wait --wait-timeout 300
+4. 確認 http://localhost:8080 與 http://localhost:8000/api/health 可連
+5. cd frontend && npm ci && npx playwright install --with-deps
+6. npm run test:e2e
+   - env: E2E_BASE_URL, E2E_USER_EMAIL, E2E_USER_PASSWORD, E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD
+7. (failure) 上傳 playwright-report
+8. docker compose -f docker-compose.test.yml down
+```
+
+CI 環境變數需與 `docker-compose.test.yml` 一致（`ci_test_admin_password_2024`）。
 
 ---
 
@@ -167,6 +225,10 @@ Worker 結束（關閉 context）
 ## 📂 檔案結構
 
 ```
+docs/e2e/
+├── FLOW.md               # E2E 流程參考（CI 參照用）
+├── README.md             # 本文件（完整指南）
+
 frontend/e2e/
 ├── fixtures/
 │   └── admin-context.ts        # Worker 級 shared context
@@ -206,7 +268,7 @@ playwright.config.ts            # Playwright 全局配置
 
 2. **單一 worker 的代價**：
    - ❌ **執行時間較長**：測試順序執行，無法透過並行加速
-   - ✅ **可接受**：目前 34 個測試約 1.5-2 分鐘，可接受範圍
+   - ✅ **可接受**：目前 35 個測試約 1.5-2 分鐘，可接受範圍
 
 3. **不適用場景**：
    - ❌ 測試「同帳號多 session 並行」場景（需改用多 worker + 獨立帳號）
@@ -642,7 +704,7 @@ cd frontend
 npm run test:e2e
 
 # 檢查通過率
-# 目標：>= 32/34 通過（95%）
+# 目標：>= 33/35 通過（95%）
 ```
 
 ### 每月檢查
