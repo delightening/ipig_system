@@ -246,6 +246,9 @@ jobs:
       - name: 安裝依賴
         run: npm ci
 
+      - name: 安裝 Playwright 瀏覽器 (Vitest browser 模式所需)
+        run: npx playwright install chromium --with-deps
+
       - name: TypeScript 型別檢查
         run: npx tsc --noEmit
 
