@@ -12,6 +12,14 @@
 
 **刪除功能檢視**：疫苗、體重、觀察、手術、血液檢查、動物、照護紀錄均已為軟刪除 + 操作日誌。
 
+### 軟刪除欄位統一：deleted_at
+
+血液檢查、報表、安樂死等原使用 `is_deleted = false` 過濾，已改為 `deleted_at IS NULL`，與照護紀錄、疫苗紀錄等一致。
+
+- **Migration 013**：`animal_blood_tests` 移除 `is_deleted` 欄位，僅保留 `deleted_at`
+- **程式碼**：`blood_test.rs`、`report.rs`、`euthanasia.rs` 改用 `deleted_at IS NULL` 過濾
+- **型別**：`AnimalBloodTest` 移除 `is_deleted`，前端 `AnimalBloodTestWithItems.blood_test` 改為 `deleted_at?: string | null`
+
 ---
 
 ## 動物欄位修正申請功能

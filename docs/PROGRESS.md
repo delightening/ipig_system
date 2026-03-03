@@ -741,6 +741,7 @@
 - ✅ **前端型別**：`AnimalVaccination.id` 由 `number` 改為 `string`（UUID），`VaccinationsTab` 之 `deleteTarget` 同步修正。
 - ✅ **照護紀錄刪除**：Migration 012 新增 `care_medication_records` 軟刪除欄位（deleted_at, deletion_reason, deleted_by）；`delete_care_record` 改為軟刪除 + `DeleteRequest` + `AuditService::log_activity`；`PainAssessmentTab` 改用 `DeleteReasonDialog`。
 - ✅ **刪除功能檢視**：疫苗、體重、觀察、手術、血液檢查、動物、照護紀錄均已為軟刪除 + 操作日誌（user_activity_logs）。
+- ✅ **軟刪除欄位統一**：血液檢查、報表、安樂死等改為 `deleted_at IS NULL`；Migration 013 移除 `animal_blood_tests.is_deleted`；`AnimalBloodTest`、前端型別同步更新。
 
 ### 2026-03-02 動物欄位修正申請（需 admin 批准）
 - ✅ **需求**：耳號、出生日期、性別、品種等欄位建立後不可直接修改；若 staff 輸入錯誤，可經 admin 批准後修正。

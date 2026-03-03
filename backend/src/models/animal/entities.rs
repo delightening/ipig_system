@@ -262,7 +262,6 @@ pub struct AnimalBloodTest {
     pub remark: Option<String>,
     pub vet_read: bool,
     pub vet_read_at: Option<DateTime<Utc>>,
-    pub is_deleted: bool,
     pub deleted_at: Option<DateTime<Utc>>,
     pub deleted_by: Option<Uuid>,
     pub delete_reason: Option<String>,

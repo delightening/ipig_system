@@ -1,4 +1,4 @@
-﻿use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -33,7 +33,7 @@ impl AnimalService {
             FROM animal_blood_tests bt
             LEFT JOIN animal_blood_test_items bti ON bti.blood_test_id = bt.id
             LEFT JOIN users u ON u.id = bt.created_by
-            WHERE bt.animal_id = $1 AND bt.is_deleted = false
+            WHERE bt.animal_id = $1 AND bt.deleted_at IS NULL
               AND ($2::timestamptz IS NULL OR bt.created_at > $2)
             GROUP BY bt.id, bt.animal_id, bt.test_date, bt.lab_name, bt.status,
                      bt.remark, bt.vet_read, bt.created_at, u.display_name
@@ -51,7 +51,7 @@ impl AnimalService {
     /// 取得單筆血液檢查（含明細項目）
     pub async fn get_blood_test_by_id(pool: &PgPool, id: Uuid) -> Result<AnimalBloodTestWithItems> {
         let blood_test = sqlx::query_as::<_, AnimalBloodTest>(
-            "SELECT * FROM animal_blood_tests WHERE id = $1 AND is_deleted = false"
+            "SELECT * FROM animal_blood_tests WHERE id = $1 AND deleted_at IS NULL"
         )
         .bind(id)
         .fetch_optional(pool)
@@ -154,7 +154,7 @@ impl AnimalService {
                 lab_name = COALESCE($3, lab_name),
                 remark = COALESCE($4, remark),
                 updated_at = NOW()
-            WHERE id = $1 AND is_deleted = false
+            WHERE id = $1 AND deleted_at IS NULL
             RETURNING *
             "#
         )
@@ -211,12 +211,11 @@ impl AnimalService {
         let result = sqlx::query(
             r#"
             UPDATE animal_blood_tests SET
-                is_deleted = true,
                 deleted_at = NOW(),
                 deleted_by = $2,
                 delete_reason = $3,
                 updated_at = NOW()
-            WHERE id = $1 AND is_deleted = false
+            WHERE id = $1 AND deleted_at IS NULL
             "#
         )
         .bind(id)
