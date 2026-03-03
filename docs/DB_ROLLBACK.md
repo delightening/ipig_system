@@ -127,22 +127,7 @@ CREATE CAST (record_type AS text)
 
 ---
 
-## Migration 012: care_medication_records 軟刪除
-
-**原始操作**：為 `care_medication_records` 新增 `deleted_at`、`deletion_reason`、`deleted_by` 欄位。
-
-```sql
--- Rollback 012: 移除軟刪除欄位
-ALTER TABLE care_medication_records DROP COLUMN IF EXISTS deleted_at;
-ALTER TABLE care_medication_records DROP COLUMN IF EXISTS deletion_reason;
-ALTER TABLE care_medication_records DROP COLUMN IF EXISTS deleted_by;
-```
-
-> **注意**：回退後，照護紀錄刪除將恢復為硬刪除，且需同步還原後端 handler 與 service 程式碼。
-
----
-
-## Migration 012 (舊): Fix Enum Casts
+## Migration 012: Fix Enum Casts
 
 **原始操作**：建立 ENUM ↔ TEXT 之間的隱式轉型函式與 CAST。
 
