@@ -37,7 +37,8 @@ type TimelineItemType = 'observation' | 'surgery' | 'weight' | 'created' | 'sacr
 
 interface TimelineItem {
     id: string
-    originalId: number
+    /** 觀察/手術/體重為 number；犧牲等為 string (UUID) 或 0 */
+    originalId: number | string
     type: TimelineItemType
     date: Date
     title: string
@@ -306,8 +307,8 @@ export function AnimalTimelineView({
                                 {!item.isInfoOnly && (item.type === 'observation' || item.type === 'surgery') && (
                                     <div className="flex gap-1">
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => item.raw && (item.type === 'observation' || item.type === 'surgery') && onEdit(item.type, item.raw as AnimalObservation | AnimalSurgery)} aria-label="編輯"><Edit2 className="h-3.5 w-3.5" /></Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onView(item.type as 'observation' | 'surgery', item.originalId)} aria-label="檢視"><Eye className="h-3.5 w-3.5" /></Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => onDelete(item.type as 'observation' | 'surgery', item.originalId)} aria-label="刪除"><Trash2 className="h-3.5 w-3.5" /></Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onView(item.type as 'observation' | 'surgery', item.originalId as number)} aria-label="檢視"><Eye className="h-3.5 w-3.5" /></Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => onDelete(item.type as 'observation' | 'surgery', item.originalId as number)} aria-label="刪除"><Trash2 className="h-3.5 w-3.5" /></Button>
                                     </div>
                                 )}
                             </div>

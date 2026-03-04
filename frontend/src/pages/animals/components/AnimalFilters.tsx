@@ -25,6 +25,7 @@ interface AnimalFiltersProps {
   isAdmin: boolean
   statusCounts: Record<string, number>
   allAnimalsCount: number
+  penAnimalsCount: number
   selectedAnimalsCount: number
   onShowBatchAssign: () => void
 }
@@ -43,13 +44,14 @@ export function AnimalFilters({
   isAdmin,
   statusCounts,
   allAnimalsCount,
+  penAnimalsCount,
   selectedAnimalsCount,
   onShowBatchAssign,
 }: AnimalFiltersProps) {
   const { t } = useTranslation()
 
   const tabs = [
-    { value: 'pen', label: t('animals.statusLabels.pen'), count: allAnimalsCount, icon: <LayoutGrid className="h-4 w-4" /> },
+    { value: 'pen', label: t('animals.statusLabels.pen'), count: penAnimalsCount, icon: <LayoutGrid className="h-4 w-4" /> },
     { value: 'unassigned', label: t('animals.statusLabels.unassigned'), count: statusCounts['unassigned'] || 0 },
     { value: 'in_experiment', label: t('animals.statusLabels.in_experiment'), count: statusCounts['in_experiment'] || 0 },
     { value: 'completed', label: t('animals.statusLabels.completed'), count: statusCounts['completed'] || 0 },
