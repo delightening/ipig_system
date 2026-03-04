@@ -636,7 +636,7 @@ updates:
 
 **現況：** Migration 在啟動時同步執行，無策略文件指導如何避免破壞性遷移。
 
-**實作步驟：** 建立 `docs/ZERO_DOWNTIME_MIGRATIONS.md`：
+**實作步驟：** 建立 `docs/database/ZERO_DOWNTIME_MIGRATIONS.md`：
 
 ```markdown
 # 零停機資料庫遷移規範
@@ -661,7 +661,7 @@ updates:
 ```
 
 **影響檔案：**
-- `docs/ZERO_DOWNTIME_MIGRATIONS.md`（新增）
+- `docs/database/ZERO_DOWNTIME_MIGRATIONS.md`（新增）
 
 ---
 
@@ -715,7 +715,7 @@ updates:
 - [ ] Google Calendar / SMTP 失敗時有重試日誌
 - [ ] `cargo check` 零錯誤、`npx tsc --noEmit` 零錯誤
 - [ ] `.github/dependabot.yml` 存在
-- [ ] `docs/ZERO_DOWNTIME_MIGRATIONS.md` 與 `docs/ARCHITECTURE.md` 存在
+- [ ] `docs/database/ZERO_DOWNTIME_MIGRATIONS.md` 與 `docs/ARCHITECTURE.md` 存在
 
 ---
 

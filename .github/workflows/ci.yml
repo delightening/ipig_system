@@ -282,7 +282,7 @@ jobs:
 
   # =========================
   # 🐳 容器安全掃描 (Trivy)
-  # .trivyignore 內所列 CVE 均經評估，原因與風險見 docs/security.md（例如 CVE-2026-25646），非漏修。
+  # .trivyignore 內所列 CVE 均經評估，原因與風險見 docs/security-compliance/security.md（例如 CVE-2026-25646），非漏修。
   # =========================
   trivy-scan:
     name: "🐳 Security: Trivy container scan"

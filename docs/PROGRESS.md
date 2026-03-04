@@ -235,7 +235,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ### 2026-03-01 權限稽核與訓練紀錄權限調整
 
-- ✅ **權限稽核報告**：新增 `docs/PERMISSION_AUDIT_2026-03-01.md`，掃描全專案頁面與權限
+- ✅ **權限稽核報告**：新增 `docs/development/PERMISSION_AUDIT_2026-03-01.md`，掃描全專案頁面與權限
 - ✅ **EXPERIMENT_STAFF 訓練紀錄**：新增 `training.view`、`training.manage_own`，可管理**自己的**訓練紀錄
 - ✅ **ADMIN_STAFF 審批**：保有 `training.manage`，可審批/管理**所有人**紀錄
 - ✅ **設備維護**：確認 equipment.view / equipment.manage 僅 ADMIN_STAFF（特定人員）
@@ -267,10 +267,10 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - InlineSkeleton 由 `SkeletonPulse`（div）改為 `<span>`，消除 `<p>` 內 `<div>` 的 validateDOMNesting 警告
 
 **R6-4 財務模組 Phase 2–5 評估 ✅**
-- 產出 `docs/R6-4_FINANCE_PHASE2_5_ASSESSMENT.md`：Phase 2–5 工時與優先建議
+- 產出 `docs/assessments/R6-4_FINANCE_PHASE2_5_ASSESSMENT.md`：Phase 2–5 工時與優先建議
 
 **R6-5 Dependabot Phase 2.5 依賴評估 ✅**
-- 產出 `docs/R6-5_DEPENDABOT_PHASE25_ASSESSMENT.md`：printpdf、utoipa、axum-extra、tailwind-merge 升級建議與相依關係
+- 產出 `docs/assessments/R6-5_DEPENDABOT_PHASE25_ASSESSMENT.md`：printpdf、utoipa、axum-extra、tailwind-merge 升級建議與相依關係
 
 ---
 
@@ -279,7 +279,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **白話版：** React 的 `useState` 用來管理畫面上的狀態（例如：彈窗開/關、輸入值）。  
 > 把這些邏輯抽成「自訂 Hooks」（可重複使用的小工具），可以讓程式碼更整潔、更容易測試。
 
-依據 `docs/REFACTOR_PLAN_USESTATE_TO_HOOKS.md` 執行 Phase 1–2：
+依據 `docs/development/REFACTOR_PLAN_USESTATE_TO_HOOKS.md` 執行 Phase 1–2：
 
 **Phase 1：低風險通用 Hooks ✅**
 - 新增 `useToggle`：布林切換（密碼可見、進階篩選）
@@ -377,8 +377,8 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 **二、SOC2 缺口補齊**
 - 憑證輪換（半自動）：`check_credential_rotation.sh`（每月提醒）、`record_credential_rotation.sh`（紀錄輪換）；JWT 不輪換
-- `docs/SLA.md`：RTO/RPO、可用性目標
-- `docs/DR_DRILL_CHECKLIST.md`：DR 演練檢查表
+- `docs/security-compliance/SLA.md`：RTO/RPO、可用性目標
+- `docs/runbooks/DR_DRILL_CHECKLIST.md`：DR 演練檢查表
 
 **三、財務模組（AP/AR/GL）**
 - **Phase 1**：會計基礎（migration 022 內）、`AccountingService::post_document`；GRN/DO 核准時自動過帳
@@ -390,8 +390,8 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 ### 2026-03-01 P0–P2 改進計劃執行完成（P1-M0～P2-M2）
 
 - **P1-M3**：新增 `docs/OPERATIONS.md`（服務擁有者、on-call、升級流程、故障排除）
-- **P1-M4**：標記完成（`docs/CREDENTIAL_ROTATION.md` 已存在）
-- **P2-M5**：新增 `docs/SOC2_READINESS.md`（Trust Services Criteria 對照）
+- **P1-M4**：標記完成（`docs/security-compliance/CREDENTIAL_ROTATION.md` 已存在）
+- **P2-M5**：新增 `docs/security-compliance/SOC2_READINESS.md`（Trust Services Criteria 對照）
 - **P1-M0**：稽核日誌匯出 API `GET /admin/audit-logs/export?format=csv|json`，權限 `audit.logs.export`
 - **P2-M4**：稽核日誌 UI 新增「操作者」篩選
 - **P1-M1**：API 版本路徑 `/api/v1/`，前端 baseURL 更新
@@ -402,7 +402,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ### 2026-03-01 市場基準檢視與改進計劃
 
-- **產出**：`docs/IMPROVEMENT_PLAN_MARKET_REVIEW.md`
+- **產出**：`docs/development/IMPROVEMENT_PLAN_MARKET_REVIEW.md`
 - **檢視基準**：企業 ERP 系統、GLP 合規軟體、生產環境就緒檢查清單
 - **內容**：市場基準對照表（ERP 核心功能、技術基礎設施、安全合規、GLP、生產就緒）、改進計劃分級（P0–P3）、既有優勢摘要、執行建議
 - **重點項目**：P0 稽核日誌匯出 API、憑證輪換文件；P1 API 版本、GDPR、維運文件；P2 PWA、人員訓練紀錄、設備校準；P3 財務模組、QAU、原生 App、多租戶
@@ -412,7 +412,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - **Phase 1**：GitHub Actions（checkout v6、setup-node v6、cache v5、upload-artifact v7）、validator 0.20、axios、lucide-react、@types/dompurify
 - **Phase 2**：zod 4、@hookform/resolvers 5、zustand 5、date-fns 4；validation.ts / validations.ts 遷移
 - **Phase 3**：metrics-exporter-prometheus、thiserror 2、jsonwebtoken 10（rust_crypto）、tower 0.5、tokio-cron-scheduler 0.15
-- **產出**：`docs/DEPENDABOT_MIGRATION_PLAN.md`（總覽、遷移細節、相依關係圖）、`scripts/verify-deps.sh` / `.ps1`
+- **產出**：`docs/development/DEPENDABOT_MIGRATION_PLAN.md`（總覽、遷移細節、相依關係圖）、`scripts/verify-deps.sh` / `.ps1`
 - **暫緩**：printpdf 0.9、utoipa 5、axum-extra 0.12、tailwind-merge 3（Phase 2.5 可選）
 
 ### 2026-03-01 複製後編輯觀察紀錄 500 錯誤修復
@@ -442,7 +442,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **P2-R2-11 Zustand Selector**：auth store 新增 `useAuthUser`/`useAuthHasRole`/`useAuthActions` 等 selector hooks
 - ✅ **P2-R2-12 DB 維護自動化**：`018_db_maintenance.sql` pg_stat_statements + `maintenance_vacuum_analyze()` + 慢查詢 View + 排程
 - ✅ **P2-R2-13 Dependabot**：`.github/dependabot.yml` 涵蓋 Cargo/npm/Docker/GitHub Actions
-- ✅ **P2-R2-14 零停機遷移策略**：`docs/ZERO_DOWNTIME_MIGRATIONS.md` 完整規範
+- ✅ **P2-R2-14 零停機遷移策略**：`docs/database/ZERO_DOWNTIME_MIGRATIONS.md` 完整規範
 - ✅ **P2-R2-15 架構圖**：`docs/ARCHITECTURE.md` 含部署/資料流/模組/認證流程 4 張 Mermaid 圖 + 技術堆疊表
 
 ### 2026-02-28 第三輪改善：P2-R3-11 + P2-R3-14 完成
@@ -461,7 +461,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ### 2026-02-28 第三輪系統改善 20 項完成
 
-詳細計畫見 `docs/IMPROVEMENT_PLAN_R3.md`
+詳細計畫見 `docs/development/IMPROVEMENT_PLAN_R3.md`
 
 **🔴 P0 安全性（4 項）：**
 - ✅ **P0-R3-1 SQL 動態拼接修正**：4 個檔案（`treatment_drug.rs`, `report.rs`, `warehouse.rs`, `document/crud.rs`）的手動 `format!("${}", param_idx)` 參數索引全部改為 `sqlx::QueryBuilder` 的 `push_bind()` 自動綁定
@@ -482,7 +482,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **P2-R3-12 審計日誌補齊**：HR leave approval/rejection 和 overtime approval 新增 `AuditService::log()` 呼叫；新增 `AuditAction::Reject` variant
 - ✅ **P2-R3-13 常數提取**：新增 `backend/src/constants.rs`（分頁/認證/Rate Limit/上傳/排程/Session/密碼 共 18 個常數）
 - ✅ **P2-R3-14 Error Boundary 分層**：新增 `PageErrorBoundary` 元件，包裹 MainLayout 的 Suspense
-- ✅ **P2-R3-15 SSL/TLS 範本**：新增 `docs/SSL_SETUP.md` + `frontend/nginx-ssl.conf.example`（TLS 1.2/1.3 + OCSP + HSTS）
+- ✅ **P2-R3-15 SSL/TLS 範本**：新增 `docs/operations/SSL_SETUP.md` + `frontend/nginx-ssl.conf.example`（TLS 1.2/1.3 + OCSP + HSTS）
 - ✅ **P2-R3-16 備份自動驗證**：新增 `scripts/backup/pg_backup.sh`（gzip 完整性 + pg_restore 驗證 + SHA256 校驗 + 30 天自動清理）
 - ✅ **P2-R3-17 日誌聚合**：新增 `docker-compose.logging.yml`（Loki + Promtail）+ `monitoring/promtail/config.yml`
 - ✅ **P2-R3-18 環境驗證**：新增 `scripts/validate-env.sh`（必填/選填變數分級檢查 + HMAC key 長度驗證）
@@ -583,7 +583,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 **P5-16 SEC-40 Web Application Firewall：**
 - ✅ **`docker-compose.waf.yml`**：OWASP ModSecurity CRS v4 nginx-alpine overlay，預設偵測模式
 - ✅ **iPig 自訂排除規則**：JSON Content-Type / 密碼欄位 / TOTP code / 富文本 / 檔案上傳 5 項排除
-- ✅ **WAF 文件**：`docs/WAF.md`（架構/啟用/保護範圍/排除規則/日誌分析/Paranoia Level/生產注意事項）
+- ✅ **WAF 文件**：`docs/security-compliance/WAF.md`（架構/啟用/保護範圍/排除規則/日誌分析/Paranoia Level/生產注意事項）
 - ✅ 啟用方式：`docker compose -f docker-compose.yml -f docker-compose.waf.yml up -d`
 - 📁 **產出**：1 overlay + 2 排除規則 conf + 1 文件
 
@@ -654,7 +654,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **P2-38 表單離開確認**：`useUnsavedChangesGuard` hook（React Router useBlocker + beforeunload）+ `UnsavedChangesDialog`，已整合 ProtocolEditPage
 - ✅ **P2-39 隱私政策/服務條款**：`PrivacyPolicyPage` + `TermsOfServicePage` 公開路由，登入頁底部加連結
 - ✅ **P2-40 Cookie 同意橫幅**：`CookieConsent` 元件（localStorage 記憶 + 底部半透明 banner + 了解更多連結）
-- ✅ **P2-41 Rollback 文件**：`docs/DB_ROLLBACK.md` 涵蓋 14 個 migration 的精確回滾 SQL + 建議回退流程
+- ✅ **P2-41 Rollback 文件**：`docs/database/DB_ROLLBACK.md` 涵蓋 14 個 migration 的精確回滾 SQL + 建議回退流程
 - ✅ **P2-42 .env.example 補齊**：新增 HOST/PORT/DATABASE_MAX_CONNECTIONS/MAX_SESSIONS_PER_USER/UPLOAD_DIR 等 9 個缺漏變數
 
 **低影響 5 項（P5-43~47）：**
@@ -691,7 +691,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
   - 新增 dev-dependencies：`reqwest` (cookies)、`serial_test`
 
 - ✅ **P4-21 效能基準報告文件化**：
-  - `docs/PERFORMANCE_BENCHMARK.md`：8 章節正式報告（摘要 / 測試環境 / 方法 / 指標結果 / 閾值摘要 / 資源觀測 / 限制 / 結論建議）含附錄
+  - `docs/assessments/PERFORMANCE_BENCHMARK.md`：8 章節正式報告（摘要 / 測試環境 / 方法 / 指標結果 / 閾值摘要 / 資源觀測 / 限制 / 結論建議）含附錄
   - k6 腳本 `scripts/k6/load-test.js` 優化：改用 `setup()` 階段單次登入共用 token，消除 50 VU 同時登入觸發 rate limit 的串連失敗問題
   - 分析 7 份歷次測試 JSON，選定 `k6_2026-02-25T12-13-34.json` 為基準數據
 
@@ -721,7 +721,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 ### 2026-02-28 P4-17 基礎映像與 CVE 週期檢查
 - ✅ **版本釘選**：`frontend/Dockerfile` 的 `FROM georgjung/nginx-brotli:alpine` → `georgjung/nginx-brotli:1.29.5-alpine`（nginx 1.29.5 + Alpine 3.23.3，2026-02-05 發佈）
 - ✅ **CVE 驗證**：Trivy 掃描確認 CVE-2026-25646 仍存在（libpng 1.6.54-r0，修復版 1.6.55-r0 尚未納入映像）
-- ✅ **文件更新**：`.trivyignore` 加入檢查日期與下次排程、`docs/security.md` 更新映像版本與檢查紀錄
+- ✅ **文件更新**：`.trivyignore` 加入檢查日期與下次排程、`docs/security-compliance/security.md` 更新映像版本與檢查紀錄
 - 📅 **下次檢查**：排定 2026-Q2，屆時若映像包含 libpng ≥ 1.6.55-r0 則移除 CVE
 - 📁 **產出**：[Dockerfile](../frontend/Dockerfile)、[.trivyignore](../.trivyignore)、[security.md](security.md)
 
@@ -792,7 +792,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **前端**：新增 `ConfirmPasswordModal` 與 `confirmPassword()` API；使用者管理（刪除使用者、重設他人密碼、模擬登入）與角色管理（刪除角色）執行前皆需重新輸入登入密碼以取得 reauth token 後再送出請求。
 
 ### 2026-02-25 電子簽章合規審查 (P1-7) 與 OpenAPI 完善 (P1-12)
-- ✅ **P1-7 電子簽章合規審查**：新增 `docs/ELECTRONIC_SIGNATURE_COMPLIANCE.md`，對照 21 CFR Part 11 子章 B/C，審查犧牲／觀察／安樂死／轉讓／計畫書簽章與附註實作，結論為技術面已符合核心要求，建議補齊書面政策與訓練紀錄。
+- ✅ **P1-7 電子簽章合規審查**：新增 `docs/security-compliance/ELECTRONIC_SIGNATURE_COMPLIANCE.md`，對照 21 CFR Part 11 子章 B/C，審查犧牲／觀察／安樂死／轉讓／計畫書簽章與附註實作，結論為技術面已符合核心要求，建議補齊書面政策與訓練紀錄。
 - ✅ **P1-12 OpenAPI 文件完善**：後端新增電子簽章 10 paths + 2 附註 paths、動物管理 9 paths，以及對應 Request/Response Schema（SignRecordRequest/Response、SignatureStatusResponse、Annotation、Animal、AnimalListItem、AnimalQuery 等），Swagger UI 已涵蓋認證、使用者、角色、設施、倉儲、計畫書、審查、電子簽章、動物管理。
 
 ### 2026-02-25 CI `sqlx-cli` 安裝修正
@@ -829,6 +829,11 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 ### 2026-02-25 P0-7 錯誤處理 UX 統一
 - ✅ **安全強化**：隱藏原始 DB 錯誤。
 - ✅ **前端錯誤導引**：優化 `getApiErrorMessage` 處理逾時與網路異常。
+
+### 2026-03-04 docs 整理分類
+- ✅ **文件索引**：新增 `docs/README.md` 總索引，依主題分類並列出各子目錄說明。
+- ✅ **子目錄**：建立 `development/`、`database/`、`security-compliance/`、`runbooks/`、`operations/`、`assessments/`，將原根目錄散落文件移入對應分類。
+- ✅ **連結更新**：根目錄保留 PROGRESS、TODO、QUICK_START、USER_GUIDE、DEPLOYMENT、ARCHITECTURE、walkthrough；README、PROGRESS、TODO、CI、backend 等處之文件路徑已更新為新路徑。
 
 ---
 

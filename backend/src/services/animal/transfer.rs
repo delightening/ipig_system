@@ -117,6 +117,11 @@ impl AnimalService {
         let from_iacuc = animal.iacuc_no
             .ok_or_else(|| AppError::BadRequest("動物未指定 IACUC No.，無法發起轉讓".to_string()))?;
 
+        let transfer_type = match req.transfer_type.as_str() {
+            "external" | "internal" => req.transfer_type.clone(),
+            _ => "internal".to_string(),
+        };
+
         // 更新動物狀態為「已轉讓」（中間態，表示正在轉讓流程中）
         sqlx::query("UPDATE animals SET status = 'transferred', updated_at = NOW() WHERE id = $1")
             .bind(animal_id)
@@ -125,13 +130,14 @@ impl AnimalService {
 
         let record = sqlx::query_as::<_, AnimalTransfer>(
             r#"
-            INSERT INTO animal_transfers (animal_id, from_iacuc_no, status, initiated_by, reason, remark)
-            VALUES ($1, $2, 'pending', $3, $4, $5)
+            INSERT INTO animal_transfers (animal_id, from_iacuc_no, status, transfer_type, initiated_by, reason, remark)
+            VALUES ($1, $2, 'pending', $3, $4, $5, $6)
             RETURNING *
             "#
         )
         .bind(animal_id)
         .bind(&from_iacuc)
+        .bind(&transfer_type)
         .bind(initiated_by)
         .bind(&req.reason)
         .bind(&req.remark)
@@ -254,14 +260,25 @@ impl AnimalService {
         let to_iacuc = transfer.to_iacuc_no.as_ref()
             .ok_or_else(|| AppError::BadRequest("未指定目標 IACUC No.".to_string()))?;
 
-        // 更新動物：新 IACUC No. + 狀態 → in_experiment
-        sqlx::query(
-            "UPDATE animals SET iacuc_no = $1, status = 'in_experiment', updated_at = NOW() WHERE id = $2"
-        )
-        .bind(to_iacuc)
-        .bind(transfer.animal_id)
-        .execute(pool)
-        .await?;
+        // 更新動物：新 IACUC No. + 狀態 → in_experiment；若為「轉給其他機構」則清空欄位
+        let is_external = transfer.transfer_type.as_str() == "external";
+        if is_external {
+            sqlx::query(
+                "UPDATE animals SET iacuc_no = $1, status = 'in_experiment', pen_location = NULL, updated_at = NOW() WHERE id = $2"
+            )
+            .bind(to_iacuc)
+            .bind(transfer.animal_id)
+            .execute(pool)
+            .await?;
+        } else {
+            sqlx::query(
+                "UPDATE animals SET iacuc_no = $1, status = 'in_experiment', updated_at = NOW() WHERE id = $2"
+            )
+            .bind(to_iacuc)
+            .bind(transfer.animal_id)
+            .execute(pool)
+            .await?;
+        }
 
         // 更新轉讓狀態為完成
         let updated = sqlx::query_as::<_, AnimalTransfer>(

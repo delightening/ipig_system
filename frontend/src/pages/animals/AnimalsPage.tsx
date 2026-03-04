@@ -212,12 +212,10 @@ export function AnimalsPage() {
     return acc
   }, {} as Record<string, number>)
 
-  /** 欄位數量：僅計入仍在欄位中的動物（排除已安樂死、猝死、已轉讓） */
-  const penAnimalsCount =
-    allAnimals.length -
-    (statusCounts['euthanized'] || 0) -
-    (statusCounts['sudden_death'] || 0) -
-    (statusCounts['transferred'] || 0)
+  /** 欄位數量：直接計算「欄位不為空」的動物數（不依狀態排除；已轉讓可能仍在欄位） */
+  const penAnimalsCount = allAnimals.filter(
+    (a) => a.pen_location != null && String(a.pen_location).trim() !== ''
+  ).length
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
   const invalidateAll = () => {

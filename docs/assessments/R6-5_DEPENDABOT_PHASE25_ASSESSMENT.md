@@ -1,7 +1,7 @@
 # Dependabot Phase 2.5 依賴評估
 
 > **評估日期：** 2026-03-01  
-> **對應：** R6-5、`docs/DEPENDABOT_MIGRATION_PLAN.md`
+> **對應：** R6-5、`docs/development/DEPENDABOT_MIGRATION_PLAN.md`
 
 ---
 

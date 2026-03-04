@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { transferApi, AnimalTransfer, AnimalTransferStatus, transferStatusNames, signatureApi } from '@/lib/api'
+import { transferApi, AnimalTransfer, AnimalTransferStatus, transferStatusNames, transferTypeNames, signatureApi } from '@/lib/api'
 import type { ProtocolListItem } from '@/lib/api'
 import api from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -103,6 +103,7 @@ export function TransferTab({ animalId, animalStatus, earTag }: Props) {
     // 表單狀態
     const [initiateReason, setInitiateReason] = useState('')
     const [initiateRemark, setInitiateRemark] = useState('')
+    const [initiateTransferType, setInitiateTransferType] = useState<'external' | 'internal'>('internal')
     const [vetHealthStatus, setVetHealthStatus] = useState('')
     const [vetFit, setVetFit] = useState(true)
     const [vetConditions, setVetConditions] = useState('')
@@ -162,15 +163,22 @@ export function TransferTab({ animalId, animalStatus, earTag }: Props) {
         queryClient.invalidateQueries({ queryKey: ['animal-transfers', animalId] })
         queryClient.invalidateQueries({ queryKey: ['animal', animalId] })
         queryClient.invalidateQueries({ queryKey: ['animals'] })
+        queryClient.invalidateQueries({ queryKey: ['animals-count'] })
+        queryClient.invalidateQueries({ queryKey: ['animals-by-pen'] })
     }
 
     const initiateMutation = useMutation({
-        mutationFn: () => transferApi.initiate(animalId, { reason: initiateReason, remark: initiateRemark || undefined }),
+        mutationFn: () => transferApi.initiate(animalId, {
+            reason: initiateReason,
+            remark: initiateRemark || undefined,
+            transfer_type: initiateTransferType,
+        }),
         onSuccess: () => {
             toast({ title: '成功', description: '已發起轉讓申請' })
             setShowInitiateForm(false)
             setInitiateReason('')
             setInitiateRemark('')
+            setInitiateTransferType('internal')
             invalidate()
         },
         onError: (e: unknown) => toast({ title: '錯誤', description: getApiErrorMessage(e, '發起失敗'), variant: 'destructive' }),
@@ -290,6 +298,21 @@ export function TransferTab({ animalId, animalStatus, earTag }: Props) {
                             />
                         </div>
                         <div className="space-y-2">
+                            <Label>轉讓類型</Label>
+                            <Select value={initiateTransferType} onValueChange={(v: 'external' | 'internal') => setInitiateTransferType(v)}>
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="internal">{transferTypeNames.internal}</SelectItem>
+                                    <SelectItem value="external">{transferTypeNames.external}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <p className="text-xs text-slate-500">
+                                {initiateTransferType === 'external' ? '轉給其他機構：完成轉讓後將清空欄位。' : '仍在機構內：完成轉讓後保留欄位，僅移出原計劃。'}
+                            </p>
+                        </div>
+                        <div className="space-y-2">
                             <Label htmlFor="transfer-remark">備註</Label>
                             <Input
                                 id="transfer-remark"
@@ -331,6 +354,10 @@ export function TransferTab({ animalId, animalStatus, earTag }: Props) {
 
                         {/* 轉讓資訊 */}
                         <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <span className="text-slate-500">轉讓類型</span>
+                                <p className="font-medium">{transferTypeNames[activeTransfer.transfer_type === 'external' ? 'external' : 'internal']}</p>
+                            </div>
                             <div>
                                 <span className="text-slate-500">原計劃</span>
                                 <p className="font-medium">{activeTransfer.from_iacuc_no}</p>
@@ -603,6 +630,7 @@ export function TransferTab({ animalId, animalStatus, earTag }: Props) {
                                                 {transferStatusNames[t.status]}
                                             </Badge>
                                         </div>
+                                        <p className="text-sm text-slate-500">類型：{transferTypeNames[t.transfer_type === 'external' ? 'external' : 'internal']}</p>
                                         <p className="text-sm text-slate-600">{t.reason}</p>
                                         {t.rejected_reason && (
                                             <p className="text-sm text-red-600 mt-1">拒絕原因：{t.rejected_reason}</p>

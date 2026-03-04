@@ -101,7 +101,7 @@
 | P1-M1 | **API 版本路徑** | 引入 `/api/v1/` 前綴，為未來 API 變更保留向後相容空間。可採漸進式：新路由用 v1，舊路由維持並標 deprecated。 | 1 天 |
 | P1-M2 | **GDPR 資料主體權利** | 若服務歐盟使用者，實作「存取權」「刪除權」「可攜權」：`GET /api/me/export`（個人資料匯出）、`DELETE /api/me/account`（帳號刪除請求）。隱私政策補充對應說明。 | 1–2 天 |
 | P1-M3 | **服務擁有者與維運文件** | 新增 `docs/OPERATIONS.md`：服務擁有者、on-call 輪值、升級聯絡人、故障排除流程。 | 0.5 天 |
-| P1-M4 | **憑證輪換文件** | ~~撰寫~~ **已完成**：`docs/CREDENTIAL_ROTATION.md` 已存在，含 JWT/DB/SMTP 輪換流程與驗證。 | — |
+| P1-M4 | **憑證輪換文件** | ~~撰寫~~ **已完成**：`docs/security-compliance/CREDENTIAL_ROTATION.md` 已存在，含 JWT/DB/SMTP 輪換流程與驗證。 | — |
 | P1-M5 | **Dependabot Phase 2 收尾** | 完成 `DEPENDABOT_MIGRATION_PLAN.md` 中 Phase 2 剩餘項目（react-ecosystem、dev-dependencies），確保依賴與安全更新同步。 | 0.5–1 天 |
 
 ---
@@ -114,7 +114,7 @@
 | P2-M2 | **人員訓練紀錄模組** | GLP 合規缺口：新增「人員訓練紀錄」表與 CRUD，可連結使用者與訓練項目（課程名稱、完成日期、有效期限）。 | 1–2 天 |
 | P2-M3 | **設備校準紀錄（可選）** | 若實驗室有設備校準需求，新增「設備」與「校準紀錄」模組；否則以文件說明「本系統不涵蓋設備校準，由外部流程管理」。 | 1–2 天 |
 | P2-M4 | **稽核日誌查詢 UI** | 管理後台新增稽核日誌進階查詢：依時間範圍、使用者、動作類型、資源類型篩選，並支援匯出按鈕。 | 1 天 |
-| P2-M5 | **SOC 2 合規準備文件** | 撰寫 `docs/SOC2_READINESS.md`，對照 Trust Services Criteria，列出已滿足項目與待補強項目，供未來認證參考。 | 0.5 天 |
+| P2-M5 | **SOC 2 合規準備文件** | 撰寫 `docs/security-compliance/SOC2_READINESS.md`，對照 Trust Services Criteria，列出已滿足項目與待補強項目，供未來認證參考。 | 0.5 天 |
 
 ---
 

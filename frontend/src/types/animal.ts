@@ -484,12 +484,22 @@ export const transferStatusNames: Record<AnimalTransferStatus, string> = {
     rejected: '已拒絕',
 }
 
+/** 轉讓類型：external = 轉給其他機構（完成時清空欄位），internal = 仍在機構內（保留欄位） */
+export type TransferType = 'external' | 'internal'
+
+export const transferTypeNames: Record<TransferType, string> = {
+    external: '轉給其他機構',
+    internal: '仍在機構內',
+}
+
 export interface AnimalTransfer {
     id: string
     animal_id: string
     from_iacuc_no: string
     to_iacuc_no?: string
     status: AnimalTransferStatus
+    /** 轉讓類型：external = 轉給其他機構，internal = 仍在機構內。舊資料可能無此欄位，視為 internal */
+    transfer_type?: TransferType
     initiated_by: string
     reason: string
     remark?: string
@@ -514,6 +524,8 @@ export interface TransferVetEvaluation {
 export interface CreateTransferRequest {
     reason: string
     remark?: string
+    /** 轉讓類型：external = 轉給其他機構（完成時清空欄位），internal = 仍在機構內。預設 internal */
+    transfer_type?: TransferType
 }
 
 export interface VetEvaluateTransferRequest {

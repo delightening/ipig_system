@@ -64,7 +64,7 @@ cargo run
 cd backend
 cargo run
 ```
-或使用 `.\scripts\build-backend.ps1` 一鍵編譯。詳見 [docs/WINDOWS_BUILD.md](WINDOWS_BUILD.md)。
+或使用 `.\scripts\build-backend.ps1` 一鍵編譯。詳見 [WINDOWS_BUILD.md](operations/WINDOWS_BUILD.md)。
 
 後端預設：http://localhost:3000（或依 .env 的 PORT）
 
