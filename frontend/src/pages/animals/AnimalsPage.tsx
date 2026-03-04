@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -61,6 +61,12 @@ export function AnimalsPage() {
   const filters = useAnimalFilters({ allowedStatuses, defaultStatus })
   const { search, setSearch, statusFilter, setStatusFilter, breedFilter, setBreedFilter, page, setPage, sortColumn, setSortColumn, sortDirection, setSortDirection, setSearchParams } = filters
   const debouncedSearch = useDebounce(search, 400)
+  const [appliedSearch, setAppliedSearch] = useState('')
+  useEffect(() => { setAppliedSearch((prev) => (prev === debouncedSearch ? prev : debouncedSearch)) }, [debouncedSearch])
+  const handleSearchSubmit = () => {
+    setAppliedSearch(search)
+    setPage(1)
+  }
 
   const dialogs = useAnimalDialogs()
   const selection = useAnimalSelection()
@@ -109,7 +115,7 @@ export function AnimalsPage() {
     resetNewAnimalForm,
   } = forms
 
-  useEffect(() => { setPage(1) }, [statusFilter, breedFilter, debouncedSearch, setPage])
+  useEffect(() => { setPage(1) }, [statusFilter, breedFilter, appliedSearch, setPage])
 
   const perPage = 50
 
@@ -126,12 +132,12 @@ export function AnimalsPage() {
   })
 
   const { data: animalsResp, isLoading } = useQuery({
-    queryKey: ['animals', statusFilter, breedFilter, debouncedSearch, page],
+    queryKey: ['animals', statusFilter, breedFilter, appliedSearch, page],
     queryFn: async () => {
       const params = new URLSearchParams()
       if (statusFilter && statusFilter !== 'all' && statusFilter !== 'pen') params.append('status', statusFilter)
       if (breedFilter && breedFilter !== 'all') params.append('breed', breedFilter)
-      if (debouncedSearch) params.append('keyword', debouncedSearch)
+      if (appliedSearch) params.append('keyword', appliedSearch)
       params.append('page', String(page))
       params.append('per_page', String(perPage))
       const res = await api.get<PaginatedResponse<AnimalListItem>>(`/animals?${params}`)
@@ -426,6 +432,7 @@ export function AnimalsPage() {
         onBreedFilterChange={setBreedFilter}
         search={search}
         onSearchChange={setSearch}
+        onSearchSubmit={handleSearchSubmit}
         allowedStatuses={allowedStatuses}
         adminOnlyStatuses={adminOnlyStatuses}
         isPIOrClient={isPIOrClient}

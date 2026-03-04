@@ -1,4 +1,4 @@
-﻿# start_tunnel.ps1
+# start_tunnel.ps1
 # Cloudflare Quick Tunnel launcher with auto APP_URL update
 # Usage: .\start_tunnel.ps1 [-Port 8080]
 param([int]$Port = 8080)

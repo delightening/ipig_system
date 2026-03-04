@@ -18,6 +18,7 @@ interface AnimalFiltersProps {
   onBreedFilterChange: (value: string) => void
   search: string
   onSearchChange: (value: string) => void
+  onSearchSubmit?: () => void
   allowedStatuses: string[]
   adminOnlyStatuses: string[]
   isPIOrClient: boolean
@@ -35,6 +36,7 @@ export function AnimalFilters({
   onBreedFilterChange,
   search,
   onSearchChange,
+  onSearchSubmit,
   allowedStatuses: _allowedStatuses, // intentionally unused
   adminOnlyStatuses,
   isPIOrClient,
@@ -88,15 +90,27 @@ export function AnimalFilters({
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
             <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 flex-1">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <Input
-                  placeholder={t('animals.searchPlaceholder')}
-                  aria-label={t('animals.searchPlaceholder')}
-                  value={search}
-                  onChange={(e) => onSearchChange(e.target.value)}
-                  className="pl-9"
-                />
+              <div className="relative flex-1 max-w-sm flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    placeholder={t('animals.searchPlaceholder')}
+                    aria-label={t('animals.searchPlaceholder')}
+                    value={search}
+                    onChange={(e) => onSearchChange(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        onSearchSubmit?.()
+                      }
+                    }}
+                    className="pl-9"
+                  />
+                </div>
+                <Button type="button" variant="secondary" onClick={onSearchSubmit} aria-label={t('common.search')}>
+                  <Search className="h-4 w-4 md:mr-1.5" />
+                  <span className="hidden md:inline">{t('common.search')}</span>
+                </Button>
               </div>
               <Select value={breedFilter} onValueChange={onBreedFilterChange}>
                 <SelectTrigger className="w-[150px]">
