@@ -1,4 +1,4 @@
-﻿# iPig 舊資料庫 Dump 還原腳本
+# iPig 舊資料庫 Dump 還原腳本
 # 用法: .\scripts\restore_old_dump.ps1 [-DumpPath <路徑>] [-SkipBackup] [-SkipMigrationSync]
 #
 # 此腳本會：
@@ -296,7 +296,7 @@ if (-not $SkipMigrationSync -and $hasMigrationTable) {
             Write-Info "  選項："
             Write-Info "    1. 保留 dump 中的 migration 記錄（可能與當前 migration 檔案不匹配）"
             Write-Info "    2. 清空 migration 記錄，讓系統重新執行 migrations"
-            Write-Info "    3. 手動同步 migration 記錄（使用 fix_migration_checksums.ps1）"
+            Write-Info "    3. 手動同步 migration 記錄（使用 sync_migrations.ps1 -Method FixChecksums）"
             
             if ($Force) {
                 Write-Info "  Force 模式：選擇選項 1（保留 dump 中的記錄）"
@@ -315,10 +315,10 @@ if (-not $SkipMigrationSync -and $hasMigrationTable) {
                 Write-Info "  系統啟動時將重新執行所有 migrations"
             } elseif ($migrationChoice -eq "3") {
                 Write-Info "  請執行以下命令來同步 migration checksums:"
-                Write-Host "    .\scripts\fix_migration_checksums.ps1" -ForegroundColor Yellow
+                Write-Host "    .\scripts\sync_migrations.ps1 -Method FixChecksums" -ForegroundColor Yellow
             } else {
                 Write-Info "  保留 dump 中的 migration 記錄"
-                Write-Warning "  如果啟動時出現 migration checksum 錯誤，請執行 fix_migration_checksums.ps1"
+                Write-Warning "  如果啟動時出現 migration checksum 錯誤，請執行 sync_migrations.ps1 -Method FixChecksums"
             }
         } else {
             Write-Success "  ✓ Migration 記錄數與檔案數一致"
@@ -365,6 +365,6 @@ Write-Success "========================================"
 Write-Host ""
 Write-Info "後續步驟："
 Write-Info "  1. 檢查資料庫連線: docker exec $dbContainer psql -U $dbUser -d $dbName -c '\dt'"
-Write-Info "  2. 如果出現 migration checksum 錯誤，執行: .\scripts\fix_migration_checksums.ps1"
+Write-Info "  2. 如果出現 migration checksum 錯誤，執行: .\scripts\sync_migrations.ps1 -Method FixChecksums"
 Write-Info "  3. 啟動系統: docker compose up -d"
 Write-Host ""

@@ -3,6 +3,8 @@
 > **最後更新：** 2026-03-04  
 > 本目錄為 `docs/` 總索引，依主題分類便於查找。
 
+**閱讀建議**：第一次進入可從下方「根目錄常用文件」選一篇；依角色可選：**開發** → development/、QUICK_START；**維運** → operations/OPERATIONS.md、DEPLOYMENT、runbooks/；**規格** → Profiling_Spec/；**安全合規** → security-compliance/。
+
 ---
 
 ## 根目錄常用文件（入口）
@@ -15,6 +17,7 @@
 | [USER_GUIDE.md](./USER_GUIDE.md) | 使用者操作手冊 |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | 部署與維運手冊 |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | 架構圖與資料流 |
+| [operations/OPERATIONS.md](./operations/OPERATIONS.md) | 維運手冊（服務擁有者、on-call、故障排除） |
 | [walkthrough.md](./walkthrough.md) | 實作說明與 walkthrough 紀錄 |
 
 ---
@@ -106,6 +109,7 @@
 
 | 文件 | 說明 |
 |------|------|
+| [operations/OPERATIONS.md](./operations/OPERATIONS.md) | 維運手冊（服務擁有者、on-call、升級流程、故障排除） |
 | [operations/COMPOSE.md](./operations/COMPOSE.md) | Docker Compose 總覽 |
 | [operations/ENV_AND_DB.md](./operations/ENV_AND_DB.md) | 環境變數與資料庫 |
 | [operations/TUNNEL.md](./operations/TUNNEL.md) | 隧道設定 |
@@ -137,13 +141,13 @@ docs/
 ├── DEPLOYMENT.md
 ├── ARCHITECTURE.md
 ├── walkthrough.md
-├── Profiling_Spec/        # 規格
+├── Profiling_Spec/        # 規格與架構
 ├── project/               # 專案管理
 ├── development/           # 開發與測試
-├── e2e/                   # E2E
-├── database/              # 資料庫
+├── e2e/                   # E2E 測試說明
+├── database/              # 資料庫遷移與還原
 ├── security-compliance/   # 安全與合規
-├── runbooks/              # 維運 runbook
-├── operations/            # 環境與建置
+├── runbooks/              # 維運 runbook（DR 等）
+├── operations/            # 環境與建置（維運手冊、Compose、隧道、SSL）
 └── assessments/           # 評估報告
 ```

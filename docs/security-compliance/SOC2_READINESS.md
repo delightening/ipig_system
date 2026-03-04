@@ -27,7 +27,7 @@
 
 | 要點 | iPig 現況 | 狀態 |
 |------|-----------|------|
-| 組織結構與責任 | `docs/OPERATIONS.md` 定義服務擁有者、on-call、升級流程 | ✓ |
+| 組織結構與責任 | `docs/operations/OPERATIONS.md` 定義服務擁有者、on-call、升級流程 | ✓ |
 | 權限與職責分離 | RBAC、角色權限、敏感操作二級認證 | ✓ |
 | 承諾誠信與價值觀 | 隱私政策、Cookie 同意、資料保留政策 | ✓ |
 
@@ -142,11 +142,11 @@
 
 | 文件 | 用途 |
 |------|------|
-| [OPERATIONS.md](OPERATIONS.md) | 維運、on-call、故障排除 |
+| [OPERATIONS.md](../operations/OPERATIONS.md) | 維運、on-call、故障排除 |
 | [CREDENTIAL_ROTATION.md](CREDENTIAL_ROTATION.md) | 憑證輪換流程 |
-| [DEPLOYMENT.md](DEPLOYMENT.md) | 部署、備份、監控 |
+| [DEPLOYMENT.md](../DEPLOYMENT.md) | 部署、備份、監控 |
 | [ELECTRONIC_SIGNATURE_COMPLIANCE.md](ELECTRONIC_SIGNATURE_COMPLIANCE.md) | 21 CFR Part 11 合規 |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | 系統架構 |
+| [ARCHITECTURE.md](../ARCHITECTURE.md) | 系統架構 |
 | [WAF.md](WAF.md) | WAF 部署與規則 |
 
 ---

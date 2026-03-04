@@ -1,5 +1,18 @@
 # 實作說明
 
+## 2026-03-04 全專案資料夾整理與分類
+
+**目標**：正確分類資料夾、統一導覽與連結，提升閱讀體驗。
+
+**變更摘要**：
+- **docs**：維運手冊 `OPERATIONS.md` 移入 `docs/operations/`，與 COMPOSE、ENV_AND_DB、TUNNEL、SSL_SETUP 等歸為「環境與建置」；`docs/README.md` 補齊維運手冊入口、閱讀建議、目錄結構註解。
+- **根目錄 README**：新增「資料夾一覽」表（backend、frontend、docs、scripts、tests、monitoring、deploy、.github）及「依角色閱讀」；文件導覽加入 `docs/operations/OPERATIONS.md`。
+- **security-compliance**：`SOC2_READINESS.md`、`SLA.md` 內對 OPERATIONS、DR_RUNBOOK、DEPLOYMENT 的連結改為相對路徑（`../operations/OPERATIONS.md`、`../runbooks/DR_RUNBOOK.md`、`../DEPLOYMENT.md`）。
+- **monitoring/**：新增 `README.md`，說明 Prometheus、Alertmanager、Promtail 目錄結構、用途與啟用方式。
+- **deploy/**：新增 `README.md`，說明 deploy 目錄下監控、隧道、WAF 設定分類與相關文件。
+
+---
+
 ## 2026-03-03 疫苗紀錄刪除失效修復與刪除功能檢視
 
 **問題**：疫苗紀錄按刪除後顯示「成功」但列表仍顯示該筆紀錄。
