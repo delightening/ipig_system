@@ -5,7 +5,7 @@
 > **適用範圍**：正式環境維運、on-call、故障排除
 
 本文件定義 iPig 系統的服務擁有者、on-call 輪值、升級流程與故障排除指引。  
-**相關文件**：[DEPLOYMENT.md](DEPLOYMENT.md)、[CREDENTIAL_ROTATION.md](CREDENTIAL_ROTATION.md)、[ARCHITECTURE.md](ARCHITECTURE.md)
+**相關文件**：[DEPLOYMENT.md](../DEPLOYMENT.md)、[CREDENTIAL_ROTATION.md](../security-compliance/CREDENTIAL_ROTATION.md)、[ARCHITECTURE.md](../ARCHITECTURE.md)
 
 ---
 
@@ -128,7 +128,7 @@ curl -s http://localhost:8080/api/health | jq .
 
 | 可能原因 | 檢查方式 | 處理 |
 |----------|----------|------|
-| 遷移腳本錯誤 | 查看 API 啟動日誌 | 參考 [DB_ROLLBACK.md](DB_ROLLBACK.md) 回滾 |
+| 遷移腳本錯誤 | 查看 API 啟動日誌 | 參考 [DB_ROLLBACK.md](../database/DB_ROLLBACK.md) 回滾 |
 | 手動修改 schema | 比對 migrations 與 DB | 依既有 migration 補齊或建立修正 migration |
 
 #### 4.2.5 磁碟空間不足
@@ -161,8 +161,8 @@ curl -s http://localhost:8080/api/health | jq .
 ## 5. 維護窗口建議
 
 - **例行維護**：建議於低流量時段（如週末凌晨）進行
-- **憑證輪換**：依 [CREDENTIAL_ROTATION.md](CREDENTIAL_ROTATION.md)，JWT 輪換會使全站 session 失效，需事先公告
-- **版本升級**：依 [DEPLOYMENT.md](DEPLOYMENT.md) 執行，並於升級前備份
+- **憑證輪換**：依 [CREDENTIAL_ROTATION.md](../security-compliance/CREDENTIAL_ROTATION.md)，JWT 輪換會使全站 session 失效，需事先公告
+- **版本升級**：依 [DEPLOYMENT.md](../DEPLOYMENT.md) 執行，並於升級前備份
 
 ---
 

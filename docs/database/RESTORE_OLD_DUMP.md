@@ -71,7 +71,7 @@
 - ✅ 提供三種處理選項：
   1. **保留 dump 中的記錄**（預設）
   2. **清空記錄**（讓系統重新執行 migrations）
-  3. **手動同步**（使用 `fix_migration_checksums.ps1`）
+  3. **手動同步**（使用 `sync_migrations.ps1 -Method FixChecksums`）
 
 ### 6. 驗證與清理
 - ✅ 驗證還原後的資料表數量
@@ -105,7 +105,7 @@
 # 在提示時選擇選項 2
 
 # 選項 B：手動同步 checksums
-.\scripts\fix_migration_checksums.ps1
+.\scripts\sync_migrations.ps1 -Method FixChecksums
 ```
 
 #### 情況 2：Dump 中的 migration 版本與當前不一致
@@ -115,7 +115,7 @@
 **解決方案**：
 1. 先還原 dump（保留 migration 記錄）
 2. 檢查哪些 migrations 需要更新
-3. 使用 `sqlx migrate resolve` 或 `fix_migration_checksums.ps1` 同步
+3. 使用 `sqlx migrate resolve` 或 `sync_migrations.ps1 -Method FixChecksums` 同步
 
 ### 📋 還原後檢查清單
 
@@ -153,7 +153,7 @@ docker exec ipig-db psql -U postgres -d ipig_db -c "TRUNCATE TABLE _sqlx_migrati
 docker compose restart api
 
 # 方法 2：同步 checksums
-.\scripts\fix_migration_checksums.ps1
+.\scripts\sync_migrations.ps1 -Method FixChecksums
 ```
 
 ### Q2: 只想還原資料，不想改變結構

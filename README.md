@@ -127,12 +127,30 @@
 
 ---
 
+## 資料夾一覽
+
+| 資料夾 | 用途 | 說明 |
+|--------|------|------|
+| **backend/** | 後端服務 | Rust (Axum) API、migrations、整合測試 |
+| **frontend/** | 前端應用 | React + TypeScript、E2E (Playwright) |
+| **docs/** | 說明文件 | [文件索引](docs/README.md) 依主題分類（規格、開發、資料庫、安全、維運、runbook） |
+| **scripts/** | 腳本工具 | [scripts/README.md](scripts/README.md) 啟動、CI、備份、部署、環境驗證 |
+| **tests/** | Python 整合測試 | [tests/README.md](tests/README.md) AUP/ERP/動物/HR 等 8 大模組 |
+| **monitoring/** | 監控設定 | [monitoring/README.md](monitoring/README.md) Prometheus、Alertmanager、Promtail |
+| **deploy/** | 部署與儀表板 | [deploy/README.md](deploy/README.md) Grafana、Prometheus、cloudflared、WAF 排除規則 |
+| **.github/** | CI/CD | GitHub Actions 工作流程 |
+
+**依角色閱讀**：開發者 → docs/README.md → development/、QUICK_START；維運 → operations/OPERATIONS.md、DEPLOYMENT、runbooks/；測試 → tests/README、docs/e2e/。
+
+---
+
 ## 文件導覽
 
 | 文件 | 說明 |
 |------|------|
 | [文件索引 (docs/)](docs/README.md) | 依主題分類之完整文件目錄 |
 | [QUICK_START.md](docs/QUICK_START.md) | 快速啟動（Docker / 本地開發 / E2E 測試） |
+| [OPERATIONS.md](docs/operations/OPERATIONS.md) | 維運手冊（服務擁有者、on-call、故障排除） |
 | [COMPOSE.md](docs/operations/COMPOSE.md) | Docker Compose 總覽（各 compose 檔用途、情境指令、依賴關係） |
 | [USER_GUIDE.md](docs/USER_GUIDE.md) | 使用者操作手冊（9 章節完整指南） |
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | 部署與維運手冊（系統需求、備份、監控、故障排除） |
