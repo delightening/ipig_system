@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useListFilters } from '@/hooks/useListFilters'
 import { useDialogSet } from '@/hooks/useDialogSet'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api, { Partner } from '@/lib/api'
+import api, { deleteResource, Partner } from '@/lib/api'
 import { useDebounce } from '@/hooks/useDebounce'
 import { STALE_TIME } from '@/lib/query'
 import { Button } from '@/components/ui/button'
@@ -167,7 +167,7 @@ export function PartnersPage() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/partners/${id}`),
+    mutationFn: (id: string) => deleteResource(`/partners/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['partners'] })
       toast({ title: '成功', description: '夥伴已刪除' })

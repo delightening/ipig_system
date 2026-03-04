@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
 import { zhTW, enUS } from 'date-fns/locale'
-import api, { LowStockAlert, DocumentListItem } from '@/lib/api'
+import api, { deleteResource, LowStockAlert, DocumentListItem } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -263,7 +263,7 @@ export function DashboardPage() {
   // 重設為預設佈局
   const handleResetLayout = async () => {
     try {
-      await api.delete('/me/preferences/dashboard_widgets')
+      await deleteResource('/me/preferences/dashboard_widgets')
       queryClient.invalidateQueries({ queryKey: ['user-preferences', 'dashboard_widgets'] })
       setShowSettingsDialog(false)
       setIsEditMode(false)

@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
   AnimalObservation,
+  deleteResource,
   recordTypeNames,
   RecordType,
 } from '@/lib/api'
@@ -59,7 +60,7 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
 
   const deleteMutation = useMutation({
     mutationFn: async ({ id, reason }: { id: number; reason: string }) => {
-      return api.delete(`/observations/${id}`, { data: { reason } })
+      return deleteResource(`/observations/${id}`, { data: { reason } })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animal-observations', animalId] })

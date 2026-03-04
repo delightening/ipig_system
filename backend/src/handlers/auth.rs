@@ -25,7 +25,7 @@ use crate::{
 };
 
 /// GDPR 匯出：單一偏好項目
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct PreferenceExport {
     pub key: String,
     pub value: serde_json::Value,
@@ -33,7 +33,7 @@ pub struct PreferenceExport {
 }
 
 /// GDPR 匯出：個人資料完整回應
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct GdprExportResponse {
     pub exported_at: DateTime<Utc>,
     pub user: UserResponse,

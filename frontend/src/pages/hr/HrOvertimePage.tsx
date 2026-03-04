@@ -13,7 +13,7 @@ import {
     Users,
     XCircle,
 } from 'lucide-react'
-import api from '@/lib/api'
+import api, { deleteResource } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -215,7 +215,7 @@ const useOvertimeMutations = () => {
 
     const deleteOvertime = useMutation({
         mutationFn: async (id: string) => {
-            return api.delete(`/hr/overtime/${id}`)
+            return deleteResource(`/hr/overtime/${id}`)
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['hr-my-overtime'] })

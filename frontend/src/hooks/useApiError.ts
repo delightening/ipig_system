@@ -5,7 +5,7 @@
  *
  * 使用方式：
  *   const { handleError, withErrorHandling } = useApiError()
- *   await withErrorHandling(() => api.delete(`/items/${id}`), '刪除成功')
+ *   await withErrorHandling(() => deleteResource(`/items/${id}`), '刪除成功')
  */
 
 import { useCallback } from 'react'

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api, { DocumentListItem, DocType } from '@/lib/api'
+import api, { deleteResource, DocumentListItem, DocType } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -83,7 +83,7 @@ export function DocumentsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await api.delete(`/documents/${id}`)
+      await deleteResource(`/documents/${id}`)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] })

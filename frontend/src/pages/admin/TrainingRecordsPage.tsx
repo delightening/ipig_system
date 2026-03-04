@@ -11,7 +11,7 @@ import { useState, useMemo } from 'react'
 import { useTabState } from '@/hooks/useTabState'
 import { useDialogSet } from '@/hooks/useDialogSet'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api from '@/lib/api'
+import api, { deleteResource } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -197,7 +197,7 @@ export function TrainingRecordsPage() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/training-records/${id}`),
+    mutationFn: (id: string) => deleteResource(`/training-records/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['training-records'] })
       toast({ title: '成功', description: '已刪除訓練紀錄' })

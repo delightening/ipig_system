@@ -41,6 +41,7 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/me", get(handlers::me).put(handlers::update_me))
         .route("/me/export", get(handlers::export_me))
         .route("/me/account", delete(handlers::delete_me_account))
+        .route("/me/account/delete", post(handlers::delete_me_account))
         .route("/me/password", put(handlers::change_own_password))
         // User Preferences
         .route("/me/preferences", get(handlers::get_all_preferences))
@@ -50,6 +51,7 @@ pub fn api_routes(state: AppState) -> Router {
                 .put(handlers::upsert_preference)
                 .delete(handlers::delete_preference),
         )
+        .route("/me/preferences/:key/delete", post(handlers::delete_preference))
         // Users
         .route(
             "/users",
@@ -61,6 +63,7 @@ pub fn api_routes(state: AppState) -> Router {
                 .put(handlers::update_user)
                 .delete(handlers::delete_user),
         )
+        .route("/users/:id/delete", post(handlers::delete_user))
         .route("/users/:id/password", put(handlers::reset_user_password))
         .route("/users/:id/impersonate", post(handlers::impersonate_user))
         // Roles
@@ -74,6 +77,7 @@ pub fn api_routes(state: AppState) -> Router {
                 .put(handlers::update_role)
                 .delete(handlers::delete_role),
         )
+        .route("/roles/:id/delete", post(handlers::delete_role))
         .route("/permissions", get(handlers::list_permissions))
         // Warehouses
         .route(
@@ -95,6 +99,10 @@ pub fn api_routes(state: AppState) -> Router {
                 .delete(handlers::delete_warehouse),
         )
         .route(
+            "/warehouses/:id/delete",
+            post(handlers::delete_warehouse),
+        )
+        .route(
             "/warehouses/:id/layout",
             put(handlers::storage_location::update_warehouse_layout),
         )
@@ -109,6 +117,10 @@ pub fn api_routes(state: AppState) -> Router {
             get(handlers::storage_location::get_storage_location)
                 .put(handlers::storage_location::update_storage_location)
                 .delete(handlers::storage_location::delete_storage_location),
+        )
+        .route(
+            "/storage-locations/:id/delete",
+            post(handlers::storage_location::delete_storage_location),
         )
         .route(
             "/storage-locations/:id/inventory",
@@ -146,6 +158,7 @@ pub fn api_routes(state: AppState) -> Router {
                 .put(handlers::update_product)
                 .delete(handlers::delete_product),
         )
+        .route("/products/:id/delete", post(handlers::delete_product))
         .route(
             "/categories",
             get(handlers::list_categories).post(handlers::create_category),
@@ -186,6 +199,7 @@ pub fn api_routes(state: AppState) -> Router {
                 .put(handlers::update_partner)
                 .delete(handlers::delete_partner),
         )
+        .route("/partners/:id/delete", post(handlers::delete_partner))
         // Documents
         .route(
             "/documents",
@@ -197,6 +211,7 @@ pub fn api_routes(state: AppState) -> Router {
                 .put(handlers::update_document)
                 .delete(handlers::delete_document),
         )
+        .route("/documents/:id/delete", post(handlers::delete_document))
         .route("/documents/:id/submit", post(handlers::submit_document))
         .route("/documents/:id/approve", post(handlers::approve_document))
         .route("/documents/:id/cancel", post(handlers::cancel_document))
@@ -332,6 +347,10 @@ pub fn api_routes(state: AppState) -> Router {
             "/protocols/:id/co-editors/:user_id",
             delete(handlers::remove_co_editor),
         )
+        .route(
+            "/protocols/:id/co-editors/:user_id/delete",
+            post(handlers::remove_co_editor),
+        )
         // My Projects
         .route("/my-projects", get(handlers::get_my_protocols))
         // Animal Sources
@@ -343,6 +362,7 @@ pub fn api_routes(state: AppState) -> Router {
             "/animal-sources/:id",
             put(handlers::update_animal_source).delete(handlers::delete_animal_source),
         )
+        .route("/animal-sources/:id/delete", post(handlers::delete_animal_source))
         // Animals (實驗動物管理系統)
         .route(
             "/animals",
@@ -360,6 +380,7 @@ pub fn api_routes(state: AppState) -> Router {
                 .put(handlers::update_animal)
                 .delete(handlers::delete_animal),
         )
+        .route("/animals/:id/delete", post(handlers::delete_animal))
         .route("/animals/:id/events", get(handlers::get_animal_events))
         .route(
             "/animals/:id/vet-read",
@@ -398,6 +419,7 @@ pub fn api_routes(state: AppState) -> Router {
                 .put(handlers::update_animal_observation)
                 .delete(handlers::delete_animal_observation),
         )
+        .route("/observations/:id/delete", post(handlers::delete_animal_observation))
         .route(
             "/observations/:id/vet-read",
             post(handlers::mark_observation_vet_read),
@@ -425,6 +447,7 @@ pub fn api_routes(state: AppState) -> Router {
                 .put(handlers::update_animal_surgery)
                 .delete(handlers::delete_animal_surgery),
         )
+        .route("/surgeries/:id/delete", post(handlers::delete_animal_surgery))
         .route(
             "/surgeries/:id/vet-read",
             post(handlers::mark_surgery_vet_read),
@@ -442,6 +465,7 @@ pub fn api_routes(state: AppState) -> Router {
             "/weights/:id",
             put(handlers::update_animal_weight).delete(handlers::delete_animal_weight),
         )
+        .route("/weights/:id/delete", post(handlers::delete_animal_weight))
         // Animal Records - Vaccinations
         .route(
             "/animals/:id/vaccinations",
@@ -451,6 +475,7 @@ pub fn api_routes(state: AppState) -> Router {
             "/vaccinations/:id",
             put(handlers::update_animal_vaccination).delete(handlers::delete_animal_vaccination),
         )
+        .route("/vaccinations/:id/delete", post(handlers::delete_animal_vaccination))
         // Animal Records - Sacrifice
         .route(
             "/animals/:id/sacrifice",
@@ -501,6 +526,7 @@ pub fn api_routes(state: AppState) -> Router {
             "/care-records/:id",
             put(handlers::update_care_record).delete(handlers::delete_care_record),
         )
+        .route("/care-records/:id/delete", post(handlers::delete_care_record))
         // Animal Records - Blood Tests (血液檢查)
         .route(
             "/animals/:id/blood-tests",
@@ -512,6 +538,7 @@ pub fn api_routes(state: AppState) -> Router {
                 .put(handlers::update_animal_blood_test)
                 .delete(handlers::delete_animal_blood_test),
         )
+        .route("/blood-tests/:id/delete", post(handlers::delete_animal_blood_test))
         // Blood Test Templates (項目模板管理)
         .route(
             "/blood-test-templates",
@@ -525,6 +552,7 @@ pub fn api_routes(state: AppState) -> Router {
             "/blood-test-templates/:id",
             put(handlers::update_blood_test_template).delete(handlers::delete_blood_test_template),
         )
+        .route("/blood-test-templates/:id/delete", post(handlers::delete_blood_test_template))
         // Blood Test Panels (檢驗組合管理)
         .route(
             "/blood-test-panels",
@@ -538,6 +566,7 @@ pub fn api_routes(state: AppState) -> Router {
             "/blood-test-panels/:id",
             put(handlers::update_blood_test_panel).delete(handlers::delete_blood_test_panel),
         )
+        .route("/blood-test-panels/:id/delete", post(handlers::delete_blood_test_panel))
         .route(
             "/blood-test-panels/:id/items",
             put(handlers::update_blood_test_panel_items),
@@ -596,6 +625,7 @@ pub fn api_routes(state: AppState) -> Router {
             get(handlers::get_notification_settings).put(handlers::update_notification_settings),
         )
         .route("/notifications/:id", delete(handlers::delete_notification))
+        .route("/notifications/:id/delete", post(handlers::delete_notification))
         // Alerts
         .route("/alerts/low-stock", get(handlers::list_low_stock_alerts))
         .route("/alerts/expiry", get(handlers::list_expiry_alerts))
@@ -623,6 +653,7 @@ pub fn api_routes(state: AppState) -> Router {
                 .put(handlers::update_scheduled_report)
                 .delete(handlers::delete_scheduled_report),
         )
+        .route("/scheduled-reports/:id/delete", post(handlers::delete_scheduled_report))
         .route("/report-history", get(handlers::list_report_history))
         .route(
             "/report-history/:id/download",
@@ -634,6 +665,7 @@ pub fn api_routes(state: AppState) -> Router {
             "/attachments/:id",
             get(handlers::download_attachment).delete(handlers::delete_attachment),
         )
+        .route("/attachments/:id/delete", post(handlers::delete_attachment))
         // ============================================
         // Admin System Settings (系統設定管理)
         // ============================================
@@ -712,6 +744,7 @@ pub fn api_routes(state: AppState) -> Router {
             put(handlers::update_notification_routing)
                 .delete(handlers::delete_notification_routing),
         )
+        .route("/admin/notification-routing/:id/delete", post(handlers::delete_notification_routing))
         // ============================================
         // Treatment Drug Options (藥物選單管理)
         // ============================================
@@ -729,6 +762,7 @@ pub fn api_routes(state: AppState) -> Router {
             put(handlers::treatment_drug::update_treatment_drug)
                 .delete(handlers::treatment_drug::delete_treatment_drug),
         )
+        .route("/admin/treatment-drugs/:id/delete", post(handlers::treatment_drug::delete_treatment_drug))
         .route(
             "/admin/treatment-drugs/import-erp",
             post(handlers::treatment_drug::import_treatment_drugs_from_erp),
@@ -754,6 +788,7 @@ pub fn api_routes(state: AppState) -> Router {
                 .put(handlers::update_overtime)
                 .delete(handlers::delete_overtime),
         )
+        .route("/hr/overtime/:id/delete", post(handlers::delete_overtime))
         .route("/hr/overtime/:id/submit", post(handlers::submit_overtime))
         .route("/hr/overtime/:id/approve", post(handlers::approve_overtime))
         .route("/hr/overtime/:id/reject", post(handlers::reject_overtime))
@@ -770,6 +805,7 @@ pub fn api_routes(state: AppState) -> Router {
                 .put(handlers::update_leave)
                 .delete(handlers::delete_leave),
         )
+        .route("/hr/leaves/:id/delete", post(handlers::delete_leave))
         .route("/hr/leaves/:id/submit", post(handlers::submit_leave))
         .route("/hr/leaves/:id/approve", post(handlers::approve_leave))
         .route("/hr/leaves/:id/reject", post(handlers::reject_leave))
@@ -841,6 +877,7 @@ pub fn api_routes(state: AppState) -> Router {
                 .put(handlers::update_training_record)
                 .delete(handlers::delete_training_record),
         )
+        .route("/training-records/:id/delete", post(handlers::delete_training_record))
         .route("/hr/calendar/conflicts/:id/resolve", post(handlers::resolve_conflict))
         // ============================================
         // Equipment & Calibrations (設備校準, GLP 合規)
@@ -855,6 +892,7 @@ pub fn api_routes(state: AppState) -> Router {
                 .put(handlers::update_equipment)
                 .delete(handlers::delete_equipment),
         )
+        .route("/equipment/:id/delete", post(handlers::delete_equipment))
         .route(
             "/equipment-calibrations",
             get(handlers::list_calibrations).post(handlers::create_calibration),
@@ -865,6 +903,7 @@ pub fn api_routes(state: AppState) -> Router {
                 .put(handlers::update_calibration)
                 .delete(handlers::delete_calibration),
         )
+        .route("/equipment-calibrations/:id/delete", post(handlers::delete_calibration))
         .route("/hr/calendar/events", get(handlers::list_calendar_events))
         // ============================================
         // Facility Management (新增)
@@ -879,6 +918,7 @@ pub fn api_routes(state: AppState) -> Router {
                 .put(handlers::update_species)
                 .delete(handlers::delete_species),
         )
+        .route("/facilities/species/:id/delete", post(handlers::delete_species))
         .route(
             "/facilities",
             get(handlers::list_facilities).post(handlers::create_facility),
@@ -889,6 +929,7 @@ pub fn api_routes(state: AppState) -> Router {
                 .put(handlers::update_facility)
                 .delete(handlers::delete_facility),
         )
+        .route("/facilities/:id/delete", post(handlers::delete_facility))
         .route(
             "/facilities/buildings",
             get(handlers::list_buildings).post(handlers::create_building),
@@ -899,6 +940,7 @@ pub fn api_routes(state: AppState) -> Router {
                 .put(handlers::update_building)
                 .delete(handlers::delete_building),
         )
+        .route("/facilities/buildings/:id/delete", post(handlers::delete_building))
         .route(
             "/facilities/zones",
             get(handlers::list_zones).post(handlers::create_zone),
@@ -909,6 +951,7 @@ pub fn api_routes(state: AppState) -> Router {
                 .put(handlers::update_zone)
                 .delete(handlers::delete_zone),
         )
+        .route("/facilities/zones/:id/delete", post(handlers::delete_zone))
         .route(
             "/facilities/pens",
             get(handlers::list_pens).post(handlers::create_pen),
@@ -919,6 +962,7 @@ pub fn api_routes(state: AppState) -> Router {
                 .put(handlers::update_pen)
                 .delete(handlers::delete_pen),
         )
+        .route("/facilities/pens/:id/delete", post(handlers::delete_pen))
         .route(
             "/facilities/departments",
             get(handlers::list_departments).post(handlers::create_department),
@@ -929,6 +973,7 @@ pub fn api_routes(state: AppState) -> Router {
                 .put(handlers::update_department)
                 .delete(handlers::delete_department),
         )
+        .route("/facilities/departments/:id/delete", post(handlers::delete_department))
         // ============================================
         // Electronic Signatures & Annotations (GLP Compliance)
         // ============================================

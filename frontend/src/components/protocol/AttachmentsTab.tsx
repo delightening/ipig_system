@@ -1,6 +1,6 @@
 import React, { useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api, { ProtocolAttachment } from '@/lib/api'
+import api, { deleteResource, ProtocolAttachment } from '@/lib/api'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -64,7 +64,7 @@ export function AttachmentsTab({ protocolId, canManageAttachments }: Attachments
 
   const deleteAttachmentMutation = useMutation({
     mutationFn: async (attachmentId: string) => {
-      return api.delete(`/attachments/${attachmentId}`)
+      return deleteResource(`/attachments/${attachmentId}`)
     },
     onSuccess: () => {
       toast({ title: t('common.success'), description: t('protocols.detail.actions.deleteSuccess') })

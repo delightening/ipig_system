@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
-import api, { confirmPassword, User, Role, ResetPasswordRequest } from '@/lib/api'
+import api, { confirmPassword, deleteResource, User, Role, ResetPasswordRequest } from '@/lib/api'
 import { getErrorMessage, ApiErrorPayload } from '@/types/error'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/components/ui/use-toast'
@@ -194,7 +194,7 @@ export function useUserManagement() {
   })
 
   const deleteUserWithReauth = async (id: string, reauthToken: string) => {
-    await api.delete(`/users/${id}`, { headers: { 'X-Reauth-Token': reauthToken } })
+    await deleteResource(`/users/${id}`, { headers: { 'X-Reauth-Token': reauthToken } })
     queryClient.invalidateQueries({ queryKey: ['users'] })
     toast({ title: '成功', description: '用戶已刪除' })
   }

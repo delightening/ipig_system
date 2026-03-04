@@ -10,7 +10,7 @@ import { useState } from 'react'
 import { useTabState } from '@/hooks/useTabState'
 import { useDialogSet } from '@/hooks/useDialogSet'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api from '@/lib/api'
+import api, { deleteResource } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -198,7 +198,7 @@ export function EquipmentPage() {
   })
 
   const deleteEquipMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/equipment/${id}`),
+    mutationFn: (id: string) => deleteResource(`/equipment/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment'] })
       queryClient.invalidateQueries({ queryKey: ['equipment-all'] })
@@ -253,7 +253,7 @@ export function EquipmentPage() {
   })
 
   const deleteCalibMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/equipment-calibrations/${id}`),
+    mutationFn: (id: string) => deleteResource(`/equipment-calibrations/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment-calibrations'] })
       queryClient.invalidateQueries({ queryKey: ['equipment-calibrations-all'] })

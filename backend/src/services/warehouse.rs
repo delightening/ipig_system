@@ -42,6 +42,16 @@ impl WarehouseService {
         Ok(format!("{}{:03}", prefix, seq))
     }
 
+    /// 解析倉庫代碼序號（例如 WH001 → 1），供單元測試驗證
+    #[cfg(test)]
+    pub fn parse_code_sequence(code: &str, prefix: &str) -> Option<i32> {
+        if !code.starts_with(prefix) || code.len() <= prefix.len() {
+            return None;
+        }
+        let num_str = &code[prefix.len()..];
+        num_str.parse::<i32>().ok()
+    }
+
     /// 建立倉庫
     pub async fn create(pool: &PgPool, req: &CreateWarehouseRequest) -> Result<Warehouse> {
         // 如果 code 為空或未提供，則自動生成
@@ -375,5 +385,33 @@ impl WarehouseService {
 
         worksheet.set_freeze_panes(1, 0)?;
         Ok(workbook.save_to_buffer()?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::WarehouseService;
+
+    #[test]
+    fn test_parse_code_sequence_valid() {
+        assert_eq!(WarehouseService::parse_code_sequence("WH001", "WH"), Some(1));
+        assert_eq!(WarehouseService::parse_code_sequence("WH002", "WH"), Some(2));
+        assert_eq!(WarehouseService::parse_code_sequence("WH999", "WH"), Some(999));
+    }
+
+    #[test]
+    fn test_parse_code_sequence_prefix_mismatch() {
+        assert!(WarehouseService::parse_code_sequence("WH001", "WS").is_none());
+        assert!(WarehouseService::parse_code_sequence("WS001", "WH").is_none());
+    }
+
+    #[test]
+    fn test_parse_code_sequence_empty_suffix() {
+        assert!(WarehouseService::parse_code_sequence("WH", "WH").is_none());
+    }
+
+    #[test]
+    fn test_parse_code_sequence_invalid_digits() {
+        assert!(WarehouseService::parse_code_sequence("WHabc", "WH").is_none());
     }
 }

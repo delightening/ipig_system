@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import api, { AnimalSurgery } from '@/lib/api'
+import api, { deleteResource, AnimalSurgery } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -55,7 +55,7 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
 
   const deleteMutation = useMutation({
     mutationFn: async ({ id, reason }: { id: number; reason: string }) => {
-      return api.delete(`/surgeries/${id}`, { data: { reason } })
+      return deleteResource(`/surgeries/${id}`, { data: { reason } })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animal-surgeries', animalId] })

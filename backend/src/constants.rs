@@ -53,3 +53,31 @@ pub const PASSWORD_MIN_LENGTH: usize = 8;
 /// Audit
 pub const AUDIT_LOG_MAX_EXPORT: i64 = 10000;
 pub const ACTIVITY_LOG_MAX_PER_PAGE: i64 = 500;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pagination_constants() {
+        assert!(DEFAULT_PAGE_SIZE <= MAX_PAGE_SIZE, "預設頁大小應不超過最大值");
+        assert!(MAX_PAGE_SIZE >= 1);
+    }
+
+    #[test]
+    fn test_password_policy() {
+        assert!(PASSWORD_MIN_LENGTH >= 8, "密碼最小長度應 ≥ 8");
+    }
+
+    #[test]
+    fn test_rate_limit_constants() {
+        assert!(WRITE_RATE_LIMIT_PER_MINUTE <= API_RATE_LIMIT_PER_MINUTE);
+        assert!(UPLOAD_RATE_LIMIT_PER_MINUTE <= WRITE_RATE_LIMIT_PER_MINUTE);
+    }
+
+    #[test]
+    fn test_file_size_constants() {
+        assert!(FILE_MAX_ANIMAL_PHOTO <= FILE_MAX_PROTOCOL_ATTACHMENT);
+        assert!(FILE_MAX_PROTOCOL_ATTACHMENT <= MAX_UPLOAD_SIZE_BYTES);
+    }
+}

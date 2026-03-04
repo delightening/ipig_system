@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api from '@/lib/api'
+import api, { deleteResource } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -249,7 +249,7 @@ export function NotificationRoutingPage() {
 
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
-            await api.delete(`/admin/notification-routing/${id}`)
+            await deleteResource(`/admin/notification-routing/${id}`)
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['notification-routing'] })

@@ -524,4 +524,65 @@ impl SkuService {
             subcategory_name,
         })
     }
+
+    /// 解析 SKU 格式字串 (XXX-XXX-NNN)，供單元測試驗證格式邏輯
+    #[cfg(test)]
+    pub fn parse_sku_format(sku: &str) -> Option<(String, String, i32)> {
+        let re = regex::Regex::new(r"^([A-Z]{3})-([A-Z]{3})-(\d{3})$").ok()?;
+        let captures = re.captures(sku)?;
+        let cat = captures.get(1)?.as_str().to_string();
+        let sub = captures.get(2)?.as_str().to_string();
+        let seq: i32 = captures.get(3)?.as_str().parse().ok()?;
+        Some((cat, sub, seq))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SkuService;
+
+    #[test]
+    fn test_parse_sku_format_valid() {
+        let r = SkuService::parse_sku_format("ABC-XYZ-001");
+        assert!(r.is_some());
+        let (cat, sub, seq) = r.unwrap();
+        assert_eq!(cat, "ABC");
+        assert_eq!(sub, "XYZ");
+        assert_eq!(seq, 1);
+    }
+
+    #[test]
+    fn test_parse_sku_format_valid_999() {
+        let r = SkuService::parse_sku_format("MED-DRU-999");
+        assert!(r.is_some());
+        let (_, _, seq) = r.unwrap();
+        assert_eq!(seq, 999);
+    }
+
+    #[test]
+    fn test_parse_sku_format_lowercase_invalid() {
+        assert!(SkuService::parse_sku_format("abc-xyz-001").is_none());
+    }
+
+    #[test]
+    fn test_parse_sku_format_wrong_length() {
+        assert!(SkuService::parse_sku_format("AB-XYZ-001").is_none());
+        assert!(SkuService::parse_sku_format("ABCD-XYZ-001").is_none());
+    }
+
+    #[test]
+    fn test_parse_sku_format_invalid_digits() {
+        assert!(SkuService::parse_sku_format("ABC-XYZ-01").is_none());
+        assert!(SkuService::parse_sku_format("ABC-XYZ-1000").is_none());
+    }
+
+    #[test]
+    fn test_parse_sku_format_empty() {
+        assert!(SkuService::parse_sku_format("").is_none());
+    }
+
+    #[test]
+    fn test_parse_sku_format_wrong_separator() {
+        assert!(SkuService::parse_sku_format("ABC_XYZ_001").is_none());
+    }
 }
