@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use utoipa::ToSchema;
 
 /// 使用者偏好設定
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -15,13 +16,13 @@ pub struct UserPreference {
 }
 
 /// 建立或更新偏好設定的請求
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpsertPreferenceRequest {
     pub value: serde_json::Value,
 }
 
 /// 偏好設定回應
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct PreferenceResponse {
     pub key: String,
     pub value: serde_json::Value,
@@ -39,7 +40,7 @@ impl From<UserPreference> for PreferenceResponse {
 }
 
 /// 所有偏好設定回應
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct AllPreferencesResponse {
     pub preferences: Vec<PreferenceResponse>,
 }

@@ -3,7 +3,7 @@
 
 import { useState, lazy, Suspense } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api from '@/lib/api'
+import api, { deleteResource } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -164,7 +164,7 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
     // 刪除紀錄（軟刪除 + 刪除原因）
     const deleteMutation = useMutation({
         mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
-            return api.delete(`/care-records/${id}`, { data: { reason } })
+            return deleteResource(`/care-records/${id}`, { data: { reason } })
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['animal-care-records', animalId] })

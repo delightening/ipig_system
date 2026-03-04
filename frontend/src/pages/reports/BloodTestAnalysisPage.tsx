@@ -33,6 +33,7 @@ import {
     FileSpreadsheet,
 } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
+import { CollapsibleSection } from '@/components/animal/SurgeryFormComponents'
 import {
     LineChart,
     Line,
@@ -190,14 +191,14 @@ export function BloodTestAnalysisPage() {
         return Array.from(items).sort()
     }, [filteredData])
 
-    // 依分類（Panel）分組的分析項目選單：系統分類 + 本次資料中未歸類者
+    // 依分類（Panel）分組的分析項目選單：排除採血管（耗材），系統分類 + 本次資料中未歸類者
     const groupedAnalysisOptions = useMemo(() => {
         const allTemplateNames = new Set<string>()
-        const groups: { label: string; items: { name: string }[] }[] = []
+        const groups: { key: string; label: string; items: { name: string }[] }[] = []
 
         if (panelsData) {
             const activePanels = panelsData
-                .filter(p => p.is_active)
+                .filter(p => p.is_active && p.key !== 'TUBE') // 排除採血管（耗材，不需分析）
                 .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
             for (const panel of activePanels) {
                 const items = (panel.items ?? [])
@@ -205,18 +206,32 @@ export function BloodTestAnalysisPage() {
                     .map(t => ({ name: t.name }))
                 if (items.length > 0) {
                     items.forEach(t => allTemplateNames.add(t.name))
-                    groups.push({ label: panel.name, items })
+                    groups.push({ key: panel.key, label: panel.name, items })
                 }
             }
         }
 
         const otherItems = availableItems.filter(n => !allTemplateNames.has(n))
         if (otherItems.length > 0) {
-            groups.push({ label: '其他（本次資料）', items: otherItems.map(name => ({ name })) })
+            groups.push({ key: 'OTHER_DATA', label: '其他（本次資料）', items: otherItems.map(name => ({ name })) })
         }
 
         return groups
     }, [panelsData, availableItems])
+
+    // 常用組合 Preset：依 panel key 取得項目名稱
+    const presetItemNames = useMemo(() => {
+        const map = new Map<string, string[]>()
+        groupedAnalysisOptions.forEach(g => {
+            map.set(g.key, g.items.map(i => i.name))
+        })
+        return map
+    }, [groupedAnalysisOptions])
+
+    const applyPreset = useCallback((keys: string[]) => {
+        const names = keys.flatMap(k => presetItemNames.get(k) ?? [])
+        setSelectedItems(names)
+    }, [presetItemNames])
 
     // 根據選中的項目篩選資料（圖表用）
     const chartFilteredData = useMemo(() => {
@@ -568,28 +583,121 @@ export function BloodTestAnalysisPage() {
                         </Card>
                     )}
 
-                    {/* 選擇分析項目：依檢測分類（肝指數、腎指數、血球分析等）下拉／分組勾選 */}
+                    {/* 選擇分析項目：常用組合 Preset + 已選區 + Accordion 分類勾選 */}
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-base">選擇分析項目</CardTitle>
                             <p className="text-sm text-muted-foreground font-normal mt-1">
-                                依分類勾選要分析的項目，未選擇時顯示全部
+                                常用組合一鍵選取，或展開分類勾選；未選擇時顯示全部
                             </p>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="space-y-4">
                             {groupedAnalysisOptions.length === 0 ? (
                                 <p className="text-sm text-muted-foreground py-2">
                                     尚無分類資料，請先設定血液檢查組合或執行篩選以產生項目
                                 </p>
                             ) : (
                                 <>
-                                    <div className="space-y-4 max-h-[320px] overflow-y-auto pr-2">
+                                    {/* 常用組合 Preset */}
+                                    <div className="flex flex-wrap gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => applyPreset(['LIVER', 'KIDNEY'])}
+                                            className="text-xs"
+                                        >
+                                            肝腎功能
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => applyPreset(['CBC'])}
+                                            className="text-xs"
+                                        >
+                                            血球分析
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => applyPreset(['INFECT'])}
+                                            className="text-xs"
+                                        >
+                                            發炎指標
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => applyPreset(['LIVER'])}
+                                            className="text-xs"
+                                        >
+                                            肝臟
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => applyPreset(['LIPID'])}
+                                            className="text-xs"
+                                        >
+                                            血脂
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => applyPreset(['ELECTRO'])}
+                                            className="text-xs"
+                                        >
+                                            電解質
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setSelectedItems([])}
+                                            className="text-xs text-muted-foreground"
+                                        >
+                                            全部清除
+                                        </Button>
+                                    </div>
+
+                                    {/* 已選項目獨立顯示（固定於上方） */}
+                                    {selectedItems.length > 0 && (
+                                        <div className="rounded-lg border bg-muted/50 p-3">
+                                            <div className="text-xs font-medium text-muted-foreground mb-2">
+                                                已選 {selectedItems.length} 項
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {selectedItems.map(item => (
+                                                    <span
+                                                        key={item}
+                                                        className="inline-flex items-center gap-1 rounded-md bg-primary/15 px-2.5 py-1 text-sm"
+                                                    >
+                                                        {item}
+                                                        <button
+                                                            type="button"
+                                                            className="ml-0.5 rounded hover:bg-primary/30 hover:text-destructive"
+                                                            onClick={() => toggleItem(item)}
+                                                            aria-label={`移除 ${item}`}
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    </span>
+                                                ))}
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => setSelectedItems([])}
+                                                    className="text-xs h-7"
+                                                >
+                                                    清除選擇
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* 依分類 Accordion（預設收合） */}
+                                    <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
                                         {groupedAnalysisOptions.map(group => (
-                                            <div key={group.label} className="space-y-2">
-                                                <div className="text-sm font-medium text-foreground border-b pb-1">
-                                                    {group.label}
-                                                </div>
-                                                <div className="flex flex-wrap gap-x-4 gap-y-1.5 pl-1">
+                                            <CollapsibleSection key={group.key} title={group.label} defaultOpen={false}>
+                                                <div className="flex flex-wrap gap-x-4 gap-y-2">
                                                     {group.items.map(({ name }) => (
                                                         <label
                                                             key={name}
@@ -609,38 +717,9 @@ export function BloodTestAnalysisPage() {
                                                         </label>
                                                     ))}
                                                 </div>
-                                            </div>
+                                            </CollapsibleSection>
                                         ))}
                                     </div>
-                                    {selectedItems.length > 0 && (
-                                        <div className="mt-3 pt-3 border-t flex flex-wrap items-center gap-2">
-                                            <span className="text-sm text-muted-foreground">已選：</span>
-                                            {selectedItems.map(item => (
-                                                <span
-                                                    key={item}
-                                                    className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-xs"
-                                                >
-                                                    {item}
-                                                    <button
-                                                        type="button"
-                                                        className="hover:text-destructive"
-                                                        onClick={() => toggleItem(item)}
-                                                        aria-label={`移除 ${item}`}
-                                                    >
-                                                        ×
-                                                    </button>
-                                                </span>
-                                            ))}
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => setSelectedItems([])}
-                                                className="text-xs text-muted-foreground"
-                                            >
-                                                清除選擇
-                                            </Button>
-                                        </div>
-                                    )}
                                 </>
                             )}
                         </CardContent>

@@ -98,7 +98,8 @@ pub async fn update_warehouse(
     Ok(Json(warehouse))
 }
 
-/// 刪除倉庫
+/// 刪除倉庫（軟刪除）
+/// DELETE /warehouses/:id 與 POST /warehouses/:id/delete 均支援，避免部分代理/tunnel 對 DELETE 回傳 405
 #[utoipa::path(delete, path = "/api/warehouses/{id}", params(("id" = Uuid, Path, description = "倉庫 ID")), responses((status = 200, description = "刪除成功")), tag = "倉儲管理", security(("bearer" = [])))]
 pub async fn delete_warehouse(
     State(state): State<AppState>,

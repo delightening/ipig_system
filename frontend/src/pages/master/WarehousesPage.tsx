@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api, { Warehouse } from '@/lib/api'
+import api, { deleteResource, Warehouse } from '@/lib/api'
 import { useDebounce } from '@/hooks/useDebounce'
 import { STALE_TIME } from '@/lib/query'
 import { Button } from '@/components/ui/button'
@@ -48,8 +48,12 @@ export function WarehousesPage() {
     queryKey: ['warehouses', debouncedSearch],
     staleTime: STALE_TIME.LIST,
     queryFn: async () => {
-      const params = debouncedSearch ? `?keyword=${encodeURIComponent(debouncedSearch)}` : ''
-      const response = await api.get<Warehouse[]>(`/warehouses${params}`)
+      const searchParams = new URLSearchParams()
+      searchParams.set('is_active', 'true')
+      if (debouncedSearch) searchParams.set('keyword', debouncedSearch)
+      const qs = searchParams.toString()
+      const url = qs ? `/warehouses?${qs}` : '/warehouses'
+      const response = await api.get<Warehouse[]>(url)
       return response.data
     },
   })
@@ -92,7 +96,7 @@ export function WarehousesPage() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/warehouses/${id}`),
+    mutationFn: (id: string) => deleteResource(`/warehouses/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['warehouses'] })
       toast({ title: '成功', description: '倉庫已刪除' })

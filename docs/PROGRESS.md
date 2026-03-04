@@ -104,7 +104,7 @@
 
 | 面向 | 現況 | 目標 | 狀態 |
 |------|------|------|------|
-| **測試覆蓋率** | Rust 119 unit tests ✅, API 整合測試 25+ cases ✅, CI/CD 整合 DB ✅, E2E 7 spec 34 tests ✅ | 核心邏輯 ≥ 80%、E2E 關鍵流程 100% | ✅ |
+| **測試覆蓋率** | Rust 142 unit tests ✅, API 整合測試 25+ cases ✅, CI/CD 整合 DB ✅, E2E 7 spec 34 tests ✅ | 核心邏輯 ≥ 80%、E2E 關鍵流程 100% | ✅ |
 | **可觀測性** | /health ✅, /metrics ✅, Prometheus scrape ✅, Grafana Dashboard (10 panels) ✅ | 健康檢查 + Prometheus + Grafana | ✅ |
 | **備份 / DR** | GPG 加密備份 ✅, DR Runbook ✅ | 復原 SOP + 上傳檔案備份 + 加密 | ✅ |
 | **安全性** | Named Tunnel 腳立 ✅, 容器掃描 ✅ | Pentest + 具名隧道遷移 | ✅ |
@@ -187,6 +187,18 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **更新慣例**：新項目請放在本區塊**最前面**（時間由近到遠），勿追加於末端。
 
 ---
+
+### 2026-03-04 全域刪除改用 POST /delete（避免代理/tunnel 回傳 405）
+- ✅ **根因**：部分代理、Cloudflare Tunnel 等對 `DELETE` 請求回傳 405 Method Not Allowed，導致刪除操作失敗但前端仍顯示成功。
+- ✅ **後端**：為所有 DELETE 端點新增 `POST /.../delete` 替代路由（36 個），涵蓋 users、roles、warehouses、storage-locations、products、partners、documents、animal-sources、animals、observations、surgeries、weights、vaccinations、care-records、blood-tests、notifications、attachments、equipment、training-records、hr、facilities 等。
+- ✅ **前端**：新增 `deleteResource(url, options?)` 輔助函式；`bloodTestApi`、`bloodTestTemplateApi`、`bloodTestPanelApi`、`notificationRoutingApi`、`treatmentDrugApi` 及 20+ 頁面/元件全部改為使用 `deleteResource`，支援 body（如 reason）與 headers（如 X-Reauth-Token）。
+- ✅ **倉庫列表**：列表 API 預設傳入 `is_active=true`，刪除（軟刪除）後已停用倉庫不再顯示於主列表。
+
+---
+
+### 2026-03-04 IMPROVEMENT_PLAN_R4 目標補齊（Rust 測試、OpenAPI）
+- ✅ **Rust 單元測試**：新增 15 個核心業務邏輯測試（SKU 格式解析 7 個、倉庫代碼序號 4 個、常數驗證 4 個），總計 **142** 個測試通過，強化覆蓋率。
+- ✅ **OpenAPI 端點文件化**：補齊 10 個端點 `#[utoipa::path]` 與 openapi.rs 註冊：`export_me`、`delete_me_account`、2FA（`setup_2fa` / `confirm_2fa_setup` / `disable_2fa` / `verify_2fa_login`）、使用者偏好（`get_all_preferences` / `get_preference` / `upsert_preference` / `delete_preference`），符合 ≥90% 端點文件化目標。
 
 ### 2026-03-04 全專案資料夾整理與分類
 - ✅ **維運手冊歸位**：`docs/OPERATIONS.md` 移入 `docs/operations/OPERATIONS.md`，與 COMPOSE、ENV_AND_DB、TUNNEL 等同屬「環境與建置」分類；所有引用已更新（SOC2_READINESS、SLA、docs/README）。

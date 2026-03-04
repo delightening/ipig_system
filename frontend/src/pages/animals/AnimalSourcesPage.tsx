@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api, { AnimalSource } from '@/lib/api'
+import api, { deleteResource, AnimalSource } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -115,7 +115,7 @@ export function AnimalSourcesPage() {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return api.delete(`/animal-sources/${id}`)
+      return deleteResource(`/animal-sources/${id}`)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animal-sources'] })

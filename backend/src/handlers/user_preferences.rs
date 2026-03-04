@@ -13,6 +13,17 @@ use crate::AppState;
 
 /// 取得單一偏好設定
 /// GET /me/preferences/:key
+#[utoipa::path(
+    get,
+    path = "/api/me/preferences/{key}",
+    params(("key" = String, Path, description = "偏好鍵名")),
+    responses(
+        (status = 200, description = "偏好設定", body = PreferenceResponse),
+        (status = 401, description = "未認證", body = ErrorResponse),
+    ),
+    tag = "認證",
+    security(("bearer" = []))
+)]
 pub async fn get_preference(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -46,6 +57,18 @@ pub async fn get_preference(
 
 /// 更新偏好設定 (upsert)
 /// PUT /me/preferences/:key
+#[utoipa::path(
+    put,
+    path = "/api/me/preferences/{key}",
+    params(("key" = String, Path, description = "偏好鍵名")),
+    request_body = UpsertPreferenceRequest,
+    responses(
+        (status = 200, description = "更新成功", body = PreferenceResponse),
+        (status = 401, description = "未認證", body = ErrorResponse),
+    ),
+    tag = "認證",
+    security(("bearer" = []))
+)]
 pub async fn upsert_preference(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -72,6 +95,16 @@ pub async fn upsert_preference(
 
 /// 取得所有偏好設定
 /// GET /me/preferences
+#[utoipa::path(
+    get,
+    path = "/api/me/preferences",
+    responses(
+        (status = 200, description = "所有偏好設定", body = AllPreferencesResponse),
+        (status = 401, description = "未認證", body = ErrorResponse),
+    ),
+    tag = "認證",
+    security(("bearer" = []))
+)]
 pub async fn get_all_preferences(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -97,6 +130,17 @@ pub async fn get_all_preferences(
 
 /// 刪除偏好設定（重置為預設）
 /// DELETE /me/preferences/:key
+#[utoipa::path(
+    delete,
+    path = "/api/me/preferences/{key}",
+    params(("key" = String, Path, description = "偏好鍵名")),
+    responses(
+        (status = 200, description = "已刪除，回傳預設值", body = PreferenceResponse),
+        (status = 401, description = "未認證", body = ErrorResponse),
+    ),
+    tag = "認證",
+    security(("bearer" = []))
+)]
 pub async fn delete_preference(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

@@ -28,11 +28,11 @@ pub mod treatment_drug;
 mod training;
 mod equipment;
 mod qau;
-mod two_factor;
+pub mod two_factor;
 mod upload;
 pub(crate) mod user;
 mod system_settings;
-mod user_preferences;
+pub mod user_preferences;
 pub(crate) mod warehouse;
 
 pub use animal::*;

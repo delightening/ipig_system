@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth'
 import { STALE_TIME } from '@/lib/query'
 import { cn } from '@/lib/utils'
-import api from '@/lib/api'
+import api, { deleteResource } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/use-toast'
 import {
@@ -344,7 +344,7 @@ export function Sidebar({
 
   const resetNavOrderMutation = useMutation({
     mutationFn: async () => {
-      return api.delete('/me/preferences/nav_order')
+      return deleteResource('/me/preferences/nav_order')
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-preferences', 'nav_order'] })

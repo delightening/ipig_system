@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
   AssignCoEditorRequest,
   CoEditorAssignmentResponse,
+  deleteResource,
   User,
 } from '@/lib/api'
 import { useTranslation } from 'react-i18next'
@@ -96,7 +97,7 @@ export function CoEditorsTab({ protocolId, canAssignReviewer }: CoEditorsTabProp
 
   const removeCoEditorMutation = useMutation({
     mutationFn: async (userId: string) => {
-      return api.delete(`/protocols/${protocolId}/co-editors/${userId}`)
+      return deleteResource(`/protocols/${protocolId}/co-editors/${userId}`)
     },
     onSuccess: () => {
       toast({ title: t('common.success'), description: t('protocols.detail.actions.removeCoeditorSuccess') })

@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
+    deleteResource,
     Warehouse,
     StorageLocationWithWarehouse,
     StorageLocationType,
@@ -212,7 +213,7 @@ export function WarehouseLayoutPage() {
     // 刪除儲位
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
-            return api.delete(`/storage-locations/${id}`)
+            return deleteResource(`/storage-locations/${id}`)
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['storage-locations', selectedWarehouseId] })

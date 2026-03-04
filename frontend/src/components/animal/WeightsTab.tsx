@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import api, { AnimalWeight } from '@/lib/api'
+import api, { deleteResource, AnimalWeight } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -70,7 +70,7 @@ export const WeightsTab = React.memo(function WeightsTab({
 
   const deleteMutation = useMutation({
     mutationFn: async ({ id, reason }: { id: number; reason: string }) => {
-      return api.delete(`/weights/${id}`, { data: { reason } })
+      return deleteResource(`/weights/${id}`, { data: { reason } })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animal-weights', animalId] })

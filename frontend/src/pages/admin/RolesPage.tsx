@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api, { confirmPassword, Role, Permission } from '@/lib/api'
+import api, { confirmPassword, deleteResource, Role, Permission } from '@/lib/api'
 import { getErrorMessage } from '@/types/error'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -105,7 +105,7 @@ export function RolesPage() {
 
   // 刪除角色（SEC-33：需帶 X-Reauth-Token，在 ConfirmPasswordModal 內取得後呼叫）
   const deleteRoleWithReauth = async (id: string, reauthToken: string, is_system: boolean) => {
-    await api.delete(`/roles/${id}`, { headers: { 'X-Reauth-Token': reauthToken } })
+    await deleteResource(`/roles/${id}`, { headers: { 'X-Reauth-Token': reauthToken } })
     queryClient.invalidateQueries({ queryKey: ['roles'] })
     toast({
       title: '成功',

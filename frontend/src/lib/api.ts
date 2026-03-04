@@ -21,6 +21,19 @@ function getCookie(name: string): string | null {
   return match ? decodeURIComponent(match[1]) : null
 }
 
+// ============================================
+// 全域刪除：使用 POST /delete 避免代理/tunnel 對 DELETE 回傳 405
+// ============================================
+
+/** 刪除資源（統一改用 POST /delete，避免代理/tunnel 對 DELETE 回傳 405） */
+export function deleteResource(
+  url: string,
+  options?: { data?: object; headers?: { [key: string]: string } },
+) {
+  const base = url.replace(/\/$/, '')
+  return api.post(`${base}/delete`, options?.data ?? {}, { headers: options?.headers })
+}
+
 // Request interceptor：自動將 csrf_token Cookie 值加到 X-CSRF-Token header
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   // FormData 上傳時移除 Content-Type，讓瀏覽器自動設定 multipart/form-data + boundary
@@ -238,7 +251,7 @@ export const bloodTestApi = {
   update: (id: string, data: UpdateBloodTestRequest) =>
     api.put<AnimalBloodTestWithItems>(`/blood-tests/${id}`, data),
   delete: (id: string, reason: string) =>
-    api.delete(`/blood-tests/${id}`, { data: { reason } }),
+    deleteResource(`/blood-tests/${id}`, { data: { reason } }),
 }
 
 // 血液檢查項目模板 API 函數
@@ -252,7 +265,7 @@ export const bloodTestTemplateApi = {
   update: (id: string, data: UpdateBloodTestTemplateRequest) =>
     api.put<BloodTestTemplate>(`/blood-test-templates/${id}`, data),
   delete: (id: string) =>
-    api.delete(`/blood-test-templates/${id}`),
+    deleteResource(`/blood-test-templates/${id}`),
 }
 
 // 血液檢查組合 API 函數
@@ -268,7 +281,7 @@ export const bloodTestPanelApi = {
   updateItems: (id: string, data: UpdateBloodTestPanelItemsRequest) =>
     api.put<BloodTestPanel>(`/blood-test-panels/${id}/items`, data),
   delete: (id: string) =>
-    api.delete(`/blood-test-panels/${id}`),
+    deleteResource(`/blood-test-panels/${id}`),
 }
 
 // 血液檢查結果分析 API 函數
@@ -297,7 +310,7 @@ export const notificationRoutingApi = {
   update: (id: string, data: UpdateNotificationRoutingRequest) =>
     api.put<NotificationRouting>(`/admin/notification-routing/${id}`, data),
   delete: (id: string) =>
-    api.delete(`/admin/notification-routing/${id}`),
+    deleteResource(`/admin/notification-routing/${id}`),
   getEventTypes: () =>
     api.get<EventTypeCategory[]>('/admin/notification-routing/event-types'),
   getRoles: () =>
@@ -453,7 +466,7 @@ export const treatmentDrugApi = {
     api.put<TreatmentDrugOption>(`/admin/treatment-drugs/${id}`, data),
   /** 刪除（軟刪除） */
   delete: (id: string) =>
-    api.delete(`/admin/treatment-drugs/${id}`),
+    deleteResource(`/admin/treatment-drugs/${id}`),
   /** 從 ERP 匯入 */
   importFromErp: (data: ImportFromErpRequest) =>
     api.post<TreatmentDrugOption[]>('/admin/treatment-drugs/import-erp', data),
