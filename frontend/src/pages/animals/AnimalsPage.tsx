@@ -212,6 +212,13 @@ export function AnimalsPage() {
     return acc
   }, {} as Record<string, number>)
 
+  /** 欄位數量：僅計入仍在欄位中的動物（排除已安樂死、猝死、已轉讓） */
+  const penAnimalsCount =
+    allAnimals.length -
+    (statusCounts['euthanized'] || 0) -
+    (statusCounts['sudden_death'] || 0) -
+    (statusCounts['transferred'] || 0)
+
   // ─── Helpers ───────────────────────────────────────────────────────────────
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['animals'] })
@@ -310,7 +317,7 @@ export function AnimalsPage() {
   const batchAssignMutation = useMutation({
     mutationFn: () => api.post('/animals/batch/assign', { animal_ids: selectedAnimals, iacuc_no: assignIacucNo }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['animals'] })
+      invalidateAll()
       toast({ title: '成功', description: '動物已分配至計劃並進入實驗中' })
       setShowBatchAssignDialog(false)
       setSelectedAnimals([])
@@ -471,6 +478,7 @@ export function AnimalsPage() {
         isAdmin={isAdmin}
         statusCounts={statusCounts}
         allAnimalsCount={allAnimals.length}
+        penAnimalsCount={penAnimalsCount}
         selectedAnimalsCount={selectedAnimals.length}
         onShowBatchAssign={() => setShowBatchAssignDialog(true)}
       />
