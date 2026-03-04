@@ -204,6 +204,9 @@ pub struct AnimalTransfer {
     pub from_iacuc_no: String,
     pub to_iacuc_no: Option<String>,
     pub status: super::AnimalTransferStatus,
+    /// 轉讓類型：external = 轉給其他機構（完成時清空欄位），internal = 仍在機構內（保留欄位）
+    #[serde(default = "default_transfer_type_entity")]
+    pub transfer_type: String,
     pub initiated_by: Uuid,
     pub reason: String,
     pub remark: Option<String>,
@@ -212,6 +215,10 @@ pub struct AnimalTransfer {
     pub completed_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+fn default_transfer_type_entity() -> String {
+    "internal".to_string()
 }
 
 /// 轉讓獸醫評估記錄

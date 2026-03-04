@@ -389,7 +389,7 @@ API 採用 `/api` 為根路徑，所有路由透過中間件層級控制：
   | `web-dev` | ipig-web-dev | Vite 開發伺服器 (Node 22-Alpine) |
   | `db-backup` | ipig-db-backup | 排程資料庫備份（cron + pg_dump，含 rsync 遠端備份） |
 
-- **前端靜態邊界**：ipig-web 僅提供靜態資源，不解析使用者上傳之圖片；若有圖片處理需求，由獨立可升級之服務負責（方案 D，見 [docs/security.md](../security.md)）。
+- **前端靜態邊界**：ipig-web 僅提供靜態資源，不解析使用者上傳之圖片；若有圖片處理需求，由獨立可升級之服務負責（方案 D，見 [docs/security-compliance/security.md](../security-compliance/security.md)）。
 - **Nginx**: 作為反向代理處理 SSL 終止、緩衝優化與安全標頭。
 - **Volumes**: `postgres_data`、`db_backups`、`/uploads`（檔案上傳）、`/geoip`（GeoIP 資料庫）。
 - **Secrets**: Google Calendar Service Account JSON。

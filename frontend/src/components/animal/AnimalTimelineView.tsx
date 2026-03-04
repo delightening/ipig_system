@@ -1,4 +1,4 @@
-import { Animal, AnimalObservation, AnimalSurgery, AnimalSacrifice, AnimalSuddenDeath, AnimalWeight, AnimalTransfer, AnimalEvent, RecordType, recordTypeNames, transferStatusNames } from '@/lib/api'
+import { Animal, AnimalObservation, AnimalSurgery, AnimalSacrifice, AnimalSuddenDeath, AnimalWeight, AnimalTransfer, AnimalEvent, RecordType, recordTypeNames, transferStatusNames, transferTypeNames } from '@/lib/api'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -201,7 +201,7 @@ export function AnimalTimelineView({
             type: 'transferred' as const,
             date: new Date(t.completed_at || t.created_at),
             title: t.status === 'completed' ? '轉讓完成' : t.status === 'rejected' ? '轉讓拒絕' : '轉讓進行中',
-            content: `${t.from_iacuc_no} → ${t.to_iacuc_no || '待定'} (${transferStatusNames[t.status]})`,
+            content: `${t.from_iacuc_no} → ${t.to_iacuc_no || '待定'} · ${transferTypeNames[t.transfer_type === 'external' ? 'external' : 'internal']} (${transferStatusNames[t.status]})`,
             actor: null as string | null,
             vetRead: false,
             isNoMed: false,

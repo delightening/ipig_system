@@ -1,6 +1,6 @@
 //! 檔案服務：上傳、驗證（僅 magic number）、儲存與下載。
 //!
-//! **架構原則（方案 D，見 docs/security.md）**：本服務不解析／解碼圖片內容（無 libpng 等）。
+//! **架構原則（方案 D，見 docs/security-compliance/security.md）**：本服務不解析／解碼圖片內容（無 libpng 等）。
 //! 僅以檔案簽名（magic number）驗證格式；若有縮圖、轉檔等圖片處理需求，應由獨立可升級之服務負責。
 
 use std::path::{Path, PathBuf};

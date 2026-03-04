@@ -310,6 +310,7 @@ export {
 } from '@/types/notification'
 export {
   transferStatusNames,
+  transferTypeNames,
 } from '@/types/animal'
 
 // ============================================

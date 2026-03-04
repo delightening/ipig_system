@@ -131,12 +131,13 @@
 
 | 文件 | 說明 |
 |------|------|
+| [文件索引 (docs/)](docs/README.md) | 依主題分類之完整文件目錄 |
 | [QUICK_START.md](docs/QUICK_START.md) | 快速啟動（Docker / 本地開發 / E2E 測試） |
-| [COMPOSE.md](docs/COMPOSE.md) | Docker Compose 總覽（各 compose 檔用途、情境指令、依賴關係） |
+| [COMPOSE.md](docs/operations/COMPOSE.md) | Docker Compose 總覽（各 compose 檔用途、情境指令、依賴關係） |
 | [USER_GUIDE.md](docs/USER_GUIDE.md) | 使用者操作手冊（9 章節完整指南） |
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | 部署與維運手冊（系統需求、備份、監控、故障排除） |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | 架構文件（部署圖、資料流、模組、認證流程） |
-| [security.md](docs/security.md) | 安全性紀錄（CVE 評估與處置） |
+| [security.md](docs/security-compliance/security.md) | 安全性紀錄（CVE 評估與處置） |
 | [Profiling_Spec/](docs/Profiling_Spec/) | 技術規格（架構、API、權限、資料庫） |
 
 ---
@@ -147,7 +148,7 @@
 
 ### 使用 Docker Compose（推薦）
 
-各 compose 檔用途與生產／WAF／CI 組合指令詳見 [COMPOSE.md](docs/COMPOSE.md)。
+各 compose 檔用途與生產／WAF／CI 組合指令詳見 [COMPOSE.md](docs/operations/COMPOSE.md)。
 
 ```bash
 # 1. 設定環境變數（專案根目錄）

@@ -132,7 +132,7 @@
 
 ### 5.2 資料保留與隱私
 
-- 匯出內容可能含 PII，需符合 `docs/DATA_RETENTION_POLICY.md`
+- 匯出內容可能含 PII，需符合 `docs/security-compliance/DATA_RETENTION_POLICY.md`
 - 匯出檔應標註用途與保留期限
 
 ### 5.3 版本相容
@@ -146,4 +146,4 @@
 
 本設計對應 TODO 項目：**R6-6 資料庫輸出與歷史重新填寫**。
 
-**一鍵全庫輸出（通用格式）** 的完整規劃請參見：`docs/FULL_DB_EXPORT_PLAN.md`。
+**一鍵全庫輸出（通用格式）** 的完整規劃請參見：`docs/database/FULL_DB_EXPORT_PLAN.md`。

@@ -196,7 +196,6 @@ impl AnimalService {
             LEFT JOIN animal_sources s ON p.source_id = s.id
             WHERE p.pen_location IS NOT NULL
             AND p.deleted_at IS NULL
-            AND p.status NOT IN ('euthanized', 'sudden_death', 'transferred')
             ORDER BY p.pen_location, p.id
             "#
         )

@@ -45,5 +45,5 @@
 
 既有環境如需遷移，請：
 1. 備份資料庫
-2. 參考 `docs/DB_ROLLBACK.md` 評估回滾風險
+2. 參考 `docs/database/DB_ROLLBACK.md` 評估回滾風險
 3. 或維持既有 schema，僅新增後續 migrations

@@ -35,6 +35,7 @@
 - **不需** Cloudflare 帳號或 `cloudflared tunnel login`
 - URL **每次重啟都會變**
 - 關閉視窗或結束程序後隧道即消失
+- **SSE（如安全警報即時推送）**：後端已做立即回應與週期心跳，經 Quick Tunnel 時可避免 Cloudflare 524；tunnel 腳本無需額外設定。
 
 ---
 
@@ -106,6 +107,8 @@ cloudflared tunnel create ipig-system
 | 網址           | `*.trycloudflare.com`，每次變 | 固定，可自訂網域                 |
 | **Email 連結** | **會**：腳本自動更新 `APP_URL` 並重啟 API | **會**：腳本自動更新 `APP_URL` 並重啟 API（依 config 的 hostname） |
 | 適用情境       | 開發、臨時分享             | 正式對外、固定網域               |
+
+**SSE / 長連線**：安全警報即時推送（`/api/admin/audit/alerts/sse`）等 SSE 連線，兩種隧道皆適用；後端已實作立即回應與 30 秒心跳，避免 Cloudflare 524，**無需修改 tunnel 腳本或 config**。
 
 ---
 

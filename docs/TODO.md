@@ -49,7 +49,7 @@
 | P2-38 | **表單離開前確認** | `useUnsavedChangesGuard` hook（useBlocker + beforeunload）+ `UnsavedChangesDialog` 元件，已整合 ProtocolEditPage | 前端 | 無 | 🧠 Claude | [x] |
 | P2-39 | **隱私政策 / 服務條款頁面** | `PrivacyPolicyPage` + `TermsOfServicePage` 靜態頁面，公開路由 `/privacy` `/terms`，登入頁加連結 | 前端 | 無 | 🧠 Claude | [x] |
 | P2-40 | **Cookie 同意橫幅** | `CookieConsent` 元件，localStorage 記憶同意狀態，底部半透明橫幅 + 了解更多連結 | 前端 | 無 | 🧠 Claude | [x] |
-| P2-41 | **DB Migration Rollback 文件** | `docs/DB_ROLLBACK.md` 涵蓋 14 個 migration 的精確回滾 SQL（逆序）+ 建議回退流程 | 文件 | 無 | 🧠 Claude | [x] |
+| P2-41 | **DB Migration Rollback 文件** | `docs/database/DB_ROLLBACK.md` 涵蓋 14 個 migration 的精確回滾 SQL（逆序）+ 建議回退流程 | 文件 | 無 | 🧠 Claude | [x] |
 | P2-42 | **`.env.example` 補齊** | 新增 HOST/PORT/DATABASE_MAX_CONNECTIONS/UPLOAD_DIR/GEOIP_DB_PATH 等 9 個缺漏變數 | DevOps | 無 | 🧠 Claude | [x] |
 
 ---
@@ -66,11 +66,11 @@
 
 | # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
 |---|------|------|------|----------|------|
-| 17 | **基礎映像與 CVE 週期檢查** | 每季或基礎映像大改時，檢查 [georgjung/nginx-brotli](https://hub.docker.com/r/georgjung/nginx-brotli/tags) 是否有新 tag；若有則升級 frontend Dockerfile 的 FROM，並從 `.trivyignore` 移除 CVE-2026-25646。詳見 `docs/security.md`。**2026-02-28 已升級至 1.29.5-alpine（Alpine 3.23.3），CVE 仍存在（libpng 1.6.54→需 1.6.55），下次 Q2 檢查。** | DevOps | 🧠 Claude | [x] |
+| 17 | **基礎映像與 CVE 週期檢查** | 每季或基礎映像大改時，檢查 [georgjung/nginx-brotli](https://hub.docker.com/r/georgjung/nginx-brotli/tags) 是否有新 tag；若有則升級 frontend Dockerfile 的 FROM，並從 `.trivyignore` 移除 CVE-2026-25646。詳見 `docs/security-compliance/security.md`。**2026-02-28 已升級至 1.29.5-alpine（Alpine 3.23.3），CVE 仍存在（libpng 1.6.54→需 1.6.55），下次 Q2 檢查。** | DevOps | 🧠 Claude | [x] |
 | 18 | **E2E Rate Limiting / Session 穩定化** | ~~解決 shared context 下 Session 過期誤判導致大量重新登入~~。已修復：admin-context 改用 auth.setup 儲存的 storageState 免重複登入；API rate limit 120→600/min；login.spec 加入 credential fallback。34/34 連續通過、22s 完成。 | 前端 | 🧠 Claude | [x] |
 | 19 | **Prometheus 服務部署** | `docker-compose.monitoring.yml` overlay 新增 Prometheus + Grafana 服務，`deploy/prometheus.yml` 配置 scrape，Grafana provisioning 自動註冊 datasource + dashboard（10 panels：Request Rate / Latency P50-P99 / Error Rate / Status Codes / Heatmap / DB Pool / Pool Utilization / Top Endpoints）。 | DevOps | 🧠 Claude | [x] |
 | 20 | **後端 API 整合測試** | `backend/tests/` 建立 6 個整合測試檔案（api_auth / api_health / api_animals / api_protocols / api_users / api_reports），共用 `TestApp` 測試基礎架構（spawn Axum + random port + test DB）。重構 `lib.rs` 使 crate 同時支援 library + binary。 | 後端 | 🧠 Claude | [x] |
-| 21 | **效能基準報告文件化** | `docs/PERFORMANCE_BENCHMARK.md` 正式報告（8 章節：摘要/環境/方法/指標/閾值/資源/限制/結論）。k6 腳本優化：改用 `setup()` 共用 token 消除 rate limit 串連失敗。 | 文件 | 🧠 Claude | [x] |
+| 21 | **效能基準報告文件化** | `docs/assessments/PERFORMANCE_BENCHMARK.md` 正式報告（8 章節：摘要/環境/方法/指標/閾值/資源/限制/結論）。k6 腳本優化：改用 `setup()` 共用 token 消除 rate limit 串連失敗。 | 文件 | 🧠 Claude | [x] |
 
 ---
 
@@ -87,7 +87,7 @@
 | P5-45 | **磁碟空間監控告警** | `scripts/monitor/check_disk_space.sh` 含 uploads 大小 + 磁碟使用率檢查 + Prometheus textfile 輸出 | DevOps | 🧠 Claude | [x] |
 | P5-46 | **LICENSE 檔案** | MIT License，2026 iPig System Contributors | 文件 | 🧠 Claude | [x] |
 | P5-47 | **index.html Meta Tags** | title「豬博士 iPig 系統」+ description + theme-color + favicon 更新 | 前端 | 🧠 Claude | [x] |
-| P5-48 | **useState → Custom Hooks 重構規劃** | 規劃文件 `docs/REFACTOR_PLAN_USESTATE_TO_HOOKS.md`，Phase 1–2 完成：useToggle / useDialogSet / useListFilters，遷移 10+ 元件 | 前端 | 🧠 Claude | [x] |
+| P5-48 | **useState → Custom Hooks 重構規劃** | 規劃文件 `docs/development/REFACTOR_PLAN_USESTATE_TO_HOOKS.md`，Phase 1–2 完成：useToggle / useDialogSet / useListFilters，遷移 10+ 元件 | 前端 | 🧠 Claude | [x] |
 
 ---
 
@@ -110,7 +110,7 @@
 | P1-M1 | **API 版本路徑** | `/api/v1/` 前綴，前端 baseURL 更新 | [x] |
 | P1-M2 | **GDPR 資料主體權利** | `GET /me/export`、`DELETE /me/account`，隱私政策補充 | [x] |
 | P1-M3 | **維運文件 OPERATIONS.md** | 服務擁有者、on-call、升級流程、故障排除 | [x] |
-| P1-M4 | **憑證輪換文件** | `docs/CREDENTIAL_ROTATION.md` 已存在 | [x] |
+| P1-M4 | **憑證輪換文件** | `docs/security-compliance/CREDENTIAL_ROTATION.md` 已存在 | [x] |
 | P1-M5 | **Dependabot Phase 2 收尾** | zod 4、zustand 5、date-fns 4 已升級 | [x] |
 | P2-M2 | **人員訓練紀錄模組** | migration 020、training_records 表、CRUD API、TrainingRecordsPage | [x] |
 | P2-M3 | **設備校準紀錄模組** | migration 021、equipment + equipment_calibrations、EquipmentPage | [x] |
@@ -130,7 +130,7 @@
 | R6-3 | **Skeleton DOM nesting 修正** | skeleton.stories.tsx「行內骨架」`<div>` 於 `<p>` 內造成 validateDOMNesting 警告，改為 `<span>` 或調整結構 | 前端 | ⚡ Flash | [x] |
 | R6-4 | **財務模組 Phase 2–5 評估** | AP/AR/GL 後續階段（ap_payments、ar_receipts、trial-balance 等）實作評估，依業務需求排程 | 全端 | 🧠 Claude | [x] |
 | R6-5 | **Dependabot Phase 2.5 依賴評估** | printpdf 0.9、utoipa 5、axum-extra 0.12、tailwind-merge 3 升級可行性評估，詳見 `DEPENDABOT_MIGRATION_PLAN.md` | 全端 | 🧠 Claude | [x] |
-| R6-6 | **資料庫輸出與歷史重新填寫** | 建立資料庫匯出 API、讓系統可讀取過去資料，並依歷史內容預填表單（手術複製、請假預填、Protocol 複製等），詳見 `docs/DATA_EXPORT_IMPORT_DESIGN.md` | 全端 | 🧠 Claude | [ ] |
+| R6-6 | **資料庫輸出與歷史重新填寫** | 建立資料庫匯出 API、讓系統可讀取過去資料，並依歷史內容預填表單（手術複製、請假預填、Protocol 複製等），詳見 `docs/development/DATA_EXPORT_IMPORT_DESIGN.md` | 全端 | 🧠 Claude | [ ] |
 
 ---
 
@@ -154,27 +154,27 @@
 | 日期 | 內容 |
 |------|------|
 | 2026-03-02 | 📄 文件同步：PROGRESS.md 更新至 v5（2026-03-02 動物欄位修正申請）；Profiling_Spec 規格同步；R6 待辦統計校正 |
-| 2026-03-01 | 🧠 Claude：R6 第六輪改善全部完成 — R6-4 產出 `docs/R6-4_FINANCE_PHASE2_5_ASSESSMENT.md`；R6-5 產出 `docs/R6-5_DEPENDABOT_PHASE25_ASSESSMENT.md` |
+| 2026-03-01 | 🧠 Claude：R6 第六輪改善全部完成 — R6-4 產出 `docs/assessments/R6-4_FINANCE_PHASE2_5_ASSESSMENT.md`；R6-5 產出 `docs/assessments/R6-5_DEPENDABOT_PHASE25_ASSESSMENT.md` |
 | 2026-03-01 | 🧠 Claude：R6 第六輪改善執行 — R6-1 EquipmentPage/TrainingRecordsPage；R6-2 useDateRangeFilter、useTabState 建立並套用 8 頁；R6-3 InlineSkeleton 改 span |
 | 2026-03-01 | 🧠 Claude：建立 R6 第六輪改善計劃 — R6-1 useState→hooks 擴展、R6-2 useDateRangeFilter/useTabState、R6-3 Skeleton DOM 修正、R6-4 財務模組評估、R6-5 Dependabot Phase 2.5 評估。依據專案評估產出 |
 | 2026-03-01 | 🧠 Claude：財務 SOC2 QAU 三項規劃完成 — QAU 角色/儀表板（022、GET /qau/dashboard、QAUDashboardPage）；SOC2 憑證輪換腳本、SLA.md、DR_DRILL_CHECKLIST；財務 AP/AR/GL（023–024、AccountingService、AccountingReportPage）。詳見 `docs/PROGRESS.md` §9 |
-| 2026-03-01 | 🧠 Claude：P0–P2 改進計劃全部完成 — P1-M0 稽核匯出 API、P1-M1 API 版本、P1-M2 GDPR、P1-M3 OPERATIONS.md、P1-M4 憑證輪換、P1-M5 Dependabot；P2-M2 人員訓練紀錄、P2-M3 設備校準、P2-M4 稽核 UI 使用者篩選、P2-M5 SOC2_READINESS.md。詳見 `docs/IMPROVEMENT_PLAN_MARKET_REVIEW.md` |
-| 2026-02-28 | 🧠 Claude：第三輪系統改善 20 項（P0-R3-1~4 安全 + P1-R3-5~10 效能 + P2-R3-11~20 品質/維運）— SQL QueryBuilder 統一/IDOR 修補/expect() 清理/非 root 容器/搜尋 debounce/staleTime 調優/AnimalsPage 拆分/DashMap Rate Limiter/DB Pool 指標/Skeleton Loading/Protocol any 消除/審計日誌/常數提取/Error Boundary/SSL 範本/備份驗證/Loki 日誌/環境驗證/無障礙/API 一致性。詳見 `docs/IMPROVEMENT_PLAN_R3.md` |
-| 2026-02-28 | 🧠 Claude：第二輪系統改善 15 項（P0-R2-1~2 安全 + P1-R2-3~8 效能/可靠性 + P2-R2-9~15 品質/維運）— DOMPurify XSS 防護/Rate Limiting 分級/jsPDF 動態導入/動物列表分頁/健康檢查深度擴充/Alertmanager 告警/SMTP 重試/Query Key Factory/Zod 表單驗證/i18n 補齊/Zustand Selector/DB 維護自動化/Dependabot/零停機遷移策略/架構圖。詳見 `docs/IMPROVEMENT_PLAN_R2.md` |
-| 2026-02-28 | 🧠 Claude：系統改善 14 項（P0-S1~S3 安全性 + P1-S4~S8 效能 + P2-S9~S14 品質）— Docker 網路隔離/DB 埠口/Secrets + N+1 修復/批次 INSERT/移除 .expect()/複合索引 + is_admin()/UserResponse 提取/TypeScript 嚴格化/API 錯誤統一/MainLayout 拆分/Memoization/cargo-chef。詳見 `docs/IMPROVEMENT_PLAN.md` |
+| 2026-03-01 | 🧠 Claude：P0–P2 改進計劃全部完成 — P1-M0 稽核匯出 API、P1-M1 API 版本、P1-M2 GDPR、P1-M3 OPERATIONS.md、P1-M4 憑證輪換、P1-M5 Dependabot；P2-M2 人員訓練紀錄、P2-M3 設備校準、P2-M4 稽核 UI 使用者篩選、P2-M5 security-compliance/SOC2_READINESS.md。詳見 `docs/development/IMPROVEMENT_PLAN_MARKET_REVIEW.md` |
+| 2026-02-28 | 🧠 Claude：第三輪系統改善 20 項（P0-R3-1~4 安全 + P1-R3-5~10 效能 + P2-R3-11~20 品質/維運）— SQL QueryBuilder 統一/IDOR 修補/expect() 清理/非 root 容器/搜尋 debounce/staleTime 調優/AnimalsPage 拆分/DashMap Rate Limiter/DB Pool 指標/Skeleton Loading/Protocol any 消除/審計日誌/常數提取/Error Boundary/SSL 範本/備份驗證/Loki 日誌/環境驗證/無障礙/API 一致性。詳見 `docs/development/IMPROVEMENT_PLAN_R3.md` |
+| 2026-02-28 | 🧠 Claude：第二輪系統改善 15 項（P0-R2-1~2 安全 + P1-R2-3~8 效能/可靠性 + P2-R2-9~15 品質/維運）— DOMPurify XSS 防護/Rate Limiting 分級/jsPDF 動態導入/動物列表分頁/健康檢查深度擴充/Alertmanager 告警/SMTP 重試/Query Key Factory/Zod 表單驗證/i18n 補齊/Zustand Selector/DB 維護自動化/Dependabot/零停機遷移策略/架構圖。詳見 `docs/development/IMPROVEMENT_PLAN_R2.md` |
+| 2026-02-28 | 🧠 Claude：系統改善 14 項（P0-S1~S3 安全性 + P1-S4~S8 效能 + P2-S9~S14 品質）— Docker 網路隔離/DB 埠口/Secrets + N+1 修復/批次 INSERT/移除 .expect()/複合索引 + is_admin()/UserResponse 提取/TypeScript 嚴格化/API 錯誤統一/MainLayout 拆分/Memoization/cargo-chef。詳見 `docs/development/IMPROVEMENT_PLAN_R1.md` |
 | 2026-02-28 | 🧠 Claude：完成最終 3 項 P5 待辦 — (1) P5-13 Storybook 15 個 Stories；(2) P5-15 TOTP 2FA 全端實作（後端 totp-rs + 4 API + 登入流程 + 備用碼，前端 QR Code + TOTP 驗證 + Profile 管理）；(3) P5-16 WAF OWASP ModSecurity CRS v4 overlay 部署 + 自訂排除規則 |
 | 2026-02-28 | 🧠 Claude：系統設定全端串接 — 後端新增 `GET/PUT /admin/system-settings` API + 10 項 DB seed；前端 SettingsPage 四大區塊（基本/庫存/郵件/安全）全部從 API 載入與儲存；通知路由管理 UI 改善（收合分類/Switch/角色名稱/ConfirmDialog/grid layout）|
 | 2026-02-28 | 🧠 Claude：P5-14 ProtocolDetailPage 重構 1,929→647 行（-66%），抽離 VersionsTab/HistoryTab/CommentsTab/ReviewersTab/CoEditorsTab/AttachmentsTab 6 個元件至 `components/protocol/` |
 | 2026-02-28 | 🧠 Claude：JWT 預設過期時間從 15 分鐘調整為 360 分鐘（6 小時），更新後端 config / 前端 session fallback / .env / docker-compose 等 7 個檔案 |
 | 2026-02-28 | 🧠 Claude：完成 18 項品質補強計畫 — **高影響 6 項**：P1-30 Graceful Shutdown / P1-31 自訂 404 頁面 / P1-32 Session 逾時預警 / P1-33 刪除記錄清理檔案 / P1-34 Optimistic Locking / P1-35 confirm() 統一 Dialog。**中影響 7 項**：P2-36 i18n 補齊 / P2-37 API 分頁 / P2-38 表單離開確認 / P2-39 隱私政策 / P2-40 Cookie 同意 / P2-41 Rollback 文件 / P2-42 .env 補齊。**低影響 5 項**：P5-43 ARIA 標籤 / P5-44 驗證回饋 / P5-45 磁碟監控 / P5-46 LICENSE / P5-47 Meta Tags。|
-| 2026-02-28 | 🧠 Claude：完成交付前補強 3 項 — (1) P4-19 Prometheus + Grafana 部署（`docker-compose.monitoring.yml` + `deploy/prometheus.yml` + Grafana provisioning + 10-panel dashboard）；(2) P4-20 後端 API 整合測試（`lib.rs` 重構 + `TestApp` infra + 6 個測試檔 25+ test cases，`cargo check --tests` 通過）；(3) P4-21 效能基準報告（`docs/PERFORMANCE_BENCHMARK.md` 8 章節正式報告 + k6 腳本 setup() token sharing 優化）。|
+| 2026-02-28 | 🧠 Claude：完成交付前補強 3 項 — (1) P4-19 Prometheus + Grafana 部署（`docker-compose.monitoring.yml` + `deploy/prometheus.yml` + Grafana provisioning + 10-panel dashboard）；(2) P4-20 後端 API 整合測試（`lib.rs` 重構 + `TestApp` infra + 6 個測試檔 25+ test cases，`cargo check --tests` 通過）；(3) P4-21 效能基準報告（`docs/assessments/PERFORMANCE_BENCHMARK.md` 8 章節正式報告 + k6 腳本 setup() token sharing 優化）。|
 | 2026-02-28 | 🧠 Claude：解決 3 個市場交付阻擋項 — (1) 獸醫建議/觀察紀錄檔案上傳下載串接完成（後端新增 `ObservationAttachment` FileCategory + `/observations/:id/attachments` 路由，前端 VetRecommendationDialog 與 ObservationFormDialog 串接 multipart 上傳與下載）；(2) USER_GUIDE.md 從 26 行擴充至完整操作手冊（9 章節含 AUP/動物/ERP/HR/報表/系統管理/FAQ）；(3) docker-compose.prod.yml 補齊所有服務的 CPU/記憶體限制與 json-file 日誌輪轉。|
 | 2026-02-28 | 🧠 Claude：完成 P5-14 前端超長頁面重構 — AnimalDetailPage 1,945→748 行（-61%），抽離 7 個 Tab 元件至 `components/animal/`（Observations/Surgeries/Weights/Vaccinations/Sacrifice/AnimalInfo/PathologyTab），TypeScript 零錯誤通過。 |
 | 2026-02-28 | 🧠 Claude：完成 P4-17 基礎映像與 CVE 週期檢查 — Dockerfile 版本釘選至 `georgjung/nginx-brotli:1.29.5-alpine`（Alpine 3.23.3），Trivy 掃描確認 CVE-2026-25646 仍存在（libpng 1.6.54-r0→需 1.6.55-r0），.trivyignore 保留並更新註解，下次 Q2 檢查。 |
 | 2026-02-27 | 🧠 Claude：完成 P4-18 E2E Rate Limiting / Session 穩定化 — admin-context 改用 storageState 檔案免重複登入、API rate limit 120→600/min、login.spec credential fallback。34/34 連續通過、22s 完成。 |
 | 2026-02-27 | 🧠 Claude：E2E 測試總結計畫實施 — 新增 P4-18 Rate Limiting/Session 穩定化待辦；`docs/e2e/README.md` 故障排除 §5 補充 Session 過期導致 429 連鎖失敗說明。 |
 | 2026-02-25 | 🧠 Claude：完成 P3-7 SEC-33 敏感操作二級認證 — 後端 confirm-password + reauth token，前後端刪除使用者／重設密碼／模擬登入／刪除角色皆需重新輸入密碼確認。 |
-| 2026-02-25 | 🧠 Claude：完成 P1-7 電子簽章合規審查（21 CFR Part 11），新增 `docs/ELECTRONIC_SIGNATURE_COMPLIANCE.md`。 |
+| 2026-02-25 | 🧠 Claude：完成 P1-7 電子簽章合規審查（21 CFR Part 11），新增 `docs/security-compliance/ELECTRONIC_SIGNATURE_COMPLIANCE.md`。 |
 | 2026-02-25 | 🧠 Claude：完成 P1-12 OpenAPI 完善 — 新增電子簽章（10 paths + 2 附註）、動物管理（9 paths）及對應 Schema。 |
 | 2026-02-25 | 🧠 Claude：修正 CI `sqlx-cli` 安裝錯誤，增加 `--force` 以應對快取衝突。 |
 | 2026-02-25 | 🧠 Claude：完成 P1-8 資料保留政策 (Data Retention Policy) 定義。 |

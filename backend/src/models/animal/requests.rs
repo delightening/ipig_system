@@ -204,6 +204,13 @@ pub struct CreateSuddenDeathRequest {
 pub struct CreateTransferRequest {
     pub reason: String,
     pub remark: Option<String>,
+    /// 轉讓類型：external = 轉給其他機構（完成時清空欄位），internal = 仍在機構內（保留欄位）。預設 internal。
+    #[serde(default = "default_transfer_type")]
+    pub transfer_type: String,
+}
+
+fn default_transfer_type() -> String {
+    "internal".to_string()
 }
 
 /// 獸醫評估轉讓請求

@@ -67,6 +67,9 @@ pub async fn sse_security_alerts(
     let mut rx = state.alert_broadcaster.subscribe();
 
     let stream = async_stream::stream! {
+        // 立即送出一個 comment，讓 proxy（如 Cloudflare）收到第一個位元組，避免 524 timeout
+        yield Ok(Event::default().comment("ok"));
+
         loop {
             match rx.recv().await {
                 Ok(alert) => {
@@ -86,9 +89,10 @@ pub async fn sse_security_alerts(
         }
     };
 
+    // 定期心跳（comment）避免 Cloudflare/代理 524：origin 逾時
     Ok(Sse::new(stream).keep_alive(
         axum::response::sse::KeepAlive::new()
-            .interval(Duration::from_secs(15))
-            .text("ping"),
+            .interval(Duration::from_secs(30))
+            .text(""),
     ))
 }

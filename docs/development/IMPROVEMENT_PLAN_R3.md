@@ -405,7 +405,7 @@ output.push_str(&format!("db_pool_active {}\n", pool_size - pool_idle));
 
 ### P2-R3-15：SSL/TLS 配置範本
 
-**實作：** 建立 `docs/SSL_SETUP.md` + `nginx-ssl.conf.example`。
+**實作：** 建立 `docs/operations/SSL_SETUP.md` + `nginx-ssl.conf.example`。
 
 ---
 
