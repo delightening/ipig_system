@@ -107,7 +107,13 @@ export function AnimalFilters({
                     className="pl-9"
                   />
                 </div>
-                <Button type="button" variant="secondary" onClick={onSearchSubmit} aria-label={t('common.search')}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={onSearchSubmit}
+                  aria-label={t('common.search')}
+                  className="cursor-pointer transition-colors hover:bg-secondary/70 hover:ring-2 hover:ring-primary/20 hover:ring-offset-2"
+                >
                   <Search className="h-4 w-4 md:mr-1.5" />
                   <span className="hidden md:inline">{t('common.search')}</span>
                 </Button>
