@@ -6,8 +6,8 @@ import { useState, useMemo, useCallback } from 'react'
 import { useTabState } from '@/hooks/useTabState'
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { useQuery } from '@tanstack/react-query'
-import { bloodTestAnalysisApi } from '@/lib/api'
-import type { BloodTestAnalysisRow } from '@/types'
+import { bloodTestAnalysisApi, bloodTestPanelApi } from '@/lib/api'
+import type { BloodTestAnalysisRow, BloodTestPanel } from '@/types'
 import { formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,6 +32,7 @@ import {
     BarChart3,
     FileSpreadsheet,
 } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
     LineChart,
     Line,
@@ -162,6 +163,15 @@ export function BloodTestAnalysisPage() {
         },
     })
 
+    // 取得所有檢測分類（Panel）與項目，供依分類選擇
+    const { data: panelsData } = useQuery<BloodTestPanel[]>({
+        queryKey: ['blood-test-panels-all'],
+        queryFn: async () => {
+            const response = await bloodTestPanelApi.listAll()
+            return response.data
+        },
+    })
+
     // 篩選耳號（前端篩選，因為 API 使用 animal_id 不方便使用者輸入）
     const filteredData = useMemo(() => {
         if (!rawData) return []
@@ -173,12 +183,40 @@ export function BloodTestAnalysisPage() {
         return data
     }, [rawData, earTag])
 
-    // 取得所有不重複的檢查項目名稱
+    // 取得所有不重複的檢查項目名稱（本次篩選結果中出現的）
     const availableItems = useMemo(() => {
         const items = new Set<string>()
         filteredData.forEach(r => items.add(r.item_name))
         return Array.from(items).sort()
     }, [filteredData])
+
+    // 依分類（Panel）分組的分析項目選單：系統分類 + 本次資料中未歸類者
+    const groupedAnalysisOptions = useMemo(() => {
+        const allTemplateNames = new Set<string>()
+        const groups: { label: string; items: { name: string }[] }[] = []
+
+        if (panelsData) {
+            const activePanels = panelsData
+                .filter(p => p.is_active)
+                .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+            for (const panel of activePanels) {
+                const items = (panel.items ?? [])
+                    .filter(t => t.is_active !== false)
+                    .map(t => ({ name: t.name }))
+                if (items.length > 0) {
+                    items.forEach(t => allTemplateNames.add(t.name))
+                    groups.push({ label: panel.name, items })
+                }
+            }
+        }
+
+        const otherItems = availableItems.filter(n => !allTemplateNames.has(n))
+        if (otherItems.length > 0) {
+            groups.push({ label: '其他（本次資料）', items: otherItems.map(name => ({ name })) })
+        }
+
+        return groups
+    }, [panelsData, availableItems])
 
     // 根據選中的項目篩選資料（圖表用）
     const chartFilteredData = useMemo(() => {
@@ -530,44 +568,83 @@ export function BloodTestAnalysisPage() {
                         </Card>
                     )}
 
-                    {/* 檢查項目選擇器 */}
-                    {availableItems.length > 0 && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-base">選擇分析項目</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="flex flex-wrap gap-2">
-                                    {availableItems.map(item => (
-                                        <Button
-                                            key={item}
-                                            variant={selectedItems.includes(item) ? 'default' : 'outline'}
-                                            size="sm"
-                                            onClick={() => toggleItem(item)}
-                                            className="text-xs"
-                                        >
-                                            {item}
-                                        </Button>
-                                    ))}
+                    {/* 選擇分析項目：依檢測分類（肝指數、腎指數、血球分析等）下拉／分組勾選 */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base">選擇分析項目</CardTitle>
+                            <p className="text-sm text-muted-foreground font-normal mt-1">
+                                依分類勾選要分析的項目，未選擇時顯示全部
+                            </p>
+                        </CardHeader>
+                        <CardContent>
+                            {groupedAnalysisOptions.length === 0 ? (
+                                <p className="text-sm text-muted-foreground py-2">
+                                    尚無分類資料，請先設定血液檢查組合或執行篩選以產生項目
+                                </p>
+                            ) : (
+                                <>
+                                    <div className="space-y-4 max-h-[320px] overflow-y-auto pr-2">
+                                        {groupedAnalysisOptions.map(group => (
+                                            <div key={group.label} className="space-y-2">
+                                                <div className="text-sm font-medium text-foreground border-b pb-1">
+                                                    {group.label}
+                                                </div>
+                                                <div className="flex flex-wrap gap-x-4 gap-y-1.5 pl-1">
+                                                    {group.items.map(({ name }) => (
+                                                        <label
+                                                            key={name}
+                                                            className="flex items-center gap-2 cursor-pointer text-sm"
+                                                        >
+                                                            <Checkbox
+                                                                checked={selectedItems.includes(name)}
+                                                                onCheckedChange={checked =>
+                                                                    setSelectedItems(prev =>
+                                                                        checked
+                                                                            ? [...prev, name]
+                                                                            : prev.filter(i => i !== name)
+                                                                    )
+                                                                }
+                                                            />
+                                                            <span>{name}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                     {selectedItems.length > 0 && (
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => setSelectedItems([])}
-                                            className="text-xs text-muted-foreground"
-                                        >
-                                            清除選擇
-                                        </Button>
+                                        <div className="mt-3 pt-3 border-t flex flex-wrap items-center gap-2">
+                                            <span className="text-sm text-muted-foreground">已選：</span>
+                                            {selectedItems.map(item => (
+                                                <span
+                                                    key={item}
+                                                    className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-xs"
+                                                >
+                                                    {item}
+                                                    <button
+                                                        type="button"
+                                                        className="hover:text-destructive"
+                                                        onClick={() => toggleItem(item)}
+                                                        aria-label={`移除 ${item}`}
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </span>
+                                            ))}
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setSelectedItems([])}
+                                                className="text-xs text-muted-foreground"
+                                            >
+                                                清除選擇
+                                            </Button>
+                                        </div>
                                     )}
-                                </div>
-                                {selectedItems.length === 0 && (
-                                    <p className="text-sm text-muted-foreground mt-2">
-                                        點選項目可篩選圖表顯示範圍，未選擇時顯示全部
-                                    </p>
-                                )}
-                            </CardContent>
-                        </Card>
-                    )}
+                                </>
+                            )}
+                        </CardContent>
+                    </Card>
 
                     {/* 圖表切換標籤 */}
                     <div className="flex gap-2 border-b pb-2">
