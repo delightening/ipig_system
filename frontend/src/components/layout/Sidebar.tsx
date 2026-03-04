@@ -385,6 +385,7 @@ export function Sidebar({
     },
     staleTime: STALE_TIME.LIST,
     refetchInterval: 60000,
+    enabled: !!user,
   })
 
   const toggleExpand = (title: string) => {

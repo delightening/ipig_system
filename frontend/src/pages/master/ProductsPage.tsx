@@ -323,30 +323,23 @@ export function ProductsPage() {
       <div className="space-y-4">
         <div className="flex flex-wrap gap-3 items-center">
           {/* 關鍵字搜尋 */}
-          <div className="flex gap-2 flex-1 min-w-[240px] max-w-md">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="搜尋 SKU、名稱、規格、標籤..."
-                value={listState.filters.search}
-                onChange={(e) => listState.setFilter('search', e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); queryClient.invalidateQueries({ queryKey: ['products'] }) } }}
-                className="pl-9 pr-9"
-              />
-              {listState.filters.search && (
-                <button
-                  onClick={() => listState.setFilter('search', '')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  aria-label="清除搜尋"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-            <Button type="button" variant="secondary" onClick={() => queryClient.invalidateQueries({ queryKey: ['products'] })} aria-label="搜尋" className="cursor-pointer transition-colors hover:bg-secondary/70 hover:ring-2 hover:ring-primary/20 hover:ring-offset-2">
-              <Search className="h-4 w-4 md:mr-1.5" />
-              <span className="hidden md:inline">搜尋</span>
-            </Button>
+          <div className="relative flex-1 min-w-[240px] max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="搜尋 SKU、名稱、規格、標籤..."
+              value={listState.filters.search}
+              onChange={(e) => listState.setFilter('search', e.target.value)}
+              className="pl-9 pr-9"
+            />
+            {listState.filters.search && (
+              <button
+                onClick={() => listState.setFilter('search', '')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="清除搜尋"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
 
           {/* 品類篩選 */}

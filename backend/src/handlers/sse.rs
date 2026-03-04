@@ -4,6 +4,7 @@
 
 use axum::{
     extract::State,
+    http::StatusCode,
     response::sse::{Event, Sse},
     Extension,
 };
@@ -57,10 +58,12 @@ impl AlertBroadcaster {
 }
 
 /// SSE 端點 — 管理員即時接收安全警報
+/// 使用 Option<Extension> 避免未帶認證時 Axum 回傳 500（Missing extension），改回 401
 pub async fn sse_security_alerts(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
-) -> Sse<impl futures::Stream<Item = Result<Event, Infallible>>> {
+    current_user: Option<Extension<CurrentUser>>,
+) -> Result<Sse<impl futures::Stream<Item = Result<Event, Infallible>>>, (StatusCode, &'static str)> {
+    let _current_user = current_user.ok_or((StatusCode::UNAUTHORIZED, "Unauthorized"))?;
     let mut rx = state.alert_broadcaster.subscribe();
 
     let stream = async_stream::stream! {
@@ -83,9 +86,9 @@ pub async fn sse_security_alerts(
         }
     };
 
-    Sse::new(stream).keep_alive(
+    Ok(Sse::new(stream).keep_alive(
         axum::response::sse::KeepAlive::new()
             .interval(Duration::from_secs(15))
             .text("ping"),
-    )
+    ))
 }

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import api from '@/lib/api'
+import { useAuthStore } from '@/stores/auth'
 import type { NotificationItem } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/use-toast'
@@ -18,9 +19,12 @@ export function NotificationDropdown() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { t, i18n } = useTranslation()
+  const { user } = useAuthStore()
 
   const [showDropdown, setShowDropdown] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  const isLoggedIn = !!user
 
   const { data: unreadCount } = useQuery({
     queryKey: ['notifications-unread-count'],
@@ -30,6 +34,7 @@ export function NotificationDropdown() {
     },
     staleTime: 30_000,
     refetchInterval: 60000,
+    enabled: isLoggedIn,
   })
 
   const { data: notificationsData, isLoading: isLoadingNotifications } = useQuery({
@@ -38,7 +43,7 @@ export function NotificationDropdown() {
       const res = await api.get<{ data: NotificationItem[] }>('/notifications?per_page=10')
       return res.data.data
     },
-    enabled: showDropdown,
+    enabled: isLoggedIn && showDropdown,
     staleTime: 30_000,
   })
 
