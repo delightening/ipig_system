@@ -399,10 +399,10 @@ export interface SignatureStatusResponse {
 }
 
 export const signatureApi = {
-  // 犧牲紀錄簽章
-  signSacrifice: (sacrificeId: number, data: SignRecordRequest) =>
+  // 犧牲紀錄簽章（犧牲記錄 ID 為 UUID）
+  signSacrifice: (sacrificeId: string, data: SignRecordRequest) =>
     api.post<SignRecordResponse>(`/signatures/sacrifice/${sacrificeId}`, data),
-  getSacrificeStatus: (sacrificeId: number) =>
+  getSacrificeStatus: (sacrificeId: string) =>
     api.get<SignatureStatusResponse>(`/signatures/sacrifice/${sacrificeId}`),
 
   // 觀察紀錄簽章

@@ -48,7 +48,9 @@ export function useSecurityAlerts() {
         es.addEventListener('security_alert', handleAlert)
 
         es.onerror = () => {
-            // SSE 連線中斷時瀏覽器會自動重連
+            // SSE 連線中斷或逾時（如 524）時不重試、不刷 console，靜默關閉
+            es.close()
+            eventSourceRef.current = null
         }
 
         return () => {

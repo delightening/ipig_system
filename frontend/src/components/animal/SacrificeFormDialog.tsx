@@ -172,7 +172,7 @@ export function SacrificeFormDialog({ open, onOpenChange, animalId, earTag, sacr
         confirmed_sacrifice: data.confirmed_sacrifice,
       }
 
-      return api.put(`/animals/${animalId}/sacrifice`, payload)
+      return api.post(`/animals/${animalId}/sacrifice`, payload)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animal-sacrifice', animalId] })
@@ -223,6 +223,7 @@ export function SacrificeFormDialog({ open, onOpenChange, animalId, earTag, sacr
     enabled: isEdit && !!sacrifice?.id,
     select: (res) => res.data,
     staleTime: 30_000,
+    retry: false, // 避免 404/400 時重試刷 console
   })
 
   const hasOtherSampling = formData.sampling.includes('其他')

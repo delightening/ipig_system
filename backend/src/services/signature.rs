@@ -1,4 +1,4 @@
-﻿// 電子簽章服務 - GLP 合規
+// 電子簽章服務 - GLP 合規
 // 用於犧牲記錄確認、計畫核准等需要簽章的操作
 
 use crate::{AppError, Result};
@@ -328,7 +328,7 @@ impl SignatureService {
         Ok(count > 0)
     }
 
-    /// 鎖定記錄（簽章後自動鎖定）
+    /// 鎖定記錄（簽章後自動鎖定，記錄 ID 為 i32）
     pub async fn lock_record(
         pool: &PgPool,
         record_type: &str, // "observation", "surgery", "sacrifice"
@@ -361,7 +361,38 @@ impl SignatureService {
         Ok(())
     }
 
-    /// 檢查記錄是否已鎖定
+    /// 鎖定記錄（記錄 ID 為 UUID，用於 animal_sacrifices）
+    pub async fn lock_record_uuid(
+        pool: &PgPool,
+        record_type: &str,
+        record_id: Uuid,
+        locked_by: Uuid,
+    ) -> Result<()> {
+        let table_name = match record_type {
+            "sacrifice" => "animal_sacrifices",
+            _ => {
+                return Err(AppError::Validation(format!(
+                    "不支援的記錄類型 (UUID): {}",
+                    record_type
+                )))
+            }
+        };
+
+        let query = format!(
+            "UPDATE {} SET is_locked = true, locked_at = NOW(), locked_by = $2 WHERE id = $1",
+            table_name
+        );
+
+        sqlx::query(&query)
+            .bind(record_id)
+            .bind(locked_by)
+            .execute(pool)
+            .await?;
+
+        Ok(())
+    }
+
+    /// 檢查記錄是否已鎖定（記錄 ID 為 i32）
     pub async fn is_locked(pool: &PgPool, record_type: &str, record_id: i32) -> Result<bool> {
         let table_name = match record_type {
             "observation" => "animal_observations",
@@ -370,6 +401,32 @@ impl SignatureService {
             _ => {
                 return Err(AppError::Validation(format!(
                     "不支援的記錄類型: {}",
+                    record_type
+                )))
+            }
+        };
+
+        let query = format!(
+            "SELECT COALESCE(is_locked, false) FROM {} WHERE id = $1",
+            table_name
+        );
+
+        let is_locked: bool = sqlx::query_scalar(&query)
+            .bind(record_id)
+            .fetch_optional(pool)
+            .await?
+            .unwrap_or(false);
+
+        Ok(is_locked)
+    }
+
+    /// 檢查記錄是否已鎖定（記錄 ID 為 UUID，用於 animal_sacrifices）
+    pub async fn is_locked_uuid(pool: &PgPool, record_type: &str, record_id: Uuid) -> Result<bool> {
+        let table_name = match record_type {
+            "sacrifice" => "animal_sacrifices",
+            _ => {
+                return Err(AppError::Validation(format!(
+                    "不支援的記錄類型 (UUID): {}",
                     record_type
                 )))
             }

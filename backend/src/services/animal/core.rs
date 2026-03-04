@@ -482,11 +482,24 @@ impl AnimalService {
             None
         };
 
+        // 規則：已犧牲（euthanized）的動物允許將欄位改為空值；其餘情況若傳空則保留原值
+        let pen_location_bind = if current_status == AnimalStatus::Euthanized {
+            req.pen_location
+                .as_ref()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .map(|s| Self::format_pen_location(&s))
+        } else {
+            req.pen_location
+                .as_ref()
+                .map(|s| Self::format_pen_location(s))
+        };
+
         let animal = sqlx::query_as::<_, Animal>(
             r#"
             UPDATE animals SET
                 status = COALESCE($2, status),
-                pen_location = COALESCE($3, pen_location),
+                pen_location = CASE WHEN status = 'euthanized' THEN $3 ELSE COALESCE($3, pen_location) END,
                 iacuc_no = COALESCE($4, iacuc_no),
                 experiment_date = CASE WHEN $7 AND experiment_date IS NULL THEN CURRENT_DATE ELSE COALESCE($5, experiment_date) END,
                 remark = COALESCE($6, remark),
@@ -501,7 +514,7 @@ impl AnimalService {
         )
         .bind(id)
         .bind(req.status)
-        .bind(req.pen_location.as_ref().map(|s| Self::format_pen_location(s)))
+        .bind(&pen_location_bind)
         .bind(&req.iacuc_no)
         .bind(req.experiment_date)
         .bind(&req.remark)

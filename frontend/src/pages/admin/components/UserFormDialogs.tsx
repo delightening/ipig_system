@@ -45,7 +45,13 @@ export function UserCreateDialog({
           <DialogTitle>新增使用者</DialogTitle>
           <DialogDescription>創建新的系統使用者帳號</DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            onSubmit()
+          }}
+          className="space-y-4 py-4"
+        >
           <div className="space-y-2">
             <Label htmlFor="email">Email *</Label>
             <Input
@@ -90,16 +96,16 @@ export function UserCreateDialog({
               ))}
             </div>
           </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            取消
-          </Button>
-          <Button onClick={onSubmit} disabled={isPending}>
-            {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            創建
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              取消
+            </Button>
+            <Button type="submit" disabled={isPending}>
+              {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              創建
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )

@@ -907,10 +907,12 @@ IACUC 動物試驗計畫書（AUP）提交與審查系統規格書
 |-----|------|
 | 分配實驗時保留欄位 | 當動物從「未分配」狀態變更為「已分配」或「實驗中」時，**不會移除**欄位紀錄（`pen_location`） |
 | 犧牲時移除欄位 | 當動物被犧牲（建立犧牲/採樣紀錄）時，系統會**自動移除**欄位紀錄（`pen_location = NULL`）並將狀態更新為「實驗完畢」 |
+| 已犧牲動物可清空欄位 | 若動物**已為犧牲（euthanized）**狀態，則可透過更新動物 API 將欄位改為空值（`pen_location = NULL`）；其餘狀態時，若傳空則保留原值（不覆寫） |
 
 **實作方式：**
 - 分配實驗操作（`batch_assign`、`batch_start_experiment`）僅更新狀態與 IACUC 編號，不觸及 `pen_location`
-- 犧牲操作透過資料庫觸發器（migration 023）自動處理欄位移除與狀態更新
+- 犧牲操作於 handler/service 中將動物狀態設為 `euthanized` 並寫入 `pen_location = NULL`
+- 動物更新 API：當動物狀態為 `euthanized` 時，允許 `pen_location` 傳空以清空欄位；非犧牲狀態時，傳空則保留原值（`COALESCE`）
 
 ---
 

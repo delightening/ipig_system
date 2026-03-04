@@ -29,6 +29,7 @@ i18n
     .init({
         resources,
         fallbackLng: 'zh-TW',
+        showSupportNotice: false, // 關閉 Locize 贊助訊息，避免 console 干擾
         detection: {
             order: ['localStorage', 'navigator'],
             lookupLocalStorage: 'ipig-language',

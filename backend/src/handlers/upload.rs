@@ -395,15 +395,14 @@ pub async fn upload_sacrifice_photo(
 ) -> Result<Json<Vec<UploadResponse>>> {
     require_permission!(current_user, "animal.record.create");
 
-    // 檢查犧牲記錄是否存在
-    let sacrifice_exists: Option<i32> = sqlx::query_scalar(
+    // 檢查犧牲記錄是否存在（animal_sacrifices.id 為 UUID）
+    let sacrifice_id: Uuid = sqlx::query_scalar(
         "SELECT id FROM animal_sacrifices WHERE animal_id = $1"
     )
     .bind(animal_id)
     .fetch_optional(&state.db)
-    .await?;
-
-    let sacrifice_id = sacrifice_exists.ok_or_else(|| {
+    .await?
+    .ok_or_else(|| {
         AppError::Validation("Sacrifice record not found. Please create the sacrifice record first.".to_string())
     })?;
 
@@ -434,7 +433,7 @@ pub async fn upload_sacrifice_photo(
             Some(&animal_id.to_string()),
         ).await?;
 
-        // 儲存到 animal_record_attachments 表
+        // 儲存到 animal_record_attachments 表（record_id 為 UUID）
         save_animal_record_attachment(
             &state.db,
             "sacrifice",
@@ -453,11 +452,11 @@ pub async fn upload_sacrifice_photo(
     Ok(Json(results))
 }
 
-/// 儲存動物記錄附件到 animal_record_attachments 表
+/// 儲存動物記錄附件到 animal_record_attachments 表（record_id 為 UUID）
 async fn save_animal_record_attachment(
     db: &PgPool,
     record_type: &str,
-    record_id: i32,
+    record_id: Uuid,
     file_type: &str,
     upload_result: &UploadResult,
 ) -> Result<uuid::Uuid> {

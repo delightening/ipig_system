@@ -95,11 +95,41 @@ async fn check_protocol_access(
     }
 }
 
-/// 檢查使用者是否有權存取犧牲/觀察記錄（透過動物所屬計畫關聯）
+/// 檢查使用者是否有權存取犧牲/觀察記錄（透過動物所屬計畫關聯，記錄 ID 為 i32）
 async fn check_animal_record_access(
     db: &sqlx::PgPool,
     table: &str,
     record_id: i32,
+    current_user: &CurrentUser,
+) -> Result<()> {
+    if current_user.has_permission("aup.protocol.view_all") || current_user.is_admin() {
+        return Ok(());
+    }
+    let query = format!(
+        r#"SELECT 1 FROM {} r
+           JOIN animals a ON r.animal_id = a.id
+           LEFT JOIN user_protocols up ON up.protocol_id = a.protocol_id
+           WHERE r.id = $1 AND up.user_id = $2"#,
+        table
+    );
+    let has_access: Option<(i64,)> = sqlx::query_as(&query)
+        .bind(record_id)
+        .bind(current_user.id)
+        .fetch_optional(db)
+        .await?;
+
+    if has_access.is_some() {
+        Ok(())
+    } else {
+        Err(AppError::Forbidden("無權存取此記錄".into()))
+    }
+}
+
+/// 檢查使用者是否有權存取犧牲記錄（animal_sacrifices.id 為 UUID）
+async fn check_animal_record_access_uuid(
+    db: &sqlx::PgPool,
+    table: &str,
+    record_id: Uuid,
     current_user: &CurrentUser,
 ) -> Result<()> {
     if current_user.has_permission("aup.protocol.view_all") || current_user.is_admin() {
@@ -198,18 +228,18 @@ pub struct SignatureInfo {
         (status = 401, description = "未授權或密碼錯誤"),
         (status = 404, description = "找不到犧牲記錄")
     ),
-    params(("id" = i32, Path, description = "犧牲記錄 ID")),
+    params(("id" = Uuid, Path, description = "犧牲記錄 ID (UUID)")),
     tag = "電子簽章",
     security(("bearer" = []))
 )]
 pub async fn sign_sacrifice_record(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(sacrifice_id): Path<i32>,
+    Path(sacrifice_id): Path<Uuid>,
     Json(req): Json<SignRecordRequest>,
 ) -> Result<Json<SignRecordResponse>> {
     require_permission!(current_user, "animal.record.sacrifice");
-    check_animal_record_access(&state.db, "animal_sacrifices", sacrifice_id, &current_user).await?;
+    check_animal_record_access_uuid(&state.db, "animal_sacrifices", sacrifice_id, &current_user).await?;
 
     // 驗證：密碼或手寫簽名擇一
     let has_password = req.password.as_ref().is_some_and(|p| !p.is_empty());
@@ -277,8 +307,8 @@ pub async fn sign_sacrifice_record(
         ).await?
     };
 
-    // 鎖定記錄
-    SignatureService::lock_record(&state.db, "sacrifice", sacrifice_id, current_user.id).await?;
+    // 鎖定記錄（animal_sacrifices.id 為 UUID）
+    SignatureService::lock_record_uuid(&state.db, "sacrifice", sacrifice_id, current_user.id).await?;
 
     Ok(Json(SignRecordResponse {
         signature_id: signature.id,
@@ -295,19 +325,19 @@ pub async fn sign_sacrifice_record(
         (status = 200, description = "簽章狀態", body = SignatureStatusResponse),
         (status = 404, description = "找不到記錄")
     ),
-    params(("id" = i32, Path, description = "犧牲記錄 ID")),
+    params(("id" = Uuid, Path, description = "犧牲記錄 ID (UUID)")),
     tag = "電子簽章",
     security(("bearer" = []))
 )]
 pub async fn get_sacrifice_signature_status(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
-    Path(sacrifice_id): Path<i32>,
+    Path(sacrifice_id): Path<Uuid>,
 ) -> Result<Json<SignatureStatusResponse>> {
     require_permission!(current_user, "animal.record.view");
-    check_animal_record_access(&state.db, "animal_sacrifices", sacrifice_id, &current_user).await?;
+    check_animal_record_access_uuid(&state.db, "animal_sacrifices", sacrifice_id, &current_user).await?;
     let is_signed = SignatureService::is_signed(&state.db, "sacrifice", &sacrifice_id.to_string()).await?;
-    let is_locked = SignatureService::is_locked(&state.db, "sacrifice", sacrifice_id).await?;
+    let is_locked = SignatureService::is_locked_uuid(&state.db, "sacrifice", sacrifice_id).await?;
     
     let signatures = SignatureService::get_signatures(&state.db, "sacrifice", &sacrifice_id.to_string()).await?;
     

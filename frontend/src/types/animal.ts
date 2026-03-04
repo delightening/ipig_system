@@ -177,9 +177,9 @@ export interface AnimalVaccination {
     created_at: string
 }
 
-// 犧牲記錄
+// 犧牲記錄（後端 id 為 UUID）
 export interface AnimalSacrifice {
-    id: number
+    id: string
     animal_id: string
     sacrifice_date?: string
     zoletil_dose?: string
