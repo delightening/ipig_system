@@ -1,4 +1,4 @@
-﻿// 犧牲/安樂死 + 病理報告 Handlers
+// 犧牲/安樂死 + 病理報告 Handlers
 
 use axum::{
     extract::{Path, State},
@@ -49,8 +49,9 @@ pub async fn upsert_animal_sacrifice(
                 .status
                 .can_transition_to(crate::models::AnimalStatus::Euthanized)
         {
+            // 依規格：犧牲時自動移出欄位（pen_location = NULL）
             sqlx::query(
-                "UPDATE animals SET status = 'euthanized', updated_at = NOW() WHERE id = $1",
+                "UPDATE animals SET status = 'euthanized', pen_location = NULL, updated_at = NOW() WHERE id = $1",
             )
             .bind(animal_id)
             .execute(&state.db)

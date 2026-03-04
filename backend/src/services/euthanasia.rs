@@ -406,10 +406,10 @@ impl EuthanasiaService {
         .fetch_one(pool)
         .await?;
 
-        // 更新動物狀態為 Euthanized（安樂死）
+        // 更新動物狀態為 Euthanized（安樂死），並依規格移出欄位（pen_location = NULL）
         sqlx::query(
             r#"
-            UPDATE animals SET status = $1, updated_at = NOW()
+            UPDATE animals SET status = $1, pen_location = NULL, updated_at = NOW()
             WHERE id = $2
             "#,
         )

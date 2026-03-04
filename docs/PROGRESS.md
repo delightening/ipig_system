@@ -188,6 +188,20 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-04 新規則：已犧牲動物可將欄位改為空值
+- ✅ **規則**：若動物已為犧牲（euthanized）狀態，允許透過更新動物 API 將欄位（`pen_location`）改為空值；其餘狀態時，傳空則保留原值。
+- ✅ **實作**：`backend/src/services/animal/core.rs` 更新動物時，依 `current_status == Euthanized` 決定 `pen_location` 綁定值與 SQL（`CASE WHEN status = 'euthanized' THEN $3 ELSE COALESCE($3, pen_location) END`）。
+- ✅ **規格**：已於 `_Spec.md` 2.7.1 新增「已犧牲動物可清空欄位」條目並更新實作方式說明。
+
+### 2026-03-04 犧牲/安樂死時自動移出欄位（pen_location = NULL）
+- ✅ **規格**：依 `docs/Profiling_Spec/archive/_Spec.md`「犧牲時移除欄位」規則，已安樂死之動物應將欄位清空（`pen_location = NULL`）以移出欄位。
+- ✅ **實作**：原先僅更新狀態為 `euthanized`，未清空欄位；現已補上。
+  - **犧牲/採樣紀錄確認**：`backend/src/handlers/animal/sacrifice_pathology.rs` 於 `confirmed_sacrifice` 時，`UPDATE animals` 一併設定 `pen_location = NULL`。
+  - **安樂死單執行**：`backend/src/services/euthanasia.rs` 於執行安樂死單時，`UPDATE animals` 一併設定 `pen_location = NULL`。
+- ✅ **結果**：已安樂死動物之「欄位」會顯示為空，不再佔用欄位。
+
+---
+
 ### 2026-03-03 E2E CI 環境模擬全通過
 - ✅ **根因**：admin-users 測試失敗因「啟動配置警告」對話框擋住頁面；auth 首次嘗試使用 `.env` 的錯誤 `ADMIN_INITIAL_PASSWORD`。
 - ✅ **修正**：`docker-compose.test.yml` 新增 `TEST_USER_PASSWORD`、`ALLOWED_CLOCK_IP_RANGES`、`CLOCK_OFFICE_LATITUDE/LONGITUDE` 抑制配置警告；`run-ci-e2e-tests.ps1` 設定 `ADMIN_INITIAL_PASSWORD`、清除 `.auth` 資料夾、修正 docker compose `--progress` 旗標。
