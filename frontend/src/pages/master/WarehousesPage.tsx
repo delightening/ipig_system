@@ -181,22 +181,15 @@ export function WarehousesPage() {
       </div>
 
       <div className="flex gap-4">
-        <div className="flex gap-2 flex-1 max-w-md">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="搜尋倉庫..."
-              aria-label="搜尋倉庫"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); queryClient.invalidateQueries({ queryKey: ['warehouses'] }) } }}
-              className="pl-9"
-            />
-          </div>
-          <Button type="button" variant="secondary" onClick={() => queryClient.invalidateQueries({ queryKey: ['warehouses'] })} aria-label="搜尋" className="cursor-pointer transition-colors hover:bg-secondary/70 hover:ring-2 hover:ring-primary/20 hover:ring-offset-2">
-            <Search className="h-4 w-4 md:mr-1.5" />
-            <span className="hidden md:inline">搜尋</span>
-          </Button>
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="搜尋倉庫..."
+            aria-label="搜尋倉庫"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
         </div>
       </div>
 

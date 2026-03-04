@@ -90,33 +90,21 @@ export function AnimalFilters({
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
             <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 flex-1">
-              <div className="relative flex-1 max-w-sm flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <Input
-                    placeholder={t('animals.searchPlaceholder')}
-                    aria-label={t('animals.searchPlaceholder')}
-                    value={search}
-                    onChange={(e) => onSearchChange(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        onSearchSubmit?.()
-                      }
-                    }}
-                    className="pl-9"
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={onSearchSubmit}
-                  aria-label={t('common.search')}
-                  className="cursor-pointer transition-colors hover:bg-secondary/70 hover:ring-2 hover:ring-primary/20 hover:ring-offset-2"
-                >
-                  <Search className="h-4 w-4 md:mr-1.5" />
-                  <span className="hidden md:inline">{t('common.search')}</span>
-                </Button>
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  placeholder={t('animals.searchPlaceholder')}
+                  aria-label={t('animals.searchPlaceholder')}
+                  value={search}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      onSearchSubmit?.()
+                    }
+                  }}
+                  className="pl-9"
+                />
               </div>
               <Select value={breedFilter} onValueChange={onBreedFilterChange}>
                 <SelectTrigger className="w-[150px]">

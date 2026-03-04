@@ -1,5 +1,4 @@
 import { useNavigate } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -13,7 +12,6 @@ import type { ShowFilter } from './hooks/useBloodTestTemplates'
 
 export function BloodTestTemplatesPage() {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const m = useBloodTestTemplates()
 
   return (
@@ -78,21 +76,14 @@ export function BloodTestTemplatesPage() {
       </div>
 
       <div className="flex gap-4 items-center">
-        <div className="flex gap-2 flex-1 max-w-md">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="搜尋代碼或名稱..."
-              value={m.search}
-              onChange={(e) => m.setSearch(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); queryClient.invalidateQueries({ queryKey: ['blood-test-templates'] }) } }}
-              className="pl-9"
-            />
-          </div>
-          <Button type="button" variant="secondary" onClick={() => queryClient.invalidateQueries({ queryKey: ['blood-test-templates'] })} aria-label="搜尋" className="cursor-pointer transition-colors hover:bg-secondary/70 hover:ring-2 hover:ring-primary/20 hover:ring-offset-2">
-            <Search className="h-4 w-4 md:mr-1.5" />
-            <span className="hidden md:inline">搜尋</span>
-          </Button>
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="搜尋代碼或名稱..."
+            value={m.search}
+            onChange={(e) => m.setSearch(e.target.value)}
+            className="pl-9"
+          />
         </div>
         <div className="flex gap-1">
           {(['all', 'active', 'inactive'] as ShowFilter[]).map((f) => (
