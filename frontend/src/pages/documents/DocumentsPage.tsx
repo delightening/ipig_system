@@ -159,14 +159,21 @@ export function DocumentsPage() {
 
       <div className="space-y-4">
         <div className="flex flex-wrap gap-4 items-end">
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="搜尋單號..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
+          <div className="flex gap-2 flex-1 min-w-[200px] max-w-md">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="搜尋單號..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); queryClient.invalidateQueries({ queryKey: ['documents'] }) } }}
+                className="pl-9"
+              />
+            </div>
+            <Button type="button" variant="secondary" onClick={() => queryClient.invalidateQueries({ queryKey: ['documents'] })} aria-label="搜尋">
+              <Search className="h-4 w-4 md:mr-1.5" />
+              <span className="hidden md:inline">搜尋</span>
+            </Button>
           </div>
           {!typeFilter && (
             <Select

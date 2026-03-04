@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import api, { InventoryOnHand, Warehouse } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,6 +22,7 @@ import { Search, Loader2, Package, X } from 'lucide-react'
 import { formatNumber, formatCurrency, formatDate, formatUom } from '@/lib/utils'
 
 export function InventoryPage() {
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [warehouseFilter, setWarehouseFilter] = useState('all')
   const [batchFilter, setBatchFilter] = useState('')
@@ -62,14 +63,21 @@ export function InventoryPage() {
       </div>
 
       <div className="flex flex-wrap gap-4 items-center">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="搜尋品項..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+        <div className="flex gap-2 flex-1 min-w-[200px] max-w-md">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="搜尋品項..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); queryClient.invalidateQueries({ queryKey: ['inventory'] }) } }}
+              className="pl-9"
+            />
+          </div>
+          <Button type="button" variant="secondary" onClick={() => queryClient.invalidateQueries({ queryKey: ['inventory'] })} aria-label="搜尋">
+            <Search className="h-4 w-4 md:mr-1.5" />
+            <span className="hidden md:inline">搜尋</span>
+          </Button>
         </div>
         <Select value={warehouseFilter} onValueChange={setWarehouseFilter}>
           <SelectTrigger className="w-48">

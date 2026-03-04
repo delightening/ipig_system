@@ -1,12 +1,16 @@
 # cloudflared-config.yml
-# SEC-15: Named Tunnel Configuration Example
-# 
-# 1. Login: cloudflared tunnel login
-# 2. Create tunnel: cloudflared tunnel create ipig-system
-# 3. Use the ID and credentials JSON here
+# SEC-15: Named Tunnel Configuration
+#
+# One-time setup (see docs/TUNNEL.md):
+# 1. cloudflared tunnel login   → saves cert to %USERPROFILE%\.cloudflared\cert.pem
+# 2. cloudflared tunnel create ipig-system
+# 3. Replace <TUNNEL_ID> below and set credentials-file path to your JSON
+#
+# Optional: if cert is elsewhere, set in config or env TUNNEL_ORIGIN_CERT
+# origincert: C:\Users\YourName\.cloudflared\cert.pem
 
 tunnel: <TUNNEL_ID>
-credentials-file: /etc/cloudflared/<TUNNEL_ID>.json
+credentials-file: <TUNNEL_ID>.json
 
 ingress:
   - hostname: ipig.yourdomain.com

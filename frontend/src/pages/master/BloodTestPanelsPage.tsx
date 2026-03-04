@@ -304,14 +304,21 @@ export function BloodTestPanelsPage() {
 
             {/* 搜尋與篩選列 */}
             <div className="flex gap-4 items-center">
-                <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                        placeholder="搜尋代碼或名稱..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="pl-9"
-                    />
+                <div className="flex gap-2 flex-1 max-w-md">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            placeholder="搜尋代碼或名稱..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); queryClient.invalidateQueries({ queryKey: ['blood-test-panels'] }) } }}
+                            className="pl-9"
+                        />
+                    </div>
+                    <Button type="button" variant="secondary" onClick={() => queryClient.invalidateQueries({ queryKey: ['blood-test-panels'] })} aria-label="搜尋">
+                        <Search className="h-4 w-4 md:mr-1.5" />
+                        <span className="hidden md:inline">搜尋</span>
+                    </Button>
                 </div>
                 <div className="flex gap-1">
                     {(['all', 'active', 'inactive'] as ShowFilter[]).map((f) => (
