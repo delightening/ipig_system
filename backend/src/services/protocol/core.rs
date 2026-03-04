@@ -139,17 +139,25 @@ impl ProtocolService {
                 sql.push_str(&format!(" AND p.status = '{}'", status.as_str()));
             }
         }
+        // 參數順序：$1 = keyword  pattern, $2 = pi_user_id（與下方 bind 順序一致）
+        if query.keyword.is_some() {
+            sql.push_str(" AND (p.title ILIKE $1 OR p.protocol_no ILIKE $1 OR p.iacuc_no ILIKE $1)");
+        }
         if query.pi_user_id.is_some() {
             sql.push_str(" AND p.pi_user_id = $2");
-        }
-        if query.keyword.is_some() {
-            sql.push_str(" AND (p.title ILIKE $3 OR p.protocol_no ILIKE $3 OR p.iacuc_no ILIKE $3)");
         }
 
         sql.push_str(" ORDER BY p.created_at DESC");
 
-        // 由於 SQLx 的限制，這裡使用簡化的查詢
-        let mut protocols: Vec<ProtocolListItem> = sqlx::query_as(&sql)
+        let mut query_builder = sqlx::query_as::<_, ProtocolListItem>(&sql);
+        if let Some(ref k) = query.keyword {
+            let pattern = format!("%{}%", k.trim());
+            query_builder = query_builder.bind(pattern);
+        }
+        if let Some(pid) = query.pi_user_id {
+            query_builder = query_builder.bind(pid);
+        }
+        let mut protocols: Vec<ProtocolListItem> = query_builder
             .fetch_all(pool)
             .await
             .unwrap_or_default();

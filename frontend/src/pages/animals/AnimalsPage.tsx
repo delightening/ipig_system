@@ -62,10 +62,16 @@ export function AnimalsPage() {
   const { search, setSearch, statusFilter, setStatusFilter, breedFilter, setBreedFilter, page, setPage, sortColumn, setSortColumn, sortDirection, setSortDirection, setSearchParams } = filters
   const debouncedSearch = useDebounce(search, 400)
   const [appliedSearch, setAppliedSearch] = useState('')
-  useEffect(() => { setAppliedSearch((prev) => (prev === debouncedSearch ? prev : debouncedSearch)) }, [debouncedSearch])
+  // 僅在 debounce 已跟上輸入時同步，避免使用者按 Enter/搜尋後被舊的 debouncedSearch 覆寫
+  useEffect(() => {
+    if (debouncedSearch === search) {
+      setAppliedSearch(debouncedSearch)
+    }
+  }, [debouncedSearch, search])
   const handleSearchSubmit = () => {
     setAppliedSearch(search)
     setPage(1)
+    queryClient.invalidateQueries({ queryKey: ['animals'] })
   }
 
   const dialogs = useAnimalDialogs()
@@ -174,6 +180,32 @@ export function AnimalsPage() {
   const allAnimals = allAnimalsResp?.data ?? []
   const totalPages = animalsResp?.total_pages ?? 1
   const totalAnimals = animalsResp?.total ?? 0
+
+  /** 欄位頁：搜尋／品種僅套用在「有欄位」的動物（by-pen 資料），不包含無欄位歷史動物 */
+  const penViewGroupedData = useMemo(() => {
+    if (statusFilter !== 'pen' || !groupedData) return groupedData
+    const kw = (appliedSearch ?? '').trim().toLowerCase()
+    const hasKeyword = kw.length > 0
+    const breedOk = (a: AnimalListItem) => breedFilter === 'all' || (a.breed && String(a.breed).toLowerCase() === breedFilter.toLowerCase())
+    const keywordOk = (a: AnimalListItem) =>
+      !hasKeyword ||
+      [a.ear_tag, a.pen_location, a.iacuc_no].some(
+        (v) => v && String(v).toLowerCase().includes(kw)
+      )
+    return groupedData
+      .map((group) => ({
+        pen_location: group.pen_location,
+        animals: group.animals.filter((a) => breedOk(a) && keywordOk(a)),
+      }))
+      .filter((group) => group.animals.length > 0)
+  }, [statusFilter, groupedData, appliedSearch, breedFilter])
+
+  /** 欄位頁有搜尋/品種時：攤平為列表，用於顯示表格（圖二） */
+  const penViewAnimals = useMemo(
+    () => (statusFilter === 'pen' && penViewGroupedData ? penViewGroupedData.flatMap((g) => g.animals) : []),
+    [statusFilter, penViewGroupedData]
+  )
+  const hasPenSearch = statusFilter === 'pen' && (!!(appliedSearch ?? '').trim() || (breedFilter && breedFilter !== 'all'))
 
   const statusCounts = allAnimals.reduce((acc, animal) => {
     acc[animal.status] = (acc[animal.status] || 0) + 1
@@ -443,11 +475,11 @@ export function AnimalsPage() {
         onShowBatchAssign={() => setShowBatchAssignDialog(true)}
       />
 
-      {/* List View */}
-      {statusFilter !== 'pen' && (
+      {/* List View（未分配／實驗中／所有動物等，或 欄位＋搜尋時改顯示表格） */}
+      {(statusFilter !== 'pen' || hasPenSearch) && (
         <AnimalListTable
-          animals={animals}
-          isLoading={isLoading}
+          animals={hasPenSearch ? penViewAnimals : animals}
+          isLoading={hasPenSearch ? groupedLoading : isLoading}
           selectedAnimals={selectedAnimals}
           onToggleSelection={toggleAnimalSelection}
           onToggleAll={toggleAllAnimals}
@@ -455,18 +487,18 @@ export function AnimalsPage() {
           sortColumn={sortColumn}
           sortDirection={sortDirection}
           onSort={handleSort}
-          page={page}
-          totalPages={totalPages}
-          totalAnimals={totalAnimals}
-          perPage={perPage}
-          onPageChange={setPage}
+          page={hasPenSearch ? 1 : page}
+          totalPages={hasPenSearch ? 1 : totalPages}
+          totalAnimals={hasPenSearch ? penViewAnimals.length : totalAnimals}
+          perPage={hasPenSearch ? Math.max(perPage, penViewAnimals.length) || 50 : perPage}
+          onPageChange={hasPenSearch ? () => {} : setPage}
         />
       )}
 
-      {/* Pen View */}
-      {statusFilter === 'pen' && (
+      {/* Pen View：無搜尋時顯示欄位格線圖（圖一）；有搜尋時改由上方表格顯示（圖二） */}
+      {statusFilter === 'pen' && !hasPenSearch && (
         <AnimalPenView
-          groupedData={groupedData}
+          groupedData={penViewGroupedData}
           isLoading={groupedLoading}
           onQuickMove={(earTag, target) => quickMoveMutation.mutate({ earTag, targetPenLocation: target })}
           isQuickMovePending={quickMoveMutation.isPending}

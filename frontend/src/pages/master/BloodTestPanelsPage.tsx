@@ -315,7 +315,7 @@ export function BloodTestPanelsPage() {
                             className="pl-9"
                         />
                     </div>
-                    <Button type="button" variant="secondary" onClick={() => queryClient.invalidateQueries({ queryKey: ['blood-test-panels'] })} aria-label="搜尋">
+                    <Button type="button" variant="secondary" onClick={() => queryClient.invalidateQueries({ queryKey: ['blood-test-panels'] })} aria-label="搜尋" className="cursor-pointer transition-colors hover:bg-secondary/70 hover:ring-2 hover:ring-primary/20 hover:ring-offset-2">
                         <Search className="h-4 w-4 md:mr-1.5" />
                         <span className="hidden md:inline">搜尋</span>
                     </Button>
