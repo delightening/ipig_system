@@ -15,6 +15,25 @@ use crate::{
 /// 允許的產品狀態值（與 DB chk_product_status 一致）
 const ALLOWED_STATUSES: [&str; 3] = ["active", "inactive", "discontinued"];
 
+/// 格式化產品 SKU（分類-子分類-三位流水號），供建立與單元測試使用。
+pub fn format_product_sku(category_code: &str, subcategory_code: &str, sequence: i32) -> String {
+    format!("{}-{}-{:03}", category_code, subcategory_code, sequence)
+}
+
+/// 驗證並正規化產品狀態，與 DB chk_product_status 一致。
+/// 回傳 `Ok(正規化字串)` 或 `Err(錯誤訊息)`，便於呼叫端轉成 `AppError::Validation`。
+pub fn validate_product_status(status: &str) -> std::result::Result<String, String> {
+    let s = status.trim().to_lowercase();
+    if ALLOWED_STATUSES.contains(&s.as_str()) {
+        Ok(s)
+    } else {
+        Err(format!(
+            "status 必須為: {}",
+            ALLOWED_STATUSES.join(", ")
+        ))
+    }
+}
+
 pub struct ProductService;
 
 impl ProductService {
@@ -37,7 +56,7 @@ impl ProductService {
             if s.is_empty() {
                 let sequence =
                     Self::get_next_sequence(pool, &category_code, &subcategory_code).await?;
-                format!("{}-{}-{:03}", category_code, subcategory_code, sequence)
+                format_product_sku(&category_code, &subcategory_code, sequence)
             } else {
                 let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM products WHERE sku = $1)")
                     .bind(s)
@@ -51,7 +70,7 @@ impl ProductService {
         } else {
             let sequence =
                 Self::get_next_sequence(pool, &category_code, &subcategory_code).await?;
-            format!("{}-{}-{:03}", category_code, subcategory_code, sequence)
+            format_product_sku(&category_code, &subcategory_code, sequence)
         };
 
         // 查詢類別名稱
@@ -156,94 +175,63 @@ impl ProductService {
         Ok(max_seq.unwrap_or(0) + 1)
     }
 
-    /// 取得產品列表
+    /// 取得產品列表（支援 keyword、category_code、subcategory_code、status 篩選）
     pub async fn list(pool: &PgPool, query: &ProductQuery) -> Result<Vec<Product>> {
-        let mut sql = String::from("SELECT * FROM products WHERE 1=1");
-        let _params: Vec<String> = Vec::new();
-        let mut param_idx = 1;
+        let mut conditions = Vec::new();
+        let mut param_idx: i32 = 1;
 
         if query.keyword.is_some() {
-            sql.push_str(&format!(
-                " AND (sku ILIKE ${0} OR name ILIKE ${0})",
-                param_idx
-            ));
+            conditions.push(format!("(sku ILIKE ${} OR name ILIKE ${})", param_idx, param_idx));
             param_idx += 1;
         }
         if query.category_id.is_some() {
-            sql.push_str(&format!(" AND category_id = ${}", param_idx));
+            conditions.push(format!("category_id = ${}", param_idx));
+            param_idx += 1;
+        }
+        if query.category_code.is_some() {
+            conditions.push(format!("category_code = ${}", param_idx));
+            param_idx += 1;
+        }
+        if query.subcategory_code.is_some() {
+            conditions.push(format!("subcategory_code = ${}", param_idx));
+            param_idx += 1;
+        }
+        if query.status.is_some() {
+            conditions.push(format!("status = ${}", param_idx));
             param_idx += 1;
         }
         if query.is_active.is_some() {
-            sql.push_str(&format!(" AND is_active = ${}", param_idx));
+            conditions.push(format!("is_active = ${}", param_idx));
         }
-        sql.push_str(" ORDER BY sku");
 
-        // 由於 SQLx 的動態查詢限制，這裡使用分支處理
-        let products = if let Some(ref kw) = query.keyword {
-            let pattern = format!("%{}%", kw);
-            if let Some(category_id) = query.category_id {
-                if let Some(is_active) = query.is_active {
-                    sqlx::query_as::<_, Product>(
-                        "SELECT * FROM products WHERE (sku ILIKE $1 OR name ILIKE $1) AND category_id = $2 AND is_active = $3 ORDER BY sku"
-                    )
-                    .bind(&pattern)
-                    .bind(category_id)
-                    .bind(is_active)
-                    .fetch_all(pool)
-                    .await?
-                } else {
-                    sqlx::query_as::<_, Product>(
-                        "SELECT * FROM products WHERE (sku ILIKE $1 OR name ILIKE $1) AND category_id = $2 ORDER BY sku"
-                    )
-                    .bind(&pattern)
-                    .bind(category_id)
-                    .fetch_all(pool)
-                    .await?
-                }
-            } else if let Some(is_active) = query.is_active {
-                sqlx::query_as::<_, Product>(
-                    "SELECT * FROM products WHERE (sku ILIKE $1 OR name ILIKE $1) AND is_active = $2 ORDER BY sku"
-                )
-                .bind(&pattern)
-                .bind(is_active)
-                .fetch_all(pool)
-                .await?
-            } else {
-                sqlx::query_as::<_, Product>(
-                    "SELECT * FROM products WHERE (sku ILIKE $1 OR name ILIKE $1) ORDER BY sku",
-                )
-                .bind(&pattern)
-                .fetch_all(pool)
-                .await?
-            }
-        } else if let Some(category_id) = query.category_id {
-            if let Some(is_active) = query.is_active {
-                sqlx::query_as::<_, Product>(
-                    "SELECT * FROM products WHERE category_id = $1 AND is_active = $2 ORDER BY sku",
-                )
-                .bind(category_id)
-                .bind(is_active)
-                .fetch_all(pool)
-                .await?
-            } else {
-                sqlx::query_as::<_, Product>(
-                    "SELECT * FROM products WHERE category_id = $1 ORDER BY sku",
-                )
-                .bind(category_id)
-                .fetch_all(pool)
-                .await?
-            }
-        } else if let Some(is_active) = query.is_active {
-            sqlx::query_as::<_, Product>("SELECT * FROM products WHERE is_active = $1 ORDER BY sku")
-                .bind(is_active)
-                .fetch_all(pool)
-                .await?
+        let where_clause = if conditions.is_empty() {
+            String::from("1=1")
         } else {
-            sqlx::query_as::<_, Product>("SELECT * FROM products ORDER BY sku")
-                .fetch_all(pool)
-                .await?
+            conditions.join(" AND ")
         };
+        let sql = format!("SELECT * FROM products WHERE {} ORDER BY sku", where_clause);
 
+        let mut q = sqlx::query_as::<_, Product>(&sql);
+        if let Some(ref kw) = query.keyword {
+            q = q.bind(format!("%{}%", kw));
+        }
+        if let Some(category_id) = query.category_id {
+            q = q.bind(category_id);
+        }
+        if let Some(ref c) = query.category_code {
+            q = q.bind(c.as_str());
+        }
+        if let Some(ref s) = query.subcategory_code {
+            q = q.bind(s.as_str());
+        }
+        if let Some(ref s) = query.status {
+            q = q.bind(s.as_str());
+        }
+        if let Some(is_active) = query.is_active {
+            q = q.bind(is_active);
+        }
+
+        let products = q.fetch_all(pool).await?;
         Ok(products)
     }
 
@@ -386,13 +374,8 @@ impl ProductService {
         id: Uuid,
         status: &str,
     ) -> Result<ProductWithUom> {
-        let status = status.trim().to_lowercase();
-        if !ALLOWED_STATUSES.contains(&status.as_str()) {
-            return Err(AppError::Validation(format!(
-                "status 必須為: {}",
-                ALLOWED_STATUSES.join(", ")
-            )));
-        }
+        let status = validate_product_status(status)
+            .map_err(|msg| AppError::Validation(msg))?;
         let is_active = status == "active";
 
         let rows = sqlx::query(
@@ -953,7 +936,8 @@ impl ProductService {
         .unwrap_or_default()
     }
 
-    fn parse_bool(s: &str) -> bool {
+    /// 解析匯入檔中的布林欄位（追蹤批號、追蹤效期等），供 CSV/Excel 匯入與單元測試。
+    pub(crate) fn parse_bool(s: &str) -> bool {
         let s = s.trim().to_lowercase();
         matches!(s.as_str(), "true" | "1" | "yes" | "是" | "y")
     }
@@ -1005,5 +989,79 @@ impl ProductService {
 
         worksheet.set_freeze_panes(1, 0)?;
         Ok(workbook.save_to_buffer()?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{format_product_sku, validate_product_status, ProductService};
+
+    // --- format_product_sku ---
+    #[test]
+    fn test_format_product_sku_normal() {
+        assert_eq!(
+            format_product_sku("DRG", "OTH", 1),
+            "DRG-OTH-001"
+        );
+        assert_eq!(
+            format_product_sku("GEN", "OTH", 42),
+            "GEN-OTH-042"
+        );
+    }
+
+    #[test]
+    fn test_format_product_sku_zero_pad() {
+        assert_eq!(format_product_sku("CAT", "SUB", 0), "CAT-SUB-000");
+        assert_eq!(format_product_sku("A", "B", 999), "A-B-999");
+    }
+
+    #[test]
+    fn test_format_product_sku_large_sequence() {
+        assert_eq!(format_product_sku("X", "Y", 1000), "X-Y-1000");
+    }
+
+    // --- validate_product_status ---
+    #[test]
+    fn test_validate_product_status_allowed() {
+        assert_eq!(validate_product_status("active").unwrap(), "active");
+        assert_eq!(validate_product_status("inactive").unwrap(), "inactive");
+        assert_eq!(validate_product_status("discontinued").unwrap(), "discontinued");
+        assert_eq!(validate_product_status("  ACTIVE  ").unwrap(), "active");
+    }
+
+    #[test]
+    fn test_validate_product_status_invalid() {
+        assert!(validate_product_status("pending").is_err());
+        assert!(validate_product_status("").is_err());
+        assert!(validate_product_status("ActiveX").is_err());
+    }
+
+    #[test]
+    fn test_validate_product_status_error_message() {
+        let msg = validate_product_status("x").unwrap_err();
+        assert!(msg.contains("active"));
+        assert!(msg.contains("inactive"));
+        assert!(msg.contains("discontinued"));
+    }
+
+    // --- parse_bool (ProductService) ---
+    #[test]
+    fn test_parse_bool_true_variants() {
+        assert!(ProductService::parse_bool("true"));
+        assert!(ProductService::parse_bool("1"));
+        assert!(ProductService::parse_bool("yes"));
+        assert!(ProductService::parse_bool("是"));
+        assert!(ProductService::parse_bool("y"));
+        assert!(ProductService::parse_bool("  YES  "));
+    }
+
+    #[test]
+    fn test_parse_bool_false() {
+        assert!(!ProductService::parse_bool("false"));
+        assert!(!ProductService::parse_bool("0"));
+        assert!(!ProductService::parse_bool("no"));
+        assert!(!ProductService::parse_bool(""));
+        assert!(!ProductService::parse_bool("n"));
+        assert!(!ProductService::parse_bool("other"));
     }
 }

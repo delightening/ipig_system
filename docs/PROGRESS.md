@@ -188,6 +188,12 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-05 R4-100-T2 partner service 單元測試
+- **R4-100-T2**：PartnerService 提取可測函式 `format_partner_code`、`is_valid_email`，`parse_partner_code_sequence`（#[cfg(test)]）、`parse_partner_type`／`parse_supplier_category`／`parse_customer_category` 改為 `pub(crate)`；新增 6 個單元測試（format_partner_code、parse_partner_code_sequence、parse_partner_type、parse_supplier_category、parse_customer_category、is_valid_email）。TODO R4-100-T2 標完成，待辦統計 5→4、合計 6→5。
+
+### 2026-03-05 R4-100-T1 product service 單元測試
+- **R4-100-T1**：ProductService 提取可測函式 `format_product_sku`、`validate_product_status`，`parse_bool` 改為 `pub(crate)`；新增 8 個單元測試（format_product_sku 3、validate_product_status 3、parse_bool 2）。TODO R4-100-T1 標完成，待辦統計 6→5、合計 7→6。
+
 ### 2026-03-05 R4-100-O7 報表／會計／治療藥物 OpenAPI 完成
 - **R4-100-O7**：report（7 個端點）、accounting（7 個端點）、treatment_drug（6 個端點）補齊 `#[utoipa::path]`，openapi.rs 註冊 paths、tags「報表／會計／治療藥物」及相關 schemas（CreateApPaymentRequest、CreateArReceiptRequest、TreatmentDrugOption 等）。TODO.md R4-100-O7 標完成，待辦統計 7→6、合計 8→7。
 
