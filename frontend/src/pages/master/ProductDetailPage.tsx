@@ -123,7 +123,7 @@ export function ProductDetailPage() {
     if (!product) return '-'
     if (product.category_name) return product.category_name
     const categoryCode = product.category_code === 'LAB' ? 'CON' : product.category_code
-    if (categoryCode) return skuCategories.find((c) => c.code === categoryCode)?.name ?? product.category_code
+    if (categoryCode) return skuCategories.find((c) => c.code === categoryCode)?.name ?? product.category_code ?? '-'
     return '-'
   }
 
@@ -133,7 +133,7 @@ export function ProductDetailPage() {
     const categoryCode = product.category_code === 'LAB' ? 'CON' : product.category_code
     if (categoryCode && product.subcategory_code) {
       const subs = subcategoriesByCategory[categoryCode] ?? []
-      return subs.find((s) => s.code === product.subcategory_code)?.name ?? product.subcategory_code
+      return subs.find((s) => s.code === product.subcategory_code)?.name ?? product.subcategory_code ?? '-'
     }
     return '-'
   }
