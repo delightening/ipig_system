@@ -144,7 +144,7 @@
 | R4-100-O4 | **SKU handler OpenAPI** | categories, subcategories, generate, validate, preview 全端點 | 後端 | 🧠 Claude | [x] |
 | R4-100-O5 | **animal 子模組 handler OpenAPI** | observation, surgery, weight, vaccination, transfer, sacrifice, pathology 等 | 後端 | 🧠 Claude | [x] |
 | R4-100-O6 | **HR/notifications/admin handler OpenAPI** | leave, overtime, attendance；notifications；admin audit 等 | 後端 | 🧠 Claude | [x] |
-| R4-100-O7 | **reports/accounting/treatment_drugs 等 OpenAPI** | 其餘端點補齊 | 後端 | 🧠 Claude | [ ] |
+| R4-100-O7 | **reports/accounting/treatment_drugs 等 OpenAPI** | 其餘端點補齊 | 後端 | 🧠 Claude | [x] |
 
 ---
 
@@ -172,10 +172,10 @@
 | 🔴 P2 中優先 | 0 |
 | 🔵 P3 低優先 | 0 |
 | 🟣 P4 品質提升 | 0 |
-| 🟣 R4-100 邁向 100% | 7 |
+| 🟣 R4-100 邁向 100% | 6 |
 | ⚪ P5 長期演進 | 0 |
 | 🟠 R6 第六輪改善 | 1 |
-| **合計（未完成）** | **8** |
+| **合計（未完成）** | **7** |
 
 ---
 

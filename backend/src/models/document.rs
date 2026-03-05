@@ -30,6 +30,10 @@ pub enum DocType {
     ADJ,
     /// 退料單 Return Material
     RM,
+    /// 銷貨退貨 Sales Return（DB 既有枚舉，與 RM 並存以相容舊資料）
+    SR,
+    /// 退貨單 Return（DB 既有枚舉）
+    RTN,
 }
 
 impl DocType {
@@ -44,6 +48,8 @@ impl DocType {
             DocType::STK => "STK",
             DocType::ADJ => "ADJ",
             DocType::RM => "RM",
+            DocType::SR => "SR",
+            DocType::RTN => "RTN",
         }
     }
 
@@ -52,6 +58,7 @@ impl DocType {
         matches!(
             self,
             DocType::GRN | DocType::PR | DocType::DO | DocType::TR | DocType::ADJ
+                | DocType::SR | DocType::RTN
         )
     }
 }
