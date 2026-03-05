@@ -237,6 +237,7 @@ import type {
   UpdateBloodTestRequest, BloodTestTemplate, CreateBloodTestTemplateRequest,
   UpdateBloodTestTemplateRequest, BloodTestPanel, CreateBloodTestPanelRequest,
   UpdateBloodTestPanelRequest, UpdateBloodTestPanelItemsRequest,
+  BloodTestPreset, CreateBloodTestPresetRequest, UpdateBloodTestPresetRequest,
   ProtocolActivity, BloodTestAnalysisRow,
 } from '@/types'
 
@@ -282,6 +283,20 @@ export const bloodTestPanelApi = {
     api.put<BloodTestPanel>(`/blood-test-panels/${id}/items`, data),
   delete: (id: string) =>
     deleteResource(`/blood-test-panels/${id}`),
+}
+
+// 血液檢查常用組合 API 函數
+export const bloodTestPresetApi = {
+  list: () =>
+    api.get<BloodTestPreset[]>('/blood-test-presets'),
+  listAll: () =>
+    api.get<BloodTestPreset[]>('/blood-test-presets/all'),
+  create: (data: CreateBloodTestPresetRequest) =>
+    api.post<BloodTestPreset>('/blood-test-presets', data),
+  update: (id: string, data: UpdateBloodTestPresetRequest) =>
+    api.put<BloodTestPreset>(`/blood-test-presets/${id}`, data),
+  delete: (id: string) =>
+    deleteResource(`/blood-test-presets/${id}`),
 }
 
 // 血液檢查結果分析 API 函數

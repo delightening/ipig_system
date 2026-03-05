@@ -7,7 +7,7 @@ use utoipa::ToSchema;
 use validator::Validate;
 
 /// 產品狀態
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, sqlx::Type, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, sqlx::Type, Default, ToSchema)]
 #[sqlx(type_name = "VARCHAR", rename_all = "lowercase")]
 pub enum ProductStatus {
     #[serde(rename = "active")]
@@ -68,7 +68,7 @@ pub struct Product {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct ProductCategory {
     pub id: Uuid,
     pub code: String,
@@ -88,7 +88,7 @@ pub struct ProductUomConversion {
 }
 
 /// 建立產品請求（SKU 可選填，未填時由系統自動生成）
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct CreateProductRequest {
     /// 選填；匯入時可帶入，未填則自動生成
     pub sku: Option<String>,
@@ -121,7 +121,7 @@ pub struct CreateProductRequest {
 }
 
 /// 更新產品請求（SKU 不可修改）
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct UpdateProductRequest {
     #[validate(length(min = 1, max = 200, message = "Name must be 1-200 characters"))]
     pub name: Option<String>,
@@ -149,14 +149,14 @@ pub struct UpdateProductRequest {
     pub uom_conversions: Option<Vec<UomConversionInput>>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct UomConversionInput {
     pub uom: String,
     pub factor_to_base: Decimal,
 }
 
 /// 產品查詢參數
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema, utoipa::IntoParams)]
 pub struct ProductQuery {
     pub keyword: Option<String>,
     pub category_id: Option<Uuid>,
@@ -199,7 +199,7 @@ pub struct ProductListItem {
     pub is_active: bool,
 }
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct CreateCategoryRequest {
     #[validate(length(min = 1, max = 50, message = "Code must be 1-50 characters"))]
     pub code: String,
@@ -262,7 +262,7 @@ pub struct ProductImportRow {
 }
 
 /// 產品匯入錯誤明細
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct ProductImportErrorDetail {
     pub row: i32,
     pub sku: Option<String>,
@@ -270,7 +270,7 @@ pub struct ProductImportErrorDetail {
 }
 
 /// 產品匯入結果
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct ProductImportResult {
     pub success_count: i32,
     pub error_count: i32,

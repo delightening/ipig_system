@@ -28,6 +28,7 @@ impl DocumentService {
         use crate::models::InventoryQuery;
         let _query = InventoryQuery {
             warehouse_id: Some(warehouse_id),
+            storage_location_id: None,
             product_id: None,
             keyword: None,
             batch_no: None,

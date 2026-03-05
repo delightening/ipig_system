@@ -6,7 +6,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { useTabState } from '@/hooks/useTabState'
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { useQuery } from '@tanstack/react-query'
-import { bloodTestAnalysisApi, bloodTestPanelApi } from '@/lib/api'
+import { bloodTestAnalysisApi, bloodTestPanelApi, bloodTestPresetApi } from '@/lib/api'
 import type { BloodTestAnalysisRow, BloodTestPanel } from '@/types'
 import { formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -34,6 +34,7 @@ import {
 } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { CollapsibleSection } from '@/components/animal/SurgeryFormComponents'
+import { PanelIcon } from '@/components/ui/panel-icon'
 import {
     LineChart,
     Line,
@@ -169,6 +170,15 @@ export function BloodTestAnalysisPage() {
         queryKey: ['blood-test-panels-all'],
         queryFn: async () => {
             const response = await bloodTestPanelApi.listAll()
+            return response.data
+        },
+    })
+
+    // 取得常用組合（分析頁一鍵選取）
+    const { data: presetsData } = useQuery({
+        queryKey: ['blood-test-presets'],
+        queryFn: async () => {
+            const response = await bloodTestPresetApi.list()
             return response.data
         },
     })
@@ -598,56 +608,20 @@ export function BloodTestAnalysisPage() {
                                 </p>
                             ) : (
                                 <>
-                                    {/* 常用組合 Preset */}
+                                    {/* 常用組合 Preset（由血液檢查項目管理 > 管理常用組合 設定） */}
                                     <div className="flex flex-wrap gap-2">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => applyPreset(['LIVER', 'KIDNEY'])}
-                                            className="text-xs"
-                                        >
-                                            肝腎功能
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => applyPreset(['CBC'])}
-                                            className="text-xs"
-                                        >
-                                            血球分析
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => applyPreset(['INFECT'])}
-                                            className="text-xs"
-                                        >
-                                            發炎指標
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => applyPreset(['LIVER'])}
-                                            className="text-xs"
-                                        >
-                                            肝臟
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => applyPreset(['LIPID'])}
-                                            className="text-xs"
-                                        >
-                                            血脂
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => applyPreset(['ELECTRO'])}
-                                            className="text-xs"
-                                        >
-                                            電解質
-                                        </Button>
+                                        {(presetsData ?? []).map((preset) => (
+                                            <Button
+                                                key={preset.id}
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => applyPreset(preset.panel_keys ?? [])}
+                                                className="text-xs"
+                                            >
+                                                <PanelIcon icon={preset.icon} className="mr-1 text-xs" />
+                                                {preset.name}
+                                            </Button>
+                                        ))}
                                         <Button
                                             variant="ghost"
                                             size="sm"

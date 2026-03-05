@@ -5,8 +5,9 @@ use uuid::Uuid;
 
 use crate::{
     models::{
-        CreateWarehouseRequest, PaginationParams, UpdateWarehouseRequest, Warehouse,
+        CreateWarehouseRequest, PaginationParams, ShelfNode, UpdateWarehouseRequest, Warehouse,
         WarehouseImportErrorDetail, WarehouseImportResult, WarehouseImportRow, WarehouseQuery,
+        WarehouseTreeNode,
     },
     AppError, Result,
 };
@@ -127,6 +128,42 @@ impl WarehouseService {
             .await?;
 
         Ok(warehouses)
+    }
+
+    /// 取得倉庫樹（含貨架，location_type = shelf）
+    pub async fn list_with_shelves(pool: &PgPool) -> Result<Vec<WarehouseTreeNode>> {
+        let warehouses: Vec<Warehouse> = sqlx::query_as(
+            "SELECT * FROM warehouses WHERE is_active = true ORDER BY code",
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let mut result = Vec::with_capacity(warehouses.len());
+        for wh in warehouses {
+            let shelves: Vec<(Uuid, String, Option<String>)> = sqlx::query_as(
+                r#"
+                SELECT id, code, name FROM storage_locations
+                WHERE warehouse_id = $1 AND is_active = true AND location_type = 'shelf'
+                ORDER BY row_index, col_index, code
+                "#,
+            )
+            .bind(wh.id)
+            .fetch_all(pool)
+            .await?;
+
+            let shelf_nodes: Vec<ShelfNode> = shelves
+                .into_iter()
+                .map(|(id, code, name)| ShelfNode { id, code, name })
+                .collect();
+
+            result.push(WarehouseTreeNode {
+                id: wh.id,
+                code: wh.code,
+                name: wh.name,
+                shelves: shelf_nodes,
+            });
+        }
+        Ok(result)
     }
 
     /// 取得單一倉庫

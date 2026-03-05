@@ -8,10 +8,10 @@ use validator::Validate;
 use crate::{
     middleware::CurrentUser,
     models::{
-        CreateStorageLocationRequest, StorageLocation, StorageLocationInventoryItem,
-        StorageLocationQuery, StorageLocationWithWarehouse, UpdateStorageLayoutRequest,
+        CreateStorageLocationInventoryItemRequest, CreateStorageLocationRequest, StorageLocation,
+        StorageLocationInventoryItem, StorageLocationQuery, StorageLocationWithWarehouse,
+        TransferStorageLocationInventoryRequest, UpdateStorageLayoutRequest,
         UpdateStorageLocationInventoryItemRequest, UpdateStorageLocationRequest,
-        CreateStorageLocationInventoryItemRequest, TransferStorageLocationInventoryRequest,
     },
     require_permission,
     services::StorageLocationService,
@@ -23,8 +23,12 @@ use crate::{
     post,
     path = "/api/storage-locations",
     request_body = CreateStorageLocationRequest,
-    responses((status = 200, description = "建立成功", body = StorageLocation)),
-    tag = "倉儲管理",
+    responses(
+        (status = 200, description = "建立成功", body = StorageLocation),
+        (status = 400, description = "驗證失敗"),
+        (status = 401, description = "未認證"),
+    ),
+    tag = "儲位管理",
     security(("bearer" = []))
 )]
 pub async fn create_storage_location(
@@ -44,8 +48,11 @@ pub async fn create_storage_location(
     get,
     path = "/api/storage-locations",
     params(StorageLocationQuery),
-    responses((status = 200, description = "儲位清單", body = Vec<StorageLocationWithWarehouse>)),
-    tag = "倉儲管理",
+    responses(
+        (status = 200, description = "儲位清單", body = Vec<StorageLocationWithWarehouse>),
+        (status = 401, description = "未認證"),
+    ),
+    tag = "儲位管理",
     security(("bearer" = []))
 )]
 pub async fn list_storage_locations(
@@ -64,8 +71,12 @@ pub async fn list_storage_locations(
     get,
     path = "/api/storage-locations/{id}",
     params(("id" = Uuid, Path, description = "儲位 ID")),
-    responses((status = 200, description = "儲位詳情", body = StorageLocationWithWarehouse)),
-    tag = "倉儲管理",
+    responses(
+        (status = 200, description = "儲位詳細", body = StorageLocationWithWarehouse),
+        (status = 401, description = "未認證"),
+        (status = 404, description = "找不到儲位"),
+    ),
+    tag = "儲位管理",
     security(("bearer" = []))
 )]
 pub async fn get_storage_location(
@@ -85,8 +96,13 @@ pub async fn get_storage_location(
     path = "/api/storage-locations/{id}",
     params(("id" = Uuid, Path, description = "儲位 ID")),
     request_body = UpdateStorageLocationRequest,
-    responses((status = 200, description = "更新成功", body = StorageLocation)),
-    tag = "倉儲管理",
+    responses(
+        (status = 200, description = "更新成功", body = StorageLocation),
+        (status = 400, description = "驗證失敗"),
+        (status = 401, description = "未認證"),
+        (status = 404, description = "找不到儲位"),
+    ),
+    tag = "儲位管理",
     security(("bearer" = []))
 )]
 pub async fn update_storage_location(
@@ -108,8 +124,11 @@ pub async fn update_storage_location(
     path = "/api/warehouses/{warehouse_id}/layout",
     params(("warehouse_id" = Uuid, Path, description = "倉庫 ID")),
     request_body = UpdateStorageLayoutRequest,
-    responses((status = 200, description = "更新成功", body = Vec<StorageLocation>)),
-    tag = "倉儲管理",
+    responses(
+        (status = 200, description = "更新成功", body = Vec<StorageLocation>),
+        (status = 401, description = "未認證"),
+    ),
+    tag = "儲位管理",
     security(("bearer" = []))
 )]
 pub async fn update_warehouse_layout(
@@ -129,8 +148,12 @@ pub async fn update_warehouse_layout(
     delete,
     path = "/api/storage-locations/{id}",
     params(("id" = Uuid, Path, description = "儲位 ID")),
-    responses((status = 200, description = "刪除成功")),
-    tag = "倉儲管理",
+    responses(
+        (status = 200, description = "刪除成功"),
+        (status = 401, description = "未認證"),
+        (status = 404, description = "找不到儲位"),
+    ),
+    tag = "儲位管理",
     security(("bearer" = []))
 )]
 pub async fn delete_storage_location(
@@ -151,8 +174,11 @@ pub async fn delete_storage_location(
     get,
     path = "/api/storage-locations/generate-code/{warehouse_id}",
     params(("warehouse_id" = Uuid, Path, description = "倉庫 ID")),
-    responses((status = 200, description = "產生的儲位代碼")),
-    tag = "倉儲管理",
+    responses(
+        (status = 200, description = "代碼 { code }"),
+        (status = 401, description = "未認證"),
+    ),
+    tag = "儲位管理",
     security(("bearer" = []))
 )]
 pub async fn generate_storage_location_code(
@@ -171,8 +197,12 @@ pub async fn generate_storage_location_code(
     get,
     path = "/api/storage-locations/{id}/inventory",
     params(("id" = Uuid, Path, description = "儲位 ID")),
-    responses((status = 200, description = "庫存明細", body = Vec<StorageLocationInventoryItem>)),
-    tag = "倉儲管理",
+    responses(
+        (status = 200, description = "庫存明細", body = Vec<StorageLocationInventoryItem>),
+        (status = 401, description = "未認證"),
+        (status = 404, description = "找不到儲位"),
+    ),
+    tag = "儲位管理",
     security(("bearer" = []))
 )]
 pub async fn get_storage_location_inventory(
@@ -192,8 +222,12 @@ pub async fn get_storage_location_inventory(
     path = "/api/storage-locations/inventory/{item_id}",
     params(("item_id" = Uuid, Path, description = "庫存項目 ID")),
     request_body = UpdateStorageLocationInventoryItemRequest,
-    responses((status = 200, description = "更新成功", body = StorageLocationInventoryItem)),
-    tag = "倉儲管理",
+    responses(
+        (status = 200, description = "更新成功", body = StorageLocationInventoryItem),
+        (status = 401, description = "未認證"),
+        (status = 404, description = "找不到項目"),
+    ),
+    tag = "儲位管理",
     security(("bearer" = []))
 )]
 pub async fn update_storage_location_inventory_item(
@@ -213,11 +247,16 @@ pub async fn update_storage_location_inventory_item(
 /// 新增儲位庫存項目
 #[utoipa::path(
     post,
-    path = "/api/storage-locations/{id}/inventory",
-    params(("id" = Uuid, Path, description = "儲位 ID")),
+    path = "/api/storage-locations/{storage_location_id}/inventory",
+    params(("storage_location_id" = Uuid, Path, description = "儲位 ID")),
     request_body = CreateStorageLocationInventoryItemRequest,
-    responses((status = 200, description = "建立成功", body = StorageLocationInventoryItem)),
-    tag = "倉儲管理",
+    responses(
+        (status = 200, description = "建立成功", body = StorageLocationInventoryItem),
+        (status = 400, description = "驗證失敗"),
+        (status = 401, description = "未認證"),
+        (status = 404, description = "找不到儲位"),
+    ),
+    tag = "儲位管理",
     security(("bearer" = []))
 )]
 pub async fn create_storage_location_inventory_item(
@@ -239,8 +278,13 @@ pub async fn create_storage_location_inventory_item(
     path = "/api/storage-locations/inventory/{item_id}/transfer",
     params(("item_id" = Uuid, Path, description = "庫存項目 ID")),
     request_body = TransferStorageLocationInventoryRequest,
-    responses((status = 200, description = "調撥成功", body = StorageLocationInventoryItem)),
-    tag = "倉儲管理",
+    responses(
+        (status = 200, description = "調撥成功", body = StorageLocationInventoryItem),
+        (status = 400, description = "驗證失敗"),
+        (status = 401, description = "未認證"),
+        (status = 404, description = "找不到項目"),
+    ),
+    tag = "儲位管理",
     security(("bearer" = []))
 )]
 pub async fn transfer_storage_location_inventory(

@@ -13,7 +13,7 @@ use crate::{
     middleware::CurrentUser,
     models::{
         CreateWarehouseRequest, UpdateWarehouseRequest, Warehouse, WarehouseImportResult,
-        WarehouseQuery,
+        WarehouseQuery, WarehouseTreeNode,
     },
     require_permission,
     services::{AuditService, WarehouseService},
@@ -46,6 +46,18 @@ pub async fn create_warehouse(
     }
 
     Ok(Json(warehouse))
+}
+
+/// 取得倉庫樹（含貨架，供庫存查詢樹狀選單）
+#[utoipa::path(get, path = "/api/warehouses/with-shelves", responses((status = 200, description = "倉庫樹含貨架", body = Vec<WarehouseTreeNode>)), tag = "倉儲管理", security(("bearer" = [])))]
+pub async fn list_warehouses_with_shelves(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+) -> Result<Json<Vec<WarehouseTreeNode>>> {
+    require_permission!(current_user, "erp.warehouse.view");
+
+    let tree = WarehouseService::list_with_shelves(&state.db).await?;
+    Ok(Json(tree))
 }
 
 /// 列出所有倉庫

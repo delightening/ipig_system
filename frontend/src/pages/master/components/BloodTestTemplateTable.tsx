@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Edit, Power, PowerOff, Loader2, Droplets, ArrowUpDown } from 'lucide-react'
+import { Edit, Power, PowerOff, Loader2, Droplets, ArrowUpDown, ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PanelIcon } from '@/components/ui/panel-icon'
 import type { BloodTestTemplate, BloodTestPanel } from '@/lib/api'
@@ -36,6 +36,21 @@ export function BloodTestTemplateTable({
   onEdit,
   onToggle,
 }: BloodTestTemplateTableProps) {
+  // 預設全部收合；key 為 group.panel?.key ?? '__uncategorized__'
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+
+  const getGroupKey = (group: { panel: BloodTestPanel | null }) =>
+    group.panel?.key ?? '__uncategorized__'
+
+  const toggleGroup = (key: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
   const SortIndicator = ({ field }: { field: SortField }) => (
     <ArrowUpDown
       className={cn(
@@ -123,39 +138,51 @@ export function BloodTestTemplateTable({
               </TableCell>
             </TableRow>
           ) : flatFiltered.length > 0 ? (
-            groupedData.map((group, gi) => (
-              <React.Fragment key={`group-${gi}`}>
-                {groupedData.length > 1 && (
-                  <TableRow
-                    key={`group-header-${gi}`}
-                    className="bg-muted/50 hover:bg-muted/50"
-                  >
-                    <TableCell colSpan={7} className="py-2">
-                      <div className="flex items-center gap-2 font-semibold text-sm">
-                        {group.panel ? (
-                          <>
-                            <PanelIcon icon={group.panel.icon} className="text-base" />
-                            <span>{group.panel.name}</span>
-                            <Badge variant="outline" className="ml-1 text-xs">
-                              {group.items.length} 項
-                            </Badge>
-                          </>
-                        ) : (
-                          <>
-                            <span className="text-base">📦</span>
-                            <span>未分類</span>
-                            <Badge variant="outline" className="ml-1 text-xs">
-                              {group.items.length} 項
-                            </Badge>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-                {group.items.map(renderTemplateRow)}
-              </React.Fragment>
-            ))
+            groupedData.map((group, gi) => {
+              const groupKey = getGroupKey(group)
+              const isExpanded = expandedGroups.has(groupKey)
+              const hasGroups = groupedData.length > 1
+
+              return (
+                <React.Fragment key={`group-${gi}`}>
+                  {hasGroups && (
+                    <TableRow
+                      key={`group-header-${gi}`}
+                      className="bg-muted/50 hover:bg-muted/70 cursor-pointer"
+                      onClick={() => toggleGroup(groupKey)}
+                    >
+                      <TableCell colSpan={7} className="py-2">
+                        <div className="flex items-center gap-2 font-semibold text-sm">
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4 shrink-0" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 shrink-0" />
+                          )}
+                          {group.panel ? (
+                            <>
+                              <PanelIcon icon={group.panel.icon} className="text-base" />
+                              <span>{group.panel.name}</span>
+                              <Badge variant="outline" className="ml-1 text-xs">
+                                {group.items.length} 項
+                              </Badge>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-base">📦</span>
+                              <span>未分類</span>
+                              <Badge variant="outline" className="ml-1 text-xs">
+                                {group.items.length} 項
+                              </Badge>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {(!hasGroups || isExpanded) && group.items.map(renderTemplateRow)}
+                </React.Fragment>
+              )
+            })
           ) : (
             <TableRow>
               <TableCell colSpan={7} className="text-center py-8">

@@ -58,7 +58,7 @@ pub struct Animal {
 }
 
 /// 觀察試驗紀錄
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct AnimalObservation {
     pub id: Uuid,
     pub animal_id: Uuid,
@@ -101,7 +101,7 @@ pub struct AnimalObservation {
 }
 
 /// 手術紀錄
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct AnimalSurgery {
     pub id: Uuid,
     pub animal_id: Uuid,
@@ -127,7 +127,7 @@ pub struct AnimalSurgery {
 }
 
 /// 體重紀錄
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct AnimalWeight {
     pub id: Uuid,
     pub animal_id: Uuid,
@@ -138,7 +138,7 @@ pub struct AnimalWeight {
 }
 
 /// 體重紀錄回應（含建立者名稱）
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct AnimalWeightResponse {
     pub id: Uuid,
     pub animal_id: Uuid,
@@ -151,7 +151,7 @@ pub struct AnimalWeightResponse {
 
 
 /// 疫苗/驅蟲紀錄
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct AnimalVaccination {
     pub id: Uuid,
     pub animal_id: Uuid,
@@ -163,7 +163,7 @@ pub struct AnimalVaccination {
 }
 
 /// 犧牲/採樣紀錄
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct AnimalSacrifice {
     pub id: Uuid,
     pub animal_id: Uuid,
@@ -197,7 +197,7 @@ pub struct AnimalSuddenDeath {
 }
 
 /// 動物轉讓記錄
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct AnimalTransfer {
     pub id: Uuid,
     pub animal_id: Uuid,
@@ -222,7 +222,7 @@ fn default_transfer_type_entity() -> String {
 }
 
 /// 轉讓獸醫評估記錄
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct TransferVetEvaluation {
     pub id: Uuid,
     pub transfer_id: Uuid,
@@ -234,7 +234,7 @@ pub struct TransferVetEvaluation {
 }
 
 /// 病理組織報告
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct AnimalPathologyReport {
     pub id: Uuid,
     pub animal_id: Uuid,

@@ -219,7 +219,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ### 2026-03-04 IMPROVEMENT_PLAN_R4 目標補齊（Rust 測試、OpenAPI）
 - ✅ **Rust 單元測試**：新增 15 個核心業務邏輯測試（SKU 格式解析 7 個、倉庫代碼序號 4 個、常數驗證 4 個），總計 **142** 個測試通過，強化覆蓋率。
-- ✅ **OpenAPI 端點文件化**：補齊 10 個端點 `#[utoipa::path]` 與 openapi.rs 註冊：`export_me`、`delete_me_account`、2FA（`setup_2fa` / `confirm_2fa_setup` / `disable_2fa` / `verify_2fa_login`）、使用者偏好（`get_all_preferences` / `get_preference` / `upsert_preference` / `delete_preference`），符合 ≥90% 端點文件化目標。
+- ✅ **OpenAPI 端點文件化**：補齊 10 個端點 `#[utoipa::path]` 與 openapi.rs 註冊：`export_me`、`delete_me_account`、2FA、使用者偏好；**R4-100-O1** products（10 paths）；**R4-100-O2** partners（8 paths）；**R4-100-O3** documents + storage_location（19 paths）；**R4-100-O4** SKU（5 paths）；**R4-100-O5** animal 子模組（觀察/手術/體重/疫苗/犧牲/病理/轉讓，31 paths）；**R4-100-O6** HR（出勤/請假/加班）+ 通知 + 稽核（11 paths），符合 ≥90% 端點文件化目標。
 
 ### 2026-03-04 全專案資料夾整理與分類
 - ✅ **維運手冊歸位**：`docs/OPERATIONS.md` 移入 `docs/operations/OPERATIONS.md`，與 COMPOSE、ENV_AND_DB、TUNNEL 等同屬「環境與建置」分類；所有引用已更新（SOC2_READINESS、SLA、docs/README）。

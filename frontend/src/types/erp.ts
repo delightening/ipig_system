@@ -13,6 +13,21 @@ export interface Warehouse {
     updated_at: string
 }
 
+// 倉庫樹節點（含貨架）
+export interface WarehouseTreeNode {
+    id: string
+    code: string
+    name: string
+    shelves: ShelfNode[]
+}
+
+// 貨架節點
+export interface ShelfNode {
+    id: string
+    code: string
+    name?: string
+}
+
 // 儲位/貨架
 export type StorageLocationType = 'shelf' | 'rack' | 'zone' | 'bin'
 
@@ -175,6 +190,9 @@ export interface InventoryOnHand {
     warehouse_id: string
     warehouse_code: string
     warehouse_name: string
+    storage_location_id?: string
+    storage_location_code?: string
+    storage_location_name?: string
     product_id: string
     product_sku: string
     product_name: string

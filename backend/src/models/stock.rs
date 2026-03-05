@@ -44,6 +44,12 @@ pub struct InventoryOnHand {
     pub warehouse_id: Uuid,
     pub warehouse_code: String,
     pub warehouse_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub storage_location_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub storage_location_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub storage_location_name: Option<String>,
     pub product_id: Uuid,
     pub product_sku: String,
     pub product_name: String,
@@ -79,6 +85,8 @@ pub struct StockLedgerQuery {
 #[derive(Debug, Deserialize)]
 pub struct InventoryQuery {
     pub warehouse_id: Option<Uuid>,
+    /// 指定儲位/貨架時，查詢該儲位庫存（來自 storage_location_inventory）
+    pub storage_location_id: Option<Uuid>,
     pub product_id: Option<Uuid>,
     pub keyword: Option<String>,
     pub batch_no: Option<String>,

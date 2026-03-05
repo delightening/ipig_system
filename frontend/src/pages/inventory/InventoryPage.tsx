@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import api, { InventoryOnHand, Warehouse } from '@/lib/api'
+import api, { InventoryOnHand } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -11,34 +11,26 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { WarehouseShelfTreeSelect } from '@/components/inventory/WarehouseShelfTreeSelect'
 import { Search, Loader2, Package, X } from 'lucide-react'
 import { formatNumber, formatCurrency, formatDate, formatUom } from '@/lib/utils'
 
 export function InventoryPage() {
   const [search, setSearch] = useState('')
-  const [warehouseFilter, setWarehouseFilter] = useState('all')
+  const [locationFilter, setLocationFilter] = useState<string>('all')
   const [batchFilter, setBatchFilter] = useState('')
 
-  const { data: warehouses } = useQuery({
-    queryKey: ['warehouses'],
-    queryFn: async () => {
-      const response = await api.get<Warehouse[]>('/warehouses')
-      return response.data
-    },
-  })
-
   const { data: inventory, isLoading } = useQuery({
-    queryKey: ['inventory', warehouseFilter, search, batchFilter],
+    queryKey: ['inventory', locationFilter, search, batchFilter],
     queryFn: async () => {
       let params = ''
-      if (warehouseFilter && warehouseFilter !== 'all') params += `warehouse_id=${warehouseFilter}&`
+      if (locationFilter && locationFilter !== 'all') {
+        if (locationFilter.startsWith('wh:')) {
+          params += `warehouse_id=${encodeURIComponent(locationFilter.slice(3))}&`
+        } else if (locationFilter.startsWith('loc:')) {
+          params += `storage_location_id=${encodeURIComponent(locationFilter.slice(4))}&`
+        }
+      }
       if (search) params += `keyword=${encodeURIComponent(search)}&`
       if (batchFilter) params += `batch_no=${encodeURIComponent(batchFilter)}&`
       const response = await api.get<InventoryOnHand[]>(`/inventory/on-hand?${params}`)
@@ -48,11 +40,13 @@ export function InventoryPage() {
 
   const clearFilters = () => {
     setSearch('')
-    setWarehouseFilter('all')
+    setLocationFilter('all')
     setBatchFilter('')
   }
 
-  const hasFilters = search || (warehouseFilter && warehouseFilter !== 'all') || batchFilter
+  const hasFilters =
+    search || (locationFilter && locationFilter !== 'all') || batchFilter
+  const isShelfQuery = locationFilter.startsWith('loc:')
 
   return (
     <div className="space-y-6">
@@ -71,19 +65,10 @@ export function InventoryPage() {
             className="pl-9"
           />
         </div>
-        <Select value={warehouseFilter} onValueChange={setWarehouseFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="全部倉庫" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部倉庫</SelectItem>
-            {warehouses?.map((wh) => (
-              <SelectItem key={wh.id} value={wh.id}>
-                {wh.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <WarehouseShelfTreeSelect
+          value={locationFilter}
+          onValueChange={(v) => setLocationFilter(v)}
+        />
         <div className="relative w-48">
           <Input
             placeholder="搜尋批號..."
@@ -104,6 +89,7 @@ export function InventoryPage() {
           <TableHeader>
             <TableRow>
               <TableHead>倉庫</TableHead>
+              {isShelfQuery && <TableHead>貨架</TableHead>}
               <TableHead>品項</TableHead>
               <TableHead className="text-right">現有量</TableHead>
               <TableHead>單位</TableHead>
@@ -116,14 +102,24 @@ export function InventoryPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
+                <TableCell
+                  colSpan={isShelfQuery ? 9 : 8}
+                  className="text-center py-8"
+                >
                   <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : inventory && inventory.length > 0 ? (
               inventory.map((item) => (
-                <TableRow key={`${item.warehouse_id}-${item.product_id}`}>
+                <TableRow
+                  key={`${item.warehouse_id}-${item.storage_location_id ?? 'wh'}-${item.product_id}`}
+                >
                   <TableCell>{item.warehouse_name}</TableCell>
+                  {isShelfQuery && (
+                    <TableCell>
+                      {item.storage_location_name ?? item.storage_location_code ?? '-'}
+                    </TableCell>
+                  )}
                   <TableCell>
                     <div>
                       <div className="font-medium">{item.product_name}</div>
@@ -152,7 +148,10 @@ export function InventoryPage() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
+                <TableCell
+                  colSpan={isShelfQuery ? 9 : 8}
+                  className="text-center py-8"
+                >
                   <Package className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
                   <p className="text-muted-foreground">
                     {hasFilters ? '找不到符合條件的庫存資料' : '尚無庫存資料'}

@@ -316,16 +316,56 @@ impl StockService {
     }
 
     /// 查詢庫存現況
+    /// - 指定 storage_location_id：查 storage_location_inventory（貨架級）
+    /// - 指定 warehouse_id 或全部：查 stock_ledger（倉庫級）
     pub async fn get_on_hand(
         pool: &PgPool,
         query: &InventoryQuery,
     ) -> Result<Vec<InventoryOnHand>> {
+        // 貨架級查詢（storage_location_inventory）
+        if let Some(loc_id) = query.storage_location_id {
+            let rows = sqlx::query_as::<_, InventoryOnHand>(
+                r#"
+                SELECT 
+                    sl.warehouse_id,
+                    w.code as warehouse_code,
+                    w.name as warehouse_name,
+                    sl.id as storage_location_id,
+                    sl.code as storage_location_code,
+                    sl.name as storage_location_name,
+                    p.id as product_id,
+                    p.sku as product_sku,
+                    p.name as product_name,
+                    p.base_uom,
+                    sli.on_hand_qty as qty_on_hand,
+                    NULL::numeric as avg_cost,
+                    p.safety_stock,
+                    p.reorder_point
+                FROM storage_location_inventory sli
+                JOIN storage_locations sl ON sli.storage_location_id = sl.id
+                JOIN warehouses w ON sl.warehouse_id = w.id
+                JOIN products p ON sli.product_id = p.id
+                WHERE sl.id = $1 AND sl.is_active = true AND w.is_active = true AND p.is_active = true
+                  AND sli.on_hand_qty > 0
+                ORDER BY p.sku
+                "#,
+            )
+            .bind(loc_id)
+            .fetch_all(pool)
+            .await?;
+            return Ok(rows);
+        }
+
+        // 倉庫級查詢（stock_ledger），補上 NULL 的 storage_location 欄位
         let mut sql = String::from(
             r#"
             SELECT 
                 w.id as warehouse_id,
                 w.code as warehouse_code,
                 w.name as warehouse_name,
+                NULL::uuid as storage_location_id,
+                NULL::varchar as storage_location_code,
+                NULL::varchar as storage_location_name,
                 p.id as product_id,
                 p.sku as product_sku,
                 p.name as product_name,
@@ -376,6 +416,9 @@ impl StockService {
                     w.id as warehouse_id,
                     w.code as warehouse_code,
                     w.name as warehouse_name,
+                    NULL::uuid as storage_location_id,
+                    NULL::varchar as storage_location_code,
+                    NULL::varchar as storage_location_name,
                     p.id as product_id,
                     p.sku as product_sku,
                     p.name as product_name,

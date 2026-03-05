@@ -18,6 +18,7 @@
 | 4 | [已知風險與緩解](#4-已知風險與緩解) |
 | 5 | [上線後建議（短期）](#5-上線後建議短期) |
 | 6 | [參考文件清單](#6-參考文件清單) |
+| 7 | [邁向 100% 目標的補充評估](#7-邁向-100-目標的補充評估) |
 
 ---
 
@@ -282,6 +283,73 @@ flowchart LR
 | [security-compliance/security.md](../security-compliance/security.md) | 依賴與 CVE 處置紀錄（含 CVE-2026-25646） |
 | [INTEGRATION_TESTS.md](INTEGRATION_TESTS.md) | 後端 API 整合測試執行方式 |
 | [IMPROVEMENT_PLAN_R1.md](IMPROVEMENT_PLAN_R1.md)～[IMPROVEMENT_PLAN_R3.md](IMPROVEMENT_PLAN_R3.md) | 第一～三輪改善計畫（實作任務清單） |
+
+---
+
+## 7. 邁向 100% 目標的補充評估
+
+以下為達成「核心業務邏輯覆蓋率 100%」與「API 文件 100% 端點文件化」所需剩餘工作量與工時估計，供後續迭代規劃參考。**現行上線目標為 ≥80% 與 ≥90%**，均已達標；本節為進階目標之評估。
+
+### 7.1 核心業務邏輯覆蓋率 100%
+
+| 項目 | 現況 | 100% 目標差距 |
+|------|------|---------------|
+| 有單元測試的 services | 5 / 87（auth, file, partition_maintenance, sku, warehouse, constants） | 約 80+ 模組尚無 tests |
+| 核心業務 services 待補 | — | 約 25–35 個（animal/*, protocol/*, document/*, hr/*, product, partner, stock, storage_location, treatment_drug, user, role, audit 等） |
+| 新增測試數估計 | 142 個通過 | 約 150–250 個（每模組 5–12 個視複雜度） |
+
+**預估工時：** 40–80 小時（約 5–10 個工作天）
+
+**注意事項：** 多數 service 函式需 `PgPool`，需 mock 或整合測試 DB；建議安裝 `cargo-tarpaulin` 以量測行覆蓋率。
+
+**步驟拆解：** 對應 [TODO.md](../TODO.md) R4-100-T1～T6
+
+| 步驟 | 說明 | 產出 |
+|------|------|------|
+| T1 | product service 單元測試 | ProductService 可提取邏輯 + 5–8 個測試 |
+| T2 | partner service 單元測試 | PartnerService 可提取邏輯 + 5–8 個測試 |
+| T3 | user/role service 單元測試 | UserService、RoleService 可提取邏輯 + 測試 |
+| T4 | animal 核心 services 單元測試 | animal/core, observation, medical 等 |
+| T5 | protocol/document/hr services 單元測試 | 分批補齊 |
+| T6 | cargo-tarpaulin 覆蓋率量測 | CI 門檻設定 |
+
+---
+
+### 7.2 API 文件（OpenAPI/Swagger）100% 端點文件化
+
+| 項目 | 現況 | 100% 目標差距 |
+|------|------|---------------|
+| 已文件化端點 | 約 126 個（openapi.rs paths） | — |
+| 總 API 端點（path + method） | 約 220–260 個 | 約 90–130 個未 document |
+| 未文件化模組 | — | products, partners, documents, storage_location, animal 子模組（observations/surgeries/weights/vaccinations/transfers 等）、HR、notifications、admin/audit、SKU、reports、accounting、treatment_drugs、amendments 等 |
+
+**預估工時：** 20–35 小時（約 2.5–4 個工作天）
+
+**注意事項：** 每端點需加 `#[utoipa::path]`、補齊 request/response Schema、註冊至 openapi.rs；部分內部型別需 `ToSchema`。
+
+**步驟拆解：** 對應 [TODO.md](../TODO.md) R4-100-O1～O7
+
+| 步驟 | 說明 | 產出 |
+|------|------|------|
+| O1 | products handler 全端點 | list, create, get, update, delete, import, with-sku 等 #[utoipa::path] + openapi 註冊 |
+| O2 | partners handler 全端點 | list, create, get, update, delete, import, generate-code |
+| O3 | documents + storage_location handlers | documents CRUD、submit/approve/cancel；storage_location 全端點 |
+| O4 | SKU handler | categories, subcategories, generate, validate, preview |
+| O5 | animal 子模組 handlers | observation, surgery, weight, vaccination, transfer, sacrifice, pathology 等 |
+| O6 | HR + notifications + admin audit | leave, overtime, attendance；notifications；admin audit 端點 |
+| O7 | 其餘 | reports, accounting, treatment_drugs, amendments 等 |
+
+---
+
+### 7.3 彙整與建議優先順序
+
+| 目標 | 剩餘項目（約） | 預估工時 | 換算工作天 |
+|------|----------------|----------|------------|
+| 核心業務邏輯覆蓋率 100% | 25–35 services、150–250 個測試 | 40–80 h | 5–10 天 |
+| API 文件 100% 端點文件化 | 90–130 個端點 | 20–35 h | 2.5–4 天 |
+| **合計** | — | **60–115 h** | **7.5–14 天** |
+
+兩項可並行進行，總時程主要受單元測試工時影響。若資源有限，可先完成 OpenAPI 100%（工時較短、對外文件完整性高），再分階段補齊核心 service 單元測試。
 
 ---
 

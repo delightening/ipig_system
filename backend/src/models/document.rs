@@ -3,11 +3,12 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, Type};
 use uuid::Uuid;
+use utoipa::ToSchema;
 use validator::Validate;
 
 /// 單據類型
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type, ToSchema)]
 #[sqlx(type_name = "doc_type", rename_all = "UPPERCASE")]
 #[serde(rename_all = "UPPERCASE")]
 pub enum DocType {
@@ -56,7 +57,7 @@ impl DocType {
 }
 
 /// 單據狀態
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type, ToSchema)]
 #[sqlx(type_name = "doc_status", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
 pub enum DocStatus {
@@ -67,7 +68,7 @@ pub enum DocStatus {
 }
 
 /// 單據頭
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct Document {
     pub id: Uuid,
     pub doc_type: DocType,
@@ -109,7 +110,7 @@ pub struct Document {
 }
 
 /// 單據明細
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct DocumentLine {
     pub id: Uuid,
     pub document_id: Uuid,
@@ -126,7 +127,7 @@ pub struct DocumentLine {
 }
 
 /// 建立單據請求
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct CreateDocumentRequest {
     pub doc_type: DocType,
     pub warehouse_id: Option<Uuid>,
@@ -144,7 +145,7 @@ pub struct CreateDocumentRequest {
     pub lines: Vec<DocumentLineInput>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, ToSchema)]
 pub struct DocumentLineInput {
     pub product_id: Uuid,
     pub qty: Decimal,
@@ -158,7 +159,7 @@ pub struct DocumentLineInput {
 }
 
 /// 更新單據請求 (僅 Draft 狀態可更新)
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct UpdateDocumentRequest {
     pub warehouse_id: Option<Uuid>,
     pub warehouse_from_id: Option<Uuid>,
@@ -170,7 +171,7 @@ pub struct UpdateDocumentRequest {
 }
 
 /// 查詢單據
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema, utoipa::IntoParams)]
 pub struct DocumentQuery {
     pub doc_type: Option<DocType>,
     pub status: Option<DocStatus>,
@@ -183,7 +184,7 @@ pub struct DocumentQuery {
 }
 
 /// 單據詳情（含明細）
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct DocumentWithLines {
     #[serde(flatten)]
     pub document: Document,
@@ -196,7 +197,7 @@ pub struct DocumentWithLines {
     pub approved_by_name: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct DocumentLineWithProduct {
     pub id: Uuid,
     pub document_id: Uuid,
@@ -215,7 +216,7 @@ pub struct DocumentLineWithProduct {
 }
 
 /// 單據列表項
-#[derive(Debug, Serialize, FromRow)]
+#[derive(Debug, Serialize, FromRow, ToSchema)]
 pub struct DocumentListItem {
     pub id: Uuid,
     pub doc_type: DocType,

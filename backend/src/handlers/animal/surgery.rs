@@ -19,6 +19,7 @@ use crate::{
 };
 
 /// 列出動物的所有手術記錄
+#[utoipa::path(get, path = "/api/animals/{animal_id}/surgeries", params(("animal_id" = Uuid, Path, description = "動物 ID"), RecordFilterQuery), responses((status = 200, body = Vec<AnimalSurgery>), (status = 401)), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn list_animal_surgeries(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -40,6 +41,7 @@ pub async fn list_animal_surgeries_with_recommendations(
 }
 
 /// 取得單個手術記錄
+#[utoipa::path(get, path = "/api/surgeries/{id}", params(("id" = Uuid, Path, description = "手術記錄 ID")), responses((status = 200, body = AnimalSurgery), (status = 401), (status = 404)), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn get_animal_surgery(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -50,6 +52,7 @@ pub async fn get_animal_surgery(
 }
 
 /// 建立手術記錄
+#[utoipa::path(post, path = "/api/animals/{animal_id}/surgeries", params(("animal_id" = Uuid, Path, description = "動物 ID")), request_body = CreateSurgeryRequest, responses((status = 200, body = AnimalSurgery), (status = 400), (status = 401)), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn create_animal_surgery(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -84,6 +87,7 @@ pub async fn create_animal_surgery(
 }
 
 /// 更新手術記錄
+#[utoipa::path(put, path = "/api/surgeries/{id}", params(("id" = Uuid, Path, description = "手術記錄 ID")), request_body = UpdateSurgeryRequest, responses((status = 200, body = AnimalSurgery), (status = 400), (status = 401), (status = 404)), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn update_animal_surgery(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -108,6 +112,7 @@ pub async fn update_animal_surgery(
 }
 
 /// 刪除手術記錄（軟刪除 + 刪除原因）- GLP 合規
+#[utoipa::path(delete, path = "/api/surgeries/{id}", params(("id" = Uuid, Path, description = "手術記錄 ID")), responses((status = 200), (status = 401), (status = 404)), tag = "動物子模組", security(("bearer" = [])))]
 pub async fn delete_animal_surgery(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

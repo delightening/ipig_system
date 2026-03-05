@@ -35,6 +35,7 @@ const WarehousesPage = lazy(() => import('@/pages/master/WarehousesPage').then(m
 const PartnersPage = lazy(() => import('@/pages/master/PartnersPage').then(m => ({ default: m.PartnersPage })))
 const BloodTestTemplatesPage = lazy(() => import('@/pages/master/BloodTestTemplatesPage').then(m => ({ default: m.BloodTestTemplatesPage })))
 const BloodTestPanelsPage = lazy(() => import('@/pages/master/BloodTestPanelsPage').then(m => ({ default: m.BloodTestPanelsPage })))
+const BloodTestPresetsPage = lazy(() => import('@/pages/master/BloodTestPresetsPage').then(m => ({ default: m.BloodTestPresetsPage })))
 
 // Document Pages
 const DocumentsPage = lazy(() => import('@/pages/documents/DocumentsPage').then(m => ({ default: m.DocumentsPage })))
@@ -264,6 +265,7 @@ function App() {
                         () => import('@/pages/master/PartnersPage'),
                         () => import('@/pages/master/BloodTestTemplatesPage'),
                         () => import('@/pages/master/BloodTestPanelsPage'),
+                        () => import('@/pages/master/BloodTestPresetsPage'),
                         () => import('@/pages/documents/DocumentDetailPage'),
                         () => import('@/pages/documents/DocumentEditPage'),
                         () => import('@/pages/inventory/StockLedgerPage'),
@@ -340,6 +342,7 @@ function App() {
                         <Route path="/partners" element={<PartnersPage />} />
                         <Route path="/blood-test-templates" element={<BloodTestTemplatesPage />} />
                         <Route path="/blood-test-panels" element={<BloodTestPanelsPage />} />
+                        <Route path="/blood-test-presets" element={<BloodTestPresetsPage />} />
 
                         {/* 單據管理 */}
                         <Route path="/documents" element={<DocumentsPage />} />

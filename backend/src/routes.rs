@@ -85,6 +85,10 @@ pub fn api_routes(state: AppState) -> Router {
             get(handlers::list_warehouses).post(handlers::create_warehouse),
         )
         .route(
+            "/warehouses/with-shelves",
+            get(handlers::list_warehouses_with_shelves),
+        )
+        .route(
             "/warehouses/import",
             post(handlers::import_warehouses),
         )
@@ -579,6 +583,20 @@ pub fn api_routes(state: AppState) -> Router {
             "/blood-test-panels/:id/items",
             put(handlers::update_blood_test_panel_items),
         )
+        // Blood Test Presets（常用組合）
+        .route(
+            "/blood-test-presets",
+            get(handlers::list_blood_test_presets).post(handlers::create_blood_test_preset),
+        )
+        .route(
+            "/blood-test-presets/all",
+            get(handlers::list_all_blood_test_presets),
+        )
+        .route(
+            "/blood-test-presets/:id",
+            put(handlers::update_blood_test_preset).delete(handlers::delete_blood_test_preset),
+        )
+        .route("/blood-test-presets/:id/delete", post(handlers::delete_blood_test_preset))
         // Vet Recommendations
         .route(
             "/observations/:id/recommendations",
