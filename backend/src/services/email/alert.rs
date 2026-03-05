@@ -127,7 +127,7 @@ IACUC No.：{iacuc_no}
         let smtp_host = config.smtp_host.as_ref()
             .ok_or_else(|| anyhow::anyhow!("SMTP_HOST not configured"))?;
         let inventory_url = format!("{}/inventory", config.app_url);
-        let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+        let today = crate::time::now_taiwan().format("%Y-%m-%d").to_string();
         let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 
         let html_body = format!(
@@ -194,7 +194,7 @@ IACUC No.：{iacuc_no}
         let smtp_host = config.smtp_host.as_ref()
             .ok_or_else(|| anyhow::anyhow!("SMTP_HOST not configured"))?;
         let inventory_url = format!("{}/inventory", config.app_url);
-        let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+        let today = crate::time::now_taiwan().format("%Y-%m-%d").to_string();
         let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 
         let is_urgent = expired_count > 0;

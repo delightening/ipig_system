@@ -120,8 +120,8 @@ export function AnimalPenView({
         >
           {animal.ear_tag}
         </Link>
-        <div className="text-xs text-slate-500 truncate" title={animal.vet_last_viewed_at ? new Date(animal.vet_last_viewed_at).toLocaleString('zh-TW') : '-'}>
-          {animal.vet_last_viewed_at ? new Date(animal.vet_last_viewed_at).toLocaleDateString('zh-TW') : '-'}
+        <div className="text-xs text-slate-500 truncate" title={animal.vet_last_viewed_at ? new Date(animal.vet_last_viewed_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }) : '-'}>
+          {animal.vet_last_viewed_at ? new Date(animal.vet_last_viewed_at).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' }) : '-'}
         </div>
         <div className={`text-xs truncate ${animal.has_abnormal_record ? 'text-red-600 font-medium' : 'text-slate-400'}`}>
           {animal.has_abnormal_record ? '有異常' : '-'}

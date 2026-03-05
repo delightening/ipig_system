@@ -8,6 +8,11 @@ use crate::{
     AppError, Result,
 };
 
+/// 產生使用者列表搜尋用的 ILIKE pattern（前後加 %、trim），供 list 與單元測試使用。
+pub fn user_search_pattern(keyword: &str) -> String {
+    format!("%{}%", keyword.trim())
+}
+
 #[derive(sqlx::FromRow)]
 struct UserRoleRow {
     user_id: Uuid,
@@ -83,7 +88,7 @@ impl UserService {
     pub async fn list(pool: &PgPool, keyword: Option<&str>, pagination: &PaginationParams) -> Result<Vec<UserResponse>> {
         let suffix = pagination.sql_suffix();
         let users = if let Some(kw) = keyword {
-            let pattern = format!("%{}%", kw);
+            let pattern = user_search_pattern(kw);
             let sql = [
                 "SELECT * FROM users WHERE email ILIKE $1 OR display_name ILIKE $1 ORDER BY created_at DESC",
                 suffix.as_str(),
@@ -315,5 +320,27 @@ impl UserService {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::user_search_pattern;
+
+    #[test]
+    fn test_user_search_pattern_empty() {
+        assert_eq!(user_search_pattern(""), "%%");
+        assert_eq!(user_search_pattern("   "), "%%");
+    }
+
+    #[test]
+    fn test_user_search_pattern_trim() {
+        assert_eq!(user_search_pattern("  abc  "), "%abc%");
+    }
+
+    #[test]
+    fn test_user_search_pattern_normal() {
+        assert_eq!(user_search_pattern("john"), "%john%");
+        assert_eq!(user_search_pattern("test@example.com"), "%test@example.com%");
     }
 }

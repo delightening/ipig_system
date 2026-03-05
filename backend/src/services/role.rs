@@ -7,6 +7,15 @@ use crate::{
     AppError, Result,
 };
 
+/// 驗證角色 code 格式：長度 1–50，僅允許英數字與底線。與 DB 與 CreateRoleRequest 約定一致。
+pub fn is_valid_role_code(s: &str) -> bool {
+    let t = s.trim();
+    if t.is_empty() || t.len() > 50 {
+        return false;
+    }
+    t.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
 #[derive(sqlx::FromRow)]
 struct RolePermissionRow {
     role_id: Uuid,
@@ -19,6 +28,11 @@ pub struct RoleService;
 impl RoleService {
     /// 建立角色
     pub async fn create(pool: &PgPool, req: &CreateRoleRequest) -> Result<Role> {
+        if !is_valid_role_code(&req.code) {
+            return Err(AppError::Validation(
+                "Role code must be 1-50 characters and only contain letters, numbers, and underscore".to_string(),
+            ));
+        }
         // 檢查 code 是否已存在
         let exists: bool = sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM roles WHERE code = $1)"
@@ -278,5 +292,34 @@ impl RoleService {
         };
 
         Ok(permissions)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_valid_role_code;
+
+    #[test]
+    fn test_is_valid_role_code_valid() {
+        assert!(is_valid_role_code("admin"));
+        assert!(is_valid_role_code("role_1"));
+        assert!(is_valid_role_code("A1_b"));
+        assert!(is_valid_role_code("a"));
+        assert!(is_valid_role_code("  editor  "));
+    }
+
+    #[test]
+    fn test_is_valid_role_code_empty_or_too_long() {
+        assert!(!is_valid_role_code(""));
+        assert!(!is_valid_role_code("   "));
+        assert!(!is_valid_role_code(&"a".repeat(51)));
+    }
+
+    #[test]
+    fn test_is_valid_role_code_invalid_chars() {
+        assert!(!is_valid_role_code("role-code"));
+        assert!(!is_valid_role_code("role.code"));
+        assert!(!is_valid_role_code("角色"));
+        assert!(!is_valid_role_code("a b"));
     }
 }

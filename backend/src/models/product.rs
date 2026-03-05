@@ -296,3 +296,27 @@ pub struct ProductImportCheckResult {
     /// 檔案是否包含 SKU 編碼欄位（若否，前端可提示使用者選擇是否由系統自動產生）
     pub has_sku_column: bool,
 }
+
+/// 匯入預覽列（供前端「依序設定 SKU」使用）
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ProductImportPreviewRow {
+    /// 列號（1-based，對應 Excel/CSV 列）
+    pub row: i32,
+    pub name: String,
+    pub spec: Option<String>,
+    pub category_code: Option<String>,
+    pub subcategory_code: Option<String>,
+    pub base_uom: String,
+    pub track_batch: bool,
+    pub track_expiry: bool,
+    /// 安全庫存（JSON 以數值傳遞）
+    pub safety_stock: Option<f64>,
+    pub remark: Option<String>,
+}
+
+/// 匯入預覽結果
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ProductImportPreviewResult {
+    pub rows: Vec<ProductImportPreviewRow>,
+    pub has_sku_column: bool,
+}

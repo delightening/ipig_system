@@ -52,6 +52,25 @@ interface ProductImportCheckResult {
   has_sku_column: boolean
 }
 
+/** 匯入預覽列（依序設定 SKU 用） */
+interface ProductImportPreviewRow {
+  row: number
+  name: string
+  spec?: string
+  category_code?: string
+  subcategory_code?: string
+  base_uom: string
+  track_batch: boolean
+  track_expiry: boolean
+  safety_stock?: number
+  remark?: string
+}
+
+interface ProductImportPreviewResult {
+  rows: ProductImportPreviewRow[]
+  has_sku_column: boolean
+}
+
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -64,6 +83,9 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
   const [checkResult, setCheckResult] = useState<ProductImportCheckResult | null>(null)
   /** 使用者選擇「由系統自動產生 SKU 並繼續」後，用於顯示重複處理選項 */
   const [userAcceptedNoSku, setUserAcceptedNoSku] = useState(false)
+  /** 依序設定 SKU：預覽列與使用者輸入的 SKU */
+  const [previewRows, setPreviewRows] = useState<ProductImportPreviewRow[] | null>(null)
+  const [skuOverrides, setSkuOverrides] = useState<Record<number, string>>({})
 
   const checkMutation = useMutation({
     mutationFn: async (f: File) => {
@@ -85,6 +107,30 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
       toast({
         title: '預檢失敗',
         description: getApiErrorMessage(error, '無法檢查重複'),
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const previewMutation = useMutation({
+    mutationFn: async (f: File) => {
+      const formData = new FormData()
+      formData.append('file', f)
+      const res = await api.post<ProductImportPreviewResult>(
+        '/products/import/preview',
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      )
+      return res.data
+    },
+    onSuccess: (data) => {
+      setPreviewRows(data.rows)
+      setSkuOverrides({})
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: '預覽失敗',
+        description: getApiErrorMessage(error, '無法解析檔案'),
         variant: 'destructive',
       })
     },
@@ -112,6 +158,8 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
     onSuccess: (data) => {
       setResult(data)
       setCheckResult(null)
+      setPreviewRows(null)
+      setSkuOverrides({})
       queryClient.invalidateQueries({ queryKey: ['products'] })
       if (data.error_count === 0) {
         toast({
@@ -179,7 +227,53 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
     setResult(null)
     setCheckResult(null)
     setUserAcceptedNoSku(false)
+    setPreviewRows(null)
+    setSkuOverrides({})
     onOpenChange(false)
+  }
+
+  /** 將預覽列與使用者輸入的 SKU 組成 CSV（含 BOM），供匯入 API 使用 */
+  const buildCsvWithSku = (): File => {
+    if (!previewRows?.length) throw new Error('無預覽資料')
+    const escape = (v: string) => {
+      const s = String(v ?? '').trim()
+      if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+        return '"' + s.replace(/"/g, '""') + '"'
+      }
+      return s
+    }
+    const header =
+      'SKU編碼,名稱,規格,品類代碼,子類代碼,單位,追蹤批號,追蹤效期,安全庫存,備註'
+    const lines = previewRows.map((r) => {
+      const sku = skuOverrides[r.row]?.trim() ?? ''
+      return [
+        escape(sku),
+        escape(r.name),
+        escape(r.spec ?? ''),
+        escape(r.category_code ?? ''),
+        escape(r.subcategory_code ?? ''),
+        escape(r.base_uom),
+        r.track_batch ? 'true' : 'false',
+        r.track_expiry ? 'true' : 'false',
+        escape(r.safety_stock != null ? String(r.safety_stock) : ''),
+        escape(r.remark ?? ''),
+      ].join(',')
+    })
+    const csv = '\uFEFF' + header + '\n' + lines.join('\n')
+    return new File([new Blob([csv], { type: 'text/csv;charset=utf-8' })], 'product_import_with_sku.csv')
+  }
+
+  const handleConfirmImportWithSku = () => {
+    try {
+      const f = buildCsvWithSku()
+      doImport(f, false, false)
+    } catch (e) {
+      toast({
+        title: '無法產生匯入檔',
+        description: e instanceof Error ? e.message : '請稍後再試',
+        variant: 'destructive',
+      })
+    }
   }
 
   const handleDownloadTemplate = async () => {
@@ -221,7 +315,7 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className={previewRows?.length ? 'max-w-4xl' : 'max-w-lg'}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5" />
@@ -278,7 +372,7 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
           )}
 
           {/* 檔案未含 SKU 欄位：讓使用者選擇 */}
-          {checkResult && !checkResult.has_sku_column && !result && (checkResult.duplicate_count === 0 || !userAcceptedNoSku) && (
+          {checkResult && !checkResult.has_sku_column && !result && !previewRows && (checkResult.duplicate_count === 0 || !userAcceptedNoSku) && (
             <div className="space-y-4 p-4 border border-blue-200 bg-blue-50 rounded-lg">
               <div className="flex items-center gap-2 text-blue-800">
                 <AlertCircle className="h-5 w-5" />
@@ -287,7 +381,19 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
               <p className="text-sm text-blue-700">
                 請選擇處理方式：
               </p>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (file) previewMutation.mutate(file)
+                  }}
+                  disabled={previewMutation.isPending}
+                  variant="outline"
+                  className="border-blue-600 text-blue-700 hover:bg-blue-100"
+                >
+                  {previewMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  依序設定 SKU
+                </Button>
                 <Button
                   size="sm"
                   onClick={() => {
@@ -320,8 +426,86 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
             </div>
           )}
 
-          {/* 規則一：重複警示確認（有 SKU 欄位時，或使用者已選擇由系統產生 SKU 時顯示） */}
-          {checkResult && checkResult.duplicate_count > 0 && (checkResult.has_sku_column || userAcceptedNoSku) && !result && (
+          {/* 依序設定 SKU：預覽表格 */}
+          {previewRows && previewRows.length > 0 && !result && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-slate-700">
+                  請為以下商品設定 SKU（留空則由系統自動產生），共 {previewRows.length} 筆
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setPreviewRows(null)
+                    setSkuOverrides({})
+                  }}
+                >
+                  返回
+                </Button>
+              </div>
+              <div className="max-h-64 overflow-auto rounded-lg border border-slate-200">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-100 sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium w-14">列</th>
+                      <th className="px-3 py-2 text-left font-medium">名稱</th>
+                      <th className="px-3 py-2 text-left font-medium min-w-[80px]">規格</th>
+                      <th className="px-3 py-2 text-left font-medium w-16">單位</th>
+                      <th className="px-3 py-2 text-left font-medium w-20">安全庫存</th>
+                      <th className="px-3 py-2 text-left font-medium min-w-[120px]">SKU 編碼</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewRows.map((r) => (
+                      <tr key={r.row} className="border-t border-slate-100 hover:bg-slate-50">
+                        <td className="px-3 py-1.5">{r.row}</td>
+                        <td className="px-3 py-1.5">{r.name}</td>
+                        <td className="px-3 py-1.5 text-slate-600">{r.spec ?? '-'}</td>
+                        <td className="px-3 py-1.5">{r.base_uom}</td>
+                        <td className="px-3 py-1.5">{r.safety_stock ?? '-'}</td>
+                        <td className="px-3 py-1.5">
+                          <input
+                            type="text"
+                            value={skuOverrides[r.row] ?? ''}
+                            onChange={(e) =>
+                              setSkuOverrides((prev) => ({ ...prev, [r.row]: e.target.value }))
+                            }
+                            placeholder="留空自動產生"
+                            className="w-full min-w-[100px] rounded border border-slate-300 px-2 py-1 text-sm font-mono focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleConfirmImportWithSku}
+                  disabled={importMutation.isPending}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  {importMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  確認匯入
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setPreviewRows(null)
+                    setSkuOverrides({})
+                  }}
+                >
+                  返回
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* 規則一：重複警示確認（有 SKU 欄位時，或使用者已選擇由系統產生 SKU 時顯示；依序設定 SKU 步驟不顯示） */}
+          {checkResult && checkResult.duplicate_count > 0 && (checkResult.has_sku_column || userAcceptedNoSku) && !result && !previewRows && (
             <div className="space-y-4 p-4 border border-amber-200 bg-amber-50 rounded-lg">
               <div className="flex items-center gap-2 text-amber-800">
                 <AlertTriangle className="h-5 w-5" />
@@ -458,7 +642,7 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
           <Button variant="outline" onClick={handleClose}>
             {result ? '關閉' : '取消'}
           </Button>
-          {!result && !checkResult && (
+          {!result && !checkResult && !previewRows && (
             <Button
               onClick={handleImport}
               disabled={checkMutation.isPending || importMutation.isPending || !file}

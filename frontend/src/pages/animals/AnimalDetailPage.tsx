@@ -452,7 +452,7 @@ export function AnimalDetailPage() {
               <div>
                 <span className="text-sm text-slate-500">出生日期</span>
                 <p className="font-medium">
-                  {animal.birth_date ? new Date(animal.birth_date).toLocaleDateString('zh-TW') : '-'}
+                  {animal.birth_date ? new Date(animal.birth_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' }) : '-'}
                 </p>
               </div>
               <div>
@@ -468,7 +468,7 @@ export function AnimalDetailPage() {
                     )}
                     {animal.experiment_date && (
                       <span className="text-slate-400 ml-1">
-                        ({new Date(animal.experiment_date).toLocaleDateString('zh-TW')})
+                        ({new Date(animal.experiment_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })})
                       </span>
                     )}
                   </p>

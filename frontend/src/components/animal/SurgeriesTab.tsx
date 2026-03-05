@@ -140,7 +140,7 @@ export const SurgeriesTab = React.memo(function SurgeriesTab({ animalId, earTag,
                         </button>
                       </TableCell>
                       <TableCell>{surgery.is_first_experiment ? '是' : '否'}</TableCell>
-                      <TableCell>{new Date(surgery.surgery_date).toLocaleDateString('zh-TW')}</TableCell>
+                      <TableCell>{new Date(surgery.surgery_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}</TableCell>
                       <TableCell className="max-w-xs truncate">{surgery.surgery_site}</TableCell>
                       <TableCell>
                         {surgery.no_medication_needed ? (

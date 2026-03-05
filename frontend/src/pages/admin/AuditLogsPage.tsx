@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { useQuery } from '@tanstack/react-query'
-import { format } from 'date-fns'
-import { zhTW } from 'date-fns/locale'
 import api from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -381,15 +379,17 @@ export function AuditLogsPage() {
   const totalPages = activityLogs ? Math.ceil(activityLogs.total / perPage) : 0
 
   const formatDateTime = (dateStr: string) => {
-    return format(new Date(dateStr), 'yyyy/MM/dd HH:mm:ss', { locale: zhTW })
+    return new Date(dateStr).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
   }
 
   const formatDateTimeDisplay = (dateStr: string) => {
     const d = new Date(dateStr)
+    const datePart = d.toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' })
+    const timePart = d.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit' })
     return (
       <div className="block leading-tight">
-        <div>{format(d, 'yyyy/MM/dd', { locale: zhTW })}</div>
-        <div>{format(d, 'HH:mm:ss', { locale: zhTW })}</div>
+        <div>{datePart}</div>
+        <div>{timePart}</div>
       </div>
     )
   }

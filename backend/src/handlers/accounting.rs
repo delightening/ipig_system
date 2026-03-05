@@ -18,6 +18,7 @@ use crate::{
         TrialBalanceRow,
     },
     services::AccountingService,
+    time,
     AppState, Result,
 };
 
@@ -74,7 +75,7 @@ pub async fn get_trial_balance(
     Query(query): Query<AccountingQuery>,
 ) -> Result<Json<Vec<TrialBalanceRow>>> {
     require_permission!(current_user, "erp.report.view");
-    let as_of = query.as_of_date.unwrap_or_else(|| chrono::Utc::now().date_naive());
+    let as_of = query.as_of_date.unwrap_or_else(time::today_taiwan_naive);
     let rows = AccountingService::get_trial_balance(&state.db, as_of).await?;
     Ok(Json(rows))
 }
@@ -111,7 +112,7 @@ pub async fn get_ap_aging(
     Query(query): Query<AccountingQuery>,
 ) -> Result<Json<Vec<ApAgingRow>>> {
     require_permission!(current_user, "erp.report.view");
-    let as_of = query.as_of_date.unwrap_or_else(|| chrono::Utc::now().date_naive());
+    let as_of = query.as_of_date.unwrap_or_else(time::today_taiwan_naive);
     let rows = AccountingService::get_ap_aging(&state.db, as_of).await?;
     Ok(Json(rows))
 }
@@ -124,7 +125,7 @@ pub async fn get_ar_aging(
     Query(query): Query<AccountingQuery>,
 ) -> Result<Json<Vec<ArAgingRow>>> {
     require_permission!(current_user, "erp.report.view");
-    let as_of = query.as_of_date.unwrap_or_else(|| chrono::Utc::now().date_naive());
+    let as_of = query.as_of_date.unwrap_or_else(time::today_taiwan_naive);
     let rows = AccountingService::get_ar_aging(&state.db, as_of).await?;
     Ok(Json(rows))
 }

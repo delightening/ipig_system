@@ -38,7 +38,7 @@ const formatValue = (field: string, value: string | null): string => {
   if (field === 'birth_date') {
     try {
       const d = new Date(value)
-      if (!isNaN(d.getTime())) return d.toLocaleDateString('zh-TW')
+      if (!isNaN(d.getTime())) return d.toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })
     } catch {
       // ignore
     }
@@ -171,7 +171,7 @@ export function AnimalFieldCorrectionsPage() {
                       {r.reason}
                     </TableCell>
                     <TableCell>{r.requested_by_name || '-'}</TableCell>
-                    <TableCell>{new Date(r.created_at).toLocaleString('zh-TW')}</TableCell>
+                    <TableCell>{new Date(r.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button

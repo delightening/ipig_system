@@ -1,4 +1,3 @@
-use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -8,6 +7,7 @@ use crate::{
         DocumentLineWithProduct, DocumentListItem, DocumentQuery, DocumentWithLines,
         UpdateDocumentRequest,
     },
+    time,
     AppError, Result,
 };
 
@@ -373,8 +373,8 @@ impl DocumentService {
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         doc_type: DocType,
     ) -> Result<String> {
-        // 統一使用 YYMMDD 格式
-        let today = Utc::now();
+        // 統一使用台灣日期 YYMMDD 格式
+        let today = time::now_taiwan();
         let year = today.format("%y").to_string(); // 2-digit year
         let month_day = today.format("%m%d").to_string();
         let date_str = format!("{}{}", year, month_day);

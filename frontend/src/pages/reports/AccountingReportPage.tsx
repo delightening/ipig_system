@@ -93,7 +93,7 @@ interface Partner {
 }
 
 function formatDate(d: string) {
-  return new Date(d).toLocaleDateString('zh-TW')
+  return new Date(d).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })
 }
 
 function CreateApPaymentDialog({

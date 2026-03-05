@@ -388,7 +388,7 @@ export function SacrificeFormDialog({ open, onOpenChange, animalId, earTag, sacr
                       <p className="text-xs text-muted-foreground">
                         {t('signature.signedBy', '由 {{name}} 簽署於 {{date}}', {
                           name: sig.signer_name || '—',
-                          date: new Date(sig.signed_at).toLocaleString('zh-TW'),
+                          date: new Date(sig.signed_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }),
                         })}
                       </p>
                     </div>

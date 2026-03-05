@@ -143,7 +143,7 @@ export const ObservationsTab = React.memo(function ObservationsTab({ animalId, e
                           />
                         </button>
                       </TableCell>
-                      <TableCell>{new Date(obs.event_date).toLocaleDateString('zh-TW')}</TableCell>
+                      <TableCell>{new Date(obs.event_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{recordTypeNames[obs.record_type as RecordType]}</Badge>
                       </TableCell>

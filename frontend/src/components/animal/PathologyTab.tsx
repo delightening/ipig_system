@@ -103,7 +103,7 @@ export function PathologyTab({ animalId, earTag }: PathologyTabProps) {
                   <TableRow key={file.id}>
                     <TableCell className="font-medium">{file.file_name}</TableCell>
                     <TableCell>{(file.file_size / 1024).toFixed(2)} KB</TableCell>
-                    <TableCell>{new Date(file.created_at).toLocaleString('zh-TW')}</TableCell>
+                    <TableCell>{new Date(file.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="outline" size="sm">
                         <Download className="h-4 w-4 mr-2" />

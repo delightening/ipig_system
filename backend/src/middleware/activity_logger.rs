@@ -9,7 +9,6 @@ use axum::{
     response::Response,
 };
 use super::real_ip::extract_real_ip_with_trust;
-use chrono::Utc;
 use std::net::SocketAddr;
 use uuid::Uuid;
 
@@ -58,7 +57,7 @@ pub async fn activity_logger_middleware(
         let is_suspicious = check_suspicious(&method, &path, status_code);
         
         let pool = state.db.clone();
-        let partition_date = Utc::now().date_naive();
+        let partition_date = crate::time::today_taiwan_naive();
         
         // 異步記錄，不阻塞請求
         tokio::spawn(async move {

@@ -380,7 +380,7 @@ export function TransferTab({ animalId, animalStatus, earTag }: Props) {
                             )}
                             <div>
                                 <span className="text-slate-500">發起時間</span>
-                                <p>{new Date(activeTransfer.created_at).toLocaleString('zh-TW')}</p>
+                                <p>{new Date(activeTransfer.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}</p>
                             </div>
                         </div>
 
@@ -636,8 +636,8 @@ export function TransferTab({ animalId, animalStatus, earTag }: Props) {
                                             <p className="text-sm text-red-600 mt-1">拒絕原因：{t.rejected_reason}</p>
                                         )}
                                         <p className="text-xs text-slate-400 mt-2">
-                                            {new Date(t.created_at).toLocaleString('zh-TW')}
-                                            {t.completed_at && ` → ${new Date(t.completed_at).toLocaleString('zh-TW')}`}
+                                            {new Date(t.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}
+                                            {t.completed_at && ` → ${new Date(t.completed_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}`}
                                         </p>
                                     </CardContent>
                                 </Card>

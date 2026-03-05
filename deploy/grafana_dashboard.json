@@ -278,7 +278,7 @@
     "to": "now"
   },
   "timepicker": {},
-  "timezone": "",
+  "timezone": "Asia/Taipei",
   "title": "iPig System Overview",
   "uid": "ipig-overview",
   "version": 2,

@@ -133,7 +133,7 @@ export function MainLayout() {
           </Button>
           <div className="flex items-center space-x-2 md:space-x-4 ml-auto">
             <span className="text-sm text-muted-foreground hidden md:inline">
-              {new Date().toLocaleDateString(i18n.language)}
+              {new Date().toLocaleDateString(i18n.language, { timeZone: 'Asia/Taipei' })}
             </span>
 
             <NotificationDropdown />

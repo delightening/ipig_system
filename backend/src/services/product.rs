@@ -6,7 +6,8 @@ use uuid::Uuid;
 use crate::{
     models::{
         CreateCategoryRequest, CreateProductRequest, Product, ProductCategory, ProductImportErrorDetail,
-        ProductImportCheckResult, ProductImportDuplicateItem, ProductImportResult, ProductImportRow,
+        ProductImportCheckResult, ProductImportDuplicateItem, ProductImportPreviewResult,
+        ProductImportPreviewRow, ProductImportResult, ProductImportRow,
         ProductQuery, ProductUomConversion, ProductWithUom, UpdateProductRequest,
     },
     AppError, Result,
@@ -444,6 +445,52 @@ impl ProductService {
     // ============================================
     // 產品匯入
     // ============================================
+
+    /// 匯入預覽：解析檔案並回傳列資料，供前端「依序設定 SKU」使用（不寫入 DB）
+    pub fn preview_import(file_data: &[u8], file_name: &str) -> Result<ProductImportPreviewResult> {
+        let is_excel = file_name.ends_with(".xlsx") || file_name.ends_with(".xls");
+        let is_csv = file_name.ends_with(".csv");
+
+        if !is_excel && !is_csv {
+            return Err(AppError::Validation(
+                "不支援的檔案格式，請使用 Excel (.xlsx, .xls) 或 CSV 格式".to_string(),
+            ));
+        }
+
+        let (rows, has_sku_column) = if is_excel {
+            Self::parse_product_excel(file_data)?
+        } else {
+            Self::parse_product_csv(file_data)?
+        };
+
+        let preview_rows: Vec<ProductImportPreviewRow> = rows
+            .into_iter()
+            .enumerate()
+            .map(|(index, row)| {
+                let row_number = (index + 2) as i32; // 1-based 且跳過標題列
+                let safety_stock = row
+                    .safety_stock
+                    .and_then(|d| d.to_string().parse::<f64>().ok());
+                ProductImportPreviewRow {
+                    row: row_number,
+                    name: row.name,
+                    spec: row.spec,
+                    category_code: row.category_code,
+                    subcategory_code: row.subcategory_code,
+                    base_uom: row.base_uom,
+                    track_batch: row.track_batch,
+                    track_expiry: row.track_expiry,
+                    safety_stock,
+                    remark: row.remark,
+                }
+            })
+            .collect();
+
+        Ok(ProductImportPreviewResult {
+            rows: preview_rows,
+            has_sku_column,
+        })
+    }
 
     /// 匯入預檢：檢查名稱+規格是否與既有產品重複（規則一）
     pub async fn check_import_duplicates(

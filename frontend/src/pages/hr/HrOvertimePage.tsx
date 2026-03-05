@@ -99,7 +99,7 @@ const parseDecimal = (value: number | string | null | undefined): number => {
 
 /** Format date string to localized format */
 const formatDate = (dateStr: string): string => {
-    return format(new Date(dateStr), 'yyyy/MM/dd (EEEE)', { locale: zhTW })
+    return new Date(dateStr).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' })
 }
 
 /** Get badge component for overtime status */

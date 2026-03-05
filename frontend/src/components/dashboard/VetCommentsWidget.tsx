@@ -88,7 +88,7 @@ export function VetCommentsWidget() {
                                     </div>
                                     <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                                         <Calendar className="h-3 w-3" />
-                                        {new Date(comment.created_at).toLocaleDateString(i18n.language)}
+                                        {new Date(comment.created_at).toLocaleDateString(i18n.language, { timeZone: 'Asia/Taipei' })}
                                     </span>
                                 </div>
                                 <p className="text-xs text-muted-foreground line-clamp-2 mb-2 italic">

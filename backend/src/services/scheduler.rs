@@ -445,9 +445,9 @@ impl SchedulerService {
 
     /// 產出每月進銷貨+血液檢查報表
     async fn generate_monthly_report(db: &PgPool) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        use chrono::{Datelike, NaiveDate, Utc};
+        use chrono::{Datelike, NaiveDate};
 
-        let now = Utc::now().naive_utc().date();
+        let now = crate::time::today_taiwan_naive();
         // 上月的第一天和最後一天
         let year = if now.month() == 1 { now.year() - 1 } else { now.year() };
         let month = if now.month() == 1 { 12 } else { now.month() - 1 };

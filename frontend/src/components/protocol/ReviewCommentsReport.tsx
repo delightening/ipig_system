@@ -114,7 +114,7 @@ export function ReviewCommentsReport({ protocol, comments, vet_review }: ReviewC
                             <td colSpan={4} className="border border-black p-2">
                                 <div className="flex justify-between">
                                     <span>獸醫師簽名：{vet_review?.review_form?.vet_signature ? '(已簽章)' : '____________'}</span>
-                                    <span>日期：{vet_review?.review_form?.signed_at ? formatDate(vet_review.review_form.signed_at) : new Date().toLocaleDateString('zh-TW')}</span>
+                                    <span>日期：{vet_review?.review_form?.signed_at ? formatDate(vet_review.review_form.signed_at) : new Date().toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}</span>
                                 </div>
                             </td>
                         </tr>

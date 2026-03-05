@@ -184,12 +184,12 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
     const sourceOptions = [
         ...observations.map((o) => ({
             value: String(o.id),
-            label: `觀察 ${o.observation_date ? new Date(o.observation_date).toLocaleDateString('zh-TW') : String(o.id).slice(0, 8)}`,
+            label: `觀察 ${o.observation_date ? new Date(o.observation_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' }) : String(o.id).slice(0, 8)}`,
             type: 'observation' as const,
         })),
         ...surgeries.map((s) => ({
             value: String(s.id),
-            label: `手術 ${s.surgery_date ? new Date(s.surgery_date).toLocaleDateString('zh-TW') : String(s.id).slice(0, 8)}`,
+            label: `手術 ${s.surgery_date ? new Date(s.surgery_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' }) : String(s.id).slice(0, 8)}`,
             type: 'surgery' as const,
         })),
     ]
@@ -245,6 +245,7 @@ export function PainAssessmentTab({ animalId, observations, surgeries }: PainAss
 
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString('zh-TW', {
+            timeZone: 'Asia/Taipei',
             month: '2-digit',
             day: '2-digit',
             hour: '2-digit',

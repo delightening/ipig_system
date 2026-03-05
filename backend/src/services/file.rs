@@ -7,13 +7,13 @@ use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
-use chrono::Utc;
 
 use crate::constants::{
     FILE_MAX_ANIMAL_PHOTO, FILE_MAX_LEAVE_ATTACHMENT, FILE_MAX_OBSERVATION_ATTACHMENT,
     FILE_MAX_PATHOLOGY_REPORT, FILE_MAX_PROTOCOL_ATTACHMENT, FILE_MAX_VET_RECOMMENDATION,
 };
 use crate::error::AppError;
+use crate::time;
 
 /// 檔案服務 - 處理檔案上傳、下載與管理
 pub struct FileService;
@@ -206,7 +206,7 @@ impl FileService {
     /// 產生唯一檔名
     fn generate_unique_filename(original_filename: &str, mime_type: &str) -> String {
         let file_id = Uuid::new_v4().to_string();
-        let date_prefix = Utc::now().format("%Y%m%d").to_string();
+        let date_prefix = time::now_taiwan().format("%Y%m%d").to_string();
         
         // 優先使用原始檔名的副檔名
         let extension = Self::get_extension_from_filename(original_filename)
