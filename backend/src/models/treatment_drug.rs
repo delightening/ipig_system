@@ -7,7 +7,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 /// 治療方式藥物選項
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, utoipa::ToSchema)]
 pub struct TreatmentDrugOption {
     pub id: Uuid,
     pub name: String,
@@ -25,7 +25,7 @@ pub struct TreatmentDrugOption {
 }
 
 /// 建立藥物選項請求
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, utoipa::ToSchema)]
 pub struct CreateTreatmentDrugRequest {
     #[validate(length(min = 1, max = 200, message = "藥品名稱須為 1-200 字元"))]
     pub name: String,
@@ -42,7 +42,7 @@ pub struct CreateTreatmentDrugRequest {
 }
 
 /// 更新藥物選項請求
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct UpdateTreatmentDrugRequest {
     pub name: Option<String>,
     pub display_name: Option<String>,
@@ -56,7 +56,7 @@ pub struct UpdateTreatmentDrugRequest {
 }
 
 /// 藥物選項查詢參數
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct TreatmentDrugQuery {
     pub keyword: Option<String>,
     pub category: Option<String>,
@@ -64,7 +64,7 @@ pub struct TreatmentDrugQuery {
 }
 
 /// 從 ERP 匯入請求
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct ImportFromErpRequest {
     pub product_ids: Vec<Uuid>,
     pub category: Option<String>,

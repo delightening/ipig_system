@@ -188,6 +188,9 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-05 R4-100-O7 報表／會計／治療藥物 OpenAPI 完成
+- **R4-100-O7**：report（7 個端點）、accounting（7 個端點）、treatment_drug（6 個端點）補齊 `#[utoipa::path]`，openapi.rs 註冊 paths、tags「報表／會計／治療藥物」及相關 schemas（CreateApPaymentRequest、CreateArReceiptRequest、TreatmentDrugOption 等）。TODO.md R4-100-O7 標完成，待辦統計 7→6、合計 8→7。
+
 ### 2026-03-05 編輯產品與新增產品對齊（包裝結構、分類、移除耗材 LAB 主分類）
 - **編輯產品頁**：品類改為與新增產品一致（分類按鈕＋子分類下拉）；移除「耗材(LAB)」主分類，實驗耗材改為耗材之子分類；舊 LAB 主分類產品載入時自動對應為 耗材＋實驗耗材。
 - **編輯產品頁**：新增「包裝結構」區塊，可檢視與編輯兩層／三層包裝（外層→內層→基礎單位），與新增產品相同邏輯計算 `pack_unit`／`pack_qty` 儲存。

@@ -246,6 +246,29 @@ use utoipa::OpenApi;
         crate::handlers::storage_location::update_storage_location_inventory_item,
         crate::handlers::storage_location::transfer_storage_location_inventory,
         crate::handlers::storage_location::update_warehouse_layout,
+        // === 報表 ===
+        crate::handlers::get_stock_on_hand_report,
+        crate::handlers::get_stock_ledger_report,
+        crate::handlers::get_purchase_lines_report,
+        crate::handlers::get_sales_lines_report,
+        crate::handlers::get_cost_summary_report,
+        crate::handlers::get_blood_test_cost_report,
+        crate::handlers::get_blood_test_analysis,
+        // === 會計 ===
+        crate::handlers::get_chart_of_accounts,
+        crate::handlers::get_trial_balance,
+        crate::handlers::get_journal_entries,
+        crate::handlers::get_ap_aging,
+        crate::handlers::get_ar_aging,
+        crate::handlers::create_ap_payment,
+        crate::handlers::create_ar_receipt,
+        // === 治療藥物 ===
+        crate::handlers::treatment_drug::list_treatment_drugs,
+        crate::handlers::treatment_drug::admin_list_treatment_drugs,
+        crate::handlers::treatment_drug::create_treatment_drug,
+        crate::handlers::treatment_drug::update_treatment_drug,
+        crate::handlers::treatment_drug::delete_treatment_drug,
+        crate::handlers::treatment_drug::import_treatment_drugs_from_erp,
     ),
     components(
         schemas(
@@ -480,6 +503,13 @@ use utoipa::OpenApi;
             crate::models::UpdateStorageLocationInventoryItemRequest,
             crate::models::CreateStorageLocationInventoryItemRequest,
             crate::models::TransferStorageLocationInventoryRequest,
+            // 報表／會計／治療藥物
+            crate::handlers::CreateApPaymentRequest,
+            crate::handlers::CreateArReceiptRequest,
+            crate::models::TreatmentDrugOption,
+            crate::models::CreateTreatmentDrugRequest,
+            crate::models::UpdateTreatmentDrugRequest,
+            crate::models::ImportFromErpRequest,
         )
     ),
     modifiers(),
@@ -505,6 +535,9 @@ use utoipa::OpenApi;
         (name = "合作夥伴管理", description = "夥伴 CRUD、匯入、代碼產生"),
         (name = "單據管理", description = "單據 CRUD、提交、核准、取消"),
         (name = "儲位管理", description = "儲位 CRUD、庫存、調撥、代碼產生"),
+        (name = "報表", description = "庫存現況、流水、採購/銷貨明細、成本彙總、血液檢查"),
+        (name = "會計", description = "會計科目、試算表、傳票、AP/AR 帳齡、付款/收款"),
+        (name = "治療藥物", description = "治療方式藥物選項 CRUD、ERP 匯入"),
     ),
     security(
         ("bearer" = [])
