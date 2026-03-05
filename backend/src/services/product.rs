@@ -283,66 +283,151 @@ impl ProductService {
         })
     }
 
-    /// 更新產品
+    /// 更新產品。
+    /// 特例：若目前為 GEN-OTH，且使用者變更品類／子類為非 GEN-OTH，則自動產生新 SKU 並一併更新。
     pub async fn update(
         pool: &PgPool,
         id: Uuid,
         req: &UpdateProductRequest,
     ) -> Result<ProductWithUom> {
-        let _product = sqlx::query_as::<_, Product>(
-            r#"
-            UPDATE products SET
-                name = COALESCE($1, name),
-                spec = COALESCE($2, spec),
-                category_code = COALESCE($3, category_code),
-                subcategory_code = COALESCE($4, subcategory_code),
-                pack_unit = COALESCE($5, pack_unit),
-                pack_qty = COALESCE($6, pack_qty),
-                track_batch = COALESCE($7, track_batch),
-                track_expiry = COALESCE($8, track_expiry),
-                default_expiry_days = COALESCE($9, default_expiry_days),
-                safety_stock = COALESCE($10, safety_stock),
-                safety_stock_uom = COALESCE($11, safety_stock_uom),
-                reorder_point = COALESCE($12, reorder_point),
-                reorder_point_uom = COALESCE($13, reorder_point_uom),
-                barcode = COALESCE($14, barcode),
-                image_url = COALESCE($15, image_url),
-                license_no = COALESCE($16, license_no),
-                storage_condition = COALESCE($17, storage_condition),
-                tags = COALESCE($18, tags),
-                status = COALESCE($19, status),
-                remark = COALESCE($20, remark),
-                is_active = COALESCE($21, is_active),
-                updated_at = NOW()
-            WHERE id = $22
-            RETURNING *
-            "#,
+        let current: Option<(String, String)> = sqlx::query_as::<_, (String, String)>(
+            "SELECT COALESCE(category_code, 'GEN'), COALESCE(subcategory_code, 'OTH') FROM products WHERE id = $1",
         )
-        .bind(&req.name)
-        .bind(&req.spec)
-        .bind(&req.category_code)
-        .bind(&req.subcategory_code)
-        .bind(&req.pack_unit)
-        .bind(req.pack_qty)
-        .bind(req.track_batch)
-        .bind(req.track_expiry)
-        .bind(req.default_expiry_days)
-        .bind(req.safety_stock)
-        .bind(&req.safety_stock_uom)
-        .bind(req.reorder_point)
-        .bind(&req.reorder_point_uom)
-        .bind(&req.barcode)
-        .bind(&req.image_url)
-        .bind(&req.license_no)
-        .bind(&req.storage_condition)
-        .bind(&req.tags)
-        .bind(&req.status)
-        .bind(&req.remark)
-        .bind(req.is_active)
         .bind(id)
         .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Product not found".to_string()))?;
+        .await?;
+
+        let (new_cat, new_sub) = (
+            req.category_code.as_deref().unwrap_or(current.as_ref().map(|c| c.0.as_str()).unwrap_or("GEN")),
+            req.subcategory_code.as_deref().unwrap_or(current.as_ref().map(|c| c.1.as_str()).unwrap_or("OTH")),
+        );
+        let is_gen_oth = current
+            .as_ref()
+            .map(|(c, s)| c.as_str() == "GEN" && s.as_str() == "OTH")
+            .unwrap_or(false);
+        let changing_away_from_gen_oth = is_gen_oth
+            && (new_cat != "GEN" || new_sub != "OTH");
+
+        let new_sku = if changing_away_from_gen_oth {
+            let seq = Self::get_next_sequence(pool, new_cat, new_sub).await?;
+            Some(format_product_sku(new_cat, new_sub, seq))
+        } else {
+            None
+        };
+
+        let _product = if let Some(ref sku) = new_sku {
+            sqlx::query_as::<_, Product>(
+                r#"
+                UPDATE products SET
+                    sku = $1,
+                    name = COALESCE($2, name),
+                    spec = COALESCE($3, spec),
+                    category_code = COALESCE($4, category_code),
+                    subcategory_code = COALESCE($5, subcategory_code),
+                    pack_unit = COALESCE($6, pack_unit),
+                    pack_qty = COALESCE($7, pack_qty),
+                    track_batch = COALESCE($8, track_batch),
+                    track_expiry = COALESCE($9, track_expiry),
+                    default_expiry_days = COALESCE($10, default_expiry_days),
+                    safety_stock = COALESCE($11, safety_stock),
+                    safety_stock_uom = COALESCE($12, safety_stock_uom),
+                    reorder_point = COALESCE($13, reorder_point),
+                    reorder_point_uom = COALESCE($14, reorder_point_uom),
+                    barcode = COALESCE($15, barcode),
+                    image_url = COALESCE($16, image_url),
+                    license_no = COALESCE($17, license_no),
+                    storage_condition = COALESCE($18, storage_condition),
+                    tags = COALESCE($19, tags),
+                    status = COALESCE($20, status),
+                    remark = COALESCE($21, remark),
+                    is_active = COALESCE($22, is_active),
+                    updated_at = NOW()
+                WHERE id = $23
+                RETURNING *
+                "#,
+            )
+            .bind(sku)
+            .bind(&req.name)
+            .bind(&req.spec)
+            .bind(&req.category_code)
+            .bind(&req.subcategory_code)
+            .bind(&req.pack_unit)
+            .bind(req.pack_qty)
+            .bind(req.track_batch)
+            .bind(req.track_expiry)
+            .bind(req.default_expiry_days)
+            .bind(req.safety_stock)
+            .bind(&req.safety_stock_uom)
+            .bind(req.reorder_point)
+            .bind(&req.reorder_point_uom)
+            .bind(&req.barcode)
+            .bind(&req.image_url)
+            .bind(&req.license_no)
+            .bind(&req.storage_condition)
+            .bind(&req.tags)
+            .bind(&req.status)
+            .bind(&req.remark)
+            .bind(req.is_active)
+            .bind(id)
+            .fetch_optional(pool)
+            .await?
+        } else {
+            sqlx::query_as::<_, Product>(
+                r#"
+                UPDATE products SET
+                    name = COALESCE($1, name),
+                    spec = COALESCE($2, spec),
+                    category_code = COALESCE($3, category_code),
+                    subcategory_code = COALESCE($4, subcategory_code),
+                    pack_unit = COALESCE($5, pack_unit),
+                    pack_qty = COALESCE($6, pack_qty),
+                    track_batch = COALESCE($7, track_batch),
+                    track_expiry = COALESCE($8, track_expiry),
+                    default_expiry_days = COALESCE($9, default_expiry_days),
+                    safety_stock = COALESCE($10, safety_stock),
+                    safety_stock_uom = COALESCE($11, safety_stock_uom),
+                    reorder_point = COALESCE($12, reorder_point),
+                    reorder_point_uom = COALESCE($13, reorder_point_uom),
+                    barcode = COALESCE($14, barcode),
+                    image_url = COALESCE($15, image_url),
+                    license_no = COALESCE($16, license_no),
+                    storage_condition = COALESCE($17, storage_condition),
+                    tags = COALESCE($18, tags),
+                    status = COALESCE($19, status),
+                    remark = COALESCE($20, remark),
+                    is_active = COALESCE($21, is_active),
+                    updated_at = NOW()
+                WHERE id = $22
+                RETURNING *
+                "#,
+            )
+            .bind(&req.name)
+            .bind(&req.spec)
+            .bind(&req.category_code)
+            .bind(&req.subcategory_code)
+            .bind(&req.pack_unit)
+            .bind(req.pack_qty)
+            .bind(req.track_batch)
+            .bind(req.track_expiry)
+            .bind(req.default_expiry_days)
+            .bind(req.safety_stock)
+            .bind(&req.safety_stock_uom)
+            .bind(req.reorder_point)
+            .bind(&req.reorder_point_uom)
+            .bind(&req.barcode)
+            .bind(&req.image_url)
+            .bind(&req.license_no)
+            .bind(&req.storage_condition)
+            .bind(&req.tags)
+            .bind(&req.status)
+            .bind(&req.remark)
+            .bind(req.is_active)
+            .bind(id)
+            .fetch_optional(pool)
+            .await?
+        };
+
+        let _product = _product.ok_or_else(|| AppError::NotFound("Product not found".to_string()))?;
 
         // 如果要更新單位換算
         if let Some(ref conversions) = req.uom_conversions {
@@ -780,6 +865,21 @@ impl ProductService {
         })
     }
 
+    /// 依表頭名稱找欄位索引（忽略空白、大小寫）
+    fn csv_header_index(headers: &csv::StringRecord, name: &str) -> Option<usize> {
+        let key = name.trim().to_lowercase();
+        if key.is_empty() {
+            return None;
+        }
+        headers.iter().position(|h| h.trim().to_lowercase() == key)
+    }
+
+    /// 是否為「庫存清表／重構」格式：表頭含「品名」與「規格」（名稱與規格對應品名、規格欄）
+    fn is_stocklist_format(headers: &csv::StringRecord) -> bool {
+        Self::csv_header_index(headers, "品名").is_some()
+            && Self::csv_header_index(headers, "規格").is_some()
+    }
+
     /// 解析產品匯入 CSV，回傳 (列資料, 是否含 SKU 欄位)
     fn parse_product_csv(file_data: &[u8]) -> Result<(Vec<ProductImportRow>, bool)> {
         let content = String::from_utf8_lossy(file_data);
@@ -797,26 +897,40 @@ impl ProductService {
                 .map(|h| h.trim().to_uppercase().contains("SKU"))
                 .unwrap_or(false);
 
+        let stocklist_format = Self::is_stocklist_format(headers);
+        let (name_idx, spec_idx, cat_idx, subcat_idx, uom_idx, batch_idx, expiry_idx, stock_idx, remark_idx) = if stocklist_format {
+            let name_idx = Self::csv_header_index(headers, "品名").ok_or_else(|| {
+                AppError::Validation("庫存清表格式 CSV 需有「品名」欄位".to_string())
+            })?;
+            let spec_idx = Self::csv_header_index(headers, "規格").ok_or_else(|| {
+                AppError::Validation("庫存清表格式 CSV 需有「規格」欄位".to_string())
+            })?;
+            let uom_idx = Self::csv_header_index(headers, "單位").unwrap_or_else(|| spec_idx.saturating_add(1));
+            let remark_idx = Self::csv_header_index(headers, "製造廠商")
+                .or_else(|| Self::csv_header_index(headers, "包裝規格"))
+                .unwrap_or(0);
+            (name_idx, spec_idx, usize::MAX, usize::MAX, uom_idx, usize::MAX, usize::MAX, usize::MAX, remark_idx)
+        } else if has_sku_column {
+            (1, 2, 3, 4, 5, 6, 7, 8, 9)
+        } else {
+            (0, 1, 2, 3, 4, 5, 6, 7, 8)
+        };
+
         let mut rows = Vec::new();
         for (i, result) in reader.records().enumerate() {
             let record = result.map_err(|e| AppError::Validation(format!("CSV 解析錯誤第 {} 行: {}", i + 2, e)))?;
-            let (name_idx, spec_idx, cat_idx, subcat_idx, uom_idx, batch_idx, expiry_idx, stock_idx, remark_idx) = if has_sku_column {
-                if record.len() < 3 {
-                    continue;
-                }
-                (1, 2, 3, 4, 5, 6, 7, 8, 9)
-            } else {
-                if record.len() < 2 {
-                    continue;
-                }
-                (0, 1, 2, 3, 4, 5, 6, 7, 8)
-            };
+            if stocklist_format && record.len() <= name_idx.max(spec_idx) {
+                continue;
+            }
+            if !stocklist_format && (if has_sku_column { record.len() < 3 } else { record.len() < 2 }) {
+                continue;
+            }
 
             let name = record.get(name_idx).unwrap_or("").to_string();
             if name.trim().is_empty() {
                 continue;
             }
-            let sku = if has_sku_column {
+            let sku = if has_sku_column && !stocklist_format {
                 record.get(0).and_then(|s| {
                     let t = s.trim();
                     if t.is_empty() {
@@ -829,16 +943,45 @@ impl ProductService {
                 None
             };
             let spec = record.get(spec_idx).filter(|s| !s.trim().is_empty()).map(String::from);
-            let category_code = record.get(cat_idx).filter(|s| !s.trim().is_empty()).map(String::from);
-            let subcategory_code = record.get(subcat_idx).filter(|s| !s.trim().is_empty()).map(String::from);
-            let base_uom = record.get(uom_idx).unwrap_or("PCS").to_string();
-            let track_batch = Self::parse_bool(record.get(batch_idx).unwrap_or(""));
-            let track_expiry = Self::parse_bool(record.get(expiry_idx).unwrap_or(""));
-            let safety_stock = record
-                .get(stock_idx)
-                .and_then(|s| s.trim().parse::<f64>().ok())
-                .and_then(rust_decimal::Decimal::from_f64_retain);
-            let remark = record.get(remark_idx).filter(|s| !s.trim().is_empty()).map(String::from);
+            let category_code = if cat_idx < record.len() {
+                record.get(cat_idx).filter(|s| !s.trim().is_empty()).map(String::from)
+            } else {
+                None
+            };
+            let subcategory_code = if subcat_idx < record.len() && subcat_idx != cat_idx {
+                record.get(subcat_idx).filter(|s| !s.trim().is_empty()).map(String::from)
+            } else {
+                None
+            };
+            let base_uom = if uom_idx < record.len() {
+                record.get(uom_idx).map(|s| s.trim().to_string()).unwrap_or_else(|| "PCS".to_string())
+            } else {
+                "PCS".to_string()
+            };
+            let base_uom = if base_uom.is_empty() { "PCS".to_string() } else { base_uom };
+            let track_batch = if batch_idx < record.len() {
+                Self::parse_bool(record.get(batch_idx).unwrap_or(""))
+            } else {
+                true
+            };
+            let track_expiry = if expiry_idx < record.len() {
+                Self::parse_bool(record.get(expiry_idx).unwrap_or(""))
+            } else {
+                true
+            };
+            let safety_stock = if stock_idx < record.len() {
+                record
+                    .get(stock_idx)
+                    .and_then(|s| s.trim().parse::<f64>().ok())
+                    .and_then(rust_decimal::Decimal::from_f64_retain)
+            } else {
+                None
+            };
+            let remark = if remark_idx < record.len() {
+                record.get(remark_idx).filter(|s| !s.trim().is_empty()).map(String::from)
+            } else {
+                None
+            };
 
             rows.push(ProductImportRow {
                 sku,
@@ -853,7 +996,7 @@ impl ProductService {
                 remark,
             });
         }
-        Ok((rows, has_sku_column))
+        Ok((rows, has_sku_column && !stocklist_format))
     }
 
     /// 解析產品匯入 Excel，回傳 (列資料, 是否含 SKU 欄位)
