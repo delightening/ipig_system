@@ -1,8 +1,8 @@
 -- ============================================
--- Migration 010: GLP、設備、會計、訓練權限
+-- Migration 009: GLP 擴充（訓練、設備、QAU、會計）、血液檢查預設、SKU 品類種子
 -- ============================================
 
--- 10.1 人員訓練紀錄
+-- 9.1 人員訓練紀錄
 CREATE TABLE training_records (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -27,7 +27,7 @@ SELECT r.id, p.id FROM roles r, permissions p
 WHERE r.code = 'EXPERIMENT_STAFF' AND p.code IN ('training.view', 'training.manage_own')
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
--- 10.2 設備與校準
+-- 9.2 設備與校準
 CREATE TABLE equipment (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(200) NOT NULL,
@@ -59,7 +59,7 @@ INSERT INTO permissions (id, code, name, module, description, created_at) VALUES
     (gen_random_uuid(), 'equipment.manage', '管理設備', 'equipment', '可新增、編輯、刪除設備與校準紀錄', NOW())
 ON CONFLICT (code) DO NOTHING;
 
--- 10.3 QAU 品質保證
+-- 9.3 QAU 品質保證
 INSERT INTO permissions (id, code, name, module, description, created_at) VALUES
     (gen_random_uuid(), 'qau.dashboard.view', '查看 QAU 儀表板', 'qau', 'GLP 品質保證：可查看研究狀態、審查進度、稽核摘要', NOW()),
     (gen_random_uuid(), 'qau.protocol.view', 'QAU 檢視計畫', 'qau', '唯讀檢視所有計畫書', NOW()),
@@ -80,7 +80,7 @@ WHERE r.code = 'QAU' AND p.code IN (
 )
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
--- 10.4 會計
+-- 9.4 會計
 CREATE TYPE account_type AS ENUM ('asset', 'liability', 'equity', 'revenue', 'expense');
 
 CREATE TABLE chart_of_accounts (
@@ -154,3 +154,58 @@ CREATE TABLE ar_receipts (
 );
 CREATE SEQUENCE IF NOT EXISTS ar_receipt_no_seq START 1;
 CREATE INDEX idx_ar_receipts_partner ON ar_receipts(partner_id);
+
+-- 9.5 血液檢查常用組合（分析頁一鍵選取用）
+CREATE TABLE blood_test_presets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) NOT NULL,
+    icon VARCHAR(100) DEFAULT '📋',
+    panel_keys TEXT[] NOT NULL DEFAULT '{}',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX idx_blood_test_presets_is_active ON blood_test_presets(is_active);
+CREATE INDEX idx_blood_test_presets_sort_order ON blood_test_presets(sort_order);
+
+INSERT INTO blood_test_presets (name, icon, panel_keys, sort_order) VALUES
+('肝腎功能', '🩺', ARRAY['LIVER','KIDNEY'], 1),
+('血球分析', '🩸', ARRAY['CBC'], 2),
+('發炎指標', '🦠', ARRAY['INFECT'], 3),
+('肝臟', '/icons/liver.svg', ARRAY['LIVER'], 4),
+('血脂', '🥩', ARRAY['LIPID'], 5),
+('電解質', '⚡', ARRAY['ELECTRO'], 6);
+
+-- 9.6 品類／子類種子資料（與前端「新增產品」一致）
+INSERT INTO sku_categories (code, name, sort_order, is_active, created_at) VALUES
+  ('GEN', '通用', 0, true, NOW()),
+  ('DRG', '藥品', 10, true, NOW()),
+  ('MED', '醫材', 20, true, NOW()),
+  ('CON', '耗材', 30, true, NOW()),
+  ('CHM', '化學品', 40, true, NOW()),
+  ('EQP', '設備', 50, true, NOW())
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO sku_subcategories (category_code, code, name, sort_order, is_active, created_at) VALUES
+  ('GEN', 'OTH', '其他', 0, true, NOW()),
+  ('DRG', 'ABX', '抗生素', 10, true, NOW()),
+  ('DRG', 'ANL', '止痛藥', 20, true, NOW()),
+  ('DRG', 'VIT', '維生素', 30, true, NOW()),
+  ('DRG', 'OTH', '其他藥品', 40, true, NOW()),
+  ('CON', 'GLV', '手套', 10, true, NOW()),
+  ('CON', 'GAU', '紗布敷料', 20, true, NOW()),
+  ('CON', 'CLN', '清潔消毒', 30, true, NOW()),
+  ('CON', 'TAG', '標示耗材', 40, true, NOW()),
+  ('CON', 'LAB', '實驗耗材', 50, true, NOW()),
+  ('CON', 'OTH', '其他耗材', 60, true, NOW()),
+  ('CHM', 'RGT', '試劑', 10, true, NOW()),
+  ('CHM', 'SOL', '溶劑', 20, true, NOW()),
+  ('CHM', 'STD', '標準品', 30, true, NOW()),
+  ('CHM', 'OTH', '其他化學品', 40, true, NOW()),
+  ('EQP', 'INS', '儀器', 10, true, NOW()),
+  ('EQP', 'TOL', '工具', 20, true, NOW()),
+  ('EQP', 'PRT', '零件', 30, true, NOW()),
+  ('EQP', 'OTH', '其他設備', 40, true, NOW()),
+  ('MED', 'MED', '醫材', 0, true, NOW())
+ON CONFLICT (category_code, code) DO NOTHING;

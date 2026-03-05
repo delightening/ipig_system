@@ -1,8 +1,8 @@
 -- ============================================
--- Migration 009: 補充功能、修正、效能
+-- Migration 008: 補充功能、犧牲鎖欄、轉讓類型、修正、效能
 -- ============================================
 
--- 9.1 通知路由
+-- 8.1 通知路由
 CREATE TABLE notification_routing (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_type VARCHAR(80) NOT NULL,
@@ -27,7 +27,7 @@ INSERT INTO notification_routing (event_type, role_code, channel, description) V
 ('animal_abnormal_record','VET','both','動物異常紀錄'),('animal_sudden_death','VET','both','動物猝死'),('low_stock_alert','PURCHASING','in_app','低庫存預警')
 ON CONFLICT (event_type, role_code) DO NOTHING;
 
--- 9.2 電子簽章
+-- 8.2 電子簽章
 CREATE TABLE electronic_signatures (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     entity_type VARCHAR(50) NOT NULL,
@@ -61,7 +61,7 @@ CREATE TABLE record_annotations (
 );
 CREATE INDEX idx_annot_record ON record_annotations (record_type, record_id);
 
--- 9.3 治療藥物選項
+-- 8.3 治療藥物選項
 CREATE TABLE treatment_drug_options (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(200) NOT NULL,
@@ -94,7 +94,18 @@ CREATE TABLE jwt_blacklist (
 );
 CREATE INDEX idx_jwt_blacklist_expires ON jwt_blacklist(expires_at);
 
--- 9.4 Enum cast 函式
+-- 8.4 動物犧牲簽章鎖（GLP）
+ALTER TABLE animal_sacrifices
+  ADD COLUMN IF NOT EXISTS is_locked BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS locked_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS locked_by UUID REFERENCES users(id);
+
+-- 8.5 轉讓類型：external = 轉給其他機構，internal = 仍在機構內
+ALTER TABLE animal_transfers
+ADD COLUMN IF NOT EXISTS transfer_type VARCHAR(20) NOT NULL DEFAULT 'internal';
+COMMENT ON COLUMN animal_transfers.transfer_type IS 'external: 轉給其他機構; internal: 仍在機構內';
+
+-- 8.6 Enum cast 函式
 CREATE OR REPLACE FUNCTION version_record_type_to_text(version_record_type) RETURNS text AS $$
     SELECT (SELECT enumlabel FROM pg_enum WHERE enumtypid = 'version_record_type'::regtype ORDER BY enumsortorder OFFSET (array_position(enum_range(NULL::version_record_type), $1) - 1) LIMIT 1);
 $$ LANGUAGE SQL STABLE;
@@ -121,13 +132,13 @@ CREATE CAST (text AS version_record_type) WITH FUNCTION text_to_version_record_t
 CREATE CAST (animal_record_type AS text) WITH FUNCTION animal_record_type_to_text(animal_record_type) AS ASSIGNMENT;
 CREATE CAST (record_type AS text) WITH FUNCTION record_type_to_text(record_type) AS ASSIGNMENT;
 
--- 9.5 Optimistic locking
+-- 8.7 Optimistic locking
 ALTER TABLE animals ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE protocols ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE animal_observations ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE animal_surgeries ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
 
--- 9.6 System settings seed
+-- 8.8 System settings seed
 INSERT INTO system_settings (key, value, description) VALUES
 ('company_name', '"iPig System"', '公司/系統名稱'),
 ('default_warehouse_id', '""', '預設倉庫 UUID'),
@@ -137,12 +148,12 @@ INSERT INTO system_settings (key, value, description) VALUES
 ('session_timeout_minutes', '"360"', 'Session 逾時（分鐘）')
 ON CONFLICT (key) DO NOTHING;
 
--- 9.7 TOTP 2FA
+-- 8.9 TOTP 2FA
 ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret_encrypted TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_backup_codes TEXT[];
 
--- 9.8 效能索引
+-- 8.10 效能索引
 CREATE INDEX IF NOT EXISTS idx_animals_status_deleted_created ON animals(status, is_deleted, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_protocols_status_pi_created ON protocols(status, pi_user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_read_created ON notifications(user_id, is_read, created_at DESC);
@@ -164,7 +175,7 @@ CREATE OR REPLACE VIEW slow_queries AS
 SELECT queryid, LEFT(query, 200) AS query_preview, calls, mean_exec_time AS avg_ms, total_exec_time AS total_ms, rows
 FROM pg_stat_statements WHERE mean_exec_time > 100 ORDER BY mean_exec_time DESC LIMIT 50;
 
--- 9.9 修正操作日誌中「疑苗紀錄」錯字為「疫苗紀錄」
+-- 8.11 修正操作日誌中「疑苗紀錄」錯字為「疫苗紀錄」
 UPDATE user_activity_logs
 SET entity_display_name = REPLACE(entity_display_name, '疑苗紀錄', '疫苗紀錄')
 WHERE entity_display_name LIKE '%疑苗紀錄%';

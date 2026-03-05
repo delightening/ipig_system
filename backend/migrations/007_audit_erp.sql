@@ -1,8 +1,8 @@
 -- ============================================
--- Migration 008: 稽核系統 + ERP 倉儲
+-- Migration 007: 稽核系統 + ERP 倉儲
 -- ============================================
 
--- 8.1 稽核系統
+-- 7.1 稽核系統
 CREATE TABLE user_activity_logs (
     id UUID DEFAULT gen_random_uuid(),
     actor_user_id UUID REFERENCES users(id),
@@ -168,7 +168,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 8.2 ERP 倉儲
+-- 7.2 ERP 倉儲
 CREATE TABLE warehouses (
     id UUID PRIMARY KEY,
     code VARCHAR(50) NOT NULL UNIQUE,
