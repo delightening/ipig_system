@@ -10,6 +10,7 @@ use crate::{
         CreateBloodTestTemplateRequest, UpdateBloodTestTemplateRequest,
         BloodTestPanel, BloodTestPanelWithItems,
         CreateBloodTestPanelRequest, UpdateBloodTestPanelRequest, UpdateBloodTestPanelItemsRequest,
+        BloodTestPreset, CreateBloodTestPresetRequest, UpdateBloodTestPresetRequest,
     },
     AppError, Result,
 };
@@ -581,6 +582,98 @@ impl AnimalService {
 
         if result.rows_affected() == 0 {
             return Err(AppError::NotFound("組合不存在".to_string()));
+        }
+
+        Ok(())
+    }
+
+    // ============================================
+    // 血液檢查常用組合 (Preset) 管理
+    // ============================================
+
+    /// 列出啟用中的常用組合
+    pub async fn list_blood_test_presets(pool: &PgPool) -> Result<Vec<BloodTestPreset>> {
+        let presets = sqlx::query_as::<_, BloodTestPreset>(
+            "SELECT * FROM blood_test_presets WHERE is_active = true ORDER BY sort_order, name"
+        )
+        .fetch_all(pool)
+        .await?;
+        Ok(presets)
+    }
+
+    /// 列出所有常用組合（含停用）- 管理用
+    pub async fn list_all_blood_test_presets(pool: &PgPool) -> Result<Vec<BloodTestPreset>> {
+        let presets = sqlx::query_as::<_, BloodTestPreset>(
+            "SELECT * FROM blood_test_presets ORDER BY sort_order, name"
+        )
+        .fetch_all(pool)
+        .await?;
+        Ok(presets)
+    }
+
+    /// 建立常用組合
+    pub async fn create_blood_test_preset(
+        pool: &PgPool,
+        req: &CreateBloodTestPresetRequest,
+    ) -> Result<BloodTestPreset> {
+        let preset = sqlx::query_as::<_, BloodTestPreset>(
+            r#"
+            INSERT INTO blood_test_presets (name, icon, panel_keys, sort_order, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, NOW(), NOW())
+            RETURNING *
+            "#
+        )
+        .bind(&req.name)
+        .bind(&req.icon)
+        .bind(&req.panel_keys)
+        .bind(req.sort_order)
+        .fetch_one(pool)
+        .await?;
+        Ok(preset)
+    }
+
+    /// 更新常用組合
+    pub async fn update_blood_test_preset(
+        pool: &PgPool,
+        id: Uuid,
+        req: &UpdateBloodTestPresetRequest,
+    ) -> Result<BloodTestPreset> {
+        let preset = sqlx::query_as::<_, BloodTestPreset>(
+            r#"
+            UPDATE blood_test_presets SET
+                name = COALESCE($2, name),
+                icon = COALESCE($3, icon),
+                panel_keys = COALESCE($4, panel_keys),
+                sort_order = COALESCE($5, sort_order),
+                is_active = COALESCE($6, is_active),
+                updated_at = NOW()
+            WHERE id = $1
+            RETURNING *
+            "#
+        )
+        .bind(id)
+        .bind(&req.name)
+        .bind(&req.icon)
+        .bind(&req.panel_keys)
+        .bind(req.sort_order)
+        .bind(req.is_active)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("常用組合不存在".to_string()))?;
+        Ok(preset)
+    }
+
+    /// 刪除常用組合（軟刪除）
+    pub async fn delete_blood_test_preset(pool: &PgPool, id: Uuid) -> Result<()> {
+        let result = sqlx::query(
+            "UPDATE blood_test_presets SET is_active = false, updated_at = NOW() WHERE id = $1"
+        )
+        .bind(id)
+        .execute(pool)
+        .await?;
+
+        if result.rows_affected() == 0 {
+            return Err(AppError::NotFound("常用組合不存在".to_string()));
         }
 
         Ok(())

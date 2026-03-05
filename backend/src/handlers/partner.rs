@@ -22,6 +22,18 @@ use crate::{
 };
 
 /// 建立合作夥伴
+#[utoipa::path(
+    post,
+    path = "/api/partners",
+    request_body = CreatePartnerRequest,
+    responses(
+        (status = 200, description = "建立成功", body = Partner),
+        (status = 400, description = "驗證失敗"),
+        (status = 401, description = "未認證"),
+    ),
+    tag = "合作夥伴管理",
+    security(("bearer" = []))
+)]
 pub async fn create_partner(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -49,6 +61,17 @@ pub async fn create_partner(
 }
 
 /// 列出所有合作夥伴
+#[utoipa::path(
+    get,
+    path = "/api/partners",
+    params(PartnerQuery),
+    responses(
+        (status = 200, description = "夥伴清單", body = Vec<Partner>),
+        (status = 401, description = "未認證"),
+    ),
+    tag = "合作夥伴管理",
+    security(("bearer" = []))
+)]
 pub async fn list_partners(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -61,6 +84,18 @@ pub async fn list_partners(
 }
 
 /// 取得單個合作夥伴
+#[utoipa::path(
+    get,
+    path = "/api/partners/{id}",
+    params(("id" = Uuid, Path, description = "夥伴 ID")),
+    responses(
+        (status = 200, description = "夥伴詳細", body = Partner),
+        (status = 401, description = "未認證"),
+        (status = 404, description = "找不到夥伴"),
+    ),
+    tag = "合作夥伴管理",
+    security(("bearer" = []))
+)]
 pub async fn get_partner(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -73,6 +108,20 @@ pub async fn get_partner(
 }
 
 /// 更新合作夥伴
+#[utoipa::path(
+    put,
+    path = "/api/partners/{id}",
+    params(("id" = Uuid, Path, description = "夥伴 ID")),
+    request_body = UpdatePartnerRequest,
+    responses(
+        (status = 200, description = "更新成功", body = Partner),
+        (status = 400, description = "驗證失敗"),
+        (status = 401, description = "未認證"),
+        (status = 404, description = "找不到夥伴"),
+    ),
+    tag = "合作夥伴管理",
+    security(("bearer" = []))
+)]
 pub async fn update_partner(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -96,6 +145,18 @@ pub async fn update_partner(
 }
 
 /// 刪除合作夥伴
+#[utoipa::path(
+    delete,
+    path = "/api/partners/{id}",
+    params(("id" = Uuid, Path, description = "夥伴 ID")),
+    responses(
+        (status = 200, description = "刪除成功"),
+        (status = 401, description = "未認證"),
+        (status = 404, description = "找不到夥伴"),
+    ),
+    tag = "合作夥伴管理",
+    security(("bearer" = []))
+)]
 pub async fn delete_partner(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -115,13 +176,25 @@ pub async fn delete_partner(
     Ok(Json(serde_json::json!({ "message": "Partner deleted successfully" })))
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct GenerateCodeQuery {
     pub partner_type: Option<String>,
     pub category: Option<String>,
 }
 
 /// 生成供應商代碼
+#[utoipa::path(
+    get,
+    path = "/api/partners/generate-code",
+    params(GenerateCodeQuery),
+    responses(
+        (status = 200, description = "代碼", body = GenerateCodeResponse),
+        (status = 400, description = "驗證失敗"),
+        (status = 401, description = "未認證"),
+    ),
+    tag = "合作夥伴管理",
+    security(("bearer" = []))
+)]
 pub async fn generate_partner_code(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -153,6 +226,17 @@ pub async fn generate_partner_code(
 }
 
 /// 匯入夥伴（供應商/客戶）
+#[utoipa::path(
+    post,
+    path = "/api/partners/import",
+    responses(
+        (status = 200, description = "匯入結果 (multipart/form-data, field file: CSV/Excel)", body = PartnerImportResult),
+        (status = 400, description = "驗證失敗或檔案格式錯誤"),
+        (status = 401, description = "未認證"),
+    ),
+    tag = "合作夥伴管理",
+    security(("bearer" = []))
+)]
 pub async fn import_partners(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -196,6 +280,16 @@ pub async fn import_partners(
 }
 
 /// 下載夥伴匯入模板
+#[utoipa::path(
+    get,
+    path = "/api/partners/import/template",
+    responses(
+        (status = 200, description = "Excel 模板檔案"),
+        (status = 401, description = "未認證"),
+    ),
+    tag = "合作夥伴管理",
+    security(("bearer" = []))
+)]
 pub async fn download_partner_import_template() -> Result<Response> {
     let data = PartnerService::generate_import_template()
         .map_err(|e| AppError::Internal(format!("產生模板失敗: {}", e)))?;

@@ -19,8 +19,11 @@ use crate::{
 #[utoipa::path(
     get,
     path = "/api/sku/categories",
-    responses((status = 200, description = "分類清單", body = CategoriesResponse)),
-    tag = "倉儲管理",
+    responses(
+        (status = 200, description = "分類清單", body = CategoriesResponse),
+        (status = 401, description = "未認證"),
+    ),
+    tag = "SKU",
     security(("bearer" = []))
 )]
 pub async fn get_sku_categories(
@@ -38,8 +41,12 @@ pub async fn get_sku_categories(
     get,
     path = "/api/sku/categories/{code}/subcategories",
     params(("code" = String, Path, description = "分類代碼")),
-    responses((status = 200, description = "子分類清單", body = SubcategoriesResponse)),
-    tag = "倉儲管理",
+    responses(
+        (status = 200, description = "子分類清單", body = SubcategoriesResponse),
+        (status = 401, description = "未認證"),
+        (status = 404, description = "找不到分類"),
+    ),
+    tag = "SKU",
     security(("bearer" = []))
 )]
 pub async fn get_sku_subcategories(
@@ -58,8 +65,12 @@ pub async fn get_sku_subcategories(
     post,
     path = "/api/sku/generate",
     request_body = GenerateSkuRequest,
-    responses((status = 200, description = "產生的 SKU", body = GenerateSkuResponse)),
-    tag = "倉儲管理",
+    responses(
+        (status = 200, description = "產生成功", body = GenerateSkuResponse),
+        (status = 400, description = "驗證失敗"),
+        (status = 401, description = "未認證"),
+    ),
+    tag = "SKU",
     security(("bearer" = []))
 )]
 pub async fn generate_sku(
@@ -78,8 +89,11 @@ pub async fn generate_sku(
     post,
     path = "/api/sku/validate",
     request_body = ValidateSkuRequest,
-    responses((status = 200, description = "驗證結果", body = ValidateSkuResponse)),
-    tag = "倉儲管理",
+    responses(
+        (status = 200, description = "驗證結果", body = ValidateSkuResponse),
+        (status = 401, description = "未認證"),
+    ),
+    tag = "SKU",
     security(("bearer" = []))
 )]
 pub async fn validate_sku(
@@ -98,8 +112,12 @@ pub async fn validate_sku(
     post,
     path = "/api/skus/preview",
     request_body = SkuPreviewRequest,
-    responses((status = 200, description = "預覽結果", body = SkuPreviewResponse)),
-    tag = "倉儲管理",
+    responses(
+        (status = 200, description = "預覽結果", body = SkuPreviewResponse),
+        (status = 400, description = "驗證失敗"),
+        (status = 401, description = "未認證"),
+    ),
+    tag = "SKU",
     security(("bearer" = []))
 )]
 pub async fn preview_sku(
@@ -118,8 +136,12 @@ pub async fn preview_sku(
     post,
     path = "/api/products/with-sku",
     request_body = CreateProductWithSkuRequest,
-    responses((status = 200, description = "建立成功", body = ProductWithUom)),
-    tag = "倉儲管理",
+    responses(
+        (status = 200, description = "建立成功", body = ProductWithUom),
+        (status = 400, description = "驗證失敗"),
+        (status = 401, description = "未認證"),
+    ),
+    tag = "產品管理",
     security(("bearer" = []))
 )]
 pub async fn create_product_with_sku(

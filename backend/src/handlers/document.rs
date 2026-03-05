@@ -17,6 +17,18 @@ use crate::{
 };
 
 /// 建立文件
+#[utoipa::path(
+    post,
+    path = "/api/documents",
+    request_body = CreateDocumentRequest,
+    responses(
+        (status = 200, description = "建立成功", body = DocumentWithLines),
+        (status = 400, description = "驗證失敗"),
+        (status = 401, description = "未認證"),
+    ),
+    tag = "單據管理",
+    security(("bearer" = []))
+)]
 pub async fn create_document(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -46,6 +58,17 @@ pub async fn create_document(
 }
 
 /// 列出所有文件
+#[utoipa::path(
+    get,
+    path = "/api/documents",
+    params(DocumentQuery),
+    responses(
+        (status = 200, description = "單據清單", body = Vec<DocumentListItem>),
+        (status = 401, description = "未認證"),
+    ),
+    tag = "單據管理",
+    security(("bearer" = []))
+)]
 pub async fn list_documents(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -70,6 +93,19 @@ fn check_document_access(current_user: &CurrentUser, created_by: Uuid) -> Result
 }
 
 /// 取得單個文件
+#[utoipa::path(
+    get,
+    path = "/api/documents/{id}",
+    params(("id" = Uuid, Path, description = "單據 ID")),
+    responses(
+        (status = 200, description = "單據詳細", body = DocumentWithLines),
+        (status = 401, description = "未認證"),
+        (status = 403, description = "無權存取"),
+        (status = 404, description = "找不到單據"),
+    ),
+    tag = "單據管理",
+    security(("bearer" = []))
+)]
 pub async fn get_document(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -83,6 +119,21 @@ pub async fn get_document(
 }
 
 /// 更新文件
+#[utoipa::path(
+    put,
+    path = "/api/documents/{id}",
+    params(("id" = Uuid, Path, description = "單據 ID")),
+    request_body = UpdateDocumentRequest,
+    responses(
+        (status = 200, description = "更新成功", body = DocumentWithLines),
+        (status = 400, description = "驗證失敗"),
+        (status = 401, description = "未認證"),
+        (status = 403, description = "無權存取"),
+        (status = 404, description = "找不到單據"),
+    ),
+    tag = "單據管理",
+    security(("bearer" = []))
+)]
 pub async fn update_document(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -108,6 +159,19 @@ pub async fn update_document(
 }
 
 /// 提交文件
+#[utoipa::path(
+    post,
+    path = "/api/documents/{id}/submit",
+    params(("id" = Uuid, Path, description = "單據 ID")),
+    responses(
+        (status = 200, description = "提交成功", body = DocumentWithLines),
+        (status = 401, description = "未認證"),
+        (status = 403, description = "無權存取"),
+        (status = 404, description = "找不到單據"),
+    ),
+    tag = "單據管理",
+    security(("bearer" = []))
+)]
 pub async fn submit_document(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -149,6 +213,19 @@ pub async fn submit_document(
 }
 
 /// 核准文件
+#[utoipa::path(
+    post,
+    path = "/api/documents/{id}/approve",
+    params(("id" = Uuid, Path, description = "單據 ID")),
+    responses(
+        (status = 200, description = "核准成功", body = DocumentWithLines),
+        (status = 401, description = "未認證"),
+        (status = 403, description = "僅倉庫管理員可核准"),
+        (status = 404, description = "找不到單據"),
+    ),
+    tag = "單據管理",
+    security(("bearer" = []))
+)]
 pub async fn approve_document(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -193,6 +270,19 @@ pub async fn approve_document(
 }
 
 /// 取消文件
+#[utoipa::path(
+    post,
+    path = "/api/documents/{id}/cancel",
+    params(("id" = Uuid, Path, description = "單據 ID")),
+    responses(
+        (status = 200, description = "取消成功", body = DocumentWithLines),
+        (status = 401, description = "未認證"),
+        (status = 403, description = "僅倉庫管理員可取消"),
+        (status = 404, description = "找不到單據"),
+    ),
+    tag = "單據管理",
+    security(("bearer" = []))
+)]
 pub async fn cancel_document(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -237,6 +327,19 @@ pub async fn cancel_document(
 }
 
 /// 刪除文件
+#[utoipa::path(
+    delete,
+    path = "/api/documents/{id}",
+    params(("id" = Uuid, Path, description = "單據 ID")),
+    responses(
+        (status = 200, description = "刪除成功"),
+        (status = 401, description = "未認證"),
+        (status = 403, description = "無權存取"),
+        (status = 404, description = "找不到單據"),
+    ),
+    tag = "單據管理",
+    security(("bearer" = []))
+)]
 pub async fn delete_document(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Search, ArrowLeft, Settings } from 'lucide-react'
+import { Plus, Search, ArrowLeft, Settings, Star } from 'lucide-react'
 import { PanelIcon } from '@/components/ui/panel-icon'
 import { useBloodTestTemplates } from './hooks/useBloodTestTemplates'
 import { BloodTestTemplateTable } from './components/BloodTestTemplateTable'
@@ -36,6 +36,10 @@ export function BloodTestTemplatesPage() {
           <Button variant="outline" onClick={() => navigate('/blood-test-panels')}>
             <Settings className="mr-2 h-4 w-4" />
             管理分類
+          </Button>
+          <Button variant="outline" onClick={() => navigate('/blood-test-presets')}>
+            <Star className="mr-2 h-4 w-4" />
+            管理常用組合
           </Button>
           <Button
             onClick={() => {

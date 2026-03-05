@@ -1,4 +1,4 @@
-﻿// HR 模組 Models
+// HR 模組 Models
 // 包含：Attendance, Overtime, Leave, Balances
 
 use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
@@ -6,6 +6,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
+use utoipa::ToSchema;
 
 // ============================================
 // Attendance (出勤)
@@ -65,7 +66,7 @@ pub struct AttendanceQuery {
     pub per_page: Option<i64>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct ClockInRequest {
     pub source: Option<String>,
     /// GPS 緯度
@@ -150,7 +151,7 @@ pub struct OvertimeQuery {
     pub per_page: Option<i64>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateOvertimeRequest {
     pub overtime_date: NaiveDate,
     pub start_time: NaiveTime,
@@ -303,7 +304,7 @@ pub struct LeaveQuery {
     pub per_page: Option<i64>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateLeaveRequest {
     pub leave_type: String,
     pub start_date: NaiveDate,

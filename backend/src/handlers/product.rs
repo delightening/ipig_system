@@ -22,6 +22,18 @@ use crate::{
 };
 
 /// 建立產品
+#[utoipa::path(
+    post,
+    path = "/api/products",
+    request_body = CreateProductRequest,
+    responses(
+        (status = 200, description = "建立成功", body = ProductWithUom),
+        (status = 400, description = "驗證失敗", body = ErrorResponse),
+        (status = 401, description = "未認證", body = ErrorResponse),
+    ),
+    tag = "產品管理",
+    security(("bearer" = []))
+)]
 pub async fn create_product(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -49,6 +61,17 @@ pub async fn create_product(
 }
 
 /// 列出所有產品
+#[utoipa::path(
+    get,
+    path = "/api/products",
+    params(ProductQuery),
+    responses(
+        (status = 200, description = "產品清單", body = Vec<Product>),
+        (status = 401, description = "未認證", body = ErrorResponse),
+    ),
+    tag = "產品管理",
+    security(("bearer" = []))
+)]
 pub async fn list_products(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -61,6 +84,18 @@ pub async fn list_products(
 }
 
 /// 取得單個產品
+#[utoipa::path(
+    get,
+    path = "/api/products/{id}",
+    params(("id" = Uuid, Path, description = "產品 ID")),
+    responses(
+        (status = 200, description = "產品詳細", body = ProductWithUom),
+        (status = 401, description = "未認證", body = ErrorResponse),
+        (status = 404, description = "找不到產品", body = ErrorResponse),
+    ),
+    tag = "產品管理",
+    security(("bearer" = []))
+)]
 pub async fn get_product(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -73,6 +108,20 @@ pub async fn get_product(
 }
 
 /// 更新產品
+#[utoipa::path(
+    put,
+    path = "/api/products/{id}",
+    params(("id" = Uuid, Path, description = "產品 ID")),
+    request_body = UpdateProductRequest,
+    responses(
+        (status = 200, description = "更新成功", body = ProductWithUom),
+        (status = 400, description = "驗證失敗", body = ErrorResponse),
+        (status = 401, description = "未認證", body = ErrorResponse),
+        (status = 404, description = "找不到產品", body = ErrorResponse),
+    ),
+    tag = "產品管理",
+    security(("bearer" = []))
+)]
 pub async fn update_product(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -128,6 +177,18 @@ pub async fn update_product_status(
 }
 
 /// 刪除產品
+#[utoipa::path(
+    delete,
+    path = "/api/products/{id}",
+    params(("id" = Uuid, Path, description = "產品 ID")),
+    responses(
+        (status = 200, description = "刪除成功"),
+        (status = 401, description = "未認證", body = ErrorResponse),
+        (status = 404, description = "找不到產品", body = ErrorResponse),
+    ),
+    tag = "產品管理",
+    security(("bearer" = []))
+)]
 pub async fn delete_product(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -148,6 +209,16 @@ pub async fn delete_product(
 }
 
 /// 列出所有產品分類
+#[utoipa::path(
+    get,
+    path = "/api/categories",
+    responses(
+        (status = 200, description = "分類清單", body = Vec<ProductCategory>),
+        (status = 401, description = "未認證", body = ErrorResponse),
+    ),
+    tag = "產品管理",
+    security(("bearer" = []))
+)]
 pub async fn list_categories(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -159,6 +230,18 @@ pub async fn list_categories(
 }
 
 /// 建立產品分類
+#[utoipa::path(
+    post,
+    path = "/api/categories",
+    request_body = CreateCategoryRequest,
+    responses(
+        (status = 200, description = "建立成功", body = ProductCategory),
+        (status = 400, description = "驗證失敗", body = ErrorResponse),
+        (status = 401, description = "未認證", body = ErrorResponse),
+    ),
+    tag = "產品管理",
+    security(("bearer" = []))
+)]
 pub async fn create_category(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -198,6 +281,17 @@ pub async fn check_product_import_duplicates(
 }
 
 /// 匯入產品（CSV 或 Excel）
+#[utoipa::path(
+    post,
+    path = "/api/products/import",
+    responses(
+        (status = 200, description = "匯入結果 (multipart/form-data, field file: CSV/Excel)", body = ProductImportResult),
+        (status = 400, description = "驗證失敗或檔案格式錯誤", body = ErrorResponse),
+        (status = 401, description = "未認證", body = ErrorResponse),
+    ),
+    tag = "產品管理",
+    security(("bearer" = []))
+)]
 pub async fn import_products(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -249,6 +343,16 @@ pub async fn import_products(
 }
 
 /// 下載產品匯入模板
+#[utoipa::path(
+    get,
+    path = "/api/products/import/template",
+    responses(
+        (status = 200, description = "Excel 模板檔案 (application/vnd.openxmlformats-officedocument.spreadsheetml.sheet)"),
+        (status = 401, description = "未認證", body = ErrorResponse),
+    ),
+    tag = "產品管理",
+    security(("bearer" = []))
+)]
 pub async fn download_product_import_template() -> Result<Response> {
     let data = ProductService::generate_import_template()
         .map_err(|e| AppError::Internal(format!("產生模板失敗: {}", e)))?;

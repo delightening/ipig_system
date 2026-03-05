@@ -96,14 +96,14 @@ pub struct AnimalQuery {
 }
 
 /// 資料隔離：用於記錄列表查詢的可選時間過濾
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Default, ToSchema, utoipa::IntoParams)]
 pub struct RecordFilterQuery {
     /// 僅回傳 created_at > after 的記錄（轉讓資料隔離）
     pub after: Option<DateTime<Utc>>,
 }
 
 /// 資料隔離：回傳當前使用者的可見時間界線
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct DataBoundaryResponse {
     /// 若為 Some，僅應顯示 created_at > boundary 的記錄；null 代表可見所有
     pub boundary: Option<DateTime<Utc>>,
@@ -115,7 +115,7 @@ pub struct BatchAssignRequest {
     pub iacuc_no: String,
 }
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct CreateObservationRequest {
     pub event_date: NaiveDate,
     pub record_type: RecordType,
@@ -134,7 +134,7 @@ pub struct CreateObservationRequest {
     pub emergency_reason: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct CreateSurgeryRequest {
     #[serde(default = "default_true")]
     pub is_first_experiment: bool,
@@ -159,20 +159,20 @@ pub(crate) fn default_true() -> bool {
     true
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateWeightRequest {
     pub measure_date: NaiveDate,
     pub weight: rust_decimal::Decimal,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateVaccinationRequest {
     pub administered_date: NaiveDate,
     pub vaccine: Option<String>,
     pub deworming_dose: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateSacrificeRequest {
     pub sacrifice_date: Option<NaiveDate>,
     pub zoletil_dose: Option<String>,
@@ -200,7 +200,7 @@ pub struct CreateSuddenDeathRequest {
 }
 
 /// 發起轉讓請求
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateTransferRequest {
     pub reason: String,
     pub remark: Option<String>,
@@ -214,7 +214,7 @@ fn default_transfer_type() -> String {
 }
 
 /// 獸醫評估轉讓請求
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct VetEvaluateTransferRequest {
     pub health_status: String,
     pub is_fit_for_transfer: bool,
@@ -222,13 +222,13 @@ pub struct VetEvaluateTransferRequest {
 }
 
 /// 指定新計劃請求
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct AssignTransferPlanRequest {
     pub to_iacuc_no: String,
 }
 
 /// 拒絕轉讓請求
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct RejectTransferRequest {
     pub reason: String,
 }
@@ -402,7 +402,7 @@ pub struct ImportResult {
 // ============================================
 
 /// 更新觀察紀錄請求
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct UpdateObservationRequest {
     pub event_date: Option<NaiveDate>,
     pub record_type: Option<RecordType>,
@@ -418,7 +418,7 @@ pub struct UpdateObservationRequest {
 }
 
 /// 更新手術紀錄請求
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct UpdateSurgeryRequest {
     pub is_first_experiment: Option<bool>,
     pub surgery_date: Option<NaiveDate>,
@@ -437,14 +437,14 @@ pub struct UpdateSurgeryRequest {
 }
 
 /// 更新體重紀錄請求
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateWeightRequest {
     pub measure_date: Option<NaiveDate>,
     pub weight: Option<rust_decimal::Decimal>,
 }
 
 /// 更新疫苗紀錄請求
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateVaccinationRequest {
     pub administered_date: Option<NaiveDate>,
     pub vaccine: Option<String>,
@@ -566,6 +566,45 @@ pub struct UpdateBloodTestPanelRequest {
 #[derive(Debug, Deserialize)]
 pub struct UpdateBloodTestPanelItemsRequest {
     pub template_ids: Vec<Uuid>,
+}
+
+// ============================================
+// 血液檢查常用組合 (Preset) - 分析頁一鍵選取
+// ============================================
+
+/// 常用組合主表
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct BloodTestPreset {
+    pub id: Uuid,
+    pub name: String,
+    pub icon: Option<String>,
+    pub panel_keys: Vec<String>,
+    pub sort_order: i32,
+    pub is_active: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// 建立常用組合請求
+#[derive(Debug, Deserialize, Validate)]
+pub struct CreateBloodTestPresetRequest {
+    #[validate(length(min = 1, max = 100, message = "名稱為必填，最多 100 字"))]
+    pub name: String,
+    pub icon: Option<String>,
+    #[serde(default)]
+    pub panel_keys: Vec<String>,
+    #[serde(default)]
+    pub sort_order: i32,
+}
+
+/// 更新常用組合請求
+#[derive(Debug, Deserialize)]
+pub struct UpdateBloodTestPresetRequest {
+    pub name: Option<String>,
+    pub icon: Option<String>,
+    pub panel_keys: Option<Vec<String>>,
+    pub sort_order: Option<i32>,
+    pub is_active: Option<bool>,
 }
 
 /// 複製紀錄請求

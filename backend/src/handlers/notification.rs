@@ -44,6 +44,7 @@ async fn check_scheduled_report_access(
 }
 
 /// 列出所有通知
+#[utoipa::path(get, path = "/api/notifications", responses((status = 200)), tag = "通知", security(("bearer" = [])))]
 pub async fn list_notifications(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -58,6 +59,7 @@ pub async fn list_notifications(
 }
 
 /// 取得未讀通知數量
+#[utoipa::path(get, path = "/api/notifications/unread-count", responses((status = 200)), tag = "通知", security(("bearer" = [])))]
 pub async fn get_unread_count(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

@@ -19,6 +19,14 @@ use crate::{
 };
 
 /// 列出動物的所有觀察記錄
+#[utoipa::path(
+    get,
+    path = "/api/animals/{animal_id}/observations",
+    params(("animal_id" = Uuid, Path, description = "動物 ID"), RecordFilterQuery),
+    responses((status = 200, description = "觀察記錄清單", body = Vec<AnimalObservation>), (status = 401, description = "未認證")),
+    tag = "動物子模組",
+    security(("bearer" = []))
+)]
 pub async fn list_animal_observations(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -41,6 +49,14 @@ pub async fn list_animal_observations_with_recommendations(
 }
 
 /// 取得單個觀察記錄
+#[utoipa::path(
+    get,
+    path = "/api/observations/{id}",
+    params(("id" = Uuid, Path, description = "觀察記錄 ID")),
+    responses((status = 200, description = "觀察記錄", body = AnimalObservation), (status = 401, description = "未認證"), (status = 404, description = "找不到")),
+    tag = "動物子模組",
+    security(("bearer" = []))
+)]
 pub async fn get_animal_observation(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
@@ -51,6 +67,15 @@ pub async fn get_animal_observation(
 }
 
 /// 建立觀察記錄
+#[utoipa::path(
+    post,
+    path = "/api/animals/{animal_id}/observations",
+    params(("animal_id" = Uuid, Path, description = "動物 ID")),
+    request_body = CreateObservationRequest,
+    responses((status = 200, description = "建立成功", body = AnimalObservation), (status = 400, description = "驗證失敗"), (status = 401, description = "未認證")),
+    tag = "動物子模組",
+    security(("bearer" = []))
+)]
 pub async fn create_animal_observation(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -151,6 +176,15 @@ pub async fn create_animal_observation(
 }
 
 /// 更新觀察記錄
+#[utoipa::path(
+    put,
+    path = "/api/observations/{id}",
+    params(("id" = Uuid, Path, description = "觀察記錄 ID")),
+    request_body = UpdateObservationRequest,
+    responses((status = 200, description = "更新成功", body = AnimalObservation), (status = 400, description = "驗證失敗"), (status = 401, description = "未認證"), (status = 404, description = "找不到")),
+    tag = "動物子模組",
+    security(("bearer" = []))
+)]
 pub async fn update_animal_observation(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -175,6 +209,14 @@ pub async fn update_animal_observation(
 }
 
 /// 刪除觀察記錄（軟刪除 + 刪除原因）- GLP 合規
+#[utoipa::path(
+    delete,
+    path = "/api/observations/{id}",
+    params(("id" = Uuid, Path, description = "觀察記錄 ID")),
+    responses((status = 200, description = "刪除成功"), (status = 401, description = "未認證"), (status = 404, description = "找不到")),
+    tag = "動物子模組",
+    security(("bearer" = []))
+)]
 pub async fn delete_animal_observation(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

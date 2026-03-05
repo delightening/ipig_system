@@ -115,6 +115,7 @@ fn validate_clock_location(
 }
 
 /// 列出出勤記錄
+#[utoipa::path(get, path = "/api/hr/attendance", responses((status = 200)), tag = "HR 出勤", security(("bearer" = [])))]
 pub async fn list_attendance(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -129,6 +130,7 @@ pub async fn list_attendance(
 }
 
 /// 打卡上班
+#[utoipa::path(post, path = "/api/hr/attendance/clock-in", request_body = ClockInRequest, responses((status = 200)), tag = "HR 出勤", security(("bearer" = [])))]
 pub async fn clock_in(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

@@ -375,6 +375,33 @@ export interface UpdateBloodTestPanelItemsRequest {
     template_ids: string[]
 }
 
+// 血液檢查常用組合（分析頁一鍵選取）
+export interface BloodTestPreset {
+    id: string
+    name: string
+    icon?: string
+    panel_keys: string[]
+    sort_order: number
+    is_active: boolean
+    created_at: string
+    updated_at: string
+}
+
+export interface CreateBloodTestPresetRequest {
+    name: string
+    icon?: string
+    panel_keys?: string[]
+    sort_order?: number
+}
+
+export interface UpdateBloodTestPresetRequest {
+    name?: string
+    icon?: string
+    panel_keys?: string[]
+    sort_order?: number
+    is_active?: boolean
+}
+
 // 動物請求型別
 export interface CreateAnimalRequest {
     ear_tag: string

@@ -40,6 +40,23 @@ pub struct WarehouseQuery {
     pub per_page: Option<i64>,
 }
 
+/// 倉庫樹節點（含貨架）
+#[derive(Debug, Clone, Serialize)]
+pub struct WarehouseTreeNode {
+    pub id: Uuid,
+    pub code: String,
+    pub name: String,
+    pub shelves: Vec<ShelfNode>,
+}
+
+/// 貨架節點
+#[derive(Debug, Clone, Serialize)]
+pub struct ShelfNode {
+    pub id: Uuid,
+    pub code: String,
+    pub name: Option<String>,
+}
+
 /// 倉庫匯入 CSV 列
 #[derive(Debug, Clone, Default)]
 pub struct WarehouseImportRow {

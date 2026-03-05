@@ -10,11 +10,11 @@ use validator::Validate;
 use crate::{
     middleware::CurrentUser,
     models::{
-        BloodTestListItem, BloodTestPanelWithItems, BloodTestTemplate,
-        CreateBloodTestPanelRequest, CreateBloodTestRequest, CreateBloodTestTemplateRequest,
-        DeleteRequest, AnimalBloodTestWithItems, UpdateBloodTestPanelItemsRequest,
-        UpdateBloodTestPanelRequest, UpdateBloodTestRequest, UpdateBloodTestTemplateRequest,
-        RecordFilterQuery,
+        BloodTestListItem, BloodTestPanelWithItems, BloodTestPreset, BloodTestTemplate,
+        CreateBloodTestPanelRequest, CreateBloodTestPresetRequest, CreateBloodTestRequest,
+        CreateBloodTestTemplateRequest, DeleteRequest, AnimalBloodTestWithItems,
+        UpdateBloodTestPanelItemsRequest, UpdateBloodTestPanelRequest, UpdateBloodTestPresetRequest,
+        UpdateBloodTestRequest, UpdateBloodTestTemplateRequest, RecordFilterQuery,
     },
     require_permission,
     services::{AnimalService, AuditService},
@@ -325,4 +325,84 @@ pub async fn delete_blood_test_panel(
         tracing::error!("寫入 user_activity_logs 失敗 (PANEL_DELETE): {}", e);
     }
     Ok(Json(serde_json::json!({ "message": "Panel deactivated successfully" })))
+}
+
+// ============================================
+// 血液檢查常用組合 (Preset) 管理
+// ============================================
+
+/// 列出啟用中的常用組合（供分析頁使用）
+pub async fn list_blood_test_presets(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+) -> Result<Json<Vec<BloodTestPreset>>> {
+    let presets = AnimalService::list_blood_test_presets(&state.db).await?;
+    Ok(Json(presets))
+}
+
+/// 列出所有常用組合（含停用）- 管理用
+pub async fn list_all_blood_test_presets(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+) -> Result<Json<Vec<BloodTestPreset>>> {
+    let presets = AnimalService::list_all_blood_test_presets(&state.db).await?;
+    Ok(Json(presets))
+}
+
+/// 建立常用組合
+pub async fn create_blood_test_preset(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Json(req): Json<CreateBloodTestPresetRequest>,
+) -> Result<Json<BloodTestPreset>> {
+    require_permission!(current_user, "animal.record.create");
+    req.validate()?;
+    let preset = AnimalService::create_blood_test_preset(&state.db, &req).await?;
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "PRESET_CREATE",
+        Some("blood_test_preset"), Some(preset.id),
+        Some(&format!("建立常用組合: {}", req.name)), None, None, None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (PRESET_CREATE): {}", e);
+    }
+    Ok(Json(preset))
+}
+
+/// 更新常用組合
+pub async fn update_blood_test_preset(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+    Json(req): Json<UpdateBloodTestPresetRequest>,
+) -> Result<Json<BloodTestPreset>> {
+    require_permission!(current_user, "animal.record.edit");
+    let preset = AnimalService::update_blood_test_preset(&state.db, id, &req).await?;
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "PRESET_UPDATE",
+        Some("blood_test_preset"), Some(id),
+        Some(&format!("更新常用組合: {}", preset.name)), None, None, None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (PRESET_UPDATE): {}", e);
+    }
+    Ok(Json(preset))
+}
+
+/// 刪除常用組合（軟刪除）
+pub async fn delete_blood_test_preset(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<serde_json::Value>> {
+    require_permission!(current_user, "animal.record.delete");
+    AnimalService::delete_blood_test_preset(&state.db, id).await?;
+    let preset_name = sqlx::query_scalar::<_, String>("SELECT name FROM blood_test_presets WHERE id = $1")
+        .bind(id).fetch_optional(&state.db).await.ok().flatten().unwrap_or_else(|| id.to_string());
+    if let Err(e) = AuditService::log_activity(
+        &state.db, current_user.id, "ANIMAL", "PRESET_DELETE",
+        Some("blood_test_preset"), Some(id),
+        Some(&format!("停用常用組合: {}", preset_name)), None, None, None, None,
+    ).await {
+        tracing::error!("寫入 user_activity_logs 失敗 (PRESET_DELETE): {}", e);
+    }
+    Ok(Json(serde_json::json!({ "message": "Preset deactivated successfully" })))
 }

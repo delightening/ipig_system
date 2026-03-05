@@ -19,6 +19,7 @@ use crate::{
 };
 
 /// 列出請假記錄
+#[utoipa::path(get, path = "/api/hr/leaves", responses((status = 200)), tag = "HR 請假", security(("bearer" = [])))]
 pub async fn list_leaves(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -56,6 +57,7 @@ pub async fn get_leave(
 }
 
 /// 建立請假申請
+#[utoipa::path(post, path = "/api/hr/leaves", request_body = CreateLeaveRequest, responses((status = 201)), tag = "HR 請假", security(("bearer" = [])))]
 pub async fn create_leave(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

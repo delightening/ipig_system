@@ -119,6 +119,35 @@
 
 ---
 
+## 🟣 R4-100 — 邁向 100% 目標（依據 IMPROVEMENT_PLAN_R4 §7）
+
+> 詳見 [IMPROVEMENT_PLAN_R4.md](development/IMPROVEMENT_PLAN_R4.md) §7。兩軌可並行。
+
+### 7.1 核心業務邏輯覆蓋率 100%
+
+| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
+|---|------|------|------|----------|------|
+| R4-100-T1 | **product service 單元測試** | ProductService 核心邏輯（list/validate、code 解析）提取可測函式 + 5–8 個測試 | 後端 | 🧠 Claude | [ ] |
+| R4-100-T2 | **partner service 單元測試** | PartnerService 核心邏輯（code 解析、正則）+ 5–8 個測試 | 後端 | 🧠 Claude | [ ] |
+| R4-100-T3 | **user/role service 單元測試** | UserService、RoleService 可提取邏輯 + 測試 | 後端 | 🧠 Claude | [ ] |
+| R4-100-T4 | **animal 核心 services 單元測試** | animal/core, observation, medical 等可提取邏輯 | 後端 | 🧠 Claude | [ ] |
+| R4-100-T5 | **protocol/document/hr services 單元測試** | 分批補齊 protocol/*, document/*, hr/* | 後端 | 🧠 Claude | [ ] |
+| R4-100-T6 | **cargo-tarpaulin 覆蓋率量測** | 安裝 tarpaulin，CI 中量測行覆蓋率並設門檻 | DevOps | 🧠 Claude | [ ] |
+
+### 7.2 API 文件（OpenAPI）100% 端點文件化
+
+| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
+|---|------|------|------|----------|------|
+| R4-100-O1 | **products handler OpenAPI** | list/create/get/update/delete, import, with-sku 全端點 #[utoipa::path] + openapi.rs 註冊 | 後端 | 🧠 Claude | [x] |
+| R4-100-O2 | **partners handler OpenAPI** | list/create/get/update/delete, import, generate-code 全端點 | 後端 | 🧠 Claude | [x] |
+| R4-100-O3 | **documents/storage_location handler OpenAPI** | documents CRUD + submit/approve/cancel；storage_location 全端點 | 後端 | 🧠 Claude | [x] |
+| R4-100-O4 | **SKU handler OpenAPI** | categories, subcategories, generate, validate, preview 全端點 | 後端 | 🧠 Claude | [x] |
+| R4-100-O5 | **animal 子模組 handler OpenAPI** | observation, surgery, weight, vaccination, transfer, sacrifice, pathology 等 | 後端 | 🧠 Claude | [x] |
+| R4-100-O6 | **HR/notifications/admin handler OpenAPI** | leave, overtime, attendance；notifications；admin audit 等 | 後端 | 🧠 Claude | [x] |
+| R4-100-O7 | **reports/accounting/treatment_drugs 等 OpenAPI** | 其餘端點補齊 | 後端 | 🧠 Claude | [ ] |
+
+---
+
 ## 🟠 R6 — 第六輪改善計劃（2026-03）
 
 > 依據 `docs/PROGRESS.md` 專案評估產出。重點：前端可維護性、useState 重構延續、元件品質。
@@ -143,9 +172,10 @@
 | 🔴 P2 中優先 | 0 |
 | 🔵 P3 低優先 | 0 |
 | 🟣 P4 品質提升 | 0 |
+| 🟣 R4-100 邁向 100% | 7 |
 | ⚪ P5 長期演進 | 0 |
 | 🟠 R6 第六輪改善 | 1 |
-| **合計（未完成）** | **1** |
+| **合計（未完成）** | **8** |
 
 ---
 
