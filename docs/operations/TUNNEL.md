@@ -9,6 +9,17 @@
 **適用**：本機開發、快速對外分享、不需固定網域。  
 **特點**：免登入、免設定檔；每次啟動會得到一個新的 `*.trycloudflare.com` 網址，關閉後即失效。
 
+### 使用前（必做）
+
+隧道會把 `*.trycloudflare.com` 的流量轉發到 **本機 port 8080**，該 port 必須已有服務在跑：
+
+1. 在專案根目錄先啟動完整服務（含 **web** 與 **api**）：
+   ```powershell
+   docker compose up -d
+   ```
+2. 確認 `http://localhost:8080` 可開（前端頁面與 `/api/health` 正常）。
+3. 再執行隧道腳本；若只跑隧道而沒跑 web，會出現 **502 Bad Gateway**（例如 `POST /api/metrics/vitals`）。
+
 ### 啟動
 
 在專案根目錄執行：
@@ -128,7 +139,7 @@ cloudflared tunnel create ipig-system
 
 | 現象 | 可能原因 | 建議作法 |
 |------|----------|----------|
-| **502 Bad Gateway**（例如 `/assets/xxx.js` 或任意請求） | 隧道連不到本機服務，或本機服務未啟動 | 確認本機 backend / 前端已啟動且埠號與 tunnel 轉發一致；重啟 tunnel 或本機服務後再試 |
+| **502 Bad Gateway**（例如 `POST /api/metrics/vitals`、`/assets/xxx.js` 或任意請求） | 隧道轉發到本機 port（預設 8080），但該 port 沒有服務在聽 | 先執行 `docker compose up -d` 讓 **web**（nginx）與 **api** 都起來，確認 `http://localhost:8080` 可開，再執行 `.\scripts\start_tunnel.ps1`；埠號須與腳本一致（預設 8080，或 `-Port` 對應你的 WEB_PORT） |
 | **500 Internal Server Error**（例如 `GET /api/v1/animals?breed=minipig&keyword=00&page=1&per_page=50`） | 後端處理該請求時發生錯誤（DB、decode、邏輯等） | 查看**執行 backend 的終端機或 log**，會印出 `list_animals failed: ... error=...`；依錯誤訊息修正後端或資料 |
 | **524**（例如 `/api/admin/audit/alerts/sse`） | Cloudflare 長連線逾時 | 後端已做心跳；若仍 524，可改為輪詢或考慮 Cloudflare 付費方案較長逾時 |
 
