@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState, useMemo } from 'react'
+import { useMutation, useQuery, useQueries, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -21,6 +21,7 @@ import {
   AlertCircle,
   CheckCircle2,
   AlertTriangle,
+  Sparkles,
 } from 'lucide-react'
 
 interface ProductImportErrorDetail {
@@ -76,6 +77,28 @@ interface Props {
   onOpenChange: (open: boolean) => void
 }
 
+/** SKU 品類/子類選項（與新增產品分層一致） */
+interface SkuCategoryOption {
+  code: string
+  name: string
+}
+
+interface SkuCategoriesResponse {
+  categories: SkuCategoryOption[]
+}
+
+interface SkuSubcategoriesResponse {
+  category: SkuCategoryOption
+  subcategories: SkuCategoryOption[]
+}
+
+interface GenerateSkuResponse {
+  sku: string
+  category: SkuCategoryOption
+  subcategory: SkuCategoryOption
+  sequence: number
+}
+
 export function ProductImportDialog({ open, onOpenChange }: Props) {
   const queryClient = useQueryClient()
   const [file, setFile] = useState<File | null>(null)
@@ -86,6 +109,71 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
   /** 依序設定 SKU：預覽列與使用者輸入的 SKU */
   const [previewRows, setPreviewRows] = useState<ProductImportPreviewRow[] | null>(null)
   const [skuOverrides, setSkuOverrides] = useState<Record<number, string>>({})
+  /** 每列選擇的品類/子類（分層檢索後產出 SKU 時一併寫入 CSV） */
+  const [rowCategoryCode, setRowCategoryCode] = useState<Record<number, string>>({})
+  const [rowSubcategoryCode, setRowSubcategoryCode] = useState<Record<number, string>>({})
+  /** 產生 SKU 時記下該列的品類/子類，供 buildCsvWithSku 使用 */
+  const [categorySubcategoryOverrides, setCategorySubcategoryOverrides] = useState<
+    Record<number, { category_code: string; subcategory_code: string }>
+  >({})
+
+  /** 品類清單（與新增產品一致，分層檢索用） */
+  const { data: skuCategoriesData } = useQuery({
+    queryKey: ['sku-categories'],
+    queryFn: async () => {
+      const res = await api.get<SkuCategoriesResponse>('/sku/categories')
+      return res.data
+    },
+    enabled: open && !!previewRows?.length,
+  })
+  const skuCategories = skuCategoriesData?.categories ?? []
+
+  /** 有被選中的品類代碼（用於拉取子類） */
+  const selectedCategoryCodes = useMemo(
+    () => [...new Set(Object.values(rowCategoryCode).filter(Boolean))],
+    [rowCategoryCode]
+  )
+
+  /** 各品類的子類清單 */
+  const subcategoryQueries = useQueries({
+    queries: selectedCategoryCodes.map((code) => ({
+      queryKey: ['sku-subcategories', code],
+      queryFn: async () => {
+        const res = await api.get<SkuSubcategoriesResponse>(`/sku/categories/${code}/subcategories`)
+        return res.data
+      },
+      enabled: open && !!code,
+    })),
+  })
+  const subcategoriesByCategory: Record<string, SkuCategoryOption[]> = useMemo(() => {
+    const out: Record<string, SkuCategoryOption[]> = {}
+    selectedCategoryCodes.forEach((code, i) => {
+      const data = subcategoryQueries[i]?.data
+      out[code] = data?.subcategories ?? []
+    })
+    return out
+  }, [selectedCategoryCodes, subcategoryQueries])
+
+  /** 產生 SKU（分層：品類 → 子類 → 產出編碼） */
+  const generateSkuMutation = useMutation({
+    mutationFn: async ({
+      category,
+      subcategory,
+    }: {
+      category: string
+      subcategory: string
+    }) => {
+      const res = await api.post<GenerateSkuResponse>('/sku/generate', { category, subcategory })
+      return res.data
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: '產生 SKU 失敗',
+        description: getApiErrorMessage(error, '請稍後再試'),
+        variant: 'destructive',
+      })
+    },
+  })
 
   const checkMutation = useMutation({
     mutationFn: async (f: File) => {
@@ -126,6 +214,9 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
     onSuccess: (data) => {
       setPreviewRows(data.rows)
       setSkuOverrides({})
+      setRowCategoryCode({})
+      setRowSubcategoryCode({})
+      setCategorySubcategoryOverrides({})
     },
     onError: (error: unknown) => {
       toast({
@@ -229,6 +320,9 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
     setUserAcceptedNoSku(false)
     setPreviewRows(null)
     setSkuOverrides({})
+    setRowCategoryCode({})
+    setRowSubcategoryCode({})
+    setCategorySubcategoryOverrides({})
     onOpenChange(false)
   }
 
@@ -246,12 +340,15 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
       'SKU編碼,名稱,規格,品類代碼,子類代碼,單位,追蹤批號,追蹤效期,安全庫存,備註'
     const lines = previewRows.map((r) => {
       const sku = skuOverrides[r.row]?.trim() ?? ''
+      const catOverride = categorySubcategoryOverrides[r.row]
+      const category_code = catOverride?.category_code ?? r.category_code ?? ''
+      const subcategory_code = catOverride?.subcategory_code ?? r.subcategory_code ?? ''
       return [
         escape(sku),
         escape(r.name),
         escape(r.spec ?? ''),
-        escape(r.category_code ?? ''),
-        escape(r.subcategory_code ?? ''),
+        escape(category_code),
+        escape(subcategory_code),
         escape(r.base_uom),
         r.track_batch ? 'true' : 'false',
         r.track_expiry ? 'true' : 'false',
@@ -439,44 +536,145 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
                   onClick={() => {
                     setPreviewRows(null)
                     setSkuOverrides({})
+                    setRowCategoryCode({})
+                    setRowSubcategoryCode({})
+                    setCategorySubcategoryOverrides({})
                   }}
                 >
                   返回
                 </Button>
               </div>
-              <div className="max-h-64 overflow-auto rounded-lg border border-slate-200">
+              <p className="text-xs text-slate-500">
+                先選擇品類與子類（與「新增產品」相同分層），再按「產生 SKU」由系統產出編碼；亦可手動輸入或留空由匯入時自動產生。
+              </p>
+              <div className="max-h-80 overflow-auto rounded-lg border border-slate-200">
                 <table className="w-full text-sm">
                   <thead className="bg-slate-100 sticky top-0">
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium w-14">列</th>
-                      <th className="px-3 py-2 text-left font-medium">名稱</th>
-                      <th className="px-3 py-2 text-left font-medium min-w-[80px]">規格</th>
-                      <th className="px-3 py-2 text-left font-medium w-16">單位</th>
-                      <th className="px-3 py-2 text-left font-medium w-20">安全庫存</th>
-                      <th className="px-3 py-2 text-left font-medium min-w-[120px]">SKU 編碼</th>
+                      <th className="px-2 py-2 text-left font-medium w-10">列</th>
+                      <th className="px-2 py-2 text-left font-medium min-w-[80px]">名稱</th>
+                      <th className="px-2 py-2 text-left font-medium min-w-[60px]">規格</th>
+                      <th className="px-2 py-2 text-left font-medium w-12">單位</th>
+                      <th className="px-2 py-2 text-left font-medium w-16">安全庫存</th>
+                      <th className="px-2 py-2 text-left font-medium min-w-[100px]">品類</th>
+                      <th className="px-2 py-2 text-left font-medium min-w-[100px]">子類</th>
+                      <th className="px-2 py-2 text-left font-medium w-20">動作</th>
+                      <th className="px-2 py-2 text-left font-medium min-w-[110px]">SKU 編碼</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {previewRows.map((r) => (
-                      <tr key={r.row} className="border-t border-slate-100 hover:bg-slate-50">
-                        <td className="px-3 py-1.5">{r.row}</td>
-                        <td className="px-3 py-1.5">{r.name}</td>
-                        <td className="px-3 py-1.5 text-slate-600">{r.spec ?? '-'}</td>
-                        <td className="px-3 py-1.5">{r.base_uom}</td>
-                        <td className="px-3 py-1.5">{r.safety_stock ?? '-'}</td>
-                        <td className="px-3 py-1.5">
-                          <input
-                            type="text"
-                            value={skuOverrides[r.row] ?? ''}
-                            onChange={(e) =>
-                              setSkuOverrides((prev) => ({ ...prev, [r.row]: e.target.value }))
-                            }
-                            placeholder="留空自動產生"
-                            className="w-full min-w-[100px] rounded border border-slate-300 px-2 py-1 text-sm font-mono focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          />
-                        </td>
-                      </tr>
-                    ))}
+                    {previewRows.map((r) => {
+                      const catCode = rowCategoryCode[r.row] ?? ''
+                      const subCode = rowSubcategoryCode[r.row] ?? ''
+                      const subList = catCode ? subcategoriesByCategory[catCode] ?? [] : []
+                      const hasSubcategories = subList.length > 0
+                      const canGenerate =
+                        !!catCode && (hasSubcategories ? !!subCode : true)
+                      return (
+                        <tr key={r.row} className="border-t border-slate-100 hover:bg-slate-50">
+                          <td className="px-2 py-1.5">{r.row}</td>
+                          <td className="px-2 py-1.5">{r.name}</td>
+                          <td className="px-2 py-1.5 text-slate-600">{r.spec ?? '-'}</td>
+                          <td className="px-2 py-1.5">{r.base_uom}</td>
+                          <td className="px-2 py-1.5">{r.safety_stock ?? '-'}</td>
+                          <td className="px-2 py-1.5">
+                            <select
+                              aria-label={`第 ${r.row} 列品類`}
+                              value={catCode}
+                              onChange={(e) => {
+                                const v = e.target.value
+                                setRowCategoryCode((prev) => ({ ...prev, [r.row]: v }))
+                                setRowSubcategoryCode((prev) => ({ ...prev, [r.row]: '' }))
+                              }}
+                              className="w-full min-w-[90px] rounded border border-slate-300 px-1.5 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            >
+                              <option value="">—</option>
+                              {skuCategories.map((c) => (
+                                <option key={c.code} value={c.code}>
+                                  {c.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="px-2 py-1.5">
+                            {!catCode ? (
+                              <span className="text-slate-400">—</span>
+                            ) : hasSubcategories ? (
+                              <select
+                                aria-label={`第 ${r.row} 列子類`}
+                                value={subCode}
+                                onChange={(e) =>
+                                  setRowSubcategoryCode((prev) => ({
+                                    ...prev,
+                                    [r.row]: e.target.value,
+                                  }))
+                                }
+                                className="w-full min-w-[90px] rounded border border-slate-300 px-1.5 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              >
+                                <option value="">—</option>
+                                {subList.map((s) => (
+                                  <option key={s.code} value={s.code}>
+                                    {s.name}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span className="text-slate-500 text-xs">同品類</span>
+                            )}
+                          </td>
+                          <td className="px-2 py-1.5">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs"
+                              disabled={!canGenerate || generateSkuMutation.isPending}
+                              onClick={() => {
+                                const sub = hasSubcategories ? subCode : catCode
+                                generateSkuMutation.mutate(
+                                  { category: catCode, subcategory: sub },
+                                  {
+                                    onSuccess: (data) => {
+                                      setSkuOverrides((prev) => ({
+                                        ...prev,
+                                        [r.row]: data.sku,
+                                      }))
+                                      setCategorySubcategoryOverrides((prev) => ({
+                                        ...prev,
+                                        [r.row]: {
+                                          category_code: catCode,
+                                          subcategory_code: sub,
+                                        },
+                                      }))
+                                    },
+                                  }
+                                )
+                              }}
+                            >
+                              {generateSkuMutation.isPending ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <>
+                                  <Sparkles className="h-3.5 w-3.5 mr-0.5" />
+                                  產生 SKU
+                                </>
+                              )}
+                            </Button>
+                          </td>
+                          <td className="px-2 py-1.5">
+                            <input
+                              type="text"
+                              value={skuOverrides[r.row] ?? ''}
+                              onChange={(e) =>
+                                setSkuOverrides((prev) => ({ ...prev, [r.row]: e.target.value }))
+                              }
+                              placeholder="留空自動產生"
+                              className="w-full min-w-[100px] rounded border border-slate-300 px-2 py-1 text-sm font-mono focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -630,7 +828,7 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
               <ul className="list-disc list-inside space-y-0.5">
                 <li>名稱為必填欄位</li>
                 <li>單位為必填欄位（預設 PCS）</li>
-                <li>品類代碼、子類代碼可選，未填時預設為 GEN-OTH</li>
+                <li>品類代碼、子類代碼可選，未填時預設為 GEN-OTH；於編輯頁變更分類後將自動產生新 SKU（僅 GEN-OTH 可改動 SKU）</li>
                 <li>追蹤批號、追蹤效期：true/false 或 是/否</li>
                 <li>CSV 欄位順序：SKU編碼、名稱、規格、品類代碼、子類代碼、單位、追蹤批號、追蹤效期、安全庫存、備註（SKU 可留空由系統自動產生）</li>
               </ul>

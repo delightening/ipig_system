@@ -241,7 +241,10 @@ export function ProductEditPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">編輯產品</h1>
           <p className="text-muted-foreground text-sm">
-            SKU: {product.sku}（唯讀，不可修改）
+            SKU: {product.sku}
+            {(product.category_code || 'GEN') === 'GEN' && (product.subcategory_code || 'OTH') === 'OTH'
+              ? '（目前為預設分類 GEN-OTH，變更分類後將自動產生新 SKU）'
+              : '（唯讀，不可修改）'}
           </p>
         </div>
       </div>
@@ -276,6 +279,9 @@ export function ProductEditPage() {
               </div>
               <div className="grid gap-2">
                 <Label>分類（與新增產品一致）</Label>
+                {(product.category_code || 'GEN') === 'GEN' && (product.subcategory_code || 'OTH') === 'OTH' && (
+                  <p className="text-muted-foreground text-xs">此產品為匯入預設 GEN-OTH，選擇新分類並儲存後將自動產生新 SKU。</p>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {CATEGORIES.slice(0, 4).map((cat) => (
                     <button
