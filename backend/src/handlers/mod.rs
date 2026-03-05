@@ -20,7 +20,7 @@ mod accounting;
 mod report;
 pub(crate) mod role;
 mod signature;
-mod sku;
+pub mod sku;
 pub mod sse;
 mod stock;
 pub mod storage_location;

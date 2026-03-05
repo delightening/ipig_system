@@ -338,7 +338,7 @@ erDiagram
 - `PO` - Purchase Order（採購單）
 - `GRN` - Goods Receipt Note（入庫單）
 - `PR` - Purchase Requisition（請購單）
-- `SO` - Sales Order（銷售單）
+- `SO` - Sales Order（銷貨單）
 - `DO` - Delivery Order（出貨單）
 - `SR` - Sales Return（銷退單）
 - `TR` - Transfer（調撥單）

@@ -62,21 +62,21 @@ const erpModules: ErpModule[] = [
     },
     {
         id: 'sales',
-        title: '銷售管理',
+        title: '銷貨管理',
         icon: <ShoppingCart className="h-5 w-5" />,
-        description: '管理銷售訂單與出庫作業',
+        description: '管理銷貨訂單與出庫作業',
         items: [
             {
-                title: '銷售單',
+                title: '銷貨單',
                 href: '/documents?type=SO',
                 icon: <FileText className="h-4 w-4" />,
-                description: '建立與管理銷售訂單',
+                description: '建立與管理銷貨訂單',
             },
             {
-                title: '銷售出庫',
+                title: '銷貨出庫',
                 href: '/documents?type=DO',
                 icon: <Box className="h-4 w-4" />,
-                description: '處理銷售出庫作業',
+                description: '處理銷貨出庫作業',
             },
         ],
     },
@@ -156,10 +156,10 @@ const erpModules: ErpModule[] = [
                 description: '採購項目明細統計',
             },
             {
-                title: '銷售明細報表',
+                title: '銷貨明細報表',
                 href: '/sales-lines',
                 icon: <ShoppingCart className="h-4 w-4" />,
-                description: '銷售項目明細統計',
+                description: '銷貨項目明細統計',
             },
             {
                 title: '成本摘要報表',

@@ -107,7 +107,8 @@ export function NotificationRoutingSection() {
     const queryClient = useQueryClient()
     const { dialogState, confirm } = useConfirmDialog()
     const [showAddForm, setShowAddForm] = useState(false)
-    const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
+    // 預設收合：只記錄「已展開」的分類，空 Set = 全部收合
+    const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
     const [newRule, setNewRule] = useState<CreateNotificationRoutingRequest>({
         event_type: '',
         role_code: '',
@@ -209,7 +210,7 @@ export function NotificationRoutingSection() {
     }, [categorizedRules])
 
     const toggleCategory = (cat: string) => {
-        setCollapsedCategories(prev => {
+        setExpandedCategories(prev => {
             const next = new Set(prev)
             if (next.has(cat)) next.delete(cat)
             else next.add(cat)
@@ -409,7 +410,7 @@ export function NotificationRoutingSection() {
                         </Card>
                     ) : (
                         [...groupedByCategory.entries()].map(([category, items]) => {
-                            const isCollapsed = collapsedCategories.has(category)
+                            const isExpanded = expandedCategories.has(category)
                             const catRuleCount = items.reduce((sum, i) => sum + i.rules.length, 0)
                             const catActiveCount = items.reduce(
                                 (sum, i) => sum + i.rules.filter(r => r.is_active).length, 0
@@ -424,10 +425,10 @@ export function NotificationRoutingSection() {
                                         onClick={() => toggleCategory(category)}
                                     >
                                         <div className="flex items-center gap-2.5">
-                                            {isCollapsed ? (
-                                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                                            ) : (
+                                            {isExpanded ? (
                                                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                            ) : (
+                                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
                                             )}
                                             <span className="text-muted-foreground">
                                                 {categoryIcons[category] || <Route className="h-4 w-4" />}
@@ -439,7 +440,7 @@ export function NotificationRoutingSection() {
                                         </span>
                                     </button>
 
-                                    {!isCollapsed && (
+                                    {isExpanded && (
                                         <CardContent className="pt-0 pb-4 space-y-4">
                                             {items.map((item) => (
                                                 <div key={item.eventType}>

@@ -124,13 +124,13 @@ const CATEGORY_NAMES: Record<string, Record<string, string>> = {
     document: '文件',
     purchase: '採購',
     grn: '收貨',
-    sales: '銷售',
+    sales: '銷貨',
     do: '出貨',
     stock: '庫存',
     stocktake: '盤點',
     report: '報表',
     po: '採購單',
-    so: '銷售單',
+    so: '銷貨單',
     tr: '調撥',
     stk: '盤點',
     adj: '庫存調整',
@@ -324,11 +324,11 @@ function getPermissionModule(perm: Permission): string {
 const CATEGORY_MERGE_MAP: Record<string, string> = {
   // 庫存管理：文件類別
   po: '文件', // 採購單
-  so: '文件', // 銷售單
+  so: '文件', // 銷貨單
   grn: '文件', // 收貨單
   do: '文件', // 出貨單
   purchase: '文件', // 採購
-  sales: '文件', // 銷售
+  sales: '文件', // 銷貨
   pr: '文件', // 採購申請
   document: '文件', // 文件
   // 庫存管理：庫存類別

@@ -76,7 +76,7 @@ impl StockService {
                     .await?;
                 }
                 DocType::DO => {
-                    // 銷售出庫：減少庫存
+                    // 銷貨出庫：減少庫存
                     let warehouse_id = document.warehouse_id.ok_or_else(|| {
                         AppError::BusinessRule("Warehouse is required for DO".to_string())
                     })?;

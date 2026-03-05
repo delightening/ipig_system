@@ -24,8 +24,8 @@ impl NotificationService {
         let type_text = match doc_type {
             "PO" => "採購單",
             "PR" => "採購退貨",
-            "SO" => "銷售單",
-            "DO" => "銷售出庫",
+            "SO" => "銷貨單",
+            "DO" => "銷貨出庫",
             _ => doc_type,
         };
         let title = format!("[iPig] 新{}待審核 - {}", type_text, document_no);
@@ -67,8 +67,8 @@ impl NotificationService {
         let type_text = match doc_type {
             "PO" => "採購單",
             "PR" => "採購退貨",
-            "SO" => "銷售單",
-            "DO" => "銷售出庫",
+            "SO" => "銷貨單",
+            "DO" => "銷貨出庫",
             _ => doc_type,
         };
         let decision = if is_approved { "已核准" } else { "已駁回" };

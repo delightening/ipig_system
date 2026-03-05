@@ -8,8 +8,10 @@ use validator::Validate;
 use crate::{
     middleware::CurrentUser,
     models::{
-        CreateStorageLocationRequest, StorageLocation, StorageLocationQuery,
-        StorageLocationWithWarehouse, UpdateStorageLayoutRequest, UpdateStorageLocationRequest,
+        CreateStorageLocationRequest, StorageLocation, StorageLocationInventoryItem,
+        StorageLocationQuery, StorageLocationWithWarehouse, UpdateStorageLayoutRequest,
+        UpdateStorageLocationInventoryItemRequest, UpdateStorageLocationRequest,
+        CreateStorageLocationInventoryItemRequest, TransferStorageLocationInventoryRequest,
     },
     require_permission,
     services::StorageLocationService,
@@ -17,6 +19,14 @@ use crate::{
 };
 
 /// 建立儲位
+#[utoipa::path(
+    post,
+    path = "/api/storage-locations",
+    request_body = CreateStorageLocationRequest,
+    responses((status = 200, description = "建立成功", body = StorageLocation)),
+    tag = "倉儲管理",
+    security(("bearer" = []))
+)]
 pub async fn create_storage_location(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -30,6 +40,14 @@ pub async fn create_storage_location(
 }
 
 /// 列出儲位
+#[utoipa::path(
+    get,
+    path = "/api/storage-locations",
+    params(StorageLocationQuery),
+    responses((status = 200, description = "儲位清單", body = Vec<StorageLocationWithWarehouse>)),
+    tag = "倉儲管理",
+    security(("bearer" = []))
+)]
 pub async fn list_storage_locations(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -42,6 +60,14 @@ pub async fn list_storage_locations(
 }
 
 /// 取得單一儲位
+#[utoipa::path(
+    get,
+    path = "/api/storage-locations/{id}",
+    params(("id" = Uuid, Path, description = "儲位 ID")),
+    responses((status = 200, description = "儲位詳情", body = StorageLocationWithWarehouse)),
+    tag = "倉儲管理",
+    security(("bearer" = []))
+)]
 pub async fn get_storage_location(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -54,6 +80,15 @@ pub async fn get_storage_location(
 }
 
 /// 更新儲位
+#[utoipa::path(
+    put,
+    path = "/api/storage-locations/{id}",
+    params(("id" = Uuid, Path, description = "儲位 ID")),
+    request_body = UpdateStorageLocationRequest,
+    responses((status = 200, description = "更新成功", body = StorageLocation)),
+    tag = "倉儲管理",
+    security(("bearer" = []))
+)]
 pub async fn update_storage_location(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -68,6 +103,15 @@ pub async fn update_storage_location(
 }
 
 /// 批次更新倉庫佈局
+#[utoipa::path(
+    put,
+    path = "/api/warehouses/{warehouse_id}/layout",
+    params(("warehouse_id" = Uuid, Path, description = "倉庫 ID")),
+    request_body = UpdateStorageLayoutRequest,
+    responses((status = 200, description = "更新成功", body = Vec<StorageLocation>)),
+    tag = "倉儲管理",
+    security(("bearer" = []))
+)]
 pub async fn update_warehouse_layout(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -81,6 +125,14 @@ pub async fn update_warehouse_layout(
 }
 
 /// 刪除儲位
+#[utoipa::path(
+    delete,
+    path = "/api/storage-locations/{id}",
+    params(("id" = Uuid, Path, description = "儲位 ID")),
+    responses((status = 200, description = "刪除成功")),
+    tag = "倉儲管理",
+    security(("bearer" = []))
+)]
 pub async fn delete_storage_location(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -95,6 +147,14 @@ pub async fn delete_storage_location(
 }
 
 /// 產生儲位代碼
+#[utoipa::path(
+    get,
+    path = "/api/storage-locations/generate-code/{warehouse_id}",
+    params(("warehouse_id" = Uuid, Path, description = "倉庫 ID")),
+    responses((status = 200, description = "產生的儲位代碼")),
+    tag = "倉儲管理",
+    security(("bearer" = []))
+)]
 pub async fn generate_storage_location_code(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -107,11 +167,19 @@ pub async fn generate_storage_location_code(
 }
 
 /// 取得儲位庫存明細
+#[utoipa::path(
+    get,
+    path = "/api/storage-locations/{id}/inventory",
+    params(("id" = Uuid, Path, description = "儲位 ID")),
+    responses((status = 200, description = "庫存明細", body = Vec<StorageLocationInventoryItem>)),
+    tag = "倉儲管理",
+    security(("bearer" = []))
+)]
 pub async fn get_storage_location_inventory(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
-) -> Result<Json<Vec<crate::models::StorageLocationInventoryItem>>> {
+) -> Result<Json<Vec<StorageLocationInventoryItem>>> {
     require_permission!(current_user, "erp.storage.view");
 
     let items = StorageLocationService::get_inventory(&state.db, id).await?;
@@ -119,12 +187,21 @@ pub async fn get_storage_location_inventory(
 }
 
 /// 更新儲位庫存項目數量
+#[utoipa::path(
+    put,
+    path = "/api/storage-locations/inventory/{item_id}",
+    params(("item_id" = Uuid, Path, description = "庫存項目 ID")),
+    request_body = UpdateStorageLocationInventoryItemRequest,
+    responses((status = 200, description = "更新成功", body = StorageLocationInventoryItem)),
+    tag = "倉儲管理",
+    security(("bearer" = []))
+)]
 pub async fn update_storage_location_inventory_item(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(item_id): Path<Uuid>,
-    Json(req): Json<crate::models::UpdateStorageLocationInventoryItemRequest>,
-) -> Result<Json<crate::models::StorageLocationInventoryItem>> {
+    Json(req): Json<UpdateStorageLocationInventoryItemRequest>,
+) -> Result<Json<StorageLocationInventoryItem>> {
     // 特定權限：僅管理員可直接修改庫存
     require_permission!(current_user, "erp.storage.inventory.edit");
     // Note: validation for rust_decimal::Decimal is done in the service layer
@@ -134,12 +211,21 @@ pub async fn update_storage_location_inventory_item(
 }
 
 /// 新增儲位庫存項目
+#[utoipa::path(
+    post,
+    path = "/api/storage-locations/{id}/inventory",
+    params(("id" = Uuid, Path, description = "儲位 ID")),
+    request_body = CreateStorageLocationInventoryItemRequest,
+    responses((status = 200, description = "建立成功", body = StorageLocationInventoryItem)),
+    tag = "倉儲管理",
+    security(("bearer" = []))
+)]
 pub async fn create_storage_location_inventory_item(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(storage_location_id): Path<Uuid>,
-    Json(req): Json<crate::models::CreateStorageLocationInventoryItemRequest>,
-) -> Result<Json<crate::models::StorageLocationInventoryItem>> {
+    Json(req): Json<CreateStorageLocationInventoryItemRequest>,
+) -> Result<Json<StorageLocationInventoryItem>> {
     require_permission!(current_user, "erp.storage.inventory.edit");
     req.validate()?;
 
@@ -148,12 +234,21 @@ pub async fn create_storage_location_inventory_item(
 }
 
 /// 調撥儲位庫存 (同倉庫內)
+#[utoipa::path(
+    post,
+    path = "/api/storage-locations/inventory/{item_id}/transfer",
+    params(("item_id" = Uuid, Path, description = "庫存項目 ID")),
+    request_body = TransferStorageLocationInventoryRequest,
+    responses((status = 200, description = "調撥成功", body = StorageLocationInventoryItem)),
+    tag = "倉儲管理",
+    security(("bearer" = []))
+)]
 pub async fn transfer_storage_location_inventory(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(item_id): Path<Uuid>,
-    Json(req): Json<crate::models::TransferStorageLocationInventoryRequest>,
-) -> Result<Json<crate::models::StorageLocationInventoryItem>> {
+    Json(req): Json<TransferStorageLocationInventoryRequest>,
+) -> Result<Json<StorageLocationInventoryItem>> {
     require_permission!(current_user, "erp.storage.inventory.edit");
     req.validate()?;
 

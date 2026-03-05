@@ -2,9 +2,10 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use std::collections::HashMap;
+use utoipa::ToSchema;
 
 /// SKU 主類別
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct SkuCategory {
     pub code: String,
     pub name: String,
@@ -14,7 +15,7 @@ pub struct SkuCategory {
 }
 
 /// SKU 子類別
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct SkuSubcategory {
     pub id: i32,
     pub category_code: String,
@@ -34,7 +35,7 @@ pub struct SkuSequence {
 }
 
 /// SKU 片段
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct SkuSegment {
     pub code: String,
     pub label: String,
@@ -43,7 +44,7 @@ pub struct SkuSegment {
 }
 
 /// SKU 預覽請求
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct SkuPreviewRequest {
     pub org: Option<String>,
     pub cat: String,
@@ -54,14 +55,14 @@ pub struct SkuPreviewRequest {
     pub rule_version_hint: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct PackInfo {
     pub uom: String,
     pub qty: i32,
 }
 
 /// SKU 預覽回應
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct SkuPreviewResponse {
     pub preview_sku: String,
     pub segments: Vec<SkuSegment>,
@@ -79,33 +80,33 @@ pub struct SkuPreviewError {
 }
 
 /// 取得類別選項回應
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct CategoriesResponse {
     pub categories: Vec<CategoryOption>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct CategoryOption {
     pub code: String,
     pub name: String,
 }
 
 /// 取得子類別選項回應
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct SubcategoriesResponse {
     pub category: CategoryOption,
     pub subcategories: Vec<CategoryOption>,
 }
 
 /// 生成 SKU 請求
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct GenerateSkuRequest {
     pub category: String,
     pub subcategory: String,
 }
 
 /// 生成 SKU 回應
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct GenerateSkuResponse {
     pub sku: String,
     pub category: CategoryOption,
@@ -114,13 +115,13 @@ pub struct GenerateSkuResponse {
 }
 
 /// 驗證 SKU 請求
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct ValidateSkuRequest {
     pub sku: String,
 }
 
 /// 驗證 SKU 回應
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct ValidateSkuResponse {
     pub valid: bool,
     pub category: Option<CategoryOption>,
@@ -131,7 +132,7 @@ pub struct ValidateSkuResponse {
 }
 
 /// 擴展的產品創建請求（包含 SKU 生成所需資訊）
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateProductWithSkuRequest {
     pub name: Option<String>,
     pub spec: Option<String>,

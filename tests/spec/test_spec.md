@@ -100,7 +100,7 @@
 ## 2. test_erp_full.py — ERP 倉庫管理
 
 ### 測試目標
-驗證 ERP 倉庫管理系統的完整流程：建置基礎資料、採購入庫、銷售出庫、調撥作業、庫存驗證、報表產生。
+驗證 ERP 倉庫管理系統的完整流程：建置基礎資料、採購入庫、銷貨出庫、調撥作業、庫存驗證、報表產生。
 
 ### 測試角色
 
@@ -115,7 +115,7 @@
 |------|------|----------|
 | Phase 1 | 建立 3 倉庫 + 每倉庫 7 貨架 + 50 產品 + 2 供應商 | 各自回傳 id，數量正確 |
 | Phase 2 | 採購入庫：3 張 PO → 各建 GRN，50 產品分配到 21 貨架 | PO/GRN submit + approve 成功 |
-| Phase 3 | 銷售出庫：SO → DO，含 IACUC 篩選 | IACUC 篩選 `?iacuc_no=PIG-11401` 回傳正確 |
+| Phase 3 | 銷貨出庫：SO → DO，含 IACUC 篩選 | IACUC 篩選 `?iacuc_no=PIG-11401` 回傳正確 |
 | Phase 4 | 調撥：倉庫 1 → 倉庫 2 (TR) | submit + approve 成功 |
 | Phase 5 | 庫存驗證：on-hand + ledger + 各貨架 inventory | 有庫存記錄，品項含 `product_name` / `on_hand_qty` |
 | Phase 6 | 報表驗證：5 種報表 | stock-on-hand / stock-ledger / purchase-lines / sales-lines / cost-summary 各回傳 200 |

@@ -48,6 +48,8 @@ interface ProductImportCheckResult {
   total_rows: number
   duplicate_count: number
   duplicates: ProductImportDuplicateItem[]
+  /** 檔案是否包含 SKU 編碼欄位 */
+  has_sku_column: boolean
 }
 
 interface Props {
@@ -60,6 +62,8 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
   const [file, setFile] = useState<File | null>(null)
   const [result, setResult] = useState<ProductImportResult | null>(null)
   const [checkResult, setCheckResult] = useState<ProductImportCheckResult | null>(null)
+  /** 使用者選擇「由系統自動產生 SKU 並繼續」後，用於顯示重複處理選項 */
+  const [userAcceptedNoSku, setUserAcceptedNoSku] = useState(false)
 
   const checkMutation = useMutation({
     mutationFn: async (f: File) => {
@@ -72,7 +76,8 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
     },
     onSuccess: (data, f) => {
       setCheckResult(data)
-      if (data.duplicate_count === 0 && f) {
+      // 僅在「有 SKU 欄位」且無重複時自動匯入；無 SKU 時改由使用者選擇
+      if (data.duplicate_count === 0 && data.has_sku_column && f) {
         doImport(f, false)
       }
     },
@@ -86,10 +91,19 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
   })
 
   const importMutation = useMutation({
-    mutationFn: async ({ f, skipDuplicates }: { f: File; skipDuplicates: boolean }) => {
+    mutationFn: async ({
+      f,
+      skipDuplicates,
+      regenerateSkuForDuplicates,
+    }: {
+      f: File
+      skipDuplicates: boolean
+      regenerateSkuForDuplicates: boolean
+    }) => {
       const formData = new FormData()
       formData.append('file', f)
       formData.append('skip_duplicates', String(skipDuplicates))
+      formData.append('regenerate_sku_for_duplicates', String(regenerateSkuForDuplicates))
       const res = await api.post<ProductImportResult>('/products/import', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
@@ -121,8 +135,12 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
     },
   })
 
-  const doImport = (f: File, skipDuplicates: boolean) => {
-    importMutation.mutate({ f, skipDuplicates })
+  const doImport = (
+    f: File,
+    skipDuplicates: boolean,
+    regenerateSkuForDuplicates = false
+  ) => {
+    importMutation.mutate({ f, skipDuplicates, regenerateSkuForDuplicates })
   }
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -131,6 +149,7 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
       setFile(selectedFiles[0])
       setCheckResult(null)
       setResult(null)
+      setUserAcceptedNoSku(false)
     }
   }
 
@@ -144,21 +163,22 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
   }
 
   const handleSkipDuplicates = () => {
-    if (file) {
-      doImport(file, true)
-    }
+    if (file) doImport(file, true, false)
   }
 
   const handleImportAnyway = () => {
-    if (file) {
-      doImport(file, false)
-    }
+    if (file) doImport(file, false, false)
+  }
+
+  const handleImportWithNewSku = () => {
+    if (file) doImport(file, false, true)
   }
 
   const handleClose = () => {
     setFile(null)
     setResult(null)
     setCheckResult(null)
+    setUserAcceptedNoSku(false)
     onOpenChange(false)
   }
 
@@ -257,8 +277,51 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
             </label>
           )}
 
-          {/* 規則一：重複警示確認 */}
-          {checkResult && checkResult.duplicate_count > 0 && !result && (
+          {/* 檔案未含 SKU 欄位：讓使用者選擇 */}
+          {checkResult && !checkResult.has_sku_column && !result && (checkResult.duplicate_count === 0 || !userAcceptedNoSku) && (
+            <div className="space-y-4 p-4 border border-blue-200 bg-blue-50 rounded-lg">
+              <div className="flex items-center gap-2 text-blue-800">
+                <AlertCircle className="h-5 w-5" />
+                <span className="font-medium">此檔案未含 SKU 編碼欄位</span>
+              </div>
+              <p className="text-sm text-blue-700">
+                請選擇處理方式：
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (checkResult.duplicate_count === 0 && file) {
+                      doImport(file, false)
+                    } else {
+                      setUserAcceptedNoSku(true)
+                    }
+                  }}
+                  disabled={importMutation.isPending}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {importMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  由系統自動產生 SKU 並繼續匯入
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    handleDownloadTemplate()
+                    setCheckResult(null)
+                    setUserAcceptedNoSku(false)
+                  }}
+                  className="border-blue-600 text-blue-700 hover:bg-blue-100"
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  取消，改下載含 SKU 的範本
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* 規則一：重複警示確認（有 SKU 欄位時，或使用者已選擇由系統產生 SKU 時顯示） */}
+          {checkResult && checkResult.duplicate_count > 0 && (checkResult.has_sku_column || userAcceptedNoSku) && !result && (
             <div className="space-y-4 p-4 border border-amber-200 bg-amber-50 rounded-lg">
               <div className="flex items-center gap-2 text-amber-800">
                 <AlertTriangle className="h-5 w-5" />
@@ -289,7 +352,7 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
                   </tbody>
                 </table>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -299,6 +362,15 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
                 >
                   {importMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   略過重複列（僅匯入不重複者）
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleImportWithNewSku}
+                  disabled={importMutation.isPending}
+                  className="border-amber-600 text-amber-700 hover:bg-amber-100"
+                >
+                  匯入，但更改流水號
                 </Button>
                 <Button
                   variant="outline"
@@ -376,7 +448,7 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
                 <li>單位為必填欄位（預設 PCS）</li>
                 <li>品類代碼、子類代碼可選，未填時預設為 GEN-OTH</li>
                 <li>追蹤批號、追蹤效期：true/false 或 是/否</li>
-                <li>CSV 欄位順序：名稱、規格、品類代碼、子類代碼、單位、追蹤批號、追蹤效期、安全庫存、備註</li>
+                <li>CSV 欄位順序：SKU編碼、名稱、規格、品類代碼、子類代碼、單位、追蹤批號、追蹤效期、安全庫存、備註（SKU 可留空由系統自動產生）</li>
               </ul>
             </div>
           )}
@@ -386,7 +458,7 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
           <Button variant="outline" onClick={handleClose}>
             {result ? '關閉' : '取消'}
           </Button>
-          {!result && !(checkResult && checkResult.duplicate_count > 0) && (
+          {!result && !checkResult && (
             <Button
               onClick={handleImport}
               disabled={checkMutation.isPending || importMutation.isPending || !file}

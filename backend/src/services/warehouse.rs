@@ -414,4 +414,16 @@ mod tests {
     fn test_parse_code_sequence_invalid_digits() {
         assert!(WarehouseService::parse_code_sequence("WHabc", "WH").is_none());
     }
+
+    #[test]
+    fn test_parse_code_sequence_leading_zeros() {
+        assert_eq!(WarehouseService::parse_code_sequence("WH001", "WH"), Some(1));
+        assert_eq!(WarehouseService::parse_code_sequence("WH012", "WH"), Some(12));
+    }
+
+    #[test]
+    fn test_parse_code_sequence_case_sensitive() {
+        // 前綴區分大小寫
+        assert!(WarehouseService::parse_code_sequence("wh001", "WH").is_none());
+    }
 }

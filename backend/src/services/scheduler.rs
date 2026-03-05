@@ -486,7 +486,7 @@ impl SchedulerService {
 
         let (po_count, po_amount) = purchase_summary.unwrap_or((0, None));
 
-        // 2. 銷售彙總
+        // 2. 銷貨彙總
         let sales_summary: Option<(i64, Option<rust_decimal::Decimal>)> = sqlx::query_as(
             r#"
             SELECT COUNT(*) as cnt,
@@ -530,7 +530,7 @@ impl SchedulerService {
         // 4. 構建報表內容
         let month_str = format!("{}年{}月", year, month);
         let mut content = format!(
-            "{}月度報表\n\n=== 進銷貨彙總 ===\n採購單（已核准）：{} 筆，金額 ${}\n銷售單（已核准）：{} 筆，金額 ${}\n",
+            "{}月度報表\n\n=== 進銷貨彙總 ===\n採購單（已核准）：{} 筆，金額 ${}\n銷貨單（已核准）：{} 筆，金額 ${}\n",
             month_str,
             po_count,
             po_amount.map(|a| a.to_string()).unwrap_or("0".to_string()),

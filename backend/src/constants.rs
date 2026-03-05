@@ -80,4 +80,16 @@ mod tests {
         assert!(FILE_MAX_ANIMAL_PHOTO <= FILE_MAX_PROTOCOL_ATTACHMENT);
         assert!(FILE_MAX_PROTOCOL_ATTACHMENT <= MAX_UPLOAD_SIZE_BYTES);
     }
+
+    #[test]
+    fn test_audit_constants() {
+        assert!(AUDIT_LOG_MAX_EXPORT > 0, "匯出上限應為正數");
+        assert!(ACTIVITY_LOG_MAX_PER_PAGE > 0, "每頁筆數上限應為正數");
+    }
+
+    #[test]
+    fn test_audit_export_reasonable_limit() {
+        // 匯出上限應在合理範圍內（避免過大記憶體使用）
+        assert!(AUDIT_LOG_MAX_EXPORT <= 100_000);
+    }
 }

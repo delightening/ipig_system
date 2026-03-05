@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-03-04 (v5)  
+> **最後更新：** 2026-03-05 (v5)  
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -71,7 +71,7 @@
 |---|------|------|
 | 1 | [共用基礎架構](#1-共用基礎架構) | 認證授權、使用者管理、角色權限、Email、稽核 |
 | 2 | [AUP 提交與審查系統](#2-aup-提交與審查系統) | 計畫書管理、審查流程、附件、我的計劃 |
-| 3 | [iPig ERP (進銷存管理系統)](#3-ipig-erp-進銷存管理系統) | 基礎資料、採購、銷售、倉儲、報表 |
+| 3 | [iPig ERP (進銷存管理系統)](#3-ipig-erp-進銷存管理系統) | 基礎資料、採購、銷貨、倉儲、報表 |
 | 4 | [實驗動物管理系統](#4-實驗動物管理系統) | 動物管理、紀錄、血液檢查、匯出、GLP |
 | 5 | [通知系統](#5-通知系統) | Email 通知、站內通知、排程任務 |
 | 6 | [HR 人事管理系統](#6-hr-人事管理系統) | 特休、考勤、Google Calendar |
@@ -144,7 +144,7 @@
 
 ## 3. iPig ERP (進銷存管理系統)
 
-基礎資料、採購、銷售、倉儲、報表。完成度 100% ✅（詳見上方總體進度概覽）。
+基礎資料、採購、銷貨、倉儲、報表。完成度 100% ✅（詳見上方總體進度概覽）。
 
 ---
 
@@ -188,6 +188,18 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-05 編輯產品與新增產品對齊（包裝結構、分類、移除耗材 LAB 主分類）
+- **編輯產品頁**：品類改為與新增產品一致（分類按鈕＋子分類下拉）；移除「耗材(LAB)」主分類，實驗耗材改為耗材之子分類；舊 LAB 主分類產品載入時自動對應為 耗材＋實驗耗材。
+- **編輯產品頁**：新增「包裝結構」區塊，可檢視與編輯兩層／三層包裝（外層→內層→基礎單位），與新增產品相同邏輯計算 `pack_unit`／`pack_qty` 儲存。
+- 變更檔案：`frontend/src/pages/master/ProductEditPage.tsx`。
+
+---
+
+### 2026-03-05 移除 Sentry 錯誤監控
+- 後端：移除 sentry crate、Config.sentry_dsn、main 中 sentry::init 與 runtime 改回 #[tokio::main]、error.rs 中 sentry::capture_error。
+- 前端：移除 @sentry/react、instrument.ts、main 首行 import、ErrorBoundary 內 Sentry.captureException、系統設定頁「錯誤監控測試」卡片；Dockerfile / docker-compose 移除 VITE_SENTRY_DSN。
+- 文件與範本：.env.example、DEPLOYMENT、OPERATIONS、IMPROVEMENT_PLAN_R4 還原為未導入 Sentry 狀態。
+
 ### 2026-03-04 全域刪除改用 POST /delete（避免代理/tunnel 回傳 405）
 - ✅ **根因**：部分代理、Cloudflare Tunnel 等對 `DELETE` 請求回傳 405 Method Not Allowed，導致刪除操作失敗但前端仍顯示成功。
 - ✅ **後端**：為所有 DELETE 端點新增 `POST /.../delete` 替代路由（36 個），涵蓋 users、roles、warehouses、storage-locations、products、partners、documents、animal-sources、animals、observations、surgeries、weights、vaccinations、care-records、blood-tests、notifications、attachments、equipment、training-records、hr、facilities 等。
@@ -195,6 +207,15 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **倉庫列表**：列表 API 預設傳入 `is_active=true`，刪除（軟刪除）後已停用倉庫不再顯示於主列表。
 
 ---
+
+### 2026-03-05 端點文件化與單元測試盤點、storage_location + SKU 完成
+- ✅ **盤點文件**：新增 `docs/development/OPENAPI_AND_TESTS_STATUS.md`，總計路由 **318** 個 handler、已文件化 **132**、尚未文件化約 **186**；單元測試 **148** 個，並列出未文件化模組與建議補強測試模組。
+- ✅ **OpenAPI 儲位與 SKU**：storage_location 全模組 **11** 端點（含 ToSchema/IntoParams 與 openapi 註冊）；SKU **6** 端點（get_sku_categories, get_sku_subcategories, generate_sku, validate_sku, preview_sku, create_product_with_sku），models/sku 與 ProductWithUom 等 schema 已註冊。
+- ✅ **Rust 單元測試**：維持 **148** 個測試通過（前次已補常數/SKU/倉庫 6 個）。
+
+### 2026-03-05 IMPROVEMENT_PLAN_R4 延續（端點文件化、Rust 單元測試）
+- ✅ **OpenAPI 監控端點**：新增 3 個端點文件化：`health_check`（GET /api/health）、`metrics_handler`（GET /metrics）、`vitals_handler`（POST /api/metrics/vitals），含 HealthResponse/PoolCheck/DiskCheck/WebVitalsMetric 等 schema，新增「監控」tag。
+- ✅ **Rust 單元測試**：新增 6 個測試（常數 audit 2 個、SKU 格式 2 個、倉庫代碼序號 2 個），總計 **148** 個測試通過。
 
 ### 2026-03-04 IMPROVEMENT_PLAN_R4 目標補齊（Rust 測試、OpenAPI）
 - ✅ **Rust 單元測試**：新增 15 個核心業務邏輯測試（SKU 格式解析 7 個、倉庫代碼序號 4 個、常數驗證 4 個），總計 **142** 個測試通過，強化覆蓋率。
