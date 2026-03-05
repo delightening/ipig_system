@@ -30,6 +30,7 @@ const ProfileSettingsPage = lazy(() => import('@/pages/ProfileSettingsPage').the
 const ProductsPage = lazy(() => import('@/pages/master/ProductsPage').then(m => ({ default: m.ProductsPage })))
 const CreateProductPage = lazy(() => import('@/pages/master/CreateProductPage').then(m => ({ default: m.CreateProductPage })))
 const ProductDetailPage = lazy(() => import('@/pages/master/ProductDetailPage').then(m => ({ default: m.ProductDetailPage })))
+const ProductEditPage = lazy(() => import('@/pages/master/ProductEditPage').then(m => ({ default: m.ProductEditPage })))
 const WarehousesPage = lazy(() => import('@/pages/master/WarehousesPage').then(m => ({ default: m.WarehousesPage })))
 const PartnersPage = lazy(() => import('@/pages/master/PartnersPage').then(m => ({ default: m.PartnersPage })))
 const BloodTestTemplatesPage = lazy(() => import('@/pages/master/BloodTestTemplatesPage').then(m => ({ default: m.BloodTestTemplatesPage })))
@@ -334,7 +335,7 @@ function App() {
                         <Route path="/products" element={<ProductsPage />} />
                         <Route path="/products/new" element={<CreateProductPage />} />
                         <Route path="/products/:id" element={<ProductDetailPage />} />
-                        <Route path="/products/:id/edit" element={<CreateProductPage />} />
+                        <Route path="/products/:id/edit" element={<ProductEditPage />} />
                         <Route path="/warehouses" element={<WarehousesPage />} />
                         <Route path="/partners" element={<PartnersPage />} />
                         <Route path="/blood-test-templates" element={<BloodTestTemplatesPage />} />

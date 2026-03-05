@@ -20,6 +20,7 @@ import {
   FileSpreadsheet,
   AlertCircle,
   CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react'
 
 interface ProductImportErrorDetail {
@@ -34,6 +35,21 @@ interface ProductImportResult {
   errors?: ProductImportErrorDetail[]
 }
 
+/** 規則一：匯入預檢重複項目 */
+interface ProductImportDuplicateItem {
+  row: number
+  name: string
+  spec?: string
+  existing_sku: string
+  existing_id: string
+}
+
+interface ProductImportCheckResult {
+  total_rows: number
+  duplicate_count: number
+  duplicates: ProductImportDuplicateItem[]
+}
+
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -43,21 +59,45 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
   const queryClient = useQueryClient()
   const [file, setFile] = useState<File | null>(null)
   const [result, setResult] = useState<ProductImportResult | null>(null)
+  const [checkResult, setCheckResult] = useState<ProductImportCheckResult | null>(null)
 
-  const importMutation = useMutation({
+  const checkMutation = useMutation({
     mutationFn: async (f: File) => {
       const formData = new FormData()
       formData.append('file', f)
+      const res = await api.post<ProductImportCheckResult>('/products/import/check', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      return res.data
+    },
+    onSuccess: (data, f) => {
+      setCheckResult(data)
+      if (data.duplicate_count === 0 && f) {
+        doImport(f, false)
+      }
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: '預檢失敗',
+        description: getApiErrorMessage(error, '無法檢查重複'),
+        variant: 'destructive',
+      })
+    },
+  })
 
+  const importMutation = useMutation({
+    mutationFn: async ({ f, skipDuplicates }: { f: File; skipDuplicates: boolean }) => {
+      const formData = new FormData()
+      formData.append('file', f)
+      formData.append('skip_duplicates', String(skipDuplicates))
       const res = await api.post<ProductImportResult>('/products/import', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+        headers: { 'Content-Type': 'multipart/form-data' },
       })
       return res.data
     },
     onSuccess: (data) => {
       setResult(data)
+      setCheckResult(null)
       queryClient.invalidateQueries({ queryKey: ['products'] })
       if (data.error_count === 0) {
         toast({
@@ -81,10 +121,16 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
     },
   })
 
+  const doImport = (f: File, skipDuplicates: boolean) => {
+    importMutation.mutate({ f, skipDuplicates })
+  }
+
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files
     if (selectedFiles && selectedFiles.length > 0) {
       setFile(selectedFiles[0])
+      setCheckResult(null)
+      setResult(null)
     }
   }
 
@@ -93,12 +139,26 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
       toast({ title: '錯誤', description: '請先選擇檔案', variant: 'destructive' })
       return
     }
-    importMutation.mutate(file)
+    setCheckResult(null)
+    checkMutation.mutate(file)
+  }
+
+  const handleSkipDuplicates = () => {
+    if (file) {
+      doImport(file, true)
+    }
+  }
+
+  const handleImportAnyway = () => {
+    if (file) {
+      doImport(file, false)
+    }
   }
 
   const handleClose = () => {
     setFile(null)
     setResult(null)
+    setCheckResult(null)
     onOpenChange(false)
   }
 
@@ -197,6 +257,61 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
             </label>
           )}
 
+          {/* 規則一：重複警示確認 */}
+          {checkResult && checkResult.duplicate_count > 0 && !result && (
+            <div className="space-y-4 p-4 border border-amber-200 bg-amber-50 rounded-lg">
+              <div className="flex items-center gap-2 text-amber-800">
+                <AlertTriangle className="h-5 w-5" />
+                <span className="font-medium">發現 {checkResult.duplicate_count} 筆與既有產品重複</span>
+              </div>
+              <p className="text-sm text-amber-700">
+                下列產品的「名稱+規格」已存在於資料庫中，請選擇處理方式：
+              </p>
+              <div className="max-h-32 overflow-y-auto border border-amber-200 rounded bg-white">
+                <table className="w-full text-sm">
+                  <thead className="bg-amber-100 sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium">列</th>
+                      <th className="px-3 py-2 text-left font-medium">名稱</th>
+                      <th className="px-3 py-2 text-left font-medium">規格</th>
+                      <th className="px-3 py-2 text-left font-medium">既有 SKU</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {checkResult.duplicates.map((d, i) => (
+                      <tr key={i} className="border-t">
+                        <td className="px-3 py-2">{d.row}</td>
+                        <td className="px-3 py-2">{d.name}</td>
+                        <td className="px-3 py-2">{d.spec ?? '-'}</td>
+                        <td className="px-3 py-2 font-mono">{d.existing_sku}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSkipDuplicates}
+                  disabled={importMutation.isPending}
+                  className="border-amber-600 text-amber-700 hover:bg-amber-100"
+                >
+                  {importMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  略過重複列（僅匯入不重複者）
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleImportAnyway}
+                  disabled={importMutation.isPending}
+                >
+                  仍要匯入（可能產生重複產品）
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Import Result */}
           {result && (
             <div className="space-y-4">
@@ -271,13 +386,15 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
           <Button variant="outline" onClick={handleClose}>
             {result ? '關閉' : '取消'}
           </Button>
-          {!result && (
+          {!result && !(checkResult && checkResult.duplicate_count > 0) && (
             <Button
               onClick={handleImport}
-              disabled={importMutation.isPending || !file}
+              disabled={checkMutation.isPending || importMutation.isPending || !file}
               className="bg-purple-600 hover:bg-purple-700"
             >
-              {importMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {(checkMutation.isPending || importMutation.isPending) && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
               開始匯入
             </Button>
           )}

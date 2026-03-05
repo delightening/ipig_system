@@ -149,6 +149,10 @@ pub fn api_routes(state: AppState) -> Router {
             post(handlers::import_products),
         )
         .route(
+            "/products/import/check",
+            post(handlers::check_product_import_duplicates),
+        )
+        .route(
             "/products/import/template",
             get(handlers::download_product_import_template),
         )

@@ -119,3 +119,39 @@ cloudflared tunnel create ipig-system
 | `Cannot determine default origin certificate path` | 執行一次 `cloudflared tunnel login`（或讓腳本自動執行） |
 | `cert.pem` 不在預設路徑 | 在設定檔加上 `origincert: 你的cert.pem路徑`，或設定環境變數 `TUNNEL_ORIGIN_CERT` |
 | `error parsing tunnel ID` | 確認 `deploy/cloudflared-config.yml` 裡的 `tunnel`、`credentials-file` 已改成實際的 ID 與 JSON 路徑 |
+
+---
+
+## 常見錯誤（隧道與 API）
+
+透過隧道存取時，若瀏覽器出現下列狀況，可依下表排查：
+
+| 現象 | 可能原因 | 建議作法 |
+|------|----------|----------|
+| **502 Bad Gateway**（例如 `/assets/xxx.js` 或任意請求） | 隧道連不到本機服務，或本機服務未啟動 | 確認本機 backend / 前端已啟動且埠號與 tunnel 轉發一致；重啟 tunnel 或本機服務後再試 |
+| **500 Internal Server Error**（例如 `GET /api/v1/animals?breed=minipig&keyword=00&page=1&per_page=50`） | 後端處理該請求時發生錯誤（DB、decode、邏輯等） | 查看**執行 backend 的終端機或 log**，會印出 `list_animals failed: ... error=...`；依錯誤訊息修正後端或資料 |
+| **524**（例如 `/api/admin/audit/alerts/sse`） | Cloudflare 長連線逾時 | 後端已做心跳；若仍 524，可改為輪詢或考慮 Cloudflare 付費方案較長逾時 |
+
+**如何取得 500 的真實原因**：在專案根目錄執行 backend（例如 `cargo run` 或透過 Docker），觸發會 500 的那個 API，後端 log 會出現 `list_animals failed:` 與完整錯誤內容，依此除錯即可。
+
+### 用 curl / PowerShell 帶認證測試動物列表
+
+API 需要登入（Cookie），直接 `curl` 會得到 401。可先登入再帶同一 session 打動物列表：
+
+**PowerShell（先登入，再打動物列表）：**
+
+```powershell
+# 請改成你的帳號與密碼（例如 admin@ipig.local 或 DEV_USER_PASSWORD 對應的 dev 帳號）
+$email = "admin@ipig.local"
+$password = "你的密碼"
+$base = "http://localhost:8080/api/v1"
+
+# 登入並保留 Cookie 到 $session
+$loginBody = @{ email = $email; password = $password } | ConvertTo-Json
+Invoke-RestMethod -Uri "$base/auth/login" -Method POST -Body $loginBody -ContentType "application/json" -SessionVariable session
+
+# 用同一 session 打動物列表（會帶 Cookie）
+Invoke-RestMethod -Uri "$base/animals?breed=minipig&keyword=00&page=1&per_page=50" -WebSession $session
+```
+
+若第二段回傳 200 且為 JSON 列表，代表本機後端正常；若回傳 500，請看執行 backend 的終端機裡的 `list_animals failed:` 錯誤內容。

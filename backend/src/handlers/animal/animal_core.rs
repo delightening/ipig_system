@@ -41,7 +41,18 @@ pub async fn list_animals(
         return Ok(Json(PaginatedResponse::new(vec![], 0, 1, query.per_page.unwrap_or(50))));
     }
 
-    let mut result = AnimalService::list(&state.db, &query).await?;
+    let mut result = AnimalService::list(&state.db, &query).await.map_err(|e| {
+        tracing::error!(
+            "list_animals failed: status={:?} breed={:?} keyword={:?} page={:?} per_page={:?} error={:?}",
+            query.status,
+            query.breed,
+            query.keyword,
+            query.page,
+            query.per_page,
+            e
+        );
+        e
+    })?;
 
     if !has_view_all {
         let before_len = result.data.len();
