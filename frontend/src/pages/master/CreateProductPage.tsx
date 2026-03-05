@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSteps } from '@/hooks/useSteps'
+import { useSkuCategories } from '@/hooks/useSkuCategories'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import api from '@/lib/api'
@@ -58,46 +59,15 @@ const GLOVE_SPECS: QuickSelectSpec[] = [
   { id: 'xl-powdered', primary: 'XL號', secondary: '有粉' },
 ]
 
-// 分類定義
-const CATEGORIES = [
-  {
-    code: 'DRG', name: '藥品', icon: <Pill className="w-4 h-4" />, subcategories: [
-      { code: 'ABX', name: '抗生素' },
-      { code: 'ANL', name: '止痛藥' },
-      { code: 'VIT', name: '維生素' },
-      { code: 'OTH', name: '其他藥品' },
-    ]
-  },
-  {
-    code: 'MED', name: '醫材', icon: <Syringe className="w-4 h-4" />, subcategories: []
-  },
-  {
-    code: 'CON', name: '耗材', icon: <Package className="w-4 h-4" />, subcategories: [
-      { code: 'GLV', name: '手套' },
-      { code: 'GAU', name: '紗布敷料' },
-      { code: 'CLN', name: '清潔消毒' },
-      { code: 'TAG', name: '標示耗材' },
-      { code: 'LAB', name: '實驗耗材' },
-      { code: 'OTH', name: '其他耗材' },
-    ]
-  },
-  {
-    code: 'CHM', name: '化學品', icon: <FlaskConical className="w-4 h-4" />, subcategories: [
-      { code: 'RGT', name: '試劑' },
-      { code: 'SOL', name: '溶劑' },
-      { code: 'STD', name: '標準品' },
-      { code: 'OTH', name: '其他化學品' },
-    ]
-  },
-  {
-    code: 'EQP', name: '設備', icon: <Settings className="w-4 h-4" />, subcategories: [
-      { code: 'INS', name: '儀器' },
-      { code: 'TOL', name: '工具' },
-      { code: 'PRT', name: '零件' },
-      { code: 'OTH', name: '其他設備' },
-    ]
-  },
-]
+// 品類圖示（顯示用，品類清單改由 API useSkuCategories 取得）
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  DRG: <Pill className="w-4 h-4" />,
+  MED: <Syringe className="w-4 h-4" />,
+  CON: <Package className="w-4 h-4" />,
+  CHM: <FlaskConical className="w-4 h-4" />,
+  EQP: <Settings className="w-4 h-4" />,
+  GEN: <Package className="w-4 h-4" />,
+}
 
 // 單位定義
 const UNITS = {
@@ -224,6 +194,7 @@ const initialFormData: ProductFormData = {
 export function CreateProductPage() {
   const navigate = useNavigate()
   const { step: currentStep, setStep: setCurrentStep, prev } = useSteps(3)
+  const { categories: skuCategories, subcategoriesByCategory, isLoading: skuCategoriesLoading } = useSkuCategories()
   const [formData, setFormData] = useState<ProductFormData>(initialFormData)
   const [skuStatus, setSkuStatus] = useState<SkuStatus>('S0')
   const [previewResult, setPreviewResult] = useState<SkuPreviewResult | null>(null)
@@ -245,6 +216,29 @@ export function CreateProductPage() {
   const [customInner, setCustomInner] = useState('')
   const [customBase, setCustomBase] = useState('')
 
+  // 品類顯示用：排除 GEN，取前 5 個（與原 slice(0,4) 改為 API 前幾筆，保留 EQP）
+  const displayCategories = useMemo(
+    () => skuCategories.filter((c) => c.code !== 'GEN').slice(0, 5),
+    [skuCategories]
+  )
+  const hasSubcategories = useCallback(
+    (catCode: string) => {
+      const subList = subcategoriesByCategory[catCode] ?? []
+      if (subList.length === 0) return false
+      if (subList.length === 1 && subList[0].code === catCode) return false
+      return true
+    },
+    [subcategoriesByCategory]
+  )
+  const getSubcategories = useCallback(
+    (catCode: string) => {
+      const subList = subcategoriesByCategory[catCode] ?? []
+      if (subList.length === 1 && subList[0].code === catCode) return []
+      return subList
+    },
+    [subcategoriesByCategory]
+  )
+
   // 防抖輸入
   const debouncedInput = useDebounce(formData.rawInput, 400)
 
@@ -253,15 +247,13 @@ export function CreateProductPage() {
     const fields: MissingField[] = []
     if (!formData.name && !formData.rawInput) fields.push({ field: 'name', label: '產品名稱' })
     if (!formData.category) fields.push({ field: 'category', label: '分類' })
-    // MED 和 LAB 沒有子分類，不需要驗證
-    const categoryHasSubcategories = formData.category && 
-      (CATEGORIES.find(c => c.code === formData.category)?.subcategories?.length ?? 0) > 0
+    const categoryHasSubcategories = formData.category && hasSubcategories(formData.category)
     if (!formData.subcategory && formData.category && categoryHasSubcategories) {
       fields.push({ field: 'subcategory', label: '子分類' })
     }
     if (!formData.baseUnit) fields.push({ field: 'baseUnit', label: '基礎單位' })
     return fields
-  }, [formData])
+  }, [formData, hasSubcategories])
 
   const canPreview = missingFields.length === 0
 
@@ -291,9 +283,7 @@ export function CreateProductPage() {
     }
 
     // 檢查必要欄位
-    // MED 和 LAB 沒有子分類，不需要檢查 subcategory
-    const categoryData = CATEGORIES.find(c => c.code === formData.category)
-    const requiresSubcategory = (categoryData?.subcategories?.length ?? 0) > 0
+    const requiresSubcategory = formData.category ? hasSubcategories(formData.category) : false
     if (!formData.category || 
         (requiresSubcategory && !formData.subcategory) || 
         !formData.baseUnit || 
@@ -308,19 +298,17 @@ export function CreateProductPage() {
     setPreviewError(null)
 
     try {
-      // 預覽 SKU：種類-品項-流水號
       const category = formData.category || 'CAT'
-      // 如果分類沒有子分類（如 MED、LAB），使用分類代碼作為子分類
-      const categoryData = CATEGORIES.find(c => c.code === category)
-      const hasSubcategories = (categoryData?.subcategories?.length ?? 0) > 0
-      const subcategory = hasSubcategories 
-        ? (formData.subcategory || 'SUB')
-        : category  // 沒有子分類時，使用分類代碼
+      const subs = getSubcategories(category)
+      const useSub = subs.length > 0
+      const subcategory = useSub ? (formData.subcategory || 'SUB') : category
 
-      // 預覽 SKU
       const previewSku = `${category}-${subcategory}-XXX`
+      const catOption = skuCategories.find((c) => c.code === formData.category)
+      const subOption = useSub
+        ? subs.find((s) => s.code === formData.subcategory)
+        : catOption
 
-      // 簡化的片段結構：種類、品項、流水號
       const result: SkuPreviewResult = {
         preview_sku: previewSku,
         rule_version: 'v3.0',
@@ -331,20 +319,13 @@ export function CreateProductPage() {
             code: 'CATEGORY',
             label: '種類',
             value: category,
-            source: CATEGORIES.find(c => c.code === formData.category)?.name || formData.category,
+            source: catOption?.name ?? formData.category,
           },
           {
             code: 'ITEM',
             label: '品項',
             value: subcategory,
-            source: (() => {
-              const categoryData = CATEGORIES.find(c => c.code === formData.category)
-              if (!categoryData || (categoryData.subcategories?.length ?? 0) === 0) {
-                // 沒有子分類時，顯示分類名稱
-                return categoryData?.name || formData.category
-              }
-              return categoryData.subcategories.find(s => s.code === formData.subcategory)?.name || formData.subcategory
-            })(),
+            source: subOption?.name ?? formData.subcategory ?? category,
           },
           {
             code: 'SERIAL',
@@ -368,18 +349,14 @@ export function CreateProductPage() {
     } finally {
       setIsPreviewLoading(false)
     }
-  }, [canPreview, formData.category, formData.subcategory, formData.baseUnit, formData.name])
+  }, [canPreview, formData.category, formData.subcategory, formData.baseUnit, formData.name, hasSubcategories, getSubcategories, skuCategories])
 
   // 當選擇沒有子分類的類別時，自動清空 subcategory
   useEffect(() => {
-    if (formData.category) {
-      const categoryData = CATEGORIES.find(c => c.code === formData.category)
-      const hasSubcategories = (categoryData?.subcategories?.length ?? 0) > 0
-      if (!hasSubcategories && formData.subcategory) {
-        setFormData(prev => ({ ...prev, subcategory: '' }))
-      }
+    if (formData.category && !hasSubcategories(formData.category) && formData.subcategory) {
+      setFormData(prev => ({ ...prev, subcategory: '' }))
     }
-  }, [formData.category, formData.subcategory])
+  }, [formData.category, formData.subcategory, hasSubcategories])
 
   // 監聽輸入變化，自動預覽
   useEffect(() => {
@@ -477,12 +454,9 @@ export function CreateProductPage() {
         ? (formData.outerUnit ? formData.innerQty : 1)  // 兩層：1外層 = n內層
         : (formData.innerQty * formData.baseQty)  // 三層：1內層 = n基礎單位
 
-      // 如果分類沒有子分類，使用分類代碼作為子分類
-      const categoryData = CATEGORIES.find(c => c.code === formData.category)
-      const hasSubcategories = (categoryData?.subcategories?.length ?? 0) > 0
-      const subcategoryCode = hasSubcategories 
-        ? formData.subcategory 
-        : formData.category  // 沒有子分類時，使用分類代碼
+      const subcategoryCode = hasSubcategories(formData.category)
+        ? formData.subcategory
+        : formData.category
       
       const response = await api.post('/products', {
         name: formData.name || formData.rawInput.split(' ')[0],
@@ -725,22 +699,20 @@ export function CreateProductPage() {
                       <div className="space-y-2">
                         <Label>分類（系統推薦）</Label>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {CATEGORIES.slice(0, 4).map((cat) => {
+                          {displayCategories.slice(0, 4).map((cat) => {
                             return (
                               <button
                                 key={cat.code}
                                 type="button"
                                 onClick={() => {
-                                  const categoryData = CATEGORIES.find(c => c.code === cat.code)
-                                  // 如果類別沒有子分類（如 MED），清空 subcategory
-                                  const defaultSubcategory = (categoryData?.subcategories?.length ?? 0) > 0 ? '' : ''
+                                  const defaultSubcategory = hasSubcategories(cat.code) ? '' : ''
                                   setFormData(prev => ({
                                     ...prev,
                                     category: cat.code,
                                     subcategory: defaultSubcategory
                                   }))
                                 }}
-                                disabled={isCreated}
+                                disabled={isCreated || skuCategoriesLoading}
                                 className={cn(
                                   "flex items-center gap-3 p-3 rounded-lg border-2 text-left transition-all",
                                   formData.category === cat.code
@@ -754,7 +726,7 @@ export function CreateProductPage() {
                                     ? "bg-primary/10 text-primary"
                                     : "bg-slate-100 dark:bg-slate-800"
                                 )}>
-                                  {cat.icon}
+                                  {CATEGORY_ICONS[cat.code]}
                                 </div>
                                 <span className="font-medium">{cat.name}</span>
                                 {cat.code === 'DRG' && formData.name?.toLowerCase().match(/cillin|mycin|oxacin/) && (
@@ -770,33 +742,26 @@ export function CreateProductPage() {
 
                       {/* Subcategory - 僅在有子分類的類別時顯示 */}
                       {formData.category && (() => {
-                        // LAB 映射到 CON，所以檢查 CON 是否有子分類
                         const displayCategory = formData.category === 'CON' ? 'CON' : formData.category
-                        const category = CATEGORIES.find(c => c.code === displayCategory)
-                        const hasSubcategories = (category?.subcategories?.length ?? 0) > 0
-                        
-                        if (!hasSubcategories) {
-                          // 沒有子分類的類別（如 MED、LAB），隱藏選單（subcategory 已由 useEffect 清除）
-                          return null
-                        }
-                        
+                        const subs = getSubcategories(displayCategory)
+                        if (subs.length === 0) return null
                         return (
                           <div className="space-y-2">
                             <Label>子分類</Label>
                             <Select
                               value={formData.subcategory}
                               onValueChange={(v) => setFormData(prev => ({ ...prev, subcategory: v }))}
-                              disabled={isCreated}
+                              disabled={isCreated || skuCategoriesLoading}
                             >
                               <SelectTrigger>
                                 <SelectValue placeholder="選擇子分類" />
                               </SelectTrigger>
                               <SelectContent>
-                                {category?.subcategories.map((sub) => (
+                                {subs.map((sub) => (
                                   <SelectItem key={sub.code} value={sub.code}>
                                     {sub.name}
                                   </SelectItem>
-                                )) || []}
+                                ))}
                               </SelectContent>
                             </Select>
                           </div>
@@ -1503,7 +1468,7 @@ export function CreateProductPage() {
                         </div>
                         <div className="flex justify-between items-center mb-2">
                           <span className="text-sm text-slate-500">分類</span>
-                          <span>{CATEGORIES.find(c => c.code === formData.category)?.name || '—'}</span>
+                          <span>{skuCategories.find(c => c.code === formData.category)?.name ?? '—'}</span>
                         </div>
                         <div className="flex justify-between items-center mb-2">
                           <span className="text-sm text-slate-500">單位</span>

@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { Product } from '@/lib/api'
+import { useSkuCategories } from '@/hooks/useSkuCategories'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -36,14 +37,14 @@ interface ExtendedProduct extends Product {
   tags?: string[]
 }
 
-// 品類定義（與 CreateProductPage 一致，不另設「耗材(LAB)」主分類；實驗耗材為耗材子類）
-const CATEGORIES = [
-  { code: 'DRG', name: '藥品', icon: <Pill className="w-4 h-4" />, subcategories: [{ code: 'ABX', name: '抗生素' }, { code: 'ANL', name: '止痛藥' }, { code: 'VIT', name: '維生素' }, { code: 'OTH', name: '其他藥品' }] },
-  { code: 'MED', name: '醫材', icon: <Syringe className="w-4 h-4" />, subcategories: [] },
-  { code: 'CON', name: '耗材', icon: <Package className="w-4 h-4" />, subcategories: [{ code: 'GLV', name: '手套' }, { code: 'GAU', name: '紗布敷料' }, { code: 'CLN', name: '清潔消毒' }, { code: 'TAG', name: '標示耗材' }, { code: 'LAB', name: '實驗耗材' }, { code: 'OTH', name: '其他耗材' }] },
-  { code: 'CHM', name: '化學品', icon: <FlaskConical className="w-4 h-4" />, subcategories: [{ code: 'RGT', name: '試劑' }, { code: 'SOL', name: '溶劑' }, { code: 'STD', name: '標準品' }, { code: 'OTH', name: '其他化學品' }] },
-  { code: 'EQP', name: '設備', icon: <Settings className="w-4 h-4" />, subcategories: [{ code: 'INS', name: '儀器' }, { code: 'TOL', name: '工具' }, { code: 'PRT', name: '零件' }, { code: 'OTH', name: '其他設備' }] },
-]
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  DRG: <Pill className="w-4 h-4" />,
+  MED: <Syringe className="w-4 h-4" />,
+  CON: <Package className="w-4 h-4" />,
+  CHM: <FlaskConical className="w-4 h-4" />,
+  EQP: <Settings className="w-4 h-4" />,
+  GEN: <Package className="w-4 h-4" />,
+}
 
 // 包裝單位選項（與 CreateProductPage 一致，用於編輯頁包裝結構）
 const PACKAGING_UNITS = {
@@ -74,6 +75,28 @@ export function ProductEditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { categories: skuCategories, subcategoriesByCategory, isLoading: skuCategoriesLoading } = useSkuCategories()
+  const displayCategories = useMemo(
+    () => skuCategories.filter((c) => c.code !== 'GEN').slice(0, 5),
+    [skuCategories]
+  )
+  const hasSubcategories = useCallback(
+    (catCode: string) => {
+      const subList = subcategoriesByCategory[catCode] ?? []
+      if (subList.length === 0) return false
+      if (subList.length === 1 && subList[0].code === catCode) return false
+      return true
+    },
+    [subcategoriesByCategory]
+  )
+  const getSubcategories = useCallback(
+    (catCode: string) => {
+      const subList = subcategoriesByCategory[catCode] ?? []
+      if (subList.length === 1 && subList[0].code === catCode) return []
+      return subList
+    },
+    [subcategoriesByCategory]
+  )
 
   const [name, setName] = useState('')
   const [spec, setSpec] = useState('')
@@ -155,9 +178,7 @@ export function ProductEditPage() {
 
   const updateMutation = useMutation({
     mutationFn: async () => {
-      const categoryData = CATEGORIES.find(c => c.code === categoryCode)
-      const hasSubcategories = (categoryData?.subcategories?.length ?? 0) > 0
-      const subCode = hasSubcategories ? subcategoryCode : categoryCode
+      const subCode = hasSubcategories(categoryCode) ? subcategoryCode : categoryCode
       // 依包裝層數計算 pack_unit / pack_qty（與新增產品邏輯一致）
       const computedPackUnit = packagingLayers === 2
         ? (outerUnitCode || innerUnitCode)
@@ -201,8 +222,7 @@ export function ProductEditPage() {
     },
   })
 
-  const currentCategory = CATEGORIES.find(c => c.code === categoryCode)
-  const subcategories = currentCategory?.subcategories ?? []
+  const subcategories = getSubcategories(categoryCode)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -283,14 +303,15 @@ export function ProductEditPage() {
                   <p className="text-muted-foreground text-xs">此產品為匯入預設 GEN-OTH，選擇新分類並儲存後將自動產生新 SKU。</p>
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {CATEGORIES.slice(0, 4).map((cat) => (
+                  {displayCategories.slice(0, 4).map((cat) => (
                     <button
                       key={cat.code}
                       type="button"
                       onClick={() => {
                         setCategoryCode(cat.code)
-                        setSubcategoryCode((cat as { subcategories?: { code: string }[] }).subcategories?.length ? '' : cat.code)
+                        setSubcategoryCode(hasSubcategories(cat.code) ? '' : cat.code)
                       }}
+                      disabled={skuCategoriesLoading}
                       className={cn(
                         'flex items-center gap-3 p-3 rounded-lg border-2 text-left transition-all',
                         categoryCode === cat.code
@@ -302,7 +323,7 @@ export function ProductEditPage() {
                         'p-2 rounded-md',
                         categoryCode === cat.code ? 'bg-primary/10 text-primary' : 'bg-slate-100 dark:bg-slate-800'
                       )}>
-                        {(cat as { icon?: React.ReactNode }).icon}
+                        {CATEGORY_ICONS[cat.code]}
                       </div>
                       <span className="font-medium">{cat.name}</span>
                     </button>

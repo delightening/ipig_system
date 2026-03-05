@@ -390,9 +390,9 @@ export const animalFieldCorrectionApi = {
   create: (animalId: string, data: CreateAnimalFieldCorrectionRequest) =>
     api.post<{ id: string }>(`/animals/${animalId}/field-corrections`, data),
   listPending: () =>
-    api.get<AnimalFieldCorrectionRequest[]>('/admin/animal-field-corrections/pending'),
+    api.get<AnimalFieldCorrectionRequest[]>('/animal/animal-field-corrections/pending'),
   review: (requestId: string, data: ReviewAnimalFieldCorrectionRequest) =>
-    api.post<{ message: string }>(`/admin/animal-field-corrections/${requestId}/review`, data),
+    api.post<{ message: string }>(`/animal/animal-field-corrections/${requestId}/review`, data),
 }
 
 // ============================================

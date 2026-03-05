@@ -1,14 +1,23 @@
 # 品類管理說明
 
+## 0. 品類代碼／子類代碼／分類要在哪裡改？
+
+| 要改的內容 | 目前編輯位置 | 說明 |
+|------------|--------------|------|
+| **品類／子類的「代碼與名稱」**（如 DRG 藥品、CON 耗材、GLV 手套） | **DB**：`sku_categories`、`sku_subcategories` 表。種子見 `backend/migrations/014_sku_categories_seed.sql`；日後可加「品類管理」頁做 CRUD。 | 前端**已改為從 API 讀取**（`useSkuCategories` hook），新增／編輯／列表／匯入／詳情頁皆同一來源。 |
+| **CSV「分類」欄中文對應到代碼**（如 耗材→CON、藥品→DRG） | **後端**：`backend/src/services/product.rs` 的 `map_category_display_to_code` 函數 | 匯入 CSV 時，若欄位名為「分類」或「品類代碼」，會用此對應轉成三碼代碼。 |
+
+---
+
 ## 1. 目前是否有「品類管理」規則？
 
 **目前沒有中央的「品類管理」介面**，品類的來源是：
 
 | 層級 | 說明 |
 |------|------|
-| **資料庫** | 表 `sku_categories`（品類）、`sku_subcategories`（子類）定義於 `backend/migrations/008_audit_erp.sql`，**沒有種子資料**（沒有任何 INSERT）。 |
-| **後端 API** | `GET /api/sku/categories`、`GET /api/sku/categories/{code}/subcategories` 僅**讀取** DB，沒有「新增/編輯品類」的 API。 |
-| **前端** | 產品列表、編輯、新增頁的「品類」選單是**寫死**在程式裡（例如 `frontend/src/pages/master/ProductsPage.tsx` 的 `CATEGORIES` 常數），不是從 API 讀取。 |
+| **資料庫** | 表定義於 `008_audit_erp.sql`；**種子資料**見 `014_sku_categories_seed.sql`（GEN/DRG/MED/CON/CHM/EQP 及子類）。 |
+| **後端 API** | `GET /api/sku/categories`、`GET /api/sku/categories/{code}/subcategories` 讀取 DB；尚無「新增/編輯品類」的 CRUD API。 |
+| **前端** | 品類／子類**一律由 API 讀取**（`frontend/src/hooks/useSkuCategories.ts`），新增產品、編輯、列表篩選、匯入、詳情頁共用，單一來源。 |
 
 因此：
 
@@ -21,15 +30,11 @@
 
 可以擇一或並用：
 
-### 作法 A：用 migration 寫入種子資料（建議先做）
+### 作法 A：用 migration 寫入種子資料（**已完成**）
 
-- **位置**：新增一筆 migration，例如 `backend/migrations/XXXX_sku_categories_seed.sql`。
-- **內容**：對 `sku_categories`、`sku_subcategories` 做 INSERT，例如：
-
-  - 品類：GEN（通用）、DRG（藥品）、MED（醫材）、CON（耗材）、CHM（化學品）、EQP（設備）等。
-  - 各品類下的子類：如 CON 底下 GAU、GLV、OTH 等（可對齊 `ProductsPage.tsx` 裡的 `CATEGORIES`）。
-
-- **優點**：不用改後端 API 與前端，就能讓「依 API 顯示品類名稱」有資料；匯入時若填了品類代碼，也會有對應名稱。
+- **位置**：`backend/migrations/014_sku_categories_seed.sql`。
+- **內容**：已寫入品類 GEN/DRG/MED/CON/CHM/EQP 及各子類（與前端原 CATEGORIES 對齊）；MED 以 MED-MED 一筆表示無子類。
+- **部署**：執行 migration 後，GET /api/sku/categories 即有資料；前端已改為從 API 讀取，無需再改。
 
 ### 作法 B：後台「品類管理」頁面（中長期）
 
@@ -45,3 +50,17 @@
 - 匯入時**有填**品類/子類：產品會存成該 code；若 DB 沒有對應的 `sku_categories` / `sku_subcategories`，僅「品類名稱」顯示會是空，SKU 與儲存仍正常。
 
 若你希望「由系統判定品類」（例如依名稱/規格自動推斷），需要另在匯入流程或後端邏輯中實作推斷規則（可參考 `docs/operations/PRODUCT_IMPORT_LLM_SKU_GUIDELINES.md`）。
+
+---
+
+## 4. 業界常見做法（品類／子類怎麼管）
+
+| 做法 | 說明 | 本專案對應 |
+|------|------|------------|
+| **主資料集中管理** | 品類／子類視為「主資料」，在後台有獨立「品類管理」或「主資料／分類設定」頁，由管理員新增／編輯／停用，代碼穩定、名稱可改。 | 尚未實作；目前為 DB 表 + 唯讀 API，無 CRUD 頁。 |
+| **種子 + 少改** | 用 migration 或 seed 寫入一組標準品類／子類，之後很少改；要改就改 DB 或加 migration。 | 可做：新增 `XXXX_sku_categories_seed.sql` 對齊前端 `CATEGORIES`。 |
+| **代碼與顯示分離** | 代碼（如 CON、DRG）固定、供 SKU 與整合用；顯示名稱（如「耗材」「藥品」）可多語或依客戶自訂。 | 表結構已支援（code + name）；名稱目前單一。 |
+| **匯入時對應** | 外部檔案常是「分類名稱」或自家代碼；系統在匯入時對應到內部代碼（對照表或規則）。 | 已做：`map_category_display_to_code` 將「耗材」等對應到 CON 等。 |
+| **與前端選單一致** | 下拉選單與匯入可用代碼應來自同一來源（API 或共用設定），避免前後端不一致。 | 目前新增產品用寫死常數、匯入用 API；建議長期改為都從 API。 |
+
+**實務建議**：短期用 **migration 種子** 把 DB 品類／子類補齊（與 CreateProductPage 的 CATEGORIES 一致），讓匯入與顯示都有正確名稱；中長期再補 **品類管理頁 + CRUD API**，前端改為全從 API 讀取，即可在畫面上編輯品類代碼／子類代碼／顯示名稱。

@@ -372,7 +372,6 @@ function App() {
                         <Route path="/admin/roles" element={<RolesPage />} />
                         <Route path="/admin/settings" element={<SettingsPage />} />
                         <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
-                        <Route path="/admin/animal-field-corrections" element={<AnimalFieldCorrectionsPage />} />
                         <Route path="/admin/audit" element={<AdminAuditPage />} />
                         <Route path="/admin/qau" element={
                           <RequirePermission permission="qau.dashboard.view">
@@ -396,6 +395,8 @@ function App() {
                     } />
                     {/* 設備維護已移至 ERP 系統，舊路徑導向 /erp?tab=equipment */}
                     <Route path="/admin/equipment" element={<Navigate to="/erp?tab=equipment" replace />} />
+                    {/* 動物欄位修正審核已移至實驗動物管理 */}
+                    <Route path="/admin/animal-field-corrections" element={<Navigate to="/animal/animal-field-corrections" replace />} />
 
                     {/* HR 人員管理 */}
                     <Route path="/hr/attendance" element={<HrAttendancePage />} />
@@ -429,6 +430,11 @@ function App() {
                     <Route path="/animals/:id" element={<PageErrorBoundary><AnimalDetailPage /></PageErrorBoundary>} />
                     <Route path="/animals/:id/edit" element={<AnimalEditPage />} />
                     <Route path="/animal-sources" element={<AnimalSourcesPage />} />
+                    <Route path="/animal/animal-field-corrections" element={
+                        <RequirePermission role="admin">
+                            <AnimalFieldCorrectionsPage />
+                        </RequirePermission>
+                    } />
 
                     {/* 個人設定 */}
                     <Route path="/profile/settings" element={<ProfileSettingsPage />} />

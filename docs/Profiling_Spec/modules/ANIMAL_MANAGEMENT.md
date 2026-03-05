@@ -314,8 +314,8 @@ unassigned ──→ in_experiment ──→ completed ───┤──→ sud
 |------|------|------|------|
 | POST | `/animals/:id/field-corrections` | 建立修正申請 | animal.animal.edit |
 | GET | `/animals/:id/field-corrections` | 查詢該動物申請列表 | animal.animal.edit |
-| GET | `/admin/animal-field-corrections/pending` | 列出待審申請 | admin |
-| POST | `/admin/animal-field-corrections/:id/review` | 批准/拒絕申請 | admin |
+| GET | `/animal/animal-field-corrections/pending` | 列出待審申請 | admin |
+| POST | `/animal/animal-field-corrections/:id/review` | 批准/拒絕申請 | admin |
 
 ### 10.7 動物轉讓
 
@@ -371,7 +371,7 @@ unassigned ──→ in_experiment ──→ completed ───┤──→ sud
 | `/animals` | 動物列表（含 Tab 篩選、分組視圖、排序） |
 | `/animals/:id` | 動物詳情（8 Tab） |
 | `/animals/:id/edit` | 編輯動物（含「申請修正」按鈕） |
-| `/admin/animal-field-corrections` | 動物欄位修正審核（Admin 側欄） |
+| `/animal/animal-field-corrections` | 動物欄位修正審核（實驗動物管理） |
 | `/animal-sources` | 動物來源管理 |
 | `/blood-test-templates` | 血液檢查模板管理 |
 | `/blood-test-panels` | 血液檢查組合管理 |

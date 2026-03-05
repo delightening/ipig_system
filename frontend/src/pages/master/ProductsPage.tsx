@@ -60,52 +60,8 @@ import {
 import { formatNumber, cn, UOM_MAP } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
 import { ProductImportDialog } from '@/components/product/ProductImportDialog'
-
-// 品類定義
-const CATEGORIES = [
-  {
-    code: 'DRG', name: '藥品', subcategories: [
-      { code: 'ABX', name: '抗生素' },
-      { code: 'ANL', name: '止痛藥' },
-      { code: 'VIT', name: '維生素' },
-      { code: 'OTH', name: '其他藥品' },
-    ]
-  },
-  {
-    code: 'MED', name: '醫材', subcategories: [
-      { code: 'SYR', name: '注射器材' },
-      { code: 'BND', name: '敷料繃帶' },
-      { code: 'GLV', name: '手套' },
-      { code: 'OTH', name: '其他醫材' },
-    ]
-  },
-  {
-    code: 'CON', name: '耗材', subcategories: [
-      { code: 'GLV', name: '手套' },
-      { code: 'GAU', name: '紗布敷料' },
-      { code: 'CLN', name: '清潔消毒' },
-      { code: 'TAG', name: '標示耗材' },
-      { code: 'LAB', name: '實驗耗材' },
-      { code: 'OTH', name: '其他耗材' },
-    ]
-  },
-  {
-    code: 'CHM', name: '化學品', subcategories: [
-      { code: 'RGT', name: '試劑' },
-      { code: 'SOL', name: '溶劑' },
-      { code: 'STD', name: '標準品' },
-      { code: 'OTH', name: '其他化學品' },
-    ]
-  },
-  {
-    code: 'EQP', name: '設備', subcategories: [
-      { code: 'INS', name: '儀器' },
-      { code: 'TOL', name: '工具' },
-      { code: 'PRT', name: '零件' },
-      { code: 'OTH', name: '其他設備' },
-    ]
-  },
-]
+import { useSkuCategories } from '@/hooks/useSkuCategories'
+import type { CategoryOption } from './hooks/useProductListState'
 
 // 產品狀態
 const STATUS_OPTIONS = [
@@ -144,9 +100,18 @@ interface PaginatedResponse<T> {
 export function ProductsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { categories: skuCategories, subcategoriesByCategory } = useSkuCategories()
+  const categoriesForFilter: CategoryOption[] = useMemo(
+    () =>
+      skuCategories.map((c) => ({
+        code: c.code,
+        name: c.name,
+        subcategories: subcategoriesByCategory[c.code] ?? [],
+      })),
+    [skuCategories, subcategoriesByCategory]
+  )
 
-  // 搜尋與篩選狀態
-  const listState = useProductListState(CATEGORIES)
+  const listState = useProductListState(categoriesForFilter)
   const [showAdvancedFilters, toggleAdvancedFilters] = useToggle()
 
   // 批次選擇
@@ -353,7 +318,7 @@ export function ProductsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">全部品類</SelectItem>
-              {CATEGORIES.map(cat => (
+              {categoriesForFilter.map(cat => (
                 <SelectItem key={cat.code} value={cat.code}>
                   {cat.name}
                 </SelectItem>
