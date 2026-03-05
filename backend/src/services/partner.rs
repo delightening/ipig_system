@@ -25,6 +25,16 @@ fn email_regex() -> Result<&'static regex::Regex> {
         .map_err(|e| AppError::Internal(format!("Email regex init: {}", e)))
 }
 
+/// 驗證 Email 格式，供 create/update 與單元測試使用。
+pub(crate) fn is_valid_email(s: &str) -> bool {
+    email_regex().map(|r| r.is_match(s)).unwrap_or(false)
+}
+
+/// 格式化夥伴代碼（前綴 + 三位流水號），例如 藥001、客002。
+pub fn format_partner_code(prefix: &str, sequence: i32) -> String {
+    format!("{}{:03}", prefix, sequence)
+}
+
 impl PartnerService {
     /// 根據供應商類別生成代碼
     /// 格式：類型代碼 + {:03} 流水號
@@ -73,18 +83,11 @@ impl PartnerService {
         // 解析序號並找出最大值
         let max_seq = codes
             .iter()
-            .filter_map(|code| {
-                if code.starts_with(prefix) && code.len() > prefix.len() {
-                    let num_str = &code[prefix.len()..];
-                    num_str.parse::<i32>().ok()
-                } else {
-                    None
-                }
-            })
+            .filter_map(|code| Self::parse_partner_code_sequence(code, prefix))
             .max();
 
         let seq = max_seq.map(|s| s + 1).unwrap_or(1);
-        Ok(format!("{}{:03}", prefix, seq))
+        Ok(format_partner_code(prefix, seq))
     }
 
     /// 建立夥伴（供應商/客戶）
@@ -120,8 +123,7 @@ impl PartnerService {
             .map(|e| e.trim())
             .filter(|e| !e.is_empty())
             .map(|e| {
-                let re = email_regex()?;
-                if !re.is_match(e) {
+                if !is_valid_email(e) {
                     return Err(AppError::Validation("Invalid email format".to_string()));
                 }
                 Ok(e.to_string())
@@ -273,8 +275,7 @@ impl PartnerService {
             .map(|e| e.trim())
             .filter(|e| !e.is_empty())
             .map(|e| {
-                let re = email_regex()?;
-                if !re.is_match(e) {
+                if !is_valid_email(e) {
                     return Err(AppError::Validation("Invalid email format".to_string()));
                 }
                 Ok(e.to_string())
@@ -466,7 +467,27 @@ impl PartnerService {
         })
     }
 
-    fn parse_partner_type(s: &str) -> Option<PartnerType> {
+    /// 解析夥伴代碼序號（例如 藥001 → 1），供 generate_code 與單元測試使用。
+    #[cfg(test)]
+    pub fn parse_partner_code_sequence(code: &str, prefix: &str) -> Option<i32> {
+        if !code.starts_with(prefix) || code.len() <= prefix.len() {
+            return None;
+        }
+        let num_str = &code[prefix.len()..];
+        num_str.parse::<i32>().ok()
+    }
+
+    #[cfg(not(test))]
+    fn parse_partner_code_sequence(code: &str, prefix: &str) -> Option<i32> {
+        if !code.starts_with(prefix) || code.len() <= prefix.len() {
+            return None;
+        }
+        let num_str = &code[prefix.len()..];
+        num_str.parse::<i32>().ok()
+    }
+
+    /// 解析匯入檔中的夥伴類型，供匯入與單元測試使用。
+    pub(crate) fn parse_partner_type(s: &str) -> Option<PartnerType> {
         match s.trim().to_lowercase().as_str() {
             "supplier" | "供應商" | "s" => Some(PartnerType::Supplier),
             "customer" | "客戶" | "c" => Some(PartnerType::Customer),
@@ -474,7 +495,8 @@ impl PartnerService {
         }
     }
 
-    fn parse_supplier_category(s: &str) -> Option<SupplierCategory> {
+    /// 解析匯入檔中的供應商類別。
+    pub(crate) fn parse_supplier_category(s: &str) -> Option<SupplierCategory> {
         match s.trim().to_lowercase().as_str() {
             "drug" | "藥物" => Some(SupplierCategory::Drug),
             "consumable" | "耗材" => Some(SupplierCategory::Consumable),
@@ -484,7 +506,8 @@ impl PartnerService {
         }
     }
 
-    fn parse_customer_category(s: &str) -> Option<CustomerCategory> {
+    /// 解析匯入檔中的客戶分類。
+    pub(crate) fn parse_customer_category(s: &str) -> Option<CustomerCategory> {
         match s.trim().to_lowercase().as_str() {
             "internal" | "內部" => Some(CustomerCategory::Internal),
             "external" | "外部" => Some(CustomerCategory::External),
@@ -685,5 +708,66 @@ impl PartnerService {
 
         worksheet.set_freeze_panes(1, 0)?;
         Ok(workbook.save_to_buffer()?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::models::{CustomerCategory, PartnerType, SupplierCategory};
+    use super::{format_partner_code, is_valid_email, PartnerService};
+
+    #[test]
+    fn test_format_partner_code() {
+        assert_eq!(format_partner_code("藥", 1), "藥001");
+        assert_eq!(format_partner_code("客", 99), "客099");
+        assert_eq!(format_partner_code("耗", 1000), "耗1000");
+    }
+
+    #[test]
+    fn test_parse_partner_code_sequence() {
+        assert_eq!(PartnerService::parse_partner_code_sequence("藥001", "藥"), Some(1));
+        assert_eq!(PartnerService::parse_partner_code_sequence("客099", "客"), Some(99));
+        assert_eq!(PartnerService::parse_partner_code_sequence("藥001", "客"), None);
+        assert_eq!(PartnerService::parse_partner_code_sequence("藥", "藥"), None);
+        assert_eq!(PartnerService::parse_partner_code_sequence("藥ABC", "藥"), None);
+    }
+
+    #[test]
+    fn test_parse_partner_type() {
+        assert_eq!(PartnerService::parse_partner_type("supplier"), Some(PartnerType::Supplier));
+        assert_eq!(PartnerService::parse_partner_type("供應商"), Some(PartnerType::Supplier));
+        assert_eq!(PartnerService::parse_partner_type("customer"), Some(PartnerType::Customer));
+        assert_eq!(PartnerService::parse_partner_type("客戶"), Some(PartnerType::Customer));
+        assert_eq!(PartnerService::parse_partner_type("s"), Some(PartnerType::Supplier));
+        assert_eq!(PartnerService::parse_partner_type("c"), Some(PartnerType::Customer));
+        assert_eq!(PartnerService::parse_partner_type("other"), None);
+    }
+
+    #[test]
+    fn test_parse_supplier_category() {
+        assert_eq!(PartnerService::parse_supplier_category("drug"), Some(SupplierCategory::Drug));
+        assert_eq!(PartnerService::parse_supplier_category("藥物"), Some(SupplierCategory::Drug));
+        assert_eq!(PartnerService::parse_supplier_category("consumable"), Some(SupplierCategory::Consumable));
+        assert_eq!(PartnerService::parse_supplier_category("耗材"), Some(SupplierCategory::Consumable));
+        assert_eq!(PartnerService::parse_supplier_category("unknown"), None);
+    }
+
+    #[test]
+    fn test_parse_customer_category() {
+        assert_eq!(PartnerService::parse_customer_category("internal"), Some(CustomerCategory::Internal));
+        assert_eq!(PartnerService::parse_customer_category("內部"), Some(CustomerCategory::Internal));
+        assert_eq!(PartnerService::parse_customer_category("external"), Some(CustomerCategory::External));
+        assert_eq!(PartnerService::parse_customer_category("其他"), Some(CustomerCategory::Other));
+        assert_eq!(PartnerService::parse_customer_category("x"), None);
+    }
+
+    #[test]
+    fn test_is_valid_email() {
+        assert!(is_valid_email("a@b.co"));
+        assert!(is_valid_email("user.name+tag@example.com"));
+        assert!(!is_valid_email(""));
+        assert!(!is_valid_email("no-at-sign"));
+        assert!(!is_valid_email("@nodomain.com"));
+        assert!(!is_valid_email("missing-tld@domain"));
     }
 }
