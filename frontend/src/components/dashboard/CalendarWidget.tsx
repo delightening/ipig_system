@@ -53,6 +53,7 @@ export function CalendarWidget() {
 
     const formatDateShort = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString(i18n.language, {
+            timeZone: 'Asia/Taipei',
             month: 'short',
             day: 'numeric',
         })
@@ -98,7 +99,7 @@ export function CalendarWidget() {
                     {t('dashboard.widgets.names.calendar_widget')}
                 </CardTitle>
                 <CardDescription className="text-xs">
-                    {t('dashboard.widgets.common.today')} {new Date().toLocaleDateString(i18n.language, { weekday: 'long', month: 'long', day: 'numeric' })}
+                    {t('dashboard.widgets.common.today')} {new Date().toLocaleDateString(i18n.language, { timeZone: 'Asia/Taipei', weekday: 'long', month: 'long', day: 'numeric' })}
                 </CardDescription>
             </CardHeader>
             <CardContent className="flex-1 overflow-auto p-4 space-y-4">

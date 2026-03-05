@@ -55,6 +55,7 @@ export function GoogleCalendarEventsWidget() {
 
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString(i18n.language, {
+            timeZone: 'Asia/Taipei',
             month: 'short',
             day: 'numeric',
             weekday: 'short',

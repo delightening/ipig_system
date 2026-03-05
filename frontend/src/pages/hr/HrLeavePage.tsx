@@ -4,8 +4,6 @@ import { useTabState } from '@/hooks/useTabState'
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { useLeaveRequestForm } from './hooks/useLeaveRequestForm'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { format } from 'date-fns'
-import { zhTW } from 'date-fns/locale'
 import {
     Calendar,
     CheckCircle,
@@ -286,7 +284,7 @@ export function HrLeavePage() {
     }
 
     const formatDate = (dateStr: string) => {
-        return format(new Date(dateStr), 'yyyy/MM/dd', { locale: zhTW })
+        return new Date(dateStr).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' })
     }
 
     return (

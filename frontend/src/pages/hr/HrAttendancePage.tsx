@@ -1,7 +1,5 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { format } from 'date-fns'
-import { zhTW } from 'date-fns/locale'
 import {
     Calendar,
     Clock,
@@ -46,7 +44,7 @@ export function HrAttendancePage() {
     const { data: todayAttendance, refetch: refetchToday } = useQuery({
         queryKey: ['hr-today-attendance'],
         queryFn: async () => {
-            const today = format(new Date(), 'yyyy-MM-dd')
+            const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' })
             const res = await api.get<PaginatedResponse<AttendanceWithUser>>(
                 `/hr/attendance?from=${today}&to=${today}`
             )
@@ -103,7 +101,7 @@ export function HrAttendancePage() {
             refetchToday()
             toast({
                 title: '打卡成功',
-                description: `上班打卡時間：${format(new Date(clockInTime), 'HH:mm:ss')}`,
+                description: `上班打卡時間：${new Date(clockInTime).toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}`,
             })
         },
         onError: (error: unknown) => {
@@ -141,7 +139,7 @@ export function HrAttendancePage() {
             queryClient.invalidateQueries({ queryKey: ['hr-attendance-history'] })
             toast({
                 title: '打卡成功',
-                description: `下班打卡時間：${format(new Date(clockOutTime), 'HH:mm:ss')}`,
+                description: `下班打卡時間：${new Date(clockOutTime).toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}`,
             })
         },
         onError: (error: unknown) => {
@@ -162,11 +160,11 @@ export function HrAttendancePage() {
 
     const formatTime = (dateStr: string | null) => {
         if (!dateStr) return '-'
-        return format(new Date(dateStr), 'HH:mm:ss', { locale: zhTW })
+        return new Date(dateStr).toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
     }
 
     const formatDate = (dateStr: string) => {
-        return format(new Date(dateStr), 'yyyy/MM/dd (EEEE)', { locale: zhTW })
+        return new Date(dateStr).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' })
     }
 
     const formatHours = (hours: number | string | null) => {
@@ -216,7 +214,7 @@ export function HrAttendancePage() {
                 <TabsContent value="today" className="space-y-4">
                     <Card>
                         <CardHeader>
-                            <CardTitle>{format(new Date(), 'yyyy年MM月dd日 EEEE', { locale: zhTW })}</CardTitle>
+                            <CardTitle>{new Date().toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' })}</CardTitle>
                             <CardDescription>今日出勤狀態</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">

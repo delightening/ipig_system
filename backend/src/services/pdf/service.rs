@@ -1,4 +1,5 @@
-﻿use crate::models::ProtocolResponse;
+use crate::models::ProtocolResponse;
+use crate::time;
 use crate::{AppError, Result};
 use printpdf::*;
 
@@ -599,7 +600,7 @@ impl PdfService {
 
         // ========== 頁尾 ==========
         let footer_y = MARGIN_MM;
-        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        let today = time::now_taiwan().format("%Y-%m-%d").to_string();
         ctx.current_layer.use_text(
             format!("生成日期: {} | 頁 {} ", today, ctx.page_number),
             8.0,
@@ -652,7 +653,7 @@ impl PdfService {
         Self::render_animal_medical_data(&mut ctx, data);
 
         // ========== 頁尾 ==========
-        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        let today = time::now_taiwan().format("%Y-%m-%d").to_string();
         ctx.current_layer.use_text(
             format!("生成日期: {} | 頁 {} ", today, ctx.page_number),
             8.0,
@@ -842,7 +843,7 @@ impl PdfService {
         ctx.y_position -= SECTION_SPACING_MM * 2.0;
 
         // 顯示匯出日期
-        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        let today = time::now_taiwan().format("%Y-%m-%d").to_string();
         ctx.render_label_value("匯出日期", &today);
 
         if let Some(animals) = animals_data.get("animals").and_then(|v| v.as_array()) {
@@ -875,7 +876,7 @@ impl PdfService {
         }
 
         // ========== 頁尾 ==========
-        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        let today = time::now_taiwan().format("%Y-%m-%d").to_string();
         ctx.current_layer.use_text(
             format!("生成日期: {} | 頁 {} ", today, ctx.page_number),
             8.0,

@@ -135,10 +135,10 @@ export const WeightsTab = React.memo(function WeightsTab({
                 {weights.map((weight) => (
                   <TableRow key={weight.id} data-record-id={weight.id}>
                     {developerMode && <TableCell>{weight.id}</TableCell>}
-                    <TableCell>{new Date(weight.measure_date).toLocaleDateString('zh-TW')}</TableCell>
+                    <TableCell>{new Date(weight.measure_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}</TableCell>
                     <TableCell className="font-medium">{weight.weight}</TableCell>
                     <TableCell>{weight.created_by_name || '-'}</TableCell>
-                    <TableCell>{new Date(weight.created_at).toLocaleString('zh-TW')}</TableCell>
+                    <TableCell>{new Date(weight.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button variant="ghost" size="icon" title={`系統號: ${weight.id} - 點擊編輯`}>

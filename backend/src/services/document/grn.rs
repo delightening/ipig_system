@@ -1,5 +1,6 @@
-use chrono::Utc;
 use rust_decimal::Decimal;
+
+use crate::time;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -21,8 +22,8 @@ impl DocumentService {
         po_lines: &[DocumentLine],
         created_by: Uuid,
     ) -> Result<Uuid> {
-        // 產生入庫單編號 (GRN-YYMMDD-{03})
-        let today = Utc::now();
+        // 產生入庫單編號 (GRN-YYMMDD-{03})，以台灣日期為準
+        let today = time::now_taiwan();
         let year = today.format("%y").to_string(); // 2-digit year
         let month_day = today.format("%m%d").to_string();
         let date_str = format!("{}{}", year, month_day);
@@ -62,7 +63,7 @@ impl DocumentService {
         .bind(&doc_no)
         .bind(po.warehouse_id)
         .bind(po.partner_id)
-        .bind(Utc::now().date_naive())
+        .bind(time::today_taiwan_naive())
         .bind(po.id)  // source_doc_id 關聯到採購單
         .bind(format!("自動產生自採購單 {}", po.doc_no))
         .bind(created_by)
@@ -181,7 +182,7 @@ impl DocumentService {
         .bind(&doc_no)
         .bind(po.warehouse_id)
         .bind(po.partner_id)
-        .bind(Utc::now().date_naive())
+        .bind(time::today_taiwan_naive())
         .bind(po.id)
         .bind(format!("追加入庫 - 採購單 {}", po.doc_no))
         .bind(created_by)

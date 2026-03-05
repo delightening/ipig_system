@@ -5,8 +5,12 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/** 系統統一使用台灣時間 (Asia/Taipei) 顯示，可供元件內聯日期格式使用 */
+export const TAIWAN_TIMEZONE = 'Asia/Taipei'
+
 export function formatDate(date: string | Date) {
   return new Date(date).toLocaleDateString('zh-TW', {
+    timeZone: TAIWAN_TIMEZONE,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -15,6 +19,7 @@ export function formatDate(date: string | Date) {
 
 export function formatDateTime(date: string | Date) {
   return new Date(date).toLocaleString('zh-TW', {
+    timeZone: TAIWAN_TIMEZONE,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',

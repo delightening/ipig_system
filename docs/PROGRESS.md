@@ -188,6 +188,14 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-05 系統時間統一為台灣時間 (Asia/Taipei)
+- **後端**：新增 `backend/src/time.rs` 提供 `now_taiwan()`、`today_taiwan_naive()`；活動日誌 partition_date、會計 as_of、審計儀表板、HR 出勤／請假「今日」、單據編號日期、PDF/郵件顯示日期、排程月報、匯出檔名等皆改為以台灣日期／時間為準。
+- **前端**：`formatDate`／`formatDateTime` 及所有內聯日期顯示皆加上 `timeZone: 'Asia/Taipei'`，不論使用者瀏覽器時區皆顯示台灣時間。
+- **Grafana**：`deploy/grafana_dashboard.json` 的 `timezone` 設為 `Asia/Taipei`。
+
+### 2026-03-05 R4-100-T3 user/role service 單元測試
+- **R4-100-T3**：UserService 提取 `user_search_pattern(keyword)` 供 list 使用，3 個單元測試；RoleService 提取 `is_valid_role_code(s)`（1–50 字、英數字與底線）、於 create 前驗證，3 個單元測試。另修正 `time.rs` 測試缺少 `chrono::Datelike` 導致編譯失敗。TODO R4-100-T3 標完成，待辦統計 4→3、合計 5→4。
+
 ### 2026-03-05 R4-100-T2 partner service 單元測試
 - **R4-100-T2**：PartnerService 提取可測函式 `format_partner_code`、`is_valid_email`，`parse_partner_code_sequence`（#[cfg(test)]）、`parse_partner_type`／`parse_supplier_category`／`parse_customer_category` 改為 `pub(crate)`；新增 6 個單元測試（format_partner_code、parse_partner_code_sequence、parse_partner_type、parse_supplier_category、parse_customer_category、is_valid_email）。TODO R4-100-T2 標完成，待辦統計 5→4、合計 6→5。
 

@@ -112,11 +112,11 @@ export const VaccinationsTab = React.memo(function VaccinationsTab({ animalId, e
               <TableBody>
                 {vaccinations.map((vac) => (
                   <TableRow key={vac.id}>
-                    <TableCell>{new Date(vac.administered_date).toLocaleDateString('zh-TW')}</TableCell>
+                    <TableCell>{new Date(vac.administered_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}</TableCell>
                     <TableCell>{vac.vaccine || '-'}</TableCell>
                     <TableCell>{vac.deworming_dose || '-'}</TableCell>
                     <TableCell>{vac.created_by_name || '-'}</TableCell>
-                    <TableCell>{new Date(vac.created_at).toLocaleString('zh-TW')}</TableCell>
+                    <TableCell>{new Date(vac.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button variant="ghost" size="icon" aria-label="編輯">

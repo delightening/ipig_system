@@ -2,8 +2,6 @@ import { useState, useMemo } from 'react'
 import { useTabState } from '@/hooks/useTabState'
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { format } from 'date-fns'
-import { zhTW } from 'date-fns/locale'
 import {
     Activity,
     AlertTriangle,
@@ -253,7 +251,7 @@ export function AdminAuditPage() {
     })
 
     const formatDateTime = (dateStr: string) =>
-        format(new Date(dateStr), 'yyyy/MM/dd HH:mm', { locale: zhTW })
+        new Date(dateStr).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 
     const getSeverityColor = (severity: string) => {
         switch (severity) {
@@ -882,8 +880,8 @@ export function AdminAuditPage() {
                                                 onClick={() => setSelectedAlert(alert)}
                                             >
                                                 <TableCell>
-                                                    <span className="block">{format(new Date(alert.created_at), 'yyyy/MM/dd', { locale: zhTW })}</span>
-                                                    <span className="block text-muted-foreground text-sm">{format(new Date(alert.created_at), 'HH:mm', { locale: zhTW })}</span>
+                                                    <span className="block">{new Date(alert.created_at).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' })}</span>
+                                                    <span className="block text-muted-foreground text-sm">{new Date(alert.created_at).toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit' })}</span>
                                                 </TableCell>
                                                 <TableCell>
                                                     <Badge variant="outline">{alert.alert_type}</Badge>

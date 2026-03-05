@@ -71,7 +71,7 @@ export function AnimalInfoTab({ animal }: AnimalInfoTabProps) {
           </div>
           <div>
             <Label className="text-slate-500">進場日期</Label>
-            <p className="font-medium">{new Date(animal.entry_date).toLocaleDateString('zh-TW')}</p>
+            <p className="font-medium">{new Date(animal.entry_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}</p>
           </div>
           <div>
             <Label className="text-slate-500">品種</Label>
@@ -92,7 +92,7 @@ export function AnimalInfoTab({ animal }: AnimalInfoTabProps) {
           <div>
             <Label className="text-slate-500">出生日期</Label>
             <p className="font-medium">
-              {animal.birth_date ? new Date(animal.birth_date).toLocaleDateString('zh-TW') : '-'}
+              {animal.birth_date ? new Date(animal.birth_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' }) : '-'}
             </p>
           </div>
           <div>
@@ -106,7 +106,7 @@ export function AnimalInfoTab({ animal }: AnimalInfoTabProps) {
           <div>
             <Label className="text-slate-500">實驗日期</Label>
             <p className="font-medium">
-              {animal.experiment_date ? new Date(animal.experiment_date).toLocaleDateString('zh-TW') : '-'}
+              {animal.experiment_date ? new Date(animal.experiment_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' }) : '-'}
             </p>
           </div>
           <div>
@@ -123,7 +123,7 @@ export function AnimalInfoTab({ animal }: AnimalInfoTabProps) {
           </div>
           <div>
             <Label className="text-slate-500">建立時間</Label>
-            <p className="font-medium">{new Date(animal.created_at).toLocaleString('zh-TW')}</p>
+            <p className="font-medium">{new Date(animal.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}</p>
           </div>
         </div>
       </CardContent>

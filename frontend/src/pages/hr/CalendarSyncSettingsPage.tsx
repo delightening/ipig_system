@@ -195,7 +195,7 @@ export function CalendarSyncSettingsPage() {
     })
 
     const formatDateTime = (dateStr: string) => {
-        return format(new Date(dateStr), 'yyyy/MM/dd HH:mm', { locale: zhTW })
+        return new Date(dateStr).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
     }
 
     const getStatusBadge = (status: string) => {

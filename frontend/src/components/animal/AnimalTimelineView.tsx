@@ -295,7 +295,7 @@ export function AnimalTimelineView({
                         <div className="w-[calc(100%-4rem)] md:w-[45%] bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-all hover:shadow-md">
                             <div className="flex items-center justify-between mb-2">
                                 <div className="font-bold text-slate-900 dark:text-slate-100">{item.title}</div>
-                                <time className={`text-xs font-medium ${getTimeBadgeColor(item.type)} px-2 py-1 rounded-full`}>{item.date.toLocaleDateString('zh-TW')}</time>
+                                <time className={`text-xs font-medium ${getTimeBadgeColor(item.type)} px-2 py-1 rounded-full`}>{item.date.toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}</time>
                             </div>
                             <div className="text-slate-600 dark:text-slate-400 text-sm mb-4 line-clamp-2">{item.content}</div>
                             <div className="flex items-center justify-between text-xs text-slate-500">

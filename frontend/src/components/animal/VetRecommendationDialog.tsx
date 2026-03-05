@@ -116,6 +116,7 @@ export function VetRecommendationDialog({ open, onOpenChange, recordType, record
 
   const formatDateTime = (dateStr: string) => {
     return new Date(dateStr).toLocaleString('zh-TW', {
+      timeZone: 'Asia/Taipei',
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',

@@ -93,7 +93,7 @@ export function AnimalsOnMedicationWidget() {
                                 <div className="flex items-center gap-2">
                                     {animal.last_medication_date && (
                                         <span className="text-xs text-muted-foreground">
-                                            {new Date(animal.last_medication_date).toLocaleDateString(i18n.language)}
+                                            {new Date(animal.last_medication_date).toLocaleDateString(i18n.language, { timeZone: 'Asia/Taipei' })}
                                         </span>
                                     )}
                                     <ExternalLink className="h-4 w-4 text-muted-foreground" />

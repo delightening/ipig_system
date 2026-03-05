@@ -55,7 +55,7 @@ export function SacrificeTab({ animalId, earTag, sacrifice }: SacrificeTabProps)
                   <Label className="text-slate-500">犧牲日期</Label>
                   <p className="font-medium">
                     {sacrifice.sacrifice_date
-                      ? new Date(sacrifice.sacrifice_date).toLocaleDateString('zh-TW')
+                      ? new Date(sacrifice.sacrifice_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })
                       : '-'
                     }
                   </p>

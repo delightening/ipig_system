@@ -172,7 +172,7 @@ export function AnimalListTable({
                     <TableCell>
                       {animal.vet_recommendation_date ? (
                         <span className="text-sm text-slate-600">
-                          {new Date(animal.vet_recommendation_date).toLocaleDateString()}
+                          {new Date(animal.vet_recommendation_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}
                         </span>
                       ) : (
                         <span className="text-slate-400">-</span>
@@ -180,7 +180,7 @@ export function AnimalListTable({
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <span>{new Date(animal.entry_date).toLocaleDateString()}</span>
+                        <span>{new Date(animal.entry_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}</span>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -196,7 +196,7 @@ export function AnimalListTable({
                       {animal.latest_weight ? (
                         <span
                           className="text-sm text-slate-700 font-medium"
-                          title={animal.latest_weight_date ? `量測日期: ${new Date(animal.latest_weight_date).toLocaleDateString()}` : undefined}
+                          title={animal.latest_weight_date ? `量測日期: ${new Date(animal.latest_weight_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}` : undefined}
                         >
                           {animal.latest_weight} kg
                         </span>

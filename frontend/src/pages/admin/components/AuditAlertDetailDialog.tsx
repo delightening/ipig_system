@@ -1,5 +1,3 @@
-import { format } from 'date-fns'
-import { zhTW } from 'date-fns/locale'
 import { AlertTriangle } from 'lucide-react'
 import {
   Dialog,
@@ -23,7 +21,7 @@ interface AuditAlertDetailDialogProps {
 }
 
 const formatDateTime = (dateStr: string) =>
-  format(new Date(dateStr), 'yyyy/MM/dd HH:mm', { locale: zhTW })
+  new Date(dateStr).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 
 const getSeverityColor = (severity: string) => {
   switch (severity) {

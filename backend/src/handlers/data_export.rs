@@ -11,7 +11,6 @@ use axum::{
     Extension, Json,
 };
 use axum::extract::Multipart;
-use chrono::Utc;
 use serde::Deserialize;
 
 use crate::{
@@ -22,6 +21,7 @@ use crate::{
         ImportResult,
     },
     startup::ensure_admin_user_after_import,
+    time,
     AppError, AppState, Result,
 };
 
@@ -74,7 +74,7 @@ pub async fn full_database_export(
         ExportFormat::Zip => ("zip", "application/zip"),
         ExportFormat::Json => ("json", "application/json; charset=utf-8"),
     };
-    let filename = format!("ipig_export_{}.{}", Utc::now().format("%Y%m%d_%H%M%S"), ext);
+    let filename = format!("ipig_export_{}.{}", time::now_taiwan().format("%Y%m%d_%H%M%S"), ext);
 
     Response::builder()
         .status(StatusCode::OK)

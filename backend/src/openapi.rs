@@ -208,6 +208,7 @@ use utoipa::OpenApi;
         crate::handlers::list_categories,
         crate::handlers::create_category,
         crate::handlers::import_products,
+        crate::handlers::preview_product_import,
         crate::handlers::download_product_import_template,
         crate::handlers::create_product_with_sku,
         // === SKU ===
@@ -454,6 +455,8 @@ use utoipa::OpenApi;
             crate::models::CreateCategoryRequest,
             crate::models::ProductImportResult,
             crate::models::ProductImportErrorDetail,
+            crate::models::ProductImportPreviewResult,
+            crate::models::ProductImportPreviewRow,
             crate::models::CreateProductWithSkuRequest,
             // SKU
             crate::models::CategoriesResponse,

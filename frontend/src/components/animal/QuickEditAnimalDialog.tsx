@@ -143,7 +143,7 @@ export function QuickEditAnimalDialog({ open, onOpenChange, animalId }: Props) {
                 <div className="space-y-2">
                   <Label className="text-slate-500">出生日期</Label>
                   <Input
-                    value={animal.birth_date ? new Date(animal.birth_date).toLocaleDateString('zh-TW') : '-'}
+                    value={animal.birth_date ? new Date(animal.birth_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' }) : '-'}
                     disabled
                     className="bg-slate-50"
                   />
@@ -151,7 +151,7 @@ export function QuickEditAnimalDialog({ open, onOpenChange, animalId }: Props) {
                 <div className="space-y-2">
                   <Label className="text-slate-500">進場日期</Label>
                   <Input
-                    value={new Date(animal.entry_date).toLocaleDateString('zh-TW')}
+                    value={new Date(animal.entry_date).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })}
                     disabled
                     className="bg-slate-50"
                   />

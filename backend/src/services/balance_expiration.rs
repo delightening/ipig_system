@@ -12,7 +12,7 @@ pub struct BalanceExpirationJob;
 impl BalanceExpirationJob {
     /// 執行到期處理
     pub async fn run(pool: &PgPool) -> Result<ExpirationSummary> {
-        let today = Utc::now().date_naive();
+        let today = crate::time::today_taiwan_naive();
         
         // 處理特休到期
         let annual_expired = Self::expire_annual_leave(pool, today).await?;
@@ -26,7 +26,7 @@ impl BalanceExpirationJob {
         Ok(ExpirationSummary {
             annual_leave_expired: annual_expired,
             comp_time_expired,
-            processed_at: Utc::now(),
+            processed_at: chrono::Utc::now(),
         })
     }
     

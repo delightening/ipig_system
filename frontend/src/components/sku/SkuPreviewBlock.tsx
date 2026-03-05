@@ -283,7 +283,7 @@ export function SkuPreviewBlock({
                   <span className="text-slate-500">最後更新時間</span>
                   <span className="text-slate-700 dark:text-slate-300 font-medium">
                     {previewResult.rule_updated_at
-                      ? new Date(previewResult.rule_updated_at).toLocaleDateString('zh-TW')
+                      ? new Date(previewResult.rule_updated_at).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })
                       : '—'}
                   </span>
                 </div>

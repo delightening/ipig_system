@@ -13,8 +13,8 @@ use crate::{
     middleware::CurrentUser,
     models::{
         ChangeProductStatusRequest, CreateCategoryRequest, CreateProductRequest, Product,
-        ProductCategory, ProductImportCheckResult, ProductImportResult, ProductQuery,
-        ProductWithUom, UpdateProductRequest,
+        ProductCategory, ProductImportCheckResult, ProductImportPreviewResult, ProductImportResult,
+        ProductQuery, ProductWithUom, UpdateProductRequest,
     },
     require_permission,
     services::{AuditService, ProductService},
@@ -277,6 +277,33 @@ pub async fn check_product_import_duplicates(
     }
 
     let result = ProductService::check_import_duplicates(&state.db, &file_data, &file_name).await?;
+    Ok(Json(result))
+}
+
+/// 匯入預覽：回傳解析後的列資料，供前端「依序設定 SKU」使用
+#[utoipa::path(
+    post,
+    path = "/api/products/import/preview",
+    responses(
+        (status = 200, description = "預覽列資料", body = ProductImportPreviewResult),
+        (status = 400, description = "驗證失敗或檔案格式錯誤", body = ErrorResponse),
+        (status = 401, description = "未認證", body = ErrorResponse),
+    ),
+    tag = "產品管理",
+    security(("bearer" = []))
+)]
+pub async fn preview_product_import(
+    Extension(current_user): Extension<CurrentUser>,
+    mut multipart: Multipart,
+) -> Result<Json<ProductImportPreviewResult>> {
+    require_permission!(current_user, "erp.product.create");
+
+    let (file_data, file_name, _, _) = parse_product_import_file(&mut multipart, false).await?;
+    if file_data.len() > 10 * 1024 * 1024 {
+        return Err(AppError::Validation("檔案大小不能超過 10MB".to_string()));
+    }
+
+    let result = ProductService::preview_import(&file_data, &file_name)?;
     Ok(Json(result))
 }
 

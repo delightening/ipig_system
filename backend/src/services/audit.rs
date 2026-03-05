@@ -646,7 +646,7 @@ impl AuditService {
 
     /// 取得審計儀表板統計
     pub async fn get_dashboard_stats(pool: &PgPool) -> Result<AuditDashboardStats> {
-        let today = chrono::Utc::now().date_naive();
+        let today = crate::time::today_taiwan_naive();
         let week_ago = today - chrono::Duration::days(7);
         let month_ago = today - chrono::Duration::days(30);
 

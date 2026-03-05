@@ -122,7 +122,7 @@ export function NotificationDropdown() {
     if (minutes < 60) return t('common.minutesAgo', { count: minutes })
     if (hours < 24) return t('common.hoursAgo', { count: hours })
     if (days < 7) return t('common.daysAgo', { count: days })
-    return date.toLocaleDateString(i18n.language)
+    return date.toLocaleDateString(i18n.language, { timeZone: 'Asia/Taipei' })
   }
 
   return (

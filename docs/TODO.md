@@ -129,7 +129,7 @@
 |---|------|------|------|----------|------|
 | R4-100-T1 | **product service 單元測試** | ProductService 核心邏輯（list/validate、code 解析）提取可測函式 + 5–8 個測試 | 後端 | 🧠 Claude | [x] |
 | R4-100-T2 | **partner service 單元測試** | PartnerService 核心邏輯（code 解析、正則）+ 5–8 個測試 | 後端 | 🧠 Claude | [x] |
-| R4-100-T3 | **user/role service 單元測試** | UserService、RoleService 可提取邏輯 + 測試 | 後端 | 🧠 Claude | [ ] |
+| R4-100-T3 | **user/role service 單元測試** | UserService、RoleService 可提取邏輯 + 測試 | 後端 | 🧠 Claude | [x] |
 | R4-100-T4 | **animal 核心 services 單元測試** | animal/core, observation, medical 等可提取邏輯 | 後端 | 🧠 Claude | [ ] |
 | R4-100-T5 | **protocol/document/hr services 單元測試** | 分批補齊 protocol/*, document/*, hr/* | 後端 | 🧠 Claude | [ ] |
 | R4-100-T6 | **cargo-tarpaulin 覆蓋率量測** | 安裝 tarpaulin，CI 中量測行覆蓋率並設門檻 | DevOps | 🧠 Claude | [ ] |
@@ -172,10 +172,10 @@
 | 🔴 P2 中優先 | 0 |
 | 🔵 P3 低優先 | 0 |
 | 🟣 P4 品質提升 | 0 |
-| 🟣 R4-100 邁向 100% | 4 |
+| 🟣 R4-100 邁向 100% | 3 |
 | ⚪ P5 長期演進 | 0 |
 | 🟠 R6 第六輪改善 | 1 |
-| **合計（未完成）** | **5** |
+| **合計（未完成）** | **4** |
 
 ---
 
