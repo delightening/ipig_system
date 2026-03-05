@@ -188,6 +188,11 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-05 migrations 升級重整（維持 10 個）
+- ✅ **合併結果**：原 16 個 migration 重整為 10 個，最終 schema 不變、執行順序與依賴維持正確。
+- ✅ **對應**：001_types、002_users_auth 未改；003＝原 003＋004（通知/附件/稽核/trigger＋角色權限 seed/user_preferences）；004＝原 005 動物管理；005＝原 006 AUP；006＝原 007 HR；007＝原 008 稽核＋ERP；008＝原 009＋011＋012（補充、犧牲鎖欄、轉讓類型、修正、效能）；009＝原 010＋013＋014（GLP 訓練/設備/QAU/會計、血液檢查預設、SKU 品類種子）；010＝原 015＋016（治療藥物去重與業務鍵唯一）。
+- ✅ **舊檔移除**：006_aup_system、007_hr_system、008_audit_erp、009_supplementary、010_glp_accounting、011～016 已刪除；保留 `.gitattributes`。
+
 ### 2026-03-05 系統時間統一為台灣時間 (Asia/Taipei)
 - **後端**：新增 `backend/src/time.rs` 提供 `now_taiwan()`、`today_taiwan_naive()`；活動日誌 partition_date、會計 as_of、審計儀表板、HR 出勤／請假「今日」、單據編號日期、PDF/郵件顯示日期、排程月報、匯出檔名等皆改為以台灣日期／時間為準。
 - **前端**：`formatDate`／`formatDateTime` 及所有內聯日期顯示皆加上 `timeZone: 'Asia/Taipei'`，不論使用者瀏覽器時區皆顯示台灣時間。

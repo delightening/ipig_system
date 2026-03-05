@@ -1,8 +1,9 @@
--- 一次性合併重複藥物選項：依業務鍵 (name, category) 分組，保留 canonical，更新引用後軟刪除重複列。
--- 業務鍵：lower(trim(name)), COALESCE(category, '')
--- Canonical 選擇：同組內優先有 erp_product_id，其次 created_at 最早。
+-- ============================================
+-- Migration 010: 治療藥物選項去重與業務鍵唯一約束
+-- ============================================
+-- 依業務鍵 (name, category) 分組合併重複項，再建立部分唯一索引，確保啟用中僅一筆。
 
--- Step 1: 建立合併對照表 (canonical_id, duplicate_id)
+-- 10.1 建立合併對照表並更新引用後軟刪除重複列
 CREATE TEMP TABLE drug_merge_map (canonical_id UUID, duplicate_id UUID);
 
 INSERT INTO drug_merge_map (canonical_id, duplicate_id)
@@ -22,7 +23,7 @@ dups AS (
 )
 SELECT c.id, d.id FROM dups d JOIN canonical c ON d.nk = c.nk AND d.ck = c.ck;
 
--- Step 2: 更新 animal_observations.treatments 中的 drug_option_id
+-- 10.2 更新 animal_observations.treatments 中的 drug_option_id
 DO $$
 DECLARE
   r RECORD;
@@ -50,7 +51,7 @@ BEGIN
   END LOOP;
 END $$;
 
--- Step 3: 更新 animal_surgeries 的 JSONB 欄位（將重複 option id 替換為 canonical）
+-- 10.3 更新 animal_surgeries 的 JSONB 欄位（將重複 option id 替換為 canonical）
 DO $$
 DECLARE
   r RECORD;
@@ -75,6 +76,11 @@ BEGIN
   END LOOP;
 END $$;
 
--- Step 4: 軟刪除重複的藥物選項
+-- 10.4 軟刪除重複的藥物選項
 UPDATE treatment_drug_options SET is_active = false, updated_at = NOW()
 WHERE id IN (SELECT duplicate_id FROM drug_merge_map);
+
+-- 10.5 業務鍵唯一約束：同一「名稱 + 分類」僅允許一筆啟用中的藥物選項
+CREATE UNIQUE INDEX IF NOT EXISTS idx_treatment_drug_options_business_key
+ON treatment_drug_options (lower(trim(name)), COALESCE(category, ''))
+WHERE is_active = true;
