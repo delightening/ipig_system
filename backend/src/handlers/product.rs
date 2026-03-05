@@ -12,8 +12,9 @@ use validator::Validate;
 use crate::{
     middleware::CurrentUser,
     models::{
-        CreateCategoryRequest, CreateProductRequest, Product, ProductCategory, ProductImportCheckResult,
-        ProductImportResult, ProductQuery, ProductWithUom, UpdateProductRequest,
+        ChangeProductStatusRequest, CreateCategoryRequest, CreateProductRequest, Product,
+        ProductCategory, ProductImportCheckResult, ProductImportResult, ProductQuery,
+        ProductWithUom, UpdateProductRequest,
     },
     require_permission,
     services::{AuditService, ProductService},
@@ -94,6 +95,38 @@ pub async fn update_product(
     Ok(Json(product))
 }
 
+/// 更新產品狀態（啟用/停用/停產）
+pub async fn update_product_status(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+    Json(req): Json<ChangeProductStatusRequest>,
+) -> Result<Json<ProductWithUom>> {
+    require_permission!(current_user, "erp.product.edit");
+
+    let product = ProductService::update_status(&state.db, id, &req.status).await?;
+
+    if let Err(e) = AuditService::log_activity(
+        &state.db,
+        current_user.id,
+        "ERP",
+        "PRODUCT_STATUS_CHANGE",
+        Some("product"),
+        Some(id),
+        Some(&product.product.name),
+        None,
+        Some(serde_json::json!({ "status": req.status })),
+        None,
+        None,
+    )
+    .await
+    {
+        tracing::error!("寫入審計日誌失敗 (PRODUCT_STATUS_CHANGE): {}", e);
+    }
+
+    Ok(Json(product))
+}
+
 /// 刪除產品
 pub async fn delete_product(
     State(state): State<AppState>,
@@ -155,7 +188,7 @@ pub async fn check_product_import_duplicates(
 ) -> Result<Json<ProductImportCheckResult>> {
     require_permission!(current_user, "erp.product.create");
 
-    let (file_data, file_name, _) = parse_product_import_file(&mut multipart, false).await?;
+    let (file_data, file_name, _, _) = parse_product_import_file(&mut multipart, false).await?;
     if file_data.len() > 10 * 1024 * 1024 {
         return Err(AppError::Validation("檔案大小不能超過 10MB".to_string()));
     }
@@ -172,14 +205,20 @@ pub async fn import_products(
 ) -> Result<Json<ProductImportResult>> {
     require_permission!(current_user, "erp.product.create");
 
-    let (file_data, file_name, skip_duplicates) =
+    let (file_data, file_name, skip_duplicates, regenerate_sku_for_duplicates) =
         parse_product_import_file(&mut multipart, true).await?;
     if file_data.len() > 10 * 1024 * 1024 {
         return Err(AppError::Validation("檔案大小不能超過 10MB".to_string()));
     }
 
-    let result =
-        ProductService::import_products(&state.db, &file_data, &file_name, skip_duplicates).await?;
+    let result = ProductService::import_products(
+        &state.db,
+        &file_data,
+        &file_name,
+        skip_duplicates,
+        regenerate_sku_for_duplicates,
+    )
+    .await?;
 
     if let Err(e) = AuditService::log_activity(
         &state.db,
@@ -225,14 +264,15 @@ pub async fn download_product_import_template() -> Result<Response> {
         .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))
 }
 
-/// 解析匯入請求。`parse_skip_duplicates` 為 true 時會讀取 form 欄位 skip_duplicates。
+/// 解析匯入請求。`parse_options` 為 true 時會讀取 form 欄位 skip_duplicates、regenerate_sku_for_duplicates。
 async fn parse_product_import_file(
     multipart: &mut Multipart,
-    parse_skip_duplicates: bool,
-) -> Result<(Vec<u8>, String, bool)> {
+    parse_options: bool,
+) -> Result<(Vec<u8>, String, bool, bool)> {
     let mut file_data: Option<Vec<u8>> = None;
     let mut file_name = String::from("unknown");
     let mut skip_duplicates = false;
+    let mut regenerate_sku_for_duplicates = false;
 
     while let Some(field) = multipart
         .next_field()
@@ -251,7 +291,7 @@ async fn parse_product_import_file(
                     .map_err(|e| AppError::Validation(format!("讀取檔案資料失敗: {}", e)))?;
                 file_data = Some(data.to_vec());
             }
-            Some("skip_duplicates") if parse_skip_duplicates => {
+            Some("skip_duplicates") if parse_options => {
                 let bytes = field
                     .bytes()
                     .await
@@ -259,10 +299,19 @@ async fn parse_product_import_file(
                 let s = String::from_utf8_lossy(&bytes);
                 skip_duplicates = matches!(s.trim().to_lowercase().as_str(), "true" | "1" | "yes");
             }
+            Some("regenerate_sku_for_duplicates") if parse_options => {
+                let bytes = field
+                    .bytes()
+                    .await
+                    .map_err(|e| AppError::Validation(format!("讀取欄位失敗: {}", e)))?;
+                let s = String::from_utf8_lossy(&bytes);
+                regenerate_sku_for_duplicates =
+                    matches!(s.trim().to_lowercase().as_str(), "true" | "1" | "yes");
+            }
             _ => {}
         }
     }
 
     let file_data = file_data.ok_or_else(|| AppError::Validation("未找到檔案".to_string()))?;
-    Ok((file_data, file_name, skip_duplicates))
+    Ok((file_data, file_name, skip_duplicates, regenerate_sku_for_duplicates))
 }

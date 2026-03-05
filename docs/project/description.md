@@ -87,7 +87,7 @@ iPig 系統是一套專為實驗動物管理設計的**統一入口門戶 (Unifi
 - **Staff Management**: 員工清單與代理人機制。
 
 ### 2.7 報表模組 (Reports Nest)
-- **ERP Reports**: 庫存現況、庫存異動、採購明細、銷售明細、成本摘要。
+- **ERP Reports**: 庫存現況、庫存異動、採購明細、銷貨明細、成本摘要。
 - **Animal Reports**: 血檢成本報表、血檢分析報表。
 - **Scheduled Reports**: 定期報表排程（CRUD、執行歷程、下載）。
 - **Export**: 活動日誌匯出 (Excel)。
@@ -261,7 +261,7 @@ API 採用 `/api` 為根路徑，所有路由透過中間件層級控制：
 | 健康檢查端點 `/health` | ✅ 已實作 | DB 連通性 + 延遲量測 | ✅ |
 | 結構化日誌 (JSON) | ✅ 條件式 JSON | JSON 格式 + Request ID 全鏈路追蹤 | ✅ |
 | Metrics 端點 `/metrics` | ✅ Prometheus 已實作 | HTTP 指標 + DB Pool 狀態 | ✅ |
-| 錯誤監控 (Sentry 等) | 無 | 前後端錯誤即時通知 + 堆疊追蹤 | 🔴 |
+| 錯誤監控 (Sentry 等) | 無（不規劃導入） | 前後端錯誤即時通知 + 堆疊追蹤 | 🔴 |
 | 啟動配置檢查 | ✅ 已實作 | — | ✅ |
 
 ### 7.3 備份與災難復原 (Backup & DR)

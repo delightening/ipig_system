@@ -29,9 +29,9 @@
 |------|------|
 | **是否建議上線** | **是**。核心功能完整、測試與維運基礎已就緒，無 P0 阻擋項。 |
 | **剩餘阻擋項** | **無**。description.md §7 中僅兩項為非綠（錯誤監控 🔴、GLP 驗證 🔶），均不列為上線阻擋，見 §2 與 §4。 |
-| **上線後 1–3 個月建議補齊** | 錯誤監控（Sentry 或等效）、GLP 完整驗證報告（視機構要求）、首次 DR 演練執行與紀錄。 |
+| **上線後 1–3 個月建議補齊** | GLP 完整驗證報告（視機構要求）、首次 DR 演練執行與紀錄。 |
 
-本評估與 [PROGRESS.md](../PROGRESS.md)「正式上線準備度」及 [description.md](../project/description.md) §7 正式上線準備 Checklist 對齊：**八面向中六項已達標 ✅，兩項為部分達標（可觀測性之錯誤監控、GLP 驗證文件），已採緩解或上線後補齊**。
+本評估與 [PROGRESS.md](../PROGRESS.md)「正式上線準備度」及 [description.md](../project/description.md) §7 正式上線準備 Checklist 對齊：**八面向中六項已達標 ✅，兩項為部分達標（可觀測性之錯誤監控不規劃導入、GLP 驗證文件），已採緩解或上線後補齊**。
 
 ### 1.2 與 R1–R3 之區隔
 
@@ -68,12 +68,9 @@
 | 錯誤監控 (Sentry 等) | 無 | 前後端錯誤即時通知 + 堆疊追蹤 | 🔴 |
 | 啟動配置檢查 | ✅ 已實作 | — | ✅ |
 
-**缺口：** 🔴 無專用錯誤監控（Sentry 或等效）；生產錯誤目前依賴日誌 + Grafana。  
+**缺口：** 🔴 無專用錯誤監控服務；生產錯誤依賴日誌 + Grafana。專案不規劃導入 Sentry 或等效。  
 
-**建議：**  
-
-- **上線前**：不阻擋。確保 `RUST_LOG_FORMAT=json` 與 Request ID 已啟用，日誌可被 Promtail/Loki 聚合（見 docker-compose.logging.yml）。  
-- **上線後 1–3 個月**：導入 Sentry（或等效）以取得前後端錯誤即時通知與堆疊追蹤，利於故障排除。
+**建議：** 上線前不阻擋。確保 `RUST_LOG_FORMAT=json` 與 Request ID 已啟用，日誌可被 Promtail/Loki 聚合（見 docker-compose.logging.yml）。
 
 ---
 
@@ -251,7 +248,7 @@ flowchart LR
 
 | 風險 | 說明 | 緩解 | 優先級 |
 |------|------|------|--------|
-| **無專用錯誤監控** | 未導入 Sentry（或等效），生產錯誤依賴日誌 + Grafana | 確保 JSON 日誌與 Request ID 啟用；可選啟用 docker-compose.logging.yml（Loki + Promtail）；上線後 1–3 個月內導入 Sentry 或等效 | P1 |
+| **無專用錯誤監控** | 不規劃導入 Sentry 等服務，生產錯誤依賴日誌 + Grafana | 確保 JSON 日誌與 Request ID 啟用；可選啟用 docker-compose.logging.yml（Loki + Promtail） | P2 |
 | **GLP 驗證報告未完整** | IQ/OQ/PQ 框架已有，完整驗證報告視機構要求 | 上線不阻擋；上線後依 QAU/稽核時程完成執行與報告歸檔 | P2 |
 | **前端 CVE-2026-25646（libpng）** | 前端映像基礎層 libpng 1.6.54，修復需 1.6.55；因 Brotli 模組 ABI 限制暫無法僅升級 libpng | 已記錄於 [security.md](../security-compliance/security.md) 與 .trivyignore；評估為低風險（前端不解析使用者上傳 PNG）；採「圖片處理分離」原則；Q2 再檢視基礎映像是否有新 tag | P2 |
 | **DR 演練未執行** | 有 Runbook 與演練檢查表，但首次正式演練可能未做 | 上線後 1 個月內執行一次 [DR_DRILL_CHECKLIST.md](../runbooks/DR_DRILL_CHECKLIST.md) 情境 A 或 B，並填寫演練紀錄 | P1 |
@@ -261,7 +258,7 @@ flowchart LR
 ## 5. 上線後建議（短期）
 
 - **監控與告警**：確認 Prometheus / Grafana / Alertmanager 已依 [infrastructure.md](../operations/infrastructure.md) 與 [DEPLOYMENT.md](../DEPLOYMENT.md) 部署；若有資源限制，可先上 Prometheus + Grafana，Alertmanager 與日誌聚合分階段啟用。
-- **錯誤可觀測**：若未上 Sentry，至少確保結構化日誌（`RUST_LOG_FORMAT=json`）與 Request ID 全鏈路可追蹤；已提供 [docker-compose.logging.yml](../../docker-compose.logging.yml)（Loki + Promtail）可選啟用。
+- **錯誤可觀測**：依賴結構化日誌（`RUST_LOG_FORMAT=json`）與 Request ID 全鏈路可追蹤；已提供 [docker-compose.logging.yml](../../docker-compose.logging.yml)（Loki + Promtail）可選啟用。
 - **首次 DR 演練**：建議上線後 1 個月內執行一次 [DR_DRILL_CHECKLIST.md](../runbooks/DR_DRILL_CHECKLIST.md)，並紀錄 RTO/RPO 達成與改善建議。
 - **待辦對齊**：本評估中「建議上線後補齊」的項目（錯誤監控、GLP 驗證報告、DR 演練）可視需要加入 [TODO.md](../TODO.md) 或於 PROGRESS.md §9 追蹤；完成時依專案慣例更新 PROGRESS 與待辦統計。
 

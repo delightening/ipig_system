@@ -4,30 +4,31 @@
 
 use axum::{extract::State, http::StatusCode, Json};
 use serde::Serialize;
+use utoipa::ToSchema;
 
 use crate::AppState;
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct HealthResponse {
     pub status: &'static str,
     pub version: &'static str,
     pub checks: HealthChecks,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct HealthChecks {
     pub database: ComponentCheck,
     pub db_pool: PoolCheck,
     pub disk: DiskCheck,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ComponentCheck {
     pub status: &'static str,
     pub latency_ms: u64,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct PoolCheck {
     pub status: &'static str,
     pub size: u32,
@@ -35,12 +36,21 @@ pub struct PoolCheck {
     pub active: u32,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct DiskCheck {
     pub status: &'static str,
     pub uploads_path_exists: bool,
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/health",
+    responses(
+        (status = 200, description = "健康檢查正常", body = HealthResponse),
+        (status = 503, description = "服務 degraded（DB 連線失敗）", body = HealthResponse)
+    ),
+    tag = "監控"
+)]
 pub async fn health_check(State(state): State<AppState>) -> (StatusCode, Json<HealthResponse>) {
     let start = std::time::Instant::now();
 

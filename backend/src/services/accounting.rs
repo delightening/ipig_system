@@ -226,7 +226,7 @@ impl AccountingService {
         .bind(entry_id)
         .bind(&entry_no)
         .bind(document.doc_date)
-        .bind(format!("DO 銷售出庫 {}", document.doc_no))
+        .bind(format!("DO 銷貨出庫 {}", document.doc_no))
         .bind(document.id)
         .bind(approved_by)
         .execute(&mut **tx)

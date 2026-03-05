@@ -3,6 +3,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
+use utoipa::ToSchema;
 use validator::Validate;
 
 /// 產品狀態
@@ -33,7 +34,7 @@ pub enum StorageCondition {
     Dry, // 乾燥
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct Product {
     pub id: Uuid,
     pub sku: String,
@@ -48,8 +49,10 @@ pub struct Product {
     pub track_batch: bool,
     pub track_expiry: bool,
     pub default_expiry_days: Option<i32>,
+    #[schema(value_type = String)]
     pub safety_stock: Option<Decimal>,
     pub safety_stock_uom: Option<String>,
+    #[schema(value_type = String)]
     pub reorder_point: Option<Decimal>,
     pub reorder_point_uom: Option<String>,
     pub barcode: Option<String>,
@@ -75,17 +78,20 @@ pub struct ProductCategory {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct ProductUomConversion {
     pub id: Uuid,
     pub product_id: Uuid,
     pub uom: String,
+    #[schema(value_type = String)]
     pub factor_to_base: Decimal,
 }
 
-/// 建立產品請求（SKU 由系統自動生成）
+/// 建立產品請求（SKU 可選填，未填時由系統自動生成）
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreateProductRequest {
+    /// 選填；匯入時可帶入，未填則自動生成
+    pub sku: Option<String>,
     #[validate(length(min = 1, max = 200, message = "Name must be 1-200 characters"))]
     pub name: String,
     pub spec: Option<String>,
@@ -165,7 +171,7 @@ pub struct ProductQuery {
     pub sort_order: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct ProductWithUom {
     #[serde(flatten)]
     pub product: Product,
@@ -242,6 +248,8 @@ pub struct ProductImageUploadResponse {
 /// 產品匯入 CSV 列
 #[derive(Debug, Clone, Default)]
 pub struct ProductImportRow {
+    /// 選填；若為空則由系統自動產生
+    pub sku: Option<String>,
     pub name: String,
     pub spec: Option<String>,
     pub category_code: Option<String>,
@@ -285,4 +293,6 @@ pub struct ProductImportCheckResult {
     pub total_rows: i32,
     pub duplicate_count: i32,
     pub duplicates: Vec<ProductImportDuplicateItem>,
+    /// 檔案是否包含 SKU 編碼欄位（若否，前端可提示使用者選擇是否由系統自動產生）
+    pub has_sku_column: bool,
 }

@@ -5,7 +5,7 @@
 - 建立 WAREHOUSE_MANAGER / ADMIN_STAFF 測試角色
 - Phase 1: 建立 3 個倉庫、每倉庫 7 個貨架、50 個產品、2 個供應商
 - Phase 2: 採購入庫 (PO → GRN)，50 個貨物分配到 21 個貨架
-- Phase 3: 銷售出庫 (SO → DO)
+- Phase 3: 銷貨出庫 (SO → DO)
 - Phase 4: 調撥作業 (TR)
 - Phase 5: 庫存驗證
 
@@ -213,9 +213,9 @@ def run_erp_test(ctx=None) -> bool:
     t.record("採購入庫完成", len(grn_ids) == 3, f"3 張 PO + 3 張 GRN，共 50 個品項")
 
     # ========================================
-    # Phase 3: 銷售出庫
+    # Phase 3: 銷貨出庫
     # ========================================
-    t.step("Phase 3 — 銷售出庫 (SO → DO)")
+    t.step("Phase 3 — 銷貨出庫 (SO → DO)")
 
     # 從第一個倉庫出 5 個品項
     so_lines = []
@@ -232,7 +232,7 @@ def run_erp_test(ctx=None) -> bool:
                        "doc_date": today,
                        "warehouse_id": warehouse_ids[0],
                        "iacuc_no": "PIG-11401",
-                       "remark": "整合測試銷售單 (IACUC 歸屬)",
+                       "remark": "整合測試銷貨單 (IACUC 歸屬)",
                        "lines": so_lines,
                    })
     so_id = resp.json()["id"]
@@ -252,7 +252,7 @@ def run_erp_test(ctx=None) -> bool:
     do_id = resp.json()["id"]
     t._req("POST", f"{API_BASE_URL}/documents/{do_id}/submit", role=WM)
     t._req("POST", f"{API_BASE_URL}/documents/{do_id}/approve", role=WM)
-    t.record("銷售出庫完成 (含 IACUC)", True, "5 個品項出庫，歸屬 IACUC PIG-11401")
+    t.record("銷貨出庫完成 (含 IACUC)", True, "5 個品項出庫，歸屬 IACUC PIG-11401")
 
     # 驗證以 IACUC 篩選查詢單據
     iacuc_resp = t._req("GET", f"{API_BASE_URL}/documents?iacuc_no=PIG-11401", role=WM)
@@ -355,11 +355,11 @@ def run_erp_test(ctx=None) -> bool:
              len(purchase_items) > 0 if isinstance(purchase_items, list) else True,
              f"回傳 {len(purchase_items) if isinstance(purchase_items, list) else '有效'} 筆資料")
 
-    # 6.4 銷售明細報表
+    # 6.4 銷貨明細報表
     sales_resp = t._req("GET", f"{API_BASE_URL}/reports/sales-lines", role=WM)
     sales_report = sales_resp.json()
     sales_items = sales_report if isinstance(sales_report, list) else sales_report.get("data", sales_report.get("items", []))
-    t.record("銷售明細報表 (sales-lines)",
+    t.record("銷貨明細報表 (sales-lines)",
              len(sales_items) > 0 if isinstance(sales_items, list) else True,
              f"回傳 {len(sales_items) if isinstance(sales_items, list) else '有效'} 筆資料")
 

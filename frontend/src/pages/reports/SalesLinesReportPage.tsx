@@ -110,8 +110,8 @@ export function SalesLinesReportPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">銷售明細報表</h1>
-          <p className="text-muted-foreground">銷售單、銷售出庫明細</p>
+          <h1 className="text-3xl font-bold tracking-tight">銷貨明細報表</h1>
+          <p className="text-muted-foreground">銷貨單、銷貨出庫明細</p>
         </div>
         <div className="flex items-center gap-3">
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
@@ -193,7 +193,7 @@ export function SalesLinesReportPage() {
               <TableRow>
                 <TableCell colSpan={11} className="text-center py-8">
                   <ShoppingCart className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-muted-foreground">尚無銷售資料</p>
+                  <p className="text-muted-foreground">尚無銷貨資料</p>
                 </TableCell>
               </TableRow>
             )}

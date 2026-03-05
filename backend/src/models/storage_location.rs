@@ -5,10 +5,11 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
+use utoipa::ToSchema;
 use validator::Validate;
 
 /// 儲位類型
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, sqlx::Type, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, sqlx::Type, Default, ToSchema)]
 #[sqlx(type_name = "VARCHAR", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum LocationType {
@@ -20,7 +21,7 @@ pub enum LocationType {
 }
 
 /// 儲位/貨架資料結構
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct StorageLocation {
     pub id: Uuid,
     pub warehouse_id: Uuid,
@@ -41,7 +42,7 @@ pub struct StorageLocation {
 }
 
 /// 儲位詳細資料（包含倉庫資訊）
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct StorageLocationWithWarehouse {
     pub id: Uuid,
     pub warehouse_id: Uuid,
@@ -62,7 +63,7 @@ pub struct StorageLocationWithWarehouse {
 }
 
 /// 建立儲位請求
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct CreateStorageLocationRequest {
     pub warehouse_id: Uuid,
     /// 代碼（選填，系統會自動生成）
@@ -82,7 +83,7 @@ pub struct CreateStorageLocationRequest {
 }
 
 /// 更新儲位請求
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct UpdateStorageLocationRequest {
     #[validate(length(min = 1, max = 50, message = "Code must be 1-50 characters"))]
     pub code: Option<String>,
@@ -100,7 +101,7 @@ pub struct UpdateStorageLocationRequest {
 }
 
 /// 單一儲位佈局項目（用於批次更新）
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct StorageLayoutItem {
     pub id: Uuid,
     pub row_index: i32,
@@ -110,13 +111,13 @@ pub struct StorageLayoutItem {
 }
 
 /// 批次更新儲位佈局請求
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateStorageLayoutRequest {
     pub items: Vec<StorageLayoutItem>,
 }
 
 /// 儲位查詢參數
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema, utoipa::IntoParams)]
 pub struct StorageLocationQuery {
     pub warehouse_id: Option<Uuid>,
     pub location_type: Option<String>,
@@ -125,13 +126,14 @@ pub struct StorageLocationQuery {
 }
 
 /// 儲位庫存項目（用於顯示儲位內的庫存）
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct StorageLocationInventoryItem {
     pub id: Uuid,
     pub storage_location_id: Uuid,
     pub product_id: Uuid,
     pub product_sku: String,
     pub product_name: String,
+    #[schema(value_type = String)]
     pub on_hand_qty: rust_decimal::Decimal,
     pub base_uom: String,
     pub batch_no: Option<String>,
@@ -140,17 +142,19 @@ pub struct StorageLocationInventoryItem {
 }
 
 /// 更新儲位庫存項目請求
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct UpdateStorageLocationInventoryItemRequest {
     // Note: range validator doesn't work with rust_decimal::Decimal
     // Validation for non-negative values is handled in the service layer
+    #[schema(value_type = String)]
     pub on_hand_qty: rust_decimal::Decimal,
 }
 
 /// 新增儲位庫存項目請求
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct CreateStorageLocationInventoryItemRequest {
     pub product_id: Uuid,
+    #[schema(value_type = String)]
     pub on_hand_qty: rust_decimal::Decimal,
     #[validate(length(max = 50, message = "Batch number must be at most 50 characters"))]
     pub batch_no: Option<String>,
@@ -158,8 +162,9 @@ pub struct CreateStorageLocationInventoryItemRequest {
 }
 
 /// 調撥儲位庫存請求 (同倉庫內不需單據)
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct TransferStorageLocationInventoryRequest {
     pub to_storage_location_id: Uuid,
+    #[schema(value_type = String)]
     pub qty: rust_decimal::Decimal,
 }

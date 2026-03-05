@@ -434,7 +434,7 @@ export function ProductDetailPage() {
         <Card>
           <CardHeader>
             <CardTitle>相關單據</CardTitle>
-            <CardDescription>最近的採購單、銷售單、庫存異動</CardDescription>
+            <CardDescription>最近的採購單、銷貨單、庫存異動</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-center py-12 text-muted-foreground">
@@ -470,7 +470,7 @@ export function ProductDetailPage() {
               {statusAction === 'discontinue' && '標記停產'}
             </DialogTitle>
             <DialogDescription>
-              {statusAction === 'activate' && '確定要啟用此產品嗎？啟用後可在採購、銷售等模組中使用。'}
+              {statusAction === 'activate' && '確定要啟用此產品嗎？啟用後可在採購、銷貨等模組中使用。'}
               {statusAction === 'deactivate' && '確定要停用此產品嗎？停用後將無法在新單據中選擇此產品。'}
               {statusAction === 'discontinue' && '確定要將此產品標記為停產嗎？停產後僅供歷史查詢，無法恢復為啟用狀態。'}
             </DialogDescription>

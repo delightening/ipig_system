@@ -289,7 +289,7 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "erp.warehouse.view", "erp.product.view", "erp.partner.view",
             "erp.stock.view",
             "erp.pr.create",  // 可建立請購單
-            // 單據管理（可建立銷售單等）
+            // 單據管理（可建立銷貨單等）
             "erp.document.view", "erp.document.create", "erp.document.edit",
             "erp.document.submit",
             // HR 權限（內部員工基本權限）

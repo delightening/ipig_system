@@ -10,11 +10,12 @@
 
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde::Deserialize;
+use utoipa::ToSchema;
 
 use crate::AppState;
 
 /// Web Vitals 上報 payload（與 web-vitals 的 Metric 對應）
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 #[allow(dead_code)]
 pub struct WebVitalsMetric {
     pub id: String,
@@ -29,6 +30,14 @@ pub struct WebVitalsMetric {
 /// POST /api/metrics/vitals — 接收前端 Web Vitals 指標
 ///
 /// 開發環境可記錄至日誌；正式環境可轉送 APM 或儲存。
+#[utoipa::path(
+    post,
+    path = "/api/metrics/vitals",
+    request_body = WebVitalsMetric,
+    responses((status = 204, description = "已接收")),
+    tag = "監控",
+    security(("bearer" = []))
+)]
 pub async fn vitals_handler(Json(_metric): Json<WebVitalsMetric>) -> impl IntoResponse {
     tracing::debug!(
         name = %_metric.name,
@@ -41,6 +50,15 @@ pub async fn vitals_handler(Json(_metric): Json<WebVitalsMetric>) -> impl IntoRe
 /// 回傳 Prometheus 格式的指標文字
 ///
 /// 使用 `metrics-exporter-prometheus` 的 `PrometheusHandle` 渲染指標
+#[utoipa::path(
+    get,
+    path = "/metrics",
+    responses(
+        (status = 200, description = "Prometheus 格式指標 (text/plain)"),
+        (status = 503, description = "指標收集器未啟用")
+    ),
+    tag = "監控"
+)]
 pub async fn metrics_handler(State(state): State<AppState>) -> impl IntoResponse {
     let pool = &state.db;
     let pool_size = pool.size() as f64;

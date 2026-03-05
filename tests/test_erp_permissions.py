@@ -144,9 +144,9 @@ def run_erp_permissions_test(ctx=None) -> bool:
     t.record("ES 查看庫存", resp.status_code == 200)
 
     # ========================================
-    # Phase 4: EXPERIMENT_STAFF 建立銷售單（含 IACUC 歸屬）
+    # Phase 4: EXPERIMENT_STAFF 建立銷貨單（含 IACUC 歸屬）
     # ========================================
-    t.step("Phase 4 — EXPERIMENT_STAFF 建立銷售單（含 IACUC）")
+    t.step("Phase 4 — EXPERIMENT_STAFF 建立銷貨單（含 IACUC）")
 
     if created_warehouse_id and created_product_id:
         resp = t._req("POST", f"{API_BASE_URL}/documents", role=ES,
@@ -155,7 +155,7 @@ def run_erp_permissions_test(ctx=None) -> bool:
                            "doc_date": str(date.today()),
                            "warehouse_id": created_warehouse_id,
                            "iacuc_no": "PIG-11401",
-                           "remark": "EXPERIMENT_STAFF 權限測試 — 銷售單含 IACUC 歸屬",
+                           "remark": "EXPERIMENT_STAFF 權限測試 — 銷貨單含 IACUC 歸屬",
                            "lines": [
                                {
                                    "product_id": created_product_id,
@@ -166,7 +166,7 @@ def run_erp_permissions_test(ctx=None) -> bool:
                        })
         ok = resp.status_code in (200, 201)
         so_id = resp.json().get("id") if ok else None
-        t.record("ES 建立銷售單 (SO+IACUC)", ok,
+        t.record("ES 建立銷貨單 (SO+IACUC)", ok,
                  f"ID: {so_id[:8] if so_id else 'N/A'}...")
 
         # 驗證回傳 iacuc_no 正確
@@ -177,14 +177,14 @@ def run_erp_permissions_test(ctx=None) -> bool:
                      f"預期 PIG-11401, 實際 {returned_iacuc}")
 
         # ========================================
-        # Phase 5: EXPERIMENT_STAFF 提交銷售單
+        # Phase 5: EXPERIMENT_STAFF 提交銷貨單
         # ========================================
-        t.step("Phase 5 — EXPERIMENT_STAFF 提交銷售單")
+        t.step("Phase 5 — EXPERIMENT_STAFF 提交銷貨單")
         if so_id:
             resp = t._req("POST", f"{API_BASE_URL}/documents/{so_id}/submit", role=ES)
-            t.record("ES 提交銷售單", resp.status_code in (200, 201))
+            t.record("ES 提交銷貨單", resp.status_code in (200, 201))
         else:
-            t.record("ES 提交銷售單", False, "無銷售單 ID")
+            t.record("ES 提交銷貨單", False, "無銷貨單 ID")
 
         # ========================================
         # Phase 6: EXPERIMENT_STAFF 按 IACUC 查詢
@@ -200,7 +200,7 @@ def run_erp_permissions_test(ctx=None) -> bool:
         else:
             t.record("ES IACUC 篩選查詢", False, f"HTTP {resp.status_code}")
     else:
-        t.record("ES 建立銷售單 (SO+IACUC)", False, "無倉庫或產品 ID")
+        t.record("ES 建立銷貨單 (SO+IACUC)", False, "無倉庫或產品 ID")
 
     # ========================================
     # 彙總
@@ -209,7 +209,7 @@ def run_erp_permissions_test(ctx=None) -> bool:
     print(f"[完成] ERP 權限測試完成！")
     print(f"  WM: 完整 CRUD ✓")
     print(f"  AS: 完整 CRUD ✓")
-    print(f"  ES: 查看庫存 + 銷售單（含 IACUC）")
+    print(f"  ES: 查看庫存 + 銷貨單（含 IACUC）")
     print(f"{'=' * 60}")
 
     return t.print_summary()

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { format, startOfISOWeek, endOfISOWeek } from 'date-fns'
+import { format, startOfDay, endOfISOWeek } from 'date-fns'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Calendar as CalendarIcon, Clock, Loader2, ExternalLink, CalendarX } from 'lucide-react'
@@ -23,11 +23,12 @@ export function GoogleCalendarEventsWidget() {
         queryFn: async () => {
             try {
                 const now = new Date()
-                const startOfWeek = format(startOfISOWeek(now), 'yyyy-MM-dd')
-                const endOfWeek = format(endOfISOWeek(now), 'yyyy-MM-dd')
+                // 從當天開始顯示日程，到本週末
+                const startDate = format(startOfDay(now), 'yyyy-MM-dd')
+                const endDate = format(endOfISOWeek(now), 'yyyy-MM-dd')
 
                 const res = await api.get<CalendarEvent[]>('/hr/calendar/events', {
-                    params: { start_date: startOfWeek, end_date: endOfWeek }
+                    params: { start_date: startDate, end_date: endDate }
                 })
                 return res.data
             } catch (err: unknown) {

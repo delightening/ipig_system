@@ -43,7 +43,7 @@ pub async fn get_purchase_lines_report(
     Ok(Json(report))
 }
 
-/// 取得銷售明細報表
+/// 取得銷貨明細報表
 pub async fn get_sales_lines_report(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,

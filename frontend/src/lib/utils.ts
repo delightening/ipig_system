@@ -74,21 +74,35 @@ export function formatUnitPrice(value: string | number): string {
 
 /**
  * 庫存單位代碼對照表（英文代碼 → 中文顯示）
+ * 涵蓋 CreateProductPage UNITS、編輯產品包裝單位及單據顯示用。
  */
 export const UOM_MAP: Record<string, string> = {
+  // 計數／個體
   'EA': '個',
+  'pcs': '個',
+  'PC': '支',
+  'PR': '雙',
+  // 藥品／劑型
   'TB': '錠',
   'CP': '膠囊',
   'BT': '瓶',
+  'AMP': '安瓿',
+  'VIA': '小瓶',
+  // 包裝
   'BX': '盒',
+  'BOX': '箱',
+  'CTN': '箱',
   'PK': '包',
+  'CASE': '件',
   'RL': '卷',
   'SET': '組',
-  'ML': 'mL',
-  'L': 'L',
+  // 重量
   'G': 'g',
   'KG': 'kg',
-  'pcs': '個',
+  'MG': 'mg',
+  // 體積／容量
+  'ML': 'mL',
+  'L': 'L',
 }
 
 /**

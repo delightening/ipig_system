@@ -585,4 +585,17 @@ mod tests {
     fn test_parse_sku_format_wrong_separator() {
         assert!(SkuService::parse_sku_format("ABC_XYZ_001").is_none());
     }
+
+    #[test]
+    fn test_parse_sku_format_leading_trailing_whitespace() {
+        // 格式解析不應接受前後空白
+        assert!(SkuService::parse_sku_format(" ABC-XYZ-001").is_none());
+        assert!(SkuService::parse_sku_format("ABC-XYZ-001 ").is_none());
+    }
+
+    #[test]
+    fn test_parse_sku_format_hyphen_in_segment() {
+        // 類別與子類別不應含額外連字號
+        assert!(SkuService::parse_sku_format("AB-C-XYZ-001").is_none());
+    }
 }

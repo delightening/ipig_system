@@ -16,6 +16,13 @@ use crate::{
 };
 
 /// 列出 SKU 分類清單
+#[utoipa::path(
+    get,
+    path = "/api/sku/categories",
+    responses((status = 200, description = "分類清單", body = CategoriesResponse)),
+    tag = "倉儲管理",
+    security(("bearer" = []))
+)]
 pub async fn get_sku_categories(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -27,6 +34,14 @@ pub async fn get_sku_categories(
 }
 
 /// 列出 SKU 子分類清單
+#[utoipa::path(
+    get,
+    path = "/api/sku/categories/{code}/subcategories",
+    params(("code" = String, Path, description = "分類代碼")),
+    responses((status = 200, description = "子分類清單", body = SubcategoriesResponse)),
+    tag = "倉儲管理",
+    security(("bearer" = []))
+)]
 pub async fn get_sku_subcategories(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -39,6 +54,14 @@ pub async fn get_sku_subcategories(
 }
 
 /// 產生 SKU
+#[utoipa::path(
+    post,
+    path = "/api/sku/generate",
+    request_body = GenerateSkuRequest,
+    responses((status = 200, description = "產生的 SKU", body = GenerateSkuResponse)),
+    tag = "倉儲管理",
+    security(("bearer" = []))
+)]
 pub async fn generate_sku(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -51,6 +74,14 @@ pub async fn generate_sku(
 }
 
 /// 驗證 SKU
+#[utoipa::path(
+    post,
+    path = "/api/sku/validate",
+    request_body = ValidateSkuRequest,
+    responses((status = 200, description = "驗證結果", body = ValidateSkuResponse)),
+    tag = "倉儲管理",
+    security(("bearer" = []))
+)]
 pub async fn validate_sku(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -63,6 +94,14 @@ pub async fn validate_sku(
 }
 
 /// 預覽 SKU
+#[utoipa::path(
+    post,
+    path = "/api/skus/preview",
+    request_body = SkuPreviewRequest,
+    responses((status = 200, description = "預覽結果", body = SkuPreviewResponse)),
+    tag = "倉儲管理",
+    security(("bearer" = []))
+)]
 pub async fn preview_sku(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -75,6 +114,14 @@ pub async fn preview_sku(
 }
 
 /// 建立產品並自動產生 SKU
+#[utoipa::path(
+    post,
+    path = "/api/products/with-sku",
+    request_body = CreateProductWithSkuRequest,
+    responses((status = 200, description = "建立成功", body = ProductWithUom)),
+    tag = "倉儲管理",
+    security(("bearer" = []))
+)]
 pub async fn create_product_with_sku(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,

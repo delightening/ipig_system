@@ -45,7 +45,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    port: 8080,
     host: '0.0.0.0', // Ensure it binds to all interfaces for Docker
     proxy: {
       // SSE 長連線需優先匹配，避免被 /api 的預設 timeout 影響

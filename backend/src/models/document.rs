@@ -17,9 +17,9 @@ pub enum DocType {
     GRN,
     /// 採購退貨 Purchase Return
     PR,
-    /// 銷售單 Sales Order
+    /// 銷貨單 Sales Order
     SO,
-    /// 銷售出庫 Delivery Order
+    /// 銷貨出庫 Delivery Order
     DO,
     /// 調撥單 Transfer
     TR,

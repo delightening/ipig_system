@@ -208,7 +208,7 @@
 | GET | `/reports/stock-on-hand` | 庫存報表 |
 | GET | `/reports/stock-ledger` | 異動報表 |
 | GET | `/reports/purchase-lines` | 採購明細 |
-| GET | `/reports/sales-lines` | 銷售明細 |
+| GET | `/reports/sales-lines` | 銷貨明細 |
 | GET | `/reports/cost-summary` | 成本分析 |
 | GET | `/reports/blood-test-cost` | 血檢成本報表 |
 | GET | `/reports/blood-test-analysis` | 血檢分析報表 |

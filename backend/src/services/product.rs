@@ -12,6 +12,9 @@ use crate::{
     AppError, Result,
 };
 
+/// 允許的產品狀態值（與 DB chk_product_status 一致）
+const ALLOWED_STATUSES: [&str; 3] = ["active", "inactive", "discontinued"];
+
 pub struct ProductService;
 
 impl ProductService {
@@ -29,20 +32,27 @@ impl ProductService {
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| "OTH".to_string());
 
-        // 生成 SKU
-        let sequence = Self::get_next_sequence(pool, &category_code, &subcategory_code).await?;
-        let sku = format!("{}-{}-{:03}", category_code, subcategory_code, sequence);
-
-        // 檢查 SKU 是否已存在（以防併發）
-        let exists: bool =
-            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM products WHERE sku = $1)")
-                .bind(&sku)
-                .fetch_one(pool)
-                .await?;
-
-        if exists {
-            return Err(AppError::Conflict("SKU already exists".to_string()));
-        }
+        // SKU：若請求有提供且非空則使用（並檢查唯一），否則自動生成
+        let sku = if let Some(s) = req.sku.as_deref().map(str::trim) {
+            if s.is_empty() {
+                let sequence =
+                    Self::get_next_sequence(pool, &category_code, &subcategory_code).await?;
+                format!("{}-{}-{:03}", category_code, subcategory_code, sequence)
+            } else {
+                let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM products WHERE sku = $1)")
+                    .bind(s)
+                    .fetch_one(pool)
+                    .await?;
+                if exists {
+                    return Err(AppError::Conflict("SKU already exists".to_string()));
+                }
+                s.to_string()
+            }
+        } else {
+            let sequence =
+                Self::get_next_sequence(pool, &category_code, &subcategory_code).await?;
+            format!("{}-{}-{:03}", category_code, subcategory_code, sequence)
+        };
 
         // 查詢類別名稱
         let category_name: Option<String> =
@@ -370,6 +380,37 @@ impl ProductService {
         Self::get_by_id(pool, id).await
     }
 
+    /// 僅更新產品狀態（啟用/停用/停產）
+    pub async fn update_status(
+        pool: &PgPool,
+        id: Uuid,
+        status: &str,
+    ) -> Result<ProductWithUom> {
+        let status = status.trim().to_lowercase();
+        if !ALLOWED_STATUSES.contains(&status.as_str()) {
+            return Err(AppError::Validation(format!(
+                "status 必須為: {}",
+                ALLOWED_STATUSES.join(", ")
+            )));
+        }
+        let is_active = status == "active";
+
+        let rows = sqlx::query(
+            "UPDATE products SET status = $1, is_active = $2, updated_at = NOW() WHERE id = $3",
+        )
+        .bind(&status)
+        .bind(is_active)
+        .bind(id)
+        .execute(pool)
+        .await?;
+
+        if rows.rows_affected() == 0 {
+            return Err(AppError::NotFound("Product not found".to_string()));
+        }
+
+        Self::get_by_id(pool, id).await
+    }
+
     /// 刪除產品（軟刪除）
     pub async fn delete(pool: &PgPool, id: Uuid) -> Result<()> {
         let result =
@@ -436,7 +477,7 @@ impl ProductService {
             ));
         }
 
-        let rows = if is_excel {
+        let (rows, has_sku_column) = if is_excel {
             Self::parse_product_excel(file_data)?
         } else {
             Self::parse_product_csv(file_data)?
@@ -507,16 +548,19 @@ impl ProductService {
             total_rows: rows.len() as i32,
             duplicate_count: duplicates.len() as i32,
             duplicates,
+            has_sku_column,
         })
     }
 
     /// 匯入產品（CSV 或 Excel）
     /// * `skip_duplicates`: 若為 true，名稱+規格與既有產品相同的列將略過不建立
+    /// * `regenerate_sku_for_duplicates`: 若為 true，名稱+規格與既有產品相同的列仍會建立，但 SKU 改由系統自動產生（忽略檔案內的 SKU）
     pub async fn import_products(
         pool: &PgPool,
         file_data: &[u8],
         file_name: &str,
         skip_duplicates: bool,
+        regenerate_sku_for_duplicates: bool,
     ) -> Result<ProductImportResult> {
         let is_excel = file_name.ends_with(".xlsx") || file_name.ends_with(".xls");
         let is_csv = file_name.ends_with(".csv");
@@ -527,7 +571,7 @@ impl ProductService {
             ));
         }
 
-        let rows = if is_excel {
+        let (rows, _has_sku_column) = if is_excel {
             Self::parse_product_excel(file_data)?
         } else {
             Self::parse_product_csv(file_data)?
@@ -604,6 +648,44 @@ impl ProductService {
                 }
             }
 
+            // 是否對本列使用自動產生 SKU（重複且選擇「更改流水號」時）
+            let use_auto_sku_for_this_row = if regenerate_sku_for_duplicates {
+                let name_trim = row.name.trim();
+                let spec_trim = row.spec.as_deref().map(|s| s.trim()).unwrap_or("");
+                let spec_normalized = if spec_trim.is_empty() { None } else { Some(spec_trim.to_string()) };
+                let exists: bool = if spec_normalized.is_none() {
+                    sqlx::query_scalar(
+                        r#"
+                        SELECT EXISTS(
+                            SELECT 1 FROM products
+                            WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))
+                              AND (spec IS NULL OR TRIM(COALESCE(spec, '')) = '')
+                        )
+                        "#,
+                    )
+                    .bind(name_trim)
+                    .fetch_one(pool)
+                    .await?
+                } else {
+                    sqlx::query_scalar(
+                        r#"
+                        SELECT EXISTS(
+                            SELECT 1 FROM products
+                            WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))
+                              AND LOWER(TRIM(COALESCE(spec, ''))) = LOWER(TRIM($2))
+                        )
+                        "#,
+                    )
+                    .bind(name_trim)
+                    .bind(spec_normalized.as_deref().unwrap_or(""))
+                    .fetch_one(pool)
+                    .await?
+                };
+                exists
+            } else {
+                false
+            };
+
             let category_code = row
                 .category_code
                 .as_deref()
@@ -618,6 +700,11 @@ impl ProductService {
                 .to_string();
 
             let create_req = CreateProductRequest {
+                sku: if use_auto_sku_for_this_row {
+                    None // 重複列且選擇「更改流水號」：由系統自動產生 SKU
+                } else {
+                    row.sku.clone().filter(|s| !s.trim().is_empty())
+                },
                 name: row.name.trim().to_string(),
                 spec: row.spec.clone().filter(|s| !s.trim().is_empty()),
                 category_code: Some(category_code),
@@ -663,36 +750,68 @@ impl ProductService {
         })
     }
 
-    fn parse_product_csv(file_data: &[u8]) -> Result<Vec<ProductImportRow>> {
+    /// 解析產品匯入 CSV，回傳 (列資料, 是否含 SKU 欄位)
+    fn parse_product_csv(file_data: &[u8]) -> Result<(Vec<ProductImportRow>, bool)> {
         let content = String::from_utf8_lossy(file_data);
         let mut reader = csv::ReaderBuilder::new()
             .trim(csv::Trim::All)
             .flexible(true)
             .from_reader(content.as_bytes());
 
+        let headers = reader
+            .headers()
+            .map_err(|e| AppError::Validation(format!("CSV 標題列讀取錯誤: {}", e)))?;
+        let has_sku_column = headers.len() >= 10
+            && headers
+                .get(0)
+                .map(|h| h.trim().to_uppercase().contains("SKU"))
+                .unwrap_or(false);
+
         let mut rows = Vec::new();
         for (i, result) in reader.records().enumerate() {
             let record = result.map_err(|e| AppError::Validation(format!("CSV 解析錯誤第 {} 行: {}", i + 2, e)))?;
-            if record.len() < 2 {
-                continue;
-            }
-            let name = record.get(0).unwrap_or("").to_string();
+            let (name_idx, spec_idx, cat_idx, subcat_idx, uom_idx, batch_idx, expiry_idx, stock_idx, remark_idx) = if has_sku_column {
+                if record.len() < 3 {
+                    continue;
+                }
+                (1, 2, 3, 4, 5, 6, 7, 8, 9)
+            } else {
+                if record.len() < 2 {
+                    continue;
+                }
+                (0, 1, 2, 3, 4, 5, 6, 7, 8)
+            };
+
+            let name = record.get(name_idx).unwrap_or("").to_string();
             if name.trim().is_empty() {
                 continue;
             }
-            let spec = record.get(1).filter(|s| !s.trim().is_empty()).map(String::from);
-            let category_code = record.get(2).filter(|s| !s.trim().is_empty()).map(String::from);
-            let subcategory_code = record.get(3).filter(|s| !s.trim().is_empty()).map(String::from);
-            let base_uom = record.get(4).unwrap_or("PCS").to_string();
-            let track_batch = Self::parse_bool(record.get(5).unwrap_or(""));
-            let track_expiry = Self::parse_bool(record.get(6).unwrap_or(""));
+            let sku = if has_sku_column {
+                record.get(0).and_then(|s| {
+                    let t = s.trim();
+                    if t.is_empty() {
+                        None
+                    } else {
+                        Some(t.to_string())
+                    }
+                })
+            } else {
+                None
+            };
+            let spec = record.get(spec_idx).filter(|s| !s.trim().is_empty()).map(String::from);
+            let category_code = record.get(cat_idx).filter(|s| !s.trim().is_empty()).map(String::from);
+            let subcategory_code = record.get(subcat_idx).filter(|s| !s.trim().is_empty()).map(String::from);
+            let base_uom = record.get(uom_idx).unwrap_or("PCS").to_string();
+            let track_batch = Self::parse_bool(record.get(batch_idx).unwrap_or(""));
+            let track_expiry = Self::parse_bool(record.get(expiry_idx).unwrap_or(""));
             let safety_stock = record
-                .get(7)
+                .get(stock_idx)
                 .and_then(|s| s.trim().parse::<f64>().ok())
                 .and_then(rust_decimal::Decimal::from_f64_retain);
-            let remark = record.get(8).filter(|s| !s.trim().is_empty()).map(String::from);
+            let remark = record.get(remark_idx).filter(|s| !s.trim().is_empty()).map(String::from);
 
             rows.push(ProductImportRow {
+                sku,
                 name,
                 spec,
                 category_code,
@@ -704,10 +823,11 @@ impl ProductService {
                 remark,
             });
         }
-        Ok(rows)
+        Ok((rows, has_sku_column))
     }
 
-    fn parse_product_excel(file_data: &[u8]) -> Result<Vec<ProductImportRow>> {
+    /// 解析產品匯入 Excel，回傳 (列資料, 是否含 SKU 欄位)
+    fn parse_product_excel(file_data: &[u8]) -> Result<(Vec<ProductImportRow>, bool)> {
         let range = {
             let cursor = Cursor::new(file_data);
             if let Ok(mut wb) = open_workbook_from_rs::<Xlsx<_>, _>(cursor) {
@@ -731,18 +851,36 @@ impl ProductService {
 
         let mut rows = Vec::new();
         let mut iter = range.rows();
-        iter.next(); // 跳過標題
+        let header_row = iter.next().ok_or_else(|| AppError::Validation("Excel 無標題列".to_string()))?;
+        let has_sku_column = header_row.len() >= 10
+            && Self::get_cell_string(header_row.get(0)).trim().to_uppercase().contains("SKU");
+
+        let (name_col, spec_col, cat_col, subcat_col, uom_col, batch_col, expiry_col, stock_col, remark_col) = if has_sku_column {
+            (1, 2, 3, 4, 5, 6, 7, 8, 9)
+        } else {
+            (0, 1, 2, 3, 4, 5, 6, 7, 8)
+        };
 
         for row in iter {
-            if row.len() < 2 {
+            if row.len() < if has_sku_column { 3 } else { 2 } {
                 continue;
             }
-            let name = Self::get_cell_string(row.first());
+            let name = Self::get_cell_string(row.get(name_col));
             if name.trim().is_empty() {
                 continue;
             }
+            let sku = if has_sku_column {
+                let s = Self::get_cell_string(row.get(0));
+                if s.trim().is_empty() {
+                    None
+                } else {
+                    Some(s.trim().to_string())
+                }
+            } else {
+                None
+            };
             let spec = {
-                let s = Self::get_cell_string(row.get(1));
+                let s = Self::get_cell_string(row.get(spec_col));
                 if s.is_empty() {
                     None
                 } else {
@@ -750,7 +888,7 @@ impl ProductService {
                 }
             };
             let category_code = {
-                let s = Self::get_cell_string(row.get(2));
+                let s = Self::get_cell_string(row.get(cat_col));
                 if s.is_empty() {
                     None
                 } else {
@@ -758,28 +896,28 @@ impl ProductService {
                 }
             };
             let subcategory_code = {
-                let s = Self::get_cell_string(row.get(3));
+                let s = Self::get_cell_string(row.get(subcat_col));
                 if s.is_empty() {
                     None
                 } else {
                     Some(s)
                 }
             };
-            let base_uom = Self::get_cell_string(row.get(4));
+            let base_uom = Self::get_cell_string(row.get(uom_col));
             let base_uom = if base_uom.is_empty() {
                 "PCS".to_string()
             } else {
                 base_uom
             };
-            let track_batch = Self::parse_bool(&Self::get_cell_string(row.get(5)));
-            let track_expiry = Self::parse_bool(&Self::get_cell_string(row.get(6)));
-            let safety_stock = row.get(7).and_then(|c| match c {
+            let track_batch = Self::parse_bool(&Self::get_cell_string(row.get(batch_col)));
+            let track_expiry = Self::parse_bool(&Self::get_cell_string(row.get(expiry_col)));
+            let safety_stock = row.get(stock_col).and_then(|c| match c {
                 Data::Float(f) => rust_decimal::Decimal::from_f64_retain(*f),
                 Data::Int(i) => rust_decimal::Decimal::from_f64_retain(*i as f64),
                 _ => None,
             });
             let remark = {
-                let s = Self::get_cell_string(row.get(8));
+                let s = Self::get_cell_string(row.get(remark_col));
                 if s.is_empty() {
                     None
                 } else {
@@ -788,6 +926,7 @@ impl ProductService {
             };
 
             rows.push(ProductImportRow {
+                sku,
                 name,
                 spec,
                 category_code,
@@ -799,7 +938,7 @@ impl ProductService {
                 remark,
             });
         }
-        Ok(rows)
+        Ok((rows, has_sku_column))
     }
 
     fn get_cell_string(cell: Option<&Data>) -> String {
@@ -831,35 +970,38 @@ impl ProductService {
             .set_align(FormatAlign::Center);
 
         let worksheet = workbook.add_worksheet();
-        worksheet.set_column_width(0, 25.0)?;
-        worksheet.set_column_width(1, 20.0)?;
-        worksheet.set_column_width(2, 12.0)?;
+        worksheet.set_column_width(0, 16.0)?;  // SKU編碼
+        worksheet.set_column_width(1, 25.0)?;
+        worksheet.set_column_width(2, 20.0)?;
         worksheet.set_column_width(3, 12.0)?;
-        worksheet.set_column_width(4, 10.0)?;
-        worksheet.set_column_width(5, 12.0)?;
+        worksheet.set_column_width(4, 12.0)?;
+        worksheet.set_column_width(5, 10.0)?;
         worksheet.set_column_width(6, 12.0)?;
         worksheet.set_column_width(7, 12.0)?;
-        worksheet.set_column_width(8, 30.0)?;
+        worksheet.set_column_width(8, 12.0)?;
+        worksheet.set_column_width(9, 30.0)?;
 
-        worksheet.write_string_with_format(0, 0, "名稱*", &header_format)?;
-        worksheet.write_string_with_format(0, 1, "規格", &header_format)?;
-        worksheet.write_string_with_format(0, 2, "品類代碼", &header_format)?;
-        worksheet.write_string_with_format(0, 3, "子類代碼", &header_format)?;
-        worksheet.write_string_with_format(0, 4, "單位*", &header_format)?;
-        worksheet.write_string_with_format(0, 5, "追蹤批號", &header_format)?;
-        worksheet.write_string_with_format(0, 6, "追蹤效期", &header_format)?;
-        worksheet.write_string_with_format(0, 7, "安全庫存", &header_format)?;
-        worksheet.write_string_with_format(0, 8, "備註", &header_format)?;
+        worksheet.write_string_with_format(0, 0, "SKU編碼", &header_format)?;
+        worksheet.write_string_with_format(0, 1, "名稱*", &header_format)?;
+        worksheet.write_string_with_format(0, 2, "規格", &header_format)?;
+        worksheet.write_string_with_format(0, 3, "品類代碼", &header_format)?;
+        worksheet.write_string_with_format(0, 4, "子類代碼", &header_format)?;
+        worksheet.write_string_with_format(0, 5, "單位*", &header_format)?;
+        worksheet.write_string_with_format(0, 6, "追蹤批號", &header_format)?;
+        worksheet.write_string_with_format(0, 7, "追蹤效期", &header_format)?;
+        worksheet.write_string_with_format(0, 8, "安全庫存", &header_format)?;
+        worksheet.write_string_with_format(0, 9, "備註", &header_format)?;
 
-        worksheet.write_string(1, 0, "範例產品")?;
-        worksheet.write_string(1, 1, "100ml/瓶")?;
-        worksheet.write_string(1, 2, "DRG")?;
-        worksheet.write_string(1, 3, "OTH")?;
-        worksheet.write_string(1, 4, "PCS")?;
-        worksheet.write_string(1, 5, "false")?;
+        worksheet.write_string(1, 0, "DRG-OTH-001")?;
+        worksheet.write_string(1, 1, "範例產品")?;
+        worksheet.write_string(1, 2, "100ml/瓶")?;
+        worksheet.write_string(1, 3, "DRG")?;
+        worksheet.write_string(1, 4, "OTH")?;
+        worksheet.write_string(1, 5, "PCS")?;
         worksheet.write_string(1, 6, "false")?;
-        worksheet.write_string(1, 7, "10")?;
-        worksheet.write_string(1, 8, "")?;
+        worksheet.write_string(1, 7, "false")?;
+        worksheet.write_string(1, 8, "10")?;
+        worksheet.write_string(1, 9, "")?;
 
         worksheet.set_freeze_panes(1, 0)?;
         Ok(workbook.save_to_buffer()?)

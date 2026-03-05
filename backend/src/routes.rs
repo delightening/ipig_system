@@ -1,6 +1,6 @@
 use axum::{
     middleware,
-    routing::{delete, get, post, put},
+    routing::{delete, get, patch, post, put},
     Router,
 };
 
@@ -161,6 +161,10 @@ pub fn api_routes(state: AppState) -> Router {
             get(handlers::get_product)
                 .put(handlers::update_product)
                 .delete(handlers::delete_product),
+        )
+        .route(
+            "/products/:id/status",
+            patch(handlers::update_product_status),
         )
         .route("/products/:id/delete", post(handlers::delete_product))
         .route(

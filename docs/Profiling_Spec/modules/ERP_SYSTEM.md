@@ -1,6 +1,6 @@
 # 進銷存系統規格 (iPig ERP)
 
-> **模組**：庫存、採購、銷售管理  
+> **模組**：庫存、採購、銷貨管理  
 > **版本**：7.0  
 > **最後更新**：2026-03-01
 
@@ -26,8 +26,8 @@ iPig ERP 負責管理系統中所有物資的進銷存作業：
 |------|------|
 | SYSTEM_ADMIN | 全權管理 |
 | WAREHOUSE_MANAGER | 入庫/出庫/盤點/調撥/採購/報表 |
-| ADMIN_STAFF | 基礎操作（查詢、建立銷售單） |
-| EXPERIMENT_STAFF | 建立銷售單、唯讀查詢庫存 |
+| ADMIN_STAFF | 基礎操作（查詢、建立銷貨單） |
+| EXPERIMENT_STAFF | 建立銷貨單、唯讀查詢庫存 |
 
 > 僅限內部人員（`is_internal = true`）存取
 
@@ -107,8 +107,8 @@ iPig ERP 負責管理系統中所有物資的進銷存作業：
 | PO | 採購單 | Purchase Order |
 | GRN | 採購入庫 | Goods Receipt Note |
 | PR | 採購退貨 | Purchase Return |
-| SO | 銷售單 | Sales Order（成本價從 stock_ledger 平均成本取得） |
-| DO | 銷售出庫 | Delivery Order |
+| SO | 銷貨單 | Sales Order（成本價從 stock_ledger 平均成本取得） |
+| DO | 銷貨出庫 | Delivery Order |
 | TR | 調撥單 | Transfer |
 | STK | 盤點單 | Stock Take |
 | ADJ | 調整單 | Adjustment |
@@ -123,7 +123,7 @@ iPig ERP 負責管理系統中所有物資的進銷存作業：
 | 庫存現況 | `StockOnHandReportPage` | 即時庫存 |
 | 庫存流水 | `StockLedgerReportPage` | 異動明細 |
 | 採購明細 | `PurchaseLinesReportPage` | 採購分析 |
-| 銷售明細 | `SalesLinesReportPage` | 銷售分析 |
+| 銷貨明細 | `SalesLinesReportPage` | 銷貨分析 |
 | 成本摘要 | `CostSummaryReportPage` | 成本統計 |
 | **血液檢查費用** | `BloodTestCostReportPage` | 專案+日期+實驗室篩選 |
 
@@ -169,7 +169,7 @@ iPig ERP 負責管理系統中所有物資的進銷存作業：
 | GET | `/reports/stock-on-hand` | 庫存現況報表 |
 | GET | `/reports/stock-ledger` | 異動報表 |
 | GET | `/reports/purchase-lines` | 採購明細 |
-| GET | `/reports/sales-lines` | 銷售明細 |
+| GET | `/reports/sales-lines` | 銷貨明細 |
 | GET | `/reports/cost-summary` | 成本分析 |
 | GET | `/reports/blood-test-cost` | 血檢成本報表 |
 

@@ -61,7 +61,7 @@ pub struct PurchaseLinesReport {
     pub approved_by_name: Option<String>,
 }
 
-/// 銷售明細報表
+/// 銷貨明細報表
 #[derive(Debug, FromRow, serde::Serialize)]
 pub struct SalesLinesReport {
     pub doc_date: NaiveDate,
@@ -275,7 +275,7 @@ impl ReportService {
         Ok(results)
     }
 
-    /// 銷售明細報表
+    /// 銷貨明細報表
     pub async fn sales_lines(pool: &PgPool, query: &ReportQuery) -> Result<Vec<SalesLinesReport>> {
         let mut qb = sqlx::QueryBuilder::new(
             r#"

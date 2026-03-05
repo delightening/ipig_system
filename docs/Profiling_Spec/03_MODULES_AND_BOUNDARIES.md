@@ -271,7 +271,7 @@ iPig 系統組織成獨立的有界上下文：
 
 ## 9. ERP 進銷存系統
 
-**目的**：產品、庫存、採購、銷售管理。
+**目的**：產品、庫存、採購、銷貨管理。
 
 | 元件 | 檔案路徑 | 說明 |
 |------|----------|------|
@@ -400,7 +400,7 @@ iPig 系統組織成獨立的有界上下文：
 
 ## 14. 報表系統
 
-**目的**：庫存、採購、銷售、成本、血檢報表。
+**目的**：庫存、採購、銷貨、成本、血檢報表。
 
 | 元件 | 檔案路徑 | 說明 |
 |------|----------|------|
@@ -413,7 +413,7 @@ iPig 系統組織成獨立的有界上下文：
 - `GET /reports/stock-on-hand` - 現有庫存
 - `GET /reports/stock-ledger` - 異動歷程
 - `GET /reports/purchase-lines` - 採購明細
-- `GET /reports/sales-lines` - 銷售明細
+- `GET /reports/sales-lines` - 銷貨明細
 - `GET /reports/cost-summary` - 成本分析
 - `GET /reports/blood-test-cost` - 血檢成本
 - `GET /reports/blood-test-analysis` - 血檢分析
@@ -475,7 +475,7 @@ iPig 系統組織成獨立的有界上下文：
 /reports/stock-on-hand           → 庫存報表
 /reports/stock-ledger            → 異動報表
 /reports/purchase-lines          → 採購報表
-/reports/sales-lines             → 銷售報表
+/reports/sales-lines             → 銷貨報表
 /reports/cost-summary            → 成本報表
 /reports/blood-test-cost         → 血檢成本
 /reports/blood-test-analysis     → 血檢分析
