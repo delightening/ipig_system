@@ -6,8 +6,8 @@ use uuid::Uuid;
 use crate::{
     models::{
         CreateCategoryRequest, CreateProductRequest, Product, ProductCategory, ProductImportErrorDetail,
-        ProductImportResult, ProductImportRow, ProductQuery, ProductUomConversion, ProductWithUom,
-        UpdateProductRequest,
+        ProductImportCheckResult, ProductImportDuplicateItem, ProductImportResult, ProductImportRow,
+        ProductQuery, ProductUomConversion, ProductWithUom, UpdateProductRequest,
     },
     AppError, Result,
 };
@@ -421,11 +421,102 @@ impl ProductService {
     // 產品匯入
     // ============================================
 
+    /// 匯入預檢：檢查名稱+規格是否與既有產品重複（規則一）
+    pub async fn check_import_duplicates(
+        pool: &PgPool,
+        file_data: &[u8],
+        file_name: &str,
+    ) -> Result<ProductImportCheckResult> {
+        let is_excel = file_name.ends_with(".xlsx") || file_name.ends_with(".xls");
+        let is_csv = file_name.ends_with(".csv");
+
+        if !is_excel && !is_csv {
+            return Err(AppError::Validation(
+                "不支援的檔案格式，請使用 Excel (.xlsx, .xls) 或 CSV 格式".to_string(),
+            ));
+        }
+
+        let rows = if is_excel {
+            Self::parse_product_excel(file_data)?
+        } else {
+            Self::parse_product_csv(file_data)?
+        };
+
+        if rows.is_empty() {
+            return Err(AppError::Validation("檔案中沒有資料".to_string()));
+        }
+
+        let mut duplicates = Vec::new();
+
+        for (index, row) in rows.iter().enumerate() {
+            let row_number = (index + 2) as i32;
+
+            if row.name.trim().is_empty() {
+                continue;
+            }
+
+            let name_trim = row.name.trim();
+            let spec_trim = row.spec.as_deref().map(|s| s.trim()).unwrap_or("");
+            let spec_normalized = if spec_trim.is_empty() { None } else { Some(spec_trim.to_string()) };
+
+            #[derive(sqlx::FromRow)]
+            struct ExistingRow {
+                id: Uuid,
+                sku: String,
+            }
+
+            let existing: Option<ExistingRow> = if spec_normalized.is_none() {
+                sqlx::query_as(
+                    r#"
+                    SELECT id, sku FROM products
+                    WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))
+                      AND (spec IS NULL OR TRIM(COALESCE(spec, '')) = '')
+                    LIMIT 1
+                    "#,
+                )
+                .bind(name_trim)
+                .fetch_optional(pool)
+                .await?
+            } else {
+                sqlx::query_as(
+                    r#"
+                    SELECT id, sku FROM products
+                    WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))
+                      AND LOWER(TRIM(COALESCE(spec, ''))) = LOWER(TRIM($2))
+                    LIMIT 1
+                    "#,
+                )
+                .bind(name_trim)
+                .bind(spec_normalized.as_deref().unwrap_or(""))
+                .fetch_optional(pool)
+                .await?
+            };
+
+            if let Some(existing) = existing {
+                duplicates.push(ProductImportDuplicateItem {
+                    row: row_number,
+                    name: row.name.trim().to_string(),
+                    spec: row.spec.clone().filter(|s| !s.trim().is_empty()),
+                    existing_sku: existing.sku,
+                    existing_id: existing.id,
+                });
+            }
+        }
+
+        Ok(ProductImportCheckResult {
+            total_rows: rows.len() as i32,
+            duplicate_count: duplicates.len() as i32,
+            duplicates,
+        })
+    }
+
     /// 匯入產品（CSV 或 Excel）
+    /// * `skip_duplicates`: 若為 true，名稱+規格與既有產品相同的列將略過不建立
     pub async fn import_products(
         pool: &PgPool,
         file_data: &[u8],
         file_name: &str,
+        skip_duplicates: bool,
     ) -> Result<ProductImportResult> {
         let is_excel = file_name.ends_with(".xlsx") || file_name.ends_with(".xls");
         let is_csv = file_name.ends_with(".csv");
@@ -471,6 +562,46 @@ impl ProductService {
                 });
                 error_count += 1;
                 continue;
+            }
+
+            // 規則一：若 skip_duplicates=true 且名稱+規格已存在，略過此列
+            if skip_duplicates {
+                let name_trim = row.name.trim();
+                let spec_trim = row.spec.as_deref().map(|s| s.trim()).unwrap_or("");
+                let spec_normalized = if spec_trim.is_empty() { None } else { Some(spec_trim.to_string()) };
+
+                let exists: bool = if spec_normalized.is_none() {
+                    sqlx::query_scalar(
+                        r#"
+                        SELECT EXISTS(
+                            SELECT 1 FROM products
+                            WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))
+                              AND (spec IS NULL OR TRIM(COALESCE(spec, '')) = '')
+                        )
+                        "#,
+                    )
+                    .bind(name_trim)
+                    .fetch_one(pool)
+                    .await?
+                } else {
+                    sqlx::query_scalar(
+                        r#"
+                        SELECT EXISTS(
+                            SELECT 1 FROM products
+                            WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))
+                              AND LOWER(TRIM(COALESCE(spec, ''))) = LOWER(TRIM($2))
+                        )
+                        "#,
+                    )
+                    .bind(name_trim)
+                    .bind(spec_normalized.as_deref().unwrap_or(""))
+                    .fetch_one(pool)
+                    .await?
+                };
+
+                if exists {
+                    continue; // 略過重複列
+                }
             }
 
             let category_code = row

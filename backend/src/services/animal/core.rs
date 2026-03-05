@@ -34,6 +34,7 @@ impl AnimalService {
             };
             qb.push(" AND p.breed = ");
             qb.push_bind(breed_str.to_string());
+            qb.push("::animal_breed");
         }
         if let Some(iacuc_no) = &query.iacuc_no {
             qb.push(" AND p.iacuc_no = ");

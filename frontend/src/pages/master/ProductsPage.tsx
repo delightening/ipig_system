@@ -38,8 +38,12 @@ import {
   Search,
   Loader2,
   Package,
-  MoreHorizontal,
+  Eye,
+  Pencil,
+  Copy,
+  Power,
   PowerOff,
+  Ban,
   Download,
   Upload,
   ChevronLeft,
@@ -564,7 +568,7 @@ export function ProductsPage() {
               >
                 狀態 <SortIndicator field="status" />
               </TableHead>
-              <TableHead className="w-[60px] text-right">操作</TableHead>
+              <TableHead className="w-[200px] text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -677,55 +681,76 @@ export function ProductsPage() {
                     {getStatusBadge(product)}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="relative inline-block">
-                      <select
-                        className="appearance-none bg-transparent border-0 cursor-pointer p-1 rounded hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring text-transparent w-8"
-                        aria-label={`產品 ${product.sku} 操作選單`}
-                        onChange={(e) => {
-                          const action = e.target.value
-                          e.target.value = ''
-                          switch (action) {
-                            case 'view':
-                              navigate(`/products/${product.id}`)
-                              break
-                            case 'edit':
-                              navigate(`/products/${product.id}/edit`)
-                              break
-                            case 'copy':
-                              navigate(`/products/new?copy=${product.id}`)
-                              break
-                            case 'activate':
-                              setTargetProduct(product)
-                              setStatusAction('activate')
-                              dialogs.open('status')
-                              break
-                            case 'deactivate':
-                              setTargetProduct(product)
-                              setStatusAction('deactivate')
-                              dialogs.open('status')
-                              break
-                            case 'discontinue':
-                              setTargetProduct(product)
-                              setStatusAction('discontinue')
-                              dialogs.open('status')
-                              break
-                          }
-                        }}
-                        title="操作選單"
+                    <div className="flex items-center justify-end gap-0.5" aria-label={`產品 ${product.sku} 操作`}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        title="檢視"
+                        onClick={() => navigate(`/products/${product.id}`)}
                       >
-                        <option value="">⋯</option>
-                        <option value="view">檢視</option>
-                        <option value="edit">編輯</option>
-                        <option value="copy">複製</option>
-                        <option disabled>───</option>
-                        {product.is_active ? (
-                          <option value="deactivate">停用</option>
-                        ) : (
-                          <option value="activate">啟用</option>
-                        )}
-                        <option value="discontinue">標記停產</option>
-                      </select>
-                      <MoreHorizontal className="absolute right-1 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" />
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        title="編輯"
+                        onClick={() => navigate(`/products/${product.id}/edit`)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        title="複製"
+                        onClick={() => navigate(`/products/new?copy=${product.id}`)}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      {product.is_active ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="停用"
+                          onClick={() => {
+                            setTargetProduct(product)
+                            setStatusAction('deactivate')
+                            dialogs.open('status')
+                          }}
+                        >
+                          <PowerOff className="h-4 w-4 text-destructive" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="啟用"
+                          onClick={() => {
+                            setTargetProduct(product)
+                            setStatusAction('activate')
+                            dialogs.open('status')
+                          }}
+                        >
+                          <Power className="h-4 w-4 text-green-600" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        title="標記停產"
+                        onClick={() => {
+                          setTargetProduct(product)
+                          setStatusAction('discontinue')
+                          dialogs.open('status')
+                        }}
+                      >
+                        <Ban className="h-4 w-4 text-muted-foreground" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>

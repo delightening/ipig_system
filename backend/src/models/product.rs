@@ -268,3 +268,21 @@ pub struct ProductImportResult {
     pub error_count: i32,
     pub errors: Vec<ProductImportErrorDetail>,
 }
+
+/// 匯入預檢：重複項目明細（名稱+規格與既有產品相同）
+#[derive(Debug, Serialize)]
+pub struct ProductImportDuplicateItem {
+    pub row: i32,
+    pub name: String,
+    pub spec: Option<String>,
+    pub existing_sku: String,
+    pub existing_id: Uuid,
+}
+
+/// 匯入預檢結果（規則一：名稱+規格重複警示）
+#[derive(Debug, Serialize)]
+pub struct ProductImportCheckResult {
+    pub total_rows: i32,
+    pub duplicate_count: i32,
+    pub duplicates: Vec<ProductImportDuplicateItem>,
+}

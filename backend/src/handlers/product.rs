@@ -12,8 +12,8 @@ use validator::Validate;
 use crate::{
     middleware::CurrentUser,
     models::{
-        CreateCategoryRequest, CreateProductRequest, Product, ProductCategory, ProductImportResult,
-        ProductQuery, ProductWithUom, UpdateProductRequest,
+        CreateCategoryRequest, CreateProductRequest, Product, ProductCategory, ProductImportCheckResult,
+        ProductImportResult, ProductQuery, ProductWithUom, UpdateProductRequest,
     },
     require_permission,
     services::{AuditService, ProductService},
@@ -147,6 +147,23 @@ pub async fn create_category(
     Ok(Json(category))
 }
 
+/// 匯入預檢：檢查名稱+規格是否與既有產品重複（規則一）
+pub async fn check_product_import_duplicates(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    mut multipart: Multipart,
+) -> Result<Json<ProductImportCheckResult>> {
+    require_permission!(current_user, "erp.product.create");
+
+    let (file_data, file_name, _) = parse_product_import_file(&mut multipart, false).await?;
+    if file_data.len() > 10 * 1024 * 1024 {
+        return Err(AppError::Validation("檔案大小不能超過 10MB".to_string()));
+    }
+
+    let result = ProductService::check_import_duplicates(&state.db, &file_data, &file_name).await?;
+    Ok(Json(result))
+}
+
 /// 匯入產品（CSV 或 Excel）
 pub async fn import_products(
     State(state): State<AppState>,
@@ -155,12 +172,14 @@ pub async fn import_products(
 ) -> Result<Json<ProductImportResult>> {
     require_permission!(current_user, "erp.product.create");
 
-    let (file_data, file_name) = parse_product_import_file(&mut multipart).await?;
+    let (file_data, file_name, skip_duplicates) =
+        parse_product_import_file(&mut multipart, true).await?;
     if file_data.len() > 10 * 1024 * 1024 {
         return Err(AppError::Validation("檔案大小不能超過 10MB".to_string()));
     }
 
-    let result = ProductService::import_products(&state.db, &file_data, &file_name).await?;
+    let result =
+        ProductService::import_products(&state.db, &file_data, &file_name, skip_duplicates).await?;
 
     if let Err(e) = AuditService::log_activity(
         &state.db,
@@ -206,26 +225,44 @@ pub async fn download_product_import_template() -> Result<Response> {
         .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))
 }
 
-async fn parse_product_import_file(multipart: &mut Multipart) -> Result<(Vec<u8>, String)> {
+/// 解析匯入請求。`parse_skip_duplicates` 為 true 時會讀取 form 欄位 skip_duplicates。
+async fn parse_product_import_file(
+    multipart: &mut Multipart,
+    parse_skip_duplicates: bool,
+) -> Result<(Vec<u8>, String, bool)> {
     let mut file_data: Option<Vec<u8>> = None;
     let mut file_name = String::from("unknown");
+    let mut skip_duplicates = false;
+
     while let Some(field) = multipart
         .next_field()
         .await
         .map_err(|e| AppError::Validation(format!("解析檔案欄位失敗: {}", e)))?
     {
-        if field.name() == Some("file") {
-            file_name = field
-                .file_name()
-                .map(String::from)
-                .unwrap_or_else(|| "unknown".to_string());
-            let data = field
-                .bytes()
-                .await
-                .map_err(|e| AppError::Validation(format!("讀取檔案資料失敗: {}", e)))?;
-            file_data = Some(data.to_vec());
+        match field.name() {
+            Some("file") => {
+                file_name = field
+                    .file_name()
+                    .map(String::from)
+                    .unwrap_or_else(|| "unknown".to_string());
+                let data = field
+                    .bytes()
+                    .await
+                    .map_err(|e| AppError::Validation(format!("讀取檔案資料失敗: {}", e)))?;
+                file_data = Some(data.to_vec());
+            }
+            Some("skip_duplicates") if parse_skip_duplicates => {
+                let bytes = field
+                    .bytes()
+                    .await
+                    .map_err(|e| AppError::Validation(format!("讀取欄位失敗: {}", e)))?;
+                let s = String::from_utf8_lossy(&bytes);
+                skip_duplicates = matches!(s.trim().to_lowercase().as_str(), "true" | "1" | "yes");
+            }
+            _ => {}
         }
     }
+
     let file_data = file_data.ok_or_else(|| AppError::Validation("未找到檔案".to_string()))?;
-    Ok((file_data, file_name))
+    Ok((file_data, file_name, skip_duplicates))
 }
