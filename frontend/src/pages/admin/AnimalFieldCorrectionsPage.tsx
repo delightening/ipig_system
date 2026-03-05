@@ -67,7 +67,7 @@ export function AnimalFieldCorrectionsPage() {
   const [rejectReason, setRejectReason] = useState('')
 
   const { data: pending, isLoading } = useQuery({
-    queryKey: ['admin-animal-field-corrections-pending'],
+    queryKey: ['animal-animal-field-corrections-pending'],
     queryFn: async () => {
       const res = await animalFieldCorrectionApi.listPending()
       return res.data
@@ -78,7 +78,7 @@ export function AnimalFieldCorrectionsPage() {
     mutationFn: (id: string) =>
       animalFieldCorrectionApi.review(id, { approved: true }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-animal-field-corrections-pending'] })
+      queryClient.invalidateQueries({ queryKey: ['animal-animal-field-corrections-pending'] })
       toast({ title: '成功', description: '已批准修正申請' })
     },
     onError: (err) => {
@@ -94,7 +94,7 @@ export function AnimalFieldCorrectionsPage() {
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       animalFieldCorrectionApi.review(id, { approved: false, reject_reason: reason }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-animal-field-corrections-pending'] })
+      queryClient.invalidateQueries({ queryKey: ['animal-animal-field-corrections-pending'] })
       setRejectDialog(null)
       setRejectReason('')
       toast({ title: '成功', description: '已拒絕修正申請' })

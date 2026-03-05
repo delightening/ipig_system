@@ -874,10 +874,39 @@ impl ProductService {
         headers.iter().position(|h| h.trim().to_lowercase() == key)
     }
 
-    /// 是否為「庫存清表／重構」格式：表頭含「品名」與「規格」（名稱與規格對應品名、規格欄）
+    /// 將「分類」欄的顯示名稱對應為品類代碼（耗材→CON、藥品→DRG 等）；已是代碼則回傳原值
+    fn map_category_display_to_code(s: &str) -> Option<String> {
+        let t = s.trim();
+        if t.is_empty() {
+            return None;
+        }
+        let normalized = t.to_uppercase();
+        // 已是 2–4 碼大寫代碼則視為品類代碼
+        if normalized.len() >= 2 && normalized.len() <= 4 && normalized.chars().all(|c| c.is_ascii_alphabetic()) {
+            return Some(normalized);
+        }
+        // 常見中文分類名稱對應
+        let mapping: &[(&str, &str)] = &[
+            ("耗材", "CON"),
+            ("藥品", "DRG"),
+            ("醫材", "MED"),
+            ("化學品", "CHM"),
+            ("設備", "EQP"),
+        ];
+        let lower = t.to_lowercase();
+        for (name, code) in mapping {
+            if lower.contains(&name.to_lowercase()) {
+                return Some((*code).to_string());
+            }
+        }
+        Some(t.to_string())
+    }
+
+    /// 是否為「庫存清表／重構」格式：表頭含「品名」或「名稱」，且含「規格」
     fn is_stocklist_format(headers: &csv::StringRecord) -> bool {
-        Self::csv_header_index(headers, "品名").is_some()
-            && Self::csv_header_index(headers, "規格").is_some()
+        let has_name = Self::csv_header_index(headers, "品名").is_some()
+            || Self::csv_header_index(headers, "名稱").is_some();
+        has_name && Self::csv_header_index(headers, "規格").is_some()
     }
 
     /// 解析產品匯入 CSV，回傳 (列資料, 是否含 SKU 欄位)
@@ -899,9 +928,11 @@ impl ProductService {
 
         let stocklist_format = Self::is_stocklist_format(headers);
         let (name_idx, spec_idx, cat_idx, subcat_idx, uom_idx, batch_idx, expiry_idx, stock_idx, remark_idx) = if stocklist_format {
-            let name_idx = Self::csv_header_index(headers, "品名").ok_or_else(|| {
-                AppError::Validation("庫存清表格式 CSV 需有「品名」欄位".to_string())
-            })?;
+            let name_idx = Self::csv_header_index(headers, "品名")
+                .or_else(|| Self::csv_header_index(headers, "名稱"))
+                .ok_or_else(|| {
+                    AppError::Validation("庫存清表格式 CSV 需有「品名」或「名稱」欄位".to_string())
+                })?;
             let spec_idx = Self::csv_header_index(headers, "規格").ok_or_else(|| {
                 AppError::Validation("庫存清表格式 CSV 需有「規格」欄位".to_string())
             })?;
@@ -909,11 +940,28 @@ impl ProductService {
             let remark_idx = Self::csv_header_index(headers, "製造廠商")
                 .or_else(|| Self::csv_header_index(headers, "包裝規格"))
                 .unwrap_or(0);
-            (name_idx, spec_idx, usize::MAX, usize::MAX, uom_idx, usize::MAX, usize::MAX, usize::MAX, remark_idx)
+            let cat_idx = Self::csv_header_index(headers, "品類代碼")
+                .or_else(|| Self::csv_header_index(headers, "分類"))
+                .unwrap_or(usize::MAX);
+            let subcat_idx = Self::csv_header_index(headers, "子類代碼").unwrap_or(usize::MAX);
+            (name_idx, spec_idx, cat_idx, subcat_idx, uom_idx, usize::MAX, usize::MAX, usize::MAX, remark_idx)
         } else if has_sku_column {
             (1, 2, 3, 4, 5, 6, 7, 8, 9)
         } else {
-            (0, 1, 2, 3, 4, 5, 6, 7, 8)
+            let name_idx = Self::csv_header_index(headers, "名稱")
+                .or_else(|| Self::csv_header_index(headers, "品名"))
+                .unwrap_or(0);
+            let spec_idx = Self::csv_header_index(headers, "規格").unwrap_or(1);
+            let cat_idx = Self::csv_header_index(headers, "品類代碼")
+                .or_else(|| Self::csv_header_index(headers, "分類"))
+                .unwrap_or(2);
+            let subcat_idx = Self::csv_header_index(headers, "子類代碼").unwrap_or(3);
+            let uom_idx = Self::csv_header_index(headers, "單位").unwrap_or(4);
+            let batch_idx = Self::csv_header_index(headers, "追蹤批號").unwrap_or(5);
+            let expiry_idx = Self::csv_header_index(headers, "追蹤效期").unwrap_or(6);
+            let stock_idx = Self::csv_header_index(headers, "安全庫存").unwrap_or(7);
+            let remark_idx = Self::csv_header_index(headers, "備註").unwrap_or(8);
+            (name_idx, spec_idx, cat_idx, subcat_idx, uom_idx, batch_idx, expiry_idx, stock_idx, remark_idx)
         };
 
         let mut rows = Vec::new();
@@ -944,7 +992,9 @@ impl ProductService {
             };
             let spec = record.get(spec_idx).filter(|s| !s.trim().is_empty()).map(String::from);
             let category_code = if cat_idx < record.len() {
-                record.get(cat_idx).filter(|s| !s.trim().is_empty()).map(String::from)
+                record
+                    .get(cat_idx)
+                    .and_then(|s| Self::map_category_display_to_code(s))
             } else {
                 None
             };

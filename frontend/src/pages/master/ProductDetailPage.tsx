@@ -29,27 +29,7 @@ import {
 } from 'lucide-react'
 import { formatDateTime, formatNumber, UOM_MAP } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
-
-// 品類定義
-const CATEGORIES: Record<string, string> = {
-  'DRG': '藥品',
-  'MED': '醫材',
-  'CON': '耗材',
-  'CHM': '化學品',
-  'EQP': '設備',
-  // 向後兼容：LAB 映射為耗材
-  'LAB': '耗材',
-}
-
-const SUBCATEGORIES: Record<string, Record<string, string>> = {
-  'DRG': { 'ABX': '抗生素', 'ANL': '止痛藥', 'VIT': '維生素', 'OTH': '其他藥品' },
-  'MED': { 'SYR': '注射器材', 'BND': '敷料繃帶', 'GLV': '手套', 'OTH': '其他醫材' },
-  'CON': { 'GLV': '手套', 'GAU': '紗布敷料', 'CLN': '清潔消毒', 'TAG': '標示耗材', 'LAB': '實驗耗材', 'OTH': '其他耗材' },
-  'CHM': { 'RGT': '試劑', 'SOL': '溶劑', 'STD': '標準品', 'OTH': '其他化學品' },
-  'EQP': { 'INS': '儀器', 'TOL': '工具', 'PRT': '零件', 'OTH': '其他設備' },
-  // 向後兼容：LAB 主分類的子分類映射到 CON
-  'LAB': { 'TUB': '試管', 'PIP': '吸管', 'PLT': '培養皿', 'OTH': '其他耗材' },
-}
+import { useSkuCategories } from '@/hooks/useSkuCategories'
 
 const STORAGE_CONDITIONS: Record<string, string> = {
   'RT': '常溫 (15-25°C)',
@@ -84,6 +64,7 @@ export function ProductDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { categories: skuCategories, subcategoriesByCategory } = useSkuCategories()
   const [activeTab, setActiveTab] = useState<TabType>('basic')
   const [statusDialogOpen, setStatusDialogOpen] = useState(false)
   const [statusAction, setStatusAction] = useState<'activate' | 'deactivate' | 'discontinue'>('activate')
@@ -141,21 +122,18 @@ export function ProductDetailPage() {
   const getCategoryName = () => {
     if (!product) return '-'
     if (product.category_name) return product.category_name
-    if (product.category_code) {
-      // LAB 主分類映射為耗材
-      const categoryCode = product.category_code === 'LAB' ? 'CON' : product.category_code
-      return CATEGORIES[categoryCode] || product.category_code
-    }
+    const categoryCode = product.category_code === 'LAB' ? 'CON' : product.category_code
+    if (categoryCode) return skuCategories.find((c) => c.code === categoryCode)?.name ?? product.category_code
     return '-'
   }
 
   const getSubcategoryName = () => {
     if (!product) return '-'
     if (product.subcategory_name) return product.subcategory_name
-    if (product.category_code && product.subcategory_code) {
-      // LAB 主分類映射為 CON，子分類保持不變
-      const categoryCode = product.category_code === 'LAB' ? 'CON' : product.category_code
-      return SUBCATEGORIES[categoryCode]?.[product.subcategory_code] || SUBCATEGORIES[product.category_code]?.[product.subcategory_code] || product.subcategory_code
+    const categoryCode = product.category_code === 'LAB' ? 'CON' : product.category_code
+    if (categoryCode && product.subcategory_code) {
+      const subs = subcategoriesByCategory[categoryCode] ?? []
+      return subs.find((s) => s.code === product.subcategory_code)?.name ?? product.subcategory_code
     }
     return '-'
   }

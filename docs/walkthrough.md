@@ -45,7 +45,7 @@
 ```
 Staff 發現資料錯誤 → 點擊「申請修正」→ 填寫欄位、新值、原因 → 提交
                                                               ↓
-Admin 登入 → 系統管理 → 動物欄位修正審核 → 檢視待審清單 → 批准 / 拒絕
+Admin 登入 → 實驗動物管理 → 動物欄位修正審核 → 檢視待審清單 → 批准 / 拒絕
                                                               ↓
 批准後 → 系統自動套用修正至動物資料
 ```
@@ -72,8 +72,8 @@ cargo sqlx migrate run
 |------|------|------|------|
 | POST | `/api/v1/animals/:id/field-corrections` | 建立修正申請 | `animal.animal.edit` |
 | GET | `/api/v1/animals/:id/field-corrections` | 查詢該動物申請列表 | `animal.animal.edit` |
-| GET | `/api/v1/admin/animal-field-corrections/pending` | 列出待審申請 | admin |
-| POST | `/api/v1/admin/animal-field-corrections/:id/review` | 批准/拒絕 | admin |
+| GET | `/api/v1/animal/animal-field-corrections/pending` | 列出待審申請 | admin |
+| POST | `/api/v1/animal/animal-field-corrections/:id/review` | 批准/拒絕 | admin |
 
 **建立申請 Request Body**：
 
@@ -102,7 +102,7 @@ cargo sqlx migrate run
 
 - **動物詳情頁**（動物資料 Tab）：右上角「申請修正」按鈕
 - **動物編輯頁**：標題列右側「申請修正（耳號/出生日期/性別/品種）」按鈕
-- **Admin 審核**：側欄「系統管理」→「動物欄位修正審核」
+- **Admin 審核**：側欄「實驗動物管理」→「動物欄位修正審核」
 
 ## 5. 注意事項
 

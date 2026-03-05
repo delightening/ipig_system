@@ -410,6 +410,7 @@ function DrugFormDialog({
                             onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
                             placeholder="例：Meloxicam"
                         />
+                        <p className="text-xs text-slate-500 mt-1">同一「藥物名稱＋分類」僅能有一筆啟用項目，重複時請改為編輯既有項目。</p>
                     </div>
                     <div>
                         <Label>顯示名稱</Label>

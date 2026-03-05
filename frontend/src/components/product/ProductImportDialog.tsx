@@ -23,6 +23,12 @@ import {
   AlertTriangle,
   Sparkles,
 } from 'lucide-react'
+import type {
+  SkuCategoryOption,
+  SkuCategoriesResponse,
+  SkuSubcategoriesResponse,
+  GenerateSkuResponse,
+} from '@/types/sku'
 
 interface ProductImportErrorDetail {
   row: number
@@ -75,28 +81,6 @@ interface ProductImportPreviewResult {
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
-}
-
-/** SKU 品類/子類選項（與新增產品分層一致） */
-interface SkuCategoryOption {
-  code: string
-  name: string
-}
-
-interface SkuCategoriesResponse {
-  categories: SkuCategoryOption[]
-}
-
-interface SkuSubcategoriesResponse {
-  category: SkuCategoryOption
-  subcategories: SkuCategoryOption[]
-}
-
-interface GenerateSkuResponse {
-  sku: string
-  category: SkuCategoryOption
-  subcategory: SkuCategoryOption
-  sequence: number
 }
 
 export function ProductImportDialog({ open, onOpenChange }: Props) {
@@ -214,9 +198,24 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
     onSuccess: (data) => {
       setPreviewRows(data.rows)
       setSkuOverrides({})
-      setRowCategoryCode({})
-      setRowSubcategoryCode({})
-      setCategorySubcategoryOverrides({})
+      const initialCat: Record<number, string> = {}
+      const initialSub: Record<number, string> = {}
+      const initialOverrides: Record<number, { category_code: string; subcategory_code: string }> = {}
+      data.rows.forEach((r) => {
+        if (r.category_code?.trim()) {
+          const cat = r.category_code.trim()
+          const sub = r.subcategory_code?.trim()
+          initialCat[r.row] = cat
+          if (sub) initialSub[r.row] = sub
+          initialOverrides[r.row] = {
+            category_code: cat,
+            subcategory_code: sub || 'OTH',
+          }
+        }
+      })
+      setRowCategoryCode(initialCat)
+      setRowSubcategoryCode(initialSub)
+      setCategorySubcategoryOverrides(initialOverrides)
     },
     onError: (error: unknown) => {
       toast({
