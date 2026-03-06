@@ -7,6 +7,8 @@ import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
 interface CalendarViewProps {
+    /** 要顯示的月份（由父層控制，避免點「下個月」後被舊資料或 re-render 拉回上個月） */
+    initialDate: Date
     events: Array<{
         id: string
         title: string
@@ -18,12 +20,13 @@ interface CalendarViewProps {
     onDatesSet: (dateInfo: { start: Date; end: Date }) => void
 }
 
-export function CalendarView({ events, onDatesSet }: CalendarViewProps) {
+export function CalendarView({ initialDate, events, onDatesSet }: CalendarViewProps) {
     return (
         <div className="calendar-wrapper">
             <FullCalendar
                 plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                 initialView="dayGridMonth"
+                initialDate={initialDate}
                 headerToolbar={{
                     left: 'prev,next today',
                     center: 'title',

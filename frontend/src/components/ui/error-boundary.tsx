@@ -27,15 +27,21 @@ interface ErrorBoundaryProps {
 interface ErrorBoundaryState {
     hasError: boolean
     error: Error | null
+    /** 自動重新整理倒數秒數，0 表示未啟動或已取消 */
+    refreshCountdown: number
 }
 
+const AUTO_REFRESH_SECONDS = 10
+
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+    private _countdownInterval: ReturnType<typeof setInterval> | null = null
+
     constructor(props: ErrorBoundaryProps) {
         super(props)
-        this.state = { hasError: false, error: null }
+        this.state = { hasError: false, error: null, refreshCountdown: 0 }
     }
 
-    static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
         return { hasError: true, error }
     }
 
@@ -43,8 +49,40 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         logger.error('[ErrorBoundary]', error, info.componentStack)
     }
 
+    componentDidUpdate(prevProps: ErrorBoundaryProps, prevState: ErrorBoundaryState) {
+        // 剛進入錯誤狀態時，啟動 10 秒倒數並自動重新整理
+        if (!prevState.hasError && this.state.hasError) {
+            this.setState({ refreshCountdown: AUTO_REFRESH_SECONDS })
+            this._countdownInterval = setInterval(() => {
+                this.setState((prev) => {
+                    const next = prev.refreshCountdown - 1
+                    if (next <= 0) {
+                        if (this._countdownInterval != null) {
+                            clearInterval(this._countdownInterval)
+                            this._countdownInterval = null
+                        }
+                        window.location.reload()
+                        return prev
+                    }
+                    return { ...prev, refreshCountdown: next }
+                })
+            }, 1000)
+        }
+    }
+
+    componentWillUnmount() {
+        if (this._countdownInterval != null) {
+            clearInterval(this._countdownInterval)
+            this._countdownInterval = null
+        }
+    }
+
     handleRetry = () => {
-        this.setState({ hasError: false, error: null })
+        if (this._countdownInterval != null) {
+            clearInterval(this._countdownInterval)
+            this._countdownInterval = null
+        }
+        this.setState({ hasError: false, error: null, refreshCountdown: 0 })
     }
 
     render() {
@@ -52,6 +90,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             if (this.props.fallback) {
                 return this.props.fallback
             }
+
+            const { refreshCountdown } = this.state
 
             return (
                 <div className="flex min-h-[300px] flex-col items-center justify-center gap-4 rounded-lg border bg-background p-8 text-center">
@@ -61,13 +101,18 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                         <p className="text-sm text-muted-foreground max-w-md">
                             {this.state.error?.message || '頁面發生未預期的錯誤，請重試或聯繫管理者。'}
                         </p>
+                        {refreshCountdown > 0 && (
+                            <p className="text-sm text-muted-foreground">
+                                {refreshCountdown} 秒後自動重新整理…
+                            </p>
+                        )}
                     </div>
                     <button
                         onClick={this.handleRetry}
                         className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
                     >
                         <RefreshCw className="h-4 w-4" />
-                        重試
+                        立即重試
                     </button>
                 </div>
             )

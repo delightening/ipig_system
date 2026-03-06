@@ -497,6 +497,60 @@ impl ProductService {
         Ok(())
     }
 
+    /// 硬刪除產品（僅在無單據、庫存、藥物選單關聯時允許；僅供 admin 使用）
+    pub async fn hard_delete(pool: &PgPool, id: Uuid) -> Result<()> {
+        let exists: bool =
+            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM products WHERE id = $1)")
+                .bind(id)
+                .fetch_one(pool)
+                .await?;
+        if !exists {
+            return Err(AppError::NotFound("Product not found".to_string()));
+        }
+
+        let doc_lines: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM document_lines WHERE product_id = $1")
+            .bind(id)
+            .fetch_one(pool)
+            .await?;
+        let ledger: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM stock_ledger WHERE product_id = $1")
+            .bind(id)
+            .fetch_one(pool)
+            .await?;
+        let snapshots: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM inventory_snapshots WHERE product_id = $1")
+            .bind(id)
+            .fetch_one(pool)
+            .await?;
+        let sl_inv: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM storage_location_inventory WHERE product_id = $1")
+            .bind(id)
+            .fetch_one(pool)
+            .await?;
+        let drug_refs: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM treatment_drug_options WHERE erp_product_id = $1")
+            .bind(id)
+            .fetch_one(pool)
+            .await?;
+
+        if doc_lines > 0 || ledger > 0 || snapshots > 0 || sl_inv > 0 || drug_refs > 0 {
+            return Err(AppError::BusinessRule(
+                "此產品已有單據、庫存或藥物選單關聯，無法硬刪除".to_string(),
+            ));
+        }
+
+        sqlx::query("DELETE FROM product_uom_conversions WHERE product_id = $1")
+            .bind(id)
+            .execute(pool)
+            .await?;
+        let result = sqlx::query("DELETE FROM products WHERE id = $1")
+            .bind(id)
+            .execute(pool)
+            .await?;
+
+        if result.rows_affected() == 0 {
+            return Err(AppError::NotFound("Product not found".to_string()));
+        }
+
+        Ok(())
+    }
+
     /// 取得產品類別列表
     pub async fn list_categories(pool: &PgPool) -> Result<Vec<ProductCategory>> {
         let categories =

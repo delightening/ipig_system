@@ -176,7 +176,7 @@ pub async fn update_product_status(
     Ok(Json(product))
 }
 
-/// 刪除產品
+/// 刪除產品（軟刪除）
 #[utoipa::path(
     delete,
     path = "/api/products/{id}",
@@ -203,9 +203,60 @@ pub async fn delete_product(
     ).await {
         tracing::error!("寫入審計日誌失敗 (PRODUCT_DELETE): {}", e);
     }
-    
+
     ProductService::delete(&state.db, id).await?;
     Ok(Json(serde_json::json!({ "message": "Product deleted successfully" })))
+}
+
+/// 硬刪除產品（僅 admin；無單據/庫存/藥物關聯時才可執行）
+#[utoipa::path(
+    post,
+    path = "/api/products/{id}/hard-delete",
+    params(("id" = Uuid, Path, description = "產品 ID")),
+    responses(
+        (status = 200, description = "硬刪除成功"),
+        (status = 401, description = "未認證", body = ErrorResponse),
+        (status = 403, description = "僅管理員可執行硬刪除", body = ErrorResponse),
+        (status = 404, description = "找不到產品", body = ErrorResponse),
+        (status = 409, description = "產品有關聯資料無法硬刪除", body = ErrorResponse),
+    ),
+    tag = "產品管理",
+    security(("bearer" = []))
+)]
+pub async fn hard_delete_product(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<serde_json::Value>> {
+    if !current_user.is_admin() {
+        return Err(AppError::Forbidden("僅管理員可執行產品硬刪除".into()));
+    }
+
+    let product_name: Option<String> = sqlx::query_scalar("SELECT name FROM products WHERE id = $1")
+        .bind(id)
+        .fetch_optional(&state.db)
+        .await?;
+
+    if let Err(e) = AuditService::log_activity(
+        &state.db,
+        current_user.id,
+        "ERP",
+        "PRODUCT_HARD_DELETE",
+        Some("product"),
+        Some(id),
+        product_name.as_deref(),
+        None,
+        Some(serde_json::json!({ "action": "hard_delete" })),
+        None,
+        None,
+    )
+    .await
+    {
+        tracing::error!("寫入審計日誌失敗 (PRODUCT_HARD_DELETE): {}", e);
+    }
+
+    ProductService::hard_delete(&state.db, id).await?;
+    Ok(Json(serde_json::json!({ "message": "Product hard deleted successfully" })))
 }
 
 /// 列出所有產品分類

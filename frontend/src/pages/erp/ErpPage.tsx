@@ -20,6 +20,8 @@ import {
     Wrench,
 } from 'lucide-react'
 import { EquipmentPage } from '@/pages/admin/EquipmentPage'
+import { ProductsPage } from '@/pages/master/ProductsPage'
+import { PartnersPage } from '@/pages/master/PartnersPage'
 
 // 定義 ERP 子模組
 interface ErpModule {
@@ -40,6 +42,13 @@ interface ErpModule {
 }
 
 const erpModules: ErpModule[] = [
+    {
+        id: 'products',
+        title: '產品管理',
+        icon: <Package className="h-5 w-5" />,
+        description: '管理產品資料',
+        items: [],
+    },
     {
         id: 'purchasing',
         title: '採購管理',
@@ -194,32 +203,11 @@ const erpModules: ErpModule[] = [
         ],
     },
     {
-        id: 'products',
-        title: '產品管理',
-        icon: <Package className="h-5 w-5" />,
-        description: '管理產品資料',
-        items: [
-            {
-                title: '產品管理',
-                href: '/products',
-                icon: <Package className="h-4 w-4" />,
-                description: '管理產品資料',
-            },
-        ],
-    },
-    {
         id: 'partners',
         title: '供應商/客戶',
         icon: <Users className="h-5 w-5" />,
         description: '管理供應商與客戶',
-        items: [
-            {
-                title: '供應商/客戶',
-                href: '/partners',
-                icon: <Users className="h-4 w-4" />,
-                description: '管理供應商與客戶',
-            },
-        ],
+        items: [],
     },
 ]
 
@@ -228,8 +216,8 @@ export function ErpPage() {
     const [searchParams, setSearchParams] = useSearchParams()
     const { hasRole, user } = useAuthStore()
 
-    // 從 URL 取得當前 tab，預設為第一個模組 'purchasing'
-    const currentTab = searchParams.get('tab') || 'purchasing'
+    // 從 URL 取得當前 tab，預設為第一個模組 'products'
+    const currentTab = searchParams.get('tab') || 'products'
 
     // 根據權限過濾模組
     const filteredModules = useMemo(() => {
@@ -294,6 +282,10 @@ export function ErpPage() {
             {currentModule ? (
                 currentTab === 'equipment' ? (
                     <EquipmentPage />
+                ) : currentTab === 'products' ? (
+                    <ProductsPage />
+                ) : currentTab === 'partners' ? (
+                    <PartnersPage />
                 ) : (
                 <div className="space-y-6">
                     {/* 功能列表（無說明欄位） */}

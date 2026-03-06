@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
@@ -68,6 +68,8 @@ export function CalendarSyncSettingsPage() {
     const queryClient = useQueryClient()
     const { user, hasRole } = useAuthStore()
     const isAdmin = hasRole('admin')
+    // 延後掛載 FullCalendar，避免載入時同步 reflow 造成 Violation（message/setTimeout handler、forced reflow）
+    const [calendarMounted, setCalendarMounted] = useState(false)
 
     // 當打開連接對話框時，預設授權 Email 為當前用戶的 Email
     useEffect(() => {
@@ -117,27 +119,53 @@ export function CalendarSyncSettingsPage() {
         enabled: activeTab === 'calendar' && syncStatus?.is_configured === true,
     })
 
-    // FullCalendar 日期範圍變更處理
-    const handleDatesSet = useCallback((dateInfo: { start: Date; end: Date }) => {
-        setCalendarDateRange({
-            start: dateInfo.start,
-            end: dateInfo.end,
+    // 日曆已連接且切到日曆分頁時掛載 FullCalendar；有快取事件時即使 refetch 也保持掛載，避免切月後被卸載又重掛成「本月」
+    const shouldShowCalendar = activeTab === 'calendar' && syncStatus?.is_configured === true && (calendarEvents != null || !loadingEvents)
+    useEffect(() => {
+        if (!shouldShowCalendar) {
+            setCalendarMounted(false)
+            return
+        }
+        let secondId: number | undefined
+        const firstId = requestAnimationFrame(() => {
+            secondId = requestAnimationFrame(() => {
+                setCalendarMounted(true)
+            })
         })
-    }, [])
+        return () => {
+            cancelAnimationFrame(firstId)
+            if (typeof secondId === 'number') cancelAnimationFrame(secondId)
+        }
+    }, [shouldShowCalendar])
 
-    // 轉換事件為 FullCalendar 格式
-    const fullCalendarEvents = calendarEvents?.map(event => ({
-        id: event.id,
-        title: event.summary,
-        start: event.start,
-        end: event.end,
-        allDay: event.all_day,
-        extendedProps: {
-            description: event.description,
-            location: event.location,
-            htmlLink: event.html_link,
-        },
-    })) || []
+    // FullCalendar 日期範圍變更處理。refetch 中若收到較舊的範圍（例如因舊事件觸發的 datesSet），忽略以免視圖被拉回上個月。
+    const handleDatesSet = useCallback((dateInfo: { start: Date; end: Date }) => {
+        setCalendarDateRange((prev) => {
+            const newStart = dateInfo.start.getTime()
+            const prevStart = prev.start.getTime()
+            if (newStart === prevStart) return prev
+            if (loadingEvents && newStart < prevStart) return prev
+            return { start: dateInfo.start, end: dateInfo.end }
+        })
+    }, [loadingEvents])
+
+    // 轉換事件為 FullCalendar 格式。refetch 時不傳舊月份事件（loadingEvents 時 React Query 仍回傳上一筆），
+    // 避免 FullCalendar 依事件範圍觸發 datesSet 把視圖拉回舊月，造成「下個月」點一次進、點一次退」的交替問題。
+    const fullCalendarEvents = useMemo(() => {
+        if (loadingEvents) return []
+        return calendarEvents?.map(event => ({
+            id: event.id,
+            title: event.summary,
+            start: event.start,
+            end: event.end,
+            allDay: event.all_day,
+            extendedProps: {
+                description: event.description,
+                location: event.location,
+                htmlLink: event.html_link,
+            },
+        })) ?? []
+    }, [loadingEvents, calendarEvents])
 
     // 連接日曆
     const connectMutation = useMutation({
@@ -389,10 +417,15 @@ export function CalendarSyncSettingsPage() {
                                         )}
                                     </div>
                                 </div>
-                            ) : loadingEvents ? (
+                            ) : loadingEvents && calendarEvents == null ? (
                                 <div className="flex flex-col items-center justify-center py-12 gap-4">
                                     <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
                                     <div className="text-sm text-muted-foreground">載入事件中...</div>
+                                </div>
+                            ) : !calendarMounted ? (
+                                <div className="flex flex-col items-center justify-center py-12 gap-4">
+                                    <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+                                    <div className="text-sm text-muted-foreground">載入日曆中...</div>
                                 </div>
                             ) : (
                                 <ErrorBoundary
@@ -420,6 +453,8 @@ export function CalendarSyncSettingsPage() {
                                         }
                                     >
                                         <CalendarView
+                                            key={format(calendarDateRange.start, 'yyyy-MM')}
+                                            initialDate={calendarDateRange.start}
                                             events={fullCalendarEvents}
                                             onDatesSet={handleDatesSet}
                                         />
