@@ -56,10 +56,12 @@ import {
   Check,
   Tags,
   ClipboardCopy,
+  FolderEdit,
 } from 'lucide-react'
 import { formatNumber, cn, UOM_MAP } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
 import { ProductImportDialog } from '@/components/product/ProductImportDialog'
+import { EditCategoriesDialog } from '@/components/product/EditCategoriesDialog'
 import { useSkuCategories } from '@/hooks/useSkuCategories'
 import type { CategoryOption } from './hooks/useProductListState'
 
@@ -118,7 +120,7 @@ export function ProductsPage() {
   const selection = useSelection<string>()
 
   // 對話框狀態
-  const dialogs = useDialogSet(['status', 'batchStatus', 'import'] as const)
+  const dialogs = useDialogSet(['status', 'batchStatus', 'import', 'editCategories'] as const)
   const [statusAction, setStatusAction] = useState<'activate' | 'deactivate' | 'discontinue'>('activate')
   const [targetProduct, setTargetProduct] = useState<ExtendedProduct | null>(null)
 
@@ -268,6 +270,10 @@ export function ProductsPage() {
           <p className="text-muted-foreground">管理系統中的產品/品項資料</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => dialogs.open('editCategories')}>
+            <FolderEdit className="mr-2 h-4 w-4" />
+            編輯分類
+          </Button>
           <Button variant="outline" size="sm" onClick={() => dialogs.open('import')}>
             <Upload className="mr-2 h-4 w-4" />
             匯入
@@ -901,6 +907,7 @@ export function ProductsPage() {
 
       {/* 產品匯入對話框 */}
       <ProductImportDialog open={dialogs.isOpen('import')} onOpenChange={dialogs.setOpen('import')} />
+      <EditCategoriesDialog open={dialogs.isOpen('editCategories')} onOpenChange={dialogs.setOpen('editCategories')} />
     </div>
   )
 }

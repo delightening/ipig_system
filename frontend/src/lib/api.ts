@@ -119,8 +119,8 @@ api.interceptors.response.use(
 
         // Reset session expiry timer after successful refresh
         try {
-          const { useAuthStore } = await import('@/stores/auth')
-          useAuthStore.getState().sessionExpiresAt = Date.now() + 6 * 60 * 60 * 1000
+          const { useAuthStore, SESSION_TIMEOUT_MS } = await import('@/stores/auth')
+          useAuthStore.getState().sessionExpiresAt = Date.now() + SESSION_TIMEOUT_MS
         } catch { /* non-critical */ }
 
         isRefreshing = false

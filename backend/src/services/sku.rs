@@ -4,10 +4,11 @@ use uuid::Uuid;
 
 use crate::{
     models::{
-        CategoriesResponse, CategoryOption, CreateProductWithSkuRequest, GenerateSkuRequest,
+        CategoriesResponse, CategoriesTreeResponse, CategoryForEdit, CategoryOption,
+        CreateProductWithSkuRequest, CreateSkuSubcategoryRequest, GenerateSkuRequest,
         GenerateSkuResponse, Product, ProductWithUom, SkuCategory, SkuPreviewRequest,
-        SkuPreviewResponse, SkuSegment, SkuSubcategory, SubcategoriesResponse, ValidateSkuRequest,
-        ValidateSkuResponse,
+        SkuPreviewResponse, SkuSegment, SkuSubcategory, SubcategoriesResponse, SubcategoryForEdit,
+        UpdateSkuCategoryRequest, UpdateSkuSubcategoryRequest, ValidateSkuRequest, ValidateSkuResponse,
     },
     AppError, Result,
 };
@@ -66,6 +67,226 @@ impl SkuService {
                 })
                 .collect(),
         })
+    }
+
+    /// 取得完整品類樹（含停用項）供編輯分類使用
+    pub async fn get_categories_tree(pool: &PgPool) -> Result<CategoriesTreeResponse> {
+        let categories: Vec<SkuCategory> = sqlx::query_as(
+            "SELECT code, name, sort_order, is_active, created_at FROM sku_categories ORDER BY sort_order, code",
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let mut result = Vec::with_capacity(categories.len());
+        for cat in categories {
+            let subcategories: Vec<SkuSubcategory> = sqlx::query_as(
+                "SELECT id, category_code, code, name, sort_order, is_active, created_at FROM sku_subcategories WHERE category_code = $1 ORDER BY sort_order, code",
+            )
+            .bind(&cat.code)
+            .fetch_all(pool)
+            .await?;
+
+            result.push(CategoryForEdit {
+                code: cat.code,
+                name: cat.name,
+                sort_order: cat.sort_order,
+                is_active: cat.is_active,
+                subcategories: subcategories
+                    .into_iter()
+                    .map(|s| SubcategoryForEdit {
+                        id: s.id,
+                        code: s.code,
+                        name: s.name,
+                        sort_order: s.sort_order,
+                        is_active: s.is_active,
+                    })
+                    .collect(),
+            });
+        }
+
+        Ok(CategoriesTreeResponse {
+            categories: result,
+        })
+    }
+
+    /// 品類／子類名稱最大長度（與 DB VARCHAR(50) 一致）
+    const NAME_MAX_LEN: usize = 50;
+    /// 排序值合理範圍
+    const SORT_ORDER_MIN: i32 = 0;
+    const SORT_ORDER_MAX: i32 = 9999;
+
+    /// 更新品類（名稱、排序、啟用狀態）
+    pub async fn update_category(
+        pool: &PgPool,
+        code: &str,
+        req: &UpdateSkuCategoryRequest,
+    ) -> Result<SkuCategory> {
+        let current = Self::get_category_by_code(pool, code).await?;
+        let name = req.name.as_deref().unwrap_or(&current.name);
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(AppError::Validation("品類名稱為必填".to_string()));
+        }
+        if name.len() > Self::NAME_MAX_LEN {
+            return Err(AppError::Validation(format!(
+                "品類名稱不可超過 {} 字元",
+                Self::NAME_MAX_LEN
+            )));
+        }
+        let sort_order = req.sort_order.unwrap_or(current.sort_order);
+        if sort_order < Self::SORT_ORDER_MIN || sort_order > Self::SORT_ORDER_MAX {
+            return Err(AppError::Validation(format!(
+                "排序請介於 {} 與 {} 之間",
+                Self::SORT_ORDER_MIN,
+                Self::SORT_ORDER_MAX
+            )));
+        }
+        let is_active = req.is_active.unwrap_or(current.is_active);
+
+        let row: SkuCategory = sqlx::query_as(
+            "UPDATE sku_categories SET name = $1, sort_order = $2, is_active = $3 WHERE code = $4 RETURNING code, name, sort_order, is_active, created_at",
+        )
+        .bind(name)
+        .bind(sort_order)
+        .bind(is_active)
+        .bind(code)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Category not found".to_string()))?;
+        Ok(row)
+    }
+
+    /// 取得單一品類（含停用）
+    pub async fn get_category_by_code(pool: &PgPool, code: &str) -> Result<SkuCategory> {
+        let category: SkuCategory = sqlx::query_as(
+            "SELECT code, name, sort_order, is_active, created_at FROM sku_categories WHERE code = $1",
+        )
+        .bind(code)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Category not found".to_string()))?;
+        Ok(category)
+    }
+
+    /// 更新子類（名稱、排序、啟用狀態）
+    pub async fn update_subcategory(
+        pool: &PgPool,
+        category_code: &str,
+        code: &str,
+        req: &UpdateSkuSubcategoryRequest,
+    ) -> Result<SkuSubcategory> {
+        let current = Self::get_subcategory_by_codes(pool, category_code, code).await?;
+        let name = req.name.as_deref().unwrap_or(&current.name);
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(AppError::Validation("子類名稱為必填".to_string()));
+        }
+        if name.len() > Self::NAME_MAX_LEN {
+            return Err(AppError::Validation(format!(
+                "子類名稱不可超過 {} 字元",
+                Self::NAME_MAX_LEN
+            )));
+        }
+        let sort_order = req.sort_order.unwrap_or(current.sort_order);
+        if sort_order < Self::SORT_ORDER_MIN || sort_order > Self::SORT_ORDER_MAX {
+            return Err(AppError::Validation(format!(
+                "排序請介於 {} 與 {} 之間",
+                Self::SORT_ORDER_MIN,
+                Self::SORT_ORDER_MAX
+            )));
+        }
+        let is_active = req.is_active.unwrap_or(current.is_active);
+
+        let row: SkuSubcategory = sqlx::query_as(
+            "UPDATE sku_subcategories SET name = $1, sort_order = $2, is_active = $3 WHERE category_code = $4 AND code = $5 RETURNING id, category_code, code, name, sort_order, is_active, created_at",
+        )
+        .bind(name)
+        .bind(sort_order)
+        .bind(is_active)
+        .bind(category_code)
+        .bind(code)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Subcategory not found".to_string()))?;
+        Ok(row)
+    }
+
+    /// 取得單一子類（含停用）
+    pub async fn get_subcategory_by_codes(
+        pool: &PgPool,
+        category_code: &str,
+        code: &str,
+    ) -> Result<SkuSubcategory> {
+        let sub: SkuSubcategory = sqlx::query_as(
+            "SELECT id, category_code, code, name, sort_order, is_active, created_at FROM sku_subcategories WHERE category_code = $1 AND code = $2",
+        )
+        .bind(category_code)
+        .bind(code)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Subcategory not found".to_string()))?;
+        Ok(sub)
+    }
+
+    /// 新增子類
+    pub async fn create_subcategory(
+        pool: &PgPool,
+        category_code: &str,
+        req: &CreateSkuSubcategoryRequest,
+    ) -> Result<SkuSubcategory> {
+        // 品類必須存在
+        Self::get_category_by_code(pool, category_code).await?;
+
+        let code = req.code.trim().to_uppercase();
+        if code.len() != 3 {
+            return Err(AppError::Validation("子類代碼須為 3 碼".to_string()));
+        }
+        if !code.chars().all(|c| c.is_ascii_alphanumeric()) {
+            return Err(AppError::Validation("子類代碼僅可為英文或數字".to_string()));
+        }
+
+        let name = req.name.trim();
+        if name.is_empty() {
+            return Err(AppError::Validation("子類名稱為必填".to_string()));
+        }
+        if name.len() > Self::NAME_MAX_LEN {
+            return Err(AppError::Validation(format!(
+                "子類名稱不可超過 {} 字元",
+                Self::NAME_MAX_LEN
+            )));
+        }
+
+        let sort_order = req.sort_order.unwrap_or(0);
+        if sort_order < Self::SORT_ORDER_MIN || sort_order > Self::SORT_ORDER_MAX {
+            return Err(AppError::Validation(format!(
+                "排序請介於 {} 與 {} 之間",
+                Self::SORT_ORDER_MIN,
+                Self::SORT_ORDER_MAX
+            )));
+        }
+        let is_active = req.is_active.unwrap_or(true);
+
+        let row: SkuSubcategory = sqlx::query_as(
+            "INSERT INTO sku_subcategories (category_code, code, name, sort_order, is_active, created_at)
+             VALUES ($1, $2, $3, $4, $5, NOW())
+             RETURNING id, category_code, code, name, sort_order, is_active, created_at",
+        )
+        .bind(category_code)
+        .bind(&code)
+        .bind(name)
+        .bind(sort_order)
+        .bind(is_active)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| {
+            if let Some(db_err) = e.as_database_error() {
+                if db_err.constraint().is_some() {
+                    return AppError::Conflict("該品類下已存在相同子類代碼".to_string());
+                }
+            }
+            AppError::from(e)
+        })?;
+        Ok(row)
     }
 
     /// 生成 SKU
