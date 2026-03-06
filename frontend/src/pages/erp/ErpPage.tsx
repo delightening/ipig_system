@@ -87,6 +87,12 @@ const erpModules: ErpModule[] = [
         description: '庫存查詢與倉儲異動管理',
         items: [
             {
+                title: '倉庫管理',
+                href: '/warehouses',
+                icon: <Warehouse className="h-4 w-4" />,
+                description: '管理倉庫設定',
+            },
+            {
                 title: '庫存查詢',
                 href: '/inventory',
                 icon: <ClipboardList className="h-4 w-4" />,
@@ -188,10 +194,10 @@ const erpModules: ErpModule[] = [
         ],
     },
     {
-        id: 'master',
-        title: '基礎資料',
+        id: 'products',
+        title: '產品管理',
         icon: <Package className="h-5 w-5" />,
-        description: '管理產品、倉庫與往來對象',
+        description: '管理產品資料',
         items: [
             {
                 title: '產品管理',
@@ -199,23 +205,19 @@ const erpModules: ErpModule[] = [
                 icon: <Package className="h-4 w-4" />,
                 description: '管理產品資料',
             },
-            {
-                title: '倉庫管理',
-                href: '/warehouses',
-                icon: <Warehouse className="h-4 w-4" />,
-                description: '管理倉庫設定',
-            },
+        ],
+    },
+    {
+        id: 'partners',
+        title: '供應商/客戶',
+        icon: <Users className="h-5 w-5" />,
+        description: '管理供應商與客戶',
+        items: [
             {
                 title: '供應商/客戶',
                 href: '/partners',
                 icon: <Users className="h-4 w-4" />,
                 description: '管理供應商與客戶',
-            },
-            {
-                title: '血液檢查項目',
-                href: '/blood-test-templates',
-                icon: <Droplets className="h-4 w-4" />,
-                description: '管理血液檢查項目模板',
             },
         ],
     },
@@ -245,9 +247,11 @@ export function ErpPage() {
         })
     }, [hasRole, user])
 
-    // 如果沒有 tab 參數，自動導向第一個模組
+    // 如果沒有 tab 參數，或 tab 已無效（如已刪除的 master），自動導向第一個模組
     useEffect(() => {
-        if (!searchParams.get('tab') && filteredModules.length > 0) {
+        const tab = searchParams.get('tab')
+        const hasValidTab = filteredModules.some(m => m.id === tab)
+        if ((!tab || !hasValidTab) && filteredModules.length > 0) {
             setSearchParams({ tab: filteredModules[0].id }, { replace: true })
         }
     }, [searchParams, filteredModules, setSearchParams])

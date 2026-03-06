@@ -72,8 +72,8 @@ cargo sqlx migrate run
 |------|------|------|------|
 | POST | `/api/v1/animals/:id/field-corrections` | 建立修正申請 | `animal.animal.edit` |
 | GET | `/api/v1/animals/:id/field-corrections` | 查詢該動物申請列表 | `animal.animal.edit` |
-| GET | `/api/v1/animal/animal-field-corrections/pending` | 列出待審申請 | admin |
-| POST | `/api/v1/animal/animal-field-corrections/:id/review` | 批准/拒絕 | admin |
+| GET | `/api/v1/animals/animal-field-corrections/pending` | 列出待審申請 | admin |
+| POST | `/api/v1/animals/animal-field-corrections/:id/review` | 批准/拒絕 | admin |
 
 **建立申請 Request Body**：
 

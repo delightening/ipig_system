@@ -116,8 +116,9 @@ const navItemsConfig: NavItem[] = [
     children: [
       { title: 'animalList', href: '/animals', translate: true },
       { title: '血檢分析', href: '/blood-test-analysis', translate: false },
+      { title: '血檢項目', href: '/blood-test-templates', translate: false },
       { title: '來源管理', href: '/animal-sources', permission: 'animal.source.manage', translate: false },
-      { title: '動物欄位修正審核', href: '/animal/animal-field-corrections', permission: 'admin', translate: false },
+      { title: '動物欄位修正審核', href: '/animals/animal-field-corrections', permission: 'admin', translate: false },
     ],
   },
   {
@@ -131,7 +132,8 @@ const navItemsConfig: NavItem[] = [
       { title: '倉儲作業', href: '/erp?tab=warehouse', translate: false },
       { title: '設備維護', href: '/erp?tab=equipment', permission: 'equipment.view', translate: false },
       { title: '報表中心', href: '/erp?tab=reports', translate: false },
-      { title: '基礎資料', href: '/erp?tab=master', translate: false },
+      { title: '產品管理', href: '/erp?tab=products', translate: false },
+      { title: '供應商/客戶', href: '/erp?tab=partners', translate: false },
     ],
   },
   {

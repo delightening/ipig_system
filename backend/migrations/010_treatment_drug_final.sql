@@ -9,6 +9,8 @@ CREATE TEMP TABLE drug_merge_map (canonical_id UUID, duplicate_id UUID);
 INSERT INTO drug_merge_map (canonical_id, duplicate_id)
 WITH ranked AS (
   SELECT id,
+    lower(trim(name)) AS nk,
+    COALESCE(category, '') AS ck,
     ROW_NUMBER() OVER (
       PARTITION BY lower(trim(name)), COALESCE(category, '')
       ORDER BY (erp_product_id IS NOT NULL) DESC NULLS LAST, created_at ASC
@@ -16,10 +18,10 @@ WITH ranked AS (
   FROM treatment_drug_options
 ),
 canonical AS (
-  SELECT id, lower(trim(name)) AS nk, COALESCE(category, '') AS ck FROM ranked WHERE rn = 1
+  SELECT id, nk, ck FROM ranked WHERE rn = 1
 ),
 dups AS (
-  SELECT id, lower(trim(name)) AS nk, COALESCE(category, '') AS ck FROM ranked WHERE rn > 1
+  SELECT id, nk, ck FROM ranked WHERE rn > 1
 )
 SELECT c.id, d.id FROM dups d JOIN canonical c ON d.nk = c.nk AND d.ck = c.ck;
 

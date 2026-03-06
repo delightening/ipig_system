@@ -317,8 +317,8 @@
 | GET | `/animals/:id/data-boundary` | 資料隔離邊界 |
 | POST | `/animals/:id/field-corrections` | 建立欄位修正申請 |
 | GET | `/animals/:id/field-corrections` | 查詢該動物修正申請列表 |
-| GET | `/animal/animal-field-corrections/pending` | 待審修正申請列表（admin） |
-| POST | `/animal/animal-field-corrections/:id/review` | 批准/拒絕修正申請（admin） |
+| GET | `/animals/animal-field-corrections/pending` | 待審修正申請列表（admin） |
+| POST | `/animals/animal-field-corrections/:id/review` | 批准/拒絕修正申請（admin） |
 
 ---
 

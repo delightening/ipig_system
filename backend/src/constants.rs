@@ -60,36 +60,36 @@ mod tests {
 
     #[test]
     fn test_pagination_constants() {
-        assert!(DEFAULT_PAGE_SIZE <= MAX_PAGE_SIZE, "預設頁大小應不超過最大值");
-        assert!(MAX_PAGE_SIZE >= 1);
+        const { assert!(DEFAULT_PAGE_SIZE <= MAX_PAGE_SIZE, "預設頁大小應不超過最大值"); }
+        const { assert!(MAX_PAGE_SIZE >= 1); }
     }
 
     #[test]
     fn test_password_policy() {
-        assert!(PASSWORD_MIN_LENGTH >= 8, "密碼最小長度應 ≥ 8");
+        const { assert!(PASSWORD_MIN_LENGTH >= 8, "密碼最小長度應 ≥ 8"); }
     }
 
     #[test]
     fn test_rate_limit_constants() {
-        assert!(WRITE_RATE_LIMIT_PER_MINUTE <= API_RATE_LIMIT_PER_MINUTE);
-        assert!(UPLOAD_RATE_LIMIT_PER_MINUTE <= WRITE_RATE_LIMIT_PER_MINUTE);
+        const { assert!(WRITE_RATE_LIMIT_PER_MINUTE <= API_RATE_LIMIT_PER_MINUTE); }
+        const { assert!(UPLOAD_RATE_LIMIT_PER_MINUTE <= WRITE_RATE_LIMIT_PER_MINUTE); }
     }
 
     #[test]
     fn test_file_size_constants() {
-        assert!(FILE_MAX_ANIMAL_PHOTO <= FILE_MAX_PROTOCOL_ATTACHMENT);
-        assert!(FILE_MAX_PROTOCOL_ATTACHMENT <= MAX_UPLOAD_SIZE_BYTES);
+        const { assert!(FILE_MAX_ANIMAL_PHOTO <= FILE_MAX_PROTOCOL_ATTACHMENT); }
+        const { assert!(FILE_MAX_PROTOCOL_ATTACHMENT <= MAX_UPLOAD_SIZE_BYTES); }
     }
 
     #[test]
     fn test_audit_constants() {
-        assert!(AUDIT_LOG_MAX_EXPORT > 0, "匯出上限應為正數");
-        assert!(ACTIVITY_LOG_MAX_PER_PAGE > 0, "每頁筆數上限應為正數");
+        const { assert!(AUDIT_LOG_MAX_EXPORT > 0, "匯出上限應為正數"); }
+        const { assert!(ACTIVITY_LOG_MAX_PER_PAGE > 0, "每頁筆數上限應為正數"); }
     }
 
     #[test]
     fn test_audit_export_reasonable_limit() {
         // 匯出上限應在合理範圍內（避免過大記憶體使用）
-        assert!(AUDIT_LOG_MAX_EXPORT <= 100_000);
+        const { assert!(AUDIT_LOG_MAX_EXPORT <= 100_000); }
     }
 }

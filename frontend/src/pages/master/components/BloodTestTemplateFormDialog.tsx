@@ -54,7 +54,7 @@ export function BloodTestTemplateFormDialog({
           <DialogDescription>
             {editingTemplate
               ? `修改 ${editingTemplate.code} 的項目資料`
-              : '建立新的血液檢查項目模板'}
+              : '建立新的血檢項目模板'}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit}>
