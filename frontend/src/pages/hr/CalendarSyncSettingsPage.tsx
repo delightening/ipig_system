@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { format, startOfMonth, endOfMonth } from 'date-fns'
+import { format, startOfMonth, endOfMonth, addMonths } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 import {
     AlertTriangle,
@@ -138,16 +138,19 @@ export function CalendarSyncSettingsPage() {
         }
     }, [shouldShowCalendar])
 
-    // FullCalendar 日期範圍變更處理。refetch 中若收到較舊的範圍（例如因舊事件觸發的 datesSet），忽略以免視圖被拉回上個月。
+    // FullCalendar 日期範圍變更處理：僅接受「往後」或「恰好上一個月」，其餘往前的 datesSet 忽略（見 docs/development/CALENDAR_PAGE_DESIGN_AND_IMPROVEMENT.md）
     const handleDatesSet = useCallback((dateInfo: { start: Date; end: Date }) => {
         setCalendarDateRange((prev) => {
             const newStart = dateInfo.start.getTime()
             const prevStart = prev.start.getTime()
             if (newStart === prevStart) return prev
-            if (loadingEvents && newStart < prevStart) return prev
-            return { start: dateInfo.start, end: dateInfo.end }
+            if (newStart > prevStart) return { start: dateInfo.start, end: dateInfo.end }
+            const prevMonthStart = startOfMonth(addMonths(prev.start, -1)).getTime()
+            const newMonthStart = startOfMonth(dateInfo.start).getTime()
+            if (newMonthStart === prevMonthStart) return { start: dateInfo.start, end: dateInfo.end }
+            return prev
         })
-    }, [loadingEvents])
+    }, [])
 
     // 轉換事件為 FullCalendar 格式。refetch 時不傳舊月份事件（loadingEvents 時 React Query 仍回傳上一筆），
     // 避免 FullCalendar 依事件範圍觸發 datesSet 把視圖拉回舊月，造成「下個月」點一次進、點一次退」的交替問題。
