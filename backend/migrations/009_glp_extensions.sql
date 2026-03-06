@@ -80,6 +80,20 @@ WHERE r.code = 'QAU' AND p.code IN (
 )
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
+-- 9.3b EQUIPMENT_MAINTENANCE（設備維護人員）— 設備與校準紀錄、訓練（僅自己）、儀表板
+INSERT INTO roles (id, code, name, description, is_internal, is_system, created_at, updated_at) VALUES
+    (gen_random_uuid(), 'EQUIPMENT_MAINTENANCE', '設備維護人員', '設備與校準紀錄管理', true, true, NOW(), NOW())
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r, permissions p
+WHERE r.code = 'EQUIPMENT_MAINTENANCE' AND p.code IN (
+    'equipment.view', 'equipment.manage',
+    'training.view', 'training.manage_own',
+    'dashboard.view'
+)
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+
 -- 9.4 會計
 CREATE TYPE account_type AS ENUM ('asset', 'liability', 'equity', 'revenue', 'expense');
 

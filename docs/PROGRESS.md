@@ -188,6 +188,11 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-06 新增 EQUIPMENT_MAINTENANCE（設備維護人員）角色
+- ✅ **需求**：於系統管理「角色權限」中新增「設備維護人員」角色，供管理設備與校準紀錄。
+- ✅ **實作**：將角色與權限寫入既有 migration **009_glp_extensions.sql**（9.3b 區塊）：插入角色 `EQUIPMENT_MAINTENANCE`（名稱：設備維護人員）、並指派 `equipment.view`、`equipment.manage`、`training.view`、`training.manage_own`、`dashboard.view`。維持 10 個 migration 檔案。
+- ✅ **結果**：重啟後端後，角色權限頁面會顯示「設備維護人員」卡片；可將使用者指派為此角色以存取 ERP 設備維護分頁。
+
 ### 2026-03-05 migrations 升級重整（維持 10 個）
 - ✅ **合併結果**：原 16 個 migration 重整為 10 個，最終 schema 不變、執行順序與依賴維持正確。
 - ✅ **對應**：001_types、002_users_auth 未改；003＝原 003＋004（通知/附件/稽核/trigger＋角色權限 seed/user_preferences）；004＝原 005 動物管理；005＝原 006 AUP；006＝原 007 HR；007＝原 008 稽核＋ERP；008＝原 009＋011＋012（補充、犧牲鎖欄、轉讓類型、修正、效能）；009＝原 010＋013＋014（GLP 訓練/設備/QAU/會計、血液檢查預設、SKU 品類種子）；010＝原 015＋016（治療藥物去重與業務鍵唯一）。
