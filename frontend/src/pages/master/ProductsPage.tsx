@@ -57,12 +57,14 @@ import {
   Tags,
   ClipboardCopy,
   FolderEdit,
+  Trash2,
 } from 'lucide-react'
 import { formatNumber, cn, UOM_MAP } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
 import { ProductImportDialog } from '@/components/product/ProductImportDialog'
 import { EditCategoriesDialog } from '@/components/product/EditCategoriesDialog'
 import { useSkuCategories } from '@/hooks/useSkuCategories'
+import { useAuthStore } from '@/stores/auth'
 import type { CategoryOption } from './hooks/useProductListState'
 
 // 產品狀態
@@ -102,7 +104,8 @@ interface PaginatedResponse<T> {
 export function ProductsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { categories: skuCategories, subcategoriesByCategory } = useSkuCategories()
+  const { user, hasRole } = useAuthStore()
+  const { categories: skuCategories, subcategoriesByCategory } = useSkuCategories({ enabled: !!user })
   const categoriesForFilter: CategoryOption[] = useMemo(
     () =>
       skuCategories.map((c) => ({
@@ -120,11 +123,13 @@ export function ProductsPage() {
   const selection = useSelection<string>()
 
   // 對話框狀態
-  const dialogs = useDialogSet(['status', 'batchStatus', 'import', 'editCategories'] as const)
+  const dialogs = useDialogSet(['status', 'batchStatus', 'import', 'editCategories', 'hardDelete'] as const)
   const [statusAction, setStatusAction] = useState<'activate' | 'deactivate' | 'discontinue'>('activate')
   const [targetProduct, setTargetProduct] = useState<ExtendedProduct | null>(null)
+  const [hardDeleteProduct, setHardDeleteProduct] = useState<ExtendedProduct | null>(null)
+  const isAdmin = hasRole('admin') || hasRole('SYSTEM_ADMIN')
 
-  // 查詢產品列表
+  // 查詢產品列表（僅在已登入時發送，避免 session 失效時大量 401）
   const { data: response, isLoading, isFetching } = useQuery({
     queryKey: ['products', listState.queryParams],
     queryFn: async () => {
@@ -141,6 +146,7 @@ export function ProductsPage() {
       }
       return res.data
     },
+    enabled: !!user,
   })
 
   const products = response?.data || []
@@ -162,6 +168,26 @@ export function ProductsPage() {
       toast({
         title: '錯誤',
         description: getApiErrorMessage(error, '狀態更新失敗'),
+        variant: 'destructive',
+      })
+    },
+  })
+
+  // 硬刪除（僅 admin）
+  const hardDeleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return api.post(`/products/${id}/hard-delete`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+      toast({ title: '成功', description: '產品已永久刪除' })
+      dialogs.close('hardDelete')
+      setHardDeleteProduct(null)
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: '硬刪除失敗',
+        description: getApiErrorMessage(error, '無法硬刪除產品'),
         variant: 'destructive',
       })
     },
@@ -722,6 +748,20 @@ export function ProductsPage() {
                       >
                         <Ban className="h-4 w-4 text-muted-foreground" />
                       </Button>
+                      {isAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          title="硬刪除（僅管理員）"
+                          onClick={() => {
+                            setHardDeleteProduct(product)
+                            dialogs.open('hardDelete')
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -900,6 +940,54 @@ export function ProductsPage() {
             >
               {batchStatusMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               確認停用
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 硬刪除確認對話框（僅 admin） */}
+      <Dialog open={dialogs.isOpen('hardDelete')} onOpenChange={dialogs.setOpen('hardDelete')}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-destructive">硬刪除產品</DialogTitle>
+            <DialogDescription>
+              此操作將永久刪除產品資料，無法復原。若產品已有單據、庫存或藥物選單關聯則無法執行。確定要硬刪除此產品嗎？
+            </DialogDescription>
+          </DialogHeader>
+          {hardDeleteProduct && (
+            <div className="py-4">
+              <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Package className="h-8 w-8 text-destructive" />
+                  <div>
+                    <p className="font-medium">{hardDeleteProduct.name}</p>
+                    <p className="text-sm text-muted-foreground font-mono">{hardDeleteProduct.sku}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                dialogs.close('hardDelete')
+                setHardDeleteProduct(null)
+              }}
+              disabled={hardDeleteMutation.isPending}
+            >
+              取消
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (!hardDeleteProduct) return
+                hardDeleteMutation.mutate(hardDeleteProduct.id)
+              }}
+              disabled={hardDeleteMutation.isPending}
+            >
+              {hardDeleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              確認硬刪除
             </Button>
           </DialogFooter>
         </DialogContent>

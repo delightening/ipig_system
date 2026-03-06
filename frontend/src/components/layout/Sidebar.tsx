@@ -127,12 +127,12 @@ const navItemsConfig: NavItem[] = [
     translate: false,
     permission: 'erp',
     children: [
+      { title: '產品管理', href: '/erp?tab=products', translate: false },
       { title: '採購管理', href: '/erp?tab=purchasing', translate: false },
       { title: '銷貨管理', href: '/erp?tab=sales', translate: false },
       { title: '倉儲作業', href: '/erp?tab=warehouse', translate: false },
       { title: '設備維護', href: '/erp?tab=equipment', permission: 'equipment.view', translate: false },
       { title: '報表中心', href: '/erp?tab=reports', translate: false },
-      { title: '產品管理', href: '/erp?tab=products', translate: false },
       { title: '供應商/客戶', href: '/erp?tab=partners', translate: false },
     ],
   },

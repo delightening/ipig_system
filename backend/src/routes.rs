@@ -175,6 +175,7 @@ pub fn api_routes(state: AppState) -> Router {
             patch(handlers::update_product_status),
         )
         .route("/products/:id/delete", post(handlers::delete_product))
+        .route("/products/:id/hard-delete", post(handlers::hard_delete_product))
         .route(
             "/categories",
             get(handlers::list_categories).post(handlers::create_category),

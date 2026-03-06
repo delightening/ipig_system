@@ -302,9 +302,13 @@ const OPERATION_NAMES: Record<string, string> = {
   schedule: '排程',
 }
 /**
- * 取得權限所屬模組
+ * 取得權限所屬模組（用於 UI 分組）
+ * dev.role.* 在畫面上歸到「管理階級－系統管理」，與 admin 使用者/角色/權限同一區塊
  */
 function getPermissionModule(perm: Permission): string {
+  if (perm.code.startsWith('dev.role.')) {
+    return 'admin'
+  }
   if (perm.module) {
     return perm.module
   }
