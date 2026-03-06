@@ -5,6 +5,9 @@ import { AxiosError } from 'axios'
 import api, { User, LoginResponse, TwoFactorRequiredResponse } from '@/lib/api'
 import { logger } from '@/lib/logger'
 
+/** 前端 Session 逾時（6 小時），供 SessionTimeoutWarning 使用 */
+export const SESSION_TIMEOUT_MS = 6 * 60 * 60 * 1000
+
 interface AuthState {
   user: User | null
   isAuthenticated: boolean
@@ -51,14 +54,14 @@ export const useAuthStore = create<AuthState>()(
             throw { is2FA: true, tempToken: (response.data as TwoFactorRequiredResponse).temp_token }
           }
 
-          const { user, expires_in } = response.data as LoginResponse
+          const { user } = response.data as LoginResponse
 
           set({
             user,
             isAuthenticated: true,
             isLoading: false,
             isImpersonating: false,
-            sessionExpiresAt: Date.now() + expires_in * 1000,
+            sessionExpiresAt: Date.now() + SESSION_TIMEOUT_MS,
           })
         } catch (error) {
           set({ isLoading: false })
@@ -73,13 +76,13 @@ export const useAuthStore = create<AuthState>()(
             temp_token: tempToken,
             code,
           })
-          const { user, expires_in } = response.data
+          const { user } = response.data
           set({
             user,
             isAuthenticated: true,
             isLoading: false,
             isImpersonating: false,
-            sessionExpiresAt: Date.now() + expires_in * 1000,
+            sessionExpiresAt: Date.now() + SESSION_TIMEOUT_MS,
           })
         } catch (error) {
           set({ isLoading: false })
@@ -163,7 +166,7 @@ export const useAuthStore = create<AuthState>()(
             user: response.data,
             isAuthenticated: true,
             isInitialized: true,
-            sessionExpiresAt: currentExpiry ?? Date.now() + 6 * 60 * 60 * 1000,
+            sessionExpiresAt: currentExpiry ?? Date.now() + SESSION_TIMEOUT_MS,
           })
         } catch (err) {
           // 僅在 401（未認證）時清除 auth；503/5xx/網路錯誤保留登入狀態，避免伺服器暫時不可用時誤登出
@@ -180,7 +183,7 @@ export const useAuthStore = create<AuthState>()(
       refreshSession: async () => {
         try {
           await api.post('/auth/refresh')
-          set({ sessionExpiresAt: Date.now() + 6 * 60 * 60 * 1000 })
+          set({ sessionExpiresAt: Date.now() + SESSION_TIMEOUT_MS })
           return true
         } catch {
           return false

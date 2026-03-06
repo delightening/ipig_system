@@ -182,8 +182,20 @@ pub fn api_routes(state: AppState) -> Router {
         // SKU (完整 API)
         .route("/sku/categories", get(handlers::get_sku_categories))
         .route(
+            "/sku/categories/tree",
+            get(handlers::get_sku_categories_tree),
+        )
+        .route(
+            "/sku/categories/:code",
+            patch(handlers::update_sku_category),
+        )
+        .route(
             "/sku/categories/:code/subcategories",
-            get(handlers::get_sku_subcategories),
+            get(handlers::get_sku_subcategories).post(handlers::create_sku_subcategory),
+        )
+        .route(
+            "/sku/categories/:category_code/subcategories/:code",
+            patch(handlers::update_sku_subcategory),
         )
         .route("/sku/generate", post(handlers::generate_sku))
         .route("/sku/validate", post(handlers::validate_sku))

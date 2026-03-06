@@ -68,10 +68,14 @@ struct IdxfRoot {
 fn get_conflict_columns(table: &str) -> Option<&'static [&'static str]> {
     let cols: &[&str] = match table {
         "roles" | "permissions" | "animal_sources" | "blood_test_templates" | "product_categories"
-        | "sku_categories" | "sku_subcategories" | "warehouses" | "partners" => &["code"],
+        | "sku_categories" | "warehouses" | "partners" => &["code"],
+        "sku_subcategories" => &["category_code", "code"],
         "blood_test_panels" => &["key"],
         "users" => &["email"],
         "notification_routing" => &["event_type", "role_code"],
+        "role_permissions" => &["role_id", "permission_id"],
+        "user_roles" => &["user_id", "role_id"],
+        "treatment_drug_options" => &["id"],
         _ => return None,
     };
     Some(cols)
@@ -508,6 +512,22 @@ async fn import_from_zip(pool: &PgPool, bytes: &[u8], _mode: ImportMode) -> Resu
             continue;
         }
 
+        if tbl.name == "treatment_drug_options" {
+            let (filtered, name_cat_skipped) =
+                filter_treatment_drug_options_by_name_category(pool, rows).await?;
+            rows = filtered;
+            if name_cat_skipped > 0 {
+                result.skipped_details.push(SkippedDetail {
+                    table: tbl.name.clone(),
+                    reason: "名稱+分類重複，已略過".into(),
+                    count: Some(name_cat_skipped),
+                });
+            }
+            if rows.is_empty() {
+                continue;
+            }
+        }
+
         build_id_mappings(pool, &tbl.name, &rows, &mut id_mapping).await?;
         remap_foreign_keys(&tbl.name, &mut rows, &fk_config, &id_mapping);
 
@@ -628,6 +648,22 @@ async fn import_from_json(pool: &PgPool, json_bytes: &[u8], _mode: ImportMode) -
             continue;
         }
 
+        if table_name == "treatment_drug_options" {
+            let (filtered, name_cat_skipped) =
+                filter_treatment_drug_options_by_name_category(pool, rows).await?;
+            rows = filtered;
+            if name_cat_skipped > 0 {
+                result.skipped_details.push(SkippedDetail {
+                    table: table_name.clone(),
+                    reason: "名稱+分類重複，已略過".into(),
+                    count: Some(name_cat_skipped),
+                });
+            }
+            if rows.is_empty() {
+                continue;
+            }
+        }
+
         build_id_mappings(pool, &table_name, &rows, &mut id_mapping).await?;
         remap_foreign_keys(&table_name, &mut rows, &fk_config, &id_mapping);
 
@@ -653,6 +689,73 @@ async fn import_from_json(pool: &PgPool, json_bytes: &[u8], _mode: ImportMode) -
 
 fn is_export_table(name: &str) -> bool {
     EXPORT_TABLE_ORDER.contains(&name)
+}
+
+/// 藥物選單：略過「名稱＋分類」已存在的列（與 DB 既有或同批重複皆略過）
+async fn filter_treatment_drug_options_by_name_category(
+    pool: &PgPool,
+    rows: Vec<serde_json::Value>,
+) -> Result<(Vec<serde_json::Value>, u64)> {
+    if rows.is_empty() {
+        return Ok((rows, 0));
+    }
+    #[derive(sqlx::FromRow)]
+    struct Row {
+        name: String,
+        category: Option<String>,
+    }
+    let existing: Vec<Row> = sqlx::query_as(
+        "SELECT name, category FROM treatment_drug_options",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| AppError::Internal(format!("查詢既有藥物選項: {}", e)))?;
+
+    let mut existing_keys: HashSet<(String, String)> = existing
+        .into_iter()
+        .map(|r| {
+            (
+                r.name.trim().to_lowercase(),
+                r.category.unwrap_or_default().trim().to_string(),
+            )
+        })
+        .collect();
+
+    let mut out = Vec::with_capacity(rows.len());
+    let mut skipped = 0u64;
+    for row in rows {
+        let key = row
+            .as_object()
+            .map(|obj| {
+                let name = obj
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .trim()
+                    .to_lowercase();
+                let category = obj
+                    .get("category")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
+                (name, category)
+            });
+        let key = match key {
+            Some(k) => k,
+            None => {
+                out.push(row);
+                continue;
+            }
+        };
+        if existing_keys.contains(&key) {
+            skipped += 1;
+            continue;
+        }
+        existing_keys.insert(key);
+        out.push(row);
+    }
+    Ok((out, skipped))
 }
 
 /// 匯入 change_reasons 前，將不存在的 changed_by 設為 null，避免 FK 違反

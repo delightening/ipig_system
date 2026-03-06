@@ -98,6 +98,61 @@ pub struct SubcategoriesResponse {
     pub subcategories: Vec<CategoryOption>,
 }
 
+/// 編輯用：子類別（含 sort_order, is_active）
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct SubcategoryForEdit {
+    pub id: i32,
+    pub code: String,
+    pub name: String,
+    pub sort_order: i32,
+    pub is_active: bool,
+}
+
+/// 編輯用：品類（含子類與 sort_order, is_active）
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct CategoryForEdit {
+    pub code: String,
+    pub name: String,
+    pub sort_order: i32,
+    pub is_active: bool,
+    pub subcategories: Vec<SubcategoryForEdit>,
+}
+
+/// 編輯分類用：完整品類樹
+#[derive(Debug, Serialize, ToSchema)]
+pub struct CategoriesTreeResponse {
+    pub categories: Vec<CategoryForEdit>,
+}
+
+/// 更新品類請求（名稱、排序、啟用狀態）
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct UpdateSkuCategoryRequest {
+    pub name: Option<String>,
+    pub sort_order: Option<i32>,
+    pub is_active: Option<bool>,
+}
+
+/// 更新子類請求（名稱、排序、啟用狀態）
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct UpdateSkuSubcategoryRequest {
+    pub name: Option<String>,
+    pub sort_order: Option<i32>,
+    pub is_active: Option<bool>,
+}
+
+/// 新增子類請求
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct CreateSkuSubcategoryRequest {
+    /// 子類代碼，3 碼大寫英數字
+    pub code: String,
+    /// 顯示名稱
+    pub name: String,
+    /// 排序，預設 0
+    pub sort_order: Option<i32>,
+    /// 是否啟用，預設 true
+    pub is_active: Option<bool>,
+}
+
 /// 生成 SKU 請求
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct GenerateSkuRequest {
