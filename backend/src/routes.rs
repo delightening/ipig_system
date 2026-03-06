@@ -421,11 +421,11 @@ pub fn api_routes(state: AppState) -> Router {
                 .post(handlers::create_animal_field_correction_request),
         )
         .route(
-            "/animal/animal-field-corrections/pending",
+            "/animals/animal-field-corrections/pending",
             get(handlers::list_pending_animal_field_corrections),
         )
         .route(
-            "/animal/animal-field-corrections/:id/review",
+            "/animals/animal-field-corrections/:id/review",
             post(handlers::review_animal_field_correction),
         )
         // Animal Records - Observations

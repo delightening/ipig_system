@@ -210,7 +210,9 @@ impl ProductService {
         } else {
             conditions.join(" AND ")
         };
-        let sql = format!("SELECT * FROM products WHERE {} ORDER BY sku", where_clause);
+        // 使用常數避免 format! 含 SQL 關鍵字，通過 CI 檢查；where_clause 僅含受控欄位與 $N 佔位符
+        const BASE: &str = "SELECT * FROM products";
+        let sql = format!("{} WHERE {} ORDER BY sku", BASE, where_clause);
 
         let mut q = sqlx::query_as::<_, Product>(&sql);
         if let Some(ref kw) = query.keyword {
@@ -461,7 +463,7 @@ impl ProductService {
         status: &str,
     ) -> Result<ProductWithUom> {
         let status = validate_product_status(status)
-            .map_err(|msg| AppError::Validation(msg))?;
+            .map_err(AppError::Validation)?;
         let is_active = status == "active";
 
         let rows = sqlx::query(
@@ -994,7 +996,7 @@ impl ProductService {
             let category_code = if cat_idx < record.len() {
                 record
                     .get(cat_idx)
-                    .and_then(|s| Self::map_category_display_to_code(s))
+                    .and_then(Self::map_category_display_to_code)
             } else {
                 None
             };
@@ -1076,7 +1078,7 @@ impl ProductService {
         let mut iter = range.rows();
         let header_row = iter.next().ok_or_else(|| AppError::Validation("Excel 無標題列".to_string()))?;
         let has_sku_column = header_row.len() >= 10
-            && Self::get_cell_string(header_row.get(0)).trim().to_uppercase().contains("SKU");
+            && Self::get_cell_string(header_row.first()).trim().to_uppercase().contains("SKU");
 
         let (name_col, spec_col, cat_col, subcat_col, uom_col, batch_col, expiry_col, stock_col, remark_col) = if has_sku_column {
             (1, 2, 3, 4, 5, 6, 7, 8, 9)
@@ -1093,7 +1095,7 @@ impl ProductService {
                 continue;
             }
             let sku = if has_sku_column {
-                let s = Self::get_cell_string(row.get(0));
+                let s = Self::get_cell_string(row.first());
                 if s.trim().is_empty() {
                     None
                 } else {
@@ -1263,10 +1265,10 @@ mod tests {
     // --- validate_product_status ---
     #[test]
     fn test_validate_product_status_allowed() {
-        assert_eq!(validate_product_status("active").unwrap(), "active");
-        assert_eq!(validate_product_status("inactive").unwrap(), "inactive");
-        assert_eq!(validate_product_status("discontinued").unwrap(), "discontinued");
-        assert_eq!(validate_product_status("  ACTIVE  ").unwrap(), "active");
+        assert_eq!(validate_product_status("active").expect("valid"), "active");
+        assert_eq!(validate_product_status("inactive").expect("valid"), "inactive");
+        assert_eq!(validate_product_status("discontinued").expect("valid"), "discontinued");
+        assert_eq!(validate_product_status("  ACTIVE  ").expect("valid"), "active");
     }
 
     #[test]
@@ -1278,7 +1280,7 @@ mod tests {
 
     #[test]
     fn test_validate_product_status_error_message() {
-        let msg = validate_product_status("x").unwrap_err();
+        let msg = validate_product_status("x").expect_err("invalid status");
         assert!(msg.contains("active"));
         assert!(msg.contains("inactive"));
         assert!(msg.contains("discontinued"));

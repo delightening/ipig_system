@@ -21,14 +21,14 @@ export function BloodTestTemplatesPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate('/erp?tab=master')}
+            onClick={() => navigate('/animals')}
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">血液檢查項目管理</h1>
+            <h1 className="text-3xl font-bold tracking-tight">血檢項目</h1>
             <p className="text-muted-foreground">
-              管理血液檢查項目模板（共 {m.totalCount} 個，啟用 {m.activeCount} 個）
+              管理血檢項目模板（共 {m.totalCount} 個，啟用 {m.activeCount} 個）
             </p>
           </div>
         </div>

@@ -134,7 +134,7 @@ impl SkuService {
             )));
         }
         let sort_order = req.sort_order.unwrap_or(current.sort_order);
-        if sort_order < Self::SORT_ORDER_MIN || sort_order > Self::SORT_ORDER_MAX {
+        if !(Self::SORT_ORDER_MIN..=Self::SORT_ORDER_MAX).contains(&sort_order) {
             return Err(AppError::Validation(format!(
                 "排序請介於 {} 與 {} 之間",
                 Self::SORT_ORDER_MIN,
@@ -188,7 +188,7 @@ impl SkuService {
             )));
         }
         let sort_order = req.sort_order.unwrap_or(current.sort_order);
-        if sort_order < Self::SORT_ORDER_MIN || sort_order > Self::SORT_ORDER_MAX {
+        if !(Self::SORT_ORDER_MIN..=Self::SORT_ORDER_MAX).contains(&sort_order) {
             return Err(AppError::Validation(format!(
                 "排序請介於 {} 與 {} 之間",
                 Self::SORT_ORDER_MIN,
@@ -257,7 +257,7 @@ impl SkuService {
         }
 
         let sort_order = req.sort_order.unwrap_or(0);
-        if sort_order < Self::SORT_ORDER_MIN || sort_order > Self::SORT_ORDER_MAX {
+        if !(Self::SORT_ORDER_MIN..=Self::SORT_ORDER_MAX).contains(&sort_order) {
             return Err(AppError::Validation(format!(
                 "排序請介於 {} 與 {} 之間",
                 Self::SORT_ORDER_MIN,
@@ -766,7 +766,7 @@ mod tests {
     fn test_parse_sku_format_valid() {
         let r = SkuService::parse_sku_format("ABC-XYZ-001");
         assert!(r.is_some());
-        let (cat, sub, seq) = r.unwrap();
+        let (cat, sub, seq) = r.expect("valid format");
         assert_eq!(cat, "ABC");
         assert_eq!(sub, "XYZ");
         assert_eq!(seq, 1);
@@ -776,7 +776,7 @@ mod tests {
     fn test_parse_sku_format_valid_999() {
         let r = SkuService::parse_sku_format("MED-DRU-999");
         assert!(r.is_some());
-        let (_, _, seq) = r.unwrap();
+        let (_, _, seq) = r.expect("valid format");
         assert_eq!(seq, 999);
     }
 

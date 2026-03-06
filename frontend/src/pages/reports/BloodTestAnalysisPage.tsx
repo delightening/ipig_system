@@ -608,7 +608,7 @@ export function BloodTestAnalysisPage() {
                                 </p>
                             ) : (
                                 <>
-                                    {/* 常用組合 Preset（由血液檢查項目管理 > 管理常用組合 設定） */}
+                                    {/* 常用組合 Preset（由血檢項目 > 管理常用組合 設定） */}
                                     <div className="flex flex-wrap gap-2">
                                         {(presetsData ?? []).map((preset) => (
                                             <Button

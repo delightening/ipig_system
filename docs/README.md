@@ -86,6 +86,7 @@
 | 文件 | 說明 |
 |------|------|
 | [security-compliance/security.md](./security-compliance/security.md) | 安全性紀錄（CVE 評估與處置） |
+| [security-compliance/SESSION_LOGOUT_MANAGEMENT.md](./security-compliance/SESSION_LOGOUT_MANAGEMENT.md) | Session 與登出功能整合（業界標準對照） |
 | [security-compliance/WAF.md](./security-compliance/WAF.md) | WAF 設定與說明 |
 | [security-compliance/CREDENTIAL_ROTATION.md](./security-compliance/CREDENTIAL_ROTATION.md) | 憑證輪換 |
 | [security-compliance/ELECTRONIC_SIGNATURE_COMPLIANCE.md](./security-compliance/ELECTRONIC_SIGNATURE_COMPLIANCE.md) | 電子簽章合規 |
