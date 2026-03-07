@@ -16,7 +16,7 @@ use crate::{
     },
     require_permission,
     services::{AuditService, SkuService},
-    AppState, Result,
+    AppError, AppState, Result,
 };
 
 /// 列出 SKU 分類清單
@@ -238,6 +238,99 @@ pub async fn update_sku_subcategory(
         tracing::error!("寫入審計日誌失敗 (SKU_SUBCATEGORY_UPDATE): {}", e);
     }
     Ok(Json(subcategory))
+}
+
+/// 刪除子類（僅 admin；無產品使用時才可刪除）
+#[utoipa::path(
+    delete,
+    path = "/api/sku/categories/{category_code}/subcategories/{code}",
+    params(
+        ("category_code" = String, Path, description = "品類代碼"),
+        ("code" = String, Path, description = "子類代碼"),
+    ),
+    responses(
+        (status = 204, description = "刪除成功"),
+        (status = 401, description = "未認證"),
+        (status = 403, description = "僅管理員可刪除分類"),
+        (status = 404, description = "找不到子類"),
+        (status = 409, description = "尚有產品使用此子類"),
+    ),
+    tag = "SKU",
+    security(("bearer" = []))
+)]
+pub async fn delete_sku_subcategory(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    PathExtract((category_code, code)): PathExtract<(String, String)>,
+) -> Result<StatusCode> {
+    if !current_user.is_admin() {
+        return Err(AppError::Forbidden("僅管理員可刪除分類".into()));
+    }
+    let sub = SkuService::get_subcategory_by_codes(&state.db, &category_code, &code).await?;
+    SkuService::delete_subcategory(&state.db, &category_code, &code).await?;
+    if let Err(e) = AuditService::log_activity(
+        &state.db,
+        current_user.id,
+        "ERP",
+        "SKU_SUBCATEGORY_DELETE",
+        Some("sku_subcategory"),
+        None,
+        Some(&format!("{}:{} {}", sub.category_code, sub.code, sub.name)),
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    {
+        tracing::error!("寫入審計日誌失敗 (SKU_SUBCATEGORY_DELETE): {}", e);
+    }
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// 刪除品類（僅 admin；無產品使用時才可刪除）
+#[utoipa::path(
+    delete,
+    path = "/api/sku/categories/{code}",
+    params(("code" = String, Path, description = "品類代碼")),
+    responses(
+        (status = 204, description = "刪除成功"),
+        (status = 401, description = "未認證"),
+        (status = 403, description = "僅管理員可刪除分類"),
+        (status = 404, description = "找不到品類"),
+        (status = 409, description = "尚有產品使用此品類"),
+    ),
+    tag = "SKU",
+    security(("bearer" = []))
+)]
+pub async fn delete_sku_category(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    PathExtract(code): PathExtract<String>,
+) -> Result<StatusCode> {
+    if !current_user.is_admin() {
+        return Err(AppError::Forbidden("僅管理員可刪除分類".into()));
+    }
+    let cat = SkuService::get_category_by_code(&state.db, &code).await?;
+    SkuService::delete_category(&state.db, &code).await?;
+    if let Err(e) = AuditService::log_activity(
+        &state.db,
+        current_user.id,
+        "ERP",
+        "SKU_CATEGORY_DELETE",
+        Some("sku_category"),
+        None,
+        Some(&format!("{} {}", cat.code, cat.name)),
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    {
+        tracing::error!("寫入審計日誌失敗 (SKU_CATEGORY_DELETE): {}", e);
+    }
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// 產生 SKU

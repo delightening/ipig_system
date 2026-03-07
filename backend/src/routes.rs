@@ -188,7 +188,7 @@ pub fn api_routes(state: AppState) -> Router {
         )
         .route(
             "/sku/categories/:code",
-            patch(handlers::update_sku_category),
+            patch(handlers::update_sku_category).delete(handlers::delete_sku_category),
         )
         .route(
             "/sku/categories/:code/subcategories",
@@ -196,7 +196,7 @@ pub fn api_routes(state: AppState) -> Router {
         )
         .route(
             "/sku/categories/:category_code/subcategories/:code",
-            patch(handlers::update_sku_subcategory),
+            patch(handlers::update_sku_subcategory).delete(handlers::delete_sku_subcategory),
         )
         .route("/sku/generate", post(handlers::generate_sku))
         .route("/sku/validate", post(handlers::validate_sku))
