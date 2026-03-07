@@ -313,7 +313,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 ### 2026-03-02 動物欄位修正申請（需 admin 批准）
 - ✅ **需求**：耳號、出生日期、性別、品種等欄位建立後不可直接修改；若 staff 輸入錯誤，可經 admin 批准後修正。
 - ✅ **後端**：Migration 011 新增 `animal_field_correction_requests` 表；`POST /animals/:id/field-corrections` 建立申請、`GET` 查詢該動物申請；`GET /animals/animal-field-corrections/pending` 列出待審、`POST /animals/animal-field-corrections/:id/review` 批准/拒絕。僅 admin 可審核。
-- ✅ **前端**：動物詳情/編輯頁「申請修正」按鈕與 `RequestCorrectionDialog`；實驗動物管理「動物欄位修正審核」頁面，可批准或拒絕並填寫拒絕原因。
+- ✅ **前端**：動物詳情/編輯頁「申請修正」按鈕與 `RequestCorrectionDialog`；實驗動物管理「修正審核」頁面，可批准或拒絕並填寫拒絕原因。
 
 ---
 
