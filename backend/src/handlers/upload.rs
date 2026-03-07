@@ -489,12 +489,13 @@ pub async fn list_attachments(
     let entity_type = query.entity_type.unwrap_or_default();
     let entity_id = query.entity_id.unwrap_or_default();
 
+    // entity_id 在 DB 為 UUID，用 entity_id::text 回傳以符合 struct 的 String 型別
     let attachments: Vec<Attachment> = sqlx::query_as(
         r#"
-        SELECT id, entity_type, entity_id, file_name, file_path, 
+        SELECT id, entity_type, entity_id::text AS entity_id, file_name, file_path,
                file_size, mime_type, uploaded_by, created_at
         FROM attachments
-        WHERE entity_type = $1 AND entity_id = $2
+        WHERE entity_type = $1 AND entity_id::text = $2
         ORDER BY created_at DESC
         "#,
     )
@@ -512,9 +513,11 @@ pub async fn download_attachment(
     Extension(_current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Response> {
-    // 從資料庫查詢附件資訊
+    // 從資料庫查詢附件資訊（entity_id::text 以符合 struct 的 String 型別）
     let attachment: Attachment = sqlx::query_as(
-        r#"SELECT * FROM attachments WHERE id = $1"#,
+        r#"SELECT id, entity_type, entity_id::text AS entity_id, file_name, file_path,
+                  file_size, mime_type, uploaded_by, created_at
+           FROM attachments WHERE id = $1"#,
     )
     .bind(id)
     .fetch_optional(&state.db)
@@ -544,9 +547,11 @@ pub async fn delete_attachment(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode> {
-    // 查詢附件資訊
+    // 查詢附件資訊（entity_id::text 以符合 struct 的 String 型別）
     let attachment: Attachment = sqlx::query_as(
-        r#"SELECT * FROM attachments WHERE id = $1"#,
+        r#"SELECT id, entity_type, entity_id::text AS entity_id, file_name, file_path,
+                  file_size, mime_type, uploaded_by, created_at
+           FROM attachments WHERE id = $1"#,
     )
     .bind(id)
     .fetch_optional(&state.db)
