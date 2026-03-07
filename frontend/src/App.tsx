@@ -395,7 +395,7 @@ function App() {
                     } />
                     {/* 設備維護已移至 ERP 系統，舊路徑導向 /erp?tab=equipment */}
                     <Route path="/admin/equipment" element={<Navigate to="/erp?tab=equipment" replace />} />
-                    {/* 動物欄位修正審核已移至實驗動物管理 */}
+                    {/* 修正審核已移至實驗動物管理 */}
                     <Route path="/admin/animal-field-corrections" element={<Navigate to="/animals/animal-field-corrections" replace />} />
 
                     {/* HR 人員管理 */}
