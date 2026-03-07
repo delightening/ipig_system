@@ -1,5 +1,31 @@
 # 實作說明
 
+## 2026-03-07 附件 API 500 錯誤修復與 Console 錯誤調查
+
+**現象**：專案詳情頁「附件」標籤顯示「尚無附件」，Console 出現：
+- `GET /api/v1/attachments/...` → **500 Internal Server Error**（2 次）
+- `GET /api/v1/notifications/unread-count` → **401 Unauthorized**（多筆）
+- `GET /api/v1/amendments/pending-count` → **401 Unauthorized**（多筆）
+
+### 1. 500 錯誤（優先修復）
+
+**根因**：`attachments` 表 `entity_id` 為 PostgreSQL `UUID`，Rust `Attachment` struct 定義為 `entity_id: String`。sqlx 在 SELECT 時無法將 DB 的 UUID 直接 deserialize 成 String，造成 500。
+
+**修正**（`backend/src/handlers/upload.rs`）：
+- `list_attachments`：SELECT 改為 `entity_id::text AS entity_id`，WHERE 改為 `entity_id::text = $2`
+- `download_attachment`、`delete_attachment`：SELECT 由 `SELECT *` 改為明確欄位列表，`entity_id` 用 `entity_id::text AS entity_id`
+
+### 2. 401 錯誤（notifications / amendments）
+
+**說明**：`/notifications/unread-count` 與 `/amendments/pending-count` 皆需認證。401 常見情境：
+- Session 逾時、Token 失效
+- 後端重啟後 Session 失效
+- Cookie 未正確傳送（跨網域 / SameSite 等）
+
+**現狀**：前端已用 `enabled: !!user` 僅在登入後才呼叫；401 時 api 會嘗試 refresh token，失敗則登出。無程式邏輯錯誤，屬預期行為。
+
+---
+
 ## 2026-03-04 全專案資料夾整理與分類
 
 **目標**：正確分類資料夾、統一導覽與連結，提升閱讀體驗。
