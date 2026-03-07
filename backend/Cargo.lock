@@ -142,6 +142,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "atoi_simd"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ad17c7c205c2c28b527b9845eeb91cf1b4d008b438f98ce0e628227a822758e"
+dependencies = [
+ "debug_unsafe",
+]
+
+[[package]]
 name = "atomic-waker"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -416,18 +425,20 @@ dependencies = [
 
 [[package]]
 name = "calamine"
-version = "0.24.0"
+version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a3a315226fdc5b1c3e33521073e1712a05944bc0664d665ff1f6ff0396334da"
+checksum = "96ae094b353c7810cd5efd2e69413ebb9354816138a387c09f7b90d4e826a49f"
 dependencies = [
+ "atoi_simd",
  "byteorder",
  "chrono",
  "codepage",
  "encoding_rs",
+ "fast-float2",
  "log",
  "quick-xml",
  "serde",
- "zip 0.6.6",
+ "zip 7.2.0",
 ]
 
 [[package]]
@@ -777,6 +788,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "debug_unsafe"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7eed2c4702fa172d1ce21078faa7c5203e69f5394d48cc436d25928394a867a2"
+
+[[package]]
 name = "der"
 version = "0.7.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1047,6 +1064,12 @@ dependencies = [
  "parking",
  "pin-project-lite",
 ]
+
+[[package]]
+name = "fast-float2"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8eb564c5c7423d25c886fb561d1e4ee69f72354d16918afa32c08811f6b6a55"
 
 [[package]]
 name = "fastrand"
@@ -2705,9 +2728,9 @@ dependencies = [
 
 [[package]]
 name = "quick-xml"
-version = "0.31.0"
+version = "0.38.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1004a344b30a54e2ee58d66a71b32d2db2feb0a31f9a2d302bf0536f15de2a33"
+checksum = "b66c2058c55a409d601666cffe35f04333cf1013010882cec174a7467cd4e21c"
 dependencies = [
  "encoding_rs",
  "memchr",
