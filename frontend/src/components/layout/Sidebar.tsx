@@ -118,7 +118,7 @@ const navItemsConfig: NavItem[] = [
       { title: '血檢分析', href: '/blood-test-analysis', translate: false },
       { title: '血檢項目', href: '/blood-test-templates', permission: 'animal.blood_test_template.manage', translate: false },
       { title: '來源管理', href: '/animal-sources', permission: 'animal.source.manage', translate: false },
-      { title: '動物欄位修正審核', href: '/animals/animal-field-corrections', permission: 'admin', translate: false },
+      { title: '修正審核', href: '/animals/animal-field-corrections', permission: 'admin', translate: false },
     ],
   },
   {
