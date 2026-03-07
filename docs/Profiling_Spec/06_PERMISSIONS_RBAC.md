@@ -141,6 +141,7 @@ graph TD
 | animal.record.create | 新增紀錄 | 可新增紀錄 |
 | animal.record.edit | 編輯紀錄 | 可編輯紀錄 |
 | animal.record.delete | 刪除紀錄 | 可刪除紀錄 |
+| animal.blood_test_template.manage | 血檢項目管理 | 可**編輯**血檢項目模板、組合、常用組合（/blood-test-templates 等）。list_all、血檢分析報表與 animal.record.view 綁定：能看到動物的範圍即能看到其血檢分析結果 |
 | animal.record.observation | 觀察紀錄 | 可新增觀察紀錄 |
 | animal.record.surgery | 手術紀錄 | 可新增手術紀錄 |
 | animal.record.weight | 體重紀錄 | 可新增體重紀錄 |

@@ -80,12 +80,20 @@ pub async fn get_blood_test_cost_report(
 }
 
 /// 取得血液檢查結果分析資料
+/// 與動物權限綁定：需 animal.record.view；若僅 view_project（無 view_all），僅回傳已指派計畫之動物
 #[utoipa::path(get, path = "/api/reports/blood-test-analysis", responses((status = 200)), tag = "報表", security(("bearer" = [])))]
 pub async fn get_blood_test_analysis(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<BloodTestAnalysisQuery>,
 ) -> Result<Json<Vec<BloodTestAnalysisRow>>> {
-    let report = ReportService::blood_test_analysis(&state.db, &query).await?;
+    if !current_user.has_permission("animal.record.view") {
+        return Err(crate::AppError::Forbidden(
+            "Permission denied: requires animal.record.view".to_string(),
+        ));
+    }
+    let restrict = current_user.has_permission("animal.animal.view_project")
+        && !current_user.has_permission("animal.animal.view_all");
+    let report = ReportService::blood_test_analysis(&state.db, &query, restrict).await?;
     Ok(Json(report))
 }

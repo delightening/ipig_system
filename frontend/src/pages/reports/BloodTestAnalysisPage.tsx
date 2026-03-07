@@ -165,7 +165,7 @@ export function BloodTestAnalysisPage() {
         },
     })
 
-    // 取得所有檢測分類（Panel）與項目，供依分類選擇
+    // 取得所有檢測分類（Panel）與項目，供依分類選擇（與動物權限綁定：animal.record.view）
     const { data: panelsData } = useQuery<BloodTestPanel[]>({
         queryKey: ['blood-test-panels-all'],
         queryFn: async () => {

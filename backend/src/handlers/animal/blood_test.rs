@@ -161,11 +161,12 @@ pub async fn list_blood_test_templates(
     Ok(Json(templates))
 }
 
-/// 列出所有模板（含停用）- 管理用
+/// 列出所有模板（含停用）- 與動物權限綁定：具 animal.record.view 者可取得（供血檢分析頁使用）
 pub async fn list_all_blood_test_templates(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<BloodTestTemplate>>> {
+    require_permission!(current_user, "animal.record.view");
     let templates = AnimalService::list_all_blood_test_templates(&state.db).await?;
     Ok(Json(templates))
 }
@@ -176,7 +177,7 @@ pub async fn create_blood_test_template(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<CreateBloodTestTemplateRequest>,
 ) -> Result<Json<BloodTestTemplate>> {
-    require_permission!(current_user, "animal.record.create");
+    require_permission!(current_user, "animal.blood_test_template.manage");
     req.validate()?;
     let template = AnimalService::create_blood_test_template(&state.db, &req).await?;
     if let Err(e) = AuditService::log_activity(
@@ -196,7 +197,7 @@ pub async fn update_blood_test_template(
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateBloodTestTemplateRequest>,
 ) -> Result<Json<BloodTestTemplate>> {
-    require_permission!(current_user, "animal.record.edit");
+    require_permission!(current_user, "animal.blood_test_template.manage");
     let template = AnimalService::update_blood_test_template(&state.db, id, &req).await?;
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "TEMPLATE_UPDATE",
@@ -214,7 +215,7 @@ pub async fn delete_blood_test_template(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
-    require_permission!(current_user, "animal.record.delete");
+    require_permission!(current_user, "animal.blood_test_template.manage");
     AnimalService::delete_blood_test_template(&state.db, id).await?;
     let tmpl_name = sqlx::query_scalar::<_, String>("SELECT name FROM blood_test_templates WHERE id = $1")
         .bind(id).fetch_optional(&state.db).await.ok().flatten().unwrap_or_else(|| id.to_string());
@@ -241,11 +242,12 @@ pub async fn list_blood_test_panels(
     Ok(Json(panels))
 }
 
-/// 列出所有組合（含停用）- 管理用
+/// 列出所有組合（含停用）- 與動物權限綁定：具 animal.record.view 者可取得（供血檢分析頁使用）
 pub async fn list_all_blood_test_panels(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<BloodTestPanelWithItems>>> {
+    require_permission!(current_user, "animal.record.view");
     let panels = AnimalService::list_all_blood_test_panels(&state.db).await?;
     Ok(Json(panels))
 }
@@ -256,7 +258,7 @@ pub async fn create_blood_test_panel(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<CreateBloodTestPanelRequest>,
 ) -> Result<Json<BloodTestPanelWithItems>> {
-    require_permission!(current_user, "animal.record.create");
+    require_permission!(current_user, "animal.blood_test_template.manage");
     req.validate()?;
     let panel = AnimalService::create_blood_test_panel(&state.db, &req).await?;
     if let Err(e) = AuditService::log_activity(
@@ -276,7 +278,7 @@ pub async fn update_blood_test_panel(
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateBloodTestPanelRequest>,
 ) -> Result<Json<BloodTestPanelWithItems>> {
-    require_permission!(current_user, "animal.record.edit");
+    require_permission!(current_user, "animal.blood_test_template.manage");
     let panel = AnimalService::update_blood_test_panel(&state.db, id, &req).await?;
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "PANEL_UPDATE",
@@ -295,7 +297,7 @@ pub async fn update_blood_test_panel_items(
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateBloodTestPanelItemsRequest>,
 ) -> Result<Json<BloodTestPanelWithItems>> {
-    require_permission!(current_user, "animal.record.edit");
+    require_permission!(current_user, "animal.blood_test_template.manage");
     let panel = AnimalService::update_blood_test_panel_items(&state.db, id, &req).await?;
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "PANEL_UPDATE",
@@ -313,7 +315,7 @@ pub async fn delete_blood_test_panel(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
-    require_permission!(current_user, "animal.record.delete");
+    require_permission!(current_user, "animal.blood_test_template.manage");
     AnimalService::delete_blood_test_panel(&state.db, id).await?;
     let panel_name = sqlx::query_scalar::<_, String>("SELECT name FROM blood_test_panels WHERE id = $1")
         .bind(id).fetch_optional(&state.db).await.ok().flatten().unwrap_or_else(|| id.to_string());
@@ -340,11 +342,12 @@ pub async fn list_blood_test_presets(
     Ok(Json(presets))
 }
 
-/// 列出所有常用組合（含停用）- 管理用
+/// 列出所有常用組合（含停用）- 與動物權限綁定：具 animal.record.view 者可取得（供血檢分析頁使用）
 pub async fn list_all_blood_test_presets(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<BloodTestPreset>>> {
+    require_permission!(current_user, "animal.record.view");
     let presets = AnimalService::list_all_blood_test_presets(&state.db).await?;
     Ok(Json(presets))
 }
@@ -355,7 +358,7 @@ pub async fn create_blood_test_preset(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<CreateBloodTestPresetRequest>,
 ) -> Result<Json<BloodTestPreset>> {
-    require_permission!(current_user, "animal.record.create");
+    require_permission!(current_user, "animal.blood_test_template.manage");
     req.validate()?;
     let preset = AnimalService::create_blood_test_preset(&state.db, &req).await?;
     if let Err(e) = AuditService::log_activity(
@@ -375,7 +378,7 @@ pub async fn update_blood_test_preset(
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateBloodTestPresetRequest>,
 ) -> Result<Json<BloodTestPreset>> {
-    require_permission!(current_user, "animal.record.edit");
+    require_permission!(current_user, "animal.blood_test_template.manage");
     let preset = AnimalService::update_blood_test_preset(&state.db, id, &req).await?;
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "PRESET_UPDATE",
@@ -393,7 +396,7 @@ pub async fn delete_blood_test_preset(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
-    require_permission!(current_user, "animal.record.delete");
+    require_permission!(current_user, "animal.blood_test_template.manage");
     AnimalService::delete_blood_test_preset(&state.db, id).await?;
     let preset_name = sqlx::query_scalar::<_, String>("SELECT name FROM blood_test_presets WHERE id = $1")
         .bind(id).fetch_optional(&state.db).await.ok().flatten().unwrap_or_else(|| id.to_string());

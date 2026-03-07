@@ -24,11 +24,8 @@ pub async fn export_protocol_pdf(
 ) -> Result<impl IntoResponse> {
     require_permission!(current_user, "aup.protocol.view_own");
     let protocol = ProtocolService::get_by_id(&state.db, id).await?;
-    let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string())
-        || current_user.roles.contains(&"IACUC_CHAIR".to_string())
-        || current_user.roles.contains(&"IACUC_STAFF".to_string())
-        || current_user.roles.contains(&"VET".to_string())
-        || current_user.roles.contains(&"SYSTEM_ADMIN".to_string());
+    let has_view_all = current_user.has_permission("aup.protocol.view_all")
+        || current_user.roles.iter().any(|r| ["IACUC_CHAIR", "IACUC_STAFF", "VET", "REVIEWER"].contains(&r.as_str()));
     let is_pi_or_coeditor: (bool,) = sqlx::query_as(
         r#"SELECT EXISTS(SELECT 1 FROM user_protocols WHERE protocol_id = $1 AND user_id = $2 AND role_in_protocol IN ('PI', 'CLIENT', 'CO_EDITOR'))"#
     ).bind(id).bind(current_user.id).fetch_one(&state.db).await.unwrap_or((false,));

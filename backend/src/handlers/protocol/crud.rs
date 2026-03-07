@@ -29,7 +29,7 @@ pub async fn create_protocol(
 ) -> Result<Json<Protocol>> {
     let can_create = current_user.has_permission("aup.protocol.create")
         || current_user.roles.contains(&"PI".to_string())
-        || current_user.roles.contains(&"SYSTEM_ADMIN".to_string());
+        || current_user.is_admin();
     if !can_create {
         return Err(AppError::Forbidden("Permission denied: requires aup.protocol.create or PI role".to_string()));
     }
@@ -81,12 +81,8 @@ pub async fn get_protocol(
 ) -> Result<Json<ProtocolResponse>> {
     require_permission!(current_user, "aup.protocol.view_own");
     let protocol = ProtocolService::get_by_id(&state.db, id).await?;
-    let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string())
-        || current_user.roles.contains(&"IACUC_CHAIR".to_string())
-        || current_user.roles.contains(&"IACUC_STAFF".to_string())
-        || current_user.roles.contains(&"VET".to_string())
-        || current_user.roles.contains(&"REVIEWER".to_string())
-        || current_user.roles.contains(&"SYSTEM_ADMIN".to_string());
+    let has_view_all = current_user.has_permission("aup.protocol.view_all")
+        || current_user.roles.iter().any(|r| ["IACUC_CHAIR", "IACUC_STAFF", "VET", "REVIEWER"].contains(&r.as_str()));
     let is_pi_or_coeditor: (bool,) = sqlx::query_as(
         r#"SELECT EXISTS(SELECT 1 FROM user_protocols WHERE protocol_id = $1 AND user_id = $2 AND role_in_protocol IN ('PI', 'CLIENT', 'CO_EDITOR'))"#
     ).bind(id).bind(current_user.id).fetch_one(&state.db).await.unwrap_or((false,));
@@ -110,7 +106,7 @@ pub async fn update_protocol(
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateProtocolRequest>,
 ) -> Result<Json<Protocol>> {
-    let has_edit_permission = current_user.permissions.contains(&"aup.protocol.edit".to_string());
+    let has_edit_permission = current_user.has_permission("aup.protocol.edit");
     let is_authorized: (bool,) = sqlx::query_as(
         r#"SELECT EXISTS(SELECT 1 FROM user_protocols WHERE protocol_id = $1 AND user_id = $2 AND role_in_protocol IN ('PI', 'CLIENT', 'CO_EDITOR'))"#
     ).bind(id).bind(current_user.id).fetch_one(&state.db).await.unwrap_or((false,));
@@ -129,7 +125,7 @@ pub async fn submit_protocol(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Protocol>> {
-    let has_submit_permission = current_user.permissions.contains(&"aup.protocol.submit".to_string());
+    let has_submit_permission = current_user.has_permission("aup.protocol.submit");
     let is_authorized: (bool,) = sqlx::query_as(
         r#"SELECT EXISTS(SELECT 1 FROM user_protocols WHERE protocol_id = $1 AND user_id = $2 AND role_in_protocol IN ('PI', 'CO_EDITOR'))"#,
     ).bind(id).bind(current_user.id).fetch_one(&state.db).await.unwrap_or((false,));
@@ -183,12 +179,8 @@ pub async fn get_protocol_versions(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<ProtocolVersion>>> {
-    let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string())
-        || current_user.roles.contains(&"IACUC_CHAIR".to_string())
-        || current_user.roles.contains(&"IACUC_STAFF".to_string())
-        || current_user.roles.contains(&"VET".to_string())
-        || current_user.roles.contains(&"REVIEWER".to_string())
-        || current_user.roles.contains(&"SYSTEM_ADMIN".to_string());
+    let has_view_all = current_user.has_permission("aup.protocol.view_all")
+        || current_user.roles.iter().any(|r| ["IACUC_CHAIR", "IACUC_STAFF", "VET", "REVIEWER"].contains(&r.as_str()));
     if !has_view_all {
         let is_authorized: (bool,) = sqlx::query_as(
             r#"SELECT EXISTS(
@@ -211,12 +203,8 @@ pub async fn get_protocol_activities(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<ProtocolActivityResponse>>> {
-    let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string())
-        || current_user.roles.contains(&"IACUC_CHAIR".to_string())
-        || current_user.roles.contains(&"IACUC_STAFF".to_string())
-        || current_user.roles.contains(&"VET".to_string())
-        || current_user.roles.contains(&"REVIEWER".to_string())
-        || current_user.roles.contains(&"SYSTEM_ADMIN".to_string());
+    let has_view_all = current_user.has_permission("aup.protocol.view_all")
+        || current_user.roles.iter().any(|r| ["IACUC_CHAIR", "IACUC_STAFF", "VET", "REVIEWER"].contains(&r.as_str()));
     if !has_view_all {
         let is_authorized: (bool,) = sqlx::query_as(
             r#"SELECT EXISTS(
@@ -319,7 +307,7 @@ pub async fn save_vet_review_form(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<SaveVetReviewFormRequest>,
 ) -> Result<Json<()>> {
-    let is_vet = current_user.roles.contains(&"VET".to_string()) || current_user.roles.contains(&"SYSTEM_ADMIN".to_string());
+    let is_vet = current_user.roles.contains(&"VET".to_string()) || current_user.is_admin();
     if !is_vet {
         let is_assigned: (bool,) = sqlx::query_as(
             "SELECT EXISTS(SELECT 1 FROM vet_review_assignments WHERE protocol_id = $1 AND vet_id = $2)"

@@ -106,6 +106,7 @@ const CATEGORY_NAMES: Record<string, Record<string, string>> = {
   animal: {
     animal: '動物',
     record: '紀錄',
+    blood_test_template: '血檢項目',
     vet: '獸醫',
     export: '匯出',
     pathology: '病理',

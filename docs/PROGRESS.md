@@ -188,6 +188,18 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-07 血檢 API 與動物權限綁定
+- ✅ **需求**：list_all（panels/templates/presets）與血檢分析報表應與動物權限綁定；能看到動物的範圍，就看到其血檢分析結果。
+- ✅ **實作**：list_all_blood_test_* API 改為 require `animal.record.view`（原 `animal.blood_test_template.manage`）；blood_test_analysis 報表加權限檢查，若僅 view_project 則只回傳 `iacuc_no IS NOT NULL` 之動物；REVIEWER 新增 `animal.animal.view_all`、`animal.record.view` 以存取血檢分析。
+- 📁 **產出**：blood_test.rs、report.rs、ReportService、permissions.rs、003、BloodTestAnalysisPage、06_PERMISSIONS_RBAC.md。
+
+### 2026-03-07 血檢項目權限 `animal.blood_test_template.manage`
+- ✅ **需求**：僅具該權限者可檢視與編輯血檢項目（模板、組合、常用組合）；管理者可於「角色權限」處勾選／取消。
+- ✅ **後端**：新增權限 `animal.blood_test_template.manage`（Migration 011、permissions.rs）；模板／組合／常用組合之 list_all、create、update、delete API 改為檢查此權限（原先為 animal.record.*）。`list`（啟用中）仍不檢查，供動物血檢 Tab 建立紀錄時使用。
+- ✅ **前端**：側邊欄「血檢項目」加 `permission`；`/blood-test-templates`、`/blood-test-panels`、`/blood-test-presets` 路由包上 `RequirePermission`。
+- ✅ **角色**：預設指派給 EXPERIMENT_STAFF；admin 具全部權限。
+- 📁 **產出**：003_notifications_roles_seed.sql（權限與角色指派）、blood_test.rs、Sidebar.tsx、App.tsx、usePermissionManager.ts、06_PERMISSIONS_RBAC.md。
+
 ### 2026-03-06 新增 EQUIPMENT_MAINTENANCE（設備維護人員）角色
 - ✅ **需求**：於系統管理「角色權限」中新增「設備維護人員」角色，供管理設備與校準紀錄。
 - ✅ **實作**：將角色與權限寫入既有 migration **009_glp_extensions.sql**（9.3b 區塊）：插入角色 `EQUIPMENT_MAINTENANCE`（名稱：設備維護人員）、並指派 `equipment.view`、`equipment.manage`、`training.view`、`training.manage_own`、`dashboard.view`。維持 10 個 migration 檔案。

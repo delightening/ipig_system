@@ -340,9 +340,9 @@ function App() {
                         <Route path="/products/:id/edit" element={<ProductEditPage />} />
                         <Route path="/warehouses" element={<WarehousesPage />} />
                         <Route path="/partners" element={<PartnersPage />} />
-                        <Route path="/blood-test-templates" element={<BloodTestTemplatesPage />} />
-                        <Route path="/blood-test-panels" element={<BloodTestPanelsPage />} />
-                        <Route path="/blood-test-presets" element={<BloodTestPresetsPage />} />
+                        <Route path="/blood-test-templates" element={<RequirePermission permission="animal.blood_test_template.manage" fallback="redirect"><BloodTestTemplatesPage /></RequirePermission>} />
+                        <Route path="/blood-test-panels" element={<RequirePermission permission="animal.blood_test_template.manage" fallback="redirect"><BloodTestPanelsPage /></RequirePermission>} />
+                        <Route path="/blood-test-presets" element={<RequirePermission permission="animal.blood_test_template.manage" fallback="redirect"><BloodTestPresetsPage /></RequirePermission>} />
 
                         {/* 單據管理 */}
                         <Route path="/documents" element={<DocumentsPage />} />

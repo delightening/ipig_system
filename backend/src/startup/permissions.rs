@@ -11,6 +11,8 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
     let required_permissions = vec![
         // 動物來源管理
         ("animal.source.manage", "管理動物來源", "animal", "可管理動物來源資料"),
+        // 血檢項目管理（模板、組合、常用組合）
+        ("animal.blood_test_template.manage", "血檢項目管理", "animal", "可檢視與編輯血檢項目模板、組合、常用組合"),
         // 版本還原
         ("aup.version.restore", "還原版本", "aup", "可還原計畫版本"),
         // Amendment 分類
@@ -207,6 +209,8 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             "aup.version.view",
             // Amendment 變更申請（審查、檢視）
             "amendment.read", "amendment.review",
+            // 動物紀錄查看（血檢分析等，與動物權限綁定）
+            "animal.animal.view_all", "animal.record.view",
             // Dashboard
             "dashboard.view",
         ]),
@@ -275,6 +279,7 @@ pub async fn ensure_all_role_permissions(pool: &sqlx::PgPool) -> Result<()> {
             // 動物管理 - 可查看所有動物、新增、編輯、匯入
             "animal.animal.view_all", "animal.animal.create", "animal.animal.edit", "animal.animal.import",
             "animal.record.view", "animal.record.create", "animal.record.edit",
+            "animal.blood_test_template.manage",
             "animal.record.observation", "animal.record.surgery", 
             "animal.record.weight", "animal.record.vaccine", "animal.record.sacrifice",
             // 動物來源管理
