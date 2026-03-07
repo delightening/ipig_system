@@ -5,16 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Calendar as CalendarIcon, Clock, Loader2, ExternalLink, CalendarX } from 'lucide-react'
 import api from '@/lib/api'
-
-interface CalendarEvent {
-    id: string
-    summary: string
-    start: string
-    end: string
-    all_day: boolean
-    description?: string
-    location?: string
-}
+import type { CalendarEvent } from '@/types/hr'
 
 export function GoogleCalendarEventsWidget() {
     const { t, i18n } = useTranslation()
@@ -50,6 +41,7 @@ export function GoogleCalendarEventsWidget() {
         return new Date(dateStr).toLocaleTimeString(i18n.language, {
             hour: '2-digit',
             minute: '2-digit',
+            timeZone: 'Asia/Taipei',
         })
     }
 
@@ -60,6 +52,11 @@ export function GoogleCalendarEventsWidget() {
             day: 'numeric',
             weekday: 'short',
         })
+    }
+
+    const handleOpenInGoogle = (event: CalendarEvent) => {
+        if (!event.html_link) return
+        window.open(event.html_link, '_blank', 'noopener,noreferrer')
     }
 
     if (isLoading) {
@@ -113,7 +110,12 @@ export function GoogleCalendarEventsWidget() {
                 ) : events && events.length > 0 ? (
                     <div className="divide-y">
                         {events.map((event) => (
-                            <div key={event.id} className="p-3 hover:bg-muted/50 transition-colors group">
+                            <button
+                                key={event.id}
+                                type="button"
+                                onClick={() => handleOpenInGoogle(event)}
+                                className="w-full p-3 text-left hover:bg-muted/50 transition-colors group focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
+                            >
                                 <div className="flex items-start justify-between gap-2">
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-1">
@@ -139,9 +141,11 @@ export function GoogleCalendarEventsWidget() {
                                             </p>
                                         )}
                                     </div>
-                                    <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    {event.html_link && (
+                                        <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    )}
                                 </div>
-                            </div>
+                            </button>
                         ))}
                     </div>
                 ) : (
