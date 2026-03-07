@@ -116,7 +116,7 @@ export function AnimalFieldCorrectionsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">動物欄位修正審核</h1>
+        <h1 className="text-2xl font-bold text-slate-900">修正審核</h1>
         <p className="text-slate-500 mt-1">
           耳號、出生日期、性別、品種等欄位建立後不可直接修改，需經管理員批准後才能套用修正。
         </p>

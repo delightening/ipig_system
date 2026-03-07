@@ -371,7 +371,7 @@ unassigned ──→ in_experiment ──→ completed ───┤──→ sud
 | `/animals` | 動物列表（含 Tab 篩選、分組視圖、排序） |
 | `/animals/:id` | 動物詳情（8 Tab） |
 | `/animals/:id/edit` | 編輯動物（含「申請修正」按鈕） |
-| `/animals/animal-field-corrections` | 動物欄位修正審核（實驗動物管理） |
+| `/animals/animal-field-corrections` | 修正審核（實驗動物管理） |
 | `/animal-sources` | 動物來源管理 |
 | `/blood-test-templates` | 血液檢查模板管理 |
 | `/blood-test-panels` | 血液檢查組合管理 |
