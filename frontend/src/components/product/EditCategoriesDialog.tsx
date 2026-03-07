@@ -21,7 +21,10 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
-import { Loader2, Plus, Tags, ChevronRight, ChevronDown, FolderOpen, FolderTree } from 'lucide-react'
+import { useAuthStore } from '@/stores/auth'
+import { useConfirmDialog } from '@/hooks/useConfirmDialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { Loader2, Plus, Tags, ChevronRight, ChevronDown, FolderOpen, FolderTree, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type {
   CategoryForEdit,
@@ -41,6 +44,9 @@ interface EditCategoriesDialogProps {
 
 export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialogProps) {
   const queryClient = useQueryClient()
+  const hasRole = useAuthStore(s => s.hasRole)
+  const isAdmin = hasRole('admin')
+  const { dialogState, confirm } = useConfirmDialog()
   const [selectedCategoryCode, setSelectedCategoryCode] = useState<string>('')
   const [selectedTarget, setSelectedTarget] = useState<string>('') // EDIT_CATEGORY_VALUE or sub.code
   const [formName, setFormName] = useState('')
@@ -175,6 +181,48 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
     },
   })
 
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (code: string) => {
+      await api.delete(`/sku/categories/${code}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sku-categories'] })
+      queryClient.invalidateQueries({ queryKey: ['sku-categories-tree'] })
+      queryClient.invalidateQueries({ queryKey: ['sku-subcategories'] })
+      toast({ title: '已刪除', description: '品類已刪除' })
+      setSelectedCategoryCode('')
+      setSelectedTarget('')
+    },
+    onError: (err: unknown) => {
+      toast({
+        title: '刪除失敗',
+        description: getApiErrorMessage(err, '品類刪除失敗'),
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const deleteSubcategoryMutation = useMutation({
+    mutationFn: async ({ categoryCode, code }: { categoryCode: string; code: string }) => {
+      await api.delete(`/sku/categories/${categoryCode}/subcategories/${code}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sku-categories'] })
+      queryClient.invalidateQueries({ queryKey: ['sku-categories-tree'] })
+      queryClient.invalidateQueries({ queryKey: ['sku-subcategories'] })
+      toast({ title: '已刪除', description: '子類已刪除' })
+      setSelectedCategoryCode('')
+      setSelectedTarget('')
+    },
+    onError: (err: unknown) => {
+      toast({
+        title: '刪除失敗',
+        description: getApiErrorMessage(err, '子類刪除失敗'),
+        variant: 'destructive',
+      })
+    },
+  })
+
   const isEditingCategory = selectedTarget === EDIT_CATEGORY_VALUE
   const selectedSub = selectedCategory?.subcategories.find(s => s.code === selectedTarget)
   const displayCode = isEditingCategory ? selectedCategory?.code : selectedSub?.code
@@ -198,7 +246,31 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
   const saving =
     updateCategoryMutation.isPending ||
     updateSubcategoryMutation.isPending ||
-    createSubcategoryMutation.isPending
+    createSubcategoryMutation.isPending ||
+    deleteCategoryMutation.isPending ||
+    deleteSubcategoryMutation.isPending
+
+  const handleDelete = async () => {
+    if (!selectedCategory) return
+    const label = isEditingCategory
+      ? `品類「${selectedCategory.code} ${selectedCategory.name}」`
+      : `子類「${selectedSub?.code} ${selectedSub?.name}」`
+    const ok = await confirm({
+      title: '刪除分類',
+      description: `確定要刪除${label}嗎？此操作無法復原。`,
+      variant: 'destructive',
+      confirmLabel: '確認刪除',
+    })
+    if (!ok) return
+    if (isEditingCategory) {
+      deleteCategoryMutation.mutate(selectedCategory.code)
+    } else if (selectedSub) {
+      deleteSubcategoryMutation.mutate({
+        categoryCode: selectedCategory.code,
+        code: selectedSub.code,
+      })
+    }
+  }
 
   const handleCreateSub = () => {
     const catCode = newSubCategoryCode || selectedCategory?.code
@@ -406,16 +478,29 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
                           <Switch checked={formIsActive} onCheckedChange={setFormIsActive} />
                         </div>
                       </div>
-                      <Button onClick={handleSave} disabled={saving}>
-                        {saving ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            儲存中…
-                          </>
-                        ) : (
-                          '儲存'
+                      <div className="flex items-center gap-2">
+                        <Button onClick={handleSave} disabled={saving}>
+                          {saving ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              儲存中…
+                            </>
+                          ) : (
+                            '儲存'
+                          )}
+                        </Button>
+                        {isAdmin && (
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            disabled={saving}
+                            onClick={handleDelete}
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            刪除
+                          </Button>
                         )}
-                      </Button>
+                      </div>
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground py-2">
@@ -505,6 +590,7 @@ export function EditCategoriesDialog({ open, onOpenChange }: EditCategoriesDialo
           </div>
         )}
       </DialogContent>
+      <ConfirmDialog state={dialogState} />
     </Dialog>
   )
 }

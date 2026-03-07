@@ -746,6 +746,94 @@ impl SkuService {
         })
     }
 
+    /// 刪除子類（僅在無產品使用該子類時允許；僅 admin 可呼叫，由 handler 檢查）
+    pub async fn delete_subcategory(
+        pool: &PgPool,
+        category_code: &str,
+        code: &str,
+    ) -> Result<()> {
+        Self::get_subcategory_by_codes(pool, category_code, code).await?;
+
+        // 若有產品使用此 category_code + subcategory_code（欄位或 SKU 前綴），不允許刪除
+        let by_columns: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM products WHERE category_code = $1 AND subcategory_code = $2)",
+        )
+        .bind(category_code)
+        .bind(code)
+        .fetch_one(pool)
+        .await?;
+        if by_columns {
+            return Err(AppError::BusinessRule(
+                "尚有產品使用此子類，無法刪除".to_string(),
+            ));
+        }
+        let sku_prefix = format!("{}-{}-", category_code, code);
+        let by_sku: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM products WHERE sku LIKE $1)",)
+            .bind(format!("{}%", sku_prefix))
+            .fetch_one(pool)
+            .await?;
+        if by_sku {
+            return Err(AppError::BusinessRule(
+                "尚有產品使用此子類，無法刪除".to_string(),
+            ));
+        }
+
+        sqlx::query("DELETE FROM sku_sequences WHERE category_code = $1 AND subcategory_code = $2")
+            .bind(category_code)
+            .bind(code)
+            .execute(pool)
+            .await?;
+        let result = sqlx::query("DELETE FROM sku_subcategories WHERE category_code = $1 AND code = $2")
+            .bind(category_code)
+            .bind(code)
+            .execute(pool)
+            .await?;
+        if result.rows_affected() == 0 {
+            return Err(AppError::NotFound("Subcategory not found".to_string()));
+        }
+        Ok(())
+    }
+
+    /// 刪除品類（僅在無產品使用該品類時允許；僅 admin 可呼叫，由 handler 檢查）
+    pub async fn delete_category(pool: &PgPool, code: &str) -> Result<()> {
+        Self::get_category_by_code(pool, code).await?;
+
+        let by_columns: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM products WHERE category_code = $1)",
+        )
+        .bind(code)
+        .fetch_one(pool)
+        .await?;
+        if by_columns {
+            return Err(AppError::BusinessRule(
+                "尚有產品使用此品類，無法刪除".to_string(),
+            ));
+        }
+        let sku_prefix = format!("{}-", code);
+        let by_sku: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM products WHERE sku LIKE $1)")
+            .bind(format!("{}%", sku_prefix))
+            .fetch_one(pool)
+            .await?;
+        if by_sku {
+            return Err(AppError::BusinessRule(
+                "尚有產品使用此品類，無法刪除".to_string(),
+            ));
+        }
+
+        sqlx::query("DELETE FROM sku_sequences WHERE category_code = $1")
+            .bind(code)
+            .execute(pool)
+            .await?;
+        let result = sqlx::query("DELETE FROM sku_categories WHERE code = $1")
+            .bind(code)
+            .execute(pool)
+            .await?;
+        if result.rows_affected() == 0 {
+            return Err(AppError::NotFound("Category not found".to_string()));
+        }
+        Ok(())
+    }
+
     /// 解析 SKU 格式字串 (XXX-XXX-NNN)，供單元測試驗證格式邏輯
     #[cfg(test)]
     pub fn parse_sku_format(sku: &str) -> Option<(String, String, i32)> {

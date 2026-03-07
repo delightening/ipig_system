@@ -182,20 +182,23 @@ export function DashboardPage() {
     return layoutData || DEFAULT_DASHBOARD_LAYOUT
   }, [layoutData])
 
+  // ERP 權限：用於決定是否顯示 ERP Widget 以及是否呼叫 ERP API
+  const hasErpPermission = useMemo(() => {
+    return hasRole('admin') ||
+      (user?.roles.some(r => ['purchasing', 'approver', 'WAREHOUSE_MANAGER'].includes(r)) ?? false) ||
+      (user?.permissions.some(p => p.startsWith('erp.')) ?? false)
+  }, [hasRole, user])
+
   // 根據權限過濾可顯示的 Widget
   const availableWidgets = useMemo(() => {
     return currentLayout.filter((w) => {
       const permission = widgetPermissions[w.i]
       if (!permission) return true
-      if (permission === 'erp') {
-        return hasRole('admin') ||
-          user?.roles.some(r => ['purchasing', 'approver', 'WAREHOUSE_MANAGER'].includes(r)) ||
-          user?.permissions.some(p => p.startsWith('erp.'))
-      }
+      if (permission === 'erp') return hasErpPermission
       if (permission === 'admin') return hasRole('admin')
       return hasPermission(permission)
     })
-  }, [currentLayout, hasRole, hasPermission, user])
+  }, [currentLayout, hasRole, hasPermission, user, hasErpPermission])
 
   // 可見的 Widget
   const visibleWidgets = useMemo(() => {
@@ -293,7 +296,7 @@ export function DashboardPage() {
     )
   }
 
-  // ERP 相關查詢
+  // ERP 相關查詢（僅在有 ERP 權限時呼叫，避免審查委員等角色產生 403）
   const { data: lowStockAlerts, isLoading: loadingAlerts } = useQuery({
     queryKey: ['low-stock-alerts'],
     queryFn: async () => {
@@ -301,6 +304,7 @@ export function DashboardPage() {
       return response.data
     },
     staleTime: 30_000,
+    enabled: hasErpPermission,
   })
 
   const { data: recentDocuments, isLoading: loadingDocuments } = useQuery({
@@ -310,6 +314,7 @@ export function DashboardPage() {
       return response.data.slice(0, 10)
     },
     staleTime: 60_000,
+    enabled: hasErpPermission,
   })
 
   const getStatusBadge = (status: string) => {
