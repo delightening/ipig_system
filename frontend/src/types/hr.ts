@@ -361,3 +361,19 @@ export interface CalendarEvent {
     html_link?: string;
 }
 
+/** Google Calendar 同步設定（僅包含前端可修改的欄位） */
+export interface CalendarConfig {
+    sync_enabled: boolean;
+    /** 早上自動同步時間，格式 "HH:MM:SS"，null 表示停用 */
+    sync_schedule_morning: string | null;
+    /** 晚上自動同步時間，格式 "HH:MM:SS"，null 表示停用 */
+    sync_schedule_evening: string | null;
+    sync_timezone: string | null;
+}
+
+export interface UpdateCalendarConfig {
+    sync_enabled?: boolean;
+    sync_schedule_morning?: string | null;
+    sync_schedule_evening?: string | null;
+}
+

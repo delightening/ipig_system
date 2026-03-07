@@ -4,6 +4,7 @@ import { format, startOfDay, endOfISOWeek } from 'date-fns'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Calendar as CalendarIcon, Clock, Loader2, ExternalLink, CalendarX } from 'lucide-react'
+import { isAxiosError } from 'axios'
 import api from '@/lib/api'
 import type { CalendarEvent } from '@/types/hr'
 
@@ -23,19 +24,19 @@ export function GoogleCalendarEventsWidget() {
                 })
                 return res.data
             } catch (err: unknown) {
-                const errObj = err as { response?: { data?: { message?: string; error?: string | { message?: string } }; status?: number } }
-                const data = errObj?.response?.data
-                const errorMsg = data?.message || (typeof data?.error === 'object' && data?.error?.message) || (typeof data?.error === 'string' ? data.error : '')
-
-                const errResp = errObj?.response
-                if (errResp?.status === 400 && errorMsg.includes('Google Calendar')) {
-                    return null // Representing not connected
+                // 未連接 Google Calendar 時回傳 null，視為正常狀態而非錯誤
+                if (isAxiosError(err) && err.response?.status === 400) {
+                    const msg = err.response.data?.message || err.response.data?.error || ''
+                    if (typeof msg === 'string' && msg.includes('Google Calendar')) {
+                        return null
+                    }
                 }
                 throw err
             }
         },
         staleTime: 60_000,
     })
+
 
     const formatTime = (dateStr: string) => {
         return new Date(dateStr).toLocaleTimeString(i18n.language, {

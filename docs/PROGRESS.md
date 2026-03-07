@@ -13,6 +13,7 @@
 ### 這份文件是什麼？
 
 這是一個叫做 **豬博士 iPig 系統** 的軟體專案進度表。這個系統是給**實驗室、研究機構**使用的，用來管理：
+
 - 實驗動物的資料（例如：豬的健康狀況、醫療紀錄）
 - 實驗計畫的審核流程
 - 進銷存（買東西、賣東西、庫存）
@@ -63,6 +64,7 @@
 | - | [最新變更動態](#9-最新變更動態) | 每次更新做了什麼（技術細節） |
 
 **閱讀建議：**
+
 - 想快速了解專案狀態 → 看「總體進度概覽」和「正式上線準備度」
 - 想了解最新改動 → 看「最新變更動態」（可只看日期和標題，不必逐行理解）
 - 想學專案用到的技術名詞 → 看開頭的「術語解釋」
@@ -188,12 +190,50 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-08 日曆功能審視與重構 (業內標準化)
+
+- ✅ **前端重構**：將 `CalendarSyncSettingsPage` 拆分為 `useCalendarSync`、`useCalendarEvents` Hooks 與 4 個獨立 Tab 元件（Status/Events/History/Conflicts）；實作日曆事件點擊預覽 (Popover)，支援直接跳轉 Google Calendar。
+- ✅ **後端解耦**：引入 `CalendarApi` trait 抽象日曆操作，實現 `GoogleCalendarClient` 與 `CalendarService` 的解耦，支援依賴注入與 Mock 測試。
+- ✅ **同步重構**：重構 `trigger_sync` 邏輯，拆分為 `process_pending_creates/updates/deletes`，提升代碼可讀性與維護性。
+- ✅ **測試補強**：新增 `useCalendarEvents` 的導航邏輯單元測試 (Vitest) 與後端 `CalendarService` 輔助函式單元測試 (Cargo test)。
+- 📁 **產出**：CalendarView.tsx、CalendarSyncSettingsPage.tsx、useCalendarSync.ts、useCalendarEvents.ts、google_calendar.rs (Trait)、calendar.rs (Refactored)。
+
+---
+
+### 2026-03-07 Calendar 月份切換修正 & 2.0 體驗升級
+
+**月份切換 Bug 修正（根本原因修正）：**
+
+- ✅ 移除 `key={format(calendarDateRange.start, 'yyyy-MM')}` — 不再因月份變化強制 remount FullCalendar
+- ✅ 採用 React Query `keepPreviousData` — 換月時保留舊事件顯示，新資料到才平滑替換，無閃爍
+- ✅ 刪除 `calendarMounted` 雙層 RAF 邏輯 — 移除不必要的延遲掛載 workaround
+- ✅ 刪除 `shouldAcceptDateRange` — 改以格式化字串比較去重，邏輯更清晰
+- ✅ 新增 `isFetching` → 換月期間右上角顯示小 spinner，不遮擋日曆本體
+
+**Calendar 2.0 體驗升級（P0–P1 全數完成）：**
+
+- ✅ **假別顏色 coding**：從 summary 解析 `[假別]` 標籤，映射 10 種假別顏色（特休＝綠、病假＝橘、事假＝藍...），不需後端改動
+- ✅ **假別篩選 chips**：日曆上方顯示當月出現的假別 chip，點擊即過濾；再點取消；「全部」chip 常駐
+- ✅ **衝突解決補全 `accept_google`**：衝突列表新增第三個解決方案「接受 Google 版本」（後端原已支援）
+- ✅ **分頁 UI**：同步歷史、衝突列表加前/下頁按鈕，後端已支援 pagination，前端補接
+- ✅ **衝突樂觀更新**：點擊解決按鈕後立即從列表移除，失敗時自動回滾
+- ✅ **Popover 解析升級**：事件彈出框解析 `[假別] 員工名（代理人）` 格式，顯示假別顏色 badge + 員工名 + 代理人欄位
+- ✅ **時間格式改善**：Popover 顯示完整日期範圍（全天事件顯示「月/日（全天）」或「月/日 – 月/日（全天）」）
+- ✅ **連線狀態升級**：顯示近期錯誤警告、最後同步結果 badge、下次同步時間
+- ✅ **自動同步設定 UI**：連線狀態分頁加入同步排程設定（啟用開關、早/晚同步時間），對接 `PUT /hr/calendar/config` API
+
+- 📁 **產出**：useCalendarEvents.ts、useCalendarSync.ts、CalendarView.tsx、CalendarEventsTab.tsx、CalendarStatusTab.tsx、ConflictsTab.tsx、SyncHistoryTab.tsx、CalendarSyncSettingsPage.tsx、hr.ts（新增 CalendarConfig / UpdateCalendarConfig 型別）
+
+---
+
 ### 2026-03-07 血檢 API 與動物權限綁定
+
 - ✅ **需求**：list_all（panels/templates/presets）與血檢分析報表應與動物權限綁定；能看到動物的範圍，就看到其血檢分析結果。
 - ✅ **實作**：list_all_blood_test_* API 改為 require `animal.record.view`（原 `animal.blood_test_template.manage`）；blood_test_analysis 報表加權限檢查，若僅 view_project 則只回傳 `iacuc_no IS NOT NULL` 之動物；REVIEWER 新增 `animal.animal.view_all`、`animal.record.view` 以存取血檢分析。
 - 📁 **產出**：blood_test.rs、report.rs、ReportService、permissions.rs、003、BloodTestAnalysisPage、06_PERMISSIONS_RBAC.md。
 
 ### 2026-03-07 血檢項目權限 `animal.blood_test_template.manage`
+
 - ✅ **需求**：僅具該權限者可檢視與編輯血檢項目（模板、組合、常用組合）；管理者可於「角色權限」處勾選／取消。
 - ✅ **後端**：新增權限 `animal.blood_test_template.manage`（Migration 011、permissions.rs）；模板／組合／常用組合之 list_all、create、update、delete API 改為檢查此權限（原先為 animal.record.*）。`list`（啟用中）仍不檢查，供動物血檢 Tab 建立紀錄時使用。
 - ✅ **前端**：側邊欄「血檢項目」加 `permission`；`/blood-test-templates`、`/blood-test-panels`、`/blood-test-presets` 路由包上 `RequirePermission`。
@@ -201,33 +241,41 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - 📁 **產出**：003_notifications_roles_seed.sql（權限與角色指派）、blood_test.rs、Sidebar.tsx、App.tsx、usePermissionManager.ts、06_PERMISSIONS_RBAC.md。
 
 ### 2026-03-06 新增 EQUIPMENT_MAINTENANCE（設備維護人員）角色
+
 - ✅ **需求**：於系統管理「角色權限」中新增「設備維護人員」角色，供管理設備與校準紀錄。
 - ✅ **實作**：將角色與權限寫入既有 migration **009_glp_extensions.sql**（9.3b 區塊）：插入角色 `EQUIPMENT_MAINTENANCE`（名稱：設備維護人員）、並指派 `equipment.view`、`equipment.manage`、`training.view`、`training.manage_own`、`dashboard.view`。維持 10 個 migration 檔案。
 - ✅ **結果**：重啟後端後，角色權限頁面會顯示「設備維護人員」卡片；可將使用者指派為此角色以存取 ERP 設備維護分頁。
 
 ### 2026-03-05 migrations 升級重整（維持 10 個）
+
 - ✅ **合併結果**：原 16 個 migration 重整為 10 個，最終 schema 不變、執行順序與依賴維持正確。
 - ✅ **對應**：001_types、002_users_auth 未改；003＝原 003＋004（通知/附件/稽核/trigger＋角色權限 seed/user_preferences）；004＝原 005 動物管理；005＝原 006 AUP；006＝原 007 HR；007＝原 008 稽核＋ERP；008＝原 009＋011＋012（補充、犧牲鎖欄、轉讓類型、修正、效能）；009＝原 010＋013＋014（GLP 訓練/設備/QAU/會計、血液檢查預設、SKU 品類種子）；010＝原 015＋016（治療藥物去重與業務鍵唯一）。
 - ✅ **舊檔移除**：006_aup_system、007_hr_system、008_audit_erp、009_supplementary、010_glp_accounting、011～016 已刪除；保留 `.gitattributes`。
 
 ### 2026-03-05 系統時間統一為台灣時間 (Asia/Taipei)
+
 - **後端**：新增 `backend/src/time.rs` 提供 `now_taiwan()`、`today_taiwan_naive()`；活動日誌 partition_date、會計 as_of、審計儀表板、HR 出勤／請假「今日」、單據編號日期、PDF/郵件顯示日期、排程月報、匯出檔名等皆改為以台灣日期／時間為準。
 - **前端**：`formatDate`／`formatDateTime` 及所有內聯日期顯示皆加上 `timeZone: 'Asia/Taipei'`，不論使用者瀏覽器時區皆顯示台灣時間。
 - **Grafana**：`deploy/grafana_dashboard.json` 的 `timezone` 設為 `Asia/Taipei`。
 
 ### 2026-03-05 R4-100-T3 user/role service 單元測試
+
 - **R4-100-T3**：UserService 提取 `user_search_pattern(keyword)` 供 list 使用，3 個單元測試；RoleService 提取 `is_valid_role_code(s)`（1–50 字、英數字與底線）、於 create 前驗證，3 個單元測試。另修正 `time.rs` 測試缺少 `chrono::Datelike` 導致編譯失敗。TODO R4-100-T3 標完成，待辦統計 4→3、合計 5→4。
 
 ### 2026-03-05 R4-100-T2 partner service 單元測試
+
 - **R4-100-T2**：PartnerService 提取可測函式 `format_partner_code`、`is_valid_email`，`parse_partner_code_sequence`（#[cfg(test)]）、`parse_partner_type`／`parse_supplier_category`／`parse_customer_category` 改為 `pub(crate)`；新增 6 個單元測試（format_partner_code、parse_partner_code_sequence、parse_partner_type、parse_supplier_category、parse_customer_category、is_valid_email）。TODO R4-100-T2 標完成，待辦統計 5→4、合計 6→5。
 
 ### 2026-03-05 R4-100-T1 product service 單元測試
+
 - **R4-100-T1**：ProductService 提取可測函式 `format_product_sku`、`validate_product_status`，`parse_bool` 改為 `pub(crate)`；新增 8 個單元測試（format_product_sku 3、validate_product_status 3、parse_bool 2）。TODO R4-100-T1 標完成，待辦統計 6→5、合計 7→6。
 
 ### 2026-03-05 R4-100-O7 報表／會計／治療藥物 OpenAPI 完成
+
 - **R4-100-O7**：report（7 個端點）、accounting（7 個端點）、treatment_drug（6 個端點）補齊 `#[utoipa::path]`，openapi.rs 註冊 paths、tags「報表／會計／治療藥物」及相關 schemas（CreateApPaymentRequest、CreateArReceiptRequest、TreatmentDrugOption 等）。TODO.md R4-100-O7 標完成，待辦統計 7→6、合計 8→7。
 
 ### 2026-03-05 編輯產品與新增產品對齊（包裝結構、分類、移除耗材 LAB 主分類）
+
 - **編輯產品頁**：品類改為與新增產品一致（分類按鈕＋子分類下拉）；移除「耗材(LAB)」主分類，實驗耗材改為耗材之子分類；舊 LAB 主分類產品載入時自動對應為 耗材＋實驗耗材。
 - **編輯產品頁**：新增「包裝結構」區塊，可檢視與編輯兩層／三層包裝（外層→內層→基礎單位），與新增產品相同邏輯計算 `pack_unit`／`pack_qty` 儲存。
 - 變更檔案：`frontend/src/pages/master/ProductEditPage.tsx`。
@@ -235,11 +283,13 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 ---
 
 ### 2026-03-05 移除 Sentry 錯誤監控
+
 - 後端：移除 sentry crate、Config.sentry_dsn、main 中 sentry::init 與 runtime 改回 #[tokio::main]、error.rs 中 sentry::capture_error。
 - 前端：移除 @sentry/react、instrument.ts、main 首行 import、ErrorBoundary 內 Sentry.captureException、系統設定頁「錯誤監控測試」卡片；Dockerfile / docker-compose 移除 VITE_SENTRY_DSN。
 - 文件與範本：.env.example、DEPLOYMENT、OPERATIONS、IMPROVEMENT_PLAN_R4 還原為未導入 Sentry 狀態。
 
 ### 2026-03-04 全域刪除改用 POST /delete（避免代理/tunnel 回傳 405）
+
 - ✅ **根因**：部分代理、Cloudflare Tunnel 等對 `DELETE` 請求回傳 405 Method Not Allowed，導致刪除操作失敗但前端仍顯示成功。
 - ✅ **後端**：為所有 DELETE 端點新增 `POST /.../delete` 替代路由（36 個），涵蓋 users、roles、warehouses、storage-locations、products、partners、documents、animal-sources、animals、observations、surgeries、weights、vaccinations、care-records、blood-tests、notifications、attachments、equipment、training-records、hr、facilities 等。
 - ✅ **前端**：新增 `deleteResource(url, options?)` 輔助函式；`bloodTestApi`、`bloodTestTemplateApi`、`bloodTestPanelApi`、`notificationRoutingApi`、`treatmentDrugApi` 及 20+ 頁面/元件全部改為使用 `deleteResource`，支援 body（如 reason）與 headers（如 X-Reauth-Token）。
@@ -248,36 +298,43 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 ---
 
 ### 2026-03-05 端點文件化與單元測試盤點、storage_location + SKU 完成
+
 - ✅ **盤點文件**：新增 `docs/development/OPENAPI_AND_TESTS_STATUS.md`，總計路由 **318** 個 handler、已文件化 **132**、尚未文件化約 **186**；單元測試 **148** 個，並列出未文件化模組與建議補強測試模組。
 - ✅ **OpenAPI 儲位與 SKU**：storage_location 全模組 **11** 端點（含 ToSchema/IntoParams 與 openapi 註冊）；SKU **6** 端點（get_sku_categories, get_sku_subcategories, generate_sku, validate_sku, preview_sku, create_product_with_sku），models/sku 與 ProductWithUom 等 schema 已註冊。
 - ✅ **Rust 單元測試**：維持 **148** 個測試通過（前次已補常數/SKU/倉庫 6 個）。
 
 ### 2026-03-05 IMPROVEMENT_PLAN_R4 延續（端點文件化、Rust 單元測試）
+
 - ✅ **OpenAPI 監控端點**：新增 3 個端點文件化：`health_check`（GET /api/health）、`metrics_handler`（GET /metrics）、`vitals_handler`（POST /api/metrics/vitals），含 HealthResponse/PoolCheck/DiskCheck/WebVitalsMetric 等 schema，新增「監控」tag。
 - ✅ **Rust 單元測試**：新增 6 個測試（常數 audit 2 個、SKU 格式 2 個、倉庫代碼序號 2 個），總計 **148** 個測試通過。
 
 ### 2026-03-04 IMPROVEMENT_PLAN_R4 目標補齊（Rust 測試、OpenAPI）
+
 - ✅ **Rust 單元測試**：新增 15 個核心業務邏輯測試（SKU 格式解析 7 個、倉庫代碼序號 4 個、常數驗證 4 個），總計 **142** 個測試通過，強化覆蓋率。
 - ✅ **OpenAPI 端點文件化**：補齊 10 個端點 `#[utoipa::path]` 與 openapi.rs 註冊：`export_me`、`delete_me_account`、2FA、使用者偏好；**R4-100-O1** products（10 paths）；**R4-100-O2** partners（8 paths）；**R4-100-O3** documents + storage_location（19 paths）；**R4-100-O4** SKU（5 paths）；**R4-100-O5** animal 子模組（觀察/手術/體重/疫苗/犧牲/病理/轉讓，31 paths）；**R4-100-O6** HR（出勤/請假/加班）+ 通知 + 稽核（11 paths），符合 ≥90% 端點文件化目標。
 
 ### 2026-03-04 全專案資料夾整理與分類
+
 - ✅ **維運手冊歸位**：`docs/OPERATIONS.md` 移入 `docs/operations/OPERATIONS.md`，與 COMPOSE、ENV_AND_DB、TUNNEL 等同屬「環境與建置」分類；所有引用已更新（SOC2_READINESS、SLA、docs/README）。
 - ✅ **文件索引**：`docs/README.md` 新增維運手冊入口、operations 區塊補齊 OPERATIONS.md、目錄結構摘要加註分類說明、頂部新增「閱讀建議」依角色導引。
 - ✅ **根目錄導覽**：`README.md` 新增「資料夾一覽」表（backend、frontend、docs、scripts、tests、monitoring、deploy、.github）及「依角色閱讀」；文件導覽加入 OPERATIONS.md 連結。
 - ✅ **monitoring/ 與 deploy/**：新增 `monitoring/README.md`（Prometheus、Alertmanager、Promtail 結構與用途）、`deploy/README.md`（Grafana、cloudflared、WAF 規則分類與相關文件連結），便於維運與新成員查找。
 
 ### 2026-03-04 scripts 目錄整理
+
 - ✅ **scripts/README.md**：新增總覽與分類索引（啟動/隧道、CI/測試、資料庫、備份、部署、環境、Windows 建置），含目錄結構與相關文件連結。
 - ✅ **引用修正**：文件中原不存在的 `fix_migration_checksums.ps1` 改為 `sync_migrations.ps1 -Method FixChecksums`（`restore_old_dump.ps1`、`docs/database/RESTORE_OLD_DUMP.md`）。
 
 ---
 
 ### 2026-03-04 新規則：已犧牲動物可將欄位改為空值
+
 - ✅ **規則**：若動物已為犧牲（euthanized）狀態，允許透過更新動物 API 將欄位（`pen_location`）改為空值；其餘狀態時，傳空則保留原值。
 - ✅ **實作**：`backend/src/services/animal/core.rs` 更新動物時，依 `current_status == Euthanized` 決定 `pen_location` 綁定值與 SQL（`CASE WHEN status = 'euthanized' THEN $3 ELSE COALESCE($3, pen_location) END`）。
 - ✅ **規格**：已於 `_Spec.md` 2.7.1 新增「已犧牲動物可清空欄位」條目並更新實作方式說明。
 
 ### 2026-03-04 犧牲/安樂死時自動移出欄位（pen_location = NULL）
+
 - ✅ **規格**：依 `docs/Profiling_Spec/archive/_Spec.md`「犧牲時移除欄位」規則，已安樂死之動物應將欄位清空（`pen_location = NULL`）以移出欄位。
 - ✅ **實作**：原先僅更新狀態為 `euthanized`，未清空欄位；現已補上。
   - **犧牲/採樣紀錄確認**：`backend/src/handlers/animal/sacrifice_pathology.rs` 於 `confirmed_sacrifice` 時，`UPDATE animals` 一併設定 `pen_location = NULL`。
@@ -287,6 +344,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 ---
 
 ### 2026-03-03 E2E CI 環境模擬全通過
+
 - ✅ **根因**：admin-users 測試失敗因「啟動配置警告」對話框擋住頁面；auth 首次嘗試使用 `.env` 的錯誤 `ADMIN_INITIAL_PASSWORD`。
 - ✅ **修正**：`docker-compose.test.yml` 新增 `TEST_USER_PASSWORD`、`ALLOWED_CLOCK_IP_RANGES`、`CLOCK_OFFICE_LATITUDE/LONGITUDE` 抑制配置警告；`run-ci-e2e-tests.ps1` 設定 `ADMIN_INITIAL_PASSWORD`、清除 `.auth` 資料夾、修正 docker compose `--progress` 旗標。
 - ✅ **結果**：35 個 Playwright E2E 測試全數通過（約 1.8 分鐘）。
@@ -294,6 +352,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 ---
 
 ### 2026-03-03 本機複現 CI 環境與 Backend 測試全通過
+
 - ✅ **腳本**：新增 `scripts/run-ci-backend-tests.ps1`，以 Docker db-test + CI 環境變數複現 GitHub Actions 流程。
 - ✅ **CI 調整**：`DISABLE_ACCOUNT_LOCKOUT=true` 避免 `login_with_wrong_password_returns_401` 因帳號鎖定回傳 400；`--test-threads=1` 減少共用 DB 衝突；`--force-recreate` 確保乾淨測試 DB。
 - ✅ **權限**：補齊 `dev.role.*` 並指派給 admin（角色 API 需此權限）。
@@ -301,6 +360,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **結果**：`cargo test` 全數通過（127 unit + 整合測試）。
 
 ### 2026-03-03 疫苗紀錄刪除失效修復與刪除功能檢視
+
 - ✅ **根因**：`list_vaccinations` 未過濾 `deleted_at IS NULL`，導致軟刪除後紀錄仍顯示於列表（後端已正確軟刪除，但列表查詢未排除）。
 - ✅ **修正**：`backend/src/services/animal/medical.rs` 於 `list_vaccinations` 查詢加入 `AND deleted_at IS NULL`。
 - ✅ **前端型別**：`AnimalVaccination.id` 由 `number` 改為 `string`（UUID），`VaccinationsTab` 之 `deleteTarget` 同步修正。
@@ -311,6 +371,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 ---
 
 ### 2026-03-02 動物欄位修正申請（需 admin 批准）
+
 - ✅ **需求**：耳號、出生日期、性別、品種等欄位建立後不可直接修改；若 staff 輸入錯誤，可經 admin 批准後修正。
 - ✅ **後端**：Migration 011 新增 `animal_field_correction_requests` 表；`POST /animals/:id/field-corrections` 建立申請、`GET` 查詢該動物申請；`GET /animals/animal-field-corrections/pending` 列出待審、`POST /animals/animal-field-corrections/:id/review` 批准/拒絕。僅 admin 可審核。
 - ✅ **前端**：動物詳情/編輯頁「申請修正」按鈕與 `RequestCorrectionDialog`；實驗動物管理「修正審核」頁面，可批准或拒絕並填寫拒絕原因。
@@ -334,26 +395,32 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **白話版：** 針對專案進行下一輪評估後，在 `docs/TODO.md` 新增第六輪改善計劃並依序執行。
 
 **R6-6 一鍵全庫匯出/匯入（Phase 1–3）✅**
+
 - **Phase 1–2**：匯出/匯入 API、schema_version、前端按鈕
 - **Phase 3**：Column mapper 架構（`schema_mapping::transform_row`，跨版本匯入時套用）；Zip 分包匯出（`format=zip`，manifest + 每表一檔，>10k 行表用 NDJSON）；Zip 匯入支援；前端「輸出為 Zip 分包」選項、支援 .zip 上傳
 
 **R6-1 useState → hooks 擴展 ✅**
+
 - EquipmentPage：useTabState + useDialogSet（activeTab、4 個 Dialog 開關）
 - TrainingRecordsPage：useTabState + useDialogSet（activeTab、create/edit Dialog）
 
 **R6-2 useDateRangeFilter / useTabState ✅**
+
 - 新增 `src/hooks/useDateRangeFilter.ts`（支援 lazy 初始化、setRange、reset）
 - 新增 `src/hooks/useTabState.ts`（相容 Radix Tabs onValueChange）
 - 套用 useDateRangeFilter：HrLeavePage、HrOvertimePage、AdminAuditPage、AuditLogsPage、BloodTestCostReportPage、BloodTestAnalysisPage、AccountingReportPage
 - 套用 useTabState：HrLeavePage、HrOvertimePage、AdminAuditPage、BloodTestAnalysisPage、EquipmentPage、TrainingRecordsPage
 
 **R6-3 Skeleton DOM nesting 修正 ✅**
+
 - InlineSkeleton 由 `SkeletonPulse`（div）改為 `<span>`，消除 `<p>` 內 `<div>` 的 validateDOMNesting 警告
 
 **R6-4 財務模組 Phase 2–5 評估 ✅**
+
 - 產出 `docs/assessments/R6-4_FINANCE_PHASE2_5_ASSESSMENT.md`：Phase 2–5 工時與優先建議
 
 **R6-5 Dependabot Phase 2.5 依賴評估 ✅**
+
 - 產出 `docs/assessments/R6-5_DEPENDABOT_PHASE25_ASSESSMENT.md`：printpdf、utoipa、axum-extra、tailwind-merge 升級建議與相依關係
 
 ---
@@ -366,16 +433,19 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 依據 `docs/development/REFACTOR_PLAN_USESTATE_TO_HOOKS.md` 執行 Phase 1–2：
 
 **Phase 1：低風險通用 Hooks ✅**
+
 - 新增 `useToggle`：布林切換（密碼可見、進階篩選）
 - 遷移：LoginPage、SettingsPage、ResetPasswordPage、ForceChangePasswordPage、PasswordChangeDialog、ProductsPage（showAdvancedFilters）
 - 新增 `useDialogSet`：多個 Dialog 開關集中管理
 - 遷移：TreatmentDrugOptionsPage、AmendmentsTab、ReviewersTab、HrAnnualLeavePage、PartnersPage
 
 **Phase 2：列表頁標準化 ✅**
+
 - 新增 `useListFilters`：search、filters、page、perPage、sort
 - 遷移：PartnersPage（search + typeFilter）
 
 **Phase 3 已完成（2026-03-01 續）**：useSteps、useSelection、TwoFactorSetup 用 useDialogSet
+
 - 新增 `useSteps`：wizard 步驟索引、next/prev/goTo
 - 遷移：CreateProductPage
 - 新增 `useSelection`：勾選 toggle/selectAll/clear/has/size
@@ -383,6 +453,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - TwoFactorSetup 用 useDialogSet 管理 setup/disable 兩 Dialog
 
 **Phase 4 已完成（2026-03-01）**：feature 專用 hooks
+
 - 新增 `useSettingsForm`：系統設定表單 + API 同步 + dirty 追蹤
 - 遷移：SettingsPage
 - 新增 `useLeaveRequestForm`：假單表單 + 日期/天數雙向計算 + 圖片上傳
@@ -399,12 +470,14 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 依據 `dazzling-twirling-kitten.md` 計劃執行：
 
 **項目 7：Web Vitals 監控 (P2) ✅**
+
 - Web Vitals 是 Google 訂的「使用者體驗指標」（頁面載入速度、版面是否突然跳動等）。我們監控這五項：onCLS、onINP、onLCP、onFCP、onTTFB
 - `sendToAnalytics`：DEV 時 `console.debug`，production 時 `navigator.sendBeacon('/api/metrics/vitals', JSON.stringify(metric))`
 - `main.tsx` 呼叫 `reportWebVitals()`
 - 後端 `POST /api/metrics/vitals` handler（接收並紀錄 Web Vitals 指標，回傳 204）
 
 **項目 8：API 回應快取 ETag (P2) ✅**
+
 - ETag 是「內容指紋」。伺服器給每份資料一個 ETag，瀏覽器下次請求時帶上這個值；若資料沒變，伺服器直接回 304（不必再傳一次完整內容），節省頻寬、加快速度
 - 排除 `/api/auth/*`、`/api/health`、`/api/metrics/*`
 - 套用 `Cache-Control: private, no-cache, must-revalidate`
@@ -416,21 +489,25 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 依據 `dazzling-twirling-kitten.md` 計劃執行：
 
 **項目 3：大型頁面元件拆分 (P1) ✅**
+
 - **3a DocumentEditPage**：311 行，拆出 `useDocumentForm`、`DocumentLineEditor`、`DocumentPreview`、`types.ts`
 - **3b UsersPage**：150 行，拆出 `useUserManagement`、`UserTable`、`UserFormDialogs`
 - **3c BloodTestTemplatesPage**：143 行，拆出 `useBloodTestTemplates`、`BloodTestTemplateTable`、`BloodTestTemplateFormDialog`、`BloodTestPanelFormDialog`
 - **3d SurgeryFormDialog**：108 行，拆出 `SurgeryBasicInfoSection`、`SurgeryProcedureSection`、`SurgeryAnesthesiaSection`、`useSurgeryForm`、`SurgeryFormComponents`
 
 **項目 4：useState → custom hooks (P1) ✅**
+
 - **AnimalsPage**：25 useState → 4 hooks（useAnimalFilters、useAnimalDialogs、useAnimalSelection、useAnimalForms），頁面 useState 數歸零
 
 **項目 5：Alertmanager Receiver 設定 (P1) ✅**
+
 - 新增 `monitoring/alertmanager/alertmanager.example.yml` 範本（含 `${ALERTMANAGER_WEBHOOK_URL}`、`${ALERT_EMAIL_*}`）
 - 自訂 Dockerfile + entrypoint.sh（sed 替換，busybox 相容），啟動時自動 envsubst
 - `docker-compose.monitoring.yml` 建置自訂映像、加入 ALERT_* 環境變數
 - `.env.example` 補齊 Alertmanager 通知變數說明
 
 **項目 6：Git Pre-commit Hooks (P1) ✅**
+
 - 專案根目錄 `package.json` 已有 husky、lint-staged
 - `.husky/pre-commit`：前端 lint-staged（ESLint + Prettier）、後端 `cargo fmt --check`
 
@@ -439,12 +516,14 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 依據 `dazzling-twirling-kitten.md` 計劃執行：
 
 **項目 1：eslint-disable 清理 (P0) ✅**
+
 - 修正 3 處 ESLint 錯誤：utils.test.ts 常數表達式、EquipmentPage/TrainingRecordsPage 未使用 `Search` 匯入
 - 移除 4 處 eslint-disable：ProtocolsPage (useCallback getStatusName)、BloodTestTemplatesPage (useCallback sortTemplates)、ErpPage (移除未使用 hasPermission)、ObservationFormDialog + SurgeryFormDialog (useCallback jumpToNextEmptyField)
 - 保留並改善註釋 6 處：DocumentEditPage、ObservationFormDialog、SacrificeFormDialog、SurgeryFormDialog、handwritten-signature-pad、WarehouseLayoutPage 的 init-only / ref-loop 正當抑制
 - `npx eslint src/ --max-warnings 0` 通過
 
 **項目 2：前端單元測試擴充 (P0) ✅**
+
 - 新增 `useApiError.test.ts`（5 tests：handleError、withErrorHandling、成功/失敗流程）
 - 新增 `useHeartbeat.test.ts`（3 tests：未認證不發送、認證時初始 heartbeat、活動監聽）
 - 現有 lib/、hooks/ 測試：utils、queryKeys、sanitize、validation、validations、logger、useDebounce、useConfirmDialog、useUnsavedChangesGuard
@@ -455,16 +534,19 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **白話版：** 做了三件事：**(1) QAU 品質保證**：新增角色、權限、會計相關資料表與後台儀表板；**(2) SOC2 合規**：憑證輪換、SLA、災難還原演練；**(3) 財務模組**：會計科目、傳票、應付/應收等規劃。
 
 **一、QAU（品質保證檢視）**
+
 - `022_qau_accounting_plan.sql`（整合 022–024）：QAU 角色與權限、會計基礎（科目/傳票/分錄）、AP/AR 付款收款表
 - `GET /qau/dashboard`：handlers/qau.rs、services/qau.rs，計畫狀態、審查進度、稽核摘要、動物統計
 - `QAUDashboardPage.tsx`，路由 `/admin/qau`，側邊欄僅 QAU 可見
 
 **二、SOC2 缺口補齊**
+
 - 憑證輪換（半自動）：`check_credential_rotation.sh`（每月提醒）、`record_credential_rotation.sh`（紀錄輪換）；JWT 不輪換
 - `docs/security-compliance/SLA.md`：RTO/RPO、可用性目標
 - `docs/runbooks/DR_DRILL_CHECKLIST.md`：DR 演練檢查表
 
 **三、財務模組（AP/AR/GL）**
+
 - **Phase 1**：會計基礎（migration 022 內）、`AccountingService::post_document`；GRN/DO 核准時自動過帳
 - **Phase 2（AP）**：`ap_payments`、`POST /accounting/ap-payments`、`GET /accounting/ap-aging`、前端「新增付款」
 - **Phase 3（AR）**：`ar_receipts`、`POST /accounting/ar-receipts`、`GET /accounting/ar-aging`、前端「新增收款」
@@ -509,10 +591,12 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - **驗證**：新增 `tests/test_reproduce_copy_edit_observation.py` 重現腳本，4 步驟全數通過
 
 ### 2026-02-28 附件 API 500 錯誤修正
+
 - ✅ **AttachmentsTab 查詢參數修正**：前端傳送 `protocol_id` 但後端期望 `entity_type` + `entity_id`，導致空字串綁定 UUID 欄位引發 PostgreSQL 型別錯誤。修正為 `entity_type=protocol&entity_id=<uuid>`。
 - ✅ **上傳路由修正**：附件上傳從錯誤的 `POST /attachments?protocol_id=...` 改為正確的 `POST /protocols/:id/attachments` 專用路由。
 
 ### 2026-02-28 第二輪系統改善 15 項完成
+
 - ✅ **P0-R2-1 XSS 防護**：安裝 DOMPurify，建立 `sanitize.ts` 清理 SVG，所有 `dangerouslySetInnerHTML` 已包裹 `sanitizeSvg()`
 - ✅ **P0-R2-2 Rate Limiting 分級**：新增寫入端點 120/min + 檔案上傳 30/min 獨立限流，上傳路由抽出獨立 Router
 - ✅ **P1-R2-3 大型依賴動態導入**：`jsPDF`+`html2canvas` 改為 `import()` 動態載入，減少 ~360KB 初始 bundle
@@ -530,6 +614,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **P2-R2-15 架構圖**：`docs/ARCHITECTURE.md` 含部署/資料流/模組/認證流程 4 張 Mermaid 圖 + 技術堆疊表
 
 ### 2026-02-28 第三輪改善：P2-R3-11 + P2-R3-14 完成
+
 - ✅ **P2-R3-11 Protocol `any` 型別消除**：6 個檔案消除 ~44 處 `: any`
   - `ProtocolEditPage.tsx`：14 處 → 0（`AxiosError<ApiErrorPayload>` 取代 error any、`ProtocolWorkingContent` 子型別取代 item/person/staff any、`Record<string, unknown>` 取代動態 section 存取）
   - `ProtocolContentView.tsx`：13 處 → 0（interface prop `any` → `ProtocolWorkingContent`、map callback `any` → 具體子型別 TestItem/ControlItem/SurgeryDrug/AnimalEntry 等）
@@ -548,12 +633,14 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 詳細計畫見 `docs/development/IMPROVEMENT_PLAN_R3.md`
 
 **🔴 P0 安全性（4 項）：**
+
 - ✅ **P0-R3-1 SQL 動態拼接修正**：4 個檔案（`treatment_drug.rs`, `report.rs`, `warehouse.rs`, `document/crud.rs`）的手動 `format!("${}", param_idx)` 參數索引全部改為 `sqlx::QueryBuilder` 的 `push_bind()` 自動綁定
 - ✅ **P0-R3-2 IDOR 漏洞修補**：HR `get_leave` 加入 owner/approver/view_all 三重檢查、`get_overtime` 加入 owner/view_all 檢查、`get_user` 允許查看自己的 profile 無需 admin 權限
 - ✅ **P0-R3-3 .expect() 清理**：handlers/ 14 處 + services/ 28 處共 42 個 `.expect()` 替換為 proper error propagation（`ok_or_else`/`map_err`/`anyhow`），消除 production panic 風險
 - ✅ **P0-R3-4 前端容器非 root**：Dockerfile 加入 `USER nginx`、nginx listen 改為 8080、`nginx-main.conf` 設定 pid/temp 路徑至 `/tmp/nginx/`、docker-compose 端口映射更新
 
 **🟡 P1 效能與可靠性（6 項）：**
+
 - ✅ **P1-R3-5 搜尋 debounce**：新增 `hooks/useDebounce.ts`，套用至 AnimalsPage/PartnersPage/WarehousesPage/ProtocolsPage（400ms 延遲）
 - ✅ **P1-R3-6 staleTime 調優**：23 個檔案 38 個 useQuery 依資料特性分級設定（即時 30s/列表 1min/計數 5min/參考 10min/設定 30min）
 - ✅ **P1-R3-7 AnimalsPage 拆分**：1898 行 → 495 行（-74%），抽離 AnimalFilters/AnimalListTable/AnimalPenView/AnimalAddDialog + constants.ts
@@ -562,6 +649,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **P1-R3-10 Skeleton Loading**：新增 `TableSkeleton` 元件，套用至 4 個列表頁取代 Loader2 spinner
 
 **🔵 P2 品質與維運（10 項）：**
+
 - ✅ **P2-R3-11 Protocol any 消除**：6 個檔案 ~44 處 `: any` 替換為具體型別（`ProtocolWorkingContent`/`VetReviewAssignment`/`AxiosError<ApiErrorPayload>` 等）
 - ✅ **P2-R3-12 審計日誌補齊**：HR leave approval/rejection 和 overtime approval 新增 `AuditService::log()` 呼叫；新增 `AuditAction::Reject` variant
 - ✅ **P2-R3-13 常數提取**：新增 `backend/src/constants.rs`（分頁/認證/Rate Limit/上傳/排程/Session/密碼 共 18 個常數）
@@ -577,18 +665,21 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 ### 2026-02-28 第四輪改善計畫 R4 完成（20 項）
 
 **P0 安全性（4 項）：**
+
 - P0-R4-1 IDOR 修補：`check_resource_access()` helper，amendment/document handler 加入所有權檢查
 - P0-R4-2 CSP：移除 nginx `style-src unsafe-inline`
 - P0-R4-3 console 清理：`lib/logger.ts` 封裝，生產環境靜默
 - P0-R4-4 `.expect()` 清理：partner.rs Regex、auth.rs 改用 `?`
 
 **P1 效能與可靠性（7 項）：**
+
 - P1-R4-5~8 元件拆分與 Skeleton（AnimalsPage、DocumentEditPage、AdminAuditPage、TableSkeleton）
 - P1-R4-9 Nginx：HTTP/2、rate limit、JSON log、worker_connections
 - P1-R4-10 還原腳本：`scripts/backup/pg_restore.sh`
 - P1-R4-11 備份腳本：GPG 清理邏輯、pg_restore --list 驗證
 
 **P2 品質與維運（9 項）：**
+
 - P2-R4-12 Protocol `any` 消除：ProtocolPerson、ProtocolAnimalItem、ProtocolSurgeryDrugItem 型別
 - P2-R4-13 Animal `any` 消除：25 處 onError→unknown、handleChange、payload、AnimalTimelineView、AnimalListTable 等
 - P2-R4-14 後端配置提取：constants.rs 集中管理 rate limit、file size、auth expiry、時區
@@ -600,6 +691,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - P2-R4-20 backend/.dockerignore：排除 target、.git 等
 
 ### 2026-02-28 手寫簽名 Canvas 寬度無限擴張修復
+
 - ✅ **根因**：CSS Grid `grid-cols-[280px_1fr]` 中 `1fr` 等同 `minmax(auto, 1fr)`，canvas 的 intrinsic size 撐大 grid cell → ResizeObserver 重新量測 → canvas 再擴張，形成無限迴圈（container 寬度飆至 9870px）
 - ✅ **修復 4 個檔案**：
   - `ProtocolEditPage.tsx`：`1fr` → `minmax(0,1fr)`，允許 grid 欄位縮小不受子元素 intrinsic size 影響
@@ -610,6 +702,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - 📁 **產出**：4 個檔案修改
 
 ### 2026-02-28 ProtocolEditPage Section 導航改用 URL Search Params
+
 - ✅ **方案 C 實作**：`activeSection` 從 `useState` 改為 `useSearchParams` 驅動，URL 反映當前 section（如 `?section=purpose`）
 - ✅ 瀏覽器上一頁/下一頁可切換 section，可書籤/分享特定 section 連結
 - ✅ 無效 `section` 參數自動 fallback 至 `basic`
@@ -619,11 +712,13 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 ### 2026-02-28 系統改善 14 項完成（安全性/效能/程式碼品質）
 
 **🔴 P0 安全性（3 項）：**
+
 - ✅ **P0-S1 Docker 網路隔離**：定義 `frontend` / `backend` / `database` 三個自訂 bridge 網路，每個服務僅加入必要網路（web 容器無法直接存取 db）
 - ✅ **P0-S2 DB 埠口 localhost-only**：`docker-compose.yml` 資料庫 port 綁定改為 `127.0.0.1:5433:5432`，防止外部直連
 - ✅ **P0-S3 Docker Secrets**：`config.rs` 新增 `read_secret()` / `require_secret()` helper（優先讀 `*_FILE` 路徑，fallback 環境變數）；`docker-compose.prod.yml` 定義 4 個 secrets（jwt_secret / db_url / db_password / smtp_password）
 
 **🟡 P1 效能（5 項）：**
+
 - ✅ **P1-S4 RoleService N+1 修復**：`list()` 從 1+N 次查詢改為 2 次（roles + 批次 permissions via `ANY($1)`），記憶體分組
 - ✅ **P1-S5 UserService N+1 修復**：`list()` 從 1+2N 次查詢改為 3 次（users + 批次 roles + 批次 permissions via `ANY($1)`）
 - ✅ **P1-S6 迴圈 INSERT → UNNEST**：`role.rs` 建立/更新角色 + `user.rs` 建立/更新使用者的權限/角色指派改為 `SELECT $1, unnest($2::uuid[])`
@@ -631,6 +726,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **P1-S8 複合索引**：`017_composite_indexes.sql` 新增 5 個 `CREATE INDEX CONCURRENTLY`（animals/protocols/notifications/audit_logs/attachments）
 
 **🔵 P2 程式碼品質（6 項）：**
+
 - ✅ **P2-S9 is_admin + UserResponse::from_user**：`CurrentUser::is_admin()` 方法 + `UserResponse::from_user(&User)` 消除 8 處重複建構 + 22 處 handler admin 檢查統一化
 - ✅ **P2-S10 TypeScript 嚴格化**：新增 `types/error.ts`（ApiErrorPayload + getErrorMessage），10 個檔案 18 處 `error: any` → `error: unknown`
 - ✅ **P2-S11 API 錯誤統一**：`lib/api.ts` interceptor 新增 500+/timeout/網路斷線全域 toast（使用 shadcn/ui toast）
@@ -645,12 +741,14 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 ### 2026-02-28 最終 3 項 P5 待辦全數完成（全部功能零缺口）
 
 **P5-13 前端元件庫文件化（Storybook 10）：**
+
 - ✅ **15 個 Stories**：7 個既有（Button/Badge/Card/Checkbox/Input/Skeleton/Switch）+ 8 個新增（Select/Dialog/Slider/Tabs/AlertDialog/FormField/LoadingOverlay/Textarea）
 - ✅ 每個 Story 包含 Default + 多種 variant/use case（繁中標籤）
 - ✅ `npx storybook build` 成功編譯
 - 📁 **產出**：8 個新 `.stories.tsx` 檔案
 
 **P5-15 SEC-39 Two-Factor Authentication (TOTP)：**
+
 - ✅ **DB Migration**：`016_totp_2fa.sql` 新增 `totp_enabled`/`totp_secret_encrypted`/`totp_backup_codes` 三欄位
 - ✅ **後端依賴**：`totp-rs` v5（gen_secret + otpauth + qr features）
 - ✅ **後端 API 4 個端點**：
@@ -665,6 +763,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - 📁 **產出**：1 migration + 2 後端檔案 + 5 前端檔案修改/新增
 
 **P5-16 SEC-40 Web Application Firewall：**
+
 - ✅ **`docker-compose.waf.yml`**：OWASP ModSecurity CRS v4 nginx-alpine overlay，預設偵測模式
 - ✅ **iPig 自訂排除規則**：JSON Content-Type / 密碼欄位 / TOTP code / 富文本 / 檔案上傳 5 項排除
 - ✅ **WAF 文件**：`docs/security-compliance/WAF.md`（架構/啟用/保護範圍/排除規則/日誌分析/Paranoia Level/生產注意事項）
@@ -672,6 +771,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - 📁 **產出**：1 overlay + 2 排除規則 conf + 1 文件
 
 ### 2026-02-28 系統設定頁面全端串接 + 通知路由 UI 改善
+
 - ✅ **後端 System Settings API**：新增 `GET/PUT /api/admin/system-settings`（admin only），利用既有 `system_settings` 資料表
   - `backend/src/handlers/system_settings.rs`：GET 回傳所有設定（SMTP password 遮罩為 `********`），PUT 批次更新
   - `backend/src/services/system_settings.rs`：DB CRUD + `resolve_smtp_config()` 方法（DB-first + .env fallback）
@@ -703,6 +803,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
   - `frontend/src/components/admin/NotificationRoutingSection.tsx`（rewritten）
 
 ### 2026-02-28 P5-14 ProtocolDetailPage 重構（1,929→647 行，-66%）
+
 - ✅ **ProtocolDetailPage.tsx**：從 1,929 行縮減至 647 行
 - ✅ **抽離 6 個 Tab 元件**至 `frontend/src/components/protocol/`：
   1. `VersionsTab.tsx`（203 行）— 版本列表 + 版本比較 + 版本檢視 Dialog
@@ -716,6 +817,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - 📁 **產出**：6 個新 Tab 元件 + 重構後的 ProtocolDetailPage.tsx
 
 ### 2026-02-28 JWT 預設過期時間調整為 6 小時
+
 - ✅ **後端 config.rs**：`JWT_EXPIRATION_MINUTES` 預設值從 15 改為 360（6 小時），test default 900s→21600s
 - ✅ **前端 session fallback**：`auth.ts`、`api.ts` 中 `sessionExpiresAt` fallback 從 `15 * 60 * 1000` 改為 `6 * 60 * 60 * 1000`
 - ✅ **環境配置**：`.env`（60→360）、`.env.example`（15→360）、`docker-compose.yml`（預設 15→360）
@@ -725,6 +827,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 ### 2026-02-28 品質補強 18 項全數完成
 
 **高影響 6 項（P1-30~35）：**
+
 - ✅ **P1-30 Graceful Shutdown**：`main.rs` 加入 `shutdown_signal()` + `with_graceful_shutdown()`，支援 SIGTERM（Docker stop）與 Ctrl+C，確保進行中的請求完成後才關閉
 - ✅ **P1-31 自訂 404 頁面**：`NotFoundPage` 元件取代 catch-all redirect，含「返回上一頁」與「回到首頁」按鈕
 - ✅ **P1-32 Session 逾時預警**：auth store 新增 `sessionExpiresAt` 追蹤 JWT 到期時間，`SessionTimeoutWarning` 元件在到期前 60s 顯示倒數 Dialog，可續期或登出
@@ -733,6 +836,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **P1-35 confirm() 統一 Dialog**：`useConfirmDialog` hook + `ConfirmDialog` + `AlertDialog` 元件，9 個檔案 11 處原生 `confirm()` 全部替換
 
 **中影響 7 項（P2-36~42）：**
+
 - ✅ **P2-36 i18n 補齊**：AnimalDetailPage 11 個 Tab 標籤 + 404 頁面 + Session 預警翻譯鍵加入 zh-TW.json 與 en.json
 - ✅ **P2-37 列表 API 分頁**：`PaginationParams` struct + `sql_suffix()` 方法（LIMIT/OFFSET，per_page 上限 100），users/warehouses/partners handler 支援 `?page=&per_page=`
 - ✅ **P2-38 表單離開確認**：`useUnsavedChangesGuard` hook（React Router useBlocker + beforeunload）+ `UnsavedChangesDialog`，已整合 ProtocolEditPage
@@ -742,6 +846,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **P2-42 .env.example 補齊**：新增 HOST/PORT/DATABASE_MAX_CONNECTIONS/MAX_SESSIONS_PER_USER/UPLOAD_DIR 等 9 個缺漏變數
 
 **低影響 5 項（P5-43~47）：**
+
 - ✅ **P5-43 ARIA 無障礙**：12 個檔案新增 23 個 `aria-label`（編輯/刪除/檢視/關閉/導航按鈕）
 - ✅ **P5-44 表單驗證回饋**：Input/Textarea 新增 `error` prop 紅框樣式，`FormField` 通用元件含 label + 錯誤訊息
 - ✅ **P5-45 磁碟空間監控**：`scripts/monitor/check_disk_space.sh` 含 uploads 大小 + 磁碟使用率 + Prometheus textfile 輸出
@@ -782,12 +887,14 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - 📁 **產出**：12 個新建/修改檔案
 
 ### 2026-03-01 PowerShell Migration 執行紀錄
+
 - ✅ **嘗試 1**：`cargo install sqlx-cli` 失敗（Windows 缺少 MSVC linker）
 - ✅ **嘗試 2**：Docker + psql 直接執行 migrations，因既有 DB 已有 schema 及 PowerShell 編碼問題而產生錯誤
 - ✅ **結論**：新 migrations（001~010）僅適用於全新安裝；既有環境維持現狀
 - 📁 **產出**：`docs/walkthrough.md` 新增 PowerShell Migration 執行紀錄與建議做法
 
 ### 2026-02-28 市場交付阻擋項修復（3 項）
+
 - ✅ **檔案上傳/下載功能串接**：
   - 後端：`file.rs` 新增 `ObservationAttachment` FileCategory（含 PDF/DOC MIME 支援），`upload.rs` 新增 `upload_observation_attachment` handler，`routes.rs` 新增 `POST /observations/:id/attachments`
   - 後端：修正 `VetRecommendation` FileCategory 的 MIME 類型，新增 PDF/DOC 支援（原僅允許圖片）
@@ -798,11 +905,13 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - 📁 **產出**：6 個檔案修改（3 後端 + 2 前端 + 1 Docker）
 
 ### 2026-02-28 P5-14 前端超長頁面重構（兩大頁面完成）
+
 - ✅ **AnimalDetailPage.tsx**：1,945→748 行（**-61%**），抽離 7 個 Tab 元件至 `components/animal/`
 - ✅ **ProtocolDetailPage.tsx**：1,929→647 行（**-66%**），抽離 6 個 Tab 元件至 `components/protocol/`
 - 📁 **產出**：13 個新 Tab 元件 + 2 個重構後的 Detail 頁面
 
 ### 2026-02-28 P4-17 基礎映像與 CVE 週期檢查
+
 - ✅ **版本釘選**：`frontend/Dockerfile` 的 `FROM georgjung/nginx-brotli:alpine` → `georgjung/nginx-brotli:1.29.5-alpine`（nginx 1.29.5 + Alpine 3.23.3，2026-02-05 發佈）
 - ✅ **CVE 驗證**：Trivy 掃描確認 CVE-2026-25646 仍存在（libpng 1.6.54-r0，修復版 1.6.55-r0 尚未納入映像）
 - ✅ **文件更新**：`.trivyignore` 加入檢查日期與下次排程、`docs/security-compliance/security.md` 更新映像版本與檢查紀錄
@@ -810,6 +919,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - 📁 **產出**：[Dockerfile](../frontend/Dockerfile)、[.trivyignore](../.trivyignore)、[security.md](security.md)
 
 ### 2026-02-27 E2E 跨瀏覽器 Session 過期修復（CI 30 failures 歸零）
+
 - ✅ **問題**：CI（Ubuntu）上 100 tests 依序跑 webkit→firefox→chromium，auth.setup 產生的 JWT storageState 在後執行的瀏覽器 session 已過期，導致 30 個 webkit/firefox 測試一致失敗（`Target page, context or browser has been closed`）
 - ✅ **根因**：workers=1 序列執行耗時 ~2 分鐘，storageState 中的 JWT 過期，後執行的 browser project 的 admin-context 共用 context 失效
 - ✅ **修復**：
@@ -821,6 +931,7 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - 📊 **結果**：CI 預設 34 tests（Chromium），22s 完成，0 failures
 
 ### 2026-02-27 E2E 測試 100% 通過（P4-18 Rate Limiting / Session 穩定化）
+
 - ✅ **根本原因分析**：所有 `/api/*` 請求共用 120/min rate limit，React SPA 每次頁面載入觸發多個 API 呼叫（/api/me、資料列表等），34 個測試密集執行時輕易超限；`sharedAdminContext` 每次初始化都重新登入浪費配額。
 - ✅ **admin-context.ts 重構**：改用 auth.setup 儲存的 `admin.json` storageState 檔案，worker 初始化時直接載入 cookie + localStorage，無需重新登入（0 次額外 API 呼叫）。
 - ✅ **API rate limit 提升**：`rate_limiter.rs` API 端點 120→600/min，為密集測試提供充足配額。
@@ -832,11 +943,13 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
   - [login.spec.ts](../frontend/e2e/login.spec.ts)（credential fallback）
 
 ### 2026-02-27 E2E 測試總結計畫實施（選項 1）
+
 - ✅ **Dashboard 修復交付**：原計畫主要目標已達成，Dashboard 6/6 通過。
 - ✅ **Rate Limiting 調查記錄**：已嘗試 JWT TTL 延長、auth rate limit 放寬、Cookie Path 與 context.cookies() 修復，仍存在 Session 過期導致大量重新登入 → 429 連鎖失敗問題。
 - ✅ **後續任務建立**：將 Rate Limiting / Session 穩定化建立為 P4 獨立待辦，詳見 `docs/TODO.md`。
 
 ### 2026-02-26 E2E 測試全面改進（Session 管理優化）
+
 - ✅ **配置驗證與文檔**：
   - 新增 `docs/e2e/README.md`（完整指南：架構說明、配置檢查清單、故障排除、維護手冊）
   - 新增 `frontend/e2e/scripts/verify-config.ts`（配置驗證腳本，檢查 JWT TTL、Cookie、環境變數）
@@ -872,29 +985,36 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
   - 產出：[dashboard.spec.ts](../frontend/e2e/dashboard.spec.ts)（Line 31-45）
 
 ### 2026-02-25 SEC-33 敏感操作二級認證 (P3-7)
+
 - ✅ **後端**：新增 `POST /auth/confirm-password`，以密碼換取短期 reauth JWT（5 分鐘）；`delete_user`、`reset_user_password`、`impersonate_user`、`delete_role` 四個敏感操作需帶 `X-Reauth-Token` header，否則回傳 403。
 - ✅ **前端**：新增 `ConfirmPasswordModal` 與 `confirmPassword()` API；使用者管理（刪除使用者、重設他人密碼、模擬登入）與角色管理（刪除角色）執行前皆需重新輸入登入密碼以取得 reauth token 後再送出請求。
 
 ### 2026-02-25 電子簽章合規審查 (P1-7) 與 OpenAPI 完善 (P1-12)
+
 - ✅ **P1-7 電子簽章合規審查**：新增 `docs/security-compliance/ELECTRONIC_SIGNATURE_COMPLIANCE.md`，對照 21 CFR Part 11 子章 B/C，審查犧牲／觀察／安樂死／轉讓／計畫書簽章與附註實作，結論為技術面已符合核心要求，建議補齊書面政策與訓練紀錄。
 - ✅ **P1-12 OpenAPI 文件完善**：後端新增電子簽章 10 paths + 2 附註 paths、動物管理 9 paths，以及對應 Request/Response Schema（SignRecordRequest/Response、SignatureStatusResponse、Annotation、Animal、AnimalListItem、AnimalQuery 等），Swagger UI 已涵蓋認證、使用者、角色、設施、倉儲、計畫書、審查、電子簽章、動物管理。
 
 ### 2026-02-25 CI `sqlx-cli` 安裝修正
+
 - ✅ **強制覆蓋**：在 `ci.yml` 的 `cargo install sqlx-cli` 步驟增加 `--force` 參數，解決 GitHub Actions 快取恢復後的二進位檔衝突問題。
 
 ### 2026-02-25 資料保留政策定義 (P1-8)
+
 - ✅ **政策文檔產出**：建立 `DATA_RETENTION_POLICY.md`，定義 AUP、醫療紀錄、稽核日誌、ERP 與 HR 資料之法定保留年限。
 - ✅ **合規基準**：參考 GLP、21 CFR Part 11 與台灣勞基法制定。
 
 ### 2026-02-25 Trivy 安全掃描優化
+
 - ✅ **CI 參數統一**：將 `ci.yml` 中的 Trivy 掃描參數統一為 `vulnerability-type`。
 - ✅ **過濾名單清理**：移除 `.trivyignore` 中無效的 `CVE-2026-0861` 編號。
 
 ### 2026-02-25 E2E CI 自動化 (P1-2)
+
 - ✅ **GitHub Actions 整合**：新增 `e2e-test` 作業，自動執行 Playwright 測試。
 - ✅ **測試環境容器化**：建立 `docker-compose.test.yml` 供 CI 使用。
 
 ### 2026-02-25 P1-1 前端 E2E 測試穩定化
+
 - ✅ **Playwright E2E 測試**：7 spec 檔案、34 個測試案例，連續 3 次執行 0 failures。
 - ✅ **涵蓋流程**：登入 (6)、Dashboard (4)、動物列表 (6)、計畫書 (6)、個人資料 (5)、Admin 使用者管理 (5)、Auth Setup (2)。
 - ✅ **429 Rate Limit 重試**：`auth.setup.ts` 自動偵測 `Retry-After` header 並等待重試（最多 3 次）。
@@ -902,19 +1022,23 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **i18n 雙語 selector**：所有 UI 文字匹配使用 `/English|中文/` regex，相容中英文介面。
 
 ### 2026-02-25 壓力測試基準建立 (P1-5)
+
 - ✅ **k6 效能基準**：成功執行 50 VU 壓力測試，測得一般 API P95 為 2.3s，報表 API P95 為 1.76s。
 - ✅ **認證優化**：腳本支援 JWT Bearer Token 並實作 VU 級別登入緩存。
 - ✅ **結果歸檔**：測試數據已儲存於 `tests/results/k6_*.json`。
 
 ### 2026-02-25 瀏覽器相容性測試與 GLP 文件生成
+
 - ✅ **相容性測試 (P0-6)**：執行 Playwright 跨瀏覽器測試，驗證基本渲染與登入流程。
 - ✅ **GLP 驗證文件 (P1-6)**：產出 `GLP_VALIDATION.md` 驗證框架。
 
 ### 2026-02-25 P0-7 錯誤處理 UX 統一
+
 - ✅ **安全強化**：隱藏原始 DB 錯誤。
 - ✅ **前端錯誤導引**：優化 `getApiErrorMessage` 處理逾時與網路異常。
 
 ### 2026-03-04 docs 整理分類
+
 - ✅ **文件索引**：新增 `docs/README.md` 總索引，依主題分類並列出各子目錄說明。
 - ✅ **子目錄**：建立 `development/`、`database/`、`security-compliance/`、`runbooks/`、`operations/`、`assessments/`，將原根目錄散落文件移入對應分類。
 - ✅ **連結更新**：根目錄保留 PROGRESS、TODO、QUICK_START、USER_GUIDE、DEPLOYMENT、ARCHITECTURE、walkthrough；README、PROGRESS、TODO、CI、backend 等處之文件路徑已更新為新路徑。

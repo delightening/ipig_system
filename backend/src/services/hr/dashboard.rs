@@ -11,11 +11,13 @@ use crate::{
 };
 
 use super::HrService;
+use crate::services::google_calendar::CalendarApi;
 
 impl HrService {
     pub async fn get_dashboard_calendar(pool: &PgPool) -> Result<DashboardCalendarData> {
-        let taiwan_tz = chrono::FixedOffset::east_opt(TAIWAN_OFFSET_SECS)
-            .ok_or_else(|| crate::AppError::Internal("invalid timezone offset UTC+8".to_string()))?;
+        let taiwan_tz = chrono::FixedOffset::east_opt(TAIWAN_OFFSET_SECS).ok_or_else(|| {
+            crate::AppError::Internal("invalid timezone offset UTC+8".to_string())
+        })?;
         let today = Utc::now().with_timezone(&taiwan_tz).date_naive();
         let upcoming_end = today + chrono::Duration::days(7);
 
