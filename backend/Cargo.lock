@@ -971,6 +971,7 @@ dependencies = [
  "anyhow",
  "argon2",
  "async-stream",
+ "async-trait",
  "axum",
  "axum-extra",
  "base64",

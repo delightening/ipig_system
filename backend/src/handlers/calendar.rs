@@ -11,9 +11,8 @@ use crate::{
     middleware::CurrentUser,
     models::{
         CalendarSyncConflict, CalendarSyncHistory, CalendarSyncStatus, ConflictQuery,
-        ConflictWithDetails, ConnectCalendarRequest, EventSyncWithLeave,
-        GoogleCalendarConfig, PaginatedResponse, ResolveConflictRequest, SyncHistoryQuery,
-        UpdateCalendarConfigRequest,
+        ConflictWithDetails, ConnectCalendarRequest, EventSyncWithLeave, GoogleCalendarConfig,
+        PaginatedResponse, ResolveConflictRequest, SyncHistoryQuery, UpdateCalendarConfigRequest,
     },
     services::CalendarService,
     AppState, Result,
@@ -149,7 +148,7 @@ pub async fn resolve_conflict(
 // ============================================
 
 use crate::models::{CalendarEvent, CalendarEventsQuery};
-use crate::services::google_calendar::GoogleCalendarClient;
+use crate::services::google_calendar::{CalendarApi, GoogleCalendarClient};
 
 /// 列出 Google Calendar 事件
 pub async fn list_calendar_events(
@@ -162,15 +161,16 @@ pub async fn list_calendar_events(
         Ok(c) => c,
         Err(_) => return Ok(Json(vec![])),
     };
-    
+
     if !config.is_configured {
         return Ok(Json(vec![]));
     }
 
     // 從 Google Calendar 獲取事件
     let client = GoogleCalendarClient::new(&config.calendar_id);
-    let events = client.fetch_events(params.start_date, params.end_date).await?;
-    
+    let events = client
+        .fetch_events(params.start_date, params.end_date)
+        .await?;
+
     Ok(Json(events))
 }
-
