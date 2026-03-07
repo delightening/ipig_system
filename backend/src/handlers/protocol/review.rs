@@ -101,10 +101,8 @@ pub async fn create_review_comment(
     Json(req): Json<CreateCommentRequest>,
 ) -> Result<Json<ReviewComment>> {
     req.validate()?;
-    let has_global_perm = current_user.permissions.contains(&"aup.review.comment".to_string())
-        || current_user.roles.contains(&"IACUC_CHAIR".to_string())
-        || current_user.roles.contains(&"IACUC_STAFF".to_string())
-        || current_user.roles.contains(&"SYSTEM_ADMIN".to_string());
+    let has_global_perm = current_user.has_permission("aup.review.comment")
+        || current_user.roles.iter().any(|r| ["IACUC_CHAIR", "IACUC_STAFF"].contains(&r.as_str()));
     if !has_global_perm {
         let (protocol_id,): (Uuid,) = sqlx::query_as(
             "SELECT protocol_id FROM protocol_versions WHERE id = $1"
@@ -173,12 +171,8 @@ pub async fn list_review_comments(
     } else {
         return Err(AppError::Validation("protocol_id or protocol_version_id is required".to_string()));
     };
-    let has_view_all = current_user.permissions.contains(&"aup.protocol.view_all".to_string())
-        || current_user.roles.contains(&"IACUC_CHAIR".to_string())
-        || current_user.roles.contains(&"IACUC_STAFF".to_string())
-        || current_user.roles.contains(&"VET".to_string())
-        || current_user.roles.contains(&"REVIEWER".to_string())
-        || current_user.roles.contains(&"SYSTEM_ADMIN".to_string());
+    let has_view_all = current_user.has_permission("aup.protocol.view_all")
+        || current_user.roles.iter().any(|r| ["IACUC_CHAIR", "IACUC_STAFF", "VET", "REVIEWER"].contains(&r.as_str()));
     if !has_view_all {
         let is_authorized: (bool,) = sqlx::query_as(
             r#"SELECT EXISTS(

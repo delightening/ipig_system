@@ -130,6 +130,7 @@ INSERT INTO permissions (id, code, name, module, description, created_at) VALUES
     (gen_random_uuid(), 'animal.record.create', '新增紀錄', 'animal', '可新增動物相關紀錄', NOW()),
     (gen_random_uuid(), 'animal.record.edit', '編輯紀錄', 'animal', '可編輯動物相關紀錄', NOW()),
     (gen_random_uuid(), 'animal.record.delete', '刪除紀錄', 'animal', '可刪除動物相關紀錄', NOW()),
+    (gen_random_uuid(), 'animal.blood_test_template.manage', '血檢項目管理', 'animal', '可檢視與編輯血檢項目模板、組合、常用組合', NOW()),
     (gen_random_uuid(), 'animal.record.observation', '新增觀察紀錄', 'animal', '可新增觀察紀錄', NOW()),
     (gen_random_uuid(), 'animal.record.surgery', '新增手術紀錄', 'animal', '可新增手術紀錄', NOW()),
     (gen_random_uuid(), 'animal.record.weight', '新增體重紀錄', 'animal', '可新增體重紀錄', NOW()),
@@ -224,7 +225,7 @@ SELECT r.id, p.id FROM roles r, permissions p
 WHERE r.code = 'EXPERIMENT_STAFF' AND p.code IN (
     'animal.animal.view_all','animal.animal.view_project','animal.animal.create','animal.animal.edit',
     'animal.animal.assign','animal.animal.import','animal.animal.delete','animal.record.view',
-    'animal.record.create','animal.record.edit','animal.record.delete','animal.record.observation',
+    'animal.record.create','animal.record.edit','animal.record.delete','animal.blood_test_template.manage','animal.record.observation',
     'animal.record.surgery','animal.record.weight','animal.record.vaccine','animal.record.sacrifice',
     'animal.export.medical','animal.export.observation','animal.export.surgery','animal.export.experiment',
     'animal.pathology.view','animal.pathology.upload','animal.info.assign','animal.info.edit',
@@ -275,8 +276,9 @@ ON CONFLICT (role_id, permission_id) DO NOTHING;
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
 WHERE r.code = 'REVIEWER' AND p.code IN (
-    'aup.protocol.view_all','aup.protocol.review','aup.review.view','aup.review.comment',
-    'aup.attachment.view','aup.attachment.download','aup.version.view','amendment.read','amendment.review','notification.view'
+    'aup.protocol.view_all','aup.protocol.view_own','aup.protocol.review','aup.review.view','aup.review.comment',
+    'aup.attachment.view','aup.attachment.download','aup.version.view','amendment.read','amendment.review',
+    'animal.animal.view_all','animal.record.view','notification.view'
 )
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 

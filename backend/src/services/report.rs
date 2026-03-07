@@ -432,7 +432,12 @@ impl ReportService {
     }
 
     /// 血液檢查結果分析（扁平化原始數據，供前端聚合）
-    pub async fn blood_test_analysis(pool: &PgPool, query: &BloodTestAnalysisQuery) -> Result<Vec<BloodTestAnalysisRow>> {
+    /// * restrict_to_project_animals: true 時僅回傳已指派計畫之動物（iacuc_no IS NOT NULL），對應 view_project 權限
+    pub async fn blood_test_analysis(
+        pool: &PgPool,
+        query: &BloodTestAnalysisQuery,
+        restrict_to_project_animals: bool,
+    ) -> Result<Vec<BloodTestAnalysisRow>> {
         let mut qb = sqlx::QueryBuilder::new(
             r#"
             SELECT 
@@ -454,6 +459,9 @@ impl ReportService {
             WHERE bt.deleted_at IS NULL AND a.deleted_at IS NULL
             "#,
         );
+        if restrict_to_project_animals {
+            qb.push(" AND a.iacuc_no IS NOT NULL ");
+        }
 
         if let Some(ref iacuc_no) = query.iacuc_no {
             qb.push(" AND a.iacuc_no = ");
