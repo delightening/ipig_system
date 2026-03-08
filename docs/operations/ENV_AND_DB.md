@@ -74,4 +74,4 @@
 - DB 系統設定與 SMTP 解析：`backend/src/services/system_settings.rs`（`resolve_smtp_config`，DB 優先、.env fallback）
 - 發信使用解析結果：`backend/src/services/email/mod.rs`（`resolve_smtp`）
 - 範本：專案根目錄 `.env.example`（複製為 `.env` 後依本文件與註解填入）
-- DB 表：`system_settings`（migration：`backend/migrations/006_aup_system.sql` 建立、`009_supplementary.sql` 種子：company_name、default_warehouse_id、cost_method、session_timeout_minutes、smtp_*）
+- DB 表：`system_settings`（migration：`backend/migrations/005_aup_system.sql` 建立、`008_supplementary.sql` 種子：company_name、default_warehouse_id、cost_method、session_timeout_minutes、smtp_*）
