@@ -66,7 +66,35 @@ on:
 **範圍：** `.github/workflows/ci.yml`
 **預估工作量：** 5 分鐘
 
-### R7-P0-2：清理根目錄敏感/大型檔案
+### R7-P0-2：SQL 字串拼接風險修復
+
+**現況：** 兩處使用 `format!()` 拼接 SQL，雖然輸入來源有限（enum / 白名單表名），但違反 CI 中自設的 SQL injection guard 精神：
+- `services/protocol/core.rs:139` — `format!(" AND p.status = '{}'", status.as_str())` 直接將 enum 值拼入 SQL
+- `services/data_import.rs:321-336` — `format!(r#"SELECT id::text FROM "{}" WHERE "{}" = $1"#, table, conflict_cols[0])` 表名與欄名以字串插值
+
+**風險：** 目前 `status` 來自 enum、`table`/`conflict_cols` 來自程式內部白名單，實際風險低。但若未來重構不慎引入使用者輸入則立即變成 P0 漏洞。
+**建議：**
+- `protocol/core.rs`：改為參數化查詢（`$N`）或使用 match 比對產出靜態 SQL
+- `data_import.rs`：建立允許表名的 enum/const 白名單 + `debug_assert!` 驗證
+
+**範圍：** `backend/src/services/protocol/core.rs`、`backend/src/services/data_import.rs`
+**預估工作量：** 1 小時
+
+### R7-P0-3：create_admin 密碼日誌洩露
+
+**現況：** `backend/src/bin/create_admin.rs:81` 直接將管理員密碼輸出至 stdout：
+```rust
+println!("Default admin ensured: {} / {}", email, password);
+```
+容器日誌（`docker compose logs`）會永久記錄此密碼。
+
+**風險：** 任何能讀取容器日誌的人可取得管理員密碼。
+**建議：** 移除密碼輸出，改為 `println!("Default admin ensured: {}", email);`
+
+**範圍：** `backend/src/bin/create_admin.rs`
+**預估工作量：** 2 分鐘
+
+### R7-P0-4：清理根目錄敏感/大型檔案
 
 **現況：**
 - `old_ipig.dump` (461 KB) — 舊資料庫 dump
@@ -234,7 +262,21 @@ on:
 **範圍：** `frontend/nginx.conf`
 **預估工作量：** 1 小時
 
-### R7-P4-4：RUSTSEC Advisory 追蹤
+### R7-P4-4：`TRUST_PROXY_HEADERS` 預設值改為 false
+
+**現況：** `config.rs:164-166` 預設 `trust_proxy_headers = true`，若後端直接暴露於網際網路（無反向代理），攻擊者可偽造 `X-Forwarded-For` 繞過 IP 白名單（如打卡 IP 限制）。
+**建議：** 改預設為 `false`，僅在有反向代理時明確設定 `TRUST_PROXY_HEADERS=true`。
+**範圍：** `backend/src/config.rs`
+**預估工作量：** 5 分鐘
+
+### R7-P4-5：CSRF 測試停用安全防護
+
+**現況：** `DISABLE_CSRF_FOR_TESTS=true` 會完全跳過 CSRF 檢查。若此環境變數誤設於正式環境，所有寫入操作失去 CSRF 防護。
+**建議：** 加入啟動時警告日誌：若 `DISABLE_CSRF_FOR_TESTS=true` 且 `SEED_DEV_USERS=false`（疑似正式環境），輸出 `WARN` 等級警告。
+**範圍：** `backend/src/main.rs` 或 `backend/src/middleware/csrf.rs`
+**預估工作量：** 15 分鐘
+
+### R7-P4-6：RUSTSEC Advisory 追蹤
 
 **現況：** CI 忽略 RUSTSEC-2023-0071（rsa 時序攻擊）和 RUSTSEC-2024-0370（proc-macro-error 不維護）。
 **建議：** 追蹤上游修復進度，定期檢查是否可移除 ignore。
@@ -316,10 +358,10 @@ on:
 ## 執行優先順序建議
 
 ```
-Week 1:  R7-P0-1 (CI 恢復) → R7-P0-2 (清理) → R7-P1-4 (migration 檢查)
-Week 2:  R7-P1-1 (expect 清理) → R7-P3-1 (單元測試) → R7-P3-2 (tarpaulin)
-Week 3:  R7-P1-2 (巨型檔案) → R7-P1-3 (前端重構)
-Week 4:  R7-P4-1~3 (安全強化) → R7-P5-1~3 (CI/CD 改善)
+Week 1:  R7-P0-1~4 (CI 恢復 + SQL 修復 + 密碼洩露 + 清理) → R7-P4-4~5 (信任代理 + CSRF 防護)
+Week 2:  R7-P1-1 (expect 清理) → R7-P1-4 (migration 檢查) → R7-P3-1 (單元測試)
+Week 3:  R7-P1-2 (巨型檔案) → R7-P1-3 (前端重構) → R7-P3-2 (tarpaulin)
+Week 4:  R7-P4-1~3 (Secrets/Rate Limit/CSP) → R7-P5-1~3 (CI/CD 改善)
 Week 5+: R7-P2-1~4 (效能) → R7-P6-1~4 (長期演進)
 ```
 
@@ -329,7 +371,7 @@ Week 5+: R7-P2-1~4 (效能) → R7-P6-1~4 (長期演進)
 
 iPig 系統整體品質**優於多數同規模專案**，具備完善的安全防護、合規文件與自動化基礎。本輪改善重點在於：
 
-1. **修復 CI 觸發機制** — 當前最大風險點
+1. **修復 CI 觸發機制 + 安全快修** — CI 恢復、SQL 拼接修復、密碼日誌洩露、信任代理預設值
 2. **持續消除技術債** — expect()、巨型檔案、clone()
 3. **補齊測試覆蓋** — 完成既有 TODO 中的測試項目
 4. **安全縱深強化** — Docker Secrets、CSP、Rate Limiting 精細化
