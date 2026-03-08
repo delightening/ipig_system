@@ -182,7 +182,7 @@ ipig_system/
 │   │   ├── middleware/          # Auth, CSRF, ETag, Rate Limiter
 │   │   ├── models/              # DB 型別 + Request/Response
 │   │   └── bin/                 # CLI 工具 (create_admin)
-│   ├── migrations/              # SQL 遷移腳本 (001–021)
+│   ├── migrations/              # SQL 遷移腳本 (001–010)
 │   └── Dockerfile               # 多階段 cargo-chef 建置
 ├── frontend/
 │   ├── src/
