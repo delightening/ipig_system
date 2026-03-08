@@ -161,9 +161,10 @@ impl Config {
                 .parse()
                 .unwrap_or(200.0),
             // SEC-30: IP Header 信任策略
+            // R7-P4-4: 預設 false（安全優先），有反向代理時才設 TRUST_PROXY_HEADERS=true
             trust_proxy_headers: std::env::var("TRUST_PROXY_HEADERS")
                 .map(|v| v.to_lowercase() == "true" || v == "1")
-                .unwrap_or(true),
+                .unwrap_or(false),
             // SEC-31: CORS 允許的 Origin 清單
             cors_allowed_origins: std::env::var("CORS_ALLOWED_ORIGINS")
                 .unwrap_or_else(|_| "http://localhost:8080".to_string())

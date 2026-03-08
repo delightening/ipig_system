@@ -126,7 +126,7 @@ fn rate_limit_response(limiter: &RateLimiterState) -> Response<Body> {
             Response::builder()
                 .status(StatusCode::TOO_MANY_REQUESTS)
                 .body(Body::empty())
-                .expect("empty body response should not fail")
+                .unwrap_or_else(|_| Response::new(Body::empty()))
         })
 }
 
