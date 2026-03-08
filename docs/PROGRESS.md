@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-03-05 (v5)  
+> **最後更新：** 2026-03-08 (v6)
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -79,7 +79,7 @@
 | 6 | [HR 人事管理系統](#6-hr-人事管理系統) | 特休、考勤、Google Calendar |
 | 7 | [資料庫 Schema 完成度](#7-資料庫-schema-完成度) | Migration 清單 |
 | 8 | [版本規劃](#8-版本規劃) | v1.0 / v1.1 里程碑 |
-| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-04 scripts 整理 |
+| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-08 R7 安全修復 + 文件對齊 |
 
 ---
 
@@ -187,6 +187,18 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **P0 / P1 / P2 / P5** 是優先級：P0 最重要，P5 較次要。
 >
 > **更新慣例**：新項目請放在本區塊**最前面**（時間由近到遠），勿追加於末端。
+
+---
+
+### 2026-03-08 R7 安全性原始碼審視修復 + 文件全面對齊
+
+- ✅ **R7-P0**：`data_import.rs` SQL 拼接改為參數化查詢，消除 SQL injection 風險
+- ✅ **R7-P1-1**：`create_admin.rs` 不再將管理員密碼明文印至 stdout
+- ✅ **R7-P1-2**：`config.rs` `trust_proxy` 預設值由 `true` 改為 `false`
+- ✅ **R7-P4-1**：`etag.rs` 改用 `constants::ETAG_VERSION` 取代硬編碼字串
+- ✅ **R7-P4-2**：認證端點 rate limit 由 100/min 降至 30/min
+- ✅ **文件對齊**：ARCHITECTURE.md（技術棧/目錄/rate limit）、TODO.md（R7 完成項/統計）、PROGRESS.md、QUICK_START.md（環境變數）、API 規格、DB Schema、RBAC 權限文件全面更新
+- 📁 **產出**：`data_import.rs`、`create_admin.rs`、`config.rs`、`constants.rs`、`etag.rs`、`rate_limiter.rs`；docs 多檔修正
 
 ---
 

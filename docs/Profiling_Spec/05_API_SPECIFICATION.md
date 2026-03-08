@@ -1,7 +1,7 @@
 # API 規格
 
 > **版本**：7.0  
-> **最後更新**：2026-03-02  
+> **最後更新**：2026-03-08
 > **對象**：開發人員、前端工程師
 
 ---
@@ -20,7 +20,7 @@
 
 | 類型 | 限制 | 適用範圍 |
 |------|------|----------|
-| 認證限流 | 100/min | `/auth/login`、`/auth/forgot-password`、`/auth/reset-password`、`/auth/refresh` |
+| 認證限流 | 30/min | `/auth/login`、`/auth/forgot-password`、`/auth/reset-password`、`/auth/refresh`、`/auth/2fa/verify` |
 | 寫入限流 | 120/min | POST/PUT/PATCH/DELETE 端點 |
 | 上傳限流 | 30/min | 檔案上傳端點 |
 | 一般 API | 600/min | 其餘 `/api/*` |
@@ -62,8 +62,12 @@
 | POST | `/auth/2fa/confirm` | 驗證第一次 code 正式啟用 2FA |
 | POST | `/auth/2fa/disable` | 停用 2FA（需密碼 + code）|
 | POST | `/auth/confirm-password` | 敏感操作二級認證（密碼換取 reauth token，5 分鐘有效）|
+| POST | `/auth/stop-impersonate` | 結束模擬登入，回到原始帳號 |
 | GET | `/me` | 取得個人資訊 |
 | PUT | `/me` | 更新個人資訊 |
+| GET | `/me/export` | 匯出個人資料（GDPR）|
+| DELETE | `/me/account` | 刪除個人帳號 |
+| POST | `/me/account/delete` | 刪除個人帳號（POST 替代）|
 | PUT | `/me/password` | 變更密碼 |
 
 ---
@@ -662,9 +666,32 @@
 | POST | `/animals/:id/pathology/attachments` | 病理附件 |
 | POST | `/animals/:id/sacrifice/photos` | 犧牲照片 |
 | POST | `/vet-recommendations/:record_type/:record_id/attachments` | 獸醫建議附件 |
+| POST | `/observations/:id/attachments` | 觀察紀錄附件 |
+| POST | `/hr/leaves/attachments` | 請假附件 |
 | GET | `/attachments` | 附件列表 |
 | GET | `/attachments/:id` | 下載附件 |
 | DELETE | `/attachments/:id` | 刪除附件 |
+
+---
+
+## 45. 系統設定 API
+
+| 方法 | 路徑 | 說明 | 權限 |
+|------|------|------|------|
+| GET | `/admin/system-settings` | 取得系統設定 | admin |
+| PUT | `/admin/system-settings` | 更新系統設定 | admin |
+
+---
+
+## 46. 健康檢查與指標 API
+
+> 不受 Rate Limiter 影響，確保監控系統可探測。路徑不含 `/api/v1` 前綴。
+
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| GET | `/api/health` | 健康檢查（含 DB/Redis 連線狀態）|
+| GET | `/metrics` | Prometheus 指標 |
+| POST | `/api/metrics/vitals` | 前端 Web Vitals 回報 |
 
 ---
 
@@ -672,7 +699,7 @@
 
 | 分類 | 端點數 |
 |------|--------|
-| 認證/個人 | 12 |
+| 認證/個人 | 16 |
 | 使用者/角色/權限 | 13 |
 | ERP (產品/SKU/倉庫/儲位/夥伴) | 30 |
 | 單據/庫存/報表 | 23 |
@@ -684,8 +711,10 @@
 | 稽核/管理 | 14 |
 | HR (出勤/請假/加班/日曆) | 34 |
 | 設施管理 | 22 |
-| 檔案上傳 | 8 |
-| **合計** | **~293** |
+| 檔案上傳 | 10 |
+| 系統設定 | 2 |
+| 健康檢查/指標 | 3 |
+| **合計** | **~304** |
 
 ---
 

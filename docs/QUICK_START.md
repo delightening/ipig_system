@@ -88,6 +88,19 @@ npm run dev
 | `JWT_SECRET` | JWT 簽名密鑰（須安全隨機值） |
 | `ADMIN_INITIAL_PASSWORD` | 管理員初始密碼（Docker 首次登入用） |
 
+### 選填但建議設定
+
+| 變數 | 說明 | 預設值 |
+|------|------|--------|
+| `REDIS_URL` | Redis 連線（Rate Limiter/Session 用）| `redis://127.0.0.1:6379` |
+| `TRUST_PROXY` | 是否信任反向代理標頭 | `false` |
+| `COOKIE_DOMAIN` | Cookie 網域 | 自動偵測 |
+| `TWO_FACTOR_ISSUER` | 2FA TOTP 發行者名稱 | `iPig System` |
+| `JWT_EXPIRATION_MINUTES` | JWT 過期時間（分鐘）| `360` |
+| `SESSION_TIMEOUT_MINUTES` | Session 逾時（分鐘）| DB 設定優先 |
+
+完整列表請參考 `.env.example` 及 [ENV_AND_DB.md](operations/ENV_AND_DB.md)。
+
 生成 JWT_SECRET（PowerShell）：
 ```powershell
 $jwt = [Convert]::ToBase64String((1..64 | ForEach-Object { Get-Random -Minimum 0 -Maximum 256 }))
