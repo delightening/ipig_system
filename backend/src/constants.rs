@@ -11,7 +11,9 @@ pub const ACCOUNT_LOCKOUT_MAX_ATTEMPTS: i32 = 5;
 pub const ACCOUNT_LOCKOUT_DURATION_MINUTES: i64 = 30;
 
 /// Rate Limiting (requests per window) — P2-R4-14 集中管理
-pub const AUTH_RATE_LIMIT_PER_MINUTE: u32 = 100; // 100/min 以支援 E2E 測試
+/// R7-P4-2: 認證端點從 100 降至 30/min（防暴力破解，帳號鎖定仍為第一道防線）
+/// 若 E2E 測試需要更高限制，可透過環境變數覆蓋
+pub const AUTH_RATE_LIMIT_PER_MINUTE: u32 = 30;
 pub const API_RATE_LIMIT_PER_MINUTE: u32 = 600;
 pub const WRITE_RATE_LIMIT_PER_MINUTE: u32 = 120;
 pub const UPLOAD_RATE_LIMIT_PER_MINUTE: u32 = 30;
