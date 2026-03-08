@@ -28,6 +28,12 @@ secrets/
 
 # Runtime / local artifacts
 last_error.json
+test-login.json
+
+# R7-P0-4: 業務資料檔案不應進 Git（含資料庫 dump、CSV 匯入檔）
+*.dump
+*.csv
+!**/migrations/*.csv
 
 *storybook.log
 storybook-static

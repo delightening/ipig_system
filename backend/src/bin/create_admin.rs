@@ -78,7 +78,8 @@ async fn main() -> Result<()> {
             .await?;
     }
 
-    println!("Default admin ensured: {} / {}", email, password);
+    // R7-P0-3: 不輸出密碼至 stdout，避免容器日誌洩露
+    println!("Default admin ensured: {}", email);
 
     Ok(())
 }

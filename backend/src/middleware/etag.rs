@@ -67,18 +67,19 @@ pub async fn etag_middleware(request: Request, next: Next) -> Response<Body> {
     // 比對 If-None-Match（支援 "etag" 或 "etag1", "etag2" 格式）
     if let Some(imm) = if_none_match {
         if imm.split(',').any(|s| s.trim().trim_matches('"') == etag.trim_matches('"')) {
+            // R7-P1-1: 以 unwrap_or_else 取代 expect，避免 panic
             return Response::builder()
                 .status(StatusCode::NOT_MODIFIED)
                 .header(header::ETAG, etag)
                 .header(header::CACHE_CONTROL, "private, no-cache, must-revalidate")
                 .body(Body::empty())
-                .expect("build 304 response");
+                .unwrap_or_else(|_| Response::new(Body::empty()));
         }
     }
 
     parts
         .headers
-        .insert(header::ETAG, HeaderValue::try_from(etag.as_str()).expect("ETag is valid ASCII"));
+        .insert(header::ETAG, HeaderValue::try_from(etag.as_str()).unwrap_or_else(|_| HeaderValue::from_static("\"unknown\"")));
     parts
         .headers
         .insert(header::CACHE_CONTROL, HeaderValue::from_static("private, no-cache, must-revalidate"));
