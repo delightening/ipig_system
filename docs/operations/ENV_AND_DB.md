@@ -18,7 +18,7 @@
 |------|------|------|
 | **連線與密鑰** | 應用啟動時就需要、且不透過 UI 變更 | `DATABASE_URL`、`JWT_SECRET`、`AUDIT_HMAC_KEY`、`SMTP_PASSWORD` |
 | **伺服器／基礎設施** | 依部署環境不同而不同 | `HOST`、`PORT`、`APP_URL`、`CORS_ALLOWED_ORIGINS`、`UPLOAD_DIR` |
-| **功能開關／預設值** | 依環境（開發/正式）區分 | `COOKIE_SECURE`、`SEED_DEV_USERS`、`TRUST_PROXY_HEADERS`、`JWT_EXPIRATION_MINUTES` |
+| **功能開關／預設值** | 依環境（開發/正式）區分 | `COOKIE_SECURE`、`SEED_DEV_USERS`、`TRUST_PROXY`（預設 false）、`JWT_EXPIRATION_MINUTES`、`COOKIE_DOMAIN`、`TWO_FACTOR_ISSUER` |
 | **打卡／安全** | 與主機或網路環境綁定 | `ALLOWED_CLOCK_IP_RANGES`、`CLOCK_OFFICE_LATITUDE`、`CLOCK_GPS_RADIUS_METERS` |
 | **初始帳號（僅首次）** | 僅在建立 admin 時使用 | `ADMIN_INITIAL_PASSWORD` |
 | **測試／E2E** | 僅開發或 CI 使用 | `E2E_BASE_URL`、`E2E_ADMIN_PASSWORD`、`TEST_DATABASE_URL` |
