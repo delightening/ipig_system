@@ -241,7 +241,46 @@ pub async fn cancel_leave(
     Path(id): Path<Uuid>,
     Json(payload): Json<CancelLeaveRequest>,
 ) -> Result<Json<LeaveRequest>> {
+    // 取消前先查詢原狀態，判斷是否為已核准的假單
+    let prev_status: Option<(String,)> =
+        sqlx::query_as("SELECT status::text FROM leave_requests WHERE id = $1")
+            .bind(id)
+            .fetch_optional(&state.db)
+            .await?;
+    let was_approved = prev_status
+        .as_ref()
+        .map(|(s,)| s == "APPROVED")
+        .unwrap_or(false);
+
     let record =
         HrService::cancel_leave(&state.db, id, &current_user, payload.reason.as_deref()).await?;
+
+    // 若原本是已核准的假單，通知所有核准經手人
+    if was_approved && record.status == "CANCELLED" {
+        let db = state.db.clone();
+        let leave_id = record.id;
+        let leave_type = record.leave_type.clone();
+        let start_date = record.start_date.to_string();
+        let end_date = record.end_date.to_string();
+        let applicant_name = current_user.email.clone();
+        let reason = record.cancellation_reason.clone();
+        tokio::spawn(async move {
+            let svc = NotificationService::new(db);
+            if let Err(e) = svc
+                .notify_leave_cancelled(
+                    leave_id,
+                    &applicant_name,
+                    &leave_type,
+                    &start_date,
+                    &end_date,
+                    reason.as_deref(),
+                )
+                .await
+            {
+                tracing::warn!("發送請假取消通知失敗: {e}");
+            }
+        });
+    }
+
     Ok(Json(record))
 }
