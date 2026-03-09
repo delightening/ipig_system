@@ -316,6 +316,14 @@ async fn build_id_mappings(
             continue;
         }
 
+        // R7-P0-2: table 與 conflict_cols 來自 get_conflict_columns() 白名單，
+        // 非使用者輸入。加入 debug_assert 確保不會被誤用於非白名單表。
+        debug_assert!(
+            get_conflict_columns(table).is_some(),
+            "build_id_mappings called with non-whitelisted table: {}",
+            table
+        );
+
         let target_id: Option<String> = match conflict_cols.len() {
             1 => {
                 sqlx::query_scalar(&format!(

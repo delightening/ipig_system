@@ -1,7 +1,7 @@
 # API 規格
 
-> **版本**：7.0  
-> **最後更新**：2026-03-02  
+> **版本**：7.1
+> **最後更新**：2026-03-09
 > **對象**：開發人員、前端工程師
 
 ---
@@ -20,7 +20,7 @@
 
 | 類型 | 限制 | 適用範圍 |
 |------|------|----------|
-| 認證限流 | 100/min | `/auth/login`、`/auth/forgot-password`、`/auth/reset-password`、`/auth/refresh` |
+| 認證限流 | 30/min | `/auth/login`、`/auth/forgot-password`、`/auth/reset-password`、`/auth/refresh`、`/auth/2fa/verify` |
 | 寫入限流 | 120/min | POST/PUT/PATCH/DELETE 端點 |
 | 上傳限流 | 30/min | 檔案上傳端點 |
 | 一般 API | 600/min | 其餘 `/api/*` |
@@ -37,6 +37,10 @@
 // 錯誤
 { "error": "UNAUTHORIZED", "message": "Invalid credentials" }
 ```
+
+### 1.5 DELETE 備用路由
+
+所有提供 `DELETE /:id` 的端點，同時提供 `POST /:id/delete` 備用路由（為不支援 DELETE 方法的前端環境設計）。本文件中僅列出 DELETE 方法，POST 備用路由不另行列出。
 
 ---
 
@@ -62,8 +66,12 @@
 | POST | `/auth/2fa/confirm` | 驗證第一次 code 正式啟用 2FA |
 | POST | `/auth/2fa/disable` | 停用 2FA（需密碼 + code）|
 | POST | `/auth/confirm-password` | 敏感操作二級認證（密碼換取 reauth token，5 分鐘有效）|
+| POST | `/auth/stop-impersonate` | 結束模擬登入，回到原始帳號 |
 | GET | `/me` | 取得個人資訊 |
 | PUT | `/me` | 更新個人資訊 |
+| GET | `/me/export` | 匯出個人資料（GDPR）|
+| DELETE | `/me/account` | 刪除個人帳號 |
+| POST | `/me/account/delete` | 刪除個人帳號（POST 替代）|
 | PUT | `/me/password` | 變更密碼 |
 
 ---
@@ -83,12 +91,12 @@
 
 | 方法 | 路徑 | 說明 | 權限 |
 |------|------|------|------|
-| GET | `/users` | 使用者列表 | user.read |
-| POST | `/users` | 建立使用者 | user.create |
-| GET | `/users/:id` | 使用者詳情 | user.read |
-| PUT | `/users/:id` | 更新使用者 | user.update |
-| DELETE | `/users/:id` | 刪除使用者 | user.delete |
-| PUT | `/users/:id/password` | 重設密碼 | user.update |
+| GET | `/users` | 使用者列表 | admin.user.view |
+| POST | `/users` | 建立使用者 | admin.user.create |
+| GET | `/users/:id` | 使用者詳情 | admin.user.view |
+| PUT | `/users/:id` | 更新使用者 | admin.user.edit |
+| DELETE | `/users/:id` | 刪除使用者 | admin.user.delete |
+| PUT | `/users/:id/password` | 重設密碼 | admin.user.edit |
 | POST | `/users/:id/impersonate` | 模擬登入 | admin |
 
 ---
@@ -97,12 +105,12 @@
 
 | 方法 | 路徑 | 說明 | 權限 |
 |------|------|------|------|
-| GET | `/roles` | 角色列表 | role.read |
-| POST | `/roles` | 建立角色 | role.create |
-| GET | `/roles/:id` | 角色詳情 | role.read |
-| PUT | `/roles/:id` | 更新角色 | role.update |
-| DELETE | `/roles/:id` | 刪除角色 | role.delete |
-| GET | `/permissions` | 權限列表 | authenticated |
+| GET | `/roles` | 角色列表 | dev.role.view |
+| POST | `/roles` | 建立角色 | dev.role.create |
+| GET | `/roles/:id` | 角色詳情 | dev.role.view |
+| PUT | `/roles/:id` | 更新角色 | dev.role.edit |
+| DELETE | `/roles/:id` | 刪除角色 | dev.role.delete |
+| GET | `/permissions` | 權限列表 | dev.role.view |
 
 ---
 
@@ -246,7 +254,6 @@
 | GET | `/protocols/:id/co-editors` | 共同編輯列表 |
 | POST | `/protocols/:id/co-editors` | 新增共同編輯 |
 | DELETE | `/protocols/:id/co-editors/:user_id` | 移除共同編輯 |
-| GET | `/protocols/:id/status-history` | 狀態歷程 |
 | GET | `/my-projects` | 我的計畫 |
 
 ---
@@ -308,7 +315,6 @@
 | POST | `/animals` | 建立動物 |
 | GET | `/animals/by-pen` | 依欄位分組 |
 | POST | `/animals/batch/assign` | 批次分配 |
-| POST | `/animals/batch/start-experiment` | 批次進入實驗 |
 | GET | `/animals/vet-comments` | 獸醫待閱 |
 | GET | `/animals/:id` | 動物詳情 |
 | PUT | `/animals/:id` | 更新動物 |
@@ -335,6 +341,17 @@
 | DELETE | `/observations/:id` | 刪除觀察 |
 | POST | `/observations/:id/vet-read` | 獸醫標記已讀 |
 | GET | `/observations/:id/versions` | 版本歷程 |
+
+---
+
+## 21.5 疼痛評估紀錄 API（Care Records）
+
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| GET | `/animals/:id/care-records` | 疼痛評估紀錄列表 |
+| POST | `/animals/:id/care-records` | 新增疼痛評估紀錄 |
+| PUT | `/care-records/:id` | 更新紀錄 |
+| DELETE | `/care-records/:id` | 刪除紀錄 |
 
 ---
 
@@ -396,11 +413,12 @@
 | POST | `/animals/:id/transfers` | 發起轉讓 |
 | GET | `/animals/:id/transfers` | 轉讓紀錄列表 |
 | GET | `/transfers/:id` | 轉讓詳情 |
-| POST | `/transfers/:id/source-pi-confirm` | 來源 PI 確認 |
 | POST | `/transfers/:id/vet-evaluate` | 獸醫評估 |
-| POST | `/transfers/:id/target-pi-confirm` | 目標 PI 確認 |
-| POST | `/transfers/:id/iacuc-approve` | IACUC 核准 |
+| GET | `/transfers/:id/vet-evaluation` | 取得獸醫評估結果 |
+| PUT | `/transfers/:id/assign-plan` | 指派轉讓計畫 |
+| POST | `/transfers/:id/approve` | 核准轉讓 |
 | POST | `/transfers/:id/complete` | 執行完成 |
+| POST | `/transfers/:id/reject` | 駁回轉讓 |
 
 ---
 
@@ -424,6 +442,16 @@
 | PUT | `/blood-test-panels/:id` | 更新組合 |
 | DELETE | `/blood-test-panels/:id` | 刪除組合 |
 | PUT | `/blood-test-panels/:id/items` | 更新組合項目 |
+
+### 27.4 血檢常用組合 API（Blood Test Presets）
+
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| GET | `/blood-test-presets` | 常用組合列表（分頁）|
+| GET | `/blood-test-presets/all` | 全部常用組合 |
+| POST | `/blood-test-presets` | 建立常用組合 |
+| PUT | `/blood-test-presets/:id` | 更新常用組合 |
+| DELETE | `/blood-test-presets/:id` | 刪除常用組合 |
 
 ---
 
@@ -508,6 +536,8 @@
 | POST | `/admin/notification-routing` | 建立路由 | admin |
 | PUT | `/admin/notification-routing/:id` | 更新路由 | admin |
 | DELETE | `/admin/notification-routing/:id` | 刪除路由 | admin |
+| GET | `/admin/notification-routing/event-types` | 可用事件類型 | admin |
+| GET | `/admin/notification-routing/roles` | 可用角色 | admin |
 
 ---
 
@@ -527,6 +557,23 @@
 | POST | `/admin/trigger/low-stock-check` | 觸發庫存檢查 | admin |
 | POST | `/admin/trigger/expiry-check` | 觸發效期檢查 | admin |
 | POST | `/admin/trigger/notification-cleanup` | 觸發通知清理 | admin |
+| GET | `/admin/data-export` | 完整資料庫匯出 | admin |
+| POST | `/admin/data-import` | 完整資料庫匯入 | admin |
+| GET | `/admin/config-warnings` | 啟動配置警告 | admin |
+| GET | `/admin/audit-logs/export` | 匯出稽核日誌 | admin |
+
+---
+
+## 35.5 藥物選單管理 API（Treatment Drugs）
+
+| 方法 | 路徑 | 說明 | 權限 |
+|------|------|------|------|
+| GET | `/treatment-drugs` | 藥物選單列表（一般使用者）| authenticated |
+| GET | `/admin/treatment-drugs` | 藥物管理列表（管理員）| admin |
+| POST | `/admin/treatment-drugs` | 建立藥物選項 | admin |
+| PUT | `/admin/treatment-drugs/:id` | 更新藥物選項 | admin |
+| DELETE | `/admin/treatment-drugs/:id` | 刪除藥物選項 | admin |
+| POST | `/admin/treatment-drugs/import-erp` | 從 ERP 匯入藥物 | admin |
 
 ---
 
@@ -544,6 +591,7 @@
 | GET | `/admin/audit/alerts` | 安全警報列表 | admin |
 | POST | `/admin/audit/alerts/:id/resolve` | 解決警報 | admin |
 | GET | `/admin/audit/dashboard` | 安全儀表板 | admin |
+| GET | `/admin/audit/alerts/sse` | 安全警報即時推送（SSE）| admin |
 | GET | `/audit-logs` | 稽核日誌 | authenticated |
 
 ---
@@ -634,6 +682,43 @@
 
 ---
 
+## 42.5 設備與校準 API（GLP 合規）
+
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| GET | `/equipment` | 設備列表 |
+| POST | `/equipment` | 建立設備 |
+| GET | `/equipment/:id` | 設備詳情 |
+| PUT | `/equipment/:id` | 更新設備 |
+| DELETE | `/equipment/:id` | 刪除設備 |
+| GET | `/equipment-calibrations` | 校準紀錄列表 |
+| POST | `/equipment-calibrations` | 建立校準紀錄 |
+| GET | `/equipment-calibrations/:id` | 校準詳情 |
+| PUT | `/equipment-calibrations/:id` | 更新校準紀錄 |
+| DELETE | `/equipment-calibrations/:id` | 刪除校準紀錄 |
+
+---
+
+## 42.6 人員訓練紀錄 API（GLP 合規）
+
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| GET | `/training-records` | 訓練紀錄列表 |
+| POST | `/training-records` | 建立訓練紀錄 |
+| GET | `/training-records/:id` | 訓練紀錄詳情 |
+| PUT | `/training-records/:id` | 更新訓練紀錄 |
+| DELETE | `/training-records/:id` | 刪除訓練紀錄 |
+
+---
+
+## 42.7 QAU 品質保證 API
+
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| GET | `/qau/dashboard` | QAU 品質保證儀表板（唯讀檢視）|
+
+---
+
 ## 43. 設施管理 API
 
 | 方法 | 路徑 | 說明 |
@@ -662,9 +747,32 @@
 | POST | `/animals/:id/pathology/attachments` | 病理附件 |
 | POST | `/animals/:id/sacrifice/photos` | 犧牲照片 |
 | POST | `/vet-recommendations/:record_type/:record_id/attachments` | 獸醫建議附件 |
+| POST | `/observations/:id/attachments` | 觀察紀錄附件 |
+| POST | `/hr/leaves/attachments` | 請假附件 |
 | GET | `/attachments` | 附件列表 |
 | GET | `/attachments/:id` | 下載附件 |
 | DELETE | `/attachments/:id` | 刪除附件 |
+
+---
+
+## 45. 系統設定 API
+
+| 方法 | 路徑 | 說明 | 權限 |
+|------|------|------|------|
+| GET | `/admin/system-settings` | 取得系統設定 | admin |
+| PUT | `/admin/system-settings` | 更新系統設定 | admin |
+
+---
+
+## 46. 健康檢查與指標 API
+
+> 不受 Rate Limiter 影響，確保監控系統可探測。路徑不含 `/api/v1` 前綴。
+
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| GET | `/api/health` | 健康檢查（含 DB/Redis 連線狀態）|
+| GET | `/metrics` | Prometheus 指標 |
+| POST | `/api/metrics/vitals` | 前端 Web Vitals 回報 |
 
 ---
 
@@ -672,20 +780,26 @@
 
 | 分類 | 端點數 |
 |------|--------|
-| 認證/個人 | 12 |
+| 認證/個人 | 16 |
 | 使用者/角色/權限 | 13 |
 | ERP (產品/SKU/倉庫/儲位/夥伴) | 30 |
 | 單據/庫存/報表 | 23 |
 | AUP (計畫/審查/變更) | 38 |
-| 動物管理 (動物/醫療) | 50 |
-| 猝死/轉讓 | 10 |
+| 動物管理 (動物/醫療/Care Records) | 54 |
+| 猝死/轉讓 | 12 |
 | 安樂死/簽章 | 18 |
-| 通知/警報/排程/路由管理 | 21 |
-| 稽核/管理 | 14 |
+| 通知/警報/排程/路由管理 | 23 |
+| 稽核/管理 | 20 |
+| 藥物管理 (Treatment Drugs) | 6 |
+| 設備與校準 (GLP) | 10 |
+| 人員訓練紀錄 (GLP) | 5 |
+| QAU 品質保證 | 1 |
 | HR (出勤/請假/加班/日曆) | 34 |
 | 設施管理 | 22 |
-| 檔案上傳 | 8 |
-| **合計** | **~293** |
+| 檔案上傳 | 10 |
+| 系統設定 | 2 |
+| 健康檢查/指標 | 3 |
+| **合計** | **~335** |
 
 ---
 

@@ -1,7 +1,7 @@
 # 資料庫綱要
 
 > **版本**：7.0  
-> **最後更新**：2026-03-02  
+> **最後更新**：2026-03-08
 > **對象**：資料庫管理員、開發人員
 
 ---
@@ -12,19 +12,16 @@ iPig 資料庫執行於 **PostgreSQL 16**，由遷移檔案按模組組織：
 
 | 遷移 | 說明 | 主要變更 |
 |------|------|-----------|
-| 001 | 核心架構 | types, enums |
-| 002 | 使用者與認證 | users, roles, permissions, notifications, audit_logs, attachments, user_preferences |
-| 003 | 通知與附件 | notifications, attachments |
-| 004 | 角色權限 | role_permissions 種子 |
-| 005 | 動物管理 | animals, observations, surgeries, weights, vaccinations, blood_tests, sudden_deaths, transfers |
-| 006 | AUP 系統 | protocols, versions, assignments, comments, amendments, vet_review, activities, status_history |
-| 007 | 人事系統 | attendance_records, leave_requests, overtime_records, leave_balances, departments |
-| 008 | 稽核與 ERP | user_activity_logs, login_events, user_sessions, products, warehouses, partners, documents |
-| 009 | 補充功能 | notification_routing, electronic_signatures, record_annotations, treatment_drug_options |
-| 010 | GLP/會計 | glp_accounting 相關 |
-| 011 | 動物欄位修正申請 | animal_field_correction_requests 表（ear_tag、birth_date、gender、breed 修正申請，需 admin 批准）|
-
-*012~019 為後續 schema 調整（Enum Cast、Optimistic Locking、TOTP 2FA、複合索引等）。*
+| 001 | 自訂類型 | ENUMs: partner_type, doc_type, doc_status, stock_direction, protocol 相關 |
+| 002 | 使用者與認證 | users, roles, permissions, role_permissions, notifications, audit_logs, attachments, user_preferences |
+| 003 | 通知與種子 | notification_routing 種子、role_permissions 種子 |
+| 004 | 動物管理 | animals, observations, surgeries, weights, vaccinations, blood_tests, sudden_deaths, transfers, care_records, animal_field_correction_requests |
+| 005 | AUP 系統 | protocols, versions, assignments, comments, amendments, vet_review, activities, status_history, system_settings |
+| 006 | 人事系統 | attendance_records, leave_requests, overtime_records, leave_balances, departments |
+| 007 | 稽核與 ERP | user_activity_logs, login_events, user_sessions, products, warehouses, partners, documents, stock_ledger |
+| 008 | 補充功能 | notification_routing, electronic_signatures, record_annotations, ~~facilities（⚠️ 待補建）~~, vet_recommendations |
+| 009 | GLP 擴充 | training_records, equipment, equipment_calibrations, qau, accounting 相關, SKU 品類種子 |
+| 010 | 治療藥物去重 | treatment_drug_options 唯一約束與去重 |
 
 ---
 
@@ -82,8 +79,8 @@ CREATE TYPE version_record_type AS ENUM (
     'observation', 'surgery', 'weight', 'vaccination', 'sacrifice', 'pathology', 'blood_test'
 );
 CREATE TYPE animal_transfer_status AS ENUM (
-    'pending_source_pi', 'pending_vet_evaluation', 'pending_target_pi',
-    'pending_iacuc_approval', 'approved', 'completed'
+    'pending', 'vet_evaluated', 'plan_assigned',
+    'pi_approved', 'completed', 'rejected'
 );
 ```
 
@@ -263,6 +260,8 @@ Migration 002 包含：
 
 ### 5.7 設施管理
 
+> ⚠️ **注意**：以下資料表在 routes.rs 中已有對應的 handler，但遷移檔案（migrations/）中尚未建立 CREATE TABLE。需補建遷移檔案。
+
 | 表名 | PK | 說明 |
 |------|-----|------|
 | species | UUID | 物種定義 |
@@ -420,4 +419,4 @@ ALTER TABLE electronic_signatures ADD COLUMN IF NOT EXISTS signature_method VARC
 
 *下一章：[API 規格](./05_API_SPECIFICATION.md)*
 
-*最後更新：2026-03-01*
+*最後更新：2026-03-08*
