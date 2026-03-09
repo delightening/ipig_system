@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-03-09 (v6)
+> **最後更新：** 2026-03-09 (v7)
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -189,6 +189,17 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **更新慣例**：新項目請放在本區塊**最前面**（時間由近到遠），勿追加於末端。
 
 ---
+
+### 2026-03-09 修正 Clippy 編譯警告與安全隱患 (unwrap 清理)
+
+- ✅ **Clippy 修正**：修復 `services/hr/attendance.rs` 中的 `needless-borrows-for-generic-args` 警告，提升程式碼品質。
+- ✅ **安全強化**：將 `services/email/mod.rs` 中的 `.unwrap()` 改為 `.expect()`，並提供明確的錯誤訊息，避免潛在的 panic。
+- 📁 **產出**：`backend/src/services/hr/attendance.rs`、`backend/src/services/email/mod.rs`。
+
+### 2026-03-09 清理重複的胰臟分類
+
+- ✅ **重複統合**：將資料庫遷移檔案 `004_animal_management.sql` 中重複的「胰臟」分類移除，並將相關檢驗項目（AMY, LPS）統合至「胰臟與血糖」(`SUGAR`) 分類下。解決前端畫面顯示重複的問題。
+- 📁 **產出**：`004_animal_management.sql`。
 
 ### 2026-03-09 請假管理動作後自動重新整理頁面
 

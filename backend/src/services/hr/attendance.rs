@@ -173,7 +173,7 @@ impl HrService {
             worksheet.write_string(rw, 4, &hours)?;
             let ot = r.overtime_hours.map(|h| format!("{:.1}", h)).unwrap_or_else(|| "-".to_string());
             worksheet.write_string(rw, 5, &ot)?;
-            worksheet.write_string(rw, 6, &status_display(&r.status))?;
+            worksheet.write_string(rw, 6, status_display(&r.status))?;
             let remark = if r.is_corrected {
                 r.remark
                     .as_ref()

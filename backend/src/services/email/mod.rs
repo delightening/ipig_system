@@ -59,7 +59,7 @@ impl EmailService {
 
         // 建構 MIME：alternative(plain, related(html, inline-logo))
         let logo_attachment = Attachment::new_inline("logo".to_string())
-            .body(Body::new(LOGO_PNG.to_vec()), "image/png".parse().unwrap());
+            .body(Body::new(LOGO_PNG.to_vec()), "image/png".parse().expect("failed to parse image/png content type"));
         let html_with_logo = MultiPart::related()
             .singlepart(
                 SinglePart::builder()
@@ -133,7 +133,7 @@ impl EmailService {
 
         // 建構 MIME：alternative(plain, related(html, inline-logo))
         let logo_attachment = Attachment::new_inline("logo".to_string())
-            .body(Body::new(LOGO_PNG.to_vec()), "image/png".parse().unwrap());
+            .body(Body::new(LOGO_PNG.to_vec()), "image/png".parse().expect("failed to parse image/png content type"));
         let html_with_logo = MultiPart::related()
             .singlepart(
                 SinglePart::builder()
