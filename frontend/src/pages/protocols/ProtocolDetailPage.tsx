@@ -50,6 +50,7 @@ import {
   FileEdit,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+import { queryKeys } from '@/lib/queryKeys'
 import { getApiErrorMessage } from '@/lib/validation'
 import { useAuthStore } from '@/stores/auth'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
@@ -119,7 +120,7 @@ export function ProtocolDetailPage() {
   const [selectedCoEditorId, setSelectedCoEditorId] = useState('')
 
   const { data: protocolResponse, isLoading } = useQuery({
-    queryKey: ['protocol', id],
+    queryKey: queryKeys.protocols.detail(id!),
     queryFn: async () => {
       const response = await api.get<ProtocolResponse>(`/protocols/${id}`)
       return response.data
@@ -140,33 +141,32 @@ export function ProtocolDetailPage() {
     return vet_review.vet_id === user.id
   }, [user, vet_review])
 
-  const { data: availableReviewers } = useQuery({
-    queryKey: ['available-reviewers'],
+  const { data: allUsers } = useQuery({
+    queryKey: queryKeys.users.all,
     queryFn: async () => {
       const response = await api.get<User[]>('/users')
       return response.data
-        .filter(u => u.roles?.some(role => ['REVIEWER', 'VET'].includes(role)))
-        .map(u => ({ id: u.id, email: u.email, display_name: u.display_name || u.email }))
     },
-    enabled: showStatusDialog && newStatus === 'UNDER_REVIEW',
+    enabled: showStatusDialog,
   })
 
-  const { data: availableExperimentStaff } = useQuery({
-    queryKey: ['available-experiment-staff'],
-    queryFn: async () => {
-      const response = await api.get<User[]>('/users')
-      return response.data
-        .filter(u => u.roles?.includes('EXPERIMENT_STAFF'))
-        .map(u => ({ id: u.id, email: u.email, display_name: u.display_name || u.email }))
-    },
-    enabled: showStatusDialog && newStatus === 'PRE_REVIEW',
-  })
+  const availableReviewers = useMemo(() =>
+    allUsers?.filter(u => u.roles?.some(role => ['REVIEWER', 'VET'].includes(role)))
+      .map(u => ({ id: u.id, email: u.email, display_name: u.display_name || u.email })),
+    [allUsers]
+  )
+
+  const availableExperimentStaff = useMemo(() =>
+    allUsers?.filter(u => u.roles?.includes('EXPERIMENT_STAFF'))
+      .map(u => ({ id: u.id, email: u.email, display_name: u.display_name || u.email })),
+    [allUsers]
+  )
 
   const submitMutation = useMutation({
     mutationFn: async () => api.post(`/protocols/${id}/submit`),
     onSuccess: () => {
       toast({ title: t('common.success'), description: t('protocols.detail.submitSuccess') })
-      queryClient.invalidateQueries({ queryKey: ['protocol', id] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.protocols.detail(id!) })
     },
     onError: (error: unknown) => {
       toast({
@@ -181,9 +181,9 @@ export function ProtocolDetailPage() {
     mutationFn: async (data: ChangeStatusRequest) => api.post(`/protocols/${id}/status`, data),
     onSuccess: () => {
       toast({ title: t('common.success'), description: t('protocols.detail.statusChangeSuccess') })
-      queryClient.invalidateQueries({ queryKey: ['protocol', id] })
-      queryClient.invalidateQueries({ queryKey: ['protocol-status-history', id] })
-      queryClient.invalidateQueries({ queryKey: ['protocol-reviewers', id] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.protocols.detail(id!) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.protocols.statusHistory(id!) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.protocols.reviewers(id!) })
       setShowStatusDialog(false)
       setNewStatus('')
       setStatusRemark('')
@@ -202,8 +202,8 @@ export function ProtocolDetailPage() {
   const assignCoEditorMutation = useMutation({
     mutationFn: async (data: AssignCoEditorRequest) => api.post(`/protocols/${id}/co-editors`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['protocol', id] })
-      queryClient.invalidateQueries({ queryKey: ['protocol-co-editors', id] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.protocols.detail(id!) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.protocols.coEditors(id!) })
     },
     onError: (error: unknown) => {
       toast({
@@ -259,15 +259,30 @@ export function ProtocolDetailPage() {
     }
   }, [newStatus, selectedReviewerIds, selectedCoEditorId, id, assignCoEditorMutation, changeStatusMutation, statusRemark, t])
 
-  const getAvailableTransitions = () => {
+  const availableTransitions = useMemo(() => {
     if (!protocol) return []
     return allowedTransitions[protocol.status] || []
-  }
+  }, [protocol])
+
+  const cleanedWorkingContent = useMemo(() => {
+    if (!protocol?.working_content) return null
+    const cleanedContent = JSON.parse(JSON.stringify(protocol.working_content))
+    if (cleanedContent.basic && cleanedContent.basic.apply_study_number !== undefined) {
+      delete cleanedContent.basic.apply_study_number
+    }
+    return cleanedContent
+  }, [protocol?.working_content])
+
+  const handleReviewerToggle = useCallback((reviewerId: string, checked: boolean) => {
+    setSelectedReviewerIds(prev =>
+      checked ? [...prev, reviewerId] : prev.filter(r => r !== reviewerId)
+    )
+  }, [])
 
   const isVet = user?.roles?.includes('VET')
   const isReviewer = user?.roles?.some(r => ['REVIEWER', 'VET'].includes(r))
   const isIACUCOrAdmin = user?.roles?.some(r => ['IACUC_CHAIR', 'IACUC_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
-  const reviewableStatuses = ['SUBMITTED', 'PRE_REVIEW', 'VET_REVIEW', 'UNDER_REVIEW', 'APPROVED', 'APPROVED_WITH_CONDITIONS']
+  const reviewableStatuses: ProtocolStatus[] = ['SUBMITTED', 'PRE_REVIEW', 'VET_REVIEW', 'UNDER_REVIEW', 'APPROVED', 'APPROVED_WITH_CONDITIONS']
   const canAddComment = isIACUCOrAdmin || (isReviewer && reviewableStatuses.includes(protocol?.status || ''))
   const canReply = user?.roles?.some(r => ['PI', 'EXPERIMENT_STAFF', 'IACUC_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
   const canEditProtocol = user?.roles?.some(r => ['PI', 'EXPERIMENT_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
@@ -331,19 +346,11 @@ export function ProtocolDetailPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2 pl-11 md:pl-0">
-          {protocol.status === 'DRAFT' && (
+          {(protocol.status === 'DRAFT' || (isRevisionStatus && canEditProtocol)) && (
             <Button variant="outline" asChild>
               <Link to={`/protocols/${id}/edit`}>
                 <Edit className="mr-2 h-4 w-4" />
-                {t('protocols.detail.edit')}
-              </Link>
-            </Button>
-          )}
-          {isRevisionStatus && canEditProtocol && (
-            <Button variant="outline" asChild>
-              <Link to={`/protocols/${id}/edit`}>
-                <Edit className="mr-2 h-4 w-4" />
-                {t('protocols.detail.revise')}
+                {isRevisionStatus ? t('protocols.detail.revise') : t('protocols.detail.edit')}
               </Link>
             </Button>
           )}
@@ -357,9 +364,8 @@ export function ProtocolDetailPage() {
               {t('protocols.detail.submit')}
             </Button>
           )}
-          {getAvailableTransitions().length > 0 && protocol.status !== 'DRAFT' &&
-            (user?.roles?.some(r => ['IACUC_STAFF', 'IACUC_CHAIR', 'SYSTEM_ADMIN', 'admin'].includes(r)) ||
-              (isVet && protocol.status === 'VET_REVIEW')) && (
+          {availableTransitions.length > 0 && protocol.status !== 'DRAFT' &&
+            (canAssignReviewer || (isVet && protocol.status === 'VET_REVIEW')) && (
               <Button variant="outline" onClick={() => setShowStatusDialog(true)}>
                 {t('protocols.detail.changeStatus')}
               </Button>
@@ -454,14 +460,7 @@ export function ProtocolDetailPage() {
           </CardHeader>
           <CardContent>
             <ProtocolContentView
-              workingContent={(() => {
-                if (!protocol.working_content) return null
-                const cleanedContent = JSON.parse(JSON.stringify(protocol.working_content))
-                if (cleanedContent.basic && cleanedContent.basic.apply_study_number !== undefined) {
-                  delete cleanedContent.basic.apply_study_number
-                }
-                return cleanedContent
-              })()}
+              workingContent={cleanedWorkingContent}
               protocolTitle={protocol.title}
               protocolId={id}
               startDate={protocol.start_date}
@@ -549,7 +548,7 @@ export function ProtocolDetailPage() {
                   <SelectValue placeholder={t('protocols.detail.dialogs.status.placeholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {getAvailableTransitions().map((status) => (
+                  {availableTransitions.map((status) => (
                     <SelectItem key={status} value={status}>
                       {t(`protocols.status.${status}`)}
                     </SelectItem>
@@ -566,13 +565,7 @@ export function ProtocolDetailPage() {
                       <input
                         type="checkbox"
                         checked={selectedReviewerIds.includes(reviewer.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedReviewerIds([...selectedReviewerIds, reviewer.id])
-                          } else {
-                            setSelectedReviewerIds(selectedReviewerIds.filter(rid => rid !== reviewer.id))
-                          }
-                        }}
+                        onChange={(e) => handleReviewerToggle(reviewer.id, e.target.checked)}
                         className="h-4 w-4"
                       />
                       <span>{reviewer.display_name || reviewer.email}</span>
