@@ -483,6 +483,17 @@ impl AnimalService {
             None
         };
 
+        // 規則：終態（euthanized / sudden_death）的動物禁止移動到欄位
+        if current_status.is_terminal() {
+            if let Some(ref loc) = req.pen_location {
+                if !loc.trim().is_empty() {
+                    return Err(AppError::BadRequest(
+                        "已犧牲或猝死的動物無法移動到欄位".to_string(),
+                    ));
+                }
+            }
+        }
+
         // 規則：已犧牲（euthanized）的動物允許將欄位改為空值；其餘情況若傳空則保留原值
         let pen_location_bind = if current_status == AnimalStatus::Euthanized {
             req.pen_location

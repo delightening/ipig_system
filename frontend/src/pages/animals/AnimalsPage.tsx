@@ -338,6 +338,7 @@ export function AnimalsPage() {
       if (matchingAnimals.length > 1) throw new Error(`找到多隻耳號為 "${formattedEarTag}" 的動物，請使用編輯功能手動移動`)
 
       const animal = matchingAnimals[0]
+      if (animal.status === 'euthanized' || animal.status === 'sudden_death') throw new Error(`動物 ${formattedEarTag} 已犧牲，無法移動到欄位`)
       if (animal.pen_location === targetPenLocation) throw new Error(`動物 ${formattedEarTag} 已經在 ${targetPenLocation} 欄位`)
 
       return { ...await api.put<Animal>(`/animals/${animal.id}`, { pen_location: targetPenLocation }), notFound: false }
