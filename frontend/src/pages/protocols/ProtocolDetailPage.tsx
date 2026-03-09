@@ -272,10 +272,10 @@ export function ProtocolDetailPage() {
   const canReply = user?.roles?.some(r => ['PI', 'EXPERIMENT_STAFF', 'IACUC_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
   const canEditProtocol = user?.roles?.some(r => ['PI', 'EXPERIMENT_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
   const canAssignReviewer = user?.roles?.some(r => ['IACUC_STAFF', 'IACUC_CHAIR', 'SYSTEM_ADMIN', 'admin'].includes(r))
-  const canManageAttachments = protocol?.status === 'DRAFT'
-    || protocol?.status === 'REVISION_REQUIRED'
+  const isRevisionStatus = protocol?.status === 'REVISION_REQUIRED'
     || protocol?.status === 'PRE_REVIEW_REVISION_REQUIRED'
     || protocol?.status === 'VET_REVISION_REQUIRED'
+  const canManageAttachments = protocol?.status === 'DRAFT' || isRevisionStatus
   const shouldAnonymizeReviewers = !user?.roles?.some(r =>
     ['IACUC_STAFF', 'IACUC_CHAIR', 'REVIEWER', 'VET', 'SYSTEM_ADMIN', 'admin'].includes(r)
   )
@@ -332,29 +332,29 @@ export function ProtocolDetailPage() {
         </div>
         <div className="flex flex-wrap gap-2 pl-11 md:pl-0">
           {protocol.status === 'DRAFT' && (
-            <>
-              <Button variant="outline" asChild>
-                <Link to={`/protocols/${id}/edit`}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  {t('protocols.detail.edit')}
-                </Link>
-              </Button>
-              <Button onClick={handleSubmit} disabled={submitMutation.isPending}>
-                {submitMutation.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="mr-2 h-4 w-4" />
-                )}
-                {t('protocols.detail.submit')}
-              </Button>
-            </>
+            <Button variant="outline" asChild>
+              <Link to={`/protocols/${id}/edit`}>
+                <Edit className="mr-2 h-4 w-4" />
+                {t('protocols.detail.edit')}
+              </Link>
+            </Button>
           )}
-          {protocol.status === 'REVISION_REQUIRED' && canEditProtocol && (
+          {isRevisionStatus && canEditProtocol && (
             <Button variant="outline" asChild>
               <Link to={`/protocols/${id}/edit`}>
                 <Edit className="mr-2 h-4 w-4" />
                 {t('protocols.detail.revise')}
               </Link>
+            </Button>
+          )}
+          {(protocol.status === 'DRAFT' || (isRevisionStatus && canEditProtocol)) && (
+            <Button onClick={handleSubmit} disabled={submitMutation.isPending}>
+              {submitMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="mr-2 h-4 w-4" />
+              )}
+              {t('protocols.detail.submit')}
             </Button>
           )}
           {getAvailableTransitions().length > 0 && protocol.status !== 'DRAFT' &&
