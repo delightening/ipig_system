@@ -58,7 +58,7 @@ impl HrService {
             SELECT 
                 l.id, l.user_id, u.email as user_email, u.display_name as user_name,
                 l.proxy_user_id, proxy.display_name as proxy_user_name,
-                l.leave_type::text as leave_type, l.start_date, l.end_date, l.total_days, l.reason,
+                l.leave_type::text as leave_type, l.start_date, l.end_date, l.total_days, l.total_hours, l.reason,
                 l.is_urgent, l.is_retroactive, l.status::text as status,
                 l.current_approver_id, approver.display_name as current_approver_name,
                 l.submitted_at, l.created_at
@@ -121,11 +121,25 @@ impl HrService {
         Ok(record)
     }
 
+    /// 檢查時數是否為 0.5 的倍數
+    fn is_half_hour_multiple(v: f64) -> bool {
+        v >= 0.5 && (v * 2.0 - (v * 2.0).round()).abs() < 1e-9
+    }
+
     pub async fn create_leave(
         pool: &PgPool,
         user_id: Uuid,
         payload: &CreateLeaveRequest,
     ) -> Result<LeaveRequest> {
+        let effective_hours = payload.total_hours.unwrap_or(payload.total_days * 8.0);
+        if !Self::is_half_hour_multiple(effective_hours) {
+            return Err(AppError::BadRequest(
+                "請假時數須為 0.5 小時的倍數（如 0.5、1、1.5、2...）".into(),
+            ));
+        }
+        let total_days = payload.total_hours.map(|h| h / 8.0).unwrap_or(payload.total_days);
+        let total_hours = Some(payload.total_hours.unwrap_or(payload.total_days * 8.0));
+
         let id = Uuid::new_v4();
         
         // 處理 supporting_documents 轉為 JSON
@@ -152,8 +166,8 @@ impl HrService {
         .bind(payload.end_date)
         .bind(payload.start_time)
         .bind(payload.end_time)
-        .bind(payload.total_days)
-        .bind(payload.total_hours)
+        .bind(total_days)
+        .bind(total_hours)
         .bind(&reason)
         .bind(&supporting_docs)
         .bind(payload.is_urgent.unwrap_or(false))

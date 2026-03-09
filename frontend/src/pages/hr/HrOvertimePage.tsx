@@ -133,6 +133,15 @@ const calculateCompTime = (overtimeType: string): number => {
     return 0
 }
 
+/** 從開始/結束時間計算加班時數，以 0.5 小時為單位四捨五入 */
+const calculateOvertimeHours = (start: string, end: string): number => {
+    const [sh, sm] = start.split(':').map(Number)
+    const [eh, em] = end.split(':').map(Number)
+    const minutes = (eh * 60 + em) - (sh * 60 + sm)
+    const raw = minutes / 60
+    return Math.round(raw * 2) / 2
+}
+
 // ============================================
 // Custom Hooks
 // ============================================
@@ -347,7 +356,13 @@ function CreateOvertimeDialog({
                             rows={3}
                         />
                     </div>
-                    <div className="p-3 bg-muted rounded-lg">
+                    <div className="grid gap-2 p-3 bg-muted rounded-lg space-y-1">
+                        <div className="flex justify-between items-center">
+                            <span className="text-sm text-muted-foreground">預估加班時數</span>
+                            <span className="text-lg font-semibold">
+                                {calculateOvertimeHours(startTime, endTime).toFixed(1)} 小時
+                            </span>
+                        </div>
                         <div className="flex justify-between items-center">
                             <span className="text-sm text-muted-foreground">預估補休時數</span>
                             <span className="text-lg font-semibold">

@@ -152,12 +152,13 @@ export function HrLeavePage() {
         enabled: canViewAll && activeTab === 'all-records',
     })
 
-    // 建立請假
+    // 建立請假（以小時為單位，0.5 小時步進）
     const createLeaveMutation = useMutation({
         mutationFn: async (data: {
             leave_type: string
             start_date: string
             end_date: string
+            total_hours: number
             total_days: number
             reason?: string
             supporting_documents?: string[]
@@ -264,6 +265,11 @@ export function HrLeavePage() {
             toast({ title: '錯誤', description: '請填寫請假事由', variant: 'destructive' })
             return
         }
+        const hours = parseFloat(leaveForm.form.totalHours) || 0
+        if (hours < 0.5) {
+            toast({ title: '錯誤', description: '請假時數至少 0.5 小時，且須為 0.5 的倍數', variant: 'destructive' })
+            return
+        }
         createLeaveMutation.mutate(leaveForm.buildSubmitPayload())
     }
 
@@ -285,6 +291,12 @@ export function HrLeavePage() {
 
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' })
+    }
+
+    /** 顯示請假時數（以 0.5 小時為單位，total_hours 優先） */
+    const formatLeaveHours = (leave: { total_hours?: number | string | null; total_days: number | string }) => {
+        const hours = leave.total_hours != null ? parseDecimal(leave.total_hours) : parseDecimal(leave.total_days) * 8
+        return `${hours} 小時`
     }
 
     return (
@@ -341,13 +353,13 @@ export function HrLeavePage() {
                                 </div>
                             </div>
                             <div className="grid gap-2">
-                                <Label>天數</Label>
+                                <Label>時數 <span className="text-muted-foreground text-xs">(以 0.5 小時為單位)</span></Label>
                                 <Input
                                     type="number"
                                     step="0.5"
                                     min="0.5"
-                                    value={leaveForm.form.totalDays}
-                                    onChange={(e) => leaveForm.handleTotalDaysChange(e.target.value)}
+                                    value={leaveForm.form.totalHours}
+                                    onChange={(e) => leaveForm.handleTotalHoursChange(e.target.value)}
                                 />
                             </div>
                             <div className="grid gap-2">
@@ -523,7 +535,7 @@ export function HrLeavePage() {
                                 <TableRow>
                                     <TableHead>假別</TableHead>
                                     <TableHead>日期</TableHead>
-                                    <TableHead>天數</TableHead>
+                                    <TableHead>時數</TableHead>
                                     <TableHead>事由</TableHead>
                                     <TableHead>狀態</TableHead>
                                     <TableHead>操作</TableHead>
@@ -550,7 +562,7 @@ export function HrLeavePage() {
                                                 {formatDate(leave.start_date)}
                                                 {leave.start_date !== leave.end_date && ` ~ ${formatDate(leave.end_date)}`}
                                             </TableCell>
-                                            <TableCell>{leave.total_days} 天</TableCell>
+                                            <TableCell>{formatLeaveHours(leave)}</TableCell>
                                             <TableCell className="max-w-[200px] truncate">{leave.reason}</TableCell>
                                             <TableCell>{getStatusBadge(leave.status)}</TableCell>
                                             <TableCell>
@@ -610,7 +622,7 @@ export function HrLeavePage() {
                                         <TableHead>申請人</TableHead>
                                         <TableHead>假別</TableHead>
                                         <TableHead>日期</TableHead>
-                                        <TableHead>天數</TableHead>
+                                        <TableHead>時數</TableHead>
                                         <TableHead>事由</TableHead>
                                         <TableHead>操作</TableHead>
                                     </TableRow>
@@ -642,7 +654,7 @@ export function HrLeavePage() {
                                                     {formatDate(leave.start_date)}
                                                     {leave.start_date !== leave.end_date && ` ~ ${formatDate(leave.end_date)}`}
                                                 </TableCell>
-                                                <TableCell>{leave.total_days} 天</TableCell>
+                                                <TableCell>{formatLeaveHours(leave)}</TableCell>
                                                 <TableCell className="max-w-[200px] truncate">{leave.reason}</TableCell>
                                                 <TableCell>
                                                     <div className="flex gap-2">
@@ -756,7 +768,7 @@ export function HrLeavePage() {
                                             <TableHead>申請人</TableHead>
                                             <TableHead>假別</TableHead>
                                             <TableHead>日期</TableHead>
-                                            <TableHead>天數</TableHead>
+                                            <TableHead>時數</TableHead>
                                             <TableHead>事由</TableHead>
                                             <TableHead>狀態</TableHead>
                                         </TableRow>
@@ -788,7 +800,7 @@ export function HrLeavePage() {
                                                         {formatDate(leave.start_date)}
                                                         {leave.start_date !== leave.end_date && ` ~ ${formatDate(leave.end_date)}`}
                                                     </TableCell>
-                                                    <TableCell>{leave.total_days} 天</TableCell>
+                                                    <TableCell>{formatLeaveHours(leave)}</TableCell>
                                                     <TableCell className="max-w-[200px] truncate">{leave.reason}</TableCell>
                                                     <TableCell>{getStatusBadge(leave.status)}</TableCell>
                                                 </TableRow>

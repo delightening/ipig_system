@@ -134,6 +134,7 @@ export interface LeaveRequestWithUser {
     start_date: string;
     end_date: string;
     total_days: number;
+    total_hours?: number | null;
     reason: string;
     is_urgent: boolean;
     is_retroactive: boolean;
