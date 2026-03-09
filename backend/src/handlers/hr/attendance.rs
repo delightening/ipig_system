@@ -1,8 +1,10 @@
 // 出勤管理 Handlers
 
 use axum::{
+    body::Body,
     extract::{ConnectInfo, Path, Query, State},
-    http::HeaderMap,
+    http::{header, HeaderMap, StatusCode},
+    response::Response,
     Extension, Json,
 };
 use std::net::SocketAddr;
@@ -115,6 +117,7 @@ fn validate_clock_location(
 }
 
 /// 列出出勤記錄
+/// - 預設只顯示自己的紀錄；具備 hr.attendance.view_all 且傳 view_all=true 時可查看所有人
 #[utoipa::path(get, path = "/api/hr/attendance", responses((status = 200)), tag = "HR 出勤", security(("bearer" = [])))]
 pub async fn list_attendance(
     State(state): State<AppState>,
@@ -122,8 +125,17 @@ pub async fn list_attendance(
     Query(params): Query<AttendanceQuery>,
 ) -> Result<Json<PaginatedResponse<AttendanceWithUser>>> {
     let mut query = params;
-    if query.user_id.is_none() && !current_user.has_permission("hr.attendance.view_all") {
+    // 預設只顯示自己的紀錄；只有明確傳 view_all=true 且具權限時才顯示所有人
+    let show_all = query.view_all == Some(true) && current_user.has_permission("hr.attendance.view_all");
+    if !show_all && query.user_id.is_none() {
         query.user_id = Some(current_user.id);
+    } else if show_all {
+        query.user_id = None; // 允許查看所有人
+    } else if let Some(uid) = query.user_id {
+        // 查詢他人時需 view_all 權限
+        if uid != current_user.id && !current_user.has_permission("hr.attendance.view_all") {
+            query.user_id = Some(current_user.id);
+        }
     }
     let result = HrService::list_attendance(&state.db, &query).await?;
     Ok(Json(result))
@@ -203,6 +215,39 @@ pub async fn clock_out(
         "regular_hours": record.regular_hours,
         "message": "打卡成功"
     })))
+}
+
+/// 匯出出勤記錄為 Excel
+#[utoipa::path(get, path = "/api/hr/attendance/export", responses((status = 200)), tag = "HR 出勤", security(("bearer" = [])))]
+pub async fn export_attendance(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Query(params): Query<AttendanceQuery>,
+) -> Result<Response> {
+    let mut query = params;
+    let show_all = query.view_all == Some(true) && current_user.has_permission("hr.attendance.view_all");
+    if !show_all && query.user_id.is_none() {
+        query.user_id = Some(current_user.id);
+    } else if show_all {
+        query.user_id = None;
+    } else if let Some(uid) = query.user_id {
+        if uid != current_user.id && !current_user.has_permission("hr.attendance.view_all") {
+            query.user_id = Some(current_user.id);
+        }
+    }
+
+    let data = HrService::export_attendance_to_excel(&state.db, &query).await?;
+    let date_str = chrono::Utc::now().format("%Y%m%d").to_string();
+    let filename = format!("attendance_records_{}.xlsx", date_str);
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        .header(
+            header::CONTENT_DISPOSITION,
+            format!("attachment; filename=\"{}\"", filename),
+        )
+        .body(Body::from(data))
+        .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))
 }
 
 /// 更正出勤記錄

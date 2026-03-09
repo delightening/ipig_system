@@ -113,6 +113,82 @@ impl HrService {
         Ok(PaginatedResponse::new(data, total.0, page, per_page))
     }
 
+    /// 匯出出勤記錄為 Excel
+    pub async fn export_attendance_to_excel(
+        pool: &PgPool,
+        query: &AttendanceQuery,
+    ) -> Result<Vec<u8>> {
+        use rust_xlsxwriter::{Format, FormatAlign, Workbook};
+
+        let mut export_query = query.clone();
+        export_query.per_page = Some(10000);
+        export_query.page = Some(1);
+        let result = Self::list_attendance(pool, &export_query).await?;
+
+        let mut workbook = Workbook::new();
+        let header_format = Format::new()
+            .set_bold()
+            .set_background_color("#4472C4")
+            .set_font_color("#FFFFFF")
+            .set_align(FormatAlign::Center);
+
+        let worksheet = workbook.add_worksheet();
+        worksheet.set_column_width(0, 18.0)?;
+        worksheet.set_column_width(1, 25.0)?;
+        worksheet.set_column_width(2, 12.0)?;
+        worksheet.set_column_width(3, 12.0)?;
+        worksheet.set_column_width(4, 12.0)?;
+        worksheet.set_column_width(5, 12.0)?;
+        worksheet.set_column_width(6, 12.0)?;
+        worksheet.set_column_width(7, 30.0)?;
+
+        worksheet.write_string_with_format(0, 0, "日期", &header_format)?;
+        worksheet.write_string_with_format(0, 1, "人員名稱", &header_format)?;
+        worksheet.write_string_with_format(0, 2, "上班", &header_format)?;
+        worksheet.write_string_with_format(0, 3, "下班", &header_format)?;
+        worksheet.write_string_with_format(0, 4, "工作時數", &header_format)?;
+        worksheet.write_string_with_format(0, 5, "加班時數", &header_format)?;
+        worksheet.write_string_with_format(0, 6, "狀態", &header_format)?;
+        worksheet.write_string_with_format(0, 7, "備註", &header_format)?;
+
+        let status_display = |s: &str| -> String {
+            match s {
+                "normal" => "正常".to_string(),
+                "late" => "遲到".to_string(),
+                "early_leave" => "早退".to_string(),
+                "absent" => "缺勤".to_string(),
+                _ => s.to_string(),
+            }
+        };
+
+        for (row, r) in result.data.iter().enumerate() {
+            let rw = (row + 1) as u32;
+            worksheet.write_string(rw, 0, r.work_date.to_string())?;
+            worksheet.write_string(rw, 1, &r.user_name)?;
+            let clock_in = r.clock_in_time.map(|t| t.format("%H:%M:%S").to_string());
+            worksheet.write_string(rw, 2, clock_in.as_deref().unwrap_or("-"))?;
+            let clock_out = r.clock_out_time.map(|t| t.format("%H:%M:%S").to_string());
+            worksheet.write_string(rw, 3, clock_out.as_deref().unwrap_or("-"))?;
+            let hours = r.regular_hours.map(|h| format!("{:.1}", h)).unwrap_or_else(|| "-".to_string());
+            worksheet.write_string(rw, 4, &hours)?;
+            let ot = r.overtime_hours.map(|h| format!("{:.1}", h)).unwrap_or_else(|| "-".to_string());
+            worksheet.write_string(rw, 5, &ot)?;
+            worksheet.write_string(rw, 6, &status_display(&r.status))?;
+            let remark = if r.is_corrected {
+                r.remark
+                    .as_ref()
+                    .map(|s| format!("已更正；{}", s))
+                    .unwrap_or_else(|| "已更正".to_string())
+            } else {
+                r.remark.clone().unwrap_or_default()
+            };
+            worksheet.write_string(rw, 7, &remark)?;
+        }
+
+        worksheet.set_freeze_panes(1, 0)?;
+        Ok(workbook.save_to_buffer()?)
+    }
+
     pub async fn clock_in(
         pool: &PgPool,
         user_id: Uuid,

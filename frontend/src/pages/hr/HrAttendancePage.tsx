@@ -3,11 +3,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
     Calendar,
     Clock,
+    Download,
     LogIn,
     LogOut,
     RefreshCw,
+    Users,
 } from 'lucide-react'
 import api from '@/lib/api'
+import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -21,6 +24,15 @@ import {
     TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { Label } from '@/components/ui/label'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 import { AxiosError } from 'axios'
@@ -34,11 +46,21 @@ interface PaginatedResponse<T> {
     total_pages: number
 }
 
+interface StaffInfo {
+    id: string
+    display_name: string
+    email: string
+}
+
 export function HrAttendancePage() {
     const [activeTab, setActiveTab] = useState('today')
     const [dateFrom, setDateFrom] = useState('')
     const [dateTo, setDateTo] = useState('')
+    const [viewAll, setViewAll] = useState(false)
+    const [filterUserId, setFilterUserId] = useState<string>('')
     const queryClient = useQueryClient()
+    const { hasPermission } = useAuthStore()
+    const canViewAll = hasPermission('hr.attendance.view_all')
 
     // 今日打卡狀態
     const { data: todayAttendance, refetch: refetchToday } = useQuery({
@@ -52,13 +74,25 @@ export function HrAttendancePage() {
         },
     })
 
+    // 人員列表（供 view_all 時篩選）
+    const { data: staffList } = useQuery({
+        queryKey: ['hr-staff-for-attendance'],
+        queryFn: async () => {
+            const res = await api.get<StaffInfo[]>('/hr/staff')
+            return res.data
+        },
+        enabled: canViewAll && activeTab === 'history',
+    })
+
     // 歷史記錄
     const { data: attendanceHistory, isLoading: loadingHistory } = useQuery({
-        queryKey: ['hr-attendance-history', dateFrom, dateTo],
+        queryKey: ['hr-attendance-history', dateFrom, dateTo, viewAll, filterUserId],
         queryFn: async () => {
             const params = new URLSearchParams()
             if (dateFrom) params.set('from', dateFrom)
             if (dateTo) params.set('to', dateTo)
+            if (canViewAll && viewAll) params.set('view_all', 'true')
+            if (canViewAll && viewAll && filterUserId) params.set('user_id', filterUserId)
             const res = await api.get<PaginatedResponse<AttendanceWithUser>>(
                 `/hr/attendance?${params}`
             )
@@ -157,6 +191,35 @@ export function HrAttendancePage() {
         },
     })
 
+    // 匯出 Excel
+    const handleExportExcel = async () => {
+        const params = new URLSearchParams()
+        if (dateFrom) params.set('from', dateFrom)
+        if (dateTo) params.set('to', dateTo)
+        if (canViewAll && viewAll) params.set('view_all', 'true')
+        if (canViewAll && viewAll && filterUserId) params.set('user_id', filterUserId)
+        try {
+            const res = await api.get(`/hr/attendance/export?${params.toString()}`, {
+                responseType: 'blob',
+            })
+            const blob = new Blob([res.data], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `attendance_records_${new Date().toISOString().slice(0, 10)}.xlsx`
+            a.click()
+            URL.revokeObjectURL(url)
+            toast({ title: '匯出成功', description: '出勤記錄已下載' })
+        } catch (err) {
+            toast({
+                title: '匯出失敗',
+                description: getApiErrorMessage(err, '請稍後再試'),
+                variant: 'destructive',
+            })
+        }
+    }
 
     const formatTime = (dateStr: string | null) => {
         if (!dateStr) return '-'
@@ -301,25 +364,71 @@ export function HrAttendancePage() {
 
                 {/* 出勤記錄 */}
                 <TabsContent value="history" className="space-y-4">
-                    <div className="flex gap-4">
-                        <Input
-                            type="date"
-                            value={dateFrom}
-                            onChange={(e) => setDateFrom(e.target.value)}
-                            placeholder="開始日期"
-                        />
-                        <Input
-                            type="date"
-                            value={dateTo}
-                            onChange={(e) => setDateTo(e.target.value)}
-                            placeholder="結束日期"
-                        />
+                    <div className="flex flex-wrap items-end gap-4">
+                        <div className="flex flex-col gap-2">
+                            <Label>開始日期</Label>
+                            <Input
+                                type="date"
+                                value={dateFrom}
+                                onChange={(e) => setDateFrom(e.target.value)}
+                                placeholder="開始日期"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <Label>結束日期</Label>
+                            <Input
+                                type="date"
+                                value={dateTo}
+                                onChange={(e) => setDateTo(e.target.value)}
+                                placeholder="結束日期"
+                            />
+                        </div>
+                        {canViewAll && (
+                            <>
+                                <div className="flex items-center gap-2">
+                                    <Switch
+                                        id="view-all"
+                                        checked={viewAll}
+                                        onCheckedChange={(checked) => {
+                                            setViewAll(checked)
+                                            if (!checked) setFilterUserId('')
+                                        }}
+                                    />
+                                    <Label htmlFor="view-all" className="cursor-pointer flex items-center gap-2">
+                                        <Users className="h-4 w-4" />
+                                        查看所有人
+                                    </Label>
+                                </div>
+                                {viewAll && staffList && (
+                                    <div className="flex flex-col gap-2">
+                                        <Label>篩選人員</Label>
+                                        <Select value={filterUserId || 'all'} onValueChange={(v) => setFilterUserId(v === 'all' ? '' : v)}>
+                                            <SelectTrigger className="w-[200px]">
+                                                <SelectValue placeholder="全部人員" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">全部人員</SelectItem>
+                                                {staffList.map((s) => (
+                                                    <SelectItem key={s.id} value={s.id}>
+                                                        {s.display_name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+                            </>
+                        )}
                         <Button
                             variant="outline"
                             onClick={() => queryClient.invalidateQueries({ queryKey: ['hr-attendance-history'] })}
                         >
                             <RefreshCw className="h-4 w-4 mr-2" />
                             重新整理
+                        </Button>
+                        <Button variant="outline" onClick={handleExportExcel}>
+                            <Download className="h-4 w-4 mr-2" />
+                            匯出 Excel
                         </Button>
                     </div>
 
