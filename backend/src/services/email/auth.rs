@@ -15,7 +15,6 @@ impl EmailService {
         let smtp_host = config.smtp_host.as_ref()
             .ok_or_else(|| anyhow::anyhow!("SMTP_HOST not configured"))?;
         let login_url = format!("{}/login", config.app_url);
-        let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 
         let html_body = format!(
             r#"<!DOCTYPE html>
@@ -52,7 +51,7 @@ impl EmailService {
         <div class="container">
             <div class="header">
                 <div class="logo">
-                    <img src="{logo_url}" alt="iPig System" style="height: 64px; width: auto; margin-bottom: 12px; background: white; padding: 4px; border-radius: 8px;">
+                    <img src="cid:logo" alt="iPig System" style="height: 64px; width: auto; margin-bottom: 12px; background: white; padding: 4px; border-radius: 8px;">
                 </div>
                 <h1 style="margin: 0; font-size: 24px; font-weight: 600; color: #ffffff;">歡迎加入豬博士 iPig 系統</h1>
                 <p class="subtitle" style="margin-top: 8px; font-size: 14px; color: #e0e7ff;">您的帳號已成功開通</p>
@@ -88,7 +87,7 @@ impl EmailService {
 </body>
 </html>"#,
             display_name = display_name, to_email = to_email,
-            password = password, login_url = login_url, logo_url = logo_url,
+            password = password, login_url = login_url,
         );
 
         let plain_body = format!(
@@ -132,7 +131,6 @@ impl EmailService {
         let smtp_host = config.smtp_host.as_ref()
             .ok_or_else(|| anyhow::anyhow!("SMTP_HOST not configured"))?;
         let reset_url = format!("{}/reset-password?token={}", config.app_url, reset_token);
-        let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
 
         let html_body = format!(
             r#"<!DOCTYPE html>
@@ -154,7 +152,7 @@ impl EmailService {
     <div class="container">
         <div class="header">
             <div style="text-align: center; margin-bottom: 15px;">
-                <img src="{logo_url}" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
+                <img src="cid:logo" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
             </div>
             <h1 style="color: #ffffff;">🔑 密碼重設通知</h1>
         </div>
@@ -175,7 +173,7 @@ impl EmailService {
     </div>
 </body>
 </html>"#,
-            display_name = display_name, reset_url = reset_url, logo_url = logo_url,
+            display_name = display_name, reset_url = reset_url,
         );
 
         let plain_body = format!(
@@ -215,8 +213,6 @@ impl EmailService {
         }
         let smtp_host = config.smtp_host.as_ref()
             .ok_or_else(|| anyhow::anyhow!("SMTP_HOST not configured"))?;
-        let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
-
         let html_body = format!(
             r#"<!DOCTYPE html>
 <html>
@@ -235,7 +231,7 @@ impl EmailService {
     <div class="container">
         <div class="header">
             <div style="text-align: center; margin-bottom: 15px;">
-                <img src="{logo_url}" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
+                <img src="cid:logo" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
             </div>
             <h1 style="color: #ffffff;">✅ 密碼變更成功</h1>
         </div>
@@ -252,7 +248,7 @@ impl EmailService {
     </div>
 </body>
 </html>"#,
-            display_name = display_name, logo_url = logo_url,
+            display_name = display_name,
         );
 
         let plain_body = format!(

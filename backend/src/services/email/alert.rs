@@ -17,7 +17,7 @@ impl EmailService {
         let smtp_host = config.smtp_host.as_ref()
             .ok_or_else(|| anyhow::anyhow!("SMTP_HOST not configured"))?;
         let animals_url = format!("{}/animals", config.app_url);
-        let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
+
 
         let (header_bg, header_icon, urgency_note) = if is_urgent {
             ("#dc2626", "🚨",
@@ -46,7 +46,7 @@ impl EmailService {
     <div class="container">
         <div class="header">
             <div style="text-align: center; margin-bottom: 15px;">
-                <img src="{logo_url}" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
+                <img src="cid:logo" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
             </div>
             <h1>{header_icon} 獸醫師建議通知</h1>
         </div>
@@ -76,7 +76,7 @@ impl EmailService {
             urgency_note = urgency_note, display_name = display_name,
             ear_tag = ear_tag, iacuc_no = iacuc_no.unwrap_or("-"),
             record_type = record_type, recommendation_content = recommendation_content,
-            animals_url = animals_url, logo_url = logo_url,
+            animals_url = animals_url,
         );
 
         let urgency_prefix = if is_urgent { "[緊急] " } else { "" };
@@ -128,7 +128,7 @@ IACUC No.：{iacuc_no}
             .ok_or_else(|| anyhow::anyhow!("SMTP_HOST not configured"))?;
         let inventory_url = format!("{}/inventory", config.app_url);
         let today = crate::time::now_taiwan().format("%Y-%m-%d").to_string();
-        let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
+
 
         let html_body = format!(
             r#"<!DOCTYPE html>
@@ -148,7 +148,7 @@ IACUC No.：{iacuc_no}
     <div class="container">
         <div class="header">
             <div style="text-align: center; margin-bottom: 15px;">
-                <img src="{logo_url}" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
+                <img src="cid:logo" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
             </div>
             <h1>⚠️ 低庫存提醒</h1>
         </div>
@@ -166,7 +166,7 @@ IACUC No.：{iacuc_no}
 </body>
 </html>"#,
             display_name = display_name, alert_count = alert_count,
-            alerts_html = alerts_html, inventory_url = inventory_url, logo_url = logo_url,
+            alerts_html = alerts_html, inventory_url = inventory_url,
         );
 
         let plain_body = format!(
@@ -195,7 +195,7 @@ IACUC No.：{iacuc_no}
             .ok_or_else(|| anyhow::anyhow!("SMTP_HOST not configured"))?;
         let inventory_url = format!("{}/inventory", config.app_url);
         let today = crate::time::now_taiwan().format("%Y-%m-%d").to_string();
-        let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
+
 
         let is_urgent = expired_count > 0;
         let header_bg = if is_urgent { "#dc2626" } else { "#f59e0b" };
@@ -221,7 +221,7 @@ IACUC No.：{iacuc_no}
     <div class="container">
         <div class="header">
             <div style="text-align: center; margin-bottom: 15px;">
-                <img src="{logo_url}" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
+                <img src="cid:logo" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
             </div>
             <h1>⏰ 效期提醒</h1>
         </div>
@@ -244,7 +244,7 @@ IACUC No.：{iacuc_no}
 </html>"#,
             header_bg = header_bg, display_name = display_name,
             expired_count = expired_count, expiring_count = expiring_count,
-            alerts_html = alerts_html, inventory_url = inventory_url, logo_url = logo_url,
+            alerts_html = alerts_html, inventory_url = inventory_url,
         );
 
         let plain_body = format!(
@@ -273,7 +273,7 @@ IACUC No.：{iacuc_no}
         let smtp_host = config.smtp_host.as_ref()
             .ok_or_else(|| anyhow::anyhow!("SMTP_HOST not configured"))?;
         let animals_url = format!("{}/animals", config.app_url);
-        let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
+
 
         let html_body = format!(
             r#"<!DOCTYPE html>
@@ -297,7 +297,7 @@ IACUC No.：{iacuc_no}
     <div class="container">
         <div class="header">
             <div style="text-align: center; margin-bottom: 15px;">
-                <img src="{logo_url}" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
+                <img src="cid:logo" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
             </div>
             <h1>🚨 安樂死執行通知</h1>
         </div>
@@ -332,7 +332,7 @@ IACUC No.：{iacuc_no}
             display_name = display_name, ear_tag = ear_tag,
             iacuc_no = iacuc_no.unwrap_or("-"), vet_name = vet_name,
             reason = reason, deadline = deadline,
-            animals_url = animals_url, logo_url = logo_url,
+            animals_url = animals_url,
         );
 
         let plain_body = format!(
