@@ -814,6 +814,7 @@ pub fn api_routes(state: AppState) -> Router {
         // HR Attendance (新增)
         // ============================================
         .route("/hr/attendance", get(handlers::list_attendance))
+        .route("/hr/attendance/export", get(handlers::export_attendance))
         .route("/hr/attendance/clock-in", post(handlers::clock_in))
         .route("/hr/attendance/clock-out", post(handlers::clock_out))
         .route("/hr/attendance/stats", get(handlers::get_attendance_stats))

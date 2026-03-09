@@ -56,9 +56,11 @@ pub struct AttendanceWithUser {
     pub is_corrected: bool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct AttendanceQuery {
     pub user_id: Option<Uuid>,
+    /// 是否查看所有人的出勤（需 hr.attendance.view_all 權限）
+    pub view_all: Option<bool>,
     pub from: Option<NaiveDate>,
     pub to: Option<NaiveDate>,
     pub status: Option<String>,
