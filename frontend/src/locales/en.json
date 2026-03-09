@@ -639,6 +639,14 @@
             "facilityAndLocation": "Test Facility and Location",
             "location": "Location",
             "specifyOther": "Please specify other category",
+            "registrationAuthorities": "Registration Authorities",
+            "registrationAuthorityOptions": {
+                "FDA": "U.S. Food and Drug Administration (FDA)",
+                "CE": "European Union (CE)",
+                "TFDA": "Taiwan Food and Drug Administration (TFDA)",
+                "CFDA": "China Food and Drug Administration (CFDA)",
+                "other": "Other, specify"
+            },
             "fundingSources": "Source of Funding",
             "fundingSourceOptions": {
                 "moa": "Ministry of Agriculture",
