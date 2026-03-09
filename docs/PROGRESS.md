@@ -190,6 +190,14 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-09 請假管理動作後自動重新整理頁面
+
+- ✅ **自動重新整理**：在「新增請假」、「送審」、「核准」、「駁回」、「取消」等動作成功後，加入 1 秒延遲並執行 `window.location.reload()`。
+- ✅ **資料同步強化**：確保動作完成後，頁面上的餘額摘要、待審核數量紅點及各分頁列表皆能完全同步。
+- 📁 **產出**：`frontend/src/pages/hr/HrLeavePage.tsx`。
+
+---
+
 ### 2026-03-09 API 規格文件全面對齊程式碼（第二輪）
 
 - ✅ **轉讓端點修正**：移除 source-pi-confirm/target-pi-confirm/iacuc-approve，新增 vet-evaluation/assign-plan/approve/reject（對齊 routes.rs）
