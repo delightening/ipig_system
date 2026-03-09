@@ -1,5 +1,29 @@
 # 實作說明
 
+## 2026-03-09 請假與加班改為以小時計算（0.5 小時為單位）
+
+**需求**：請假與加班應依小時計算，以 0.5 小時為一單位。
+
+### 請假
+
+- **前端**（`useLeaveRequestForm.ts`、`HrLeavePage.tsx`）：
+  - 表單欄位由「天數」改為「時數」，`step=0.5`、`min=0.5`
+  - 日期與時數雙向計算：日期變更 → 時數 = 天數 × 8 並 round 至 0.5；時數變更 → 推算結束日
+  - 送出時傳 `total_hours` 與 `total_days`（total_days = total_hours / 8）
+  - 列表/表格顯示「X 小時」取代「X 天」
+- **後端**（`leave.rs`）：
+  - `LeaveRequestWithUser` 新增 `total_hours`，list 查詢回傳該欄位
+  - `create_leave` 驗證時數須為 0.5 的倍數，若傳 `total_hours` 則以 `total_hours` 為準並推算 `total_days`
+
+### 加班
+
+- **後端**（`overtime.rs`）：
+  - `create_overtime` 計算的時數以 0.5 小時為單位四捨五入
+- **前端**（`HrOvertimePage.tsx`）：
+  - 新增加班 Dialog 顯示「預估加班時數」，以 start/end time 計算並 round 至 0.5
+
+---
+
 ## 2026-03-07 附件 API 500 錯誤修復與 Console 錯誤調查
 
 **現象**：專案詳情頁「附件」標籤顯示「尚無附件」，Console 出現：

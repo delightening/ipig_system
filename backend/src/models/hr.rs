@@ -283,6 +283,7 @@ pub struct LeaveRequestWithUser {
     pub start_date: NaiveDate,
     pub end_date: NaiveDate,
     pub total_days: Decimal,
+    pub total_hours: Option<Decimal>,
     pub reason: String,
     pub is_urgent: bool,
     pub is_retroactive: bool,

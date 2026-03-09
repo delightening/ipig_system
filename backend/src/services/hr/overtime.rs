@@ -118,10 +118,11 @@ impl HrService {
             &payload.overtime_date.and_time(payload.end_time)
         );
         
-        // 計算時數 (從 NaiveTime)
+        // 計算時數 (從 NaiveTime)，以 0.5 小時為單位四捨五入
         let start_minutes = payload.start_time.hour() as i64 * 60 + payload.start_time.minute() as i64;
         let end_minutes = payload.end_time.hour() as i64 * 60 + payload.end_time.minute() as i64;
-        let hours = (end_minutes - start_minutes) as f64 / 60.0;
+        let raw_hours = (end_minutes - start_minutes) as f64 / 60.0;
+        let hours = (raw_hours * 2.0).round() / 2.0;
 
         let multiplier = match payload.overtime_type.as_str() {
             "A" => 1.0,    // 平日加班
