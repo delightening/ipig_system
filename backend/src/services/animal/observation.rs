@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::AnimalService;
+use super::{AnimalMedicalService, AnimalService};
 use crate::{
     models::{
         AnimalObservation, CreateObservationRequest, ObservationListItem, UpdateObservationRequest,
@@ -10,13 +10,15 @@ use crate::{
     AppError, Result,
 };
 
-impl AnimalService {
+pub struct AnimalObservationService;
+
+impl AnimalObservationService {
     // ============================================
     // 觀察試驗紀錄
     // ============================================
 
     /// 取得觀察紀錄列表（排除已刪除，支援資料隔離）
-    pub async fn list_observations(
+    pub async fn list(
         pool: &PgPool,
         animal_id: Uuid,
         after: Option<DateTime<Utc>>,
@@ -33,7 +35,7 @@ impl AnimalService {
     }
 
     /// 取得觀察紀錄列表（含獸醫師建議數量，支援資料隔離）
-    pub async fn list_observations_with_recommendations(
+    pub async fn list_with_recommendations(
         pool: &PgPool,
         animal_id: Uuid,
         after: Option<DateTime<Utc>>,
@@ -59,7 +61,7 @@ impl AnimalService {
     }
 
     /// 取得單一觀察紀錄
-    pub async fn get_observation_by_id(pool: &PgPool, id: Uuid) -> Result<AnimalObservation> {
+    pub async fn get_by_id(pool: &PgPool, id: Uuid) -> Result<AnimalObservation> {
         let observation = sqlx::query_as::<_, AnimalObservation>(
             "SELECT * FROM animal_observations WHERE id = $1",
         )
@@ -71,7 +73,7 @@ impl AnimalService {
         Ok(observation)
     }
 
-    pub async fn create_observation(
+    pub async fn create(
         pool: &PgPool,
         animal_id: Uuid,
         req: &CreateObservationRequest,
@@ -117,17 +119,18 @@ impl AnimalService {
     }
 
     /// 更新觀察紀錄
-    pub async fn update_observation(
+    pub async fn update(
         pool: &PgPool,
         id: Uuid,
         req: &UpdateObservationRequest,
         updated_by: Uuid,
     ) -> Result<AnimalObservation> {
         // 先取得原始紀錄用於版本歷史
-        let original = Self::get_observation_by_id(pool, id).await?;
+        let original = Self::get_by_id(pool, id).await?;
 
         // 保存版本歷史
-        Self::save_record_version(pool, "observation", id, &original, updated_by).await?;
+        AnimalMedicalService::save_record_version(pool, "observation", id, &original, updated_by)
+            .await?; // Changed AnimalService to AnimalMedicalService
 
         let observation = sqlx::query_as::<_, AnimalObservation>(
             r#"
@@ -163,7 +166,7 @@ impl AnimalService {
     }
 
     /// 刪除觀察紀錄
-    pub async fn soft_delete_observation(pool: &PgPool, id: Uuid) -> Result<()> {
+    pub async fn soft_delete(pool: &PgPool, id: Uuid) -> Result<()> {
         sqlx::query("DELETE FROM animal_observations WHERE id = $1")
             .bind(id)
             .execute(pool)
@@ -173,7 +176,7 @@ impl AnimalService {
     }
 
     /// 軟刪除觀察紀錄（含刪除原因）- GLP 合規
-    pub async fn soft_delete_observation_with_reason(
+    pub async fn soft_delete_with_reason(
         pool: &PgPool,
         id: Uuid,
         reason: &str,
@@ -186,7 +189,7 @@ impl AnimalService {
             VALUES ('observation', $1::text, 'DELETE', $2, $3)
             "#,
         )
-        .bind(id)
+        .bind(id.to_string())
         .bind(reason)
         .bind(deleted_by)
         .execute(pool)
@@ -212,13 +215,13 @@ impl AnimalService {
     }
 
     /// 複製觀察紀錄
-    pub async fn copy_observation(
+    pub async fn copy(
         pool: &PgPool,
         animal_id: Uuid,
         source_id: Uuid,
         created_by: Uuid,
     ) -> Result<AnimalObservation> {
-        let source = Self::get_observation_by_id(pool, source_id).await?;
+        let source = Self::get_by_id(pool, source_id).await?;
 
         let observation = sqlx::query_as::<_, AnimalObservation>(
             r#"
@@ -248,11 +251,7 @@ impl AnimalService {
     }
 
     /// 標記觀察紀錄獸醫師已讀
-    pub async fn mark_observation_vet_read(
-        pool: &PgPool,
-        id: Uuid,
-        vet_user_id: Uuid,
-    ) -> Result<()> {
+    pub async fn mark_vet_read(pool: &PgPool, id: Uuid, vet_user_id: Uuid) -> Result<()> {
         // 更新紀錄本身
         sqlx::query(
             "UPDATE animal_observations SET vet_read = true, vet_read_at = NOW(), updated_at = NOW() WHERE id = $1"

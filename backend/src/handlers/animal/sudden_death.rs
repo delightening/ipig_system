@@ -10,7 +10,7 @@ use crate::{
     middleware::CurrentUser,
     models::{AnimalSuddenDeath, CreateSuddenDeathRequest},
     require_permission,
-    services::{AnimalService, AuditService},
+    services::{AnimalMedicalService, AnimalService, AuditService},
     AppState, Result,
 };
 
@@ -20,7 +20,7 @@ pub async fn get_animal_sudden_death(
     Extension(_current_user): Extension<CurrentUser>,
     Path(animal_id): Path<Uuid>,
 ) -> Result<Json<Option<AnimalSuddenDeath>>> {
-    let record = AnimalService::get_sudden_death(&state.db, animal_id).await?;
+    let record = AnimalMedicalService::get_sudden_death(&state.db, animal_id).await?;
     Ok(Json(record))
 }
 
@@ -33,7 +33,9 @@ pub async fn create_animal_sudden_death(
 ) -> Result<Json<AnimalSuddenDeath>> {
     require_permission!(current_user, "animal.record.create");
 
-    let record = AnimalService::create_sudden_death(&state.db, animal_id, &req, current_user.id).await?;
+    let record =
+        AnimalMedicalService::create_sudden_death(&state.db, animal_id, &req, current_user.id)
+            .await?;
 
     // 取得動物資訊用於日誌顯示
     let display = match AnimalService::get_by_id(&state.db, animal_id).await {
@@ -46,16 +48,23 @@ pub async fn create_animal_sudden_death(
 
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ANIMAL", "SUDDEN_DEATH",
-        Some("animal_sudden_deaths"), Some(animal_id),
+        &state.db,
+        current_user.id,
+        "ANIMAL",
+        "SUDDEN_DEATH",
+        Some("animal_sudden_deaths"),
+        Some(animal_id),
         Some(&display),
         None,
         Some(serde_json::json!({
             "probable_cause": req.probable_cause,
             "requires_pathology": req.requires_pathology,
         })),
-        None, None,
-    ).await {
+        None,
+        None,
+    )
+    .await
+    {
         tracing::error!("寫入 user_activity_logs 失敗 (SUDDEN_DEATH): {}", e);
     }
 
