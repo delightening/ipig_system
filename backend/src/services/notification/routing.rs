@@ -205,6 +205,7 @@ impl NotificationService {
                     EventTypeInfo { code: "leave_submitted".to_string(), name: "請假申請".to_string() },
                     EventTypeInfo { code: "overtime_submitted".to_string(), name: "加班申請".to_string() },
                     EventTypeInfo { code: "leave_approved".to_string(), name: "請假核准".to_string() },
+                    EventTypeInfo { code: "leave_cancelled".to_string(), name: "請假取消".to_string() },
                     EventTypeInfo { code: "overtime_approved".to_string(), name: "加班核准".to_string() },
                 ],
             },
