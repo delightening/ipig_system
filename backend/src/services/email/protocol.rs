@@ -16,7 +16,7 @@ impl EmailService {
         let smtp_host = config.smtp_host.as_ref()
             .ok_or_else(|| anyhow::anyhow!("SMTP_HOST not configured"))?;
         let protocol_url = format!("{}/protocols", config.app_url);
-        let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
+
 
         let html_body = format!(
             r#"<!DOCTYPE html>
@@ -37,7 +37,7 @@ impl EmailService {
     <div class="container">
         <div class="header">
             <div style="text-align: center; margin-bottom: 15px;">
-                <img src="{logo_url}" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
+                <img src="cid:logo" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
             </div>
             <h1>📋 新計畫提交通知</h1>
         </div>
@@ -61,7 +61,7 @@ impl EmailService {
 </html>"#,
             display_name = display_name, protocol_no = protocol_no,
             protocol_title = protocol_title, pi_name = pi_name,
-            submitted_at = submitted_at, protocol_url = protocol_url, logo_url = logo_url,
+            submitted_at = submitted_at, protocol_url = protocol_url,
         );
 
         let plain_body = format!(
@@ -107,7 +107,7 @@ impl EmailService {
         let smtp_host = config.smtp_host.as_ref()
             .ok_or_else(|| anyhow::anyhow!("SMTP_HOST not configured"))?;
         let protocol_url = format!("{}/my-projects", config.app_url);
-        let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
+
 
         let reason_section = reason
             .map(|r| format!("<p><strong>變更原因：</strong> {}</p>", r))
@@ -136,7 +136,7 @@ impl EmailService {
     <div class="container">
         <div class="header">
             <div style="text-align: center; margin-bottom: 15px;">
-                <img src="{logo_url}" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
+                <img src="cid:logo" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
             </div>
             <h1>📝 計畫狀態更新通知</h1>
         </div>
@@ -162,7 +162,7 @@ impl EmailService {
             display_name = display_name, protocol_no = protocol_no,
             protocol_title = protocol_title, new_status = new_status,
             changed_at = changed_at, reason_section = reason_section,
-            protocol_url = protocol_url, logo_url = logo_url,
+            protocol_url = protocol_url,
         );
 
         let plain_body = format!(
@@ -209,7 +209,7 @@ impl EmailService {
         let smtp_host = config.smtp_host.as_ref()
             .ok_or_else(|| anyhow::anyhow!("SMTP_HOST not configured"))?;
         let protocol_url = format!("{}/protocols", config.app_url);
-        let logo_url = format!("{}/pigmodel-logo.png", config.app_url);
+
 
         let html_body = format!(
             r#"<!DOCTYPE html>
@@ -231,7 +231,7 @@ impl EmailService {
     <div class="container">
         <div class="header">
             <div style="text-align: center; margin-bottom: 15px;">
-                <img src="{logo_url}" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
+                <img src="cid:logo" alt="iPig System" style="height: 50px; width: auto; background: white; padding: 5px; border-radius: 5px;">
             </div>
             <h1>👁️ 審查指派通知</h1>
         </div>
@@ -256,7 +256,7 @@ impl EmailService {
             display_name = display_name, protocol_no = protocol_no,
             protocol_title = protocol_title, pi_name = pi_name,
             due_date = due_date.unwrap_or("待定"),
-            protocol_url = protocol_url, logo_url = logo_url,
+            protocol_url = protocol_url,
         );
 
         let plain_body = format!(
