@@ -231,6 +231,17 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
               <div>
                 <Label className="text-sm font-semibold">{t('protocols.content.sections.glpAttribute')}</Label>
                 <p className="mt-1">{basic.is_glp ? t('protocols.content.sections.glpCompliant') : t('protocols.content.sections.glpNonCompliant')}</p>
+                {basic.is_glp && basic.registration_authorities?.length > 0 && (
+                  <div className="mt-2">
+                    <Label className="text-sm font-semibold">{t('aup.basic.registrationAuthorities')}</Label>
+                    <p className="mt-1">
+                      {basic.registration_authorities.map((auth: string) =>
+                        t(`aup.basic.registrationAuthorityOptions.${auth}`)
+                      ).join('、')}
+                      {basic.registration_authority_other && ` (${basic.registration_authority_other})`}
+                    </p>
+                  </div>
+                )}
               </div>
               <div>
                 <Label className="text-sm font-semibold">{t('protocols.content.sections.projectName')}</Label>

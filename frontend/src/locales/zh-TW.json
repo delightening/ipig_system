@@ -636,6 +636,14 @@
       "facilityAndLocation": "試驗機構與設施",
       "location": "位置",
       "specifyOther": "請說明其他種類",
+      "registrationAuthorities": "預定申請註冊之權責機關",
+      "registrationAuthorityOptions": {
+        "FDA": "美國食品藥物管理局 (FDA)",
+        "CE": "歐盟 (CE)",
+        "TFDA": "台灣食品藥物管理署 (TFDA)",
+        "CFDA": "中國國家食品藥品監督管理總局 (CFDA)",
+        "other": "其他，說明"
+      },
       "fundingSources": "資金來源",
       "placeholders": {
         "studyTitle": "請輸入研究名稱",
