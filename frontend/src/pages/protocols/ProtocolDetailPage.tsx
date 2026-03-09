@@ -283,7 +283,7 @@ export function ProtocolDetailPage() {
   const isReviewer = user?.roles?.some(r => ['REVIEWER', 'VET'].includes(r))
   const isIACUCOrAdmin = user?.roles?.some(r => ['IACUC_CHAIR', 'IACUC_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
   const reviewableStatuses: ProtocolStatus[] = ['SUBMITTED', 'PRE_REVIEW', 'VET_REVIEW', 'UNDER_REVIEW', 'APPROVED', 'APPROVED_WITH_CONDITIONS']
-  const canAddComment = isIACUCOrAdmin || (isReviewer && reviewableStatuses.includes(protocol?.status || ''))
+  const canAddComment = isIACUCOrAdmin || (isReviewer && protocol?.status && reviewableStatuses.includes(protocol.status))
   const canReply = user?.roles?.some(r => ['PI', 'EXPERIMENT_STAFF', 'IACUC_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
   const canEditProtocol = user?.roles?.some(r => ['PI', 'EXPERIMENT_STAFF', 'SYSTEM_ADMIN', 'admin'].includes(r))
   const canAssignReviewer = user?.roles?.some(r => ['IACUC_STAFF', 'IACUC_CHAIR', 'SYSTEM_ADMIN', 'admin'].includes(r))
