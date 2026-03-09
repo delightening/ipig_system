@@ -171,6 +171,7 @@ export function HrLeavePage() {
             dialogs.close('create')
             leaveForm.resetForm()
             toast({ title: '成功', description: '已建立請假申請' })
+            setTimeout(() => window.location.reload(), 1000)
         },
         onError: (error: unknown) => {
             toast({
@@ -189,6 +190,7 @@ export function HrLeavePage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['hr-my-leaves'] })
             toast({ title: '成功', description: '已送出審核' })
+            setTimeout(() => window.location.reload(), 1000)
         },
     })
 
@@ -201,6 +203,7 @@ export function HrLeavePage() {
             queryClient.invalidateQueries({ queryKey: ['hr-pending-leaves'] })
             queryClient.invalidateQueries({ queryKey: ['hr-my-leaves'] })
             toast({ title: '成功', description: '已核准' })
+            setTimeout(() => window.location.reload(), 1000)
         },
     })
 
@@ -212,6 +215,7 @@ export function HrLeavePage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['hr-pending-leaves'] })
             toast({ title: '已駁回', description: '請假已被駁回' })
+            setTimeout(() => window.location.reload(), 1000)
         },
     })
 
@@ -223,6 +227,7 @@ export function HrLeavePage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['hr-my-leaves'] })
             toast({ title: '成功', description: '已取消請假' })
+            setTimeout(() => window.location.reload(), 1000)
         },
     })
 

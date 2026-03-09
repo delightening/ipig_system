@@ -449,9 +449,8 @@ CREATE INDEX idx_blood_test_panel_items_panel ON blood_test_panel_items(panel_id
 
 INSERT INTO blood_test_panels (key, name, icon, sort_order) VALUES
 ('TUBE','採血管','🧪',1),('CBC','CBC','🩸',2),('LIVER','肝臟','/icons/liver.svg',3),('LIPID','血脂','🥩',4),
-('HEART','心臟','🫀',5),('PANCREAS','胰臟','🍬',5),('SUGAR','胰臟與血糖','🍬',6),('KIDNEY','腎臟','/icons/renal.svg',7),
-('URINARY','泌尿','🚽',8),('COAG','凝血','🩸',9),('ELECTRO','電解質','⚡',10),('HORMONE','荷爾蒙','💉',11),
-('INFECT','感染','🦠',12),('OTHER','其他','📋',13)
+('HEART','心臟','🫀',5),('SUGAR','胰臟與血糖','🍬',6),('KIDNEY','腎臟','/icons/renal.svg',7),('URINARY','泌尿','🚽',8),
+('COAG','凝血','🩸',9),('ELECTRO','電解質','⚡',10),('HORMONE','荷爾蒙','💉',11),('INFECT','感染','🦠',12),('OTHER','其他','📋',13)
 ON CONFLICT (key) DO UPDATE SET name = EXCLUDED.name, icon = EXCLUDED.icon, sort_order = EXCLUDED.sort_order;
 
 INSERT INTO blood_test_panel_items (panel_id, template_id, sort_order)
