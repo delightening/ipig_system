@@ -42,6 +42,45 @@ export function SectionBasic({ formData, updateWorkingContent, setFormData, t, i
           </div>
         </div>
 
+        {/* Registration Authorities (shown when GLP is checked) */}
+        {formData.working_content.basic.is_glp && (
+          <div className="space-y-4">
+            <Label className="text-base font-semibold">{t('aup.basic.registrationAuthorities')} *</Label>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 pl-4 text-sm">
+              {['FDA', 'CE', 'TFDA', 'CFDA', 'other'].map((option) => (
+                <div key={option} className="flex items-center space-x-3">
+                  <Checkbox
+                    id={`reg_auth_${option}`}
+                    checked={formData.working_content.basic.registration_authorities.includes(option)}
+                    onCheckedChange={(checked) => {
+                      const current = formData.working_content.basic.registration_authorities || []
+                      let updated: string[]
+                      if (checked) {
+                        updated = [...current, option]
+                      } else {
+                        updated = current.filter(s => s !== option)
+                      }
+                      updateWorkingContent('basic', 'registration_authorities', updated)
+                    }}
+                  />
+                  <Label htmlFor={`reg_auth_${option}`} className="font-normal cursor-pointer">
+                    {t(`aup.basic.registrationAuthorityOptions.${option}`)}
+                  </Label>
+                </div>
+              ))}
+            </div>
+            {formData.working_content.basic.registration_authorities.includes('other') && (
+              <div className="pl-4 pt-2 lg:w-1/2">
+                <Input
+                  placeholder={t('aup.basic.specifyOther')}
+                  value={formData.working_content.basic.registration_authority_other || ''}
+                  onChange={(e) => updateWorkingContent('basic', 'registration_authority_other', e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 2. IDs and Dates */}
         <div className={`grid gap-4 ${isNew || !isIACUCStaff ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
           {/* Study No: hidden on new page, only editable by IACUC staff on edit page */}
