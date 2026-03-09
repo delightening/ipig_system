@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-03-02 (v5)  
+> **最後更新：** 2026-03-09 (v7)
 > **維護慣例：** 完成項目保留於本表並標 [x]，同時於 `docs/PROGRESS.md` §9 最新變更動態 新增對應紀錄；待辦統計僅計「未完成」數量。
 > **AI 標註說明：**
 >
@@ -162,6 +162,21 @@
 | R6-5 | **Dependabot Phase 2.5 依賴評估** | printpdf 0.9、utoipa 5、axum-extra 0.12、tailwind-merge 3 升級可行性評估，詳見 `DEPENDABOT_MIGRATION_PLAN.md` | 全端 | 🧠 Claude | [x] |
 | R6-6 | **資料庫輸出與歷史重新填寫** | 建立資料庫匯出 API、讓系統可讀取過去資料，並依歷史內容預填表單（手術複製、請假預填、Protocol 複製等），詳見 `docs/development/DATA_EXPORT_IMPORT_DESIGN.md` | 全端 | 🧠 Claude | [ ] |
 | R6-7 | **日曆功能審視與重構** | 前端元件拆分、Hooks 抽象、後端 Trait 解耦、實作事件預覽 Popover 與單元測試 | 全端 | 🧠 Claude | [x] |
+| R6-8 | **設施管理 Migration 補建** | species/facilities/buildings/zones/pens/departments 6 張表在 routes.rs 已有 handler，但 migrations/ 中缺少 CREATE TABLE。需新增 migration 檔案建立完整表結構 | 後端 | 🧠 Claude | [ ] |
+
+---
+
+## 🔒 R7 — 第七輪改善（安全性原始碼審視，2026-03-08）
+
+> 依據 `docs/development/IMPROVEMENT_PLAN_R7.md` 全面原始碼審視發現。
+
+| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
+|---|------|------|------|----------|------|
+| R7-P0 | **SQL 拼接修復** | `data_import.rs` 中 `format!()` SQL 改為參數化查詢，消除 SQL injection 風險 | 後端 | 🧠 Claude | [x] |
+| R7-P1-1 | **密碼洩露修復** | `create_admin.rs` 不再將管理員密碼明文印至 stdout | 後端 | 🧠 Claude | [x] |
+| R7-P1-2 | **TRUST_PROXY 預設值** | `config.rs` 中 `trust_proxy` 由 `true` 改預設 `false` | 後端 | 🧠 Claude | [x] |
+| R7-P4-1 | **ETag 常數化** | `etag.rs` 改用 `constants::ETAG_VERSION` 取代硬編碼字串 | 後端 | 🧠 Claude | [x] |
+| R7-P4-2 | **Auth Rate Limit 降低** | 認證端點 rate limit 由 100/min 降至 30/min | 後端 | 🧠 Claude | [x] |
 
 ---
 
@@ -176,8 +191,9 @@
 | 🟣 P4 品質提升 | 0 |
 | 🟣 R4-100 邁向 100% | 3 |
 | ⚪ P5 長期演進 | 0 |
-| 🟠 R6 第六輪改善 | 1 |
-| **合計（未完成）** | **4** |
+| 🟠 R6 第六輪改善 | 2 |
+| 🔒 R7 安全審視 | 0 |
+| **合計（未完成）** | **5** |
 
 ---
 
@@ -185,6 +201,8 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-03-09 | 📄 API 規格文件全面對齊程式碼（第二輪）— 轉讓端點修正、移除未實現端點、補齊 care-records/treatment-drugs/SSE 等 12 組未記錄端點、ENUM/權限代碼修正、設施遷移待辦新增 |
+| 2026-03-08 | 🔒 R7 安全審視完成 — R7-P0 SQL injection 修復、R7-P1 密碼洩露/TRUST_PROXY 修復、R7-P4 ETag 常數化/Auth rate limit 降低；文件全面對齊程式碼 |
 | 2026-03-02 | 📄 文件同步：PROGRESS.md 更新至 v5（2026-03-02 動物欄位修正申請）；Profiling_Spec 規格同步；R6 待辦統計校正 |
 | 2026-03-01 | 🧠 Claude：R6 第六輪改善全部完成 — R6-4 產出 `docs/assessments/R6-4_FINANCE_PHASE2_5_ASSESSMENT.md`；R6-5 產出 `docs/assessments/R6-5_DEPENDABOT_PHASE25_ASSESSMENT.md` |
 | 2026-03-01 | 🧠 Claude：R6 第六輪改善執行 — R6-1 EquipmentPage/TrainingRecordsPage；R6-2 useDateRangeFilter、useTabState 建立並套用 8 頁；R6-3 InlineSkeleton 改 span |

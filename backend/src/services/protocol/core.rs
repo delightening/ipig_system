@@ -133,23 +133,37 @@ impl ProtocolService {
         // 始終排除已刪除的計畫書
         sql.push_str(" AND p.status != 'DELETED'");
         
+        // R7-P0-2: 使用參數化查詢取代 format! 字串拼接，避免潛在 SQL injection 風險
+        // 動態追蹤下一個參數編號
+        let mut param_idx = 1u32;
+
         if let Some(status) = query.status {
-            // 如果指定了狀態過濾，且不是 DELETED，則添加狀態條件
             if status != ProtocolStatus::Deleted {
-                sql.push_str(&format!(" AND p.status = '{}'", status.as_str()));
+                sql.push_str(&format!(" AND p.status = ${}", param_idx));
+                param_idx += 1;
             }
         }
-        // 參數順序：$1 = keyword  pattern, $2 = pi_user_id（與下方 bind 順序一致）
         if query.keyword.is_some() {
-            sql.push_str(" AND (p.title ILIKE $1 OR p.protocol_no ILIKE $1 OR p.iacuc_no ILIKE $1)");
+            sql.push_str(&format!(
+                " AND (p.title ILIKE ${p} OR p.protocol_no ILIKE ${p} OR p.iacuc_no ILIKE ${p})",
+                p = param_idx
+            ));
+            param_idx += 1;
         }
         if query.pi_user_id.is_some() {
-            sql.push_str(" AND p.pi_user_id = $2");
+            sql.push_str(&format!(" AND p.pi_user_id = ${}", param_idx));
+            #[allow(unused_assignments)]
+            { param_idx += 1; }
         }
 
         sql.push_str(" ORDER BY p.created_at DESC");
 
         let mut query_builder = sqlx::query_as::<_, ProtocolListItem>(&sql);
+        if let Some(status) = query.status {
+            if status != ProtocolStatus::Deleted {
+                query_builder = query_builder.bind(status.as_str());
+            }
+        }
         if let Some(ref k) = query.keyword {
             let pattern = format!("%{}%", k.trim());
             query_builder = query_builder.bind(pattern);

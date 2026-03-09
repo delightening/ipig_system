@@ -18,7 +18,7 @@
 |------|------|------|
 | **連線與密鑰** | 應用啟動時就需要、且不透過 UI 變更 | `DATABASE_URL`、`JWT_SECRET`、`AUDIT_HMAC_KEY`、`SMTP_PASSWORD` |
 | **伺服器／基礎設施** | 依部署環境不同而不同 | `HOST`、`PORT`、`APP_URL`、`CORS_ALLOWED_ORIGINS`、`UPLOAD_DIR` |
-| **功能開關／預設值** | 依環境（開發/正式）區分 | `COOKIE_SECURE`、`SEED_DEV_USERS`、`TRUST_PROXY_HEADERS`、`JWT_EXPIRATION_MINUTES` |
+| **功能開關／預設值** | 依環境（開發/正式）區分 | `COOKIE_SECURE`、`SEED_DEV_USERS`、`TRUST_PROXY`（預設 false）、`JWT_EXPIRATION_MINUTES`、`COOKIE_DOMAIN`、`TWO_FACTOR_ISSUER` |
 | **打卡／安全** | 與主機或網路環境綁定 | `ALLOWED_CLOCK_IP_RANGES`、`CLOCK_OFFICE_LATITUDE`、`CLOCK_GPS_RADIUS_METERS` |
 | **初始帳號（僅首次）** | 僅在建立 admin 時使用 | `ADMIN_INITIAL_PASSWORD` |
 | **測試／E2E** | 僅開發或 CI 使用 | `E2E_BASE_URL`、`E2E_ADMIN_PASSWORD`、`TEST_DATABASE_URL` |
@@ -74,4 +74,4 @@
 - DB 系統設定與 SMTP 解析：`backend/src/services/system_settings.rs`（`resolve_smtp_config`，DB 優先、.env fallback）
 - 發信使用解析結果：`backend/src/services/email/mod.rs`（`resolve_smtp`）
 - 範本：專案根目錄 `.env.example`（複製為 `.env` 後依本文件與註解填入）
-- DB 表：`system_settings`（migration：`backend/migrations/006_aup_system.sql` 建立、`009_supplementary.sql` 種子：company_name、default_warehouse_id、cost_method、session_timeout_minutes、smtp_*）
+- DB 表：`system_settings`（migration：`backend/migrations/005_aup_system.sql` 建立、`008_supplementary.sql` 種子：company_name、default_warehouse_id、cost_method、session_timeout_minutes、smtp_*）

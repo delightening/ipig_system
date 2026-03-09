@@ -1,7 +1,7 @@
 # 權限與 RBAC
 
 > **版本**：7.0  
-> **最後更新**：2026-03-02  
+> **最後更新**：2026-03-08
 > **對象**：系統管理員、開發人員
 
 ---
@@ -82,6 +82,15 @@ graph TD
 
 ## 3. 權限清單
 
+### 3.0 開發管理 (dev.*)
+
+| 權限代碼 | 名稱 | 說明 |
+|----------|------|------|
+| dev.role.view | 查看角色 | 可查看角色列表與權限列表 |
+| dev.role.create | 建立角色 | 可建立新角色 |
+| dev.role.edit | 編輯角色 | 可編輯角色定義與權限配置 |
+| dev.role.delete | 刪除角色 | 可刪除角色 |
+
 ### 3.1 系統管理 (admin.*)
 
 | 權限代碼 | 名稱 | 說明 |
@@ -92,8 +101,6 @@ graph TD
 | admin.user.edit | 編輯使用者 | 可編輯使用者資料 |
 | admin.user.delete | 停用使用者 | 可停用使用者帳號 |
 | admin.user.reset_password | 重設密碼 | 可重設他人密碼 |
-| admin.role.view | 查看角色 | 可查看角色列表 |
-| admin.role.manage | 管理角色 | 可管理角色定義 |
 | admin.permission.manage | 管理權限 | 可管理權限定義 |
 | admin.audit.view | 查看稽核紀錄 | 可查看系統稽核紀錄 |
 
@@ -192,21 +199,6 @@ graph TD
 | erp.report.view/export/download | 報表 | 查看/匯出/下載 |
 | erp.storage.view/edit | 儲位 | 查看/編輯 |
 
-### 3.8 人員訓練 (training.*)
-
-| 權限代碼 | 名稱 | 說明 |
-|----------|------|------|
-| training.view | 查看訓練紀錄 | 可查看人員訓練紀錄 |
-| training.manage_own | 管理自己的訓練紀錄 | 可新增、編輯、刪除**自己的**訓練紀錄（EXPERIMENT_STAFF） |
-| training.manage | 管理訓練紀錄 | 可新增、編輯、刪除**所有人**的訓練紀錄（ADMIN_STAFF 審批用） |
-
-### 3.9 設備維護 (equipment.*)
-
-| 權限代碼 | 名稱 | 說明 |
-|----------|------|------|
-| equipment.view | 查看設備 | 可查看設備與校正紀錄 |
-| equipment.manage | 管理設備 | 可新增、編輯、刪除設備與校正紀錄（特定人員維護） |
-
 ### 3.6 HR 系統 (hr.*)
 
 | 權限代碼 | 名稱 | 說明 |
@@ -244,7 +236,29 @@ graph TD
 | equipment.view | 查看設備 | 可查看設備與校準紀錄 |
 | equipment.manage | 管理設備 | 可新增、編輯、刪除設備與校準紀錄 |
 
-### 3.9 通知/報表 (notification.*, report.*)
+### 3.9 人員訓練 (training.*)
+
+| 權限代碼 | 名稱 | 說明 |
+|----------|------|------|
+| training.view | 查看訓練紀錄 | 可查看人員訓練紀錄 |
+| training.manage_own | 管理自己的訓練紀錄 | 可新增、編輯、刪除**自己的**訓練紀錄（EXPERIMENT_STAFF） |
+| training.manage | 管理訓練紀錄 | 可新增、編輯、刪除**所有人**的訓練紀錄（ADMIN_STAFF 審批用） |
+
+### 3.10 設施管理 (facility.*)
+
+| 權限代碼 | 名稱 | 說明 |
+|----------|------|------|
+| facility.view | 查看設施 | 可查看設施、棟舍、區域、欄位 |
+| facility.manage | 管理設施 | 可新增、編輯、刪除設施及相關配置 |
+
+### 3.11 Google 行事曆 (hr.calendar.*)
+
+| 權限代碼 | 名稱 | 說明 |
+|----------|------|------|
+| hr.calendar.view | 查看日曆 | 可查看同步狀態與日曆事件 |
+| hr.calendar.manage | 管理日曆 | 可連接/斷開 Google 日曆、觸發同步、解決衝突 |
+
+### 3.12 通知/報表 (notification.*, report.*)
 
 | 權限代碼 | 名稱 | 說明 |
 |----------|------|------|
@@ -258,19 +272,19 @@ graph TD
 
 ## 4. 角色預設權限摘要
 
-| 角色 | admin | aup | amendment | animal | erp | equipment | hr | audit | notification |
-|------|-------|-----|-----------|--------|-----|-----------|-----|-------|-------------|
-| **admin** | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 |
-| **ADMIN_STAFF** | user.view/create/edit | — | — | — | — | view, manage | ✅ 全部（含 training 審批） | — | view |
-| **EQUIPMENT_MAINTENANCE** | — | — | — | — | — | view, manage | — | — | view |
-| **WAREHOUSE_MANAGER** | — | — | — | — | ✅ 全部 | — | — | — | view |
-| **EXPERIMENT_STAFF** | — | view_own | — | ✅ 動物 CRUD + 匯出 | inventory.view, product.view | — | 個人 HR + training 自己 | — | view |
-| **VET** | — | view_all, review | read, review | view + vet功能 + 安樂死 | — | — | — | — | view |
-| **IACUC_STAFF** | user.view | view_all, change_status, assign | read | view_all | — | — | — | — | view |
-| **IACUC_CHAIR** | — | view_all, review, approve, change_status, assign | read, review | — | — | — | — | — | view |
-| **REVIEWER** | — | view_all, review, comment | read, review | — | — | — | — | — | view |
-| **PI** | — | view_own, create, edit, submit | create, submit, read | view_project | — | — | — | — | view |
-| **CLIENT** | — | view_own, attachment.view | — | view_project | — | — | — | — | view |
+| 角色 | admin | aup | amendment | animal | erp | equipment | facility | hr | audit | notification |
+|------|-------|-----|-----------|--------|-----|-----------|----------|-----|-------|-------------|
+| **admin** | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 | ✅ 全部 |
+| **ADMIN_STAFF** | user.view/create/edit | — | — | — | — | view, manage | view, manage | ✅ 全部（含 training 審批/日曆） | — | view |
+| **EQUIPMENT_MAINTENANCE** | — | — | — | — | — | view, manage | — | — | — | view |
+| **WAREHOUSE_MANAGER** | — | — | — | — | ✅ 全部 | — | — | — | — | view |
+| **EXPERIMENT_STAFF** | — | view_own | — | ✅ 動物 CRUD + 匯出 | inventory.view, product.view | — | view | 個人 HR + training 自己 | — | view |
+| **VET** | — | view_all, review | read, review | view + vet功能 + 安樂死 | — | — | view | — | — | view |
+| **IACUC_STAFF** | user.view | view_all, change_status, assign | read | view_all | — | — | view | — | — | view |
+| **IACUC_CHAIR** | — | view_all, review, approve, change_status, assign | read, review | — | — | — | — | — | — | view |
+| **REVIEWER** | — | view_all, review, comment | read, review | view_all, record.view | — | — | — | — | — | view |
+| **PI** | — | view_own, create, edit, submit | create, submit, read | view_project | — | — | — | — | — | view |
+| **CLIENT** | — | view_own, attachment.view | — | view_project | — | — | — | — | — | view |
 
 ---
 
