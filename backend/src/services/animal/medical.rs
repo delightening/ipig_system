@@ -15,7 +15,9 @@ use crate::{
     AppError, Result,
 };
 
-impl AnimalService {
+pub struct AnimalMedicalService;
+
+impl AnimalMedicalService {
     // ============================================
     // 疫苗/驅蟲紀錄
     // ============================================
@@ -110,7 +112,7 @@ impl AnimalService {
             VALUES ('vaccination', $1::text, 'DELETE', $2, $3)
             "#,
         )
-        .bind(id)
+        .bind(id.to_string())
         .bind(reason)
         .bind(deleted_by)
         .execute(pool)
@@ -221,7 +223,7 @@ impl AnimalService {
         created_by: Uuid,
     ) -> Result<AnimalSuddenDeath> {
         // 驗證動物狀態可轉換到 SuddenDeath
-        let animal = Self::get_by_id(pool, animal_id).await?;
+        let animal = AnimalService::get_by_id(pool, animal_id).await?;
         if !animal.status.can_transition_to(AnimalStatus::SuddenDeath) {
             return Err(AppError::BadRequest(format!(
                 "無法將「{}」狀態的動物登記為猝死",
@@ -417,7 +419,7 @@ impl AnimalService {
             LEFT JOIN users u ON rv.changed_by = u.id
             WHERE rv.record_type::text = $1 AND rv.record_id = $2
             ORDER BY rv.version_no DESC
-            "#
+            "#,
         )
         .bind(record_type)
         .bind(record_id)
@@ -561,10 +563,10 @@ impl AnimalService {
         pool: &PgPool,
         animal_id: Uuid,
     ) -> Result<serde_json::Value> {
-        let animal = Self::get_by_id(pool, animal_id).await?;
-        let observations = Self::list_observations(pool, animal_id, None).await?;
-        let surgeries = Self::list_surgeries(pool, animal_id, None).await?;
-        let weights = Self::list_weights(pool, animal_id, None).await?;
+        let animal = AnimalService::get_by_id(pool, animal_id).await?;
+        let observations = super::AnimalObservationService::list(pool, animal_id, None).await?;
+        let surgeries = super::AnimalSurgeryService::list(pool, animal_id, None).await?;
+        let weights = super::AnimalWeightService::list(pool, animal_id, None).await?;
         let vaccinations = Self::list_vaccinations(pool, animal_id, None).await?;
         let sacrifice = Self::get_sacrifice(pool, animal_id).await?;
 
@@ -643,5 +645,54 @@ impl AnimalService {
         .await?;
 
         Ok(report)
+    }
+    // ============================================
+    // 匯入匯出批次管理
+    // ============================================
+
+    /// 更新匯入批次狀態
+    pub async fn update_import_batch_status(
+        pool: &PgPool,
+        id: Uuid,
+        status: crate::models::ImportStatus,
+        success_count: i32,
+        error_count: i32,
+        error_log: Option<&str>,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+            UPDATE animal_import_batches SET
+                status = $2,
+                success_count = $3,
+                error_count = $4,
+                error_log = $5,
+                updated_at = NOW()
+            WHERE id = $1
+            "#,
+        )
+        .bind(id)
+        .bind(status)
+        .bind(success_count)
+        .bind(error_count)
+        .bind(error_log)
+        .execute(pool)
+        .await?;
+
+        Ok(())
+    }
+
+    /// 列出匯出記錄
+    pub async fn list_export_records(
+        pool: &PgPool,
+        limit: i64,
+    ) -> Result<Vec<crate::models::AnimalExportRecord>> {
+        let records = sqlx::query_as::<_, crate::models::AnimalExportRecord>(
+            "SELECT * FROM animal_export_records ORDER BY created_at DESC LIMIT $1",
+        )
+        .bind(limit)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(records)
     }
 }

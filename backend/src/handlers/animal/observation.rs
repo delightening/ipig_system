@@ -10,11 +10,11 @@ use validator::Validate;
 use crate::{
     middleware::CurrentUser,
     models::{
-        CopyRecordRequest, CreateObservationRequest, DeleteRequest, ObservationListItem,
-        AnimalObservation, UpdateObservationRequest, VersionHistoryResponse, RecordFilterQuery,
+        AnimalObservation, CopyRecordRequest, CreateObservationRequest, DeleteRequest,
+        ObservationListItem, RecordFilterQuery, UpdateObservationRequest, VersionHistoryResponse,
     },
     require_permission,
-    services::{AnimalService, AuditService},
+    services::{AnimalObservationService, AnimalService, AuditService},
     AppState, Result,
 };
 
@@ -33,7 +33,7 @@ pub async fn list_animal_observations(
     Path(animal_id): Path<Uuid>,
     Query(filter): Query<RecordFilterQuery>,
 ) -> Result<Json<Vec<AnimalObservation>>> {
-    let observations = AnimalService::list_observations(&state.db, animal_id, filter.after).await?;
+    let observations = AnimalObservationService::list(&state.db, animal_id, filter.after).await?;
     Ok(Json(observations))
 }
 
@@ -44,7 +44,9 @@ pub async fn list_animal_observations_with_recommendations(
     Path(animal_id): Path<Uuid>,
     Query(filter): Query<RecordFilterQuery>,
 ) -> Result<Json<Vec<ObservationListItem>>> {
-    let observations = AnimalService::list_observations_with_recommendations(&state.db, animal_id, filter.after).await?;
+    let observations =
+        AnimalObservationService::list_with_recommendations(&state.db, animal_id, filter.after)
+            .await?;
     Ok(Json(observations))
 }
 
@@ -62,7 +64,7 @@ pub async fn get_animal_observation(
     Extension(_current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<AnimalObservation>> {
-    let observation = AnimalService::get_observation_by_id(&state.db, id).await?;
+    let observation = AnimalObservationService::get_by_id(&state.db, id).await?;
     Ok(Json(observation))
 }
 
@@ -84,33 +86,36 @@ pub async fn create_animal_observation(
 ) -> Result<Json<AnimalObservation>> {
     require_permission!(current_user, "animal.record.create");
     req.validate()?;
-    
+
     // 檢查是否為緊急給藥，需驗證是否有緊急給藥權限
     if req.is_emergency {
         require_permission!(current_user, "animal.record.emergency");
     }
-    
-    let observation = AnimalService::create_observation(&state.db, animal_id, &req, current_user.id).await?;
-    
+
+    let observation =
+        AnimalObservationService::create(&state.db, animal_id, &req, current_user.id).await?;
+
     if req.is_emergency {
         // 取得動物資訊
         if let Ok(animal) = AnimalService::get_by_id(&state.db, animal_id).await {
             let notification_service = crate::services::NotificationService::new(state.db.clone());
             let emergency_reason = req.emergency_reason.as_deref().unwrap_or("未提供原因");
-            
+
             // 異步發送通知，不阻塞主流程
-            if let Err(e) = notification_service.notify_emergency_medication(
-                animal_id,
-                observation.id,
-                &animal.ear_tag,
-                animal.iacuc_no.as_deref(),
-                &current_user.email,
-                emergency_reason,
-            ).await {
+            if let Err(e) = notification_service
+                .notify_emergency_medication(
+                    animal_id,
+                    observation.id,
+                    &animal.ear_tag,
+                    animal.iacuc_no.as_deref(),
+                    &current_user.email,
+                    emergency_reason,
+                )
+                .await
+            {
                 tracing::warn!("發送緊急給藥通知失敗: {e}");
             }
 
-            
             tracing::warn!(
                 "[Emergency Medication] User {} recorded emergency medication for animal {} (observation {})",
                 current_user.email,
@@ -135,13 +140,16 @@ pub async fn create_animal_observation(
             let db = state.db.clone();
             tokio::spawn(async move {
                 let svc = crate::services::NotificationService::new(db);
-                if let Err(e) = svc.notify_abnormal_record(
-                    a_id,
-                    &ear_tag,
-                    iacuc_no.as_deref(),
-                    &summary,
-                    &operator,
-                ).await {
+                if let Err(e) = svc
+                    .notify_abnormal_record(
+                        a_id,
+                        &ear_tag,
+                        iacuc_no.as_deref(),
+                        &summary,
+                        &operator,
+                    )
+                    .await
+                {
                     tracing::warn!("發送異常紀錄通知失敗: {e}");
                 }
             });
@@ -159,16 +167,23 @@ pub async fn create_animal_observation(
 
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ANIMAL", "OBSERVATION_CREATE",
-        Some("animal_observation"), Some(animal_id),
+        &state.db,
+        current_user.id,
+        "ANIMAL",
+        "OBSERVATION_CREATE",
+        Some("animal_observation"),
+        Some(animal_id),
         Some(&obs_display),
         None,
         Some(serde_json::json!({
             "observation_id": observation.id,
             "is_emergency": req.is_emergency,
         })),
-        None, None,
-    ).await {
+        None,
+        None,
+    )
+    .await
+    {
         tracing::error!("寫入 user_activity_logs 失敗 (OBSERVATION_CREATE): {}", e);
     }
 
@@ -192,16 +207,26 @@ pub async fn update_animal_observation(
     Json(req): Json<UpdateObservationRequest>,
 ) -> Result<Json<AnimalObservation>> {
     require_permission!(current_user, "animal.record.edit");
-    
-    let observation = AnimalService::update_observation(&state.db, id, &req, current_user.id).await?;
+
+    let observation =
+        AnimalObservationService::update(&state.db, id, &req, current_user.id).await?;
 
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ANIMAL", "OBSERVATION_UPDATE",
-        Some("animal_observation"), None,
+        &state.db,
+        current_user.id,
+        "ANIMAL",
+        "OBSERVATION_UPDATE",
+        Some("animal_observation"),
+        None,
         Some(&format!("觀察紀錄 #{}", id)),
-        None, None, None, None,
-    ).await {
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    {
         tracing::error!("寫入 user_activity_logs 失敗 (OBSERVATION_UPDATE): {}", e);
     }
 
@@ -225,26 +250,38 @@ pub async fn delete_animal_observation(
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.record.delete");
     req.validate()?;
-    
-    AnimalService::soft_delete_observation_with_reason(&state.db, id, &req.reason, current_user.id).await?;
 
-    if let Err(e) = crate::services::FileService::delete_by_entity(&state.db, "observation", &id).await {
+    AnimalObservationService::soft_delete_with_reason(&state.db, id, &req.reason, current_user.id)
+        .await?;
+
+    if let Err(e) =
+        crate::services::FileService::delete_by_entity(&state.db, "observation", &id).await
+    {
         tracing::warn!("清理觀察紀錄附件失敗 (non-fatal): {}", e);
     }
 
     // 記錄活動紀錄
     if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ANIMAL", "OBSERVATION_DELETE",
-        Some("animal_observation"), None,
+        &state.db,
+        current_user.id,
+        "ANIMAL",
+        "OBSERVATION_DELETE",
+        Some("animal_observation"),
+        None,
         Some(&format!("觀察紀錄 #{} (原因: {})", id, req.reason)),
         None,
         Some(serde_json::json!({ "reason": req.reason })),
-        None, None,
-    ).await {
+        None,
+        None,
+    )
+    .await
+    {
         tracing::error!("寫入 user_activity_logs 失敗 (OBSERVATION_DELETE): {}", e);
     }
 
-    Ok(Json(serde_json::json!({ "message": "Observation deleted successfully" })))
+    Ok(Json(
+        serde_json::json!({ "message": "Observation deleted successfully" }),
+    ))
 }
 
 /// 複製觀察記錄
@@ -255,8 +292,10 @@ pub async fn copy_animal_observation(
     Json(req): Json<CopyRecordRequest>,
 ) -> Result<Json<AnimalObservation>> {
     require_permission!(current_user, "animal.record.copy");
-    
-    let observation = AnimalService::copy_observation(&state.db, animal_id, req.source_id, current_user.id).await?;
+
+    let observation =
+        AnimalObservationService::copy(&state.db, animal_id, req.source_id, current_user.id)
+            .await?;
     Ok(Json(observation))
 }
 
@@ -267,8 +306,8 @@ pub async fn mark_observation_vet_read(
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.vet.read");
-    
-    AnimalService::mark_observation_vet_read(&state.db, id, current_user.id).await?;
+
+    AnimalObservationService::mark_vet_read(&state.db, id, current_user.id).await?;
     Ok(Json(serde_json::json!({ "message": "Marked as read" })))
 }
 

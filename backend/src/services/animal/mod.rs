@@ -11,56 +11,27 @@
 // - import_export: 動物資料匯入匯出
 
 mod blood_test;
+pub mod care_record;
 mod core;
 pub(crate) mod field_correction;
 mod import_export;
-mod medical;
-mod observation;
+pub(crate) mod medical;
+pub(crate) mod observation;
 mod source;
-mod surgery;
+pub(crate) mod surgery;
 mod transfer;
-mod weight;
-pub mod care_record;
+pub mod utils;
+pub(crate) mod weight;
+
+pub use blood_test::AnimalBloodTestService;
+pub use care_record::CareRecordService;
+pub use field_correction::AnimalFieldCorrectionService;
+pub use import_export::AnimalImportExportService;
+pub use medical::AnimalMedicalService;
+pub use observation::AnimalObservationService;
+pub use source::AnimalSourceService;
+pub use surgery::AnimalSurgeryService;
+pub use transfer::AnimalTransferService;
+pub use weight::AnimalWeightService;
 
 pub struct AnimalService;
-
-impl AnimalService {
-    /// 格式化耳號：如果是數字且 < 100，則補零至三位數
-    fn format_ear_tag(ear_tag: &str) -> String {
-        if let Ok(num) = ear_tag.parse::<u32>() {
-            if num < 100 {
-                format!("{:03}", num)
-            } else {
-                ear_tag.to_string()
-            }
-        } else {
-            ear_tag.to_string()
-        }
-    }
-
-    /// 格式化欄位編號：正規化為 [A-G][01-09] 格式
-    /// 例如 "d1" -> "D01", "C3" -> "C03", "A-1" -> "A01"
-    fn format_pen_location(pen_location: &str) -> String {
-        let trimmed = pen_location.trim();
-        if trimmed.is_empty() {
-            return String::new();
-        }
-
-        // 正規化格式：[A-G][數字]，統一大寫
-        let normalized = trimmed.to_uppercase().replace('-', "");
-
-        if normalized.len() >= 2 {
-            let zone = &normalized[0..1];
-            let num_part = &normalized[1..];
-
-            // 驗證 zone 是否在 A-G 範圍
-            if matches!(zone, "A" | "B" | "C" | "D" | "E" | "F" | "G") {
-                if let Ok(num) = num_part.parse::<u32>() {
-                    return format!("{}{:02}", zone, num);
-                }
-            }
-        }
-
-        trimmed.to_string()
-    }
-}
