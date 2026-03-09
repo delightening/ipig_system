@@ -85,31 +85,38 @@ Write-Host ""
 # --- Update APP_URL in .env files ---
 Write-Host "[UPDATE] Updating APP_URL in .env files..." -ForegroundColor Cyan
 
-function Update-EnvFile {
-    param([string]$FilePath, [string]$NewUrl)
+function Update-EnvVar {
+    param([string]$FilePath, [string]$VarName, [string]$VarValue)
     if (-not (Test-Path $FilePath)) {
         Write-Host "  [SKIP] $FilePath not found" -ForegroundColor DarkGray
         return
     }
     $content = Get-Content $FilePath -Raw -Encoding UTF8
-    $pattern = 'APP_URL=.*'
-    $replacement = "APP_URL=$NewUrl"
+    $pattern = "$VarName=.*"
+    $replacement = "$VarName=$VarValue"
     if ($content -match $pattern) {
         $newContent = $content -replace $pattern, $replacement
         $newContent | Set-Content $FilePath -Encoding UTF8 -NoNewline
-        Write-Host "  [OK] $FilePath -> $NewUrl" -ForegroundColor Green
+        Write-Host "  [OK] $FilePath : $VarName -> $VarValue" -ForegroundColor Green
     } else {
-        # APP_URL not found, append it
-        Add-Content $FilePath "`nAPP_URL=$NewUrl"
-        Write-Host "  [ADD] $FilePath -> $NewUrl" -ForegroundColor Green
+        Add-Content $FilePath "`n$VarName=$VarValue"
+        Write-Host "  [ADD] $FilePath : $VarName -> $VarValue" -ForegroundColor Green
     }
 }
 
 $rootEnv = Join-Path $projectRoot ".env"
 $backendEnv = Join-Path $projectRoot "backend\.env"
 
-Update-EnvFile -FilePath $rootEnv -NewUrl $tunnelUrl
-Update-EnvFile -FilePath $backendEnv -NewUrl $tunnelUrl
+# 更新 APP_URL（郵件中的登入連結依賴此值）
+Update-EnvVar -FilePath $rootEnv -VarName "APP_URL" -VarValue $tunnelUrl
+Update-EnvVar -FilePath $backendEnv -VarName "APP_URL" -VarValue $tunnelUrl
+
+# 更新 CORS_ALLOWED_ORIGINS（允許 tunnel URL 的前端請求）
+$corsValue = "http://localhost:8080,$tunnelUrl"
+Write-Host ""
+Write-Host "[UPDATE] Updating CORS_ALLOWED_ORIGINS..." -ForegroundColor Cyan
+Update-EnvVar -FilePath $rootEnv -VarName "CORS_ALLOWED_ORIGINS" -VarValue $corsValue
+Update-EnvVar -FilePath $backendEnv -VarName "CORS_ALLOWED_ORIGINS" -VarValue $corsValue
 
 # --- Restart Docker API container to pick up new APP_URL ---
 Write-Host ""
