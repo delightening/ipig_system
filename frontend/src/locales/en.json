@@ -1304,6 +1304,7 @@
         "onMedicationShort": "On Med.",
         "vetRecommendation": "Vet Rec.",
         "entryDate": "Entry Date",
+        "birthDate": "Birth Date",
         "currentWeight": "Current Weight",
         "actions": "Actions",
         "noAnimalsFound": "No animals found matching criteria",
