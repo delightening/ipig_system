@@ -462,7 +462,7 @@ WHERE (p.key, t.code) IN (
     ('LIVER','T-BIL'),('LIVER','D-BIL'),('LIVER','AST'),('LIVER','ALT'),('LIVER','ALP'),('LIVER','GGT'),('LIVER','TP'),('LIVER','ALB'),('LIVER','GLO'),('LIVER','AG'),
     ('LIPID','CHO'),('LIPID','TG'),('LIPID','HDL'),('LIPID','LDL'),
     ('HEART','CK'),('HEART','LDH'),('HEART','HSCRP'),('HEART','CKMB'),
-    ('PANCREAS','AMY'),('PANCREAS','LPS'),('SUGAR','GLU'),('SUGAR','HBA1C'),('SUGAR','INS'),('SUGAR','CPEP'),
+    ('SUGAR','AMY'),('SUGAR','LPS'),('SUGAR','GLU'),('SUGAR','HBA1C'),('SUGAR','INS'),('SUGAR','CPEP'),
     ('KIDNEY','BUN'),('KIDNEY','CRE'),('KIDNEY','UA'),
     ('URINARY','UREA'),('URINARY','UTP'),('URINARY','MALB'),('URINARY','URINE'),
     ('COAG','PT'),('COAG','APTT'),('COAG','FIB'),('COAG','DDIM'),('COAG','ESR'),
