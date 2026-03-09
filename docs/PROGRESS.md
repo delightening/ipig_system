@@ -190,6 +190,20 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-09 API 規格文件全面對齊程式碼（第二輪）
+
+- ✅ **轉讓端點修正**：移除 source-pi-confirm/target-pi-confirm/iacuc-approve，新增 vet-evaluation/assign-plan/approve/reject（對齊 routes.rs）
+- ✅ **移除未實現端點**：protocols/:id/status-history、animals/batch/start-experiment
+- ✅ **補齊未記錄端點**：care-records、treatment-drugs、blood-test-presets、equipment、equipment-calibrations、training-records、qau/dashboard、admin data-export/import/config-warnings、SSE 警報、通知路由子端點
+- ✅ **ENUM 修正**：animal_transfer_status 對齊 001_types.sql（pending/vet_evaluated/plan_assigned/pi_approved/completed/rejected）
+- ✅ **設施管理表標註**：標註 species/facilities/buildings/zones/pens/departments 遷移待補建
+- ✅ **權限代碼對齊**：05_API_SPECIFICATION Section 5 → admin.user.*、Section 6 → dev.role.*
+- ✅ **RBAC 文件更新**：新增 dev.* 權限區塊，移除不存在的 admin.role.view/manage
+- ✅ **DELETE 備用路由通則**：新增 Section 1.5 說明 POST /:id/delete 備用路由設計
+- 📁 **產出**：05_API_SPECIFICATION.md、04_DATABASE_SCHEMA.md、06_PERMISSIONS_RBAC.md
+
+---
+
 ### 2026-03-08 R7 安全性原始碼審視修復 + 文件全面對齊
 
 - ✅ **R7-P0**：`data_import.rs` SQL 拼接改為參數化查詢，消除 SQL injection 風險

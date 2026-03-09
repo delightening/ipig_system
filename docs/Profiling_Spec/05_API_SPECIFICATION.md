@@ -1,7 +1,7 @@
 # API 規格
 
-> **版本**：7.0  
-> **最後更新**：2026-03-08
+> **版本**：7.1
+> **最後更新**：2026-03-09
 > **對象**：開發人員、前端工程師
 
 ---
@@ -37,6 +37,10 @@
 // 錯誤
 { "error": "UNAUTHORIZED", "message": "Invalid credentials" }
 ```
+
+### 1.5 DELETE 備用路由
+
+所有提供 `DELETE /:id` 的端點，同時提供 `POST /:id/delete` 備用路由（為不支援 DELETE 方法的前端環境設計）。本文件中僅列出 DELETE 方法，POST 備用路由不另行列出。
 
 ---
 
@@ -340,6 +344,17 @@
 
 ---
 
+## 21.5 疼痛評估紀錄 API（Care Records）
+
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| GET | `/animals/:id/care-records` | 疼痛評估紀錄列表 |
+| POST | `/animals/:id/care-records` | 新增疼痛評估紀錄 |
+| PUT | `/care-records/:id` | 更新紀錄 |
+| DELETE | `/care-records/:id` | 刪除紀錄 |
+
+---
+
 ## 22. 手術紀錄 API
 
 | 方法 | 路徑 | 說明 |
@@ -549,6 +564,19 @@
 
 ---
 
+## 35.5 藥物選單管理 API（Treatment Drugs）
+
+| 方法 | 路徑 | 說明 | 權限 |
+|------|------|------|------|
+| GET | `/treatment-drugs` | 藥物選單列表（一般使用者）| authenticated |
+| GET | `/admin/treatment-drugs` | 藥物管理列表（管理員）| admin |
+| POST | `/admin/treatment-drugs` | 建立藥物選項 | admin |
+| PUT | `/admin/treatment-drugs/:id` | 更新藥物選項 | admin |
+| DELETE | `/admin/treatment-drugs/:id` | 刪除藥物選項 | admin |
+| POST | `/admin/treatment-drugs/import-erp` | 從 ERP 匯入藥物 | admin |
+
+---
+
 ## 36. 安全稽核 API
 
 | 方法 | 路徑 | 說明 | 權限 |
@@ -563,6 +591,7 @@
 | GET | `/admin/audit/alerts` | 安全警報列表 | admin |
 | POST | `/admin/audit/alerts/:id/resolve` | 解決警報 | admin |
 | GET | `/admin/audit/dashboard` | 安全儀表板 | admin |
+| GET | `/admin/audit/alerts/sse` | 安全警報即時推送（SSE）| admin |
 | GET | `/audit-logs` | 稽核日誌 | authenticated |
 
 ---
@@ -756,17 +785,21 @@
 | ERP (產品/SKU/倉庫/儲位/夥伴) | 30 |
 | 單據/庫存/報表 | 23 |
 | AUP (計畫/審查/變更) | 38 |
-| 動物管理 (動物/醫療) | 50 |
-| 猝死/轉讓 | 10 |
+| 動物管理 (動物/醫療/Care Records) | 54 |
+| 猝死/轉讓 | 12 |
 | 安樂死/簽章 | 18 |
-| 通知/警報/排程/路由管理 | 21 |
-| 稽核/管理 | 14 |
+| 通知/警報/排程/路由管理 | 23 |
+| 稽核/管理 | 20 |
+| 藥物管理 (Treatment Drugs) | 6 |
+| 設備與校準 (GLP) | 10 |
+| 人員訓練紀錄 (GLP) | 5 |
+| QAU 品質保證 | 1 |
 | HR (出勤/請假/加班/日曆) | 34 |
 | 設施管理 | 22 |
 | 檔案上傳 | 10 |
 | 系統設定 | 2 |
 | 健康檢查/指標 | 3 |
-| **合計** | **~304** |
+| **合計** | **~335** |
 
 ---
 
