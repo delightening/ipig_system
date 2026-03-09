@@ -82,6 +82,15 @@ graph TD
 
 ## 3. 權限清單
 
+### 3.0 開發管理 (dev.*)
+
+| 權限代碼 | 名稱 | 說明 |
+|----------|------|------|
+| dev.role.view | 查看角色 | 可查看角色列表與權限列表 |
+| dev.role.create | 建立角色 | 可建立新角色 |
+| dev.role.edit | 編輯角色 | 可編輯角色定義與權限配置 |
+| dev.role.delete | 刪除角色 | 可刪除角色 |
+
 ### 3.1 系統管理 (admin.*)
 
 | 權限代碼 | 名稱 | 說明 |
@@ -92,8 +101,6 @@ graph TD
 | admin.user.edit | 編輯使用者 | 可編輯使用者資料 |
 | admin.user.delete | 停用使用者 | 可停用使用者帳號 |
 | admin.user.reset_password | 重設密碼 | 可重設他人密碼 |
-| admin.role.view | 查看角色 | 可查看角色列表 |
-| admin.role.manage | 管理角色 | 可管理角色定義 |
 | admin.permission.manage | 管理權限 | 可管理權限定義 |
 | admin.audit.view | 查看稽核紀錄 | 可查看系統稽核紀錄 |
 

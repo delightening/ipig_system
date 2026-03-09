@@ -87,12 +87,12 @@
 
 | 方法 | 路徑 | 說明 | 權限 |
 |------|------|------|------|
-| GET | `/users` | 使用者列表 | user.read |
-| POST | `/users` | 建立使用者 | user.create |
-| GET | `/users/:id` | 使用者詳情 | user.read |
-| PUT | `/users/:id` | 更新使用者 | user.update |
-| DELETE | `/users/:id` | 刪除使用者 | user.delete |
-| PUT | `/users/:id/password` | 重設密碼 | user.update |
+| GET | `/users` | 使用者列表 | admin.user.view |
+| POST | `/users` | 建立使用者 | admin.user.create |
+| GET | `/users/:id` | 使用者詳情 | admin.user.view |
+| PUT | `/users/:id` | 更新使用者 | admin.user.edit |
+| DELETE | `/users/:id` | 刪除使用者 | admin.user.delete |
+| PUT | `/users/:id/password` | 重設密碼 | admin.user.edit |
 | POST | `/users/:id/impersonate` | 模擬登入 | admin |
 
 ---
@@ -101,12 +101,12 @@
 
 | 方法 | 路徑 | 說明 | 權限 |
 |------|------|------|------|
-| GET | `/roles` | 角色列表 | role.read |
-| POST | `/roles` | 建立角色 | role.create |
-| GET | `/roles/:id` | 角色詳情 | role.read |
-| PUT | `/roles/:id` | 更新角色 | role.update |
-| DELETE | `/roles/:id` | 刪除角色 | role.delete |
-| GET | `/permissions` | 權限列表 | authenticated |
+| GET | `/roles` | 角色列表 | dev.role.view |
+| POST | `/roles` | 建立角色 | dev.role.create |
+| GET | `/roles/:id` | 角色詳情 | dev.role.view |
+| PUT | `/roles/:id` | 更新角色 | dev.role.edit |
+| DELETE | `/roles/:id` | 刪除角色 | dev.role.delete |
+| GET | `/permissions` | 權限列表 | dev.role.view |
 
 ---
 
@@ -250,7 +250,6 @@
 | GET | `/protocols/:id/co-editors` | 共同編輯列表 |
 | POST | `/protocols/:id/co-editors` | 新增共同編輯 |
 | DELETE | `/protocols/:id/co-editors/:user_id` | 移除共同編輯 |
-| GET | `/protocols/:id/status-history` | 狀態歷程 |
 | GET | `/my-projects` | 我的計畫 |
 
 ---
@@ -312,7 +311,6 @@
 | POST | `/animals` | 建立動物 |
 | GET | `/animals/by-pen` | 依欄位分組 |
 | POST | `/animals/batch/assign` | 批次分配 |
-| POST | `/animals/batch/start-experiment` | 批次進入實驗 |
 | GET | `/animals/vet-comments` | 獸醫待閱 |
 | GET | `/animals/:id` | 動物詳情 |
 | PUT | `/animals/:id` | 更新動物 |
@@ -400,11 +398,12 @@
 | POST | `/animals/:id/transfers` | 發起轉讓 |
 | GET | `/animals/:id/transfers` | 轉讓紀錄列表 |
 | GET | `/transfers/:id` | 轉讓詳情 |
-| POST | `/transfers/:id/source-pi-confirm` | 來源 PI 確認 |
 | POST | `/transfers/:id/vet-evaluate` | 獸醫評估 |
-| POST | `/transfers/:id/target-pi-confirm` | 目標 PI 確認 |
-| POST | `/transfers/:id/iacuc-approve` | IACUC 核准 |
+| GET | `/transfers/:id/vet-evaluation` | 取得獸醫評估結果 |
+| PUT | `/transfers/:id/assign-plan` | 指派轉讓計畫 |
+| POST | `/transfers/:id/approve` | 核准轉讓 |
 | POST | `/transfers/:id/complete` | 執行完成 |
+| POST | `/transfers/:id/reject` | 駁回轉讓 |
 
 ---
 
@@ -428,6 +427,16 @@
 | PUT | `/blood-test-panels/:id` | 更新組合 |
 | DELETE | `/blood-test-panels/:id` | 刪除組合 |
 | PUT | `/blood-test-panels/:id/items` | 更新組合項目 |
+
+### 27.4 血檢常用組合 API（Blood Test Presets）
+
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| GET | `/blood-test-presets` | 常用組合列表（分頁）|
+| GET | `/blood-test-presets/all` | 全部常用組合 |
+| POST | `/blood-test-presets` | 建立常用組合 |
+| PUT | `/blood-test-presets/:id` | 更新常用組合 |
+| DELETE | `/blood-test-presets/:id` | 刪除常用組合 |
 
 ---
 
@@ -512,6 +521,8 @@
 | POST | `/admin/notification-routing` | 建立路由 | admin |
 | PUT | `/admin/notification-routing/:id` | 更新路由 | admin |
 | DELETE | `/admin/notification-routing/:id` | 刪除路由 | admin |
+| GET | `/admin/notification-routing/event-types` | 可用事件類型 | admin |
+| GET | `/admin/notification-routing/roles` | 可用角色 | admin |
 
 ---
 
@@ -531,6 +542,10 @@
 | POST | `/admin/trigger/low-stock-check` | 觸發庫存檢查 | admin |
 | POST | `/admin/trigger/expiry-check` | 觸發效期檢查 | admin |
 | POST | `/admin/trigger/notification-cleanup` | 觸發通知清理 | admin |
+| GET | `/admin/data-export` | 完整資料庫匯出 | admin |
+| POST | `/admin/data-import` | 完整資料庫匯入 | admin |
+| GET | `/admin/config-warnings` | 啟動配置警告 | admin |
+| GET | `/admin/audit-logs/export` | 匯出稽核日誌 | admin |
 
 ---
 
@@ -635,6 +650,43 @@
 | GET | `/hr/calendar/conflicts/:id` | 衝突詳情 |
 | POST | `/hr/calendar/conflicts/:id/resolve` | 解決衝突 |
 | GET | `/hr/calendar/events` | 日曆事件 |
+
+---
+
+## 42.5 設備與校準 API（GLP 合規）
+
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| GET | `/equipment` | 設備列表 |
+| POST | `/equipment` | 建立設備 |
+| GET | `/equipment/:id` | 設備詳情 |
+| PUT | `/equipment/:id` | 更新設備 |
+| DELETE | `/equipment/:id` | 刪除設備 |
+| GET | `/equipment-calibrations` | 校準紀錄列表 |
+| POST | `/equipment-calibrations` | 建立校準紀錄 |
+| GET | `/equipment-calibrations/:id` | 校準詳情 |
+| PUT | `/equipment-calibrations/:id` | 更新校準紀錄 |
+| DELETE | `/equipment-calibrations/:id` | 刪除校準紀錄 |
+
+---
+
+## 42.6 人員訓練紀錄 API（GLP 合規）
+
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| GET | `/training-records` | 訓練紀錄列表 |
+| POST | `/training-records` | 建立訓練紀錄 |
+| GET | `/training-records/:id` | 訓練紀錄詳情 |
+| PUT | `/training-records/:id` | 更新訓練紀錄 |
+| DELETE | `/training-records/:id` | 刪除訓練紀錄 |
+
+---
+
+## 42.7 QAU 品質保證 API
+
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| GET | `/qau/dashboard` | QAU 品質保證儀表板（唯讀檢視）|
 
 ---
 

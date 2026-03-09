@@ -19,7 +19,7 @@ iPig 資料庫執行於 **PostgreSQL 16**，由遷移檔案按模組組織：
 | 005 | AUP 系統 | protocols, versions, assignments, comments, amendments, vet_review, activities, status_history, system_settings |
 | 006 | 人事系統 | attendance_records, leave_requests, overtime_records, leave_balances, departments |
 | 007 | 稽核與 ERP | user_activity_logs, login_events, user_sessions, products, warehouses, partners, documents, stock_ledger |
-| 008 | 補充功能 | notification_routing, electronic_signatures, record_annotations, facilities, vet_recommendations |
+| 008 | 補充功能 | notification_routing, electronic_signatures, record_annotations, ~~facilities（⚠️ 待補建）~~, vet_recommendations |
 | 009 | GLP 擴充 | training_records, equipment, equipment_calibrations, qau, accounting 相關, SKU 品類種子 |
 | 010 | 治療藥物去重 | treatment_drug_options 唯一約束與去重 |
 
@@ -79,8 +79,8 @@ CREATE TYPE version_record_type AS ENUM (
     'observation', 'surgery', 'weight', 'vaccination', 'sacrifice', 'pathology', 'blood_test'
 );
 CREATE TYPE animal_transfer_status AS ENUM (
-    'pending_source_pi', 'pending_vet_evaluation', 'pending_target_pi',
-    'pending_iacuc_approval', 'approved', 'completed'
+    'pending', 'vet_evaluated', 'plan_assigned',
+    'pi_approved', 'completed', 'rejected'
 );
 ```
 
@@ -259,6 +259,8 @@ Migration 002 包含：
 | export_requests | UUID | 匯出請求 |
 
 ### 5.7 設施管理
+
+> ⚠️ **注意**：以下資料表在 routes.rs 中已有對應的 handler，但遷移檔案（migrations/）中尚未建立 CREATE TABLE。需補建遷移檔案。
 
 | 表名 | PK | 說明 |
 |------|-----|------|
