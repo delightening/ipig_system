@@ -13,7 +13,9 @@ use crate::{
     middleware::CurrentUser,
     models::{AnimalImportBatch, ExportRequest, ImportResult},
     require_permission,
-    services::{AnimalService, AuditService, PdfService},
+    services::{
+        AnimalImportExportService, AnimalMedicalService, AnimalService, AuditService, PdfService,
+    },
     AppError, AppState, Result,
 };
 use axum::extract::Multipart;
@@ -27,14 +29,14 @@ pub async fn export_animal_medical_data(
 ) -> Result<Response> {
     require_permission!(current_user, "animal.export.medical");
 
-    let data = AnimalService::get_animal_medical_data(&state.db, animal_id).await?;
-    let _record = AnimalService::create_export_record(
+    let data = AnimalMedicalService::get_animal_medical_data(&state.db, animal_id).await?;
+    let _record = AnimalMedicalService::create_export_record(
         &state.db,
         Some(animal_id),
         None,
         req.export_type,
         req.format,
-        None,
+        Some("pending"),
         current_user.id,
     )
     .await?;
@@ -92,14 +94,14 @@ pub async fn export_project_medical_data(
 ) -> Result<Response> {
     require_permission!(current_user, "animal.export.medical");
 
-    let data = AnimalService::get_project_medical_data(&state.db, &iacuc_no).await?;
-    let _record = AnimalService::create_export_record(
+    let data = AnimalMedicalService::get_project_medical_data(&state.db, &iacuc_no).await?;
+    let _record = AnimalMedicalService::create_export_record(
         &state.db,
         None,
         Some(&iacuc_no),
         req.export_type,
         req.format,
-        None,
+        Some("pending"),
         current_user.id,
     )
     .await?;
@@ -137,7 +139,7 @@ pub async fn list_import_batches(
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<AnimalImportBatch>>> {
     require_permission!(current_user, "animal.animal.import");
-    let batches = AnimalService::list_import_batches(&state.db, 50).await?;
+    let batches = AnimalMedicalService::list_import_batches(&state.db, 50).await?;
     Ok(Json(batches))
 }
 
@@ -150,13 +152,13 @@ pub async fn download_basic_import_template(
     let format = params.get("format").map(|s| s.as_str()).unwrap_or("xlsx");
     let (data, filename, content_type) = if format == "csv" {
         (
-            AnimalService::generate_basic_import_template_csv()?,
+            AnimalImportExportService::generate_basic_import_template_csv()?,
             "animal_basic_import_template.csv",
             "text/csv; charset=utf-8",
         )
     } else {
         (
-            AnimalService::generate_basic_import_template()?,
+            AnimalImportExportService::generate_basic_import_template()?,
             "animal_basic_import_template.xlsx",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
@@ -181,13 +183,13 @@ pub async fn download_weight_import_template(
     let format = params.get("format").map(|s| s.as_str()).unwrap_or("xlsx");
     let (data, filename, content_type) = if format == "csv" {
         (
-            AnimalService::generate_weight_import_template_csv()?,
+            AnimalImportExportService::generate_weight_import_template_csv()?,
             "animal_weight_import_template.csv",
             "text/csv; charset=utf-8",
         )
     } else {
         (
-            AnimalService::generate_weight_import_template()?,
+            AnimalImportExportService::generate_weight_import_template()?,
             "animal_weight_import_template.xlsx",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
@@ -211,9 +213,13 @@ pub async fn import_basic_data(
 ) -> Result<Json<ImportResult>> {
     require_permission!(current_user, "animal.animal.import");
     let (file_data, file_name) = parse_import_file(&mut multipart).await?;
-    let result =
-        AnimalService::import_basic_data(&state.db, &file_data, &file_name, current_user.id)
-            .await?;
+    let result = AnimalImportExportService::import_basic_data(
+        &state.db,
+        &file_data,
+        &file_name,
+        current_user.id,
+    )
+    .await?;
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "ANIMAL_IMPORT",
         Some("animal"), None,
@@ -234,9 +240,13 @@ pub async fn import_weight_data(
 ) -> Result<Json<ImportResult>> {
     require_permission!(current_user, "animal.animal.import");
     let (file_data, file_name) = parse_import_file(&mut multipart).await?;
-    let result =
-        AnimalService::import_weight_data(&state.db, &file_data, &file_name, current_user.id)
-            .await?;
+    let result = AnimalImportExportService::import_weight_data(
+        &state.db,
+        &file_data,
+        &file_name,
+        current_user.id,
+    )
+    .await?;
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ANIMAL", "WEIGHT_IMPORT",
         Some("animal_weight"), None,

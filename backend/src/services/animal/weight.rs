@@ -2,20 +2,24 @@
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::AnimalService;
 use crate::{
-    models::{CreateWeightRequest, AnimalWeight, AnimalWeightResponse, UpdateWeightRequest},
+    models::{AnimalWeight, AnimalWeightResponse, CreateWeightRequest, UpdateWeightRequest},
     Result,
 };
 
-impl AnimalService {
+pub struct AnimalWeightService;
 
+impl AnimalWeightService {
     // ============================================
     // 體重紀錄
     // ============================================
 
     /// 取得體重紀錄列表（排除已刪除，支援資料隔離）
-    pub async fn list_weights(pool: &PgPool, animal_id: Uuid, after: Option<DateTime<Utc>>) -> Result<Vec<AnimalWeightResponse>> {
+    pub async fn list(
+        pool: &PgPool,
+        animal_id: Uuid,
+        after: Option<DateTime<Utc>>,
+    ) -> Result<Vec<AnimalWeightResponse>> {
         let weights = sqlx::query_as::<_, AnimalWeightResponse>(
             r#"
             SELECT 
@@ -26,7 +30,7 @@ impl AnimalService {
             WHERE w.animal_id = $1 AND w.deleted_at IS NULL
               AND ($2::timestamptz IS NULL OR w.created_at > $2)
             ORDER BY w.measure_date DESC
-            "#
+            "#,
         )
         .bind(animal_id)
         .bind(after)
@@ -37,9 +41,9 @@ impl AnimalService {
     }
 
     /// 取得最新體重
-    pub async fn get_latest_weight(pool: &PgPool, animal_id: Uuid) -> Result<Option<AnimalWeight>> {
+    pub async fn get_latest(pool: &PgPool, animal_id: Uuid) -> Result<Option<AnimalWeight>> {
         let weight = sqlx::query_as::<_, AnimalWeight>(
-            "SELECT * FROM animal_weights WHERE animal_id = $1 ORDER BY measure_date DESC LIMIT 1"
+            "SELECT * FROM animal_weights WHERE animal_id = $1 ORDER BY measure_date DESC LIMIT 1",
         )
         .bind(animal_id)
         .fetch_optional(pool)
@@ -48,7 +52,7 @@ impl AnimalService {
         Ok(weight)
     }
 
-    pub async fn create_weight(
+    pub async fn create(
         pool: &PgPool,
         animal_id: Uuid,
         req: &CreateWeightRequest,
@@ -59,7 +63,7 @@ impl AnimalService {
             INSERT INTO animal_weights (animal_id, measure_date, weight, created_by, created_at)
             VALUES ($1, $2, $3, $4, NOW())
             RETURNING *
-            "#
+            "#,
         )
         .bind(animal_id)
         .bind(req.measure_date)
@@ -72,7 +76,7 @@ impl AnimalService {
     }
 
     /// 更新體重紀錄
-    pub async fn update_weight(
+    pub async fn update(
         pool: &PgPool,
         id: Uuid,
         req: &UpdateWeightRequest,
@@ -84,7 +88,7 @@ impl AnimalService {
                 weight = COALESCE($3, weight)
             WHERE id = $1
             RETURNING *
-            "#
+            "#,
         )
         .bind(id)
         .bind(req.measure_date)
@@ -96,7 +100,7 @@ impl AnimalService {
     }
 
     /// 刪除體重紀錄
-    pub async fn soft_delete_weight(pool: &PgPool, id: Uuid) -> Result<()> {
+    pub async fn hard_delete(pool: &PgPool, id: Uuid) -> Result<()> {
         sqlx::query("DELETE FROM animal_weights WHERE id = $1")
             .bind(id)
             .execute(pool)
@@ -106,14 +110,19 @@ impl AnimalService {
     }
 
     /// 軟刪除體重紀錄（含刪除原因）- GLP 合規
-    pub async fn soft_delete_weight_with_reason(pool: &PgPool, id: Uuid, reason: &str, deleted_by: Uuid) -> Result<()> {
+    pub async fn soft_delete_with_reason(
+        pool: &PgPool,
+        id: Uuid,
+        reason: &str,
+        deleted_by: Uuid,
+    ) -> Result<()> {
         sqlx::query(
             r#"
             INSERT INTO change_reasons (entity_type, entity_id, change_type, reason, changed_by)
             VALUES ('weight', $1::text, 'DELETE', $2, $3)
-            "#
+            "#,
         )
-        .bind(id)
+        .bind(id.to_string())
         .bind(reason)
         .bind(deleted_by)
         .execute(pool)
@@ -126,7 +135,7 @@ impl AnimalService {
                 deletion_reason = $2,
                 deleted_by = $3
             WHERE id = $1 AND deleted_at IS NULL
-            "#
+            "#,
         )
         .bind(id)
         .bind(reason)

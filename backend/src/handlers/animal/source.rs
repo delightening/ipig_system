@@ -9,9 +9,9 @@ use validator::Validate;
 
 use crate::{
     middleware::CurrentUser,
-    models::{CreateAnimalSourceRequest, AnimalSource, UpdateAnimalSourceRequest},
+    models::{AnimalSource, CreateAnimalSourceRequest, UpdateAnimalSourceRequest},
     require_permission,
-    services::AnimalService,
+    services::AnimalSourceService,
     AppState, Result,
 };
 
@@ -20,7 +20,7 @@ pub async fn list_animal_sources(
     State(state): State<AppState>,
     Extension(_current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<AnimalSource>>> {
-    let sources = AnimalService::list_sources(&state.db).await?;
+    let sources = AnimalSourceService::list_sources(&state.db).await?;
     Ok(Json(sources))
 }
 
@@ -32,8 +32,8 @@ pub async fn create_animal_source(
 ) -> Result<Json<AnimalSource>> {
     require_permission!(current_user, "animal.animal.create");
     req.validate()?;
-    
-    let source = AnimalService::create_source(&state.db, &req).await?;
+
+    let source = AnimalSourceService::create_source(&state.db, &req).await?;
     Ok(Json(source))
 }
 
@@ -45,8 +45,8 @@ pub async fn update_animal_source(
     Json(req): Json<UpdateAnimalSourceRequest>,
 ) -> Result<Json<AnimalSource>> {
     require_permission!(current_user, "animal.animal.edit");
-    
-    let source = AnimalService::update_source(&state.db, id, &req).await?;
+
+    let source = AnimalSourceService::update_source(&state.db, id, &req).await?;
     Ok(Json(source))
 }
 
@@ -57,7 +57,9 @@ pub async fn delete_animal_source(
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "animal.animal.delete");
-    
-    AnimalService::delete_source(&state.db, id).await?;
-    Ok(Json(serde_json::json!({ "message": "Animal source deleted successfully" })))
+
+    AnimalSourceService::delete_source(&state.db, id).await?;
+    Ok(Json(
+        serde_json::json!({ "message": "Animal source deleted successfully" }),
+    ))
 }

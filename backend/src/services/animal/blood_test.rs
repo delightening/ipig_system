@@ -2,27 +2,31 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::AnimalService;
 use crate::{
     models::{
-        BloodTestTemplate, BloodTestListItem, AnimalBloodTest, AnimalBloodTestItem, AnimalBloodTestWithItems,
-        CreateBloodTestRequest, UpdateBloodTestRequest,
-        CreateBloodTestTemplateRequest, UpdateBloodTestTemplateRequest,
-        BloodTestPanel, BloodTestPanelWithItems,
-        CreateBloodTestPanelRequest, UpdateBloodTestPanelRequest, UpdateBloodTestPanelItemsRequest,
-        BloodTestPreset, CreateBloodTestPresetRequest, UpdateBloodTestPresetRequest,
+        AnimalBloodTest, AnimalBloodTestItem, AnimalBloodTestWithItems, BloodTestListItem,
+        BloodTestPanel, BloodTestPanelWithItems, BloodTestPreset, BloodTestTemplate,
+        CreateBloodTestPanelRequest, CreateBloodTestPresetRequest, CreateBloodTestRequest,
+        CreateBloodTestTemplateRequest, UpdateBloodTestPanelItemsRequest,
+        UpdateBloodTestPanelRequest, UpdateBloodTestPresetRequest, UpdateBloodTestRequest,
+        UpdateBloodTestTemplateRequest,
     },
     AppError, Result,
 };
 
-impl AnimalService {
+pub struct AnimalBloodTestService;
 
+impl AnimalBloodTestService {
     // ============================================
     // 血液檢查管理
     // ============================================
 
     /// 列出血液檢查紀錄（支援資料隔離）
-    pub async fn list_blood_tests(pool: &PgPool, animal_id: Uuid, after: Option<DateTime<Utc>>) -> Result<Vec<BloodTestListItem>> {
+    pub async fn list_blood_tests(
+        pool: &PgPool,
+        animal_id: Uuid,
+        after: Option<DateTime<Utc>>,
+    ) -> Result<Vec<BloodTestListItem>> {
         let tests = sqlx::query_as::<_, BloodTestListItem>(
             r#"
             SELECT 
@@ -39,7 +43,7 @@ impl AnimalService {
             GROUP BY bt.id, bt.animal_id, bt.test_date, bt.lab_name, bt.status,
                      bt.remark, bt.vet_read, bt.created_at, u.display_name
             ORDER BY bt.test_date DESC, bt.created_at DESC
-            "#
+            "#,
         )
         .bind(animal_id)
         .bind(after)
@@ -52,7 +56,7 @@ impl AnimalService {
     /// 取得單筆血液檢查（含明細項目）
     pub async fn get_blood_test_by_id(pool: &PgPool, id: Uuid) -> Result<AnimalBloodTestWithItems> {
         let blood_test = sqlx::query_as::<_, AnimalBloodTest>(
-            "SELECT * FROM animal_blood_tests WHERE id = $1 AND deleted_at IS NULL"
+            "SELECT * FROM animal_blood_tests WHERE id = $1 AND deleted_at IS NULL",
         )
         .bind(id)
         .fetch_optional(pool)
@@ -130,10 +134,11 @@ impl AnimalService {
             items.push(item);
         }
 
-        let created_by_name = sqlx::query_scalar::<_, String>("SELECT display_name FROM users WHERE id = $1")
-            .bind(created_by)
-            .fetch_optional(pool)
-            .await?;
+        let created_by_name =
+            sqlx::query_scalar::<_, String>("SELECT display_name FROM users WHERE id = $1")
+                .bind(created_by)
+                .fetch_optional(pool)
+                .await?;
 
         Ok(AnimalBloodTestWithItems {
             blood_test,
@@ -157,7 +162,7 @@ impl AnimalService {
                 updated_at = NOW()
             WHERE id = $1 AND deleted_at IS NULL
             RETURNING *
-            "#
+            "#,
         )
         .bind(id)
         .bind(req.test_date)
@@ -217,7 +222,7 @@ impl AnimalService {
                 delete_reason = $3,
                 updated_at = NOW()
             WHERE id = $1 AND deleted_at IS NULL
-            "#
+            "#,
         )
         .bind(id)
         .bind(deleted_by)
@@ -239,7 +244,7 @@ impl AnimalService {
     /// 列出所有血液檢查項目模板
     pub async fn list_blood_test_templates(pool: &PgPool) -> Result<Vec<BloodTestTemplate>> {
         let templates = sqlx::query_as::<_, BloodTestTemplate>(
-            "SELECT * FROM blood_test_templates WHERE is_active = true ORDER BY sort_order, code"
+            "SELECT * FROM blood_test_templates WHERE is_active = true ORDER BY sort_order, code",
         )
         .fetch_all(pool)
         .await?;
@@ -250,7 +255,7 @@ impl AnimalService {
     /// 列出所有模板（含停用）- 管理用
     pub async fn list_all_blood_test_templates(pool: &PgPool) -> Result<Vec<BloodTestTemplate>> {
         let templates = sqlx::query_as::<_, BloodTestTemplate>(
-            "SELECT * FROM blood_test_templates ORDER BY sort_order, code"
+            "SELECT * FROM blood_test_templates ORDER BY sort_order, code",
         )
         .fetch_all(pool)
         .await?;
@@ -286,7 +291,7 @@ impl AnimalService {
                 INSERT INTO blood_test_panel_items (panel_id, template_id, sort_order)
                 VALUES ($1, $2, $3)
                 ON CONFLICT (panel_id, template_id) DO NOTHING
-                "#
+                "#,
             )
             .bind(panel_id)
             .bind(template.id)
@@ -316,7 +321,7 @@ impl AnimalService {
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
-            "#
+            "#,
         )
         .bind(id)
         .bind(&req.name)
@@ -341,7 +346,7 @@ impl AnimalService {
                 INSERT INTO blood_test_panel_items (panel_id, template_id, sort_order)
                 VALUES ($1, $2, $3)
                 ON CONFLICT (panel_id, template_id) DO NOTHING
-                "#
+                "#,
             )
             .bind(panel_id)
             .bind(id)
@@ -356,7 +361,7 @@ impl AnimalService {
     /// 刪除血液檢查項目模板（軟刪除，設為停用）
     pub async fn delete_blood_test_template(pool: &PgPool, id: Uuid) -> Result<()> {
         let result = sqlx::query(
-            "UPDATE blood_test_templates SET is_active = false, updated_at = NOW() WHERE id = $1"
+            "UPDATE blood_test_templates SET is_active = false, updated_at = NOW() WHERE id = $1",
         )
         .bind(id)
         .execute(pool)
@@ -376,7 +381,7 @@ impl AnimalService {
     /// 列出所有啟用的組合（含其模板項目）
     pub async fn list_blood_test_panels(pool: &PgPool) -> Result<Vec<BloodTestPanelWithItems>> {
         let panels = sqlx::query_as::<_, BloodTestPanel>(
-            "SELECT * FROM blood_test_panels WHERE is_active = true ORDER BY sort_order, key"
+            "SELECT * FROM blood_test_panels WHERE is_active = true ORDER BY sort_order, key",
         )
         .fetch_all(pool)
         .await?;
@@ -390,7 +395,7 @@ impl AnimalService {
                 INNER JOIN blood_test_panel_items pi ON pi.template_id = t.id
                 WHERE pi.panel_id = $1 AND t.is_active = true
                 ORDER BY pi.sort_order, t.sort_order, t.code
-                "#
+                "#,
             )
             .bind(panel.id)
             .fetch_all(pool)
@@ -405,7 +410,7 @@ impl AnimalService {
     /// 列出所有組合（含停用）- 管理用
     pub async fn list_all_blood_test_panels(pool: &PgPool) -> Result<Vec<BloodTestPanelWithItems>> {
         let panels = sqlx::query_as::<_, BloodTestPanel>(
-            "SELECT * FROM blood_test_panels ORDER BY sort_order, key"
+            "SELECT * FROM blood_test_panels ORDER BY sort_order, key",
         )
         .fetch_all(pool)
         .await?;
@@ -419,7 +424,7 @@ impl AnimalService {
                 INNER JOIN blood_test_panel_items pi ON pi.template_id = t.id
                 WHERE pi.panel_id = $1
                 ORDER BY pi.sort_order, t.sort_order, t.code
-                "#
+                "#,
             )
             .bind(panel.id)
             .fetch_all(pool)
@@ -441,7 +446,7 @@ impl AnimalService {
             INSERT INTO blood_test_panels (key, name, icon, sort_order, created_at, updated_at)
             VALUES ($1, $2, $3, $4, NOW(), NOW())
             RETURNING *
-            "#
+            "#,
         )
         .bind(&req.key)
         .bind(&req.name)
@@ -470,7 +475,7 @@ impl AnimalService {
             INNER JOIN blood_test_panel_items pi ON pi.template_id = t.id
             WHERE pi.panel_id = $1
             ORDER BY pi.sort_order, t.sort_order
-            "#
+            "#,
         )
         .bind(panel.id)
         .fetch_all(pool)
@@ -495,7 +500,7 @@ impl AnimalService {
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
-            "#
+            "#,
         )
         .bind(id)
         .bind(&req.name)
@@ -513,7 +518,7 @@ impl AnimalService {
             INNER JOIN blood_test_panel_items pi ON pi.template_id = t.id
             WHERE pi.panel_id = $1
             ORDER BY pi.sort_order, t.sort_order
-            "#
+            "#,
         )
         .bind(panel.id)
         .fetch_all(pool)
@@ -529,13 +534,12 @@ impl AnimalService {
         req: &UpdateBloodTestPanelItemsRequest,
     ) -> Result<BloodTestPanelWithItems> {
         // 檢查組合是否存在
-        let panel = sqlx::query_as::<_, BloodTestPanel>(
-            "SELECT * FROM blood_test_panels WHERE id = $1"
-        )
-        .bind(panel_id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("組合不存在".to_string()))?;
+        let panel =
+            sqlx::query_as::<_, BloodTestPanel>("SELECT * FROM blood_test_panels WHERE id = $1")
+                .bind(panel_id)
+                .fetch_optional(pool)
+                .await?
+                .ok_or_else(|| AppError::NotFound("組合不存在".to_string()))?;
 
         // 清空舊關聯
         sqlx::query("DELETE FROM blood_test_panel_items WHERE panel_id = $1")
@@ -562,7 +566,7 @@ impl AnimalService {
             INNER JOIN blood_test_panel_items pi ON pi.template_id = t.id
             WHERE pi.panel_id = $1
             ORDER BY pi.sort_order, t.sort_order
-            "#
+            "#,
         )
         .bind(panel.id)
         .fetch_all(pool)
@@ -574,7 +578,7 @@ impl AnimalService {
     /// 刪除血液檢查組合（軟刪除）
     pub async fn delete_blood_test_panel(pool: &PgPool, id: Uuid) -> Result<()> {
         let result = sqlx::query(
-            "UPDATE blood_test_panels SET is_active = false, updated_at = NOW() WHERE id = $1"
+            "UPDATE blood_test_panels SET is_active = false, updated_at = NOW() WHERE id = $1",
         )
         .bind(id)
         .execute(pool)
@@ -594,7 +598,7 @@ impl AnimalService {
     /// 列出啟用中的常用組合
     pub async fn list_blood_test_presets(pool: &PgPool) -> Result<Vec<BloodTestPreset>> {
         let presets = sqlx::query_as::<_, BloodTestPreset>(
-            "SELECT * FROM blood_test_presets WHERE is_active = true ORDER BY sort_order, name"
+            "SELECT * FROM blood_test_presets WHERE is_active = true ORDER BY sort_order, name",
         )
         .fetch_all(pool)
         .await?;
@@ -604,7 +608,7 @@ impl AnimalService {
     /// 列出所有常用組合（含停用）- 管理用
     pub async fn list_all_blood_test_presets(pool: &PgPool) -> Result<Vec<BloodTestPreset>> {
         let presets = sqlx::query_as::<_, BloodTestPreset>(
-            "SELECT * FROM blood_test_presets ORDER BY sort_order, name"
+            "SELECT * FROM blood_test_presets ORDER BY sort_order, name",
         )
         .fetch_all(pool)
         .await?;
@@ -649,7 +653,7 @@ impl AnimalService {
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
-            "#
+            "#,
         )
         .bind(id)
         .bind(&req.name)
@@ -666,7 +670,7 @@ impl AnimalService {
     /// 刪除常用組合（軟刪除）
     pub async fn delete_blood_test_preset(pool: &PgPool, id: Uuid) -> Result<()> {
         let result = sqlx::query(
-            "UPDATE blood_test_presets SET is_active = false, updated_at = NOW() WHERE id = $1"
+            "UPDATE blood_test_presets SET is_active = false, updated_at = NOW() WHERE id = $1",
         )
         .bind(id)
         .execute(pool)

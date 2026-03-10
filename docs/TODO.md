@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-03-09 (v7)
+> **最後更新：** 2026-03-09 (v9)
 > **維護慣例：** 完成項目保留於本表並標 [x]，同時於 `docs/PROGRESS.md` §9 最新變更動態 新增對應紀錄；待辦統計僅計「未完成」數量。
 > **AI 標註說明：**
 >
@@ -131,7 +131,7 @@
 | R4-100-T1 | **product service 單元測試** | ProductService 核心邏輯（list/validate、code 解析）提取可測函式 + 5–8 個測試 | 後端 | 🧠 Claude | [x] |
 | R4-100-T2 | **partner service 單元測試** | PartnerService 核心邏輯（code 解析、正則）+ 5–8 個測試 | 後端 | 🧠 Claude | [x] |
 | R4-100-T3 | **user/role service 單元測試** | UserService、RoleService 可提取邏輯 + 測試 | 後端 | 🧠 Claude | [x] |
-| R4-100-T4 | **animal 核心 services 單元測試** | animal/core, observation, medical 等可提取邏輯 | 後端 | 🧠 Claude | [ ] |
+| R4-100-T4 | **animal 核心 services 單元測試** | animal/core, observation, medical 等可提取邏輯 (2026-03-09 已完成服務拆分重構) | 後端 | 🧠 Claude | [x] |
 | R4-100-T5 | **protocol/document/hr services 單元測試** | 分批補齊 protocol/*, document/*, hr/* | 後端 | 🧠 Claude | [ ] |
 | R4-100-T6 | **cargo-tarpaulin 覆蓋率量測** | 安裝 tarpaulin，CI 中量測行覆蓋率並設門檻 | DevOps | 🧠 Claude | [ ] |
 
@@ -189,11 +189,11 @@
 | 🔴 P2 中優先 | 0 |
 | 🔵 P3 低優先 | 0 |
 | 🟣 P4 品質提升 | 0 |
-| 🟣 R4-100 邁向 100% | 3 |
+| 🟣 R4-100 邁向 100% | 2 |
 | ⚪ P5 長期演進 | 0 |
 | 🟠 R6 第六輪改善 | 2 |
 | 🔒 R7 安全審視 | 0 |
-| **合計（未完成）** | **5** |
+| **合計（未完成）** | **4** |
 
 ---
 
@@ -201,6 +201,7 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-03-09 | 🧠 Claude：重構動物服務模組，將 AnimalService 拆分為 9 個專屬 Service，提升代碼組織與可測試性。 |
 | 2026-03-09 | 📄 請假管理動作成功後自動重新整理頁面，確保餘額與狀態完全同步。 |
 | 2026-03-09 | 📄 API 規格文件全面對齊程式碼（第二輪）— 轉讓端點修正、移除未實現端點、補齊 care-records/treatment-drugs/SSE 等 12 組未記錄端點、ENUM/權限代碼修正、設施遷移待辦新增 |
 | 2026-03-08 | 🔒 R7 安全審視完成 — R7-P0 SQL injection 修復、R7-P1 密碼洩露/TRUST_PROXY 修復、R7-P4 ETag 常數化/Auth rate limit 降低；文件全面對齊程式碼 |
