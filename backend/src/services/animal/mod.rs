@@ -24,8 +24,7 @@ pub mod utils;
 pub(crate) mod weight;
 
 pub use blood_test::AnimalBloodTestService;
-pub use care_record::CareRecordService;
-pub use field_correction::AnimalFieldCorrectionService;
+
 pub use import_export::AnimalImportExportService;
 pub use medical::AnimalMedicalService;
 pub use observation::AnimalObservationService;

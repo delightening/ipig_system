@@ -139,7 +139,7 @@ pub async fn list_import_batches(
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<AnimalImportBatch>>> {
     require_permission!(current_user, "animal.animal.import");
-    let batches = AnimalImportExportService::list_import_batches(&state.db, 50).await?;
+    let batches = AnimalMedicalService::list_import_batches(&state.db, 50).await?;
     Ok(Json(batches))
 }
 
