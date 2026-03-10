@@ -650,13 +650,21 @@ impl AnimalService {
         pool: &PgPool,
         entity_type: &str,
         entity_id: Uuid,
-    ) -> Result<Vec<serde_json::Value>> {
-        let rows = sqlx::query_as::<_, (serde_json::Value,)>(
+    ) -> Result<crate::models::VersionHistoryResponse> {
+        let versions = sqlx::query_as::<_, crate::models::VersionDiff>(
             r#"
-            SELECT after_data 
-            FROM user_activity_logs 
-            WHERE entity_type = $1 AND entity_id = $2 
-            ORDER BY created_at DESC
+            SELECT 
+                r.id, 
+                r.version_no, 
+                r.changed_at, 
+                r.changed_by, 
+                r.snapshot, 
+                r.diff_summary,
+                u.name as changed_by_name
+            FROM record_versions r
+            LEFT JOIN users u ON r.changed_by = u.id
+            WHERE r.record_type = $1 AND r.record_id = $2 
+            ORDER BY r.version_no DESC
             "#,
         )
         .bind(entity_type)
@@ -664,6 +672,13 @@ impl AnimalService {
         .fetch_all(pool)
         .await?;
 
-        Ok(rows.into_iter().map(|r| r.0).collect())
+        let current_version = versions.first().map(|v| v.version_no).unwrap_or(1);
+
+        Ok(crate::models::VersionHistoryResponse {
+            record_type: entity_type.to_string(),
+            record_id: entity_id,
+            current_version,
+            versions,
+        })
     }
 }

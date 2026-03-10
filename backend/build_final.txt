@@ -1,0 +1,25 @@
+﻿cargo :     Blocking waiting for file lock on build directory
+位於 線路:1 字元:1
++ cargo check --workspace 2>&1 | Out-File -Encoding UTF8 build_
+final.tx ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (    Blocking wa.. 
+   .build directory:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+    Checking erp-backend v0.1.0 (C:\System Coding\ipig_system\b
+ackend)
+warning: unused import: `AnimalService`
+  --> src\handlers\animal\vet_recommendation.rs:17:38
+   |
+17 |     services::{AnimalMedicalService, AnimalService, AuditS
+ervice},
+   |                                      ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`
+) on by default
+
+warning: `erp-backend` (lib) generated 1 warning (run `cargo fi
+x --lib -p erp-backend` to apply 1 suggestion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) 
+in 55.56s

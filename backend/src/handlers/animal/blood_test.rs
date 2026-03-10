@@ -17,7 +17,7 @@ use crate::{
         UpdateBloodTestPresetRequest, UpdateBloodTestRequest, UpdateBloodTestTemplateRequest,
     },
     require_permission,
-    services::{AnimalBloodTestService, AnimalService, AuditService},
+    services::{AnimalBloodTestService, AuditService},
     AppState, Result,
 };
 

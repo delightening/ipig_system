@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::{AnimalMedicalService, AnimalService};
+use super::AnimalMedicalService;
 use crate::{
     models::{
         AnimalObservation, CreateObservationRequest, ObservationListItem, UpdateObservationRequest,

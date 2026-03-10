@@ -14,7 +14,7 @@ use crate::{
         VetRecommendation, VetRecordType,
     },
     require_permission,
-    services::{AnimalService, AuditService},
+    services::{AnimalMedicalService, AuditService},
     AppState, Result,
 };
 
@@ -29,25 +29,36 @@ pub async fn add_observation_vet_recommendation(
 ) -> Result<Json<VetRecommendation>> {
     require_permission!(current_user, "animal.vet.recommend");
     req.validate()?;
-    
-    let recommendation = AnimalService::add_vet_recommendation(&state.db, VetRecordType::Observation, id, &req, current_user.id).await?;
-    
+
+    let recommendation = AnimalMedicalService::add_vet_recommendation(
+        &state.db,
+        VetRecordType::Observation,
+        id,
+        &req,
+        current_user.id,
+    )
+    .await?;
+
     // 發送通知給 PI/Coeditor
-    if let Ok(Some((animal_id, ear_tag, protocol_id))) = get_animal_info_from_observation(&state.db, id).await {
+    if let Ok(Some((animal_id, ear_tag, protocol_id))) =
+        get_animal_info_from_observation(&state.db, id).await
+    {
         let notification_service = crate::services::NotificationService::new(state.db.clone());
         let record_type_str = "觀察紀錄";
-        if let Err(e) = notification_service.notify_vet_recommendation(
-            animal_id,
-            &ear_tag,
-            protocol_id,
-            record_type_str,
-            &req.content,
-            req.is_urgent,
-            Some(&state.config),
-        ).await {
+        if let Err(e) = notification_service
+            .notify_vet_recommendation(
+                animal_id,
+                &ear_tag,
+                protocol_id,
+                record_type_str,
+                &req.content,
+                req.is_urgent,
+                Some(&state.config),
+            )
+            .await
+        {
             tracing::warn!("發送獸醫建議通知失敗: {e}");
         }
-
     }
 
     // 記錄活動紀錄
@@ -74,25 +85,36 @@ pub async fn add_surgery_vet_recommendation(
 ) -> Result<Json<VetRecommendation>> {
     require_permission!(current_user, "animal.vet.recommend");
     req.validate()?;
-    
-    let recommendation = AnimalService::add_vet_recommendation(&state.db, VetRecordType::Surgery, id, &req, current_user.id).await?;
-    
+
+    let recommendation = AnimalMedicalService::add_vet_recommendation(
+        &state.db,
+        VetRecordType::Surgery,
+        id,
+        &req,
+        current_user.id,
+    )
+    .await?;
+
     // 發送通知給 PI/Coeditor
-    if let Ok(Some((animal_id, ear_tag, protocol_id))) = get_animal_info_from_surgery(&state.db, id).await {
+    if let Ok(Some((animal_id, ear_tag, protocol_id))) =
+        get_animal_info_from_surgery(&state.db, id).await
+    {
         let notification_service = crate::services::NotificationService::new(state.db.clone());
         let record_type_str = "手術紀錄";
-        if let Err(e) = notification_service.notify_vet_recommendation(
-            animal_id,
-            &ear_tag,
-            protocol_id,
-            record_type_str,
-            &req.content,
-            req.is_urgent,
-            Some(&state.config),
-        ).await {
+        if let Err(e) = notification_service
+            .notify_vet_recommendation(
+                animal_id,
+                &ear_tag,
+                protocol_id,
+                record_type_str,
+                &req.content,
+                req.is_urgent,
+                Some(&state.config),
+            )
+            .await
+        {
             tracing::warn!("發送獸醫建議通知失敗: {e}");
         }
-
     }
 
     // 記錄活動紀錄
@@ -119,25 +141,36 @@ pub async fn add_observation_vet_recommendation_with_attachments(
     require_permission!(current_user, "animal.vet.recommend");
     require_permission!(current_user, "animal.vet.upload_attachment");
     req.validate()?;
-    
-    let recommendation = AnimalService::add_vet_recommendation_with_attachments(&state.db, VetRecordType::Observation, id, &req, current_user.id).await?;
-    
+
+    let recommendation = AnimalMedicalService::add_vet_recommendation_with_attachments(
+        &state.db,
+        VetRecordType::Observation,
+        id,
+        &req,
+        current_user.id,
+    )
+    .await?;
+
     // 發送通知給 PI/Coeditor
-    if let Ok(Some((animal_id, ear_tag, protocol_id))) = get_animal_info_from_observation(&state.db, id).await {
+    if let Ok(Some((animal_id, ear_tag, protocol_id))) =
+        get_animal_info_from_observation(&state.db, id).await
+    {
         let notification_service = crate::services::NotificationService::new(state.db.clone());
         let record_type_str = "觀察紀錄";
-        if let Err(e) = notification_service.notify_vet_recommendation(
-            animal_id,
-            &ear_tag,
-            protocol_id,
-            record_type_str,
-            &req.content,
-            req.is_urgent,
-            Some(&state.config),
-        ).await {
+        if let Err(e) = notification_service
+            .notify_vet_recommendation(
+                animal_id,
+                &ear_tag,
+                protocol_id,
+                record_type_str,
+                &req.content,
+                req.is_urgent,
+                Some(&state.config),
+            )
+            .await
+        {
             tracing::warn!("發送獸醫建議通知失敗: {e}");
         }
-
     }
 
     // 記錄活動紀錄
@@ -164,25 +197,36 @@ pub async fn add_surgery_vet_recommendation_with_attachments(
     require_permission!(current_user, "animal.vet.recommend");
     require_permission!(current_user, "animal.vet.upload_attachment");
     req.validate()?;
-    
-    let recommendation = AnimalService::add_vet_recommendation_with_attachments(&state.db, VetRecordType::Surgery, id, &req, current_user.id).await?;
-    
+
+    let recommendation = AnimalMedicalService::add_vet_recommendation_with_attachments(
+        &state.db,
+        VetRecordType::Surgery,
+        id,
+        &req,
+        current_user.id,
+    )
+    .await?;
+
     // 發送通知給 PI/Coeditor
-    if let Ok(Some((animal_id, ear_tag, protocol_id))) = get_animal_info_from_surgery(&state.db, id).await {
+    if let Ok(Some((animal_id, ear_tag, protocol_id))) =
+        get_animal_info_from_surgery(&state.db, id).await
+    {
         let notification_service = crate::services::NotificationService::new(state.db.clone());
         let record_type_str = "手術紀錄";
-        if let Err(e) = notification_service.notify_vet_recommendation(
-            animal_id,
-            &ear_tag,
-            protocol_id,
-            record_type_str,
-            &req.content,
-            req.is_urgent,
-            Some(&state.config),
-        ).await {
+        if let Err(e) = notification_service
+            .notify_vet_recommendation(
+                animal_id,
+                &ear_tag,
+                protocol_id,
+                record_type_str,
+                &req.content,
+                req.is_urgent,
+                Some(&state.config),
+            )
+            .await
+        {
             tracing::warn!("發送獸醫建議通知失敗: {e}");
         }
-
     }
 
     // 記錄活動紀錄
@@ -205,7 +249,9 @@ pub async fn get_observation_vet_recommendations(
     Extension(_current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<VetRecommendation>>> {
-    let recommendations = AnimalService::get_vet_recommendations(&state.db, VetRecordType::Observation, id).await?;
+    let recommendations =
+        AnimalMedicalService::get_vet_recommendations(&state.db, VetRecordType::Observation, id)
+            .await?;
     Ok(Json(recommendations))
 }
 
@@ -215,6 +261,8 @@ pub async fn get_surgery_vet_recommendations(
     Extension(_current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<VetRecommendation>>> {
-    let recommendations = AnimalService::get_vet_recommendations(&state.db, VetRecordType::Surgery, id).await?;
+    let recommendations =
+        AnimalMedicalService::get_vet_recommendations(&state.db, VetRecordType::Surgery, id)
+            .await?;
     Ok(Json(recommendations))
 }

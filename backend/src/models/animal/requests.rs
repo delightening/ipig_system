@@ -159,13 +159,13 @@ pub(crate) fn default_true() -> bool {
     true
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize, ToSchema, Validate)]
 pub struct CreateWeightRequest {
     pub measure_date: NaiveDate,
     pub weight: rust_decimal::Decimal,
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize, ToSchema, Validate)]
 pub struct CreateVaccinationRequest {
     pub administered_date: NaiveDate,
     pub vaccine: Option<String>,
@@ -437,14 +437,14 @@ pub struct UpdateSurgeryRequest {
 }
 
 /// 更新體重紀錄請求
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize, ToSchema, Validate)]
 pub struct UpdateWeightRequest {
     pub measure_date: Option<NaiveDate>,
     pub weight: Option<rust_decimal::Decimal>,
 }
 
 /// 更新疫苗紀錄請求
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize, ToSchema, Validate)]
 pub struct UpdateVaccinationRequest {
     pub administered_date: Option<NaiveDate>,
     pub vaccine: Option<String>,
@@ -736,7 +736,7 @@ pub struct SurgeryListItem {
 }
 
 /// 版本歷史比對結果（前端相容：record_snapshot、created_at、changed_by_name）
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, FromRow)]
 pub struct VersionDiff {
     pub id: Uuid,
     pub version_no: i32,

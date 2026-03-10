@@ -2,7 +2,6 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::AnimalService;
 use crate::{
     models::{
         AnimalBloodTest, AnimalBloodTestItem, AnimalBloodTestWithItems, BloodTestListItem,
