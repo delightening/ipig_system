@@ -10,30 +10,202 @@
 # 待辦與進度文件（請記住）
 - 當 `docs/TODO.md` 中某項工作標為完成 [x] 時，務必同步：(1) 在 `docs/PROGRESS.md` 的「9. 最新變更動態」新增該完成項的簡短紀錄（日期、項目編號、產出摘要）；(2) 更新 TODO.md 的「待辦統計」未完成數量。已完成項目保留在 TODO 表中並標 [x]，不刪除。
 
-# 代碼簡化與模組化規範
+---
 
-## 原則
-1. **DRY (Don't Repeat Yourself)**：重複邏輯超過 2 處必須抽出共用函式，放入對應的 `utils/` 目錄。
+# 代碼規範
+
+## 1. 通用原則
+
+1. **DRY (Don't Repeat Yourself)**：重複邏輯超過 2 處必須抽出共用函式，放入對應層級的目錄。
 2. **最小依賴**：未使用的 import、變數、函式一律移除。
 3. **扁平優於巢狀**：避免超過 3 層的條件巢狀，優先使用 early return。
 4. **單一職責**：每個檔案只做一件事。超過 300 行應考慮拆分。
 5. **命名一致性**：Rust 用 snake_case，TypeScript 用 camelCase，React 元件用 PascalCase。
 
-## 前端規範 (TypeScript / React)
-- 共用工具函式統一放在 `frontend/src/lib/` 下。
-- 共用 React hooks 統一放在 `frontend/src/hooks/` 下。
-- 頁面級元件放 `pages/`，可復用元件放 `components/`。
-- API 呼叫統一使用 TanStack Query，禁止裸用 `fetch` 或 `axios`。
-- 驗證邏輯統一使用 Zod schema，不重複手寫驗證。
-- 型別定義統一放在 `frontend/src/types/` 下，禁止在頁面中重複定義相同型別。
+## 2. 量化門檻
 
-## 後端規範 (Rust / Axum)
-- 共用工具函式統一放在 `backend/src/utils/` 下。
-- Service 層處理業務邏輯，Handler 層只做請求解析與回應組裝。
+| 指標 | 上限 | 說明 |
+|------|------|------|
+| **函數長度** | ≤ 50 行 | Rust 語法特性下的平衡值（嚴格 40 / 寬鬆 60 之間）。超過即拆分 |
+| **圈複雜度** | ≤ 10 | 符合業界標準 |
+| **參數數量** | ≤ 5 個 | 超過封裝為 struct（Rust）或 config object（TS） |
+| **巢狀深度** | ≤ 3 層 | 使用 early return、`?` 運算子減少巢狀 |
+| **React 元件檔案** | ≤ 300 行 | 超過即拆分為子元件或自定義 hook |
+| **React JSX return** | ≤ 80 行 | 超過即將區塊提取為獨立元件 |
+| **單一 useEffect / handler** | ≤ 30 行 | 超過即提取邏輯為函數或 hook |
+| **Rust match 分支數** | ≤ 7 支 | 超過考慮提取為 enum method 或查表 |
+| **React 元件 Props** | ≤ 6 個 | 超過考慮合併為 config object 或拆分元件 |
+
+## 3. 架構分層與依賴方向
+
+```
+Handler → Service → Repository → Model
+   ↓         ↑
+Middleware ──┘
+
+Utils（純函式，任何層皆可呼叫，但 Utils 本身不依賴任何層）
+```
+
+**規則：**
+- 依賴只能**向下**，禁止反向依賴
+- `utils/` 不依賴任何業務模組，不依賴 `AppState`
+- `models/` 不依賴任何其他層
+- Middleware 可呼叫 Service（例如認證中間件驗證 token）
+
+## 4. Backend 模組職責 (Rust / Axum)
+
+### 目錄職責表
+
+| 目錄 | 職責 | 禁止事項 |
+|------|------|----------|
+| **`handlers/`** | HTTP 請求解析與回應組裝 | ❌ 業務邏輯、SQL、複雜條件判斷 |
+| **`services/`** | 核心業務邏輯、權限檢查 | ❌ 直接建構 HTTP response、直接寫 SQL |
+| **`repositories/`** | 封裝所有 SQL 查詢（sqlx::query） | ❌ 業務邏輯判斷 |
+| **`models/`** | DB entity（`FromRow`）+ API request/response DTO | ❌ 業務邏輯、SQL、依賴其他層 |
+| **`middleware/`** | 橫切關注點（認證、CSRF、限流、ETag） | ❌ 業務邏輯 |
+| **`utils/`** | 純函式工具（日期、字串、加密） | ❌ 依賴 AppState 或業務型別 |
+| **`startup/`** | 應用程式啟動初始化（DB、migration、seed） | ❌ runtime 呼叫 |
+| **`bin/`** | CLI 維運工具 | 過時工具定期清理 |
+
+### 基礎設施檔案
+
+| 檔案 | 職責 | 禁止事項 |
+|------|------|----------|
+| **`error.rs`** | 統一錯誤型別 `AppError` enum + `IntoResponse` 實作 | — |
+| **`config.rs`** | 環境變數讀取，`Config` struct | ❌ 散落讀取 `std::env::var` |
+| **`constants.rs`** | 全域常數（狀態字串、魔術數字、預設值） | — |
+
+### Backend 專項規則
+
 - 錯誤處理統一使用 `AppError`，禁止裸用 `unwrap()` 於非測試碼。
+- `expect()` 僅允許於程式啟動初始化階段（如 `main.rs`），須附帶描述訊息。
+- 禁止 `#[allow(dead_code)]`、`#[allow(unused)]`，未使用的程式碼直接刪除。
 - 資料庫查詢使用 SQLx，盡量用具名參數，禁止字串拼接 SQL。
+- 相同 SQL SELECT 出現 ≥2 次，必須提取至 `repositories/` 層。
+- 魔術字串（狀態字串、設定值）必須定義為 `const` 或 `enum`。
+- Service 層應呼叫 Repository 取得資料，而非直接寫 SQL。
+- 權限檢查邏輯放 `services/access.rs`（非 `utils/`）。
 
-## 清理規則
+### Repository 函式命名慣例
+
+| 操作 | 命名慣例 | 範例 |
+|------|----------|------|
+| 查詢單筆 | `find_{entity}_by_{field}` | `find_animal_by_id` |
+| 查詢多筆 | `list_{entities}` 或 `find_{entities}_by_{field}` | `list_animals`、`find_animals_by_status` |
+| 新增 | `insert_{entity}` | `insert_animal` |
+| 更新 | `update_{entity}` | `update_animal` |
+| 刪除 | `delete_{entity}` | `delete_animal` |
+| 檢查存在 | `exists_{entity}_by_{field}` | `exists_animal_by_id` |
+
+## 5. Frontend 模組職責 (TypeScript / React)
+
+### 目錄職責表
+
+| 目錄 | 職責 | 禁止事項 |
+|------|------|----------|
+| **`pages/`** | 頁面級元件（對應路由）。可包含同層 `components/`、`hooks/`、`constants.ts` | ❌ 定義跨頁面復用的元件或 hook |
+| **`components/`** | 可復用元件（≥2 頁面使用）。按業務域分子目錄。`ui/` 為基礎 UI 元件庫 | ❌ 頁面級路由邏輯 |
+| **`hooks/`** | 全域共用 Custom Hooks（≥2 頁面使用）。檔名以 `use` 開頭 | ❌ 包含 JSX |
+| **`lib/`** | 核心工具（utils, validation, queryKeys, logger 等） | ❌ React 相關邏輯 |
+| **`lib/api/`** | API 層：按業務域拆分 API 函式 | — |
+| **`lib/constants/`** | 跨頁面的設定常數、狀態對應表（≥10 行的常數物件） | — |
+| **`types/`** | 共用型別定義，每個業務域一個檔案 | ❌ 在頁面中重複定義相同型別 |
+| **`stores/`** | Zustand 全域狀態（auth、UI 偏好） | ❌ 頁面級狀態 |
+
+### Frontend API 細分規範
+
+```
+lib/
+  api/
+    client.ts       # Axios 實例設定、interceptors
+    animal.ts       # 動物相關 API 函式
+    hr.ts           # 人資相關 API 函式
+    protocol.ts     # 實驗計畫相關 API 函式
+    ...             # 按業務域拆分
+    index.ts        # 統一匯出
+```
+
+### Zustand Store 決策流程
+
+1. 該狀態是否需要在**不相鄰的元件**間共用？→ 否 → props / context
+2. 該狀態是否需要**跨路由存活**？→ 否 → React state 或 URL search params
+3. 該狀態是否需要**頁面重新整理後存活**？→ 是 → Zustand + persist middleware
+4. 以上皆是 → Zustand Store
+
+### Frontend 專項規則
+
+- API 呼叫統一使用 TanStack Query，禁止裸用 `fetch` 或 `axios`。
+- 驗證邏輯統一使用 Zod schema（`lib/validation.ts`），不重複手寫驗證。
+- Custom Hook 提取時機：state + effect 邏輯超過 15 行，或在 ≥2 個元件重複時。
+- 內聯常數（≥10 行）禁止放在頁面內，移至 `lib/constants/` 或同層 `constants.ts`。
+- 未使用的 import / 變數禁止殘留，ESLint 零警告。
+
+## 6. 檔案命名規範
+
+| 層級 | Rust | TypeScript |
+|------|------|------------|
+| 檔案名 | `snake_case.rs` | `camelCase.ts` 或 `PascalCase.tsx`（元件） |
+| Handler 函式 | `get_animal_list` | — |
+| Service 函式 | `create_animal` | — |
+| Repository 函式 | `find_animal_by_id` | — |
+| React 元件 | — | `AnimalCard.tsx`（PascalCase） |
+| Custom Hook | — | `useAnimalList.ts`（camelCase + `use` 前綴） |
+| 常數檔 | `constants.rs`（UPPER_SNAKE_CASE） | `constants.ts`（camelCase） |
+| 型別檔 | — | `animal.ts`（camelCase，在 `types/` 下） |
+
+## 7. 重複邏輯合併策略
+
+| 場景 | 合併目標位置 |
+|------|-------------|
+| 同一 SQL SELECT ≥2 次 | `repositories/` |
+| 同一權限檢查邏輯 ≥2 處 | `services/access.rs` |
+| 同一格式化/轉換函式 ≥2 處 | Backend: `utils/`、Frontend: `lib/utils.ts` |
+| 同一驗證邏輯 ≥2 處 | Frontend: `lib/validation.ts`、Backend: `utils/validation.rs` |
+| 同一 React state + effect ≥2 處 | `hooks/` 或頁面同層 `hooks/` |
+| 同一 UI pattern ≥2 處 | `components/` |
+
+## 8. Import 排序規範
+
+### Rust
+```
+1. std 標準庫
+2. 第三方 crate（按字母序）
+3. （空行）
+4. crate:: 內部模組
+5. super:: / self:: 當前模組
+```
+
+**自動化**：`rustfmt` 搭配 `imports_granularity = "Module"` + `group_imports = "StdExternalCrate"`
+
+### TypeScript
+```
+1. React 核心 (react, react-dom, react-router-dom)
+2. 第三方庫 (TanStack Query, Zod, lucide-react 等)
+3. （空行）
+4. 內部模組 (@/lib/, @/hooks/, @/stores/)
+5. 元件 (@/components/)
+6. 型別 (@/types/)
+7. 同層相對路徑 (./components/, ./hooks/)
+```
+
+**自動化**：ESLint `eslint-plugin-import` 的 `import/order` 規則
+
+## 9. 統一錯誤處理
+
+### Backend
+- 所有 handler 回傳 `Result<impl IntoResponse, AppError>`。
+- Service 層回傳 `Result<T, AppError>`。
+- 使用 `?` 運算子逐層傳播，不在 handler 中 catch 後手動建構 response。
+- 禁止 `unwrap()`（測試除外）。
+
+### Frontend
+- **全域 QueryClient onError**：在 `QueryClient` 預設配置統一處理 401/403/500。queries 401 不重試，其他 retry ≤3 次；mutations `onError` 統一呼叫 `toast.error(getApiErrorMessage(error))`。
+- **React Error Boundary**：捕捉渲染階段錯誤，顯示 fallback UI（使用 `PageErrorBoundary`）。
+- **頁面層級**：TanStack Query `onError` 處理特定業務錯誤。
+- ❌ 禁止裸 try-catch + `console.error`。
+
+## 10. 清理規則
+
 - 移除所有 `#[allow(dead_code)]`、`#[allow(unused)]` 及對應的 dead code。
 - 移除前端中被註解掉的程式碼區塊（超過 5 行的）。
 - 移除未使用的 npm/cargo 依賴。
