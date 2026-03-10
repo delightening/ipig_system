@@ -668,11 +668,16 @@ impl CalendarService {
         resolution: &str,
         notes: Option<&str>,
     ) -> Result<CalendarSyncConflict> {
+        use crate::constants::{
+            CONFLICT_KEEP_IPIG, CONFLICT_ACCEPT_GOOGLE, CONFLICT_DISMISS,
+            CONFLICT_STATUS_RESOLVED_KEEP, CONFLICT_STATUS_RESOLVED_ACCEPT,
+            CONFLICT_STATUS_DISMISSED, CONFLICT_STATUS_RESOLVED,
+        };
         let status = match resolution {
-            "keep_ipig" => "resolved_keep_ipig",
-            "accept_google" => "resolved_accept_google",
-            "dismiss" => "dismissed",
-            _ => "resolved",
+            CONFLICT_KEEP_IPIG => CONFLICT_STATUS_RESOLVED_KEEP,
+            CONFLICT_ACCEPT_GOOGLE => CONFLICT_STATUS_RESOLVED_ACCEPT,
+            CONFLICT_DISMISS => CONFLICT_STATUS_DISMISSED,
+            _ => CONFLICT_STATUS_RESOLVED,
         };
 
         let conflict = sqlx::query_as::<_, CalendarSyncConflict>(

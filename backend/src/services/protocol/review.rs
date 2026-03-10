@@ -134,7 +134,7 @@ impl ProtocolService {
         };
 
         // 驗證指定的使用者是獸醫師
-        let _is_vet: (bool,) = sqlx::query_as(
+        let is_vet: (bool,) = sqlx::query_as(
             r#"
             SELECT EXISTS(
                 SELECT 1 FROM user_roles ur
