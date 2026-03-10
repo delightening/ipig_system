@@ -19,22 +19,9 @@ pub struct AuthService;
 
 impl AuthService {
     /// 驗證 email + 密碼（不產生 token，供 handler 決定是否走 2FA）
-    pub async fn validate_credentials(pool: &PgPool, req: &LoginRequest) -> Result<User> {
-        // SEC-20: 帳號鎖定檢查（可由 DISABLE_ACCOUNT_LOCKOUT=true 關閉）
-        let lockout_disabled = std::env::var("DISABLE_ACCOUNT_LOCKOUT")
-            .map(|v| v.to_lowercase() == "true" || v == "1")
-            .unwrap_or(false);
-
-        let max_attempts: i64 = std::env::var("ACCOUNT_LOCKOUT_MAX_ATTEMPTS")
-            .ok()
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(5);
-        let duration_minutes: i64 = std::env::var("ACCOUNT_LOCKOUT_DURATION_MINUTES")
-            .ok()
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(15);
-
-        if !lockout_disabled {
+    pub async fn validate_credentials(pool: &PgPool, config: &Config, req: &LoginRequest) -> Result<User> {
+        // SEC-20: 帳號鎖定檢查
+        if !config.disable_account_lockout {
             let (fail_count,): (i64,) = sqlx::query_as(
                 r#"
                 SELECT COUNT(*) FROM login_events
@@ -44,18 +31,18 @@ impl AuthService {
                 "#,
             )
             .bind(&req.email)
-            .bind(duration_minutes)
+            .bind(config.account_lockout_duration_minutes)
             .fetch_one(pool)
             .await
             .unwrap_or((0,));
 
-            if fail_count >= max_attempts {
+            if fail_count >= config.account_lockout_max_attempts {
                 tracing::warn!(
                     "[Auth] 帳號 {} 因連續失敗 {} 次被暫時鎖定",
                     req.email, fail_count
                 );
                 return Err(AppError::Validation(
-                    format!("帳號已暫時鎖定，請 {} 分鐘後再試", duration_minutes),
+                    format!("帳號已暫時鎖定，請 {} 分鐘後再試", config.account_lockout_duration_minutes),
                 ));
             }
         }
@@ -109,7 +96,7 @@ impl AuthService {
         config: &Config,
         req: &LoginRequest,
     ) -> Result<LoginResponse> {
-        let user = Self::validate_credentials(pool, req).await?;
+        let user = Self::validate_credentials(pool, config, req).await?;
         Self::issue_login_tokens(pool, config, &user).await
     }
 
