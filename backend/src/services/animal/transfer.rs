@@ -5,14 +5,16 @@ use uuid::Uuid;
 use super::AnimalService;
 use crate::{
     models::{
-        AnimalTransfer, AnimalTransferStatus, AnimalStatus, TransferVetEvaluation,
-        CreateTransferRequest, VetEvaluateTransferRequest, AssignTransferPlanRequest,
-        RejectTransferRequest, DataBoundaryResponse,
+        AnimalStatus, AnimalTransfer, AnimalTransferStatus, AssignTransferPlanRequest,
+        CreateTransferRequest, DataBoundaryResponse, RejectTransferRequest, TransferVetEvaluation,
+        VetEvaluateTransferRequest,
     },
     AppError, Result,
 };
 
-impl AnimalService {
+pub struct AnimalTransferService;
+
+impl AnimalTransferService {
     // ============================================
     // 動物轉讓流程
     // ============================================
@@ -27,9 +29,9 @@ impl AnimalService {
         user_roles: &[String],
     ) -> Result<DataBoundaryResponse> {
         // Admin / VET / IACUC_STAFF 可看到所有紀錄
-        let privileged = user_roles.iter().any(|r| {
-            matches!(r.as_str(), "ADMIN" | "VET" | "IACUC_STAFF" | "IACUC_CHAIR")
-        });
+        let privileged = user_roles
+            .iter()
+            .any(|r| matches!(r.as_str(), "ADMIN" | "VET" | "IACUC_STAFF" | "IACUC_CHAIR"));
         if privileged {
             return Ok(DataBoundaryResponse { boundary: None });
         }
@@ -41,7 +43,7 @@ impl AnimalService {
             WHERE animal_id = $1 AND status = 'completed' AND completed_at IS NOT NULL
             ORDER BY completed_at DESC
             LIMIT 1
-            "#
+            "#,
         )
         .bind(animal_id)
         .fetch_optional(pool)
@@ -53,7 +55,7 @@ impl AnimalService {
     /// 取得動物的轉讓記錄
     pub async fn list_transfers(pool: &PgPool, animal_id: Uuid) -> Result<Vec<AnimalTransfer>> {
         let records = sqlx::query_as::<_, AnimalTransfer>(
-            "SELECT * FROM animal_transfers WHERE animal_id = $1 ORDER BY created_at DESC"
+            "SELECT * FROM animal_transfers WHERE animal_id = $1 ORDER BY created_at DESC",
         )
         .bind(animal_id)
         .fetch_all(pool)
@@ -64,21 +66,23 @@ impl AnimalService {
 
     /// 取得單一轉讓記錄
     pub async fn get_transfer(pool: &PgPool, transfer_id: Uuid) -> Result<AnimalTransfer> {
-        let record = sqlx::query_as::<_, AnimalTransfer>(
-            "SELECT * FROM animal_transfers WHERE id = $1"
-        )
-        .bind(transfer_id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("轉讓記錄不存在".to_string()))?;
+        let record =
+            sqlx::query_as::<_, AnimalTransfer>("SELECT * FROM animal_transfers WHERE id = $1")
+                .bind(transfer_id)
+                .fetch_optional(pool)
+                .await?
+                .ok_or_else(|| AppError::NotFound("轉讓記錄不存在".to_string()))?;
 
         Ok(record)
     }
 
     /// 取得轉讓的獸醫評估
-    pub async fn get_transfer_vet_evaluation(pool: &PgPool, transfer_id: Uuid) -> Result<Option<TransferVetEvaluation>> {
+    pub async fn get_transfer_vet_evaluation(
+        pool: &PgPool,
+        transfer_id: Uuid,
+    ) -> Result<Option<TransferVetEvaluation>> {
         let record = sqlx::query_as::<_, TransferVetEvaluation>(
-            "SELECT * FROM transfer_vet_evaluations WHERE transfer_id = $1"
+            "SELECT * FROM transfer_vet_evaluations WHERE transfer_id = $1",
         )
         .bind(transfer_id)
         .fetch_optional(pool)
@@ -95,11 +99,12 @@ impl AnimalService {
         initiated_by: Uuid,
     ) -> Result<AnimalTransfer> {
         // 驗證動物狀態
-        let animal = Self::get_by_id(pool, animal_id).await?;
+        let animal = AnimalService::get_by_id(pool, animal_id).await?;
         if animal.status != AnimalStatus::Completed {
-            return Err(AppError::BadRequest(
-                format!("只有「存活完成」狀態的動物可以發起轉讓，當前狀態：{}", animal.status.display_name())
-            ));
+            return Err(AppError::BadRequest(format!(
+                "只有「存活完成」狀態的動物可以發起轉讓，當前狀態：{}",
+                animal.status.display_name()
+            )));
         }
 
         // 檢查是否有進行中的轉讓
@@ -111,11 +116,14 @@ impl AnimalService {
         .await?;
 
         if active > 0 {
-            return Err(AppError::BadRequest("此動物已有進行中的轉讓申請".to_string()));
+            return Err(AppError::BadRequest(
+                "此動物已有進行中的轉讓申請".to_string(),
+            ));
         }
 
-        let from_iacuc = animal.iacuc_no
-            .ok_or_else(|| AppError::BadRequest("動物未指定 IACUC No.，無法發起轉讓".to_string()))?;
+        let from_iacuc = animal.iacuc_no.ok_or_else(|| {
+            AppError::BadRequest("動物未指定 IACUC No.，無法發起轉讓".to_string())
+        })?;
 
         let transfer_type = match req.transfer_type.as_str() {
             "external" | "internal" => req.transfer_type.clone(),
@@ -157,9 +165,10 @@ impl AnimalService {
         let transfer = Self::get_transfer(pool, transfer_id).await?;
 
         if transfer.status != AnimalTransferStatus::Pending {
-            return Err(AppError::BadRequest(
-                format!("轉讓狀態不正確，需為「待審」，當前：{}", transfer.status.display_name())
-            ));
+            return Err(AppError::BadRequest(format!(
+                "轉讓狀態不正確，需為「待審」，當前：{}",
+                transfer.status.display_name()
+            )));
         }
 
         // 建立獸醫評估紀錄
@@ -197,23 +206,24 @@ impl AnimalService {
         let transfer = Self::get_transfer(pool, transfer_id).await?;
 
         if transfer.status != AnimalTransferStatus::VetEvaluated {
-            return Err(AppError::BadRequest(
-                format!("轉讓狀態不正確，需為「獸醫已評估」，當前：{}", transfer.status.display_name())
-            ));
+            return Err(AppError::BadRequest(format!(
+                "轉讓狀態不正確，需為「獸醫已評估」，當前：{}",
+                transfer.status.display_name()
+            )));
         }
 
         // 驗證目標計劃存在
-        let plan_exists = sqlx::query_scalar::<_, i64>(
-            "SELECT COUNT(*) FROM protocols WHERE iacuc_no = $1"
-        )
-        .bind(&req.to_iacuc_no)
-        .fetch_one(pool)
-        .await?;
+        let plan_exists =
+            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM protocols WHERE iacuc_no = $1")
+                .bind(&req.to_iacuc_no)
+                .fetch_one(pool)
+                .await?;
 
         if plan_exists == 0 {
-            return Err(AppError::BadRequest(
-                format!("目標 IACUC No. '{}' 不存在", req.to_iacuc_no)
-            ));
+            return Err(AppError::BadRequest(format!(
+                "目標 IACUC No. '{}' 不存在",
+                req.to_iacuc_no
+            )));
         }
 
         let updated = sqlx::query_as::<_, AnimalTransfer>(
@@ -232,9 +242,10 @@ impl AnimalService {
         let transfer = Self::get_transfer(pool, transfer_id).await?;
 
         if transfer.status != AnimalTransferStatus::PlanAssigned {
-            return Err(AppError::BadRequest(
-                format!("轉讓狀態不正確，需為「已指定新計劃」，當前：{}", transfer.status.display_name())
-            ));
+            return Err(AppError::BadRequest(format!(
+                "轉讓狀態不正確，需為「已指定新計劃」，當前：{}",
+                transfer.status.display_name()
+            )));
         }
 
         let updated = sqlx::query_as::<_, AnimalTransfer>(
@@ -252,12 +263,15 @@ impl AnimalService {
         let transfer = Self::get_transfer(pool, transfer_id).await?;
 
         if transfer.status != AnimalTransferStatus::PiApproved {
-            return Err(AppError::BadRequest(
-                format!("轉讓狀態不正確，需為「PI 已同意」，當前：{}", transfer.status.display_name())
-            ));
+            return Err(AppError::BadRequest(format!(
+                "轉讓狀態不正確，需為「PI 已同意」，當前：{}",
+                transfer.status.display_name()
+            )));
         }
 
-        let to_iacuc = transfer.to_iacuc_no.as_ref()
+        let to_iacuc = transfer
+            .to_iacuc_no
+            .as_ref()
             .ok_or_else(|| AppError::BadRequest("未指定目標 IACUC No.".to_string()))?;
 
         // 更新動物：新 IACUC No. + 狀態 → in_experiment；若為「轉給其他機構」則清空欄位
@@ -300,10 +314,13 @@ impl AnimalService {
     ) -> Result<AnimalTransfer> {
         let transfer = Self::get_transfer(pool, transfer_id).await?;
 
-        if transfer.status == AnimalTransferStatus::Completed || transfer.status == AnimalTransferStatus::Rejected {
-            return Err(AppError::BadRequest(
-                format!("轉讓已為終態「{}」，無法拒絕", transfer.status.display_name())
-            ));
+        if transfer.status == AnimalTransferStatus::Completed
+            || transfer.status == AnimalTransferStatus::Rejected
+        {
+            return Err(AppError::BadRequest(format!(
+                "轉讓已為終態「{}」，無法拒絕",
+                transfer.status.display_name()
+            )));
         }
 
         // 回復動物狀態為 completed

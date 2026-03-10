@@ -1,7 +1,7 @@
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::AnimalService;
+use super::{utils::AnimalUtils, AnimalService};
 use crate::{
     models::{
         Animal, AnimalListItem, AnimalQuery, AnimalStatus, AnimalsByPen, BatchAssignRequest,
@@ -26,12 +26,7 @@ impl AnimalService {
             qb.push_bind(*status);
         }
         if let Some(breed) = &query.breed {
-            let breed_str = match breed {
-                crate::models::AnimalBreed::Minipig => "miniature",
-                crate::models::AnimalBreed::White => "white",
-                crate::models::AnimalBreed::LYD => "LYD",
-                crate::models::AnimalBreed::Other => "other",
-            };
+            let breed_str = AnimalUtils::breed_to_db_value(breed);
             qb.push(" AND p.breed = ");
             qb.push_bind(breed_str.to_string());
             qb.push("::animal_breed");
@@ -70,7 +65,10 @@ impl AnimalService {
     }
 
     /// 取得動物列表（支援分頁）
-    pub async fn list(pool: &PgPool, query: &AnimalQuery) -> Result<PaginatedResponse<AnimalListItem>> {
+    pub async fn list(
+        pool: &PgPool,
+        query: &AnimalQuery,
+    ) -> Result<PaginatedResponse<AnimalListItem>> {
         let paginated = query.page.is_some() || query.per_page.is_some();
         let page = query.page.unwrap_or(1).max(1);
         let per_page = query.per_page.unwrap_or(50).clamp(1, 200);
@@ -157,14 +155,23 @@ impl AnimalService {
             .await?;
 
         for animal in &mut animals {
-            animal.ear_tag = Self::format_ear_tag(&animal.ear_tag);
+            animal.ear_tag = AnimalUtils::format_ear_tag(&animal.ear_tag);
             if let Some(pen) = &animal.pen_location {
-                animal.pen_location = Some(Self::format_pen_location(pen));
+                animal.pen_location = Some(AnimalUtils::format_pen_location(pen));
             }
         }
 
-        let actual_total = if paginated { total } else { animals.len() as i64 };
-        Ok(PaginatedResponse::new(animals, actual_total, page, per_page))
+        let actual_total = if paginated {
+            total
+        } else {
+            animals.len() as i64
+        };
+        Ok(PaginatedResponse::new(
+            animals,
+            actual_total,
+            page,
+            per_page,
+        ))
     }
 
     /// 取得使用者關聯計畫的 IACUC 編號清單
@@ -205,9 +212,9 @@ impl AnimalService {
 
         // 格式化所有耳號與欄位編號
         for animal in &mut animals {
-            animal.ear_tag = Self::format_ear_tag(&animal.ear_tag);
+            animal.ear_tag = AnimalUtils::format_ear_tag(&animal.ear_tag);
             if let Some(pen) = &animal.pen_location {
-                animal.pen_location = Some(Self::format_pen_location(pen));
+                animal.pen_location = Some(AnimalUtils::format_pen_location(pen));
             }
         }
 
@@ -247,9 +254,9 @@ impl AnimalService {
             .ok_or_else(|| AppError::NotFound("Animal not found".to_string()))?;
 
         // 格式化耳號與欄位編號
-        animal.ear_tag = Self::format_ear_tag(&animal.ear_tag);
+        animal.ear_tag = AnimalUtils::format_ear_tag(&animal.ear_tag);
         if let Some(pen) = &animal.pen_location {
-            animal.pen_location = Some(Self::format_pen_location(pen));
+            animal.pen_location = Some(AnimalUtils::format_pen_location(pen));
         }
 
         Ok(animal)
@@ -324,17 +331,12 @@ impl AnimalService {
 
         // 驗證欄位必須填寫並格式化
         let pen_location = match &req.pen_location {
-            Some(s) if !s.trim().is_empty() => Some(Self::format_pen_location(s)),
+            Some(s) if !s.trim().is_empty() => Some(AnimalUtils::format_pen_location(s)),
             _ => return Err(AppError::Validation("欄位為必填".to_string())),
         };
 
         // 將 breed enum 轉換為資料庫期望的字串值
-        let breed_str = match req.breed {
-            crate::models::AnimalBreed::Minipig => "miniature",
-            crate::models::AnimalBreed::White => "white",
-            crate::models::AnimalBreed::LYD => "LYD",
-            crate::models::AnimalBreed::Other => "other",
-        };
+        let breed_str = AnimalUtils::breed_to_db_value(&req.breed);
 
         let animal = sqlx::query_as::<_, Animal>(
             r#"
@@ -385,7 +387,10 @@ impl AnimalService {
             weight: req.entry_weight,
         };
         // 忽略錯誤，避免影響動物建立
-        if let Err(e) = Self::create_weight(pool, animal.id, &weight_req, created_by).await {
+        if let Err(e) =
+            super::weight::AnimalWeightService::create(pool, animal.id, &weight_req, created_by)
+                .await
+        {
             tracing::warn!("建立初始體重紀錄失敗: {e}");
         }
 
@@ -500,11 +505,11 @@ impl AnimalService {
                 .as_ref()
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
-                .map(|s| Self::format_pen_location(&s))
+                .map(|s| AnimalUtils::format_pen_location(&s))
         } else {
             req.pen_location
                 .as_ref()
-                .map(|s| Self::format_pen_location(s))
+                .map(|s| AnimalUtils::format_pen_location(s))
         };
 
         let animal = sqlx::query_as::<_, Animal>(
@@ -628,5 +633,52 @@ impl AnimalService {
         }
 
         Ok(updated_animals)
+    }
+
+    /// 標記動物為獸醫已讀
+    pub async fn mark_vet_read(pool: &PgPool, id: Uuid) -> Result<()> {
+        sqlx::query("UPDATE animals SET vet_read_at = NOW() WHERE id = $1")
+            .bind(id)
+            .execute(pool)
+            .await?;
+
+        Ok(())
+    }
+
+    /// 取得紀錄版本歷史
+    pub async fn get_record_versions(
+        pool: &PgPool,
+        entity_type: &str,
+        entity_id: Uuid,
+    ) -> Result<crate::models::VersionHistoryResponse> {
+        let versions = sqlx::query_as::<_, crate::models::VersionDiff>(
+            r#"
+            SELECT 
+                r.id, 
+                r.version_no, 
+                r.changed_at, 
+                r.changed_by, 
+                r.snapshot, 
+                r.diff_summary,
+                u.name as changed_by_name
+            FROM record_versions r
+            LEFT JOIN users u ON r.changed_by = u.id
+            WHERE r.record_type = $1 AND r.record_id = $2 
+            ORDER BY r.version_no DESC
+            "#,
+        )
+        .bind(entity_type)
+        .bind(entity_id)
+        .fetch_all(pool)
+        .await?;
+
+        let current_version = versions.first().map(|v| v.version_no).unwrap_or(1);
+
+        Ok(crate::models::VersionHistoryResponse {
+            record_type: entity_type.to_string(),
+            record_id: entity_id,
+            current_version,
+            versions,
+        })
     }
 }

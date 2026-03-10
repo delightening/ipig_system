@@ -3,7 +3,7 @@ use sqlx::PgPool;
 use std::io::Cursor;
 use uuid::Uuid;
 
-use super::AnimalService;
+use super::{utils::AnimalUtils, AnimalMedicalService, AnimalService, AnimalWeightService};
 use crate::{
     models::{
         AnimalBreed, AnimalGender, AnimalImportRow, AnimalSource, CreateAnimalRequest,
@@ -13,7 +13,9 @@ use crate::{
     AppError, Result,
 };
 
-impl AnimalService {
+pub struct AnimalImportExportService;
+
+impl AnimalImportExportService {
     // ============================================
     // 模板生成功能
     // ============================================
@@ -223,7 +225,7 @@ impl AnimalService {
         }
 
         // 建立匯入批次記錄
-        let batch = Self::create_import_batch(
+        let batch = AnimalMedicalService::create_import_batch(
             pool,
             ImportType::AnimalBasic,
             file_name,
@@ -414,7 +416,7 @@ impl AnimalService {
                     (None, Some(n)) => Some(n.clone()),
                     (None, None) => None,
                 })
-                .map(|s| Self::format_pen_location(&s));
+                .map(|s| AnimalUtils::format_pen_location(&s));
 
             // 驗證欄位位置（必填）
             if pen_location.is_none() || pen_location.as_ref().map(|s| s.is_empty()).unwrap_or(true)
@@ -461,12 +463,13 @@ impl AnimalService {
                 force_create: true, // 匯入流程已有自己的耳號檢查邏輯
             };
 
-            match Self::create(pool, &create_req, created_by).await {
+            match AnimalService::create(pool, &create_req, created_by).await {
                 Ok(animal) => {
                     // 如果有計畫編號，更新它
                     if let Some(ref iacuc) = row.iacuc_no {
                         if !iacuc.is_empty() {
-                            if let Err(e) = Self::update(
+                            // AnimalService::update 返回 (Animal, Option<IacucChange>), 我們只關心錯誤
+                            if let Err(e) = AnimalService::update(
                                 pool,
                                 animal.id,
                                 &UpdateAnimalRequest {
@@ -501,12 +504,13 @@ impl AnimalService {
             Some(serde_json::to_value(&errors).unwrap_or(serde_json::Value::Null))
         };
 
-        let _batch = Self::update_import_batch_result(
+        let _batch = AnimalMedicalService::update_import_batch_status(
             pool,
             batch.id,
+            crate::models::ImportStatus::Completed,
             success_count,
             error_count,
-            error_details,
+            error_details.as_ref().map(|v| v.to_string()).as_deref(),
         )
         .await?;
 
@@ -548,7 +552,7 @@ impl AnimalService {
         }
 
         // 建立匯入批次記錄
-        let batch = Self::create_import_batch(
+        let batch = AnimalMedicalService::create_import_batch(
             pool,
             ImportType::AnimalWeight,
             file_name,
@@ -650,7 +654,7 @@ impl AnimalService {
                 weight: weight_decimal,
             };
 
-            match Self::create_weight(pool, animal_id, &create_req, created_by).await {
+            match AnimalWeightService::create(pool, animal_id, &create_req, created_by).await {
                 Ok(_) => {
                     success_count += 1;
                 }
@@ -672,12 +676,13 @@ impl AnimalService {
             Some(serde_json::to_value(&errors).unwrap_or(serde_json::Value::Null))
         };
 
-        let _batch = Self::update_import_batch_result(
+        let _batch = AnimalMedicalService::update_import_batch_status(
             pool,
             batch.id,
+            crate::models::ImportStatus::Completed,
             success_count,
             error_count,
-            error_details,
+            error_details.as_ref().map(|v| v.to_string()).as_deref(),
         )
         .await?;
 

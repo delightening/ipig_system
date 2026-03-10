@@ -1,13 +1,14 @@
 ﻿use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::AnimalService;
 use crate::{
-    models::{CreateAnimalSourceRequest, AnimalSource, UpdateAnimalSourceRequest},
+    models::{AnimalSource, CreateAnimalSourceRequest, UpdateAnimalSourceRequest},
     Result,
 };
 
-impl AnimalService {
+pub struct AnimalSourceService;
+
+impl AnimalSourceService {
     // ============================================
     // 動物來源管理
     // ============================================
@@ -15,7 +16,7 @@ impl AnimalService {
     /// 取得動物來源列表
     pub async fn list_sources(pool: &PgPool) -> Result<Vec<AnimalSource>> {
         let sources = sqlx::query_as::<_, AnimalSource>(
-            "SELECT * FROM animal_sources WHERE is_active = true ORDER BY sort_order"
+            "SELECT * FROM animal_sources WHERE is_active = true ORDER BY sort_order",
         )
         .fetch_all(pool)
         .await?;
@@ -24,13 +25,16 @@ impl AnimalService {
     }
 
     /// 建立動物來源
-    pub async fn create_source(pool: &PgPool, req: &CreateAnimalSourceRequest) -> Result<AnimalSource> {
+    pub async fn create_source(
+        pool: &PgPool,
+        req: &CreateAnimalSourceRequest,
+    ) -> Result<AnimalSource> {
         let source = sqlx::query_as::<_, AnimalSource>(
             r#"
             INSERT INTO animal_sources (id, code, name, address, contact, phone, is_active, sort_order, created_at, updated_at)
             VALUES ($1, $2, $3, $4, $5, $6, true, 0, NOW(), NOW())
             RETURNING *
-            "#
+            "#,
         )
         .bind(Uuid::new_v4())
         .bind(&req.code)
@@ -45,7 +49,11 @@ impl AnimalService {
     }
 
     /// 更新動物來源
-    pub async fn update_source(pool: &PgPool, id: Uuid, req: &UpdateAnimalSourceRequest) -> Result<AnimalSource> {
+    pub async fn update_source(
+        pool: &PgPool,
+        id: Uuid,
+        req: &UpdateAnimalSourceRequest,
+    ) -> Result<AnimalSource> {
         let source = sqlx::query_as::<_, AnimalSource>(
             r#"
             UPDATE animal_sources SET
@@ -58,7 +66,7 @@ impl AnimalService {
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
-            "#
+            "#,
         )
         .bind(id)
         .bind(&req.name)
@@ -75,10 +83,12 @@ impl AnimalService {
 
     /// 刪除（停用）動物來源
     pub async fn delete_source(pool: &PgPool, id: Uuid) -> Result<()> {
-        sqlx::query("UPDATE animal_sources SET is_active = false, updated_at = NOW() WHERE id = $1")
-            .bind(id)
-            .execute(pool)
-            .await?;
+        sqlx::query(
+            "UPDATE animal_sources SET is_active = false, updated_at = NOW() WHERE id = $1",
+        )
+        .bind(id)
+        .execute(pool)
+        .await?;
 
         Ok(())
     }

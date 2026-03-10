@@ -10,7 +10,7 @@ use crate::{
     middleware::CurrentUser,
     models::{AnimalSacrifice, CreateSacrificeRequest},
     require_permission,
-    services::{AnimalService, AuditService},
+    services::{AnimalMedicalService, AnimalService, AuditService},
     AppState, Result,
 };
 
@@ -25,7 +25,7 @@ pub async fn get_animal_sacrifice(
     Extension(_current_user): Extension<CurrentUser>,
     Path(animal_id): Path<Uuid>,
 ) -> Result<Json<Option<AnimalSacrifice>>> {
-    let sacrifice = AnimalService::get_sacrifice(&state.db, animal_id).await?;
+    let sacrifice = AnimalMedicalService::get_sacrifice(&state.db, animal_id).await?;
     Ok(Json(sacrifice))
 }
 
@@ -40,7 +40,7 @@ pub async fn upsert_animal_sacrifice(
     require_permission!(current_user, "animal.record.create");
 
     let sacrifice =
-        AnimalService::upsert_sacrifice(&state.db, animal_id, &req, current_user.id).await?;
+        AnimalMedicalService::upsert_sacrifice(&state.db, animal_id, &req, current_user.id).await?;
 
     // 犧牲確認時自動將動物狀態設為 euthanized
     if req.confirmed_sacrifice {
@@ -125,7 +125,7 @@ pub async fn get_animal_pathology_report(
 ) -> Result<Json<Option<crate::models::AnimalPathologyReport>>> {
     require_permission!(current_user, "animal.pathology.view");
 
-    let report = AnimalService::get_pathology_report(&state.db, animal_id).await?;
+    let report = AnimalMedicalService::get_pathology_report(&state.db, animal_id).await?;
     Ok(Json(report))
 }
 
@@ -139,7 +139,8 @@ pub async fn upsert_animal_pathology_report(
     require_permission!(current_user, "animal.pathology.upload");
 
     let report =
-        AnimalService::upsert_pathology_report(&state.db, animal_id, current_user.id).await?;
+        AnimalMedicalService::upsert_pathology_report(&state.db, animal_id, current_user.id)
+            .await?;
 
     // 取得動物資訊用於日誌顯示
     let path_display = match AnimalService::get_by_id(&state.db, animal_id).await {
