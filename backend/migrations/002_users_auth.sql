@@ -8,6 +8,7 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     display_name VARCHAR(100) NOT NULL,
     phone VARCHAR(20),
+    phone_ext VARCHAR(20),
     organization VARCHAR(200),
     is_internal BOOLEAN NOT NULL DEFAULT true,
     is_active BOOLEAN NOT NULL DEFAULT true,

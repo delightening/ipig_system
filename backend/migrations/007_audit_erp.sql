@@ -267,6 +267,7 @@ CREATE TABLE partners (
     customer_category customer_category,
     tax_id VARCHAR(50),
     phone VARCHAR(50),
+    phone_ext VARCHAR(20),
     email VARCHAR(255),
     address TEXT,
     payment_terms VARCHAR(100),

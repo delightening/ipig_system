@@ -9,6 +9,7 @@ CREATE TABLE animal_sources (
     address TEXT,
     contact VARCHAR(100),
     phone VARCHAR(20),
+    phone_ext VARCHAR(20),
     is_active BOOLEAN NOT NULL DEFAULT true,
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
