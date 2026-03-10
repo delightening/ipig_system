@@ -39,6 +39,15 @@ pub const DEFAULT_TIMEZONE: &str = "Asia/Taipei";
 /// UTC+8 偏移秒數（台灣時區）
 pub const TAIWAN_OFFSET_SECS: i32 = 8 * 3600;
 
+/// Calendar conflict resolution strategies
+pub const CONFLICT_KEEP_IPIG: &str = "keep_ipig";
+pub const CONFLICT_ACCEPT_GOOGLE: &str = "accept_google";
+pub const CONFLICT_DISMISS: &str = "dismiss";
+pub const CONFLICT_STATUS_RESOLVED_KEEP: &str = "resolved_keep_ipig";
+pub const CONFLICT_STATUS_RESOLVED_ACCEPT: &str = "resolved_accept_google";
+pub const CONFLICT_STATUS_DISMISSED: &str = "dismissed";
+pub const CONFLICT_STATUS_RESOLVED: &str = "resolved";
+
 /// Scheduler cron expressions
 pub const CRON_DAILY_3AM: &str = "0 0 3 * * *";
 pub const CRON_DAILY_330AM: &str = "0 30 3 * * *";
@@ -51,6 +60,7 @@ pub const MAX_SESSIONS_PER_USER: i64 = 5;
 
 /// Password policy
 pub const PASSWORD_MIN_LENGTH: usize = 8;
+pub const DEFAULT_INSECURE_PASSWORD: &str = "ChangeMe123!";
 
 /// Audit
 pub const AUDIT_LOG_MAX_EXPORT: i64 = 10000;

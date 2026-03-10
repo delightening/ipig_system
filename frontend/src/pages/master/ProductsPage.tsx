@@ -66,6 +66,7 @@ import { EditCategoriesDialog } from '@/components/product/EditCategoriesDialog'
 import { useSkuCategories } from '@/hooks/useSkuCategories'
 import { useAuthStore } from '@/stores/auth'
 import type { CategoryOption } from './hooks/useProductListState'
+import type { PaginatedResponse } from '@/types/common'
 
 // 產品狀態
 const STATUS_OPTIONS = [
@@ -91,14 +92,6 @@ interface ExtendedProduct extends Product {
   subcategory_name?: string
   status?: 'active' | 'inactive' | 'discontinued'
   storage_condition?: string
-}
-
-interface PaginatedResponse<T> {
-  data: T[]
-  total: number
-  page: number
-  per_page: number
-  total_pages: number
 }
 
 export function ProductsPage() {

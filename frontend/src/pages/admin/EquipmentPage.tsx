@@ -45,6 +45,7 @@ import { Plus, Pencil, Trash2, Loader2, Wrench, Ruler, Search, AlertTriangle, Pa
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 import { useAuthStore } from '@/stores/auth'
+import type { PaginatedResponse } from '@/types/common'
 
 interface Equipment {
   id: string
@@ -65,14 +66,6 @@ interface CalibrationWithEquipment {
   result: string | null
   notes: string | null
   created_at: string
-}
-
-interface PaginatedResponse<T> {
-  data: T[]
-  total: number
-  page: number
-  per_page: number
-  total_pages: number
 }
 
 export function EquipmentPage() {

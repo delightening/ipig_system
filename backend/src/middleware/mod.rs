@@ -1,5 +1,3 @@
-#[allow(dead_code)]
-mod activity_logger;
 mod auth;
 pub mod csrf;
 pub mod etag;

@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 mod user;
 mod role;
 mod warehouse;

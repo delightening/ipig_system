@@ -11,6 +11,17 @@ use crate::{
     AppError, Result,
 };
 
+/// 庫存流水記錄所需參數
+struct LedgerEntryParams<'a> {
+    warehouse_id: Uuid,
+    product_id: Uuid,
+    document: &'a Document,
+    line: &'a DocumentLine,
+    direction: StockDirection,
+    qty: Decimal,
+    unit_price: Option<Decimal>,
+}
+
 pub struct StockService;
 
 impl StockService {
@@ -28,17 +39,15 @@ impl StockService {
                         AppError::BusinessRule("Warehouse is required for GRN".to_string())
                     })?;
 
-                    Self::create_ledger_entry(
-                        tx,
+                    Self::create_ledger_entry(tx, LedgerEntryParams {
                         warehouse_id,
-                        line.product_id,
+                        product_id: line.product_id,
                         document,
                         line,
-                        StockDirection::In,
-                        line.qty,
-                        line.unit_price,
-                    )
-                    .await?;
+                        direction: StockDirection::In,
+                        qty: line.qty,
+                        unit_price: line.unit_price,
+                    }).await?;
 
                     // 如果有指定儲位，同時更新儲位庫存
                     if let Some(storage_location_id) = line.storage_location_id {
@@ -63,17 +72,15 @@ impl StockService {
                     Self::check_stock_available(tx, warehouse_id, line.product_id, line.qty)
                         .await?;
 
-                    Self::create_ledger_entry(
-                        tx,
+                    Self::create_ledger_entry(tx, LedgerEntryParams {
                         warehouse_id,
-                        line.product_id,
+                        product_id: line.product_id,
                         document,
                         line,
-                        StockDirection::Out,
-                        line.qty,
-                        line.unit_price,
-                    )
-                    .await?;
+                        direction: StockDirection::Out,
+                        qty: line.qty,
+                        unit_price: line.unit_price,
+                    }).await?;
                 }
                 DocType::DO => {
                     // 銷貨出庫：減少庫存
@@ -85,17 +92,15 @@ impl StockService {
                     Self::check_stock_available(tx, warehouse_id, line.product_id, line.qty)
                         .await?;
 
-                    Self::create_ledger_entry(
-                        tx,
+                    Self::create_ledger_entry(tx, LedgerEntryParams {
                         warehouse_id,
-                        line.product_id,
+                        product_id: line.product_id,
                         document,
                         line,
-                        StockDirection::Out,
-                        line.qty,
-                        line.unit_price,
-                    )
-                    .await?;
+                        direction: StockDirection::Out,
+                        qty: line.qty,
+                        unit_price: line.unit_price,
+                    }).await?;
                 }
                 DocType::TR => {
                     // 調撥：從來源倉減少，目標倉增加
@@ -115,30 +120,26 @@ impl StockService {
                         .await?;
 
                     // 從來源倉扣減
-                    Self::create_ledger_entry(
-                        tx,
-                        from_warehouse,
-                        line.product_id,
+                    Self::create_ledger_entry(tx, LedgerEntryParams {
+                        warehouse_id: from_warehouse,
+                        product_id: line.product_id,
                         document,
                         line,
-                        StockDirection::TransferOut,
-                        line.qty,
-                        None,
-                    )
-                    .await?;
+                        direction: StockDirection::TransferOut,
+                        qty: line.qty,
+                        unit_price: None,
+                    }).await?;
 
                     // 增加到目標倉
-                    Self::create_ledger_entry(
-                        tx,
-                        to_warehouse,
-                        line.product_id,
+                    Self::create_ledger_entry(tx, LedgerEntryParams {
+                        warehouse_id: to_warehouse,
+                        product_id: line.product_id,
                         document,
                         line,
-                        StockDirection::TransferIn,
-                        line.qty,
-                        None,
-                    )
-                    .await?;
+                        direction: StockDirection::TransferIn,
+                        qty: line.qty,
+                        unit_price: None,
+                    }).await?;
                 }
                 DocType::ADJ => {
                     // 調整：正數增加，負數減少
@@ -147,33 +148,29 @@ impl StockService {
                     })?;
 
                     if line.qty > Decimal::ZERO {
-                        Self::create_ledger_entry(
-                            tx,
+                        Self::create_ledger_entry(tx, LedgerEntryParams {
                             warehouse_id,
-                            line.product_id,
+                            product_id: line.product_id,
                             document,
                             line,
-                            StockDirection::AdjustIn,
-                            line.qty,
-                            line.unit_price,
-                        )
-                        .await?;
+                            direction: StockDirection::AdjustIn,
+                            qty: line.qty,
+                            unit_price: line.unit_price,
+                        }).await?;
                     } else {
                         // 檢查庫存
                         Self::check_stock_available(tx, warehouse_id, line.product_id, -line.qty)
                             .await?;
 
-                        Self::create_ledger_entry(
-                            tx,
+                        Self::create_ledger_entry(tx, LedgerEntryParams {
                             warehouse_id,
-                            line.product_id,
+                            product_id: line.product_id,
                             document,
                             line,
-                            StockDirection::AdjustOut,
-                            -line.qty,
-                            line.unit_price,
-                        )
-                        .await?;
+                            direction: StockDirection::AdjustOut,
+                            qty: -line.qty,
+                            unit_price: line.unit_price,
+                        }).await?;
                     }
                 }
                 _ => {
@@ -188,13 +185,7 @@ impl StockService {
     /// 建立庫存流水記錄
     async fn create_ledger_entry(
         tx: &mut Transaction<'_, Postgres>,
-        warehouse_id: Uuid,
-        product_id: Uuid,
-        document: &Document,
-        line: &DocumentLine,
-        direction: StockDirection,
-        qty: Decimal,
-        unit_price: Option<Decimal>,
+        params: LedgerEntryParams<'_>,
     ) -> Result<()> {
         sqlx::query(
             r#"
@@ -206,18 +197,18 @@ impl StockService {
             "#,
         )
         .bind(Uuid::new_v4())
-        .bind(warehouse_id)
-        .bind(product_id)
+        .bind(params.warehouse_id)
+        .bind(params.product_id)
         .bind(Utc::now())
-        .bind(document.doc_type)
-        .bind(document.id)
-        .bind(&document.doc_no)
-        .bind(line.id)
-        .bind(direction)
-        .bind(qty)
-        .bind(unit_price)
-        .bind(&line.batch_no)
-        .bind(line.expiry_date)
+        .bind(params.document.doc_type)
+        .bind(params.document.id)
+        .bind(&params.document.doc_no)
+        .bind(params.line.id)
+        .bind(params.direction)
+        .bind(params.qty)
+        .bind(params.unit_price)
+        .bind(&params.line.batch_no)
+        .bind(params.line.expiry_date)
         .execute(&mut **tx)
         .await?;
 

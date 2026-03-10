@@ -4,17 +4,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { UserCheck, Clock, Loader2, UserX } from 'lucide-react'
 import api from '@/lib/api'
+import type { PaginatedResponse } from '@/types/common'
 
 interface AttendanceWithUser {
     user_name: string
     clock_in_time: string | null
     clock_out_time: string | null
     status: string
-}
-
-interface PaginatedResponse<T> {
-    data: T[]
-    total: number
 }
 
 export function StaffAttendanceWidget() {

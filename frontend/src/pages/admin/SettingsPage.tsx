@@ -43,28 +43,7 @@ import { useAuthStore } from '@/stores/auth'
 import { getErrorMessage } from '@/types/error'
 import { NotificationRoutingSection } from '@/components/admin/NotificationRoutingSection'
 import type { Warehouse } from '@/types/erp'
-
-interface NotificationSettings {
-  user_id: string
-  email_low_stock: boolean
-  email_expiry_warning: boolean
-  email_document_approval: boolean
-  email_protocol_status: boolean
-  email_monthly_report: boolean
-  expiry_warning_days: number
-  low_stock_notify_immediately: boolean
-  updated_at: string
-}
-
-interface UpdateNotificationSettingsRequest {
-  email_low_stock?: boolean
-  email_expiry_warning?: boolean
-  email_document_approval?: boolean
-  email_protocol_status?: boolean
-  email_monthly_report?: boolean
-  expiry_warning_days?: number
-  low_stock_notify_immediately?: boolean
-}
+import type { NotificationSettings, UpdateNotificationSettingsRequest } from '@/types/notification'
 
 type SystemSettings = Record<string, string>
 

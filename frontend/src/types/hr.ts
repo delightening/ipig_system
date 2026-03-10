@@ -91,6 +91,13 @@ export interface AuditDashboardStats {
 // HR Types
 // ============================================
 
+/** 工作人員簡易資訊（從 /hr/staff API 返回） */
+export interface StaffInfo {
+    id: string;
+    display_name: string;
+    email: string;
+}
+
 export interface AttendanceWithUser {
     id: string;
     user_id: string;

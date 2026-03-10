@@ -31,15 +31,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2, History, Search, Eye, FileJson, ChevronLeft, ChevronRight, Download, FileText } from 'lucide-react'
 import type { User } from '@/types/auth'
 import type { UserActivityLog } from '@/types/hr'
+import { formatDateTime } from '@/lib/utils'
 import { logger } from '@/lib/logger'
-
-interface PaginatedResponse<T> {
-  data: T[]
-  total: number
-  page: number
-  per_page: number
-  total_pages: number
-}
+import type { PaginatedResponse } from '@/types/common'
 
 // 事件類別對應中文
 const categoryLabels: Record<string, string> = {
@@ -377,10 +371,6 @@ export function AuditLogsPage() {
   }
 
   const totalPages = activityLogs ? Math.ceil(activityLogs.total / perPage) : 0
-
-  const formatDateTime = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
-  }
 
   const formatDateTimeDisplay = (dateStr: string) => {
     const d = new Date(dateStr)

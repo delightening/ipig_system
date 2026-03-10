@@ -57,6 +57,7 @@ import {
 } from 'lucide-react'
 import { format, addDays, isBefore, isAfter } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
+import type { PaginatedResponse } from '@/types/common'
 
 interface TrainingRecordWithUser {
   id: string
@@ -68,14 +69,6 @@ interface TrainingRecordWithUser {
   expires_at: string | null
   notes: string | null
   created_at: string
-}
-
-interface PaginatedResponse<T> {
-  data: T[]
-  total: number
-  page: number
-  per_page: number
-  total_pages: number
 }
 
 interface User {

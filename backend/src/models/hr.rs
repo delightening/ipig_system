@@ -226,6 +226,20 @@ pub enum LeaveStatus {
 }
 
 impl LeaveStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            LeaveStatus::Draft => "DRAFT",
+            LeaveStatus::PendingL1 => "PENDING_L1",
+            LeaveStatus::PendingL2 => "PENDING_L2",
+            LeaveStatus::PendingHr => "PENDING_HR",
+            LeaveStatus::PendingGm => "PENDING_GM",
+            LeaveStatus::Approved => "APPROVED",
+            LeaveStatus::Rejected => "REJECTED",
+            LeaveStatus::Cancelled => "CANCELLED",
+            LeaveStatus::Revoked => "REVOKED",
+        }
+    }
+
     pub fn display_name(&self) -> &'static str {
         match self {
             LeaveStatus::Draft => "草稿",
