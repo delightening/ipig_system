@@ -37,10 +37,8 @@ pub struct ReauthClaims {
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct CurrentUser {
     pub id: Uuid,
-    #[allow(dead_code)]
     pub email: String,
     pub roles: Vec<String>,
     pub permissions: Vec<String>,
@@ -69,7 +67,6 @@ impl CurrentUser {
         false
     }
 
-    #[allow(dead_code)]
     pub fn has_role(&self, role: &str) -> bool {
         self.roles.contains(&role.to_string())
     }

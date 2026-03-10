@@ -14,8 +14,8 @@ use crate::{
 /// 輔助結構：查詢動物關聯 PI 資訊
 #[derive(FromRow)]
 struct AnimalPiRecord {
-    #[allow(dead_code)]
-    id: Uuid,
+    #[sqlx(rename = "id")]
+    _id: Uuid,
     ear_tag: String,
     iacuc_no: Option<String>,
     pi_user_id: Option<Uuid>,

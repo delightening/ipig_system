@@ -9,14 +9,7 @@ import { useAuthStore } from '@/stores/auth'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 import type { CalendarSyncHistory, CalendarSyncStatus, ConflictWithDetails, CalendarConfig, UpdateCalendarConfig } from '@/types/hr'
-
-interface PaginatedResponse<T> {
-    data: T[]
-    total: number
-    page: number
-    per_page: number
-    total_pages: number
-}
+import type { PaginatedResponse } from '@/types/common'
 
 /**
  * 日曆同步狀態、連接、手動同步、歷史、衝突等操作

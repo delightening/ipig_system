@@ -13,30 +13,14 @@ import {
     TableRow,
 } from '@/components/ui/table'
 import type { CalendarSyncHistory } from '@/types/hr'
-
-interface PaginatedResponse<T> {
-    data: T[]
-    total: number
-    total_pages: number
-}
+import type { PaginatedResponse } from '@/types/common'
+import { formatDateTime } from '@/lib/utils'
 
 interface SyncHistoryTabProps {
     syncHistory: PaginatedResponse<CalendarSyncHistory> | undefined
     loadingHistory: boolean
     currentPage: number
     onPageChange: (page: number) => void
-}
-
-/** 格式化日期時間（台北時區） */
-function formatDateTime(dateStr: string) {
-    return new Date(dateStr).toLocaleString('zh-TW', {
-        timeZone: 'Asia/Taipei',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-    })
 }
 
 /** 狀態標籤 */

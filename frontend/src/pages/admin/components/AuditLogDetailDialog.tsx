@@ -1,5 +1,3 @@
-import { format } from 'date-fns'
-import { zhTW } from 'date-fns/locale'
 import { Eye } from 'lucide-react'
 import {
   Dialog,
@@ -9,6 +7,7 @@ import {
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
+import { formatDateTime } from '@/lib/utils'
 
 interface AuditLog {
   id: string
@@ -30,9 +29,6 @@ interface AuditLogDetailDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
-
-const formatDateTime = (dateStr: string) =>
-  format(new Date(dateStr), 'yyyy/MM/dd HH:mm', { locale: zhTW })
 
 export function AuditLogDetailDialog({ log, open, onOpenChange }: AuditLogDetailDialogProps) {
   return (

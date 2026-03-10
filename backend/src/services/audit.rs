@@ -601,17 +601,6 @@ impl AuditService {
         Ok(PaginatedResponse::new(data, total.0, page, per_page))
     }
 
-    /// 取得指定安全警報
-    pub async fn get_security_alert(pool: &PgPool, id: Uuid) -> Result<SecurityAlert> {
-        let alert =
-            sqlx::query_as::<_, SecurityAlert>("SELECT * FROM security_alerts WHERE id = $1")
-                .bind(id)
-                .fetch_one(pool)
-                .await?;
-
-        Ok(alert)
-    }
-
     /// 解決安全警報
     pub async fn resolve_alert(
         pool: &PgPool,

@@ -84,8 +84,8 @@ struct ServiceAccountKey {
 #[derive(Debug, Deserialize)]
 struct TokenResponse {
     access_token: String,
-    #[allow(dead_code)]
-    expires_in: i64,
+    #[serde(rename = "expires_in", default)]
+    _expires_in: i64,
 }
 
 /// Google Calendar Events List Response
@@ -93,8 +93,8 @@ struct TokenResponse {
 struct EventsListResponse {
     items: Option<Vec<GoogleEvent>>,
     #[serde(rename = "nextPageToken")]
-    #[allow(dead_code)]
-    next_page_token: Option<String>,
+    _next_page_token: Option<String>,
+
 }
 
 /// Google Calendar Event (用於讀取)
@@ -110,8 +110,7 @@ struct GoogleEvent {
     color_id: Option<String>,
     #[serde(rename = "htmlLink")]
     html_link: Option<String>,
-    #[allow(dead_code)]
-    etag: Option<String>,
+    _etag: Option<String>,
 }
 
 /// Google Calendar Event Time (用於讀取/寫入)

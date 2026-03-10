@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import type { CalendarSyncStatus, CalendarConfig, UpdateCalendarConfig } from '@/types/hr'
+import { formatDateTime } from '@/lib/utils'
 
 interface CalendarStatusTabProps {
     syncStatus: CalendarSyncStatus | undefined
@@ -30,18 +31,6 @@ interface CalendarStatusTabProps {
     loadingConfig: boolean
     onUpdateConfig: (data: UpdateCalendarConfig) => void
     updateConfigPending: boolean
-}
-
-/** 格式化日期時間（台北時區） */
-function formatDateTime(dateStr: string) {
-    return new Date(dateStr).toLocaleString('zh-TW', {
-        timeZone: 'Asia/Taipei',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-    })
 }
 
 /** 最後同步狀態標籤 */

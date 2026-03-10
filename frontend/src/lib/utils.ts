@@ -116,3 +116,14 @@ export const UOM_MAP: Record<string, string> = {
 export function formatUom(uom: string): string {
   return UOM_MAP[uom] || uom
 }
+
+export function parseDecimal(value: string | number | null | undefined): number {
+  if (value == null) return 0
+  const num = typeof value === 'string' ? parseFloat(value) : value
+  return isNaN(num) ? 0 : num
+}
+
+export function formatTime(dateStr: string | null): string {
+  if (!dateStr) return '-'
+  return new Date(dateStr).toLocaleTimeString('zh-TW', { timeZone: TAIWAN_TIMEZONE, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+}

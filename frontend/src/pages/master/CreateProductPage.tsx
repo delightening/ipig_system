@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useSteps } from '@/hooks/useSteps'
 import { useSkuCategories } from '@/hooks/useSkuCategories'
 import { useNavigate } from 'react-router-dom'
@@ -28,6 +28,7 @@ import {
 import { cn } from '@/lib/utils'
 import { logger } from '@/lib/logger'
 import { getApiErrorMessage } from '@/lib/validation'
+import { useDebounce } from '@/hooks/useDebounce'
 
 // 步驟定義
 const STEPS: Step[] = [
@@ -126,21 +127,6 @@ const UNITS = {
     { code: 'RL', name: '卷' },
     { code: 'SET', name: '組' },
   ],
-}
-
-// 防抖 Hook
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value)
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value)
-    }, delay)
-
-    return () => clearTimeout(handler)
-  }, [value, delay])
-
-  return debouncedValue
 }
 
 interface ProductFormData {
