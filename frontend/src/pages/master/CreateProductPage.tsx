@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useSteps } from '@/hooks/useSteps'
 import { useSkuCategories } from '@/hooks/useSkuCategories'
 import { useNavigate } from 'react-router-dom'
@@ -129,10 +129,10 @@ export function CreateProductPage() {
 
     // 檢查必要欄位
     const requiresSubcategory = formData.category ? hasSubcategories(formData.category) : false
-    if (!formData.category || 
-        (requiresSubcategory && !formData.subcategory) || 
-        !formData.baseUnit || 
-        !formData.name) {
+    if (!formData.category ||
+      (requiresSubcategory && !formData.subcategory) ||
+      !formData.baseUnit ||
+      !formData.name) {
       setSkuStatus('S0')
       setPreviewResult(null)
       return
@@ -287,14 +287,14 @@ export function CreateProductPage() {
       // 根據包裝層數確定消耗單位和包裝單位
       // 兩層：消耗每內層，baseUnit = innerUnit
       // 三層：消耗每基礎單位，baseUnit 是基礎單位
-      const consumptionUnit = formData.packagingLayers === 2 
+      const consumptionUnit = formData.packagingLayers === 2
         ? (formData.innerUnit || formData.baseUnit || 'EA')
         : (formData.baseUnit || 'EA')
-      
+
       const packUnit = formData.packagingLayers === 2
         ? (formData.outerUnit || formData.innerUnit || consumptionUnit)  // 兩層：外層或內層作為包裝單位
         : (formData.innerUnit || formData.baseUnit || consumptionUnit)  // 三層：內層作為包裝單位
-      
+
       const packQty = formData.packagingLayers === 2
         ? (formData.outerUnit ? formData.innerQty : 1)  // 兩層：1外層 = n內層
         : (formData.innerQty * formData.baseQty)  // 三層：1內層 = n基礎單位
@@ -302,7 +302,7 @@ export function CreateProductPage() {
       const subcategoryCode = hasSubcategories(formData.category)
         ? formData.subcategory
         : formData.category
-      
+
       const response = await api.post('/products', {
         name: formData.name || formData.rawInput.split(' ')[0],
         spec: formData.spec,
@@ -629,9 +629,9 @@ export function CreateProductPage() {
                             type="button"
                             onClick={() => {
                               // 切換到兩層時，清除外層單位和基礎單位，內層成為消耗單位
-                              setFormData(prev => ({ 
-                                ...prev, 
-                                packagingLayers: 2, 
+                              setFormData(prev => ({
+                                ...prev,
+                                packagingLayers: 2,
                                 outerUnit: '',
                                 baseUnit: prev.innerUnit || prev.baseUnit, // 內層成為基礎單位
                                 baseQty: 1
@@ -672,92 +672,92 @@ export function CreateProductPage() {
                             <Label className="text-sm font-medium">外層包裝</Label>
                             <div className="flex items-center gap-3">
                               <div className="flex flex-wrap gap-2 flex-1">
-                            {UNITS.outer.map((unit) => (
-                              <button
-                                key={unit.code}
-                                type="button"
-                                onClick={() => {
-                                  setIsOuterCustom(false);
-                                  setFormData(prev => ({
-                                    ...prev,
-                                    outerUnit: prev.outerUnit === unit.name ? '' : unit.name
-                                  }));
-                                }}
-                                disabled={isCreated}
-                                className={cn(
-                                  "flex flex-col items-center justify-center w-16 h-14 rounded-lg border-2 transition-all",
-                                  formData.outerUnit === unit.name && !isOuterCustom
-                                    ? "border-primary bg-primary/10"
-                                    : "border-slate-200 dark:border-slate-700 hover:border-primary/50"
-                                )}
-                              >
-                                <span className="font-mono font-semibold text-sm">{unit.code}</span>
-                                <span className="text-xs text-slate-500">{unit.name}</span>
-                              </button>
-                            ))}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsOuterCustom(true);
-                                setFormData(prev => ({ ...prev, outerUnit: customOuter }));
-                              }}
-                              disabled={isCreated}
-                              className={cn(
-                                "flex flex-col items-center justify-center w-16 h-14 rounded-lg border-2 border-dashed transition-all",
-                                isOuterCustom
-                                  ? "border-primary bg-primary/10"
-                                  : "border-slate-300 dark:border-slate-600 hover:border-primary/50"
+                                {UNITS.outer.map((unit) => (
+                                  <button
+                                    key={unit.code}
+                                    type="button"
+                                    onClick={() => {
+                                      setIsOuterCustom(false);
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        outerUnit: prev.outerUnit === unit.name ? '' : unit.name
+                                      }));
+                                    }}
+                                    disabled={isCreated}
+                                    className={cn(
+                                      "flex flex-col items-center justify-center w-16 h-14 rounded-lg border-2 transition-all",
+                                      formData.outerUnit === unit.name && !isOuterCustom
+                                        ? "border-primary bg-primary/10"
+                                        : "border-slate-200 dark:border-slate-700 hover:border-primary/50"
+                                    )}
+                                  >
+                                    <span className="font-mono font-semibold text-sm">{unit.code}</span>
+                                    <span className="text-xs text-slate-500">{unit.name}</span>
+                                  </button>
+                                ))}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsOuterCustom(true);
+                                    setFormData(prev => ({ ...prev, outerUnit: customOuter }));
+                                  }}
+                                  disabled={isCreated}
+                                  className={cn(
+                                    "flex flex-col items-center justify-center w-16 h-14 rounded-lg border-2 border-dashed transition-all",
+                                    isOuterCustom
+                                      ? "border-primary bg-primary/10"
+                                      : "border-slate-300 dark:border-slate-600 hover:border-primary/50"
+                                  )}
+                                >
+                                  <Plus className="w-5 h-5 text-slate-400" />
+                                  <span className="text-[10px] text-slate-500 mt-1">自填量詞</span>
+                                </button>
+                              </div>
+                              {isOuterCustom && (
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    placeholder="輸入量詞"
+                                    value={customOuter}
+                                    onChange={(e) => {
+                                      setCustomOuter(e.target.value);
+                                      setFormData(prev => ({ ...prev, outerUnit: e.target.value }));
+                                    }}
+                                    className="w-24"
+                                    disabled={isCreated}
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => {
+                                      setIsOuterCustom(false);
+                                      setCustomOuter('');
+                                      if (formData.outerUnit === customOuter) {
+                                        setFormData(prev => ({ ...prev, outerUnit: '' }));
+                                      }
+                                    }}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               )}
-                            >
-                              <Plus className="w-5 h-5 text-slate-400" />
-                              <span className="text-[10px] text-slate-500 mt-1">自填量詞</span>
-                            </button>
+                              {formData.outerUnit && (
+                                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 whitespace-nowrap ml-auto">
+                                  <span className="text-sm text-slate-500">1</span>
+                                  <span className="text-sm text-slate-700 dark:text-slate-200">{formData.outerUnit}</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          {isOuterCustom && (
-                            <div className="flex items-center gap-2">
-                              <Input
-                                placeholder="輸入量詞"
-                                value={customOuter}
-                                onChange={(e) => {
-                                  setCustomOuter(e.target.value);
-                                  setFormData(prev => ({ ...prev, outerUnit: e.target.value }));
-                                }}
-                                className="w-24"
-                                disabled={isCreated}
-                              />
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => {
-                                  setIsOuterCustom(false);
-                                  setCustomOuter('');
-                                  if (formData.outerUnit === customOuter) {
-                                    setFormData(prev => ({ ...prev, outerUnit: '' }));
-                                  }
-                                }}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          )}
-                          {formData.outerUnit && (
-                            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 whitespace-nowrap ml-auto">
-                              <span className="text-sm text-slate-500">1</span>
-                              <span className="text-sm text-slate-700 dark:text-slate-200">{formData.outerUnit}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
 
                           {/* 內層包裝 */}
                           <div className="space-y-3">
-                        <Label className="text-sm font-medium">
-                          內層包裝
-                          {formData.packagingLayers === 2 && (
-                            <span className="text-xs text-slate-400 ml-2">（消耗單位）</span>
-                          )}
-                        </Label>
+                            <Label className="text-sm font-medium">
+                              內層包裝
+                              {formData.packagingLayers === 2 && (
+                                <span className="text-xs text-slate-400 ml-2">（消耗單位）</span>
+                              )}
+                            </Label>
                             <div className="flex items-center gap-3">
                               <div className="flex flex-wrap gap-2 flex-1">
                                 {UNITS.inner.map((unit) => (
@@ -867,113 +867,113 @@ export function CreateProductPage() {
                             </Label>
                             <div className="flex items-center gap-3">
                               <div className="flex flex-wrap gap-2 flex-1">
-                              {/* 自動填充：優先顯示已選擇的包裝單位 */}
-                              {(() => {
-                                // 收集已選擇的包裝單位
-                                const selectedUnits = [
-                                  formData.outerUnit,
-                                  formData.innerUnit,
-                                ].filter(Boolean).map(u => {
-                                  const found = [...UNITS.outer, ...UNITS.inner, ...UNITS.base].find(
-                                    unit => unit.name === u || unit.code === u
+                                {/* 自動填充：優先顯示已選擇的包裝單位 */}
+                                {(() => {
+                                  // 收集已選擇的包裝單位
+                                  const selectedUnits = [
+                                    formData.outerUnit,
+                                    formData.innerUnit,
+                                  ].filter(Boolean).map(u => {
+                                    const found = [...UNITS.outer, ...UNITS.inner, ...UNITS.base].find(
+                                      unit => unit.name === u || unit.code === u
+                                    )
+                                    return found ? { code: found.code, name: found.name } : null
+                                  }).filter(Boolean) as Array<{ code: string; name: string }>
+
+                                  // 去重並保持順序
+                                  const uniqueSelectedUnits = Array.from(
+                                    new Map(selectedUnits.map(u => [u.code, u])).values()
                                   )
-                                  return found ? { code: found.code, name: found.name } : null
-                                }).filter(Boolean) as Array<{ code: string; name: string }>
 
-                                // 去重並保持順序
-                                const uniqueSelectedUnits = Array.from(
-                                  new Map(selectedUnits.map(u => [u.code, u])).values()
-                                )
+                                  // 合併：先顯示已選擇的單位，再顯示其他基礎單位
+                                  const otherBaseUnits = UNITS.base.filter(
+                                    u => !uniqueSelectedUnits.some(su => su.code === u.code)
+                                  )
+                                  const displayUnits = [...uniqueSelectedUnits, ...otherBaseUnits]
 
-                                // 合併：先顯示已選擇的單位，再顯示其他基礎單位
-                                const otherBaseUnits = UNITS.base.filter(
-                                  u => !uniqueSelectedUnits.some(su => su.code === u.code)
-                                )
-                                const displayUnits = [...uniqueSelectedUnits, ...otherBaseUnits]
-
-                                return displayUnits.map((unit) => (
-                                  <button
-                                    key={unit.code}
-                                    type="button"
-                                    onClick={() => {
-                                      setIsBaseCustom(false);
-                                      setFormData(prev => ({
-                                        ...prev,
-                                        baseUnit: unit.name,
-                                        safetyStockUnit: unit.name,
-                                        currentStockUnit: unit.name,
-                                        reorderPointUnit: unit.name
-                                      }))
-                                    }}
-                                    disabled={isCreated}
-                                    className={cn(
-                                      "relative flex flex-col items-center justify-center w-16 h-14 rounded-lg border-2 transition-all",
-                                      formData.baseUnit === unit.name && !isBaseCustom
-                                        ? "border-primary bg-primary/10"
-                                        : "border-slate-200 dark:border-slate-700 hover:border-primary/50",
-                                      uniqueSelectedUnits.some(su => su.code === unit.code) && "ring-2 ring-blue-300 dark:ring-blue-700"
-                                    )}
-                                  >
-                                    <span className="font-mono font-semibold text-sm">{unit.code}</span>
-                                    <span className="text-xs text-slate-500">{unit.name}</span>
-                                    {uniqueSelectedUnits.some(su => su.code === unit.code) && (
-                                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-white dark:border-slate-800"></span>
-                                    )}
-                                  </button>
-                                ))
-                              })()}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setIsBaseCustom(true);
-                                  setFormData(prev => ({ ...prev, baseUnit: customBase, safetyStockUnit: customBase, currentStockUnit: customBase, reorderPointUnit: customBase }));
-                                }}
-                                disabled={isCreated}
-                                className={cn(
-                                  "flex flex-col items-center justify-center w-16 h-14 rounded-lg border-2 border-dashed transition-all",
-                                  isBaseCustom
-                                    ? "border-primary bg-primary/10"
-                                    : "border-slate-300 dark:border-slate-600 hover:border-primary/50"
-                                )}
-                              >
-                                <Plus className="w-5 h-5 text-slate-400" />
-                                <span className="text-[10px] text-slate-500 mt-1">自填量詞</span>
-                              </button>
-                            </div>
-                            {isBaseCustom && (
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  placeholder="輸入量詞"
-                                  value={customBase}
-                                  onChange={(e) => {
-                                    setCustomBase(e.target.value);
-                                    setFormData(prev => ({ ...prev, baseUnit: e.target.value, safetyStockUnit: e.target.value, currentStockUnit: e.target.value, reorderPointUnit: e.target.value }));
+                                  return displayUnits.map((unit) => (
+                                    <button
+                                      key={unit.code}
+                                      type="button"
+                                      onClick={() => {
+                                        setIsBaseCustom(false);
+                                        setFormData(prev => ({
+                                          ...prev,
+                                          baseUnit: unit.name,
+                                          safetyStockUnit: unit.name,
+                                          currentStockUnit: unit.name,
+                                          reorderPointUnit: unit.name
+                                        }))
+                                      }}
+                                      disabled={isCreated}
+                                      className={cn(
+                                        "relative flex flex-col items-center justify-center w-16 h-14 rounded-lg border-2 transition-all",
+                                        formData.baseUnit === unit.name && !isBaseCustom
+                                          ? "border-primary bg-primary/10"
+                                          : "border-slate-200 dark:border-slate-700 hover:border-primary/50",
+                                        uniqueSelectedUnits.some(su => su.code === unit.code) && "ring-2 ring-blue-300 dark:ring-blue-700"
+                                      )}
+                                    >
+                                      <span className="font-mono font-semibold text-sm">{unit.code}</span>
+                                      <span className="text-xs text-slate-500">{unit.name}</span>
+                                      {uniqueSelectedUnits.some(su => su.code === unit.code) && (
+                                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-white dark:border-slate-800"></span>
+                                      )}
+                                    </button>
+                                  ))
+                                })()}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsBaseCustom(true);
+                                    setFormData(prev => ({ ...prev, baseUnit: customBase, safetyStockUnit: customBase, currentStockUnit: customBase, reorderPointUnit: customBase }));
                                   }}
-                                  className="w-24"
                                   disabled={isCreated}
-                                />
+                                  className={cn(
+                                    "flex flex-col items-center justify-center w-16 h-14 rounded-lg border-2 border-dashed transition-all",
+                                    isBaseCustom
+                                      ? "border-primary bg-primary/10"
+                                      : "border-slate-300 dark:border-slate-600 hover:border-primary/50"
+                                  )}
+                                >
+                                  <Plus className="w-5 h-5 text-slate-400" />
+                                  <span className="text-[10px] text-slate-500 mt-1">自填量詞</span>
+                                </button>
                               </div>
-                            )}
+                              {isBaseCustom && (
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    placeholder="輸入量詞"
+                                    value={customBase}
+                                    onChange={(e) => {
+                                      setCustomBase(e.target.value);
+                                      setFormData(prev => ({ ...prev, baseUnit: e.target.value, safetyStockUnit: e.target.value, currentStockUnit: e.target.value, reorderPointUnit: e.target.value }));
+                                    }}
+                                    className="w-24"
+                                    disabled={isCreated}
+                                  />
+                                </div>
+                              )}
 
-                            {/* 基礎單位換算 - 移至右側（僅三層時顯示） */}
-                            {formData.packagingLayers === 3 && formData.innerUnit && formData.baseUnit && (
-                              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 whitespace-nowrap ml-auto">
-                                <span className="text-sm text-slate-500">
-                                  一{formData.innerUnit}
-                                </span>
-                                <Input
-                                  type="number"
-                                  min={1}
-                                  value={formData.baseQty}
-                                  onChange={(e) => setFormData(prev => ({ ...prev, baseQty: parseInt(e.target.value) || 1 }))}
-                                  className="w-16 h-8 text-center"
-                                  disabled={isCreated}
-                                />
-                                <span className="text-sm text-slate-500">
-                                  {formData.baseUnit}
-                                </span>
-                              </div>
-                            )}
+                              {/* 基礎單位換算 - 移至右側（僅三層時顯示） */}
+                              {formData.packagingLayers === 3 && formData.innerUnit && formData.baseUnit && (
+                                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 whitespace-nowrap ml-auto">
+                                  <span className="text-sm text-slate-500">
+                                    一{formData.innerUnit}
+                                  </span>
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    value={formData.baseQty}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, baseQty: parseInt(e.target.value) || 1 }))}
+                                    className="w-16 h-8 text-center"
+                                    disabled={isCreated}
+                                  />
+                                  <span className="text-sm text-slate-500">
+                                    {formData.baseUnit}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1041,7 +1041,7 @@ export function CreateProductPage() {
                               {/* 根據包裝層數顯示選項：兩層顯示內/外，三層顯示內/外/基礎 */}
                               {(() => {
                                 const units: Array<{ code: string; name: string; type: 'outer' | 'inner' | 'base' }> = []
-                                
+
                                 // 外層包裝
                                 if (formData.outerUnit) {
                                   const found = [...UNITS.outer, ...UNITS.inner, ...UNITS.base].find(
@@ -1051,7 +1051,7 @@ export function CreateProductPage() {
                                     units.push({ code: found.code, name: found.name, type: 'outer' })
                                   }
                                 }
-                                
+
                                 // 內層包裝
                                 if (formData.innerUnit) {
                                   const found = [...UNITS.outer, ...UNITS.inner, ...UNITS.base].find(
@@ -1061,7 +1061,7 @@ export function CreateProductPage() {
                                     units.push({ code: found.code, name: found.name, type: 'inner' })
                                   }
                                 }
-                                
+
                                 // 基礎單位（僅三層包裝時顯示）
                                 if (formData.packagingLayers === 3 && formData.baseUnit) {
                                   const found = [...UNITS.outer, ...UNITS.inner, ...UNITS.base].find(
@@ -1071,7 +1071,7 @@ export function CreateProductPage() {
                                     units.push({ code: found.code, name: found.name, type: 'base' })
                                   }
                                 }
-                                
+
                                 // 如果沒有選擇任何包裝單位，顯示基礎單位選項
                                 if (units.length === 0) {
                                   return UNITS.base.map((unit) => (
@@ -1080,7 +1080,7 @@ export function CreateProductPage() {
                                     </SelectItem>
                                   ))
                                 }
-                                
+
                                 return units.map((unit) => {
                                   const typeLabel = unit.type === 'outer' ? '外' : unit.type === 'inner' ? '內' : '基礎'
                                   return (
@@ -1120,7 +1120,7 @@ export function CreateProductPage() {
                               {/* 根據包裝層數顯示選項：兩層顯示內/外，三層顯示內/外/基礎 */}
                               {(() => {
                                 const units: Array<{ code: string; name: string; type: 'outer' | 'inner' | 'base' }> = []
-                                
+
                                 // 外層包裝
                                 if (formData.outerUnit) {
                                   const found = [...UNITS.outer, ...UNITS.inner, ...UNITS.base].find(
@@ -1130,7 +1130,7 @@ export function CreateProductPage() {
                                     units.push({ code: found.code, name: found.name, type: 'outer' })
                                   }
                                 }
-                                
+
                                 // 內層包裝
                                 if (formData.innerUnit) {
                                   const found = [...UNITS.outer, ...UNITS.inner, ...UNITS.base].find(
@@ -1140,7 +1140,7 @@ export function CreateProductPage() {
                                     units.push({ code: found.code, name: found.name, type: 'inner' })
                                   }
                                 }
-                                
+
                                 // 基礎單位（僅三層包裝時顯示）
                                 if (formData.packagingLayers === 3 && formData.baseUnit) {
                                   const found = [...UNITS.outer, ...UNITS.inner, ...UNITS.base].find(
@@ -1150,7 +1150,7 @@ export function CreateProductPage() {
                                     units.push({ code: found.code, name: found.name, type: 'base' })
                                   }
                                 }
-                                
+
                                 // 如果沒有選擇任何包裝單位，顯示基礎單位選項
                                 if (units.length === 0) {
                                   return UNITS.base.map((unit) => (
@@ -1159,7 +1159,7 @@ export function CreateProductPage() {
                                     </SelectItem>
                                   ))
                                 }
-                                
+
                                 return units.map((unit) => {
                                   const typeLabel = unit.type === 'outer' ? '外' : unit.type === 'inner' ? '內' : '基礎'
                                   return (
@@ -1199,7 +1199,7 @@ export function CreateProductPage() {
                               {/* 顯示：內層包裝或外層包裝或基礎單位 */}
                               {(() => {
                                 const units: Array<{ code: string; name: string; type: 'outer' | 'inner' | 'base' }> = []
-                                
+
                                 // 外層包裝
                                 if (formData.outerUnit) {
                                   const found = [...UNITS.outer, ...UNITS.inner, ...UNITS.base].find(
@@ -1209,7 +1209,7 @@ export function CreateProductPage() {
                                     units.push({ code: found.code, name: found.name, type: 'outer' })
                                   }
                                 }
-                                
+
                                 // 內層包裝
                                 if (formData.innerUnit) {
                                   const found = [...UNITS.outer, ...UNITS.inner, ...UNITS.base].find(
@@ -1219,7 +1219,7 @@ export function CreateProductPage() {
                                     units.push({ code: found.code, name: found.name, type: 'inner' })
                                   }
                                 }
-                                
+
                                 // 基礎單位
                                 if (formData.baseUnit) {
                                   const found = [...UNITS.outer, ...UNITS.inner, ...UNITS.base].find(
@@ -1229,7 +1229,7 @@ export function CreateProductPage() {
                                     units.push({ code: found.code, name: found.name, type: 'base' })
                                   }
                                 }
-                                
+
                                 // 如果沒有選擇任何包裝單位，顯示基礎單位選項
                                 if (units.length === 0) {
                                   return UNITS.base.map((unit) => (
@@ -1238,7 +1238,7 @@ export function CreateProductPage() {
                                     </SelectItem>
                                   ))
                                 }
-                                
+
                                 return units.map((unit) => {
                                   const typeLabel = unit.type === 'outer' ? '外層' : unit.type === 'inner' ? '內層' : '基礎'
                                   return (

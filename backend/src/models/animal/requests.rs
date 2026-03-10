@@ -250,6 +250,7 @@ pub struct CreateAnimalSourceRequest {
     pub address: Option<String>,
     pub contact: Option<String>,
     pub phone: Option<String>,
+    pub phone_ext: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -258,6 +259,7 @@ pub struct UpdateAnimalSourceRequest {
     pub address: Option<String>,
     pub contact: Option<String>,
     pub phone: Option<String>,
+    pub phone_ext: Option<String>,
     pub is_active: Option<bool>,
     pub sort_order: Option<i32>,
 }

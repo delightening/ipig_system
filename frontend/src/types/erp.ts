@@ -117,6 +117,7 @@ export interface Partner {
     customer_category?: 'internal' | 'external' | 'research' | 'other'
     tax_id?: string
     phone?: string
+    phone_ext?: string
     email?: string
     address?: string
     payment_terms?: string

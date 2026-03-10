@@ -496,6 +496,7 @@ impl ProtocolService {
                         name: iacuc_no.clone(),
                         tax_id: None,
                         phone: None,
+                        phone_ext: None,
                         email: None,
                         address: None,
                         payment_terms: None,

@@ -15,6 +15,7 @@ export interface User {
     email: string
     display_name: string
     phone?: string
+    phone_ext?: string
     organization?: string
     is_active: boolean
     roles: string[]
@@ -93,6 +94,7 @@ export interface UpdateUserRequest {
     email?: string
     display_name?: string
     phone?: string
+    phone_ext?: string
     organization?: string
     is_active?: boolean
     role_ids?: string[]

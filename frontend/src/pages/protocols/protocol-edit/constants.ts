@@ -46,8 +46,8 @@ export const defaultFormData: FormData = {
             tech_categories: [],
             funding_sources: [],
             funding_other: '',
-            pi: { name: '', phone: '', email: '', address: '' },
-            sponsor: { name: '', contact_person: '', contact_phone: '', contact_email: '' },
+            pi: { name: '', phone: '', phone_ext: '', email: '', address: '' },
+            sponsor: { name: '', contact_person: '', contact_phone: '', contact_phone_ext: '', contact_email: '' },
             sd: { name: '', email: '' },
             facility: { title: '', address: '' },
             housing_location: ''

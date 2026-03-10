@@ -15,6 +15,7 @@ pub struct AnimalSource {
     pub address: Option<String>,
     pub contact: Option<String>,
     pub phone: Option<String>,
+    pub phone_ext: Option<String>,
     pub is_active: bool,
     pub sort_order: i32,
     pub created_at: DateTime<Utc>,
@@ -25,7 +26,7 @@ pub struct AnimalSource {
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct Animal {
     pub id: Uuid,
-    pub animal_no: Option<String>,  // 動物編號（由使用者命名）
+    pub animal_no: Option<String>, // 動物編號（由使用者命名）
     pub ear_tag: String,
     pub status: AnimalStatus,
     pub breed: AnimalBreed,
@@ -42,7 +43,7 @@ pub struct Animal {
     pub is_deleted: bool,
     pub deleted_at: Option<DateTime<Utc>>,
     pub deleted_by: Option<Uuid>,
-    pub deletion_reason: Option<String>,  // GLP: 刪除原因
+    pub deletion_reason: Option<String>, // GLP: 刪除原因
     pub vet_weight_viewed_at: Option<DateTime<Utc>>,
     pub vet_vaccine_viewed_at: Option<DateTime<Utc>>,
     pub vet_sacrifice_viewed_at: Option<DateTime<Utc>>,
@@ -50,11 +51,11 @@ pub struct Animal {
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub animal_id: Option<Uuid>,  // 動物 ID
-    pub breed_other: Option<String>,  // 其他品種說明
-    pub experiment_assigned_by: Option<Uuid>,  // 分配至實驗的操作者
+    pub animal_id: Option<Uuid>,              // 動物 ID
+    pub breed_other: Option<String>,          // 其他品種說明
+    pub experiment_assigned_by: Option<Uuid>, // 分配至實驗的操作者
     #[sqlx(default)]
-    pub experiment_assigned_by_name: Option<String>,  // 分配者名稱（JOIN 查詢時填入）
+    pub experiment_assigned_by_name: Option<String>, // 分配者名稱（JOIN 查詢時填入）
 }
 
 /// 觀察試驗紀錄
@@ -85,7 +86,7 @@ pub struct AnimalObservation {
     #[sqlx(default)]
     pub is_emergency: Option<bool>,
     #[sqlx(default)]
-    pub emergency_status: Option<String>,  // pending_review, approved, rejected
+    pub emergency_status: Option<String>, // pending_review, approved, rejected
     #[sqlx(default)]
     pub emergency_reason: Option<String>,
     #[sqlx(default)]
@@ -148,7 +149,6 @@ pub struct AnimalWeightResponse {
     pub created_by_name: Option<String>,
     pub created_at: DateTime<Utc>,
 }
-
 
 /// 疫苗/驅蟲紀錄
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]

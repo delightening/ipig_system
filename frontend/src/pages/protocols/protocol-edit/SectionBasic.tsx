@@ -239,10 +239,22 @@ export function SectionBasic({ formData, updateWorkingContent, setFormData, t, i
             </div>
             <div className="space-y-2">
               <Label>{t('aup.basic.phone')} *</Label>
-              <Input
-                value={formData.working_content.basic.pi.phone}
-                onChange={(e) => updateWorkingContent('basic', 'pi.phone', e.target.value)}
-              />
+              <div className="flex gap-2">
+                <Input
+                  className="flex-1"
+                  value={formData.working_content.basic.pi.phone}
+                  onChange={(e) => updateWorkingContent('basic', 'pi.phone', e.target.value)}
+                />
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-muted-foreground">#</span>
+                  <Input
+                    className="w-24"
+                    placeholder={t('aup.basic.piExtension')}
+                    value={formData.working_content.basic.pi.phone_ext || ''}
+                    onChange={(e) => updateWorkingContent('basic', 'pi.phone_ext', e.target.value)}
+                  />
+                </div>
+              </div>
             </div>
             <div className="space-y-2">
               <Label>{t('aup.basic.address')} *</Label>
@@ -277,10 +289,22 @@ export function SectionBasic({ formData, updateWorkingContent, setFormData, t, i
             </div>
             <div className="space-y-2">
               <Label>{t('aup.basic.contactPhone')} *</Label>
-              <Input
-                value={formData.working_content.basic.sponsor.contact_phone}
-                onChange={(e) => updateWorkingContent('basic', 'sponsor.contact_phone', e.target.value)}
-              />
+              <div className="flex gap-2">
+                <Input
+                  className="flex-1"
+                  value={formData.working_content.basic.sponsor.contact_phone}
+                  onChange={(e) => updateWorkingContent('basic', 'sponsor.contact_phone', e.target.value)}
+                />
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-muted-foreground">#</span>
+                  <Input
+                    className="w-24"
+                    placeholder={t('aup.basic.piExtension')}
+                    value={formData.working_content.basic.sponsor.contact_phone_ext || ''}
+                    onChange={(e) => updateWorkingContent('basic', 'sponsor.contact_phone_ext', e.target.value)}
+                  />
+                </div>
+              </div>
             </div>
             <div className="space-y-2">
               <Label>{t('aup.basic.contactEmail')} *</Label>

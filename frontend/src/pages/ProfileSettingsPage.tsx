@@ -48,6 +48,7 @@ export function ProfileSettingsPage() {
     const [formData, setFormData] = useState<UpdateUserRequest>({
         display_name: '',
         phone: '',
+        phone_ext: '',
         organization: '',
         entry_date: '',
         position: '',
@@ -62,6 +63,7 @@ export function ProfileSettingsPage() {
             setFormData({
                 display_name: currentUser.display_name || '',
                 phone: currentUser.phone || '',
+                phone_ext: currentUser.phone_ext || '',
                 organization: currentUser.organization || '',
                 entry_date: currentUser.entry_date || '',
                 position: currentUser.position || '',
@@ -224,12 +226,24 @@ export function ProfileSettingsPage() {
                                     <Label htmlFor="phone" className="flex items-center gap-2">
                                         <Phone className="h-4 w-4" /> {t('profile.phone')}
                                     </Label>
-                                    <Input
-                                        id="phone"
-                                        value={formData.phone || ''}
-                                        onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                                        placeholder={t('profile.phonePlaceholder')}
-                                    />
+                                    <div className="flex gap-2">
+                                        <Input
+                                            id="phone"
+                                            className="flex-1"
+                                            value={formData.phone || ''}
+                                            onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                                            placeholder={t('profile.phonePlaceholder')}
+                                        />
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <span className="text-muted-foreground">#</span>
+                                            <Input
+                                                className="w-24"
+                                                placeholder={t('aup.basic.piExtension')}
+                                                value={formData.phone_ext || ''}
+                                                onChange={e => setFormData({ ...formData, phone_ext: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="space-y-2">
