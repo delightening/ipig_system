@@ -41,6 +41,7 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
+import { formatDateTime } from '@/lib/utils'
 import { AuditLogDetailDialog } from './components/AuditLogDetailDialog'
 import { AuditAlertDetailDialog } from './components/AuditAlertDetailDialog'
 import type {
@@ -49,6 +50,7 @@ import type {
     SecurityAlert,
     SessionWithUser,
 } from '@/types/hr'
+import type { PaginatedResponse } from '@/types/common'
 
 interface AuditLog {
     id: string
@@ -63,14 +65,6 @@ interface AuditLog {
     before_data?: Record<string, unknown>
     after_data?: Record<string, unknown>
     created_at: string
-}
-
-interface PaginatedResponse<T> {
-    data: T[]
-    total: number
-    page: number
-    per_page: number
-    total_pages: number
 }
 
 type AlertSortField = 'created_at' | 'alert_type' | 'severity' | 'status'
@@ -249,9 +243,6 @@ export function AdminAuditPage() {
             toast({ title: '成功', description: '已解決警報' })
         },
     })
-
-    const formatDateTime = (dateStr: string) =>
-        new Date(dateStr).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 
     const getSeverityColor = (severity: string) => {
         switch (severity) {

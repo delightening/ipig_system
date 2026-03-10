@@ -147,11 +147,9 @@ impl ProtocolService {
         .fetch_one(pool)
         .await?;
 
-        /* 暫時在測試環境放寬角色校驗
         if !is_vet.0 {
             return Err(AppError::Validation("指定的使用者不具有獸醫師角色".to_string()));
         }
-        */
 
         // 建立獸醫審查指派記錄
         sqlx::query(
@@ -208,7 +206,7 @@ impl ProtocolService {
         }
 
         // 驗證用戶存在且是 EXPERIMENT_STAFF 角色
-        let _user_has_role: (bool,) = sqlx::query_as(
+        let user_has_role: (bool,) = sqlx::query_as(
             r#"
             SELECT EXISTS(
                 SELECT 1 FROM user_roles ur
@@ -221,11 +219,9 @@ impl ProtocolService {
         .fetch_one(pool)
         .await?;
 
-        /* 暫時在測試環境放寬角色校驗
         if !user_has_role.0 {
             return Err(AppError::Validation("User must have EXPERIMENT_STAFF role to be assigned as co-editor".to_string()));
         }
-        */
 
         // 指派為 co-editor
         let assignment = sqlx::query_as::<_, UserProtocol>(

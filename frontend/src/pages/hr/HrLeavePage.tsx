@@ -50,34 +50,16 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
+import { formatDate, parseDecimal } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
 import {
     BalanceSummary,
     LeaveRequestWithUser,
     LEAVE_STATUS_NAMES,
     LEAVE_TYPE_NAMES,
+    StaffInfo,
 } from '@/types/hr'
-
-interface PaginatedResponse<T> {
-    data: T[]
-    total: number
-    page: number
-    per_page: number
-    total_pages: number
-}
-
-// 工作人員簡易資訊（從 /hr/staff API 返回）
-interface StaffInfo {
-    id: string
-    display_name: string
-    email: string
-}
-
-// Helper to safely parse Decimal strings from backend
-const parseDecimal = (value: number | string | null | undefined): number => {
-    if (value === null || value === undefined) return 0
-    return typeof value === 'string' ? parseFloat(value) : value
-}
+import type { PaginatedResponse } from '@/types/common'
 
 export function HrLeavePage() {
     const { activeTab, setActiveTab } = useTabState<'my-leaves' | 'pending' | 'all-records'>('my-leaves')
@@ -292,10 +274,6 @@ export function HrLeavePage() {
             default:
                 return <Badge>{statusName}</Badge>
         }
-    }
-
-    const formatDate = (dateStr: string) => {
-        return new Date(dateStr).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' })
     }
 
     /** 顯示請假時數（以 0.5 小時為單位，total_hours 優先） */

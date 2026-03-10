@@ -307,17 +307,6 @@ pub async fn list_security_alerts(
     Ok(Json(result))
 }
 
-/// 取得安全警報詳細
-#[allow(dead_code)]
-pub async fn get_security_alert(
-    State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
-    Path(id): Path<Uuid>,
-) -> Result<Json<SecurityAlert>> {
-    let alert = AuditService::get_security_alert(&state.db, id).await?;
-    Ok(Json(alert))
-}
-
 /// 解決安全警報
 pub async fn resolve_security_alert(
     State(state): State<AppState>,

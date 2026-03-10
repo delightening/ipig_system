@@ -16,7 +16,6 @@ use crate::AppState;
 
 /// Web Vitals 上報 payload（與 web-vitals 的 Metric 對應）
 #[derive(Debug, Deserialize, ToSchema)]
-#[allow(dead_code)]
 pub struct WebVitalsMetric {
     pub id: String,
     pub name: String,
