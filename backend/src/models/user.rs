@@ -41,6 +41,7 @@ pub struct User {
     pub password_hash: String,
     pub display_name: String,
     pub phone: Option<String>,
+    pub phone_ext: Option<String>,
     pub organization: Option<String>,
     pub is_internal: bool,
     pub is_active: bool,
@@ -75,6 +76,7 @@ pub struct UserWithRoles {
     pub email: String,
     pub display_name: String,
     pub phone: Option<String>,
+    pub phone_ext: Option<String>,
     pub organization: Option<String>,
     pub is_internal: bool,
     pub is_active: bool,
@@ -106,6 +108,7 @@ pub struct CreateUserRequest {
     #[validate(length(min = 1, max = 100, message = "Display name must be 1-100 characters"))]
     pub display_name: String,
     pub phone: Option<String>,
+    pub phone_ext: Option<String>,
     pub organization: Option<String>,
     // AUP 第 8 節人員資料
     pub entry_date: Option<chrono::NaiveDate>,
@@ -134,6 +137,7 @@ pub struct UpdateUserRequest {
     #[validate(length(min = 1, max = 100, message = "Display name must be 1-100 characters"))]
     pub display_name: Option<String>,
     pub phone: Option<String>,
+    pub phone_ext: Option<String>,
     pub organization: Option<String>,
     // AUP 第 8 節人員資料
     pub entry_date: Option<chrono::NaiveDate>,
@@ -171,6 +175,7 @@ pub struct UserResponse {
     pub email: String,
     pub display_name: String,
     pub phone: Option<String>,
+    pub phone_ext: Option<String>,
     pub organization: Option<String>,
     pub is_internal: bool,
     pub is_active: bool,
@@ -196,6 +201,7 @@ impl UserResponse {
             email: user.email.clone(),
             display_name: user.display_name.clone(),
             phone: user.phone.clone(),
+            phone_ext: user.phone_ext.clone(),
             organization: user.organization.clone(),
             is_internal: user.is_internal,
             is_active: user.is_active,

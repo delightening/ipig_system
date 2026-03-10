@@ -31,8 +31,8 @@ impl AnimalSourceService {
     ) -> Result<AnimalSource> {
         let source = sqlx::query_as::<_, AnimalSource>(
             r#"
-            INSERT INTO animal_sources (id, code, name, address, contact, phone, is_active, sort_order, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, true, 0, NOW(), NOW())
+            INSERT INTO animal_sources (id, code, name, address, contact, phone, phone_ext, is_active, sort_order, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, true, 0, NOW(), NOW())
             RETURNING *
             "#,
         )
@@ -42,6 +42,7 @@ impl AnimalSourceService {
         .bind(&req.address)
         .bind(&req.contact)
         .bind(&req.phone)
+        .bind(&req.phone_ext)
         .fetch_one(pool)
         .await?;
 
@@ -61,8 +62,9 @@ impl AnimalSourceService {
                 address = COALESCE($3, address),
                 contact = COALESCE($4, contact),
                 phone = COALESCE($5, phone),
-                is_active = COALESCE($6, is_active),
-                sort_order = COALESCE($7, sort_order),
+                phone_ext = COALESCE($6, phone_ext),
+                is_active = COALESCE($7, is_active),
+                sort_order = COALESCE($8, sort_order),
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
@@ -73,6 +75,7 @@ impl AnimalSourceService {
         .bind(&req.address)
         .bind(&req.contact)
         .bind(&req.phone)
+        .bind(&req.phone_ext)
         .bind(req.is_active)
         .bind(req.sort_order)
         .fetch_one(pool)

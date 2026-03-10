@@ -42,6 +42,7 @@ interface SourceFormData {
   address?: string
   contact?: string
   phone?: string
+  phone_ext?: string
   is_active: boolean
   sort_order: number
 }
@@ -52,6 +53,7 @@ const defaultFormData: SourceFormData = {
   address: '',
   contact: '',
   phone: '',
+  phone_ext: '',
   is_active: true,
   sort_order: 0,
 }
@@ -139,6 +141,7 @@ export function AnimalSourcesPage() {
         address: source.address || '',
         contact: source.contact || '',
         phone: source.phone || '',
+        phone_ext: source.phone_ext || '',
         is_active: source.is_active,
         sort_order: source.sort_order,
       })
@@ -212,60 +215,61 @@ export function AnimalSourcesPage() {
               </TableRow>
             ) : sources && sources.length > 0 ? (
               sources.map((source) => (
-                  <TableRow key={source.id}>
-                    <TableCell>{source.sort_order}</TableCell>
-                    <TableCell className="font-mono font-medium">{source.code}</TableCell>
-                    <TableCell className="font-medium">{source.name}</TableCell>
-                    <TableCell>
-                      {source.address ? (
-                        <span className="flex items-center gap-1 text-sm text-slate-600">
-                          <MapPin className="h-3 w-3" />
-                          {source.address}
-                        </span>
-                      ) : '-'}
-                    </TableCell>
-                    <TableCell>
-                      {source.contact ? (
-                        <span className="flex items-center gap-1 text-sm text-slate-600">
-                          <User className="h-3 w-3" />
-                          {source.contact}
-                        </span>
-                      ) : '-'}
-                    </TableCell>
-                    <TableCell>
-                      {source.phone ? (
-                        <span className="flex items-center gap-1 text-sm text-slate-600">
-                          <Phone className="h-3 w-3" />
-                          {source.phone}
-                        </span>
-                      ) : '-'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={source.is_active ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-800'}>
-                        {source.is_active ? '啟用' : '停用'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleOpenDialog(source)}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(source)}
-                          disabled={deleteMutation.isPending}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                <TableRow key={source.id}>
+                  <TableCell>{source.sort_order}</TableCell>
+                  <TableCell className="font-mono font-medium">{source.code}</TableCell>
+                  <TableCell className="font-medium">{source.name}</TableCell>
+                  <TableCell>
+                    {source.address ? (
+                      <span className="flex items-center gap-1 text-sm text-slate-600">
+                        <MapPin className="h-3 w-3" />
+                        {source.address}
+                      </span>
+                    ) : '-'}
+                  </TableCell>
+                  <TableCell>
+                    {source.contact ? (
+                      <span className="flex items-center gap-1 text-sm text-slate-600">
+                        <User className="h-3 w-3" />
+                        {source.contact}
+                      </span>
+                    ) : '-'}
+                  </TableCell>
+                  <TableCell>
+                    {source.phone ? (
+                      <span className="flex items-center gap-1 text-sm text-slate-600">
+                        <Phone className="h-3 w-3" />
+                        {source.phone}
+                        {source.phone_ext ? ` #${source.phone_ext}` : ''}
+                      </span>
+                    ) : '-'}
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={source.is_active ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-800'}>
+                      {source.is_active ? '啟用' : '停用'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleOpenDialog(source)}
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(source)}
+                        disabled={deleteMutation.isPending}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
             ) : (
               <TableRow>
                 <TableCell colSpan={8} className="text-center py-8">
@@ -340,12 +344,24 @@ export function AnimalSourcesPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">電話</Label>
-                <Input
-                  id="phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="聯絡電話"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="phone"
+                    className="flex-1"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="聯絡電話"
+                  />
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-muted-foreground">#</span>
+                    <Input
+                      className="w-24"
+                      placeholder="分機"
+                      value={formData.phone_ext}
+                      onChange={(e) => setFormData({ ...formData, phone_ext: e.target.value })}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 

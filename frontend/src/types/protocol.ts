@@ -62,6 +62,7 @@ export interface ProtocolWorkingContent {
         pi: {
             name: string
             phone: string
+            phone_ext?: string
             email: string
             address: string
         }
@@ -69,6 +70,7 @@ export interface ProtocolWorkingContent {
             name: string
             contact_person: string
             contact_phone: string
+            contact_phone_ext?: string
             contact_email: string
         }
         sd: {

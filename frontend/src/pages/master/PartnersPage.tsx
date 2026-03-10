@@ -55,6 +55,7 @@ export function PartnersPage() {
     name: '',
     tax_id: '',
     phone: '',
+    phone_ext: '',
     email: '',
     address: '',
   })
@@ -68,6 +69,7 @@ export function PartnersPage() {
     name: string
     tax_id: string | null
     phone: string | null
+    phone_ext: string | null
     email: string | null
     address: string | null
   }
@@ -81,6 +83,7 @@ export function PartnersPage() {
       name: '',
       tax_id: '',
       phone: '',
+      phone_ext: '',
       email: '',
       address: '',
     })
@@ -195,6 +198,7 @@ export function PartnersPage() {
       name: partner.name,
       tax_id: partner.tax_id || '',
       phone: partner.phone || '',
+      phone_ext: partner.phone_ext || '',
       email: partner.email || '',
       address: partner.address || '',
     })
@@ -242,6 +246,7 @@ export function PartnersPage() {
       customer_category: formData.customer_category || null,
       email: formData.email.trim() || null,
       phone: formData.phone.trim() || null,
+      phone_ext: formData.phone_ext.trim() || null,
       tax_id: formData.tax_id.trim() || null,
       address: formData.address.trim() || null,
     }
@@ -377,7 +382,10 @@ export function PartnersPage() {
                   <TableCell className="font-mono">{partner.code}</TableCell>
                   <TableCell className="font-medium">{partner.name}</TableCell>
                   <TableCell>{partner.tax_id || '-'}</TableCell>
-                  <TableCell>{partner.phone || '-'}</TableCell>
+                  <TableCell>
+                    {partner.phone || '-'}
+                    {partner.phone_ext ? ` #${partner.phone_ext}` : ''}
+                  </TableCell>
                   <TableCell>
                     {partner.is_active ? (
                       <Badge variant="success">啟用</Badge>
@@ -527,13 +535,24 @@ export function PartnersPage() {
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="phone" className="text-right">電話</Label>
-                <Input
-                  id="phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="col-span-3"
-                  placeholder="留白或 9-10 碼數字"
-                />
+                <div className="col-span-3 flex gap-2">
+                  <Input
+                    id="phone"
+                    className="flex-1"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="留白或 9-10 碼數字"
+                  />
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-muted-foreground">#</span>
+                    <Input
+                      className="w-24"
+                      placeholder="分機"
+                      value={formData.phone_ext}
+                      onChange={(e) => setFormData({ ...formData, phone_ext: e.target.value })}
+                    />
+                  </div>
+                </div>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="email" className="text-right">Email</Label>

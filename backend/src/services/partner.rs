@@ -1,7 +1,7 @@
-use std::sync::OnceLock;
 use calamine::{open_workbook_from_rs, Data, Reader, Xls, Xlsx};
 use sqlx::PgPool;
 use std::io::Cursor;
+use std::sync::OnceLock;
 use uuid::Uuid;
 
 use crate::models::{CustomerCategory, PartnerType, SupplierCategory};
@@ -18,9 +18,8 @@ pub struct PartnerService;
 /// 取得 Email 驗證用正則（靜態初始化，避免重複編譯）
 fn email_regex() -> Result<&'static regex::Regex> {
     static EMAIL_REGEX: OnceLock<std::result::Result<regex::Regex, regex::Error>> = OnceLock::new();
-    let res = EMAIL_REGEX.get_or_init(|| {
-        regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
-    });
+    let res = EMAIL_REGEX
+        .get_or_init(|| regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"));
     res.as_ref()
         .map_err(|e| AppError::Internal(format!("Email regex init: {}", e)))
 }
@@ -159,7 +158,10 @@ impl PartnerService {
 
     /// 取得夥伴列表
     pub async fn list(pool: &PgPool, query: &PartnerQuery) -> Result<Vec<Partner>> {
-        let pagination = PaginationParams { page: query.page, per_page: query.per_page };
+        let pagination = PaginationParams {
+            page: query.page,
+            per_page: query.per_page,
+        };
         let suffix = pagination.sql_suffix();
 
         let partners = if let Some(ref kw) = query.keyword {
@@ -245,11 +247,8 @@ impl PartnerService {
                 .fetch_all(pool)
                 .await?
         } else {
-            let sql =
-                ["SELECT * FROM partners ORDER BY code", suffix.as_str()].concat();
-            sqlx::query_as::<_, Partner>(&sql)
-                .fetch_all(pool)
-                .await?
+            let sql = ["SELECT * FROM partners ORDER BY code", suffix.as_str()].concat();
+            sqlx::query_as::<_, Partner>(&sql).fetch_all(pool).await?
         };
 
         Ok(partners)
@@ -399,7 +398,10 @@ impl PartnerService {
                     errors.push(PartnerImportErrorDetail {
                         row: row_number,
                         code: None,
-                        error: format!("無效的類型: {}，必須是 supplier/customer 或 供應商/客戶", row.partner_type),
+                        error: format!(
+                            "無效的類型: {}，必須是 supplier/customer 或 供應商/客戶",
+                            row.partner_type
+                        ),
                     });
                     error_count += 1;
                     continue;
@@ -407,20 +409,31 @@ impl PartnerService {
             };
 
             let (supplier_category, customer_category) = if partner_type == PartnerType::Supplier {
-                let sc = row.supplier_category.as_deref().and_then(Self::parse_supplier_category);
+                let sc = row
+                    .supplier_category
+                    .as_deref()
+                    .and_then(Self::parse_supplier_category);
                 if sc.is_none() {
-                    let has_value = row.supplier_category.as_ref().map(|s| !s.trim().is_empty()).unwrap_or(false);
+                    let has_value = row
+                        .supplier_category
+                        .as_ref()
+                        .map(|s| !s.trim().is_empty())
+                        .unwrap_or(false);
                     if has_value {
                         errors.push(PartnerImportErrorDetail {
                             row: row_number,
                             code: None,
-                            error: format!("無效的供應商類別: {}，必須是 drug/consumable/feed/equipment", row.supplier_category.as_deref().unwrap_or("")),
+                            error: format!(
+                                "無效的供應商類別: {}，必須是 drug/consumable/feed/equipment",
+                                row.supplier_category.as_deref().unwrap_or("")
+                            ),
                         });
                     } else {
                         errors.push(PartnerImportErrorDetail {
                             row: row_number,
                             code: None,
-                            error: "供應商必須填寫供應商類別 (drug/consumable/feed/equipment)".to_string(),
+                            error: "供應商必須填寫供應商類別 (drug/consumable/feed/equipment)"
+                                .to_string(),
                         });
                     }
                     error_count += 1;
@@ -428,7 +441,10 @@ impl PartnerService {
                 }
                 (sc, None)
             } else {
-                let cc = row.customer_category.as_deref().and_then(Self::parse_customer_category);
+                let cc = row
+                    .customer_category
+                    .as_deref()
+                    .and_then(Self::parse_customer_category);
                 (None, cc)
             };
 
@@ -440,6 +456,7 @@ impl PartnerService {
                 name: row.name.trim().to_string(),
                 tax_id: row.tax_id.clone().filter(|s| !s.trim().is_empty()),
                 phone: row.phone.clone().filter(|s| !s.trim().is_empty()),
+                phone_ext: row.phone_ext.clone().filter(|s| !s.trim().is_empty()),
                 email: row.email.clone().filter(|s| !s.trim().is_empty()),
                 address: row.address.clone().filter(|s| !s.trim().is_empty()),
                 payment_terms: row.payment_terms.clone().filter(|s| !s.trim().is_empty()),
@@ -526,7 +543,8 @@ impl PartnerService {
 
         let mut rows = Vec::new();
         for (i, result) in reader.records().enumerate() {
-            let record = result.map_err(|e| AppError::Validation(format!("CSV 解析錯誤第 {} 行: {}", i + 2, e)))?;
+            let record = result
+                .map_err(|e| AppError::Validation(format!("CSV 解析錯誤第 {} 行: {}", i + 2, e)))?;
             if record.len() < 2 {
                 continue;
             }
@@ -535,14 +553,42 @@ impl PartnerService {
             if name.trim().is_empty() {
                 continue;
             }
-            let supplier_category = record.get(2).filter(|s| !s.trim().is_empty()).map(String::from);
-            let customer_category = record.get(3).filter(|s| !s.trim().is_empty()).map(String::from);
-            let code = record.get(4).filter(|s| !s.trim().is_empty()).map(String::from);
-            let tax_id = record.get(5).filter(|s| !s.trim().is_empty()).map(String::from);
-            let phone = record.get(6).filter(|s| !s.trim().is_empty()).map(String::from);
-            let email = record.get(7).filter(|s| !s.trim().is_empty()).map(String::from);
-            let address = record.get(8).filter(|s| !s.trim().is_empty()).map(String::from);
-            let payment_terms = record.get(9).filter(|s| !s.trim().is_empty()).map(String::from);
+            let supplier_category = record
+                .get(2)
+                .filter(|s| !s.trim().is_empty())
+                .map(String::from);
+            let customer_category = record
+                .get(3)
+                .filter(|s| !s.trim().is_empty())
+                .map(String::from);
+            let code = record
+                .get(4)
+                .filter(|s| !s.trim().is_empty())
+                .map(String::from);
+            let tax_id = record
+                .get(5)
+                .filter(|s| !s.trim().is_empty())
+                .map(String::from);
+            let phone = record
+                .get(6)
+                .filter(|s| !s.trim().is_empty())
+                .map(String::from);
+            let phone_ext = record
+                .get(7)
+                .filter(|s| !s.trim().is_empty())
+                .map(String::from);
+            let email = record
+                .get(8)
+                .filter(|s| !s.trim().is_empty())
+                .map(String::from);
+            let address = record
+                .get(9)
+                .filter(|s| !s.trim().is_empty())
+                .map(String::from);
+            let payment_terms = record
+                .get(10)
+                .filter(|s| !s.trim().is_empty())
+                .map(String::from);
 
             rows.push(PartnerImportRow {
                 partner_type,
@@ -552,6 +598,7 @@ impl PartnerService {
                 code,
                 tax_id,
                 phone,
+                phone_ext,
                 email,
                 address,
                 payment_terms,
@@ -561,26 +608,29 @@ impl PartnerService {
     }
 
     fn parse_partner_excel(file_data: &[u8]) -> Result<Vec<PartnerImportRow>> {
-        let range = {
-            let cursor = Cursor::new(file_data);
-            if let Ok(mut wb) = open_workbook_from_rs::<Xlsx<_>, _>(cursor) {
-                let sheet_name = wb.sheet_names().first().cloned().ok_or_else(|| {
-                    AppError::Validation("Excel 檔案中沒有工作表".to_string())
-                })?;
-                wb.worksheet_range(&sheet_name)
-                    .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
-            } else {
+        let range =
+            {
                 let cursor = Cursor::new(file_data);
-                let mut wb = open_workbook_from_rs::<Xls<_>, _>(cursor).map_err(|_| {
-                    AppError::Validation("無法讀取 Excel 檔案，請使用 .xlsx 或 .xls 格式".to_string())
-                })?;
-                let sheet_name = wb.sheet_names().first().cloned().ok_or_else(|| {
-                    AppError::Validation("Excel 檔案中沒有工作表".to_string())
-                })?;
-                wb.worksheet_range(&sheet_name)
-                    .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
-            }
-        };
+                if let Ok(mut wb) = open_workbook_from_rs::<Xlsx<_>, _>(cursor) {
+                    let sheet_name = wb.sheet_names().first().cloned().ok_or_else(|| {
+                        AppError::Validation("Excel 檔案中沒有工作表".to_string())
+                    })?;
+                    wb.worksheet_range(&sheet_name)
+                        .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
+                } else {
+                    let cursor = Cursor::new(file_data);
+                    let mut wb = open_workbook_from_rs::<Xls<_>, _>(cursor).map_err(|_| {
+                        AppError::Validation(
+                            "無法讀取 Excel 檔案，請使用 .xlsx 或 .xls 格式".to_string(),
+                        )
+                    })?;
+                    let sheet_name = wb.sheet_names().first().cloned().ok_or_else(|| {
+                        AppError::Validation("Excel 檔案中沒有工作表".to_string())
+                    })?;
+                    wb.worksheet_range(&sheet_name)
+                        .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
+                }
+            };
 
         let mut rows = Vec::new();
         let mut iter = range.rows();
@@ -600,9 +650,10 @@ impl PartnerService {
             let code = Self::opt_cell_string(row.get(4));
             let tax_id = Self::opt_cell_string(row.get(5));
             let phone = Self::opt_cell_string(row.get(6));
-            let email = Self::opt_cell_string(row.get(7));
-            let address = Self::opt_cell_string(row.get(8));
-            let payment_terms = Self::opt_cell_string(row.get(9));
+            let phone_ext = Self::opt_cell_string(row.get(7));
+            let email = Self::opt_cell_string(row.get(8));
+            let address = Self::opt_cell_string(row.get(9));
+            let payment_terms = Self::opt_cell_string(row.get(10));
 
             rows.push(PartnerImportRow {
                 partner_type,
@@ -612,6 +663,7 @@ impl PartnerService {
                 code,
                 tax_id,
                 phone,
+                phone_ext,
                 email,
                 address,
                 payment_terms,
@@ -680,9 +732,10 @@ impl PartnerService {
         worksheet.write_string_with_format(0, 4, "代碼", &header_format)?;
         worksheet.write_string_with_format(0, 5, "統編", &header_format)?;
         worksheet.write_string_with_format(0, 6, "電話", &header_format)?;
-        worksheet.write_string_with_format(0, 7, "Email", &header_format)?;
-        worksheet.write_string_with_format(0, 8, "地址", &header_format)?;
-        worksheet.write_string_with_format(0, 9, "付款條件", &header_format)?;
+        worksheet.write_string_with_format(0, 7, "分機", &header_format)?;
+        worksheet.write_string_with_format(0, 8, "Email", &header_format)?;
+        worksheet.write_string_with_format(0, 9, "地址", &header_format)?;
+        worksheet.write_string_with_format(0, 10, "付款條件", &header_format)?;
 
         worksheet.write_string(1, 0, "supplier")?;
         worksheet.write_string(1, 1, "範例供應商")?;
@@ -713,8 +766,8 @@ impl PartnerService {
 
 #[cfg(test)]
 mod tests {
-    use crate::models::{CustomerCategory, PartnerType, SupplierCategory};
     use super::{format_partner_code, is_valid_email, PartnerService};
+    use crate::models::{CustomerCategory, PartnerType, SupplierCategory};
 
     #[test]
     fn test_format_partner_code() {
@@ -725,39 +778,96 @@ mod tests {
 
     #[test]
     fn test_parse_partner_code_sequence() {
-        assert_eq!(PartnerService::parse_partner_code_sequence("藥001", "藥"), Some(1));
-        assert_eq!(PartnerService::parse_partner_code_sequence("客099", "客"), Some(99));
-        assert_eq!(PartnerService::parse_partner_code_sequence("藥001", "客"), None);
-        assert_eq!(PartnerService::parse_partner_code_sequence("藥", "藥"), None);
-        assert_eq!(PartnerService::parse_partner_code_sequence("藥ABC", "藥"), None);
+        assert_eq!(
+            PartnerService::parse_partner_code_sequence("藥001", "藥"),
+            Some(1)
+        );
+        assert_eq!(
+            PartnerService::parse_partner_code_sequence("客099", "客"),
+            Some(99)
+        );
+        assert_eq!(
+            PartnerService::parse_partner_code_sequence("藥001", "客"),
+            None
+        );
+        assert_eq!(
+            PartnerService::parse_partner_code_sequence("藥", "藥"),
+            None
+        );
+        assert_eq!(
+            PartnerService::parse_partner_code_sequence("藥ABC", "藥"),
+            None
+        );
     }
 
     #[test]
     fn test_parse_partner_type() {
-        assert_eq!(PartnerService::parse_partner_type("supplier"), Some(PartnerType::Supplier));
-        assert_eq!(PartnerService::parse_partner_type("供應商"), Some(PartnerType::Supplier));
-        assert_eq!(PartnerService::parse_partner_type("customer"), Some(PartnerType::Customer));
-        assert_eq!(PartnerService::parse_partner_type("客戶"), Some(PartnerType::Customer));
-        assert_eq!(PartnerService::parse_partner_type("s"), Some(PartnerType::Supplier));
-        assert_eq!(PartnerService::parse_partner_type("c"), Some(PartnerType::Customer));
+        assert_eq!(
+            PartnerService::parse_partner_type("supplier"),
+            Some(PartnerType::Supplier)
+        );
+        assert_eq!(
+            PartnerService::parse_partner_type("供應商"),
+            Some(PartnerType::Supplier)
+        );
+        assert_eq!(
+            PartnerService::parse_partner_type("customer"),
+            Some(PartnerType::Customer)
+        );
+        assert_eq!(
+            PartnerService::parse_partner_type("客戶"),
+            Some(PartnerType::Customer)
+        );
+        assert_eq!(
+            PartnerService::parse_partner_type("s"),
+            Some(PartnerType::Supplier)
+        );
+        assert_eq!(
+            PartnerService::parse_partner_type("c"),
+            Some(PartnerType::Customer)
+        );
         assert_eq!(PartnerService::parse_partner_type("other"), None);
     }
 
     #[test]
     fn test_parse_supplier_category() {
-        assert_eq!(PartnerService::parse_supplier_category("drug"), Some(SupplierCategory::Drug));
-        assert_eq!(PartnerService::parse_supplier_category("藥物"), Some(SupplierCategory::Drug));
-        assert_eq!(PartnerService::parse_supplier_category("consumable"), Some(SupplierCategory::Consumable));
-        assert_eq!(PartnerService::parse_supplier_category("耗材"), Some(SupplierCategory::Consumable));
+        assert_eq!(
+            PartnerService::parse_supplier_category("drug"),
+            Some(SupplierCategory::Drug)
+        );
+        assert_eq!(
+            PartnerService::parse_supplier_category("藥物"),
+            Some(SupplierCategory::Drug)
+        );
+        assert_eq!(
+            PartnerService::parse_supplier_category("consumable"),
+            Some(SupplierCategory::Consumable)
+        );
+        assert_eq!(
+            PartnerService::parse_supplier_category("耗材"),
+            Some(SupplierCategory::Consumable)
+        );
         assert_eq!(PartnerService::parse_supplier_category("unknown"), None);
     }
 
     #[test]
     fn test_parse_customer_category() {
-        assert_eq!(PartnerService::parse_customer_category("internal"), Some(CustomerCategory::Internal));
-        assert_eq!(PartnerService::parse_customer_category("內部"), Some(CustomerCategory::Internal));
-        assert_eq!(PartnerService::parse_customer_category("external"), Some(CustomerCategory::External));
-        assert_eq!(PartnerService::parse_customer_category("其他"), Some(CustomerCategory::Other));
+        assert_eq!(
+            PartnerService::parse_customer_category("internal"),
+            Some(CustomerCategory::Internal)
+        );
+        assert_eq!(
+            PartnerService::parse_customer_category("內部"),
+            Some(CustomerCategory::Internal)
+        );
+        assert_eq!(
+            PartnerService::parse_customer_category("external"),
+            Some(CustomerCategory::External)
+        );
+        assert_eq!(
+            PartnerService::parse_customer_category("其他"),
+            Some(CustomerCategory::Other)
+        );
         assert_eq!(PartnerService::parse_customer_category("x"), None);
     }
 

@@ -188,7 +188,11 @@ impl PdfService {
                         ctx.render_label_value("姓名", name);
                     }
                     if let Some(phone) = pi.get("phone").and_then(|v| v.as_str()) {
-                        ctx.render_label_value("電話", phone);
+                        let phone_val = match pi.get("phone_ext").and_then(|v| v.as_str()) {
+                            Some(ext) if !ext.is_empty() => format!("{} #{}", phone, ext),
+                            _ => phone.to_string(),
+                        };
+                        ctx.render_label_value("電話", &phone_val);
                     }
                     if let Some(email) = pi.get("email").and_then(|v| v.as_str()) {
                         ctx.render_label_value("Email", email);
@@ -211,7 +215,12 @@ impl PdfService {
                         ctx.render_label_value("聯絡人", contact_person);
                     }
                     if let Some(phone) = sponsor.get("contact_phone").and_then(|v| v.as_str()) {
-                        ctx.render_label_value("聯絡電話", phone);
+                        let phone_val =
+                            match sponsor.get("contact_phone_ext").and_then(|v| v.as_str()) {
+                                Some(ext) if !ext.is_empty() => format!("{} #{}", phone, ext),
+                                _ => phone.to_string(),
+                            };
+                        ctx.render_label_value("聯絡電話", &phone_val);
                     }
                     if let Some(email) = sponsor.get("contact_email").and_then(|v| v.as_str()) {
                         ctx.render_label_value("聯絡 Email", email);

@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-03-09 (v9)
+> **最後更新：** 2026-03-10 (v10)
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -189,6 +189,27 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **更新慣例**：新項目請放在本區塊**最前面**（時間由近到遠），勿追加於末端。
 
 ---
+
+### 2026-03-10 系統電話分機欄位 (Phone Extension) 支援
+
+- ✅ **後端**：Migration `012_phone_extension.sql` 新增 `phone_ext` 欄位至 `users`、`partners`、`animal_sources` 表。
+- ✅ **計畫書 (AUP)**：`SectionBasic.tsx` 與 `ProtocolContentView.tsx` 新增資助者 (Sponsor) 與計畫主持人 (PI) 的聯絡分機，PDF 產生同步支援顯示。
+- ✅ **使用者管理**：`ProfileSettingsPage.tsx` 與型別 `User` 新增 `phone_ext`，支援個人資料分機設定。
+- ✅ **交易夥伴**：`PartnersPage.tsx` 與型別 `Partner` 新增 `phone_ext`，支援供應商與客戶的分機管理。
+- ✅ **動物來源**：`AnimalSourcesPage.tsx` 與型別 `AnimalSource` 新增 `phone_ext`，支援來源廠商的分機管理。
+- ✅ **型別與初始值**：同步更新 `auth.ts`、`erp.ts`、`animal.ts`、`protocol.ts` 與 `constants.ts` 確保前端型別一致與表單預設值。
+- 📁 **產出**：多檔更新涉及 User, Partner, AnimalSource, Protocol 型別與 UI 元件。
+
+### 2026-03-10 AUP 計畫主持人電話新增「分機」欄位 (及編譯錯誤修復)
+
+- ✅ **前端**：`SectionBasic.tsx` 新增分機 (Extension) 輸入框，UI 顯示為 `電話 #分機` 格式。
+- ✅ **前端檢視**：`ProtocolContentView.tsx` 計畫書內容檢視頁面同步顯示分機號碼。
+- ✅ **類型修復**：修改 `src/types/protocol.ts`，在 `ProtocolWorkingContent.basic.pi` 中增加 `phone_ext?: string` 選填欄位，解決元件中的型別不匹配錯誤。
+- ✅ **編譯修復**：修正 `src/pages/master/CreateProductPage.tsx` 缺少 `useEffect` 匯入的問題。
+- ✅ **初始值同步**：更新 `protocol-edit/constants.ts` 中的 `defaultFormData`，加入 `phone_ext` 初始值。
+- ✅ **本地化**：`zh-TW.json` 新增 `aup.basic.piExtension` 字串。
+- ✅ **後端 PDF**：`backend/src/services/pdf/service.rs` 更新 PDF 產生邏輯，計畫主持人電話欄位現在會包含分機。
+- 📁 **產出**：protocol.ts、constants.ts、CreateProductPage.tsx、ProtocolContentView.tsx、SectionBasic.tsx、zh-TW.json、service.rs。
 
 ### 2026-03-09 重構動物服務模組 (Service 拆分與解耦)
 

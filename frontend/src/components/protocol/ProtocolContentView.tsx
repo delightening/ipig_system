@@ -125,8 +125,8 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
         const bottom =
           i < sections.length - 1
             ? Math.round(
-                (sections[i + 1].getBoundingClientRect().top - containerRect.top) * domScale
-              )
+              (sections[i + 1].getBoundingClientRect().top - containerRect.top) * domScale
+            )
             : canvas.height
         if (bottom - top > 0) segments.push({ startPx: top, endPx: bottom })
       }
@@ -288,7 +288,10 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
                   </div>
                   <div>
                     <Label className="text-sm font-semibold">{t('protocols.content.sections.piPhone')}</Label>
-                    <p className="mt-1">{basic.pi.phone || '-'}</p>
+                    <p className="mt-1">
+                      {basic.pi.phone || '-'}
+                      {basic.pi.phone_ext && ` #${basic.pi.phone_ext}`}
+                    </p>
                   </div>
                   <div>
                     <Label className="text-sm font-semibold">{t('protocols.content.sections.piEmail')}</Label>
@@ -317,7 +320,10 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
                   </div>
                   <div>
                     <Label className="text-sm font-semibold">{t('protocols.content.sections.contactPhone')}</Label>
-                    <p className="mt-1">{basic.sponsor.contact_phone || '-'}</p>
+                    <p className="mt-1">
+                      {basic.sponsor.contact_phone || '-'}
+                      {basic.sponsor.contact_phone_ext && ` #${basic.sponsor.contact_phone_ext}`}
+                    </p>
                   </div>
                   <div>
                     <Label className="text-sm font-semibold">{t('protocols.content.sections.contactEmail')}</Label>

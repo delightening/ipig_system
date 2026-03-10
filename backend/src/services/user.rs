@@ -1,9 +1,11 @@
-use std::collections::HashMap;
 use sqlx::PgPool;
+use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::{
-    models::{AuditAction, CreateUserRequest, PaginationParams, UpdateUserRequest, User, UserResponse},
+    models::{
+        AuditAction, CreateUserRequest, PaginationParams, UpdateUserRequest, User, UserResponse,
+    },
     services::{AuditService, AuthService},
     AppError, Result,
 };
@@ -48,11 +50,11 @@ impl UserService {
         let user = sqlx::query_as::<_, User>(
             r#"
             INSERT INTO users (
-                id, email, password_hash, display_name, phone, organization,
+                id, email, password_hash, display_name, phone, phone_ext, organization,
                 entry_date, position, aup_roles, years_experience, trainings,
                 is_internal, is_active, must_change_password, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, true, true, NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, true, true, NOW(), NOW())
             RETURNING *
             "#,
         )
@@ -61,6 +63,7 @@ impl UserService {
         .bind(&password_hash)
         .bind(&req.display_name)
         .bind(&req.phone)
+        .bind(&req.phone_ext)
         .bind(&req.organization)
         .bind(req.entry_date)
         .bind(&req.position)
@@ -85,7 +88,11 @@ impl UserService {
     }
 
     /// 取得用戶列表
-    pub async fn list(pool: &PgPool, keyword: Option<&str>, pagination: &PaginationParams) -> Result<Vec<UserResponse>> {
+    pub async fn list(
+        pool: &PgPool,
+        keyword: Option<&str>,
+        pagination: &PaginationParams,
+    ) -> Result<Vec<UserResponse>> {
         let suffix = pagination.sql_suffix();
         let users = if let Some(kw) = keyword {
             let pattern = user_search_pattern(kw);
@@ -99,11 +106,12 @@ impl UserService {
                 .fetch_all(pool)
                 .await?
         } else {
-            let sql =
-                ["SELECT * FROM users ORDER BY created_at DESC", suffix.as_str()].concat();
-            sqlx::query_as::<_, User>(&sql)
-                .fetch_all(pool)
-                .await?
+            let sql = [
+                "SELECT * FROM users ORDER BY created_at DESC",
+                suffix.as_str(),
+            ]
+            .concat();
+            sqlx::query_as::<_, User>(&sql).fetch_all(pool).await?
         };
 
         let user_ids: Vec<Uuid> = users.iter().map(|u| u.id).collect();
@@ -116,7 +124,7 @@ impl UserService {
                    FROM user_roles ur
                    INNER JOIN roles r ON ur.role_id = r.id
                    WHERE ur.user_id = ANY($1)
-                   ORDER BY r.code"#
+                   ORDER BY r.code"#,
             )
             .bind(&user_ids)
             .fetch_all(pool)
@@ -128,7 +136,7 @@ impl UserService {
                    INNER JOIN role_permissions rp ON ur.role_id = rp.role_id
                    INNER JOIN permissions p ON rp.permission_id = p.id
                    WHERE ur.user_id = ANY($1)
-                   ORDER BY p.code"#
+                   ORDER BY p.code"#,
             )
             .bind(&user_ids)
             .fetch_all(pool)
@@ -216,22 +224,24 @@ impl UserService {
                 email = COALESCE($1, email),
                 display_name = COALESCE($2, display_name),
                 phone = COALESCE($3, phone),
-                organization = COALESCE($4, organization),
-                entry_date = COALESCE($5, entry_date),
-                position = COALESCE($6, position),
-                aup_roles = COALESCE($7, aup_roles),
-                years_experience = COALESCE($8, years_experience),
-                trainings = COALESCE($9, trainings),
-                is_internal = COALESCE($10, is_internal),
-                is_active = COALESCE($11, is_active),
+                phone_ext = COALESCE($4, phone_ext),
+                organization = COALESCE($5, organization),
+                entry_date = COALESCE($6, entry_date),
+                position = COALESCE($7, position),
+                aup_roles = COALESCE($8, aup_roles),
+                years_experience = COALESCE($9, years_experience),
+                trainings = COALESCE($10, trainings),
+                is_internal = COALESCE($11, is_internal),
+                is_active = COALESCE($12, is_active),
                 updated_at = NOW()
-            WHERE id = $12
+            WHERE id = $13
             RETURNING *
             "#,
         )
         .bind(&req.email)
         .bind(&req.display_name)
         .bind(&req.phone)
+        .bind(&req.phone_ext)
         .bind(&req.organization)
         .bind(req.entry_date)
         .bind(&req.position)
@@ -283,10 +293,11 @@ impl UserService {
 
     /// GDPR：自帳號停用（軟刪除，is_active=false）
     pub async fn deactivate_self(pool: &PgPool, id: Uuid) -> Result<()> {
-        let result = sqlx::query("UPDATE users SET is_active = false, updated_at = NOW() WHERE id = $1")
-            .bind(id)
-            .execute(pool)
-            .await?;
+        let result =
+            sqlx::query("UPDATE users SET is_active = false, updated_at = NOW() WHERE id = $1")
+                .bind(id)
+                .execute(pool)
+                .await?;
 
         if result.rows_affected() == 0 {
             return Err(AppError::NotFound("User not found".to_string()));
@@ -341,6 +352,9 @@ mod tests {
     #[test]
     fn test_user_search_pattern_normal() {
         assert_eq!(user_search_pattern("john"), "%john%");
-        assert_eq!(user_search_pattern("test@example.com"), "%test@example.com%");
+        assert_eq!(
+            user_search_pattern("test@example.com"),
+            "%test@example.com%"
+        );
     }
 }
