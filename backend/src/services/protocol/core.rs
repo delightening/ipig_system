@@ -152,8 +152,6 @@ impl ProtocolService {
         }
         if query.pi_user_id.is_some() {
             sql.push_str(&format!(" AND p.pi_user_id = ${}", param_idx));
-            #[allow(unused_assignments)]
-            { param_idx += 1; }
         }
 
         sql.push_str(" ORDER BY p.created_at DESC");

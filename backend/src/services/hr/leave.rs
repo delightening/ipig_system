@@ -313,11 +313,12 @@ impl HrService {
 
         // Determine next status based on current status
         // PENDING_L1 (部門主管) → PENDING_HR (行政) → PENDING_GM (負責人) → APPROVED
+        use crate::models::LeaveStatus;
         let next_status = match current.status.as_str() {
-            "PENDING_L1" => "PENDING_HR",   // After dept manager approval, go to admin staff
-            "PENDING_L2" => "PENDING_HR",   // Fallback for L2 (unused, but keep for compatibility)
-            "PENDING_HR" => "PENDING_GM",   // After admin staff approval, go to admin
-            "PENDING_GM" => "APPROVED",     // After admin approval, final approval
+            s if s == LeaveStatus::PendingL1.as_str() => LeaveStatus::PendingHr.as_str(),
+            s if s == LeaveStatus::PendingL2.as_str() => LeaveStatus::PendingHr.as_str(),
+            s if s == LeaveStatus::PendingHr.as_str() => LeaveStatus::PendingGm.as_str(),
+            s if s == LeaveStatus::PendingGm.as_str() => LeaveStatus::Approved.as_str(),
             _ => return Err(AppError::Validation("無法核准此狀態的請假".to_string())),
         };
 
@@ -335,7 +336,7 @@ impl HrService {
         .execute(pool)
         .await?;
 
-        let approved_at = if next_status == "APPROVED" {
+        let approved_at = if next_status == LeaveStatus::Approved.as_str() {
             Some(Utc::now())
         } else {
             None

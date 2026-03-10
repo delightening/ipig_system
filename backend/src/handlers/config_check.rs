@@ -89,7 +89,7 @@ pub async fn get_config_warnings(
                 ),
             });
         }
-        Ok(pwd) if pwd == "ChangeMe123!" || pwd.len() < 8 => {
+        Ok(pwd) if pwd == crate::constants::DEFAULT_INSECURE_PASSWORD || pwd.len() < 8 => {
             warn_count += 1;
             items.push(ConfigWarningItem {
                 level: "warn".to_string(),
