@@ -65,6 +65,14 @@ pub struct Config {
     pub audit_hmac_key: Option<String>,
     /// 整合測試用：停用 CSRF 檢查（僅在 TEST_DATABASE_URL/DATABASE_URL 且 DISABLE_CSRF_FOR_TESTS=true 時使用）
     pub disable_csrf_for_tests: bool,
+    /// SEC-20: 帳號鎖定功能（DISABLE_ACCOUNT_LOCKOUT=true 可關閉）
+    pub disable_account_lockout: bool,
+    /// SEC-20: 帳號鎖定最大失敗次數，預設 5
+    pub account_lockout_max_attempts: i64,
+    /// SEC-20: 帳號鎖定持續時間（分鐘），預設 15
+    pub account_lockout_duration_minutes: i64,
+    /// 檔案上傳目錄，預設 ./uploads
+    pub upload_dir: String,
 }
 
 impl Config {
@@ -176,6 +184,19 @@ impl Config {
             disable_csrf_for_tests: std::env::var("DISABLE_CSRF_FOR_TESTS")
                 .map(|v| v.to_lowercase() == "true" || v == "1")
                 .unwrap_or(false),
+            disable_account_lockout: std::env::var("DISABLE_ACCOUNT_LOCKOUT")
+                .map(|v| v.to_lowercase() == "true" || v == "1")
+                .unwrap_or(false),
+            account_lockout_max_attempts: std::env::var("ACCOUNT_LOCKOUT_MAX_ATTEMPTS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(5),
+            account_lockout_duration_minutes: std::env::var("ACCOUNT_LOCKOUT_DURATION_MINUTES")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(15),
+            upload_dir: std::env::var("UPLOAD_DIR")
+                .unwrap_or_else(|_| "./uploads".to_string()),
         })
     }
 
@@ -221,6 +242,10 @@ mod tests {
             cors_allowed_origins: vec!["http://localhost:8080".to_string()],
             audit_hmac_key: None,
             disable_csrf_for_tests: false,
+            disable_account_lockout: false,
+            account_lockout_max_attempts: 5,
+            account_lockout_duration_minutes: 15,
+            upload_dir: "./uploads".to_string(),
         }
     }
 
