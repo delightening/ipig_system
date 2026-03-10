@@ -8,7 +8,7 @@ import {
   warehouseFormSchema,
   animalFormSchema,
   getFirstZodError,
-} from '@/lib/validations'
+} from '@/lib/validation'
 import { z } from 'zod'
 
 describe('taxIdSchema', () => {

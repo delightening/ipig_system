@@ -216,7 +216,7 @@ async fn main() -> anyhow::Result<()> {
                         .to_string(),
                 );
             }
-            Ok(pwd) if pwd == "ChangeMe123!" || pwd.len() < 8 => {
+            Ok(pwd) if pwd == erp_backend::constants::DEFAULT_INSECURE_PASSWORD || pwd.len() < 8 => {
                 warn_count += 1;
                 items.push(
                     "⚠️  ADMIN_INITIAL_PASSWORD 使用預設值或過於簡短\n     \

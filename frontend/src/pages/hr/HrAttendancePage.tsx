@@ -34,23 +34,11 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { toast } from '@/components/ui/use-toast'
+import { formatTime } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
 import { AxiosError } from 'axios'
-import type { AttendanceWithUser } from '@/types/hr'
-
-interface PaginatedResponse<T> {
-    data: T[]
-    total: number
-    page: number
-    per_page: number
-    total_pages: number
-}
-
-interface StaffInfo {
-    id: string
-    display_name: string
-    email: string
-}
+import type { AttendanceWithUser, StaffInfo } from '@/types/hr'
+import type { PaginatedResponse } from '@/types/common'
 
 export function HrAttendancePage() {
     const [activeTab, setActiveTab] = useState('today')
@@ -219,11 +207,6 @@ export function HrAttendancePage() {
                 variant: 'destructive',
             })
         }
-    }
-
-    const formatTime = (dateStr: string | null) => {
-        if (!dateStr) return '-'
-        return new Date(dateStr).toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
     }
 
     const formatDate = (dateStr: string) => {

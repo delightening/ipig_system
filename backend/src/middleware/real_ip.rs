@@ -21,7 +21,6 @@ fn get_header_value(headers: &HeaderMap, name: &str) -> Option<String> {
 ///
 /// - `trust_proxy = true`：依序檢查 CF-Connecting-IP、X-Real-IP、X-Forwarded-For
 /// - `trust_proxy = false`：僅使用 socket addr，忽略所有 proxy header（防偽造）
-#[allow(dead_code)]
 pub fn extract_real_ip(headers: &HeaderMap, fallback: &SocketAddr) -> String {
     extract_real_ip_with_trust(headers, fallback, true)
 }

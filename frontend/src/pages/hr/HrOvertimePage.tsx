@@ -3,7 +3,6 @@ import { useTabState } from '@/hooks/useTabState'
 import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
-import { zhTW } from 'date-fns/locale'
 import {
     CheckCircle,
     Clock,
@@ -47,20 +46,10 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
+import { parseDecimal } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
 import type { OvertimeWithUser } from '@/types/hr'
-
-// ============================================
-// Types & Constants
-// ============================================
-
-interface PaginatedResponse<T> {
-    data: T[]
-    total: number
-    page: number
-    per_page: number
-    total_pages: number
-}
+import type { PaginatedResponse } from '@/types/common'
 
 interface CreateOvertimeData {
     overtime_date: string
@@ -90,12 +79,6 @@ const OVERTIME_STATUS_NAMES: Record<string, string> = {
 // ============================================
 // Utility Functions
 // ============================================
-
-/** Safely parse Decimal strings from backend */
-const parseDecimal = (value: number | string | null | undefined): number => {
-    if (value === null || value === undefined) return 0
-    return typeof value === 'string' ? parseFloat(value) : value
-}
 
 /** Format date string to localized format */
 const formatDate = (dateStr: string): string => {

@@ -10,6 +10,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { formatDateTime } from '@/lib/utils'
 import type { SecurityAlert } from '@/types/hr'
 
 interface AuditAlertDetailDialogProps {
@@ -19,9 +20,6 @@ interface AuditAlertDetailDialogProps {
   onResolve: (alertId: string) => void
   isResolving: boolean
 }
-
-const formatDateTime = (dateStr: string) =>
-  new Date(dateStr).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 
 const getSeverityColor = (severity: string) => {
   switch (severity) {

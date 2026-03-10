@@ -1,15 +1,12 @@
 // Email 服務模組
 // 拆分自原始 email.rs（1,192 行）
 
+mod alert;
 mod auth;
 mod protocol;
-mod alert;
 
 use lettre::{
-    message::{
-        header::ContentType,
-        Attachment, Body, MultiPart, SinglePart,
-    },
+    message::{header::ContentType, Attachment, Body, MultiPart, SinglePart},
     transport::smtp::authentication::Credentials,
     AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
 };
@@ -42,7 +39,8 @@ impl EmailService {
         if to_email.is_empty() || !to_email.contains('@') {
             tracing::warn!(
                 "Skipping email '{}' - invalid recipient address: '{}'",
-                subject, to_email
+                subject,
+                to_email
             );
             return Ok(());
         }
@@ -58,8 +56,12 @@ impl EmailService {
         let from = format!("{} <{}>", smtp.from_name, smtp.from_email);
 
         // 建構 MIME：alternative(plain, related(html, inline-logo))
-        let logo_attachment = Attachment::new_inline("logo".to_string())
-            .body(Body::new(LOGO_PNG.to_vec()), "image/png".parse().expect("failed to parse image/png content type"));
+        let logo_attachment = Attachment::new_inline("logo".to_string()).body(
+            Body::new(LOGO_PNG.to_vec()),
+            "image/png"
+                .parse()
+                .expect("failed to parse image/png content type"),
+        );
         let html_with_logo = MultiPart::related()
             .singlepart(
                 SinglePart::builder()
@@ -81,9 +83,7 @@ impl EmailService {
             .subject(subject)
             .multipart(email_body)?;
 
-        let mailer = if let (Some(username), Some(password)) =
-            (&smtp.username, &smtp.password)
-        {
+        let mailer = if let (Some(username), Some(password)) = (&smtp.username, &smtp.password) {
             let creds = Credentials::new(username.clone(), password.clone());
             AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(smtp_host)?
                 .port(smtp.port)
@@ -105,9 +105,16 @@ impl EmailService {
             || {
                 let mailer_ref = &mailer;
                 let email_clone = email.clone();
-                async move { mailer_ref.send(email_clone).await.map(|_| ()).map_err(|e| anyhow::anyhow!(e)) }
+                async move {
+                    mailer_ref
+                        .send(email_clone)
+                        .await
+                        .map(|_| ())
+                        .map_err(|e| anyhow::anyhow!(e))
+                }
             },
-        ).await?;
+        )
+        .await?;
         Ok(())
     }
 
@@ -124,7 +131,8 @@ impl EmailService {
         if to_email.is_empty() || !to_email.contains('@') {
             tracing::warn!(
                 "Skipping email '{}' - invalid recipient address: '{}'",
-                subject, to_email
+                subject,
+                to_email
             );
             return Ok(());
         }
@@ -132,8 +140,12 @@ impl EmailService {
         let from = format!("{} <{}>", config.smtp_from_name, config.smtp_from_email);
 
         // 建構 MIME：alternative(plain, related(html, inline-logo))
-        let logo_attachment = Attachment::new_inline("logo".to_string())
-            .body(Body::new(LOGO_PNG.to_vec()), "image/png".parse().expect("failed to parse image/png content type"));
+        let logo_attachment = Attachment::new_inline("logo".to_string()).body(
+            Body::new(LOGO_PNG.to_vec()),
+            "image/png"
+                .parse()
+                .expect("failed to parse image/png content type"),
+        );
         let html_with_logo = MultiPart::related()
             .singlepart(
                 SinglePart::builder()

@@ -53,8 +53,8 @@ struct IdxfMeta {
 #[derive(Debug, Deserialize)]
 struct IdxfTable {
     name: String,
-    #[allow(dead_code)]
-    columns: Vec<String>,
+    #[serde(rename = "columns")]
+    _columns: Vec<String>,
     rows: serde_json::Value,
 }
 
