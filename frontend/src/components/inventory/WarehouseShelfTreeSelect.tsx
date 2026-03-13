@@ -54,6 +54,8 @@ interface WarehouseShelfTreeSelectProps {
   allowAll?: boolean
   className?: string
   placeholder?: string
+  /** 父級倉庫 ID，若提供則僅顯示該倉庫下的儲位（且隱藏該倉庫按鈕內容，僅留儲位列表） */
+  parentId?: string
 }
 
 export function WarehouseShelfTreeSelect({
@@ -63,6 +65,7 @@ export function WarehouseShelfTreeSelect({
   allowAll = true,
   className,
   placeholder,
+  parentId,
 }: WarehouseShelfTreeSelectProps) {
   const [open, setOpen] = useState(false)
   const { data: tree, isLoading } = useQuery({
@@ -115,7 +118,7 @@ export function WarehouseShelfTreeSelect({
           sideOffset={4}
         >
           <div className="max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20">
-            {allowAll && (
+            {allowAll && !parentId && (
               <>
                 <button
                   type="button"
@@ -134,26 +137,31 @@ export function WarehouseShelfTreeSelect({
                 <div className="my-1 h-px bg-muted" />
               </>
             )}
-            {tree?.map((wh) => (
+            {tree?.filter(wh => !parentId || wh.id === parentId).map((wh) => (
               <div key={wh.id} className="space-y-0.5">
-                <button
-                  type="button"
-                  className={cn(
-                    'flex w-full items-center justify-between gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors hover:bg-accent/50 hover:text-accent-foreground',
-                    value === `wh:${wh.id}` ? 'bg-accent text-accent-foreground' : 'text-foreground/80'
-                  )}
-                  onClick={() => handleSelect(`wh:${wh.id}`)}
-                >
-                  <div className="flex items-center gap-2 overflow-hidden">
-                    <div className="flex h-5 w-5 items-center justify-center rounded-sm bg-primary/10 text-primary">
-                      <FolderOpen className="h-3.5 w-3.5" />
+                {!parentId && (
+                  <button
+                    type="button"
+                    className={cn(
+                      'flex w-full items-center justify-between gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors hover:bg-accent/50 hover:text-accent-foreground',
+                      value === `wh:${wh.id}` ? 'bg-accent text-accent-foreground' : 'text-foreground/80'
+                    )}
+                    onClick={() => handleSelect(`wh:${wh.id}`)}
+                  >
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <div className="flex h-5 w-5 items-center justify-center rounded-sm bg-primary/10 text-primary">
+                        <FolderOpen className="h-3.5 w-3.5" />
+                      </div>
+                      <span className="truncate">{wh.name}</span>
                     </div>
-                    <span className="truncate">{wh.name}</span>
-                  </div>
-                  {value === `wh:${wh.id}` && <Check className="h-4 w-4" />}
-                </button>
+                    {value === `wh:${wh.id}` && <Check className="h-4 w-4" />}
+                  </button>
+                )}
                   {selectLevel === 'shelf' && (
-                    <div className="pl-4 space-y-0.5 border-l border-muted/50 ml-5 my-0.5">
+                    <div className={cn(
+                      "space-y-0.5 my-0.5",
+                      !parentId && "pl-4 border-l border-muted/50 ml-5"
+                    )}>
                       {wh.shelves.map((shelf) => (
                         <button
                           key={shelf.id}

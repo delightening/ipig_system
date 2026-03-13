@@ -169,19 +169,43 @@ export function DocumentEditPage() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-2">
-                <Label>倉庫 *</Label>
-                <WarehouseShelfTreeSelect
-                  value={formData.warehouse_id ? `wh:${formData.warehouse_id}` : ''}
-                  onValueChange={(v: WarehouseShelfValue) => {
-                    const id = v.startsWith('wh:') ? v.slice(3) : ''
-                    updateField('warehouse_id', id)
-                  }}
-                  selectLevel="warehouse"
-                  allowAll={false}
-                  className="w-full"
-                  placeholder="選擇倉庫"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>倉庫 *</Label>
+                  <WarehouseShelfTreeSelect
+                    value={formData.warehouse_id ? `wh:${formData.warehouse_id}` : ''}
+                    onValueChange={(v: WarehouseShelfValue) => {
+                      const id = v.startsWith('wh:') ? v.slice(3) : ''
+                      updateField('warehouse_id', id)
+                    }}
+                    selectLevel="warehouse"
+                    allowAll={false}
+                    className="w-full"
+                    placeholder="選擇倉庫"
+                  />
+                </div>
+                {formData.warehouse_id && needsShelf && (
+                  <div className="space-y-2">
+                    <Label>儲位/貨架 *</Label>
+                    <WarehouseShelfTreeSelect
+                      value=""
+                      onValueChange={(v: WarehouseShelfValue) => {
+                        const shelfId = v.startsWith('loc:') ? v.slice(4) : ''
+                        if (shelfId) {
+                          setFormData((prev: any) => ({
+                            ...prev,
+                            lines: prev.lines.map((l: any) => ({ ...l, storage_location_id: shelfId }))
+                          }))
+                        }
+                      }}
+                      selectLevel="shelf"
+                      parentId={formData.warehouse_id}
+                      allowAll={false}
+                      className="w-full"
+                      placeholder="批次套用儲位"
+                    />
+                  </div>
+                )}
               </div>
             )}
 
