@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-03-13 (v11)
+> **最後更新：** 2026-03-13 (v12)
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -79,7 +79,7 @@
 | 6 | [HR 人事管理系統](#6-hr-人事管理系統) | 特休、考勤、Google Calendar |
 | 7 | [資料庫 Schema 完成度](#7-資料庫-schema-完成度) | Migration 清單 |
 | 8 | [版本規劃](#8-版本規劃) | v1.0 / v1.1 里程碑 |
-| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-13 ERP 庫存強化 + 系統穩固化 |
+| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-13 庫存查詢視覺優化 + 系統穩固化 |
 
 ---
 
@@ -190,13 +190,18 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
-### 2026-03-13 ERP 庫存管理強化與系統穩固化
+### 2026-03-13 ERP 庫存管理強化與視覺體驗優化
 
+- ✅ **視覺體驗優化 (UX)**：針對庫存查詢頁面進行全方位美化。
+  - **下拉選單 (WarehouseShelfTreeSelect)**：解決 Popover 選單背景透明導致的文字重疊問題。引入 `Popover.Portal` 確保層級正確，並加入 Glassmorphism（背景模糊）、陰影與流暢的動畫效果。
+  - **列表樣式**：優化表格 Layout，提升資料可讀性。增加單行 Hover 效果、漸變標題與精緻的狀態標籤（如安全庫存預警）。
+  - **空狀態重塑 (Empty State)**：當搜尋無結果或無資料時，顯示更具引導性的插圖與文字描述，而非單調的圖標。
+  - **加載體驗**：改進 Skeleton 與 Loader 顯示方式，使其在資料加載過程中視覺上更穩定。
 - ✅ **下拉選單穩定性**：修復「新增單據」頁面中倉庫、合作夥伴與 IACUC No. 下拉選單選項不穩定問題。透過 `react-query` 的 `refetchOnMount` 與前端 Loading 狀態處理，確保資料在載入過程中 UI 顯示一致。
 - ✅ **庫存查詢**：新增「未分配庫存查詢」功能。前台 `WarehouseLayoutPage` 可快速查看尚未指派儲位的產品庫存，後端 `StockService` 提供對應 API。
 - ✅ **系統健全度**：`StockService` 查詢結果加入 `storage_location` 預設值處理，避免特定情境下的欄位缺失。
 - ✅ **資料庫架構**：完成 Migration 清理，將 `phone_ext` (分機) 與 `leave_cancelled` 路由邏輯正式併入基礎遷移檔案，提升資料庫一致性。
-- 📁 **產出**：useDocumentForm.ts、DocumentEditPage.tsx、stock.rs、WarehouseLayoutPage.tsx、migrations 多檔更新。
+- 📁 **產出**：InventoryPage.tsx、WarehouseShelfTreeSelect.tsx、useDocumentForm.ts、DocumentEditPage.tsx、stock.rs、WarehouseLayoutPage.tsx、migrations 多檔更新。
 
 ### 2026-03-10 系統電話分機欄位 (Phone Extension) 支援
 
