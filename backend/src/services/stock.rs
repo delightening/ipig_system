@@ -173,6 +173,22 @@ impl StockService {
                         }).await?;
                     }
                 }
+                DocType::SR | DocType::RTN => {
+                    // 銷貨退貨 / 退貨：商品退回倉庫，庫存增加
+                    let warehouse_id = document.warehouse_id.ok_or_else(|| {
+                        AppError::BusinessRule("Warehouse is required for sales return".to_string())
+                    })?;
+
+                    Self::create_ledger_entry(tx, LedgerEntryParams {
+                        warehouse_id,
+                        product_id: line.product_id,
+                        document,
+                        line,
+                        direction: StockDirection::In,
+                        qty: line.qty,
+                        unit_price: line.unit_price,
+                    }).await?;
+                }
                 _ => {
                     // PO, SO, STK 等不直接影響庫存的單據
                 }

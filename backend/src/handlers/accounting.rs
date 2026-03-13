@@ -15,7 +15,7 @@ use crate::{
     require_permission,
     services::accounting::{
         ApAgingRow, ArAgingRow, ChartOfAccount, JournalEntryLineRow, JournalEntryRow,
-        TrialBalanceRow,
+        ProfitLossSummary, TrialBalanceRow,
     },
     services::AccountingService,
     time,
@@ -168,4 +168,21 @@ pub async fn create_ar_receipt(
     )
     .await?;
     Ok(Json(serde_json::json!({ "id": id })))
+}
+
+/// 取得損益表
+#[utoipa::path(get, path = "/api/accounting/profit-loss", responses((status = 200)), tag = "會計", security(("bearer" = [])))]
+pub async fn get_profit_loss(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Query(query): Query<AccountingQuery>,
+) -> Result<Json<ProfitLossSummary>> {
+    require_permission!(current_user, "erp.report.view");
+    let summary = AccountingService::get_profit_loss(
+        &state.db,
+        query.date_from,
+        query.date_to,
+    )
+    .await?;
+    Ok(Json(summary))
 }

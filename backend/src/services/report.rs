@@ -208,11 +208,11 @@ impl ReportService {
         Ok(results)
     }
 
-    /// 庫存異動報表
-    pub async fn stock_ledger(pool: &PgPool, _query: &ReportQuery) -> Result<Vec<StockLedgerReport>> {
-        let results = sqlx::query_as::<_, StockLedgerReport>(
+    /// 庫存異動報表（支援篩選）
+    pub async fn stock_ledger(pool: &PgPool, query: &ReportQuery) -> Result<Vec<StockLedgerReport>> {
+        let mut qb = sqlx::QueryBuilder::new(
             r#"
-            SELECT 
+            SELECT
                 sl.trx_date,
                 w.code as warehouse_code,
                 w.name as warehouse_name,
@@ -228,21 +228,38 @@ impl ReportService {
             FROM stock_ledger sl
             INNER JOIN warehouses w ON sl.warehouse_id = w.id
             INNER JOIN products p ON sl.product_id = p.id
-            ORDER BY sl.trx_date DESC, sl.doc_no
-            LIMIT 1000
-            "#
-        )
-        .fetch_all(pool)
-        .await?;
+            WHERE 1=1
+            "#,
+        );
 
+        if let Some(wid) = query.warehouse_id {
+            qb.push(" AND sl.warehouse_id = ");
+            qb.push_bind(wid);
+        }
+        if let Some(pid) = query.product_id {
+            qb.push(" AND sl.product_id = ");
+            qb.push_bind(pid);
+        }
+        if let Some(df) = query.date_from {
+            qb.push(" AND sl.trx_date >= ");
+            qb.push_bind(df);
+        }
+        if let Some(dt) = query.date_to {
+            qb.push(" AND sl.trx_date <= ");
+            qb.push_bind(dt);
+        }
+
+        qb.push(" ORDER BY sl.trx_date DESC, sl.doc_no LIMIT 1000");
+
+        let results = qb.build_query_as::<StockLedgerReport>().fetch_all(pool).await?;
         Ok(results)
     }
 
-    /// 採購明細報表
-    pub async fn purchase_lines(pool: &PgPool, _query: &ReportQuery) -> Result<Vec<PurchaseLinesReport>> {
-        let results = sqlx::query_as::<_, PurchaseLinesReport>(
+    /// 採購明細報表（支援篩選）
+    pub async fn purchase_lines(pool: &PgPool, query: &ReportQuery) -> Result<Vec<PurchaseLinesReport>> {
+        let mut qb = sqlx::QueryBuilder::new(
             r#"
-            SELECT 
+            SELECT
                 d.doc_date,
                 d.doc_no,
                 d.status::text as status,
@@ -265,13 +282,29 @@ impl ReportService {
             INNER JOIN users u1 ON d.created_by = u1.id
             LEFT JOIN users u2 ON d.approved_by = u2.id
             WHERE d.doc_type IN ('PO', 'GRN', 'PR')
-            ORDER BY d.doc_date DESC, d.doc_no, dl.line_no
-            LIMIT 1000
-            "#
-        )
-        .fetch_all(pool)
-        .await?;
+            "#,
+        );
 
+        if let Some(pid) = query.partner_id {
+            qb.push(" AND d.partner_id = ");
+            qb.push_bind(pid);
+        }
+        if let Some(wid) = query.warehouse_id {
+            qb.push(" AND d.warehouse_id = ");
+            qb.push_bind(wid);
+        }
+        if let Some(df) = query.date_from {
+            qb.push(" AND d.doc_date >= ");
+            qb.push_bind(df);
+        }
+        if let Some(dt) = query.date_to {
+            qb.push(" AND d.doc_date <= ");
+            qb.push_bind(dt);
+        }
+
+        qb.push(" ORDER BY d.doc_date DESC, d.doc_no, dl.line_no LIMIT 1000");
+
+        let results = qb.build_query_as::<PurchaseLinesReport>().fetch_all(pool).await?;
         Ok(results)
     }
 
@@ -489,4 +522,199 @@ impl ReportService {
         let results = qb.build_query_as::<BloodTestAnalysisRow>().fetch_all(pool).await?;
         Ok(results)
     }
+
+    /// 進銷貨彙總 — 按月份
+    pub async fn purchase_sales_monthly(
+        pool: &PgPool,
+        query: &ReportQuery,
+    ) -> Result<Vec<PurchaseSalesMonthlySummary>> {
+        let mut qb = sqlx::QueryBuilder::new(
+            r#"
+            WITH doc_totals AS (
+                SELECT
+                    d.doc_type,
+                    TO_CHAR(d.doc_date, 'YYYY-MM') as year_month,
+                    COALESCE(SUM(dl.qty * COALESCE(dl.unit_price, 0)), 0) as total_amount
+                FROM documents d
+                INNER JOIN document_lines dl ON d.id = dl.document_id
+                WHERE d.status = 'approved'
+                  AND d.doc_type IN ('GRN', 'PR', 'DO', 'SR', 'RTN')
+            "#,
+        );
+        if let Some(df) = query.date_from {
+            qb.push(" AND d.doc_date >= ");
+            qb.push_bind(df);
+        }
+        if let Some(dt) = query.date_to {
+            qb.push(" AND d.doc_date <= ");
+            qb.push_bind(dt);
+        }
+        qb.push(
+            r#"
+                GROUP BY d.doc_type, TO_CHAR(d.doc_date, 'YYYY-MM')
+            ),
+            cogs_monthly AS (
+                SELECT
+                    TO_CHAR(je.entry_date, 'YYYY-MM') as year_month,
+                    COALESCE(SUM(jel.debit_amount), 0) as cogs
+                FROM journal_entry_lines jel
+                INNER JOIN journal_entries je ON je.id = jel.journal_entry_id
+                INNER JOIN chart_of_accounts coa ON coa.id = jel.account_id AND coa.code = '5200'
+                WHERE je.source_entity_type = 'document'
+            "#,
+        );
+        if let Some(df) = query.date_from {
+            qb.push(" AND je.entry_date >= ");
+            qb.push_bind(df);
+        }
+        if let Some(dt) = query.date_to {
+            qb.push(" AND je.entry_date <= ");
+            qb.push_bind(dt);
+        }
+        qb.push(
+            r#"
+                GROUP BY TO_CHAR(je.entry_date, 'YYYY-MM')
+            ),
+            months AS (
+                SELECT DISTINCT year_month FROM doc_totals
+                UNION
+                SELECT DISTINCT year_month FROM cogs_monthly
+            )
+            SELECT
+                m.year_month,
+                COALESCE((SELECT total_amount FROM doc_totals WHERE doc_type::text = 'GRN' AND year_month = m.year_month), 0) as purchase_total,
+                COALESCE((SELECT total_amount FROM doc_totals WHERE doc_type::text = 'PR' AND year_month = m.year_month), 0) as purchase_return,
+                COALESCE((SELECT total_amount FROM doc_totals WHERE doc_type::text = 'GRN' AND year_month = m.year_month), 0)
+                    - COALESCE((SELECT total_amount FROM doc_totals WHERE doc_type::text = 'PR' AND year_month = m.year_month), 0) as net_purchase,
+                COALESCE((SELECT total_amount FROM doc_totals WHERE doc_type::text = 'DO' AND year_month = m.year_month), 0) as sales_total,
+                COALESCE((SELECT SUM(total_amount) FROM doc_totals WHERE doc_type::text IN ('SR', 'RTN') AND year_month = m.year_month), 0) as sales_return,
+                COALESCE((SELECT total_amount FROM doc_totals WHERE doc_type::text = 'DO' AND year_month = m.year_month), 0)
+                    - COALESCE((SELECT SUM(total_amount) FROM doc_totals WHERE doc_type::text IN ('SR', 'RTN') AND year_month = m.year_month), 0) as net_sales,
+                COALESCE(c.cogs, 0) as cogs_total,
+                COALESCE((SELECT total_amount FROM doc_totals WHERE doc_type::text = 'DO' AND year_month = m.year_month), 0)
+                    - COALESCE((SELECT SUM(total_amount) FROM doc_totals WHERE doc_type::text IN ('SR', 'RTN') AND year_month = m.year_month), 0)
+                    - COALESCE(c.cogs, 0) as gross_profit
+            FROM months m
+            LEFT JOIN cogs_monthly c ON c.year_month = m.year_month
+            ORDER BY m.year_month DESC
+            "#,
+        );
+
+        let results = qb.build_query_as::<PurchaseSalesMonthlySummary>().fetch_all(pool).await?;
+        Ok(results)
+    }
+
+    /// 進銷貨彙總 — 按供應商/客戶
+    pub async fn purchase_sales_by_partner(
+        pool: &PgPool,
+        query: &ReportQuery,
+    ) -> Result<Vec<PurchaseSalesPartnerSummary>> {
+        let mut qb = sqlx::QueryBuilder::new(
+            r#"
+            SELECT
+                pa.id as partner_id,
+                pa.code as partner_code,
+                pa.name as partner_name,
+                pa.partner_type::text as partner_type,
+                COALESCE(SUM(CASE WHEN d.doc_type IN ('GRN', 'DO') THEN dl.qty * COALESCE(dl.unit_price, 0) ELSE 0 END), 0) as total_amount,
+                COALESCE(SUM(CASE WHEN d.doc_type IN ('PR', 'SR', 'RTN') THEN dl.qty * COALESCE(dl.unit_price, 0) ELSE 0 END), 0) as return_amount,
+                COALESCE(SUM(CASE WHEN d.doc_type IN ('GRN', 'DO') THEN dl.qty * COALESCE(dl.unit_price, 0) ELSE 0 END), 0)
+                    - COALESCE(SUM(CASE WHEN d.doc_type IN ('PR', 'SR', 'RTN') THEN dl.qty * COALESCE(dl.unit_price, 0) ELSE 0 END), 0) as net_amount,
+                COUNT(DISTINCT d.id) as doc_count
+            FROM documents d
+            INNER JOIN document_lines dl ON d.id = dl.document_id
+            INNER JOIN partners pa ON d.partner_id = pa.id
+            WHERE d.status = 'approved'
+              AND d.doc_type IN ('GRN', 'PR', 'DO', 'SR', 'RTN')
+            "#,
+        );
+
+        if let Some(df) = query.date_from {
+            qb.push(" AND d.doc_date >= ");
+            qb.push_bind(df);
+        }
+        if let Some(dt) = query.date_to {
+            qb.push(" AND d.doc_date <= ");
+            qb.push_bind(dt);
+        }
+
+        qb.push(" GROUP BY pa.id, pa.code, pa.name, pa.partner_type ORDER BY net_amount DESC LIMIT 100");
+
+        let results = qb.build_query_as::<PurchaseSalesPartnerSummary>().fetch_all(pool).await?;
+        Ok(results)
+    }
+
+    /// 進銷貨彙總 — 按產品類別
+    pub async fn purchase_sales_by_category(
+        pool: &PgPool,
+        query: &ReportQuery,
+    ) -> Result<Vec<PurchaseSalesCategorySummary>> {
+        let mut qb = sqlx::QueryBuilder::new(
+            r#"
+            SELECT
+                COALESCE(pc.name, '未分類') as category_name,
+                COALESCE(SUM(CASE WHEN d.doc_type IN ('GRN', 'PR') THEN dl.qty * COALESCE(dl.unit_price, 0) ELSE 0 END), 0) as purchase_amount,
+                COALESCE(SUM(CASE WHEN d.doc_type IN ('DO', 'SR', 'RTN') THEN dl.qty * COALESCE(dl.unit_price, 0) ELSE 0 END), 0) as sales_amount,
+                0::NUMERIC(18,4) as cogs_amount,
+                COALESCE(SUM(CASE WHEN d.doc_type IN ('DO', 'SR', 'RTN') THEN dl.qty * COALESCE(dl.unit_price, 0) ELSE 0 END), 0) as gross_profit
+            FROM documents d
+            INNER JOIN document_lines dl ON d.id = dl.document_id
+            INNER JOIN products p ON dl.product_id = p.id
+            LEFT JOIN product_categories pc ON p.category_id = pc.id
+            WHERE d.status = 'approved'
+              AND d.doc_type IN ('GRN', 'PR', 'DO', 'SR', 'RTN')
+            "#,
+        );
+
+        if let Some(df) = query.date_from {
+            qb.push(" AND d.doc_date >= ");
+            qb.push_bind(df);
+        }
+        if let Some(dt) = query.date_to {
+            qb.push(" AND d.doc_date <= ");
+            qb.push_bind(dt);
+        }
+
+        qb.push(" GROUP BY pc.name ORDER BY purchase_amount DESC");
+
+        let results = qb.build_query_as::<PurchaseSalesCategorySummary>().fetch_all(pool).await?;
+        Ok(results)
+    }
+}
+
+/// 進銷貨月份彙總
+#[derive(Debug, FromRow, serde::Serialize)]
+pub struct PurchaseSalesMonthlySummary {
+    pub year_month: String,
+    pub purchase_total: Decimal,
+    pub purchase_return: Decimal,
+    pub net_purchase: Decimal,
+    pub sales_total: Decimal,
+    pub sales_return: Decimal,
+    pub net_sales: Decimal,
+    pub cogs_total: Decimal,
+    pub gross_profit: Decimal,
+}
+
+/// 進銷貨夥伴彙總
+#[derive(Debug, FromRow, serde::Serialize)]
+pub struct PurchaseSalesPartnerSummary {
+    pub partner_id: Uuid,
+    pub partner_code: String,
+    pub partner_name: String,
+    pub partner_type: String,
+    pub total_amount: Decimal,
+    pub return_amount: Decimal,
+    pub net_amount: Decimal,
+    pub doc_count: i64,
+}
+
+/// 進銷貨產品類別彙總
+#[derive(Debug, FromRow, serde::Serialize)]
+pub struct PurchaseSalesCategorySummary {
+    pub category_name: String,
+    pub purchase_amount: Decimal,
+    pub sales_amount: Decimal,
+    pub cogs_amount: Decimal,
+    pub gross_profit: Decimal,
 }
