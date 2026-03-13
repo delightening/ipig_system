@@ -133,31 +133,23 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     refetchOnMount: true,
   })
 
-  const { data: activeProtocols } = useQuery({
-    queryKey: ['active-protocols', partners],
+  const { data: activeProtocols, isLoading: loadingProtocols } = useQuery({
+    queryKey: ['active-protocols'],
     queryFn: async () => {
       const response = await api.get<ProtocolListItem[]>('/protocols')
       return response.data.filter((p) => {
+        // 排除已關閉的計畫
         if (p.status === 'CLOSED') return false
-        if (
-          !(
-            (p.status === 'APPROVED' || p.status === 'APPROVED_WITH_CONDITIONS') &&
-            p.iacuc_no
-          )
-        ) {
-          return false
-        }
-        if (partners && p.iacuc_no) {
-          const customer = partners.find(
-            (partner) =>
-              partner.partner_type === 'customer' && partner.code === p.iacuc_no
-          )
-          if (customer && !customer.is_active) return false
-        }
+        
+        // 僅保留已批准且有 IACUC 編號的計畫
+        const isApproved = p.status === 'APPROVED' || p.status === 'APPROVED_WITH_CONDITIONS'
+        if (!isApproved || !p.iacuc_no) return false
+        
         return true
       })
     },
-    enabled: formData.doc_type === 'SO' || formData.doc_type === 'DO',
+    // 納入採購與銷售相關單據
+    enabled: ['PO', 'PR', 'SO', 'DO'].includes(formData.doc_type),
     staleTime: STALE_TIME.REFERENCE,
   })
 
@@ -641,6 +633,7 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     warehouses,
     partners,
     activeProtocols,
+    loadingProtocols,
     filteredPartners,
     needsPartner,
     isTransfer,
