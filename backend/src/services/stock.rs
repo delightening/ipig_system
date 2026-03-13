@@ -326,9 +326,9 @@ impl StockService {
     /// - 指定 storage_location_id：查 storage_location_inventory（貨架級）
     /// - 指定 warehouse_id 或全部：查 stock_ledger（倉庫級）
     pub async fn get_on_hand(
-        pool: &PgPool,
-        query: &InventoryQuery,
-    ) -> Result<Vec<InventoryOnHand>> {
+        pool: &sqlx::PgPool,
+        query: &crate::models::InventoryQuery,
+    ) -> Result<Vec<crate::models::InventoryOnHand>> {
         // 貨架級查詢（storage_location_inventory）
         if let Some(loc_id) = query.storage_location_id {
             let rows = sqlx::query_as::<_, InventoryOnHand>(
@@ -346,6 +346,8 @@ impl StockService {
                     p.base_uom,
                     sli.on_hand_qty as qty_on_hand,
                     NULL::numeric as avg_cost,
+                    sli.batch_no,
+                    sli.expiry_date,
                     p.safety_stock,
                     p.reorder_point
                 FROM storage_location_inventory sli
@@ -354,7 +356,7 @@ impl StockService {
                 JOIN products p ON sli.product_id = p.id
                 WHERE sl.id = $1 AND sl.is_active = true AND w.is_active = true AND p.is_active = true
                   AND sli.on_hand_qty > 0
-                ORDER BY p.sku
+                ORDER BY p.sku, sli.expiry_date, sli.batch_no
                 "#,
             )
             .bind(loc_id)
@@ -385,6 +387,8 @@ impl StockService {
                     END
                 ), 0) as qty_on_hand,
                 AVG(sl.unit_cost) as avg_cost,
+                sl.batch_no,
+                sl.expiry_date,
                 p.safety_stock,
                 p.reorder_point
             FROM warehouses w
@@ -400,7 +404,7 @@ impl StockService {
 
         sql.push_str(
             r#"
-            GROUP BY w.id, w.code, w.name, p.id, p.sku, p.name, p.base_uom, p.safety_stock, p.reorder_point
+            GROUP BY w.id, w.code, w.name, p.id, p.sku, p.name, p.base_uom, sl.batch_no, sl.expiry_date, p.safety_stock, p.reorder_point
             HAVING COALESCE(SUM(
                 CASE 
                     WHEN sl.direction IN ('in', 'transfer_in', 'adjust_in') THEN sl.qty_base
@@ -408,7 +412,7 @@ impl StockService {
                     ELSE 0
                 END
             ), 0) != 0
-            ORDER BY w.code, p.sku
+            ORDER BY w.code, p.sku, sl.expiry_date, sl.batch_no
             "#
         );
 
@@ -438,13 +442,15 @@ impl StockService {
                         END
                     ), 0) as qty_on_hand,
                     AVG(sl.unit_cost) as avg_cost,
+                    sl.batch_no,
+                    sl.expiry_date,
                     p.safety_stock,
                     p.reorder_point
                 FROM warehouses w
                 CROSS JOIN products p
                 LEFT JOIN stock_ledger sl ON w.id = sl.warehouse_id AND p.id = sl.product_id
                 WHERE w.is_active = true AND p.is_active = true
-                GROUP BY w.id, w.code, w.name, p.id, p.sku, p.name, p.base_uom, p.safety_stock, p.reorder_point
+                GROUP BY w.id, w.code, w.name, p.id, p.sku, p.name, p.base_uom, sl.batch_no, sl.expiry_date, p.safety_stock, p.reorder_point
                 HAVING COALESCE(SUM(
                     CASE 
                         WHEN sl.direction IN ('in', 'transfer_in', 'adjust_in') THEN sl.qty_base
@@ -452,7 +458,7 @@ impl StockService {
                         ELSE 0
                     END
                 ), 0) != 0
-                ORDER BY w.code, p.sku
+                ORDER BY w.code, p.sku, sl.expiry_date, sl.batch_no
             "#;
             sqlx::query_as::<_, InventoryOnHand>(simple_sql)
                 .fetch_all(pool)

@@ -159,7 +159,7 @@ export function WarehouseShelfTreeSelect({
                 )}
                   {selectLevel === 'shelf' && (
                     <div className={cn(
-                      "space-y-0.5 my-0.5",
+                      "space-y-1 my-1",
                       !parentId && "pl-4 border-l border-muted/50 ml-5"
                     )}>
                       {wh.shelves.map((shelf) => (
@@ -167,16 +167,24 @@ export function WarehouseShelfTreeSelect({
                           key={shelf.id}
                           type="button"
                           className={cn(
-                            'flex w-full items-center justify-between gap-2 px-3 py-1.5 text-xs rounded-md transition-colors hover:bg-accent/50 hover:text-accent-foreground',
-                            value === `loc:${shelf.id}` ? 'bg-accent/80 text-accent-foreground font-medium' : 'text-muted-foreground hover:text-foreground'
+                            'flex w-full items-center justify-between gap-2 px-3 py-2 text-xs rounded-lg transition-all',
+                            'hover:bg-primary/5 hover:text-primary active:scale-[0.98]',
+                            value === `loc:${shelf.id}` ? 'bg-primary/10 text-primary font-semibold shadow-sm' : 'text-muted-foreground'
                           )}
-                          onClick={() => handleSelect(`loc:${shelf.id}`)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleSelect(`loc:${shelf.id}`);
+                          }}
                         >
                           <div className="flex items-center gap-2 overflow-hidden">
-                            <LayoutGrid className="h-3 w-3 shrink-0 opacity-40" />
+                            <LayoutGrid className={cn(
+                              "h-3.5 w-3.5 shrink-0 transition-opacity",
+                              value === `loc:${shelf.id}` ? "opacity-100" : "opacity-40"
+                            )} />
                             <span className="truncate">{shelf.name || shelf.code}</span>
                           </div>
-                          {value === `loc:${shelf.id}` && <Check className="h-3 w-3" />}
+                          {value === `loc:${shelf.id}` && <Check className="h-3.5 w-3.5" />}
                         </button>
                       ))}
                     </div>

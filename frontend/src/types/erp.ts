@@ -208,6 +208,8 @@ export interface InventoryOnHand {
     base_uom: string
     qty_on_hand: string
     avg_cost?: string
+    batch_no?: string
+    expiry_date?: string
     safety_stock?: string
     reorder_point?: string
     last_updated_at?: string

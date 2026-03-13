@@ -204,7 +204,6 @@ interface DocumentLineEditorProps {
   setFormData: any
   needsShelf: boolean
 }
-
 export function DocumentLineEditor({
   formData,
   lineAmounts,
@@ -216,7 +215,7 @@ export function DocumentLineEditor({
   products,
   addLine,
   removeLine,
-  selectProduct,
+  selectProduct: _originalSelectProduct,
   openProductSearch,
   handleBatchChange,
   handleLineBlur,
@@ -225,6 +224,70 @@ export function DocumentLineEditor({
   needsShelf,
 }: DocumentLineEditorProps) {
   const showPriceColumns = ['PO', 'GRN', 'DO'].includes(formData.doc_type)
+
+  // 取得正在編輯的行 ID (假設 activeLineId 維存在父組件或透過 openProductSearch 設定)
+  // 此處我們需要知道目前是在哪一行進行搜尋，以便自動填充。
+  // 注意：openProductSearch 目前只傳入 lineId，但沒回傳，我們需要一個狀態紀錄它。
+  const [activeLineId, setActiveLineId] = React.useState<string | null>(null)
+
+  const handleOpenSearch = (lineId: string) => {
+    setActiveLineId(lineId)
+    openProductSearch(lineId)
+  }
+
+  // 庫存過濾邏輯：獲取當前表頭所選儲位的庫存
+  const searchLocationId = formData.warehouse_id ? formData.warehouse_id : null; // 簡化處理
+  // 調撥單使用來源倉庫
+  const targetWarehouseId = formData.doc_type === 'TR' ? formData.warehouse_from_id : formData.warehouse_id;
+  
+  // 取得庫存餘額 (若有 warehouseId)
+  const { data: stockBalances, isLoading: isStockLoading } = useQuery({
+    queryKey: ['stock-balances', targetWarehouseId, productSearch],
+    queryFn: async () => {
+      if (!targetWarehouseId) return []
+      const params = new URLSearchParams()
+      params.append('warehouse_id', targetWarehouseId)
+      if (productSearch) params.append('keyword', productSearch)
+      const res = await api.get<any[]>(`/inventory/on-hand?${params.toString()}`)
+      return res.data
+    },
+    enabled: productSearchOpen && !!targetWarehouseId,
+    staleTime: 30000,
+  })
+
+  const isStockBasedDoc = ['SO', 'DO', 'PR', 'TR', 'STK', 'ADJ'].includes(formData.doc_type)
+
+  const handleSelectProduct = (product: Product, stockItem?: any) => {
+    // 除了呼叫原始的 selectProduct，還要自動填充批號與效期
+    _originalSelectProduct(product)
+    
+    if (activeLineId && stockItem) {
+      setFormData((prev: DocumentFormData) => ({
+        ...prev,
+        lines: prev.lines.map((l) => {
+          if (l.id === activeLineId) {
+            const newLine = {
+              ...l,
+              product_id: product.id,
+              product_sku: product.sku,
+              product_name: product.name,
+              batch_no: stockItem.batch_no || '',
+              expiry_date: stockItem.expiry_date || '',
+            }
+            // 針對調撥單自動填入來源儲位
+            if (formData.doc_type === 'TR') {
+               newLine.storage_location_from_id = stockItem.storage_location_id || l.storage_location_from_id;
+            } else if (needsShelf) {
+               newLine.storage_location_id = stockItem.storage_location_id || l.storage_location_id;
+            }
+            return newLine
+          }
+          return l
+        })
+      }))
+    }
+    setProductSearchOpen(false)
+  }
 
   return (
     <>
@@ -303,7 +366,7 @@ export function DocumentLineEditor({
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => openProductSearch(lineId)}
+                          onClick={() => handleOpenSearch(lineId)}
                           className="w-full justify-start"
                         >
                           <Search className="mr-2 h-4 w-4" />
@@ -509,25 +572,68 @@ export function DocumentLineEditor({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {products?.slice(0, 20).map((product) => (
-                    <TableRow
-                      key={product.id}
-                      className="cursor-pointer hover:bg-muted"
-                      onClick={() => selectProduct(product)}
-                    >
-                      <TableCell className="font-mono text-xs">
-                        {product.sku}
-                      </TableCell>
-                      <TableCell className="font-medium">{product.name}</TableCell>
-                      <TableCell>{product.spec || '-'}</TableCell>
-                      <TableCell>{formatUom(product.base_uom)}</TableCell>
-                      <TableCell>
-                        <Button size="sm" variant="outline">
-                          選擇
-                        </Button>
+                  {isStockBasedDoc && targetWarehouseId ? (
+                    // 庫存模式列表
+                    stockBalances?.map((item) => (
+                      <TableRow
+                        key={`${item.product_id}-${item.batch_no}-${item.storage_location_id}`}
+                        className="cursor-pointer hover:bg-muted"
+                        onClick={() => handleSelectProduct({
+                          id: item.product_id,
+                          sku: item.product_sku,
+                          name: item.product_name,
+                          base_uom: item.base_uom,
+                        } as Product, item)}
+                      >
+                        <TableCell>
+                          <div className="font-mono text-xs">{item.product_sku}</div>
+                          <div className="font-medium">{item.product_name}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-xs font-semibold">{item.batch_no || '無批號'}</div>
+                          <div className="text-[10px] text-muted-foreground">{item.expiry_date || '無效期'}</div>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {item.storage_location_name || '未指定'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="font-bold text-primary">{formatNumber(item.qty_on_hand, 2)}</div>
+                          <div className="text-[10px]">{formatUom(item.base_uom)}</div>
+                        </TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="outline">選擇</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    // 全品項模式
+                    products?.slice(0, 20).map((product) => (
+                      <TableRow
+                        key={product.id}
+                        className="cursor-pointer hover:bg-muted"
+                        onClick={() => handleSelectProduct(product)}
+                      >
+                        <TableCell className="font-mono text-xs">
+                          {product.sku}
+                        </TableCell>
+                        <TableCell className="font-medium">{product.name}</TableCell>
+                        <TableCell>{product.spec || '-'}</TableCell>
+                        <TableCell>{formatUom(product.base_uom)}</TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="outline">
+                            選擇
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                  {!isStockLoading && isStockBasedDoc && targetWarehouseId && stockBalances?.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-4 text-muted-foreground text-sm">
+                        該倉庫目前無可用庫存
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </div>
