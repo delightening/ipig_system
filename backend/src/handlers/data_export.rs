@@ -102,7 +102,7 @@ pub async fn full_database_import(
     let result = import_idxf(&state.db, &file_data, ImportMode::Append).await?;
 
     // 匯入後確保 admin 可登入（重設密碼為 ADMIN_INITIAL_PASSWORD）
-    let _ = ensure_admin_user_after_import(&state.db).await;
+    let _ = ensure_admin_user_after_import(&state.db, &state.config).await;
 
     let _ = AuditService::log_activity(
         &state.db,

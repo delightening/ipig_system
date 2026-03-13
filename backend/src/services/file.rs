@@ -4,9 +4,13 @@
 //! 僅以檔案簽名（magic number）驗證格式；若有縮圖、轉檔等圖片處理需求，應由獨立可升級之服務負責。
 
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
+
+/// 上傳目錄（由 Config 初始化一次，避免每次讀取 env var）
+static UPLOAD_DIR: OnceLock<String> = OnceLock::new();
 
 use crate::constants::{
     FILE_MAX_ANIMAL_PHOTO, FILE_MAX_LEAVE_ATTACHMENT, FILE_MAX_OBSERVATION_ATTACHMENT,
@@ -161,11 +165,14 @@ impl FileService {
         Ok(())
     }
 
+    /// 從 Config 初始化上傳目錄（應在啟動時呼叫一次）
+    pub fn init_upload_dir(upload_dir: &str) {
+        let _ = UPLOAD_DIR.set(upload_dir.to_string());
+    }
+
     /// 取得上傳目錄
     fn get_upload_dir() -> PathBuf {
-        std::env::var("UPLOAD_DIR")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| PathBuf::from("./uploads"))
+        PathBuf::from(UPLOAD_DIR.get().map(|s| s.as_str()).unwrap_or("./uploads"))
     }
 
     /// 確保目錄存在

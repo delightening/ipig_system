@@ -1,5 +1,7 @@
 // 擴展的審計 Service
 
+use std::sync::OnceLock;
+
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -12,9 +14,17 @@ use crate::{
     Result,
 };
 
+/// HMAC 密鑰（由 Config 初始化一次，避免每次讀取 env var）
+static AUDIT_HMAC_KEY: OnceLock<Option<String>> = OnceLock::new();
+
 pub struct AuditService;
 
 impl AuditService {
+    /// 從 Config 初始化 HMAC 密鑰（應在啟動時呼叫一次）
+    pub fn init_hmac_key(key: Option<String>) {
+        let _ = AUDIT_HMAC_KEY.set(key);
+    }
+
     /// 記錄稽核日誌（原有）
     pub async fn log(
         pool: &PgPool,
@@ -190,20 +200,18 @@ impl AuditService {
         let log_id = result.0;
 
         // SEC-34: HMAC 雜湊鏈（有 key 時才啟用）
-        if let Ok(hmac_key) = std::env::var("AUDIT_HMAC_KEY") {
-            if hmac_key.len() >= 16 {
-                let _ = Self::compute_and_store_hmac(
-                    pool,
-                    log_id,
-                    &hmac_key,
-                    event_category,
-                    event_type,
-                    actor_user_id,
-                    &before_data,
-                    &after_data,
-                )
-                .await;
-            }
+        if let Some(Some(hmac_key)) = AUDIT_HMAC_KEY.get() {
+            let _ = Self::compute_and_store_hmac(
+                pool,
+                log_id,
+                hmac_key,
+                event_category,
+                event_type,
+                actor_user_id,
+                &before_data,
+                &after_data,
+            )
+            .await;
         }
 
         Ok(log_id)
