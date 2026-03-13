@@ -139,11 +139,22 @@ export function DocumentEditPage() {
                       <SelectValue placeholder="選擇來源倉庫" />
                     </SelectTrigger>
                     <SelectContent>
-                      {warehouses?.map((wh) => (
-                        <SelectItem key={wh.id} value={wh.id}>
-                          {wh.name}
-                        </SelectItem>
-                      ))}
+                      {!warehouses ? (
+                        <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          載入中...
+                        </div>
+                      ) : warehouses.length === 0 ? (
+                        <div className="p-2 text-sm text-muted-foreground text-center">
+                          無可用倉庫
+                        </div>
+                      ) : (
+                        warehouses.map((wh) => (
+                          <SelectItem key={wh.id} value={wh.id}>
+                            {wh.name}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -157,11 +168,22 @@ export function DocumentEditPage() {
                       <SelectValue placeholder="選擇目標倉庫" />
                     </SelectTrigger>
                     <SelectContent>
-                      {warehouses?.map((wh) => (
-                        <SelectItem key={wh.id} value={wh.id}>
-                          {wh.name}
-                        </SelectItem>
-                      ))}
+                      {!warehouses ? (
+                        <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          載入中...
+                        </div>
+                      ) : warehouses.length === 0 ? (
+                        <div className="p-2 text-sm text-muted-foreground text-center">
+                          無可用倉庫
+                        </div>
+                      ) : (
+                        warehouses.map((wh) => (
+                          <SelectItem key={wh.id} value={wh.id}>
+                            {wh.name}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -177,11 +199,22 @@ export function DocumentEditPage() {
                     <SelectValue placeholder="選擇倉庫" />
                   </SelectTrigger>
                   <SelectContent>
-                    {warehouses?.map((wh) => (
-                      <SelectItem key={wh.id} value={wh.id}>
-                        {wh.name}
-                      </SelectItem>
-                    ))}
+                    {!warehouses ? (
+                      <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        載入中...
+                      </div>
+                    ) : warehouses.length === 0 ? (
+                      <div className="p-2 text-sm text-muted-foreground text-center">
+                        無可用倉庫
+                      </div>
+                    ) : (
+                      warehouses.map((wh) => (
+                        <SelectItem key={wh.id} value={wh.id}>
+                          {wh.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -196,7 +229,7 @@ export function DocumentEditPage() {
                       value={
                         formData.partner_id
                           ? partners?.find((p) => p.id === formData.partner_id)
-                              ?.code ?? ''
+                            ?.code ?? ''
                           : ''
                       }
                       onValueChange={handleIacucNoSelect}
@@ -206,14 +239,25 @@ export function DocumentEditPage() {
                         <SelectValue placeholder="選擇IACUC No." />
                       </SelectTrigger>
                       <SelectContent>
-                        {activeProtocols?.map((protocol) => (
-                          <SelectItem
-                            key={protocol.iacuc_no}
-                            value={protocol.iacuc_no || ''}
-                          >
-                            {protocol.iacuc_no} - {protocol.title}
-                          </SelectItem>
-                        ))}
+                        {!activeProtocols ? (
+                          <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            載入中...
+                          </div>
+                        ) : activeProtocols.length === 0 ? (
+                          <div className="p-2 text-sm text-muted-foreground text-center">
+                            無可用 IACUC No.
+                          </div>
+                        ) : (
+                          activeProtocols.map((protocol) => (
+                            <SelectItem
+                              key={protocol.iacuc_no}
+                              value={protocol.iacuc_no || ''}
+                            >
+                              {protocol.iacuc_no} - {protocol.title}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     {createOrFindCustomerMutation.isPending && (
@@ -238,11 +282,22 @@ export function DocumentEditPage() {
                         />
                       </SelectTrigger>
                       <SelectContent>
-                        {filteredPartners?.map((partner) => (
-                          <SelectItem key={partner.id} value={partner.id}>
-                            {partner.name}
-                          </SelectItem>
-                        ))}
+                        {!filteredPartners ? (
+                          <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            載入中...
+                          </div>
+                        ) : filteredPartners.length === 0 ? (
+                          <div className="p-2 text-sm text-muted-foreground text-center">
+                            無可用數據
+                          </div>
+                        ) : (
+                          filteredPartners.map((partner) => (
+                            <SelectItem key={partner.id} value={partner.id}>
+                              {partner.name}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                   </>
@@ -269,22 +324,22 @@ export function DocumentEditPage() {
       </div>
 
       <DocumentLineEditor
-            formData={formData}
-            lineAmounts={lineAmounts}
-            inputRefs={inputRefs}
-            productSearchOpen={productSearchOpen}
-            setProductSearchOpen={setProductSearchOpen}
-            productSearch={productSearch}
-            setProductSearch={setProductSearch}
-            products={products}
-            addLine={addLine}
-            removeLine={removeLine}
-            selectProduct={selectProduct}
-            openProductSearch={openProductSearch}
-            handleBatchChange={handleBatchChange}
-            handleLineBlur={handleLineBlur}
-            updateLineAmount={updateLineAmount}
-          />
+        formData={formData}
+        lineAmounts={lineAmounts}
+        inputRefs={inputRefs}
+        productSearchOpen={productSearchOpen}
+        setProductSearchOpen={setProductSearchOpen}
+        productSearch={productSearch}
+        setProductSearch={setProductSearch}
+        products={products}
+        addLine={addLine}
+        removeLine={removeLine}
+        selectProduct={selectProduct}
+        openProductSearch={openProductSearch}
+        handleBatchChange={handleBatchChange}
+        handleLineBlur={handleLineBlur}
+        updateLineAmount={updateLineAmount}
+      />
 
       <Dialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
         <DialogContent>

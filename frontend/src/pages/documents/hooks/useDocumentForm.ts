@@ -115,18 +115,20 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     queryKey: ['warehouses'],
     queryFn: async () => {
       const response = await api.get<Warehouse[]>('/warehouses')
-      return response.data
+      return response.data || []
     },
     staleTime: STALE_TIME.REFERENCE,
+    refetchOnMount: true,
   })
 
   const { data: partners } = useQuery({
     queryKey: ['partners'],
     queryFn: async () => {
       const response = await api.get<Partner[]>('/partners')
-      return response.data
+      return response.data || []
     },
     staleTime: STALE_TIME.REFERENCE,
+    refetchOnMount: true,
   })
 
   const { data: activeProtocols } = useQuery({

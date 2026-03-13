@@ -192,10 +192,11 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ### 2026-03-13 ERP 庫存管理強化與系統穩固化
 
+- ✅ **下拉選單穩定性**：修復「新增單據」頁面中倉庫、合作夥伴與 IACUC No. 下拉選單選項不穩定問題。透過 `react-query` 的 `refetchOnMount` 與前端 Loading 狀態處理，確保資料在載入過程中 UI 顯示一致。
 - ✅ **庫存查詢**：新增「未分配庫存查詢」功能。前台 `WarehouseLayoutPage` 可快速查看尚未指派儲位的產品庫存，後端 `StockService` 提供對應 API。
 - ✅ **系統健全度**：`StockService` 查詢結果加入 `storage_location` 預設值處理，避免特定情境下的欄位缺失。
 - ✅ **資料庫架構**：完成 Migration 清理，將 `phone_ext` (分機) 與 `leave_cancelled` 路由邏輯正式併入基礎遷移檔案，提升資料庫一致性。
-- 📁 **產出**：stock.rs、WarehouseLayoutPage.tsx、migrations 多檔更新。
+- 📁 **產出**：useDocumentForm.ts、DocumentEditPage.tsx、stock.rs、WarehouseLayoutPage.tsx、migrations 多檔更新。
 
 ### 2026-03-10 系統電話分機欄位 (Phone Extension) 支援
 
