@@ -1,7 +1,7 @@
 # 資料庫綱要
 
 > **版本**：7.0  
-> **最後更新**：2026-03-08
+> **最後更新**：2026-03-13
 > **對象**：資料庫管理員、開發人員
 
 ---
@@ -13,12 +13,12 @@ iPig 資料庫執行於 **PostgreSQL 16**，由遷移檔案按模組組織：
 | 遷移 | 說明 | 主要變更 |
 |------|------|-----------|
 | 001 | 自訂類型 | ENUMs: partner_type, doc_type, doc_status, stock_direction, protocol 相關 |
-| 002 | 使用者與認證 | users, roles, permissions, role_permissions, notifications, audit_logs, attachments, user_preferences |
-| 003 | 通知與種子 | notification_routing 種子、role_permissions 種子 |
-| 004 | 動物管理 | animals, observations, surgeries, weights, vaccinations, blood_tests, sudden_deaths, transfers, care_records, animal_field_correction_requests |
+| 002 | 使用者與認證 | users (含 phone_ext), roles, permissions, role_permissions, notifications, audit_logs, attachments, user_preferences |
+| 003 | 通知與種子 | notification_routing (含 leave_cancelled 路由) 種子、role_permissions 種子 |
+| 004 | 動物管理 | animals, observations, surgeries, weights, vaccinations, blood_tests, sudden_deaths, transfers, care_records, animal_field_correction_requests, animal_sources (含 phone_ext) |
 | 005 | AUP 系統 | protocols, versions, assignments, comments, amendments, vet_review, activities, status_history, system_settings |
 | 006 | 人事系統 | attendance_records, leave_requests, overtime_records, leave_balances, departments |
-| 007 | 稽核與 ERP | user_activity_logs, login_events, user_sessions, products, warehouses, partners, documents, stock_ledger |
+| 007 | 稽核與 ERP | user_activity_logs, login_events, user_sessions, products, warehouses, partners (含 phone_ext), documents, stock_ledger |
 | 008 | 補充功能 | notification_routing, electronic_signatures, record_annotations, ~~facilities（⚠️ 待補建）~~, vet_recommendations |
 | 009 | GLP 擴充 | training_records, equipment, equipment_calibrations, qau, accounting 相關, SKU 品類種子 |
 | 010 | 治療藥物去重 | treatment_drug_options 唯一約束與去重 |
@@ -144,6 +144,7 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     display_name VARCHAR(100) NOT NULL,
     phone VARCHAR(20),
+    phone_ext VARCHAR(20),
     organization VARCHAR(200),
     is_internal BOOLEAN NOT NULL DEFAULT true,
     is_active BOOLEAN NOT NULL DEFAULT true,
@@ -195,6 +196,7 @@ CREATE TABLE users (
 ## 4. 核心權限 (Migration 002)
 
 Migration 002 包含：
+
 - 全部權限定義（`INSERT INTO permissions`）
 - 角色預設權限指派（`INSERT INTO role_permissions`）
 - **動物擴展權限**（`animal.transfer.initiate`、`animal.transfer.approve` 等）
@@ -207,7 +209,7 @@ Migration 002 包含：
 
 | 表名 | PK 類型 | 主要欄位 |
 |------|---------|---------|
-| animal_sources | UUID | name, supplier_type, contact_info |
+| animal_sources | UUID | name, supplier_type, contact_info, phone_ext |
 | animals | SERIAL | ear_tag, status, breed, gender, source_id, pen_id, iacuc_no |
 | animal_observations | SERIAL | animal_id, event_date, record_type, content, treatments(JSONB) |
 | animal_surgeries | SERIAL | animal_id, surgery_date, surgery_site, anesthesia(JSONB), vital_signs(JSONB) |
@@ -419,4 +421,4 @@ ALTER TABLE electronic_signatures ADD COLUMN IF NOT EXISTS signature_method VARC
 
 *下一章：[API 規格](./05_API_SPECIFICATION.md)*
 
-*最後更新：2026-03-08*
+*最後更新：2026-03-13*

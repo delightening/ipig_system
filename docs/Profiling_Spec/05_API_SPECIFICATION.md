@@ -1,7 +1,7 @@
 # API 規格
 
-> **版本**：7.1
-> **最後更新**：2026-03-09
+> **版本**：7.2
+> **最後更新**：2026-03-13
 > **對象**：開發人員、前端工程師
 
 ---
@@ -9,11 +9,13 @@
 ## 1. 概覽
 
 ### 1.1 基礎 URL
+
 - **開發環境**：`http://localhost:8080/api`
 - **生產環境**：`https://yourdomain.com/api`
 - **Swagger UI**：`http://localhost:8000/swagger-ui/`
 
 ### 1.2 認證方式
+
 所有受保護端點需要 JWT Token，透過 **HttpOnly Cookie** 自動傳送。啟用 2FA 的使用者登入時需額外提供 TOTP code。
 
 ### 1.3 Rate Limiting
@@ -206,6 +208,7 @@
 | GET | `/inventory/on-hand` | 現有庫存 |
 | GET | `/inventory/ledger` | 庫存異動紀錄 |
 | GET | `/inventory/low-stock` | 低庫存警報 |
+| GET | `/inventory/unassigned` | 未分配庫存查詢 |
 
 ---
 
