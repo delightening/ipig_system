@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-03-10 (v10)
+> **最後更新：** 2026-03-13 (v11)
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -79,7 +79,7 @@
 | 6 | [HR 人事管理系統](#6-hr-人事管理系統) | 特休、考勤、Google Calendar |
 | 7 | [資料庫 Schema 完成度](#7-資料庫-schema-完成度) | Migration 清單 |
 | 8 | [版本規劃](#8-版本規劃) | v1.0 / v1.1 里程碑 |
-| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-08 R7 安全修復 + 文件對齊 |
+| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-13 ERP 庫存強化 + 系統穩固化 |
 
 ---
 
@@ -190,15 +190,24 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-13 ERP 庫存管理強化與系統穩固化
+
+- ✅ **庫存查詢**：新增「未分配庫存查詢」功能。前台 `WarehouseLayoutPage` 可快速查看尚未指派儲位的產品庫存，後端 `StockService` 提供對應 API。
+- ✅ **系統健全度**：`StockService` 查詢結果加入 `storage_location` 預設值處理，避免特定情境下的欄位缺失。
+- ✅ **資料庫架構**：完成 Migration 清理，將 `phone_ext` (分機) 與 `leave_cancelled` 路由邏輯正式併入基礎遷移檔案，提升資料庫一致性。
+- 📁 **產出**：stock.rs、WarehouseLayoutPage.tsx、migrations 多檔更新。
+
 ### 2026-03-10 系統電話分機欄位 (Phone Extension) 支援
 
-- ✅ **後端**：Migration `012_phone_extension.sql` 新增 `phone_ext` 欄位至 `users`、`partners`、`animal_sources` 表。
+- ✅ **資料庫與架構**：Migration `002`、`004`、`007` 新增 `phone_ext` 欄位至 `users`、`partners`、`animal_sources` 並清理臨時遷移文件。
 - ✅ **計畫書 (AUP)**：`SectionBasic.tsx` 與 `ProtocolContentView.tsx` 新增資助者 (Sponsor) 與計畫主持人 (PI) 的聯絡分機，PDF 產生同步支援顯示。
 - ✅ **使用者管理**：`ProfileSettingsPage.tsx` 與型別 `User` 新增 `phone_ext`，支援個人資料分機設定。
 - ✅ **交易夥伴**：`PartnersPage.tsx` 與型別 `Partner` 新增 `phone_ext`，支援供應商與客戶的分機管理。
 - ✅ **動物來源**：`AnimalSourcesPage.tsx` 與型別 `AnimalSource` 新增 `phone_ext`，支援來源廠商的分機管理。
 - ✅ **型別與初始值**：同步更新 `auth.ts`、`erp.ts`、`animal.ts`、`protocol.ts` 與 `constants.ts` 確保前端型別一致與表單預設值。
-- 📁 **產出**：多檔更新涉及 User, Partner, AnimalSource, Protocol 型別與 UI 元件。
+- 📁 **產出**：涉及 User, Partner, AnimalSource, Protocol 型別與 UI 元件多處更新。
+
+---
 
 ### 2026-03-10 AUP 計畫主持人電話新增「分機」欄位 (及編譯錯誤修復)
 
