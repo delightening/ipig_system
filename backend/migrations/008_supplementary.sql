@@ -25,7 +25,8 @@ INSERT INTO notification_routing (event_type, role_code, channel, description) V
 ('emergency_medication','VET','in_app','緊急給藥'),('amendment_submitted','IACUC_STAFF','in_app','修正案提交'),('amendment_decision_recorded','IACUC_STAFF','in_app','修正案審查決定'),('amendment_approved','IACUC_CHAIR','both','修正案核准'),('amendment_rejected','IACUC_CHAIR','both','修正案駁回'),
 ('all_reviews_completed','IACUC_STAFF','in_app','所有審查完成'),('all_comments_resolved','IACUC_CHAIR','in_app','所有意見已解決'),
 ('animal_abnormal_record','VET','both','動物異常紀錄'),('animal_sudden_death','VET','both','動物猝死'),('low_stock_alert','PURCHASING','in_app','低庫存預警'),
-('leave_cancelled', 'ADMIN_STAFF', 'in_app', '請假取消'), ('leave_cancelled', 'admin', 'in_app', '請假取消')
+('leave_cancelled', 'ADMIN_STAFF', 'in_app', '請假取消'), ('leave_cancelled', 'admin', 'in_app', '請假取消'),
+('po_pending_receipt', 'WAREHOUSE_MANAGER', 'in_app', '採購單未入庫提醒')
 ON CONFLICT (event_type, role_code) DO NOTHING;
 
 -- 8.2 電子簽章

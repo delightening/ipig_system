@@ -247,6 +247,8 @@ pub struct DocumentListItem {
     pub total_amount: Option<Decimal>,
     #[sqlx(default)]
     pub iacuc_no: Option<String>,
+    #[sqlx(default)]
+    pub receipt_status: Option<String>,
 }
 
 /// 採購單入庫狀態

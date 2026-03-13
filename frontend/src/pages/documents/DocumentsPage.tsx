@@ -54,6 +54,12 @@ const statusNames: Record<string, string> = {
   cancelled: '已作廢',
 }
 
+const receiptStatusNames: Record<string, string> = {
+  pending: '未入庫',
+  partial: '部分入庫',
+  complete: '已入庫',
+}
+
 export function DocumentsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const typeFilter = searchParams.get('type') || ''
@@ -123,19 +129,45 @@ export function DocumentsPage() {
 
   const hasFilters = search || (statusFilter && statusFilter !== 'all') || dateFrom || dateTo
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (doc: DocumentListItem) => {
+    const status = doc.status;
+    const badges = [];
+
+    // 基本狀態標籤
     switch (status) {
       case 'draft':
-        return <Badge variant="secondary">{statusNames[status]}</Badge>
+        badges.push(<Badge key="base" variant="secondary">{statusNames[status]}</Badge>);
+        break;
       case 'submitted':
-        return <Badge variant="warning">{statusNames[status]}</Badge>
+        badges.push(<Badge key="base" variant="warning">{statusNames[status]}</Badge>);
+        break;
       case 'approved':
-        return <Badge variant="success">{statusNames[status]}</Badge>
+        badges.push(<Badge key="base" variant="success">{statusNames[status]}</Badge>);
+        break;
       case 'cancelled':
-        return <Badge variant="destructive">{statusNames[status]}</Badge>
+        badges.push(<Badge key="base" variant="destructive">{statusNames[status]}</Badge>);
+        break;
       default:
-        return <Badge variant="outline">{status}</Badge>
+        badges.push(<Badge key="base" variant="outline">{status}</Badge>);
     }
+
+    // 採購單額外顯示入庫狀態
+    if (doc.doc_type === 'PO' && status === 'approved' && doc.receipt_status) {
+      const receiptStatus = doc.receipt_status;
+      switch (receiptStatus) {
+        case 'pending':
+          badges.push(<Badge key="receipt" variant="destructive" className="ml-1">{receiptStatusNames[receiptStatus]}</Badge>);
+          break;
+        case 'partial':
+          badges.push(<Badge key="receipt" variant="warning" className="ml-1">{receiptStatusNames[receiptStatus]}</Badge>);
+          break;
+        case 'complete':
+          badges.push(<Badge key="receipt" variant="success" className="ml-1">{receiptStatusNames[receiptStatus]}</Badge>);
+          break;
+      }
+    }
+
+    return <div className="flex items-center">{badges}</div>;
   }
 
   return (
@@ -271,7 +303,7 @@ export function DocumentsPage() {
                 <TableRow key={doc.id}>
                   <TableCell className="font-mono font-medium">{doc.doc_no}</TableCell>
                   <TableCell>{docTypeNames[doc.doc_type]}</TableCell>
-                  <TableCell>{getStatusBadge(doc.status)}</TableCell>
+                  <TableCell>{getStatusBadge(doc)}</TableCell>
                   <TableCell>{doc.partner_name || '-'}</TableCell>
                   <TableCell>{doc.warehouse_name || '-'}</TableCell>
                   <TableCell>{formatDate(doc.doc_date)}</TableCell>

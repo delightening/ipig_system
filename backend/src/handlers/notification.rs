@@ -298,3 +298,21 @@ pub async fn trigger_notification_cleanup(
         }))),
     }
 }
+
+/// 手動觸發採購單未入庫檢查
+pub async fn trigger_po_pending_receipt_check(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    match crate::services::scheduler::SchedulerService::trigger_po_pending_receipt_check(&state.db).await {
+        Ok(_) => Ok(Json(serde_json::json!({
+            "success": true,
+            "message": "採購單未入庫檢查已成功執行"
+        }))),
+        Err(e) => Ok(Json(serde_json::json!({
+            "success": false,
+            "message": format!("檢查失敗: {}", e)
+        }))),
+    }
+}
+

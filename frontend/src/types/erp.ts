@@ -185,6 +185,7 @@ export interface DocumentListItem {
     approved_at?: string
     line_count: number
     total_amount?: string
+    receipt_status?: string
 }
 
 // 庫存

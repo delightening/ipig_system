@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-03-13 (v12)
+> **最後更新：** 2026-03-13 (v13)
 > **維護慣例：** 完成項目保留於本表並標 [x]，同時於 `docs/PROGRESS.md` §9 最新變更動態 新增對應紀錄；待辦統計僅計「未完成」數量。
 > **AI 標註說明：**
 >
@@ -163,6 +163,7 @@
 | R6-6 | **資料庫輸出與歷史重新填寫** | 建立資料庫匯出 API、讓系統可讀取過去資料，並依歷史內容預填表單（手術複製、請假預填、Protocol 複製等），詳見 `docs/development/DATA_EXPORT_IMPORT_DESIGN.md` | 全端 | 🧠 Claude | [ ] |
 | R6-7 | **日曆功能審視與重構** | 前端元件拆分、Hooks 抽象、後端 Trait 解耦、實作事件預覽 Popover 與單元測試 | 全端 | 🧠 Claude | [x] |
 | R6-8 | **設施管理 Migration 補建** | species/facilities/buildings/zones/pens/departments 6 張表在 routes.rs 已有 handler，但 migrations/ 中缺少 CREATE TABLE。需新增 migration 檔案建立完整表結構 | 後端 | 🧠 Claude | [ ] |
+| R6-9 | **採購單未入庫通知** | 實作已核准採購單未入庫之通知提醒、排程檢查、手動觸發 API 與前端入庫狀態標籤顯示 | 全端 | 🧠 Claude | [x] |
 
 ---
 
@@ -201,6 +202,7 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-03-13 | 🧠 Claude：採購單未入庫通知與狀態顯示 — 實作 `notify_po_pending_receipt` 邏輯、每日 09:00 排程、手動觸發 API；前端新增 `receipt_status` 型別支援與單據列表彩色狀態標籤。 |
 | 2026-03-13 | 🧠 Claude：ERP 庫存管理與視覺體驗優化 — 解決「庫存查詢」下拉選單透明重疊問題（引入 Popover.Portal + Glassmorphism）；重塑 Empty State 與表格 Layout；新增「未分配庫存查詢」端點與前端支援；下拉選單穩定性優化；Migration 整合清理。 |
 | 2026-03-10 | 🧠 Claude：系統內所有電話欄位（使用者、交易夥伴、動物來源、AUP 計畫主持人/資助者）新增選填「分機」欄位，同步更新前後端型別定義、資料庫 Migration、PDF 產生邏輯與 UI 輸入框。 |
 | 2026-03-10 | 🧠 Claude：AUP 計畫主持人電話新增「分機」欄位，同步修復前端類型定義 (phone_ext) 與 `CreateProductPage.tsx` 缺失的 `useEffect` 匯入，確保 Docker 編譯通過。 |
