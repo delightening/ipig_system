@@ -65,6 +65,26 @@ pub struct Config {
     pub audit_hmac_key: Option<String>,
     /// 整合測試用：停用 CSRF 檢查（僅在 TEST_DATABASE_URL/DATABASE_URL 且 DISABLE_CSRF_FOR_TESTS=true 時使用）
     pub disable_csrf_for_tests: bool,
+    /// SEC-20: 帳號鎖定功能（DISABLE_ACCOUNT_LOCKOUT=true 可關閉）
+    pub disable_account_lockout: bool,
+    /// SEC-20: 帳號鎖定最大失敗次數，預設 5
+    pub account_lockout_max_attempts: i64,
+    /// SEC-20: 帳號鎖定持續時間（分鐘），預設 15
+    pub account_lockout_duration_minutes: i64,
+    /// 檔案上傳目錄，預設 ./uploads
+    pub upload_dir: String,
+    /// GeoIP 資料庫路徑
+    pub geoip_db_path: String,
+    /// 是否跳過 migration 檢查（僅開發環境，從 dump 還原後使用）
+    pub skip_migration_check: bool,
+    /// 管理員初始密碼（啟動時建立/驗證 admin 帳號用）
+    pub admin_initial_password: Option<String>,
+    /// 測試帳號密碼（SEED_DEV_USERS=true 時用於 startup 檢查）
+    pub test_user_password: Option<String>,
+    /// 開發帳號密碼（SEED_DEV_USERS=true 時的開發帳號密碼）
+    pub dev_user_password: Option<String>,
+    /// 是否在 CI 環境中執行
+    pub is_ci: bool,
 }
 
 impl Config {
@@ -176,6 +196,28 @@ impl Config {
             disable_csrf_for_tests: std::env::var("DISABLE_CSRF_FOR_TESTS")
                 .map(|v| v.to_lowercase() == "true" || v == "1")
                 .unwrap_or(false),
+            disable_account_lockout: std::env::var("DISABLE_ACCOUNT_LOCKOUT")
+                .map(|v| v.to_lowercase() == "true" || v == "1")
+                .unwrap_or(false),
+            account_lockout_max_attempts: std::env::var("ACCOUNT_LOCKOUT_MAX_ATTEMPTS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(5),
+            account_lockout_duration_minutes: std::env::var("ACCOUNT_LOCKOUT_DURATION_MINUTES")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(15),
+            upload_dir: std::env::var("UPLOAD_DIR")
+                .unwrap_or_else(|_| "./uploads".to_string()),
+            geoip_db_path: std::env::var("GEOIP_DB_PATH")
+                .unwrap_or_else(|_| "/app/geoip/GeoLite2-City.mmdb".to_string()),
+            skip_migration_check: std::env::var("SKIP_MIGRATION_CHECK")
+                .map(|v| v.to_lowercase() == "true" || v == "1")
+                .unwrap_or(false),
+            admin_initial_password: read_secret("ADMIN_INITIAL_PASSWORD"),
+            test_user_password: std::env::var("TEST_USER_PASSWORD").ok(),
+            dev_user_password: std::env::var("DEV_USER_PASSWORD").ok(),
+            is_ci: std::env::var("CI").is_ok(),
         })
     }
 
@@ -221,6 +263,16 @@ mod tests {
             cors_allowed_origins: vec!["http://localhost:8080".to_string()],
             audit_hmac_key: None,
             disable_csrf_for_tests: false,
+            disable_account_lockout: false,
+            account_lockout_max_attempts: 5,
+            account_lockout_duration_minutes: 15,
+            upload_dir: "./uploads".to_string(),
+            geoip_db_path: "/app/geoip/GeoLite2-City.mmdb".to_string(),
+            skip_migration_check: false,
+            admin_initial_password: None,
+            test_user_password: None,
+            dev_user_password: None,
+            is_ci: false,
         }
     }
 

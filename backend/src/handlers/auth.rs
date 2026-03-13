@@ -141,7 +141,7 @@ pub async fn login(
     req.validate()?;
 
     // Phase 1: 驗證帳密
-    let user = match AuthService::validate_credentials(&state.db, &req).await {
+    let user = match AuthService::validate_credentials(&state.db, &state.config, &req).await {
         Ok(u) => u,
         Err(e) => {
             let db = state.db.clone();
