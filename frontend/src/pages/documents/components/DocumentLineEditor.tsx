@@ -202,6 +202,7 @@ interface DocumentLineEditorProps {
   handleLineBlur: (lineId: string) => void
   updateLineAmount: (lineId: string) => void
   setFormData: any
+  needsShelf: boolean
 }
 
 export function DocumentLineEditor({
@@ -221,6 +222,7 @@ export function DocumentLineEditor({
   handleLineBlur,
   updateLineAmount,
   setFormData,
+  needsShelf,
 }: DocumentLineEditorProps) {
   const showPriceColumns = ['PO', 'GRN', 'DO'].includes(formData.doc_type)
 
@@ -253,7 +255,7 @@ export function DocumentLineEditor({
                   <TableHead className="w-[180px]">來源儲位</TableHead>
                   <TableHead className="w-[180px]">目標儲位</TableHead>
                 </>
-              ) : ['GRN', 'SO', 'ADJ'].includes(formData.doc_type) ? (
+              ) : needsShelf ? (
                 <TableHead className="w-[180px]">儲位</TableHead>
               ) : null}
               <TableHead className="w-[120px]">效期</TableHead>
@@ -265,7 +267,7 @@ export function DocumentLineEditor({
             {formData.lines.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={showPriceColumns ? 9 : 7}
+                  colSpan={showPriceColumns ? (needsShelf ? 10 : 9) : (needsShelf ? 8 : 7)}
                   className="text-center py-8"
                 >
                   <p className="text-muted-foreground">
@@ -394,7 +396,7 @@ export function DocumentLineEditor({
                           />
                         </TableCell>
                       </>
-                    ) : ['GRN', 'SO', 'ADJ'].includes(formData.doc_type) ? (
+                    ) : needsShelf ? (
                       <TableCell>
                         <WarehouseShelfTreeSelect
                           value={line.storage_location_id ? `loc:${line.storage_location_id}` : ''}
