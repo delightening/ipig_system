@@ -112,9 +112,9 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
   })
 
   const { data: warehouses } = useQuery({
-    queryKey: ['warehouses'],
+    queryKey: ['warehouses', 'active'],
     queryFn: async () => {
-      const response = await api.get<Warehouse[]>('/warehouses')
+      const response = await api.get<Warehouse[]>('/warehouses?is_active=true')
       return response.data || []
     },
     staleTime: STALE_TIME.REFERENCE,
@@ -212,6 +212,9 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
         unit_price: line.unit_price ? formatUnitPrice(line.unit_price) : '',
         batch_no: line.batch_no || '',
         expiry_date: line.expiry_date || '',
+        storage_location_id: line.storage_location_id || '',
+        storage_location_from_id: line.storage_location_from_id || '',
+        storage_location_to_id: line.storage_location_to_id || '',
         remark: line.remark || '',
       }))
       setFormData({
@@ -344,6 +347,9 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
             line.unit_price?.trim() ? parseFloat(line.unit_price) : null,
           batch_no: line.batch_no?.trim() ? line.batch_no : null,
           expiry_date: line.expiry_date?.trim() ? line.expiry_date : null,
+          storage_location_id: line.storage_location_id?.trim() ? line.storage_location_id : null,
+          storage_location_from_id: line.storage_location_from_id?.trim() ? line.storage_location_from_id : null,
+          storage_location_to_id: line.storage_location_to_id?.trim() ? line.storage_location_to_id : null,
           remark: line.remark?.trim() ? line.remark : null,
         })),
       }
@@ -430,6 +436,9 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
       unit_price: '',
       batch_no: '',
       expiry_date: '',
+      storage_location_id: '',
+      storage_location_from_id: '',
+      storage_location_to_id: '',
       remark: '',
     }
     setFormData((prev) => ({ ...prev, lines: [...currentLines, newLine] }))

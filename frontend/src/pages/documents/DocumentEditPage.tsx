@@ -24,6 +24,7 @@ import type { DocType } from '@/lib/api'
 import { DocumentFormHeader } from './components/DocumentFormHeader'
 import { DocumentPreview } from './components/DocumentPreview'
 import { DocumentLineEditor } from './components/DocumentLineEditor'
+import { WarehouseShelfTreeSelect, type WarehouseShelfValue } from '@/components/inventory/WarehouseShelfTreeSelect'
 import { useDocumentForm } from './hooks/useDocumentForm'
 import { DOC_TYPE_NAMES } from './types'
 
@@ -109,11 +110,13 @@ export function DocumentEditPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(DOC_TYPE_NAMES).map(([key, name]) => (
-                      <SelectItem key={key} value={key}>
-                        {name}
-                      </SelectItem>
-                    ))}
+                    {Object.entries(DOC_TYPE_NAMES)
+                      .filter(([key]) => !['RM', 'DO'].includes(key) || isEdit) // 新增時隱藏已棄用類型
+                      .map(([key, name]) => (
+                        <SelectItem key={key} value={key}>
+                          {name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -131,92 +134,47 @@ export function DocumentEditPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>來源倉庫 *</Label>
-                  <Select
-                    value={formData.warehouse_from_id}
-                    onValueChange={(v) => updateField('warehouse_from_id', v)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="選擇來源倉庫" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {!warehouses ? (
-                        <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          載入中...
-                        </div>
-                      ) : warehouses.length === 0 ? (
-                        <div className="p-2 text-sm text-muted-foreground text-center">
-                          無可用倉庫
-                        </div>
-                      ) : (
-                        warehouses.map((wh) => (
-                          <SelectItem key={wh.id} value={wh.id}>
-                            {wh.name}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
+                  <WarehouseShelfTreeSelect
+                    value={formData.warehouse_from_id ? `wh:${formData.warehouse_from_id}` : ''}
+                    onValueChange={(v: WarehouseShelfValue) => {
+                      const id = v.startsWith('wh:') ? v.slice(3) : ''
+                      updateField('warehouse_from_id', id)
+                    }}
+                    selectLevel="warehouse"
+                    allowAll={false}
+                    className="w-full"
+                    placeholder="選擇來源倉庫"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>目標倉庫 *</Label>
-                  <Select
-                    value={formData.warehouse_to_id}
-                    onValueChange={(v) => updateField('warehouse_to_id', v)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="選擇目標倉庫" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {!warehouses ? (
-                        <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          載入中...
-                        </div>
-                      ) : warehouses.length === 0 ? (
-                        <div className="p-2 text-sm text-muted-foreground text-center">
-                          無可用倉庫
-                        </div>
-                      ) : (
-                        warehouses.map((wh) => (
-                          <SelectItem key={wh.id} value={wh.id}>
-                            {wh.name}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
+                  <WarehouseShelfTreeSelect
+                    value={formData.warehouse_to_id ? `wh:${formData.warehouse_to_id}` : ''}
+                    onValueChange={(v: WarehouseShelfValue) => {
+                      const id = v.startsWith('wh:') ? v.slice(3) : ''
+                      updateField('warehouse_to_id', id)
+                    }}
+                    selectLevel="warehouse"
+                    allowAll={false}
+                    className="w-full"
+                    placeholder="選擇目標倉庫"
+                  />
                 </div>
               </div>
             ) : (
               <div className="space-y-2">
                 <Label>倉庫 *</Label>
-                <Select
-                  value={formData.warehouse_id}
-                  onValueChange={(v) => updateField('warehouse_id', v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="選擇倉庫" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {!warehouses ? (
-                      <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        載入中...
-                      </div>
-                    ) : warehouses.length === 0 ? (
-                      <div className="p-2 text-sm text-muted-foreground text-center">
-                        無可用倉庫
-                      </div>
-                    ) : (
-                      warehouses.map((wh) => (
-                        <SelectItem key={wh.id} value={wh.id}>
-                          {wh.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                <WarehouseShelfTreeSelect
+                  value={formData.warehouse_id ? `wh:${formData.warehouse_id}` : ''}
+                  onValueChange={(v: WarehouseShelfValue) => {
+                    const id = v.startsWith('wh:') ? v.slice(3) : ''
+                    updateField('warehouse_id', id)
+                  }}
+                  selectLevel="warehouse"
+                  allowAll={false}
+                  className="w-full"
+                  placeholder="選擇倉庫"
+                />
               </div>
             )}
 
@@ -339,6 +297,7 @@ export function DocumentEditPage() {
         handleBatchChange={handleBatchChange}
         handleLineBlur={handleLineBlur}
         updateLineAmount={updateLineAmount}
+        setFormData={setFormData}
       />
 
       <Dialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>

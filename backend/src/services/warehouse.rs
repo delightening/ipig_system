@@ -117,6 +117,9 @@ impl WarehouseService {
         if let Some(is_active) = query.is_active {
             qb.push(" AND is_active = ");
             qb.push_bind(is_active);
+        } else {
+            // P1-R4-14: 預設僅讀取「啟用中」的倉庫
+            qb.push(" AND is_active = true");
         }
 
         qb.push(" ORDER BY code");

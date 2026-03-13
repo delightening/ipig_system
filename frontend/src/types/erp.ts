@@ -142,6 +142,9 @@ export interface DocumentLine {
     unit_price?: string
     batch_no?: string
     expiry_date?: string
+    storage_location_id?: string
+    storage_location_from_id?: string
+    storage_location_to_id?: string
     remark?: string
 }
 

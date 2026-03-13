@@ -190,6 +190,11 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-13 測試基礎設施修復 (Test Infrastructure Fix)
+
+- ✅ **測試環境修錯 (Bug Fix)**：修正 `backend/tests/common/mod.rs` 中 `ensure_admin_user` 函數參數遺漏問題（從 1 個參數補齊為 2 個，包含 `config`），恢復整合測試代碼的編譯。
+- 📁 **產出**：`backend/tests/common/mod.rs`。
+
 ### 2026-03-13 採購單未入庫通知與狀態顯示功能
 
 - ✅ **通知邏輯 (Notification)**：實作 `notify_po_pending_receipt`，自動檢查已核准但尚未有 GRN 入庫紀錄的採購單 (PO)，並發送通知給倉管主管。
