@@ -201,7 +201,7 @@
 
 | 日期 | 內容 |
 |------|------|
-| 2026-03-13 | 🧠 Claude：ERP 庫存管理功能強化 — 新增「未分配庫存查詢」端點與前端頁面支援；資料庫 Migration 整合清理，將 `phone_ext` 與 `leave_cancelled` 邏輯併入基礎遷移。 |
+| 2026-03-13 | 🧠 Claude：ERP 庫存管理功能強化 — 新增「未分配庫存查詢」端點與前端頁面支援；下拉選單穩定性優化（倉庫、合作夥伴、IACUC No.）；資料庫 Migration 整合清理，將 `phone_ext` 與 `leave_cancelled` 邏輯併入基礎遷移。 |
 | 2026-03-10 | 🧠 Claude：系統內所有電話欄位（使用者、交易夥伴、動物來源、AUP 計畫主持人/資助者）新增選填「分機」欄位，同步更新前後端型別定義、資料庫 Migration、PDF 產生邏輯與 UI 輸入框。 |
 | 2026-03-10 | 🧠 Claude：AUP 計畫主持人電話新增「分機」欄位，同步修復前端類型定義 (phone_ext) 與 `CreateProductPage.tsx` 缺失的 `useEffect` 匯入，確保 Docker 編譯通過。 |
 | 2026-03-09 | 🧠 Claude：重構動物服務模組，將 AnimalService 拆分為 9 個專屬 Service，提升代碼組織與可測試性。 |
