@@ -235,6 +235,18 @@ export interface LowStockAlert {
     shortage: string
 }
 
+export interface UnassignedInventoryItem {
+    warehouse_id: string
+    warehouse_name: string
+    product_id: string
+    product_sku: string
+    product_name: string
+    base_uom: string
+    qty_on_warehouse: string
+    qty_on_shelves: string
+    qty_unassigned: string
+}
+
 // SKU
 export interface SkuSegment {
     code: string

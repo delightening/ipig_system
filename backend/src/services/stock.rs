@@ -6,7 +6,7 @@ use uuid::Uuid;
 use crate::{
     models::{
         DocType, Document, DocumentLine, InventoryOnHand, InventoryQuery, LowStockAlert,
-        StockDirection, StockLedgerDetail, StockLedgerQuery,
+        StockDirection, StockLedgerDetail, StockLedgerQuery, UnassignedInventory,
     },
     AppError, Result,
 };
@@ -619,5 +619,101 @@ impl StockService {
             .collect();
 
         Ok(result)
+    }
+
+    /// 查詢未分配庫存（倉庫層級有庫存，但尚未分配到任何儲位）
+    pub async fn get_unassigned_inventory(
+        pool: &PgPool,
+        query: &InventoryQuery,
+    ) -> Result<Vec<UnassignedInventory>> {
+        let mut sql = String::from(
+            r#"
+            WITH wh_stock AS (
+                SELECT
+                    w.id AS warehouse_id,
+                    w.name AS warehouse_name,
+                    p.id AS product_id,
+                    p.sku AS product_sku,
+                    p.name AS product_name,
+                    p.base_uom,
+                    COALESCE(SUM(
+                        CASE
+                            WHEN sl.direction IN ('in', 'transfer_in', 'adjust_in') THEN sl.qty_base
+                            WHEN sl.direction IN ('out', 'transfer_out', 'adjust_out') THEN -sl.qty_base
+                            ELSE 0
+                        END
+                    ), 0) AS qty_on_warehouse
+                FROM warehouses w
+                JOIN stock_ledger sl ON w.id = sl.warehouse_id
+                JOIN products p ON p.id = sl.product_id
+                WHERE w.is_active = true
+                  AND p.is_active = true
+            "#,
+        );
+
+        let mut param_index = 0;
+
+        if query.warehouse_id.is_some() {
+            param_index += 1;
+            sql.push_str(&format!(" AND w.id = ${}", param_index));
+        }
+
+        if query.keyword.is_some() {
+            param_index += 1;
+            // 同一個參數同時用於 sku 與 name
+            sql.push_str(&format!(
+                " AND (p.sku ILIKE ${0} OR p.name ILIKE ${0})",
+                param_index
+            ));
+        }
+
+        sql.push_str(
+            r#"
+                GROUP BY w.id, w.name, p.id, p.sku, p.name, p.base_uom
+            ),
+            shelf_stock AS (
+                SELECT
+                    sl.warehouse_id,
+                    sli.product_id,
+                    COALESCE(SUM(sli.on_hand_qty), 0) AS qty_on_shelves
+                FROM storage_location_inventory sli
+                JOIN storage_locations sl ON sli.storage_location_id = sl.id
+                JOIN warehouses w ON sl.warehouse_id = w.id
+                WHERE w.is_active = true
+                GROUP BY sl.warehouse_id, sli.product_id
+            )
+            SELECT
+                ws.warehouse_id,
+                ws.warehouse_name,
+                ws.product_id,
+                ws.product_sku,
+                ws.product_name,
+                ws.base_uom,
+                ws.qty_on_warehouse,
+                COALESCE(ss.qty_on_shelves, 0) AS qty_on_shelves,
+                ws.qty_on_warehouse - COALESCE(ss.qty_on_shelves, 0) AS qty_unassigned
+            FROM wh_stock ws
+            LEFT JOIN shelf_stock ss
+                ON ws.warehouse_id = ss.warehouse_id
+               AND ws.product_id = ss.product_id
+            WHERE ws.qty_on_warehouse > 0
+              AND ws.qty_on_warehouse > COALESCE(ss.qty_on_shelves, 0)
+            ORDER BY ws.warehouse_name, ws.product_sku
+            "#,
+        );
+
+        let mut query_builder = sqlx::query_as::<_, UnassignedInventory>(&sql);
+
+        if let Some(warehouse_id) = query.warehouse_id {
+            query_builder = query_builder.bind(warehouse_id);
+        }
+
+        if let Some(keyword) = &query.keyword {
+            let pattern = format!("%{}%", keyword);
+            query_builder = query_builder.bind(pattern);
+        }
+
+        let rows = query_builder.fetch_all(pool).await?;
+        Ok(rows)
     }
 }

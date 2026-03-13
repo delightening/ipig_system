@@ -128,3 +128,17 @@ pub struct LowStockAlert {
     pub reorder_point: Option<Decimal>,
     pub stock_status: String,
 }
+
+/// 未分配庫存（倉庫層級有庫存，但不在任何儲位）
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct UnassignedInventory {
+    pub warehouse_id: Uuid,
+    pub warehouse_name: String,
+    pub product_id: Uuid,
+    pub product_sku: String,
+    pub product_name: String,
+    pub base_uom: String,
+    pub qty_on_warehouse: Decimal,
+    pub qty_on_shelves: Decimal,
+    pub qty_unassigned: Decimal,
+}

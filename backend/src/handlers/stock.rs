@@ -5,7 +5,10 @@ use axum::{
 
 use crate::{
     middleware::CurrentUser,
-    models::{InventoryOnHand, InventoryQuery, LowStockAlert, StockLedgerDetail, StockLedgerQuery},
+    models::{
+        InventoryOnHand, InventoryQuery, LowStockAlert, StockLedgerDetail, StockLedgerQuery,
+        UnassignedInventory,
+    },
     require_permission,
     services::StockService,
     AppState, Result,
@@ -44,4 +47,16 @@ pub async fn get_low_stock_alerts(
     
     let alerts = StockService::get_low_stock_alerts(&state.db).await?;
     Ok(Json(alerts))
+}
+
+/// 取得未分配庫存（倉庫層級有庫存，但未分配到任何儲位）
+pub async fn get_unassigned_inventory(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Query(query): Query<InventoryQuery>,
+) -> Result<Json<Vec<UnassignedInventory>>> {
+    require_permission!(current_user, "erp.stock.view");
+
+    let rows = StockService::get_unassigned_inventory(&state.db, &query).await?;
+    Ok(Json(rows))
 }

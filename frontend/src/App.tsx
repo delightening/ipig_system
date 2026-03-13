@@ -31,7 +31,6 @@ const ProductsPage = lazy(() => import('@/pages/master/ProductsPage').then(m => 
 const CreateProductPage = lazy(() => import('@/pages/master/CreateProductPage').then(m => ({ default: m.CreateProductPage })))
 const ProductDetailPage = lazy(() => import('@/pages/master/ProductDetailPage').then(m => ({ default: m.ProductDetailPage })))
 const ProductEditPage = lazy(() => import('@/pages/master/ProductEditPage').then(m => ({ default: m.ProductEditPage })))
-const WarehousesPage = lazy(() => import('@/pages/master/WarehousesPage').then(m => ({ default: m.WarehousesPage })))
 const PartnersPage = lazy(() => import('@/pages/master/PartnersPage').then(m => ({ default: m.PartnersPage })))
 const BloodTestTemplatesPage = lazy(() => import('@/pages/master/BloodTestTemplatesPage').then(m => ({ default: m.BloodTestTemplatesPage })))
 const BloodTestPanelsPage = lazy(() => import('@/pages/master/BloodTestPanelsPage').then(m => ({ default: m.BloodTestPanelsPage })))
@@ -261,7 +260,6 @@ function App() {
                         () => import('@/pages/reports/BloodTestAnalysisPage'),
                         () => import('@/pages/reports/AccountingReportPage'),
                         () => import('@/pages/master/ProductsPage'),
-                        () => import('@/pages/master/WarehousesPage'),
                         () => import('@/pages/master/PartnersPage'),
                         () => import('@/pages/master/BloodTestTemplatesPage'),
                         () => import('@/pages/master/BloodTestPanelsPage'),
@@ -338,7 +336,7 @@ function App() {
                         <Route path="/products/new" element={<CreateProductPage />} />
                         <Route path="/products/:id" element={<ProductDetailPage />} />
                         <Route path="/products/:id/edit" element={<ProductEditPage />} />
-                        <Route path="/warehouses" element={<WarehousesPage />} />
+                        <Route path="/warehouses" element={<WarehouseLayoutPage />} />
                         <Route path="/partners" element={<PartnersPage />} />
                         <Route path="/blood-test-templates" element={<RequirePermission permission="animal.blood_test_template.manage" fallback="redirect"><BloodTestTemplatesPage /></RequirePermission>} />
                         <Route path="/blood-test-panels" element={<RequirePermission permission="animal.blood_test_template.manage" fallback="redirect"><BloodTestPanelsPage /></RequirePermission>} />

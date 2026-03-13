@@ -96,10 +96,10 @@ const erpModules: ErpModule[] = [
         description: '庫存查詢與倉儲異動管理',
         items: [
             {
-                title: '倉庫管理',
+                title: '倉庫',
                 href: '/warehouses',
                 icon: <Warehouse className="h-4 w-4" />,
-                description: '管理倉庫設定',
+                description: '管理倉庫資料與貨架佈局',
             },
             {
                 title: '庫存查詢',
@@ -130,12 +130,6 @@ const erpModules: ErpModule[] = [
                 href: '/documents?type=ADJ',
                 icon: <Settings2 className="h-4 w-4" />,
                 description: '庫存數量調整',
-            },
-            {
-                title: '倉庫佈局',
-                href: '/inventory/layout',
-                icon: <Warehouse className="h-4 w-4" />,
-                description: '視覺化管理貨架位置',
             },
         ],
     },
