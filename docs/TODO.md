@@ -183,6 +183,38 @@
 
 ---
 
+## 🔧 R8 — 代碼規範重構（2026-03，掃描自動產出）
+
+> 來源：01a-1 目錄掃描 + 01a-2 風格採樣。依優先序排列，高→低。
+
+### 🔴 高優先（架構層）
+
+| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
+|---|------|------|------|----------|------|
+| R8-1 | **`routes.rs` 依業務域拆分** | `api_routes()` 單一函式超過 1,000 行，應拆成 `routes/animal.rs`、`routes/hr.rs`、`routes/protocol.rs` 等子 Router，再在 `routes/mod.rs` 組裝 | 後端 | 🧠 Claude | [ ] |
+| R8-2 | **`main.rs` 啟動邏輯提取** | `main()` 約 276 行（migration、middleware、CORS、server 混在一起），`log_startup_config_check()` 約 117 行；應提取至 `startup/` 模組 | 後端 | 🧠 Claude | [ ] |
+| R8-3 | **建立 `repositories/` 層** | SQL 查詢直接寫在 `services/`，缺少 Repository 層；依規範「相同 SQL SELECT ≥2 次必須提取」，建立 `repositories/animal.rs`、`repositories/protocol.rs` 等，遷移重複 SQL | 後端 | 🧠 Claude | [ ] |
+| R8-4 | **`utils/access.rs` → `services/access.rs`** | `check_resource_access` 依賴 `CurrentUser`（middleware 型別）與 `AppError`，是業務邏輯非純函式，應移至 `services/access.rs` | 後端 | 🧠 Claude | [ ] |
+
+### 🟠 中優先（模組/元件層）
+
+| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
+|---|------|------|------|----------|------|
+| R8-5 | **`services/animal/core.rs` 拆分** | 684 行，多個方法超過 50 行上限（`list()` 估計 130+ 行含大型 SQL）；依操作類型拆分或提取至 repository 層 | 後端 | 🧠 Claude | [ ] |
+| R8-6 | **`App.tsx` Route 元件拆離** | 453 行（超過 300 行），`ProtectedRoute`、`ForcePasswordRoute`、`DashboardRoute`、`AdminRoute` 四個內聯元件應移至獨立檔案；`getHomeRedirect` 與 `DashboardRoute` 中角色陣列重複 | 前端 | 🧠 Claude | [ ] |
+| R8-7 | **`lib/api.ts` 依業務域拆分** | 514 行（超過 300 行），同時含 Axios 設定、interceptors、7 個業務域 API 函式、型別 re-export；拆分為 `lib/api/client.ts`、`lib/api/bloodTest.ts`、`lib/api/animal.ts` 等，`index.ts` 統一匯出 | 前端 | 🧠 Claude | [ ] |
+
+### 🟡 低優先（細節/一致性）
+
+| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
+|---|------|------|------|----------|------|
+| R8-8 | **`AnimalsPage.tsx` / `ProtocolsPage.tsx` 拆分** | 分別為 581 行、375 行，超過 300 行上限；提取子元件或邏輯 hooks | 前端 | 🧠 Claude | [ ] |
+| R8-9 | **型別 import 路徑統一** | `AnimalsPage.tsx`、`ProtocolsPage.tsx` 等從 `@/lib/api` 取得型別，應改從 `@/types/*` import；移除 `AnimalsPage.tsx` 中未使用的 `import axios` | 前端 | 🧠 Claude | [ ] |
+| R8-10 | **內嵌常數移至 `constants.ts`** | `ProtocolsPage.tsx` 中 17 行 `statusColors` 常數（及其他頁面同類問題）應移至同層 `constants.ts` 或 `lib/constants/` | 前端 | 🧠 Claude | [ ] |
+| R8-11 | **`use chrono::Datelike` import 位置修正** | `services/protocol/core.rs` 第 20 行在函式體內 `use chrono::Datelike`，應移至檔案頂部 import 區段 | 後端 | 🧠 Claude | [ ] |
+
+---
+
 ## 📊 待辦統計
 
 | 優先級 | 數量 (未完成) |
@@ -196,7 +228,8 @@
 | ⚪ P5 長期演進 | 0 |
 | 🟠 R6 第六輪改善 | 2 |
 | 🔒 R7 安全審視 | 0 |
-| **合計（未完成）** | **4** |
+| 🔧 R8 代碼規範重構 | 11 |
+| **合計（未完成）** | **15** |
 
 ---
 
