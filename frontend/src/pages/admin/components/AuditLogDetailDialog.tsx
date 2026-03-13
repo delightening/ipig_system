@@ -1,4 +1,5 @@
 import { Eye } from 'lucide-react'
+
 import {
   Dialog,
   DialogContent,
@@ -8,21 +9,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { formatDateTime } from '@/lib/utils'
-
-interface AuditLog {
-  id: string
-  actor_user_id: string
-  actor_email: string
-  actor_name: string
-  action: string
-  entity_type: string
-  entity_id: string
-  entity_email?: string
-  entity_name?: string
-  before_data?: Record<string, unknown>
-  after_data?: Record<string, unknown>
-  created_at: string
-}
+import type { AuditLog } from '../types/audit'
 
 interface AuditLogDetailDialogProps {
   log: AuditLog | null
