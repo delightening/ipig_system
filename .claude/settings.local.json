@@ -27,7 +27,8 @@
       "Bash(python -c:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git ls-files:*)"
+      "Bash(git ls-files:*)",
+      "Bash(cargo test --lib)"
     ]
   }
 }
