@@ -157,6 +157,16 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     staleTime: STALE_TIME.REFERENCE,
   })
 
+  const { data: poReceiptStatus } = useQuery({
+    queryKey: ['po-receipt-status', id],
+    queryFn: async () => {
+      const response = await api.get(`/documents/${id}/receipt-status`)
+      return response.data
+    },
+    enabled: isEdit && formData.doc_type === 'PO',
+    staleTime: STALE_TIME.LIST,
+  })
+
   const calculateLineAmount = useCallback((lineId: string) => {
     const refs = inputRefs.current[lineId]
     if (!refs) return 0
@@ -722,5 +732,6 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     handleBatchShelfSelect,
     handleBatchShelfSelectFrom,
     handleBatchShelfSelectTo,
+    poReceiptStatus,
   }
 }

@@ -9,7 +9,7 @@ use crate::{
     middleware::CurrentUser,
     models::{
         CreateDocumentRequest, DocumentListItem, DocumentQuery, DocumentWithLines,
-        UpdateDocumentRequest,
+        PoReceiptStatus, UpdateDocumentRequest,
     },
     require_permission,
     services::{AuditService, DocumentService, NotificationService},
