@@ -360,3 +360,27 @@ pub async fn delete_document(
     DocumentService::delete(&state.db, id).await?;
     Ok(Json(()))
 }
+
+/// 取得採購單入庫狀態
+#[utoipa::path(
+    get,
+    path = "/api/documents/{id}/receipt-status",
+    params(("id" = Uuid, Path, description = "採購單 ID")),
+    responses(
+        (status = 200, description = "入庫狀態", body = PoReceiptStatus),
+        (status = 401, description = "未認證"),
+        (status = 404, description = "找不到單據"),
+    ),
+    tag = "單據管理",
+    security(("bearer" = []))
+)]
+pub async fn get_po_receipt_status(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<PoReceiptStatus>> {
+    require_permission!(current_user, "erp.document.view");
+    
+    let status = DocumentService::get_po_receipt_status(&state.db, id).await?;
+    Ok(Json(status))
+}

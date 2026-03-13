@@ -505,6 +505,8 @@ use utoipa::OpenApi;
             crate::models::DocumentWithLines,
             crate::models::DocumentLineWithProduct,
             crate::models::DocumentListItem,
+            crate::models::PoReceiptStatus,
+            crate::models::PoReceiptItem,
             // 儲位管理
             crate::models::LocationType,
             crate::models::StorageLocation,

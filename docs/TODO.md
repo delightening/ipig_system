@@ -165,6 +165,7 @@
 | R6-7 | **日曆功能審視與重構** | 前端元件拆分、Hooks 抽象、後端 Trait 解耦、實作事件預覽 Popover 與單元測試 | 全端 | 🧠 Claude | [x] |
 | R6-8 | **設施管理 Migration 補建** | species/facilities/buildings/zones/pens/departments 6 張表在 routes.rs 已有 handler，但 migrations/ 中缺少 CREATE TABLE。需新增 migration 檔案建立完整表結構 | 後端 | 🧠 Claude | [ ] |
 | R6-9 | **採購單未入庫通知** | 實作已核准採購單未入庫之通知提醒、排程檢查、手動觸發 API 與前端入庫狀態標籤顯示 | 全端 | 🧠 Claude | [x] |
+| R6-10 | **採購入庫品項篩選** | 實作 GRN 僅能選擇 PO 內「已核准但未入庫」之品項，強化數據一致性 | 全端 | 🧠 Claude | [x] |
 
 ---
 
@@ -203,6 +204,7 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-03-14 | 🧠 Claude：採購入庫品項篩選強化 — 實作 GRN 僅能選擇關聯 PO 之「已核准但未入庫」品項。包含後端 `receipt-status` API、前端 `poReceiptStatus` 整合與明細編輯器篩選邏輯，確保入庫數據與採購對齊。 |
 | 2026-03-14 | 🧠 Claude：單據頁面 UI 體驗優化 (V2) — 隱藏銷貨單/出庫單重複的客戶下拉選單；為調撥單新增來源與目標儲位的批次套用功能。 |
 | 2026-03-14 | 🧠 Claude：修復單據編輯頁面儲位選單問題 — 修正「批次套用儲位」選單選取後 UI 未更新標籤的問題，透過新增 `batchStorageLocationId` 狀態實現正確的 UI 綁定。 |
 | 2026-03-14 | 🧠 Claude：專屬計畫載入效能優化 — 擴展 `PO`/`PR` 單據類型的計畫載入觸發條件，解耦 Loading 狀態並解決 UI 始終顯示「載入中」的問題。 |
