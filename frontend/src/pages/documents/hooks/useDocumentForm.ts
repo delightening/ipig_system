@@ -57,6 +57,7 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
   const [lineAmounts, setLineAmounts] = useState<Record<string, number>>({})
   const [showIacucWarning, setShowIacucWarning] = useState(false)
   const [iacucWarningData, setIacucWarningData] = useState<{ batch_no: string; source_iacuc: string } | null>(null)
+  const [batchStorageLocationId, setBatchStorageLocationId] = useState<string>('')
 
   const inputRefs = useRef<InputRefs>({})
 
@@ -586,6 +587,20 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     [createOrFindCustomerMutation, updateField, formData.doc_type]
   )
 
+  const handleBatchShelfSelect = useCallback(
+    (shelfId: string) => {
+      setBatchStorageLocationId(shelfId)
+      if (shelfId) {
+        setFormData((prev) => ({
+          ...prev,
+          lines: prev.lines.map((l) => ({ ...l, storage_location_id: shelfId })),
+        }))
+        setUnsavedChanges(true)
+      }
+    },
+    [setFormData]
+  )
+
   const needsPartner = ['PO', 'GRN', 'PR', 'SO', 'DO'].includes(
     formData.doc_type
   )
@@ -671,5 +686,7 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     showIacucWarning,
     setShowIacucWarning,
     iacucWarningData,
+    batchStorageLocationId,
+    handleBatchShelfSelect,
   }
 }

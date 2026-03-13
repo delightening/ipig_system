@@ -75,6 +75,8 @@ export function DocumentEditPage() {
     isIacucRequired,
     iacucDisabled,
     needsShelf: needsShelf,
+    batchStorageLocationId,
+    handleBatchShelfSelect,
   } = useDocumentForm({ defaultType })
 
   const showTotalAmount = ['PO', 'GRN', 'DO'].includes(formData.doc_type)
@@ -189,15 +191,10 @@ export function DocumentEditPage() {
                   <div className="space-y-2">
                     <Label>儲位/貨架 *</Label>
                     <WarehouseShelfTreeSelect
-                      value=""
+                      value={batchStorageLocationId ? `loc:${batchStorageLocationId}` : ''}
                       onValueChange={(v: WarehouseShelfValue) => {
                         const shelfId = v.startsWith('loc:') ? v.slice(4) : ''
-                        if (shelfId) {
-                          setFormData((prev: any) => ({
-                            ...prev,
-                            lines: prev.lines.map((l: any) => ({ ...l, storage_location_id: shelfId }))
-                          }))
-                        }
+                        handleBatchShelfSelect(shelfId)
                       }}
                       selectLevel="shelf"
                       parentId={formData.warehouse_id}
