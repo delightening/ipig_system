@@ -1,26 +1,81 @@
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+
 import api, { PurchaseLinesReport } from '@/lib/api'
 import { formatNumber, formatDate, formatUom } from '@/lib/utils'
+import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
 import { Loader2, Download, Truck } from 'lucide-react'
+import type { Partner, Warehouse } from '@/types/erp'
+
+const ALL_VALUE = '__all__'
 
 export function PurchaseLinesReportPage() {
-  const { data: report, isLoading } = useQuery<PurchaseLinesReport[]>({
-    queryKey: ['report-purchase-lines'],
+  const { from, to, setFrom, setTo } = useDateRangeFilter()
+  const [partnerId, setPartnerId] = useState('')
+  const [warehouseId, setWarehouseId] = useState('')
+
+  const { data: partners } = useQuery<Partner[]>({
+    queryKey: ['partners-supplier'],
     queryFn: async () => {
-      const response = await api.get<PurchaseLinesReport[]>('/reports/purchase-lines')
+      const res = await api.get<Partner[]>('/partners?partner_type=supplier')
+      return res.data
+    },
+  })
+
+  const { data: warehouses } = useQuery<Warehouse[]>({
+    queryKey: ['warehouses'],
+    queryFn: async () => {
+      const res = await api.get<Warehouse[]>('/warehouses')
+      return res.data
+    },
+  })
+
+  const { data: report, isLoading } = useQuery<PurchaseLinesReport[]>({
+    queryKey: ['report-purchase-lines', from, to, partnerId, warehouseId],
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      if (from) params.set('date_from', from)
+      if (to) params.set('date_to', to)
+      if (partnerId) params.set('partner_id', partnerId)
+      if (warehouseId) params.set('warehouse_id', warehouseId)
+      const qs = params.toString()
+      const response = await api.get<PurchaseLinesReport[]>(
+        `/reports/purchase-lines${qs ? '?' + qs : ''}`
+      )
       return response.data
     },
   })
+
+  const totals = useMemo(() => {
+    if (!report?.length) return { qty: 0, amount: 0 }
+    return report.reduce(
+      (acc, row) => ({
+        qty: acc.qty + Number(row.qty || 0),
+        amount: acc.amount + Number(row.line_total || 0),
+      }),
+      { qty: 0, amount: 0 }
+    )
+  }, [report])
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -40,7 +95,11 @@ export function PurchaseLinesReportPage() {
   const exportToCSV = () => {
     if (!report) return
 
-    const headers = ['單據日期', '單據編號', '狀態', '供應商代碼', '供應商名稱', '倉庫', '產品代碼', '產品名稱', '數量', '單位', '單價', '金額', '建立者', '核准者']
+    const headers = [
+      '單據日期', '單據編號', '狀態', '供應商代碼', '供應商名稱',
+      '倉庫', '產品代碼', '產品名稱', '數量', '單位',
+      '單價', '金額', '建立者', '核准者',
+    ]
     const rows = report.map(r => [
       r.doc_date,
       r.doc_no,
@@ -58,7 +117,16 @@ export function PurchaseLinesReportPage() {
       r.approved_by_name || '',
     ])
 
-    const csvContent = [headers, ...rows]
+    const filterInfo = [
+      from ? `起始日期: ${from}` : '',
+      to ? `結束日期: ${to}` : '',
+    ].filter(Boolean).join(' | ')
+
+    const csvContent = [
+      ...(filterInfo ? [[filterInfo]] : []),
+      headers,
+      ...rows,
+    ]
       .map(row => row.map(cell => `"${cell}"`).join(','))
       .join('\n')
 
@@ -88,6 +156,63 @@ export function PurchaseLinesReportPage() {
           <Download className="mr-2 h-4 w-4" />
           匯出 CSV
         </Button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="space-y-1">
+          <Label>起始日期</Label>
+          <Input
+            type="date"
+            value={from}
+            onChange={e => setFrom(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label>結束日期</Label>
+          <Input
+            type="date"
+            value={to}
+            onChange={e => setTo(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label>供應商</Label>
+          <Select
+            value={partnerId || ALL_VALUE}
+            onValueChange={v => setPartnerId(v === ALL_VALUE ? '' : v)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="全部供應商" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_VALUE}>全部供應商</SelectItem>
+              {partners?.map(p => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.code} - {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label>倉庫</Label>
+          <Select
+            value={warehouseId || ALL_VALUE}
+            onValueChange={v => setWarehouseId(v === ALL_VALUE ? '' : v)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="全部倉庫" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_VALUE}>全部倉庫</SelectItem>
+              {warehouses?.map(w => (
+                <SelectItem key={w.id} value={w.id}>
+                  {w.code} - {w.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="rounded-md border">
@@ -149,6 +274,23 @@ export function PurchaseLinesReportPage() {
               </TableRow>
             )}
           </TableBody>
+          {report && report.length > 0 && (
+            <TableFooter>
+              <TableRow>
+                <TableCell colSpan={6} className="font-bold">
+                  合計（{report.length} 筆）
+                </TableCell>
+                <TableCell className="text-right font-bold">
+                  {formatNumber(totals.qty, 0)}
+                </TableCell>
+                <TableCell />
+                <TableCell className="text-right font-bold">
+                  ${formatNumber(totals.amount, 2)}
+                </TableCell>
+                <TableCell />
+              </TableRow>
+            </TableFooter>
+          )}
         </Table>
       </div>
     </div>

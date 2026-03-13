@@ -1,9 +1,14 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+
 import api, { SalesLinesReport } from '@/lib/api'
 import { formatNumber, formatDate } from '@/lib/utils'
+import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
+import { Partner } from '@/types/erp'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Table,
   TableBody,
@@ -37,18 +42,39 @@ const formatCustomerCategory = (cat?: string): string => {
 
 export function SalesLinesReportPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [partnerId, setPartnerId] = useState<string>('all')
+  const { from, to, setFrom, setTo } = useDateRangeFilter()
+
+  // 取得客戶清單
+  const { data: partners } = useQuery<Partner[]>({
+    queryKey: ['partners-customer-list'],
+    queryFn: async () => {
+      const res = await api.get<Partner[]>('/partners?partner_type=customer')
+      return res.data
+    },
+  })
 
   const { data: report, isLoading } = useQuery<SalesLinesReport[]>({
-    queryKey: ['report-sales-lines', categoryFilter],
+    queryKey: ['report-sales-lines', categoryFilter, from, to, partnerId],
     queryFn: async () => {
-      let params = ''
-      if (categoryFilter && categoryFilter !== 'all') {
-        params += `customer_category=${encodeURIComponent(categoryFilter)}`
-      }
-      const response = await api.get<SalesLinesReport[]>(`/reports/sales-lines${params ? '?' + params : ''}`)
+      const params = new URLSearchParams()
+      if (categoryFilter && categoryFilter !== 'all') params.set('customer_category', categoryFilter)
+      if (from) params.set('date_from', from)
+      if (to) params.set('date_to', to)
+      if (partnerId && partnerId !== 'all') params.set('partner_id', partnerId)
+      const qs = params.toString()
+      const response = await api.get<SalesLinesReport[]>(`/reports/sales-lines${qs ? '?' + qs : ''}`)
       return response.data
     },
   })
+
+  // 合計列
+  const summary = useMemo(() => {
+    if (!report || report.length === 0) return null
+    const totalQty = report.reduce((sum, r) => sum + Number(r.qty || 0), 0)
+    const totalAmount = report.reduce((sum, r) => sum + Number(r.line_total || 0), 0)
+    return { totalQty, totalAmount }
+  }, [report])
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -113,10 +139,43 @@ export function SalesLinesReportPage() {
           <h1 className="text-3xl font-bold tracking-tight">銷貨明細報表</h1>
           <p className="text-muted-foreground">銷貨單、銷貨出庫明細</p>
         </div>
-        <div className="flex items-center gap-3">
+        <Button onClick={exportToCSV} disabled={!report?.length}>
+          <Download className="mr-2 h-4 w-4" />
+          匯出 CSV
+        </Button>
+      </div>
+
+      {/* 篩選列 */}
+      <div className="flex flex-wrap items-end gap-4">
+        <div className="space-y-1">
+          <Label>起始日期</Label>
+          <Input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-40" />
+        </div>
+        <div className="space-y-1">
+          <Label>結束日期</Label>
+          <Input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-40" />
+        </div>
+        <div className="space-y-1">
+          <Label>客戶</Label>
+          <Select value={partnerId} onValueChange={setPartnerId}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="全部客戶" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部客戶</SelectItem>
+              {partners?.map(p => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label>客戶分類</Label>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
             <SelectTrigger className="w-40">
-              <SelectValue placeholder="客戶分類" />
+              <SelectValue placeholder="全部分類" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">全部分類</SelectItem>
@@ -126,10 +185,6 @@ export function SalesLinesReportPage() {
               <SelectItem value="other">其他</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={exportToCSV} disabled={!report?.length}>
-            <Download className="mr-2 h-4 w-4" />
-            匯出 CSV
-          </Button>
         </div>
       </div>
 
@@ -152,43 +207,54 @@ export function SalesLinesReportPage() {
           </TableHeader>
           <TableBody>
             {report && report.length > 0 ? (
-              report.map((row, idx) => (
-                <TableRow key={idx}>
-                  <TableCell>{formatDate(row.doc_date)}</TableCell>
-                  <TableCell className="font-mono text-sm">{row.doc_no}</TableCell>
-                  <TableCell>{getStatusBadge(row.status)}</TableCell>
-                  <TableCell>
-                    {row.partner_name ? (
+              <>
+                {report.map((row, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell>{formatDate(row.doc_date)}</TableCell>
+                    <TableCell className="font-mono text-sm">{row.doc_no}</TableCell>
+                    <TableCell>{getStatusBadge(row.status)}</TableCell>
+                    <TableCell>
+                      {row.partner_name ? (
+                        <div>
+                          <div className="font-medium">{row.partner_name}</div>
+                          <div className="text-xs text-muted-foreground">{row.partner_code}</div>
+                        </div>
+                      ) : '-'}
+                    </TableCell>
+                    <TableCell>
+                      {row.customer_category ? (
+                        <Badge variant="outline">{formatCustomerCategory(row.customer_category)}</Badge>
+                      ) : '-'}
+                    </TableCell>
+                    <TableCell>{row.warehouse_name || '-'}</TableCell>
+                    <TableCell>
                       <div>
-                        <div className="font-medium">{row.partner_name}</div>
-                        <div className="text-xs text-muted-foreground">{row.partner_code}</div>
+                        <div className="font-medium">{row.product_name}</div>
+                        <div className="text-xs text-muted-foreground">{row.product_sku}</div>
                       </div>
-                    ) : '-'}
-                  </TableCell>
-                  <TableCell>
-                    {row.customer_category ? (
-                      <Badge variant="outline">{formatCustomerCategory(row.customer_category)}</Badge>
-                    ) : '-'}
-                  </TableCell>
-                  <TableCell>{row.warehouse_name || '-'}</TableCell>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{row.product_name}</div>
-                      <div className="text-xs text-muted-foreground">{row.product_sku}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {formatNumber(row.qty, 0)} {row.uom}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {row.unit_price ? `$${formatNumber(row.unit_price, 2)}` : '-'}
-                  </TableCell>
-                  <TableCell className="text-right font-medium">
-                    {row.line_total ? `$${formatNumber(row.line_total, 2)}` : '-'}
-                  </TableCell>
-                  <TableCell>{row.created_by_name}</TableCell>
-                </TableRow>
-              ))
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatNumber(row.qty, 0)} {row.uom}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {row.unit_price ? `$${formatNumber(row.unit_price, 2)}` : '-'}
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      {row.line_total ? `$${formatNumber(row.line_total, 2)}` : '-'}
+                    </TableCell>
+                    <TableCell>{row.created_by_name}</TableCell>
+                  </TableRow>
+                ))}
+                {summary && (
+                  <TableRow className="bg-muted/50 font-semibold">
+                    <TableCell colSpan={7} className="text-right">合計</TableCell>
+                    <TableCell className="text-right">{formatNumber(summary.totalQty, 0)}</TableCell>
+                    <TableCell />
+                    <TableCell className="text-right">${formatNumber(summary.totalAmount, 2)}</TableCell>
+                    <TableCell />
+                  </TableRow>
+                )}
+              </>
             ) : (
               <TableRow>
                 <TableCell colSpan={11} className="text-center py-8">

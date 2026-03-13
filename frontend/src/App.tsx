@@ -74,6 +74,7 @@ const CostSummaryReportPage = lazy(() => import('@/pages/reports/CostSummaryRepo
 const BloodTestCostReportPage = lazy(() => import('@/pages/reports/BloodTestCostReportPage').then(m => ({ default: m.BloodTestCostReportPage })))
 const BloodTestAnalysisPage = lazy(() => import('@/pages/reports/BloodTestAnalysisPage').then(m => ({ default: m.BloodTestAnalysisPage })))
 const AccountingReportPage = lazy(() => import('@/pages/reports/AccountingReportPage').then(m => ({ default: m.AccountingReportPage })))
+const PurchaseSalesSummaryPage = lazy(() => import('@/pages/reports/PurchaseSalesSummaryPage').then(m => ({ default: m.PurchaseSalesSummaryPage })))
 
 // ERP Page
 const ErpPage = lazy(() => import('@/pages/erp/ErpPage').then(m => ({ default: m.ErpPage })))
@@ -362,6 +363,7 @@ function App() {
                         <Route path="/blood-test-cost" element={<BloodTestCostReportPage />} />
                         <Route path="/blood-test-analysis" element={<BloodTestAnalysisPage />} />
                         <Route path="/accounting" element={<AccountingReportPage />} />
+                        <Route path="/purchase-sales-summary" element={<PurchaseSalesSummaryPage />} />
                     </Route>
 
                     {/* 系統管理 - 需要 admin 角色 */}

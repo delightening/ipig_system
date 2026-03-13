@@ -101,6 +101,8 @@ impl AccountingService {
         match document.doc_type {
             DocType::GRN => Self::post_grn(tx, document, lines, approved_by).await,
             DocType::DO => Self::post_do(tx, document, lines, approved_by).await,
+            DocType::PR => Self::post_pr(tx, document, lines, approved_by).await,
+            DocType::SR | DocType::RTN => Self::post_sr(tx, document, lines, approved_by).await,
             _ => Ok(()),
         }
     }
@@ -213,8 +215,21 @@ impl AccountingService {
         for line in lines {
             let price = line.unit_price.unwrap_or(Decimal::ZERO);
             revenue_total += line.qty * price;
-            // 銷貨成本：依移動平均，此處簡化使用相同單價
-            cogs_total += line.qty * price;
+
+            // 銷貨成本：查詢加權平均成本，若無則 fallback 使用售價
+            let avg_cost: Option<Decimal> = sqlx::query_scalar(
+                r#"
+                SELECT AVG(unit_cost) FILTER (WHERE unit_cost IS NOT NULL)
+                FROM stock_ledger
+                WHERE product_id = $1 AND direction IN ('in', 'transfer_in', 'adjust_in')
+                "#,
+            )
+            .bind(line.product_id)
+            .fetch_one(&mut **tx)
+            .await?;
+
+            let cost = avg_cost.unwrap_or(price);
+            cogs_total += line.qty * cost;
         }
 
         sqlx::query(
@@ -284,6 +299,194 @@ impl AccountingService {
         .bind(entry_id)
         .bind(line_no)
         .bind(inv_id)
+        .bind(cogs_total)
+        .execute(&mut **tx)
+        .await?;
+
+        Ok(())
+    }
+
+    /// 採購退貨過帳（GRN 的反向）
+    /// 借：應付帳款 2100，貸：存貨 1300
+    async fn post_pr(
+        tx: &mut Transaction<'_, Postgres>,
+        document: &Document,
+        lines: &[DocumentLine],
+        approved_by: Uuid,
+    ) -> Result<()> {
+        let ap_id = Self::get_account_id(tx, ACCT_AP).await?
+            .ok_or_else(|| AppError::BusinessRule("會計科目 2100 應付帳款 不存在".to_string()))?;
+        let inv_id = Self::get_account_id(tx, ACCT_INVENTORY).await?
+            .ok_or_else(|| AppError::BusinessRule("會計科目 1300 存貨 不存在".to_string()))?;
+
+        let entry_no = Self::next_entry_no(tx).await?;
+        let entry_id = Uuid::new_v4();
+
+        let mut total = Decimal::ZERO;
+        for line in lines {
+            let amount = line.qty * line.unit_price.unwrap_or(Decimal::ZERO);
+            total += amount;
+        }
+
+        sqlx::query(
+            r#"
+            INSERT INTO journal_entries (id, entry_no, entry_date, description, source_entity_type, source_entity_id, created_by, created_at)
+            VALUES ($1, $2, $3, $4, 'document', $5, $6, NOW())
+            "#,
+        )
+        .bind(entry_id)
+        .bind(&entry_no)
+        .bind(document.doc_date)
+        .bind(format!("PR 採購退貨 {}", document.doc_no))
+        .bind(document.id)
+        .bind(approved_by)
+        .execute(&mut **tx)
+        .await?;
+
+        // 借：應付帳款（減少負債）
+        sqlx::query(
+            r#"
+            INSERT INTO journal_entry_lines (id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, description)
+            VALUES (gen_random_uuid(), $1, 1, $2, $3, 0, '沖銷應付帳款')
+            "#,
+        )
+        .bind(entry_id)
+        .bind(ap_id)
+        .bind(total)
+        .execute(&mut **tx)
+        .await?;
+
+        // 貸：存貨（退回品項）
+        sqlx::query(
+            r#"
+            INSERT INTO journal_entry_lines (id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, description)
+            VALUES (gen_random_uuid(), $1, 2, $2, 0, $3, '退回存貨')
+            "#,
+        )
+        .bind(entry_id)
+        .bind(inv_id)
+        .bind(total)
+        .execute(&mut **tx)
+        .await?;
+
+        Ok(())
+    }
+
+    /// 銷貨退貨過帳（DO 的反向）
+    /// 借：銷貨收入 4100 / 存貨 1300，貸：應收帳款 1200 / 銷貨成本 5200
+    async fn post_sr(
+        tx: &mut Transaction<'_, Postgres>,
+        document: &Document,
+        lines: &[DocumentLine],
+        approved_by: Uuid,
+    ) -> Result<()> {
+        let ar_id = Self::get_account_id(tx, ACCT_AR).await?
+            .ok_or_else(|| AppError::BusinessRule("會計科目 1200 應收帳款 不存在".to_string()))?;
+        let rev_id = Self::get_account_id(tx, ACCT_REVENUE).await?
+            .ok_or_else(|| AppError::BusinessRule("會計科目 4100 銷貨收入 不存在".to_string()))?;
+        let cogs_id = Self::get_account_id(tx, ACCT_COGS).await?
+            .ok_or_else(|| AppError::BusinessRule("會計科目 5200 銷貨成本 不存在".to_string()))?;
+        let inv_id = Self::get_account_id(tx, ACCT_INVENTORY).await?
+            .ok_or_else(|| AppError::BusinessRule("會計科目 1300 存貨 不存在".to_string()))?;
+
+        let entry_no = Self::next_entry_no(tx).await?;
+        let entry_id = Uuid::new_v4();
+
+        let mut revenue_total = Decimal::ZERO;
+        let mut cogs_total = Decimal::ZERO;
+
+        for line in lines {
+            let price = line.unit_price.unwrap_or(Decimal::ZERO);
+            revenue_total += line.qty * price;
+
+            // 成本使用加權平均
+            let avg_cost: Option<Decimal> = sqlx::query_scalar(
+                r#"
+                SELECT AVG(unit_cost) FILTER (WHERE unit_cost IS NOT NULL)
+                FROM stock_ledger
+                WHERE product_id = $1 AND direction IN ('in', 'transfer_in', 'adjust_in')
+                "#,
+            )
+            .bind(line.product_id)
+            .fetch_one(&mut **tx)
+            .await?;
+
+            let cost = avg_cost.unwrap_or(price);
+            cogs_total += line.qty * cost;
+        }
+
+        sqlx::query(
+            r#"
+            INSERT INTO journal_entries (id, entry_no, entry_date, description, source_entity_type, source_entity_id, created_by, created_at)
+            VALUES ($1, $2, $3, $4, 'document', $5, $6, NOW())
+            "#,
+        )
+        .bind(entry_id)
+        .bind(&entry_no)
+        .bind(document.doc_date)
+        .bind(format!("SR 銷貨退貨 {}", document.doc_no))
+        .bind(document.id)
+        .bind(approved_by)
+        .execute(&mut **tx)
+        .await?;
+
+        let mut line_no = 1;
+
+        // 借：銷貨收入（沖銷收入）
+        sqlx::query(
+            r#"
+            INSERT INTO journal_entry_lines (id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, description)
+            VALUES (gen_random_uuid(), $1, $2, $3, $4, 0, '沖銷銷貨收入')
+            "#,
+        )
+        .bind(entry_id)
+        .bind(line_no)
+        .bind(rev_id)
+        .bind(revenue_total)
+        .execute(&mut **tx)
+        .await?;
+        line_no += 1;
+
+        // 貸：應收帳款（減少應收）
+        sqlx::query(
+            r#"
+            INSERT INTO journal_entry_lines (id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, description)
+            VALUES (gen_random_uuid(), $1, $2, $3, 0, $4, '沖銷應收帳款')
+            "#,
+        )
+        .bind(entry_id)
+        .bind(line_no)
+        .bind(ar_id)
+        .bind(revenue_total)
+        .execute(&mut **tx)
+        .await?;
+        line_no += 1;
+
+        // 借：存貨（退回品項）
+        sqlx::query(
+            r#"
+            INSERT INTO journal_entry_lines (id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, description)
+            VALUES (gen_random_uuid(), $1, $2, $3, $4, 0, '退回存貨')
+            "#,
+        )
+        .bind(entry_id)
+        .bind(line_no)
+        .bind(inv_id)
+        .bind(cogs_total)
+        .execute(&mut **tx)
+        .await?;
+        line_no += 1;
+
+        // 貸：銷貨成本（沖銷成本）
+        sqlx::query(
+            r#"
+            INSERT INTO journal_entry_lines (id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, description)
+            VALUES (gen_random_uuid(), $1, $2, $3, 0, $4, '沖銷銷貨成本')
+            "#,
+        )
+        .bind(entry_id)
+        .bind(line_no)
+        .bind(cogs_id)
         .bind(cogs_total)
         .execute(&mut **tx)
         .await?;
@@ -618,4 +821,80 @@ impl AccountingService {
         tx.commit().await?;
         Ok(receipt_id)
     }
+
+    /// 損益表（指定日期範圍內的收入與費用摘要）
+    pub async fn get_profit_loss(
+        pool: &PgPool,
+        date_from: Option<NaiveDate>,
+        date_to: Option<NaiveDate>,
+    ) -> Result<ProfitLossSummary> {
+        let mut qb = sqlx::QueryBuilder::new(
+            r#"
+            SELECT
+                coa.code as account_code,
+                coa.name as account_name,
+                coa.account_type::text as account_type,
+                CASE
+                    WHEN coa.account_type = 'revenue'
+                        THEN COALESCE(SUM(jel.credit_amount), 0) - COALESCE(SUM(jel.debit_amount), 0)
+                    ELSE
+                        COALESCE(SUM(jel.debit_amount), 0) - COALESCE(SUM(jel.credit_amount), 0)
+                END as amount
+            FROM chart_of_accounts coa
+            INNER JOIN journal_entry_lines jel ON jel.account_id = coa.id
+            INNER JOIN journal_entries je ON je.id = jel.journal_entry_id
+            WHERE coa.is_active = true
+              AND coa.account_type IN ('revenue', 'expense')
+            "#,
+        );
+
+        if let Some(d) = date_from {
+            qb.push(" AND je.entry_date >= ");
+            qb.push_bind(d);
+        }
+        if let Some(d) = date_to {
+            qb.push(" AND je.entry_date <= ");
+            qb.push_bind(d);
+        }
+
+        qb.push(" GROUP BY coa.id, coa.code, coa.name, coa.account_type ORDER BY coa.code");
+
+        let rows: Vec<ProfitLossRow> = qb.build_query_as().fetch_all(pool).await?;
+
+        let total_revenue = rows
+            .iter()
+            .filter(|r| r.account_type == "revenue")
+            .map(|r| r.amount)
+            .sum();
+        let total_expense = rows
+            .iter()
+            .filter(|r| r.account_type == "expense")
+            .map(|r| r.amount)
+            .sum();
+
+        Ok(ProfitLossSummary {
+            rows,
+            total_revenue,
+            total_expense,
+            net_income: total_revenue - total_expense,
+        })
+    }
+}
+
+/// 損益表科目列
+#[derive(Debug, FromRow, Serialize)]
+pub struct ProfitLossRow {
+    pub account_code: String,
+    pub account_name: String,
+    pub account_type: String,
+    pub amount: Decimal,
+}
+
+/// 損益表摘要
+#[derive(Debug, Serialize)]
+pub struct ProfitLossSummary {
+    pub rows: Vec<ProfitLossRow>,
+    pub total_revenue: Decimal,
+    pub total_expense: Decimal,
+    pub net_income: Decimal,
 }

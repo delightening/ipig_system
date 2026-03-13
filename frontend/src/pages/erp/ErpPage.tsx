@@ -18,6 +18,7 @@ import {
     Droplets,
     Activity,
     Wrench,
+    TrendingUp,
 } from 'lucide-react'
 import { EquipmentPage } from '@/pages/admin/EquipmentPage'
 import { ProductsPage } from '@/pages/master/ProductsPage'
@@ -189,10 +190,16 @@ const erpModules: ErpModule[] = [
                 description: '血檢數據統計、趨勢分析、異常值偵測',
             },
             {
+                title: '進銷貨彙總報表',
+                href: '/purchase-sales-summary',
+                icon: <TrendingUp className="h-4 w-4" />,
+                description: '按月份、供應商客戶、產品類別彙總分析',
+            },
+            {
                 title: '會計報表',
                 href: '/accounting',
                 icon: <BarChart3 className="h-4 w-4" />,
-                description: '試算表、傳票、應付／應收帳款',
+                description: '試算表、傳票、應付／應收帳款、損益表',
             },
         ],
     },
