@@ -261,7 +261,7 @@ pub struct DocumentListItem {
 }
 
 /// 採購單入庫狀態
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct PoReceiptStatus {
     pub po_id: Uuid,
     pub po_no: String,
@@ -271,7 +271,7 @@ pub struct PoReceiptStatus {
 }
 
 /// 採購單入庫項目
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct PoReceiptItem {
     pub product_id: Uuid,
     pub product_name: String,
