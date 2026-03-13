@@ -75,7 +75,7 @@ impl TestApp {
 
         // Startup: ensure schema, admin, permissions
         let _ = erp_backend::startup::ensure_schema(&pool).await;
-        let _ = erp_backend::startup::ensure_admin_user(&pool).await;
+        let _ = erp_backend::startup::ensure_admin_user(&pool, &config).await;
         let _ = erp_backend::startup::ensure_required_permissions(&pool).await;
         let _ = erp_backend::startup::ensure_all_role_permissions(&pool).await;
 

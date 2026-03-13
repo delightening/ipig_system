@@ -44,13 +44,25 @@ function formatDisplayLabel(
 interface WarehouseShelfTreeSelectProps {
   value: string
   onValueChange: (value: WarehouseShelfValue) => void
+  /**
+   * 選擇層級：
+   * - shelf: 預設，可選到具體貨架 (wh:id 或 loc:id)
+   * - warehouse: 僅能選到倉庫 (僅 wh:id)
+   */
+  selectLevel?: 'warehouse' | 'shelf'
+  /** 是否允許「全部」選項 */
+  allowAll?: boolean
   className?: string
+  placeholder?: string
 }
 
 export function WarehouseShelfTreeSelect({
   value,
   onValueChange,
+  selectLevel = 'shelf',
+  allowAll = true,
   className,
+  placeholder,
 }: WarehouseShelfTreeSelectProps) {
   const [open, setOpen] = useState(false)
   const { data: tree, isLoading } = useQuery({
@@ -59,6 +71,7 @@ export function WarehouseShelfTreeSelect({
       const res = await api.get<WarehouseTreeNode[]>('/warehouses/with-shelves')
       return res.data
     },
+    staleTime: 5 * 60 * 1000, // 5 min
   })
 
   const displayLabel = formatDisplayLabel(tree, value)
@@ -82,7 +95,9 @@ export function WarehouseShelfTreeSelect({
         >
           <div className="flex items-center gap-2 overflow-hidden">
             <Warehouse className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <span className="truncate">{isLoading ? '載入中...' : displayLabel}</span>
+            <span className="truncate">
+              {isLoading ? '載入中...' : (displayLabel === '全部倉庫' && placeholder) ? placeholder : displayLabel}
+            </span>
           </div>
           <ChevronDown className={cn(
             "h-4 w-4 shrink-0 opacity-50 transition-transform duration-200",
@@ -100,21 +115,25 @@ export function WarehouseShelfTreeSelect({
           sideOffset={4}
         >
           <div className="max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20">
-            <button
-              type="button"
-              className={cn(
-                'flex w-full items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium rounded-md transition-colors hover:bg-accent hover:text-accent-foreground',
-                value === 'all' ? 'bg-accent text-accent-foreground' : 'text-foreground/70'
-              )}
-              onClick={() => handleSelect('all')}
-            >
-              <div className="flex items-center gap-2">
-                <Warehouse className="h-4 w-4" />
-                <span>全部倉庫</span>
-              </div>
-              {value === 'all' && <Check className="h-4 w-4" />}
-            </button>
-            <div className="my-1 h-px bg-muted" />
+            {allowAll && (
+              <>
+                <button
+                  type="button"
+                  className={cn(
+                    'flex w-full items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium rounded-md transition-colors hover:bg-accent hover:text-accent-foreground',
+                    value === 'all' ? 'bg-accent text-accent-foreground' : 'text-foreground/70'
+                  )}
+                  onClick={() => handleSelect('all')}
+                >
+                  <div className="flex items-center gap-2">
+                    <Warehouse className="h-4 w-4" />
+                    <span>全部倉庫</span>
+                  </div>
+                  {value === 'all' && <Check className="h-4 w-4" />}
+                </button>
+                <div className="my-1 h-px bg-muted" />
+              </>
+            )}
             {tree?.map((wh) => (
               <div key={wh.id} className="space-y-0.5">
                 <button
@@ -133,25 +152,27 @@ export function WarehouseShelfTreeSelect({
                   </div>
                   {value === `wh:${wh.id}` && <Check className="h-4 w-4" />}
                 </button>
-                <div className="pl-4 space-y-0.5 border-l border-muted/50 ml-5 my-0.5">
-                  {wh.shelves.map((shelf) => (
-                    <button
-                      key={shelf.id}
-                      type="button"
-                      className={cn(
-                        'flex w-full items-center justify-between gap-2 px-3 py-1.5 text-xs rounded-md transition-colors hover:bg-accent/50 hover:text-accent-foreground',
-                        value === `loc:${shelf.id}` ? 'bg-accent/80 text-accent-foreground font-medium' : 'text-muted-foreground hover:text-foreground'
-                      )}
-                      onClick={() => handleSelect(`loc:${shelf.id}`)}
-                    >
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        <LayoutGrid className="h-3 w-3 shrink-0 opacity-40" />
-                        <span className="truncate">{shelf.name || shelf.code}</span>
-                      </div>
-                      {value === `loc:${shelf.id}` && <Check className="h-3 w-3" />}
-                    </button>
-                  ))}
-                </div>
+                  {selectLevel === 'shelf' && (
+                    <div className="pl-4 space-y-0.5 border-l border-muted/50 ml-5 my-0.5">
+                      {wh.shelves.map((shelf) => (
+                        <button
+                          key={shelf.id}
+                          type="button"
+                          className={cn(
+                            'flex w-full items-center justify-between gap-2 px-3 py-1.5 text-xs rounded-md transition-colors hover:bg-accent/50 hover:text-accent-foreground',
+                            value === `loc:${shelf.id}` ? 'bg-accent/80 text-accent-foreground font-medium' : 'text-muted-foreground hover:text-foreground'
+                          )}
+                          onClick={() => handleSelect(`loc:${shelf.id}`)}
+                        >
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <LayoutGrid className="h-3 w-3 shrink-0 opacity-40" />
+                            <span className="truncate">{shelf.name || shelf.code}</span>
+                          </div>
+                          {value === `loc:${shelf.id}` && <Check className="h-3 w-3" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
               </div>
             ))}
           </div>

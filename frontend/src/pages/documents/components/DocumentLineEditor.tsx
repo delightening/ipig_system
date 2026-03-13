@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api, { Product, DocType, StockLedgerDetail } from '@/lib/api'
+import { WarehouseShelfTreeSelect, type WarehouseShelfValue } from '@/components/inventory/WarehouseShelfTreeSelect'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -196,6 +197,7 @@ interface DocumentLineEditorProps {
   handleBatchChange: (lineId: string, batchNo: string, expiryDate?: string) => void
   handleLineBlur: (lineId: string) => void
   updateLineAmount: (lineId: string) => void
+  setFormData: any
 }
 
 export function DocumentLineEditor({
@@ -214,6 +216,7 @@ export function DocumentLineEditor({
   handleBatchChange,
   handleLineBlur,
   updateLineAmount,
+  setFormData,
 }: DocumentLineEditorProps) {
   const showPriceColumns = ['PO', 'GRN', 'DO'].includes(formData.doc_type)
 
@@ -237,13 +240,21 @@ export function DocumentLineEditor({
               <TableHead className="w-[80px]">單位</TableHead>
               {showPriceColumns && (
                 <>
-                  <TableHead className="w-[120px] text-right">單價</TableHead>
-                  <TableHead className="w-[120px] text-right">金額</TableHead>
+                  <TableHead className="w-[100px] text-right">單價</TableHead>
+                  <TableHead className="w-[100px] text-right">金額</TableHead>
                 </>
               )}
-              <TableHead className="w-[140px]">效期</TableHead>
+              {formData.doc_type === 'TR' ? (
+                <>
+                  <TableHead className="w-[180px]">來源儲位</TableHead>
+                  <TableHead className="w-[180px]">目標儲位</TableHead>
+                </>
+              ) : ['GRN', 'SO', 'ADJ'].includes(formData.doc_type) ? (
+                <TableHead className="w-[180px]">儲位</TableHead>
+              ) : null}
+              <TableHead className="w-[120px]">效期</TableHead>
               <TableHead className="w-[120px]">批號</TableHead>
-              <TableHead className="w-[60px]" />
+              <TableHead className="w-[50px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -343,6 +354,60 @@ export function DocumentLineEditor({
                         </TableCell>
                       </>
                     )}
+                    {formData.doc_type === 'TR' ? (
+                      <>
+                        <TableCell>
+                          <WarehouseShelfTreeSelect
+                            value={line.storage_location_from_id ? `loc:${line.storage_location_from_id}` : ''}
+                            onValueChange={(v: WarehouseShelfValue) => {
+                               const id = v.startsWith('loc:') ? v.slice(4) : ''
+                               handleBatchChange(lineId, batchNoDefault, expiryDateDefault) // 觸發連動 collect
+                               setFormData((prev: any) => ({
+                                 ...prev,
+                                 lines: prev.lines.map((l: any) => l.id === lineId ? { ...l, storage_location_from_id: id } : l)
+                               }))
+                            }}
+                            selectLevel="shelf"
+                            allowAll={false}
+                            className="w-full text-xs"
+                            placeholder="選擇來源儲位"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <WarehouseShelfTreeSelect
+                            value={line.storage_location_to_id ? `loc:${line.storage_location_to_id}` : ''}
+                            onValueChange={(v: WarehouseShelfValue) => {
+                               const id = v.startsWith('loc:') ? v.slice(4) : ''
+                               setFormData((prev: any) => ({
+                                 ...prev,
+                                 lines: prev.lines.map((l: any) => l.id === lineId ? { ...l, storage_location_to_id: id } : l)
+                               }))
+                            }}
+                            selectLevel="shelf"
+                            allowAll={false}
+                            className="w-full text-xs"
+                            placeholder="選擇目標儲位"
+                          />
+                        </TableCell>
+                      </>
+                    ) : ['GRN', 'SO', 'ADJ'].includes(formData.doc_type) ? (
+                      <TableCell>
+                        <WarehouseShelfTreeSelect
+                          value={line.storage_location_id ? `loc:${line.storage_location_id}` : ''}
+                          onValueChange={(v: WarehouseShelfValue) => {
+                             const id = v.startsWith('loc:') ? v.slice(4) : ''
+                             setFormData((prev: { lines: any[] }) => ({
+                               ...prev,
+                               lines: prev.lines.map((l) => l.id === lineId ? { ...l, storage_location_id: id } : l)
+                             }))
+                          }}
+                          selectLevel="shelf"
+                          allowAll={false}
+                          className="w-full text-xs"
+                          placeholder="選擇儲位"
+                        />
+                      </TableCell>
+                    ) : null}
                     <TableCell>
                       {['SO', 'DO'].includes(formData.doc_type) ? (
                         <Input

@@ -11,6 +11,12 @@ export interface DocumentLine {
   unit_price: string
   batch_no: string
   expiry_date: string
+  /** 儲位 ID (入庫 GRN, 銷貨 SO, 調整 ADJ 使用) */
+  storage_location_id?: string
+  /** 調撥來源儲位 ID (TR 使用) */
+  storage_location_from_id?: string
+  /** 調撥目標儲位 ID (TR 使用) */
+  storage_location_to_id?: string
   remark: string
 }
 
@@ -31,9 +37,9 @@ export const DOC_TYPE_NAMES: Record<DocType, string> = {
   GRN: '採購入庫',
   PR: '採購退貨',
   SO: '銷貨單',
-  DO: '銷貨出庫',
+  DO: '銷貨出庫', // 雖然計畫中建議簡化到 SO，但保留舊單據查詢相容性
   TR: '調撥單',
   STK: '盤點單',
   ADJ: '調整單',
-  RM: '退料單',
+  RM: '退料單', // 同上，保留系統現有型別相容性，但新增頁面可隱藏
 }
