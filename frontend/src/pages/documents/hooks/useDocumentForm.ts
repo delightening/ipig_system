@@ -51,6 +51,7 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
 
   const [productSearchOpen, setProductSearchOpen] = useState(false)
   const [productSearch, setProductSearch] = useState('')
+  const [categoryId, setCategoryId] = useState<string | undefined>()
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null)
   const [unsavedChanges, setUnsavedChanges] = useState(false)
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
@@ -108,13 +109,16 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
   })
 
   const { data: products } = useQuery({
-    queryKey: ['products', productSearch],
+    queryKey: ['products', { keyword: productSearch, category_id: categoryId }],
     queryFn: async () => {
-      const response = await api.get<Product[]>(
-        `/products?keyword=${encodeURIComponent(productSearch)}&is_active=true`
-      )
+      const params = new URLSearchParams()
+      if (productSearch) params.append('keyword', productSearch)
+      if (categoryId) params.append('category_id', categoryId)
+      params.append('is_active', 'true')
+      const response = await api.get<Product[]>(`/products?${params.toString()}`)
       return response.data
     },
+    enabled: productSearchOpen,
     staleTime: STALE_TIME.REFERENCE,
   })
 
@@ -735,5 +739,7 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     handleBatchShelfSelectTo,
     poReceiptStatus,
     source_doc_id: formData.source_doc_id,
+    categoryId,
+    setCategoryId,
   }
 }
