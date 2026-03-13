@@ -28,8 +28,8 @@ export interface ShelfNode {
     name?: string
 }
 
-// 儲位/貨架
-export type StorageLocationType = 'shelf' | 'rack' | 'zone' | 'bin'
+// 儲位/貨架/建築結構
+export type StorageLocationType = 'shelf' | 'rack' | 'zone' | 'bin' | 'wall' | 'door' | 'window'
 
 export interface StorageLocation {
     id: string
@@ -72,6 +72,9 @@ export const storageLocationTypeNames: Record<StorageLocationType, string> = {
     rack: '儲物架',
     zone: '區域',
     bin: '儲物格',
+    wall: '牆壁',
+    door: '門',
+    window: '窗戶',
 }
 
 export interface StorageLocationInventoryItem {
