@@ -21,6 +21,7 @@ export type * from './notification'
 export type * from './amendment'
 export type * from './upload'
 export type * from './treatment-drug'
+export type * from './signature'
 
 // 常值匯出（非純型別，需要 runtime 值）
 export { LEAVE_TYPE_NAMES, LEAVE_STATUS_NAMES } from './hr'

@@ -170,19 +170,6 @@ api.interceptors.response.use(
   }
 )
 
-// Utility function to format ear tag: if it's a number < 100, pad to 3 digits
-export function formatEarTag(earTag: string): string {
-  if (!earTag) return earTag
-  // Check if it's a pure number
-  if (/^\d+$/.test(earTag)) {
-    const num = parseInt(earTag, 10)
-    if (num < 100) {
-      return earTag.padStart(3, '0')
-    }
-  }
-  return earTag
-}
-
 export default api
 
 // ============================================
@@ -399,33 +386,11 @@ export const animalFieldCorrectionApi = {
 // 電子簽章 API（手寫簽名 / 密碼驗證）
 // ============================================
 
-export interface SignRecordRequest {
-  password?: string
-  signature_type?: string
-  handwriting_svg?: string
-  stroke_data?: object[]
-}
+import type {
+  SignRecordRequest, SignRecordResponse, SignatureStatusResponse,
+} from '@/types/signature'
 
-export interface SignRecordResponse {
-  signature_id: string
-  signed_at: string
-  is_locked: boolean
-}
-
-export interface SignatureInfo {
-  id: string
-  signature_type: string
-  signer_name: string | null
-  signed_at: string
-  signature_method: string | null
-  handwriting_svg: string | null
-}
-
-export interface SignatureStatusResponse {
-  is_signed: boolean
-  is_locked: boolean
-  signatures: SignatureInfo[]
-}
+export type { SignRecordRequest, SignRecordResponse, SignatureInfo, SignatureStatusResponse } from '@/types/signature'
 
 export const signatureApi = {
   // 犧牲紀錄簽章（犧牲記錄 ID 為 UUID）

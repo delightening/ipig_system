@@ -6,6 +6,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 use validator::Validate;
 
+use super::utils::AnimalUtils;
 use super::AnimalService;
 use crate::{
     models::{
@@ -84,19 +85,10 @@ impl AnimalFieldCorrectionService {
         }
     }
 
-    fn format_ear_tag(ear_tag: &str) -> String {
-        if let Ok(num) = ear_tag.parse::<u32>() {
-            if num < 100 {
-                return format!("{:03}", num);
-            }
-        }
-        ear_tag.to_string()
-    }
-
     fn validate_new_value(field: &str, new_value: &str) -> Result<()> {
         match field {
             "ear_tag" => {
-                let formatted = Self::format_ear_tag(new_value);
+                let formatted = AnimalUtils::format_ear_tag(new_value);
                 if formatted.len() != 3 || !formatted.chars().all(|c| c.is_ascii_digit()) {
                     return Err(AppError::Validation("耳號必須為三位數".to_string()));
                 }
@@ -214,7 +206,7 @@ impl AnimalFieldCorrectionService {
     ) -> Result<()> {
         match field_name {
             "ear_tag" => {
-                let formatted = Self::format_ear_tag(new_value);
+                let formatted = AnimalUtils::format_ear_tag(new_value);
                 sqlx::query("UPDATE animals SET ear_tag = $2, updated_at = NOW() WHERE id = $1")
                     .bind(animal_id)
                     .bind(&formatted)

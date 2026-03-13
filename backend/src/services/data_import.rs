@@ -46,7 +46,8 @@ pub struct ImportResult {
 #[derive(Debug, Deserialize)]
 struct IdxfMeta {
     format: Option<String>,
-    format_version: Option<String>,
+    #[serde(rename = "format_version")]
+    _format_version: Option<String>,
     schema_version: Option<String>,
 }
 
@@ -429,7 +430,8 @@ async fn import_from_zip(pool: &PgPool, bytes: &[u8], _mode: ImportMode) -> Resu
         name: String,
         file: String,
         format: Option<String>,
-        columns: Vec<String>,
+        #[serde(rename = "columns")]
+        _columns: Vec<String>,
     }
     #[derive(Deserialize)]
     struct Manifest {

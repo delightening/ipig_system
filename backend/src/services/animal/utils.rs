@@ -1,4 +1,4 @@
-use crate::models::{AnimalBreed, AnimalGender};
+use crate::models::AnimalBreed;
 
 /// 動物相關工具函數
 pub struct AnimalUtils;
@@ -50,15 +50,6 @@ impl AnimalUtils {
             AnimalBreed::White => "white",
             AnimalBreed::LYD => "LYD",
             AnimalBreed::Other => "other",
-        }
-    }
-
-    /// 字串轉性別 enum
-    pub fn parse_gender(gender_str: &str) -> Option<AnimalGender> {
-        match gender_str.to_lowercase().as_str() {
-            "male" => Some(AnimalGender::Male),
-            "female" => Some(AnimalGender::Female),
-            _ => None,
         }
     }
 }

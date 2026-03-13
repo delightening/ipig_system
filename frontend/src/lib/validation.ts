@@ -145,22 +145,6 @@ export const emailOptionalSchema = z
 export const nonEmptyString = (messageKey = 'validation.required') =>
   z.string().min(1, { message: messageKey })
 
-/** 合作夥伴表單 schema（舊版，含 type 欄位） */
-export const partnerFormSchema = z.object({
-  code: nonEmptyString('validation.required'),
-  name: nonEmptyString('validation.required'),
-  type: z.enum(['customer', 'vendor', 'both']),
-  tax_id: taxIdSchema.optional().default(''),
-  contact_person: z.string().optional().default(''),
-  phone: phoneSchema.optional().default(''),
-  email: emailOptionalSchema.optional().default(''),
-  address: z.string().optional().default(''),
-  bank_account: z.string().optional().default(''),
-  notes: z.string().optional().default(''),
-})
-
-export type PartnerFormSchemaData = z.infer<typeof partnerFormSchema>
-
 /** 倉庫表單 schema */
 export const warehouseFormSchema = z.object({
   name: nonEmptyString('validation.required'),

@@ -4,7 +4,7 @@ import {
   phoneSchema,
   emailOptionalSchema,
   nonEmptyString,
-  partnerFormSchema,
+  partnerSchema,
   warehouseFormSchema,
   animalFormSchema,
   getFirstZodError,
@@ -73,30 +73,27 @@ describe('nonEmptyString', () => {
   })
 })
 
-describe('partnerFormSchema', () => {
+describe('partnerSchema', () => {
   it('accepts valid partner', () => {
-    const result = partnerFormSchema.safeParse({
-      code: 'P001',
+    const result = partnerSchema.safeParse({
+      partner_type: 'supplier',
       name: 'Test Partner',
-      type: 'vendor',
     })
     expect(result.success).toBe(true)
   })
 
-  it('rejects missing code', () => {
-    const result = partnerFormSchema.safeParse({
-      code: '',
-      name: 'Test',
-      type: 'customer',
+  it('rejects missing name', () => {
+    const result = partnerSchema.safeParse({
+      partner_type: 'customer',
+      name: '',
     })
     expect(result.success).toBe(false)
   })
 
-  it('rejects invalid type', () => {
-    const result = partnerFormSchema.safeParse({
-      code: 'P001',
+  it('rejects invalid partner_type', () => {
+    const result = partnerSchema.safeParse({
+      partner_type: 'invalid',
       name: 'Test',
-      type: 'invalid',
     })
     expect(result.success).toBe(false)
   })

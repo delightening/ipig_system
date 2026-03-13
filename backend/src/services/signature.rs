@@ -50,21 +50,6 @@ pub struct ElectronicSignature {
     pub signature_method: Option<String>,
 }
 
-/// 簽章請求
-#[derive(Debug, Deserialize)]
-pub struct SignRequest {
-    pub password: String,
-    pub signature_type: String,
-}
-
-/// 簽章回應
-#[derive(Debug, Serialize)]
-pub struct SignResponse {
-    pub signature_id: Uuid,
-    pub signed_at: DateTime<Utc>,
-    pub content_hash: String,
-}
-
 /// 簽章驗證結果
 #[derive(Debug, Serialize)]
 pub struct VerifyResult {
@@ -72,6 +57,21 @@ pub struct VerifyResult {
     pub signer_name: Option<String>,
     pub signed_at: Option<DateTime<Utc>>,
     pub failure_reason: Option<String>,
+}
+
+/// 簽章建立參數
+pub struct SignParams<'a> {
+    pub entity_type: &'a str,
+    pub entity_id: &'a str,
+    pub signer_id: Uuid,
+    pub signature_type: SignatureType,
+    pub content: &'a str,
+    pub ip_address: Option<&'a str>,
+    pub user_agent: Option<&'a str>,
+    pub password_hash: Option<&'a str>,
+    pub handwriting_svg: Option<&'a str>,
+    pub stroke_data: Option<&'a JsonValue>,
+    pub signature_method: &'a str,
 }
 
 pub struct SignatureService;
@@ -91,26 +91,25 @@ impl SignatureService {
         entity_type: &str,
         entity_id: &str,
         signer_id: Uuid,
-        password_hash: &str, // 預先驗證過的密碼雜湊
+        password_hash: &str,
         signature_type: SignatureType,
         content: &str,
         ip_address: Option<&str>,
         user_agent: Option<&str>,
     ) -> Result<ElectronicSignature> {
-        Self::sign_internal(
-            pool,
+        Self::sign_with_params(pool, SignParams {
             entity_type,
             entity_id,
             signer_id,
-            Some(password_hash),
             signature_type,
             content,
             ip_address,
             user_agent,
-            None,
-            None,
-            "password",
-        )
+            password_hash: Some(password_hash),
+            handwriting_svg: None,
+            stroke_data: None,
+            signature_method: "password",
+        })
         .await
     }
 
@@ -128,55 +127,40 @@ impl SignatureService {
         handwriting_svg: &str,
         stroke_data: Option<&JsonValue>,
     ) -> Result<ElectronicSignature> {
-        Self::sign_internal(
-            pool,
+        Self::sign_with_params(pool, SignParams {
             entity_type,
             entity_id,
             signer_id,
-            None,
             signature_type,
             content,
             ip_address,
             user_agent,
-            Some(handwriting_svg),
+            password_hash: None,
+            handwriting_svg: Some(handwriting_svg),
             stroke_data,
-            "handwriting",
-        )
+            signature_method: "handwriting",
+        })
         .await
     }
 
-    /// 內部簽章建立邏輯（統一密碼 / 手寫兩種方式）
-    #[allow(clippy::too_many_arguments)]
-    async fn sign_internal(
+    /// 建立電子簽章（使用參數結構體）
+    async fn sign_with_params(
         pool: &PgPool,
-        entity_type: &str,
-        entity_id: &str,
-        signer_id: Uuid,
-        password_hash: Option<&str>,
-        signature_type: SignatureType,
-        content: &str,
-        ip_address: Option<&str>,
-        user_agent: Option<&str>,
-        handwriting_svg: Option<&str>,
-        stroke_data: Option<&JsonValue>,
-        signature_method: &str,
+        params: SignParams<'_>,
     ) -> Result<ElectronicSignature> {
-        // 計算內容雜湊
-        let content_hash = Self::compute_hash(content);
+        let content_hash = Self::compute_hash(params.content);
 
-        // 建立簽章資料（簽章 = 使用者ID + 內容雜湊 + 時間戳記 的雜湊）
         let timestamp = Utc::now();
-        let hash_input = password_hash.unwrap_or("handwriting");
+        let hash_input = params.password_hash.unwrap_or("handwriting");
         let signature_input = format!(
             "{}:{}:{}:{}",
-            signer_id,
+            params.signer_id,
             content_hash,
             timestamp.timestamp(),
             hash_input
         );
         let signature_data = Self::compute_hash(&signature_input);
 
-        // 儲存到資料庫
         let signature = sqlx::query_as::<_, ElectronicSignature>(
             r#"
             INSERT INTO electronic_signatures (
@@ -188,17 +172,17 @@ impl SignatureService {
             RETURNING *
             "#,
         )
-        .bind(entity_type)
-        .bind(entity_id)
-        .bind(signer_id)
-        .bind(signature_type.as_str())
+        .bind(params.entity_type)
+        .bind(params.entity_id)
+        .bind(params.signer_id)
+        .bind(params.signature_type.as_str())
         .bind(&content_hash)
         .bind(&signature_data)
-        .bind(ip_address)
-        .bind(user_agent)
-        .bind(handwriting_svg)
-        .bind(stroke_data)
-        .bind(signature_method)
+        .bind(params.ip_address)
+        .bind(params.user_agent)
+        .bind(params.handwriting_svg)
+        .bind(params.stroke_data)
+        .bind(params.signature_method)
         .fetch_one(pool)
         .await?;
 
@@ -328,36 +312,36 @@ impl SignatureService {
         Ok(count > 0)
     }
 
+    /// 將記錄類型字串解析為資料表名稱
+    fn resolve_table_name(record_type: &str) -> Result<&'static str> {
+        match record_type {
+            "observation" => Ok("animal_observations"),
+            "surgery" => Ok("animal_surgeries"),
+            "sacrifice" => Ok("animal_sacrifices"),
+            _ => Err(AppError::Validation(format!(
+                "不支援的記錄類型: {}",
+                record_type
+            ))),
+        }
+    }
+
     /// 鎖定記錄（簽章後自動鎖定，記錄 ID 為 i32）
     pub async fn lock_record(
         pool: &PgPool,
-        record_type: &str, // "observation", "surgery", "sacrifice"
+        record_type: &str,
         record_id: i32,
         locked_by: Uuid,
     ) -> Result<()> {
-        let table_name = match record_type {
-            "observation" => "animal_observations",
-            "surgery" => "animal_surgeries",
-            "sacrifice" => "animal_sacrifices",
-            _ => {
-                return Err(AppError::Validation(format!(
-                    "不支援的記錄類型: {}",
-                    record_type
-                )))
-            }
-        };
-
+        let table_name = Self::resolve_table_name(record_type)?;
         let query = format!(
             "UPDATE {} SET is_locked = true, locked_at = NOW(), locked_by = $2 WHERE id = $1",
             table_name
         );
-
         sqlx::query(&query)
             .bind(record_id)
             .bind(locked_by)
             .execute(pool)
             .await?;
-
         Ok(())
     }
 
@@ -368,82 +352,47 @@ impl SignatureService {
         record_id: Uuid,
         locked_by: Uuid,
     ) -> Result<()> {
-        let table_name = match record_type {
-            "sacrifice" => "animal_sacrifices",
-            _ => {
-                return Err(AppError::Validation(format!(
-                    "不支援的記錄類型 (UUID): {}",
-                    record_type
-                )))
-            }
-        };
-
+        let table_name = Self::resolve_table_name(record_type)?;
         let query = format!(
             "UPDATE {} SET is_locked = true, locked_at = NOW(), locked_by = $2 WHERE id = $1",
             table_name
         );
-
         sqlx::query(&query)
             .bind(record_id)
             .bind(locked_by)
             .execute(pool)
             .await?;
-
         Ok(())
     }
 
     /// 檢查記錄是否已鎖定（記錄 ID 為 i32）
     pub async fn is_locked(pool: &PgPool, record_type: &str, record_id: i32) -> Result<bool> {
-        let table_name = match record_type {
-            "observation" => "animal_observations",
-            "surgery" => "animal_surgeries",
-            "sacrifice" => "animal_sacrifices",
-            _ => {
-                return Err(AppError::Validation(format!(
-                    "不支援的記錄類型: {}",
-                    record_type
-                )))
-            }
-        };
-
+        let table_name = Self::resolve_table_name(record_type)?;
         let query = format!(
             "SELECT COALESCE(is_locked, false) FROM {} WHERE id = $1",
             table_name
         );
-
-        let is_locked: bool = sqlx::query_scalar(&query)
+        let locked: bool = sqlx::query_scalar(&query)
             .bind(record_id)
             .fetch_optional(pool)
             .await?
             .unwrap_or(false);
-
-        Ok(is_locked)
+        Ok(locked)
     }
 
-    /// 檢查記錄是否已鎖定（記錄 ID 為 UUID，用於 animal_sacrifices）
+    /// 檢查記錄是否已鎖定（記錄 ID 為 UUID）
     pub async fn is_locked_uuid(pool: &PgPool, record_type: &str, record_id: Uuid) -> Result<bool> {
-        let table_name = match record_type {
-            "sacrifice" => "animal_sacrifices",
-            _ => {
-                return Err(AppError::Validation(format!(
-                    "不支援的記錄類型 (UUID): {}",
-                    record_type
-                )))
-            }
-        };
-
+        let table_name = Self::resolve_table_name(record_type)?;
         let query = format!(
             "SELECT COALESCE(is_locked, false) FROM {} WHERE id = $1",
             table_name
         );
-
-        let is_locked: bool = sqlx::query_scalar(&query)
+        let locked: bool = sqlx::query_scalar(&query)
             .bind(record_id)
             .fetch_optional(pool)
             .await?
             .unwrap_or(false);
-
-        Ok(is_locked)
+        Ok(locked)
     }
 }
 
@@ -481,13 +430,6 @@ pub struct RecordAnnotation {
     pub created_by: Uuid,
     pub created_at: DateTime<Utc>,
     pub signature_id: Option<Uuid>,
-}
-
-/// 建立附註請求
-#[derive(Debug, Deserialize)]
-pub struct CreateAnnotationRequest {
-    pub content: String,
-    pub annotation_type: String,
 }
 
 pub struct AnnotationService;

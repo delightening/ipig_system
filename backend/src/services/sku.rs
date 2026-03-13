@@ -532,53 +532,6 @@ impl SkuService {
         format!("{:02}{:02}", year, week)
     }
 
-    /// 計算檢查碼 (簡單的 Luhn 變體)
-    fn calculate_check_digit(sku_without_check: &str) -> char {
-        let sum: u32 = sku_without_check
-            .chars()
-            .filter(|c| c.is_alphanumeric())
-            .enumerate()
-            .map(|(i, c)| {
-                let val = if c.is_ascii_digit() {
-                    c.to_digit(10).unwrap_or(0)
-                } else {
-                    (c.to_ascii_uppercase() as u32) - ('A' as u32) + 10
-                };
-                if i % 2 == 0 {
-                    val * 2
-                } else {
-                    val
-                }
-            })
-            .sum();
-
-        let check = (10 - (sum % 10)) % 10;
-        char::from_digit(check, 10).unwrap_or('0')
-    }
-
-    /// 獲取下一個序號（複雜版）
-    async fn get_next_sequence(pool: &PgPool, prefix: &str) -> Result<i32> {
-        // 查詢當前最大序號
-        let result: Option<String> = sqlx::query_scalar(
-            "SELECT sku FROM products WHERE sku LIKE $1 ORDER BY sku DESC LIMIT 1",
-        )
-        .bind(format!("{}%", prefix))
-        .fetch_optional(pool)
-        .await?;
-
-        if let Some(existing_sku) = result {
-            // 嘗試解析序號部分
-            let parts: Vec<&str> = existing_sku.split('-').collect();
-            if parts.len() >= 8 {
-                if let Ok(seq) = parts[7].parse::<i32>() {
-                    return Ok(seq + 1);
-                }
-            }
-        }
-
-        Ok(1) // 從 1 開始
-    }
-
     /// 預覽 SKU（不含序號和檢查碼）
     pub async fn preview(
         _pool: &PgPool,
