@@ -67,6 +67,7 @@ export function DocumentEditPage() {
     createOrFindCustomerMutation,
     saveMutation,
     submitMutation,
+    setFormData,
   } = useDocumentForm({ defaultType })
 
   const showTotalAmount = ['PO', 'GRN', 'DO'].includes(formData.doc_type)

@@ -190,6 +190,11 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-13 前端編譯錯誤修復 (DocumentEditPage.tsx)
+
+- ✅ **編譯修復 (Bug Fix)**：修正 `DocumentEditPage.tsx` 在解構 `useDocumentForm()` 時漏掉 `setFormData` 的問題。這解決了 `DocumentLineEditor` 組件因接收到未定義函數而導致的 `Cannot find name 'setFormData'` TypeScript 錯誤，確保 Docker 建置與 `npm run build` 能正常完成。
+- 📁 **產出**：`DocumentEditPage.tsx`。
+
 ### 2026-03-13 測試基礎設施修復 (Test Infrastructure Fix)
 
 - ✅ **測試環境修錯 (Bug Fix)**：修正 `backend/tests/common/mod.rs` 中 `ensure_admin_user` 函數參數遺漏問題（從 1 個參數補齊為 2 個，包含 `config`），恢復整合測試代碼的編譯。
