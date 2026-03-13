@@ -46,6 +46,7 @@ export function DocumentEditPage() {
     lineAmounts,
     inputRefs,
     loadingDocument,
+    loadingProtocols,
     products,
     warehouses,
     partners,
@@ -264,12 +265,12 @@ export function DocumentEditPage() {
                         <SelectValue placeholder="選擇IACUC No." />
                       </SelectTrigger>
                       <SelectContent>
-                        {!activeProtocols ? (
+                        {loadingProtocols ? (
                           <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             載入中...
                           </div>
-                        ) : (
+                        ) : activeProtocols && activeProtocols.length > 0 ? (
                           <>
                             {!isIacucRequired && (
                               <SelectItem value="PUBLIC">
@@ -285,6 +286,10 @@ export function DocumentEditPage() {
                               </SelectItem>
                             ))}
                           </>
+                        ) : (
+                          <div className="p-2 text-sm text-muted-foreground text-center">
+                            無可用計畫
+                          </div>
                         )}
                       </SelectContent>
                     </Select>
