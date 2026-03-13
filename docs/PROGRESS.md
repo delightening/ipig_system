@@ -191,10 +191,11 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 ---
 
 ### 2026-03-13 單據邏輯增強與 IACUC 關聯實作
-- ✅ **後端驗證 (Validation)**：`DocType` 擴充 `requires_batch_expiry` 方法；`DocumentService` 於 CRUD 時強制校驗批號與效期。
-- ✅ **前端邏輯 (Frontend)**：`useDocumentForm` 實作提交前攔截校驗；新增 `IACUC Mismatch Warning` 彈窗，當銷貨計畫與採購來源計畫不符時跳出警告。
-- ✅ **庫存追蹤 (Traceability)**：擴充 `StockLedgerDetail` 型別與後端 `StockService` 查詢 SQL，在庫存流水中包含來源計畫案號 (`iacuc_no`)。
-- ✅ **專案文件 (Documentation)**：更新 `TODO.md` 與 `PROGRESS.md`；產出 `walkthrough.md` 任務導覽。
+- ✅ **單據欄位規範調整 (Dynamic Fields)**：依單據類型動態切換日期、倉庫、貨架、計畫與供應商的必填/可見狀態。
+    - PO (採購單)：倉庫(必填)、計畫(選填)、貨架(選填)、供應商(必填)。
+    - SO/DO (銷貨/出庫)：倉庫(必填)、計畫(必填)、貨架(必填)、客戶(必填)。
+    - STK/ADJ (盤點/調整)：倉庫(必填)、貨架(必填)、計畫與夥伴欄位隱藏。
+- ✅ **前端驗證強化 (Frontend Validation)**：`useDocumentForm` 實作跨欄位提交校驗與 `*` 標誌呈現。
 
 ### 2026-03-13 倉庫管理頁面重構計畫啟動
 

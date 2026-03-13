@@ -71,6 +71,9 @@ export function DocumentEditPage() {
     showIacucWarning,
     setShowIacucWarning,
     iacucWarningData,
+    isIacucRequired,
+    iacucDisabled,
+    isShelfRequired,
   } = useDocumentForm({ defaultType })
 
   const showTotalAmount = ['PO', 'GRN', 'DO'].includes(formData.doc_type)
@@ -184,9 +187,11 @@ export function DocumentEditPage() {
 
             {needsPartner && (
               <div className="space-y-2">
-                {formData.doc_type === 'SO' || formData.doc_type === 'DO' || formData.doc_type === 'PO' ? (
+                {formData.doc_type === 'SO' || formData.doc_type === 'DO' || formData.doc_type === 'PO' || formData.doc_type === 'PR' || formData.doc_type === 'TR' ? (
                   <>
-                    <Label>{formData.doc_type === 'PO' ? '專屬計畫 (選填)' : 'IACUC No. *'}</Label>
+                    <Label>
+                      {isIacucRequired ? 'IACUC No. *' : '專屬計畫 (選填)'}
+                    </Label>
                     <Select
                       value={
                         formData.partner_id
@@ -195,35 +200,37 @@ export function DocumentEditPage() {
                           : ''
                       }
                       onValueChange={handleIacucNoSelect}
-                      disabled={createOrFindCustomerMutation.isPending}
+                      disabled={createOrFindCustomerMutation.isPending || iacucDisabled}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="選擇IACUC No." />
+                        <SelectValue placeholder={iacucDisabled ? "此單據不需要計畫" : "選擇IACUC No."} />
                       </SelectTrigger>
-                      <SelectContent>
-                        {!activeProtocols ? (
-                          <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            載入中...
-                          </div>
-                        ) : (
-                          <>
-                            {formData.doc_type === 'PO' && (
-                              <SelectItem value="PUBLIC">
-                                --- 公用 (無特定計畫) ---
-                              </SelectItem>
-                            )}
-                            {activeProtocols.map((protocol) => (
-                              <SelectItem
-                                key={protocol.iacuc_no}
-                                value={protocol.iacuc_no || ''}
-                              >
-                                {protocol.iacuc_no} - {protocol.title}
-                              </SelectItem>
-                            ))}
-                          </>
-                        )}
-                      </SelectContent>
+                      {!iacucDisabled && (
+                        <SelectContent>
+                          {!activeProtocols ? (
+                            <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              載入中...
+                            </div>
+                          ) : (
+                            <>
+                              {!isIacucRequired && (
+                                <SelectItem value="PUBLIC">
+                                  --- 公用 (無特定計畫) ---
+                                </SelectItem>
+                              )}
+                              {activeProtocols.map((protocol) => (
+                                <SelectItem
+                                  key={protocol.iacuc_no}
+                                  value={protocol.iacuc_no || ''}
+                                >
+                                  {protocol.iacuc_no} - {protocol.title}
+                                </SelectItem>
+                              ))}
+                            </>
+                          )}
+                        </SelectContent>
+                      )}
                     </Select>
                     {createOrFindCustomerMutation.isPending && (
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -234,37 +241,41 @@ export function DocumentEditPage() {
                   </>
                 ) : (
                   <>
-                    <Label>
-                      {partnerType === 'supplier' ? '供應商' : '客戶'} *
-                    </Label>
-                    <Select
-                      value={formData.partner_id}
-                      onValueChange={(v) => updateField('partner_id', v)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue
-                          placeholder={`選擇${partnerType === 'supplier' ? '供應商' : '客戶'}`}
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {!filteredPartners ? (
-                          <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            載入中...
-                          </div>
-                        ) : filteredPartners.length === 0 ? (
-                          <div className="p-2 text-sm text-muted-foreground text-center">
-                            無可用數據
-                          </div>
-                        ) : (
-                          filteredPartners.map((partner) => (
-                            <SelectItem key={partner.id} value={partner.id}>
-                              {partner.name}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
+                    {!['STK', 'ADJ'].includes(formData.doc_type) && (
+                      <>
+                        <Label>
+                          {partnerType === 'supplier' ? '供應商' : '客戶'} *
+                        </Label>
+                        <Select
+                          value={formData.partner_id}
+                          onValueChange={(v) => updateField('partner_id', v)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue
+                              placeholder={`選擇${partnerType === 'supplier' ? '供應商' : '客戶'}`}
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {!filteredPartners ? (
+                              <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                載入中...
+                              </div>
+                            ) : filteredPartners.length === 0 ? (
+                              <div className="p-2 text-sm text-muted-foreground text-center">
+                                無可用數據
+                              </div>
+                            ) : (
+                              filteredPartners.map((partner) => (
+                                <SelectItem key={partner.id} value={partner.id}>
+                                  {partner.name}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </>
+                    )}
                   </>
                 )}
               </div>

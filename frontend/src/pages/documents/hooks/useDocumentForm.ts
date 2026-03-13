@@ -322,6 +322,11 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
         if (isNaN(qty) || qty <= 0) throw new Error(`第 ${idx + 1} 行：數量必須大於 0`)
         if (!line.uom?.trim()) throw new Error(`第 ${idx + 1} 行：請輸入單位`)
 
+        // 貨架/儲位檢查
+        if (isShelfRequired && !line.storage_location_id?.trim()) {
+          throw new Error(`第 ${idx + 1} 行：儲位/貨架為必填項`)
+        }
+
         // 強制檢查批號與效期 (特定單據類型)
         const requiresBatchExpiry = ['GRN', 'DO', 'SO', 'ADJ', 'STK'].includes(mergedData.doc_type)
         if (requiresBatchExpiry) {
@@ -610,6 +615,11 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     }, 0)
   }, [formData.lines, lineAmounts])
 
+  const needsShelf = !['PO'].includes(formData.doc_type)
+  const isShelfRequired = !['PO'].includes(formData.doc_type)
+  const isIacucRequired = ['SO', 'DO'].includes(formData.doc_type)
+  const iacucDisabled = ['GRN', 'STK', 'ADJ'].includes(formData.doc_type)
+
   return {
     id,
     isEdit,
@@ -636,6 +646,10 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     isTransfer,
     partnerType,
     totalAmount,
+    needsShelf,
+    isShelfRequired,
+    isIacucRequired,
+    iacucDisabled,
     collectLineValues,
     collectAllLineValues,
     addLine,
