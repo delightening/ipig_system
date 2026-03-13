@@ -76,7 +76,11 @@ export function DocumentEditPage() {
     iacucDisabled,
     needsShelf: needsShelf,
     batchStorageLocationId,
+    batchStorageLocationFromId,
+    batchStorageLocationToId,
     handleBatchShelfSelect,
+    handleBatchShelfSelectFrom,
+    handleBatchShelfSelectTo,
   } = useDocumentForm({ defaultType })
 
   const showTotalAmount = ['PO', 'GRN', 'DO'].includes(formData.doc_type)
@@ -170,6 +174,40 @@ export function DocumentEditPage() {
                     placeholder="選擇目標倉庫"
                   />
                 </div>
+                {formData.warehouse_from_id && (
+                  <div className="space-y-2">
+                    <Label>來源儲位/貨架 *</Label>
+                    <WarehouseShelfTreeSelect
+                      value={batchStorageLocationFromId ? `loc:${batchStorageLocationFromId}` : ''}
+                      onValueChange={(v: WarehouseShelfValue) => {
+                        const shelfId = v.startsWith('loc:') ? v.slice(4) : ''
+                        handleBatchShelfSelectFrom(shelfId)
+                      }}
+                      selectLevel="shelf"
+                      parentId={formData.warehouse_from_id}
+                      allowAll={false}
+                      className="w-full"
+                      placeholder="選擇來源儲位"
+                    />
+                  </div>
+                )}
+                {formData.warehouse_to_id && (
+                  <div className="space-y-2">
+                    <Label>目標儲位/貨架 *</Label>
+                    <WarehouseShelfTreeSelect
+                      value={batchStorageLocationToId ? `loc:${batchStorageLocationToId}` : ''}
+                      onValueChange={(v: WarehouseShelfValue) => {
+                        const shelfId = v.startsWith('loc:') ? v.slice(4) : ''
+                        handleBatchShelfSelectTo(shelfId)
+                      }}
+                      selectLevel="shelf"
+                      parentId={formData.warehouse_to_id}
+                      allowAll={false}
+                      className="w-full"
+                      placeholder="選擇目標儲位"
+                    />
+                  </div>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4">
@@ -200,14 +238,14 @@ export function DocumentEditPage() {
                       parentId={formData.warehouse_id}
                       allowAll={false}
                       className="w-full"
-                      placeholder="批次套用儲位"
+                      placeholder="選擇儲位"
                     />
                   </div>
                 )}
               </div>
             )}
 
-            {needsPartner && (
+            {needsPartner && !isIacucRequired && (
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
                   <Label>
@@ -242,6 +280,11 @@ export function DocumentEditPage() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+            )}
+
+            {needsPartner && (
+              <div className="grid grid-cols-1 gap-4">
 
                 {!iacucDisabled && (
                   <div className="space-y-2">
