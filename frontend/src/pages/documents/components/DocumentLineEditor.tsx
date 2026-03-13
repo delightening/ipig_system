@@ -48,7 +48,7 @@ function BatchNumberSelectWithQuery({
   warehouseId: string
   batchNo: string
   docType: DocType
-  onBatchChange: (batchNo: string, expiryDate?: string) => void
+  onBatchChange: (batchNo: string, expiryDate?: string, sourceIacuc?: string) => void
   onBlur?: () => void
   inputRef?: (el: HTMLInputElement | null) => void
 }) {
@@ -73,7 +73,7 @@ function BatchNumberSelectWithQuery({
 
   const batchOptions = useMemo(() => {
     if (!stockLedger?.length) return []
-    const batchMap = new Map<string, { qty: number; expiry: string }>()
+    const batchMap = new Map<string, { qty: number; expiry: string; sourceIacuc?: string }>()
     stockLedger.forEach((entry) => {
       if (entry.batch_no?.trim()) {
         const batch = entry.batch_no
@@ -88,17 +88,21 @@ function BatchNumberSelectWithQuery({
           if (entry.expiry_date && !existing.expiry) {
             existing.expiry = entry.expiry_date
           }
+          if (entry.iacuc_no && !existing.sourceIacuc) {
+            existing.sourceIacuc = entry.iacuc_no
+          }
         } else {
           batchMap.set(batch, {
             qty: qtyChange,
             expiry: entry.expiry_date || '',
+            sourceIacuc: entry.iacuc_no,
           })
         }
       }
     })
     return Array.from(batchMap.entries())
       .filter(([, data]) => data.qty > 0)
-      .map(([batch, data]) => ({ batch, expiry: data.expiry }))
+      .map(([batch, data]) => ({ batch, expiry: data.expiry, sourceIacuc: data.sourceIacuc }))
       .sort((a, b) => {
         if (a.expiry && b.expiry) return a.expiry.localeCompare(b.expiry)
         return a.batch.localeCompare(b.batch)
@@ -116,7 +120,7 @@ function BatchNumberSelectWithQuery({
   const handleBatchChangeInternal = useCallback(
     (value: string) => {
       const selected = batchOptions.find((opt) => opt.batch === value)
-      onBatchChange(value, selected?.expiry)
+      onBatchChange(value, selected?.expiry, selected?.sourceIacuc)
     },
     [batchOptions, onBatchChange]
   )
@@ -194,7 +198,7 @@ interface DocumentLineEditorProps {
   removeLine: (lineId: string) => void
   selectProduct: (product: Product) => void
   openProductSearch: (lineId: string) => void
-  handleBatchChange: (lineId: string, batchNo: string, expiryDate?: string) => void
+  handleBatchChange: (lineId: string, batchNo: string, expiryDate?: string, sourceIacuc?: string) => void
   handleLineBlur: (lineId: string) => void
   updateLineAmount: (lineId: string) => void
   setFormData: any
@@ -279,8 +283,8 @@ export function DocumentLineEditor({
                 const unitPriceDefault = String(line.unit_price || '')
                 const expiryDateDefault = String(line.expiry_date || '')
                 const batchNoDefault = String(line.batch_no || '')
-                const lineBatchChange = (batchNo: string, expiryDate?: string) =>
-                  handleBatchChange(lineId, batchNo, expiryDate)
+                const lineBatchChange = (batchNo: string, expiryDate?: string, sourceIacuc?: string) =>
+                  handleBatchChange(lineId, batchNo, expiryDate, sourceIacuc)
 
                 return (
                   <TableRow key={lineId}>

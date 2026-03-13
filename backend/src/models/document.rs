@@ -53,7 +53,7 @@ impl DocType {
         }
     }
 
-    /// 是否影響庫存
+    /// 是否影響庫存（入庫、出庫、調撥、調整、盤點）
     pub fn affects_stock(&self) -> bool {
         matches!(
             self,
@@ -64,6 +64,15 @@ impl DocType {
                 | DocType::ADJ
                 | DocType::SR
                 | DocType::RTN
+                | DocType::STK
+        )
+    }
+
+    /// 是否強制要求批號與效期（入庫、銷貨出庫、調整）
+    pub fn requires_batch_expiry(&self) -> bool {
+        matches!(
+            self,
+            DocType::GRN | DocType::DO | DocType::SO | DocType::ADJ | DocType::STK
         )
     }
 }

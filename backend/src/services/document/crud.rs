@@ -40,6 +40,26 @@ impl DocumentService {
                     "At least one line is required".to_string(),
                 ));
             }
+
+            // 強制檢查批號與效期 (特定單據類型)
+            if req.doc_type.requires_batch_expiry() {
+                for (idx, line) in req.lines.iter().enumerate() {
+                    if line.batch_no.as_ref().map_or(true, |s| s.trim().is_empty()) {
+                        return Err(AppError::Validation(format!(
+                            "Line {}: Batch No is required for {}",
+                            idx + 1,
+                            req.doc_type.prefix()
+                        )));
+                    }
+                    if line.expiry_date.is_none() {
+                        return Err(AppError::Validation(format!(
+                            "Line {}: Expiry Date is required for {}",
+                            idx + 1,
+                            req.doc_type.prefix()
+                        )));
+                    }
+                }
+            }
             req.lines.clone()
         };
 
@@ -168,6 +188,24 @@ impl DocumentService {
                         "Line {}: UOM is required",
                         idx + 1
                     )));
+                }
+
+                // 強制檢查批號與效期 (特定單據類型)
+                if existing.doc_type.requires_batch_expiry() {
+                    if line.batch_no.as_ref().map_or(true, |s| s.trim().is_empty()) {
+                        return Err(AppError::Validation(format!(
+                            "Line {}: Batch No is required for {}",
+                            idx + 1,
+                            existing.doc_type.prefix()
+                        )));
+                    }
+                    if line.expiry_date.is_none() {
+                        return Err(AppError::Validation(format!(
+                            "Line {}: Expiry Date is required for {}",
+                            idx + 1,
+                            existing.doc_type.prefix()
+                        )));
+                    }
                 }
 
                 sqlx::query(

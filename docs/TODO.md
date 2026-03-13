@@ -203,6 +203,7 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-03-13 | 🧠 Claude：單據邏輯增強與 IACUC 關聯實作 — 實作批號效期強制校驗（後端 CRUD + 前端 Submit）、IACUC 銷貨計畫不符警告彈窗、庫存流水計畫追蹤（iacuc_no）。 |
 | 2026-03-13 | 🧠 Claude：前端編譯錯誤修復 — 修正 `DocumentEditPage.tsx` 漏掉了 `setFormData` 的解構問題，恢復前端 `npm run build` 與 Docker 建置。 |
 | 2026-03-13 | 🧠 Claude：測試基礎設施修復 — 修正 `backend/tests/common/mod.rs` 中 `ensure_admin_user` 函數參數遺漏問題，恢復整合測試代碼編譯。 |
 | 2026-03-13 | 🧠 Claude：採購單未入庫通知與狀態顯示 — 實作 `notify_po_pending_receipt` 邏輯、每日 09:00 排程、手動觸發 API；前端新增 `receipt_status` 型別支援與單據列表彩色狀態標籤。 |

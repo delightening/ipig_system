@@ -68,6 +68,9 @@ export function DocumentEditPage() {
     saveMutation,
     submitMutation,
     setFormData,
+    showIacucWarning,
+    setShowIacucWarning,
+    iacucWarningData,
   } = useDocumentForm({ defaultType })
 
   const showTotalAmount = ['PO', 'GRN', 'DO'].includes(formData.doc_type)
@@ -181,9 +184,9 @@ export function DocumentEditPage() {
 
             {needsPartner && (
               <div className="space-y-2">
-                {formData.doc_type === 'SO' || formData.doc_type === 'DO' ? (
+                {formData.doc_type === 'SO' || formData.doc_type === 'DO' || formData.doc_type === 'PO' ? (
                   <>
-                    <Label>IACUC No. *</Label>
+                    <Label>{formData.doc_type === 'PO' ? '專屬計畫 (選填)' : 'IACUC No. *'}</Label>
                     <Select
                       value={
                         formData.partner_id
@@ -203,19 +206,22 @@ export function DocumentEditPage() {
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             載入中...
                           </div>
-                        ) : activeProtocols.length === 0 ? (
-                          <div className="p-2 text-sm text-muted-foreground text-center">
-                            無可用 IACUC No.
-                          </div>
                         ) : (
-                          activeProtocols.map((protocol) => (
-                            <SelectItem
-                              key={protocol.iacuc_no}
-                              value={protocol.iacuc_no || ''}
-                            >
-                              {protocol.iacuc_no} - {protocol.title}
-                            </SelectItem>
-                          ))
+                          <>
+                            {formData.doc_type === 'PO' && (
+                              <SelectItem value="PUBLIC">
+                                --- 公用 (無特定計畫) ---
+                              </SelectItem>
+                            )}
+                            {activeProtocols.map((protocol) => (
+                              <SelectItem
+                                key={protocol.iacuc_no}
+                                value={protocol.iacuc_no || ''}
+                              >
+                                {protocol.iacuc_no} - {protocol.title}
+                              </SelectItem>
+                            ))}
+                          </>
                         )}
                       </SelectContent>
                     </Select>
@@ -318,6 +324,39 @@ export function DocumentEditPage() {
             </Button>
             <Button variant="destructive" onClick={confirmNavigation}>
               放棄變更
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showIacucWarning} onOpenChange={setShowIacucWarning}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              專屬採購計畫不符警告
+            </DialogTitle>
+            <DialogDescription>
+              此批次產品（批號：{iacucWarningData?.batch_no}）是專門為計畫{' '}
+              <span className="font-bold text-primary">
+                {iacucWarningData?.source_iacuc}
+              </span>{' '}
+              採購的。
+              <br />
+              <br />
+              您目前選擇的銷貨計畫為{' '}
+              <span className="font-bold text-destructive">
+                {formData.partner_id ? partners?.find(p => p.id === formData.partner_id)?.code || formData.partner_id : '未指定'}
+              </span>
+              。確定要繼續使用此批次嗎？
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowIacucWarning(false)}>
+              返回修改
+            </Button>
+            <Button onClick={() => setShowIacucWarning(false)}>
+              我了解，繼續使用
             </Button>
           </DialogFooter>
         </DialogContent>

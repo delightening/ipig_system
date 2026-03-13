@@ -42,7 +42,6 @@ interface WarehouseActionHeaderProps {
     onWarehouseChange: (id: string) => void
     onImportClick: () => void
     onExportClick: () => void
-    onAddLocationClick: () => void
 }
 
 interface WarehouseFormData {
@@ -64,7 +63,6 @@ export function WarehouseActionHeader({
     onWarehouseChange,
     onImportClick,
     onExportClick,
-    onAddLocationClick,
 }: WarehouseActionHeaderProps) {
     const queryClient = useQueryClient()
     const { dialogState, confirm } = useConfirmDialog()
@@ -203,10 +201,6 @@ export function WarehouseActionHeader({
                     <Button variant="outline" size="sm" onClick={onExportClick} disabled={activeWarehouses.length === 0}>
                         <Download className="mr-2 h-4 w-4" />
                         匯出倉庫
-                    </Button>
-                    <Button size="sm" onClick={onAddLocationClick} disabled={!selectedWarehouseId}>
-                        <Plus className="h-4 w-4 mr-1" />
-                        新增儲位
                     </Button>
                 </div>
             </div>

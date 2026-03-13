@@ -112,6 +112,8 @@ pub struct StockLedgerDetail {
     pub batch_no: Option<String>,
     pub expiry_date: Option<NaiveDate>,
     pub running_balance: Option<Decimal>,
+    #[sqlx(default)]
+    pub iacuc_no: Option<String>,
 }
 
 /// 低庫存警示
