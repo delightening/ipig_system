@@ -35,7 +35,7 @@ function buildQs(from: string, to: string) {
 
 export function PurchaseSalesSummaryPage() {
   const { from, to, setFrom, setTo } = useDateRangeFilter()
-  const { tab, setTab } = useTabState('monthly')
+  const { activeTab: tab, setActiveTab: setTab } = useTabState('monthly')
 
   const qs = useMemo(() => buildQs(from, to), [from, to])
 
@@ -282,8 +282,8 @@ function EmptyRow({ colSpan }: { colSpan: number }) {
   )
 }
 
-function downloadCSV(filename: string, headers: string[], rows: (string | number | null)[][][]) {
-  const csvContent = [headers, ...(rows as (string | number)[][])]
+function downloadCSV(filename: string, headers: string[], rows: (string | number | null)[][]) {
+  const csvContent = [headers, ...rows]
     .map(row => row.map(cell => `"${cell ?? ''}"`).join(','))
     .join('\n')
   const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })

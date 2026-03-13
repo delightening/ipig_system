@@ -176,7 +176,7 @@ function OuterUnitSection({ formData, setFormData, disabled, isCustom, setIsCust
     <div className="space-y-3">
       <Label className="text-sm font-medium">外層包裝</Label>
       <UnitButtonGroup
-        units={UNITS.outer}
+        units={[...UNITS.outer]}
         selectedUnit={formData.outerUnit}
         onSelect={(unit) => {
           setIsCustom(false)
@@ -227,7 +227,7 @@ function InnerUnitSection({ formData, setFormData, disabled, isCustom, setIsCust
         {isTwoLayer && <span className="text-xs text-slate-400 ml-2">（消耗單位）</span>}
       </Label>
       <UnitButtonGroup
-        units={UNITS.inner}
+        units={[...UNITS.inner]}
         selectedUnit={formData.innerUnit}
         onSelect={(unit) => {
           setIsCustom(false)

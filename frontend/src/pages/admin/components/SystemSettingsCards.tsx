@@ -12,12 +12,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { Warehouse } from '@/types/erp'
+import type { SystemSettingsFormData } from '../hooks/useSettingsForm'
 
 const SMTP_MASK = '********'
 
 interface SettingsForm {
-  form: Record<string, string>
-  updateField: (key: string, value: string) => void
+  form: SystemSettingsFormData
+  updateField: <K extends keyof SystemSettingsFormData>(key: K, value: SystemSettingsFormData[K]) => void
   passwordEdited: boolean
   setPasswordEdited: (v: boolean) => void
 }

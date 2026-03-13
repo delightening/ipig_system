@@ -85,7 +85,7 @@ export function ProductTable({
     toast({ title: '已複製', description: `SKU: ${sku}` })
   }
 
-  const hasFilters = listState.filters.search || listState.activeFilterCount > 0
+  const hasFilters = !!listState.filters.search || listState.activeFilterCount > 0
 
   return (
     <div className="rounded-lg border bg-card overflow-hidden">
