@@ -190,6 +190,13 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-13 倉庫管理頁面重構計畫啟動
+
+- 🏗️ **架構規劃 (Planning)**：擬定「上、中、下」三層式結構改善計畫。將 `WarehouseLayoutPage.tsx` 拆分為 `WarehouseActionHeader` (上)、`StorageLocationEditor` (中) 與 `WarehouseDetailTabs` (下)。
+- ✅ **功能實作 (Implementation)**：補全倉庫 CRUD (建立、刪除、停用、編輯) 功能，支援建築結構 (牆、門、窗) 的 2D 視覺化佈局。
+- 🧪 **品質驗證 (Verification)**：通過 `tsc` 編譯檢查，確認元件通訊與 API 互動正常。
+- 📁 **產出**：`implementation_plan.md`、`task.md`、`walkthrough.md`。
+
 ### 2026-03-13 前端編譯錯誤修復 (DocumentEditPage.tsx)
 
 - ✅ **編譯修復 (Bug Fix)**：修正 `DocumentEditPage.tsx` 在解構 `useDocumentForm()` 時漏掉 `setFormData` 的問題。這解決了 `DocumentLineEditor` 組件因接收到未定義函數而導致的 `Cannot find name 'setFormData'` TypeScript 錯誤，確保 Docker 建置與 `npm run build` 能正常完成。

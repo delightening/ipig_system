@@ -52,6 +52,7 @@
 | P2-40 | **Cookie 同意橫幅** | `CookieConsent` 元件，localStorage 記憶同意狀態，底部半透明橫幅 + 了解更多連結 | 前端 | 無 | 🧠 Claude | [x] |
 | P2-41 | **DB Migration Rollback 文件** | `docs/database/DB_ROLLBACK.md` 涵蓋 14 個 migration 的精確回滾 SQL（逆序）+ 建議回退流程 | 文件 | 無 | 🧠 Claude | [x] |
 | P2-42 | **`.env.example` 補齊** | 新增 HOST/PORT/DATABASE_MAX_CONNECTIONS/UPLOAD_DIR/GEOIP_DB_PATH 等 9 個缺漏變數 | DevOps | 無 | 🧠 Claude | [x] |
+| P2-43 | **倉庫管理頁面重構** | 依據結構（上/中/下）拆分組件，補全倉庫 CRUD 功能與佈局編輯優化 | 前端 | 無 | 🧠 Claude | [x] |
 
 ---
 
