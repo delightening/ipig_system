@@ -7,8 +7,7 @@ use crate::{
         DocumentLineWithProduct, DocumentListItem, DocumentQuery, DocumentWithLines,
         UpdateDocumentRequest,
     },
-    time,
-    AppError, Result,
+    time, AppError, Result,
 };
 
 use super::DocumentService;
@@ -49,9 +48,9 @@ impl DocumentService {
             r#"
             INSERT INTO documents (
                 id, doc_type, doc_no, status, warehouse_id, warehouse_from_id, warehouse_to_id,
-                partner_id, doc_date, remark, stocktake_scope, iacuc_no, created_by, created_at, updated_at
+                partner_id, source_doc_id, doc_date, remark, stocktake_scope, iacuc_no, created_by, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
             RETURNING *
             "#
         )
@@ -63,6 +62,7 @@ impl DocumentService {
         .bind(req.warehouse_from_id)
         .bind(req.warehouse_to_id)
         .bind(req.partner_id)
+        .bind(req.source_doc_id)
         .bind(req.doc_date)
         .bind(&req.remark)
         .bind(req.stocktake_scope.as_ref().map(|s| serde_json::to_value(s).unwrap_or(serde_json::Value::Null)))
@@ -133,16 +133,18 @@ impl DocumentService {
                 warehouse_from_id = COALESCE($2, warehouse_from_id),
                 warehouse_to_id = COALESCE($3, warehouse_to_id),
                 partner_id = COALESCE($4, partner_id),
-                doc_date = COALESCE($5, doc_date),
-                remark = COALESCE($6, remark),
+                source_doc_id = COALESCE($5, source_doc_id),
+                doc_date = COALESCE($6, doc_date),
+                remark = COALESCE($7, remark),
                 updated_at = NOW()
-            WHERE id = $7
+            WHERE id = $8
             "#,
         )
         .bind(req.warehouse_id)
         .bind(req.warehouse_from_id)
         .bind(req.warehouse_to_id)
         .bind(req.partner_id)
+        .bind(req.source_doc_id)
         .bind(req.doc_date)
         .bind(&req.remark)
         .bind(id)
@@ -272,7 +274,10 @@ impl DocumentService {
 
         qb.push(" GROUP BY d.id, w.name, p.name, u1.display_name, u2.display_name, d.iacuc_no ORDER BY d.created_at DESC");
 
-        let documents = qb.build_query_as::<DocumentListItem>().fetch_all(pool).await?;
+        let documents = qb
+            .build_query_as::<DocumentListItem>()
+            .fetch_all(pool)
+            .await?;
 
         Ok(documents)
     }

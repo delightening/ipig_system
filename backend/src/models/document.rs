@@ -2,8 +2,8 @@ use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, Type};
-use uuid::Uuid;
 use utoipa::ToSchema;
+use uuid::Uuid;
 use validator::Validate;
 
 /// 單據類型
@@ -57,8 +57,13 @@ impl DocType {
     pub fn affects_stock(&self) -> bool {
         matches!(
             self,
-            DocType::GRN | DocType::PR | DocType::DO | DocType::TR | DocType::ADJ
-                | DocType::SR | DocType::RTN
+            DocType::GRN
+                | DocType::PR
+                | DocType::DO
+                | DocType::TR
+                | DocType::ADJ
+                | DocType::SR
+                | DocType::RTN
         )
     }
 }
@@ -141,6 +146,7 @@ pub struct CreateDocumentRequest {
     pub warehouse_from_id: Option<Uuid>,
     pub warehouse_to_id: Option<Uuid>,
     pub partner_id: Option<Uuid>,
+    pub source_doc_id: Option<Uuid>,
     pub doc_date: NaiveDate,
     pub remark: Option<String>,
     /// 盤點範圍設定（僅盤點單使用）
@@ -172,6 +178,7 @@ pub struct UpdateDocumentRequest {
     pub warehouse_from_id: Option<Uuid>,
     pub warehouse_to_id: Option<Uuid>,
     pub partner_id: Option<Uuid>,
+    pub source_doc_id: Option<Uuid>,
     pub doc_date: Option<NaiveDate>,
     pub remark: Option<String>,
     pub lines: Option<Vec<DocumentLineInput>>,
