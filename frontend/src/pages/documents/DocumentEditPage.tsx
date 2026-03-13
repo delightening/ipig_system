@@ -73,7 +73,7 @@ export function DocumentEditPage() {
     iacucWarningData,
     isIacucRequired,
     iacucDisabled,
-    isShelfRequired,
+    needsShelf: needsShelf,
   } = useDocumentForm({ defaultType })
 
   const showTotalAmount = ['PO', 'GRN', 'DO'].includes(formData.doc_type)
@@ -304,6 +304,7 @@ export function DocumentEditPage() {
         handleLineBlur={handleLineBlur}
         updateLineAmount={updateLineAmount}
         setFormData={setFormData}
+        needsShelf={needsShelf}
       />
 
       <Dialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
