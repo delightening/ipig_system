@@ -244,6 +244,7 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/documents/:id/submit", post(handlers::submit_document))
         .route("/documents/:id/approve", post(handlers::approve_document))
         .route("/documents/:id/cancel", post(handlers::cancel_document))
+        .route("/documents/:id/receipt-status", get(handlers::get_po_receipt_status))
         // Inventory
         .route("/inventory/on-hand", get(handlers::get_inventory_on_hand))
         .route("/inventory/ledger", get(handlers::get_stock_ledger))

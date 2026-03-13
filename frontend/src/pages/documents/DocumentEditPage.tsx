@@ -81,6 +81,7 @@ export function DocumentEditPage() {
     handleBatchShelfSelect,
     handleBatchShelfSelectFrom,
     handleBatchShelfSelectTo,
+    poReceiptStatus,
   } = useDocumentForm({ defaultType })
 
   const showTotalAmount = ['PO', 'GRN', 'DO'].includes(formData.doc_type)
@@ -369,6 +370,7 @@ export function DocumentEditPage() {
         updateLineAmount={updateLineAmount}
         setFormData={setFormData}
         needsShelf={needsShelf}
+        poReceiptStatus={poReceiptStatus}
       />
 
       <Dialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>

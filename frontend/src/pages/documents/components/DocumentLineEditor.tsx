@@ -203,6 +203,7 @@ interface DocumentLineEditorProps {
   updateLineAmount: (lineId: string) => void
   setFormData: any
   needsShelf: boolean
+  poReceiptStatus?: import('@/lib/api').PoReceiptStatus
 }
 export function DocumentLineEditor({
   formData,
@@ -222,6 +223,7 @@ export function DocumentLineEditor({
   updateLineAmount,
   setFormData,
   needsShelf,
+  poReceiptStatus,
 }: DocumentLineEditorProps) {
   const showPriceColumns = ['PO', 'GRN', 'DO'].includes(formData.doc_type)
 
@@ -256,29 +258,38 @@ export function DocumentLineEditor({
   })
 
   const isStockBasedDoc = ['SO', 'DO', 'PR', 'TR', 'STK', 'ADJ'].includes(formData.doc_type)
+  const isPoLinkedGrn = formData.doc_type === 'GRN' && !!formData.source_doc_id
 
-  const handleSelectProduct = (product: Product, stockItem?: any) => {
-    // 除了呼叫原始的 selectProduct，還要自動填充批號與效期
+  const handleSelectProduct = (product: Product, extraData?: any) => {
+    // 除了呼叫原始的 selectProduct，還要自動填充批號與效期 (庫存模式) 或 價格與數量 (PO 模式)
     _originalSelectProduct(product)
     
-    if (activeLineId && stockItem) {
+    if (activeLineId) {
       setFormData((prev: DocumentFormData) => ({
         ...prev,
         lines: prev.lines.map((l) => {
           if (l.id === activeLineId) {
-            const newLine = {
+            const newLine: any = {
               ...l,
               product_id: product.id,
               product_sku: product.sku,
               product_name: product.name,
-              batch_no: stockItem.batch_no || '',
-              expiry_date: stockItem.expiry_date || '',
+              uom: product.base_uom,
             }
-            // 針對調撥單自動填入來源儲位
-            if (formData.doc_type === 'TR') {
-               newLine.storage_location_from_id = stockItem.storage_location_id || l.storage_location_from_id;
-            } else if (needsShelf) {
-               newLine.storage_location_id = stockItem.storage_location_id || l.storage_location_id;
+
+            if (isPoLinkedGrn && extraData) {
+              // PO 模式：帶入單價與剩餘數量
+              newLine.unit_price = String(extraData.unit_price || '')
+              newLine.qty = String(extraData.remaining_qty || '')
+            } else if (extraData) {
+              // 庫存模式：帶入批號、效期、儲位
+              newLine.batch_no = extraData.batch_no || ''
+              newLine.expiry_date = extraData.expiry_date || ''
+              if (formData.doc_type === 'TR') {
+                newLine.storage_location_from_id = extraData.storage_location_id || l.storage_location_from_id;
+              } else if (needsShelf) {
+                newLine.storage_location_id = extraData.storage_location_id || l.storage_location_id;
+              }
             }
             return newLine
           }
@@ -546,8 +557,10 @@ export function DocumentLineEditor({
       <Dialog open={productSearchOpen} onOpenChange={setProductSearchOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>選擇品項</DialogTitle>
-            <DialogDescription>搜尋並選擇要新增的品項</DialogDescription>
+            <DialogTitle>{isPoLinkedGrn ? '選擇待入庫品項' : '選擇品項'}</DialogTitle>
+            <DialogDescription>
+              {isPoLinkedGrn ? `採購單 ${poReceiptStatus?.po_no} 的待入庫明細` : '搜尋並選擇要新增的品項'}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="relative">
@@ -572,7 +585,41 @@ export function DocumentLineEditor({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isStockBasedDoc && targetWarehouseId ? (
+                  {isPoLinkedGrn ? (
+                    // 採購待入庫模式
+                    poReceiptStatus?.items
+                      .filter((item: import('@/lib/api').PoReceiptItem) => item.remaining_qty > 0 && 
+                        (item.product_name.includes(productSearch) || item.product_id.includes(productSearch)))
+                      .map((item: import('@/lib/api').PoReceiptItem) => (
+                      <TableRow
+                        key={item.product_id}
+                        className="cursor-pointer hover:bg-muted"
+                        onClick={() => handleSelectProduct({
+                          id: item.product_id,
+                          sku: '', // 注意：後端 API 可能沒帶 SKU，需確認或從 poReceiptStatus 取得
+                          name: item.product_name,
+                          base_uom: '', 
+                        } as Product, {
+                          unit_price: 0, // 可能需要從 PO 詳情取得或後端補齊
+                          remaining_qty: item.remaining_qty,
+                        })}
+                      >
+                        <TableCell>
+                          <div className="font-medium">{item.product_name}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-xs">採購: {formatNumber(item.ordered_qty, 2)}</div>
+                          <div className="text-xs text-muted-foreground">已入庫: {formatNumber(item.received_qty, 2)}</div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="font-bold text-primary">剩餘: {formatNumber(item.remaining_qty, 2)}</div>
+                        </TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="outline">選擇</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : isStockBasedDoc && targetWarehouseId ? (
                     // 庫存模式列表
                     stockBalances?.map((item) => (
                       <TableRow
