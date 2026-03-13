@@ -12,10 +12,10 @@ import {
     Lock,
     Unlock,
     Save,
+    Plus,
     Package,
     DoorOpen,
     Square,
-    Layout,
 } from 'lucide-react'
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy'
 import 'react-grid-layout/css/styles.css'
@@ -59,6 +59,7 @@ interface StorageLocationEditorProps {
     onSaveLayout: () => void
     isSavingLayout: boolean
     hasUnsavedChanges: boolean
+    onAddLocationClick: () => void
     selectedLocationId: string | null
     onLocationClick: (loc: StorageLocationWithWarehouse) => void
 }
@@ -72,6 +73,7 @@ export function StorageLocationEditor({
     onSaveLayout,
     isSavingLayout,
     hasUnsavedChanges,
+    onAddLocationClick,
     selectedLocationId,
     onLocationClick,
 }: StorageLocationEditorProps) {
@@ -128,6 +130,14 @@ export function StorageLocationEditor({
                     )}
                 </div>
                 <div className="flex items-center gap-2">
+                    <Button
+                        size="sm"
+                        onClick={onAddLocationClick}
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                        <Plus className="h-4 w-4 mr-1" />
+                        新增儲位
+                    </Button>
                     <Button
                         variant="outline"
                         size="sm"
@@ -192,7 +202,7 @@ export function StorageLocationEditor({
                             const getIcon = () => {
                                 if (loc.location_type === 'door') return <DoorOpen className="h-5 w-5 opacity-40" />
                                 if (loc.location_type === 'wall') return <Square className="h-5 w-5 opacity-20" />
-                                if (loc.location_type === 'window') return <Layout className="h-5 w-5 opacity-40 text-blue-400" />
+                                if (loc.location_type === 'window') return <Square className="h-5 w-5 opacity-40 text-blue-400" />
                                 return null
                             }
 

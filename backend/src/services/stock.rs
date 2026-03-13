@@ -485,10 +485,12 @@ impl StockService {
                 sl.unit_cost,
                 sl.batch_no,
                 sl.expiry_date,
-                NULL::numeric as running_balance
+                NULL::numeric as running_balance,
+                d.iacuc_no
             FROM stock_ledger sl
             INNER JOIN warehouses w ON sl.warehouse_id = w.id
             INNER JOIN products p ON sl.product_id = p.id
+            LEFT JOIN documents d ON sl.doc_id = d.id
             WHERE 1=1
             "#,
         );

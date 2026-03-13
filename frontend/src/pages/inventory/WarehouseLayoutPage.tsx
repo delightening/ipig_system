@@ -246,7 +246,6 @@ export function WarehouseLayoutPage() {
                 onWarehouseChange={setSelectedWarehouseId}
                 onImportClick={() => setShowImportDialog(true)}
                 onExportClick={handleExportWarehouses}
-                onAddLocationClick={handleAddLocation}
             />
 
             <div className="grid grid-cols-1 gap-8 mt-8">
@@ -264,6 +263,7 @@ export function WarehouseLayoutPage() {
                         onSaveLayout={() => saveLayoutMutation.mutate(pendingLayoutChanges)}
                         isSavingLayout={saveLayoutMutation.isPending}
                         hasUnsavedChanges={hasUnsavedChanges}
+                        onAddLocationClick={handleAddLocation}
                         selectedLocationId={selectedLocation?.id || null}
                         onLocationClick={handleLocationClick}
                     />
@@ -388,7 +388,6 @@ export function WarehouseLayoutPage() {
             </Dialog>
 
             <ConfirmDialog state={dialogState} />
-            <WarehouseImportDialog open={showImportDialog} onOpenChange={setShowImportDialog} />
             <WarehouseImportDialog open={showImportDialog} onOpenChange={setShowImportDialog} />
         </div>
     )

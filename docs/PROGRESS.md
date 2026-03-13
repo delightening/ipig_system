@@ -190,6 +190,12 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-13 單據邏輯增強與 IACUC 關聯實作
+- ✅ **後端驗證 (Validation)**：`DocType` 擴充 `requires_batch_expiry` 方法；`DocumentService` 於 CRUD 時強制校驗批號與效期。
+- ✅ **前端邏輯 (Frontend)**：`useDocumentForm` 實作提交前攔截校驗；新增 `IACUC Mismatch Warning` 彈窗，當銷貨計畫與採購來源計畫不符時跳出警告。
+- ✅ **庫存追蹤 (Traceability)**：擴充 `StockLedgerDetail` 型別與後端 `StockService` 查詢 SQL，在庫存流水中包含來源計畫案號 (`iacuc_no`)。
+- ✅ **專案文件 (Documentation)**：更新 `TODO.md` 與 `PROGRESS.md`；產出 `walkthrough.md` 任務導覽。
+
 ### 2026-03-13 倉庫管理頁面重構計畫啟動
 
 - 🏗️ **架構規劃 (Planning)**：擬定「上、中、下」三層式結構改善計畫。將 `WarehouseLayoutPage.tsx` 拆分為 `WarehouseActionHeader` (上)、`StorageLocationEditor` (中) 與 `WarehouseDetailTabs` (下)。

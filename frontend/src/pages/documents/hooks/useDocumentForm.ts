@@ -54,6 +54,8 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
   const [lineAmounts, setLineAmounts] = useState<Record<string, number>>({})
+  const [showIacucWarning, setShowIacucWarning] = useState(false)
+  const [iacucWarningData, setIacucWarningData] = useState<{ batch_no: string; source_iacuc: string } | null>(null)
 
   const inputRefs = useRef<InputRefs>({})
 
@@ -313,11 +315,19 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
       if (mergedData.doc_type !== 'STK' && validLines.length === 0) {
         throw new Error('請至少新增一項產品明細')
       }
-      for (const line of validLines) {
-        if (!line.product_id?.trim()) throw new Error('請選擇產品')
+      for (let idx = 0; idx < validLines.length; idx++) {
+        const line = validLines[idx]
+        if (!line.product_id?.trim()) throw new Error(`第 ${idx + 1} 行：請選擇產品`)
         const qty = parseFloat(line.qty)
-        if (isNaN(qty) || qty <= 0) throw new Error('數量必須大於 0')
-        if (!line.uom?.trim()) throw new Error('請輸入單位')
+        if (isNaN(qty) || qty <= 0) throw new Error(`第 ${idx + 1} 行：數量必須大於 0`)
+        if (!line.uom?.trim()) throw new Error(`第 ${idx + 1} 行：請輸入單位`)
+
+        // 強制檢查批號與效期 (特定單據類型)
+        const requiresBatchExpiry = ['GRN', 'DO', 'SO', 'ADJ', 'STK'].includes(mergedData.doc_type)
+        if (requiresBatchExpiry) {
+          if (!line.batch_no?.trim()) throw new Error(`第 ${idx + 1} 行：批號為必填項`)
+          if (!line.expiry_date?.trim()) throw new Error(`第 ${idx + 1} 行：效期為必填項`)
+        }
       }
 
       return {
@@ -450,11 +460,24 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
   }, [collectCurrentLineValues, formData.doc_type])
 
   const handleBatchChange = useCallback(
-    (lineId: string, batchNo: string, expiryDate?: string) => {
+    (lineId: string, batchNo: string, expiryDate?: string, sourceIacuc?: string) => {
       const refs = inputRefs.current[lineId]
       if (refs?.batch_no) refs.batch_no.value = batchNo
       if (['SO', 'DO'].includes(formData.doc_type)) {
         if (refs?.expiry_date) refs.expiry_date.value = expiryDate || ''
+
+        // 比對 IACUC
+        if (sourceIacuc && sourceIacuc !== 'PUBLIC') {
+          const currentIacucCode = formData.partner_id
+            ? partners?.find((p) => p.id === formData.partner_id)?.code
+            : null
+
+          if (currentIacucCode && currentIacucCode !== sourceIacuc) {
+            setIacucWarningData({ batch_no: batchNo, source_iacuc: sourceIacuc })
+            setShowIacucWarning(true)
+          }
+        }
+
         setFormData((prev) => {
           const updatedLines = prev.lines.map((line) => {
             const currentLineId =
@@ -470,7 +493,7 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
         setUnsavedChanges(true)
       }
     },
-    [formData.doc_type, collectLineValues]
+    [formData.doc_type, formData.partner_id, partners, collectLineValues]
   )
 
   const handleLineBlur = useCallback(() => {
@@ -627,5 +650,8 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     createOrFindCustomerMutation,
     saveMutation,
     submitMutation,
+    showIacucWarning,
+    setShowIacucWarning,
+    iacucWarningData,
   }
 }

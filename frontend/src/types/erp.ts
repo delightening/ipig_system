@@ -229,6 +229,7 @@ export interface StockLedgerDetail {
     unit_cost?: string
     batch_no?: string
     expiry_date?: string
+    iacuc_no?: string
 }
 
 export interface LowStockAlert {
