@@ -598,7 +598,7 @@ impl AccountingService {
                 JOIN journal_entry_lines jel ON jel.journal_entry_id = je.id
                 JOIN chart_of_accounts coa ON coa.id = jel.account_id AND coa.code = '2100'
                 JOIN documents doc ON doc.id = je.source_entity_id AND je.source_entity_type = 'document'
-                WHERE je.entry_date <= $1 AND doc.doc_type = 'GRN'
+                WHERE je.entry_date <= $1 AND doc.doc_type IN ('GRN', 'PR')
                 GROUP BY doc.partner_id
             ),
             ap_debits AS (
@@ -638,7 +638,7 @@ impl AccountingService {
                 JOIN journal_entry_lines jel ON jel.journal_entry_id = je.id
                 JOIN chart_of_accounts coa ON coa.id = jel.account_id AND coa.code = '1200'
                 JOIN documents doc ON doc.id = je.source_entity_id AND je.source_entity_type = 'document'
-                WHERE je.entry_date <= $1 AND doc.doc_type = 'DO'
+                WHERE je.entry_date <= $1 AND doc.doc_type IN ('DO', 'SR', 'RTN')
                 GROUP BY doc.partner_id
             ),
             ar_credits AS (
