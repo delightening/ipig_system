@@ -221,6 +221,7 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
         warehouse_from_id: document.warehouse_from_id || '',
         warehouse_to_id: document.warehouse_to_id || '',
         partner_id: document.partner_id || '',
+        source_doc_id: document.source_doc_id || '',
         remark: document.remark || '',
         lines,
       })
@@ -331,6 +332,8 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
             : null,
         partner_id:
           mergedData.partner_id?.trim() ? mergedData.partner_id : null,
+        source_doc_id:
+          mergedData.source_doc_id?.trim() ? mergedData.source_doc_id : null,
         remark:
           mergedData.remark?.trim() ? mergedData.remark : null,
         lines: validLines.map((line) => ({
@@ -489,12 +492,12 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
           lines: currentLines.map((line) =>
             line.id === selectedLineId
               ? {
-                  ...line,
-                  product_id: product.id,
-                  product_name: product.name,
-                  product_sku: product.sku,
-                  uom: product.base_uom,
-                }
+                ...line,
+                product_id: product.id,
+                product_name: product.name,
+                product_sku: product.sku,
+                uom: product.base_uom,
+              }
               : line
           ),
         }))

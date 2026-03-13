@@ -154,6 +154,7 @@ export interface Document {
     warehouse_from_id?: string
     warehouse_to_id?: string
     partner_id?: string
+    source_doc_id?: string
     doc_date: string
     remark?: string
     created_by: string
