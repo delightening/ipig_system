@@ -9,6 +9,7 @@ import api, {
     storageLocationTypeNames,
     StorageLocationInventoryItem,
     UpdateStorageLocationInventoryItemRequest,
+    UnassignedInventoryItem,
 } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
@@ -42,9 +43,15 @@ import {
     Package,
     Warehouse as WarehouseIcon,
     Trash2,
+    Upload,
+    Download,
+    Edit3,
 } from 'lucide-react'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { WarehouseImportDialog } from '@/components/warehouse/WarehouseImportDialog'
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
@@ -107,6 +114,11 @@ export function WarehouseLayoutPage() {
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
     // 儲位庫存編輯狀態
     const [editingInventory, setEditingInventory] = useState<Record<string, string>>({})
+    const [selectedLocation, setSelectedLocation] = useState<StorageLocationWithWarehouse | null>(null)
+    const [activeTab, setActiveTab] = useState<'location-inventory' | 'location-list' | 'unassigned'>(
+        'location-inventory',
+    )
+    const [showImportDialog, setShowImportDialog] = useState(false)
 
     // 檢查是否有庫存編輯權限
     const canEditInventory = hasPermission('erp.storage.inventory.edit')
@@ -141,16 +153,29 @@ export function WarehouseLayoutPage() {
         enabled: !!selectedWarehouseId,
     })
 
-    // 取得儲位庫存
+    // 取得選取儲位庫存
     const { data: inventoryItems, isLoading: loadingInventory } = useQuery({
-        queryKey: ['storage-location-inventory', editingLocation?.id],
+        queryKey: ['storage-location-inventory', selectedLocation?.id],
         queryFn: async () => {
             const res = await api.get<StorageLocationInventoryItem[]>(
-                `/storage-locations/${editingLocation!.id}/inventory`
+                `/storage-locations/${selectedLocation!.id}/inventory`,
             )
             return res.data
         },
-        enabled: !!editingLocation,
+        enabled: !!selectedLocation,
+    })
+
+    // 取得倉庫未分配庫存
+    const { data: unassignedItems, isLoading: loadingUnassigned } = useQuery({
+        queryKey: ['unassigned-inventory', selectedWarehouseId],
+        queryFn: async () => {
+            if (!selectedWarehouseId) return []
+            const res = await api.get<UnassignedInventoryItem[]>(
+                `/inventory/unassigned?warehouse_id=${selectedWarehouseId}`,
+            )
+            return res.data
+        },
+        enabled: !!selectedWarehouseId,
     })
 
     // 建立儲位
@@ -276,7 +301,8 @@ export function WarehouseLayoutPage() {
         setEditingInventory({})
     }
 
-    const handleEdit = (location: StorageLocationWithWarehouse) => {
+    const openEditLocationDialog = (location: StorageLocationWithWarehouse | null) => {
+        if (!location) return
         setEditingLocation(location)
         setFormData({
             name: location.name || location.code,
@@ -343,58 +369,81 @@ export function WarehouseLayoutPage() {
 
     const selectedWarehouse = warehouses?.find((w) => w.id === selectedWarehouseId)
 
+    // 當切換倉庫時，清除選取儲位與編輯狀態
+    useEffect(() => {
+        setSelectedLocation(null)
+        setEditingLocation(null)
+        setEditingInventory({})
+    }, [selectedWarehouseId])
+
     return (
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">倉庫平面圖編輯器</h1>
-                    <p className="text-muted-foreground">拖拽調整貨架位置，視覺化管理倉庫佈局</p>
+                    <h1 className="text-3xl font-bold tracking-tight">倉庫</h1>
+                    <p className="text-muted-foreground">管理倉庫資料、貨架佈局與儲位庫存</p>
                 </div>
-                <div className="flex gap-2">
-                    {isEditMode ? (
-                        <>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                    setIsEditMode(false)
-                                    setHasUnsavedChanges(false)
-                                    setPendingLayoutChanges([])
-                                }}
-                            >
-                                <Lock className="h-4 w-4 mr-1" />
-                                鎖定
-                            </Button>
-                            {hasUnsavedChanges && (
-                                <Button
-                                    size="sm"
-                                    onClick={handleSaveLayout}
-                                    disabled={saveLayoutMutation.isPending}
-                                >
-                                    {saveLayoutMutation.isPending && (
-                                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                                    )}
-                                    <Save className="h-4 w-4 mr-1" />
-                                    儲存佈局
-                                </Button>
-                            )}
-                        </>
-                    ) : (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setIsEditMode(true)}
-                            disabled={!selectedWarehouseId}
-                        >
-                            <Unlock className="h-4 w-4 mr-1" />
-                            解鎖編輯
-                        </Button>
-                    )}
+                <div className="flex flex-wrap gap-2 justify-end">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowImportDialog(true)}
+                    >
+                        <Upload className="mr-2 h-4 w-4" />
+                        匯入倉庫
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                            if (!warehouses || warehouses.length === 0) {
+                                toast({
+                                    title: '無資料可匯出',
+                                    description: '請先新增倉庫',
+                                    variant: 'destructive',
+                                })
+                                return
+                            }
+                            const headers = ['代碼', '名稱', '地址', '狀態']
+                            const rows = warehouses.map((w) => [
+                                w.code,
+                                w.name,
+                                w.address || '',
+                                w.is_active ? '啟用' : '停用',
+                            ])
+                            const csvContent = [headers, ...rows]
+                                .map((row) =>
+                                    row
+                                        .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
+                                        .join(','),
+                                )
+                                .join('\n')
+                            const blob = new Blob(['\ufeff' + csvContent], {
+                                type: 'text/csv;charset=utf-8;',
+                            })
+                            const link = document.createElement('a')
+                            link.href = URL.createObjectURL(blob)
+                            link.download = `warehouses_${new Date()
+                                .toISOString()
+                                .split('T')[0]}.csv`
+                            link.click()
+                            URL.revokeObjectURL(link.href)
+                            toast({
+                                title: '匯出成功',
+                                description: `已匯出 ${warehouses.length} 筆倉庫`,
+                            })
+                        }}
+                        disabled={!warehouses || warehouses.length === 0}
+                    >
+                        <Download className="mr-2 h-4 w-4" />
+                        匯出倉庫
+                    </Button>
                     <Button
                         size="sm"
                         onClick={() => {
                             resetForm()
+                            setEditingLocation(null)
                             setShowDialog(true)
                         }}
                         disabled={!selectedWarehouseId}
@@ -402,6 +451,37 @@ export function WarehouseLayoutPage() {
                         <Plus className="h-4 w-4 mr-1" />
                         新增儲位
                     </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsEditMode((v) => !v)}
+                        disabled={!selectedWarehouseId}
+                    >
+                        {isEditMode ? (
+                            <>
+                                <Lock className="h-4 w-4 mr-1" />
+                                鎖定佈局
+                            </>
+                        ) : (
+                            <>
+                                <Unlock className="h-4 w-4 mr-1" />
+                                解鎖佈局
+                            </>
+                        )}
+                    </Button>
+                    {isEditMode && hasUnsavedChanges && (
+                        <Button
+                            size="sm"
+                            onClick={handleSaveLayout}
+                            disabled={saveLayoutMutation.isPending}
+                        >
+                            {saveLayoutMutation.isPending && (
+                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                            )}
+                            <Save className="h-4 w-4 mr-1" />
+                            儲存佈局
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -445,6 +525,13 @@ export function WarehouseLayoutPage() {
                 </div>
             )}
 
+            {/* 未分配庫存提醒 */}
+            {selectedWarehouseId && unassignedItems && unassignedItems.length > 0 && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                    ⚠ 此倉庫有 {unassignedItems.length} 個品項僅存在倉庫層級庫存，尚未分配到任何儲位。請至「未分配庫存」分配到對應儲位。
+                </div>
+            )}
+
             {/* Layout Grid */}
             {selectedWarehouseId ? (
                 loadingLocations ? (
@@ -452,7 +539,7 @@ export function WarehouseLayoutPage() {
                         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     </div>
                 ) : locations && locations.length > 0 ? (
-                    <div className="border rounded-lg bg-slate-50 p-4 min-h-[600px]">
+                    <div className="border rounded-lg bg-slate-50 p-4 min-h-[480px]">
                         <ResponsiveGridLayout
                             className="layout"
                             layouts={responsiveLayouts}
@@ -468,40 +555,63 @@ export function WarehouseLayoutPage() {
                             autoSize={true}
                             compactType={null}
                         >
-                            {locations.map((loc) => (
-                                <div
-                                    key={loc.id}
-                                    className={`rounded-lg shadow-sm border-2 overflow-hidden transition-all ${isEditMode ? 'cursor-move' : 'cursor-pointer hover:opacity-90'}`}
-                                    style={{
-                                        backgroundColor: loc.color || DEFAULT_COLORS[loc.location_type],
-                                        borderColor: isEditMode ? 'rgb(147, 197, 253)' : 'transparent',
-                                    }}
-                                    onClick={() => !isEditMode && handleEdit(loc)}
-                                >
-                                    <div className="h-full p-3 flex flex-col justify-between text-white">
-                                        <div>
-                                            <div className="font-bold text-lg" style={{ marginBottom: '10px' }}>{loc.name || loc.code}</div>
-                                            <div className="text-sm opacity-90 truncate">{loc.code}</div>
-                                        </div>
-                                        <div className="flex items-center justify-between mt-2">
-                                            <Badge
-                                                variant="secondary"
-                                                className="bg-white/20 text-white text-xs"
-                                            >
-                                                {storageLocationTypeNames[loc.location_type]}
-                                            </Badge>
-                                            <div className="flex items-center gap-1 text-sm">
-                                                <Package className="h-3 w-3" />
-                                                <span>
-                                                    {loc.current_count}
-                                                    {loc.capacity && `/${loc.capacity}`}
-                                                </span>
+                            {locations.map((loc) => {
+                                const isSelected = selectedLocation?.id === loc.id
+                                return (
+                                    <div
+                                        key={loc.id}
+                                        className={`rounded-lg shadow-sm border-2 overflow-hidden transition-all ${
+                                            isEditMode
+                                                ? 'cursor-move'
+                                                : 'cursor-pointer hover:opacity-90'
+                                        } ${
+                                            isSelected && !isEditMode
+                                                ? 'ring-2 ring-offset-2 ring-blue-400'
+                                                : ''
+                                        }`}
+                                        style={{
+                                            backgroundColor:
+                                                loc.color || DEFAULT_COLORS[loc.location_type],
+                                            borderColor: isEditMode
+                                                ? 'rgb(147, 197, 253)'
+                                                : isSelected
+                                                  ? 'rgb(59, 130, 246)'
+                                                  : 'transparent',
+                                        }}
+                                        onClick={() => {
+                                            if (isEditMode) return
+                                            setSelectedLocation(loc)
+                                            setActiveTab('location-inventory')
+                                        }}
+                                    >
+                                        <div className="h-full p-3 flex flex-col justify-between text-white">
+                                            <div>
+                                                <div className="font-bold text-lg mb-2 truncate">
+                                                    {loc.name || loc.code}
+                                                </div>
+                                                <div className="text-sm opacity-90 truncate">
+                                                    {loc.code}
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center justify-between mt-2">
+                                                <Badge
+                                                    variant="secondary"
+                                                    className="bg-white/20 text-white text-xs"
+                                                >
+                                                    {storageLocationTypeNames[loc.location_type]}
+                                                </Badge>
+                                                <div className="flex items-center gap-1 text-sm">
+                                                    <Package className="h-3 w-3" />
+                                                    <span>
+                                                        {loc.current_count}
+                                                        {loc.capacity && `/${loc.capacity}`}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
-
                                     </div>
-                                </div>
-                            ))}
+                                )
+                            })}
                         </ResponsiveGridLayout>
                     </div>
                 ) : (
@@ -519,6 +629,326 @@ export function WarehouseLayoutPage() {
                     <WarehouseIcon className="h-16 w-16 mb-4" />
                     <p className="text-lg">請先選擇一個倉庫</p>
                 </div>
+            )}
+
+            {/* Bottom Tabs: 儲位庫存 / 儲位列表 / 未分配庫存 */}
+            {selectedWarehouseId && (
+                <Tabs
+                    value={activeTab}
+                    onValueChange={(v) =>
+                        setActiveTab(v as 'location-inventory' | 'location-list' | 'unassigned')
+                    }
+                    className="space-y-4"
+                >
+                    <TabsList>
+                        <TabsTrigger value="location-inventory">儲位庫存</TabsTrigger>
+                        <TabsTrigger value="location-list">儲位列表</TabsTrigger>
+                        <TabsTrigger value="unassigned">
+                            未分配庫存
+                            {unassignedItems && unassignedItems.length > 0 && (
+                                <span className="ml-1 inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[10px] px-1.5">
+                                    {unassignedItems.length}
+                                </span>
+                            )}
+                        </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="location-inventory">
+                        <Card>
+                            <CardHeader className="flex items-center justify-between">
+                                <CardTitle className="flex items-center gap-2">
+                                    <Package className="h-4 w-4" />
+                                    {selectedLocation
+                                        ? `儲位庫存：${selectedLocation.name || selectedLocation.code}`
+                                        : '儲位庫存'}
+                                </CardTitle>
+                                <div className="flex gap-2">
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={!selectedLocation}
+                                        onClick={() => openEditLocationDialog(selectedLocation)}
+                                    >
+                                        <Edit3 className="h-4 w-4 mr-1" />
+                                        編輯儲位
+                                    </Button>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                {!selectedLocation ? (
+                                    <p className="text-sm text-muted-foreground">
+                                        請從上方平面圖或「儲位列表」中選擇一個儲位，以檢視庫存。
+                                    </p>
+                                ) : loadingInventory ? (
+                                    <div className="flex justify-center py-6">
+                                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                    </div>
+                                ) : inventoryItems && inventoryItems.length > 0 ? (
+                                    <div className="max-h-72 overflow-y-auto border rounded-md">
+                                        <Table>
+                                            <TableHeader className="sticky top-0 bg-muted">
+                                                <TableRow>
+                                                    <TableHead>產品</TableHead>
+                                                    <TableHead className="text-right">數量</TableHead>
+                                                    <TableHead>批號</TableHead>
+                                                    <TableHead>效期</TableHead>
+                                                    {canEditInventory && <TableHead className="w-16" />}
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {inventoryItems.map((item) => (
+                                                    <TableRow key={item.id}>
+                                                        <TableCell>
+                                                            <div className="font-medium">
+                                                                {item.product_name}
+                                                            </div>
+                                                            <div className="text-xs text-muted-foreground">
+                                                                {item.product_sku}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            {canEditInventory ? (
+                                                                <div className="flex items-center justify-end gap-1">
+                                                                    <Input
+                                                                        type="number"
+                                                                        step="0.01"
+                                                                        min="0"
+                                                                        className="w-24 h-7 text-right text-sm"
+                                                                        value={
+                                                                            editingInventory[item.id] ??
+                                                                            item.on_hand_qty
+                                                                        }
+                                                                        onChange={(e) =>
+                                                                            setEditingInventory({
+                                                                                ...editingInventory,
+                                                                                [item.id]: e.target.value,
+                                                                            })
+                                                                        }
+                                                                    />
+                                                                    <span className="text-xs text-muted-foreground">
+                                                                        {formatUom(item.base_uom)}
+                                                                    </span>
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    {parseFloat(
+                                                                        item.on_hand_qty,
+                                                                    ).toLocaleString()}{' '}
+                                                                    {formatUom(item.base_uom)}
+                                                                </>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-muted-foreground">
+                                                            {item.batch_no || '-'}
+                                                        </TableCell>
+                                                        <TableCell className="text-muted-foreground">
+                                                            {item.expiry_date || '-'}
+                                                        </TableCell>
+                                                        {canEditInventory && (
+                                                            <TableCell className="text-right">
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-7 w-7"
+                                                                    disabled={
+                                                                        updateInventoryMutation.isPending ||
+                                                                        editingInventory[item.id] ===
+                                                                            undefined ||
+                                                                        editingInventory[item.id] ===
+                                                                            item.on_hand_qty
+                                                                    }
+                                                                    onClick={() => {
+                                                                        const newQty =
+                                                                            editingInventory[item.id]
+                                                                        if (
+                                                                            newQty !== undefined &&
+                                                                            newQty !== item.on_hand_qty
+                                                                        ) {
+                                                                            updateInventoryMutation.mutate({
+                                                                                itemId: item.id,
+                                                                                data: { on_hand_qty: newQty },
+                                                                            })
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    {updateInventoryMutation.isPending ? (
+                                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                                    ) : (
+                                                                        <Check className="h-4 w-4 text-green-600" />
+                                                                    )}
+                                                                </Button>
+                                                            </TableCell>
+                                                        )}
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">
+                                        此儲位尚無庫存。
+                                    </p>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    <TabsContent value="location-list">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>儲位列表</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {loadingLocations ? (
+                                    <div className="flex justify-center py-6">
+                                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                    </div>
+                                ) : locations && locations.length > 0 ? (
+                                    <div className="border rounded-md max-h-96 overflow-y-auto">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>名稱</TableHead>
+                                                    <TableHead>代碼</TableHead>
+                                                    <TableHead>類型</TableHead>
+                                                    <TableHead className="text-right">
+                                                        產品數量
+                                                    </TableHead>
+                                                    <TableHead className="text-right">容量</TableHead>
+                                                    <TableHead className="w-24" />
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {locations.map((loc) => {
+                                                    const isSelected = selectedLocation?.id === loc.id
+                                                    return (
+                                                        <TableRow
+                                                            key={loc.id}
+                                                            className={
+                                                                isSelected ? 'bg-blue-50' : 'cursor-pointer'
+                                                            }
+                                                            onClick={() => {
+                                                                setSelectedLocation(loc)
+                                                                setActiveTab('location-inventory')
+                                                            }}
+                                                        >
+                                                            <TableCell className="font-medium">
+                                                                {loc.name || loc.code}
+                                                            </TableCell>
+                                                            <TableCell className="font-mono">
+                                                                {loc.code}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {
+                                                                    storageLocationTypeNames[
+                                                                        loc.location_type
+                                                                    ]
+                                                                }
+                                                            </TableCell>
+                                                            <TableCell className="text-right">
+                                                                {loc.current_count}
+                                                            </TableCell>
+                                                            <TableCell className="text-right">
+                                                                {loc.capacity ?? '-'}
+                                                            </TableCell>
+                                                            <TableCell className="text-right">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation()
+                                                                        openEditLocationDialog(loc)
+                                                                    }}
+                                                                >
+                                                                    <Edit3 className="h-4 w-4" />
+                                                                </Button>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )
+                                                })}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">
+                                        此倉庫尚無儲位資料。
+                                    </p>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    <TabsContent value="unassigned">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>未分配庫存</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {loadingUnassigned ? (
+                                    <div className="flex justify-center py-6">
+                                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                    </div>
+                                ) : !unassignedItems || unassignedItems.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground">
+                                        沒有未分配庫存。所有倉庫庫存都已分配到儲位。
+                                    </p>
+                                ) : (
+                                    <div className="border rounded-md max-h-96 overflow-y-auto">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>產品</TableHead>
+                                                    <TableHead className="text-right">
+                                                        倉庫庫存
+                                                    </TableHead>
+                                                    <TableHead className="text-right">
+                                                        已在儲位
+                                                    </TableHead>
+                                                    <TableHead className="text-right">
+                                                        未分配數量
+                                                    </TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {unassignedItems.map((item) => (
+                                                    <TableRow key={`${item.warehouse_id}-${item.product_id}`}>
+                                                        <TableCell>
+                                                            <div className="font-medium">
+                                                                {item.product_name}
+                                                            </div>
+                                                            <div className="text-xs text-muted-foreground">
+                                                                {item.product_sku}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            {parseFloat(
+                                                                item.qty_on_warehouse,
+                                                            ).toLocaleString()}{' '}
+                                                            {formatUom(item.base_uom)}
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            {parseFloat(
+                                                                item.qty_on_shelves,
+                                                            ).toLocaleString()}{' '}
+                                                            {formatUom(item.base_uom)}
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-semibold text-amber-700">
+                                                            {parseFloat(
+                                                                item.qty_unassigned,
+                                                            ).toLocaleString()}{' '}
+                                                            {formatUom(item.base_uom)}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                </Tabs>
             )}
 
             {/* Create/Edit Dialog */}
@@ -599,7 +1029,13 @@ export function WarehouseLayoutPage() {
                                         className="h-10 w-14 rounded border cursor-pointer"
                                         aria-label="儲位顏色"
                                     />
-                                    <span className="text-sm text-muted-foreground">{formData.color}</span>
+                                    <Input
+                                        id="color-hex"
+                                        value={formData.color}
+                                        onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                                        className="w-32"
+                                        placeholder="#0c1a31"
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -740,6 +1176,7 @@ export function WarehouseLayoutPage() {
                 </DialogContent>
             </Dialog>
             <ConfirmDialog state={dialogState} />
+            <WarehouseImportDialog open={showImportDialog} onOpenChange={setShowImportDialog} />
         </div>
     )
 }

@@ -248,6 +248,7 @@ pub fn api_routes(state: AppState) -> Router {
         .route("/inventory/on-hand", get(handlers::get_inventory_on_hand))
         .route("/inventory/ledger", get(handlers::get_stock_ledger))
         .route("/inventory/low-stock", get(handlers::get_low_stock_alerts))
+        .route("/inventory/unassigned", get(handlers::get_unassigned_inventory))
         // Audit Logs
         .route("/audit-logs", get(handlers::list_audit_logs))
         // Reports
