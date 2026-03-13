@@ -74,8 +74,8 @@ export function AllRecordsTabContent({ isActive, staffList }: AllRecordsTabConte
     const hasActiveFilters =
         filterStatus !== 'all' ||
         filterOvertimeType !== 'all' ||
-        filterFrom ||
-        filterTo ||
+        !!filterFrom ||
+        !!filterTo ||
         filterApplicant !== 'all'
 
     const clearFilters = () => {
