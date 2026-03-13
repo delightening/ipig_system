@@ -3,8 +3,8 @@
  * 值格式：all | wh:{warehouse_id} | loc:{storage_location_id}
  */
 import { useState } from 'react'
-import { Popover, PopoverContent, PopoverTrigger } from '@radix-ui/react-popover'
-import { ChevronDown, ChevronRight, FolderOpen } from 'lucide-react'
+import * as Popover from '@radix-ui/react-popover'
+import { ChevronDown, ChevronRight, FolderOpen, Warehouse, LayoutGrid, Check } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import api, { WarehouseTreeNode } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -68,61 +68,95 @@ export function WarehouseShelfTreeSelect({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger asChild>
         <Button
           variant="outline"
           role="combobox"
-          className={cn('w-48 justify-between font-normal', className)}
+          className={cn(
+            'w-64 justify-between font-normal transition-all hover:bg-accent/50',
+            open && 'ring-2 ring-primary/20 border-primary/50',
+            className
+          )}
           disabled={isLoading}
         >
-          <span className="truncate">{isLoading ? '載入中...' : displayLabel}</span>
-          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <div className="flex items-center gap-2 overflow-hidden">
+            <Warehouse className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="truncate">{isLoading ? '載入中...' : displayLabel}</span>
+          </div>
+          <ChevronDown className={cn(
+            "h-4 w-4 shrink-0 opacity-50 transition-transform duration-200",
+            open && "rotate-180"
+          )} />
         </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-64 p-0" align="start">
-        <div className="max-h-80 overflow-y-auto py-1">
-          <button
-            type="button"
-            className={cn(
-              'flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground',
-              value === 'all' && 'bg-accent',
-            )}
-            onClick={() => handleSelect('all')}
-          >
-            <span>全部倉庫</span>
-          </button>
-          {tree?.map((wh) => (
-            <div key={wh.id}>
-              <button
-                type="button"
-                className={cn(
-                  'flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground',
-                  value === `wh:${wh.id}` && 'bg-accent',
-                )}
-                onClick={() => handleSelect(`wh:${wh.id}`)}
-              >
-                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <FolderOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <span className="truncate">{wh.name}</span>
-              </button>
-              {wh.shelves.map((shelf) => (
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          className={cn(
+            "z-[100] w-72 overflow-hidden rounded-xl border bg-popover/95 p-1 text-popover-foreground shadow-2xl outline-none backdrop-blur-sm",
+            "animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2"
+          )}
+          align="start"
+          sideOffset={4}
+        >
+          <div className="max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20">
+            <button
+              type="button"
+              className={cn(
+                'flex w-full items-center justify-between gap-2 px-3 py-2.5 text-sm font-medium rounded-md transition-colors hover:bg-accent hover:text-accent-foreground',
+                value === 'all' ? 'bg-accent text-accent-foreground' : 'text-foreground/70'
+              )}
+              onClick={() => handleSelect('all')}
+            >
+              <div className="flex items-center gap-2">
+                <Warehouse className="h-4 w-4" />
+                <span>全部倉庫</span>
+              </div>
+              {value === 'all' && <Check className="h-4 w-4" />}
+            </button>
+            <div className="my-1 h-px bg-muted" />
+            {tree?.map((wh) => (
+              <div key={wh.id} className="space-y-0.5">
                 <button
-                  key={shelf.id}
                   type="button"
                   className={cn(
-                    'flex w-full items-center gap-2 pl-10 pr-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground',
-                    value === `loc:${shelf.id}` && 'bg-accent',
+                    'flex w-full items-center justify-between gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors hover:bg-accent/50 hover:text-accent-foreground',
+                    value === `wh:${wh.id}` ? 'bg-accent text-accent-foreground' : 'text-foreground/80'
                   )}
-                  onClick={() => handleSelect(`loc:${shelf.id}`)}
+                  onClick={() => handleSelect(`wh:${wh.id}`)}
                 >
-                  <span className="truncate">{shelf.name || shelf.code}</span>
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <div className="flex h-5 w-5 items-center justify-center rounded-sm bg-primary/10 text-primary">
+                      <FolderOpen className="h-3.5 w-3.5" />
+                    </div>
+                    <span className="truncate">{wh.name}</span>
+                  </div>
+                  {value === `wh:${wh.id}` && <Check className="h-4 w-4" />}
                 </button>
-              ))}
-            </div>
-          ))}
-        </div>
-      </PopoverContent>
-    </Popover>
+                <div className="pl-4 space-y-0.5 border-l border-muted/50 ml-5 my-0.5">
+                  {wh.shelves.map((shelf) => (
+                    <button
+                      key={shelf.id}
+                      type="button"
+                      className={cn(
+                        'flex w-full items-center justify-between gap-2 px-3 py-1.5 text-xs rounded-md transition-colors hover:bg-accent/50 hover:text-accent-foreground',
+                        value === `loc:${shelf.id}` ? 'bg-accent/80 text-accent-foreground font-medium' : 'text-muted-foreground hover:text-foreground'
+                      )}
+                      onClick={() => handleSelect(`loc:${shelf.id}`)}
+                    >
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <LayoutGrid className="h-3 w-3 shrink-0 opacity-40" />
+                        <span className="truncate">{shelf.name || shelf.code}</span>
+                      </div>
+                      {value === `loc:${shelf.id}` && <Check className="h-3 w-3" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   )
 }
