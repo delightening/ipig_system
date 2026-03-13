@@ -44,6 +44,7 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     warehouse_to_id: '',
     partner_id: '',
     protocol_no: '',
+    source_doc_id: '',
     remark: '',
     lines: [],
   })
@@ -158,12 +159,12 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
   })
 
   const { data: poReceiptStatus } = useQuery({
-    queryKey: ['po-receipt-status', id],
+    queryKey: ['po-receipt-status', formData.source_doc_id],
     queryFn: async () => {
-      const response = await api.get(`/documents/${id}/receipt-status`)
+      const response = await api.get(`/documents/${formData.source_doc_id}/receipt-status`)
       return response.data
     },
-    enabled: isEdit && formData.doc_type === 'PO',
+    enabled: formData.doc_type === 'GRN' && !!formData.source_doc_id,
     staleTime: STALE_TIME.LIST,
   })
 
@@ -733,5 +734,6 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     handleBatchShelfSelectFrom,
     handleBatchShelfSelectTo,
     poReceiptStatus,
+    source_doc_id: formData.source_doc_id,
   }
 }
