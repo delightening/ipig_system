@@ -703,6 +703,10 @@ pub fn api_routes(state: AppState) -> Router {
             "/admin/trigger/notification-cleanup",
             post(handlers::trigger_notification_cleanup),
         )
+        .route(
+            "/admin/trigger/po-pending-receipt-check",
+            post(handlers::trigger_po_pending_receipt_check),
+        )
         // Scheduled Reports
         .route(
             "/scheduled-reports",

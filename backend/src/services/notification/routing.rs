@@ -194,6 +194,7 @@ impl NotificationService {
                 category: "ERP 進銷存".to_string(),
                 event_types: vec![
                     EventTypeInfo { code: "document_submitted".to_string(), name: "採購單提交".to_string() },
+                    EventTypeInfo { code: "po_pending_receipt".to_string(), name: "採購單未入庫提醒".to_string() },
                     EventTypeInfo { code: "low_stock_alert".to_string(), name: "低庫存預警".to_string() },
                     EventTypeInfo { code: "expiry_alert".to_string(), name: "效期預警".to_string() },
                 ],

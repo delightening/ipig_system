@@ -172,6 +172,21 @@ impl SchedulerService {
         info!("[Scheduler] ✓ Job 'euthanasia_timeout' registered");
         job_count += 1;
 
+        // 每日 09:00 檢查已核准但未入庫的採購單，通知倉管人員
+        let db_clone = db.clone();
+        let job = Job::new_async("0 0 9 * * *", move |_uuid, _l| {
+            let db = db_clone.clone();
+            Box::pin(async move {
+                info!("Running daily PO pending receipt check...");
+                if let Err(e) = Self::check_po_pending_receipt(&db).await {
+                    error!("PO pending receipt check failed: {}", e);
+                }
+            })
+        })?;
+        sched.add(job).await?;
+        info!("[Scheduler] ✓ Job 'po_pending_receipt_check' registered");
+        job_count += 1;
+
         // 每月 1 號 06:00 產出上月進銷貨+血液檢查報表
         let db_clone = db.clone();
         let job = Job::new_async("0 0 6 1 * *", move |_uuid, _l| {
@@ -441,6 +456,19 @@ impl SchedulerService {
     /// 手動觸發效期檢查（供 API 使用）
     pub async fn trigger_expiry_check(db: &PgPool, config: &Config) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Self::check_expiry(db, config).await
+    }
+
+    /// 檢查已核准但未入庫的採購單並發送通知
+    async fn check_po_pending_receipt(db: &PgPool) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let service = NotificationService::new(db.clone());
+        let count = service.notify_po_pending_receipt().await?;
+        info!("PO pending receipt check completed: {} notifications sent", count);
+        Ok(())
+    }
+
+    /// 手動觸發採購單未入庫檢查（供 API 使用）
+    pub async fn trigger_po_pending_receipt_check(db: &PgPool) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        Self::check_po_pending_receipt(db).await
     }
 
     /// 產出每月進銷貨+血液檢查報表

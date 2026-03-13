@@ -145,6 +145,8 @@ export const eventTypeNames: Record<string, string> = {
     amendment_decision_recorded: '修正案審查決定',
     amendment_approved: '修正案核准',
     amendment_rejected: '修正案駁回',
+    leave_cancelled: '請假取消',
+    po_pending_receipt: '採購單未入庫提醒',
 }
 
 /** 通道中文名稱對照 */

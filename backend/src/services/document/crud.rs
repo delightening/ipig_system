@@ -251,7 +251,8 @@ impl DocumentService {
                     (SELECT AVG(sl.unit_cost) FROM stock_ledger sl
                      WHERE sl.product_id = dl.product_id AND sl.unit_cost IS NOT NULL),
                     0)) as total_amount,
-                d.iacuc_no
+                d.iacuc_no,
+                d.receipt_status
             FROM documents d
             LEFT JOIN warehouses w ON d.warehouse_id = w.id
             LEFT JOIN partners p ON d.partner_id = p.id

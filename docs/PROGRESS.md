@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-03-13 (v12)
+> **最後更新：** 2026-03-13 (v13)
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -189,6 +189,16 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **更新慣例**：新項目請放在本區塊**最前面**（時間由近到遠），勿追加於末端。
 
 ---
+
+### 2026-03-13 採購單未入庫通知與狀態顯示功能
+
+- ✅ **通知邏輯 (Notification)**：實作 `notify_po_pending_receipt`，自動檢查已核准但尚未有 GRN 入庫紀錄的採購單 (PO)，並發送通知給倉管主管。
+- ✅ **排程任務 (Scheduler)**：新增每日 09:00 定期檢查排程，確保倉管人員及時處理未入庫單據。
+- ✅ **手動觸發 API**：新增 `/api/admin/trigger/po-pending-receipt-check` 端點，允許管理員視需要手動執行檢查。
+- ✅ **通知路由配置**：在 `RoutingService` 中註冊 `po_pending_receipt` 事件，並於資料庫中新增預設路由。
+- ✅ **單據列表強化**：`DocumentListItem` 模型新增 `receipt_status` 欄位；後端 SQL 結合 `v_purchase_order_receipt_status` 視圖自動計算入庫狀態。
+- ✅ **前端視覺化**：單據管理頁面 (`DocumentsPage.tsx`) 針對 PO 顯示「未入庫」、「部分入庫」、「已入庫」彩色標籤，並於通知設定中加入對應事件名稱。
+- 📁 **產出**：erp.rs, scheduler.rs, routing.rs, workflow.rs, crud.rs, document.rs (model), DocumentsPage.tsx, notification.ts (frontend) 等多處更新。
 
 ### 2026-03-13 ERP 庫存管理強化與視覺體驗優化
 
