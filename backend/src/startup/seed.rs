@@ -4,26 +4,26 @@
 
 use uuid::Uuid;
 
+use crate::config::Config;
 use crate::services;
 use crate::Result;
 
 /// 確保預設管理員帳號存在
-/// 密碼從環境變數 ADMIN_INITIAL_PASSWORD 讀取，未設定則跳過建立
-/// `force_reset_password`: 若為 true，即使帳號已存在也重設密碼（用於 Replace 匯入後還原可登入狀態）
-pub async fn ensure_admin_user(pool: &sqlx::PgPool) -> Result<()> {
-    ensure_admin_user_inner(pool, false).await
+/// 密碼從 Config.admin_initial_password 讀取，未設定則使用隨機密碼
+pub async fn ensure_admin_user(pool: &sqlx::PgPool, config: &Config) -> Result<()> {
+    ensure_admin_user_inner(pool, config, false).await
 }
 
-/// 內部實作，支援強制重設密碼
-pub async fn ensure_admin_user_after_import(pool: &sqlx::PgPool) -> Result<()> {
-    ensure_admin_user_inner(pool, true).await
+/// 內部實作，支援強制重設密碼（用於 Replace 匯入後還原可登入狀態）
+pub async fn ensure_admin_user_after_import(pool: &sqlx::PgPool, config: &Config) -> Result<()> {
+    ensure_admin_user_inner(pool, config, true).await
 }
 
-async fn ensure_admin_user_inner(pool: &sqlx::PgPool, force_reset_password: bool) -> Result<()> {
+async fn ensure_admin_user_inner(pool: &sqlx::PgPool, config: &Config, force_reset_password: bool) -> Result<()> {
     let email = "admin@ipig.local";
     let display_name = "系統管理員";
 
-    let password = std::env::var("ADMIN_INITIAL_PASSWORD").unwrap_or_else(|_| {
+    let password = config.admin_initial_password.clone().unwrap_or_else(|| {
         tracing::warn!("[Admin] ADMIN_INITIAL_PASSWORD not set, using generated password");
         Uuid::new_v4().to_string()
     });
@@ -36,11 +36,12 @@ async fn ensure_admin_user_inner(pool: &sqlx::PgPool, force_reset_password: bool
         .fetch_optional(pool)
         .await?;
 
+    let must_change = !config.is_ci;
     let user_id = if let Some(id) = existing_id {
         if force_reset_password {
             sqlx::query("UPDATE users SET password_hash = $1, must_change_password = $2, updated_at = NOW() WHERE id = $3")
                 .bind(&password_hash)
-                .bind(should_force_change_password())
+                .bind(must_change)
                 .bind(id)
                 .execute(pool)
                 .await?;
@@ -59,18 +60,18 @@ async fn ensure_admin_user_inner(pool: &sqlx::PgPool, force_reset_password: bool
         .bind(email)
         .bind(&password_hash)
         .bind(display_name)
-        .bind(should_force_change_password())
+        .bind(must_change)
         .execute(pool)
         .await?;
         tracing::info!("[Admin] New admin user created: {} (must change password on first login)", email);
         id
     };
-    
+
     // 確保用戶有管理員角色
     let role_id: Option<Uuid> = sqlx::query_scalar("SELECT id FROM roles WHERE code = 'SYSTEM_ADMIN' OR code = 'admin' LIMIT 1")
         .fetch_optional(pool)
         .await?;
-    
+
     if let Some(role_id) = role_id {
         sqlx::query("INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING")
             .bind(user_id)
@@ -78,7 +79,7 @@ async fn ensure_admin_user_inner(pool: &sqlx::PgPool, force_reset_password: bool
             .execute(pool)
             .await?;
     }
-    
+
     Ok(())
 }
 
@@ -88,7 +89,7 @@ pub async fn ensure_schema(pool: &sqlx::PgPool) -> Result<()> {
     sqlx::query(r#"
         DO $$ BEGIN
             IF NOT EXISTS (
-                SELECT 1 FROM information_schema.columns 
+                SELECT 1 FROM information_schema.columns
                 WHERE table_name = 'animals' AND column_name = 'breed_other'
             ) THEN
                 ALTER TABLE animals ADD COLUMN breed_other VARCHAR(100);
@@ -97,12 +98,12 @@ pub async fn ensure_schema(pool: &sqlx::PgPool) -> Result<()> {
     "#)
     .execute(pool)
     .await?;
-    
+
     // 確保 review_comments 表有 parent_comment_id 欄位（用於審查意見回覆功能）
     sqlx::query(r#"
         DO $$ BEGIN
             IF NOT EXISTS (
-                SELECT 1 FROM information_schema.columns 
+                SELECT 1 FROM information_schema.columns
                 WHERE table_name = 'review_comments' AND column_name = 'parent_comment_id'
             ) THEN
                 ALTER TABLE review_comments ADD COLUMN parent_comment_id UUID REFERENCES review_comments(id);
@@ -111,12 +112,12 @@ pub async fn ensure_schema(pool: &sqlx::PgPool) -> Result<()> {
     "#)
     .execute(pool)
     .await?;
-    
+
     // 確保 review_comments 表有 replied_by 欄位（用於記錄回覆者）
     sqlx::query(r#"
         DO $$ BEGIN
             IF NOT EXISTS (
-                SELECT 1 FROM information_schema.columns 
+                SELECT 1 FROM information_schema.columns
                 WHERE table_name = 'review_comments' AND column_name = 'replied_by'
             ) THEN
                 ALTER TABLE review_comments ADD COLUMN replied_by UUID REFERENCES users(id);
@@ -125,14 +126,9 @@ pub async fn ensure_schema(pool: &sqlx::PgPool) -> Result<()> {
     "#)
     .execute(pool)
     .await?;
-    
+
     tracing::info!("[Schema] ✓ Schema integrity verified");
     Ok(())
-}
-
-/// CI 環境不強制改密碼，讓 E2E 測試可直接進入 dashboard
-fn should_force_change_password() -> bool {
-    std::env::var("CI").is_err()
 }
 
 /// 開發環境預設帳號資料
@@ -143,22 +139,23 @@ struct DevUser {
 }
 
 /// 確保開發環境預設帳號存在（僅在 Docker 開發環境使用）
-pub async fn seed_dev_users(pool: &sqlx::PgPool) -> Result<()> {
-    // SEC-26: 密碼從環境變數讀取，不再硬編碼弱密碼
-    let password = std::env::var("DEV_USER_PASSWORD")
-        .unwrap_or_else(|_| {
-            let generated = Uuid::new_v4().to_string();
-            tracing::warn!(
-                "[DevUser] DEV_USER_PASSWORD 未設定，使用隨機密碼: {}",
-                generated
-            );
+pub async fn seed_dev_users(pool: &sqlx::PgPool, config: &Config) -> Result<()> {
+    // SEC-26: 密碼從 Config 讀取，不再硬編碼弱密碼
+    let password = config.dev_user_password.clone().unwrap_or_else(|| {
+        let generated = Uuid::new_v4().to_string();
+        tracing::warn!(
+            "[DevUser] DEV_USER_PASSWORD 未設定，使用隨機密碼: {}",
             generated
-        });
-    
+        );
+        generated
+    });
+
     // 使用 AuthService 生成正確的密碼 hash
     let password_hash = services::AuthService::hash_password(&password)
         .map_err(|e| anyhow::anyhow!("Failed to hash dev user password: {}", e))?;
-    
+
+    let must_change = !config.is_ci;
+
     // 開發環境預設帳號列表
     let dev_users = [
         DevUser {
@@ -190,16 +187,16 @@ pub async fn seed_dev_users(pool: &sqlx::PgPool) -> Result<()> {
             email: "smen1971@gmail.com",
             display_name: "意萍",
             roles: &["EXPERIMENT_STAFF", "WAREHOUSE_MANAGER", "PURCHASING", "ADMIN_STAFF"],
-        },        
+        },
     ];
-    
+
     for dev_user in &dev_users {
         // 檢查用戶是否已存在
         let existing_id: Option<Uuid> = sqlx::query_scalar("SELECT id FROM users WHERE email = $1")
             .bind(dev_user.email)
             .fetch_optional(pool)
             .await?;
-        
+
         let user_id = if let Some(id) = existing_id {
             // 用戶已存在：不更新密碼 hash（保留現有密碼）
             tracing::info!("[DevUser] Existing user found, preserving password: {}", dev_user.email);
@@ -214,26 +211,26 @@ pub async fn seed_dev_users(pool: &sqlx::PgPool) -> Result<()> {
             .bind(dev_user.email)
             .bind(&password_hash)
             .bind(dev_user.display_name)
-            .bind(should_force_change_password())
+            .bind(must_change)
             .execute(pool)
             .await?;
             tracing::info!("[DevUser] Created dev user: {} ({})", dev_user.display_name, dev_user.email);
             id
         };
-        
+
         // 清除現有角色並重新指派
         sqlx::query("DELETE FROM user_roles WHERE user_id = $1")
             .bind(user_id)
             .execute(pool)
             .await?;
-        
+
         // 指派角色
         for role_code in dev_user.roles {
             let role_id: Option<Uuid> = sqlx::query_scalar("SELECT id FROM roles WHERE code = $1")
                 .bind(*role_code)
                 .fetch_optional(pool)
                 .await?;
-            
+
             if let Some(role_id) = role_id {
                 sqlx::query("INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING")
                     .bind(user_id)
@@ -245,7 +242,7 @@ pub async fn seed_dev_users(pool: &sqlx::PgPool) -> Result<()> {
             }
         }
     }
-    
+
     tracing::info!("[DevUser] ✓ {} dev users seeded successfully", dev_users.len());
     Ok(())
 }

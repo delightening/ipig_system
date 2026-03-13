@@ -78,8 +78,8 @@ pub async fn get_config_warnings(
     }
 
     // 2) 管理員初始密碼
-    match std::env::var("ADMIN_INITIAL_PASSWORD") {
-        Err(_) => {
+    match &config.admin_initial_password {
+        None => {
             warn_count += 1;
             items.push(ConfigWarningItem {
                 level: "warn".to_string(),
@@ -89,7 +89,7 @@ pub async fn get_config_warnings(
                 ),
             });
         }
-        Ok(pwd) if pwd == crate::constants::DEFAULT_INSECURE_PASSWORD || pwd.len() < 8 => {
+        Some(pwd) if pwd == crate::constants::DEFAULT_INSECURE_PASSWORD || pwd.len() < 8 => {
             warn_count += 1;
             items.push(ConfigWarningItem {
                 level: "warn".to_string(),
@@ -108,8 +108,8 @@ pub async fn get_config_warnings(
 
     // 3) 開發帳號與測試密碼
     if config.seed_dev_users {
-        match std::env::var("TEST_USER_PASSWORD") {
-            Err(_) => {
+        match &config.test_user_password {
+            None => {
                 warn_count += 1;
                 items.push(ConfigWarningItem {
                     level: "warn".to_string(),
@@ -119,7 +119,7 @@ pub async fn get_config_warnings(
                     ),
                 });
             }
-            Ok(pwd) if pwd.len() < 8 => {
+            Some(pwd) if pwd.len() < 8 => {
                 warn_count += 1;
                 items.push(ConfigWarningItem {
                     level: "warn".to_string(),

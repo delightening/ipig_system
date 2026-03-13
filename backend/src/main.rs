@@ -17,7 +17,7 @@ use erp_backend::config;
 use erp_backend::handlers;
 use erp_backend::middleware::JwtBlacklist;
 use erp_backend::services::scheduler::SchedulerService;
-use erp_backend::services::GeoIpService;
+use erp_backend::services::{AuditService, FileService, GeoIpService};
 use erp_backend::startup::{
     create_database_pool_with_retry, ensure_admin_user, ensure_all_role_permissions,
     ensure_required_permissions, ensure_schema, seed_dev_users,
@@ -29,7 +29,7 @@ async fn main() -> anyhow::Result<()> {
     // 載入環境變數
     dotenvy::dotenv().ok();
 
-    // 初始化 tracing 日誌
+    // 初始化 tracing 日誌（必須在 Config::from_env() 之前，因日誌系統需先啟動）
     // RUST_LOG_FORMAT=json 時使用 JSON 格式（適合搭配 ELK/Loki 等日誌系統）
     let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| "erp_backend=debug,tower_http=debug".into());
@@ -79,13 +79,7 @@ async fn main() -> anyhow::Result<()> {
             tracing::info!("[Database] ✓ Migrations completed successfully");
         }
         Err(e) => {
-            // 檢查是否允許跳過 migration 檢查（僅用於開發環境，例如從 dump 還原後）
-            let skip_migration_check = std::env::var("SKIP_MIGRATION_CHECK")
-                .unwrap_or_else(|_| "false".to_string())
-                .parse::<bool>()
-                .unwrap_or(false);
-            
-            if skip_migration_check {
+            if config.skip_migration_check {
                 tracing::warn!(
                     "\n╔═══════════════════════════════════════════════════════════════╗\n\
                      ║        ⚠️  MIGRATION CHECK SKIPPED (SKIP_MIGRATION_CHECK=true)  ║\n\
@@ -126,7 +120,7 @@ async fn main() -> anyhow::Result<()> {
         tracing::warn!("Failed to ensure schema (non-fatal): {}", e);
     }
 
-    if let Err(e) = ensure_admin_user(&pool).await {
+    if let Err(e) = ensure_admin_user(&pool, &config).await {
         tracing::warn!("Failed to ensure admin user (non-fatal): {}", e);
     }
 
@@ -140,7 +134,7 @@ async fn main() -> anyhow::Result<()> {
 
     if config.seed_dev_users {
         tracing::info!("[DevUser] SEED_DEV_USERS is enabled, seeding development users...");
-        if let Err(e) = seed_dev_users(&pool).await {
+        if let Err(e) = seed_dev_users(&pool, &config).await {
             tracing::warn!("Failed to seed dev users (non-fatal): {}", e);
         }
     }
@@ -207,8 +201,8 @@ async fn main() -> anyhow::Result<()> {
         }
 
         // 2) 管理員初始密碼
-        match std::env::var("ADMIN_INITIAL_PASSWORD") {
-            Err(_) => {
+        match &config.admin_initial_password {
+            None => {
                 warn_count += 1;
                 items.push(
                     "⚠️  ADMIN_INITIAL_PASSWORD 未設定\n     \
@@ -216,7 +210,7 @@ async fn main() -> anyhow::Result<()> {
                         .to_string(),
                 );
             }
-            Ok(pwd) if pwd == erp_backend::constants::DEFAULT_INSECURE_PASSWORD || pwd.len() < 8 => {
+            Some(pwd) if pwd == erp_backend::constants::DEFAULT_INSECURE_PASSWORD || pwd.len() < 8 => {
                 warn_count += 1;
                 items.push(
                     "⚠️  ADMIN_INITIAL_PASSWORD 使用預設值或過於簡短\n     \
@@ -231,8 +225,8 @@ async fn main() -> anyhow::Result<()> {
 
         // 3) 開發帳號與測試密碼
         if config.seed_dev_users {
-            match std::env::var("TEST_USER_PASSWORD") {
-                Err(_) => {
+            match &config.test_user_password {
+                None => {
                     warn_count += 1;
                     items.push(
                         "⚠️  SEED_DEV_USERS=true 但 TEST_USER_PASSWORD 未設定\n     \
@@ -240,7 +234,7 @@ async fn main() -> anyhow::Result<()> {
                             .to_string(),
                     );
                 }
-                Ok(pwd) if pwd.len() < 8 => {
+                Some(pwd) if pwd.len() < 8 => {
                     warn_count += 1;
                     items.push(
                         "⚠️  TEST_USER_PASSWORD 長度不足 8 字元\n     \
@@ -307,11 +301,13 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
+    // 初始化靜態配置（OnceLock，啟動時設定一次）
+    FileService::init_upload_dir(&config.upload_dir);
+    AuditService::init_hmac_key(config.audit_hmac_key.clone());
+
     // 建立應用程式狀態
     // 初始化 GeoIP 服務
-    let geoip_path = std::env::var("GEOIP_DB_PATH")
-        .unwrap_or_else(|_| "/app/geoip/GeoLite2-City.mmdb".to_string());
-    let geoip = GeoIpService::new(&geoip_path);
+    let geoip = GeoIpService::new(&config.geoip_db_path);
 
     // 初始化 JWT 黑名單（SEC-23 + SEC-33）
     let jwt_blacklist = JwtBlacklist::new();
