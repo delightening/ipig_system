@@ -43,6 +43,7 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     warehouse_from_id: '',
     warehouse_to_id: '',
     partner_id: '',
+    protocol_no: '',
     remark: '',
     lines: [],
   })
@@ -218,6 +219,7 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
         warehouse_from_id: document.warehouse_from_id || '',
         warehouse_to_id: document.warehouse_to_id || '',
         partner_id: document.partner_id || '',
+        protocol_no: (document as any).protocol_no || '',
         source_doc_id: document.source_doc_id || '',
         remark: document.remark || '',
         lines,
@@ -342,6 +344,8 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
             : null,
         partner_id:
           mergedData.partner_id?.trim() ? mergedData.partner_id : null,
+        protocol_no:
+          mergedData.protocol_no?.trim() ? mergedData.protocol_no : null,
         source_doc_id:
           mergedData.source_doc_id?.trim() ? mergedData.source_doc_id : null,
         remark:
@@ -564,15 +568,22 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
   const handleIacucNoSelect = useCallback(
     async (iacucNo: string) => {
       try {
-        const customer =
-          await createOrFindCustomerMutation.mutateAsync(iacucNo)
-        updateField('partner_id', customer.id)
-        toast({ title: '成功', description: `已選擇客戶：${iacucNo}` })
+        updateField('protocol_no', iacucNo)
+
+        // 對於銷售單/出庫單，依然需要帶出客戶
+        if (['SO', 'DO'].includes(formData.doc_type)) {
+          const customer =
+            await createOrFindCustomerMutation.mutateAsync(iacucNo)
+          updateField('partner_id', customer.id)
+          toast({ title: '成功', description: `已選擇客戶：${iacucNo}` })
+        } else {
+          toast({ title: '成功', description: `已選擇專屬計畫：${iacucNo}` })
+        }
       } catch {
         // Error handled in mutation
       }
     },
-    [createOrFindCustomerMutation, updateField]
+    [createOrFindCustomerMutation, updateField, formData.doc_type]
   )
 
   const needsPartner = ['PO', 'GRN', 'PR', 'SO', 'DO'].includes(

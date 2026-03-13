@@ -1,5 +1,16 @@
 use anyhow::Context;
 
+use crate::constants::{
+    ACCOUNT_LOCKOUT_DURATION_MINUTES, ACCOUNT_LOCKOUT_MAX_ATTEMPTS, MAX_SESSIONS_PER_USER,
+};
+
+/// 解析 boolean 環境變數，接受 "true" / "1"（大小寫不限），預設 false
+fn parse_bool_env(key: &str) -> bool {
+    std::env::var(key)
+        .map(|v| v.to_lowercase() == "true" || v == "1")
+        .unwrap_or(false)
+}
+
 /// Read a secret value: prefer `{key}_FILE` (Docker Secrets path), fallback to `{key}` env var.
 fn read_secret(key: &str) -> Option<String> {
     let file_key = format!("{}_FILE", key);
@@ -140,7 +151,7 @@ impl Config {
                 .parse()
                 .context("JWT_REFRESH_EXPIRATION_DAYS must be a number")?,
             max_sessions_per_user: std::env::var("MAX_SESSIONS_PER_USER")
-                .unwrap_or_else(|_| "5".to_string())
+                .unwrap_or_else(|_| MAX_SESSIONS_PER_USER.to_string())
                 .parse()
                 .context("MAX_SESSIONS_PER_USER must be a number")?,
             // Email settings
@@ -157,13 +168,9 @@ impl Config {
                 .unwrap_or_else(|_| "ERP System".to_string()),
             app_url: std::env::var("APP_URL")
                 .unwrap_or_else(|_| "http://localhost".to_string()),
-            cookie_secure: std::env::var("COOKIE_SECURE")
-                .map(|v| v.to_lowercase() == "true" || v == "1")
-                .unwrap_or(false),
+            cookie_secure: parse_bool_env("COOKIE_SECURE"),
             cookie_domain: std::env::var("COOKIE_DOMAIN").ok().filter(|s| !s.is_empty()),
-            seed_dev_users: std::env::var("SEED_DEV_USERS")
-                .map(|v| v.to_lowercase() == "true" || v == "1")
-                .unwrap_or(false),
+            seed_dev_users: parse_bool_env("SEED_DEV_USERS"),
             allowed_clock_ip_ranges: std::env::var("ALLOWED_CLOCK_IP_RANGES")
                 .unwrap_or_default()
                 .split(',')
@@ -182,9 +189,7 @@ impl Config {
                 .unwrap_or(200.0),
             // SEC-30: IP Header 信任策略
             // R7-P4-4: 預設 false（安全優先），有反向代理時才設 TRUST_PROXY_HEADERS=true
-            trust_proxy_headers: std::env::var("TRUST_PROXY_HEADERS")
-                .map(|v| v.to_lowercase() == "true" || v == "1")
-                .unwrap_or(false),
+            trust_proxy_headers: parse_bool_env("TRUST_PROXY_HEADERS"),
             // SEC-31: CORS 允許的 Origin 清單
             cors_allowed_origins: std::env::var("CORS_ALLOWED_ORIGINS")
                 .unwrap_or_else(|_| "http://localhost:8080".to_string())
@@ -193,27 +198,21 @@ impl Config {
                 .filter(|s| !s.is_empty())
                 .collect(),
             audit_hmac_key: read_secret("AUDIT_HMAC_KEY").filter(|s| s.len() >= 16),
-            disable_csrf_for_tests: std::env::var("DISABLE_CSRF_FOR_TESTS")
-                .map(|v| v.to_lowercase() == "true" || v == "1")
-                .unwrap_or(false),
-            disable_account_lockout: std::env::var("DISABLE_ACCOUNT_LOCKOUT")
-                .map(|v| v.to_lowercase() == "true" || v == "1")
-                .unwrap_or(false),
+            disable_csrf_for_tests: parse_bool_env("DISABLE_CSRF_FOR_TESTS"),
+            disable_account_lockout: parse_bool_env("DISABLE_ACCOUNT_LOCKOUT"),
             account_lockout_max_attempts: std::env::var("ACCOUNT_LOCKOUT_MAX_ATTEMPTS")
                 .ok()
                 .and_then(|v| v.parse().ok())
-                .unwrap_or(5),
+                .unwrap_or(ACCOUNT_LOCKOUT_MAX_ATTEMPTS as i64),
             account_lockout_duration_minutes: std::env::var("ACCOUNT_LOCKOUT_DURATION_MINUTES")
                 .ok()
                 .and_then(|v| v.parse().ok())
-                .unwrap_or(15),
+                .unwrap_or(ACCOUNT_LOCKOUT_DURATION_MINUTES),
             upload_dir: std::env::var("UPLOAD_DIR")
                 .unwrap_or_else(|_| "./uploads".to_string()),
             geoip_db_path: std::env::var("GEOIP_DB_PATH")
                 .unwrap_or_else(|_| "/app/geoip/GeoLite2-City.mmdb".to_string()),
-            skip_migration_check: std::env::var("SKIP_MIGRATION_CHECK")
-                .map(|v| v.to_lowercase() == "true" || v == "1")
-                .unwrap_or(false),
+            skip_migration_check: parse_bool_env("SKIP_MIGRATION_CHECK"),
             admin_initial_password: read_secret("ADMIN_INITIAL_PASSWORD"),
             test_user_password: std::env::var("TEST_USER_PASSWORD").ok(),
             dev_user_password: std::env::var("DEV_USER_PASSWORD").ok(),

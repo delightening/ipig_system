@@ -1,12 +1,12 @@
 use axum::{
     body::Body,
     extract::{ConnectInfo, State},
-    http::{Request, Response, StatusCode},
+    http::{Method, Request, Response, StatusCode},
     middleware::Next,
 };
 use dashmap::DashMap;
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use crate::constants::{
@@ -79,8 +79,6 @@ pub async fn auth_rate_limit_middleware(
     request: Request<Body>,
     next: Next,
 ) -> Result<Response<Body>, StatusCode> {
-    // 使用 lazy_static 模式的 once_cell
-    use std::sync::OnceLock;
     static AUTH_LIMITER: OnceLock<RateLimiterState> = OnceLock::new();
     let limiter = AUTH_LIMITER.get_or_init(|| {
         RateLimiterState::new(RateLimiterConfig {
@@ -88,24 +86,8 @@ pub async fn auth_rate_limit_middleware(
             window: Duration::from_secs(RATE_LIMIT_WINDOW_SECS),
         })
     });
-
     let ip = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
-    let (allowed, remaining) = limiter.check_rate(&ip);
-
-    if !allowed {
-        tracing::warn!(
-            "[RateLimit] 認證端點速率限制觸發 - IP: {}, 限制: {}/min",
-            ip,
-            limiter.config.max_requests
-        );
-        return Ok(rate_limit_response(limiter));
-    }
-
-    let mut response = next.run(request).await;
-    if let Ok(val) = remaining.to_string().parse() {
-        response.headers_mut().insert("X-RateLimit-Remaining", val);
-    }
-    Ok(response)
+    apply_rate_limit(limiter, &ip, "認證端點", request, next).await
 }
 
 fn rate_limit_response(limiter: &RateLimiterState) -> Response<Body> {
@@ -130,6 +112,31 @@ fn rate_limit_response(limiter: &RateLimiterState) -> Response<Body> {
         })
 }
 
+/// 共用速率限制執行邏輯（check → warn → response or next）
+async fn apply_rate_limit(
+    limiter: &RateLimiterState,
+    ip: &str,
+    label: &str,
+    request: Request<Body>,
+    next: Next,
+) -> Result<Response<Body>, StatusCode> {
+    let (allowed, remaining) = limiter.check_rate(ip);
+    if !allowed {
+        tracing::warn!(
+            "[RateLimit] {} 速率限制觸發 - IP: {}, 限制: {}/min",
+            label,
+            ip,
+            limiter.config.max_requests
+        );
+        return Ok(rate_limit_response(limiter));
+    }
+    let mut response = next.run(request).await;
+    if let Ok(val) = remaining.to_string().parse() {
+        response.headers_mut().insert("X-RateLimit-Remaining", val);
+    }
+    Ok(response)
+}
+
 /// 一般 API 速率限制中間件（每分鐘 600 次）
 pub async fn api_rate_limit_middleware(
     State(state): State<AppState>,
@@ -137,7 +144,6 @@ pub async fn api_rate_limit_middleware(
     request: Request<Body>,
     next: Next,
 ) -> Result<Response<Body>, StatusCode> {
-    use std::sync::OnceLock;
     static API_LIMITER: OnceLock<RateLimiterState> = OnceLock::new();
     let limiter = API_LIMITER.get_or_init(|| {
         RateLimiterState::new(RateLimiterConfig {
@@ -145,24 +151,8 @@ pub async fn api_rate_limit_middleware(
             window: Duration::from_secs(RATE_LIMIT_WINDOW_SECS),
         })
     });
-
     let ip = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
-    let (allowed, remaining) = limiter.check_rate(&ip);
-
-    if !allowed {
-        tracing::warn!(
-            "[RateLimit] API 速率限制觸發 - IP: {}, 限制: {}/min",
-            ip,
-            limiter.config.max_requests
-        );
-        return Ok(rate_limit_response(limiter));
-    }
-
-    let mut response = next.run(request).await;
-    if let Ok(val) = remaining.to_string().parse() {
-        response.headers_mut().insert("X-RateLimit-Remaining", val);
-    }
-    Ok(response)
+    apply_rate_limit(limiter, &ip, "API", request, next).await
 }
 
 /// 寫入端點速率限制（POST/PUT/PATCH/DELETE：每分鐘 120 次）
@@ -173,14 +163,9 @@ pub async fn write_rate_limit_middleware(
     request: Request<Body>,
     next: Next,
 ) -> Result<Response<Body>, StatusCode> {
-    use axum::http::Method;
-    use std::sync::OnceLock;
-
-    let method = request.method().clone();
-    if matches!(method, Method::GET | Method::HEAD | Method::OPTIONS) {
+    if matches!(request.method(), &Method::GET | &Method::HEAD | &Method::OPTIONS) {
         return Ok(next.run(request).await);
     }
-
     static WRITE_LIMITER: OnceLock<RateLimiterState> = OnceLock::new();
     let limiter = WRITE_LIMITER.get_or_init(|| {
         RateLimiterState::new(RateLimiterConfig {
@@ -188,25 +173,8 @@ pub async fn write_rate_limit_middleware(
             window: Duration::from_secs(RATE_LIMIT_WINDOW_SECS),
         })
     });
-
     let ip = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
-    let (allowed, remaining) = limiter.check_rate(&ip);
-
-    if !allowed {
-        tracing::warn!(
-            "[RateLimit] 寫入端點速率限制觸發 - IP: {}, method: {}, 限制: {}/min",
-            ip,
-            method,
-            limiter.config.max_requests
-        );
-        return Ok(rate_limit_response(limiter));
-    }
-
-    let mut response = next.run(request).await;
-    if let Ok(val) = remaining.to_string().parse() {
-        response.headers_mut().insert("X-RateLimit-Remaining", val);
-    }
-    Ok(response)
+    apply_rate_limit(limiter, &ip, "寫入端點", request, next).await
 }
 
 /// 檔案上傳端點速率限制（每分鐘 30 次）
@@ -216,7 +184,6 @@ pub async fn upload_rate_limit_middleware(
     request: Request<Body>,
     next: Next,
 ) -> Result<Response<Body>, StatusCode> {
-    use std::sync::OnceLock;
     static UPLOAD_LIMITER: OnceLock<RateLimiterState> = OnceLock::new();
     let limiter = UPLOAD_LIMITER.get_or_init(|| {
         RateLimiterState::new(RateLimiterConfig {
@@ -224,22 +191,6 @@ pub async fn upload_rate_limit_middleware(
             window: Duration::from_secs(RATE_LIMIT_WINDOW_SECS),
         })
     });
-
     let ip = extract_real_ip_with_trust(request.headers(), &addr, state.config.trust_proxy_headers);
-    let (allowed, remaining) = limiter.check_rate(&ip);
-
-    if !allowed {
-        tracing::warn!(
-            "[RateLimit] 檔案上傳速率限制觸發 - IP: {}, 限制: {}/min",
-            ip,
-            limiter.config.max_requests
-        );
-        return Ok(rate_limit_response(limiter));
-    }
-
-    let mut response = next.run(request).await;
-    if let Ok(val) = remaining.to_string().parse() {
-        response.headers_mut().insert("X-RateLimit-Remaining", val);
-    }
-    Ok(response)
+    apply_rate_limit(limiter, &ip, "檔案上傳", request, next).await
 }

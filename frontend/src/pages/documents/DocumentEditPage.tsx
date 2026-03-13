@@ -252,12 +252,7 @@ export function DocumentEditPage() {
                       {isIacucRequired ? 'IACUC No. *' : '專屬計畫 (選填)'}
                     </Label>
                     <Select
-                      value={
-                        formData.partner_id
-                          ? partners?.find((p) => p.id === formData.partner_id)
-                            ?.code ?? ''
-                          : ''
-                      }
+                      value={formData.protocol_no || ''}
                       onValueChange={handleIacucNoSelect}
                       disabled={createOrFindCustomerMutation.isPending}
                     >

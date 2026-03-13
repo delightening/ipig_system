@@ -27,6 +27,7 @@ export interface DocumentFormData {
   warehouse_from_id: string
   warehouse_to_id: string
   partner_id: string
+  protocol_no?: string
   source_doc_id?: string
   remark: string
   lines: DocumentLine[]
