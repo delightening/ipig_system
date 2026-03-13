@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
   ProtocolVersion,
@@ -9,7 +9,6 @@ import api, {
 } from '@/lib/api'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
@@ -23,20 +22,11 @@ import { Textarea } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/use-toast'
 import { logger } from '@/lib/logger'
-import {
-  CheckCircle,
-  CheckCircle2,
-  Download,
-  Loader2,
-  MessageSquare,
-  Reply,
-  User as UserIcon,
-} from 'lucide-react'
-import { formatDateTime } from '@/lib/utils'
+import { Download, Loader2, MessageSquare } from 'lucide-react'
 import { getApiErrorMessage } from '@/lib/validation'
-import { useAuthStore } from '@/stores/auth'
 import { ReviewCommentsReport } from '@/components/protocol/ReviewCommentsReport'
-// jsPDF & html2canvas loaded lazily at PDF export time
+import { CommentsTableView } from './comments/CommentsTableView'
+import { useCommentsData } from './comments/useCommentsData'
 
 import type { Protocol } from '@/types/aup'
 
@@ -61,7 +51,6 @@ export const CommentsTab = React.memo(function CommentsTab({
 }: CommentsTabProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const { user } = useAuthStore()
   const reportRef = useRef<HTMLDivElement>(null)
 
   const [showCommentDialog, setShowCommentDialog] = useState(false)
@@ -89,6 +78,14 @@ export const CommentsTab = React.memo(function CommentsTab({
       return response.data
     },
     enabled: !!protocolId,
+  })
+
+  const { preReviewGroups, underReviewGroups } = useCommentsData({
+    comments: comments || [],
+    protocolId,
+    protocol,
+    piName,
+    shouldAnonymizeReviewers,
   })
 
   const addCommentMutation = useMutation({
@@ -130,58 +127,17 @@ export const CommentsTab = React.memo(function CommentsTab({
     },
   })
 
-  const resolveCommentMutation = useMutation({
-    mutationFn: async (commentId: string) => {
-      return api.post(`/reviews/comments/${commentId}/resolve`)
-    },
-    onSuccess: () => {
-      toast({ title: t('common.success'), description: t('protocols.detail.actions.resolved') })
-      queryClient.invalidateQueries({ queryKey: ['protocol-comments', protocolId] })
-    },
-    onError: (error: unknown) => {
-      toast({
-        title: t('common.error'),
-        description: getApiErrorMessage(error, t('common.error')),
-        variant: 'destructive',
-      })
-    },
-  })
-
-  const reviewerAnonymousMap = useMemo(() => {
-    if (!comments) return new Map<string, string>()
-    const uniqueReviewerIds = Array.from(
-      new Set(comments.map(c => c.reviewer_id).filter(Boolean))
-    )
-    const seed = protocolId?.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) || 0
-    const shuffled = [...uniqueReviewerIds].sort((a, b) => {
-      const hashA = ((seed * a.charCodeAt(0)) % 26)
-      const hashB = ((seed * b.charCodeAt(0)) % 26)
-      return hashA - hashB
-    })
-    const map = new Map<string, string>()
-    shuffled.forEach((reviewerId, index) => {
-      const letter = String.fromCharCode(65 + index)
-      map.set(reviewerId, t(`protocols.detail.actions.reviewer${letter}`))
-    })
-    return map
-  }, [comments, protocolId, t])
-
-  const getReviewerDisplayName = (comment: ReviewCommentResponse) => {
-    if (comment.parent_comment_id && (comment.replied_by === protocol.pi_user_id || comment.replied_by_name)) {
-      return comment.replied_by_name || piName || t('common.user')
-    }
-    if (!shouldAnonymizeReviewers) {
-      return comment.reviewer_name || comment.reviewer_email || comment.replied_by_name || comment.replied_by_email
-    }
-    return reviewerAnonymousMap.get(comment.reviewer_id) || t('protocols.detail.actions.reviewer')
-  }
-
   const handleAddComment = () => {
     if (!commentContent.trim() || !versions || versions.length === 0) return
     addCommentMutation.mutate({
       protocol_version_id: versions[0].id,
       content: commentContent.trim(),
     })
+  }
+
+  const handleReply = (comment: ReviewCommentResponse) => {
+    setSelectedCommentForReply(comment)
+    setShowReplyDialog(true)
   }
 
   const handleExportPDF = async () => {
@@ -239,86 +195,12 @@ export const CommentsTab = React.memo(function CommentsTab({
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : comments && comments.length > 0 ? (
-            <div className="space-y-4">
-              {comments
-                .filter(c => !c.parent_comment_id)
-                .map((comment) => (
-                  <div key={comment.id} className="space-y-2">
-                    <div
-                      className={`p-4 rounded-lg border max-w-[85%] mr-auto ${comment.is_resolved ? 'bg-green-50 border-green-200' : 'bg-white border-slate-200'}`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                            <UserIcon className="h-4 w-4 text-blue-600" />
-                          </div>
-                          <div>
-                            <p className="font-medium">{getReviewerDisplayName(comment)}</p>
-                            <p className="text-xs text-muted-foreground">{formatDateTime(comment.created_at)}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {canReply && !comment.is_resolved && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedCommentForReply(comment)
-                                setShowReplyDialog(true)
-                              }}
-                            >
-                              <Reply className="mr-1 h-4 w-4" />
-                              {t('protocols.detail.actions.reply')}
-                            </Button>
-                          )}
-                          {comment.is_resolved ? (
-                            <Badge variant="success" className="flex items-center gap-1">
-                              <CheckCircle2 className="h-3 w-3" />
-                              {t('protocols.detail.actions.resolved')}
-                            </Badge>
-                          ) : (
-                            user?.id === comment.reviewer_id && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => resolveCommentMutation.mutate(comment.id)}
-                                disabled={resolveCommentMutation.isPending}
-                              >
-                                {resolveCommentMutation.isPending ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <>
-                                    <CheckCircle className="mr-1 h-4 w-4" />
-                                    {t('protocols.detail.actions.markResolved')}
-                                  </>
-                                )}
-                              </Button>
-                            )
-                          )}
-                        </div>
-                      </div>
-                      <p className="mt-3 text-sm text-slate-700 whitespace-pre-wrap">{comment.content}</p>
-                    </div>
-
-                    {comments
-                      .filter(reply => reply.parent_comment_id === comment.id)
-                      .map(reply => (
-                        <div key={reply.id} className="ml-auto max-w-[85%] p-4 rounded-lg border bg-slate-50 border-slate-200">
-                          <div className="flex items-center gap-2 justify-end">
-                            <div className="text-right">
-                              <p className="font-medium text-sm">{getReviewerDisplayName(reply)}</p>
-                              <p className="text-xs text-muted-foreground">{formatDateTime(reply.created_at)}</p>
-                            </div>
-                            <div className="h-6 w-6 rounded-full bg-green-100 flex items-center justify-center">
-                              <Reply className="h-3 w-3 text-green-600" />
-                            </div>
-                          </div>
-                          <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap text-right">{reply.content}</p>
-                        </div>
-                      ))}
-                  </div>
-                ))}
-            </div>
+            <CommentsTableView
+              preReviewGroups={preReviewGroups}
+              underReviewGroups={underReviewGroups}
+              canReply={canReply}
+              onReply={handleReply}
+            />
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <MessageSquare className="h-12 w-12 mx-auto mb-2" />
