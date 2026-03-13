@@ -58,6 +58,8 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
   const [showIacucWarning, setShowIacucWarning] = useState(false)
   const [iacucWarningData, setIacucWarningData] = useState<{ batch_no: string; source_iacuc: string } | null>(null)
   const [batchStorageLocationId, setBatchStorageLocationId] = useState<string>('')
+  const [batchStorageLocationFromId, setBatchStorageLocationFromId] = useState<string>('')
+  const [batchStorageLocationToId, setBatchStorageLocationToId] = useState<string>('')
 
   const inputRefs = useRef<InputRefs>({})
 
@@ -601,6 +603,34 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     [setFormData]
   )
 
+  const handleBatchShelfSelectFrom = useCallback(
+    (shelfId: string) => {
+      setBatchStorageLocationFromId(shelfId)
+      if (shelfId) {
+        setFormData((prev) => ({
+          ...prev,
+          lines: prev.lines.map((l) => ({ ...l, storage_location_from_id: shelfId })),
+        }))
+        setUnsavedChanges(true)
+      }
+    },
+    [setFormData]
+  )
+
+  const handleBatchShelfSelectTo = useCallback(
+    (shelfId: string) => {
+      setBatchStorageLocationToId(shelfId)
+      if (shelfId) {
+        setFormData((prev) => ({
+          ...prev,
+          lines: prev.lines.map((l) => ({ ...l, storage_location_to_id: shelfId })),
+        }))
+        setUnsavedChanges(true)
+      }
+    },
+    [setFormData]
+  )
+
   const needsPartner = ['PO', 'GRN', 'PR', 'SO', 'DO'].includes(
     formData.doc_type
   )
@@ -687,6 +717,10 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     setShowIacucWarning,
     iacucWarningData,
     batchStorageLocationId,
+    batchStorageLocationFromId,
+    batchStorageLocationToId,
     handleBatchShelfSelect,
+    handleBatchShelfSelectFrom,
+    handleBatchShelfSelectTo,
   }
 }
