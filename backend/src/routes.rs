@@ -280,6 +280,19 @@ pub fn api_routes(state: AppState) -> Router {
             "/reports/blood-test-analysis",
             get(handlers::get_blood_test_analysis),
         )
+        // 進銷貨彙總報表
+        .route(
+            "/reports/purchase-sales-monthly",
+            get(handlers::get_purchase_sales_monthly),
+        )
+        .route(
+            "/reports/purchase-sales-by-partner",
+            get(handlers::get_purchase_sales_by_partner),
+        )
+        .route(
+            "/reports/purchase-sales-by-category",
+            get(handlers::get_purchase_sales_by_category),
+        )
         // Accounting / 會計
         .route(
             "/accounting/chart-of-accounts",
@@ -308,6 +321,10 @@ pub fn api_routes(state: AppState) -> Router {
         .route(
             "/accounting/ar-receipts",
             post(handlers::create_ar_receipt),
+        )
+        .route(
+            "/accounting/profit-loss",
+            get(handlers::get_profit_loss),
         )
         // Protocols (AUP 審查系統)
         .route(

@@ -1,8 +1,20 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import api, { StockLedgerReport } from '@/lib/api'
+
+import api from '@/lib/api'
 import { formatNumber, formatDateTime } from '@/lib/utils'
+import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -13,11 +25,44 @@ import {
 } from '@/components/ui/table'
 import { Loader2, Download, TrendingUp } from 'lucide-react'
 
+import type { StockLedgerReport } from '@/types/report'
+
+interface Warehouse {
+  id: string
+  code: string
+  name: string
+}
+
+function buildQueryString(from: string, to: string, warehouseId: string): string {
+  const params = new URLSearchParams()
+  if (from) params.set('date_from', from)
+  if (to) params.set('date_to', to)
+  if (warehouseId && warehouseId !== 'all') params.set('warehouse_id', warehouseId)
+  const qs = params.toString()
+  return qs ? `?${qs}` : ''
+}
+
 export function StockLedgerReportPage() {
-  const { data: report, isLoading } = useQuery<StockLedgerReport[]>({
-    queryKey: ['report-stock-ledger'],
+  const today = new Date().toISOString().slice(0, 10)
+  const { from, to, setFrom, setTo } = useDateRangeFilter({
+    initialFrom: today.slice(0, 7) + '-01',
+    initialTo: today,
+  })
+  const [warehouseId, setWarehouseId] = useState('all')
+
+  const { data: warehouses } = useQuery<Warehouse[]>({
+    queryKey: ['warehouses'],
     queryFn: async () => {
-      const response = await api.get<StockLedgerReport[]>('/reports/stock-ledger')
+      const response = await api.get<Warehouse[]>('/warehouses')
+      return response.data
+    },
+  })
+
+  const { data: report, isLoading } = useQuery<StockLedgerReport[]>({
+    queryKey: ['report-stock-ledger', from, to, warehouseId],
+    queryFn: async () => {
+      const qs = buildQueryString(from, to, warehouseId)
+      const response = await api.get<StockLedgerReport[]>(`/reports/stock-ledger${qs}`)
       return response.data
     },
   })
@@ -80,6 +125,44 @@ export function StockLedgerReportPage() {
           <Download className="mr-2 h-4 w-4" />
           匯出 CSV
         </Button>
+      </div>
+
+      {/* 篩選條件 */}
+      <div className="flex items-end gap-4 flex-wrap">
+        <div className="space-y-2">
+          <Label>日期起</Label>
+          <Input
+            type="date"
+            value={from}
+            onChange={e => setFrom(e.target.value)}
+            className="w-[160px]"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>日期訖</Label>
+          <Input
+            type="date"
+            value={to}
+            onChange={e => setTo(e.target.value)}
+            className="w-[160px]"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>倉庫</Label>
+          <Select value={warehouseId} onValueChange={setWarehouseId}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="全部倉庫" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部倉庫</SelectItem>
+              {warehouses?.map(w => (
+                <SelectItem key={w.id} value={w.id}>
+                  {w.code} - {w.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="rounded-md border">

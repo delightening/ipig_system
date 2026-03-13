@@ -7,7 +7,9 @@ use crate::{
     middleware::CurrentUser,
     services::report::{
         BloodTestAnalysisQuery, BloodTestAnalysisRow,
-        BloodTestCostReport, CostSummaryReport, PurchaseLinesReport, ReportQuery, ReportService,
+        BloodTestCostReport, CostSummaryReport, PurchaseLinesReport,
+        PurchaseSalesCategorySummary, PurchaseSalesMonthlySummary,
+        PurchaseSalesPartnerSummary, ReportQuery, ReportService,
         SalesLinesReport, StockLedgerReport, StockOnHandReport,
     },
     AppState, Result,
@@ -95,5 +97,38 @@ pub async fn get_blood_test_analysis(
     let restrict = current_user.has_permission("animal.animal.view_project")
         && !current_user.has_permission("animal.animal.view_all");
     let report = ReportService::blood_test_analysis(&state.db, &query, restrict).await?;
+    Ok(Json(report))
+}
+
+/// 進銷貨彙總 — 按月份
+#[utoipa::path(get, path = "/api/reports/purchase-sales-monthly", responses((status = 200)), tag = "報表", security(("bearer" = [])))]
+pub async fn get_purchase_sales_monthly(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+    Query(query): Query<ReportQuery>,
+) -> Result<Json<Vec<PurchaseSalesMonthlySummary>>> {
+    let report = ReportService::purchase_sales_monthly(&state.db, &query).await?;
+    Ok(Json(report))
+}
+
+/// 進銷貨彙總 — 按供應商/客戶
+#[utoipa::path(get, path = "/api/reports/purchase-sales-by-partner", responses((status = 200)), tag = "報表", security(("bearer" = [])))]
+pub async fn get_purchase_sales_by_partner(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+    Query(query): Query<ReportQuery>,
+) -> Result<Json<Vec<PurchaseSalesPartnerSummary>>> {
+    let report = ReportService::purchase_sales_by_partner(&state.db, &query).await?;
+    Ok(Json(report))
+}
+
+/// 進銷貨彙總 — 按產品類別
+#[utoipa::path(get, path = "/api/reports/purchase-sales-by-category", responses((status = 200)), tag = "報表", security(("bearer" = [])))]
+pub async fn get_purchase_sales_by_category(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+    Query(query): Query<ReportQuery>,
+) -> Result<Json<Vec<PurchaseSalesCategorySummary>>> {
+    let report = ReportService::purchase_sales_by_category(&state.db, &query).await?;
     Ok(Json(report))
 }
