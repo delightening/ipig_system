@@ -85,6 +85,8 @@ export function DocumentEditPage() {
     handleBatchShelfSelectTo,
     poReceiptStatus,
     source_doc_id: _ignored_source_doc_id,
+    categoryId,
+    setCategoryId,
   } = useDocumentForm({ defaultType })
 
   const { data: allDocuments } = useQuery({
@@ -421,7 +423,8 @@ export function DocumentEditPage() {
         updateLineAmount={updateLineAmount}
         setFormData={setFormData}
         needsShelf={needsShelf}
-        poReceiptStatus={poReceiptStatus}
+        categoryId={categoryId}
+        setCategoryId={setCategoryId}
       />
 
       <Dialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>

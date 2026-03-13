@@ -204,7 +204,12 @@ interface DocumentLineEditorProps {
   setFormData: any
   needsShelf: boolean
   poReceiptStatus?: import('@/lib/api').PoReceiptStatus
+  categoryId?: string
+  setCategoryId: (id: string | undefined) => void
 }
+
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+
 export function DocumentLineEditor({
   formData,
   lineAmounts,
@@ -224,7 +229,19 @@ export function DocumentLineEditor({
   setFormData,
   needsShelf,
   poReceiptStatus,
+  categoryId,
+  setCategoryId,
 }: DocumentLineEditorProps) {
+  const { data: categories } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const res = await api.get<any[]>('/categories')
+      return res.data
+    },
+    enabled: productSearchOpen,
+    staleTime: 300000,
+  })
+
   const showPriceColumns = ['PO', 'GRN', 'DO'].includes(formData.doc_type)
 
   // 取得正在編輯的行 ID (假設 activeLineId 維存在父組件或透過 openProductSearch 設定)
@@ -573,6 +590,23 @@ export function DocumentLineEditor({
                 autoFocus
               />
             </div>
+            
+            {categories && categories.length > 0 && (
+              <Tabs
+                value={categoryId || 'all'}
+                onValueChange={(v) => setCategoryId(v === 'all' ? undefined : v)}
+              >
+                <TabsList className="grid w-full grid-cols-4 md:grid-cols-7 h-auto p-1 flex-wrap">
+                  <TabsTrigger value="all" className="text-xs py-1">全部</TabsTrigger>
+                  {categories.map((cat: any) => (
+                    <TabsTrigger key={cat.id} value={cat.id} className="text-xs py-1">
+                      {cat.name}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            )}
+
             <div className="max-h-[400px] overflow-y-auto">
               <Table>
                 <TableHeader>
@@ -588,8 +622,12 @@ export function DocumentLineEditor({
                   {isPoLinkedGrn ? (
                     // 採購待入庫模式
                     poReceiptStatus?.items
-                      .filter((item: import('@/lib/api').PoReceiptItem) => item.remaining_qty > 0 && 
-                        (item.product_name.includes(productSearch) || item.product_id.includes(productSearch)))
+                      .filter((item: import('@/lib/api').PoReceiptItem) => {
+                        const matchesKeyword = item.product_name.includes(productSearch) || item.product_id.includes(productSearch);
+                        // PO 模式通常不帶 category_id，但如果需要嚴格對齊，可考慮從 products 關聯或後端補齊
+                        // 此處暫時僅對關鍵字過濾，除非 poReceiptStatus 也有分類資訊
+                        return item.remaining_qty > 0 && matchesKeyword;
+                      })
                       .map((item: import('@/lib/api').PoReceiptItem) => (
                       <TableRow
                         key={item.product_id}
@@ -621,7 +659,7 @@ export function DocumentLineEditor({
                     ))
                   ) : isStockBasedDoc && targetWarehouseId ? (
                     // 庫存模式列表
-                    stockBalances?.map((item) => (
+                    stockBalances?.filter((item: any) => !categoryId || item.category_id === categoryId).map((item: any) => (
                       <TableRow
                         key={`${item.product_id}-${item.batch_no}-${item.storage_location_id}`}
                         className="cursor-pointer hover:bg-muted"
