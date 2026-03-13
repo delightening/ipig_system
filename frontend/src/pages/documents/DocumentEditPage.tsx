@@ -1,5 +1,7 @@
 import React from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import api from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -82,7 +84,23 @@ export function DocumentEditPage() {
     handleBatchShelfSelectFrom,
     handleBatchShelfSelectTo,
     poReceiptStatus,
+    source_doc_id: _ignored_source_doc_id,
   } = useDocumentForm({ defaultType })
+
+  const { data: allDocuments } = useQuery({
+    queryKey: ['documents', { doc_type: 'PO', status: 'APPROVED' }],
+    queryFn: async () => {
+      const response = await api.get('/documents?doc_type=PO&status=APPROVED')
+      return (response.data as any).items || []
+    },
+    enabled: formData.doc_type === 'GRN',
+    staleTime: 60000,
+  })
+
+  const availableSourcePos = React.useMemo(() => {
+    if (!allDocuments || !formData.partner_id) return []
+    return (allDocuments as any[]).filter(d => d.partner_id === formData.partner_id)
+  }, [allDocuments, formData.partner_id])
 
   const showTotalAmount = ['PO', 'GRN', 'DO'].includes(formData.doc_type)
 
@@ -247,14 +265,19 @@ export function DocumentEditPage() {
             )}
 
             {needsPartner && !isIacucRequired && (
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>
                     {partnerType === 'supplier' ? '供應商 *' : '客戶 *'}
                   </Label>
                   <Select
                     value={formData.partner_id}
-                    onValueChange={(v) => updateField('partner_id', v)}
+                    onValueChange={(v) => {
+                      updateField('partner_id', v)
+                      if (formData.doc_type === 'GRN') {
+                        updateField('source_doc_id', '') // 切換供應商時重設來源單據
+                      }
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue
@@ -281,6 +304,34 @@ export function DocumentEditPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {formData.doc_type === 'GRN' && (
+                  <div className="space-y-2">
+                    <Label>來源採購單 *</Label>
+                    <Select
+                      value={formData.source_doc_id || ''}
+                      onValueChange={(v) => updateField('source_doc_id', v)}
+                      disabled={!formData.partner_id}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={formData.partner_id ? "選擇採購單" : "請先選擇供應商"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableSourcePos.length === 0 ? (
+                          <div className="p-2 text-sm text-muted-foreground text-center">
+                            無可用採購單
+                          </div>
+                        ) : (
+                          availableSourcePos.map((doc: any) => (
+                            <SelectItem key={doc.id} value={doc.id}>
+                              {doc.doc_no} ({doc.doc_date})
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             )}
 
