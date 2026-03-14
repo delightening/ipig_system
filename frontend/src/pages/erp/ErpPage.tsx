@@ -152,7 +152,7 @@ const erpModules: ErpModule[] = [
     },
     {
         id: 'partners',
-        title: '供應商/客戶',
+        title: '供應商／客戶',
         icon: <Users className="h-5 w-5" />,
         description: '管理供應商與客戶',
         items: [],
