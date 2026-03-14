@@ -430,29 +430,31 @@ export function DocumentEditPage() {
         />
       </div>
 
-      <DocumentLineEditor
-        formData={formData}
-        lineAmounts={lineAmounts}
-        inputRefs={inputRefs}
-        productSearchOpen={productSearchOpen}
-        setProductSearchOpen={setProductSearchOpen}
-        productSearch={productSearch}
-        setProductSearch={setProductSearch}
-        products={products}
-        addLine={addLine}
-        removeLine={removeLine}
-        selectProduct={selectProduct}
-        openProductSearch={openProductSearch}
-        handleBatchChange={handleBatchChange}
-        handleLineBlur={handleLineBlur}
-        updateLineAmount={updateLineAmount}
-        setFormData={setFormData}
-        needsShelf={needsShelf}
-        poReceiptStatus={poReceiptStatus}
-        categoryCode={categoryCode}
-        setCategoryCode={setCategoryCode}
-      />
-      </>
+      {formData.doc_type && (
+        <>
+          <DocumentLineEditor
+            formData={formData}
+            lineAmounts={lineAmounts}
+            inputRefs={inputRefs}
+            productSearchOpen={productSearchOpen}
+            setProductSearchOpen={setProductSearchOpen}
+            productSearch={productSearch}
+            setProductSearch={setProductSearch}
+            products={products}
+            addLine={addLine}
+            removeLine={removeLine}
+            selectProduct={selectProduct}
+            openProductSearch={openProductSearch}
+            handleBatchChange={handleBatchChange}
+            handleLineBlur={handleLineBlur}
+            updateLineAmount={updateLineAmount}
+            setFormData={setFormData}
+            needsShelf={needsShelf}
+            poReceiptStatus={poReceiptStatus}
+            categoryCode={categoryCode}
+            setCategoryCode={setCategoryCode}
+          />
+        </>
       )}
 
       <Dialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
@@ -495,8 +497,8 @@ export function DocumentEditPage() {
               您目前選擇的銷貨計畫為{' '}
               <span className="font-bold text-destructive">
                 {formData.protocol_id
-                  ? activeProtocols?.find((p) => p.id === formData.protocol_id)?.iacuc_no
-                    || activeProtocols?.find((p) => p.id === formData.protocol_id)?.protocol_no
+                  ? activeProtocols?.find((p: any) => p.id === formData.protocol_id)?.iacuc_no
+                    || activeProtocols?.find((p: any) => p.id === formData.protocol_id)?.protocol_no
                     || formData.protocol_id
                   : '未指定'}
               </span>
