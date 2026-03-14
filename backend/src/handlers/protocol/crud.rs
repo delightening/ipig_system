@@ -2,8 +2,10 @@
 
 use axum::{
     extract::{Path, Query, State},
+    http::StatusCode,
     Extension, Json,
 };
+use serde::Deserialize;
 use uuid::Uuid;
 use validator::Validate;
 
@@ -19,6 +21,12 @@ use crate::{
     services::{NotificationService, ProtocolService},
     AppError, AppState, Result,
 };
+
+#[derive(Debug, Deserialize)]
+pub struct CopyProtocolRequest {
+    /// 新計畫的 PI（不填則沿用來源計畫的 PI）
+    pub pi_user_id: Option<Uuid>,
+}
 
 /// 建立專案
 #[utoipa::path(post, path = "/api/protocols", request_body = CreateProtocolRequest, responses((status = 201, description = "建立成功", body = Protocol)), tag = "計畫書管理", security(("bearer" = [])))]
@@ -327,4 +335,21 @@ pub async fn save_vet_review_form(
         tracing::warn!("記錄活動失敗: {e}");
     }
     Ok(Json(()))
+}
+
+/// 複製既有計畫建立新草稿
+#[utoipa::path(post, path = "/api/protocols/{id}/copy", params(("id" = Uuid, Path, description = "來源計畫 ID")), responses((status = 201, description = "複製成功", body = Protocol)), tag = "計畫書管理", security(("bearer" = [])))]
+pub async fn copy_protocol(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<(StatusCode, Json<Protocol>)> {
+    let can_create = current_user.has_permission("aup.protocol.create")
+        || current_user.roles.contains(&"PI".to_string())
+        || current_user.is_admin();
+    if !can_create {
+        return Err(AppError::Forbidden("Permission denied: requires aup.protocol.create or PI role".to_string()));
+    }
+    let protocol = ProtocolService::copy(&state.db, id, current_user.id).await?;
+    Ok((StatusCode::CREATED, Json(protocol)))
 }

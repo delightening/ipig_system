@@ -147,6 +147,7 @@ const navItemsConfig: NavItem[] = [
       { title: '安全審計', href: '/admin/audit', translate: false },
       { title: '通知路由', href: '/admin/notification-routing', translate: false },
       { title: '藥物選單', href: '/admin/treatment-drugs', translate: false },
+      { title: '設施管理', href: '/admin/facilities', translate: false },
     ],
     permission: 'admin',
   },

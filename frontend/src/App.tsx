@@ -56,6 +56,7 @@ const NotificationRoutingPage = lazy(() => import('@/pages/admin/NotificationRou
 const TreatmentDrugOptionsPage = lazy(() => import('@/pages/admin/TreatmentDrugOptionsPage').then(m => ({ default: m.TreatmentDrugOptionsPage })))
 const TrainingRecordsPage = lazy(() => import('@/pages/admin/TrainingRecordsPage').then(m => ({ default: m.TrainingRecordsPage })))
 const QAUDashboardPage = lazy(() => import('@/pages/admin/QAUDashboardPage').then(m => ({ default: m.QAUDashboardPage })))
+const FacilitiesPage = lazy(() => import('@/pages/admin/FacilitiesPage').then(m => ({ default: m.FacilitiesPage })))
 
 // HR Pages
 const HrAttendancePage = lazy(() => import('@/pages/hr/HrAttendancePage').then(m => ({ default: m.HrAttendancePage })))
@@ -305,6 +306,7 @@ function App() {
                         } />
                         <Route path="/admin/notification-routing" element={<NotificationRoutingPage />} />
                         <Route path="/admin/treatment-drugs" element={<TreatmentDrugOptionsPage />} />
+                        <Route path="/admin/facilities" element={<FacilitiesPage />} />
                     </Route>
 
                     {/* 人員訓練 - admin 或 training.view/manage/manage_own 可存取 */}
