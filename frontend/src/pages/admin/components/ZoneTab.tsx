@@ -21,7 +21,7 @@ const EMPTY_FORM: CreateZoneRequest = { building_id: '', code: '', name: '', col
 export function ZoneTab({ canManage }: { canManage: boolean }) {
   const queryClient = useQueryClient()
   const dialogs = useDialogSet(['create', 'edit'] as const)
-  const confirm = useConfirmDialog()
+  const { dialogState, confirm } = useConfirmDialog()
   const [editing, setEditing] = useState<ZoneWithBuilding | null>(null)
   const [form, setForm] = useState<CreateZoneRequest>(EMPTY_FORM)
 
@@ -61,13 +61,13 @@ export function ZoneTab({ canManage }: { canManage: boolean }) {
     dialogs.open('edit')
   }
 
-  const handleDelete = (z: ZoneWithBuilding) => {
-    confirm.open({
+  const handleDelete = async (z: ZoneWithBuilding) => {
+    const ok = await confirm({
       title: '刪除區域',
       description: `確定要刪除「${z.name ?? z.code}」嗎？`,
       variant: 'destructive',
-      onConfirm: () => deleteMutation.mutate(z.id),
     })
+    if (ok) deleteMutation.mutate(z.id)
   }
 
   const set = (k: keyof CreateZoneRequest, v: string | number) => setForm(prev => ({ ...prev, [k]: v }))
@@ -166,7 +166,7 @@ export function ZoneTab({ canManage }: { canManage: boolean }) {
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog state={confirm.state} />
+      <ConfirmDialog state={dialogState} />
     </div>
   )
 }

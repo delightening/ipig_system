@@ -21,7 +21,7 @@ const EMPTY_FORM: CreateBuildingRequest = { facility_id: '', code: '', name: '',
 export function BuildingTab({ canManage }: { canManage: boolean }) {
   const queryClient = useQueryClient()
   const dialogs = useDialogSet(['create', 'edit'] as const)
-  const confirm = useConfirmDialog()
+  const { dialogState, confirm } = useConfirmDialog()
   const [editing, setEditing] = useState<BuildingWithFacility | null>(null)
   const [form, setForm] = useState<CreateBuildingRequest>(EMPTY_FORM)
 
@@ -61,13 +61,13 @@ export function BuildingTab({ canManage }: { canManage: boolean }) {
     dialogs.open('edit')
   }
 
-  const handleDelete = (b: BuildingWithFacility) => {
-    confirm.open({
+  const handleDelete = async (b: BuildingWithFacility) => {
+    const ok = await confirm({
       title: '刪除棟舍',
       description: `確定要刪除「${b.name}」嗎？`,
       variant: 'destructive',
-      onConfirm: () => deleteMutation.mutate(b.id),
     })
+    if (ok) deleteMutation.mutate(b.id)
   }
 
   const set = (k: keyof CreateBuildingRequest, v: string | number) => setForm(prev => ({ ...prev, [k]: v }))
@@ -159,7 +159,7 @@ export function BuildingTab({ canManage }: { canManage: boolean }) {
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog state={confirm.state} />
+      <ConfirmDialog state={dialogState} />
     </div>
   )
 }

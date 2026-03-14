@@ -22,7 +22,7 @@ const NONE_VALUE = '__none__'
 export function DepartmentTab({ canManage }: { canManage: boolean }) {
   const queryClient = useQueryClient()
   const dialogs = useDialogSet(['create', 'edit'] as const)
-  const confirm = useConfirmDialog()
+  const { dialogState, confirm } = useConfirmDialog()
   const [editing, setEditing] = useState<DepartmentWithManager | null>(null)
   const [form, setForm] = useState<CreateDepartmentRequest>(EMPTY_FORM)
 
@@ -65,13 +65,13 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
     dialogs.open('edit')
   }
 
-  const handleDelete = (d: DepartmentWithManager) => {
-    confirm.open({
+  const handleDelete = async (d: DepartmentWithManager) => {
+    const ok = await confirm({
       title: '刪除部門',
       description: `確定要刪除「${d.name}」嗎？`,
       variant: 'destructive',
-      onConfirm: () => deleteMutation.mutate(d.id),
     })
+    if (ok) deleteMutation.mutate(d.id)
   }
 
   const set = (k: keyof CreateDepartmentRequest, v: string | number | undefined) => setForm(prev => ({ ...prev, [k]: v }))
@@ -200,7 +200,7 @@ export function DepartmentTab({ canManage }: { canManage: boolean }) {
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog state={confirm.state} />
+      <ConfirmDialog state={dialogState} />
     </div>
   )
 }
