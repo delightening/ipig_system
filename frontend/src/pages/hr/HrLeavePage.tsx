@@ -242,6 +242,22 @@ export function HrLeavePage() {
     // 檢查是否為特休假（不需要填寫理由）
     const isAnnualLeave = leaveForm.isAnnualLeave
 
+    // 預填上次請假申請
+    const handlePrefillLastLeave = () => {
+        const last = myLeaves?.data?.[0]
+        if (!last) {
+            toast({ title: '無歷史紀錄', description: '找不到之前的請假記錄', variant: 'destructive' })
+            return
+        }
+        leaveForm.setForm(prev => ({
+            ...prev,
+            leaveType: last.leave_type,
+            reason: last.reason ?? '',
+            proxyUserId: last.proxy_user_id ?? '',
+        }))
+        toast({ title: '已預填', description: `已套用上次「${LEAVE_TYPE_NAMES[last.leave_type] ?? last.leave_type}」假別資訊` })
+    }
+
     const handleCreateLeave = () => {
         // 特休假不需要填寫理由，其他假別需要
         if (!leaveForm.form.leaveType || !leaveForm.form.startDate || !leaveForm.form.endDate) {
@@ -302,6 +318,19 @@ export function HrLeavePage() {
                             <DialogDescription>填寫請假資訊後送出審核</DialogDescription>
                         </DialogHeader>
                         <div className="grid gap-4 py-4">
+                            {myLeaves?.data && myLeaves.data.length > 0 && (
+                                <div className="flex justify-end">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handlePrefillLastLeave}
+                                        className="text-xs"
+                                    >
+                                        基於上次申請預填
+                                    </Button>
+                                </div>
+                            )}
                             <div className="grid gap-2">
                                 <Label>假別 *</Label>
                                 <Select value={leaveForm.form.leaveType} onValueChange={(v) => leaveForm.updateField('leaveType', v)}>

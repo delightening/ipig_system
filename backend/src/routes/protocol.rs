@@ -18,6 +18,7 @@ pub fn routes() -> Router<AppState> {
             get(handlers::get_protocol).put(handlers::update_protocol),
         )
         .route("/protocols/:id/submit", post(handlers::submit_protocol))
+        .route("/protocols/:id/copy", post(handlers::copy_protocol))
         .route(
             "/protocols/:id/status",
             post(handlers::change_protocol_status),

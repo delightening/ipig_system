@@ -188,6 +188,13 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 >
 > **更新慣例**：新項目請放在本區塊**最前面**（時間由近到遠），勿追加於末端。
 
+### 2026-03-14 R6-8 設施管理前端完整實作
+- ✅ **新增 `types/facility.ts`**：Species/Facility/Building/Zone/Pen/Department 6 組 TypeScript 型別（對應後端 models/facility.rs）
+- ✅ **新增 `lib/api/facility.ts`**：`facilityApi` 物件，涵蓋 6 個實體 × CRUD = 24 個 API 函式
+- ✅ **新增 `FacilitiesPage.tsx`**：主頁面 + 6 個子元件（SpeciesTab/FacilityTab/BuildingTab/ZoneTab/PenTab/DepartmentTab），每檔 < 200 行
+- ✅ **整合路由與導航**：`App.tsx` 加入 `/admin/facilities`，`Sidebar.tsx` 加入「設施管理」選項
+- 說明：Migration 010 及後端 handlers/services 已事先存在；本次補全前端，完成端對端功能
+
 ### 2026-03-14 修復資料庫遷移檔案編碼問題
 - ✅ **編碼修復**：修正 `backend/migrations/010_treatment_drug_final.sql` 包含非 UTF-8 字元（亂碼）的問題，解決 Docker 建置時 `sqlx::migrate!` 失敗。
 - ✅ **內容修正**：手動修正損壞的中文註解（設施管理、物種、建築等），統一檔案編碼為 UTF-8。
