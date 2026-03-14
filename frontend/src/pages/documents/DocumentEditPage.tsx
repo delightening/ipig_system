@@ -423,6 +423,7 @@ export function DocumentEditPage() {
         updateLineAmount={updateLineAmount}
         setFormData={setFormData}
         needsShelf={needsShelf}
+        poReceiptStatus={poReceiptStatus}
         categoryId={categoryId}
         setCategoryId={setCategoryId}
       />
