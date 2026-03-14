@@ -86,6 +86,7 @@ const ACCT_AR: &str = "1200";
 const ACCT_AP: &str = "2100";
 const ACCT_REVENUE: &str = "4100";
 const ACCT_COGS: &str = "5200";
+const ACCT_CASH: &str = "1100";
 
 pub struct AccountingService;
 
@@ -107,6 +108,8 @@ impl AccountingService {
         }
     }
 
+    // ─── 共用子函式 ───────────────────────────────────────
+
     async fn get_account_id(tx: &mut Transaction<'_, Postgres>, code: &str) -> Result<Option<Uuid>> {
         let row: Option<(Uuid,)> =
             sqlx::query_as("SELECT id FROM chart_of_accounts WHERE code = $1 AND is_active = true")
@@ -114,6 +117,17 @@ impl AccountingService {
                 .fetch_optional(&mut **tx)
                 .await?;
         Ok(row.map(|r| r.0))
+    }
+
+    /// 取得科目 ID，不存在時回傳 BusinessRule 錯誤
+    async fn require_account_id(
+        tx: &mut Transaction<'_, Postgres>,
+        code: &str,
+        label: &str,
+    ) -> Result<Uuid> {
+        Self::get_account_id(tx, code).await?.ok_or_else(|| {
+            AppError::BusinessRule(format!("會計科目 {} {} 不存在", code, label))
+        })
     }
 
     async fn next_entry_no(tx: &mut Transaction<'_, Postgres>) -> Result<String> {
@@ -125,90 +139,75 @@ impl AccountingService {
         Ok(format!("JE{:08}", n.0))
     }
 
-    async fn post_grn(
+    /// 新增傳票表頭
+    async fn insert_journal_entry(
         tx: &mut Transaction<'_, Postgres>,
-        document: &Document,
-        lines: &[DocumentLine],
-        approved_by: Uuid,
+        entry_id: Uuid,
+        entry_no: &str,
+        doc_date: NaiveDate,
+        description: String,
+        source_type: &str,
+        source_id: Uuid,
+        created_by: Uuid,
     ) -> Result<()> {
-        let inv_id = Self::get_account_id(tx, ACCT_INVENTORY).await?
-            .ok_or_else(|| AppError::BusinessRule("會計科目 1300 存貨 不存在".to_string()))?;
-        let ap_id = Self::get_account_id(tx, ACCT_AP).await?
-            .ok_or_else(|| AppError::BusinessRule("會計科目 2100 應付帳款 不存在".to_string()))?;
-
-        let entry_no = Self::next_entry_no(tx).await?;
-        let entry_id = Uuid::new_v4();
-
         sqlx::query(
             r#"
             INSERT INTO journal_entries (id, entry_no, entry_date, description, source_entity_type, source_entity_id, created_by, created_at)
-            VALUES ($1, $2, $3, $4, 'document', $5, $6, NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
             "#,
         )
         .bind(entry_id)
-        .bind(&entry_no)
-        .bind(document.doc_date)
-        .bind(format!("GRN 採購入庫 {}", document.doc_no))
-        .bind(document.id)
-        .bind(approved_by)
+        .bind(entry_no)
+        .bind(doc_date)
+        .bind(description)
+        .bind(source_type)
+        .bind(source_id)
+        .bind(created_by)
         .execute(&mut **tx)
         .await?;
-
-        let mut total = Decimal::ZERO;
-        for (i, line) in lines.iter().enumerate() {
-            let amount = line.qty * line.unit_price.unwrap_or(Decimal::ZERO);
-            total += amount;
-
-            sqlx::query(
-                r#"
-                INSERT INTO journal_entry_lines (id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, description)
-                VALUES (gen_random_uuid(), $1, $2, $3, $4, 0, $5)
-                "#,
-            )
-            .bind(entry_id)
-            .bind((i + 1) as i32)
-            .bind(inv_id)
-            .bind(amount)
-            .bind(format!("品項 {} 入庫", line.product_id))
-            .execute(&mut **tx)
-            .await?;
-        }
-
-        sqlx::query(
-            r#"
-            INSERT INTO journal_entry_lines (id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, description)
-            VALUES (gen_random_uuid(), $1, $2, $3, 0, $4, $5)
-            "#,
-        )
-        .bind(entry_id)
-        .bind((lines.len() + 1) as i32)
-        .bind(ap_id)
-        .bind(total)
-        .bind("應付供應商")
-        .execute(&mut **tx)
-        .await?;
-
         Ok(())
     }
 
-    async fn post_do(
+    /// 新增傳票分錄行
+    async fn insert_entry_line(
         tx: &mut Transaction<'_, Postgres>,
-        document: &Document,
-        lines: &[DocumentLine],
-        approved_by: Uuid,
+        entry_id: Uuid,
+        line_no: i32,
+        account_id: Uuid,
+        debit: Decimal,
+        credit: Decimal,
+        description: &str,
     ) -> Result<()> {
-        let ar_id = Self::get_account_id(tx, ACCT_AR).await?
-            .ok_or_else(|| AppError::BusinessRule("會計科目 1200 應收帳款 不存在".to_string()))?;
-        let rev_id = Self::get_account_id(tx, ACCT_REVENUE).await?
-            .ok_or_else(|| AppError::BusinessRule("會計科目 4100 銷貨收入 不存在".to_string()))?;
-        let cogs_id = Self::get_account_id(tx, ACCT_COGS).await?
-            .ok_or_else(|| AppError::BusinessRule("會計科目 5200 銷貨成本 不存在".to_string()))?;
-        let inv_id = Self::get_account_id(tx, ACCT_INVENTORY).await?
-            .ok_or_else(|| AppError::BusinessRule("會計科目 1300 存貨 不存在".to_string()))?;
+        sqlx::query(
+            r#"
+            INSERT INTO journal_entry_lines (id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, description)
+            VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6)
+            "#,
+        )
+        .bind(entry_id)
+        .bind(line_no)
+        .bind(account_id)
+        .bind(debit)
+        .bind(credit)
+        .bind(description)
+        .execute(&mut **tx)
+        .await?;
+        Ok(())
+    }
 
-        let entry_no = Self::next_entry_no(tx).await?;
-        let entry_id = Uuid::new_v4();
+    /// 計算明細行總金額（qty * unit_price）
+    fn calc_lines_total(lines: &[DocumentLine]) -> Decimal {
+        lines
+            .iter()
+            .map(|l| l.qty * l.unit_price.unwrap_or(Decimal::ZERO))
+            .sum()
+    }
 
+    /// 計算銷貨收入與銷貨成本（加權平均）
+    async fn calc_revenue_and_cogs(
+        tx: &mut Transaction<'_, Postgres>,
+        lines: &[DocumentLine],
+    ) -> Result<(Decimal, Decimal)> {
         let mut revenue_total = Decimal::ZERO;
         let mut cogs_total = Decimal::ZERO;
 
@@ -216,7 +215,6 @@ impl AccountingService {
             let price = line.unit_price.unwrap_or(Decimal::ZERO);
             revenue_total += line.qty * price;
 
-            // 銷貨成本：查詢加權平均成本，若無則 fallback 使用售價
             let avg_cost: Option<Decimal> = sqlx::query_scalar(
                 r#"
                 SELECT AVG(unit_cost) FILTER (WHERE unit_cost IS NOT NULL)
@@ -232,77 +230,59 @@ impl AccountingService {
             cogs_total += line.qty * cost;
         }
 
-        sqlx::query(
-            r#"
-            INSERT INTO journal_entries (id, entry_no, entry_date, description, source_entity_type, source_entity_id, created_by, created_at)
-            VALUES ($1, $2, $3, $4, 'document', $5, $6, NOW())
-            "#,
-        )
-        .bind(entry_id)
-        .bind(&entry_no)
-        .bind(document.doc_date)
-        .bind(format!("DO 銷貨出庫 {}", document.doc_no))
-        .bind(document.id)
-        .bind(approved_by)
-        .execute(&mut **tx)
-        .await?;
+        Ok((revenue_total, cogs_total))
+    }
 
-        let mut line_no = 1;
-        sqlx::query(
-            r#"
-            INSERT INTO journal_entry_lines (id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, description)
-            VALUES (gen_random_uuid(), $1, $2, $3, $4, 0, '應收帳款')
-            "#,
-        )
-        .bind(entry_id)
-        .bind(line_no)
-        .bind(ar_id)
-        .bind(revenue_total)
-        .execute(&mut **tx)
-        .await?;
-        line_no += 1;
+    // ─── 過帳函式 ─────────────────────────────────────────
 
-        sqlx::query(
-            r#"
-            INSERT INTO journal_entry_lines (id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, description)
-            VALUES (gen_random_uuid(), $1, $2, $3, 0, $4, '銷貨收入')
-            "#,
-        )
-        .bind(entry_id)
-        .bind(line_no)
-        .bind(rev_id)
-        .bind(revenue_total)
-        .execute(&mut **tx)
-        .await?;
-        line_no += 1;
+    async fn post_grn(
+        tx: &mut Transaction<'_, Postgres>,
+        document: &Document,
+        lines: &[DocumentLine],
+        approved_by: Uuid,
+    ) -> Result<()> {
+        let inv_id = Self::require_account_id(tx, ACCT_INVENTORY, "存貨").await?;
+        let ap_id = Self::require_account_id(tx, ACCT_AP, "應付帳款").await?;
 
-        sqlx::query(
-            r#"
-            INSERT INTO journal_entry_lines (id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, description)
-            VALUES (gen_random_uuid(), $1, $2, $3, $4, 0, '銷貨成本')
-            "#,
-        )
-        .bind(entry_id)
-        .bind(line_no)
-        .bind(cogs_id)
-        .bind(cogs_total)
-        .execute(&mut **tx)
-        .await?;
-        line_no += 1;
+        let entry_no = Self::next_entry_no(tx).await?;
+        let entry_id = Uuid::new_v4();
+        let desc = format!("GRN 採購入庫 {}", document.doc_no);
+        Self::insert_journal_entry(tx, entry_id, &entry_no, document.doc_date, desc, "document", document.id, approved_by).await?;
 
-        sqlx::query(
-            r#"
-            INSERT INTO journal_entry_lines (id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, description)
-            VALUES (gen_random_uuid(), $1, $2, $3, 0, $4, '存貨減項')
-            "#,
-        )
-        .bind(entry_id)
-        .bind(line_no)
-        .bind(inv_id)
-        .bind(cogs_total)
-        .execute(&mut **tx)
-        .await?;
+        let mut total = Decimal::ZERO;
+        for (i, line) in lines.iter().enumerate() {
+            let amount = line.qty * line.unit_price.unwrap_or(Decimal::ZERO);
+            total += amount;
+            let line_desc = format!("品項 {} 入庫", line.product_id);
+            Self::insert_entry_line(tx, entry_id, (i + 1) as i32, inv_id, amount, Decimal::ZERO, &line_desc).await?;
+        }
 
+        Self::insert_entry_line(tx, entry_id, (lines.len() + 1) as i32, ap_id, Decimal::ZERO, total, "應付供應商").await?;
+        Ok(())
+    }
+
+    async fn post_do(
+        tx: &mut Transaction<'_, Postgres>,
+        document: &Document,
+        lines: &[DocumentLine],
+        approved_by: Uuid,
+    ) -> Result<()> {
+        let ar_id = Self::require_account_id(tx, ACCT_AR, "應收帳款").await?;
+        let rev_id = Self::require_account_id(tx, ACCT_REVENUE, "銷貨收入").await?;
+        let cogs_id = Self::require_account_id(tx, ACCT_COGS, "銷貨成本").await?;
+        let inv_id = Self::require_account_id(tx, ACCT_INVENTORY, "存貨").await?;
+
+        let (revenue_total, cogs_total) = Self::calc_revenue_and_cogs(tx, lines).await?;
+
+        let entry_no = Self::next_entry_no(tx).await?;
+        let entry_id = Uuid::new_v4();
+        let desc = format!("DO 銷貨出庫 {}", document.doc_no);
+        Self::insert_journal_entry(tx, entry_id, &entry_no, document.doc_date, desc, "document", document.id, approved_by).await?;
+
+        Self::insert_entry_line(tx, entry_id, 1, ar_id, revenue_total, Decimal::ZERO, "應收帳款").await?;
+        Self::insert_entry_line(tx, entry_id, 2, rev_id, Decimal::ZERO, revenue_total, "銷貨收入").await?;
+        Self::insert_entry_line(tx, entry_id, 3, cogs_id, cogs_total, Decimal::ZERO, "銷貨成本").await?;
+        Self::insert_entry_line(tx, entry_id, 4, inv_id, Decimal::ZERO, cogs_total, "存貨減項").await?;
         Ok(())
     }
 
@@ -314,61 +294,20 @@ impl AccountingService {
         lines: &[DocumentLine],
         approved_by: Uuid,
     ) -> Result<()> {
-        let ap_id = Self::get_account_id(tx, ACCT_AP).await?
-            .ok_or_else(|| AppError::BusinessRule("會計科目 2100 應付帳款 不存在".to_string()))?;
-        let inv_id = Self::get_account_id(tx, ACCT_INVENTORY).await?
-            .ok_or_else(|| AppError::BusinessRule("會計科目 1300 存貨 不存在".to_string()))?;
+        let ap_id = Self::require_account_id(tx, ACCT_AP, "應付帳款").await?;
+        let inv_id = Self::require_account_id(tx, ACCT_INVENTORY, "存貨").await?;
 
         let entry_no = Self::next_entry_no(tx).await?;
         let entry_id = Uuid::new_v4();
+        let total = Self::calc_lines_total(lines);
 
-        let mut total = Decimal::ZERO;
-        for line in lines {
-            let amount = line.qty * line.unit_price.unwrap_or(Decimal::ZERO);
-            total += amount;
-        }
-
-        sqlx::query(
-            r#"
-            INSERT INTO journal_entries (id, entry_no, entry_date, description, source_entity_type, source_entity_id, created_by, created_at)
-            VALUES ($1, $2, $3, $4, 'document', $5, $6, NOW())
-            "#,
-        )
-        .bind(entry_id)
-        .bind(&entry_no)
-        .bind(document.doc_date)
-        .bind(format!("PR 採購退貨 {}", document.doc_no))
-        .bind(document.id)
-        .bind(approved_by)
-        .execute(&mut **tx)
-        .await?;
+        let desc = format!("PR 採購退貨 {}", document.doc_no);
+        Self::insert_journal_entry(tx, entry_id, &entry_no, document.doc_date, desc, "document", document.id, approved_by).await?;
 
         // 借：應付帳款（減少負債）
-        sqlx::query(
-            r#"
-            INSERT INTO journal_entry_lines (id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, description)
-            VALUES (gen_random_uuid(), $1, 1, $2, $3, 0, '沖銷應付帳款')
-            "#,
-        )
-        .bind(entry_id)
-        .bind(ap_id)
-        .bind(total)
-        .execute(&mut **tx)
-        .await?;
-
+        Self::insert_entry_line(tx, entry_id, 1, ap_id, total, Decimal::ZERO, "沖銷應付帳款").await?;
         // 貸：存貨（退回品項）
-        sqlx::query(
-            r#"
-            INSERT INTO journal_entry_lines (id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, description)
-            VALUES (gen_random_uuid(), $1, 2, $2, 0, $3, '退回存貨')
-            "#,
-        )
-        .bind(entry_id)
-        .bind(inv_id)
-        .bind(total)
-        .execute(&mut **tx)
-        .await?;
-
+        Self::insert_entry_line(tx, entry_id, 2, inv_id, Decimal::ZERO, total, "退回存貨").await?;
         Ok(())
     }
 
@@ -380,119 +319,30 @@ impl AccountingService {
         lines: &[DocumentLine],
         approved_by: Uuid,
     ) -> Result<()> {
-        let ar_id = Self::get_account_id(tx, ACCT_AR).await?
-            .ok_or_else(|| AppError::BusinessRule("會計科目 1200 應收帳款 不存在".to_string()))?;
-        let rev_id = Self::get_account_id(tx, ACCT_REVENUE).await?
-            .ok_or_else(|| AppError::BusinessRule("會計科目 4100 銷貨收入 不存在".to_string()))?;
-        let cogs_id = Self::get_account_id(tx, ACCT_COGS).await?
-            .ok_or_else(|| AppError::BusinessRule("會計科目 5200 銷貨成本 不存在".to_string()))?;
-        let inv_id = Self::get_account_id(tx, ACCT_INVENTORY).await?
-            .ok_or_else(|| AppError::BusinessRule("會計科目 1300 存貨 不存在".to_string()))?;
+        let ar_id = Self::require_account_id(tx, ACCT_AR, "應收帳款").await?;
+        let rev_id = Self::require_account_id(tx, ACCT_REVENUE, "銷貨收入").await?;
+        let cogs_id = Self::require_account_id(tx, ACCT_COGS, "銷貨成本").await?;
+        let inv_id = Self::require_account_id(tx, ACCT_INVENTORY, "存貨").await?;
+
+        let (revenue_total, cogs_total) = Self::calc_revenue_and_cogs(tx, lines).await?;
 
         let entry_no = Self::next_entry_no(tx).await?;
         let entry_id = Uuid::new_v4();
-
-        let mut revenue_total = Decimal::ZERO;
-        let mut cogs_total = Decimal::ZERO;
-
-        for line in lines {
-            let price = line.unit_price.unwrap_or(Decimal::ZERO);
-            revenue_total += line.qty * price;
-
-            // 成本使用加權平均
-            let avg_cost: Option<Decimal> = sqlx::query_scalar(
-                r#"
-                SELECT AVG(unit_cost) FILTER (WHERE unit_cost IS NOT NULL)
-                FROM stock_ledger
-                WHERE product_id = $1 AND direction IN ('in', 'transfer_in', 'adjust_in')
-                "#,
-            )
-            .bind(line.product_id)
-            .fetch_one(&mut **tx)
-            .await?;
-
-            let cost = avg_cost.unwrap_or(price);
-            cogs_total += line.qty * cost;
-        }
-
-        sqlx::query(
-            r#"
-            INSERT INTO journal_entries (id, entry_no, entry_date, description, source_entity_type, source_entity_id, created_by, created_at)
-            VALUES ($1, $2, $3, $4, 'document', $5, $6, NOW())
-            "#,
-        )
-        .bind(entry_id)
-        .bind(&entry_no)
-        .bind(document.doc_date)
-        .bind(format!("SR 銷貨退貨 {}", document.doc_no))
-        .bind(document.id)
-        .bind(approved_by)
-        .execute(&mut **tx)
-        .await?;
-
-        let mut line_no = 1;
+        let desc = format!("SR 銷貨退貨 {}", document.doc_no);
+        Self::insert_journal_entry(tx, entry_id, &entry_no, document.doc_date, desc, "document", document.id, approved_by).await?;
 
         // 借：銷貨收入（沖銷收入）
-        sqlx::query(
-            r#"
-            INSERT INTO journal_entry_lines (id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, description)
-            VALUES (gen_random_uuid(), $1, $2, $3, $4, 0, '沖銷銷貨收入')
-            "#,
-        )
-        .bind(entry_id)
-        .bind(line_no)
-        .bind(rev_id)
-        .bind(revenue_total)
-        .execute(&mut **tx)
-        .await?;
-        line_no += 1;
-
+        Self::insert_entry_line(tx, entry_id, 1, rev_id, revenue_total, Decimal::ZERO, "沖銷銷貨收入").await?;
         // 貸：應收帳款（減少應收）
-        sqlx::query(
-            r#"
-            INSERT INTO journal_entry_lines (id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, description)
-            VALUES (gen_random_uuid(), $1, $2, $3, 0, $4, '沖銷應收帳款')
-            "#,
-        )
-        .bind(entry_id)
-        .bind(line_no)
-        .bind(ar_id)
-        .bind(revenue_total)
-        .execute(&mut **tx)
-        .await?;
-        line_no += 1;
-
+        Self::insert_entry_line(tx, entry_id, 2, ar_id, Decimal::ZERO, revenue_total, "沖銷應收帳款").await?;
         // 借：存貨（退回品項）
-        sqlx::query(
-            r#"
-            INSERT INTO journal_entry_lines (id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, description)
-            VALUES (gen_random_uuid(), $1, $2, $3, $4, 0, '退回存貨')
-            "#,
-        )
-        .bind(entry_id)
-        .bind(line_no)
-        .bind(inv_id)
-        .bind(cogs_total)
-        .execute(&mut **tx)
-        .await?;
-        line_no += 1;
-
+        Self::insert_entry_line(tx, entry_id, 3, inv_id, cogs_total, Decimal::ZERO, "退回存貨").await?;
         // 貸：銷貨成本（沖銷成本）
-        sqlx::query(
-            r#"
-            INSERT INTO journal_entry_lines (id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, description)
-            VALUES (gen_random_uuid(), $1, $2, $3, 0, $4, '沖銷銷貨成本')
-            "#,
-        )
-        .bind(entry_id)
-        .bind(line_no)
-        .bind(cogs_id)
-        .bind(cogs_total)
-        .execute(&mut **tx)
-        .await?;
-
+        Self::insert_entry_line(tx, entry_id, 4, cogs_id, Decimal::ZERO, cogs_total, "沖銷銷貨成本").await?;
         Ok(())
     }
+
+    // ─── 查詢函式 ─────────────────────────────────────────
 
     /// 列出會計科目
     pub async fn list_chart_of_accounts(pool: &PgPool) -> Result<Vec<ChartOfAccount>> {
@@ -668,6 +518,32 @@ impl AccountingService {
         Ok(rows)
     }
 
+    // ─── AP/AR 付款收款 ───────────────────────────────────
+
+    /// 建立 AP/AR 的傳票分錄（借方與貸方），回傳 entry_id
+    async fn insert_cash_journal(
+        tx: &mut Transaction<'_, Postgres>,
+        entry_date: NaiveDate,
+        description: String,
+        source_type: &str,
+        source_id: Uuid,
+        debit_account_id: Uuid,
+        credit_account_id: Uuid,
+        amount: Decimal,
+        debit_desc: &str,
+        credit_desc: &str,
+        created_by: Uuid,
+    ) -> Result<Uuid> {
+        let entry_no = Self::next_entry_no(tx).await?;
+        let entry_id = Uuid::new_v4();
+
+        Self::insert_journal_entry(tx, entry_id, &entry_no, entry_date, description, source_type, source_id, created_by).await?;
+        Self::insert_entry_line(tx, entry_id, 1, debit_account_id, amount, Decimal::ZERO, debit_desc).await?;
+        Self::insert_entry_line(tx, entry_id, 2, credit_account_id, Decimal::ZERO, amount, credit_desc).await?;
+
+        Ok(entry_id)
+    }
+
     /// 建立 AP 付款並過帳（借：應付 2100，貸：現金 1100）
     pub async fn create_ap_payment(
         pool: &PgPool,
@@ -684,63 +560,14 @@ impl AccountingService {
                 .fetch_one(&mut *tx)
                 .await?
         );
-        let ap_id = Self::get_account_id(&mut tx, ACCT_AP).await?
-            .ok_or_else(|| AppError::BusinessRule("會計科目 2100 應付帳款 不存在".to_string()))?;
-        let cash_id = Self::get_account_id(&mut tx, "1100").await?
-            .ok_or_else(|| AppError::BusinessRule("會計科目 1100 現金 不存在".to_string()))?;
+        let ap_id = Self::require_account_id(&mut tx, ACCT_AP, "應付帳款").await?;
+        let cash_id = Self::require_account_id(&mut tx, ACCT_CASH, "現金").await?;
 
-        let entry_no = Self::next_entry_no(&mut tx).await?;
-        let entry_id = Uuid::new_v4();
         let payment_id = Uuid::new_v4();
+        let desc = format!("AP 應付帳款付款 {}", payment_no);
+        let entry_id = Self::insert_cash_journal(&mut tx, payment_date, desc, "ap_payment", payment_id, ap_id, cash_id, amount, "應付帳款", "現金", created_by).await?;
 
-        sqlx::query(
-            r#"INSERT INTO journal_entries (id, entry_no, entry_date, description, source_entity_type, source_entity_id, created_by, created_at)
-               VALUES ($1, $2, $3, $4, 'ap_payment', $5, $6, NOW())"#,
-        )
-        .bind(entry_id)
-        .bind(&entry_no)
-        .bind(payment_date)
-        .bind(format!("AP 應付帳款付款 {}", payment_no))
-        .bind(payment_id)
-        .bind(created_by)
-        .execute(&mut *tx)
-        .await?;
-
-        sqlx::query(
-            r#"INSERT INTO journal_entry_lines (id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, description)
-               VALUES (gen_random_uuid(), $1, 1, $2, $3, 0, '應付帳款')"#,
-        )
-        .bind(entry_id)
-        .bind(ap_id)
-        .bind(amount)
-        .execute(&mut *tx)
-        .await?;
-
-        sqlx::query(
-            r#"INSERT INTO journal_entry_lines (id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, description)
-               VALUES (gen_random_uuid(), $1, 2, $2, 0, $3, '現金')"#,
-        )
-        .bind(entry_id)
-        .bind(cash_id)
-        .bind(amount)
-        .execute(&mut *tx)
-        .await?;
-
-        sqlx::query(
-            r#"INSERT INTO ap_payments (id, payment_no, partner_id, payment_date, amount, reference, journal_entry_id, created_by)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"#,
-        )
-        .bind(payment_id)
-        .bind(&payment_no)
-        .bind(partner_id)
-        .bind(payment_date)
-        .bind(amount)
-        .bind(reference)
-        .bind(entry_id)
-        .bind(created_by)
-        .execute(&mut *tx)
-        .await?;
-
+        Self::insert_ap_payment_record(&mut tx, payment_id, &payment_no, partner_id, payment_date, amount, reference, entry_id, created_by).await?;
         tx.commit().await?;
         Ok(payment_id)
     }
@@ -761,66 +588,75 @@ impl AccountingService {
                 .fetch_one(&mut *tx)
                 .await?
         );
-        let ar_id = Self::get_account_id(&mut tx, ACCT_AR).await?
-            .ok_or_else(|| AppError::BusinessRule("會計科目 1200 應收帳款 不存在".to_string()))?;
-        let cash_id = Self::get_account_id(&mut tx, "1100").await?
-            .ok_or_else(|| AppError::BusinessRule("會計科目 1100 現金 不存在".to_string()))?;
+        let ar_id = Self::require_account_id(&mut tx, ACCT_AR, "應收帳款").await?;
+        let cash_id = Self::require_account_id(&mut tx, ACCT_CASH, "現金").await?;
 
-        let entry_no = Self::next_entry_no(&mut tx).await?;
-        let entry_id = Uuid::new_v4();
         let receipt_id = Uuid::new_v4();
+        let desc = format!("AR 應收帳款收款 {}", receipt_no);
+        let entry_id = Self::insert_cash_journal(&mut tx, receipt_date, desc, "ar_receipt", receipt_id, cash_id, ar_id, amount, "現金", "應收帳款", created_by).await?;
 
+        Self::insert_ar_receipt_record(&mut tx, receipt_id, &receipt_no, partner_id, receipt_date, amount, reference, entry_id, created_by).await?;
+        tx.commit().await?;
+        Ok(receipt_id)
+    }
+
+    async fn insert_ap_payment_record(
+        tx: &mut Transaction<'_, Postgres>,
+        payment_id: Uuid,
+        payment_no: &str,
+        partner_id: Uuid,
+        payment_date: NaiveDate,
+        amount: Decimal,
+        reference: Option<String>,
+        entry_id: Uuid,
+        created_by: Uuid,
+    ) -> Result<()> {
         sqlx::query(
-            r#"INSERT INTO journal_entries (id, entry_no, entry_date, description, source_entity_type, source_entity_id, created_by, created_at)
-               VALUES ($1, $2, $3, $4, 'ar_receipt', $5, $6, NOW())"#,
+            r#"INSERT INTO ap_payments (id, payment_no, partner_id, payment_date, amount, reference, journal_entry_id, created_by)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"#,
         )
+        .bind(payment_id)
+        .bind(payment_no)
+        .bind(partner_id)
+        .bind(payment_date)
+        .bind(amount)
+        .bind(reference)
         .bind(entry_id)
-        .bind(&entry_no)
-        .bind(receipt_date)
-        .bind(format!("AR 應收帳款收款 {}", receipt_no))
-        .bind(receipt_id)
         .bind(created_by)
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await?;
+        Ok(())
+    }
 
-        sqlx::query(
-            r#"INSERT INTO journal_entry_lines (id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, description)
-               VALUES (gen_random_uuid(), $1, 1, $2, $3, 0, '現金')"#,
-        )
-        .bind(entry_id)
-        .bind(cash_id)
-        .bind(amount)
-        .execute(&mut *tx)
-        .await?;
-
-        sqlx::query(
-            r#"INSERT INTO journal_entry_lines (id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, description)
-               VALUES (gen_random_uuid(), $1, 2, $2, 0, $3, '應收帳款')"#,
-        )
-        .bind(entry_id)
-        .bind(ar_id)
-        .bind(amount)
-        .execute(&mut *tx)
-        .await?;
-
+    async fn insert_ar_receipt_record(
+        tx: &mut Transaction<'_, Postgres>,
+        receipt_id: Uuid,
+        receipt_no: &str,
+        partner_id: Uuid,
+        receipt_date: NaiveDate,
+        amount: Decimal,
+        reference: Option<String>,
+        entry_id: Uuid,
+        created_by: Uuid,
+    ) -> Result<()> {
         sqlx::query(
             r#"INSERT INTO ar_receipts (id, receipt_no, partner_id, receipt_date, amount, reference, journal_entry_id, created_by)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"#,
         )
         .bind(receipt_id)
-        .bind(&receipt_no)
+        .bind(receipt_no)
         .bind(partner_id)
         .bind(receipt_date)
         .bind(amount)
         .bind(reference)
         .bind(entry_id)
         .bind(created_by)
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await?;
-
-        tx.commit().await?;
-        Ok(receipt_id)
+        Ok(())
     }
+
+    // ─── 損益表 ───────────────────────────────────────────
 
     /// 損益表（指定日期範圍內的收入與費用摘要）
     pub async fn get_profit_loss(
@@ -828,6 +664,15 @@ impl AccountingService {
         date_from: Option<NaiveDate>,
         date_to: Option<NaiveDate>,
     ) -> Result<ProfitLossSummary> {
+        let rows = Self::query_profit_loss_rows(pool, date_from, date_to).await?;
+        Ok(Self::summarize_profit_loss(rows))
+    }
+
+    async fn query_profit_loss_rows(
+        pool: &PgPool,
+        date_from: Option<NaiveDate>,
+        date_to: Option<NaiveDate>,
+    ) -> Result<Vec<ProfitLossRow>> {
         let mut qb = sqlx::QueryBuilder::new(
             r#"
             SELECT
@@ -860,24 +705,27 @@ impl AccountingService {
         qb.push(" GROUP BY coa.id, coa.code, coa.name, coa.account_type ORDER BY coa.code");
 
         let rows: Vec<ProfitLossRow> = qb.build_query_as().fetch_all(pool).await?;
+        Ok(rows)
+    }
 
-        let total_revenue = rows
+    fn summarize_profit_loss(rows: Vec<ProfitLossRow>) -> ProfitLossSummary {
+        let total_revenue: Decimal = rows
             .iter()
             .filter(|r| r.account_type == "revenue")
             .map(|r| r.amount)
             .sum();
-        let total_expense = rows
+        let total_expense: Decimal = rows
             .iter()
             .filter(|r| r.account_type == "expense")
             .map(|r| r.amount)
             .sum();
 
-        Ok(ProfitLossSummary {
+        ProfitLossSummary {
             rows,
             total_revenue,
             total_expense,
             net_income: total_revenue - total_expense,
-        })
+        }
     }
 }
 
