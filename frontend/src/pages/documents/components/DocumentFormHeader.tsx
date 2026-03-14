@@ -30,7 +30,7 @@ export function DocumentFormHeader({
         <p className="text-muted-foreground">
           {isEdit 
             ? `編輯現有的 ${docTypeName || '單據'}` 
-            : (docTypeName ? `建立新的 ${docTypeName}` : '請選擇單據類型以開始')}
+            : `建立新的 ${docTypeName || '單據'}`}
         </p>
       </div>
       <div className="flex gap-2">
