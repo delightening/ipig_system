@@ -590,6 +590,8 @@ impl StockService {
                     END
                 ), 0) as qty_on_hand,
                 AVG(sl.unit_cost) as avg_cost,
+                NULL::varchar as batch_no,
+                NULL::date as expiry_date,
                 p.safety_stock,
                 p.reorder_point
             FROM warehouses w

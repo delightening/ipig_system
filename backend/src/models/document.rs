@@ -246,6 +246,7 @@ pub struct DocumentListItem {
     pub doc_no: String,
     pub status: DocStatus,
     pub warehouse_name: Option<String>,
+    pub partner_id: Option<Uuid>,
     pub partner_name: Option<String>,
     pub doc_date: NaiveDate,
     pub created_by_name: String,

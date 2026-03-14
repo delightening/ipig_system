@@ -90,10 +90,10 @@ export function DocumentEditPage() {
   } = useDocumentForm({ defaultType })
 
   const { data: allDocuments } = useQuery({
-    queryKey: ['documents', { doc_type: 'PO', status: 'APPROVED' }],
+    queryKey: ['documents', { doc_type: 'PO', status: 'approved' }],
     queryFn: async () => {
-      const response = await api.get('/documents?doc_type=PO&status=APPROVED')
-      return (response.data as any).items || []
+      const response = await api.get('/documents?doc_type=PO&status=approved')
+      return response.data || []
     },
     enabled: formData.doc_type === 'GRN',
     staleTime: 60000,
