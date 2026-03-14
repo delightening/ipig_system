@@ -465,9 +465,9 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
       unit_price: '',
       batch_no: '',
       expiry_date: '',
-      storage_location_id: '',
-      storage_location_from_id: '',
-      storage_location_to_id: '',
+      storage_location_id: batchStorageLocationId || '',
+      storage_location_from_id: batchStorageLocationFromId || '',
+      storage_location_to_id: batchStorageLocationToId || '',
       remark: '',
     }
     setFormData((prev) => ({ ...prev, lines: [...currentLines, newLine] }))
