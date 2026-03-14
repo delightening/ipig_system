@@ -41,22 +41,32 @@ impl DocumentService {
                 ));
             }
 
-            // 強制檢查批號與效期 (特定單據類型)
+            // 強制檢查批號與效期 (特定單據類型結合品項設定)
             if req.doc_type.requires_batch_expiry() {
                 for (idx, line) in req.lines.iter().enumerate() {
-                    if line.batch_no.as_ref().map_or(true, |s| s.trim().is_empty()) {
-                        return Err(AppError::Validation(format!(
-                            "Line {}: Batch No is required for {}",
-                            idx + 1,
-                            req.doc_type.prefix()
-                        )));
-                    }
-                    if line.expiry_date.is_none() {
-                        return Err(AppError::Validation(format!(
-                            "Line {}: Expiry Date is required for {}",
-                            idx + 1,
-                            req.doc_type.prefix()
-                        )));
+                    // 查詢品項設定
+                    let product: Option<(bool, bool)> = sqlx::query_as(
+                        "SELECT track_batch, track_expiry FROM products WHERE id = $1"
+                    )
+                    .bind(line.product_id)
+                    .fetch_optional(&mut *tx)
+                    .await?;
+
+                    if let Some((track_batch, track_expiry)) = product {
+                        if track_batch && line.batch_no.as_ref().map_or(true, |s| s.trim().is_empty()) {
+                            return Err(AppError::Validation(format!(
+                                "Line {}: Batch No is required for {} when product tracks batch",
+                                idx + 1,
+                                req.doc_type.prefix()
+                            )));
+                        }
+                        if track_expiry && line.expiry_date.is_none() {
+                            return Err(AppError::Validation(format!(
+                                "Line {}: Expiry Date is required for {} when product tracks expiry",
+                                idx + 1,
+                                req.doc_type.prefix()
+                            )));
+                        }
                     }
                 }
             }
@@ -190,21 +200,31 @@ impl DocumentService {
                     )));
                 }
 
-                // 強制檢查批號與效期 (特定單據類型)
+                // 強制檢查批號與效期 (特定單據類型結合品項設定)
                 if existing.doc_type.requires_batch_expiry() {
-                    if line.batch_no.as_ref().map_or(true, |s| s.trim().is_empty()) {
-                        return Err(AppError::Validation(format!(
-                            "Line {}: Batch No is required for {}",
-                            idx + 1,
-                            existing.doc_type.prefix()
-                        )));
-                    }
-                    if line.expiry_date.is_none() {
-                        return Err(AppError::Validation(format!(
-                            "Line {}: Expiry Date is required for {}",
-                            idx + 1,
-                            existing.doc_type.prefix()
-                        )));
+                    // 查詢品項設定
+                    let product: Option<(bool, bool)> = sqlx::query_as(
+                        "SELECT track_batch, track_expiry FROM products WHERE id = $1"
+                    )
+                    .bind(line.product_id)
+                    .fetch_optional(&mut *tx)
+                    .await?;
+
+                    if let Some((track_batch, track_expiry)) = product {
+                        if track_batch && line.batch_no.as_ref().map_or(true, |s| s.trim().is_empty()) {
+                            return Err(AppError::Validation(format!(
+                                "Line {}: Batch No is required for {} when product tracks batch",
+                                idx + 1,
+                                existing.doc_type.prefix()
+                            )));
+                        }
+                        if track_expiry && line.expiry_date.is_none() {
+                            return Err(AppError::Validation(format!(
+                                "Line {}: Expiry Date is required for {} when product tracks expiry",
+                                idx + 1,
+                                existing.doc_type.prefix()
+                            )));
+                        }
                     }
                 }
 
