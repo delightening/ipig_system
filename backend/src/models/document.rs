@@ -116,6 +116,9 @@ pub struct Document {
     /// IACUC 計畫編號（專案費用歸屬）
     #[sqlx(default)]
     pub iacuc_no: Option<String>,
+    /// 銷貨計畫 ID（SO/DO 直接關聯計畫，取代手動建立客戶）
+    #[sqlx(default)]
+    pub protocol_id: Option<Uuid>,
     // 主管簽核相關欄位 (報廢金額超過門檻時使用)
     #[sqlx(default)]
     pub requires_manager_approval: Option<bool>,
@@ -163,6 +166,8 @@ pub struct CreateDocumentRequest {
     pub stocktake_scope: Option<serde_json::Value>,
     /// IACUC 計畫編號（專案費用歸屬）
     pub iacuc_no: Option<String>,
+    /// 銷貨計畫 ID（SO/DO 使用）
+    pub protocol_id: Option<Uuid>,
     /// 單據明細（盤點單可選，會根據範圍自動生成）
     #[serde(default)]
     pub lines: Vec<DocumentLineInput>,
@@ -188,6 +193,7 @@ pub struct UpdateDocumentRequest {
     pub warehouse_from_id: Option<Uuid>,
     pub warehouse_to_id: Option<Uuid>,
     pub partner_id: Option<Uuid>,
+    pub protocol_id: Option<Uuid>,
     pub source_doc_id: Option<Uuid>,
     pub doc_date: Option<NaiveDate>,
     pub remark: Option<String>,
@@ -219,6 +225,8 @@ pub struct DocumentWithLines {
     pub warehouse_from_name: Option<String>,
     pub warehouse_to_name: Option<String>,
     pub partner_name: Option<String>,
+    /// 銷貨計畫編號（protocol_id 對應）
+    pub protocol_no: Option<String>,
     pub created_by_name: String,
     pub approved_by_name: Option<String>,
 }
@@ -251,6 +259,8 @@ pub struct DocumentListItem {
     pub warehouse_name: Option<String>,
     pub partner_id: Option<Uuid>,
     pub partner_name: Option<String>,
+    pub protocol_id: Option<Uuid>,
+    pub protocol_no: Option<String>,
     pub doc_date: NaiveDate,
     pub created_by_name: String,
     pub approved_by_name: Option<String>,

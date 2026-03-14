@@ -51,12 +51,11 @@ export function DocumentEditPage() {
     loadingProtocols,
     products,
     warehouses,
-    partners,
     activeProtocols,
     filteredPartners,
     needsPartner,
+    needsProtocol,
     isTransfer,
-    partnerType,
     totalAmount,
     addLine,
     removeLine,
@@ -65,16 +64,15 @@ export function DocumentEditPage() {
     handleBatchChange,
     handleLineBlur,
     handleBack,
+    handleProtocolSelect,
     handleIacucNoSelect,
     updateLineAmount,
-    createOrFindCustomerMutation,
     saveMutation,
     submitMutation,
     setFormData,
     showIacucWarning,
     setShowIacucWarning,
     iacucWarningData,
-    isIacucRequired,
     iacucDisabled,
     needsShelf: needsShelf,
     batchStorageLocationId,
@@ -101,7 +99,7 @@ export function DocumentEditPage() {
 
   const availableSourcePos = React.useMemo(() => {
     if (!allDocuments || !formData.partner_id) return []
-    return (allDocuments as any[]).filter(d => d.partner_id === formData.partner_id)
+    return (allDocuments as any[]).filter((d: any) => d.partner_id === formData.partner_id)
   }, [allDocuments, formData.partner_id])
 
   const showTotalAmount = ['PO', 'GRN', 'DO'].includes(formData.doc_type)
@@ -266,25 +264,22 @@ export function DocumentEditPage() {
               </div>
             )}
 
-            {needsPartner && !isIacucRequired && (
+            {/* 採購類：選擇供應商 */}
+            {needsPartner && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>
-                    {partnerType === 'supplier' ? '供應商 *' : '客戶 *'}
-                  </Label>
+                  <Label>供應商 *</Label>
                   <Select
                     value={formData.partner_id}
                     onValueChange={(v) => {
                       updateField('partner_id', v)
                       if (formData.doc_type === 'GRN') {
-                        updateField('source_doc_id', '') // 切換供應商時重設來源單據
+                        updateField('source_doc_id', '')
                       }
                     }}
                   >
                     <SelectTrigger>
-                      <SelectValue
-                        placeholder={`選擇${partnerType === 'supplier' ? '供應商' : '客戶'}`}
-                      />
+                      <SelectValue placeholder="選擇供應商" />
                     </SelectTrigger>
                     <SelectContent>
                       {!filteredPartners ? (
@@ -294,7 +289,7 @@ export function DocumentEditPage() {
                         </div>
                       ) : filteredPartners.length === 0 ? (
                         <div className="p-2 text-sm text-muted-foreground text-center">
-                          無可用數據
+                          無可用供應商
                         </div>
                       ) : (
                         filteredPartners.map((partner) => (
@@ -337,53 +332,77 @@ export function DocumentEditPage() {
               </div>
             )}
 
-            {needsPartner && (
-              <div className="grid grid-cols-1 gap-4">
+            {/* 銷貨類：直接選已核准計畫（計畫即客戶） */}
+            {needsProtocol && (
+              <div className="space-y-2">
+                <Label>銷貨計畫 *</Label>
+                <Select
+                  value={formData.protocol_id || ''}
+                  onValueChange={handleProtocolSelect}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="選擇計畫（已核准、未結案）" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {loadingProtocols ? (
+                      <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        載入中...
+                      </div>
+                    ) : activeProtocols && activeProtocols.length > 0 ? (
+                      activeProtocols.map((protocol) => (
+                        <SelectItem key={protocol.id} value={protocol.id}>
+                          {protocol.iacuc_no || protocol.protocol_no} - {protocol.title}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="p-2 text-sm text-muted-foreground text-center">
+                        無已核准之進行中計畫
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
-                {!iacucDisabled && (
-                  <div className="space-y-2">
-                    <Label>
-                      {isIacucRequired ? 'IACUC No. *' : '專屬計畫 (選填)'}
-                    </Label>
-                    <Select
-                      value={formData.protocol_no || ''}
-                      onValueChange={handleIacucNoSelect}
-                      disabled={createOrFindCustomerMutation.isPending}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="選擇IACUC No." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {loadingProtocols ? (
-                          <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            載入中...
-                          </div>
-                        ) : activeProtocols && activeProtocols.length > 0 ? (
-                          <>
-                            {!isIacucRequired && (
-                              <SelectItem value="PUBLIC">
-                                --- 公用 (無特定計畫) ---
-                              </SelectItem>
-                            )}
-                            {activeProtocols.map((protocol) => (
-                              <SelectItem
-                                key={protocol.iacuc_no}
-                                value={protocol.iacuc_no || ''}
-                              >
-                                {protocol.iacuc_no} - {protocol.title}
-                              </SelectItem>
-                            ))}
-                          </>
-                        ) : (
-                          <div className="p-2 text-sm text-muted-foreground text-center">
-                            無可用計畫
-                          </div>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+            {/* 採購類：選填 IACUC 費用歸屬計畫 */}
+            {needsPartner && !iacucDisabled && (
+              <div className="space-y-2">
+                <Label>費用歸屬計畫 (選填)</Label>
+                <Select
+                  value={formData.protocol_no || ''}
+                  onValueChange={handleIacucNoSelect}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="選擇IACUC No." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {loadingProtocols ? (
+                      <div className="flex items-center justify-center p-2 text-sm text-muted-foreground">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        載入中...
+                      </div>
+                    ) : activeProtocols && activeProtocols.length > 0 ? (
+                      <>
+                        <SelectItem value="PUBLIC">
+                          --- 公用 (無特定計畫) ---
+                        </SelectItem>
+                        {activeProtocols.map((protocol) => (
+                          <SelectItem
+                            key={protocol.iacuc_no}
+                            value={protocol.iacuc_no || ''}
+                          >
+                            {protocol.iacuc_no} - {protocol.title}
+                          </SelectItem>
+                        ))}
+                      </>
+                    ) : (
+                      <div className="p-2 text-sm text-muted-foreground text-center">
+                        無可用計畫
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
             )}
 
@@ -467,7 +486,11 @@ export function DocumentEditPage() {
               <br />
               您目前選擇的銷貨計畫為{' '}
               <span className="font-bold text-destructive">
-                {formData.partner_id ? partners?.find(p => p.id === formData.partner_id)?.code || formData.partner_id : '未指定'}
+                {formData.protocol_id
+                  ? activeProtocols?.find((p) => p.id === formData.protocol_id)?.iacuc_no
+                    || activeProtocols?.find((p) => p.id === formData.protocol_id)?.protocol_no
+                    || formData.protocol_id
+                  : '未指定'}
               </span>
               。確定要繼續使用此批次嗎？
             </DialogDescription>

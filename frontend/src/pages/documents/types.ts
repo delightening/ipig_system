@@ -27,6 +27,8 @@ export interface DocumentFormData {
   warehouse_from_id: string
   warehouse_to_id: string
   partner_id: string
+  /** SO/DO 直接關聯計畫 UUID */
+  protocol_id?: string
   protocol_no?: string
   source_doc_id?: string
   remark: string
