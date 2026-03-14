@@ -190,6 +190,10 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-14 請購/採購單批號與效期調整
+- ✅ **前端表單驗證 (Frontend)**：修改 `useDocumentForm.ts` 中的 `needsShelf` 與 `isShelfRequired` 邏輯，排除 `PR` 單據，使其不強制要求儲位。調整 `buildPayload` 驗證，針對 `GRN`/`DO` 等單據，透過品項設定 (`track_batch`, `track_expiry`) 動態決定批號與效期是否為必填，而非一律強制。
+- ✅ **後端 CRUD 驗證 (Backend)**：修改 `crud.rs` 中的單據 `create` 與 `update` 方法，結合單據類型與產品 `track_batch`、`track_expiry` 屬性，動態驗證批號與效期，確保正確控制請購/採購與入庫單的資料流向。
+
 ### 2026-03-14 R4-100-T5 + T6：單元測試補齊與覆蓋率量測 CI
 
 **R4-100-T5：protocol / document / hr services 單元測試**
