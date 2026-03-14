@@ -9,6 +9,7 @@ export { animalFieldCorrectionApi } from './animalFieldCorrection'
 export { signatureApi } from './signature'
 export type { SignRecordRequest, SignRecordResponse, SignatureInfo, SignatureStatusResponse } from './signature'
 export { treatmentDrugApi } from './treatmentDrug'
+export { facilityApi } from './facility'
 export { getPoReceiptStatus } from './document'
 export type { PoReceiptItem, PoReceiptStatus } from './document'
 
