@@ -10,7 +10,7 @@ use crate::{
         ProductImportPreviewRow, ProductImportResult, ProductImportRow,
         ProductQuery, ProductUomConversion, ProductWithUom, UpdateProductRequest,
     },
-    AppError, Result,
+    repositories, AppError, Result,
 };
 
 /// 允許的產品狀態值（與 DB chk_product_status 一致）
@@ -59,11 +59,7 @@ impl ProductService {
                     Self::get_next_sequence(pool, &category_code, &subcategory_code).await?;
                 format_product_sku(&category_code, &subcategory_code, sequence)
             } else {
-                let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM products WHERE sku = $1)")
-                    .bind(s)
-                    .fetch_one(pool)
-                    .await?;
-                if exists {
+                if repositories::product::exists_product_by_sku(pool, s).await? {
                     return Err(AppError::Conflict("SKU already exists".to_string()));
                 }
                 s.to_string()
@@ -75,11 +71,8 @@ impl ProductService {
         };
 
         // 查詢類別名稱
-        let category_name: Option<String> =
-            sqlx::query_scalar("SELECT name FROM sku_categories WHERE code = $1")
-                .bind(&category_code)
-                .fetch_optional(pool)
-                .await?;
+        let category_name =
+            repositories::sku::find_category_name_by_code(pool, &category_code).await?;
 
         let subcategory_name: Option<String> = sqlx::query_scalar(
             "SELECT name FROM sku_subcategories WHERE category_code = $1 AND code = $2",
@@ -254,13 +247,11 @@ impl ProductService {
         .await?;
 
         // 查詢類別名稱
-        let category_name: Option<String> = if let Some(ref cat_code) = product.category_code {
-            sqlx::query_scalar("SELECT name FROM sku_categories WHERE code = $1")
-                .bind(cat_code)
-                .fetch_optional(pool)
-                .await?
-        } else {
-            None
+        let category_name = match product.category_code.as_deref() {
+            Some(cat_code) => {
+                repositories::sku::find_category_name_by_code(pool, cat_code).await?
+            }
+            None => None,
         };
 
         let subcategory_name: Option<String> = if let (Some(ref cat_code), Some(ref sub_code)) =

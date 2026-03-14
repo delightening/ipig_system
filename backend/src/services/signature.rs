@@ -1,7 +1,7 @@
 // 電子簽章服務 - GLP 合規
 // 用於犧牲記錄確認、計畫核准等需要簽章的操作
 
-use crate::{AppError, Result};
+use crate::{repositories, AppError, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
@@ -264,10 +264,8 @@ impl SignatureService {
                 }
 
                 // 取得簽章者名稱
-                let signer_name: Option<String> =
-                    sqlx::query_scalar("SELECT display_name FROM users WHERE id = $1")
-                        .bind(sig.signer_id)
-                        .fetch_optional(pool)
+                let signer_name =
+                    repositories::user::find_user_display_name_by_id(pool, sig.signer_id)
                         .await?;
 
                 Ok(VerifyResult {

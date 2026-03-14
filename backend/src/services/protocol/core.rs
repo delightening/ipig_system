@@ -1,6 +1,6 @@
 use sqlx::PgPool;
 use uuid::Uuid;
-use chrono::Utc;
+use chrono::{Datelike, Utc};
 
 use super::ProtocolService;
 use crate::{
@@ -17,7 +17,6 @@ impl ProtocolService {
     /// 例如：Pre-114-001, Pre-114-002
     async fn generate_protocol_no(pool: &PgPool) -> Result<String> {
         let now = Utc::now();
-        use chrono::Datelike;
         let year = now.year();
         // 民國年 = 西元年 - 1911
         let roc_year = year - 1911;
