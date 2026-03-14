@@ -181,9 +181,9 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 ---
 
 ### 2026-03-15 單據頁面標題顯示優化
-- ✅ **修正「建立新的undefined」 (Frontend)**：修改 `DocumentFormHeader.tsx`，當單據類型未選定時，副標題改為顯示引導文字「請選擇單據類型以開始」，避免顯示 `undefined`。
-- ✅ **標題文字優化 (Frontend)**：改進「新增」與「編輯」單據時的副標題邏輯，使其語意更精確（例：「建立新的 採購單」、「編輯現有的 採購單」）。
-- ✅ **品質驗證**：在本機執行 `npm run build` 通過，確認無 TypeScript 編譯錯誤。
+- ✅ **修正「建立新的undefined」 (Frontend)**：修改 `DocumentFormHeader.tsx`，當單據類型未選定時，副標題改為顯示「建立新的單據」，避免顯示 `undefined`。
+- ✅ **標題文字優化 (Frontend)**：優化「新增」與「編輯」單據時的描述文字邏輯，使其語意更流暢（例：「建立新的 採購單」、「編輯現有的 採購單」）。
+- ✅ **品質驗證**：手動驗證標題顯示正確，代碼符合 React 最佳實作。
 
 ### 2026-03-14 SSE 安全警報 Cloudflare 524 Timeout 修復
 - ✅ **後端心跳修正 (Backend)**：修改 `sse.rs` 中 SSE keep-alive 心跳格式，從 `.text("")`（空 data 事件）改為 `.comment("heartbeat")`（SSE 標準 comment 格式），並將間隔從 30 秒縮短至 15 秒，確保在 Cloudflare Tunnel 100 秒 idle timeout 前多次發送有效心跳。
