@@ -279,6 +279,7 @@ impl DocumentService {
             SELECT 
                 d.id, d.doc_type, d.doc_no, d.status,
                 w.name as warehouse_name,
+                d.partner_id,
                 p.name as partner_name,
                 d.doc_date,
                 u1.display_name as created_by_name,
@@ -306,12 +307,17 @@ impl DocumentService {
             qb.push_bind(doc_type);
         }
 
+        if let Some(status) = query.status {
+            qb.push(" AND d.status = ");
+            qb.push_bind(status);
+        }
+
         if let Some(ref iacuc_no) = query.iacuc_no {
             qb.push(" AND d.iacuc_no = ");
             qb.push_bind(iacuc_no.clone());
         }
 
-        qb.push(" GROUP BY d.id, w.name, p.name, u1.display_name, u2.display_name, d.iacuc_no ORDER BY d.created_at DESC");
+        qb.push(" GROUP BY d.id, w.name, d.partner_id, p.name, u1.display_name, u2.display_name, d.iacuc_no ORDER BY d.created_at DESC");
 
         let documents = qb
             .build_query_as::<DocumentListItem>()
