@@ -85,13 +85,15 @@ export function DocumentEditPage() {
     handleBatchShelfSelectTo,
     poReceiptStatus,
     source_doc_id: _ignored_source_doc_id,
+    categoryCode,
+    setCategoryCode,
   } = useDocumentForm({ defaultType })
 
   const { data: allDocuments } = useQuery({
-    queryKey: ['documents', { doc_type: 'PO', status: 'APPROVED' }],
+    queryKey: ['documents', { doc_type: 'PO', status: 'approved' }],
     queryFn: async () => {
-      const response = await api.get('/documents?doc_type=PO&status=APPROVED')
-      return (response.data as any).items || []
+      const response = await api.get('/documents?doc_type=PO&status=approved')
+      return response.data || []
     },
     enabled: formData.doc_type === 'GRN',
     staleTime: 60000,
@@ -195,7 +197,7 @@ export function DocumentEditPage() {
                 </div>
                 {formData.warehouse_from_id && (
                   <div className="space-y-2">
-                    <Label>來源儲位/貨架 *</Label>
+                    <Label>批次套用來源儲位 (選填)</Label>
                     <WarehouseShelfTreeSelect
                       value={batchStorageLocationFromId ? `loc:${batchStorageLocationFromId}` : ''}
                       onValueChange={(v: WarehouseShelfValue) => {
@@ -212,7 +214,7 @@ export function DocumentEditPage() {
                 )}
                 {formData.warehouse_to_id && (
                   <div className="space-y-2">
-                    <Label>目標儲位/貨架 *</Label>
+                    <Label>批次套用目標儲位 (選填)</Label>
                     <WarehouseShelfTreeSelect
                       value={batchStorageLocationToId ? `loc:${batchStorageLocationToId}` : ''}
                       onValueChange={(v: WarehouseShelfValue) => {
@@ -246,7 +248,7 @@ export function DocumentEditPage() {
                 </div>
                 {formData.warehouse_id && needsShelf && (
                   <div className="space-y-2">
-                    <Label>儲位/貨架 *</Label>
+                    <Label>批次套用儲位 (選填)</Label>
                     <WarehouseShelfTreeSelect
                       value={batchStorageLocationId ? `loc:${batchStorageLocationId}` : ''}
                       onValueChange={(v: WarehouseShelfValue) => {
@@ -422,6 +424,8 @@ export function DocumentEditPage() {
         setFormData={setFormData}
         needsShelf={needsShelf}
         poReceiptStatus={poReceiptStatus}
+        categoryCode={categoryCode}
+        setCategoryCode={setCategoryCode}
       />
 
       <Dialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
