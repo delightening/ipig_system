@@ -357,7 +357,7 @@ impl DocumentService {
             qb.push_bind(iacuc_no.clone());
         }
 
-        qb.push(" GROUP BY d.id, w.name, d.partner_id, p.name, u1.display_name, u2.display_name, d.iacuc_no ORDER BY d.created_at DESC");
+        qb.push(" GROUP BY d.id, w.name, d.partner_id, p.name, u1.display_name, u2.display_name, d.doc_type, d.doc_no, d.status, d.doc_date, d.created_at, d.approved_at, d.iacuc_no, d.receipt_status ORDER BY d.created_at DESC");
 
         let documents = qb
             .build_query_as::<DocumentListItem>()

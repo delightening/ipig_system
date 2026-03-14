@@ -6,7 +6,7 @@
 CREATE TYPE partner_type AS ENUM ('supplier', 'customer');
 CREATE TYPE supplier_category AS ENUM ('drug', 'consumable', 'feed', 'equipment', 'other');
 CREATE TYPE customer_category AS ENUM ('internal', 'external', 'research', 'other');
-CREATE TYPE doc_type AS ENUM ('PO', 'GRN', 'PR', 'SO', 'DO', 'SR', 'TR', 'STK', 'ADJ', 'RTN');
+CREATE TYPE doc_type AS ENUM ('PO', 'GRN', 'PR', 'SO', 'DO', 'SR', 'TR', 'STK', 'ADJ', 'RM', 'RTN');
 CREATE TYPE doc_status AS ENUM ('draft', 'submitted', 'approved', 'cancelled');
 CREATE TYPE stock_direction AS ENUM ('in', 'out', 'transfer_in', 'transfer_out', 'adjust_in', 'adjust_out');
 
