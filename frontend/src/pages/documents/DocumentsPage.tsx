@@ -1,19 +1,11 @@
 import { useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api, { deleteResource, DocumentListItem, DocType } from '@/lib/api'
+import api, { deleteResource } from '@/lib/api'
+import type { DocType, DocumentListItem } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import {
   Select,
   SelectContent,
@@ -30,13 +22,40 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { Plus, Search, Eye, Loader2, FileText, Calendar, X, Edit, Trash2 } from 'lucide-react'
+import { Plus, Search, Loader2, Calendar, X, FileText, Truck, ShoppingCart, Warehouse } from 'lucide-react'
 import { STALE_TIME } from '@/lib/query'
-import { formatDate, formatCurrency } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
 import { useAuthStore } from '@/stores/auth'
+import { cn } from '@/lib/utils'
+import { DocumentTable } from './components/DocumentTable'
+import { useDocumentCategory, type DocCategory } from './hooks/useDocumentCategory'
 
-const docTypeNames: Record<DocType, string> = {
+
+const CATEGORY_TYPES: Record<DocCategory, DocType[]> = {
+  purchasing: ['PO', 'GRN', 'PR'],
+  sales: ['SO', 'DO'],
+  warehouse: ['TR', 'STK', 'ADJ', 'RM'],
+}
+
+const CATEGORY_CONFIG: Record<DocCategory, { label: string; icon: React.ReactNode; desc: string }> = {
+  purchasing: {
+    label: '採購類',
+    icon: <Truck className="h-4 w-4" />,
+    desc: '採購單、採購入庫、採購退貨',
+  },
+  sales: {
+    label: '銷貨類',
+    icon: <ShoppingCart className="h-4 w-4" />,
+    desc: '銷貨單、銷貨出庫',
+  },
+  warehouse: {
+    label: '倉儲類',
+    icon: <Warehouse className="h-4 w-4" />,
+    desc: '調撥單、盤點單、調整單、退料單',
+  },
+}
+
+const TYPE_NAMES: Record<DocType, string> = {
   PO: '採購單',
   GRN: '採購入庫',
   PR: '採購退貨',
@@ -48,17 +67,11 @@ const docTypeNames: Record<DocType, string> = {
   RM: '退料單',
 }
 
-const statusNames: Record<string, string> = {
+const STATUS_NAMES: Record<string, string> = {
   draft: '草稿',
   submitted: '待核准',
   approved: '已核准',
   cancelled: '已作廢',
-}
-
-const receiptStatusNames: Record<string, string> = {
-  pending: '未入庫',
-  partial: '部分入庫',
-  complete: '已入庫',
 }
 
 export function DocumentsPage() {
@@ -68,22 +81,41 @@ export function DocumentsPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [subTypeFilter, setSubTypeFilter] = useState<DocType | 'all'>('all')
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [documentToDelete, setDocumentToDelete] = useState<DocumentListItem | null>(null)
   const queryClient = useQueryClient()
   const { toast } = useToast()
 
+  const { activeCategory, setCategory, isLoadingPref } = useDocumentCategory()
+
+  // URL 有 type= 時沿用舊模式（向下相容）
+  const isLegacyMode = Boolean(typeFilter)
+
+  const buildQueryParams = () => {
+    let params = ''
+    if (isLegacyMode) {
+      params += `doc_type=${typeFilter}&`
+    } else if (activeCategory) {
+      const types =
+        subTypeFilter !== 'all' ? [subTypeFilter] : CATEGORY_TYPES[activeCategory]
+      params += `doc_types=${types.join(',')}&`
+    }
+    if (statusFilter && statusFilter !== 'all') params += `status=${statusFilter}&`
+    if (search) params += `keyword=${encodeURIComponent(search)}&`
+    if (dateFrom) params += `date_from=${dateFrom}&`
+    if (dateTo) params += `date_to=${dateTo}&`
+    return params
+  }
+
+  const shouldFetch = isLegacyMode || Boolean(activeCategory)
+
   const { data: documents, isLoading } = useQuery({
-    queryKey: ['documents', typeFilter, statusFilter, search, dateFrom, dateTo],
+    queryKey: ['documents', typeFilter, activeCategory, subTypeFilter, statusFilter, search, dateFrom, dateTo],
     staleTime: STALE_TIME.LIST,
+    enabled: shouldFetch,
     queryFn: async () => {
-      let params = ''
-      if (typeFilter) params += `doc_type=${typeFilter}&`
-      if (statusFilter && statusFilter !== 'all') params += `status=${statusFilter}&`
-      if (search) params += `keyword=${encodeURIComponent(search)}&`
-      if (dateFrom) params += `date_from=${dateFrom}&`
-      if (dateTo) params += `date_to=${dateTo}&`
-      const response = await api.get<DocumentListItem[]>(`/documents?${params}`)
+      const response = await api.get<DocumentListItem[]>(`/documents?${buildQueryParams()}`)
       return response.data
     },
   })
@@ -98,6 +130,7 @@ export function DocumentsPage() {
         title: '成功',
         description: variables.hard ? '單據已永久刪除' : '單據已刪除',
       })
+
       setDeleteDialogOpen(false)
       setDocumentToDelete(null)
     },
@@ -122,241 +155,200 @@ export function DocumentsPage() {
     }
   }
 
+  const handleCategoryChange = (cat: DocCategory) => {
+    setCategory(cat === activeCategory ? null : cat)
+    setSubTypeFilter('all')
+  }
+
+
   const clearFilters = () => {
     setSearch('')
     setStatusFilter('all')
     setDateFrom('')
     setDateTo('')
+    setSubTypeFilter('all')
   }
 
-  const hasFilters = search || (statusFilter && statusFilter !== 'all') || dateFrom || dateTo
+  const hasFilters = search || (statusFilter && statusFilter !== 'all') || dateFrom || dateTo || subTypeFilter !== 'all'
 
-  const getStatusBadge = (doc: DocumentListItem) => {
-    const status = doc.status;
-    const badges = [];
+  const newDocHref = isLegacyMode
+    ? `/documents/new?type=${typeFilter}`
+    : subTypeFilter !== 'all'
+    ? `/documents/new?type=${subTypeFilter}`
+    : undefined
 
-    // 基本狀態標籤
-    switch (status) {
-      case 'draft':
-        badges.push(<Badge key="base" variant="secondary">{statusNames[status]}</Badge>);
-        break;
-      case 'submitted':
-        badges.push(<Badge key="base" variant="warning">{statusNames[status]}</Badge>);
-        break;
-      case 'approved':
-        badges.push(<Badge key="base" variant="success">{statusNames[status]}</Badge>);
-        break;
-      case 'cancelled':
-        badges.push(<Badge key="base" variant="destructive">{statusNames[status]}</Badge>);
-        break;
-      default:
-        badges.push(<Badge key="base" variant="outline">{status}</Badge>);
-    }
-
-    // 採購單額外顯示入庫狀態
-    if (doc.doc_type === 'PO' && status === 'approved' && doc.receipt_status) {
-      const receiptStatus = doc.receipt_status;
-      switch (receiptStatus) {
-        case 'pending':
-          badges.push(<Badge key="receipt" variant="destructive" className="ml-1">{receiptStatusNames[receiptStatus]}</Badge>);
-          break;
-        case 'partial':
-          badges.push(<Badge key="receipt" variant="warning" className="ml-1">{receiptStatusNames[receiptStatus]}</Badge>);
-          break;
-        case 'complete':
-          badges.push(<Badge key="receipt" variant="success" className="ml-1">{receiptStatusNames[receiptStatus]}</Badge>);
-          break;
-      }
-    }
-
-    return <div className="flex items-center">{badges}</div>;
-  }
+  const title = isLegacyMode
+    ? TYPE_NAMES[typeFilter as DocType] || '單據管理'
+    : '單據管理'
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            {typeFilter ? docTypeNames[typeFilter as DocType] : '單據管理'}
-          </h1>
+          <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
           <p className="text-muted-foreground">
-            {typeFilter ? `管理${docTypeNames[typeFilter as DocType]}` : '管理系統中的所有單據'}
+            {isLegacyMode ? `管理${TYPE_NAMES[typeFilter as DocType]}` : '採購、銷貨、倉儲單據統一管理'}
           </p>
         </div>
-        <Button asChild>
-          <Link to={`/documents/new${typeFilter ? `?type=${typeFilter}` : ''}`}>
-            <Plus className="mr-2 h-4 w-4" />
-            新增單據
-          </Link>
-        </Button>
+        {newDocHref ? (
+          <Button asChild>
+            <Link to={newDocHref}>
+              <Plus className="mr-2 h-4 w-4" />
+              新增單據
+            </Link>
+          </Button>
+        ) : (
+          !isLegacyMode && (
+            <Button disabled title="請先選擇子類型">
+              <Plus className="mr-2 h-4 w-4" />
+              新增單據
+            </Button>
+          )
+        )}
       </div>
 
-      <div className="space-y-4">
-        <div className="flex flex-wrap gap-4 items-end">
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="搜尋單號..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          {!typeFilter && (
-            <Select
-              value={typeFilter || 'all'}
-              onValueChange={(value) => {
-                if (value && value !== 'all') {
-                  setSearchParams({ type: value })
-                } else {
-                  setSearchParams({})
-                }
-              }}
-            >
+      {/* 類別 Tab（非舊模式才顯示） */}
+      {!isLegacyMode && (
+        <div className="flex gap-2 border-b border-slate-200">
+          {(Object.keys(CATEGORY_CONFIG) as DocCategory[]).map((cat) => {
+            const cfg = CATEGORY_CONFIG[cat]
+            return (
+              <button
+                key={cat}
+                onClick={() => handleCategoryChange(cat)}
+                className={cn(
+                  'flex items-center gap-1.5 px-4 py-2 border-b-2 font-medium text-sm transition-colors',
+                  activeCategory === cat
+                    ? 'border-blue-500 text-blue-600 -mb-px'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                )}
+              >
+                {cfg.icon}
+                {cfg.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* 空狀態 */}
+      {!isLegacyMode && !activeCategory && !isLoadingPref && (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <FileText className="h-16 w-16 mb-4 text-muted-foreground opacity-40" />
+          <p className="text-lg font-medium text-slate-600">請選擇上方的類別以開始查詢</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            採購類包含採購單、採購入庫、採購退貨；銷貨類包含銷貨單、銷貨出庫
+          </p>
+        </div>
+      )}
+
+      {/* 篩選列 + 表格（有類別或舊模式才顯示） */}
+      {(isLegacyMode || activeCategory) && (
+        <>
+          <div className="flex flex-wrap gap-4 items-end">
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="搜尋單號..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+
+            {/* 舊模式：顯示全類型 dropdown；類別模式：顯示子類型 dropdown */}
+            {isLegacyMode ? (
+              <Select
+                value={typeFilter || 'all'}
+                onValueChange={(value) => {
+                  if (value && value !== 'all') {
+                    setSearchParams({ type: value })
+                  } else {
+                    setSearchParams({})
+                  }
+                }}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="全部類型" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部類型</SelectItem>
+                  {Object.entries(TYPE_NAMES).map(([key, name]) => (
+                    <SelectItem key={key} value={key}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : activeCategory ? (
+              <Select value={subTypeFilter} onValueChange={(v) => setSubTypeFilter(v as DocType | 'all')}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="全部子類型" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部子類型</SelectItem>
+                  {CATEGORY_TYPES[activeCategory].map((t) => (
+                    <SelectItem key={t} value={t}>{TYPE_NAMES[t]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
+
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-40">
-                <SelectValue placeholder="全部類型" />
+                <SelectValue placeholder="全部狀態" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">全部類型</SelectItem>
-                {Object.entries(docTypeNames).map(([key, name]) => (
-                  <SelectItem key={key} value={key}>
-                    {name}
-                  </SelectItem>
+                <SelectItem value="all">全部狀態</SelectItem>
+                {Object.entries(STATUS_NAMES).map(([key, name]) => (
+                  <SelectItem key={key} value={key}>{name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          )}
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="全部狀態" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部狀態</SelectItem>
-              {Object.entries(statusNames).map(([key, name]) => (
-                <SelectItem key={key} value={key}>
-                  {name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          
-          {/* 日期區間篩選 */}
-          <div className="flex items-center gap-2">
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">起始日期</Label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="pl-9 w-[150px]"
-                />
+
+            <div className="flex items-center gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">起始日期</Label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="pl-9 w-[150px]"
+                  />
+                </div>
+              </div>
+              <span className="text-muted-foreground mt-5">~</span>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">結束日期</Label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="pl-9 w-[150px]"
+                  />
+                </div>
               </div>
             </div>
-            <span className="text-muted-foreground mt-5">~</span>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">結束日期</Label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="pl-9 w-[150px]"
-                />
-              </div>
-            </div>
+
+            {hasFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="mt-5">
+                <X className="h-4 w-4 mr-1" />
+                清除篩選
+              </Button>
+            )}
           </div>
 
-          {hasFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="mt-5">
-              <X className="h-4 w-4 mr-1" />
-              清除篩選
-            </Button>
-          )}
-        </div>
-      </div>
+          <DocumentTable
+            documents={documents}
+            isLoading={isLoading}
+            onDeleteClick={handleDeleteClick}
+          />
+        </>
+      )}
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>單號</TableHead>
-              <TableHead>類型</TableHead>
-              <TableHead>狀態</TableHead>
-              <TableHead>對象</TableHead>
-              <TableHead>倉庫</TableHead>
-              <TableHead>單據日期</TableHead>
-              <TableHead className="text-right">金額</TableHead>
-              <TableHead>建立人</TableHead>
-              <TableHead className="text-right">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                </TableCell>
-              </TableRow>
-            ) : documents && documents.length > 0 ? (
-              documents.map((doc) => (
-                <TableRow key={doc.id}>
-                  <TableCell className="font-mono font-medium">{doc.doc_no}</TableCell>
-                  <TableCell>{docTypeNames[doc.doc_type]}</TableCell>
-                  <TableCell>{getStatusBadge(doc)}</TableCell>
-                  <TableCell>{doc.partner_name || '-'}</TableCell>
-                  <TableCell>{doc.warehouse_name || '-'}</TableCell>
-                  <TableCell>{formatDate(doc.doc_date)}</TableCell>
-                  <TableCell className="text-right">
-                    {doc.total_amount ? formatCurrency(doc.total_amount) : '-'}
-                  </TableCell>
-                  <TableCell>{doc.created_by_name}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" asChild title="檢視">
-                        <Link to={`/documents/${doc.id}`}>
-                          <Eye className="h-4 w-4" />
-                        </Link>
-                      </Button>
-                      {(doc.status === 'draft' || useAuthStore.getState().user?.roles.includes('admin')) && (
-                        <>
-                          {doc.status === 'draft' && (
-                            <Button variant="ghost" size="icon" asChild title="編輯">
-                              <Link to={`/documents/${doc.id}/edit`}>
-                                <Edit className="h-4 w-4" />
-                              </Link>
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteClick(doc)}
-                            title={useAuthStore.getState().user?.roles.includes('admin') ? '強制刪除' : '刪除'}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center py-8">
-                  <FileText className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-muted-foreground">尚無單據資料</p>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
 
-      {/* 刪除確認對話框 */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>

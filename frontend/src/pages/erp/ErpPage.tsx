@@ -10,10 +10,7 @@ import {
     Package,
     ChevronRight,
     FileText,
-    ArrowLeftRight,
     ClipboardList,
-    Settings2,
-    Box,
     Users,
     Droplets,
     Activity,
@@ -23,6 +20,7 @@ import {
 import { EquipmentPage } from '@/pages/admin/EquipmentPage'
 import { ProductsPage } from '@/pages/master/ProductsPage'
 import { PartnersPage } from '@/pages/master/PartnersPage'
+import { DocumentsPage } from '@/pages/documents/DocumentsPage'
 
 // 定義 ERP 子模組
 interface ErpModule {
@@ -51,50 +49,17 @@ const erpModules: ErpModule[] = [
         items: [],
     },
     {
-        id: 'purchasing',
-        title: '採購管理',
-        icon: <Truck className="h-5 w-5" />,
-        description: '管理採購訂單與採購退貨',
-        items: [
-            {
-                title: '採購單',
-                href: '/documents?type=PO',
-                icon: <FileText className="h-4 w-4" />,
-                description: '建立與管理採購訂單',
-            },
-            {
-                title: '採購退貨',
-                href: '/documents?type=PR',
-                icon: <ArrowLeftRight className="h-4 w-4" />,
-                description: '處理採購退貨作業',
-            },
-        ],
-    },
-    {
-        id: 'sales',
-        title: '銷貨管理',
-        icon: <ShoppingCart className="h-5 w-5" />,
-        description: '管理銷貨訂單與出庫作業',
-        items: [
-            {
-                title: '銷貨單',
-                href: '/documents?type=SO',
-                icon: <FileText className="h-4 w-4" />,
-                description: '建立與管理銷貨訂單',
-            },
-            {
-                title: '銷貨出庫',
-                href: '/documents?type=DO',
-                icon: <Box className="h-4 w-4" />,
-                description: '處理銷貨出庫作業',
-            },
-        ],
+        id: 'documents',
+        title: '單據管理',
+        icon: <FileText className="h-5 w-5" />,
+        description: '採購、銷貨、倉儲單據統一管理',
+        items: [],
     },
     {
         id: 'warehouse',
         title: '倉儲作業',
         icon: <Warehouse className="h-5 w-5" />,
-        description: '庫存查詢與倉儲異動管理',
+        description: '庫存查詢與倉庫管理',
         items: [
             {
                 title: '倉庫',
@@ -113,24 +78,6 @@ const erpModules: ErpModule[] = [
                 href: '/inventory/ledger',
                 icon: <FileText className="h-4 w-4" />,
                 description: '檢視庫存異動記錄',
-            },
-            {
-                title: '調撥單',
-                href: '/documents?type=TR',
-                icon: <ArrowLeftRight className="h-4 w-4" />,
-                description: '倉庫間調撥作業',
-            },
-            {
-                title: '盤點單',
-                href: '/documents?type=STK',
-                icon: <ClipboardList className="h-4 w-4" />,
-                description: '庫存盤點作業',
-            },
-            {
-                title: '調整單',
-                href: '/documents?type=ADJ',
-                icon: <Settings2 className="h-4 w-4" />,
-                description: '庫存數量調整',
             },
         ],
     },
@@ -205,7 +152,7 @@ const erpModules: ErpModule[] = [
     },
     {
         id: 'partners',
-        title: '供應商/客戶',
+        title: '供應商／客戶',
         icon: <Users className="h-5 w-5" />,
         description: '管理供應商與客戶',
         items: [],
@@ -287,6 +234,8 @@ export function ErpPage() {
                     <ProductsPage />
                 ) : currentTab === 'partners' ? (
                     <PartnersPage />
+                ) : currentTab === 'documents' ? (
+                    <DocumentsPage />
                 ) : (
                 <div className="space-y-6">
                     {/* 功能列表（無說明欄位） */}

@@ -1,21 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState, useMemo } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth'
 import { useDebounce } from '@/hooks/useDebounce'
-import { STALE_TIME } from '@/lib/query'
-import axios from 'axios'
-import api, {
-  Animal,
-  AnimalListItem,
-  AnimalSource,
-  CreateAnimalRequest,
-} from '@/lib/api'
-import type { PaginatedResponse } from '@/types/common'
-import { getApiErrorMessage } from '@/lib/validation'
 import { Button } from '@/components/ui/button'
-import { toast } from '@/components/ui/use-toast'
 import { Plus, Upload, Download, FileSpreadsheet } from 'lucide-react'
 
 import { ExportDialog } from '@/components/animal/ExportDialog'
@@ -39,6 +28,8 @@ import {
   useAnimalSelection,
   useAnimalForms,
 } from './hooks/useAnimalsPageState'
+import { useAnimalsMutations } from './hooks/useAnimalsMutations'
+import { useAnimalsQueries } from './hooks/useAnimalsQueries'
 
 export function AnimalsPage() {
   const queryClient = useQueryClient()
@@ -125,287 +116,23 @@ export function AnimalsPage() {
 
   const perPage = 50
 
-  // ─── Queries ───────────────────────────────────────────────────────────────
-  const { data: allAnimalsResp } = useQuery({
-    queryKey: ['animals-count'],
-    queryFn: async () => {
-      const res = await api.get<PaginatedResponse<AnimalListItem>>(`/animals`)
-      return res.data
-    },
-    staleTime: STALE_TIME.LIST,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
-  })
+  const {
+    animals, allAnimals, sourcesData, groupedData, isLoading, groupedLoading,
+    totalPages, totalAnimals, penViewGroupedData, penViewAnimals, statusCounts, penAnimalsCount,
+  } = useAnimalsQueries({ statusFilter, breedFilter, appliedSearch, page, perPage })
 
-  const { data: animalsResp, isLoading } = useQuery({
-    queryKey: ['animals', statusFilter, breedFilter, appliedSearch, page],
-    queryFn: async () => {
-      const params = new URLSearchParams()
-      if (statusFilter && statusFilter !== 'all' && statusFilter !== 'pen') params.append('status', statusFilter)
-      if (breedFilter && breedFilter !== 'all') params.append('breed', breedFilter)
-      if (appliedSearch) params.append('keyword', appliedSearch)
-      params.append('page', String(page))
-      params.append('per_page', String(perPage))
-      const res = await api.get<PaginatedResponse<AnimalListItem>>(`/animals?${params}`)
-      return res.data
-    },
-    staleTime: STALE_TIME.LIST,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
-  })
-
-  const { data: sourcesData } = useQuery({
-    queryKey: ['animal-sources'],
-    queryFn: async () => {
-      const res = await api.get<AnimalSource[]>('/animal-sources')
-      return res.data
-    },
-    staleTime: STALE_TIME.REFERENCE,
-  })
-
-  const { data: groupedData, isLoading: groupedLoading } = useQuery({
-    queryKey: ['animals-by-pen'],
-    queryFn: async () => {
-      const res = await api.get<{ pen_location: string; animals: AnimalListItem[] }[]>('/animals/by-pen')
-      return res.data
-    },
-    enabled: statusFilter === 'pen',
-    staleTime: STALE_TIME.REALTIME,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
-  })
-
-  // ─── Derived data ──────────────────────────────────────────────────────────
-  const animals = animalsResp?.data ?? []
-  const allAnimals = allAnimalsResp?.data ?? []
-  const totalPages = animalsResp?.total_pages ?? 1
-  const totalAnimals = animalsResp?.total ?? 0
-
-  /** 欄位頁：搜尋／品種僅套用在「有欄位」的動物（by-pen 資料），不包含無欄位歷史動物 */
-  const penViewGroupedData = useMemo(() => {
-    if (statusFilter !== 'pen' || !groupedData) return groupedData
-    const kw = (appliedSearch ?? '').trim().toLowerCase()
-    const hasKeyword = kw.length > 0
-    const breedOk = (a: AnimalListItem) => breedFilter === 'all' || (a.breed && String(a.breed).toLowerCase() === breedFilter.toLowerCase())
-    const keywordOk = (a: AnimalListItem) =>
-      !hasKeyword ||
-      [a.ear_tag, a.pen_location, a.iacuc_no].some(
-        (v) => v && String(v).toLowerCase().includes(kw)
-      )
-    return groupedData
-      .map((group) => ({
-        pen_location: group.pen_location,
-        animals: group.animals.filter((a) => breedOk(a) && keywordOk(a)),
-      }))
-      .filter((group) => group.animals.length > 0)
-  }, [statusFilter, groupedData, appliedSearch, breedFilter])
-
-  /** 欄位頁有搜尋/品種時：攤平為列表，用於顯示表格（圖二） */
-  const penViewAnimals = useMemo(
-    () => (statusFilter === 'pen' && penViewGroupedData ? penViewGroupedData.flatMap((g) => g.animals) : []),
-    [statusFilter, penViewGroupedData]
-  )
   const hasPenSearch = statusFilter === 'pen' && (!!(appliedSearch ?? '').trim() || (breedFilter && breedFilter !== 'all'))
 
-  const statusCounts = allAnimals.reduce((acc, animal) => {
-    acc[animal.status] = (acc[animal.status] || 0) + 1
-    return acc
-  }, {} as Record<string, number>)
-
-  /** 欄位數量：直接計算「欄位不為空」的動物數（不依狀態排除；已轉讓可能仍在欄位） */
-  const penAnimalsCount = allAnimals.filter(
-    (a) => a.pen_location != null && String(a.pen_location).trim() !== ''
-  ).length
-
-  // ─── Helpers ───────────────────────────────────────────────────────────────
-  const invalidateAll = () => {
-    queryClient.invalidateQueries({ queryKey: ['animals'] })
-    queryClient.invalidateQueries({ queryKey: ['animals-by-pen'] })
-    queryClient.invalidateQueries({ queryKey: ['animals-count'] })
-  }
-
-  const extractErrorMessage = (error: unknown, fallback: string) => {
-    return getApiErrorMessage(error, fallback)
-  }
-
-  const handleDuplicate409 = (error: unknown, source: 'create' | 'quickAdd') => {
-    if (!axios.isAxiosError(error) || error.response?.status !== 409) return false
-    const errData = error.response.data?.error
-    if (errData?.warning_type !== 'duplicate_ear_tag' || errData?.blocking !== false) return false
-    let payload: Record<string, unknown> = {}
-    try { payload = JSON.parse(error.config?.data || '{}') } catch { /* ignore */ }
-    setDuplicateWarningData({
-      earTag: (payload.ear_tag as string) || quickAddPending?.earTag || '',
-      existingAnimals: errData.existing_animals || [],
-      source,
-      pendingPayload: payload as unknown as CreateAnimalRequest & { breed_other?: string },
-    })
-    setShowDuplicateWarning(true)
-    return true
-  }
-
   // ─── Mutations ─────────────────────────────────────────────────────────────
-  const createAnimalMutation = useMutation({
-    mutationFn: async (data: NewAnimalForm) => {
-      if (!penZone || !penNumber) throw new Error('欄位為必填，請選擇欄位區和欄位編號')
-      const penLocation = `${penZone}${penNumber}`
-
-      if (!data.ear_tag?.trim()) throw new Error('耳號為必填')
-      if (!data.entry_date) throw new Error('進場日期為必填')
-      if (!data.birth_date) throw new Error('出生日期為必填')
-      if (!data.pre_experiment_code?.trim()) throw new Error('實驗前代號為必填')
-
-      let entryWeight: number | undefined
-      if (data.entry_weight && data.entry_weight !== '') {
-        const weightValue = parseFloat(data.entry_weight)
-        if (isNaN(weightValue) || weightValue <= 0) throw new Error('進場體重必須是大於 0 的數字')
-        entryWeight = weightValue
-      }
-
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/
-      if (!dateRegex.test(data.entry_date)) throw new Error('進場日期格式不正確，必須是 YYYY-MM-DD 格式')
-      if (data.birth_date && data.birth_date.trim() !== '' && !dateRegex.test(data.birth_date))
-        throw new Error('出生日期格式不正確，必須是 YYYY-MM-DD 格式')
-
-      let formattedEarTag = data.ear_tag.trim()
-      if (/^\d+$/.test(formattedEarTag)) formattedEarTag = formattedEarTag.padStart(3, '0')
-
-      const payload: CreateAnimalRequest & { breed_other?: string } = {
-        ear_tag: formattedEarTag,
-        breed: data.breed,
-        gender: data.gender,
-        entry_date: data.entry_date,
-        birth_date: data.birth_date && data.birth_date.trim() !== '' ? data.birth_date.trim() : undefined,
-        entry_weight: entryWeight,
-        pen_location: penLocation,
-        pre_experiment_code: data.pre_experiment_code?.trim() || undefined,
-        remark: data.remark?.trim() || undefined,
-        breed_other: data.breed === 'other' ? data.breed_other : undefined,
-      }
-
-      if (data.source_id && data.source_id.trim() !== '' && data.source_id.trim() !== 'none') {
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-        const trimmedSourceId = data.source_id.trim()
-        if (uuidRegex.test(trimmedSourceId)) payload.source_id = trimmedSourceId
-        else throw new Error(`來源 ID 格式不正確: ${trimmedSourceId}`)
-      }
-
-      return api.post('/animals', payload)
-    },
-    onSuccess: () => {
-      invalidateAll()
-      toast({ title: '成功', description: '動物已新增' })
-      setShowAddDialog(false)
-      resetNewAnimalForm()
-    },
-    onError: (error: unknown) => {
-      if (handleDuplicate409(error, 'create')) return
-
-      let errorMessage = '新增失敗，請檢查輸入資料'
-      if (axios.isAxiosError(error) && error.response?.status === 422) {
-        const data = error.response.data as { error?: { message?: string }; message?: string } | undefined
-        errorMessage = data?.error?.message || data?.message || '資料格式錯誤：請檢查所有欄位的格式是否正確'
-      } else {
-        errorMessage = extractErrorMessage(error, errorMessage)
-      }
-      toast({ title: '錯誤', description: errorMessage, variant: 'destructive' })
-    },
-  })
-
-  const batchAssignMutation = useMutation({
-    mutationFn: () => api.post('/animals/batch/assign', { animal_ids: selectedAnimals, iacuc_no: assignIacucNo }),
-    onSuccess: () => {
-      invalidateAll()
-      toast({ title: '成功', description: '動物已分配至計劃並進入實驗中' })
-      setShowBatchAssignDialog(false)
-      setSelectedAnimals([])
-      setAssignIacucNo('')
-    },
-    onError: (error: unknown) => {
-      toast({ title: '錯誤', description: extractErrorMessage(error, '批次分配失敗'), variant: 'destructive' })
-    },
-  })
-
-  const quickMoveMutation = useMutation({
-    mutationFn: async ({ earTag, targetPenLocation }: { earTag: string; targetPenLocation: string }) => {
-      let formattedEarTag = earTag.trim()
-      if (/^\d+$/.test(formattedEarTag)) formattedEarTag = formattedEarTag.padStart(3, '0')
-
-      const searchRes = await api.get<PaginatedResponse<AnimalListItem>>(`/animals?keyword=${encodeURIComponent(formattedEarTag)}`)
-      const matchingAnimals = (searchRes.data.data ?? []).filter(p => p.ear_tag === formattedEarTag && p.pen_location)
-
-      if (matchingAnimals.length === 0) return { notFound: true, formattedEarTag, targetPenLocation }
-      if (matchingAnimals.length > 1) throw new Error(`找到多隻耳號為 "${formattedEarTag}" 的動物，請使用編輯功能手動移動`)
-
-      const animal = matchingAnimals[0]
-      if (animal.pen_location === targetPenLocation) throw new Error(`動物 ${formattedEarTag} 已經在 ${targetPenLocation} 欄位`)
-
-      return { ...await api.put<Animal>(`/animals/${animal.id}`, { pen_location: targetPenLocation }), notFound: false }
-    },
-    onSuccess: (data: { notFound?: boolean; formattedEarTag?: string; targetPenLocation?: string }, variables: { earTag: string; targetPenLocation: string }) => {
-      if (data.notFound && data.formattedEarTag != null && data.targetPenLocation != null) {
-        setQuickAddPending({ earTag: data.formattedEarTag, penLocation: data.targetPenLocation })
-        setQuickAddForm({
-          breed: 'minipig', breed_other: '', gender: 'male',
-          entry_date: new Date().toISOString().split('T')[0], birth_date: '', entry_weight: '',
-        })
-        setShowQuickAddDialog(true)
-        return
-      }
-      invalidateAll()
-      let formattedEarTag = variables.earTag.trim()
-      if (/^\d+$/.test(formattedEarTag)) formattedEarTag = formattedEarTag.padStart(3, '0')
-      toast({ title: '成功', description: `動物 ${formattedEarTag} 已移動到 ${variables.targetPenLocation}` })
-    },
-    onError: (error: unknown) => {
-      toast({ title: '錯誤', description: extractErrorMessage(error, '移動失敗'), variant: 'destructive' })
-    },
-  })
-
-  const quickAddMutation = useMutation({
-    mutationFn: async () => {
-      if (!quickAddPending) throw new Error('無待處理的新增請求')
-      if (!quickAddForm.entry_date) throw new Error('進場日期為必填')
-      if (!quickAddForm.birth_date) throw new Error('出生日期為必填')
-
-      return api.post<Animal>('/animals', {
-        ear_tag: quickAddPending.earTag,
-        breed: quickAddForm.breed,
-        breed_other: quickAddForm.breed === 'other' ? quickAddForm.breed_other : undefined,
-        gender: quickAddForm.gender,
-        entry_date: quickAddForm.entry_date,
-        birth_date: quickAddForm.birth_date,
-        entry_weight: parseFloat(quickAddForm.entry_weight),
-        pen_location: quickAddPending.penLocation,
-      })
-    },
-    onSuccess: () => {
-      invalidateAll()
-      toast({ title: '成功', description: `已新增動物 ${quickAddPending?.earTag} 至 ${quickAddPending?.penLocation}` })
-      setShowQuickAddDialog(false)
-      setQuickAddPending(null)
-    },
-    onError: (error: unknown) => {
-      if (handleDuplicate409(error, 'quickAdd')) return
-      toast({ title: '錯誤', description: extractErrorMessage(error, '新增失敗'), variant: 'destructive' })
-    },
-  })
-
-  const forceCreateMutation = useMutation({
-    mutationFn: (payload: CreateAnimalRequest & { breed_other?: string }) => api.post('/animals', { ...payload, force_create: true }),
-    onSuccess: () => {
-      invalidateAll()
-      toast({ title: '成功', description: '動物已新增（已確認耳號重複）' })
-      setShowDuplicateWarning(false)
-      setDuplicateWarningData(null)
-      setShowAddDialog(false)
-      setShowQuickAddDialog(false)
-      setQuickAddPending(null)
-      resetNewAnimalForm()
-    },
-    onError: (error: unknown) => {
-      toast({ title: '錯誤', description: extractErrorMessage(error, '新增失敗'), variant: 'destructive' })
-    },
+  const { createAnimalMutation, batchAssignMutation, quickMoveMutation, quickAddMutation, forceCreateMutation } = useAnimalsMutations({
+    penZone, penNumber,
+    selectedAnimals, assignIacucNo,
+    newAnimal, quickAddPending, quickAddForm,
+    setQuickAddForm,
+    setShowAddDialog, setShowBatchAssignDialog, setShowQuickAddDialog, setShowDuplicateWarning,
+    setSelectedAnimals, setAssignIacucNo, setQuickAddPending, setDuplicateWarningData,
+    setQuickEditAnimalId,
+    resetNewAnimalForm,
   })
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
