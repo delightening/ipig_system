@@ -16,6 +16,33 @@ use crate::{
 
 use super::HrService;
 
+/// 依加班類型回傳薪資乘數。
+/// A=平日(1.0), B=假日(1.33), C=國定假日(1.66), D=天災(2.0)
+pub(super) fn overtime_multiplier(overtime_type: &str) -> f64 {
+    match overtime_type {
+        "A" => 1.0,
+        "B" => 1.33,
+        "C" => 1.66,
+        "D" => 2.0,
+        _ => 1.0,
+    }
+}
+
+/// 依加班類型回傳補休時數。
+/// C/D 類型固定給 8 小時，其餘為 0。
+pub(super) fn comp_time_hours_for_type(overtime_type: &str) -> f64 {
+    match overtime_type {
+        "C" | "D" => 8.0,
+        _ => 0.0,
+    }
+}
+
+/// 將開始與結束分鐘數換算為以 0.5 小時為單位的工作時數。
+pub(super) fn calc_hours_from_minutes(start_minutes: i64, end_minutes: i64) -> f64 {
+    let raw = (end_minutes - start_minutes) as f64 / 60.0;
+    (raw * 2.0).round() / 2.0
+}
+
 impl HrService {
     // ============================================
     // Overtime
@@ -121,22 +148,10 @@ impl HrService {
         // 計算時數 (從 NaiveTime)，以 0.5 小時為單位四捨五入
         let start_minutes = payload.start_time.hour() as i64 * 60 + payload.start_time.minute() as i64;
         let end_minutes = payload.end_time.hour() as i64 * 60 + payload.end_time.minute() as i64;
-        let raw_hours = (end_minutes - start_minutes) as f64 / 60.0;
-        let hours = (raw_hours * 2.0).round() / 2.0;
+        let hours = calc_hours_from_minutes(start_minutes, end_minutes);
 
-        let multiplier = match payload.overtime_type.as_str() {
-            "A" => 1.0,    // 平日加班
-            "B" => 1.33,   // 假日加班
-            "C" => 1.66,   // 國定假日加班
-            "D" => 2.0,    // 天災加班
-            _ => 1.0,
-        };
-
-        // C (國定假日) 和 D (天災) 加班類型固定補給 8 小時 (1天) 補休
-        let comp_time_hours = match payload.overtime_type.as_str() {
-            "C" | "D" => 8.0,  // 固定 8 小時 (1天) 補休
-            _ => 0.0,          // A 和 B 沒有補休時數
-        };
+        let multiplier = overtime_multiplier(&payload.overtime_type);
+        let comp_time_hours = comp_time_hours_for_type(&payload.overtime_type);
         let expires_at = payload.overtime_date + chrono::Duration::days(365);
 
         let id = Uuid::new_v4();
@@ -369,5 +384,65 @@ impl HrService {
         .await?;
 
         Ok(result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{calc_hours_from_minutes, comp_time_hours_for_type, overtime_multiplier};
+
+    // --- overtime_multiplier ---
+
+    #[test]
+    fn test_overtime_multiplier_known_types() {
+        assert_eq!(overtime_multiplier("A"), 1.0);
+        assert_eq!(overtime_multiplier("B"), 1.33);
+        assert_eq!(overtime_multiplier("C"), 1.66);
+        assert_eq!(overtime_multiplier("D"), 2.0);
+    }
+
+    #[test]
+    fn test_overtime_multiplier_unknown_defaults_to_one() {
+        assert_eq!(overtime_multiplier("X"), 1.0);
+        assert_eq!(overtime_multiplier(""), 1.0);
+    }
+
+    // --- comp_time_hours_for_type ---
+
+    #[test]
+    fn test_comp_time_hours_c_d_get_eight() {
+        assert_eq!(comp_time_hours_for_type("C"), 8.0);
+        assert_eq!(comp_time_hours_for_type("D"), 8.0);
+    }
+
+    #[test]
+    fn test_comp_time_hours_a_b_get_zero() {
+        assert_eq!(comp_time_hours_for_type("A"), 0.0);
+        assert_eq!(comp_time_hours_for_type("B"), 0.0);
+        assert_eq!(comp_time_hours_for_type("X"), 0.0);
+    }
+
+    // --- calc_hours_from_minutes ---
+
+    #[test]
+    fn test_calc_hours_exact() {
+        // 18:00 - 09:00 = 9h
+        assert_eq!(calc_hours_from_minutes(540, 1080), 9.0);
+    }
+
+    #[test]
+    fn test_calc_hours_half_hour_rounding() {
+        // 62 分鐘 ≈ 1.0 小時（捨入至 0.5）
+        assert_eq!(calc_hours_from_minutes(0, 62), 1.0);
+        // 45 分鐘 → 0.5 小時
+        assert_eq!(calc_hours_from_minutes(0, 45), 0.5);
+        // 30 分鐘 → 0.5 小時
+        assert_eq!(calc_hours_from_minutes(0, 30), 0.5);
+    }
+
+    #[test]
+    fn test_calc_hours_one_and_half() {
+        // 90 分鐘 = 1.5 小時
+        assert_eq!(calc_hours_from_minutes(0, 90), 1.5);
     }
 }

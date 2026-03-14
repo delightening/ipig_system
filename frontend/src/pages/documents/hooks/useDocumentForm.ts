@@ -51,6 +51,7 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
 
   const [productSearchOpen, setProductSearchOpen] = useState(false)
   const [productSearch, setProductSearch] = useState('')
+  const [categoryCode, setCategoryCode] = useState<string | undefined>()
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null)
   const [unsavedChanges, setUnsavedChanges] = useState(false)
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
@@ -108,13 +109,16 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
   })
 
   const { data: products } = useQuery({
-    queryKey: ['products', productSearch],
+    queryKey: ['products', { keyword: productSearch, category_code: categoryCode }],
     queryFn: async () => {
-      const response = await api.get<Product[]>(
-        `/products?keyword=${encodeURIComponent(productSearch)}&is_active=true`
-      )
+      const params = new URLSearchParams()
+      if (productSearch) params.append('keyword', productSearch)
+      if (categoryCode) params.append('category_code', categoryCode)
+      params.append('is_active', 'true')
+      const response = await api.get<Product[]>(`/products?${params.toString()}`)
       return response.data
     },
+    enabled: productSearchOpen,
     staleTime: STALE_TIME.REFERENCE,
   })
 
@@ -338,8 +342,13 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
         // 強制檢查批號與效期 (特定單據類型)
         const requiresBatchExpiry = ['GRN', 'DO', 'SO', 'ADJ', 'STK'].includes(mergedData.doc_type)
         if (requiresBatchExpiry) {
-          if (!line.batch_no?.trim()) throw new Error(`第 ${idx + 1} 行：批號為必填項`)
-          if (!line.expiry_date?.trim()) throw new Error(`第 ${idx + 1} 行：效期為必填項`)
+          const product = products?.find((p) => p.id === line.product_id)
+          if (product?.track_batch && !line.batch_no?.trim()) {
+            throw new Error(`第 ${idx + 1} 行：該品項有管理批號，批號為必填項`)
+          }
+          if (product?.track_expiry && !line.expiry_date?.trim()) {
+            throw new Error(`第 ${idx + 1} 行：該品項有管理效期，效期為必填項`)
+          }
         }
       }
 
@@ -461,9 +470,9 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
       unit_price: '',
       batch_no: '',
       expiry_date: '',
-      storage_location_id: '',
-      storage_location_from_id: '',
-      storage_location_to_id: '',
+      storage_location_id: batchStorageLocationId || '',
+      storage_location_from_id: batchStorageLocationFromId || '',
+      storage_location_to_id: batchStorageLocationToId || '',
       remark: '',
     }
     setFormData((prev) => ({ ...prev, lines: [...currentLines, newLine] }))
@@ -674,8 +683,8 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     }, 0)
   }, [formData.lines, lineAmounts])
 
-  const needsShelf = !['PO'].includes(formData.doc_type)
-  const isShelfRequired = !['PO'].includes(formData.doc_type)
+  const needsShelf = !['PO', 'PR'].includes(formData.doc_type)
+  const isShelfRequired = !['PO', 'PR'].includes(formData.doc_type)
   const isIacucRequired = ['SO', 'DO'].includes(formData.doc_type)
   const iacucDisabled = ['GRN', 'STK', 'ADJ'].includes(formData.doc_type)
 
@@ -735,5 +744,7 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     handleBatchShelfSelectTo,
     poReceiptStatus,
     source_doc_id: formData.source_doc_id,
+    categoryCode,
+    setCategoryCode,
   }
 }

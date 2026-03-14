@@ -54,6 +54,7 @@ pub struct InventoryOnHand {
     pub product_sku: String,
     pub product_name: String,
     pub base_uom: String,
+    pub category_code: Option<String>,
     pub qty_on_hand: Decimal,
     pub avg_cost: Option<Decimal>,
     pub batch_no: Option<String>,

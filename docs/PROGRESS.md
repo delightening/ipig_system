@@ -205,11 +205,48 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-14 請購/採購單批號與效期調整
+- ✅ **前端表單驗證 (Frontend)**：修改 `useDocumentForm.ts` 中的 `needsShelf` 與 `isShelfRequired` 邏輯，排除 `PR` 單據，使其不強制要求儲位。調整 `buildPayload` 驗證，針對 `GRN`/`DO` 等單據，透過品項設定 (`track_batch`, `track_expiry`) 動態決定批號與效期是否為必填，而非一律強制。
+- ✅ **後端 CRUD 驗證 (Backend)**：修改 `crud.rs` 中的單據 `create` 與 `update` 方法，結合單據類型與產品 `track_batch`、`track_expiry` 屬性，動態驗證批號與效期，確保正確控制請購/採購與入庫單的資料流向。
+
+### 2026-03-14 R4-100-T5 + T6：單元測試補齊與覆蓋率量測 CI
+
+**R4-100-T5：protocol / document / hr services 單元測試**
+
+- ✅ **protocol/numbering**：提取 `parse_no_sequence` 與 `format_protocol_no` 純函式，並同步重構 `generate_apig_no` / `generate_iacuc_no` 使用這兩個函式；新增 8 個測試（前綴解析、格式化補零、非法輸入）。
+- ✅ **protocol/status**：直接測試既有 `validate_protocol_content` 私有函式（透過 `ProtocolService::` 呼叫）；7 個測試涵蓋缺少 content、缺少 basic、空白標題、GLP 未填授權單位、缺少 project_type 及正常通過。
+- ✅ **hr/leave**：補充 `effective_hours` 純函式（total_hours 優先換算邏輯）；7 個測試涵蓋 `is_half_hour_multiple` 邊界值與 `effective_hours` 換算。
+- ✅ **hr/overtime**：提取 `overtime_multiplier`、`comp_time_hours_for_type`、`calc_hours_from_minutes` 三個純函式，同步重構 `create_overtime`；8 個測試涵蓋各類型乘數、補休規則、0.5 小時捨入。
+- ✅ **hr/attendance**：直接測試既有 `is_ip_in_ranges` 公開函式；補充 `attendance_status_display` 純函式；8 個測試涵蓋精確 IP、CIDR /24、/32、多段清單、空清單、無效 IP。
+- ✅ **hr/balance**：提取 `compute_leave_expiry` 純函式（到期日計算含閏年退回邏輯），同步重構 `create_annual_leave_entitlement`；4 個測試涵蓋無到職日、有到職日、2/29 閏年邊界。
+- ✅ **document/grn**：提取 `next_seq_from_last_no` 與 `receipt_status_label` 純函式，同步重構 `create_grn_from_po` 與 `get_po_receipt_status`；8 個測試涵蓋各種單號格式、非法字串、三種入庫狀態。
+- **總計**：新增 50 個單元測試；`cargo check --tests` 通過。
+
+**R4-100-T6：cargo-tarpaulin 覆蓋率量測 CI**
+
+- ✅ **新增 `backend-coverage` job**：在 `.github/workflows/ci.yml` 加入獨立覆蓋率量測流程。
+- ✅ **設定**：`SQLX_OFFLINE=true`（不需要 DB）、`--lib`（只跑 lib 單元測試）、`--fail-under 25`（行覆蓋率門檻 25%）、`--timeout 120`、輸出 XML 格式。
+- ✅ **報告保存**：XML 覆蓋率報告以 `coverage-report` artifact 上傳，保留 14 天。
+- ✅ **快取優化**：使用 `cargo-tarpaulin-` 前綴的獨立快取 key。
+
+---
+
+### 2026-03-14 批次套用儲位 UI 與邏輯優化
+- ✅ **批次套用儲位選填化**：標明單據表頭（如採購入庫、調撥單）的儲位選擇為「批次套用儲位 (選填)」，避免使用者誤以為只能限定單一儲位，適應同一張採購單品項存在不同儲位的情境。
+- ✅ **預設儲位繼承**：使用者點擊「新增明細」時，新明細會自動繼承表頭已選的「批次套用儲位」，大幅提升多儲位配置的建檔效率。
+
+### 2026-03-14 品項選擇與單據關連優化
+- ✅ **動態品類同步 (已修復)**：品項選擇彈窗現在會自動透過 `useSkuCategories` Hook 同步品類設定，修正了之前調用未定義 `/categories` API 導致 Tabs 未發揮作用的問題。
+- ✅ **UX 優化**：新增品類 Tabs 篩選器，支援關鍵字與品類雙重過濾。同時擴增後端庫存查詢，實現在「庫存模式」下也能依據對應品類即時過濾。
+- ✅ **採購入庫強化**：連動「來源採購單」時自動過濾供應商與核准狀態。
+- ✅ **系統修復**：修復 API 400 (參數大小寫/解析錯誤) 與 500 (SQL 欄位缺失) 報錯。
+- ✅ **明細顯示修復**：修正 `poReceiptStatus` 屬性未傳遞至 `DocumentLineEditor` 的問題，確保 GRN 選擇來源採購單後能正確列出待入庫明細。
+
+---
+
 ### 2026-03-13 R8 代碼規範重構 — 目錄掃描與風格採樣（01a-1, 01a-2）
 - ✅ **01a-1 目錄掃描**：建立 backend/frontend/scripts/tests 完整樹狀圖，標注各目錄推測職責；發現 `utils/access.rs` 位置不符規範、缺少 `repositories/` 層、`lib/api.ts` 未按業務域拆分等三項架構問題。
 - ✅ **01a-2 風格採樣**：分析 `main.rs`、`routes.rs`、2 個 service、`App.tsx`、2 個 page，產出命名慣例/函式長度/巢狀深度/錯誤處理/import 組織五維度比較表；識別 11 項具體問題（R8-1～R8-11），記錄至 `docs/TODO.md` R8 區段。
-
----
 
 ### 2026-03-14 採購入庫品項篩選強化 (修正)
 - ✅ **入庫邏輯嚴格化**：修正 GRN 品項篩選失效問題。

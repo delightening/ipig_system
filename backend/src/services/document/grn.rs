@@ -14,6 +14,37 @@ use crate::{
 
 use super::DocumentService;
 
+/// 從上一張單據的單號字串解析下一個流水號。
+/// 例如：`next_seq_from_last_no("GRN-260314-005")` → `6`
+/// 若解析失敗則回傳 1（從頭開始）。
+pub(super) fn next_seq_from_last_no(last_no: Option<&str>) -> i32 {
+    match last_no {
+        Some(no) => {
+            let parts: Vec<&str> = no.split('-').collect();
+            if parts.len() >= 3 {
+                parts[2].parse::<i32>().unwrap_or(0) + 1
+            } else {
+                1
+            }
+        }
+        None => 1,
+    }
+}
+
+/// 依據已入庫量與採購量決定入庫狀態字串。
+pub(super) fn receipt_status_label(
+    total_received: rust_decimal::Decimal,
+    total_ordered: rust_decimal::Decimal,
+) -> &'static str {
+    if total_received == rust_decimal::Decimal::ZERO {
+        "pending"
+    } else if total_received < total_ordered {
+        "partial"
+    } else {
+        "complete"
+    }
+}
+
 impl DocumentService {
     /// 從採購單建立入庫單（草稿）
     pub(crate) async fn create_grn_from_po(
@@ -36,16 +67,7 @@ impl DocumentService {
         .fetch_optional(&mut **tx)
         .await?;
 
-        let seq = if let Some(last) = last_no {
-            let parts: Vec<&str> = last.split('-').collect();
-            if parts.len() >= 3 {
-                parts[2].parse::<i32>().unwrap_or(0) + 1
-            } else {
-                1
-            }
-        } else {
-            1
-        };
+        let seq = next_seq_from_last_no(last_no.as_deref());
         let doc_no = format!("{}-{:03}", prefix, seq);
 
         // 建立入庫單頭
@@ -279,13 +301,7 @@ impl DocumentService {
         let total_ordered: Decimal = items.iter().map(|i| i.ordered_qty).sum();
         let total_received: Decimal = items.iter().map(|i| i.received_qty).sum();
 
-        let status = if total_received == Decimal::ZERO {
-            "pending".to_string()
-        } else if total_received < total_ordered {
-            "partial".to_string()
-        } else {
-            "complete".to_string()
-        };
+        let status = receipt_status_label(total_received, total_ordered).to_string();
 
         Ok(PoReceiptStatus {
             po_id,
@@ -293,5 +309,62 @@ impl DocumentService {
             status,
             items,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{next_seq_from_last_no, receipt_status_label};
+    use rust_decimal::Decimal;
+
+    // --- next_seq_from_last_no ---
+
+    #[test]
+    fn test_next_seq_no_previous() {
+        assert_eq!(next_seq_from_last_no(None), 1);
+    }
+
+    #[test]
+    fn test_next_seq_from_valid_doc_no() {
+        assert_eq!(next_seq_from_last_no(Some("GRN-260314-005")), 6);
+        assert_eq!(next_seq_from_last_no(Some("GRN-260314-001")), 2);
+        assert_eq!(next_seq_from_last_no(Some("GRN-260314-099")), 100);
+    }
+
+    #[test]
+    fn test_next_seq_non_numeric_seq_defaults_to_one() {
+        assert_eq!(next_seq_from_last_no(Some("GRN-260314-abc")), 1);
+    }
+
+    #[test]
+    fn test_next_seq_too_few_segments() {
+        assert_eq!(next_seq_from_last_no(Some("GRN-260314")), 1);
+        assert_eq!(next_seq_from_last_no(Some("GRN")), 1);
+    }
+
+    // --- receipt_status_label ---
+
+    #[test]
+    fn test_receipt_status_pending_when_zero_received() {
+        assert_eq!(
+            receipt_status_label(Decimal::ZERO, Decimal::new(100, 0)),
+            "pending"
+        );
+    }
+
+    #[test]
+    fn test_receipt_status_partial_when_some_received() {
+        assert_eq!(
+            receipt_status_label(Decimal::new(50, 0), Decimal::new(100, 0)),
+            "partial"
+        );
+    }
+
+    #[test]
+    fn test_receipt_status_complete_when_fully_received() {
+        assert_eq!(
+            receipt_status_label(Decimal::new(100, 0), Decimal::new(100, 0)),
+            "complete"
+        );
     }
 }
