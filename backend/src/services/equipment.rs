@@ -12,7 +12,7 @@ use crate::{
         CreateEquipmentRequest, Equipment, EquipmentCalibration, EquipmentQuery,
         PaginatedResponse, UpdateCalibrationRequest, UpdateEquipmentRequest,
     },
-    Result,
+    repositories, Result,
 };
 
 pub struct EquipmentService;
@@ -71,9 +71,7 @@ impl EquipmentService {
             return Err(AppError::Forbidden("無權查看設備".into()));
         }
 
-        let record = sqlx::query_as::<_, Equipment>("SELECT * FROM equipment WHERE id = $1")
-            .bind(id)
-            .fetch_optional(pool)
+        let record = repositories::equipment::find_equipment_by_id(pool, id)
             .await?
             .ok_or_else(|| AppError::NotFound("設備不存在".into()))?;
 
@@ -119,9 +117,7 @@ impl EquipmentService {
         }
         payload.validate()?;
 
-        let existing = sqlx::query_as::<_, Equipment>("SELECT * FROM equipment WHERE id = $1")
-            .bind(id)
-            .fetch_optional(pool)
+        let existing = repositories::equipment::find_equipment_by_id(pool, id)
             .await?
             .ok_or_else(|| AppError::NotFound("設備不存在".into()))?;
 
@@ -230,13 +226,9 @@ impl EquipmentService {
             return Err(AppError::Forbidden("無權查看校準紀錄".into()));
         }
 
-        let record = sqlx::query_as::<_, EquipmentCalibration>(
-            "SELECT * FROM equipment_calibrations WHERE id = $1",
-        )
-        .bind(id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("校準紀錄不存在".into()))?;
+        let record = repositories::equipment::find_equipment_calibration_by_id(pool, id)
+            .await?
+            .ok_or_else(|| AppError::NotFound("校準紀錄不存在".into()))?;
 
         Ok(record)
     }
@@ -280,13 +272,9 @@ impl EquipmentService {
         }
         payload.validate()?;
 
-        let existing = sqlx::query_as::<_, EquipmentCalibration>(
-            "SELECT * FROM equipment_calibrations WHERE id = $1",
-        )
-        .bind(id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("校準紀錄不存在".into()))?;
+        let existing = repositories::equipment::find_equipment_calibration_by_id(pool, id)
+            .await?
+            .ok_or_else(|| AppError::NotFound("校準紀錄不存在".into()))?;
 
         let calibrated_at = payload.calibrated_at.unwrap_or(existing.calibrated_at);
         let next_due_at = payload.next_due_at.or(existing.next_due_at);
