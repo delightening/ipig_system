@@ -1,4 +1,5 @@
-//! 資源存取權限檢查 helper，用於防範 IDOR（Insecure Direct Object Reference）
+//! 資源存取權限檢查（防範 IDOR）
+//! 此模組依賴 CurrentUser（middleware 層別）與 AppError，屬於業務邏輯，置於 services/ 層。
 
 use uuid::Uuid;
 

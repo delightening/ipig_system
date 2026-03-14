@@ -10,7 +10,7 @@ use crate::{
         SkuPreviewResponse, SkuSegment, SkuSubcategory, SubcategoriesResponse, SubcategoryForEdit,
         UpdateSkuCategoryRequest, UpdateSkuSubcategoryRequest, ValidateSkuRequest, ValidateSkuResponse,
     },
-    AppError, Result,
+    repositories, AppError, Result,
 };
 
 pub struct SkuService;
@@ -407,12 +407,7 @@ impl SkuService {
         };
 
         // 檢查 SKU 是否已存在
-        let exists: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM products WHERE sku = $1)"
-        )
-        .bind(&req.sku)
-        .fetch_one(pool)
-        .await?;
+        let exists = repositories::product::exists_product_by_sku(pool, &req.sku).await?;
 
         Ok(ValidateSkuResponse {
             valid: true,
@@ -681,11 +676,7 @@ impl SkuService {
         let final_sku = sku_result.sku;
 
         // 檢查 SKU 是否已存在
-        let exists: bool =
-            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM products WHERE sku = $1)")
-                .bind(&final_sku)
-                .fetch_one(pool)
-                .await?;
+        let exists = repositories::product::exists_product_by_sku(pool, &final_sku).await?;
 
         if exists {
             return Err(AppError::Conflict("SKU already exists".to_string()));
@@ -723,12 +714,8 @@ impl SkuService {
         .await?;
 
         // 查詢類別名稱
-        let category_name: Option<String> = sqlx::query_scalar(
-            "SELECT name FROM sku_categories WHERE code = $1"
-        )
-        .bind(&req.category_code)
-        .fetch_optional(pool)
-        .await?;
+        let category_name =
+            repositories::sku::find_category_name_by_code(pool, &req.category_code).await?;
 
         let subcategory_name: Option<String> = sqlx::query_scalar(
             "SELECT name FROM sku_subcategories WHERE category_code = $1 AND code = $2"

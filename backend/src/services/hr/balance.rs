@@ -10,6 +10,7 @@ use crate::{
         AdjustBalanceRequest, AnnualLeaveBalanceView, AnnualLeaveEntitlement, BalanceSummary,
         CompTimeBalanceView, CreateAnnualLeaveRequest, ExpiredLeaveReport,
     },
+    repositories,
     Result,
 };
 
@@ -108,11 +109,10 @@ impl HrService {
     }
 
     pub async fn get_balance_summary(pool: &PgPool, user_id: Uuid) -> Result<BalanceSummary> {
-        let user_name: (String,) = sqlx::query_as("SELECT display_name FROM users WHERE id = $1")
-            .bind(user_id)
-            .fetch_optional(pool)
+        let user_name_str = repositories::user::find_user_display_name_by_id(pool, user_id)
             .await?
             .ok_or_else(|| AppError::NotFound(format!("User not found: {}", user_id)))?;
+        let user_name: (String,) = (user_name_str,);
 
         let annual: (f64, f64) = sqlx::query_as(
             r#"SELECT COALESCE(SUM(entitled_days), 0)::float8, COALESCE(SUM(used_days), 0)::float8

@@ -2,7 +2,8 @@ import { useState, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api, { ProtocolListItem, ProtocolStatus } from '@/lib/api'
+import api from '@/lib/api'
+import type { ProtocolListItem, ProtocolStatus } from '@/types/aup'
 import { useDebounce } from '@/hooks/useDebounce'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,25 +29,7 @@ import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-
-const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'> = {
-  DRAFT: 'secondary',
-  SUBMITTED: 'default',
-  PRE_REVIEW: 'default',
-  PRE_REVIEW_REVISION_REQUIRED: 'destructive',
-  VET_REVIEW: 'warning',
-  VET_REVISION_REQUIRED: 'destructive',
-  UNDER_REVIEW: 'warning',
-  REVISION_REQUIRED: 'destructive',
-  RESUBMITTED: 'default',
-  APPROVED: 'success',
-  APPROVED_WITH_CONDITIONS: 'success',
-  DEFERRED: 'secondary',
-  REJECTED: 'destructive',
-  SUSPENDED: 'destructive',
-  CLOSED: 'outline',
-  DELETED: 'outline',
-}
+import { statusColors } from './constants'
 
 type SortField = 'iacuc_no' | 'title' | 'pi_name' | 'pi_organization' | 'status' | 'start_date' | 'created_at'
 type SortOrder = 'asc' | 'desc'

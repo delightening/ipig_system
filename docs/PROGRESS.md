@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-03-13 (v13)
+> **最後更新：** 2026-03-14 (v14)
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -79,7 +79,7 @@
 | 6 | [HR 人事管理系統](#6-hr-人事管理系統) | 特休、考勤、Google Calendar |
 | 7 | [資料庫 Schema 完成度](#7-資料庫-schema-完成度) | Migration 清單 |
 | 8 | [版本規劃](#8-版本規劃) | v1.0 / v1.1 里程碑 |
-| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-14 R4-100-T5 單元測試 50 條 + T6 tarpaulin CI |
+| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-14 R8 代碼規範重構全部 11 項完成 |
 
 ---
 
@@ -188,6 +188,25 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 >
 > **更新慣例**：新項目請放在本區塊**最前面**（時間由近到遠），勿追加於末端。
 
+### 2026-03-14 修復資料庫遷移檔案編碼問題
+- ✅ **編碼修復**：修正 `backend/migrations/010_treatment_drug_final.sql` 包含非 UTF-8 字元（亂碼）的問題，解決 Docker 建置時 `sqlx::migrate!` 失敗。
+- ✅ **內容修正**：手動修正損壞的中文註解（設施管理、物種、建築等），統一檔案編碼為 UTF-8。
+
+---
+
+### 2026-03-14 R8 代碼規範重構 — 全部 11 項問題修正完成（R8-1～R8-11）
+- ✅ **R8-1**：`routes.rs`（1,236 行）→ `routes/` 目錄（mod.rs + 10 業務域子模組），`cargo check` 零警告。
+- ✅ **R8-2**：`main.rs` 450→148 行；啟動邏輯提取至 `startup/tracing.rs`、`startup/migration.rs`、`startup/config_check.rs`、`startup/server.rs`。
+- ✅ **R8-3**：建立 `repositories/` 層（equipment/product/role/sku/user/warehouse），遷移 8 個 service 中重複 SQL。
+- ✅ **R8-4**：`utils/access.rs` → `services/access.rs`；`utils/mod.rs` 清空為純說明注解。
+- ✅ **R8-5**：`services/animal/core.rs`（684 行）→ `core/` 目錄（mod.rs + query.rs/write.rs/update.rs/delete.rs）。
+- ✅ **R8-6**：`App.tsx` 四個內聯 Route 元件抽離至 `components/auth/`；`DASHBOARD_ROLES` 常數統一，消除 `getHomeRedirect` 與 `DashboardRoute` 重複。
+- ✅ **R8-7**：`lib/api.ts`（514 行）→ `lib/api/` 目錄（client.ts + 7 業務域檔案 + index.ts），原 `api.ts` 改為向後相容 re-export。
+- ✅ **R8-8**：`AnimalsPage.tsx` 576→308 行（mutations 提取至 `useAnimalsMutations.ts`，queries 提取至 `useAnimalsQueries.ts`）。
+- ✅ **R8-9**：`AnimalsPage.tsx`/`ProtocolsPage.tsx` 型別 import 從 `@/lib/api` 改為 `@/types/*`；`axios` 從非業務用途移除。
+- ✅ **R8-10**：`ProtocolsPage.tsx` 中 17 行 `statusColors` 移至 `pages/protocols/constants.ts`。
+- ✅ **R8-11**：`services/protocol/core.rs` `use chrono::Datelike` 從函式體內移至檔案頂部。
+
 ---
 
 ### 2026-03-14 儀表板 Widget 捲動體驗優化
@@ -231,6 +250,12 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **採購入庫強化**：連動「來源採購單」時自動過濾供應商與核准狀態。
 - ✅ **系統修復**：修復 API 400 (參數大小寫/解析錯誤) 與 500 (SQL 欄位缺失) 報錯。
 - ✅ **明細顯示修復**：修正 `poReceiptStatus` 屬性未傳遞至 `DocumentLineEditor` 的問題，確保 GRN 選擇來源採購單後能正確列出待入庫明細。
+
+---
+
+### 2026-03-13 R8 代碼規範重構 — 目錄掃描與風格採樣（01a-1, 01a-2）
+- ✅ **01a-1 目錄掃描**：建立 backend/frontend/scripts/tests 完整樹狀圖，標注各目錄推測職責；發現 `utils/access.rs` 位置不符規範、缺少 `repositories/` 層、`lib/api.ts` 未按業務域拆分等三項架構問題。
+- ✅ **01a-2 風格採樣**：分析 `main.rs`、`routes.rs`、2 個 service、`App.tsx`、2 個 page，產出命名慣例/函式長度/巢狀深度/錯誤處理/import 組織五維度比較表；識別 11 項具體問題（R8-1～R8-11），記錄至 `docs/TODO.md` R8 區段。
 
 ### 2026-03-14 採購入庫品項篩選強化 (修正)
 - ✅ **入庫邏輯嚴格化**：修正 GRN 品項篩選失效問題。

@@ -7,6 +7,7 @@ use crate::{
         DocumentLineWithProduct, DocumentListItem, DocumentQuery, DocumentWithLines,
         UpdateDocumentRequest,
     },
+    repositories,
     time, AppError, Result,
 };
 
@@ -78,9 +79,9 @@ impl DocumentService {
             r#"
             INSERT INTO documents (
                 id, doc_type, doc_no, status, warehouse_id, warehouse_from_id, warehouse_to_id,
-                partner_id, source_doc_id, doc_date, remark, stocktake_scope, iacuc_no, created_by, created_at, updated_at
+                partner_id, source_doc_id, doc_date, remark, stocktake_scope, iacuc_no, protocol_id, created_by, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
             RETURNING *
             "#
         )
@@ -97,6 +98,7 @@ impl DocumentService {
         .bind(&req.remark)
         .bind(req.stocktake_scope.as_ref().map(|s| serde_json::to_value(s).unwrap_or(serde_json::Value::Null)))
         .bind(&req.iacuc_no)
+        .bind(req.protocol_id)
         .bind(created_by)
         .fetch_one(&mut *tx)
         .await?;
@@ -166,8 +168,9 @@ impl DocumentService {
                 source_doc_id = COALESCE($5, source_doc_id),
                 doc_date = COALESCE($6, doc_date),
                 remark = COALESCE($7, remark),
+                protocol_id = COALESCE($8, protocol_id),
                 updated_at = NOW()
-            WHERE id = $8
+            WHERE id = $9
             "#,
         )
         .bind(req.warehouse_id)
@@ -177,6 +180,7 @@ impl DocumentService {
         .bind(req.source_doc_id)
         .bind(req.doc_date)
         .bind(&req.remark)
+        .bind(req.protocol_id)
         .bind(id)
         .execute(&mut *tx)
         .await?;
@@ -296,11 +300,13 @@ impl DocumentService {
     pub async fn list(pool: &PgPool, query: &DocumentQuery) -> Result<Vec<DocumentListItem>> {
         let mut qb = sqlx::QueryBuilder::new(
             r#"
-            SELECT 
+            SELECT
                 d.id, d.doc_type, d.doc_no, d.status,
                 w.name as warehouse_name,
                 d.partner_id,
                 p.name as partner_name,
+                d.protocol_id,
+                pr.protocol_no as protocol_no,
                 d.doc_date,
                 u1.display_name as created_by_name,
                 u2.display_name as approved_by_name,
@@ -311,10 +317,15 @@ impl DocumentService {
                      WHERE sl.product_id = dl.product_id AND sl.unit_cost IS NOT NULL),
                     0)) as total_amount,
                 d.iacuc_no,
-                d.receipt_status
+                d.receipt_status,
+                EXISTS (
+                    SELECT 1 FROM journal_entries je
+                    WHERE je.source_entity_type = 'document' AND je.source_entity_id = d.id
+                ) AS has_journal_entry
             FROM documents d
             LEFT JOIN warehouses w ON d.warehouse_id = w.id
             LEFT JOIN partners p ON d.partner_id = p.id
+            LEFT JOIN protocols pr ON d.protocol_id = pr.id
             LEFT JOIN users u1 ON d.created_by = u1.id
             LEFT JOIN users u2 ON d.approved_by = u2.id
             LEFT JOIN document_lines dl ON d.id = dl.document_id
@@ -325,6 +336,21 @@ impl DocumentService {
         if let Some(doc_type) = query.doc_type {
             qb.push(" AND d.doc_type = ");
             qb.push_bind(doc_type);
+        } else if let Some(ref doc_types_str) = query.doc_types {
+            let parsed: Vec<DocType> = doc_types_str
+                .split(',')
+                .filter_map(|s| {
+                    serde_json::from_str::<DocType>(&format!("\"{}\"", s.trim())).ok()
+                })
+                .collect();
+            if !parsed.is_empty() {
+                qb.push(" AND d.doc_type IN (");
+                let mut sep = qb.separated(", ");
+                for t in parsed {
+                    sep.push_bind(t);
+                }
+                qb.push(")");
+            }
         }
 
         if let Some(status) = query.status {
@@ -337,7 +363,7 @@ impl DocumentService {
             qb.push_bind(iacuc_no.clone());
         }
 
-        qb.push(" GROUP BY d.id, w.name, d.partner_id, p.name, u1.display_name, u2.display_name, d.iacuc_no ORDER BY d.created_at DESC");
+        qb.push(" GROUP BY d.id, w.name, d.partner_id, p.name, d.protocol_id, pr.protocol_no, u1.display_name, u2.display_name, d.doc_type, d.doc_no, d.status, d.doc_date, d.created_at, d.approved_at, d.iacuc_no, d.receipt_status ORDER BY d.created_at DESC");
 
         let documents = qb
             .build_query_as::<DocumentListItem>()
@@ -373,31 +399,17 @@ impl DocumentService {
         .await?;
 
         // 取得關聯名稱
-        let warehouse_name: Option<String> = if let Some(wid) = document.warehouse_id {
-            sqlx::query_scalar("SELECT name FROM warehouses WHERE id = $1")
-                .bind(wid)
-                .fetch_optional(pool)
-                .await?
-        } else {
-            None
+        let warehouse_name = match document.warehouse_id {
+            Some(wid) => repositories::warehouse::find_warehouse_name_by_id(pool, wid).await?,
+            None => None,
         };
-
-        let warehouse_from_name: Option<String> = if let Some(wid) = document.warehouse_from_id {
-            sqlx::query_scalar("SELECT name FROM warehouses WHERE id = $1")
-                .bind(wid)
-                .fetch_optional(pool)
-                .await?
-        } else {
-            None
+        let warehouse_from_name = match document.warehouse_from_id {
+            Some(wid) => repositories::warehouse::find_warehouse_name_by_id(pool, wid).await?,
+            None => None,
         };
-
-        let warehouse_to_name: Option<String> = if let Some(wid) = document.warehouse_to_id {
-            sqlx::query_scalar("SELECT name FROM warehouses WHERE id = $1")
-                .bind(wid)
-                .fetch_optional(pool)
-                .await?
-        } else {
-            None
+        let warehouse_to_name = match document.warehouse_to_id {
+            Some(wid) => repositories::warehouse::find_warehouse_name_by_id(pool, wid).await?,
+            None => None,
         };
 
         let partner_name: Option<String> = if let Some(pid) = document.partner_id {
@@ -409,20 +421,25 @@ impl DocumentService {
             None
         };
 
-        let created_by_name: String =
-            sqlx::query_scalar("SELECT display_name FROM users WHERE id = $1")
-                .bind(document.created_by)
-                .fetch_optional(pool)
-                .await?
-                .unwrap_or_else(|| "Unknown User".to_string());
-
-        let approved_by_name: Option<String> = if let Some(uid) = document.approved_by {
-            sqlx::query_scalar("SELECT display_name FROM users WHERE id = $1")
-                .bind(uid)
+        let protocol_no: Option<String> = if let Some(pid) = document.protocol_id {
+            sqlx::query_scalar("SELECT protocol_no FROM protocols WHERE id = $1")
+                .bind(pid)
                 .fetch_optional(pool)
                 .await?
         } else {
             None
+        };
+
+        let created_by_name: String =
+            repositories::user::find_user_display_name_by_id(pool, document.created_by)
+                .await?
+                .unwrap_or_else(|| "Unknown User".to_string());
+
+        let approved_by_name: Option<String> = match document.approved_by {
+            Some(uid) => {
+                repositories::user::find_user_display_name_by_id(pool, uid).await?
+            }
+            None => None,
         };
 
         Ok(DocumentWithLines {
@@ -432,6 +449,7 @@ impl DocumentService {
             warehouse_from_name,
             warehouse_to_name,
             partner_name,
+            protocol_no,
             created_by_name,
             approved_by_name,
         })

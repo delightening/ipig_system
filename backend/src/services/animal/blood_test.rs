@@ -11,7 +11,7 @@ use crate::{
         UpdateBloodTestPanelRequest, UpdateBloodTestPresetRequest, UpdateBloodTestRequest,
         UpdateBloodTestTemplateRequest,
     },
-    AppError, Result,
+    repositories, AppError, Result,
 };
 
 pub struct AnimalBloodTestService;
@@ -70,13 +70,9 @@ impl AnimalBloodTestService {
         .fetch_all(pool)
         .await?;
 
-        let created_by_name = if let Some(created_by) = blood_test.created_by {
-            sqlx::query_scalar::<_, String>("SELECT display_name FROM users WHERE id = $1")
-                .bind(created_by)
-                .fetch_optional(pool)
-                .await?
-        } else {
-            None
+        let created_by_name = match blood_test.created_by {
+            Some(uid) => repositories::user::find_user_display_name_by_id(pool, uid).await?,
+            None => None,
         };
 
         Ok(AnimalBloodTestWithItems {
@@ -135,10 +131,7 @@ impl AnimalBloodTestService {
         }
 
         let created_by_name =
-            sqlx::query_scalar::<_, String>("SELECT display_name FROM users WHERE id = $1")
-                .bind(created_by)
-                .fetch_optional(pool)
-                .await?;
+            repositories::user::find_user_display_name_by_id(pool, created_by).await?;
 
         Ok(AnimalBloodTestWithItems {
             blood_test,
