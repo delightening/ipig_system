@@ -28,7 +28,9 @@ export function DocumentFormHeader({
           {isEdit ? '編輯單據' : '新增單據'}
         </h1>
         <p className="text-muted-foreground">
-          {isEdit ? `編輯 ${docTypeName}` : `建立新的${docTypeName}`}
+          {isEdit 
+            ? `編輯現有的 ${docTypeName || '單據'}` 
+            : (docTypeName ? `建立新的 ${docTypeName}` : '請選擇單據類型以開始')}
         </p>
       </div>
       <div className="flex gap-2">
