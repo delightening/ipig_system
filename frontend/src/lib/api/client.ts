@@ -30,8 +30,10 @@ export function deleteResource(
   url: string,
   options?: { data?: object; headers?: { [key: string]: string } },
 ) {
-  const base = url.replace(/\/$/, '')
-  return api.post(`${base}/delete`, options?.data ?? {}, { headers: options?.headers })
+  const parts = url.split('?')
+  const base = parts[0].replace(/\/$/, '')
+  const query = parts.length > 1 ? `?${parts[1]}` : ''
+  return api.post(`${base}/delete${query}`, options?.data ?? {}, { headers: options?.headers })
 }
 
 // Request interceptor：自動將 csrf_token Cookie 值加到 X-CSRF-Token header

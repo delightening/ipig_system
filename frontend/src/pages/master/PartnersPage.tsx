@@ -172,7 +172,7 @@ export function PartnersPage() {
 
   const deleteMutation = useMutation({
     mutationFn: ({ id, hard }: { id: string; hard: boolean }) => 
-      deleteResource(`/partners/${id}${hard ? '?hard=true' : ''}`),
+      deleteResource(`/partners/${id}`, { data: { hard } }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['partners'] })
       toast({ 
