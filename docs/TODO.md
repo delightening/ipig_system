@@ -133,8 +133,8 @@
 | R4-100-T2 | **partner service 單元測試** | PartnerService 核心邏輯（code 解析、正則）+ 5–8 個測試 | 後端 | 🧠 Claude | [x] |
 | R4-100-T3 | **user/role service 單元測試** | UserService、RoleService 可提取邏輯 + 測試 | 後端 | 🧠 Claude | [x] |
 | R4-100-T4 | **animal 核心 services 單元測試** | animal/core, observation, medical 等可提取邏輯 (2026-03-09 已完成服務拆分重構) | 後端 | 🧠 Claude | [x] |
-| R4-100-T5 | **protocol/document/hr services 單元測試** | 分批補齊 protocol/*, document/*, hr/* | 後端 | 🧠 Claude | [ ] |
-| R4-100-T6 | **cargo-tarpaulin 覆蓋率量測** | 安裝 tarpaulin，CI 中量測行覆蓋率並設門檻 | DevOps | 🧠 Claude | [ ] |
+| R4-100-T5 | **protocol/document/hr services 單元測試** | 分批補齊 protocol/*, document/*, hr/* | 後端 | 🧠 Claude | [x] |
+| R4-100-T6 | **cargo-tarpaulin 覆蓋率量測** | 安裝 tarpaulin，CI 中量測行覆蓋率並設門檻 | DevOps | 🧠 Claude | [x] |
 
 ### 7.2 API 文件（OpenAPI）100% 端點文件化
 
@@ -192,11 +192,11 @@
 | 🔴 P2 中優先 | 0 |
 | 🔵 P3 低優先 | 0 |
 | 🟣 P4 品質提升 | 0 |
-| 🟣 R4-100 邁向 100% | 2 |
+| 🟣 R4-100 邁向 100% | 0 |
 | ⚪ P5 長期演進 | 0 |
 | 🟠 R6 第六輪改善 | 2 |
 | 🔒 R7 安全審視 | 0 |
-| **合計（未完成）** | **4** |
+| **合計（未完成）** | **2** |
 
 ---
 
@@ -204,6 +204,8 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-03-14 | 🧠 Claude：R4-100-T5 protocol/document/hr 服務單元測試完成 — protocol/numbering 提取 `parse_no_sequence`/`format_protocol_no` + 8 測試；protocol/status 測試 `validate_protocol_content` 7 測試；hr/leave 測試 `is_half_hour_multiple`/`effective_hours` 7 測試；hr/overtime 提取 `overtime_multiplier`/`comp_time_hours_for_type`/`calc_hours_from_minutes` + 8 測試；hr/attendance 測試 `is_ip_in_ranges`/`attendance_status_display` 8 測試；hr/balance 提取 `compute_leave_expiry` + 4 測試；document/grn 提取 `next_seq_from_last_no`/`receipt_status_label` + 8 測試。共 50 個新單元測試，cargo check --tests 通過。 |
+| 2026-03-14 | 🧠 Claude：R4-100-T6 cargo-tarpaulin CI 覆蓋率量測 — ci.yml 新增 `backend-coverage` job，`SQLX_OFFLINE=true` 僅跑 lib 單元測試，`--fail-under 25` 設定門檻，產出 XML 報告並上傳為 artifact（保留 14 天）。 |
 | 2026-03-14 | 🧠 Claude：品項選擇與單據關連優化 — (1) 在新增明細彈窗加入動態品類篩選（Tabs）；(2) 修正 GRN 來源單據選擇邏輯與 API 400 報錯，確保僅能選擇匹配供應商且已核准的 PO；(3) 修復 Inventory Low-Stock API 500 報錯；(4) 修正 `poReceiptStatus` 未傳遞至 `DocumentLineEditor` 導致待入庫明細未顯示的漏洞。 |
 | 2026-03-14 | 🧠 Claude：品項選擇品類篩選優化 — 在新增明細彈窗加入動態品類篩選（ Tabs），支援從 `/api/categories` 同步產品管理設定，並在全品項及庫存模式下提供動態過濾，大幅提升 UX。 |
 | 2026-03-14 | 🧠 Claude：採購入庫品項篩選強化 — 修正 `GRN` 品項篩選邏輯。新增「來源採購單」選擇 UI 與連動篩選，修正 `poReceiptStatus` 查詢參數，確保 GRN 僅能選擇關聯 PO 之待入庫品項並自動帶入數據。 |

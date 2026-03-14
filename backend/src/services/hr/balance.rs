@@ -15,6 +15,25 @@ use crate::{
 
 use super::HrService;
 
+/// 計算特休假到期日。
+/// 到期年 = 授予年 + 2。
+/// - 若有到職日：優先以同月同日為到期日（例外處理 2/29）
+/// - 無到職日：12/31
+pub(super) fn compute_leave_expiry(
+    entitlement_year: i32,
+    hire_date: Option<NaiveDate>,
+) -> Option<NaiveDate> {
+    let yr = entitlement_year + 2;
+    if let Some(hd) = hire_date {
+        NaiveDate::from_ymd_opt(yr, hd.month(), hd.day())
+            .or_else(|| NaiveDate::from_ymd_opt(yr, hd.month(), 28))
+            .or_else(|| NaiveDate::from_ymd_opt(yr, 12, 31))
+    } else {
+        NaiveDate::from_ymd_opt(yr, 12, 31)
+            .or_else(|| NaiveDate::from_ymd_opt(yr, 12, 30))
+    }
+}
+
 impl HrService {
     pub async fn get_annual_leave_balances(
         pool: &PgPool,
@@ -144,16 +163,8 @@ impl HrService {
     ) -> Result<AnnualLeaveEntitlement> {
         let id = Uuid::new_v4();
         let yr = payload.entitlement_year + 2;
-        let expires_at = if let Some(hire_date) = payload.hire_date {
-            NaiveDate::from_ymd_opt(yr, hire_date.month(), hire_date.day())
-                .or_else(|| NaiveDate::from_ymd_opt(yr, hire_date.month(), 28))
-                .or_else(|| NaiveDate::from_ymd_opt(yr, 12, 31))
-                .ok_or_else(|| AppError::Internal(format!("invalid expiry date for year {yr}")))?
-        } else {
-            NaiveDate::from_ymd_opt(yr, 12, 31)
-                .or_else(|| NaiveDate::from_ymd_opt(yr, 12, 30))
-                .ok_or_else(|| AppError::Internal(format!("invalid expiry date for year {yr}")))?
-        };
+        let expires_at = compute_leave_expiry(payload.entitlement_year, payload.hire_date)
+            .ok_or_else(|| AppError::Internal(format!("invalid expiry date for year {yr}")))?;
 
         let record = sqlx::query_as::<_, AnnualLeaveEntitlement>(
             r#"INSERT INTO annual_leave_entitlements (
@@ -254,5 +265,43 @@ impl HrService {
         } else {
             Ok(None)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::compute_leave_expiry;
+    use chrono::NaiveDate;
+
+    // --- compute_leave_expiry ---
+
+    #[test]
+    fn test_expiry_without_hire_date() {
+        // 2024 年授予 → 到期年 2026/12/31
+        let result = compute_leave_expiry(2024, None);
+        assert_eq!(result, NaiveDate::from_ymd_opt(2026, 12, 31));
+    }
+
+    #[test]
+    fn test_expiry_with_hire_date_normal() {
+        // 2023 年授予，到職日 2020-05-15 → 到期 2025-05-15
+        let hire_date = NaiveDate::from_ymd_opt(2020, 5, 15);
+        let result = compute_leave_expiry(2023, hire_date);
+        assert_eq!(result, NaiveDate::from_ymd_opt(2025, 5, 15));
+    }
+
+    #[test]
+    fn test_expiry_with_hire_date_feb29_leap() {
+        // 到職日 2020-02-29（閏年），到期年 2023（非閏年）→ 退回到 02-28
+        let hire_date = NaiveDate::from_ymd_opt(2020, 2, 29);
+        let result = compute_leave_expiry(2021, hire_date); // 到期年 2023（非閏年）
+        assert_eq!(result, NaiveDate::from_ymd_opt(2023, 2, 28));
+    }
+
+    #[test]
+    fn test_expiry_year_calculation() {
+        // 確認 entitlement_year + 2 邏輯
+        let result = compute_leave_expiry(2025, None);
+        assert_eq!(result, NaiveDate::from_ymd_opt(2027, 12, 31));
     }
 }
