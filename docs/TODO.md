@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-03-13 (v13)
+> **最後更新：** 2026-03-14 (v14)
 > **維護慣例：** 完成項目保留於本表並標 [x]，同時於 `docs/PROGRESS.md` §9 最新變更動態 新增對應紀錄；待辦統計僅計「未完成」數量。
 > **AI 標註說明：**
 >
@@ -37,7 +37,7 @@
 | P1-32 | **Session 逾時預警** | `SessionTimeoutWarning` 元件 + auth store `sessionExpiresAt` 追蹤，到期前 60s 顯示倒數 Dialog | 前端 | 無 | 🧠 Claude | [x] |
 | P1-33 | **刪除記錄時清理檔案** | `FileService::delete_by_entity()` 方法，動物/觀察紀錄刪除時連帶清理 `attachments` 表與磁碟檔案 | 後端 | 無 | 🧠 Claude | [x] |
 | P1-34 | **Optimistic Locking** | `014_optimistic_locking.sql` 新增 `version` 欄位（animals/protocols/observations/surgeries），更新 SQL 含版本檢查 | 後端 | 無 | 🧠 Claude | [x] |
-| P1-35 | **原生 confirm() 統一為 Dialog** | `useConfirmDialog` hook + `ConfirmDialog` + `AlertDialog` 元件，9 個檔案 11 處 `confirm()` 全部替換 | 前端 | 無 | 🧠 Claude | [x] |
+| P1-35 | **原生 confirm() 統一為 Dialog** | `useConfirmDialog` hook + `ConfirmDialog` + `AlertDialog` 元件，已修復 Admin 設施管理元件中的調用錯誤 | 前端 | 無 | 🧠 Claude | [x] |
 
 ---
 

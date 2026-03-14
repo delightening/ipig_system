@@ -180,6 +180,10 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-14 Admin 設施管理元件編譯錯誤修復
+- ✅ **前端修復 (Frontend)**：修復 `BuildingTab`, `DepartmentTab`, `FacilityTab`, `PenTab`, `SpeciesTab`, `ZoneTab` 等元件中對 `useConfirmDialog` hook 的錯誤調用。將 `confirm.open()` 改為符合新 API 的 `const { dialogState, confirm } = useConfirmDialog()` 結構，並將 `handleDelete` 改為非同步調用。
+- ✅ **品質驗證**：在本機執行 `npm run build` 通過，確認無 TypeScript 編譯錯誤。
+
 ### 2026-03-14 Admin 硬刪除權限功能實作
 - ✅ **後端擴充 (Backend)**：更新 `PartnerService::delete` 與 `DocumentService::delete` 以支援 `is_hard` 參數。管理員可透過 `?hard=true` 執行硬刪除（永久移除記錄），並在單據模組中略過非「草稿」狀態不可刪除的限制。新增 `PARTNER_HARD_DELETE` 與 `DOC_HARD_DELETE` 審計日誌類別。
 - ✅ **前端互動 (Frontend)**：修改 `PartnersPage.tsx` 與 `DocumentsPage.tsx`。針對具備 `admin` 角色的使用者，即使單據非草稿狀態仍顯示刪除按鈕，並在執行時跳出威力警告對話框與硬刪除提示。

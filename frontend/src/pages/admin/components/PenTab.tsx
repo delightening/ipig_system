@@ -22,7 +22,7 @@ const EMPTY_FORM: CreatePenRequest = { zone_id: '', code: '', name: '', capacity
 export function PenTab({ canManage }: { canManage: boolean }) {
   const queryClient = useQueryClient()
   const dialogs = useDialogSet(['create', 'edit'] as const)
-  const confirm = useConfirmDialog()
+  const { dialogState, confirm } = useConfirmDialog()
   const [editing, setEditing] = useState<PenDetails | null>(null)
   const [form, setForm] = useState<CreatePenRequest>(EMPTY_FORM)
   const [editStatus, setEditStatus] = useState('active')
@@ -64,13 +64,13 @@ export function PenTab({ canManage }: { canManage: boolean }) {
     dialogs.open('edit')
   }
 
-  const handleDelete = (p: PenDetails) => {
-    confirm.open({
+  const handleDelete = async (p: PenDetails) => {
+    const ok = await confirm({
       title: '刪除欄位',
       description: `確定要刪除「${p.name ?? p.code}」嗎？`,
       variant: 'destructive',
-      onConfirm: () => deleteMutation.mutate(p.id),
     })
+    if (ok) deleteMutation.mutate(p.id)
   }
 
   const set = (k: keyof CreatePenRequest, v: string | number) => setForm(prev => ({ ...prev, [k]: v }))
@@ -171,7 +171,7 @@ export function PenTab({ canManage }: { canManage: boolean }) {
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog state={confirm.state} />
+      <ConfirmDialog state={dialogState} />
     </div>
   )
 }

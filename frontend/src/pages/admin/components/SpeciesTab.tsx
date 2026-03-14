@@ -20,7 +20,7 @@ const EMPTY_FORM: CreateSpeciesRequest = { code: '', name: '', name_en: '', icon
 export function SpeciesTab({ canManage }: { canManage: boolean }) {
   const queryClient = useQueryClient()
   const dialogs = useDialogSet(['create', 'edit'] as const)
-  const confirm = useConfirmDialog()
+  const { dialogState, confirm } = useConfirmDialog()
   const [editing, setEditing] = useState<Species | null>(null)
   const [form, setForm] = useState<CreateSpeciesRequest>(EMPTY_FORM)
 
@@ -55,13 +55,13 @@ export function SpeciesTab({ canManage }: { canManage: boolean }) {
     dialogs.open('edit')
   }
 
-  const handleDelete = (s: Species) => {
-    confirm.open({
+  const handleDelete = async (s: Species) => {
+    const ok = await confirm({
       title: '刪除物種',
       description: `確定要刪除「${s.name}」嗎？`,
       variant: 'destructive',
-      onConfirm: () => deleteMutation.mutate(s.id),
     })
+    if (ok) deleteMutation.mutate(s.id)
   }
 
   const f = (k: keyof CreateSpeciesRequest, v: string | number) => setForm(prev => ({ ...prev, [k]: v }))
@@ -150,7 +150,7 @@ export function SpeciesTab({ canManage }: { canManage: boolean }) {
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog state={confirm.state} />
+      <ConfirmDialog state={dialogState} />
     </div>
   )
 }
