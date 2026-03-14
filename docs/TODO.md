@@ -161,9 +161,9 @@
 | R6-3 | **Skeleton DOM nesting 修正** | skeleton.stories.tsx「行內骨架」`<div>` 於 `<p>` 內造成 validateDOMNesting 警告，改為 `<span>` 或調整結構 | 前端 | ⚡ Flash | [x] |
 | R6-4 | **財務模組 Phase 2–5 評估** | AP/AR/GL 後續階段（ap_payments、ar_receipts、trial-balance 等）實作評估，依業務需求排程 | 全端 | 🧠 Claude | [x] |
 | R6-5 | **Dependabot Phase 2.5 依賴評估** | printpdf 0.9、utoipa 5、axum-extra 0.12、tailwind-merge 3 升級可行性評估，詳見 `DEPENDABOT_MIGRATION_PLAN.md` | 全端 | 🧠 Claude | [x] |
-| R6-6 | **資料庫輸出與歷史重新填寫** | 建立資料庫匯出 API、讓系統可讀取過去資料，並依歷史內容預填表單（手術複製、請假預填、Protocol 複製等），詳見 `docs/development/DATA_EXPORT_IMPORT_DESIGN.md` | 全端 | 🧠 Claude | [ ] |
+| R6-6 | **資料庫輸出與歷史重新填寫** | 建立資料庫匯出 API、讓系統可讀取過去資料，並依歷史內容預填表單（手術複製、請假預填、Protocol 複製等），詳見 `docs/development/DATA_EXPORT_IMPORT_DESIGN.md` | 全端 | 🧠 Claude | [x] |
 | R6-7 | **日曆功能審視與重構** | 前端元件拆分、Hooks 抽象、後端 Trait 解耦、實作事件預覽 Popover 與單元測試 | 全端 | 🧠 Claude | [x] |
-| R6-8 | **設施管理 Migration 補建** | species/facilities/buildings/zones/pens/departments 6 張表在 routes.rs 已有 handler，但 migrations/ 中缺少 CREATE TABLE。需新增 migration 檔案建立完整表結構 | 後端 | 🧠 Claude | [ ] |
+| R6-8 | **設施管理 Migration 補建** | species/facilities/buildings/zones/pens/departments 6 張表在 routes.rs 已有 handler，但 migrations/ 中缺少 CREATE TABLE。需新增 migration 檔案建立完整表結構 | 後端 | 🧠 Claude | [x] |
 | R6-9 | **採購單未入庫通知** | 實作已核准採購單未入庫之通知提醒、排程檢查、手動觸發 API 與前端入庫狀態標籤顯示 | 全端 | 🧠 Claude | [x] |
 | R6-10 | **採購入庫品項篩選** | 實作 GRN 僅能選擇 PO 內「已核准但未入庫」之品項，強化數據一致性 | 全端 | 🧠 Claude | [x] |
 
@@ -226,10 +226,10 @@
 | 🟣 P4 品質提升 | 0 |
 | 🟣 R4-100 邁向 100% | 0 |
 | ⚪ P5 長期演進 | 0 |
-| 🟠 R6 第六輪改善 | 2 |
+| 🟠 R6 第六輪改善 | 0 |
 | 🔒 R7 安全審視 | 0 |
 | 🔧 R8 代碼規範重構 | 0 |
-| **合計（未完成）** | **2** |
+| **合計（未完成）** | **0** |
 
 ---
 
