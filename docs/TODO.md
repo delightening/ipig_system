@@ -204,6 +204,7 @@
 
 | 日期 | 內容 |
 |------|------|
+| 2026-03-14 | 🧠 Claude：儀表板 Widget 捲動體驗優化 — 統一所有 Dashboard Widget 的樣式，確保 `CardContent` 具備 `flex-1 overflow-auto` 捲動條，且 `Card` 標題固定不隨內容捲動。涵蓋「我的計畫」、「動物用藥」、「請假餘額」、「醫事評論」及所有 ERP 內嵌 Widget。 |
 | 2026-03-14 | 🧠 Claude：R4-100-T5 protocol/document/hr 服務單元測試完成 — protocol/numbering 提取 `parse_no_sequence`/`format_protocol_no` + 8 測試；protocol/status 測試 `validate_protocol_content` 7 測試；hr/leave 測試 `is_half_hour_multiple`/`effective_hours` 7 測試；hr/overtime 提取 `overtime_multiplier`/`comp_time_hours_for_type`/`calc_hours_from_minutes` + 8 測試；hr/attendance 測試 `is_ip_in_ranges`/`attendance_status_display` 8 測試；hr/balance 提取 `compute_leave_expiry` + 4 測試；document/grn 提取 `next_seq_from_last_no`/`receipt_status_label` + 8 測試。共 50 個新單元測試，cargo check --tests 通過。 |
 | 2026-03-14 | 🧠 Claude：R4-100-T6 cargo-tarpaulin CI 覆蓋率量測 — ci.yml 新增 `backend-coverage` job，`SQLX_OFFLINE=true` 僅跑 lib 單元測試，`--fail-under 25` 設定門檻，產出 XML 報告並上傳為 artifact（保留 14 天）。 |
 | 2026-03-14 | 🧠 Claude：品項選擇與單據關連優化 — (1) 在新增明細彈窗加入動態品類篩選（Tabs）；(2) 修正 GRN 來源單據選擇邏輯與 API 400 報錯，確保僅能選擇匹配供應商且已核准的 PO；(3) 修復 Inventory Low-Stock API 500 報錯；(4) 修正 `poReceiptStatus` 未傳遞至 `DocumentLineEditor` 導致待入庫明細未顯示的漏洞。 |

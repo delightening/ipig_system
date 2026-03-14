@@ -63,7 +63,7 @@ export function MyProjectsWidget() {
     const activeProjects = projects?.filter(p => ACTIVE_STATUSES.includes(p.status)) || []
 
     return (
-        <Card className="h-full flex flex-col">
+        <Card className="h-full flex flex-col overflow-hidden">
             <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -81,7 +81,7 @@ export function MyProjectsWidget() {
                 </div>
                 <CardDescription>{t('dashboard.widgets.projects.description')}</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1 overflow-auto">
                 {/* 統計數字 */}
                 <div className="grid grid-cols-3 gap-2 mb-4">
                     <div className="text-center p-2 bg-slate-50 rounded-lg">

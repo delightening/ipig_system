@@ -17,6 +17,7 @@ mod hr;
 mod login_tracker;
 mod notification;
 mod partner;
+mod partner_hard_delete_test;
 mod pdf;
 mod product;
 mod protocol;

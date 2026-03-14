@@ -376,12 +376,12 @@ export function DashboardPage() {
         return <GoogleCalendarEventsWidget />
       case 'low_stock_alert':
         return (
-          <Card className="h-full overflow-auto">
+          <Card className="h-full flex flex-col overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t('dashboard.widgets.names.low_stock_alert')}</CardTitle>
               <AlertTriangle className="h-4 w-4 text-yellow-500" />
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1 overflow-auto">
               <div className="text-2xl font-bold">
                 {loadingAlerts ? '-' : lowStockAlerts?.length || 0}
               </div>
@@ -391,12 +391,12 @@ export function DashboardPage() {
         )
       case 'pending_documents':
         return (
-          <Card className="h-full overflow-auto">
+          <Card className="h-full flex flex-col overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t('dashboard.widgets.names.pending_documents')}</CardTitle>
               <FileText className="h-4 w-4 text-blue-500" />
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1 overflow-auto">
               <div className="text-2xl font-bold">
                 {loadingDocuments
                   ? '-'
@@ -408,12 +408,12 @@ export function DashboardPage() {
         )
       case 'today_inbound':
         return (
-          <Card className="h-full overflow-auto">
+          <Card className="h-full flex flex-col overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t('dashboard.widgets.names.today_inbound')}</CardTitle>
               <TrendingUp className="h-4 w-4 text-green-500" />
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1 overflow-auto">
               <div className="text-2xl font-bold">
                 {loadingDocuments
                   ? '-'
@@ -430,12 +430,12 @@ export function DashboardPage() {
         )
       case 'today_outbound':
         return (
-          <Card className="h-full overflow-auto">
+          <Card className="h-full flex flex-col overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t('dashboard.widgets.names.today_outbound')}</CardTitle>
               <TrendingDown className="h-4 w-4 text-red-500" />
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1 overflow-auto">
               <div className="text-2xl font-bold">
                 {loadingDocuments
                   ? '-'
@@ -454,7 +454,7 @@ export function DashboardPage() {
         const days = widgetItem.options?.days || 7
         const trendData = getTrendData(days)
         return (
-          <Card className="h-full overflow-auto">
+          <Card className="h-full flex flex-col overflow-hidden">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-indigo-500" />
@@ -462,7 +462,7 @@ export function DashboardPage() {
               </CardTitle>
               <CardDescription>{t('dashboard.widgets.erp.trendDesc', { days })}</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1 overflow-auto">
               {loadingDocuments ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -518,7 +518,7 @@ export function DashboardPage() {
       }
       case 'recent_documents':
         return (
-          <Card className="h-full overflow-auto">
+          <Card className="h-full flex flex-col overflow-hidden">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-blue-500" />
@@ -526,7 +526,7 @@ export function DashboardPage() {
               </CardTitle>
               <CardDescription>{t('dashboard.widgets.descriptions.recent_documents')}</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1 overflow-auto">
               {loadingDocuments ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -567,7 +567,7 @@ export function DashboardPage() {
         )
       case 'upcoming_leaves':
         return (
-          <Card className="h-full overflow-auto">
+          <Card className="h-full flex flex-col overflow-hidden">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-orange-500" />
@@ -575,7 +575,7 @@ export function DashboardPage() {
               </CardTitle>
               <CardDescription>{t('dashboard.widgets.descriptions.upcoming_leaves')}</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1 overflow-auto">
               <UpcomingLeavesContent />
             </CardContent>
           </Card>

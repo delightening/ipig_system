@@ -83,7 +83,7 @@ export function LeaveBalanceWidget() {
     }
 
     return (
-        <Card className="h-full">
+        <Card className="h-full flex flex-col overflow-hidden">
             <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-orange-500" />
@@ -91,7 +91,7 @@ export function LeaveBalanceWidget() {
                 </CardTitle>
                 <CardDescription className="text-xs">{t('dashboard.widgets.hr.balanceDescription')}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="flex-1 overflow-auto space-y-4">
                 {data?.map((balance) => {
                     const percentage = balance.total > 0 ? Math.min(100, Math.max(0, (balance.used / balance.total) * 100)) : 0
                     const isAnnual = balance.leave_type === 'annual'

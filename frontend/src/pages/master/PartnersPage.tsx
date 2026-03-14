@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { deleteResource, Partner } from '@/lib/api'
 import { useDebounce } from '@/hooks/useDebounce'
 import { STALE_TIME } from '@/lib/query'
+import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -170,10 +171,14 @@ export function PartnersPage() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteResource(`/partners/${id}`),
-    onSuccess: () => {
+    mutationFn: ({ id, hard }: { id: string; hard: boolean }) => 
+      deleteResource(`/partners/${id}${hard ? '?hard=true' : ''}`),
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['partners'] })
-      toast({ title: '成功', description: '夥伴已刪除' })
+      toast({ 
+        title: '成功', 
+        description: variables.hard ? '夥伴已永久刪除' : '夥伴已刪除' 
+      })
     },
     onError: (error: unknown) => {
       toast({
@@ -401,9 +406,17 @@ export function PartnersPage() {
                       variant="ghost"
                       size="icon"
                       onClick={async () => {
-                        const ok = await confirm({ title: '刪除夥伴', description: '確定要刪除此夥伴嗎？', variant: 'destructive', confirmLabel: '確認刪除' })
+                        const isAdmin = useAuthStore.getState().user?.roles.includes('admin')
+                        const ok = await confirm({ 
+                          title: isAdmin ? '管理員權限：永久刪除夥伴' : '刪除夥伴', 
+                          description: isAdmin 
+                            ? '警告：具有管理員權限，此操作將永久從資料庫中移除資料，且無法復原。確定要執行硬刪除嗎？'
+                            : '確定要刪除此夥伴嗎？', 
+                          variant: 'destructive', 
+                          confirmLabel: isAdmin ? '執行硬刪除' : '確認刪除' 
+                        })
                         if (ok) {
-                          deleteMutation.mutate(partner.id)
+                          deleteMutation.mutate({ id: partner.id, hard: !!isAdmin })
                         }
                       }}
                       aria-label="刪除"

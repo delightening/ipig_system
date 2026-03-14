@@ -57,7 +57,7 @@ export function AnimalsOnMedicationWidget() {
     }
 
     return (
-        <Card className="h-full flex flex-col">
+        <Card className="h-full flex flex-col overflow-hidden">
             <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -72,7 +72,7 @@ export function AnimalsOnMedicationWidget() {
                 </div>
                 <CardDescription>{t('dashboard.widgets.animals.medicationDescription')}</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1 overflow-auto">
                 {data && data.length > 0 ? (
                     <div className="space-y-2">
                         {data.slice(0, 5).map((animal) => (

@@ -16,6 +16,8 @@ use crate::{
     AppError, AppState, Result,
 };
 
+use super::partner::DeleteQuery;
+
 /// 建立文件
 #[utoipa::path(
     post,
@@ -330,7 +332,10 @@ pub async fn cancel_document(
 #[utoipa::path(
     delete,
     path = "/api/documents/{id}",
-    params(("id" = Uuid, Path, description = "單據 ID")),
+    params(
+        ("id" = Uuid, Path, description = "單據 ID"),
+        DeleteQuery
+    ),
     responses(
         (status = 200, description = "刪除成功"),
         (status = 401, description = "未認證"),
@@ -344,20 +349,24 @@ pub async fn delete_document(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
+    Query(params): Query<DeleteQuery>,
 ) -> Result<Json<()>> {
     require_permission!(current_user, "erp.document.delete");
 
+    let is_hard = params.hard.unwrap_or(false) && current_user.is_admin();
+
     let existing = DocumentService::get_by_id(&state.db, id).await?;
     check_document_access(&current_user, existing.document.created_by)?;
+
     if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ERP", "DOC_DELETE",
-        Some("document"), Some(id), None,
+        &state.db, current_user.id, "ERP", if is_hard { "DOC_HARD_DELETE" } else { "DOC_DELETE" },
+        Some("document"), Some(id), Some(&existing.document.doc_no),
         None, None, None, None,
     ).await {
         tracing::error!("寫入審計日誌失敗 (DOC_DELETE): {}", e);
     }
     
-    DocumentService::delete(&state.db, id).await?;
+    DocumentService::delete(&state.db, id, is_hard).await?;
     Ok(Json(()))
 }
 

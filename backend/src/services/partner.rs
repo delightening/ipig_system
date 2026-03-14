@@ -331,13 +331,19 @@ impl PartnerService {
         Ok(partner)
     }
 
-    /// 刪除夥伴（軟刪除）
-    pub async fn delete(pool: &PgPool, id: Uuid) -> Result<()> {
-        let result =
+    /// 刪除夥伴
+    pub async fn delete(pool: &PgPool, id: Uuid, is_hard: bool) -> Result<()> {
+        let result = if is_hard {
+            sqlx::query("DELETE FROM partners WHERE id = $1")
+                .bind(id)
+                .execute(pool)
+                .await?
+        } else {
             sqlx::query("UPDATE partners SET is_active = false, updated_at = NOW() WHERE id = $1")
                 .bind(id)
                 .execute(pool)
-                .await?;
+                .await?
+        };
 
         if result.rows_affected() == 0 {
             return Err(AppError::NotFound("Partner not found".to_string()));
