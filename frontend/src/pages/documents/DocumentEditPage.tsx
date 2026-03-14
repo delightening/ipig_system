@@ -32,7 +32,7 @@ import { DOC_TYPE_NAMES } from './types'
 
 export function DocumentEditPage() {
   const [searchParams] = useSearchParams()
-  const defaultType = (searchParams.get('type') as DocType) || 'PO'
+  const defaultType = (searchParams.get('type') as DocType) || ''
 
   const {
     isEdit,
