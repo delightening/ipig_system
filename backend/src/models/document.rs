@@ -197,6 +197,8 @@ pub struct UpdateDocumentRequest {
 #[derive(Debug, Deserialize, ToSchema, utoipa::IntoParams)]
 pub struct DocumentQuery {
     pub doc_type: Option<DocType>,
+    /// 多類型篩選，逗號分隔，例如 "PO,GRN,PR"；與 doc_type 同時存在時 doc_type 優先
+    pub doc_types: Option<String>,
     pub status: Option<DocStatus>,
     pub warehouse_id: Option<Uuid>,
     pub partner_id: Option<Uuid>,
@@ -259,6 +261,9 @@ pub struct DocumentListItem {
     pub iacuc_no: Option<String>,
     #[sqlx(default)]
     pub receipt_status: Option<String>,
+    /// 是否已產生會計傳票（核准後觸發過帳的類型：GRN, DO, PR）
+    #[sqlx(default)]
+    pub has_journal_entry: bool,
 }
 
 /// 採購單入庫狀態

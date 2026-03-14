@@ -297,7 +297,7 @@ impl DocumentService {
     pub async fn list(pool: &PgPool, query: &DocumentQuery) -> Result<Vec<DocumentListItem>> {
         let mut qb = sqlx::QueryBuilder::new(
             r#"
-            SELECT 
+            SELECT
                 d.id, d.doc_type, d.doc_no, d.status,
                 w.name as warehouse_name,
                 d.partner_id,
@@ -312,7 +312,11 @@ impl DocumentService {
                      WHERE sl.product_id = dl.product_id AND sl.unit_cost IS NOT NULL),
                     0)) as total_amount,
                 d.iacuc_no,
-                d.receipt_status
+                d.receipt_status,
+                EXISTS (
+                    SELECT 1 FROM journal_entries je
+                    WHERE je.source_entity_type = 'document' AND je.source_entity_id = d.id
+                ) AS has_journal_entry
             FROM documents d
             LEFT JOIN warehouses w ON d.warehouse_id = w.id
             LEFT JOIN partners p ON d.partner_id = p.id
@@ -326,6 +330,21 @@ impl DocumentService {
         if let Some(doc_type) = query.doc_type {
             qb.push(" AND d.doc_type = ");
             qb.push_bind(doc_type);
+        } else if let Some(ref doc_types_str) = query.doc_types {
+            let parsed: Vec<DocType> = doc_types_str
+                .split(',')
+                .filter_map(|s| {
+                    serde_json::from_str::<DocType>(&format!("\"{}\"", s.trim())).ok()
+                })
+                .collect();
+            if !parsed.is_empty() {
+                qb.push(" AND d.doc_type IN (");
+                let mut sep = qb.separated(", ");
+                for t in parsed {
+                    sep.push_bind(t);
+                }
+                qb.push(")");
+            }
         }
 
         if let Some(status) = query.status {
