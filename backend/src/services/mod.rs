@@ -66,7 +66,10 @@ pub use protocol::ProtocolService;
 pub use qau::{QauDashboard, QauService};
 pub use role::RoleService;
 pub use session_manager::SessionManager;
-pub use signature::{AnnotationService, AnnotationType, SignatureService, SignatureType};
+pub use signature::{
+    AnnotationService, AnnotationType, ElectronicSignature, SignatureInfoDto, SignatureService,
+    SignatureType,
+};
 pub use sku::SkuService;
 pub use stock::StockService;
 pub use storage_location::StorageLocationService;

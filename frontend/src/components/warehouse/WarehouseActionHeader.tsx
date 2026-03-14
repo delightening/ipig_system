@@ -4,6 +4,7 @@ import api, {
     deleteResource,
     Warehouse,
 } from '@/lib/api'
+import { getApiErrorMessage } from '@/lib/validation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -93,10 +94,10 @@ export function WarehouseActionHeader({
             toast({ title: '成功', description: '倉庫已建立' })
             setShowWarehouseDialog(false)
         },
-        onError: (error: any) => {
+        onError: (error: Error) => {
             toast({
                 title: '錯誤',
-                description: error?.response?.data?.error?.message || '建立失敗',
+                description: getApiErrorMessage(error, '建立失敗'),
                 variant: 'destructive',
             })
         },
@@ -113,10 +114,10 @@ export function WarehouseActionHeader({
             toast({ title: '成功', description: '倉庫已更新' })
             setShowWarehouseDialog(false)
         },
-        onError: (error: any) => {
+        onError: (error: Error) => {
             toast({
                 title: '錯誤',
-                description: error?.response?.data?.error?.message || '更新失敗',
+                description: getApiErrorMessage(error, '更新失敗'),
                 variant: 'destructive',
             })
         },
@@ -136,10 +137,10 @@ export function WarehouseActionHeader({
             toast({ title: '成功', description: '倉庫已刪除' })
             setShowWarehouseDialog(false)
         },
-        onError: (error: any) => {
+        onError: (error: Error) => {
             toast({
                 title: '錯誤',
-                description: error?.response?.data?.error?.message || '刪除失敗',
+                description: getApiErrorMessage(error, '刪除失敗'),
                 variant: 'destructive',
             })
         },

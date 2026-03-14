@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dialog'
 import { Loader2, AlertTriangle } from 'lucide-react'
 import type { DocType } from '@/lib/api'
+import type { Document as ErpDocument } from '@/types/erp'
 import { DocumentFormHeader } from './components/DocumentFormHeader'
 import { DocumentPreview } from './components/DocumentPreview'
 import { DocumentLineEditor } from './components/DocumentLineEditor'
@@ -99,7 +100,7 @@ export function DocumentEditPage() {
 
   const availableSourcePos = React.useMemo(() => {
     if (!allDocuments || !formData.partner_id) return []
-    return (allDocuments as any[]).filter((d: any) => d.partner_id === formData.partner_id)
+    return (allDocuments as ErpDocument[]).filter((d) => d.partner_id === formData.partner_id)
   }, [allDocuments, formData.partner_id])
 
   const showTotalAmount = ['PO', 'GRN', 'DO'].includes(formData.doc_type)
@@ -319,7 +320,7 @@ export function DocumentEditPage() {
                             無可用採購單
                           </div>
                         ) : (
-                          availableSourcePos.map((doc: any) => (
+                          availableSourcePos.map((doc) => (
                             <SelectItem key={doc.id} value={doc.id}>
                               {doc.doc_no} ({doc.doc_date})
                             </SelectItem>

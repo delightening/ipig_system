@@ -53,13 +53,7 @@ const PACKAGING_UNITS = {
   base: [{ code: 'EA', name: '個' }, { code: 'PC', name: '支' }, { code: 'PR', name: '雙' }, { code: 'BT', name: '瓶' }, { code: 'BX', name: '盒' }, { code: 'PK', name: '包' }, { code: 'RL', name: '卷' }, { code: 'SET', name: '組' }, { code: 'TB', name: '錠' }, { code: 'CP', name: '膠囊' }],
 }
 
-const STORAGE_CONDITIONS: Record<string, string> = {
-  'RT': '常溫 (15-25°C)',
-  'RF': '冷藏 (2-8°C)',
-  'FZ': '冷凍 (-20°C 以下)',
-  'DK': '避光',
-  'DY': '乾燥',
-}
+import { STORAGE_CONDITIONS } from '@/lib/constants/product'
 
 const UOM_OPTIONS = Object.entries(UOM_MAP).map(([code, name]) => ({ code, name }))
 

@@ -214,35 +214,8 @@ pub async fn login(
                 }
 
                 // SEC-28: Session 併發限制，超過上限時自動結束最舊的 session
-                let max_sessions = max_sess;
-                match SessionManager::get_active_session_count(&db, user_id).await {
-                    Ok(count) if count > max_sessions => {
-                        let excess = count - max_sessions;
-                        tracing::info!(
-                            "[Session] 使用者 {} 有 {} 個活躍 session，超過上限 {}，將結束 {} 個最舊的 session",
-                            email, count, max_sessions, excess
-                        );
-                        // 結束最舊的多餘 session
-                        let _ = sqlx::query(
-                            r#"
-                            UPDATE user_sessions
-                            SET is_active = false,
-                                ended_at = NOW(),
-                                ended_reason = 'session_limit'
-                            WHERE id IN (
-                                SELECT id FROM user_sessions
-                                WHERE user_id = $1 AND is_active = true
-                                ORDER BY started_at ASC
-                                LIMIT $2
-                            )
-                            "#,
-                        )
-                        .bind(user_id)
-                        .bind(excess)
-                        .execute(&db)
-                        .await;
-                    }
-                    _ => {}
+                if let Err(e) = SessionManager::end_excess_sessions(&db, user_id, max_sess).await {
+                    tracing::warn!("[Session] 清理超額 session 失敗 for {}: {}", email, e);
                 }
             });
 
@@ -415,12 +388,9 @@ pub async fn export_me(
 ) -> Result<Json<GdprExportResponse>> {
     let user = UserService::get_by_id(&state.db, current_user.id).await?;
 
-    let preferences = sqlx::query_as::<_, crate::models::user_preferences::UserPreference>(
-        "SELECT * FROM user_preferences WHERE user_id = $1",
-    )
-    .bind(current_user.id)
-    .fetch_all(&state.db)
-    .await?;
+    let preferences = crate::repositories::user_preference::list_preferences_by_user(
+        &state.db, current_user.id,
+    ).await?;
 
     let preferences_export: Vec<PreferenceExport> = preferences
         .into_iter()
@@ -431,12 +401,9 @@ pub async fn export_me(
         })
         .collect();
 
-    let notification_settings = sqlx::query_as::<_, crate::models::NotificationSettings>(
-        "SELECT * FROM notification_settings WHERE user_id = $1",
-    )
-    .bind(current_user.id)
-    .fetch_optional(&state.db)
-    .await?;
+    let notification_settings = crate::repositories::notification::find_notification_settings_by_user(
+        &state.db, current_user.id,
+    ).await?;
 
     Ok(Json(GdprExportResponse {
         exported_at: chrono::Utc::now(),
