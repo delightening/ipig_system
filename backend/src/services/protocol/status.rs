@@ -590,3 +590,108 @@ impl ProtocolService {
         Ok(updated)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ProtocolService;
+    use serde_json::json;
+
+    // --- validate_protocol_content ---
+
+    #[test]
+    fn test_validate_content_missing_content() {
+        let result = ProtocolService::validate_protocol_content(&None);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("content is empty"));
+    }
+
+    #[test]
+    fn test_validate_content_missing_basic_section() {
+        let content = json!({ "animals": {} });
+        let result = ProtocolService::validate_protocol_content(&Some(content));
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Missing 'basic' section"));
+    }
+
+    #[test]
+    fn test_validate_content_missing_study_title() {
+        let content = json!({
+            "basic": {
+                "study_title": "   ",
+                "project_type": "research"
+            }
+        });
+        let result = ProtocolService::validate_protocol_content(&Some(content));
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Study title is required"));
+    }
+
+    #[test]
+    fn test_validate_content_glp_without_authorities() {
+        let content = json!({
+            "basic": {
+                "study_title": "Test Study",
+                "is_glp": true,
+                "registration_authorities": [],
+                "project_type": "research"
+            }
+        });
+        let result = ProtocolService::validate_protocol_content(&Some(content));
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Registration authorities required"));
+    }
+
+    #[test]
+    fn test_validate_content_glp_with_authorities_ok() {
+        let content = json!({
+            "basic": {
+                "study_title": "GLP Study",
+                "is_glp": true,
+                "registration_authorities": ["FDA"],
+                "project_type": "research"
+            }
+        });
+        assert!(ProtocolService::validate_protocol_content(&Some(content)).is_ok());
+    }
+
+    #[test]
+    fn test_validate_content_missing_project_type() {
+        let content = json!({
+            "basic": {
+                "study_title": "Test Study",
+                "is_glp": false,
+                "project_type": ""
+            }
+        });
+        let result = ProtocolService::validate_protocol_content(&Some(content));
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Project type is required"));
+    }
+
+    #[test]
+    fn test_validate_content_valid() {
+        let content = json!({
+            "basic": {
+                "study_title": "Valid Study",
+                "is_glp": false,
+                "project_type": "experiment"
+            }
+        });
+        assert!(ProtocolService::validate_protocol_content(&Some(content)).is_ok());
+    }
+}

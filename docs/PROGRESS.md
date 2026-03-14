@@ -79,7 +79,7 @@
 | 6 | [HR 人事管理系統](#6-hr-人事管理系統) | 特休、考勤、Google Calendar |
 | 7 | [資料庫 Schema 完成度](#7-資料庫-schema-完成度) | Migration 清單 |
 | 8 | [版本規劃](#8-版本規劃) | v1.0 / v1.1 里程碑 |
-| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-13 庫存查詢視覺優化 + 系統穩固化 |
+| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-14 R4-100-T5 單元測試 50 條 + T6 tarpaulin CI |
 
 ---
 
@@ -187,6 +187,28 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 > **P0 / P1 / P2 / P5** 是優先級：P0 最重要，P5 較次要。
 >
 > **更新慣例**：新項目請放在本區塊**最前面**（時間由近到遠），勿追加於末端。
+
+---
+
+### 2026-03-14 R4-100-T5 + T6：單元測試補齊與覆蓋率量測 CI
+
+**R4-100-T5：protocol / document / hr services 單元測試**
+
+- ✅ **protocol/numbering**：提取 `parse_no_sequence` 與 `format_protocol_no` 純函式，並同步重構 `generate_apig_no` / `generate_iacuc_no` 使用這兩個函式；新增 8 個測試（前綴解析、格式化補零、非法輸入）。
+- ✅ **protocol/status**：直接測試既有 `validate_protocol_content` 私有函式（透過 `ProtocolService::` 呼叫）；7 個測試涵蓋缺少 content、缺少 basic、空白標題、GLP 未填授權單位、缺少 project_type 及正常通過。
+- ✅ **hr/leave**：補充 `effective_hours` 純函式（total_hours 優先換算邏輯）；7 個測試涵蓋 `is_half_hour_multiple` 邊界值與 `effective_hours` 換算。
+- ✅ **hr/overtime**：提取 `overtime_multiplier`、`comp_time_hours_for_type`、`calc_hours_from_minutes` 三個純函式，同步重構 `create_overtime`；8 個測試涵蓋各類型乘數、補休規則、0.5 小時捨入。
+- ✅ **hr/attendance**：直接測試既有 `is_ip_in_ranges` 公開函式；補充 `attendance_status_display` 純函式；8 個測試涵蓋精確 IP、CIDR /24、/32、多段清單、空清單、無效 IP。
+- ✅ **hr/balance**：提取 `compute_leave_expiry` 純函式（到期日計算含閏年退回邏輯），同步重構 `create_annual_leave_entitlement`；4 個測試涵蓋無到職日、有到職日、2/29 閏年邊界。
+- ✅ **document/grn**：提取 `next_seq_from_last_no` 與 `receipt_status_label` 純函式，同步重構 `create_grn_from_po` 與 `get_po_receipt_status`；8 個測試涵蓋各種單號格式、非法字串、三種入庫狀態。
+- **總計**：新增 50 個單元測試；`cargo check --tests` 通過。
+
+**R4-100-T6：cargo-tarpaulin 覆蓋率量測 CI**
+
+- ✅ **新增 `backend-coverage` job**：在 `.github/workflows/ci.yml` 加入獨立覆蓋率量測流程。
+- ✅ **設定**：`SQLX_OFFLINE=true`（不需要 DB）、`--lib`（只跑 lib 單元測試）、`--fail-under 25`（行覆蓋率門檻 25%）、`--timeout 120`、輸出 XML 格式。
+- ✅ **報告保存**：XML 覆蓋率報告以 `coverage-report` artifact 上傳，保留 14 天。
+- ✅ **快取優化**：使用 `cargo-tarpaulin-` 前綴的獨立快取 key。
 
 ---
 

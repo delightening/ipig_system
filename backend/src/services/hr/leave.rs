@@ -440,6 +440,11 @@ impl HrService {
         Ok(record)
     }
 
+    /// 計算有效請假時數（total_hours 優先，否則換算天數 × 8）
+    pub(super) fn effective_hours(total_hours: Option<f64>, total_days: f64) -> f64 {
+        total_hours.unwrap_or(total_days * 8.0)
+    }
+
     pub async fn cancel_leave(
         pool: &PgPool,
         id: Uuid,
@@ -475,5 +480,51 @@ impl HrService {
         .await?;
 
         Ok(record)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::HrService;
+
+    // --- is_half_hour_multiple ---
+
+    #[test]
+    fn test_is_half_hour_multiple_valid() {
+        assert!(HrService::is_half_hour_multiple(0.5));
+        assert!(HrService::is_half_hour_multiple(1.0));
+        assert!(HrService::is_half_hour_multiple(1.5));
+        assert!(HrService::is_half_hour_multiple(8.0));
+        assert!(HrService::is_half_hour_multiple(0.5));
+    }
+
+    #[test]
+    fn test_is_half_hour_multiple_invalid() {
+        assert!(!HrService::is_half_hour_multiple(0.0));  // 小於 0.5
+        assert!(!HrService::is_half_hour_multiple(0.3));
+        assert!(!HrService::is_half_hour_multiple(1.1));
+        assert!(!HrService::is_half_hour_multiple(2.3));
+    }
+
+    #[test]
+    fn test_is_half_hour_multiple_boundary() {
+        assert!(!HrService::is_half_hour_multiple(0.4));
+        assert!(HrService::is_half_hour_multiple(0.5));
+        assert!(!HrService::is_half_hour_multiple(0.6));
+    }
+
+    // --- effective_hours ---
+
+    #[test]
+    fn test_effective_hours_uses_total_hours_when_provided() {
+        assert_eq!(HrService::effective_hours(Some(4.0), 1.0), 4.0);
+        assert_eq!(HrService::effective_hours(Some(0.5), 3.0), 0.5);
+    }
+
+    #[test]
+    fn test_effective_hours_converts_days_when_no_hours() {
+        assert_eq!(HrService::effective_hours(None, 1.0), 8.0);
+        assert_eq!(HrService::effective_hours(None, 0.5), 4.0);
+        assert_eq!(HrService::effective_hours(None, 2.0), 16.0);
     }
 }
