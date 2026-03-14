@@ -229,6 +229,12 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **R8-10**：`ProtocolsPage.tsx` 中 17 行 `statusColors` 移至 `pages/protocols/constants.ts`。
 - ✅ **R8-11**：`services/protocol/core.rs` `use chrono::Datelike` 從函式體內移至檔案頂部。
 
+### 2026-03-14 單據管理功能與 UI 優化
+- ✅ **前端按鈕增強 (Frontend)**：修改 `DocumentsPage.tsx`，允許使用者在未選擇子類型（Sub-type）的情況下點擊「新增單據」按鈕，導向至新增頁面。
+- ✅ **預設類型調整 (Frontend)**：修改 `DocumentEditPage.tsx` 與 `useDocumentForm.ts`，將「新增單據」時的預設單據類型改為「選擇類型」。
+- ✅ **條件式表單渲染 (Frontend)**：實作 `DocumentEditPage.tsx` 的條件渲染，在使用者正式選擇單據類型前，不顯示明細編輯與預覽區塊，避免混淆。
+- ✅ **UI 清理 (Frontend)**：移除 `DocumentFormHeader.tsx` 在新增與編輯模式下的「向左箭頭」返回按鈕，對齊新的導航設計規範。
+
 ---
 
 ### 2026-03-14 儀表板 Widget 捲動體驗優化
