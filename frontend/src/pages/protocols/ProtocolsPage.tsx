@@ -23,7 +23,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Search, Eye, Edit, Loader2, FileText, X, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { Plus, Search, Eye, Edit, Loader2, FileText, X, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Copy } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { formatDate } from '@/lib/utils'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
@@ -42,6 +43,7 @@ interface SortConfig {
 export function ProtocolsPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const { dialogState, confirm } = useConfirmDialog()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 400)
@@ -152,6 +154,24 @@ export function ProtocolsPage() {
     if (ok) {
       deleteMutation.mutate(protocolId)
     }
+  }
+
+  const copyMutation = useMutation({
+    mutationFn: (protocolId: string) => api.post(`/protocols/${protocolId}/copy`),
+    onSuccess: (res) => {
+      const newId = res.data?.id
+      toast({ title: '已複製計畫書', description: '新草稿已建立，即將開啟編輯頁。' })
+      queryClient.invalidateQueries({ queryKey: ['protocols'] })
+      if (newId) navigate(`/protocols/${newId}/edit`)
+    },
+    onError: (error: unknown) => {
+      toast({ title: '複製失敗', description: getApiErrorMessage(error), variant: 'destructive' })
+    },
+  })
+
+  const handleCopy = async (protocolId: string, title: string) => {
+    const ok = await confirm({ title: '複製計畫書', description: `確定要複製「${title}」建立新草稿嗎？`, confirmLabel: '確認複製' })
+    if (ok) copyMutation.mutate(protocolId)
   }
 
   return (
@@ -327,6 +347,15 @@ export function ProtocolsPage() {
                           </Link>
                         </Button>
                       )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="複製計畫書"
+                        onClick={() => handleCopy(protocol.id, protocol.title)}
+                        disabled={copyMutation.isPending}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
                       {canDeleteProtocol(protocol.status) && (
                         <Button
                           variant="ghost"

@@ -114,6 +114,72 @@ impl ProtocolService {
         Ok(protocol)
     }
 
+    /// 複製既有計畫建立新草稿
+    /// 複製 title、working_content、start_date、end_date，新計畫狀態為 DRAFT
+    pub async fn copy(pool: &PgPool, source_id: Uuid, copied_by: Uuid) -> Result<Protocol> {
+        let source = sqlx::query_as::<_, Protocol>("SELECT * FROM protocols WHERE id = $1")
+            .bind(source_id)
+            .fetch_optional(pool)
+            .await?
+            .ok_or_else(|| AppError::NotFound("來源計畫不存在".to_string()))?;
+
+        let new_protocol_no = Self::generate_protocol_no(pool).await?;
+        let new_title = format!("（複製）{}", source.title);
+        let pi_user_id = source.pi_user_id;
+
+        let protocol = sqlx::query_as::<_, Protocol>(
+            r#"
+            INSERT INTO protocols (
+                id, protocol_no, title, status, pi_user_id, working_content,
+                start_date, end_date, created_by, created_at, updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+            RETURNING *
+            "#
+        )
+        .bind(Uuid::new_v4())
+        .bind(&new_protocol_no)
+        .bind(&new_title)
+        .bind(ProtocolStatus::Draft)
+        .bind(pi_user_id)
+        .bind(&source.working_content)
+        .bind(source.start_date)
+        .bind(source.end_date)
+        .bind(copied_by)
+        .fetch_one(pool)
+        .await?;
+
+        Self::record_status_change(pool, protocol.id, None, ProtocolStatus::Draft, copied_by, None).await?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO user_protocols (user_id, protocol_id, role_in_protocol, granted_at, granted_by)
+            VALUES ($1, $2, $3, NOW(), $4)
+            ON CONFLICT (user_id, protocol_id) DO NOTHING
+            "#
+        )
+        .bind(pi_user_id)
+        .bind(protocol.id)
+        .bind(ProtocolRole::Pi)
+        .bind(copied_by)
+        .execute(pool)
+        .await?;
+
+        Self::record_activity(
+            pool,
+            protocol.id,
+            ProtocolActivityType::Created,
+            copied_by,
+            None,
+            Some(protocol.status.as_str().to_string()),
+            None,
+            Some(format!("複製自計畫 {}", source.protocol_no)),
+            None,
+        ).await?;
+
+        Ok(protocol)
+    }
+
     /// 查詢計畫列表
     pub async fn list(pool: &PgPool, query: &ProtocolQuery) -> Result<Vec<ProtocolListItem>> {
         let mut sql = String::from(
