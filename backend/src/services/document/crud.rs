@@ -258,16 +258,16 @@ impl DocumentService {
         Self::get_by_id(pool, id).await
     }
 
-    /// 刪除單據（僅限草稿狀態）
-    pub async fn delete(pool: &PgPool, id: Uuid) -> Result<()> {
+    /// 刪除單據
+    pub async fn delete(pool: &PgPool, id: Uuid, is_hard: bool) -> Result<()> {
         let document = sqlx::query_as::<_, Document>("SELECT * FROM documents WHERE id = $1")
             .bind(id)
             .fetch_optional(pool)
             .await?
             .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
 
-        // 只允許刪除草稿狀態的單據
-        if document.status != DocStatus::Draft {
+        // 僅當不是硬刪除時，才要求單據必須為草稿狀態
+        if !is_hard && document.status != DocStatus::Draft {
             return Err(AppError::BusinessRule(
                 "Only draft documents can be deleted".to_string(),
             ));

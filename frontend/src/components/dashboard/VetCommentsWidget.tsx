@@ -62,7 +62,7 @@ export function VetCommentsWidget() {
     }
 
     return (
-        <Card className="h-full flex flex-col">
+        <Card className="h-full flex flex-col overflow-hidden">
             <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <MessageSquare className="h-4 w-4 text-emerald-500" />
@@ -70,7 +70,7 @@ export function VetCommentsWidget() {
                 </CardTitle>
                 <CardDescription>{t('dashboard.widgets.animals.commentDescription')}</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1 overflow-auto">
                 {data && data.length > 0 ? (
                     <div className="space-y-3">
                         {data.map((comment) => (

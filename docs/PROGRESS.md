@@ -190,6 +190,11 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-14 儀表板 Widget 捲動體驗優化
+- ✅ **樣式統一 (Style Unification)**：修改 `DashboardPage.tsx` 與多個 Widget 元件（`MyProjectsWidget`, `AnimalsOnMedicationWidget`, `LeaveBalanceWidget`, `VetCommentsWidget`）。
+- ✅ **捲動支持 (Scrolling Support)**：所有 Widget 的 `Card` 皆加上 `flex-col overflow-hidden`，並將 `CardContent` 設為 `flex-1 overflow-auto`。
+- ✅ **固定標題 (Fixed Header)**：確保標題區塊（Header）在內容過長捲動時維持固定位置，提升使用者在儀表板查看長列表時的體驗。
+
 ### 2026-03-14 請購/採購單批號與效期調整
 - ✅ **前端表單驗證 (Frontend)**：修改 `useDocumentForm.ts` 中的 `needsShelf` 與 `isShelfRequired` 邏輯，排除 `PR` 單據，使其不強制要求儲位。調整 `buildPayload` 驗證，針對 `GRN`/`DO` 等單據，透過品項設定 (`track_batch`, `track_expiry`) 動態決定批號與效期是否為必填，而非一律強制。
 - ✅ **後端 CRUD 驗證 (Backend)**：修改 `crud.rs` 中的單據 `create` 與 `update` 方法，結合單據類型與產品 `track_batch`、`track_expiry` 屬性，動態驗證批號與效期，確保正確控制請購/採購與入庫單的資料流向。

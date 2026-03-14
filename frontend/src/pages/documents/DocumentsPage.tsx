@@ -34,6 +34,7 @@ import { Plus, Search, Eye, Loader2, FileText, Calendar, X, Edit, Trash2 } from 
 import { STALE_TIME } from '@/lib/query'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
+import { useAuthStore } from '@/stores/auth'
 
 const docTypeNames: Record<DocType, string> = {
   PO: '採購單',
@@ -88,14 +89,14 @@ export function DocumentsPage() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await deleteResource(`/documents/${id}`)
+    mutationFn: async ({ id, hard }: { id: string; hard: boolean }) => {
+      await deleteResource(`/documents/${id}${hard ? '?hard=true' : ''}`)
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['documents'] })
       toast({
         title: '成功',
-        description: '單據已刪除',
+        description: variables.hard ? '單據已永久刪除' : '單據已刪除',
       })
       setDeleteDialogOpen(false)
       setDocumentToDelete(null)
@@ -116,7 +117,8 @@ export function DocumentsPage() {
 
   const handleConfirmDelete = () => {
     if (documentToDelete) {
-      deleteMutation.mutate(documentToDelete.id)
+      const isAdmin = useAuthStore.getState().user?.roles.includes('admin')
+      deleteMutation.mutate({ id: documentToDelete.id, hard: !!isAdmin })
     }
   }
 
@@ -318,18 +320,20 @@ export function DocumentsPage() {
                           <Eye className="h-4 w-4" />
                         </Link>
                       </Button>
-                      {doc.status === 'draft' && (
+                      {(doc.status === 'draft' || useAuthStore.getState().user?.roles.includes('admin')) && (
                         <>
-                          <Button variant="ghost" size="icon" asChild title="編輯">
-                            <Link to={`/documents/${doc.id}/edit`}>
-                              <Edit className="h-4 w-4" />
-                            </Link>
-                          </Button>
+                          {doc.status === 'draft' && (
+                            <Button variant="ghost" size="icon" asChild title="編輯">
+                              <Link to={`/documents/${doc.id}/edit`}>
+                                <Edit className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => handleDeleteClick(doc)}
-                            title="刪除"
+                            title={useAuthStore.getState().user?.roles.includes('admin') ? '強制刪除' : '刪除'}
                             className="text-destructive hover:text-destructive"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -356,9 +360,13 @@ export function DocumentsPage() {
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>確認刪除</DialogTitle>
+            <DialogTitle>
+              {useAuthStore.getState().user?.roles.includes('admin') ? '管理員權限：永久刪除單據' : '確認刪除'}
+            </DialogTitle>
             <DialogDescription>
-              確定要刪除單據「{documentToDelete?.doc_no}」嗎？此操作無法復原。
+              {useAuthStore.getState().user?.roles.includes('admin')
+                ? `警告：具有管理員權限，刪除單據「${documentToDelete?.doc_no}」將永久從資料庫中移除資料（包含明細與庫存異動紀錄），此操作無法復原。確定要執行硬刪除嗎？`
+                : `確定要刪除單據「${documentToDelete?.doc_no}」嗎？此操作無法復原。`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -371,7 +379,7 @@ export function DocumentsPage() {
               disabled={deleteMutation.isPending}
             >
               {deleteMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              確認刪除
+              {useAuthStore.getState().user?.roles.includes('admin') ? '執行硬刪除' : '確認刪除'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -144,11 +144,19 @@ pub async fn update_partner(
     Ok(Json(partner))
 }
 
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
+pub struct DeleteQuery {
+    pub hard: Option<bool>,
+}
+
 /// 刪除合作夥伴
 #[utoipa::path(
     delete,
     path = "/api/partners/{id}",
-    params(("id" = Uuid, Path, description = "夥伴 ID")),
+    params(
+        ("id" = Uuid, Path, description = "夥伴 ID"),
+        DeleteQuery
+    ),
     responses(
         (status = 200, description = "刪除成功"),
         (status = 401, description = "未認證"),
@@ -161,19 +169,24 @@ pub async fn delete_partner(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
+    Query(params): Query<DeleteQuery>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "erp.partner.delete");
     
+    let is_hard = params.hard.unwrap_or(false) && current_user.is_admin();
+
     if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ERP", "PARTNER_DELETE",
+        &state.db, current_user.id, "ERP", if is_hard { "PARTNER_HARD_DELETE" } else { "PARTNER_DELETE" },
         Some("partner"), Some(id), None,
         None, None, None, None,
     ).await {
         tracing::error!("寫入審計日誌失敗 (PARTNER_DELETE): {}", e);
     }
 
-    PartnerService::delete(&state.db, id).await?;
-    Ok(Json(serde_json::json!({ "message": "Partner deleted successfully" })))
+    PartnerService::delete(&state.db, id, is_hard).await?;
+    Ok(Json(serde_json::json!({ 
+        "message": if is_hard { "Partner permanently deleted" } else { "Partner deleted successfully" } 
+    })))
 }
 
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
