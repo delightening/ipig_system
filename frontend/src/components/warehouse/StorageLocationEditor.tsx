@@ -98,7 +98,7 @@ export function StorageLocationEditor({
         xxs: gridLayout,
     }), [gridLayout])
 
-    const handleInternalLayoutChange = (newLayout: any[]) => {
+    const handleInternalLayoutChange = (newLayout: Array<{ i: string; x: number; y: number; w: number; h: number }>) => {
         if (!isEditMode) return
         const items: StorageLayoutItem[] = newLayout.map((item) => ({
             id: item.i,

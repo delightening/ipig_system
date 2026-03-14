@@ -31,13 +31,7 @@ import { formatDateTime, formatNumber, UOM_MAP } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
 import { useSkuCategories } from '@/hooks/useSkuCategories'
 
-const STORAGE_CONDITIONS: Record<string, string> = {
-  'RT': '常溫 (15-25°C)',
-  'RF': '冷藏 (2-8°C)',
-  'FZ': '冷凍 (-20°C 以下)',
-  'DK': '避光',
-  'DY': '乾燥',
-}
+import { STORAGE_CONDITIONS } from '@/lib/constants/product'
 
 
 

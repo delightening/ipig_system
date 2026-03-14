@@ -365,6 +365,35 @@ impl AuthService {
         format!("{:x}", hasher.finalize())
     }
 
+    /// 撤銷用戶的所有有效 refresh tokens（密碼變更/重設後強制重新登入）
+    async fn revoke_user_refresh_tokens(pool: &PgPool, user_id: Uuid) -> Result<()> {
+        sqlx::query(
+            "UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL"
+        )
+        .bind(user_id)
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
+    /// 更新用戶密碼 hash（含 must_change_password 標記）
+    async fn update_password_in_db(
+        pool: &PgPool,
+        user_id: Uuid,
+        password_hash: &str,
+        must_change_password: bool,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE users SET password_hash = $1, must_change_password = $2, updated_at = NOW() WHERE id = $3"
+        )
+        .bind(password_hash)
+        .bind(must_change_password)
+        .bind(user_id)
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
     /// 驗證密碼強度（SEC-10）
     /// 至少 8 字元，需包含大寫、小寫字母與數字
     pub fn validate_password_strength(password: &str) -> Result<()> {
@@ -413,7 +442,6 @@ impl AuthService {
         current_password: &str,
         new_password: &str,
     ) -> Result<LoginResponse> {
-        // 查詢用戶
         let user = sqlx::query_as::<_, User>(
             "SELECT * FROM users WHERE id = $1 AND is_active = true"
         )
@@ -422,38 +450,17 @@ impl AuthService {
         .await?
         .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
-        // 驗證舊密碼
         if !Self::verify_password(current_password, &user.password_hash)? {
             return Err(AppError::Validation("Current password is incorrect".to_string()));
         }
 
-        // 驗證新密碼強度
         Self::validate_password_strength(new_password)?;
-
-        // Hash 新密碼
         let new_password_hash = Self::hash_password(new_password)?;
+        Self::update_password_in_db(pool, user_id, &new_password_hash, false).await?;
+        Self::revoke_user_refresh_tokens(pool, user_id).await?;
 
-        // 更新密碼並清除 must_change_password 標記
-        sqlx::query(
-            "UPDATE users SET password_hash = $1, must_change_password = false, updated_at = NOW() WHERE id = $2"
-        )
-        .bind(&new_password_hash)
-        .bind(user_id)
-        .execute(pool)
-        .await?;
-
-        // 撤銷舊的 refresh tokens 並重新簽發新 tokens（保持登入狀態）
-        sqlx::query(
-            "UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL"
-        )
-        .bind(user_id)
-        .execute(pool)
-        .await?;
-
-        // 獲取角色和權限
+        // 重新簽發 tokens（保持登入狀態）
         let (roles, permissions) = Self::get_user_roles_permissions(pool, user.id).await?;
-
-        // 重新簽發 tokens
         let (access_token, expires_in) = Self::generate_access_token(config, &user, &roles, &permissions, None)?;
         let refresh_token = Self::generate_refresh_token(pool, user.id, config).await?;
 
@@ -537,41 +544,20 @@ impl AuthService {
         target_user_id: Uuid,
         new_password: &str,
     ) -> Result<()> {
-        // 確認目標用戶存在
         let exists: bool = sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)"
         )
         .bind(target_user_id)
         .fetch_one(pool)
         .await?;
-
         if !exists {
             return Err(AppError::NotFound("User not found".to_string()));
         }
 
-        // 驗證新密碼強度
         Self::validate_password_strength(new_password)?;
-
-        // Hash 新密碼
         let new_password_hash = Self::hash_password(new_password)?;
-
-        // 更新密碼並設置 must_change_password 標記
-        sqlx::query(
-            "UPDATE users SET password_hash = $1, must_change_password = true, updated_at = NOW() WHERE id = $2"
-        )
-        .bind(&new_password_hash)
-        .bind(target_user_id)
-        .execute(pool)
-        .await?;
-
-        // 撤銷該用戶所有 refresh tokens（強制重新登入）
-        sqlx::query(
-            "UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL"
-        )
-        .bind(target_user_id)
-        .execute(pool)
-        .await?;
-
+        Self::update_password_in_db(pool, target_user_id, &new_password_hash, true).await?;
+        Self::revoke_user_refresh_tokens(pool, target_user_id).await?;
         Ok(())
     }
 
@@ -645,34 +631,16 @@ impl AuthService {
         .await?
         .ok_or_else(|| AppError::Validation("Invalid or expired reset token".to_string()))?;
 
-        // Hash 新密碼
         let new_password_hash = Self::hash_password(new_password)?;
-
-        // 更新密碼
-        sqlx::query(
-            "UPDATE users SET password_hash = $1, must_change_password = false, updated_at = NOW() WHERE id = $2"
-        )
-        .bind(&new_password_hash)
-        .bind(token_record.user_id)
-        .execute(pool)
-        .await?;
+        Self::update_password_in_db(pool, token_record.user_id, &new_password_hash, false).await?;
 
         // 標記 token 已使用
-        sqlx::query(
-            "UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1"
-        )
-        .bind(token_record.id)
-        .execute(pool)
-        .await?;
+        sqlx::query("UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1")
+            .bind(token_record.id)
+            .execute(pool)
+            .await?;
 
-        // 撤銷該用戶所有 refresh tokens（強制重新登入）
-        sqlx::query(
-            "UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL"
-        )
-        .bind(token_record.user_id)
-        .execute(pool)
-        .await?;
-
+        Self::revoke_user_refresh_tokens(pool, token_record.user_id).await?;
         Ok(())
     }
 

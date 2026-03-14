@@ -1,13 +1,15 @@
 // 電子簽章服務 - GLP 合規
 // 用於犧牲記錄確認、計畫核准等需要簽章的操作
 
-use crate::{repositories, AppError, Result};
+use crate::{middleware::CurrentUser, repositories, AppError, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use sha2::{Digest, Sha256};
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
+
+use super::AuthService;
 
 /// 簽章類型
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -443,6 +445,339 @@ impl SignatureService {
 
         Ok(is_locked)
     }
+
+    // ============================================
+    // 存取權限檢查（IDOR 防護）
+    // ============================================
+
+    /// 檢查使用者是否有權存取安樂死單據（PI、VET、CHAIR 或管理員）
+    pub async fn check_euthanasia_access(
+        pool: &PgPool,
+        order_id: Uuid,
+        current_user: &CurrentUser,
+    ) -> Result<()> {
+        if current_user.has_permission("animal.euthanasia.arbitrate") || current_user.is_admin() {
+            return Ok(());
+        }
+        let related: Option<(Uuid, Uuid)> = sqlx::query_as(
+            "SELECT pi_user_id, vet_user_id FROM euthanasia_orders WHERE id = $1",
+        )
+        .bind(order_id)
+        .fetch_optional(pool)
+        .await?;
+
+        match related {
+            Some((pi_id, vet_id)) if pi_id == current_user.id || vet_id == current_user.id => {
+                Ok(())
+            }
+            Some(_) => Err(AppError::Forbidden("無權存取此安樂死單據".into())),
+            None => Err(AppError::NotFound("找不到安樂死單據".into())),
+        }
+    }
+
+    /// 檢查使用者是否有權存取轉讓記錄（透過動物所屬計畫關聯）
+    pub async fn check_transfer_access(
+        pool: &PgPool,
+        transfer_id: Uuid,
+        current_user: &CurrentUser,
+    ) -> Result<()> {
+        if current_user.has_permission("aup.protocol.view_all") || current_user.is_admin() {
+            return Ok(());
+        }
+        let has_access: Option<(i64,)> = sqlx::query_as(
+            r#"SELECT 1 FROM animal_transfers t
+               JOIN animals a ON t.animal_id = a.id
+               LEFT JOIN user_protocols up ON up.protocol_id = a.protocol_id
+               WHERE t.id = $1 AND up.user_id = $2"#,
+        )
+        .bind(transfer_id)
+        .bind(current_user.id)
+        .fetch_optional(pool)
+        .await?;
+
+        if has_access.is_some() {
+            Ok(())
+        } else {
+            Err(AppError::Forbidden("無權存取此轉讓記錄".into()))
+        }
+    }
+
+    /// 檢查使用者是否有權存取計畫書（PI、共同編輯者、審查委員或管理員）
+    pub async fn check_protocol_access(
+        pool: &PgPool,
+        protocol_id: Uuid,
+        current_user: &CurrentUser,
+    ) -> Result<()> {
+        if current_user.has_permission("aup.protocol.view_all") || current_user.is_admin() {
+            return Ok(());
+        }
+        let has_access: Option<(i64,)> = sqlx::query_as(
+            r#"SELECT 1 FROM user_protocols
+               WHERE protocol_id = $1 AND user_id = $2"#,
+        )
+        .bind(protocol_id)
+        .bind(current_user.id)
+        .fetch_optional(pool)
+        .await?;
+
+        if has_access.is_some() {
+            Ok(())
+        } else {
+            Err(AppError::Forbidden("無權存取此計畫書".into()))
+        }
+    }
+
+    /// 檢查使用者是否有權存取動物記錄（透過動物所屬計畫關聯，記錄 ID 為 i32）
+    pub async fn check_animal_record_access(
+        pool: &PgPool,
+        table: &str,
+        record_id: i32,
+        current_user: &CurrentUser,
+    ) -> Result<()> {
+        if current_user.has_permission("aup.protocol.view_all") || current_user.is_admin() {
+            return Ok(());
+        }
+        let query = format!(
+            r#"SELECT 1 FROM {} r
+               JOIN animals a ON r.animal_id = a.id
+               LEFT JOIN user_protocols up ON up.protocol_id = a.protocol_id
+               WHERE r.id = $1 AND up.user_id = $2"#,
+            table
+        );
+        let has_access: Option<(i64,)> = sqlx::query_as(&query)
+            .bind(record_id)
+            .bind(current_user.id)
+            .fetch_optional(pool)
+            .await?;
+
+        if has_access.is_some() {
+            Ok(())
+        } else {
+            Err(AppError::Forbidden("無權存取此記錄".into()))
+        }
+    }
+
+    /// 檢查使用者是否有權存取動物記錄（記錄 ID 為 UUID）
+    pub async fn check_animal_record_access_uuid(
+        pool: &PgPool,
+        table: &str,
+        record_id: Uuid,
+        current_user: &CurrentUser,
+    ) -> Result<()> {
+        if current_user.has_permission("aup.protocol.view_all") || current_user.is_admin() {
+            return Ok(());
+        }
+        let query = format!(
+            r#"SELECT 1 FROM {} r
+               JOIN animals a ON r.animal_id = a.id
+               LEFT JOIN user_protocols up ON up.protocol_id = a.protocol_id
+               WHERE r.id = $1 AND up.user_id = $2"#,
+            table
+        );
+        let has_access: Option<(i64,)> = sqlx::query_as(&query)
+            .bind(record_id)
+            .bind(current_user.id)
+            .fetch_optional(pool)
+            .await?;
+
+        if has_access.is_some() {
+            Ok(())
+        } else {
+            Err(AppError::Forbidden("無權存取此記錄".into()))
+        }
+    }
+
+    // ============================================
+    // 記錄內容查詢（用於簽章雜湊計算）
+    // ============================================
+
+    /// 取得犧牲記錄內容（用於生成簽章雜湊）
+    pub async fn fetch_sacrifice_content(pool: &PgPool, id: Uuid) -> Result<String> {
+        sqlx::query_scalar(
+            r#"SELECT CONCAT(
+                'sacrifice_id:', id::text,
+                ',animal_id:', animal_id::text,
+                ',date:', COALESCE(sacrifice_date::text, ''),
+                ',confirmed:', confirmed_sacrifice::text
+            ) FROM animal_sacrifices WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("找不到犧牲記錄".into()))
+    }
+
+    /// 取得觀察記錄內容（用於生成簽章雜湊）
+    pub async fn fetch_observation_content(pool: &PgPool, id: i32) -> Result<String> {
+        sqlx::query_scalar(
+            r#"SELECT CONCAT(
+                'observation_id:', id::text,
+                ',animal_id:', animal_id::text,
+                ',date:', event_date::text,
+                ',content:', content
+            ) FROM animal_observations WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("找不到觀察記錄".into()))
+    }
+
+    /// 取得安樂死單據內容（用於生成簽章雜湊）
+    pub async fn fetch_euthanasia_content(pool: &PgPool, id: Uuid) -> Result<String> {
+        sqlx::query_scalar(
+            r#"SELECT CONCAT(
+                'euthanasia_id:', id::text,
+                ',animal_id:', animal_id::text,
+                ',reason:', reason,
+                ',status:', status
+            ) FROM euthanasia_orders WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("找不到安樂死單據".into()))
+    }
+
+    /// 取得轉讓記錄內容（用於生成簽章雜湊）
+    pub async fn fetch_transfer_content(pool: &PgPool, id: Uuid) -> Result<String> {
+        sqlx::query_scalar(
+            r#"SELECT CONCAT(
+                'transfer_id:', id::text,
+                ',animal_id:', animal_id::text,
+                ',from_iacuc:', from_iacuc_no,
+                ',status:', status
+            ) FROM animal_transfers WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("找不到轉讓記錄".into()))
+    }
+
+    /// 取得計畫書內容（用於生成簽章雜湊）
+    pub async fn fetch_protocol_content(pool: &PgPool, id: Uuid) -> Result<String> {
+        sqlx::query_scalar(
+            r#"SELECT CONCAT(
+                'protocol_id:', id::text,
+                ',title:', title,
+                ',status:', status
+            ) FROM protocols WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("找不到計劃書".into()))
+    }
+
+    // ============================================
+    // 統一簽章流程
+    // ============================================
+
+    /// 解析簽章類型字串，預設使用指定的 default
+    pub fn parse_signature_type(s: Option<&str>, default: SignatureType) -> SignatureType {
+        match s {
+            Some("APPROVE") => SignatureType::Approve,
+            Some("CONFIRM") => SignatureType::Confirm,
+            Some("WITNESS") => SignatureType::Witness,
+            _ => default,
+        }
+    }
+
+    /// 統一簽章請求處理：驗證輸入 → 依模式建立簽章
+    #[allow(clippy::too_many_arguments)]
+    pub async fn sign_record(
+        pool: &PgPool,
+        entity_type: &str,
+        entity_id: &str,
+        signer_id: Uuid,
+        sig_type: SignatureType,
+        content: &str,
+        password: Option<&str>,
+        handwriting_svg: Option<&str>,
+        stroke_data: Option<&JsonValue>,
+    ) -> Result<ElectronicSignature> {
+        let has_password = password.is_some_and(|p| !p.is_empty());
+        let has_handwriting = handwriting_svg.is_some_and(|s| !s.is_empty());
+
+        if !has_password && !has_handwriting {
+            return Err(AppError::Validation("請提供密碼或手寫簽名".into()));
+        }
+
+        if has_handwriting {
+            let svg = handwriting_svg
+                .ok_or_else(|| AppError::Internal("missing handwriting SVG".into()))?;
+            Self::sign_with_handwriting(
+                pool,
+                entity_type,
+                entity_id,
+                signer_id,
+                sig_type,
+                content,
+                None,
+                None,
+                svg,
+                stroke_data,
+            )
+            .await
+        } else {
+            let pwd = password
+                .ok_or_else(|| AppError::Internal("missing password".into()))?;
+            let user = AuthService::verify_password_by_id(pool, signer_id, pwd)
+                .await
+                .map_err(|_| AppError::Unauthorized)?;
+            Self::sign(
+                pool,
+                entity_type,
+                entity_id,
+                signer_id,
+                &user.password_hash,
+                sig_type,
+                content,
+                None,
+                None,
+            )
+            .await
+        }
+    }
+
+    // ============================================
+    // 簽章狀態查詢（含簽章者姓名）
+    // ============================================
+
+    /// 簽章詳細資訊（含簽章者姓名）
+    pub async fn get_signature_infos(
+        pool: &PgPool,
+        entity_type: &str,
+        entity_id: &str,
+    ) -> Result<Vec<SignatureInfoDto>> {
+        let signatures = Self::get_signatures(pool, entity_type, entity_id).await?;
+        let mut infos = Vec::with_capacity(signatures.len());
+        for sig in signatures {
+            let signer_name =
+                repositories::user::find_user_display_name_by_id(pool, sig.signer_id).await?;
+            infos.push(SignatureInfoDto {
+                id: sig.id,
+                signature_type: sig.signature_type,
+                signer_name,
+                signed_at: sig.signed_at,
+                signature_method: sig.signature_method,
+                handwriting_svg: sig.handwriting_svg,
+            });
+        }
+        Ok(infos)
+    }
+}
+
+/// 簽章詳細資訊 DTO（含簽章者姓名）
+#[derive(Debug, Serialize)]
+pub struct SignatureInfoDto {
+    pub id: Uuid,
+    pub signature_type: String,
+    pub signer_name: Option<String>,
+    pub signed_at: DateTime<Utc>,
+    pub signature_method: Option<String>,
+    pub handwriting_svg: Option<String>,
 }
 
 // ============================================
@@ -546,5 +881,19 @@ impl AnnotationService {
         .await?;
 
         Ok(annotations)
+    }
+
+    /// 取得附註清單並附加建立者姓名
+    pub async fn enrich_with_names(
+        pool: &PgPool,
+        annotations: Vec<RecordAnnotation>,
+    ) -> Result<Vec<(RecordAnnotation, Option<String>)>> {
+        let mut result = Vec::with_capacity(annotations.len());
+        for ann in annotations {
+            let name =
+                repositories::user::find_user_display_name_by_id(pool, ann.created_by).await?;
+            result.push((ann, name));
+        }
+        Ok(result)
     }
 }
