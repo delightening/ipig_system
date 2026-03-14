@@ -188,6 +188,12 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 >
 > **更新慣例**：新項目請放在本區塊**最前面**（時間由近到遠），勿追加於末端。
 
+### 2026-03-14 R6-6 資料庫輸出與歷史重新填寫
+- ✅ **Protocol 複製（後端）**：`ProtocolService::copy()`、handler `copy_protocol`、路由 `POST /protocols/:id/copy`
+- ✅ **Protocol 複製（前端）**：ProtocolsPage 每行加「複製」按鈕，確認後建立新草稿並跳轉至編輯頁
+- ✅ **請假申請預填**：HrLeavePage 新增「基於上次申請預填」按鈕，預填假別/事由/代理人
+- 說明：手術複製（`/surgeries/copy`）及全庫 JSON/ZIP 匯出入（`DataExportImportCard`）已事先存在，本次補全 Phase 1–2 缺失功能
+
 ### 2026-03-14 R6-8 設施管理前端完整實作
 - ✅ **新增 `types/facility.ts`**：Species/Facility/Building/Zone/Pen/Department 6 組 TypeScript 型別（對應後端 models/facility.rs）
 - ✅ **新增 `lib/api/facility.ts`**：`facilityApi` 物件，涵蓋 6 個實體 × CRUD = 24 個 API 函式
