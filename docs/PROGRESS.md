@@ -180,6 +180,12 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-14 ERP 合作夥伴頁面 405 與硬刪除邏輯深度修復
+- ✅ **前端修正 (Frontend)**：修復 `deleteResource` 函式在處理帶有 Query String 的 URL 時，誤將 `/delete` 附加在結尾的問題。改為正確分割 URL 並在路徑末尾插入 `/delete`。
+- ✅ **後端對接 (Backend)**：在 `delete_partner` handler 中新增 `Json<DeleteQuery>` 接收器，使其能同時讀取來自 Query String 或 JSON Body 的 `hard` 參數，確保與前端調用方式完全相容。
+- ✅ **路由重整 (Backend)**：調整 `backend/src/routes/erp.rs` 路由順序，確保靜態功能路徑優先於變數匹配路徑。
+- ✅ **品質驗證**：通過 `handlers::partner` 單元測試，驗證 Body 與 Query 混合參數讀取邏輯正確。
+
 ### 2026-03-14 Admin 設施管理元件編譯錯誤修復
 - ✅ **前端修復 (Frontend)**：修復 `BuildingTab`, `DepartmentTab`, `FacilityTab`, `PenTab`, `SpeciesTab`, `ZoneTab` 等元件中對 `useConfirmDialog` hook 的錯誤調用。將 `confirm.open()` 改為符合新 API 的 `const { dialogState, confirm } = useConfirmDialog()` 結構，並將 `handleDelete` 改為非同步調用。
 - ✅ **品質驗證**：在本機執行 `npm run build` 通過，確認無 TypeScript 編譯錯誤。
