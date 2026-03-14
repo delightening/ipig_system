@@ -215,6 +215,46 @@
 
 ---
 
+## 🔧 R9 — 技術債掃描（2026-03，自動分析產出）
+
+> 來源：2026-03-14 靜態分析掃描。依違反 CLAUDE.md 代碼規範嚴重程度排列。
+> 後端函數上限 50 行，前端元件上限 300 行（JSX return 80 行），Hook 上限 300 行。
+
+### 🔴 高優先（後端極長函數 >100 行）
+
+| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
+|---|------|------|------|----------|------|
+| R9-1 | **`pdf/service.rs` `generate_protocol_pdf` 拆分** | 單一函數 578 行（L63–L630），嚴重違反 50 行上限；應依章節拆出 `render_protocol_header()`、`render_animal_table()`、`render_experiment_section()` 等子函數，再由主函數依序呼叫 | 後端 | 🧠 Claude | [ ] |
+| R9-2 | **`animal/import_export.rs` `import_basic_data` 拆分** | 函數 327 行（L200），`import_weight_data` 172 行（L527）；提取 validate_row、map_row_to_entity、batch_insert 等輔助函式，降低至 ≤50 行 | 後端 | 🧠 Claude | [ ] |
+| R9-3 | **`services/product.rs` 多個長函數拆分** | `import_products` 196 行、`update` 170 行、`parse_product_csv` 140 行、`parse_product_excel` 114 行、`create` 109 行、`check_import_duplicates` 92 行——全部超過 50 行上限；CSV/Excel 解析邏輯應提取至獨立 parser 模組 | 後端 | 🧠 Claude | [ ] |
+| R9-4 | **`handlers/signature.rs` handler 函數過長** | `check_animal_record_access_uuid` 106 行（含業務邏輯，違反 handler 職責）；`sign_sacrifice_record` 97、`sign_observation_record` 95、`sign_transfer_record` 93、`sign_euthanasia_order` 92、`sign_protocol_review` 91、`add_record_annotation` 80 行；簽署驗證邏輯應移至 `services/signature.rs` | 後端 | 🧠 Claude | [ ] |
+| R9-5 | **`services/accounting.rs` 長函數拆分** | `post_sr` 121 行、`post_do` 117 行、`post_grn` 66 行；各記帳流程應提取 validate_lines、build_journal_entries、post_entries 等子函式 | 後端 | 🧠 Claude | [ ] |
+
+### 🟠 中優先（前端超大元件 >600 行）
+
+| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
+|---|------|------|------|----------|------|
+| R9-6 | **`ProtocolContentView.tsx` 拆分（870 行）** | 超過 300 行上限近 3 倍；依內容區塊（實驗設計/動物規格/統計方法/倫理聲明等）拆分為子元件，提取重複的欄位顯示 pattern 為共用元件 | 前端 | 🧠 Claude | [ ] |
+| R9-7 | **`ProductImportDialog.tsx` 拆分（863 行）** | 匯入預覽表格、欄位映射、錯誤清單應各自提取為獨立子元件 | 前端 | 🧠 Claude | [ ] |
+| R9-8 | **`hooks/usePermissionManager.ts` 拆分（853 行）** | Hook 超過 300 行上限；應依職責拆分為 `usePermissionCategories`（分類資料處理）、`usePermissionSearch`（搜尋篩選邏輯）、`usePermissionMutation`（新增/刪除 API） | 前端 | 🧠 Claude | [ ] |
+| R9-9 | **`AccountingReportPage.tsx` 拆分（838 行）** | 損益表、AP/AR 老齡化、試算表、傳票列表四個區塊應各自提取為 Tab 子元件 | 前端 | 🧠 Claude | [ ] |
+| R9-10 | **`HrLeavePage.tsx` 拆分（837 行）** | 請假申請表單、請假紀錄表格、餘額顯示應各自提取為子元件；重複的欄位定義可抽出 `useLeaveColumns` hook | 前端 | 🧠 Claude | [ ] |
+| R9-11 | **`BloodTestTab.tsx` 拆分（811 行）** | 血檢套餐選擇、結果輸入、歷史紀錄三大功能區塊拆分為子元件，表格欄位定義提取至 constants | 前端 | 🧠 Claude | [ ] |
+| R9-12 | **`DashboardPage.tsx` 拆分（805 行）** | 各儀表板區塊（動物概況、計畫進度、庫存警示、HR 餘額等）已部分提取為 Widget，仍有邏輯殘留在頁面層；提取 `useDashboardData` hook 集中 query 邏輯 | 前端 | 🧠 Claude | [ ] |
+| R9-13 | **`DocumentLineEditor.tsx` 拆分 + `any` 消除（723 行 + 10 處 any）** | 元件超過 300 行；`setFormData: any`、`extraData?: any`、`newLine: any`、`prev: any`、`item: any` 等 10+ 處應改用具體型別（`DocumentFormData`、`ProductVariant`、`DocumentLine`）；商品選擇彈窗邏輯提取為子元件 | 前端 | 🧠 Claude | [ ] |
+| R9-14 | **`useDocumentForm.ts` 拆分（717 行）** | 單一 hook 過長，應依關注點拆分為 `useDocumentLines`（明細管理）、`useDocumentSubmit`（送審流程）、`useDocumentValidation`（驗證邏輯） | 前端 | 🧠 Claude | [ ] |
+
+### 🟡 低優先（前端元件 300–600 行 & 細節問題）
+
+| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
+|---|------|------|------|----------|------|
+| R9-15 | **中大型元件逐步拆分** | 下列元件均超過 300 行上限，按業務域優先排序：`AnimalDetailPage.tsx`（786）、`AuditLogsPage.tsx`（686）、`TrainingRecordsPage.tsx`（673）、`ProductEditPage.tsx`（653）、`TransferTab.tsx`（651）、`TreatmentDrugOptionsPage.tsx`（646）、`ProtocolDetailPage.tsx`（641）、`Sidebar.tsx`（635）、`NotificationRoutingPage.tsx`（617）、`PartnersPage.tsx`（610）——各元件依 Tab 或功能區塊提取子元件 | 前端 | 🧠 Claude | [ ] |
+| R9-16 | **`STORAGE_CONDITIONS` 重複常數合併 + `lib/constants/` 目錄建立** | 同一常數定義於 `pages/master/ProductEditPage.tsx:56` 與 `pages/master/ProductDetailPage.tsx:34`，違反 DRY 原則；應建立 `frontend/src/lib/constants/` 目錄（目前不存在），新增 `product.ts` 匯出 `STORAGE_CONDITIONS`，兩頁面改 import | 前端 | ⚡ Flash | [ ] |
+| R9-17 | **剩餘 `any` 型別消除** | `WarehouseActionHeader.tsx:96/116/139` 的 `onError: (error: any)` 改用 `AxiosError`；`StorageLocationEditor.tsx:101` 的 `newLayout: any[]` 改用具體型別；`DocumentEditPage.tsx:102/322` 的 `as any[]` 改用 `Document[]` | 前端 | ⚡ Flash | [ ] |
+| R9-18 | **後端中長函數清理（50–100 行）** | `services/auth.rs`：`change_own_password`（66 行）、`reset_password_with_token`（57 行）、`refresh_token`（55 行）、`generate_access_token`（51 行）——提取 token 生成邏輯、密碼驗證流程為子函式 | 後端 | 🧠 Claude | [ ] |
+
+---
+
 ## 📊 待辦統計
 
 | 優先級 | 數量 (未完成) |
@@ -229,7 +269,8 @@
 | 🟠 R6 第六輪改善 | 0 |
 | 🔒 R7 安全審視 | 0 |
 | 🔧 R8 代碼規範重構 | 0 |
-| **合計（未完成）** | **0** |
+| 🔧 R9 技術債掃描 | 18 |
+| **合計（未完成）** | **18** |
 
 ---
 
