@@ -116,7 +116,7 @@ export function DocumentEditPage() {
     <div className="space-y-6">
       <DocumentFormHeader
         isEdit={isEdit}
-        docTypeName={DOC_TYPE_NAMES[formData.doc_type]}
+        docTypeName={formData.doc_type ? DOC_TYPE_NAMES[formData.doc_type] : ''}
         onBack={handleBack}
         onSave={() => saveMutation.mutate()}
         onSubmit={() => submitMutation.mutate()}
