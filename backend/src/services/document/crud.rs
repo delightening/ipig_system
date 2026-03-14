@@ -79,9 +79,9 @@ impl DocumentService {
             r#"
             INSERT INTO documents (
                 id, doc_type, doc_no, status, warehouse_id, warehouse_from_id, warehouse_to_id,
-                partner_id, source_doc_id, doc_date, remark, stocktake_scope, iacuc_no, created_by, created_at, updated_at
+                partner_id, source_doc_id, doc_date, remark, stocktake_scope, iacuc_no, protocol_id, created_by, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
             RETURNING *
             "#
         )
@@ -98,6 +98,7 @@ impl DocumentService {
         .bind(&req.remark)
         .bind(req.stocktake_scope.as_ref().map(|s| serde_json::to_value(s).unwrap_or(serde_json::Value::Null)))
         .bind(&req.iacuc_no)
+        .bind(req.protocol_id)
         .bind(created_by)
         .fetch_one(&mut *tx)
         .await?;
@@ -167,8 +168,9 @@ impl DocumentService {
                 source_doc_id = COALESCE($5, source_doc_id),
                 doc_date = COALESCE($6, doc_date),
                 remark = COALESCE($7, remark),
+                protocol_id = COALESCE($8, protocol_id),
                 updated_at = NOW()
-            WHERE id = $8
+            WHERE id = $9
             "#,
         )
         .bind(req.warehouse_id)
@@ -178,6 +180,7 @@ impl DocumentService {
         .bind(req.source_doc_id)
         .bind(req.doc_date)
         .bind(&req.remark)
+        .bind(req.protocol_id)
         .bind(id)
         .execute(&mut *tx)
         .await?;
@@ -302,6 +305,8 @@ impl DocumentService {
                 w.name as warehouse_name,
                 d.partner_id,
                 p.name as partner_name,
+                d.protocol_id,
+                pr.protocol_no as protocol_no,
                 d.doc_date,
                 u1.display_name as created_by_name,
                 u2.display_name as approved_by_name,
@@ -320,6 +325,7 @@ impl DocumentService {
             FROM documents d
             LEFT JOIN warehouses w ON d.warehouse_id = w.id
             LEFT JOIN partners p ON d.partner_id = p.id
+            LEFT JOIN protocols pr ON d.protocol_id = pr.id
             LEFT JOIN users u1 ON d.created_by = u1.id
             LEFT JOIN users u2 ON d.approved_by = u2.id
             LEFT JOIN document_lines dl ON d.id = dl.document_id
@@ -357,7 +363,7 @@ impl DocumentService {
             qb.push_bind(iacuc_no.clone());
         }
 
-        qb.push(" GROUP BY d.id, w.name, d.partner_id, p.name, u1.display_name, u2.display_name, d.doc_type, d.doc_no, d.status, d.doc_date, d.created_at, d.approved_at, d.iacuc_no, d.receipt_status ORDER BY d.created_at DESC");
+        qb.push(" GROUP BY d.id, w.name, d.partner_id, p.name, d.protocol_id, pr.protocol_no, u1.display_name, u2.display_name, d.doc_type, d.doc_no, d.status, d.doc_date, d.created_at, d.approved_at, d.iacuc_no, d.receipt_status ORDER BY d.created_at DESC");
 
         let documents = qb
             .build_query_as::<DocumentListItem>()
@@ -415,6 +421,15 @@ impl DocumentService {
             None
         };
 
+        let protocol_no: Option<String> = if let Some(pid) = document.protocol_id {
+            sqlx::query_scalar("SELECT protocol_no FROM protocols WHERE id = $1")
+                .bind(pid)
+                .fetch_optional(pool)
+                .await?
+        } else {
+            None
+        };
+
         let created_by_name: String =
             repositories::user::find_user_display_name_by_id(pool, document.created_by)
                 .await?
@@ -434,6 +449,7 @@ impl DocumentService {
             warehouse_from_name,
             warehouse_to_name,
             partner_name,
+            protocol_no,
             created_by_name,
             approved_by_name,
         })
