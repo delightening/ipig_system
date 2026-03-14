@@ -30,6 +30,7 @@ import {
 import { Plus, Trash2, Search } from 'lucide-react'
 import { STALE_TIME } from '@/lib/query'
 import { formatNumber, formatUom } from '@/lib/utils'
+import { useSkuCategories } from '@/hooks/useSkuCategories'
 import type { DocumentFormData } from '../types'
 import type { InputRefs } from '../hooks/useDocumentForm'
 
@@ -204,8 +205,8 @@ interface DocumentLineEditorProps {
   setFormData: any
   needsShelf: boolean
   poReceiptStatus?: import('@/lib/api').PoReceiptStatus
-  categoryId?: string
-  setCategoryId: (id: string | undefined) => void
+  categoryCode?: string
+  setCategoryCode: (code: string | undefined) => void
 }
 
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -229,18 +230,10 @@ export function DocumentLineEditor({
   setFormData,
   needsShelf,
   poReceiptStatus,
-  categoryId,
-  setCategoryId,
+  categoryCode,
+  setCategoryCode,
 }: DocumentLineEditorProps) {
-  const { data: categories } = useQuery({
-    queryKey: ['categories'],
-    queryFn: async () => {
-      const res = await api.get<any[]>('/categories')
-      return res.data
-    },
-    enabled: productSearchOpen,
-    staleTime: 300000,
-  })
+  const { categories } = useSkuCategories({ enabled: productSearchOpen })
 
   const showPriceColumns = ['PO', 'GRN', 'DO'].includes(formData.doc_type)
 
@@ -593,13 +586,13 @@ export function DocumentLineEditor({
             
             {categories && categories.length > 0 && (
               <Tabs
-                value={categoryId || 'all'}
-                onValueChange={(v) => setCategoryId(v === 'all' ? undefined : v)}
+                value={categoryCode || 'all'}
+                onValueChange={(v) => setCategoryCode(v === 'all' ? undefined : v)}
               >
                 <TabsList className="grid w-full grid-cols-4 md:grid-cols-7 h-auto p-1 flex-wrap">
                   <TabsTrigger value="all" className="text-xs py-1">全部</TabsTrigger>
-                  {categories.map((cat: any) => (
-                    <TabsTrigger key={cat.id} value={cat.id} className="text-xs py-1">
+                  {categories.map((cat) => (
+                    <TabsTrigger key={cat.code} value={cat.code} className="text-xs py-1">
                       {cat.name}
                     </TabsTrigger>
                   ))}
@@ -659,7 +652,7 @@ export function DocumentLineEditor({
                     ))
                   ) : isStockBasedDoc && targetWarehouseId ? (
                     // 庫存模式列表
-                    stockBalances?.filter((item: any) => !categoryId || item.category_id === categoryId).map((item: any) => (
+                    stockBalances?.filter((item: any) => !categoryCode || item.category_code === categoryCode).map((item: any) => (
                       <TableRow
                         key={`${item.product_id}-${item.batch_no}-${item.storage_location_id}`}
                         className="cursor-pointer hover:bg-muted"

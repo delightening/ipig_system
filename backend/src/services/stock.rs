@@ -344,6 +344,7 @@ impl StockService {
                     p.sku as product_sku,
                     p.name as product_name,
                     p.base_uom,
+                    p.category_code,
                     sli.on_hand_qty as qty_on_hand,
                     NULL::numeric as avg_cost,
                     sli.batch_no,
@@ -379,6 +380,7 @@ impl StockService {
                 p.sku as product_sku,
                 p.name as product_name,
                 p.base_uom,
+                p.category_code,
                 COALESCE(SUM(
                     CASE 
                         WHEN sl.direction IN ('in', 'transfer_in', 'adjust_in') THEN sl.qty_base
@@ -404,7 +406,7 @@ impl StockService {
 
         sql.push_str(
             r#"
-            GROUP BY w.id, w.code, w.name, p.id, p.sku, p.name, p.base_uom, sl.batch_no, sl.expiry_date, p.safety_stock, p.reorder_point
+            GROUP BY w.id, w.code, w.name, p.id, p.sku, p.name, p.base_uom, p.category_code, sl.batch_no, sl.expiry_date, p.safety_stock, p.reorder_point
             HAVING COALESCE(SUM(
                 CASE 
                     WHEN sl.direction IN ('in', 'transfer_in', 'adjust_in') THEN sl.qty_base
@@ -434,6 +436,7 @@ impl StockService {
                     p.sku as product_sku,
                     p.name as product_name,
                     p.base_uom,
+                    p.category_code,
                     COALESCE(SUM(
                         CASE 
                             WHEN sl.direction IN ('in', 'transfer_in', 'adjust_in') THEN sl.qty_base
@@ -450,7 +453,7 @@ impl StockService {
                 CROSS JOIN products p
                 LEFT JOIN stock_ledger sl ON w.id = sl.warehouse_id AND p.id = sl.product_id
                 WHERE w.is_active = true AND p.is_active = true
-                GROUP BY w.id, w.code, w.name, p.id, p.sku, p.name, p.base_uom, sl.batch_no, sl.expiry_date, p.safety_stock, p.reorder_point
+                GROUP BY w.id, w.code, w.name, p.id, p.sku, p.name, p.base_uom, p.category_code, sl.batch_no, sl.expiry_date, p.safety_stock, p.reorder_point
                 HAVING COALESCE(SUM(
                     CASE 
                         WHEN sl.direction IN ('in', 'transfer_in', 'adjust_in') THEN sl.qty_base
@@ -582,6 +585,7 @@ impl StockService {
                 p.sku as product_sku,
                 p.name as product_name,
                 p.base_uom,
+                p.category_code,
                 COALESCE(SUM(
                     CASE 
                         WHEN sl.direction IN ('in', 'transfer_in', 'adjust_in') THEN sl.qty_base
@@ -599,7 +603,7 @@ impl StockService {
             LEFT JOIN stock_ledger sl ON w.id = sl.warehouse_id AND p.id = sl.product_id
             WHERE w.is_active = true AND p.is_active = true
               AND p.safety_stock IS NOT NULL
-            GROUP BY w.id, w.code, w.name, p.id, p.sku, p.name, p.base_uom, p.safety_stock, p.reorder_point
+            GROUP BY w.id, w.code, w.name, p.id, p.sku, p.name, p.base_uom, p.category_code, p.safety_stock, p.reorder_point
             HAVING COALESCE(SUM(
                 CASE 
                     WHEN sl.direction IN ('in', 'transfer_in', 'adjust_in') THEN sl.qty_base
