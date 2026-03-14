@@ -6,14 +6,9 @@ import type { Animal, AnimalListItem, CreateAnimalRequest } from '@/types/animal
 import type { PaginatedResponse } from '@/types/common'
 import { getApiErrorMessage } from '@/lib/validation'
 import { toast } from '@/components/ui/use-toast'
-import type { NewAnimalForm } from '../components/AnimalAddDialog'
+import type { NewAnimalForm, QuickAddForm, DuplicateWarningData } from '../components/AnimalAddDialog'
 
-export interface DuplicateWarningPayload {
-  earTag: string
-  existingAnimals: object[]
-  source: 'create' | 'quickAdd'
-  pendingPayload: CreateAnimalRequest & { breed_other?: string }
-}
+export type DuplicateWarningPayload = DuplicateWarningData
 
 interface MutationsOptions {
   penZone: string
@@ -22,8 +17,8 @@ interface MutationsOptions {
   assignIacucNo: string
   newAnimal: NewAnimalForm
   quickAddPending: { earTag: string; penLocation: string } | null
-  quickAddForm: { breed: string; breed_other: string; gender: string; entry_date: string; birth_date: string; entry_weight: string }
-  setQuickAddForm: (form: { breed: string; breed_other: string; gender: string; entry_date: string; birth_date: string; entry_weight: string }) => void
+  quickAddForm: QuickAddForm
+  setQuickAddForm: (form: QuickAddForm) => void
   setShowAddDialog: (open: boolean) => void
   setShowBatchAssignDialog: (open: boolean) => void
   setShowQuickAddDialog: (open: boolean) => void
