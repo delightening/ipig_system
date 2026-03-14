@@ -135,14 +135,15 @@ export function DocumentEditPage() {
               <div className="space-y-2">
                 <Label>單據類型</Label>
                 <Select
-                  value={formData.doc_type}
-                  onValueChange={(v) => updateField('doc_type', v as DocType)}
+                  value={formData.doc_type || 'SELECT'}
+                  onValueChange={(v) => updateField('doc_type', v === 'SELECT' ? ('' as any) : (v as DocType))}
                   disabled={isEdit}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="選擇類型" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="SELECT">選擇類型</SelectItem>
                     {Object.entries(DOC_TYPE_NAMES)
                       .filter(([key]) => !['RM', 'DO'].includes(key) || isEdit) // 新增時隱藏已棄用類型
                       .map(([key, name]) => (
@@ -159,10 +160,13 @@ export function DocumentEditPage() {
                   type="date"
                   value={formData.doc_date}
                   onChange={(e) => updateField('doc_date', e.target.value)}
+                  disabled={!formData.doc_type}
                 />
               </div>
             </div>
 
+            {formData.doc_type && (
+              <>
             {isTransfer ? (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -414,6 +418,8 @@ export function DocumentEditPage() {
                 placeholder="輸入備註..."
               />
             </div>
+            </>
+            )}
           </CardContent>
         </Card>
 
@@ -446,6 +452,8 @@ export function DocumentEditPage() {
         categoryCode={categoryCode}
         setCategoryCode={setCategoryCode}
       />
+      </>
+      )}
 
       <Dialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
         <DialogContent>
