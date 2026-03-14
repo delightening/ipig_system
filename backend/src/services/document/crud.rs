@@ -7,6 +7,7 @@ use crate::{
         DocumentLineWithProduct, DocumentListItem, DocumentQuery, DocumentWithLines,
         UpdateDocumentRequest,
     },
+    repositories,
     time, AppError, Result,
 };
 
@@ -347,31 +348,17 @@ impl DocumentService {
         .await?;
 
         // 取得關聯名稱
-        let warehouse_name: Option<String> = if let Some(wid) = document.warehouse_id {
-            sqlx::query_scalar("SELECT name FROM warehouses WHERE id = $1")
-                .bind(wid)
-                .fetch_optional(pool)
-                .await?
-        } else {
-            None
+        let warehouse_name = match document.warehouse_id {
+            Some(wid) => repositories::warehouse::find_warehouse_name_by_id(pool, wid).await?,
+            None => None,
         };
-
-        let warehouse_from_name: Option<String> = if let Some(wid) = document.warehouse_from_id {
-            sqlx::query_scalar("SELECT name FROM warehouses WHERE id = $1")
-                .bind(wid)
-                .fetch_optional(pool)
-                .await?
-        } else {
-            None
+        let warehouse_from_name = match document.warehouse_from_id {
+            Some(wid) => repositories::warehouse::find_warehouse_name_by_id(pool, wid).await?,
+            None => None,
         };
-
-        let warehouse_to_name: Option<String> = if let Some(wid) = document.warehouse_to_id {
-            sqlx::query_scalar("SELECT name FROM warehouses WHERE id = $1")
-                .bind(wid)
-                .fetch_optional(pool)
-                .await?
-        } else {
-            None
+        let warehouse_to_name = match document.warehouse_to_id {
+            Some(wid) => repositories::warehouse::find_warehouse_name_by_id(pool, wid).await?,
+            None => None,
         };
 
         let partner_name: Option<String> = if let Some(pid) = document.partner_id {
@@ -384,19 +371,15 @@ impl DocumentService {
         };
 
         let created_by_name: String =
-            sqlx::query_scalar("SELECT display_name FROM users WHERE id = $1")
-                .bind(document.created_by)
-                .fetch_optional(pool)
+            repositories::user::find_user_display_name_by_id(pool, document.created_by)
                 .await?
                 .unwrap_or_else(|| "Unknown User".to_string());
 
-        let approved_by_name: Option<String> = if let Some(uid) = document.approved_by {
-            sqlx::query_scalar("SELECT display_name FROM users WHERE id = $1")
-                .bind(uid)
-                .fetch_optional(pool)
-                .await?
-        } else {
-            None
+        let approved_by_name: Option<String> = match document.approved_by {
+            Some(uid) => {
+                repositories::user::find_user_display_name_by_id(pool, uid).await?
+            }
+            None => None,
         };
 
         Ok(DocumentWithLines {

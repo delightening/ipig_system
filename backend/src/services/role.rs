@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::{
     models::{CreateRoleRequest, Permission, PermissionQuery, Role, RoleWithPermissions, UpdateRoleRequest},
-    AppError, Result,
+    repositories, AppError, Result,
 };
 
 /// 驗證角色 code 格式：長度 1–50，僅允許英數字與底線。與 DB 與 CreateRoleRequest 約定一致。
@@ -129,13 +129,9 @@ impl RoleService {
 
     /// 取得單一角色
     pub async fn get_by_id(pool: &PgPool, id: Uuid) -> Result<RoleWithPermissions> {
-        let role = sqlx::query_as::<_, Role>(
-            "SELECT * FROM roles WHERE id = $1 AND is_active = true"
-        )
-        .bind(id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Role not found".to_string()))?;
+        let role = repositories::role::find_role_by_id_active(pool, id)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Role not found".to_string()))?;
 
         let permissions = sqlx::query_as::<_, Permission>(
             r#"
@@ -166,9 +162,7 @@ impl RoleService {
     /// 更新角色
     pub async fn update(pool: &PgPool, id: Uuid, req: &UpdateRoleRequest) -> Result<RoleWithPermissions> {
         // 檢查角色是否存在
-        let _existing = sqlx::query_as::<_, Role>("SELECT * FROM roles WHERE id = $1 AND is_active = true")
-            .bind(id)
-            .fetch_optional(pool)
+        let _existing = repositories::role::find_role_by_id_active(pool, id)
             .await?
             .ok_or_else(|| AppError::NotFound("Role not found".to_string()))?;
 
@@ -216,9 +210,7 @@ impl RoleService {
     /// 刪除角色
     pub async fn delete(pool: &PgPool, id: Uuid) -> Result<()> {
         // 檢查是否為系統角色
-        let role = sqlx::query_as::<_, Role>("SELECT * FROM roles WHERE id = $1 AND is_active = true")
-            .bind(id)
-            .fetch_optional(pool)
+        let role = repositories::role::find_role_by_id_active(pool, id)
             .await?
             .ok_or_else(|| AppError::NotFound("Role not found".to_string()))?;
 
