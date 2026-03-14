@@ -303,6 +303,17 @@ impl HrService {
         Ok(record)
     }
 
+    /// 將出勤狀態字串轉為中文顯示名稱
+    pub(super) fn attendance_status_display(status: &str) -> &str {
+        match status {
+            "normal" => "正常",
+            "late" => "遲到",
+            "early_leave" => "早退",
+            "absent" => "缺勤",
+            _ => status,
+        }
+    }
+
     pub async fn correct_attendance(
         pool: &PgPool,
         id: Uuid,
@@ -333,5 +344,71 @@ impl HrService {
         .await?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::HrService;
+
+    // --- is_ip_in_ranges ---
+
+    #[test]
+    fn test_ip_exact_match() {
+        let ranges = vec!["192.168.1.100".to_string()];
+        assert!(HrService::is_ip_in_ranges("192.168.1.100", &ranges));
+        assert!(!HrService::is_ip_in_ranges("192.168.1.101", &ranges));
+    }
+
+    #[test]
+    fn test_ip_cidr_match() {
+        let ranges = vec!["10.0.4.0/24".to_string()];
+        assert!(HrService::is_ip_in_ranges("10.0.4.1", &ranges));
+        assert!(HrService::is_ip_in_ranges("10.0.4.254", &ranges));
+        assert!(!HrService::is_ip_in_ranges("10.0.5.1", &ranges));
+    }
+
+    #[test]
+    fn test_ip_cidr_slash_32() {
+        let ranges = vec!["172.16.0.1/32".to_string()];
+        assert!(HrService::is_ip_in_ranges("172.16.0.1", &ranges));
+        assert!(!HrService::is_ip_in_ranges("172.16.0.2", &ranges));
+    }
+
+    #[test]
+    fn test_ip_multiple_ranges() {
+        let ranges = vec![
+            "192.168.1.0/24".to_string(),
+            "10.0.0.1".to_string(),
+        ];
+        assert!(HrService::is_ip_in_ranges("192.168.1.50", &ranges));
+        assert!(HrService::is_ip_in_ranges("10.0.0.1", &ranges));
+        assert!(!HrService::is_ip_in_ranges("8.8.8.8", &ranges));
+    }
+
+    #[test]
+    fn test_ip_empty_ranges() {
+        assert!(!HrService::is_ip_in_ranges("192.168.1.1", &[]));
+    }
+
+    #[test]
+    fn test_ip_invalid_ip() {
+        let ranges = vec!["192.168.1.0/24".to_string()];
+        assert!(!HrService::is_ip_in_ranges("not-an-ip", &ranges));
+    }
+
+    // --- attendance_status_display ---
+
+    #[test]
+    fn test_attendance_status_display_known() {
+        assert_eq!(HrService::attendance_status_display("normal"), "正常");
+        assert_eq!(HrService::attendance_status_display("late"), "遲到");
+        assert_eq!(HrService::attendance_status_display("early_leave"), "早退");
+        assert_eq!(HrService::attendance_status_display("absent"), "缺勤");
+    }
+
+    #[test]
+    fn test_attendance_status_display_unknown_passthrough() {
+        assert_eq!(HrService::attendance_status_display("other"), "other");
     }
 }

@@ -224,6 +224,62 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings -W clippy::unwrap_used
 
   # =========================
+  # 📊 後端：cargo-tarpaulin 行覆蓋率量測
+  # 僅針對純單元測試（lib target），不需要資料庫連線
+  # 門檻：整體行覆蓋率 ≥ 25%
+  # =========================
+  backend-coverage:
+    name: "📊 Backend: coverage (tarpaulin)"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+    env:
+      SQLX_OFFLINE: "true"
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: 安裝 Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 快取 Cargo 依賴
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            backend/target/
+          key: ${{ runner.os }}-cargo-tarpaulin-${{ hashFiles('backend/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-tarpaulin-
+
+      - name: 安裝 cargo-tarpaulin
+        run: cargo install cargo-tarpaulin --locked 2>/dev/null || true
+
+      - name: 執行覆蓋率量測（lib 單元測試，離線模式）
+        run: |
+          cargo tarpaulin \
+            --lib \
+            --out Xml \
+            --output-dir coverage/ \
+            --skip-clean \
+            --fail-under 25 \
+            --timeout 120 \
+            -- --test-threads=1
+        continue-on-error: false
+
+      - name: 上傳覆蓋率報告
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report
+          path: backend/coverage/
+          retention-days: 14
+
+  # =========================
   # React 前端：TypeScript 檢查
   # =========================
   frontend-check:
