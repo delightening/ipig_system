@@ -43,6 +43,7 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     warehouse_from_id: '',
     warehouse_to_id: '',
     partner_id: '',
+    protocol_id: '',
     protocol_no: '',
     source_doc_id: '',
     remark: '',
@@ -188,29 +189,6 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     })
   }, [calculateLineAmount])
 
-  const createOrFindCustomerMutation = useMutation({
-    mutationFn: async (iacucNo: string) => {
-      const existingPartnersResponse = await api.get<Partner[]>('/partners')
-      const existingCustomer = existingPartnersResponse.data.find(
-        (p) => p.partner_type === 'customer' && p.code === iacucNo
-      )
-      if (existingCustomer) return existingCustomer
-      const newCustomerResponse = await api.post<Partner>('/partners', {
-        partner_type: 'customer',
-        code: iacucNo,
-        name: iacucNo,
-      })
-      queryClient.invalidateQueries({ queryKey: ['partners'] })
-      return newCustomerResponse.data
-    },
-    onError: (error: unknown) => {
-      toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '創建客戶失敗'),
-        variant: 'destructive',
-      })
-    },
-  })
 
   useEffect(() => {
     if (document && isEdit) {
@@ -237,7 +215,8 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
         warehouse_from_id: document.warehouse_from_id || '',
         warehouse_to_id: document.warehouse_to_id || '',
         partner_id: document.partner_id || '',
-        protocol_no: (document as any).protocol_no || '',
+        protocol_id: document.protocol_id || '',
+        protocol_no: document.protocol_no || '',
         source_doc_id: document.source_doc_id || '',
         remark: document.remark || '',
         lines,
@@ -302,13 +281,15 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
         return Object.keys(values).length > 0 ? { ...line, ...values } : line
       })
       const mergedData = { ...data, lines: mergedLines }
-      const needsPartner = ['PO', 'GRN', 'PR', 'SO', 'DO'].includes(
-        mergedData.doc_type
-      )
+      const needsSupplier = ['PO', 'GRN', 'PR'].includes(mergedData.doc_type)
+      const needsProtocolRef = ['SO', 'DO'].includes(mergedData.doc_type)
       const isTransfer = mergedData.doc_type === 'TR'
 
-      if (needsPartner && !mergedData.partner_id?.trim()) {
-        throw new Error('請選擇供應商/客戶')
+      if (needsSupplier && !mergedData.partner_id?.trim()) {
+        throw new Error('請選擇供應商')
+      }
+      if (needsProtocolRef && !mergedData.protocol_id?.trim()) {
+        throw new Error('請選擇銷貨計畫')
       }
       if (!mergedData.warehouse_id?.trim() && !isTransfer) {
         throw new Error('請選擇倉庫')
@@ -367,8 +348,8 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
             : null,
         partner_id:
           mergedData.partner_id?.trim() ? mergedData.partner_id : null,
-        protocol_no:
-          mergedData.protocol_no?.trim() ? mergedData.protocol_no : null,
+        protocol_id:
+          mergedData.protocol_id?.trim() ? mergedData.protocol_id : null,
         source_doc_id:
           mergedData.source_doc_id?.trim() ? mergedData.source_doc_id : null,
         remark:
@@ -490,11 +471,12 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
       if (['SO', 'DO'].includes(formData.doc_type)) {
         if (refs?.expiry_date) refs.expiry_date.value = expiryDate || ''
 
-        // 比對 IACUC
+        // 比對 IACUC：使用 protocol_id 找對應的 iacuc_no
         if (sourceIacuc && sourceIacuc !== 'PUBLIC') {
-          const currentIacucCode = formData.partner_id
-            ? partners?.find((p) => p.id === formData.partner_id)?.code
+          const currentProtocol = formData.protocol_id
+            ? activeProtocols?.find((p) => p.id === formData.protocol_id)
             : null
+          const currentIacucCode = currentProtocol?.iacuc_no
 
           if (currentIacucCode && currentIacucCode !== sourceIacuc) {
             setIacucWarningData({ batch_no: batchNo, source_iacuc: sourceIacuc })
@@ -517,7 +499,7 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
         setUnsavedChanges(true)
       }
     },
-    [formData.doc_type, formData.partner_id, partners, collectLineValues]
+    [formData.doc_type, formData.protocol_id, activeProtocols, collectLineValues]
   )
 
   const handleLineBlur = useCallback(() => {
@@ -588,25 +570,22 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     }
   }, [pendingNavigation, navigate])
 
-  const handleIacucNoSelect = useCallback(
-    async (iacucNo: string) => {
-      try {
-        updateField('protocol_no', iacucNo)
-
-        // 對於銷售單/出庫單，依然需要帶出客戶
-        if (['SO', 'DO'].includes(formData.doc_type)) {
-          const customer =
-            await createOrFindCustomerMutation.mutateAsync(iacucNo)
-          updateField('partner_id', customer.id)
-          toast({ title: '成功', description: `已選擇客戶：${iacucNo}` })
-        } else {
-          toast({ title: '成功', description: `已選擇專屬計畫：${iacucNo}` })
-        }
-      } catch {
-        // Error handled in mutation
-      }
+  // SO/DO：直接選計畫（protocol_id），不需再建客戶
+  const handleProtocolSelect = useCallback(
+    (protocolId: string) => {
+      updateField('protocol_id', protocolId)
+      const protocol = activeProtocols?.find((p) => p.id === protocolId)
+      updateField('protocol_no', protocol?.iacuc_no || protocol?.protocol_no || '')
     },
-    [createOrFindCustomerMutation, updateField, formData.doc_type]
+    [activeProtocols, updateField]
+  )
+
+  // PO/GRN/PR：選擇 IACUC 計畫（非客戶，僅費用歸屬）
+  const handleIacucNoSelect = useCallback(
+    (iacucNo: string) => {
+      updateField('protocol_no', iacucNo)
+    },
+    [updateField]
   )
 
   const handleBatchShelfSelect = useCallback(
@@ -651,26 +630,16 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     [setFormData]
   )
 
-  const needsPartner = ['PO', 'GRN', 'PR', 'SO', 'DO'].includes(
-    formData.doc_type
-  )
+  // 採購類（供應商）
+  const needsPartner = ['PO', 'GRN', 'PR'].includes(formData.doc_type)
+  // 銷貨類（直接選計畫）
+  const needsProtocol = ['SO', 'DO'].includes(formData.doc_type)
   const isTransfer = formData.doc_type === 'TR'
-  const partnerType = ['PO', 'GRN', 'PR'].includes(formData.doc_type)
-    ? 'supplier'
-    : 'customer'
 
   const filteredPartners = useMemo(() => {
     if (!partners) return undefined
-    return partners.filter((p) => {
-      if (!needsPartner) return true
-      if (p.partner_type !== partnerType) return false
-      if (partnerType === 'customer') {
-        if (!activeProtocols?.length) return false
-        return activeProtocols.some((protocol) => protocol.iacuc_no === p.code)
-      }
-      return true
-    })
-  }, [partners, needsPartner, partnerType, activeProtocols])
+    return partners.filter((p) => p.partner_type === 'supplier')
+  }, [partners])
 
   const totalAmount = useMemo(() => {
     return formData.lines.reduce((sum, line) => {
@@ -685,7 +654,6 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
 
   const needsShelf = !['PO', 'PR'].includes(formData.doc_type)
   const isShelfRequired = !['PO', 'PR'].includes(formData.doc_type)
-  const isIacucRequired = ['SO', 'DO'].includes(formData.doc_type)
   const iacucDisabled = ['GRN', 'STK', 'ADJ'].includes(formData.doc_type)
 
   return {
@@ -712,12 +680,11 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     loadingProtocols,
     filteredPartners,
     needsPartner,
+    needsProtocol,
     isTransfer,
-    partnerType,
     totalAmount,
     needsShelf,
     isShelfRequired,
-    isIacucRequired,
     iacucDisabled,
     collectLineValues,
     collectAllLineValues,
@@ -728,9 +695,9 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     handleBatchChange,
     handleLineBlur,
     handleBack,
+    handleProtocolSelect,
     handleIacucNoSelect,
     updateLineAmount,
-    createOrFindCustomerMutation,
     saveMutation,
     submitMutation,
     showIacucWarning,
