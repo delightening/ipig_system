@@ -1,10 +1,9 @@
 import { useEffect, lazy } from 'react'
-import { Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { PageErrorBoundary } from '@/components/ui/page-error-boundary'
 import { useAuthStore } from '@/stores/auth'
-import { RequirePermission } from '@/components/auth'
-import { useHeartbeat } from '@/hooks/useHeartbeat'
+import { RequirePermission, ProtectedRoute, ForcePasswordRoute, DashboardRoute, AdminRoute, DASHBOARD_ROLES } from '@/components/auth'
 import { SessionTimeoutWarning } from '@/components/SessionTimeoutWarning'
 import { CookieConsent } from '@/components/CookieConsent'
 
@@ -100,80 +99,6 @@ const TermsOfServicePage = lazy(() => import('@/pages/TermsOfServicePage').then(
 
 // 404
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })))
-
-// Protected Route component
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-    const { isAuthenticated, isInitialized, user } = useAuthStore()
-
-    // 啟動 heartbeat 監聽使用者活動
-    useHeartbeat(isAuthenticated)
-
-    // SEC-24: 等待初始驗證完成，防止 stale localStorage state
-    if (!isInitialized) {
-        return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-        )
-    }
-
-    if (!isAuthenticated) {
-        return <Navigate to="/login" replace />
-    }
-
-    // 首次登入強制變更密碼
-    if (user?.must_change_password) {
-        return <Navigate to="/force-change-password" replace />
-    }
-
-    return <>{children}</>
-}
-
-// Force Change Password Route - 需要登入但未變更密碼
-function ForcePasswordRoute({ children }: { children: React.ReactNode }) {
-    const { isAuthenticated, user } = useAuthStore()
-
-    if (!isAuthenticated) {
-        return <Navigate to="/login" replace />
-    }
-
-    // 如果已變更密碼，導向 dashboard
-    if (!user?.must_change_password) {
-        return <Navigate to="/dashboard" replace />
-    }
-
-    return <>{children}</>
-}
-
-// Dashboard Route - 僅限具備權限或是審查/主席/獸醫角色的人員
-function DashboardRoute({ children }: { children?: React.ReactNode }) {
-    const { user, hasRole } = useAuthStore()
-
-    const hasDashboardAccess = hasRole('admin') ||
-        user?.roles.some(r => ['purchasing', 'approver', 'WAREHOUSE_MANAGER', 'EXPERIMENT_STAFF', 'REVIEWER', 'VET', 'IACUC_CHAIR'].includes(r)) ||
-        user?.permissions.some(p => p.startsWith('erp.'))
-
-    if (!hasDashboardAccess) {
-        return <Navigate to="/my-projects" replace />
-    }
-
-    return children ? <>{children}</> : <Outlet />
-}
-
-// Admin Route - 僅限管理員
-function AdminRoute({ children }: { children?: React.ReactNode }) {
-    const { hasRole } = useAuthStore()
-
-    if (!hasRole('admin')) {
-        return (
-            <RequirePermission role="admin">
-                {children || <Outlet />}
-            </RequirePermission>
-        )
-    }
-
-    return children ? <>{children}</> : <Outlet />
-}
 
 function App() {
     const { checkAuth, isAuthenticated, user, hasRole } = useAuthStore()
@@ -284,7 +209,7 @@ function App() {
     // 判斷首頁導向
     const getHomeRedirect = () => {
         const hasDashboardAccess = hasRole('admin') ||
-            user?.roles.some(r => ['warehouse', 'purchasing', 'sales', 'approver', 'EXPERIMENT_STAFF', 'REVIEWER', 'VET', 'IACUC_CHAIR'].includes(r)) ||
+            user?.roles.some(r => DASHBOARD_ROLES.includes(r)) ||
             user?.permissions.some(p => p.startsWith('erp.'))
 
         return hasDashboardAccess ? "/dashboard" : "/my-projects"
