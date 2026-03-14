@@ -192,6 +192,7 @@ export interface DocumentListItem {
     line_count: number
     total_amount?: string
     receipt_status?: string
+    has_journal_entry: boolean
 }
 
 // 庫存
