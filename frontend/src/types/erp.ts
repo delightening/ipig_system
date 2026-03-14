@@ -160,6 +160,8 @@ export interface Document {
     warehouse_from_id?: string
     warehouse_to_id?: string
     partner_id?: string
+    /** SO/DO 直接關聯計畫 ID（取代手動建立客戶） */
+    protocol_id?: string
     source_doc_id?: string
     doc_date: string
     remark?: string
@@ -173,6 +175,8 @@ export interface Document {
     warehouse_from_name?: string
     warehouse_to_name?: string
     partner_name?: string
+    /** 對應 protocol_id 的計畫編號（唯讀） */
+    protocol_no?: string
     created_by_name: string
     approved_by_name?: string
 }
