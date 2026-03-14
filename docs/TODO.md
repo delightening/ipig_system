@@ -230,6 +230,13 @@
 | R9-4 | **`handlers/signature.rs` handler 函數過長** | `check_animal_record_access_uuid` 106 行（含業務邏輯，違反 handler 職責）；`sign_sacrifice_record` 97、`sign_observation_record` 95、`sign_transfer_record` 93、`sign_euthanasia_order` 92、`sign_protocol_review` 91、`add_record_annotation` 80 行；簽署驗證邏輯應移至 `services/signature.rs` | 後端 | 🧠 Claude | [ ] |
 | R9-5 | **`services/accounting.rs` 長函數拆分** | `post_sr` 121 行、`post_do` 117 行、`post_grn` 66 行；各記帳流程應提取 validate_lines、build_journal_entries、post_entries 等子函式 | 後端 | 🧠 Claude | [ ] |
 
+### 🔴 高優先（架構違規：Handler 直接 SQL）
+
+| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
+|---|------|------|------|----------|------|
+| R9-19 | **Handler 層 98 處直接 SQL 查詢清除** | 靜態掃描確認 handlers/ 目錄存在 98 個 `sqlx::query`/`query_as` 直接呼叫，違反「handler 禁止 SQL」規範；重災區：`handlers/auth.rs`（L226/L418/L434）、`handlers/user_preferences.rs`（L32/L78/L112/L149）、`handlers/protocol/`、`handlers/animal/`、`handlers/hr/`、`handlers/signature.rs` 等 21+ 個檔案；應逐步遷移至對應 service 或新建 repository 函式 | 後端 | 🧠 Claude | [ ] |
+| R9-20 | **Repository 層擴展（缺少 protocol/animal/hr 等）** | R8-3 已建立 equipment/product/role/sku/user/warehouse 六個 repository，但仍缺少：`repositories/protocol.rs`（協定查詢）、`repositories/animal.rs`（動物查詢）、`repositories/hr.rs`（請假/出勤）、`repositories/user_preferences.rs`（偏好設定）；重複出現的關鍵查詢：`SELECT display_name FROM users WHERE id = $1`（5 次）、`SELECT 1 FROM user_protocols`（4+ 次）、`SELECT 1 FROM vet_review_assignments`（4+ 次）應提取至 repository 層 | 後端 | 🧠 Claude | [ ] |
+
 ### 🟠 中優先（前端超大元件 >600 行）
 
 | # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
@@ -252,6 +259,7 @@
 | R9-16 | **`STORAGE_CONDITIONS` 重複常數合併 + `lib/constants/` 目錄建立** | 同一常數定義於 `pages/master/ProductEditPage.tsx:56` 與 `pages/master/ProductDetailPage.tsx:34`，違反 DRY 原則；應建立 `frontend/src/lib/constants/` 目錄（目前不存在），新增 `product.ts` 匯出 `STORAGE_CONDITIONS`，兩頁面改 import | 前端 | ⚡ Flash | [ ] |
 | R9-17 | **剩餘 `any` 型別消除** | `WarehouseActionHeader.tsx:96/116/139` 的 `onError: (error: any)` 改用 `AxiosError`；`StorageLocationEditor.tsx:101` 的 `newLayout: any[]` 改用具體型別；`DocumentEditPage.tsx:102/322` 的 `as any[]` 改用 `Document[]` | 前端 | ⚡ Flash | [ ] |
 | R9-18 | **後端中長函數清理（50–100 行）** | `services/auth.rs`：`change_own_password`（66 行）、`reset_password_with_token`（57 行）、`refresh_token`（55 行）、`generate_access_token`（51 行）——提取 token 生成邏輯、密碼驗證流程為子函式 | 後端 | 🧠 Claude | [ ] |
+| R9-21 | **前端 54 處 try-catch 改為 TanStack Query 全域錯誤處理** | 掃描確認 54 個手動 try-catch 區塊（應使用 TanStack Query `onError` 全域機制）；主要集中於 `auth/LoginPage.tsx`、`admin/hooks/useUserManagement.ts`、`components/protocol/ProtocolContentView.tsx` 等；應統一為 `toast.error(getApiErrorMessage(error))` + QueryClient 全域 onError 模式，禁止裸 try-catch | 前端 | 🧠 Claude | [ ] |
 
 ---
 
@@ -269,8 +277,8 @@
 | 🟠 R6 第六輪改善 | 0 |
 | 🔒 R7 安全審視 | 0 |
 | 🔧 R8 代碼規範重構 | 0 |
-| 🔧 R9 技術債掃描 | 18 |
-| **合計（未完成）** | **18** |
+| 🔧 R9 技術債掃描 | 21 |
+| **合計（未完成）** | **21** |
 
 ---
 

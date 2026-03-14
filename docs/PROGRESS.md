@@ -211,10 +211,11 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 ---
 
 ### 2026-03-14 R9 技術債掃描 — 新增 18 項技術債待辦至 TODO.md（R9-1～R9-18）
+- ✅ **架構違規高優先（2 項補充）**：handler 層 98 處直接 SQL（21+ 個 handler 檔案違規，含 auth.rs/user_preferences.rs/signature.rs 等）；repository 層缺少 protocol/animal/hr/user_preferences 子項（重複 SQL 最多 5 次的 `SELECT display_name FROM users WHERE id = $1`）
 - ✅ **後端長函數（高優先 5 項）**：`pdf/service.rs::generate_protocol_pdf`（578 行）、`animal/import_export.rs::import_basic_data`（327 行）、`services/product.rs` 多個長函數（create 109/update 170/import_products 196）、`handlers/signature.rs` handler 過長含業務邏輯（7 個函數 80–106 行）、`services/accounting.rs` post_do(117)/post_sr(121)
 - ✅ **前端超大元件（中優先 9 項）**：ProtocolContentView(870)、ProductImportDialog(863)、usePermissionManager hook(853)、AccountingReportPage(838)、HrLeavePage(837)、BloodTestTab(811)、DashboardPage(805)、DocumentLineEditor(723+10處any)、useDocumentForm hook(717)
-- ✅ **細節/一致性（低優先 4 項）**：中大型元件逐步拆分清單（AnimalDetailPage 786 等 10 個元件）、STORAGE_CONDITIONS 重複常數合併+`lib/constants/` 目錄建立、剩餘 any 型別消除（WarehouseActionHeader/StorageLocationEditor/DocumentEditPage）、後端中長函數清理（auth.rs 4 個函數 51–66 行）
-- TODO.md R9 章節新增，待辦統計更新至 18 項
+- ✅ **細節/一致性（低優先 5 項）**：中大型元件逐步拆分清單（AnimalDetailPage 786 等 10 個元件）、STORAGE_CONDITIONS 重複常數合併+`lib/constants/` 目錄建立、剩餘 any 型別消除、後端中長函數清理（auth.rs）、前端 54 處 try-catch 改 TanStack Query 全域錯誤處理
+- TODO.md R9 章節新增，待辦統計更新至 21 項
 
 ### 2026-03-14 R8 代碼規範重構 — 全部 11 項問題修正完成（R8-1～R8-11）
 - ✅ **R8-1**：`routes.rs`（1,236 行）→ `routes/` 目錄（mod.rs + 10 業務域子模組），`cargo check` 零警告。
