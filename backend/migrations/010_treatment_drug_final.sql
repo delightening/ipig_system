@@ -86,3 +86,96 @@ WHERE id IN (SELECT duplicate_id FROM drug_merge_map);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_treatment_drug_options_business_key
 ON treatment_drug_options (lower(trim(name)), COALESCE(category, ''))
 WHERE is_active = true;
+
+-- ============================================
+-- 設施管理 (從 011 整合)
+-- ============================================
+
+-- 物種 (Species)
+CREATE TABLE species (
+    id UUID PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL,
+    name_en VARCHAR(100),
+    icon VARCHAR(100),
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    config JSONB,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 設施 (Facility)
+CREATE TABLE facilities (
+    id UUID PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    name VARCHAR(200) NOT NULL,
+    address TEXT,
+    phone VARCHAR(50),
+    contact_person VARCHAR(100),
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    config JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 棟舍 (Building)
+CREATE TABLE buildings (
+    id UUID PRIMARY KEY,
+    facility_id UUID NOT NULL REFERENCES facilities(id),
+    code VARCHAR(50) NOT NULL,
+    name VARCHAR(200) NOT NULL,
+    description TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    config JSONB,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (facility_id, code)
+);
+
+-- 區域 (Zone)
+CREATE TABLE zones (
+    id UUID PRIMARY KEY,
+    building_id UUID NOT NULL REFERENCES buildings(id),
+    code VARCHAR(50) NOT NULL,
+    name VARCHAR(200),
+    color VARCHAR(20),
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    layout_config JSONB,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (building_id, code)
+);
+
+-- 欄位 (Pen)
+CREATE TABLE pens (
+    id UUID PRIMARY KEY,
+    zone_id UUID NOT NULL REFERENCES zones(id),
+    code VARCHAR(50) NOT NULL,
+    name VARCHAR(200),
+    capacity INTEGER NOT NULL DEFAULT 1,
+    current_count INTEGER NOT NULL DEFAULT 0,
+    status VARCHAR(50) NOT NULL DEFAULT 'active',
+    row_index INTEGER,
+    col_index INTEGER,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (zone_id, code)
+);
+
+-- 部門 (Department)
+CREATE TABLE departments (
+    id UUID PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    name VARCHAR(200) NOT NULL,
+    parent_id UUID REFERENCES departments(id),
+    manager_id UUID REFERENCES users(id),
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    config JSONB,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

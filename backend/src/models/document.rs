@@ -65,6 +65,7 @@ impl DocType {
                 | DocType::SR
                 | DocType::RTN
                 | DocType::STK
+                | DocType::RM
         )
     }
 
