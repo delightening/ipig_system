@@ -585,6 +585,9 @@ pub async fn forgot_password(
     State(state): State<AppState>,
     Json(req): Json<ForgotPasswordRequest>,
 ) -> Result<Json<serde_json::Value>> {
+    use std::time::Instant;
+    let start = Instant::now();
+
     match AuthService::forgot_password(&state.db, &req.email).await? {
         Some((user_id, token)) => {
             // 非同步發送重設密碼郵件
@@ -610,6 +613,13 @@ pub async fn forgot_password(
                 req.email
             );
         }
+    }
+
+    // 固定延遲 200ms 防止 timing attack (存在/不存在的帳號回應時間一致)
+    let elapsed = start.elapsed();
+    const MIN_RESPONSE_TIME: std::time::Duration = std::time::Duration::from_millis(200);
+    if elapsed < MIN_RESPONSE_TIME {
+        tokio::time::sleep(MIN_RESPONSE_TIME - elapsed).await;
     }
 
     // 不管帳號存不存在都回覆相同訊息（防止帳號枚舉攻擊）
