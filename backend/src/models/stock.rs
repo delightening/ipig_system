@@ -82,6 +82,8 @@ pub struct StockLedgerQuery {
     pub date_to: Option<NaiveDate>,
     pub doc_type: Option<DocType>,
     pub batch_no: Option<String>,
+    pub limit: Option<i64>,   // 新增: 分頁限制 (預設 100)
+    pub offset: Option<i64>,  // 新增: 分頁偏移 (預設 0)
 }
 
 /// 庫存現況查詢
