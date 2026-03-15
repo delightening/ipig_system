@@ -3,11 +3,13 @@
 //! **架構原則（方案 D，見 docs/security-compliance/security.md）**：本服務不解析／解碼圖片內容（無 libpng 等）。
 //! 僅以檔案簽名（magic number）驗證格式；若有縮圖、轉檔等圖片處理需求，應由獨立可升級之服務負責。
 
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
+use zip::read::ZipArchive;
 
 /// 上傳目錄（由 Config 初始化一次，避免每次讀取 env var）
 static UPLOAD_DIR: OnceLock<String> = OnceLock::new();
@@ -165,6 +167,26 @@ impl FileService {
         Ok(())
     }
 
+    /// High 3: 驗證 ZIP 檔內無路徑穿越或絕對路徑，防止惡意壓縮檔
+    fn validate_zip_entries_safe(data: &[u8]) -> Result<(), AppError> {
+        let cursor = Cursor::new(data);
+        let mut archive = ZipArchive::new(cursor).map_err(|e| {
+            AppError::Validation(format!("ZIP 格式無效或損壞: {}", e))
+        })?;
+        for i in 0..archive.len() {
+            let entry = archive.by_index(i).map_err(|e| {
+                AppError::Validation(format!("ZIP 項目讀取失敗: {}", e))
+            })?;
+            let name = entry.name();
+            if name.contains("..") || name.starts_with('/') || name.contains('\\') {
+                return Err(AppError::Validation(
+                    "ZIP 內含不允許的路徑，拒絕上傳".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     /// 從 Config 初始化上傳目錄（應在啟動時呼叫一次）
     pub fn init_upload_dir(upload_dir: &str) {
         let _ = UPLOAD_DIR.set(upload_dir.to_string());
@@ -263,6 +285,15 @@ impl FileService {
 
         // SEC-14: 驗證 Magic Number（檔案簽名）
         Self::validate_magic_number(data, mime_type)?;
+
+        // High 3: ZIP 型檔案（DOCX/XLSX）驗證壓縮檔內無路徑穿越
+        if matches!(
+            mime_type,
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                | "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        ) {
+            Self::validate_zip_entries_safe(data)?;
+        }
 
         // 建立目錄結構
         let base_dir = Self::get_upload_dir();

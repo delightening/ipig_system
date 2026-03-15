@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-03-14 (v15)
+> **最後更新：** 2026-03-15 (v17)
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -180,6 +180,54 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-15 Code Review 修復與待辦整合（依據 2026_March15_code_review_1.md）
+- ✅ **文件**：README 新增「已知限制／開發模式注意事項」（Critical 1/2 擱置）；TODO 新增 R9 審查—已知漏洞擱置（R9-C1/C2）與 R10 程式碼審查 Medium/Low（20 項）。
+- ✅ **Critical 3**：生產 overlay 綁定 web port 至 127.0.0.1；COMPOSE/DEPLOYMENT 註明開發用預設、生產用 prod。
+- ✅ **Critical 4**：Grafana 密碼無預設值，.env.example 與 COMPOSE 註明必填。
+- ✅ **Critical 5**：`create_admin.rs` 改為僅接受 `ADMIN_INITIAL_PASSWORD`，未設定則 error 退出。
+- ✅ **High 1/2**：Watchtower API token 與 SMTP 密碼改由 Docker Secrets（`watchtower_api_token`、`watchtower_smtp_password`）+ `scripts/watchtower-entrypoint.sh` 讀取。
+- ✅ **High 5**：db-backup 生產改用 `POSTGRES_PASSWORD_FILE` / secret `db_password`，`pg_backup.sh` 與 entrypoint 支援從檔讀密碼。
+- ✅ **High 4**：新增 migration `013_audit_integrity_trigger.sql`，`user_activity_logs` 僅允許 UPDATE 寫入 `integrity_hash`/`previous_hash`，禁止竄改日誌內容。
+- ✅ **High 6**：WAF 排除規則收窄，1003 改為依參數（content/body/description 等）排除 XSS，不整路徑關閉。
+- ✅ **High 7**：`pg_backup.sh` 支援 GPG 加密（BACKUP_GPG_RECIPIENT）；prod 設 `BACKUP_REQUIRE_ENCRYPTION=true` 強制加密。
+- ✅ **High 8**：主要 image 釘選 digest（postgres、prometheus、alertmanager、grafana、watchtower），新增 `docs/operations/IMAGE_DIGESTS.md`。
+- ✅ **High 3**：`file.rs` 新增 `validate_zip_entries_safe()`，DOCX/XLSX 上傳時驗證 ZIP 內無路徑穿越。
+
+### 2026-03-15 R9 安全與品質修復（程式碼審查產出）
+- ✅ **R9-1 IDOR 漏洞修復 (Backend)**：`download_attachment` 與 `list_attachments` 新增 `check_attachment_permission()` 輔助函式，根據 `entity_type` 對照上傳端的 `require_permission!` 檢查權限（protocol→aup.protocol.edit、animal/pathology→animal.animal.edit、leave_request→本人或 hr.leave.view_all、未知→僅 Admin），解決原先任何已登入使用者可透過猜測 UUID 下載非自己附件的 IDOR 漏洞。
+- ✅ **R9-2 上傳 handler 去重 (Backend)**：抽取 `handle_upload()` 通用函式（處理 multipart 讀取、FileService::upload、save_attachment），6 個上傳 handler 簡化為 5–10 行。`upload_sacrifice_photo` 因獨特存表邏輯保留原寫法。`upload.rs` 從 606 行降至約 420 行（-31%）。
+- ✅ **R9-3 DB 錯誤碼修正 (Backend)**：`error.rs` 中 DB 約束違規回傳正確 HTTP 狀態碼：`23505` (unique violation) → 409 Conflict、`23503` (FK violation) / `23502` (NOT NULL) / `23514` (CHECK) → 400 Bad Request，原先統一回 500 Internal Server Error。
+- 📋 **R9-4 歡迎信安全改善**：已記入 `TODO.md`，待後續排程（改用密碼重設連結取代信件中的明文密碼）。
+- 📋 **R9-5 ERP/HR 整合測試覆蓋**：已完成差距分析，待後續排程（庫存流水帳、GRN 入庫、出勤打卡、附件上傳/下載等 E2E 測試缺失）。
+
+### 2026-03-15 Git 倉庫歷史紀錄深度清理
+- ✅ **歷史重寫 (DevOps)**：使用 `git-filter-repo` 徹底移除 `.venv/` 與 `old_ipig.dump` 在 Git 倉庫中的所有歷史紀錄，有效減小倉庫體積並防止敏感資料外洩。
+- ✅ **索引移除 (DevOps)**：執行 `git rm --cached` 移除目前分支對這些檔案的追蹤。
+- ✅ **配置更新 (DevOps)**：更新 `.gitignore` 確保 `.venv/`、`*.dump` 等檔案未來不再被納入版本控制。
+- ✅ **品質驗證**：確認目前 Git 追蹤與歷史紀錄中已無相關檔案足跡。
+- ⚠️ **注意**：此為破壞性變更（Rewrite History），同步時需執行強行推送 `git push --force`。
+
+### 2026-03-15 Git 環境清理與 .gitignore 更新
+- ✅ **移除 .venv 追蹤 (DevOps)**：執行 `git rm -r --cached .venv` 將被誤推送到 Git 的 Python 虛擬環境從索引中移除（保留本地檔案）。
+- ✅ **配置 .gitignore (DevOps)**：在 `.gitignore` 中加入 `.venv/` 與 `.venv*/` 排除規則，防止未來再次被 Git 追蹤。
+- ✅ **品質驗證**：執行 `git ls-files .venv` 確認為空，並提交變更。
+
+### 2026-03-15 單據頁面標題顯示優化
+- ✅ **修正「建立新的undefined」 (Frontend)**：修改 `DocumentFormHeader.tsx`，當單據類型未選定時，副標題改為顯示「建立新的單據」，避免顯示 `undefined`。
+- ✅ **標題文字優化 (Frontend)**：優化「新增」與「編輯」單據時的描述文字邏輯，使其語意更流暢（例：「建立新的 採購單」、「編輯現有的 採購單」）。
+- ✅ **品質驗證**：手動驗證標題顯示正確，代碼符合 React 最佳實作。
+
+### 2026-03-14 SSE 安全警報 Cloudflare 524 Timeout 修復
+- ✅ **後端心跳修正 (Backend)**：修改 `sse.rs` 中 SSE keep-alive 心跳格式，從 `.text("")`（空 data 事件）改為 `.comment("heartbeat")`（SSE 標準 comment 格式），並將間隔從 30 秒縮短至 15 秒，確保在 Cloudflare Tunnel 100 秒 idle timeout 前多次發送有效心跳。
+- ✅ **前端重連機制 (Frontend)**：修改 `useSecurityAlerts.ts`，加入指數退避重連邏輯（最多 5 次，間隔 2s→4s→8s→16s→32s），連線成功時重置計數器，元件卸載時清理 timer，確保偶發斷線不會永久失聯。
+- ✅ **品質驗證**：TypeScript 編譯通過（`tsc --noEmit` exit code 0）。
+
+### 2026-03-14 ERP 合作夥伴頁面 405 與硬刪除邏輯深度修復
+- ✅ **前端修正 (Frontend)**：修復 `deleteResource` 函式在處理帶有 Query String 的 URL 時，誤將 `/delete` 附加在結尾的問題。改為正確分割 URL 並在路徑末尾插入 `/delete`。
+- ✅ **後端對接 (Backend)**：在 `delete_partner` handler 中新增 `Json<DeleteQuery>` 接收器，使其能同時讀取來自 Query String 或 JSON Body 的 `hard` 參數，確保與前端調用方式完全相容。
+- ✅ **路由重整 (Backend)**：調整 `backend/src/routes/erp.rs` 路由順序，確保靜態功能路徑優先於變數匹配路徑。
+- ✅ **品質驗證**：通過 `handlers::partner` 單元測試，驗證 Body 與 Query 混合參數讀取邏輯正確。
+
 ### 2026-03-14 Admin 設施管理元件編譯錯誤修復
 - ✅ **前端修復 (Frontend)**：修復 `BuildingTab`, `DepartmentTab`, `FacilityTab`, `PenTab`, `SpeciesTab`, `ZoneTab` 等元件中對 `useConfirmDialog` hook 的錯誤調用。將 `confirm.open()` 改為符合新 API 的 `const { dialogState, confirm } = useConfirmDialog()` 結構，並將 `handleDelete` 改為非同步調用。
 - ✅ **品質驗證**：在本機執行 `npm run build` 通過，確認無 TypeScript 編譯錯誤。
@@ -229,6 +277,12 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **R8-9**：`AnimalsPage.tsx`/`ProtocolsPage.tsx` 型別 import 從 `@/lib/api` 改為 `@/types/*`；`axios` 從非業務用途移除。
 - ✅ **R8-10**：`ProtocolsPage.tsx` 中 17 行 `statusColors` 移至 `pages/protocols/constants.ts`。
 - ✅ **R8-11**：`services/protocol/core.rs` `use chrono::Datelike` 從函式體內移至檔案頂部。
+
+### 2026-03-14 單據管理功能與 UI 優化
+- ✅ **前端按鈕增強 (Frontend)**：修改 `DocumentsPage.tsx`，允許使用者在未選擇子類型（Sub-type）的情況下點擊「新增單據」按鈕，導向至新增頁面。
+- ✅ **預設類型調整 (Frontend)**：修改 `DocumentEditPage.tsx` 與 `useDocumentForm.ts`，將「新增單據」時的預設單據類型改為「選擇類型」。
+- ✅ **條件式表單渲染 (Frontend)**：實作 `DocumentEditPage.tsx` 的條件渲染，在使用者正式選擇單據類型前，不顯示明細編輯與預覽區塊，避免混淆。
+- ✅ **UI 清理 (Frontend)**：移除 `DocumentFormHeader.tsx` 在新增與編輯模式下的「向左箭頭」返回按鈕，對齊新的導航設計規範。
 
 ---
 

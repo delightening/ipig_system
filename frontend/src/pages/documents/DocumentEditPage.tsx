@@ -33,7 +33,7 @@ import { DOC_TYPE_NAMES } from './types'
 
 export function DocumentEditPage() {
   const [searchParams] = useSearchParams()
-  const defaultType = (searchParams.get('type') as DocType) || 'PO'
+  const defaultType = (searchParams.get('type') as DocType) || ''
 
   const {
     isEdit,
@@ -117,7 +117,7 @@ export function DocumentEditPage() {
     <div className="space-y-6">
       <DocumentFormHeader
         isEdit={isEdit}
-        docTypeName={DOC_TYPE_NAMES[formData.doc_type]}
+        docTypeName={formData.doc_type ? DOC_TYPE_NAMES[formData.doc_type] : ''}
         onBack={handleBack}
         onSave={() => saveMutation.mutate()}
         onSubmit={() => submitMutation.mutate()}
@@ -136,12 +136,12 @@ export function DocumentEditPage() {
               <div className="space-y-2">
                 <Label>單據類型</Label>
                 <Select
-                  value={formData.doc_type}
+                  value={formData.doc_type || undefined}
                   onValueChange={(v) => updateField('doc_type', v as DocType)}
                   disabled={isEdit}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="選擇類型" />
                   </SelectTrigger>
                   <SelectContent>
                     {Object.entries(DOC_TYPE_NAMES)
@@ -160,10 +160,13 @@ export function DocumentEditPage() {
                   type="date"
                   value={formData.doc_date}
                   onChange={(e) => updateField('doc_date', e.target.value)}
+                  disabled={!formData.doc_type}
                 />
               </div>
             </div>
 
+            {formData.doc_type && (
+              <>
             {isTransfer ? (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -415,6 +418,8 @@ export function DocumentEditPage() {
                 placeholder="輸入備註..."
               />
             </div>
+            </>
+            )}
           </CardContent>
         </Card>
 
@@ -425,28 +430,32 @@ export function DocumentEditPage() {
         />
       </div>
 
-      <DocumentLineEditor
-        formData={formData}
-        lineAmounts={lineAmounts}
-        inputRefs={inputRefs}
-        productSearchOpen={productSearchOpen}
-        setProductSearchOpen={setProductSearchOpen}
-        productSearch={productSearch}
-        setProductSearch={setProductSearch}
-        products={products}
-        addLine={addLine}
-        removeLine={removeLine}
-        selectProduct={selectProduct}
-        openProductSearch={openProductSearch}
-        handleBatchChange={handleBatchChange}
-        handleLineBlur={handleLineBlur}
-        updateLineAmount={updateLineAmount}
-        setFormData={setFormData}
-        needsShelf={needsShelf}
-        poReceiptStatus={poReceiptStatus}
-        categoryCode={categoryCode}
-        setCategoryCode={setCategoryCode}
-      />
+      {formData.doc_type && (
+        <>
+          <DocumentLineEditor
+            formData={formData}
+            lineAmounts={lineAmounts}
+            inputRefs={inputRefs}
+            productSearchOpen={productSearchOpen}
+            setProductSearchOpen={setProductSearchOpen}
+            productSearch={productSearch}
+            setProductSearch={setProductSearch}
+            products={products}
+            addLine={addLine}
+            removeLine={removeLine}
+            selectProduct={selectProduct}
+            openProductSearch={openProductSearch}
+            handleBatchChange={handleBatchChange}
+            handleLineBlur={handleLineBlur}
+            updateLineAmount={updateLineAmount}
+            setFormData={setFormData}
+            needsShelf={needsShelf}
+            poReceiptStatus={poReceiptStatus}
+            categoryCode={categoryCode}
+            setCategoryCode={setCategoryCode}
+          />
+        </>
+      )}
 
       <Dialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
         <DialogContent>
@@ -488,8 +497,8 @@ export function DocumentEditPage() {
               您目前選擇的銷貨計畫為{' '}
               <span className="font-bold text-destructive">
                 {formData.protocol_id
-                  ? activeProtocols?.find((p) => p.id === formData.protocol_id)?.iacuc_no
-                    || activeProtocols?.find((p) => p.id === formData.protocol_id)?.protocol_no
+                  ? activeProtocols?.find((p: any) => p.id === formData.protocol_id)?.iacuc_no
+                    || activeProtocols?.find((p: any) => p.id === formData.protocol_id)?.protocol_no
                     || formData.protocol_id
                   : '未指定'}
               </span>

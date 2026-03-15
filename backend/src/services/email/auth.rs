@@ -120,6 +120,107 @@ impl EmailService {
         Ok(())
     }
 
+    /// 寄送包含密碼重設連結的歡迎信 (安全版本,不含明文密碼)
+    pub async fn send_welcome_email_with_reset_link(
+        config: &Config,
+        to_email: &str,
+        display_name: &str,
+        reset_token: &str,
+    ) -> anyhow::Result<()> {
+        if !config.is_email_enabled() {
+            tracing::info!("Email disabled, skipping welcome email to {}", to_email);
+            return Ok(());
+        }
+        let smtp_host = config.smtp_host.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("SMTP_HOST not configured"))?;
+        let reset_url = format!("{}/reset-password?token={}", config.app_url, reset_token);
+
+        let html_body = format!(
+            r#"<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>歡迎加入豬博士 iPig 系統</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: 'Microsoft JhengHei', sans-serif;">
+    <div style="padding: 40px 20px;">
+        <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <div style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; padding: 32px 24px; text-align: center; border-radius: 16px 16px 0 0;">
+                <h1 style="margin: 0; font-size: 24px;">🐷 歡迎加入豬博士 iPig 系統</h1>
+                <p style="margin-top: 8px; font-size: 14px; opacity: 0.9;">您的帳號已成功開通</p>
+            </div>
+            <div style="padding: 32px 24px;">
+                <p>親愛的 <strong>{display_name}</strong>，您好！</p>
+                <p>您的豬博士 iPig 系統帳號已開通。</p>
+
+                <div style="background: #ffffff; padding: 24px; border-radius: 12px; margin: 24px 0; border: 1px solid #cbd5e1; border-left: 4px solid #3b82f6;">
+                    <p style="margin: 8px 0;"><span style="color: #64748b;">📧 帳號 (Email)</span><br><span style="font-weight: 700; color: #0f172a;">{to_email}</span></p>
+                    <p style="margin: 16px 0; color: #64748b; font-size: 14px;">✨ 請點擊下方按鈕設定您的密碼</p>
+                </div>
+
+                <div style="background: #fffbeb; border-radius: 8px; padding: 16px; margin: 24px 0; border-left: 4px solid #f59e0b;">
+                    <p style="margin: 0; color: #92400e; font-size: 14px;">⏰ 此連結將在 <strong>24 小時</strong>後失效，請儘速設定密碼。</p>
+                </div>
+
+                <div style="text-align: center; margin: 32px 0;">
+                    <a href="{reset_url}" style="display: inline-block; background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600;">設定我的密碼</a>
+                </div>
+
+                <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin-top: 24px; text-align: center; font-size: 14px; color: #64748b;">
+                    如有任何問題，請聯繫工作人員<br>📞 電話：037-433789
+                </div>
+            </div>
+            <div style="background: #f8fafc; padding: 24px; text-align: center; border-top: 1px solid #e2e8f0;">
+                <p style="margin: 4px 0; font-size: 12px; color: #94a3b8;">此信件由系統自動發送，請勿直接回覆</p>
+                <p style="margin: 4px 0; font-size: 12px; color: #64748b;">© 2026 豬博士動物科技有限公司</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>"#,
+            display_name = display_name,
+            to_email = to_email,
+            reset_url = reset_url,
+        );
+
+        let plain_body = format!(
+            r#"歡迎加入豬博士 iPig 系統
+
+親愛的 {display_name}，您好！
+
+您的豬博士 iPig 系統帳號已開通。
+
+📧 帳號（Email）：{to_email}
+
+請點擊以下連結設定您的密碼：
+{reset_url}
+
+⏰ 此連結將在 24 小時後失效，請儘速設定密碼。
+
+如有任何問題，請聯繫工作人員（電話：037-433789）。
+
+此信件由系統自動發送，請勿直接回覆。
+© 2026 豬博士動物科技有限公司"#,
+            display_name = display_name,
+            to_email = to_email,
+            reset_url = reset_url,
+        );
+
+        Self::send_email(
+            config,
+            smtp_host,
+            to_email,
+            display_name,
+            "🐷 歡迎加入豬博士 iPig 系統 - 請設定您的密碼",
+            &plain_body,
+            &html_body,
+        )
+        .await?;
+
+        tracing::info!("Welcome email (with reset link) sent to {}", to_email);
+        Ok(())
+    }
+
     /// 寄送密碼重設信
     pub async fn send_password_reset_email(
         config: &Config, to_email: &str, display_name: &str, reset_token: &str,

@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Save, Send, Loader2 } from 'lucide-react'
+import { Save, Send, Loader2 } from 'lucide-react'
 
 interface DocumentFormHeaderProps {
   isEdit: boolean
@@ -15,7 +15,6 @@ interface DocumentFormHeaderProps {
 export function DocumentFormHeader({
   isEdit,
   docTypeName,
-  onBack,
   onSave,
   onSubmit,
   isSaving,
@@ -24,18 +23,15 @@ export function DocumentFormHeader({
 }: DocumentFormHeaderProps) {
   return (
     <div className="flex items-center justify-between">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={onBack}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            {isEdit ? '編輯單據' : '新增單據'}
-          </h1>
-          <p className="text-muted-foreground">
-            {isEdit ? `編輯 ${docTypeName}` : `建立新的${docTypeName}`}
-          </p>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">
+          {isEdit ? '編輯單據' : '新增單據'}
+        </h1>
+        <p className="text-muted-foreground">
+          {isEdit 
+            ? `編輯現有的 ${docTypeName || '單據'}` 
+            : `建立新的 ${docTypeName || '單據'}`}
+        </p>
       </div>
       <div className="flex gap-2">
         <Button

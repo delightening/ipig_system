@@ -45,10 +45,7 @@ pub async fn create_user(
 ) -> Result<Json<UserResponse>> {
     require_permission!(current_user, "admin.user.create");
     req.validate()?;
-    
-    // 保存原始密碼用於發送歡迎郵件
-    let plain_password = req.password.clone();
-    
+
     let user = UserService::create(&state.db, &req).await?;
     let response = UserService::get_by_id(&state.db, user.id).await?;
 
@@ -67,14 +64,22 @@ pub async fn create_user(
     ).await {
         tracing::error!("寫入審計日誌失敗 (USER_CREATE): {}", e);
     }
-    
-    // 非同步發送歡迎郵件，避免阻塞回應
+
+    // 生成密碼重設 token (改為發送重設連結而非明文密碼)
+    let reset_result = AuthService::forgot_password(&state.db, &response.email).await?;
+
+    // 非同步發送包含重設連結的歡迎郵件
     let config = state.config.clone();
     let email = response.email.clone();
     let display_name = response.display_name.clone();
+
     tokio::spawn(async move {
-        if let Err(e) = EmailService::send_welcome_email(&config, &email, &display_name, &plain_password).await {
-            tracing::error!("Failed to send welcome email to {}: {}", email, e);
+        if let Some((_, token)) = reset_result {
+            if let Err(e) = EmailService::send_welcome_email_with_reset_link(&config, &email, &display_name, &token).await {
+                tracing::error!("Failed to send welcome email to {}: {}", email, e);
+            }
+        } else {
+            tracing::error!("Failed to generate password reset token for new user: {}", email);
         }
     });
     

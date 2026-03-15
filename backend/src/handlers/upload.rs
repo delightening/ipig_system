@@ -60,15 +60,69 @@ pub struct UploadQuery {
     pub entity_id: Option<String>,
 }
 
-/// 上傳 AUP 專案附件
-pub async fn upload_protocol_attachment(
-    State(state): State<AppState>,
-    Extension(current_user): Extension<CurrentUser>,
-    Path(protocol_id): Path<Uuid>,
-    mut multipart: Multipart,
-) -> Result<Json<Vec<UploadResponse>>> {
-    require_permission!(current_user, "aup.protocol.edit");
+// ─────────────────────────────────────────────────────────────────
+// 權限檢查：根據 entity_type 對照上傳端的 require_permission!
+// ─────────────────────────────────────────────────────────────────
 
+/// 檢查使用者是否有權存取指定 entity_type 的附件（防範 IDOR）
+///
+/// 權限對照與上傳端一致：
+/// - protocol        → aup.protocol.edit
+/// - animal/pathology → animal.animal.edit
+/// - vet_recommendation → animal.vet.upload_attachment
+/// - observation     → animal.record.create
+/// - leave_request   → 本人（uploaded_by）或 hr.leave.view_all
+/// - 其他 / 未知     → 僅 Admin
+fn check_attachment_permission(
+    current_user: &CurrentUser,
+    entity_type: &str,
+    uploaded_by: Option<Uuid>,
+) -> Result<()> {
+    // Admin 一律放行
+    if current_user.is_admin() {
+        return Ok(());
+    }
+
+    match entity_type {
+        "protocol" => {
+            require_permission!(current_user, "aup.protocol.edit");
+        }
+        "animal" | "pathology" => {
+            require_permission!(current_user, "animal.animal.edit");
+        }
+        "vet_recommendation" => {
+            require_permission!(current_user, "animal.vet.upload_attachment");
+        }
+        "observation" => {
+            require_permission!(current_user, "animal.record.create");
+        }
+        "leave_request" => {
+            // 請假附件：上傳者本人可存取，否則需 hr.leave.view_all
+            if uploaded_by.map_or(false, |id| id == current_user.id) {
+                return Ok(());
+            }
+            require_permission!(current_user, "hr.leave.view_all");
+        }
+        _ => {
+            return Err(AppError::Forbidden("無權存取此附件".into()));
+        }
+    }
+    Ok(())
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 通用上傳處理（消除 7 個 handler 的重複代碼）
+// ─────────────────────────────────────────────────────────────────
+
+/// 通用附件上傳處理：讀取 multipart 欄位、上傳檔案、寫入 attachments 表
+async fn handle_upload(
+    db: &PgPool,
+    current_user_id: Uuid,
+    category: FileCategory,
+    entity_type: &str,
+    entity_id: &str,
+    multipart: &mut Multipart,
+) -> Result<Vec<UploadResponse>> {
     let mut results = Vec::new();
 
     while let Some(field) = multipart.next_field().await.map_err(|e| {
@@ -78,7 +132,7 @@ pub async fn upload_protocol_attachment(
             .file_name()
             .map(String::from)
             .unwrap_or_else(|| "unnamed".to_string());
-        
+
         let content_type = field
             .content_type()
             .map(String::from)
@@ -88,24 +142,16 @@ pub async fn upload_protocol_attachment(
             AppError::Validation(format!("Failed to read file data: {}", e))
         })?;
 
-        // 上傳檔案
         let upload_result = FileService::upload(
-            FileCategory::ProtocolAttachment,
+            category,
             &file_name,
             &content_type,
             &data,
-            Some(&protocol_id.to_string()),
-        ).await?;
+            Some(entity_id),
+        )
+        .await?;
 
-        // 儲存附件記錄到資料庫
-        save_attachment(
-            &state.db,
-            "protocol",
-            &protocol_id.to_string(),
-            &upload_result,
-            current_user.id,
-        ).await?;
-
+        save_attachment(db, entity_type, entity_id, &upload_result, current_user_id).await?;
         results.push(UploadResponse::from(upload_result));
     }
 
@@ -113,6 +159,30 @@ pub async fn upload_protocol_attachment(
         return Err(AppError::Validation("No files uploaded".to_string()));
     }
 
+    Ok(results)
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 上傳 Handler（已去重，各 handler 僅保留權限檢查與參數差異）
+// ─────────────────────────────────────────────────────────────────
+
+/// 上傳 AUP 專案附件
+pub async fn upload_protocol_attachment(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(protocol_id): Path<Uuid>,
+    mut multipart: Multipart,
+) -> Result<Json<Vec<UploadResponse>>> {
+    require_permission!(current_user, "aup.protocol.edit");
+    let results = handle_upload(
+        &state.db,
+        current_user.id,
+        FileCategory::ProtocolAttachment,
+        "protocol",
+        &protocol_id.to_string(),
+        &mut multipart,
+    )
+    .await?;
     Ok(Json(results))
 }
 
@@ -124,49 +194,15 @@ pub async fn upload_animal_photo(
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
     require_permission!(current_user, "animal.animal.edit");
-
-    let mut results = Vec::new();
-
-    while let Some(field) = multipart.next_field().await.map_err(|e| {
-        AppError::Validation(format!("Failed to read multipart field: {}", e))
-    })? {
-        let file_name = field
-            .file_name()
-            .map(String::from)
-            .unwrap_or_else(|| "unnamed".to_string());
-        
-        let content_type = field
-            .content_type()
-            .map(String::from)
-            .unwrap_or_else(|| "application/octet-stream".to_string());
-
-        let data = field.bytes().await.map_err(|e| {
-            AppError::Validation(format!("Failed to read file data: {}", e))
-        })?;
-
-        let upload_result = FileService::upload(
-            FileCategory::AnimalPhoto,
-            &file_name,
-            &content_type,
-            &data,
-            Some(&animal_id.to_string()),
-        ).await?;
-
-        save_attachment(
-            &state.db,
-            "animal",
-            &animal_id.to_string(),
-            &upload_result,
-            current_user.id,
-        ).await?;
-
-        results.push(UploadResponse::from(upload_result));
-    }
-
-    if results.is_empty() {
-        return Err(AppError::Validation("No files uploaded".to_string()));
-    }
-
+    let results = handle_upload(
+        &state.db,
+        current_user.id,
+        FileCategory::AnimalPhoto,
+        "animal",
+        &animal_id.to_string(),
+        &mut multipart,
+    )
+    .await?;
     Ok(Json(results))
 }
 
@@ -178,49 +214,15 @@ pub async fn upload_pathology_report(
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
     require_permission!(current_user, "animal.animal.edit");
-
-    let mut results = Vec::new();
-
-    while let Some(field) = multipart.next_field().await.map_err(|e| {
-        AppError::Validation(format!("Failed to read multipart field: {}", e))
-    })? {
-        let file_name = field
-            .file_name()
-            .map(String::from)
-            .unwrap_or_else(|| "unnamed".to_string());
-        
-        let content_type = field
-            .content_type()
-            .map(String::from)
-            .unwrap_or_else(|| "application/octet-stream".to_string());
-
-        let data = field.bytes().await.map_err(|e| {
-            AppError::Validation(format!("Failed to read file data: {}", e))
-        })?;
-
-        let upload_result = FileService::upload(
-            FileCategory::PathologyReport,
-            &file_name,
-            &content_type,
-            &data,
-            Some(&animal_id.to_string()),
-        ).await?;
-
-        save_attachment(
-            &state.db,
-            "pathology",
-            &animal_id.to_string(),
-            &upload_result,
-            current_user.id,
-        ).await?;
-
-        results.push(UploadResponse::from(upload_result));
-    }
-
-    if results.is_empty() {
-        return Err(AppError::Validation("No files uploaded".to_string()));
-    }
-
+    let results = handle_upload(
+        &state.db,
+        current_user.id,
+        FileCategory::PathologyReport,
+        "pathology",
+        &animal_id.to_string(),
+        &mut multipart,
+    )
+    .await?;
     Ok(Json(results))
 }
 
@@ -232,50 +234,16 @@ pub async fn upload_vet_recommendation_attachment(
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
     require_permission!(current_user, "animal.vet.upload_attachment");
-
-    let mut results = Vec::new();
-
-    while let Some(field) = multipart.next_field().await.map_err(|e| {
-        AppError::Validation(format!("Failed to read multipart field: {}", e))
-    })? {
-        let file_name = field
-            .file_name()
-            .map(String::from)
-            .unwrap_or_else(|| "unnamed".to_string());
-        
-        let content_type = field
-            .content_type()
-            .map(String::from)
-            .unwrap_or_else(|| "application/octet-stream".to_string());
-
-        let data = field.bytes().await.map_err(|e| {
-            AppError::Validation(format!("Failed to read file data: {}", e))
-        })?;
-
-        let entity_id = format!("{}_{}", record_type, record_id);
-        let upload_result = FileService::upload(
-            FileCategory::VetRecommendation,
-            &file_name,
-            &content_type,
-            &data,
-            Some(&entity_id),
-        ).await?;
-
-        save_attachment(
-            &state.db,
-            "vet_recommendation",
-            &entity_id,
-            &upload_result,
-            current_user.id,
-        ).await?;
-
-        results.push(UploadResponse::from(upload_result));
-    }
-
-    if results.is_empty() {
-        return Err(AppError::Validation("No files uploaded".to_string()));
-    }
-
+    let entity_id = format!("{}_{}", record_type, record_id);
+    let results = handle_upload(
+        &state.db,
+        current_user.id,
+        FileCategory::VetRecommendation,
+        "vet_recommendation",
+        &entity_id,
+        &mut multipart,
+    )
+    .await?;
     Ok(Json(results))
 }
 
@@ -287,49 +255,15 @@ pub async fn upload_observation_attachment(
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
     require_permission!(current_user, "animal.record.create");
-
-    let mut results = Vec::new();
-
-    while let Some(field) = multipart.next_field().await.map_err(|e| {
-        AppError::Validation(format!("Failed to read multipart field: {}", e))
-    })? {
-        let file_name = field
-            .file_name()
-            .map(String::from)
-            .unwrap_or_else(|| "unnamed".to_string());
-
-        let content_type = field
-            .content_type()
-            .map(String::from)
-            .unwrap_or_else(|| "application/octet-stream".to_string());
-
-        let data = field.bytes().await.map_err(|e| {
-            AppError::Validation(format!("Failed to read file data: {}", e))
-        })?;
-
-        let upload_result = FileService::upload(
-            FileCategory::ObservationAttachment,
-            &file_name,
-            &content_type,
-            &data,
-            Some(&observation_id.to_string()),
-        ).await?;
-
-        save_attachment(
-            &state.db,
-            "observation",
-            &observation_id.to_string(),
-            &upload_result,
-            current_user.id,
-        ).await?;
-
-        results.push(UploadResponse::from(upload_result));
-    }
-
-    if results.is_empty() {
-        return Err(AppError::Validation("No files uploaded".to_string()));
-    }
-
+    let results = handle_upload(
+        &state.db,
+        current_user.id,
+        FileCategory::ObservationAttachment,
+        "observation",
+        &observation_id.to_string(),
+        &mut multipart,
+    )
+    .await?;
     Ok(Json(results))
 }
 
@@ -339,54 +273,19 @@ pub async fn upload_leave_attachment(
     Extension(current_user): Extension<CurrentUser>,
     mut multipart: Multipart,
 ) -> Result<Json<Vec<UploadResponse>>> {
-    let mut results = Vec::new();
-
-    while let Some(field) = multipart.next_field().await.map_err(|e| {
-        AppError::Validation(format!("Failed to read multipart field: {}", e))
-    })? {
-        let file_name = field
-            .file_name()
-            .map(String::from)
-            .unwrap_or_else(|| "unnamed".to_string());
-        
-        let content_type = field
-            .content_type()
-            .map(String::from)
-            .unwrap_or_else(|| "application/octet-stream".to_string());
-
-        let data = field.bytes().await.map_err(|e| {
-            AppError::Validation(format!("Failed to read file data: {}", e))
-        })?;
-
-        // 上傳檔案到 leave-attachments 目錄
-        let upload_result = FileService::upload(
-            FileCategory::LeaveAttachment,
-            &file_name,
-            &content_type,
-            &data,
-            Some(&current_user.id.to_string()),
-        ).await?;
-
-        // 儲存附件記錄到資料庫
-        save_attachment(
-            &state.db,
-            "leave_request",
-            &current_user.id.to_string(),
-            &upload_result,
-            current_user.id,
-        ).await?;
-
-        results.push(UploadResponse::from(upload_result));
-    }
-
-    if results.is_empty() {
-        return Err(AppError::Validation("No files uploaded".to_string()));
-    }
-
+    let results = handle_upload(
+        &state.db,
+        current_user.id,
+        FileCategory::LeaveAttachment,
+        "leave_request",
+        &current_user.id.to_string(),
+        &mut multipart,
+    )
+    .await?;
     Ok(Json(results))
 }
 
-/// 上傳犧牲記錄照片
+/// 上傳犧牲記錄照片（有額外的犧牲記錄驗證與不同的存表邏輯，不使用通用函式）
 pub async fn upload_sacrifice_photo(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
@@ -397,13 +296,15 @@ pub async fn upload_sacrifice_photo(
 
     // 檢查犧牲記錄是否存在（animal_sacrifices.id 為 UUID）
     let sacrifice_id: Uuid = sqlx::query_scalar(
-        "SELECT id FROM animal_sacrifices WHERE animal_id = $1"
+        "SELECT id FROM animal_sacrifices WHERE animal_id = $1",
     )
     .bind(animal_id)
     .fetch_optional(&state.db)
     .await?
     .ok_or_else(|| {
-        AppError::Validation("Sacrifice record not found. Please create the sacrifice record first.".to_string())
+        AppError::Validation(
+            "Sacrifice record not found. Please create the sacrifice record first.".to_string(),
+        )
     })?;
 
     let mut results = Vec::new();
@@ -415,7 +316,7 @@ pub async fn upload_sacrifice_photo(
             .file_name()
             .map(String::from)
             .unwrap_or_else(|| "unnamed".to_string());
-        
+
         let content_type = field
             .content_type()
             .map(String::from)
@@ -431,7 +332,8 @@ pub async fn upload_sacrifice_photo(
             &content_type,
             &data,
             Some(&animal_id.to_string()),
-        ).await?;
+        )
+        .await?;
 
         // 儲存到 animal_record_attachments 表（record_id 為 UUID）
         save_animal_record_attachment(
@@ -440,7 +342,8 @@ pub async fn upload_sacrifice_photo(
             sacrifice_id,
             "photo",
             &upload_result,
-        ).await?;
+        )
+        .await?;
 
         results.push(UploadResponse::from(upload_result));
     }
@@ -452,42 +355,21 @@ pub async fn upload_sacrifice_photo(
     Ok(Json(results))
 }
 
-/// 儲存動物記錄附件到 animal_record_attachments 表（record_id 為 UUID）
-async fn save_animal_record_attachment(
-    db: &PgPool,
-    record_type: &str,
-    record_id: Uuid,
-    file_type: &str,
-    upload_result: &UploadResult,
-) -> Result<uuid::Uuid> {
-    let id: (uuid::Uuid,) = sqlx::query_as(
-        r#"
-        INSERT INTO animal_record_attachments (id, record_type, record_id, file_type, file_name, file_path, file_size, mime_type, created_at)
-        VALUES (gen_random_uuid(), $1::animal_record_type, $2, $3::animal_file_type, $4, $5, $6, $7, NOW())
-        RETURNING id
-        "#,
-    )
-    .bind(record_type)
-    .bind(record_id)
-    .bind(file_type)
-    .bind(&upload_result.file_name)
-    .bind(&upload_result.file_path)
-    .bind(upload_result.file_size)
-    .bind(&upload_result.mime_type)
-    .fetch_one(db)
-    .await?;
-
-    Ok(id.0)
-}
+// ─────────────────────────────────────────────────────────────────
+// 讀取 / 下載 / 刪除 Handler（已加入 IDOR 權限檢查）
+// ─────────────────────────────────────────────────────────────────
 
 /// 列出附件清單
 pub async fn list_attachments(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<UploadQuery>,
 ) -> Result<Json<Vec<Attachment>>> {
     let entity_type = query.entity_type.unwrap_or_default();
     let entity_id = query.entity_id.unwrap_or_default();
+
+    // IDOR 防護：根據 entity_type 檢查使用者權限
+    check_attachment_permission(&current_user, &entity_type, None)?;
 
     // entity_id 在 DB 為 UUID，用 entity_id::text 回傳以符合 struct 的 String 型別
     let attachments: Vec<Attachment> = sqlx::query_as(
@@ -510,7 +392,7 @@ pub async fn list_attachments(
 /// 下載附件
 pub async fn download_attachment(
     State(state): State<AppState>,
-    Extension(_current_user): Extension<CurrentUser>,
+    Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
 ) -> Result<Response> {
     // 從資料庫查詢附件資訊（entity_id::text 以符合 struct 的 String 型別）
@@ -523,6 +405,13 @@ pub async fn download_attachment(
     .fetch_optional(&state.db)
     .await?
     .ok_or_else(|| AppError::NotFound("Attachment not found".to_string()))?;
+
+    // IDOR 防護：根據 entity_type 與上傳者檢查使用者權限
+    check_attachment_permission(
+        &current_user,
+        &attachment.entity_type,
+        Some(attachment.uploaded_by),
+    )?;
 
     // 讀取檔案資料
     let (data, _) = FileService::read(&attachment.file_path).await?;
@@ -561,7 +450,9 @@ pub async fn delete_attachment(
     // 檢查權限，只有上傳者或管理員可以刪除
     let is_admin = current_user.is_admin();
     if attachment.uploaded_by != current_user.id && !is_admin {
-        return Err(AppError::Forbidden("You can only delete your own attachments".to_string()));
+        return Err(AppError::Forbidden(
+            "You can only delete your own attachments".to_string(),
+        ));
     }
 
     // 刪除檔案
@@ -574,6 +465,38 @@ pub async fn delete_attachment(
         .await?;
 
     Ok(StatusCode::NO_CONTENT)
+}
+
+// ─────────────────────────────────────────────────────────────────
+// DB 輔助函式
+// ─────────────────────────────────────────────────────────────────
+
+/// 儲存動物記錄附件到 animal_record_attachments 表（record_id 為 UUID）
+async fn save_animal_record_attachment(
+    db: &PgPool,
+    record_type: &str,
+    record_id: Uuid,
+    file_type: &str,
+    upload_result: &UploadResult,
+) -> Result<uuid::Uuid> {
+    let id: (uuid::Uuid,) = sqlx::query_as(
+        r#"
+        INSERT INTO animal_record_attachments (id, record_type, record_id, file_type, file_name, file_path, file_size, mime_type, created_at)
+        VALUES (gen_random_uuid(), $1::animal_record_type, $2, $3::animal_file_type, $4, $5, $6, $7, NOW())
+        RETURNING id
+        "#,
+    )
+    .bind(record_type)
+    .bind(record_id)
+    .bind(file_type)
+    .bind(&upload_result.file_name)
+    .bind(&upload_result.file_path)
+    .bind(upload_result.file_size)
+    .bind(&upload_result.mime_type)
+    .fetch_one(db)
+    .await?;
+
+    Ok(id.0)
 }
 
 /// 儲存附件記錄到資料庫

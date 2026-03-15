@@ -190,21 +190,12 @@ export function DocumentsPage() {
             {isLegacyMode ? `管理${TYPE_NAMES[typeFilter as DocType]}` : '採購、銷貨、倉儲單據統一管理'}
           </p>
         </div>
-        {newDocHref ? (
-          <Button asChild>
-            <Link to={newDocHref}>
-              <Plus className="mr-2 h-4 w-4" />
-              新增單據
-            </Link>
-          </Button>
-        ) : (
-          !isLegacyMode && (
-            <Button disabled title="請先選擇子類型">
-              <Plus className="mr-2 h-4 w-4" />
-              新增單據
-            </Button>
-          )
-        )}
+        <Button asChild>
+          <Link to={isLegacyMode ? `/documents/new?type=${typeFilter}` : (subTypeFilter !== 'all' ? `/documents/new?type=${subTypeFilter}` : '/documents/new')}>
+            <Plus className="mr-2 h-4 w-4" />
+            新增單據
+          </Link>
+        </Button>
       </div>
 
       {/* 類別 Tab（非舊模式才顯示） */}

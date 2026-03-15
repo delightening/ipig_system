@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-03-14 (v14)
+> **最後更新：** 2026-03-15 (v17)
 > **維護慣例：** 完成項目保留於本表並標 [x]，同時於 `docs/PROGRESS.md` §9 最新變更動態 新增對應紀錄；待辦統計僅計「未完成」數量。
 > **AI 標註說明：**
 >
@@ -215,7 +215,64 @@
 
 ---
 
-## 🔧 R9 — 技術債掃描（2026-03，自動分析產出）
+## 🔒 R9 — 安全與品質修復（2026-03-15，程式碼審查產出）
+
+> 依據程式碼審查發現的安全漏洞與品質問題。
+
+| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
+|---|------|------|------|----------|------|
+| R9-1 | **IDOR 漏洞修復** | `download_attachment`/`list_attachments` 加入基於 entity_type 的資源級權限檢查，新增 `check_attachment_permission()` 輔助函式 | 後端 | 🧠 Claude | [x] |
+| R9-2 | **上傳 handler 去重** | 抽取通用 `handle_upload()` 函式，6 個上傳 handler 改用通用函式（upload_sacrifice_photo 因獨特存表邏輯保留），upload.rs 606→420 行 | 後端 | 🧠 Claude | [x] |
+| R9-3 | **DB 錯誤碼修正** | `error.rs` 中 23505→409 Conflict、23503/23502/23514→400 Bad Request（原統一回 500） | 後端 | 🧠 Claude | [x] |
+| R9-4 | **歡迎信安全改善** | `send_welcome_email` 改用密碼重設連結取代明文密碼 | 後端 | 🧠 Claude | [ ] |
+| R9-5 | **ERP/HR 整合測試覆蓋** | 補齊庫存流水帳、GRN 入庫、出勤打卡、附件上傳/下載等 E2E 測試 | 測試 | 🧠 Claude | [ ] |
+
+### R9 審查—已知漏洞擱置（開發階段擱置，上線前必做）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R9-C1 | **生產環境 WAF 改為 On** | `docker-compose.waf.yml` 目前 DetectionOnly，生產須改為 `On` | [ ] |
+| R9-C2 | **CI 密碼改 GitHub Secrets** | `.github/workflows/ci.yml` 中 JWT_SECRET、DEV_USER_PASSWORD、ADMIN_INITIAL_PASSWORD 改為 GitHub Secrets 並輪替 | [ ] |
+
+---
+
+## 🔒 R10 — 程式碼審查 Medium/Low（2026-03-15）
+
+> 依據 `docs/2026_March15_code_review_1.md`，Medium/Low 納入待辦追蹤。
+
+### Medium Severity
+
+| # | 審查# | 項目 | 位置/說明 | 狀態 |
+|---|-------|------|-----------|------|
+| R10-M1 | M1 | Rate limiter 改 Redis | `backend/src/middleware/rate_limiter.rs`，分散式部署時限流 | [ ] |
+| R10-M2 | M2 | N+1 修正 | `backend/src/handlers/animal/animal_core.rs:44-62`，條件推入 SQL WHERE | [ ] |
+| R10-M3 | M3 | 大檔案串流驗證 | `backend/src/services/file.rs:227+`，改 chunked 驗證 | [ ] |
+| R10-M4 | M4 | unwrap 精簡 | Backend 全域約 728 處，hot path 改為 ?/Result | [ ] |
+| R10-M5 | M5 | CSRF 強化 | `backend/src/middleware/csrf.rs`，token 可考慮綁定 session | [ ] |
+| R10-M6 | M6 | useUserManagement Zod | `frontend/src/pages/admin/hooks/useUserManagement.ts`，email/display name 驗證 | [ ] |
+| R10-M7 | M7 | file-upload MIME | `frontend/src/components/ui/file-upload.tsx`，驗證 MIME type | [ ] |
+| R10-M8 | M8 | Session timeout | 前端 6 小時偏長，可縮短或可配置 | [ ] |
+| R10-M9 | M9 | Alert 門檻 | `monitoring/prometheus/alert_rules.yml`，門檻收緊 | [ ] |
+| R10-M10 | M10 | Prometheus/Grafana 認證 | metrics/dashboard 加 authentication | [ ] |
+
+### Low Severity / Suggestions
+
+| # | 審查# | 項目 | 位置/說明 | 狀態 |
+|---|-------|------|-----------|------|
+| R10-L1 | L1 | auth handler 拆分 | `backend/src/handlers/auth.rs` 767 行 | [ ] |
+| R10-L2 | L2 | auth service 拆分 | `backend/src/services/auth.rs` 1,038 行 | [ ] |
+| R10-L3 | L3 | signature 拆分 | `backend/src/handlers/animal/signature.rs` 995 行 | [ ] |
+| R10-L4 | L4 | product service 拆分 | `backend/src/services/product.rs` 1,326 行 | [ ] |
+| R10-L5 | L5 | 外部 error tracking | Sentry 等 production 錯誤追蹤 | [ ] |
+| R10-L6 | L6 | Cookie consent 實際阻擋 | 阻擋 Google Fonts 等第三方請求 | [ ] |
+| R10-L7 | L7 | 密碼複雜度 | 前端強制複雜度規則 | [ ] |
+| R10-L8 | L8 | Watchtower 輪詢間隔 | `docker-compose.prod.yml:109` 建議 3600+ 秒 | [ ] |
+| R10-L9 | L9 | login_events 複合索引 | DB migrations | [ ] |
+| R10-L10 | L10 | JSONB schema validation | equipment_used, treatments, before_data, after_data | [ ] |
+
+---
+
+## 🔧 R11 — 技術債掃描（2026-03，自動分析產出）
 
 > 來源：2026-03-14 靜態分析掃描。依違反 CLAUDE.md 代碼規範嚴重程度排列。
 > 後端函數上限 50 行，前端元件上限 300 行（JSX return 80 行），Hook 上限 300 行。
@@ -224,42 +281,42 @@
 
 | # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
 |---|------|------|------|----------|------|
-| R9-1 | **`pdf/service.rs` `generate_protocol_pdf` 拆分** | 單一函數 578 行（L63–L630），嚴重違反 50 行上限；應依章節拆出 `render_protocol_header()`、`render_animal_table()`、`render_experiment_section()` 等子函數，再由主函數依序呼叫 | 後端 | 🧠 Claude | [ ] |
-| R9-2 | **`animal/import_export.rs` `import_basic_data` 拆分** | 函數 327 行（L200），`import_weight_data` 172 行（L527）；提取 validate_row、map_row_to_entity、batch_insert 等輔助函式，降低至 ≤50 行 | 後端 | 🧠 Claude | [ ] |
-| R9-3 | **`services/product.rs` 多個長函數拆分** | `import_products` 196 行、`update` 170 行、`parse_product_csv` 140 行、`parse_product_excel` 114 行、`create` 109 行、`check_import_duplicates` 92 行——全部超過 50 行上限；CSV/Excel 解析邏輯應提取至獨立 parser 模組 | 後端 | 🧠 Claude | [ ] |
-| R9-4 | **`handlers/signature.rs` handler 函數過長** | `check_animal_record_access_uuid` 106 行（含業務邏輯，違反 handler 職責）；`sign_sacrifice_record` 97、`sign_observation_record` 95、`sign_transfer_record` 93、`sign_euthanasia_order` 92、`sign_protocol_review` 91、`add_record_annotation` 80 行；簽署驗證邏輯應移至 `services/signature.rs` | 後端 | 🧠 Claude | [ ] |
-| R9-5 | **`services/accounting.rs` 長函數拆分** | `post_sr` 121 行、`post_do` 117 行、`post_grn` 66 行；各記帳流程應提取 validate_lines、build_journal_entries、post_entries 等子函式 | 後端 | 🧠 Claude | [ ] |
+| R11-1 | **`pdf/service.rs` `generate_protocol_pdf` 拆分** | 單一函數 578 行（L63–L630），嚴重違反 50 行上限；應依章節拆出 `render_protocol_header()`、`render_animal_table()`、`render_experiment_section()` 等子函數，再由主函數依序呼叫 | 後端 | 🧠 Claude | [x] |
+| R11-2 | **`animal/import_export.rs` `import_basic_data` 拆分** | 函數 327 行（L200），`import_weight_data` 172 行（L527）；提取 validate_row、map_row_to_entity、batch_insert 等輔助函式，降低至 ≤50 行 | 後端 | 🧠 Claude | [ ] |
+| R11-3 | **`services/product.rs` 多個長函數拆分** | `import_products` 196 行、`update` 170 行、`parse_product_csv` 140 行、`parse_product_excel` 114 行、`create` 109 行、`check_import_duplicates` 92 行——全部超過 50 行上限；CSV/Excel 解析邏輯應提取至獨立 parser 模組 | 後端 | 🧠 Claude | [ ] |
+| R11-4 | **`handlers/signature.rs` handler 函數過長** | `check_animal_record_access_uuid` 106 行（含業務邏輯，違反 handler 職責）；`sign_sacrifice_record` 97、`sign_observation_record` 95、`sign_transfer_record` 93、`sign_euthanasia_order` 92、`sign_protocol_review` 91、`add_record_annotation` 80 行；簽署驗證邏輯應移至 `services/signature.rs` | 後端 | 🧠 Claude | [x] |
+| R11-5 | **`services/accounting.rs` 長函數拆分** | `post_sr` 121 行、`post_do` 117 行、`post_grn` 66 行；各記帳流程應提取 validate_lines、build_journal_entries、post_entries 等子函式 | 後端 | 🧠 Claude | [x] |
 
 ### 🔴 高優先（架構違規：Handler 直接 SQL）
 
 | # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
 |---|------|------|------|----------|------|
-| R9-19 | **Handler 層 98 處直接 SQL 查詢清除** | 靜態掃描確認 handlers/ 目錄存在 98 個 `sqlx::query`/`query_as` 直接呼叫，違反「handler 禁止 SQL」規範；重災區：`handlers/auth.rs`（L226/L418/L434）、`handlers/user_preferences.rs`（L32/L78/L112/L149）、`handlers/protocol/`、`handlers/animal/`、`handlers/hr/`、`handlers/signature.rs` 等 21+ 個檔案；應逐步遷移至對應 service 或新建 repository 函式 | 後端 | 🧠 Claude | [ ] |
-| R9-20 | **Repository 層擴展（缺少 protocol/animal/hr 等）** | R8-3 已建立 equipment/product/role/sku/user/warehouse 六個 repository，但仍缺少：`repositories/protocol.rs`（協定查詢）、`repositories/animal.rs`（動物查詢）、`repositories/hr.rs`（請假/出勤）、`repositories/user_preferences.rs`（偏好設定）；重複出現的關鍵查詢：`SELECT display_name FROM users WHERE id = $1`（5 次）、`SELECT 1 FROM user_protocols`（4+ 次）、`SELECT 1 FROM vet_review_assignments`（4+ 次）應提取至 repository 層 | 後端 | 🧠 Claude | [ ] |
+| R11-19 | **Handler 層 98 處直接 SQL 查詢清除** | 靜態掃描確認 handlers/ 目錄存在 98 個 `sqlx::query`/`query_as` 直接呼叫，違反「handler 禁止 SQL」規範；重災區：`handlers/auth.rs`（L226/L418/L434）、`handlers/user_preferences.rs`（L32/L78/L112/L149）、`handlers/protocol/`、`handlers/animal/`、`handlers/hr/`、`handlers/signature.rs` 等 21+ 個檔案；應逐步遷移至對應 service 或新建 repository 函式 | 後端 | 🧠 Claude | [x] |
+| R11-20 | **Repository 層擴展（缺少 protocol/animal/hr 等）** | R8-3 已建立 equipment/product/role/sku/user/warehouse 六個 repository，但仍缺少：`repositories/protocol.rs`（協定查詢）、`repositories/animal.rs`（動物查詢）、`repositories/hr.rs`（請假/出勤）、`repositories/user_preferences.rs`（偏好設定）；重複出現的關鍵查詢：`SELECT display_name FROM users WHERE id = $1`（5 次）、`SELECT 1 FROM user_protocols`（4+ 次）、`SELECT 1 FROM vet_review_assignments`（4+ 次）應提取至 repository 層 | 後端 | 🧠 Claude | [x] |
 
 ### 🟠 中優先（前端超大元件 >600 行）
 
 | # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
 |---|------|------|------|----------|------|
-| R9-6 | **`ProtocolContentView.tsx` 拆分（870 行）** | 超過 300 行上限近 3 倍；依內容區塊（實驗設計/動物規格/統計方法/倫理聲明等）拆分為子元件，提取重複的欄位顯示 pattern 為共用元件 | 前端 | 🧠 Claude | [ ] |
-| R9-7 | **`ProductImportDialog.tsx` 拆分（863 行）** | 匯入預覽表格、欄位映射、錯誤清單應各自提取為獨立子元件 | 前端 | 🧠 Claude | [ ] |
-| R9-8 | **`hooks/usePermissionManager.ts` 拆分（853 行）** | Hook 超過 300 行上限；應依職責拆分為 `usePermissionCategories`（分類資料處理）、`usePermissionSearch`（搜尋篩選邏輯）、`usePermissionMutation`（新增/刪除 API） | 前端 | 🧠 Claude | [ ] |
-| R9-9 | **`AccountingReportPage.tsx` 拆分（838 行）** | 損益表、AP/AR 老齡化、試算表、傳票列表四個區塊應各自提取為 Tab 子元件 | 前端 | 🧠 Claude | [ ] |
-| R9-10 | **`HrLeavePage.tsx` 拆分（837 行）** | 請假申請表單、請假紀錄表格、餘額顯示應各自提取為子元件；重複的欄位定義可抽出 `useLeaveColumns` hook | 前端 | 🧠 Claude | [ ] |
-| R9-11 | **`BloodTestTab.tsx` 拆分（811 行）** | 血檢套餐選擇、結果輸入、歷史紀錄三大功能區塊拆分為子元件，表格欄位定義提取至 constants | 前端 | 🧠 Claude | [ ] |
-| R9-12 | **`DashboardPage.tsx` 拆分（805 行）** | 各儀表板區塊（動物概況、計畫進度、庫存警示、HR 餘額等）已部分提取為 Widget，仍有邏輯殘留在頁面層；提取 `useDashboardData` hook 集中 query 邏輯 | 前端 | 🧠 Claude | [ ] |
-| R9-13 | **`DocumentLineEditor.tsx` 拆分 + `any` 消除（723 行 + 10 處 any）** | 元件超過 300 行；`setFormData: any`、`extraData?: any`、`newLine: any`、`prev: any`、`item: any` 等 10+ 處應改用具體型別（`DocumentFormData`、`ProductVariant`、`DocumentLine`）；商品選擇彈窗邏輯提取為子元件 | 前端 | 🧠 Claude | [ ] |
-| R9-14 | **`useDocumentForm.ts` 拆分（717 行）** | 單一 hook 過長，應依關注點拆分為 `useDocumentLines`（明細管理）、`useDocumentSubmit`（送審流程）、`useDocumentValidation`（驗證邏輯） | 前端 | 🧠 Claude | [ ] |
+| R11-6 | **`ProtocolContentView.tsx` 拆分（870 行）** | 超過 300 行上限近 3 倍；依內容區塊（實驗設計/動物規格/統計方法/倫理聲明等）拆分為子元件，提取重複的欄位顯示 pattern 為共用元件 | 前端 | 🧠 Claude | [ ] |
+| R11-7 | **`ProductImportDialog.tsx` 拆分（863 行）** | 匯入預覽表格、欄位映射、錯誤清單應各自提取為獨立子元件 | 前端 | 🧠 Claude | [ ] |
+| R11-8 | **`hooks/usePermissionManager.ts` 拆分（853 行）** | Hook 超過 300 行上限；應依職責拆分為 `usePermissionCategories`（分類資料處理）、`usePermissionSearch`（搜尋篩選邏輯）、`usePermissionMutation`（新增/刪除 API） | 前端 | 🧠 Claude | [ ] |
+| R11-9 | **`AccountingReportPage.tsx` 拆分（838 行）** | 損益表、AP/AR 老齡化、試算表、傳票列表四個區塊應各自提取為 Tab 子元件 | 前端 | 🧠 Claude | [ ] |
+| R11-10 | **`HrLeavePage.tsx` 拆分（837 行）** | 請假申請表單、請假紀錄表格、餘額顯示應各自提取為子元件；重複的欄位定義可抽出 `useLeaveColumns` hook | 前端 | 🧠 Claude | [ ] |
+| R11-11 | **`BloodTestTab.tsx` 拆分（811 行）** | 血檢套餐選擇、結果輸入、歷史紀錄三大功能區塊拆分為子元件，表格欄位定義提取至 constants | 前端 | 🧠 Claude | [ ] |
+| R11-12 | **`DashboardPage.tsx` 拆分（805 行）** | 各儀表板區塊（動物概況、計畫進度、庫存警示、HR 餘額等）已部分提取為 Widget，仍有邏輯殘留在頁面層；提取 `useDashboardData` hook 集中 query 邏輯 | 前端 | 🧠 Claude | [ ] |
+| R11-13 | **`DocumentLineEditor.tsx` 拆分 + `any` 消除（723 行 + 10 處 any）** | 元件超過 300 行；`setFormData: any`、`extraData?: any`、`newLine: any`、`prev: any`、`item: any` 等 10+ 處應改用具體型別（`DocumentFormData`、`ProductVariant`、`DocumentLine`）；商品選擇彈窗邏輯提取為子元件 | 前端 | 🧠 Claude | [ ] |
+| R11-14 | **`useDocumentForm.ts` 拆分（717 行）** | 單一 hook 過長，應依關注點拆分為 `useDocumentLines`（明細管理）、`useDocumentSubmit`（送審流程）、`useDocumentValidation`（驗證邏輯） | 前端 | 🧠 Claude | [ ] |
 
 ### 🟡 低優先（前端元件 300–600 行 & 細節問題）
 
 | # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
 |---|------|------|------|----------|------|
-| R9-15 | **中大型元件逐步拆分** | 下列元件均超過 300 行上限，按業務域優先排序：`AnimalDetailPage.tsx`（786）、`AuditLogsPage.tsx`（686）、`TrainingRecordsPage.tsx`（673）、`ProductEditPage.tsx`（653）、`TransferTab.tsx`（651）、`TreatmentDrugOptionsPage.tsx`（646）、`ProtocolDetailPage.tsx`（641）、`Sidebar.tsx`（635）、`NotificationRoutingPage.tsx`（617）、`PartnersPage.tsx`（610）——各元件依 Tab 或功能區塊提取子元件 | 前端 | 🧠 Claude | [ ] |
-| R9-16 | **`STORAGE_CONDITIONS` 重複常數合併 + `lib/constants/` 目錄建立** | 同一常數定義於 `pages/master/ProductEditPage.tsx:56` 與 `pages/master/ProductDetailPage.tsx:34`，違反 DRY 原則；應建立 `frontend/src/lib/constants/` 目錄（目前不存在），新增 `product.ts` 匯出 `STORAGE_CONDITIONS`，兩頁面改 import | 前端 | ⚡ Flash | [ ] |
-| R9-17 | **剩餘 `any` 型別消除** | `WarehouseActionHeader.tsx:96/116/139` 的 `onError: (error: any)` 改用 `AxiosError`；`StorageLocationEditor.tsx:101` 的 `newLayout: any[]` 改用具體型別；`DocumentEditPage.tsx:102/322` 的 `as any[]` 改用 `Document[]` | 前端 | ⚡ Flash | [ ] |
-| R9-18 | **後端中長函數清理（50–100 行）** | `services/auth.rs`：`change_own_password`（66 行）、`reset_password_with_token`（57 行）、`refresh_token`（55 行）、`generate_access_token`（51 行）——提取 token 生成邏輯、密碼驗證流程為子函式 | 後端 | 🧠 Claude | [ ] |
-| R9-21 | **前端 54 處 try-catch 改為 TanStack Query 全域錯誤處理** | 掃描確認 54 個手動 try-catch 區塊（應使用 TanStack Query `onError` 全域機制）；主要集中於 `auth/LoginPage.tsx`、`admin/hooks/useUserManagement.ts`、`components/protocol/ProtocolContentView.tsx` 等；應統一為 `toast.error(getApiErrorMessage(error))` + QueryClient 全域 onError 模式，禁止裸 try-catch | 前端 | 🧠 Claude | [ ] |
+| R11-15 | **中大型元件逐步拆分** | 下列元件均超過 300 行上限，按業務域優先排序：`AnimalDetailPage.tsx`（786）、`AuditLogsPage.tsx`（686）、`TrainingRecordsPage.tsx`（673）、`ProductEditPage.tsx`（653）、`TransferTab.tsx`（651）、`TreatmentDrugOptionsPage.tsx`（646）、`ProtocolDetailPage.tsx`（641）、`Sidebar.tsx`（635）、`NotificationRoutingPage.tsx`（617）、`PartnersPage.tsx`（610）——各元件依 Tab 或功能區塊提取子元件 | 前端 | 🧠 Claude | [ ] |
+| R11-16 | **`STORAGE_CONDITIONS` 重複常數合併 + `lib/constants/` 目錄建立** | 同一常數定義於 `pages/master/ProductEditPage.tsx:56` 與 `pages/master/ProductDetailPage.tsx:34`，違反 DRY 原則；應建立 `frontend/src/lib/constants/` 目錄（目前不存在），新增 `product.ts` 匯出 `STORAGE_CONDITIONS`，兩頁面改 import | 前端 | ⚡ Flash | [x] |
+| R11-17 | **剩餘 `any` 型別消除** | `WarehouseActionHeader.tsx:96/116/139` 的 `onError: (error: any)` 改用 `AxiosError`；`StorageLocationEditor.tsx:101` 的 `newLayout: any[]` 改用具體型別；`DocumentEditPage.tsx:102/322` 的 `as any[]` 改用 `Document[]` | 前端 | ⚡ Flash | [x] |
+| R11-18 | **後端中長函數清理（50–100 行）** | `services/auth.rs`：`change_own_password`（66 行）、`reset_password_with_token`（57 行）、`refresh_token`（55 行）、`generate_access_token`（51 行）——提取 token 生成邏輯、密碼驗證流程為子函式 | 後端 | 🧠 Claude | [x] |
+| R11-21 | **前端 54 處 try-catch 改為 TanStack Query 全域錯誤處理** | 掃描確認 54 個手動 try-catch 區塊（應使用 TanStack Query `onError` 全域機制）；主要集中於 `auth/LoginPage.tsx`、`admin/hooks/useUserManagement.ts`、`components/protocol/ProtocolContentView.tsx` 等；應統一為 `toast.error(getApiErrorMessage(error))` + QueryClient 全域 onError 模式，禁止裸 try-catch | 前端 | 🧠 Claude | [ ] |
 
 ---
 
@@ -277,13 +334,19 @@
 | 🟠 R6 第六輪改善 | 0 |
 | 🔒 R7 安全審視 | 0 |
 | 🔧 R8 代碼規範重構 | 0 |
-| 🔧 R9 技術債掃描 | 21 |
-| **合計（未完成）** | **21** |
+| 🔒 R9 安全與品質修復 | 4 |
+| 🔒 R10 程式碼審查 Medium/Low | 20 |
+| 🔧 R11 技術債掃描 | 13 |
+| **合計（未完成）** | **37** |
 
 ---
 
 ## 變更紀錄 (最新)
 
+| 2026-03-15 | 🧠 Claude：R9 安全與品質修復 — R9-1 IDOR 漏洞修復（`download_attachment`/`list_attachments` 加入 entity_type 權限檢查）、R9-2 上傳 handler 去重（抽取 `handle_upload()` 通用函式，606→420 行）、R9-3 DB 錯誤碼修正（23505→409、23503/23502/23514→400）。R9-4 歡迎信安全改善、R9-5 ERP/HR 整合測試待後續排程。 |
+| 2026-03-15 | 🧠 Claude：Git 歷史紀錄深度清理 — 徹底移除被誤傳進 Git 的 `.venv` 目錄（體積過大）與 `old_ipig.dump`（敏感資料）。使用 `git-filter-repo` 重寫倉庫歷史，移除檔案足跡並減小倉庫體積。更新 `.gitignore` 確保未來不再追蹤。 |
+| 2026-03-15 | 🧠 Claude：單據頁面標題顯示優化 — 修正「建立新的undefined」問題。當類型未定時顯示「建立新的單據」。優化「新增/編輯」描述文字。 |
+| 2026-03-14 | 🧠 Claude：SSE 安全警報 Cloudflare 524 Timeout 修復 — 後端 `sse.rs` 心跳從 `.text("")` 改為 `.comment("heartbeat")` 並間隔從 30s 縮至 15s；前端 `useSecurityAlerts.ts` 加入指數退避重連（5 次，2s→32s），連線成功重置計數器。 |
 | 2026-03-14 | 🧠 Claude：儀表板 Widget 捲動體驗優化 — 統一所有 Dashboard Widget 的樣式，確保 `CardContent` 具備 `flex-1 overflow-auto` 捲動條，且 `Card` 標題固定不隨內容捲動。涵蓋「我的計畫」、「動物用藥」、「請假餘額」、「醫事評論」及所有 ERP 內嵌 Widget。 |
 | 2026-03-14 | 🧠 Claude：修復 `010_treatment_drug_final.sql` 編碼問題 — 修正非 UTF-8 亂碼內容，確保資料庫遷移能順利通過 Docker 建置。 |
 | 2026-03-14 | 🧠 Claude：R4-100-T5 protocol/document/hr 服務單元測試完成 — protocol/numbering 提取 `parse_no_sequence`/`format_protocol_no` + 8 測試；protocol/status 測試 `validate_protocol_content` 7 測試；hr/leave 測試 `is_half_hour_multiple`/`effective_hours` 7 測試；hr/overtime 提取 `overtime_multiplier`/`comp_time_hours_for_type`/`calc_hours_from_minutes` + 8 測試；hr/attendance 測試 `is_ip_in_ranges`/`attendance_status_display` 8 測試；hr/balance 提取 `compute_leave_expiry` + 4 測試；document/grn 提取 `next_seq_from_last_no`/`receipt_status_label` + 8 測試。共 50 個新單元測試，cargo check --tests 通過。 |

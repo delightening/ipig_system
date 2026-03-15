@@ -1,5 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore, SESSION_TIMEOUT_MS } from '@/stores/auth'
 import { toast } from '@/components/ui/use-toast'
 
 const api = axios.create({
@@ -22,16 +22,15 @@ function getCookie(name: string): string | null {
 }
 
 // ============================================
-// 全域刪除：使用 POST /delete 避免代理/tunnel 對 DELETE 回傳 405
+// 資源刪除：使用標準 DELETE 方法
 // ============================================
 
-/** 刪除資源（統一改用 POST /delete，避免代理/tunnel 對 DELETE 回傳 405） */
+/** 刪除資源（使用標準 HTTP DELETE 方法） */
 export function deleteResource(
   url: string,
   options?: { data?: object; headers?: { [key: string]: string } },
 ) {
-  const base = url.replace(/\/$/, '')
-  return api.post(`${base}/delete`, options?.data ?? {}, { headers: options?.headers })
+  return api.delete(url, { headers: options?.headers })
 }
 
 // Request interceptor：自動將 csrf_token Cookie 值加到 X-CSRF-Token header
@@ -118,10 +117,7 @@ api.interceptors.response.use(
         await api.post('/auth/refresh')
 
         // Reset session expiry timer after successful refresh
-        try {
-          const { useAuthStore, SESSION_TIMEOUT_MS } = await import('@/stores/auth')
-          useAuthStore.getState().sessionExpiresAt = Date.now() + SESSION_TIMEOUT_MS
-        } catch { /* non-critical */ }
+        useAuthStore.getState().sessionExpiresAt = Date.now() + SESSION_TIMEOUT_MS
 
         isRefreshing = false
         onRefreshResolved(true)

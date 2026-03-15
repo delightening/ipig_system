@@ -124,20 +124,21 @@ impl IntoResponse for AppError {
                     )
                         .into_response();
                 }
-                let user_msg = match e {
+                // 依 DB 錯誤碼回傳正確的 HTTP 狀態碼（而非統一 500）
+                let (status, user_msg) = match e {
                     sqlx::Error::Database(ref db_err) => {
                         match db_err.code().as_deref() {
-                            Some("23505") => "資料重複，請檢查輸入欄位是否已存在相同資料".to_string(),
-                            Some("23503") => "關聯資料不存在，請確認參照的資料是否正確".to_string(),
-                            Some("23502") => "必填欄位不可為空".to_string(),
-                            Some("23514") => "資料不符合欄位限制條件".to_string(),
-                            _ => "資料庫操作失敗，請稍後再試".to_string(),
+                            Some("23505") => (StatusCode::CONFLICT, "資料重複，請檢查輸入欄位是否已存在相同資料".to_string()),
+                            Some("23503") => (StatusCode::BAD_REQUEST, "關聯資料不存在，請確認參照的資料是否正確".to_string()),
+                            Some("23502") => (StatusCode::BAD_REQUEST, "必填欄位不可為空".to_string()),
+                            Some("23514") => (StatusCode::BAD_REQUEST, "資料不符合欄位限制條件".to_string()),
+                            _ => (StatusCode::INTERNAL_SERVER_ERROR, "資料庫操作失敗，請稍後再試".to_string()),
                         }
                     }
-                    sqlx::Error::RowNotFound => "查無相關資料".to_string(),
-                    _ => "資料庫操作失敗，請稍後再試".to_string(),
+                    sqlx::Error::RowNotFound => (StatusCode::NOT_FOUND, "查無相關資料".to_string()),
+                    _ => (StatusCode::INTERNAL_SERVER_ERROR, "資料庫操作失敗，請稍後再試".to_string()),
                 };
-                (StatusCode::INTERNAL_SERVER_ERROR, user_msg)
+                (status, user_msg)
             }
             AppError::Anyhow(e) => {
                 tracing::error!("Unexpected error: {:?}", e);

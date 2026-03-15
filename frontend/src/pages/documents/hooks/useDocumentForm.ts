@@ -37,7 +37,7 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
   const isEdit = !!id && id !== 'new'
 
   const [formData, setFormData] = useState<DocumentFormData>({
-    doc_type: defaultType,
+    doc_type: (defaultType as any) === 'new' ? ('' as any) : defaultType,
     doc_date: new Date().toISOString().split('T')[0],
     warehouse_id: '',
     warehouse_from_id: '',
@@ -554,7 +554,7 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
   }, [])
 
   const handleBack = useCallback(() => {
-    const targetPath = `/documents${formData.doc_type ? `?type=${formData.doc_type}` : ''}`
+    const targetPath = `/documents${formData.doc_type && formData.doc_type !== ('' as any) ? `?type=${formData.doc_type}` : ''}`
     if (unsavedChanges) {
       setPendingNavigation(targetPath)
       setShowUnsavedDialog(true)
