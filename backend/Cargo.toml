@@ -57,7 +57,7 @@ futures = "0.3"
 rust_xlsxwriter = "0.93"
 
 # Excel/CSV parsing
-calamine = { version = "0.24", features = ["chrono"] }
+calamine = { version = "0.34", features = ["chrono"] }
 csv = "1.3"
 
 # Scheduler
