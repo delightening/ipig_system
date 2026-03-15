@@ -603,7 +603,7 @@ mod tests {
         let result = ProtocolService::validate_protocol_content(&None);
         assert!(result.is_err());
         assert!(result
-            .unwrap_err()
+            .expect_err("should return error")
             .to_string()
             .contains("content is empty"));
     }
@@ -614,7 +614,7 @@ mod tests {
         let result = ProtocolService::validate_protocol_content(&Some(content));
         assert!(result.is_err());
         assert!(result
-            .unwrap_err()
+            .expect_err("should return error")
             .to_string()
             .contains("Missing 'basic' section"));
     }
@@ -630,7 +630,7 @@ mod tests {
         let result = ProtocolService::validate_protocol_content(&Some(content));
         assert!(result.is_err());
         assert!(result
-            .unwrap_err()
+            .expect_err("should return error")
             .to_string()
             .contains("Study title is required"));
     }
@@ -648,7 +648,7 @@ mod tests {
         let result = ProtocolService::validate_protocol_content(&Some(content));
         assert!(result.is_err());
         assert!(result
-            .unwrap_err()
+            .expect_err("should return error")
             .to_string()
             .contains("Registration authorities required"));
     }
@@ -678,7 +678,7 @@ mod tests {
         let result = ProtocolService::validate_protocol_content(&Some(content));
         assert!(result.is_err());
         assert!(result
-            .unwrap_err()
+            .expect_err("should return error")
             .to_string()
             .contains("Project type is required"));
     }
