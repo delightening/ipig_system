@@ -504,7 +504,7 @@ impl AnimalImportExportService {
             Some(serde_json::to_value(&errors).unwrap_or(serde_json::Value::Null))
         };
 
-        let _batch = AnimalMedicalService::update_import_batch_status(
+        AnimalMedicalService::update_import_batch_status(
             pool,
             batch.id,
             crate::models::ImportStatus::Completed,
@@ -676,7 +676,7 @@ impl AnimalImportExportService {
             Some(serde_json::to_value(&errors).unwrap_or(serde_json::Value::Null))
         };
 
-        let _batch = AnimalMedicalService::update_import_batch_status(
+        AnimalMedicalService::update_import_batch_status(
             pool,
             batch.id,
             crate::models::ImportStatus::Completed,

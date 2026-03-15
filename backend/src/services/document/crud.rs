@@ -54,7 +54,7 @@ impl DocumentService {
                     .await?;
 
                     if let Some((track_batch, track_expiry)) = product {
-                        if track_batch && line.batch_no.as_ref().map_or(true, |s| s.trim().is_empty()) {
+                        if track_batch && line.batch_no.as_ref().is_none_or(|s| s.trim().is_empty()) {
                             return Err(AppError::Validation(format!(
                                 "Line {}: Batch No is required for {} when product tracks batch",
                                 idx + 1,
@@ -215,7 +215,7 @@ impl DocumentService {
                     .await?;
 
                     if let Some((track_batch, track_expiry)) = product {
-                        if track_batch && line.batch_no.as_ref().map_or(true, |s| s.trim().is_empty()) {
+                        if track_batch && line.batch_no.as_ref().is_none_or(|s| s.trim().is_empty()) {
                             return Err(AppError::Validation(format!(
                                 "Line {}: Batch No is required for {} when product tracks batch",
                                 idx + 1,

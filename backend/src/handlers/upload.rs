@@ -98,7 +98,7 @@ fn check_attachment_permission(
         }
         "leave_request" => {
             // 請假附件：上傳者本人可存取，否則需 hr.leave.view_all
-            if uploaded_by.map_or(false, |id| id == current_user.id) {
+            if uploaded_by.is_some_and(|id| id == current_user.id) {
                 return Ok(());
             }
             require_permission!(current_user, "hr.leave.view_all");

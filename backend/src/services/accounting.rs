@@ -88,6 +88,19 @@ const ACCT_REVENUE: &str = "4100";
 const ACCT_COGS: &str = "5200";
 const ACCT_CASH: &str = "1100";
 
+struct CashJournalParams<'a> {
+    entry_date: NaiveDate,
+    description: String,
+    source_type: &'a str,
+    source_id: Uuid,
+    debit_account_id: Uuid,
+    credit_account_id: Uuid,
+    amount: Decimal,
+    debit_desc: &'a str,
+    credit_desc: &'a str,
+    created_by: Uuid,
+}
+
 pub struct AccountingService;
 
 impl AccountingService {
@@ -523,23 +536,14 @@ impl AccountingService {
     /// 建立 AP/AR 的傳票分錄（借方與貸方），回傳 entry_id
     async fn insert_cash_journal(
         tx: &mut Transaction<'_, Postgres>,
-        entry_date: NaiveDate,
-        description: String,
-        source_type: &str,
-        source_id: Uuid,
-        debit_account_id: Uuid,
-        credit_account_id: Uuid,
-        amount: Decimal,
-        debit_desc: &str,
-        credit_desc: &str,
-        created_by: Uuid,
+        p: CashJournalParams<'_>,
     ) -> Result<Uuid> {
         let entry_no = Self::next_entry_no(tx).await?;
         let entry_id = Uuid::new_v4();
 
-        Self::insert_journal_entry(tx, entry_id, &entry_no, entry_date, description, source_type, source_id, created_by).await?;
-        Self::insert_entry_line(tx, entry_id, 1, debit_account_id, amount, Decimal::ZERO, debit_desc).await?;
-        Self::insert_entry_line(tx, entry_id, 2, credit_account_id, Decimal::ZERO, amount, credit_desc).await?;
+        Self::insert_journal_entry(tx, entry_id, &entry_no, p.entry_date, p.description, p.source_type, p.source_id, p.created_by).await?;
+        Self::insert_entry_line(tx, entry_id, 1, p.debit_account_id, p.amount, Decimal::ZERO, p.debit_desc).await?;
+        Self::insert_entry_line(tx, entry_id, 2, p.credit_account_id, Decimal::ZERO, p.amount, p.credit_desc).await?;
 
         Ok(entry_id)
     }
@@ -565,7 +569,18 @@ impl AccountingService {
 
         let payment_id = Uuid::new_v4();
         let desc = format!("AP 應付帳款付款 {}", payment_no);
-        let entry_id = Self::insert_cash_journal(&mut tx, payment_date, desc, "ap_payment", payment_id, ap_id, cash_id, amount, "應付帳款", "現金", created_by).await?;
+        let entry_id = Self::insert_cash_journal(&mut tx, CashJournalParams {
+            entry_date: payment_date,
+            description: desc,
+            source_type: "ap_payment",
+            source_id: payment_id,
+            debit_account_id: ap_id,
+            credit_account_id: cash_id,
+            amount,
+            debit_desc: "應付帳款",
+            credit_desc: "現金",
+            created_by,
+        }).await?;
 
         Self::insert_ap_payment_record(&mut tx, payment_id, &payment_no, partner_id, payment_date, amount, reference, entry_id, created_by).await?;
         tx.commit().await?;
@@ -593,7 +608,18 @@ impl AccountingService {
 
         let receipt_id = Uuid::new_v4();
         let desc = format!("AR 應收帳款收款 {}", receipt_no);
-        let entry_id = Self::insert_cash_journal(&mut tx, receipt_date, desc, "ar_receipt", receipt_id, cash_id, ar_id, amount, "現金", "應收帳款", created_by).await?;
+        let entry_id = Self::insert_cash_journal(&mut tx, CashJournalParams {
+            entry_date: receipt_date,
+            description: desc,
+            source_type: "ar_receipt",
+            source_id: receipt_id,
+            debit_account_id: cash_id,
+            credit_account_id: ar_id,
+            amount,
+            debit_desc: "現金",
+            credit_desc: "應收帳款",
+            created_by,
+        }).await?;
 
         Self::insert_ar_receipt_record(&mut tx, receipt_id, &receipt_no, partner_id, receipt_date, amount, reference, entry_id, created_by).await?;
         tx.commit().await?;

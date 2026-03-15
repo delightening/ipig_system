@@ -217,7 +217,7 @@ pub async fn export_pen_report(
     let pdf_bytes = state.gotenberg.html_to_pdf(&html).await?;
 
     let filename = format!("動物欄位巡視報告_{}.pdf", today);
-    Ok(Response::builder()
+    Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "application/pdf")
         .header(
@@ -228,7 +228,7 @@ pub async fn export_pen_report(
             ),
         )
         .body(Body::from(pdf_bytes))
-        .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))?)
+        .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))
 }
 
 // ─── 內部輔助函式 ───
