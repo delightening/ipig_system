@@ -41,9 +41,11 @@ services:
         max-size: "20m"
         max-file: "5"
 
-  # Override web to use GHCR image
+  # Override web to use GHCR image（Critical 3：生產綁定 localhost，對外由反向代理提供）
   web:
     image: ghcr.io/${GHCR_OWNER}/ipig-web:${IMAGE_TAG:-latest}
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:8080"
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
     deploy:
@@ -83,8 +85,13 @@ services:
         max-size: "20m"
         max-file: "5"
 
-  # Explicitly exclude db-backup from auto-update
+  # Explicitly exclude db-backup from auto-update（High 5: Secret 提供密碼；High 7: 生產強制 GPG 加密）
   db-backup:
+    secrets:
+      - db_password
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      BACKUP_REQUIRE_ENCRYPTION: "true"
     labels:
       - "com.centurylinklabs.watchtower.enable=false"
     deploy:
@@ -99,17 +106,24 @@ services:
         max-file: "3"
 
   # =========================
-  # Watchtower: auto-update containers
+  # Watchtower: auto-update containers（High 1/2: API token 與 SMTP 密碼改由 Docker Secrets）
   # =========================
   watchtower:
-    image: containrrr/watchtower:latest
+    image: containrrr/watchtower:latest@sha256:6dd50763bbd632a83cb154d5451700530d1e44200b268a4e9488fefdfcf2b038
     container_name: ipig-watchtower
+    secrets:
+      - watchtower_api_token
+      - watchtower_smtp_password
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${HOME}/.docker/config.json:/config.json:ro
+      - ./scripts/watchtower-entrypoint.sh:/entrypoint.sh:ro
     environment:
       WATCHTOWER_LABEL_ENABLE: "true"
       WATCHTOWER_POLL_INTERVAL: 30
       WATCHTOWER_CLEANUP: "true"
       WATCHTOWER_ROLLING_RESTART: "true"
-      WATCHTOWER_HTTP_API_TOKEN: ${WATCHTOWER_API_TOKEN:-}
       WATCHTOWER_HTTP_API_UPDATE: "true"
       WATCHTOWER_HTTP_API_METRICS: "true"
       WATCHTOWER_NOTIFICATIONS: "email"
@@ -118,13 +132,9 @@ services:
       WATCHTOWER_NOTIFICATION_EMAIL_SERVER: ${SMTP_HOST:-}
       WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PORT: ${SMTP_PORT:-587}
       WATCHTOWER_NOTIFICATION_EMAIL_SERVER_USER: ${SMTP_USERNAME:-}
-      WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PASSWORD: ${SMTP_PASSWORD:-}
       WATCHTOWER_NOTIFICATION_EMAIL_DELAY: 2
     ports:
       - "127.0.0.1:8090:8080"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ${HOME}/.docker/config.json:/config.json:ro
     deploy:
       resources:
         limits:
@@ -148,3 +158,7 @@ secrets:
     file: ./secrets/db_password.txt
   smtp_password:
     file: ./secrets/smtp_password.txt
+  watchtower_api_token:
+    file: ./secrets/watchtower_api_token.txt
+  watchtower_smtp_password:
+    file: ./secrets/watchtower_smtp_password.txt

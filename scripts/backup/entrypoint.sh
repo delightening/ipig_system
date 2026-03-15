@@ -15,7 +15,7 @@ echo "   異地: ${RSYNC_TARGET:-（未設定）}"
 echo ""
 
 # 建立 crontab：將所有環境變數傳入 cron job
-env | grep -E '^(POSTGRES_|PGPASSWORD|PGHOST|PGPORT|BACKUP_|RSYNC_)' > /etc/backup.env
+env | grep -E '^(POSTGRES_|PGPASSWORD|PGHOST|PGPORT|BACKUP_|RSYNC_|POSTGRES_PASSWORD_FILE)' > /etc/backup.env
 
 # 產生 crontab 設定
 echo "${SCHEDULE} . /etc/backup.env && /usr/local/bin/pg_backup.sh >> /var/log/backup.log 2>&1" > /etc/crontabs/root

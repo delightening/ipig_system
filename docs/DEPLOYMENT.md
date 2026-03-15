@@ -89,7 +89,7 @@ docker compose logs api --tail 20
 
 ### 3.1 資料庫備份
 
-備份由 `db-backup` 容器自動執行（預設每日凌晨 2:00）。
+備份由 `db-backup` 容器自動執行（預設每日凌晨 2:00）。使用 **prod overlay** 時，DB 密碼改由 Docker Secret `db_password` 提供（`POSTGRES_PASSWORD_FILE`），詳見 [scripts/backup/BACKUP.md](scripts/backup/BACKUP.md)。
 
 ```bash
 # 查看備份日誌
@@ -102,7 +102,7 @@ docker compose exec db-backup /usr/local/bin/pg_backup.sh
 docker compose exec db-backup ls -lah /backups/
 ```
 
-**GPG 加密備份（選配）：**
+**GPG 加密備份**：使用 **prod overlay** 時為**強制**（未設定 `BACKUP_GPG_RECIPIENT` 時備份腳本會 exit 1）。開發/測試為選配。
 
 ```bash
 # 1. 匯入 GPG 公鑰到備份容器
@@ -278,6 +278,8 @@ bash scripts/deploy/setup-server.sh
 4. 拉取映像並啟動服務
 
 ### 7.3 正式環境啟動
+
+使用 **prod overlay** 時，前端 web 服務埠綁定於 **127.0.0.1**（僅本機存取），對外請透過 Nginx、Caddy 或 Cloudflare Tunnel 等反向代理提供服務。
 
 ```bash
 # 正式環境（使用 GHCR 映像 + Watchtower）

@@ -180,6 +180,19 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-15 Code Review 修復與待辦整合（依據 2026_March15_code_review_1.md）
+- ✅ **文件**：README 新增「已知限制／開發模式注意事項」（Critical 1/2 擱置）；TODO 新增 R9 審查—已知漏洞擱置（R9-C1/C2）與 R10 程式碼審查 Medium/Low（20 項）。
+- ✅ **Critical 3**：生產 overlay 綁定 web port 至 127.0.0.1；COMPOSE/DEPLOYMENT 註明開發用預設、生產用 prod。
+- ✅ **Critical 4**：Grafana 密碼無預設值，.env.example 與 COMPOSE 註明必填。
+- ✅ **Critical 5**：`create_admin.rs` 改為僅接受 `ADMIN_INITIAL_PASSWORD`，未設定則 error 退出。
+- ✅ **High 1/2**：Watchtower API token 與 SMTP 密碼改由 Docker Secrets（`watchtower_api_token`、`watchtower_smtp_password`）+ `scripts/watchtower-entrypoint.sh` 讀取。
+- ✅ **High 5**：db-backup 生產改用 `POSTGRES_PASSWORD_FILE` / secret `db_password`，`pg_backup.sh` 與 entrypoint 支援從檔讀密碼。
+- ✅ **High 4**：新增 migration `013_audit_integrity_trigger.sql`，`user_activity_logs` 僅允許 UPDATE 寫入 `integrity_hash`/`previous_hash`，禁止竄改日誌內容。
+- ✅ **High 6**：WAF 排除規則收窄，1003 改為依參數（content/body/description 等）排除 XSS，不整路徑關閉。
+- ✅ **High 7**：`pg_backup.sh` 支援 GPG 加密（BACKUP_GPG_RECIPIENT）；prod 設 `BACKUP_REQUIRE_ENCRYPTION=true` 強制加密。
+- ✅ **High 8**：主要 image 釘選 digest（postgres、prometheus、alertmanager、grafana、watchtower），新增 `docs/operations/IMAGE_DIGESTS.md`。
+- ✅ **High 3**：`file.rs` 新增 `validate_zip_entries_safe()`，DOCX/XLSX 上傳時驗證 ZIP 內無路徑穿越。
+
 ### 2026-03-15 R9 安全與品質修復（程式碼審查產出）
 - ✅ **R9-1 IDOR 漏洞修復 (Backend)**：`download_attachment` 與 `list_attachments` 新增 `check_attachment_permission()` 輔助函式，根據 `entity_type` 對照上傳端的 `require_permission!` 檢查權限（protocol→aup.protocol.edit、animal/pathology→animal.animal.edit、leave_request→本人或 hr.leave.view_all、未知→僅 Admin），解決原先任何已登入使用者可透過猜測 UUID 下載非自己附件的 IDOR 漏洞。
 - ✅ **R9-2 上傳 handler 去重 (Backend)**：抽取 `handle_upload()` 通用函式（處理 multipart 讀取、FileService::upload、save_attachment），6 個上傳 handler 簡化為 5–10 行。`upload_sacrifice_photo` 因獨特存表邏輯保留原寫法。`upload.rs` 從 606 行降至約 420 行（-31%）。

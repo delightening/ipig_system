@@ -1,6 +1,6 @@
 services:
   prometheus:
-    image: prom/prometheus:v2.51.0
+    image: prom/prometheus:v2.51.0@sha256:5ccad477d0057e62a7cd1981ffcc43785ac10c5a35522dc207466ff7e7ec845f
     container_name: ipig-prometheus
     volumes:
       - ./monitoring/prometheus:/etc/prometheus:ro
@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
 
   alertmanager:
-    image: prom/alertmanager:v0.27.0
+    image: prom/alertmanager:v0.27.0@sha256:e13b6ed5cb929eeaee733479dce55e10eb3bc2e9c4586c705a4e8da41e5eacf5
     container_name: ipig-alertmanager
     command:
       - "--config.file=/etc/alertmanager/alertmanager.yml"
@@ -34,12 +34,13 @@ services:
       - backend
     restart: unless-stopped
 
+  # Critical 4：GRAFANA_ADMIN_PASSWORD 必須在 .env 設定，無預設值
   grafana:
-    image: grafana/grafana:10.4.0
+    image: grafana/grafana:10.4.0@sha256:f9811e4e687ffecf1a43adb9b64096c50bc0d7a782f8608530f478b6542de7d5
     container_name: ipig-grafana
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
     volumes:
       - grafana_data:/var/lib/grafana
     ports:

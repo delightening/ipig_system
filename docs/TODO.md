@@ -227,6 +227,49 @@
 | R9-4 | **歡迎信安全改善** | `send_welcome_email` 改用密碼重設連結取代明文密碼 | 後端 | 🧠 Claude | [ ] |
 | R9-5 | **ERP/HR 整合測試覆蓋** | 補齊庫存流水帳、GRN 入庫、出勤打卡、附件上傳/下載等 E2E 測試 | 測試 | 🧠 Claude | [ ] |
 
+### R9 審查—已知漏洞擱置（開發階段擱置，上線前必做）
+
+| # | 項目 | 說明 | 狀態 |
+|---|------|------|------|
+| R9-C1 | **生產環境 WAF 改為 On** | `docker-compose.waf.yml` 目前 DetectionOnly，生產須改為 `On` | [ ] |
+| R9-C2 | **CI 密碼改 GitHub Secrets** | `.github/workflows/ci.yml` 中 JWT_SECRET、DEV_USER_PASSWORD、ADMIN_INITIAL_PASSWORD 改為 GitHub Secrets 並輪替 | [ ] |
+
+---
+
+## 🔒 R10 — 程式碼審查 Medium/Low（2026-03-15）
+
+> 依據 `docs/2026_March15_code_review_1.md`，Medium/Low 納入待辦追蹤。
+
+### Medium Severity
+
+| # | 審查# | 項目 | 位置/說明 | 狀態 |
+|---|-------|------|-----------|------|
+| R10-M1 | M1 | Rate limiter 改 Redis | `backend/src/middleware/rate_limiter.rs`，分散式部署時限流 | [ ] |
+| R10-M2 | M2 | N+1 修正 | `backend/src/handlers/animal/animal_core.rs:44-62`，條件推入 SQL WHERE | [ ] |
+| R10-M3 | M3 | 大檔案串流驗證 | `backend/src/services/file.rs:227+`，改 chunked 驗證 | [ ] |
+| R10-M4 | M4 | unwrap 精簡 | Backend 全域約 728 處，hot path 改為 ?/Result | [ ] |
+| R10-M5 | M5 | CSRF 強化 | `backend/src/middleware/csrf.rs`，token 可考慮綁定 session | [ ] |
+| R10-M6 | M6 | useUserManagement Zod | `frontend/src/pages/admin/hooks/useUserManagement.ts`，email/display name 驗證 | [ ] |
+| R10-M7 | M7 | file-upload MIME | `frontend/src/components/ui/file-upload.tsx`，驗證 MIME type | [ ] |
+| R10-M8 | M8 | Session timeout | 前端 6 小時偏長，可縮短或可配置 | [ ] |
+| R10-M9 | M9 | Alert 門檻 | `monitoring/prometheus/alert_rules.yml`，門檻收緊 | [ ] |
+| R10-M10 | M10 | Prometheus/Grafana 認證 | metrics/dashboard 加 authentication | [ ] |
+
+### Low Severity / Suggestions
+
+| # | 審查# | 項目 | 位置/說明 | 狀態 |
+|---|-------|------|-----------|------|
+| R10-L1 | L1 | auth handler 拆分 | `backend/src/handlers/auth.rs` 767 行 | [ ] |
+| R10-L2 | L2 | auth service 拆分 | `backend/src/services/auth.rs` 1,038 行 | [ ] |
+| R10-L3 | L3 | signature 拆分 | `backend/src/handlers/animal/signature.rs` 995 行 | [ ] |
+| R10-L4 | L4 | product service 拆分 | `backend/src/services/product.rs` 1,326 行 | [ ] |
+| R10-L5 | L5 | 外部 error tracking | Sentry 等 production 錯誤追蹤 | [ ] |
+| R10-L6 | L6 | Cookie consent 實際阻擋 | 阻擋 Google Fonts 等第三方請求 | [ ] |
+| R10-L7 | L7 | 密碼複雜度 | 前端強制複雜度規則 | [ ] |
+| R10-L8 | L8 | Watchtower 輪詢間隔 | `docker-compose.prod.yml:109` 建議 3600+ 秒 | [ ] |
+| R10-L9 | L9 | login_events 複合索引 | DB migrations | [ ] |
+| R10-L10 | L10 | JSONB schema validation | equipment_used, treatments, before_data, after_data | [ ] |
+
 ---
 
 ## 📊 待辦統計
@@ -243,8 +286,9 @@
 | 🟠 R6 第六輪改善 | 0 |
 | 🔒 R7 安全審視 | 0 |
 | 🔧 R8 代碼規範重構 | 0 |
-| 🔒 R9 安全與品質修復 | 2 |
-| **合計（未完成）** | **2** |
+| 🔒 R9 安全與品質修復 | 4 |
+| 🔒 R10 程式碼審查 Medium/Low | 20 |
+| **合計（未完成）** | **24** |
 
 ---
 
