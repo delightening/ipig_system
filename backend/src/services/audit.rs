@@ -574,6 +574,7 @@ impl AuditService {
               AND ($3::uuid IS NULL OR user_id = $3)
               AND ($4::date IS NULL OR created_at::date >= $4)
               AND ($5::date IS NULL OR created_at::date <= $5)
+              AND ($6::text IS NULL OR (title ILIKE '%' || $6 || '%' OR description ILIKE '%' || $6 || '%'))
             "#,
         )
         .bind(&query.status)
@@ -581,6 +582,7 @@ impl AuditService {
         .bind(query.user_id)
         .bind(query.from)
         .bind(query.to)
+        .bind(&query.query)
         .fetch_one(pool)
         .await?;
 
@@ -592,6 +594,7 @@ impl AuditService {
               AND ($3::uuid IS NULL OR user_id = $3)
               AND ($4::date IS NULL OR created_at::date >= $4)
               AND ($5::date IS NULL OR created_at::date <= $5)
+              AND ($8::text IS NULL OR (title ILIKE '%' || $8 || '%' OR description ILIKE '%' || $8 || '%'))
             ORDER BY created_at DESC
             LIMIT $6 OFFSET $7
             "#,
@@ -603,6 +606,7 @@ impl AuditService {
         .bind(query.to)
         .bind(per_page)
         .bind(offset)
+        .bind(&query.query)
         .fetch_all(pool)
         .await?;
 
