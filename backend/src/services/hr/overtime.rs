@@ -40,7 +40,7 @@ pub(super) fn comp_time_hours_for_type(overtime_type: &str) -> f64 {
 /// 將開始與結束分鐘數換算為以 0.5 小時為單位的工作時數。
 pub(super) fn calc_hours_from_minutes(start_minutes: i64, end_minutes: i64) -> f64 {
     let raw = (end_minutes - start_minutes) as f64 / 60.0;
-    (raw * 2.0).round() / 2.0
+    (raw * 2.0).floor() / 2.0
 }
 
 impl HrService {

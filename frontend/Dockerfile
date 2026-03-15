@@ -22,9 +22,9 @@ RUN npm run build
 FROM georgjung/nginx-brotli:1.29.5-alpine
 
 # 版本釘選：nginx 1.29.5 + Alpine 3.23（2026-02-05 發佈）
-# 不執行 apk upgrade — 會與預編譯 Brotli 動態模組 ABI 不相容。
-# 安全更新透過升級基底映像版號處理，見 docs/security.md。
-RUN apk update && rm -rf /var/cache/apk/*
+# 僅精準升級 zlib（CVE-2026-22184），避免全系統 apk upgrade 導致 Brotli ABI 不相容。
+# 其他安全更新透過升級基底映像版號處理，見 docs/security.md。
+RUN apk update && apk upgrade zlib && rm -rf /var/cache/apk/*
 
 # 主配置：載入 Brotli 模組並 include conf.d
 COPY nginx-main.conf /etc/nginx/nginx.conf
