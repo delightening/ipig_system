@@ -89,10 +89,12 @@ pub async fn sse_security_alerts(
         }
     };
 
-    // 定期心跳（comment）避免 Cloudflare/代理 524：origin 逾時
+    // 定期心跳避免 Cloudflare/代理 524 idle timeout
+    // 使用非空 text 確保 proxy 認定為有效回應
+    // 間隔 15 秒，遠小於 Cloudflare Tunnel 100 秒 timeout
     Ok(Sse::new(stream).keep_alive(
         axum::response::sse::KeepAlive::new()
-            .interval(Duration::from_secs(30))
-            .text(""),
+            .interval(Duration::from_secs(15))
+            .text("heartbeat"),
     ))
 }

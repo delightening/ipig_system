@@ -217,6 +217,46 @@ impl AuditService {
         Ok(log_id)
     }
 
+    /// 單據審計專用函式（減少重複程式碼）
+    pub async fn audit_document(
+        pool: &PgPool,
+        user_id: Uuid,
+        event_type: &str, // DOC_CREATE, DOC_SUBMIT, etc.
+        doc_id: Uuid,
+        doc_no: &str,
+        doc_type: Option<&str>,
+        extra_data: Option<serde_json::Value>,
+    ) -> Result<()> {
+        let mut after_data = serde_json::json!({
+            "doc_no": doc_no,
+        });
+
+        if let Some(dt) = doc_type {
+            after_data["doc_type"] = serde_json::Value::String(dt.to_string());
+        }
+
+        if let Some(extra) = extra_data {
+            after_data["extra"] = extra;
+        }
+
+        Self::log_activity(
+            pool,
+            user_id,
+            "ERP",
+            event_type,
+            Some("document"),
+            Some(doc_id),
+            Some(doc_no),
+            None,
+            Some(after_data),
+            None,
+            None,
+        )
+        .await?;
+
+        Ok(())
+    }
+
     /// SEC-34: 計算 HMAC-SHA256 並更新日誌記錄
     #[allow(clippy::too_many_arguments)]
     async fn compute_and_store_hmac(
@@ -574,6 +614,7 @@ impl AuditService {
               AND ($3::uuid IS NULL OR user_id = $3)
               AND ($4::date IS NULL OR created_at::date >= $4)
               AND ($5::date IS NULL OR created_at::date <= $5)
+              AND ($6::text IS NULL OR (title ILIKE '%' || $6 || '%' OR description ILIKE '%' || $6 || '%'))
             "#,
         )
         .bind(&query.status)
@@ -581,6 +622,7 @@ impl AuditService {
         .bind(query.user_id)
         .bind(query.from)
         .bind(query.to)
+        .bind(&query.query)
         .fetch_one(pool)
         .await?;
 
@@ -592,6 +634,7 @@ impl AuditService {
               AND ($3::uuid IS NULL OR user_id = $3)
               AND ($4::date IS NULL OR created_at::date >= $4)
               AND ($5::date IS NULL OR created_at::date <= $5)
+              AND ($8::text IS NULL OR (title ILIKE '%' || $8 || '%' OR description ILIKE '%' || $8 || '%'))
             ORDER BY created_at DESC
             LIMIT $6 OFFSET $7
             "#,
@@ -603,6 +646,7 @@ impl AuditService {
         .bind(query.to)
         .bind(per_page)
         .bind(offset)
+        .bind(&query.query)
         .fetch_all(pool)
         .await?;
 

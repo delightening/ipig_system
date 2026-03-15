@@ -170,10 +170,11 @@ pub async fn delete_partner(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<Uuid>,
     Query(params): Query<DeleteQuery>,
+    Json(body): Json<DeleteQuery>,
 ) -> Result<Json<serde_json::Value>> {
     require_permission!(current_user, "erp.partner.delete");
     
-    let is_hard = params.hard.unwrap_or(false) && current_user.is_admin();
+    let is_hard = (params.hard.unwrap_or(false) || body.hard.unwrap_or(false)) && current_user.is_admin();
 
     if let Err(e) = AuditService::log_activity(
         &state.db, current_user.id, "ERP", if is_hard { "PARTNER_HARD_DELETE" } else { "PARTNER_DELETE" },

@@ -444,7 +444,7 @@ async fn import_from_zip(pool: &PgPool, bytes: &[u8], _mode: ImportMode) -> Resu
     }
 
     let source_version = manifest.meta.schema_version.as_deref().unwrap_or("010");
-    let target_version = crate::services::data_export::get_schema_version(pool).await;
+    let target_version = crate::services::data_export::get_schema_version(pool).await?;
 
     let fk_config = fetch_fk_config(pool).await?;
     let mut id_mapping: IdMapping = HashMap::new();
@@ -583,7 +583,7 @@ async fn import_from_json(pool: &PgPool, json_bytes: &[u8], _mode: ImportMode) -
     }
 
     let source_version = root.meta.schema_version.as_deref().unwrap_or("010");
-    let _target_version = crate::services::data_export::get_schema_version(pool).await;
+    let _target_version = crate::services::data_export::get_schema_version(pool).await?;
 
     let fk_config = fetch_fk_config(pool).await?;
     let mut id_mapping: IdMapping = HashMap::new();

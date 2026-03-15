@@ -36,6 +36,8 @@ BACKUP_ON_START=false
 docker compose up -d db-backup
 ```
 
+**生產環境**：使用 `docker-compose.prod.yml` 時，db-backup 改由 Docker Secret `db_password` 提供密碼（`POSTGRES_PASSWORD_FILE=/run/secrets/db_password`），腳本會優先從該檔讀取，密碼不會出現在 process listing。
+
 ## 手動備份
 
 ```bash

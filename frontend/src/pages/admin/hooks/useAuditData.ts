@@ -66,6 +66,20 @@ export function useAuditData() {
         initialTo: getDefaultDateTo,
     })
 
+    // 安全警報篩選狀態
+    const [alertSearch, setAlertSearch] = useState('')
+    const [alertStatusFilter, setAlertStatusFilter] = useState<string>('all')
+
+    const handleAlertSearchChange = (val: string) => {
+        setAlertSearch(val)
+        setAlertsPage(1)
+    }
+
+    const handleAlertStatusFilterChange = (val: string) => {
+        setAlertStatusFilter(val)
+        setAlertsPage(1)
+    }
+
     const handleDateFromChange = (val: string) => {
         setDateFrom(val)
         setActivitiesPage(1)
@@ -133,11 +147,15 @@ export function useAuditData() {
 
     // Security Alerts
     const { data: alerts, isLoading: loadingAlerts } = useQuery({
-        queryKey: ['audit-alerts', alertsPage],
+        queryKey: ['audit-alerts', alertsPage, alertSearch, alertStatusFilter],
         queryFn: async () => {
             const params = new URLSearchParams()
             params.set('page', String(alertsPage))
             params.set('per_page', String(PER_PAGE))
+            if (alertSearch) params.set('query', alertSearch)
+            if (alertStatusFilter !== 'all') {
+                params.set('status', alertStatusFilter)
+            }
             const res = await api.get<PaginatedResponse<SecurityAlert>>(`/admin/audit/alerts?${params}`)
             return res.data
         },
@@ -261,6 +279,10 @@ export function useAuditData() {
         alertSortConfig,
         handleAlertSort,
         resolveAlertMutation,
+        alertSearch,
+        handleAlertSearchChange,
+        alertStatusFilter,
+        handleAlertStatusFilterChange,
 
         // Actions
         refreshAll,

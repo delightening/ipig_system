@@ -1,8 +1,13 @@
 name: CI
 
 on:
-  #取消 #push: {}        # 任一分支 push 都觸發
-  #取消 #pull_request: {} # 任一分支的 PR 都觸發
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:  # 可於 GitHub Actions 頁面手動觸發
 
 env:

@@ -298,6 +298,13 @@ ipig_system/
 | GLP 合規 | 電子簽章、GLP 驗證文件、資料保留政策 |
 | 效能基準 | k6 壓力測試、正式基準報告 |
 
+### 已知限制／開發模式注意事項
+
+目前為**開發模式**，以下項目擱置，上線前需處理（詳見 [docs/TODO.md](docs/TODO.md)）：
+
+- **Critical 1**：WAF 目前為 DetectionOnly（僅記錄不阻擋），生產環境須改為 `On`（見 `docker-compose.waf.yml`）。
+- **Critical 2**：CI 測試用密碼（JWT_SECRET、DEV_USER_PASSWORD、ADMIN_INITIAL_PASSWORD）目前寫在 `.github/workflows/ci.yml`，生產前應改為 GitHub Secrets 並輪替。
+
 ---
 
 ## 授權

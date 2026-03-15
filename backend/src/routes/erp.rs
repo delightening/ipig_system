@@ -40,6 +40,10 @@ pub fn routes() -> Router<AppState> {
                 .post(handlers::storage_location::create_storage_location),
         )
         .route(
+            "/storage-locations/generate-code/:warehouse_id",
+            get(handlers::storage_location::generate_storage_location_code),
+        )
+        .route(
             "/storage-locations/:id",
             get(handlers::storage_location::get_storage_location)
                 .put(handlers::storage_location::update_storage_location)
@@ -62,10 +66,6 @@ pub fn routes() -> Router<AppState> {
             "/storage-locations/inventory/:item_id/transfer",
             post(handlers::storage_location::transfer_storage_location_inventory),
         )
-        .route(
-            "/storage-locations/generate-code/:warehouse_id",
-            get(handlers::storage_location::generate_storage_location_code),
-        )
         // Products
         .route(
             "/products",
@@ -84,6 +84,7 @@ pub fn routes() -> Router<AppState> {
             "/products/import/template",
             get(handlers::download_product_import_template),
         )
+        .route("/products/with-sku", post(handlers::create_product_with_sku))
         .route(
             "/products/:id",
             get(handlers::get_product)
@@ -109,6 +110,9 @@ pub fn routes() -> Router<AppState> {
             "/sku/categories/tree",
             get(handlers::get_sku_categories_tree),
         )
+        .route("/sku/generate", post(handlers::generate_sku))
+        .route("/sku/validate", post(handlers::validate_sku))
+        .route("/skus/preview", post(handlers::preview_sku))
         .route(
             "/sku/categories/:code",
             patch(handlers::update_sku_category).delete(handlers::delete_sku_category),
@@ -121,10 +125,6 @@ pub fn routes() -> Router<AppState> {
             "/sku/categories/:category_code/subcategories/:code",
             patch(handlers::update_sku_subcategory).delete(handlers::delete_sku_subcategory),
         )
-        .route("/sku/generate", post(handlers::generate_sku))
-        .route("/sku/validate", post(handlers::validate_sku))
-        .route("/skus/preview", post(handlers::preview_sku))
-        .route("/products/with-sku", post(handlers::create_product_with_sku))
         // Partners
         .route(
             "/partners",
