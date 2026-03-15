@@ -1,21 +1,20 @@
--- no-transaction
 -- ============================================
 -- Migration 012: 庫存查詢效能優化
 -- 日期: 2026-03-15
 -- 目的: 新增索引、重寫視圖、初始化 inventory_snapshots
 -- ============================================
 
--- 新增關鍵索引 (CONCURRENTLY 避免鎖表)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_stock_ledger_wh_prod_dir
+-- 新增關鍵索引（migration 中不使用 CONCURRENTLY，因為 SQLx 將 migration 包在交易中）
+CREATE INDEX IF NOT EXISTS idx_stock_ledger_wh_prod_dir
   ON stock_ledger(warehouse_id, product_id, direction);
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_stock_ledger_wh_prod_date
+CREATE INDEX IF NOT EXISTS idx_stock_ledger_wh_prod_date
   ON stock_ledger(warehouse_id, product_id, trx_date DESC);
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_stock_ledger_doc_id
+CREATE INDEX IF NOT EXISTS idx_stock_ledger_doc_id
   ON stock_ledger(doc_id);
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_document_lines_product_id
+CREATE INDEX IF NOT EXISTS idx_document_lines_product_id
   ON document_lines(product_id);
 
 -- 重寫低庫存警告視圖 (移除 CROSS JOIN,改用 inventory_snapshots)

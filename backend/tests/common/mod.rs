@@ -79,6 +79,13 @@ impl TestApp {
         let _ = erp_backend::startup::ensure_required_permissions(&pool).await;
         let _ = erp_backend::startup::ensure_all_role_permissions(&pool).await;
 
+        let gotenberg = erp_backend::GotenbergClient::new("http://localhost:3000");
+        let templates = erp_backend::TemplateService::new()
+            .unwrap_or_else(|_| {
+                // 測試環境中模板目錄可能不存在，使用空模板
+                erp_backend::TemplateService::empty()
+            });
+
         let state = erp_backend::AppState {
             db: pool.clone(),
             config,
@@ -86,6 +93,8 @@ impl TestApp {
             jwt_blacklist,
             alert_broadcaster,
             metrics_handle: None,
+            gotenberg,
+            templates,
         };
 
         let app = erp_backend::routes::api_routes(state);

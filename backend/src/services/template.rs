@@ -19,6 +19,13 @@ fn pad2(value: &tera::Value, _args: &HashMap<String, tera::Value>) -> tera::Resu
 }
 
 impl TemplateService {
+    /// 建立空的 TemplateService（測試用，不載入任何模板）
+    pub fn empty() -> Self {
+        Self {
+            tera: Tera::default(),
+        }
+    }
+
     /// 從 resources/templates/pdf/ 目錄載入所有模板
     pub fn new() -> Result<Self> {
         let template_dir = "resources/templates/pdf/**/*";
