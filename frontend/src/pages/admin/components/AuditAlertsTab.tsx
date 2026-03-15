@@ -19,6 +19,10 @@ import type { PaginatedResponse } from '@/types/common'
 import type { AlertSortConfig, AlertSortField } from '../types/audit'
 import { AuditPagination } from './AuditPagination'
 
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Search } from 'lucide-react'
+
 function getSeverityColor(severity: string) {
     switch (severity) {
         case 'critical':
@@ -53,6 +57,10 @@ interface AuditAlertsTabProps {
     onSort: (field: AlertSortField) => void
     onSelectAlert: (alert: SecurityAlert) => void
     resolveAlertMutation: UseMutationResult<AxiosResponse, Error, string>
+    search: string
+    onSearchChange: (search: string) => void
+    statusFilter: string
+    onStatusFilterChange: (status: string) => void
 }
 
 export function AuditAlertsTab({
@@ -65,12 +73,39 @@ export function AuditAlertsTab({
     onSort,
     onSelectAlert,
     resolveAlertMutation,
+    search,
+    onSearchChange,
+    statusFilter,
+    onStatusFilterChange,
 }: AuditAlertsTabProps) {
     return (
         <Card>
-            <CardHeader>
-                <CardTitle>安全警報</CardTitle>
-                <CardDescription>需要關注的安全事件</CardDescription>
+            <CardHeader className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+                <div>
+                    <CardTitle>安全警報</CardTitle>
+                    <CardDescription>需要關注的安全事件</CardDescription>
+                </div>
+                <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:space-x-2 sm:space-y-0">
+                    <div className="relative w-full sm:w-64">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="搜尋標題或描述..."
+                            className="pl-9"
+                            value={search}
+                            onChange={(e) => onSearchChange(e.target.value)}
+                        />
+                    </div>
+                    <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+                        <SelectTrigger className="w-full sm:w-32">
+                            <SelectValue placeholder="狀態篩選" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">全部狀態</SelectItem>
+                            <SelectItem value="open">待處理</SelectItem>
+                            <SelectItem value="resolved">已解決</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
             </CardHeader>
             <CardContent>
                 <Table>

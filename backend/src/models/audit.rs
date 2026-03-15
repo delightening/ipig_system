@@ -249,6 +249,7 @@ pub struct SecurityAlertQuery {
     pub status: Option<String>,
     pub severity: Option<String>,
     pub user_id: Option<Uuid>,
+    pub query: Option<String>,
     pub from: Option<NaiveDate>,
     pub to: Option<NaiveDate>,
     pub page: Option<i64>,

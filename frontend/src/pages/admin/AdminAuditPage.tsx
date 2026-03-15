@@ -115,6 +115,10 @@ export function AdminAuditPage() {
                         onSort={audit.handleAlertSort}
                         onSelectAlert={setSelectedAlert}
                         resolveAlertMutation={audit.resolveAlertMutation}
+                        search={audit.alertSearch}
+                        onSearchChange={audit.handleAlertSearchChange}
+                        statusFilter={audit.alertStatusFilter}
+                        onStatusFilterChange={audit.handleAlertStatusFilterChange}
                     />
                 </TabsContent>
             </Tabs>
