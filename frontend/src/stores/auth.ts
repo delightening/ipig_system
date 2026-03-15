@@ -207,7 +207,7 @@ export const useAuthStore = create<AuthState>()(
       name: 'auth-storage',
       partialize: (state) => ({
         user: state.user,
-        isAuthenticated: state.isAuthenticated,
+        // isAuthenticated 從 user !== null 派生，不需持久化
         isImpersonating: state.isImpersonating,
       }),
     }

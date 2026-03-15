@@ -43,15 +43,14 @@ pub async fn create_document(
     let document = DocumentService::create(&state.db, &req, current_user.id).await?;
 
     // 審計日誌
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ERP", "DOC_CREATE",
-        Some("document"), Some(document.document.id), Some(&document.document.doc_no),
+    if let Err(e) = AuditService::audit_document(
+        &state.db,
+        current_user.id,
+        "DOC_CREATE",
+        document.document.id,
+        &document.document.doc_no,
+        Some(&format!("{:?}", document.document.doc_type)),
         None,
-        Some(serde_json::json!({
-            "doc_no": document.document.doc_no,
-            "doc_type": format!("{:?}", document.document.doc_type),
-        })),
-        None, None,
     ).await {
         tracing::error!("寫入審計日誌失敗 (DOC_CREATE): {}", e);
     }
@@ -82,18 +81,6 @@ pub async fn list_documents(
     Ok(Json(documents))
 }
 
-/// 檢查文件存取權限（IDOR 防護）：建立者、倉庫管理員或管理員可存取
-fn check_document_access(current_user: &CurrentUser, created_by: Uuid) -> Result<()> {
-    let is_creator = current_user.id == created_by;
-    let is_warehouse_manager = current_user.roles.contains(&"WAREHOUSE_MANAGER".to_string());
-    let is_admin = current_user.is_admin();
-    if is_creator || is_warehouse_manager || is_admin {
-        Ok(())
-    } else {
-        Err(AppError::Forbidden("無權存取此文件".into()))
-    }
-}
-
 /// 取得單個文件
 #[utoipa::path(
     get,
@@ -116,7 +103,7 @@ pub async fn get_document(
     require_permission!(current_user, "erp.document.view");
 
     let document = DocumentService::get_by_id(&state.db, id).await?;
-    check_document_access(&current_user, document.document.created_by)?;
+    DocumentService::check_access(&current_user,document.document.created_by)?;
     Ok(Json(document))
 }
 
@@ -146,13 +133,17 @@ pub async fn update_document(
     req.validate()?;
 
     let existing = DocumentService::get_by_id(&state.db, id).await?;
-    check_document_access(&current_user, existing.document.created_by)?;
+    DocumentService::check_access(&current_user,existing.document.created_by)?;
     let document = DocumentService::update(&state.db, id, &req).await?;
 
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ERP", "DOC_UPDATE",
-        Some("document"), Some(id), Some(&document.document.doc_no),
-        None, None, None, None,
+    if let Err(e) = AuditService::audit_document(
+        &state.db,
+        current_user.id,
+        "DOC_UPDATE",
+        id,
+        &document.document.doc_no,
+        Some(&format!("{:?}", document.document.doc_type)),
+        None,
     ).await {
         tracing::error!("寫入審計日誌失敗 (DOC_UPDATE): {}", e);
     }
@@ -182,15 +173,17 @@ pub async fn submit_document(
     require_permission!(current_user, "erp.document.submit");
 
     let existing = DocumentService::get_by_id(&state.db, id).await?;
-    check_document_access(&current_user, existing.document.created_by)?;
+    DocumentService::check_access(&current_user,existing.document.created_by)?;
     let document = DocumentService::submit(&state.db, id).await?;
 
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ERP", "DOC_SUBMIT",
-        Some("document"), Some(id), Some(&document.document.doc_no),
-        None,
+    if let Err(e) = AuditService::audit_document(
+        &state.db,
+        current_user.id,
+        "DOC_SUBMIT",
+        id,
+        &document.document.doc_no,
+        Some(&format!("{:?}", document.document.doc_type)),
         Some(serde_json::json!({ "status": "submitted" })),
-        None, None,
     ).await {
         tracing::error!("寫入審計日誌失敗 (DOC_SUBMIT): {}", e);
     }
@@ -242,12 +235,14 @@ pub async fn approve_document(
     
     let document = DocumentService::approve(&state.db, id, current_user.id).await?;
 
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ERP", "DOC_APPROVE",
-        Some("document"), Some(id), Some(&document.document.doc_no),
-        None,
+    if let Err(e) = AuditService::audit_document(
+        &state.db,
+        current_user.id,
+        "DOC_APPROVE",
+        id,
+        &document.document.doc_no,
+        Some(&format!("{:?}", document.document.doc_type)),
         Some(serde_json::json!({ "status": "approved" })),
-        None, None,
     ).await {
         tracing::error!("寫入審計日誌失敗 (DOC_APPROVE): {}", e);
     }
@@ -299,12 +294,14 @@ pub async fn cancel_document(
     
     let document = DocumentService::cancel(&state.db, id).await?;
 
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ERP", "DOC_CANCEL",
-        Some("document"), Some(id), Some(&document.document.doc_no),
-        None,
+    if let Err(e) = AuditService::audit_document(
+        &state.db,
+        current_user.id,
+        "DOC_CANCEL",
+        id,
+        &document.document.doc_no,
+        Some(&format!("{:?}", document.document.doc_type)),
         Some(serde_json::json!({ "status": "cancelled" })),
-        None, None,
     ).await {
         tracing::error!("寫入審計日誌失敗 (DOC_CANCEL): {}", e);
     }
@@ -356,12 +353,16 @@ pub async fn delete_document(
     let is_hard = params.hard.unwrap_or(false) && current_user.is_admin();
 
     let existing = DocumentService::get_by_id(&state.db, id).await?;
-    check_document_access(&current_user, existing.document.created_by)?;
+    DocumentService::check_access(&current_user,existing.document.created_by)?;
 
-    if let Err(e) = AuditService::log_activity(
-        &state.db, current_user.id, "ERP", if is_hard { "DOC_HARD_DELETE" } else { "DOC_DELETE" },
-        Some("document"), Some(id), Some(&existing.document.doc_no),
-        None, None, None, None,
+    if let Err(e) = AuditService::audit_document(
+        &state.db,
+        current_user.id,
+        if is_hard { "DOC_HARD_DELETE" } else { "DOC_DELETE" },
+        id,
+        &existing.document.doc_no,
+        Some(&format!("{:?}", existing.document.doc_type)),
+        None,
     ).await {
         tracing::error!("寫入審計日誌失敗 (DOC_DELETE): {}", e);
     }

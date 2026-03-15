@@ -28,7 +28,11 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git ls-files:*)",
-      "Bash(cargo test --lib)"
+      "Bash(cargo test --lib)",
+      "Bash(ls:*)",
+      "Bash(git rm:*)",
+      "Bash(sqlx migrate run:*)",
+      "Bash(sqlx database reset --help:*)"
     ]
   }
 }

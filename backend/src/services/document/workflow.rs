@@ -3,6 +3,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
+    middleware::CurrentUser,
     models::{
         DocStatus, DocType, Document, DocumentLine, DocumentWithLines,
     },
@@ -13,6 +14,20 @@ use crate::{
 use super::DocumentService;
 
 impl DocumentService {
+    /// 檢查單據存取權限（IDOR 防護）
+    /// 建立者、倉庫管理員或管理員可存取
+    pub fn check_access(current_user: &CurrentUser, created_by: Uuid) -> Result<()> {
+        let is_creator = current_user.id == created_by;
+        let is_warehouse_manager = current_user.roles.contains(&"WAREHOUSE_MANAGER".to_string());
+        let is_admin = current_user.is_admin();
+
+        if is_creator || is_warehouse_manager || is_admin {
+            Ok(())
+        } else {
+            Err(AppError::Forbidden("無權存取此文件".into()))
+        }
+    }
+
     /// 送審
     /// 對於調整單(ADJ)，若報廢金額超過門檻，需要主管簽核
     pub async fn submit(pool: &PgPool, id: Uuid) -> Result<DocumentWithLines> {

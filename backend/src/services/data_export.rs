@@ -154,7 +154,7 @@ pub const EXPORT_TABLE_ORDER: &[&str] = &[
 const AUDIT_HEAVY_TABLES: &[&str] = &["user_activity_logs", "login_events"];
 
 /// 從 _sqlx_migrations 讀取最新 schema 版本，格式為 "001".."010"
-pub async fn get_schema_version(pool: &PgPool) -> String {
+pub async fn get_schema_version(pool: &PgPool) -> Result<String> {
     let row: Option<(i64,)> = sqlx::query_as(
         "SELECT COALESCE(MAX(version), 0)::bigint FROM _sqlx_migrations WHERE success = true",
     )
@@ -163,8 +163,8 @@ pub async fn get_schema_version(pool: &PgPool) -> String {
     .ok()
     .flatten();
     match row {
-        Some((v,)) if v > 0 => format!("{:03}", v),
-        _ => "010".to_string(),
+        Some((v,)) if v > 0 => Ok(format!("{:03}", v)),
+        _ => Err(AppError::Internal("No migration records found".into())),
     }
 }
 
@@ -177,7 +177,7 @@ pub async fn export_full_database(pool: &PgPool, params: ExportParams) -> Result
 }
 
 async fn export_as_single_json(pool: &PgPool, params: &ExportParams) -> Result<Vec<u8>> {
-    let schema_ver = get_schema_version(pool).await;
+    let schema_ver = get_schema_version(pool).await?;
     let mut tables = Vec::new();
 
     for &table in EXPORT_TABLE_ORDER {
@@ -200,7 +200,7 @@ async fn export_as_zip(pool: &PgPool, params: &ExportParams) -> Result<Vec<u8>> 
     use zip::write::FileOptions;
     use zip::ZipWriter;
 
-    let schema_ver = get_schema_version(pool).await;
+    let schema_ver = get_schema_version(pool).await?;
     let meta = meta_json(&schema_ver);
     let opts = FileOptions::default().unix_permissions(0o644);
 
@@ -279,6 +279,11 @@ struct TableExport {
 }
 
 async fn export_table(pool: &PgPool, table: &str) -> Result<TableExport> {
+    // 顯式白名單檢查
+    if !EXPORT_TABLE_ORDER.contains(&table) {
+        return Err(AppError::BadRequest(format!("Table '{}' is not in export whitelist", table)));
+    }
+
     // 取得欄位名稱
     let col_rows: Vec<(String,)> = sqlx::query_as(
         r#"
