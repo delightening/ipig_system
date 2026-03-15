@@ -215,6 +215,20 @@
 
 ---
 
+## 🔒 R9 — 安全與品質修復（2026-03-15，程式碼審查產出）
+
+> 依據程式碼審查發現的安全漏洞與品質問題。
+
+| # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
+|---|------|------|------|----------|------|
+| R9-1 | **IDOR 漏洞修復** | `download_attachment`/`list_attachments` 加入基於 entity_type 的資源級權限檢查，新增 `check_attachment_permission()` 輔助函式 | 後端 | 🧠 Claude | [x] |
+| R9-2 | **上傳 handler 去重** | 抽取通用 `handle_upload()` 函式，6 個上傳 handler 改用通用函式（upload_sacrifice_photo 因獨特存表邏輯保留），upload.rs 606→420 行 | 後端 | 🧠 Claude | [x] |
+| R9-3 | **DB 錯誤碼修正** | `error.rs` 中 23505→409 Conflict、23503/23502/23514→400 Bad Request（原統一回 500） | 後端 | 🧠 Claude | [x] |
+| R9-4 | **歡迎信安全改善** | `send_welcome_email` 改用密碼重設連結取代明文密碼 | 後端 | 🧠 Claude | [ ] |
+| R9-5 | **ERP/HR 整合測試覆蓋** | 補齊庫存流水帳、GRN 入庫、出勤打卡、附件上傳/下載等 E2E 測試 | 測試 | 🧠 Claude | [ ] |
+
+---
+
 ## 📊 待辦統計
 
 | 優先級 | 數量 (未完成) |
@@ -229,12 +243,14 @@
 | 🟠 R6 第六輪改善 | 0 |
 | 🔒 R7 安全審視 | 0 |
 | 🔧 R8 代碼規範重構 | 0 |
-| **合計（未完成）** | **0** |
+| 🔒 R9 安全與品質修復 | 2 |
+| **合計（未完成）** | **2** |
 
 ---
 
 ## 變更紀錄 (最新)
 
+| 2026-03-15 | 🧠 Claude：R9 安全與品質修復 — R9-1 IDOR 漏洞修復（`download_attachment`/`list_attachments` 加入 entity_type 權限檢查）、R9-2 上傳 handler 去重（抽取 `handle_upload()` 通用函式，606→420 行）、R9-3 DB 錯誤碼修正（23505→409、23503/23502/23514→400）。R9-4 歡迎信安全改善、R9-5 ERP/HR 整合測試待後續排程。 |
 | 2026-03-15 | 🧠 Claude：Git 歷史紀錄深度清理 — 徹底移除被誤傳進 Git 的 `.venv` 目錄（體積過大）與 `old_ipig.dump`（敏感資料）。使用 `git-filter-repo` 重寫倉庫歷史，移除檔案足跡並減小倉庫體積。更新 `.gitignore` 確保未來不再追蹤。 |
 | 2026-03-15 | 🧠 Claude：單據頁面標題顯示優化 — 修正「建立新的undefined」問題。當類型未定時顯示「建立新的單據」。優化「新增/編輯」描述文字。 |
 | 2026-03-14 | 🧠 Claude：SSE 安全警報 Cloudflare 524 Timeout 修復 — 後端 `sse.rs` 心跳從 `.text("")` 改為 `.comment("heartbeat")` 並間隔從 30s 縮至 15s；前端 `useSecurityAlerts.ts` 加入指數退避重連（5 次，2s→32s），連線成功重置計數器。 |
