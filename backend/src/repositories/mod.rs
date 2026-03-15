@@ -2,8 +2,10 @@
 // 依賴方向：Services → Repositories → Models
 
 pub mod equipment;
+pub mod notification;
 pub mod product;
 pub mod role;
 pub mod sku;
 pub mod user;
+pub mod user_preference;
 pub mod warehouse;

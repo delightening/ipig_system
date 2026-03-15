@@ -6,9 +6,10 @@ use axum::{
 use crate::error::AppError;
 use crate::middleware::CurrentUser;
 use crate::models::user_preferences::{
-    AllPreferencesResponse, PreferenceResponse, UpsertPreferenceRequest, UserPreference,
+    AllPreferencesResponse, PreferenceResponse, UpsertPreferenceRequest,
     default_nav_order, default_dashboard_widgets, get_dashboard_widgets_for_roles,
 };
+use crate::repositories::user_preference as user_preference_repo;
 use crate::AppState;
 
 /// 取得單一偏好設定
@@ -29,17 +30,9 @@ pub async fn get_preference(
     Extension(current_user): Extension<CurrentUser>,
     Path(key): Path<String>,
 ) -> Result<Json<PreferenceResponse>, AppError> {
-    let preference = sqlx::query_as::<_, UserPreference>(
-        r#"
-        SELECT id, user_id, preference_key, preference_value, created_at, updated_at
-        FROM user_preferences
-        WHERE user_id = $1 AND preference_key = $2
-        "#
-    )
-    .bind(current_user.id)
-    .bind(&key)
-    .fetch_optional(&state.db)
-    .await?;
+    let preference = user_preference_repo::find_preference_by_user_and_key(
+        &state.db, current_user.id, &key,
+    ).await?;
 
     match preference {
         Some(pref) => Ok(Json(PreferenceResponse::from(pref))),
@@ -75,20 +68,9 @@ pub async fn upsert_preference(
     Path(key): Path<String>,
     Json(payload): Json<UpsertPreferenceRequest>,
 ) -> Result<Json<PreferenceResponse>, AppError> {
-    let preference = sqlx::query_as::<_, UserPreference>(
-        r#"
-        INSERT INTO user_preferences (user_id, preference_key, preference_value)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (user_id, preference_key)
-        DO UPDATE SET preference_value = EXCLUDED.preference_value, updated_at = CURRENT_TIMESTAMP
-        RETURNING id, user_id, preference_key, preference_value, created_at, updated_at
-        "#
-    )
-    .bind(current_user.id)
-    .bind(&key)
-    .bind(&payload.value)
-    .fetch_one(&state.db)
-    .await?;
+    let preference = user_preference_repo::upsert_preference(
+        &state.db, current_user.id, &key, &payload.value,
+    ).await?;
 
     Ok(Json(PreferenceResponse::from(preference)))
 }
@@ -109,17 +91,9 @@ pub async fn get_all_preferences(
     State(state): State<AppState>,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<AllPreferencesResponse>, AppError> {
-    let preferences = sqlx::query_as::<_, UserPreference>(
-        r#"
-        SELECT id, user_id, preference_key, preference_value, created_at, updated_at
-        FROM user_preferences
-        WHERE user_id = $1
-        ORDER BY preference_key
-        "#
-    )
-    .bind(current_user.id)
-    .fetch_all(&state.db)
-    .await?;
+    let preferences = user_preference_repo::list_preferences_by_user(
+        &state.db, current_user.id,
+    ).await?;
 
     let response = AllPreferencesResponse {
         preferences: preferences.into_iter().map(PreferenceResponse::from).collect::<Vec<_>>(),
@@ -146,16 +120,9 @@ pub async fn delete_preference(
     Extension(current_user): Extension<CurrentUser>,
     Path(key): Path<String>,
 ) -> Result<Json<PreferenceResponse>, AppError> {
-    sqlx::query(
-        r#"
-        DELETE FROM user_preferences
-        WHERE user_id = $1 AND preference_key = $2
-        "#
-    )
-    .bind(current_user.id)
-    .bind(&key)
-    .execute(&state.db)
-    .await?;
+    user_preference_repo::delete_preference_by_user_and_key(
+        &state.db, current_user.id, &key,
+    ).await?;
 
     // 回傳預設值
     let default_value = get_default_value(&key);
