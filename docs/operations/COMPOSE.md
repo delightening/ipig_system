@@ -77,6 +77,8 @@ docker compose -f docker-compose.test.yml down
 
 ### 監控堆疊
 
+使用 monitoring overlay 前，**必須在 .env 設定 `GRAFANA_ADMIN_PASSWORD`**（無預設值，未設定將導致 Grafana 無法登入）。
+
 ```bash
 # 先啟動核心服務建立 network
 docker compose up -d

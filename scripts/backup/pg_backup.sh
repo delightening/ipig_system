@@ -11,10 +11,17 @@ RETENTION_DAYS="${RETENTION_DAYS:-30}"
 
 mkdir -p "$BACKUP_DIR"
 
+# High 5: 優先從 Docker Secret 檔讀取密碼，避免 PGPASSWORD 暴露於 process listing
+if [ -n "${POSTGRES_PASSWORD_FILE:-}" ] && [ -f "$POSTGRES_PASSWORD_FILE" ]; then
+  export PGPASSWORD=$(cat "$POSTGRES_PASSWORD_FILE")
+elif [ -n "${DB_PASSWORD:-}" ]; then
+  export PGPASSWORD="${DB_PASSWORD}"
+fi
+
 echo "[$(date -Iseconds)] Starting backup of ${DB_NAME}..."
 
 # Create compressed backup
-PGPASSWORD="${DB_PASSWORD:-}" pg_dump \
+pg_dump \
   -h "$DB_HOST" \
   -U "$DB_USER" \
   -Fc \
@@ -35,9 +42,28 @@ gunzip -c "$BACKUP_FILE" | pg_restore --list > /dev/null 2>&1 || {
   exit 1
 }
 
-# Generate SHA256 checksum
-sha256sum "$BACKUP_FILE" > "${BACKUP_FILE}.sha256"
-echo "Checksum: $(cat "${BACKUP_FILE}.sha256")"
+# High 7: 若設定 BACKUP_GPG_RECIPIENT 則加密備份；生產可強制要求加密
+if [ -n "${BACKUP_REQUIRE_ENCRYPTION:-}" ] && [ "${BACKUP_REQUIRE_ENCRYPTION}" = "true" ]; then
+  if [ -z "${BACKUP_GPG_RECIPIENT:-}" ]; then
+    echo "ERROR: Production backup requires BACKUP_GPG_RECIPIENT to be set."
+    exit 1
+  fi
+fi
+
+FINAL_FILE="$BACKUP_FILE"
+if [ -n "${BACKUP_GPG_RECIPIENT:-}" ]; then
+  echo "Encrypting backup with GPG for recipient: $BACKUP_GPG_RECIPIENT"
+  gpg --batch --yes --encrypt --recipient "$BACKUP_GPG_RECIPIENT" -o "${BACKUP_FILE}.gpg" "$BACKUP_FILE" || {
+    echo "ERROR: GPG encryption failed"
+    exit 1
+  }
+  rm -f "$BACKUP_FILE"
+  FINAL_FILE="${BACKUP_FILE}.gpg"
+fi
+
+# Generate SHA256 checksum for final file
+sha256sum "$FINAL_FILE" > "${FINAL_FILE}.sha256"
+echo "Checksum: $(cat "${FINAL_FILE}.sha256")"
 
 # Cleanup old backups（P1-R4-11：含 .sql.gz 與 .sql.gz.gpg）
 DELETED=0
@@ -45,6 +71,6 @@ DELETED=$((DELETED + $(find "$BACKUP_DIR" -name "ipig_*.sql.gz" -mtime +${RETENT
 DELETED=$((DELETED + $(find "$BACKUP_DIR" -name "ipig_*.sql.gz.gpg" -mtime +${RETENTION_DAYS} -delete -print | wc -l)))
 find "$BACKUP_DIR" -name "ipig_*.sha256" -mtime +${RETENTION_DAYS} -delete
 
-FILESIZE=$(du -h "$BACKUP_FILE" | cut -f1)
-echo "[$(date -Iseconds)] Backup complete: $BACKUP_FILE ($FILESIZE)"
+FILESIZE=$(du -h "$FINAL_FILE" | cut -f1)
+echo "[$(date -Iseconds)] Backup complete: $FINAL_FILE ($FILESIZE)"
 echo "  Retention: ${RETENTION_DAYS} days, cleaned up ${DELETED} old backups"
