@@ -57,7 +57,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
     if (!protocolId) return false
 
     try {
-      const response = await api.get(`/protocols/${protocolId}/export-pdf`, {
+      const response = await api.get(`/protocols/${protocolId}/export-pdf-v2`, {
         responseType: 'blob',
         _silentError: true,
       })

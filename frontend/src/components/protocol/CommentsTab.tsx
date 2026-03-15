@@ -59,6 +59,7 @@ export const CommentsTab = React.memo(function CommentsTab({
   const [replyContent, setReplyContent] = useState('')
   const [selectedCommentForReply, setSelectedCommentForReply] = useState<ReviewCommentResponse | null>(null)
   const [isExportingComments, setIsExportingComments] = useState(false)
+  const [isExportingResult, setIsExportingResult] = useState(false)
 
   const { data: versions } = useQuery({
     queryKey: ['protocol-versions', protocolId],
@@ -141,26 +142,54 @@ export const CommentsTab = React.memo(function CommentsTab({
   }
 
   const handleExportPDF = async () => {
-    if (!reportRef.current || isExportingComments) return
+    if (isExportingComments) return
     try {
       setIsExportingComments(true)
-      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-        import('html2canvas'),
-        import('jspdf'),
-      ])
-      const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true })
-      const imgData = canvas.toDataURL('image/png')
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      const imgWidth = 210
-      const imgHeight = (canvas.height * imgWidth) / canvas.width
-      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight)
-      pdf.save(`審查意見回覆表_${protocol.protocol_no || protocolId}.pdf`)
+      const response = await api.get(`/protocols/${protocolId}/export-review-comments`, {
+        responseType: 'blob',
+      })
+      const blob = new Blob([response.data], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `審查意見回覆表_${protocol.protocol_no || protocolId}.pdf`
+      a.style.display = 'none'
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
       toast({ title: t('common.exportSuccess'), variant: 'default' })
     } catch (error) {
       logger.error('PDF export error:', error)
       toast({ title: t('common.exportFailed'), variant: 'destructive' })
     } finally {
       setIsExportingComments(false)
+    }
+  }
+
+  const handleExportReviewResult = async () => {
+    if (isExportingResult) return
+    try {
+      setIsExportingResult(true)
+      const response = await api.get(`/protocols/${protocolId}/export-review-result`, {
+        responseType: 'blob',
+      })
+      const blob = new Blob([response.data], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `審核結果_${protocol.protocol_no || protocolId}.pdf`
+      a.style.display = 'none'
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      toast({ title: t('common.exportSuccess'), variant: 'default' })
+    } catch (error) {
+      logger.error('Review result PDF export error:', error)
+      toast({ title: t('common.exportFailed'), variant: 'destructive' })
+    } finally {
+      setIsExportingResult(false)
     }
   }
 
@@ -173,6 +202,14 @@ export const CommentsTab = React.memo(function CommentsTab({
             <CardDescription>{t('protocols.detail.sections.commentsDesc')}</CardDescription>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={handleExportReviewResult}
+              disabled={isExportingResult || commentsLoading}
+            >
+              {isExportingResult ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+              審核結果 (PDF)
+            </Button>
             <Button
               variant="outline"
               onClick={handleExportPDF}

@@ -96,6 +96,9 @@ services:
       CLOCK_OFFICE_LATITUDE: ${CLOCK_OFFICE_LATITUDE:-}
       CLOCK_OFFICE_LONGITUDE: ${CLOCK_OFFICE_LONGITUDE:-}
       CLOCK_GPS_RADIUS_METERS: ${CLOCK_GPS_RADIUS_METERS:-200}
+
+      # Gotenberg PDF 服務
+      GOTENBERG_URL: ${GOTENBERG_URL:-http://gotenberg:3000}
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
     volumes:
@@ -164,6 +167,24 @@ services:
       - backend
     depends_on:
       - api
+
+  # =========================
+  # Gotenberg (PDF 生成服務)
+  # =========================
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: ipig-gotenberg
+    command:
+      - "gotenberg"
+      - "--chromium-disable-javascript=true"
+      - "--api-timeout=60s"
+    networks:
+      - backend
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
   # =========================
   # DB Backup (排程備份)

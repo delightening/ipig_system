@@ -39,6 +39,19 @@ pub fn routes() -> Router<AppState> {
             "/protocols/:id/export-pdf",
             get(handlers::export_protocol_pdf),
         )
+        // Gotenberg PDF 匯出
+        .route(
+            "/protocols/:id/export-pdf-v2",
+            get(handlers::export_protocol_pdf_v2),
+        )
+        .route(
+            "/protocols/:id/export-review-result",
+            get(handlers::export_review_result),
+        )
+        .route(
+            "/protocols/:id/export-review-comments",
+            get(handlers::export_review_comments),
+        )
         // Review
         .route(
             "/reviews/assignments",

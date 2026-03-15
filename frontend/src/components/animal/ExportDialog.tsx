@@ -73,8 +73,11 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
 
   const exportMutation = useMutation({
     mutationFn: async () => {
+      const pdfSuffix = format === 'pdf' ? '-pdf' : ''
       const endpoint =
-        type === 'single_animal' ? `/animals/${animalId}/export` : `/projects/${selectedProject}/export`
+        type === 'single_animal'
+          ? `/animals/${animalId}/export${pdfSuffix}`
+          : `/projects/${selectedProject}/export${pdfSuffix}`
 
       const body = {
         format,

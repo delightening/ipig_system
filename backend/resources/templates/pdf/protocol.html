@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<style>
+@page {
+    size: A4;
+    margin: 15mm 20mm;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif;
+    font-size: 10pt;
+    line-height: 1.5;
+    color: #000;
+}
+
+.doc-title {
+    text-align: center;
+    font-size: 18pt;
+    font-weight: bold;
+    margin-bottom: 4mm;
+}
+
+.doc-subtitle {
+    text-align: center;
+    font-size: 14pt;
+    margin-bottom: 8mm;
+    word-break: break-word;
+}
+
+/* 區段標題 */
+.section-header {
+    font-size: 13pt;
+    font-weight: bold;
+    border-bottom: 2px solid #000;
+    padding-bottom: 1mm;
+    margin-bottom: 4mm;
+    margin-top: 6mm;
+}
+
+.subsection-header {
+    font-size: 11pt;
+    font-weight: bold;
+    margin-bottom: 2mm;
+    margin-top: 4mm;
+}
+
+/* key-value 欄位 */
+.field-row {
+    display: flex;
+    margin-bottom: 1.5mm;
+    line-height: 1.6;
+}
+
+.field-label {
+    font-weight: bold;
+    min-width: 100px;
+    flex-shrink: 0;
+}
+
+.field-value {
+    flex: 1;
+}
+
+/* 段落文字 */
+.paragraph {
+    margin-bottom: 3mm;
+    text-align: justify;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* 表格 */
+table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 4mm;
+    page-break-inside: auto;
+}
+
+table.data-table thead { display: table-header-group; }
+
+table.data-table tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+}
+
+table.data-table th {
+    border: 1px solid #000;
+    padding: 2mm 3mm;
+    font-weight: bold;
+    background-color: #f0f0f0;
+    font-size: 10pt;
+    text-align: center;
+}
+
+table.data-table td {
+    border: 1px solid #000;
+    padding: 2mm 3mm;
+    font-size: 10pt;
+    vertical-align: top;
+}
+
+/* 子區塊（避免在中間斷頁） */
+.no-break { page-break-inside: avoid; }
+
+/* 分頁 */
+.page-break { page-break-before: always; }
+
+/* 版權 */
+.copyright {
+    text-align: center;
+    font-size: 8pt;
+    margin-top: 10mm;
+    padding-top: 4mm;
+    border-top: 1px solid #000;
+}
+</style>
+</head>
+<body>
+
+<!-- ========== 封面 ========== -->
+<div style="text-align: center; padding-top: 40mm;">
+    <div style="font-size: 14pt; margin-bottom: 8mm;">豬博士動物科技股份有限公司</div>
+    <div class="doc-title">AUP 動物試驗計畫書</div>
+    <div class="doc-subtitle">{{ protocol_title | default(value="") }}</div>
+    <div style="margin-top: 10mm; font-size: 11pt;">
+        <div class="field-row" style="justify-content: center;">
+            <span class="field-label" style="min-width: auto;">IACUC 編號：</span>
+            <span>{{ iacuc_no | default(value="尚未指派") }}</span>
+        </div>
+        <div class="field-row" style="justify-content: center;">
+            <span class="field-label" style="min-width: auto;">計畫主持人：</span>
+            <span>{{ pi_name | default(value="") }}</span>
+        </div>
+        {% if start_date and end_date %}
+        <div class="field-row" style="justify-content: center;">
+            <span class="field-label" style="min-width: auto;">預計試驗時程：</span>
+            <span>{{ start_date }} ~ {{ end_date }}</span>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ========== 第1節：研究資料 ========== -->
+<div class="page-break"></div>
+<div class="section-header">1. 研究資料</div>
+
+<div class="field-row">
+    <span class="field-label">GLP 屬性：</span>
+    <span class="field-value">{% if basic.is_glp | default(value=false) %}符合 GLP 規範{% else %}不符合 GLP 規範{% endif %}</span>
+</div>
+
+{% if basic.project_type_label %}
+<div class="field-row">
+    <span class="field-label">計畫類型：</span>
+    <span class="field-value">{{ basic.project_type_label }}</span>
+</div>
+{% endif %}
+
+{% if basic.project_category_label %}
+<div class="field-row">
+    <span class="field-label">計畫種類：</span>
+    <span class="field-value">{{ basic.project_category_label }}</span>
+</div>
+{% endif %}
+
+{% if start_date and end_date %}
+<div class="field-row">
+    <span class="field-label">預計試驗時程：</span>
+    <span class="field-value">{{ start_date }} ~ {{ end_date }}</span>
+</div>
+{% endif %}
+
+{% if basic.funding_sources_label %}
+<div class="field-row">
+    <span class="field-label">資金來源：</span>
+    <span class="field-value">{{ basic.funding_sources_label }}</span>
+</div>
+{% endif %}
+
+<!-- 計畫主持人 -->
+{% if basic.pi %}
+<div class="subsection-header">計畫主持人</div>
+<div class="no-break">
+    {% if basic.pi.name %}<div class="field-row"><span class="field-label">姓名：</span><span class="field-value">{{ basic.pi.name }}</span></div>{% endif %}
+    {% if basic.pi.phone %}<div class="field-row"><span class="field-label">電話：</span><span class="field-value">{{ basic.pi.phone }}{% if basic.pi.phone_ext %} #{{ basic.pi.phone_ext }}{% endif %}</span></div>{% endif %}
+    {% if basic.pi.email %}<div class="field-row"><span class="field-label">Email：</span><span class="field-value">{{ basic.pi.email }}</span></div>{% endif %}
+    {% if basic.pi.address %}<div class="field-row"><span class="field-label">地址：</span><span class="field-value">{{ basic.pi.address }}</span></div>{% endif %}
+</div>
+{% endif %}
+
+<!-- 委託單位 -->
+{% if basic.sponsor %}
+<div class="subsection-header">委託單位</div>
+<div class="no-break">
+    {% if basic.sponsor.name %}<div class="field-row"><span class="field-label">單位名稱：</span><span class="field-value">{{ basic.sponsor.name }}</span></div>{% endif %}
+    {% if basic.sponsor.contact_person %}<div class="field-row"><span class="field-label">聯絡人：</span><span class="field-value">{{ basic.sponsor.contact_person }}</span></div>{% endif %}
+    {% if basic.sponsor.contact_phone %}<div class="field-row"><span class="field-label">聯絡電話：</span><span class="field-value">{{ basic.sponsor.contact_phone }}{% if basic.sponsor.contact_phone_ext %} #{{ basic.sponsor.contact_phone_ext }}{% endif %}</span></div>{% endif %}
+    {% if basic.sponsor.contact_email %}<div class="field-row"><span class="field-label">聯絡 Email：</span><span class="field-value">{{ basic.sponsor.contact_email }}</span></div>{% endif %}
+</div>
+{% endif %}
+
+<!-- 試驗機構與設施 -->
+{% if basic.facility %}
+<div class="subsection-header">試驗機構與設施</div>
+<div class="no-break">
+    {% if basic.facility.title %}<div class="field-row"><span class="field-label">機構名稱：</span><span class="field-value">{{ basic.facility.title }}</span></div>{% endif %}
+    {% if basic.housing_location %}<div class="field-row"><span class="field-label">位置：</span><span class="field-value">{{ basic.housing_location }}</span></div>{% endif %}
+</div>
+{% endif %}
+
+<!-- ========== 第2節：研究目的 ========== -->
+{% if purpose %}
+<div class="page-break"></div>
+<div class="section-header">2. 研究目的</div>
+
+{% if purpose.significance %}
+<div class="subsection-header">2.1 研究之目的及重要性</div>
+<div class="paragraph">{{ purpose.significance }}</div>
+{% endif %}
+
+{% if purpose.replacement %}
+{% if purpose.replacement.rationale %}
+<div class="subsection-header">2.2 3Rs之替代原則</div>
+<div class="paragraph">{{ purpose.replacement.rationale }}</div>
+{% endif %}
+
+{% if purpose.replacement.alt_search %}
+<div class="subsection-header">2.2.2 確曾非動物性替代方案</div>
+{% if purpose.replacement.alt_search.platforms_label %}
+<div class="field-row"><span class="field-label">查詢平台：</span><span class="field-value">{{ purpose.replacement.alt_search.platforms_label }}</span></div>
+{% endif %}
+{% if purpose.replacement.alt_search.keywords %}
+<div class="field-row"><span class="field-label">關鍵字：</span><span class="field-value">{{ purpose.replacement.alt_search.keywords }}</span></div>
+{% endif %}
+{% if purpose.replacement.alt_search.conclusion %}
+<div class="paragraph">{{ purpose.replacement.alt_search.conclusion }}</div>
+{% endif %}
+{% endif %}
+{% endif %}
+
+{% if purpose.duplicate %}
+<div class="subsection-header">2.2.3 是否為重複他人試驗</div>
+<div class="field-row">
+    <span class="field-value">{% if purpose.duplicate.experiment | default(value=false) %}是{% else %}否{% endif %}</span>
+</div>
+{% if purpose.duplicate.experiment | default(value=false) and purpose.duplicate.justification %}
+<div class="paragraph">{{ purpose.duplicate.justification }}</div>
+{% endif %}
+{% endif %}
+
+{% if purpose.reduction and purpose.reduction.design %}
+<div class="subsection-header">2.3 減量原則</div>
+<div class="paragraph">{{ purpose.reduction.design }}</div>
+{% endif %}
+{% endif %}
+
+<!-- ========== 第3節：試驗物質與對照物質 ========== -->
+{% if items %}
+<div class="page-break"></div>
+<div class="section-header">3. 試驗物質與對照物質</div>
+
+{% if items.use_test_item | default(value=false) %}
+    {% if items.test_items %}
+    {% for item in items.test_items %}
+    <div class="subsection-header">試驗物質 #{{ loop.index }}</div>
+    <div class="no-break">
+        {% if item.name %}<div class="field-row"><span class="field-label">物質名稱：</span><span class="field-value">{{ item.name }}</span></div>{% endif %}
+        {% if item.form %}<div class="field-row"><span class="field-label">劑型：</span><span class="field-value">{{ item.form }}</span></div>{% endif %}
+        {% if item.purpose %}<div class="field-row"><span class="field-label">用途：</span><span class="field-value">{{ item.purpose }}</span></div>{% endif %}
+        {% if item.storage_conditions %}<div class="field-row"><span class="field-label">儲存條件：</span><span class="field-value">{{ item.storage_conditions }}</span></div>{% endif %}
+        <div class="field-row"><span class="field-label">無菌：</span><span class="field-value">{% if item.is_sterile | default(value=true) %}是{% else %}否{% endif %}</span></div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if items.control_items %}
+    {% for item in items.control_items %}
+    <div class="subsection-header">對照物質 #{{ loop.index }}</div>
+    <div class="no-break">
+        {% if item.name %}<div class="field-row"><span class="field-label">物質名稱：</span><span class="field-value">{{ item.name }}</span></div>{% endif %}
+        {% if item.purpose %}<div class="field-row"><span class="field-label">用途：</span><span class="field-value">{{ item.purpose }}</span></div>{% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+{% else %}
+<div class="paragraph">略</div>
+{% endif %}
+{% endif %}
+
+<!-- ========== 第4節：研究設計與方法 ========== -->
+{% if design %}
+<div class="page-break"></div>
+<div class="section-header">4. 研究設計與方法</div>
+
+{% if design.procedures %}
+<div class="subsection-header">動物試驗流程描述</div>
+<div class="paragraph">{{ design.procedures }}</div>
+{% endif %}
+
+{% if design.anesthesia %}
+<div class="field-row">
+    <span class="field-label">是否於麻醉下進行試驗：</span>
+    <span class="field-value">{% if design.anesthesia.is_under_anesthesia | default(value=false) %}是{% else %}否{% endif %}</span>
+</div>
+{% if design.anesthesia.anesthesia_type %}
+<div class="field-row"><span class="field-label">麻醉類型：</span><span class="field-value">{{ design.anesthesia.anesthesia_type }}</span></div>
+{% endif %}
+{% endif %}
+
+{% if design.pain %}
+{% if design.pain.category %}
+<div class="field-row"><span class="field-label">疼痛類別：</span><span class="field-value">{{ design.pain.category }}</span></div>
+{% endif %}
+{% if design.pain.management_plan %}
+<div class="subsection-header">疼痛管理方案</div>
+<div class="paragraph">{{ design.pain.management_plan }}</div>
+{% endif %}
+{% endif %}
+
+{% if design.endpoints %}
+{% if design.endpoints.experimental_endpoint %}
+<div class="subsection-header">試驗終點</div>
+<div class="paragraph">{{ design.endpoints.experimental_endpoint }}</div>
+{% endif %}
+{% if design.endpoints.humane_endpoint %}
+<div class="subsection-header">人道終點</div>
+<div class="paragraph">{{ design.endpoints.humane_endpoint }}</div>
+{% endif %}
+{% endif %}
+{% endif %}
+
+<!-- ========== 第5節：相關規範及參考文獻 ========== -->
+{% if guidelines %}
+<div class="page-break"></div>
+<div class="section-header">5. 相關規範及參考文獻</div>
+
+{% if guidelines.content %}
+<div class="subsection-header">相關規範說明</div>
+<div class="paragraph">{{ guidelines.content }}</div>
+{% endif %}
+
+{% if guidelines.references %}
+<div class="subsection-header">參考文獻</div>
+{% for ref in guidelines.references %}
+<div class="field-row"><span class="field-value">{{ loop.index }}. {{ ref.citation | default(value="") }}</span></div>
+{% endfor %}
+{% endif %}
+{% endif %}
+
+<!-- ========== 第6節：手術計畫書 ========== -->
+{% if surgery %}
+<div class="page-break"></div>
+<div class="section-header">6. 手術計畫書</div>
+
+{% if needs_surgery | default(value=false) %}
+    {% if surgery.surgery_type %}<div class="field-row"><span class="field-label">手術類型：</span><span class="field-value">{{ surgery.surgery_type }}</span></div>{% endif %}
+    {% if surgery.preop_preparation %}
+    <div class="subsection-header">術前準備</div>
+    <div class="paragraph">{{ surgery.preop_preparation }}</div>
+    {% endif %}
+    {% if surgery.surgery_description %}
+    <div class="subsection-header">手術描述</div>
+    <div class="paragraph">{{ surgery.surgery_description }}</div>
+    {% endif %}
+    {% if surgery.monitoring %}
+    <div class="subsection-header">監控方式</div>
+    <div class="paragraph">{{ surgery.monitoring }}</div>
+    {% endif %}
+    {% if surgery.postop_care %}
+    <div class="subsection-header">術後照護</div>
+    <div class="paragraph">{{ surgery.postop_care }}</div>
+    {% endif %}
+    {% if surgery.drugs %}
+    <div class="subsection-header">用藥計畫</div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>藥物名稱</th>
+                <th>劑量</th>
+                <th>給藥途徑</th>
+                <th>頻率</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for drug in surgery.drugs %}
+            <tr>
+                <td>{{ drug.drug_name | default(value="-") }}</td>
+                <td>{{ drug.dose | default(value="-") }}</td>
+                <td>{{ drug.route | default(value="-") }}</td>
+                <td>{{ drug.frequency | default(value="-") }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+{% else %}
+<div class="paragraph">略</div>
+{% endif %}
+{% endif %}
+
+<!-- ========== 第7節：實驗動物資料 ========== -->
+{% if animals %}
+<div class="page-break"></div>
+<div class="section-header">7. 實驗動物資料</div>
+
+{% if animals.animals %}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>物種</th>
+            <th>品系</th>
+            <th>性別</th>
+            <th>數量</th>
+            <th>月齡範圍</th>
+            <th>體重範圍</th>
+            <th>飼養位置</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for a in animals.animals %}
+        <tr>
+            <td style="text-align: center;">{{ loop.index }}</td>
+            <td>{{ a.species | default(value="-") }}</td>
+            <td>{{ a.strain | default(value="-") }}</td>
+            <td>{{ a.sex | default(value="-") }}</td>
+            <td style="text-align: center;">{{ a.number | default(value="-") }}</td>
+            <td>{% if a.age_unlimited | default(value=false) %}不限{% else %}{{ a.age_min | default(value="不限") }} ~ {{ a.age_max | default(value="不限") }}{% endif %}</td>
+            <td>{% if a.weight_unlimited | default(value=false) %}不限{% else %}{{ a.weight_min | default(value="不限") }}kg ~ {{ a.weight_max | default(value="不限") }}kg{% endif %}</td>
+            <td>{{ a.housing_location | default(value="-") }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+{% if animals.total_animals %}
+<div class="field-row"><span class="field-label">總動物數：</span><span class="field-value">{{ animals.total_animals }}</span></div>
+{% endif %}
+{% endif %}
+
+<!-- ========== 第8節：試驗人員資料 ========== -->
+{% if personnel and personnel | length > 0 %}
+<div class="page-break"></div>
+<div class="section-header">8. 試驗人員資料</div>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>姓名</th>
+            <th>職位</th>
+            <th>經驗(年)</th>
+            <th>工作內容</th>
+            <th>訓練/資格</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in personnel %}
+        <tr>
+            <td style="text-align: center;">{{ loop.index }}</td>
+            <td>{{ p.name | default(value="-") }}</td>
+            <td>{{ p.position | default(value="-") }}</td>
+            <td style="text-align: center;">{{ p.years_experience | default(value="-") }}</td>
+            <td>{{ p.roles_label | default(value="-") }}</td>
+            <td>{{ p.trainings_label | default(value="-") }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+<!-- ========== 第9節：附件 ========== -->
+{% if attachments and attachments | length > 0 %}
+<div class="page-break"></div>
+<div class="section-header">9. 附件</div>
+
+{% for att in attachments %}
+<div class="field-row"><span class="field-value">{{ loop.index }}. {{ att.file_name | default(value="") }}</span></div>
+{% endfor %}
+{% endif %}
+
+<!-- 版權 -->
+<div class="copyright">
+    版權為豬博士動物科技股份有限公司所有，禁止任何未經授權的使用<br>
+    All Rights Reserved &copy; DrPIG. Unauthorized use in any form is prohibited.
+</div>
+
+</body>
+</html>

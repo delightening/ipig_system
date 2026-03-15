@@ -293,6 +293,19 @@ pub fn routes() -> Router<AppState> {
             "/projects/:iacuc_no/export",
             post(handlers::export_project_medical_data),
         )
+        // Gotenberg PDF 匯出
+        .route(
+            "/animals/:id/export-pdf",
+            post(handlers::export_animal_medical_pdf),
+        )
+        .route(
+            "/projects/:iacuc_no/export-pdf",
+            post(handlers::export_project_medical_pdf),
+        )
+        .route(
+            "/animals/export-pen-report",
+            get(handlers::export_pen_report),
+        )
         // Import Batches
         .route(
             "/animals/import/batches",

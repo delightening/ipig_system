@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<style>
+@page {
+    size: A4;
+    margin: 12mm 15mm;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif;
+    font-size: 10pt;
+    line-height: 1.4;
+    color: #000;
+}
+
+.disclaimer {
+    text-align: right;
+    font-size: 8pt;
+    margin-bottom: 3mm;
+    color: #333;
+}
+
+.doc-title {
+    text-align: center;
+    font-size: 16pt;
+    font-weight: bold;
+    margin-bottom: 5mm;
+}
+
+.cover-info {
+    margin-bottom: 6mm;
+    font-size: 11pt;
+}
+
+.cover-info .row {
+    display: flex;
+    margin-bottom: 2mm;
+}
+
+.cover-info .label {
+    font-weight: bold;
+    width: 80px;
+}
+
+/* 基本資料表格 */
+table.info-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 5mm;
+}
+
+table.info-table td {
+    border: 1px solid #000;
+    padding: 2mm 3mm;
+    font-size: 10pt;
+}
+
+table.info-table td.label {
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+/* 區段標題 */
+.section-header {
+    font-weight: bold;
+    font-size: 10pt;
+    margin-top: 4mm;
+    margin-bottom: 2mm;
+}
+
+/* 資料表格 */
+table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 4mm;
+    page-break-inside: auto;
+}
+
+table.data-table thead {
+    display: table-header-group;
+}
+
+table.data-table tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+}
+
+table.data-table th {
+    border: 1px solid #000;
+    padding: 2mm 3mm;
+    font-weight: bold;
+    background-color: #f0f0f0;
+    font-size: 10pt;
+    text-align: center;
+}
+
+table.data-table td {
+    border: 1px solid #000;
+    padding: 2mm 3mm;
+    font-size: 10pt;
+    vertical-align: top;
+}
+
+/* 封面動物清單表格 */
+table.animal-list {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 6mm;
+}
+
+table.animal-list th {
+    border: 1px solid #000;
+    padding: 2mm 3mm;
+    font-weight: bold;
+    background-color: #f0f0f0;
+    font-size: 10pt;
+    text-align: center;
+}
+
+table.animal-list td {
+    border: 1px solid #000;
+    padding: 2mm 3mm;
+    font-size: 10pt;
+    text-align: center;
+}
+
+/* 浮水印 */
+.watermark {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0.06;
+    font-size: 80pt;
+    font-weight: bold;
+    color: #000;
+    pointer-events: none;
+    z-index: -1;
+}
+
+/* 分頁 */
+.page-break {
+    page-break-before: always;
+}
+</style>
+</head>
+<body>
+
+{% if show_watermark | default(value=false) %}
+<div class="watermark">DrPIG</div>
+{% endif %}
+
+<!-- ========== 封面 ========== -->
+<div class="disclaimer">本文件僅供參考，正式文件請洽豬博士動物科技股份有限公司</div>
+
+<div class="doc-title">計畫病歷匯出總表</div>
+
+<div class="cover-info">
+    <div class="row">
+        <span class="label">實驗代號：</span>
+        <span>{{ iacuc_no | default(value="-") }}</span>
+    </div>
+    <div class="row">
+        <span class="label">匯出日期：</span>
+        <span>{{ export_date | default(value="-") }}</span>
+    </div>
+    <div class="row">
+        <span class="label">動物總數：</span>
+        <span>{{ animals | length }} 隻</span>
+    </div>
+</div>
+
+<!-- 動物清單摘要 -->
+<div class="section-header"><u>動物清單</u></div>
+<table class="animal-list">
+    <thead>
+        <tr>
+            <th style="width: 8%;">#</th>
+            <th style="width: 22%;">耳號</th>
+            <th style="width: 25%;">品種</th>
+            <th style="width: 15%;">性別</th>
+            <th style="width: 30%;">進場日期</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in animals %}
+        <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ item.animal.ear_tag | default(value="-") }}</td>
+            <td>{{ item.animal.breed | default(value="-") }}</td>
+            <td>{% if item.animal.gender == "male" %}公{% elif item.animal.gender == "female" %}母{% else %}{{ item.animal.gender | default(value="-") }}{% endif %}</td>
+            <td>{{ item.animal.entry_date | default(value="-") }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- ========== 每隻動物獨立分頁 ========== -->
+{% for item in animals %}
+<div class="page-break"></div>
+
+<div class="disclaimer">本文件僅供參考，正式文件請洽豬博士動物科技股份有限公司</div>
+
+<div class="doc-title">實驗豬隻病歷總表</div>
+
+<!-- 基本資料 -->
+<table class="info-table">
+    <tr>
+        <td class="label">耳號：{{ item.animal.ear_tag | default(value="-") }}</td>
+        <td class="label">實驗代號：{{ iacuc_no | default(value="-") }}</td>
+        <td class="label">品種：{{ item.animal.breed | default(value="-") }}</td>
+        <td class="label">性別：{% if item.animal.gender == "male" %}公{% elif item.animal.gender == "female" %}母{% else %}{{ item.animal.gender | default(value="-") }}{% endif %}</td>
+    </tr>
+    <tr>
+        <td class="label">出生日期：{{ item.animal.birth_date | default(value="-") }}</td>
+        <td class="label">進場日期：{{ item.animal.entry_date | default(value="-") }}</td>
+        <td class="label">來源：{{ item.animal.source | default(value="-") }}</td>
+        <td class="label">進場體重　{{ item.animal.entry_weight | default(value="-") }}</td>
+    </tr>
+</table>
+
+<!-- 疫苗/驅蟲紀錄 -->
+<div class="section-header"><u>疫苗/驅蟲紀錄</u>(依日期排序)</div>
+<table class="data-table">
+    <thead>
+        <tr>
+            <th style="width: 25%;">施打日期</th>
+            <th style="width: 40%;">疫苗</th>
+            <th style="width: 35%;">驅蟲劑量</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for v in item.vaccinations %}
+        <tr>
+            <td>{{ v.administered_date | default(value="") }}</td>
+            <td>{{ v.vaccine | default(value="") }}</td>
+            <td>{{ v.deworming_dose | default(value="") }}</td>
+        </tr>
+        {% endfor %}
+        {% if item.vaccinations | length == 0 %}
+        <tr>
+            <td colspan="3" style="text-align: center; color: #999;">無紀錄</td>
+        </tr>
+        {% endif %}
+    </tbody>
+</table>
+
+<!-- 體重測量、手術紀錄、觀察試驗紀錄 -->
+<div class="section-header"><u>體重測量、手術紀錄、觀察試驗紀錄</u>(依日期排序)</div>
+<table class="data-table">
+    <thead>
+        <tr>
+            <th style="width: 18%;">日期</th>
+            <th style="width: 15%;">體重 (kg)</th>
+            <th>觀　察　記　錄</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in item.records %}
+        <tr>
+            <td>{{ r.date }}</td>
+            <td style="text-align: center;">{{ r.weight | default(value="") }}</td>
+            <td>{{ r.observation | default(value="") }}</td>
+        </tr>
+        {% endfor %}
+        {% if item.records | length == 0 %}
+        <tr>
+            <td colspan="3" style="text-align: center; color: #999;">無紀錄</td>
+        </tr>
+        {% endif %}
+    </tbody>
+</table>
+
+{% endfor %}
+
+</body>
+</html>

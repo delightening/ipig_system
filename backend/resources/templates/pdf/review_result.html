@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<style>
+@page {
+    size: A4;
+    margin: 15mm 20mm;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif;
+    font-size: 11pt;
+    line-height: 1.6;
+    color: #000;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 9pt;
+    margin-bottom: 10mm;
+}
+
+.main-box {
+    border: 2px solid #000;
+    padding: 8mm;
+}
+
+.company-title {
+    text-align: center;
+    font-size: 16pt;
+    margin-bottom: 4mm;
+}
+
+.doc-title {
+    text-align: center;
+    font-size: 18pt;
+    font-weight: bold;
+    margin-bottom: 8mm;
+}
+
+.result-section {
+    margin-bottom: 8mm;
+}
+
+.result-section h3 {
+    font-size: 13pt;
+    font-weight: bold;
+    margin-bottom: 4mm;
+}
+
+.option-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 3mm;
+    margin-left: 8mm;
+    font-size: 12pt;
+}
+
+.checkbox {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid #000;
+    margin-right: 6px;
+    text-align: center;
+    line-height: 14px;
+    font-size: 12px;
+    vertical-align: middle;
+}
+
+.checkbox.checked::after {
+    content: "✓";
+    font-weight: bold;
+}
+
+.comment-area {
+    margin-top: 4mm;
+    margin-left: 8mm;
+    margin-bottom: 8mm;
+}
+
+.comment-area .label {
+    margin-bottom: 2mm;
+}
+
+.comment-area .content {
+    min-height: 15mm;
+    padding: 2mm;
+}
+
+.signature-row {
+    display: flex;
+    justify-content: flex-start;
+    gap: 20mm;
+    margin-top: 8mm;
+    font-size: 11pt;
+}
+
+.signature-row .sig-item {
+    display: flex;
+    align-items: baseline;
+}
+
+.signature-line {
+    display: inline-block;
+    min-width: 80px;
+    border-bottom: 1px solid #000;
+    margin: 0 4px;
+    text-align: center;
+}
+
+.sig-date {
+    margin-left: 8mm;
+}
+
+.section-divider {
+    border-top: 1px solid #000;
+    margin: 6mm 0;
+}
+
+.copyright {
+    text-align: center;
+    font-size: 8pt;
+    margin-top: 10mm;
+}
+
+/* 多位委員時的分頁 */
+.page-break {
+    page-break-before: always;
+}
+</style>
+</head>
+<body>
+
+{% for reviewer in reviewers %}
+{% if not loop.first %}<div class="page-break"></div>{% endif %}
+
+<!-- 頁首 -->
+<div class="page-header">
+    <span>文件編號　AD-04-01-10B</span>
+    <span style="font-size: 0;"></span>
+    <span>頁次/總頁數　1 of 1</span>
+</div>
+
+<!-- 主表 -->
+<div class="main-box">
+    <div class="company-title">豬博士動物科技股份有限公司</div>
+    <div class="doc-title">審核結果</div>
+
+    <!-- 初審結果 -->
+    <div class="result-section">
+        <h3>初審結果</h3>
+
+        <div class="option-row">
+            <span class="checkbox {% if reviewer.initial_result == 'approved' %}checked{% endif %}"></span>
+            <span>照案通過</span>
+        </div>
+        <div class="option-row">
+            <span class="checkbox {% if reviewer.initial_result == 'revision_required' %}checked{% endif %}"></span>
+            <span>應改善後複審</span>
+        </div>
+        <div class="option-row">
+            <span class="checkbox {% if reviewer.initial_result == 'rejected' %}checked{% endif %}"></span>
+            <span>不通過</span>
+        </div>
+
+        <div class="comment-area">
+            <div class="label">需改善或不通過之審查意見：</div>
+            <div class="content">{{ reviewer.initial_comment | default(value="") }}</div>
+        </div>
+
+        <div class="signature-row">
+            <div class="sig-item">
+                審查委員簽章：<span class="signature-line">{{ reviewer.reviewer_name | default(value="") }}</span>
+            </div>
+            <div class="sig-item sig-date">
+                <span class="signature-line">{{ reviewer.initial_date | default(value="") }}</span>（簽名/日期）
+            </div>
+        </div>
+        <div class="signature-row" style="margin-top: 3mm;">
+            <div class="sig-item">
+                召集人簽章：<span class="signature-line">{{ convener_name | default(value="") }}</span>
+            </div>
+            <div class="sig-item sig-date">
+                <span class="signature-line">{{ reviewer.initial_convener_date | default(value=reviewer.initial_date) }}</span>（簽名/日期）
+            </div>
+        </div>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <!-- 複審結果 -->
+    <div class="result-section">
+        <h3>複審結果</h3>
+
+        <div class="option-row">
+            <span class="checkbox {% if reviewer.final_result == 'approved' %}checked{% endif %}"></span>
+            <span>照案通過</span>
+        </div>
+        <div class="option-row">
+            <span class="checkbox {% if reviewer.final_result == 'revision_required' %}checked{% endif %}"></span>
+            <span>應改善後複審</span>
+        </div>
+        <div class="option-row">
+            <span class="checkbox {% if reviewer.final_result == 'rejected' %}checked{% endif %}"></span>
+            <span>不通過</span>
+        </div>
+
+        <div class="comment-area">
+            <div class="label">需改善或不通過之審查意見：</div>
+            <div class="content">{{ reviewer.final_comment | default(value="") }}</div>
+        </div>
+
+        <div class="signature-row">
+            <div class="sig-item">
+                審查委員簽章：<span class="signature-line">{{ reviewer.reviewer_name | default(value="") }}</span>
+            </div>
+            <div class="sig-item sig-date">
+                <span class="signature-line">{{ reviewer.final_date | default(value="") }}</span>（簽名/日期）
+            </div>
+        </div>
+        <div class="signature-row" style="margin-top: 3mm;">
+            <div class="sig-item">
+                召集人簽章：<span class="signature-line">{{ convener_name | default(value="") }}</span>
+            </div>
+            <div class="sig-item sig-date">
+                <span class="signature-line">{{ reviewer.final_convener_date | default(value=reviewer.final_date) }}</span>（簽名/日期）
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 版權 -->
+<div class="copyright">
+    版權為豬博士動物科技股份有限公司所有，禁止任何未經授權的使用<br>
+    All Rights Reserved © DrPIG. Unauthorized use in any form is prohibited.
+</div>
+
+{% endfor %}
+
+</body>
+</html>

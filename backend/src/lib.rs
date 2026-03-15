@@ -16,6 +16,7 @@ pub use error::{AppError, Result};
 
 pub use middleware::JwtBlacklist;
 pub use services::GeoIpService;
+pub use services::{GotenbergClient, TemplateService};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -25,4 +26,6 @@ pub struct AppState {
     pub jwt_blacklist: JwtBlacklist,
     pub alert_broadcaster: handlers::sse::AlertBroadcaster,
     pub metrics_handle: Option<metrics_exporter_prometheus::PrometheusHandle>,
+    pub gotenberg: GotenbergClient,
+    pub templates: TemplateService,
 }

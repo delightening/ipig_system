@@ -4,7 +4,9 @@
 pub(crate) mod crud;
 pub(crate) mod review;
 pub(crate) mod export;
+pub(crate) mod pdf_export;
 
 pub use crud::*;
 pub use review::*;
 pub use export::*;
+pub use pdf_export::*;

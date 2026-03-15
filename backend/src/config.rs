@@ -96,6 +96,8 @@ pub struct Config {
     pub dev_user_password: Option<String>,
     /// 是否在 CI 環境中執行
     pub is_ci: bool,
+    /// Gotenberg PDF 服務 URL
+    pub gotenberg_url: String,
 }
 
 impl Config {
@@ -217,6 +219,8 @@ impl Config {
             test_user_password: std::env::var("TEST_USER_PASSWORD").ok(),
             dev_user_password: std::env::var("DEV_USER_PASSWORD").ok(),
             is_ci: std::env::var("CI").is_ok(),
+            gotenberg_url: std::env::var("GOTENBERG_URL")
+                .unwrap_or_else(|_| "http://localhost:3000".to_string()),
         })
     }
 
@@ -272,6 +276,7 @@ mod tests {
             test_user_password: None,
             dev_user_password: None,
             is_ci: false,
+            gotenberg_url: "http://localhost:3000".to_string(),
         }
     }
 
