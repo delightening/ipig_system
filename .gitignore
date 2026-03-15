@@ -9,6 +9,9 @@
 scripts/trivy_bin/
 **/build
 **/.next
+# === environments ===
+.venv/
+.venv*/
 
 # === secrets ===
 .env
