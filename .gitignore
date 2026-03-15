@@ -41,3 +41,11 @@ test-login.json
 
 *storybook.log
 storybook-static
+
+# Backend 開發/CI 產物
+backend/build_final.txt
+backend/build_output.txt
+backend/ci-fail.txt
+backend/error.log
+backend/error.txt
+backend/test_output.txt
