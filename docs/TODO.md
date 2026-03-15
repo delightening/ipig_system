@@ -235,6 +235,7 @@
 
 ## 變更紀錄 (最新)
 
+| 2026-03-15 | 🧠 Claude：Git 歷史紀錄深度清理 — 徹底移除被誤傳進 Git 的 `.venv` 目錄（體積過大）與 `old_ipig.dump`（敏感資料）。使用 `git-filter-repo` 重寫倉庫歷史，移除檔案足跡並減小倉庫體積。更新 `.gitignore` 確保未來不再追蹤。 |
 | 2026-03-15 | 🧠 Claude：單據頁面標題顯示優化 — 修正「建立新的undefined」問題。當類型未定時顯示「建立新的單據」。優化「新增/編輯」描述文字。 |
 | 2026-03-14 | 🧠 Claude：SSE 安全警報 Cloudflare 524 Timeout 修復 — 後端 `sse.rs` 心跳從 `.text("")` 改為 `.comment("heartbeat")` 並間隔從 30s 縮至 15s；前端 `useSecurityAlerts.ts` 加入指數退避重連（5 次，2s→32s），連線成功重置計數器。 |
 | 2026-03-14 | 🧠 Claude：儀表板 Widget 捲動體驗優化 — 統一所有 Dashboard Widget 的樣式，確保 `CardContent` 具備 `flex-1 overflow-auto` 捲動條，且 `Card` 標題固定不隨內容捲動。涵蓋「我的計畫」、「動物用藥」、「請假餘額」、「醫事評論」及所有 ERP 內嵌 Widget。 |

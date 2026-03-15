@@ -180,6 +180,13 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-15 Git 倉庫歷史紀錄深度清理
+- ✅ **歷史重寫 (DevOps)**：使用 `git-filter-repo` 徹底移除 `.venv/` 與 `old_ipig.dump` 在 Git 倉庫中的所有歷史紀錄，有效減小倉庫體積並防止敏感資料外洩。
+- ✅ **索引移除 (DevOps)**：執行 `git rm --cached` 移除目前分支對這些檔案的追蹤。
+- ✅ **配置更新 (DevOps)**：更新 `.gitignore` 確保 `.venv/`、`*.dump` 等檔案未來不再被納入版本控制。
+- ✅ **品質驗證**：確認目前 Git 追蹤與歷史紀錄中已無相關檔案足跡。
+- ⚠️ **注意**：此為破壞性變更（Rewrite History），同步時需執行強行推送 `git push --force`。
+
 ### 2026-03-15 Git 環境清理與 .gitignore 更新
 - ✅ **移除 .venv 追蹤 (DevOps)**：執行 `git rm -r --cached .venv` 將被誤推送到 Git 的 Python 虛擬環境從索引中移除（保留本地檔案）。
 - ✅ **配置 .gitignore (DevOps)**：在 `.gitignore` 中加入 `.venv/` 與 `.venv*/` 排除規則，防止未來再次被 Git 追蹤。
