@@ -169,19 +169,7 @@ pub async fn verify_2fa_login(
             &db, user_id, Some(&ip_clone), ua_clone.as_deref(),
         ).await;
 
-        if let Ok(count) = SessionManager::get_active_session_count(&db, user_id).await {
-            if count > max_sess {
-                let excess = count - max_sess;
-                let _ = sqlx::query(
-                    r#"UPDATE user_sessions SET is_active = false, ended_at = NOW(), ended_reason = 'session_limit'
-                       WHERE id IN (SELECT id FROM user_sessions WHERE user_id = $1 AND is_active = true ORDER BY started_at ASC LIMIT $2)"#,
-                )
-                .bind(user_id)
-                .bind(excess)
-                .execute(&db)
-                .await;
-            }
-        }
+        let _ = SessionManager::end_excess_sessions(&db, user_id, max_sess).await;
     });
 
     let access_cookie = build_set_cookie(

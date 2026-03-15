@@ -59,17 +59,15 @@ impl PdfService {
         }
     }
 
-    /// 生成 AUP 計畫書 PDF
-    pub fn generate_protocol_pdf(protocol: &ProtocolResponse) -> Result<Vec<u8>> {
-        // 建立 PDF 文件
+    /// 初始化 PDF 文件並載入字型
+    fn init_pdf_context(title: &str) -> Result<PdfContext> {
         let (doc, page1, layer1) = PdfDocument::new(
-            "AUP 動物試驗計畫書",
+            title,
             Mm(PAGE_WIDTH_MM),
             Mm(PAGE_HEIGHT_MM),
             "第1頁",
         );
 
-        // 載入中文字型
         let font_path = std::path::Path::new("resources/fonts/NotoSansSC-Regular.ttf");
         if !font_path.exists() {
             return Err(AppError::Internal(
@@ -85,9 +83,11 @@ impl PdfService {
             .map_err(|e| AppError::Internal(format!("Failed to load font: {}", e)))?;
 
         let initial_layer = doc.get_page(page1).get_layer(layer1);
-        let mut ctx = PdfContext::new(doc, font, initial_layer);
+        Ok(PdfContext::new(doc, font, initial_layer))
+    }
 
-        // ========== 標題 ==========
+    /// 渲染 PDF 標題區塊
+    fn render_protocol_title(ctx: &mut PdfContext, title: &str) {
         ctx.current_layer.use_text(
             "AUP 動物試驗計畫書",
             24.0,
@@ -97,556 +97,591 @@ impl PdfService {
         );
         ctx.y_position -= 12.0;
 
-        // 計畫標題
         ctx.current_layer.use_text(
-            &protocol.protocol.title,
+            title,
             14.0,
             Mm(MARGIN_MM),
             Mm(ctx.y_position),
             &ctx.font,
         );
         ctx.y_position -= SECTION_SPACING_MM * 2.0;
+    }
 
-        // ========== 第1節：研究資料 ==========
-        ctx.force_new_page();
-        ctx.render_section_header("1. 研究資料");
+    /// 渲染資金來源
+    fn render_funding_sources(
+        ctx: &mut PdfContext,
+        basic: &serde_json::Value,
+    ) {
+        let funding_sources = match basic.get("funding_sources").and_then(|v| v.as_array()) {
+            Some(fs) => fs,
+            None => return,
+        };
 
-        if let Some(ref content) = protocol.protocol.working_content {
-            if let Some(basic) = content.get("basic") {
-                let is_glp = basic
-                    .get("is_glp")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false);
-                ctx.render_label_value(
-                    "GLP 屬性",
-                    if is_glp {
-                        "符合 GLP 規範"
-                    } else {
-                        "不符合 GLP 規範"
-                    },
-                );
-
-                if let Some(project_type) = basic.get("project_type").and_then(|v| v.as_str()) {
-                    let other = basic.get("project_type_other").and_then(|v| v.as_str());
-                    ctx.render_label_value(
-                        "計畫類型",
-                        &Self::get_project_type_label(project_type, other),
-                    );
-                }
-                if let Some(project_category) =
-                    basic.get("project_category").and_then(|v| v.as_str())
-                {
-                    let other = basic.get("project_category_other").and_then(|v| v.as_str());
-                    ctx.render_label_value(
-                        "計畫種類",
-                        &Self::get_project_category_label(project_category, other),
-                    );
-                }
-                if let (Some(start), Some(end)) =
-                    (protocol.protocol.start_date, protocol.protocol.end_date)
-                {
-                    ctx.render_label_value("預計試驗時程", &format!("{} ~ {}", start, end));
-                }
-
-                if let Some(funding_sources) =
-                    basic.get("funding_sources").and_then(|v| v.as_array())
-                {
-                    let mut labels = Vec::new();
-                    for source in funding_sources {
-                        if let Some(s) = source.as_str() {
-                            let label = match s {
-                                "moa" => "農業部 Ministry of Agriculture",
-                                "mohw" => "衛生福利部 Ministry of Health and Welfare",
-                                "nstc" => "國家科學及技術委員會 NSTC",
-                                "moe" => "教育部 Ministry of Education",
-                                "env" => "環境部 Ministry of Environment",
-                                "other" => "其他 Other",
-                                _ => s,
-                            };
-                            labels.push(label);
-                        }
-                    }
-                    if !labels.is_empty() {
-                        let mut value = labels.join(", ");
-                        if funding_sources.iter().any(|s| s.as_str() == Some("other")) {
-                            if let Some(other) = basic.get("funding_other").and_then(|v| v.as_str())
-                            {
-                                if !other.is_empty() {
-                                    value = format!("{} ({})", value, other);
-                                }
-                            }
-                        }
-                        ctx.render_label_value("資金來源", &value);
-                    }
-                }
-
-                // 計畫主持人
-                if let Some(pi) = basic.get("pi") {
-                    ctx.add_section_spacing();
-                    ctx.render_subsection_header("計畫主持人");
-                    if let Some(name) = pi.get("name").and_then(|v| v.as_str()) {
-                        ctx.render_label_value("姓名", name);
-                    }
-                    if let Some(phone) = pi.get("phone").and_then(|v| v.as_str()) {
-                        let phone_val = match pi.get("phone_ext").and_then(|v| v.as_str()) {
-                            Some(ext) if !ext.is_empty() => format!("{} #{}", phone, ext),
-                            _ => phone.to_string(),
-                        };
-                        ctx.render_label_value("電話", &phone_val);
-                    }
-                    if let Some(email) = pi.get("email").and_then(|v| v.as_str()) {
-                        ctx.render_label_value("Email", email);
-                    }
-                    if let Some(address) = pi.get("address").and_then(|v| v.as_str()) {
-                        ctx.render_label_value("地址", address);
-                    }
-                }
-
-                // 委託單位
-                if let Some(sponsor) = basic.get("sponsor") {
-                    ctx.add_section_spacing();
-                    ctx.render_subsection_header("委託單位");
-                    if let Some(name) = sponsor.get("name").and_then(|v| v.as_str()) {
-                        ctx.render_label_value("單位名稱", name);
-                    }
-                    if let Some(contact_person) =
-                        sponsor.get("contact_person").and_then(|v| v.as_str())
-                    {
-                        ctx.render_label_value("聯絡人", contact_person);
-                    }
-                    if let Some(phone) = sponsor.get("contact_phone").and_then(|v| v.as_str()) {
-                        let phone_val =
-                            match sponsor.get("contact_phone_ext").and_then(|v| v.as_str()) {
-                                Some(ext) if !ext.is_empty() => format!("{} #{}", phone, ext),
-                                _ => phone.to_string(),
-                            };
-                        ctx.render_label_value("聯絡電話", &phone_val);
-                    }
-                    if let Some(email) = sponsor.get("contact_email").and_then(|v| v.as_str()) {
-                        ctx.render_label_value("聯絡 Email", email);
-                    }
-                }
-
-                // 試驗機構與設施
-                if let Some(facility) = basic.get("facility") {
-                    ctx.add_section_spacing();
-                    ctx.render_subsection_header("試驗機構與設施");
-                    if let Some(title) = facility.get("title").and_then(|v| v.as_str()) {
-                        ctx.render_label_value("機構名稱", title);
-                    }
-                }
-                if let Some(loc) = basic.get("housing_location").and_then(|v| v.as_str()) {
-                    ctx.render_label_value("位置", loc);
-                }
+        let mut labels = Vec::new();
+        for source in funding_sources {
+            if let Some(s) = source.as_str() {
+                let label = match s {
+                    "moa" => "農業部 Ministry of Agriculture",
+                    "mohw" => "衛生福利部 Ministry of Health and Welfare",
+                    "nstc" => "國家科學及技術委員會 NSTC",
+                    "moe" => "教育部 Ministry of Education",
+                    "env" => "環境部 Ministry of Environment",
+                    "other" => "其他 Other",
+                    _ => s,
+                };
+                labels.push(label);
             }
+        }
+        if labels.is_empty() {
+            return;
+        }
 
-            ctx.add_section_spacing();
-
-            // ========== 第2節：研究目的 ==========
-            if let Some(purpose) = content.get("purpose") {
-                ctx.force_new_page();
-                ctx.render_section_header("2. 研究目的");
-                if let Some(significance) = purpose.get("significance").and_then(|v| v.as_str()) {
-                    ctx.render_subsection_header("2.1 研究之目的及重要性");
-                    ctx.render_paragraph(significance);
-                }
-                if let Some(replacement) = purpose.get("replacement") {
-                    if let Some(rationale) = replacement.get("rationale").and_then(|v| v.as_str()) {
-                        ctx.render_subsection_header("2.2 3Rs之替代原則");
-                        ctx.render_paragraph(rationale);
-                    }
-                    if let Some(alt_search) = replacement.get("alt_search") {
-                        ctx.render_subsection_header("2.2.2 確曾非動物性替代方案");
-                        if let Some(platforms) =
-                            alt_search.get("platforms").and_then(|v| v.as_array())
-                        {
-                            let platforms_str: Vec<&str> =
-                                platforms.iter().filter_map(|p| p.as_str()).collect();
-                            if !platforms_str.is_empty() {
-                                ctx.render_label_value("查詢平台", &platforms_str.join(", "));
-                            }
-                        }
-                        if let Some(keywords) = alt_search.get("keywords").and_then(|v| v.as_str())
-                        {
-                            ctx.render_label_value("關鍵字", keywords);
-                        }
-                        if let Some(conclusion) =
-                            alt_search.get("conclusion").and_then(|v| v.as_str())
-                        {
-                            ctx.render_paragraph(conclusion);
-                        }
-                    }
-                }
-                if let Some(duplicate) = purpose.get("duplicate") {
-                    ctx.render_subsection_header("2.2.3 是否為重複他人試驗");
-                    let is_dup = duplicate
-                        .get("experiment")
-                        .and_then(|v| v.as_bool())
-                        .unwrap_or(false);
-                    ctx.render_label_value("", if is_dup { "是" } else { "否" });
-                    if is_dup {
-                        if let Some(just) = duplicate.get("justification").and_then(|v| v.as_str())
-                        {
-                            ctx.render_paragraph(just);
-                        }
-                    }
-                }
-                if let Some(reduction) = purpose.get("reduction") {
-                    if let Some(design) = reduction.get("design").and_then(|v| v.as_str()) {
-                        ctx.render_subsection_header("2.3 減量原則");
-                        ctx.render_paragraph(design);
-                    }
-                }
-                ctx.add_section_spacing();
-            }
-
-            // ========== 第3節：試驗物質 ==========
-            if let Some(items) = content.get("items") {
-                let use_test_item = items
-                    .get("use_test_item")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false);
-                ctx.force_new_page();
-                ctx.render_section_header("3. 試驗物質與對照物質");
-                if use_test_item {
-                    if let Some(test_items) = items.get("test_items").and_then(|v| v.as_array()) {
-                        for (i, item) in test_items.iter().enumerate() {
-                            ctx.render_subsection_header(&format!("試驗物質 #{}", i + 1));
-                            if let Some(name) = item.get("name").and_then(|v| v.as_str()) {
-                                ctx.render_label_value("物質名稱", name);
-                            }
-                            if let Some(form) = item.get("form").and_then(|v| v.as_str()) {
-                                ctx.render_label_value("劑型", form);
-                            }
-                            if let Some(purpose) = item.get("purpose").and_then(|v| v.as_str()) {
-                                ctx.render_label_value("用途", purpose);
-                            }
-                            if let Some(storage) =
-                                item.get("storage_conditions").and_then(|v| v.as_str())
-                            {
-                                ctx.render_label_value("儲存條件", storage);
-                            }
-                            let is_sterile = item
-                                .get("is_sterile")
-                                .and_then(|v| v.as_bool())
-                                .unwrap_or(true);
-                            ctx.render_label_value("無菌", if is_sterile { "是" } else { "否" });
-                        }
-                    }
-                    if let Some(ctrl_items) = items.get("control_items").and_then(|v| v.as_array())
-                    {
-                        for (i, item) in ctrl_items.iter().enumerate() {
-                            ctx.render_subsection_header(&format!("對照物質 #{}", i + 1));
-                            if let Some(name) = item.get("name").and_then(|v| v.as_str()) {
-                                ctx.render_label_value("物質名稱", name);
-                            }
-                            if let Some(purpose) = item.get("purpose").and_then(|v| v.as_str()) {
-                                ctx.render_label_value("用途", purpose);
-                            }
-                        }
-                    }
-                } else {
-                    ctx.render_paragraph("略");
-                }
-                ctx.add_section_spacing();
-            }
-
-            // ========== 第4節：研究設計 ==========
-            if let Some(design) = content.get("design") {
-                ctx.force_new_page();
-                ctx.render_section_header("4. 研究設計與方法");
-                if let Some(procedures) = design.get("procedures").and_then(|v| v.as_str()) {
-                    ctx.render_subsection_header("動物試驗流程描述");
-                    ctx.render_paragraph(procedures);
-                }
-                if let Some(anesthesia) = design.get("anesthesia") {
-                    let is_under = anesthesia
-                        .get("is_under_anesthesia")
-                        .and_then(|v| v.as_bool())
-                        .unwrap_or(false);
-                    ctx.render_label_value(
-                        "是否於麻醉下進行試驗",
-                        if is_under { "是" } else { "否" },
-                    );
-                    if let Some(a_type) = anesthesia.get("anesthesia_type").and_then(|v| v.as_str())
-                    {
-                        ctx.render_label_value("麻醉類型", a_type);
-                    }
-                }
-                if let Some(pain) = design.get("pain") {
-                    if let Some(category) = pain.get("category").and_then(|v| v.as_str()) {
-                        ctx.render_label_value("疼痛類別", category);
-                    }
-                    if let Some(mgmt) = pain.get("management_plan").and_then(|v| v.as_str()) {
-                        ctx.render_subsection_header("疼痛管理方案");
-                        ctx.render_paragraph(mgmt);
-                    }
-                }
-                if let Some(endpoints) = design.get("endpoints") {
-                    if let Some(exp_ep) = endpoints
-                        .get("experimental_endpoint")
-                        .and_then(|v| v.as_str())
-                    {
-                        ctx.render_subsection_header("試驗終點");
-                        ctx.render_paragraph(exp_ep);
-                    }
-                    if let Some(hum_ep) = endpoints.get("humane_endpoint").and_then(|v| v.as_str())
-                    {
-                        ctx.render_subsection_header("人道終點");
-                        ctx.render_paragraph(hum_ep);
-                    }
-                }
-                ctx.add_section_spacing();
-            }
-
-            // ========== 第5節：相關規範及參考文獻 ==========
-            if let Some(guide) = content.get("guidelines") {
-                ctx.force_new_page();
-                ctx.render_section_header("5. 相關規範及參考文獻");
-                if let Some(g_content) = guide.get("content").and_then(|v| v.as_str()) {
-                    ctx.render_subsection_header("相關規範說明");
-                    ctx.render_paragraph(g_content);
-                }
-                if let Some(refs) = guide.get("references").and_then(|v| v.as_array()) {
-                    if !refs.is_empty() {
-                        ctx.render_subsection_header("參考文獻");
-                        for (i, r) in refs.iter().enumerate() {
-                            if let Some(citation) = r.get("citation").and_then(|v| v.as_str()) {
-                                ctx.render_label_value("", &format!("{}. {}", i + 1, citation));
-                            }
-                        }
-                    }
-                }
-                ctx.add_section_spacing();
-            }
-
-            // ========== 第6節：手術計畫書 ==========
-            if let Some(surg) = content.get("surgery") {
-                let design_data = content.get("design");
-                let needs_surgery = design_data
-                    .and_then(|d| d.get("anesthesia"))
-                    .and_then(|a| {
-                        let is_under = a
-                            .get("is_under_anesthesia")
-                            .and_then(|v| v.as_bool())
-                            .unwrap_or(false);
-                        let a_type = a
-                            .get("anesthesia_type")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("");
-                        if is_under
-                            && (a_type == "survival_surgery" || a_type == "non_survival_surgery")
-                        {
-                            Some(true)
-                        } else {
-                            None
-                        }
-                    })
-                    .unwrap_or(false);
-                ctx.force_new_page();
-                ctx.render_section_header("6. 手術計畫書");
-                if needs_surgery {
-                    if let Some(st) = surg.get("surgery_type").and_then(|v| v.as_str()) {
-                        ctx.render_label_value("手術類型", st);
-                    }
-                    if let Some(preop) = surg.get("preop_preparation").and_then(|v| v.as_str()) {
-                        ctx.render_subsection_header("術前準備");
-                        ctx.render_paragraph(preop);
-                    }
-                    if let Some(desc) = surg.get("surgery_description").and_then(|v| v.as_str()) {
-                        ctx.render_subsection_header("手術描述");
-                        ctx.render_paragraph(desc);
-                    }
-                    if let Some(mon) = surg.get("monitoring").and_then(|v| v.as_str()) {
-                        ctx.render_subsection_header("監控方式");
-                        ctx.render_paragraph(mon);
-                    }
-                    if let Some(postop) = surg.get("postop_care").and_then(|v| v.as_str()) {
-                        ctx.render_subsection_header("術後照護");
-                        ctx.render_paragraph(postop);
-                    }
-                    if let Some(drugs) = surg.get("drugs").and_then(|v| v.as_array()) {
-                        if !drugs.is_empty() {
-                            ctx.render_subsection_header("用藥計畫");
-                            for drug in drugs.iter() {
-                                let dn = drug
-                                    .get("drug_name")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("-");
-                                let dose = drug.get("dose").and_then(|v| v.as_str()).unwrap_or("-");
-                                let route =
-                                    drug.get("route").and_then(|v| v.as_str()).unwrap_or("-");
-                                let freq = drug
-                                    .get("frequency")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("-");
-                                ctx.render_label_value(
-                                    "",
-                                    &format!("{}: 劑量{}, 途徑{}, 頻率{}", dn, dose, route, freq),
-                                );
-                            }
-                        }
-                    }
-                } else {
-                    ctx.render_paragraph("略");
-                }
-                ctx.add_section_spacing();
-            }
-
-            // ========== 第7節：實驗動物資料 ==========
-            if let Some(animals) = content.get("animals") {
-                ctx.force_new_page();
-                ctx.render_section_header("7. 實驗動物資料");
-                if let Some(animal_list) = animals.get("animals").and_then(|v| v.as_array()) {
-                    for (i, animal) in animal_list.iter().enumerate() {
-                        ctx.render_subsection_header(&format!("動物群組 #{}", i + 1));
-                        if let Some(sp) = animal.get("species").and_then(|v| v.as_str()) {
-                            ctx.render_label_value("物種", sp);
-                        }
-                        if let Some(st) = animal.get("strain").and_then(|v| v.as_str()) {
-                            ctx.render_label_value("品系", st);
-                        }
-                        if let Some(sx) = animal.get("sex").and_then(|v| v.as_str()) {
-                            ctx.render_label_value("性別", sx);
-                        }
-                        if let Some(num) = animal.get("number").and_then(|v| v.as_i64()) {
-                            ctx.render_label_value("數量", &num.to_string());
-                        }
-                        let age_unlim = animal
-                            .get("age_unlimited")
-                            .and_then(|v| v.as_bool())
-                            .unwrap_or(false);
-                        if age_unlim {
-                            ctx.render_label_value("月齡範圍", "不限");
-                        } else {
-                            let amin = animal
-                                .get("age_min")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("不限");
-                            let amax = animal
-                                .get("age_max")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("不限");
-                            ctx.render_label_value("月齡範圍", &format!("{} ~ {}", amin, amax));
-                        }
-                        let wt_unlim = animal
-                            .get("weight_unlimited")
-                            .and_then(|v| v.as_bool())
-                            .unwrap_or(false);
-                        if wt_unlim {
-                            ctx.render_label_value("體重範圍", "不限");
-                        } else {
-                            let wmin = animal
-                                .get("weight_min")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("不限");
-                            let wmax = animal
-                                .get("weight_max")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("不限");
-                            ctx.render_label_value("體重範圍", &format!("{}kg ~ {}kg", wmin, wmax));
-                        }
-                        if let Some(loc) = animal.get("housing_location").and_then(|v| v.as_str()) {
-                            ctx.render_label_value("飼養位置", loc);
-                        }
-                    }
-                }
-                if let Some(total) = animals.get("total_animals").and_then(|v| v.as_i64()) {
-                    ctx.render_label_value("總動物數", &total.to_string());
-                }
-                ctx.add_section_spacing();
-            }
-
-            // ========== 第8節：試驗人員資料 ==========
-            if let Some(personnel) = content.get("personnel").and_then(|v| v.as_array()) {
-                if !personnel.is_empty() {
-                    ctx.force_new_page();
-                    ctx.render_section_header("8. 試驗人員資料");
-                    for (i, person) in personnel.iter().enumerate() {
-                        ctx.render_subsection_header(&format!("人員 #{}", i + 1));
-                        if let Some(name) = person.get("name").and_then(|v| v.as_str()) {
-                            ctx.render_label_value("姓名", name);
-                        }
-                        if let Some(pos) = person.get("position").and_then(|v| v.as_str()) {
-                            ctx.render_label_value("職位", pos);
-                        }
-                        if let Some(yrs) = person.get("years_experience").and_then(|v| v.as_i64()) {
-                            ctx.render_label_value("參與動物試驗年數", &format!("{} 年", yrs));
-                        }
-                        if let Some(roles) = person.get("roles").and_then(|v| v.as_array()) {
-                            let rs: Vec<&str> = roles.iter().filter_map(|r| r.as_str()).collect();
-                            if !rs.is_empty() {
-                                ctx.render_label_value("工作內容", &rs.join(", "));
-                            }
-                        }
-                        if let Some(trainings) = person.get("trainings").and_then(|v| v.as_array())
-                        {
-                            let ts: Vec<&str> =
-                                trainings.iter().filter_map(|t| t.as_str()).collect();
-                            if !ts.is_empty() {
-                                ctx.render_label_value("訓練/資格", &ts.join(", "));
-                            }
-                        }
-                    }
-                    ctx.add_section_spacing();
-                }
-            }
-
-            // ========== 第9節：附件 ==========
-            if let Some(attachments) = content.get("attachments").and_then(|v| v.as_array()) {
-                if !attachments.is_empty() {
-                    ctx.force_new_page();
-                    ctx.render_section_header("9. 附件");
-                    for (i, att) in attachments.iter().enumerate() {
-                        if let Some(fname) = att.get("file_name").and_then(|v| v.as_str()) {
-                            ctx.render_label_value("", &format!("{}. {}", i + 1, fname));
-                        }
-                    }
-                    ctx.add_section_spacing();
+        let mut value = labels.join(", ");
+        if funding_sources.iter().any(|s| s.as_str() == Some("other")) {
+            if let Some(other) = basic.get("funding_other").and_then(|v| v.as_str()) {
+                if !other.is_empty() {
+                    value = format!("{} ({})", value, other);
                 }
             }
         }
+        ctx.render_label_value("資金來源", &value);
+    }
 
-        // ========== 頁尾 ==========
-        let footer_y = MARGIN_MM;
+    /// 渲染計畫主持人資訊
+    fn render_pi_info(ctx: &mut PdfContext, pi: &serde_json::Value) {
+        ctx.add_section_spacing();
+        ctx.render_subsection_header("計畫主持人");
+        if let Some(name) = pi.get("name").and_then(|v| v.as_str()) {
+            ctx.render_label_value("姓名", name);
+        }
+        if let Some(phone) = pi.get("phone").and_then(|v| v.as_str()) {
+            let phone_val = match pi.get("phone_ext").and_then(|v| v.as_str()) {
+                Some(ext) if !ext.is_empty() => format!("{} #{}", phone, ext),
+                _ => phone.to_string(),
+            };
+            ctx.render_label_value("電話", &phone_val);
+        }
+        if let Some(email) = pi.get("email").and_then(|v| v.as_str()) {
+            ctx.render_label_value("Email", email);
+        }
+        if let Some(address) = pi.get("address").and_then(|v| v.as_str()) {
+            ctx.render_label_value("地址", address);
+        }
+    }
+
+    /// 渲染委託單位資訊
+    fn render_sponsor_info(ctx: &mut PdfContext, sponsor: &serde_json::Value) {
+        ctx.add_section_spacing();
+        ctx.render_subsection_header("委託單位");
+        if let Some(name) = sponsor.get("name").and_then(|v| v.as_str()) {
+            ctx.render_label_value("單位名稱", name);
+        }
+        if let Some(contact_person) = sponsor.get("contact_person").and_then(|v| v.as_str()) {
+            ctx.render_label_value("聯絡人", contact_person);
+        }
+        if let Some(phone) = sponsor.get("contact_phone").and_then(|v| v.as_str()) {
+            let phone_val = match sponsor.get("contact_phone_ext").and_then(|v| v.as_str()) {
+                Some(ext) if !ext.is_empty() => format!("{} #{}", phone, ext),
+                _ => phone.to_string(),
+            };
+            ctx.render_label_value("聯絡電話", &phone_val);
+        }
+        if let Some(email) = sponsor.get("contact_email").and_then(|v| v.as_str()) {
+            ctx.render_label_value("聯絡 Email", email);
+        }
+    }
+
+    /// 渲染第1節：研究資料
+    fn render_section_1(ctx: &mut PdfContext, protocol: &ProtocolResponse, content: &serde_json::Value) {
+        let basic = match content.get("basic") {
+            Some(b) => b,
+            None => return,
+        };
+
+        ctx.force_new_page();
+        ctx.render_section_header("1. 研究資料");
+
+        let is_glp = basic
+            .get("is_glp")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        ctx.render_label_value(
+            "GLP 屬性",
+            if is_glp { "符合 GLP 規範" } else { "不符合 GLP 規範" },
+        );
+
+        if let Some(project_type) = basic.get("project_type").and_then(|v| v.as_str()) {
+            let other = basic.get("project_type_other").and_then(|v| v.as_str());
+            ctx.render_label_value("計畫類型", &Self::get_project_type_label(project_type, other));
+        }
+        if let Some(project_category) = basic.get("project_category").and_then(|v| v.as_str()) {
+            let other = basic.get("project_category_other").and_then(|v| v.as_str());
+            ctx.render_label_value("計畫種類", &Self::get_project_category_label(project_category, other));
+        }
+        if let (Some(start), Some(end)) = (protocol.protocol.start_date, protocol.protocol.end_date) {
+            ctx.render_label_value("預計試驗時程", &format!("{} ~ {}", start, end));
+        }
+
+        Self::render_funding_sources(ctx, basic);
+
+        if let Some(pi) = basic.get("pi") {
+            Self::render_pi_info(ctx, pi);
+        }
+        if let Some(sponsor) = basic.get("sponsor") {
+            Self::render_sponsor_info(ctx, sponsor);
+        }
+
+        // 試驗機構與設施
+        if let Some(facility) = basic.get("facility") {
+            ctx.add_section_spacing();
+            ctx.render_subsection_header("試驗機構與設施");
+            if let Some(title) = facility.get("title").and_then(|v| v.as_str()) {
+                ctx.render_label_value("機構名稱", title);
+            }
+        }
+        if let Some(loc) = basic.get("housing_location").and_then(|v| v.as_str()) {
+            ctx.render_label_value("位置", loc);
+        }
+
+        ctx.add_section_spacing();
+    }
+
+    /// 渲染替代方案搜尋資訊
+    fn render_alt_search(ctx: &mut PdfContext, alt_search: &serde_json::Value) {
+        ctx.render_subsection_header("2.2.2 確曾非動物性替代方案");
+        if let Some(platforms) = alt_search.get("platforms").and_then(|v| v.as_array()) {
+            let platforms_str: Vec<&str> = platforms.iter().filter_map(|p| p.as_str()).collect();
+            if !platforms_str.is_empty() {
+                ctx.render_label_value("查詢平台", &platforms_str.join(", "));
+            }
+        }
+        if let Some(keywords) = alt_search.get("keywords").and_then(|v| v.as_str()) {
+            ctx.render_label_value("關鍵字", keywords);
+        }
+        if let Some(conclusion) = alt_search.get("conclusion").and_then(|v| v.as_str()) {
+            ctx.render_paragraph(conclusion);
+        }
+    }
+
+    /// 渲染第2節：研究目的
+    fn render_section_2(ctx: &mut PdfContext, purpose: &serde_json::Value) {
+        ctx.force_new_page();
+        ctx.render_section_header("2. 研究目的");
+
+        if let Some(significance) = purpose.get("significance").and_then(|v| v.as_str()) {
+            ctx.render_subsection_header("2.1 研究之目的及重要性");
+            ctx.render_paragraph(significance);
+        }
+        if let Some(replacement) = purpose.get("replacement") {
+            if let Some(rationale) = replacement.get("rationale").and_then(|v| v.as_str()) {
+                ctx.render_subsection_header("2.2 3Rs之替代原則");
+                ctx.render_paragraph(rationale);
+            }
+            if let Some(alt_search) = replacement.get("alt_search") {
+                Self::render_alt_search(ctx, alt_search);
+            }
+        }
+        if let Some(duplicate) = purpose.get("duplicate") {
+            ctx.render_subsection_header("2.2.3 是否為重複他人試驗");
+            let is_dup = duplicate
+                .get("experiment")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            ctx.render_label_value("", if is_dup { "是" } else { "否" });
+            if is_dup {
+                if let Some(just) = duplicate.get("justification").and_then(|v| v.as_str()) {
+                    ctx.render_paragraph(just);
+                }
+            }
+        }
+        if let Some(reduction) = purpose.get("reduction") {
+            if let Some(design) = reduction.get("design").and_then(|v| v.as_str()) {
+                ctx.render_subsection_header("2.3 減量原則");
+                ctx.render_paragraph(design);
+            }
+        }
+        ctx.add_section_spacing();
+    }
+
+    /// 渲染第3節：試驗物質與對照物質
+    fn render_section_3(ctx: &mut PdfContext, items: &serde_json::Value) {
+        let use_test_item = items
+            .get("use_test_item")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        ctx.force_new_page();
+        ctx.render_section_header("3. 試驗物質與對照物質");
+
+        if !use_test_item {
+            ctx.render_paragraph("略");
+            ctx.add_section_spacing();
+            return;
+        }
+
+        if let Some(test_items) = items.get("test_items").and_then(|v| v.as_array()) {
+            for (i, item) in test_items.iter().enumerate() {
+                Self::render_test_item(ctx, i, item);
+            }
+        }
+        if let Some(ctrl_items) = items.get("control_items").and_then(|v| v.as_array()) {
+            for (i, item) in ctrl_items.iter().enumerate() {
+                ctx.render_subsection_header(&format!("對照物質 #{}", i + 1));
+                if let Some(name) = item.get("name").and_then(|v| v.as_str()) {
+                    ctx.render_label_value("物質名稱", name);
+                }
+                if let Some(purpose) = item.get("purpose").and_then(|v| v.as_str()) {
+                    ctx.render_label_value("用途", purpose);
+                }
+            }
+        }
+        ctx.add_section_spacing();
+    }
+
+    /// 渲染單一試驗物質
+    fn render_test_item(ctx: &mut PdfContext, index: usize, item: &serde_json::Value) {
+        ctx.render_subsection_header(&format!("試驗物質 #{}", index + 1));
+        if let Some(name) = item.get("name").and_then(|v| v.as_str()) {
+            ctx.render_label_value("物質名稱", name);
+        }
+        if let Some(form) = item.get("form").and_then(|v| v.as_str()) {
+            ctx.render_label_value("劑型", form);
+        }
+        if let Some(purpose) = item.get("purpose").and_then(|v| v.as_str()) {
+            ctx.render_label_value("用途", purpose);
+        }
+        if let Some(storage) = item.get("storage_conditions").and_then(|v| v.as_str()) {
+            ctx.render_label_value("儲存條件", storage);
+        }
+        let is_sterile = item
+            .get("is_sterile")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
+        ctx.render_label_value("無菌", if is_sterile { "是" } else { "否" });
+    }
+
+    /// 渲染第4節：研究設計與方法
+    fn render_section_4(ctx: &mut PdfContext, design: &serde_json::Value) {
+        ctx.force_new_page();
+        ctx.render_section_header("4. 研究設計與方法");
+
+        if let Some(procedures) = design.get("procedures").and_then(|v| v.as_str()) {
+            ctx.render_subsection_header("動物試驗流程描述");
+            ctx.render_paragraph(procedures);
+        }
+        if let Some(anesthesia) = design.get("anesthesia") {
+            let is_under = anesthesia
+                .get("is_under_anesthesia")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            ctx.render_label_value("是否於麻醉下進行試驗", if is_under { "是" } else { "否" });
+            if let Some(a_type) = anesthesia.get("anesthesia_type").and_then(|v| v.as_str()) {
+                ctx.render_label_value("麻醉類型", a_type);
+            }
+        }
+        if let Some(pain) = design.get("pain") {
+            if let Some(category) = pain.get("category").and_then(|v| v.as_str()) {
+                ctx.render_label_value("疼痛類別", category);
+            }
+            if let Some(mgmt) = pain.get("management_plan").and_then(|v| v.as_str()) {
+                ctx.render_subsection_header("疼痛管理方案");
+                ctx.render_paragraph(mgmt);
+            }
+        }
+        if let Some(endpoints) = design.get("endpoints") {
+            if let Some(exp_ep) = endpoints.get("experimental_endpoint").and_then(|v| v.as_str()) {
+                ctx.render_subsection_header("試驗終點");
+                ctx.render_paragraph(exp_ep);
+            }
+            if let Some(hum_ep) = endpoints.get("humane_endpoint").and_then(|v| v.as_str()) {
+                ctx.render_subsection_header("人道終點");
+                ctx.render_paragraph(hum_ep);
+            }
+        }
+        ctx.add_section_spacing();
+    }
+
+    /// 渲染第5節：相關規範及參考文獻
+    fn render_section_5(ctx: &mut PdfContext, guide: &serde_json::Value) {
+        ctx.force_new_page();
+        ctx.render_section_header("5. 相關規範及參考文獻");
+
+        if let Some(g_content) = guide.get("content").and_then(|v| v.as_str()) {
+            ctx.render_subsection_header("相關規範說明");
+            ctx.render_paragraph(g_content);
+        }
+        if let Some(refs) = guide.get("references").and_then(|v| v.as_array()) {
+            if !refs.is_empty() {
+                ctx.render_subsection_header("參考文獻");
+                for (i, r) in refs.iter().enumerate() {
+                    if let Some(citation) = r.get("citation").and_then(|v| v.as_str()) {
+                        ctx.render_label_value("", &format!("{}. {}", i + 1, citation));
+                    }
+                }
+            }
+        }
+        ctx.add_section_spacing();
+    }
+
+    /// 判斷是否需要手術計畫
+    fn needs_surgery(content: &serde_json::Value) -> bool {
+        content
+            .get("design")
+            .and_then(|d| d.get("anesthesia"))
+            .and_then(|a| {
+                let is_under = a
+                    .get("is_under_anesthesia")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                let a_type = a
+                    .get("anesthesia_type")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                if is_under && (a_type == "survival_surgery" || a_type == "non_survival_surgery") {
+                    Some(true)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(false)
+    }
+
+    /// 渲染手術用藥計畫
+    fn render_surgery_drugs(ctx: &mut PdfContext, drugs: &[serde_json::Value]) {
+        ctx.render_subsection_header("用藥計畫");
+        for drug in drugs.iter() {
+            let dn = drug.get("drug_name").and_then(|v| v.as_str()).unwrap_or("-");
+            let dose = drug.get("dose").and_then(|v| v.as_str()).unwrap_or("-");
+            let route = drug.get("route").and_then(|v| v.as_str()).unwrap_or("-");
+            let freq = drug.get("frequency").and_then(|v| v.as_str()).unwrap_or("-");
+            ctx.render_label_value(
+                "",
+                &format!("{}: 劑量{}, 途徑{}, 頻率{}", dn, dose, route, freq),
+            );
+        }
+    }
+
+    /// 渲染第6節：手術計畫書
+    fn render_section_6(ctx: &mut PdfContext, surg: &serde_json::Value, content: &serde_json::Value) {
+        let has_surgery = Self::needs_surgery(content);
+        ctx.force_new_page();
+        ctx.render_section_header("6. 手術計畫書");
+
+        if !has_surgery {
+            ctx.render_paragraph("略");
+            ctx.add_section_spacing();
+            return;
+        }
+
+        if let Some(st) = surg.get("surgery_type").and_then(|v| v.as_str()) {
+            ctx.render_label_value("手術類型", st);
+        }
+        if let Some(preop) = surg.get("preop_preparation").and_then(|v| v.as_str()) {
+            ctx.render_subsection_header("術前準備");
+            ctx.render_paragraph(preop);
+        }
+        if let Some(desc) = surg.get("surgery_description").and_then(|v| v.as_str()) {
+            ctx.render_subsection_header("手術描述");
+            ctx.render_paragraph(desc);
+        }
+        if let Some(mon) = surg.get("monitoring").and_then(|v| v.as_str()) {
+            ctx.render_subsection_header("監控方式");
+            ctx.render_paragraph(mon);
+        }
+        if let Some(postop) = surg.get("postop_care").and_then(|v| v.as_str()) {
+            ctx.render_subsection_header("術後照護");
+            ctx.render_paragraph(postop);
+        }
+        if let Some(drugs) = surg.get("drugs").and_then(|v| v.as_array()) {
+            if !drugs.is_empty() {
+                Self::render_surgery_drugs(ctx, drugs);
+            }
+        }
+        ctx.add_section_spacing();
+    }
+
+    /// 渲染單一動物群組資料
+    fn render_animal_group(ctx: &mut PdfContext, index: usize, animal: &serde_json::Value) {
+        ctx.render_subsection_header(&format!("動物群組 #{}", index + 1));
+        if let Some(sp) = animal.get("species").and_then(|v| v.as_str()) {
+            ctx.render_label_value("物種", sp);
+        }
+        if let Some(st) = animal.get("strain").and_then(|v| v.as_str()) {
+            ctx.render_label_value("品系", st);
+        }
+        if let Some(sx) = animal.get("sex").and_then(|v| v.as_str()) {
+            ctx.render_label_value("性別", sx);
+        }
+        if let Some(num) = animal.get("number").and_then(|v| v.as_i64()) {
+            ctx.render_label_value("數量", &num.to_string());
+        }
+
+        Self::render_animal_age_weight(ctx, animal);
+
+        if let Some(loc) = animal.get("housing_location").and_then(|v| v.as_str()) {
+            ctx.render_label_value("飼養位置", loc);
+        }
+    }
+
+    /// 渲染動物月齡與體重範圍
+    fn render_animal_age_weight(ctx: &mut PdfContext, animal: &serde_json::Value) {
+        let age_unlim = animal
+            .get("age_unlimited")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        if age_unlim {
+            ctx.render_label_value("月齡範圍", "不限");
+        } else {
+            let amin = animal.get("age_min").and_then(|v| v.as_str()).unwrap_or("不限");
+            let amax = animal.get("age_max").and_then(|v| v.as_str()).unwrap_or("不限");
+            ctx.render_label_value("月齡範圍", &format!("{} ~ {}", amin, amax));
+        }
+
+        let wt_unlim = animal
+            .get("weight_unlimited")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        if wt_unlim {
+            ctx.render_label_value("體重範圍", "不限");
+        } else {
+            let wmin = animal.get("weight_min").and_then(|v| v.as_str()).unwrap_or("不限");
+            let wmax = animal.get("weight_max").and_then(|v| v.as_str()).unwrap_or("不限");
+            ctx.render_label_value("體重範圍", &format!("{}kg ~ {}kg", wmin, wmax));
+        }
+    }
+
+    /// 渲染第7節：實驗動物資料
+    fn render_section_7(ctx: &mut PdfContext, animals: &serde_json::Value) {
+        ctx.force_new_page();
+        ctx.render_section_header("7. 實驗動物資料");
+
+        if let Some(animal_list) = animals.get("animals").and_then(|v| v.as_array()) {
+            for (i, animal) in animal_list.iter().enumerate() {
+                Self::render_animal_group(ctx, i, animal);
+            }
+        }
+        if let Some(total) = animals.get("total_animals").and_then(|v| v.as_i64()) {
+            ctx.render_label_value("總動物數", &total.to_string());
+        }
+        ctx.add_section_spacing();
+    }
+
+    /// 渲染第8節：試驗人員資料
+    fn render_section_8(ctx: &mut PdfContext, personnel: &[serde_json::Value]) {
+        if personnel.is_empty() {
+            return;
+        }
+        ctx.force_new_page();
+        ctx.render_section_header("8. 試驗人員資料");
+
+        for (i, person) in personnel.iter().enumerate() {
+            Self::render_person(ctx, i, person);
+        }
+        ctx.add_section_spacing();
+    }
+
+    /// 渲染單一人員資料
+    fn render_person(ctx: &mut PdfContext, index: usize, person: &serde_json::Value) {
+        ctx.render_subsection_header(&format!("人員 #{}", index + 1));
+        if let Some(name) = person.get("name").and_then(|v| v.as_str()) {
+            ctx.render_label_value("姓名", name);
+        }
+        if let Some(pos) = person.get("position").and_then(|v| v.as_str()) {
+            ctx.render_label_value("職位", pos);
+        }
+        if let Some(yrs) = person.get("years_experience").and_then(|v| v.as_i64()) {
+            ctx.render_label_value("參與動物試驗年數", &format!("{} 年", yrs));
+        }
+        if let Some(roles) = person.get("roles").and_then(|v| v.as_array()) {
+            let rs: Vec<&str> = roles.iter().filter_map(|r| r.as_str()).collect();
+            if !rs.is_empty() {
+                ctx.render_label_value("工作內容", &rs.join(", "));
+            }
+        }
+        if let Some(trainings) = person.get("trainings").and_then(|v| v.as_array()) {
+            let ts: Vec<&str> = trainings.iter().filter_map(|t| t.as_str()).collect();
+            if !ts.is_empty() {
+                ctx.render_label_value("訓練/資格", &ts.join(", "));
+            }
+        }
+    }
+
+    /// 渲染第9節：附件
+    fn render_section_9(ctx: &mut PdfContext, attachments: &[serde_json::Value]) {
+        if attachments.is_empty() {
+            return;
+        }
+        ctx.force_new_page();
+        ctx.render_section_header("9. 附件");
+        for (i, att) in attachments.iter().enumerate() {
+            if let Some(fname) = att.get("file_name").and_then(|v| v.as_str()) {
+                ctx.render_label_value("", &format!("{}. {}", i + 1, fname));
+            }
+        }
+        ctx.add_section_spacing();
+    }
+
+    /// 渲染頁尾並輸出 PDF bytes
+    fn render_footer_and_save(ctx: PdfContext) -> Result<Vec<u8>> {
         let today = time::now_taiwan().format("%Y-%m-%d").to_string();
         ctx.current_layer.use_text(
             format!("生成日期: {} | 頁 {} ", today, ctx.page_number),
             8.0,
             Mm(MARGIN_MM),
-            Mm(footer_y),
+            Mm(MARGIN_MM),
             &ctx.font,
         );
 
-        // 輸出 PDF 為 bytes
-        let pdf_bytes = ctx
-            .doc
+        ctx.doc
             .save_to_bytes()
-            .map_err(|e| AppError::Internal(format!("Failed to generate PDF: {}", e)))?;
+            .map_err(|e| AppError::Internal(format!("Failed to generate PDF: {}", e)))
+    }
 
-        Ok(pdf_bytes)
+    /// 渲染 protocol 各章節內容
+    fn render_protocol_sections(ctx: &mut PdfContext, protocol: &ProtocolResponse, content: &serde_json::Value) {
+        Self::render_section_1(ctx, protocol, content);
+
+        if let Some(purpose) = content.get("purpose") {
+            Self::render_section_2(ctx, purpose);
+        }
+        if let Some(items) = content.get("items") {
+            Self::render_section_3(ctx, items);
+        }
+        if let Some(design) = content.get("design") {
+            Self::render_section_4(ctx, design);
+        }
+        if let Some(guide) = content.get("guidelines") {
+            Self::render_section_5(ctx, guide);
+        }
+        if let Some(surg) = content.get("surgery") {
+            Self::render_section_6(ctx, surg, content);
+        }
+        if let Some(animals) = content.get("animals") {
+            Self::render_section_7(ctx, animals);
+        }
+        if let Some(personnel) = content.get("personnel").and_then(|v| v.as_array()) {
+            Self::render_section_8(ctx, personnel);
+        }
+        if let Some(attachments) = content.get("attachments").and_then(|v| v.as_array()) {
+            Self::render_section_9(ctx, attachments);
+        }
+    }
+
+    /// 生成 AUP 計畫書 PDF
+    pub fn generate_protocol_pdf(protocol: &ProtocolResponse) -> Result<Vec<u8>> {
+        let mut ctx = Self::init_pdf_context("AUP 動物試驗計畫書")?;
+
+        Self::render_protocol_title(&mut ctx, &protocol.protocol.title);
+
+        if let Some(ref content) = protocol.protocol.working_content {
+            Self::render_protocol_sections(&mut ctx, protocol, content);
+        }
+
+        Self::render_footer_and_save(ctx)
     }
 
     /// 生成動物病歷 PDF
     pub fn generate_medical_pdf(data: &serde_json::Value) -> Result<Vec<u8>> {
-        // 建立 PDF 文件
-        let (doc, page1, layer1) = PdfDocument::new(
-            "動物病歷紀錄",
-            Mm(PAGE_WIDTH_MM),
-            Mm(PAGE_HEIGHT_MM),
-            "第1頁",
-        );
-
-        // 載入中文字型
-        let font_path = std::path::Path::new("resources/fonts/NotoSansSC-Regular.ttf");
-        let font_bytes = std::fs::read(font_path)
-            .map_err(|e| AppError::Internal(format!("Failed to read font file: {}", e)))?;
-        let font = doc
-            .add_external_font(&*font_bytes)
-            .map_err(|e| AppError::Internal(format!("Failed to load font: {}", e)))?;
-
-        let initial_layer = doc.get_page(page1).get_layer(layer1);
-        let mut ctx = PdfContext::new(doc, font, initial_layer);
+        let mut ctx = Self::init_pdf_context("動物病歷紀錄")?;
 
         // ========== 標題 ==========
         ctx.current_layer.use_text(
@@ -661,22 +696,7 @@ impl PdfService {
         // 使用共用渲染方法
         Self::render_animal_medical_data(&mut ctx, data);
 
-        // ========== 頁尾 ==========
-        let today = time::now_taiwan().format("%Y-%m-%d").to_string();
-        ctx.current_layer.use_text(
-            format!("生成日期: {} | 頁 {} ", today, ctx.page_number),
-            8.0,
-            Mm(MARGIN_MM),
-            Mm(MARGIN_MM),
-            &ctx.font,
-        );
-
-        let pdf_bytes = ctx
-            .doc
-            .save_to_bytes()
-            .map_err(|e| AppError::Internal(format!("Failed to generate PDF: {}", e)))?;
-
-        Ok(pdf_bytes)
+        Self::render_footer_and_save(ctx)
     }
 
     /// 共用：渲染動物完整病歷資料（基本資料、體重、疫苗、觀察、手術）
@@ -822,24 +842,7 @@ impl PdfService {
         iacuc_no: &str,
         animals_data: &serde_json::Value,
     ) -> Result<Vec<u8>> {
-        // 建立 PDF 文件
-        let (doc, page1, layer1) = PdfDocument::new(
-            format!("計畫病歷匯出 - {}", iacuc_no),
-            Mm(PAGE_WIDTH_MM),
-            Mm(PAGE_HEIGHT_MM),
-            "第1頁",
-        );
-
-        // 載入中文字型
-        let font_path = std::path::Path::new("resources/fonts/NotoSansSC-Regular.ttf");
-        let font_bytes = std::fs::read(font_path)
-            .map_err(|e| AppError::Internal(format!("Failed to read font file: {}", e)))?;
-        let font = doc
-            .add_external_font(&*font_bytes)
-            .map_err(|e| AppError::Internal(format!("Failed to load font: {}", e)))?;
-
-        let initial_layer = doc.get_page(page1).get_layer(layer1);
-        let mut ctx = PdfContext::new(doc, font, initial_layer);
+        let mut ctx = Self::init_pdf_context(&format!("計畫病歷匯出 - {}", iacuc_no))?;
 
         // ========== 封面標題 ==========
         ctx.current_layer.use_text(
@@ -884,21 +887,6 @@ impl PdfService {
             }
         }
 
-        // ========== 頁尾 ==========
-        let today = time::now_taiwan().format("%Y-%m-%d").to_string();
-        ctx.current_layer.use_text(
-            format!("生成日期: {} | 頁 {} ", today, ctx.page_number),
-            8.0,
-            Mm(MARGIN_MM),
-            Mm(MARGIN_MM),
-            &ctx.font,
-        );
-
-        let pdf_bytes = ctx
-            .doc
-            .save_to_bytes()
-            .map_err(|e| AppError::Internal(format!("Failed to generate PDF: {}", e)))?;
-
-        Ok(pdf_bytes)
+        Self::render_footer_and_save(ctx)
     }
 }

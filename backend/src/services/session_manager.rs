@@ -203,6 +203,37 @@ impl SessionManager {
         Ok(count)
     }
     
+    /// 結束超過上限的最舊 Sessions（SEC-28: Session 併發限制）
+    pub async fn end_excess_sessions(
+        pool: &PgPool,
+        user_id: Uuid,
+        max_sessions: i64,
+    ) -> Result<()> {
+        let count = Self::get_active_session_count(pool, user_id).await?;
+        if count > max_sessions {
+            let excess = count - max_sessions;
+            sqlx::query(
+                r#"
+                UPDATE user_sessions
+                SET is_active = false,
+                    ended_at = NOW(),
+                    ended_reason = 'session_limit'
+                WHERE id IN (
+                    SELECT id FROM user_sessions
+                    WHERE user_id = $1 AND is_active = true
+                    ORDER BY started_at ASC
+                    LIMIT $2
+                )
+                "#,
+            )
+            .bind(user_id)
+            .bind(excess)
+            .execute(pool)
+            .await?;
+        }
+        Ok(())
+    }
+
     /// 檢查 Session 是否有效
     pub async fn is_session_valid(pool: &PgPool, session_id: Uuid) -> Result<bool> {
         let (is_active,): (bool,) = sqlx::query_as(

@@ -15,6 +15,7 @@ use crate::{
         ScheduledReport, CreateScheduledReportRequest, UpdateScheduledReportRequest,
         ReportHistory,
     },
+    repositories::notification as notification_repo,
     services::NotificationService,
     AppState,
 };
@@ -28,16 +29,10 @@ async fn check_scheduled_report_access(
     if current_user.is_admin() {
         return Ok(());
     }
-    let owner: Option<(Uuid,)> = sqlx::query_as(
-        "SELECT created_by FROM scheduled_reports WHERE id = $1"
-    )
-    .bind(report_id)
-    .fetch_optional(db)
-    .await
-    .map_err(|e| AppError::Internal(format!("DB error: {}", e)))?;
+    let owner = notification_repo::find_scheduled_report_owner(db, report_id).await?;
 
     match owner {
-        Some((created_by,)) if created_by == current_user.id => Ok(()),
+        Some(created_by) if created_by == current_user.id => Ok(()),
         Some(_) => Err(AppError::Forbidden("無權存取此排程報表".into())),
         None => Err(AppError::NotFound("找不到排程報表".into())),
     }
