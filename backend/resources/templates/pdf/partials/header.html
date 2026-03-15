@@ -1,0 +1,6 @@
+{# 共用頁首：文件編號 / 公司名 / 頁次 #}
+<div class="page-header">
+    <span>文件編號　{{ doc_id | default(value="") }}</span>
+    <span class="company-name">豬博士動物科技股份有限公司</span>
+    <span>頁次/總頁數　{{ page_info | default(value="1 of 1") }}</span>
+</div>

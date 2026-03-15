@@ -1,5 +1,5 @@
 import React from 'react'
-import { AnimalListItem } from '@/lib/api'
+import api, { AnimalListItem } from '@/lib/api'
 
 type AnimalListItemExtended = AnimalListItem 
 
@@ -10,7 +10,30 @@ interface AnimalPenReportProps {
 
 export const AnimalPenReport: React.FC<AnimalPenReportProps> = ({ data, onClose }) => {
     const [docId, setDocId] = React.useState('AD-05-01-02C')
+    const [isExporting, setIsExporting] = React.useState(false)
     const animalsByPen = new Map(data.map(item => [item.pen_location, item.animals]))
+
+    const handleExportPDF = async () => {
+        if (isExporting) return
+        try {
+            setIsExporting(true)
+            const response = await api.get('/animals/export-pen-report', { responseType: 'blob' })
+            const blob = new Blob([response.data], { type: 'application/pdf' })
+            const url = window.URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `動物欄位巡視報告_${new Date().toISOString().split('T')[0]}.pdf`
+            a.style.display = 'none'
+            document.body.appendChild(a)
+            a.click()
+            window.URL.revokeObjectURL(url)
+            document.body.removeChild(a)
+        } catch {
+            alert('PDF 匯出失敗，請稍後再試')
+        } finally {
+            setIsExporting(false)
+        }
+    }
 
     const getStatusCircle = (penAnimals: AnimalListItemExtended[]) => {
         const isAssigned = penAnimals.some(p => p.status === 'in_experiment')
@@ -133,6 +156,9 @@ export const AnimalPenReport: React.FC<AnimalPenReportProps> = ({ data, onClose 
                 {/* Controls */}
                 <div className="mt-8 flex justify-center gap-4 print:hidden">
                     <button onClick={onClose} className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-bold">關閉</button>
+                    <button onClick={handleExportPDF} disabled={isExporting} className="px-8 py-2 bg-purple-600 text-white rounded-lg hover:opacity-80 font-bold disabled:opacity-50">
+                        {isExporting ? '匯出中...' : '匯出 PDF'}
+                    </button>
                     <button onClick={() => window.print()} className="px-8 py-2 bg-black text-white rounded-lg hover:opacity-80 font-bold">列印表單</button>
                 </div>
             </div>

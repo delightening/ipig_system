@@ -4,7 +4,7 @@ use erp_backend::config;
 use erp_backend::handlers;
 use erp_backend::middleware::JwtBlacklist;
 use erp_backend::services::scheduler::SchedulerService;
-use erp_backend::services::{AuditService, FileService, GeoIpService};
+use erp_backend::services::{AuditService, FileService, GeoIpService, GotenbergClient, TemplateService};
 use erp_backend::startup::{
     create_database_pool_with_retry, ensure_admin_user, ensure_all_role_permissions,
     ensure_required_permissions, ensure_schema, init_tracing, log_startup_config_check,
@@ -135,6 +135,12 @@ async fn main() -> anyhow::Result<()> {
             }
         };
 
+    // 初始化 PDF 模板引擎
+    let templates = TemplateService::new().expect("Failed to initialize PDF template service");
+
+    // 初始化 Gotenberg PDF 生成服務
+    let gotenberg = GotenbergClient::new(&config.gotenberg_url);
+
     let state = AppState {
         db: pool,
         config: config.clone(),
@@ -142,6 +148,8 @@ async fn main() -> anyhow::Result<()> {
         jwt_blacklist,
         alert_broadcaster: handlers::sse::AlertBroadcaster::new(),
         metrics_handle,
+        gotenberg,
+        templates,
     };
 
     let app = build_app(state, &config);

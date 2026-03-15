@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<style>
+@page {
+    size: A4;
+    margin: 12mm 15mm;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif;
+    font-size: 10pt;
+    line-height: 1.4;
+    color: #000;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 9pt;
+    margin-bottom: 6mm;
+}
+
+.page-header .company-name {
+    font-weight: bold;
+    font-size: 11pt;
+}
+
+.doc-title {
+    text-align: center;
+    font-size: 16pt;
+    font-weight: bold;
+    margin-bottom: 6mm;
+}
+
+/* 基本資訊表格 */
+table.info-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 6mm;
+}
+
+table.info-table td {
+    border: 1px solid #000;
+    padding: 2mm 3mm;
+    font-size: 10pt;
+}
+
+table.info-table td.label {
+    font-weight: bold;
+    width: 90px;
+    background-color: #f5f5f5;
+}
+
+/* 區段標題 */
+.section-title {
+    font-weight: bold;
+    font-size: 11pt;
+    border-bottom: 2px solid #000;
+    margin-bottom: 3mm;
+    padding-bottom: 1mm;
+    margin-top: 4mm;
+}
+
+.subsection-title {
+    font-weight: bold;
+    font-size: 10pt;
+    margin-bottom: 2mm;
+    margin-top: 3mm;
+}
+
+/* 審查表格 */
+table.review-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 6mm;
+    page-break-inside: auto;
+}
+
+table.review-table thead {
+    display: table-header-group;
+}
+
+table.review-table tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+}
+
+table.review-table th {
+    border: 1px solid #000;
+    padding: 2mm 3mm;
+    font-weight: bold;
+    background-color: #f5f5f5;
+    font-size: 10pt;
+    text-align: center;
+}
+
+table.review-table td {
+    border: 1px solid #000;
+    padding: 2mm 3mm;
+    font-size: 10pt;
+    vertical-align: top;
+}
+
+/* 簽章區 */
+.signature-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3mm;
+    border: 1px solid #000;
+    border-top: none;
+    font-size: 10pt;
+}
+
+.signature-line {
+    display: inline-block;
+    min-width: 120px;
+    border-bottom: 1px solid #000;
+    margin: 0 4px;
+    text-align: center;
+}
+
+/* 版權 */
+.copyright {
+    text-align: center;
+    font-size: 8pt;
+    font-style: italic;
+    margin-top: 10mm;
+    padding-top: 4mm;
+    border-top: 1px solid #000;
+}
+
+/* 分頁 */
+.page-break {
+    page-break-before: always;
+}
+
+.no-break {
+    page-break-inside: avoid;
+}
+</style>
+</head>
+<body>
+
+<!-- 頁首 -->
+<div class="page-header">
+    <span>文件編號　AD-04-01-04C</span>
+    <span class="company-name">豬博士動物科技股份有限公司</span>
+    <span>頁次/總頁數　{{ page_info | default(value="1 of 2") }}</span>
+</div>
+
+<!-- 標題 -->
+<div class="doc-title">審查意見回覆表</div>
+
+<!-- 計畫基本資訊 -->
+<table class="info-table">
+    <tr>
+        <td class="label">申請編號</td>
+        <td>{{ iacuc_no | default(value="尚未指派") }}</td>
+    </tr>
+    <tr>
+        <td class="label">研究名稱</td>
+        <td>{{ protocol_title | default(value="") }}</td>
+    </tr>
+    <tr>
+        <td class="label">計畫主持人</td>
+        <td>{{ pi_name | default(value="未指定") }}</td>
+    </tr>
+</table>
+
+<!-- ========== 初審紀錄 ========== -->
+<div class="section-title">初審紀錄</div>
+
+<!-- 1. 執行秘書 -->
+<div class="subsection-title">1. 執行秘書</div>
+<table class="review-table">
+    <thead>
+        <tr>
+            <th style="width: 10%;">項次</th>
+            <th style="width: 45%;">審查意見</th>
+            <th style="width: 45%;">申請人回覆</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for c in pre_review_comments %}
+        <tr>
+            <td style="text-align: center;">4.1.{{ loop.index }}</td>
+            <td>{{ c.content | default(value="") }}</td>
+            <td>{{ c.replies | default(value="") }}</td>
+        </tr>
+        {% endfor %}
+        {% if pre_review_comments | length == 0 %}
+        <tr>
+            <td style="text-align: center; height: 10mm;"></td>
+            <td style="color: #999; font-style: italic;">無初審意見</td>
+            <td></td>
+        </tr>
+        {% endif %}
+    </tbody>
+</table>
+
+<!-- 2. 獸醫師 -->
+<div class="subsection-title">2. 獸醫師</div>
+<table class="review-table">
+    <thead>
+        <tr>
+            <th style="width: 30%;">審查項目</th>
+            <th style="width: 15%;">符合 ( v )<br>不符合 ( x )<br>不適用 ( - )</th>
+            <th style="width: 27%;">審查意見<br>(需補充說明之事項)</th>
+            <th style="width: 28%;">申請人回覆</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in vet_review_items %}
+        <tr>
+            <td>{{ item.item_name | default(value="") }}</td>
+            <td style="text-align: center;">{{ item.compliance | default(value="") }}</td>
+            <td>{{ item.comment | default(value="") }}</td>
+            <td>{{ item.pi_reply | default(value="") }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    <tfoot>
+        <tr>
+            <td colspan="4">
+                <div style="display: flex; justify-content: space-between;">
+                    <span>獸醫師簽名：<span class="signature-line">{{ vet_signature | default(value="") }}</span></span>
+                    <span>日期：<span class="signature-line">{{ vet_signed_date | default(value="") }}</span></span>
+                </div>
+            </td>
+        </tr>
+    </tfoot>
+</table>
+
+<!-- ========== 委員審查紀錄 ========== -->
+<div class="section-title">委員審查紀錄</div>
+
+{% for reviewer in reviewer_groups %}
+<div class="no-break">
+    <div class="subsection-title">{{ loop.index }}. 委員 {{ loop.index }}</div>
+    <table class="review-table">
+        <thead>
+            <tr>
+                <th style="width: 8%;">項次</th>
+                <th style="width: 23%;">一審意見</th>
+                <th style="width: 23%;">意見回覆</th>
+                <th style="width: 23%;">二審意見</th>
+                <th style="width: 23%;">意見回覆</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in reviewer.comments %}
+            <tr>
+                <td style="text-align: center;">{{ loop.index }}</td>
+                <td>{{ c.first_review | default(value="") }}</td>
+                <td>{{ c.first_reply | default(value="") }}</td>
+                <td>{{ c.second_review | default(value="") }}</td>
+                <td>{{ c.second_reply | default(value="") }}</td>
+            </tr>
+            {% endfor %}
+            {% if reviewer.comments | length == 0 %}
+            <tr>
+                <td style="text-align: center; height: 10mm;"></td>
+                <td style="color: #999; font-style: italic;">無審查意見</td>
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endfor %}
+
+{% if reviewer_groups | length == 0 %}
+<p style="color: #999; font-style: italic; margin-left: 4mm;">尚無委員審查紀錄</p>
+{% endif %}
+
+<!-- 版權 -->
+<div class="copyright">
+    版權為豬博士動物科技股份有限公司所有，禁止任何未經授權的使用<br>
+    All Rights Reserved &copy; DrPIG. Unauthorized use in any form is prohibited.
+</div>
+
+</body>
+</html>

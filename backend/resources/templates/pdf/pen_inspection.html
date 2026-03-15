@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<style>
+@page {
+    size: A4 portrait;
+    margin: 8mm 10mm;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif;
+    font-size: 8pt;
+    line-height: 1.2;
+    color: #000;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 8pt;
+    margin-bottom: 3mm;
+}
+
+.page-header .company-name {
+    font-weight: bold;
+    font-size: 10pt;
+}
+
+.inspector-info { text-align: center; margin-bottom: 3mm; }
+
+.inspector-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4mm;
+    margin-bottom: 1.5mm;
+    font-size: 10pt;
+    font-weight: bold;
+}
+
+.fill-line {
+    display: inline-block;
+    width: 50mm;
+    border-bottom: 1px solid #000;
+    height: 6mm;
+}
+
+.ampm-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 3mm;
+    border: 1px solid #000;
+    border-radius: 12px;
+    padding: 1mm 4mm;
+    font-size: 9pt;
+}
+
+.ampm-circle {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border: 1px solid #000;
+    border-radius: 50%;
+    margin-right: 1mm;
+}
+
+.main-grid { display: flex; border-top: 2px solid #000; padding-top: 2mm; }
+.col-left  { width: 50%; padding-right: 3mm; }
+.col-right { width: 50%; padding-left: 3mm; }
+
+.pen-row { display: flex; height: 5.5mm; }
+
+.pen-cell {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    height: 100%;
+}
+
+.pen-tag {
+    flex: 1;
+    border: 1px solid #000;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 7pt;
+    overflow: hidden;
+    padding: 0 1px;
+}
+
+.pen-circle { width: 4mm; display: flex; align-items: center; justify-content: center; }
+
+.color-a { background-color: #FFFF00; }
+.color-b { background-color: #FF6666; }
+.color-c { background-color: #B5E1F4; }
+.color-d { background-color: #FDD9C4; }
+.color-e { background-color: #C070C0; }
+.color-f { background-color: #FFCC00; }
+.color-g { background-color: #34C759; }
+
+.dot-empty  { display: inline-block; width: 8px; height: 8px; border: 1px solid #000; border-radius: 50%; }
+.dot-filled { display: inline-block; width: 8px; height: 8px; background: #000; border-radius: 50%; }
+
+.building-label {
+    height: 5.5mm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 12pt;
+}
+
+.eg-grid { display: grid; grid-template-columns: 1fr 1fr; }
+
+.f-group { display: flex; height: 11mm; }
+
+.f-cell { flex: 1; display: flex; flex-direction: column; align-items: center; }
+
+.f-tag {
+    flex: 1; width: 100%;
+    border: 1px solid #000;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: bold; font-size: 7pt;
+    background-color: #FFCC00;
+}
+
+.f-dot { margin-top: 1mm; }
+
+.bottom-section { margin-top: 2mm; }
+
+.footer { margin-top: 3mm; padding-top: 2mm; border-top: 2px solid #000; font-size: 8pt; }
+
+.footer-check-row { display: flex; align-items: flex-start; gap: 2mm; margin-bottom: 2mm; }
+
+.footer-checkbox {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border: 1px solid #000;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.copyright { text-align: center; font-size: 7pt; margin-top: 3mm; }
+</style>
+</head>
+<body>
+
+<!-- 頁首 -->
+<div class="page-header">
+    <span>文件編號　{{ doc_id | default(value="AD-05-01-02C") }}</span>
+    <span class="company-name">豬博士動物科技股份有限公司</span>
+    <span>頁次/總頁數　1 of 1</span>
+</div>
+
+<!-- 巡視人/日期 -->
+<div class="inspector-info">
+    <div class="inspector-row">
+        <span>巡視人：</span>
+        <span class="fill-line">{{ inspector_name | default(value="") }}</span>
+        <span class="ampm-group">
+            <span><span class="ampm-circle"></span> AM</span>
+            <span><span class="ampm-circle"></span> PM</span>
+        </span>
+    </div>
+    <div class="inspector-row">
+        <span>巡視日期：</span>
+        <span class="fill-line">{{ inspection_date | default(value="") }}</span>
+    </div>
+</div>
+
+<!--
+  pens 資料結構（由後端提供）：
+  pens: HashMap<String, { ear_tags: String, has_animal: bool, has_experiment: bool }>
+  key 格式："A01", "D18", "G06" 等
+-->
+
+<!-- 主欄位格線 -->
+<div class="main-grid">
+    <!-- ===== 左半：D + C ===== -->
+    <div class="col-left">
+        <!-- D 區 (D01~D18 左列, D19~D33 右列) -->
+        {% for n in range(end=18) %}
+        {% set num = 18 - n %}
+        {% set key_l = "D" ~ (num | pad2) %}
+        <div class="pen-row">
+            <div class="pen-cell">
+                <div class="pen-tag color-d">{{ pens[key_l].ear_tags | default(value="") }}</div>
+                <div class="pen-circle">{% if pens[key_l].has_experiment | default(value=false) %}<span class="dot-filled"></span>{% elif pens[key_l].has_animal | default(value=false) %}<span class="dot-empty"></span>{% endif %}</div>
+            </div>
+            <div class="pen-cell">
+                {% if num <= 15 %}
+                {% set key_r = "D" ~ (num + 18 | pad2) %}
+                <div class="pen-circle">{% if pens[key_r].has_experiment | default(value=false) %}<span class="dot-filled"></span>{% elif pens[key_r].has_animal | default(value=false) %}<span class="dot-empty"></span>{% endif %}</div>
+                <div class="pen-tag color-d">{{ pens[key_r].ear_tags | default(value="") }}</div>
+                {% else %}
+                <div style="border-left: 1px solid #000; height: 100%; width: 100%;"></div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+        <div class="building-label">D</div>
+
+        <!-- C 區 (C01~C10 左, C11~C20 右) -->
+        {% for n in range(end=10) %}
+        {% set num = 10 - n %}
+        {% set key_l = "C" ~ (num | pad2) %}
+        {% set key_r = "C" ~ (num + 10 | pad2) %}
+        <div class="pen-row">
+            <div class="pen-cell">
+                <div class="pen-tag color-c">{{ pens[key_l].ear_tags | default(value="") }}</div>
+                <div class="pen-circle">{% if pens[key_l].has_experiment | default(value=false) %}<span class="dot-filled"></span>{% elif pens[key_l].has_animal | default(value=false) %}<span class="dot-empty"></span>{% endif %}</div>
+            </div>
+            <div class="pen-cell">
+                <div class="pen-circle">{% if pens[key_r].has_experiment | default(value=false) %}<span class="dot-filled"></span>{% elif pens[key_r].has_animal | default(value=false) %}<span class="dot-empty"></span>{% endif %}</div>
+                <div class="pen-tag color-c">{{ pens[key_r].ear_tags | default(value="") }}</div>
+            </div>
+        </div>
+        {% endfor %}
+        <div class="building-label">C</div>
+    </div>
+
+    <!-- ===== 右半：E + G + F ===== -->
+    <div class="col-right">
+        <!-- E 上半 (E25~E11) + G 區 (G06~G02) -->
+        <div class="eg-grid" style="grid-template-rows: repeat(15, 5.5mm);">
+            {% for n in range(end=15) %}
+            {% set enum_val = 25 - n %}
+            {% set key_e = "E" ~ (enum_val | pad2) %}
+            <div style="grid-column: 1; grid-row: {{ n + 1 }};">
+                <div class="pen-row" style="height: 100%;">
+                    <div class="pen-cell">
+                        <div class="pen-tag color-e">{{ pens[key_e].ear_tags | default(value="") }}</div>
+                        <div class="pen-circle">{% if pens[key_e].has_experiment | default(value=false) %}<span class="dot-filled"></span>{% elif pens[key_e].has_animal | default(value=false) %}<span class="dot-empty"></span>{% endif %}</div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+            <!-- G 區：G06(rows 1~3) G05(4~6) G04(7~9) G03(10~12) G02(13~15) -->
+            {% for g_idx in range(end=5) %}
+            {% set g_num = 6 - g_idx %}
+            {% set g_start = g_idx * 3 + 1 %}
+            {% set key_g = "G" ~ (g_num | pad2) %}
+            <div style="grid-column: 2; grid-row: {{ g_start }} / span 3; border-left: 1px solid #000;">
+                <div style="height: 100%; display: flex; align-items: center;">
+                    <div class="pen-cell">
+                        <div class="pen-circle">{% if pens[key_g].has_experiment | default(value=false) %}<span class="dot-filled"></span>{% elif pens[key_g].has_animal | default(value=false) %}<span class="dot-empty"></span>{% endif %}</div>
+                        <div class="pen-tag color-g">{{ pens[key_g].ear_tags | default(value="") }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <div style="display: flex;">
+            <div style="flex: 1;" class="building-label">E</div>
+            <div style="flex: 1;" class="building-label">G</div>
+        </div>
+
+        <!-- E 下半 (E10~E01) + F 區 -->
+        <div class="eg-grid" style="grid-template-rows: repeat(10, 5.5mm);">
+            {% for n in range(end=10) %}
+            {% set enum_val = 10 - n %}
+            {% set key_e = "E" ~ (enum_val | pad2) %}
+            <div style="grid-column: 1; grid-row: {{ n + 1 }};">
+                <div class="pen-row" style="height: 100%;">
+                    <div class="pen-cell">
+                        <div class="pen-tag color-e">{{ pens[key_e].ear_tags | default(value="") }}</div>
+                        <div class="pen-circle">{% if pens[key_e].has_experiment | default(value=false) %}<span class="dot-filled"></span>{% elif pens[key_e].has_animal | default(value=false) %}<span class="dot-empty"></span>{% endif %}</div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+            <!-- F 區上排 F04 F05 F06 -->
+            <div style="grid-column: 2; grid-row: 1 / span 2;">
+                <div class="f-group">
+                    <div style="width: 4mm;"></div>
+                    {% set fk4 = "F04" %}{% set fk5 = "F05" %}{% set fk6 = "F06" %}
+                    <div class="f-cell">
+                        <div class="f-tag">{{ pens[fk4].ear_tags | default(value="") }}</div>
+                        <div class="f-dot">{% if pens[fk4].has_experiment | default(value=false) %}<span class="dot-filled"></span>{% elif pens[fk4].has_animal | default(value=false) %}<span class="dot-empty"></span>{% endif %}</div>
+                    </div>
+                    <div class="f-cell">
+                        <div class="f-tag">{{ pens[fk5].ear_tags | default(value="") }}</div>
+                        <div class="f-dot">{% if pens[fk5].has_experiment | default(value=false) %}<span class="dot-filled"></span>{% elif pens[fk5].has_animal | default(value=false) %}<span class="dot-empty"></span>{% endif %}</div>
+                    </div>
+                    <div class="f-cell">
+                        <div class="f-tag">{{ pens[fk6].ear_tags | default(value="") }}</div>
+                        <div class="f-dot">{% if pens[fk6].has_experiment | default(value=false) %}<span class="dot-filled"></span>{% elif pens[fk6].has_animal | default(value=false) %}<span class="dot-empty"></span>{% endif %}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- F 區下排 F01 F02 F03 -->
+            <div style="grid-column: 2; grid-row: 4 / span 2;">
+                <div class="f-group">
+                    <div style="width: 4mm;"></div>
+                    {% set fk1 = "F01" %}{% set fk2 = "F02" %}{% set fk3 = "F03" %}
+                    <div class="f-cell">
+                        <div class="f-tag">{{ pens[fk1].ear_tags | default(value="") }}</div>
+                        <div class="f-dot">{% if pens[fk1].has_experiment | default(value=false) %}<span class="dot-filled"></span>{% elif pens[fk1].has_animal | default(value=false) %}<span class="dot-empty"></span>{% endif %}</div>
+                    </div>
+                    <div class="f-cell">
+                        <div class="f-tag">{{ pens[fk2].ear_tags | default(value="") }}</div>
+                        <div class="f-dot">{% if pens[fk2].has_experiment | default(value=false) %}<span class="dot-filled"></span>{% elif pens[fk2].has_animal | default(value=false) %}<span class="dot-empty"></span>{% endif %}</div>
+                    </div>
+                    <div class="f-cell">
+                        <div class="f-tag">{{ pens[fk3].ear_tags | default(value="") }}</div>
+                        <div class="f-dot">{% if pens[fk3].has_experiment | default(value=false) %}<span class="dot-filled"></span>{% elif pens[fk3].has_animal | default(value=false) %}<span class="dot-empty"></span>{% endif %}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div style="display: flex;">
+            <div style="flex: 1;"></div>
+            <div style="flex: 1;" class="building-label">F</div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== 底部 A/B 區 ===== -->
+<div class="bottom-section">
+    <div style="display: flex;">
+        <!-- A 區 -->
+        <div style="width: 50%; padding-right: 3mm;">
+            {% for n in range(end=10) %}
+            {% set num = 10 - n %}
+            {% set key_l = "A" ~ (num | pad2) %}
+            {% set key_r = "A" ~ (num + 10 | pad2) %}
+            <div class="pen-row">
+                <div class="pen-cell">
+                    <div class="pen-tag color-a">{{ pens[key_l].ear_tags | default(value="") }}</div>
+                    <div class="pen-circle">{% if pens[key_l].has_experiment | default(value=false) %}<span class="dot-filled"></span>{% elif pens[key_l].has_animal | default(value=false) %}<span class="dot-empty"></span>{% endif %}</div>
+                </div>
+                <div class="pen-cell">
+                    <div class="pen-circle">{% if pens[key_r].has_experiment | default(value=false) %}<span class="dot-filled"></span>{% elif pens[key_r].has_animal | default(value=false) %}<span class="dot-empty"></span>{% endif %}</div>
+                    <div class="pen-tag color-a">{{ pens[key_r].ear_tags | default(value="") }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <!-- B 區 -->
+        <div style="width: 50%; padding-left: 3mm;">
+            {% for n in range(end=10) %}
+            {% set num = 10 - n %}
+            {% set key_l = "B" ~ (num | pad2) %}
+            {% set key_r = "B" ~ (num + 10 | pad2) %}
+            <div class="pen-row">
+                <div class="pen-cell">
+                    <div class="pen-tag color-b">{{ pens[key_l].ear_tags | default(value="") }}</div>
+                    <div class="pen-circle">{% if pens[key_l].has_experiment | default(value=false) %}<span class="dot-filled"></span>{% elif pens[key_l].has_animal | default(value=false) %}<span class="dot-empty"></span>{% endif %}</div>
+                </div>
+                <div class="pen-cell">
+                    <div class="pen-circle">{% if pens[key_r].has_experiment | default(value=false) %}<span class="dot-filled"></span>{% elif pens[key_r].has_animal | default(value=false) %}<span class="dot-empty"></span>{% endif %}</div>
+                    <div class="pen-tag color-b">{{ pens[key_r].ear_tags | default(value="") }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div style="display: flex;">
+        <div style="flex: 1;" class="building-label">A</div>
+        <div style="flex: 1;" class="building-label">B</div>
+    </div>
+</div>
+
+<!-- 頁尾 -->
+<div class="footer">
+    <div class="footer-check-row">
+        <span class="footer-checkbox"></span>
+        <span>全場動物精神、食慾、活動力、外觀正常。</span>
+    </div>
+    <div class="footer-check-row">
+        <span class="footer-checkbox"></span>
+        <span>動物異常，耳號________________，請填寫「TU-03-04-01試驗動物異常狀況紀錄表」並依照「TU-03-04-00試驗動物異常之處理標準作業程序書」規範處理。</span>
+    </div>
+    <div class="copyright">
+        版權為豬博士動物科技股份有限公司所有，禁止任何未經授權的使用<br>
+        All Rights Reserved &copy; DrPIG. Unauthorized use in any form is prohibited.
+    </div>
+</div>
+
+</body>
+</html>
