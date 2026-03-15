@@ -180,6 +180,13 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-15 R9 安全與品質修復（程式碼審查產出）
+- ✅ **R9-1 IDOR 漏洞修復 (Backend)**：`download_attachment` 與 `list_attachments` 新增 `check_attachment_permission()` 輔助函式，根據 `entity_type` 對照上傳端的 `require_permission!` 檢查權限（protocol→aup.protocol.edit、animal/pathology→animal.animal.edit、leave_request→本人或 hr.leave.view_all、未知→僅 Admin），解決原先任何已登入使用者可透過猜測 UUID 下載非自己附件的 IDOR 漏洞。
+- ✅ **R9-2 上傳 handler 去重 (Backend)**：抽取 `handle_upload()` 通用函式（處理 multipart 讀取、FileService::upload、save_attachment），6 個上傳 handler 簡化為 5–10 行。`upload_sacrifice_photo` 因獨特存表邏輯保留原寫法。`upload.rs` 從 606 行降至約 420 行（-31%）。
+- ✅ **R9-3 DB 錯誤碼修正 (Backend)**：`error.rs` 中 DB 約束違規回傳正確 HTTP 狀態碼：`23505` (unique violation) → 409 Conflict、`23503` (FK violation) / `23502` (NOT NULL) / `23514` (CHECK) → 400 Bad Request，原先統一回 500 Internal Server Error。
+- 📋 **R9-4 歡迎信安全改善**：已記入 `TODO.md`，待後續排程（改用密碼重設連結取代信件中的明文密碼）。
+- 📋 **R9-5 ERP/HR 整合測試覆蓋**：已完成差距分析，待後續排程（庫存流水帳、GRN 入庫、出勤打卡、附件上傳/下載等 E2E 測試缺失）。
+
 ### 2026-03-15 Git 倉庫歷史紀錄深度清理
 - ✅ **歷史重寫 (DevOps)**：使用 `git-filter-repo` 徹底移除 `.venv/` 與 `old_ipig.dump` 在 Git 倉庫中的所有歷史紀錄，有效減小倉庫體積並防止敏感資料外洩。
 - ✅ **索引移除 (DevOps)**：執行 `git rm --cached` 移除目前分支對這些檔案的追蹤。
