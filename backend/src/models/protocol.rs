@@ -438,6 +438,8 @@ pub struct CreateCommentRequest {
     pub protocol_version_id: Uuid,
     #[validate(length(min = 1, max = 10_000, message = "Content must be 1-10000 characters"))]
     pub content: String,
+    /// 審查階段（若未提供，自動根據 protocol status 決定）
+    pub review_stage: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Validate, ToSchema)]
@@ -542,6 +544,9 @@ pub struct ReviewCommentResponse {
     /// 草稿最後更新時間
     #[sqlx(default)]
     pub draft_updated_at: Option<DateTime<Utc>>,
+    /// 審查階段（PRE_REVIEW, VET_REVIEW, UNDER_REVIEW）
+    #[sqlx(default)]
+    pub review_stage: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 

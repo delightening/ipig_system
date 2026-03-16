@@ -272,8 +272,8 @@ pub async fn save_reply_draft(
         ).bind(req.comment_id).fetch_one(&state.db).await?;
         let is_owner = sqlx::query_scalar::<_, bool>(
             r#"SELECT EXISTS (
-                SELECT 1 FROM protocols WHERE id = $1 AND pi_id = $2
-                UNION SELECT 1 FROM protocol_co_editors WHERE protocol_id = $1 AND user_id = $2
+                SELECT 1 FROM protocols WHERE id = $1 AND pi_user_id = $2
+                UNION SELECT 1 FROM user_protocols WHERE protocol_id = $1 AND user_id = $2
             )"#
         ).bind(protocol_id).bind(current_user.id).fetch_one(&state.db).await?;
         if !is_owner {
@@ -297,8 +297,8 @@ pub async fn get_reply_draft(
         ).bind(comment_id).fetch_one(&state.db).await?;
         let is_owner = sqlx::query_scalar::<_, bool>(
             r#"SELECT EXISTS (
-                SELECT 1 FROM protocols WHERE id = $1 AND pi_id = $2
-                UNION SELECT 1 FROM protocol_co_editors WHERE protocol_id = $1 AND user_id = $2
+                SELECT 1 FROM protocols WHERE id = $1 AND pi_user_id = $2
+                UNION SELECT 1 FROM user_protocols WHERE protocol_id = $1 AND user_id = $2
             )"#
         ).bind(protocol_id).bind(current_user.id).fetch_one(&state.db).await?;
         if !is_owner {
@@ -321,11 +321,14 @@ pub async fn submit_reply_from_draft(
     ).bind(req.comment_id).fetch_optional(&state.db).await?;
     let (protocol_id,) = comment_info
         .ok_or_else(|| AppError::NotFound("Comment not found".to_string()))?;
-    let is_pi: (bool,) = sqlx::query_as(
-        r#"SELECT EXISTS(SELECT 1 FROM user_protocols WHERE protocol_id = $1 AND user_id = $2 AND role_in_protocol = 'PI')"#
-    ).bind(protocol_id).bind(current_user.id).fetch_one(&state.db).await.unwrap_or((false,));
-    if !is_pi.0 {
-        return Err(AppError::Forbidden("Only PI can submit reply from draft".to_string()));
+    let is_authorized: (bool,) = sqlx::query_as(
+        r#"SELECT EXISTS(
+            SELECT 1 FROM protocols WHERE id = $1 AND pi_user_id = $2
+            UNION SELECT 1 FROM user_protocols WHERE protocol_id = $1 AND user_id = $2 AND role_in_protocol IN ('PI', 'CO_EDITOR')
+        )"#
+    ).bind(protocol_id).bind(current_user.id).fetch_one(&state.db).await?;
+    if !is_authorized.0 {
+        return Err(AppError::Forbidden("Only PI or Co-editor can submit reply from draft".to_string()));
     }
     let comment = ProtocolService::submit_reply_from_draft(&state.db, req.comment_id, current_user.id).await?;
     Ok(Json(comment))

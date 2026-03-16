@@ -4,11 +4,42 @@ import { logger } from '@/lib/logger'
 import { FileText, Download, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useRef, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 // jsPDF & html2canvas loaded lazily at PDF export time (~360KB savings)
-import api from '@/lib/api'
+import api, { ProtocolVersion } from '@/lib/api'
 import { useTranslation } from 'react-i18next'
+import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import type { ProtocolWorkingContent } from '@/types/protocol'
 import type { FileInfo } from '@/components/ui/file-upload'
+
+import { SectionCommentButton } from './SectionCommentButton'
+import { InlineCommentDialog } from './InlineCommentDialog'
+
+/** Hook: 偵測 hover 的 section 並回傳名稱與位置 */
+function useSectionHover(contentRef: React.RefObject<HTMLDivElement | null>) {
+  const [hovered, setHovered] = useState<{ name: string; top: number } | null>(null)
+
+  const handleMouseOver = (e: React.MouseEvent) => {
+    const section = (e.target as HTMLElement).closest('section[data-section]') as HTMLElement | null
+    if (!section) {
+      setHovered(null)
+      return
+    }
+    const sectionName = section.getAttribute('data-section')
+    if (!sectionName) return
+    const container = contentRef.current
+    if (container) {
+      const containerRect = container.getBoundingClientRect()
+      const sectionRect = section.getBoundingClientRect()
+      setHovered({ name: sectionName, top: sectionRect.top - containerRect.top })
+    }
+  }
+
+  const handleMouseLeave = () => setHovered(null)
+
+  return { hovered, handleMouseOver, handleMouseLeave }
+}
 
 type TestItem = ProtocolWorkingContent['items']['test_items'][number]
 type ControlItem = ProtocolWorkingContent['items']['control_items'][number]
@@ -25,12 +56,50 @@ interface ProtocolContentViewProps {
   endDate?: string
   protocolId?: string
   onExportPDF?: () => void
+  canAddComment?: boolean
+  onCommentAdded?: () => void
 }
 
-export function ProtocolContentView({ workingContent, protocolTitle, startDate, endDate, protocolId, onExportPDF }: ProtocolContentViewProps) {
+export function ProtocolContentView({ workingContent, protocolTitle, startDate, endDate, protocolId, onExportPDF, canAddComment, onCommentAdded }: ProtocolContentViewProps) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const contentRef = useRef<HTMLDivElement>(null)
   const [isExporting, setIsExporting] = useState(false)
+  const [commentDialogSection, setCommentDialogSection] = useState<string | null>(null)
+  const { hovered: hoveredSection, handleMouseOver: handleSectionMouseOver, handleMouseLeave: handleSectionMouseLeave } = useSectionHover(contentRef)
+
+  // 取得最新 protocol version ID（用於新增意見）
+  const { data: versions } = useQuery({
+    queryKey: ['protocol-versions', protocolId],
+    queryFn: async () => {
+      const response = await api.get<ProtocolVersion[]>(`/protocols/${protocolId}/versions`)
+      return response.data
+    },
+    enabled: !!protocolId && !!canAddComment,
+  })
+
+  const addCommentMutation = useMutation({
+    mutationFn: async (content: string) => {
+      if (!versions || versions.length === 0) throw new Error('No version found')
+      return api.post('/reviews/comments', {
+        protocol_version_id: versions[0].id,
+        content,
+      })
+    },
+    onSuccess: () => {
+      toast({ title: t('common.success'), description: t('protocols.detail.dialogs.comment.success') })
+      queryClient.invalidateQueries({ queryKey: ['protocol-comments', protocolId] })
+      setCommentDialogSection(null)
+      onCommentAdded?.()
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('protocols.detail.dialogs.comment.failed')),
+        variant: 'destructive',
+      })
+    },
+  })
 
   if (!workingContent) {
     return (
@@ -215,7 +284,26 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
         </Button>
       </div>
 
-      <div ref={contentRef} className="protocol-pdf-view bg-white p-8 shadow-lg max-w-4xl mx-auto">
+      <div
+        ref={contentRef}
+        className="protocol-pdf-view bg-white p-8 shadow-lg max-w-4xl mx-auto relative"
+        onMouseOver={canAddComment ? handleSectionMouseOver : undefined}
+        onMouseLeave={canAddComment ? handleSectionMouseLeave : undefined}
+      >
+        {/* Floating comment button — positioned next to hovered section */}
+        {canAddComment && hoveredSection && (
+          <div
+            className="absolute z-10 transition-all duration-150"
+            style={{ top: hoveredSection.top, right: -48 }}
+          >
+            <SectionCommentButton
+              sectionName={hoveredSection.name}
+              onAddComment={(name) => setCommentDialogSection(name)}
+              visible
+            />
+          </div>
+        )}
+
         {/* Header */}
         <div className="text-center mb-8 border-b pb-4">
           <h1 className="text-3xl font-bold mb-2">{t('protocols.content.title')}</h1>
@@ -865,6 +953,17 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
           }
         `}</style>
       </div>
+
+      {/* Inline comment dialog */}
+      {canAddComment && (
+        <InlineCommentDialog
+          open={!!commentDialogSection}
+          sectionName={commentDialogSection || ''}
+          onClose={() => setCommentDialogSection(null)}
+          onSubmit={(content) => addCommentMutation.mutate(content)}
+          isSubmitting={addCommentMutation.isPending}
+        />
+      )}
     </div>
   )
 }

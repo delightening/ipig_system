@@ -25,13 +25,31 @@ impl ProtocolService {
         .fetch_one(pool)
         .await?;
 
+        // 決定 review_stage：優先使用請求中的值，否則根據 protocol 狀態自動推斷
+        let review_stage = if let Some(stage) = &req.review_stage {
+            stage.clone()
+        } else {
+            let status: String = sqlx::query_scalar(
+                "SELECT status::text FROM protocols WHERE id = $1"
+            )
+            .bind(protocol_id)
+            .fetch_one(pool)
+            .await?;
+
+            match status.as_str() {
+                "PRE_REVIEW" | "PRE_REVIEW_REVISION_REQUIRED" => "PRE_REVIEW".to_string(),
+                "VET_REVIEW" | "VET_REVISION_REQUIRED" => "VET_REVIEW".to_string(),
+                _ => "UNDER_REVIEW".to_string(),
+            }
+        };
+
         let comment = sqlx::query_as::<_, ReviewComment>(
             r#"
             INSERT INTO review_comments (
-                id, protocol_version_id, protocol_id, reviewer_id, 
+                id, protocol_version_id, protocol_id, reviewer_id,
                 content, review_stage, created_at, updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, 'UNDER_REVIEW', NOW(), NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
             RETURNING *
             "#
         )
@@ -40,6 +58,7 @@ impl ProtocolService {
         .bind(protocol_id)
         .bind(reviewer_id)
         .bind(&req.content)
+        .bind(&review_stage)
         .fetch_one(pool)
         .await?;
 
@@ -68,9 +87,10 @@ impl ProtocolService {
                 c.content, c.is_resolved, c.resolved_by, c.resolved_at, 
                 c.parent_comment_id, c.replied_by,
                 ru.display_name as replied_by_name, ru.email as replied_by_email,
-                c.draft_content, c.drafted_by, 
+                c.draft_content, c.drafted_by,
                 du.display_name as drafted_by_name,
                 c.draft_updated_at,
+                c.review_stage,
                 c.created_at
             FROM review_comments c
             LEFT JOIN users u ON c.reviewer_id = u.id
