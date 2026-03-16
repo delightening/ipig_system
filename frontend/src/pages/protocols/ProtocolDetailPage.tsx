@@ -465,6 +465,8 @@ export function ProtocolDetailPage() {
               protocolId={id}
               startDate={protocol.start_date}
               endDate={protocol.end_date}
+              canAddComment={!!canAddComment && protocol.status !== 'DRAFT'}
+              onCommentAdded={() => queryClient.invalidateQueries({ queryKey: ['protocol-comments', id] })}
             />
           </CardContent>
         </Card>
