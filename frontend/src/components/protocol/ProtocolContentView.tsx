@@ -1,7 +1,7 @@
 import { Label } from '@/components/ui/label'
 import { formatDate } from '@/lib/utils'
 import { logger } from '@/lib/logger'
-import { FileText, Download, Loader2 } from 'lucide-react'
+import { FileText, Download, Loader2, MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -13,12 +13,11 @@ import { getApiErrorMessage } from '@/lib/validation'
 import type { ProtocolWorkingContent } from '@/types/protocol'
 import type { FileInfo } from '@/components/ui/file-upload'
 
-import { SectionCommentButton } from './SectionCommentButton'
-import { InlineCommentDialog } from './InlineCommentDialog'
+import { ReviewCommentPanel } from './ReviewCommentPanel'
 
-/** Hook: 偵測 hover 的 section 並回傳名稱與位置 */
+/** Hook: 偵測 hover 的 section 並回傳名稱 */
 function useSectionHover(contentRef: React.RefObject<HTMLDivElement | null>) {
-  const [hovered, setHovered] = useState<{ name: string; top: number } | null>(null)
+  const [hovered, setHovered] = useState<{ name: string } | null>(null)
 
   const handleMouseOver = (e: React.MouseEvent) => {
     const section = (e.target as HTMLElement).closest('section[data-section]') as HTMLElement | null
@@ -28,12 +27,7 @@ function useSectionHover(contentRef: React.RefObject<HTMLDivElement | null>) {
     }
     const sectionName = section.getAttribute('data-section')
     if (!sectionName) return
-    const container = contentRef.current
-    if (container) {
-      const containerRect = container.getBoundingClientRect()
-      const sectionRect = section.getBoundingClientRect()
-      setHovered({ name: sectionName, top: sectionRect.top - containerRect.top })
-    }
+    setHovered({ name: sectionName })
   }
 
   const handleMouseLeave = () => setHovered(null)
@@ -65,7 +59,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
   const queryClient = useQueryClient()
   const contentRef = useRef<HTMLDivElement>(null)
   const [isExporting, setIsExporting] = useState(false)
-  const [commentDialogSection, setCommentDialogSection] = useState<string | null>(null)
+  const [showCommentPanel, setShowCommentPanel] = useState(false)
   const { hovered: hoveredSection, handleMouseOver: handleSectionMouseOver, handleMouseLeave: handleSectionMouseLeave } = useSectionHover(contentRef)
 
   // 取得最新 protocol version ID（用於新增意見）
@@ -89,7 +83,6 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
     onSuccess: () => {
       toast({ title: t('common.success'), description: t('protocols.detail.dialogs.comment.success') })
       queryClient.invalidateQueries({ queryKey: ['protocol-comments', protocolId] })
-      setCommentDialogSection(null)
       onCommentAdded?.()
     },
     onError: (error: unknown) => {
@@ -120,6 +113,14 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
   const personnel = workingContent.personnel || []
   const attachments = workingContent.attachments || []
   const signature = workingContent.signature || []
+
+  // 章節名稱列表（供審查意見面板 dropdown 使用）
+  const sectionKeys = [
+    'researchInfo', 'purpose', 'items', 'design',
+    'guidelines', 'surgery', 'animals', 'personnel',
+    'attachments', 'signatures',
+  ] as const
+  const sectionNames = sectionKeys.map(k => t(`protocols.content.sections.${k}`))
 
   // Backend PDF export
   const exportFromBackend = async () => {
@@ -277,7 +278,17 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm py-2 flex justify-end gap-2 border-b border-transparent">
+        {canAddComment && (
+          <Button
+            variant="outline"
+            onClick={() => setShowCommentPanel(true)}
+            disabled={!versions || versions.length === 0}
+          >
+            <MessageSquare className="mr-2 h-4 w-4" />
+            審查意見
+          </Button>
+        )}
         <Button onClick={handleExportPDF} variant="outline" disabled={isExporting}>
           {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
           {isExporting ? t('protocols.content.exporting') : t('protocols.content.exportPDF')}
@@ -290,20 +301,6 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
         onMouseOver={canAddComment ? handleSectionMouseOver : undefined}
         onMouseLeave={canAddComment ? handleSectionMouseLeave : undefined}
       >
-        {/* Floating comment button — positioned next to hovered section */}
-        {canAddComment && hoveredSection && (
-          <div
-            className="absolute z-10 transition-all duration-150"
-            style={{ top: hoveredSection.top, right: -48 }}
-          >
-            <SectionCommentButton
-              sectionName={hoveredSection.name}
-              onAddComment={(name) => setCommentDialogSection(name)}
-              visible
-            />
-          </div>
-        )}
-
         {/* Header */}
         <div className="text-center mb-8 border-b pb-4">
           <h1 className="text-3xl font-bold mb-2">{t('protocols.content.title')}</h1>
@@ -954,14 +951,15 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
         `}</style>
       </div>
 
-      {/* Inline comment dialog */}
+      {/* 右側審查意見面板 */}
       {canAddComment && (
-        <InlineCommentDialog
-          open={!!commentDialogSection}
-          sectionName={commentDialogSection || ''}
-          onClose={() => setCommentDialogSection(null)}
+        <ReviewCommentPanel
+          open={showCommentPanel}
+          onClose={() => setShowCommentPanel(false)}
           onSubmit={(content) => addCommentMutation.mutate(content)}
           isSubmitting={addCommentMutation.isPending}
+          currentSection={hoveredSection?.name}
+          sectionOptions={sectionNames}
         />
       )}
     </div>
