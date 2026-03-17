@@ -63,7 +63,6 @@ import { CommentsTab } from '@/components/protocol/CommentsTab'
 import { ReviewersTab } from '@/components/protocol/ReviewersTab'
 import { CoEditorsTab } from '@/components/protocol/CoEditorsTab'
 import { AttachmentsTab } from '@/components/protocol/AttachmentsTab'
-import { ReviewCommentPanel } from '@/components/protocol/ReviewCommentPanel'
 import type { ProtocolVersion } from '@/types/aup'
 
 const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'> = {
@@ -516,6 +515,10 @@ export function ProtocolDetailPage() {
               endDate={protocol.end_date}
               onToggleCommentPanel={() => setShowCommentPanel(prev => !prev)}
               showReviewButton={canShowPanel}
+              showCommentPanel={showCommentPanel}
+              onSubmitComment={(content) => addCommentMutation.mutate(content)}
+              isSubmittingComment={addCommentMutation.isPending}
+              sectionOptions={sectionOptions}
             />
           </CardContent>
         </Card>
@@ -689,16 +692,6 @@ export function ProtocolDetailPage() {
       <ConfirmDialog state={dialogState} />
     </div>
 
-    {/* 審查意見面板（fixed 定位，不參與 flow layout） */}
-    {canShowPanel && (
-      <ReviewCommentPanel
-        open={showCommentPanel}
-        onClose={() => setShowCommentPanel(false)}
-        onSubmit={(content) => addCommentMutation.mutate(content)}
-        isSubmitting={addCommentMutation.isPending}
-        sectionOptions={sectionOptions}
-      />
-    )}
     </>
   )
 }

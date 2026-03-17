@@ -39,7 +39,7 @@ import {
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
-import { Plus, Search, Pencil, Trash2, Download, Loader2, Package, Check, XCircle } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Upload, Loader2, Package, Check, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // 產品型別（用於 ERP 匯入）
@@ -205,7 +205,7 @@ export function TreatmentDrugOptionsPage() {
                         variant="outline"
                         onClick={() => dialogs.open('import')}
                     >
-                        <Download className="h-4 w-4 mr-2" /> 從 ERP 匯入
+                        <Upload className="h-4 w-4 mr-2" /> 從 ERP 匯入
                     </Button>
                     <Button onClick={() => { resetForm(); dialogs.open('create') }}>
                         <Plus className="h-4 w-4 mr-2" /> 新增藥物
