@@ -64,8 +64,6 @@ import { ReviewersTab } from '@/components/protocol/ReviewersTab'
 import { CoEditorsTab } from '@/components/protocol/CoEditorsTab'
 import { AttachmentsTab } from '@/components/protocol/AttachmentsTab'
 import { ReviewCommentPanel } from '@/components/protocol/ReviewCommentPanel'
-import { FloatingCommentButton } from '@/components/protocol/FloatingCommentButton'
-import { useCurrentSection } from './hooks/useCurrentSection'
 import type { ProtocolVersion } from '@/types/aup'
 
 const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'> = {
@@ -345,8 +343,6 @@ export function ProtocolDetailPage() {
     t('protocols.content.sections.signatures'),
   ]
 
-  const currentSection = useCurrentSection()
-
   const tabItems = useMemo<{ key: TabKey; label: string; icon: typeof FileText }[]>(() => [
     { key: 'content', label: t('protocols.detail.tabs.content'), icon: FileText },
     { key: 'animals', label: t('protocols.detail.tabs.animals'), icon: ClipboardList },
@@ -518,6 +514,8 @@ export function ProtocolDetailPage() {
               protocolId={id}
               startDate={protocol.start_date}
               endDate={protocol.end_date}
+              onToggleCommentPanel={() => setShowCommentPanel(prev => !prev)}
+              showReviewButton={canShowPanel}
             />
           </CardContent>
         </Card>
@@ -691,20 +689,13 @@ export function ProtocolDetailPage() {
       <ConfirmDialog state={dialogState} />
     </div>
 
-    {/* FAB + 審查意見面板（fixed 定位，不參與 flow layout） */}
-    {canShowPanel && (
-      <FloatingCommentButton
-        onClick={() => setShowCommentPanel(prev => !prev)}
-        isOpen={showCommentPanel}
-      />
-    )}
+    {/* 審查意見面板（fixed 定位，不參與 flow layout） */}
     {canShowPanel && (
       <ReviewCommentPanel
         open={showCommentPanel}
         onClose={() => setShowCommentPanel(false)}
         onSubmit={(content) => addCommentMutation.mutate(content)}
         isSubmitting={addCommentMutation.isPending}
-        currentSection={currentSection}
         sectionOptions={sectionOptions}
       />
     )}

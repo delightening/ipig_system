@@ -75,6 +75,7 @@ maxminddb = "0.27"
 
 # PDF generation
 printpdf = "0.7"
+lopdf = "0.34"
 tera = "1"
 
 # Zip (IDXF 分檔匯出/匯入)

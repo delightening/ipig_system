@@ -520,10 +520,18 @@ pub async fn export_protocol_pdf_v2(
         .as_deref()
         .unwrap_or("尚未指派");
 
+    // 取得委託單位名稱（供封面使用）
+    let sponsor_name = basic_ctx
+        .get("sponsor")
+        .and_then(|s| s.get("name"))
+        .and_then(|n| n.as_str())
+        .unwrap_or("");
+
     let mut ctx = tera::Context::new();
     ctx.insert("protocol_title", &protocol.protocol.title);
     ctx.insert("iacuc_no", iacuc_no);
     ctx.insert("pi_name", &protocol.pi_name.as_deref().unwrap_or(""));
+    ctx.insert("sponsor_name", sponsor_name);
     ctx.insert(
         "start_date",
         &protocol
@@ -577,7 +585,17 @@ pub async fn export_protocol_pdf_v2(
     );
 
     let html = state.templates.render("protocol.html", &ctx)?;
-    let pdf_bytes = state.gotenberg.html_to_pdf(&html).await?;
+
+    // 渲染頁首頁尾模板（含動態頁碼）
+    let mut hf_ctx = tera::Context::new();
+    hf_ctx.insert("doc_id", "AD-XX-XX-XXE");
+    let header_html = state.templates.render("partials/header.html", &hf_ctx)?;
+    let footer_html = state.templates.render("partials/footer.html", &hf_ctx)?;
+
+    let pdf_bytes = state
+        .gotenberg
+        .html_to_pdf_with_headers(&html, &header_html, &footer_html)
+        .await?;
 
     let filename = format!("{}_AUP計畫書.pdf", protocol.protocol.title);
     pdf_response(pdf_bytes, &filename)

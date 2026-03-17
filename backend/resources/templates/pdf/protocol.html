@@ -17,21 +17,111 @@ body {
     color: #000;
 }
 
-.doc-title {
+/* ========== 標題頁樣式 ========== */
+.cover-page {
     text-align: center;
-    font-size: 18pt;
+    padding-top: 30mm;
+    page-break-after: always;
+}
+
+.cover-title {
+    font-size: 22pt;
     font-weight: bold;
+    color: #c00;
     margin-bottom: 4mm;
 }
 
-.doc-subtitle {
-    text-align: center;
+.cover-subtitle {
+    font-size: 16pt;
+    font-weight: bold;
+    color: #c00;
+    margin-bottom: 10mm;
+}
+
+.cover-section-label {
     font-size: 14pt;
-    margin-bottom: 8mm;
+    font-weight: bold;
+    margin-top: 8mm;
+    margin-bottom: 2mm;
+}
+
+.cover-study-title {
+    font-size: 12pt;
+    color: #c00;
+    margin-bottom: 2mm;
+    padding: 0 15mm;
     word-break: break-word;
 }
 
-/* 區段標題 */
+.cover-value {
+    font-size: 12pt;
+    margin-bottom: 2mm;
+    border: 1px solid #999;
+    display: inline-block;
+    padding: 1mm 4mm;
+}
+
+.cover-sign-area {
+    margin-top: 15mm;
+    text-align: center;
+}
+
+.cover-sign-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10mm;
+    margin-bottom: 6mm;
+    font-size: 11pt;
+}
+
+.cover-sign-label {
+    font-weight: bold;
+    min-width: 80px;
+    text-align: left;
+}
+
+.cover-sign-line {
+    border-bottom: 1px solid #000;
+    min-width: 80px;
+    display: inline-block;
+}
+
+.cover-iacuc-row {
+    margin-top: 10mm;
+    font-size: 12pt;
+    font-weight: bold;
+}
+
+/* ========== 目錄頁樣式 ========== */
+.toc-page {
+    page-break-after: always;
+}
+
+.toc-title {
+    font-size: 16pt;
+    font-weight: bold;
+    margin-bottom: 8mm;
+}
+
+.toc-list {
+    list-style: none;
+    padding: 0;
+}
+
+.toc-list li {
+    font-size: 11pt;
+    padding: 2mm 0;
+    border-bottom: 1px dotted #ccc;
+}
+
+.toc-list li span.toc-num {
+    display: inline-block;
+    min-width: 20px;
+    font-weight: bold;
+}
+
+/* ========== 區段標題 ========== */
 .section-header {
     font-size: 13pt;
     font-weight: bold;
@@ -39,6 +129,7 @@ body {
     padding-bottom: 1mm;
     margin-bottom: 4mm;
     margin-top: 6mm;
+    page-break-after: avoid;
 }
 
 .subsection-header {
@@ -46,9 +137,10 @@ body {
     font-weight: bold;
     margin-bottom: 2mm;
     margin-top: 4mm;
+    page-break-after: avoid;
 }
 
-/* key-value 欄位 */
+/* ========== key-value 欄位 ========== */
 .field-row {
     display: flex;
     margin-bottom: 1.5mm;
@@ -65,7 +157,7 @@ body {
     flex: 1;
 }
 
-/* 段落文字 */
+/* ========== 段落文字 ========== */
 .paragraph {
     margin-bottom: 3mm;
     text-align: justify;
@@ -73,7 +165,7 @@ body {
     word-break: break-word;
 }
 
-/* 表格 */
+/* ========== 表格 ========== */
 table.data-table {
     width: 100%;
     border-collapse: collapse;
@@ -104,13 +196,13 @@ table.data-table td {
     vertical-align: top;
 }
 
-/* 子區塊（避免在中間斷頁） */
+/* ========== 子區塊（避免在中間斷頁） ========== */
 .no-break { page-break-inside: avoid; }
 
-/* 分頁 */
+/* ========== 分頁 ========== */
 .page-break { page-break-before: always; }
 
-/* 版權 */
+/* ========== 版權 ========== */
 .copyright {
     text-align: center;
     font-size: 8pt;
@@ -122,31 +214,69 @@ table.data-table td {
 </head>
 <body>
 
-<!-- ========== 封面 ========== -->
-<div style="text-align: center; padding-top: 40mm;">
-    <div style="font-size: 14pt; margin-bottom: 8mm;">豬博士動物科技股份有限公司</div>
-    <div class="doc-title">AUP 動物試驗計畫書</div>
-    <div class="doc-subtitle">{{ protocol_title | default(value="") }}</div>
-    <div style="margin-top: 10mm; font-size: 11pt;">
-        <div class="field-row" style="justify-content: center;">
-            <span class="field-label" style="min-width: auto;">IACUC 編號：</span>
-            <span>{{ iacuc_no | default(value="尚未指派") }}</span>
+<!-- ========== 封面（標題頁） ========== -->
+<div class="cover-page">
+    <div class="cover-title">動物試驗研究計畫書</div>
+    <div class="cover-subtitle">(ANIMAL USE PROTOCOL)</div>
+
+    <div class="cover-section-label">研究名稱 (STUDY TITLE)</div>
+    <div class="cover-study-title">
+        中文：{{ protocol_title | default(value="") }}
+    </div>
+    {% if protocol_title_en %}
+    <div class="cover-study-title">
+        英文：{{ protocol_title_en | default(value="") }}
+    </div>
+    {% endif %}
+
+    <div class="cover-section-label">試驗單位 (SPONSOR)</div>
+    <div class="cover-value">{{ sponsor_name | default(value="") }}</div>
+
+    <div class="cover-section-label">試驗機構 (TESTING FACILITY)</div>
+    <div class="cover-value">豬博士動物科技股份有限公司(豬博士畜牧場)</div>
+
+    <div class="cover-iacuc-row">
+        IACUC 核准編號：<span class="cover-sign-line">&nbsp;{{ iacuc_no | default(value="") }}&nbsp;</span>
+        &emsp;核准日期：<span class="cover-sign-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+    </div>
+
+    <div style="margin-top: 10mm; font-size: 14pt; font-weight: bold;">簽核</div>
+
+    <div class="cover-sign-area">
+        <div class="cover-sign-row">
+            <span class="cover-sign-label">計畫主持人<br>(Principal Investigator)</span>
+            <span class="cover-sign-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+            <span>(簽章/日 期)</span>
         </div>
-        <div class="field-row" style="justify-content: center;">
-            <span class="field-label" style="min-width: auto;">計畫主持人：</span>
-            <span>{{ pi_name | default(value="") }}</span>
+        <div class="cover-sign-row">
+            <span class="cover-sign-label">機構負責人<br>(Facility Manager)</span>
+            <span class="cover-sign-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+            <span>(簽章/日 期)</span>
         </div>
-        {% if start_date and end_date %}
-        <div class="field-row" style="justify-content: center;">
-            <span class="field-label" style="min-width: auto;">預計試驗時程：</span>
-            <span>{{ start_date }} ~ {{ end_date }}</span>
-        </div>
-        {% endif %}
+    </div>
+
+    <div class="copyright">
+        版權為豬博士動物科技股份有限公司所有，禁止任何未經授權的使用<br>
+        All Rights Reserved &copy; DrPIG. Unauthorized use in any form is prohibited.
     </div>
 </div>
 
+<!-- ========== 目錄頁 ========== -->
+<div class="toc-page">
+    <div class="toc-title">目 錄</div>
+    <ul class="toc-list">
+        <li><span class="toc-num">1</span> 研究資料（Study Information）</li>
+        <li><span class="toc-num">2</span> 研究目的 (Study purpose)</li>
+        <li><span class="toc-num">3</span> 試驗物質與對照物質 (Testing and Control Item)</li>
+        <li><span class="toc-num">4</span> 研究設計與方法 (Study design and methods)</li>
+        <li><span class="toc-num">5</span> 相關規範及參考文獻 (Guidelines and references)</li>
+        <li><span class="toc-num">6</span> 手術計畫書 (Animal surgical plan)</li>
+        <li><span class="toc-num">7</span> 實驗動物資料 (Animal information)</li>
+        <li><span class="toc-num">8</span> 試驗人員資料 (Personnel working on animal study)</li>
+    </ul>
+</div>
+
 <!-- ========== 第1節：研究資料 ========== -->
-<div class="page-break"></div>
 <div class="section-header">1. 研究資料</div>
 
 <div class="field-row">
@@ -303,6 +433,7 @@ table.data-table td {
 {% endif %}
 
 {% if design.anesthesia %}
+<div class="no-break">
 <div class="field-row">
     <span class="field-label">是否於麻醉下進行試驗：</span>
     <span class="field-value">{% if design.anesthesia.is_under_anesthesia | default(value=false) %}是{% else %}否{% endif %}</span>
@@ -310,9 +441,11 @@ table.data-table td {
 {% if design.anesthesia.anesthesia_type %}
 <div class="field-row"><span class="field-label">麻醉類型：</span><span class="field-value">{{ design.anesthesia.anesthesia_type }}</span></div>
 {% endif %}
+</div>
 {% endif %}
 
 {% if design.pain %}
+<div class="no-break">
 {% if design.pain.category %}
 <div class="field-row"><span class="field-label">疼痛類別：</span><span class="field-value">{{ design.pain.category }}</span></div>
 {% endif %}
@@ -320,17 +453,70 @@ table.data-table td {
 <div class="subsection-header">疼痛管理方案</div>
 <div class="paragraph">{{ design.pain.management_plan }}</div>
 {% endif %}
+</div>
 {% endif %}
 
 {% if design.endpoints %}
 {% if design.endpoints.experimental_endpoint %}
+<div class="no-break">
 <div class="subsection-header">試驗終點</div>
 <div class="paragraph">{{ design.endpoints.experimental_endpoint }}</div>
+</div>
 {% endif %}
 {% if design.endpoints.humane_endpoint %}
+<div class="no-break">
 <div class="subsection-header">人道終點</div>
 <div class="paragraph">{{ design.endpoints.humane_endpoint }}</div>
+</div>
 {% endif %}
+{% endif %}
+
+{% if design.carcass_handling %}
+<div class="no-break">
+<div class="subsection-header">4.2 動物屍體處理方法</div>
+<div class="paragraph">{{ design.carcass_handling }}</div>
+</div>
+{% endif %}
+
+{% if design.non_pharma is defined %}
+<div class="no-break">
+<div class="subsection-header">4.3 是否使用非醫藥級化學藥品或其他物質</div>
+<div class="field-row">
+    <span class="field-value">{% if design.non_pharma.used | default(value=false) %}是{% else %}否{% endif %}</span>
+</div>
+{% if design.non_pharma.used | default(value=false) and design.non_pharma.justification %}
+<div class="paragraph">{{ design.non_pharma.justification }}</div>
+{% endif %}
+</div>
+{% endif %}
+
+{% if design.hazardous is defined %}
+<div class="no-break">
+<div class="subsection-header">4.4 是否使用危害性物質材料</div>
+<div class="field-row">
+    <span class="field-value">{% if design.hazardous.used | default(value=false) %}是{% else %}否{% endif %}</span>
+</div>
+{% if design.hazardous.used | default(value=false) and design.hazardous.materials %}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>材料種類(type)</th>
+            <th>物質名稱(agent)</th>
+            <th>所需用量(amount)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for m in design.hazardous.materials %}
+        <tr>
+            <td>{{ m.material_type | default(value="-") }}</td>
+            <td>{{ m.agent | default(value="-") }}</td>
+            <td>{{ m.amount | default(value="-") }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+</div>
 {% endif %}
 {% endif %}
 
@@ -360,20 +546,28 @@ table.data-table td {
 {% if needs_surgery | default(value=false) %}
     {% if surgery.surgery_type %}<div class="field-row"><span class="field-label">手術類型：</span><span class="field-value">{{ surgery.surgery_type }}</span></div>{% endif %}
     {% if surgery.preop_preparation %}
+    <div class="no-break">
     <div class="subsection-header">術前準備</div>
     <div class="paragraph">{{ surgery.preop_preparation }}</div>
+    </div>
     {% endif %}
     {% if surgery.surgery_description %}
+    <div class="no-break">
     <div class="subsection-header">手術描述</div>
     <div class="paragraph">{{ surgery.surgery_description }}</div>
+    </div>
     {% endif %}
     {% if surgery.monitoring %}
+    <div class="no-break">
     <div class="subsection-header">監控方式</div>
     <div class="paragraph">{{ surgery.monitoring }}</div>
+    </div>
     {% endif %}
     {% if surgery.postop_care %}
+    <div class="no-break">
     <div class="subsection-header">術後照護</div>
     <div class="paragraph">{{ surgery.postop_care }}</div>
+    </div>
     {% endif %}
     {% if surgery.drugs %}
     <div class="subsection-header">用藥計畫</div>

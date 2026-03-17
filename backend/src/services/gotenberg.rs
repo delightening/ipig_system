@@ -67,6 +67,74 @@ impl GotenbergClient {
         Ok(bytes.to_vec())
     }
 
+    /// 將 HTML 字串轉換為 PDF bytes，並附帶頁首頁尾模板
+    ///
+    /// - `html`: 完整的 HTML 文件
+    /// - `header_html`: 頁首 HTML（支援 `<span class="pageNumber">` / `<span class="totalPages">`）
+    /// - `footer_html`: 頁尾 HTML
+    pub async fn html_to_pdf_with_headers(
+        &self,
+        html: &str,
+        header_html: &str,
+        footer_html: &str,
+    ) -> Result<Vec<u8>> {
+        let url = format!("{}/forms/chromium/convert/html", self.base_url);
+
+        let html_part = multipart::Part::bytes(html.as_bytes().to_vec())
+            .file_name("index.html")
+            .mime_str("text/html")
+            .map_err(|e| AppError::Internal(format!("Failed to create multipart: {}", e)))?;
+
+        let header_part = multipart::Part::bytes(header_html.as_bytes().to_vec())
+            .file_name("header.html")
+            .mime_str("text/html")
+            .map_err(|e| AppError::Internal(format!("Failed to create header part: {}", e)))?;
+
+        let footer_part = multipart::Part::bytes(footer_html.as_bytes().to_vec())
+            .file_name("footer.html")
+            .mime_str("text/html")
+            .map_err(|e| AppError::Internal(format!("Failed to create footer part: {}", e)))?;
+
+        let form = multipart::Form::new()
+            .part("files", html_part)
+            .part("files", header_part)
+            .part("files", footer_part)
+            .text("paperWidth", "8.27")
+            .text("paperHeight", "11.7")
+            .text("marginTop", "15")   // mm — 為頁首留空間
+            .text("marginBottom", "15") // mm — 為頁尾留空間
+            .text("marginLeft", "0")
+            .text("marginRight", "0")
+            .text("printBackground", "true");
+
+        let response = self
+            .client
+            .post(&url)
+            .multipart(form)
+            .send()
+            .await
+            .map_err(|e| AppError::Internal(format!("Gotenberg request failed: {}", e)))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "unknown error".to_string());
+            return Err(AppError::Internal(format!(
+                "Gotenberg returned {}: {}",
+                status, body
+            )));
+        }
+
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to read PDF response: {}", e)))?;
+
+        Ok(bytes.to_vec())
+    }
+
     /// 健康檢查：確認 Gotenberg 服務可用
     pub async fn health_check(&self) -> Result<bool> {
         let url = format!("{}/health", self.base_url);
