@@ -132,6 +132,7 @@ impl DocumentService {
 
     /// 核准（寫入庫存流水）
     /// 採購單核准後會自動產生入庫單（草稿）
+    /// 大金額 ADJ 調整單：WAREHOUSE_MANAGER 核准後進入 wm_approved 狀態，等待 ADMIN 最終核准
     pub async fn approve(pool: &PgPool, id: Uuid, approved_by: Uuid) -> Result<DocumentWithLines> {
         let document = sqlx::query_as::<_, Document>(
             "SELECT * FROM documents WHERE id = $1"
@@ -143,6 +144,34 @@ impl DocumentService {
 
         if document.status != DocStatus::Submitted {
             return Err(AppError::BusinessRule("Document must be in submitted status to approve".to_string()));
+        }
+
+        // 大金額 ADJ：WAREHOUSE_MANAGER 核准後不直接生效，改為等待 ADMIN 核准
+        let needs_admin = document.requires_manager_approval == Some(true)
+            && document.manager_approval_status.as_deref() == Some("pending");
+
+        if needs_admin {
+            sqlx::query(
+                r#"
+                UPDATE documents SET
+                    manager_approval_status = 'wm_approved',
+                    approved_by = $1,
+                    approved_at = NOW(),
+                    updated_at = NOW()
+                WHERE id = $2
+                "#
+            )
+            .bind(approved_by)
+            .bind(id)
+            .execute(pool)
+            .await?;
+
+            tracing::info!(
+                "[ADJ Approval] Document {} approved by warehouse manager, awaiting admin approval",
+                id
+            );
+
+            return Self::get_by_id(pool, id).await;
         }
 
         let lines = sqlx::query_as::<_, DocumentLine>(
@@ -168,10 +197,10 @@ impl DocumentService {
         // 更新單據狀態
         sqlx::query(
             r#"
-            UPDATE documents SET 
-                status = $1, 
-                approved_by = $2, 
-                approved_at = NOW(), 
+            UPDATE documents SET
+                status = $1,
+                approved_by = $2,
+                approved_at = NOW(),
                 updated_at = NOW()
             WHERE id = $3
             "#
@@ -185,7 +214,7 @@ impl DocumentService {
         // 如果是採購單，自動產生入庫單（草稿）
         if document.doc_type == DocType::PO {
             Self::create_grn_from_po(&mut tx, &document, &lines, approved_by).await?;
-            
+
             // 更新採購單的入庫狀態
             sqlx::query(
                 "UPDATE documents SET receipt_status = 'pending' WHERE id = $1"
@@ -196,6 +225,126 @@ impl DocumentService {
         }
 
         tx.commit().await?;
+
+        Self::get_by_id(pool, id).await
+    }
+
+    /// ADMIN 最終核准（大金額 ADJ 調整單）
+    /// 前置條件：requires_manager_approval = true 且 manager_approval_status = 'wm_approved'
+    pub async fn admin_approve(pool: &PgPool, id: Uuid, admin_id: Uuid) -> Result<DocumentWithLines> {
+        let document = sqlx::query_as::<_, Document>(
+            "SELECT * FROM documents WHERE id = $1"
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
+
+        if document.status != DocStatus::Submitted {
+            return Err(AppError::BusinessRule("單據必須為已提交狀態".to_string()));
+        }
+
+        if document.requires_manager_approval != Some(true)
+            || document.manager_approval_status.as_deref() != Some("wm_approved")
+        {
+            return Err(AppError::BusinessRule(
+                "此單據尚未經倉庫管理員核准，無法進行管理員最終核准".to_string(),
+            ));
+        }
+
+        let lines = sqlx::query_as::<_, DocumentLine>(
+            "SELECT * FROM document_lines WHERE document_id = $1 ORDER BY line_no"
+        )
+        .bind(id)
+        .fetch_all(pool)
+        .await?;
+
+        let mut tx = pool.begin().await?;
+
+        // 寫入庫存流水
+        if document.doc_type.affects_stock() {
+            StockService::process_document(&mut tx, &document, &lines).await?;
+        }
+
+        // 會計過帳
+        if let Err(e) = AccountingService::post_document(&mut tx, &document, &lines, admin_id).await {
+            tracing::warn!("會計過帳跳過或失敗 (document {}): {}", document.id, e);
+        }
+
+        // 更新單據為最終核准
+        sqlx::query(
+            r#"
+            UPDATE documents SET
+                status = $1,
+                manager_approval_status = 'approved',
+                manager_approved_by = $2,
+                manager_approved_at = NOW(),
+                updated_at = NOW()
+            WHERE id = $3
+            "#
+        )
+        .bind(DocStatus::Approved)
+        .bind(admin_id)
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
+
+        tracing::info!("[ADJ Admin Approval] Document {} approved by admin {}", id, admin_id);
+
+        Self::get_by_id(pool, id).await
+    }
+
+    /// ADMIN 駁回（大金額 ADJ 調整單）
+    /// 單據退回草稿狀態，建立者可修改後重新提交
+    pub async fn admin_reject(pool: &PgPool, id: Uuid, admin_id: Uuid, reason: &str) -> Result<DocumentWithLines> {
+        let document = sqlx::query_as::<_, Document>(
+            "SELECT * FROM documents WHERE id = $1"
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Document not found".to_string()))?;
+
+        if document.status != DocStatus::Submitted {
+            return Err(AppError::BusinessRule("單據必須為已提交狀態".to_string()));
+        }
+
+        if document.requires_manager_approval != Some(true)
+            || document.manager_approval_status.as_deref() != Some("wm_approved")
+        {
+            return Err(AppError::BusinessRule(
+                "此單據尚未經倉庫管理員核准，無法進行管理員駁回".to_string(),
+            ));
+        }
+
+        // 退回草稿狀態，清除倉庫核准資訊
+        sqlx::query(
+            r#"
+            UPDATE documents SET
+                status = $1,
+                manager_approval_status = 'rejected',
+                manager_approved_by = $2,
+                manager_approved_at = NOW(),
+                manager_reject_reason = $3,
+                approved_by = NULL,
+                approved_at = NULL,
+                updated_at = NOW()
+            WHERE id = $4
+            "#
+        )
+        .bind(DocStatus::Draft)
+        .bind(admin_id)
+        .bind(reason)
+        .bind(id)
+        .execute(pool)
+        .await?;
+
+        tracing::info!(
+            "[ADJ Admin Reject] Document {} rejected by admin {}. Reason: {}",
+            id, admin_id, reason
+        );
 
         Self::get_by_id(pool, id).await
     }

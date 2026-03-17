@@ -1,5 +1,7 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import api, { AnimalListItem } from '@/lib/api'
+import { toast } from '@/components/ui/use-toast'
 
 type AnimalListItemExtended = AnimalListItem 
 
@@ -9,6 +11,7 @@ interface AnimalPenReportProps {
 }
 
 export const AnimalPenReport: React.FC<AnimalPenReportProps> = ({ data, onClose }) => {
+    const { t } = useTranslation()
     const [docId, setDocId] = React.useState('AD-05-01-02C')
     const [isExporting, setIsExporting] = React.useState(false)
     const animalsByPen = new Map(data.map(item => [item.pen_location, item.animals]))
@@ -17,7 +20,7 @@ export const AnimalPenReport: React.FC<AnimalPenReportProps> = ({ data, onClose 
         if (isExporting) return
         try {
             setIsExporting(true)
-            const response = await api.get('/animals/export-pen-report', { responseType: 'blob' })
+            const response = await api.get('/animals/export-pen-report', { responseType: 'blob', _silentError: true })
             const blob = new Blob([response.data], { type: 'application/pdf' })
             const url = window.URL.createObjectURL(blob)
             const a = document.createElement('a')
@@ -29,7 +32,7 @@ export const AnimalPenReport: React.FC<AnimalPenReportProps> = ({ data, onClose 
             window.URL.revokeObjectURL(url)
             document.body.removeChild(a)
         } catch {
-            alert('PDF 匯出失敗，請稍後再試')
+            toast({ title: t('common.exportFailed'), variant: 'destructive' })
         } finally {
             setIsExporting(false)
         }

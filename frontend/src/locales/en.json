@@ -44,6 +44,8 @@
         "close": "Close",
         "impersonating": "Impersonating",
         "backToAdmin": "Back to Admin",
+        "exportSuccess": "Export successful",
+        "exportFailed": "Export failed",
         "fileUpload": {
             "placeholder": "Drag and drop files here, or click to select files",
             "uploading": "Uploading...",

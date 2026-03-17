@@ -147,6 +147,7 @@ export const CommentsTab = React.memo(function CommentsTab({
       setIsExportingComments(true)
       const response = await api.get(`/protocols/${protocolId}/export-review-comments`, {
         responseType: 'blob',
+        _silentError: true,
       })
       const blob = new Blob([response.data], { type: 'application/pdf' })
       const url = window.URL.createObjectURL(blob)
@@ -173,6 +174,7 @@ export const CommentsTab = React.memo(function CommentsTab({
       setIsExportingResult(true)
       const response = await api.get(`/protocols/${protocolId}/export-review-result`, {
         responseType: 'blob',
+        _silentError: true,
       })
       const blob = new Blob([response.data], { type: 'application/pdf' })
       const url = window.URL.createObjectURL(blob)

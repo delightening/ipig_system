@@ -8,8 +8,8 @@ use validator::Validate;
 use crate::{
     middleware::CurrentUser,
     models::{
-        CreateDocumentRequest, DocumentListItem, DocumentQuery, DocumentWithLines,
-        PoReceiptStatus, UpdateDocumentRequest,
+        AdminRejectRequest, CreateDocumentRequest, DocumentListItem, DocumentQuery,
+        DocumentWithLines, PoReceiptStatus, UpdateDocumentRequest,
     },
     require_permission,
     services::{AuditService, DocumentService, NotificationService},
@@ -261,6 +261,122 @@ pub async fn approve_document(
             tracing::warn!("發送單據決定通知失敗: {e}");
         }
 
+    });
+
+    Ok(Json(document))
+}
+
+/// ADMIN 最終核准（大金額 ADJ 調整單）
+#[utoipa::path(
+    post,
+    path = "/api/documents/{id}/admin-approve",
+    params(("id" = Uuid, Path, description = "單據 ID")),
+    responses(
+        (status = 200, description = "ADMIN 核准成功", body = DocumentWithLines),
+        (status = 401, description = "未認證"),
+        (status = 403, description = "僅管理員可執行最終核准"),
+        (status = 404, description = "找不到單據"),
+    ),
+    tag = "單據管理",
+    security(("bearer" = []))
+)]
+pub async fn admin_approve_document(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<DocumentWithLines>> {
+    require_permission!(current_user, "erp.document.approve");
+
+    if !current_user.is_admin() {
+        return Err(AppError::Forbidden("僅管理員可執行最終核准".to_string()));
+    }
+
+    let document = DocumentService::admin_approve(&state.db, id, current_user.id).await?;
+
+    if let Err(e) = AuditService::audit_document(
+        &state.db,
+        current_user.id,
+        "DOC_ADMIN_APPROVE",
+        id,
+        &document.document.doc_no,
+        Some(&format!("{:?}", document.document.doc_type)),
+        Some(serde_json::json!({ "status": "approved", "level": "admin" })),
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (DOC_ADMIN_APPROVE): {}", e);
+    }
+
+    // 非同步通知建立者（已核准）
+    let db = state.db.clone();
+    let doc_id = document.document.id;
+    let doc_no = document.document.doc_no.clone();
+    let doc_type = document.document.doc_type.prefix().to_string();
+    let creator_id = document.document.created_by;
+    tokio::spawn(async move {
+        let svc = NotificationService::new(db);
+        if let Err(e) = svc.notify_document_decided(
+            doc_id, &doc_no, &doc_type, true, creator_id,
+        ).await {
+            tracing::warn!("發送單據決定通知失敗: {e}");
+        }
+    });
+
+    Ok(Json(document))
+}
+
+/// ADMIN 駁回（大金額 ADJ 調整單，退回草稿）
+#[utoipa::path(
+    post,
+    path = "/api/documents/{id}/admin-reject",
+    params(("id" = Uuid, Path, description = "單據 ID")),
+    request_body = AdminRejectRequest,
+    responses(
+        (status = 200, description = "ADMIN 駁回成功", body = DocumentWithLines),
+        (status = 401, description = "未認證"),
+        (status = 403, description = "僅管理員可駁回"),
+        (status = 404, description = "找不到單據"),
+    ),
+    tag = "單據管理",
+    security(("bearer" = []))
+)]
+pub async fn admin_reject_document(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+    Json(req): Json<AdminRejectRequest>,
+) -> Result<Json<DocumentWithLines>> {
+    require_permission!(current_user, "erp.document.approve");
+
+    if !current_user.is_admin() {
+        return Err(AppError::Forbidden("僅管理員可駁回單據".to_string()));
+    }
+
+    let document = DocumentService::admin_reject(&state.db, id, current_user.id, &req.reason).await?;
+
+    if let Err(e) = AuditService::audit_document(
+        &state.db,
+        current_user.id,
+        "DOC_ADMIN_REJECT",
+        id,
+        &document.document.doc_no,
+        Some(&format!("{:?}", document.document.doc_type)),
+        Some(serde_json::json!({ "status": "rejected", "reason": req.reason })),
+    ).await {
+        tracing::error!("寫入審計日誌失敗 (DOC_ADMIN_REJECT): {}", e);
+    }
+
+    // 非同步通知建立者（已駁回）
+    let db = state.db.clone();
+    let doc_id = document.document.id;
+    let doc_no = document.document.doc_no.clone();
+    let doc_type = document.document.doc_type.prefix().to_string();
+    let creator_id = document.document.created_by;
+    tokio::spawn(async move {
+        let svc = NotificationService::new(db);
+        if let Err(e) = svc.notify_document_decided(
+            doc_id, &doc_no, &doc_type, false, creator_id,
+        ).await {
+            tracing::warn!("發送單據決定通知失敗: {e}");
+        }
     });
 
     Ok(Json(document))

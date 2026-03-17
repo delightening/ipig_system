@@ -44,6 +44,8 @@
     "close": "結案",
     "impersonating": "模擬登入中",
     "backToAdmin": "返回管理員",
+    "exportSuccess": "匯出成功",
+    "exportFailed": "匯出失敗",
     "fileUpload": {
       "placeholder": "拖曳檔案到此處，或點擊選擇檔案",
       "uploading": "上傳中...",

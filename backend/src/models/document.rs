@@ -297,6 +297,12 @@ pub struct PoReceiptItem {
     pub remaining_qty: Decimal,
 }
 
+/// ADMIN 駁回請求
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct AdminRejectRequest {
+    pub reason: String,
+}
+
 /// 盤點範圍設定
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StocktakeScope {

@@ -179,6 +179,14 @@ export interface Document {
     protocol_no?: string
     created_by_name: string
     approved_by_name?: string
+    /** 大金額 ADJ 兩級審批欄位 */
+    requires_manager_approval?: boolean
+    scrap_total_amount?: string
+    /** pending | wm_approved | approved | rejected */
+    manager_approval_status?: string
+    manager_approved_by?: string
+    manager_approved_at?: string
+    manager_reject_reason?: string
 }
 
 export interface DocumentListItem {
