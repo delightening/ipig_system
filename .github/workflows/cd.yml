@@ -5,6 +5,7 @@ on:
     workflows: ["CI"]
     types: [completed]
     branches: [main]
+  workflow_dispatch: {} # 允許手動觸發部署
 
 env:
   REGISTRY: ghcr.io

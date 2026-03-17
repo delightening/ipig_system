@@ -1,13 +1,6 @@
 name: CI
 
 on:
-  push:
-    branches:
-      - main
-      - develop
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:  # 可於 GitHub Actions 頁面手動觸發
 
 env:
