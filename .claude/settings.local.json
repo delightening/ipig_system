@@ -34,7 +34,8 @@
       "Bash(sqlx migrate run:*)",
       "Bash(sqlx database reset --help:*)",
       "Bash(choco install:*)",
-      "Bash(cargo clippy:*)"
+      "Bash(cargo clippy:*)",
+      "Bash(cargo doc:*)"
     ]
   }
 }

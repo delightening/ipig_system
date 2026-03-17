@@ -202,6 +202,16 @@ table.data-table td {
 /* ========== 分頁 ========== */
 .page-break { page-break-before: always; }
 
+/* ========== 章節標記（不可見，供兩階段渲染偵測頁碼） ========== */
+.sec-marker {
+    font-size: 1px;
+    color: transparent;
+    line-height: 0;
+    height: 0;
+    overflow: hidden;
+    user-select: none;
+}
+
 /* ========== 版權 ========== */
 .copyright {
     text-align: center;
@@ -265,18 +275,19 @@ table.data-table td {
 <div class="toc-page">
     <div class="toc-title">目 錄</div>
     <ul class="toc-list">
-        <li><span class="toc-num">1</span> 研究資料（Study Information）</li>
-        <li><span class="toc-num">2</span> 研究目的 (Study purpose)</li>
-        <li><span class="toc-num">3</span> 試驗物質與對照物質 (Testing and Control Item)</li>
-        <li><span class="toc-num">4</span> 研究設計與方法 (Study design and methods)</li>
-        <li><span class="toc-num">5</span> 相關規範及參考文獻 (Guidelines and references)</li>
-        <li><span class="toc-num">6</span> 手術計畫書 (Animal surgical plan)</li>
-        <li><span class="toc-num">7</span> 實驗動物資料 (Animal information)</li>
-        <li><span class="toc-num">8</span> 試驗人員資料 (Personnel working on animal study)</li>
+        <li><span class="toc-num">1</span> 研究資料（Study Information）<span style="float:right">{{ toc_page_1 | default(value="") }}</span></li>
+        <li><span class="toc-num">2</span> 研究目的 (Study purpose)<span style="float:right">{{ toc_page_2 | default(value="") }}</span></li>
+        <li><span class="toc-num">3</span> 試驗物質與對照物質 (Testing and Control Item)<span style="float:right">{{ toc_page_3 | default(value="") }}</span></li>
+        <li><span class="toc-num">4</span> 研究設計與方法 (Study design and methods)<span style="float:right">{{ toc_page_4 | default(value="") }}</span></li>
+        <li><span class="toc-num">5</span> 相關規範及參考文獻 (Guidelines and references)<span style="float:right">{{ toc_page_5 | default(value="") }}</span></li>
+        <li><span class="toc-num">6</span> 手術計畫書 (Animal surgical plan)<span style="float:right">{{ toc_page_6 | default(value="") }}</span></li>
+        <li><span class="toc-num">7</span> 實驗動物資料 (Animal information)<span style="float:right">{{ toc_page_7 | default(value="") }}</span></li>
+        <li><span class="toc-num">8</span> 試驗人員資料 (Personnel working on animal study)<span style="float:right">{{ toc_page_8 | default(value="") }}</span></li>
     </ul>
 </div>
 
 <!-- ========== 第1節：研究資料 ========== -->
+<div class="sec-marker">§SEC1§</div>
 <div class="section-header">1. 研究資料</div>
 
 <div class="field-row">
@@ -346,6 +357,7 @@ table.data-table td {
 <!-- ========== 第2節：研究目的 ========== -->
 {% if purpose %}
 <div class="page-break"></div>
+<div class="sec-marker">§SEC2§</div>
 <div class="section-header">2. 研究目的</div>
 
 {% if purpose.significance %}
@@ -392,6 +404,7 @@ table.data-table td {
 <!-- ========== 第3節：試驗物質與對照物質 ========== -->
 {% if items %}
 <div class="page-break"></div>
+<div class="sec-marker">§SEC3§</div>
 <div class="section-header">3. 試驗物質與對照物質</div>
 
 {% if items.use_test_item | default(value=false) %}
@@ -425,6 +438,7 @@ table.data-table td {
 <!-- ========== 第4節：研究設計與方法 ========== -->
 {% if design %}
 <div class="page-break"></div>
+<div class="sec-marker">§SEC4§</div>
 <div class="section-header">4. 研究設計與方法</div>
 
 {% if design.procedures %}
@@ -523,6 +537,7 @@ table.data-table td {
 <!-- ========== 第5節：相關規範及參考文獻 ========== -->
 {% if guidelines %}
 <div class="page-break"></div>
+<div class="sec-marker">§SEC5§</div>
 <div class="section-header">5. 相關規範及參考文獻</div>
 
 {% if guidelines.content %}
@@ -541,6 +556,7 @@ table.data-table td {
 <!-- ========== 第6節：手術計畫書 ========== -->
 {% if surgery %}
 <div class="page-break"></div>
+<div class="sec-marker">§SEC6§</div>
 <div class="section-header">6. 手術計畫書</div>
 
 {% if needs_surgery | default(value=false) %}
@@ -600,6 +616,7 @@ table.data-table td {
 <!-- ========== 第7節：實驗動物資料 ========== -->
 {% if animals %}
 <div class="page-break"></div>
+<div class="sec-marker">§SEC7§</div>
 <div class="section-header">7. 實驗動物資料</div>
 
 {% if animals.animals %}
@@ -641,6 +658,7 @@ table.data-table td {
 <!-- ========== 第8節：試驗人員資料 ========== -->
 {% if personnel and personnel | length > 0 %}
 <div class="page-break"></div>
+<div class="sec-marker">§SEC8§</div>
 <div class="section-header">8. 試驗人員資料</div>
 
 <table class="data-table">

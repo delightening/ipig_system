@@ -584,17 +584,33 @@ pub async fn export_protocol_pdf_v2(
             .unwrap_or(&serde_json::json!(null)),
     );
 
-    let html = state.templates.render("protocol.html", &ctx)?;
-
     // 渲染頁首頁尾模板（含動態頁碼）
     let mut hf_ctx = tera::Context::new();
     hf_ctx.insert("doc_id", "AD-XX-XX-XXE");
     let header_html = state.templates.render("partials/header.html", &hf_ctx)?;
     let footer_html = state.templates.render("partials/footer.html", &hf_ctx)?;
 
+    // ── 兩階段渲染：第一階段產出 PDF，解析章節頁碼 ──
+    let first_html = state.templates.render("protocol.html", &ctx)?;
+    let first_pdf = state
+        .gotenberg
+        .html_to_pdf_with_headers(&first_html, &header_html, &footer_html)
+        .await?;
+
+    let section_pages = crate::utils::pdf_pages::find_section_pages(&first_pdf);
+
+    // ── 第二階段：將頁碼注入 TOC，重新渲染 ──
+    for i in 1..=8 {
+        let marker = format!("§SEC{}§", i);
+        if let Some(page) = section_pages.get(&marker) {
+            ctx.insert(&format!("toc_page_{}", i), page);
+        }
+    }
+
+    let final_html = state.templates.render("protocol.html", &ctx)?;
     let pdf_bytes = state
         .gotenberg
-        .html_to_pdf_with_headers(&html, &header_html, &footer_html)
+        .html_to_pdf_with_headers(&final_html, &header_html, &footer_html)
         .await?;
 
     let filename = format!("{}_AUP計畫書.pdf", protocol.protocol.title);

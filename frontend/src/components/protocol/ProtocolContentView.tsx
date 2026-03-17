@@ -10,6 +10,7 @@ import type { ProtocolWorkingContent } from '@/types/protocol'
 import type { FileInfo } from '@/components/ui/file-upload'
 
 import { ProtocolSectionNav } from './ProtocolSectionNav'
+import { ReviewCommentPanel } from './ReviewCommentPanel'
 import { useCurrentSection } from '@/pages/protocols/hooks/useCurrentSection'
 
 type TestItem = ProtocolWorkingContent['items']['test_items'][number]
@@ -29,6 +30,10 @@ interface ProtocolContentViewProps {
   onExportPDF?: () => void
   onToggleCommentPanel?: () => void
   showReviewButton?: boolean
+  showCommentPanel?: boolean
+  onSubmitComment?: (content: string) => void
+  isSubmittingComment?: boolean
+  sectionOptions?: string[]
 }
 
 export function ProtocolContentView({
@@ -40,6 +45,10 @@ export function ProtocolContentView({
   onExportPDF,
   onToggleCommentPanel,
   showReviewButton,
+  showCommentPanel,
+  onSubmitComment,
+  isSubmittingComment,
+  sectionOptions,
 }: ProtocolContentViewProps) {
   const { t } = useTranslation()
   const contentRef = useRef<HTMLDivElement>(null)
@@ -235,8 +244,8 @@ export function ProtocolContentView({
 
   return (
     <div className="flex gap-6">
-      {/* Left sidebar — section navigation */}
-      <aside className="hidden lg:block w-48 shrink-0">
+      {/* Left sidebar — section navigation (auto-collapse when comment panel is open on lg screens) */}
+      <aside className={`hidden ${showCommentPanel ? 'xl:block' : 'lg:block'} w-48 shrink-0`}>
         <ProtocolSectionNav sections={sectionItems} currentSection={currentSection} />
       </aside>
 
@@ -244,7 +253,7 @@ export function ProtocolContentView({
       <div className="flex-1 min-w-0">
         <div
           ref={contentRef}
-          className="protocol-pdf-view bg-white p-8 shadow-lg max-w-4xl mx-auto relative"
+          className={`protocol-pdf-view bg-white p-8 shadow-lg mx-auto relative ${showCommentPanel ? 'max-w-3xl' : 'max-w-4xl'}`}
         >
           {/* Header */}
           <div className="text-center mb-8 border-b pb-4">
@@ -890,29 +899,52 @@ export function ProtocolContentView({
         </div>
       </div>
 
-      {/* Right sidebar — action toolbar */}
-      <aside className="hidden md:block w-28 shrink-0">
+      {/* Right sidebar — action toolbar / inline review panel */}
+      <aside className={`hidden md:block shrink-0 transition-all duration-300 ${showCommentPanel ? 'w-80' : 'w-28'}`}>
         <div className="sticky top-20 space-y-3">
-          <Button
-            onClick={handleExportPDF}
-            variant="outline"
-            disabled={isExporting}
-            className="w-full text-xs"
-            size="sm"
-          >
-            {isExporting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Download className="mr-1.5 h-4 w-4" />}
-            {isExporting ? t('protocols.content.exporting') : t('protocols.content.exportPDF')}
-          </Button>
-          {showReviewButton && onToggleCommentPanel && (
-            <Button
-              onClick={onToggleCommentPanel}
-              variant="outline"
-              className="w-full text-xs"
-              size="sm"
-            >
-              <MessageSquare className="mr-1.5 h-4 w-4" />
-              {t('protocols.content.reviewComment', '審查意見')}
-            </Button>
+          {showCommentPanel && onToggleCommentPanel && onSubmitComment ? (
+            <>
+              <Button
+                onClick={handleExportPDF}
+                variant="outline"
+                disabled={isExporting}
+                className="w-full text-xs"
+                size="sm"
+              >
+                {isExporting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Download className="mr-1.5 h-4 w-4" />}
+                {isExporting ? t('protocols.content.exporting') : t('protocols.content.exportPDF')}
+              </Button>
+              <ReviewCommentPanel
+                onClose={onToggleCommentPanel}
+                onSubmit={onSubmitComment}
+                isSubmitting={isSubmittingComment ?? false}
+                sectionOptions={sectionOptions ?? []}
+              />
+            </>
+          ) : (
+            <>
+              <Button
+                onClick={handleExportPDF}
+                variant="outline"
+                disabled={isExporting}
+                className="w-full text-xs"
+                size="sm"
+              >
+                {isExporting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Download className="mr-1.5 h-4 w-4" />}
+                {isExporting ? t('protocols.content.exporting') : t('protocols.content.exportPDF')}
+              </Button>
+              {showReviewButton && onToggleCommentPanel && (
+                <Button
+                  onClick={onToggleCommentPanel}
+                  variant="outline"
+                  className="w-full text-xs"
+                  size="sm"
+                >
+                  <MessageSquare className="mr-1.5 h-4 w-4" />
+                  {t('protocols.content.reviewComment', '審查意見')}
+                </Button>
+              )}
+            </>
           )}
         </div>
       </aside>
