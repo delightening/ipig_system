@@ -244,8 +244,8 @@ export function ProtocolContentView({
 
   return (
     <div className="flex gap-6">
-      {/* Left sidebar — section navigation (auto-collapse when comment panel is open on lg screens) */}
-      <aside className={`hidden ${showCommentPanel ? 'xl:block' : 'lg:block'} w-48 shrink-0`}>
+      {/* Left sidebar — section navigation */}
+      <aside className="hidden lg:block w-48 shrink-0">
         <ProtocolSectionNav sections={sectionItems} currentSection={currentSection} />
       </aside>
 
@@ -919,6 +919,7 @@ export function ProtocolContentView({
                 onSubmit={onSubmitComment}
                 isSubmitting={isSubmittingComment ?? false}
                 sectionOptions={sectionOptions ?? []}
+                currentSection={currentSection}
               />
             </>
           ) : (

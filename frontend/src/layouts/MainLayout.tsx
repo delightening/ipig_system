@@ -35,6 +35,7 @@ import {
 import { Sidebar } from '@/components/layout/Sidebar'
 import { NotificationDropdown } from '@/components/layout/NotificationDropdown'
 import { PasswordChangeDialog } from '@/components/layout/PasswordChangeDialog'
+import { useSidebarStore } from '@/stores/sidebar'
 
 function DelayedFallback({ delay = 300 }: { delay?: number }) {
   const [show, setShow] = useState(false)
@@ -58,7 +59,7 @@ export function MainLayout() {
   const { t, i18n } = useTranslation()
   useSecurityAlerts()
 
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const { sidebarOpen, setSidebarOpen } = useSidebarStore()
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [showPasswordDialog, setShowPasswordDialog] = useState(false)
 

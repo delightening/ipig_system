@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react'
+import React, { useState, useMemo, useCallback, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
@@ -53,6 +53,7 @@ import { formatDate } from '@/lib/utils'
 import { queryKeys } from '@/lib/queryKeys'
 import { getApiErrorMessage } from '@/lib/validation'
 import { useAuthStore } from '@/stores/auth'
+import { useSidebarStore } from '@/stores/sidebar'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ProtocolContentView } from '@/components/protocol/ProtocolContentView'
@@ -120,6 +121,8 @@ export function ProtocolDetailPage() {
   const [selectedReviewerIds, setSelectedReviewerIds] = useState<string[]>([])
   const [selectedCoEditorId, setSelectedCoEditorId] = useState('')
   const [showCommentPanel, setShowCommentPanel] = useState(false)
+  const { sidebarOpen, setSidebarOpen } = useSidebarStore()
+  const sidebarWasOpenRef = useRef(true)
 
   const { data: protocolResponse, isLoading } = useQuery({
     queryKey: queryKeys.protocols.detail(id!),
@@ -513,7 +516,20 @@ export function ProtocolDetailPage() {
               protocolId={id}
               startDate={protocol.start_date}
               endDate={protocol.end_date}
-              onToggleCommentPanel={() => setShowCommentPanel(prev => !prev)}
+              onToggleCommentPanel={() => {
+                setShowCommentPanel(prev => {
+                  const willOpen = !prev
+                  if (willOpen) {
+                    sidebarWasOpenRef.current = sidebarOpen
+                    setSidebarOpen(false)
+                  } else {
+                    if (sidebarWasOpenRef.current) {
+                      setSidebarOpen(true)
+                    }
+                  }
+                  return willOpen
+                })
+              }}
               showReviewButton={canShowPanel}
               showCommentPanel={showCommentPanel}
               onSubmitComment={(content) => addCommentMutation.mutate(content)}
