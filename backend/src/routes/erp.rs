@@ -160,6 +160,8 @@ pub fn routes() -> Router<AppState> {
         .route("/documents/:id/delete", post(handlers::delete_document))
         .route("/documents/:id/submit", post(handlers::submit_document))
         .route("/documents/:id/approve", post(handlers::approve_document))
+        .route("/documents/:id/admin-approve", post(handlers::admin_approve_document))
+        .route("/documents/:id/admin-reject", post(handlers::admin_reject_document))
         .route("/documents/:id/cancel", post(handlers::cancel_document))
         .route(
             "/documents/:id/receipt-status",

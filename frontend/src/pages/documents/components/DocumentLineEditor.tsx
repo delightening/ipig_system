@@ -267,7 +267,7 @@ export function DocumentLineEditor({
     staleTime: 30000,
   })
 
-  const isStockBasedDoc = ['SO', 'DO', 'PR', 'TR', 'STK', 'ADJ'].includes(formData.doc_type)
+  const isStockBasedDoc = ['SO', 'DO', 'PR', 'TR', 'STK'].includes(formData.doc_type)
   const isPoLinkedGrn = formData.doc_type === 'GRN' && !!formData.source_doc_id
 
   const handleSelectProduct = (product: Product, extraData?: any) => {

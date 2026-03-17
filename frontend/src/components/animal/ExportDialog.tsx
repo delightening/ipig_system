@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -46,6 +47,7 @@ interface Props {
 }
 
 export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Props) {
+  const { t } = useTranslation()
   const [format, setFormat] = useState<ExportFormat>('pdf')
   const [selectedProject, setSelectedProject] = useState<string>('')
   const [options, setOptions] = useState<ExportOptions>({
@@ -88,6 +90,7 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
 
       const response = await api.post(endpoint, body, {
         responseType: 'blob',
+        _silentError: true,
       })
 
       // 下載檔案
@@ -114,13 +117,13 @@ export function ExportDialog({ open, onOpenChange, type, animalId, earTag }: Pro
       return response.data
     },
     onSuccess: () => {
-      toast({ title: '成功', description: '檔案匯出成功' })
+      toast({ title: t('common.exportSuccess') })
       onOpenChange(false)
     },
     onError: (error: unknown) => {
       toast({
-        title: '錯誤',
-        description: getApiErrorMessage(error, '匯出失敗'),
+        title: t('common.exportFailed'),
+        description: getApiErrorMessage(error, t('common.exportFailed')),
         variant: 'destructive',
       })
     },

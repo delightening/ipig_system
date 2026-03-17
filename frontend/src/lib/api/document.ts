@@ -19,3 +19,13 @@ export const getPoReceiptStatus = async (poId: string): Promise<PoReceiptStatus>
   const response = await api.get<PoReceiptStatus>(`/documents/${poId}/receipt-status`)
   return response.data
 }
+
+export const adminApproveDocument = async (id: string) => {
+  const response = await api.post(`/documents/${id}/admin-approve`)
+  return response.data
+}
+
+export const adminRejectDocument = async (id: string, reason: string) => {
+  const response = await api.post(`/documents/${id}/admin-reject`, { reason })
+  return response.data
+}
