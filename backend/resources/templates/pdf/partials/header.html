@@ -1,6 +1,27 @@
-{# 共用頁首：文件編號 / 公司名 / 頁次 #}
-<div class="page-header">
-    <span>文件編號　{{ doc_id | default(value="") }}</span>
-    <span class="company-name">豬博士動物科技股份有限公司</span>
-    <span>頁次/總頁數　{{ page_info | default(value="1 of 1") }}</span>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+body {
+    font-family: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif;
+    font-size: 9px;
+    margin: 0;
+    padding: 0 20mm;
+    width: 100%;
+}
+.header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+</style>
+</head>
+<body>
+<div class="header-row">
+    <span>文件編號　{{ doc_id }}</span>
+    <span>頁次/總頁數　<span class="pageNumber"></span> of <span class="totalPages"></span></span>
 </div>
+</body>
+</html>

@@ -1,13 +1,16 @@
 import { Label } from '@/components/ui/label'
 import { formatDate } from '@/lib/utils'
 import { logger } from '@/lib/logger'
-import { FileText, Download, Loader2 } from 'lucide-react'
+import { FileText, Download, Loader2, MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import api from '@/lib/api'
 import { useTranslation } from 'react-i18next'
 import type { ProtocolWorkingContent } from '@/types/protocol'
 import type { FileInfo } from '@/components/ui/file-upload'
+
+import { ProtocolSectionNav } from './ProtocolSectionNav'
+import { useCurrentSection } from '@/pages/protocols/hooks/useCurrentSection'
 
 type TestItem = ProtocolWorkingContent['items']['test_items'][number]
 type ControlItem = ProtocolWorkingContent['items']['control_items'][number]
@@ -24,12 +27,37 @@ interface ProtocolContentViewProps {
   endDate?: string
   protocolId?: string
   onExportPDF?: () => void
+  onToggleCommentPanel?: () => void
+  showReviewButton?: boolean
 }
 
-export function ProtocolContentView({ workingContent, protocolTitle, startDate, endDate, protocolId, onExportPDF }: ProtocolContentViewProps) {
+export function ProtocolContentView({
+  workingContent,
+  protocolTitle,
+  startDate,
+  endDate,
+  protocolId,
+  onExportPDF,
+  onToggleCommentPanel,
+  showReviewButton,
+}: ProtocolContentViewProps) {
   const { t } = useTranslation()
   const contentRef = useRef<HTMLDivElement>(null)
   const [isExporting, setIsExporting] = useState(false)
+  const currentSection = useCurrentSection()
+
+  const sectionItems = useMemo(() => [
+    { id: 'section-1', label: t('protocols.content.sections.researchInfo') },
+    { id: 'section-2', label: t('protocols.content.sections.purpose') },
+    { id: 'section-3', label: t('protocols.content.sections.items') },
+    { id: 'section-4', label: t('protocols.content.sections.design') },
+    { id: 'section-5', label: t('protocols.content.sections.guidelines') },
+    { id: 'section-6', label: t('protocols.content.sections.surgery') },
+    { id: 'section-7', label: t('protocols.content.sections.animals') },
+    { id: 'section-8', label: t('protocols.content.sections.personnel') },
+    { id: 'section-9', label: t('protocols.content.sections.attachments') },
+    { id: 'section-10', label: t('protocols.content.sections.signatures') },
+  ], [t])
 
   if (!workingContent) {
     return (
@@ -206,668 +234,688 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-end py-2">
-        <Button onClick={handleExportPDF} variant="outline" disabled={isExporting}>
-          {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-          {isExporting ? t('protocols.content.exporting') : t('protocols.content.exportPDF')}
-        </Button>
-      </div>
+    <div className="flex gap-6">
+      {/* Left sidebar — section navigation */}
+      <aside className="hidden lg:block w-48 shrink-0">
+        <ProtocolSectionNav sections={sectionItems} currentSection={currentSection} />
+      </aside>
 
-      <div
-        ref={contentRef}
-        className="protocol-pdf-view bg-white p-8 shadow-lg max-w-4xl mx-auto relative"
-      >
-        {/* Header */}
-        <div className="text-center mb-8 border-b pb-4">
-          <h1 className="text-3xl font-bold mb-2">{t('protocols.content.title')}</h1>
-          <p className="text-lg text-muted-foreground">{protocolTitle}</p>
-        </div>
+      {/* Center — main content */}
+      <div className="flex-1 min-w-0">
+        <div
+          ref={contentRef}
+          className="protocol-pdf-view bg-white p-8 shadow-lg max-w-4xl mx-auto relative"
+        >
+          {/* Header */}
+          <div className="text-center mb-8 border-b pb-4">
+            <h1 className="text-3xl font-bold mb-2">{t('protocols.content.title')}</h1>
+            <p className="text-lg text-muted-foreground">{protocolTitle}</p>
+          </div>
 
-        {/* 1. Research Information */}
-        <section className="mb-8 section-1" data-section={t('protocols.content.sections.researchInfo')}>
-          <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.researchInfo')}</h2>
+          {/* 1. Research Information */}
+          <section className="mb-8 section-1" data-section={t('protocols.content.sections.researchInfo')}>
+            <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.researchInfo')}</h2>
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm font-semibold">{t('protocols.content.sections.glpAttribute')}</Label>
-                <p className="mt-1">{basic.is_glp ? t('protocols.content.sections.glpCompliant') : t('protocols.content.sections.glpNonCompliant')}</p>
-                {basic.is_glp && basic.registration_authorities?.length > 0 && (
-                  <div className="mt-2">
-                    <Label className="text-sm font-semibold">{t('aup.basic.registrationAuthorities')}</Label>
-                    <p className="mt-1">
-                      {basic.registration_authorities.map((auth: string) =>
-                        t(`aup.basic.registrationAuthorityOptions.${auth}`)
-                      ).join('、')}
-                      {basic.registration_authority_other && ` (${basic.registration_authority_other})`}
-                    </p>
-                  </div>
-                )}
-              </div>
-              <div>
-                <Label className="text-sm font-semibold">{t('protocols.content.sections.projectName')}</Label>
-                <p className="mt-1">{protocolTitle || '-'}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm font-semibold">{t('protocols.content.sections.projectType')}</Label>
-                <p className="mt-1">
-                  {basic.project_type ? t(`aup.projectTypes.${basic.project_type}`) : '-'}
-                  {basic.project_type_other && ` (${basic.project_type_other})`}
-                </p>
-              </div>
-              <div>
-                <Label className="text-sm font-semibold">{t('protocols.content.sections.projectCategory')}</Label>
-                <p className="mt-1">
-                  {basic.project_category ? t(`aup.projectCategories.${basic.project_category}`) : '-'}
-                  {basic.project_category_other && ` (${basic.project_category_other})`}
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm font-semibold">{t('protocols.content.sections.expectedSchedule')}</Label>
-                <p className="mt-1">
-                  {(startDate || basic.start_date) && (endDate || basic.end_date)
-                    ? `${formatDate(startDate || basic.start_date)} ~ ${formatDate(endDate || basic.end_date)}`
-                    : '-'}
-                </p>
-              </div>
-            </div>
-
-            {/* PI Info */}
-            {basic.pi && (
-              <div className="border-t pt-4 mt-4">
-                <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.piInfo')}</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-semibold">{t('protocols.content.sections.piName')}</Label>
-                    <p className="mt-1">{basic.pi.name || '-'}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-semibold">{t('protocols.content.sections.piPhone')}</Label>
-                    <p className="mt-1">
-                      {basic.pi.phone || '-'}
-                      {basic.pi.phone_ext && ` #${basic.pi.phone_ext}`}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-semibold">{t('protocols.content.sections.piEmail')}</Label>
-                    <p className="mt-1">{basic.pi.email || '-'}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-semibold">{t('protocols.content.sections.piAddress')}</Label>
-                    <p className="mt-1">{basic.pi.address || '-'}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Sponsor Info */}
-            {basic.sponsor && (
-              <div className="border-t pt-4 mt-4">
-                <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.sponsorInfo')}</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-semibold">{t('protocols.content.sections.sponsorName')}</Label>
-                    <p className="mt-1">{basic.sponsor.name || '-'}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-semibold">{t('protocols.content.sections.contactPerson')}</Label>
-                    <p className="mt-1">{basic.sponsor.contact_person || '-'}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-semibold">{t('protocols.content.sections.contactPhone')}</Label>
-                    <p className="mt-1">
-                      {basic.sponsor.contact_phone || '-'}
-                      {basic.sponsor.contact_phone_ext && ` #${basic.sponsor.contact_phone_ext}`}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-semibold">{t('protocols.content.sections.contactEmail')}</Label>
-                    <p className="mt-1">{basic.sponsor.contact_email || '-'}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Institution and Facilities */}
-            <div className="border-t pt-4 mt-4">
-              <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.facility')}</h3>
+            <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm font-semibold">{t('protocols.content.sections.facilityName')}</Label>
-                  <p className="mt-1">{basic.facility?.title || '-'}</p>
+                  <Label className="text-sm font-semibold">{t('protocols.content.sections.glpAttribute')}</Label>
+                  <p className="mt-1">{basic.is_glp ? t('protocols.content.sections.glpCompliant') : t('protocols.content.sections.glpNonCompliant')}</p>
+                  {basic.is_glp && basic.registration_authorities?.length > 0 && (
+                    <div className="mt-2">
+                      <Label className="text-sm font-semibold">{t('aup.basic.registrationAuthorities')}</Label>
+                      <p className="mt-1">
+                        {basic.registration_authorities.map((auth: string) =>
+                          t(`aup.basic.registrationAuthorityOptions.${auth}`)
+                        ).join('、')}
+                        {basic.registration_authority_other && ` (${basic.registration_authority_other})`}
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <div>
-                  <Label className="text-sm font-semibold">{t('protocols.content.sections.location')}</Label>
-                  <p className="mt-1">{basic.housing_location || '-'}</p>
+                  <Label className="text-sm font-semibold">{t('protocols.content.sections.projectName')}</Label>
+                  <p className="mt-1">{protocolTitle || '-'}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-semibold">{t('protocols.content.sections.projectType')}</Label>
+                  <p className="mt-1">
+                    {basic.project_type ? t(`aup.projectTypes.${basic.project_type}`) : '-'}
+                    {basic.project_type_other && ` (${basic.project_type_other})`}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm font-semibold">{t('protocols.content.sections.projectCategory')}</Label>
+                  <p className="mt-1">
+                    {basic.project_category ? t(`aup.projectCategories.${basic.project_category}`) : '-'}
+                    {basic.project_category_other && ` (${basic.project_category_other})`}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-semibold">{t('protocols.content.sections.expectedSchedule')}</Label>
+                  <p className="mt-1">
+                    {(startDate || basic.start_date) && (endDate || basic.end_date)
+                      ? `${formatDate(startDate || basic.start_date)} ~ ${formatDate(endDate || basic.end_date)}`
+                      : '-'}
+                  </p>
+                </div>
+              </div>
+
+              {/* PI Info */}
+              {basic.pi && (
+                <div className="border-t pt-4 mt-4">
+                  <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.piInfo')}</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-semibold">{t('protocols.content.sections.piName')}</Label>
+                      <p className="mt-1">{basic.pi.name || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-semibold">{t('protocols.content.sections.piPhone')}</Label>
+                      <p className="mt-1">
+                        {basic.pi.phone || '-'}
+                        {basic.pi.phone_ext && ` #${basic.pi.phone_ext}`}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-semibold">{t('protocols.content.sections.piEmail')}</Label>
+                      <p className="mt-1">{basic.pi.email || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-semibold">{t('protocols.content.sections.piAddress')}</Label>
+                      <p className="mt-1">{basic.pi.address || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Sponsor Info */}
+              {basic.sponsor && (
+                <div className="border-t pt-4 mt-4">
+                  <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.sponsorInfo')}</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-semibold">{t('protocols.content.sections.sponsorName')}</Label>
+                      <p className="mt-1">{basic.sponsor.name || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-semibold">{t('protocols.content.sections.contactPerson')}</Label>
+                      <p className="mt-1">{basic.sponsor.contact_person || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-semibold">{t('protocols.content.sections.contactPhone')}</Label>
+                      <p className="mt-1">
+                        {basic.sponsor.contact_phone || '-'}
+                        {basic.sponsor.contact_phone_ext && ` #${basic.sponsor.contact_phone_ext}`}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-semibold">{t('protocols.content.sections.contactEmail')}</Label>
+                      <p className="mt-1">{basic.sponsor.contact_email || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Institution and Facilities */}
+              <div className="border-t pt-4 mt-4">
+                <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.facility')}</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-semibold">{t('protocols.content.sections.facilityName')}</Label>
+                    <p className="mt-1">{basic.facility?.title || '-'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-semibold">{t('protocols.content.sections.location')}</Label>
+                    <p className="mt-1">{basic.housing_location || '-'}</p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
-
-        {/* 2. Research Purpose */}
-        {(purpose.significance || purpose.replacement || purpose.reduction) && (
-          <section className="mb-8 border-t pt-6 section-2" data-section={t('protocols.content.sections.purpose')}>
-            <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.purpose')}</h2>
-
-            {/* 2.1 Purpose and Significance */}
-            {purpose.significance && (
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.significance')}</h3>
-                <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{purpose.significance}</p>
-              </div>
-            )}
-
-            {/* 2.2 Replacement Principles */}
-            {purpose.replacement && (
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.replacement')}</h3>
-
-                {purpose.replacement.rationale && (
-                  <div className="mb-3">
-                    <h4 className="text-base font-medium mb-1">{t('protocols.content.sections.replacementRationale')}</h4>
-                    <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{purpose.replacement.rationale}</p>
-                  </div>
-                )}
-
-                {purpose.replacement.alt_search && (
-                  <div className="mb-3">
-                    <h4 className="text-base font-medium mb-1">{t('protocols.content.sections.alternativeSearch')}</h4>
-                    {purpose.replacement.alt_search.platforms && purpose.replacement.alt_search.platforms.length > 0 && (
-                      <ul className="list-disc list-inside text-sm mb-2">
-                        {purpose.replacement.alt_search.platforms.map((p: string, idx: number) => (
-                          <li key={idx}>{p}</li>
-                        ))}
-                      </ul>
-                    )}
-                    {purpose.replacement.alt_search.keywords && (
-                      <p className="text-sm mb-2"><strong>{t('protocols.content.sections.searchKeywords')}: </strong>{purpose.replacement.alt_search.keywords}</p>
-                    )}
-                    {purpose.replacement.alt_search.conclusion && (
-                      <div>
-                        <p className="text-sm font-medium mb-1">{t('protocols.content.sections.searchConclusion')}:</p>
-                        <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{purpose.replacement.alt_search.conclusion}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {purpose.duplicate && (
-                  <div className="mb-3">
-                    <h4 className="text-base font-medium mb-1">{t('protocols.content.sections.duplicate')}</h4>
-                    <p className="text-sm mb-2">{purpose.duplicate.experiment ? t('protocols.content.sections.duplicateYes') : t('protocols.content.sections.duplicateNo')}</p>
-                    {purpose.duplicate.experiment && purpose.duplicate.justification && (
-                      <div>
-                        <p className="text-sm font-medium mb-1">{t('protocols.content.sections.duplicateJustification')}</p>
-                        <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{purpose.duplicate.justification}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* 2.3 Reduction Principles */}
-            {purpose.reduction && purpose.reduction.design && (
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.reduction')}</h3>
-                <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{purpose.reduction.design}</p>
-              </div>
-            )}
           </section>
-        )}
 
-        {/* 3. Test and Control Items */}
-        <section className="mb-8 border-t pt-6 section-3" data-section={t('protocols.content.sections.items')}>
-          <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.items')}</h2>
+          {/* 2. Research Purpose */}
+          {(purpose.significance || purpose.replacement || purpose.reduction) && (
+            <section className="mb-8 border-t pt-6 section-2" data-section={t('protocols.content.sections.purpose')}>
+              <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.purpose')}</h2>
 
-          {items.use_test_item === true ? (
-            <>
-              {/* Test Items */}
-              {items.test_items && items.test_items.length > 0 && (
+              {purpose.significance && (
                 <div className="mb-4">
-                  <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.testItems')}</h3>
-                  {items.test_items.map((item: TestItem, index: number) => (
-                    <div key={index} className="mb-4 p-4 border rounded bg-slate-50">
-                      <h4 className="font-medium mb-2">{t('protocols.content.sections.testItems')} #{index + 1}</h4>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <Label className="font-semibold">{t('protocols.content.sections.itemName')}: </Label>
-                          <span>{item.name || '-'}</span>
-                        </div>
-                        <div>
-                          <Label className="font-semibold">{t('protocols.content.sections.itemForm')}: </Label>
-                          <span>{item.form || '-'}</span>
-                        </div>
-                        <div>
-                          <Label className="font-semibold">{t('protocols.content.sections.itemPurpose')}: </Label>
-                          <span>{item.purpose || '-'}</span>
-                        </div>
-                        <div>
-                          <Label className="font-semibold">{t('protocols.content.sections.itemStorage')}: </Label>
-                          <span>{item.storage_conditions || '-'}</span>
-                        </div>
-                        <div>
-                          <Label className="font-semibold">{t('protocols.content.sections.isSterile')}: </Label>
-                          <span>{item.is_sterile ? t('protocols.content.sections.sterileYes') : t('protocols.content.sections.sterileNo')}</span>
-                        </div>
-                        {!item.is_sterile && item.non_sterile_justification && (
-                          <div className="col-span-2">
-                            <Label className="font-semibold">{t('protocols.content.sections.nonSterileJustification')} </Label>
-                            <p className="mt-1 text-sm whitespace-pre-wrap">{item.non_sterile_justification}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                  <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.significance')}</h3>
+                  <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{purpose.significance}</p>
                 </div>
               )}
 
-              {/* Control Items */}
-              {items.control_items && items.control_items.length > 0 && (
+              {purpose.replacement && (
                 <div className="mb-4">
-                  <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.controlItems')}</h3>
-                  {items.control_items.map((item: ControlItem, index: number) => (
-                    <div key={index} className="mb-4 p-4 border rounded bg-slate-50">
-                      <h4 className="font-medium mb-2">{t('protocols.content.sections.controlItems')} #{index + 1}</h4>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <Label className="font-semibold">{t('protocols.content.sections.itemName')}: </Label>
-                          <span>{item.name || '-'}</span>
-                        </div>
-                        <div>
-                          <Label className="font-semibold">{t('protocols.content.sections.itemPurpose')}: </Label>
-                          <span>{item.purpose || '-'}</span>
-                        </div>
-                        <div>
-                          <Label className="font-semibold">{t('protocols.content.sections.itemStorage')}: </Label>
-                          <span>{item.storage_conditions || '-'}</span>
-                        </div>
-                        <div>
-                          <Label className="font-semibold">{t('protocols.content.sections.isSterile')}: </Label>
-                          <span>{item.is_sterile ? t('protocols.content.sections.sterileYes') : t('protocols.content.sections.sterileNo')}</span>
-                        </div>
-                        {!item.is_sterile && item.non_sterile_justification && (
-                          <div className="col-span-2">
-                            <Label className="font-semibold">{t('protocols.content.sections.nonSterileJustification')} </Label>
-                            <p className="mt-1 text-sm whitespace-pre-wrap">{item.non_sterile_justification}</p>
-                          </div>
-                        )}
-                      </div>
+                  <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.replacement')}</h3>
+
+                  {purpose.replacement.rationale && (
+                    <div className="mb-3">
+                      <h4 className="text-base font-medium mb-1">{t('protocols.content.sections.replacementRationale')}</h4>
+                      <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{purpose.replacement.rationale}</p>
                     </div>
-                  ))}
-                </div>
-              )}
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground">{t('protocols.content.sections.omitted')}</p>
-          )}
-        </section>
+                  )}
 
-        {/* 4. Research Design and Methods */}
-        {(design.procedures || design.anesthesia || design.pain || design.endpoints) && (
-          <section className="mb-8 border-t pt-6 section-4" data-section={t('protocols.content.sections.design')}>
-            <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.design')}</h2>
+                  {purpose.replacement.alt_search && (
+                    <div className="mb-3">
+                      <h4 className="text-base font-medium mb-1">{t('protocols.content.sections.alternativeSearch')}</h4>
+                      {purpose.replacement.alt_search.platforms && purpose.replacement.alt_search.platforms.length > 0 && (
+                        <ul className="list-disc list-inside text-sm mb-2">
+                          {purpose.replacement.alt_search.platforms.map((p: string, idx: number) => (
+                            <li key={idx}>{p}</li>
+                          ))}
+                        </ul>
+                      )}
+                      {purpose.replacement.alt_search.keywords && (
+                        <p className="text-sm mb-2"><strong>{t('protocols.content.sections.searchKeywords')}: </strong>{purpose.replacement.alt_search.keywords}</p>
+                      )}
+                      {purpose.replacement.alt_search.conclusion && (
+                        <div>
+                          <p className="text-sm font-medium mb-1">{t('protocols.content.sections.searchConclusion')}:</p>
+                          <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{purpose.replacement.alt_search.conclusion}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-            {design.procedures && (
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.procedures')}</h3>
-                <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{design.procedures}</p>
-              </div>
-            )}
-
-            {design.anesthesia && design.anesthesia.is_under_anesthesia !== null && (
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.anesthesia')}</h3>
-                <p className="text-sm">{design.anesthesia.is_under_anesthesia ? t('protocols.content.sections.sterileYes') : t('protocols.content.sections.sterileNo')}</p>
-                {design.anesthesia.anesthesia_type && (
-                  <p className="text-sm mt-2">{t('protocols.content.sections.anesthesiaType')}: {design.anesthesia.anesthesia_type}</p>
-                )}
-              </div>
-            )}
-
-            {design.pain && design.pain.category && (
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.painCategory')}</h3>
-                <p className="text-sm">{design.pain.category}</p>
-                {design.pain.management_plan && (
-                  <div className="mt-2">
-                    <p className="text-sm font-medium mb-1">{t('protocols.content.sections.painManagement')}</p>
-                    <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{design.pain.management_plan}</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {design.endpoints && (
-              <div className="mb-4">
-                {design.endpoints.experimental_endpoint && (
-                  <div className="mb-3">
-                    <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.experimentalEndpoint')}</h3>
-                    <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{design.endpoints.experimental_endpoint}</p>
-                  </div>
-                )}
-                {design.endpoints.humane_endpoint && (
-                  <div>
-                    <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.humaneEndpoint')}</h3>
-                    <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{design.endpoints.humane_endpoint}</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* 5. Relevant Guidelines and References */}
-        <section className="mb-8 border-t pt-6 section-5" data-section={t('protocols.content.sections.guidelines')}>
-          <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.guidelines')}</h2>
-
-          {(guidelines.content || (guidelines.databases && guidelines.databases.some((db: GuidelineDatabase) => db.checked)) || (guidelines.references && guidelines.references.length > 0)) ? (
-            <>
-              {guidelines.content && (
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.guidelinesContent')}</h3>
-                  <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{guidelines.content}</p>
+                  {purpose.duplicate && (
+                    <div className="mb-3">
+                      <h4 className="text-base font-medium mb-1">{t('protocols.content.sections.duplicate')}</h4>
+                      <p className="text-sm mb-2">{purpose.duplicate.experiment ? t('protocols.content.sections.duplicateYes') : t('protocols.content.sections.duplicateNo')}</p>
+                      {purpose.duplicate.experiment && purpose.duplicate.justification && (
+                        <div>
+                          <p className="text-sm font-medium mb-1">{t('protocols.content.sections.duplicateJustification')}</p>
+                          <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{purpose.duplicate.justification}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* 資料庫搜尋紀錄 */}
-              {guidelines.databases && guidelines.databases.some((db: GuidelineDatabase) => db.checked) && (
+              {purpose.reduction && purpose.reduction.design && (
                 <div className="mb-4">
-                  <h3 className="text-lg font-semibold mb-3">{t('aup.guidelines.databasesTitle')}</h3>
-                  <ul className="space-y-2">
-                    {guidelines.databases.filter((db: GuidelineDatabase) => db.checked).map((db: GuidelineDatabase) => (
-                      <li key={db.code} className="text-sm p-2 bg-slate-50 rounded">
-                        <span className="font-medium">{db.code}. {t(`aup.guidelines.databases.${db.code}`)}</span>
-                        {db.keywords && (
-                          <span className="ml-2 text-muted-foreground">
-                            — {t('aup.guidelines.keywordsLabel')}: {db.keywords}
-                          </span>
-                        )}
-                        {db.note && (
-                          <p className="mt-1 text-muted-foreground ml-4">{db.note}</p>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
+                  <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.reduction')}</h3>
+                  <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{purpose.reduction.design}</p>
                 </div>
-              )}
-
-              {guidelines.references && guidelines.references.length > 0 && (
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold mb-3">{t('aup.guidelines.referencesTitle')}</h3>
-                  <ol className="list-decimal list-inside space-y-2">
-                    {guidelines.references.map((ref: GuidelineReference, index: number) => (
-                      <li key={index} className="text-sm">
-                        {ref.citation || '-'}
-                        {ref.url && (
-                          <span className="text-blue-600 ml-2">
-                            <a href={ref.url} target="_blank" rel="noopener noreferrer">{ref.url}</a>
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              )}
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground">{t('protocols.content.sections.omitted')}</p>
-          )}
-        </section>
-
-        {/* 6. Surgery Protocol */}
-        {(() => {
-          // Check if surgery plan is needed: trials under anesthesia and survival or non-survival surgery
-          const needsSurgeryPlan = design.anesthesia?.is_under_anesthesia === true &&
-            (design.anesthesia?.anesthesia_type === 'survival_surgery' || design.anesthesia?.anesthesia_type === 'non_survival_surgery')
-
-          return (
-            <section className="mb-8 border-t pt-6 section-6" data-section={t('protocols.content.sections.surgery')}>
-              <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.surgery')}</h2>
-
-              {needsSurgeryPlan ? (
-                <>
-                  {surgery.surgery_type && (
-                    <div className="mb-4">
-                      <Label className="text-sm font-semibold">{t('protocols.content.sections.surgeryType')}</Label>
-                      <p className="mt-1">{surgery.surgery_type}</p>
-                    </div>
-                  )}
-
-                  {surgery.preop_preparation && (
-                    <div className="mb-4">
-                      <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.preop_Preparation')}</h3>
-                      <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{surgery.preop_preparation}</p>
-                    </div>
-                  )}
-
-                  {surgery.surgery_description && (
-                    <div className="mb-4">
-                      <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.surgeryDescription')}</h3>
-                      <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{surgery.surgery_description}</p>
-                    </div>
-                  )}
-
-                  {surgery.monitoring && (
-                    <div className="mb-4">
-                      <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.monitoring')}</h3>
-                      <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{surgery.monitoring}</p>
-                    </div>
-                  )}
-
-                  {surgery.postop_care && (
-                    <div className="mb-4">
-                      <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.postopCare')}</h3>
-                      <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{surgery.postop_care}</p>
-                    </div>
-                  )}
-
-                  {surgery.drugs && surgery.drugs.length > 0 && (
-                    <div className="mb-4">
-                      <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.drugPlan')}</h3>
-                      <div className="space-y-2">
-                        {surgery.drugs.map((drug: SurgeryDrug, index: number) => (
-                          <div key={index} className="p-3 border rounded bg-slate-50">
-                            <p className="text-sm font-medium">{drug.drug_name || '-'}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {t('protocols.content.sections.dose')}: {drug.dose || '-'} | {t('protocols.content.sections.route')}: {drug.route || '-'} | {t('protocols.content.sections.frequency')}: {drug.frequency || '-'} | {t('protocols.content.sections.itemPurpose')}: {drug.purpose || '-'}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground">{t('protocols.content.sections.omitted')}</p>
               )}
             </section>
-          )
-        })()}
+          )}
 
-        {/* 7. Experimental Animal Data */}
-        {animals.animals && animals.animals.length > 0 && (
-          <section className="mb-8 border-t pt-6 section-7" data-section={t('protocols.content.sections.animals')}>
-            <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.animals')}</h2>
+          {/* 3. Test and Control Items */}
+          <section className="mb-8 border-t pt-6 section-3" data-section={t('protocols.content.sections.items')}>
+            <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.items')}</h2>
 
-            <div className="space-y-4">
-              {animals.animals.map((animal: AnimalEntry, index: number) => (
-                <div key={index} className="p-4 border rounded bg-slate-50">
-                  <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.animalGroup')} #{index + 1}</h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <Label className="font-semibold">{t('protocols.content.sections.species')}</Label>
-                      <p className="mt-1">{animal.species || '-'}{animal.species_other ? ` (${animal.species_other})` : ''}</p>
-                    </div>
-                    {animal.strain && (
-                      <div>
-                        <Label className="font-semibold">{t('protocols.content.sections.strain')}</Label>
-                        <p className="mt-1">{animal.strain}{animal.strain_other ? ` (${animal.strain_other})` : ''}</p>
+            {items.use_test_item === true ? (
+              <>
+                {items.test_items && items.test_items.length > 0 && (
+                  <div className="mb-4">
+                    <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.testItems')}</h3>
+                    {items.test_items.map((item: TestItem, index: number) => (
+                      <div key={index} className="mb-4 p-4 border rounded bg-slate-50">
+                        <h4 className="font-medium mb-2">{t('protocols.content.sections.testItems')} #{index + 1}</h4>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <Label className="font-semibold">{t('protocols.content.sections.itemName')}: </Label>
+                            <span>{item.name || '-'}</span>
+                          </div>
+                          <div>
+                            <Label className="font-semibold">{t('protocols.content.sections.itemForm')}: </Label>
+                            <span>{item.form || '-'}</span>
+                          </div>
+                          <div>
+                            <Label className="font-semibold">{t('protocols.content.sections.itemPurpose')}: </Label>
+                            <span>{item.purpose || '-'}</span>
+                          </div>
+                          <div>
+                            <Label className="font-semibold">{t('protocols.content.sections.itemStorage')}: </Label>
+                            <span>{item.storage_conditions || '-'}</span>
+                          </div>
+                          <div>
+                            <Label className="font-semibold">{t('protocols.content.sections.isSterile')}: </Label>
+                            <span>{item.is_sterile ? t('protocols.content.sections.sterileYes') : t('protocols.content.sections.sterileNo')}</span>
+                          </div>
+                          {!item.is_sterile && item.non_sterile_justification && (
+                            <div className="col-span-2">
+                              <Label className="font-semibold">{t('protocols.content.sections.nonSterileJustification')} </Label>
+                              <p className="mt-1 text-sm whitespace-pre-wrap">{item.non_sterile_justification}</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                    <div>
-                      <Label className="font-semibold">{t('protocols.content.sections.sex')}</Label>
-                      <p className="mt-1">{animal.sex || '-'}</p>
-                    </div>
-                    <div>
-                      <Label className="font-semibold">{t('protocols.content.sections.number')}</Label>
-                      <p className="mt-1">{animal.number || '-'}</p>
-                    </div>
-                    <div>
-                      <Label className="font-semibold">{t('protocols.content.sections.ageRange')}</Label>
-                      <p className="mt-1">
-                        {animal.age_unlimited ? t('protocols.content.sections.unlimited') : `${animal.age_min || t('protocols.content.sections.unlimited')} ~ ${animal.age_max || t('protocols.content.sections.unlimited')}`}
-                      </p>
-                    </div>
-                    <div>
-                      <Label className="font-semibold">{t('protocols.content.sections.weightRange')}</Label>
-                      <p className="mt-1">
-                        {animal.weight_unlimited ? t('protocols.content.sections.unlimited') : `${animal.weight_min || t('protocols.content.sections.unlimited')}kg ~ ${animal.weight_max || t('protocols.content.sections.unlimited')}kg`}
-                      </p>
-                    </div>
-                    {animal.housing_location && (
-                      <div className="col-span-2">
-                        <Label className="font-semibold">{t('protocols.content.sections.housingLocation')}</Label>
-                        <p className="mt-1">{animal.housing_location}</p>
-                      </div>
-                    )}
+                    ))}
                   </div>
-                </div>
-              ))}
+                )}
 
-              {animals.total_animals && (
-                <div className="mt-4 p-4 bg-blue-50 rounded">
-                  <Label className="text-lg font-semibold">{t('protocols.content.sections.totalAnimals')}: {animals.total_animals}</Label>
+                {items.control_items && items.control_items.length > 0 && (
+                  <div className="mb-4">
+                    <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.controlItems')}</h3>
+                    {items.control_items.map((item: ControlItem, index: number) => (
+                      <div key={index} className="mb-4 p-4 border rounded bg-slate-50">
+                        <h4 className="font-medium mb-2">{t('protocols.content.sections.controlItems')} #{index + 1}</h4>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <Label className="font-semibold">{t('protocols.content.sections.itemName')}: </Label>
+                            <span>{item.name || '-'}</span>
+                          </div>
+                          <div>
+                            <Label className="font-semibold">{t('protocols.content.sections.itemPurpose')}: </Label>
+                            <span>{item.purpose || '-'}</span>
+                          </div>
+                          <div>
+                            <Label className="font-semibold">{t('protocols.content.sections.itemStorage')}: </Label>
+                            <span>{item.storage_conditions || '-'}</span>
+                          </div>
+                          <div>
+                            <Label className="font-semibold">{t('protocols.content.sections.isSterile')}: </Label>
+                            <span>{item.is_sterile ? t('protocols.content.sections.sterileYes') : t('protocols.content.sections.sterileNo')}</span>
+                          </div>
+                          {!item.is_sterile && item.non_sterile_justification && (
+                            <div className="col-span-2">
+                              <Label className="font-semibold">{t('protocols.content.sections.nonSterileJustification')} </Label>
+                              <p className="mt-1 text-sm whitespace-pre-wrap">{item.non_sterile_justification}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">{t('protocols.content.sections.omitted')}</p>
+            )}
+          </section>
+
+          {/* 4. Research Design and Methods */}
+          {(design.procedures || design.anesthesia || design.pain || design.endpoints) && (
+            <section className="mb-8 border-t pt-6 section-4" data-section={t('protocols.content.sections.design')}>
+              <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.design')}</h2>
+
+              {design.procedures && (
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.procedures')}</h3>
+                  <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{design.procedures}</p>
                 </div>
               )}
-            </div>
-          </section>
-        )}
 
-        {/* 8. Study Personnel Data */}
-        {personnel.length > 0 && (
-          <section className="mb-8 border-t pt-6 section-8" data-section={t('protocols.content.sections.personnel')}>
-            <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.personnel')}</h2>
-
-            <div className="space-y-4">
-              {personnel.map((person: PersonnelMember, index: number) => (
-                <div key={index} className="p-4 border rounded bg-slate-50">
-                  <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.person')} #{index + 1}</h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <Label className="font-semibold">{t('protocols.content.sections.piName')}</Label>
-                      <p className="mt-1">{person.name || '-'}</p>
-                    </div>
-                    <div>
-                      <Label className="font-semibold">{t('protocols.content.sections.position')}</Label>
-                      <p className="mt-1">{person.position || '-'}</p>
-                    </div>
-                    <div>
-                      <Label className="font-semibold">{t('protocols.content.sections.yearsExperience')}</Label>
-                      <p className="mt-1">{person.years_experience || '-'} {t('protocols.content.sections.years')}</p>
-                    </div>
-                    {person.roles && person.roles.length > 0 && (
-                      <div className="col-span-2">
-                        <Label className="font-semibold">{t('protocols.content.sections.workContent')}</Label>
-                        <div className="mt-1 flex flex-wrap gap-2">
-                          {person.roles.map((role: string, roleIndex: number) => (
-                            <span key={roleIndex} className="px-2 py-1 bg-blue-100 rounded text-xs">{role}</span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {person.trainings && person.trainings.length > 0 && (
-                      <div className="col-span-2">
-                        <Label className="font-semibold">{t('protocols.content.sections.training')}</Label>
-                        <div className="mt-1 flex flex-wrap gap-2">
-                          {person.trainings.map((training: string, trainingIndex: number) => (
-                            <span key={trainingIndex} className="px-2 py-1 bg-green-100 rounded text-xs">{training}</span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* 9. Attachments */}
-        {attachments.length > 0 && (
-          <section className="mb-8 border-t pt-6 section-9" data-section={t('protocols.content.sections.attachments')}>
-            <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.attachments')}</h2>
-
-            <div className="space-y-2">
-              {attachments.map((attachment: FileInfo, index: number) => (
-                <div key={index} className="p-3 border rounded">
-                  <p className="text-sm">{index + 1}. {attachment.file_name || '-'}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* 10. Electronic Signatures */}
-        {signature.length > 0 && (
-          <section className="mb-8 border-t pt-6 section-10" data-section={t('protocols.content.sections.signatures')}>
-            <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.signatures')}</h2>
-
-            <div className="space-y-4">
-              {signature.map((sig: FileInfo, index: number) => (
-                <div key={index} className="p-4 border rounded">
-                  {sig.preview_url ? (
-                    <img src={sig.preview_url} alt={sig.file_name || `${t('protocols.content.sections.signatures')} ${index + 1}`} className="max-w-xs max-h-32 object-contain" />
-                  ) : (
-                    <p className="text-sm">{index + 1}. {sig.file_name || '-'}</p>
+              {design.anesthesia && design.anesthesia.is_under_anesthesia !== null && (
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.anesthesia')}</h3>
+                  <p className="text-sm">{design.anesthesia.is_under_anesthesia ? t('protocols.content.sections.sterileYes') : t('protocols.content.sections.sterileNo')}</p>
+                  {design.anesthesia.anesthesia_type && (
+                    <p className="text-sm mt-2">{t('protocols.content.sections.anesthesiaType')}: {design.anesthesia.anesthesia_type}</p>
                   )}
                 </div>
-              ))}
-            </div>
-          </section>
-        )}
+              )}
 
-        {/* Print / PDF Styles */}
-        <style>{`
-          @media print {
-            .protocol-pdf-view {
-              box-shadow: none !important;
-              padding: 10mm !important;
-              max-width: none !important;
+              {design.pain && design.pain.category && (
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.painCategory')}</h3>
+                  <p className="text-sm">{design.pain.category}</p>
+                  {design.pain.management_plan && (
+                    <div className="mt-2">
+                      <p className="text-sm font-medium mb-1">{t('protocols.content.sections.painManagement')}</p>
+                      <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{design.pain.management_plan}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {design.endpoints && (
+                <div className="mb-4">
+                  {design.endpoints.experimental_endpoint && (
+                    <div className="mb-3">
+                      <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.experimentalEndpoint')}</h3>
+                      <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{design.endpoints.experimental_endpoint}</p>
+                    </div>
+                  )}
+                  {design.endpoints.humane_endpoint && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.humaneEndpoint')}</h3>
+                      <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{design.endpoints.humane_endpoint}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* 5. Relevant Guidelines and References */}
+          <section className="mb-8 border-t pt-6 section-5" data-section={t('protocols.content.sections.guidelines')}>
+            <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.guidelines')}</h2>
+
+            {(guidelines.content || (guidelines.databases && guidelines.databases.some((db: GuidelineDatabase) => db.checked)) || (guidelines.references && guidelines.references.length > 0)) ? (
+              <>
+                {guidelines.content && (
+                  <div className="mb-4">
+                    <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.guidelinesContent')}</h3>
+                    <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{guidelines.content}</p>
+                  </div>
+                )}
+
+                {guidelines.databases && guidelines.databases.some((db: GuidelineDatabase) => db.checked) && (
+                  <div className="mb-4">
+                    <h3 className="text-lg font-semibold mb-3">{t('aup.guidelines.databasesTitle')}</h3>
+                    <ul className="space-y-2">
+                      {guidelines.databases.filter((db: GuidelineDatabase) => db.checked).map((db: GuidelineDatabase) => (
+                        <li key={db.code} className="text-sm p-2 bg-slate-50 rounded">
+                          <span className="font-medium">{db.code}. {t(`aup.guidelines.databases.${db.code}`)}</span>
+                          {db.keywords && (
+                            <span className="ml-2 text-muted-foreground">
+                              — {t('aup.guidelines.keywordsLabel')}: {db.keywords}
+                            </span>
+                          )}
+                          {db.note && (
+                            <p className="mt-1 text-muted-foreground ml-4">{db.note}</p>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {guidelines.references && guidelines.references.length > 0 && (
+                  <div className="mb-4">
+                    <h3 className="text-lg font-semibold mb-3">{t('aup.guidelines.referencesTitle')}</h3>
+                    <ol className="list-decimal list-inside space-y-2">
+                      {guidelines.references.map((ref: GuidelineReference, index: number) => (
+                        <li key={index} className="text-sm">
+                          {ref.citation || '-'}
+                          {ref.url && (
+                            <span className="text-blue-600 ml-2">
+                              <a href={ref.url} target="_blank" rel="noopener noreferrer">{ref.url}</a>
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">{t('protocols.content.sections.omitted')}</p>
+            )}
+          </section>
+
+          {/* 6. Surgery Protocol */}
+          {(() => {
+            const needsSurgeryPlan = design.anesthesia?.is_under_anesthesia === true &&
+              (design.anesthesia?.anesthesia_type === 'survival_surgery' || design.anesthesia?.anesthesia_type === 'non_survival_surgery')
+
+            return (
+              <section className="mb-8 border-t pt-6 section-6" data-section={t('protocols.content.sections.surgery')}>
+                <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.surgery')}</h2>
+
+                {needsSurgeryPlan ? (
+                  <>
+                    {surgery.surgery_type && (
+                      <div className="mb-4">
+                        <Label className="text-sm font-semibold">{t('protocols.content.sections.surgeryType')}</Label>
+                        <p className="mt-1">{surgery.surgery_type}</p>
+                      </div>
+                    )}
+
+                    {surgery.preop_preparation && (
+                      <div className="mb-4">
+                        <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.preop_Preparation')}</h3>
+                        <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{surgery.preop_preparation}</p>
+                      </div>
+                    )}
+
+                    {surgery.surgery_description && (
+                      <div className="mb-4">
+                        <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.surgeryDescription')}</h3>
+                        <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{surgery.surgery_description}</p>
+                      </div>
+                    )}
+
+                    {surgery.monitoring && (
+                      <div className="mb-4">
+                        <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.monitoring')}</h3>
+                        <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{surgery.monitoring}</p>
+                      </div>
+                    )}
+
+                    {surgery.postop_care && (
+                      <div className="mb-4">
+                        <h3 className="text-lg font-semibold mb-2">{t('protocols.content.sections.postopCare')}</h3>
+                        <p className="text-sm whitespace-pre-wrap bg-slate-50 p-3 rounded">{surgery.postop_care}</p>
+                      </div>
+                    )}
+
+                    {surgery.drugs && surgery.drugs.length > 0 && (
+                      <div className="mb-4">
+                        <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.drugPlan')}</h3>
+                        <div className="space-y-2">
+                          {surgery.drugs.map((drug: SurgeryDrug, index: number) => (
+                            <div key={index} className="p-3 border rounded bg-slate-50">
+                              <p className="text-sm font-medium">{drug.drug_name || '-'}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {t('protocols.content.sections.dose')}: {drug.dose || '-'} | {t('protocols.content.sections.route')}: {drug.route || '-'} | {t('protocols.content.sections.frequency')}: {drug.frequency || '-'} | {t('protocols.content.sections.itemPurpose')}: {drug.purpose || '-'}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{t('protocols.content.sections.omitted')}</p>
+                )}
+              </section>
+            )
+          })()}
+
+          {/* 7. Experimental Animal Data */}
+          {animals.animals && animals.animals.length > 0 && (
+            <section className="mb-8 border-t pt-6 section-7" data-section={t('protocols.content.sections.animals')}>
+              <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.animals')}</h2>
+
+              <div className="space-y-4">
+                {animals.animals.map((animal: AnimalEntry, index: number) => (
+                  <div key={index} className="p-4 border rounded bg-slate-50">
+                    <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.animalGroup')} #{index + 1}</h3>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <Label className="font-semibold">{t('protocols.content.sections.species')}</Label>
+                        <p className="mt-1">{animal.species || '-'}{animal.species_other ? ` (${animal.species_other})` : ''}</p>
+                      </div>
+                      {animal.strain && (
+                        <div>
+                          <Label className="font-semibold">{t('protocols.content.sections.strain')}</Label>
+                          <p className="mt-1">{animal.strain}{animal.strain_other ? ` (${animal.strain_other})` : ''}</p>
+                        </div>
+                      )}
+                      <div>
+                        <Label className="font-semibold">{t('protocols.content.sections.sex')}</Label>
+                        <p className="mt-1">{animal.sex || '-'}</p>
+                      </div>
+                      <div>
+                        <Label className="font-semibold">{t('protocols.content.sections.number')}</Label>
+                        <p className="mt-1">{animal.number || '-'}</p>
+                      </div>
+                      <div>
+                        <Label className="font-semibold">{t('protocols.content.sections.ageRange')}</Label>
+                        <p className="mt-1">
+                          {animal.age_unlimited ? t('protocols.content.sections.unlimited') : `${animal.age_min || t('protocols.content.sections.unlimited')} ~ ${animal.age_max || t('protocols.content.sections.unlimited')}`}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="font-semibold">{t('protocols.content.sections.weightRange')}</Label>
+                        <p className="mt-1">
+                          {animal.weight_unlimited ? t('protocols.content.sections.unlimited') : `${animal.weight_min || t('protocols.content.sections.unlimited')}kg ~ ${animal.weight_max || t('protocols.content.sections.unlimited')}kg`}
+                        </p>
+                      </div>
+                      {animal.housing_location && (
+                        <div className="col-span-2">
+                          <Label className="font-semibold">{t('protocols.content.sections.housingLocation')}</Label>
+                          <p className="mt-1">{animal.housing_location}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {animals.total_animals && (
+                  <div className="mt-4 p-4 bg-blue-50 rounded">
+                    <Label className="text-lg font-semibold">{t('protocols.content.sections.totalAnimals')}: {animals.total_animals}</Label>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* 8. Study Personnel Data */}
+          {personnel.length > 0 && (
+            <section className="mb-8 border-t pt-6 section-8" data-section={t('protocols.content.sections.personnel')}>
+              <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.personnel')}</h2>
+
+              <div className="space-y-4">
+                {personnel.map((person: PersonnelMember, index: number) => (
+                  <div key={index} className="p-4 border rounded bg-slate-50">
+                    <h3 className="text-lg font-semibold mb-3">{t('protocols.content.sections.person')} #{index + 1}</h3>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <Label className="font-semibold">{t('protocols.content.sections.piName')}</Label>
+                        <p className="mt-1">{person.name || '-'}</p>
+                      </div>
+                      <div>
+                        <Label className="font-semibold">{t('protocols.content.sections.position')}</Label>
+                        <p className="mt-1">{person.position || '-'}</p>
+                      </div>
+                      <div>
+                        <Label className="font-semibold">{t('protocols.content.sections.yearsExperience')}</Label>
+                        <p className="mt-1">{person.years_experience || '-'} {t('protocols.content.sections.years')}</p>
+                      </div>
+                      {person.roles && person.roles.length > 0 && (
+                        <div className="col-span-2">
+                          <Label className="font-semibold">{t('protocols.content.sections.workContent')}</Label>
+                          <div className="mt-1 flex flex-wrap gap-2">
+                            {person.roles.map((role: string, roleIndex: number) => (
+                              <span key={roleIndex} className="px-2 py-1 bg-blue-100 rounded text-xs">{role}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {person.trainings && person.trainings.length > 0 && (
+                        <div className="col-span-2">
+                          <Label className="font-semibold">{t('protocols.content.sections.training')}</Label>
+                          <div className="mt-1 flex flex-wrap gap-2">
+                            {person.trainings.map((training: string, trainingIndex: number) => (
+                              <span key={trainingIndex} className="px-2 py-1 bg-green-100 rounded text-xs">{training}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* 9. Attachments */}
+          {attachments.length > 0 && (
+            <section className="mb-8 border-t pt-6 section-9" data-section={t('protocols.content.sections.attachments')}>
+              <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.attachments')}</h2>
+
+              <div className="space-y-2">
+                {attachments.map((attachment: FileInfo, index: number) => (
+                  <div key={index} className="p-3 border rounded">
+                    <p className="text-sm">{index + 1}. {attachment.file_name || '-'}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* 10. Electronic Signatures */}
+          {signature.length > 0 && (
+            <section className="mb-8 border-t pt-6 section-10" data-section={t('protocols.content.sections.signatures')}>
+              <h2 className="text-2xl font-bold mb-4 border-b pb-2">{t('protocols.content.sections.signatures')}</h2>
+
+              <div className="space-y-4">
+                {signature.map((sig: FileInfo, index: number) => (
+                  <div key={index} className="p-4 border rounded">
+                    {sig.preview_url ? (
+                      <img src={sig.preview_url} alt={sig.file_name || `${t('protocols.content.sections.signatures')} ${index + 1}`} className="max-w-xs max-h-32 object-contain" />
+                    ) : (
+                      <p className="text-sm">{index + 1}. {sig.file_name || '-'}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Print / PDF Styles */}
+          <style>{`
+            @media print {
+              .protocol-pdf-view {
+                box-shadow: none !important;
+                padding: 10mm !important;
+                max-width: none !important;
+              }
+              .protocol-pdf-view > section {
+                page-break-before: always;
+                break-before: page;
+              }
+              .protocol-pdf-view > section:first-of-type {
+                page-break-before: always;
+              }
+              .protocol-pdf-view section {
+                page-break-inside: avoid;
+                break-inside: avoid;
+              }
+              .protocol-pdf-view h2,
+              .protocol-pdf-view h3 {
+                page-break-after: avoid;
+                break-after: avoid;
+              }
+              .protocol-pdf-view .p-4.border.rounded,
+              .protocol-pdf-view .p-3.border.rounded {
+                page-break-inside: avoid;
+                break-inside: avoid;
+              }
             }
-            .protocol-pdf-view > section {
-              page-break-before: always;
-              break-before: page;
-            }
-            .protocol-pdf-view > section:first-of-type {
-              page-break-before: always;
-            }
-            .protocol-pdf-view section {
-              page-break-inside: avoid;
-              break-inside: avoid;
-            }
-            .protocol-pdf-view h2,
-            .protocol-pdf-view h3 {
-              page-break-after: avoid;
-              break-after: avoid;
-            }
-            .protocol-pdf-view .p-4.border.rounded,
-            .protocol-pdf-view .p-3.border.rounded {
-              page-break-inside: avoid;
-              break-inside: avoid;
-            }
-          }
-        `}</style>
+          `}</style>
+        </div>
       </div>
 
+      {/* Right sidebar — action toolbar */}
+      <aside className="hidden md:block w-28 shrink-0">
+        <div className="sticky top-20 space-y-3">
+          <Button
+            onClick={handleExportPDF}
+            variant="outline"
+            disabled={isExporting}
+            className="w-full text-xs"
+            size="sm"
+          >
+            {isExporting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Download className="mr-1.5 h-4 w-4" />}
+            {isExporting ? t('protocols.content.exporting') : t('protocols.content.exportPDF')}
+          </Button>
+          {showReviewButton && onToggleCommentPanel && (
+            <Button
+              onClick={onToggleCommentPanel}
+              variant="outline"
+              className="w-full text-xs"
+              size="sm"
+            >
+              <MessageSquare className="mr-1.5 h-4 w-4" />
+              {t('protocols.content.reviewComment', '審查意見')}
+            </Button>
+          )}
+        </div>
+      </aside>
     </div>
   )
 }
