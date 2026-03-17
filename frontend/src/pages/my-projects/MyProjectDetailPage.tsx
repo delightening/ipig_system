@@ -288,7 +288,7 @@ export function MyProjectDetailPage() {
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-muted-foreground">GLP 合規</dt>
+                  <dt className="text-sm font-medium text-muted-foreground">GLP 符合性</dt>
                   <dd className="mt-1">
                     {workingContent?.basic?.is_glp ? (
                       <Badge variant="success">是</Badge>

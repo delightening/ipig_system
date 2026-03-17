@@ -449,9 +449,9 @@
                 "title": "AUP Animal Study Protocol",
                 "sections": {
                     "researchInfo": "1. Research Information",
-                    "glpAttribute": "GLP Attribute",
-                    "glpCompliant": "GLP Compliant",
-                    "glpNonCompliant": "Not GLP Compliant",
+                    "glpAttribute": "GLP Compliance",
+                    "glpCompliant": "GLP",
+                    "glpNonCompliant": "Non-GLP",
                     "projectName": "Project Name",
                     "projectType": "Project Type",
                     "projectCategory": "Project Category",
@@ -605,8 +605,8 @@
         "basic": {
             "title": "Study Information",
             "subtitle": "Enter basic study information, facility, and principal investigator details",
-            "glpAttribute": "GLP Attribute",
-            "glpCompliant": "GLP Compliant",
+            "glpAttribute": "GLP Compliance",
+            "glpCompliant": "GLP",
             "placeholders": {
                 "studyTitle": "Enter study title",
                 "piName": "Study Lead Personnel",

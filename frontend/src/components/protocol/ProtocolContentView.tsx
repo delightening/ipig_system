@@ -1,39 +1,13 @@
 import { Label } from '@/components/ui/label'
 import { formatDate } from '@/lib/utils'
 import { logger } from '@/lib/logger'
-import { FileText, Download, Loader2, MessageSquare } from 'lucide-react'
+import { FileText, Download, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useRef, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-// jsPDF & html2canvas loaded lazily at PDF export time (~360KB savings)
-import api, { ProtocolVersion } from '@/lib/api'
+import api from '@/lib/api'
 import { useTranslation } from 'react-i18next'
-import { toast } from '@/components/ui/use-toast'
-import { getApiErrorMessage } from '@/lib/validation'
 import type { ProtocolWorkingContent } from '@/types/protocol'
 import type { FileInfo } from '@/components/ui/file-upload'
-
-import { ReviewCommentPanel } from './ReviewCommentPanel'
-
-/** Hook: 偵測 hover 的 section 並回傳名稱 */
-function useSectionHover(contentRef: React.RefObject<HTMLDivElement | null>) {
-  const [hovered, setHovered] = useState<{ name: string } | null>(null)
-
-  const handleMouseOver = (e: React.MouseEvent) => {
-    const section = (e.target as HTMLElement).closest('section[data-section]') as HTMLElement | null
-    if (!section) {
-      setHovered(null)
-      return
-    }
-    const sectionName = section.getAttribute('data-section')
-    if (!sectionName) return
-    setHovered({ name: sectionName })
-  }
-
-  const handleMouseLeave = () => setHovered(null)
-
-  return { hovered, handleMouseOver, handleMouseLeave }
-}
 
 type TestItem = ProtocolWorkingContent['items']['test_items'][number]
 type ControlItem = ProtocolWorkingContent['items']['control_items'][number]
@@ -50,49 +24,12 @@ interface ProtocolContentViewProps {
   endDate?: string
   protocolId?: string
   onExportPDF?: () => void
-  canAddComment?: boolean
-  onCommentAdded?: () => void
 }
 
-export function ProtocolContentView({ workingContent, protocolTitle, startDate, endDate, protocolId, onExportPDF, canAddComment, onCommentAdded }: ProtocolContentViewProps) {
+export function ProtocolContentView({ workingContent, protocolTitle, startDate, endDate, protocolId, onExportPDF }: ProtocolContentViewProps) {
   const { t } = useTranslation()
-  const queryClient = useQueryClient()
   const contentRef = useRef<HTMLDivElement>(null)
   const [isExporting, setIsExporting] = useState(false)
-  const [showCommentPanel, setShowCommentPanel] = useState(false)
-  const { hovered: hoveredSection, handleMouseOver: handleSectionMouseOver, handleMouseLeave: handleSectionMouseLeave } = useSectionHover(contentRef)
-
-  // 取得最新 protocol version ID（用於新增意見）
-  const { data: versions } = useQuery({
-    queryKey: ['protocol-versions', protocolId],
-    queryFn: async () => {
-      const response = await api.get<ProtocolVersion[]>(`/protocols/${protocolId}/versions`)
-      return response.data
-    },
-    enabled: !!protocolId && !!canAddComment,
-  })
-
-  const addCommentMutation = useMutation({
-    mutationFn: async (content: string) => {
-      if (!versions || versions.length === 0) throw new Error('No version found')
-      return api.post('/reviews/comments', {
-        protocol_version_id: versions[0].id,
-        content,
-      })
-    },
-    onSuccess: () => {
-      toast({ title: t('common.success'), description: t('protocols.detail.dialogs.comment.success') })
-      queryClient.invalidateQueries({ queryKey: ['protocol-comments', protocolId] })
-      onCommentAdded?.()
-    },
-    onError: (error: unknown) => {
-      toast({
-        title: t('common.error'),
-        description: getApiErrorMessage(error, t('protocols.detail.dialogs.comment.failed')),
-        variant: 'destructive',
-      })
-    },
-  })
 
   if (!workingContent) {
     return (
@@ -113,14 +50,6 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
   const personnel = workingContent.personnel || []
   const attachments = workingContent.attachments || []
   const signature = workingContent.signature || []
-
-  // 章節名稱列表（供審查意見面板 dropdown 使用）
-  const sectionKeys = [
-    'researchInfo', 'purpose', 'items', 'design',
-    'guidelines', 'surgery', 'animals', 'personnel',
-    'attachments', 'signatures',
-  ] as const
-  const sectionNames = sectionKeys.map(k => t(`protocols.content.sections.${k}`))
 
   // Backend PDF export
   const exportFromBackend = async () => {
@@ -278,17 +207,7 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
 
   return (
     <div className="space-y-6">
-      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm py-2 flex justify-end gap-2 border-b border-transparent">
-        {canAddComment && (
-          <Button
-            variant="outline"
-            onClick={() => setShowCommentPanel(true)}
-            disabled={!versions || versions.length === 0}
-          >
-            <MessageSquare className="mr-2 h-4 w-4" />
-            審查意見
-          </Button>
-        )}
+      <div className="flex justify-end py-2">
         <Button onClick={handleExportPDF} variant="outline" disabled={isExporting}>
           {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
           {isExporting ? t('protocols.content.exporting') : t('protocols.content.exportPDF')}
@@ -298,8 +217,6 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
       <div
         ref={contentRef}
         className="protocol-pdf-view bg-white p-8 shadow-lg max-w-4xl mx-auto relative"
-        onMouseOver={canAddComment ? handleSectionMouseOver : undefined}
-        onMouseLeave={canAddComment ? handleSectionMouseLeave : undefined}
       >
         {/* Header */}
         <div className="text-center mb-8 border-b pb-4">
@@ -951,17 +868,6 @@ export function ProtocolContentView({ workingContent, protocolTitle, startDate, 
         `}</style>
       </div>
 
-      {/* 右側審查意見面板 */}
-      {canAddComment && (
-        <ReviewCommentPanel
-          open={showCommentPanel}
-          onClose={() => setShowCommentPanel(false)}
-          onSubmit={(content) => addCommentMutation.mutate(content)}
-          isSubmitting={addCommentMutation.isPending}
-          currentSection={hoveredSection?.name}
-          sectionOptions={sectionNames}
-        />
-      )}
     </div>
   )
 }

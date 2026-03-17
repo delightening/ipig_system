@@ -63,6 +63,10 @@ import { CommentsTab } from '@/components/protocol/CommentsTab'
 import { ReviewersTab } from '@/components/protocol/ReviewersTab'
 import { CoEditorsTab } from '@/components/protocol/CoEditorsTab'
 import { AttachmentsTab } from '@/components/protocol/AttachmentsTab'
+import { ReviewCommentPanel } from '@/components/protocol/ReviewCommentPanel'
+import { FloatingCommentButton } from '@/components/protocol/FloatingCommentButton'
+import { useCurrentSection } from './hooks/useCurrentSection'
+import type { ProtocolVersion } from '@/types/aup'
 
 const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'> = {
   DRAFT: 'secondary',
@@ -118,6 +122,7 @@ export function ProtocolDetailPage() {
   const [statusRemark, setStatusRemark] = useState('')
   const [selectedReviewerIds, setSelectedReviewerIds] = useState<string[]>([])
   const [selectedCoEditorId, setSelectedCoEditorId] = useState('')
+  const [showCommentPanel, setShowCommentPanel] = useState(false)
 
   const { data: protocolResponse, isLoading } = useQuery({
     queryKey: queryKeys.protocols.detail(id!),
@@ -295,6 +300,53 @@ export function ProtocolDetailPage() {
     ['IACUC_STAFF', 'IACUC_CHAIR', 'REVIEWER', 'VET', 'SYSTEM_ADMIN', 'admin'].includes(r)
   )
 
+  // 審查意見面板所需：版本查詢 + 提交 mutation
+  const canShowPanel = !!canAddComment && protocol?.status !== 'DRAFT'
+  const { data: versions } = useQuery({
+    queryKey: ['protocol-versions', id],
+    queryFn: async () => {
+      const response = await api.get<ProtocolVersion[]>(`/protocols/${id}/versions`)
+      return response.data
+    },
+    enabled: !!id && canShowPanel,
+  })
+
+  const addCommentMutation = useMutation({
+    mutationFn: async (content: string) => {
+      if (!versions || versions.length === 0) throw new Error('No version found')
+      return api.post('/reviews/comments', {
+        protocol_version_id: versions[0].id,
+        content,
+      })
+    },
+    onSuccess: () => {
+      toast({ title: t('common.success'), description: t('protocols.detail.dialogs.comment.success') })
+      queryClient.invalidateQueries({ queryKey: ['protocol-comments', id] })
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: t('common.error'),
+        description: getApiErrorMessage(error, t('protocols.detail.dialogs.comment.failed')),
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const sectionOptions = [
+    t('protocols.content.sections.researchInfo'),
+    t('protocols.content.sections.purpose'),
+    t('protocols.content.sections.items'),
+    t('protocols.content.sections.design'),
+    t('protocols.content.sections.guidelines'),
+    t('protocols.content.sections.surgery'),
+    t('protocols.content.sections.animals'),
+    t('protocols.content.sections.personnel'),
+    t('protocols.content.sections.attachments'),
+    t('protocols.content.sections.signatures'),
+  ]
+
+  const currentSection = useCurrentSection()
+
   const tabItems = useMemo<{ key: TabKey; label: string; icon: typeof FileText }[]>(() => [
     { key: 'content', label: t('protocols.detail.tabs.content'), icon: FileText },
     { key: 'animals', label: t('protocols.detail.tabs.animals'), icon: ClipboardList },
@@ -329,6 +381,7 @@ export function ProtocolDetailPage() {
   }
 
   return (
+    <>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -465,8 +518,6 @@ export function ProtocolDetailPage() {
               protocolId={id}
               startDate={protocol.start_date}
               endDate={protocol.end_date}
-              canAddComment={!!canAddComment && protocol.status !== 'DRAFT'}
-              onCommentAdded={() => queryClient.invalidateQueries({ queryKey: ['protocol-comments', id] })}
             />
           </CardContent>
         </Card>
@@ -639,5 +690,24 @@ export function ProtocolDetailPage() {
 
       <ConfirmDialog state={dialogState} />
     </div>
+
+    {/* FAB + 審查意見面板（fixed 定位，不參與 flow layout） */}
+    {canShowPanel && (
+      <FloatingCommentButton
+        onClick={() => setShowCommentPanel(prev => !prev)}
+        isOpen={showCommentPanel}
+      />
+    )}
+    {canShowPanel && (
+      <ReviewCommentPanel
+        open={showCommentPanel}
+        onClose={() => setShowCommentPanel(false)}
+        onSubmit={(content) => addCommentMutation.mutate(content)}
+        isSubmitting={addCommentMutation.isPending}
+        currentSection={currentSection}
+        sectionOptions={sectionOptions}
+      />
+    )}
+    </>
   )
 }

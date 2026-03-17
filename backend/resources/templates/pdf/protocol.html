@@ -150,8 +150,8 @@ table.data-table td {
 <div class="section-header">1. 研究資料</div>
 
 <div class="field-row">
-    <span class="field-label">GLP 屬性：</span>
-    <span class="field-value">{% if basic.is_glp | default(value=false) %}符合 GLP 規範{% else %}不符合 GLP 規範{% endif %}</span>
+    <span class="field-label">GLP 符合性：</span>
+    <span class="field-value">{% if basic.is_glp | default(value=false) %}GLP{% else %}非GLP{% endif %}</span>
 </div>
 
 {% if basic.project_type_label %}
