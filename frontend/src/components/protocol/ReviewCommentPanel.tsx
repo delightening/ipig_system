@@ -27,7 +27,6 @@ export function ReviewCommentPanel({
   const [content, setContent] = useState('')
   const [selectedSection, setSelectedSection] = useState('')
 
-  // 自動跟隨 hover 的章節更新
   useEffect(() => {
     if (currentSection) {
       setSelectedSection(currentSection)
@@ -43,21 +42,20 @@ export function ReviewCommentPanel({
 
   return (
     <>
-      {/* 背景遮罩 */}
-      {open && (
-        <div
-          className="fixed inset-0 bg-black/20 z-40 transition-opacity"
-          onClick={onClose}
-        />
-      )}
-
-      {/* 右側面板 */}
+      {/* 窄螢幕背景遮罩 */}
       <div
-        className={`fixed right-0 top-0 h-full w-96 bg-background border-l shadow-xl z-50 flex flex-col transition-transform duration-300 ease-in-out ${
+        className={`fixed inset-0 bg-black/20 z-30 xl:hidden transition-opacity ${
+          open ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={onClose}
+      />
+
+      {/* 面板 */}
+      <div
+        className={`fixed right-0 top-0 h-full w-80 z-30 pt-12 bg-background border-l shadow-xl flex flex-col transition-transform duration-300 ease-in-out ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        {/* 標題列 */}
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <h3 className="font-semibold text-lg">審查意見</h3>
           <Button variant="ghost" size="sm" onClick={onClose}>
@@ -65,9 +63,7 @@ export function ReviewCommentPanel({
           </Button>
         </div>
 
-        {/* 內容 */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* 章節選擇 */}
           <div className="space-y-2">
             <Label>針對章節</Label>
             <select
@@ -82,7 +78,6 @@ export function ReviewCommentPanel({
             </select>
           </div>
 
-          {/* 文字輸入 */}
           <div className="space-y-2">
             <Label>意見內容</Label>
             <Textarea
@@ -94,7 +89,6 @@ export function ReviewCommentPanel({
             />
           </div>
 
-          {/* 送出按鈕 */}
           <Button
             className="w-full"
             onClick={handleSubmit}

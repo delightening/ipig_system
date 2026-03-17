@@ -206,8 +206,8 @@ impl PdfService {
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
         ctx.render_label_value(
-            "GLP 屬性",
-            if is_glp { "符合 GLP 規範" } else { "不符合 GLP 規範" },
+            "GLP 符合性",
+            if is_glp { "GLP" } else { "非GLP" },
         );
 
         if let Some(project_type) = basic.get("project_type").and_then(|v| v.as_str()) {
