@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
     deleteResource,
@@ -66,6 +67,7 @@ export function WarehouseActionHeader({
     onImportClick,
     onExportClick,
 }: WarehouseActionHeaderProps) {
+    const navigate = useNavigate()
     const queryClient = useQueryClient()
     const { dialogState, confirm } = useConfirmDialog()
     const [showWarehouseDialog, setShowWarehouseDialog] = useState(false)
@@ -207,7 +209,7 @@ export function WarehouseActionHeader({
                     <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(`/inventory/warehouse-report/${selectedWarehouseId}`, '_blank')}
+                        onClick={() => navigate(`/inventory/warehouse-report/${selectedWarehouseId}`)}
                         disabled={!selectedWarehouseId}
                     >
                         <Printer className="mr-2 h-4 w-4" />

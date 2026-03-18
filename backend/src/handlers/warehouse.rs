@@ -153,7 +153,11 @@ pub async fn export_warehouse_report_pdf(
 ) -> Result<Response> {
     require_permission!(current_user, "erp.warehouse.view");
     let report = WarehouseService::get_report_data(&state.db, id).await?;
-    let pdf_bytes = PdfService::generate_warehouse_report(&report)?;
+    let pdf_bytes = PdfService::generate_warehouse_report(&report)
+        .map_err(|e| {
+            tracing::error!("Warehouse PDF generation failed: {:?}", e);
+            e
+        })?;
     let filename = format!("{}_倉庫現況報表.pdf", report.warehouse.code);
     let encoded = urlencoding::encode(&filename);
     Response::builder()

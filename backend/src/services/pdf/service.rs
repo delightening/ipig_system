@@ -68,17 +68,18 @@ impl PdfService {
             title,
             Mm(PAGE_WIDTH_MM),
             Mm(PAGE_HEIGHT_MM),
-            "第1頁",
+            "Page 1",
         );
 
-        let font_path = std::path::Path::new("resources/fonts/NotoSansSC-Regular.ttf");
+        let font_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("resources/fonts/NotoSansSC-Regular.ttf");
         if !font_path.exists() {
             return Err(AppError::Internal(
-                "Font file not found: resources/fonts/NotoSansSC-Regular.ttf".to_string(),
+                format!("Font file not found: {}", font_path.display()),
             ));
         }
 
-        let font_bytes = std::fs::read(font_path)
+        let font_bytes = std::fs::read(&font_path)
             .map_err(|e| AppError::Internal(format!("Failed to read font file: {}", e)))?;
 
         let font = doc
@@ -671,7 +672,7 @@ impl PdfService {
 
     /// 生成 AUP 計畫書 PDF
     pub fn generate_protocol_pdf(protocol: &ProtocolResponse) -> Result<Vec<u8>> {
-        let mut ctx = Self::init_pdf_context("AUP 動物試驗計畫書")?;
+        let mut ctx = Self::init_pdf_context("AUP Protocol")?;
 
         Self::render_protocol_title(&mut ctx, &protocol.protocol.title);
 
@@ -684,7 +685,7 @@ impl PdfService {
 
     /// 生成動物病歷 PDF
     pub fn generate_medical_pdf(data: &serde_json::Value) -> Result<Vec<u8>> {
-        let mut ctx = Self::init_pdf_context("動物病歷紀錄")?;
+        let mut ctx = Self::init_pdf_context("Animal Medical Record")?;
 
         // ========== 標題 ==========
         ctx.current_layer.use_text(
@@ -845,7 +846,7 @@ impl PdfService {
         iacuc_no: &str,
         animals_data: &serde_json::Value,
     ) -> Result<Vec<u8>> {
-        let mut ctx = Self::init_pdf_context(&format!("計畫病歷匯出 - {}", iacuc_no))?;
+        let mut ctx = Self::init_pdf_context(&format!("Project Medical Export - {}", iacuc_no))?;
 
         // ========== 封面標題 ==========
         ctx.current_layer.use_text(
@@ -899,7 +900,7 @@ impl PdfService {
 
     /// 生成倉庫現況報表 PDF
     pub fn generate_warehouse_report(data: &WarehouseReportData) -> Result<Vec<u8>> {
-        let mut ctx = Self::init_pdf_context("倉庫現況報表")?;
+        let mut ctx = Self::init_pdf_context("Warehouse Report")?;
 
         Self::render_warehouse_title(&mut ctx, data);
         Self::render_warehouse_summary(&mut ctx, data);
@@ -920,53 +921,42 @@ impl PdfService {
         );
         ctx.y_position -= SECTION_SPACING_MM * 2.0;
 
-        ctx.render_label_value("倉庫代碼", &data.warehouse.code);
-        ctx.render_label_value("倉庫名稱", &data.warehouse.name);
-        if let Some(ref addr) = data.warehouse.address {
-            ctx.render_label_value("地址", addr);
-        }
         let generated = data
             .generated_at
             .format("%Y-%m-%d %H:%M")
             .to_string();
-        ctx.render_label_value("報表產出時間", &generated);
+        let info_line = format!(
+            "倉庫代碼：{}　｜　倉庫名稱：{}　｜　報表產出時間：{}",
+            data.warehouse.code, data.warehouse.name, generated
+        );
+        ctx.current_layer.use_text(
+            &info_line,
+            9.0,
+            Mm(MARGIN_MM),
+            Mm(ctx.y_position),
+            &ctx.font,
+        );
+        ctx.y_position -= LINE_HEIGHT_MM;
         ctx.add_section_spacing();
     }
 
     /// 渲染倉庫摘要統計
     fn render_warehouse_summary(ctx: &mut PdfContext, data: &WarehouseReportData) {
         ctx.render_section_header("一、摘要統計");
-        ctx.render_label_value("儲位總數", &data.summary.total_locations.to_string());
-        ctx.render_label_value(
-            "使用中儲位",
-            &data.summary.active_locations.to_string(),
+        let summary_line = format!(
+            "儲位總數：{}　｜　使用中儲位：{}　｜　庫存品項總數：{}",
+            data.summary.total_locations,
+            data.summary.active_locations,
+            data.summary.total_inventory_items
         );
-        if data.summary.total_capacity > 0 {
-            let usage_pct = if data.summary.total_capacity > 0 {
-                (data.summary.total_current_count as f64 / data.summary.total_capacity as f64)
-                    * 100.0
-            } else {
-                0.0
-            };
-            ctx.render_label_value(
-                "容量使用率",
-                &format!(
-                    "{} / {} ({:.1}%)",
-                    data.summary.total_current_count,
-                    data.summary.total_capacity,
-                    usage_pct
-                ),
-            );
-        } else {
-            ctx.render_label_value(
-                "目前庫存數",
-                &data.summary.total_current_count.to_string(),
-            );
-        }
-        ctx.render_label_value(
-            "庫存品項總數",
-            &data.summary.total_inventory_items.to_string(),
+        ctx.current_layer.use_text(
+            &summary_line,
+            10.0,
+            Mm(MARGIN_MM + 5.0),
+            Mm(ctx.y_position),
+            &ctx.font,
         );
+        ctx.y_position -= LINE_HEIGHT_MM;
         ctx.add_section_spacing();
     }
 
@@ -976,7 +966,7 @@ impl PdfService {
             return;
         }
 
-        ctx.render_section_header("二、儲位佈局圖");
+        ctx.render_section_header("二、儲位分佈圖");
 
         let max_col = data
             .locations
@@ -1012,13 +1002,14 @@ impl PdfService {
             );
             ctx.draw_filled_rect(x, y, w, h, r, g, b);
 
-            // 在方塊內繪製代碼文字
+            // 在方塊內繪製名稱（優先）或代碼
+            let display_text = loc.name.as_deref().unwrap_or(&loc.code);
             let text_y = y + h / 2.0 - 1.5;
             let text_x = x + 1.0;
             ctx.current_layer
                 .set_fill_color(Color::Rgb(Rgb::new(1.0, 1.0, 1.0, None)));
             ctx.current_layer
-                .use_text(&loc.code, 7.0, Mm(text_x), Mm(text_y), &ctx.font);
+                .use_text(display_text, 7.0, Mm(text_x), Mm(text_y), &ctx.font);
         }
 
         // 重設填充顏色為黑色（文字用）
@@ -1114,5 +1105,86 @@ impl PdfService {
         }
         // fallback 藍色
         (0.23, 0.51, 0.96)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{
+        StorageLocationInventoryItem, StorageLocationWithInventory, Warehouse,
+        WarehouseReportData, WarehouseReportSummary,
+    };
+    use chrono::Utc;
+    use rust_decimal::Decimal;
+    use uuid::Uuid;
+
+    #[test]
+    fn test_generate_warehouse_report_pdf() {
+        let data = WarehouseReportData {
+            warehouse: Warehouse {
+                id: Uuid::new_v4(),
+                code: "WH01".to_string(),
+                name: "準備室".to_string(),
+                address: Some("台中市".to_string()),
+                is_active: true,
+                created_at: Utc::now(),
+                updated_at: Utc::now(),
+            },
+            summary: WarehouseReportSummary {
+                total_locations: 3,
+                active_locations: 3,
+                total_capacity: 10,
+                total_current_count: 5,
+                total_inventory_items: 2,
+            },
+            locations: vec![
+                StorageLocationWithInventory {
+                    id: Uuid::new_v4(),
+                    code: "A01".to_string(),
+                    name: Some("儲物架".to_string()),
+                    location_type: "shelf".to_string(),
+                    row_index: 0,
+                    col_index: 0,
+                    width: 2,
+                    height: 1,
+                    capacity: Some(5),
+                    current_count: 3,
+                    color: Some("#3b82f6".to_string()),
+                    is_active: true,
+                    inventory: vec![StorageLocationInventoryItem {
+                        id: Uuid::new_v4(),
+                        storage_location_id: Uuid::new_v4(),
+                        product_id: Uuid::new_v4(),
+                        product_sku: "SKU001".to_string(),
+                        product_name: "飼料A".to_string(),
+                        on_hand_qty: Decimal::new(10, 0),
+                        base_uom: "kg".to_string(),
+                        batch_no: Some("B001".to_string()),
+                        expiry_date: None,
+                        updated_at: Utc::now(),
+                    }],
+                },
+                StorageLocationWithInventory {
+                    id: Uuid::new_v4(),
+                    code: "A02".to_string(),
+                    name: None,
+                    location_type: "shelf".to_string(),
+                    row_index: 0,
+                    col_index: 2,
+                    width: 1,
+                    height: 1,
+                    capacity: None,
+                    current_count: 0,
+                    color: None,
+                    is_active: true,
+                    inventory: vec![],
+                },
+            ],
+            generated_at: Utc::now(),
+        };
+
+        let result = PdfService::generate_warehouse_report(&data);
+        assert!(result.is_ok(), "PDF generation should succeed");
     }
 }
