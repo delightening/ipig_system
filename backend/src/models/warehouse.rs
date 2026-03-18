@@ -5,6 +5,8 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 use validator::Validate;
 
+use super::storage_location::StorageLocationInventoryItem;
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct Warehouse {
     pub id: Uuid,
@@ -55,6 +57,43 @@ pub struct ShelfNode {
     pub id: Uuid,
     pub code: String,
     pub name: Option<String>,
+}
+
+/// 儲位含庫存（報表用）
+#[derive(Debug, Serialize, ToSchema)]
+pub struct StorageLocationWithInventory {
+    pub id: Uuid,
+    pub code: String,
+    pub name: Option<String>,
+    pub location_type: String,
+    pub row_index: i32,
+    pub col_index: i32,
+    pub width: i32,
+    pub height: i32,
+    pub capacity: Option<i32>,
+    pub current_count: i32,
+    pub color: Option<String>,
+    pub is_active: bool,
+    pub inventory: Vec<StorageLocationInventoryItem>,
+}
+
+/// 倉庫報表彙總統計
+#[derive(Debug, Serialize, ToSchema)]
+pub struct WarehouseReportSummary {
+    pub total_locations: i32,
+    pub active_locations: i32,
+    pub total_capacity: i32,
+    pub total_current_count: i32,
+    pub total_inventory_items: i32,
+}
+
+/// 倉庫現況報表回應
+#[derive(Debug, Serialize, ToSchema)]
+pub struct WarehouseReportData {
+    pub warehouse: Warehouse,
+    pub summary: WarehouseReportSummary,
+    pub locations: Vec<StorageLocationWithInventory>,
+    pub generated_at: DateTime<Utc>,
 }
 
 /// 倉庫匯入 CSV 列

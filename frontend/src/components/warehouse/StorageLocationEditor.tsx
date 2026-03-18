@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useRef, useState, useEffect } from 'react'
 import {
     StorageLocationWithWarehouse,
     StorageLocationType,
@@ -17,15 +17,16 @@ import {
     DoorOpen,
     Square,
 } from 'lucide-react'
-import { Responsive, WidthProvider } from 'react-grid-layout/legacy'
+import ReactGridLayout, { WidthProvider } from 'react-grid-layout/legacy'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 
-const ResponsiveGridLayout = WidthProvider(Responsive)
+const GridLayout = WidthProvider(ReactGridLayout)
 
-const BREAKPOINTS = { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }
-const COLS = { lg: 12, md: 9, sm: 6, xs: 4, xxs: 2 }
-const ROW_HEIGHT = 60
+const COLS = 12
+const MARGIN = 12
+const DEFAULT_ROW_HEIGHT = 60
+const MIN_ROW_HEIGHT = 30
 
 // 預設顏色
 const DEFAULT_COLORS: Record<StorageLocationType, string> = {
@@ -47,8 +48,6 @@ interface GridLayoutItem {
     minW?: number
     minH?: number
 }
-
-type Layouts = { [P: string]: GridLayoutItem[] }
 
 interface StorageLocationEditorProps {
     locations: StorageLocationWithWarehouse[]
@@ -77,6 +76,21 @@ export function StorageLocationEditor({
     selectedLocationId,
     onLocationClick,
 }: StorageLocationEditorProps) {
+    const containerRef = useRef<HTMLDivElement>(null)
+    const [rowHeight, setRowHeight] = useState(DEFAULT_ROW_HEIGHT)
+
+    useEffect(() => {
+        const el = containerRef.current
+        if (!el) return
+        const observer = new ResizeObserver((entries) => {
+            const width = entries[0].contentRect.width
+            const colWidth = (width - MARGIN * (COLS - 1)) / COLS
+            setRowHeight(Math.max(Math.round(colWidth), MIN_ROW_HEIGHT))
+        })
+        observer.observe(el)
+        return () => observer.disconnect()
+    }, [])
+
     // 轉換為 react-grid-layout 格式
     const gridLayout: GridLayoutItem[] = useMemo(() => {
         return locations.map((loc) => ({
@@ -89,14 +103,6 @@ export function StorageLocationEditor({
             minH: 1,
         }))
     }, [locations])
-
-    const responsiveLayouts: Layouts = useMemo(() => ({
-        lg: gridLayout,
-        md: gridLayout,
-        sm: gridLayout,
-        xs: gridLayout,
-        xxs: gridLayout,
-    }), [gridLayout])
 
     const handleInternalLayoutChange = (newLayout: Array<{ i: string; x: number; y: number; w: number; h: number }>) => {
         if (!isEditMode) return
@@ -177,22 +183,21 @@ export function StorageLocationEditor({
                 </div>
             )}
 
-            <div className="border rounded-lg bg-slate-50 p-4 min-h-[480px] relative overflow-hidden">
+            <div ref={containerRef} className="border rounded-lg bg-slate-50 p-4 min-h-[480px] relative">
                 {locations.length > 0 ? (
-                    <ResponsiveGridLayout
+                    <GridLayout
                         className="layout"
-                        layouts={responsiveLayouts}
-                        breakpoints={BREAKPOINTS}
+                        layout={gridLayout}
                         cols={COLS}
-                        rowHeight={ROW_HEIGHT}
+                        rowHeight={rowHeight}
                         onLayoutChange={(layout) => handleInternalLayoutChange([...layout])}
                         isDraggable={isEditMode}
                         isResizable={isEditMode}
-                        margin={[12, 12]}
+                        margin={[MARGIN, MARGIN]}
                         containerPadding={[0, 0]}
                         useCSSTransforms={true}
                         autoSize={true}
-                        compactType={null}
+                        compactType={undefined}
                     >
                         {locations.map((loc) => {
                             const isSelected = selectedLocationId === loc.id
@@ -284,7 +289,7 @@ export function StorageLocationEditor({
                                 </div>
                             )
                         })}
-                    </ResponsiveGridLayout>
+                    </GridLayout>
                 ) : (
                     <div className="flex flex-col items-center justify-center h-full text-muted-foreground bg-white/50 rounded-lg">
                         <Package className="h-12 w-12 mb-2 opacity-20" />

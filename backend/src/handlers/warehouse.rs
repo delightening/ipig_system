@@ -13,10 +13,10 @@ use crate::{
     middleware::CurrentUser,
     models::{
         CreateWarehouseRequest, UpdateWarehouseRequest, Warehouse, WarehouseImportResult,
-        WarehouseQuery, WarehouseTreeNode,
+        WarehouseQuery, WarehouseReportData, WarehouseTreeNode,
     },
     require_permission,
-    services::{AuditService, WarehouseService},
+    services::{AuditService, PdfService, WarehouseService},
     AppError, AppState, Result,
 };
 
@@ -130,6 +130,41 @@ pub async fn delete_warehouse(
     
     WarehouseService::delete(&state.db, id).await?;
     Ok(Json(serde_json::json!({ "message": "Warehouse deleted successfully" })))
+}
+
+/// 取得倉庫現況報表資料
+#[utoipa::path(get, path = "/api/warehouses/{id}/report", params(("id" = Uuid, Path, description = "倉庫 ID")), responses((status = 200, description = "倉庫現況報表", body = WarehouseReportData)), tag = "倉儲管理", security(("bearer" = [])))]
+pub async fn get_warehouse_report(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<WarehouseReportData>> {
+    require_permission!(current_user, "erp.warehouse.view");
+    let report = WarehouseService::get_report_data(&state.db, id).await?;
+    Ok(Json(report))
+}
+
+/// 匯出倉庫現況報表 PDF
+#[utoipa::path(get, path = "/api/warehouses/{id}/report/pdf", params(("id" = Uuid, Path, description = "倉庫 ID")), responses((status = 200, description = "PDF 檔案")), tag = "倉儲管理", security(("bearer" = [])))]
+pub async fn export_warehouse_report_pdf(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<Uuid>,
+) -> Result<Response> {
+    require_permission!(current_user, "erp.warehouse.view");
+    let report = WarehouseService::get_report_data(&state.db, id).await?;
+    let pdf_bytes = PdfService::generate_warehouse_report(&report)?;
+    let filename = format!("{}_倉庫現況報表.pdf", report.warehouse.code);
+    let encoded = urlencoding::encode(&filename);
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/pdf")
+        .header(
+            header::CONTENT_DISPOSITION,
+            format!("attachment; filename*=UTF-8''{}", encoded),
+        )
+        .body(Body::from(pdf_bytes))
+        .map_err(|e| AppError::Internal(format!("Failed to build response: {e}")))
 }
 
 /// 匯入倉庫（CSV 或 Excel）

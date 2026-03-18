@@ -34,6 +34,7 @@ import {
     Upload,
     Download,
     Edit3,
+    Printer,
 } from 'lucide-react'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -202,6 +203,15 @@ export function WarehouseActionHeader({
                     <Button variant="outline" size="sm" onClick={onExportClick} disabled={activeWarehouses.length === 0}>
                         <Download className="mr-2 h-4 w-4" />
                         匯出倉庫
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(`/inventory/warehouse-report/${selectedWarehouseId}`, '_blank')}
+                        disabled={!selectedWarehouseId}
+                    >
+                        <Printer className="mr-2 h-4 w-4" />
+                        列印現況
                     </Button>
                 </div>
             </div>
