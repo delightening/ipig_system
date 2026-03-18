@@ -197,7 +197,7 @@ export function StorageLocationEditor({
                         containerPadding={[0, 0]}
                         useCSSTransforms={true}
                         autoSize={true}
-                        compactType={undefined}
+                        compactType={null}
                     >
                         {locations.map((loc) => {
                             const isSelected = selectedLocationId === loc.id
