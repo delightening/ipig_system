@@ -122,8 +122,8 @@ export function WarehouseReportPage() {
             {/* 佈局圖 */}
             {locations.length > 0 && <LayoutDiagram locations={locations} />}
 
-            {/* 庫存明細 */}
-            <div className="mt-6 print:break-before-page">
+            {/* 庫存明細 - 列印時強制換頁 */}
+            <div className="mt-6" style={{ pageBreakBefore: 'always' }}>
                 <h2 className="text-lg font-semibold mb-3">各儲位庫存明細</h2>
                 {locations
                     .filter(l => !STRUCTURE_TYPES.includes(l.location_type))
@@ -166,7 +166,7 @@ function LayoutDiagram({ locations }: { locations: StorageLocationWithInventory[
                     return (
                         <div
                             key={loc.id}
-                            className="absolute flex items-center justify-center text-white text-xs font-medium rounded-sm overflow-hidden"
+                            className="absolute flex items-center justify-center text-white text-xs font-medium rounded-sm overflow-hidden print:!bg-white print:!text-black print:!border-black print:!border"
                             style={{
                                 left: `${(loc.col_index / maxCol) * 100}%`,
                                 top: `${(loc.row_index / maxRow) * 100}%`,
@@ -231,7 +231,7 @@ function LocationInventoryTable({ location }: { location: StorageLocationWithInv
                             <tr key={item.id}>
                                 <td className="p-1 border">{item.product_name}</td>
                                 <td className="p-1 border">{item.product_sku}</td>
-                                <td className="p-1 border text-right">{item.on_hand_qty}</td>
+                                <td className="p-1 border text-right">{Math.floor(Number(item.on_hand_qty))}</td>
                                 <td className="p-1 border">{item.base_uom}</td>
                                 <td className="p-1 border">{item.batch_no || '-'}</td>
                                 <td className="p-1 border">{item.expiry_date || '-'}</td>

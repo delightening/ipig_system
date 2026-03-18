@@ -1062,7 +1062,7 @@ impl PdfService {
             ctx.render_table_header(col_defs);
 
             for item in &loc.inventory {
-                let qty_str = item.on_hand_qty.to_string();
+                let qty_str = item.on_hand_qty.trunc().to_string();
                 let batch = item.batch_no.as_deref().unwrap_or("-");
                 let expiry = item
                     .expiry_date
