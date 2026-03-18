@@ -44,6 +44,7 @@ const DocumentEditPage = lazy(() => import('@/pages/documents/DocumentEditPage')
 const InventoryPage = lazy(() => import('@/pages/inventory/InventoryPage').then(m => ({ default: m.InventoryPage })))
 const StockLedgerPage = lazy(() => import('@/pages/inventory/StockLedgerPage').then(m => ({ default: m.StockLedgerPage })))
 const WarehouseLayoutPage = lazy(() => import('@/pages/inventory/WarehouseLayoutPage').then(m => ({ default: m.WarehouseLayoutPage })))
+const WarehouseReportPage = lazy(() => import('@/pages/inventory/WarehouseReportPage').then(m => ({ default: m.WarehouseReportPage })))
 
 // Admin Pages
 const UsersPage = lazy(() => import('@/pages/admin/UsersPage').then(m => ({ default: m.UsersPage })))
@@ -279,6 +280,7 @@ function App() {
                         <Route path="/inventory" element={<InventoryPage />} />
                         <Route path="/inventory/ledger" element={<StockLedgerPage />} />
                         <Route path="/inventory/layout" element={<WarehouseLayoutPage />} />
+                        <Route path="/inventory/warehouse-report/:warehouseId" element={<WarehouseReportPage />} />
 
                         {/* 報表中心 */}
                         <Route path="/stock-on-hand" element={<StockOnHandReportPage />} />

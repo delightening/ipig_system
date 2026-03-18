@@ -172,6 +172,19 @@ impl StockService {
                             unit_price: line.unit_price,
                         }).await?;
                     }
+
+                    // 同步更新儲位庫存
+                    if let Some(storage_location_id) = line.storage_location_id {
+                        Self::upsert_storage_location_inventory(
+                            tx,
+                            storage_location_id,
+                            line.product_id,
+                            line.qty,
+                            line.batch_no.clone(),
+                            line.expiry_date,
+                        )
+                        .await?;
+                    }
                 }
                 DocType::SR | DocType::RTN => {
                     // 銷貨退貨 / 退貨：商品退回倉庫，庫存增加

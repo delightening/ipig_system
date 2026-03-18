@@ -64,7 +64,7 @@ impl DocumentService {
 
             // 從系統設定取得報廢簽核門檻
             let threshold: Option<Decimal> = sqlx::query_scalar(
-                "SELECT setting_value::DECIMAL FROM system_settings WHERE setting_key = 'scrap_approval_threshold'"
+                "SELECT (value #>> '{}')::DECIMAL FROM system_settings WHERE key = 'scrap_approval_threshold'"
             )
             .fetch_optional(&mut *tx)
             .await?;

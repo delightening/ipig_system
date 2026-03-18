@@ -3,11 +3,14 @@ use sqlx::PgPool;
 use std::io::Cursor;
 use uuid::Uuid;
 
+use std::collections::HashMap;
+
 use crate::{
     models::{
-        CreateWarehouseRequest, PaginationParams, ShelfNode, UpdateWarehouseRequest, Warehouse,
-        WarehouseImportErrorDetail, WarehouseImportResult, WarehouseImportRow, WarehouseQuery,
-        WarehouseTreeNode,
+        CreateWarehouseRequest, PaginationParams, ShelfNode, StorageLocation,
+        StorageLocationInventoryItem, StorageLocationWithInventory, UpdateWarehouseRequest,
+        Warehouse, WarehouseImportErrorDetail, WarehouseImportResult, WarehouseImportRow,
+        WarehouseQuery, WarehouseReportData, WarehouseReportSummary, WarehouseTreeNode,
     },
     AppError, Result,
 };
@@ -222,6 +225,102 @@ impl WarehouseService {
         }
 
         Ok(())
+    }
+
+    /// 取得倉庫現況報表資料（含所有儲位及庫存）
+    pub async fn get_report_data(pool: &PgPool, warehouse_id: Uuid) -> Result<WarehouseReportData> {
+        let warehouse = Self::get_by_id(pool, warehouse_id).await?;
+
+        let storage_locations = sqlx::query_as::<_, StorageLocation>(
+            r#"
+            SELECT * FROM storage_locations
+            WHERE warehouse_id = $1 AND is_active = true
+            ORDER BY row_index, col_index, code
+            "#,
+        )
+        .bind(warehouse_id)
+        .fetch_all(pool)
+        .await?;
+
+        // 批次取得所有儲位的庫存（避免 N+1）
+        let all_inventory = sqlx::query_as::<_, StorageLocationInventoryItem>(
+            r#"
+            SELECT
+                sli.id,
+                sli.storage_location_id,
+                sli.product_id,
+                p.sku AS product_sku,
+                p.name AS product_name,
+                sli.on_hand_qty,
+                p.base_uom,
+                sli.batch_no,
+                sli.expiry_date,
+                sli.updated_at
+            FROM storage_location_inventory sli
+            JOIN products p ON sli.product_id = p.id
+            JOIN storage_locations sl ON sli.storage_location_id = sl.id
+            WHERE sl.warehouse_id = $1 AND sl.is_active = true AND sli.on_hand_qty > 0
+            ORDER BY p.name, sli.batch_no
+            "#,
+        )
+        .bind(warehouse_id)
+        .fetch_all(pool)
+        .await?;
+
+        // 按 storage_location_id 分組
+        let mut inventory_map: HashMap<Uuid, Vec<StorageLocationInventoryItem>> = HashMap::new();
+        for item in all_inventory {
+            inventory_map
+                .entry(item.storage_location_id)
+                .or_default()
+                .push(item);
+        }
+
+        let total_inventory_items: i32 = inventory_map.values().map(|v| v.len() as i32).sum();
+
+        let locations: Vec<StorageLocationWithInventory> = storage_locations
+            .iter()
+            .map(|sl| {
+                let inventory = inventory_map.remove(&sl.id).unwrap_or_default();
+                StorageLocationWithInventory {
+                    id: sl.id,
+                    code: sl.code.clone(),
+                    name: sl.name.clone(),
+                    location_type: sl.location_type.clone(),
+                    row_index: sl.row_index,
+                    col_index: sl.col_index,
+                    width: sl.width,
+                    height: sl.height,
+                    capacity: sl.capacity,
+                    current_count: sl.current_count,
+                    color: sl.color.clone(),
+                    is_active: sl.is_active,
+                    inventory,
+                }
+            })
+            .collect();
+
+        let active_locations = locations.len() as i32;
+        let total_capacity: i32 = locations
+            .iter()
+            .filter_map(|l| l.capacity.filter(|&c| c > 0))
+            .sum();
+        let total_current_count: i32 = locations.iter().map(|l| l.current_count).sum();
+
+        let summary = WarehouseReportSummary {
+            total_locations: active_locations,
+            active_locations,
+            total_capacity,
+            total_current_count,
+            total_inventory_items,
+        };
+
+        Ok(WarehouseReportData {
+            warehouse,
+            summary,
+            locations,
+            generated_at: chrono::Utc::now(),
+        })
     }
 
     // ============================================

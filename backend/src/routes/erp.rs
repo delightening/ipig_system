@@ -28,6 +28,14 @@ pub fn routes() -> Router<AppState> {
                 .put(handlers::update_warehouse)
                 .delete(handlers::delete_warehouse),
         )
+        .route(
+            "/warehouses/:id/report",
+            get(handlers::get_warehouse_report),
+        )
+        .route(
+            "/warehouses/:id/report/pdf",
+            get(handlers::export_warehouse_report_pdf),
+        )
         .route("/warehouses/:id/delete", post(handlers::delete_warehouse))
         .route(
             "/warehouses/:id/layout",

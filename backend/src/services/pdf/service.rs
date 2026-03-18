@@ -1,9 +1,12 @@
-use crate::models::ProtocolResponse;
+use crate::models::{ProtocolResponse, WarehouseReportData};
 use crate::time;
 use crate::{AppError, Result};
 use printpdf::*;
 
 use super::context::*;
+
+/// 建築結構類型（佈局圖中不繪製庫存的元素）
+const STRUCTURE_TYPES: &[&str] = &["wall", "door", "window"];
 
 /// PDF 生成服務
 pub struct PdfService;
@@ -888,5 +891,228 @@ impl PdfService {
         }
 
         Self::render_footer_and_save(ctx)
+    }
+
+    // ============================================
+    // 倉庫現況報表 PDF
+    // ============================================
+
+    /// 生成倉庫現況報表 PDF
+    pub fn generate_warehouse_report(data: &WarehouseReportData) -> Result<Vec<u8>> {
+        let mut ctx = Self::init_pdf_context("倉庫現況報表")?;
+
+        Self::render_warehouse_title(&mut ctx, data);
+        Self::render_warehouse_summary(&mut ctx, data);
+        Self::render_warehouse_layout(&mut ctx, data);
+        Self::render_warehouse_inventory(&mut ctx, data);
+
+        Self::render_footer_and_save(ctx)
+    }
+
+    /// 渲染倉庫報表標題
+    fn render_warehouse_title(ctx: &mut PdfContext, data: &WarehouseReportData) {
+        ctx.current_layer.use_text(
+            "倉庫現況報表",
+            22.0,
+            Mm(PAGE_WIDTH_MM / 2.0 - 30.0),
+            Mm(ctx.y_position),
+            &ctx.font,
+        );
+        ctx.y_position -= SECTION_SPACING_MM * 2.0;
+
+        ctx.render_label_value("倉庫代碼", &data.warehouse.code);
+        ctx.render_label_value("倉庫名稱", &data.warehouse.name);
+        if let Some(ref addr) = data.warehouse.address {
+            ctx.render_label_value("地址", addr);
+        }
+        let generated = data
+            .generated_at
+            .format("%Y-%m-%d %H:%M")
+            .to_string();
+        ctx.render_label_value("報表產出時間", &generated);
+        ctx.add_section_spacing();
+    }
+
+    /// 渲染倉庫摘要統計
+    fn render_warehouse_summary(ctx: &mut PdfContext, data: &WarehouseReportData) {
+        ctx.render_section_header("一、摘要統計");
+        ctx.render_label_value("儲位總數", &data.summary.total_locations.to_string());
+        ctx.render_label_value(
+            "使用中儲位",
+            &data.summary.active_locations.to_string(),
+        );
+        if data.summary.total_capacity > 0 {
+            let usage_pct = if data.summary.total_capacity > 0 {
+                (data.summary.total_current_count as f64 / data.summary.total_capacity as f64)
+                    * 100.0
+            } else {
+                0.0
+            };
+            ctx.render_label_value(
+                "容量使用率",
+                &format!(
+                    "{} / {} ({:.1}%)",
+                    data.summary.total_current_count,
+                    data.summary.total_capacity,
+                    usage_pct
+                ),
+            );
+        } else {
+            ctx.render_label_value(
+                "目前庫存數",
+                &data.summary.total_current_count.to_string(),
+            );
+        }
+        ctx.render_label_value(
+            "庫存品項總數",
+            &data.summary.total_inventory_items.to_string(),
+        );
+        ctx.add_section_spacing();
+    }
+
+    /// 渲染倉庫佈局圖
+    fn render_warehouse_layout(ctx: &mut PdfContext, data: &WarehouseReportData) {
+        if data.locations.is_empty() {
+            return;
+        }
+
+        ctx.render_section_header("二、儲位佈局圖");
+
+        let max_col = data
+            .locations
+            .iter()
+            .map(|l| l.col_index + l.width)
+            .max()
+            .unwrap_or(12) as f32;
+        let max_row = data
+            .locations
+            .iter()
+            .map(|l| l.row_index + l.height)
+            .max()
+            .unwrap_or(6) as f32;
+
+        let available_width = PAGE_WIDTH_MM - 2.0 * MARGIN_MM;
+        let layout_height = (available_width * max_row / max_col).min(120.0);
+        let cell_w = available_width / max_col;
+        let cell_h = layout_height / max_row;
+
+        // 佈局圖頂部 Y 座標
+        let layout_top = ctx.y_position;
+
+        for loc in &data.locations {
+            let x = MARGIN_MM + loc.col_index as f32 * cell_w;
+            // printpdf Y 軸從下到上，row_index 從上到下
+            let y = layout_top - (loc.row_index as f32 + loc.height as f32) * cell_h;
+            let w = loc.width as f32 * cell_w;
+            let h = loc.height as f32 * cell_h;
+
+            let (r, g, b) = Self::parse_hex_color(
+                loc.color.as_deref().unwrap_or("#3b82f6"),
+                loc.location_type.as_str(),
+            );
+            ctx.draw_filled_rect(x, y, w, h, r, g, b);
+
+            // 在方塊內繪製代碼文字
+            let text_y = y + h / 2.0 - 1.5;
+            let text_x = x + 1.0;
+            ctx.current_layer
+                .set_fill_color(Color::Rgb(Rgb::new(1.0, 1.0, 1.0, None)));
+            ctx.current_layer
+                .use_text(&loc.code, 7.0, Mm(text_x), Mm(text_y), &ctx.font);
+        }
+
+        // 重設填充顏色為黑色（文字用）
+        ctx.current_layer
+            .set_fill_color(Color::Rgb(Rgb::new(0.0, 0.0, 0.0, None)));
+        ctx.y_position = layout_top - layout_height - SECTION_SPACING_MM;
+    }
+
+    /// 渲染倉庫庫存明細
+    fn render_warehouse_inventory(ctx: &mut PdfContext, data: &WarehouseReportData) {
+        ctx.force_new_page();
+        ctx.render_section_header("三、各儲位庫存明細");
+
+        // 欄寬定義
+        let col_defs: &[(&str, f32)] = &[
+            ("產品名稱", 50.0),
+            ("SKU", 30.0),
+            ("數量", 20.0),
+            ("單位", 15.0),
+            ("批號", 25.0),
+            ("效期", 30.0),
+        ];
+
+        for loc in &data.locations {
+            // 跳過建築結構
+            if STRUCTURE_TYPES.contains(&loc.location_type.as_str()) {
+                continue;
+            }
+
+            ctx.check_page_break(LINE_HEIGHT_MM * 4.0);
+
+            let loc_title = match &loc.name {
+                Some(name) => format!("【{}】{}", loc.code, name),
+                None => format!("【{}】", loc.code),
+            };
+            let capacity_info = match loc.capacity {
+                Some(cap) if cap > 0 => {
+                    format!("（容量: {}/{}）", loc.current_count, cap)
+                }
+                _ => format!("（目前: {}）", loc.current_count),
+            };
+            ctx.render_subsection_header(&format!("{} {}", loc_title, capacity_info));
+
+            if loc.inventory.is_empty() {
+                ctx.render_label_value("", "（無庫存）");
+                ctx.y_position -= LINE_HEIGHT_MM * 0.5;
+                continue;
+            }
+
+            ctx.render_table_header(col_defs);
+
+            for item in &loc.inventory {
+                let qty_str = item.on_hand_qty.to_string();
+                let batch = item.batch_no.as_deref().unwrap_or("-");
+                let expiry = item
+                    .expiry_date
+                    .map(|d| d.format("%Y-%m-%d").to_string())
+                    .unwrap_or_else(|| "-".to_string());
+
+                let row: Vec<(&str, f32)> = vec![
+                    (&item.product_name, 50.0),
+                    (&item.product_sku, 30.0),
+                    (&qty_str, 20.0),
+                    (&item.base_uom, 15.0),
+                    (batch, 25.0),
+                    (&expiry, 30.0),
+                ];
+                ctx.render_table_row(&row);
+            }
+            ctx.y_position -= LINE_HEIGHT_MM * 0.5;
+        }
+    }
+
+    /// 解析 hex 色碼為 RGB (0.0~1.0)
+    fn parse_hex_color(hex: &str, location_type: &str) -> (f32, f32, f32) {
+        // 建築結構用特定顏色
+        match location_type {
+            "wall" => return (0.6, 0.6, 0.6),
+            "door" => return (0.55, 0.35, 0.17),
+            "window" => return (0.7, 0.85, 0.95),
+            _ => {}
+        }
+
+        let hex = hex.trim_start_matches('#');
+        if hex.len() == 6 {
+            if let (Ok(r), Ok(g), Ok(b)) = (
+                u8::from_str_radix(&hex[0..2], 16),
+                u8::from_str_radix(&hex[2..4], 16),
+                u8::from_str_radix(&hex[4..6], 16),
+            ) {
+                return (r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0);
+            }
+        }
+        // fallback 藍色
+        (0.23, 0.51, 0.96)
     }
 }

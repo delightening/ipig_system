@@ -94,6 +94,38 @@ export interface UpdateStorageLocationInventoryItemRequest {
     on_hand_qty: string
 }
 
+// 倉庫報表
+export interface StorageLocationWithInventory {
+    id: string
+    code: string
+    name?: string
+    location_type: string
+    row_index: number
+    col_index: number
+    width: number
+    height: number
+    capacity?: number
+    current_count: number
+    color?: string
+    is_active: boolean
+    inventory: StorageLocationInventoryItem[]
+}
+
+export interface WarehouseReportSummary {
+    total_locations: number
+    active_locations: number
+    total_capacity: number
+    total_current_count: number
+    total_inventory_items: number
+}
+
+export interface WarehouseReportData {
+    warehouse: Warehouse
+    summary: WarehouseReportSummary
+    locations: StorageLocationWithInventory[]
+    generated_at: string
+}
+
 // 產品
 export interface Product {
     id: string
