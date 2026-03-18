@@ -42,7 +42,7 @@ impl PdfContext {
         let (page, layer) = self.doc.add_page(
             Mm(PAGE_WIDTH_MM),
             Mm(PAGE_HEIGHT_MM),
-            format!("第{}頁", self.page_number)
+            format!("Page {}", self.page_number)
         );
         self.current_layer = self.doc.get_page(page).get_layer(layer);
         self.y_position = PAGE_HEIGHT_MM - MARGIN_MM;
@@ -121,7 +121,13 @@ impl PdfContext {
         self.current_layer.add_polygon(polygon);
     }
 
-    /// 渲染表格標題行（灰底粗體）
+    /// 重設填充顏色為黑色（用於文字渲染前）
+    fn reset_text_color(&self) {
+        self.current_layer
+            .set_fill_color(Color::Rgb(Rgb::new(0.0, 0.0, 0.0, None)));
+    }
+
+    /// 渲染表格標題行（灰底黑字）
     pub(crate) fn render_table_header(&mut self, cols: &[(&str, f32)]) {
         self.check_page_break(LINE_HEIGHT_MM * 2.0);
         // 繪製灰色背景
@@ -135,7 +141,8 @@ impl PdfContext {
             0.85,
             0.85,
         );
-        // 渲染文字
+        // 重設為黑色再渲染文字
+        self.reset_text_color();
         let mut x = MARGIN_MM + 1.0;
         for &(text, col_width) in cols {
             self.current_layer
@@ -145,9 +152,10 @@ impl PdfContext {
         self.y_position -= LINE_HEIGHT_MM;
     }
 
-    /// 渲染表格資料行
+    /// 渲染表格資料行（黑字）
     pub(crate) fn render_table_row(&mut self, cols: &[(&str, f32)]) {
         self.check_page_break(LINE_HEIGHT_MM);
+        self.reset_text_color();
         let mut x = MARGIN_MM + 1.0;
         for &(text, col_width) in cols {
             // 截斷超長文字

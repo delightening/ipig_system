@@ -1,16 +1,17 @@
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 
 import api, { WarehouseReportData, StorageLocationWithInventory } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2, Printer, Download } from 'lucide-react'
+import { Loader2, Printer, Download, ArrowLeft } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
 
 const STRUCTURE_TYPES = ['wall', 'door', 'window']
 
 export function WarehouseReportPage() {
     const { warehouseId } = useParams<{ warehouseId: string }>()
+    const navigate = useNavigate()
 
     const { data: report, isLoading } = useQuery({
         queryKey: ['warehouse-report', warehouseId],
@@ -65,6 +66,10 @@ export function WarehouseReportPage() {
         <div className="max-w-[900px] mx-auto p-6 print:p-2 print:max-w-none">
             {/* 操作列 - 列印時隱藏 */}
             <div className="flex gap-2 mb-6 print:hidden">
+                <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    返回
+                </Button>
                 <Button variant="outline" size="sm" onClick={handlePrint}>
                     <Printer className="mr-2 h-4 w-4" />
                     列印
@@ -174,7 +179,7 @@ function LayoutDiagram({ locations }: { locations: StorageLocationWithInventory[
                             }}
                             title={`${loc.code}${loc.name ? ` - ${loc.name}` : ''} (${loc.current_count}${loc.capacity && loc.capacity > 0 ? `/${loc.capacity}` : ''})`}
                         >
-                            {loc.code}
+                            {loc.name || loc.code}
                         </div>
                     )
                 })}

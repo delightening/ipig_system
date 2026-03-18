@@ -34,6 +34,7 @@ COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 COPY migrations ./migrations
 COPY .sqlx ./.sqlx
+COPY resources/fonts ./resources/fonts
 
 RUN cargo build --release --bin erp-backend --bin healthcheck --bin create_admin
 
@@ -56,6 +57,7 @@ COPY --from=builder /app/target/release/erp-backend /app/erp-backend
 COPY --from=builder /app/target/release/healthcheck /app/healthcheck
 COPY --from=builder /app/target/release/create_admin /app/create_admin
 COPY --from=builder /app/migrations /app/migrations
+COPY --from=builder /app/resources /app/resources
 
 # Stage 5: Distroless — production image (libbz2 for zip crate bzip2 feature)
 FROM gcr.io/distroless/cc-debian12
