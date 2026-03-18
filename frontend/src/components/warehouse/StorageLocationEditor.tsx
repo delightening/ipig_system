@@ -256,9 +256,16 @@ export function StorageLocationEditor({
                                                 </>
                                             )}
                                             {isStructural && (
-                                                <div className="text-[10px] font-medium opacity-60">
-                                                    {storageLocationTypeNames[loc.location_type]}
-                                                </div>
+                                                <>
+                                                    {loc.name && (
+                                                        <div className="font-bold text-sm truncate leading-tight">
+                                                            {loc.name}
+                                                        </div>
+                                                    )}
+                                                    <div className="text-[10px] font-medium opacity-60">
+                                                        {storageLocationTypeNames[loc.location_type]}
+                                                    </div>
+                                                </>
                                             )}
                                         </div>
 
