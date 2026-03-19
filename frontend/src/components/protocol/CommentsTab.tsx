@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, {
   ProtocolVersion,
   ReviewCommentResponse,
-  CreateCommentRequest,
   ReplyCommentRequest,
   VetReviewAssignment,
 } from '@/lib/api'
@@ -25,6 +24,7 @@ import { logger } from '@/lib/logger'
 import { Download, Loader2, MessageSquare } from 'lucide-react'
 import { getApiErrorMessage } from '@/lib/validation'
 import { ReviewCommentsReport } from '@/components/protocol/ReviewCommentsReport'
+import { ReviewCommentPanel } from '@/components/protocol/ReviewCommentPanel'
 import { CommentsTableView } from './comments/CommentsTableView'
 import { useCommentsData } from './comments/useCommentsData'
 
@@ -38,6 +38,7 @@ interface CommentsTabProps {
   canAddComment: boolean
   canReply: boolean
   shouldAnonymizeReviewers: boolean
+  sectionOptions: string[]
 }
 
 export const CommentsTab = React.memo(function CommentsTab({
@@ -48,14 +49,14 @@ export const CommentsTab = React.memo(function CommentsTab({
   canAddComment,
   canReply,
   shouldAnonymizeReviewers,
+  sectionOptions,
 }: CommentsTabProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const reportRef = useRef<HTMLDivElement>(null)
 
-  const [showCommentDialog, setShowCommentDialog] = useState(false)
+  const [showCommentPanel, setShowCommentPanel] = useState(false)
   const [showReplyDialog, setShowReplyDialog] = useState(false)
-  const [commentContent, setCommentContent] = useState('')
   const [replyContent, setReplyContent] = useState('')
   const [selectedCommentForReply, setSelectedCommentForReply] = useState<ReviewCommentResponse | null>(null)
   const [isExportingComments, setIsExportingComments] = useState(false)
@@ -90,14 +91,16 @@ export const CommentsTab = React.memo(function CommentsTab({
   })
 
   const addCommentMutation = useMutation({
-    mutationFn: async (data: CreateCommentRequest) => {
-      return api.post('/reviews/comments', data)
+    mutationFn: async (content: string) => {
+      if (!versions || versions.length === 0) throw new Error('No version found')
+      return api.post('/reviews/comments', {
+        protocol_version_id: versions[0].id,
+        content,
+      })
     },
     onSuccess: () => {
       toast({ title: t('common.success'), description: t('protocols.detail.dialogs.comment.success') })
       queryClient.invalidateQueries({ queryKey: ['protocol-comments', protocolId] })
-      setShowCommentDialog(false)
-      setCommentContent('')
     },
     onError: (error: unknown) => {
       toast({
@@ -127,14 +130,6 @@ export const CommentsTab = React.memo(function CommentsTab({
       })
     },
   })
-
-  const handleAddComment = () => {
-    if (!commentContent.trim() || !versions || versions.length === 0) return
-    addCommentMutation.mutate({
-      protocol_version_id: versions[0].id,
-      content: commentContent.trim(),
-    })
-  }
 
   const handleReply = (comment: ReviewCommentResponse) => {
     setSelectedCommentForReply(comment)
@@ -197,94 +192,79 @@ export const CommentsTab = React.memo(function CommentsTab({
 
   return (
     <>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>{t('protocols.detail.sections.commentsTitle')}</CardTitle>
-            <CardDescription>{t('protocols.detail.sections.commentsDesc')}</CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={handleExportReviewResult}
-              disabled={isExportingResult || commentsLoading}
-            >
-              {isExportingResult ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-              審核結果 (PDF)
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleExportPDF}
-              disabled={isExportingComments || commentsLoading}
-            >
-              {isExportingComments ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-              匯出回覆表 (PDF)
-            </Button>
-            {canAddComment && protocol.status !== 'DRAFT' && (
-              <Button onClick={() => setShowCommentDialog(true)}>
-                <MessageSquare className="mr-2 h-4 w-4" />
-                {t('protocols.detail.dialogs.comment.title')}
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          {commentsLoading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : comments && comments.length > 0 ? (
-            <CommentsTableView
-              preReviewGroups={preReviewGroups}
-              underReviewGroups={underReviewGroups}
-              canReply={canReply}
-              onReply={handleReply}
-            />
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <MessageSquare className="h-12 w-12 mx-auto mb-2" />
-              <p>{t('protocols.detail.tables.noComments')}</p>
-              {canAddComment && protocol.status !== 'DRAFT' && (
-                <Button variant="link" onClick={() => setShowCommentDialog(true)} className="mt-2">
-                  {t('protocols.detail.dialogs.comment.firstComment')}
+      <div className="flex gap-4">
+        {/* 左側：審查意見列表 */}
+        <div className={showCommentPanel ? 'flex-1 min-w-0' : 'w-full'}>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>{t('protocols.detail.sections.commentsTitle')}</CardTitle>
+                <CardDescription>{t('protocols.detail.sections.commentsDesc')}</CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleExportReviewResult}
+                  disabled={isExportingResult || commentsLoading}
+                >
+                  {isExportingResult ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                  審核結果 (PDF)
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleExportPDF}
+                  disabled={isExportingComments || commentsLoading}
+                >
+                  {isExportingComments ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                  匯出回覆表 (PDF)
+                </Button>
+                {canAddComment && protocol.status !== 'DRAFT' && (
+                  <Button onClick={() => setShowCommentPanel(prev => !prev)}>
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    {t('protocols.detail.dialogs.comment.title')}
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {commentsLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : comments && comments.length > 0 ? (
+                <CommentsTableView
+                  preReviewGroups={preReviewGroups}
+                  underReviewGroups={underReviewGroups}
+                  canReply={canReply}
+                  onReply={handleReply}
+                />
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <MessageSquare className="h-12 w-12 mx-auto mb-2" />
+                  <p>{t('protocols.detail.tables.noComments')}</p>
+                  {canAddComment && protocol.status !== 'DRAFT' && (
+                    <Button variant="link" onClick={() => setShowCommentPanel(true)} className="mt-2">
+                      {t('protocols.detail.dialogs.comment.firstComment')}
+                    </Button>
+                  )}
+                </div>
               )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </div>
 
-      <Dialog open={showCommentDialog} onOpenChange={setShowCommentDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('protocols.detail.dialogs.comment.title')}</DialogTitle>
-            <DialogDescription>{t('protocols.detail.dialogs.comment.desc')}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>{t('protocols.detail.dialogs.comment.placeholder')}</Label>
-              <Textarea
-                value={commentContent}
-                onChange={(e) => setCommentContent(e.target.value)}
-                placeholder={t('protocols.detail.dialogs.comment.placeholder')}
-                rows={5}
-              />
-            </div>
+        {/* 右側：浮動審查意見面板 */}
+        {showCommentPanel && (
+          <div className="w-72 shrink-0 sticky top-4 self-start">
+            <ReviewCommentPanel
+              onClose={() => setShowCommentPanel(false)}
+              onSubmit={(content) => addCommentMutation.mutate(content)}
+              isSubmitting={addCommentMutation.isPending}
+              sectionOptions={sectionOptions}
+            />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCommentDialog(false)}>
-              {t('common.cancel')}
-            </Button>
-            <Button
-              onClick={handleAddComment}
-              disabled={!commentContent.trim() || addCommentMutation.isPending}
-            >
-              {addCommentMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {t('protocols.detail.dialogs.comment.submit')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        )}
+      </div>
 
       <Dialog open={showReplyDialog} onOpenChange={(open) => {
         setShowReplyDialog(open)

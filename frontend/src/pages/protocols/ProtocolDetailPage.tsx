@@ -557,6 +557,7 @@ export function ProtocolDetailPage() {
           canAddComment={!!canAddComment}
           canReply={!!canReply}
           shouldAnonymizeReviewers={shouldAnonymizeReviewers}
+          sectionOptions={sectionOptions}
         />
       )}
 
