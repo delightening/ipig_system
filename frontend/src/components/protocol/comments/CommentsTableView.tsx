@@ -15,6 +15,14 @@ import { formatDateTime } from '@/lib/utils'
 import type { ReviewCommentResponse } from '@/types/aup'
 import type { ReviewerGroup } from './useCommentsData'
 
+function parseCommentContent(content: string): { section: string | null; text: string } {
+  const match = content.match(/^\[(.+?)\]\s*(.*)/)
+  if (match) {
+    return { section: match[1], text: match[2] }
+  }
+  return { section: null, text: content }
+}
+
 interface CommentsTableViewProps {
   preReviewGroups: ReviewerGroup[]
   underReviewGroups: ReviewerGroup[]
@@ -41,21 +49,25 @@ function ReviewerSection({
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">
-            <TableHead className="w-16 text-center">{t('protocols.detail.tables.itemNo')}</TableHead>
+            <TableHead className="w-28 text-center">{t('protocols.detail.tables.targetSection')}</TableHead>
             <TableHead className="w-[42%]">{t('protocols.detail.tables.reviewOpinion')}</TableHead>
             <TableHead className="w-[42%]">{t('protocols.detail.tables.applicantReply')}</TableHead>
             {canReply && <TableHead className="w-20 text-center">{t('protocols.detail.tables.actions')}</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {group.questions.map((q, i) => (
+          {group.questions.map((q) => {
+            const parsed = parseCommentContent(q.comment.content)
+            return (
             <TableRow
               key={q.comment.id}
               className={q.comment.is_resolved ? 'bg-green-50' : ''}
             >
-              <TableCell className="text-center align-top font-medium">{i + 1}</TableCell>
+              <TableCell className="text-center align-top font-medium text-sm">
+                {parsed.section ?? '-'}
+              </TableCell>
               <TableCell className="align-top">
-                <p className="whitespace-pre-wrap text-sm">{q.comment.content}</p>
+                <p className="whitespace-pre-wrap text-sm">{parsed.text}</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {formatDateTime(q.comment.created_at)}
                 </p>
@@ -98,7 +110,8 @@ function ReviewerSection({
                 </TableCell>
               )}
             </TableRow>
-          ))}
+            )
+          })}
         </TableBody>
       </Table>
     </div>

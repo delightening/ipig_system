@@ -2,6 +2,14 @@ import { formatDate } from '@/lib/utils'
 import { useRef } from 'react'
 import type { Protocol, ReviewCommentResponse, VetReviewAssignment, VetReviewItem } from '@/types/aup'
 
+function parseCommentContent(content: string): { section: string | null; text: string } {
+    const match = content.match(/^\[(.+?)\]\s*(.*)/)
+    if (match) {
+        return { section: match[1], text: match[2] }
+    }
+    return { section: null, text: content }
+}
+
 interface ReviewCommentsReportProps {
     protocol: Protocol
     comments: ReviewCommentResponse[]
@@ -52,21 +60,24 @@ export function ReviewCommentsReport({ protocol, comments, vet_review }: ReviewC
                 <table className="w-full border-collapse border border-black">
                     <thead>
                         <tr className="bg-slate-50 font-bold">
-                            <td className="border border-black p-2 w-16">項次</td>
+                            <td className="border border-black p-2 w-28">針對章節</td>
                             <td className="border border-black p-2 w-1/2">審查意見</td>
                             <td className="border border-black p-2">申請人回覆</td>
                         </tr>
                     </thead>
                     <tbody>
-                        {comments.filter(c => !c.parent_comment_id && c.review_stage === 'PRE_REVIEW').map((c, i) => (
+                        {comments.filter(c => !c.parent_comment_id && c.review_stage === 'PRE_REVIEW').map((c) => {
+                            const parsed = parseCommentContent(c.content)
+                            return (
                             <tr key={c.id}>
-                                <td className="border border-black p-2">4.1.{i + 1}</td>
-                                <td className="border border-black p-2">{c.content}</td>
+                                <td className="border border-black p-2">{parsed.section ?? '-'}</td>
+                                <td className="border border-black p-2">{parsed.text}</td>
                                 <td className="border border-black p-2">
                                     {getReplies(c.id).map(r => r.content).join('\n')}
                                 </td>
                             </tr>
-                        ))}
+                            )
+                        })}
                         {/* 靜態範例顯示，若無資料則顯示空行 */}
                         {comments.filter(c => !c.parent_comment_id && c.review_stage === 'PRE_REVIEW').length === 0 && (
                             <tr>
@@ -134,7 +145,7 @@ export function ReviewCommentsReport({ protocol, comments, vet_review }: ReviewC
                             <table className="w-full border-collapse border border-black">
                                 <thead>
                                     <tr className="bg-slate-50 font-bold text-center">
-                                        <td className="border border-black p-2 w-16">項次</td>
+                                        <td className="border border-black p-2 w-28">針對章節</td>
                                         <td className="border border-black p-2 w-1/4">一審意見</td>
                                         <td className="border border-black p-2 w-1/4">意見回覆</td>
                                         <td className="border border-black p-2 w-1/4">二審意見</td>
@@ -142,15 +153,18 @@ export function ReviewCommentsReport({ protocol, comments, vet_review }: ReviewC
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {reviewerComments.map((c, i) => (
+                                    {reviewerComments.map((c) => {
+                                        const parsed = parseCommentContent(c.content)
+                                        return (
                                         <tr key={c.id}>
-                                            <td className="border border-black p-2 text-center">{i + 1}</td>
-                                            <td className="border border-black p-2">{c.content}</td>
+                                            <td className="border border-black p-2 text-center">{parsed.section ?? '-'}</td>
+                                            <td className="border border-black p-2">{parsed.text}</td>
                                             <td className="border border-black p-2">{getReplies(c.id).map(r => r.content).join('\n')}</td>
                                             <td className="border border-black p-2"></td>
                                             <td className="border border-black p-2"></td>
                                         </tr>
-                                    ))}
+                                        )
+                                    })}
                                     {reviewerComments.length === 0 && (
                                         <tr className="h-12">
                                             <td className="border border-black p-2"></td>
