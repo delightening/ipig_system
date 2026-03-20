@@ -2,7 +2,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
-    models::{Product, ProductUomConversion},
+    models::{Product, ProductUomConversion, UpdateProductRequest},
     AppError, Result,
 };
 
@@ -180,3 +180,68 @@ pub async fn insert_uom_conversion(
     .await?;
     Ok(conv)
 }
+
+/// 更新產品欄位（SKU 為 None 時保留原值）。
+pub async fn update_product(
+    pool: &PgPool,
+    id: Uuid,
+    sku: Option<&str>,
+    req: &UpdateProductRequest,
+) -> Result<Option<Product>> {
+    let product = sqlx::query_as::<_, Product>(UPDATE_PRODUCT_SQL)
+        .bind(sku)
+        .bind(&req.name)
+        .bind(&req.spec)
+        .bind(&req.category_code)
+        .bind(&req.subcategory_code)
+        .bind(&req.pack_unit)
+        .bind(req.pack_qty)
+        .bind(req.track_batch)
+        .bind(req.track_expiry)
+        .bind(req.default_expiry_days)
+        .bind(req.safety_stock)
+        .bind(&req.safety_stock_uom)
+        .bind(req.reorder_point)
+        .bind(&req.reorder_point_uom)
+        .bind(&req.barcode)
+        .bind(&req.image_url)
+        .bind(&req.license_no)
+        .bind(&req.storage_condition)
+        .bind(&req.tags)
+        .bind(&req.status)
+        .bind(&req.remark)
+        .bind(req.is_active)
+        .bind(id)
+        .fetch_optional(pool)
+        .await?;
+    Ok(product)
+}
+
+const UPDATE_PRODUCT_SQL: &str = r#"
+UPDATE products SET
+    sku = COALESCE($1, sku),
+    name = COALESCE($2, name),
+    spec = COALESCE($3, spec),
+    category_code = COALESCE($4, category_code),
+    subcategory_code = COALESCE($5, subcategory_code),
+    pack_unit = COALESCE($6, pack_unit),
+    pack_qty = COALESCE($7, pack_qty),
+    track_batch = COALESCE($8, track_batch),
+    track_expiry = COALESCE($9, track_expiry),
+    default_expiry_days = COALESCE($10, default_expiry_days),
+    safety_stock = COALESCE($11, safety_stock),
+    safety_stock_uom = COALESCE($12, safety_stock_uom),
+    reorder_point = COALESCE($13, reorder_point),
+    reorder_point_uom = COALESCE($14, reorder_point_uom),
+    barcode = COALESCE($15, barcode),
+    image_url = COALESCE($16, image_url),
+    license_no = COALESCE($17, license_no),
+    storage_condition = COALESCE($18, storage_condition),
+    tags = COALESCE($19, tags),
+    status = COALESCE($20, status),
+    remark = COALESCE($21, remark),
+    is_active = COALESCE($22, is_active),
+    updated_at = NOW()
+WHERE id = $23
+RETURNING *
+"#;

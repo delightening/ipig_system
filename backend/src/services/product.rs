@@ -180,132 +180,6 @@ async fn build_product_with_uom(
     })
 }
 
-/// 執行帶 SKU 更新的 UPDATE SQL。
-async fn update_product_with_sku(
-    pool: &PgPool,
-    id: Uuid,
-    sku: &str,
-    req: &UpdateProductRequest,
-) -> Result<Option<Product>> {
-    let product = sqlx::query_as::<_, Product>(
-        r#"
-        UPDATE products SET
-            sku = $1,
-            name = COALESCE($2, name),
-            spec = COALESCE($3, spec),
-            category_code = COALESCE($4, category_code),
-            subcategory_code = COALESCE($5, subcategory_code),
-            pack_unit = COALESCE($6, pack_unit),
-            pack_qty = COALESCE($7, pack_qty),
-            track_batch = COALESCE($8, track_batch),
-            track_expiry = COALESCE($9, track_expiry),
-            default_expiry_days = COALESCE($10, default_expiry_days),
-            safety_stock = COALESCE($11, safety_stock),
-            safety_stock_uom = COALESCE($12, safety_stock_uom),
-            reorder_point = COALESCE($13, reorder_point),
-            reorder_point_uom = COALESCE($14, reorder_point_uom),
-            barcode = COALESCE($15, barcode),
-            image_url = COALESCE($16, image_url),
-            license_no = COALESCE($17, license_no),
-            storage_condition = COALESCE($18, storage_condition),
-            tags = COALESCE($19, tags),
-            status = COALESCE($20, status),
-            remark = COALESCE($21, remark),
-            is_active = COALESCE($22, is_active),
-            updated_at = NOW()
-        WHERE id = $23
-        RETURNING *
-        "#,
-    )
-    .bind(sku)
-    .bind(&req.name)
-    .bind(&req.spec)
-    .bind(&req.category_code)
-    .bind(&req.subcategory_code)
-    .bind(&req.pack_unit)
-    .bind(req.pack_qty)
-    .bind(req.track_batch)
-    .bind(req.track_expiry)
-    .bind(req.default_expiry_days)
-    .bind(req.safety_stock)
-    .bind(&req.safety_stock_uom)
-    .bind(req.reorder_point)
-    .bind(&req.reorder_point_uom)
-    .bind(&req.barcode)
-    .bind(&req.image_url)
-    .bind(&req.license_no)
-    .bind(&req.storage_condition)
-    .bind(&req.tags)
-    .bind(&req.status)
-    .bind(&req.remark)
-    .bind(req.is_active)
-    .bind(id)
-    .fetch_optional(pool)
-    .await?;
-    Ok(product)
-}
-
-/// 執行不含 SKU 更新的 UPDATE SQL。
-async fn update_product_without_sku(
-    pool: &PgPool,
-    id: Uuid,
-    req: &UpdateProductRequest,
-) -> Result<Option<Product>> {
-    let product = sqlx::query_as::<_, Product>(
-        r#"
-        UPDATE products SET
-            name = COALESCE($1, name),
-            spec = COALESCE($2, spec),
-            category_code = COALESCE($3, category_code),
-            subcategory_code = COALESCE($4, subcategory_code),
-            pack_unit = COALESCE($5, pack_unit),
-            pack_qty = COALESCE($6, pack_qty),
-            track_batch = COALESCE($7, track_batch),
-            track_expiry = COALESCE($8, track_expiry),
-            default_expiry_days = COALESCE($9, default_expiry_days),
-            safety_stock = COALESCE($10, safety_stock),
-            safety_stock_uom = COALESCE($11, safety_stock_uom),
-            reorder_point = COALESCE($12, reorder_point),
-            reorder_point_uom = COALESCE($13, reorder_point_uom),
-            barcode = COALESCE($14, barcode),
-            image_url = COALESCE($15, image_url),
-            license_no = COALESCE($16, license_no),
-            storage_condition = COALESCE($17, storage_condition),
-            tags = COALESCE($18, tags),
-            status = COALESCE($19, status),
-            remark = COALESCE($20, remark),
-            is_active = COALESCE($21, is_active),
-            updated_at = NOW()
-        WHERE id = $22
-        RETURNING *
-        "#,
-    )
-    .bind(&req.name)
-    .bind(&req.spec)
-    .bind(&req.category_code)
-    .bind(&req.subcategory_code)
-    .bind(&req.pack_unit)
-    .bind(req.pack_qty)
-    .bind(req.track_batch)
-    .bind(req.track_expiry)
-    .bind(req.default_expiry_days)
-    .bind(req.safety_stock)
-    .bind(&req.safety_stock_uom)
-    .bind(req.reorder_point)
-    .bind(&req.reorder_point_uom)
-    .bind(&req.barcode)
-    .bind(&req.image_url)
-    .bind(&req.license_no)
-    .bind(&req.storage_condition)
-    .bind(&req.tags)
-    .bind(&req.status)
-    .bind(&req.remark)
-    .bind(req.is_active)
-    .bind(id)
-    .fetch_optional(pool)
-    .await?;
-    Ok(product)
-}
 
 /// 同步單位換算：刪除既有後重新建立。
 async fn sync_uom_conversions(
@@ -392,6 +266,67 @@ fn build_import_create_request(
     }
 }
 
+/// 根據查詢條件建構產品列表 SQL。
+fn build_list_sql(query: &ProductQuery) -> String {
+    let mut conditions = Vec::new();
+    let mut idx: i32 = 1;
+    if query.keyword.is_some() {
+        conditions.push(format!("(sku ILIKE ${idx} OR name ILIKE ${idx})"));
+        idx += 1;
+    }
+    if query.category_id.is_some() {
+        conditions.push(format!("category_id = ${idx}"));
+        idx += 1;
+    }
+    if query.category_code.is_some() {
+        conditions.push(format!("category_code = ${idx}"));
+        idx += 1;
+    }
+    if query.subcategory_code.is_some() {
+        conditions.push(format!("subcategory_code = ${idx}"));
+        idx += 1;
+    }
+    if query.status.is_some() {
+        conditions.push(format!("status = ${idx}"));
+        idx += 1;
+    }
+    if query.is_active.is_some() {
+        conditions.push(format!("is_active = ${idx}"));
+    }
+    let where_clause = if conditions.is_empty() {
+        "1=1".to_string()
+    } else {
+        conditions.join(" AND ")
+    };
+    format!("SELECT * FROM products WHERE {where_clause} ORDER BY sku")
+}
+
+/// 依查詢條件綁定參數至 SQL query。
+fn bind_list_params<'q>(
+    mut q: sqlx::query::QueryAs<'q, sqlx::Postgres, Product, sqlx::postgres::PgArguments>,
+    query: &'q ProductQuery,
+) -> sqlx::query::QueryAs<'q, sqlx::Postgres, Product, sqlx::postgres::PgArguments> {
+    if let Some(ref kw) = query.keyword {
+        q = q.bind(format!("%{kw}%"));
+    }
+    if let Some(category_id) = query.category_id {
+        q = q.bind(category_id);
+    }
+    if let Some(ref c) = query.category_code {
+        q = q.bind(c.as_str());
+    }
+    if let Some(ref s) = query.subcategory_code {
+        q = q.bind(s.as_str());
+    }
+    if let Some(ref s) = query.status {
+        q = q.bind(s.as_str());
+    }
+    if let Some(is_active) = query.is_active {
+        q = q.bind(is_active);
+    }
+    q
+}
+
 pub struct ProductService;
 
 impl ProductService {
@@ -419,64 +354,8 @@ impl ProductService {
 
     /// 取得產品列表（支援 keyword、category_code、subcategory_code、status 篩選）。
     pub async fn list(pool: &PgPool, query: &ProductQuery) -> Result<Vec<Product>> {
-        let mut conditions = Vec::new();
-        let mut param_idx: i32 = 1;
-
-        if query.keyword.is_some() {
-            conditions.push(format!(
-                "(sku ILIKE ${} OR name ILIKE ${})",
-                param_idx, param_idx
-            ));
-            param_idx += 1;
-        }
-        if query.category_id.is_some() {
-            conditions.push(format!("category_id = ${}", param_idx));
-            param_idx += 1;
-        }
-        if query.category_code.is_some() {
-            conditions.push(format!("category_code = ${}", param_idx));
-            param_idx += 1;
-        }
-        if query.subcategory_code.is_some() {
-            conditions.push(format!("subcategory_code = ${}", param_idx));
-            param_idx += 1;
-        }
-        if query.status.is_some() {
-            conditions.push(format!("status = ${}", param_idx));
-            param_idx += 1;
-        }
-        if query.is_active.is_some() {
-            conditions.push(format!("is_active = ${}", param_idx));
-        }
-
-        let where_clause = if conditions.is_empty() {
-            String::from("1=1")
-        } else {
-            conditions.join(" AND ")
-        };
-        const BASE: &str = "SELECT * FROM products";
-        let sql = format!("{} WHERE {} ORDER BY sku", BASE, where_clause);
-
-        let mut q = sqlx::query_as::<_, Product>(&sql);
-        if let Some(ref kw) = query.keyword {
-            q = q.bind(format!("%{}%", kw));
-        }
-        if let Some(category_id) = query.category_id {
-            q = q.bind(category_id);
-        }
-        if let Some(ref c) = query.category_code {
-            q = q.bind(c.as_str());
-        }
-        if let Some(ref s) = query.subcategory_code {
-            q = q.bind(s.as_str());
-        }
-        if let Some(ref s) = query.status {
-            q = q.bind(s.as_str());
-        }
-        if let Some(is_active) = query.is_active {
-            q = q.bind(is_active);
-        }
-
+        let sql = build_list_sql(query);
+        let q = bind_list_params(sqlx::query_as::<_, Product>(&sql), query);
         let products = q.fetch_all(pool).await?;
         Ok(products)
     }
@@ -500,12 +379,9 @@ impl ProductService {
         let current = repositories::product::find_product_category_codes(pool, id).await?;
         let new_sku = Self::resolve_update_sku(pool, &current, req).await?;
 
-        let product = if let Some(ref sku) = new_sku {
-            update_product_with_sku(pool, id, sku, req).await?
-        } else {
-            update_product_without_sku(pool, id, req).await?
-        };
-        product.ok_or_else(|| AppError::NotFound("Product not found".to_string()))?;
+        repositories::product::update_product(pool, id, new_sku.as_deref(), req)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Product not found".to_string()))?;
 
         if let Some(ref conversions) = req.uom_conversions {
             sync_uom_conversions(pool, id, conversions).await?;
@@ -749,31 +625,15 @@ impl ProductService {
 
         for (index, row) in rows.iter().enumerate() {
             let row_number = (index + 2) as i32;
-            if let Some(err_msg) = validate_import_row(row) {
-                errors.push(ProductImportErrorDetail {
-                    row: row_number,
-                    sku: None,
-                    error: err_msg,
-                });
-                error_count += 1;
-                continue;
-            }
-            let use_auto_sku = Self::should_use_auto_sku(
-                pool, row, skip_duplicates, regenerate_sku_for_duplicates,
+            match Self::import_single_row(
+                pool, row, row_number, skip_duplicates, regenerate_sku_for_duplicates,
             )
-            .await?;
-            if use_auto_sku.is_none() {
-                continue; // skip_duplicates 略過
-            }
-            let create_req = build_import_create_request(row, use_auto_sku.unwrap_or(false));
-            match Self::create(pool, &create_req).await {
-                Ok(_) => success_count += 1,
+            .await
+            {
+                Ok(true) => success_count += 1,
+                Ok(false) => {}  // skipped
                 Err(e) => {
-                    errors.push(ProductImportErrorDetail {
-                        row: row_number,
-                        sku: None,
-                        error: format!("建立失敗: {}", e),
-                    });
+                    errors.push(e);
                     error_count += 1;
                 }
             }
@@ -782,6 +642,37 @@ impl ProductService {
             success_count,
             error_count,
             errors,
+        })
+    }
+
+    /// 處理單列匯入：回傳 Ok(true) 成功、Ok(false) 略過、Err 失敗。
+    async fn import_single_row(
+        pool: &PgPool,
+        row: &crate::models::ProductImportRow,
+        row_number: i32,
+        skip_duplicates: bool,
+        regenerate_sku_for_duplicates: bool,
+    ) -> std::result::Result<bool, ProductImportErrorDetail> {
+        if let Some(err_msg) = validate_import_row(row) {
+            return Err(ProductImportErrorDetail {
+                row: row_number, sku: None, error: err_msg,
+            });
+        }
+        let use_auto_sku = Self::should_use_auto_sku(
+            pool, row, skip_duplicates, regenerate_sku_for_duplicates,
+        )
+        .await
+        .map_err(|e| ProductImportErrorDetail {
+            row: row_number, sku: None, error: format!("檢查重複失敗: {e}"),
+        })?;
+        let Some(auto) = use_auto_sku else {
+            return Ok(false); // skip_duplicates 略過
+        };
+        let create_req = build_import_create_request(row, auto);
+        Self::create(pool, &create_req).await.map(|_| true).map_err(|e| {
+            ProductImportErrorDetail {
+                row: row_number, sku: None, error: format!("建立失敗: {e}"),
+            }
         })
     }
 
