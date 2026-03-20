@@ -21,6 +21,7 @@ mod partner;
 mod gotenberg;
 mod pdf;
 mod product;
+pub(crate) mod product_parser;
 mod template;
 mod protocol;
 mod qau;
