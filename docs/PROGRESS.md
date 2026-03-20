@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-03-15 (v17)
+> **最後更新：** 2026-03-20 (v18)
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -79,7 +79,7 @@
 | 6 | [HR 人事管理系統](#6-hr-人事管理系統) | 特休、考勤、Google Calendar |
 | 7 | [資料庫 Schema 完成度](#7-資料庫-schema-完成度) | Migration 清單 |
 | 8 | [版本規劃](#8-版本規劃) | v1.0 / v1.1 里程碑 |
-| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-14 R9 技術債掃描 18 項待辦新增至 TODO.md |
+| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-20 R11-14 useDocumentForm.ts 拆分（717→303 行） |
 
 ---
 
@@ -187,6 +187,50 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **文件更新**：README、ARCHITECTURE、infrastructure、COMPOSE、deploy/README、TODO（R9-C1 標記完成、SEC-40 描述更新）、code review 文件。
 - ✅ **R9-C1 結案**：原「生產環境 WAF 改為 On」已不適用，改由 Cloudflare Dashboard 啟用 Managed Ruleset。
 
+### 2026-03-20 R11-14 useDocumentForm.ts 拆分（717→303 行）
+
+- ✅ **Hook 拆分**：將 `useDocumentForm.ts`（717 行）拆分為 3 個子 Hook：`useDocumentLines`（240 行，明細行 CRUD/批號/儲位管理）、`useDocumentSubmit`（146 行，payload 建構/驗證/save/submit mutations），主 Hook 降至 303 行（-58%）。
+- ✅ 公開介面不變，`DocumentEditPage` 無需修改。`npm run build` 編譯通過。
+
+### 2026-03-20 R11-10 HrLeavePage 拆分（837→188 行）
+
+- ✅ **元件拆分**：將 `HrLeavePage.tsx`（837 行）拆分為 5 個子元件：`LeaveBalanceSummary`（餘額摘要卡片）、`CreateLeaveDialog`（新增請假對話框）、`MyLeavesTabContent`（我的請假表格）、`LeavePendingApprovalsTab`（待審核表格）、`AllLeaveRecordsTabContent`（全部紀錄+篩選），主頁面降至 188 行（-77%）。
+- ✅ **Hook 提取**：新增 `useLeaveMutations` hook，將 5 個 mutation（create/submit/approve/reject/cancel）從主頁面抽出。
+- ✅ **共用 helpers**：`constants.ts` 新增 `formatLeaveHours`、`getLeaveStatusVariant` 供多個 Tab 共用，消除重複邏輯。
+
+### 2026-03-20 R11-11 BloodTestTab 拆分（812→343 行）
+
+- ✅ **元件拆分**：將 `BloodTestTab.tsx`（812 行）拆分為 2 個子元件：`BloodTestFormDialog`（新增/編輯對話框，含套餐選擇與結果輸入）、`BloodTestDetailDialog`（詳情查看對話框），放入 `blood-test/` 子目錄。
+- ✅ **常數提取**：`LAB_OPTIONS` 移至 `blood-test/constants.ts`。
+- ✅ **主元件精簡**：主元件從 812 行降至 343 行，對話框邏輯獨立為子元件。
+
+### 2026-03-20 R11-8 usePermissionManager 拆分（853→44 行）
+
+- ✅ **Hook 拆分**：將 `usePermissionManager.ts`（853 行）依職責拆為 4 個子模組：`permissionConfig.ts`（常數與純函式）、`usePermissionCategories.ts`（分組邏輯與型別）、`usePermissionSearch.ts`（搜尋篩選）、`usePermissionExpand.ts`（展開/收合狀態），主 Hook 降至 44 行。
+- ✅ **向後相容**：原 `usePermissionManager` import 路徑不變，型別與 `groupPermissionsByModule` 工具函式透過 re-export 維持相容。
+
+### 2026-03-20 R11-3 `services/product.rs` 多個長函數拆分
+
+- ✅ **product_parser.rs 模組建立**：將 CSV/Excel 解析邏輯（`parse_product_csv`、`parse_product_excel`、`parse_bool`、`get_cell_string`、`csv_header_index`、`map_category_display_to_code`、`is_stocklist_format`）提取至獨立 `services/product_parser.rs` 模組。
+- ✅ **repositories/product.rs 擴展**：新增 `find_subcategory_name`、`exists_product_by_name_spec`、`find_product_by_name_spec`、`find_product_category_codes`、`find_product_by_id`、`list_uom_conversions`、`delete_uom_conversions`、`insert_uom_conversion` 共 8 個 repository 函式，消除 service 層重複 SQL。
+- ✅ **product.rs 長函數拆分**：`create`（109→15 行）、`update`（170→15 行）、`import_products`（196→30 行）、`check_import_duplicates`（92→12 行）——提取 `resolve_sku`、`insert_product`、`insert_uom_conversions`、`build_product_with_uom`、`update_product_with_sku`/`update_product_without_sku`、`sync_uom_conversions`、`validate_import_row`、`build_import_create_request`、`should_use_auto_sku` 等子函式。所有函數均符合 ≤50 行規範。
+- ✅ **測試驗證**：8 個單元測試全部通過，`cargo check` 編譯零錯誤。
+
+### 2026-03-20 R11-2 `animal/import_export.rs` 長函數拆分
+
+- ✅ **`import_basic_data`** 327 行 → ~40 行主函數：提取 `validate_basic_row`、`process_basic_row`、`parse_optional_date`、`parse_entry_weight`、`resolve_pen_location`、`resolve_breed_other`、`build_create_request`、`update_iacuc_if_present`、`find_source_id`、`find_animal_id_by_ear_tag` 等 10+ 個輔助函式。
+- ✅ **`import_weight_data`** 172 行 → ~40 行主函數：提取 `validate_weight_row`、`process_weight_row`。
+- ✅ **共用輔助函式**：`open_excel_range`（消除 Excel 開檔重複邏輯）、`parse_date_field`、`parse_import_breed`、`parse_import_gender`、`parse_weight_value`、`format_ear_tag`、`finalize_import_batch`、`detect_file_format`、`cell_to_option`。
+- ✅ **Excel 解析拆分**：`parse_basic_excel_row`、`parse_weight_excel_row` 單行解析獨立函式。
+- ✅ **模板生成拆分**：`write_basic_template_headers`、`write_basic_template_example` 子函式。
+- 📁 **產出**：`backend/src/services/animal/import_export.rs` 重構，所有函式 ≤50 行，`cargo check --tests` 通過。
+
+### 2026-03-20 R11-9 AccountingReportPage 拆分（838→75 行）
+
+- ✅ **元件拆分**：將 `AccountingReportPage.tsx`（838 行）拆分為 5 個 Tab 子元件：`TrialBalanceTab`（試算表）、`JournalEntriesTab`（傳票查詢）、`ApAgingTab`（應付帳款）、`ArAgingTab`（應收帳款）、`ProfitLossTab`（損益表），主頁面降至 75 行。
+- ✅ **型別提取**：新增 `types/accounting.ts`，將 `TrialBalanceRow`、`JournalEntry`、`ApAgingRow`、`ArAgingRow`、`Partner` 等型別從頁面內移出。
+- ✅ **Dialog 歸屬**：`CreateApPaymentDialog` 移至 `ApAgingTab`，`CreateArReceiptDialog` 移至 `ArAgingTab`，各自內聚於對應 Tab。
+
 ---
 
 ### 2026-03-15 Code Review 修復與待辦整合（依據 2026_March15_code_review_1.md）
@@ -201,6 +245,12 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **High 7**：`pg_backup.sh` 支援 GPG 加密（BACKUP_GPG_RECIPIENT）；prod 設 `BACKUP_REQUIRE_ENCRYPTION=true` 強制加密。
 - ✅ **High 8**：主要 image 釘選 digest（postgres、prometheus、alertmanager、grafana、watchtower），新增 `docs/operations/IMAGE_DIGESTS.md`。
 - ✅ **High 3**：`file.rs` 新增 `validate_zip_entries_safe()`，DOCX/XLSX 上傳時驗證 ZIP 內無路徑穿越。
+
+### 2026-03-20 R11-11/12/13 前端超大元件拆分（3 項）
+
+- ✅ **R11-11 BloodTestTab.tsx 拆分（811→343 行，-58%）**：提取 `BloodTestFormDialog`（新增/編輯表單）、`BloodTestDetailDialog`（詳情檢視）、`constants.ts`（LAB_OPTIONS）至 `blood-test/` 子目錄。
+- ✅ **R11-12 DashboardPage.tsx 拆分（805→286 行，-64%）**：提取 `useDashboardData` hook（ERP query 集中管理）、`ErpWidgets.tsx`（7 個 ERP widget 元件）、`DashboardSettingsDialog.tsx`（設定對話框）至 `dashboard/` 子目錄。
+- ✅ **R11-13 DocumentLineEditor.tsx 拆分 + any 消除（723→387 行，-46%，10 處 any→0）**：提取 `BatchNumberSelect`（批號選擇元件）、`ProductSearchDialog`（品項搜尋 Dialog，含 PO 待入庫/庫存/全品項三模式）、`LineRow`（單行渲染）；消除所有 `any` 型別（`setFormData`/`extraData`/`newLine`/`prev`/`item`/`stockBalances` 等），改用 `DocumentFormData`/`DocumentLine`/`ProductSelectExtraData`/`InventoryOnHand` 具體型別。
 
 ### 2026-03-15 R9 安全與品質修復（程式碼審查產出）
 - ✅ **R9-1 IDOR 漏洞修復 (Backend)**：`download_attachment` 與 `list_attachments` 新增 `check_attachment_permission()` 輔助函式，根據 `entity_type` 對照上傳端的 `require_permission!` 檢查權限（protocol→aup.protocol.edit、animal/pathology→animal.animal.edit、leave_request→本人或 hr.leave.view_all、未知→僅 Admin），解決原先任何已登入使用者可透過猜測 UUID 下載非自己附件的 IDOR 漏洞。
@@ -1338,6 +1388,17 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 - ✅ **安全強化**：隱藏原始 DB 錯誤。
 - ✅ **前端錯誤導引**：優化 `getApiErrorMessage` 處理逾時與網路異常。
+
+### 2026-03-20 R11-7 ProductImportDialog.tsx 拆分（863→193 行）
+
+- ✅ **元件拆分**：將 `ProductImportDialog.tsx`（863 行）拆為 4 個子元件 + 1 個 Hook + 1 個型別檔：`SkuPreviewTable`（174 行）、`DuplicateWarning`（75 行）、`ImportResultSummary`（59 行）、`NoSkuColumnPrompt`（53 行）、`useProductImport`（292 行）、`importTypes.ts`（92 行）。
+- ✅ **主元件精簡**：主元件從 863 行降至 193 行，僅負責 Dialog 外殼、子元件組裝與 hook 調用。所有檔案均在 300 行上限內。
+
+### 2026-03-20 R11-6 ProtocolContentView.tsx 拆分（954→176 行）
+
+- ✅ **元件拆分**：將 `ProtocolContentView.tsx`（954 行）依內容區塊拆為 8 個 Section 子元件（ResearchInfoSection / PurposeSection / ItemsSection / DesignSection / GuidelinesSection / SurgerySection / AnimalsSection / PersonnelSection）+ AttachmentsSignaturesSection，放入 `content-sections/` 子目錄。
+- ✅ **PDF 匯出 Hook**：提取 `useProtocolPdfExport` hook，封裝後端/前端 PDF 匯出邏輯（~150 行）。
+- ✅ **主元件精簡**：主元件從 954 行降至 ~176 行，僅負責資料解構與子元件組裝。
 
 ### 2026-03-09 請假與加班改為小時計算（0.5 單位）
 
