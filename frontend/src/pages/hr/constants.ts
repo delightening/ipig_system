@@ -52,3 +52,33 @@ export const calculateOvertimeHours = (start: string, end: string): number => {
     const raw = minutes / 60
     return Math.round(raw * 2) / 2
 }
+
+// ============================================
+// Leave helpers
+// ============================================
+
+import { parseDecimal } from '@/lib/utils'
+import { LEAVE_STATUS_NAMES } from '@/types/hr'
+
+/** 顯示請假時數（以 0.5 小時為單位，total_hours 優先） */
+export const formatLeaveHours = (leave: { total_hours?: number | string | null; total_days: number | string }): string => {
+    const hours = leave.total_hours != null ? parseDecimal(leave.total_hours) : parseDecimal(leave.total_days) * 8
+    return `${hours} 小時`
+}
+
+/** 取得請假狀態的 Badge variant */
+export const getLeaveStatusVariant = (status: string): { variant: 'default' | 'destructive' | 'secondary' | 'outline'; className?: string; label: string } => {
+    const label = LEAVE_STATUS_NAMES[status] || status
+    switch (status) {
+        case 'APPROVED':
+            return { variant: 'default', className: 'bg-green-500', label }
+        case 'REJECTED':
+            return { variant: 'destructive', label }
+        case 'CANCELLED':
+            return { variant: 'secondary', label }
+        case 'DRAFT':
+            return { variant: 'outline', label }
+        default:
+            return { variant: 'default', label }
+    }
+}
