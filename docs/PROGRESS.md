@@ -186,6 +186,12 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **Hook 提取**：新增 `useLeaveMutations` hook，將 5 個 mutation（create/submit/approve/reject/cancel）從主頁面抽出。
 - ✅ **共用 helpers**：`constants.ts` 新增 `formatLeaveHours`、`getLeaveStatusVariant` 供多個 Tab 共用，消除重複邏輯。
 
+### 2026-03-20 R11-11 BloodTestTab 拆分（812→343 行）
+
+- ✅ **元件拆分**：將 `BloodTestTab.tsx`（812 行）拆分為 2 個子元件：`BloodTestFormDialog`（新增/編輯對話框，含套餐選擇與結果輸入）、`BloodTestDetailDialog`（詳情查看對話框），放入 `blood-test/` 子目錄。
+- ✅ **常數提取**：`LAB_OPTIONS` 移至 `blood-test/constants.ts`。
+- ✅ **主元件精簡**：主元件從 812 行降至 343 行，對話框邏輯獨立為子元件。
+
 ### 2026-03-20 R11-8 usePermissionManager 拆分（853→44 行）
 
 - ✅ **Hook 拆分**：將 `usePermissionManager.ts`（853 行）依職責拆為 4 個子模組：`permissionConfig.ts`（常數與純函式）、`usePermissionCategories.ts`（分組邏輯與型別）、`usePermissionSearch.ts`（搜尋篩選）、`usePermissionExpand.ts`（展開/收合狀態），主 Hook 降至 44 行。
