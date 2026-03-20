@@ -1,8 +1,4 @@
-import { useState, useMemo } from 'react'
-import { useMutation, useQuery, useQueries, useQueryClient } from '@tanstack/react-query'
-import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
@@ -11,72 +7,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { toast } from '@/components/ui/use-toast'
-import { getApiErrorMessage } from '@/lib/validation'
-import {
-  Loader2,
-  Upload,
-  Download,
-  FileSpreadsheet,
-  AlertCircle,
-  CheckCircle2,
-  AlertTriangle,
-  Sparkles,
-} from 'lucide-react'
-import type {
-  SkuCategoryOption,
-  SkuCategoriesResponse,
-  SkuSubcategoriesResponse,
-  GenerateSkuResponse,
-} from '@/types/sku'
+import { Loader2, Upload, Download, FileSpreadsheet } from 'lucide-react'
 
-interface ProductImportErrorDetail {
-  row: number
-  sku?: string
-  error: string
-}
-
-interface ProductImportResult {
-  success_count: number
-  error_count: number
-  errors?: ProductImportErrorDetail[]
-}
-
-/** 規則一：匯入預檢重複項目 */
-interface ProductImportDuplicateItem {
-  row: number
-  name: string
-  spec?: string
-  existing_sku: string
-  existing_id: string
-}
-
-interface ProductImportCheckResult {
-  total_rows: number
-  duplicate_count: number
-  duplicates: ProductImportDuplicateItem[]
-  /** 檔案是否包含 SKU 編碼欄位 */
-  has_sku_column: boolean
-}
-
-/** 匯入預覽列（依序設定 SKU 用） */
-interface ProductImportPreviewRow {
-  row: number
-  name: string
-  spec?: string
-  category_code?: string
-  subcategory_code?: string
-  base_uom: string
-  track_batch: boolean
-  track_expiry: boolean
-  safety_stock?: number
-  remark?: string
-}
-
-interface ProductImportPreviewResult {
-  rows: ProductImportPreviewRow[]
-  has_sku_column: boolean
-}
+import { SkuPreviewTable } from './SkuPreviewTable'
+import { DuplicateWarning } from './DuplicateWarning'
+import { ImportResultSummary } from './ImportResultSummary'
+import { NoSkuColumnPrompt } from './NoSkuColumnPrompt'
+import { useProductImport } from './useProductImport'
 
 interface Props {
   open: boolean
@@ -84,333 +21,21 @@ interface Props {
 }
 
 export function ProductImportDialog({ open, onOpenChange }: Props) {
-  const queryClient = useQueryClient()
-  const [file, setFile] = useState<File | null>(null)
-  const [result, setResult] = useState<ProductImportResult | null>(null)
-  const [checkResult, setCheckResult] = useState<ProductImportCheckResult | null>(null)
-  /** 使用者選擇「由系統自動產生 SKU 並繼續」後，用於顯示重複處理選項 */
-  const [userAcceptedNoSku, setUserAcceptedNoSku] = useState(false)
-  /** 依序設定 SKU：預覽列與使用者輸入的 SKU */
-  const [previewRows, setPreviewRows] = useState<ProductImportPreviewRow[] | null>(null)
-  const [skuOverrides, setSkuOverrides] = useState<Record<number, string>>({})
-  /** 每列選擇的品類/子類（分層檢索後產出 SKU 時一併寫入 CSV） */
-  const [rowCategoryCode, setRowCategoryCode] = useState<Record<number, string>>({})
-  const [rowSubcategoryCode, setRowSubcategoryCode] = useState<Record<number, string>>({})
-  /** 產生 SKU 時記下該列的品類/子類，供 buildCsvWithSku 使用 */
-  const [categorySubcategoryOverrides, setCategorySubcategoryOverrides] = useState<
-    Record<number, { category_code: string; subcategory_code: string }>
-  >({})
+  const {
+    file, result, checkResult, previewRows, skuOverrides, setSkuOverrides,
+    rowCategoryCode, setRowCategoryCode, rowSubcategoryCode, setRowSubcategoryCode,
+    skuCategories, subcategoriesByCategory,
+    setCategorySubcategoryOverrides, setUserAcceptedNoSku,
+    generateSkuMutation, checkMutation, previewMutation, importMutation,
+    showNoSkuPrompt, showDuplicateWarning,
+    handleFileInputChange, handleImport, handleClose, handleConfirmImportWithSku,
+    handleDownloadTemplate, resetPreviewState, doImport,
+  } = useProductImport(open)
 
-  /** 品類清單（與新增產品一致，分層檢索用） */
-  const { data: skuCategoriesData } = useQuery({
-    queryKey: ['sku-categories'],
-    queryFn: async () => {
-      const res = await api.get<SkuCategoriesResponse>('/sku/categories')
-      return res.data
-    },
-    enabled: open && !!previewRows?.length,
-  })
-  const skuCategories = skuCategoriesData?.categories ?? []
-
-  /** 有被選中的品類代碼（用於拉取子類） */
-  const selectedCategoryCodes = useMemo(
-    () => [...new Set(Object.values(rowCategoryCode).filter(Boolean))],
-    [rowCategoryCode]
-  )
-
-  /** 各品類的子類清單 */
-  const subcategoryQueries = useQueries({
-    queries: selectedCategoryCodes.map((code) => ({
-      queryKey: ['sku-subcategories', code],
-      queryFn: async () => {
-        const res = await api.get<SkuSubcategoriesResponse>(`/sku/categories/${code}/subcategories`)
-        return res.data
-      },
-      enabled: open && !!code,
-    })),
-  })
-  const subcategoriesByCategory: Record<string, SkuCategoryOption[]> = useMemo(() => {
-    const out: Record<string, SkuCategoryOption[]> = {}
-    selectedCategoryCodes.forEach((code, i) => {
-      const data = subcategoryQueries[i]?.data
-      out[code] = data?.subcategories ?? []
-    })
-    return out
-  }, [selectedCategoryCodes, subcategoryQueries])
-
-  /** 產生 SKU（分層：品類 → 子類 → 產出編碼） */
-  const generateSkuMutation = useMutation({
-    mutationFn: async ({
-      category,
-      subcategory,
-    }: {
-      category: string
-      subcategory: string
-    }) => {
-      const res = await api.post<GenerateSkuResponse>('/sku/generate', { category, subcategory })
-      return res.data
-    },
-    onError: (error: unknown) => {
-      toast({
-        title: '產生 SKU 失敗',
-        description: getApiErrorMessage(error, '請稍後再試'),
-        variant: 'destructive',
-      })
-    },
-  })
-
-  const checkMutation = useMutation({
-    mutationFn: async (f: File) => {
-      const formData = new FormData()
-      formData.append('file', f)
-      const res = await api.post<ProductImportCheckResult>('/products/import/check', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
-      return res.data
-    },
-    onSuccess: (data, f) => {
-      setCheckResult(data)
-      // 僅在「有 SKU 欄位」且無重複時自動匯入；無 SKU 時改由使用者選擇
-      if (data.duplicate_count === 0 && data.has_sku_column && f) {
-        doImport(f, false)
-      }
-    },
-    onError: (error: unknown) => {
-      toast({
-        title: '預檢失敗',
-        description: getApiErrorMessage(error, '無法檢查重複'),
-        variant: 'destructive',
-      })
-    },
-  })
-
-  const previewMutation = useMutation({
-    mutationFn: async (f: File) => {
-      const formData = new FormData()
-      formData.append('file', f)
-      const res = await api.post<ProductImportPreviewResult>(
-        '/products/import/preview',
-        formData,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
-      )
-      return res.data
-    },
-    onSuccess: (data) => {
-      setPreviewRows(data.rows)
-      setSkuOverrides({})
-      const initialCat: Record<number, string> = {}
-      const initialSub: Record<number, string> = {}
-      const initialOverrides: Record<number, { category_code: string; subcategory_code: string }> = {}
-      data.rows.forEach((r) => {
-        if (r.category_code?.trim()) {
-          const cat = r.category_code.trim()
-          const sub = r.subcategory_code?.trim()
-          initialCat[r.row] = cat
-          if (sub) initialSub[r.row] = sub
-          initialOverrides[r.row] = {
-            category_code: cat,
-            subcategory_code: sub || 'OTH',
-          }
-        }
-      })
-      setRowCategoryCode(initialCat)
-      setRowSubcategoryCode(initialSub)
-      setCategorySubcategoryOverrides(initialOverrides)
-    },
-    onError: (error: unknown) => {
-      toast({
-        title: '預覽失敗',
-        description: getApiErrorMessage(error, '無法解析檔案'),
-        variant: 'destructive',
-      })
-    },
-  })
-
-  const importMutation = useMutation({
-    mutationFn: async ({
-      f,
-      skipDuplicates,
-      regenerateSkuForDuplicates,
-    }: {
-      f: File
-      skipDuplicates: boolean
-      regenerateSkuForDuplicates: boolean
-    }) => {
-      const formData = new FormData()
-      formData.append('file', f)
-      formData.append('skip_duplicates', String(skipDuplicates))
-      formData.append('regenerate_sku_for_duplicates', String(regenerateSkuForDuplicates))
-      const res = await api.post<ProductImportResult>('/products/import', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
-      return res.data
-    },
-    onSuccess: (data) => {
-      setResult(data)
-      setCheckResult(null)
-      setPreviewRows(null)
-      setSkuOverrides({})
-      queryClient.invalidateQueries({ queryKey: ['products'] })
-      if (data.error_count === 0) {
-        toast({
-          title: '匯入成功',
-          description: `成功匯入 ${data.success_count} 筆產品`,
-        })
-      } else {
-        toast({
-          title: '匯入完成（部分失敗）',
-          description: `成功: ${data.success_count} 筆，失敗: ${data.error_count} 筆`,
-          variant: 'destructive',
-        })
-      }
-    },
-    onError: (error: unknown) => {
-      toast({
-        title: '匯入失敗',
-        description: getApiErrorMessage(error, '發生未知錯誤'),
-        variant: 'destructive',
-      })
-    },
-  })
-
-  const doImport = (
-    f: File,
-    skipDuplicates: boolean,
-    regenerateSkuForDuplicates = false
-  ) => {
-    importMutation.mutate({ f, skipDuplicates, regenerateSkuForDuplicates })
-  }
-
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = e.target.files
-    if (selectedFiles && selectedFiles.length > 0) {
-      setFile(selectedFiles[0])
-      setCheckResult(null)
-      setResult(null)
-      setUserAcceptedNoSku(false)
-    }
-  }
-
-  const handleImport = () => {
-    if (!file) {
-      toast({ title: '錯誤', description: '請先選擇檔案', variant: 'destructive' })
-      return
-    }
-    setCheckResult(null)
-    checkMutation.mutate(file)
-  }
-
-  const handleSkipDuplicates = () => {
-    if (file) doImport(file, true, false)
-  }
-
-  const handleImportAnyway = () => {
-    if (file) doImport(file, false, false)
-  }
-
-  const handleImportWithNewSku = () => {
-    if (file) doImport(file, false, true)
-  }
-
-  const handleClose = () => {
-    setFile(null)
-    setResult(null)
-    setCheckResult(null)
-    setUserAcceptedNoSku(false)
-    setPreviewRows(null)
-    setSkuOverrides({})
-    setRowCategoryCode({})
-    setRowSubcategoryCode({})
-    setCategorySubcategoryOverrides({})
-    onOpenChange(false)
-  }
-
-  /** 將預覽列與使用者輸入的 SKU 組成 CSV（含 BOM），供匯入 API 使用 */
-  const buildCsvWithSku = (): File => {
-    if (!previewRows?.length) throw new Error('無預覽資料')
-    const escape = (v: string) => {
-      const s = String(v ?? '').trim()
-      if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
-        return '"' + s.replace(/"/g, '""') + '"'
-      }
-      return s
-    }
-    const header =
-      'SKU編碼,名稱,規格,品類代碼,子類代碼,單位,追蹤批號,追蹤效期,安全庫存,備註'
-    const lines = previewRows.map((r) => {
-      const sku = skuOverrides[r.row]?.trim() ?? ''
-      const catOverride = categorySubcategoryOverrides[r.row]
-      const category_code = catOverride?.category_code ?? r.category_code ?? ''
-      const subcategory_code = catOverride?.subcategory_code ?? r.subcategory_code ?? ''
-      return [
-        escape(sku),
-        escape(r.name),
-        escape(r.spec ?? ''),
-        escape(category_code),
-        escape(subcategory_code),
-        escape(r.base_uom),
-        r.track_batch ? 'true' : 'false',
-        r.track_expiry ? 'true' : 'false',
-        escape(r.safety_stock != null ? String(r.safety_stock) : ''),
-        escape(r.remark ?? ''),
-      ].join(',')
-    })
-    const csv = '\uFEFF' + header + '\n' + lines.join('\n')
-    return new File([new Blob([csv], { type: 'text/csv;charset=utf-8' })], 'product_import_with_sku.csv')
-  }
-
-  const handleConfirmImportWithSku = () => {
-    try {
-      const f = buildCsvWithSku()
-      doImport(f, false, false)
-    } catch (e) {
-      toast({
-        title: '無法產生匯入檔',
-        description: e instanceof Error ? e.message : '請稍後再試',
-        variant: 'destructive',
-      })
-    }
-  }
-
-  const handleDownloadTemplate = async () => {
-    try {
-      const response = await api.get('/products/import/template', {
-        responseType: 'blob',
-      })
-
-      const url = window.URL.createObjectURL(new Blob([response.data]))
-      const link = document.createElement('a')
-      link.href = url
-
-      const contentDisposition = response.headers['content-disposition']
-      let filename = 'product_import_template.xlsx'
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="(.+)"/)
-        if (filenameMatch) {
-          filename = filenameMatch[1]
-        }
-      }
-      link.setAttribute('download', filename)
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-
-      toast({
-        title: '下載成功',
-        description: '範本檔案已開始下載',
-      })
-    } catch (error: unknown) {
-      toast({
-        title: '下載失敗',
-        description: getApiErrorMessage(error, '無法下載範本檔案'),
-        variant: 'destructive',
-      })
-    }
-  }
+  const closeDialog = () => handleClose(onOpenChange)
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={closeDialog}>
       <DialogContent className={previewRows?.length ? 'max-w-4xl' : 'max-w-lg'}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -459,366 +84,71 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
               {file && (
                 <div className="mt-2 p-2 bg-slate-50 rounded-lg">
                   <p className="text-sm font-medium">{file.name}</p>
-                  <p className="text-xs text-slate-500">
-                    {(file.size / 1024).toFixed(1)} KB
-                  </p>
+                  <p className="text-xs text-slate-500">{(file.size / 1024).toFixed(1)} KB</p>
                 </div>
               )}
             </label>
           )}
 
-          {/* 檔案未含 SKU 欄位：讓使用者選擇 */}
-          {checkResult && !checkResult.has_sku_column && !result && !previewRows && (checkResult.duplicate_count === 0 || !userAcceptedNoSku) && (
-            <div className="space-y-4 p-4 border border-blue-200 bg-blue-50 rounded-lg">
-              <div className="flex items-center gap-2 text-blue-800">
-                <AlertCircle className="h-5 w-5" />
-                <span className="font-medium">此檔案未含 SKU 編碼欄位</span>
-              </div>
-              <p className="text-sm text-blue-700">
-                請選擇處理方式：
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    if (file) previewMutation.mutate(file)
-                  }}
-                  disabled={previewMutation.isPending}
-                  variant="outline"
-                  className="border-blue-600 text-blue-700 hover:bg-blue-100"
-                >
-                  {previewMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  依序設定 SKU
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    if (checkResult.duplicate_count === 0 && file) {
-                      doImport(file, false)
-                    } else {
-                      setUserAcceptedNoSku(true)
-                    }
-                  }}
-                  disabled={importMutation.isPending}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  {importMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  由系統自動產生 SKU 並繼續匯入
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    handleDownloadTemplate()
-                    setCheckResult(null)
-                    setUserAcceptedNoSku(false)
-                  }}
-                  className="border-blue-600 text-blue-700 hover:bg-blue-100"
-                >
-                  <Download className="h-4 w-4 mr-1" />
-                  取消，改下載含 SKU 的範本
-                </Button>
-              </div>
-            </div>
+          {/* No SKU column prompt */}
+          {showNoSkuPrompt && checkResult && (
+            <NoSkuColumnPrompt
+              previewMutationIsPending={previewMutation.isPending}
+              importIsPending={importMutation.isPending}
+              hasDuplicates={checkResult.duplicate_count > 0}
+              onSetSkuManually={() => { if (file) previewMutation.mutate(file) }}
+              onAutoGenerateSku={() => {
+                if (checkResult.duplicate_count === 0 && file) {
+                  doImport(file, false)
+                } else {
+                  setUserAcceptedNoSku(true)
+                }
+              }}
+              onDownloadTemplate={() => {
+                handleDownloadTemplate()
+              }}
+            />
           )}
 
-          {/* 依序設定 SKU：預覽表格 */}
+          {/* SKU Preview Table */}
           {previewRows && previewRows.length > 0 && !result && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-slate-700">
-                  請為以下商品設定 SKU（留空則由系統自動產生），共 {previewRows.length} 筆
-                </p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setPreviewRows(null)
-                    setSkuOverrides({})
-                    setRowCategoryCode({})
-                    setRowSubcategoryCode({})
-                    setCategorySubcategoryOverrides({})
-                  }}
-                >
-                  返回
-                </Button>
-              </div>
-              <p className="text-xs text-slate-500">
-                先選擇品類與子類（與「新增產品」相同分層），再按「產生 SKU」由系統產出編碼；亦可手動輸入或留空由匯入時自動產生。
-              </p>
-              <div className="max-h-80 overflow-auto rounded-lg border border-slate-200">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-100 sticky top-0">
-                    <tr>
-                      <th className="px-2 py-2 text-left font-medium w-10">列</th>
-                      <th className="px-2 py-2 text-left font-medium min-w-[80px]">名稱</th>
-                      <th className="px-2 py-2 text-left font-medium min-w-[60px]">規格</th>
-                      <th className="px-2 py-2 text-left font-medium w-12">單位</th>
-                      <th className="px-2 py-2 text-left font-medium w-16">安全庫存</th>
-                      <th className="px-2 py-2 text-left font-medium min-w-[100px]">品類</th>
-                      <th className="px-2 py-2 text-left font-medium min-w-[100px]">子類</th>
-                      <th className="px-2 py-2 text-left font-medium w-20">動作</th>
-                      <th className="px-2 py-2 text-left font-medium min-w-[110px]">SKU 編碼</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {previewRows.map((r) => {
-                      const catCode = rowCategoryCode[r.row] ?? ''
-                      const subCode = rowSubcategoryCode[r.row] ?? ''
-                      const subList = catCode ? subcategoriesByCategory[catCode] ?? [] : []
-                      const hasSubcategories = subList.length > 0
-                      const canGenerate =
-                        !!catCode && (hasSubcategories ? !!subCode : true)
-                      return (
-                        <tr key={r.row} className="border-t border-slate-100 hover:bg-slate-50">
-                          <td className="px-2 py-1.5">{r.row}</td>
-                          <td className="px-2 py-1.5">{r.name}</td>
-                          <td className="px-2 py-1.5 text-slate-600">{r.spec ?? '-'}</td>
-                          <td className="px-2 py-1.5">{r.base_uom}</td>
-                          <td className="px-2 py-1.5">{r.safety_stock ?? '-'}</td>
-                          <td className="px-2 py-1.5">
-                            <select
-                              aria-label={`第 ${r.row} 列品類`}
-                              value={catCode}
-                              onChange={(e) => {
-                                const v = e.target.value
-                                setRowCategoryCode((prev) => ({ ...prev, [r.row]: v }))
-                                setRowSubcategoryCode((prev) => ({ ...prev, [r.row]: '' }))
-                              }}
-                              className="w-full min-w-[90px] rounded border border-slate-300 px-1.5 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            >
-                              <option value="">—</option>
-                              {skuCategories.map((c) => (
-                                <option key={c.code} value={c.code}>
-                                  {c.name}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="px-2 py-1.5">
-                            {!catCode ? (
-                              <span className="text-slate-400">—</span>
-                            ) : hasSubcategories ? (
-                              <select
-                                aria-label={`第 ${r.row} 列子類`}
-                                value={subCode}
-                                onChange={(e) =>
-                                  setRowSubcategoryCode((prev) => ({
-                                    ...prev,
-                                    [r.row]: e.target.value,
-                                  }))
-                                }
-                                className="w-full min-w-[90px] rounded border border-slate-300 px-1.5 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                              >
-                                <option value="">—</option>
-                                {subList.map((s) => (
-                                  <option key={s.code} value={s.code}>
-                                    {s.name}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : (
-                              <span className="text-slate-500 text-xs">同品類</span>
-                            )}
-                          </td>
-                          <td className="px-2 py-1.5">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-xs"
-                              disabled={!canGenerate || generateSkuMutation.isPending}
-                              onClick={() => {
-                                const sub = hasSubcategories ? subCode : catCode
-                                generateSkuMutation.mutate(
-                                  { category: catCode, subcategory: sub },
-                                  {
-                                    onSuccess: (data) => {
-                                      setSkuOverrides((prev) => ({
-                                        ...prev,
-                                        [r.row]: data.sku,
-                                      }))
-                                      setCategorySubcategoryOverrides((prev) => ({
-                                        ...prev,
-                                        [r.row]: {
-                                          category_code: catCode,
-                                          subcategory_code: sub,
-                                        },
-                                      }))
-                                    },
-                                  }
-                                )
-                              }}
-                            >
-                              {generateSkuMutation.isPending ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <>
-                                  <Sparkles className="h-3.5 w-3.5 mr-0.5" />
-                                  產生 SKU
-                                </>
-                              )}
-                            </Button>
-                          </td>
-                          <td className="px-2 py-1.5">
-                            <input
-                              type="text"
-                              value={skuOverrides[r.row] ?? ''}
-                              onChange={(e) =>
-                                setSkuOverrides((prev) => ({ ...prev, [r.row]: e.target.value }))
-                              }
-                              placeholder="留空自動產生"
-                              className="w-full min-w-[100px] rounded border border-slate-300 px-2 py-1 text-sm font-mono focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  onClick={handleConfirmImportWithSku}
-                  disabled={importMutation.isPending}
-                  className="bg-purple-600 hover:bg-purple-700"
-                >
-                  {importMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  確認匯入
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setPreviewRows(null)
-                    setSkuOverrides({})
-                  }}
-                >
-                  返回
-                </Button>
-              </div>
-            </div>
+            <SkuPreviewTable
+              previewRows={previewRows}
+              skuOverrides={skuOverrides}
+              setSkuOverrides={setSkuOverrides}
+              rowCategoryCode={rowCategoryCode}
+              setRowCategoryCode={setRowCategoryCode}
+              rowSubcategoryCode={rowSubcategoryCode}
+              setRowSubcategoryCode={setRowSubcategoryCode}
+              skuCategories={skuCategories}
+              subcategoriesByCategory={subcategoriesByCategory}
+              generateSkuIsPending={generateSkuMutation.isPending}
+              importIsPending={importMutation.isPending}
+              onGenerateSku={(row, category, subcategory, onSuccess) => {
+                generateSkuMutation.mutate(
+                  { category, subcategory },
+                  { onSuccess: (data) => onSuccess(data.sku) }
+                )
+              }}
+              onConfirmImport={handleConfirmImportWithSku}
+              onBack={resetPreviewState}
+              setCategorySubcategoryOverrides={setCategorySubcategoryOverrides}
+            />
           )}
 
-          {/* 規則一：重複警示確認（有 SKU 欄位時，或使用者已選擇由系統產生 SKU 時顯示；依序設定 SKU 步驟不顯示） */}
-          {checkResult && checkResult.duplicate_count > 0 && (checkResult.has_sku_column || userAcceptedNoSku) && !result && !previewRows && (
-            <div className="space-y-4 p-4 border border-amber-200 bg-amber-50 rounded-lg">
-              <div className="flex items-center gap-2 text-amber-800">
-                <AlertTriangle className="h-5 w-5" />
-                <span className="font-medium">發現 {checkResult.duplicate_count} 筆與既有產品重複</span>
-              </div>
-              <p className="text-sm text-amber-700">
-                下列產品的「名稱+規格」已存在於資料庫中，請選擇處理方式：
-              </p>
-              <div className="max-h-32 overflow-y-auto border border-amber-200 rounded bg-white">
-                <table className="w-full text-sm">
-                  <thead className="bg-amber-100 sticky top-0">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium">列</th>
-                      <th className="px-3 py-2 text-left font-medium">名稱</th>
-                      <th className="px-3 py-2 text-left font-medium">規格</th>
-                      <th className="px-3 py-2 text-left font-medium">既有 SKU</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {checkResult.duplicates.map((d, i) => (
-                      <tr key={i} className="border-t">
-                        <td className="px-3 py-2">{d.row}</td>
-                        <td className="px-3 py-2">{d.name}</td>
-                        <td className="px-3 py-2">{d.spec ?? '-'}</td>
-                        <td className="px-3 py-2 font-mono">{d.existing_sku}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSkipDuplicates}
-                  disabled={importMutation.isPending}
-                  className="border-amber-600 text-amber-700 hover:bg-amber-100"
-                >
-                  {importMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  略過重複列（僅匯入不重複者）
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleImportWithNewSku}
-                  disabled={importMutation.isPending}
-                  className="border-amber-600 text-amber-700 hover:bg-amber-100"
-                >
-                  匯入，但更改流水號
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleImportAnyway}
-                  disabled={importMutation.isPending}
-                >
-                  仍要匯入（可能產生重複產品）
-                </Button>
-              </div>
-            </div>
+          {/* Duplicate Warning */}
+          {showDuplicateWarning && checkResult && (
+            <DuplicateWarning
+              checkResult={checkResult}
+              importIsPending={importMutation.isPending}
+              onSkipDuplicates={() => { if (file) doImport(file, true, false) }}
+              onImportWithNewSku={() => { if (file) doImport(file, false, true) }}
+              onImportAnyway={() => { if (file) doImport(file, false, false) }}
+            />
           )}
 
           {/* Import Result */}
-          {result && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 text-green-600">
-                    <CheckCircle2 className="h-5 w-5" />
-                    <span className="font-medium">成功匯入</span>
-                  </div>
-                  <p className="text-2xl font-bold text-green-700 mt-1">
-                    {result.success_count} 筆
-                  </p>
-                </div>
-                {result.error_count > 0 && (
-                  <div className="flex-1 border-l pl-4">
-                    <div className="flex items-center gap-2 text-red-600">
-                      <AlertCircle className="h-5 w-5" />
-                      <span className="font-medium">匯入失敗</span>
-                    </div>
-                    <p className="text-2xl font-bold text-red-700 mt-1">
-                      {result.error_count} 筆
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Error Details */}
-              {result.errors && result.errors.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="text-red-600">錯誤明細</Label>
-                  <div className="max-h-40 overflow-y-auto border rounded-lg">
-                    <table className="w-full text-sm">
-                      <thead className="bg-slate-100 sticky top-0">
-                        <tr>
-                          <th className="px-3 py-2 text-left font-medium">列</th>
-                          <th className="px-3 py-2 text-left font-medium">SKU</th>
-                          <th className="px-3 py-2 text-left font-medium">錯誤訊息</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {result.errors.map((err, i) => (
-                          <tr key={i} className="border-t">
-                            <td className="px-3 py-2">{err.row}</td>
-                            <td className="px-3 py-2 font-mono">{err.sku || '-'}</td>
-                            <td className="px-3 py-2 text-red-600">{err.error}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          {result && <ImportResultSummary result={result} />}
 
           {/* Instructions */}
           {!result && (
@@ -836,7 +166,7 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose}>
+          <Button variant="outline" onClick={closeDialog}>
             {result ? '關閉' : '取消'}
           </Button>
           {!result && !checkResult && !previewRows && (
@@ -852,7 +182,7 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
             </Button>
           )}
           {result && result.error_count === 0 && (
-            <Button onClick={handleClose} className="bg-green-600 hover:bg-green-700">
+            <Button onClick={closeDialog} className="bg-green-600 hover:bg-green-700">
               完成
             </Button>
           )}

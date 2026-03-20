@@ -10,7 +10,7 @@
 |------|------|
 | `docker-compose.yml` | **核心**：PostgreSQL、API、web、web-dev、db-backup |
 | `docker-compose.prod.yml` | **生產**：GHCR images、Watchtower、Docker Secrets、資源限制 |
-| `docker-compose.waf.yml` | **WAF**：OWASP ModSecurity CRS 反向代理 |
+| ~~`docker-compose.waf.yml`~~ | **已移除**：WAF 改由 Cloudflare WAF 處理（流量經 Cloudflare Tunnel） |
 | `docker-compose.logging.yml` | **日誌**：Loki + Promtail |
 | `docker-compose.monitoring.yml` | **監控**：Prometheus、Alertmanager、Grafana |
 | `docker-compose.test.yml` | **CI 測試**：db-test、api-test、web-test（獨立 stack） |
@@ -52,14 +52,6 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build
 
 **必要 .env**：`GHCR_OWNER`、`IMAGE_TAG`（預設 latest）  
 **前置**：`docker login ghcr.io`
-
-### 生產 + WAF
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.waf.yml up -d --no-build
-```
-
-WAF 預設為 **DetectionOnly**（僅記錄），改為阻擋請在 `docker-compose.waf.yml` 設 `MODSEC_RULE_ENGINE: On`。
 
 ### CI / E2E 測試
 
@@ -109,7 +101,7 @@ docker compose -f docker-compose.logging.yml up -d
 ```
 docker-compose.yml (核心)
 ├── docker-compose.prod.yml   → override api/web/db，加 watchtower
-├── docker-compose.waf.yml    → 加 waf，depends_on web/api
+├── (docker-compose.waf.yml)   → 已移除，WAF 改由 Cloudflare WAF
 ├── docker-compose.monitoring.yml → 需 backend network (由核心建立)
 └── docker-compose.logging.yml   → 獨立，需 ipig-net
 
@@ -125,7 +117,7 @@ docker-compose.test.yml → 完全獨立，db-test / api-test / web-test
 | 開發啟動 | `docker compose up -d` |
 | 開發停止 | `docker compose down` |
 | 生產啟動 | `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build` |
-| 生產 + WAF | 再加上 `-f docker-compose.waf.yml` |
+| 生產 + WAF | WAF 改由 Cloudflare WAF 處理，無需額外 compose 檔 |
 | CI 測試 | `docker compose -f docker-compose.test.yml up -d` |
 | 查看日誌 | `docker compose logs -f [service]` |
 
