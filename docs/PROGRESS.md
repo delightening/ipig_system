@@ -79,7 +79,7 @@
 | 6 | [HR 人事管理系統](#6-hr-人事管理系統) | 特休、考勤、Google Calendar |
 | 7 | [資料庫 Schema 完成度](#7-資料庫-schema-完成度) | Migration 清單 |
 | 8 | [版本規劃](#8-版本規劃) | v1.0 / v1.1 里程碑 |
-| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-14 R9 技術債掃描 18 項待辦新增至 TODO.md |
+| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-20 R11-9 AccountingReportPage 拆分（838→75 行） |
 
 ---
 
@@ -189,7 +189,11 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **模板生成拆分**：`write_basic_template_headers`、`write_basic_template_example` 子函式。
 - 📁 **產出**：`backend/src/services/animal/import_export.rs` 重構，所有函式 ≤50 行，`cargo check --tests` 通過。
 
----
+### 2026-03-20 R11-9 AccountingReportPage 拆分（838→75 行）
+
+- ✅ **元件拆分**：將 `AccountingReportPage.tsx`（838 行）拆分為 5 個 Tab 子元件：`TrialBalanceTab`（試算表）、`JournalEntriesTab`（傳票查詢）、`ApAgingTab`（應付帳款）、`ArAgingTab`（應收帳款）、`ProfitLossTab`（損益表），主頁面降至 75 行。
+- ✅ **型別提取**：新增 `types/accounting.ts`，將 `TrialBalanceRow`、`JournalEntry`、`ApAgingRow`、`ArAgingRow`、`Partner` 等型別從頁面內移出。
+- ✅ **Dialog 歸屬**：`CreateApPaymentDialog` 移至 `ApAgingTab`，`CreateArReceiptDialog` 移至 `ArAgingTab`，各自內聚於對應 Tab。
 
 ### 2026-03-15 Code Review 修復與待辦整合（依據 2026_March15_code_review_1.md）
 - ✅ **文件**：README 新增「已知限制／開發模式注意事項」（Critical 1/2 擱置）；TODO 新增 R9 審查—已知漏洞擱置（R9-C1/C2）與 R10 程式碼審查 Medium/Low（20 項）。
@@ -1340,6 +1344,12 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 - ✅ **安全強化**：隱藏原始 DB 錯誤。
 - ✅ **前端錯誤導引**：優化 `getApiErrorMessage` 處理逾時與網路異常。
+
+### 2026-03-20 R11-6 ProtocolContentView.tsx 拆分（954→176 行）
+
+- ✅ **元件拆分**：將 `ProtocolContentView.tsx`（954 行）依內容區塊拆為 8 個 Section 子元件（ResearchInfoSection / PurposeSection / ItemsSection / DesignSection / GuidelinesSection / SurgerySection / AnimalsSection / PersonnelSection）+ AttachmentsSignaturesSection，放入 `content-sections/` 子目錄。
+- ✅ **PDF 匯出 Hook**：提取 `useProtocolPdfExport` hook，封裝後端/前端 PDF 匯出邏輯（~150 行）。
+- ✅ **主元件精簡**：主元件從 954 行降至 ~176 行，僅負責資料解構與子元件組裝。
 
 ### 2026-03-09 請假與加班改為小時計算（0.5 單位）
 
