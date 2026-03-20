@@ -180,6 +180,13 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-20 WAF 架構調整 — 改由 Cloudflare WAF 處理，移除 ModSecurity overlay
+
+- ✅ **決策**：WAF 改由 Cloudflare WAF 處理（流量已經 Cloudflare Tunnel），不再需要本地 ModSecurity container。
+- ✅ **移除檔案**：`docker-compose.waf.yml`、`deploy/waf/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf`、`deploy/waf/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf`、`docs/security-compliance/WAF.md`。
+- ✅ **文件更新**：README、ARCHITECTURE、infrastructure、COMPOSE、deploy/README、TODO（R9-C1 標記完成、SEC-40 描述更新）、code review 文件。
+- ✅ **R9-C1 結案**：原「生產環境 WAF 改為 On」已不適用，改由 Cloudflare Dashboard 啟用 Managed Ruleset。
+
 ### 2026-03-20 R11-14 useDocumentForm.ts 拆分（717→303 行）
 
 - ✅ **Hook 拆分**：將 `useDocumentForm.ts`（717 行）拆分為 3 個子 Hook：`useDocumentLines`（240 行，明細行 CRUD/批號/儲位管理）、`useDocumentSubmit`（146 行，payload 建構/驗證/save/submit mutations），主 Hook 降至 303 行（-58%）。
@@ -223,6 +230,8 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **元件拆分**：將 `AccountingReportPage.tsx`（838 行）拆分為 5 個 Tab 子元件：`TrialBalanceTab`（試算表）、`JournalEntriesTab`（傳票查詢）、`ApAgingTab`（應付帳款）、`ArAgingTab`（應收帳款）、`ProfitLossTab`（損益表），主頁面降至 75 行。
 - ✅ **型別提取**：新增 `types/accounting.ts`，將 `TrialBalanceRow`、`JournalEntry`、`ApAgingRow`、`ArAgingRow`、`Partner` 等型別從頁面內移出。
 - ✅ **Dialog 歸屬**：`CreateApPaymentDialog` 移至 `ApAgingTab`，`CreateArReceiptDialog` 移至 `ArAgingTab`，各自內聚於對應 Tab。
+
+---
 
 ### 2026-03-15 Code Review 修復與待辦整合（依據 2026_March15_code_review_1.md）
 - ✅ **文件**：README 新增「已知限制／開發模式注意事項」（Critical 1/2 擱置）；TODO 新增 R9 審查—已知漏洞擱置（R9-C1/C2）與 R10 程式碼審查 Medium/Low（20 項）。
