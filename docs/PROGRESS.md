@@ -180,6 +180,17 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-20 R11-2 `animal/import_export.rs` 長函數拆分
+
+- ✅ **`import_basic_data`** 327 行 → ~40 行主函數：提取 `validate_basic_row`、`process_basic_row`、`parse_optional_date`、`parse_entry_weight`、`resolve_pen_location`、`resolve_breed_other`、`build_create_request`、`update_iacuc_if_present`、`find_source_id`、`find_animal_id_by_ear_tag` 等 10+ 個輔助函式。
+- ✅ **`import_weight_data`** 172 行 → ~40 行主函數：提取 `validate_weight_row`、`process_weight_row`。
+- ✅ **共用輔助函式**：`open_excel_range`（消除 Excel 開檔重複邏輯）、`parse_date_field`、`parse_import_breed`、`parse_import_gender`、`parse_weight_value`、`format_ear_tag`、`finalize_import_batch`、`detect_file_format`、`cell_to_option`。
+- ✅ **Excel 解析拆分**：`parse_basic_excel_row`、`parse_weight_excel_row` 單行解析獨立函式。
+- ✅ **模板生成拆分**：`write_basic_template_headers`、`write_basic_template_example` 子函式。
+- 📁 **產出**：`backend/src/services/animal/import_export.rs` 重構，所有函式 ≤50 行，`cargo check --tests` 通過。
+
+---
+
 ### 2026-03-15 Code Review 修復與待辦整合（依據 2026_March15_code_review_1.md）
 - ✅ **文件**：README 新增「已知限制／開發模式注意事項」（Critical 1/2 擱置）；TODO 新增 R9 審查—已知漏洞擱置（R9-C1/C2）與 R10 程式碼審查 Medium/Low（20 項）。
 - ✅ **Critical 3**：生產 overlay 綁定 web port 至 127.0.0.1；COMPOSE/DEPLOYMENT 註明開發用預設、生產用 prod。
