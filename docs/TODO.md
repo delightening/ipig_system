@@ -308,7 +308,7 @@
 
 | # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
 |---|------|------|------|----------|------|
-| R11-6 | **`ProtocolContentView.tsx` 拆分（870 行）** | 超過 300 行上限近 3 倍；依內容區塊（實驗設計/動物規格/統計方法/倫理聲明等）拆分為子元件，提取重複的欄位顯示 pattern 為共用元件 | 前端 | 🧠 Claude | [ ] |
+| R11-6 | **`ProtocolContentView.tsx` 拆分（870 行）** | 超過 300 行上限近 3 倍；依內容區塊（實驗設計/動物規格/統計方法/倫理聲明等）拆分為子元件，提取重複的欄位顯示 pattern 為共用元件 | 前端 | 🧠 Claude | [x] |
 | R11-7 | **`ProductImportDialog.tsx` 拆分（863 行）** | 匯入預覽表格、欄位映射、錯誤清單應各自提取為獨立子元件 | 前端 | 🧠 Claude | [ ] |
 | R11-8 | **`hooks/usePermissionManager.ts` 拆分（853 行）** | Hook 超過 300 行上限；應依職責拆分為 `usePermissionCategories`（分類資料處理）、`usePermissionSearch`（搜尋篩選邏輯）、`usePermissionMutation`（新增/刪除 API） | 前端 | 🧠 Claude | [ ] |
 | R11-9 | **`AccountingReportPage.tsx` 拆分（838 行）** | 損益表、AP/AR 老齡化、試算表、傳票列表四個區塊應各自提取為 Tab 子元件 | 前端 | 🧠 Claude | [ ] |
@@ -346,8 +346,8 @@
 | 🔧 R8 代碼規範重構 | 0 |
 | 🔒 R9 安全與品質修復 | 4 |
 | 🔒 R10 程式碼審查 Medium/Low | 20 |
-| 🔧 R11 技術債掃描 | 13 |
-| **合計（未完成）** | **37** |
+| 🔧 R11 技術債掃描 | 12 |
+| **合計（未完成）** | **36** |
 
 ---
 
