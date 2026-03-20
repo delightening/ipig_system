@@ -4,124 +4,8 @@ use crate::config::Config;
 use super::EmailService;
 
 impl EmailService {
-    /// 寄送歡迎信給新用戶
+    /// 寄送歡迎信給新用戶（含密碼重設連結，不含明文密碼）
     pub async fn send_welcome_email(
-        config: &Config, to_email: &str, display_name: &str, password: &str,
-    ) -> anyhow::Result<()> {
-        if !config.is_email_enabled() {
-            tracing::info!("Email disabled, skipping welcome email to {}", to_email);
-            return Ok(());
-        }
-        let smtp_host = config.smtp_host.as_ref()
-            .ok_or_else(|| anyhow::anyhow!("SMTP_HOST not configured"))?;
-        let login_url = format!("{}/login", config.app_url);
-
-        let html_body = format!(
-            r#"<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body {{ margin: 0; padding: 0; background-color: #f1f5f9; font-family: 'Microsoft JhengHei', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #334155; }}
-        .wrapper {{ padding: 40px 20px; }}
-        .container {{ max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }}
-        .header {{ background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; padding: 32px 24px; text-align: center; }}
-        .header h1 {{ margin: 0; font-size: 24px; font-weight: 600; }}
-        .header .subtitle {{ margin-top: 8px; font-size: 14px; opacity: 0.9; }}
-        .logo {{ font-size: 48px; margin-bottom: 12px; }}
-        .content {{ padding: 32px 24px; }}
-        .greeting {{ font-size: 16px; margin-bottom: 16px; }}
-        .info-box {{ background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); padding: 24px; border-radius: 12px; margin: 24px 0; border-left: 4px solid #3b82f6; }}
-        .info-box p {{ margin: 8px 0; font-size: 15px; }}
-        .info-box .label {{ color: #64748b; font-size: 13px; }}
-        .info-box .value {{ font-weight: 600; color: #1e293b; }}
-        .button-container {{ text-align: center; margin: 32px 0; }}
-        .button {{ display: inline-block; background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: #ffffff !important; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; transition: transform 0.2s; }}
-        .warning {{ background: #fef2f2; border-radius: 8px; padding: 16px; margin: 24px 0; border-left: 4px solid #ef4444; }}
-        .warning p {{ margin: 0; color: #991b1b; font-size: 14px; }}
-        .contact {{ background: #f8fafc; border-radius: 8px; padding: 16px; margin-top: 24px; text-align: center; font-size: 14px; color: #64748b; }}
-        .footer {{ background: #f8fafc; padding: 24px; text-align: center; border-top: 1px solid #e2e8f0; }}
-        .footer p {{ margin: 4px 0; font-size: 12px; color: #94a3b8; }}
-        .footer .company {{ font-weight: 500; color: #64748b; }}
-    </style>
-</head>
-<body>
-    <div class="wrapper">
-        <div class="container">
-            <div class="header">
-                <div class="logo">
-                    <img src="cid:logo" alt="iPig System" style="height: 64px; width: auto; margin-bottom: 12px; background: white; padding: 4px; border-radius: 8px;">
-                </div>
-                <h1 style="margin: 0; font-size: 24px; font-weight: 600; color: #ffffff;">歡迎加入豬博士 iPig 系統</h1>
-                <p class="subtitle" style="margin-top: 8px; font-size: 14px; color: #e0e7ff;">您的帳號已成功開通</p>
-            </div>
-            <div class="content">
-                <p class="greeting">親愛的 <strong>{display_name}</strong>，您好！</p>
-                <p>您的豬博士 iPig 系統帳號已開通。以下是您的登入資訊：</p>
-                
-                <div class="info-box" style="background-color: #ffffff; padding: 24px; border-radius: 12px; margin: 24px 0; border-left: 4px solid #3b82f6; border: 1px solid #cbd5e1; border-left: 4px solid #3b82f6;">
-                    <p style="margin: 8px 0; font-size: 15px;"><span style="color: #1e293b; font-size: 13px; font-weight: 500;">📧 帳號（Email）</span><br><span style="font-weight: 700; color: #0f172a; font-size: 16px;">{to_email}</span></p>
-                    <p style="margin: 8px 0; font-size: 15px;"><span style="color: #1e293b; font-size: 13px; font-weight: 500;">🔑 初始密碼</span><br><span style="font-weight: 700; color: #0f172a; font-size: 16px; background-color: #fef9c3; padding: 2px 8px; border-radius: 4px;">{password}</span></p>
-                </div>
-                
-                <div class="warning" style="background-color: #fef2f2; border-radius: 8px; padding: 16px; margin: 24px 0; border-left: 4px solid #ef4444;">
-                    <p style="margin: 0; color: #7f1d1d; font-size: 14px; font-weight: 500;">⚠️ 為確保帳號安全，請於首次登入後立即變更密碼。</p>
-                </div>
-                
-                <div class="button-container">
-                    <a href="{login_url}" class="button">立即登入系統</a>
-                </div>
-                
-                <div class="contact">
-                    如有任何問題，請聯繫工作人員<br>
-                    📞 電話：037-433789
-                </div>
-            </div>
-            <div class="footer">
-                <p>此信件由系統自動發送，請勿直接回覆。</p>
-                <p class="company">© 2026 豬博士動物科技有限公司</p>
-            </div>
-        </div>
-    </div>
-</body>
-</html>"#,
-            display_name = display_name, to_email = to_email,
-            password = password, login_url = login_url,
-        );
-
-        let plain_body = format!(
-            r#"歡迎加入豬博士 iPig 系統
-
-親愛的 {display_name}，您好！
-
-您的豬博士 iPig 系統帳號已開通。以下是您的登入資訊：
-
-📧 帳號（Email）：{to_email}
-🔑 初始密碼：{password}
-
-⚠️ 為確保帳號安全，請於首次登入後立即變更密碼。
-
-登入網址：{login_url}
-
-如有任何問題，請聯繫工作人員（電話：037-433789）。
-
-此信件由系統自動發送，請勿直接回覆。
-© 2026 豬博士動物科技有限公司"#,
-            display_name = display_name, to_email = to_email,
-            password = password, login_url = login_url,
-        );
-
-        Self::send_email(config, smtp_host, to_email, display_name,
-            "🐷 歡迎加入豬博士 iPig 系統 - 您的帳號已開通",
-            &plain_body, &html_body).await?;
-
-        tracing::info!("Welcome email sent to {}", to_email);
-        Ok(())
-    }
-
-    /// 寄送包含密碼重設連結的歡迎信 (安全版本,不含明文密碼)
-    pub async fn send_welcome_email_with_reset_link(
         config: &Config,
         to_email: &str,
         display_name: &str,
@@ -217,7 +101,7 @@ impl EmailService {
         )
         .await?;
 
-        tracing::info!("Welcome email (with reset link) sent to {}", to_email);
+        tracing::info!("Welcome email sent to {}", to_email);
         Ok(())
     }
 
