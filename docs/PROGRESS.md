@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-03-15 (v17)
+> **最後更新：** 2026-03-20 (v18)
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -186,6 +186,22 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **Hook 提取**：新增 `useBloodTestForm` hook，封裝表單狀態管理、create/update mutation、項目新增/移除/組合切換邏輯。
 - ✅ **常數提取**：`LAB_OPTIONS` 移至 `bloodTest/constants.ts`。
 - ✅ **主元件精簡**：主元件從 812 行降至 ~130 行，僅負責查詢資料與組裝子元件。
+
+### 2026-03-20 R11-3 `services/product.rs` 多個長函數拆分
+
+- ✅ **product_parser.rs 模組建立**：將 CSV/Excel 解析邏輯（`parse_product_csv`、`parse_product_excel`、`parse_bool`、`get_cell_string`、`csv_header_index`、`map_category_display_to_code`、`is_stocklist_format`）提取至獨立 `services/product_parser.rs` 模組。
+- ✅ **repositories/product.rs 擴展**：新增 `find_subcategory_name`、`exists_product_by_name_spec`、`find_product_by_name_spec`、`find_product_category_codes`、`find_product_by_id`、`list_uom_conversions`、`delete_uom_conversions`、`insert_uom_conversion` 共 8 個 repository 函式，消除 service 層重複 SQL。
+- ✅ **product.rs 長函數拆分**：`create`（109→15 行）、`update`（170→15 行）、`import_products`（196→30 行）、`check_import_duplicates`（92→12 行）——提取 `resolve_sku`、`insert_product`、`insert_uom_conversions`、`build_product_with_uom`、`update_product_with_sku`/`update_product_without_sku`、`sync_uom_conversions`、`validate_import_row`、`build_import_create_request`、`should_use_auto_sku` 等子函式。所有函數均符合 ≤50 行規範。
+- ✅ **測試驗證**：8 個單元測試全部通過，`cargo check` 編譯零錯誤。
+
+### 2026-03-20 R11-2 `animal/import_export.rs` 長函數拆分
+
+- ✅ **`import_basic_data`** 327 行 → ~40 行主函數：提取 `validate_basic_row`、`process_basic_row`、`parse_optional_date`、`parse_entry_weight`、`resolve_pen_location`、`resolve_breed_other`、`build_create_request`、`update_iacuc_if_present`、`find_source_id`、`find_animal_id_by_ear_tag` 等 10+ 個輔助函式。
+- ✅ **`import_weight_data`** 172 行 → ~40 行主函數：提取 `validate_weight_row`、`process_weight_row`。
+- ✅ **共用輔助函式**：`open_excel_range`（消除 Excel 開檔重複邏輯）、`parse_date_field`、`parse_import_breed`、`parse_import_gender`、`parse_weight_value`、`format_ear_tag`、`finalize_import_batch`、`detect_file_format`、`cell_to_option`。
+- ✅ **Excel 解析拆分**：`parse_basic_excel_row`、`parse_weight_excel_row` 單行解析獨立函式。
+- ✅ **模板生成拆分**：`write_basic_template_headers`、`write_basic_template_example` 子函式。
+- 📁 **產出**：`backend/src/services/animal/import_export.rs` 重構，所有函式 ≤50 行，`cargo check --tests` 通過。
 
 ### 2026-03-20 R11-9 AccountingReportPage 拆分（838→75 行）
 
