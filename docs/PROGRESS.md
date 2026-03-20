@@ -1330,6 +1330,12 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **安全強化**：隱藏原始 DB 錯誤。
 - ✅ **前端錯誤導引**：優化 `getApiErrorMessage` 處理逾時與網路異常。
 
+### 2026-03-20 R11-6 ProtocolContentView.tsx 拆分（954→176 行）
+
+- ✅ **元件拆分**：將 `ProtocolContentView.tsx`（954 行）依內容區塊拆為 8 個 Section 子元件（ResearchInfoSection / PurposeSection / ItemsSection / DesignSection / GuidelinesSection / SurgerySection / AnimalsSection / PersonnelSection）+ AttachmentsSignaturesSection，放入 `content-sections/` 子目錄。
+- ✅ **PDF 匯出 Hook**：提取 `useProtocolPdfExport` hook，封裝後端/前端 PDF 匯出邏輯（~150 行）。
+- ✅ **主元件精簡**：主元件從 954 行降至 ~176 行，僅負責資料解構與子元件組裝。
+
 ### 2026-03-09 請假與加班改為小時計算（0.5 單位）
 
 - ✅ **請假**：表單與顯示改為「時數」（0.5 步進）；`useLeaveRequestForm` 雙向計算日期↔時數；後端 `create_leave` 驗證 0.5 倍數、`LeaveRequestWithUser` 含 `total_hours`。
