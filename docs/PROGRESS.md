@@ -79,7 +79,7 @@
 | 6 | [HR 人事管理系統](#6-hr-人事管理系統) | 特休、考勤、Google Calendar |
 | 7 | [資料庫 Schema 完成度](#7-資料庫-schema-完成度) | Migration 清單 |
 | 8 | [版本規劃](#8-版本規劃) | v1.0 / v1.1 里程碑 |
-| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-20 R11-9 AccountingReportPage 拆分（838→75 行） |
+| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-20 R11-11/12/13 前端元件拆分完成 |
 
 ---
 
@@ -214,6 +214,12 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **High 7**：`pg_backup.sh` 支援 GPG 加密（BACKUP_GPG_RECIPIENT）；prod 設 `BACKUP_REQUIRE_ENCRYPTION=true` 強制加密。
 - ✅ **High 8**：主要 image 釘選 digest（postgres、prometheus、alertmanager、grafana、watchtower），新增 `docs/operations/IMAGE_DIGESTS.md`。
 - ✅ **High 3**：`file.rs` 新增 `validate_zip_entries_safe()`，DOCX/XLSX 上傳時驗證 ZIP 內無路徑穿越。
+
+### 2026-03-20 R11-11/12/13 前端超大元件拆分（3 項）
+
+- ✅ **R11-11 BloodTestTab.tsx 拆分（811→343 行，-58%）**：提取 `BloodTestFormDialog`（新增/編輯表單）、`BloodTestDetailDialog`（詳情檢視）、`constants.ts`（LAB_OPTIONS）至 `blood-test/` 子目錄。
+- ✅ **R11-12 DashboardPage.tsx 拆分（805→286 行，-64%）**：提取 `useDashboardData` hook（ERP query 集中管理）、`ErpWidgets.tsx`（7 個 ERP widget 元件）、`DashboardSettingsDialog.tsx`（設定對話框）至 `dashboard/` 子目錄。
+- ✅ **R11-13 DocumentLineEditor.tsx 拆分 + any 消除（723→387 行，-46%，10 處 any→0）**：提取 `BatchNumberSelect`（批號選擇元件）、`ProductSearchDialog`（品項搜尋 Dialog，含 PO 待入庫/庫存/全品項三模式）、`LineRow`（單行渲染）；消除所有 `any` 型別（`setFormData`/`extraData`/`newLine`/`prev`/`item`/`stockBalances` 等），改用 `DocumentFormData`/`DocumentLine`/`ProductSelectExtraData`/`InventoryOnHand` 具體型別。
 
 ### 2026-03-15 R9 安全與品質修復（程式碼審查產出）
 - ✅ **R9-1 IDOR 漏洞修復 (Backend)**：`download_attachment` 與 `list_attachments` 新增 `check_attachment_permission()` 輔助函式，根據 `entity_type` 對照上傳端的 `require_permission!` 檢查權限（protocol→aup.protocol.edit、animal/pathology→animal.animal.edit、leave_request→本人或 hr.leave.view_all、未知→僅 Admin），解決原先任何已登入使用者可透過猜測 UUID 下載非自己附件的 IDOR 漏洞。
