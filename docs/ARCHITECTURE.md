@@ -10,7 +10,7 @@ graph TB
 
     subgraph Docker Host
         subgraph "frontend network"
-            WAF[WAF<br/>ModSecurity + CRS]
+            CF[Cloudflare Tunnel + WAF]
             Web[Nginx<br/>ipig-web :8080]
             WebDev[Vite Dev Server<br/>ipig-web-dev :5173]
         end
@@ -33,8 +33,8 @@ graph TB
         SMTP[SMTP Server]
     end
 
-    Browser -->|HTTPS| WAF
-    WAF --> Web
+    Browser -->|HTTPS| CF
+    CF --> Web
     Browser -->|dev| WebDev
     Web --> API
     WebDev --> API
@@ -164,7 +164,7 @@ sequenceDiagram
 | **安全** | CSRF tokens, Rate limiting, DOMPurify, Argon2 hashing |
 | **容器** | Docker Compose, 三層網路隔離, Docker Secrets |
 | **監控** | Prometheus, Grafana, Alertmanager |
-| **WAF** | ModSecurity + OWASP CRS |
+| **WAF** | Cloudflare WAF（經 Cloudflare Tunnel） |
 | **CI/CD** | GitHub Actions, Dependabot, cargo-chef 快取 |
 
 ## 6. 目錄結構
@@ -209,6 +209,5 @@ ipig_system/
 │   └── runbooks/                # DR 演練與回滾流程
 ├── docker-compose.yml           # 核心服務
 ├── docker-compose.prod.yml      # 生產環境覆蓋
-├── docker-compose.waf.yml       # WAF 覆蓋
 └── docker-compose.monitoring.yml # 監控堆疊
 ```
