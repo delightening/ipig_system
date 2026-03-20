@@ -292,8 +292,8 @@
 | # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
 |---|------|------|------|----------|------|
 | R11-1 | **`pdf/service.rs` `generate_protocol_pdf` 拆分** | 單一函數 578 行（L63–L630），嚴重違反 50 行上限；應依章節拆出 `render_protocol_header()`、`render_animal_table()`、`render_experiment_section()` 等子函數，再由主函數依序呼叫 | 後端 | 🧠 Claude | [x] |
-| R11-2 | **`animal/import_export.rs` `import_basic_data` 拆分** | 函數 327 行（L200），`import_weight_data` 172 行（L527）；提取 validate_row、map_row_to_entity、batch_insert 等輔助函式，降低至 ≤50 行 | 後端 | 🧠 Claude | [ ] |
-| R11-3 | **`services/product.rs` 多個長函數拆分** | `import_products` 196 行、`update` 170 行、`parse_product_csv` 140 行、`parse_product_excel` 114 行、`create` 109 行、`check_import_duplicates` 92 行——全部超過 50 行上限；CSV/Excel 解析邏輯應提取至獨立 parser 模組 | 後端 | 🧠 Claude | [ ] |
+| R11-2 | **`animal/import_export.rs` `import_basic_data` 拆分** | 函數 327 行（L200），`import_weight_data` 172 行（L527）；提取 validate_row、map_row_to_entity、batch_insert 等輔助函式，降低至 ≤50 行 | 後端 | 🧠 Claude | [x] |
+| R11-3 | **`services/product.rs` 多個長函數拆分** | `import_products` 196 行、`update` 170 行、`parse_product_csv` 140 行、`parse_product_excel` 114 行、`create` 109 行、`check_import_duplicates` 92 行——全部超過 50 行上限；CSV/Excel 解析邏輯應提取至獨立 parser 模組 | 後端 | 🧠 Claude | [x] |
 | R11-4 | **`handlers/signature.rs` handler 函數過長** | `check_animal_record_access_uuid` 106 行（含業務邏輯，違反 handler 職責）；`sign_sacrifice_record` 97、`sign_observation_record` 95、`sign_transfer_record` 93、`sign_euthanasia_order` 92、`sign_protocol_review` 91、`add_record_annotation` 80 行；簽署驗證邏輯應移至 `services/signature.rs` | 後端 | 🧠 Claude | [x] |
 | R11-5 | **`services/accounting.rs` 長函數拆分** | `post_sr` 121 行、`post_do` 117 行、`post_grn` 66 行；各記帳流程應提取 validate_lines、build_journal_entries、post_entries 等子函式 | 後端 | 🧠 Claude | [x] |
 
@@ -346,8 +346,8 @@
 | 🔧 R8 代碼規範重構 | 0 |
 | 🔒 R9 安全與品質修復 | 4 |
 | 🔒 R10 程式碼審查 Medium/Low | 20 |
-| 🔧 R11 技術債掃描 | 11 |
-| **合計（未完成）** | **35** |
+| 🔧 R11 技術債掃描 | 8 |
+| **合計（未完成）** | **32** |
 
 ---
 
