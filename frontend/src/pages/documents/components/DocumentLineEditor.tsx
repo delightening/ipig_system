@@ -4,6 +4,7 @@ import api, { Product, DocType, StockLedgerDetail } from '@/lib/api'
 import { WarehouseShelfTreeSelect, type WarehouseShelfValue } from '@/components/inventory/WarehouseShelfTreeSelect'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { DateTextInput } from '@/components/ui/DateTextInput'
 import {
   Select,
   SelectContent,
@@ -500,8 +501,7 @@ export function DocumentLineEditor({
                     ) : null}
                     <TableCell>
                       {['SO', 'DO'].includes(formData.doc_type) ? (
-                        <Input
-                          type="date"
+                        <DateTextInput
                           defaultValue={expiryDateDefault}
                           ref={(el) => {
                             if (el) {
@@ -515,14 +515,12 @@ export function DocumentLineEditor({
                           className="bg-muted cursor-not-allowed"
                         />
                       ) : (
-                        <Input
-                          type="date"
+                        <DateTextInput
                           defaultValue={expiryDateDefault}
                           ref={(el) => {
                             if (el && inputRefs.current[lineId])
                               inputRefs.current[lineId].expiry_date = el
                           }}
-                          placeholder="效期"
                           onBlur={() => handleLineBlur(lineId)}
                         />
                       )}
