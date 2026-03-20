@@ -1,17 +1,17 @@
-use calamine::{open_workbook_from_rs, Data, Reader, Xls, Xlsx};
 use sqlx::PgPool;
-use std::io::Cursor;
 use uuid::Uuid;
 
 use crate::{
     models::{
-        CreateCategoryRequest, CreateProductRequest, Product, ProductCategory, ProductImportErrorDetail,
-        ProductImportCheckResult, ProductImportDuplicateItem, ProductImportPreviewResult,
-        ProductImportPreviewRow, ProductImportResult, ProductImportRow,
-        ProductQuery, ProductUomConversion, ProductWithUom, UpdateProductRequest,
+        CreateCategoryRequest, CreateProductRequest, Product, ProductCategory,
+        ProductImportCheckResult, ProductImportDuplicateItem, ProductImportErrorDetail,
+        ProductImportPreviewResult, ProductImportResult, ProductQuery,
+        ProductUomConversion, ProductWithUom, UpdateProductRequest,
     },
     repositories, AppError, Result,
 };
+
+use super::product_parser;
 
 /// 允許的產品狀態值（與 DB chk_product_status 一致）
 const ALLOWED_STATUSES: [&str; 3] = ["active", "inactive", "discontinued"];
@@ -22,122 +22,392 @@ pub fn format_product_sku(category_code: &str, subcategory_code: &str, sequence:
 }
 
 /// 驗證並正規化產品狀態，與 DB chk_product_status 一致。
-/// 回傳 `Ok(正規化字串)` 或 `Err(錯誤訊息)`，便於呼叫端轉成 `AppError::Validation`。
 pub fn validate_product_status(status: &str) -> std::result::Result<String, String> {
     let s = status.trim().to_lowercase();
     if ALLOWED_STATUSES.contains(&s.as_str()) {
         Ok(s)
     } else {
-        Err(format!(
-            "status 必須為: {}",
-            ALLOWED_STATUSES.join(", ")
-        ))
+        Err(format!("status 必須為: {}", ALLOWED_STATUSES.join(", ")))
+    }
+}
+
+/// 從 request 中取得分類代碼，若未提供則使用預設值。
+fn resolve_category_codes(req: &CreateProductRequest) -> (String, String) {
+    let cat = req
+        .category_code
+        .clone()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "GEN".to_string());
+    let sub = req
+        .subcategory_code
+        .clone()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "OTH".to_string());
+    (cat, sub)
+}
+
+/// 解析 SKU：若請求有提供且非空則使用（並檢查唯一），否則自動生成。
+async fn resolve_sku(
+    pool: &PgPool,
+    req_sku: Option<&str>,
+    category_code: &str,
+    subcategory_code: &str,
+) -> Result<String> {
+    if let Some(s) = req_sku.map(str::trim) {
+        if !s.is_empty() {
+            if repositories::product::exists_product_by_sku(pool, s).await? {
+                return Err(AppError::Conflict("SKU already exists".to_string()));
+            }
+            return Ok(s.to_string());
+        }
+    }
+    let sequence = get_next_sequence(pool, category_code, subcategory_code).await?;
+    Ok(format_product_sku(category_code, subcategory_code, sequence))
+}
+
+/// 取得下一個 SKU 流水號。
+async fn get_next_sequence(
+    pool: &PgPool,
+    category_code: &str,
+    subcategory_code: &str,
+) -> Result<i32> {
+    let pattern = format!("{}-{}-___", category_code, subcategory_code);
+    let max_seq: Option<i32> = sqlx::query_scalar(
+        r#"
+        SELECT MAX(CAST(SUBSTRING(sku FROM '\d{3}$') AS INTEGER))
+        FROM products
+        WHERE sku LIKE $1
+        "#,
+    )
+    .bind(&pattern)
+    .fetch_optional(pool)
+    .await?
+    .flatten();
+    Ok(max_seq.unwrap_or(0) + 1)
+}
+
+/// 插入產品記錄至 DB。
+async fn insert_product(
+    pool: &PgPool,
+    sku: &str,
+    req: &CreateProductRequest,
+    category_code: &str,
+    subcategory_code: &str,
+) -> Result<Product> {
+    let product = sqlx::query_as::<_, Product>(
+        r#"
+        INSERT INTO products (
+            id, sku, name, spec, category_code, subcategory_code, base_uom,
+            pack_unit, pack_qty, track_batch, track_expiry, default_expiry_days,
+            safety_stock, safety_stock_uom, reorder_point, reorder_point_uom,
+            barcode, image_url, license_no, storage_condition, tags, remark,
+            is_active, created_at, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, true, NOW(), NOW())
+        RETURNING *
+        "#,
+    )
+    .bind(Uuid::new_v4())
+    .bind(sku)
+    .bind(&req.name)
+    .bind(&req.spec)
+    .bind(category_code)
+    .bind(subcategory_code)
+    .bind(&req.base_uom)
+    .bind(&req.pack_unit)
+    .bind(req.pack_qty)
+    .bind(req.track_batch)
+    .bind(req.track_expiry)
+    .bind(req.default_expiry_days)
+    .bind(req.safety_stock)
+    .bind(&req.safety_stock_uom)
+    .bind(req.reorder_point)
+    .bind(&req.reorder_point_uom)
+    .bind(&req.barcode)
+    .bind(&req.image_url)
+    .bind(&req.license_no)
+    .bind(&req.storage_condition)
+    .bind(&req.tags)
+    .bind(&req.remark)
+    .fetch_one(pool)
+    .await?;
+    Ok(product)
+}
+
+/// 批次建立單位換算記錄。
+async fn insert_uom_conversions(
+    pool: &PgPool,
+    product_id: Uuid,
+    conversions: &[crate::models::UomConversionInput],
+) -> Result<Vec<ProductUomConversion>> {
+    let mut result = Vec::new();
+    for conv in conversions {
+        let uom = repositories::product::insert_uom_conversion(
+            pool,
+            product_id,
+            &conv.uom,
+            conv.factor_to_base,
+        )
+        .await?;
+        result.push(uom);
+    }
+    Ok(result)
+}
+
+/// 組合產品與分類名稱為 `ProductWithUom`。
+async fn build_product_with_uom(
+    pool: &PgPool,
+    product: Product,
+    uom_conversions: Vec<ProductUomConversion>,
+) -> Result<ProductWithUom> {
+    let category_name = match product.category_code.as_deref() {
+        Some(cat_code) => repositories::sku::find_category_name_by_code(pool, cat_code).await?,
+        None => None,
+    };
+    let subcategory_name =
+        if let (Some(ref cat_code), Some(ref sub_code)) =
+            (&product.category_code, &product.subcategory_code)
+        {
+            repositories::product::find_subcategory_name(pool, cat_code, sub_code).await?
+        } else {
+            None
+        };
+    Ok(ProductWithUom {
+        product,
+        uom_conversions,
+        category_name,
+        subcategory_name,
+    })
+}
+
+/// 執行帶 SKU 更新的 UPDATE SQL。
+async fn update_product_with_sku(
+    pool: &PgPool,
+    id: Uuid,
+    sku: &str,
+    req: &UpdateProductRequest,
+) -> Result<Option<Product>> {
+    let product = sqlx::query_as::<_, Product>(
+        r#"
+        UPDATE products SET
+            sku = $1,
+            name = COALESCE($2, name),
+            spec = COALESCE($3, spec),
+            category_code = COALESCE($4, category_code),
+            subcategory_code = COALESCE($5, subcategory_code),
+            pack_unit = COALESCE($6, pack_unit),
+            pack_qty = COALESCE($7, pack_qty),
+            track_batch = COALESCE($8, track_batch),
+            track_expiry = COALESCE($9, track_expiry),
+            default_expiry_days = COALESCE($10, default_expiry_days),
+            safety_stock = COALESCE($11, safety_stock),
+            safety_stock_uom = COALESCE($12, safety_stock_uom),
+            reorder_point = COALESCE($13, reorder_point),
+            reorder_point_uom = COALESCE($14, reorder_point_uom),
+            barcode = COALESCE($15, barcode),
+            image_url = COALESCE($16, image_url),
+            license_no = COALESCE($17, license_no),
+            storage_condition = COALESCE($18, storage_condition),
+            tags = COALESCE($19, tags),
+            status = COALESCE($20, status),
+            remark = COALESCE($21, remark),
+            is_active = COALESCE($22, is_active),
+            updated_at = NOW()
+        WHERE id = $23
+        RETURNING *
+        "#,
+    )
+    .bind(sku)
+    .bind(&req.name)
+    .bind(&req.spec)
+    .bind(&req.category_code)
+    .bind(&req.subcategory_code)
+    .bind(&req.pack_unit)
+    .bind(req.pack_qty)
+    .bind(req.track_batch)
+    .bind(req.track_expiry)
+    .bind(req.default_expiry_days)
+    .bind(req.safety_stock)
+    .bind(&req.safety_stock_uom)
+    .bind(req.reorder_point)
+    .bind(&req.reorder_point_uom)
+    .bind(&req.barcode)
+    .bind(&req.image_url)
+    .bind(&req.license_no)
+    .bind(&req.storage_condition)
+    .bind(&req.tags)
+    .bind(&req.status)
+    .bind(&req.remark)
+    .bind(req.is_active)
+    .bind(id)
+    .fetch_optional(pool)
+    .await?;
+    Ok(product)
+}
+
+/// 執行不含 SKU 更新的 UPDATE SQL。
+async fn update_product_without_sku(
+    pool: &PgPool,
+    id: Uuid,
+    req: &UpdateProductRequest,
+) -> Result<Option<Product>> {
+    let product = sqlx::query_as::<_, Product>(
+        r#"
+        UPDATE products SET
+            name = COALESCE($1, name),
+            spec = COALESCE($2, spec),
+            category_code = COALESCE($3, category_code),
+            subcategory_code = COALESCE($4, subcategory_code),
+            pack_unit = COALESCE($5, pack_unit),
+            pack_qty = COALESCE($6, pack_qty),
+            track_batch = COALESCE($7, track_batch),
+            track_expiry = COALESCE($8, track_expiry),
+            default_expiry_days = COALESCE($9, default_expiry_days),
+            safety_stock = COALESCE($10, safety_stock),
+            safety_stock_uom = COALESCE($11, safety_stock_uom),
+            reorder_point = COALESCE($12, reorder_point),
+            reorder_point_uom = COALESCE($13, reorder_point_uom),
+            barcode = COALESCE($14, barcode),
+            image_url = COALESCE($15, image_url),
+            license_no = COALESCE($16, license_no),
+            storage_condition = COALESCE($17, storage_condition),
+            tags = COALESCE($18, tags),
+            status = COALESCE($19, status),
+            remark = COALESCE($20, remark),
+            is_active = COALESCE($21, is_active),
+            updated_at = NOW()
+        WHERE id = $22
+        RETURNING *
+        "#,
+    )
+    .bind(&req.name)
+    .bind(&req.spec)
+    .bind(&req.category_code)
+    .bind(&req.subcategory_code)
+    .bind(&req.pack_unit)
+    .bind(req.pack_qty)
+    .bind(req.track_batch)
+    .bind(req.track_expiry)
+    .bind(req.default_expiry_days)
+    .bind(req.safety_stock)
+    .bind(&req.safety_stock_uom)
+    .bind(req.reorder_point)
+    .bind(&req.reorder_point_uom)
+    .bind(&req.barcode)
+    .bind(&req.image_url)
+    .bind(&req.license_no)
+    .bind(&req.storage_condition)
+    .bind(&req.tags)
+    .bind(&req.status)
+    .bind(&req.remark)
+    .bind(req.is_active)
+    .bind(id)
+    .fetch_optional(pool)
+    .await?;
+    Ok(product)
+}
+
+/// 同步單位換算：刪除既有後重新建立。
+async fn sync_uom_conversions(
+    pool: &PgPool,
+    product_id: Uuid,
+    conversions: &[crate::models::UomConversionInput],
+) -> Result<()> {
+    repositories::product::delete_uom_conversions(pool, product_id).await?;
+    for conv in conversions {
+        repositories::product::insert_uom_conversion(pool, product_id, &conv.uom, conv.factor_to_base)
+            .await?;
+    }
+    Ok(())
+}
+
+/// 正規化匯入列的名稱+規格，回傳 (trimmed_name, normalized_spec)。
+fn normalize_name_spec(name: &str, spec: Option<&str>) -> (String, Option<String>) {
+    let name_trim = name.trim().to_string();
+    let spec_trim = spec.map(|s| s.trim()).unwrap_or("");
+    let spec_normalized = if spec_trim.is_empty() {
+        None
+    } else {
+        Some(spec_trim.to_string())
+    };
+    (name_trim, spec_normalized)
+}
+
+/// 驗證匯入列的必填欄位，回傳錯誤訊息（若有）。
+fn validate_import_row(row: &crate::models::ProductImportRow) -> Option<String> {
+    if row.name.trim().is_empty() {
+        return Some("名稱為必填欄位".to_string());
+    }
+    if row.base_uom.trim().is_empty() {
+        return Some("單位為必填欄位".to_string());
+    }
+    None
+}
+
+/// 將匯入列轉換為 `CreateProductRequest`。
+fn build_import_create_request(
+    row: &crate::models::ProductImportRow,
+    use_auto_sku: bool,
+) -> CreateProductRequest {
+    let category_code = row
+        .category_code
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .unwrap_or("GEN")
+        .to_string();
+    let subcategory_code = row
+        .subcategory_code
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .unwrap_or("OTH")
+        .to_string();
+
+    CreateProductRequest {
+        sku: if use_auto_sku {
+            None
+        } else {
+            row.sku.clone().filter(|s| !s.trim().is_empty())
+        },
+        name: row.name.trim().to_string(),
+        spec: row.spec.clone().filter(|s| !s.trim().is_empty()),
+        category_code: Some(category_code),
+        subcategory_code: Some(subcategory_code),
+        base_uom: row.base_uom.trim().to_string(),
+        pack_unit: None,
+        pack_qty: None,
+        track_batch: row.track_batch,
+        track_expiry: row.track_expiry,
+        default_expiry_days: None,
+        safety_stock: row.safety_stock,
+        safety_stock_uom: None,
+        reorder_point: None,
+        reorder_point_uom: None,
+        barcode: None,
+        image_url: None,
+        license_no: None,
+        storage_condition: None,
+        tags: None,
+        remark: row.remark.clone(),
+        uom_conversions: vec![],
     }
 }
 
 pub struct ProductService;
 
 impl ProductService {
-    /// 建立產品（SKU 自動生成）
+    /// 建立產品（SKU 自動生成）。
     pub async fn create(pool: &PgPool, req: &CreateProductRequest) -> Result<ProductWithUom> {
-        // 使用預設分類碼（如未提供）
-        let category_code = req
-            .category_code
-            .clone()
-            .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| "GEN".to_string());
-        let subcategory_code = req
-            .subcategory_code
-            .clone()
-            .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| "OTH".to_string());
-
-        // SKU：若請求有提供且非空則使用（並檢查唯一），否則自動生成
-        let sku = if let Some(s) = req.sku.as_deref().map(str::trim) {
-            if s.is_empty() {
-                let sequence =
-                    Self::get_next_sequence(pool, &category_code, &subcategory_code).await?;
-                format_product_sku(&category_code, &subcategory_code, sequence)
-            } else {
-                if repositories::product::exists_product_by_sku(pool, s).await? {
-                    return Err(AppError::Conflict("SKU already exists".to_string()));
-                }
-                s.to_string()
-            }
-        } else {
-            let sequence =
-                Self::get_next_sequence(pool, &category_code, &subcategory_code).await?;
-            format_product_sku(&category_code, &subcategory_code, sequence)
-        };
-
-        // 查詢類別名稱
+        let (category_code, subcategory_code) = resolve_category_codes(req);
+        let sku = resolve_sku(pool, req.sku.as_deref(), &category_code, &subcategory_code).await?;
         let category_name =
             repositories::sku::find_category_name_by_code(pool, &category_code).await?;
-
-        let subcategory_name: Option<String> = sqlx::query_scalar(
-            "SELECT name FROM sku_subcategories WHERE category_code = $1 AND code = $2",
-        )
-        .bind(&category_code)
-        .bind(&subcategory_code)
-        .fetch_optional(pool)
-        .await?;
-
-        let product = sqlx::query_as::<_, Product>(
-            r#"
-            INSERT INTO products (
-                id, sku, name, spec, category_code, subcategory_code, base_uom,
-                pack_unit, pack_qty, track_batch, track_expiry, default_expiry_days,
-                safety_stock, safety_stock_uom, reorder_point, reorder_point_uom,
-                barcode, image_url, license_no, storage_condition, tags, remark,
-                is_active, created_at, updated_at
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, true, NOW(), NOW())
-            RETURNING *
-            "#
-        )
-        .bind(Uuid::new_v4())
-        .bind(&sku)
-        .bind(&req.name)
-        .bind(&req.spec)
-        .bind(&category_code)
-        .bind(&subcategory_code)
-        .bind(&req.base_uom)
-        .bind(&req.pack_unit)
-        .bind(req.pack_qty)
-        .bind(req.track_batch)
-        .bind(req.track_expiry)
-        .bind(req.default_expiry_days)
-        .bind(req.safety_stock)
-        .bind(&req.safety_stock_uom)
-        .bind(req.reorder_point)
-        .bind(&req.reorder_point_uom)
-        .bind(&req.barcode)
-        .bind(&req.image_url)
-        .bind(&req.license_no)
-        .bind(&req.storage_condition)
-        .bind(&req.tags)
-        .bind(&req.remark)
-        .fetch_one(pool)
-        .await?;
-
-        // 建立單位換算
-        let mut uom_conversions = Vec::new();
-        for conv in &req.uom_conversions {
-            let uom = sqlx::query_as::<_, ProductUomConversion>(
-                r#"
-                INSERT INTO product_uom_conversions (id, product_id, uom, factor_to_base)
-                VALUES ($1, $2, $3, $4)
-                RETURNING *
-                "#,
-            )
-            .bind(Uuid::new_v4())
-            .bind(product.id)
-            .bind(&conv.uom)
-            .bind(conv.factor_to_base)
-            .fetch_one(pool)
-            .await?;
-            uom_conversions.push(uom);
-        }
+        let subcategory_name =
+            repositories::product::find_subcategory_name(pool, &category_code, &subcategory_code)
+                .await?;
+        let product =
+            insert_product(pool, &sku, req, &category_code, &subcategory_code).await?;
+        let uom_conversions =
+            insert_uom_conversions(pool, product.id, &req.uom_conversions).await?;
 
         Ok(ProductWithUom {
             product,
@@ -147,35 +417,16 @@ impl ProductService {
         })
     }
 
-    /// 取得下一個 SKU 流水號
-    async fn get_next_sequence(
-        pool: &PgPool,
-        category_code: &str,
-        subcategory_code: &str,
-    ) -> Result<i32> {
-        let pattern = format!("{}-{}-___", category_code, subcategory_code);
-        let max_seq: Option<i32> = sqlx::query_scalar(
-            r#"
-            SELECT MAX(CAST(SUBSTRING(sku FROM '\d{3}$') AS INTEGER))
-            FROM products
-            WHERE sku LIKE $1
-            "#,
-        )
-        .bind(&pattern)
-        .fetch_optional(pool)
-        .await?
-        .flatten();
-
-        Ok(max_seq.unwrap_or(0) + 1)
-    }
-
-    /// 取得產品列表（支援 keyword、category_code、subcategory_code、status 篩選）
+    /// 取得產品列表（支援 keyword、category_code、subcategory_code、status 篩選）。
     pub async fn list(pool: &PgPool, query: &ProductQuery) -> Result<Vec<Product>> {
         let mut conditions = Vec::new();
         let mut param_idx: i32 = 1;
 
         if query.keyword.is_some() {
-            conditions.push(format!("(sku ILIKE ${} OR name ILIKE ${})", param_idx, param_idx));
+            conditions.push(format!(
+                "(sku ILIKE ${} OR name ILIKE ${})",
+                param_idx, param_idx
+            ));
             param_idx += 1;
         }
         if query.category_id.is_some() {
@@ -203,7 +454,6 @@ impl ProductService {
         } else {
             conditions.join(" AND ")
         };
-        // 使用常數避免 format! 含 SQL 關鍵字，通過 CI 檢查；where_clause 僅含受控欄位與 $N 佔位符
         const BASE: &str = "SELECT * FROM products";
         let sql = format!("{} WHERE {} ORDER BY sku", BASE, where_clause);
 
@@ -231,232 +481,70 @@ impl ProductService {
         Ok(products)
     }
 
-    /// 取得單一產品
+    /// 取得單一產品。
     pub async fn get_by_id(pool: &PgPool, id: Uuid) -> Result<ProductWithUom> {
-        let product = sqlx::query_as::<_, Product>("SELECT * FROM products WHERE id = $1")
-            .bind(id)
-            .fetch_optional(pool)
+        let product = repositories::product::find_product_by_id(pool, id)
             .await?
             .ok_or_else(|| AppError::NotFound("Product not found".to_string()))?;
-
-        let uom_conversions = sqlx::query_as::<_, ProductUomConversion>(
-            "SELECT * FROM product_uom_conversions WHERE product_id = $1 ORDER BY uom",
-        )
-        .bind(id)
-        .fetch_all(pool)
-        .await?;
-
-        // 查詢類別名稱
-        let category_name = match product.category_code.as_deref() {
-            Some(cat_code) => {
-                repositories::sku::find_category_name_by_code(pool, cat_code).await?
-            }
-            None => None,
-        };
-
-        let subcategory_name: Option<String> = if let (Some(ref cat_code), Some(ref sub_code)) =
-            (&product.category_code, &product.subcategory_code)
-        {
-            sqlx::query_scalar(
-                "SELECT name FROM sku_subcategories WHERE category_code = $1 AND code = $2",
-            )
-            .bind(cat_code)
-            .bind(sub_code)
-            .fetch_optional(pool)
-            .await?
-        } else {
-            None
-        };
-
-        Ok(ProductWithUom {
-            product,
-            uom_conversions,
-            category_name,
-            subcategory_name,
-        })
+        let uom_conversions = repositories::product::list_uom_conversions(pool, id).await?;
+        build_product_with_uom(pool, product, uom_conversions).await
     }
 
     /// 更新產品。
-    /// 特例：若目前為 GEN-OTH，且使用者變更品類／子類為非 GEN-OTH，則自動產生新 SKU 並一併更新。
+    /// 特例：若目前為 GEN-OTH，且使用者變更品類／子類為非 GEN-OTH，則自動產生新 SKU。
     pub async fn update(
         pool: &PgPool,
         id: Uuid,
         req: &UpdateProductRequest,
     ) -> Result<ProductWithUom> {
-        let current: Option<(String, String)> = sqlx::query_as::<_, (String, String)>(
-            "SELECT COALESCE(category_code, 'GEN'), COALESCE(subcategory_code, 'OTH') FROM products WHERE id = $1",
-        )
-        .bind(id)
-        .fetch_optional(pool)
-        .await?;
+        let current = repositories::product::find_product_category_codes(pool, id).await?;
+        let new_sku = Self::resolve_update_sku(pool, &current, req).await?;
 
-        let (new_cat, new_sub) = (
-            req.category_code.as_deref().unwrap_or(current.as_ref().map(|c| c.0.as_str()).unwrap_or("GEN")),
-            req.subcategory_code.as_deref().unwrap_or(current.as_ref().map(|c| c.1.as_str()).unwrap_or("OTH")),
-        );
-        let is_gen_oth = current
-            .as_ref()
-            .map(|(c, s)| c.as_str() == "GEN" && s.as_str() == "OTH")
-            .unwrap_or(false);
-        let changing_away_from_gen_oth = is_gen_oth
-            && (new_cat != "GEN" || new_sub != "OTH");
-
-        let new_sku = if changing_away_from_gen_oth {
-            let seq = Self::get_next_sequence(pool, new_cat, new_sub).await?;
-            Some(format_product_sku(new_cat, new_sub, seq))
+        let product = if let Some(ref sku) = new_sku {
+            update_product_with_sku(pool, id, sku, req).await?
         } else {
-            None
+            update_product_without_sku(pool, id, req).await?
         };
+        product.ok_or_else(|| AppError::NotFound("Product not found".to_string()))?;
 
-        let _product = if let Some(ref sku) = new_sku {
-            sqlx::query_as::<_, Product>(
-                r#"
-                UPDATE products SET
-                    sku = $1,
-                    name = COALESCE($2, name),
-                    spec = COALESCE($3, spec),
-                    category_code = COALESCE($4, category_code),
-                    subcategory_code = COALESCE($5, subcategory_code),
-                    pack_unit = COALESCE($6, pack_unit),
-                    pack_qty = COALESCE($7, pack_qty),
-                    track_batch = COALESCE($8, track_batch),
-                    track_expiry = COALESCE($9, track_expiry),
-                    default_expiry_days = COALESCE($10, default_expiry_days),
-                    safety_stock = COALESCE($11, safety_stock),
-                    safety_stock_uom = COALESCE($12, safety_stock_uom),
-                    reorder_point = COALESCE($13, reorder_point),
-                    reorder_point_uom = COALESCE($14, reorder_point_uom),
-                    barcode = COALESCE($15, barcode),
-                    image_url = COALESCE($16, image_url),
-                    license_no = COALESCE($17, license_no),
-                    storage_condition = COALESCE($18, storage_condition),
-                    tags = COALESCE($19, tags),
-                    status = COALESCE($20, status),
-                    remark = COALESCE($21, remark),
-                    is_active = COALESCE($22, is_active),
-                    updated_at = NOW()
-                WHERE id = $23
-                RETURNING *
-                "#,
-            )
-            .bind(sku)
-            .bind(&req.name)
-            .bind(&req.spec)
-            .bind(&req.category_code)
-            .bind(&req.subcategory_code)
-            .bind(&req.pack_unit)
-            .bind(req.pack_qty)
-            .bind(req.track_batch)
-            .bind(req.track_expiry)
-            .bind(req.default_expiry_days)
-            .bind(req.safety_stock)
-            .bind(&req.safety_stock_uom)
-            .bind(req.reorder_point)
-            .bind(&req.reorder_point_uom)
-            .bind(&req.barcode)
-            .bind(&req.image_url)
-            .bind(&req.license_no)
-            .bind(&req.storage_condition)
-            .bind(&req.tags)
-            .bind(&req.status)
-            .bind(&req.remark)
-            .bind(req.is_active)
-            .bind(id)
-            .fetch_optional(pool)
-            .await?
-        } else {
-            sqlx::query_as::<_, Product>(
-                r#"
-                UPDATE products SET
-                    name = COALESCE($1, name),
-                    spec = COALESCE($2, spec),
-                    category_code = COALESCE($3, category_code),
-                    subcategory_code = COALESCE($4, subcategory_code),
-                    pack_unit = COALESCE($5, pack_unit),
-                    pack_qty = COALESCE($6, pack_qty),
-                    track_batch = COALESCE($7, track_batch),
-                    track_expiry = COALESCE($8, track_expiry),
-                    default_expiry_days = COALESCE($9, default_expiry_days),
-                    safety_stock = COALESCE($10, safety_stock),
-                    safety_stock_uom = COALESCE($11, safety_stock_uom),
-                    reorder_point = COALESCE($12, reorder_point),
-                    reorder_point_uom = COALESCE($13, reorder_point_uom),
-                    barcode = COALESCE($14, barcode),
-                    image_url = COALESCE($15, image_url),
-                    license_no = COALESCE($16, license_no),
-                    storage_condition = COALESCE($17, storage_condition),
-                    tags = COALESCE($18, tags),
-                    status = COALESCE($19, status),
-                    remark = COALESCE($20, remark),
-                    is_active = COALESCE($21, is_active),
-                    updated_at = NOW()
-                WHERE id = $22
-                RETURNING *
-                "#,
-            )
-            .bind(&req.name)
-            .bind(&req.spec)
-            .bind(&req.category_code)
-            .bind(&req.subcategory_code)
-            .bind(&req.pack_unit)
-            .bind(req.pack_qty)
-            .bind(req.track_batch)
-            .bind(req.track_expiry)
-            .bind(req.default_expiry_days)
-            .bind(req.safety_stock)
-            .bind(&req.safety_stock_uom)
-            .bind(req.reorder_point)
-            .bind(&req.reorder_point_uom)
-            .bind(&req.barcode)
-            .bind(&req.image_url)
-            .bind(&req.license_no)
-            .bind(&req.storage_condition)
-            .bind(&req.tags)
-            .bind(&req.status)
-            .bind(&req.remark)
-            .bind(req.is_active)
-            .bind(id)
-            .fetch_optional(pool)
-            .await?
-        };
-
-        let _product = _product.ok_or_else(|| AppError::NotFound("Product not found".to_string()))?;
-
-        // 如果要更新單位換算
         if let Some(ref conversions) = req.uom_conversions {
-            // 刪除現有換算
-            sqlx::query("DELETE FROM product_uom_conversions WHERE product_id = $1")
-                .bind(id)
-                .execute(pool)
-                .await?;
-
-            // 建立新換算
-            for conv in conversions {
-                sqlx::query(
-                    "INSERT INTO product_uom_conversions (id, product_id, uom, factor_to_base) VALUES ($1, $2, $3, $4)"
-                )
-                .bind(Uuid::new_v4())
-                .bind(id)
-                .bind(&conv.uom)
-                .bind(conv.factor_to_base)
-                .execute(pool)
-                .await?;
-            }
+            sync_uom_conversions(pool, id, conversions).await?;
         }
 
         Self::get_by_id(pool, id).await
     }
 
-    /// 僅更新產品狀態（啟用/停用/停產）
-    pub async fn update_status(
+    /// 判斷更新時是否需要重新產生 SKU（GEN-OTH → 其他品類時）。
+    async fn resolve_update_sku(
         pool: &PgPool,
-        id: Uuid,
-        status: &str,
-    ) -> Result<ProductWithUom> {
-        let status = validate_product_status(status)
-            .map_err(AppError::Validation)?;
-        let is_active = status == "active";
+        current: &Option<(String, String)>,
+        req: &UpdateProductRequest,
+    ) -> Result<Option<String>> {
+        let (new_cat, new_sub) = (
+            req.category_code
+                .as_deref()
+                .unwrap_or(current.as_ref().map(|c| c.0.as_str()).unwrap_or("GEN")),
+            req.subcategory_code
+                .as_deref()
+                .unwrap_or(current.as_ref().map(|c| c.1.as_str()).unwrap_or("OTH")),
+        );
+        let is_gen_oth = current
+            .as_ref()
+            .map(|(c, s)| c.as_str() == "GEN" && s.as_str() == "OTH")
+            .unwrap_or(false);
 
+        if is_gen_oth && (new_cat != "GEN" || new_sub != "OTH") {
+            let seq = get_next_sequence(pool, new_cat, new_sub).await?;
+            Ok(Some(format_product_sku(new_cat, new_sub, seq)))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// 僅更新產品狀態（啟用/停用/停產）。
+    pub async fn update_status(pool: &PgPool, id: Uuid, status: &str) -> Result<ProductWithUom> {
+        let status = validate_product_status(status).map_err(AppError::Validation)?;
+        let is_active = status == "active";
         let rows = sqlx::query(
             "UPDATE products SET status = $1, is_active = $2, updated_at = NOW() WHERE id = $3",
         )
@@ -465,30 +553,26 @@ impl ProductService {
         .bind(id)
         .execute(pool)
         .await?;
-
         if rows.rows_affected() == 0 {
             return Err(AppError::NotFound("Product not found".to_string()));
         }
-
         Self::get_by_id(pool, id).await
     }
 
-    /// 刪除產品（軟刪除）
+    /// 刪除產品（軟刪除）。
     pub async fn delete(pool: &PgPool, id: Uuid) -> Result<()> {
         let result =
             sqlx::query("UPDATE products SET is_active = false, updated_at = NOW() WHERE id = $1")
                 .bind(id)
                 .execute(pool)
                 .await?;
-
         if result.rows_affected() == 0 {
             return Err(AppError::NotFound("Product not found".to_string()));
         }
-
         Ok(())
     }
 
-    /// 硬刪除產品（僅在無單據、庫存、藥物選單關聯時允許；僅供 admin 使用）
+    /// 硬刪除產品（僅在無單據、庫存、藥物選單關聯時允許；僅供 admin 使用）。
     pub async fn hard_delete(pool: &PgPool, id: Uuid) -> Result<()> {
         let exists: bool =
             sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM products WHERE id = $1)")
@@ -498,61 +582,64 @@ impl ProductService {
         if !exists {
             return Err(AppError::NotFound("Product not found".to_string()));
         }
-
-        let doc_lines: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM document_lines WHERE product_id = $1")
-            .bind(id)
-            .fetch_one(pool)
-            .await?;
-        let ledger: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM stock_ledger WHERE product_id = $1")
-            .bind(id)
-            .fetch_one(pool)
-            .await?;
-        let snapshots: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM inventory_snapshots WHERE product_id = $1")
-            .bind(id)
-            .fetch_one(pool)
-            .await?;
-        let sl_inv: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM storage_location_inventory WHERE product_id = $1")
-            .bind(id)
-            .fetch_one(pool)
-            .await?;
-        let drug_refs: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM treatment_drug_options WHERE erp_product_id = $1")
-            .bind(id)
-            .fetch_one(pool)
-            .await?;
-
-        if doc_lines > 0 || ledger > 0 || snapshots > 0 || sl_inv > 0 || drug_refs > 0 {
-            return Err(AppError::BusinessRule(
-                "此產品已有單據、庫存或藥物選單關聯，無法硬刪除".to_string(),
-            ));
-        }
-
-        sqlx::query("DELETE FROM product_uom_conversions WHERE product_id = $1")
-            .bind(id)
-            .execute(pool)
-            .await?;
+        Self::check_hard_delete_refs(pool, id).await?;
+        repositories::product::delete_uom_conversions(pool, id).await?;
         let result = sqlx::query("DELETE FROM products WHERE id = $1")
             .bind(id)
             .execute(pool)
             .await?;
-
         if result.rows_affected() == 0 {
             return Err(AppError::NotFound("Product not found".to_string()));
         }
-
         Ok(())
     }
 
-    /// 取得產品類別列表
+    /// 檢查硬刪除時是否有關聯資料。
+    async fn check_hard_delete_refs(pool: &PgPool, id: Uuid) -> Result<()> {
+        let tables = [
+            ("document_lines", "product_id"),
+            ("stock_ledger", "product_id"),
+            ("inventory_snapshots", "product_id"),
+            ("storage_location_inventory", "product_id"),
+        ];
+        for (table, col) in tables {
+            let count: i64 = sqlx::query_scalar(&format!(
+                "SELECT COUNT(*) FROM {} WHERE {} = $1",
+                table, col
+            ))
+            .bind(id)
+            .fetch_one(pool)
+            .await?;
+            if count > 0 {
+                return Err(AppError::BusinessRule(
+                    "此產品已有單據、庫存或藥物選單關聯，無法硬刪除".to_string(),
+                ));
+            }
+        }
+        let drug_refs: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM treatment_drug_options WHERE erp_product_id = $1",
+        )
+        .bind(id)
+        .fetch_one(pool)
+        .await?;
+        if drug_refs > 0 {
+            return Err(AppError::BusinessRule(
+                "此產品已有單據、庫存或藥物選單關聯，無法硬刪除".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// 取得產品類別列表。
     pub async fn list_categories(pool: &PgPool) -> Result<Vec<ProductCategory>> {
         let categories =
             sqlx::query_as::<_, ProductCategory>("SELECT * FROM product_categories ORDER BY code")
                 .fetch_all(pool)
                 .await?;
-
         Ok(categories)
     }
 
-    /// 建立產品類別
+    /// 建立產品類別。
     pub async fn create_category(
         pool: &PgPool,
         req: &CreateCategoryRequest,
@@ -570,7 +657,6 @@ impl ProductService {
         .bind(req.parent_id)
         .fetch_one(pool)
         .await?;
-
         Ok(category)
     }
 
@@ -578,134 +664,34 @@ impl ProductService {
     // 產品匯入
     // ============================================
 
-    /// 匯入預覽：解析檔案並回傳列資料，供前端「依序設定 SKU」使用（不寫入 DB）
-    pub fn preview_import(file_data: &[u8], file_name: &str) -> Result<ProductImportPreviewResult> {
-        let is_excel = file_name.ends_with(".xlsx") || file_name.ends_with(".xls");
-        let is_csv = file_name.ends_with(".csv");
-
-        if !is_excel && !is_csv {
-            return Err(AppError::Validation(
-                "不支援的檔案格式，請使用 Excel (.xlsx, .xls) 或 CSV 格式".to_string(),
-            ));
-        }
-
-        let (rows, has_sku_column) = if is_excel {
-            Self::parse_product_excel(file_data)?
-        } else {
-            Self::parse_product_csv(file_data)?
-        };
-
-        let preview_rows: Vec<ProductImportPreviewRow> = rows
+    /// 匯入預覽：解析檔案並回傳列資料（不寫入 DB）。
+    pub fn preview_import(
+        file_data: &[u8],
+        file_name: &str,
+    ) -> Result<ProductImportPreviewResult> {
+        let (rows, has_sku_column) = product_parser::parse_import_file(file_data, file_name)?;
+        let preview_rows: Vec<_> = rows
             .into_iter()
             .enumerate()
-            .map(|(index, row)| {
-                let row_number = (index + 2) as i32; // 1-based 且跳過標題列
-                let safety_stock = row
-                    .safety_stock
-                    .and_then(|d| d.to_string().parse::<f64>().ok());
-                ProductImportPreviewRow {
-                    row: row_number,
-                    name: row.name,
-                    spec: row.spec,
-                    category_code: row.category_code,
-                    subcategory_code: row.subcategory_code,
-                    base_uom: row.base_uom,
-                    track_batch: row.track_batch,
-                    track_expiry: row.track_expiry,
-                    safety_stock,
-                    remark: row.remark,
-                }
-            })
+            .map(|(i, row)| product_parser::to_preview_row(i, row))
             .collect();
-
         Ok(ProductImportPreviewResult {
             rows: preview_rows,
             has_sku_column,
         })
     }
 
-    /// 匯入預檢：檢查名稱+規格是否與既有產品重複（規則一）
+    /// 匯入預檢：檢查名稱+規格是否與既有產品重複。
     pub async fn check_import_duplicates(
         pool: &PgPool,
         file_data: &[u8],
         file_name: &str,
     ) -> Result<ProductImportCheckResult> {
-        let is_excel = file_name.ends_with(".xlsx") || file_name.ends_with(".xls");
-        let is_csv = file_name.ends_with(".csv");
-
-        if !is_excel && !is_csv {
-            return Err(AppError::Validation(
-                "不支援的檔案格式，請使用 Excel (.xlsx, .xls) 或 CSV 格式".to_string(),
-            ));
-        }
-
-        let (rows, has_sku_column) = if is_excel {
-            Self::parse_product_excel(file_data)?
-        } else {
-            Self::parse_product_csv(file_data)?
-        };
-
+        let (rows, has_sku_column) = product_parser::parse_import_file(file_data, file_name)?;
         if rows.is_empty() {
             return Err(AppError::Validation("檔案中沒有資料".to_string()));
         }
-
-        let mut duplicates = Vec::new();
-
-        for (index, row) in rows.iter().enumerate() {
-            let row_number = (index + 2) as i32;
-
-            if row.name.trim().is_empty() {
-                continue;
-            }
-
-            let name_trim = row.name.trim();
-            let spec_trim = row.spec.as_deref().map(|s| s.trim()).unwrap_or("");
-            let spec_normalized = if spec_trim.is_empty() { None } else { Some(spec_trim.to_string()) };
-
-            #[derive(sqlx::FromRow)]
-            struct ExistingRow {
-                id: Uuid,
-                sku: String,
-            }
-
-            let existing: Option<ExistingRow> = if spec_normalized.is_none() {
-                sqlx::query_as(
-                    r#"
-                    SELECT id, sku FROM products
-                    WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))
-                      AND (spec IS NULL OR TRIM(COALESCE(spec, '')) = '')
-                    LIMIT 1
-                    "#,
-                )
-                .bind(name_trim)
-                .fetch_optional(pool)
-                .await?
-            } else {
-                sqlx::query_as(
-                    r#"
-                    SELECT id, sku FROM products
-                    WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))
-                      AND LOWER(TRIM(COALESCE(spec, ''))) = LOWER(TRIM($2))
-                    LIMIT 1
-                    "#,
-                )
-                .bind(name_trim)
-                .bind(spec_normalized.as_deref().unwrap_or(""))
-                .fetch_optional(pool)
-                .await?
-            };
-
-            if let Some(existing) = existing {
-                duplicates.push(ProductImportDuplicateItem {
-                    row: row_number,
-                    name: row.name.trim().to_string(),
-                    spec: row.spec.clone().filter(|s| !s.trim().is_empty()),
-                    existing_sku: existing.sku,
-                    existing_id: existing.id,
-                });
-            }
-        }
-
+        let duplicates = Self::find_all_duplicates(pool, &rows).await?;
         Ok(ProductImportCheckResult {
             total_rows: rows.len() as i32,
             duplicate_count: duplicates.len() as i32,
@@ -714,9 +700,38 @@ impl ProductService {
         })
     }
 
-    /// 匯入產品（CSV 或 Excel）
-    /// * `skip_duplicates`: 若為 true，名稱+規格與既有產品相同的列將略過不建立
-    /// * `regenerate_sku_for_duplicates`: 若為 true，名稱+規格與既有產品相同的列仍會建立，但 SKU 改由系統自動產生（忽略檔案內的 SKU）
+    /// 逐列檢查匯入資料的重複情況。
+    async fn find_all_duplicates(
+        pool: &PgPool,
+        rows: &[crate::models::ProductImportRow],
+    ) -> Result<Vec<ProductImportDuplicateItem>> {
+        let mut duplicates = Vec::new();
+        for (index, row) in rows.iter().enumerate() {
+            let row_number = (index + 2) as i32;
+            if row.name.trim().is_empty() {
+                continue;
+            }
+            let (name_trim, spec_normalized) = normalize_name_spec(&row.name, row.spec.as_deref());
+            let existing = repositories::product::find_product_by_name_spec(
+                pool,
+                &name_trim,
+                spec_normalized.as_deref(),
+            )
+            .await?;
+            if let Some(existing) = existing {
+                duplicates.push(ProductImportDuplicateItem {
+                    row: row_number,
+                    name: name_trim,
+                    spec: row.spec.clone().filter(|s| !s.trim().is_empty()),
+                    existing_sku: existing.sku,
+                    existing_id: existing.id,
+                });
+            }
+        }
+        Ok(duplicates)
+    }
+
+    /// 匯入產品（CSV 或 Excel）。
     pub async fn import_products(
         pool: &PgPool,
         file_data: &[u8],
@@ -724,176 +739,35 @@ impl ProductService {
         skip_duplicates: bool,
         regenerate_sku_for_duplicates: bool,
     ) -> Result<ProductImportResult> {
-        let is_excel = file_name.ends_with(".xlsx") || file_name.ends_with(".xls");
-        let is_csv = file_name.ends_with(".csv");
-
-        if !is_excel && !is_csv {
-            return Err(AppError::Validation(
-                "不支援的檔案格式，請使用 Excel (.xlsx, .xls) 或 CSV 格式".to_string(),
-            ));
-        }
-
-        let (rows, _has_sku_column) = if is_excel {
-            Self::parse_product_excel(file_data)?
-        } else {
-            Self::parse_product_csv(file_data)?
-        };
-
+        let (rows, _) = product_parser::parse_import_file(file_data, file_name)?;
         if rows.is_empty() {
             return Err(AppError::Validation("檔案中沒有資料".to_string()));
         }
-
         let mut success_count = 0;
         let mut error_count = 0;
         let mut errors = Vec::new();
 
         for (index, row) in rows.iter().enumerate() {
             let row_number = (index + 2) as i32;
-
-            if row.name.trim().is_empty() {
+            if let Some(err_msg) = validate_import_row(row) {
                 errors.push(ProductImportErrorDetail {
                     row: row_number,
                     sku: None,
-                    error: "名稱為必填欄位".to_string(),
+                    error: err_msg,
                 });
                 error_count += 1;
                 continue;
             }
-
-            if row.base_uom.trim().is_empty() {
-                errors.push(ProductImportErrorDetail {
-                    row: row_number,
-                    sku: None,
-                    error: "單位為必填欄位".to_string(),
-                });
-                error_count += 1;
-                continue;
+            let use_auto_sku = Self::should_use_auto_sku(
+                pool, row, skip_duplicates, regenerate_sku_for_duplicates,
+            )
+            .await?;
+            if use_auto_sku.is_none() {
+                continue; // skip_duplicates 略過
             }
-
-            // 規則一：若 skip_duplicates=true 且名稱+規格已存在，略過此列
-            if skip_duplicates {
-                let name_trim = row.name.trim();
-                let spec_trim = row.spec.as_deref().map(|s| s.trim()).unwrap_or("");
-                let spec_normalized = if spec_trim.is_empty() { None } else { Some(spec_trim.to_string()) };
-
-                let exists: bool = if spec_normalized.is_none() {
-                    sqlx::query_scalar(
-                        r#"
-                        SELECT EXISTS(
-                            SELECT 1 FROM products
-                            WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))
-                              AND (spec IS NULL OR TRIM(COALESCE(spec, '')) = '')
-                        )
-                        "#,
-                    )
-                    .bind(name_trim)
-                    .fetch_one(pool)
-                    .await?
-                } else {
-                    sqlx::query_scalar(
-                        r#"
-                        SELECT EXISTS(
-                            SELECT 1 FROM products
-                            WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))
-                              AND LOWER(TRIM(COALESCE(spec, ''))) = LOWER(TRIM($2))
-                        )
-                        "#,
-                    )
-                    .bind(name_trim)
-                    .bind(spec_normalized.as_deref().unwrap_or(""))
-                    .fetch_one(pool)
-                    .await?
-                };
-
-                if exists {
-                    continue; // 略過重複列
-                }
-            }
-
-            // 是否對本列使用自動產生 SKU（重複且選擇「更改流水號」時）
-            let use_auto_sku_for_this_row = if regenerate_sku_for_duplicates {
-                let name_trim = row.name.trim();
-                let spec_trim = row.spec.as_deref().map(|s| s.trim()).unwrap_or("");
-                let spec_normalized = if spec_trim.is_empty() { None } else { Some(spec_trim.to_string()) };
-                let exists: bool = if spec_normalized.is_none() {
-                    sqlx::query_scalar(
-                        r#"
-                        SELECT EXISTS(
-                            SELECT 1 FROM products
-                            WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))
-                              AND (spec IS NULL OR TRIM(COALESCE(spec, '')) = '')
-                        )
-                        "#,
-                    )
-                    .bind(name_trim)
-                    .fetch_one(pool)
-                    .await?
-                } else {
-                    sqlx::query_scalar(
-                        r#"
-                        SELECT EXISTS(
-                            SELECT 1 FROM products
-                            WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))
-                              AND LOWER(TRIM(COALESCE(spec, ''))) = LOWER(TRIM($2))
-                        )
-                        "#,
-                    )
-                    .bind(name_trim)
-                    .bind(spec_normalized.as_deref().unwrap_or(""))
-                    .fetch_one(pool)
-                    .await?
-                };
-                exists
-            } else {
-                false
-            };
-
-            let category_code = row
-                .category_code
-                .as_deref()
-                .filter(|s| !s.is_empty())
-                .unwrap_or("GEN")
-                .to_string();
-            let subcategory_code = row
-                .subcategory_code
-                .as_deref()
-                .filter(|s| !s.is_empty())
-                .unwrap_or("OTH")
-                .to_string();
-
-            let create_req = CreateProductRequest {
-                sku: if use_auto_sku_for_this_row {
-                    None // 重複列且選擇「更改流水號」：由系統自動產生 SKU
-                } else {
-                    row.sku.clone().filter(|s| !s.trim().is_empty())
-                },
-                name: row.name.trim().to_string(),
-                spec: row.spec.clone().filter(|s| !s.trim().is_empty()),
-                category_code: Some(category_code),
-                subcategory_code: Some(subcategory_code),
-                base_uom: row.base_uom.trim().to_string(),
-                pack_unit: None,
-                pack_qty: None,
-                track_batch: row.track_batch,
-                track_expiry: row.track_expiry,
-                default_expiry_days: None,
-                safety_stock: row.safety_stock,
-                safety_stock_uom: None,
-                reorder_point: None,
-                reorder_point_uom: None,
-                barcode: None,
-                image_url: None,
-                license_no: None,
-                storage_condition: None,
-                tags: None,
-                remark: row.remark.clone(),
-                uom_conversions: vec![],
-            };
-
+            let create_req = build_import_create_request(row, use_auto_sku.unwrap_or(false));
             match Self::create(pool, &create_req).await {
-                Ok(_product) => {
-                    success_count += 1;
-                }
+                Ok(_) => success_count += 1,
                 Err(e) => {
                     errors.push(ProductImportErrorDetail {
                         row: row_number,
@@ -904,7 +778,6 @@ impl ProductService {
                 }
             }
         }
-
         Ok(ProductImportResult {
             success_count,
             error_count,
@@ -912,324 +785,33 @@ impl ProductService {
         })
     }
 
-    /// 依表頭名稱找欄位索引（忽略空白、大小寫）
-    fn csv_header_index(headers: &csv::StringRecord, name: &str) -> Option<usize> {
-        let key = name.trim().to_lowercase();
-        if key.is_empty() {
-            return None;
+    /// 判斷匯入列是否應使用自動 SKU。
+    /// 回傳 `None` 表示應略過此列（skip_duplicates），
+    /// `Some(true)` 表示使用自動 SKU，`Some(false)` 表示使用原始 SKU。
+    async fn should_use_auto_sku(
+        pool: &PgPool,
+        row: &crate::models::ProductImportRow,
+        skip_duplicates: bool,
+        regenerate_sku_for_duplicates: bool,
+    ) -> Result<Option<bool>> {
+        let (name_trim, spec_normalized) = normalize_name_spec(&row.name, row.spec.as_deref());
+        let exists = repositories::product::exists_product_by_name_spec(
+            pool,
+            &name_trim,
+            spec_normalized.as_deref(),
+        )
+        .await?;
+
+        if skip_duplicates && exists {
+            return Ok(None); // 略過重複列
         }
-        headers.iter().position(|h| h.trim().to_lowercase() == key)
-    }
-
-    /// 將「分類」欄的顯示名稱對應為品類代碼（耗材→CON、藥品→DRG 等）；已是代碼則回傳原值
-    fn map_category_display_to_code(s: &str) -> Option<String> {
-        let t = s.trim();
-        if t.is_empty() {
-            return None;
+        if regenerate_sku_for_duplicates && exists {
+            return Ok(Some(true)); // 重複但使用自動 SKU
         }
-        let normalized = t.to_uppercase();
-        // 已是 2–4 碼大寫代碼則視為品類代碼
-        if normalized.len() >= 2 && normalized.len() <= 4 && normalized.chars().all(|c| c.is_ascii_alphabetic()) {
-            return Some(normalized);
-        }
-        // 常見中文分類名稱對應
-        let mapping: &[(&str, &str)] = &[
-            ("耗材", "CON"),
-            ("藥品", "DRG"),
-            ("醫材", "MED"),
-            ("化學品", "CHM"),
-            ("設備", "EQP"),
-        ];
-        let lower = t.to_lowercase();
-        for (name, code) in mapping {
-            if lower.contains(&name.to_lowercase()) {
-                return Some((*code).to_string());
-            }
-        }
-        Some(t.to_string())
+        Ok(Some(false))
     }
 
-    /// 是否為「庫存清表／重構」格式：表頭含「品名」或「名稱」，且含「規格」
-    fn is_stocklist_format(headers: &csv::StringRecord) -> bool {
-        let has_name = Self::csv_header_index(headers, "品名").is_some()
-            || Self::csv_header_index(headers, "名稱").is_some();
-        has_name && Self::csv_header_index(headers, "規格").is_some()
-    }
-
-    /// 解析產品匯入 CSV，回傳 (列資料, 是否含 SKU 欄位)
-    fn parse_product_csv(file_data: &[u8]) -> Result<(Vec<ProductImportRow>, bool)> {
-        let content = String::from_utf8_lossy(file_data);
-        let mut reader = csv::ReaderBuilder::new()
-            .trim(csv::Trim::All)
-            .flexible(true)
-            .from_reader(content.as_bytes());
-
-        let headers = reader
-            .headers()
-            .map_err(|e| AppError::Validation(format!("CSV 標題列讀取錯誤: {}", e)))?;
-        let has_sku_column = headers.len() >= 10
-            && headers
-                .get(0)
-                .map(|h| h.trim().to_uppercase().contains("SKU"))
-                .unwrap_or(false);
-
-        let stocklist_format = Self::is_stocklist_format(headers);
-        let (name_idx, spec_idx, cat_idx, subcat_idx, uom_idx, batch_idx, expiry_idx, stock_idx, remark_idx) = if stocklist_format {
-            let name_idx = Self::csv_header_index(headers, "品名")
-                .or_else(|| Self::csv_header_index(headers, "名稱"))
-                .ok_or_else(|| {
-                    AppError::Validation("庫存清表格式 CSV 需有「品名」或「名稱」欄位".to_string())
-                })?;
-            let spec_idx = Self::csv_header_index(headers, "規格").ok_or_else(|| {
-                AppError::Validation("庫存清表格式 CSV 需有「規格」欄位".to_string())
-            })?;
-            let uom_idx = Self::csv_header_index(headers, "單位").unwrap_or_else(|| spec_idx.saturating_add(1));
-            let remark_idx = Self::csv_header_index(headers, "製造廠商")
-                .or_else(|| Self::csv_header_index(headers, "包裝規格"))
-                .unwrap_or(0);
-            let cat_idx = Self::csv_header_index(headers, "品類代碼")
-                .or_else(|| Self::csv_header_index(headers, "分類"))
-                .unwrap_or(usize::MAX);
-            let subcat_idx = Self::csv_header_index(headers, "子類代碼").unwrap_or(usize::MAX);
-            (name_idx, spec_idx, cat_idx, subcat_idx, uom_idx, usize::MAX, usize::MAX, usize::MAX, remark_idx)
-        } else if has_sku_column {
-            (1, 2, 3, 4, 5, 6, 7, 8, 9)
-        } else {
-            let name_idx = Self::csv_header_index(headers, "名稱")
-                .or_else(|| Self::csv_header_index(headers, "品名"))
-                .unwrap_or(0);
-            let spec_idx = Self::csv_header_index(headers, "規格").unwrap_or(1);
-            let cat_idx = Self::csv_header_index(headers, "品類代碼")
-                .or_else(|| Self::csv_header_index(headers, "分類"))
-                .unwrap_or(2);
-            let subcat_idx = Self::csv_header_index(headers, "子類代碼").unwrap_or(3);
-            let uom_idx = Self::csv_header_index(headers, "單位").unwrap_or(4);
-            let batch_idx = Self::csv_header_index(headers, "追蹤批號").unwrap_or(5);
-            let expiry_idx = Self::csv_header_index(headers, "追蹤效期").unwrap_or(6);
-            let stock_idx = Self::csv_header_index(headers, "安全庫存").unwrap_or(7);
-            let remark_idx = Self::csv_header_index(headers, "備註").unwrap_or(8);
-            (name_idx, spec_idx, cat_idx, subcat_idx, uom_idx, batch_idx, expiry_idx, stock_idx, remark_idx)
-        };
-
-        let mut rows = Vec::new();
-        for (i, result) in reader.records().enumerate() {
-            let record = result.map_err(|e| AppError::Validation(format!("CSV 解析錯誤第 {} 行: {}", i + 2, e)))?;
-            if stocklist_format && record.len() <= name_idx.max(spec_idx) {
-                continue;
-            }
-            if !stocklist_format && (if has_sku_column { record.len() < 3 } else { record.len() < 2 }) {
-                continue;
-            }
-
-            let name = record.get(name_idx).unwrap_or("").to_string();
-            if name.trim().is_empty() {
-                continue;
-            }
-            let sku = if has_sku_column && !stocklist_format {
-                record.get(0).and_then(|s| {
-                    let t = s.trim();
-                    if t.is_empty() {
-                        None
-                    } else {
-                        Some(t.to_string())
-                    }
-                })
-            } else {
-                None
-            };
-            let spec = record.get(spec_idx).filter(|s| !s.trim().is_empty()).map(String::from);
-            let category_code = if cat_idx < record.len() {
-                record
-                    .get(cat_idx)
-                    .and_then(Self::map_category_display_to_code)
-            } else {
-                None
-            };
-            let subcategory_code = if subcat_idx < record.len() && subcat_idx != cat_idx {
-                record.get(subcat_idx).filter(|s| !s.trim().is_empty()).map(String::from)
-            } else {
-                None
-            };
-            let base_uom = if uom_idx < record.len() {
-                record.get(uom_idx).map(|s| s.trim().to_string()).unwrap_or_else(|| "PCS".to_string())
-            } else {
-                "PCS".to_string()
-            };
-            let base_uom = if base_uom.is_empty() { "PCS".to_string() } else { base_uom };
-            let track_batch = if batch_idx < record.len() {
-                Self::parse_bool(record.get(batch_idx).unwrap_or(""))
-            } else {
-                true
-            };
-            let track_expiry = if expiry_idx < record.len() {
-                Self::parse_bool(record.get(expiry_idx).unwrap_or(""))
-            } else {
-                true
-            };
-            let safety_stock = if stock_idx < record.len() {
-                record
-                    .get(stock_idx)
-                    .and_then(|s| s.trim().parse::<f64>().ok())
-                    .and_then(rust_decimal::Decimal::from_f64_retain)
-            } else {
-                None
-            };
-            let remark = if remark_idx < record.len() {
-                record.get(remark_idx).filter(|s| !s.trim().is_empty()).map(String::from)
-            } else {
-                None
-            };
-
-            rows.push(ProductImportRow {
-                sku,
-                name,
-                spec,
-                category_code,
-                subcategory_code,
-                base_uom,
-                track_batch,
-                track_expiry,
-                safety_stock,
-                remark,
-            });
-        }
-        Ok((rows, has_sku_column && !stocklist_format))
-    }
-
-    /// 解析產品匯入 Excel，回傳 (列資料, 是否含 SKU 欄位)
-    fn parse_product_excel(file_data: &[u8]) -> Result<(Vec<ProductImportRow>, bool)> {
-        let range = {
-            let cursor = Cursor::new(file_data);
-            if let Ok(mut wb) = open_workbook_from_rs::<Xlsx<_>, _>(cursor) {
-                let sheet_name = wb.sheet_names().first().cloned().ok_or_else(|| {
-                    AppError::Validation("Excel 檔案中沒有工作表".to_string())
-                })?;
-                wb.worksheet_range(&sheet_name)
-                    .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
-            } else {
-                let cursor = Cursor::new(file_data);
-                let mut wb = open_workbook_from_rs::<Xls<_>, _>(cursor).map_err(|_| {
-                    AppError::Validation("無法讀取 Excel 檔案，請使用 .xlsx 或 .xls 格式".to_string())
-                })?;
-                let sheet_name = wb.sheet_names().first().cloned().ok_or_else(|| {
-                    AppError::Validation("Excel 檔案中沒有工作表".to_string())
-                })?;
-                wb.worksheet_range(&sheet_name)
-                    .map_err(|e| AppError::Validation(format!("無法讀取工作表: {}", e)))?
-            }
-        };
-
-        let mut rows = Vec::new();
-        let mut iter = range.rows();
-        let header_row = iter.next().ok_or_else(|| AppError::Validation("Excel 無標題列".to_string()))?;
-        let has_sku_column = header_row.len() >= 10
-            && Self::get_cell_string(header_row.first()).trim().to_uppercase().contains("SKU");
-
-        let (name_col, spec_col, cat_col, subcat_col, uom_col, batch_col, expiry_col, stock_col, remark_col) = if has_sku_column {
-            (1, 2, 3, 4, 5, 6, 7, 8, 9)
-        } else {
-            (0, 1, 2, 3, 4, 5, 6, 7, 8)
-        };
-
-        for row in iter {
-            if row.len() < if has_sku_column { 3 } else { 2 } {
-                continue;
-            }
-            let name = Self::get_cell_string(row.get(name_col));
-            if name.trim().is_empty() {
-                continue;
-            }
-            let sku = if has_sku_column {
-                let s = Self::get_cell_string(row.first());
-                if s.trim().is_empty() {
-                    None
-                } else {
-                    Some(s.trim().to_string())
-                }
-            } else {
-                None
-            };
-            let spec = {
-                let s = Self::get_cell_string(row.get(spec_col));
-                if s.is_empty() {
-                    None
-                } else {
-                    Some(s)
-                }
-            };
-            let category_code = {
-                let s = Self::get_cell_string(row.get(cat_col));
-                if s.is_empty() {
-                    None
-                } else {
-                    Some(s)
-                }
-            };
-            let subcategory_code = {
-                let s = Self::get_cell_string(row.get(subcat_col));
-                if s.is_empty() {
-                    None
-                } else {
-                    Some(s)
-                }
-            };
-            let base_uom = Self::get_cell_string(row.get(uom_col));
-            let base_uom = if base_uom.is_empty() {
-                "PCS".to_string()
-            } else {
-                base_uom
-            };
-            let track_batch = Self::parse_bool(&Self::get_cell_string(row.get(batch_col)));
-            let track_expiry = Self::parse_bool(&Self::get_cell_string(row.get(expiry_col)));
-            let safety_stock = row.get(stock_col).and_then(|c| match c {
-                Data::Float(f) => rust_decimal::Decimal::from_f64_retain(*f),
-                Data::Int(i) => rust_decimal::Decimal::from_f64_retain(*i as f64),
-                _ => None,
-            });
-            let remark = {
-                let s = Self::get_cell_string(row.get(remark_col));
-                if s.is_empty() {
-                    None
-                } else {
-                    Some(s)
-                }
-            };
-
-            rows.push(ProductImportRow {
-                sku,
-                name,
-                spec,
-                category_code,
-                subcategory_code,
-                base_uom,
-                track_batch,
-                track_expiry,
-                safety_stock,
-                remark,
-            });
-        }
-        Ok((rows, has_sku_column))
-    }
-
-    fn get_cell_string(cell: Option<&Data>) -> String {
-        cell.map(|c| match c {
-            Data::String(s) => s.clone(),
-            Data::Float(f) => f.to_string(),
-            Data::Int(i) => i.to_string(),
-            Data::Bool(b) => b.to_string(),
-            Data::DateTime(dt) => format!("{:?}", dt),
-            _ => String::new(),
-        })
-        .unwrap_or_default()
-    }
-
-    /// 解析匯入檔中的布林欄位（追蹤批號、追蹤效期等），供 CSV/Excel 匯入與單元測試。
-    pub(crate) fn parse_bool(s: &str) -> bool {
-        let s = s.trim().to_lowercase();
-        matches!(s.as_str(), "true" | "1" | "yes" | "是" | "y")
-    }
-
-    /// 產生產品匯入模板
+    /// 產生產品匯入模板。
     pub fn generate_import_template() -> Result<Vec<u8>> {
         use rust_xlsxwriter::{Format, FormatAlign, Workbook};
 
@@ -1239,61 +821,59 @@ impl ProductService {
             .set_background_color("#4472C4")
             .set_font_color("#FFFFFF")
             .set_align(FormatAlign::Center);
-
         let worksheet = workbook.add_worksheet();
-        worksheet.set_column_width(0, 16.0)?;  // SKU編碼
-        worksheet.set_column_width(1, 25.0)?;
-        worksheet.set_column_width(2, 20.0)?;
-        worksheet.set_column_width(3, 12.0)?;
-        worksheet.set_column_width(4, 12.0)?;
-        worksheet.set_column_width(5, 10.0)?;
-        worksheet.set_column_width(6, 12.0)?;
-        worksheet.set_column_width(7, 12.0)?;
-        worksheet.set_column_width(8, 12.0)?;
-        worksheet.set_column_width(9, 30.0)?;
-
-        worksheet.write_string_with_format(0, 0, "SKU編碼", &header_format)?;
-        worksheet.write_string_with_format(0, 1, "名稱*", &header_format)?;
-        worksheet.write_string_with_format(0, 2, "規格", &header_format)?;
-        worksheet.write_string_with_format(0, 3, "品類代碼", &header_format)?;
-        worksheet.write_string_with_format(0, 4, "子類代碼", &header_format)?;
-        worksheet.write_string_with_format(0, 5, "單位*", &header_format)?;
-        worksheet.write_string_with_format(0, 6, "追蹤批號", &header_format)?;
-        worksheet.write_string_with_format(0, 7, "追蹤效期", &header_format)?;
-        worksheet.write_string_with_format(0, 8, "安全庫存", &header_format)?;
-        worksheet.write_string_with_format(0, 9, "備註", &header_format)?;
-
-        worksheet.write_string(1, 0, "DRG-OTH-001")?;
-        worksheet.write_string(1, 1, "範例產品")?;
-        worksheet.write_string(1, 2, "100ml/瓶")?;
-        worksheet.write_string(1, 3, "DRG")?;
-        worksheet.write_string(1, 4, "OTH")?;
-        worksheet.write_string(1, 5, "PCS")?;
-        worksheet.write_string(1, 6, "false")?;
-        worksheet.write_string(1, 7, "false")?;
-        worksheet.write_string(1, 8, "10")?;
-        worksheet.write_string(1, 9, "")?;
-
+        Self::write_template_headers(worksheet, &header_format)?;
+        Self::write_template_example(worksheet)?;
         worksheet.set_freeze_panes(1, 0)?;
         Ok(workbook.save_to_buffer()?)
+    }
+
+    /// 寫入模板表頭。
+    fn write_template_headers(
+        worksheet: &mut rust_xlsxwriter::Worksheet,
+        fmt: &rust_xlsxwriter::Format,
+    ) -> Result<()> {
+        let headers = [
+            (0, 16.0, "SKU編碼"),
+            (1, 25.0, "名稱*"),
+            (2, 20.0, "規格"),
+            (3, 12.0, "品類代碼"),
+            (4, 12.0, "子類代碼"),
+            (5, 10.0, "單位*"),
+            (6, 12.0, "追蹤批號"),
+            (7, 12.0, "追蹤效期"),
+            (8, 12.0, "安全庫存"),
+            (9, 30.0, "備註"),
+        ];
+        for (col, width, label) in headers {
+            worksheet.set_column_width(col, width)?;
+            worksheet.write_string_with_format(0, col, label, fmt)?;
+        }
+        Ok(())
+    }
+
+    /// 寫入模板範例列。
+    fn write_template_example(worksheet: &mut rust_xlsxwriter::Worksheet) -> Result<()> {
+        let values = [
+            "DRG-OTH-001", "範例產品", "100ml/瓶", "DRG", "OTH",
+            "PCS", "false", "false", "10", "",
+        ];
+        for (col, val) in values.iter().enumerate() {
+            worksheet.write_string(1, col as u16, *val)?;
+        }
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{format_product_sku, validate_product_status, ProductService};
+    use super::{format_product_sku, validate_product_status};
+    use crate::services::product_parser::parse_bool;
 
-    // --- format_product_sku ---
     #[test]
     fn test_format_product_sku_normal() {
-        assert_eq!(
-            format_product_sku("DRG", "OTH", 1),
-            "DRG-OTH-001"
-        );
-        assert_eq!(
-            format_product_sku("GEN", "OTH", 42),
-            "GEN-OTH-042"
-        );
+        assert_eq!(format_product_sku("DRG", "OTH", 1), "DRG-OTH-001");
+        assert_eq!(format_product_sku("GEN", "OTH", 42), "GEN-OTH-042");
     }
 
     #[test]
@@ -1307,13 +887,21 @@ mod tests {
         assert_eq!(format_product_sku("X", "Y", 1000), "X-Y-1000");
     }
 
-    // --- validate_product_status ---
     #[test]
     fn test_validate_product_status_allowed() {
         assert_eq!(validate_product_status("active").expect("valid"), "active");
-        assert_eq!(validate_product_status("inactive").expect("valid"), "inactive");
-        assert_eq!(validate_product_status("discontinued").expect("valid"), "discontinued");
-        assert_eq!(validate_product_status("  ACTIVE  ").expect("valid"), "active");
+        assert_eq!(
+            validate_product_status("inactive").expect("valid"),
+            "inactive"
+        );
+        assert_eq!(
+            validate_product_status("discontinued").expect("valid"),
+            "discontinued"
+        );
+        assert_eq!(
+            validate_product_status("  ACTIVE  ").expect("valid"),
+            "active"
+        );
     }
 
     #[test]
@@ -1331,24 +919,23 @@ mod tests {
         assert!(msg.contains("discontinued"));
     }
 
-    // --- parse_bool (ProductService) ---
     #[test]
     fn test_parse_bool_true_variants() {
-        assert!(ProductService::parse_bool("true"));
-        assert!(ProductService::parse_bool("1"));
-        assert!(ProductService::parse_bool("yes"));
-        assert!(ProductService::parse_bool("是"));
-        assert!(ProductService::parse_bool("y"));
-        assert!(ProductService::parse_bool("  YES  "));
+        assert!(parse_bool("true"));
+        assert!(parse_bool("1"));
+        assert!(parse_bool("yes"));
+        assert!(parse_bool("是"));
+        assert!(parse_bool("y"));
+        assert!(parse_bool("  YES  "));
     }
 
     #[test]
     fn test_parse_bool_false() {
-        assert!(!ProductService::parse_bool("false"));
-        assert!(!ProductService::parse_bool("0"));
-        assert!(!ProductService::parse_bool("no"));
-        assert!(!ProductService::parse_bool(""));
-        assert!(!ProductService::parse_bool("n"));
-        assert!(!ProductService::parse_bool("other"));
+        assert!(!parse_bool("false"));
+        assert!(!parse_bool("0"));
+        assert!(!parse_bool("no"));
+        assert!(!parse_bool(""));
+        assert!(!parse_bool("n"));
+        assert!(!parse_bool("other"));
     }
 }
