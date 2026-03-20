@@ -316,7 +316,7 @@
 | R11-11 | **`BloodTestTab.tsx` 拆分（811 行）** | 血檢套餐選擇、結果輸入、歷史紀錄三大功能區塊拆分為子元件，表格欄位定義提取至 constants | 前端 | 🧠 Claude | [x] |
 | R11-12 | **`DashboardPage.tsx` 拆分（805 行）** | 各儀表板區塊（動物概況、計畫進度、庫存警示、HR 餘額等）已部分提取為 Widget，仍有邏輯殘留在頁面層；提取 `useDashboardData` hook 集中 query 邏輯 | 前端 | 🧠 Claude | [x] |
 | R11-13 | **`DocumentLineEditor.tsx` 拆分 + `any` 消除（723 行 + 10 處 any）** | 元件超過 300 行；`setFormData: any`、`extraData?: any`、`newLine: any`、`prev: any`、`item: any` 等 10+ 處應改用具體型別（`DocumentFormData`、`ProductVariant`、`DocumentLine`）；商品選擇彈窗邏輯提取為子元件 | 前端 | 🧠 Claude | [x] |
-| R11-14 | **`useDocumentForm.ts` 拆分（717 行）** | 單一 hook 過長，應依關注點拆分為 `useDocumentLines`（明細管理）、`useDocumentSubmit`（送審流程）、`useDocumentValidation`（驗證邏輯） | 前端 | 🧠 Claude | [ ] |
+| R11-14 | **`useDocumentForm.ts` 拆分（717 行）** | 717→303 行，提取 `useDocumentLines`（240 行，明細行 CRUD/批號/儲位管理）、`useDocumentSubmit`（146 行，payload 建構/驗證/save/submit mutations） | 前端 | 🧠 Claude | [x] |
 
 ### 🟡 低優先（前端元件 300–600 行 & 細節問題）
 
@@ -346,8 +346,8 @@
 | 🔧 R8 代碼規範重構 | 0 |
 | 🔒 R9 安全與品質修復 | 4 |
 | 🔒 R10 程式碼審查 Medium/Low | 20 |
-| 🔧 R11 技術債掃描 | 3 |
-| **合計（未完成）** | **27** |
+| 🔧 R11 技術債掃描 | 2 |
+| **合計（未完成）** | **26** |
 
 ---
 
