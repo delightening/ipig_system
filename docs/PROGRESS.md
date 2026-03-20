@@ -180,6 +180,15 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 ---
 
+### 2026-03-20 WAF 架構調整 — 改由 Cloudflare WAF 處理，移除 ModSecurity overlay
+
+- ✅ **決策**：WAF 改由 Cloudflare WAF 處理（流量已經 Cloudflare Tunnel），不再需要本地 ModSecurity container。
+- ✅ **移除檔案**：`docker-compose.waf.yml`、`deploy/waf/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf`、`deploy/waf/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf`、`docs/security-compliance/WAF.md`。
+- ✅ **文件更新**：README、ARCHITECTURE、infrastructure、COMPOSE、deploy/README、TODO（R9-C1 標記完成、SEC-40 描述更新）、code review 文件。
+- ✅ **R9-C1 結案**：原「生產環境 WAF 改為 On」已不適用，改由 Cloudflare Dashboard 啟用 Managed Ruleset。
+
+---
+
 ### 2026-03-15 Code Review 修復與待辦整合（依據 2026_March15_code_review_1.md）
 - ✅ **文件**：README 新增「已知限制／開發模式注意事項」（Critical 1/2 擱置）；TODO 新增 R9 審查—已知漏洞擱置（R9-C1/C2）與 R10 程式碼審查 Medium/Low（20 項）。
 - ✅ **Critical 3**：生產 overlay 綁定 web port 至 127.0.0.1；COMPOSE/DEPLOYMENT 註明開發用預設、生產用 prod。

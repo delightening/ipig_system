@@ -42,7 +42,7 @@
 ### 部署與維運
 - **容器**: Docker Compose，三層網路隔離、Docker Secrets
 - **監控**: Prometheus、Grafana、Alertmanager
-- **WAF**: ModSecurity + OWASP CRS（選用 overlay）
+- **WAF**: Cloudflare WAF（流量經 Cloudflare Tunnel，由 Cloudflare Dashboard 管理）
 - **備份**: pg_dump + GPG 加密 + rsync
 
 ---
@@ -278,7 +278,6 @@ ipig_system/
 ├── scripts/                  # 備份、k6、驗證等腳本
 ├── docker-compose.yml        # 核心服務
 ├── docker-compose.prod.yml   # 生產環境覆蓋
-├── docker-compose.waf.yml    # WAF 覆蓋（選用）
 ├── docker-compose.logging.yml    # 日誌堆疊 Loki+Promtail（選用）
 ├── docker-compose.monitoring.yml # 監控堆疊 Prometheus+Grafana（選用）
 ├── docker-compose.test.yml   # CI 測試用（獨立 stack）
@@ -294,7 +293,7 @@ ipig_system/
 | 測試 | Rust 119 unit tests、API 整合測試 25+ cases、E2E 7 spec 34 tests |
 | 可觀測性 | /health、/metrics、Prometheus、Grafana Dashboard |
 | 備份 / DR | GPG 加密備份、DR Runbook |
-| 安全性 | 2FA、WAF overlay、容器掃描、Docker Secrets |
+| 安全性 | 2FA、Cloudflare WAF、容器掃描、Docker Secrets |
 | GLP 合規 | 電子簽章、GLP 驗證文件、資料保留政策 |
 | 效能基準 | k6 壓力測試、正式基準報告 |
 
@@ -302,7 +301,7 @@ ipig_system/
 
 目前為**開發模式**，以下項目擱置，上線前需處理（詳見 [docs/TODO.md](docs/TODO.md)）：
 
-- **Critical 1**：WAF 目前為 DetectionOnly（僅記錄不阻擋），生產環境須改為 `On`（見 `docker-compose.waf.yml`）。
+- **Critical 1**：~~WAF DetectionOnly~~ 已解決 — WAF 改由 Cloudflare WAF 處理，ModSecurity overlay 已移除。
 - **Critical 2**：CI 測試用密碼（JWT_SECRET、DEV_USER_PASSWORD、ADMIN_INITIAL_PASSWORD）目前寫在 `.github/workflows/ci.yml`，生產前應改為 GitHub Secrets 並輪替。
 
 ---
