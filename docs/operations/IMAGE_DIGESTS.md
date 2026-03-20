@@ -11,4 +11,4 @@
 | grafana/grafana | 10.4.0 | f9811e4e687ffecf1a43adb9b64096c50bc0d7a782f8608530f478b6542de7d5 |
 | containrrr/watchtower | latest | 6dd50763bbd632a83cb154d5451700530d1e44200b268a4e9488fefdfcf2b038 |
 
-其他（docker-compose.logging.yml、docker-compose.waf.yml）可於部署前依同法取得 digest 後補上。
+其他（docker-compose.logging.yml）可於部署前依同法取得 digest 後補上。
