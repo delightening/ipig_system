@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-03-15 (v17)
+> **最後更新：** 2026-03-20 (v18)
 > **維護慣例：** 完成項目保留於本表並標 [x]，同時於 `docs/PROGRESS.md` §9 最新變更動態 新增對應紀錄；待辦統計僅計「未完成」數量。
 > **AI 標註說明：**
 >
@@ -20,6 +20,8 @@
 
 | # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
 |---|------|------|------|----------|------|
+| P0-R12-1 | **CI 自動觸發恢復** | `.github/workflows/ci.yml` 的 `push`/`pull_request` 觸發被註解，CI 僅能手動觸發；至少恢復 `pull_request` 觸發並限定 `main` 分支 | DevOps | 🧠 Claude | [ ] |
+| P0-R12-2 | **SQL 字串拼接殘留修復** | `services/protocol/core.rs:139` 與 `services/data_import.rs:321-336` 仍有 `format!()` 拼接 SQL，應改為參數化查詢 | 後端 | 🧠 Claude | [ ] |
 
 ---
 
@@ -327,6 +329,19 @@
 | R11-17 | **剩餘 `any` 型別消除** | `WarehouseActionHeader.tsx:96/116/139` 的 `onError: (error: any)` 改用 `AxiosError`；`StorageLocationEditor.tsx:101` 的 `newLayout: any[]` 改用具體型別；`DocumentEditPage.tsx:102/322` 的 `as any[]` 改用 `Document[]` | 前端 | ⚡ Flash | [x] |
 | R11-18 | **後端中長函數清理（50–100 行）** | `services/auth.rs`：`change_own_password`（66 行）、`reset_password_with_token`（57 行）、`refresh_token`（55 行）、`generate_access_token`（51 行）——提取 token 生成邏輯、密碼驗證流程為子函式 | 後端 | 🧠 Claude | [x] |
 | R11-21 | **前端 54 處 try-catch 改為 TanStack Query 全域錯誤處理** | 掃描確認 54 個手動 try-catch 區塊（應使用 TanStack Query `onError` 全域機制）；主要集中於 `auth/LoginPage.tsx`、`admin/hooks/useUserManagement.ts`、`components/protocol/ProtocolContentView.tsx` 等；應統一為 `toast.error(getApiErrorMessage(error))` + QueryClient 全域 onError 模式，禁止裸 try-catch | 前端 | 🧠 Claude | [ ] |
+| R11-22 | **源碼 TODO 註解清理** | `services/document/stocktake.rs:81`（按類別篩選待實作）、`pages/my-projects/MyProjectDetailPage.tsx:127`（取得動物紀錄待實作）；評估是否實作或移除 | 全端 | 🧠 Claude | [ ] |
+
+---
+
+## 🟢 R12 — 長期演進項目（已評估未排程，2026-03-20）
+
+> 來源：各評估文件與安全審查建議。視業務需求排程。
+
+| # | 項目 | 說明 | 來源 | 狀態 |
+|---|------|------|------|------|
+| R12-1 | **Dependabot Phase 2.5 升級** | printpdf 0.9、utoipa 5、axum-extra 0.12、tailwind-merge 3 升級實作 | `docs/assessments/R6-5_DEPENDABOT_PHASE25_ASSESSMENT.md` | [ ] |
+| R12-2 | **財務模組 Phase 2–5 實作** | AP/AR/GL 後續階段：ap_payments、ar_receipts、trial-balance 等 | `docs/assessments/R6-4_FINANCE_PHASE2_5_ASSESSMENT.md` | [ ] |
+| R12-3 | **圖片處理獨立服務** | 若需處理使用者上傳圖片，建立獨立微服務隔離攻擊面 | `docs/security-compliance/security.md` | [ ] |
 
 ---
 
@@ -334,7 +349,7 @@
 
 | 優先級 | 數量 (未完成) |
 |--------|------|
-| 🚨 P0 上線前必要 | 0 |
+| 🚨 P0 上線前必要 | 2 |
 | 🟡 P1 上線前建議 | 0 |
 | 🔴 P2 中優先 | 0 |
 | 🔵 P3 低優先 | 0 |
@@ -346,13 +361,15 @@
 | 🔧 R8 代碼規範重構 | 0 |
 | 🔒 R9 安全與品質修復 | 3 |
 | 🔒 R10 程式碼審查 Medium/Low | 20 |
-| 🔧 R11 技術債掃描 | 2 |
-| **合計（未完成）** | **25** |
+| 🔧 R11 技術債掃描 | 3 |
+| 🟢 R12 長期演進項目 | 3 |
+| **合計（未完成）** | **31** |
 
 ---
 
 ## 變更紀錄 (最新)
 
+| 2026-03-20 | 🧠 Claude：未追蹤項目納入 TODO — P0-R12-1 CI 自動觸發恢復、P0-R12-2 SQL 字串拼接殘留修復、R11-22 源碼 TODO 註解清理、R12-1/R12-2/R12-3 長期演進項目（Dependabot 2.5 升級/財務模組 Phase 2–5/圖片處理獨立服務）。待辦統計 25→31。 |
 | 2026-03-15 | 🧠 Claude：R9 安全與品質修復 — R9-1 IDOR 漏洞修復（`download_attachment`/`list_attachments` 加入 entity_type 權限檢查）、R9-2 上傳 handler 去重（抽取 `handle_upload()` 通用函式，606→420 行）、R9-3 DB 錯誤碼修正（23505→409、23503/23502/23514→400）。R9-4 歡迎信安全改善、R9-5 ERP/HR 整合測試待後續排程。 |
 | 2026-03-15 | 🧠 Claude：Git 歷史紀錄深度清理 — 徹底移除被誤傳進 Git 的 `.venv` 目錄（體積過大）與 `old_ipig.dump`（敏感資料）。使用 `git-filter-repo` 重寫倉庫歷史，移除檔案足跡並減小倉庫體積。更新 `.gitignore` 確保未來不再追蹤。 |
 | 2026-03-15 | 🧠 Claude：單據頁面標題顯示優化 — 修正「建立新的undefined」問題。當類型未定時顯示「建立新的單據」。優化「新增/編輯」描述文字。 |

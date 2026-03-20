@@ -75,7 +75,7 @@ pub async fn create_user(
 
     tokio::spawn(async move {
         if let Some((_, token)) = reset_result {
-            if let Err(e) = EmailService::send_welcome_email_with_reset_link(&config, &email, &display_name, &token).await {
+            if let Err(e) = EmailService::send_welcome_email(&config, &email, &display_name, &token).await {
                 tracing::error!("Failed to send welcome email to {}: {}", email, e);
             }
         } else {
