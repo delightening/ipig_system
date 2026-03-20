@@ -79,7 +79,7 @@
 | 6 | [HR 人事管理系統](#6-hr-人事管理系統) | 特休、考勤、Google Calendar |
 | 7 | [資料庫 Schema 完成度](#7-資料庫-schema-完成度) | Migration 清單 |
 | 8 | [版本規劃](#8-版本規劃) | v1.0 / v1.1 里程碑 |
-| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-20 R11-9 AccountingReportPage 拆分（838→75 行） |
+| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-20 R11-7 ProductImportDialog 拆分（863→193 行） |
 
 ---
 
@@ -1335,6 +1335,11 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 
 - ✅ **安全強化**：隱藏原始 DB 錯誤。
 - ✅ **前端錯誤導引**：優化 `getApiErrorMessage` 處理逾時與網路異常。
+
+### 2026-03-20 R11-7 ProductImportDialog.tsx 拆分（863→193 行）
+
+- ✅ **元件拆分**：將 `ProductImportDialog.tsx`（863 行）拆為 4 個子元件 + 1 個 Hook + 1 個型別檔：`SkuPreviewTable`（174 行）、`DuplicateWarning`（75 行）、`ImportResultSummary`（59 行）、`NoSkuColumnPrompt`（53 行）、`useProductImport`（292 行）、`importTypes.ts`（92 行）。
+- ✅ **主元件精簡**：主元件從 863 行降至 193 行，僅負責 Dialog 外殼、子元件組裝與 hook 調用。所有檔案均在 300 行上限內。
 
 ### 2026-03-20 R11-6 ProtocolContentView.tsx 拆分（954→176 行）
 
