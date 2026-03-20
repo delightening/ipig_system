@@ -83,7 +83,7 @@
 | 13 | **前端元件庫文件化** | Storybook 10 建置，15 個 Stories（Button/Badge/Card/Checkbox/Input/Skeleton/Switch + Select/Dialog/Slider/Tabs/AlertDialog/FormField/LoadingOverlay/Textarea） | 前端 | ⚡ Flash | [x] |
 | 14 | **前端超長頁面重構** | 漸進式重構巨型組件。**AnimalDetailPage 1,945→748 行（-61%），抽離 7 個 Tab 元件。ProtocolDetailPage 1,929→647 行（-66%），抽離 6 個 Tab 元件（VersionsTab/HistoryTab/CommentsTab/ReviewersTab/CoEditorsTab/AttachmentsTab）。** | 前端 | 🧠 Claude | [x] |
 | 15 | **SEC-39：Two-Factor Authentication** | TOTP 2FA 全端實作：後端 `totp-rs` + DB migration + 4 個 API（setup/confirm/disable/verify）+ 登入流程 2FA 檢查 + 備用碼；前端 QR Code 設定 + TOTP 登入驗證 + Profile 頁 2FA 管理 | 前後端 | 🧠 Claude | [x] |
-| 16 | **SEC-40：Web Application Firewall** | `docker-compose.waf.yml` overlay 部署 OWASP ModSecurity CRS v4，含 iPig 自訂排除規則（JSON/密碼/上傳/富文本）+ WAF 文件 | DevOps | ⚡ Flash | [x] |
+| 16 | **SEC-40：Web Application Firewall** | WAF 改由 Cloudflare WAF 處理（流量經 Cloudflare Tunnel），已移除 `docker-compose.waf.yml` ModSecurity overlay | DevOps | ⚡ Flash | [x] |
 | P5-43 | **ARIA 無障礙標籤** | 12 個檔案新增 23 個 `aria-label`（編輯/刪除/檢視/關閉/導航按鈕） | 前端 | 🧠 Claude | [x] |
 | P5-44 | **表單即時驗證回饋** | Input/Textarea 新增 `error` prop 紅框樣式，`FormField` 通用元件含 label + 錯誤訊息 | 前端 | 🧠 Claude | [x] |
 | P5-45 | **磁碟空間監控告警** | `scripts/monitor/check_disk_space.sh` 含 uploads 大小 + 磁碟使用率檢查 + Prometheus textfile 輸出 | DevOps | 🧠 Claude | [x] |
@@ -241,7 +241,7 @@
 
 | # | 項目 | 說明 | 狀態 |
 |---|------|------|------|
-| R9-C1 | **生產環境 WAF 改為 On** | `docker-compose.waf.yml` 目前 DetectionOnly，生產須改為 `On` | [ ] |
+| R9-C1 | ~~生產環境 WAF 改為 On~~ | WAF 改由 Cloudflare WAF 處理，ModSecurity overlay 已移除 | [x] |
 | R9-C2 | **CI 密碼改 GitHub Secrets** | `.github/workflows/ci.yml` 中 JWT_SECRET、DEV_USER_PASSWORD、ADMIN_INITIAL_PASSWORD 改為 GitHub Secrets 並輪替 | [ ] |
 
 ---
@@ -344,10 +344,10 @@
 | 🟠 R6 第六輪改善 | 0 |
 | 🔒 R7 安全審視 | 0 |
 | 🔧 R8 代碼規範重構 | 0 |
-| 🔒 R9 安全與品質修復 | 4 |
+| 🔒 R9 安全與品質修復 | 3 |
 | 🔒 R10 程式碼審查 Medium/Low | 20 |
 | 🔧 R11 技術債掃描 | 2 |
-| **合計（未完成）** | **26** |
+| **合計（未完成）** | **25** |
 
 ---
 
