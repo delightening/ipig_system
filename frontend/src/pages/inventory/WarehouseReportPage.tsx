@@ -1,11 +1,12 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 
 import api, { WarehouseReportData, StorageLocationWithInventory } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2, Printer, Download, ArrowLeft } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 
 const STRUCTURE_TYPES = ['wall', 'door', 'window']
 
@@ -26,8 +27,8 @@ export function WarehouseReportPage() {
         window.print()
     }
 
-    const handleDownloadPdf = async () => {
-        try {
+    const downloadPdfMutation = useMutation({
+        mutationFn: async () => {
             const res = await api.get(`/warehouses/${warehouseId}/report/pdf`, {
                 responseType: 'blob',
             })
@@ -39,10 +40,15 @@ export function WarehouseReportPage() {
             link.click()
             link.remove()
             window.URL.revokeObjectURL(url)
-        } catch {
-            toast({ title: '錯誤', description: 'PDF 下載失敗', variant: 'destructive' })
-        }
-    }
+        },
+        onError: (error: unknown) => {
+            toast({
+                title: '錯誤',
+                description: getApiErrorMessage(error, 'PDF 下載失敗'),
+                variant: 'destructive',
+            })
+        },
+    })
 
     if (isLoading) {
         return (
@@ -74,7 +80,7 @@ export function WarehouseReportPage() {
                     <Printer className="mr-2 h-4 w-4" />
                     列印
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleDownloadPdf}>
+                <Button variant="outline" size="sm" onClick={() => downloadPdfMutation.mutate()} disabled={downloadPdfMutation.isPending}>
                     <Download className="mr-2 h-4 w-4" />
                     下載 PDF
                 </Button>

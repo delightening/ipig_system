@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { formatNumber } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -44,7 +44,6 @@ function CreateArReceiptDialog({
   const [amount, setAmount] = useState('')
   const [receiptDate, setReceiptDate] = useState(asOfDate)
   const [reference, setReference] = useState('')
-  const [submitting, setSubmitting] = useState(false)
   const queryClient = useQueryClient()
 
   const { data: partners } = useQuery<Partner[]>({
@@ -56,7 +55,27 @@ function CreateArReceiptDialog({
     enabled: open,
   })
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const createReceiptMutation = useMutation({
+    mutationFn: (payload: { partner_id: string; receipt_date: string; amount: number; reference?: string }) =>
+      api.post('/accounting/ar-receipts', payload),
+    onSuccess: () => {
+      toast({ title: '收款已建立' })
+      setOpen(false)
+      setPartnerId('')
+      setAmount('')
+      setReference('')
+      queryClient.invalidateQueries({ queryKey: ['accounting-ar-aging'] })
+      queryClient.invalidateQueries({ queryKey: ['accounting-trial-balance'] })
+      queryClient.invalidateQueries({ queryKey: ['accounting-journal-entries'] })
+      onSuccess()
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || '建立失敗'
+      toast({ title: msg, variant: 'destructive' })
+    },
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!partnerId || !amount || !receiptDate) {
       toast({ title: '請填寫必填欄位', variant: 'destructive' })
@@ -67,29 +86,12 @@ function CreateArReceiptDialog({
       toast({ title: '請輸入有效金額', variant: 'destructive' })
       return
     }
-    setSubmitting(true)
-    try {
-      await api.post('/accounting/ar-receipts', {
-        partner_id: partnerId,
-        receipt_date: receiptDate,
-        amount: amt,
-        reference: reference || undefined,
-      })
-      toast({ title: '收款已建立' })
-      setOpen(false)
-      setPartnerId('')
-      setAmount('')
-      setReference('')
-      queryClient.invalidateQueries({ queryKey: ['accounting-ar-aging'] })
-      queryClient.invalidateQueries({ queryKey: ['accounting-trial-balance'] })
-      queryClient.invalidateQueries({ queryKey: ['accounting-journal-entries'] })
-      onSuccess()
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || '建立失敗'
-      toast({ title: msg, variant: 'destructive' })
-    } finally {
-      setSubmitting(false)
-    }
+    createReceiptMutation.mutate({
+      partner_id: partnerId,
+      receipt_date: receiptDate,
+      amount: amt,
+      reference: reference || undefined,
+    })
   }
 
   return (
@@ -151,8 +153,8 @@ function CreateArReceiptDialog({
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               取消
             </Button>
-            <Button type="submit" disabled={submitting}>
-              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" disabled={createReceiptMutation.isPending}>
+              {createReceiptMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               建立
             </Button>
           </DialogFooter>

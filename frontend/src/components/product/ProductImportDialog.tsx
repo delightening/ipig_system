@@ -29,7 +29,7 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
     generateSkuMutation, checkMutation, previewMutation, importMutation,
     showNoSkuPrompt, showDuplicateWarning,
     handleFileInputChange, handleImport, handleClose, handleConfirmImportWithSku,
-    handleDownloadTemplate, resetPreviewState, doImport,
+    downloadTemplateMutation, resetPreviewState, doImport,
   } = useProductImport(open)
 
   const closeDialog = () => handleClose(onOpenChange)
@@ -58,7 +58,8 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
               variant="outline"
               size="sm"
               className="border-blue-300 text-blue-700 hover:bg-blue-100"
-              onClick={handleDownloadTemplate}
+              onClick={() => downloadTemplateMutation.mutate()}
+              disabled={downloadTemplateMutation.isPending}
             >
               <Download className="h-4 w-4 mr-1" />
               下載範本 (XLSX)
@@ -105,7 +106,7 @@ export function ProductImportDialog({ open, onOpenChange }: Props) {
                 }
               }}
               onDownloadTemplate={() => {
-                handleDownloadTemplate()
+                downloadTemplateMutation.mutate()
               }}
             />
           )}

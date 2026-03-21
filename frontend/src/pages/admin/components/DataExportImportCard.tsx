@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { Download, Upload, Loader2, AlertCircle } from 'lucide-react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -31,17 +31,13 @@ export function DataExportImportCard({ canExport, canImport }: DataExportImportC
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const [exporting, setExporting] = useState(false)
-  const [importing, setImporting] = useState(false)
   const [includeAudit, setIncludeAudit] = useState(false)
   const [exportAsZip, setExportAsZip] = useState(false)
   const [importResultOpen, setImportResultOpen] = useState(false)
   const [lastImportResult, setLastImportResult] = useState<ImportResult | null>(null)
 
-  const handleFullExport = async () => {
-    if (!canExport) return
-    setExporting(true)
-    try {
+  const exportMutation = useMutation({
+    mutationFn: async () => {
       const res = await api.get<Blob>('/admin/data-export', {
         params: { include_audit: includeAudit, format: exportAsZip ? 'zip' : 'json' },
         responseType: 'blob',
@@ -59,24 +55,22 @@ export function DataExportImportCard({ canExport, canImport }: DataExportImportC
         : `ipig_export_${new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '_')}.${exportAsZip ? 'zip' : 'json'}`
       a.click()
       URL.revokeObjectURL(url)
+    },
+    onSuccess: () => {
       toast({ title: '匯出成功', description: '全庫資料已下載' })
-    } catch (err) {
+    },
+    onError: (err) => {
       toast({ title: '匯出失敗', description: getErrorMessage(err) || '請稍後再試', variant: 'destructive' })
-    } finally {
-      setExporting(false)
-    }
+    },
+  })
+
+  const handleFullExport = () => {
+    if (!canExport) return
+    exportMutation.mutate()
   }
 
-  const handleFullImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!canImport || !e.target.files?.[0]) return
-    const file = e.target.files[0]
-    if (!file.name.endsWith('.json') && !file.name.endsWith('.zip')) {
-      toast({ title: '請選擇 .json 或 .zip 檔', variant: 'destructive' })
-      e.target.value = ''
-      return
-    }
-    setImporting(true)
-    try {
+  const importMutation = useMutation({
+    mutationFn: async (file: File) => {
       const fd = new FormData()
       fd.append('file', file)
       const res = await api.post<{
@@ -86,7 +80,9 @@ export function DataExportImportCard({ canExport, canImport }: DataExportImportC
         errors: string[]
         skipped_details: { table: string; reason: string; count?: number }[]
       }>('/admin/data-import', fd)
-      const d = res.data
+      return res.data
+    },
+    onSuccess: async (d) => {
       const msg = d.errors.length > 0
         ? `${d.tables_processed} 表處理，${d.rows_inserted} 筆新增，${d.rows_skipped} 筆略過；${d.errors.length} 個錯誤`
         : `${d.tables_processed} 表處理，${d.rows_inserted} 筆新增，${d.rows_skipped} 筆略過`
@@ -103,12 +99,24 @@ export function DataExportImportCard({ canExport, canImport }: DataExportImportC
       await queryClient.refetchQueries({ queryKey: ['notification-settings'] })
       await queryClient.refetchQueries({ queryKey: ['warehouses-list'] })
       if (fileInputRef.current) fileInputRef.current.value = ''
-    } catch (err) {
+    },
+    onError: (err) => {
       toast({ title: '匯入失敗', description: getErrorMessage(err) || '請稍後再試', variant: 'destructive' })
-    } finally {
-      setImporting(false)
+    },
+    onSettled: () => {
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    },
+  })
+
+  const handleFullImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!canImport || !e.target.files?.[0]) return
+    const file = e.target.files[0]
+    if (!file.name.endsWith('.json') && !file.name.endsWith('.zip')) {
+      toast({ title: '請選擇 .json 或 .zip 檔', variant: 'destructive' })
       e.target.value = ''
+      return
     }
+    importMutation.mutate(file)
   }
 
   return (
@@ -140,8 +148,8 @@ export function DataExportImportCard({ canExport, canImport }: DataExportImportC
                   </Label>
                 </div>
               </div>
-              <Button variant="outline" onClick={handleFullExport} disabled={exporting}>
-                {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+              <Button variant="outline" onClick={handleFullExport} disabled={exportMutation.isPending}>
+                {exportMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                 一鍵匯出全庫
               </Button>
             </>
@@ -155,10 +163,10 @@ export function DataExportImportCard({ canExport, canImport }: DataExportImportC
                 className="hidden"
                 aria-label="選擇 IDXF JSON 檔案"
                 onChange={handleFullImport}
-                disabled={importing}
+                disabled={importMutation.isPending}
               />
-              <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importing}>
-                {importing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+              <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importMutation.isPending}>
+                {importMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
                 上傳 IDXF 匯入
               </Button>
               <span className="text-xs text-muted-foreground">

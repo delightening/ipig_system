@@ -1,4 +1,5 @@
 import React from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import api, { AnimalListItem } from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
@@ -13,13 +14,10 @@ interface AnimalPenReportProps {
 export const AnimalPenReport: React.FC<AnimalPenReportProps> = ({ data, onClose }) => {
     const { t } = useTranslation()
     const [docId, setDocId] = React.useState('AD-05-01-02C')
-    const [isExporting, setIsExporting] = React.useState(false)
     const animalsByPen = new Map(data.map(item => [item.pen_location, item.animals]))
 
-    const handleExportPDF = async () => {
-        if (isExporting) return
-        try {
-            setIsExporting(true)
+    const exportPDFMutation = useMutation({
+        mutationFn: async () => {
             const response = await api.get('/animals/export-pen-report', { responseType: 'blob', _silentError: true })
             const blob = new Blob([response.data], { type: 'application/pdf' })
             const url = window.URL.createObjectURL(blob)
@@ -31,12 +29,11 @@ export const AnimalPenReport: React.FC<AnimalPenReportProps> = ({ data, onClose 
             a.click()
             window.URL.revokeObjectURL(url)
             document.body.removeChild(a)
-        } catch {
+        },
+        onError: () => {
             toast({ title: t('common.exportFailed'), variant: 'destructive' })
-        } finally {
-            setIsExporting(false)
-        }
-    }
+        },
+    })
 
     const getStatusCircle = (penAnimals: AnimalListItemExtended[]) => {
         const isAssigned = penAnimals.some(p => p.status === 'in_experiment')
@@ -159,8 +156,8 @@ export const AnimalPenReport: React.FC<AnimalPenReportProps> = ({ data, onClose 
                 {/* Controls */}
                 <div className="mt-8 flex justify-center gap-4 print:hidden">
                     <button onClick={onClose} className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-bold">關閉</button>
-                    <button onClick={handleExportPDF} disabled={isExporting} className="px-8 py-2 bg-purple-600 text-white rounded-lg hover:opacity-80 font-bold disabled:opacity-50">
-                        {isExporting ? '匯出中...' : '匯出 PDF'}
+                    <button onClick={() => exportPDFMutation.mutate()} disabled={exportPDFMutation.isPending} className="px-8 py-2 bg-purple-600 text-white rounded-lg hover:opacity-80 font-bold disabled:opacity-50">
+                        {exportPDFMutation.isPending ? '匯出中...' : '匯出 PDF'}
                     </button>
                     <button onClick={() => window.print()} className="px-8 py-2 bg-black text-white rounded-lg hover:opacity-80 font-bold">列印表單</button>
                 </div>

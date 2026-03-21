@@ -141,9 +141,9 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
         setShowFormDialog(true)
     }
 
-    const openEditForm = async (id: string) => {
-        try {
-            const res = await bloodTestApi.getById(id)
+    const loadEditDataMutation = useMutation({
+        mutationFn: (id: string) => bloodTestApi.getById(id),
+        onSuccess: (res, id) => {
             const detail = res.data
             setFormData({
                 test_date: detail.blood_test.test_date,
@@ -170,9 +170,14 @@ export function BloodTestTab({ animalId, afterParam = '' }: BloodTestTabProps) {
             }
             setEditingId(id)
             setShowFormDialog(true)
-        } catch {
+        },
+        onError: () => {
             toast({ title: '錯誤', description: '載入資料失敗', variant: 'destructive' })
-        }
+        },
+    })
+
+    const openEditForm = (id: string) => {
+        loadEditDataMutation.mutate(id)
     }
 
     const handleSubmit = () => {

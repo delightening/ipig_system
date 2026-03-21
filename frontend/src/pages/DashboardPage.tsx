@@ -131,18 +131,23 @@ export function DashboardPage() {
     }
   }
 
-  const handleResetLayout = async () => {
-    try {
-      await deleteResource('/me/preferences/dashboard_widgets')
+  const resetLayoutMutation = useMutation({
+    mutationFn: () => deleteResource('/me/preferences/dashboard_widgets'),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-preferences', 'dashboard_widgets'] })
       setShowSettingsDialog(false)
       setIsEditMode(false)
       setHasUnsavedChanges(false)
       setPendingLayout(null)
       toast({ title: '成功', description: '佈局已重設為預設值' })
-    } catch {
+    },
+    onError: () => {
       toast({ title: '錯誤', description: '重設失敗', variant: 'destructive' })
-    }
+    },
+  })
+
+  const handleResetLayout = () => {
+    resetLayoutMutation.mutate()
   }
 
   const handleSaveSettings = (layout: WidgetLayoutItem[]) => {

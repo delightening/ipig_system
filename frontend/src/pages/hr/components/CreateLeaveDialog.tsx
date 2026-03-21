@@ -1,3 +1,4 @@
+import { useMutation } from '@tanstack/react-query'
 import { Clock, ImagePlus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -48,12 +49,8 @@ export function CreateLeaveDialog({
 }: CreateLeaveDialogProps) {
     const isAnnualLeave = leaveForm.isAnnualLeave
 
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = e.target.files
-        if (!files || files.length === 0) return
-
-        leaveForm.setUploadingImage(true)
-        try {
+    const uploadMutation = useMutation({
+        mutationFn: async (files: FileList) => {
             const formData = new FormData()
             for (let i = 0; i < files.length; i++) {
                 formData.append('files', files[i])
@@ -61,15 +58,26 @@ export function CreateLeaveDialog({
             const res = await api.post<{ id: string; file_path: string }[]>('/hr/leaves/attachments', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             })
-            const newUrls = res.data.map(r => `/api/uploads/${r.file_path}`)
+            return res.data
+        },
+        onSuccess: (data) => {
+            const newUrls = data.map(r => `/api/uploads/${r.file_path}`)
             leaveForm.addSupportingImages(newUrls)
             toast({ title: '成功', description: '圖片已上傳' })
-        } catch {
+        },
+        onError: () => {
             toast({ title: '錯誤', description: '圖片上傳失敗', variant: 'destructive' })
-        } finally {
-            leaveForm.setUploadingImage(false)
-            e.target.value = ''
-        }
+        },
+    })
+
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files
+        if (!files || files.length === 0) return
+        uploadMutation.mutate(files, {
+            onSettled: () => {
+                e.target.value = ''
+            },
+        })
     }
 
     return (
@@ -192,9 +200,9 @@ export function CreateLeaveDialog({
                                     multiple
                                     className="hidden"
                                     onChange={handleImageUpload}
-                                    disabled={leaveForm.uploadingImage}
+                                    disabled={uploadMutation.isPending}
                                 />
-                                {leaveForm.uploadingImage ? (
+                                {uploadMutation.isPending ? (
                                     <Clock className="h-5 w-5 animate-spin text-muted-foreground" />
                                 ) : (
                                     <ImagePlus className="h-5 w-5 text-muted-foreground" />

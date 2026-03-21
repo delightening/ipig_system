@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { useDialogSet } from '@/hooks/useDialogSet'
 import { QRCodeSVG } from 'qrcode.react'
 import api from '@/lib/api'
@@ -26,45 +27,44 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
   const [verifyCode, setVerifyCode] = useState('')
   const [disablePassword, setDisablePassword] = useState('')
   const [disableCode, setDisableCode] = useState('')
-  const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [step, setStep] = useState<'qr' | 'backup'>('qr')
 
-  const startSetup = async () => {
-    setLoading(true)
-    try {
-      const res = await api.post<TwoFactorSetupResponse>('/auth/2fa/setup')
+  const startSetupMutation = useMutation({
+    mutationFn: () => api.post<TwoFactorSetupResponse>('/auth/2fa/setup'),
+    onSuccess: (res) => {
       setSetupData(res.data)
       dialogs.open('setup')
       setStep('qr')
       setVerifyCode('')
-    } catch (error: unknown) {
+    },
+    onError: (error: unknown) => {
       toast({
         title: '啟用失敗',
         description: getErrorMessage(error) || '無法產生 2FA 設定',
         variant: 'destructive',
       })
-    } finally {
-      setLoading(false)
-    }
-  }
+    },
+  })
 
-  const confirmSetup = async () => {
-    if (verifyCode.length < 6) return
-    setLoading(true)
-    try {
-      await api.post('/auth/2fa/confirm', { code: verifyCode })
+  const confirmSetupMutation = useMutation({
+    mutationFn: () => api.post('/auth/2fa/confirm', { code: verifyCode }),
+    onSuccess: () => {
       toast({ title: '2FA 已啟用', description: '您的帳號已受兩步驟驗證保護' })
       setStep('backup')
-    } catch (error: unknown) {
+    },
+    onError: (error: unknown) => {
       toast({
         title: '驗證失敗',
         description: getErrorMessage(error) || '驗證碼錯誤，請重試',
         variant: 'destructive',
       })
-    } finally {
-      setLoading(false)
-    }
+    },
+  })
+
+  const confirmSetup = () => {
+    if (verifyCode.length < 6) return
+    confirmSetupMutation.mutate()
   }
 
   const finishSetup = () => {
@@ -73,26 +73,30 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
     onStatusChange()
   }
 
-  const disableTwoFactor = async () => {
-    if (!disablePassword || disableCode.length < 6) return
-    setLoading(true)
-    try {
-      await api.post('/auth/2fa/disable', { password: disablePassword, code: disableCode })
+  const disableMutation = useMutation({
+    mutationFn: () => api.post('/auth/2fa/disable', { password: disablePassword, code: disableCode }),
+    onSuccess: () => {
       toast({ title: '2FA 已停用' })
       dialogs.close('disable')
       setDisablePassword('')
       setDisableCode('')
       onStatusChange()
-    } catch (error: unknown) {
+    },
+    onError: (error: unknown) => {
       toast({
         title: '停用失敗',
         description: getErrorMessage(error) || '密碼或驗證碼錯誤',
         variant: 'destructive',
       })
-    } finally {
-      setLoading(false)
-    }
+    },
+  })
+
+  const disableTwoFactor = () => {
+    if (!disablePassword || disableCode.length < 6) return
+    disableMutation.mutate()
   }
+
+  const loading = startSetupMutation.isPending || confirmSetupMutation.isPending || disableMutation.isPending
 
   const copyBackupCodes = () => {
     if (!setupData) return
@@ -130,7 +134,7 @@ export function TwoFactorSetup({ totpEnabled, onStatusChange }: Props) {
                 <ShieldOff className="mr-2 h-4 w-4" />停用 2FA
               </Button>
             ) : (
-              <Button size="sm" onClick={startSetup} disabled={loading}>
+              <Button size="sm" onClick={() => startSetupMutation.mutate()} disabled={loading}>
                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
                 啟用 2FA
               </Button>
