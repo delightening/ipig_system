@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import api from '@/lib/api'
 import { STALE_TIME } from '@/lib/query'
-import type { AnimalListItem, AnimalSource } from '@/types/animal'
+import type { AnimalListItem, AnimalSource, AnimalStatsResponse } from '@/types/animal'
 import type { PaginatedResponse } from '@/types/common'
 
 interface QueryOptions {
@@ -15,15 +15,13 @@ interface QueryOptions {
 }
 
 export function useAnimalsQueries({ statusFilter, breedFilter, appliedSearch, page, perPage }: QueryOptions) {
-  const { data: allAnimalsResp } = useQuery({
-    queryKey: ['animals-count'],
+  const { data: statsData } = useQuery({
+    queryKey: ['animals-stats'],
     queryFn: async () => {
-      const res = await api.get<PaginatedResponse<AnimalListItem>>('/animals')
+      const res = await api.get<AnimalStatsResponse>('/animals/stats')
       return res.data
     },
-    staleTime: STALE_TIME.LIST,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
+    staleTime: STALE_TIME.REFERENCE,
   })
 
   const { data: animalsResp, isLoading } = useQuery({
@@ -39,8 +37,6 @@ export function useAnimalsQueries({ statusFilter, breedFilter, appliedSearch, pa
       return res.data
     },
     staleTime: STALE_TIME.LIST,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
   })
 
   const { data: sourcesData } = useQuery({
@@ -61,11 +57,9 @@ export function useAnimalsQueries({ statusFilter, breedFilter, appliedSearch, pa
     enabled: statusFilter === 'pen',
     staleTime: STALE_TIME.REALTIME,
     refetchOnWindowFocus: true,
-    refetchOnMount: true,
   })
 
   const animals = animalsResp?.data ?? []
-  const allAnimals = allAnimalsResp?.data ?? []
   const totalPages = animalsResp?.total_pages ?? 1
   const totalAnimals = animalsResp?.total ?? 0
 
@@ -94,17 +88,13 @@ export function useAnimalsQueries({ statusFilter, breedFilter, appliedSearch, pa
     [statusFilter, penViewGroupedData]
   )
 
-  const statusCounts = allAnimals.reduce((acc, animal) => {
-    acc[animal.status] = (acc[animal.status] || 0) + 1
-    return acc
-  }, {} as Record<string, number>)
-
-  const penAnimalsCount = allAnimals.filter(
-    (a) => a.pen_location != null && String(a.pen_location).trim() !== ''
-  ).length
+  const statusCounts = statsData?.status_counts ?? {}
+  const penAnimalsCount = statsData?.pen_animals_count ?? 0
+  const allAnimalsCount = statsData?.total ?? 0
 
   return {
-    animals, allAnimals, sourcesData, groupedData, isLoading, groupedLoading,
-    totalPages, totalAnimals, penViewGroupedData, penViewAnimals, statusCounts, penAnimalsCount,
+    animals, sourcesData, groupedData, isLoading, groupedLoading,
+    totalPages, totalAnimals, penViewGroupedData, penViewAnimals,
+    statusCounts, penAnimalsCount, allAnimalsCount,
   }
 }

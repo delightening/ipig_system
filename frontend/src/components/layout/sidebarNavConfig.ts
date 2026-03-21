@@ -1,0 +1,130 @@
+import {
+  LayoutDashboard,
+  Package,
+  Settings,
+  FileText,
+  FolderOpen,
+  Users,
+  Stethoscope,
+  ClipboardCheck,
+} from 'lucide-react'
+import { createElement } from 'react'
+
+export interface NavItem {
+  title: string
+  href?: string
+  icon: React.ReactNode
+  children?: NavChildItem[]
+  permission?: string
+  badge?: number
+  translate?: boolean
+}
+
+export interface NavChildItem {
+  title: string
+  href: string
+  permission?: string
+  translate?: boolean
+}
+
+const icon = (Icon: React.ComponentType<{ className?: string }>) =>
+  createElement(Icon, { className: 'h-6 w-6' })
+
+export const DEFAULT_NAV_ORDER = [
+  'dashboard',
+  'QAU 品質保證',
+  'myProjects',
+  'aupReview',
+  'animalManagement',
+  '人員管理',
+  'ERP',
+  '系統管理',
+]
+
+export const navItemsConfig: NavItem[] = [
+  {
+    title: 'dashboard',
+    href: '/dashboard',
+    icon: icon(LayoutDashboard),
+    permission: 'dashboard.view',
+    translate: true,
+  },
+  {
+    title: 'QAU 品質保證',
+    href: '/admin/qau',
+    icon: icon(ClipboardCheck),
+    permission: 'qau.dashboard.view',
+    translate: false,
+  },
+  {
+    title: 'myProjects',
+    href: '/my-projects',
+    icon: icon(FolderOpen),
+    translate: true,
+  },
+  {
+    title: 'aupReview',
+    icon: icon(FileText),
+    translate: true,
+    children: [
+      { title: 'protocolManagement', href: '/protocols', translate: true },
+      { title: 'newProtocol', href: '/protocols/new', translate: true },
+      { title: 'myAmendments', href: '/my-amendments', translate: true },
+    ],
+  },
+  {
+    title: '人員管理',
+    icon: icon(Users),
+    translate: false,
+    children: [
+      { title: '出勤打卡', href: '/hr/attendance', translate: false },
+      { title: '請假管理', href: '/hr/leaves', translate: false },
+      { title: '加班管理', href: '/hr/overtime', translate: false },
+      { title: '特休管理', href: '/hr/annual-leave', permission: 'hr.balance.manage', translate: false },
+      { title: '人員訓練', href: '/hr/training-records', permission: 'training.view', translate: false },
+      { title: '日曆', href: '/hr/calendar', translate: false },
+    ],
+  },
+  {
+    title: 'animalManagement',
+    icon: icon(Stethoscope),
+    translate: true,
+    children: [
+      { title: 'animalList', href: '/animals', translate: true },
+      { title: '血檢分析', href: '/blood-test-analysis', translate: false },
+      { title: '血檢項目', href: '/blood-test-templates', permission: 'animal.blood_test_template.manage', translate: false },
+      { title: '來源管理', href: '/animal-sources', permission: 'animal.source.manage', translate: false },
+      { title: '修正審核', href: '/animals/animal-field-corrections', permission: 'admin', translate: false },
+    ],
+  },
+  {
+    title: 'ERP',
+    icon: icon(Package),
+    translate: false,
+    permission: 'erp',
+    children: [
+      { title: '產品管理', href: '/erp?tab=products', translate: false },
+      { title: '單據管理', href: '/erp?tab=documents', translate: false },
+      { title: '倉儲作業', href: '/erp?tab=warehouse', translate: false },
+      { title: '設備維護', href: '/erp?tab=equipment', permission: 'equipment.view', translate: false },
+      { title: '報表中心', href: '/erp?tab=reports', translate: false },
+      { title: '供應商／客戶', href: '/erp?tab=partners', translate: false },
+    ],
+  },
+  {
+    title: '系統管理',
+    icon: icon(Settings),
+    translate: false,
+    children: [
+      { title: '使用者管理', href: '/admin/users', translate: false },
+      { title: '角色權限', href: '/admin/roles', translate: false },
+      { title: '系統設定', href: '/admin/settings', translate: false },
+      { title: '操作日誌', href: '/admin/audit-logs', translate: false },
+      { title: '安全審計', href: '/admin/audit', translate: false },
+      { title: '通知路由', href: '/admin/notification-routing', translate: false },
+      { title: '藥物選單', href: '/admin/treatment-drugs', translate: false },
+      { title: '設施管理', href: '/admin/facilities', translate: false },
+    ],
+    permission: 'admin',
+  },
+]
