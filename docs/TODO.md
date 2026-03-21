@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-03-20 (v18)
+> **最後更新：** 2026-03-21 (v20)
 > **維護慣例：** 完成項目保留於本表並標 [x]，同時於 `docs/PROGRESS.md` §9 最新變更動態 新增對應紀錄；待辦統計僅計「未完成」數量。
 > **AI 標註說明：**
 >
@@ -21,7 +21,7 @@
 | # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
 |---|------|------|------|----------|------|
 | P0-R12-1 | **CI 自動觸發恢復** | `.github/workflows/ci.yml` 的 `push`/`pull_request` 觸發被註解，CI 僅能手動觸發；至少恢復 `pull_request` 觸發並限定 `main` 分支 | DevOps | 🧠 Claude | [ ] |
-| P0-R12-2 | **SQL 字串拼接殘留修復** | `services/protocol/core.rs:139` 與 `services/data_import.rs:321-336` 仍有 `format!()` 拼接 SQL，應改為參數化查詢 | 後端 | 🧠 Claude | [ ] |
+| P0-R12-2 | **SQL 字串拼接殘留修復** | `core.rs:139` 已為參數化查詢；`data_import.rs:321-336` 表名/欄名來自白名單 + `debug_assert` 防護（R7-P0-2 已修復） | 後端 | 🧠 Claude | [x] |
 
 ---
 
@@ -256,31 +256,31 @@
 
 | # | 審查# | 項目 | 位置/說明 | 狀態 |
 |---|-------|------|-----------|------|
-| R10-M1 | M1 | Rate limiter 改 Redis | `backend/src/middleware/rate_limiter.rs`，分散式部署時限流 | [ ] |
-| R10-M2 | M2 | N+1 修正 | `backend/src/handlers/animal/animal_core.rs:44-62`，條件推入 SQL WHERE | [ ] |
-| R10-M3 | M3 | 大檔案串流驗證 | `backend/src/services/file.rs:227+`，改 chunked 驗證 | [ ] |
-| R10-M4 | M4 | unwrap 精簡 | Backend 全域約 728 處，hot path 改為 ?/Result | [ ] |
-| R10-M5 | M5 | CSRF 強化 | `backend/src/middleware/csrf.rs`，token 可考慮綁定 session | [ ] |
-| R10-M6 | M6 | useUserManagement Zod | `frontend/src/pages/admin/hooks/useUserManagement.ts`，email/display name 驗證 | [ ] |
-| R10-M7 | M7 | file-upload MIME | `frontend/src/components/ui/file-upload.tsx`，驗證 MIME type | [ ] |
-| R10-M8 | M8 | Session timeout | 前端 6 小時偏長，可縮短或可配置 | [ ] |
-| R10-M9 | M9 | Alert 門檻 | `monitoring/prometheus/alert_rules.yml`，門檻收緊 | [ ] |
-| R10-M10 | M10 | Prometheus/Grafana 認證 | metrics/dashboard 加 authentication | [ ] |
+| R10-M1 | M1 | Rate limiter 改 Redis | 單機部署暫不需要，推遲至多節點部署時實作 | 推遲 |
+| R10-M2 | M2 | N+1 修正 | 確認 `AnimalService::list` 已用 LEFT JOIN + 子查詢一次往返，無 N+1 問題 | [x] |
+| R10-M3 | M3 | 大檔案串流驗證 | `upload.rs` 新增 MIME 預檢（讀取前拒絕）+ 欄位級大小檢查，全域 30MB body limit 已存在 | [x] |
+| R10-M4 | M4 | unwrap 精簡 | 已清零（0 處 unwrap），之前改善已全部處理 | [x] |
+| R10-M5 | M5 | CSRF 強化 | Signed Double Submit Cookie：HMAC 綁定 session ID + constant_time_eq + 8 個新測試 | [x] |
+| R10-M6 | M6 | useUserManagement Zod | 新增 createUserFormSchema/updateUserFormSchema，email+display_name+role Zod 驗證 | [x] |
+| R10-M7 | M7 | file-upload MIME | ALLOWED_MIME_TYPES 白名單 + ALLOWED_EXTENSIONS 降級檢查，拒絕不允許的檔案類型 | [x] |
+| R10-M8 | M8 | Session timeout | 推遲，依合規需求決定 | 推遲 |
+| R10-M9 | M9 | Alert 門檻 | CPU/Memory 80%→warning 95%→critical，P95 延遲 2s/5s，Error rate 1%/5%，Disk 20%/10% | [x] |
+| R10-M10 | M10 | Prometheus/Grafana 認證 | 確認 Grafana 已用環境變數密碼、Prometheus 綁定 127.0.0.1 僅本機存取，已安全 | [x] |
 
 ### Low Severity / Suggestions
 
 | # | 審查# | 項目 | 位置/說明 | 狀態 |
 |---|-------|------|-----------|------|
-| R10-L1 | L1 | auth handler 拆分 | `backend/src/handlers/auth.rs` 767 行 | [ ] |
-| R10-L2 | L2 | auth service 拆分 | `backend/src/services/auth.rs` 1,038 行 | [ ] |
-| R10-L3 | L3 | signature 拆分 | `backend/src/handlers/animal/signature.rs` 995 行 | [ ] |
-| R10-L4 | L4 | product service 拆分 | `backend/src/services/product.rs` 1,326 行 | [ ] |
-| R10-L5 | L5 | 外部 error tracking | Sentry 等 production 錯誤追蹤 | [ ] |
-| R10-L6 | L6 | Cookie consent 實際阻擋 | 阻擋 Google Fonts 等第三方請求 | [ ] |
-| R10-L7 | L7 | 密碼複雜度 | 前端強制複雜度規則 | [ ] |
-| R10-L8 | L8 | Watchtower 輪詢間隔 | `docker-compose.prod.yml:109` 建議 3600+ 秒 | [ ] |
-| R10-L9 | L9 | login_events 複合索引 | DB migrations | [ ] |
-| R10-L10 | L10 | JSONB schema validation | equipment_used, treatments, before_data, after_data | [ ] |
+| R10-L1 | L1 | auth handler 拆分 | 734→7 檔（login/session/password/account/impersonate/cookie/mod），每檔 ≤227 行 | [x] |
+| R10-L2 | L2 | auth service 拆分 | 1006→6 檔（login/session/password/two_factor/tests/mod），每檔 ≤292 行 | [x] |
+| R10-L3 | L3 | signature 拆分 | handler 560→7 檔，service 899→4 檔（access/content/annotation/mod） | [x] |
+| R10-L4 | L4 | product service 拆分 | 832→3 檔（crud 207 行/import 283 行/mod 308 行） | [x] |
+| R10-L5 | L5 | 外部 error tracking | 推遲至上線後，開發階段 log 已夠用 | 推遲 |
+| R10-L6 | L6 | Cookie consent 實際阻擋 | CookieConsent 重寫：「接受全部」/「僅必要」雙按鈕，Google Fonts 改為動態注入，同意前不載入 | [x] |
+| R10-L7 | L7 | 密碼複雜度 | 前後端統一：≥10 字元 + 大小寫 + 數字 + 30 組弱密碼黑名單 + 密碼強度指示器 | [x] |
+| R10-L8 | L8 | Watchtower 輪詢間隔 | `WATCHTOWER_POLL_INTERVAL` 30→3600 秒 | [x] |
+| R10-L9 | L9 | login_events 複合索引 | migration 016：`(email, event_type, created_at)` + `(created_at::date, event_type)` | [x] |
+| R10-L10 | L10 | JSONB schema validation | 新增 `utils/jsonb_validation.rs`（5 個驗證函式 + 11 個測試），觀察/手術/醫療記錄寫入時驗證 JSONB 結構 | [x] |
 
 ---
 
@@ -324,12 +324,12 @@
 
 | # | 項目 | 說明 | 範圍 | 建議 AI | 狀態 |
 |---|------|------|------|----------|------|
-| R11-15 | **中大型元件逐步拆分** | 下列元件均超過 300 行上限，按業務域優先排序：`AnimalDetailPage.tsx`（786）、`AuditLogsPage.tsx`（686）、`TrainingRecordsPage.tsx`（673）、`ProductEditPage.tsx`（653）、`TransferTab.tsx`（651）、`TreatmentDrugOptionsPage.tsx`（646）、`ProtocolDetailPage.tsx`（641）、`Sidebar.tsx`（635）、`NotificationRoutingPage.tsx`（617）、`PartnersPage.tsx`（610）——各元件依 Tab 或功能區塊提取子元件 | 前端 | 🧠 Claude | [ ] |
+| R11-15 | **中大型元件逐步拆分** | 10 個元件全部拆分完成：AnimalDetailPage（786→203）、AuditLogsPage（686→152）、TrainingRecordsPage（673→146）、ProductEditPage（647→91）、TransferTab（651→117）、TreatmentDrugOptionsPage（646→113）、ProtocolDetailPage（714→156）、Sidebar（635→175）、NotificationRoutingPage（617→98）、PartnersPage（610→96）——全部 ≤300 行 | 前端 | 🧠 Claude | [x] |
 | R11-16 | **`STORAGE_CONDITIONS` 重複常數合併 + `lib/constants/` 目錄建立** | 同一常數定義於 `pages/master/ProductEditPage.tsx:56` 與 `pages/master/ProductDetailPage.tsx:34`，違反 DRY 原則；應建立 `frontend/src/lib/constants/` 目錄（目前不存在），新增 `product.ts` 匯出 `STORAGE_CONDITIONS`，兩頁面改 import | 前端 | ⚡ Flash | [x] |
 | R11-17 | **剩餘 `any` 型別消除** | `WarehouseActionHeader.tsx:96/116/139` 的 `onError: (error: any)` 改用 `AxiosError`；`StorageLocationEditor.tsx:101` 的 `newLayout: any[]` 改用具體型別；`DocumentEditPage.tsx:102/322` 的 `as any[]` 改用 `Document[]` | 前端 | ⚡ Flash | [x] |
 | R11-18 | **後端中長函數清理（50–100 行）** | `services/auth.rs`：`change_own_password`（66 行）、`reset_password_with_token`（57 行）、`refresh_token`（55 行）、`generate_access_token`（51 行）——提取 token 生成邏輯、密碼驗證流程為子函式 | 後端 | 🧠 Claude | [x] |
-| R11-21 | **前端 54 處 try-catch 改為 TanStack Query 全域錯誤處理** | 掃描確認 54 個手動 try-catch 區塊（應使用 TanStack Query `onError` 全域機制）；主要集中於 `auth/LoginPage.tsx`、`admin/hooks/useUserManagement.ts`、`components/protocol/ProtocolContentView.tsx` 等；應統一為 `toast.error(getApiErrorMessage(error))` + QueryClient 全域 onError 模式，禁止裸 try-catch | 前端 | 🧠 Claude | [ ] |
-| R11-22 | **源碼 TODO 註解清理** | `services/document/stocktake.rs:81`（按類別篩選待實作）、`pages/my-projects/MyProjectDetailPage.tsx:127`（取得動物紀錄待實作）；評估是否實作或移除 | 全端 | 🧠 Claude | [ ] |
+| R11-21 | **前端 try-catch 改為 TanStack Query 全域錯誤處理** | 掃描 54 處 try-catch，25 處改為 useMutation（blob 下載 12、表單 API 8、匯出匯入 5），27 處合理保留（auth store、API interceptor、JSON parse、日期格式化等） | 前端 | 🧠 Claude | [x] |
+| R11-22 | **源碼 TODO 註解清理** | `stocktake.rs` 實作類別篩選（推入 SQL WHERE）；`MyProjectDetailPage.tsx` 改用 `/animals?iacuc_no=` API 查詢取代空陣列 | 全端 | 🧠 Claude | [x] |
 
 ---
 
@@ -339,9 +339,9 @@
 
 | # | 項目 | 說明 | 來源 | 狀態 |
 |---|------|------|------|------|
-| R12-1 | **Dependabot Phase 2.5 升級** | printpdf 0.9、utoipa 5、axum-extra 0.12、tailwind-merge 3 升級實作 | `docs/assessments/R6-5_DEPENDABOT_PHASE25_ASSESSMENT.md` | [ ] |
-| R12-2 | **財務模組 Phase 2–5 實作** | AP/AR/GL 後續階段：ap_payments、ar_receipts、trial-balance 等 | `docs/assessments/R6-4_FINANCE_PHASE2_5_ASSESSMENT.md` | [ ] |
-| R12-3 | **圖片處理獨立服務** | 若需處理使用者上傳圖片，建立獨立微服務隔離攻擊面 | `docs/security-compliance/security.md` | [ ] |
+| R12-1 | **Dependabot Phase 2.5 升級** | printpdf 0.9、utoipa 5、axum-extra 0.12、tailwind-merge 3 升級實作。**Why：** 當前版本存在已知 bug 與效能問題，新版含安全修補與 API 改進；延遲升級將加大未來遷移成本與相容性風險 | `docs/assessments/R6-5_DEPENDABOT_PHASE25_ASSESSMENT.md` | [ ] |
+| R12-2 | **財務模組 Phase 2–5 實作** | AP/AR/GL 後續階段：ap_payments、ar_receipts、trial-balance 等。**Why：** Phase 1 僅完成基礎記帳與報表，缺少付款沖銷、收款核銷、試算平衡等核心財務流程，無法支撐完整的財務結算作業 | `docs/assessments/R6-4_FINANCE_PHASE2_5_ASSESSMENT.md` | [ ] |
+| R12-3 | **圖片處理獨立服務** | 將圖片上傳、縮圖產生、格式轉換抽離為獨立微服務。**Why：** 圖片處理為高資源消耗操作，與主應用同行程部署會影響 API 回應延遲；安全審查建議隔離攻擊面，避免惡意檔案解析漏洞擴散至核心服務 | `docs/security-compliance/security.md` | [ ] |
 
 ---
 
@@ -349,7 +349,7 @@
 
 | 優先級 | 數量 (未完成) |
 |--------|------|
-| 🚨 P0 上線前必要 | 2 |
+| 🚨 P0 上線前必要 | 1 |
 | 🟡 P1 上線前建議 | 0 |
 | 🔴 P2 中優先 | 0 |
 | 🔵 P3 低優先 | 0 |
@@ -360,15 +360,17 @@
 | 🔒 R7 安全審視 | 0 |
 | 🔧 R8 代碼規範重構 | 0 |
 | 🔒 R9 安全與品質修復 | 3 |
-| 🔒 R10 程式碼審查 Medium/Low | 20 |
-| 🔧 R11 技術債掃描 | 3 |
+| 🔒 R10 程式碼審查 Medium/Low | 0 (3 推遲) |
+| 🔧 R11 技術債掃描 | 0 |
 | 🟢 R12 長期演進項目 | 3 |
-| **合計（未完成）** | **31** |
+| **合計（未完成）** | **7** |
 
 ---
 
 ## 變更紀錄 (最新)
 
+| 2026-03-21 | 🧠 Claude：R10 程式碼審查 17/20 完成 — M2 確認無 N+1、M3 MIME 預檢+欄位級大小檢查、M4 unwrap 已清零、M5 CSRF Signed Double Submit Cookie、M6 Zod 驗證、M7 MIME 白名單、M9 Alert 門檻收緊、M10 確認已安全；L1 auth handler 拆分（734→7 檔）、L2 auth service 拆分（1006→6 檔）、L3 signature 拆分（1459→11 檔）、L4 product service 拆分（832→3 檔）、L6 Cookie consent 重寫、L7 密碼 10 字元+黑名單、L8 Watchtower 3600s、L9 login_events 索引、L10 JSONB 驗證。M1/M8/L5 推遲。待辦 27→7。 |
+| 2026-03-21 | 🧠 Claude：R11 技術債全部清零 — R11-15 中大型元件拆分（10 個元件全部降至 ≤300 行，平均縮減 -80%）；R11-21 前端 try-catch 重構（25 處改為 useMutation，27 處合理保留）；R11-22 源碼 TODO 清理（stocktake 類別篩選實作、MyProjectDetailPage 動物查詢實作）。待辦統計 30→27。 |
 | 2026-03-20 | 🧠 Claude：未追蹤項目納入 TODO — P0-R12-1 CI 自動觸發恢復、P0-R12-2 SQL 字串拼接殘留修復、R11-22 源碼 TODO 註解清理、R12-1/R12-2/R12-3 長期演進項目（Dependabot 2.5 升級/財務模組 Phase 2–5/圖片處理獨立服務）。待辦統計 25→31。 |
 | 2026-03-15 | 🧠 Claude：R9 安全與品質修復 — R9-1 IDOR 漏洞修復（`download_attachment`/`list_attachments` 加入 entity_type 權限檢查）、R9-2 上傳 handler 去重（抽取 `handle_upload()` 通用函式，606→420 行）、R9-3 DB 錯誤碼修正（23505→409、23503/23502/23514→400）。R9-4 歡迎信安全改善、R9-5 ERP/HR 整合測試待後續排程。 |
 | 2026-03-15 | 🧠 Claude：Git 歷史紀錄深度清理 — 徹底移除被誤傳進 Git 的 `.venv` 目錄（體積過大）與 `old_ipig.dump`（敏感資料）。使用 `git-filter-repo` 重寫倉庫歷史，移除檔案足跡並減小倉庫體積。更新 `.gitignore` 確保未來不再追蹤。 |

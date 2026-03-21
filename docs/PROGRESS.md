@@ -79,7 +79,7 @@
 | 6 | [HR 人事管理系統](#6-hr-人事管理系統) | 特休、考勤、Google Calendar |
 | 7 | [資料庫 Schema 完成度](#7-資料庫-schema-完成度) | Migration 清單 |
 | 8 | [版本規劃](#8-版本規劃) | v1.0 / v1.1 里程碑 |
-| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-20 R11-14 useDocumentForm.ts 拆分（717→303 行） |
+| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-21 R10 程式碼審查 17/20 完成 + R11 技術債清零 |
 
 ---
 
@@ -186,6 +186,38 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **移除檔案**：`docker-compose.waf.yml`、`deploy/waf/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf`、`deploy/waf/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf`、`docs/security-compliance/WAF.md`。
 - ✅ **文件更新**：README、ARCHITECTURE、infrastructure、COMPOSE、deploy/README、TODO（R9-C1 標記完成、SEC-40 描述更新）、code review 文件。
 - ✅ **R9-C1 結案**：原「生產環境 WAF 改為 On」已不適用，改由 Cloudflare Dashboard 啟用 Managed Ruleset。
+
+### 2026-03-21 R10 程式碼審查 17/20 完成
+
+- ✅ **M2 N+1 修正**：確認 `AnimalService::list` 已用 LEFT JOIN + 子查詢一次往返，無 N+1 問題
+- ✅ **M3 大檔案串流驗證**：upload.rs 新增 MIME 預檢（讀取前拒絕）+ 欄位級大小檢查
+- ✅ **M4 unwrap 精簡**：已清零（0 處），之前改善已全部處理
+- ✅ **M5 CSRF 強化**：改為 Signed Double Submit Cookie（HMAC 綁定 session ID + constant_time_eq），8 個新測試
+- ✅ **M6 Zod 驗證**：useUserManagement 新增 createUserFormSchema/updateUserFormSchema
+- ✅ **M7 MIME 驗證**：file-upload.tsx 新增 ALLOWED_MIME_TYPES 白名單 + 副檔名降級
+- ✅ **M9 Alert 門檻**：CPU/Memory 80%→warning 95%→critical，P95 延遲 2s/5s，Error rate 1%/5%
+- ✅ **M10 Grafana 認證**：確認已用環境變數密碼 + Prometheus 綁定 127.0.0.1
+- ✅ **L1 auth handler 拆分**：734→7 檔（login/session/password/account/impersonate/cookie/mod）
+- ✅ **L2 auth service 拆分**：1006→6 檔（login/session/password/two_factor/tests/mod）
+- ✅ **L3 signature 拆分**：handler 560→7 檔，service 899→4 檔
+- ✅ **L4 product service 拆分**：832→3 檔（crud/import/mod）
+- ✅ **L6 Cookie consent**：CookieConsent 重寫，Google Fonts 改為動態注入，同意前不載入
+- ✅ **L7 密碼複雜度**：前後端統一 ≥10 字元 + 大小寫 + 數字 + 30 組弱密碼黑名單 + 強度指示器
+- ✅ **L8 Watchtower**：輪詢間隔 30→3600 秒
+- ✅ **L9 login_events 索引**：migration 016 新增 2 個複合索引
+- ✅ **L10 JSONB 驗證**：utils/jsonb_validation.rs（5 個驗證函式 + 11 個測試）
+- 🔄 M1（Rate limiter Redis）、M8（Session timeout）、L5（Sentry）推遲
+
+### 2026-03-21 R11 技術債全部清零（R11-15 / R11-21 / R11-22）
+
+- ✅ **R11-15 中大型元件拆分**：10 個超過 300 行的前端元件全部拆分完成，平均縮減 -80%。AnimalDetailPage（786→203）、AuditLogsPage（686→152）、TrainingRecordsPage（673→146）、ProductEditPage（647→91）、TransferTab（651→117）、TreatmentDrugOptionsPage（646→113）、ProtocolDetailPage（714→156）、Sidebar（635→175）、NotificationRoutingPage（617→98）、PartnersPage（610→96）。各元件依 Tab/功能區塊提取子元件與 hooks。
+- ✅ **R11-21 try-catch 重構**：掃描全部 54 處 try-catch，25 處改為 `useMutation`（blob 下載 12 處、表單 API 8 處、匯出匯入 5 處），27 處合理保留（auth store、API interceptor、JSON parse、日期格式化等基礎設施）。移除所有手動 loading state，改用 mutation `isPending`。
+- ✅ **R11-22 源碼 TODO 清理**：`stocktake.rs` 實作按類別篩選（推入 SQL WHERE，支援 `category_codes` + `product_ids` 參數化查詢）；`MyProjectDetailPage.tsx` 移除模擬空陣列，改用 `/animals?iacuc_no=` API 查詢計畫下動物。
+- TypeScript 編譯零錯誤、Rust `cargo check` 通過。
+
+### 2026-03-20 P0-R12-2 SQL 字串拼接殘留確認結案
+
+- ✅ **結案**：`services/protocol/core.rs:139` 已為參數化查詢（`$1`~`$9` + `.bind()`）；`services/data_import.rs:321-336` 表名/欄名來自白名單函式 `get_conflict_columns()` + `debug_assert` 防護（R7-P0-2 已修復），無安全風險。
 
 ### 2026-03-20 R11-14 useDocumentForm.ts 拆分（717→303 行）
 
