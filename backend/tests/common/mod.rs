@@ -155,7 +155,7 @@ impl TestApp {
         let email =
             std::env::var("ADMIN_EMAIL").unwrap_or_else(|_| "admin@ipig.local".to_string());
         let password = std::env::var("ADMIN_INITIAL_PASSWORD")
-            .unwrap_or_else(|_| "ChangeMe123!".to_string());
+            .unwrap_or_else(|_| "iPig$ecure1".to_string());
 
         self.login(&email, &password)
             .await

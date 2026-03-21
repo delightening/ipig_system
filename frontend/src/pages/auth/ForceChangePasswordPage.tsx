@@ -5,6 +5,7 @@ import { useMutation } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { getErrorMessage } from '@/types/error'
 import { useAuthStore } from '@/stores/auth'
+import { checkPasswordComplexity, getPasswordError, getStrengthColor, PASSWORD_MIN_LENGTH } from '@/lib/passwordValidation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -23,14 +24,8 @@ export function ForceChangePasswordPage() {
   const [showNewPassword, toggleNewPassword] = useToggle()
   const [showConfirmPassword, toggleConfirmPassword] = useToggle()
 
-  // 密碼強度檢查
-  const passwordChecks = {
-    length: newPassword.length >= 8,
-    uppercase: /[A-Z]/.test(newPassword),
-    lowercase: /[a-z]/.test(newPassword),
-    number: /[0-9]/.test(newPassword),
-    special: /[!@#$%^&*(),.?":{}|<>]/.test(newPassword),
-  }
+  // 密碼強度檢查（使用共用模組）
+  const passwordChecks = checkPasswordComplexity(newPassword)
   const passwordStrength = Object.values(passwordChecks).filter(Boolean).length
 
   const changePasswordMutation = useMutation({
@@ -80,10 +75,11 @@ export function ForceChangePasswordPage() {
       return
     }
 
-    if (passwordStrength < 3) {
+    const pwError = getPasswordError(newPassword)
+    if (pwError) {
       toast({
         title: '密碼強度不足',
-        description: '請使用更強的密碼',
+        description: pwError,
         variant: 'destructive',
       })
       return
@@ -194,32 +190,26 @@ export function ForceChangePasswordPage() {
                       <div
                         key={level}
                         className={`h-1 flex-1 rounded-full transition-colors ${
-                          level <= passwordStrength
-                            ? passwordStrength <= 2
-                              ? 'bg-red-500'
-                              : passwordStrength <= 3
-                              ? 'bg-yellow-500'
-                              : 'bg-green-500'
-                            : 'bg-slate-600'
+                          level <= passwordStrength ? getStrengthColor(passwordStrength) : 'bg-slate-600'
                         }`}
                       />
                     ))}
                   </div>
                   <div className="text-xs space-y-1 text-slate-400">
                     <p className={passwordChecks.length ? 'text-green-400' : ''}>
-                      {passwordChecks.length ? '✓' : '○'} 至少 8 個字元
+                      {passwordChecks.length ? '\u2713' : '\u25CB'} {`\u81F3\u5C11 ${PASSWORD_MIN_LENGTH} \u500B\u5B57\u5143`}
                     </p>
                     <p className={passwordChecks.uppercase ? 'text-green-400' : ''}>
-                      {passwordChecks.uppercase ? '✓' : '○'} 包含大寫字母
+                      {passwordChecks.uppercase ? '\u2713' : '\u25CB'} {'\u5305\u542B\u5927\u5BEB\u5B57\u6BCD'}
                     </p>
                     <p className={passwordChecks.lowercase ? 'text-green-400' : ''}>
-                      {passwordChecks.lowercase ? '✓' : '○'} 包含小寫字母
+                      {passwordChecks.lowercase ? '\u2713' : '\u25CB'} {'\u5305\u542B\u5C0F\u5BEB\u5B57\u6BCD'}
                     </p>
                     <p className={passwordChecks.number ? 'text-green-400' : ''}>
-                      {passwordChecks.number ? '✓' : '○'} 包含數字
+                      {passwordChecks.number ? '\u2713' : '\u25CB'} {'\u5305\u542B\u6578\u5B57'}
                     </p>
-                    <p className={passwordChecks.special ? 'text-green-400' : ''}>
-                      {passwordChecks.special ? '✓' : '○'} 包含特殊字元
+                    <p className={passwordChecks.notCommon ? 'text-green-400' : ''}>
+                      {passwordChecks.notCommon ? '\u2713' : '\u25CB'} {'\u975E\u5E38\u898B\u5F31\u5BC6\u78BC'}
                     </p>
                   </div>
                 </div>
@@ -260,7 +250,7 @@ export function ForceChangePasswordPage() {
             <Button
               type="submit"
               className="w-full bg-purple-600 hover:bg-purple-700 text-white h-11 mt-2"
-              disabled={changePasswordMutation.isPending || passwordStrength < 3 || newPassword !== confirmPassword}
+              disabled={changePasswordMutation.isPending || passwordStrength < 5 || newPassword !== confirmPassword}
             >
               {changePasswordMutation.isPending ? (
                 <>

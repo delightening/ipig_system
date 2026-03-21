@@ -115,6 +115,10 @@ fn check_attachment_permission(
 // ─────────────────────────────────────────────────────────────────
 
 /// 通用附件上傳處理：讀取 multipart 欄位、上傳檔案、寫入 attachments 表
+///
+/// 串流安全說明：Axum Multipart 以串流方式接收資料，`field.bytes()` 會將單一欄位
+/// 完整讀入記憶體。全域 `DefaultBodyLimit`（30 MB）限制了整體請求大小，
+/// 此處再以 `category.max_file_size()` 做欄位級檢查，確保不會超出預期。
 async fn handle_upload(
     db: &PgPool,
     current_user_id: Uuid,
@@ -123,6 +127,7 @@ async fn handle_upload(
     entity_id: &str,
     multipart: &mut Multipart,
 ) -> Result<Vec<UploadResponse>> {
+    let max_size = category.max_file_size();
     let mut results = Vec::new();
 
     while let Some(field) = multipart.next_field().await.map_err(|e| {
@@ -138,9 +143,26 @@ async fn handle_upload(
             .map(String::from)
             .unwrap_or_else(|| "application/octet-stream".to_string());
 
+        // MIME 類型預檢：在讀取檔案資料前就拒絕不允許的類型
+        if !category.allowed_mime_types().contains(&content_type.as_str()) {
+            return Err(AppError::Validation(format!(
+                "File type '{}' is not allowed for this category",
+                content_type
+            )));
+        }
+
         let data = field.bytes().await.map_err(|e| {
             AppError::Validation(format!("Failed to read file data: {}", e))
         })?;
+
+        // 欄位級大小檢查（全域 DefaultBodyLimit 已限制整體請求，此處做更精細的類別限制）
+        if data.len() > max_size {
+            return Err(AppError::Validation(format!(
+                "File '{}' exceeds maximum allowed size of {} MB",
+                file_name,
+                max_size / 1024 / 1024
+            )));
+        }
 
         let upload_result = FileService::upload(
             category,
@@ -307,6 +329,8 @@ pub async fn upload_sacrifice_photo(
         )
     })?;
 
+    let category = FileCategory::AnimalPhoto;
+    let max_size = category.max_file_size();
     let mut results = Vec::new();
 
     while let Some(field) = multipart.next_field().await.map_err(|e| {
@@ -322,12 +346,29 @@ pub async fn upload_sacrifice_photo(
             .map(String::from)
             .unwrap_or_else(|| "application/octet-stream".to_string());
 
+        // MIME 類型預檢
+        if !category.allowed_mime_types().contains(&content_type.as_str()) {
+            return Err(AppError::Validation(format!(
+                "File type '{}' is not allowed for this category",
+                content_type
+            )));
+        }
+
         let data = field.bytes().await.map_err(|e| {
             AppError::Validation(format!("Failed to read file data: {}", e))
         })?;
 
+        // 欄位級大小檢查
+        if data.len() > max_size {
+            return Err(AppError::Validation(format!(
+                "File '{}' exceeds maximum allowed size of {} MB",
+                file_name,
+                max_size / 1024 / 1024
+            )));
+        }
+
         let upload_result = FileService::upload(
-            FileCategory::AnimalPhoto,
+            category,
             &file_name,
             &content_type,
             &data,

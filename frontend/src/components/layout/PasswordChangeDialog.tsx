@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import api from '@/lib/api'
 import type { ChangeOwnPasswordRequest } from '@/lib/api'
 import { getErrorMessage } from '@/types/error'
+import { getPasswordError, checkPasswordComplexity, getStrengthColor, PASSWORD_MIN_LENGTH } from '@/lib/passwordValidation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -62,14 +63,18 @@ export function PasswordChangeDialog({ open, onOpenChange }: PasswordChangeDialo
     },
   })
 
+  const passwordChecks = checkPasswordComplexity(newPassword)
+  const passwordStrength = Object.values(passwordChecks).filter(Boolean).length
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!currentPassword || !newPassword || !confirmPassword) {
       toast({ title: t('common.error'), description: t('password.fillAllFields'), variant: 'destructive' })
       return
     }
-    if (newPassword.length < 6) {
-      toast({ title: t('common.error'), description: t('password.minLength'), variant: 'destructive' })
+    const pwError = getPasswordError(newPassword)
+    if (pwError) {
+      toast({ title: t('common.error'), description: pwError, variant: 'destructive' })
       return
     }
     if (newPassword !== confirmPassword) {
@@ -141,7 +146,7 @@ export function PasswordChangeDialog({ open, onOpenChange }: PasswordChangeDialo
                 type={showNewPassword ? 'text' : 'password'}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder={t('password.minLength')}
+                placeholder={`${PASSWORD_MIN_LENGTH} 字元以上，含大小寫與數字`}
                 className="pr-10"
                 autoComplete="new-password"
               />
@@ -156,6 +161,27 @@ export function PasswordChangeDialog({ open, onOpenChange }: PasswordChangeDialo
                 {showNewPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
               </Button>
             </div>
+            {newPassword && (
+              <div className="space-y-2 mt-2">
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((level) => (
+                    <div
+                      key={level}
+                      className={`h-1 flex-1 rounded-full transition-colors ${
+                        level <= passwordStrength ? getStrengthColor(passwordStrength) : 'bg-muted'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <div className="text-xs space-y-0.5 text-muted-foreground">
+                  <p className={passwordChecks.length ? 'text-green-600' : ''}>{passwordChecks.length ? '\u2713' : '\u25CB'} {`\u81F3\u5C11 ${PASSWORD_MIN_LENGTH} \u500B\u5B57\u5143`}</p>
+                  <p className={passwordChecks.uppercase ? 'text-green-600' : ''}>{passwordChecks.uppercase ? '\u2713' : '\u25CB'} {'\u5305\u542B\u5927\u5BEB\u5B57\u6BCD'}</p>
+                  <p className={passwordChecks.lowercase ? 'text-green-600' : ''}>{passwordChecks.lowercase ? '\u2713' : '\u25CB'} {'\u5305\u542B\u5C0F\u5BEB\u5B57\u6BCD'}</p>
+                  <p className={passwordChecks.number ? 'text-green-600' : ''}>{passwordChecks.number ? '\u2713' : '\u25CB'} {'\u5305\u542B\u6578\u5B57'}</p>
+                  <p className={passwordChecks.notCommon ? 'text-green-600' : ''}>{passwordChecks.notCommon ? '\u2713' : '\u25CB'} {'\u975E\u5E38\u898B\u5F31\u5BC6\u78BC'}</p>
+                </div>
+              </div>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirm-password">{t('password.confirmPassword')}</Label>

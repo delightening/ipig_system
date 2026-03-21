@@ -23,8 +23,8 @@ export const requiredString = (fieldName: string) =>
 /** Email 欄位 */
 export const emailField = z.string().email('請輸入有效的電子郵件')
 
-/** 密碼欄位（至少 6 字元） */
-export const passwordField = z.string().min(6, '密碼至少 6 個字元')
+/** 密碼欄位（至少 10 字元） */
+export const passwordField = z.string().min(10, '密碼至少 10 個字元')
 
 /** 可選字串（空字串視為 undefined） */
 export const optionalString = z.string().optional().transform(v => v || undefined)

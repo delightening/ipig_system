@@ -156,6 +156,7 @@ use utoipa::OpenApi;
         crate::handlers::get_record_annotations,
         // === 動物管理 ===
         crate::handlers::list_animals,
+        crate::handlers::get_animal_stats,
         crate::handlers::list_animals_by_pen,
         crate::handlers::get_animal,
         crate::handlers::create_animal,
@@ -419,6 +420,7 @@ use utoipa::OpenApi;
             crate::models::CreateAnimalRequest,
             crate::models::UpdateAnimalRequest,
             crate::models::AnimalsByPen,
+            crate::models::AnimalStatsResponse,
             crate::models::BatchAssignRequest,
             crate::models::DeleteRequest,
             crate::models::AnimalStatus,
