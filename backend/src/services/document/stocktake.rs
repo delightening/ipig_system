@@ -15,34 +15,33 @@ impl DocumentService {
         warehouse_id: Option<Uuid>,
         scope: &Option<serde_json::Value>,
     ) -> Result<Vec<DocumentLineInput>> {
-        let warehouse_id = warehouse_id.ok_or_else(|| AppError::BusinessRule("Warehouse is required for stocktake".to_string()))?;
+        let warehouse_id = warehouse_id.ok_or_else(|| {
+            AppError::BusinessRule("Warehouse is required for stocktake".to_string())
+        })?;
 
-        // 解析範圍設定
         let scope: Option<StocktakeScope> = if let Some(ref scope_json) = scope {
             serde_json::from_value(scope_json.clone()).ok()
         } else {
             None
         };
 
-        // 使用 StockService 查詢庫存現況
-        use crate::models::InventoryQuery;
-        let _query = InventoryQuery {
-            warehouse_id: Some(warehouse_id),
-            storage_location_id: None,
-            product_id: None,
-            keyword: None,
-            batch_no: None,
-            low_stock_only: None,
+        let (product_ids, category_codes) = match scope {
+            Some(ref s) => (s.product_ids.clone(), s.category_codes.clone()),
+            None => (None, None),
         };
-        
-        // 由於我們在事務中，需要直接查詢
+
+        let has_product_ids =
+            product_ids.as_ref().is_some_and(|ids| !ids.is_empty());
+        let has_category_codes =
+            category_codes.as_ref().is_some_and(|codes| !codes.is_empty());
+
         let inventory_items: Vec<(Uuid, String, Decimal)> = sqlx::query_as(
             r#"
-            SELECT 
+            SELECT
                 p.id as product_id,
                 p.base_uom,
                 COALESCE(SUM(
-                    CASE 
+                    CASE
                         WHEN sl.direction IN ('in', 'transfer_in', 'adjust_in') THEN sl.qty_base
                         WHEN sl.direction IN ('out', 'transfer_out', 'adjust_out') THEN -sl.qty_base
                         ELSE 0
@@ -51,47 +50,32 @@ impl DocumentService {
             FROM products p
             LEFT JOIN stock_ledger sl ON p.id = sl.product_id AND sl.warehouse_id = $1
             WHERE p.is_active = true
+              AND ($2::bool = false OR p.id = ANY($3))
+              AND ($4::bool = false OR p.category_code = ANY($5))
             GROUP BY p.id, p.base_uom
             HAVING COALESCE(SUM(
-                CASE 
+                CASE
                     WHEN sl.direction IN ('in', 'transfer_in', 'adjust_in') THEN sl.qty_base
                     WHEN sl.direction IN ('out', 'transfer_out', 'adjust_out') THEN -sl.qty_base
                     ELSE 0
                 END
             ), 0) != 0
             ORDER BY p.sku
-            "#
+            "#,
         )
         .bind(warehouse_id)
+        .bind(has_product_ids)
+        .bind(product_ids.unwrap_or_default().as_slice())
+        .bind(has_category_codes)
+        .bind(category_codes.unwrap_or_default().as_slice())
         .fetch_all(&mut **tx)
         .await?;
 
-        // 根據範圍篩選
-        let filtered_items: Vec<(Uuid, String, Decimal)> = if let Some(ref scope) = scope {
-            inventory_items
-                .into_iter()
-                .filter(|(product_id, _, _)| {
-                    // 如果指定了產品ID列表，只包含這些產品
-                    if let Some(ref product_ids) = scope.product_ids {
-                        if !product_ids.is_empty() && !product_ids.contains(product_id) {
-                            return false;
-                        }
-                    }
-                    // 如果指定了類別，需要查詢產品類別（這裡簡化處理，實際應該查詢）
-                    // TODO: 如果需要按類別篩選，需要額外查詢產品類別
-                    true
-                })
-                .collect()
-        } else {
-            inventory_items
-        };
-
-        // 轉換為 DocumentLineInput
-        let lines: Vec<DocumentLineInput> = filtered_items
+        let lines: Vec<DocumentLineInput> = inventory_items
             .into_iter()
             .map(|(product_id, uom, qty)| DocumentLineInput {
                 product_id,
-                qty, // 系統庫存數量作為初始值
+                qty,
                 uom,
                 unit_price: None,
                 batch_no: None,
