@@ -316,3 +316,14 @@ pub struct BloodTestListItem {
     pub created_by_name: Option<String>,
     pub created_at: DateTime<Utc>,
 }
+
+/// 動物狀態統計（輕量級，僅 COUNT）
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct AnimalStatsResponse {
+    /// 各狀態的動物數量
+    pub status_counts: std::collections::HashMap<String, i64>,
+    /// 有欄位的動物數量
+    pub pen_animals_count: i64,
+    /// 全部動物總數
+    pub total: i64,
+}

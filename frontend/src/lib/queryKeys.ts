@@ -11,7 +11,7 @@ export const queryKeys = {
   // ───── Animals ─────
   animals: {
     all: ['animals'] as const,
-    count: ['animals-count'] as const,
+    stats: ['animals-stats'] as const,
     byPen: ['animals-by-pen'] as const,
     list: (filters: Record<string, unknown>) => ['animals', filters] as const,
     detail: (id: string) => ['animal', id] as const,

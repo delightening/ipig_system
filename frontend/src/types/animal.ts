@@ -98,6 +98,12 @@ export interface AnimalListItem extends Animal {
     last_medication_date?: string
 }
 
+export interface AnimalStatsResponse {
+    status_counts: Record<string, number>
+    pen_animals_count: number
+    total: number
+}
+
 // 觀察記錄
 export interface AnimalObservation {
     id: number

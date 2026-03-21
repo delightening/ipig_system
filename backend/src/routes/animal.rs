@@ -13,6 +13,7 @@ pub fn routes() -> Router<AppState> {
             "/animals",
             get(handlers::list_animals).post(handlers::create_animal),
         )
+        .route("/animals/stats", get(handlers::get_animal_stats))
         .route("/animals/by-pen", get(handlers::list_animals_by_pen))
         .route(
             "/animals/batch/assign",
