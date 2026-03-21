@@ -40,6 +40,9 @@ import {
 import { formatDate } from '@/lib/utils'
 import { getApiErrorMessage } from '@/lib/validation'
 import type { ProtocolWorkingContent, ProtocolAnimalItem } from '@/types/protocol'
+import type { AnimalListItem } from '@/types/animal'
+import { animalStatusNames, animalBreedNames, animalGenderNames } from '@/types/animal'
+import type { PaginatedResponse } from '@/types/common'
 
 const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline'> = {
   DRAFT: 'secondary',
@@ -60,23 +63,12 @@ const statusColors: Record<ProtocolStatus, 'default' | 'secondary' | 'success' |
   DELETED: 'destructive',
 }
 
-// 模擬動物資料（實際應從 API 取得）
-interface AnimalRecord {
-  id: number
-  earTag: string
-  penLocation?: string | null
-  status: string
-  breed: string
-  gender: string
-  entryDate: string
-}
-
 // 輔助函數：判斷欄位顯示文字
-const getPenLocationDisplay = (animal: { status: string; penLocation?: string | null }) => {
-  if (animal.status === 'completed' && !animal.penLocation) {
+const getPenLocationDisplay = (animal: AnimalListItem) => {
+  if (animal.status === 'completed' && !animal.pen_location) {
     return '犧牲'
   }
-  return animal.penLocation || '-'
+  return animal.pen_location || '-'
 }
 
 export function MyProjectDetailPage() {
@@ -124,8 +116,18 @@ export function MyProjectDetailPage() {
     },
   })
 
-  // TODO: 取得動物紀錄
-  const animals: AnimalRecord[] = [] // 實際應從 /my-projects/{id}/animals 取得
+  const iacucNo = protocol?.protocol.iacuc_no
+  const { data: animalsData } = useQuery({
+    queryKey: ['my-project-animals', iacucNo],
+    queryFn: async () => {
+      const res = await api.get<PaginatedResponse<AnimalListItem>>(
+        `/animals?iacuc_no=${encodeURIComponent(iacucNo!)}&per_page=200`
+      )
+      return res.data
+    },
+    enabled: !!iacucNo,
+  })
+  const animals = animalsData?.data ?? []
 
   if (isLoading) {
     return (
@@ -537,18 +539,18 @@ export function MyProjectDetailPage() {
                   <TableBody>
                     {animals.map((animal) => (
                       <TableRow key={animal.id}>
-                        <TableCell>{animal.id}</TableCell>
-                        <TableCell className="text-orange-600 font-medium">{animal.earTag}</TableCell>
+                        <TableCell>{animal.animal_no ?? animal.id.slice(0, 8)}</TableCell>
+                        <TableCell className="text-orange-600 font-medium">{animal.ear_tag}</TableCell>
                         <TableCell>{getPenLocationDisplay(animal)}</TableCell>
                         <TableCell>
-                          <Badge variant="warning">{animal.status}</Badge>
+                          <Badge variant="warning">{animalStatusNames[animal.status] ?? animal.status}</Badge>
                         </TableCell>
-                        <TableCell>{animal.breed}</TableCell>
-                        <TableCell>{animal.gender}</TableCell>
-                        <TableCell>{formatDate(animal.entryDate)}</TableCell>
+                        <TableCell>{animalBreedNames[animal.breed] ?? animal.breed}</TableCell>
+                        <TableCell>{animalGenderNames[animal.gender] ?? animal.gender}</TableCell>
+                        <TableCell>{formatDate(animal.entry_date)}</TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="sm">
-                            檢視
+                          <Button variant="ghost" size="sm" asChild>
+                            <Link to={`/animals/${animal.id}`}>檢視</Link>
                           </Button>
                         </TableCell>
                       </TableRow>
