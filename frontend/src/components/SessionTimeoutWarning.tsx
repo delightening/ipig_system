@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuthStore } from '@/stores/auth'
 import {
   Dialog,
@@ -20,6 +20,8 @@ export function SessionTimeoutWarning() {
   const [showWarning, setShowWarning] = useState(false)
   const [remaining, setRemaining] = useState(0)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     if (!isAuthenticated || !sessionExpiresAt) {
@@ -27,23 +29,47 @@ export function SessionTimeoutWarning() {
       return
     }
 
-    const check = () => {
-      const ms = sessionExpiresAt - Date.now()
-      setRemaining(Math.max(0, Math.ceil(ms / 1000)))
-
-      if (ms <= 0) {
-        setShowWarning(false)
-        logout()
-      } else if (ms <= WARNING_THRESHOLD_MS) {
-        setShowWarning(true)
-      } else {
-        setShowWarning(false)
-      }
+    const cleanup = () => {
+      if (warningTimerRef.current) clearTimeout(warningTimerRef.current)
+      if (countdownRef.current) clearInterval(countdownRef.current)
+      warningTimerRef.current = null
+      countdownRef.current = null
     }
 
-    check()
-    const id = setInterval(check, 1000)
-    return () => clearInterval(id)
+    cleanup()
+
+    const msUntilExpiry = sessionExpiresAt - Date.now()
+
+    if (msUntilExpiry <= 0) {
+      logout()
+      return
+    }
+
+    const msUntilWarning = msUntilExpiry - WARNING_THRESHOLD_MS
+
+    const startCountdown = () => {
+      setShowWarning(true)
+      setRemaining(Math.max(0, Math.ceil((sessionExpiresAt - Date.now()) / 1000)))
+
+      countdownRef.current = setInterval(() => {
+        const ms = sessionExpiresAt - Date.now()
+        if (ms <= 0) {
+          cleanup()
+          setShowWarning(false)
+          logout()
+        } else {
+          setRemaining(Math.ceil(ms / 1000))
+        }
+      }, 1000)
+    }
+
+    if (msUntilWarning <= 0) {
+      startCountdown()
+    } else {
+      warningTimerRef.current = setTimeout(startCountdown, msUntilWarning)
+    }
+
+    return cleanup
   }, [isAuthenticated, sessionExpiresAt, logout])
 
   const handleExtend = useCallback(async () => {

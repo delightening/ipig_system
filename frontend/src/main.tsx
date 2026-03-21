@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { focusManager, MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
 import { ErrorBoundary } from '@/components/ui/error-boundary'
 import { toast } from '@/components/ui/use-toast'
@@ -32,12 +32,32 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
-      refetchOnWindowFocus: true, // Refetch when window regains focus to get latest data
-      refetchOnMount: true, // Always refetch on mount to ensure fresh data
-      staleTime: 30 * 1000, // 30 seconds - data is considered stale quickly for animal data
-      gcTime: 5 * 60 * 1000, // Keep unused data in cache for 5 minutes
+      refetchOnWindowFocus: false,
+      refetchOnMount: true,
+      staleTime: 2 * 60 * 1000,
+      gcTime: 5 * 60 * 1000,
     },
   },
+})
+
+// Throttle focus events: at most one focus refetch every 10 seconds
+let lastFocusTime = 0
+focusManager.setEventListener((handleFocus) => {
+  const onFocus = () => {
+    const now = Date.now()
+    if (now - lastFocusTime > 10_000) {
+      lastFocusTime = now
+      handleFocus()
+    }
+  }
+  window.addEventListener('visibilitychange', () => {
+    if (!document.hidden) onFocus()
+  })
+  window.addEventListener('focus', onFocus)
+  return () => {
+    window.removeEventListener('visibilitychange', onFocus)
+    window.removeEventListener('focus', onFocus)
+  }
 })
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

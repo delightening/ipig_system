@@ -5,7 +5,7 @@ use super::super::utils::AnimalUtils;
 use super::super::AnimalService;
 use crate::{
     models::{
-        Animal, AnimalListItem, AnimalQuery, AnimalsByPen, PaginatedResponse,
+        Animal, AnimalListItem, AnimalQuery, AnimalsByPen, AnimalStatsResponse, PaginatedResponse,
     },
     AppError, Result,
 };
@@ -56,6 +56,45 @@ impl AnimalService {
             "#,
             );
         }
+    }
+
+    /// 取得動物狀態統計（輕量級 COUNT 查詢）
+    pub async fn stats(pool: &PgPool) -> Result<AnimalStatsResponse> {
+        let rows: Vec<(String, i64)> = sqlx::query_as(
+            r#"
+            SELECT status::text, COUNT(*) as count
+            FROM animals
+            WHERE deleted_at IS NULL
+            GROUP BY status
+            "#,
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let mut status_counts = std::collections::HashMap::new();
+        let mut total: i64 = 0;
+        for (status, count) in &rows {
+            status_counts.insert(status.clone(), *count);
+            total += count;
+        }
+
+        let (pen_animals_count,): (i64,) = sqlx::query_as(
+            r#"
+            SELECT COUNT(*)
+            FROM animals
+            WHERE deleted_at IS NULL
+            AND pen_location IS NOT NULL
+            AND TRIM(pen_location) != ''
+            "#,
+        )
+        .fetch_one(pool)
+        .await?;
+
+        Ok(AnimalStatsResponse {
+            status_counts,
+            pen_animals_count,
+            total,
+        })
     }
 
     /// 取得動物列表（支援分頁）

@@ -10,8 +10,9 @@ use validator::Validate;
 use crate::{
     middleware::CurrentUser,
     models::{
-        Animal, AnimalListItem, AnimalQuery, AnimalsByPen, BatchAssignRequest, CreateAnimalRequest,
-        DeleteRequest, PaginatedResponse, UpdateAnimalRequest,
+        Animal, AnimalListItem, AnimalQuery, AnimalStatsResponse, AnimalsByPen,
+        BatchAssignRequest, CreateAnimalRequest, DeleteRequest, PaginatedResponse,
+        UpdateAnimalRequest,
     },
     require_permission,
     services::{AnimalService, AuditService},
@@ -63,6 +64,36 @@ pub async fn list_animals(
     }
 
     Ok(Json(result))
+}
+
+/// 取得動物狀態統計
+#[utoipa::path(
+    get,
+    path = "/api/animals/stats",
+    responses(
+        (status = 200, description = "動物狀態統計", body = AnimalStatsResponse),
+        (status = 401, description = "未授權")
+    ),
+    tag = "動物管理",
+    security(("bearer" = []))
+)]
+pub async fn get_animal_stats(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<CurrentUser>,
+) -> Result<Json<AnimalStatsResponse>> {
+    let has_view = current_user.has_permission("animal.animal.view_all")
+        || current_user.has_permission("animal.animal.view_project");
+
+    if !has_view {
+        return Ok(Json(AnimalStatsResponse {
+            status_counts: std::collections::HashMap::new(),
+            pen_animals_count: 0,
+            total: 0,
+        }));
+    }
+
+    let stats = AnimalService::stats(&state.db).await?;
+    Ok(Json(stats))
 }
 
 /// 按欄位列出所有動物

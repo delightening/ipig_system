@@ -30,15 +30,10 @@ export default defineConfig({
             '@radix-ui/react-separator', '@radix-ui/react-slot',
             '@radix-ui/react-icons',
           ],
-          // 圖表
-          'vendor-charts': ['recharts'],
-          // 行事曆
-          'vendor-calendar': [
-            '@fullcalendar/core', '@fullcalendar/daygrid',
-            '@fullcalendar/interaction', '@fullcalendar/react',
-            '@fullcalendar/timegrid',
-          ],
-          // 國際化
+          // recharts and @fullcalendar are NOT listed here —
+          // they are only used in lazy-loaded pages and will be
+          // automatically code-split by Vite into on-demand chunks.
+          // 國際化（初始渲染即需要，獨立 chunk 避免污染主 bundle）
           'vendor-i18n': ['i18next', 'react-i18next', 'i18next-browser-languagedetector'],
         },
       },

@@ -82,7 +82,7 @@ export function QuickEditAnimalDialog({ open, onOpenChange, animalId }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['animal', animalId] })
       queryClient.invalidateQueries({ queryKey: ['animals'] })
-      queryClient.invalidateQueries({ queryKey: ['animals-count'] })
+      queryClient.invalidateQueries({ queryKey: ['animals-stats'] })
       toast({ title: '成功', description: '動物資料已更新' })
       onOpenChange(false)
     },

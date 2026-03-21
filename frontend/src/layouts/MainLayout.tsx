@@ -97,11 +97,14 @@ export function MainLayout() {
         onChangePassword={() => setShowPasswordDialog(true)}
       />
 
-      <main className={cn(
-        "flex-1 overflow-y-auto transition-all duration-300 relative",
-        'ml-0',
-        sidebarOpen ? 'md:ml-0' : 'md:ml-0'
-      )}>
+      <main
+        style={{ contain: 'layout style' }}
+        className={cn(
+          "flex-1 overflow-y-auto transition-all duration-300 relative",
+          'ml-0',
+          sidebarOpen ? 'md:ml-0' : 'md:ml-0'
+        )}
+      >
         {isImpersonating && (
           <div className="bg-blue-600 text-white px-4 py-2 flex items-center justify-between sticky top-0 z-[60] shadow-md">
             <div className="flex items-center gap-2">
@@ -152,7 +155,7 @@ export function MainLayout() {
           </div>
         </header>
 
-        <div className="p-3 md:p-4">
+        <div className="p-3 md:p-4" style={{ contain: 'layout style' }}>
           <PageErrorBoundary>
             <Suspense fallback={<DelayedFallback />}>
               <Outlet />

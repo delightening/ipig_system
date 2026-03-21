@@ -33,7 +33,7 @@ export function NotificationDropdown() {
       return res.data.count
     },
     staleTime: 30_000,
-    refetchInterval: 60000,
+    refetchInterval: () => (document.hidden ? false : 60000),
     enabled: isLoggedIn,
   })
 

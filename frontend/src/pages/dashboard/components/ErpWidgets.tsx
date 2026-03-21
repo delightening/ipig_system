@@ -1,6 +1,7 @@
 /**
  * ERP 相關的 Dashboard Widget 元件
  */
+import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -54,7 +55,7 @@ interface StatWidgetProps {
   isLoading: boolean
 }
 
-function StatWidget({ title, description, icon, value, isLoading }: StatWidgetProps) {
+const StatWidget = memo(function StatWidget({ title, description, icon, value, isLoading }: StatWidgetProps) {
   return (
     <Card className="h-full flex flex-col overflow-hidden">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -67,9 +68,9 @@ function StatWidget({ title, description, icon, value, isLoading }: StatWidgetPr
       </CardContent>
     </Card>
   )
-}
+})
 
-export function LowStockAlertWidget({
+export const LowStockAlertWidget = memo(function LowStockAlertWidget({
   alerts,
   isLoading,
 }: {
@@ -86,9 +87,9 @@ export function LowStockAlertWidget({
       isLoading={isLoading}
     />
   )
-}
+})
 
-export function PendingDocumentsWidget({
+export const PendingDocumentsWidget = memo(function PendingDocumentsWidget({
   documents,
   isLoading,
 }: {
@@ -105,9 +106,9 @@ export function PendingDocumentsWidget({
       isLoading={isLoading}
     />
   )
-}
+})
 
-export function TodayInboundWidget({
+export const TodayInboundWidget = memo(function TodayInboundWidget({
   todayApprovedDocs,
   isLoading,
 }: {
@@ -124,9 +125,9 @@ export function TodayInboundWidget({
       isLoading={isLoading}
     />
   )
-}
+})
 
-export function TodayOutboundWidget({
+export const TodayOutboundWidget = memo(function TodayOutboundWidget({
   todayApprovedDocs,
   isLoading,
 }: {
@@ -143,9 +144,9 @@ export function TodayOutboundWidget({
       isLoading={isLoading}
     />
   )
-}
+})
 
-export function WeeklyTrendWidget({
+export const WeeklyTrendWidget = memo(function WeeklyTrendWidget({
   trendData,
   days,
   isLoading,
@@ -211,9 +212,9 @@ export function WeeklyTrendWidget({
       </CardContent>
     </Card>
   )
-}
+})
 
-export function RecentDocumentsWidget({
+export const RecentDocumentsWidget = memo(function RecentDocumentsWidget({
   documents,
   isLoading,
 }: {
@@ -271,7 +272,7 @@ export function RecentDocumentsWidget({
       </CardContent>
     </Card>
   )
-}
+})
 
 // --- 即將到期假期 ---
 
