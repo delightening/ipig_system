@@ -7,6 +7,7 @@ use crate::{
     models::{
         AnimalObservation, CreateObservationRequest, ObservationListItem, UpdateObservationRequest,
     },
+    utils::jsonb_validation::{validate_equipment_used, validate_treatments},
     AppError, Result,
 };
 
@@ -79,6 +80,14 @@ impl AnimalObservationService {
         req: &CreateObservationRequest,
         created_by: Uuid,
     ) -> Result<AnimalObservation> {
+        // 驗證 JSONB 欄位結構
+        if let Some(ref eq) = req.equipment_used {
+            validate_equipment_used(eq)?;
+        }
+        if let Some(ref tr) = req.treatments {
+            validate_treatments(tr)?;
+        }
+
         // 如果是緊急給藥，設定狀態為 pending_review
         let emergency_status = if req.is_emergency {
             Some("pending_review".to_string())
@@ -125,6 +134,14 @@ impl AnimalObservationService {
         req: &UpdateObservationRequest,
         updated_by: Uuid,
     ) -> Result<AnimalObservation> {
+        // 驗證 JSONB 欄位結構
+        if let Some(ref eq) = req.equipment_used {
+            validate_equipment_used(eq)?;
+        }
+        if let Some(ref tr) = req.treatments {
+            validate_treatments(tr)?;
+        }
+
         // 先取得原始紀錄用於版本歷史
         let original = Self::get_by_id(pool, id).await?;
 
