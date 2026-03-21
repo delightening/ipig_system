@@ -23,6 +23,10 @@ use crate::{
 
 /// 驗證打卡 IP 是否在允許範圍內，回傳是否通過
 fn check_clock_ip(ip: &str, allowed_ranges: &[String]) -> bool {
+    // Docker 內部 gateway IP，視為本機存取，直接放行
+    if ip == "172.20.0.1" {
+        return true;
+    }
     // 白名單為空表示不限制 → 視為通過
     if allowed_ranges.is_empty() {
         return true;

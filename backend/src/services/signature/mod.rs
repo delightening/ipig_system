@@ -1,7 +1,13 @@
 // 電子簽章服務 - GLP 合規
 // 用於犧牲記錄確認、計畫核准等需要簽章的操作
 
-use crate::{middleware::CurrentUser, repositories, AppError, Result};
+mod access;
+mod content;
+mod annotation;
+
+pub use annotation::{AnnotationService, AnnotationType};
+
+use crate::{repositories, AppError, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
@@ -74,6 +80,17 @@ pub struct VerifyResult {
     pub signer_name: Option<String>,
     pub signed_at: Option<DateTime<Utc>>,
     pub failure_reason: Option<String>,
+}
+
+/// 簽章詳細資訊 DTO（含簽章者姓名）
+#[derive(Debug, Serialize)]
+pub struct SignatureInfoDto {
+    pub id: Uuid,
+    pub signature_type: String,
+    pub signer_name: Option<String>,
+    pub signed_at: DateTime<Utc>,
+    pub signature_method: Option<String>,
+    pub handwriting_svg: Option<String>,
 }
 
 pub struct SignatureService;
@@ -446,234 +463,6 @@ impl SignatureService {
         Ok(is_locked)
     }
 
-    // ============================================
-    // 存取權限檢查（IDOR 防護）
-    // ============================================
-
-    /// 檢查使用者是否有權存取安樂死單據（PI、VET、CHAIR 或管理員）
-    pub async fn check_euthanasia_access(
-        pool: &PgPool,
-        order_id: Uuid,
-        current_user: &CurrentUser,
-    ) -> Result<()> {
-        if current_user.has_permission("animal.euthanasia.arbitrate") || current_user.is_admin() {
-            return Ok(());
-        }
-        let related: Option<(Uuid, Uuid)> = sqlx::query_as(
-            "SELECT pi_user_id, vet_user_id FROM euthanasia_orders WHERE id = $1",
-        )
-        .bind(order_id)
-        .fetch_optional(pool)
-        .await?;
-
-        match related {
-            Some((pi_id, vet_id)) if pi_id == current_user.id || vet_id == current_user.id => {
-                Ok(())
-            }
-            Some(_) => Err(AppError::Forbidden("無權存取此安樂死單據".into())),
-            None => Err(AppError::NotFound("找不到安樂死單據".into())),
-        }
-    }
-
-    /// 檢查使用者是否有權存取轉讓記錄（透過動物所屬計畫關聯）
-    pub async fn check_transfer_access(
-        pool: &PgPool,
-        transfer_id: Uuid,
-        current_user: &CurrentUser,
-    ) -> Result<()> {
-        if current_user.has_permission("aup.protocol.view_all") || current_user.is_admin() {
-            return Ok(());
-        }
-        let has_access: Option<(i64,)> = sqlx::query_as(
-            r#"SELECT 1 FROM animal_transfers t
-               JOIN animals a ON t.animal_id = a.id
-               LEFT JOIN user_protocols up ON up.protocol_id = a.protocol_id
-               WHERE t.id = $1 AND up.user_id = $2"#,
-        )
-        .bind(transfer_id)
-        .bind(current_user.id)
-        .fetch_optional(pool)
-        .await?;
-
-        if has_access.is_some() {
-            Ok(())
-        } else {
-            Err(AppError::Forbidden("無權存取此轉讓記錄".into()))
-        }
-    }
-
-    /// 檢查使用者是否有權存取計畫書（PI、共同編輯者、審查委員或管理員）
-    pub async fn check_protocol_access(
-        pool: &PgPool,
-        protocol_id: Uuid,
-        current_user: &CurrentUser,
-    ) -> Result<()> {
-        if current_user.has_permission("aup.protocol.view_all") || current_user.is_admin() {
-            return Ok(());
-        }
-        let has_access: Option<(i64,)> = sqlx::query_as(
-            r#"SELECT 1 FROM user_protocols
-               WHERE protocol_id = $1 AND user_id = $2"#,
-        )
-        .bind(protocol_id)
-        .bind(current_user.id)
-        .fetch_optional(pool)
-        .await?;
-
-        if has_access.is_some() {
-            Ok(())
-        } else {
-            Err(AppError::Forbidden("無權存取此計畫書".into()))
-        }
-    }
-
-    /// 檢查使用者是否有權存取動物記錄（透過動物所屬計畫關聯，記錄 ID 為 i32）
-    pub async fn check_animal_record_access(
-        pool: &PgPool,
-        table: &str,
-        record_id: i32,
-        current_user: &CurrentUser,
-    ) -> Result<()> {
-        if current_user.has_permission("aup.protocol.view_all") || current_user.is_admin() {
-            return Ok(());
-        }
-        let query = format!(
-            r#"SELECT 1 FROM {} r
-               JOIN animals a ON r.animal_id = a.id
-               LEFT JOIN user_protocols up ON up.protocol_id = a.protocol_id
-               WHERE r.id = $1 AND up.user_id = $2"#,
-            table
-        );
-        let has_access: Option<(i64,)> = sqlx::query_as(&query)
-            .bind(record_id)
-            .bind(current_user.id)
-            .fetch_optional(pool)
-            .await?;
-
-        if has_access.is_some() {
-            Ok(())
-        } else {
-            Err(AppError::Forbidden("無權存取此記錄".into()))
-        }
-    }
-
-    /// 檢查使用者是否有權存取動物記錄（記錄 ID 為 UUID）
-    pub async fn check_animal_record_access_uuid(
-        pool: &PgPool,
-        table: &str,
-        record_id: Uuid,
-        current_user: &CurrentUser,
-    ) -> Result<()> {
-        if current_user.has_permission("aup.protocol.view_all") || current_user.is_admin() {
-            return Ok(());
-        }
-        let query = format!(
-            r#"SELECT 1 FROM {} r
-               JOIN animals a ON r.animal_id = a.id
-               LEFT JOIN user_protocols up ON up.protocol_id = a.protocol_id
-               WHERE r.id = $1 AND up.user_id = $2"#,
-            table
-        );
-        let has_access: Option<(i64,)> = sqlx::query_as(&query)
-            .bind(record_id)
-            .bind(current_user.id)
-            .fetch_optional(pool)
-            .await?;
-
-        if has_access.is_some() {
-            Ok(())
-        } else {
-            Err(AppError::Forbidden("無權存取此記錄".into()))
-        }
-    }
-
-    // ============================================
-    // 記錄內容查詢（用於簽章雜湊計算）
-    // ============================================
-
-    /// 取得犧牲記錄內容（用於生成簽章雜湊）
-    pub async fn fetch_sacrifice_content(pool: &PgPool, id: Uuid) -> Result<String> {
-        sqlx::query_scalar(
-            r#"SELECT CONCAT(
-                'sacrifice_id:', id::text,
-                ',animal_id:', animal_id::text,
-                ',date:', COALESCE(sacrifice_date::text, ''),
-                ',confirmed:', confirmed_sacrifice::text
-            ) FROM animal_sacrifices WHERE id = $1"#,
-        )
-        .bind(id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("找不到犧牲記錄".into()))
-    }
-
-    /// 取得觀察記錄內容（用於生成簽章雜湊）
-    pub async fn fetch_observation_content(pool: &PgPool, id: i32) -> Result<String> {
-        sqlx::query_scalar(
-            r#"SELECT CONCAT(
-                'observation_id:', id::text,
-                ',animal_id:', animal_id::text,
-                ',date:', event_date::text,
-                ',content:', content
-            ) FROM animal_observations WHERE id = $1"#,
-        )
-        .bind(id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("找不到觀察記錄".into()))
-    }
-
-    /// 取得安樂死單據內容（用於生成簽章雜湊）
-    pub async fn fetch_euthanasia_content(pool: &PgPool, id: Uuid) -> Result<String> {
-        sqlx::query_scalar(
-            r#"SELECT CONCAT(
-                'euthanasia_id:', id::text,
-                ',animal_id:', animal_id::text,
-                ',reason:', reason,
-                ',status:', status
-            ) FROM euthanasia_orders WHERE id = $1"#,
-        )
-        .bind(id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("找不到安樂死單據".into()))
-    }
-
-    /// 取得轉讓記錄內容（用於生成簽章雜湊）
-    pub async fn fetch_transfer_content(pool: &PgPool, id: Uuid) -> Result<String> {
-        sqlx::query_scalar(
-            r#"SELECT CONCAT(
-                'transfer_id:', id::text,
-                ',animal_id:', animal_id::text,
-                ',from_iacuc:', from_iacuc_no,
-                ',status:', status
-            ) FROM animal_transfers WHERE id = $1"#,
-        )
-        .bind(id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("找不到轉讓記錄".into()))
-    }
-
-    /// 取得計畫書內容（用於生成簽章雜湊）
-    pub async fn fetch_protocol_content(pool: &PgPool, id: Uuid) -> Result<String> {
-        sqlx::query_scalar(
-            r#"SELECT CONCAT(
-                'protocol_id:', id::text,
-                ',title:', title,
-                ',status:', status
-            ) FROM protocols WHERE id = $1"#,
-        )
-        .bind(id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("找不到計劃書".into()))
-    }
-
-    // ============================================
-    // 統一簽章流程
-    // ============================================
-
     /// 解析簽章類型字串，預設使用指定的 default
     pub fn parse_signature_type(s: Option<&str>, default: SignatureType) -> SignatureType {
         match s {
@@ -741,10 +530,6 @@ impl SignatureService {
         }
     }
 
-    // ============================================
-    // 簽章狀態查詢（含簽章者姓名）
-    // ============================================
-
     /// 簽章詳細資訊（含簽章者姓名）
     pub async fn get_signature_infos(
         pool: &PgPool,
@@ -766,134 +551,5 @@ impl SignatureService {
             });
         }
         Ok(infos)
-    }
-}
-
-/// 簽章詳細資訊 DTO（含簽章者姓名）
-#[derive(Debug, Serialize)]
-pub struct SignatureInfoDto {
-    pub id: Uuid,
-    pub signature_type: String,
-    pub signer_name: Option<String>,
-    pub signed_at: DateTime<Utc>,
-    pub signature_method: Option<String>,
-    pub handwriting_svg: Option<String>,
-}
-
-// ============================================
-// 記錄附註服務
-// ============================================
-
-/// 附註類型
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum AnnotationType {
-    Note,       // 一般附註
-    Correction, // 更正（需簽章）
-    Addendum,   // 補充說明
-}
-
-impl AnnotationType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            AnnotationType::Note => "NOTE",
-            AnnotationType::Correction => "CORRECTION",
-            AnnotationType::Addendum => "ADDENDUM",
-        }
-    }
-}
-
-/// 記錄附註
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct RecordAnnotation {
-    pub id: Uuid,
-    pub record_type: String,
-    pub record_id: i32,
-    pub annotation_type: String,
-    pub content: String,
-    pub created_by: Uuid,
-    pub created_at: DateTime<Utc>,
-    pub signature_id: Option<Uuid>,
-}
-
-/// 建立附註請求
-#[derive(Debug, Deserialize)]
-pub struct CreateAnnotationRequest {
-    pub content: String,
-    pub annotation_type: String,
-}
-
-pub struct AnnotationService;
-
-impl AnnotationService {
-    /// 新增附註
-    pub async fn create(
-        pool: &PgPool,
-        record_type: &str,
-        record_id: i32,
-        annotation_type: AnnotationType,
-        content: &str,
-        created_by: Uuid,
-        signature_id: Option<Uuid>,
-    ) -> Result<RecordAnnotation> {
-        // 如果是 CORRECTION 類型，必須有簽章
-        if annotation_type == AnnotationType::Correction && signature_id.is_none() {
-            return Err(AppError::Validation("更正附註需要電子簽章".to_string()));
-        }
-
-        let annotation = sqlx::query_as::<_, RecordAnnotation>(
-            r#"
-            INSERT INTO record_annotations (
-                record_type, record_id, annotation_type, content, created_by, signature_id
-            )
-            VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING *
-            "#,
-        )
-        .bind(record_type)
-        .bind(record_id)
-        .bind(annotation_type.as_str())
-        .bind(content)
-        .bind(created_by)
-        .bind(signature_id)
-        .fetch_one(pool)
-        .await?;
-
-        Ok(annotation)
-    }
-
-    /// 取得記錄的所有附註
-    pub async fn get_by_record(
-        pool: &PgPool,
-        record_type: &str,
-        record_id: i32,
-    ) -> Result<Vec<RecordAnnotation>> {
-        let annotations = sqlx::query_as::<_, RecordAnnotation>(
-            r#"
-            SELECT * FROM record_annotations
-            WHERE record_type = $1 AND record_id = $2
-            ORDER BY created_at DESC
-            "#,
-        )
-        .bind(record_type)
-        .bind(record_id)
-        .fetch_all(pool)
-        .await?;
-
-        Ok(annotations)
-    }
-
-    /// 取得附註清單並附加建立者姓名
-    pub async fn enrich_with_names(
-        pool: &PgPool,
-        annotations: Vec<RecordAnnotation>,
-    ) -> Result<Vec<(RecordAnnotation, Option<String>)>> {
-        let mut result = Vec::with_capacity(annotations.len());
-        for ann in annotations {
-            let name =
-                repositories::user::find_user_display_name_by_id(pool, ann.created_by).await?;
-            result.push((ann, name));
-        }
-        Ok(result)
     }
 }

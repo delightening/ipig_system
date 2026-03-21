@@ -41,12 +41,13 @@ describe('emailField', () => {
 })
 
 describe('passwordField', () => {
-  it('accepts 6+ char password', () => {
-    expect(passwordField.parse('123456')).toBe('123456')
+  it('accepts 10+ char password', () => {
+    expect(passwordField.parse('Abcdef1234')).toBe('Abcdef1234')
   })
 
-  it('rejects short password', () => {
+  it('rejects short password (< 10 chars)', () => {
     expect(passwordField.safeParse('12345').success).toBe(false)
+    expect(passwordField.safeParse('123456789').success).toBe(false)
   })
 })
 
@@ -112,18 +113,18 @@ describe('forgotPasswordSchema', () => {
 describe('changePasswordSchema', () => {
   it('accepts matching passwords', () => {
     const result = changePasswordSchema.safeParse({
-      current_password: 'old123',
-      new_password: 'new123',
-      confirm_password: 'new123',
+      current_password: 'OldPass123!',
+      new_password: 'NewPass1234',
+      confirm_password: 'NewPass1234',
     })
     expect(result.success).toBe(true)
   })
 
   it('rejects mismatched passwords', () => {
     const result = changePasswordSchema.safeParse({
-      current_password: 'old123',
-      new_password: 'new123',
-      confirm_password: 'different',
+      current_password: 'OldPass123!',
+      new_password: 'NewPass1234',
+      confirm_password: 'DifferentXx',
     })
     expect(result.success).toBe(false)
   })
@@ -167,7 +168,7 @@ describe('createUserSchema', () => {
   it('accepts valid user data', () => {
     const result = createUserSchema.safeParse({
       email: 'user@test.com',
-      password: 'pass123',
+      password: 'Abcdef1234',
       display_name: 'Test User',
       role_ids: ['role-1'],
     })
@@ -177,7 +178,7 @@ describe('createUserSchema', () => {
   it('rejects empty role_ids', () => {
     const result = createUserSchema.safeParse({
       email: 'user@test.com',
-      password: 'pass123',
+      password: 'Abcdef1234',
       display_name: 'Test',
       role_ids: [],
     })

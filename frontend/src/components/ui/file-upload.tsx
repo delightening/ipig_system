@@ -57,6 +57,54 @@ const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
       return /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(fileName)
     }
 
+    /** 允許的 MIME type 白名單 */
+    const ALLOWED_MIME_TYPES: Record<string, boolean> = {
+      // 圖片
+      'image/jpeg': true,
+      'image/png': true,
+      'image/gif': true,
+      'image/webp': true,
+      'image/bmp': true,
+      'image/svg+xml': true,
+      // 文件
+      'application/pdf': true,
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': true, // .xlsx
+      'application/vnd.ms-excel': true, // .xls
+      'text/csv': true,
+      'application/msword': true, // .doc
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': true, // .docx
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation': true, // .pptx
+      'application/vnd.ms-powerpoint': true, // .ppt
+      'text/plain': true,
+      'application/zip': true,
+      'application/x-zip-compressed': true,
+    }
+
+    /** 允許的副檔名白名單（MIME type 為空時降級使用） */
+    const ALLOWED_EXTENSIONS = /\.(jpg|jpeg|png|gif|webp|bmp|svg|pdf|xlsx|xls|csv|doc|docx|pptx|ppt|txt|zip)$/i
+
+    /** 驗證檔案 MIME type 是否在白名單內 */
+    const validateMimeType = (file: File): string | null => {
+      // 某些瀏覽器或系統可能回傳空字串 MIME type，此時降級為只檢查副檔名
+      if (!file.type) {
+        if (!ALLOWED_EXTENSIONS.test(file.name)) {
+          return t('common.fileUpload.errorMimeType', {
+            fileName: file.name,
+            defaultValue: `檔案 "${file.name}" 的類型不在允許範圍內`,
+          })
+        }
+        return null
+      }
+      // 允許 image/* 通配
+      if (file.type.startsWith('image/') || ALLOWED_MIME_TYPES[file.type]) {
+        return null
+      }
+      return t('common.fileUpload.errorMimeType', {
+        fileName: file.name,
+        defaultValue: `檔案 "${file.name}" 的類型 (${file.type}) 不在允許範圍內`,
+      })
+    }
+
     const formatFileSize = (bytes: number) => {
       if (bytes < 1024) return `${bytes} B`
       if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -73,6 +121,15 @@ const FileUpload = React.forwardRef<HTMLDivElement, FileUploadProps>(
       if (value.length + fileArray.length > maxFiles) {
         setError(t('common.fileUpload.errorMaxFiles', { maxFiles }))
         return
+      }
+
+      // Validate MIME types
+      for (const file of fileArray) {
+        const mimeError = validateMimeType(file)
+        if (mimeError) {
+          setError(mimeError)
+          return
+        }
       }
 
       // Validate file sizes

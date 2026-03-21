@@ -59,8 +59,8 @@ pub const SESSION_IDLE_TIMEOUT_MINUTES: i64 = 30;
 pub const MAX_SESSIONS_PER_USER: i64 = 5;
 
 /// Password policy
-pub const PASSWORD_MIN_LENGTH: usize = 8;
-pub const DEFAULT_INSECURE_PASSWORD: &str = "ChangeMe123!";
+pub const PASSWORD_MIN_LENGTH: usize = 10;
+pub const DEFAULT_INSECURE_PASSWORD: &str = "iPig$ecure1";
 
 /// Audit
 pub const AUDIT_LOG_MAX_EXPORT: i64 = 10000;
