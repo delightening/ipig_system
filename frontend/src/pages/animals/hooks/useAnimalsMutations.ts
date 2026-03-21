@@ -37,7 +37,7 @@ export function useAnimalsMutations(opts: MutationsOptions) {
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['animals'] })
     queryClient.invalidateQueries({ queryKey: ['animals-by-pen'] })
-    queryClient.invalidateQueries({ queryKey: ['animals-count'] })
+    queryClient.invalidateQueries({ queryKey: ['animals-stats'] })
   }
 
   const extractErrorMessage = (error: unknown, fallback: string) =>

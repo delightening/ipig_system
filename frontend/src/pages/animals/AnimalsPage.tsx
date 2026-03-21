@@ -117,8 +117,9 @@ export function AnimalsPage() {
   const perPage = 50
 
   const {
-    animals, allAnimals, sourcesData, groupedData, isLoading, groupedLoading,
-    totalPages, totalAnimals, penViewGroupedData, penViewAnimals, statusCounts, penAnimalsCount,
+    animals, sourcesData, groupedData, isLoading, groupedLoading,
+    totalPages, totalAnimals, penViewGroupedData, penViewAnimals,
+    statusCounts, penAnimalsCount, allAnimalsCount,
   } = useAnimalsQueries({ statusFilter, breedFilter, appliedSearch, page, perPage })
 
   const hasPenSearch = statusFilter === 'pen' && (!!(appliedSearch ?? '').trim() || (breedFilter && breedFilter !== 'all'))
@@ -202,7 +203,7 @@ export function AnimalsPage() {
         isPIOrClient={isPIOrClient}
         isAdmin={isAdmin}
         statusCounts={statusCounts}
-        allAnimalsCount={allAnimals.length}
+        allAnimalsCount={allAnimalsCount}
         penAnimalsCount={penAnimalsCount}
         selectedAnimalsCount={selectedAnimals.length}
         onShowBatchAssign={() => setShowBatchAssignDialog(true)}

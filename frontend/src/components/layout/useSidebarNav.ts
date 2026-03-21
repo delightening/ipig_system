@@ -1,0 +1,137 @@
+import { useMemo } from 'react'
+import { useLocation } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import { arrayMove } from '@dnd-kit/sortable'
+
+import { useAuthStore } from '@/stores/auth'
+import { STALE_TIME } from '@/lib/query'
+import api, { deleteResource } from '@/lib/api'
+import { toast } from '@/components/ui/use-toast'
+
+import { DEFAULT_NAV_ORDER, navItemsConfig } from './sidebarNavConfig'
+import type { NavItem } from './sidebarNavConfig'
+
+export function useSidebarNav() {
+  const location = useLocation()
+  const queryClient = useQueryClient()
+  const { user, hasRole, hasPermission } = useAuthStore()
+  const { t } = useTranslation()
+
+  const translateTitle = (item: { title: string; translate?: boolean }) => {
+    if (item.translate === false) return item.title
+    return t(`nav.${item.title}`) || item.title
+  }
+
+  const { data: navOrderData } = useQuery({
+    queryKey: ['user-preferences', 'nav_order'],
+    queryFn: async () => {
+      const res = await api.get<{ key: string; value: string[] }>('/me/preferences/nav_order')
+      return res.data.value
+    },
+    staleTime: STALE_TIME.SETTINGS,
+  })
+
+  const saveNavOrderMutation = useMutation({
+    mutationFn: async (order: string[]) => {
+      return api.put('/me/preferences/nav_order', { value: order })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-preferences', 'nav_order'] })
+    },
+  })
+
+  const resetNavOrderMutation = useMutation({
+    mutationFn: async () => {
+      return deleteResource('/me/preferences/nav_order')
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-preferences', 'nav_order'] })
+      toast({ title: t('common.success'), description: t('common.resetSuccess') })
+    },
+  })
+
+  const sortedNavItems = useMemo(() => {
+    const order = navOrderData || DEFAULT_NAV_ORDER
+    return [...navItemsConfig].sort((a, b) => {
+      const posA = order.indexOf(a.title)
+      const posB = order.indexOf(b.title)
+      return (posA === -1 ? 999 : posA) - (posB === -1 ? 999 : posB)
+    })
+  }, [navOrderData])
+
+  const { data: pendingAmendmentsCount } = useQuery({
+    queryKey: ['amendments-pending-count'],
+    queryFn: async () => {
+      const res = await api.get<{ count: number }>('/amendments/pending-count')
+      return res.data.count
+    },
+    staleTime: STALE_TIME.LIST,
+    refetchInterval: () => (document.hidden ? false : 60000),
+    enabled: !!user,
+  })
+
+  const filteredNavItems = useMemo(() => {
+    const rolesWithoutHrAccess = ['REVIEWER', 'VET', 'IACUC_CHAIR', 'PI']
+    const shouldHideHr = user?.roles?.every(r =>
+      rolesWithoutHrAccess.includes(r)
+    ) && user?.roles?.some(r => rolesWithoutHrAccess.includes(r))
+
+    return sortedNavItems
+      .filter((item) => {
+        if (item.title === '人員管理' && shouldHideHr) return false
+        if (item.permission === 'erp') {
+          return hasRole('admin') ||
+            user?.permissions?.some(p => p.startsWith('erp.')) ||
+            user?.permissions?.some(p => p.startsWith('equipment.'))
+        }
+        if (item.permission && !hasPermission(item.permission) && !hasRole(item.permission)) {
+          return false
+        }
+        return true
+      })
+      .map((item) => {
+        if (!item.children) return item
+        const filteredChildren = item.children.filter(child => {
+          if (child.permission) return hasPermission(child.permission) || hasRole('admin')
+          return true
+        })
+        return { ...item, children: filteredChildren }
+      })
+      .filter((item) => !item.children || item.children.length > 0)
+      .map((item) => {
+        if (item.title === '我的變更申請' && pendingAmendmentsCount) {
+          return { ...item, badge: pendingAmendmentsCount }
+        }
+        return item
+      })
+  }, [sortedNavItems, hasRole, hasPermission, user, pendingAmendmentsCount])
+
+  const isActive = (href: string) => {
+    if (href.includes('?')) {
+      return location.pathname + location.search === href
+    }
+    return location.pathname === href
+  }
+
+  const isChildActive = (item: NavItem): boolean => {
+    return item.children?.some((child) => isActive(child.href)) || false
+  }
+
+  const handleDragEnd = (activeId: string, overId: string) => {
+    const oldIndex = sortedNavItems.findIndex((item) => item.title === activeId)
+    const newIndex = sortedNavItems.findIndex((item) => item.title === overId)
+    const newOrder = arrayMove(sortedNavItems.map(i => i.title), oldIndex, newIndex)
+    saveNavOrderMutation.mutate(newOrder)
+  }
+
+  return {
+    filteredNavItems,
+    isActive,
+    isChildActive,
+    translateTitle,
+    handleDragEnd,
+    handleResetNavOrder: () => resetNavOrderMutation.mutate(),
+    isResettingNavOrder: resetNavOrderMutation.isPending,
+  }
+}

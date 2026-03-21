@@ -53,9 +53,6 @@ export function AnimalEditPage() {
       const res = await api.get<Animal>(`/animals/${animalId}`)
       return res.data
     },
-    staleTime: 30_000,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
   })
 
   // Query sources

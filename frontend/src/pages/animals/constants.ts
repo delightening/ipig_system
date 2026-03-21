@@ -1,5 +1,58 @@
 import type { AnimalStatus } from '@/lib/api'
 
+export type TabType =
+  | 'timeline'
+  | 'observations'
+  | 'surgeries'
+  | 'weights'
+  | 'vaccinations'
+  | 'sacrifice'
+  | 'info'
+  | 'pathology'
+  | 'blood_tests'
+  | 'pain_assessment'
+  | 'transfer'
+
+export const VALID_TABS: TabType[] = [
+  'timeline',
+  'observations',
+  'surgeries',
+  'weights',
+  'vaccinations',
+  'sacrifice',
+  'info',
+  'pathology',
+  'blood_tests',
+  'pain_assessment',
+  'transfer',
+]
+
+export function parseTabFromUrl(
+  tabParam: string | null,
+  animalStatus?: AnimalStatus,
+): TabType {
+  if (!tabParam || !VALID_TABS.includes(tabParam as TabType)) return 'timeline'
+  if (
+    tabParam === 'transfer' &&
+    animalStatus !== 'completed' &&
+    animalStatus !== 'transferred'
+  ) {
+    return 'timeline'
+  }
+  return tabParam as TabType
+}
+
+/** Badge status colors used on the detail page header */
+export const detailStatusColors: Record<AnimalStatus, string> = {
+  unassigned: 'bg-gray-500',
+  in_experiment: 'bg-orange-500',
+  completed: 'bg-green-500',
+  euthanized: 'bg-red-500',
+  sudden_death: 'bg-rose-600',
+  transferred: 'bg-indigo-500',
+}
+
+/** List page status colors */
 export const statusColors: Record<AnimalStatus, string> = {
   unassigned: 'bg-gray-100 text-gray-800',
   in_experiment: 'bg-orange-100 text-orange-800',
