@@ -244,8 +244,8 @@ export function useProductImport(open: boolean) {
     }
   }
 
-  const handleDownloadTemplate = async () => {
-    try {
+  const downloadTemplateMutation = useMutation({
+    mutationFn: async () => {
       const response = await api.get('/products/import/template', { responseType: 'blob' })
       const url = window.URL.createObjectURL(new Blob([response.data]))
       const link = document.createElement('a')
@@ -261,15 +261,18 @@ export function useProductImport(open: boolean) {
       link.click()
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
+    },
+    onSuccess: () => {
       toast({ title: '下載成功', description: '範本檔案已開始下載' })
-    } catch (error: unknown) {
+    },
+    onError: (error: unknown) => {
       toast({
         title: '下載失敗',
         description: getApiErrorMessage(error, '無法下載範本檔案'),
         variant: 'destructive',
       })
-    }
-  }
+    },
+  })
 
   const showNoSkuPrompt =
     !!checkResult && !checkResult.has_sku_column && !result && !previewRows &&
@@ -287,6 +290,6 @@ export function useProductImport(open: boolean) {
     generateSkuMutation, checkMutation, previewMutation, importMutation,
     showNoSkuPrompt, showDuplicateWarning,
     handleFileInputChange, handleImport, handleClose, handleConfirmImportWithSku,
-    handleDownloadTemplate, resetPreviewState, doImport,
+    downloadTemplateMutation, resetPreviewState, doImport,
   }
 }

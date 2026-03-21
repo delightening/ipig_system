@@ -102,8 +102,8 @@ export function WarehouseImportDialog({ open, onOpenChange }: Props) {
     onOpenChange(false)
   }
 
-  const handleDownloadTemplate = async () => {
-    try {
+  const downloadTemplateMutation = useMutation({
+    mutationFn: async () => {
       const response = await api.get('/warehouses/import/template', {
         responseType: 'blob',
       })
@@ -125,19 +125,21 @@ export function WarehouseImportDialog({ open, onOpenChange }: Props) {
       link.click()
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
-
+    },
+    onSuccess: () => {
       toast({
         title: '下載成功',
         description: '範本檔案已開始下載',
       })
-    } catch (error: unknown) {
+    },
+    onError: (error: unknown) => {
       toast({
         title: '下載失敗',
         description: getApiErrorMessage(error, '無法下載範本檔案'),
         variant: 'destructive',
       })
-    }
-  }
+    },
+  })
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -163,7 +165,8 @@ export function WarehouseImportDialog({ open, onOpenChange }: Props) {
               variant="outline"
               size="sm"
               className="border-blue-300 text-blue-700 hover:bg-blue-100"
-              onClick={handleDownloadTemplate}
+              onClick={() => downloadTemplateMutation.mutate()}
+              disabled={downloadTemplateMutation.isPending}
             >
               <Download className="h-4 w-4 mr-1" />
               下載範本 (XLSX)

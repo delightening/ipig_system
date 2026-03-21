@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { lazy, Suspense, useState, useEffect } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -48,17 +48,21 @@ import { defaultFormData, sectionKeys } from './protocol-edit/constants'
 import { validateRequiredFields } from './protocol-edit/validation'
 import { deepMerge } from './protocol-edit/utils'
 
-// 匯入各 Section 元件
-import { SectionBasic } from './protocol-edit/SectionBasic'
-import { SectionPurpose } from './protocol-edit/SectionPurpose'
-import { SectionItems } from './protocol-edit/SectionItems'
-import { SectionDesign } from './protocol-edit/SectionDesign'
-import { SectionGuidelines } from './protocol-edit/SectionGuidelines'
-import { SectionSurgery } from './protocol-edit/SectionSurgery'
-import { SectionAnimals } from './protocol-edit/SectionAnimals'
-import { SectionPersonnel } from './protocol-edit/SectionPersonnel'
-import { SectionAttachments } from './protocol-edit/SectionAttachments'
-import { SectionSignature } from './protocol-edit/SectionSignature'
+import { Skeleton } from '@/components/ui/skeleton'
+
+// Lazy-loaded Section 元件
+const SectionBasic = lazy(() => import('./protocol-edit/SectionBasic').then(m => ({ default: m.SectionBasic })))
+const SectionPurpose = lazy(() => import('./protocol-edit/SectionPurpose').then(m => ({ default: m.SectionPurpose })))
+const SectionItems = lazy(() => import('./protocol-edit/SectionItems').then(m => ({ default: m.SectionItems })))
+const SectionDesign = lazy(() => import('./protocol-edit/SectionDesign').then(m => ({ default: m.SectionDesign })))
+const SectionGuidelines = lazy(() => import('./protocol-edit/SectionGuidelines').then(m => ({ default: m.SectionGuidelines })))
+const SectionSurgery = lazy(() => import('./protocol-edit/SectionSurgery').then(m => ({ default: m.SectionSurgery })))
+const SectionAnimals = lazy(() => import('./protocol-edit/SectionAnimals').then(m => ({ default: m.SectionAnimals })))
+const SectionPersonnel = lazy(() => import('./protocol-edit/SectionPersonnel').then(m => ({ default: m.SectionPersonnel })))
+const SectionAttachments = lazy(() => import('./protocol-edit/SectionAttachments').then(m => ({ default: m.SectionAttachments })))
+const SectionSignature = lazy(() => import('./protocol-edit/SectionSignature').then(m => ({ default: m.SectionSignature })))
+
+const SectionFallback = () => <Skeleton variant="form" fields={4} />
 
 type FormData = ProtocolFormData
 
@@ -118,7 +122,6 @@ export function ProtocolEditPage() {
     trainings_other_text: '',
     training_certificates: [] as Array<{ training_code: string; certificate_no: string }>,
   })
-  const [isSaving, setIsSaving] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
 
   const { isBlocked, proceed, reset } = useUnsavedChangesGuard(isDirty)
@@ -288,6 +291,7 @@ export function ProtocolEditPage() {
   const createMutation = useMutation({
     mutationFn: async (data: CreateProtocolRequest) => api.post('/protocols', data),
     onSuccess: (response) => {
+      setIsDirty(false)
       toast({
         title: t('common.success'),
         description: t('aup.messages.created'),
@@ -307,6 +311,7 @@ export function ProtocolEditPage() {
   const updateMutation = useMutation({
     mutationFn: async (data: UpdateProtocolRequest) => api.put(`/protocols/${id}`, data),
     onSuccess: () => {
+      setIsDirty(false)
       toast({
         title: t('common.success'),
         description: t('aup.messages.saved'),
@@ -342,7 +347,30 @@ export function ProtocolEditPage() {
     },
   })
 
-  const handleSave = async (isSubmit = false) => {
+  const buildSaveData = () => {
+    const basicContent = {
+      ...formData.working_content.basic,
+      study_title: formData.title,
+      start_date: formData.start_date,
+      end_date: formData.end_date,
+    }
+
+    if (!isIACUCStaff) {
+      basicContent.apply_study_number = ''
+    }
+
+    return {
+      title: formData.title,
+      working_content: {
+        ...formData.working_content,
+        basic: basicContent,
+      },
+      start_date: formData.start_date || undefined,
+      end_date: formData.end_date || undefined,
+    }
+  }
+
+  const handleSave = (isSubmit = false) => {
     const validationError = isSubmit
       ? validateRequiredFields(formData, t)
       : (!formData.title.trim() ? t('aup.basic.validation.titleRequired') : null)
@@ -353,55 +381,45 @@ export function ProtocolEditPage() {
         description: validationError,
         variant: 'destructive',
       })
-      return false
+      return
     }
 
-    setIsSaving(true)
-    try {
-      const basicContent = {
-        ...formData.working_content.basic,
-        study_title: formData.title,
-        start_date: formData.start_date,
-        end_date: formData.end_date,
-      }
+    const data = buildSaveData()
 
-      if (!isIACUCStaff) {
-        basicContent.apply_study_number = ''
-      }
-
-      const data = {
-        title: formData.title,
-        working_content: {
-          ...formData.working_content,
-          basic: basicContent,
+    if (isNew) {
+      createMutation.mutate(data)
+    } else {
+      updateMutation.mutate(data, {
+        onSuccess: () => {
+          setIsDirty(false)
         },
-        start_date: formData.start_date || undefined,
-        end_date: formData.end_date || undefined,
-      }
-
-      if (isNew) {
-        await createMutation.mutateAsync(data)
-      } else {
-        await updateMutation.mutateAsync(data)
-      }
-      setIsDirty(false)
-      return true
-    } catch {
-      return false
-    } finally {
-      setIsSaving(false)
+      })
     }
   }
 
   const handleSubmit = async () => {
     if (!id) return
-    const isSaved = await handleSave(true)
-    if (!isSaved) return
-
-    const ok = await confirm({ title: '送出計畫書', description: t('aup.messages.confirmSubmit'), confirmLabel: '確認送出' })
-    if (ok) {
-      submitMutation.mutate()
+    const validationError = validateRequiredFields(formData, t)
+    if (validationError) {
+      toast({
+        title: t('common.error'),
+        description: validationError,
+        variant: 'destructive',
+      })
+      return
     }
+
+    const data = buildSaveData()
+
+    updateMutation.mutate(data, {
+      onSuccess: async () => {
+        setIsDirty(false)
+        const ok = await confirm({ title: '送出計畫書', description: t('aup.messages.confirmSubmit'), confirmLabel: '確認送出' })
+        if (ok) {
+          submitMutation.mutate()
+        }
+      },
+    })
   }
 
   const updateWorkingContent = (section: keyof FormData['working_content'], path: string, value: unknown) => {
@@ -484,8 +502,8 @@ export function ProtocolEditPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => handleSave()} disabled={isSaving}>
-            {isSaving ? (
+          <Button variant="outline" onClick={() => handleSave()} disabled={createMutation.isPending || updateMutation.isPending}>
+            {createMutation.isPending || updateMutation.isPending ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <Save className="mr-2 h-4 w-4" />
@@ -530,7 +548,9 @@ export function ProtocolEditPage() {
         </Card>
 
         <div className="space-y-6">
-          {sectionComponents[activeSection]}
+          <Suspense fallback={<SectionFallback />}>
+            {sectionComponents[activeSection]}
+          </Suspense>
         </div>
       </div>
 

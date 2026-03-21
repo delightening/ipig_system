@@ -180,17 +180,20 @@ export function HrAttendancePage() {
     })
 
     // 匯出 Excel
-    const handleExportExcel = async () => {
-        const params = new URLSearchParams()
-        if (dateFrom) params.set('from', dateFrom)
-        if (dateTo) params.set('to', dateTo)
-        if (canViewAll && viewAll) params.set('view_all', 'true')
-        if (canViewAll && viewAll && filterUserId) params.set('user_id', filterUserId)
-        try {
+    const exportExcelMutation = useMutation({
+        mutationFn: async () => {
+            const params = new URLSearchParams()
+            if (dateFrom) params.set('from', dateFrom)
+            if (dateTo) params.set('to', dateTo)
+            if (canViewAll && viewAll) params.set('view_all', 'true')
+            if (canViewAll && viewAll && filterUserId) params.set('user_id', filterUserId)
             const res = await api.get(`/hr/attendance/export?${params.toString()}`, {
                 responseType: 'blob',
             })
-            const blob = new Blob([res.data], {
+            return res.data
+        },
+        onSuccess: (data) => {
+            const blob = new Blob([data], {
                 type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             })
             const url = URL.createObjectURL(blob)
@@ -200,14 +203,15 @@ export function HrAttendancePage() {
             a.click()
             URL.revokeObjectURL(url)
             toast({ title: '匯出成功', description: '出勤記錄已下載' })
-        } catch (err) {
+        },
+        onError: (error: unknown) => {
             toast({
                 title: '匯出失敗',
-                description: getApiErrorMessage(err, '請稍後再試'),
+                description: getApiErrorMessage(error, '請稍後再試'),
                 variant: 'destructive',
             })
-        }
-    }
+        },
+    })
 
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' })
@@ -409,9 +413,9 @@ export function HrAttendancePage() {
                             <RefreshCw className="h-4 w-4 mr-2" />
                             重新整理
                         </Button>
-                        <Button variant="outline" onClick={handleExportExcel}>
+                        <Button variant="outline" onClick={() => exportExcelMutation.mutate()} disabled={exportExcelMutation.isPending}>
                             <Download className="h-4 w-4 mr-2" />
-                            匯出 Excel
+                            {exportExcelMutation.isPending ? '匯出中...' : '匯出 Excel'}
                         </Button>
                     </div>
 

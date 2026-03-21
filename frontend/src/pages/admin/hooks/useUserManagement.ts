@@ -1,10 +1,26 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
+import { z } from 'zod'
 import api, { confirmPassword, deleteResource, User, Role, ResetPasswordRequest } from '@/lib/api'
 import { getErrorMessage, ApiErrorPayload } from '@/types/error'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/components/ui/use-toast'
+import { getPasswordError, PASSWORD_MIN_LENGTH } from '@/lib/passwordValidation'
+
+// === Zod 驗證 Schema ===
+
+const createUserFormSchema = z.object({
+  email: z.string().min(1, '請輸入 Email').email('請輸入有效的 Email'),
+  password: z.string().min(PASSWORD_MIN_LENGTH, `密碼至少需要 ${PASSWORD_MIN_LENGTH} 個字元`),
+  display_name: z.string().min(2, '至少 2 個字元').max(50, '最多 50 個字元').trim(),
+  role_ids: z.array(z.string()).min(1, '請選擇角色'),
+})
+
+const updateUserFormSchema = z.object({
+  email: z.string().email('請輸入有效的 Email').optional().or(z.literal('')),
+  display_name: z.string().min(2, '至少 2 個字元').max(50, '最多 50 個字元').trim().optional().or(z.literal('')),
+})
 
 export interface UserTrainingInput {
   code: string
@@ -140,7 +156,7 @@ export function useUserManagement() {
         const rawData = error.response?.data
         if (backendMessage) {
           if (backendMessage.includes('Password must be at least'))
-            errorMessage = '密碼至少需要 6 個字元'
+            errorMessage = `密碼至少需要 ${PASSWORD_MIN_LENGTH} 個字元`
           else if (
             backendMessage.includes('Password must contain uppercase, lowercase, and numeric')
           )
@@ -231,12 +247,16 @@ export function useUserManagement() {
   })
 
   const handleCreate = () => {
-    if (!formData.email || !formData.password || !formData.display_name) {
-      toast({ title: '錯誤', description: '請填寫所有必填欄位', variant: 'destructive' })
+    const result = createUserFormSchema.safeParse(formData)
+    if (!result.success) {
+      const firstError = result.error.issues[0]?.message ?? '驗證失敗'
+      toast({ title: '錯誤', description: firstError, variant: 'destructive' })
       return
     }
-    if (formData.password.length < 6) {
-      toast({ title: '錯誤', description: '密碼至少需要 6 個字元', variant: 'destructive' })
+    // 密碼複雜度驗證（含大寫、小寫、數字、弱密碼黑名單）
+    const pwError = getPasswordError(formData.password)
+    if (pwError) {
+      toast({ title: '錯誤', description: pwError, variant: 'destructive' })
       return
     }
     createMutation.mutate({
@@ -268,6 +288,15 @@ export function useUserManagement() {
 
   const handleUpdate = () => {
     if (!selectedUser) return
+    const result = updateUserFormSchema.safeParse({
+      email: formData.email,
+      display_name: formData.display_name,
+    })
+    if (!result.success) {
+      const firstError = result.error.issues[0]?.message ?? '驗證失敗'
+      toast({ title: '錯誤', description: firstError, variant: 'destructive' })
+      return
+    }
     updateMutation.mutate({
       id: selectedUser.id,
       data: {
@@ -308,7 +337,22 @@ export function useUserManagement() {
     }))
   }
 
-  const handleResetPassword = async () => {
+  const confirmPasswordMutation = useMutation({
+    mutationFn: (password: string) => confirmPassword(password),
+    onSuccess: ({ reauth_token }) => {
+      if (!userToResetPassword) return
+      resetPasswordMutation.mutate({
+        id: userToResetPassword.id,
+        data: { new_password: newPassword },
+        reauthToken: reauth_token,
+      })
+    },
+    onError: () => {
+      toast({ title: '錯誤', description: '密碼錯誤，請重新輸入您的登入密碼', variant: 'destructive' })
+    },
+  })
+
+  const handleResetPassword = () => {
     if (!userToResetPassword) return
     if (!reauthPassword) {
       toast({ title: '錯誤', description: '請輸入您的登入密碼以確認身份', variant: 'destructive' })
@@ -318,24 +362,16 @@ export function useUserManagement() {
       toast({ title: '錯誤', description: '請填寫所有欄位', variant: 'destructive' })
       return
     }
-    if (newPassword.length < 6) {
-      toast({ title: '錯誤', description: '密碼至少需要 6 個字元', variant: 'destructive' })
+    const resetPwError = getPasswordError(newPassword)
+    if (resetPwError) {
+      toast({ title: '錯誤', description: resetPwError, variant: 'destructive' })
       return
     }
     if (newPassword !== confirmNewPassword) {
       toast({ title: '錯誤', description: '兩次輸入的密碼不一致', variant: 'destructive' })
       return
     }
-    try {
-      const { reauth_token } = await confirmPassword(reauthPassword)
-      resetPasswordMutation.mutate({
-        id: userToResetPassword.id,
-        data: { new_password: newPassword },
-        reauthToken: reauth_token,
-      })
-    } catch {
-      toast({ title: '錯誤', description: '密碼錯誤，請重新輸入您的登入密碼', variant: 'destructive' })
-    }
+    confirmPasswordMutation.mutate(reauthPassword)
   }
 
   const openResetPasswordDialog = (user: User) => {
@@ -432,6 +468,7 @@ export function useUserManagement() {
     createMutation,
     updateMutation,
     resetPasswordMutation,
+    confirmPasswordMutation,
     deleteUserWithReauth,
     handleCreate,
     handleEdit,

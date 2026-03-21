@@ -84,7 +84,7 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
       if (data.error_count === 0) {
         queryClient.invalidateQueries({ queryKey: ['animals'] })
         queryClient.invalidateQueries({ queryKey: ['animals-by-pen'] })
-        queryClient.invalidateQueries({ queryKey: ['animals-count'] })
+        queryClient.invalidateQueries({ queryKey: ['animals-stats'] })
         toast({
           title: '匯入成功',
           description: `成功匯入 ${data.success_count} 筆資料`
@@ -143,8 +143,8 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
     onOpenChange(false)
   }
 
-  const handleDownloadTemplate = async (format: 'xlsx' | 'csv' = 'csv') => {
-    try {
+  const downloadTemplateMutation = useMutation({
+    mutationFn: async (format: 'xlsx' | 'csv') => {
       const endpoint = `${config.templateEndpoint}?format=${format}`
       const response = await api.get(endpoint, {
         responseType: 'blob',
@@ -175,19 +175,21 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
       link.click()
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
-
+    },
+    onSuccess: () => {
       toast({
         title: '下載成功',
         description: '範本檔案已開始下載',
       })
-    } catch (error: unknown) {
+    },
+    onError: (error: unknown) => {
       toast({
         title: '下載失敗',
         description: getApiErrorMessage(error, '無法下載範本檔案'),
         variant: 'destructive',
       })
-    }
-  }
+    },
+  })
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -212,7 +214,8 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
                 variant="outline"
                 size="sm"
                 className="border-blue-300 text-blue-700 hover:bg-blue-100"
-                onClick={() => handleDownloadTemplate('csv')}
+                onClick={() => downloadTemplateMutation.mutate('csv')}
+                disabled={downloadTemplateMutation.isPending}
               >
                 <Download className="h-4 w-4 mr-1" />
                 下載範本 (CSV)
@@ -221,7 +224,8 @@ export function ImportDialog({ open, onOpenChange, type }: Props) {
                 variant="outline"
                 size="sm"
                 className="border-blue-300 text-blue-700 hover:bg-blue-100"
-                onClick={() => handleDownloadTemplate('xlsx')}
+                onClick={() => downloadTemplateMutation.mutate('xlsx')}
+                disabled={downloadTemplateMutation.isPending}
               >
                 <Download className="h-4 w-4 mr-1" />
                 下載範本 (XLSX)

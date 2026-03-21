@@ -59,8 +59,6 @@ export const CommentsTab = React.memo(function CommentsTab({
   const [showReplyDialog, setShowReplyDialog] = useState(false)
   const [replyContent, setReplyContent] = useState('')
   const [selectedCommentForReply, setSelectedCommentForReply] = useState<ReviewCommentResponse | null>(null)
-  const [isExportingComments, setIsExportingComments] = useState(false)
-  const [isExportingResult, setIsExportingResult] = useState(false)
 
   const { data: versions } = useQuery({
     queryKey: ['protocol-versions', protocolId],
@@ -136,10 +134,8 @@ export const CommentsTab = React.memo(function CommentsTab({
     setShowReplyDialog(true)
   }
 
-  const handleExportPDF = async () => {
-    if (isExportingComments) return
-    try {
-      setIsExportingComments(true)
+  const exportCommentsPDFMutation = useMutation({
+    mutationFn: async () => {
       const response = await api.get(`/protocols/${protocolId}/export-review-comments`, {
         responseType: 'blob',
         _silentError: true,
@@ -154,19 +150,18 @@ export const CommentsTab = React.memo(function CommentsTab({
       a.click()
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
+    },
+    onSuccess: () => {
       toast({ title: t('common.exportSuccess'), variant: 'default' })
-    } catch (error) {
+    },
+    onError: (error) => {
       logger.error('PDF export error:', error)
       toast({ title: t('common.exportFailed'), variant: 'destructive' })
-    } finally {
-      setIsExportingComments(false)
-    }
-  }
+    },
+  })
 
-  const handleExportReviewResult = async () => {
-    if (isExportingResult) return
-    try {
-      setIsExportingResult(true)
+  const exportReviewResultMutation = useMutation({
+    mutationFn: async () => {
       const response = await api.get(`/protocols/${protocolId}/export-review-result`, {
         responseType: 'blob',
         _silentError: true,
@@ -181,14 +176,15 @@ export const CommentsTab = React.memo(function CommentsTab({
       a.click()
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
+    },
+    onSuccess: () => {
       toast({ title: t('common.exportSuccess'), variant: 'default' })
-    } catch (error) {
+    },
+    onError: (error) => {
       logger.error('Review result PDF export error:', error)
       toast({ title: t('common.exportFailed'), variant: 'destructive' })
-    } finally {
-      setIsExportingResult(false)
-    }
-  }
+    },
+  })
 
   return (
     <>
@@ -204,18 +200,18 @@ export const CommentsTab = React.memo(function CommentsTab({
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
-                  onClick={handleExportReviewResult}
-                  disabled={isExportingResult || commentsLoading}
+                  onClick={() => exportReviewResultMutation.mutate()}
+                  disabled={exportReviewResultMutation.isPending || commentsLoading}
                 >
-                  {isExportingResult ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                  {exportReviewResultMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                   審核結果 (PDF)
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={handleExportPDF}
-                  disabled={isExportingComments || commentsLoading}
+                  onClick={() => exportCommentsPDFMutation.mutate()}
+                  disabled={exportCommentsPDFMutation.isPending || commentsLoading}
                 >
-                  {isExportingComments ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                  {exportCommentsPDFMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                   匯出回覆表 (PDF)
                 </Button>
                 {canAddComment && protocol.status !== 'DRAFT' && (

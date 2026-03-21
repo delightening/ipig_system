@@ -89,8 +89,8 @@ export function AttachmentsTab({ protocolId, canManageAttachments }: Attachments
     }
   }
 
-  const handleDownloadAttachment = async (attachment: ProtocolAttachment) => {
-    try {
+  const downloadAttachmentMutation = useMutation({
+    mutationFn: async (attachment: ProtocolAttachment) => {
       const response = await api.get(`/attachments/${attachment.id}/download`, {
         responseType: 'blob',
       })
@@ -101,10 +101,11 @@ export function AttachmentsTab({ protocolId, canManageAttachments }: Attachments
       document.body.appendChild(link)
       link.click()
       link.remove()
-    } catch {
+    },
+    onError: () => {
       toast({ title: t('common.error'), description: t('common.downloadFailed'), variant: 'destructive' })
-    }
-  }
+    },
+  })
 
   return (
     <>
@@ -167,9 +168,14 @@ export function AttachmentsTab({ protocolId, canManageAttachments }: Attachments
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDownloadAttachment(attachment)}
+                          onClick={() => downloadAttachmentMutation.mutate(attachment)}
+                          disabled={downloadAttachmentMutation.isPending}
                         >
-                          <Download className="h-4 w-4" />
+                          {downloadAttachmentMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4" />
+                          )}
                         </Button>
                         {canManageAttachments && (
                           <Button

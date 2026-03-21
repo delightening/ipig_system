@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { formatNumber } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -44,7 +44,6 @@ function CreateApPaymentDialog({
   const [amount, setAmount] = useState('')
   const [paymentDate, setPaymentDate] = useState(asOfDate)
   const [reference, setReference] = useState('')
-  const [submitting, setSubmitting] = useState(false)
   const queryClient = useQueryClient()
 
   const { data: partners } = useQuery<Partner[]>({
@@ -56,7 +55,27 @@ function CreateApPaymentDialog({
     enabled: open,
   })
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const createPaymentMutation = useMutation({
+    mutationFn: (payload: { partner_id: string; payment_date: string; amount: number; reference?: string }) =>
+      api.post('/accounting/ap-payments', payload),
+    onSuccess: () => {
+      toast({ title: '付款已建立' })
+      setOpen(false)
+      setPartnerId('')
+      setAmount('')
+      setReference('')
+      queryClient.invalidateQueries({ queryKey: ['accounting-ap-aging'] })
+      queryClient.invalidateQueries({ queryKey: ['accounting-trial-balance'] })
+      queryClient.invalidateQueries({ queryKey: ['accounting-journal-entries'] })
+      onSuccess()
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || '建立失敗'
+      toast({ title: msg, variant: 'destructive' })
+    },
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!partnerId || !amount || !paymentDate) {
       toast({ title: '請填寫必填欄位', variant: 'destructive' })
@@ -67,29 +86,12 @@ function CreateApPaymentDialog({
       toast({ title: '請輸入有效金額', variant: 'destructive' })
       return
     }
-    setSubmitting(true)
-    try {
-      await api.post('/accounting/ap-payments', {
-        partner_id: partnerId,
-        payment_date: paymentDate,
-        amount: amt,
-        reference: reference || undefined,
-      })
-      toast({ title: '付款已建立' })
-      setOpen(false)
-      setPartnerId('')
-      setAmount('')
-      setReference('')
-      queryClient.invalidateQueries({ queryKey: ['accounting-ap-aging'] })
-      queryClient.invalidateQueries({ queryKey: ['accounting-trial-balance'] })
-      queryClient.invalidateQueries({ queryKey: ['accounting-journal-entries'] })
-      onSuccess()
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || '建立失敗'
-      toast({ title: msg, variant: 'destructive' })
-    } finally {
-      setSubmitting(false)
-    }
+    createPaymentMutation.mutate({
+      partner_id: partnerId,
+      payment_date: paymentDate,
+      amount: amt,
+      reference: reference || undefined,
+    })
   }
 
   return (
@@ -151,8 +153,8 @@ function CreateApPaymentDialog({
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               取消
             </Button>
-            <Button type="submit" disabled={submitting}>
-              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" disabled={createPaymentMutation.isPending}>
+              {createPaymentMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               建立
             </Button>
           </DialogFooter>
