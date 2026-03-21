@@ -5,10 +5,37 @@ use uuid::Uuid;
 use super::AnimalMedicalService;
 use crate::{
     models::{AnimalSurgery, CreateSurgeryRequest, SurgeryListItem, UpdateSurgeryRequest},
+    utils::jsonb_validation::{validate_medication_jsonb, validate_vital_signs},
     AppError, Result,
 };
 
 pub struct AnimalSurgeryService;
+
+/// 驗證手術紀錄中的所有 JSONB 藥物/生命徵象欄位
+fn validate_surgery_jsonb_fields(
+    induction: &Option<serde_json::Value>,
+    pre_med: &Option<serde_json::Value>,
+    maintenance: &Option<serde_json::Value>,
+    vitals: &Option<serde_json::Value>,
+    post_med: &Option<serde_json::Value>,
+) -> crate::Result<()> {
+    if let Some(ref v) = induction {
+        validate_medication_jsonb("induction_anesthesia", v)?;
+    }
+    if let Some(ref v) = pre_med {
+        validate_medication_jsonb("pre_surgery_medication", v)?;
+    }
+    if let Some(ref v) = maintenance {
+        validate_medication_jsonb("anesthesia_maintenance", v)?;
+    }
+    if let Some(ref v) = vitals {
+        validate_vital_signs(v)?;
+    }
+    if let Some(ref v) = post_med {
+        validate_medication_jsonb("post_surgery_medication", v)?;
+    }
+    Ok(())
+}
 
 impl AnimalSurgeryService {
     // ============================================
@@ -76,6 +103,15 @@ impl AnimalSurgeryService {
         req: &CreateSurgeryRequest,
         created_by: Uuid,
     ) -> Result<AnimalSurgery> {
+        // 驗證 JSONB 欄位結構
+        validate_surgery_jsonb_fields(
+            &req.induction_anesthesia,
+            &req.pre_surgery_medication,
+            &req.anesthesia_maintenance,
+            &req.vital_signs,
+            &req.post_surgery_medication,
+        )?;
+
         let surgery = sqlx::query_as::<_, AnimalSurgery>(
             r#"
             INSERT INTO animal_surgeries (
@@ -118,6 +154,15 @@ impl AnimalSurgeryService {
         req: &UpdateSurgeryRequest,
         updated_by: Uuid,
     ) -> Result<AnimalSurgery> {
+        // 驗證 JSONB 欄位結構
+        validate_surgery_jsonb_fields(
+            &req.induction_anesthesia,
+            &req.pre_surgery_medication,
+            &req.anesthesia_maintenance,
+            &req.vital_signs,
+            &req.post_surgery_medication,
+        )?;
+
         // 先取得原始紀錄用於版本歷史
         let original = Self::get_by_id(pool, id).await?;
 

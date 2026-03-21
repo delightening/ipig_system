@@ -317,6 +317,11 @@ impl AnimalMedicalService {
         req: &CreateVetRecommendationWithAttachmentsRequest,
         created_by: Uuid,
     ) -> Result<VetRecommendation> {
+        // 驗證 attachments JSONB 結構
+        if let Some(ref att) = req.attachments {
+            crate::utils::jsonb_validation::validate_attachments(att)?;
+        }
+
         let recommendation = sqlx::query_as::<_, VetRecommendation>(
             r#"
             INSERT INTO vet_recommendations (record_type, record_id, content, attachments, is_urgent, created_by, created_at)
