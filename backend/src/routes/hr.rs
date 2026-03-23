@@ -1,5 +1,5 @@
 use axum::{
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
     Router,
 };
 
@@ -128,6 +128,26 @@ pub fn routes() -> Router<AppState> {
                 .delete(handlers::delete_equipment),
         )
         .route("/equipment/:id/delete", post(handlers::delete_equipment))
+        // Equipment Suppliers
+        .route(
+            "/equipment/:id/suppliers",
+            get(handlers::list_equipment_suppliers)
+                .post(handlers::add_equipment_supplier),
+        )
+        .route(
+            "/equipment-suppliers/:id",
+            delete(handlers::remove_equipment_supplier),
+        )
+        .route(
+            "/equipment-suppliers/:id/delete",
+            post(handlers::remove_equipment_supplier),
+        )
+        // Equipment Status Logs
+        .route(
+            "/equipment/:id/status-logs",
+            get(handlers::list_status_logs),
+        )
+        // Calibrations (校正/確效/查核)
         .route(
             "/equipment-calibrations",
             get(handlers::list_calibrations).post(handlers::create_calibration),
@@ -141,6 +161,39 @@ pub fn routes() -> Router<AppState> {
         .route(
             "/equipment-calibrations/:id/delete",
             post(handlers::delete_calibration),
+        )
+        // Maintenance Records (維修/保養)
+        .route(
+            "/equipment-maintenance",
+            get(handlers::list_maintenance_records)
+                .post(handlers::create_maintenance_record),
+        )
+        .route(
+            "/equipment-maintenance/:id",
+            put(handlers::update_maintenance_record)
+                .delete(handlers::delete_maintenance_record),
+        )
+        .route(
+            "/equipment-maintenance/:id/delete",
+            post(handlers::delete_maintenance_record),
+        )
+        // Disposal Records (報廢)
+        .route(
+            "/equipment-disposals",
+            get(handlers::list_disposals).post(handlers::create_disposal),
+        )
+        .route(
+            "/equipment-disposals/:id/approve",
+            post(handlers::approve_disposal),
+        )
+        // Annual Plan (年度計畫)
+        .route(
+            "/equipment-annual-plans",
+            get(handlers::list_annual_plans),
+        )
+        .route(
+            "/equipment-annual-plans/generate",
+            post(handlers::generate_annual_plan),
         )
         // Facility Management
         .route(
@@ -220,6 +273,19 @@ pub fn routes() -> Router<AppState> {
         .route(
             "/facilities/departments/:id/delete",
             post(handlers::delete_department),
+        )
+        // Disposal Signatures
+        .route(
+            "/signatures/disposal/:id/applicant",
+            post(handlers::sign_disposal_applicant),
+        )
+        .route(
+            "/signatures/disposal/:id/approver",
+            post(handlers::sign_disposal_approver),
+        )
+        .route(
+            "/signatures/disposal/:id",
+            get(handlers::get_disposal_signature_status),
         )
         // Electronic Signatures & Annotations (GLP Compliance)
         .route(

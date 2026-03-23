@@ -1,9 +1,10 @@
 import { format } from 'date-fns'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Package, Ruler, AlertTriangle } from 'lucide-react'
+import { Package, Ruler, AlertTriangle, Wrench } from 'lucide-react'
 
 import type { Equipment, CalibrationWithEquipment } from '../types'
+import { EQUIPMENT_STATUS_LABELS } from '../types'
 
 interface StatsCardProps {
   title: string
@@ -27,23 +28,36 @@ function StatsCard({ title, value, icon: Icon, iconClassName, valueClassName }: 
   )
 }
 
-/** 計算設備統計資訊 */
-function computeEquipmentStats(equipmentList: Equipment[], allCalibrations: CalibrationWithEquipment[]) {
+function computeEquipmentStats(
+  equipmentList: Equipment[],
+  allCalibrations: CalibrationWithEquipment[],
+) {
   const today = format(new Date(), 'yyyy-MM-dd')
-  const byEquipment = new Map<string, CalibrationWithEquipment>()
 
+  // 每台設備每種類型的最新校正紀錄
+  const latestByKey = new Map<string, CalibrationWithEquipment>()
   const sorted = [...allCalibrations].sort(
     (a, b) => new Date(b.calibrated_at).getTime() - new Date(a.calibrated_at).getTime(),
   )
   for (const c of sorted) {
-    if (!byEquipment.has(c.equipment_id)) byEquipment.set(c.equipment_id, c)
+    const key = `${c.equipment_id}:${c.calibration_type}`
+    if (!latestByKey.has(key)) latestByKey.set(key, c)
   }
 
-  const overdueCount = [...byEquipment.values()].filter(
+  const overdueCount = [...latestByKey.values()].filter(
     (c) => c.next_due_at && c.next_due_at < today,
   ).length
 
-  return { totalEquip: equipmentList.length, totalCalib: allCalibrations.length, overdueCount }
+  const activeCount = equipmentList.filter((e) => e.status === 'active').length
+  const repairCount = equipmentList.filter((e) => e.status === 'under_repair').length
+
+  return {
+    totalEquip: equipmentList.length,
+    activeCount,
+    repairCount,
+    totalCalib: allCalibrations.length,
+    overdueCount,
+  }
 }
 
 interface EquipmentStatsCardsProps {
@@ -55,15 +69,22 @@ export function EquipmentStatsCards({ equipmentList, allCalibrations }: Equipmen
   const stats = computeEquipmentStats(equipmentList, allCalibrations)
 
   return (
-    <div className="grid gap-4 md:grid-cols-3">
-      <StatsCard title="設備總數" value={stats.totalEquip} icon={Package} />
-      <StatsCard title="校正紀錄總數" value={stats.totalCalib} icon={Ruler} />
+    <div className="grid gap-4 md:grid-cols-4">
+      <StatsCard title="設備總數 (啟用)" value={stats.activeCount} icon={Package} />
       <StatsCard
-        title="逾期校正設備數"
+        title="維修中"
+        value={stats.repairCount}
+        icon={Wrench}
+        iconClassName={stats.repairCount > 0 ? 'text-yellow-500' : 'text-muted-foreground'}
+        valueClassName={stats.repairCount > 0 ? 'text-yellow-500' : ''}
+      />
+      <StatsCard title="校正/確效/查核紀錄" value={stats.totalCalib} icon={Ruler} />
+      <StatsCard
+        title="逾期待處理"
         value={stats.overdueCount}
         icon={AlertTriangle}
-        iconClassName="text-orange-500"
-        valueClassName="text-orange-500"
+        iconClassName={stats.overdueCount > 0 ? 'text-red-500' : 'text-muted-foreground'}
+        valueClassName={stats.overdueCount > 0 ? 'text-red-500' : ''}
       />
     </div>
   )

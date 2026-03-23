@@ -1,22 +1,22 @@
 /**
- * 設備與校正紀錄管理頁 — 實驗室 GLP 合規
+ * 設備維護管理頁 — 實驗室 GLP 合規
  *
- * 功能：
- * - 設備 CRUD
- * - 校正紀錄 CRUD（依設備篩選）
+ * 功能：設備 CRUD、校正/確效/查核、維修/保養、報廢、年度計畫
  */
 
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
-import { Plus, Wrench, Ruler } from 'lucide-react'
+import { Plus, Wrench, Ruler, Hammer, Trash2, Calendar } from 'lucide-react'
 
 import { useTabState } from '@/hooks/useTabState'
 import { useDialogSet } from '@/hooks/useDialogSet'
-import api from '@/lib/api'
+import api, { deleteResource } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAuthStore } from '@/stores/auth'
+import { toast } from '@/components/ui/use-toast'
+import { getApiErrorMessage } from '@/lib/validation'
 import type { PaginatedResponse } from '@/types/common'
 
 import type {
@@ -24,33 +24,41 @@ import type {
   CalibrationWithEquipment,
   EquipmentForm,
   CalibrationForm,
+  MaintenanceRecordWithDetails,
+  DisposalWithDetails,
+  AnnualPlanWithEquipment,
 } from './types'
 import { useEquipmentMutations, emptyEquipForm, emptyCalibForm } from './hooks/useEquipmentMutations'
 import { EquipmentFormDialog } from './components/EquipmentFormDialog'
 import { CalibrationFormDialog } from './components/CalibrationFormDialog'
 import { EquipmentTabContent } from './components/EquipmentTabContent'
 import { CalibrationTabContent } from './components/CalibrationTabContent'
+import { MaintenanceTabContent } from './components/MaintenanceTabContent'
+import { DisposalTabContent } from './components/DisposalTabContent'
+import { AnnualPlanTabContent } from './components/AnnualPlanTabContent'
 import { EquipmentStatsCards } from './components/EquipmentStatsCards'
+
+type TabValue = 'equipment' | 'calibrations' | 'maintenance' | 'disposals' | 'annual-plan'
 
 export function EquipmentPage() {
   const { hasPermission } = useAuthStore()
   const canManage = hasPermission('equipment.manage')
+  const canApproveDisposal = hasPermission('equipment.disposal.approve')
+  const queryClient = useQueryClient()
 
-  const { activeTab, setActiveTab } = useTabState<'equipment' | 'calibrations'>('equipment')
+  const { activeTab, setActiveTab } = useTabState<TabValue>('equipment')
   const dialogs = useDialogSet(['equipCreate', 'equipEdit', 'calibCreate', 'calibEdit'] as const)
 
-  /* 設備分頁搜尋狀態 */
   const [equipKeyword, setEquipKeyword] = useState('')
   const [equipPage, setEquipPage] = useState(1)
-
-  /* 校正紀錄篩選狀態 */
   const [calibEquipmentFilter, setCalibEquipmentFilter] = useState('')
   const [calibPage, setCalibPage] = useState(1)
+  const [maintPage, setMaintPage] = useState(1)
+  const [disposalPage, setDisposalPage] = useState(1)
+  const [planYear, setPlanYear] = useState(new Date().getFullYear())
 
-  /* 表單狀態 */
   const [editingEquip, setEditingEquip] = useState<Equipment | null>(null)
   const [equipForm, setEquipForm] = useState<EquipmentForm>(emptyEquipForm())
-
   const [editingCalib, setEditingCalib] = useState<CalibrationWithEquipment | null>(null)
   const [calibForm, setCalibForm] = useState<CalibrationForm>(emptyCalibForm())
 
@@ -81,8 +89,7 @@ export function EquipmentPage() {
     queryFn: async () => {
       const params: Record<string, string | number> = { page: equipPage, per_page: 20 }
       if (equipKeyword) params.keyword = equipKeyword
-      const res = await api.get<PaginatedResponse<Equipment>>('/equipment', { params })
-      return res.data
+      return (await api.get<PaginatedResponse<Equipment>>('/equipment', { params })).data
     },
   })
 
@@ -91,12 +98,42 @@ export function EquipmentPage() {
     queryFn: async () => {
       const params: Record<string, string | number> = { page: calibPage, per_page: 20 }
       if (calibEquipmentFilter) params.equipment_id = calibEquipmentFilter
-      const res = await api.get<PaginatedResponse<CalibrationWithEquipment>>(
-        '/equipment-calibrations',
-        { params },
-      )
-      return res.data
+      return (
+        await api.get<PaginatedResponse<CalibrationWithEquipment>>('/equipment-calibrations', {
+          params,
+        })
+      ).data
     },
+  })
+
+  const { data: maintData, isLoading: maintLoading } = useQuery({
+    queryKey: ['equipment-maintenance', maintPage],
+    queryFn: async () =>
+      (
+        await api.get<PaginatedResponse<MaintenanceRecordWithDetails>>('/equipment-maintenance', {
+          params: { page: maintPage, per_page: 20 },
+        })
+      ).data,
+  })
+
+  const { data: disposalData, isLoading: disposalLoading } = useQuery({
+    queryKey: ['equipment-disposals', disposalPage],
+    queryFn: async () =>
+      (
+        await api.get<PaginatedResponse<DisposalWithDetails>>('/equipment-disposals', {
+          params: { page: disposalPage, per_page: 20 },
+        })
+      ).data,
+  })
+
+  const { data: plans = [] } = useQuery({
+    queryKey: ['equipment-annual-plans', planYear],
+    queryFn: async () =>
+      (
+        await api.get<AnnualPlanWithEquipment[]>('/equipment-annual-plans', {
+          params: { year: planYear },
+        })
+      ).data,
   })
 
   /* ── Mutations ── */
@@ -111,13 +148,45 @@ export function EquipmentPage() {
     resetCalibForm: () => setCalibForm(emptyCalibForm()),
   })
 
-  /* ── 衍生資料 ── */
-  const equipRecords = equipData?.data ?? []
-  const equipTotalPages = equipData?.total_pages ?? 1
-  const calibRecords = calibData?.data ?? []
-  const calibTotalPages = calibData?.total_pages ?? 1
+  const generatePlanMutation = useMutation({
+    mutationFn: () => api.post('/equipment-annual-plans/generate', { year: planYear }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipment-annual-plans'] })
+      toast({ title: '成功', description: `已產生 ${planYear} 年度計畫` })
+    },
+    onError: (err: unknown) => {
+      toast({ title: '錯誤', description: getApiErrorMessage(err, '產生失敗'), variant: 'destructive' })
+    },
+  })
 
-  /* ── 事件處理 ── */
+  const approveDisposalMutation = useMutation({
+    mutationFn: ({ id, approved }: { id: string; approved: boolean }) =>
+      api.post(`/equipment-disposals/${id}/approve`, {
+        approved,
+        rejection_reason: approved ? null : '駁回',
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipment-disposals'] })
+      queryClient.invalidateQueries({ queryKey: ['equipment-all'] })
+      toast({ title: '成功', description: '已處理報廢申請' })
+    },
+    onError: (err: unknown) => {
+      toast({ title: '錯誤', description: getApiErrorMessage(err, '操作失敗'), variant: 'destructive' })
+    },
+  })
+
+  const deleteMaintMutation = useMutation({
+    mutationFn: (id: string) => deleteResource(`/equipment-maintenance/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipment-maintenance'] })
+      toast({ title: '成功', description: '已刪除紀錄' })
+    },
+    onError: (err: unknown) => {
+      toast({ title: '錯誤', description: getApiErrorMessage(err, '刪除失敗'), variant: 'destructive' })
+    },
+  })
+
+  /* ── Handlers ── */
   const handleEditEquip = (equip: Equipment) => {
     setEditingEquip(equip)
     setEquipForm({
@@ -126,6 +195,9 @@ export function EquipmentPage() {
       serial_number: equip.serial_number || '',
       location: equip.location || '',
       notes: equip.notes || '',
+      calibration_type: equip.calibration_type || '',
+      calibration_cycle: equip.calibration_cycle || '',
+      inspection_cycle: equip.inspection_cycle || '',
     })
     dialogs.open('equipEdit')
   }
@@ -139,10 +211,14 @@ export function EquipmentPage() {
   const handleAddCalib = () => {
     setCalibForm({
       equipment_id: calibEquipmentFilter || (equipmentList[0]?.id ?? ''),
+      calibration_type: 'calibration',
       calibrated_at: format(new Date(), 'yyyy-MM-dd'),
       next_due_at: '',
       result: '',
       notes: '',
+      partner_id: '',
+      report_number: '',
+      inspector: '',
     })
     dialogs.open('calibCreate')
   }
@@ -151,27 +227,45 @@ export function EquipmentPage() {
     setEditingCalib(calib)
     setCalibForm({
       equipment_id: calib.equipment_id,
+      calibration_type: calib.calibration_type,
       calibrated_at: calib.calibrated_at,
       next_due_at: calib.next_due_at || '',
       result: calib.result || '',
       notes: calib.notes || '',
+      partner_id: calib.partner_id || '',
+      report_number: calib.report_number || '',
+      inspector: calib.inspector || '',
     })
     dialogs.open('calibEdit')
   }
 
   const handleDeleteCalib = (id: string) => {
-    if (window.confirm('確定要刪除此校正紀錄嗎？')) {
+    if (window.confirm('確定要刪除此紀錄嗎？')) {
       mutations.deleteCalibMutation.mutate(id)
+    }
+  }
+
+  const handleDeleteMaint = (id: string) => {
+    if (window.confirm('確定要刪除此紀錄嗎？')) {
+      deleteMaintMutation.mutate(id)
+    }
+  }
+
+  const handleApproveDisposal = (id: string, approved: boolean) => {
+    const msg = approved ? '確定核准此報廢申請？' : '確定駁回此報廢申請？'
+    if (window.confirm(msg)) {
+      approveDisposalMutation.mutate({ id, approved })
     }
   }
 
   return (
     <div className="space-y-6">
-      {/* 頁面標題 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">設備與校正紀錄</h1>
-          <p className="text-muted-foreground">實驗室 GLP 合規：設備管理與校正紀錄追蹤</p>
+          <h1 className="text-3xl font-bold tracking-tight">設備維護管理</h1>
+          <p className="text-muted-foreground">
+            實驗室 GLP 合規：設備管理、校正/確效/查核、維修/保養、報廢
+          </p>
         </div>
         {canManage && (
           <Button onClick={() => dialogs.open('equipCreate')}>
@@ -181,19 +275,29 @@ export function EquipmentPage() {
         )}
       </div>
 
-      {/* 統計卡片 */}
       <EquipmentStatsCards equipmentList={equipmentList} allCalibrations={allCalibrations} />
 
-      {/* 分頁 */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="equipment" className="flex items-center gap-2">
+        <TabsList className="flex-wrap">
+          <TabsTrigger value="equipment" className="flex items-center gap-1">
             <Wrench className="h-4 w-4" />
-            設備管理
+            設備
           </TabsTrigger>
-          <TabsTrigger value="calibrations" className="flex items-center gap-2">
+          <TabsTrigger value="calibrations" className="flex items-center gap-1">
             <Ruler className="h-4 w-4" />
-            校正紀錄
+            校正/確效/查核
+          </TabsTrigger>
+          <TabsTrigger value="maintenance" className="flex items-center gap-1">
+            <Hammer className="h-4 w-4" />
+            維修/保養
+          </TabsTrigger>
+          <TabsTrigger value="disposals" className="flex items-center gap-1">
+            <Trash2 className="h-4 w-4" />
+            報廢
+          </TabsTrigger>
+          <TabsTrigger value="annual-plan" className="flex items-center gap-1">
+            <Calendar className="h-4 w-4" />
+            年度計畫
           </TabsTrigger>
         </TabsList>
 
@@ -203,12 +307,13 @@ export function EquipmentPage() {
             keyword={equipKeyword}
             onKeywordChange={setEquipKeyword}
             isLoading={equipLoading}
-            records={equipRecords}
+            records={equipData?.data ?? []}
             page={equipPage}
-            totalPages={equipTotalPages}
+            totalPages={equipData?.total_pages ?? 1}
             onPageChange={setEquipPage}
             onEdit={handleEditEquip}
             onDelete={handleDeleteEquip}
+            allCalibrations={allCalibrations}
           />
         </TabsContent>
 
@@ -219,18 +324,53 @@ export function EquipmentPage() {
             calibEquipmentFilter={calibEquipmentFilter}
             onFilterChange={setCalibEquipmentFilter}
             isLoading={calibLoading}
-            records={calibRecords}
+            records={calibData?.data ?? []}
             page={calibPage}
-            totalPages={calibTotalPages}
+            totalPages={calibData?.total_pages ?? 1}
             onPageChange={setCalibPage}
             onAddClick={handleAddCalib}
             onEdit={handleEditCalib}
             onDelete={handleDeleteCalib}
           />
         </TabsContent>
+
+        <TabsContent value="maintenance" className="space-y-4">
+          <MaintenanceTabContent
+            canManage={canManage}
+            records={maintData?.data ?? []}
+            isLoading={maintLoading}
+            page={maintPage}
+            totalPages={maintData?.total_pages ?? 1}
+            onPageChange={setMaintPage}
+            onDelete={handleDeleteMaint}
+          />
+        </TabsContent>
+
+        <TabsContent value="disposals" className="space-y-4">
+          <DisposalTabContent
+            canApprove={canApproveDisposal}
+            records={disposalData?.data ?? []}
+            isLoading={disposalLoading}
+            page={disposalPage}
+            totalPages={disposalData?.total_pages ?? 1}
+            onPageChange={setDisposalPage}
+            onApprove={handleApproveDisposal}
+          />
+        </TabsContent>
+
+        <TabsContent value="annual-plan" className="space-y-4">
+          <AnnualPlanTabContent
+            canManage={canManage}
+            plans={plans}
+            year={planYear}
+            onYearChange={setPlanYear}
+            onGenerate={() => generatePlanMutation.mutate()}
+            isGenerating={generatePlanMutation.isPending}
+          />
+        </TabsContent>
       </Tabs>
 
-      {/* 設備表單 Dialog */}
+      {/* Dialogs */}
       <EquipmentFormDialog
         open={dialogs.isOpen('equipCreate')}
         onOpenChange={dialogs.setOpen('equipCreate')}
@@ -252,8 +392,6 @@ export function EquipmentPage() {
         onSubmit={() => editingEquip && mutations.handleUpdateEquip(editingEquip.id, equipForm)}
         isPending={mutations.updateEquipMutation.isPending}
       />
-
-      {/* 校正紀錄表單 Dialog */}
       <CalibrationFormDialog
         open={dialogs.isOpen('calibCreate')}
         onOpenChange={dialogs.setOpen('calibCreate')}
