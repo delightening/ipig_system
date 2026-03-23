@@ -60,7 +60,7 @@ export function useDocumentSubmit({
         if (isShelfRequired && !line.storage_location_id?.trim()) {
           throw new Error(`第 ${idx + 1} 行：儲位/貨架為必填項`)
         }
-        const requiresBatchExpiry = ['GRN', 'DO', 'SO', 'ADJ', 'STK'].includes(mergedData.doc_type)
+        const requiresBatchExpiry = ['GRN', 'DO', 'SO', 'STK'].includes(mergedData.doc_type)
         if (requiresBatchExpiry) {
           const product = products?.find((p) => p.id === line.product_id)
           if (product?.track_batch && !line.batch_no?.trim()) {
