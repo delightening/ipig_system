@@ -117,5 +117,5 @@ export function BatchNumberSelect({
     return <Input type="text" defaultValue={batchNo} placeholder="無可用批號" disabled />
   }
 
-  return <Input ref={setInputRef} type="text" defaultValue={batchNo} placeholder="批號" />
+  return <Input ref={setInputRef} type="text" defaultValue={batchNo} placeholder="批號" onBlur={onBlur} />
 }
