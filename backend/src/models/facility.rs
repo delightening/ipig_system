@@ -243,6 +243,29 @@ pub struct CreatePenRequest {
     pub col_index: Option<i32>,
 }
 
+/// 批次建立欄位請求
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct BatchCreatePensRequest {
+    pub zone_id: Uuid,
+    /// 代碼前綴（如 "Q"）
+    pub prefix: String,
+    /// 建立數量
+    pub count: i32,
+    /// 排列模式："single"=單欄, "double"=兩欄並排
+    #[serde(default = "default_pen_layout")]
+    pub layout: String,
+    /// 每欄容量
+    #[serde(default = "default_pen_capacity")]
+    pub capacity: i32,
+}
+
+fn default_pen_layout() -> String {
+    "double".to_string()
+}
+fn default_pen_capacity() -> i32 {
+    1
+}
+
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdatePenRequest {
     pub name: Option<String>,

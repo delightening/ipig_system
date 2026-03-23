@@ -13,9 +13,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
-import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, LayoutGrid } from 'lucide-react'
 import type { PenDetails, CreatePenRequest, UpdatePenRequest } from '@/types/facility'
 import { PEN_STATUS_NAMES } from '@/types/facility'
+import { BatchCreatePenDialog } from './BatchCreatePenDialog'
 
 const EMPTY_FORM: CreatePenRequest = { zone_id: '', code: '', name: '', capacity: 1 }
 
@@ -26,6 +27,7 @@ export function PenTab({ canManage }: { canManage: boolean }) {
   const [editing, setEditing] = useState<PenDetails | null>(null)
   const [form, setForm] = useState<CreatePenRequest>(EMPTY_FORM)
   const [editStatus, setEditStatus] = useState('active')
+  const [batchOpen, setBatchOpen] = useState(false)
 
   const { data: pens = [], isLoading } = useQuery({
     queryKey: ['pens'],
@@ -82,9 +84,14 @@ export function PenTab({ canManage }: { canManage: boolean }) {
       <div className="flex justify-between items-center">
         <span className="text-sm text-muted-foreground">共 {pens.length} 筆</span>
         {canManage && (
-          <Button size="sm" onClick={() => { setForm(EMPTY_FORM); dialogs.open('create') }}>
-            <Plus className="h-4 w-4 mr-1" /> 新增欄位
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setBatchOpen(true)}>
+              <LayoutGrid className="h-4 w-4 mr-1" /> 批次建立
+            </Button>
+            <Button size="sm" onClick={() => { setForm(EMPTY_FORM); dialogs.open('create') }}>
+              <Plus className="h-4 w-4 mr-1" /> 新增欄位
+            </Button>
+          </div>
         )}
       </div>
       <Table>
@@ -171,6 +178,7 @@ export function PenTab({ canManage }: { canManage: boolean }) {
         </DialogContent>
       </Dialog>
 
+      <BatchCreatePenDialog open={batchOpen} onOpenChange={setBatchOpen} zones={zones} />
       <ConfirmDialog state={dialogState} />
     </div>
   )
