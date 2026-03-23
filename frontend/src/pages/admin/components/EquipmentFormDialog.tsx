@@ -5,6 +5,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -14,7 +21,8 @@ import {
 } from '@/components/ui/dialog'
 import { Loader2 } from 'lucide-react'
 
-import type { EquipmentForm } from '../types'
+import type { EquipmentForm, CalibrationType, CalibrationCycle } from '../types'
+import { CALIBRATION_TYPE_LABELS, CALIBRATION_CYCLE_LABELS } from '../types'
 
 interface EquipmentFormDialogProps {
   open: boolean
@@ -25,6 +33,9 @@ interface EquipmentFormDialogProps {
   onSubmit: () => void
   isPending: boolean
 }
+
+const calTypeOptions: CalibrationType[] = ['calibration', 'validation']
+const cycleOptions: CalibrationCycle[] = ['monthly', 'quarterly', 'semi_annual', 'annual']
 
 export function EquipmentFormDialog({
   open,
@@ -39,7 +50,7 @@ export function EquipmentFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{isCreate ? '新增設備' : '編輯設備'}</DialogTitle>
           {isCreate && <DialogDescription>填寫設備基本資料</DialogDescription>}
@@ -76,6 +87,88 @@ export function EquipmentFormDialog({
               onChange={(e) => onFormChange({ ...form, location: e.target.value })}
             />
           </div>
+
+          {/* 校正/確效設定 */}
+          <div className="border-t pt-4 space-y-4">
+            <p className="text-sm font-medium text-muted-foreground">校正/確效設定</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>校正/確效類型</Label>
+                <Select
+                  value={form.calibration_type || '_none'}
+                  onValueChange={(v) =>
+                    onFormChange({
+                      ...form,
+                      calibration_type: v === '_none' ? '' : (v as CalibrationType),
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="不適用" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">不適用</SelectItem>
+                    {calTypeOptions.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {CALIBRATION_TYPE_LABELS[t]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>校正/確效週期</Label>
+                <Select
+                  value={form.calibration_cycle || '_none'}
+                  onValueChange={(v) =>
+                    onFormChange({
+                      ...form,
+                      calibration_cycle: v === '_none' ? '' : (v as CalibrationCycle),
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="不適用" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">不適用</SelectItem>
+                    {cycleOptions.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {CALIBRATION_CYCLE_LABELS[c]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>查核週期</Label>
+                <Select
+                  value={form.inspection_cycle || '_none'}
+                  onValueChange={(v) =>
+                    onFormChange({
+                      ...form,
+                      inspection_cycle: v === '_none' ? '' : (v as CalibrationCycle),
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="不適用" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">不適用</SelectItem>
+                    {cycleOptions.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {CALIBRATION_CYCLE_LABELS[c]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
           <div>
             <Label>備註</Label>
             <Input

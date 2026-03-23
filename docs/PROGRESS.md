@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統專案進度評估表
 
-> **最後更新：** 2026-03-20 (v18)
+> **最後更新：** 2026-03-23 (v19)
 > **規格版本：** v7.0  
 > **評估標準：** ✅ 完成 | 🔶 部分完成 | 🔴 未開始 | ⏸️ 暫緩
 
@@ -1448,6 +1448,14 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **支援 6 個查詢領域**：animals、observations、surgeries、weights、protocols、facilities，皆為唯讀。
 - ✅ **查詢日誌**：每次 AI 查詢自動記錄至 `ai_query_logs` 分區表。
 - ✅ **新增檔案**：migration `017_ai_api_keys.sql`、models/middleware/repository/service/handler/routes 各一。
+
+### 2026-03-23 設備維護管理系統擴充
+
+- ✅ **Migration 018**：新增 6 個 enum 型別、5 張新資料表（`equipment_suppliers`、`equipment_status_logs`、`equipment_maintenance_records`、`equipment_disposals`、`equipment_annual_plans`）；擴充 `equipment` 與 `equipment_calibrations` 表。
+- ✅ **後端**：完整 CRUD — 設備廠商關聯、校正/確效/查核三種措施、維修/保養紀錄（自動狀態變更）、報廢申請與核准流程、年度維護校正計畫自動產生。
+- ✅ **前端**：設備清單新增「狀態」「廠商」「校正/確效到期」「查核到期」欄位；校正紀錄新增「序號」「類型」「報告/人員」欄位；表單擴充校正類型/週期設定。
+- ✅ **權限**：新增 `equipment.disposal.approve`、`equipment.maintenance.manage`、`equipment.plan.manage` 三項權限。
+- 📝 **詳細設計**：見 `docs/walkthrough_equipment_maintenance.md`。
 
 ### 2026-03-09 請假與加班改為小時計算（0.5 單位）
 

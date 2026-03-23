@@ -1,9 +1,9 @@
 /**
- * 設備與校正紀錄管理頁 — 實驗室 GLP 合規
+ * 設備維護管理頁 — 實驗室 GLP 合規
  *
  * 功能：
- * - 設備 CRUD
- * - 校正紀錄 CRUD（依設備篩選）
+ * - 設備 CRUD（含狀態、校正/確效類型、週期設定）
+ * - 校正/確效/查核紀錄 CRUD
  */
 
 import { useState } from 'react'
@@ -39,15 +39,12 @@ export function EquipmentPage() {
   const { activeTab, setActiveTab } = useTabState<'equipment' | 'calibrations'>('equipment')
   const dialogs = useDialogSet(['equipCreate', 'equipEdit', 'calibCreate', 'calibEdit'] as const)
 
-  /* 設備分頁搜尋狀態 */
   const [equipKeyword, setEquipKeyword] = useState('')
   const [equipPage, setEquipPage] = useState(1)
 
-  /* 校正紀錄篩選狀態 */
   const [calibEquipmentFilter, setCalibEquipmentFilter] = useState('')
   const [calibPage, setCalibPage] = useState(1)
 
-  /* 表單狀態 */
   const [editingEquip, setEditingEquip] = useState<Equipment | null>(null)
   const [equipForm, setEquipForm] = useState<EquipmentForm>(emptyEquipForm())
 
@@ -111,13 +108,11 @@ export function EquipmentPage() {
     resetCalibForm: () => setCalibForm(emptyCalibForm()),
   })
 
-  /* ── 衍生資料 ── */
   const equipRecords = equipData?.data ?? []
   const equipTotalPages = equipData?.total_pages ?? 1
   const calibRecords = calibData?.data ?? []
   const calibTotalPages = calibData?.total_pages ?? 1
 
-  /* ── 事件處理 ── */
   const handleEditEquip = (equip: Equipment) => {
     setEditingEquip(equip)
     setEquipForm({
@@ -126,6 +121,9 @@ export function EquipmentPage() {
       serial_number: equip.serial_number || '',
       location: equip.location || '',
       notes: equip.notes || '',
+      calibration_type: equip.calibration_type || '',
+      calibration_cycle: equip.calibration_cycle || '',
+      inspection_cycle: equip.inspection_cycle || '',
     })
     dialogs.open('equipEdit')
   }
@@ -139,10 +137,14 @@ export function EquipmentPage() {
   const handleAddCalib = () => {
     setCalibForm({
       equipment_id: calibEquipmentFilter || (equipmentList[0]?.id ?? ''),
+      calibration_type: 'calibration',
       calibrated_at: format(new Date(), 'yyyy-MM-dd'),
       next_due_at: '',
       result: '',
       notes: '',
+      partner_id: '',
+      report_number: '',
+      inspector: '',
     })
     dialogs.open('calibCreate')
   }
@@ -151,27 +153,32 @@ export function EquipmentPage() {
     setEditingCalib(calib)
     setCalibForm({
       equipment_id: calib.equipment_id,
+      calibration_type: calib.calibration_type,
       calibrated_at: calib.calibrated_at,
       next_due_at: calib.next_due_at || '',
       result: calib.result || '',
       notes: calib.notes || '',
+      partner_id: calib.partner_id || '',
+      report_number: calib.report_number || '',
+      inspector: calib.inspector || '',
     })
     dialogs.open('calibEdit')
   }
 
   const handleDeleteCalib = (id: string) => {
-    if (window.confirm('確定要刪除此校正紀錄嗎？')) {
+    if (window.confirm('確定要刪除此紀錄嗎？')) {
       mutations.deleteCalibMutation.mutate(id)
     }
   }
 
   return (
     <div className="space-y-6">
-      {/* 頁面標題 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">設備與校正紀錄</h1>
-          <p className="text-muted-foreground">實驗室 GLP 合規：設備管理與校正紀錄追蹤</p>
+          <h1 className="text-3xl font-bold tracking-tight">設備維護管理</h1>
+          <p className="text-muted-foreground">
+            實驗室 GLP 合規：設備管理、校正/確效/查核紀錄追蹤
+          </p>
         </div>
         {canManage && (
           <Button onClick={() => dialogs.open('equipCreate')}>
@@ -181,10 +188,8 @@ export function EquipmentPage() {
         )}
       </div>
 
-      {/* 統計卡片 */}
       <EquipmentStatsCards equipmentList={equipmentList} allCalibrations={allCalibrations} />
 
-      {/* 分頁 */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="equipment" className="flex items-center gap-2">
@@ -193,7 +198,7 @@ export function EquipmentPage() {
           </TabsTrigger>
           <TabsTrigger value="calibrations" className="flex items-center gap-2">
             <Ruler className="h-4 w-4" />
-            校正紀錄
+            校正/確效/查核
           </TabsTrigger>
         </TabsList>
 
@@ -209,6 +214,7 @@ export function EquipmentPage() {
             onPageChange={setEquipPage}
             onEdit={handleEditEquip}
             onDelete={handleDeleteEquip}
+            allCalibrations={allCalibrations}
           />
         </TabsContent>
 
@@ -230,7 +236,6 @@ export function EquipmentPage() {
         </TabsContent>
       </Tabs>
 
-      {/* 設備表單 Dialog */}
       <EquipmentFormDialog
         open={dialogs.isOpen('equipCreate')}
         onOpenChange={dialogs.setOpen('equipCreate')}
@@ -253,7 +258,6 @@ export function EquipmentPage() {
         isPending={mutations.updateEquipMutation.isPending}
       />
 
-      {/* 校正紀錄表單 Dialog */}
       <CalibrationFormDialog
         open={dialogs.isOpen('calibCreate')}
         onOpenChange={dialogs.setOpen('calibCreate')}
