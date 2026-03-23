@@ -9,13 +9,13 @@ import { Loader2, AlertCircle, Save } from 'lucide-react'
 import api from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { getErrorMessage } from '@/types/error'
-import { NotificationRoutingSection } from '@/components/admin/NotificationRoutingSection'
 import type { Warehouse } from '@/types/erp'
 import type { NotificationSettings, UpdateNotificationSettingsRequest } from '@/types/notification'
 import { useSettingsForm } from './hooks/useSettingsForm'
 import { SystemSettingsCards } from './components/SystemSettingsCards'
 import { NotificationPreferencesSection } from './components/NotificationPreferencesSection'
 import { DataExportImportCard } from './components/DataExportImportCard'
+import { AiApiKeySection } from './components/AiApiKeySection'
 
 type SystemSettings = Record<string, string>
 
@@ -179,7 +179,7 @@ export function SettingsPage() {
         onSave={handleSaveNotificationSettings}
       />
 
-      <NotificationRoutingSection />
+      <AiApiKeySection />
     </div>
   )
 }
