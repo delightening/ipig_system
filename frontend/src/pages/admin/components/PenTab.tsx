@@ -116,7 +116,7 @@ export function PenTab({ canManage }: { canManage: boolean }) {
             <TableRow key={p.id}>
               <TableCell className="font-mono">{p.code}</TableCell>
               <TableCell>{p.name ?? '—'}</TableCell>
-              <TableCell className="text-sm text-muted-foreground">{p.zone_code} / {p.building_code}</TableCell>
+              <TableCell className="text-sm text-muted-foreground">{p.building_code}棟 {p.zone_code}區</TableCell>
               <TableCell>{p.capacity}</TableCell>
               <TableCell>{p.current_count}</TableCell>
               <TableCell><Badge variant={statusBadgeVariant(p.status)}>{PEN_STATUS_NAMES[p.status] ?? p.status}</Badge></TableCell>
@@ -141,7 +141,7 @@ export function PenTab({ canManage }: { canManage: boolean }) {
               <Label>所屬區域 *</Label>
               <Select value={form.zone_id} onValueChange={v => set('zone_id', v)}>
                 <SelectTrigger><SelectValue placeholder="選擇區域" /></SelectTrigger>
-                <SelectContent>{zones.map(z => <SelectItem key={z.id} value={z.id}>{z.building_code}/{z.code} {z.name ? `(${z.name})` : ''}</SelectItem>)}</SelectContent>
+                <SelectContent>{zones.map(z => <SelectItem key={z.id} value={z.id}>{z.building_code}棟 {z.code}區 {z.name ? `(${z.name})` : ''}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div><Label>代碼 *</Label><Input value={form.code} onChange={e => set('code', e.target.value)} /></div>

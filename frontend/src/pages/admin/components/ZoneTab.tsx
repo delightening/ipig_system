@@ -148,7 +148,7 @@ export function ZoneTab({ canManage }: { canManage: boolean }) {
               <TableRow key={z.id}>
                 <TableCell className="font-mono">{z.code}</TableCell>
                 <TableCell>{z.name ?? '—'}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">{z.building_name} ({z.building_code})</TableCell>
+                <TableCell className="text-sm text-muted-foreground">{z.building_code}棟 ({z.building_name})</TableCell>
                 <TableCell>
                   {z.color ? (
                     <span className="flex items-center gap-1">
