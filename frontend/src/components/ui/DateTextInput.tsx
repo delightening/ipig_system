@@ -83,6 +83,7 @@ const DateTextInput = React.forwardRef<HTMLInputElement, DateTextInputProps>(
         placeholder="YYYY/MM/DD"
         {...props}
         value={display}
+        data-iso={toIso(display)}
         onChange={handleChange}
         onBlur={handleBlur}
         className={cn(

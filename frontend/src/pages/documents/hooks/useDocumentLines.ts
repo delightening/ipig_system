@@ -43,7 +43,12 @@ export function useDocumentLines(
     const values: Partial<DocumentLine> = {}
     if (refs.qty) values.qty = refs.qty.value
     if (refs.unit_price) values.unit_price = refs.unit_price.value
-    if (refs.expiry_date) values.expiry_date = refs.expiry_date.value
+    if (refs.expiry_date) {
+      // DateTextInput uses Object.defineProperty to override .value with ISO format,
+      // but React's internal input value tracking can conflict with this override.
+      // Use data-iso attribute as the reliable source, falling back to .value.
+      values.expiry_date = refs.expiry_date.dataset?.iso || refs.expiry_date.value
+    }
     if (refs.batch_no) values.batch_no = refs.batch_no.value
     return values
   }, [])
