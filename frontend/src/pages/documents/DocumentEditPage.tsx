@@ -31,9 +31,12 @@ import { WarehouseShelfTreeSelect, type WarehouseShelfValue } from '@/components
 import { useDocumentForm } from './hooks/useDocumentForm'
 import { DOC_TYPE_NAMES } from './types'
 
+export type AdjMode = 'add' | 'modify'
+
 export function DocumentEditPage() {
   const [searchParams] = useSearchParams()
   const defaultType = (searchParams.get('type') as DocType) || ''
+  const [adjMode, setAdjMode] = React.useState<AdjMode>('modify')
 
   const {
     isEdit,
@@ -410,6 +413,21 @@ export function DocumentEditPage() {
               </div>
             )}
 
+            {formData.doc_type === 'ADJ' && (
+              <div className="space-y-2">
+                <Label>調整模式</Label>
+                <Select value={adjMode} onValueChange={(v) => setAdjMode(v as AdjMode)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="modify">修改現有庫存</SelectItem>
+                    <SelectItem value="add">新增庫存品項</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>備註</Label>
               <Input
@@ -453,6 +471,7 @@ export function DocumentEditPage() {
             poReceiptStatus={poReceiptStatus}
             categoryCode={categoryCode}
             setCategoryCode={setCategoryCode}
+            adjMode={formData.doc_type === 'ADJ' ? adjMode : undefined}
           />
         </>
       )}

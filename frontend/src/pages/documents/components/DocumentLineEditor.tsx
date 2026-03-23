@@ -17,6 +17,7 @@ import { Plus, Trash2, Search } from 'lucide-react'
 import { formatNumber, formatUom } from '@/lib/utils'
 import type { DocumentFormData, DocumentLine } from '../types'
 import type { InputRefs } from '../hooks/useDocumentForm'
+import type { AdjMode } from '../DocumentEditPage'
 import { BatchNumberSelect } from './BatchNumberSelect'
 import { ProductSearchDialog, type ProductSelectExtraData } from './ProductSearchDialog'
 
@@ -41,6 +42,7 @@ interface DocumentLineEditorProps {
   poReceiptStatus?: PoReceiptStatus
   categoryCode?: string
   setCategoryCode: (code: string | undefined) => void
+  adjMode?: AdjMode
 }
 
 export function DocumentLineEditor({
@@ -64,6 +66,7 @@ export function DocumentLineEditor({
   poReceiptStatus,
   categoryCode,
   setCategoryCode,
+  adjMode,
 }: DocumentLineEditorProps) {
   const showPriceColumns = ['PO', 'GRN', 'DO'].includes(formData.doc_type)
   const [activeLineId, setActiveLineId] = useState<string | null>(null)
@@ -209,6 +212,7 @@ export function DocumentLineEditor({
         setCategoryCode={setCategoryCode}
         products={products}
         onSelect={handleSelectProduct}
+        adjMode={adjMode}
       />
     </>
   )
