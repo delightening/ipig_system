@@ -1,3 +1,4 @@
+pub mod ai;
 pub mod amendment;
 pub mod data_export;
 mod animal;
