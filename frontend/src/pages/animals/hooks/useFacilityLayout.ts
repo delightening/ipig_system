@@ -6,7 +6,7 @@ import { STALE_TIME } from '@/lib/query'
 import type { BuildingWithFacility, ZoneWithBuilding, PenDetails } from '@/types/facility'
 
 /** 色系映射：zone.color → Tailwind class 組合 */
-const COLOR_SCHEMES: Record<string, { bg: string; border: string; header: string; text: string }> = {
+const COLOR_SCHEMES: Record<string, ZoneColorSet> = {
   blue:   { bg: 'bg-blue-50',   border: 'border-blue-300',   header: 'bg-blue-500',   text: 'text-blue-700' },
   orange: { bg: 'bg-orange-50', border: 'border-orange-300', header: 'bg-orange-500', text: 'text-orange-700' },
   yellow: { bg: 'bg-yellow-50', border: 'border-yellow-300', header: 'bg-yellow-500', text: 'text-yellow-700' },
@@ -18,10 +18,39 @@ const COLOR_SCHEMES: Record<string, { bg: string; border: string; header: string
   gray:   { bg: 'bg-gray-50',   border: 'border-gray-300',   header: 'bg-gray-500',   text: 'text-gray-700' },
 }
 
-const DEFAULT_COLORS = COLOR_SCHEMES.gray
+const DEFAULT_COLORS: ZoneColorSet = COLOR_SCHEMES.gray
 
-export function getZoneColors(color: string | null) {
-  return color ? (COLOR_SCHEMES[color] ?? DEFAULT_COLORS) : DEFAULT_COLORS
+export interface ZoneColorSet {
+  bg: string
+  border: string
+  header: string
+  text: string
+  /** 當使用 hex 色碼時，提供 inline style 物件 */
+  headerStyle?: React.CSSProperties
+  borderStyle?: React.CSSProperties
+}
+
+/** 將 hex 色碼轉為淡色背景（加透明度） */
+function hexToLight(hex: string): string {
+  return `${hex}18` // ~10% opacity
+}
+
+export function getZoneColors(color: string | null): ZoneColorSet {
+  if (!color) return DEFAULT_COLORS
+
+  // 優先匹配 named color
+  if (COLOR_SCHEMES[color]) return COLOR_SCHEMES[color]
+
+  // hex 色碼 → 動態生成 inline style 版本
+  const hex = color.startsWith('#') ? color : `#${color}`
+  return {
+    bg: '',
+    border: '',
+    header: '',
+    text: '',
+    headerStyle: { backgroundColor: hex },
+    borderStyle: { borderColor: hex },
+  }
 }
 
 export interface FacilityLayoutData {
@@ -65,7 +94,6 @@ export function useFacilityLayout(): FacilityLayoutData {
       if (!map[p.zone_id]) map[p.zone_id] = []
       map[p.zone_id].push(p)
     }
-    // Sort pens by code within each zone
     for (const key of Object.keys(map)) {
       map[key].sort((a, b) => a.code.localeCompare(b.code))
     }
