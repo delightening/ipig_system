@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::{
     models::{
-        CreateProductRequest, Product, ProductQuery,
+        CreateProductRequest, Product,
         ProductUomConversion, ProductWithUom,
     },
     repositories, AppError, Result,
@@ -193,66 +193,7 @@ async fn sync_uom_conversions(
     Ok(())
 }
 
-/// 根據查詢條件建構產品列表 SQL。
-fn build_list_sql(query: &ProductQuery) -> String {
-    let mut conditions = Vec::new();
-    let mut idx: i32 = 1;
-    if query.keyword.is_some() {
-        conditions.push(format!("(sku ILIKE ${idx} OR name ILIKE ${idx})"));
-        idx += 1;
-    }
-    if query.category_id.is_some() {
-        conditions.push(format!("category_id = ${idx}"));
-        idx += 1;
-    }
-    if query.category_code.is_some() {
-        conditions.push(format!("category_code = ${idx}"));
-        idx += 1;
-    }
-    if query.subcategory_code.is_some() {
-        conditions.push(format!("subcategory_code = ${idx}"));
-        idx += 1;
-    }
-    if query.status.is_some() {
-        conditions.push(format!("status = ${idx}"));
-        idx += 1;
-    }
-    if query.is_active.is_some() {
-        conditions.push(format!("is_active = ${idx}"));
-    }
-    let where_clause = if conditions.is_empty() {
-        "1=1".to_string()
-    } else {
-        conditions.join(" AND ")
-    };
-    format!("SELECT * FROM products WHERE {where_clause} ORDER BY sku")
-}
-
-/// 依查詢條件綁定參數至 SQL query。
-fn bind_list_params<'q>(
-    mut q: sqlx::query::QueryAs<'q, sqlx::Postgres, Product, sqlx::postgres::PgArguments>,
-    query: &'q ProductQuery,
-) -> sqlx::query::QueryAs<'q, sqlx::Postgres, Product, sqlx::postgres::PgArguments> {
-    if let Some(ref kw) = query.keyword {
-        q = q.bind(format!("%{kw}%"));
-    }
-    if let Some(category_id) = query.category_id {
-        q = q.bind(category_id);
-    }
-    if let Some(ref c) = query.category_code {
-        q = q.bind(c.as_str());
-    }
-    if let Some(ref s) = query.subcategory_code {
-        q = q.bind(s.as_str());
-    }
-    if let Some(ref s) = query.status {
-        q = q.bind(s.as_str());
-    }
-    if let Some(is_active) = query.is_active {
-        q = q.bind(is_active);
-    }
-    q
-}
+// build_list_sql / bind_list_params 已搬至 repositories::product::list_products
 
 pub struct ProductService;
 
