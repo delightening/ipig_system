@@ -55,6 +55,8 @@ pub struct CreateAnimalRequest {
     #[validate(required(message = "欄位為必填"))]
     #[validate(custom(function = "validate_pen_location", message = "欄位不能為空"))]
     pub pen_location: Option<String>,
+    pub pen_id: Option<Uuid>,
+    pub species_id: Option<Uuid>,
     pub pre_experiment_code: Option<String>,
     pub remark: Option<String>,
     /// 強制建立（跳過耳號重複警告，但同耳號同出生日期仍會阻擋）
@@ -75,6 +77,8 @@ pub struct UpdateAnimalRequest {
     // - pre_experiment_code (實驗前代號)
     pub status: Option<AnimalStatus>,
     pub pen_location: Option<String>,
+    pub pen_id: Option<Uuid>,
+    pub species_id: Option<Uuid>,
     pub iacuc_no: Option<String>,
     pub experiment_date: Option<NaiveDate>,
     pub remark: Option<String>,
@@ -275,6 +279,10 @@ pub struct AnimalListItem {
     pub breed_other: Option<String>,
     pub gender: AnimalGender,
     pub pen_location: Option<String>,
+    pub pen_id: Option<Uuid>,
+    pub species_id: Option<Uuid>,
+    #[sqlx(default)]
+    pub species_name: Option<String>,
     pub iacuc_no: Option<String>,
     pub entry_date: NaiveDate,
     pub source_name: Option<String>,

@@ -13,9 +13,10 @@ import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { Species, CreateSpeciesRequest, UpdateSpeciesRequest } from '@/types/facility'
 
-const EMPTY_FORM: CreateSpeciesRequest = { code: '', name: '', name_en: '', icon: '', sort_order: 0 }
+const EMPTY_FORM: CreateSpeciesRequest = { code: '', name: '', name_en: '', icon: '', sort_order: 0, parent_id: undefined }
 
 export function SpeciesTab({ canManage }: { canManage: boolean }) {
   const queryClient = useQueryClient()
@@ -51,7 +52,7 @@ export function SpeciesTab({ canManage }: { canManage: boolean }) {
 
   const handleEdit = (s: Species) => {
     setEditing(s)
-    setForm({ code: s.code, name: s.name, name_en: s.name_en ?? '', icon: s.icon ?? '', sort_order: s.sort_order })
+    setForm({ code: s.code, name: s.name, name_en: s.name_en ?? '', icon: s.icon ?? '', sort_order: s.sort_order, parent_id: s.parent_id ?? undefined })
     dialogs.open('edit')
   }
 
@@ -81,6 +82,7 @@ export function SpeciesTab({ canManage }: { canManage: boolean }) {
           <TableRow>
             <TableHead>代碼</TableHead>
             <TableHead>名稱</TableHead>
+            <TableHead>上層物種</TableHead>
             <TableHead>英文名稱</TableHead>
             <TableHead>排序</TableHead>
             <TableHead>狀態</TableHead>
@@ -89,13 +91,16 @@ export function SpeciesTab({ canManage }: { canManage: boolean }) {
         </TableHeader>
         <TableBody>
           {isLoading ? (
-            <TableRow><TableCell colSpan={6} className="text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></TableCell></TableRow>
+            <TableRow><TableCell colSpan={7} className="text-center"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></TableCell></TableRow>
           ) : species.length === 0 ? (
-            <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">無資料</TableCell></TableRow>
-          ) : species.map(s => (
+            <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">無資料</TableCell></TableRow>
+          ) : species.map(s => {
+            const parentName = s.parent_id ? species.find(p => p.id === s.parent_id)?.name : null
+            return (
             <TableRow key={s.id}>
               <TableCell className="font-mono">{s.code}</TableCell>
-              <TableCell>{s.name}</TableCell>
+              <TableCell>{parentName ? <span className="pl-4">└ </span> : ''}{s.name}</TableCell>
+              <TableCell>{parentName ?? '—'}</TableCell>
               <TableCell>{s.name_en ?? '—'}</TableCell>
               <TableCell>{s.sort_order}</TableCell>
               <TableCell><Badge variant={s.is_active ? 'default' : 'secondary'}>{s.is_active ? '啟用' : '停用'}</Badge></TableCell>
@@ -106,7 +111,7 @@ export function SpeciesTab({ canManage }: { canManage: boolean }) {
                 </TableCell>
               )}
             </TableRow>
-          ))}
+          )})}
         </TableBody>
       </Table>
 
@@ -118,6 +123,18 @@ export function SpeciesTab({ canManage }: { canManage: boolean }) {
             <div><Label>代碼 *</Label><Input value={form.code} onChange={e => f('code', e.target.value)} /></div>
             <div><Label>名稱 *</Label><Input value={form.name} onChange={e => f('name', e.target.value)} /></div>
             <div><Label>英文名稱</Label><Input value={form.name_en ?? ''} onChange={e => f('name_en', e.target.value)} /></div>
+            <div>
+              <Label>上層物種</Label>
+              <Select value={form.parent_id ?? 'none'} onValueChange={v => setForm(prev => ({ ...prev, parent_id: v === 'none' ? undefined : v }))}>
+                <SelectTrigger><SelectValue placeholder="無（頂層物種）" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">無（頂層物種）</SelectItem>
+                  {species.filter(s => !s.parent_id).map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div><Label>圖示</Label><Input value={form.icon ?? ''} onChange={e => f('icon', e.target.value)} placeholder="emoji 或圖示代碼" /></div>
             <div><Label>排序</Label><Input type="number" value={form.sort_order ?? 0} onChange={e => f('sort_order', parseInt(e.target.value) || 0)} /></div>
           </div>
@@ -138,12 +155,24 @@ export function SpeciesTab({ canManage }: { canManage: boolean }) {
             <div><Label>代碼</Label><Input value={form.code} disabled /></div>
             <div><Label>名稱 *</Label><Input value={form.name} onChange={e => f('name', e.target.value)} /></div>
             <div><Label>英文名稱</Label><Input value={form.name_en ?? ''} onChange={e => f('name_en', e.target.value)} /></div>
+            <div>
+              <Label>上層物種</Label>
+              <Select value={form.parent_id ?? 'none'} onValueChange={v => setForm(prev => ({ ...prev, parent_id: v === 'none' ? undefined : v }))}>
+                <SelectTrigger><SelectValue placeholder="無（頂層物種）" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">無（頂層物種）</SelectItem>
+                  {species.filter(s => !s.parent_id && s.id !== editing?.id).map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div><Label>圖示</Label><Input value={form.icon ?? ''} onChange={e => f('icon', e.target.value)} /></div>
             <div><Label>排序</Label><Input type="number" value={form.sort_order ?? 0} onChange={e => f('sort_order', parseInt(e.target.value) || 0)} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => dialogs.close('edit')}>取消</Button>
-            <Button onClick={() => editing && updateMutation.mutate({ id: editing.id, data: { name: form.name, name_en: form.name_en || undefined, icon: form.icon || undefined, sort_order: form.sort_order } })} disabled={updateMutation.isPending || !form.name}>
+            <Button onClick={() => editing && updateMutation.mutate({ id: editing.id, data: { name: form.name, name_en: form.name_en || undefined, icon: form.icon || undefined, parent_id: form.parent_id, sort_order: form.sort_order } })} disabled={updateMutation.isPending || !form.name}>
               {updateMutation.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} 儲存
             </Button>
           </DialogFooter>
