@@ -29,8 +29,8 @@ CREATE INDEX IF NOT EXISTS idx_ai_api_keys_active ON ai_api_keys(is_active) WHER
 
 -- AI 查詢日誌（記錄 AI 的每次查詢）
 CREATE TABLE IF NOT EXISTS ai_query_logs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    api_key_id UUID NOT NULL REFERENCES ai_api_keys(id),
+    id UUID NOT NULL DEFAULT gen_random_uuid(),
+    api_key_id UUID NOT NULL,
     -- 查詢的端點
     endpoint VARCHAR(200) NOT NULL,
     -- 查詢方法
@@ -43,7 +43,8 @@ CREATE TABLE IF NOT EXISTS ai_query_logs (
     duration_ms INT NOT NULL DEFAULT 0,
     -- 來源 IP
     source_ip VARCHAR(45),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (id, created_at)
 ) PARTITION BY RANGE (created_at);
 
 -- 建立初始分區（當月 + 下個月）

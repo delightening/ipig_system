@@ -22,7 +22,7 @@ ALTER TABLE equipment ADD COLUMN calibration_cycle calibration_cycle;
 ALTER TABLE equipment ADD COLUMN inspection_cycle calibration_cycle;
 
 -- 同步既有 is_active 資料到新 status 欄位
-UPDATE equipment SET status = CASE WHEN is_active THEN 'active' ELSE 'inactive' END;
+UPDATE equipment SET status = CASE WHEN is_active THEN 'active'::equipment_status ELSE 'inactive'::equipment_status END;
 
 -- 建立索引
 CREATE INDEX idx_equipment_status ON equipment(status);

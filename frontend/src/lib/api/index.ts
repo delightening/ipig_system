@@ -11,6 +11,8 @@ export type { SignRecordRequest, SignRecordResponse, SignatureInfo, SignatureSta
 export { treatmentDrugApi } from './treatmentDrug'
 export { facilityApi } from './facility'
 export { accountingApi, accountingKeys } from './accounting'
+export { aiApi } from './ai'
+export type { AiApiKeyInfo, CreateAiApiKeyRequest, CreateAiApiKeyResponse } from './ai'
 export { getPoReceiptStatus, adminApproveDocument, adminRejectDocument } from './document'
 export type { PoReceiptItem, PoReceiptStatus } from './document'
 
