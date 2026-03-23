@@ -24,6 +24,12 @@ ignore = [
     "RUSTSEC-2023-0071",
     # proc-macro-error 不維護（utoipa 上游依賴，無替代方案）
     "RUSTSEC-2024-0370",
+    # bincode 不維護（printpdf 0.9 transitive 依賴，無替代）
+    "RUSTSEC-2025-0141",
+    # fxhash 不維護（printpdf 0.9 transitive 依賴，無替代）
+    "RUSTSEC-2025-0057",
+    # kuchiki 不維護（printpdf 0.9 HTML 渲染依賴，無替代）
+    "RUSTSEC-2023-0019",
 ]
 
 # ============================
@@ -48,6 +54,8 @@ allow = [
     "Zlib",
     "BSL-1.0",
     "CDLA-Permissive-2.0",
+    # printpdf 0.9 的 HTML 渲染依賴（azul-*, cssparser, selectors, dtoa-short）
+    "MPL-2.0",
 ]
 
 

@@ -154,7 +154,7 @@ jobs:
       DATABASE_URL: postgres://postgres:password@localhost:5432/ipig_db_test
       SQLX_OFFLINE: "false"
       ADMIN_EMAIL: admin@ipig.local
-      ADMIN_INITIAL_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD }}
+      ADMIN_INITIAL_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD || 'ci_test_admin_password_2024' }}
       # 避免 login_with_wrong_password_returns_401 因平行測試累積 login_events 導致帳號鎖定（400）
       DISABLE_ACCOUNT_LOCKOUT: "true"
 
@@ -403,9 +403,9 @@ jobs:
 
       - name: 啟動 Docker 測試環境
         env:
-          CI_JWT_SECRET: ${{ secrets.CI_JWT_SECRET }}
-          CI_ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD }}
-          CI_DEV_PASSWORD: ${{ secrets.CI_DEV_PASSWORD }}
+          CI_JWT_SECRET: ${{ secrets.CI_JWT_SECRET || 'ci_test_jwt_secret_for_local_only' }}
+          CI_ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD || 'ci_test_admin_password_2024' }}
+          CI_DEV_PASSWORD: ${{ secrets.CI_DEV_PASSWORD || 'ci_test_dev_password_2024' }}
         run: |
           docker compose -f docker-compose.test.yml build --progress=plain
           # 使用 --wait 等待所有服務 healthcheck 通過，避免 E2E 在服務未就緒時執行
@@ -458,9 +458,9 @@ jobs:
           # 須與 docker-compose.test.yml ADMIN_INITIAL_PASSWORD 一致（見 docs/e2e/FLOW.md）
           E2E_BASE_URL: http://localhost:8080
           E2E_USER_EMAIL: admin@ipig.local
-          E2E_USER_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD }}
+          E2E_USER_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD || 'ci_test_admin_password_2024' }}
           E2E_ADMIN_EMAIL: admin@ipig.local
-          E2E_ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.CI_ADMIN_PASSWORD || 'ci_test_admin_password_2024' }}
         run: npm run test:e2e
 
       - name: 上傳測試報告 (失敗時)
