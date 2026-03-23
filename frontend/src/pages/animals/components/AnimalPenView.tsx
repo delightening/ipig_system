@@ -143,9 +143,15 @@ export function AnimalPenView({
 
   /** 將 pens 依 row_index/col_index 排列成兩欄格子 */
   const buildPenGrid = (pens: PenDetails[]) => {
-    // 分成左欄 (col=0) 和右欄 (col=1)
-    const leftPens = pens.filter(p => (p.col_index ?? 0) === 0).sort((a, b) => (a.row_index ?? 0) - (b.row_index ?? 0))
-    const rightPens = pens.filter(p => (p.col_index ?? 1) === 1).sort((a, b) => (a.row_index ?? 0) - (b.row_index ?? 0))
+    const sortByRow = (a: PenDetails, b: PenDetails) => (a.row_index ?? 0) - (b.row_index ?? 0)
+    const leftPens = pens.filter(p => p.col_index === 0).sort(sortByRow)
+    const rightPens = pens.filter(p => p.col_index === 1).sort(sortByRow)
+
+    // 如果 col_index 全為 null（單欄區域如 E/F/G），所有 pen 放左欄
+    if (leftPens.length === 0 && rightPens.length === 0) {
+      return { leftPens: [...pens].sort(sortByRow), rightPens: [] as PenDetails[], maxRows: pens.length }
+    }
+
     const maxRows = Math.max(leftPens.length, rightPens.length)
     return { leftPens, rightPens, maxRows }
   }
