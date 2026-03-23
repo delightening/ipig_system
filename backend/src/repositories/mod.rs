@@ -1,7 +1,10 @@
 // Repository 層：封裝重複使用的 SQL 查詢（≥2 處出現）
 // 依賴方向：Services → Repositories → Models
 
+pub mod ai;
 pub mod equipment;
+
+pub use ai::AiRepository;
 pub mod notification;
 pub mod product;
 pub mod role;

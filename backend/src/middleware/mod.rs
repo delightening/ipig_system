@@ -1,3 +1,4 @@
+pub mod ai_auth;
 mod auth;
 pub mod csrf;
 pub mod etag;
