@@ -1440,6 +1440,15 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **PDF 匯出 Hook**：提取 `useProtocolPdfExport` hook，封裝後端/前端 PDF 匯出邏輯（~150 行）。
 - ✅ **主元件精簡**：主元件從 954 行降至 ~176 行，僅負責資料解構與子元件組裝。
 
+### 2026-03-23 AI 資料查詢接口
+
+- ✅ **AI API Key 認證**：獨立的 `ai_auth_middleware`，使用 SHA-256 hash 驗證 API key，支援 scope 權限與過期時間。
+- ✅ **管理端 API**：POST/GET/PUT/DELETE `/api/ai/admin/keys` — 管理員透過 JWT 認證管理 API keys。
+- ✅ **AI 查詢 API**：`/api/ai/overview`（系統概覽）、`/api/ai/schema`（schema 描述）、`/api/ai/query`（資料查詢）。
+- ✅ **支援 6 個查詢領域**：animals、observations、surgeries、weights、protocols、facilities，皆為唯讀。
+- ✅ **查詢日誌**：每次 AI 查詢自動記錄至 `ai_query_logs` 分區表。
+- ✅ **新增檔案**：migration `017_ai_api_keys.sql`、models/middleware/repository/service/handler/routes 各一。
+
 ### 2026-03-09 請假與加班改為小時計算（0.5 單位）
 
 - ✅ **請假**：表單與顯示改為「時數」（0.5 步進）；`useLeaveRequestForm` 雙向計算日期↔時數；後端 `create_leave` 驗證 0.5 倍數、`LeaveRequestWithUser` 含 `total_hours`。

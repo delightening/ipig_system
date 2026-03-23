@@ -8,6 +8,7 @@ use crate::middleware::rate_limiter::{
 use crate::{handlers, middleware::auth_middleware, middleware::csrf_middleware, AppState};
 
 mod admin;
+mod ai;
 mod animal;
 mod auth;
 mod erp;
@@ -35,6 +36,7 @@ pub fn api_routes(state: AppState) -> Router {
         .merge(notification::routes())
         .merge(admin::routes())
         .merge(hr::routes())
+        .merge(ai::admin_routes())
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             write_rate_limit_middleware,
@@ -74,8 +76,15 @@ pub fn api_routes(state: AppState) -> Router {
         )
         .with_state(state.clone());
 
+    // AI 查詢路由（使用獨立的 AI API key 認證，不走 JWT / CSRF）
+    let ai_query_routes = ai::ai_routes(state.clone())
+        .with_state(state.clone());
+
     // P1-M1: API 版本路徑 — 引入 /api/v1/ 前綴；/api 保留為 deprecated 向後相容
-    let api_v1 = public_routes.merge(protected_routes).merge(upload_routes);
+    let api_v1 = public_routes
+        .merge(protected_routes)
+        .merge(upload_routes)
+        .merge(ai_query_routes);
     health_route.merge(
         Router::new()
             .nest("/api/v1", api_v1.clone())

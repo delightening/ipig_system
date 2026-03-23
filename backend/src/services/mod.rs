@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 pub mod access;
+mod ai;
 pub mod accounting;
 mod amendment;
 mod animal;
@@ -42,6 +43,7 @@ mod user;
 mod warehouse;
 
 pub use accounting::AccountingService;
+pub use ai::AiService;
 pub use amendment::AmendmentService;
 pub use animal::care_record::{
     CareRecord, CareRecordService, CreateCareRecordRequest, UpdateCareRecordRequest,
