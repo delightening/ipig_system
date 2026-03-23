@@ -5,6 +5,7 @@ mod crud;
 mod protocol;
 mod animal;
 mod alert;
+mod equipment;
 mod report;
 mod euthanasia;
 mod hr;

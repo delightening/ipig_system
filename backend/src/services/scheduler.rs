@@ -187,6 +187,29 @@ impl SchedulerService {
         info!("[Scheduler] ✓ Job 'po_pending_receipt_check' registered");
         job_count += 1;
 
+        // 每日 08:30 檢查設備校正/確效逾期
+        let db_clone = db.clone();
+        let job = Job::new_async("0 30 8 * * *", move |_uuid, _l| {
+            let db = db_clone.clone();
+            Box::pin(async move {
+                info!("Running daily equipment overdue check...");
+                let service = NotificationService::new(db);
+                match service.send_equipment_overdue_notifications().await {
+                    Ok(count) => {
+                        if count > 0 {
+                            info!("Equipment overdue check: notified {} recipients", count);
+                        }
+                    }
+                    Err(e) => {
+                        error!("Equipment overdue check failed: {}", e);
+                    }
+                }
+            })
+        })?;
+        sched.add(job).await?;
+        info!("[Scheduler] ✓ Job 'equipment_overdue_check' registered");
+        job_count += 1;
+
         // 每月 1 號 06:00 產出上月進銷貨+血液檢查報表
         let db_clone = db.clone();
         let job = Job::new_async("0 0 6 1 * *", move |_uuid, _l| {
