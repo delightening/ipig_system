@@ -260,6 +260,7 @@ pub fn routes() -> Router<AppState> {
                 .delete(handlers::delete_pen),
         )
         .route("/facilities/pens/:id/delete", post(handlers::delete_pen))
+        .route("/facilities/pens/batch", post(handlers::batch_create_pens))
         .route(
             "/facilities/departments",
             get(handlers::list_departments).post(handlers::create_department),

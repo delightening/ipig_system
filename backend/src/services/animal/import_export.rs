@@ -415,6 +415,8 @@ fn build_create_request(
         pen_location: validated.pen_location.clone(),
         pre_experiment_code: validated.pre_experiment_code.clone(),
         remark: validated.remark.clone(),
+        pen_id: None,
+        species_id: None,
         force_create: true,
     }
 }

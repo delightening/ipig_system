@@ -11,11 +11,11 @@ use uuid::Uuid;
 use crate::{
     middleware::CurrentUser,
     models::{
-        Building, BuildingWithFacility, CreateBuildingRequest, CreateDepartmentRequest,
-        CreateFacilityRequest, CreatePenRequest, CreateSpeciesRequest, CreateZoneRequest,
-        Department, DepartmentWithManager, Facility, Pen, PenDetails, PenQuery, Species,
-        UpdateBuildingRequest, UpdateDepartmentRequest, UpdateFacilityRequest, UpdatePenRequest,
-        UpdateSpeciesRequest, UpdateZoneRequest, Zone, ZoneWithBuilding,
+        BatchCreatePensRequest, Building, BuildingWithFacility, CreateBuildingRequest,
+        CreateDepartmentRequest, CreateFacilityRequest, CreatePenRequest, CreateSpeciesRequest,
+        CreateZoneRequest, Department, DepartmentWithManager, Facility, Pen, PenDetails, PenQuery,
+        Species, UpdateBuildingRequest, UpdateDepartmentRequest, UpdateFacilityRequest,
+        UpdatePenRequest, UpdateSpeciesRequest, UpdateZoneRequest, Zone, ZoneWithBuilding,
     },
     services::FacilityService,
     AppState, Result,
@@ -294,6 +294,16 @@ pub async fn create_pen(
 ) -> Result<(StatusCode, Json<Pen>)> {
     let pen = FacilityService::create_pen(&state.db, &payload).await?;
     Ok((StatusCode::CREATED, Json(pen)))
+}
+
+/// 批次建立欄位
+pub async fn batch_create_pens(
+    State(state): State<AppState>,
+    Extension(_current_user): Extension<CurrentUser>,
+    Json(payload): Json<BatchCreatePensRequest>,
+) -> Result<(StatusCode, Json<Vec<Pen>>)> {
+    let pens = FacilityService::batch_create_pens(&state.db, &payload).await?;
+    Ok((StatusCode::CREATED, Json(pens)))
 }
 
 /// 更新欄位

@@ -434,6 +434,64 @@ impl FacilityService {
         Ok(pen)
     }
 
+    /// 批次建立欄位
+    pub async fn batch_create_pens(
+        pool: &PgPool,
+        payload: &crate::models::BatchCreatePensRequest,
+    ) -> Result<Vec<Pen>> {
+        if payload.count < 1 || payload.count > 200 {
+            return Err(crate::AppError::BusinessRule(
+                "數量需介於 1 到 200 之間".to_string(),
+            ));
+        }
+        if payload.prefix.is_empty() || payload.prefix.len() > 10 {
+            return Err(crate::AppError::BusinessRule(
+                "前綴長度需介於 1 到 10 之間".to_string(),
+            ));
+        }
+
+        let is_double = payload.layout == "double";
+        let half = if is_double { (payload.count + 1) / 2 } else { payload.count };
+        let mut pens = Vec::with_capacity(payload.count as usize);
+
+        for i in 0..payload.count {
+            let num = i + 1;
+            let code = format!("{}{:02}", payload.prefix, num);
+            let (row_index, col_index) = if is_double {
+                if num <= half {
+                    (num - 1, 0) // 左欄
+                } else {
+                    (num - half - 1, 1) // 右欄
+                }
+            } else {
+                (i, 0) // 單欄
+            };
+
+            let pen = sqlx::query_as::<_, Pen>(
+                r#"
+                INSERT INTO pens (id, zone_id, code, name, capacity, row_index, col_index)
+                VALUES ($1, $2, $3, $3, $4, $5, $6)
+                ON CONFLICT (zone_id, code) DO NOTHING
+                RETURNING *
+                "#,
+            )
+            .bind(Uuid::new_v4())
+            .bind(payload.zone_id)
+            .bind(&code)
+            .bind(payload.capacity)
+            .bind(row_index)
+            .bind(col_index)
+            .fetch_optional(pool)
+            .await?;
+
+            if let Some(p) = pen {
+                pens.push(p);
+            }
+        }
+
+        Ok(pens)
+    }
+
     pub async fn update_pen(pool: &PgPool, id: Uuid, payload: &UpdatePenRequest) -> Result<Pen> {
         let pen = sqlx::query_as::<_, Pen>(
             r#"
