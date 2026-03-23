@@ -12,7 +12,7 @@ use crate::{
 };
 
 use super::{
-    build_list_sql, bind_list_params, build_product_with_uom, format_product_sku,
+    build_product_with_uom, format_product_sku,
     get_next_sequence, insert_product, insert_uom_conversions, resolve_category_codes,
     resolve_sku, sync_uom_conversions, validate_product_status, ProductService,
 };
@@ -42,10 +42,7 @@ impl ProductService {
 
     /// 取得產品列表（支援 keyword、category_code、subcategory_code、status 篩選）。
     pub async fn list(pool: &PgPool, query: &ProductQuery) -> Result<Vec<Product>> {
-        let sql = build_list_sql(query);
-        let q = bind_list_params(sqlx::query_as::<_, Product>(&sql), query);
-        let products = q.fetch_all(pool).await?;
-        Ok(products)
+        repositories::product::list_products(pool, query).await
     }
 
     /// 取得單一產品。

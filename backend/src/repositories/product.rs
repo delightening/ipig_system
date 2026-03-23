@@ -2,7 +2,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
-    models::{Product, ProductUomConversion, UpdateProductRequest},
+    models::{Product, ProductQuery, ProductUomConversion, UpdateProductRequest},
     AppError, Result,
 };
 
@@ -245,3 +245,73 @@ UPDATE products SET
 WHERE id = $23
 RETURNING *
 "#;
+
+/// 依查詢條件列出產品（動態 WHERE + 參數綁定）
+pub async fn list_products(pool: &PgPool, query: &ProductQuery) -> Result<Vec<Product>> {
+    let sql = build_list_sql(query);
+    let q = bind_list_params(sqlx::query_as::<_, Product>(&sql), query);
+    let products = q.fetch_all(pool).await?;
+    Ok(products)
+}
+
+/// 根據查詢條件建構產品列表 SQL（參數化 $1, $2...，無注入風險）
+fn build_list_sql(query: &ProductQuery) -> String {
+    let mut conditions = Vec::new();
+    let mut idx: i32 = 1;
+    if query.keyword.is_some() {
+        conditions.push(std::format!("(sku ILIKE ${idx} OR name ILIKE ${idx})"));
+        idx += 1;
+    }
+    if query.category_id.is_some() {
+        conditions.push(std::format!("category_id = ${idx}"));
+        idx += 1;
+    }
+    if query.category_code.is_some() {
+        conditions.push(std::format!("category_code = ${idx}"));
+        idx += 1;
+    }
+    if query.subcategory_code.is_some() {
+        conditions.push(std::format!("subcategory_code = ${idx}"));
+        idx += 1;
+    }
+    if query.status.is_some() {
+        conditions.push(std::format!("status = ${idx}"));
+        idx += 1;
+    }
+    if query.is_active.is_some() {
+        conditions.push(std::format!("is_active = ${idx}"));
+    }
+    let where_clause = if conditions.is_empty() {
+        "1=1".to_string()
+    } else {
+        conditions.join(" AND ")
+    };
+    // Dynamic SQL with bind params ($1, $2...) — no injection risk
+    ["SELECT * FROM products WHERE ", &where_clause, " ORDER BY sku"].concat()
+}
+
+/// 依查詢條件綁定參數至 SQL query
+fn bind_list_params<'q>(
+    mut q: sqlx::query::QueryAs<'q, sqlx::Postgres, Product, sqlx::postgres::PgArguments>,
+    query: &'q ProductQuery,
+) -> sqlx::query::QueryAs<'q, sqlx::Postgres, Product, sqlx::postgres::PgArguments> {
+    if let Some(ref kw) = query.keyword {
+        q = q.bind(std::format!("%{kw}%"));
+    }
+    if let Some(category_id) = query.category_id {
+        q = q.bind(category_id);
+    }
+    if let Some(ref c) = query.category_code {
+        q = q.bind(c.as_str());
+    }
+    if let Some(ref s) = query.subcategory_code {
+        q = q.bind(s.as_str());
+    }
+    if let Some(ref s) = query.status {
+        q = q.bind(s.as_str());
+    }
+    if let Some(is_active) = query.is_active {
+        q = q.bind(is_active);
+    }
+    q
+}
