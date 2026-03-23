@@ -121,6 +121,7 @@ impl AnimalService {
             r#"
             SELECT
                 p.id, p.animal_no, p.ear_tag, p.status, p.breed, p.breed_other, p.gender, p.pen_location,
+                p.pen_id, p.species_id, sp.name as species_name,
                 p.iacuc_no, p.entry_date, s.name as source_name,
                 p.vet_last_viewed_at, p.created_at,
                 EXISTS(
@@ -167,6 +168,7 @@ impl AnimalService {
                 ) as latest_weight_date
             FROM animals p
             LEFT JOIN animal_sources s ON p.source_id = s.id
+            LEFT JOIN species sp ON p.species_id = sp.id
             WHERE p.deleted_at IS NULL
             "#,
         );
@@ -226,10 +228,12 @@ impl AnimalService {
             r#"
             SELECT
                 p.id, p.animal_no, p.ear_tag, p.status, p.breed, p.breed_other, p.gender, p.pen_location,
+                p.pen_id, p.species_id, sp.name as species_name,
                 p.iacuc_no, p.entry_date, s.name as source_name,
                 p.vet_last_viewed_at, p.created_at
             FROM animals p
             LEFT JOIN animal_sources s ON p.source_id = s.id
+            LEFT JOIN species sp ON p.species_id = sp.id
             WHERE p.pen_location IS NOT NULL
             AND p.deleted_at IS NULL
             ORDER BY p.pen_location, p.id

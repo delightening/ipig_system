@@ -19,7 +19,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Loader2, AlertTriangle } from 'lucide-react'
-import { penBuildings, penZonesByBuilding, penNumbersByZone } from '../constants'
+import { useFacilityLayout } from '../hooks/useFacilityLayout'
+import { useQuery } from '@tanstack/react-query'
+import { facilityApi } from '@/lib/api/facility'
+import { STALE_TIME } from '@/lib/query'
 
 // ─── Main Add Animal Dialog ────────────────────────────────────────────────────
 
@@ -68,6 +71,21 @@ export function AnimalAddDialog({
   isPending,
 }: AnimalAddDialogProps) {
   const { t } = useTranslation()
+  const { buildings, zonesByBuilding, pensByZone } = useFacilityLayout()
+
+  // 從 building code 找 building id
+  const selectedBuilding = buildings.find(b => b.code === penBuilding)
+  const zonesForBuilding = selectedBuilding ? (zonesByBuilding[selectedBuilding.id] ?? []) : []
+  const selectedZone = zonesForBuilding.find(z => z.code === penZone)
+  const pensForZone = selectedZone ? (pensByZone[selectedZone.id] ?? []) : []
+
+  // Species 下拉資料
+  const { data: speciesList = [] } = useQuery({
+    queryKey: ['facility-species'],
+    queryFn: async () => (await facilityApi.listSpecies()).data,
+    staleTime: STALE_TIME.REFERENCE,
+  })
+  const breedSpecies = speciesList.filter(s => s.parent_id !== null)
 
   const isDisabled =
     isPending ||
@@ -113,9 +131,9 @@ export function AnimalAddDialog({
                 <SelectValue placeholder="選擇 A 棟或 B 棟" />
               </SelectTrigger>
               <SelectContent>
-                {penBuildings.map((building) => (
-                  <SelectItem key={building.value} value={building.value}>
-                    {building.label}
+                {buildings.map((building) => (
+                  <SelectItem key={building.id} value={building.code}>
+                    {building.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -135,8 +153,8 @@ export function AnimalAddDialog({
                 <SelectValue placeholder={penBuilding ? "選擇欄位區" : "請先選棟別"} />
               </SelectTrigger>
               <SelectContent>
-                {(penZonesByBuilding[penBuilding] || []).map((zone) => (
-                  <SelectItem key={zone} value={zone}>{zone}</SelectItem>
+                {zonesForBuilding.map((zone) => (
+                  <SelectItem key={zone.id} value={zone.code}>{zone.name ?? zone.code}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -152,8 +170,8 @@ export function AnimalAddDialog({
                 <SelectValue placeholder={penZone ? "選擇編號" : "請先選欄位區"} />
               </SelectTrigger>
               <SelectContent>
-                {(penNumbersByZone[penZone] || []).map((value) => (
-                  <SelectItem key={value} value={value}>{value}</SelectItem>
+                {pensForZone.map((pen) => (
+                  <SelectItem key={pen.id} value={pen.code.slice(1)}>{pen.code}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -166,9 +184,19 @@ export function AnimalAddDialog({
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="minipig">迷你豬</SelectItem>
-                <SelectItem value="white">白豬</SelectItem>
-                <SelectItem value="other">其他</SelectItem>
+                {breedSpecies.length > 0 ? (
+                  breedSpecies.map((sp) => (
+                    <SelectItem key={sp.id} value={sp.code === 'miniature' ? 'minipig' : sp.code}>
+                      {sp.name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <>
+                    <SelectItem value="minipig">迷你豬</SelectItem>
+                    <SelectItem value="white">白豬</SelectItem>
+                    <SelectItem value="other">其他</SelectItem>
+                  </>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -363,6 +391,12 @@ export function QuickAddDialog({
   isPending,
 }: QuickAddDialogProps) {
   const { t } = useTranslation()
+  const { data: speciesList = [] } = useQuery({
+    queryKey: ['facility-species'],
+    queryFn: async () => (await facilityApi.listSpecies()).data,
+    staleTime: STALE_TIME.REFERENCE,
+  })
+  const breedSpecies = speciesList.filter(s => s.parent_id !== null)
 
   const isDisabled =
     isPending ||
@@ -389,9 +423,19 @@ export function QuickAddDialog({
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="minipig">迷你豬</SelectItem>
-                <SelectItem value="white">白豬</SelectItem>
-                <SelectItem value="other">其他</SelectItem>
+                {breedSpecies.length > 0 ? (
+                  breedSpecies.map((sp) => (
+                    <SelectItem key={sp.id} value={sp.code === 'miniature' ? 'minipig' : sp.code}>
+                      {sp.name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <>
+                    <SelectItem value="minipig">迷你豬</SelectItem>
+                    <SelectItem value="white">白豬</SelectItem>
+                    <SelectItem value="other">其他</SelectItem>
+                  </>
+                )}
               </SelectContent>
             </Select>
             {form.breed === 'other' && (

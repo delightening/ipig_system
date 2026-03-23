@@ -83,10 +83,10 @@ impl AnimalService {
             r#"
             INSERT INTO animals (
                 ear_tag, status, breed, breed_other, source_id, gender, birth_date,
-                entry_date, entry_weight, pen_location, pre_experiment_code,
-                remark, created_by, created_at, updated_at
+                entry_date, entry_weight, pen_location, pen_id, species_id,
+                pre_experiment_code, remark, created_by, created_at, updated_at
             )
-            VALUES ($1, $2, $3::animal_breed, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+            VALUES ($1, $2, $3::animal_breed, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
             RETURNING *
             "#,
         )
@@ -100,6 +100,8 @@ impl AnimalService {
         .bind(req.entry_date)
         .bind(req.entry_weight)
         .bind(&pen_location)
+        .bind(req.pen_id)
+        .bind(req.species_id)
         .bind(&req.pre_experiment_code)
         .bind(&req.remark)
         .bind(created_by)
@@ -119,6 +121,16 @@ impl AnimalService {
             }
             AppError::Database(e)
         })?;
+
+        // 更新 pen 的 current_count
+        if let Some(pid) = animal.pen_id {
+            let _ = sqlx::query(
+                "UPDATE pens SET current_count = (SELECT COUNT(*) FROM animals WHERE pen_id = $1 AND deleted_at IS NULL AND status NOT IN ('euthanized', 'sudden_death', 'transferred')) WHERE id = $1"
+            )
+            .bind(pid)
+            .execute(pool)
+            .await;
+        }
 
         let weight_req = CreateWeightRequest {
             measure_date: req.entry_date,
