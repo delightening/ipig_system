@@ -138,6 +138,7 @@ export function useDocumentForm({ defaultType }: UseDocumentFormOptions) {
     setUnsavedChanges,
     products,
     isShelfRequired,
+    inputRefs: lines.inputRefs,
   })
 
   // --- Field update ---
