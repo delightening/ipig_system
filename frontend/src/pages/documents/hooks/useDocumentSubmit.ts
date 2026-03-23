@@ -2,13 +2,14 @@
  * 單據送審/儲存 Hook
  * 負責 payload 建構、驗證、save/submit mutations
  */
-import { useCallback } from 'react'
+import { useCallback, type MutableRefObject } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { Product } from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
 import { getApiErrorMessage } from '@/lib/validation'
 import type { DocumentLine, DocumentFormData } from '../types'
+import type { InputRefs } from './useDocumentLines'
 
 interface UseDocumentSubmitOptions {
   id: string | undefined
@@ -19,12 +20,13 @@ interface UseDocumentSubmitOptions {
   setUnsavedChanges: (v: boolean) => void
   products: Product[] | undefined
   isShelfRequired: boolean
+  inputRefs: MutableRefObject<InputRefs>
 }
 
 export function useDocumentSubmit({
   id, isEdit, formData,
   collectLineValues, collectAllLineValues,
-  setUnsavedChanges, products, isShelfRequired,
+  setUnsavedChanges, products, isShelfRequired, inputRefs,
 }: UseDocumentSubmitOptions) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -63,12 +65,27 @@ export function useDocumentSubmit({
         const requiresBatchExpiry = ['GRN', 'DO', 'SO', 'ADJ', 'STK'].includes(mergedData.doc_type)
         if (requiresBatchExpiry) {
           const product = products?.find((p) => p.id === line.product_id)
-          if (product?.track_batch && !line.batch_no?.trim()) {
+          const lineId = line.id || `temp-${idx}`
+          const refs = inputRefs.current[lineId]
+
+          // 直接從 DOM input 讀取當前值（最可靠的來源）
+          const domExpiry = refs?.expiry_date?.dataset?.iso?.trim() || ''
+          const domBatch = refs?.batch_no?.value?.trim() || ''
+
+          // formData 值 OR DOM 值，任一有值即通過
+          const hasExpiry = !!(line.expiry_date?.trim() || domExpiry)
+          const hasBatch = !!(line.batch_no?.trim() || domBatch)
+
+          if (product?.track_batch && !hasBatch) {
             throw new Error(`第 ${idx + 1} 行：該品項有管理批號，批號為必填項`)
           }
-          if (product?.track_expiry && !line.expiry_date?.trim()) {
+          if (product?.track_expiry && !hasExpiry) {
             throw new Error(`第 ${idx + 1} 行：該品項有管理效期，效期為必填項`)
           }
+
+          // 確保 payload 帶上 DOM 讀到的值
+          if (!line.expiry_date?.trim() && domExpiry) line.expiry_date = domExpiry
+          if (!line.batch_no?.trim() && domBatch) line.batch_no = domBatch
         }
       }
 
