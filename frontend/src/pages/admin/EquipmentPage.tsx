@@ -35,7 +35,7 @@ import { EquipmentTabContent } from './components/EquipmentTabContent'
 import { CalibrationTabContent } from './components/CalibrationTabContent'
 import { MaintenanceTabContent } from './components/MaintenanceTabContent'
 import { DisposalTabContent } from './components/DisposalTabContent'
-import { AnnualPlanTabContent } from './components/AnnualPlanTabContent'
+import AnnualPlanTabContent from './components/AnnualPlanTabContent'
 import { EquipmentStatsCards } from './components/EquipmentStatsCards'
 
 type TabValue = 'equipment' | 'calibrations' | 'maintenance' | 'disposals' | 'annual-plan'
