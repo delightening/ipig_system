@@ -44,13 +44,18 @@ export function useDocumentLines(
     if (refs.qty) values.qty = refs.qty.value
     if (refs.unit_price) values.unit_price = refs.unit_price.value
     if (refs.expiry_date) {
-      // DateTextInput exposes ISO via data-iso attr and overridden .value getter.
-      // Fall back to reading the visible display text and converting YYYY/MM/DD → YYYY-MM-DD.
+      // DateTextInput: try data-iso attr first, then overridden .value, then native getter.
       const el = refs.expiry_date as HTMLInputElement
-      const picked = el.dataset?.iso || el.value || ''
-      values.expiry_date = picked.includes('/') ? picked.replace(/\//g, '-') : picked
+      const iso = el.dataset?.iso || ''
+      const val = iso || el.value || ''
+      // Only override formData value if we got something non-empty from the DOM
+      const normalized = val.includes('/') ? val.replace(/\//g, '-') : val
+      if (normalized) values.expiry_date = normalized
     }
-    if (refs.batch_no) values.batch_no = refs.batch_no.value
+    if (refs.batch_no) {
+      const batchVal = refs.batch_no.value
+      if (batchVal) values.batch_no = batchVal
+    }
     return values
   }, [])
 
