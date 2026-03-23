@@ -17,6 +17,7 @@ import { Plus, Pencil, Trash2, Loader2, LayoutGrid } from 'lucide-react'
 import type { PenDetails, CreatePenRequest, UpdatePenRequest } from '@/types/facility'
 import { PEN_STATUS_NAMES } from '@/types/facility'
 import { BatchCreatePenDialog } from './BatchCreatePenDialog'
+import { PenLayoutPreview } from './PenLayoutPreview'
 
 const EMPTY_FORM: CreatePenRequest = { zone_id: '', code: '', name: '', capacity: 1 }
 
@@ -129,6 +130,8 @@ export function PenTab({ canManage }: { canManage: boolean }) {
           ))}
         </TableBody>
       </Table>
+
+      <PenLayoutPreview pens={pens} zones={zones} canManage={canManage} />
 
       <Dialog open={dialogs.isOpen('create')} onOpenChange={o => !o && dialogs.close('create')}>
         <DialogContent>
