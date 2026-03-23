@@ -13,6 +13,7 @@ export interface Species {
   icon: string | null
   is_active: boolean
   config: Record<string, unknown> | null
+  parent_id: string | null
   sort_order: number
   created_at: string
   updated_at: string
@@ -23,6 +24,7 @@ export interface CreateSpeciesRequest {
   name: string
   name_en?: string
   icon?: string
+  parent_id?: string
   sort_order?: number
 }
 
@@ -31,6 +33,7 @@ export interface UpdateSpeciesRequest {
   name_en?: string
   icon?: string
   is_active?: boolean
+  parent_id?: string
   sort_order?: number
 }
 
@@ -144,10 +147,13 @@ export interface PenDetails {
   capacity: number
   current_count: number
   status: string
+  row_index: number | null
+  col_index: number | null
   zone_id: string
   zone_code: string
   zone_name: string | null
   zone_color: string | null
+  zone_layout_config: Record<string, unknown> | null
   building_id: string
   building_code: string
   building_name: string
