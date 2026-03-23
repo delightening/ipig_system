@@ -30,7 +30,9 @@ const DateTextInput = React.forwardRef<HTMLInputElement, DateTextInputProps>(
     isoRef.current = toIso(display)
 
     // Expose the inner input element via ref, with .value returning ISO format
-    React.useEffect(() => {
+    // Must use useLayoutEffect so the override is set BEFORE useImperativeHandle
+    // exposes the element to the parent
+    React.useLayoutEffect(() => {
       const el = innerRef.current
       if (!el) return
 
@@ -41,8 +43,8 @@ const DateTextInput = React.forwardRef<HTMLInputElement, DateTextInputProps>(
       })
     }, [])
 
-    // Patch ref forwarding
-    React.useImperativeHandle(ref, () => innerRef.current!)
+    // Patch ref forwarding — use [] deps to avoid cleanup/setup cycle every render
+    React.useImperativeHandle(ref, () => innerRef.current!, [])
 
     // Sync when defaultValue changes externally
     const prevDefault = React.useRef(defaultValue)
