@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-03-21 (v20)
+> **最後更新：** 2026-03-23 (v21)
 > **維護慣例：** 完成項目保留於本表並標 [x]，同時於 `docs/PROGRESS.md` §9 最新變更動態 新增對應紀錄；待辦統計僅計「未完成」數量。
 > **AI 標註說明：**
 >
@@ -244,7 +244,7 @@
 | # | 項目 | 說明 | 狀態 |
 |---|------|------|------|
 | R9-C1 | ~~生產環境 WAF 改為 On~~ | WAF 改由 Cloudflare WAF 處理，ModSecurity overlay 已移除 | [x] |
-| R9-C2 | **CI 密碼改 GitHub Secrets** | `.github/workflows/ci.yml` 中 JWT_SECRET、DEV_USER_PASSWORD、ADMIN_INITIAL_PASSWORD 改為 GitHub Secrets 並輪替 | [ ] |
+| R9-C2 | **CI 密碼改 GitHub Secrets** | `.github/workflows/ci.yml` 中 JWT_SECRET、DEV_USER_PASSWORD、ADMIN_INITIAL_PASSWORD 改為 GitHub Secrets 並輪替 | [x] |
 
 ---
 
@@ -359,16 +359,17 @@
 | 🟠 R6 第六輪改善 | 0 |
 | 🔒 R7 安全審視 | 0 |
 | 🔧 R8 代碼規範重構 | 0 |
-| 🔒 R9 安全與品質修復 | 3 |
+| 🔒 R9 安全與品質修復 | 2 |
 | 🔒 R10 程式碼審查 Medium/Low | 0 (3 推遲) |
 | 🔧 R11 技術債掃描 | 0 |
 | 🟢 R12 長期演進項目 | 3 |
-| **合計（未完成）** | **7** |
+| **合計（未完成）** | **6** |
 
 ---
 
 ## 變更紀錄 (最新)
 
+| 2026-03-23 | 🧠 Claude：R9-C2 CI 密碼改 GitHub Secrets — `ci.yml` 和 `docker-compose.test.yml` 中的 JWT_SECRET、DEV_USER_PASSWORD、ADMIN_INITIAL_PASSWORD 改為 GitHub Secrets 參照（`CI_JWT_SECRET`、`CI_ADMIN_PASSWORD`、`CI_DEV_PASSWORD`）。DB 密碼維持硬編碼（CI 臨時容器，風險極低）。待辦 7→6。 |
 | 2026-03-21 | 🧠 Claude：R10 程式碼審查 17/20 完成 — M2 確認無 N+1、M3 MIME 預檢+欄位級大小檢查、M4 unwrap 已清零、M5 CSRF Signed Double Submit Cookie、M6 Zod 驗證、M7 MIME 白名單、M9 Alert 門檻收緊、M10 確認已安全；L1 auth handler 拆分（734→7 檔）、L2 auth service 拆分（1006→6 檔）、L3 signature 拆分（1459→11 檔）、L4 product service 拆分（832→3 檔）、L6 Cookie consent 重寫、L7 密碼 10 字元+黑名單、L8 Watchtower 3600s、L9 login_events 索引、L10 JSONB 驗證。M1/M8/L5 推遲。待辦 27→7。 |
 | 2026-03-21 | 🧠 Claude：R11 技術債全部清零 — R11-15 中大型元件拆分（10 個元件全部降至 ≤300 行，平均縮減 -80%）；R11-21 前端 try-catch 重構（25 處改為 useMutation，27 處合理保留）；R11-22 源碼 TODO 清理（stocktake 類別篩選實作、MyProjectDetailPage 動物查詢實作）。待辦統計 30→27。 |
 | 2026-03-20 | 🧠 Claude：未追蹤項目納入 TODO — P0-R12-1 CI 自動觸發恢復、P0-R12-2 SQL 字串拼接殘留修復、R11-22 源碼 TODO 註解清理、R12-1/R12-2/R12-3 長期演進項目（Dependabot 2.5 升級/財務模組 Phase 2–5/圖片處理獨立服務）。待辦統計 25→31。 |

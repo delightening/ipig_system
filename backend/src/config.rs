@@ -98,6 +98,8 @@ pub struct Config {
     pub is_ci: bool,
     /// Gotenberg PDF 服務 URL
     pub gotenberg_url: String,
+    /// Image Processor 微服務 URL（方案 D）
+    pub image_processor_url: String,
 }
 
 impl Config {
@@ -221,6 +223,8 @@ impl Config {
             is_ci: std::env::var("CI").is_ok(),
             gotenberg_url: std::env::var("GOTENBERG_URL")
                 .unwrap_or_else(|_| "http://localhost:3000".to_string()),
+            image_processor_url: std::env::var("IMAGE_PROCESSOR_URL")
+                .unwrap_or_else(|_| "http://image-processor:3100".to_string()),
         })
     }
 
@@ -277,6 +281,7 @@ mod tests {
             dev_user_password: None,
             is_ci: false,
             gotenberg_url: "http://localhost:3000".to_string(),
+            image_processor_url: "http://localhost:3100".to_string(),
         }
     }
 

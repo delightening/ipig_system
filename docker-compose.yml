@@ -99,6 +99,9 @@ services:
 
       # Gotenberg PDF 服務
       GOTENBERG_URL: ${GOTENBERG_URL:-http://gotenberg:3000}
+
+      # Image Processor 微服務（方案 D）
+      IMAGE_PROCESSOR_URL: ${IMAGE_PROCESSOR_URL:-http://image-processor:3100}
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
     volumes:
@@ -181,6 +184,32 @@ services:
     networks:
       - backend
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # =========================
+  # Image Processor (圖片處理微服務, 方案 D)
+  # =========================
+  image-processor:
+    build:
+      context: ./image-processor
+      dockerfile: Dockerfile
+    container_name: ipig-image-processor
+    environment:
+      PORT: "3100"
+      MAX_IMAGE_SIZE_MB: "30"
+      MAX_PIXELS: "100000000"
+    networks:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://127.0.0.1:3100/health || exit 1" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
     deploy:
       resources:
         limits:

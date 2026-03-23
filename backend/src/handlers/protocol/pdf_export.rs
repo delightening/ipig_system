@@ -603,7 +603,7 @@ pub async fn export_protocol_pdf_v2(
     for i in 1..=8 {
         let marker = format!("§SEC{}§", i);
         if let Some(page) = section_pages.get(&marker) {
-            ctx.insert(&format!("toc_page_{}", i), page);
+            ctx.insert(format!("toc_page_{}", i), page);
         }
     }
 

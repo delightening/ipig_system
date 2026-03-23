@@ -80,6 +80,7 @@ impl TestApp {
         let _ = erp_backend::startup::ensure_all_role_permissions(&pool).await;
 
         let gotenberg = erp_backend::GotenbergClient::new("http://localhost:3000");
+        let image_processor = erp_backend::ImageProcessorClient::new("http://localhost:3100");
         let templates = erp_backend::TemplateService::new()
             .unwrap_or_else(|_| {
                 // 測試環境中模板目錄可能不存在，使用空模板
@@ -94,6 +95,7 @@ impl TestApp {
             alert_broadcaster,
             metrics_handle: None,
             gotenberg,
+            image_processor,
             templates,
         };
 

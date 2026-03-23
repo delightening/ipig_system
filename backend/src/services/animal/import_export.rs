@@ -405,10 +405,10 @@ fn build_create_request(
 ) -> CreateAnimalRequest {
     CreateAnimalRequest {
         ear_tag: validated.formatted_ear_tag.clone(),
-        breed: validated.breed.clone(),
+        breed: validated.breed,
         breed_other: validated.breed_other.clone(),
         source_id,
-        gender: validated.gender.clone(),
+        gender: validated.gender,
         birth_date: validated.birth_date,
         entry_date: validated.entry_date,
         entry_weight: validated.entry_weight,

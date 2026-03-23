@@ -1,0 +1,832 @@
+﻿2026-03-21T16:57:27.1693236Z Current runner version: '2.332.0'
+2026-03-21T16:57:27.1720968Z ##[group]Runner Image Provisioner
+2026-03-21T16:57:27.1721955Z Hosted Compute Agent
+2026-03-21T16:57:27.1722533Z Version: 20260213.493
+2026-03-21T16:57:27.1723155Z Commit: 5c115507f6dd24b8de37d8bbe0bb4509d0cc0fa3
+2026-03-21T16:57:27.1723893Z Build Date: 2026-02-13T00:28:41Z
+2026-03-21T16:57:27.1724517Z Worker ID: {128a0357-7433-456c-b060-d8c196acf2fe}
+2026-03-21T16:57:27.1725274Z Azure Region: eastus2
+2026-03-21T16:57:27.1725853Z ##[endgroup]
+2026-03-21T16:57:27.1728068Z ##[group]Operating System
+2026-03-21T16:57:27.1728785Z Ubuntu
+2026-03-21T16:57:27.1729550Z 24.04.3
+2026-03-21T16:57:27.1730043Z LTS
+2026-03-21T16:57:27.1730515Z ##[endgroup]
+2026-03-21T16:57:27.1731135Z ##[group]Runner Image
+2026-03-21T16:57:27.1731672Z Image: ubuntu-24.04
+2026-03-21T16:57:27.1732214Z Version: 20260309.50.1
+2026-03-21T16:57:27.1733465Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260309.50/images/ubuntu/Ubuntu2404-Readme.md
+2026-03-21T16:57:27.1734998Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260309.50
+2026-03-21T16:57:27.1735916Z ##[endgroup]
+2026-03-21T16:57:27.1737024Z ##[group]GITHUB_TOKEN Permissions
+2026-03-21T16:57:27.1739487Z Contents: read
+2026-03-21T16:57:27.1740062Z Metadata: read
+2026-03-21T16:57:27.1740587Z Packages: read
+2026-03-21T16:57:27.1741202Z ##[endgroup]
+2026-03-21T16:57:27.1743905Z Secret source: Actions
+2026-03-21T16:57:27.1745292Z Prepare workflow directory
+2026-03-21T16:57:27.2397147Z Prepare all required actions
+2026-03-21T16:57:27.2453642Z Getting action download info
+2026-03-21T16:57:27.5212464Z Download action repository 'actions/checkout@v6' (SHA:de0fac2e4500dabe0009e67214ff5f5447ce83dd)
+2026-03-21T16:57:27.6826165Z Download action repository 'dtolnay/rust-toolchain@stable' (SHA:631a55b12751854ce901bb631d5902ceb48146f7)
+2026-03-21T16:57:27.8530883Z Download action repository 'actions/cache@v5' (SHA:668228422ae6a00e4ad889ee87cd7109ec5666a7)
+2026-03-21T16:57:28.3185747Z Complete job name: Backend: cargo test
+2026-03-21T16:57:28.3691841Z ##[group]Checking docker version
+2026-03-21T16:57:28.3705539Z ##[command]/usr/bin/docker version --format '{{.Server.APIVersion}}'
+2026-03-21T16:57:28.4658905Z '1.48'
+2026-03-21T16:57:28.4671805Z Docker daemon API version: '1.48'
+2026-03-21T16:57:28.4672548Z ##[command]/usr/bin/docker version --format '{{.Client.APIVersion}}'
+2026-03-21T16:57:28.4846200Z '1.48'
+2026-03-21T16:57:28.4859786Z Docker client API version: '1.48'
+2026-03-21T16:57:28.4865462Z ##[endgroup]
+2026-03-21T16:57:28.4868668Z ##[group]Clean up resources from previous jobs
+2026-03-21T16:57:28.4874188Z ##[command]/usr/bin/docker ps --all --quiet --no-trunc --filter "label=cdcbdd"
+2026-03-21T16:57:28.5023116Z ##[command]/usr/bin/docker network prune --force --filter "label=cdcbdd"
+2026-03-21T16:57:28.5163692Z ##[endgroup]
+2026-03-21T16:57:28.5164191Z ##[group]Create local container network
+2026-03-21T16:57:28.5174293Z ##[command]/usr/bin/docker network create --label cdcbdd github_network_17023ae71de44aeb935a8e1926fff719
+2026-03-21T16:57:28.5721447Z 1d0c8712aad062e4b19d4059da4ae358e168f99e3eb3f6e030ac1212297a5a95
+2026-03-21T16:57:28.5738636Z ##[endgroup]
+2026-03-21T16:57:28.5763271Z ##[group]Starting postgres service container
+2026-03-21T16:57:28.5784084Z ##[command]/usr/bin/docker pull postgres:16
+2026-03-21T16:57:28.9623378Z 16: Pulling from library/postgres
+2026-03-21T16:57:29.0462891Z ec781dee3f47: Pulling fs layer
+2026-03-21T16:57:29.0464609Z 563d41d9b6e2: Pulling fs layer
+2026-03-21T16:57:29.0465783Z be939c24ec28: Pulling fs layer
+2026-03-21T16:57:29.0467494Z eecafd0f9ae3: Pulling fs layer
+2026-03-21T16:57:29.0468574Z 7f6c666770d4: Pulling fs layer
+2026-03-21T16:57:29.0469550Z 5b1434d064fd: Pulling fs layer
+2026-03-21T16:57:29.0470279Z 3db2f2dfc651: Pulling fs layer
+2026-03-21T16:57:29.0470965Z 0d650b372b08: Pulling fs layer
+2026-03-21T16:57:29.0471648Z 7c780ba309cf: Pulling fs layer
+2026-03-21T16:57:29.0472341Z e060fbc5e5a0: Pulling fs layer
+2026-03-21T16:57:29.0473020Z 06d4b5b37c2a: Pulling fs layer
+2026-03-21T16:57:29.0474092Z 4950166eb819: Pulling fs layer
+2026-03-21T16:57:29.0474786Z f8e5b8746c3b: Pulling fs layer
+2026-03-21T16:57:29.0475483Z 4e343c02051d: Pulling fs layer
+2026-03-21T16:57:29.0476218Z 3db2f2dfc651: Waiting
+2026-03-21T16:57:29.0476847Z 0d650b372b08: Waiting
+2026-03-21T16:57:29.0477472Z 7c780ba309cf: Waiting
+2026-03-21T16:57:29.0478096Z e060fbc5e5a0: Waiting
+2026-03-21T16:57:29.0478723Z 06d4b5b37c2a: Waiting
+2026-03-21T16:57:29.0479709Z 4950166eb819: Waiting
+2026-03-21T16:57:29.0480388Z f8e5b8746c3b: Waiting
+2026-03-21T16:57:29.0481036Z 4e343c02051d: Waiting
+2026-03-21T16:57:29.0481756Z eecafd0f9ae3: Waiting
+2026-03-21T16:57:29.0482433Z 7f6c666770d4: Waiting
+2026-03-21T16:57:29.0483089Z 5b1434d064fd: Waiting
+2026-03-21T16:57:29.1434534Z 563d41d9b6e2: Download complete
+2026-03-21T16:57:29.1953794Z be939c24ec28: Verifying Checksum
+2026-03-21T16:57:29.1955761Z be939c24ec28: Download complete
+2026-03-21T16:57:29.2516999Z eecafd0f9ae3: Verifying Checksum
+2026-03-21T16:57:29.2519238Z eecafd0f9ae3: Download complete
+2026-03-21T16:57:29.3304784Z ec781dee3f47: Verifying Checksum
+2026-03-21T16:57:29.3307016Z ec781dee3f47: Download complete
+2026-03-21T16:57:29.3401796Z 7f6c666770d4: Verifying Checksum
+2026-03-21T16:57:29.3403597Z 7f6c666770d4: Download complete
+2026-03-21T16:57:29.3728956Z 5b1434d064fd: Verifying Checksum
+2026-03-21T16:57:29.3732349Z 5b1434d064fd: Download complete
+2026-03-21T16:57:29.4234159Z 3db2f2dfc651: Verifying Checksum
+2026-03-21T16:57:29.4236156Z 3db2f2dfc651: Download complete
+2026-03-21T16:57:29.4428546Z 0d650b372b08: Verifying Checksum
+2026-03-21T16:57:29.4430653Z 0d650b372b08: Download complete
+2026-03-21T16:57:29.5226401Z e060fbc5e5a0: Verifying Checksum
+2026-03-21T16:57:29.5228126Z e060fbc5e5a0: Download complete
+2026-03-21T16:57:29.5521925Z 06d4b5b37c2a: Verifying Checksum
+2026-03-21T16:57:29.5524711Z 06d4b5b37c2a: Download complete
+2026-03-21T16:57:29.6171789Z 4950166eb819: Verifying Checksum
+2026-03-21T16:57:29.6172631Z 4950166eb819: Download complete
+2026-03-21T16:57:29.6434004Z f8e5b8746c3b: Verifying Checksum
+2026-03-21T16:57:29.6434932Z f8e5b8746c3b: Download complete
+2026-03-21T16:57:29.7123687Z 4e343c02051d: Verifying Checksum
+2026-03-21T16:57:29.7126338Z 4e343c02051d: Download complete
+2026-03-21T16:57:30.0348631Z 7c780ba309cf: Download complete
+2026-03-21T16:57:30.4539606Z ec781dee3f47: Pull complete
+2026-03-21T16:57:30.7328012Z 563d41d9b6e2: Pull complete
+2026-03-21T16:57:30.9213182Z be939c24ec28: Pull complete
+2026-03-21T16:57:30.9626916Z eecafd0f9ae3: Pull complete
+2026-03-21T16:57:31.2926259Z 7f6c666770d4: Pull complete
+2026-03-21T16:57:31.3759587Z 5b1434d064fd: Pull complete
+2026-03-21T16:57:31.3851052Z 3db2f2dfc651: Pull complete
+2026-03-21T16:57:31.3990691Z 0d650b372b08: Pull complete
+2026-03-21T16:57:34.5528612Z 7c780ba309cf: Pull complete
+2026-03-21T16:57:34.5687389Z e060fbc5e5a0: Pull complete
+2026-03-21T16:57:34.5834073Z 06d4b5b37c2a: Pull complete
+2026-03-21T16:57:34.5937914Z 4950166eb819: Pull complete
+2026-03-21T16:57:34.6045542Z f8e5b8746c3b: Pull complete
+2026-03-21T16:57:34.6165658Z 4e343c02051d: Pull complete
+2026-03-21T16:57:34.6211509Z Digest: sha256:2586e2a95d1c9b31cb2967feb562948f7d364854453d703039b6efa45fe48417
+2026-03-21T16:57:34.6228427Z Status: Downloaded newer image for postgres:16
+2026-03-21T16:57:34.6240115Z docker.io/library/postgres:16
+2026-03-21T16:57:34.6300887Z ##[command]/usr/bin/docker create --name 9fd57bdf738b416f9d9bf1f15d2955db_postgres16_9d5ae7 --label cdcbdd --network github_network_17023ae71de44aeb935a8e1926fff719 --network-alias postgres -p 5432:5432 --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5 -e "POSTGRES_USER=postgres" -e "POSTGRES_PASSWORD=password" -e "POSTGRES_DB=ipig_db_test" -e GITHUB_ACTIONS=true -e CI=true postgres:16
+2026-03-21T16:57:34.6560361Z 2b018c13e3b929b4d100d26212fbd0a183fe486be0f5daa87a8f48be8a76e80f
+2026-03-21T16:57:34.6585036Z ##[command]/usr/bin/docker start 2b018c13e3b929b4d100d26212fbd0a183fe486be0f5daa87a8f48be8a76e80f
+2026-03-21T16:57:35.2317966Z 2b018c13e3b929b4d100d26212fbd0a183fe486be0f5daa87a8f48be8a76e80f
+2026-03-21T16:57:35.2337078Z ##[command]/usr/bin/docker ps --all --filter id=2b018c13e3b929b4d100d26212fbd0a183fe486be0f5daa87a8f48be8a76e80f --filter status=running --no-trunc --format "{{.ID}} {{.Status}}"
+2026-03-21T16:57:35.2478636Z 2b018c13e3b929b4d100d26212fbd0a183fe486be0f5daa87a8f48be8a76e80f Up Less than a second (health: starting)
+2026-03-21T16:57:35.2501029Z ##[command]/usr/bin/docker port 2b018c13e3b929b4d100d26212fbd0a183fe486be0f5daa87a8f48be8a76e80f
+2026-03-21T16:57:35.2660629Z 5432/tcp -> 0.0.0.0:5432
+2026-03-21T16:57:35.2661566Z 5432/tcp -> [::]:5432
+2026-03-21T16:57:35.2716856Z ##[endgroup]
+2026-03-21T16:57:35.2725547Z ##[group]Waiting for all services to be ready
+2026-03-21T16:57:35.2739706Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 2b018c13e3b929b4d100d26212fbd0a183fe486be0f5daa87a8f48be8a76e80f
+2026-03-21T16:57:35.2879718Z starting
+2026-03-21T16:57:35.2903856Z postgres service is starting, waiting 2 seconds before checking again.
+2026-03-21T16:57:37.2908513Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 2b018c13e3b929b4d100d26212fbd0a183fe486be0f5daa87a8f48be8a76e80f
+2026-03-21T16:57:37.3041641Z starting
+2026-03-21T16:57:37.3056580Z postgres service is starting, waiting 4 seconds before checking again.
+2026-03-21T16:57:41.6839781Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 2b018c13e3b929b4d100d26212fbd0a183fe486be0f5daa87a8f48be8a76e80f
+2026-03-21T16:57:41.6968485Z starting
+2026-03-21T16:57:41.6983277Z postgres service is starting, waiting 8 seconds before checking again.
+2026-03-21T16:57:49.7138240Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 2b018c13e3b929b4d100d26212fbd0a183fe486be0f5daa87a8f48be8a76e80f
+2026-03-21T16:57:49.7269638Z healthy
+2026-03-21T16:57:49.7287469Z postgres service is healthy.
+2026-03-21T16:57:49.7288214Z ##[endgroup]
+2026-03-21T16:57:49.7550997Z ##[group]Run actions/checkout@v6
+2026-03-21T16:57:49.7551576Z with:
+2026-03-21T16:57:49.7551771Z   repository: delightening/ipig_system
+2026-03-21T16:57:49.7552192Z   token: ***
+2026-03-21T16:57:49.7552370Z   ssh-strict: true
+2026-03-21T16:57:49.7552539Z   ssh-user: git
+2026-03-21T16:57:49.7552722Z   persist-credentials: true
+2026-03-21T16:57:49.7552930Z   clean: true
+2026-03-21T16:57:49.7553123Z   sparse-checkout-cone-mode: true
+2026-03-21T16:57:49.7553348Z   fetch-depth: 1
+2026-03-21T16:57:49.7553520Z   fetch-tags: false
+2026-03-21T16:57:49.7553693Z   show-progress: true
+2026-03-21T16:57:49.7553876Z   lfs: false
+2026-03-21T16:57:49.7554032Z   submodules: false
+2026-03-21T16:57:49.7554212Z   set-safe-directory: true
+2026-03-21T16:57:49.7554577Z env:
+2026-03-21T16:57:49.7554745Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:49.7554951Z   SQLX_OFFLINE: false
+2026-03-21T16:57:49.7555349Z   DATABASE_URL: ***localhost:5432/ipig_db_test
+2026-03-21T16:57:49.7555682Z   ADMIN_EMAIL: admin@ipig.local
+2026-03-21T16:57:49.7555936Z   ADMIN_INITIAL_PASSWORD: ci_test_admin_password_2024
+2026-03-21T16:57:49.7556216Z   DISABLE_ACCOUNT_LOCKOUT: true
+2026-03-21T16:57:49.7556418Z ##[endgroup]
+2026-03-21T16:57:49.8529203Z Syncing repository: delightening/ipig_system
+2026-03-21T16:57:49.8530587Z ##[group]Getting Git version info
+2026-03-21T16:57:49.8530973Z Working directory is '/home/runner/work/ipig_system/ipig_system'
+2026-03-21T16:57:49.8531515Z [command]/usr/bin/git version
+2026-03-21T16:57:49.8619458Z git version 2.53.0
+2026-03-21T16:57:49.8644385Z ##[endgroup]
+2026-03-21T16:57:49.8662055Z Temporarily overriding HOME='/home/runner/work/_temp/d70d0373-61ff-4c32-a0a9-a7e4aba9a8d4' before making global git config changes
+2026-03-21T16:57:49.8663510Z Adding repository directory to the temporary git global config as a safe directory
+2026-03-21T16:57:49.8668823Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ipig_system/ipig_system
+2026-03-21T16:57:49.8717975Z Deleting the contents of '/home/runner/work/ipig_system/ipig_system'
+2026-03-21T16:57:49.8723186Z ##[group]Initializing the repository
+2026-03-21T16:57:49.8727596Z [command]/usr/bin/git init /home/runner/work/ipig_system/ipig_system
+2026-03-21T16:57:49.8856492Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-03-21T16:57:49.8857278Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-03-21T16:57:49.8857783Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-03-21T16:57:49.8858170Z hint: call:
+2026-03-21T16:57:49.8858337Z hint:
+2026-03-21T16:57:49.8858656Z hint: 	git config --global init.defaultBranch <name>
+2026-03-21T16:57:49.8859164Z hint:
+2026-03-21T16:57:49.8859566Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-03-21T16:57:49.8860070Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-03-21T16:57:49.8860762Z hint:
+2026-03-21T16:57:49.8861073Z hint: 	git branch -m <name>
+2026-03-21T16:57:49.8861410Z hint:
+2026-03-21T16:57:49.8861854Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-03-21T16:57:49.8862423Z Initialized empty Git repository in /home/runner/work/ipig_system/ipig_system/.git/
+2026-03-21T16:57:49.8872428Z [command]/usr/bin/git remote add origin https://github.com/delightening/ipig_system
+2026-03-21T16:57:49.8943344Z ##[endgroup]
+2026-03-21T16:57:49.8944017Z ##[group]Disabling automatic garbage collection
+2026-03-21T16:57:49.8948382Z [command]/usr/bin/git config --local gc.auto 0
+2026-03-21T16:57:49.8980789Z ##[endgroup]
+2026-03-21T16:57:49.8981370Z ##[group]Setting up auth
+2026-03-21T16:57:49.8982594Z Removing SSH command configuration
+2026-03-21T16:57:49.8989833Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-03-21T16:57:49.9024172Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-03-21T16:57:49.9396017Z Removing HTTP extra header
+2026-03-21T16:57:49.9401709Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-03-21T16:57:49.9434929Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-03-21T16:57:49.9667745Z Removing includeIf entries pointing to credentials config files
+2026-03-21T16:57:49.9674169Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-03-21T16:57:49.9707659Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-03-21T16:57:49.9951249Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-bdef875a-830b-4c68-8d0d-d2df390e5e0e.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-03-21T16:57:49.9990567Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/ipig_system/ipig_system/.git.path /home/runner/work/_temp/git-credentials-bdef875a-830b-4c68-8d0d-d2df390e5e0e.config
+2026-03-21T16:57:50.0022395Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/ipig_system/ipig_system/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-bdef875a-830b-4c68-8d0d-d2df390e5e0e.config
+2026-03-21T16:57:50.0054556Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-bdef875a-830b-4c68-8d0d-d2df390e5e0e.config
+2026-03-21T16:57:50.0086772Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-bdef875a-830b-4c68-8d0d-d2df390e5e0e.config
+2026-03-21T16:57:50.0115083Z ##[endgroup]
+2026-03-21T16:57:50.0115966Z ##[group]Fetching the repository
+2026-03-21T16:57:50.0125654Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +9641e6ee505cc248f2eade2846e794bae2cad8c5:refs/remotes/origin/main
+2026-03-21T16:57:51.7460775Z From https://github.com/delightening/ipig_system
+2026-03-21T16:57:51.7461565Z  * [new ref]         9641e6ee505cc248f2eade2846e794bae2cad8c5 -> origin/main
+2026-03-21T16:57:51.7504128Z [command]/usr/bin/git branch --list --remote origin/main
+2026-03-21T16:57:51.7530402Z   origin/main
+2026-03-21T16:57:51.7541117Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+2026-03-21T16:57:51.7570422Z 9641e6ee505cc248f2eade2846e794bae2cad8c5
+2026-03-21T16:57:51.7575157Z ##[endgroup]
+2026-03-21T16:57:51.7575750Z ##[group]Determining the checkout info
+2026-03-21T16:57:51.7582860Z ##[endgroup]
+2026-03-21T16:57:51.7583639Z [command]/usr/bin/git sparse-checkout disable
+2026-03-21T16:57:51.7628365Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-03-21T16:57:51.7657762Z ##[group]Checking out the ref
+2026-03-21T16:57:51.7663718Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-03-21T16:57:52.3590185Z Switched to a new branch 'main'
+2026-03-21T16:57:52.3590934Z branch 'main' set up to track 'origin/main'.
+2026-03-21T16:57:52.3624640Z ##[endgroup]
+2026-03-21T16:57:52.3670300Z [command]/usr/bin/git log -1 --format=%H
+2026-03-21T16:57:52.3697126Z 9641e6ee505cc248f2eade2846e794bae2cad8c5
+2026-03-21T16:57:52.4014184Z ##[group]Run dtolnay/rust-toolchain@stable
+2026-03-21T16:57:52.4014657Z with:
+2026-03-21T16:57:52.4014935Z   toolchain: stable
+2026-03-21T16:57:52.4015226Z env:
+2026-03-21T16:57:52.4015480Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:52.4015824Z   SQLX_OFFLINE: false
+2026-03-21T16:57:52.4016531Z   DATABASE_URL: ***localhost:5432/ipig_db_test
+2026-03-21T16:57:52.4016909Z   ADMIN_EMAIL: admin@ipig.local
+2026-03-21T16:57:52.4017184Z   ADMIN_INITIAL_PASSWORD: ci_test_admin_password_2024
+2026-03-21T16:57:52.4017489Z   DISABLE_ACCOUNT_LOCKOUT: true
+2026-03-21T16:57:52.4017697Z ##[endgroup]
+2026-03-21T16:57:52.4132188Z ##[group]Run : parse toolchain version
+2026-03-21T16:57:52.4132534Z [36;1m: parse toolchain version[0m
+2026-03-21T16:57:52.4132793Z [36;1mif [[ -z $toolchain ]]; then[0m
+2026-03-21T16:57:52.4133315Z [36;1m  # GitHub does not enforce `required: true` inputs itself. https://github.com/actions/runner/issues/1070[0m
+2026-03-21T16:57:52.4133915Z [36;1m  echo "'toolchain' is a required input" >&2[0m
+2026-03-21T16:57:52.4134184Z [36;1m  exit 1[0m
+2026-03-21T16:57:52.4134495Z [36;1melif [[ $toolchain =~ ^stable' '[0-9]+' '(year|month|week|day)s?' 'ago$ ]]; then[0m
+2026-03-21T16:57:52.4134882Z [36;1m  if [[ Linux == macOS ]]; then[0m
+2026-03-21T16:57:52.4135387Z [36;1m    echo "toolchain=1.$((($(date -v-$(sed 's/stable \([0-9]*\) \(.\).*/\1\2/' <<< $toolchain) +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT[0m
+2026-03-21T16:57:52.4135873Z [36;1m  else[0m
+2026-03-21T16:57:52.4136256Z [36;1m    echo "toolchain=1.$((($(date --date "${toolchain#stable }" +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT[0m
+2026-03-21T16:57:52.4136690Z [36;1m  fi[0m
+2026-03-21T16:57:52.4136950Z [36;1melif [[ $toolchain =~ ^stable' 'minus' '[0-9]+' 'releases?$ ]]; then[0m
+2026-03-21T16:57:52.4137458Z [36;1m  echo "toolchain=1.$((($(date +%s)/60/60/24-16569)/7/6-${toolchain//[^0-9]/}))" >> $GITHUB_OUTPUT[0m
+2026-03-21T16:57:52.4137894Z [36;1melif [[ $toolchain =~ ^1\.[0-9]+$ ]]; then[0m
+2026-03-21T16:57:52.4138393Z [36;1m  echo "toolchain=1.$((i=${toolchain#1.}, c=($(date +%s)/60/60/24-16569)/7/6, i+9*i*(10*i<=c)+90*i*(100*i<=c)))" >> $GITHUB_OUTPUT[0m
+2026-03-21T16:57:52.4138867Z [36;1melse[0m
+2026-03-21T16:57:52.4139225Z [36;1m  echo "toolchain=$toolchain" >> $GITHUB_OUTPUT[0m
+2026-03-21T16:57:52.4139496Z [36;1mfi[0m
+2026-03-21T16:57:52.4194746Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:52.4195074Z env:
+2026-03-21T16:57:52.4195248Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:52.4195681Z   SQLX_OFFLINE: false
+2026-03-21T16:57:52.4196181Z   DATABASE_URL: ***localhost:5432/ipig_db_test
+2026-03-21T16:57:52.4196458Z   ADMIN_EMAIL: admin@ipig.local
+2026-03-21T16:57:52.4196732Z   ADMIN_INITIAL_PASSWORD: ci_test_admin_password_2024
+2026-03-21T16:57:52.4197010Z   DISABLE_ACCOUNT_LOCKOUT: true
+2026-03-21T16:57:52.4197217Z   toolchain: stable
+2026-03-21T16:57:52.4197388Z ##[endgroup]
+2026-03-21T16:57:52.4355217Z ##[group]Run : construct rustup command line
+2026-03-21T16:57:52.4355530Z [36;1m: construct rustup command line[0m
+2026-03-21T16:57:52.4355960Z [36;1mecho "targets=$(for t in ${targets//,/ }; do echo -n ' --target' $t; done)" >> $GITHUB_OUTPUT[0m
+2026-03-21T16:57:52.4356569Z [36;1mecho "components=$(for c in ${components//,/ }; do echo -n ' --component' $c; done)" >> $GITHUB_OUTPUT[0m
+2026-03-21T16:57:52.4357033Z [36;1mecho "downgrade=" >> $GITHUB_OUTPUT[0m
+2026-03-21T16:57:52.4405541Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:52.4405871Z env:
+2026-03-21T16:57:52.4406041Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:52.4406290Z   SQLX_OFFLINE: false
+2026-03-21T16:57:52.4406794Z   DATABASE_URL: ***localhost:5432/ipig_db_test
+2026-03-21T16:57:52.4407071Z   ADMIN_EMAIL: admin@ipig.local
+2026-03-21T16:57:52.4407344Z   ADMIN_INITIAL_PASSWORD: ci_test_admin_password_2024
+2026-03-21T16:57:52.4407623Z   DISABLE_ACCOUNT_LOCKOUT: true
+2026-03-21T16:57:52.4407834Z   targets: 
+2026-03-21T16:57:52.4407996Z   components: 
+2026-03-21T16:57:52.4408378Z ##[endgroup]
+2026-03-21T16:57:52.4510717Z ##[group]Run : set $CARGO_HOME
+2026-03-21T16:57:52.4510957Z [36;1m: set $CARGO_HOME[0m
+2026-03-21T16:57:52.4511271Z [36;1mecho CARGO_HOME=${CARGO_HOME:-"$HOME/.cargo"} >> $GITHUB_ENV[0m
+2026-03-21T16:57:52.4558395Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:52.4558712Z env:
+2026-03-21T16:57:52.4558876Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:52.4559450Z   SQLX_OFFLINE: false
+2026-03-21T16:57:52.4559899Z   DATABASE_URL: ***localhost:5432/ipig_db_test
+2026-03-21T16:57:52.4560195Z   ADMIN_EMAIL: admin@ipig.local
+2026-03-21T16:57:52.4560464Z   ADMIN_INITIAL_PASSWORD: ci_test_admin_password_2024
+2026-03-21T16:57:52.4560760Z   DISABLE_ACCOUNT_LOCKOUT: true
+2026-03-21T16:57:52.4560964Z ##[endgroup]
+2026-03-21T16:57:52.4656662Z ##[group]Run : install rustup if needed
+2026-03-21T16:57:52.4656947Z [36;1m: install rustup if needed[0m
+2026-03-21T16:57:52.4657214Z [36;1mif ! command -v rustup &>/dev/null; then[0m
+2026-03-21T16:57:52.4657955Z [36;1m  curl --proto '=https' --tlsv1.2 --retry 10 --retry-connrefused --location --silent --show-error --fail https://sh.rustup.rs | sh -s -- --default-toolchain none -y[0m
+2026-03-21T16:57:52.4658668Z [36;1m  echo "$CARGO_HOME/bin" >> $GITHUB_PATH[0m
+2026-03-21T16:57:52.4658933Z [36;1mfi[0m
+2026-03-21T16:57:52.4704853Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:52.4705169Z env:
+2026-03-21T16:57:52.4705333Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:52.4705554Z   SQLX_OFFLINE: false
+2026-03-21T16:57:52.4706004Z   DATABASE_URL: ***localhost:5432/ipig_db_test
+2026-03-21T16:57:52.4706274Z   ADMIN_EMAIL: admin@ipig.local
+2026-03-21T16:57:52.4706545Z   ADMIN_INITIAL_PASSWORD: ci_test_admin_password_2024
+2026-03-21T16:57:52.4706822Z   DISABLE_ACCOUNT_LOCKOUT: true
+2026-03-21T16:57:52.4707047Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:57:52.4707265Z ##[endgroup]
+2026-03-21T16:57:52.4801894Z ##[group]Run rustup toolchain install stable --profile minimal --no-self-update
+2026-03-21T16:57:52.4802415Z [36;1mrustup toolchain install stable --profile minimal --no-self-update[0m
+2026-03-21T16:57:52.4848403Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:52.4848725Z env:
+2026-03-21T16:57:52.4848899Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:52.4849437Z   SQLX_OFFLINE: false
+2026-03-21T16:57:52.4849875Z   DATABASE_URL: ***localhost:5432/ipig_db_test
+2026-03-21T16:57:52.4850162Z   ADMIN_EMAIL: admin@ipig.local
+2026-03-21T16:57:52.4850677Z   ADMIN_INITIAL_PASSWORD: ci_test_admin_password_2024
+2026-03-21T16:57:52.4850976Z   DISABLE_ACCOUNT_LOCKOUT: true
+2026-03-21T16:57:52.4851204Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:57:52.4851450Z   RUSTUP_PERMIT_COPY_RENAME: 1
+2026-03-21T16:57:52.4851665Z ##[endgroup]
+2026-03-21T16:57:54.3126732Z info: syncing channel updates for 'stable-x86_64-unknown-linux-gnu'
+2026-03-21T16:57:54.4052829Z 
+2026-03-21T16:57:54.4150222Z   stable-x86_64-unknown-linux-gnu unchanged - rustc 1.94.0 (4a4ef493e 2026-03-02)
+2026-03-21T16:57:54.4150610Z 
+2026-03-21T16:57:54.4195333Z ##[group]Run rustup default stable
+2026-03-21T16:57:54.4195614Z [36;1mrustup default stable[0m
+2026-03-21T16:57:54.4248308Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:54.4248624Z env:
+2026-03-21T16:57:54.4248798Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:54.4249263Z   SQLX_OFFLINE: false
+2026-03-21T16:57:54.4249781Z   DATABASE_URL: ***localhost:5432/ipig_db_test
+2026-03-21T16:57:54.4250062Z   ADMIN_EMAIL: admin@ipig.local
+2026-03-21T16:57:54.4250346Z   ADMIN_INITIAL_PASSWORD: ci_test_admin_password_2024
+2026-03-21T16:57:54.4250625Z   DISABLE_ACCOUNT_LOCKOUT: true
+2026-03-21T16:57:54.4250853Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:57:54.4251069Z ##[endgroup]
+2026-03-21T16:57:54.4378906Z info: using existing install for 'stable-x86_64-unknown-linux-gnu'
+2026-03-21T16:57:54.4687128Z info: default toolchain set to 'stable-x86_64-unknown-linux-gnu'
+2026-03-21T16:57:54.4687634Z 
+2026-03-21T16:57:54.4778888Z   stable-x86_64-unknown-linux-gnu unchanged - rustc 1.94.0 (4a4ef493e 2026-03-02)
+2026-03-21T16:57:54.4779513Z 
+2026-03-21T16:57:54.4820964Z ##[group]Run : create cachekey
+2026-03-21T16:57:54.4821233Z [36;1m: create cachekey[0m
+2026-03-21T16:57:54.4821712Z [36;1mDATE=$(rustc +stable --version --verbose | sed -ne 's/^commit-date: \(20[0-9][0-9]\)-\([01][0-9]\)-\([0-3][0-9]\)$/\1\2\3/p')[0m
+2026-03-21T16:57:54.4822349Z [36;1mHASH=$(rustc +stable --version --verbose | sed -ne 's/^commit-hash: //p')[0m
+2026-03-21T16:57:54.4822847Z [36;1mecho "cachekey=$(echo $DATE$HASH | head -c12)" >> $GITHUB_OUTPUT[0m
+2026-03-21T16:57:54.4873884Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:54.4874194Z env:
+2026-03-21T16:57:54.4874367Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:54.4874570Z   SQLX_OFFLINE: false
+2026-03-21T16:57:54.4875034Z   DATABASE_URL: ***localhost:5432/ipig_db_test
+2026-03-21T16:57:54.4875320Z   ADMIN_EMAIL: admin@ipig.local
+2026-03-21T16:57:54.4875610Z   ADMIN_INITIAL_PASSWORD: ci_test_admin_password_2024
+2026-03-21T16:57:54.4875894Z   DISABLE_ACCOUNT_LOCKOUT: true
+2026-03-21T16:57:54.4876120Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:57:54.4876335Z ##[endgroup]
+2026-03-21T16:57:54.5551688Z ##[group]Run : disable incremental compilation
+2026-03-21T16:57:54.5552027Z [36;1m: disable incremental compilation[0m
+2026-03-21T16:57:54.5552333Z [36;1mif [ -z "${CARGO_INCREMENTAL+set}" ]; then[0m
+2026-03-21T16:57:54.5552636Z [36;1m  echo CARGO_INCREMENTAL=0 >> $GITHUB_ENV[0m
+2026-03-21T16:57:54.5552911Z [36;1mfi[0m
+2026-03-21T16:57:54.5604940Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:54.5605269Z env:
+2026-03-21T16:57:54.5605442Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:54.5605652Z   SQLX_OFFLINE: false
+2026-03-21T16:57:54.5606157Z   DATABASE_URL: ***localhost:5432/ipig_db_test
+2026-03-21T16:57:54.5606434Z   ADMIN_EMAIL: admin@ipig.local
+2026-03-21T16:57:54.5606710Z   ADMIN_INITIAL_PASSWORD: ci_test_admin_password_2024
+2026-03-21T16:57:54.5606995Z   DISABLE_ACCOUNT_LOCKOUT: true
+2026-03-21T16:57:54.5607209Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:57:54.5607426Z ##[endgroup]
+2026-03-21T16:57:54.5703336Z ##[group]Run : enable colors in Cargo output
+2026-03-21T16:57:54.5703651Z [36;1m: enable colors in Cargo output[0m
+2026-03-21T16:57:54.5703933Z [36;1mif [ -z "${CARGO_TERM_COLOR+set}" ]; then[0m
+2026-03-21T16:57:54.5704268Z [36;1m  echo CARGO_TERM_COLOR=always >> $GITHUB_ENV[0m
+2026-03-21T16:57:54.5704715Z [36;1mfi[0m
+2026-03-21T16:57:54.5756186Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:54.5756508Z env:
+2026-03-21T16:57:54.5756675Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:54.5756895Z   SQLX_OFFLINE: false
+2026-03-21T16:57:54.5757410Z   DATABASE_URL: ***localhost:5432/ipig_db_test
+2026-03-21T16:57:54.5757695Z   ADMIN_EMAIL: admin@ipig.local
+2026-03-21T16:57:54.5757964Z   ADMIN_INITIAL_PASSWORD: ci_test_admin_password_2024
+2026-03-21T16:57:54.5758271Z   DISABLE_ACCOUNT_LOCKOUT: true
+2026-03-21T16:57:54.5758491Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:57:54.5758712Z   CARGO_INCREMENTAL: 0
+2026-03-21T16:57:54.5758893Z ##[endgroup]
+2026-03-21T16:57:54.5853130Z ##[group]Run : enable Cargo sparse registry
+2026-03-21T16:57:54.5853441Z [36;1m: enable Cargo sparse registry[0m
+2026-03-21T16:57:54.5853782Z [36;1m# implemented in 1.66, stabilized in 1.68, made default in 1.70[0m
+2026-03-21T16:57:54.5854471Z [36;1mif [ -z "${CARGO_REGISTRIES_CRATES_IO_PROTOCOL+set}" -o -f "/home/runner/work/_temp"/.implicit_cargo_registries_crates_io_protocol ]; then[0m
+2026-03-21T16:57:54.5855213Z [36;1m  if rustc +stable --version --verbose | grep -q '^release: 1\.6[89]\.'; then[0m
+2026-03-21T16:57:54.5855765Z [36;1m    touch "/home/runner/work/_temp"/.implicit_cargo_registries_crates_io_protocol || true[0m
+2026-03-21T16:57:54.5856279Z [36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse >> $GITHUB_ENV[0m
+2026-03-21T16:57:54.5856930Z [36;1m  elif rustc +stable --version --verbose | grep -q '^release: 1\.6[67]\.'; then[0m
+2026-03-21T16:57:54.5857485Z [36;1m    touch "/home/runner/work/_temp"/.implicit_cargo_registries_crates_io_protocol || true[0m
+2026-03-21T16:57:54.5857986Z [36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=git >> $GITHUB_ENV[0m
+2026-03-21T16:57:54.5858308Z [36;1m  fi[0m
+2026-03-21T16:57:54.5858465Z [36;1mfi[0m
+2026-03-21T16:57:54.5908616Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:54.5908932Z env:
+2026-03-21T16:57:54.5909347Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:54.5909581Z   SQLX_OFFLINE: false
+2026-03-21T16:57:54.5910047Z   DATABASE_URL: ***localhost:5432/ipig_db_test
+2026-03-21T16:57:54.5910319Z   ADMIN_EMAIL: admin@ipig.local
+2026-03-21T16:57:54.5910590Z   ADMIN_INITIAL_PASSWORD: ci_test_admin_password_2024
+2026-03-21T16:57:54.5910879Z   DISABLE_ACCOUNT_LOCKOUT: true
+2026-03-21T16:57:54.5911106Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:57:54.5911324Z   CARGO_INCREMENTAL: 0
+2026-03-21T16:57:54.5911510Z ##[endgroup]
+2026-03-21T16:57:54.6313856Z ##[group]Run : work around spurious network errors in curl 8.0
+2026-03-21T16:57:54.6314268Z [36;1m: work around spurious network errors in curl 8.0[0m
+2026-03-21T16:57:54.6314796Z [36;1m# https://rust-lang.zulipchat.com/#narrow/stream/246057-t-cargo/topic/timeout.20investigation[0m
+2026-03-21T16:57:54.6315383Z [36;1mif rustc +stable --version --verbose | grep -q '^release: 1\.7[01]\.'; then[0m
+2026-03-21T16:57:54.6315824Z [36;1m  echo CARGO_HTTP_MULTIPLEXING=false >> $GITHUB_ENV[0m
+2026-03-21T16:57:54.6316134Z [36;1mfi[0m
+2026-03-21T16:57:54.6367778Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:54.6368108Z env:
+2026-03-21T16:57:54.6368273Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:54.6368480Z   SQLX_OFFLINE: false
+2026-03-21T16:57:54.6368935Z   DATABASE_URL: ***localhost:5432/ipig_db_test
+2026-03-21T16:57:54.6369456Z   ADMIN_EMAIL: admin@ipig.local
+2026-03-21T16:57:54.6369739Z   ADMIN_INITIAL_PASSWORD: ci_test_admin_password_2024
+2026-03-21T16:57:54.6370028Z   DISABLE_ACCOUNT_LOCKOUT: true
+2026-03-21T16:57:54.6370246Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:57:54.6370470Z   CARGO_INCREMENTAL: 0
+2026-03-21T16:57:54.6370652Z ##[endgroup]
+2026-03-21T16:57:54.6618746Z ##[group]Run rustc +stable --version --verbose
+2026-03-21T16:57:54.6619314Z [36;1mrustc +stable --version --verbose[0m
+2026-03-21T16:57:54.6671670Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:54.6672000Z env:
+2026-03-21T16:57:54.6672385Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:54.6672597Z   SQLX_OFFLINE: false
+2026-03-21T16:57:54.6673090Z   DATABASE_URL: ***localhost:5432/ipig_db_test
+2026-03-21T16:57:54.6673371Z   ADMIN_EMAIL: admin@ipig.local
+2026-03-21T16:57:54.6673647Z   ADMIN_INITIAL_PASSWORD: ci_test_admin_password_2024
+2026-03-21T16:57:54.6673929Z   DISABLE_ACCOUNT_LOCKOUT: true
+2026-03-21T16:57:54.6674157Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:57:54.6674378Z   CARGO_INCREMENTAL: 0
+2026-03-21T16:57:54.6674582Z ##[endgroup]
+2026-03-21T16:57:54.6884351Z rustc 1.94.0 (4a4ef493e 2026-03-02)
+2026-03-21T16:57:54.6884893Z binary: rustc
+2026-03-21T16:57:54.6885236Z commit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db
+2026-03-21T16:57:54.6885578Z commit-date: 2026-03-02
+2026-03-21T16:57:54.6885823Z host: x86_64-unknown-linux-gnu
+2026-03-21T16:57:54.6886074Z release: 1.94.0
+2026-03-21T16:57:54.6886316Z LLVM version: 21.1.8
+2026-03-21T16:57:54.7527029Z ##[group]Run actions/cache@v5
+2026-03-21T16:57:54.7527283Z with:
+2026-03-21T16:57:54.7527675Z   path: ~/.cargo/bin/
+~/.cargo/registry/index/
+~/.cargo/registry/cache/
+~/.cargo/git/db/
+backend/target/
+
+2026-03-21T16:57:54.7528314Z   key: Linux-cargo-test-a5c35a03ac250a4d21e965c7cf55bd0f8a2e7a850c14b25f45b8a80d1dc4dd18
+2026-03-21T16:57:54.7528778Z   restore-keys: Linux-cargo-test-
+
+2026-03-21T16:57:54.7529342Z   enableCrossOsArchive: false
+2026-03-21T16:57:54.7529741Z   fail-on-cache-miss: false
+2026-03-21T16:57:54.7529976Z   lookup-only: false
+2026-03-21T16:57:54.7530168Z   save-always: false
+2026-03-21T16:57:54.7530340Z env:
+2026-03-21T16:57:54.7530500Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:54.7530695Z   SQLX_OFFLINE: false
+2026-03-21T16:57:54.7531158Z   DATABASE_URL: ***localhost:5432/ipig_db_test
+2026-03-21T16:57:54.7531433Z   ADMIN_EMAIL: admin@ipig.local
+2026-03-21T16:57:54.7531689Z   ADMIN_INITIAL_PASSWORD: ci_test_admin_password_2024
+2026-03-21T16:57:54.7532033Z   DISABLE_ACCOUNT_LOCKOUT: true
+2026-03-21T16:57:54.7532252Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:57:54.7532490Z   CARGO_INCREMENTAL: 0
+2026-03-21T16:57:54.7532669Z ##[endgroup]
+2026-03-21T16:57:54.9408150Z Cache hit for restore-key: Linux-cargo-test-f52bdb3d590a486146a0fb1464bd61013d60681226ada4af78772c7d51212db6
+2026-03-21T16:57:56.0205295Z Received 167772160 of 1586428977 (10.6%), 159.8 MBs/sec
+2026-03-21T16:57:57.0279967Z Received 394264576 of 1586428977 (24.9%), 187.6 MBs/sec
+2026-03-21T16:57:58.0312307Z Received 608174080 of 1586428977 (38.3%), 192.8 MBs/sec
+2026-03-21T16:57:59.0287290Z Received 838860800 of 1586428977 (52.9%), 199.6 MBs/sec
+2026-03-21T16:58:00.0285868Z Received 1048576000 of 1586428977 (66.1%), 199.6 MBs/sec
+2026-03-21T16:58:01.0303534Z Received 1212153856 of 1586428977 (76.4%), 192.3 MBs/sec
+2026-03-21T16:58:02.0797806Z Received 1476395008 of 1586428977 (93.1%), 199.4 MBs/sec
+2026-03-21T16:58:02.6453690Z Received 1586428977 of 1586428977 (100.0%), 198.4 MBs/sec
+2026-03-21T16:58:02.6457053Z Cache Size: ~1513 MB (1586428977 B)
+2026-03-21T16:58:02.6531728Z [command]/usr/bin/tar -xf /home/runner/work/_temp/99116630-4002-4fba-b92b-b26f5b0dbce7/cache.tzst -P -C /home/runner/work/ipig_system/ipig_system --use-compress-program unzstd
+2026-03-21T16:58:17.9134000Z Cache restored successfully
+2026-03-21T16:58:18.1855631Z Cache restored from key: Linux-cargo-test-f52bdb3d590a486146a0fb1464bd61013d60681226ada4af78772c7d51212db6
+2026-03-21T16:58:18.3294210Z ##[group]Run cargo install sqlx-cli --no-default-features --features postgres --force
+2026-03-21T16:58:18.3295394Z [36;1mcargo install sqlx-cli --no-default-features --features postgres --force[0m
+2026-03-21T16:58:18.3362102Z shell: /usr/bin/bash -e {0}
+2026-03-21T16:58:18.3362480Z env:
+2026-03-21T16:58:18.3362764Z   CARGO_TERM_COLOR: always
+2026-03-21T16:58:18.3363134Z   SQLX_OFFLINE: false
+2026-03-21T16:58:18.3364035Z   DATABASE_URL: ***localhost:5432/ipig_db_test
+2026-03-21T16:58:18.3364492Z   ADMIN_EMAIL: admin@ipig.local
+2026-03-21T16:58:18.3364928Z   ADMIN_INITIAL_PASSWORD: ci_test_admin_password_2024
+2026-03-21T16:58:18.3365662Z   DISABLE_ACCOUNT_LOCKOUT: true
+2026-03-21T16:58:18.3366030Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:58:18.3366389Z   CARGO_INCREMENTAL: 0
+2026-03-21T16:58:18.3366717Z ##[endgroup]
+2026-03-21T16:58:20.5298064Z [1m[92m    Updating[0m crates.io index
+2026-03-21T16:58:20.9084158Z [1m[92m  Installing[0m sqlx-cli v0.8.6
+2026-03-21T16:58:21.1966254Z [1m[92m    Updating[0m crates.io index
+2026-03-21T16:58:21.5636663Z [1m[92m     Locking[0m 244 packages to latest compatible versions
+2026-03-21T16:58:21.5700321Z [1m[92m      Adding[0m cargo_metadata v0.18.1 [1m[33m(available: v0.23.1)[0m
+2026-03-21T16:58:21.5873739Z [1m[92m      Adding[0m console v0.15.11 [1m[33m(available: v0.16.3)[0m
+2026-03-21T16:58:21.5893905Z [1m[92m      Adding[0m dialoguer v0.11.0 [1m[33m(available: v0.12.0)[0m
+2026-03-21T16:58:21.5946933Z [1m[92m      Adding[0m generic-array v0.14.7 [1m[33m(available: v0.14.9)[0m
+2026-03-21T16:58:21.9013956Z [1m[92m Downloading[0m crates ...
+2026-03-21T16:58:22.7407458Z [1m[92m  Downloaded[0m itoa v1.0.18
+2026-03-21T16:58:22.7592157Z [1m[92m  Downloaded[0m zerocopy v0.8.47
+2026-03-21T16:58:22.8403206Z [1m[92m   Compiling[0m proc-macro2 v1.0.106
+2026-03-21T16:58:22.8403996Z [1m[92m   Compiling[0m quote v1.0.45
+2026-03-21T16:58:22.8404702Z [1m[92m   Compiling[0m unicode-ident v1.0.24
+2026-03-21T16:58:22.8405414Z [1m[92m   Compiling[0m libc v0.2.183
+2026-03-21T16:58:27.5371943Z [1m[92m   Compiling[0m serde_core v1.0.228
+2026-03-21T16:58:29.1963736Z [1m[92m   Compiling[0m serde v1.0.228
+2026-03-21T16:58:29.3436183Z [1m[92m   Compiling[0m stable_deref_trait v1.2.1
+2026-03-21T16:58:29.3970166Z [1m[92m   Compiling[0m cfg-if v1.0.4
+2026-03-21T16:58:29.4190979Z [1m[92m   Compiling[0m typenum v1.19.0
+2026-03-21T16:58:29.8128127Z [1m[92m   Compiling[0m version_check v0.9.5
+2026-03-21T16:58:30.2708229Z [1m[92m   Compiling[0m generic-array v0.14.7
+2026-03-21T16:58:30.3451357Z [1m[92m   Compiling[0m syn v2.0.117
+2026-03-21T16:58:30.4954153Z [1m[92m   Compiling[0m pin-project-lite v0.2.17
+2026-03-21T16:58:30.5450886Z [1m[92m   Compiling[0m futures-core v0.3.32
+2026-03-21T16:58:30.6926478Z [1m[92m   Compiling[0m writeable v0.6.2
+2026-03-21T16:58:30.9201322Z [1m[92m   Compiling[0m litemap v0.8.1
+2026-03-21T16:58:31.0961275Z [1m[92m   Compiling[0m icu_normalizer_data v2.1.1
+2026-03-21T16:58:31.1876209Z [1m[92m   Compiling[0m icu_properties_data v2.1.2
+2026-03-21T16:58:31.2929204Z [1m[92m   Compiling[0m crossbeam-utils v0.8.21
+2026-03-21T16:58:31.4378248Z [1m[92m   Compiling[0m subtle v2.6.1
+2026-03-21T16:58:31.5398105Z [1m[92m   Compiling[0m crypto-common v0.1.7
+2026-03-21T16:58:31.5520848Z [1m[92m   Compiling[0m block-buffer v0.10.4
+2026-03-21T16:58:31.6016410Z [1m[92m   Compiling[0m zerocopy v0.8.47
+2026-03-21T16:58:31.6551318Z [1m[92m   Compiling[0m memchr v2.8.0
+2026-03-21T16:58:31.8352039Z [1m[92m   Compiling[0m digest v0.10.7
+2026-03-21T16:58:32.0123629Z [1m[92m   Compiling[0m errno v0.3.14
+2026-03-21T16:58:32.0881678Z [1m[92m   Compiling[0m once_cell v1.21.4
+2026-03-21T16:58:32.1180827Z [1m[92m   Compiling[0m zmij v1.0.21
+2026-03-21T16:58:32.2617736Z [1m[92m   Compiling[0m autocfg v1.5.0
+2026-03-21T16:58:32.2788520Z [1m[92m   Compiling[0m parking_lot_core v0.9.12
+2026-03-21T16:58:32.3941111Z [1m[92m   Compiling[0m futures-sink v0.3.32
+2026-03-21T16:58:32.4527590Z [1m[92m   Compiling[0m futures-channel v0.3.32
+2026-03-21T16:58:32.6361483Z [1m[92m   Compiling[0m num-traits v0.2.19
+2026-03-21T16:58:32.6998273Z [1m[92m   Compiling[0m signal-hook-registry v1.4.8
+2026-03-21T16:58:33.2455209Z [1m[92m   Compiling[0m getrandom v0.2.17
+2026-03-21T16:58:33.3562494Z [1m[92m   Compiling[0m mio v1.1.1
+2026-03-21T16:58:33.4212110Z [1m[92m   Compiling[0m socket2 v0.6.3
+2026-03-21T16:58:34.0672661Z [1m[92m   Compiling[0m synstructure v0.13.2
+2026-03-21T16:58:34.4430869Z [1m[92m   Compiling[0m equivalent v1.0.2
+2026-03-21T16:58:34.4801431Z [1m[92m   Compiling[0m slab v0.4.12
+2026-03-21T16:58:34.5930505Z [1m[92m   Compiling[0m bytes v1.11.1
+2026-03-21T16:58:34.6240865Z [1m[92m   Compiling[0m bitflags v2.11.0
+2026-03-21T16:58:34.9850788Z [1m[92m   Compiling[0m serde_json v1.0.149
+2026-03-21T16:58:35.0764219Z [1m[92m   Compiling[0m futures-io v0.3.32
+2026-03-21T16:58:35.2022527Z [1m[92m   Compiling[0m scopeguard v1.2.0
+2026-03-21T16:58:35.2521301Z [1m[92m   Compiling[0m futures-task v0.3.32
+2026-03-21T16:58:35.3642775Z [1m[92m   Compiling[0m lock_api v0.4.14
+2026-03-21T16:58:35.5569319Z [1m[92m   Compiling[0m rand_core v0.6.4
+2026-03-21T16:58:35.6368815Z [1m[92m   Compiling[0m zerofrom-derive v0.1.6
+2026-03-21T16:58:35.6925832Z [1m[92m   Compiling[0m yoke-derive v0.8.1
+2026-03-21T16:58:35.7671636Z [1m[92m   Compiling[0m serde_derive v1.0.228
+2026-03-21T16:58:36.6320539Z [1m[92m   Compiling[0m zerovec-derive v0.11.2
+2026-03-21T16:58:36.8514567Z [1m[92m   Compiling[0m zerofrom v0.1.6
+2026-03-21T16:58:36.9342009Z [1m[92m   Compiling[0m yoke v0.8.1
+2026-03-21T16:58:37.0800644Z [1m[92m   Compiling[0m displaydoc v0.2.5
+2026-03-21T16:58:37.3493433Z [1m[92m   Compiling[0m tokio-macros v2.6.1
+2026-03-21T16:58:37.5987897Z [1m[92m   Compiling[0m zerotrie v0.2.3
+2026-03-21T16:58:37.6190701Z [1m[92m   Compiling[0m zerovec v0.11.5
+2026-03-21T16:58:37.9561023Z [1m[92m   Compiling[0m futures-macro v0.3.32
+2026-03-21T16:58:38.0041791Z [1m[92m   Compiling[0m tokio v1.50.0
+2026-03-21T16:58:38.3047952Z [1m[92m   Compiling[0m tinystr v0.8.2
+2026-03-21T16:58:38.4526675Z [1m[92m   Compiling[0m icu_locale_core v2.1.1
+2026-03-21T16:58:38.6100523Z [1m[92m   Compiling[0m potential_utf v0.1.4
+2026-03-21T16:58:38.7200911Z [1m[92m   Compiling[0m icu_collections v2.1.1
+2026-03-21T16:58:39.4521942Z [1m[92m   Compiling[0m smallvec v1.15.1
+2026-03-21T16:58:39.5360897Z [1m[92m   Compiling[0m icu_provider v2.1.1
+2026-03-21T16:58:39.8915106Z [1m[92m   Compiling[0m icu_normalizer v2.1.1
+2026-03-21T16:58:39.9375957Z [1m[92m   Compiling[0m icu_properties v2.1.2
+2026-03-21T16:58:41.3518248Z [1m[92m   Compiling[0m idna_adapter v1.2.1
+2026-03-21T16:58:41.3727495Z [1m[92m   Compiling[0m futures-util v0.3.32
+2026-03-21T16:58:41.4240548Z [1m[92m   Compiling[0m ppv-lite86 v0.2.21
+2026-03-21T16:58:41.8998740Z [1m[92m   Compiling[0m tinyvec_macros v0.1.1
+2026-03-21T16:58:41.9329798Z [1m[92m   Compiling[0m utf8_iter v1.0.4
+2026-03-21T16:58:42.0329443Z [1m[92m   Compiling[0m allocator-api2 v0.2.21
+2026-03-21T16:58:42.1404789Z [1m[92m   Compiling[0m thiserror v2.0.18
+2026-03-21T16:58:42.3420813Z [1m[92m   Compiling[0m itoa v1.0.18
+2026-03-21T16:58:42.4270596Z [1m[92m   Compiling[0m percent-encoding v2.3.2
+2026-03-21T16:58:42.5392777Z [1m[92m   Compiling[0m foldhash v0.1.5
+2026-03-21T16:58:42.6391434Z [1m[92m   Compiling[0m rustix v1.1.4
+2026-03-21T16:58:42.7080401Z [1m[92m   Compiling[0m hashbrown v0.15.5
+2026-03-21T16:58:42.9543806Z [1m[92m   Compiling[0m form_urlencoded v1.2.2
+2026-03-21T16:58:43.4950819Z [1m[92m   Compiling[0m idna v1.1.0
+2026-03-21T16:58:44.5521691Z [1m[92m   Compiling[0m tinyvec v1.11.0
+2026-03-21T16:58:44.9999982Z [1m[92m   Compiling[0m rand_chacha v0.3.1
+2026-03-21T16:58:45.6847429Z [1m[92m   Compiling[0m parking_lot v0.12.5
+2026-03-21T16:58:46.5167956Z [1m[92m   Compiling[0m thiserror-impl v2.0.18
+2026-03-21T16:58:46.6932985Z [1m[92m   Compiling[0m tracing-attributes v0.1.31
+2026-03-21T16:58:46.9540935Z [1m[92m   Compiling[0m concurrent-queue v2.5.0
+2026-03-21T16:58:47.1195567Z [1m[92m   Compiling[0m tracing-core v0.1.36
+2026-03-21T16:58:47.6905302Z [1m[92m   Compiling[0m log v0.4.29
+2026-03-21T16:58:47.8476000Z [1m[92m   Compiling[0m thiserror v1.0.69
+2026-03-21T16:58:47.8569737Z [1m[92m   Compiling[0m hashbrown v0.16.1
+2026-03-21T16:58:48.0145534Z [1m[92m   Compiling[0m cpufeatures v0.2.17
+2026-03-21T16:58:48.0521118Z [1m[92m   Compiling[0m utf8parse v0.2.2
+2026-03-21T16:58:48.1060913Z [1m[92m   Compiling[0m linux-raw-sys v0.12.1
+2026-03-21T16:58:48.2390517Z [1m[92m   Compiling[0m crc-catalog v2.4.0
+2026-03-21T16:58:48.2891158Z [1m[92m   Compiling[0m parking v2.2.1
+2026-03-21T16:58:48.4067566Z [1m[92m   Compiling[0m event-listener v5.4.1
+2026-03-21T16:58:48.5760776Z [1m[92m   Compiling[0m indexmap v2.13.0
+2026-03-21T16:58:48.6450712Z [1m[92m   Compiling[0m crc v3.4.0
+2026-03-21T16:58:48.7981449Z [1m[92m   Compiling[0m anstyle-parse v1.0.0
+2026-03-21T16:58:48.9564898Z [1m[92m   Compiling[0m sha2 v0.10.9
+2026-03-21T16:58:49.5337012Z [1m[92m   Compiling[0m tracing v0.1.44
+2026-03-21T16:58:49.7392652Z [1m[92m   Compiling[0m futures-intrusive v0.5.0
+2026-03-21T16:58:49.9231003Z [1m[92m   Compiling[0m rand v0.8.5
+2026-03-21T16:58:50.2700934Z [1m[92m   Compiling[0m unicode-normalization v0.1.25
+2026-03-21T16:58:50.6946495Z [1m[92m   Compiling[0m url v2.5.8
+2026-03-21T16:58:50.7303602Z [1m[92m   Compiling[0m hashlink v0.10.0
+2026-03-21T16:58:50.7961161Z [1m[92m   Compiling[0m tokio-stream v0.1.18
+2026-03-21T16:58:51.0621642Z [1m[92m   Compiling[0m either v1.15.0
+2026-03-21T16:58:51.1370188Z [1m[92m   Compiling[0m thiserror-impl v1.0.69
+2026-03-21T16:58:51.2490454Z [1m[92m   Compiling[0m crossbeam-queue v0.3.12
+2026-03-21T16:58:51.2919748Z [1m[92m   Compiling[0m hmac v0.12.1
+2026-03-21T16:58:51.3660953Z [1m[92m   Compiling[0m is_terminal_polyfill v1.70.2
+2026-03-21T16:58:51.3798696Z [1m[92m   Compiling[0m anstyle v1.0.14
+2026-03-21T16:58:51.4125977Z [1m[92m   Compiling[0m camino v1.2.2
+2026-03-21T16:58:51.5840799Z [1m[92m   Compiling[0m unicode-bidi v0.3.18
+2026-03-21T16:58:51.5976360Z [1m[92m   Compiling[0m anstyle-query v1.1.5
+2026-03-21T16:58:51.6851156Z [1m[92m   Compiling[0m unicode-properties v0.1.4
+2026-03-21T16:58:51.8746619Z [1m[92m   Compiling[0m base64 v0.22.1
+2026-03-21T16:58:52.2419934Z [1m[92m   Compiling[0m colorchoice v1.0.5
+2026-03-21T16:58:52.2991168Z [1m[92m   Compiling[0m anstream v1.0.0
+2026-03-21T16:58:52.4121641Z [1m[92m   Compiling[0m sqlx-core v0.8.6
+2026-03-21T16:58:52.7427164Z [1m[92m   Compiling[0m stringprep v0.1.5
+2026-03-21T16:58:53.0407889Z [1m[92m   Compiling[0m hkdf v0.12.4
+2026-03-21T16:58:53.1250876Z [1m[92m   Compiling[0m terminal_size v0.4.3
+2026-03-21T16:58:53.2150767Z [1m[92m   Compiling[0m atoi v2.0.0
+2026-03-21T16:58:53.2874814Z [1m[92m   Compiling[0m md-5 v0.10.6
+2026-03-21T16:58:53.3780785Z [1m[92m   Compiling[0m strsim v0.11.1
+2026-03-21T16:58:53.7260485Z [1m[92m   Compiling[0m home v0.5.12
+2026-03-21T16:58:53.8218084Z [1m[92m   Compiling[0m whoami v1.6.1
+2026-03-21T16:58:54.2228635Z [1m[92m   Compiling[0m unicode-width v0.2.2
+2026-03-21T16:58:54.2654047Z [1m[92m   Compiling[0m hex v0.4.3
+2026-03-21T16:58:54.4400767Z [1m[92m   Compiling[0m dotenvy v0.15.7
+2026-03-21T16:58:54.5188618Z [1m[92m   Compiling[0m clap_lex v1.1.0
+2026-03-21T16:58:54.8011444Z [1m[92m   Compiling[0m anyhow v1.0.102
+2026-03-21T16:58:54.9755333Z [1m[92m   Compiling[0m heck v0.5.0
+2026-03-21T16:58:55.1370730Z [1m[92m   Compiling[0m byteorder v1.5.0
+2026-03-21T16:58:55.2834015Z [1m[92m   Compiling[0m clap_derive v4.6.0
+2026-03-21T16:58:55.3428689Z [1m[92m   Compiling[0m sqlx-postgres v0.8.6
+2026-03-21T16:58:55.5170393Z [1m[92m   Compiling[0m clap_builder v4.6.0
+2026-03-21T16:58:57.0860962Z [1m[92m   Compiling[0m console v0.15.11
+2026-03-21T16:58:59.1367849Z [1m[92m   Compiling[0m futures-executor v0.3.32
+2026-03-21T16:58:59.5850867Z [1m[92m   Compiling[0m cargo-platform v0.1.9
+2026-03-21T16:58:59.9005976Z [1m[92m   Compiling[0m semver v1.0.27
+2026-03-21T16:59:00.0703176Z [1m[92m   Compiling[0m instant v0.1.13
+2026-03-21T16:59:00.1293024Z [1m[92m   Compiling[0m iana-time-zone v0.1.65
+2026-03-21T16:59:00.5673264Z [1m[92m   Compiling[0m shell-words v1.1.1
+2026-03-21T16:59:00.5734397Z [1m[92m   Compiling[0m chrono v0.4.44
+2026-03-21T16:59:00.7720499Z [1m[92m   Compiling[0m dialoguer v0.11.0
+2026-03-21T16:59:02.7660937Z [1m[92m   Compiling[0m cargo_metadata v0.18.1
+2026-03-21T16:59:04.7382199Z [1m[92m   Compiling[0m backoff v0.4.0
+2026-03-21T16:59:04.8678654Z [1m[92m   Compiling[0m sqlx v0.8.6
+2026-03-21T16:59:05.1753033Z [1m[92m   Compiling[0m futures v0.3.32
+2026-03-21T16:59:05.2191372Z [1m[92m   Compiling[0m clap v4.6.0
+2026-03-21T16:59:05.9233059Z [1m[92m   Compiling[0m filetime v0.2.27
+2026-03-21T16:59:06.1282489Z [1m[92m   Compiling[0m glob v0.3.3
+2026-03-21T16:59:07.2240847Z [1m[92m   Compiling[0m sqlx-cli v0.8.6
+2026-03-21T16:59:19.5415389Z [1m[92m    Finished[0m `release` profile [optimized] target(s) in 59.38s
+2026-03-21T16:59:19.5930175Z [1m[92m   Replacing[0m /home/runner/.cargo/bin/cargo-sqlx
+2026-03-21T16:59:19.5946721Z [1m[92m   Replacing[0m /home/runner/.cargo/bin/sqlx
+2026-03-21T16:59:19.5967657Z [1m[92m    Replaced[0m package `unknown` with `sqlx-cli v0.8.6` (executables `cargo-sqlx`, `sqlx`)
+2026-03-21T16:59:19.7065885Z ##[group]Run sqlx migrate run
+2026-03-21T16:59:19.7066186Z [36;1msqlx migrate run[0m
+2026-03-21T16:59:19.7114061Z shell: /usr/bin/bash -e {0}
+2026-03-21T16:59:19.7114309Z env:
+2026-03-21T16:59:19.7114485Z   CARGO_TERM_COLOR: always
+2026-03-21T16:59:19.7114704Z   SQLX_OFFLINE: false
+2026-03-21T16:59:19.7115164Z   DATABASE_URL: ***localhost:5432/ipig_db_test
+2026-03-21T16:59:19.7115447Z   ADMIN_EMAIL: admin@ipig.local
+2026-03-21T16:59:19.7115711Z   ADMIN_INITIAL_PASSWORD: ci_test_admin_password_2024
+2026-03-21T16:59:19.7116000Z   DISABLE_ACCOUNT_LOCKOUT: true
+2026-03-21T16:59:19.7116230Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:59:19.7116449Z   CARGO_INCREMENTAL: 0
+2026-03-21T16:59:19.7116643Z ##[endgroup]
+2026-03-21T16:59:19.7426978Z Applied 1/migrate types (4.033833ms)
+2026-03-21T16:59:19.7620140Z Applied 2/migrate users auth (18.897465ms)
+2026-03-21T16:59:19.7912136Z Applied 3/migrate notifications roles seed (28.746486ms)
+2026-03-21T16:59:19.9066679Z Applied 4/migrate animal management (113.824945ms)
+2026-03-21T16:59:19.9787343Z Applied 5/migrate aup system (71.514792ms)
+2026-03-21T16:59:20.0290544Z Applied 6/migrate hr system (49.843645ms)
+2026-03-21T16:59:20.1625714Z Applied 7/migrate audit erp (132.313666ms)
+2026-03-21T16:59:20.2057469Z Applied 8/migrate supplementary (42.636074ms)
+2026-03-21T16:59:20.2453182Z Applied 9/migrate glp extensions (39.077606ms)
+2026-03-21T16:59:20.2641920Z Applied 10/migrate treatment drug final (18.485442ms)
+2026-03-21T16:59:20.2665072Z Applied 11/migrate protocol as customer (2.016827ms)
+2026-03-21T16:59:20.2744163Z Applied 12/migrate stock performance (7.565353ms)
+2026-03-21T16:59:20.2763844Z Applied 13/migrate audit integrity trigger (1.647263ms)
+2026-03-21T16:59:20.2776789Z Applied 14/migrate add review decision columns (1.027685ms)
+2026-03-21T16:59:20.2804242Z Applied 15/migrate fix adj storage inventory (2.398334ms)
+2026-03-21T16:59:20.2818760Z error: while executing migration 16: error returned from database: functions in index expression must be marked IMMUTABLE
+2026-03-21T16:59:20.2844501Z ##[error]Process completed with exit code 1.
+2026-03-21T16:59:20.2936815Z Post job cleanup.
+2026-03-21T16:59:20.3758858Z [command]/usr/bin/git version
+2026-03-21T16:59:20.3797590Z git version 2.53.0
+2026-03-21T16:59:20.3839462Z Temporarily overriding HOME='/home/runner/work/_temp/ef683273-78da-4557-b7ed-da08309d2058' before making global git config changes
+2026-03-21T16:59:20.3840836Z Adding repository directory to the temporary git global config as a safe directory
+2026-03-21T16:59:20.3845998Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ipig_system/ipig_system
+2026-03-21T16:59:20.3880954Z Removing SSH command configuration
+2026-03-21T16:59:20.3887331Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-03-21T16:59:20.3924756Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-03-21T16:59:20.4179401Z Removing HTTP extra header
+2026-03-21T16:59:20.4185225Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-03-21T16:59:20.4222845Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-03-21T16:59:20.4462704Z Removing includeIf entries pointing to credentials config files
+2026-03-21T16:59:20.4469691Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-03-21T16:59:20.4494925Z includeif.gitdir:/home/runner/work/ipig_system/ipig_system/.git.path
+2026-03-21T16:59:20.4495813Z includeif.gitdir:/home/runner/work/ipig_system/ipig_system/.git/worktrees/*.path
+2026-03-21T16:59:20.4496594Z includeif.gitdir:/github/workspace/.git.path
+2026-03-21T16:59:20.4497248Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-03-21T16:59:20.4507822Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/ipig_system/ipig_system/.git.path
+2026-03-21T16:59:20.4531626Z /home/runner/work/_temp/git-credentials-bdef875a-830b-4c68-8d0d-d2df390e5e0e.config
+2026-03-21T16:59:20.4542281Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/ipig_system/ipig_system/.git.path /home/runner/work/_temp/git-credentials-bdef875a-830b-4c68-8d0d-d2df390e5e0e.config
+2026-03-21T16:59:20.4578393Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/ipig_system/ipig_system/.git/worktrees/*.path
+2026-03-21T16:59:20.4601643Z /home/runner/work/_temp/git-credentials-bdef875a-830b-4c68-8d0d-d2df390e5e0e.config
+2026-03-21T16:59:20.4612546Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/ipig_system/ipig_system/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-bdef875a-830b-4c68-8d0d-d2df390e5e0e.config
+2026-03-21T16:59:20.4646761Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-03-21T16:59:20.4669816Z /github/runner_temp/git-credentials-bdef875a-830b-4c68-8d0d-d2df390e5e0e.config
+2026-03-21T16:59:20.4678552Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-bdef875a-830b-4c68-8d0d-d2df390e5e0e.config
+2026-03-21T16:59:20.4712254Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-03-21T16:59:20.4734888Z /github/runner_temp/git-credentials-bdef875a-830b-4c68-8d0d-d2df390e5e0e.config
+2026-03-21T16:59:20.4744710Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-bdef875a-830b-4c68-8d0d-d2df390e5e0e.config
+2026-03-21T16:59:20.4778628Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-03-21T16:59:20.5015001Z Removing credentials config '/home/runner/work/_temp/git-credentials-bdef875a-830b-4c68-8d0d-d2df390e5e0e.config'
+2026-03-21T16:59:20.5132794Z Print service container logs: 9fd57bdf738b416f9d9bf1f15d2955db_postgres16_9d5ae7
+2026-03-21T16:59:20.5137555Z ##[command]/usr/bin/docker logs --details 2b018c13e3b929b4d100d26212fbd0a183fe486be0f5daa87a8f48be8a76e80f
+2026-03-21T16:59:20.5273313Z  The files belonging to this database system will be owned by user "postgres".
+2026-03-21T16:59:20.5276815Z  initdb: warning: enabling "trust" authentication for local connections
+2026-03-21T16:59:20.5278031Z  initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+2026-03-21T16:59:20.5279925Z  2026-03-21 16:57:36.193 UTC [1] LOG:  starting PostgreSQL 16.13 (Debian 16.13-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-03-21T16:59:20.5281171Z  2026-03-21 16:57:36.194 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-03-21T16:59:20.5282032Z  2026-03-21 16:57:36.194 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+2026-03-21T16:59:20.5283304Z  2026-03-21 16:57:36.195 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-03-21T16:59:20.5284182Z  2026-03-21 16:57:36.198 UTC [64] LOG:  database system was shut down at 2026-03-21 16:57:36 UTC
+2026-03-21T16:59:20.5284971Z  2026-03-21 16:57:36.202 UTC [1] LOG:  database system is ready to accept connections
+2026-03-21T16:59:20.5285707Z  2026-03-21 16:57:45.296 UTC [75] FATAL:  role "root" does not exist
+2026-03-21T16:59:20.5286342Z  2026-03-21 16:57:55.377 UTC [83] FATAL:  role "root" does not exist
+2026-03-21T16:59:20.5286949Z  2026-03-21 16:58:05.469 UTC [91] FATAL:  role "root" does not exist
+2026-03-21T16:59:20.5287582Z  2026-03-21 16:58:15.551 UTC [100] FATAL:  role "root" does not exist
+2026-03-21T16:59:20.5288246Z  2026-03-21 16:58:25.618 UTC [108] FATAL:  role "root" does not exist
+2026-03-21T16:59:20.5288920Z  2026-03-21 16:58:35.721 UTC [116] FATAL:  role "root" does not exist
+2026-03-21T16:59:20.5289762Z  2026-03-21 16:58:45.851 UTC [125] FATAL:  role "root" does not exist
+2026-03-21T16:59:20.5290397Z  2026-03-21 16:58:56.046 UTC [133] FATAL:  role "root" does not exist
+2026-03-21T16:59:20.5291041Z  2026-03-21 16:59:06.170 UTC [141] FATAL:  role "root" does not exist
+2026-03-21T16:59:20.5291664Z  2026-03-21 16:59:16.308 UTC [150] FATAL:  role "root" does not exist
+2026-03-21T16:59:20.5292387Z  2026-03-21 16:59:20.273 UTC [151] WARNING:  警告: inventory_snapshots 為空,可能 stock_ledger 沒有資料或所有庫存為 0
+2026-03-21T16:59:20.5293267Z  2026-03-21 16:59:20.273 UTC [151] CONTEXT:  PL/pgSQL function inline_code_block line 14 at RAISE
+2026-03-21T16:59:20.5294122Z  2026-03-21 16:59:20.281 UTC [151] ERROR:  functions in index expression must be marked IMMUTABLE
+2026-03-21T16:59:20.5295069Z  2026-03-21 16:59:20.281 UTC [151] STATEMENT:  -- R10-L9: login_events composite indexes for common query patterns
+2026-03-21T16:59:20.5296531Z  	-- Covers: email + event_type + created_at (login failure counting, rate limiting)
+2026-03-21T16:59:20.5297444Z  	-- Covers: created_at date + event_type (dashboard daily statistics)
+2026-03-21T16:59:20.5297797Z  	
+2026-03-21T16:59:20.5298031Z  	CREATE INDEX IF NOT EXISTS idx_login_email_type_created
+2026-03-21T16:59:20.5298397Z  	    ON login_events (email, event_type, created_at DESC);
+2026-03-21T16:59:20.5298681Z  	
+2026-03-21T16:59:20.5298892Z  	CREATE INDEX IF NOT EXISTS idx_login_created_date_type
+2026-03-21T16:59:20.5299527Z  	    ON login_events ((created_at::date), event_type);
+2026-03-21T16:59:20.5299807Z  	
+2026-03-21T16:59:20.5300001Z  This user must also own the server process.
+2026-03-21T16:59:20.5300245Z  
+2026-03-21T16:59:20.5300499Z  The database cluster will be initialized with locale "en_US.utf8".
+2026-03-21T16:59:20.5300921Z  The default database encoding has accordingly been set to "UTF8".
+2026-03-21T16:59:20.5301317Z  The default text search configuration will be set to "english".
+2026-03-21T16:59:20.5301615Z  
+2026-03-21T16:59:20.5301782Z  Data page checksums are disabled.
+2026-03-21T16:59:20.5302268Z  
+2026-03-21T16:59:20.5302556Z  fixing permissions on existing directory /var/lib/postgresql/data ... ok
+2026-03-21T16:59:20.5302933Z  creating subdirectories ... ok
+2026-03-21T16:59:20.5303224Z  selecting dynamic shared memory implementation ... posix
+2026-03-21T16:59:20.5303550Z  selecting default max_connections ... 100
+2026-03-21T16:59:20.5303824Z  selecting default shared_buffers ... 128MB
+2026-03-21T16:59:20.5304089Z  selecting default time zone ... Etc/UTC
+2026-03-21T16:59:20.5304340Z  creating configuration files ... ok
+2026-03-21T16:59:20.5304589Z  running bootstrap script ... ok
+2026-03-21T16:59:20.5304861Z  performing post-bootstrap initialization ... ok
+2026-03-21T16:59:20.5305140Z  syncing data to disk ... ok
+2026-03-21T16:59:20.5305336Z  
+2026-03-21T16:59:20.5305483Z  
+2026-03-21T16:59:20.5305696Z  Success. You can now start the database server using:
+2026-03-21T16:59:20.5305969Z  
+2026-03-21T16:59:20.5306185Z      pg_ctl -D /var/lib/postgresql/data -l logfile start
+2026-03-21T16:59:20.5306472Z  
+2026-03-21T16:59:20.5307230Z  waiting for server to start....2026-03-21 16:57:35.881 UTC [48] LOG:  starting PostgreSQL 16.13 (Debian 16.13-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-03-21T16:59:20.5308111Z  2026-03-21 16:57:35.882 UTC [48] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-03-21T16:59:20.5308653Z  2026-03-21 16:57:35.886 UTC [51] LOG:  database system was shut down at 2026-03-21 16:57:35 UTC
+2026-03-21T16:59:20.5309347Z  2026-03-21 16:57:35.890 UTC [48] LOG:  database system is ready to accept connections
+2026-03-21T16:59:20.5309704Z   done
+2026-03-21T16:59:20.5309865Z  server started
+2026-03-21T16:59:20.5310036Z  CREATE DATABASE
+2026-03-21T16:59:20.5310203Z  
+2026-03-21T16:59:20.5310344Z  
+2026-03-21T16:59:20.5310631Z  /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+2026-03-21T16:59:20.5310996Z  
+2026-03-21T16:59:20.5311231Z  2026-03-21 16:57:36.072 UTC [48] LOG:  received fast shutdown request
+2026-03-21T16:59:20.5311737Z  waiting for server to shut down....2026-03-21 16:57:36.072 UTC [48] LOG:  aborting any active transactions
+2026-03-21T16:59:20.5312399Z  2026-03-21 16:57:36.074 UTC [48] LOG:  background worker "logical replication launcher" (PID 54) exited with exit code 1
+2026-03-21T16:59:20.5312908Z  2026-03-21 16:57:36.075 UTC [49] LOG:  shutting down
+2026-03-21T16:59:20.5313264Z  2026-03-21 16:57:36.075 UTC [49] LOG:  checkpoint starting: shutdown immediate
+2026-03-21T16:59:20.5314335Z  2026-03-21 16:57:36.093 UTC [49] LOG:  checkpoint complete: wrote 926 buffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.014 s, sync=0.003 s, total=0.018 s; sync files=301, longest=0.001 s, average=0.001 s; distance=4273 kB, estimate=4273 kB; lsn=0/191F0F0, redo lsn=0/191F0F0
+2026-03-21T16:59:20.5315375Z  2026-03-21 16:57:36.100 UTC [48] LOG:  database system is shut down
+2026-03-21T16:59:20.5315680Z   done
+2026-03-21T16:59:20.5315837Z  server stopped
+2026-03-21T16:59:20.5316007Z  
+2026-03-21T16:59:20.5316214Z  PostgreSQL init process complete; ready for start up.
+2026-03-21T16:59:20.5316497Z  
+2026-03-21T16:59:20.5322926Z Stop and remove container: 9fd57bdf738b416f9d9bf1f15d2955db_postgres16_9d5ae7
+2026-03-21T16:59:20.5328174Z ##[command]/usr/bin/docker rm --force 2b018c13e3b929b4d100d26212fbd0a183fe486be0f5daa87a8f48be8a76e80f
+2026-03-21T16:59:20.6658746Z 2b018c13e3b929b4d100d26212fbd0a183fe486be0f5daa87a8f48be8a76e80f
+2026-03-21T16:59:20.6686995Z Remove container network: github_network_17023ae71de44aeb935a8e1926fff719
+2026-03-21T16:59:20.6692119Z ##[command]/usr/bin/docker network rm github_network_17023ae71de44aeb935a8e1926fff719
+2026-03-21T16:59:20.7960367Z github_network_17023ae71de44aeb935a8e1926fff719
+2026-03-21T16:59:20.8035189Z Cleaning up orphan processes

@@ -21,10 +21,23 @@ use crate::{
     AppState, Result,
 };
 
+/// 判斷 IP 是否屬於 Docker 內部網段 (172.16.0.0/12，即 172.16.x.x ~ 172.31.x.x)
+fn is_docker_internal_ip(ip: &str) -> bool {
+    let parts: Vec<&str> = ip.split('.').collect();
+    if parts.len() != 4 {
+        return false;
+    }
+    let (first, second) = match (parts[0].parse::<u8>(), parts[1].parse::<u8>()) {
+        (Ok(a), Ok(b)) => (a, b),
+        _ => return false,
+    };
+    first == 172 && (16..=31).contains(&second)
+}
+
 /// 驗證打卡 IP 是否在允許範圍內，回傳是否通過
 fn check_clock_ip(ip: &str, allowed_ranges: &[String]) -> bool {
-    // Docker 內部 gateway IP，視為本機存取，直接放行
-    if ip == "172.20.0.1" {
+    // Docker 內部網段 (172.16.0.0/12)，視為本機存取，直接放行
+    if is_docker_internal_ip(ip) {
         return true;
     }
     // 白名單為空表示不限制 → 視為通過

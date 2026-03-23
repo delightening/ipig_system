@@ -1,0 +1,18 @@
+{
+  "name": "ipig-image-processor",
+  "version": "1.0.0",
+  "description": "Image processing microservice for ipig_system (Security Plan D)",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "fastify": "^5.3.3",
+    "@fastify/multipart": "^9.0.3",
+    "sharp": "^0.33.5"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "private": true
+}
