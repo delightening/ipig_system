@@ -41,8 +41,8 @@ impl FacilityService {
     pub async fn create_species(pool: &PgPool, payload: &CreateSpeciesRequest) -> Result<Species> {
         let species = sqlx::query_as::<_, Species>(
             r#"
-            INSERT INTO species (id, code, name, name_en, icon, config, sort_order)
-            VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, 0))
+            INSERT INTO species (id, code, name, name_en, icon, parent_id, config, sort_order)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, 0))
             RETURNING *
             "#,
         )
@@ -51,6 +51,7 @@ impl FacilityService {
         .bind(&payload.name)
         .bind(&payload.name_en)
         .bind(&payload.icon)
+        .bind(payload.parent_id)
         .bind(&payload.config)
         .bind(payload.sort_order)
         .fetch_one(pool)
@@ -70,8 +71,9 @@ impl FacilityService {
                 name_en = COALESCE($3, name_en),
                 icon = COALESCE($4, icon),
                 is_active = COALESCE($5, is_active),
-                config = COALESCE($6, config),
-                sort_order = COALESCE($7, sort_order),
+                parent_id = COALESCE($6, parent_id),
+                config = COALESCE($7, config),
+                sort_order = COALESCE($8, sort_order),
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
@@ -82,6 +84,7 @@ impl FacilityService {
         .bind(&payload.name_en)
         .bind(&payload.icon)
         .bind(payload.is_active)
+        .bind(payload.parent_id)
         .bind(&payload.config)
         .bind(payload.sort_order)
         .fetch_one(pool)
@@ -374,9 +377,11 @@ impl FacilityService {
     pub async fn list_pens(pool: &PgPool, query: &PenQuery) -> Result<Vec<PenDetails>> {
         let pens = sqlx::query_as::<_, PenDetails>(
             r#"
-            SELECT 
+            SELECT
                 p.id, p.code, p.name, p.capacity, p.current_count, p.status,
+                p.row_index, p.col_index,
                 z.id as zone_id, z.code as zone_code, z.name as zone_name, z.color as zone_color,
+                z.layout_config as zone_layout_config,
                 b.id as building_id, b.code as building_code, b.name as building_name,
                 f.id as facility_id, f.code as facility_code, f.name as facility_name
             FROM pens p

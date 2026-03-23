@@ -75,6 +75,8 @@ export interface Animal {
     entry_date: string
     entry_weight?: number
     pen_location?: string
+    pen_id?: string
+    species_id?: string
     pre_experiment_code?: string
     iacuc_no?: string
     experiment_date?: string
@@ -92,6 +94,7 @@ export interface AnimalListItem extends Animal {
     latest_weight?: number
     latest_weight_date?: string
     breed_other?: string
+    species_name?: string
     has_abnormal_record?: boolean
     vet_recommendation_date?: string
     is_on_medication?: boolean
@@ -419,6 +422,8 @@ export interface CreateAnimalRequest {
     entry_date: string
     entry_weight?: number
     pen_location?: string
+    pen_id?: string
+    species_id?: string
     pre_experiment_code?: string
     remark?: string
 }
@@ -433,6 +438,8 @@ export interface UpdateAnimalRequest {
     entry_date?: string
     entry_weight?: number
     pen_location?: string
+    pen_id?: string
+    species_id?: string
     pre_experiment_code?: string
     iacuc_no?: string
     experiment_date?: string

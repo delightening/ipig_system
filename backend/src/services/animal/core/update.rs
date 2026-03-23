@@ -105,11 +105,22 @@ impl AnimalService {
                 .map(|s| AnimalUtils::format_pen_location(s))
         };
 
+        // 取得更新前的 pen_id，用於更新 current_count
+        let old_pen_id: Option<Uuid> = sqlx::query_scalar(
+            "SELECT pen_id FROM animals WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?
+        .flatten();
+
         let animal = sqlx::query_as::<_, Animal>(
             r#"
             UPDATE animals SET
                 status = COALESCE($2, status),
                 pen_location = CASE WHEN status = 'euthanized' THEN $3 ELSE COALESCE($3, pen_location) END,
+                pen_id = COALESCE($10, pen_id),
+                species_id = COALESCE($11, species_id),
                 iacuc_no = COALESCE($4, iacuc_no),
                 experiment_date = CASE WHEN $7 AND experiment_date IS NULL THEN CURRENT_DATE ELSE COALESCE($5, experiment_date) END,
                 remark = COALESCE($6, remark),
@@ -131,11 +142,30 @@ impl AnimalService {
         .bind(is_assigning_to_experiment)
         .bind(updated_by)
         .bind(req.version)
+        .bind(req.pen_id)
+        .bind(req.species_id)
         .fetch_optional(pool)
         .await?
         .ok_or_else(|| {
             AppError::Conflict("此記錄已被其他人修改，請重新載入後再試。".to_string())
         })?;
+
+        // 更新 pen current_count（舊 pen 和新 pen）
+        let new_pen_id = animal.pen_id;
+        let pen_ids_to_update: Vec<Uuid> = [old_pen_id, new_pen_id]
+            .iter()
+            .filter_map(|p| *p)
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
+        for pid in pen_ids_to_update {
+            let _ = sqlx::query(
+                "UPDATE pens SET current_count = (SELECT COUNT(*) FROM animals WHERE pen_id = $1 AND deleted_at IS NULL AND status NOT IN ('euthanized', 'sudden_death', 'transferred')) WHERE id = $1"
+            )
+            .bind(pid)
+            .execute(pool)
+            .await;
+        }
 
         Ok((animal, iacuc_change))
     }

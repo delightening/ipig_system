@@ -274,11 +274,20 @@ impl AnimalTransferService {
             .as_ref()
             .ok_or_else(|| AppError::BadRequest("未指定目標 IACUC No.".to_string()))?;
 
+        // 取得舊 pen_id 用於更新 current_count
+        let old_pen_id: Option<Uuid> = sqlx::query_scalar(
+            "SELECT pen_id FROM animals WHERE id = $1",
+        )
+        .bind(transfer.animal_id)
+        .fetch_optional(pool)
+        .await?
+        .flatten();
+
         // 更新動物：新 IACUC No. + 狀態 → in_experiment；若為「轉給其他機構」則清空欄位
         let is_external = transfer.transfer_type.as_str() == "external";
         if is_external {
             sqlx::query(
-                "UPDATE animals SET iacuc_no = $1, status = 'in_experiment', pen_location = NULL, updated_at = NOW() WHERE id = $2"
+                "UPDATE animals SET iacuc_no = $1, status = 'in_experiment', pen_location = NULL, pen_id = NULL, updated_at = NOW() WHERE id = $2"
             )
             .bind(to_iacuc)
             .bind(transfer.animal_id)
@@ -292,6 +301,18 @@ impl AnimalTransferService {
             .bind(transfer.animal_id)
             .execute(pool)
             .await?;
+        }
+
+        // 更新舊 pen 的 current_count
+        if let Some(pid) = old_pen_id {
+            if is_external {
+                let _ = sqlx::query(
+                    "UPDATE pens SET current_count = (SELECT COUNT(*) FROM animals WHERE pen_id = $1 AND deleted_at IS NULL AND status NOT IN ('euthanized', 'sudden_death', 'transferred')) WHERE id = $1"
+                )
+                .bind(pid)
+                .execute(pool)
+                .await;
+            }
         }
 
         // 更新轉讓狀態為完成

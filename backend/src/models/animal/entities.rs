@@ -53,6 +53,10 @@ pub struct Animal {
     pub updated_at: DateTime<Utc>,
     pub animal_id: Option<Uuid>,              // 動物 ID
     pub breed_other: Option<String>,          // 其他品種說明
+    #[sqlx(default)]
+    pub pen_id: Option<Uuid>,                 // 欄位 FK → pens(id)
+    #[sqlx(default)]
+    pub species_id: Option<Uuid>,             // 物種 FK → species(id)
     pub experiment_assigned_by: Option<Uuid>, // 分配至實驗的操作者
     #[sqlx(default)]
     pub experiment_assigned_by_name: Option<String>, // 分配者名稱（JOIN 查詢時填入）
