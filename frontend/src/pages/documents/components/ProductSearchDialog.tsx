@@ -61,6 +61,8 @@ interface ProductSearchDialogProps {
   products: Product[] | undefined
   /** 選擇品項回呼 */
   onSelect: (product: Product, extraData?: ProductSelectExtraData) => void
+  /** 調整單模式：add=新增品項, modify=修改現有庫存 */
+  adjMode?: 'add' | 'modify'
 }
 
 export function ProductSearchDialog({
@@ -76,9 +78,13 @@ export function ProductSearchDialog({
   setCategoryCode,
   products,
   onSelect,
+  adjMode,
 }: ProductSearchDialogProps) {
   const { categories } = useSkuCategories({ enabled: open })
-  const isStockBasedDoc = ['SO', 'DO', 'PR', 'TR', 'STK', 'ADJ'].includes(docType)
+  // ADJ「新增」模式使用產品目錄（手動輸入批號效期），「修改」模式使用庫存清單
+  const isStockBasedDoc = docType === 'ADJ'
+    ? adjMode === 'modify'
+    : ['SO', 'DO', 'PR', 'TR', 'STK'].includes(docType)
 
   const { data: stockBalances, isLoading: isStockLoading } = useQuery({
     queryKey: ['stock-balances', targetWarehouseId, productSearch],
