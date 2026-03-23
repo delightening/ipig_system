@@ -44,12 +44,19 @@ export function useDocumentLines(
     if (refs.qty) values.qty = refs.qty.value
     if (refs.unit_price) values.unit_price = refs.unit_price.value
     if (refs.expiry_date) {
-      // DateTextInput: try data-iso attr first, then overridden .value, then native getter.
+      // DateTextInput overrides .value via Object.defineProperty which can conflict
+      // with React's internal value tracking. Try multiple sources:
+      // 1. data-iso attribute (most reliable, set directly by React render)
+      // 2. Overridden .value (isoRef-based getter)
+      // 3. Native DOM .value (bypass any override, reads actual input display text)
       const el = refs.expiry_date as HTMLInputElement
-      const iso = el.dataset?.iso || ''
-      const val = iso || el.value || ''
-      // Only override formData value if we got something non-empty from the DOM
-      const normalized = val.includes('/') ? val.replace(/\//g, '-') : val
+      const dataIso = el.dataset?.iso || ''
+      const overriddenVal = el.value || ''
+      const nativeVal = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype, 'value'
+      )?.get?.call(el) || ''
+      const raw = dataIso || overriddenVal || nativeVal
+      const normalized = raw.includes('/') ? raw.replace(/\//g, '-') : raw
       if (normalized) values.expiry_date = normalized
     }
     if (refs.batch_no) {

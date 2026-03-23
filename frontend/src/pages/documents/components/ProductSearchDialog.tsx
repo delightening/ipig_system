@@ -78,7 +78,7 @@ export function ProductSearchDialog({
   onSelect,
 }: ProductSearchDialogProps) {
   const { categories } = useSkuCategories({ enabled: open })
-  const isStockBasedDoc = ['SO', 'DO', 'PR', 'TR', 'STK'].includes(docType)
+  const isStockBasedDoc = ['SO', 'DO', 'PR', 'TR', 'STK', 'ADJ'].includes(docType)
 
   const { data: stockBalances, isLoading: isStockLoading } = useQuery({
     queryKey: ['stock-balances', targetWarehouseId, productSearch],
