@@ -9,10 +9,9 @@ interface DateTextInputProps
 }
 
 /**
- * 日期文字輸入元件，使用 text input 取代原生 date input，
- * 避免瀏覽器自動在年/月/日段落之間跳轉。
+ * 日期文字輸入元件。
  * 顯示格式：YYYY/MM/DD，自動插入 "/" 分隔符號。
- * 對外 .value 格式為 ISO：YYYY-MM-DD。
+ * ISO 值透過 data-iso 屬性暴露，外部透過 setIsoValue() 設值。
  */
 const DateTextInput = React.forwardRef<HTMLInputElement, DateTextInputProps>(
   ({ className, error, defaultValue, onChange, onBlur, ...props }, ref) => {
@@ -24,31 +23,16 @@ const DateTextInput = React.forwardRef<HTMLInputElement, DateTextInputProps>(
     )
 
     const innerRef = React.useRef<HTMLInputElement>(null)
-    const isoRef = React.useRef(toIso(display))
 
-    // Keep isoRef in sync
-    isoRef.current = toIso(display)
-
-    // Expose the inner input element via ref, with .value returning ISO format
-    // Must use useLayoutEffect so the override is set BEFORE useImperativeHandle
-    // exposes the element to the parent
-    React.useLayoutEffect(() => {
-      const el = innerRef.current
-      if (!el) return
-
-      Object.defineProperty(el, "value", {
-        get: () => isoRef.current,
-        set: (v: string) => {
-          const displayVal = toDisplay(v)
-          isoRef.current = toIso(displayVal)
-          setDisplay(displayVal)
-        },
-        configurable: true,
-      })
+    // Expose a composite ref: the real DOM element + a setIsoValue helper
+    React.useImperativeHandle(ref, () => {
+      const el = innerRef.current!
+      // Attach a helper method for external callers to set ISO date value
+      ;(el as DateInputElement).setIsoValue = (iso: string) => {
+        setDisplay(toDisplay(iso))
+      }
+      return el
     }, [])
-
-    // Patch ref forwarding — use [] deps to avoid cleanup/setup cycle every render
-    React.useImperativeHandle(ref, () => innerRef.current!, [])
 
     // Sync when defaultValue changes externally
     const prevDefault = React.useRef(defaultValue)
@@ -101,4 +85,10 @@ const DateTextInput = React.forwardRef<HTMLInputElement, DateTextInputProps>(
 )
 DateTextInput.displayName = "DateTextInput"
 
+/** Extended element type with setIsoValue helper */
+interface DateInputElement extends HTMLInputElement {
+  setIsoValue?: (iso: string) => void
+}
+
 export { DateTextInput }
+export type { DateInputElement }

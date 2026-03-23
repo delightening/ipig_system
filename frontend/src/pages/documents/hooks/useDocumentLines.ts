@@ -44,20 +44,10 @@ export function useDocumentLines(
     if (refs.qty) values.qty = refs.qty.value
     if (refs.unit_price) values.unit_price = refs.unit_price.value
     if (refs.expiry_date) {
-      // DateTextInput overrides .value via Object.defineProperty which can conflict
-      // with React's internal value tracking. Try multiple sources:
-      // 1. data-iso attribute (most reliable, set directly by React render)
-      // 2. Overridden .value (isoRef-based getter)
-      // 3. Native DOM .value (bypass any override, reads actual input display text)
+      // DateTextInput stores ISO value in data-iso attribute (React-rendered, always in sync)
       const el = refs.expiry_date as HTMLInputElement
-      const dataIso = el.dataset?.iso || ''
-      const overriddenVal = el.value || ''
-      const nativeVal = Object.getOwnPropertyDescriptor(
-        HTMLInputElement.prototype, 'value'
-      )?.get?.call(el) || ''
-      const raw = dataIso || overriddenVal || nativeVal
-      const normalized = raw.includes('/') ? raw.replace(/\//g, '-') : raw
-      if (normalized) values.expiry_date = normalized
+      const iso = el.dataset?.iso || ''
+      if (iso) values.expiry_date = iso
     }
     if (refs.batch_no) {
       const batchVal = refs.batch_no.value
@@ -170,7 +160,10 @@ export function useDocumentLines(
     (lineId: string, batchNo: string, expiryDate?: string, sourceIacuc?: string, activeProtocols?: ProtocolListItem[]) => {
       const refs = inputRefs.current[lineId]
       if (refs?.batch_no) refs.batch_no.value = batchNo
-      if (refs?.expiry_date && expiryDate !== undefined) refs.expiry_date.value = expiryDate || ''
+      if (refs?.expiry_date && expiryDate !== undefined) {
+        const dateEl = refs.expiry_date as HTMLInputElement & { setIsoValue?: (v: string) => void }
+        if (dateEl.setIsoValue) dateEl.setIsoValue(expiryDate || '')
+      }
 
       if (sourceIacuc && sourceIacuc !== 'PUBLIC' && ['SO', 'DO'].includes(formData.doc_type)) {
         const currentProtocol = formData.protocol_id

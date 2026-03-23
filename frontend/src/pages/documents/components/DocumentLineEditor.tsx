@@ -112,7 +112,12 @@ export function DocumentLineEditor({
       if (extraData && !isPoLinkedGrn) {
         const refs = inputRefs.current[activeLineId]
         if (refs?.batch_no) refs.batch_no.value = extraData.batch_no || ''
-        if (refs?.expiry_date) refs.expiry_date.value = extraData.expiry_date || ''
+        if (refs?.expiry_date) {
+          const dateEl = refs.expiry_date as HTMLInputElement & { setIsoValue?: (v: string) => void }
+          if (dateEl.setIsoValue) {
+            dateEl.setIsoValue(extraData.expiry_date || '')
+          }
+        }
       }
     }
     setProductSearchOpen(false)
