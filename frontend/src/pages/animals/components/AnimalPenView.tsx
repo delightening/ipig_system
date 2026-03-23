@@ -239,8 +239,18 @@ export function AnimalPenView({
     const firstLeftZone = leftZones[0]
     const leftColors = firstLeftZone ? getZoneColors(firstLeftZone.color) : getZoneColors(null)
 
+    // 動態漸層：從各區域 hex 色碼產生
+    const zoneHexColors = zones.map(z => {
+      const raw = z.color || '#94a3b8'
+      return raw.startsWith('#') ? raw : `#${raw}`
+    })
+    const gradientBg = zoneHexColors.length >= 2
+      ? `linear-gradient(to right, ${zoneHexColors.map(c => `${c}15`).join(', ')})`
+      : undefined
+    const borderColor = zoneHexColors[0] || '#94a3b8'
+
     return (
-      <Card key={zones.map(z => z.id).join('-')} className="bg-gradient-to-r from-purple-50 via-amber-50 to-green-50 border-2 border-purple-300">
+      <Card key={zones.map(z => z.id).join('-')} className="border-2" style={{ background: gradientBg, borderColor }}>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-3 text-lg flex-wrap">
             {zones.map((z, i) => {
@@ -262,7 +272,14 @@ export function AnimalPenView({
               <div className={`grid grid-cols-5 gap-1 px-3 py-2 text-xs font-semibold ${leftColors.header} text-white`} style={leftColors.headerStyle}>
                 <div>欄位</div><div>耳號</div><div>獸醫檢視</div><div>最新異常</div><div className="text-center">操作</div>
               </div>
-              <div className="grid grid-cols-5 gap-1 px-3 py-2 text-xs font-semibold bg-gradient-to-r from-amber-500 to-green-500 text-white border-l border-white/30">
+              <div
+                className="grid grid-cols-5 gap-1 px-3 py-2 text-xs font-semibold text-white border-l border-white/30"
+                style={{
+                  background: rightZones.length >= 2
+                    ? `linear-gradient(to right, ${rightZones.map(z => { const c = z.color || '#94a3b8'; return c.startsWith('#') ? c : `#${c}` }).join(', ')})`
+                    : rightZones[0]?.color?.startsWith('#') ? rightZones[0].color : `#${rightZones[0]?.color || '94a3b8'}`,
+                }}
+              >
                 <div>欄位</div><div>耳號</div><div>獸醫檢視</div><div>最新異常</div><div className="text-center">操作</div>
               </div>
             </div>

@@ -127,6 +127,7 @@ export interface CreateZoneRequest {
   name?: string
   color?: string
   sort_order?: number
+  layout_config?: Record<string, unknown> | null
 }
 
 export interface UpdateZoneRequest {
@@ -134,6 +135,7 @@ export interface UpdateZoneRequest {
   color?: string
   is_active?: boolean
   sort_order?: number
+  layout_config?: Record<string, unknown> | null
 }
 
 // ============================================
