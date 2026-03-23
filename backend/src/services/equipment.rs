@@ -659,7 +659,33 @@ impl EquipmentService {
                 .await?;
         }
 
-        // 無法維修 → 需通知（由 handler 層或排程處理）
+        // 無法維修 → 發送通知給設備管理人與機構負責人
+        if new_status == MaintenanceStatus::Unrepairable
+            && existing.status != MaintenanceStatus::Unrepairable
+        {
+            let equip = repositories::equipment::find_equipment_by_id(pool, existing.equipment_id)
+                .await?;
+            if let Some(equip) = equip {
+                let notification_svc =
+                    crate::services::NotificationService::new(pool.clone());
+                let problem = payload
+                    .problem_description
+                    .as_deref()
+                    .or(existing.problem_description.as_deref())
+                    .unwrap_or("-");
+                if let Err(e) = notification_svc
+                    .send_equipment_unrepairable_notification(
+                        &equip.name,
+                        equip.serial_number.as_deref().unwrap_or("-"),
+                        problem,
+                    )
+                    .await
+                {
+                    tracing::warn!("發送無法維修通知失敗: {e}");
+                }
+            }
+        }
+
         let completed_at = payload.completed_at.or(existing.completed_at);
         let problem_desc = payload
             .problem_description
@@ -820,6 +846,19 @@ impl EquipmentService {
         .bind(&payload.notes)
         .fetch_one(pool)
         .await?;
+
+        // 發送報廢申請通知
+        let notification_svc = crate::services::NotificationService::new(pool.clone());
+        if let Err(e) = notification_svc
+            .send_equipment_disposal_notification(
+                &record.equipment_name,
+                &record.applicant_name,
+                &payload.reason,
+            )
+            .await
+        {
+            tracing::warn!("發送報廢申請通知失敗: {e}");
+        }
 
         Ok(record)
     }

@@ -51,4 +51,11 @@ export const signatureApi = {
     api.post<SignRecordResponse>(`/signatures/protocol/${protocolId}`, data),
   getProtocolStatus: (protocolId: string) =>
     api.get<SignatureStatusResponse>(`/signatures/protocol/${protocolId}`),
+
+  signDisposalApplicant: (disposalId: string, data: SignRecordRequest) =>
+    api.post<SignRecordResponse>(`/signatures/disposal/${disposalId}/applicant`, data),
+  signDisposalApprover: (disposalId: string, data: SignRecordRequest) =>
+    api.post<SignRecordResponse>(`/signatures/disposal/${disposalId}/approver`, data),
+  getDisposalStatus: (disposalId: string) =>
+    api.get<SignatureStatusResponse>(`/signatures/disposal/${disposalId}`),
 }

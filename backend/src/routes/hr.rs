@@ -274,6 +274,19 @@ pub fn routes() -> Router<AppState> {
             "/facilities/departments/:id/delete",
             post(handlers::delete_department),
         )
+        // Disposal Signatures
+        .route(
+            "/signatures/disposal/:id/applicant",
+            post(handlers::sign_disposal_applicant),
+        )
+        .route(
+            "/signatures/disposal/:id/approver",
+            post(handlers::sign_disposal_approver),
+        )
+        .route(
+            "/signatures/disposal/:id",
+            get(handlers::get_disposal_signature_status),
+        )
         // Electronic Signatures & Annotations (GLP Compliance)
         .route(
             "/signatures/sacrifice/:id",

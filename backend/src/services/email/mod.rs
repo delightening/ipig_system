@@ -3,6 +3,7 @@
 
 mod alert;
 mod auth;
+mod equipment;
 mod protocol;
 
 use lettre::{
