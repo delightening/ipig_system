@@ -44,10 +44,11 @@ export function useDocumentLines(
     if (refs.qty) values.qty = refs.qty.value
     if (refs.unit_price) values.unit_price = refs.unit_price.value
     if (refs.expiry_date) {
-      // DateTextInput uses Object.defineProperty to override .value with ISO format,
-      // but React's internal input value tracking can conflict with this override.
-      // Use data-iso attribute as the reliable source, falling back to .value.
-      values.expiry_date = refs.expiry_date.dataset?.iso || refs.expiry_date.value
+      // DateTextInput exposes ISO via data-iso attr and overridden .value getter.
+      // Fall back to reading the visible display text and converting YYYY/MM/DD → YYYY-MM-DD.
+      const el = refs.expiry_date as HTMLInputElement
+      const picked = el.dataset?.iso || el.value || ''
+      values.expiry_date = picked.includes('/') ? picked.replace(/\//g, '-') : picked
     }
     if (refs.batch_no) values.batch_no = refs.batch_no.value
     return values
