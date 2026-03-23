@@ -119,6 +119,7 @@ export function useDocumentSubmit({
 
   const submitMutation = useMutation({
     mutationFn: async () => {
+      collectAllLineValues()
       const payload = buildPayload(formData)
       if (isEdit) {
         await api.put(`/documents/${id}`, payload)
