@@ -41,7 +41,8 @@
       "WebFetch(domain:instances.vantage.sh)",
       "WebFetch(domain:docs.rs)",
       "Bash(cargo test:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(gh run:*)"
     ]
   }
 }
