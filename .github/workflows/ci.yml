@@ -139,6 +139,7 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: password
           POSTGRES_DB: ipig_db_test
+          POSTGRES_INITDB_ARGS: "--locale=C"
         ports:
           - 5432:5432
         options: >-
