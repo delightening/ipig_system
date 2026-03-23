@@ -439,46 +439,54 @@ impl StockService {
             return Ok(rows);
         }
 
-        // 倉庫級查詢改用 inventory_snapshots (移除 CROSS JOIN,效能提升 10-50x)
-        let mut sql = String::from(
-            r#"
-            SELECT
-                w.id as warehouse_id,
-                w.code as warehouse_code,
-                w.name as warehouse_name,
-                NULL::uuid as storage_location_id,
-                NULL::varchar as storage_location_code,
-                NULL::varchar as storage_location_name,
-                p.id as product_id,
-                p.sku as product_sku,
-                p.name as product_name,
-                p.base_uom,
-                p.category_code,
-                inv.on_hand_qty_base as qty_on_hand,
-                inv.avg_cost,
-                NULL::varchar as batch_no,
-                NULL::date as expiry_date,
-                p.safety_stock,
-                p.reorder_point
-            FROM inventory_snapshots inv
-            JOIN warehouses w ON inv.warehouse_id = w.id
-            JOIN products p ON inv.product_id = p.id
-            WHERE w.is_active = true AND p.is_active = true
-            "#,
-        );
-
-        if query.warehouse_id.is_some() {
-            sql.push_str(" AND w.id = $1");
+        // 倉庫級查詢：有指定 warehouse_id 時使用 storage_location_inventory 以取得批號/效期
+        if let Some(warehouse_id) = query.warehouse_id {
+            let keyword_filter = if query.keyword.as_ref().is_some_and(|k| !k.is_empty()) {
+                " AND (p.name ILIKE '%' || $2 || '%' OR p.sku ILIKE '%' || $2 || '%')"
+            } else {
+                ""
+            };
+            let sql = format!(
+                r#"
+                SELECT
+                    sl.warehouse_id,
+                    w.code as warehouse_code,
+                    w.name as warehouse_name,
+                    sl.id as storage_location_id,
+                    sl.code as storage_location_code,
+                    sl.name as storage_location_name,
+                    p.id as product_id,
+                    p.sku as product_sku,
+                    p.name as product_name,
+                    p.base_uom,
+                    p.category_code,
+                    sli.on_hand_qty as qty_on_hand,
+                    NULL::numeric as avg_cost,
+                    sli.batch_no,
+                    sli.expiry_date,
+                    p.safety_stock,
+                    p.reorder_point
+                FROM storage_location_inventory sli
+                JOIN storage_locations sl ON sli.storage_location_id = sl.id
+                JOIN warehouses w ON sl.warehouse_id = w.id
+                JOIN products p ON sli.product_id = p.id
+                WHERE w.id = $1 AND sl.is_active = true AND w.is_active = true AND p.is_active = true
+                  AND sli.on_hand_qty > 0
+                  {keyword_filter}
+                ORDER BY p.sku, sli.expiry_date, sli.batch_no
+                "#
+            );
+            let mut q = sqlx::query_as::<_, InventoryOnHand>(&sql).bind(warehouse_id);
+            if let Some(keyword) = &query.keyword {
+                if !keyword.is_empty() {
+                    q = q.bind(keyword);
+                }
+            }
+            return Ok(q.fetch_all(pool).await?);
         }
 
-        sql.push_str(" ORDER BY w.code, p.sku");
-
-        let inventory = if let Some(warehouse_id) = query.warehouse_id {
-            sqlx::query_as::<_, InventoryOnHand>(&sql)
-                .bind(warehouse_id)
-                .fetch_all(pool)
-                .await?
-        } else {
+        // 全倉庫概覽（無指定 warehouse_id）— 使用 inventory_snapshots（聚合，無批號/效期）
+        let inventory = {
             let simple_sql = r#"
                 SELECT 
                     w.id as warehouse_id,

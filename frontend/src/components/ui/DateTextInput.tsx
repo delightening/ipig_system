@@ -38,7 +38,11 @@ const DateTextInput = React.forwardRef<HTMLInputElement, DateTextInputProps>(
 
       Object.defineProperty(el, "value", {
         get: () => isoRef.current,
-        set: (v: string) => setDisplay(toDisplay(v)),
+        set: (v: string) => {
+          const displayVal = toDisplay(v)
+          isoRef.current = toIso(displayVal)
+          setDisplay(displayVal)
+        },
         configurable: true,
       })
     }, [])
