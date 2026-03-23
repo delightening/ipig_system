@@ -368,7 +368,7 @@ function LineRow({
         ) : (
           <DateTextInput
             defaultValue={expiryDateDefault}
-            ref={(el) => { if (el && inputRefs.current[lineId]) inputRefs.current[lineId].expiry_date = el }}
+            ref={(el) => { if (el) { if (!inputRefs.current[lineId]) inputRefs.current[lineId] = {}; inputRefs.current[lineId].expiry_date = el } }}
             onBlur={() => onLineBlur(lineId)}
           />
         )}
