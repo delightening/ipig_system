@@ -48,7 +48,7 @@ export function AnimalPenView({
     setEditingEarTag('')
   }
 
-  const renderPenCell = (penCode: string | null, colors: { bg: string; border: string; header: string; text: string }) => {
+  const renderPenCell = (penCode: string | null, colors: ReturnType<typeof getZoneColors>) => {
     if (!penCode) {
       return <div className="px-3 py-2 text-slate-300"></div>
     }
@@ -161,14 +161,14 @@ export function AnimalPenView({
     })
 
     return (
-      <Card key={zone.id} className={`${colors.bg} ${colors.border} border-2`}>
+      <Card key={zone.id} className={`${colors.bg} ${colors.border} border-2`} style={colors.borderStyle}>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-3 text-lg">
-            <span className={`w-8 h-8 rounded-lg ${colors.header} text-white flex items-center justify-center font-bold text-lg shadow-md`}>
+            <span className={`w-8 h-8 rounded-lg ${colors.header} text-white flex items-center justify-center font-bold text-lg shadow-md`} style={colors.headerStyle}>
               {zone.code}
             </span>
             <span className={colors.text}>{zone.name ?? `${zone.code} 區`}</span>
-            <Badge variant="outline" className={`ml-2 ${colors.text} ${colors.border}`}>
+            <Badge variant="outline" className={`ml-2 ${colors.text} ${colors.border}`} style={colors.borderStyle}>
               共 {totalAnimals} 隻
             </Badge>
           </CardTitle>
@@ -176,10 +176,10 @@ export function AnimalPenView({
         <CardContent>
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
             <div className="grid grid-cols-2 gap-0 border-b">
-              <div className={`grid grid-cols-5 gap-1 px-3 py-2 text-xs font-semibold ${colors.header} text-white`}>
+              <div className={`grid grid-cols-5 gap-1 px-3 py-2 text-xs font-semibold ${colors.header} text-white`} style={colors.headerStyle}>
                 <div>欄位</div><div>耳號</div><div>獸醫檢視</div><div>最新異常</div><div className="text-center">操作</div>
               </div>
-              <div className={`grid grid-cols-5 gap-1 px-3 py-2 text-xs font-semibold ${colors.header} text-white border-l border-white/30`}>
+              <div className={`grid grid-cols-5 gap-1 px-3 py-2 text-xs font-semibold ${colors.header} text-white border-l border-white/30`} style={colors.headerStyle}>
                 <div>欄位</div><div>耳號</div><div>獸醫檢視</div><div>最新異常</div><div className="text-center">操作</div>
               </div>
             </div>
@@ -248,9 +248,9 @@ export function AnimalPenView({
               return (
                 <div key={z.id} className="flex items-center gap-2">
                   {i > 0 && <span className="text-slate-300">|</span>}
-                  <span className={`w-8 h-8 rounded-lg ${c.header} text-white flex items-center justify-center font-bold text-lg shadow-md`}>{z.code}</span>
+                  <span className={`w-8 h-8 rounded-lg ${c.header} text-white flex items-center justify-center font-bold text-lg shadow-md`} style={c.headerStyle}>{z.code}</span>
                   <span className={c.text}>{z.name ?? `${z.code} 區`}</span>
-                  <Badge variant="outline" className={`${c.text} ${c.border}`}>{zoneAnimalCounts.get(z.id) ?? 0} 隻</Badge>
+                  <Badge variant="outline" className={`${c.text} ${c.border}`} style={c.borderStyle}>{zoneAnimalCounts.get(z.id) ?? 0} 隻</Badge>
                 </div>
               )
             })}
@@ -259,7 +259,7 @@ export function AnimalPenView({
         <CardContent>
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
             <div className="grid grid-cols-2 gap-0 border-b">
-              <div className={`grid grid-cols-5 gap-1 px-3 py-2 text-xs font-semibold ${leftColors.header} text-white`}>
+              <div className={`grid grid-cols-5 gap-1 px-3 py-2 text-xs font-semibold ${leftColors.header} text-white`} style={leftColors.headerStyle}>
                 <div>欄位</div><div>耳號</div><div>獸醫檢視</div><div>最新異常</div><div className="text-center">操作</div>
               </div>
               <div className="grid grid-cols-5 gap-1 px-3 py-2 text-xs font-semibold bg-gradient-to-r from-amber-500 to-green-500 text-white border-l border-white/30">
@@ -342,6 +342,7 @@ export function AnimalPenView({
                     <span
                       key={zone.id}
                       className={`w-5 h-5 rounded text-xs font-bold flex items-center justify-center text-white ${c.header}`}
+                      style={c.headerStyle}
                     >
                       {zone.code}
                     </span>
