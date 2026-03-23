@@ -152,33 +152,31 @@ export function useDocumentLines(
     (lineId: string, batchNo: string, expiryDate?: string, sourceIacuc?: string, activeProtocols?: ProtocolListItem[]) => {
       const refs = inputRefs.current[lineId]
       if (refs?.batch_no) refs.batch_no.value = batchNo
-      if (['SO', 'DO'].includes(formData.doc_type)) {
-        if (refs?.expiry_date) refs.expiry_date.value = expiryDate || ''
+      if (refs?.expiry_date && expiryDate !== undefined) refs.expiry_date.value = expiryDate || ''
 
-        if (sourceIacuc && sourceIacuc !== 'PUBLIC') {
-          const currentProtocol = formData.protocol_id
-            ? activeProtocols?.find((p) => p.id === formData.protocol_id)
-            : null
-          const currentIacucCode = currentProtocol?.iacuc_no
-          if (currentIacucCode && currentIacucCode !== sourceIacuc) {
-            setIacucWarningData({ batch_no: batchNo, source_iacuc: sourceIacuc })
-            setShowIacucWarning(true)
-          }
+      if (sourceIacuc && sourceIacuc !== 'PUBLIC' && ['SO', 'DO'].includes(formData.doc_type)) {
+        const currentProtocol = formData.protocol_id
+          ? activeProtocols?.find((p) => p.id === formData.protocol_id)
+          : null
+        const currentIacucCode = currentProtocol?.iacuc_no
+        if (currentIacucCode && currentIacucCode !== sourceIacuc) {
+          setIacucWarningData({ batch_no: batchNo, source_iacuc: sourceIacuc })
+          setShowIacucWarning(true)
         }
-
-        setFormData((prev) => {
-          const updatedLines = prev.lines.map((line) => {
-            const currentLineId = line.id || `temp-${prev.lines.indexOf(line)}`
-            if (currentLineId === lineId) {
-              return { ...line, batch_no: batchNo, expiry_date: expiryDate || '' }
-            }
-            const otherLineValues = collectLineValues(currentLineId)
-            return { ...line, ...otherLineValues }
-          })
-          return { ...prev, lines: updatedLines }
-        })
-        setUnsavedChanges(true)
       }
+
+      setFormData((prev) => {
+        const updatedLines = prev.lines.map((line) => {
+          const currentLineId = line.id || `temp-${prev.lines.indexOf(line)}`
+          if (currentLineId === lineId) {
+            return { ...line, batch_no: batchNo, expiry_date: expiryDate || '' }
+          }
+          const otherLineValues = collectLineValues(currentLineId)
+          return { ...line, ...otherLineValues }
+        })
+        return { ...prev, lines: updatedLines }
+      })
+      setUnsavedChanges(true)
     },
     [formData.doc_type, formData.protocol_id, collectLineValues, setFormData, setUnsavedChanges]
   )

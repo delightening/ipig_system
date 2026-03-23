@@ -107,6 +107,13 @@ export function DocumentLineEditor({
           return newLine
         })
       }))
+
+      // Sync uncontrolled input refs (defaultValue won't update existing DOM elements)
+      if (extraData && !isPoLinkedGrn) {
+        const refs = inputRefs.current[activeLineId]
+        if (refs?.batch_no) refs.batch_no.value = extraData.batch_no || ''
+        if (refs?.expiry_date) refs.expiry_date.value = extraData.expiry_date || ''
+      }
     }
     setProductSearchOpen(false)
   }
