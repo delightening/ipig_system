@@ -1,5 +1,5 @@
 /**
- * 設備與校正紀錄的 mutation hooks
+ * 設備維護管理的 mutation hooks
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { deleteResource } from '@/lib/api'
@@ -9,19 +9,16 @@ import { format } from 'date-fns'
 
 import type { EquipmentForm, CalibrationForm } from '../types'
 
-/** 設備相關 query keys */
 const EQUIP_KEYS = {
   list: ['equipment'],
   all: ['equipment-all'],
 } as const
 
-/** 校正紀錄相關 query keys */
 const CALIB_KEYS = {
   list: ['equipment-calibrations'],
   all: ['equipment-calibrations-all'],
 } as const
 
-/** 將空字串轉為 null */
 const emptyToNull = (v: string) => v || null
 
 interface UseEquipmentMutationsOptions {
@@ -56,6 +53,9 @@ export function useEquipmentMutations(options: UseEquipmentMutationsOptions) {
         serial_number: emptyToNull(payload.serial_number),
         location: emptyToNull(payload.location),
         notes: emptyToNull(payload.notes),
+        calibration_type: payload.calibration_type || null,
+        calibration_cycle: payload.calibration_cycle || null,
+        inspection_cycle: payload.inspection_cycle || null,
       }),
     onSuccess: () => {
       invalidateEquip()
@@ -98,16 +98,20 @@ export function useEquipmentMutations(options: UseEquipmentMutationsOptions) {
     mutationFn: (payload: CalibrationForm) =>
       api.post('/equipment-calibrations', {
         equipment_id: payload.equipment_id,
+        calibration_type: payload.calibration_type,
         calibrated_at: payload.calibrated_at,
         next_due_at: emptyToNull(payload.next_due_at),
         result: emptyToNull(payload.result),
         notes: emptyToNull(payload.notes),
+        partner_id: emptyToNull(payload.partner_id),
+        report_number: emptyToNull(payload.report_number),
+        inspector: emptyToNull(payload.inspector),
       }),
     onSuccess: () => {
       invalidateCalib()
       options.closeCalibCreate()
       options.resetCalibForm()
-      toast({ title: '成功', description: '已新增校正紀錄' })
+      toast({ title: '成功', description: '已新增紀錄' })
     },
     onError: (err: unknown) => {
       toast({ title: '錯誤', description: getApiErrorMessage(err, '新增失敗'), variant: 'destructive' })
@@ -121,7 +125,7 @@ export function useEquipmentMutations(options: UseEquipmentMutationsOptions) {
       invalidateCalib()
       options.closeCalibEdit()
       options.clearEditingCalib()
-      toast({ title: '成功', description: '已更新校正紀錄' })
+      toast({ title: '成功', description: '已更新紀錄' })
     },
     onError: (err: unknown) => {
       toast({ title: '錯誤', description: getApiErrorMessage(err, '更新失敗'), variant: 'destructive' })
@@ -132,14 +136,13 @@ export function useEquipmentMutations(options: UseEquipmentMutationsOptions) {
     mutationFn: (id: string) => deleteResource(`/equipment-calibrations/${id}`),
     onSuccess: () => {
       invalidateCalib()
-      toast({ title: '成功', description: '已刪除校正紀錄' })
+      toast({ title: '成功', description: '已刪除紀錄' })
     },
     onError: (err: unknown) => {
       toast({ title: '錯誤', description: getApiErrorMessage(err, '刪除失敗'), variant: 'destructive' })
     },
   })
 
-  /** 新增設備（含驗證） */
   const handleCreateEquip = (form: EquipmentForm) => {
     if (!form.name.trim()) {
       toast({ title: '錯誤', description: '設備名稱為必填', variant: 'destructive' })
@@ -148,7 +151,6 @@ export function useEquipmentMutations(options: UseEquipmentMutationsOptions) {
     createEquipMutation.mutate(form)
   }
 
-  /** 更新設備（含驗證） */
   const handleUpdateEquip = (id: string, form: EquipmentForm) => {
     if (!form.name.trim()) {
       toast({ title: '錯誤', description: '設備名稱為必填', variant: 'destructive' })
@@ -162,32 +164,37 @@ export function useEquipmentMutations(options: UseEquipmentMutationsOptions) {
         serial_number: emptyToNull(form.serial_number),
         location: emptyToNull(form.location),
         notes: emptyToNull(form.notes),
+        calibration_type: form.calibration_type || null,
+        calibration_cycle: form.calibration_cycle || null,
+        inspection_cycle: form.inspection_cycle || null,
       },
     })
   }
 
-  /** 新增校正紀錄（含驗證） */
   const handleCreateCalib = (form: CalibrationForm) => {
     if (!form.equipment_id || !form.calibrated_at) {
-      toast({ title: '錯誤', description: '請選擇設備並填寫校正日期', variant: 'destructive' })
+      toast({ title: '錯誤', description: '請選擇設備並填寫執行日期', variant: 'destructive' })
       return
     }
     createCalibMutation.mutate(form)
   }
 
-  /** 更新校正紀錄（含驗證） */
   const handleUpdateCalib = (id: string, form: CalibrationForm) => {
     if (!form.calibrated_at) {
-      toast({ title: '錯誤', description: '校正日期為必填', variant: 'destructive' })
+      toast({ title: '錯誤', description: '執行日期為必填', variant: 'destructive' })
       return
     }
     updateCalibMutation.mutate({
       id,
       payload: {
+        calibration_type: form.calibration_type,
         calibrated_at: form.calibrated_at,
         next_due_at: emptyToNull(form.next_due_at),
         result: emptyToNull(form.result),
         notes: emptyToNull(form.notes),
+        partner_id: emptyToNull(form.partner_id),
+        report_number: emptyToNull(form.report_number),
+        inspector: emptyToNull(form.inspector),
       },
     })
   }
@@ -206,20 +213,25 @@ export function useEquipmentMutations(options: UseEquipmentMutationsOptions) {
   }
 }
 
-/** 建立空白設備表單 */
 export const emptyEquipForm = (): EquipmentForm => ({
   name: '',
   model: '',
   serial_number: '',
   location: '',
   notes: '',
+  calibration_type: '',
+  calibration_cycle: '',
+  inspection_cycle: '',
 })
 
-/** 建立空白校正紀錄表單 */
 export const emptyCalibForm = (): CalibrationForm => ({
   equipment_id: '',
+  calibration_type: 'calibration',
   calibrated_at: format(new Date(), 'yyyy-MM-dd'),
   next_due_at: '',
   result: '',
   notes: '',
+  partner_id: '',
+  report_number: '',
+  inspector: '',
 })
