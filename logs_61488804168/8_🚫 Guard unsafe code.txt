@@ -1,0 +1,162 @@
+﻿2026-03-21T16:57:27.5450095Z Current runner version: '2.332.0'
+2026-03-21T16:57:27.5473461Z ##[group]Runner Image Provisioner
+2026-03-21T16:57:27.5474301Z Hosted Compute Agent
+2026-03-21T16:57:27.5474910Z Version: 20260213.493
+2026-03-21T16:57:27.5475542Z Commit: 5c115507f6dd24b8de37d8bbe0bb4509d0cc0fa3
+2026-03-21T16:57:27.5476217Z Build Date: 2026-02-13T00:28:41Z
+2026-03-21T16:57:27.5476906Z Worker ID: {c891d612-4577-4bdf-8fd7-832c75ee86dd}
+2026-03-21T16:57:27.5477665Z Azure Region: westcentralus
+2026-03-21T16:57:27.5478197Z ##[endgroup]
+2026-03-21T16:57:27.5479652Z ##[group]Operating System
+2026-03-21T16:57:27.5480237Z Ubuntu
+2026-03-21T16:57:27.5480707Z 24.04.3
+2026-03-21T16:57:27.5481117Z LTS
+2026-03-21T16:57:27.5481681Z ##[endgroup]
+2026-03-21T16:57:27.5482136Z ##[group]Runner Image
+2026-03-21T16:57:27.5482718Z Image: ubuntu-24.04
+2026-03-21T16:57:27.5483619Z Version: 20260309.50.1
+2026-03-21T16:57:27.5484766Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260309.50/images/ubuntu/Ubuntu2404-Readme.md
+2026-03-21T16:57:27.5486285Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260309.50
+2026-03-21T16:57:27.5487188Z ##[endgroup]
+2026-03-21T16:57:27.5488282Z ##[group]GITHUB_TOKEN Permissions
+2026-03-21T16:57:27.5490300Z Contents: read
+2026-03-21T16:57:27.5490825Z Metadata: read
+2026-03-21T16:57:27.5491465Z Packages: read
+2026-03-21T16:57:27.5491931Z ##[endgroup]
+2026-03-21T16:57:27.5494197Z Secret source: Actions
+2026-03-21T16:57:27.5494936Z Prepare workflow directory
+2026-03-21T16:57:27.5886782Z Prepare all required actions
+2026-03-21T16:57:27.5923643Z Getting action download info
+2026-03-21T16:57:27.9415376Z Download action repository 'actions/checkout@v6' (SHA:de0fac2e4500dabe0009e67214ff5f5447ce83dd)
+2026-03-21T16:57:28.1424003Z Complete job name: 🚫 Guard: unsafe code
+2026-03-21T16:57:28.2205451Z ##[group]Run actions/checkout@v6
+2026-03-21T16:57:28.2206278Z with:
+2026-03-21T16:57:28.2206732Z   repository: delightening/ipig_system
+2026-03-21T16:57:28.2207426Z   token: ***
+2026-03-21T16:57:28.2207865Z   ssh-strict: true
+2026-03-21T16:57:28.2208290Z   ssh-user: git
+2026-03-21T16:57:28.2208722Z   persist-credentials: true
+2026-03-21T16:57:28.2209207Z   clean: true
+2026-03-21T16:57:28.2209639Z   sparse-checkout-cone-mode: true
+2026-03-21T16:57:28.2210151Z   fetch-depth: 1
+2026-03-21T16:57:28.2210558Z   fetch-tags: false
+2026-03-21T16:57:28.2210987Z   show-progress: true
+2026-03-21T16:57:28.2211420Z   lfs: false
+2026-03-21T16:57:28.2211833Z   submodules: false
+2026-03-21T16:57:28.2212274Z   set-safe-directory: true
+2026-03-21T16:57:28.2213096Z env:
+2026-03-21T16:57:28.2213518Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:28.2213987Z   SQLX_OFFLINE: true
+2026-03-21T16:57:28.2214412Z ##[endgroup]
+2026-03-21T16:57:28.3160355Z Syncing repository: delightening/ipig_system
+2026-03-21T16:57:28.3163385Z ##[group]Getting Git version info
+2026-03-21T16:57:28.3164628Z Working directory is '/home/runner/work/ipig_system/ipig_system'
+2026-03-21T16:57:28.3166382Z [command]/usr/bin/git version
+2026-03-21T16:57:28.3223259Z git version 2.53.0
+2026-03-21T16:57:28.3278430Z ##[endgroup]
+2026-03-21T16:57:28.3294580Z Temporarily overriding HOME='/home/runner/work/_temp/fe7aacd2-c4cb-4b71-a938-d7d52aeae63b' before making global git config changes
+2026-03-21T16:57:28.3296937Z Adding repository directory to the temporary git global config as a safe directory
+2026-03-21T16:57:28.3300146Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ipig_system/ipig_system
+2026-03-21T16:57:28.3341862Z Deleting the contents of '/home/runner/work/ipig_system/ipig_system'
+2026-03-21T16:57:28.3346791Z ##[group]Initializing the repository
+2026-03-21T16:57:28.3351804Z [command]/usr/bin/git init /home/runner/work/ipig_system/ipig_system
+2026-03-21T16:57:28.3436399Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-03-21T16:57:28.3437779Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-03-21T16:57:28.3439052Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-03-21T16:57:28.3440473Z hint: call:
+2026-03-21T16:57:28.3440925Z hint:
+2026-03-21T16:57:28.3441750Z hint: 	git config --global init.defaultBranch <name>
+2026-03-21T16:57:28.3442791Z hint:
+2026-03-21T16:57:28.3444025Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-03-21T16:57:28.3445657Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-03-21T16:57:28.3446966Z hint:
+2026-03-21T16:57:28.3447607Z hint: 	git branch -m <name>
+2026-03-21T16:57:28.3448336Z hint:
+2026-03-21T16:57:28.3449329Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-03-21T16:57:28.3451121Z Initialized empty Git repository in /home/runner/work/ipig_system/ipig_system/.git/
+2026-03-21T16:57:28.3454241Z [command]/usr/bin/git remote add origin https://github.com/delightening/ipig_system
+2026-03-21T16:57:28.3489408Z ##[endgroup]
+2026-03-21T16:57:28.3490595Z ##[group]Disabling automatic garbage collection
+2026-03-21T16:57:28.3494264Z [command]/usr/bin/git config --local gc.auto 0
+2026-03-21T16:57:28.3524337Z ##[endgroup]
+2026-03-21T16:57:28.3525496Z ##[group]Setting up auth
+2026-03-21T16:57:28.3526373Z Removing SSH command configuration
+2026-03-21T16:57:28.3532161Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-03-21T16:57:28.3565384Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-03-21T16:57:28.3892424Z Removing HTTP extra header
+2026-03-21T16:57:28.3898246Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-03-21T16:57:28.3929852Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-03-21T16:57:28.4155409Z Removing includeIf entries pointing to credentials config files
+2026-03-21T16:57:28.4161348Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-03-21T16:57:28.4192614Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-03-21T16:57:28.4428099Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-a3dea086-9a1e-42f6-8867-03a9776ac1a2.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-03-21T16:57:28.4464936Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/ipig_system/ipig_system/.git.path /home/runner/work/_temp/git-credentials-a3dea086-9a1e-42f6-8867-03a9776ac1a2.config
+2026-03-21T16:57:28.4496061Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/ipig_system/ipig_system/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-a3dea086-9a1e-42f6-8867-03a9776ac1a2.config
+2026-03-21T16:57:28.4527247Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-a3dea086-9a1e-42f6-8867-03a9776ac1a2.config
+2026-03-21T16:57:28.4557857Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-a3dea086-9a1e-42f6-8867-03a9776ac1a2.config
+2026-03-21T16:57:28.4587574Z ##[endgroup]
+2026-03-21T16:57:28.4588279Z ##[group]Fetching the repository
+2026-03-21T16:57:28.4596701Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +9641e6ee505cc248f2eade2846e794bae2cad8c5:refs/remotes/origin/main
+2026-03-21T16:57:30.8783136Z From https://github.com/delightening/ipig_system
+2026-03-21T16:57:30.8784908Z  * [new ref]         9641e6ee505cc248f2eade2846e794bae2cad8c5 -> origin/main
+2026-03-21T16:57:30.8825934Z [command]/usr/bin/git branch --list --remote origin/main
+2026-03-21T16:57:30.8861059Z   origin/main
+2026-03-21T16:57:30.8872376Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+2026-03-21T16:57:30.8904087Z 9641e6ee505cc248f2eade2846e794bae2cad8c5
+2026-03-21T16:57:30.8908707Z ##[endgroup]
+2026-03-21T16:57:30.8909872Z ##[group]Determining the checkout info
+2026-03-21T16:57:30.8911200Z ##[endgroup]
+2026-03-21T16:57:30.8915798Z [command]/usr/bin/git sparse-checkout disable
+2026-03-21T16:57:30.8959252Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-03-21T16:57:30.8990936Z ##[group]Checking out the ref
+2026-03-21T16:57:30.8993458Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-03-21T16:57:31.4870568Z Switched to a new branch 'main'
+2026-03-21T16:57:31.4871682Z branch 'main' set up to track 'origin/main'.
+2026-03-21T16:57:31.4904964Z ##[endgroup]
+2026-03-21T16:57:31.4947479Z [command]/usr/bin/git log -1 --format=%H
+2026-03-21T16:57:31.4972982Z 9641e6ee505cc248f2eade2846e794bae2cad8c5
+2026-03-21T16:57:31.5169729Z ##[group]Run if grep -rn --include="*.rs" -E '^\s*unsafe\s' src/; then
+2026-03-21T16:57:31.5170700Z [36;1mif grep -rn --include="*.rs" -E '^\s*unsafe\s' src/; then[0m
+2026-03-21T16:57:31.5171490Z [36;1m  echo "::warning::發現 unsafe 程式碼，請確認是否必要並加上安全文件註解。"[0m
+2026-03-21T16:57:31.5172137Z [36;1melse[0m
+2026-03-21T16:57:31.5172610Z [36;1m  echo "✅ 未發現 unsafe 程式碼"[0m
+2026-03-21T16:57:31.5173425Z [36;1mfi[0m
+2026-03-21T16:57:31.5226992Z shell: /usr/bin/bash -e {0}
+2026-03-21T16:57:31.5227554Z env:
+2026-03-21T16:57:31.5228029Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:31.5228550Z   SQLX_OFFLINE: true
+2026-03-21T16:57:31.5229037Z ##[endgroup]
+2026-03-21T16:57:31.5384718Z ✅ 未發現 unsafe 程式碼
+2026-03-21T16:57:31.5499079Z Post job cleanup.
+2026-03-21T16:57:31.6302320Z [command]/usr/bin/git version
+2026-03-21T16:57:31.6339369Z git version 2.53.0
+2026-03-21T16:57:31.6410268Z Temporarily overriding HOME='/home/runner/work/_temp/620bd4d3-5554-4af2-a2fd-c471602f728d' before making global git config changes
+2026-03-21T16:57:31.6411547Z Adding repository directory to the temporary git global config as a safe directory
+2026-03-21T16:57:31.6416153Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ipig_system/ipig_system
+2026-03-21T16:57:31.6447031Z Removing SSH command configuration
+2026-03-21T16:57:31.6454117Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-03-21T16:57:31.6489788Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-03-21T16:57:31.6731625Z Removing HTTP extra header
+2026-03-21T16:57:31.6736540Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-03-21T16:57:31.6770908Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-03-21T16:57:31.7004027Z Removing includeIf entries pointing to credentials config files
+2026-03-21T16:57:31.7009386Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-03-21T16:57:31.7032595Z includeif.gitdir:/home/runner/work/ipig_system/ipig_system/.git.path
+2026-03-21T16:57:31.7034211Z includeif.gitdir:/home/runner/work/ipig_system/ipig_system/.git/worktrees/*.path
+2026-03-21T16:57:31.7035950Z includeif.gitdir:/github/workspace/.git.path
+2026-03-21T16:57:31.7037187Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-03-21T16:57:31.7043936Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/ipig_system/ipig_system/.git.path
+2026-03-21T16:57:31.7066430Z /home/runner/work/_temp/git-credentials-a3dea086-9a1e-42f6-8867-03a9776ac1a2.config
+2026-03-21T16:57:31.7076803Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/ipig_system/ipig_system/.git.path /home/runner/work/_temp/git-credentials-a3dea086-9a1e-42f6-8867-03a9776ac1a2.config
+2026-03-21T16:57:31.7110184Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/ipig_system/ipig_system/.git/worktrees/*.path
+2026-03-21T16:57:31.7133422Z /home/runner/work/_temp/git-credentials-a3dea086-9a1e-42f6-8867-03a9776ac1a2.config
+2026-03-21T16:57:31.7142570Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/ipig_system/ipig_system/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-a3dea086-9a1e-42f6-8867-03a9776ac1a2.config
+2026-03-21T16:57:31.7173754Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-03-21T16:57:31.7195215Z /github/runner_temp/git-credentials-a3dea086-9a1e-42f6-8867-03a9776ac1a2.config
+2026-03-21T16:57:31.7203336Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-a3dea086-9a1e-42f6-8867-03a9776ac1a2.config
+2026-03-21T16:57:31.7235782Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-03-21T16:57:31.7257176Z /github/runner_temp/git-credentials-a3dea086-9a1e-42f6-8867-03a9776ac1a2.config
+2026-03-21T16:57:31.7267253Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-a3dea086-9a1e-42f6-8867-03a9776ac1a2.config
+2026-03-21T16:57:31.7299831Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-03-21T16:57:31.7529063Z Removing credentials config '/home/runner/work/_temp/git-credentials-a3dea086-9a1e-42f6-8867-03a9776ac1a2.config'
+2026-03-21T16:57:31.7660824Z Cleaning up orphan processes

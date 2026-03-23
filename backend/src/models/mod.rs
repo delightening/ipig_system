@@ -20,6 +20,7 @@ pub mod user_preferences;
 mod treatment_drug;
 mod training;
 mod equipment;
+pub mod accounting;
 
 pub use user::*;
 pub use role::*;

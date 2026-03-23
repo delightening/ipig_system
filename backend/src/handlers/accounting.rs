@@ -12,11 +12,11 @@ use uuid::Uuid;
 
 use crate::{
     middleware::CurrentUser,
-    require_permission,
-    services::accounting::{
+    models::accounting::{
         ApAgingRow, ArAgingRow, ChartOfAccount, JournalEntryLineRow, JournalEntryRow,
         ProfitLossSummary, TrialBalanceRow,
     },
+    require_permission,
     services::AccountingService,
     time,
     AppState, Result,

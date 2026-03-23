@@ -10,6 +10,7 @@ export { signatureApi } from './signature'
 export type { SignRecordRequest, SignRecordResponse, SignatureInfo, SignatureStatusResponse } from './signature'
 export { treatmentDrugApi } from './treatmentDrug'
 export { facilityApi } from './facility'
+export { accountingApi, accountingKeys } from './accounting'
 export { getPoReceiptStatus, adminApproveDocument, adminRejectDocument } from './document'
 export type { PoReceiptItem, PoReceiptStatus } from './document'
 

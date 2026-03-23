@@ -1,0 +1,430 @@
+﻿2026-03-21T16:57:27.3229312Z Current runner version: '2.332.0'
+2026-03-21T16:57:27.3254677Z ##[group]Runner Image Provisioner
+2026-03-21T16:57:27.3255573Z Hosted Compute Agent
+2026-03-21T16:57:27.3256192Z Version: 20260213.493
+2026-03-21T16:57:27.3256755Z Commit: 5c115507f6dd24b8de37d8bbe0bb4509d0cc0fa3
+2026-03-21T16:57:27.3257492Z Build Date: 2026-02-13T00:28:41Z
+2026-03-21T16:57:27.3258134Z Worker ID: {a5031441-d00e-4ac6-b2cf-1ff2a45c8743}
+2026-03-21T16:57:27.3258823Z Azure Region: northcentralus
+2026-03-21T16:57:27.3259382Z ##[endgroup]
+2026-03-21T16:57:27.3261266Z ##[group]Operating System
+2026-03-21T16:57:27.3261845Z Ubuntu
+2026-03-21T16:57:27.3262298Z 24.04.3
+2026-03-21T16:57:27.3262853Z LTS
+2026-03-21T16:57:27.3263280Z ##[endgroup]
+2026-03-21T16:57:27.3263791Z ##[group]Runner Image
+2026-03-21T16:57:27.3264375Z Image: ubuntu-24.04
+2026-03-21T16:57:27.3264977Z Version: 20260309.50.1
+2026-03-21T16:57:27.3266210Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260309.50/images/ubuntu/Ubuntu2404-Readme.md
+2026-03-21T16:57:27.3267774Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260309.50
+2026-03-21T16:57:27.3268698Z ##[endgroup]
+2026-03-21T16:57:27.3269999Z ##[group]GITHUB_TOKEN Permissions
+2026-03-21T16:57:27.3271818Z Contents: read
+2026-03-21T16:57:27.3272411Z Metadata: read
+2026-03-21T16:57:27.3272960Z Packages: read
+2026-03-21T16:57:27.3273458Z ##[endgroup]
+2026-03-21T16:57:27.3275559Z Secret source: Actions
+2026-03-21T16:57:27.3276281Z Prepare workflow directory
+2026-03-21T16:57:27.3679527Z Prepare all required actions
+2026-03-21T16:57:27.3716884Z Getting action download info
+2026-03-21T16:57:27.7046123Z Download action repository 'actions/checkout@v6' (SHA:de0fac2e4500dabe0009e67214ff5f5447ce83dd)
+2026-03-21T16:57:27.8437264Z Download action repository 'dtolnay/rust-toolchain@stable' (SHA:631a55b12751854ce901bb631d5902ceb48146f7)
+2026-03-21T16:57:28.0755264Z Download action repository 'actions/cache@v5' (SHA:668228422ae6a00e4ad889ee87cd7109ec5666a7)
+2026-03-21T16:57:28.6555151Z Complete job name: 🔒 Security: cargo audit
+2026-03-21T16:57:28.7309052Z ##[group]Run actions/checkout@v6
+2026-03-21T16:57:28.7310184Z with:
+2026-03-21T16:57:28.7310660Z   repository: delightening/ipig_system
+2026-03-21T16:57:28.7311444Z   token: ***
+2026-03-21T16:57:28.7311875Z   ssh-strict: true
+2026-03-21T16:57:28.7312318Z   ssh-user: git
+2026-03-21T16:57:28.7312767Z   persist-credentials: true
+2026-03-21T16:57:28.7313257Z   clean: true
+2026-03-21T16:57:28.7313702Z   sparse-checkout-cone-mode: true
+2026-03-21T16:57:28.7314239Z   fetch-depth: 1
+2026-03-21T16:57:28.7314671Z   fetch-tags: false
+2026-03-21T16:57:28.7315120Z   show-progress: true
+2026-03-21T16:57:28.7315576Z   lfs: false
+2026-03-21T16:57:28.7315990Z   submodules: false
+2026-03-21T16:57:28.7316455Z   set-safe-directory: true
+2026-03-21T16:57:28.7317158Z env:
+2026-03-21T16:57:28.7317615Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:28.7318117Z   SQLX_OFFLINE: true
+2026-03-21T16:57:28.7318570Z ##[endgroup]
+2026-03-21T16:57:28.8285661Z Syncing repository: delightening/ipig_system
+2026-03-21T16:57:28.8287653Z ##[group]Getting Git version info
+2026-03-21T16:57:28.8288465Z Working directory is '/home/runner/work/ipig_system/ipig_system'
+2026-03-21T16:57:28.8289876Z [command]/usr/bin/git version
+2026-03-21T16:57:28.8338365Z git version 2.53.0
+2026-03-21T16:57:28.8393482Z ##[endgroup]
+2026-03-21T16:57:28.8407930Z Temporarily overriding HOME='/home/runner/work/_temp/26676f0a-8455-48c7-b5ea-aa8d3701fe09' before making global git config changes
+2026-03-21T16:57:28.8409488Z Adding repository directory to the temporary git global config as a safe directory
+2026-03-21T16:57:28.8413612Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ipig_system/ipig_system
+2026-03-21T16:57:28.8459446Z Deleting the contents of '/home/runner/work/ipig_system/ipig_system'
+2026-03-21T16:57:28.8464421Z ##[group]Initializing the repository
+2026-03-21T16:57:28.8470025Z [command]/usr/bin/git init /home/runner/work/ipig_system/ipig_system
+2026-03-21T16:57:28.8568100Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-03-21T16:57:28.8569263Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-03-21T16:57:28.8570549Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-03-21T16:57:28.8571812Z hint: call:
+2026-03-21T16:57:28.8572449Z hint:
+2026-03-21T16:57:28.8573034Z hint: 	git config --global init.defaultBranch <name>
+2026-03-21T16:57:28.8574217Z hint:
+2026-03-21T16:57:28.8575467Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-03-21T16:57:28.8577444Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-03-21T16:57:28.8579010Z hint:
+2026-03-21T16:57:28.8580133Z hint: 	git branch -m <name>
+2026-03-21T16:57:28.8581112Z hint:
+2026-03-21T16:57:28.8582427Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-03-21T16:57:28.8584609Z Initialized empty Git repository in /home/runner/work/ipig_system/ipig_system/.git/
+2026-03-21T16:57:28.8587997Z [command]/usr/bin/git remote add origin https://github.com/delightening/ipig_system
+2026-03-21T16:57:28.8622702Z ##[endgroup]
+2026-03-21T16:57:28.8624095Z ##[group]Disabling automatic garbage collection
+2026-03-21T16:57:28.8626754Z [command]/usr/bin/git config --local gc.auto 0
+2026-03-21T16:57:28.8657854Z ##[endgroup]
+2026-03-21T16:57:28.8659346Z ##[group]Setting up auth
+2026-03-21T16:57:28.8660637Z Removing SSH command configuration
+2026-03-21T16:57:28.8666398Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-03-21T16:57:28.8700005Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-03-21T16:57:28.9037716Z Removing HTTP extra header
+2026-03-21T16:57:28.9044351Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-03-21T16:57:28.9079893Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-03-21T16:57:28.9312014Z Removing includeIf entries pointing to credentials config files
+2026-03-21T16:57:28.9319073Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-03-21T16:57:28.9354516Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-03-21T16:57:28.9596122Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-8410a340-9c9d-45ed-aa56-72aef1581248.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-03-21T16:57:28.9635884Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/ipig_system/ipig_system/.git.path /home/runner/work/_temp/git-credentials-8410a340-9c9d-45ed-aa56-72aef1581248.config
+2026-03-21T16:57:28.9668275Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/ipig_system/ipig_system/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-8410a340-9c9d-45ed-aa56-72aef1581248.config
+2026-03-21T16:57:28.9702183Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-8410a340-9c9d-45ed-aa56-72aef1581248.config
+2026-03-21T16:57:28.9735821Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-8410a340-9c9d-45ed-aa56-72aef1581248.config
+2026-03-21T16:57:28.9764085Z ##[endgroup]
+2026-03-21T16:57:28.9765502Z ##[group]Fetching the repository
+2026-03-21T16:57:28.9775068Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +9641e6ee505cc248f2eade2846e794bae2cad8c5:refs/remotes/origin/main
+2026-03-21T16:57:30.7492815Z From https://github.com/delightening/ipig_system
+2026-03-21T16:57:30.7494886Z  * [new ref]         9641e6ee505cc248f2eade2846e794bae2cad8c5 -> origin/main
+2026-03-21T16:57:30.7535033Z [command]/usr/bin/git branch --list --remote origin/main
+2026-03-21T16:57:30.7570338Z   origin/main
+2026-03-21T16:57:30.7579024Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+2026-03-21T16:57:30.7605640Z 9641e6ee505cc248f2eade2846e794bae2cad8c5
+2026-03-21T16:57:30.7610983Z ##[endgroup]
+2026-03-21T16:57:30.7612357Z ##[group]Determining the checkout info
+2026-03-21T16:57:30.7613377Z ##[endgroup]
+2026-03-21T16:57:30.7616690Z [command]/usr/bin/git sparse-checkout disable
+2026-03-21T16:57:30.7656784Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-03-21T16:57:30.7685193Z ##[group]Checking out the ref
+2026-03-21T16:57:30.7690714Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-03-21T16:57:31.3665319Z Switched to a new branch 'main'
+2026-03-21T16:57:31.3666101Z branch 'main' set up to track 'origin/main'.
+2026-03-21T16:57:31.3700947Z ##[endgroup]
+2026-03-21T16:57:31.3750506Z [command]/usr/bin/git log -1 --format=%H
+2026-03-21T16:57:31.3778878Z 9641e6ee505cc248f2eade2846e794bae2cad8c5
+2026-03-21T16:57:31.4107919Z ##[group]Run dtolnay/rust-toolchain@stable
+2026-03-21T16:57:31.4108296Z with:
+2026-03-21T16:57:31.4108472Z   toolchain: stable
+2026-03-21T16:57:31.4108658Z env:
+2026-03-21T16:57:31.4108824Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:31.4109044Z   SQLX_OFFLINE: true
+2026-03-21T16:57:31.4109228Z ##[endgroup]
+2026-03-21T16:57:31.4226234Z ##[group]Run : parse toolchain version
+2026-03-21T16:57:31.4226624Z [36;1m: parse toolchain version[0m
+2026-03-21T16:57:31.4226891Z [36;1mif [[ -z $toolchain ]]; then[0m
+2026-03-21T16:57:31.4227426Z [36;1m  # GitHub does not enforce `required: true` inputs itself. https://github.com/actions/runner/issues/1070[0m
+2026-03-21T16:57:31.4228006Z [36;1m  echo "'toolchain' is a required input" >&2[0m
+2026-03-21T16:57:31.4228329Z [36;1m  exit 1[0m
+2026-03-21T16:57:31.4228692Z [36;1melif [[ $toolchain =~ ^stable' '[0-9]+' '(year|month|week|day)s?' 'ago$ ]]; then[0m
+2026-03-21T16:57:31.4229098Z [36;1m  if [[ Linux == macOS ]]; then[0m
+2026-03-21T16:57:31.4229809Z [36;1m    echo "toolchain=1.$((($(date -v-$(sed 's/stable \([0-9]*\) \(.\).*/\1\2/' <<< $toolchain) +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT[0m
+2026-03-21T16:57:31.4230315Z [36;1m  else[0m
+2026-03-21T16:57:31.4230696Z [36;1m    echo "toolchain=1.$((($(date --date "${toolchain#stable }" +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT[0m
+2026-03-21T16:57:31.4231125Z [36;1m  fi[0m
+2026-03-21T16:57:31.4231401Z [36;1melif [[ $toolchain =~ ^stable' 'minus' '[0-9]+' 'releases?$ ]]; then[0m
+2026-03-21T16:57:31.4231914Z [36;1m  echo "toolchain=1.$((($(date +%s)/60/60/24-16569)/7/6-${toolchain//[^0-9]/}))" >> $GITHUB_OUTPUT[0m
+2026-03-21T16:57:31.4232351Z [36;1melif [[ $toolchain =~ ^1\.[0-9]+$ ]]; then[0m
+2026-03-21T16:57:31.4232855Z [36;1m  echo "toolchain=1.$((i=${toolchain#1.}, c=($(date +%s)/60/60/24-16569)/7/6, i+9*i*(10*i<=c)+90*i*(100*i<=c)))" >> $GITHUB_OUTPUT[0m
+2026-03-21T16:57:31.4233342Z [36;1melse[0m
+2026-03-21T16:57:31.4233576Z [36;1m  echo "toolchain=$toolchain" >> $GITHUB_OUTPUT[0m
+2026-03-21T16:57:31.4233847Z [36;1mfi[0m
+2026-03-21T16:57:31.4290245Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:31.4290604Z env:
+2026-03-21T16:57:31.4290779Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:31.4291005Z   SQLX_OFFLINE: true
+2026-03-21T16:57:31.4291197Z   toolchain: stable
+2026-03-21T16:57:31.4291380Z ##[endgroup]
+2026-03-21T16:57:31.4538270Z ##[group]Run : construct rustup command line
+2026-03-21T16:57:31.4538621Z [36;1m: construct rustup command line[0m
+2026-03-21T16:57:31.4539067Z [36;1mecho "targets=$(for t in ${targets//,/ }; do echo -n ' --target' $t; done)" >> $GITHUB_OUTPUT[0m
+2026-03-21T16:57:31.4540057Z [36;1mecho "components=$(for c in ${components//,/ }; do echo -n ' --component' $c; done)" >> $GITHUB_OUTPUT[0m
+2026-03-21T16:57:31.4540804Z [36;1mecho "downgrade=" >> $GITHUB_OUTPUT[0m
+2026-03-21T16:57:31.4593816Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:31.4594158Z env:
+2026-03-21T16:57:31.4594347Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:31.4594570Z   SQLX_OFFLINE: true
+2026-03-21T16:57:31.4594756Z   targets: 
+2026-03-21T16:57:31.4594927Z   components: 
+2026-03-21T16:57:31.4595103Z ##[endgroup]
+2026-03-21T16:57:31.4706223Z ##[group]Run : set $CARGO_HOME
+2026-03-21T16:57:31.4706490Z [36;1m: set $CARGO_HOME[0m
+2026-03-21T16:57:31.4706794Z [36;1mecho CARGO_HOME=${CARGO_HOME:-"$HOME/.cargo"} >> $GITHUB_ENV[0m
+2026-03-21T16:57:31.4759371Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:31.4759925Z env:
+2026-03-21T16:57:31.4760122Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:31.4760361Z   SQLX_OFFLINE: true
+2026-03-21T16:57:31.4760565Z ##[endgroup]
+2026-03-21T16:57:31.4868784Z ##[group]Run : install rustup if needed
+2026-03-21T16:57:31.4869083Z [36;1m: install rustup if needed[0m
+2026-03-21T16:57:31.4869373Z [36;1mif ! command -v rustup &>/dev/null; then[0m
+2026-03-21T16:57:31.4870636Z [36;1m  curl --proto '=https' --tlsv1.2 --retry 10 --retry-connrefused --location --silent --show-error --fail https://sh.rustup.rs | sh -s -- --default-toolchain none -y[0m
+2026-03-21T16:57:31.4871423Z [36;1m  echo "$CARGO_HOME/bin" >> $GITHUB_PATH[0m
+2026-03-21T16:57:31.4871685Z [36;1mfi[0m
+2026-03-21T16:57:31.4923448Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:31.4923807Z env:
+2026-03-21T16:57:31.4924017Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:31.4924291Z   SQLX_OFFLINE: true
+2026-03-21T16:57:31.4924517Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:57:31.4924761Z ##[endgroup]
+2026-03-21T16:57:31.5031803Z ##[group]Run rustup toolchain install stable --profile minimal --no-self-update
+2026-03-21T16:57:31.5032348Z [36;1mrustup toolchain install stable --profile minimal --no-self-update[0m
+2026-03-21T16:57:31.5083788Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:31.5084174Z env:
+2026-03-21T16:57:31.5084361Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:31.5084595Z   SQLX_OFFLINE: true
+2026-03-21T16:57:31.5084820Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:57:31.5085086Z   RUSTUP_PERMIT_COPY_RENAME: 1
+2026-03-21T16:57:31.5085338Z ##[endgroup]
+2026-03-21T16:57:31.7297792Z info: syncing channel updates for 'stable-x86_64-unknown-linux-gnu'
+2026-03-21T16:57:31.8280470Z 
+2026-03-21T16:57:31.8385261Z   stable-x86_64-unknown-linux-gnu unchanged - rustc 1.94.0 (4a4ef493e 2026-03-02)
+2026-03-21T16:57:31.8385959Z 
+2026-03-21T16:57:31.8442046Z ##[group]Run rustup default stable
+2026-03-21T16:57:31.8442530Z [36;1mrustup default stable[0m
+2026-03-21T16:57:31.8519115Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:31.8519950Z env:
+2026-03-21T16:57:31.8520258Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:31.8520635Z   SQLX_OFFLINE: true
+2026-03-21T16:57:31.8520993Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:57:31.8521408Z ##[endgroup]
+2026-03-21T16:57:31.8655839Z info: using existing install for 'stable-x86_64-unknown-linux-gnu'
+2026-03-21T16:57:31.8971240Z info: default toolchain set to 'stable-x86_64-unknown-linux-gnu'
+2026-03-21T16:57:31.8971800Z 
+2026-03-21T16:57:31.9065817Z   stable-x86_64-unknown-linux-gnu unchanged - rustc 1.94.0 (4a4ef493e 2026-03-02)
+2026-03-21T16:57:31.9066817Z 
+2026-03-21T16:57:31.9114066Z ##[group]Run : create cachekey
+2026-03-21T16:57:31.9114350Z [36;1m: create cachekey[0m
+2026-03-21T16:57:31.9114856Z [36;1mDATE=$(rustc +stable --version --verbose | sed -ne 's/^commit-date: \(20[0-9][0-9]\)-\([01][0-9]\)-\([0-3][0-9]\)$/\1\2\3/p')[0m
+2026-03-21T16:57:31.9115549Z [36;1mHASH=$(rustc +stable --version --verbose | sed -ne 's/^commit-hash: //p')[0m
+2026-03-21T16:57:31.9116051Z [36;1mecho "cachekey=$(echo $DATE$HASH | head -c12)" >> $GITHUB_OUTPUT[0m
+2026-03-21T16:57:31.9169335Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:31.9169927Z env:
+2026-03-21T16:57:31.9170303Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:31.9170522Z   SQLX_OFFLINE: true
+2026-03-21T16:57:31.9170739Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:57:31.9170978Z ##[endgroup]
+2026-03-21T16:57:31.9642007Z ##[group]Run : disable incremental compilation
+2026-03-21T16:57:31.9642354Z [36;1m: disable incremental compilation[0m
+2026-03-21T16:57:31.9642655Z [36;1mif [ -z "${CARGO_INCREMENTAL+set}" ]; then[0m
+2026-03-21T16:57:31.9642972Z [36;1m  echo CARGO_INCREMENTAL=0 >> $GITHUB_ENV[0m
+2026-03-21T16:57:31.9643244Z [36;1mfi[0m
+2026-03-21T16:57:31.9692712Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:31.9693048Z env:
+2026-03-21T16:57:31.9693221Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:31.9693449Z   SQLX_OFFLINE: true
+2026-03-21T16:57:31.9693651Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:57:31.9693887Z ##[endgroup]
+2026-03-21T16:57:31.9779483Z ##[group]Run : enable colors in Cargo output
+2026-03-21T16:57:31.9780141Z [36;1m: enable colors in Cargo output[0m
+2026-03-21T16:57:31.9780503Z [36;1mif [ -z "${CARGO_TERM_COLOR+set}" ]; then[0m
+2026-03-21T16:57:31.9780899Z [36;1m  echo CARGO_TERM_COLOR=always >> $GITHUB_ENV[0m
+2026-03-21T16:57:31.9781382Z [36;1mfi[0m
+2026-03-21T16:57:31.9824594Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:31.9824920Z env:
+2026-03-21T16:57:31.9825091Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:31.9825307Z   SQLX_OFFLINE: true
+2026-03-21T16:57:31.9825506Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:57:31.9825743Z   CARGO_INCREMENTAL: 0
+2026-03-21T16:57:31.9825936Z ##[endgroup]
+2026-03-21T16:57:31.9908663Z ##[group]Run : enable Cargo sparse registry
+2026-03-21T16:57:31.9908994Z [36;1m: enable Cargo sparse registry[0m
+2026-03-21T16:57:31.9909376Z [36;1m# implemented in 1.66, stabilized in 1.68, made default in 1.70[0m
+2026-03-21T16:57:31.9910405Z [36;1mif [ -z "${CARGO_REGISTRIES_CRATES_IO_PROTOCOL+set}" -o -f "/home/runner/work/_temp"/.implicit_cargo_registries_crates_io_protocol ]; then[0m
+2026-03-21T16:57:31.9911236Z [36;1m  if rustc +stable --version --verbose | grep -q '^release: 1\.6[89]\.'; then[0m
+2026-03-21T16:57:31.9911804Z [36;1m    touch "/home/runner/work/_temp"/.implicit_cargo_registries_crates_io_protocol || true[0m
+2026-03-21T16:57:31.9912344Z [36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse >> $GITHUB_ENV[0m
+2026-03-21T16:57:31.9912822Z [36;1m  elif rustc +stable --version --verbose | grep -q '^release: 1\.6[67]\.'; then[0m
+2026-03-21T16:57:31.9913364Z [36;1m    touch "/home/runner/work/_temp"/.implicit_cargo_registries_crates_io_protocol || true[0m
+2026-03-21T16:57:31.9913860Z [36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=git >> $GITHUB_ENV[0m
+2026-03-21T16:57:31.9914177Z [36;1m  fi[0m
+2026-03-21T16:57:31.9914348Z [36;1mfi[0m
+2026-03-21T16:57:31.9957406Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:31.9957718Z env:
+2026-03-21T16:57:31.9957891Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:31.9958097Z   SQLX_OFFLINE: true
+2026-03-21T16:57:31.9958306Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:57:31.9958528Z   CARGO_INCREMENTAL: 0
+2026-03-21T16:57:31.9958718Z ##[endgroup]
+2026-03-21T16:57:32.0346915Z ##[group]Run : work around spurious network errors in curl 8.0
+2026-03-21T16:57:32.0347350Z [36;1m: work around spurious network errors in curl 8.0[0m
+2026-03-21T16:57:32.0347900Z [36;1m# https://rust-lang.zulipchat.com/#narrow/stream/246057-t-cargo/topic/timeout.20investigation[0m
+2026-03-21T16:57:32.0348538Z [36;1mif rustc +stable --version --verbose | grep -q '^release: 1\.7[01]\.'; then[0m
+2026-03-21T16:57:32.0348994Z [36;1m  echo CARGO_HTTP_MULTIPLEXING=false >> $GITHUB_ENV[0m
+2026-03-21T16:57:32.0349289Z [36;1mfi[0m
+2026-03-21T16:57:32.0397806Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:32.0398136Z env:
+2026-03-21T16:57:32.0398307Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:32.0398524Z   SQLX_OFFLINE: true
+2026-03-21T16:57:32.0398723Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:57:32.0399125Z   CARGO_INCREMENTAL: 0
+2026-03-21T16:57:32.0399312Z ##[endgroup]
+2026-03-21T16:57:32.0642363Z ##[group]Run rustc +stable --version --verbose
+2026-03-21T16:57:32.0642746Z [36;1mrustc +stable --version --verbose[0m
+2026-03-21T16:57:32.0691302Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-03-21T16:57:32.0691672Z env:
+2026-03-21T16:57:32.0691875Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:32.0692122Z   SQLX_OFFLINE: true
+2026-03-21T16:57:32.0692357Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:57:32.0692628Z   CARGO_INCREMENTAL: 0
+2026-03-21T16:57:32.0692846Z ##[endgroup]
+2026-03-21T16:57:32.0894330Z rustc 1.94.0 (4a4ef493e 2026-03-02)
+2026-03-21T16:57:32.0895082Z binary: rustc
+2026-03-21T16:57:32.0895653Z commit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db
+2026-03-21T16:57:32.0896244Z commit-date: 2026-03-02
+2026-03-21T16:57:32.0896618Z host: x86_64-unknown-linux-gnu
+2026-03-21T16:57:32.0896945Z release: 1.94.0
+2026-03-21T16:57:32.0897186Z LLVM version: 21.1.8
+2026-03-21T16:57:32.1025687Z ##[group]Run actions/cache@v5
+2026-03-21T16:57:32.1025931Z with:
+2026-03-21T16:57:32.1026102Z   path: ~/.cargo/bin/
+2026-03-21T16:57:32.1026306Z   key: Linux-cargo-audit-bin
+2026-03-21T16:57:32.1026535Z   enableCrossOsArchive: false
+2026-03-21T16:57:32.1026757Z   fail-on-cache-miss: false
+2026-03-21T16:57:32.1026968Z   lookup-only: false
+2026-03-21T16:57:32.1027154Z   save-always: false
+2026-03-21T16:57:32.1027330Z env:
+2026-03-21T16:57:32.1027486Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:32.1027691Z   SQLX_OFFLINE: true
+2026-03-21T16:57:32.1027876Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:57:32.1028106Z   CARGO_INCREMENTAL: 0
+2026-03-21T16:57:32.1028293Z ##[endgroup]
+2026-03-21T16:57:32.3123974Z Cache hit for: Linux-cargo-audit-bin
+2026-03-21T16:57:32.8100016Z Received 14836587 of 14836587 (100.0%), 35.9 MBs/sec
+2026-03-21T16:57:32.8100636Z Cache Size: ~14 MB (14836587 B)
+2026-03-21T16:57:32.8133497Z [command]/usr/bin/tar -xf /home/runner/work/_temp/a22247ac-aa0f-4c69-a275-c554de470552/cache.tzst -P -C /home/runner/work/ipig_system/ipig_system --use-compress-program unzstd
+2026-03-21T16:57:32.8962618Z Cache restored successfully
+2026-03-21T16:57:32.9068155Z Cache restored from key: Linux-cargo-audit-bin
+2026-03-21T16:57:32.9169385Z ##[group]Run cargo install cargo-audit --locked 2>/dev/null || true
+2026-03-21T16:57:32.9170285Z [36;1mcargo install cargo-audit --locked 2>/dev/null || true[0m
+2026-03-21T16:57:32.9219179Z shell: /usr/bin/bash -e {0}
+2026-03-21T16:57:32.9219401Z env:
+2026-03-21T16:57:32.9219574Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:32.9220014Z   SQLX_OFFLINE: true
+2026-03-21T16:57:32.9220215Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:57:32.9220451Z   CARGO_INCREMENTAL: 0
+2026-03-21T16:57:32.9220645Z ##[endgroup]
+2026-03-21T16:57:33.1656794Z ##[group]Run cargo update
+2026-03-21T16:57:33.1657261Z [36;1mcargo update[0m
+2026-03-21T16:57:33.1725815Z shell: /usr/bin/bash -e {0}
+2026-03-21T16:57:33.1726202Z env:
+2026-03-21T16:57:33.1726515Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:33.1726900Z   SQLX_OFFLINE: true
+2026-03-21T16:57:33.1727257Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:57:33.1727677Z   CARGO_INCREMENTAL: 0
+2026-03-21T16:57:33.1728016Z ##[endgroup]
+2026-03-21T16:57:33.2472787Z [1m[92m    Updating[0m crates.io index
+2026-03-21T16:57:34.1730768Z [1m[92m     Locking[0m 50 packages to latest compatible versions
+2026-03-21T16:57:34.1779303Z [1m[92m    Updating[0m borsh v1.6.0 -> v1.6.1
+2026-03-21T16:57:34.1780937Z [1m[92m    Updating[0m borsh-derive v1.6.0 -> v1.6.1
+2026-03-21T16:57:34.1794460Z [1m[92m    Updating[0m cc v1.2.56 -> v1.2.57
+2026-03-21T16:57:34.1819302Z [1m[33m Downgrading[0m crypto-common v0.1.7 -> v0.1.6 [1m[33m(available: v0.1.7)[0m
+2026-03-21T16:57:34.1914202Z [1m[92m    Updating[0m generic-array v0.14.7 -> v0.14.9
+2026-03-21T16:57:34.1917559Z [1m[92m    Updating[0m getrandom v0.4.1 -> v0.4.2
+2026-03-21T16:57:34.1975786Z [1m[92m    Updating[0m image v0.25.9 -> v0.25.10
+2026-03-21T16:57:34.1980849Z [1m[92m    Updating[0m ipnet v2.11.0 -> v2.12.0
+2026-03-21T16:57:34.1982514Z [1m[92m    Updating[0m itoa v1.0.17 -> v1.0.18
+2026-03-21T16:57:34.1985432Z [1m[92m    Updating[0m js-sys v0.3.88 -> v0.3.91
+2026-03-21T16:57:34.1997700Z [1m[92m    Updating[0m libc v0.2.182 -> v0.2.183
+2026-03-21T16:57:34.1998560Z [1m[92m    Updating[0m libredox v0.1.12 -> v0.1.14
+2026-03-21T16:57:34.2025574Z [1m[92m    Updating[0m moxcms v0.7.11 -> v0.8.1
+2026-03-21T16:57:34.2039010Z [1m[92m    Updating[0m once_cell v1.21.3 -> v1.21.4
+2026-03-21T16:57:34.2043456Z [1m[92m    Updating[0m openssl v0.10.75 -> v0.10.76
+2026-03-21T16:57:34.2052220Z [1m[92m    Updating[0m openssl-sys v0.9.111 -> v0.9.112
+2026-03-21T16:57:34.2073773Z [1m[92m    Updating[0m pin-project-lite v0.2.16 -> v0.2.17
+2026-03-21T16:57:34.2076646Z [1m[92m      Adding[0m plain v0.2.3
+2026-03-21T16:57:34.2086616Z [1m[92m    Updating[0m proc-macro-crate v3.4.0 -> v3.5.0
+2026-03-21T16:57:34.2094759Z [1m[92m    Updating[0m pxfm v0.1.27 -> v0.1.28
+2026-03-21T16:57:34.2105016Z [1m[92m    Updating[0m quinn-proto v0.11.13 -> v0.11.14
+2026-03-21T16:57:34.2108091Z [1m[92m    Updating[0m quote v1.0.44 -> v1.0.45
+2026-03-21T16:57:34.2108826Z [1m[92m      Adding[0m r-efi v6.0.0
+2026-03-21T16:57:34.2120575Z [1m[92m    Updating[0m redox_syscall v0.7.1 -> v0.7.3
+2026-03-21T16:57:34.2132124Z [1m[92m    Updating[0m regex-syntax v0.8.9 -> v0.8.10
+2026-03-21T16:57:34.2259193Z [1m[92m    Updating[0m rustls v0.23.36 -> v0.23.37
+2026-03-21T16:57:34.2263455Z [1m[92m    Updating[0m rustls-webpki v0.103.9 -> v0.103.10
+2026-03-21T16:57:34.2267819Z [1m[92m    Updating[0m schannel v0.1.28 -> v0.1.29
+2026-03-21T16:57:34.2298702Z [1m[92m    Updating[0m sketches-ddsketch v0.3.0 -> v0.3.1
+2026-03-21T16:57:34.2301211Z [1m[92m    Updating[0m socket2 v0.6.2 -> v0.6.3
+2026-03-21T16:57:34.2351694Z [1m[92m    Updating[0m tempfile v3.25.0 -> v3.27.0
+2026-03-21T16:57:34.2370460Z [1m[92m    Updating[0m tinyvec v1.10.0 -> v1.11.0
+2026-03-21T16:57:34.2382525Z [1m[92m    Updating[0m tokio v1.49.0 -> v1.50.0
+2026-03-21T16:57:34.2394565Z [1m[92m    Updating[0m tokio-macros v2.6.0 -> v2.6.1
+2026-03-21T16:57:34.2400964Z [1m[92m    Updating[0m toml_datetime v0.7.5+spec-1.1.0 -> v1.0.1+spec-1.1.0
+2026-03-21T16:57:34.2405201Z [1m[92m    Updating[0m toml_edit v0.23.10+spec-1.0.0 -> v0.25.5+spec-1.1.0
+2026-03-21T16:57:34.2407058Z [1m[92m    Updating[0m toml_parser v1.0.9+spec-1.1.0 -> v1.0.10+spec-1.1.0
+2026-03-21T16:57:34.2408110Z [1m[92m    Updating[0m totp-rs v5.7.0 -> v5.7.1
+2026-03-21T16:57:34.2421622Z [1m[92m    Updating[0m tracing-subscriber v0.3.22 -> v0.3.23
+2026-03-21T16:57:34.2439581Z [1m[92m    Updating[0m uuid v1.21.0 -> v1.22.0
+2026-03-21T16:57:34.2449535Z [1m[92m    Updating[0m wasm-bindgen v0.2.111 -> v0.2.114
+2026-03-21T16:57:34.2453526Z [1m[92m    Updating[0m wasm-bindgen-futures v0.4.61 -> v0.4.64
+2026-03-21T16:57:34.2457271Z [1m[92m    Updating[0m wasm-bindgen-macro v0.2.111 -> v0.2.114
+2026-03-21T16:57:34.2460343Z [1m[92m    Updating[0m wasm-bindgen-macro-support v0.2.111 -> v0.2.114
+2026-03-21T16:57:34.2462470Z [1m[92m    Updating[0m wasm-bindgen-shared v0.2.111 -> v0.2.114
+2026-03-21T16:57:34.2479040Z [1m[92m    Updating[0m web-sys v0.3.88 -> v0.3.91
+2026-03-21T16:57:34.2497489Z [1m[92m    Updating[0m winnow v0.7.14 -> v1.0.0
+2026-03-21T16:57:34.2522249Z [1m[92m    Updating[0m zerocopy v0.8.39 -> v0.8.47
+2026-03-21T16:57:34.2527345Z [1m[92m    Updating[0m zerocopy-derive v0.8.39 -> v0.8.47
+2026-03-21T16:57:34.2540755Z [1m[92m    Updating[0m zlib-rs v0.6.2 -> v0.6.3
+2026-03-21T16:57:34.2704269Z [1m[92mnote[0m: pass `--verbose` to see 12 unchanged dependencies behind latest
+2026-03-21T16:57:34.3381502Z ##[group]Run cargo audit --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2024-0370
+2026-03-21T16:57:34.3382060Z [36;1mcargo audit --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2024-0370[0m
+2026-03-21T16:57:34.3430701Z shell: /usr/bin/bash -e {0}
+2026-03-21T16:57:34.3431103Z env:
+2026-03-21T16:57:34.3431284Z   CARGO_TERM_COLOR: always
+2026-03-21T16:57:34.3431509Z   SQLX_OFFLINE: true
+2026-03-21T16:57:34.3431711Z   CARGO_HOME: /home/runner/.cargo
+2026-03-21T16:57:34.3431952Z   CARGO_INCREMENTAL: 0
+2026-03-21T16:57:34.3432156Z ##[endgroup]
+2026-03-21T16:57:34.4003388Z [0m[0m[1m[32m    Fetching[0m advisory database from `https://github.com/RustSec/advisory-db.git`
+2026-03-21T16:57:37.1828890Z [0m[0m[1m[32m      Loaded[0m 982 security advisories (from /home/runner/.cargo/advisory-db)
+2026-03-21T16:57:37.1830164Z [0m[0m[1m[32m    Updating[0m crates.io index
+2026-03-21T16:57:37.2027755Z [0m[0m[1m[32m    Scanning[0m Cargo.lock for vulnerabilities (532 crate dependencies)
+2026-03-21T16:57:37.5060171Z Post job cleanup.
+2026-03-21T16:57:37.6276819Z Cache hit occurred on the primary key Linux-cargo-audit-bin, not saving cache.
+2026-03-21T16:57:37.6402857Z Post job cleanup.
+2026-03-21T16:57:37.7203343Z [command]/usr/bin/git version
+2026-03-21T16:57:37.7240965Z git version 2.53.0
+2026-03-21T16:57:37.7315317Z Temporarily overriding HOME='/home/runner/work/_temp/1f623a64-8193-4172-9d47-b8e85440f336' before making global git config changes
+2026-03-21T16:57:37.7316662Z Adding repository directory to the temporary git global config as a safe directory
+2026-03-21T16:57:37.7321772Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ipig_system/ipig_system
+2026-03-21T16:57:37.7355206Z Removing SSH command configuration
+2026-03-21T16:57:37.7361985Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-03-21T16:57:37.7400041Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-03-21T16:57:37.7647198Z Removing HTTP extra header
+2026-03-21T16:57:37.7652233Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-03-21T16:57:37.7688983Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-03-21T16:57:37.7924905Z Removing includeIf entries pointing to credentials config files
+2026-03-21T16:57:37.7931698Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-03-21T16:57:37.7956257Z includeif.gitdir:/home/runner/work/ipig_system/ipig_system/.git.path
+2026-03-21T16:57:37.7957086Z includeif.gitdir:/home/runner/work/ipig_system/ipig_system/.git/worktrees/*.path
+2026-03-21T16:57:37.7957568Z includeif.gitdir:/github/workspace/.git.path
+2026-03-21T16:57:37.7958031Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-03-21T16:57:37.7967969Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/ipig_system/ipig_system/.git.path
+2026-03-21T16:57:37.7991739Z /home/runner/work/_temp/git-credentials-8410a340-9c9d-45ed-aa56-72aef1581248.config
+2026-03-21T16:57:37.8002297Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/ipig_system/ipig_system/.git.path /home/runner/work/_temp/git-credentials-8410a340-9c9d-45ed-aa56-72aef1581248.config
+2026-03-21T16:57:37.8037342Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/ipig_system/ipig_system/.git/worktrees/*.path
+2026-03-21T16:57:37.8060962Z /home/runner/work/_temp/git-credentials-8410a340-9c9d-45ed-aa56-72aef1581248.config
+2026-03-21T16:57:37.8070859Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/ipig_system/ipig_system/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-8410a340-9c9d-45ed-aa56-72aef1581248.config
+2026-03-21T16:57:37.8104054Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-03-21T16:57:37.8126887Z /github/runner_temp/git-credentials-8410a340-9c9d-45ed-aa56-72aef1581248.config
+2026-03-21T16:57:37.8136410Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-8410a340-9c9d-45ed-aa56-72aef1581248.config
+2026-03-21T16:57:37.8169541Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-03-21T16:57:37.8192316Z /github/runner_temp/git-credentials-8410a340-9c9d-45ed-aa56-72aef1581248.config
+2026-03-21T16:57:37.8203064Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-8410a340-9c9d-45ed-aa56-72aef1581248.config
+2026-03-21T16:57:37.8237501Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-03-21T16:57:37.8483720Z Removing credentials config '/home/runner/work/_temp/git-credentials-8410a340-9c9d-45ed-aa56-72aef1581248.config'
+2026-03-21T16:57:37.8654959Z Cleaning up orphan processes

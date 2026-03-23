@@ -37,17 +37,17 @@ services:
       HOST: 0.0.0.0
       PORT: 8080
       DATABASE_URL: postgres://postgres:password@db-test:5432/ipig_db_test
-      JWT_SECRET: ci_test_secret_key_fixed_for_ci_only
+      JWT_SECRET: ${CI_JWT_SECRET:-ci_test_jwt_secret_for_local_only}
       JWT_EXPIRATION_MINUTES: 60
       SEED_DEV_USERS: "true"                              # 重要：CI 測試需要預設帳號
-      DEV_USER_PASSWORD: "ci_test_dev_password_2024"        # E2E 測試需要已知密碼
-      ADMIN_INITIAL_PASSWORD: "ci_test_admin_password_2024" # E2E 測試管理員密碼
+      DEV_USER_PASSWORD: "${CI_DEV_PASSWORD:-ci_test_dev_password_for_local}"        # E2E 測試需要已知密碼
+      ADMIN_INITIAL_PASSWORD: "${CI_ADMIN_PASSWORD:-ci_test_admin_password_for_local}" # E2E 測試管理員密碼
       CI: "true"                                            # seed.rs 用此判斷是否跳過強制改密
       DISABLE_ACCOUNT_LOCKOUT: "true"                       # 與 CI backend-test 一致，避免登入失敗累積導致鎖定
       COOKIE_SECURE: "false"                                # CI 中通常不使用 HTTPS
       CORS_ALLOWED_ORIGINS: "http://localhost:8080"         # Playwright E2E 測試使用
       # 抑制「啟動配置警告」對話框，避免 E2E 測試被擋住
-      TEST_USER_PASSWORD: "ci_test_dev_password_2024"       # config_check 檢查用（與 DEV_USER_PASSWORD 同值）
+      TEST_USER_PASSWORD: "${CI_DEV_PASSWORD:-ci_test_dev_password_for_local}"       # config_check 檢查用（與 DEV_USER_PASSWORD 同值）
       ALLOWED_CLOCK_IP_RANGES: "127.0.0.0/8"                # 地理圍籬：CI 用 localhost 通過
       CLOCK_OFFICE_LATITUDE: "24.654063"                    # GPS 座標（與 IP 併用可消除警告）
       CLOCK_OFFICE_LONGITUDE: "120.784917"

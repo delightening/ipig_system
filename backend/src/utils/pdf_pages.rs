@@ -65,12 +65,10 @@ fn extract_page_text(doc: &Document, page_id: lopdf::ObjectId) -> String {
                 }
             }
             "TJ" => {
-                if let Ok(arr) = operation.operands.first().map(|o| o.as_array()).transpose() {
-                    if let Some(arr) = arr {
-                        for item in arr {
-                            if let Ok(s) = item.as_string() {
-                                text.push_str(&String::from_utf8_lossy(s.as_bytes()));
-                            }
+                if let Ok(Some(arr)) = operation.operands.first().map(|o| o.as_array()).transpose() {
+                    for item in arr {
+                        if let Ok(s) = item.as_string() {
+                            text.push_str(&String::from_utf8_lossy(s.as_bytes()));
                         }
                     }
                 }

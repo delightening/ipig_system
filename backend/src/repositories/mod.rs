@@ -8,4 +8,5 @@ pub mod role;
 pub mod sku;
 pub mod user;
 pub mod user_preference;
+pub mod accounting;
 pub mod warehouse;

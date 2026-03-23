@@ -35,7 +35,13 @@
       "Bash(sqlx database reset --help:*)",
       "Bash(choco install:*)",
       "Bash(cargo clippy:*)",
-      "Bash(cargo doc:*)"
+      "Bash(cargo doc:*)",
+      "Bash(npm run:*)",
+      "WebSearch",
+      "WebFetch(domain:instances.vantage.sh)",
+      "WebFetch(domain:docs.rs)",
+      "Bash(cargo test:*)",
+      "Bash(grep:*)"
     ]
   }
 }

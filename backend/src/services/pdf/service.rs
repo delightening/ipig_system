@@ -62,14 +62,9 @@ impl PdfService {
         }
     }
 
-    /// 初始化 PDF 文件並載入字型
+    /// 初始化 PDF 文件並載入字型 (printpdf 0.9)
     fn init_pdf_context(title: &str) -> Result<PdfContext> {
-        let (doc, page1, layer1) = PdfDocument::new(
-            title,
-            Mm(PAGE_WIDTH_MM),
-            Mm(PAGE_HEIGHT_MM),
-            "Page 1",
-        );
+        let mut doc = PdfDocument::new(title);
 
         let font_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("resources/fonts/NotoSansSC-Regular.ttf");
@@ -82,32 +77,22 @@ impl PdfService {
         let font_bytes = std::fs::read(&font_path)
             .map_err(|e| AppError::Internal(format!("Failed to read font file: {}", e)))?;
 
-        let font = doc
-            .add_external_font(&*font_bytes)
-            .map_err(|e| AppError::Internal(format!("Failed to load font: {}", e)))?;
+        let mut warnings = Vec::new();
+        let parsed_font = ParsedFont::from_bytes(&font_bytes, 0, &mut warnings)
+            .ok_or_else(|| AppError::Internal("Failed to parse font".to_string()))?;
 
-        let initial_layer = doc.get_page(page1).get_layer(layer1);
-        Ok(PdfContext::new(doc, font, initial_layer))
+        let font_id = doc.add_font(&parsed_font);
+        let font_handle = PdfFontHandle::External(font_id);
+
+        Ok(PdfContext::new(doc, font_handle))
     }
 
     /// 渲染 PDF 標題區塊
     fn render_protocol_title(ctx: &mut PdfContext, title: &str) {
-        ctx.current_layer.use_text(
-            "AUP 動物試驗計畫書",
-            24.0,
-            Mm(PAGE_WIDTH_MM / 2.0 - 40.0),
-            Mm(ctx.y_position),
-            &ctx.font,
-        );
+        ctx.push_text("AUP 動物試驗計畫書", 24.0, PAGE_WIDTH_MM / 2.0 - 40.0, ctx.y_position);
         ctx.y_position -= 12.0;
 
-        ctx.current_layer.use_text(
-            title,
-            14.0,
-            Mm(MARGIN_MM),
-            Mm(ctx.y_position),
-            &ctx.font,
-        );
+        ctx.push_text(title, 14.0, MARGIN_MM, ctx.y_position);
         ctx.y_position -= SECTION_SPACING_MM * 2.0;
     }
 
@@ -624,20 +609,13 @@ impl PdfService {
         ctx.add_section_spacing();
     }
 
-    /// 渲染頁尾並輸出 PDF bytes
-    fn render_footer_and_save(ctx: PdfContext) -> Result<Vec<u8>> {
+    /// 渲染頁尾並輸出 PDF bytes (printpdf 0.9)
+    fn render_footer_and_save(mut ctx: PdfContext) -> Result<Vec<u8>> {
         let today = time::now_taiwan().format("%Y-%m-%d").to_string();
-        ctx.current_layer.use_text(
-            format!("生成日期: {} | 頁 {} ", today, ctx.page_number),
-            8.0,
-            Mm(MARGIN_MM),
-            Mm(MARGIN_MM),
-            &ctx.font,
-        );
+        let footer = format!("生成日期: {} | 頁 {} ", today, ctx.page_number);
+        ctx.push_text(&footer, 8.0, MARGIN_MM, MARGIN_MM);
 
-        ctx.doc
-            .save_to_bytes()
-            .map_err(|e| AppError::Internal(format!("Failed to generate PDF: {}", e)))
+        Ok(ctx.save())
     }
 
     /// 渲染 protocol 各章節內容
@@ -688,13 +666,7 @@ impl PdfService {
         let mut ctx = Self::init_pdf_context("Animal Medical Record")?;
 
         // ========== 標題 ==========
-        ctx.current_layer.use_text(
-            "動物病歷紀錄總表",
-            20.0,
-            Mm(PAGE_WIDTH_MM / 2.0 - 40.0),
-            Mm(ctx.y_position),
-            &ctx.font,
-        );
+        ctx.push_text("動物病歷紀錄總表", 20.0, PAGE_WIDTH_MM / 2.0 - 40.0, ctx.y_position);
         ctx.y_position -= SECTION_SPACING_MM * 2.0;
 
         // 使用共用渲染方法
@@ -849,13 +821,8 @@ impl PdfService {
         let mut ctx = Self::init_pdf_context(&format!("Project Medical Export - {}", iacuc_no))?;
 
         // ========== 封面標題 ==========
-        ctx.current_layer.use_text(
-            format!("計畫病歷匯出總表 - {}", iacuc_no),
-            20.0,
-            Mm(MARGIN_MM),
-            Mm(ctx.y_position),
-            &ctx.font,
-        );
+        let title = format!("計畫病歷匯出總表 - {}", iacuc_no);
+        ctx.push_text(&title, 20.0, MARGIN_MM, ctx.y_position);
         ctx.y_position -= SECTION_SPACING_MM * 2.0;
 
         // 顯示匯出日期
@@ -912,13 +879,7 @@ impl PdfService {
 
     /// 渲染倉庫報表標題
     fn render_warehouse_title(ctx: &mut PdfContext, data: &WarehouseReportData) {
-        ctx.current_layer.use_text(
-            "倉庫現況報表",
-            22.0,
-            Mm(PAGE_WIDTH_MM / 2.0 - 30.0),
-            Mm(ctx.y_position),
-            &ctx.font,
-        );
+        ctx.push_text("倉庫現況報表", 22.0, PAGE_WIDTH_MM / 2.0 - 30.0, ctx.y_position);
         ctx.y_position -= SECTION_SPACING_MM * 2.0;
 
         let generated = data
@@ -929,13 +890,7 @@ impl PdfService {
             "倉庫代碼：{}　｜　倉庫名稱：{}　｜　報表產出時間：{}",
             data.warehouse.code, data.warehouse.name, generated
         );
-        ctx.current_layer.use_text(
-            &info_line,
-            9.0,
-            Mm(MARGIN_MM),
-            Mm(ctx.y_position),
-            &ctx.font,
-        );
+        ctx.push_text(&info_line, 9.0, MARGIN_MM, ctx.y_position);
         ctx.y_position -= LINE_HEIGHT_MM;
         ctx.add_section_spacing();
     }
@@ -949,13 +904,7 @@ impl PdfService {
             data.summary.active_locations,
             data.summary.total_inventory_items
         );
-        ctx.current_layer.use_text(
-            &summary_line,
-            10.0,
-            Mm(MARGIN_MM + 5.0),
-            Mm(ctx.y_position),
-            &ctx.font,
-        );
+        ctx.push_text(&summary_line, 10.0, MARGIN_MM + 5.0, ctx.y_position);
         ctx.y_position -= LINE_HEIGHT_MM;
         ctx.add_section_spacing();
     }
@@ -1006,15 +955,16 @@ impl PdfService {
             let display_text = loc.name.as_deref().unwrap_or(&loc.code);
             let text_y = y + h / 2.0 - 1.5;
             let text_x = x + 1.0;
-            ctx.current_layer
-                .set_fill_color(Color::Rgb(Rgb::new(1.0, 1.0, 1.0, None)));
-            ctx.current_layer
-                .use_text(display_text, 7.0, Mm(text_x), Mm(text_y), &ctx.font);
+            ctx.current_ops.push(Op::SetFillColor {
+                col: Color::Rgb(Rgb::new(1.0, 1.0, 1.0, None)),
+            });
+            ctx.push_text(display_text, 7.0, text_x, text_y);
         }
 
         // 重設填充顏色為黑色（文字用）
-        ctx.current_layer
-            .set_fill_color(Color::Rgb(Rgb::new(0.0, 0.0, 0.0, None)));
+        ctx.current_ops.push(Op::SetFillColor {
+            col: Color::Rgb(Rgb::new(0.0, 0.0, 0.0, None)),
+        });
         ctx.y_position = layout_top - layout_height - SECTION_SPACING_MM;
     }
 

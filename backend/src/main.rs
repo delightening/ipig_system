@@ -4,7 +4,7 @@ use erp_backend::config;
 use erp_backend::handlers;
 use erp_backend::middleware::JwtBlacklist;
 use erp_backend::services::scheduler::SchedulerService;
-use erp_backend::services::{AuditService, FileService, GeoIpService, GotenbergClient, TemplateService};
+use erp_backend::services::{AuditService, FileService, GeoIpService, GotenbergClient, ImageProcessorClient, TemplateService};
 use erp_backend::startup::{
     create_database_pool_with_retry, ensure_admin_user, ensure_all_role_permissions,
     ensure_required_permissions, ensure_schema, init_tracing, log_startup_config_check,
@@ -141,6 +141,9 @@ async fn main() -> anyhow::Result<()> {
     // 初始化 Gotenberg PDF 生成服務
     let gotenberg = GotenbergClient::new(&config.gotenberg_url);
 
+    // 初始化 Image Processor 微服務（方案 D）
+    let image_processor = ImageProcessorClient::new(&config.image_processor_url);
+
     let state = AppState {
         db: pool,
         config: config.clone(),
@@ -149,6 +152,7 @@ async fn main() -> anyhow::Result<()> {
         alert_broadcaster: handlers::sse::AlertBroadcaster::new(),
         metrics_handle,
         gotenberg,
+        image_processor,
         templates,
     };
 

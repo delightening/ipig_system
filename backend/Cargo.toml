@@ -74,7 +74,7 @@ totp-rs = { version = "5", features = ["otpauth", "qr", "serde_support", "gen_se
 maxminddb = "0.27"
 
 # PDF generation
-printpdf = "0.7"
+printpdf = "0.9"
 lopdf = "0.34"
 tera = "1"
 

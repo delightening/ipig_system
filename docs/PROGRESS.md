@@ -79,7 +79,7 @@
 | 6 | [HR 人事管理系統](#6-hr-人事管理系統) | 特休、考勤、Google Calendar |
 | 7 | [資料庫 Schema 完成度](#7-資料庫-schema-完成度) | Migration 清單 |
 | 8 | [版本規劃](#8-版本規劃) | v1.0 / v1.1 里程碑 |
-| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-21 R10 程式碼審查 17/20 完成 + R11 技術債清零 |
+| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-23 R9-C2 CI 密碼改 GitHub Secrets |
 
 ---
 
@@ -186,6 +186,14 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **移除檔案**：`docker-compose.waf.yml`、`deploy/waf/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf`、`deploy/waf/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf`、`docs/security-compliance/WAF.md`。
 - ✅ **文件更新**：README、ARCHITECTURE、infrastructure、COMPOSE、deploy/README、TODO（R9-C1 標記完成、SEC-40 描述更新）、code review 文件。
 - ✅ **R9-C1 結案**：原「生產環境 WAF 改為 On」已不適用，改由 Cloudflare Dashboard 啟用 Managed Ruleset。
+
+### 2026-03-23 R9-C2 CI 密碼改 GitHub Secrets
+
+- ✅ **ci.yml**：`ADMIN_INITIAL_PASSWORD`、`E2E_USER_PASSWORD`、`E2E_ADMIN_PASSWORD` 改為 `${{ secrets.CI_ADMIN_PASSWORD }}`。
+- ✅ **docker-compose.test.yml**：`JWT_SECRET`、`DEV_USER_PASSWORD`、`ADMIN_INITIAL_PASSWORD`、`TEST_USER_PASSWORD` 改為環境變數替換（`${CI_JWT_SECRET}`、`${CI_ADMIN_PASSWORD}`、`${CI_DEV_PASSWORD}`），附帶 local fallback 預設值。
+- ✅ **e2e-test job**：新增 `env` 區塊將三個 GitHub Secrets 傳入 docker compose。
+- ⚠️ **需手動操作**：在 GitHub repo Settings → Secrets 新增 `CI_ADMIN_PASSWORD`、`CI_DEV_PASSWORD`、`CI_JWT_SECRET`，建議每季輪替。
+- ℹ️ **DB 密碼維持硬編碼**：CI service container 的 PostgreSQL 密碼風險極低（臨時容器、無外部存取），不改。
 
 ### 2026-03-21 R10 程式碼審查 17/20 完成
 
