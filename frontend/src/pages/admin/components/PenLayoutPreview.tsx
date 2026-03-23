@@ -52,7 +52,7 @@ export function PenLayoutPreview({ pens, zones, canManage }: PenLayoutPreviewPro
                 <SelectItem key={z.id} value={z.id}>
                   <span className="flex items-center gap-2">
                     {z.color && <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ backgroundColor: z.color }} />}
-                    {z.building_code}/{z.code}
+                    {z.building_code}棟 {z.code}區
                   </span>
                 </SelectItem>
               ))}
@@ -155,7 +155,7 @@ function ZoneGrid({ zone, pens, canManage }: {
       <div className="flex items-center gap-2 mb-2">
         <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: color }} />
         <span className="text-sm font-medium">
-          {zone?.building_code}/{zone?.code} {zone?.name || ''}
+          {zone?.building_code}棟 {zone?.code}區 {zone?.name || ''}
         </span>
         <Badge variant="secondary" className="text-xs">{pens.length} 欄</Badge>
       </div>

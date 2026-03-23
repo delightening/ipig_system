@@ -75,7 +75,7 @@ export function BatchCreatePenDialog({ open, onOpenChange, zones }: BatchCreateP
               <SelectContent>
                 {zones.map(z => (
                   <SelectItem key={z.id} value={z.id}>
-                    {z.building_code} / {z.code} {z.name ? `(${z.name})` : ''}
+                    {z.building_code}棟 {z.code}區 {z.name ? `(${z.name})` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
