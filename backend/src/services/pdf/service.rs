@@ -554,7 +554,7 @@ impl PdfService {
         ctx.add_section_spacing();
     }
 
-    /// 渲染第8節：試驗人員資料
+    /// 渲染第8節：試驗人員資料（表格格式）
     fn render_section_8(ctx: &mut PdfContext, personnel: &[serde_json::Value]) {
         if personnel.is_empty() {
             return;
@@ -562,36 +562,130 @@ impl PdfService {
         ctx.force_new_page();
         ctx.render_section_header("8. 試驗人員資料");
 
-        for (i, person) in personnel.iter().enumerate() {
-            Self::render_person(ctx, i, person);
+        // 表頭：姓名 | 職位 | 年資 | 工作內容 | 訓練/資格
+        let col_defs: &[(&str, f32)] = &[
+            ("姓名", 25.0),
+            ("職位", 25.0),
+            ("年資", 15.0),
+            ("工作內容", 40.0),
+            ("訓練/資格", 65.0),
+        ];
+        ctx.render_table_header(col_defs);
+
+        for person in personnel {
+            let name = person.get("name").and_then(|v| v.as_str()).unwrap_or("-");
+            let position = person.get("position").and_then(|v| v.as_str()).unwrap_or("-");
+            let years = person
+                .get("years_experience")
+                .and_then(|v| v.as_i64())
+                .map(|y| format!("{} 年", y))
+                .unwrap_or_else(|| "-".to_string());
+            let roles_text = Self::format_roles(person);
+            let trainings_text = Self::format_trainings_detail(person);
+
+            let row: Vec<(&str, f32)> = vec![
+                (name, 25.0),
+                (position, 25.0),
+                (&years, 15.0),
+                (&roles_text, 40.0),
+                (&trainings_text, 65.0),
+            ];
+            ctx.render_table_row(&row);
         }
         ctx.add_section_spacing();
     }
 
-    /// 渲染單一人員資料
-    fn render_person(ctx: &mut PdfContext, index: usize, person: &serde_json::Value) {
-        ctx.render_subsection_header(&format!("人員 #{}", index + 1));
-        if let Some(name) = person.get("name").and_then(|v| v.as_str()) {
-            ctx.render_label_value("姓名", name);
-        }
-        if let Some(pos) = person.get("position").and_then(|v| v.as_str()) {
-            ctx.render_label_value("職位", pos);
-        }
-        if let Some(yrs) = person.get("years_experience").and_then(|v| v.as_i64()) {
-            ctx.render_label_value("參與動物試驗年數", &format!("{} 年", yrs));
-        }
-        if let Some(roles) = person.get("roles").and_then(|v| v.as_array()) {
-            let rs: Vec<&str> = roles.iter().filter_map(|r| r.as_str()).collect();
-            if !rs.is_empty() {
-                ctx.render_label_value("工作內容", &rs.join(", "));
-            }
-        }
-        if let Some(trainings) = person.get("trainings").and_then(|v| v.as_array()) {
-            let ts: Vec<&str> = trainings.iter().filter_map(|t| t.as_str()).collect();
-            if !ts.is_empty() {
-                ctx.render_label_value("訓練/資格", &ts.join(", "));
-            }
-        }
+    /// 格式化工作內容代碼為可讀文字
+    fn format_roles(person: &serde_json::Value) -> String {
+        let roles = match person.get("roles").and_then(|v| v.as_array()) {
+            Some(r) => r,
+            None => return "-".to_string(),
+        };
+        let labels: Vec<String> = roles
+            .iter()
+            .filter_map(|r| r.as_str())
+            .map(|code| match code {
+                "a" => "a.計畫督導".to_string(),
+                "b" => "b.飼養照顧".to_string(),
+                "c" => "c.保定".to_string(),
+                "d" => "d.麻醉止痛".to_string(),
+                "e" => "e.手術".to_string(),
+                "f" => "f.手術支援".to_string(),
+                "g" => "g.觀察監測".to_string(),
+                "h" => "h.安樂死".to_string(),
+                "i" => {
+                    let other = person
+                        .get("roles_other_text")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
+                    if other.is_empty() {
+                        "i.其他".to_string()
+                    } else {
+                        format!("i.其他({})", other)
+                    }
+                }
+                other => other.to_string(),
+            })
+            .collect();
+        if labels.is_empty() { "-".to_string() } else { labels.join(", ") }
+    }
+
+    /// 格式化訓練/資格為詳細文字（含證書編號）
+    fn format_trainings_detail(person: &serde_json::Value) -> String {
+        let trainings = match person.get("trainings").and_then(|v| v.as_array()) {
+            Some(t) => t,
+            None => return "-".to_string(),
+        };
+        let certs = person
+            .get("training_certificates")
+            .and_then(|v| v.as_array());
+
+        let labels: Vec<String> = trainings
+            .iter()
+            .filter_map(|t| t.as_str())
+            .map(|code| {
+                let label = match code {
+                    "A" => "A.IACUC訓練班",
+                    "B" => "B.IACUC研討會",
+                    "C" => "C.輻射安全訓練班",
+                    "D" => "D.生醫產業研習會",
+                    "E" => "E.動物法規管理班",
+                    "F" => {
+                        let other = person
+                            .get("trainings_other_text")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("");
+                        return if other.is_empty() {
+                            "F.其他".to_string()
+                        } else {
+                            format!("F.其他({})", other)
+                        };
+                    }
+                    other => return other.to_string(),
+                };
+                // 附加證書編號
+                if let Some(cert_arr) = certs {
+                    let cert_nos: Vec<&str> = cert_arr
+                        .iter()
+                        .filter(|c| {
+                            c.get("training_code")
+                                .and_then(|v| v.as_str())
+                                == Some(code)
+                        })
+                        .filter_map(|c| c.get("certificate_no").and_then(|v| v.as_str()))
+                        .filter(|s| !s.is_empty())
+                        .collect();
+                    if cert_nos.is_empty() {
+                        label.to_string()
+                    } else {
+                        format!("{}({})", label, cert_nos.join("; "))
+                    }
+                } else {
+                    label.to_string()
+                }
+            })
+            .collect();
+        if labels.is_empty() { "-".to_string() } else { labels.join(", ") }
     }
 
     /// 渲染第9節：附件

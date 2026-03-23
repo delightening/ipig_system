@@ -94,8 +94,7 @@ export function WarehouseLayoutPage() {
     // 初始化選擇第一個倉庫
     useEffect(() => {
         if (warehouses && warehouses.length > 0 && !selectedWarehouseId) {
-            const wh001 = warehouses.find(w => w.code === 'WH001')
-            setSelectedWarehouseId(wh001 ? wh001.id : warehouses[0].id)
+            setSelectedWarehouseId(warehouses[0].id)
         }
     }, [warehouses, selectedWarehouseId])
 

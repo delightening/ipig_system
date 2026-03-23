@@ -1,6 +1,6 @@
 # 豬博士 iPig 系統 - 待辦功能清單
 
-> **最後更新：** 2026-03-23 (v21)
+> **最後更新：** 2026-03-23 (v22)
 > **維護慣例：** 完成項目保留於本表並標 [x]，同時於 `docs/PROGRESS.md` §9 最新變更動態 新增對應紀錄；待辦統計僅計「未完成」數量。
 > **AI 標註說明：**
 >
@@ -341,7 +341,7 @@
 |---|------|------|------|------|
 | R12-1 | **Dependabot Phase 2.5 升級** | printpdf 0.9、utoipa 5、axum-extra 0.12、tailwind-merge 3 升級實作。**Why：** 當前版本存在已知 bug 與效能問題，新版含安全修補與 API 改進；延遲升級將加大未來遷移成本與相容性風險 | `docs/assessments/R6-5_DEPENDABOT_PHASE25_ASSESSMENT.md` | [ ] |
 | R12-2 | **財務模組 Phase 2–5 實作** | AP/AR/GL 後續階段：ap_payments、ar_receipts、trial-balance 等。**Why：** Phase 1 僅完成基礎記帳與報表，缺少付款沖銷、收款核銷、試算平衡等核心財務流程，無法支撐完整的財務結算作業 | `docs/assessments/R6-4_FINANCE_PHASE2_5_ASSESSMENT.md` | [ ] |
-| R12-3 | **圖片處理獨立服務** | 將圖片上傳、縮圖產生、格式轉換抽離為獨立微服務。**Why：** 圖片處理為高資源消耗操作，與主應用同行程部署會影響 API 回應延遲；安全審查建議隔離攻擊面，避免惡意檔案解析漏洞擴散至核心服務 | `docs/security-compliance/security.md` | [ ] |
+| R12-3 | **圖片處理獨立服務** | 將圖片上傳、縮圖產生、格式轉換抽離為獨立微服務。`image-processor/` Node.js 服務（Sharp）+ Docker 容器 + docker-compose 整合。**Why：** 圖片處理為高資源消耗操作，與主應用同行程部署會影響 API 回應延遲；安全審查建議隔離攻擊面，避免惡意檔案解析漏洞擴散至核心服務 | `docs/security-compliance/security.md` | [x] |
 
 ---
 
@@ -362,13 +362,14 @@
 | 🔒 R9 安全與品質修復 | 2 |
 | 🔒 R10 程式碼審查 Medium/Low | 0 (3 推遲) |
 | 🔧 R11 技術債掃描 | 0 |
-| 🟢 R12 長期演進項目 | 3 |
-| **合計（未完成）** | **6** |
+| 🟢 R12 長期演進項目 | 2 |
+| **合計（未完成）** | **5** |
 
 ---
 
 ## 變更紀錄 (最新)
 
+| 2026-03-23 | 🧠 Claude：設備維護管理系統擴充 — Migration 018 新增 6 enum + 5 張新資料表；後端完整 CRUD（廠商/校正確效查核/維修保養/報廢/年度計畫）；前端三個新分頁（維修保養/報廢/年度計畫矩陣）；Email 通知模板 + 排程逾期檢查 + 報廢電子簽章。AI 資料查詢接口 — Migration 017、API Key SHA-256 認證、6 個查詢領域（animals/observations/surgeries/weights/protocols/facilities）、查詢日誌。圖片處理獨立服務 `image-processor/` 上線（R12-3 完成）。會計 Repository 層提取（`repositories/accounting.rs`）。多項 Bug 修正：調整單效期欄位驗證、調撥單批號效期顯示、儲位下拉選單。Dependabot 依賴更新（axum 0.8.8、tower-http 0.6.8、rand 0.9.2、zip 7.2.0、i18next 25.10.4 等）。CI 修復（cargo deny、npm audit、Trivy、SQL guard）。待辦 6→5。 |
 | 2026-03-23 | 🧠 Claude：R9-C2 CI 密碼改 GitHub Secrets — `ci.yml` 和 `docker-compose.test.yml` 中的 JWT_SECRET、DEV_USER_PASSWORD、ADMIN_INITIAL_PASSWORD 改為 GitHub Secrets 參照（`CI_JWT_SECRET`、`CI_ADMIN_PASSWORD`、`CI_DEV_PASSWORD`）。DB 密碼維持硬編碼（CI 臨時容器，風險極低）。待辦 7→6。 |
 | 2026-03-21 | 🧠 Claude：R10 程式碼審查 17/20 完成 — M2 確認無 N+1、M3 MIME 預檢+欄位級大小檢查、M4 unwrap 已清零、M5 CSRF Signed Double Submit Cookie、M6 Zod 驗證、M7 MIME 白名單、M9 Alert 門檻收緊、M10 確認已安全；L1 auth handler 拆分（734→7 檔）、L2 auth service 拆分（1006→6 檔）、L3 signature 拆分（1459→11 檔）、L4 product service 拆分（832→3 檔）、L6 Cookie consent 重寫、L7 密碼 10 字元+黑名單、L8 Watchtower 3600s、L9 login_events 索引、L10 JSONB 驗證。M1/M8/L5 推遲。待辦 27→7。 |
 | 2026-03-21 | 🧠 Claude：R11 技術債全部清零 — R11-15 中大型元件拆分（10 個元件全部降至 ≤300 行，平均縮減 -80%）；R11-21 前端 try-catch 重構（25 處改為 useMutation，27 處合理保留）；R11-22 源碼 TODO 清理（stocktake 類別篩選實作、MyProjectDetailPage 動物查詢實作）。待辦統計 30→27。 |

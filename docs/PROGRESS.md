@@ -79,7 +79,7 @@
 | 6 | [HR 人事管理系統](#6-hr-人事管理系統) | 特休、考勤、Google Calendar |
 | 7 | [資料庫 Schema 完成度](#7-資料庫-schema-完成度) | Migration 清單 |
 | 8 | [版本規劃](#8-版本規劃) | v1.0 / v1.1 里程碑 |
-| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-23 R9-C2 CI 密碼改 GitHub Secrets |
+| 9 | [最新變更動態](#9-最新變更動態) | 2026-03-23 設備維護管理擴充、AI 查詢接口、圖片處理服務、Bug 修正、Dependabot 更新 |
 
 ---
 
@@ -1439,6 +1439,37 @@ v1.0 / v1.1 里程碑。詳見 [TODO.md](TODO.md)（待辦與優先級）、[IMP
 - ✅ **元件拆分**：將 `ProtocolContentView.tsx`（954 行）依內容區塊拆為 8 個 Section 子元件（ResearchInfoSection / PurposeSection / ItemsSection / DesignSection / GuidelinesSection / SurgerySection / AnimalsSection / PersonnelSection）+ AttachmentsSignaturesSection，放入 `content-sections/` 子目錄。
 - ✅ **PDF 匯出 Hook**：提取 `useProtocolPdfExport` hook，封裝後端/前端 PDF 匯出邏輯（~150 行）。
 - ✅ **主元件精簡**：主元件從 954 行降至 ~176 行，僅負責資料解構與子元件組裝。
+
+### 2026-03-23 設備維護管理 — 維修/保養/報廢頁面、通知與簽章
+
+- ✅ **前端三大分頁**：維修/保養紀錄表格（類型/狀態 Badge、報修/完修日期）、報廢紀錄表格（核准/駁回按鈕）、年度計畫矩陣視圖（設備×12 月份、週期自動排程產生）。
+- ✅ **Email 通知模板**：設備逾期、無法維修、報廢申請三種模板，站內通知 + Email 雙通道。
+- ✅ **排程與簽章**：每日 08:30 檢查設備校正/確效逾期；維修標記「無法維修」自動通知；報廢電子簽章 API（申請人/核准人各自簽章）。
+
+### 2026-03-23 圖片處理獨立服務（R12-3 完成）
+
+- ✅ **`image-processor/`**：Node.js + Sharp 獨立微服務，支援圖片縮圖、格式轉換。
+- ✅ **Docker 整合**：獨立 Dockerfile + docker-compose 服務定義。
+- ✅ **後端整合**：`services/image_processor.rs` 呼叫微服務 API。
+
+### 2026-03-23 會計 Repository 層提取與 PDF 改進
+
+- ✅ **`repositories/accounting.rs`**：從 `services/accounting.rs` 提取 SQL 查詢至 Repository 層（404 行），Service 層精簡（568→精簡）。
+- ✅ **`models/accounting.rs`**：新增會計專用 DTO 型別（92 行）。
+- ✅ **前端 `lib/api/accounting.ts`**：新增會計 API 函式模組（87 行）。
+- ✅ **PDF 改進**：`pdf/context.rs` 與 `pdf/service.rs` 重構優化。
+
+### 2026-03-23 Bug 修正
+
+- ✅ **調整單效期欄位驗證**：修正調整單效期欄位驗證失敗的 bug（`59f2ab8`）。
+- ✅ **調撥單批號效期顯示**：修正調撥單選擇品項後批號與效期未顯示的問題（`86263a4`）。
+- ✅ **儲位下拉選單**：顯示所有可存放的儲位類型（`32c093c`）。
+
+### 2026-03-23 Dependabot 依賴更新與 CI 修復
+
+- ✅ **後端依賴**：axum 0.7.9→0.8.8、tower-http 0.5.2→0.6.8、rand 0.8.5→0.9.2、zip 0.6.6→7.2.0、totp-rs 5.7.0→5.7.1。
+- ✅ **前端依賴**：i18next 25.8.13→25.10.4、@tanstack/react-query 升級、React ecosystem 5 項更新、dev-dependencies 23 項更新。
+- ✅ **CI 修復**：解決 cargo deny、npm audit、test auth、Trivy、SQL guard 等 CI 失敗問題。
 
 ### 2026-03-23 AI 資料查詢接口
 
