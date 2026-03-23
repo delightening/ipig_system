@@ -32,6 +32,8 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         // 儲位管理（migration 僅定義 view/edit，補齊 create/delete）
         ("erp.storage.create", "建立儲位", "erp", "可建立儲位"),
         ("erp.storage.delete", "刪除儲位", "erp", "可刪除儲位"),
+        // 調整單核准（所有 ADJ 需系統管理員批准）
+        ("erp.adj.approve", "核准調整單", "erp", "可核准庫存調整單（新增/修改庫存）"),
         // 單據取消與刪除
         ("erp.document.cancel", "取消單據", "erp", "可取消單據"),
         ("erp.document.delete", "刪除單據", "erp", "可刪除單據"),
@@ -78,7 +80,8 @@ pub async fn ensure_required_permissions(pool: &sqlx::PgPool) -> Result<()> {
         SELECT r.id, p.id FROM roles r, permissions p
         WHERE r.code = 'admin' AND p.code IN (
             'admin.data.export', 'admin.data.import',
-            'dev.role.create', 'dev.role.view', 'dev.role.edit', 'dev.role.delete'
+            'dev.role.create', 'dev.role.view', 'dev.role.edit', 'dev.role.delete',
+            'erp.adj.approve'
         )
         ON CONFLICT (role_id, permission_id) DO NOTHING
     "#)
