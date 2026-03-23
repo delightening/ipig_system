@@ -161,3 +161,87 @@ cargo sqlx migrate run
 - 性別：`male` | `female`
 - 品種：`miniature` | `white` | `LYD` | `other`（前端 minipig 會對應 miniature）
 - 僅 **admin** 角色可審核；一般 staff 僅能提交申請
+
+## 2026-03-23 AI 資料查詢接口
+
+**需求**：設計一個 AI 接口，讓外部 AI 系統能夠透過 API key 認證進入 iPig System 查閱資料。
+
+### 架構設計
+
+採用獨立的認證機制（API key），與現有 JWT 使用者認證分離：
+
+```
+AI Client → Bearer ipig_ai_xxx → ai_auth_middleware → AI Handlers → Service → Repository → DB
+                                                          ↑
+管理員 → JWT Auth → Admin Handlers（API key CRUD）
+```
+
+### 新增檔案
+
+| 檔案 | 職責 |
+|------|------|
+| `migrations/017_ai_api_keys.sql` | 新增 `ai_api_keys` 與 `ai_query_logs`（分區表） |
+| `src/models/ai.rs` | AI 相關 request/response DTOs + DB entities |
+| `src/middleware/ai_auth.rs` | API key 認證 middleware（SHA-256 驗證、過期檢查、scope 權限） |
+| `src/repositories/ai.rs` | AI 相關 SQL 查詢（key CRUD、資料查詢、日誌寫入） |
+| `src/services/ai.rs` | AI 業務邏輯（key 管理、查詢執行、schema 描述） |
+| `src/handlers/ai.rs` | HTTP handlers（管理端 + AI 端） |
+| `src/routes/ai.rs` | 路由定義（管理端走 JWT、AI 端走 API key） |
+
+### API 端點
+
+**管理端（需管理員 JWT）：**
+
+| Method | Path | 說明 |
+|--------|------|------|
+| POST | `/api/ai/admin/keys` | 建立 AI API key |
+| GET | `/api/ai/admin/keys` | 列出所有 API keys |
+| PUT | `/api/ai/admin/keys/:id/toggle` | 停用/啟用 key |
+| DELETE | `/api/ai/admin/keys/:id` | 刪除 key |
+
+**AI 資料查詢端（需 API key）：**
+
+| Method | Path | 說明 |
+|--------|------|------|
+| GET | `/api/ai/overview` | 系統概覽（動物/計畫/觀察數量統計） |
+| GET | `/api/ai/schema` | API schema（告訴 AI 可查什麼、有哪些 filter） |
+| POST | `/api/ai/query` | 執行資料查詢（指定 domain + filters + pagination） |
+
+### 支援的查詢領域 (domains)
+
+- `animals` — 動物基本資料（耳標、品種、狀態、性別等），支援 status/breed/keyword 篩選
+- `observations` — 觀察紀錄，支援 animal_id/days 篩選
+- `surgeries` — 手術紀錄，支援 animal_id 篩選
+- `weights` — 體重量測紀錄，支援 animal_id 篩選
+- `protocols` — AUP 計畫書，支援 status 篩選
+- `facilities` — 設施清單
+
+### 安全設計
+
+- API key 以 SHA-256 hash 儲存，不存明文
+- Key 前綴 `ipig_ai_` 用於辨識類型
+- 每個 key 有獨立的 scope 權限（如 `read`, `animal.read`, `protocol.read`, `*`）
+- 支援過期時間設定
+- 每次使用自動記錄至 `ai_query_logs`（分區表）
+- 排序欄位使用白名單驗證（防 SQL injection）
+- 資料查詢為唯讀，AI 無法修改任何資料
+
+### 使用範例
+
+```bash
+# 1. 管理員建立 API key
+curl -X POST /api/ai/admin/keys \
+  -H "Authorization: Bearer <admin_jwt>" \
+  -d '{"name": "Claude AI", "scopes": ["read"]}'
+
+# 2. AI 查看系統概覽
+curl /api/ai/overview -H "Authorization: Bearer ipig_ai_xxx..."
+
+# 3. AI 查看可用 schema
+curl /api/ai/schema -H "Authorization: Bearer ipig_ai_xxx..."
+
+# 4. AI 查詢動物資料
+curl -X POST /api/ai/query \
+  -H "Authorization: Bearer ipig_ai_xxx..." \
+  -d '{"domain": "animals", "filters": {"status": "alive"}, "page": 1, "per_page": 20}'
+```

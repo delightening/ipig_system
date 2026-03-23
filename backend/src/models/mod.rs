@@ -1,3 +1,4 @@
+pub mod ai;
 mod user;
 mod role;
 mod warehouse;
