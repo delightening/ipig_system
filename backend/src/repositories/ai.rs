@@ -116,9 +116,9 @@ impl AiRepository {
         let row = sqlx::query_as::<_, (i64, i64, i64, i64, i64, i64, i64)>(
             r#"SELECT
                 (SELECT COUNT(*) FROM animals) as total_animals,
-                (SELECT COUNT(*) FROM animals WHERE status = 'alive') as active_animals,
+                (SELECT COUNT(*) FROM animals WHERE is_deleted = false AND status::text NOT IN ('euthanized','sudden_death','transferred')) as active_animals,
                 (SELECT COUNT(*) FROM protocols) as total_protocols,
-                (SELECT COUNT(*) FROM protocols WHERE status = 'approved') as active_protocols,
+                (SELECT COUNT(*) FROM protocols WHERE status::text = 'approved') as active_protocols,
                 (SELECT COUNT(*) FROM animal_observations WHERE created_at >= now() - INTERVAL '30 days') as observations_30d,
                 (SELECT COUNT(*) FROM animal_surgeries WHERE created_at >= now() - INTERVAL '30 days') as surgeries_30d,
                 (SELECT COUNT(*) FROM facilities WHERE is_active = true) as facilities_count"#,
@@ -150,44 +150,42 @@ impl AiRepository {
         let order = if sort_order == "asc" { "ASC" } else { "DESC" };
         let sort_col = validate_sort_field(
             sort_by.unwrap_or("created_at"),
-            &["ear_tag", "name", "breed", "status", "sex", "created_at", "birth_date"],
+            &["ear_tag", "status", "gender", "created_at", "entry_date"],
             "created_at",
         );
 
         let status = filters.get("status").and_then(|v| v.as_str());
-        let breed = filters.get("breed").and_then(|v| v.as_str());
         let keyword = filters.get("keyword").and_then(|v| v.as_str());
 
         let count: (i64,) = sqlx::query_as(
             r#"SELECT COUNT(*) FROM animals
-               WHERE ($1::text IS NULL OR status = $1)
-                 AND ($2::text IS NULL OR breed = $2)
-                 AND ($3::text IS NULL OR ear_tag ILIKE '%' || $3 || '%' OR name ILIKE '%' || $3 || '%')"#,
+               WHERE is_deleted = false
+                 AND ($1::text IS NULL OR status::text = $1)
+                 AND ($2::text IS NULL OR ear_tag ILIKE '%' || $2 || '%')"#,
         )
         .bind(status)
-        .bind(breed)
         .bind(keyword)
         .fetch_one(pool)
         .await?;
 
         let query_str = format!(
-            r#"SELECT id, ear_tag, name, breed, sex, status, birth_date, source_type, iacuc_no, pen_id, created_at
+            r#"SELECT id, ear_tag, animal_no, breed::text, gender::text, status::text,
+                      birth_date, entry_date, pen_location, iacuc_no, created_at
                FROM animals
-               WHERE ($1::text IS NULL OR status = $1)
-                 AND ($2::text IS NULL OR breed = $2)
-                 AND ($3::text IS NULL OR ear_tag ILIKE '%' || $3 || '%' OR name ILIKE '%' || $3 || '%')
+               WHERE is_deleted = false
+                 AND ($1::text IS NULL OR status::text = $1)
+                 AND ($2::text IS NULL OR ear_tag ILIKE '%' || $2 || '%')
                ORDER BY {} {}
-               LIMIT $4 OFFSET $5"#,
+               LIMIT $3 OFFSET $4"#,
             sort_col, order
         );
 
         let rows = sqlx::query_as::<_, (
-            uuid::Uuid, Option<String>, Option<String>, Option<String>,
-            Option<String>, String, Option<chrono::NaiveDate>, Option<String>,
-            Option<String>, Option<uuid::Uuid>, DateTime<Utc>,
+            uuid::Uuid, String, Option<String>, Option<String>,
+            Option<String>, Option<String>, Option<chrono::NaiveDate>,
+            chrono::NaiveDate, Option<String>, Option<String>, DateTime<Utc>,
         )>(&query_str)
         .bind(status)
-        .bind(breed)
         .bind(keyword)
         .bind(per_page)
         .bind(offset)
@@ -198,17 +196,10 @@ impl AiRepository {
             .into_iter()
             .map(|r| {
                 serde_json::json!({
-                    "id": r.0,
-                    "ear_tag": r.1,
-                    "name": r.2,
-                    "breed": r.3,
-                    "sex": r.4,
-                    "status": r.5,
-                    "birth_date": r.6,
-                    "source_type": r.7,
-                    "iacuc_no": r.8,
-                    "pen_id": r.9,
-                    "created_at": r.10,
+                    "id": r.0, "ear_tag": r.1, "animal_no": r.2,
+                    "breed": r.3, "gender": r.4, "status": r.5,
+                    "birth_date": r.6, "entry_date": r.7,
+                    "pen_location": r.8, "iacuc_no": r.9, "created_at": r.10,
                 })
             })
             .collect();
@@ -240,8 +231,8 @@ impl AiRepository {
         .fetch_one(pool)
         .await?;
 
-        let rows = sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, String, Option<String>, DateTime<Utc>)>(
-            r#"SELECT o.id, o.animal_id, o.observation_type, o.notes, o.created_at
+        let rows = sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, String, chrono::NaiveDate, Option<String>, DateTime<Utc>)>(
+            r#"SELECT o.id, o.animal_id, o.record_type::text, o.event_date, o.content, o.created_at
                FROM animal_observations o
                WHERE ($1::uuid IS NULL OR o.animal_id = $1)
                  AND o.created_at >= now() - make_interval(days => $2::int)
@@ -259,11 +250,8 @@ impl AiRepository {
             .into_iter()
             .map(|r| {
                 serde_json::json!({
-                    "id": r.0,
-                    "animal_id": r.1,
-                    "observation_type": r.2,
-                    "notes": r.3,
-                    "created_at": r.4,
+                    "id": r.0, "animal_id": r.1, "record_type": r.2,
+                    "event_date": r.3, "content": r.4, "created_at": r.5,
                 })
             })
             .collect();
@@ -282,16 +270,16 @@ impl AiRepository {
         let status = filters.get("status").and_then(|v| v.as_str());
 
         let count: (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM protocols WHERE ($1::text IS NULL OR status = $1)",
+            "SELECT COUNT(*) FROM protocols WHERE ($1::text IS NULL OR status::text = $1)",
         )
         .bind(status)
         .fetch_one(pool)
         .await?;
 
         let rows = sqlx::query_as::<_, (uuid::Uuid, String, String, Option<String>, String, DateTime<Utc>)>(
-            r#"SELECT id, iacuc_no, title, pi_name, status, created_at
+            r#"SELECT id, iacuc_no, title, pi_name, status::text, created_at
                FROM protocols
-               WHERE ($1::text IS NULL OR status = $1)
+               WHERE ($1::text IS NULL OR status::text = $1)
                ORDER BY created_at DESC
                LIMIT $2 OFFSET $3"#,
         )
@@ -330,10 +318,10 @@ impl AiRepository {
             .fetch_one(pool)
             .await?;
 
-        let rows = sqlx::query_as::<_, (uuid::Uuid, String, Option<String>, bool, DateTime<Utc>)>(
-            r#"SELECT id, name, description, is_active, created_at
+        let rows = sqlx::query_as::<_, (uuid::Uuid, String, String, Option<String>, bool, DateTime<Utc>)>(
+            r#"SELECT id, code, name, address, is_active, created_at
                FROM facilities
-               ORDER BY name ASC
+               ORDER BY code ASC
                LIMIT $1 OFFSET $2"#,
         )
         .bind(per_page)
@@ -345,11 +333,8 @@ impl AiRepository {
             .into_iter()
             .map(|r| {
                 serde_json::json!({
-                    "id": r.0,
-                    "name": r.1,
-                    "description": r.2,
-                    "is_active": r.3,
-                    "created_at": r.4,
+                    "id": r.0, "code": r.1, "name": r.2,
+                    "address": r.3, "is_active": r.4, "created_at": r.5,
                 })
             })
             .collect();
@@ -371,17 +356,17 @@ impl AiRepository {
             .and_then(|s| uuid::Uuid::parse_str(s).ok());
 
         let count: (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM animal_weights WHERE ($1::uuid IS NULL OR animal_id = $1)",
+            "SELECT COUNT(*) FROM animal_weights WHERE deleted_at IS NULL AND ($1::uuid IS NULL OR animal_id = $1)",
         )
         .bind(animal_id)
         .fetch_one(pool)
         .await?;
 
         let rows = sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, rust_decimal::Decimal, chrono::NaiveDate, DateTime<Utc>)>(
-            r#"SELECT id, animal_id, weight_kg, measured_date, created_at
+            r#"SELECT id, animal_id, weight, measure_date, created_at
                FROM animal_weights
-               WHERE ($1::uuid IS NULL OR animal_id = $1)
-               ORDER BY measured_date DESC
+               WHERE deleted_at IS NULL AND ($1::uuid IS NULL OR animal_id = $1)
+               ORDER BY measure_date DESC
                LIMIT $2 OFFSET $3"#,
         )
         .bind(animal_id)
@@ -396,8 +381,8 @@ impl AiRepository {
                 serde_json::json!({
                     "id": r.0,
                     "animal_id": r.1,
-                    "weight_kg": r.2,
-                    "measured_date": r.3,
+                    "weight": r.2,
+                    "measure_date": r.3,
                     "created_at": r.4,
                 })
             })
@@ -426,8 +411,8 @@ impl AiRepository {
         .fetch_one(pool)
         .await?;
 
-        let rows = sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, String, Option<String>, DateTime<Utc>)>(
-            r#"SELECT id, animal_id, surgery_type, notes, created_at
+        let rows = sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, chrono::NaiveDate, String, Option<String>, DateTime<Utc>)>(
+            r#"SELECT id, animal_id, surgery_date, surgery_site, positioning, created_at
                FROM animal_surgeries
                WHERE ($1::uuid IS NULL OR animal_id = $1)
                ORDER BY created_at DESC
@@ -445,9 +430,8 @@ impl AiRepository {
                 serde_json::json!({
                     "id": r.0,
                     "animal_id": r.1,
-                    "surgery_type": r.2,
-                    "notes": r.3,
-                    "created_at": r.4,
+                    "surgery_date": r.2, "surgery_site": r.3,
+                    "positioning": r.4, "created_at": r.5,
                 })
             })
             .collect();
