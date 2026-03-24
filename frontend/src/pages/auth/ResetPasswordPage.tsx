@@ -95,29 +95,27 @@ export function ResetPasswordPage() {
   // 如果沒有 token，顯示錯誤
   if (!token) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50"></div>
 
         <Card className="w-full max-w-md relative z-10 border-slate-700/50 bg-slate-800/50 backdrop-blur-xl shadow-2xl">
           <CardContent className="pt-8 pb-8 text-center space-y-6">
-            <div className="mx-auto w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center">
-              <AlertCircle className="h-8 w-8 text-red-400" />
-            </div>
+            <AlertCircle className="h-12 w-12 text-red-400 mx-auto" strokeWidth={1.5} />
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-white">無效的連結</h2>
-              <p className="text-slate-400">
+              <p className="text-blue-200/70">
                 此密碼重設連結無效或已過期，請重新申請密碼重設。
               </p>
             </div>
             <div className="pt-4">
               <Link to="/forgot-password">
-                <Button className="bg-purple-600 hover:bg-purple-700">
+                <Button className="bg-primary hover:bg-primary/90">
                   重新申請密碼重設
                 </Button>
               </Link>
             </div>
             <div className="pt-2">
-              <Link to="/login" className="text-purple-400 hover:text-purple-300 text-sm">
+              <Link to="/login" className="text-blue-300 hover:text-blue-200 text-sm">
                 <ArrowLeft className="h-4 w-4 inline mr-1" />
                 返回登入頁面
               </Link>
@@ -131,14 +129,12 @@ export function ResetPasswordPage() {
   // 成功頁面
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50"></div>
 
         <Card className="w-full max-w-md relative z-10 border-slate-700/50 bg-slate-800/50 backdrop-blur-xl shadow-2xl">
           <CardContent className="pt-8 pb-8 text-center space-y-6">
-            <div className="mx-auto w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center">
-              <CheckCircle className="h-8 w-8 text-green-400" />
-            </div>
+            <CheckCircle className="h-12 w-12 text-green-400 mx-auto" strokeWidth={1.5} />
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-white">密碼重設成功！</h2>
               <p className="text-slate-400">
@@ -147,7 +143,7 @@ export function ResetPasswordPage() {
             </div>
             <div className="pt-4">
               <Link to="/login">
-                <Button className="bg-purple-600 hover:bg-purple-700 w-full">
+                <Button className="bg-primary hover:bg-primary/90 w-full">
                   前往登入
                 </Button>
               </Link>
@@ -159,14 +155,14 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4">
       {/* Background Pattern */}
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50"></div>
 
       <Card className="w-full max-w-md relative z-10 border-slate-700/50 bg-slate-800/50 backdrop-blur-xl shadow-2xl">
         <CardHeader className="space-y-1 pb-6">
-          <div className="mx-auto w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center mb-4">
-            <ShieldCheck className="h-6 w-6 text-purple-400" />
+          <div className="mx-auto w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center mb-4">
+            <ShieldCheck className="h-6 w-6 text-blue-300" />
           </div>
           <CardTitle className="text-2xl font-bold text-center text-white">
             設定新密碼
@@ -189,7 +185,7 @@ export function ResetPasswordPage() {
                   placeholder="請輸入新密碼"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="pl-9 pr-10 bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-purple-500 focus:ring-purple-500/20"
+                  className="pl-9 pr-10 bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-primary focus:ring-primary/20"
                   autoComplete="new-password"
                   autoFocus
                 />
@@ -248,7 +244,7 @@ export function ResetPasswordPage() {
                   placeholder="再次輸入新密碼"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="pl-9 pr-10 bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-purple-500 focus:ring-purple-500/20"
+                  className="pl-9 pr-10 bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-primary focus:ring-primary/20"
                   autoComplete="new-password"
                 />
                 <button
@@ -269,7 +265,7 @@ export function ResetPasswordPage() {
 
             <Button
               type="submit"
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white h-11"
+              className="w-full bg-primary hover:bg-primary/90 text-white h-11"
               disabled={resetPasswordMutation.isPending || passwordStrength < 5 || newPassword !== confirmPassword}
             >
               {resetPasswordMutation.isPending ? (
@@ -283,7 +279,7 @@ export function ResetPasswordPage() {
             </Button>
 
             <div className="text-center pt-2">
-              <Link to="/login" className="text-purple-400 hover:text-purple-300 text-sm">
+              <Link to="/login" className="text-blue-300 hover:text-blue-200 text-sm">
                 <ArrowLeft className="h-4 w-4 inline mr-1" />
                 返回登入頁面
               </Link>

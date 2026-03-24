@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { ProtocolListItem, ProtocolStatus } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -320,13 +321,15 @@ export function MyProjectsPage() {
               </TableBody>
             </Table>
           ) : (
-            <div className="text-center py-12">
-              <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold mb-2">{t('common.noData')}</h3>
-              <p className="text-muted-foreground">
-                {t('dashboard.widgets.projects.noProjects')}
-              </p>
-            </div>
+            <EmptyState
+              icon={FileText}
+              title={t('myProjects.welcome.title', '歡迎使用計畫管理')}
+              description={t('myProjects.welcome.description', '您目前尚無任何計畫書，建立第一個動物使用計畫書以開始使用。')}
+              action={{
+                label: t('myProjects.welcome.createFirst', '建立計畫書'),
+                onClick: () => window.location.href = '/protocols/new',
+              }}
+            />
           )}
         </CardContent>
       </Card>

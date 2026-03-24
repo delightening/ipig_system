@@ -120,10 +120,14 @@
     },
     "dashboard": {
         "title": "Dashboard",
+        "welcome": {
+            "title": "Welcome, {{name}}!",
+            "description": "This is your personal dashboard. Click 'Edit Layout' to drag and rearrange widgets, or use 'Settings' to choose which modules to display."
+        },
         "editMode": {
             "lock": "Save Layout",
             "unlock": "Edit Layout",
-            "hint": "Drag widgets to move, drag corner to resize. Click 'Lock Layout' when finished."
+            "hint": "Drag widgets to move, drag corner to resize. Click 'Save Layout' when finished."
         },
         "settings": {
             "title": "Customize Dashboard",
@@ -249,6 +253,13 @@
             "applying": "Applying",
             "ongoing": "Ongoing",
             "closed": "Closed"
+        }
+    },
+    "myProjects": {
+        "welcome": {
+            "title": "Welcome to Project Management",
+            "description": "You don't have any protocols yet. Create your first Animal Use Protocol to get started.",
+            "createFirst": "Create Protocol"
         }
     },
     "protocols": {

@@ -161,7 +161,7 @@ export function ProfileSettingsPage() {
         <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                    <h1 className="text-3xl font-bold tracking-tight text-foreground">
                         {t('profile.settings')}
                     </h1>
                     <p className="text-muted-foreground mt-1">
@@ -170,7 +170,7 @@ export function ProfileSettingsPage() {
                 </div>
                 <Button
                     size="lg"
-                    className="shadow-lg shadow-blue-500/20 bg-blue-600 hover:bg-blue-700 transition-all"
+                    className="transition-all"
                     onClick={handleSubmit}
                     disabled={updateMutation.isPending}
                 >
@@ -186,28 +186,28 @@ export function ProfileSettingsPage() {
             <div className={`grid grid-cols-1 ${isStaff ? 'lg:grid-cols-3' : ''} gap-8`}>
                 {/* Left Column: Basic Info */}
                 <div className={`space-y-8 ${isStaff ? 'lg:col-span-1' : ''}`}>
-                    <Card className="border-none shadow-xl bg-white/80 backdrop-blur-sm">
-                        <CardHeader className="border-b bg-slate-50/50">
-                            <CardTitle className="flex items-center gap-2 text-slate-800">
-                                <UserIcon className="h-5 w-5 text-blue-500" />
+                    <Card>
+                        <CardHeader className="border-b bg-muted/50">
+                            <CardTitle className="flex items-center gap-2">
+                                <UserIcon className="h-5 w-5 text-primary" />
                                 {t('profile.basicInfo')}
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="pt-6 space-y-4">
-                            <div className="flex flex-col items-center pb-6 border-b border-slate-100">
-                                <div className="h-24 w-24 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-3xl font-bold shadow-inner">
+                            <div className="flex flex-col items-center pb-6 border-b border-border">
+                                <div className="h-24 w-24 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-3xl font-bold">
                                     {currentUser.display_name?.[0] || currentUser.email?.[0]}
                                 </div>
-                                <h3 className="mt-4 font-bold text-lg text-slate-900">{currentUser.display_name}</h3>
+                                <h3 className="mt-4 font-bold text-lg text-foreground">{currentUser.display_name}</h3>
                                 <Badge variant="secondary" className="mt-1">{currentUser.roles.join(', ')}</Badge>
                             </div>
 
                             <div className="space-y-4 pt-4">
                                 <div className="space-y-2">
-                                    <Label className="flex items-center gap-2 text-slate-600">
+                                    <Label className="flex items-center gap-2 text-muted-foreground">
                                         <Mail className="h-4 w-4" /> {t('profile.email')} {t('profile.readOnly')}
                                     </Label>
-                                    <Input value={currentUser.email} disabled className="bg-slate-50" />
+                                    <Input value={currentUser.email} disabled className="bg-muted" />
                                 </div>
 
                                 <div className="space-y-2">
@@ -412,12 +412,12 @@ export function ProfileSettingsPage() {
                                     </div>
 
                                     {formData.trainings && formData.trainings.length > 0 && (
-                                        <div className="mt-6 space-y-4 bg-slate-50 p-4 rounded-xl border border-slate-200 border-dashed">
-                                            <h4 className="text-sm font-bold text-slate-700">{t('profile.trainingDetailTitle')}</h4>
+                                        <div className="mt-6 space-y-4 bg-muted/50 p-4 rounded-xl border border-border border-dashed">
+                                            <h4 className="text-sm font-bold text-foreground">{t('profile.trainingDetailTitle')}</h4>
                                             {formData.trainings.map((training) => (
                                                 <div key={training.code} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center animate-in zoom-in-95 duration-200">
                                                     <div className="md:col-span-1">
-                                                        <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">
+                                                        <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
                                                             {training.code}
                                                         </div>
                                                     </div>
@@ -462,18 +462,13 @@ export function ProfileSettingsPage() {
                             />
                         )}
 
-                        <Card className="border-none shadow-xl bg-gradient-to-br from-slate-900 to-slate-800 text-white overflow-hidden relative">
-                            <div className="absolute top-0 right-0 p-8 opacity-10">
-                                <CheckCircle2 className="h-32 w-32" />
-                            </div>
-                            <CardContent className="p-8 relative z-10">
+                        <Card className="bg-muted/50">
+                            <CardContent className="p-8">
                                 <div className="flex flex-col md:flex-row items-center gap-6">
-                                    <div className="bg-white/10 p-4 rounded-full backdrop-blur-md">
-                                        <Save className="h-10 w-10 text-blue-400" />
-                                    </div>
+                                    <Save className="h-10 w-10 text-primary shrink-0" strokeWidth={1.5} />
                                     <div>
-                                        <h3 className="text-xl font-bold">{t('profile.confirmTitle')}</h3>
-                                        <p className="text-slate-300 mt-2 max-w-md">
+                                        <h3 className="text-xl font-bold text-foreground">{t('profile.confirmTitle')}</h3>
+                                        <p className="text-muted-foreground mt-2 max-w-md">
                                             {t('profile.confirmDescription')}
                                         </p>
                                     </div>

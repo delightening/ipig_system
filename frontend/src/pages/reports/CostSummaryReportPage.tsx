@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import api, { CostSummaryReport } from '@/lib/api'
 import { formatNumber } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -141,12 +142,7 @@ export function CostSummaryReportPage() {
                 </TableRow>
               ))
             ) : (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
-                  <DollarSign className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-muted-foreground">尚無成本資料</p>
-                </TableCell>
-              </TableRow>
+              <TableEmptyRow colSpan={7} icon={DollarSign} title="尚無成本資料" />
             )}
           </TableBody>
         </Table>

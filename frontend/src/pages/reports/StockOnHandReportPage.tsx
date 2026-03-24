@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import api, { StockOnHandReport } from '@/lib/api'
 import { formatNumber, formatUom } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import {
   Table,
   TableBody,
@@ -115,12 +116,7 @@ export function StockOnHandReportPage() {
                 </TableRow>
               ))
             ) : (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center py-8">
-                  <Package className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-muted-foreground">尚無庫存資料</p>
-                </TableCell>
-              </TableRow>
+              <TableEmptyRow colSpan={9} icon={Package} title="尚無庫存資料" />
             )}
           </TableBody>
         </Table>

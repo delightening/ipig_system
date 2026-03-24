@@ -21,7 +21,8 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, Check, X, FileEdit } from 'lucide-react'
+import { Loader2, Check, X, FileEdit, CheckCircle2 } from 'lucide-react'
+import { EmptyState } from '@/components/ui/empty-state'
 import { toast } from '@/components/ui/use-toast'
 import { useState } from 'react'
 import { getApiErrorMessage } from '@/lib/validation'
@@ -135,10 +136,10 @@ export function AnimalFieldCorrectionsPage() {
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : !pending?.length ? (
-            <p className="text-slate-500 text-center py-12">目前沒有待審核的修正申請</p>
+            <EmptyState icon={CheckCircle2} title="目前沒有待審核的修正申請" description="所有修正申請皆已處理完畢" />
           ) : (
             <Table>
               <TableHeader>

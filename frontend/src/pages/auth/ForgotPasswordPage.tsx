@@ -41,14 +41,12 @@ export function ForgotPasswordPage() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50"></div>
 
         <Card className="w-full max-w-md relative z-10 border-slate-700/50 bg-slate-800/50 backdrop-blur-xl shadow-2xl">
           <CardContent className="pt-8 pb-8 text-center space-y-6">
-            <div className="mx-auto w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center">
-              <CheckCircle className="h-8 w-8 text-green-400" />
-            </div>
+            <CheckCircle className="h-12 w-12 text-green-400 mx-auto" strokeWidth={1.5} />
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-white">請檢查您的信箱</h2>
               <p className="text-slate-400">
@@ -72,7 +70,7 @@ export function ForgotPasswordPage() {
               </Button>
             </div>
             <div className="pt-4">
-              <Link to="/login" className="text-purple-400 hover:text-purple-300 text-sm">
+              <Link to="/login" className="text-blue-300 hover:text-blue-200 text-sm">
                 <ArrowLeft className="h-4 w-4 inline mr-1" />
                 返回登入頁面
               </Link>
@@ -84,14 +82,14 @@ export function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4">
       {/* Background Pattern */}
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50"></div>
 
       <Card className="w-full max-w-md relative z-10 border-slate-700/50 bg-slate-800/50 backdrop-blur-xl shadow-2xl">
         <CardHeader className="space-y-1 pb-6">
-          <div className="mx-auto w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center mb-4">
-            <Mail className="h-6 w-6 text-purple-400" />
+          <div className="mx-auto mb-4">
+            <Mail className="h-10 w-10 text-blue-300" strokeWidth={1.5} />
           </div>
           <CardTitle className="text-2xl font-bold text-center text-white">
             忘記密碼
@@ -114,7 +112,7 @@ export function ForgotPasswordPage() {
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-9 bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-purple-500 focus:ring-purple-500/20"
+                  className="pl-9 bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-primary focus:ring-primary/20"
                   autoComplete="email"
                   autoFocus
                 />
@@ -123,7 +121,7 @@ export function ForgotPasswordPage() {
 
             <Button
               type="submit"
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white h-11"
+              className="w-full bg-primary hover:bg-primary/90 text-white h-11"
               disabled={forgotPasswordMutation.isPending}
             >
               {forgotPasswordMutation.isPending ? (
@@ -137,7 +135,7 @@ export function ForgotPasswordPage() {
             </Button>
 
             <div className="text-center pt-2">
-              <Link to="/login" className="text-purple-400 hover:text-purple-300 text-sm">
+              <Link to="/login" className="text-blue-300 hover:text-blue-200 text-sm">
                 <ArrowLeft className="h-4 w-4 inline mr-1" />
                 返回登入頁面
               </Link>

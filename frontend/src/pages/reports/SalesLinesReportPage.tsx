@@ -7,6 +7,7 @@ import { useDateRangeFilter } from '@/hooks/useDateRangeFilter'
 import { Partner } from '@/types/erp'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -256,12 +257,7 @@ export function SalesLinesReportPage() {
                 )}
               </>
             ) : (
-              <TableRow>
-                <TableCell colSpan={11} className="text-center py-8">
-                  <ShoppingCart className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-muted-foreground">尚無銷貨資料</p>
-                </TableCell>
-              </TableRow>
+              <TableEmptyRow colSpan={11} icon={ShoppingCart} title="尚無銷貨資料" />
             )}
           </TableBody>
         </Table>

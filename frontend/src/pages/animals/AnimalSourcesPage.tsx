@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api, { deleteResource, AnimalSource } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
@@ -271,16 +272,12 @@ export function AnimalSourcesPage() {
                 </TableRow>
               ))
             ) : (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
-                  <Building2 className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-muted-foreground">尚無來源資料</p>
-                  <Button onClick={() => handleOpenDialog()} variant="outline" className="mt-4">
-                    <Plus className="h-4 w-4 mr-2" />
-                    新增第一個來源
-                  </Button>
-                </TableCell>
-              </TableRow>
+              <TableEmptyRow
+                colSpan={8}
+                icon={Building2}
+                title="尚無來源資料"
+                action={{ label: '新增第一個來源', onClick: () => handleOpenDialog(), icon: Plus }}
+              />
             )}
           </TableBody>
         </Table>

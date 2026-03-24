@@ -4,6 +4,7 @@ import api, { deleteResource, Warehouse } from '@/lib/api'
 import { useDebounce } from '@/hooks/useDebounce'
 import { STALE_TIME } from '@/lib/query'
 import { Button } from '@/components/ui/button'
+import { TableEmptyRow } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -247,12 +248,7 @@ export function WarehousesPage() {
                 </TableRow>
               ))
             ) : (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-8">
-                  <WarehouseIcon className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-muted-foreground">尚無倉庫資料</p>
-                </TableCell>
-              </TableRow>
+              <TableEmptyRow colSpan={4} icon={WarehouseIcon} title="尚無倉庫資料" />
             )}
           </TableBody>
         </Table>
