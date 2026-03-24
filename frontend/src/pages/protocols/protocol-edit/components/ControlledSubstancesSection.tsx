@@ -69,7 +69,7 @@ export function ControlledSubstancesSection({ formData, updateWorkingContent, t,
         <div className="space-y-4 pl-6 border-l-2 border-slate-200">
           <div className="flex justify-between items-center">
             <Label className="text-sm font-medium">{t('aup.design.controlledSubstancesList')}</Label>
-            <Button variant="outline" size="sm" onClick={handleAddItem}>
+            <Button variant="outline" onClick={handleAddItem}>
               <Plus className="h-4 w-4 mr-1" />
               {t('aup.items.add')}
             </Button>

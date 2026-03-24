@@ -24,7 +24,6 @@ export function SectionAnimals({ formData, updateWorkingContent, setFormData: _s
             <h3 className="font-semibold">{t('aup.animals.listHeader')}</h3>
             <Button
               variant="outline"
-              size="sm"
               onClick={() => {
                 const currentList = formData.working_content.animals.animals || []
                 const newAnimals = [...currentList, {

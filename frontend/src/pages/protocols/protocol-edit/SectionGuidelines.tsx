@@ -116,7 +116,6 @@ export function SectionGuidelines({ formData, updateWorkingContent, setFormData:
             <h3 className="font-semibold">{t('aup.guidelines.referencesTitle')}</h3>
             <Button
               variant="outline"
-              size="sm"
               onClick={() => {
                 const newRefs = [...formData.working_content.guidelines.references, { citation: '', url: '' }]
                 updateWorkingContent('guidelines', 'references', newRefs)

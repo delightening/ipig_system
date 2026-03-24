@@ -97,7 +97,7 @@ export function HazardsSection({ formData, updateWorkingContent, t }: Props) {
                     {hazards.selected_type === 'radioactive' && t('aup.design.hazardTypes.radioactive')}
                     {hazards.selected_type === 'chemical' && t('aup.design.hazardTypes.chemical')}
                   </Label>
-                  <Button variant="outline" size="sm" onClick={handleAddMaterial}>
+                  <Button variant="outline" onClick={handleAddMaterial}>
                     <Plus className="h-4 w-4 mr-1" />
                     {t('aup.items.add')}
                   </Button>
